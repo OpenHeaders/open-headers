@@ -12,7 +12,11 @@
  */
 
 import { EditOutlined, UndoOutlined } from '@ant-design/icons';
-import { authAllowedFor, type AuthProtocolKind } from '@openheaders/core/auth-inheritance';
+import {
+  type AuthProtocolKind,
+  type AuthRefusal,
+  authRefusalOf,
+} from '@openheaders/core/auth-inheritance';
 import type { AuthConfig, ConcreteAuthConfig } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Button, Tag, Tooltip, Typography } from 'antd';
@@ -51,11 +55,26 @@ export function inheritSourceLabel(t: Translate, source: { kind: 'collection' | 
     : t('workbench.editors.request.auth.sourceFolder', { name: source.name });
 }
 
+const REFUSAL_QUALIFIER_KEYS: Record<NonNullable<AuthRefusal['qualifier']>, MessageKey> = {
+  'in-query': 'workbench.editors.request.auth.refusalQualifier.inQuery',
+  'in-header': 'workbench.editors.request.auth.refusalQualifier.inHeader',
+  'dpop-bound': 'workbench.editors.request.auth.refusalQualifier.dpopBound',
+};
+
+/** The refused config as the sentence names it — the type label plus
+ *  the placement qualifier ("API Key in query", "OAuth 2.0 bound to a
+ *  DPoP key"), the executor's own composition localized. */
+function refusalTypeLabel(t: Translate, refusal: AuthRefusal): string {
+  const type = t(authTypeLabelKey(refusal.type));
+  return refusal.qualifier === null ? type : `${type} ${t(REFUSAL_QUALIFIER_KEYS[refusal.qualifier])}`;
+}
+
 /**
  * The refusal a SESSION kind's Inherit pane shows (the WebSocket /
- * gRPC / MQTT tabs) when the resolved type sits outside the kind's
- * mask — the sentence the executor fails the Connect / Invoke with;
- * `null` when the resolution can ride the kind.
+ * gRPC / MQTT tabs) when the resolved config cannot ride the kind —
+ * the type outside the mask, or a placement the kind has no leg for —
+ * the sentence the executor fails the Connect / Invoke with; `null`
+ * when the resolution can ride the kind.
  */
 export function useSessionInheritRefusal(
   kind: AuthProtocolKind,
@@ -67,9 +86,10 @@ export function useSessionInheritRefusal(
     if (inheritedFrom === undefined || inheritedFrom.source === null || inheritedFrom.auth.type === 'inherit') {
       return null;
     }
-    if (authAllowedFor(kind, inheritedFrom.auth)) return null;
+    const refusal = authRefusalOf(kind, inheritedFrom.auth);
+    if (refusal === null) return null;
     return t(unsupportedKey, {
-      type: t(authTypeLabelKey(inheritedFrom.auth.type)),
+      type: refusalTypeLabel(t, refusal),
       source: inheritSourceLabel(t, inheritedFrom.source),
     });
   }, [t, kind, unsupportedKey, inheritedFrom]);
@@ -196,8 +216,9 @@ export function plainInheritOption(t: Translate): InheritSelectOption {
  * RESOLVES to (a host-scoped match first) carries the Default tag and
  * the `inherit` value — picking it follows the default; every other
  * entry is a named pick by uid. When more than one level holds
- * entries each row names its level. On a session kind an entry outside
- * the mask is disabled with the refusal as its tooltip
+ * entries each row names its level. On a session kind an entry the
+ * kind cannot carry — its type outside the mask, or a placement the
+ * kind has no leg for — is disabled with the refusal as its tooltip
  * (`unsupportedKey`); HTTP greys nothing. A current pick that no
  * longer resolves renders as its own "Missing entry" option so the
  * select stays honest; nothing set anywhere above = the plain Inherit
@@ -221,10 +242,10 @@ export function buildInheritedGroup(opts: {
     for (const entry of level.entries) {
       if (entry.uid === danglingUid) danglingUid = undefined;
       const type = t(authTypeLabelKey(entry.config.type));
-      const refusal =
-        unsupportedKey !== undefined && !authAllowedFor(kind, entry.config)
-          ? t(unsupportedKey, { type, source })
-          : null;
+      const refused = unsupportedKey !== undefined ? authRefusalOf(kind, entry.config) : null;
+      const refusal = refused !== null && unsupportedKey !== undefined
+        ? t(unsupportedKey, { type: refusalTypeLabel(t, refused), source })
+        : null;
       // The resolved default follows the default (`inherit`) — unless
       // the request pinned that very entry by uid, which keeps its own
       // value so the select shows the pin.

@@ -278,34 +278,60 @@ export function authMaskFor(kind: AuthProtocolKind): ReadonlySet<ConcreteAuthCon
   return AUTH_MASKS[kind];
 }
 
+/** Why a config the mask admits by type still cannot ride the kind —
+ *  the placement qualifier a surface appends to the type's label. */
+export type AuthRefusalQualifier = 'in-query' | 'in-header' | 'dpop-bound';
+
+export interface AuthRefusal {
+  type: ConcreteAuthConfig['type'];
+  /** `null` = the type itself is outside the mask. */
+  qualifier: AuthRefusalQualifier | null;
+}
+
 /**
- * The refusal label when `kind` cannot apply `auth`, `null` when it
- * can: the type mask first, then the placement rules the mask alone
- * cannot see — a query-placed api-key / OAuth 2.0 / JWT token needs
- * the kind's query leg; an AWS signature rides a WebSocket handshake
- * only as the signed URL (the Authorization header mode is the HTTP
- * send's); a DPoP-bound OAuth 2.0 config needs the per-hop proof only
- * an HTTP send mints. The label names the placement the way the type
- * label names the type ("API Key in query").
+ * Why `kind` cannot apply `auth`, `null` when it can: the type mask
+ * first, then the placement rules the mask alone cannot see — a
+ * query-placed api-key / OAuth 2.0 / JWT token needs the kind's query
+ * leg; an AWS signature rides a WebSocket handshake only as the
+ * signed URL (the Authorization header mode is the HTTP send's); a
+ * DPoP-bound OAuth 2.0 config needs the per-hop proof only an HTTP
+ * send mints. Surfaces localize the type label and the qualifier
+ * themselves; the executors read {@link authRefusalLabel}.
  */
-export function authRefusalLabel(kind: AuthProtocolKind, auth: ConcreteAuthConfig): string | null {
-  const label = AUTH_TYPE_LABELS[auth.type];
-  if (!authMaskFor(kind).has(auth.type)) return label;
+export function authRefusalOf(kind: AuthProtocolKind, auth: ConcreteAuthConfig): AuthRefusal | null {
+  if (!authMaskFor(kind).has(auth.type)) return { type: auth.type, qualifier: null };
   if (kind === 'http') return null;
   const queryLeg = KIND_HAS_QUERY_LEG[kind];
+  const refuse = (qualifier: AuthRefusalQualifier): AuthRefusal => ({ type: auth.type, qualifier });
   switch (auth.type) {
     case 'api-key':
-      return auth.in === 'query' && !queryLeg ? `${label} in query` : null;
+      return auth.in === 'query' && !queryLeg ? refuse('in-query') : null;
     case 'oauth2':
-      if (auth.tokenBinding === 'dpop') return `${label} bound to a DPoP key`;
-      return auth.sendAs === 'query' && !queryLeg ? `${label} in query` : null;
+      if (auth.tokenBinding === 'dpop') return refuse('dpop-bound');
+      return auth.sendAs === 'query' && !queryLeg ? refuse('in-query') : null;
     case 'jwt':
-      return auth.addTo === 'query' && !queryLeg ? `${label} in query` : null;
+      return auth.addTo === 'query' && !queryLeg ? refuse('in-query') : null;
     case 'aws-sigv4':
-      return auth.addTo === 'query' ? null : `${label} in header`;
+      return auth.addTo === 'query' ? null : refuse('in-header');
     default:
       return null;
   }
+}
+
+const AUTH_REFUSAL_QUALIFIERS: Record<AuthRefusalQualifier, string> = {
+  'in-query': 'in query',
+  'in-header': 'in header',
+  'dpop-bound': 'bound to a DPoP key',
+};
+
+/** The refusal as the executors name it — the type label plus the
+ *  placement qualifier ("API Key in query"); `null` when `kind` can
+ *  apply `auth`. */
+export function authRefusalLabel(kind: AuthProtocolKind, auth: ConcreteAuthConfig): string | null {
+  const refusal = authRefusalOf(kind, auth);
+  if (refusal === null) return null;
+  const label = AUTH_TYPE_LABELS[refusal.type];
+  return refusal.qualifier === null ? label : `${label} ${AUTH_REFUSAL_QUALIFIERS[refusal.qualifier]}`;
 }
 
 /** Whether `kind` can apply `auth` — the type mask plus the placement

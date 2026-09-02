@@ -190,7 +190,7 @@ export const workbenchEditorsWebsocket = {
     "Exécution sur le socket du navigateur — {knobs} ne s'appliquent pas sur cet hôte.",
   'workbench.editors.websocket.session.knobHeaders': 'les en-têtes de handshake personnalisés',
   'workbench.editors.websocket.session.knobSslVerify': 'la vérification SSL désactivée',
-  'workbench.editors.websocket.session.knobAuth': "l'en-tête d'identifiants bearer",
+  'workbench.editors.websocket.session.knobAuth': 'l’en-tête d’identifiants de la poignée de main',
   'workbench.editors.websocket.session.handshakeNone': 'Rien de négocié',
   'workbench.editors.websocket.session.handshakeNote':
     "Le socket de la plateforme n'expose que le sous-protocole et les extensions négociés — les en-têtes de " +

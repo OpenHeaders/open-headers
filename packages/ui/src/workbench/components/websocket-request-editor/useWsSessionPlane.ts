@@ -131,11 +131,13 @@ export function useWsSessionPlane({
       if (!draft.sslVerification) {
         inapplicableKnobs.push(t('workbench.editors.websocket.session.knobSslVerify'));
       }
-      // The socketio flavor's bearer credential still reaches the
-      // server via the CONNECT auth payload; every other resolved
-      // credential is a handshake header the platform socket cannot
-      // carry — Inherit resolves over the tree ancestry first (the
-      // executor's twin).
+      // A credential that rides the dial URL (a query-placed key or
+      // token, the AWS signed URL) reaches the server from any host,
+      // and the socketio flavor's bearer-shaped tokens (bearer, OAuth
+      // 2.0, JWT) ride the CONNECT auth payload too; every other
+      // resolved credential is a handshake header the platform socket
+      // cannot carry — Inherit resolves over the tree ancestry first
+      // (the executor's twin).
       const effectiveAuth =
         draft.auth.type === 'inherit'
           ? resolveInheritedAuthFor(
@@ -144,11 +146,14 @@ export function useWsSessionPlane({
               draft.url,
             ).auth
           : draft.auth;
+      const socketio = entity.flavor === 'socketio';
       const headerBorne =
         !('disabled' in effectiveAuth && effectiveAuth.disabled === true) &&
         (effectiveAuth.type === 'basic' ||
           (effectiveAuth.type === 'api-key' && effectiveAuth.in === 'header') ||
-          (effectiveAuth.type === 'bearer' && effectiveAuth.token.trim() !== '' && entity.flavor === 'raw'));
+          (effectiveAuth.type === 'bearer' && effectiveAuth.token.trim() !== '' && !socketio) ||
+          (effectiveAuth.type === 'oauth2' && effectiveAuth.sendAs !== 'query' && !socketio) ||
+          (effectiveAuth.type === 'jwt' && effectiveAuth.addTo === 'header' && !socketio));
       if (headerBorne) {
         inapplicableKnobs.push(t('workbench.editors.websocket.session.knobAuth'));
       }

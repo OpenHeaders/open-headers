@@ -577,6 +577,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.sourceCollection': 'Colección «{name}»',
   'workbench.editors.request.auth.sourceFolder': 'Carpeta «{name}»',
   'workbench.editors.request.auth.groupInherited': 'Heredado',
+  'workbench.editors.request.auth.refusalQualifier.inQuery': 'en consulta',
+  'workbench.editors.request.auth.refusalQualifier.inHeader': 'en encabezado',
+  'workbench.editors.request.auth.refusalQualifier.dpopBound': 'vinculado a una clave DPoP',
   'workbench.editors.request.auth.groupOwn': 'Esta solicitud',
   'workbench.editors.request.auth.optionMissingEntry': 'Entrada faltante',
   'workbench.editors.request.auth.danglingPick':

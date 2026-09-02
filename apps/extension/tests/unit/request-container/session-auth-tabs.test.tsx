@@ -4,8 +4,12 @@
  *   - the Inherit pane heads with the resolved entry and the Inherited
  *     tag over the inert form, the generic parent note without
  *     ancestry, and the nothing-set note with a null source;
- *   - a resolved type outside the kind's mask renders the executor's
- *     refusal sentence in warning tone;
+ *   - a resolved config the kind cannot carry — its type outside the
+ *     mask, or a placement the kind has no leg for (a DPoP-bound OAuth
+ *     entry, an AWS signature in header mode, a JWT in query mode on
+ *     gRPC) — renders the executor's refusal sentence in warning tone,
+ *     the placement named; the widened mask's types (OAuth 2.0, JWT,
+ *     the query-placed key on WebSocket) read as the attribution line;
  *   - with ancestry the select leads with the Inherited group — every
  *     ancestor entry by name, the resolved default tagged, entries
  *     outside the kind's mask greyed with the refusal tooltip — over
@@ -74,6 +78,18 @@ const OAUTH_FROM_FOLDER: InheritedAuthAttribution = {
   },
   source: { kind: 'folder', uid: 'fld00001', name: 'Tokens', entryName: '' },
 };
+const DPOP_OAUTH_FROM_FOLDER: InheritedAuthAttribution = {
+  auth: { ...OAUTH_FROM_FOLDER.auth, tokenBinding: 'dpop' } as InheritedAuthAttribution['auth'],
+  source: OAUTH_FROM_FOLDER.source,
+};
+const AWS_HEADER_FROM_FOLDER: InheritedAuthAttribution = {
+  auth: { type: 'aws-sigv4', accessKeyId: 'a', secretAccessKey: 's', service: '', region: '' },
+  source: { kind: 'folder', uid: 'fld00001', name: 'Tokens', entryName: 'Gateway' },
+};
+const JWT_QUERY_FROM_FOLDER: InheritedAuthAttribution = {
+  auth: { type: 'jwt', algorithm: 'HS256', secret: 's', privateKey: '', payload: '{}', addTo: 'query' },
+  source: { kind: 'folder', uid: 'fld00001', name: 'Tokens', entryName: 'Signer' },
+};
 
 function makeAncestry(): RequestAncestry {
   const collection: Collection = {
@@ -96,6 +112,7 @@ function makeAncestry(): RequestAncestry {
           tokenEndpoint: '',
           clientId: '',
           scopes: [],
+          tokenBinding: 'dpop',
         },
       },
     ],
@@ -134,8 +151,40 @@ describe('WebSocketAuthTab — Inherit', () => {
     expect(state.querySelector('.ant-typography-warning')).toBeNull();
   });
 
-  it('renders the mask refusal in warning tone for an inherited OAuth 2.0', () => {
+  it('renders the refusal in warning tone with the placement named — a DPoP-bound OAuth 2.0, an AWS signature in header mode', () => {
+    const dpop = render(
+      <App>
+        <WebSocketAuthTab
+          auth={{ type: 'inherit' }}
+          socketioFlavor={false}
+          inheritedFrom={DPOP_OAUTH_FROM_FOLDER}
+          onChange={() => {}}
+        />
+      </App>,
+    );
+    const state = screen.getByTestId('ws-auth-inherit-state');
+    expect(state.textContent).toContain(
+      'OAuth 2.0 bound to a DPoP key — from Folder ‘Tokens’ — cannot be applied to a WebSocket session.',
+    );
+    expect(state.querySelector('.ant-typography-warning')).not.toBeNull();
+    dpop.unmount();
     render(
+      <App>
+        <WebSocketAuthTab
+          auth={{ type: 'inherit' }}
+          socketioFlavor={false}
+          inheritedFrom={AWS_HEADER_FROM_FOLDER}
+          onChange={() => {}}
+        />
+      </App>,
+    );
+    expect(screen.getByTestId('ws-auth-inherit-state').textContent).toContain(
+      'AWS Signature v4 in header — from Folder ‘Tokens’ — cannot be applied to a WebSocket session.',
+    );
+  });
+
+  it('an inherited OAuth 2.0 (bearer tokens) and a query-placed key are inside the widened mask — no warning', () => {
+    const oauth = render(
       <App>
         <WebSocketAuthTab
           auth={{ type: 'inherit' }}
@@ -145,9 +194,23 @@ describe('WebSocketAuthTab — Inherit', () => {
         />
       </App>,
     );
-    const state = screen.getByTestId('ws-auth-inherit-state');
-    expect(state.textContent).toContain('OAuth 2.0 — from Folder ‘Tokens’ — cannot be applied to a WebSocket session.');
-    expect(state.querySelector('.ant-typography-warning')).not.toBeNull();
+    expect(screen.getByTestId('oh-auth-inherit-heading').textContent).toBe('OAuth 2.0');
+    expect(screen.getByTestId('ws-auth-inherit-state').querySelector('.ant-typography-warning')).toBeNull();
+    oauth.unmount();
+    render(
+      <App>
+        <WebSocketAuthTab
+          auth={{ type: 'inherit' }}
+          socketioFlavor={false}
+          inheritedFrom={{
+            auth: { type: 'api-key', key: 'X-Api-Key', value: 'v', in: 'query' },
+            source: { kind: 'folder', uid: 'fld00001', name: 'Tokens', entryName: 'Partner' },
+          }}
+          onChange={() => {}}
+        />
+      </App>,
+    );
+    expect(screen.getByTestId('ws-auth-inherit-state').querySelector('.ant-typography-warning')).toBeNull();
   });
 
   it('reads the generic parent note without ancestry and the nothing-set note with a null source', () => {
@@ -245,15 +308,34 @@ describe('GrpcAuthTab — Inherit', () => {
     expect(state.querySelector('.ant-typography-warning')).toBeNull();
   });
 
-  it('renders the gRPC refusal for an inherited OAuth 2.0', () => {
+  it('renders the gRPC refusal for a DPoP-bound OAuth 2.0 and a JWT in query mode; plain OAuth 2.0 passes', () => {
+    const dpop = render(
+      <App>
+        <GrpcAuthTab auth={{ type: 'inherit' }} inheritedFrom={DPOP_OAUTH_FROM_FOLDER} onChange={() => {}} />
+      </App>,
+    );
+    const state = screen.getByTestId('grpc-auth-inherit-state');
+    expect(state.textContent).toContain(
+      'OAuth 2.0 bound to a DPoP key — from Folder ‘Tokens’ — cannot be applied to a gRPC call.',
+    );
+    expect(state.querySelector('.ant-typography-warning')).not.toBeNull();
+    dpop.unmount();
+    const jwt = render(
+      <App>
+        <GrpcAuthTab auth={{ type: 'inherit' }} inheritedFrom={JWT_QUERY_FROM_FOLDER} onChange={() => {}} />
+      </App>,
+    );
+    expect(screen.getByTestId('grpc-auth-inherit-state').textContent).toContain(
+      'JWT Bearer in query — from Folder ‘Tokens’ — cannot be applied to a gRPC call.',
+    );
+    jwt.unmount();
     render(
       <App>
         <GrpcAuthTab auth={{ type: 'inherit' }} inheritedFrom={OAUTH_FROM_FOLDER} onChange={() => {}} />
       </App>,
     );
-    const state = screen.getByTestId('grpc-auth-inherit-state');
-    expect(state.textContent).toContain('cannot be applied to a gRPC call.');
-    expect(state.querySelector('.ant-typography-warning')).not.toBeNull();
+    expect(screen.getByTestId('oh-auth-inherit-heading').textContent).toBe('OAuth 2.0');
+    expect(screen.getByTestId('grpc-auth-inherit-state').querySelector('.ant-typography-warning')).toBeNull();
   });
 
   it('with ancestry the Inherited group greys the masked entry with the gRPC refusal', () => {

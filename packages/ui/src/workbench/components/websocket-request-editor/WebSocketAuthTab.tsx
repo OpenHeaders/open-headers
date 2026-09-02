@@ -2,7 +2,8 @@
  * WebSocketAuthTab — the request's auth block on the shared
  * `auth-layout` anatomy: Inherit (the ancestor pool's default or a
  * named entry, resolved at Connect under the WebSocket mask — bearer ·
- * basic · api-key in header), none, or an own Bearer token. Where the
+ * basic · api-key in header or query · OAuth 2.0 · JWT Bearer · AWS
+ * SigV4 as the signed URL), none, or an own Bearer token. Where the
  * credential rides depends on the flavor — a handshake header for raw
  * (node hosts only), the CONNECT auth payload plus that header for
  * Socket.IO — so the rail note is per flavor. With ancestry the select

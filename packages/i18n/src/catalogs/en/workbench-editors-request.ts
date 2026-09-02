@@ -532,6 +532,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.sourceCollection': 'Collection \u2018{name}\u2019',
   'workbench.editors.request.auth.sourceFolder': 'Folder \u2018{name}\u2019',
   'workbench.editors.request.auth.groupInherited': 'Inherited',
+  'workbench.editors.request.auth.refusalQualifier.inQuery': 'in query',
+  'workbench.editors.request.auth.refusalQualifier.inHeader': 'in header',
+  'workbench.editors.request.auth.refusalQualifier.dpopBound': 'bound to a DPoP key',
   'workbench.editors.request.auth.groupOwn': 'This request',
   'workbench.editors.request.auth.optionMissingEntry': 'Missing entry',
   'workbench.editors.request.auth.danglingPick':

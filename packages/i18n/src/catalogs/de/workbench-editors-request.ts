@@ -594,6 +594,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.sourceCollection': 'Sammlung „{name}“',
   'workbench.editors.request.auth.sourceFolder': 'Ordner „{name}“',
   'workbench.editors.request.auth.groupInherited': 'Geerbt',
+  'workbench.editors.request.auth.refusalQualifier.inQuery': 'in der Abfrage',
+  'workbench.editors.request.auth.refusalQualifier.inHeader': 'im Header',
+  'workbench.editors.request.auth.refusalQualifier.dpopBound': 'an einen DPoP-Schlüssel gebunden',
   'workbench.editors.request.auth.groupOwn': 'Diese Anfrage',
   'workbench.editors.request.auth.optionMissingEntry': 'Fehlender Eintrag',
   'workbench.editors.request.auth.danglingPick':

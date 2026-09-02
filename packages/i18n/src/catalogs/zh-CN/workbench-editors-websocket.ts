@@ -168,7 +168,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.hostNotice': '正运行在浏览器 socket 上——{knobs}在此主机上不适用。',
   'workbench.editors.websocket.session.knobHeaders': '自定义握手标头',
   'workbench.editors.websocket.session.knobSslVerify': '关闭 SSL 验证',
-  'workbench.editors.websocket.session.knobAuth': 'Bearer 凭据标头',
+  'workbench.editors.websocket.session.knobAuth': '凭据握手标头',
   'workbench.editors.websocket.session.handshakeNone': '未协商任何项',
   'workbench.editors.websocket.session.handshakeNote':
     '平台 socket 只暴露协商出的子协议和扩展——101 响应标头对客户端不可用。',

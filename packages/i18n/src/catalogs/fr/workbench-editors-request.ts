@@ -584,6 +584,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.sourceCollection': 'Collection « {name} »',
   'workbench.editors.request.auth.sourceFolder': 'Dossier « {name} »',
   'workbench.editors.request.auth.groupInherited': 'Hérité',
+  'workbench.editors.request.auth.refusalQualifier.inQuery': 'en requête',
+  'workbench.editors.request.auth.refusalQualifier.inHeader': 'en en-tête',
+  'workbench.editors.request.auth.refusalQualifier.dpopBound': 'lié à une clé DPoP',
   'workbench.editors.request.auth.groupOwn': 'Cette requête',
   'workbench.editors.request.auth.optionMissingEntry': 'Entrée manquante',
   'workbench.editors.request.auth.danglingPick':

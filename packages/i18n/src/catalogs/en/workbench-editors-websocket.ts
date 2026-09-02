@@ -173,7 +173,7 @@ export const workbenchEditorsWebsocket = {
     'Running on the browser socket — {knobs} do not apply on this host.',
   'workbench.editors.websocket.session.knobHeaders': 'custom handshake headers',
   'workbench.editors.websocket.session.knobSslVerify': 'disabled SSL verification',
-  'workbench.editors.websocket.session.knobAuth': 'the bearer credential header',
+  'workbench.editors.websocket.session.knobAuth': 'the credential’s handshake header',
   'workbench.editors.websocket.session.handshakeNone': 'None negotiated',
   'workbench.editors.websocket.session.handshakeNote':
     'The platform socket exposes only the negotiated subprotocol and extensions — the 101 response headers are not available to clients.',

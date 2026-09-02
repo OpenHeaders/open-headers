@@ -2,9 +2,10 @@
  * GrpcAuthTab — the request's auth block on the shared `auth-layout`
  * anatomy: Inherit (the ancestor pool's default or a named entry,
  * resolved at invoke under the gRPC mask — bearer · basic · api-key
- * in header), none, or an own Bearer token sent as the
- * `authorization` metadata pair (templates resolve then; the rail
- * note names the exclusions). With ancestry the select leads with the
+ * in header · OAuth 2.0 · JWT Bearer, header modes only), none, or an
+ * own Bearer token sent as the `authorization` metadata pair
+ * (templates resolve then; the rail note names the exclusions). With
+ * ancestry the select leads with the
  * Inherited group (entries outside the mask greyed with the refusal);
  * an inherited type outside the mask is named on the Inherit pane in
  * warning tone — the invoke fails with the same sentence.
