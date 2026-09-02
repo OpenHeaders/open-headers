@@ -30,6 +30,7 @@
  *     entities)
  */
 
+import type { ScriptSlotCarrier } from '../scripts/slots';
 import type {
   AuthPoolEntry,
   Collection,
@@ -139,9 +140,10 @@ export interface ImporterOptions {
   trustExport?: boolean;
   /**
    * Strip scripts on import (design §5.5). Removes every incoming
-   * `preRequestScript` / `postResponseScript` — on requests AND on the
-   * ancestor slots (collections, folders), which run on every child
-   * send. Surfaced as an Advanced toggle in the import preview.
+   * script slot — `preRequestScript` / `postResponseScript` and the
+   * session `scripts` record — on requests AND on the ancestor slots
+   * (collections, folders), which run on every child send. Surfaced as
+   * an Advanced toggle in the import preview.
    */
   stripScripts?: boolean;
   /**
@@ -216,15 +218,19 @@ function forceDisabled<T extends { enabled?: boolean }>(entity: T, trust: boolea
  * downstream "scripts present" surface matches the rule "field absent
  * ↔ no script."
  */
-function stripRequestScripts<T extends { preRequestScript?: string; postResponseScript?: string }>(
-  entity: T,
-  strip: boolean,
-): T {
+function stripRequestScripts<T extends ScriptSlotCarrier>(entity: T, strip: boolean): T {
   if (!strip) return entity;
-  if (entity.preRequestScript === undefined && entity.postResponseScript === undefined) return entity;
+  if (
+    entity.preRequestScript === undefined &&
+    entity.postResponseScript === undefined &&
+    entity.scripts === undefined
+  ) {
+    return entity;
+  }
   const next = { ...entity };
   delete next.preRequestScript;
   delete next.postResponseScript;
+  delete next.scripts;
   return next;
 }
 

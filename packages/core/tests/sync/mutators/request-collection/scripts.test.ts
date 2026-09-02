@@ -36,6 +36,26 @@ describe('setRequestCollectionScripts', () => {
     expect(intent.sideEffects).toEqual([]);
   });
 
+  it('writes a session slot as a leaf of the scripts record', () => {
+    const intent = setRequestCollectionScripts(ctx(), {
+      collectionUid: 'rcol-auth',
+      updates: [
+        { path: 'scripts.ws-before-connect', value: 'oh.session.attempt = 1;' },
+        { path: 'scripts.mqtt-on-message', value: undefined },
+      ],
+    });
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      expect.objectContaining({
+        kind: 'setField',
+        type: REQUEST_COLLECTION_ENTITY_TYPE,
+        id: 'rcol-auth',
+        path: 'scripts.ws-before-connect',
+        value: 'oh.session.attempt = 1;',
+      }),
+      expect.objectContaining({ kind: 'unsetField', path: 'scripts.mqtt-on-message' }),
+    ]);
+  });
+
   it('emits an unsetField when clearing a slot (field absent ↔ no script)', () => {
     const intent = setRequestCollectionScripts(ctx(), {
       collectionUid: 'rcol-auth',

@@ -90,6 +90,7 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
   const requestCollection = generateAs<Collection>('collection', rng, (draft) => {
     placed(rng, 'requests')(draft);
     draft.preRequestScript = `console.log('${uid8(rng)}');\n`;
+    draft.scripts = { 'ws-before-connect': `oh.session.attempt = 0; // ${uid8(rng)}\n` };
   });
   const requestFolder = generateAs<Folder>('folder', rng, placed(rng, requestCollection.path));
   const plainRequest = generateAs<Request>('request', rng, placed(rng, requestCollection.path));
@@ -101,14 +102,17 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
   const grpcRequest = generateAs<GrpcRequest>('grpc-request', rng, (draft) => {
     placed(rng, requestCollection.path)(draft);
     if (rng.next() < 0.5) draft.message = `{"id":${rng.int(100)}}`;
+    if (rng.next() < 0.5) draft.scripts = { 'grpc-after-response': `oh.test('${uid8(rng)}', () => {});\n` };
   });
   const websocketRequest = generateAs<WebSocketRequest>('websocket-request', rng, (draft) => {
     placed(rng, requestCollection.path)(draft);
     if (rng.next() < 0.5) draft.message = `ping-${uid8(rng)}`;
+    if (rng.next() < 0.5) draft.scripts = { 'ws-on-message': `console.log('${uid8(rng)}');\n` };
   });
   const mqttRequest = generateAs<MqttRequest>('mqtt-request', rng, (draft) => {
     placed(rng, requestCollection.path)(draft);
     if (rng.next() < 0.5) draft.payload = `{"probe":"${uid8(rng)}"}`;
+    if (rng.next() < 0.5) draft.scripts = { 'mqtt-before-publish': `oh.setTopic('${uid8(rng)}');\n` };
   });
 
   const templateCollection = generateAs<Collection>('collection', rng, placed(rng, 'templates'));

@@ -211,27 +211,42 @@ describe('findFolderCollectionUid', () => {
 });
 
 describe('ancestorScriptLevels', () => {
-  it('lists the levels carrying a script per phase, outer → inner, skipping whitespace-only slots', () => {
+  it('lists the levels carrying a script per slot kind, outer → inner, skipping whitespace-only slots', () => {
     const folders = [
-      { uid: 'fld00001', name: 'Cards', preRequestScript: '   \n', postResponseScript: 'oh.test("ok", () => {});' },
+      {
+        uid: 'fld00001',
+        name: 'Cards',
+        preRequestScript: '   \n',
+        postResponseScript: 'oh.test("ok", () => {});',
+        scripts: { 'ws-on-message': 'oh.session.seen = true;', 'mqtt-on-message': '  ' },
+      },
       { uid: 'fld00002', name: 'Refunds', preRequestScript: 'oh.setHeader("X-Refund", "1");' },
     ];
     const ancestry = findRequestAncestry(
       [TREE],
-      [makeCollection({ preRequestScript: 'oh.setHeader("X-Trace", "1");' })],
+      [
+        makeCollection({
+          preRequestScript: 'oh.setHeader("X-Trace", "1");',
+          scripts: { 'ws-on-message': 'console.log(oh.message.text);' },
+        }),
+      ],
       folders,
       'req00002',
     );
     expect(ancestorScriptLevels(ancestry)).toEqual({
-      pre: [
+      'pre-request': [
         { kind: 'collection', uid: 'col00001', name: 'Payments' },
         { kind: 'folder', uid: 'fld00002', name: 'Refunds' },
       ],
-      post: [{ kind: 'folder', uid: 'fld00001', name: 'Cards' }],
+      'post-response': [{ kind: 'folder', uid: 'fld00001', name: 'Cards' }],
+      'ws-on-message': [
+        { kind: 'collection', uid: 'col00001', name: 'Payments' },
+        { kind: 'folder', uid: 'fld00001', name: 'Cards' },
+      ],
     });
   });
 
   it('a scratch draft (no ancestry) has no levels', () => {
-    expect(ancestorScriptLevels(null)).toEqual({ pre: [], post: [] });
+    expect(ancestorScriptLevels(null)).toEqual({});
   });
 });

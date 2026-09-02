@@ -834,6 +834,94 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.prePlaceholder': 'Use JavaScript to modify this request before it is sent.',
   'workbench.editors.request.scripts.postPlaceholder':
     'Use JavaScript to test and read this response after it arrives.',
+  // ── Session script slots (gRPC · WebSocket · MQTT) ─────────────────
+  'workbench.editors.request.scripts.grpcBeforeInvoke': 'Before invoke',
+  'workbench.editors.request.scripts.grpcOnMessage': 'On message',
+  'workbench.editors.request.scripts.grpcAfterResponse': 'After response',
+  'workbench.editors.request.scripts.wsBeforeConnect': 'Before connect',
+  'workbench.editors.request.scripts.wsBeforeSend': 'Before send',
+  'workbench.editors.request.scripts.wsOnMessage': 'On message',
+  'workbench.editors.request.scripts.wsAfterClose': 'After close',
+  'workbench.editors.request.scripts.mqttBeforeConnect': 'Before connect',
+  'workbench.editors.request.scripts.mqttBeforePublish': 'Before publish',
+  'workbench.editors.request.scripts.mqttOnMessage': 'On message',
+  'workbench.editors.request.scripts.mqttAfterClose': 'After close',
+  'workbench.editors.request.scripts.grpcBeforeInvokePlaceholder':
+    'Use JavaScript to modify the metadata and message before this call is invoked.',
+  'workbench.editors.request.scripts.grpcOnMessagePlaceholder':
+    'Use JavaScript to read each message frame as it arrives.',
+  'workbench.editors.request.scripts.grpcAfterResponsePlaceholder':
+    'Use JavaScript to test and read the reply after this call settles.',
+  'workbench.editors.request.scripts.wsBeforeConnectPlaceholder':
+    'Use JavaScript to modify the handshake before this session connects.',
+  'workbench.editors.request.scripts.wsBeforeSendPlaceholder':
+    'Use JavaScript to modify or drop each message before it is sent.',
+  'workbench.editors.request.scripts.wsOnMessagePlaceholder': 'Use JavaScript to react to each message as it arrives.',
+  'workbench.editors.request.scripts.wsAfterClosePlaceholder':
+    'Use JavaScript to test and read this session after it closes.',
+  'workbench.editors.request.scripts.mqttBeforeConnectPlaceholder':
+    'Use JavaScript to modify the CONNECT before this session connects.',
+  'workbench.editors.request.scripts.mqttBeforePublishPlaceholder':
+    'Use JavaScript to modify or drop each message before it is published.',
+  'workbench.editors.request.scripts.mqttOnMessagePlaceholder':
+    'Use JavaScript to react to each message as it arrives.',
+  'workbench.editors.request.scripts.mqttAfterClosePlaceholder':
+    'Use JavaScript to test and read this session after it disconnects.',
+  'workbench.editors.request.scripts.grpcBeforeInvokePlaceholderContainer':
+    'Write scripts to be run before each gRPC call is invoked.',
+  'workbench.editors.request.scripts.grpcOnMessagePlaceholderContainer':
+    'Write scripts to be run on each gRPC message frame.',
+  'workbench.editors.request.scripts.grpcAfterResponsePlaceholderContainer':
+    'Write scripts to be run at the end of each gRPC call.',
+  'workbench.editors.request.scripts.wsBeforeConnectPlaceholderContainer':
+    'Write scripts to be run before each WebSocket session connects.',
+  'workbench.editors.request.scripts.wsBeforeSendPlaceholderContainer':
+    'Write scripts to be run before each WebSocket message is sent.',
+  'workbench.editors.request.scripts.wsOnMessagePlaceholderContainer':
+    'Write scripts to be run on each WebSocket message received.',
+  'workbench.editors.request.scripts.wsAfterClosePlaceholderContainer':
+    'Write scripts to be run after each WebSocket session closes.',
+  'workbench.editors.request.scripts.mqttBeforeConnectPlaceholderContainer':
+    'Write scripts to be run before each MQTT session connects.',
+  'workbench.editors.request.scripts.mqttBeforePublishPlaceholderContainer':
+    'Write scripts to be run before each MQTT message is published.',
+  'workbench.editors.request.scripts.mqttOnMessagePlaceholderContainer':
+    'Write scripts to be run on each MQTT message received.',
+  'workbench.editors.request.scripts.mqttAfterClosePlaceholderContainer':
+    'Write scripts to be run after each MQTT session disconnects.',
+  'workbench.editors.request.scripts.grpcBeforeInvokeInfoTitle': 'Before invoke script',
+  'workbench.editors.request.scripts.grpcBeforeInvokeInfoSummary':
+    'Runs once before the call is invoked. Rewrite the metadata and the request message with the oh API; oh.session carries state into the call’s later hooks.',
+  'workbench.editors.request.scripts.grpcOnMessageInfoTitle': 'On message script',
+  'workbench.editors.request.scripts.grpcOnMessageInfoSummary':
+    'Runs on every message frame the call captures, both directions, after the capture. Read the decoded message; the capture is never delayed.',
+  'workbench.editors.request.scripts.grpcAfterResponseInfoTitle': 'After response script',
+  'workbench.editors.request.scripts.grpcAfterResponseInfoSummary':
+    'Runs once the call settles. Read the status, headers, trailers and messages; assertion results land in the response pane.',
+  'workbench.editors.request.scripts.wsBeforeConnectInfoTitle': 'Before connect script',
+  'workbench.editors.request.scripts.wsBeforeConnectInfoSummary':
+    'Runs at every dial, reconnects included. Rewrite the URL, headers, params and subprotocols with the oh API; a failure is recorded and the dial proceeds unchanged.',
+  'workbench.editors.request.scripts.wsBeforeSendInfoTitle': 'Before send script',
+  'workbench.editors.request.scripts.wsBeforeSendInfoSummary':
+    'Runs before each message you send. Rewrite or drop the outgoing message; heartbeat and protocol frames never pass through here.',
+  'workbench.editors.request.scripts.wsOnMessageInfoTitle': 'On message script',
+  'workbench.editors.request.scripts.wsOnMessageInfoSummary':
+    'Runs on every message received, after the capture. React to it: reply with oh.send, keep state in oh.session, register assertions.',
+  'workbench.editors.request.scripts.wsAfterCloseInfoTitle': 'After close script',
+  'workbench.editors.request.scripts.wsAfterCloseInfoSummary':
+    'Runs once the session settles after it opened. Read the close record and the session’s counts; assertion results land in the session pane.',
+  'workbench.editors.request.scripts.mqttBeforeConnectInfoTitle': 'Before connect script',
+  'workbench.editors.request.scripts.mqttBeforeConnectInfoSummary':
+    'Runs at every dial, reconnects included. Rewrite the client id, credentials, will and subscriptions with the oh API; a failure is recorded and the dial proceeds unchanged.',
+  'workbench.editors.request.scripts.mqttBeforePublishInfoTitle': 'Before publish script',
+  'workbench.editors.request.scripts.mqttBeforePublishInfoSummary':
+    'Runs before each message you publish. Rewrite the topic, payload, QoS, retain flag and properties, or drop the publish.',
+  'workbench.editors.request.scripts.mqttOnMessageInfoTitle': 'On message script',
+  'workbench.editors.request.scripts.mqttOnMessageInfoSummary':
+    'Runs on every message received, after the capture. React to it: reply with oh.publish, keep state in oh.session, register assertions.',
+  'workbench.editors.request.scripts.mqttAfterCloseInfoTitle': 'After close script',
+  'workbench.editors.request.scripts.mqttAfterCloseInfoSummary':
+    'Runs once the session settles after it opened. Read the end record, the CONNACK and the session’s counts; assertion results land in the session pane.',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.followRedirects': 'Automatically follow redirects',

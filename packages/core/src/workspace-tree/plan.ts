@@ -112,18 +112,13 @@ export function planWorkspaceTree(state: WorkspaceTreeState, unknowns: TreeUnkno
   for (const collection of [...state.collections, ...state.requestCollections, ...state.templateCollections]) {
     const out = serializeCollection(toWrite(collection, unknowns[collection.uid]));
     add(`${collection.path}/${COLLECTION_MANIFEST_FILE}`, out.collectionYaml);
-    if (out.preRequestScript) add(`${collection.path}/${out.preRequestScript.fileName}`, out.preRequestScript.content);
-    if (out.postResponseScript) {
-      add(`${collection.path}/${out.postResponseScript.fileName}`, out.postResponseScript.content);
-    }
+    for (const file of out.scriptFiles) add(`${collection.path}/${file.fileName}`, file.content);
   }
 
   for (const folder of [...state.folders, ...state.requestFolders, ...state.templateFolders]) {
     const out = serializeFolder(toWrite(folder, unknowns[folder.uid]));
     add(`${folder.path}/${FOLDER_MANIFEST_FILE}`, out.folderYaml);
-    if (out.preRequestScript) add(`${folder.path}/${out.preRequestScript.fileName}`, out.preRequestScript.content);
-    if (out.postResponseScript)
-      add(`${folder.path}/${out.postResponseScript.fileName}`, out.postResponseScript.content);
+    for (const file of out.scriptFiles) add(`${folder.path}/${file.fileName}`, file.content);
   }
 
   for (const rule of state.rules) {
@@ -142,18 +137,21 @@ export function planWorkspaceTree(state: WorkspaceTreeState, unknowns: TreeUnkno
     const out = serializeGrpcRequest(toWrite(grpcRequest, unknowns[grpcRequest.uid]));
     add(`${grpcRequest.path}/${GRPC_REQUEST_MANIFEST_FILE}`, out.grpcYaml);
     if (out.messageFile) add(`${grpcRequest.path}/${out.messageFile.fileName}`, out.messageFile.content);
+    for (const file of out.scriptFiles) add(`${grpcRequest.path}/${file.fileName}`, file.content);
   }
 
   for (const websocketRequest of state.websocketRequests) {
     const out = serializeWebSocketRequest(toWrite(websocketRequest, unknowns[websocketRequest.uid]));
     add(`${websocketRequest.path}/${WEBSOCKET_REQUEST_MANIFEST_FILE}`, out.websocketYaml);
     if (out.messageFile) add(`${websocketRequest.path}/${out.messageFile.fileName}`, out.messageFile.content);
+    for (const file of out.scriptFiles) add(`${websocketRequest.path}/${file.fileName}`, file.content);
   }
 
   for (const mqttRequest of state.mqttRequests) {
     const out = serializeMqttRequest(toWrite(mqttRequest, unknowns[mqttRequest.uid]));
     add(`${mqttRequest.path}/${MQTT_REQUEST_MANIFEST_FILE}`, out.mqttYaml);
     if (out.payloadFile) add(`${mqttRequest.path}/${out.payloadFile.fileName}`, out.payloadFile.content);
+    for (const file of out.scriptFiles) add(`${mqttRequest.path}/${file.fileName}`, file.content);
   }
 
   for (const template of state.templates) {

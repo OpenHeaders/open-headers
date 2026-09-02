@@ -31,6 +31,7 @@ import {
   TlsVersionSchema,
   UnixSocketPathSchema,
 } from './request';
+import { WsScriptSlotsSchema } from './script-slots';
 import { requestAuthSchemaFor, WEBSOCKET_AUTH_TYPES } from './session-auth';
 
 /**
@@ -249,6 +250,15 @@ const WebSocketRequestObjectSchema = v.object({
   /** Byte spelling of a `binary` compose. Absent = `base64`. */
   binaryEncoding: v.optional(WebSocketBinaryEncodingSchema),
   specLink: v.optional(WebSocketSpecLinkSchema),
+  /**
+   * The request's own session scripts — the WebSocket kinds
+   * (`@openheaders/core/scripts` — `WS_SCRIPT_KINDS`: before connect,
+   * before send, on message, after close), composed after the
+   * ancestor levels' slots of the same kind. Each key fans out to its
+   * `<kind>.js` sibling beside `websocket.yaml`; the manifest never
+   * carries source. Absent key ↔ no script.
+   */
+  scripts: v.optional(WsScriptSlotsSchema),
   /**
    * Dial this local socket — an absolute Unix domain socket path or a
    * Windows named pipe (`\\.\pipe\…`) — instead of opening a TCP

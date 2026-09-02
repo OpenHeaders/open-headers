@@ -388,3 +388,28 @@ describe('parseWebSocketRequest', () => {
     expect(Object.keys(parsed.params[0])).toEqual(['uid', 'key', 'value', 'description', 'hasEquals']);
   });
 });
+
+describe('script siblings', () => {
+  it('fans the request session scripts out one file per slot and reads them back, foreign kinds ignored', () => {
+    const scripts = {
+      'ws-before-connect': 'oh.session.attempt = 0;\n',
+      'ws-on-message': 'console.log(oh.message.text);\n',
+    };
+    const out = serializeWebSocketRequest(freshDocument(websocketRequest({ scripts })));
+    expect(out.websocketYaml).not.toContain('scripts');
+    expect(out.scriptFiles).toEqual([
+      { fileName: 'ws-before-connect.js', content: scripts['ws-before-connect'] },
+      { fileName: 'ws-on-message.js', content: scripts['ws-on-message'] },
+    ]);
+    const parsed = parseWebSocketRequest(out.websocketYaml, {
+      path: 'requests/live-events-wsrq0001',
+      siblings: [
+        ...out.scriptFiles,
+        { fileName: 'mqtt-on-message.js', content: 'foreign();' },
+        { fileName: 'pre-request.js', content: 'foreign();' },
+      ],
+    });
+    expect(parsed.value.scripts).toEqual(scripts);
+    expect(serializeWebSocketRequest(freshDocument(websocketRequest())).scriptFiles).toEqual([]);
+  });
+});

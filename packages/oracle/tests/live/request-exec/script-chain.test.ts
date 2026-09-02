@@ -13,8 +13,10 @@
 import type { RequestSnapshot, ResponseSnapshot, ScriptExecutionResult } from '@openheaders/core/scripts';
 import {
   type ChainScript,
+  composeSlotChain,
   runPostResponseChain,
   runPreRequestChain,
+  runScriptChain,
 } from '@openheaders/oracle/live/request-exec/script-chain';
 import type { StepScriptRunner } from '@openheaders/oracle/live/request-exec/script-hooks';
 import { describe, expect, it } from 'vitest';
@@ -35,7 +37,13 @@ const FOLDER: ChainScript = {
 };
 const REQUEST: ChainScript = { level: 'request', uid: 'req00001', name: 'Charge', label: 'Request', source: 'own();' };
 
-const SNAPSHOT: RequestSnapshot = { method: 'GET', url: 'https://api.openheaders.io/v1/ping', headers: [], params: [] };
+const SNAPSHOT: RequestSnapshot = {
+  method: 'GET',
+  url: 'https://api.openheaders.io/v1/ping',
+  headers: [],
+  params: [],
+  body: { type: 'none' },
+};
 const RESPONSE: ResponseSnapshot = {
   status: 200,
   statusText: 'OK',
@@ -174,5 +182,91 @@ describe('runPostResponseChain — the chain record', () => {
     const run = await runPostResponseChain([REQUEST], runner, SNAPSHOT, RESPONSE, { strict: true });
     expect(run.outcome?.error?.message).toBe('crash');
     expect(run.outcome?.chain?.[0].error?.message).toBe('crash');
+  });
+});
+
+describe('composeSlotChain — one composition law for every slot kind', () => {
+  const carriers = [
+    {
+      level: 'collection' as const,
+      label: "Collection 'Payments'",
+      entity: {
+        uid: 'col00001',
+        path: 'requests/payments-col00001',
+        name: 'Payments',
+        preRequestScript: 'collection();',
+        scripts: { 'ws-before-connect': 'colConnect();', 'mqtt-on-message': '   ' },
+      },
+    },
+    {
+      level: 'folder' as const,
+      label: "Folder 'Tokens'",
+      entity: {
+        uid: 'fld00001',
+        path: 'requests/payments-col00001/tokens-fld00001',
+        name: 'Tokens',
+        scripts: { 'ws-before-connect': 'fldConnect();', 'ws-on-message': 'fldMessage();' },
+      },
+    },
+  ];
+  const leaf = {
+    uid: 'wsrq0001',
+    name: 'Live',
+    scripts: { 'ws-before-connect': 'own();', 'ws-after-close': 'close();' },
+  };
+
+  it('walks the carriers outer → inner and lands the leaf last, blank slots skipped', () => {
+    expect(composeSlotChain(carriers, leaf, 'ws-before-connect')).toEqual([
+      {
+        level: 'collection',
+        uid: 'col00001',
+        name: 'Payments',
+        label: "Collection 'Payments'",
+        source: 'colConnect();',
+      },
+      { level: 'folder', uid: 'fld00001', name: 'Tokens', label: "Folder 'Tokens'", source: 'fldConnect();' },
+      { level: 'request', uid: 'wsrq0001', name: 'Live', label: 'Request', source: 'own();' },
+    ]);
+    expect(composeSlotChain(carriers, leaf, 'ws-on-message').map((s) => s.uid)).toEqual(['fld00001']);
+    expect(composeSlotChain(carriers, leaf, 'ws-after-close').map((s) => s.uid)).toEqual(['wsrq0001']);
+    expect(composeSlotChain(carriers, leaf, 'mqtt-on-message')).toEqual([]);
+  });
+
+  it('reads the HTTP pair off its frozen fields through the same walk', () => {
+    expect(
+      composeSlotChain(carriers, { uid: 'req00001', name: 'Charge', preRequestScript: 'own();' }, 'pre-request'),
+    ).toEqual([
+      {
+        level: 'collection',
+        uid: 'col00001',
+        name: 'Payments',
+        label: "Collection 'Payments'",
+        source: 'collection();',
+      },
+      { level: 'request', uid: 'req00001', name: 'Charge', label: 'Request', source: 'own();' },
+    ]);
+  });
+
+  it('composes the ancestor levels alone without a leaf', () => {
+    expect(composeSlotChain(carriers, null, 'ws-before-connect').map((s) => s.level)).toEqual(['collection', 'folder']);
+  });
+});
+
+describe('runScriptChain — the shared fold', () => {
+  it('folds an empty chain to nothing and hands each successful level to the caller', async () => {
+    expect(await runScriptChain([], async () => result(), { strict: false })).toBeNull();
+    const landed: string[] = [];
+    const fold = await runScriptChain(
+      [COLLECTION, FOLDER, REQUEST],
+      async (script) =>
+        script.source === 'folder();'
+          ? result({ succeeded: false, error: { name: 'Error', message: 'boom' } })
+          : result(),
+      { strict: false, onLevelSucceeded: (r) => landed.push(r.executionId) },
+    );
+    expect(landed).toHaveLength(2);
+    expect(fold?.succeeded).toBe(false);
+    expect(fold?.failedLabel).toBe("Folder 'Tokens'");
+    expect(fold?.chain.map((s) => s.succeeded)).toEqual([true, false, true]);
   });
 });

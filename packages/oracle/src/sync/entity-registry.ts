@@ -41,6 +41,7 @@ import {
   RuleSchema,
   SchemaVersionSchema,
   ScriptPackageSchema,
+  SessionScriptSlotsSchema,
   SpecSchema,
   schemaParseError,
   TemplateSchema,
@@ -373,6 +374,7 @@ const RequestFolderShellSchema = v.object({
   pathSegment: v.pipe(v.string(), v.minLength(1)),
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
+  scripts: v.optional(SessionScriptSlotsSchema),
   defaultAuthUid: v.optional(UidSchema),
   auth: v.optional(AuthConfigSchema),
 });

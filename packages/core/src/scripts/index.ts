@@ -20,9 +20,41 @@
  */
 
 import type { HttpMethod, RequestBody } from '../types';
-// ── Kinds ──────────────────────────────────────────────────────────
+import type { ScriptKind } from './slots';
 
-export type ScriptKind = 'pre-request' | 'post-response';
+// ── Kinds ──────────────────────────────────────────────────────────
+// The vocabulary lives in `./slots` (kinds, storage paths, sibling
+// files); the execution envelope below carries the kind as data.
+
+export type {
+  GrpcScriptKind,
+  HttpScriptKind,
+  MqttScriptKind,
+  ScriptKind,
+  ScriptSlotCarrier,
+  ScriptSlotPath,
+  ScriptSlotRecord,
+  SessionScriptKind,
+  WsScriptKind,
+} from './slots';
+export {
+  GRPC_SCRIPT_KINDS,
+  HTTP_SCRIPT_KINDS,
+  hasScriptSlots,
+  isSessionScriptKind,
+  MQTT_SCRIPT_KINDS,
+  POST_RESPONSE_SCRIPT_FILE,
+  PRE_REQUEST_SCRIPT_FILE,
+  presentScriptSlots,
+  readScriptSlot,
+  SCRIPT_KINDS,
+  SESSION_SCRIPT_KINDS,
+  scriptKindOfFile,
+  scriptSlotFile,
+  scriptSlotPath,
+  WS_SCRIPT_KINDS,
+  withScriptSlot,
+} from './slots';
 
 // ── Request / response shapes the script sees ──────────────────────
 

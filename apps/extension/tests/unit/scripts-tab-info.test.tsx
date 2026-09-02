@@ -25,9 +25,10 @@ import '@openheaders/ui/workbench/settings/schema/keyboard';
 import '@openheaders/ui/workbench/settings/schema/editor';
 import type { AncestorScriptLevels } from '@openheaders/ui/workbench/components/request-container/ancestry';
 import ScriptsTab from '@openheaders/ui/workbench/components/request-editor/ScriptsTab';
-import type {
-  ScriptSlotScope,
-  ScriptSlotValues,
+import {
+  emptyScriptSlotValues,
+  type ScriptSlotScope,
+  type ScriptSlotValues,
 } from '@openheaders/ui/workbench/components/script-editor/script-slots';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -76,7 +77,7 @@ window.matchMedia = ((query: string) => ({
 
 afterEach(cleanup);
 
-const EMPTY: ScriptSlotValues = { 'pre-request': '', 'post-response': '' };
+const EMPTY: ScriptSlotValues = emptyScriptSlotValues();
 
 function renderTab(
   extra: {
@@ -91,11 +92,11 @@ function renderTab(
 }
 
 const ANCESTORS: AncestorScriptLevels = {
-  pre: [
+  'pre-request': [
     { kind: 'collection', uid: 'col00001', name: 'Payments' },
     { kind: 'folder', uid: 'fld00001', name: 'Tokens' },
   ],
-  post: [{ kind: 'collection', uid: 'col00001', name: 'Payments' }],
+  'post-response': [{ kind: 'collection', uid: 'col00001', name: 'Payments' }],
 };
 
 /** Highlighted example-card tokens of the currently open popover. */
@@ -130,7 +131,7 @@ describe('ScriptsTab rail', () => {
     render(
       <ScriptsTab
         scope="request"
-        scripts={{ 'pre-request': 'oh.setHeader("a", "1");', 'post-response': '' }}
+        scripts={{ ...EMPTY, 'pre-request': 'oh.setHeader("a", "1");' }}
         onScriptChange={onChange}
       />,
     );
@@ -194,7 +195,7 @@ describe('ScriptsTab ancestor line', () => {
   });
 
   it('is absent without ancestor scripts for the slot, and on a mount that passes none', () => {
-    renderTab({ ancestorScripts: { pre: [], post: ANCESTORS.post }, onOpenContainerScripts: () => {} });
+    renderTab({ ancestorScripts: { 'post-response': ANCESTORS['post-response'] }, onOpenContainerScripts: () => {} });
     expect(screen.queryByTestId('oh-scripts-runs-after')).toBeNull();
     cleanup();
     renderTab();

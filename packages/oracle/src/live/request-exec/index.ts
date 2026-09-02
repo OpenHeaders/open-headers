@@ -35,14 +35,20 @@ export { buildResolver, type ResolverContext } from './resolver-scope';
 export { type RunInteractiveSendOptions, runInteractiveSend } from './run-interactive-send';
 export { type RunStepRequestOptions, runStepRequest } from './run-step-request';
 export {
+  type ChainFold,
   type ChainScript,
   collectAncestorScripts,
   collectScriptChain,
+  collectSlotChain,
+  composeSlotChain,
   type PostChainRunResult,
   type PreChainRunResult,
   type RequestScriptChain,
+  type RunChainOptions,
   runPostResponseChain,
   runPreRequestChain,
+  runScriptChain,
+  type SlotChainLeaf,
 } from './script-chain';
 export {
   applyScriptMutation,

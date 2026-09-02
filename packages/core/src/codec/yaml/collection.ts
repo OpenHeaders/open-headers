@@ -14,8 +14,9 @@
  *       type: default
  *
  * Scripts fan out beside the manifest (invariant #9, two-file scripts):
- * `pre-request.js` / `post-response.js` siblings carry the collection's
- * ancestor script slots; the YAML never holds script source. The caller
+ * one sibling per script slot — `pre-request.js` / `post-response.js`
+ * for the HTTP pair, `<kind>.js` for every session kind — carries the
+ * collection's ancestor script slots; the YAML never holds script source. The caller
  * lists the siblings it found on parse and writes the files serialize
  * returns.
  *
@@ -32,20 +33,16 @@ import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../s
 import type { Collection } from '../../types/collection';
 import { emitCanonicalYaml } from './canonical-emit';
 import { COLLECTION_FIELD_ORDER } from './ordering';
-import {
-  type ScriptSiblingFile,
-  type ScriptSiblingOutputs,
-  scriptFieldsFromSiblings,
-  scriptSiblingsFromFields,
-} from './script-siblings';
+import { type ScriptSiblingFile, scriptFieldsFromSiblings, scriptSiblingsFromFields } from './script-siblings';
 import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 export interface CollectionCodecContext {
   /** Workspace-relative folder path, e.g. "requests/auth-a1b2c3d4". */
   path: string;
   /** Sibling files the caller found beside `_collection.yaml`. The codec
-   *  recognizes `pre-request.js` / `post-response.js` and ignores the
-   *  rest (request subfolders are directories, not siblings). */
+   *  recognizes every script slot's sibling (`pre-request.js`,
+   *  `ws-before-connect.js`, …) and ignores the rest (request
+   *  subfolders are directories, not siblings). */
   siblings?: readonly ScriptSiblingFile[];
 }
 
@@ -57,9 +54,11 @@ export function parseCollection(yaml: string, context: CollectionCodecContext): 
   return makeParsed(value, extractUnknownFields(raw, CollectionSchema, COLLECTION_FIELD_ORDER));
 }
 
-export interface CollectionSerializeOutput extends ScriptSiblingOutputs {
+export interface CollectionSerializeOutput {
   /** `_collection.yaml` contents. */
   collectionYaml: string;
+  /** One sibling per script slot the collection carries, in kind order. */
+  scriptFiles: ScriptSiblingFile[];
 }
 
 export function serializeCollection(write: WriteableDocument<Collection>): CollectionSerializeOutput {
@@ -71,7 +70,7 @@ export function serializeCollection(write: WriteableDocument<Collection>): Colle
   const normalized = omitCollectionDefaults(write.value);
   return {
     collectionYaml: emitCanonicalYaml(normalized, CollectionSchema, COLLECTION_FIELD_ORDER, unknownFieldsOf(write)),
-    ...scriptSiblingsFromFields(write.value),
+    scriptFiles: scriptSiblingsFromFields(write.value),
   };
 }
 

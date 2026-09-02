@@ -6,6 +6,8 @@
  * users attach them to bug reports, we never upload anything by default.
  */
 
+import type { ScriptKind } from '../scripts/slots';
+
 export type LogLevel = 'info' | 'warn' | 'error';
 
 /**
@@ -43,8 +45,8 @@ export interface LogEntryContext {
   tabId?: number;
   /** Count of tracked entities (workspace tabs, etc.) at record time. */
   count?: number;
-  /** Script kind (`pre-request` | `post-response`) when the event is scripts-scoped. */
-  scriptKind?: 'pre-request' | 'post-response';
+  /** Script kind (the slot vocabulary) when the event is scripts-scoped. */
+  scriptKind?: ScriptKind;
   /** Script execution id when the event is tied to a specific run. */
   executionId?: string;
   /** OAuth credential reference when the event is auth-scoped. */

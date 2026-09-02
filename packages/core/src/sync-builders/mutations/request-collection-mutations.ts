@@ -18,6 +18,7 @@ import {
   REQUEST_COLLECTION_AUTHS_PATH,
   REQUEST_COLLECTION_DEFAULT_AUTH_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
+  type RequestCollectionScriptPath,
   removeRequestCollectionVar,
   renameRequestCollection,
   setRequestCollectionPinnedAndDefault,
@@ -77,7 +78,7 @@ export function buildSetRequestCollectionPinnedAndDefaultBatch(
 export interface SetRequestCollectionScriptsInput {
   collectionUid: string;
   /** Slot updates; `value: undefined` removes the slot. */
-  updates: ReadonlyArray<{ path: 'preRequestScript' | 'postResponseScript'; value: string | undefined }>;
+  updates: ReadonlyArray<{ path: RequestCollectionScriptPath; value: string | undefined }>;
 }
 
 export function buildSetRequestCollectionScriptsBatch(

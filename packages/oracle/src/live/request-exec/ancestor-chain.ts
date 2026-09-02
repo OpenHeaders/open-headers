@@ -20,6 +20,7 @@ import {
   effectiveAuthFor,
   hostOf,
 } from '@openheaders/core/auth-inheritance';
+import type { ScriptSlotCarrier } from '@openheaders/core/scripts';
 import type {
   AuthConfig,
   AuthPoolEntry,
@@ -37,13 +38,13 @@ import { ancestorChain } from '../../sync/post-state/folder-tree-post-state';
 import { REQUEST_TREE } from '../../sync/post-state/request-folder-post-state';
 import { getOracleForCurrentWorkspace, getOracleForWorkspace } from '../../sync/service/accessors';
 
-/** The ancestor fields the composed concerns read. */
-export interface AncestorCarrierEntity {
+/** The ancestor fields the composed concerns read — the script slots
+ *  (`ScriptSlotCarrier`: the HTTP pair and the session record) and the
+ *  auth pool. */
+export interface AncestorCarrierEntity extends ScriptSlotCarrier {
   uid: string;
   path: string;
   name: string;
-  preRequestScript?: string;
-  postResponseScript?: string;
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;

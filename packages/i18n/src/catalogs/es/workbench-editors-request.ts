@@ -897,6 +897,95 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.prePlaceholder': 'Usa JavaScript para modificar esta solicitud antes de enviarla.',
   'workbench.editors.request.scripts.postPlaceholder':
     'Usa JavaScript para probar y leer esta respuesta cuando llegue.',
+  // ── Session script slots (gRPC · WebSocket · MQTT) ─────────────────
+  'workbench.editors.request.scripts.grpcBeforeInvoke': 'Antes de invocar',
+  'workbench.editors.request.scripts.grpcOnMessage': 'Al recibir mensaje',
+  'workbench.editors.request.scripts.grpcAfterResponse': 'Después de la respuesta',
+  'workbench.editors.request.scripts.wsBeforeConnect': 'Antes de conectar',
+  'workbench.editors.request.scripts.wsBeforeSend': 'Antes de enviar',
+  'workbench.editors.request.scripts.wsOnMessage': 'Al recibir mensaje',
+  'workbench.editors.request.scripts.wsAfterClose': 'Después de cerrar',
+  'workbench.editors.request.scripts.mqttBeforeConnect': 'Antes de conectar',
+  'workbench.editors.request.scripts.mqttBeforePublish': 'Antes de publicar',
+  'workbench.editors.request.scripts.mqttOnMessage': 'Al recibir mensaje',
+  'workbench.editors.request.scripts.mqttAfterClose': 'Después de cerrar',
+  'workbench.editors.request.scripts.grpcBeforeInvokePlaceholder':
+    'Usa JavaScript para modificar los metadatos y el mensaje antes de invocar esta llamada.',
+  'workbench.editors.request.scripts.grpcOnMessagePlaceholder':
+    'Usa JavaScript para leer cada trama de mensaje cuando llegue.',
+  'workbench.editors.request.scripts.grpcAfterResponsePlaceholder':
+    'Usa JavaScript para probar y leer la respuesta cuando termine esta llamada.',
+  'workbench.editors.request.scripts.wsBeforeConnectPlaceholder':
+    'Usa JavaScript para modificar el handshake antes de que esta sesión se conecte.',
+  'workbench.editors.request.scripts.wsBeforeSendPlaceholder':
+    'Usa JavaScript para modificar o descartar cada mensaje antes de enviarlo.',
+  'workbench.editors.request.scripts.wsOnMessagePlaceholder':
+    'Usa JavaScript para reaccionar a cada mensaje cuando llegue.',
+  'workbench.editors.request.scripts.wsAfterClosePlaceholder':
+    'Usa JavaScript para probar y leer esta sesión después de cerrarse.',
+  'workbench.editors.request.scripts.mqttBeforeConnectPlaceholder':
+    'Usa JavaScript para modificar el CONNECT antes de que esta sesión se conecte.',
+  'workbench.editors.request.scripts.mqttBeforePublishPlaceholder':
+    'Usa JavaScript para modificar o descartar cada mensaje antes de publicarlo.',
+  'workbench.editors.request.scripts.mqttOnMessagePlaceholder':
+    'Usa JavaScript para reaccionar a cada mensaje cuando llegue.',
+  'workbench.editors.request.scripts.mqttAfterClosePlaceholder':
+    'Usa JavaScript para probar y leer esta sesión después de desconectarse.',
+  'workbench.editors.request.scripts.grpcBeforeInvokePlaceholderContainer':
+    'Escribe scripts que se ejecuten antes de invocar cada llamada gRPC.',
+  'workbench.editors.request.scripts.grpcOnMessagePlaceholderContainer':
+    'Escribe scripts que se ejecuten en cada trama de mensaje gRPC.',
+  'workbench.editors.request.scripts.grpcAfterResponsePlaceholderContainer':
+    'Escribe scripts que se ejecuten al final de cada llamada gRPC.',
+  'workbench.editors.request.scripts.wsBeforeConnectPlaceholderContainer':
+    'Escribe scripts que se ejecuten antes de que cada sesión WebSocket se conecte.',
+  'workbench.editors.request.scripts.wsBeforeSendPlaceholderContainer':
+    'Escribe scripts que se ejecuten antes de enviar cada mensaje WebSocket.',
+  'workbench.editors.request.scripts.wsOnMessagePlaceholderContainer':
+    'Escribe scripts que se ejecuten en cada mensaje WebSocket recibido.',
+  'workbench.editors.request.scripts.wsAfterClosePlaceholderContainer':
+    'Escribe scripts que se ejecuten después de cerrarse cada sesión WebSocket.',
+  'workbench.editors.request.scripts.mqttBeforeConnectPlaceholderContainer':
+    'Escribe scripts que se ejecuten antes de que cada sesión MQTT se conecte.',
+  'workbench.editors.request.scripts.mqttBeforePublishPlaceholderContainer':
+    'Escribe scripts que se ejecuten antes de publicar cada mensaje MQTT.',
+  'workbench.editors.request.scripts.mqttOnMessagePlaceholderContainer':
+    'Escribe scripts que se ejecuten en cada mensaje MQTT recibido.',
+  'workbench.editors.request.scripts.mqttAfterClosePlaceholderContainer':
+    'Escribe scripts que se ejecuten después de desconectarse cada sesión MQTT.',
+  'workbench.editors.request.scripts.grpcBeforeInvokeInfoTitle': 'Script antes de invocar',
+  'workbench.editors.request.scripts.grpcBeforeInvokeInfoSummary':
+    'Se ejecuta una vez antes de invocar la llamada. Reescribe los metadatos y el mensaje de solicitud con la API oh; oh.session lleva el estado a los siguientes hooks de la llamada.',
+  'workbench.editors.request.scripts.grpcOnMessageInfoTitle': 'Script al recibir mensaje',
+  'workbench.editors.request.scripts.grpcOnMessageInfoSummary':
+    'Se ejecuta en cada trama de mensaje que captura la llamada, en ambas direcciones, después de la captura. Lee el mensaje decodificado; la captura nunca se retrasa.',
+  'workbench.editors.request.scripts.grpcAfterResponseInfoTitle': 'Script después de la respuesta',
+  'workbench.editors.request.scripts.grpcAfterResponseInfoSummary':
+    'Se ejecuta cuando termina la llamada. Lee el estado, los encabezados, los trailers y los mensajes; los resultados de las aserciones aterrizan en el panel de respuesta.',
+  'workbench.editors.request.scripts.wsBeforeConnectInfoTitle': 'Script antes de conectar',
+  'workbench.editors.request.scripts.wsBeforeConnectInfoSummary':
+    'Se ejecuta en cada intento de conexión, reconexiones incluidas. Reescribe la URL, los encabezados, los parámetros y los subprotocolos con la API oh; un fallo se registra y la conexión sigue sin cambios.',
+  'workbench.editors.request.scripts.wsBeforeSendInfoTitle': 'Script antes de enviar',
+  'workbench.editors.request.scripts.wsBeforeSendInfoSummary':
+    'Se ejecuta antes de cada mensaje que envías. Reescribe o descarta el mensaje saliente; las tramas de heartbeat y de protocolo nunca pasan por aquí.',
+  'workbench.editors.request.scripts.wsOnMessageInfoTitle': 'Script al recibir mensaje',
+  'workbench.editors.request.scripts.wsOnMessageInfoSummary':
+    'Se ejecuta en cada mensaje recibido, después de la captura. Reacciona: responde con oh.send, guarda estado en oh.session, registra aserciones.',
+  'workbench.editors.request.scripts.wsAfterCloseInfoTitle': 'Script después de cerrar',
+  'workbench.editors.request.scripts.wsAfterCloseInfoSummary':
+    'Se ejecuta cuando termina la sesión, si llegó a abrirse. Lee el registro de cierre y los contadores de la sesión; los resultados de las aserciones aterrizan en el panel de sesión.',
+  'workbench.editors.request.scripts.mqttBeforeConnectInfoTitle': 'Script antes de conectar',
+  'workbench.editors.request.scripts.mqttBeforeConnectInfoSummary':
+    'Se ejecuta en cada intento de conexión, reconexiones incluidas. Reescribe el id de cliente, las credenciales, el testamento y las suscripciones con la API oh; un fallo se registra y la conexión sigue sin cambios.',
+  'workbench.editors.request.scripts.mqttBeforePublishInfoTitle': 'Script antes de publicar',
+  'workbench.editors.request.scripts.mqttBeforePublishInfoSummary':
+    'Se ejecuta antes de cada mensaje que publicas. Reescribe el tema, la carga útil, la QoS, la marca retain y las propiedades, o descarta la publicación.',
+  'workbench.editors.request.scripts.mqttOnMessageInfoTitle': 'Script al recibir mensaje',
+  'workbench.editors.request.scripts.mqttOnMessageInfoSummary':
+    'Se ejecuta en cada mensaje recibido, después de la captura. Reacciona: responde con oh.publish, guarda estado en oh.session, registra aserciones.',
+  'workbench.editors.request.scripts.mqttAfterCloseInfoTitle': 'Script después de cerrar',
+  'workbench.editors.request.scripts.mqttAfterCloseInfoSummary':
+    'Se ejecuta cuando termina la sesión, si llegó a abrirse. Lee el registro de fin, el CONNACK y los contadores de la sesión; los resultados de las aserciones aterrizan en el panel de sesión.',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.followRedirects': 'Seguir las redirecciones automáticamente',

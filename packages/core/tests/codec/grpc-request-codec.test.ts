@@ -169,3 +169,17 @@ describe('parseGrpcRequest', () => {
     expect(Object.keys(parsed.metadata[1])).toEqual(['uid', 'key', 'value', 'description']);
   });
 });
+
+describe('script siblings', () => {
+  it('fans the request call scripts out one file per slot and reads them back, foreign kinds ignored', () => {
+    const scripts = { 'grpc-before-invoke': 'oh.setMetadata("x-trace", "1");\n' };
+    const out = serializeGrpcRequest(freshDocument(grpcRequest({ scripts })));
+    expect(out.grpcYaml).not.toContain('scripts');
+    expect(out.scriptFiles).toEqual([{ fileName: 'grpc-before-invoke.js', content: scripts['grpc-before-invoke'] }]);
+    const parsed = parseGrpcRequest(out.grpcYaml, {
+      path: 'requests/library-grpc0001',
+      siblings: [...out.scriptFiles, { fileName: 'ws-before-send.js', content: 'foreign();' }],
+    });
+    expect(parsed.value.scripts).toEqual(scripts);
+  });
+});

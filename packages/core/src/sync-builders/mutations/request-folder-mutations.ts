@@ -25,6 +25,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_MUTATOR_VERSION,
   type RequestFolderParentRef,
+  type RequestFolderScriptPath,
   renameRequestFolder,
   setRequestFolderScripts,
 } from '@openheaders/core/sync';
@@ -100,7 +101,7 @@ export function buildDeleteRequestFolderBatch(
 export interface SetRequestFolderScriptsInput {
   folderUid: string;
   /** Slot updates; `value: undefined` removes the slot. */
-  updates: ReadonlyArray<{ path: 'preRequestScript' | 'postResponseScript'; value: string | undefined }>;
+  updates: ReadonlyArray<{ path: RequestFolderScriptPath; value: string | undefined }>;
 }
 
 export function buildSetRequestFolderScriptsBatch(

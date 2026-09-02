@@ -83,8 +83,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [active, setActive] = useState<ScriptKind>(DEFAULT_SCRIPT_SLOT);
-  const ancestorLevels =
-    ancestorScripts === undefined ? [] : active === 'pre-request' ? ancestorScripts.pre : ancestorScripts.post;
+  const ancestorLevels = ancestorScripts?.[active] ?? [];
   // Script-editor wrap — a per-pane override of the global
   // `editor.wordWrap` setting; OFF by default (scripts are code, and
   // the code idiom keeps long lines on one line).

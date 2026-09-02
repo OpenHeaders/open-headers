@@ -5,38 +5,40 @@
  *
  *   grpc.yaml      # manifest — identity, target, method, metadata, spec binding
  *   message.json   # request message as canonical protobuf JSON (only when non-empty)
+ *   grpc-before-invoke.js …  # the request's call scripts, one per slot (invariant #9)
  *
  * The codec's job is translation between the runtime `GrpcRequest`
  * object and the on-disk fan-out; the caller handles filesystem I/O.
  * Parse input: the caller lists every sibling it found on disk. The
- * codec splices `message.json` into the runtime shape. Serialize
- * output: one grpc.yaml string + the message sibling when present.
+ * codec splices `message.json` and the script siblings into the
+ * runtime shape. Serialize output: one grpc.yaml string + the message
+ * sibling when present + one script sibling per slot the request
+ * carries.
  */
 
 import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { GrpcRequestSchema } from '../../schemas/grpc-request';
+import { GRPC_SCRIPT_KINDS } from '../../scripts/slots';
 import type { GrpcMetadataPair, GrpcRequest } from '../../types/grpc-request';
 import { emitCanonicalYaml } from './canonical-emit';
 import { GRPC_REQUEST_FIELD_ORDER } from './ordering';
+import { type ScriptSiblingFile, scriptFieldsFromSiblings, scriptSiblingsFromFields } from './script-siblings';
 import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 const MESSAGE_FILE_NAME = 'message.json';
 
 // ── Parse ─────────────────────────────────────────────────────────
 
-export interface GrpcRequestSiblingFile {
-  /** Filename relative to the request folder, e.g. "message.json". */
-  fileName: string;
-  content: string;
-}
+export type GrpcRequestSiblingFile = ScriptSiblingFile;
 
 export interface GrpcRequestCodecContext {
   /** Workspace-relative gRPC request folder path. */
   path: string;
   /** Every sibling file the caller found next to `grpc.yaml`. The codec
-   *  recognizes `message.json` and ignores the rest (forward-compat). */
+   *  recognizes `message.json` and the gRPC script slots' siblings, and
+   *  ignores the rest (forward-compat). */
   siblings?: readonly GrpcRequestSiblingFile[];
 }
 
@@ -56,6 +58,7 @@ export function parseGrpcRequest(yaml: string, context: GrpcRequestCodecContext)
     ...raw,
     path: context.path,
     message,
+    ...scriptFieldsFromSiblings(context.siblings, GRPC_SCRIPT_KINDS),
   };
 
   const value = v.parse(GrpcRequestSchema, merged);
@@ -69,6 +72,8 @@ export interface GrpcRequestSerializeOutput {
   grpcYaml: string;
   /** `message.json` when the request carries a composed message; null otherwise. */
   messageFile: GrpcRequestSiblingFile | null;
+  /** One sibling per script slot the request carries, in kind order. */
+  scriptFiles: ScriptSiblingFile[];
 }
 
 export function serializeGrpcRequest(write: WriteableDocument<GrpcRequest>): GrpcRequestSerializeOutput {
@@ -86,7 +91,7 @@ export function serializeGrpcRequest(write: WriteableDocument<GrpcRequest>): Grp
   const messageFile: GrpcRequestSiblingFile | null =
     value.message !== '' ? { fileName: MESSAGE_FILE_NAME, content: value.message } : null;
 
-  return { grpcYaml, messageFile };
+  return { grpcYaml, messageFile, scriptFiles: scriptSiblingsFromFields(value, GRPC_SCRIPT_KINDS) };
 }
 
 /**

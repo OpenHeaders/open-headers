@@ -18,6 +18,8 @@ import {
   LEGACY_AUTH_ENTRY_UID,
   resolveInheritedAuth,
 } from '@openheaders/core/auth-inheritance';
+import type { ScriptKind, ScriptSlotCarrier } from '@openheaders/core/scripts';
+import { readScriptSlot, SCRIPT_KINDS } from '@openheaders/core/scripts';
 import type {
   AuthConfig,
   AuthPoolEntry,
@@ -27,15 +29,15 @@ import type {
   TreeNode,
 } from '@openheaders/core/types';
 
-export interface AncestorAuthCarrier {
+/** A container as the renderer's ancestry reads it — the auth pool and
+ *  the script slots (`ScriptSlotCarrier`: the HTTP pair and the session
+ *  record) the Scripts tab's "Runs after …" line names. */
+export interface AncestorAuthCarrier extends ScriptSlotCarrier {
   uid: string;
   name: string;
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
-  /** The level's script slots — the Scripts tab's "Runs after …" line. */
-  preRequestScript?: string;
-  postResponseScript?: string;
 }
 
 export interface RequestAncestry {
@@ -213,31 +215,30 @@ export interface AncestorScriptLevel {
   name: string;
 }
 
-export interface AncestorScriptLevels {
-  /** Outer → inner — the order the levels run in ahead of the request's own script. */
-  pre: AncestorScriptLevel[];
-  post: AncestorScriptLevel[];
-}
+/** Per slot kind, the levels carrying a script — outer → inner, the
+ *  order they run in ahead of the request's own. A kind with no level
+ *  is absent. */
+export type AncestorScriptLevels = Partial<Readonly<Record<ScriptKind, AncestorScriptLevel[]>>>;
 
 /**
- * The ancestor levels whose script slots run around the request,
- * outer → inner per phase — the renderer twin of the executor's
- * `collectAncestorScripts` (whitespace-only slots skipped). Empty
- * lists for a scratch draft.
+ * The ancestor levels whose script slots run around the request, per
+ * kind, outer → inner — the renderer twin of the executor's slot
+ * chain composition (whitespace-only slots skipped). Empty for a
+ * scratch draft.
  */
 export function ancestorScriptLevels(ancestry: RequestAncestry | null): AncestorScriptLevels {
-  const pre: AncestorScriptLevel[] = [];
-  const post: AncestorScriptLevel[] = [];
-  if (ancestry === null) return { pre, post };
+  if (ancestry === null) return {};
   const levels: Array<[AncestorScriptLevel['kind'], AncestorAuthCarrier]> = [
     ['collection', ancestry.collection],
     ...ancestry.folders.map((f): [AncestorScriptLevel['kind'], AncestorAuthCarrier] => ['folder', f]),
   ];
-  for (const [kind, { uid, name, preRequestScript, postResponseScript }] of levels) {
-    if (preRequestScript?.trim()) pre.push({ kind, uid, name });
-    if (postResponseScript?.trim()) post.push({ kind, uid, name });
+  const out: Partial<Record<ScriptKind, AncestorScriptLevel[]>> = {};
+  for (const kind of SCRIPT_KINDS) {
+    const carrying = levels.filter(([, carrier]) => (readScriptSlot(carrier, kind) ?? '').trim() !== '');
+    if (carrying.length === 0) continue;
+    out[kind] = carrying.map(([level, carrier]) => ({ kind: level, uid: carrier.uid, name: carrier.name }));
   }
-  return { pre, post };
+  return out;
 }
 
 /**

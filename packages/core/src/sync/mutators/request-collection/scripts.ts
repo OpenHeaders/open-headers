@@ -1,7 +1,8 @@
 /**
  * `setRequestCollectionScripts` — set or clear the collection's
- * ancestor script slots (`preRequestScript` / `postResponseScript`) in
- * ONE batch, so a save that touches both slots lands atomically.
+ * ancestor script slots (the HTTP pair's fields, the session kinds'
+ * `scripts.<kind>` leaves) in ONE batch, so a save that touches
+ * several slots lands atomically.
  *
  * A string value emits `setField`; `undefined` emits `unsetField` so
  * the slot is removed rather than blanked (field absent ↔ no script,
@@ -9,12 +10,15 @@
  * effects — script source doesn't feed variable resolution.
  */
 
+import type { ScriptSlotPath } from '../../../scripts/slots';
 import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from './types';
 
-export type RequestCollectionScriptPath = 'preRequestScript' | 'postResponseScript';
+/** A slot's sync leaf — the HTTP pair's top-level fields, or a leaf of
+ *  the session `scripts` record (`scripts.ws-before-connect`). */
+export type RequestCollectionScriptPath = ScriptSlotPath;
 
 export interface SetRequestCollectionScriptsArgs {
   collectionUid: string;

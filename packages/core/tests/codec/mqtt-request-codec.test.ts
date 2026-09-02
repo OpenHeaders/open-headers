@@ -267,3 +267,23 @@ describe('parseMqttRequest', () => {
     expect(Object.keys(parsed.savedMessages[0])).toEqual(['uid', 'name', 'topic', 'payload', 'qos', 'retain']);
   });
 });
+
+describe('script siblings', () => {
+  it('fans the request session scripts out one file per slot and reads them back, foreign kinds ignored', () => {
+    const scripts = {
+      'mqtt-before-publish': 'oh.setTopic("telemetry");\n',
+      'mqtt-after-close': 'oh.test("end", () => {});\n',
+    };
+    const out = serializeMqttRequest(freshDocument(mqttRequest({ scripts })));
+    expect(out.mqttYaml).not.toContain('scripts');
+    expect(out.scriptFiles).toEqual([
+      { fileName: 'mqtt-before-publish.js', content: scripts['mqtt-before-publish'] },
+      { fileName: 'mqtt-after-close.js', content: scripts['mqtt-after-close'] },
+    ]);
+    const parsed = parseMqttRequest(out.mqttYaml, {
+      path: mqttRequest().path,
+      siblings: [...out.scriptFiles, { fileName: 'grpc-on-message.js', content: 'foreign();' }],
+    });
+    expect(parsed.value.scripts).toEqual(scripts);
+  });
+});

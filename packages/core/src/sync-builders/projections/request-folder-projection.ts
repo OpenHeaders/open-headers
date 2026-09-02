@@ -14,7 +14,7 @@
  * legacy consumers expect.
  */
 
-import { AuthConfigSchema, AuthPoolEntrySchema } from '@openheaders/core/schemas';
+import { AuthConfigSchema, AuthPoolEntrySchema, SessionScriptSlotsSchema } from '@openheaders/core/schemas';
 import {
   type MaterializedEntity,
   type MutationBatch,
@@ -52,6 +52,7 @@ export function seedRequestFolder(folder: Folder, ctx: MutatorContext): Mutation
       // ↔ no script).
       ...(folder.preRequestScript !== undefined ? { preRequestScript: folder.preRequestScript } : {}),
       ...(folder.postResponseScript !== undefined ? { postResponseScript: folder.postResponseScript } : {}),
+      ...(folder.scripts !== undefined ? { scripts: folder.scripts } : {}),
       // The pool's default scalar rides the seed; the entries are set
       // members below. The pre-pool `auth` field passes through as
       // data — read as a one-entry pool until the first pool write.
@@ -111,6 +112,11 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
       })
     : [];
   const auth = v.safeParse(AuthConfigSchema, data.auth);
+  // The session slot record — carried when well-formed and non-empty
+  // (per-leaf writes could transiently compose an invalid shape; the
+  // last slot's unset leaves an empty record behind).
+  const scripts = v.safeParse(SessionScriptSlotsSchema, data.scripts);
+  const scriptRecord = scripts.success && Object.keys(scripts.output).length > 0 ? scripts.output : undefined;
   return {
     schemaVersion,
     uid: materialized.id,
@@ -119,6 +125,7 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
     // Ancestor script slots — carried when set (field absent ↔ no script).
     ...(typeof data.preRequestScript === 'string' ? { preRequestScript: data.preRequestScript } : {}),
     ...(typeof data.postResponseScript === 'string' ? { postResponseScript: data.postResponseScript } : {}),
+    ...(scriptRecord !== undefined ? { scripts: scriptRecord } : {}),
     ...(auths.length > 0 ? { auths } : {}),
     ...(typeof data.defaultAuthUid === 'string' ? { defaultAuthUid: data.defaultAuthUid } : {}),
     ...(auth.success ? { auth: auth.output } : {}),

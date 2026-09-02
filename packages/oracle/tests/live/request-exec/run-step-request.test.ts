@@ -6,7 +6,7 @@
  * folds auth, and gates TOTP reuse on the desktop's code path.
  */
 
-import type { ScriptExecutionResult } from '@openheaders/core/scripts';
+import type { ScriptExecutionResult, ScriptKind } from '@openheaders/core/scripts';
 import type { Collection, Environment, Folder, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStepRequest } from '../../../src/live/request-exec/run-step-request';
@@ -476,7 +476,7 @@ describe('runStepRequest — step script hooks', () => {
     ...over,
   });
 
-  function captureRunner(results: Partial<Record<'pre-request' | 'post-response', ScriptExecutionResult>>): {
+  function captureRunner(results: Partial<Record<ScriptKind, ScriptExecutionResult>>): {
     runner: StepScriptRunner;
     inputs: StepScriptInput[];
   } {

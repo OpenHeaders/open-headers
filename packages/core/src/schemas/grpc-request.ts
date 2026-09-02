@@ -25,6 +25,7 @@ import {
   TlsVersionSchema,
   UnixSocketPathSchema,
 } from './request';
+import { GrpcScriptSlotsSchema } from './script-slots';
 import { GRPC_AUTH_TYPES, requestAuthSchemaFor } from './session-auth';
 
 /**
@@ -131,6 +132,15 @@ const GrpcRequestObjectSchema = v.object({
   /** Call credential injected into metadata at invoke. Absent = none. */
   auth: v.optional(GrpcAuthSchema),
   specLink: v.optional(GrpcSpecLinkSchema),
+  /**
+   * The request's own call scripts — the gRPC kinds
+   * (`@openheaders/core/scripts` — `GRPC_SCRIPT_KINDS`: before invoke,
+   * on message, after response), composed after the ancestor levels'
+   * slots of the same kind. Each key fans out to its `<kind>.js`
+   * sibling beside `grpc.yaml`; the manifest never carries source.
+   * Absent key ↔ no script.
+   */
+  scripts: v.optional(GrpcScriptSlotsSchema),
   /**
    * Dial this local socket — an absolute Unix domain socket path or a
    * Windows named pipe (`\\.\pipe\…`) — instead of opening a TCP

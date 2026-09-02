@@ -6,6 +6,7 @@
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import { AuthConfigSchema, ConcreteAuthConfigSchema } from './request';
+import { SessionScriptSlotsSchema } from './script-slots';
 import { VariableSchema } from './variable';
 
 /**
@@ -65,6 +66,14 @@ export const CollectionSchema = v.object({
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
   /**
+   * The session kinds' ancestor slots — one key per kind
+   * (`@openheaders/core/scripts` — `SESSION_SCRIPT_KINDS`), each
+   * composed the same ancestor-first way for the requests of that kind
+   * under the collection and no other. Every key fans out to its
+   * `<kind>.js` sibling, never inline. Absent key ↔ no script.
+   */
+  scripts: v.optional(SessionScriptSlotsSchema),
+  /**
    * The auth pool — meaningful under request-collection routing only,
    * like the script slots. A request whose auth is `inherit` resolves
    * up its ancestor chain at execute time: the innermost level with a
@@ -105,6 +114,7 @@ export const FolderSchema = v.object({
    *  request-folder routing only; siblings of `_folder.yaml`. */
   preRequestScript: v.optional(v.string()),
   postResponseScript: v.optional(v.string()),
+  scripts: v.optional(SessionScriptSlotsSchema),
   /** See {@link CollectionSchema}'s pool — same contract,
    *  request-folder routing only; inline in `_folder.yaml`. */
   auths: v.optional(v.array(AuthPoolEntrySchema)),

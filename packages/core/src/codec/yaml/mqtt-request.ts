@@ -5,21 +5,24 @@
  *
  *   mqtt.yaml                  # manifest — identity, target, version knob, rows, will, spec binding
  *   payload.json / payload.txt # publish-compose draft (only when non-empty)
+ *   mqtt-before-connect.js …   # the request's session scripts, one per slot (invariant #9)
  *
  * The codec's job is translation between the runtime `MqttRequest`
  * object and the on-disk fan-out; the caller handles filesystem I/O.
  * Parse input: the caller lists every sibling it found on disk; the
- * codec splices the payload sibling into the runtime shape. Serialize
- * output: one mqtt.yaml string + the payload sibling when present —
- * named `payload.json` when the compose format is JSON (reviewers get
- * native highlighting), `payload.txt` otherwise (text/base64/hex all
- * author plain text).
+ * codec splices the payload sibling and the script siblings into the
+ * runtime shape. Serialize output: one mqtt.yaml string + the payload
+ * sibling when present — named `payload.json` when the compose format
+ * is JSON (reviewers get native highlighting), `payload.txt` otherwise
+ * (text/base64/hex all author plain text) — + one script sibling per
+ * slot the request carries.
  */
 
 import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { MqttRequestSchema } from '../../schemas/mqtt-request';
+import { MQTT_SCRIPT_KINDS } from '../../scripts/slots';
 import type {
   MqttLastWill,
   MqttMessageProperties,
@@ -30,6 +33,7 @@ import type {
 } from '../../types/mqtt-request';
 import { emitCanonicalYaml } from './canonical-emit';
 import { MQTT_REQUEST_FIELD_ORDER } from './ordering';
+import { type ScriptSiblingFile, scriptFieldsFromSiblings, scriptSiblingsFromFields } from './script-siblings';
 import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 const PAYLOAD_JSON_FILE_NAME = 'payload.json';
@@ -37,18 +41,14 @@ const PAYLOAD_TEXT_FILE_NAME = 'payload.txt';
 
 // ── Parse ─────────────────────────────────────────────────────────
 
-export interface MqttRequestSiblingFile {
-  /** Filename relative to the request folder, e.g. "payload.json". */
-  fileName: string;
-  content: string;
-}
+export type MqttRequestSiblingFile = ScriptSiblingFile;
 
 export interface MqttRequestCodecContext {
   /** Workspace-relative MQTT request folder path. */
   path: string;
   /** Every sibling file the caller found next to `mqtt.yaml`. The codec
-   *  recognizes the payload sibling (either name) and ignores the rest
-   *  (forward-compat). */
+   *  recognizes the payload sibling (either name) and the MQTT script
+   *  slots' siblings, and ignores the rest (forward-compat). */
   siblings?: readonly MqttRequestSiblingFile[];
 }
 
@@ -68,6 +68,7 @@ export function parseMqttRequest(yaml: string, context: MqttRequestCodecContext)
     ...raw,
     path: context.path,
     payload,
+    ...scriptFieldsFromSiblings(context.siblings, MQTT_SCRIPT_KINDS),
   };
 
   const value = v.parse(MqttRequestSchema, merged);
@@ -81,6 +82,8 @@ export interface MqttRequestSerializeOutput {
   mqttYaml: string;
   /** Payload sibling when the request carries a composed draft; null otherwise. */
   payloadFile: MqttRequestSiblingFile | null;
+  /** One sibling per script slot the request carries, in kind order. */
+  scriptFiles: ScriptSiblingFile[];
 }
 
 export function serializeMqttRequest(write: WriteableDocument<MqttRequest>): MqttRequestSerializeOutput {
@@ -99,7 +102,7 @@ export function serializeMqttRequest(write: WriteableDocument<MqttRequest>): Mqt
   const payloadFile: MqttRequestSiblingFile | null =
     value.payload !== '' ? { fileName: payloadFileName, content: value.payload } : null;
 
-  return { mqttYaml, payloadFile };
+  return { mqttYaml, payloadFile, scriptFiles: scriptSiblingsFromFields(value, MQTT_SCRIPT_KINDS) };
 }
 
 /**

@@ -181,10 +181,15 @@ describe('buildImportPlan — force-disable', () => {
         ...collection('col00001', 'API', 'requests/api-col00001'),
         preRequestScript: 'pre',
         postResponseScript: 'post',
+        scripts: { 'ws-before-connect': 'connect();' },
       },
     ];
     input.entities.folders = [
-      { ...folder('fld00001', 'Auth', 'requests/api-col00001/auth-fld00001'), preRequestScript: 'pre' },
+      {
+        ...folder('fld00001', 'Auth', 'requests/api-col00001/auth-fld00001'),
+        preRequestScript: 'pre',
+        scripts: { 'mqtt-on-message': 'message();' },
+      },
     ];
     const exp = buildWorkspaceExport(input);
     const diff = diffWorkspaceExport(exp, emptyTarget());
@@ -192,8 +197,10 @@ describe('buildImportPlan — force-disable', () => {
     const createdCol = plan.collections.find((c) => c.action === 'create');
     expect(createdCol?.entity.preRequestScript).toBeUndefined();
     expect(createdCol?.entity.postResponseScript).toBeUndefined();
+    expect(createdCol?.entity.scripts).toBeUndefined();
     const createdFolder = plan.folders.find((f) => f.action === 'create');
     expect(createdFolder?.entity.preRequestScript).toBeUndefined();
+    expect(createdFolder?.entity.scripts).toBeUndefined();
   });
 
   it('preserves collection + folder ancestor scripts when stripScripts is unset', () => {

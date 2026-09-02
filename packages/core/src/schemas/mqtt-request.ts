@@ -26,6 +26,7 @@ import {
   TlsCipherSuitesSchema,
   TlsVersionSchema,
 } from './request';
+import { MqttScriptSlotsSchema } from './script-slots';
 import { MQTT_AUTH_TYPES, requestAuthSchemaFor } from './session-auth';
 
 /**
@@ -233,6 +234,15 @@ const MqttRequestObjectSchema = v.object({
   auth: v.optional(MqttAuthSchema),
   lastWill: v.optional(MqttLastWillSchema),
   specLink: v.optional(MqttSpecLinkSchema),
+  /**
+   * The request's own session scripts — the MQTT kinds
+   * (`@openheaders/core/scripts` — `MQTT_SCRIPT_KINDS`: before connect,
+   * before publish, on message, after close), composed after the
+   * ancestor levels' slots of the same kind. Each key fans out to its
+   * `<kind>.js` sibling beside `mqtt.yaml`; the manifest never carries
+   * source. Absent key ↔ no script.
+   */
+  scripts: v.optional(MqttScriptSlotsSchema),
   /**
    * Client identifier the CONNECT carries. Blank/absent = generated
    * per connect (session resumption needs a stable id — the Settings

@@ -212,6 +212,12 @@ export {
 } from './rule';
 export { RuleDraftSchema } from './rule-draft';
 export { ScriptPackageNameSchema, ScriptPackageSchema } from './script-package';
+export {
+  GrpcScriptSlotsSchema,
+  MqttScriptSlotsSchema,
+  SessionScriptSlotsSchema,
+  WsScriptSlotsSchema,
+} from './script-slots';
 export type { AuthConfigType } from './session-auth';
 export {
   GRPC_AUTH_TYPES,

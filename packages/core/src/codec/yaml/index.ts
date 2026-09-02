@@ -65,8 +65,8 @@ export type { RequestCodecContext, RequestSerializeOutput, RequestSiblingFile } 
 export { canonicalizeRequest, parseRequest, serializeRequest } from './request';
 export type { RuleCodecContext } from './rule';
 export { canonicalizeRule, parseRule, serializeRule } from './rule';
-export type { ScriptFields, ScriptSiblingFile, ScriptSiblingOutputs } from './script-siblings';
-export { POST_RESPONSE_SCRIPT_FILE, PRE_REQUEST_SCRIPT_FILE } from './script-siblings';
+export type { ScriptFields, ScriptSiblingFile } from './script-siblings';
+export { scriptFieldsFromSiblings, scriptSiblingsFromFields } from './script-siblings';
 export type { SpecCodecContext, SpecSerializeOutput, SpecSiblingFile } from './spec';
 export { parseSpec, parseSpecInline, serializeSpec } from './spec';
 export type { TemplateCodecContext } from './template';

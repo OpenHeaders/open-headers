@@ -27,6 +27,7 @@
 
 import { FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
 import { authPoolOf, LEGACY_AUTH_ENTRY_UID } from '@openheaders/core/auth-inheritance';
+import { type ScriptSlotCarrier, scriptSlotPath } from '@openheaders/core/scripts';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
 import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
@@ -62,12 +63,7 @@ import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import VariableTable from '../panels/VariableTable';
 import { TabCount, TabDot } from '../request-editor/request-tab-items';
 import ScriptsTab from '../request-editor/ScriptsTab';
-import {
-  SCRIPT_KINDS,
-  SCRIPT_SLOT_FIELD,
-  type ScriptSlotValues,
-  scriptSlotValuesOf,
-} from '../script-editor/script-slots';
+import { SCRIPT_KINDS, type ScriptSlotValues, scriptSlotValuesOf } from '../script-editor/script-slots';
 import EditorHeader from '../shell/EditorHeader';
 import { SuggestionContextProvider } from '../template-input';
 import { useCollectionVariableConflictsUi } from '../variables/use-collection-variable-conflicts-ui';
@@ -119,14 +115,12 @@ interface RequestContainerEditorProps {
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
-interface ContainerEntity {
+interface ContainerEntity extends ScriptSlotCarrier {
   uid: string;
   name: string;
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
-  preRequestScript?: string;
-  postResponseScript?: string;
   variables?: Variable[];
 }
 
@@ -301,8 +295,10 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         failed(result, 'auth');
       }
       if (scriptsUnsaved) {
-        const updates = SCRIPT_KINDS.map((slot) => ({
-          path: SCRIPT_SLOT_FIELD[slot],
+        // Only the slots that changed ride the batch — a save never
+        // rewrites a slot the user did not touch.
+        const updates = SCRIPT_KINDS.filter((slot) => draft.scripts[slot] !== saved.scripts[slot]).map((slot) => ({
+          path: scriptSlotPath(slot),
           value: slotValue(draft.scripts[slot]),
         }));
         const result =
@@ -335,6 +331,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     workspaceId,
     kind,
     draft,
+    saved.scripts,
     authUnsaved,
     scriptsUnsaved,
     variablesUnsaved,

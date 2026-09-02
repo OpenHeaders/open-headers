@@ -62,8 +62,7 @@ describe('yaml codec — round-trip parity', () => {
     const write = mergePatch(parsed, () => {});
     const out = serializeCollection(write);
     expect(out.collectionYaml).toBe(raw);
-    expect(out.preRequestScript).toBeNull();
-    expect(out.postResponseScript).toBeNull();
+    expect(out.scriptFiles).toEqual([]);
   });
 
   it('_collection.yaml + pre-request.js + post-response.js siblings', () => {
@@ -84,8 +83,40 @@ describe('yaml codec — round-trip parity', () => {
     // Scripts never land in the manifest — the YAML stays byte-identical
     // while the source fans back out to the sibling files.
     expect(out.collectionYaml).toBe(raw);
-    expect(out.preRequestScript).toEqual({ fileName: 'pre-request.js', content: pre });
-    expect(out.postResponseScript).toEqual({ fileName: 'post-response.js', content: post });
+    expect(out.scriptFiles).toEqual([
+      { fileName: 'pre-request.js', content: pre },
+      { fileName: 'post-response.js', content: post },
+    ]);
+  });
+
+  it('_collection.yaml + session script siblings — every kind, one file per slot, the manifest untouched', () => {
+    const raw = loadFixture('_collection.yaml');
+    const connect = 'oh.session.attempt = (oh.session.attempt ?? 0) + 1;\n';
+    const publish = 'oh.setTopic("telemetry/" + oh.message.topic);\n';
+    const invoke = 'oh.setMetadata("x-trace", "1");\n';
+    const parsed = parseCollection(raw, {
+      path: 'requests/auth-c0ll1111',
+      siblings: [
+        { fileName: 'mqtt-before-publish.js', content: publish },
+        { fileName: 'ws-before-connect.js', content: connect },
+        { fileName: 'grpc-before-invoke.js', content: invoke },
+        { fileName: 'before-connect.js', content: 'ignored();' },
+      ],
+    });
+    expect(parsed.value.scripts).toEqual({
+      'mqtt-before-publish': publish,
+      'ws-before-connect': connect,
+      'grpc-before-invoke': invoke,
+    });
+    expect(parsed.value.preRequestScript).toBeUndefined();
+    const out = serializeCollection(mergePatch(parsed, () => {}));
+    expect(out.collectionYaml).toBe(raw);
+    // Fan-out in kind order, whatever order the siblings were listed in.
+    expect(out.scriptFiles).toEqual([
+      { fileName: 'grpc-before-invoke.js', content: invoke },
+      { fileName: 'ws-before-connect.js', content: connect },
+      { fileName: 'mqtt-before-publish.js', content: publish },
+    ]);
   });
 
   it('_collection.yaml with ancestor auth — inline in the manifest, round-trips', () => {
@@ -98,8 +129,7 @@ describe('yaml codec — round-trip parity', () => {
     // Auth is data, not script source — it lands in the YAML itself,
     // never in a sibling file.
     expect(out.collectionYaml).toContain('auth:');
-    expect(out.preRequestScript).toBeNull();
-    expect(out.postResponseScript).toBeNull();
+    expect(out.scriptFiles).toEqual([]);
     const reparsed = parseCollection(out.collectionYaml, { path: 'requests/auth-c0ll1111' });
     expect(reparsed.value.auth).toEqual({ type: 'bearer', token: '{{auth_token}}' });
     // Clearing the field removes the key — field absent ↔ transparent level.
@@ -168,8 +198,7 @@ describe('yaml codec — round-trip parity', () => {
     const write = mergePatch(parsed, () => {});
     const out = serializeFolder(write);
     expect(out.folderYaml).toBe(raw);
-    expect(out.preRequestScript).toBeNull();
-    expect(out.postResponseScript).toBeNull();
+    expect(out.scriptFiles).toEqual([]);
   });
 
   it('_folder.yaml + pre-request.js sibling', () => {
@@ -184,8 +213,28 @@ describe('yaml codec — round-trip parity', () => {
     const write = mergePatch(parsed, () => {});
     const out = serializeFolder(write);
     expect(out.folderYaml).toBe(raw);
-    expect(out.preRequestScript).toEqual({ fileName: 'pre-request.js', content: pre });
-    expect(out.postResponseScript).toBeNull();
+    expect(out.scriptFiles).toEqual([{ fileName: 'pre-request.js', content: pre }]);
+  });
+
+  it('_folder.yaml + an HTTP and a session script sibling side by side', () => {
+    const raw = loadFixture('_folder.yaml');
+    const pre = 'oh.setHeader("X-Team", "tokens");\n';
+    const close = 'oh.test("clean close", () => oh.expect(oh.close.code).toBe(1000));\n';
+    const parsed = parseFolder(raw, {
+      path: 'requests/auth-c0ll1111/tokens-f0ld3r12',
+      siblings: [
+        { fileName: 'ws-after-close.js', content: close },
+        { fileName: 'pre-request.js', content: pre },
+      ],
+    });
+    expect(parsed.value.preRequestScript).toBe(pre);
+    expect(parsed.value.scripts).toEqual({ 'ws-after-close': close });
+    const out = serializeFolder(mergePatch(parsed, () => {}));
+    expect(out.folderYaml).toBe(raw);
+    expect(out.scriptFiles).toEqual([
+      { fileName: 'pre-request.js', content: pre },
+      { fileName: 'ws-after-close.js', content: close },
+    ]);
   });
 
   it('_folder.yaml with ancestor auth — inline in the manifest, round-trips', () => {

@@ -5,21 +5,24 @@
  *
  *   websocket.yaml           # manifest — identity, target, flavor, rows, spec binding
  *   message.json / message.txt  # compose draft (only when non-empty)
+ *   ws-before-connect.js …   # the request's session scripts, one per slot (invariant #9)
  *
  * The codec's job is translation between the runtime
  * `WebSocketRequest` object and the on-disk fan-out; the caller
  * handles filesystem I/O. Parse input: the caller lists every sibling
- * it found on disk; the codec splices the message sibling into the
- * runtime shape. Serialize output: one websocket.yaml string + the
- * message sibling when present — named `message.json` when the compose
- * format is JSON (reviewers get native highlighting), `message.txt`
- * otherwise.
+ * it found on disk; the codec splices the message sibling and the
+ * script siblings into the runtime shape. Serialize output: one
+ * websocket.yaml string + the message sibling when present — named
+ * `message.json` when the compose format is JSON (reviewers get native
+ * highlighting), `message.txt` otherwise — + one script sibling per
+ * slot the request carries.
  */
 
 import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { WebSocketRequestSchema } from '../../schemas/websocket-request';
+import { WS_SCRIPT_KINDS } from '../../scripts/slots';
 import type {
   WebSocketEventRow,
   WebSocketHeaderPair,
@@ -29,6 +32,7 @@ import type {
 } from '../../types/websocket-request';
 import { emitCanonicalYaml } from './canonical-emit';
 import { WEBSOCKET_REQUEST_FIELD_ORDER } from './ordering';
+import { type ScriptSiblingFile, scriptFieldsFromSiblings, scriptSiblingsFromFields } from './script-siblings';
 import { extractUnknownFields, unknownFieldsOf } from './unknown-fields';
 
 const MESSAGE_JSON_FILE_NAME = 'message.json';
@@ -36,18 +40,15 @@ const MESSAGE_TEXT_FILE_NAME = 'message.txt';
 
 // ── Parse ─────────────────────────────────────────────────────────
 
-export interface WebSocketRequestSiblingFile {
-  /** Filename relative to the request folder, e.g. "message.json". */
-  fileName: string;
-  content: string;
-}
+export type WebSocketRequestSiblingFile = ScriptSiblingFile;
 
 export interface WebSocketRequestCodecContext {
   /** Workspace-relative WebSocket request folder path. */
   path: string;
   /** Every sibling file the caller found next to `websocket.yaml`. The
-   *  codec recognizes the message sibling (either name) and ignores the
-   *  rest (forward-compat). */
+   *  codec recognizes the message sibling (either name) and the
+   *  WebSocket script slots' siblings, and ignores the rest
+   *  (forward-compat). */
   siblings?: readonly WebSocketRequestSiblingFile[];
 }
 
@@ -70,6 +71,7 @@ export function parseWebSocketRequest(
     ...raw,
     path: context.path,
     message,
+    ...scriptFieldsFromSiblings(context.siblings, WS_SCRIPT_KINDS),
   };
 
   const value = v.parse(WebSocketRequestSchema, merged);
@@ -83,6 +85,8 @@ export interface WebSocketRequestSerializeOutput {
   websocketYaml: string;
   /** Message sibling when the request carries a composed draft; null otherwise. */
   messageFile: WebSocketRequestSiblingFile | null;
+  /** One sibling per script slot the request carries, in kind order. */
+  scriptFiles: ScriptSiblingFile[];
 }
 
 export function serializeWebSocketRequest(write: WriteableDocument<WebSocketRequest>): WebSocketRequestSerializeOutput {
@@ -109,7 +113,7 @@ export function serializeWebSocketRequest(write: WriteableDocument<WebSocketRequ
   const messageFile: WebSocketRequestSiblingFile | null =
     value.message !== '' ? { fileName: messageFileName, content: value.message } : null;
 
-  return { websocketYaml, messageFile };
+  return { websocketYaml, messageFile, scriptFiles: scriptSiblingsFromFields(value, WS_SCRIPT_KINDS) };
 }
 
 /**

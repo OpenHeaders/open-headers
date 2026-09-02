@@ -782,6 +782,74 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.postPlaceholderContainer': '编写在每个 HTTP 响应结束时运行的脚本。',
   'workbench.editors.request.scripts.prePlaceholder': '用 JavaScript 在发送前修改此请求。',
   'workbench.editors.request.scripts.postPlaceholder': '用 JavaScript 在响应到达后测试并读取它。',
+  // ── Session script slots (gRPC · WebSocket · MQTT) ─────────────────
+  'workbench.editors.request.scripts.grpcBeforeInvoke': '调用前',
+  'workbench.editors.request.scripts.grpcOnMessage': '收到消息时',
+  'workbench.editors.request.scripts.grpcAfterResponse': '响应后',
+  'workbench.editors.request.scripts.wsBeforeConnect': '连接前',
+  'workbench.editors.request.scripts.wsBeforeSend': '发送前',
+  'workbench.editors.request.scripts.wsOnMessage': '收到消息时',
+  'workbench.editors.request.scripts.wsAfterClose': '关闭后',
+  'workbench.editors.request.scripts.mqttBeforeConnect': '连接前',
+  'workbench.editors.request.scripts.mqttBeforePublish': '发布前',
+  'workbench.editors.request.scripts.mqttOnMessage': '收到消息时',
+  'workbench.editors.request.scripts.mqttAfterClose': '关闭后',
+  'workbench.editors.request.scripts.grpcBeforeInvokePlaceholder': '用 JavaScript 在调用前修改此调用的元数据和消息。',
+  'workbench.editors.request.scripts.grpcOnMessagePlaceholder': '用 JavaScript 在每个消息帧到达时读取它。',
+  'workbench.editors.request.scripts.grpcAfterResponsePlaceholder': '用 JavaScript 在此调用结束后测试并读取回复。',
+  'workbench.editors.request.scripts.wsBeforeConnectPlaceholder': '用 JavaScript 在此会话连接前修改握手。',
+  'workbench.editors.request.scripts.wsBeforeSendPlaceholder': '用 JavaScript 在每条消息发送前修改或丢弃它。',
+  'workbench.editors.request.scripts.wsOnMessagePlaceholder': '用 JavaScript 在每条消息到达时作出响应。',
+  'workbench.editors.request.scripts.wsAfterClosePlaceholder': '用 JavaScript 在此会话关闭后测试并读取它。',
+  'workbench.editors.request.scripts.mqttBeforeConnectPlaceholder': '用 JavaScript 在此会话连接前修改 CONNECT。',
+  'workbench.editors.request.scripts.mqttBeforePublishPlaceholder': '用 JavaScript 在每条消息发布前修改或丢弃它。',
+  'workbench.editors.request.scripts.mqttOnMessagePlaceholder': '用 JavaScript 在每条消息到达时作出响应。',
+  'workbench.editors.request.scripts.mqttAfterClosePlaceholder': '用 JavaScript 在此会话断开后测试并读取它。',
+  'workbench.editors.request.scripts.grpcBeforeInvokePlaceholderContainer': '编写在每个 gRPC 调用发起前运行的脚本。',
+  'workbench.editors.request.scripts.grpcOnMessagePlaceholderContainer': '编写在每个 gRPC 消息帧上运行的脚本。',
+  'workbench.editors.request.scripts.grpcAfterResponsePlaceholderContainer': '编写在每个 gRPC 调用结束时运行的脚本。',
+  'workbench.editors.request.scripts.wsBeforeConnectPlaceholderContainer':
+    '编写在每个 WebSocket 会话连接前运行的脚本。',
+  'workbench.editors.request.scripts.wsBeforeSendPlaceholderContainer': '编写在每条 WebSocket 消息发送前运行的脚本。',
+  'workbench.editors.request.scripts.wsOnMessagePlaceholderContainer': '编写在每条收到的 WebSocket 消息上运行的脚本。',
+  'workbench.editors.request.scripts.wsAfterClosePlaceholderContainer': '编写在每个 WebSocket 会话关闭后运行的脚本。',
+  'workbench.editors.request.scripts.mqttBeforeConnectPlaceholderContainer': '编写在每个 MQTT 会话连接前运行的脚本。',
+  'workbench.editors.request.scripts.mqttBeforePublishPlaceholderContainer': '编写在每条 MQTT 消息发布前运行的脚本。',
+  'workbench.editors.request.scripts.mqttOnMessagePlaceholderContainer': '编写在每条收到的 MQTT 消息上运行的脚本。',
+  'workbench.editors.request.scripts.mqttAfterClosePlaceholderContainer': '编写在每个 MQTT 会话断开后运行的脚本。',
+  'workbench.editors.request.scripts.grpcBeforeInvokeInfoTitle': '调用前脚本',
+  'workbench.editors.request.scripts.grpcBeforeInvokeInfoSummary':
+    '在调用发起前运行一次。用 oh API 改写元数据和请求消息；oh.session 把状态带入此调用后续的钩子。',
+  'workbench.editors.request.scripts.grpcOnMessageInfoTitle': '收到消息时脚本',
+  'workbench.editors.request.scripts.grpcOnMessageInfoSummary':
+    '在调用捕获的每个消息帧上运行，双向皆是，在捕获之后。读取解码后的消息；捕获永远不会被延迟。',
+  'workbench.editors.request.scripts.grpcAfterResponseInfoTitle': '响应后脚本',
+  'workbench.editors.request.scripts.grpcAfterResponseInfoSummary':
+    '在调用结束后运行一次。读取状态、标头、trailer 和消息；断言结果显示在响应面板中。',
+  'workbench.editors.request.scripts.wsBeforeConnectInfoTitle': '连接前脚本',
+  'workbench.editors.request.scripts.wsBeforeConnectInfoSummary':
+    '在每次拨号时运行，包括重连。用 oh API 改写 URL、标头、参数和子协议；失败会被记录，拨号按原样继续。',
+  'workbench.editors.request.scripts.wsBeforeSendInfoTitle': '发送前脚本',
+  'workbench.editors.request.scripts.wsBeforeSendInfoSummary':
+    '在你发送的每条消息前运行。改写或丢弃外发消息；心跳帧和协议帧从不经过这里。',
+  'workbench.editors.request.scripts.wsOnMessageInfoTitle': '收到消息时脚本',
+  'workbench.editors.request.scripts.wsOnMessageInfoSummary':
+    '在每条收到的消息上运行，在捕获之后。作出响应：用 oh.send 回复，在 oh.session 中保存状态，注册断言。',
+  'workbench.editors.request.scripts.wsAfterCloseInfoTitle': '关闭后脚本',
+  'workbench.editors.request.scripts.wsAfterCloseInfoSummary':
+    '在会话结束后运行一次（前提是它曾打开）。读取关闭记录和会话计数；断言结果显示在会话面板中。',
+  'workbench.editors.request.scripts.mqttBeforeConnectInfoTitle': '连接前脚本',
+  'workbench.editors.request.scripts.mqttBeforeConnectInfoSummary':
+    '在每次拨号时运行，包括重连。用 oh API 改写客户端 ID、凭据、遗嘱和订阅；失败会被记录，拨号按原样继续。',
+  'workbench.editors.request.scripts.mqttBeforePublishInfoTitle': '发布前脚本',
+  'workbench.editors.request.scripts.mqttBeforePublishInfoSummary':
+    '在你发布的每条消息前运行。改写主题、负载、QoS、retain 标志和属性，或丢弃此次发布。',
+  'workbench.editors.request.scripts.mqttOnMessageInfoTitle': '收到消息时脚本',
+  'workbench.editors.request.scripts.mqttOnMessageInfoSummary':
+    '在每条收到的消息上运行，在捕获之后。作出响应：用 oh.publish 回复，在 oh.session 中保存状态，注册断言。',
+  'workbench.editors.request.scripts.mqttAfterCloseInfoTitle': '关闭后脚本',
+  'workbench.editors.request.scripts.mqttAfterCloseInfoSummary':
+    '在会话结束后运行一次（前提是它曾打开）。读取结束记录、CONNACK 和会话计数；断言结果显示在会话面板中。',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.followRedirects': '自动跟随重定向',
