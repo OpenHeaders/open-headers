@@ -20,8 +20,10 @@
  * `client-secret-jwt`) mints its client assertion per token POST
  * before the body builds — the oracle flows' twin.
  *
- * Device Code lands next — it needs a user-facing polling UI which
- * is tracked separately.
+ * The Device Authorization Grant has no twin here: the oracle's
+ * `oauth-device.ts` runs it over the browser transport (its poll is a
+ * timer + fetches, both SW-resident), so `handlers/oauth.ts` calls the
+ * oracle directly.
  */
 
 import {

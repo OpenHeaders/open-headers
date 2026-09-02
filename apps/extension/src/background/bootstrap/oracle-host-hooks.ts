@@ -1,3 +1,4 @@
+import { onDeviceFlowChange } from '@openheaders/oracle/live/request-exec/oauth-device';
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/awareness-forwarder';
@@ -16,6 +17,15 @@ import { isBackgroundReady } from './background-ready';
 // Installs the oracle's host-callback port. Must run before bootSyncEngine
 // so the first envelope finds the hooks populated.
 export function installOracleHostHooks(): void {
+  // The OAuth device grant's poll runs in the oracle's registry (over
+  // the browser transport); its transitions reach the editor here.
+  onDeviceFlowChange((change) => {
+    broadcast('oauthDeviceState', {
+      ...(change.workspaceId !== undefined ? { workspaceId: change.workspaceId } : {}),
+      credentialRef: change.credentialRef,
+      state: change.state,
+    });
+  });
   setOracleHostHooks({
     recordLog,
     scheduleRuleEngineUpdate: (reason, opts) =>

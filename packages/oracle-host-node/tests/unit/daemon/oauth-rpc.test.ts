@@ -1,9 +1,10 @@
 /**
- * OAuth RPC plane — the seven `oauth*` channels over mocked oracle flows
+ * OAuth RPC plane — the ten `oauth*` channels over mocked oracle flows
  * and a stub transport: channel ownership, the redirect URI read per
  * call, the authorize refusal on a host without a browser, the
  * authorize success shape (bundle + redirectUri) and its step-tagged
- * failure, the bundle channels' success / failure shapes, and revoke.
+ * failure, the bundle channels' success / failure shapes, the device
+ * grant's start / status / cancel, and revoke.
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
@@ -18,6 +19,9 @@ const flows = vi.hoisted(() => ({
   performJwtBearerFlow: vi.fn(),
   performRefresh: vi.fn(),
   deleteTokenBundle: vi.fn(),
+  startDeviceFlow: vi.fn(),
+  getDeviceFlowState: vi.fn(),
+  cancelDeviceFlow: vi.fn(),
 }));
 
 vi.mock('@openheaders/oracle/live/request-exec/oauth-flows', () => ({
@@ -31,6 +35,11 @@ vi.mock('@openheaders/oracle/live/request-exec/oauth-refresh', () => ({
 }));
 vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
   deleteTokenBundle: (...args: unknown[]) => flows.deleteTokenBundle(...(args as [])),
+}));
+vi.mock('@openheaders/oracle/live/request-exec/oauth-device', () => ({
+  startDeviceFlow: (...args: unknown[]) => flows.startDeviceFlow(...(args as [])),
+  getDeviceFlowState: (...args: unknown[]) => flows.getDeviceFlowState(...(args as [])),
+  cancelDeviceFlow: (...args: unknown[]) => flows.cancelDeviceFlow(...(args as [])),
 }));
 
 import { OAuth2FlowError } from '@openheaders/oracle/live/request-exec/oauth-exchange';
@@ -65,13 +74,16 @@ beforeEach(() => {
 });
 
 describe('createOAuthRpc', () => {
-  it('owns exactly the seven oauth channels', () => {
+  it('owns exactly the ten oauth channels', () => {
     const rpc = makeRpc();
     for (const type of [
       'oauthAuthorize',
       'oauthClientCredentials',
       'oauthPasswordCredentials',
       'oauthJwtBearer',
+      'oauthDeviceStart',
+      'oauthDeviceStatus',
+      'oauthDeviceCancel',
       'oauthRefresh',
       'oauthRevoke',
       'oauthGetRedirectUri',
@@ -165,5 +177,62 @@ describe('oauthJwtBearer', () => {
       success: false,
       error: 'jwt_bearer: invalid_grant',
     });
+  });
+});
+
+describe('the device grant channels', () => {
+  const PENDING = {
+    state: 'pending' as const,
+    approval: {
+      userCode: 'OHDC-1234',
+      verificationUri: 'https://auth.openheaders.io/activate',
+      expiresAt: Date.now() + 600_000,
+      intervalSeconds: 5,
+    },
+    startedAt: Date.now(),
+  };
+
+  it('start runs the oracle runner over the transport and answers the pending state', async () => {
+    flows.startDeviceFlow.mockResolvedValueOnce(PENDING);
+    const config: OAuth2Auth = { ...CONFIG, flow: 'device-code' };
+    await expect(makeRpc().dispatch('oauthDeviceStart', { config, workspaceId: 'ws-1' })).resolves.toEqual({
+      success: true,
+      state: PENDING,
+    });
+    expect(flows.startDeviceFlow).toHaveBeenCalledWith(config, 'ws-1', transport);
+  });
+
+  it('start needs no browser — a headless host runs it', async () => {
+    flows.startDeviceFlow.mockResolvedValueOnce(PENDING);
+    await expect(makeRpc(null).dispatch('oauthDeviceStart', { config: CONFIG })).resolves.toMatchObject({
+      success: true,
+    });
+  });
+
+  it('a step-tagged start failure answers success:false', async () => {
+    flows.startDeviceFlow.mockRejectedValueOnce(new OAuth2FlowError('device_authorization', 'invalid_client'));
+    await expect(makeRpc().dispatch('oauthDeviceStart', { config: CONFIG })).resolves.toEqual({
+      success: false,
+      error: 'device_authorization: invalid_client',
+    });
+  });
+
+  it('status answers the registry state, null without a credentialRef', async () => {
+    flows.getDeviceFlowState.mockReturnValueOnce(PENDING);
+    await expect(makeRpc().dispatch('oauthDeviceStatus', { credentialRef: 'cred-1', workspaceId: 'ws-1' })).resolves.toEqual(
+      { state: PENDING },
+    );
+    expect(flows.getDeviceFlowState).toHaveBeenCalledWith('cred-1', 'ws-1');
+    await expect(makeRpc().dispatch('oauthDeviceStatus', {})).resolves.toEqual({ state: null });
+  });
+
+  it('cancel reports whether a flow was there', async () => {
+    flows.cancelDeviceFlow.mockReturnValueOnce(true);
+    await expect(makeRpc().dispatch('oauthDeviceCancel', { credentialRef: 'cred-1' })).resolves.toEqual({
+      success: true,
+      cancelled: true,
+    });
+    expect(flows.cancelDeviceFlow).toHaveBeenCalledWith('cred-1', undefined);
+    await expect(makeRpc().dispatch('oauthDeviceCancel', {})).resolves.toEqual({ success: false, cancelled: false });
   });
 });

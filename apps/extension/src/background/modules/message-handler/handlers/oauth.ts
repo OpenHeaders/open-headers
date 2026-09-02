@@ -9,6 +9,12 @@
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { deleteTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import {
+  cancelDeviceFlow,
+  getDeviceFlowState,
+  startDeviceFlow,
+} from '@openheaders/oracle/live/request-exec/oauth-device';
+import { browserRequestTransport } from '../../net/browser-request-transport';
+import {
   getOAuthRedirectUri,
   launchAuthorizationCodeFlow,
   OAuth2FlowError,
@@ -51,6 +57,33 @@ export const oauthHandlers: HandlerMap = {
     performJwtBearerFlow(message.config as OAuth2Auth, workspaceIdOf(message))
       .then((bundle) => respond({ success: true, bundle }))
       .catch((err: Error) => respond({ success: false, error: flowError(err) }));
+    return true;
+  },
+
+  // The device grant is the oracle's host-neutral runner over the
+  // browser transport — no SW twin: the poll's timer and its fetches
+  // live in the SW, the transitions reach the surfaces on the
+  // `oauthDeviceState` broadcast the bootstrap wires.
+  oauthDeviceStart: ({ message, respond }) => {
+    startDeviceFlow(message.config as OAuth2Auth, workspaceIdOf(message), browserRequestTransport)
+      .then((state) => respond({ success: true, state }))
+      .catch((err: Error) => respond({ success: false, error: flowError(err) }));
+    return true;
+  },
+
+  oauthDeviceStatus: ({ message, respond }) => {
+    const credentialRef = message.credentialRef as string;
+    respond({ state: credentialRef ? getDeviceFlowState(credentialRef, workspaceIdOf(message)) : null });
+    return true;
+  },
+
+  oauthDeviceCancel: ({ message, respond }) => {
+    const credentialRef = message.credentialRef as string;
+    if (!credentialRef) {
+      respond({ success: false, cancelled: false });
+      return true;
+    }
+    respond({ success: true, cancelled: cancelDeviceFlow(credentialRef, workspaceIdOf(message)) });
     return true;
   },
 

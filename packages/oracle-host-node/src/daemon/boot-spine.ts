@@ -201,6 +201,7 @@ import { createMetricsProvider } from './metrics';
 import { createMetricsHttpHandler } from './metrics-http';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { createNmBootstrapHttpHandler } from './nm/nm-bootstrap-http';
+import { onDeviceFlowChange } from '@openheaders/oracle/live/request-exec/oauth-device';
 import { createOAuthCallbackHandler, OAUTH_CALLBACK_PATH } from './oauth-callback-http';
 import { createOAuthRpc } from './oauth-rpc';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
@@ -1160,11 +1161,21 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     resolvePeer: admission.resolvePeer,
   });
 
-  // 4c'''''. OAuth 2.0 plane — the six `oauth*` channels the shared
+  // 4c'''''. OAuth 2.0 plane — the ten `oauth*` channels the shared
   //      Authorization editor calls, over the spine's transport; the
   //      authorization-code leg opens the host's browser and collects
   //      the provider's redirect on the loopback callback route below
   //      (registered with providers as `http://127.0.0.1:<port>/oauth/callback`).
+  //      The device grant's poll lives in the oracle's registry; its
+  //      transitions fan to the local surfaces here. Host-local by
+  //      design — never a WS peer's concern.
+  onDeviceFlowChange((change) => {
+    broadcastLocal('oauthDeviceState', {
+      ...(change.workspaceId !== undefined ? { workspaceId: change.workspaceId } : {}),
+      credentialRef: change.credentialRef,
+      state: change.state,
+    });
+  });
   const oauthCallback = createOAuthCallbackHandler();
   const openExternalUrl = config.openExternalUrl;
   const oauthRpc = createOAuthRpc({

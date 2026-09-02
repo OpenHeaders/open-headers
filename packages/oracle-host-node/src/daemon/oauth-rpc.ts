@@ -1,15 +1,20 @@
 /**
- * OAuth 2.0 RPC plane — the node hosts' answer to the seven `oauth*`
+ * OAuth 2.0 RPC plane — the node hosts' answer to the ten `oauth*`
  * channels the shared Authorization editor calls (the extension SW
- * serves the same seven from `handlers/oauth.ts`): token acquisition
- * per flow, refresh, revoke, and the registered redirect URI.
+ * serves the same ten from `handlers/oauth.ts`): token acquisition
+ * per flow, the device grant's start / status / cancel, refresh,
+ * revoke, and the registered redirect URI.
  *
  * Everything but the browser hop is the oracle's host-neutral flows
  * over the spine's transport; the authorization-code leg needs a user
  * agent, so the host injects a {@link AuthorizationLauncher} — the
  * desktop opens the system browser and the loopback callback route
  * collects the redirect; a headless daemon injects none and the
- * authorize channel answers an honest refusal.
+ * authorize channel answers an honest refusal. The device grant needs
+ * no user agent on THIS host — the user approves on any device — so it
+ * is the headless daemon's one interactive authorize path; its poll
+ * lives in the oracle's registry and its transitions reach the editor
+ * on the `oauthDeviceState` broadcast the spine wires.
  *
  * Local plane only: the renderer reaches it through the spine's
  * `dispatchRpc`; WS peers do not mint tokens on this host.
@@ -17,6 +22,11 @@
 
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { deleteTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
+import {
+  cancelDeviceFlow,
+  getDeviceFlowState,
+  startDeviceFlow,
+} from '@openheaders/oracle/live/request-exec/oauth-device';
 import { OAuth2FlowError } from '@openheaders/oracle/live/request-exec/oauth-exchange';
 import {
   type AuthorizationLauncher,
@@ -33,6 +43,9 @@ export const OAUTH_RPC_CHANNELS = [
   'oauthClientCredentials',
   'oauthPasswordCredentials',
   'oauthJwtBearer',
+  'oauthDeviceStart',
+  'oauthDeviceStatus',
+  'oauthDeviceCancel',
   'oauthRefresh',
   'oauthRevoke',
   'oauthGetRedirectUri',
@@ -61,6 +74,9 @@ const flowError = (err: Error): string =>
 
 const workspaceIdOf = (message: Record<string, unknown>): string | undefined =>
   typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+
+const credentialRefOf = (message: Record<string, unknown>): string =>
+  typeof message.credentialRef === 'string' ? message.credentialRef : '';
 
 export function createOAuthRpc(options: OAuthRpcOptions): OAuthRpc {
   const { transport } = options;
@@ -97,10 +113,23 @@ export function createOAuthRpc(options: OAuthRpcOptions): OAuthRpc {
           return bundleResponse(performPasswordCredentialsFlow(config, workspaceId, transport));
         case 'oauthJwtBearer':
           return bundleResponse(performJwtBearerFlow(config, workspaceId, transport));
+        case 'oauthDeviceStart':
+          return startDeviceFlow(config, workspaceId, transport)
+            .then((state) => ({ success: true, state }))
+            .catch((err: Error) => ({ success: false, error: flowError(err) }));
+        case 'oauthDeviceStatus': {
+          const credentialRef = credentialRefOf(message);
+          return { state: credentialRef ? getDeviceFlowState(credentialRef, workspaceId) : null };
+        }
+        case 'oauthDeviceCancel': {
+          const credentialRef = credentialRefOf(message);
+          if (!credentialRef) return { success: false, cancelled: false };
+          return { success: true, cancelled: cancelDeviceFlow(credentialRef, workspaceId) };
+        }
         case 'oauthRefresh':
           return bundleResponse(performRefresh(config, workspaceId, transport));
         case 'oauthRevoke': {
-          const credentialRef = typeof message.credentialRef === 'string' ? message.credentialRef : '';
+          const credentialRef = credentialRefOf(message);
           if (!credentialRef) return { success: false, removed: false, error: 'missing credentialRef' };
           return deleteTokenBundle(credentialRef, workspaceId)
             .then((removed) => ({ success: true, removed }))

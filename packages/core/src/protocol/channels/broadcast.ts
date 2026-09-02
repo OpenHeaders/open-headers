@@ -173,8 +173,10 @@ export interface BridgeBroadcastContract {
    * — the OAuth 2.0 editor's "waiting for you to approve" feed.
    * Payload is the full state so listeners never re-query; late
    * joiners hydrate via the `oauthDeviceStatus` RPC. `null` clears.
+   * `workspaceId` is the one the start carried — absent when the flow
+   * ran against the host's active workspace.
    */
-  oauthDeviceState: { workspaceId: string; credentialRef: string; state: OAuth2DeviceState | null };
+  oauthDeviceState: { workspaceId?: string; credentialRef: string; state: OAuth2DeviceState | null };
   /**
    * Migration pull progress — ONE message for every connected surface
    * (the migration status log S5 addendum): each `PostmanPullEvent` the run
