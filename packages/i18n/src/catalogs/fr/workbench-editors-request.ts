@@ -459,6 +459,8 @@ export const workbenchEditorsRequest = {
     'Le point de terminaison d\u2019autorisation du fournisseur vers lequel le navigateur est d\u2019abord envoyé.',
   'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
     'Le point de terminaison d’autorisation d’appareil du fournisseur (RFC 8628) — renvoie le code utilisateur et l’URL de vérification que vous approuvez sur n’importe quel appareil pendant que cet hôte interroge le point de terminaison de jeton.',
+  'workbench.editors.request.auth.rowInfo.oauth2Issuer':
+    'L’identifiant de l’émetteur du fournisseur, ou son URL de métadonnées /.well-known/. Découvrir lit le document de métadonnées (RFC 8414 / OpenID Connect Discovery), remplit les lignes de points de terminaison ci-dessous et liste ce que le document dit de vos choix — rien d’autre ne change, et les lignes restent les vôtres ensuite.',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
     'Le point de terminaison de jeton du fournisseur où le code (ou les identifiants) est échangé.',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
@@ -799,6 +801,27 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.deviceFailed': 'Échec de l’autorisation d’appareil OAuth : {error}',
   'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth : autorisation d’appareil annulée',
   'workbench.editors.request.oauth.toast.codeCopied': 'Code copié',
+  'workbench.editors.request.oauth.issuerUrl': 'URL de l’émetteur',
+  'workbench.editors.request.oauth.issuerUrlPlaceholder':
+    'https://accounts.example.com — ou l’URL de métadonnées /.well-known/…',
+  'workbench.editors.request.oauth.discover': 'Découvrir',
+  'workbench.editors.request.oauth.toast.discovered': 'OAuth : points de terminaison découverts',
+  'workbench.editors.request.oauth.toast.discoveryFailed': 'Échec de la découverte : {error}',
+  'workbench.editors.request.oauth.discoveryTitle': 'Découvert depuis {url}',
+  'workbench.editors.request.oauth.discoveryFilled': 'Rempli : {rows}',
+  'workbench.editors.request.oauth.discoveryFilledNone':
+    'Le document ne nomme aucun point de terminaison — rien n’a été rempli',
+  'workbench.editors.request.oauth.discoveryListed': '{pick} figure dans la liste du fournisseur',
+  'workbench.editors.request.oauth.discoveryUnlisted':
+    '{pick} ne figure pas dans la liste — le fournisseur annonce {supported}',
+  'workbench.editors.request.oauth.discoveryPickClientAuth': 'L’authentification client {value}',
+  'workbench.editors.request.oauth.discoveryPickGrant': 'Le grant {value}',
+  'workbench.editors.request.oauth.discoveryPickPkce': 'PKCE {value}',
+  'workbench.editors.request.oauth.discoveryPickDpop': 'L’algorithme DPoP {value}',
+  'workbench.editors.request.oauth.discoveryPickAssertionAlg': 'L’algorithme d’assertion {value}',
+  'workbench.editors.request.oauth.discoveryAudience':
+    'L’identifiant de l’émetteur est {issuer} — certains fournisseurs l’attendent comme Audience de l’assertion à la place de l’URL du jeton d’accès',
+  'workbench.editors.request.oauth.discoveryScopes': 'Scopes proposés : {supported} — suggérés dans la ligne Scope',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': "Cette requête n'a pas de corps",

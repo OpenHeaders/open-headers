@@ -12,7 +12,10 @@
  *     polls; the block follows the `oauthDeviceState` feed and the
  *     grant lands through the bundle subscription like every flow.
  *   • Grant — the form for running a fresh authorize flow: Token Name
- *     + Grant Type + Callback URL + Auth URL + Device Authorization URL
+ *     + Grant Type + Callback URL + Issuer URL with its Discover action
+ *     (the provider's metadata document fills the endpoint rows below
+ *     it and what it says about the picks reads beneath — RFC 8414 /
+ *     OpenID Connect Discovery) + Auth URL + Device Authorization URL
  *     (the device grant) + Access Token URL + Client ID + Client Secret
  *     + PKCE Code Challenge Method / Verifier (when the grant is PKCE)
  *     + the JWT bearer grant's own claims (issuer / subject /
@@ -36,18 +39,25 @@ import { ASAP_ALGORITHMS } from '@openheaders/core/auth-signing';
 import {
   ASSERTION_DEFAULT_LIFETIME_SECONDS,
   ASSERTION_MAX_LIFETIME_SECONDS,
+  applyDiscoveredMetadata,
   boundDpopKeyOf,
   CLIENT_SECRET_JWT_ALGORITHMS,
   canRenewSilently,
   DPOP_DEFAULT_ALGORITHM,
   deviceVerificationUrl,
+  discoveryFacts,
+  hasUnlistedPick,
   isExpired,
   type OAuth2DeviceState,
+  type OAuth2DiscoveredField,
+  type OAuth2DiscoveryFact,
+  type OAuth2ServerMetadata,
   secondsUntilExpiry,
   usesClientAssertion,
   usesDpop,
 } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, App, Button, Checkbox, Input, InputNumber, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -103,6 +113,21 @@ interface OAuth2AuthEditorProps {
   onChange: (auth: OAuth2Auth) => void;
 }
 
+/** The last Discover answer for this editor — the document it read
+ *  (the facts re-derive from it as the picks change), where it came
+ *  from, and which rows it wrote. Transient: nothing here persists. */
+interface DiscoveryOutcome {
+  url: string;
+  filled: OAuth2DiscoveredField[];
+  metadata: OAuth2ServerMetadata;
+}
+
+const DISCOVERED_ROW_LABEL: Record<OAuth2DiscoveredField, MessageKey> = {
+  authorizationEndpoint: 'workbench.editors.request.oauth.authUrl',
+  deviceAuthorizationEndpoint: 'workbench.editors.request.oauth.deviceAuthUrl',
+  tokenEndpoint: 'workbench.editors.request.oauth.accessTokenUrl',
+};
+
 const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -110,6 +135,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
   const {
     tokens,
     redirectUri,
+    discover,
     authorize,
     clientCredentials,
     passwordCredentials,
@@ -120,7 +146,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     refresh,
     revoke,
   } = useOAuthBundlesContext();
-  const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke'>(null);
+  const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke' | 'discover'>(null);
 
   const bundle = tokens[auth.credentialRef] ?? null;
   const expired = bundle ? isExpired(bundle) : false;
@@ -203,6 +229,65 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
       ),
     };
   };
+
+  // ── Issuer discovery (RFC 8414 / OpenID Connect Discovery) ─────
+  // The host reads the document; the fill is the core rule (the
+  // endpoints the document carries, the issuer recorded, nothing else
+  // moves) and the facts read live against the current picks. A
+  // different credential starts without an outcome.
+  const [discovery, setDiscovery] = useState<DiscoveryOutcome | null>(null);
+  useEffect(() => setDiscovery(null), [auth.credentialRef]);
+  const facts = useMemo<OAuth2DiscoveryFact[]>(
+    () => (discovery === null ? [] : discoveryFacts(auth, discovery.metadata)),
+    [auth, discovery],
+  );
+  const scopeOptions = useMemo(
+    () => discovery?.metadata.scopesSupported?.map((scope) => ({ value: scope, label: scope })),
+    [discovery],
+  );
+  const handleDiscover = async () => {
+    const input = auth.issuer?.trim() ?? '';
+    if (!input) return;
+    setBusy('discover');
+    try {
+      const res = await discover(input);
+      if (!res.success || res.metadata === undefined) {
+        message.error(t('workbench.editors.request.oauth.toast.discoveryFailed', { error: res.error ?? '' }));
+        return;
+      }
+      const { config, filled } = applyDiscoveredMetadata(auth, res.metadata);
+      onChange(config);
+      setDiscovery({ url: res.url ?? input, filled, metadata: res.metadata });
+      message.success(t('workbench.editors.request.oauth.toast.discovered'));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const factLine = (fact: OAuth2DiscoveryFact): string => {
+    switch (fact.kind) {
+      case 'audience':
+        return t('workbench.editors.request.oauth.discoveryAudience', { issuer: fact.issuer });
+      case 'scopes':
+        return t('workbench.editors.request.oauth.discoveryScopes', { supported: fact.supported.join(', ') });
+      default: {
+        const pick = t(DISCOVERY_PICK_KEY[fact.kind], { value: pickValueOf(fact) });
+        return fact.listed
+          ? t('workbench.editors.request.oauth.discoveryListed', { pick })
+          : t('workbench.editors.request.oauth.discoveryUnlisted', { pick, supported: fact.supported.join(', ') });
+      }
+    }
+  };
+  const discoveryLines: string[] =
+    discovery === null
+      ? []
+      : [
+          discovery.filled.length === 0
+            ? t('workbench.editors.request.oauth.discoveryFilledNone')
+            : t('workbench.editors.request.oauth.discoveryFilled', {
+                rows: discovery.filled.map((field) => t(DISCOVERED_ROW_LABEL[field])).join(', '),
+              }),
+          ...facts.map(factLine),
+        ];
 
   // ── Grant type swap ─────────────────────────────────────────────
   const onGrantChange = (id: GrantTypeId) => {
@@ -535,6 +620,46 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           </>
         )}
 
+        <LabeledRow label={t('workbench.editors.request.oauth.issuerUrl')} info={info('oauth2Issuer')}>
+          <div style={{ display: 'flex', gap: 8, maxWidth: FIELD_DEFAULT_MAX_WIDTH }}>
+            <Input
+              size="small"
+              style={{ flex: 1, minWidth: 0 }}
+              data-testid="oh-oauth2-issuer"
+              placeholder={t('workbench.editors.request.oauth.issuerUrlPlaceholder')}
+              value={auth.issuer ?? ''}
+              onChange={(e) => onChange({ ...auth, issuer: e.target.value || undefined })}
+              onPressEnter={() => void handleDiscover()}
+            />
+            <Button
+              size="small"
+              data-testid="oh-oauth2-discover"
+              onClick={() => void handleDiscover()}
+              loading={busy === 'discover'}
+              disabled={busy !== null || !auth.issuer?.trim()}
+            >
+              {t('workbench.editors.request.oauth.discover')}
+            </Button>
+          </div>
+        </LabeledRow>
+        {discovery !== null && (
+          <div style={{ marginLeft: AUTH_LABEL_WIDTH + 12, maxWidth: FIELD_DEFAULT_MAX_WIDTH }}>
+            <Alert
+              type={hasUnlistedPick(facts) ? 'warning' : 'info'}
+              showIcon
+              data-testid="oh-oauth2-discovery-facts"
+              title={t('workbench.editors.request.oauth.discoveryTitle', { url: discovery.url })}
+              description={
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12 }}>
+                  {discoveryLines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              }
+            />
+          </div>
+        )}
+
         {grantType.fields.authUrl && (
           <LabeledRow label={t('workbench.editors.request.oauth.authUrl')} info={info('oauth2AuthUrl')}>
             <Input
@@ -694,6 +819,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
               size="small"
               style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
               tokenSeparators={[' ', ',']}
+              options={scopeOptions}
               value={auth.scopes}
               onChange={(scopes: string[]) => onChange({ ...auth, scopes })}
               placeholder={t('workbench.editors.request.oauth.scopePlaceholder')}
@@ -998,6 +1124,34 @@ const ParamsBlock: React.FC<{
     </div>
   );
 };
+
+/** The per-kind label of a pick the document lists or omits. */
+const DISCOVERY_PICK_KEY: Record<
+  Exclude<OAuth2DiscoveryFact['kind'], 'audience' | 'scopes'>,
+  MessageKey
+> = {
+  'client-authentication': 'workbench.editors.request.oauth.discoveryPickClientAuth',
+  'grant-type': 'workbench.editors.request.oauth.discoveryPickGrant',
+  pkce: 'workbench.editors.request.oauth.discoveryPickPkce',
+  'dpop-algorithm': 'workbench.editors.request.oauth.discoveryPickDpop',
+  'assertion-algorithm': 'workbench.editors.request.oauth.discoveryPickAssertionAlg',
+};
+
+function pickValueOf(fact: OAuth2DiscoveryFact): string {
+  switch (fact.kind) {
+    case 'client-authentication':
+      return fact.method;
+    case 'grant-type':
+      return fact.grantType;
+    case 'pkce':
+      return 'S256';
+    case 'dpop-algorithm':
+    case 'assertion-algorithm':
+      return fact.algorithm;
+    default:
+      return '';
+  }
+}
 
 /** The host the user approves on — the verification URI's host, or the
  *  URI itself when it does not parse. */

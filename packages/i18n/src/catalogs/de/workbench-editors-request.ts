@@ -469,6 +469,8 @@ export const workbenchEditorsRequest = {
     'Der Autorisierungs-Endpunkt des Anbieters, an den der Browser zuerst geschickt wird.',
   'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
     'Der Geräteautorisierungs-Endpunkt des Anbieters (RFC 8628) — liefert den Benutzercode und die Verifizierungs-URL, die Sie auf einem beliebigen Gerät freigeben, während dieser Host den Token-Endpunkt abfragt.',
+  'workbench.editors.request.auth.rowInfo.oauth2Issuer':
+    'Die Issuer-Kennung des Anbieters oder seine /.well-known/-Metadaten-URL. Ermitteln liest das Metadaten-Dokument (RFC 8414 / OpenID Connect Discovery), füllt die Endpunkt-Zeilen darunter aus und listet auf, was das Dokument zu Ihren Einstellungen sagt — sonst ändert sich nichts, und die Zeilen bleiben danach Ihre.',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
     'Der Token-Endpunkt des Anbieters, an dem der Code (oder die Zugangsdaten) getauscht wird.',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
@@ -805,6 +807,27 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.deviceFailed': 'OAuth-Geräteautorisierung fehlgeschlagen: {error}',
   'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth: Geräteautorisierung abgebrochen',
   'workbench.editors.request.oauth.toast.codeCopied': 'Code kopiert',
+  'workbench.editors.request.oauth.issuerUrl': 'Issuer-URL',
+  'workbench.editors.request.oauth.issuerUrlPlaceholder':
+    'https://accounts.example.com — oder die /.well-known/…-Metadaten-URL',
+  'workbench.editors.request.oauth.discover': 'Ermitteln',
+  'workbench.editors.request.oauth.toast.discovered': 'OAuth: Endpunkte ermittelt',
+  'workbench.editors.request.oauth.toast.discoveryFailed': 'Ermittlung fehlgeschlagen: {error}',
+  'workbench.editors.request.oauth.discoveryTitle': 'Ermittelt von {url}',
+  'workbench.editors.request.oauth.discoveryFilled': 'Ausgefüllt: {rows}',
+  'workbench.editors.request.oauth.discoveryFilledNone': 'Das Dokument nennt keinen Endpunkt — nichts ausgefüllt',
+  'workbench.editors.request.oauth.discoveryListed': '{pick} steht in der Liste des Anbieters',
+  'workbench.editors.request.oauth.discoveryUnlisted':
+    '{pick} steht nicht in der Liste — der Anbieter nennt {supported}',
+  'workbench.editors.request.oauth.discoveryPickClientAuth': 'Die Client-Authentifizierung {value}',
+  'workbench.editors.request.oauth.discoveryPickGrant': 'Der Grant {value}',
+  'workbench.editors.request.oauth.discoveryPickPkce': 'PKCE {value}',
+  'workbench.editors.request.oauth.discoveryPickDpop': 'Der DPoP-Algorithmus {value}',
+  'workbench.editors.request.oauth.discoveryPickAssertionAlg': 'Der Assertion-Algorithmus {value}',
+  'workbench.editors.request.oauth.discoveryAudience':
+    'Die Issuer-Kennung ist {issuer} — manche Anbieter erwarten sie als Audience der Assertion statt der Access-Token-URL',
+  'workbench.editors.request.oauth.discoveryScopes':
+    'Angebotene Scopes: {supported} — in der Zeile Scope vorgeschlagen',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': 'Diese Anfrage hat keinen Body',

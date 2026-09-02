@@ -1113,6 +1113,126 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
   const litTexts = (popover: Element): string[] =>
     Array.from(popover.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent ?? '');
   const closePopover = () => fireEvent.keyDown(document.body, { key: 'Escape' });
+  const bundles = (overrides: Partial<OAuthBundlesContextValue>): OAuthBundlesContextValue => ({
+    tokens: {},
+    isReady: true,
+    redirectUri: null,
+    discover: vi.fn(),
+    authorize: vi.fn(),
+    clientCredentials: vi.fn(),
+    passwordCredentials: vi.fn(),
+    jwtBearer: vi.fn(),
+    deviceStart: vi.fn(),
+    deviceCancel: vi.fn(),
+    deviceStates: {},
+    refresh: vi.fn(),
+    revoke: vi.fn(),
+    ...overrides,
+  });
+  const ISSUER = 'https://idp.openheaders.io';
+  const METADATA = {
+    issuer: ISSUER,
+    authorizationEndpoint: `${ISSUER}/authorize`,
+    tokenEndpoint: `${ISSUER}/token`,
+    deviceAuthorizationEndpoint: `${ISSUER}/device`,
+    scopesSupported: ['openid', 'email'],
+    grantTypesSupported: ['authorization_code', 'client_credentials'],
+    tokenEndpointAuthMethodsSupported: ['client_secret_basic'],
+    codeChallengeMethodsSupported: ['S256'],
+  };
+  const DISCOVERY_URL = `${ISSUER}/.well-known/openid-configuration`;
+  const factLines = () =>
+    Array.from(screen.getByTestId('oh-oauth2-discovery-facts').querySelectorAll('li')).map((li) => li.textContent);
+
+  it('Discover fills the endpoint rows from the issuer’s metadata and lists what the document says', async () => {
+    const onChange = vi.fn();
+    const discover = vi.fn(async () => ({ success: true, metadata: METADATA, url: DISCOVERY_URL }));
+    const withIssuer: AuthConfig = { ...oauth2, issuer: ISSUER };
+    render(
+      <App>
+        <OAuthBundlesContext.Provider value={bundles({ discover })}>
+          <AuthorizationTab auth={withIssuer} onChange={onChange} />
+        </OAuthBundlesContext.Provider>
+      </App>,
+    );
+    expect((screen.getByTestId('oh-oauth2-issuer') as HTMLInputElement).value).toBe(ISSUER);
+    fireEvent.click(screen.getByTestId('oh-oauth2-discover'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(discover).toHaveBeenCalledWith(ISSUER);
+    expect(onChange).toHaveBeenCalledWith({
+      ...withIssuer,
+      authorizationEndpoint: `${ISSUER}/authorize`,
+      deviceAuthorizationEndpoint: `${ISSUER}/device`,
+      tokenEndpoint: `${ISSUER}/token`,
+    });
+    const facts = screen.getByTestId('oh-oauth2-discovery-facts');
+    expect(facts.className).toContain('ant-alert-info');
+    expect(facts.textContent).toContain(`Discovered from ${DISCOVERY_URL}`);
+    expect(factLines()).toEqual([
+      'Filled Auth URL, Device Authorization URL, Access Token URL',
+      'Grant authorization_code is listed by the provider',
+      'PKCE S256 is listed by the provider',
+      'Scopes offered: openid, email — suggested in the Scope row',
+    ]);
+    expect(await screen.findByText('OAuth: endpoints discovered')).toBeTruthy();
+  });
+
+  it('a pick the document does not list reads as a warning fact — nothing is rewritten', async () => {
+    const onChange = vi.fn();
+    const discover = vi.fn(async () => ({ success: true, metadata: METADATA, url: DISCOVERY_URL }));
+    const secret: AuthConfig = { ...oauth2, issuer: ISSUER, flow: 'client-credentials', clientSecret: 's3cret' };
+    render(
+      <App>
+        <OAuthBundlesContext.Provider value={bundles({ discover })}>
+          <AuthorizationTab auth={secret} onChange={onChange} />
+        </OAuthBundlesContext.Provider>
+      </App>,
+    );
+    fireEvent.click(screen.getByTestId('oh-oauth2-discover'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange.mock.calls[0][0]).toMatchObject({ flow: 'client-credentials', clientSecret: 's3cret' });
+    expect(onChange.mock.calls[0][0].clientAuthentication).toBeUndefined();
+    const facts = screen.getByTestId('oh-oauth2-discovery-facts');
+    expect(facts.className).toContain('ant-alert-warning');
+    expect(factLines()).toEqual([
+      'Filled Auth URL, Device Authorization URL, Access Token URL',
+      'Client authentication client_secret_post is not listed — the provider lists client_secret_basic',
+      'Grant client_credentials is listed by the provider',
+      'Scopes offered: openid, email — suggested in the Scope row',
+    ]);
+  });
+
+  it('a refused discovery toasts the step-tagged error and fills nothing', async () => {
+    const onChange = vi.fn();
+    const discover = vi.fn(async () => ({
+      success: false,
+      error: 'discovery: the metadata document names issuer "https://other.openheaders.io"',
+    }));
+    render(
+      <App>
+        <OAuthBundlesContext.Provider value={bundles({ discover })}>
+          <AuthorizationTab auth={{ ...oauth2, issuer: ISSUER }} onChange={onChange} />
+        </OAuthBundlesContext.Provider>
+      </App>,
+    );
+    fireEvent.click(screen.getByTestId('oh-oauth2-discover'));
+    expect(
+      await screen.findByText(
+        'Discovery failed: discovery: the metadata document names issuer "https://other.openheaders.io"',
+      ),
+    ).toBeTruthy();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('oh-oauth2-discovery-facts')).toBeNull();
+  });
+
+  it('Discover parks without an issuer and the Issuer URL (i) lights the two endpoints it fills', () => {
+    renderTab(oauth2);
+    expect((screen.getByTestId('oh-oauth2-discover') as HTMLButtonElement).disabled).toBe(true);
+    const popover = openPopover('About Issuer URL');
+    expect(popover.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Grant');
+    expect(litTexts(popover).length).toBeGreaterThan(0);
+    closePopover();
+  });
 
   it('reads as Token · Grant · Advanced, Advanced folded by default over the refresh rows', () => {
     renderTab(oauth2);
@@ -1350,6 +1470,7 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
       tokens: {},
       isReady: true,
       redirectUri: null,
+      discover: vi.fn(),
       authorize: vi.fn(),
       clientCredentials: vi.fn(),
       passwordCredentials: vi.fn(),

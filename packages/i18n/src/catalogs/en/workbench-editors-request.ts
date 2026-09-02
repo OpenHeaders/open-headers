@@ -411,6 +411,8 @@ export const workbenchEditorsRequest = {
     'The provider\u2019s authorization endpoint the browser is sent to first.',
   'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
     'The provider’s device authorization endpoint (RFC 8628) — answers the user code and the verification URL you approve on any device while this host polls the token endpoint.',
+  'workbench.editors.request.auth.rowInfo.oauth2Issuer':
+    'The provider’s issuer identifier, or its /.well-known/ metadata URL. Discover reads the metadata document (RFC 8414 / OpenID Connect Discovery), fills the endpoint rows below and lists what the document says about your picks — nothing else changes, and the rows stay yours afterwards.',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
     'The provider\u2019s token endpoint the code (or the credentials) is exchanged at.',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
@@ -737,6 +739,25 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.deviceFailed': 'OAuth device authorization failed: {error}',
   'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth: device authorization cancelled',
   'workbench.editors.request.oauth.toast.codeCopied': 'Code copied',
+  'workbench.editors.request.oauth.issuerUrl': 'Issuer URL',
+  'workbench.editors.request.oauth.issuerUrlPlaceholder':
+    'https://accounts.example.com — or the /.well-known/… metadata URL',
+  'workbench.editors.request.oauth.discover': 'Discover',
+  'workbench.editors.request.oauth.toast.discovered': 'OAuth: endpoints discovered',
+  'workbench.editors.request.oauth.toast.discoveryFailed': 'Discovery failed: {error}',
+  'workbench.editors.request.oauth.discoveryTitle': 'Discovered from {url}',
+  'workbench.editors.request.oauth.discoveryFilled': 'Filled {rows}',
+  'workbench.editors.request.oauth.discoveryFilledNone': 'The document names no endpoint — nothing filled',
+  'workbench.editors.request.oauth.discoveryListed': '{pick} is listed by the provider',
+  'workbench.editors.request.oauth.discoveryUnlisted': '{pick} is not listed — the provider lists {supported}',
+  'workbench.editors.request.oauth.discoveryPickClientAuth': 'Client authentication {value}',
+  'workbench.editors.request.oauth.discoveryPickGrant': 'Grant {value}',
+  'workbench.editors.request.oauth.discoveryPickPkce': 'PKCE {value}',
+  'workbench.editors.request.oauth.discoveryPickDpop': 'DPoP algorithm {value}',
+  'workbench.editors.request.oauth.discoveryPickAssertionAlg': 'Assertion algorithm {value}',
+  'workbench.editors.request.oauth.discoveryAudience':
+    'The issuer identifier is {issuer} — some providers want it as the assertion Audience instead of the Access Token URL',
+  'workbench.editors.request.oauth.discoveryScopes': 'Scopes offered: {supported} — suggested in the Scope row',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': 'This request does not have a body',

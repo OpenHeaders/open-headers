@@ -385,6 +385,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl': '浏览器首先被送往的提供方授权端点。',
   'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
     '提供方的设备授权端点（RFC 8628）——返回用户代码和验证 URL，您可在任意设备上批准，同时此主机轮询令牌端点。',
+  'workbench.editors.request.auth.rowInfo.oauth2Issuer':
+    '提供方的颁发者标识，或其 /.well-known/ 元数据 URL。“发现”会读取元数据文档（RFC 8414 / OpenID Connect Discovery），填充下方的端点行，并列出文档对你所选项的说明 — 其他内容不变，之后这些行仍由你掌控。',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl': '用授权码（或凭据）交换令牌的提供方令牌端点。',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
     '资源所有者的用户名，放在令牌请求正文中发送 \u2014 仅密码授权。',
@@ -694,6 +696,23 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.deviceFailed': 'OAuth 设备授权失败：{error}',
   'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth：设备授权已取消',
   'workbench.editors.request.oauth.toast.codeCopied': '代码已复制',
+  'workbench.editors.request.oauth.issuerUrl': '颁发者 URL',
+  'workbench.editors.request.oauth.issuerUrlPlaceholder': 'https://accounts.example.com — 或 /.well-known/… 元数据 URL',
+  'workbench.editors.request.oauth.discover': '发现',
+  'workbench.editors.request.oauth.toast.discovered': 'OAuth：已发现端点',
+  'workbench.editors.request.oauth.toast.discoveryFailed': '发现失败：{error}',
+  'workbench.editors.request.oauth.discoveryTitle': '发现自 {url}',
+  'workbench.editors.request.oauth.discoveryFilled': '已填充 {rows}',
+  'workbench.editors.request.oauth.discoveryFilledNone': '文档未声明任何端点 — 未填充',
+  'workbench.editors.request.oauth.discoveryListed': '{pick} 在提供方的列表中',
+  'workbench.editors.request.oauth.discoveryUnlisted': '{pick} 不在列表中 — 提供方列出 {supported}',
+  'workbench.editors.request.oauth.discoveryPickClientAuth': '客户端身份验证 {value}',
+  'workbench.editors.request.oauth.discoveryPickGrant': '授权类型 {value}',
+  'workbench.editors.request.oauth.discoveryPickPkce': 'PKCE {value}',
+  'workbench.editors.request.oauth.discoveryPickDpop': 'DPoP 算法 {value}',
+  'workbench.editors.request.oauth.discoveryPickAssertionAlg': '断言算法 {value}',
+  'workbench.editors.request.oauth.discoveryAudience': '颁发者标识为 {issuer} — 部分提供方要求以它作为断言 Audience，而不是访问令牌 URL',
+  'workbench.editors.request.oauth.discoveryScopes': '提供的 Scope：{supported} — 已在 Scope 行中建议',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': '此请求没有正文',

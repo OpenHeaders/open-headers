@@ -452,6 +452,8 @@ export const workbenchEditorsRequest = {
     'El endpoint de autorización del proveedor al que se envía primero el navegador.',
   'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
     'El endpoint de autorización de dispositivo del proveedor (RFC 8628): devuelve el código de usuario y la URL de verificación que apruebas en cualquier dispositivo mientras este host sondea el endpoint de token.',
+  'workbench.editors.request.auth.rowInfo.oauth2Issuer':
+    'El identificador del emisor del proveedor, o su URL de metadatos /.well-known/. Descubrir lee el documento de metadatos (RFC 8414 / OpenID Connect Discovery), rellena las filas de endpoints de abajo y lista lo que el documento dice de tus elecciones — nada más cambia, y las filas siguen siendo tuyas después.',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
     'El endpoint de token del proveedor donde se intercambia el código (o las credenciales).',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
@@ -788,6 +790,26 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.deviceFailed': 'Error en la autorización de dispositivo OAuth: {error}',
   'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth: autorización de dispositivo cancelada',
   'workbench.editors.request.oauth.toast.codeCopied': 'Código copiado',
+  'workbench.editors.request.oauth.issuerUrl': 'URL del emisor',
+  'workbench.editors.request.oauth.issuerUrlPlaceholder':
+    'https://accounts.example.com — o la URL de metadatos /.well-known/…',
+  'workbench.editors.request.oauth.discover': 'Descubrir',
+  'workbench.editors.request.oauth.toast.discovered': 'OAuth: endpoints descubiertos',
+  'workbench.editors.request.oauth.toast.discoveryFailed': 'Fallo en el descubrimiento: {error}',
+  'workbench.editors.request.oauth.discoveryTitle': 'Descubierto desde {url}',
+  'workbench.editors.request.oauth.discoveryFilled': 'Rellenado: {rows}',
+  'workbench.editors.request.oauth.discoveryFilledNone': 'El documento no nombra ningún endpoint — nada rellenado',
+  'workbench.editors.request.oauth.discoveryListed': '{pick} figura en la lista del proveedor',
+  'workbench.editors.request.oauth.discoveryUnlisted':
+    '{pick} no figura en la lista — el proveedor anuncia {supported}',
+  'workbench.editors.request.oauth.discoveryPickClientAuth': 'La autenticación de cliente {value}',
+  'workbench.editors.request.oauth.discoveryPickGrant': 'El grant {value}',
+  'workbench.editors.request.oauth.discoveryPickPkce': 'PKCE {value}',
+  'workbench.editors.request.oauth.discoveryPickDpop': 'El algoritmo DPoP {value}',
+  'workbench.editors.request.oauth.discoveryPickAssertionAlg': 'El algoritmo de la aserción {value}',
+  'workbench.editors.request.oauth.discoveryAudience':
+    'El identificador del emisor es {issuer} — algunos proveedores lo esperan como Audience de la aserción en lugar de la URL del token de acceso',
+  'workbench.editors.request.oauth.discoveryScopes': 'Scopes ofrecidos: {supported} — sugeridos en la fila Scope',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': 'Esta solicitud no tiene cuerpo',

@@ -114,6 +114,7 @@ export type AuthInfoKey =
   | 'oauth2TokenName'
   | 'oauth2GrantType'
   | 'oauth2CallbackUrl'
+  | 'oauth2Issuer'
   | 'oauth2AuthUrl'
   | 'oauth2DeviceAuthUrl'
   | 'oauth2AccessTokenUrl'
@@ -818,6 +819,7 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   oauth2TokenName: [],
   oauth2GrantType: ['grantType'],
   oauth2CallbackUrl: ['callback'],
+  oauth2Issuer: ['authorize', 'tokenEndpoint'],
   oauth2AuthUrl: ['authorize'],
   oauth2DeviceAuthUrl: ['deviceEndpoint', 'userCode'],
   oauth2AccessTokenUrl: ['tokenEndpoint'],
@@ -947,6 +949,7 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
       'oauth2TokenName',
       'oauth2GrantType',
       'oauth2CallbackUrl',
+      'oauth2Issuer',
       'oauth2AuthUrl',
       'oauth2DeviceAuthUrl',
       'oauth2AccessTokenUrl',
@@ -1058,6 +1061,7 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   oauth2TokenName: 'workbench.editors.request.oauth.tokenName',
   oauth2GrantType: 'workbench.editors.request.oauth.grantType',
   oauth2CallbackUrl: 'workbench.editors.request.oauth.callbackUrl',
+  oauth2Issuer: 'workbench.editors.request.oauth.issuerUrl',
   oauth2AuthUrl: 'workbench.editors.request.oauth.authUrl',
   oauth2DeviceAuthUrl: 'workbench.editors.request.oauth.deviceAuthUrl',
   oauth2AccessTokenUrl: 'workbench.editors.request.oauth.accessTokenUrl',
@@ -1163,6 +1167,7 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   oauth2TokenName: 'workbench.editors.request.auth.rowInfo.oauth2TokenName',
   oauth2GrantType: 'workbench.editors.request.auth.rowInfo.oauth2GrantType',
   oauth2CallbackUrl: 'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl',
+  oauth2Issuer: 'workbench.editors.request.auth.rowInfo.oauth2Issuer',
   oauth2AuthUrl: 'workbench.editors.request.auth.rowInfo.oauth2AuthUrl',
   oauth2DeviceAuthUrl: 'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl',
   oauth2AccessTokenUrl: 'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl',
