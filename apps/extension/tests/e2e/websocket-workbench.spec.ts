@@ -56,6 +56,9 @@
  *       cannot carry the header, so the notice names the credential's
  *       handshake header and the greeting mirrors an empty
  *       authorization — never a silent drop.
+ *   B13 the request's OWN credential (the own offer is the mask): a
+ *       JWT Bearer defined on the request in query mode mints at the
+ *       dial and rides the handshake URL in-page, no notice.
  *   B10 session credential + Events listen filter (Phase G): a bearer
  *       token configured on the socketio flavor rides the CONNECT
  *       packet's auth payload IN the page realm (the probe greeting
@@ -778,6 +781,47 @@ test('B12 — an inherited OAuth 2.0 header credential is named in the honesty n
     .filter({ hasText: '"authorization":""' })
     .first()
     .waitFor({ state: 'visible', timeout: 15_000 });
+
+  await disconnectAndAwaitClose();
+});
+
+test('B13 — an own query-mode JWT defined on the request rides the handshake URL in-page, no honesty notice', async () => {
+  // The request defines the credential itself — the session tabs offer
+  // every type the WebSocket mask carries; the shared JWT form's Add-to
+  // moves it onto the dial URL's token parameter.
+  await page.getByRole('tab', { name: 'Authorization', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('ws-auth-type').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'JWT Bearer' })
+    .first()
+    .click();
+  await workbench.fillTemplateInput('secret', 'oh-own-page-jwt-secret');
+  await page.getByTestId('oh-auth-jwt-payload').filter({ visible: true }).first().fill('{"sub":"own-page"}');
+  await page.getByTestId('oh-auth-jwt-add-to').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: 'Query Params' })
+    .first()
+    .click();
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+
+  // The greeting mirrors the request-target the probe saw — the own
+  // JWT minted at the dial rode the URL's token parameter; nothing
+  // header-borne was configured, so no notice.
+  await timelineMessageRows()
+    .filter({ hasText: '"url":"/net/ws-probe?token=eyJ' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+  await expect(page.getByTestId('ws-host-knob-notice').filter({ visible: true })).toHaveCount(0);
 
   await disconnectAndAwaitClose();
 });
