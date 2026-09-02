@@ -145,6 +145,11 @@ export const workbenchEditorsWebsocket = {
     'Plafond horloge sur le handshake de connexion seulement — une session ouverte n’a pas de plafond. Vide ' +
     'ne fixe aucun délai.',
   'workbench.editors.websocket.settings.timeoutPlaceholder': 'Aucune limite (défaut)',
+  'workbench.editors.websocket.settings.handshakePathLabel': 'Chemin du handshake',
+  'workbench.editors.websocket.settings.handshakePathHelp':
+    'Le chemin serveur composé par le handshake engine.io — le point de montage Socket.IO, pas l’espace de noms. Vide compose le /socket.io/ standard. Les sessions composent directement le transport websocket ; il n’y a pas de repli en long-polling.',
+  'workbench.editors.websocket.settings.handshakePathPlaceholder': '/socket.io/ (par défaut)',
+  'workbench.editors.websocket.settings.handshakePathExample': 'ex. /net/sio-probe',
   'workbench.editors.websocket.settings.namespaceLabel': 'Espace de noms',
   'workbench.editors.websocket.settings.namespaceHelp':
     "L'espace de noms auquel la session se connecte — vide, elle se connecte à la racine /. Les sessions " +
@@ -283,6 +288,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.sortOrder': 'Ordre de tri',
   'workbench.editors.websocket.timeline.groupByDirection': 'Grouper par direction',
   'workbench.editors.websocket.timeline.groupByEvent': 'Grouper par événement',
+  'workbench.editors.websocket.timeline.hideHeartbeat': 'Masquer le battement de cœur (ping / pong)',
+  'workbench.editors.websocket.timeline.hideHandshake': 'Masquer les trames de handshake (open / connect)',
   'workbench.editors.websocket.timeline.rowsPerGroup': 'Lignes par groupe',
   'workbench.editors.websocket.timeline.noLimit': 'Sans limite',
   'workbench.editors.websocket.timeline.clearMessages': 'Effacer les messages',

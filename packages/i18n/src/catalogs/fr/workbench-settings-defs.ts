@@ -613,6 +613,12 @@ export const workbenchSettingsDefs = {
     'direction, chaque paire (événement, direction) obtient son propre groupe. Ne concerne que les sessions ' +
     "Socket.IO — les trames WebSocket brutes ne portent pas de noms d'événements. La barre d'outils de la " +
     'chronologie change ce même réglage.',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.label': 'Masquer le battement de cœur',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.description':
+    'Masque les lignes ping / pong de maintien de connexion engine.io dans les chronologies des sessions Socket.IO. Les trames sont toujours capturées et exportées — seul l’affichage les filtre. La barre d’outils de la chronologie modifie ce même réglage.',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.label': 'Masquer les trames de handshake',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.description':
+    'Masque les lignes de cadrage du handshake Socket.IO — open / close engine.io et la connexion à l’espace de noms avec son accusé de réception — dans les chronologies de session. Les déconnexions et les erreurs de connexion s’affichent toujours. Les trames sont toujours capturées et exportées. La barre d’outils de la chronologie modifie ce même réglage.',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Lignes par groupe',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     "En groupant par direction, n'affiche que ce nombre des messages les plus récents de chaque groupe — la " +
