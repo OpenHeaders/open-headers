@@ -23,12 +23,9 @@
 import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
-import {
-  AUTH_SUITE_OAUTH_SEEDS,
-  AUTH_TYPE_CASES,
-  buildAuthSuiteSeedEnvelope,
-} from '../../../../playground/scripts/auth-type-suite';
+import { AUTH_TYPE_CASES, buildAuthSuiteSeedEnvelope } from '../../../../playground/scripts/auth-type-suite';
 import { assertEchoAuth, type EchoAuthResponse } from './pages/echo-auth';
+import { seedOAuthSuite } from './pages/oauth-seed';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -79,11 +76,9 @@ test.beforeAll(async () => {
 
   // The oauth2 cases read the per-workspace token store — seed it once
   // through the real flows against the playground IdP (the assertion
-  // cases' bundles prove the IdP verified the signed assertion).
-  for (const { channel, config } of AUTH_SUITE_OAUTH_SEEDS) {
-    const seed = await workbench.rpc<{ success: boolean; error?: string }>(channel, { config });
-    expect(seed.success, `${channel} ${config.credentialRef}: ${seed.error ?? ''}`).toBe(true);
-  }
+  // cases' bundles prove the IdP verified the signed assertion; the
+  // device case's bundle is the polled grant).
+  await seedOAuthSuite((type, payload) => workbench.rpc(type, payload));
 
   // One import seeds the whole suite — the collection with its auth
   // pool and one request per type — secrets intact (the raw envelope

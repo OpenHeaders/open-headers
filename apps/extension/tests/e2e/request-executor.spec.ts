@@ -29,9 +29,10 @@ import {
   type ApiClientCombo,
   OAUTH2_SEED_AUTH,
 } from '../../../../playground/scripts/api-client-matrix';
-import { AUTH_SUITE_OAUTH_SEEDS, AUTH_TYPE_CASES } from '../../../../playground/scripts/auth-type-suite';
+import { AUTH_TYPE_CASES } from '../../../../playground/scripts/auth-type-suite';
 import { API_PDF_BYTE_LENGTH } from '../../../../playground/server/api-pdf';
 import { assertEchoAuth } from './pages/echo-auth';
+import { seedOAuthSuite } from './pages/oauth-seed';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -60,13 +61,11 @@ test.beforeAll(async () => {
 
   // Seed the oauth2 tokens once via the real flows: the SW POSTs to the
   // playground IdP and persists each bundle under its `credentialRef`,
-  // so the header / query combos and the assertion cases attach a
-  // genuine bearer. Same active workspace as executeRequest (both
-  // default to it), so the executor reads the seeded tokens.
-  for (const { channel, config } of AUTH_SUITE_OAUTH_SEEDS) {
-    const seed = await rpc<{ success: boolean; error?: string }>(channel, { config });
-    expect(seed.success, `${channel} ${config.credentialRef}: ${seed.error ?? ''}`).toBe(true);
-  }
+  // so the header / query combos, the assertion cases and the device
+  // case attach a genuine bearer. Same active workspace as
+  // executeRequest (both default to it), so the executor reads the
+  // seeded tokens.
+  await seedOAuthSuite(rpc);
 });
 
 test.afterAll(async () => {
