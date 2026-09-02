@@ -81,6 +81,9 @@ export function assertEchoAuth(echo: EchoAuthResponse, expected: ExpectedAuthWir
     case 'asap':
       assertAsap(echo, expected);
       break;
+    case 'http-signature':
+      assertHttpSignature(echo, expected);
+      break;
     case 'dpop':
       // The echo verified the proof for this GET under the header JWK,
       // the token's hash in `ath`, and the token's binding to that key.
@@ -92,6 +95,83 @@ export function assertEchoAuth(echo: EchoAuthResponse, expected: ExpectedAuthWir
       expect((echo.auth as { jkt: string }).jkt).toMatch(/^[A-Za-z0-9_-]{43}$/);
       break;
   }
+}
+
+// ── HTTP Message Signature verification (RFC 9421) ──────────────────
+
+/**
+ * The signature base rebuilt from what the server saw — each covered
+ * component in the Signature-Input's own order, derived ones from the
+ * echoed request line and Host, fields from the echoed headers — and
+ * the echoed Signature verified over it under the suite key's public
+ * half (ECDSA P-256, the raw r‖s encoding) or the shared secret
+ * (HMAC). Shares no code with the production signer.
+ */
+function assertHttpSignature(
+  echo: EchoAuthResponse,
+  expected: Extract<ExpectedAuthWire, { kind: 'http-signature' }>,
+): void {
+  const label = expected.label ?? 'sig1';
+  const input = single(echo.headers['signature-input']);
+  const signature = single(echo.headers.signature);
+  expect(input.startsWith(`${label}=(`)).toBe(true);
+  expect(signature.startsWith(`${label}=:`)).toBe(true);
+  expect(signature.endsWith(':')).toBe(true);
+  const params = input.slice(label.length + 1);
+  const listEnd = params.indexOf(')');
+  const covered = params
+    .slice(1, listEnd)
+    .split(' ')
+    .filter((c) => c !== '')
+    .map((c) => c.replace(/^"|"$/g, ''));
+  expect(covered).toEqual(expected.components.split(' '));
+  expect(params).toContain(`;keyid="${expected.keyId}"`);
+  const created = Number(params.match(/;created=(\d+)/)?.[1]);
+  expect(Math.abs(created - Date.now() / 1000)).toBeLessThan(300);
+
+  const origin = new URL(API_ECHO_URL).origin;
+  const target = new URL(echo.url, origin);
+  const componentValue = (component: string): string => {
+    switch (component) {
+      case '@method':
+        return echo.method.toUpperCase();
+      case '@target-uri':
+        return target.href;
+      case '@authority':
+        return single(echo.headers.host);
+      case '@scheme':
+        return target.protocol.slice(0, -1);
+      case '@request-target':
+        return echo.url;
+      case '@path':
+        return target.pathname;
+      case '@query':
+        return target.search || '?';
+      default:
+        return single(echo.headers[component]).trim();
+    }
+  };
+  if (covered.includes('content-digest')) {
+    // A bodiless GET digests the empty content.
+    expect(single(echo.headers['content-digest'])).toBe(
+      `sha-256=:${createHash('sha256').update('').digest('base64')}:`,
+    );
+  }
+  const base = [...covered.map((c) => `"${c}": ${componentValue(c)}`), `"@signature-params": ${params}`].join('\n');
+  const sig = Buffer.from(signature.slice(label.length + 2, -1), 'base64');
+  if (expected.algorithm === 'hmac-sha256') {
+    expect(sig.toString('base64')).toBe(createHmac('sha256', expected.secret).update(base).digest('base64'));
+    return;
+  }
+  expect(sig).toHaveLength(64);
+  expect(
+    nodeVerify(
+      'sha256',
+      Buffer.from(base),
+      { key: createPublicKey(expected.publicKeyPem), dsaEncoding: 'ieee-p1363' },
+      sig,
+    ),
+  ).toBe(true);
 }
 
 // ── ASAP verification ───────────────────────────────────────────────
