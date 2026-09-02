@@ -1,10 +1,11 @@
 /**
- * OAuth RPC plane — the ten `oauth*` channels over mocked oracle flows
+ * OAuth RPC plane — the eleven `oauth*` channels over mocked oracle flows
  * and a stub transport: channel ownership, the redirect URI read per
  * call, the authorize refusal on a host without a browser, the
  * authorize success shape (bundle + redirectUri) and its step-tagged
  * failure, the bundle channels' success / failure shapes, the device
- * grant's start / status / cancel, and revoke.
+ * grant's start / status / cancel, revoke, and the issuer discovery
+ * walk's answer / refusal shapes.
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
@@ -22,6 +23,7 @@ const flows = vi.hoisted(() => ({
   startDeviceFlow: vi.fn(),
   getDeviceFlowState: vi.fn(),
   cancelDeviceFlow: vi.fn(),
+  discoverAuthorizationServer: vi.fn(),
 }));
 
 vi.mock('@openheaders/oracle/live/request-exec/oauth-flows', () => ({
@@ -35,6 +37,9 @@ vi.mock('@openheaders/oracle/live/request-exec/oauth-refresh', () => ({
 }));
 vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
   deleteTokenBundle: (...args: unknown[]) => flows.deleteTokenBundle(...(args as [])),
+}));
+vi.mock('@openheaders/oracle/live/request-exec/oauth-discovery', () => ({
+  discoverAuthorizationServer: (...args: unknown[]) => flows.discoverAuthorizationServer(...(args as [])),
 }));
 vi.mock('@openheaders/oracle/live/request-exec/oauth-device', () => ({
   startDeviceFlow: (...args: unknown[]) => flows.startDeviceFlow(...(args as [])),
@@ -74,7 +79,7 @@ beforeEach(() => {
 });
 
 describe('createOAuthRpc', () => {
-  it('owns exactly the ten oauth channels', () => {
+  it('owns exactly the eleven oauth channels', () => {
     const rpc = makeRpc();
     for (const type of [
       'oauthAuthorize',
@@ -87,6 +92,7 @@ describe('createOAuthRpc', () => {
       'oauthRefresh',
       'oauthRevoke',
       'oauthGetRedirectUri',
+      'oauthDiscover',
     ]) {
       expect(rpc.owns(type)).toBe(true);
     }
@@ -219,9 +225,9 @@ describe('the device grant channels', () => {
 
   it('status answers the registry state, null without a credentialRef', async () => {
     flows.getDeviceFlowState.mockReturnValueOnce(PENDING);
-    await expect(makeRpc().dispatch('oauthDeviceStatus', { credentialRef: 'cred-1', workspaceId: 'ws-1' })).resolves.toEqual(
-      { state: PENDING },
-    );
+    await expect(
+      makeRpc().dispatch('oauthDeviceStatus', { credentialRef: 'cred-1', workspaceId: 'ws-1' }),
+    ).resolves.toEqual({ state: PENDING });
     expect(flows.getDeviceFlowState).toHaveBeenCalledWith('cred-1', 'ws-1');
     await expect(makeRpc().dispatch('oauthDeviceStatus', {})).resolves.toEqual({ state: null });
   });
@@ -234,5 +240,45 @@ describe('the device grant channels', () => {
     });
     expect(flows.cancelDeviceFlow).toHaveBeenCalledWith('cred-1', undefined);
     await expect(makeRpc().dispatch('oauthDeviceCancel', {})).resolves.toEqual({ success: false, cancelled: false });
+  });
+});
+
+describe('oauthDiscover', () => {
+  const METADATA = {
+    issuer: 'https://auth.openheaders.io',
+    authorizationEndpoint: 'https://auth.openheaders.io/authorize',
+    tokenEndpoint: 'https://auth.openheaders.io/token',
+  };
+
+  it('walks the issuer over the transport and answers the document and the URL that carried it', async () => {
+    flows.discoverAuthorizationServer.mockResolvedValueOnce({
+      metadata: METADATA,
+      url: 'https://auth.openheaders.io/.well-known/openid-configuration',
+    });
+    await expect(makeRpc().dispatch('oauthDiscover', { input: 'https://auth.openheaders.io' })).resolves.toEqual({
+      success: true,
+      metadata: METADATA,
+      url: 'https://auth.openheaders.io/.well-known/openid-configuration',
+    });
+    expect(flows.discoverAuthorizationServer).toHaveBeenCalledWith('https://auth.openheaders.io', transport);
+  });
+
+  it('a step-tagged refusal answers success:false with the step named', async () => {
+    flows.discoverAuthorizationServer.mockRejectedValueOnce(
+      new OAuth2FlowError('discovery', 'the metadata document names issuer "https://other.openheaders.io"'),
+    );
+    await expect(makeRpc().dispatch('oauthDiscover', { input: 'https://auth.openheaders.io' })).resolves.toEqual({
+      success: false,
+      error: 'discovery: the metadata document names issuer "https://other.openheaders.io"',
+    });
+  });
+
+  it('a missing input reaches the runner as an empty string', async () => {
+    flows.discoverAuthorizationServer.mockRejectedValueOnce(new OAuth2FlowError('discovery', '"" is not a URL'));
+    await expect(makeRpc().dispatch('oauthDiscover', {})).resolves.toEqual({
+      success: false,
+      error: 'discovery: "" is not a URL',
+    });
+    expect(flows.discoverAuthorizationServer).toHaveBeenCalledWith('', transport);
   });
 });

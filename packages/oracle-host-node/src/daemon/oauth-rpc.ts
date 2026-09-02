@@ -1,9 +1,10 @@
 /**
- * OAuth 2.0 RPC plane — the node hosts' answer to the ten `oauth*`
+ * OAuth 2.0 RPC plane — the node hosts' answer to the eleven `oauth*`
  * channels the shared Authorization editor calls (the extension SW
- * serves the same ten from `handlers/oauth.ts`): token acquisition
+ * serves the same eleven from `handlers/oauth.ts`): token acquisition
  * per flow, the device grant's start / status / cancel, refresh,
- * revoke, and the registered redirect URI.
+ * revoke, the registered redirect URI, and the issuer's metadata
+ * discovery (a GET over the same transport, nothing persisted).
  *
  * Everything but the browser hop is the oracle's host-neutral flows
  * over the spine's transport; the authorization-code leg needs a user
@@ -27,6 +28,7 @@ import {
   getDeviceFlowState,
   startDeviceFlow,
 } from '@openheaders/oracle/live/request-exec/oauth-device';
+import { discoverAuthorizationServer } from '@openheaders/oracle/live/request-exec/oauth-discovery';
 import { OAuth2FlowError } from '@openheaders/oracle/live/request-exec/oauth-exchange';
 import {
   type AuthorizationLauncher,
@@ -49,6 +51,7 @@ export const OAUTH_RPC_CHANNELS = [
   'oauthRefresh',
   'oauthRevoke',
   'oauthGetRedirectUri',
+  'oauthDiscover',
 ] as const;
 
 export type OAuthRpcChannel = (typeof OAUTH_RPC_CHANNELS)[number];
@@ -97,6 +100,10 @@ export function createOAuthRpc(options: OAuthRpcOptions): OAuthRpc {
       switch (type) {
         case 'oauthGetRedirectUri':
           return { redirectUri: options.redirectUri() };
+        case 'oauthDiscover':
+          return discoverAuthorizationServer(typeof message.input === 'string' ? message.input : '', transport)
+            .then((result) => ({ success: true, metadata: result.metadata, url: result.url }))
+            .catch((err: Error) => ({ success: false, error: flowError(err) }));
         case 'oauthAuthorize': {
           const launch = options.launchAuthorization;
           if (launch === null) return { success: false, error: NO_BROWSER };

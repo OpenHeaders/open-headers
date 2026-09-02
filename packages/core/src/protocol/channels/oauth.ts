@@ -8,10 +8,23 @@
  * the editing-scope workspace surfaces through to `putTokenBundle`.
  */
 
-import type { OAuth2DeviceState, OAuth2TokenBundle } from '../../oauth';
+import type { OAuth2DeviceState, OAuth2ServerMetadata, OAuth2TokenBundle } from '../../oauth';
 import type { OAuth2Auth } from '../../types';
 
 export interface OAuthRpc {
+  /**
+   * Read an authorization server's metadata document (RFC 8414 /
+   * OpenID Connect Discovery) for an issuer identifier or a pasted
+   * well-known URL: the host walks the candidate URLs over its request
+   * transport and answers the parsed document plus the URL that
+   * carried it, or the step-tagged refusal (no document, a foreign
+   * issuer, a transport failure). Nothing is persisted — the editor
+   * applies the answer to the config it is editing.
+   */
+  oauthDiscover: {
+    req: { input: string };
+    res: { success: boolean; metadata?: OAuth2ServerMetadata; url?: string; error?: string };
+  };
   /**
    * Run the full Authorization Code + PKCE flow for the given OAuth
    * config. On success the token bundle is persisted and the returned

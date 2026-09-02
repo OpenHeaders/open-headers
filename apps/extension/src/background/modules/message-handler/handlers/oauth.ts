@@ -13,6 +13,7 @@ import {
   getDeviceFlowState,
   startDeviceFlow,
 } from '@openheaders/oracle/live/request-exec/oauth-device';
+import { discoverAuthorizationServer } from '@openheaders/oracle/live/request-exec/oauth-discovery';
 import { browserRequestTransport } from '../../net/browser-request-transport';
 import {
   getOAuthRedirectUri,
@@ -104,6 +105,16 @@ export const oauthHandlers: HandlerMap = {
 
   oauthGetRedirectUri: ({ respond }) => {
     respond({ redirectUri: getOAuthRedirectUri() });
+    return true;
+  },
+
+  // The metadata walk is the oracle's host-neutral runner over the
+  // browser transport (the host-access gate covers the GET); the
+  // answer is the editor's to apply — nothing lands in the store.
+  oauthDiscover: ({ message, respond }) => {
+    discoverAuthorizationServer(typeof message.input === 'string' ? message.input : '', browserRequestTransport)
+      .then((result) => respond({ success: true, metadata: result.metadata, url: result.url }))
+      .catch((err: Error) => respond({ success: false, error: flowError(err) }));
     return true;
   },
 };

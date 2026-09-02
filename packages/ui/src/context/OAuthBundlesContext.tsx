@@ -23,7 +23,7 @@
  */
 
 import { useActiveWorkspaceId } from '../shared/hooks/readers/useActiveWorkspaceId';
-import type { OAuth2DeviceState, OAuth2TokenBundle } from '@openheaders/core/oauth';
+import type { OAuth2DeviceState, OAuth2ServerMetadata, OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -59,10 +59,20 @@ export interface OAuthDeviceStartResult {
   error?: string;
 }
 
+export interface OAuthDiscoverResult {
+  success: boolean;
+  metadata?: OAuth2ServerMetadata;
+  url?: string;
+  error?: string;
+}
+
 export interface OAuthBundlesContextValue {
   tokens: Readonly<Record<string, OAuth2TokenBundle>>;
   isReady: boolean;
   redirectUri: string | null;
+  /** The issuer's metadata document (RFC 8414 / OIDC Discovery), read
+   *  by the host over its transport; the editor applies the answer. */
+  discover: (input: string) => Promise<OAuthDiscoverResult>;
   authorize: (config: OAuth2Auth) => Promise<OAuthAuthorizeResult>;
   clientCredentials: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
   passwordCredentials: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
@@ -89,6 +99,7 @@ const defaultContextValue: OAuthBundlesContextValue = {
   tokens: EMPTY_TOKENS,
   isReady: false,
   redirectUri: null,
+  discover: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   authorize: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   clientCredentials: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   passwordCredentials: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
@@ -210,6 +221,14 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
   // `batch.mutations[0].workspaceId` (F-1) routes the apply to the
   // correct oracle.
 
+  const discover = useCallback<OAuthBundlesContextValue['discover']>(
+    async (input) =>
+      hostBridge.call('oauthDiscover', { input }).catch(
+        (err: Error): OAuthDiscoverResult => ({ success: false, error: err.message }),
+      ),
+    [],
+  );
+
   const authorize = useCallback<OAuthBundlesContextValue['authorize']>(
     async (config) => {
       const workspaceId = writeWorkspaceId ?? undefined;
@@ -308,6 +327,7 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
       tokens,
       isReady,
       redirectUri,
+      discover,
       authorize,
       clientCredentials,
       passwordCredentials,
@@ -322,6 +342,7 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
       tokens,
       isReady,
       redirectUri,
+      discover,
       authorize,
       clientCredentials,
       passwordCredentials,
