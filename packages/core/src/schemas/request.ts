@@ -485,6 +485,13 @@ export const OAuth2AuthSchema = v.object({
    * values always win.
    */
   providerPresetId: v.optional(v.string()),
+  /**
+   * The authorization server's issuer identifier (RFC 8414 §2) the
+   * endpoints were discovered from, recorded by the editor's Discover
+   * action so a re-run reads the same document. Never consulted at
+   * exchange time — the endpoint rows are what the flows dial.
+   */
+  issuer: v.optional(v.string()),
   flow: OAuth2FlowSchema,
   /**
    * UI grant-type choice. When present, the editor uses this value

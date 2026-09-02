@@ -89,6 +89,7 @@ const AUTH_UNION: FieldNode = union({
         'jwt-bearer',
       ]),
       grantType: leaf('string', { coercion: 'optional-string' }),
+      issuer: leaf('string', { coercion: 'optional-string' }),
       authorizationEndpoint: leaf('string', { coercion: 'optional-string' }),
       tokenEndpoint: leaf('string'),
       deviceAuthorizationEndpoint: leaf('string', { coercion: 'optional-string' }),

@@ -39,6 +39,7 @@ import type { OAuth2DpopKey } from './dpop';
 
 export * from './assertion';
 export * from './device';
+export * from './discovery';
 export * from './dpop';
 
 // ── Runtime state shape ────────────────────────────────────────────
