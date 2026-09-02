@@ -47,6 +47,15 @@
  *       WsResponseExample — viewer tab with the captured close pill,
  *       sidebar example leaf under the parent request, and "Open in
  *       Request" returns to the parent editor.
+ *   B11 inherited session credential, query mode (the widened mask):
+ *       the suite collection gains an auth pool, the raw editor picks
+ *       its query-mode JWT entry, and the token rides the handshake
+ *       URL in-page — the greeting mirrors `?token=` and no honesty
+ *       notice appears (the URL is the browser's to dial).
+ *   B12 inherited OAuth 2.0 in header mode: the platform socket
+ *       cannot carry the header, so the notice names the credential's
+ *       handshake header and the greeting mirrors an empty
+ *       authorization — never a silent drop.
  *   B10 session credential + Events listen filter (Phase G): a bearer
  *       token configured on the socketio flavor rides the CONNECT
  *       packet's auth payload IN the page realm (the probe greeting
@@ -90,6 +99,39 @@ const WS_PROBE_URL = 'ws://127.0.0.1:3000/net/ws-probe';
 // path IS the engine.io path.
 const SIO_PROBE_URL = 'ws://127.0.0.1:3000';
 const SIO_PROBE_HANDSHAKE_PATH = '/net/sio-probe';
+// The auth pool the B11 / B12 legs seed onto the suite collection —
+// an OAuth 2.0 client-credentials entry (the default; no bundle is
+// ever acquired here, the honesty notice reads the CONFIG) and a
+// query-mode JWT entry the page realm can dial.
+const POOL_OAUTH_UID = 'e2ewsoa1';
+const POOL_JWT_QUERY_UID = 'e2ewsjw1';
+const SESSION_AUTH_POOL = [
+  {
+    uid: POOL_OAUTH_UID,
+    name: 'Corp SSO',
+    config: {
+      type: 'oauth2',
+      credentialRef: 'oauth2-cred-e2ews001',
+      flow: 'client-credentials',
+      tokenEndpoint: 'http://127.0.0.1:3000/api/oauth/token',
+      clientId: 'oh-client-id',
+      clientSecret: 'oh-client-secret',
+      scopes: ['read'],
+    },
+  },
+  {
+    uid: POOL_JWT_QUERY_UID,
+    name: 'Signer (query)',
+    config: {
+      type: 'jwt',
+      algorithm: 'HS256',
+      secret: 'oh-e2e-page-jwt-secret',
+      privateKey: '',
+      payload: '{"sub":"ws-page-e2e"}',
+      addTo: 'query',
+    },
+  },
+];
 
 let context: BrowserContext;
 let extensionId: string;
@@ -643,6 +685,93 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
     .waitFor({ state: 'visible', timeout: 15_000 });
   const eventNames = page.getByTestId('ws-sio-event-name').filter({ visible: true });
   await expect(eventNames.filter({ hasText: 'echo:reply' })).toHaveCount(0);
+
+  await disconnectAndAwaitClose();
+});
+
+// ── B11 / B12: inherited session credentials in the page realm ──────
+
+/** Pick a pool entry (by its option text) on the raw editor's
+ *  Authorization tab, then return to the Message tab for Connect. */
+async function pickInheritedEntry(optionText: string): Promise<void> {
+  await page.getByRole('tab', { name: 'Authorization', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('ws-auth-type').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .locator('.ant-select-item-option')
+    .filter({ hasText: optionText })
+    .first()
+    .click();
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+}
+
+test('B11 — an inherited query-mode JWT rides the handshake URL in-page, no honesty notice', async () => {
+  // The suite collection gains its pool through the popup PAGE on the
+  // authoritative `oh.ws.<id>.requestCollections` slot (the seeding
+  // law), then the workbench reloads onto it.
+  const workspaces = await workbench.rpc<{ activeWorkspaceId?: string }>('listWorkspaces');
+  const workspaceId = workspaces.activeWorkspaceId ?? '';
+  expect(workspaceId).not.toBe('');
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popup.evaluate(
+    async ({ key, uid, entries, defaultUid }) =>
+      new Promise<void>((resolve) => {
+        chrome.storage.local.get(key, (items) => {
+          const collections = (items[key] ?? []) as Array<Record<string, unknown>>;
+          const next = collections.map((c) =>
+            c.uid === uid ? { ...c, auths: entries, defaultAuthUid: defaultUid } : c,
+          );
+          chrome.storage.local.set({ [key]: next }, () => resolve());
+        });
+      }),
+    {
+      key: `oh.ws.${workspaceId}.requestCollections`,
+      uid: collectionUid,
+      entries: SESSION_AUTH_POOL,
+      defaultUid: POOL_OAUTH_UID,
+    },
+  );
+  await popup.close();
+  await workbench.reload();
+  await workbench.showRequestsView();
+  await workbench.collapseRightSidebar();
+
+  await openWebsocketRequest(RAW_NAME);
+  await urlInput().fill(WS_PROBE_URL);
+  await pickInheritedEntry('Signer (query)');
+
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+
+  // The greeting mirrors the request-target the probe saw — the JWT
+  // minted at the dial rode the URL's token parameter — and no
+  // node-only knob was configured, so no notice.
+  await timelineMessageRows()
+    .filter({ hasText: '"url":"/net/ws-probe?token=eyJ' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+  await expect(page.getByTestId('ws-host-knob-notice').filter({ visible: true })).toHaveCount(0);
+
+  await disconnectAndAwaitClose();
+});
+
+test('B12 — an inherited OAuth 2.0 header credential is named in the honesty notice and stays off the wire', async () => {
+  await pickInheritedEntry('Corp SSO');
+
+  await connectButton().click();
+  const notice = page.getByTestId('ws-host-knob-notice').filter({ visible: true }).first();
+  await notice.waitFor({ state: 'visible', timeout: 20_000 });
+  await expect(notice).toContainText('handshake header');
+
+  // The greeting mirrors an EMPTY authorization — the platform socket
+  // never carried the header, and the notice said so up front.
+  await timelineMessageRows()
+    .filter({ hasText: '"authorization":""' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
 
   await disconnectAndAwaitClose();
 });
