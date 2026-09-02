@@ -10,12 +10,16 @@
  * attaches the store bundle (renewed through the host hook when
  * expired) and a JWT Bearer entry mints a verifiable token per
  * invoke; the query placements and a DPoP binding — nothing a
- * metadata pair can carry — refuse by name.
+ * metadata pair can carry — refuse by name. The request's OWN config
+ * rides the same seat (the request defines any type the mask
+ * carries): an own OAuth 2.0 config attaches the bundle, an own JWT
+ * mints, and an own query placement refuses by the request-level
+ * sentence, no source.
  */
 
 import { createHmac } from 'node:crypto';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { AuthPoolEntry, Collection, Folder, GrpcRequest, Spec } from '@openheaders/core/types';
+import type { AuthPoolEntry, Collection, ConcreteAuthConfig, Folder, GrpcRequest, Spec } from '@openheaders/core/types';
 import { executeGrpcInvoke } from '@openheaders/oracle/live/grpc-exec/execute';
 import type {
   GrpcTransport,
@@ -161,25 +165,23 @@ const OAUTH2_CONFIG = {
   scopes: [],
 };
 const OAUTH: AuthPoolEntry = { uid: 'oauth001', name: 'Corp SSO', config: OAUTH2_CONFIG };
-const JWT: AuthPoolEntry = {
-  uid: 'jwt00001',
-  name: 'Signer',
-  config: {
-    type: 'jwt',
-    algorithm: 'HS256',
-    secret: 'oh-jwt-secret',
-    privateKey: '',
-    payload: '{"sub":"grpc-call"}',
-    addTo: 'header',
-    expiresInSeconds: 60,
-  },
+const JWT_CONFIG: Extract<ConcreteAuthConfig, { type: 'jwt' }> = {
+  type: 'jwt',
+  algorithm: 'HS256',
+  secret: 'oh-jwt-secret',
+  privateKey: '',
+  payload: '{"sub":"grpc-call"}',
+  addTo: 'header',
+  expiresInSeconds: 60,
 };
+const JWT: AuthPoolEntry = { uid: 'jwt00001', name: 'Signer', config: JWT_CONFIG };
 
 const bundle = (accessToken: string, expiresAt: number | null = null): OAuth2TokenBundle => ({
   accessToken,
   tokenType: 'Bearer',
   expiresAt,
   issuedAt: 0,
+  scope: '',
 });
 
 /** Verify an HS256 compact JWT under the secret; returns its claims. */
@@ -360,5 +362,48 @@ describe('executeGrpcInvoke — session credential', () => {
       expect(snapshot.auth?.type).toBe(entry.config.type);
     }
     expect(tokenStore.getTokenBundle).not.toHaveBeenCalled();
+  });
+});
+
+describe("executeGrpcInvoke — the request's own credential", () => {
+  it('an own OAuth 2.0 config attaches the store bundle as the authorization pair, attributed to the request', async () => {
+    seedChain(makeCollection(), makeFolder());
+    tokenStore.getTokenBundle.mockResolvedValue(bundle('at-own'));
+    const rig = unaryTransport();
+    const snapshot = await executeGrpcInvoke(makeGrpcRequest({ auth: OAUTH2_CONFIG }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      spec: SPEC,
+    });
+    expect(rig.wire().metadata).toEqual([{ key: 'authorization', value: 'Bearer at-own' }]);
+    expect(snapshot.auth).toEqual({ type: 'oauth2', source: { level: 'request' } });
+  });
+
+  it('an own JWT Bearer mints a verifiable token per invoke', async () => {
+    seedChain(makeCollection(), makeFolder());
+    const rig = unaryTransport();
+    const snapshot = await executeGrpcInvoke(makeGrpcRequest({ auth: JWT_CONFIG }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      spec: SPEC,
+    });
+    const [pair] = rig.wire().metadata;
+    expect(pair.key).toBe('authorization');
+    expect(verifyHs256(pair.value.slice('Bearer '.length), 'oh-jwt-secret').sub).toBe('grpc-call');
+    expect(snapshot.auth).toEqual({ type: 'jwt', source: { level: 'request' } });
+  });
+
+  it('an own query-placed api-key refuses by the request-level sentence before the wire', async () => {
+    seedChain(makeCollection(), makeFolder());
+    const rig = unaryTransport();
+    const snapshot = await executeGrpcInvoke(
+      makeGrpcRequest({ auth: { type: 'api-key', key: 'X-Api-Key', value: 'v', in: 'query' } }),
+      { workspaceId: null, environmentId: undefined, transport: rig.transport, spec: SPEC },
+    );
+    expect(snapshot.error).toBe('API Key in query cannot be applied to a gRPC call.');
+    expect(rig.calls()).toBe(0);
+    expect(snapshot.auth).toEqual({ type: 'api-key', source: { level: 'request' } });
   });
 });

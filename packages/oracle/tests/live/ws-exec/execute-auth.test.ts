@@ -17,6 +17,12 @@
  * an auto-reconnect redials on the store's current token. The
  * placements the handshake cannot carry (SigV4 in header mode, a
  * DPoP-bound bundle) refuse by name before the wire.
+ *
+ * The request's OWN config rides the same seat (the request defines
+ * any type the mask carries): an own OAuth 2.0 config attaches the
+ * bundle, an own JWT mints, an own query key rides the URL, and an own
+ * placement the handshake cannot carry refuses by name — the
+ * request-level sentence, no source.
  */
 
 import { createHash, createHmac } from 'node:crypto';
@@ -251,6 +257,7 @@ const bundle = (accessToken: string, expiresAt: number | null = null): OAuth2Tok
   tokenType: 'Bearer',
   expiresAt,
   issuedAt: 0,
+  scope: '',
 });
 
 const JWT: Extract<ConcreteAuthConfig, { type: 'jwt' }> = {
@@ -831,5 +838,75 @@ describe('executeWsSession — the credential mints per dial', () => {
     expect(snapshot.outcome.kind).toBe('connected');
     expect(snapshot.requestHeaders).toEqual([{ key: 'Authorization', value: 'Bearer at-2' }]);
     expect(snapshot.lifecycle?.map((l) => l.kind)).toEqual(['lost', 'reconnecting', 'reconnected']);
+  });
+});
+
+describe("executeWsSession — the request's own credential", () => {
+  it('an own OAuth 2.0 config attaches the store bundle, attributed to the request', async () => {
+    tokenStore.getTokenBundle.mockResolvedValue(bundle('at-own'));
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest({ auth: OAUTH2 }), {
+      workspaceId: 'ws-pinned',
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-auth-own-1',
+      resolution: scopedResolution,
+    });
+    await settleTick();
+    expect(rig.wire().headers).toEqual([{ key: 'Authorization', value: 'Bearer at-own' }]);
+    expect(tokenStore.getTokenBundle).toHaveBeenCalledWith('oauth2-cred-abc12345', 'ws-pinned');
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.auth).toEqual({ type: 'oauth2', source: { level: 'request' } });
+  });
+
+  it('an own JWT Bearer mints a verifiable token at the dial; an own query-placed key rides the handshake URL', async () => {
+    const rig = scriptedTransport();
+    const settled = executeWsSession(makeWsRequest({ auth: { ...JWT, secret: '{{jwtSecret}}' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-auth-own-2a',
+      resolution: scopedResolution,
+    });
+    await awaitWire(rig);
+    const [header] = rig.wire().headers;
+    expect(header.key).toBe('Authorization');
+    expect(verifyHs256(header.value.slice('Bearer '.length), 'oh-jwt-secret').claims.sub).toBe('ws-session');
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.auth).toEqual({ type: 'jwt', source: { level: 'request' } });
+
+    const query = scriptedTransport();
+    const querySettled = executeWsSession(
+      makeWsRequest({ auth: { type: 'api-key', key: 'X-Api-Key', value: '{{token}}', in: 'query' } }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: query.transport,
+        sendId: 'send-auth-own-2b',
+        resolution: scopedResolution,
+      },
+    );
+    await settleTick();
+    expect(query.wire().url).toBe('wss://echo.openheaders.io/live?X-Api-Key=tok-123');
+    expect(query.wire().headers).toEqual([]);
+    query.callbacks().onEnd();
+    await querySettled;
+  });
+
+  it('an own AWS signature in header mode refuses by the request-level sentence — nothing on the wire', async () => {
+    const rig = scriptedTransport();
+    const snapshot = await executeWsSession(makeWsRequest({ auth: { ...SIGV4, addTo: 'header' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-auth-own-3',
+      resolution: scopedResolution,
+    });
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    expect(snapshot.outcome.error).toBe('AWS Signature v4 in header cannot be applied to a WebSocket session.');
+    expect(() => rig.wire()).toThrow();
+    expect(snapshot.auth).toEqual({ type: 'aws-sigv4', source: { level: 'request' } });
   });
 });
