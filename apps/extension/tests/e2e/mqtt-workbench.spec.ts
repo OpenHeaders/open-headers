@@ -306,6 +306,9 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
   await page.getByTestId('mqtt-topic-input').filter({ visible: true }).first().fill(MQTT_TOPIC);
   await page.getByTestId('mqtt-saved-rail-strip').filter({ visible: true }).first().click();
   await page.getByTestId('mqtt-saved-add').filter({ visible: true }).first().click();
+  // A fresh row opens its name in an inline rename input — Enter keeps
+  // the default name and settles the row.
+  await page.keyboard.press('Enter');
   await page
     .getByTestId('mqtt-saved-row')
     .filter({ visible: true })
@@ -400,7 +403,9 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
     .filter({ hasText: SPEC_NAME })
     .first()
     .click();
-  await expect(page.getByText(`Using ${SPEC_NAME}`).filter({ visible: true }).first()).toBeVisible();
+  // The select shows the linked spec's name (the former "Using …" footer
+  // line is gone — the select IS the link).
+  await expect(page.getByTestId('mqtt-spec-select').filter({ visible: true }).first()).toContainText(SPEC_NAME);
 
   await page.getByRole('button', { name: /Save$/ }).filter({ visible: true }).first().click();
   await page
