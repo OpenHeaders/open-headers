@@ -48,12 +48,17 @@ export {
   runPostResponseChain,
   runPreRequestChain,
   runScriptChain,
+  type SlotChainCarrier,
   type SlotChainLeaf,
 } from './script-chain';
 export {
   applyScriptMutation,
   firstFailedAssertion,
+  parseUrlParams,
+  replaceUrlParams,
   resolvedToScriptSnapshot,
+  type SessionScriptHost,
+  type SessionScriptInput,
   type StepScriptInput,
   type StepScriptRunner,
 } from './script-hooks';

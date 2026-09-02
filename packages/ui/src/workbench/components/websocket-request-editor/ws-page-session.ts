@@ -22,25 +22,48 @@
  */
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
+import type { ScriptPackageModule } from '@openheaders/core/scripts';
 import { generateTotp } from '@openheaders/core/totp';
-import type { Vault, VaultSecretTotp, WebSocketRequest } from '@openheaders/core/types';
+import type { Vault, VaultSecretTotp, WebSocketRequest, WorkspaceVariables } from '@openheaders/core/types';
 import type { TotpRegistry } from '@openheaders/core/variables';
 import {
   buildRendererResolver,
   type RendererResolverInputs,
 } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
-import { authChainOf, findRequestAncestry, type RequestAncestryInputs } from '../request-container/ancestry';
+import {
+  type AncestorScriptCarrier,
+  authChainOf,
+  findRequestAncestry,
+  type RequestAncestryInputs,
+  scriptChainOf,
+} from '../request-container/ancestry';
 
 /** The executor's injected-resolution contract
  *  (`ExecuteWsSessionOptions.resolution`). */
 export type WsPageResolution = (template: string, unresolved: Set<string>) => string;
 
+/** The renderer scope a session's script hooks answer against — the
+ *  page host's `oh.*` servicing reads it (variables, the vault, the
+ *  Package Library) in place of the oracle mirrors a node host has. */
+export interface WsPageScriptScope {
+  workspaceId: string | null;
+  /** The renderer resolver's read of one name — the full scope walk;
+   *  `null` when nothing in scope defines it. */
+  resolveVariable(name: string): string | null;
+  workspaceVariables: WorkspaceVariables;
+  vault: Vault;
+  packages: ScriptPackageModule[];
+}
+
 /** What the page host injects into the executor per Connect: the
- *  template resolution plus the ancestor auth chain (outer → inner)
- *  the oracle walk cannot derive in a page realm. */
+ *  template resolution plus the ancestor auth chain and script chain
+ *  (outer → inner) the oracle walk cannot derive in a page realm, and
+ *  the scope the session's hooks answer against. */
 export interface WsPageSessionScope {
   resolve: WsPageResolution;
   authChain: AuthCarrier[];
+  scriptChain: AncestorScriptCarrier[];
+  scripts: WsPageScriptScope;
   /** The workspace the session runs under — the OAuth 2.0 token store
    *  an inherited entry's bundle reads from (the page realm has no
    *  active-workspace hook of its own). */
@@ -102,6 +125,7 @@ export function makeWsPageResolutionFactory(
   inputs: RendererResolverInputs,
   ancestryInputs: RequestAncestryInputs,
   workspaceId: string | null,
+  packages: readonly ScriptPackageModule[] = [],
 ): WsPageResolutionFactory {
   return async (request) => {
     const resolver = buildRendererResolver(inputs, { totpRegistry: await buildPageTotpRegistry(inputs.vault) });
@@ -119,6 +143,22 @@ export function makeWsPageResolutionFactory(
       }
       return result.result;
     };
-    return { resolve, authChain: ancestry !== null ? authChainOf(ancestry) : [], workspaceId };
+    const scripts: WsPageScriptScope = {
+      workspaceId,
+      resolveVariable: (name) => {
+        const result = resolver.resolveTemplate(`{{${name}}}`, context);
+        return result.variables.every((v) => v.resolved) ? result.result : null;
+      },
+      workspaceVariables: inputs.workspaceVariables,
+      vault: inputs.vault,
+      packages: [...packages],
+    };
+    return {
+      resolve,
+      authChain: ancestry !== null ? authChainOf(ancestry) : [],
+      scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
+      scripts,
+      workspaceId,
+    };
   };
 }

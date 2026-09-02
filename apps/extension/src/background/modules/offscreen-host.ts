@@ -29,13 +29,13 @@
  */
 
 import type {
+  HttpScriptKind,
   RequestSnapshot,
   ResponseSnapshot,
   ScriptExecutionRequest,
   ScriptExecutionResult,
   ScriptHostRequest,
   ScriptHostResponse,
-  ScriptKind,
   ScriptPackageModule,
 } from '@openheaders/core/scripts';
 import type { Request } from '@openheaders/core/types';
@@ -171,8 +171,10 @@ export class OffscreenUnavailableError extends Error {
 
 // ── Public API ────────────────────────────────────────────────────
 
+/** The SW runs the HTTP pair alone — the workbench page's sessions
+ *  (WebSocket, MQTT) run their hooks on the page realm's own host. */
 export interface RunScriptOptions {
-  kind: ScriptKind;
+  kind: HttpScriptKind;
   source: string;
   request: RequestSnapshot;
   response?: ResponseSnapshot;
@@ -392,6 +394,10 @@ export async function handleScriptHostRequest(request: ScriptHostRequest): Promi
         return okReply(request, await resolveVaultRef(request.ref));
       case 'sendRequest':
         return okReply(request, await dispatchAdHocRequest(request.request));
+      case 'session.send':
+        // The SW never runs a session hook — sessions execute in the
+        // workbench page, whose own host answers this op.
+        return errorReply(request.executionId, request.rpcId, 'session.send is not available to HTTP scripts');
       default: {
         const unreachable: never = request;
         return errorReply(

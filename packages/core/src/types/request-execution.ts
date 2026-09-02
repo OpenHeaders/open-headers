@@ -239,6 +239,50 @@ export interface ExecutedScriptChainStep {
   error?: { name: string; message: string };
 }
 
+/**
+ * One hook's folded outcome — the chain fold every script family
+ * records the same way: succeeded = every level succeeded, the first
+ * failure's error labeled with its level, console entries and
+ * assertions concatenated across levels, durations summed, and beside
+ * the fold the per-level `chain` record. The HTTP pair's phases are
+ * this shape plus their own extras; a session's once-per-session hooks
+ * (Before connect's last dial, After close) record it verbatim.
+ */
+export interface ExecutedScriptFold {
+  succeeded: boolean;
+  error?: { name: string; message: string };
+  consoleLog: ScriptConsoleEntry[];
+  assertions: TestAssertion[];
+  durationMs: number;
+  /** The levels that ran, in order — see {@link ExecutedScriptChainStep}. */
+  chain: ExecutedScriptChainStep[];
+}
+
+/** One level's tally across a per-event hook's runs. */
+export interface ScriptEventLevelSummary {
+  level: ExecutedScriptChainStep['level'];
+  uid: string;
+  name: string;
+  runs: number;
+  failed: number;
+  durationMs: number;
+}
+
+/**
+ * A per-event hook's summary across the session — a Before send or On
+ * message hook runs once per message, so the snapshot keeps the TALLY
+ * (runs · failed · duration · the last error) and the per-level
+ * tallies, never one record per event; the per-event detail rides the
+ * session timeline as `script` marks under the mark cap.
+ */
+export interface ScriptEventSummary {
+  runs: number;
+  failed: number;
+  durationMs: number;
+  lastError?: { name: string; message: string };
+  levels: ScriptEventLevelSummary[];
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */

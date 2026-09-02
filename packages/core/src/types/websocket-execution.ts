@@ -12,7 +12,15 @@
  * ever rewritten or synthesized; pretty/decoded views are display-side.
  */
 
-import type { ExecutedAuthAttribution, ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
+import type { ScriptConsoleEntry, ScriptExecutionMode, TestAssertion, WsScriptKind } from '../scripts';
+import type {
+  ExecutedAuthAttribution,
+  ExecutedProxyRoute,
+  ExecutedScriptChainStep,
+  ExecutedScriptFold,
+  ScriptEventSummary,
+  TrustCertificateErrorHint,
+} from './request-execution';
 
 /** One captured message of the session, in call order. `direction`
  *  tags client-sent ('up') vs server-sent ('down'). Payloads ride
@@ -80,21 +88,68 @@ export interface ExecutedWsAckTimeout {
 }
 
 /**
+ * One script hook ran — the per-event detail of the session's scripts:
+ * which hook, the levels that ran with their verdicts, the folded
+ * error, the console output and the assertions the hook registered.
+ * Recorded per event (a Before connect per dial, a Before send per
+ * rider send, an On message per captured inbound frame, the After
+ * close once) up to the mark cap; the snapshot's `scripts` record
+ * keeps the tallies past it.
+ */
+export interface ExecutedWsScriptMark {
+  kind: 'script';
+  hook: WsScriptKind;
+  succeeded: boolean;
+  durationMs: number;
+  /** The levels that ran, in order — see {@link ExecutedScriptChainStep}. */
+  chain: ExecutedScriptChainStep[];
+  error?: { name: string; message: string };
+  consoleLog?: ScriptConsoleEntry[];
+  assertions?: TestAssertion[];
+  /** Before connect: the dial this hook ran for (`0` = the first). */
+  attempt?: number;
+  /** Before send: a level dropped the message — the level's label;
+   *  nothing reached the wire. */
+  droppedBy?: string;
+}
+
+/**
  * One session fact — the reconnect cycle (lost / reconnecting /
- * reconnected) or a Socket.IO ack timeout. `atIndex` is the number of
- * captured messages when it happened, so the timeline renders the row
- * at its true chronological position while `messages` and its
- * positional session timing stay untouched (the message rows' identity
- * discipline); the rolling retention offsets it by `droppedMessages`.
+ * reconnected), a Socket.IO ack timeout, or a script hook's run.
+ * `atIndex` is the number of captured messages when it happened, so
+ * the timeline renders the row at its true chronological position
+ * while `messages` and its positional session timing stay untouched
+ * (the message rows' identity discipline); the rolling retention
+ * offsets it by `droppedMessages`.
  */
 export type ExecutedWsLifecycle = (
   | ExecutedWsLost
   | ExecutedWsReconnecting
   | ExecutedWsReconnected
   | ExecutedWsAckTimeout
+  | ExecutedWsScriptMark
 ) & {
   atIndex: number;
 };
+
+/**
+ * The session's scripts as they ran — one record per hook the session
+ * carries scripts for: the once-per-session hooks keep their fold
+ * (Before connect: the LAST dial's, with the dials counted; After
+ * close: its one run), the per-event hooks keep a tally. Absent when
+ * no hook ran. `mode` is the trust posture the hooks ran under,
+ * recorded on the snapshot — never re-read from live settings.
+ */
+export interface ExecutedWsScripts {
+  mode?: ScriptExecutionMode;
+  beforeConnect?: ExecutedScriptFold & { dials: number };
+  beforeSend?: ScriptEventSummary & { dropped: number };
+  onMessage?: ScriptEventSummary;
+  afterClose?: ExecutedScriptFold;
+  /** The per-event marks stopped at the cap — the tallies above kept
+   *  counting; the timeline shows the first events' detail only. */
+  marksCapped?: true;
+}
 
 /**
  * How the session settled, first-class: `connected` = the handshake
@@ -164,6 +219,9 @@ export interface ExecutedWsSnapshot {
    *  request's own or a resolved ancestor pool entry; absent when the
    *  request's own auth is `none` (the HTTP snapshot's twin). */
   auth?: ExecutedAuthAttribution;
+  /** The session's script hooks as they ran — see {@link ExecutedWsScripts};
+   *  absent when no hook ran. */
+  scripts?: ExecutedWsScripts;
   /**
    * Wire truth for the session's proxy routing — the effective route
    * as the dial ran it. WS editors carry no request-plane proxy knobs

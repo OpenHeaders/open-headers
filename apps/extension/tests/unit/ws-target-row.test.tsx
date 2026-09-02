@@ -20,6 +20,7 @@ afterEach(() => {
 
 const draft: WebSocketDraft = {
   description: '',
+  scripts: {},
   url: 'wss://events.openheaders.io/live',
   subprotocols: [],
   headers: [],

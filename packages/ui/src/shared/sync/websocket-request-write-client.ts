@@ -99,13 +99,16 @@ export async function applyWebSocketRequestUpdate(
       for (const row of rows) byUid.set(row.uid, row);
       return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
     },
-    // Baseline for the subprotocols / specLink / auth per-leaf flatten-diff.
+    // Baseline for the subprotocols / specLink / auth / scripts
+    // per-leaf flatten-diff — a save writes only the script slots that
+    // changed and tombstones the ones the draft emptied.
     (uid, path) => {
       const snap = mirror.getWebSocketRequestMirror(uid)?.websocketRequest;
       if (!snap) return undefined;
       if (path === 'subprotocols') return snap.subprotocols;
       if (path === 'specLink') return snap.specLink;
       if (path === 'auth') return snap.auth;
+      if (path === 'scripts') return snap.scripts;
       return undefined;
     },
   );

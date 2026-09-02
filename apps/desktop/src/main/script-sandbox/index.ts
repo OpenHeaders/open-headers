@@ -40,8 +40,16 @@ export function installScriptSandbox(): ScriptSandboxHandle {
     handleHostRequest: handleScriptHostRequest,
   });
   setHostScriptCapabilities({
-    safe: { mode: 'safe', runScript: (opts) => safeBroker.runScript(opts) },
-    developer: { mode: 'developer', runScript: (opts) => developerBroker.runScript(opts) },
+    safe: {
+      mode: 'safe',
+      runScript: (opts) => safeBroker.runScript(opts),
+      endSession: (sessionId) => safeBroker.endSession(sessionId),
+    },
+    developer: {
+      mode: 'developer',
+      runScript: (opts) => developerBroker.runScript(opts),
+      endSession: (sessionId) => developerBroker.endSession(sessionId),
+    },
   });
   return {
     dispose(): void {

@@ -12,6 +12,7 @@
  * chrome, so the save patch never carries it.
  */
 
+import type { WsScriptKind } from '@openheaders/core/scripts';
 import type {
   ProxyMode,
   SocketIoProtocol,
@@ -29,6 +30,9 @@ import type {
 } from '@openheaders/core/types';
 import { decodeBase64Bytes, parseUrlQuery, splitUrlPath } from '@openheaders/core/utils';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
+
+/** The WebSocket request's slot record — its own kind's keys. */
+export type WsScriptSlots = Partial<Record<WsScriptKind, string>>;
 
 export interface WebSocketDraft {
   /** Docs-tab markdown; always concrete in the form (`''` = no docs) —
@@ -66,6 +70,10 @@ export interface WebSocketDraft {
   events: WebSocketEventRow[];
   /** Saved-messages rail rows (concrete — absent reads as []). */
   savedMessages: WebSocketSavedMessage[];
+  /** The request's own script slots, keyed by kind (the Scripts tab
+   *  edits them; an emptied slot stays `''` in the form and drops out
+   *  of the save patch). */
+  scripts: WsScriptSlots;
   /** Concrete in the form — absent on the entity reads as `text`. */
   messageFormat: WebSocketMessageFormat;
   /** Byte spelling of a `binary` compose (concrete — absent reads as
@@ -118,6 +126,9 @@ export interface WebSocketRequestUpdates {
   auth: WebSocketAuth;
   events: WebSocketEventRow[];
   savedMessages: WebSocketSavedMessage[];
+  /** The present slots alone — a blank slot is absent, so the write's
+   *  flatten-diff tombstones a slot the user emptied. */
+  scripts: WsScriptSlots;
   message: string;
   eventName: string;
   namespace: string;
@@ -214,6 +225,16 @@ function urlParamUid(index: number): string {
   return `q${index.toString(36).padStart(7, '0')}`;
 }
 
+/** The slots carrying a non-blank source — a blank slot is absent
+ *  (the sibling files' law: no file, no slot). */
+export function presentScriptSlots(slots: WsScriptSlots): WsScriptSlots {
+  const out: WsScriptSlots = {};
+  for (const [kind, source] of Object.entries(slots) as Array<[WsScriptKind, string | undefined]>) {
+    if (source !== undefined && source.trim() !== '') out[kind] = source;
+  }
+  return out;
+}
+
 /** Trim the Events grid's trailing ghost + unnamed rows away — the
  *  header/param projection's law applied to the events row shape. */
 export function rowsToEvents(rows: WebSocketEventRow[]): WebSocketEventRow[] {
@@ -265,6 +286,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     auth: req.auth ?? { type: 'none' },
     events: (req.events ?? []).map((row) => ({ ...row })),
     savedMessages: (req.savedMessages ?? []).map((row) => ({ ...row })),
+    scripts: { ...req.scripts },
     message: req.message,
     eventName: req.eventName ?? '',
     namespace: target.namespace,
@@ -310,6 +332,7 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     auth: draft.auth,
     events: rowsToEvents(draft.events),
     savedMessages: draft.savedMessages,
+    scripts: presentScriptSlots(draft.scripts),
     message: draft.message,
     eventName: draft.eventName,
     namespace: draft.namespace,

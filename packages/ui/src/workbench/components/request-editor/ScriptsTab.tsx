@@ -26,9 +26,11 @@ import type { ScriptKind } from '@openheaders/core/scripts';
 import { Divider, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { RequestKind } from '../../request-kind-menu';
+import { setScriptAmbientKind } from '../monaco/script-ambient';
 import type { AncestorScriptLevels } from '../request-container/ancestry';
 import AncestorScriptsLine, { type OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
@@ -43,6 +45,7 @@ import {
   type ScriptSlotFlags,
   type ScriptSlotScope,
   type ScriptSlotValues,
+  scriptSlotGroupsFor,
 } from '../script-editor/script-slots';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
@@ -55,6 +58,10 @@ interface ScriptsTabProps {
   /** The mount — a request's own slots, or a container's slots for
    *  every request it holds (grouped rail, container placeholders). */
   scope: ScriptSlotScope;
+  /** A request mount's kind — the rail draws that kind's slots alone
+   *  (both WebSocket flavors read the WebSocket group). Absent = every
+   *  group (the container mount). */
+  requestKind?: RequestKind;
   scripts: ScriptSlotValues;
   onScriptChange: (kind: ScriptKind, value: string) => void;
   /** Per-slot unsaved flags for the rail dots (see section-unsaved.ts). */
@@ -72,6 +79,7 @@ interface ScriptsTabProps {
 
 const ScriptsTab: React.FC<ScriptsTabProps> = ({
   scope,
+  requestKind,
   scripts,
   onScriptChange,
   unsaved,
@@ -82,7 +90,17 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const [active, setActive] = useState<ScriptKind>(DEFAULT_SCRIPT_SLOT);
+  const groups = useMemo(
+    () => (requestKind === undefined ? SCRIPT_SLOT_GROUPS : scriptSlotGroupsFor(requestKind)),
+    [requestKind],
+  );
+  const [active, setActive] = useState<ScriptKind>(() => groups[0]?.slots[0]?.kind ?? DEFAULT_SCRIPT_SLOT);
+  // The ambient `oh.*` types follow the active slot — a session hook's
+  // surface is its own (oh.connect / oh.message / oh.close), so the
+  // editor's completions and squigglies swap with the rail selection.
+  useEffect(() => {
+    setScriptAmbientKind(active);
+  }, [active]);
   const ancestorLevels = ancestorScripts?.[active] ?? [];
   // Script-editor wrap — a per-pane override of the global
   // `editor.wordWrap` setting; OFF by default (scripts are code, and
@@ -139,7 +157,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   return (
     <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 120 }}>
       <ScriptRail
-        groups={SCRIPT_SLOT_GROUPS}
+        groups={groups}
         grouped={scope === 'container'}
         active={active}
         scripts={scripts}

@@ -44,13 +44,19 @@ function makeRig() {
     const next = nextPost('script.result');
     runtime.handleMessage({
       type: 'script.execute',
-      request: {
-        executionId: `exec-${counter}`,
-        kind: 'pre-request',
-        source,
-        request: REQUEST,
-        ...(sessionId !== undefined ? { sessionId } : {}),
-      },
+      request:
+        sessionId === undefined
+          ? { executionId: `exec-${counter}`, kind: 'pre-request', source, request: REQUEST }
+          : {
+              executionId: `exec-${counter}`,
+              kind: 'ws-on-message',
+              source,
+              sessionId,
+              hook: {
+                kind: 'ws-on-message',
+                message: { direction: 'down', text: 'hi', dataBase64: 'aGk=', binary: false, index: 0 },
+              },
+            },
     });
     return next;
   };

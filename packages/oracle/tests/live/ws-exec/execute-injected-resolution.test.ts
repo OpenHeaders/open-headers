@@ -278,11 +278,11 @@ describe('executeWsSession — injected resolution', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     rig.callbacks().onOpen('', '');
 
-    const ok = sendActiveWsSessionMessage('send-inject-3', 'auth {{token}}');
+    const ok = await sendActiveWsSessionMessage('send-inject-3', 'auth {{token}}');
     expect(ok).toEqual({ success: true });
     expect(rig.sent).toEqual(['auth tok-123']);
 
-    const bad = sendActiveWsSessionMessage('send-inject-3', 'auth {{nope}}');
+    const bad = await sendActiveWsSessionMessage('send-inject-3', 'auth {{nope}}');
     expect(bad.success).toBe(false);
     expect(bad.error).toContain('nope');
     // The failed rider never reached the wire and the session is intact.
@@ -325,10 +325,10 @@ describe('executeWsSession — binary rider', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     rig.callbacks().onOpen('', '');
 
-    expect(sendActiveWsSessionMessage('send-binary-1', 'aGVs bG8=', undefined, { encoding: 'base64' })).toEqual({
+    expect(await sendActiveWsSessionMessage('send-binary-1', 'aGVs bG8=', undefined, { encoding: 'base64' })).toEqual({
       success: true,
     });
-    expect(sendActiveWsSessionMessage('send-binary-1', '68656c6c6f', undefined, { encoding: 'hex' })).toEqual({
+    expect(await sendActiveWsSessionMessage('send-binary-1', '68656c6c6f', undefined, { encoding: 'hex' })).toEqual({
       success: true,
     });
     expect(rig.bytes.map((b) => [...b])).toEqual([
@@ -337,7 +337,7 @@ describe('executeWsSession — binary rider', () => {
     ]);
     expect(rig.sent).toEqual([]);
 
-    const bad = sendActiveWsSessionMessage('send-binary-1', 'aGVsbG8', undefined, { encoding: 'base64' });
+    const bad = await sendActiveWsSessionMessage('send-binary-1', 'aGVsbG8', undefined, { encoding: 'base64' });
     expect(bad.success).toBe(false);
     expect(bad.error).toContain('Base64');
     expect(rig.bytes).toHaveLength(2);
@@ -362,7 +362,7 @@ describe('executeWsSession — binary rider', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     rig.callbacks().onOpen('', '');
-    const result = sendActiveWsSessionMessage('send-binary-2', 'aGVsbG8=', undefined, { encoding: 'base64' });
+    const result = await sendActiveWsSessionMessage('send-binary-2', 'aGVsbG8=', undefined, { encoding: 'base64' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('binary');
     expect(rig.sent).toEqual([]);

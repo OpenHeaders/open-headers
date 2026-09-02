@@ -88,7 +88,17 @@ function renderTab(
   } = {},
 ) {
   const { scope = 'request', scripts = EMPTY, ...rest } = extra;
-  return render(<ScriptsTab scope={scope} scripts={scripts} onScriptChange={() => {}} {...rest} />);
+  // A request mount names its kind — the HTTP editor's; a container
+  // mount draws every group.
+  return render(
+    <ScriptsTab
+      scope={scope}
+      {...(scope === 'request' ? { requestKind: 'http' as const } : {})}
+      scripts={scripts}
+      onScriptChange={() => {}}
+      {...rest}
+    />,
+  );
 }
 
 const ANCESTORS: AncestorScriptLevels = {
@@ -120,7 +130,7 @@ describe('ScriptsTab rail', () => {
 
   it('a container mount draws the slots under the HTTP kind header with the container placeholders', () => {
     renderTab({ scope: 'container' });
-    expect(screen.getByTestId('oh-script-rail-group').textContent).toBe('HTTPHTTP');
+    expect(screen.getAllByTestId('oh-script-rail-group')[0]?.textContent).toBe('HTTPHTTP');
     expect(editor().placeholder).toBe('Write scripts to be run before each HTTP request is sent.');
     fireEvent.click(screen.getByText('After response'));
     expect(editor().placeholder).toBe('Write scripts to be run at the end of each HTTP response.');
@@ -131,6 +141,7 @@ describe('ScriptsTab rail', () => {
     render(
       <ScriptsTab
         scope="request"
+        requestKind="http"
         scripts={{ ...EMPTY, 'pre-request': 'oh.setHeader("a", "1");' }}
         onScriptChange={onChange}
       />,
@@ -170,7 +181,7 @@ describe('ScriptsTab rail info popovers', () => {
     const view = renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'About Before request script' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
-    view.rerender(<ScriptsTab scope="request" scripts={EMPTY} onScriptChange={() => {}} />);
+    view.rerender(<ScriptsTab scope="request" requestKind="http" scripts={EMPTY} onScriptChange={() => {}} />);
     expect(screen.queryByText('Example send')).toBeTruthy();
   });
 });
@@ -200,5 +211,47 @@ describe('ScriptsTab ancestor line', () => {
     cleanup();
     renderTab();
     expect(screen.queryByTestId('oh-scripts-runs-after')).toBeNull();
+  });
+});
+
+describe('ScriptsTab request kinds', () => {
+  it('a WebSocket request mount draws the four WebSocket slots flat, Before connect active with its placeholder', () => {
+    render(<ScriptsTab scope="request" requestKind="websocket" scripts={EMPTY} onScriptChange={() => {}} />);
+    expect(screen.getAllByTestId('oh-script-rail-row').map((row) => row.firstChild?.textContent)).toEqual([
+      'Before connect',
+      'Before send',
+      'On message',
+      'After close',
+    ]);
+    expect(screen.queryByTestId('oh-script-rail-group')).toBeNull();
+    expect(screen.queryByText('Before request')).toBeNull();
+    expect(editor().placeholder).toBe('Use JavaScript to modify the handshake before this session connects.');
+    fireEvent.click(screen.getByText('After close'));
+    expect(editor().placeholder).toBe('Use JavaScript to test and read this session after it closes.');
+  });
+
+  it('the Socket.IO flavor reads the WebSocket group and edits report the WebSocket kind', () => {
+    const onChange = vi.fn();
+    render(<ScriptsTab scope="request" requestKind="socketio" scripts={EMPTY} onScriptChange={onChange} />);
+    fireEvent.click(screen.getByText('On message'));
+    fireEvent.change(editor(), { target: { value: `await oh.send('pong');` } });
+    expect(onChange).toHaveBeenCalledWith('ws-on-message', `await oh.send('pong');`);
+  });
+
+  it('a container mount draws the HTTP group and the WebSocket group under their kind headers', () => {
+    renderTab({ scope: 'container' });
+    expect(screen.getAllByTestId('oh-script-rail-group').map((g) => g.textContent)).toEqual([
+      'HTTPHTTP',
+      'WSWebSocket',
+    ]);
+    fireEvent.click(screen.getByText('Before send'));
+    expect(editor().placeholder).toBe('Write scripts to be run before each WebSocket message is sent.');
+  });
+
+  it('a WebSocket slot popover lists the hook glossary', async () => {
+    render(<ScriptsTab scope="request" requestKind="websocket" scripts={EMPTY} onScriptChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'About Before connect script' }));
+    expect(await screen.findByText('oh.setSubprotocols(list)')).toBeTruthy();
+    expect(screen.getByText('oh.session')).toBeTruthy();
   });
 });

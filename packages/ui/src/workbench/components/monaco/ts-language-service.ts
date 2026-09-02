@@ -13,12 +13,14 @@
  * imported by `bootstrap.ts`) but lose the language service.
  */
 
+import type { ScriptKind } from '@openheaders/core/scripts';
 import {
   javascriptDefaults,
   ScriptTarget,
   typescriptDefaults,
 } from 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
-import { OH_AMBIENT_DTS } from '../script-editor/oh-types';
+import { OH_AMBIENT_DTS, ohAmbientDts } from '../script-editor/oh-types';
+import { installScriptAmbientApplier } from './script-ambient';
 
 // `allowNonTsExtensions: true` + `allowJs: true` let inmemory JS models
 // participate in the TS program alongside the ambient lib.
@@ -60,6 +62,16 @@ export function configureTsLanguageService(): void {
   // JS / TS model.
   javascriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
   typescriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
+  // The Scripts tab swaps the declaration for the slot kind under edit
+  // — the HTTP pair's surface, or a session hook's own (`oh.connect`,
+  // `oh.message`, `oh.close`). Re-adding under the SAME lib path
+  // replaces the declaration in place, so every JS model re-types
+  // against it.
+  installScriptAmbientApplier((kind: ScriptKind) => {
+    const dts = ohAmbientDts(kind);
+    javascriptDefaults.addExtraLib(dts, 'file:///oh.d.ts');
+    typescriptDefaults.addExtraLib(dts, 'file:///oh.d.ts');
+  });
 }
 
 /**

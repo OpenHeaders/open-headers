@@ -3,10 +3,19 @@
  * fed to Monaco's TypeScript language service via
  * `monaco.languages.typescript.javascriptDefaults.addExtraLib(...)`.
  *
- * The runtime surface is defined by `apps/extension/src/offscreen/sandbox.ts`
- * — this file MUST stay in sync with it. No implementation here, only
- * types, because Monaco just needs shape information for completions,
- * hovers, and error squigglies.
+ * The runtime surface is defined by the shared runner core
+ * (`@openheaders/core/scripts/runner`) — this file MUST stay in sync
+ * with it. No implementation here, only types, because Monaco just
+ * needs shape information for completions, hovers, and error
+ * squigglies.
+ *
+ * One declaration per script KIND: the core (`variables`, `vault`,
+ * `require`, `sendRequest`, `test`, `expect`) is shared verbatim; the
+ * HTTP pair adds `oh.request` / `oh.response` and the request
+ * mutators; each WebSocket hook adds its own view and verbs
+ * (`oh.connect` + the dial mutators, `oh.message` + the send mutators
+ * or the reply verbs, `oh.close`) plus `oh.session`. The editor swaps
+ * the declaration with the rail selection (`setScriptAmbientKind`).
  *
  * The surface is split into NAMED interfaces (`OpenHeaders`,
  * `OhRequest`, `OhResponse`, …) rather than an inline anonymous type
@@ -14,7 +23,9 @@
  * unfurling the full object literal.
  */
 
-export const OH_AMBIENT_DTS = `
+import type { ScriptKind } from '@openheaders/core/scripts';
+
+const OH_PRELUDE = `
 type OhHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
 interface OhHeader { key: string; value: string; }
@@ -147,13 +158,8 @@ interface OhAdHocResponse {
 
 type OhBodyInit = OhAdHocRequestBody;
 
-/**
- * The \`oh\` global exposed inside pre-request + post-response scripts.
- * Same name in both.
- */
-interface OpenHeaders {
-  readonly request: OhRequest;
-  readonly response?: OhResponse;
+/** The half of \`oh\` every script shares. */
+interface OpenHeadersCore {
   readonly variables: OhVariables;
   readonly vault: OhVault;
 
@@ -168,10 +174,21 @@ interface OpenHeaders {
 
   /** Register an assertion. The callback runs synchronously — throw
    *  (or call \`oh.expect(...).toBe(...)\`) to fail. Both pass and fail
-   *  outcomes surface in the response panel's "Assertions" tab. */
+   *  outcomes surface in the Tests view. */
   test(name: string, fn: () => void | Promise<void>): Promise<void>;
 
   expect(actual: unknown): OhExpectation;
+}
+`;
+
+const OH_HTTP = `
+/**
+ * The \`oh\` global exposed inside pre-request + post-response scripts.
+ * Same name in both.
+ */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly request: OhRequest;
+  readonly response?: OhResponse;
 
   // ── Pre-request mutators (no-op in post-response scripts) ───────
   setUrl(url: string): void;
@@ -187,3 +204,147 @@ interface OpenHeaders {
 
 declare const oh: OpenHeaders;
 `;
+
+const OH_SESSION_PRELUDE = `
+/** State shared by every hook call of this session — a counter across
+ *  messages, a challenge kept from connect to the first reply. Mutate
+ *  its fields; the object itself cannot be reassigned. */
+interface OhSessionState { [key: string]: any }
+`;
+
+const OH_WS_CONNECT = `
+/** The dial as composed: the user's rows resolved, the query params on
+ *  the URL and parsed out beside it, the session credential NOT yet
+ *  minted (it mints onto what the script leaves). */
+interface OhWsConnect {
+  readonly url: string;
+  readonly headers: ReadonlyArray<OhHeader>;
+  readonly params: ReadonlyArray<OhParam>;
+  readonly subprotocols: ReadonlyArray<string>;
+  /** \`0\` for the first dial, \`n\` for the n-th auto-reconnect attempt. */
+  readonly attempt: number;
+}
+
+/** The \`oh\` global inside a WebSocket Before connect script — runs at
+ *  every dial, reconnect attempts included. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly connect: OhWsConnect;
+  setUrl(url: string): void;
+  setHeader(key: string, value: string): void;
+  removeHeader(key: string): void;
+  /** Query-param keys are case-sensitive — replaces the first row with
+   *  that exact key, else appends; rewrites the URL's query. */
+  setQueryParam(key: string, value: string): void;
+  removeQueryParam(key: string): void;
+  /** Replace the \`Sec-WebSocket-Protocol\` offer, preference order. */
+  setSubprotocols(subprotocols: ReadonlyArray<string>): void;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_WS_SEND = `
+/** The outgoing message after template resolution: the compose text
+ *  (a Socket.IO event's JSON arguments array; a binary compose's base64
+ *  bytes), the frame type, the Socket.IO addendum on that flavor. */
+interface OhWsOutboundMessage {
+  readonly direction: 'up';
+  readonly text: string;
+  readonly binary: boolean;
+  readonly eventName?: string;
+  readonly expectAck?: boolean;
+  /** The capture position the message takes if it goes out. */
+  readonly index: number;
+}
+
+/** The \`oh\` global inside a WebSocket Before send script — runs once
+ *  per Send; heartbeat and protocol frames never pass here. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly message: OhWsOutboundMessage;
+  /** Replace the outgoing text (a binary frame: its base64 bytes). */
+  setMessage(text: string): void;
+  /** Rename the Socket.IO event (that flavor only). */
+  setEvent(eventName: string): void;
+  /** Drop the message — nothing reaches the wire and Send reports it. */
+  drop(): void;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_WS_MESSAGE = `
+/** One captured inbound frame, after the capture: the text decode of a
+ *  text frame (\`null\` for a binary one), the bytes as the capture
+ *  holds them, the capture index it took. */
+interface OhWsInboundMessage {
+  readonly direction: 'down';
+  readonly text: string | null;
+  readonly dataBase64: string;
+  readonly binary: boolean;
+  readonly index: number;
+}
+
+/** The \`oh\` global inside a WebSocket On message script — runs once per
+ *  captured inbound frame; the capture never waits for it. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly message: OhWsInboundMessage;
+  /** Send a text frame into this session — captured like any ↑
+   *  message, never re-entering Before send. */
+  send(text: string): Promise<void>;
+  /** Send a binary frame — the bytes as base64. */
+  sendBinary(base64: string): Promise<void>;
+  /** Emit a Socket.IO event (that flavor only); \`args\` become the
+   *  packet's arguments array. */
+  emit(eventName: string, args?: ReadonlyArray<unknown>, options?: { expectAck?: boolean }): Promise<void>;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_WS_CLOSE = `
+/** The session's end record: the Close frame verbatim (\`code\` \`null\`
+ *  when the connection severed without one), whether the user stopped
+ *  it, the capture counts and the whole-session wall time. */
+interface OhWsClose {
+  readonly code: number | null;
+  readonly reason: string;
+  readonly wasClean: boolean;
+  readonly stopped: boolean;
+  readonly messages: number;
+  readonly droppedMessages: number;
+  readonly durationMs: number;
+}
+
+/** The \`oh\` global inside a WebSocket After close script — runs once
+ *  when a session that opened settles. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly close: OhWsClose;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+/** The HTTP pair's declaration — what the editor bootstraps with. */
+export const OH_AMBIENT_DTS = `${OH_PRELUDE}${OH_HTTP}`;
+
+/** The declaration for one slot kind — the editor swaps it in with the
+ *  rail selection. Kinds whose hooks have not landed read the HTTP
+ *  surface until their slice defines theirs. */
+export function ohAmbientDts(kind: ScriptKind): string {
+  switch (kind) {
+    case 'ws-before-connect':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_WS_CONNECT}`;
+    case 'ws-before-send':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_WS_SEND}`;
+    case 'ws-on-message':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_WS_MESSAGE}`;
+    case 'ws-after-close':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_WS_CLOSE}`;
+    default:
+      return OH_AMBIENT_DTS;
+  }
+}

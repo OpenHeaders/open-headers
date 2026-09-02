@@ -1776,4 +1776,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.error.certSteps.glyphSend': '▶ Senden',
   'workbench.editors.request.response.error.certSteps.glyphProceedChromium': 'Weiter zu … (unsicher)',
   'workbench.editors.request.response.error.certSteps.glyphProceedFirefox': 'Risiko akzeptieren und fortfahren',
+  'workbench.editors.request.scripts.apiConnect':
+    'die Verbindung wie zusammengestellt — URL, Header, Parameter, Subprotokolle, Versuch',
+  'workbench.editors.request.scripts.apiSetSubprotocols': 'das Subprotokoll-Angebot ersetzen',
+  'workbench.editors.request.scripts.apiMessage': 'die Nachricht — Text, Frame-Typ, Aufzeichnungsindex',
+  'workbench.editors.request.scripts.apiSetMessage': 'den ausgehenden Text ersetzen',
+  'workbench.editors.request.scripts.apiSetEvent': 'das Socket.IO-Event umbenennen',
+  'workbench.editors.request.scripts.apiDrop': 'die Nachricht verwerfen — nichts erreicht die Leitung',
+  'workbench.editors.request.scripts.apiSend': 'einen Text-Frame in die Sitzung senden',
+  'workbench.editors.request.scripts.apiSendBinary': 'einen Binär-Frame senden (base64)',
+  'workbench.editors.request.scripts.apiEmit': 'ein Socket.IO-Event senden',
+  'workbench.editors.request.scripts.apiClose': 'der Abschlussdatensatz — Schließcode, Grund, Zähler, Dauer',
+  'workbench.editors.request.scripts.apiSession': 'von jedem Hook dieser Sitzung geteilter Zustand',
 } as const satisfies Catalog;

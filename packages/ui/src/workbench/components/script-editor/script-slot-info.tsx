@@ -108,11 +108,57 @@ export function scriptSlotInfo(kind: ScriptKind, t: Translate): InfoPopoverConte
       };
     default: {
       const keys = SESSION_SLOT_INFO[kind];
+      const glossary = sessionSlotGlossary(kind, t);
       return {
         title: t(keys.title),
         kicker: t('workbench.editors.request.tab.scripts'),
         summary: t(keys.summary),
+        ...(glossary.length > 0
+          ? { sections: [{ heading: t('workbench.editors.request.scripts.apiHeading'), items: glossary }] }
+          : {}),
       };
     }
+  }
+}
+
+/** A session hook's `oh.*` glossary — lands with the hook's surface;
+ *  a kind whose hooks have not landed lists nothing yet. */
+function sessionSlotGlossary(kind: SessionScriptKind, t: Translate): Array<{ label: string; desc: string }> {
+  const session = { label: 'oh.session', desc: t('workbench.editors.request.scripts.apiSession') };
+  switch (kind) {
+    case 'ws-before-connect':
+      return [
+        { label: 'oh.connect', desc: t('workbench.editors.request.scripts.apiConnect') },
+        { label: 'oh.setUrl(url)', desc: t('workbench.editors.request.scripts.apiSetUrl') },
+        { label: 'oh.setHeader(name, value)', desc: t('workbench.editors.request.scripts.apiSetHeader') },
+        { label: 'oh.setQueryParam(name, value)', desc: t('workbench.editors.request.scripts.apiSetQueryParam') },
+        { label: 'oh.setSubprotocols(list)', desc: t('workbench.editors.request.scripts.apiSetSubprotocols') },
+        session,
+      ];
+    case 'ws-before-send':
+      return [
+        { label: 'oh.message', desc: t('workbench.editors.request.scripts.apiMessage') },
+        { label: 'oh.setMessage(text)', desc: t('workbench.editors.request.scripts.apiSetMessage') },
+        { label: 'oh.setEvent(name)', desc: t('workbench.editors.request.scripts.apiSetEvent') },
+        { label: 'oh.drop()', desc: t('workbench.editors.request.scripts.apiDrop') },
+        session,
+      ];
+    case 'ws-on-message':
+      return [
+        { label: 'oh.message', desc: t('workbench.editors.request.scripts.apiMessage') },
+        { label: 'oh.send(text)', desc: t('workbench.editors.request.scripts.apiSend') },
+        { label: 'oh.sendBinary(base64)', desc: t('workbench.editors.request.scripts.apiSendBinary') },
+        { label: 'oh.emit(name, args)', desc: t('workbench.editors.request.scripts.apiEmit') },
+        { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
+        session,
+      ];
+    case 'ws-after-close':
+      return [
+        { label: 'oh.close', desc: t('workbench.editors.request.scripts.apiClose') },
+        { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
+        session,
+      ];
+    default:
+      return [];
   }
 }

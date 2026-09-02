@@ -10,7 +10,12 @@
  */
 
 import { setHostLogger } from '@openheaders/core/logger';
-import type { ScriptExecutionRequest, ScriptExecutionResult, ScriptHostRequest } from '@openheaders/core/scripts';
+import type {
+  ScriptExecutionRequest,
+  ScriptExecutionResult,
+  ScriptHostRequest,
+  SessionHookInput,
+} from '@openheaders/core/scripts';
 import { createScriptBroker, type SandboxTransport, type ScriptBroker } from '@openheaders/core/scripts/broker';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,6 +27,12 @@ const snapshot = {
   headers: [],
   params: [],
   body: { type: 'none' as const },
+};
+
+/** A session hook's input — the broker forwards it verbatim. */
+const INBOUND: SessionHookInput = {
+  kind: 'ws-on-message',
+  message: { direction: 'down', text: 'hi', dataBase64: 'aGk=', binary: false, index: 0 },
 };
 
 function okResult(executionId: string): ScriptExecutionResult {
@@ -163,21 +174,21 @@ describe('runScript — lifecycle', () => {
 describe('runScript — sessions', () => {
   it('carries the session id on the execute request', async () => {
     const rig = makeRig();
-    await rig.broker.runScript({ kind: 'pre-request', source: 'x;', request: snapshot, sessionId: 'send-1' });
-    expect(rig.executes()[0]?.sessionId).toBe('send-1');
+    await rig.broker.runScript({ kind: 'ws-on-message', source: 'x;', sessionId: 'send-1', hook: INBOUND });
+    expect(rig.executes()[0]).toMatchObject({ sessionId: 'send-1', hook: INBOUND });
     rig.broker.endSession('send-1');
   });
 
   it('an open session holds the runtime past the idle window', async () => {
     const rig = makeRig();
-    await rig.broker.runScript({ kind: 'pre-request', source: 'x;', request: snapshot, sessionId: 'send-1' });
+    await rig.broker.runScript({ kind: 'ws-on-message', source: 'x;', sessionId: 'send-1', hook: INBOUND });
     vi.advanceTimersByTime(120_000);
     expect(rig.transport.close).not.toHaveBeenCalled();
   });
 
   it('endSession posts the session end and arms the idle close', async () => {
     const rig = makeRig();
-    await rig.broker.runScript({ kind: 'pre-request', source: 'x;', request: snapshot, sessionId: 'send-1' });
+    await rig.broker.runScript({ kind: 'ws-on-message', source: 'x;', sessionId: 'send-1', hook: INBOUND });
     rig.broker.endSession('send-1');
     expect(rig.transport.post).toHaveBeenCalledWith({ type: 'script.session-end', sessionId: 'send-1' });
     expect(rig.transport.close).not.toHaveBeenCalled();
@@ -187,7 +198,7 @@ describe('runScript — sessions', () => {
 
   it('a run in flight keeps the runtime open after endSession', async () => {
     const rig = makeRig({ autoRespond: false });
-    const pending = rig.broker.runScript({ kind: 'pre-request', source: 'x;', request: snapshot, sessionId: 'send-1' });
+    const pending = rig.broker.runScript({ kind: 'ws-on-message', source: 'x;', sessionId: 'send-1', hook: INBOUND });
     await vi.advanceTimersByTimeAsync(0);
     rig.broker.endSession('send-1');
     vi.advanceTimersByTime(30_000);

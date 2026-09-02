@@ -922,6 +922,17 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.mqttAfterCloseInfoTitle': 'After close script',
   'workbench.editors.request.scripts.mqttAfterCloseInfoSummary':
     'Runs once the session settles after it opened. Read the end record, the CONNACK and the session’s counts; assertion results land in the session pane.',
+  'workbench.editors.request.scripts.apiConnect': 'the dial as composed — URL, headers, params, subprotocols, attempt',
+  'workbench.editors.request.scripts.apiSetSubprotocols': 'replace the subprotocol offer',
+  'workbench.editors.request.scripts.apiMessage': 'the message — text, frame type, capture index',
+  'workbench.editors.request.scripts.apiSetMessage': 'replace the outgoing text',
+  'workbench.editors.request.scripts.apiSetEvent': 'rename the Socket.IO event',
+  'workbench.editors.request.scripts.apiDrop': 'drop the message — nothing reaches the wire',
+  'workbench.editors.request.scripts.apiSend': 'send a text frame into the session',
+  'workbench.editors.request.scripts.apiSendBinary': 'send a binary frame (base64)',
+  'workbench.editors.request.scripts.apiEmit': 'emit a Socket.IO event',
+  'workbench.editors.request.scripts.apiClose': 'the end record — close code, reason, counts, duration',
+  'workbench.editors.request.scripts.apiSession': 'state shared by every hook of this session',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.followRedirects': 'Automatically follow redirects',

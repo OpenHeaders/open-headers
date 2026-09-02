@@ -164,6 +164,7 @@ describe('createPeerRequestsRpc — script posture', () => {
     setHostScriptCapabilities({
       safe: {
         mode: 'safe',
+        endSession: () => {},
         runScript: async () => ({ executionId: 'e', succeeded: true, assertions: [], consoleLog: [], durationMs: 0 }),
       },
     });

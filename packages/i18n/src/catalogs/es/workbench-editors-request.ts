@@ -1755,4 +1755,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.error.certSteps.glyphSend': '▶ Enviar',
   'workbench.editors.request.response.error.certSteps.glyphProceedChromium': 'Acceder (sitio no seguro)',
   'workbench.editors.request.response.error.certSteps.glyphProceedFirefox': 'Aceptar el riesgo y continuar',
+  'workbench.editors.request.scripts.apiConnect':
+    'la conexión tal como se compuso — URL, cabeceras, parámetros, subprotocolos, intento',
+  'workbench.editors.request.scripts.apiSetSubprotocols': 'reemplazar la oferta de subprotocolos',
+  'workbench.editors.request.scripts.apiMessage': 'el mensaje — texto, tipo de trama, índice de captura',
+  'workbench.editors.request.scripts.apiSetMessage': 'reemplazar el texto saliente',
+  'workbench.editors.request.scripts.apiSetEvent': 'renombrar el evento Socket.IO',
+  'workbench.editors.request.scripts.apiDrop': 'descartar el mensaje — nada llega a la red',
+  'workbench.editors.request.scripts.apiSend': 'enviar una trama de texto a la sesión',
+  'workbench.editors.request.scripts.apiSendBinary': 'enviar una trama binaria (base64)',
+  'workbench.editors.request.scripts.apiEmit': 'emitir un evento Socket.IO',
+  'workbench.editors.request.scripts.apiClose': 'el registro de cierre — código, motivo, recuentos, duración',
+  'workbench.editors.request.scripts.apiSession': 'estado compartido por cada hook de esta sesión',
 } as const satisfies Catalog;

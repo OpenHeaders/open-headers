@@ -19,6 +19,10 @@
  *     own workbench-Send pipeline (`handleExecuteRequestRpc`), sharing
  *     its transport, dispatcher cache and cookie jars. The draft
  *     carries no scripts, so this cannot recurse.
+ *   • `session.send(...)`  — a session hook's `oh.send` / `oh.emit` /
+ *     `oh.sendBinary` into ITS open WebSocket session, through the
+ *     active-session registry as a SCRIPT-origin write: captured and
+ *     broadcast like any ↑ frame, never re-entering Before send.
  *
  * Always resolves with a `ScriptHostResponse` — never throws — so the
  * broker forwards it back to the runtime without extra handling.
@@ -50,6 +54,7 @@ import {
 import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
 import { getCollections as getRuleCollections } from '@openheaders/oracle/entity/rule-store';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
+import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import { applySyncRequest, getOracleForWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
 import { createNodeRequestTransport } from '../live/node-request-transport';
@@ -74,6 +79,17 @@ export async function handleScriptHostRequest(request: ScriptHostRequest): Promi
         return okReply(request, await resolveVaultRef(request.ref));
       case 'sendRequest':
         return okReply(request, await dispatchAdHocRequest(request.request));
+      case 'session.send':
+        return okReply(
+          request,
+          await sendActiveWsSessionMessage(
+            request.sessionId,
+            request.messageText,
+            request.socketio,
+            request.binary,
+            'script',
+          ),
+        );
       default: {
         const unreachable: never = request;
         return errorReply(

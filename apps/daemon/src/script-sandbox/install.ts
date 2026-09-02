@@ -63,7 +63,11 @@ export function installScriptRuntime(): ScriptRuntimeHandle | null {
     handleHostRequest: handleScriptHostRequest,
   });
   setHostScriptCapabilities({
-    safe: { mode: 'safe', runScript: (opts) => broker.runScript(opts) },
+    safe: {
+      mode: 'safe',
+      runScript: (opts) => broker.runScript(opts),
+      endSession: (sessionId) => broker.endSession(sessionId),
+    },
   });
   logger.info(SCOPE, `safe script runtime installed (${runnerPath})`);
   return {

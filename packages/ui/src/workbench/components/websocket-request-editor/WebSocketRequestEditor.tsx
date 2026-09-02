@@ -46,6 +46,10 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import ScriptsTab from '../request-editor/ScriptsTab';
+import { ancestorScriptLevels } from '../request-container/ancestry';
+import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
+import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import SessionLock from '../shared/SessionLock';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import EditorHeader from '../shell/EditorHeader';
@@ -87,6 +91,11 @@ interface WebSocketRequestEditorProps {
   /** Opens a container's Authorization section — the Auth tab's
    *  "Edit in …" opener under Inherit. */
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  /** Opens a container's Scripts section — the Scripts tab's "Runs
+   *  after …" level links. */
+  onOpenContainerScripts?: OpenContainerScripts;
+  /** Open the Package Library tab (the Scripts tab's Packages popover footer). */
+  onOpenPackageLibrary?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -100,6 +109,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   auth: { type: 'none' },
   events: [],
   savedMessages: [],
+  scripts: {},
   message: '',
   eventName: '',
   namespace: '',
@@ -139,6 +149,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   workspaceId,
   onOpenWsResponseExample,
   onOpenContainerAuth,
+  onOpenContainerScripts,
+  onOpenPackageLibrary,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -170,6 +182,9 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
     [ancestry, draft.auth, draft.url],
   );
+  // The ancestor levels whose slots run ahead of this request's, per
+  // kind — the Scripts tab's "Runs after …" line.
+  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
 
   // Saved-messages selection plane: the compose is the selected row's
   // editor. Every USER edit below rides the bound setter (compose
@@ -465,6 +480,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                         : []),
                       { key: 'auth', label: t('workbench.editors.websocket.tab.auth') },
                       { key: 'headers', label: t('workbench.editors.websocket.tab.headers') },
+                      { key: 'scripts', label: t('workbench.editors.websocket.tab.scripts') },
                       { key: 'settings', label: t('workbench.editors.websocket.tab.settings') },
                       { key: 'spec', label: <SpecTabLabel /> },
                     ]}
@@ -535,6 +551,21 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       <WsSpecTab
                         aids={aids}
                         onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
+                      />
+                    )}
+                    {/* The session's hooks — edited live: a saved slot
+                      takes effect on the NEXT Connect (the chain composes
+                      at the dial), so the tab never locks. */}
+                    {activeTab === 'scripts' && (
+                      <ScriptsTab
+                        scope="request"
+                        requestKind={socketioFlavor ? 'socketio' : 'websocket'}
+                        scripts={scriptSlotValuesOf(draft)}
+                        onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+                        workspaceId={workspaceId}
+                        onOpenPackageLibrary={onOpenPackageLibrary}
+                        ancestorScripts={ancestorScripts}
+                        onOpenContainerScripts={onOpenContainerScripts}
                       />
                     )}
                     {activeTab === 'settings' && (

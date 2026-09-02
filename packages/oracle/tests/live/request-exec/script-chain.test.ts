@@ -262,7 +262,12 @@ describe('runScriptChain — the shared fold', () => {
         script.source === 'folder();'
           ? result({ succeeded: false, error: { name: 'Error', message: 'boom' } })
           : result(),
-      { strict: false, onLevelSucceeded: (r) => landed.push(r.executionId) },
+      {
+        strict: false,
+        onLevelSucceeded: (r) => {
+          landed.push(r.executionId);
+        },
+      },
     );
     expect(landed).toHaveLength(2);
     expect(fold?.succeeded).toBe(false);

@@ -19,12 +19,12 @@ export type WsTimelineLifecycleItem = ExecutedWsLifecycle & { atMs?: number };
 
 /** True while the last reconnect fact is a drop or an attempt still
  *  dialing — the session is in flight but no connection is up. Ack
- *  timeouts are session facts, not reconnect facts; they never move
- *  the badge. */
+ *  timeouts and script marks are session facts, not reconnect facts;
+ *  they never move the badge. */
 export function reconnectingAt(lifecycle: readonly ExecutedWsLifecycle[]): boolean {
   for (let i = lifecycle.length - 1; i >= 0; i--) {
     const kind = lifecycle[i].kind;
-    if (kind === 'ackTimeout') continue;
+    if (kind === 'ackTimeout' || kind === 'script') continue;
     return kind !== 'reconnected';
   }
   return false;

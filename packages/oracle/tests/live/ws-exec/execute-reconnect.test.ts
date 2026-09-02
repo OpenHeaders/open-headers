@@ -142,14 +142,14 @@ describe('executeWsSession — auto-reconnect', () => {
     rig.serverClose(0, 1011, 'restarting');
     await tick();
     // Between attempts the riders answer honestly instead of writing.
-    expect(sendActiveWsSessionMessage('send-ws-rc', 'x').success).toBe(false);
+    expect((await sendActiveWsSessionMessage('send-ws-rc', 'x')).success).toBe(false);
     expect(rig.dialCount()).toBe(1);
     await vi.advanceTimersByTimeAsync(1_999);
     expect(rig.dialCount()).toBe(1);
     await vi.advanceTimersByTimeAsync(1);
     expect(rig.dialCount()).toBe(2);
     rig.open(1, 'chat.v2');
-    expect(sendActiveWsSessionMessage('send-ws-rc', 'again')).toEqual({ success: true });
+    expect(await sendActiveWsSessionMessage('send-ws-rc', 'again')).toEqual({ success: true });
     expect(rig.sentOn(1)).toEqual(['again']);
     closeActiveWsSession('send-ws-rc');
     await tick();

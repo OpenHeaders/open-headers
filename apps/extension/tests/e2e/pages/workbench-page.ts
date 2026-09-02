@@ -384,7 +384,9 @@ export class WorkbenchPage {
    *  inline InfoTrigger ("Before request About Before request script"), so
    *  match on the prefix — the ⓘ button itself starts with "About" and
    *  can't collide. */
-  async selectScriptRail(label: 'Before request' | 'After response'): Promise<void> {
+  async selectScriptRail(
+    label: 'Before request' | 'After response' | 'Before connect' | 'Before send' | 'On message' | 'After close',
+  ): Promise<void> {
     await this.page
       .getByRole('button', { name: new RegExp(`^${label}`) })
       .filter({ visible: true })

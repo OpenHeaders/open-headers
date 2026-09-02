@@ -118,6 +118,15 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
 
 // ── Active-session registry (upstream riders) ───────────────────────
 
+/** Who is writing: the user's rider (its Before send hook runs), or a
+ *  script's `oh.send` (already a hook's product — never re-enters). */
+export type WsSendOrigin = 'rider' | 'script';
+
+export interface WsSendResult {
+  success: boolean;
+  error?: string;
+}
+
 /** The executor's handle for one open session — what the
  *  `sendWsMessage` / `closeWsSession` RPCs reach. */
 export interface ActiveWsSessionHandle {
@@ -127,12 +136,15 @@ export interface ActiveWsSessionHandle {
    *  and the executor frames the EVENT packet; the `binary` addendum
    *  makes it the encoded byte spelling of ONE binary frame. An
    *  unresolved reference or a compose error reports on the RPC alone
-   *  — the session stays open. */
+   *  — the session stays open. A rider send runs the Before send hook
+   *  first (the answer waits for it; a drop answers with the dropping
+   *  level's name); a script's send never does. */
   send(
     messageText: string,
     socketio?: WsSendSocketIoWire,
     binary?: WsSendBinaryWire,
-  ): { success: boolean; error?: string };
+    origin?: WsSendOrigin,
+  ): Promise<WsSendResult>;
   /** Start the clean close (code 1000) — Disconnect. */
   close(): void;
   /** Dial the armed reconnect attempt now instead of after its wait.
@@ -152,16 +164,18 @@ export function registerActiveWsSession(sendId: string, handle: ActiveWsSessionH
 }
 
 /** Write one message into an open session. `success: false` names the
- *  reason: no such session (settled, unknown id) or a resolve error. */
+ *  reason: no such session (settled, unknown id), a resolve error, or
+ *  a Before send level that dropped the message. */
 export function sendActiveWsSessionMessage(
   sendId: string,
   messageText: string,
   socketio?: WsSendSocketIoWire,
   binary?: WsSendBinaryWire,
-): { success: boolean; error?: string } {
+  origin: WsSendOrigin = 'rider',
+): Promise<WsSendResult> {
   const handle = activeSessions.get(sendId);
-  if (!handle) return { success: false, error: 'No open WebSocket session with this id.' };
-  return handle.send(messageText, socketio, binary);
+  if (!handle) return Promise.resolve({ success: false, error: 'No open WebSocket session with this id.' });
+  return handle.send(messageText, socketio, binary, origin);
 }
 
 /** Cut a session's auto-reconnect wait short. False = no such

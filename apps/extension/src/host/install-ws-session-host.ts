@@ -46,10 +46,14 @@ import {
 } from '@openheaders/oracle/live/ws-exec/session-plane';
 import { createBrowserWsTransport } from '@openheaders/oracle-host-browser/live/browser-ws-transport';
 import { getWsPageResolutionFactory } from '@openheaders/ui/workbench/components/websocket-request-editor/ws-page-session';
+import { getPageScriptHost, setPageScriptScope } from '@/host/page-script-host';
 import { chromeBridge } from '@/utils/bridge';
 
 // Stateless — one socket per session (the node handler's symmetry).
 const browserWsTransport = createBrowserWsTransport();
+// The page realm's script runtime — the session's hooks run here, on
+// the sandbox iframe this page mounts; null on Firefox (scriptless).
+const pageScriptHost = getPageScriptHost();
 
 /** In-page `wsStreamEvent` fan-out — the emitter feeds these
  *  synchronously; batching already happened in the session plane. */
@@ -81,6 +85,9 @@ async function handleExecuteWebSocketRequest(
   }
   try {
     const scope = await factory(draft);
+    // The session's hooks answer their `oh.*` calls against this
+    // Connect's renderer scope.
+    setPageScriptScope(scope.scripts);
     const snapshot = await executeWsSession(draft, {
       // The scope pin is moot here (resolution and the auth chain are
       // injected); the id names the token store an inherited OAuth 2.0
@@ -92,6 +99,8 @@ async function handleExecuteWebSocketRequest(
       emitStreamEvent: deliverWsStreamEventLocally,
       resolution: scope.resolve,
       authChain: scope.authChain,
+      scriptChain: scope.scriptChain,
+      ...(pageScriptHost !== null ? { scriptHost: pageScriptHost } : {}),
     });
     return { success: true, snapshot };
   } catch (err) {

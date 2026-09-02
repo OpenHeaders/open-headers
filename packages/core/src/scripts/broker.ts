@@ -33,15 +33,17 @@
 
 import { hostLogger as logger } from '../logger';
 import type {
+  HttpScriptKind,
   RequestSnapshot,
   ResponseSnapshot,
   ScriptExecutionRequest,
   ScriptExecutionResult,
   ScriptHostRequest,
   ScriptHostResponse,
-  ScriptKind,
   ScriptPackageModule,
   ScriptWireMessage,
+  SessionHookInput,
+  SessionScriptKind,
 } from './index';
 
 const SCOPE = 'script-broker';
@@ -60,19 +62,30 @@ export interface SandboxTransport {
   close(reason: 'idle' | 'shutdown'): void;
 }
 
-export interface RunScriptOptions {
-  kind: ScriptKind;
+interface RunScriptBase {
   source: string;
-  request: RequestSnapshot;
-  response?: ResponseSnapshot;
   timeoutMs?: number;
   /** Host-API tier — see the module doc. Default `'interactive'`. */
   hostContext?: 'interactive' | 'chain';
-  /** The live session this run is a hook of — see
-   *  {@link ScriptExecutionRequest.sessionId}. The broker keeps the
-   *  runtime open for the session until {@link ScriptBroker.endSession}. */
-  sessionId?: string;
 }
+
+/** An HTTP send's one-shot script run. */
+export interface RunHttpScriptOptions extends RunScriptBase {
+  kind: HttpScriptKind;
+  request: RequestSnapshot;
+  response?: ResponseSnapshot;
+}
+
+/** One hook call of a live session — see
+ *  {@link SessionScriptExecution}. The broker keeps the runtime open
+ *  for the session until {@link ScriptBroker.endSession}. */
+export interface RunSessionScriptOptions extends RunScriptBase {
+  kind: SessionScriptKind;
+  sessionId: string;
+  hook: SessionHookInput;
+}
+
+export type RunScriptOptions = RunHttpScriptOptions | RunSessionScriptOptions;
 
 /** Answers one `oh.*` host request. Must resolve (never throw) — the
  *  broker forwards whatever comes back straight into the runtime. */
@@ -211,20 +224,20 @@ export function createScriptBroker(deps: ScriptBrokerDeps): ScriptBroker {
       await transport.ensureReady();
       clearIdleTimer();
       inFlight += 1;
-      if (opts.sessionId !== undefined) openSessions.add(opts.sessionId);
+      const session = 'hook' in opts;
+      if (session) openSessions.add(opts.sessionId);
 
       const packages = deps.listScriptPackages();
       const executionId = nextExecutionId();
-      const request: ScriptExecutionRequest = {
+      const base = {
         executionId,
-        kind: opts.kind,
         source: opts.source,
-        request: opts.request,
-        response: opts.response,
         timeoutMs: opts.timeoutMs,
         packages: packages.length > 0 ? packages : undefined,
-        ...(opts.sessionId !== undefined ? { sessionId: opts.sessionId } : {}),
       };
+      const request: ScriptExecutionRequest = session
+        ? { ...base, kind: opts.kind, sessionId: opts.sessionId, hook: opts.hook }
+        : { ...base, kind: opts.kind, request: opts.request, response: opts.response };
 
       if (opts.hostContext === 'chain') chainExecutionIds.add(executionId);
       try {

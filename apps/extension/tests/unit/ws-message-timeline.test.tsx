@@ -20,6 +20,7 @@ import WsMessageTimeline, {
   type WsTimelineItem,
   type WsTimelineLifecycle,
 } from '@openheaders/ui/workbench/components/websocket-request-editor/WsMessageTimeline';
+import type { WsTimelineLifecycleItem as WsTimelineLifecycleItemForTest } from '@openheaders/ui/workbench/components/websocket-request-editor/ws-lifecycle';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
@@ -484,5 +485,59 @@ describe('WsMessageTimeline — socketio decoded display', () => {
     expect(rows.some((r) => r.includes('mute-me'))).toBe(true);
     expect(rows.some((r) => r.includes('engine.io open'))).toBe(true);
     expect(rows.some((r) => r.includes('ack'))).toBe(true);
+  });
+});
+
+describe('WsMessageTimeline — script marks', () => {
+  const scriptMark = (
+    over: Partial<Extract<WsTimelineLifecycleItemForTest, { kind: 'script' }>> = {},
+  ): WsTimelineLifecycleItemForTest => ({
+    kind: 'script',
+    hook: 'ws-before-connect',
+    succeeded: true,
+    durationMs: 3,
+    chain: [
+      { level: 'collection', uid: 'col1', name: 'Payments', durationMs: 2, succeeded: true },
+      { level: 'request', uid: 'req1', name: 'Charge', durationMs: 1, succeeded: true },
+    ],
+    atIndex: 0,
+    atMs: 1_700_000_000_040,
+    ...over,
+  });
+
+  it('renders a hook run as a lifecycle row naming the hook and the levels, at its capture position', () => {
+    renderTimeline({
+      lifecycleItems: [scriptMark(), scriptMark({ hook: 'ws-on-message', atIndex: 2, attempt: undefined })],
+    });
+    const rows = screen.getAllByTestId('ws-timeline-script-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.textContent).toContain('On message — Collection ‘Payments’ · Request · 3 ms');
+    expect(rows[1]?.textContent).toContain('Before connect — Collection ‘Payments’ · Request · 3 ms');
+    // Newest first: the On message mark (index 2) sits above the
+    // messages it followed; the connect mark below the first message.
+    const sequence = [
+      ...document.querySelectorAll('[data-testid="ws-timeline-message-row"], [data-testid="ws-timeline-script-row"]'),
+    ].map((el) => el.getAttribute('data-testid'));
+    expect(sequence).toEqual([
+      'ws-timeline-message-row',
+      'ws-timeline-script-row',
+      'ws-timeline-message-row',
+      'ws-timeline-message-row',
+      'ws-timeline-script-row',
+    ]);
+  });
+
+  it('a failed run reads the error, a drop names the level, a reconnect dial its attempt', () => {
+    renderTimeline({
+      lifecycleItems: [
+        scriptMark({ succeeded: false, error: { name: 'Error', message: "Collection 'Payments': boom" } }),
+        scriptMark({ hook: 'ws-before-send', droppedBy: "Folder 'Guard'", atIndex: 1 }),
+        scriptMark({ attempt: 2, atIndex: 3 }),
+      ],
+    });
+    const rows = screen.getAllByTestId('ws-timeline-script-row').map((el) => el.textContent ?? '');
+    expect(rows.some((r) => r.includes("Before connect failed — Collection 'Payments': boom"))).toBe(true);
+    expect(rows.some((r) => r.includes("Before send dropped the message — Folder 'Guard'"))).toBe(true);
+    expect(rows.some((r) => r.includes('attempt 2'))).toBe(true);
   });
 });

@@ -54,6 +54,16 @@ export interface SlotChainLeaf extends ScriptSlotCarrier {
   name: string;
 }
 
+/** An ancestor level as the chain composes it — the level, its
+ *  attribution label and the carrier's identity + slots. The tree-index
+ *  walk's `AncestorCarrier` is one; a page realm injects its own off
+ *  the renderer trees (the auth chain's twin). */
+export interface SlotChainCarrier {
+  level: AncestorCarrier['level'];
+  label: string;
+  entity: SlotChainLeaf;
+}
+
 function nonBlank(source: string | undefined): source is string {
   return source !== undefined && source.trim() !== '';
 }
@@ -65,7 +75,7 @@ function nonBlank(source: string | undefined): source is string {
  * `null` composes the ancestor levels alone.
  */
 export function composeSlotChain(
-  carriers: readonly AncestorCarrier[],
+  carriers: readonly SlotChainCarrier[],
   leaf: SlotChainLeaf | null,
   kind: ScriptKind,
 ): ChainScript[] {
@@ -176,8 +186,10 @@ export interface RunChainOptions {
    *  runs every level and merely skips what a failing level produced. */
   strict: boolean;
   /** A level SUCCEEDED — the caller lands what it produced (a
-   *  pre-request level's mutation) before the next level runs. */
-  onLevelSucceeded?: (result: ScriptExecutionResult) => void;
+   *  pre-request level's mutation) before the next level runs, and may
+   *  end the chain there (`'stop'`: a Before send level dropped the
+   *  message — nothing later runs on a message that is not going out). */
+  onLevelSucceeded?: (result: ScriptExecutionResult, script: ChainScript) => void | 'stop';
 }
 
 /**
@@ -209,7 +221,7 @@ export async function runScriptChain(
     fold.assertions.push(...result.assertions);
     fold.durationMs += result.durationMs;
     if (result.succeeded) {
-      options.onLevelSucceeded?.(result);
+      if (options.onLevelSucceeded?.(result, script) === 'stop') break;
       continue;
     }
     if (fold.succeeded) {

@@ -188,6 +188,7 @@ function installFakeScriptRuntime(): void {
   setHostScriptCapabilities({
     safe: {
       mode: 'safe',
+      endSession: () => {},
       runScript: async ({ source }) => ({
         executionId: 'fake-run',
         succeeded: true,

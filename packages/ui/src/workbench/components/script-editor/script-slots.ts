@@ -130,10 +130,28 @@ export const SCRIPT_SLOT_BY_KIND: Readonly<Record<ScriptKind, ScriptSlotDescript
 };
 
 /** The groups in rail order — one per request kind whose slots RUN. The
- *  session kinds' groups join here with their build slices. */
+ *  session kinds' groups join here with their build slices; both
+ *  WebSocket flavors are one group (one wire family, one hook set). */
 export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
   { requestKind: 'http', slots: [SCRIPT_SLOT_BY_KIND['pre-request'], SCRIPT_SLOT_BY_KIND['post-response']] },
+  {
+    requestKind: 'websocket',
+    slots: [
+      SCRIPT_SLOT_BY_KIND['ws-before-connect'],
+      SCRIPT_SLOT_BY_KIND['ws-before-send'],
+      SCRIPT_SLOT_BY_KIND['ws-on-message'],
+      SCRIPT_SLOT_BY_KIND['ws-after-close'],
+    ],
+  },
 ];
+
+/** The group a request of `kind` draws on its own tab — the Socket.IO
+ *  flavor reads the WebSocket group. Empty for a kind whose slots do
+ *  not run yet (its editor mounts no Scripts tab). */
+export function scriptSlotGroupsFor(kind: RequestKind): readonly ScriptSlotGroup[] {
+  const family: RequestKind = kind === 'socketio' ? 'websocket' : kind;
+  return SCRIPT_SLOT_GROUPS.filter((group) => group.requestKind === family);
+}
 
 /** The rail's first slot — the tab's initial selection. */
 export const DEFAULT_SCRIPT_SLOT: ScriptKind = SCRIPT_SLOT_GROUPS[0].slots[0].kind;

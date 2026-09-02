@@ -125,6 +125,28 @@ export function findFolderCollectionUid(trees: readonly CollectionTree[], folder
   return null;
 }
 
+/** One ancestor level as the executor's script chain composes it —
+ *  the level, its attribution label (the executor's own spelling, so a
+ *  page-realm run attributes like a node one) and the carrier. */
+export interface AncestorScriptCarrier {
+  level: 'collection' | 'folder';
+  label: string;
+  entity: AncestorAuthCarrier;
+}
+
+/** The ancestry as the executor's script chain carriers (outer →
+ *  inner) — what a page-realm session host injects in place of the
+ *  tree-index walk (the `authChainOf` twin). */
+export function scriptChainOf(ancestry: RequestAncestry): AncestorScriptCarrier[] {
+  const { collection } = ancestry;
+  return [
+    { level: 'collection', label: `Collection '${collection.name}'`, entity: collection },
+    ...ancestry.folders.map(
+      (f): AncestorScriptCarrier => ({ level: 'folder', label: `Folder '${f.name}'`, entity: f }),
+    ),
+  ];
+}
+
 /** The ancestry as the shared rule's chain (outer → inner). */
 export function authChainOf(ancestry: RequestAncestry): AuthCarrier[] {
   const { collection } = ancestry;

@@ -127,6 +127,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
       return (
         <ScriptsTab
           scope="request"
+          requestKind="http"
           scripts={scriptSlotValuesOf(draft)}
           onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
           unsaved={unsavedSections === undefined ? undefined : scriptSlotFlagsOf(unsavedSections)}

@@ -53,6 +53,7 @@
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { WsSendBinaryWire, WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
+import type { WsOutboundMessageSnapshot, WsScriptKind } from '@openheaders/core/scripts';
 import {
   encodeEventPacket,
   isValidNamespace,
@@ -69,12 +70,13 @@ import type {
   ExecutedWsMessage,
   ExecutedWsReconnected,
   ExecutedWsReconnecting,
+  ExecutedWsScriptMark,
   ExecutedWsSnapshot,
   TrustCertificateErrorHint,
   Vault,
   WebSocketRequest,
 } from '@openheaders/core/types';
-import { appendQueryParams, decodeBinaryText, encodeBase64Bytes } from '@openheaders/core/utils';
+import { appendQueryParams, decodeBase64Bytes, decodeBinaryText, encodeBase64Bytes } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
@@ -82,11 +84,14 @@ import { DEFAULT_HEARTBEAT_INTERVAL_MS, DEFAULT_RECONNECT_PERIOD_MS, reconnectDe
 import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { buildResolver } from '../request-exec/resolver-scope';
+import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
+import { parseUrlParams, type SessionScriptHost } from '../request-exec/script-hooks';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
-import { createWsStreamEmitter, registerActiveWsSession } from './session-plane';
+import { createWsScriptPlane, hasWsScriptChains, type WsScriptChains } from './script-plane';
+import { createWsStreamEmitter, registerActiveWsSession, type WsSendResult } from './session-plane';
 import { createSocketIoSessionController } from './socketio-session';
 import type { WsSessionWriter, WsTransport, WsTransportError, WsTransportHeader } from './transport';
 
@@ -152,6 +157,29 @@ export interface ExecuteWsSessionOptions {
    *  attaches it; absent = the stored bundle attaches as it is (the
    *  page realm's posture — its background scheduler keeps it fresh). */
   refreshOAuth?: OAuthRefreshFn;
+  /** Host script capability — the session's hooks (Before connect /
+   *  Before send / On message / After close) run through it; absent =
+   *  the session runs scriptless and records no script outcome. */
+  scriptHost?: SessionScriptHost;
+  /** Host-injected ancestor script carriers (outer → inner) — for page
+   *  realms whose oracle mirrors are empty (the `authChain` twin);
+   *  absent = the executor walks the tree index per slot kind. */
+  scriptChain?: readonly SlotChainCarrier[];
+}
+
+/** The four hooks' chains for the request — the ancestor levels'
+ *  slots (injected, or off the tree index) onto the request's own. */
+function wsScriptChains(request: WebSocketRequest, options: ExecuteWsSessionOptions): WsScriptChains {
+  const compose = (kind: WsScriptKind) =>
+    options.scriptChain !== undefined
+      ? composeSlotChain(options.scriptChain, request, kind)
+      : collectSlotChain(request, options.workspaceId, kind);
+  return {
+    'ws-before-connect': compose('ws-before-connect'),
+    'ws-before-send': compose('ws-before-send'),
+    'ws-on-message': compose('ws-on-message'),
+    'ws-after-close': compose('ws-after-close'),
+  };
 }
 
 export async function executeWsSession(
@@ -278,6 +306,10 @@ export async function executeWsSession(
   const idleTimeoutMs = request.idleTimeoutMs;
   const heartbeatIntervalMs = request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
   const maxMessageBytes = request.maxMessageBytes;
+  // ── Script hooks — mounted only where a host runs scripts AND some
+  // level carries one; a scriptless session never touches the plane.
+  const scriptChains = options.scriptHost !== undefined ? wsScriptChains(request, options) : null;
+  const scriptHost = scriptChains !== null && hasWsScriptChains(scriptChains) ? options.scriptHost : undefined;
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedWsSnapshot>((resolveRaw) => {
@@ -345,12 +377,28 @@ export async function executeWsSession(
      *  count of every message captured before it, rolled-off ones
      *  included, so live and materialized positions agree. */
     const recordLifecycle = (
-      fact: ExecutedWsLost | ExecutedWsReconnecting | ExecutedWsReconnected | ExecutedWsAckTimeout,
+      fact:
+        | ExecutedWsLost
+        | ExecutedWsReconnecting
+        | ExecutedWsReconnected
+        | ExecutedWsAckTimeout
+        | ExecutedWsScriptMark,
     ): void => {
       const item: ExecutedWsLifecycle = { ...fact, atIndex: messages.length + droppedMessages };
       lifecycle.push(item);
       emitter?.lifecycle(item);
     };
+    // The script plane — every hook's mark lands on the timeline at
+    // the capture's current index like any other session fact.
+    const scripts =
+      scriptHost !== undefined && scriptChains !== null
+        ? createWsScriptPlane({
+            sessionId: options.sendId,
+            host: scriptHost,
+            chains: scriptChains,
+            recordMark: recordLifecycle,
+          })
+        : null;
 
     const clearIdleTimer = (): void => {
       if (idleTimer !== null) clearTimeout(idleTimer);
@@ -412,37 +460,66 @@ export async function executeWsSession(
       socketioSession?.resetConnection();
       unregisterSend();
       unregisterSession?.();
-      emitter?.end();
       const durationMs = Math.round(performance.now() - startedAt);
-      if (!opened) {
-        // A user Stop-abort before the handshake completed settles as
-        // the ABORTED outcome, not a failure.
-        // The dial's facts ride the failure too — the timeline's error
-        // row names the peer and the handshake it attempted.
-        resolve({
-          ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.', hint),
-          url: dialUrl,
-          requestHeaders,
-          ...(stopped ? { outcome: { kind: 'aborted' as const } } : {}),
-          durationMs,
-        });
+      // The record settles once the After close hook has run (a session
+      // that opened) and every queued hook landed its mark — the end
+      // frame and the snapshot's `scripts` record follow them.
+      const finish = (): void => {
+        emitter?.end();
+        const scriptsRecord = scripts?.summary();
+        scripts?.end();
+        const withScripts = (snapshot: ExecutedWsSnapshot): ExecutedWsSnapshot =>
+          scriptsRecord !== undefined ? { ...snapshot, scripts: scriptsRecord } : snapshot;
+        if (!opened) {
+          // A user Stop-abort before the handshake completed settles as
+          // the ABORTED outcome, not a failure.
+          // The dial's facts ride the failure too — the timeline's error
+          // row names the peer and the handshake it attempted.
+          resolve(
+            withScripts({
+              ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.', hint),
+              url: dialUrl,
+              requestHeaders,
+              ...(stopped ? { outcome: { kind: 'aborted' as const } } : {}),
+              ...(lifecycle.length > 0 ? { lifecycle } : {}),
+              durationMs,
+            }),
+          );
+          return;
+        }
+        resolve(
+          withScripts({
+            outcome: { kind: 'connected' },
+            url: dialUrl,
+            requestHeaders,
+            protocol,
+            extensions,
+            messages,
+            droppedMessages,
+            close,
+            ...(lifecycle.length > 0 ? { lifecycle } : {}),
+            ...(reconnectExhausted !== undefined ? { reconnectExhausted } : {}),
+            ...(stopped ? { stopped: true } : {}),
+            durationMs,
+            ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+          }),
+        );
+      };
+      if (scripts === null || !opened) {
+        finish();
         return;
       }
-      resolve({
-        outcome: { kind: 'connected' },
-        url: dialUrl,
-        requestHeaders,
-        protocol,
-        extensions,
-        messages,
-        droppedMessages,
-        close,
-        ...(lifecycle.length > 0 ? { lifecycle } : {}),
-        ...(reconnectExhausted !== undefined ? { reconnectExhausted } : {}),
-        ...(stopped ? { stopped: true } : {}),
-        durationMs,
-        ...(proxyRoute !== undefined ? { proxyRoute } : {}),
-      });
+      void scripts
+        .afterClose({
+          code: close?.code ?? null,
+          reason: close?.reason ?? '',
+          wasClean: close?.wasClean ?? false,
+          stopped,
+          messages: messages.length + droppedMessages,
+          droppedMessages,
+          durationMs,
+        })
+        .then(finish, finish);
     };
 
     // One write path for riders AND protocol frames — every ↑ frame is
@@ -585,14 +662,36 @@ export async function executeWsSession(
      *  Stopped (no socket exists to abort). */
     const dial = (): void => {
       void (async () => {
-        let dialHeaders = headers;
+        let dialHeaders: WsTransportHeader[] = headers;
         let wireUrl = url;
+        let dialSubprotocols: readonly string[] = subprotocols;
+        if (scripts !== null) {
+          // Before connect sees the dial as composed — the user's rows
+          // and params, no credential yet — and runs at EVERY dial, so a
+          // reconnect attempt re-runs it on the re-minted credential's
+          // turn. Lenient: a failed level leaves its input as it was.
+          const connect = await scripts.beforeConnect({
+            url,
+            headers: headers.map((h) => ({ key: h.key, value: h.value })),
+            params: parseUrlParams(url),
+            subprotocols: [...subprotocols],
+            attempt: reconnectAttempt,
+          });
+          if (settled) return;
+          if (stopped) {
+            settle();
+            return;
+          }
+          wireUrl = connect.url;
+          dialHeaders = connect.headers;
+          dialSubprotocols = connect.subprotocols;
+        }
         if (credential !== null) {
           let minted: Awaited<ReturnType<typeof mintSessionCredential>>;
           try {
             minted = await mintSessionCredential(credential, {
-              url,
-              headers,
+              url: wireUrl,
+              headers: dialHeaders,
               ...(tokenWorkspaceId !== undefined ? { workspaceId: tokenWorkspaceId } : {}),
               ...(options.refreshOAuth !== undefined ? { refreshOAuth: options.refreshOAuth } : {}),
               now: new Date(),
@@ -609,20 +708,23 @@ export async function executeWsSession(
           // An explicit user row carrying the credential's header takes
           // precedence (the gRPC auth block's law), so one value rides
           // the wire either way.
+          const userRows = dialHeaders;
           const rows = minted.headers.filter(
-            (h) => !headers.some((row) => row.key.toLowerCase() === h.key.toLowerCase()),
+            (h) => !userRows.some((row) => row.key.toLowerCase() === h.key.toLowerCase()),
           );
-          dialHeaders = [...headers, ...rows];
-          wireUrl = minted.url ?? (minted.query.length > 0 ? appendQueryParams(url, minted.query) : url);
+          dialHeaders = [...userRows, ...rows];
+          wireUrl = minted.url ?? (minted.query.length > 0 ? appendQueryParams(wireUrl, minted.query) : wireUrl);
           connectBearerToken = minted.bearerToken;
         }
-        requestHeaders = [...dialHeaders, ...subprotocolOffer];
+        const offer =
+          dialSubprotocols.length > 0 ? [{ key: 'Sec-WebSocket-Protocol', value: dialSubprotocols.join(', ') }] : [];
+        requestHeaders = [...dialHeaders, ...offer];
         dialUrl = wireUrl;
         writer = options.transport.connect(
           {
             url: wireUrl,
             headers: dialHeaders,
-            subprotocols,
+            subprotocols: dialSubprotocols,
             ...tlsPolicy,
             ...dialPolicy,
             ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
@@ -671,10 +773,21 @@ export async function executeWsSession(
               record({ direction: 'down', dataBase64, binary }, data.byteLength);
               emitter?.message({ direction: 'down', dataBase64, binary, atMs: Date.now() });
               armIdleTimer();
+              const text = binary ? null : new TextDecoder().decode(data);
               // The socket.io controller answers protocol obligations off
               // the same feed the capture records — text frames only
               // (binary attachments carry no engine.io grammar).
-              if (socketioSession !== null && !binary) socketioSession.handleFrame(new TextDecoder().decode(data));
+              if (socketioSession !== null && text !== null) socketioSession.handleFrame(text);
+              // On message runs AFTER the capture, off the same frame,
+              // queued behind the session's earlier hooks — the capture
+              // never waits for it.
+              scripts?.onMessage({
+                direction: 'down',
+                text,
+                dataBase64,
+                binary,
+                index: messages.length + droppedMessages - 1,
+              });
             },
             onClose: (event) => {
               close =
@@ -692,20 +805,33 @@ export async function executeWsSession(
     dial();
 
     unregisterSession = registerActiveWsSession(options.sendId, {
-      send: (messageText, socketio?: WsSendSocketIoWire, binary?: WsSendBinaryWire) => {
+      send: async (
+        messageText,
+        socketio?: WsSendSocketIoWire,
+        binary?: WsSendBinaryWire,
+        origin = 'rider',
+      ): Promise<WsSendResult> => {
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        if (binary !== undefined && socketio !== undefined) {
+          return { success: false, error: 'A Socket.IO event cannot be a binary frame.' };
+        }
+        if (socketio !== undefined && socketioSession === null) {
+          return { success: false, error: 'This session is not a Socket.IO session.' };
+        }
         const sendUnresolved = new Set<string>();
         const resolved = resolveWith(messageText, sendUnresolved);
+        const eventName = socketio !== undefined ? resolveWith(socketio.eventName, sendUnresolved) : undefined;
+        if (sendUnresolved.size > 0) {
+          return {
+            success: false,
+            error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
+          };
+        }
+        // The message as the hook sees it: a binary compose decodes
+        // first (the rider's spelling gates the send) and rides as
+        // base64 — one spelling for the script to read or replace.
+        let text = resolved;
         if (binary !== undefined) {
-          if (socketio !== undefined) {
-            return { success: false, error: 'A Socket.IO event cannot be a binary frame.' };
-          }
-          if (sendUnresolved.size > 0) {
-            return {
-              success: false,
-              error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
-            };
-          }
           const bytes = decodeBinaryText(resolved, binary.encoding);
           if (bytes === null) {
             return {
@@ -714,33 +840,39 @@ export async function executeWsSession(
                 binary.encoding === 'base64' ? 'The message is not valid Base64.' : 'The message is not valid hex.',
             };
           }
+          text = encodeBase64Bytes(bytes);
+        }
+        let message: WsOutboundMessageSnapshot = {
+          direction: 'up',
+          text,
+          binary: binary !== undefined,
+          ...(socketio !== undefined && eventName !== undefined ? { eventName, expectAck: socketio.expectAck } : {}),
+          index: messages.length + droppedMessages,
+        };
+        // Before send — the rider's message only: a script's own send
+        // is already a hook's product and never re-enters the hook.
+        if (scripts !== null && origin === 'rider') {
+          const outcome = await scripts.beforeSend(message);
+          if (outcome.kind === 'dropped') {
+            return { success: false, error: `Dropped by the Before send script at ${outcome.by}.` };
+          }
+          message = outcome.message;
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        }
+        if (message.binary) {
+          const bytes = decodeBase64Bytes(message.text);
+          if (bytes === null) return { success: false, error: 'The message is not valid Base64.' };
           return sendBinary(bytes);
         }
-        if (socketio !== undefined) {
-          if (socketioSession === null) {
-            return { success: false, error: 'This session is not a Socket.IO session.' };
-          }
-          const eventName = resolveWith(socketio.eventName, sendUnresolved);
-          if (sendUnresolved.size > 0) {
-            return {
-              success: false,
-              error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
-            };
-          }
-          const ackId = socketio.expectAck ? socketioSession.nextAckId() : null;
-          const encoded = encodeEventPacket(namespace, ackId, eventName, resolved);
+        if (message.eventName !== undefined && socketioSession !== null) {
+          const ackId = message.expectAck === true ? socketioSession.nextAckId() : null;
+          const encoded = encodeEventPacket(namespace, ackId, message.eventName, message.text);
           if (!encoded.ok) return { success: false, error: encoded.error };
           sendText(encoded.frame);
           if (ackId !== null) socketioSession.armAck(ackId);
           return { success: true };
         }
-        if (sendUnresolved.size > 0) {
-          return {
-            success: false,
-            error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
-          };
-        }
-        sendText(resolved);
+        sendText(message.text);
         return { success: true };
       },
       close: () => {

@@ -171,13 +171,16 @@ describe('executeWsSession — socketio flavor', () => {
     rig.callbacks().onOpen('', '');
     rig.callbacks().onMessage(textFrame('0{"sid":"abc"}'));
 
-    const plain = sendActiveWsSessionMessage('send-sio-event', '["hello", 2]', {
+    const plain = await sendActiveWsSessionMessage('send-sio-event', '["hello", 2]', {
       eventName: '{{event}}',
       expectAck: false,
     });
     expect(plain).toEqual({ success: true });
-    const first = sendActiveWsSessionMessage('send-sio-event', '', { eventName: 'ping-me', expectAck: true });
-    const second = sendActiveWsSessionMessage('send-sio-event', '[true]', { eventName: 'ping-me', expectAck: true });
+    const first = await sendActiveWsSessionMessage('send-sio-event', '', { eventName: 'ping-me', expectAck: true });
+    const second = await sendActiveWsSessionMessage('send-sio-event', '[true]', {
+      eventName: 'ping-me',
+      expectAck: true,
+    });
     expect(first).toEqual({ success: true });
     expect(second).toEqual({ success: true });
     expect(rig.sent).toEqual(['40', '42["echo","hello",2]', '421["ping-me"]', '422["ping-me",true]']);
@@ -199,14 +202,20 @@ describe('executeWsSession — socketio flavor', () => {
     rig.callbacks().onOpen('', '');
     rig.callbacks().onMessage(textFrame('0{"sid":"abc"}'));
 
-    const notArray = sendActiveWsSessionMessage('send-sio-badargs', '{"a":1}', { eventName: 'echo', expectAck: false });
+    const notArray = await sendActiveWsSessionMessage('send-sio-badargs', '{"a":1}', {
+      eventName: 'echo',
+      expectAck: false,
+    });
     expect(notArray.success).toBe(false);
     expect(notArray.error).toContain('JSON array');
-    const noName = sendActiveWsSessionMessage('send-sio-badargs', '[]', { eventName: ' ', expectAck: false });
+    const noName = await sendActiveWsSessionMessage('send-sio-badargs', '[]', { eventName: ' ', expectAck: false });
     expect(noName.success).toBe(false);
     expect(rig.sent).toEqual(['40']);
 
-    const stillOpen = sendActiveWsSessionMessage('send-sio-badargs', '[1]', { eventName: 'echo', expectAck: false });
+    const stillOpen = await sendActiveWsSessionMessage('send-sio-badargs', '[1]', {
+      eventName: 'echo',
+      expectAck: false,
+    });
     expect(stillOpen).toEqual({ success: true });
 
     rig.callbacks().onEnd();
@@ -238,7 +247,7 @@ describe('executeWsSession — socketio flavor', () => {
     await settleTick();
     expect(rig.wire().url).toBe('ws://events.openheaders.io:3000/live');
     rig.callbacks().onOpen('', '');
-    const result = sendActiveWsSessionMessage('send-sio-onraw', '[]', { eventName: 'echo', expectAck: false });
+    const result = await sendActiveWsSessionMessage('send-sio-onraw', '[]', { eventName: 'echo', expectAck: false });
     expect(result.success).toBe(false);
     expect(result.error).toContain('not a Socket.IO session');
     rig.callbacks().onEnd();
@@ -356,13 +365,13 @@ describe('executeWsSession — socketio flavor, timers', () => {
     await tick();
     rig.callbacks().onOpen('', '');
     rig.callbacks().onMessage(textFrame('0{"sid":"abc"}'));
-    expect(sendActiveWsSessionMessage('send-sio-ack', '[1]', { eventName: 'echo', expectAck: true })).toEqual({
+    expect(await sendActiveWsSessionMessage('send-sio-ack', '[1]', { eventName: 'echo', expectAck: true })).toEqual({
       success: true,
     });
-    expect(sendActiveWsSessionMessage('send-sio-ack', '[2]', { eventName: 'echo', expectAck: true })).toEqual({
+    expect(await sendActiveWsSessionMessage('send-sio-ack', '[2]', { eventName: 'echo', expectAck: true })).toEqual({
       success: true,
     });
-    expect(sendActiveWsSessionMessage('send-sio-ack', '[3]', { eventName: 'echo', expectAck: false })).toEqual({
+    expect(await sendActiveWsSessionMessage('send-sio-ack', '[3]', { eventName: 'echo', expectAck: false })).toEqual({
       success: true,
     });
     // The second ack lands in time; the first never does.
@@ -391,7 +400,7 @@ describe('executeWsSession — socketio flavor, timers', () => {
     await tick();
     rig.callbacks().onOpen('', '');
     rig.callbacks().onMessage(textFrame('0{"sid":"abc"}'));
-    sendActiveWsSessionMessage('send-sio-ack-end', '[1]', { eventName: 'echo', expectAck: true });
+    void sendActiveWsSessionMessage('send-sio-ack-end', '[1]', { eventName: 'echo', expectAck: true });
     rig.callbacks().onEnd();
     const snapshot = await settled;
     await vi.advanceTimersByTimeAsync(1000);

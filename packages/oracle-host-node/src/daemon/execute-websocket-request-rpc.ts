@@ -16,9 +16,11 @@
  * environment" state).
  *
  * The entity loads from the workspace's storage slots — the same
- * validated reads the sync caches hydrate from. No scripts on WS
- * sessions (the Phase G parity decision), so the executor is called
- * directly.
+ * validated reads the sync caches hydrate from. The session's script
+ * hooks ride the host's script capability when it has one
+ * (`resolveSessionScriptHost` — the HTTP send's mode gate: a forwarded
+ * session runs Safe or not at all); a host without one runs the
+ * session scriptless.
  */
 
 import { hostBridge, type WsStreamEventWire } from '@openheaders/core/bridge';
@@ -31,6 +33,7 @@ import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { createNodeWsTransport } from '../live/node-ws-transport';
+import { resolveSessionScriptHost } from './script-capability';
 
 export interface ExecuteWebSocketRequestRpcResult {
   success: boolean;
@@ -104,6 +107,12 @@ export async function handleExecuteWebSocketRequestRpc(
     }
     if (!request) return { success: false, error: 'No WebSocket request or draft provided' };
 
+    // A frame stamped with a foreign workspace is a peer-forwarded
+    // session — its scripts run Safe unconditionally (never this
+    // host's slot). The executor mounts the plane only where a level
+    // carries a script.
+    const forwarded = requestedWorkspaceId !== undefined && requestedWorkspaceId !== activeWorkspaceId;
+    const scriptHost = await resolveSessionScriptHost({ workspaceId: workspaceId ?? activeWorkspaceId, forwarded });
     const snapshot = await executeWsSession(request, {
       workspaceId,
       environmentId,
@@ -111,6 +120,7 @@ export async function handleExecuteWebSocketRequestRpc(
       sendId,
       emitStreamEvent,
       refreshOAuth: buildRefreshOAuthHook(workspaceId ?? undefined, nodeRequestTransport),
+      ...(scriptHost !== null ? { scriptHost } : {}),
     });
     return { success: true, snapshot };
   } catch (err) {

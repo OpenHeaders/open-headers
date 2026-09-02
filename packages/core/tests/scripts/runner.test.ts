@@ -5,7 +5,12 @@
  * drops it. One-shot executions (no `sessionId`) have no `oh.session`.
  */
 
-import type { RequestSnapshot, ScriptExecutionRequest, ScriptHostRequest } from '@openheaders/core/scripts';
+import type {
+  RequestSnapshot,
+  ScriptExecutionRequest,
+  ScriptHostRequest,
+  SessionHookInput,
+} from '@openheaders/core/scripts';
 import { endScriptSession, executeScript } from '@openheaders/core/scripts/runner';
 import { describe, expect, it } from 'vitest';
 
@@ -19,15 +24,18 @@ const REQUEST: RequestSnapshot = {
 
 let executions = 0;
 
+/** A session hook's input — the On message shape stands in for any. */
+const INBOUND: SessionHookInput = {
+  kind: 'ws-on-message',
+  message: { direction: 'down', text: 'hi', dataBase64: 'aGk=', binary: false, index: 0 },
+};
+
 async function run(source: string, sessionId?: string) {
   executions += 1;
-  const req: ScriptExecutionRequest = {
-    executionId: `exec-${executions}`,
-    kind: 'pre-request',
-    source,
-    request: REQUEST,
-    ...(sessionId !== undefined ? { sessionId } : {}),
-  };
+  const req: ScriptExecutionRequest =
+    sessionId === undefined
+      ? { executionId: `exec-${executions}`, kind: 'pre-request', source, request: REQUEST }
+      : { executionId: `exec-${executions}`, kind: 'ws-on-message', source, sessionId, hook: INBOUND };
   return executeScript(req, {
     sendHostRequest: async (request: ScriptHostRequest) => ({
       executionId: request.executionId,

@@ -27,11 +27,14 @@
  */
 
 import type {
+  HttpScriptKind,
   RequestMutation,
   RequestSnapshot,
   ResponseSnapshot,
+  ScriptExecutionMode,
   ScriptExecutionResult,
-  ScriptKind,
+  SessionHookInput,
+  SessionScriptKind,
   TestAssertion,
 } from '@openheaders/core/scripts';
 import { ensureScheme } from '@openheaders/core/utils';
@@ -39,7 +42,7 @@ import { defaultContentType, type ResolvedRequest } from './resolve-request';
 
 /** One script execution the host runs on the step's behalf. */
 export interface StepScriptInput {
-  kind: ScriptKind;
+  kind: HttpScriptKind;
   source: string;
   request: RequestSnapshot;
   response?: ResponseSnapshot;
@@ -51,6 +54,29 @@ export interface StepScriptInput {
  * `succeeded: false` results, mirroring the offscreen contract.
  */
 export type StepScriptRunner = (input: StepScriptInput) => Promise<ScriptExecutionResult>;
+
+/** One hook call of a live session the host runs on the session's
+ *  behalf — the session's send id pins the runtime-side context. */
+export interface SessionScriptInput {
+  kind: SessionScriptKind;
+  source: string;
+  sessionId: string;
+  hook: SessionHookInput;
+}
+
+/**
+ * Host script capability for live sessions — the session executors'
+ * port. `run` never throws (the step runner's contract); `endSession`
+ * releases the session's runtime context once it settles; `mode` is
+ * the trust posture the hooks run under, stamped on the snapshot.
+ * Hosts without a script runtime inject nothing and the session runs
+ * scriptless.
+ */
+export interface SessionScriptHost {
+  mode: ScriptExecutionMode;
+  run(input: SessionScriptInput): Promise<ScriptExecutionResult>;
+  endSession(sessionId: string): void;
+}
 
 /**
  * Project a resolved request into the mutable view scripts see.
@@ -66,7 +92,7 @@ export function resolvedToScriptSnapshot(resolved: ResolvedRequest): RequestSnap
   };
 }
 
-function parseUrlParams(url: string): Array<{ key: string; value: string }> {
+export function parseUrlParams(url: string): Array<{ key: string; value: string }> {
   try {
     const parsed = new URL(ensureScheme(url.trim()));
     return [...parsed.searchParams.entries()].map(([key, value]) => ({ key, value }));
@@ -99,7 +125,7 @@ export function applyScriptMutation(resolved: ResolvedRequest, mutation: Request
   return next;
 }
 
-function replaceUrlParams(url: string, params: Array<{ key: string; value: string }>): string {
+export function replaceUrlParams(url: string, params: Array<{ key: string; value: string }>): string {
   try {
     const parsed = new URL(ensureScheme(url.trim()));
     parsed.search = '';

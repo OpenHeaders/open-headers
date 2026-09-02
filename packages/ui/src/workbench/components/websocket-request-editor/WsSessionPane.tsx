@@ -22,7 +22,7 @@
 import { ClearOutlined, CloseOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ExecutedWsSnapshot, WebSocketFlavor } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Dropdown, Tag, Typography, theme } from 'antd';
+import { Button, Dropdown, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/response/AuthAttributionTag';
@@ -32,8 +32,13 @@ import TrustCertificateOffer from '../request-editor/response/TrustCertificateOf
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline';
+import WsScriptsTag from './WsScriptsTag';
+import WsScriptsView from './WsScriptsView';
 import type { LiveWsSession, WsSessionTiming } from './useLiveWsSession';
 import { liveLifecycleItems, reconnectExhaustedMessage, reconnectingAt, snapshotLifecycleItems } from './ws-lifecycle';
+import { digestFromMarks, digestFromRecord, scriptMarksOf } from './ws-scripts';
+
+type WsSessionView = 'timeline' | 'scripts';
 
 const { Text } = Typography;
 
@@ -273,6 +278,28 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   const reconnecting = live !== null && snapshot === null && reconnectingAt(live.lifecycle);
   const livePill = useTonePillStyle(reconnecting ? 'warning' : live?.open !== null ? 'success' : 'neutral');
 
+  // The session's scripts — the timeline's marks (live: the feed's;
+  // settled: the snapshot's) feed the Scripts view; the tag digests the
+  // marks live and the snapshot's record once settled (the record's
+  // tallies outlive the mark cap). A session with no hook shows neither.
+  const lifecycleItems = useMemo(
+    () =>
+      snapshot !== null
+        ? snapshotLifecycleItems(snapshot, timing?.lifecycleTimestamps)
+        : live !== null
+          ? liveLifecycleItems(live.lifecycle, live.lifecycleTimestamps)
+          : [],
+    [snapshot, timing, live],
+  );
+  const scriptMarks = useMemo(() => scriptMarksOf(lifecycleItems), [lifecycleItems]);
+  const scriptsDigest = useMemo(
+    () => (snapshot?.scripts !== undefined ? digestFromRecord(snapshot.scripts) : digestFromMarks(scriptMarks)),
+    [snapshot, scriptMarks],
+  );
+  const scriptsInPlay = scriptsDigest.runs > 0;
+  const [view, setView] = useState<WsSessionView>('timeline');
+  const activeView: WsSessionView = scriptsInPlay ? view : 'timeline';
+
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
       {snapshot === null ? (
@@ -287,12 +314,14 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
             </Tag>
           </ConnectionDetailsTooltip>
           {proxyRouteHasBadge(live?.open?.proxyRoute) && <ProxyRouteTag route={live?.open?.proxyRoute} />}
+          <WsScriptsTag digest={scriptsDigest} />
         </>
       ) : (
         <>
           {closeTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{closeTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
           {authAttributionHasBadge(snapshot.auth) && <AuthAttributionTag auth={snapshot.auth} />}
+          <WsScriptsTag digest={scriptsDigest} />
           <Dropdown
             trigger={['click']}
             styles={{ root: { minWidth: 180 } }}
@@ -351,15 +380,6 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   const items = snapshot?.messages ?? live?.items ?? [];
   const count = snapshot?.messages.length ?? live?.count ?? 0;
   const timestamps = snapshot !== null ? timing?.messageTimestamps : live?.timestamps;
-  const lifecycleItems = useMemo(
-    () =>
-      snapshot !== null
-        ? snapshotLifecycleItems(snapshot, timing?.lifecycleTimestamps)
-        : live !== null
-          ? liveLifecycleItems(live.lifecycle, live.lifecycleTimestamps)
-          : [],
-    [snapshot, timing, live],
-  );
 
   return (
     <div
@@ -384,6 +404,35 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         <Text strong style={{ fontSize: 12 }}>
           {t('workbench.editors.websocket.session.paneTitle')}
         </Text>
+        {/* The Scripts view joins only once a hook ran — no teaser
+          switch on a scriptless session. */}
+        {scriptsInPlay && (
+          <Segmented
+            size="small"
+            value={activeView}
+            onChange={(next) => setView(next as WsSessionView)}
+            options={[
+              {
+                value: 'timeline',
+                label: (
+                  <span data-testid="ws-session-view-timeline">
+                    {t('workbench.editors.websocket.session.view.timeline')}
+                  </span>
+                ),
+              },
+              {
+                value: 'scripts',
+                label: (
+                  <span data-testid="ws-session-view-scripts">
+                    {t('workbench.editors.websocket.session.view.scripts')}
+                  </span>
+                ),
+              },
+            ]}
+            style={{ marginLeft: 12 }}
+            data-testid="ws-session-view"
+          />
+        )}
         <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>{metaStrip}</span>
       </div>
       <div
@@ -396,7 +445,8 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
           minHeight: 0,
         }}
       >
-        {trustHint !== null && trustOfferOpen && (
+        {activeView === 'scripts' && <WsScriptsView marks={scriptMarks} marksCapped={scriptsDigest.marksCapped} />}
+        {activeView === 'timeline' && trustHint !== null && trustOfferOpen && (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 4 }}>
             <TrustCertificateOffer hint={trustHint} {...(onReconnect !== undefined ? { onResend: onReconnect } : {})} />
             <Button
@@ -409,7 +459,10 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
             />
           </div>
         )}
-        <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
+        <div
+          style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column' }}
+          hidden={activeView !== 'timeline'}
+        >
           <WsMessageTimeline
             items={items}
             count={count}

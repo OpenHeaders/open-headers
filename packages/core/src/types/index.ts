@@ -250,9 +250,12 @@ export type {
   ExecutedRequestSize,
   ExecutedRequestSnapshot,
   ExecutedScriptChainStep,
+  ExecutedScriptFold,
   ExecutedTlsFacts,
   ExecutedWireCapture,
   OpenInTabErrorHint,
+  ScriptEventLevelSummary,
+  ScriptEventSummary,
   TrustCertificateErrorHint,
 } from './request-execution';
 // ── Response example ───────────────────────────────────────────────
@@ -411,6 +414,8 @@ export type {
   ExecutedWsOutcome,
   ExecutedWsReconnected,
   ExecutedWsReconnecting,
+  ExecutedWsScriptMark,
+  ExecutedWsScripts,
   ExecutedWsSnapshot,
 } from './websocket-execution';
 // ── WebSocket request ──────────────────────────────────────────────

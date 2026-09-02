@@ -88,6 +88,13 @@ type SetPath = (typeof SET_PATHS)[number];
 
 const isSetPath = (key: string): SetPath | null => SET_PATHS.find((path) => path === key) ?? null;
 
+/** A record with no keys reads as no record — see the `scripts` note below. */
+function emptyRecordAsAbsent(value: unknown): unknown {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0
+    ? undefined
+    : value;
+}
+
 /**
  * Translate a `Partial<Omit<WebSocketRequest, 'uid'|'path'>>` patch
  * into a single batch. Scalar fields → one `setField` per leaf;
@@ -124,13 +131,20 @@ export function buildWebSocketUpdateBatch(
     // Container-valued scalars (`subprotocols`, `specLink`) — emit a
     // per-leaf flatten-diff so the edit shares create's representation.
     if (value !== null && typeof value === 'object') {
+      // The script slot record is absent when empty (one `<kind>.js`
+      // sibling per present slot, no record leaf): an empty record on
+      // either side diffs as no record, so a save without scripts never
+      // writes an empty leaf and an emptied slot tombstones its own.
+      const record = key === 'scripts';
       bodies.push(
         ...synthesizeFieldDiff({
           type: WEBSOCKET_REQUEST_ENTITY_TYPE,
           id: webSocketRequestUid,
           basePath: key,
-          oldValue: liveFieldValue(webSocketRequestUid, key),
-          newValue: value,
+          oldValue: record
+            ? emptyRecordAsAbsent(liveFieldValue(webSocketRequestUid, key))
+            : liveFieldValue(webSocketRequestUid, key),
+          newValue: record ? emptyRecordAsAbsent(value) : value,
         }),
       );
       continue;

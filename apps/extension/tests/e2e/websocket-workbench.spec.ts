@@ -825,3 +825,36 @@ test('B13 — an own query-mode JWT defined on the request rides the handshake U
 
   await disconnectAndAwaitClose();
 });
+
+test('B14 — a Before connect script runs in-page at the dial: the greeting carries its param, the mark and the console land', async () => {
+  // The Scripts tab draws the WebSocket slots flat; the script types
+  // into the shared editor (one line — Monaco's auto-indent law).
+  await page.getByRole('tab', { name: 'Scripts', exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('oh-script-rail').filter({ visible: true }).first()).toContainText('Before connect');
+  await workbench.selectScriptRail('Before connect');
+  await workbench.fillMonaco(
+    0,
+    `oh.setQueryParam('tag', 'from-page-script'); console.log('dial', oh.connect.attempt);`,
+  );
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+
+  await expect(connectButton()).toBeEnabled();
+  await connectButton().click();
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+
+  // The greeting mirrors the request-target — the script's param rode
+  // the dial URL the page realm opened.
+  await timelineMessageRows()
+    .filter({ hasText: 'tag=from-page-script' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 15_000 });
+  const mark = page.getByTestId('ws-timeline-script-row').filter({ visible: true }).first();
+  await mark.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(mark).toContainText('Before connect');
+  await expect(page.getByTestId('ws-session-scripts-tag').filter({ visible: true }).first()).toHaveText('Scripts · 1');
+  await page.getByTestId('ws-session-view-scripts').filter({ visible: true }).first().click();
+  await expect(page.getByTestId('ws-script-console-block').filter({ visible: true }).first()).toContainText('dial 0');
+  await page.getByTestId('ws-session-view-timeline').filter({ visible: true }).first().click();
+
+  await disconnectAndAwaitClose();
+});

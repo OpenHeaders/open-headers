@@ -20,12 +20,27 @@
  */
 
 import type { HttpMethod, RequestBody } from '../types';
-import type { ScriptKind } from './slots';
+import type { SessionHookInput, SessionScriptMutation } from './session-hooks';
+import type { HttpScriptKind, SessionScriptKind } from './slots';
 
 // ── Kinds ──────────────────────────────────────────────────────────
 // The vocabulary lives in `./slots` (kinds, storage paths, sibling
 // files); the execution envelope below carries the kind as data.
 
+export type {
+  MutatingWsScriptKind,
+  SessionHeader,
+  SessionHookInput,
+  SessionParam,
+  SessionScriptMutation,
+  WsCloseSnapshot,
+  WsConnectMutation,
+  WsConnectSnapshot,
+  WsHookInput,
+  WsInboundMessageSnapshot,
+  WsOutboundMessageSnapshot,
+  WsSendMutation,
+} from './session-hooks';
 export type {
   GrpcScriptKind,
   HttpScriptKind,
@@ -161,37 +176,55 @@ export interface ScriptPackageModule {
 }
 
 /**
- * Host → sandbox: run this script.
- *
- * `workspaceId` is echoed back on every host-RPC reply so the host can
- * route them to the right workspace context without the sandbox having
- * to know workspace ids.
+ * Host → sandbox: run this script — the envelope's shared half. The
+ * family (HTTP or session) decides what the script sees; the union
+ * below discriminates on `kind`.
  */
-export interface ScriptExecutionRequest {
+export interface ScriptExecutionBase {
   /** Correlation id for this execution (host-assigned). */
   executionId: string;
-  kind: ScriptKind;
   source: string;
-  request: RequestSnapshot;
-  response?: ResponseSnapshot;
   /** Optional OAuth credentialRef the script may request via `oh.vault.get(ref)`. */
   credentialRef?: string;
   /** Hard timeout for this script (default: 5000 ms). */
   timeoutMs?: number;
   /** Workspace script packages available to `oh.require` (active workspace). */
   packages?: ScriptPackageModule[];
-  /**
-   * The live session this execution is a hook of — the session's send
-   * id. Pins a runtime-side session context: `oh.session`, one plain
-   * object every hook call of the session shares (a counter across
-   * messages, a challenge kept from connect to the first reply), and
-   * the compiled-hook cache, so a chatty session never recompiles per
-   * event. Each call still runs in a fresh scope — only `oh.session`
-   * carries state across. The host ends the context with a
-   * `script.session-end` message when the session settles. Absent = a
-   * one-shot execution (an HTTP send's scripts).
-   */
-  sessionId?: string;
+}
+
+/**
+ * An HTTP send's script — one-shot: the request the script may rewrite
+ * (pre-request) and the response it tests (post-response). No session
+ * context: every execution stands alone.
+ */
+export interface HttpScriptExecution extends ScriptExecutionBase {
+  kind: HttpScriptKind;
+  request: RequestSnapshot;
+  response?: ResponseSnapshot;
+}
+
+/**
+ * One hook call of a live session (a WebSocket, MQTT or gRPC session's
+ * connect / send / message / close scripts). `sessionId` — the
+ * session's send id — pins a runtime-side session context:
+ * `oh.session`, one plain object every hook call of the session shares
+ * (a counter across messages, a challenge kept from connect to the
+ * first reply), and the compiled-hook cache, so a chatty session never
+ * recompiles per event. Each call still runs in a fresh scope — only
+ * `oh.session` carries state across. The host ends the context with a
+ * `script.session-end` message when the session settles.
+ */
+export interface SessionScriptExecution extends ScriptExecutionBase {
+  kind: SessionScriptKind;
+  sessionId: string;
+  /** The hook's input — what this call sees (see `./session-hooks`). */
+  hook: SessionHookInput;
+}
+
+export type ScriptExecutionRequest = HttpScriptExecution | SessionScriptExecution;
+
+export function isSessionScriptExecution(req: ScriptExecutionRequest): req is SessionScriptExecution {
+  return 'hook' in req;
 }
 
 /**
@@ -207,7 +240,11 @@ export interface ScriptExecutionResult {
   executionId: string;
   succeeded: boolean;
   error?: { name: string; message: string; stack?: string };
+  /** An HTTP pre-request script's request diff. */
   mutation?: RequestMutation;
+  /** A session hook's diff — a connect or send mutation under its tag
+   *  (see `./session-hooks`); absent when the hook changed nothing. */
+  sessionMutation?: SessionScriptMutation;
   assertions: TestAssertion[];
   consoleLog: ScriptConsoleEntry[];
   /** Wall-clock duration, ms. */
@@ -231,6 +268,12 @@ export interface ScriptExecutionResult {
  *                                    without explicit opt-in)
  *   • `vault.get(ref)`             → string | null (read-only per §18)
  *   • `sendRequest(request)`       → ResponseSnapshot
+ *   • `session.send(...)`          → { success, error? } — a session
+ *                                    hook writing into ITS open session
+ *                                    (`oh.send` / `oh.sendBinary` /
+ *                                    `oh.emit`), the rider's shape: the
+ *                                    host routes it to the active-session
+ *                                    registry under the session's id.
  */
 export type ScriptHostRequest =
   | {
@@ -257,7 +300,25 @@ export type ScriptHostRequest =
       rpcId: string;
       op: 'sendRequest';
       request: RequestSnapshot;
+    }
+  | {
+      executionId: string;
+      rpcId: string;
+      op: 'session.send';
+      /** The session's send id — the active-session registry key. */
+      sessionId: string;
+      /** The message as the rider carries it: the text, a socketio
+       *  event's arguments array, or a binary frame's byte spelling. */
+      messageText: string;
+      socketio?: { eventName: string; expectAck: boolean };
+      binary?: { encoding: 'base64' | 'hex' };
     };
+
+/** The `session.send` op's reply value — the rider's own answer. */
+export interface SessionSendResult {
+  success: boolean;
+  error?: string;
+}
 
 /**
  * Reply envelope for `ScriptHostRequest`. `value` is the op-specific

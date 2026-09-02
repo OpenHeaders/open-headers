@@ -112,14 +112,14 @@ describe('createWsStreamEmitter', () => {
 });
 
 describe('active WS session registry', () => {
-  it('routes sends and close to the registered handle until unregistered', () => {
+  it('routes sends and close to the registered handle until unregistered', async () => {
     const sent: string[] = [];
     let closedCount = 0;
     let reconnectNowCount = 0;
     const unregister = registerActiveWsSession('send-2', {
       send: (text) => {
         sent.push(text);
-        return { success: true };
+        return Promise.resolve({ success: true });
       },
       close: () => {
         closedCount++;
@@ -129,20 +129,20 @@ describe('active WS session registry', () => {
         return true;
       },
     });
-    expect(sendActiveWsSessionMessage('send-2', 'hello')).toEqual({ success: true });
+    expect(await sendActiveWsSessionMessage('send-2', 'hello')).toEqual({ success: true });
     expect(reconnectActiveWsSessionNow('send-2')).toBe(true);
     expect(reconnectNowCount).toBe(1);
     expect(sent).toEqual(['hello']);
     expect(closeActiveWsSession('send-2')).toBe(true);
     expect(closedCount).toBe(1);
     unregister();
-    expect(sendActiveWsSessionMessage('send-2', 'late').success).toBe(false);
+    expect((await sendActiveWsSessionMessage('send-2', 'late')).success).toBe(false);
     expect(closeActiveWsSession('send-2')).toBe(false);
     expect(reconnectActiveWsSessionNow('send-2')).toBe(false);
   });
 
-  it('answers an unknown id without touching any handle', () => {
-    const result = sendActiveWsSessionMessage('missing', 'x');
+  it('answers an unknown id without touching any handle', async () => {
+    const result = await sendActiveWsSessionMessage('missing', 'x');
     expect(result.success).toBe(false);
     expect(result.error).toContain('No open WebSocket session');
   });

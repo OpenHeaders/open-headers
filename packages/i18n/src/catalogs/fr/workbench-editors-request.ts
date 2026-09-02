@@ -1782,4 +1782,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.error.certSteps.glyphSend': '▶ Envoyer',
   'workbench.editors.request.response.error.certSteps.glyphProceedChromium': 'Continuer (dangereux)',
   'workbench.editors.request.response.error.certSteps.glyphProceedFirefox': 'Accepter le risque et poursuivre',
+  'workbench.editors.request.scripts.apiConnect':
+    'la connexion telle que composée — URL, en-têtes, paramètres, sous-protocoles, tentative',
+  'workbench.editors.request.scripts.apiSetSubprotocols': 'remplacer l’offre de sous-protocoles',
+  'workbench.editors.request.scripts.apiMessage': 'le message — texte, type de trame, index de capture',
+  'workbench.editors.request.scripts.apiSetMessage': 'remplacer le texte sortant',
+  'workbench.editors.request.scripts.apiSetEvent': 'renommer l’événement Socket.IO',
+  'workbench.editors.request.scripts.apiDrop': 'abandonner le message — rien n’atteint le réseau',
+  'workbench.editors.request.scripts.apiSend': 'envoyer une trame texte dans la session',
+  'workbench.editors.request.scripts.apiSendBinary': 'envoyer une trame binaire (base64)',
+  'workbench.editors.request.scripts.apiEmit': 'émettre un événement Socket.IO',
+  'workbench.editors.request.scripts.apiClose': 'l’enregistrement de fin — code de fermeture, raison, compteurs, durée',
+  'workbench.editors.request.scripts.apiSession': 'état partagé par chaque hook de cette session',
 } as const satisfies Catalog;

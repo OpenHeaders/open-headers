@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   putTokenBundle: vi.fn(async (): Promise<void> => {}),
   executeRequestRpc: vi.fn(async (_input: unknown): Promise<unknown> => ({ success: false, error: 'not under test' })),
   transportSend: vi.fn(async (_req: unknown): Promise<unknown> => null),
+  sessionSend: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
 }));
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
@@ -208,5 +209,50 @@ describe('handleScriptHostRequest — sendRequest', () => {
     const reply = await handleScriptHostRequest(sendRequest());
     expect(reply.ok).toBe(true);
     if (reply.ok) expect((reply.value as { bodyEncoding?: string }).bodyEncoding).toBeUndefined();
+  });
+});
+
+// ── session.send — a session hook's reply into its own session ──────
+
+vi.mock('@openheaders/oracle/live/ws-exec/session-plane', () => ({
+  sendActiveWsSessionMessage: (...args: unknown[]) => h.sessionSend(...args),
+}));
+
+describe('session.send', () => {
+  it('routes to the active WebSocket session as a script-origin write and answers the rider verdict', async () => {
+    h.sessionSend.mockResolvedValue({ success: true });
+    const reply = await handleScriptHostRequest({
+      op: 'session.send',
+      executionId: 'e1',
+      rpcId: 'r1',
+      sessionId: 'send-1',
+      messageText: '["hello", 1]',
+      socketio: { eventName: 'echo', expectAck: true },
+    });
+    expect(reply).toEqual({ executionId: 'e1', rpcId: 'r1', ok: true, value: { success: true } });
+    expect(h.sessionSend).toHaveBeenCalledWith(
+      'send-1',
+      '["hello", 1]',
+      { eventName: 'echo', expectAck: true },
+      undefined,
+      'script',
+    );
+  });
+
+  it('a refused send answers ok with the rider reason — the script reads it as a throw', async () => {
+    h.sessionSend.mockResolvedValue({ success: false, error: 'No open WebSocket session with this id.' });
+    const reply = await handleScriptHostRequest({
+      op: 'session.send',
+      executionId: 'e2',
+      rpcId: 'r2',
+      sessionId: 'gone',
+      messageText: 'x',
+      binary: { encoding: 'base64' },
+    });
+    expect(reply).toMatchObject({
+      ok: true,
+      value: { success: false, error: 'No open WebSocket session with this id.' },
+    });
+    expect(h.sessionSend).toHaveBeenLastCalledWith('gone', 'x', undefined, { encoding: 'base64' }, 'script');
   });
 });

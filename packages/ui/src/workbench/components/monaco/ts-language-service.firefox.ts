@@ -11,7 +11,9 @@
  * is agnostic to which half it got.
  */
 
-/** No-op: the TS language service is omitted from the Firefox build. */
+/** No-op: the TS language service is omitted from the Firefox build —
+ *  no ambient declaration applier installs, so the Scripts tab's kind
+ *  writes stay inert. */
 export function configureTsLanguageService(): void {}
 
 /** No worker: Firefox ships no TS language service, so `getWorker` falls

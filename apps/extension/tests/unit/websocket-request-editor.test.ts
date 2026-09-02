@@ -281,3 +281,21 @@ describe('saved-message compose binding', () => {
     });
   });
 });
+
+describe('websocket draft — script slots', () => {
+  it("carries the request's own slots through the draft and emits the present ones alone", () => {
+    const entity = websocketRequest({ scripts: { 'ws-before-connect': 'oh.setHeader("a", "1");' } });
+    const draft = draftFromWebSocketRequest(entity);
+    expect(draft.scripts).toEqual({ 'ws-before-connect': 'oh.setHeader("a", "1");' });
+    const updates = buildWebSocketRequestUpdates({ ...draft, scripts: { ...draft.scripts, 'ws-on-message': '   ' } });
+    expect(updates.scripts).toEqual({ 'ws-before-connect': 'oh.setHeader("a", "1");' });
+  });
+
+  it('an entity without scripts and a draft that emptied its slot both project to an empty record', () => {
+    expect(buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest())).scripts).toEqual({});
+    const emptied = { ...draftFromWebSocketRequest(websocketRequest({ scripts: { 'ws-after-close': 'x();' } })) };
+    emptied.scripts = { 'ws-after-close': '' };
+    expect(buildWebSocketRequestUpdates(emptied).scripts).toEqual({});
+    expect(canonicalWebSocketRequestProjection(websocketRequest()).scripts).toEqual({});
+  });
+});

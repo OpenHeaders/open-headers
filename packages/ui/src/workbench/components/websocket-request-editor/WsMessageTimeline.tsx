@@ -50,6 +50,7 @@ import {
   ClearOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
+  CodeOutlined,
   DisconnectOutlined,
   DownOutlined,
   CopyOutlined,
@@ -81,7 +82,9 @@ import TimelineMessageViewer, {
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import { formatBytes } from '../request-editor/response/response-format';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
+import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { reconnectExhaustedMessage, type WsTimelineLifecycleItem } from './ws-lifecycle';
+import { WS_HOOK_LABEL_KEY } from './ws-scripts';
 
 const { Text } = Typography;
 
@@ -1530,6 +1533,44 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       case 'lifecycle': {
         const item = lifecycleItems[entry.index];
         if (item === undefined) return null;
+        if (item.kind === 'script') {
+          // One hook ran — the hook, the levels that contributed and
+          // the verdict; a drop names the level, a failure its error.
+          const hook = t(WS_HOOK_LABEL_KEY[item.hook]);
+          const levels = item.chain
+            .map((step) =>
+              step.level === 'request'
+                ? t('workbench.editors.request.response.meta.scriptsLevelRequest')
+                : inheritSourceLabel(t, { kind: step.level, name: step.name }),
+            )
+            .join(' · ');
+          const text =
+            item.droppedBy !== undefined
+              ? t('workbench.editors.websocket.timeline.scriptDropped', { hook, level: item.droppedBy })
+              : item.succeeded
+                ? t('workbench.editors.websocket.timeline.script', { hook, levels })
+                : t('workbench.editors.websocket.timeline.scriptFailed', { hook, error: item.error?.message ?? '' });
+          const attempt =
+            item.attempt !== undefined && item.attempt > 0
+              ? ` · ${t('workbench.editors.websocket.timeline.scriptAttempt', { attempt: item.attempt })}`
+              : '';
+          return (
+            <div key={entry.key} data-testid="ws-timeline-script-row" style={lifecycleRowStyle}>
+              <CodeOutlined
+                aria-hidden
+                style={{ fontSize: 11, color: item.succeeded ? token.colorTextTertiary : token.colorError }}
+              />
+              <span
+                {...(item.error !== undefined ? { title: item.error.message } : {})}
+                style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {`${text}${attempt} · ${formatDurationMs(item.durationMs)}`}
+              </span>
+              {lifecycleTime(item.atMs)}
+              {expandSlot(null)}
+            </div>
+          );
+        }
         if (item.kind === 'lost') {
           // The connection dropped under the open session — how it
           // ended, verbatim; auto-reconnect's rows follow.

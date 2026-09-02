@@ -209,8 +209,175 @@ await oh.variables.set('auth_token', data.token);`,
   },
 ];
 
+// ── The WebSocket hooks ─────────────────────────────────────────────
+
+const VARIABLES_GROUP: ScriptSnippetGroup = {
+  labelKey: 'workbench.editors.scriptEditor.group.variables',
+  snippets: [GET_VARIABLE, SET_VARIABLE, GET_VAULT_SECRET],
+};
+
+const WS_BEFORE_CONNECT_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.connect',
+    snippets: [
+      {
+        id: 'ws-set-query-param',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setQueryParam',
+        code: `oh.setQueryParam('token', await oh.vault.get('secret_name'));`,
+      },
+      {
+        id: 'ws-set-header',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setHeader',
+        code: `oh.setHeader('X-Client', 'openheaders');`,
+      },
+      {
+        id: 'ws-set-subprotocols',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsSetSubprotocols',
+        code: `oh.setSubprotocols(['graphql-transport-ws']);`,
+      },
+      {
+        id: 'ws-set-url',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setUrl',
+        code: `oh.setUrl('wss://ws.openheaders.com/live');`,
+      },
+      {
+        id: 'ws-reconnect-attempt',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsReconnectAttempt',
+        code: `if (oh.connect.attempt > 0) {
+  oh.setQueryParam('resume', String(oh.session.lastSeen ?? ''));
+}`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
+const WS_BEFORE_SEND_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.send',
+    snippets: [
+      {
+        id: 'ws-set-message',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsSetMessage',
+        code: `const payload = JSON.parse(oh.message.text);
+payload.sentAt = Date.now();
+oh.setMessage(JSON.stringify(payload));`,
+      },
+      {
+        id: 'ws-drop-message',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsDropMessage',
+        code: `if (oh.message.text.trim() === '') {
+  oh.drop();
+}`,
+      },
+      {
+        id: 'ws-set-event',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsSetEvent',
+        code: `oh.setEvent('message:v2');`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
+const WS_ON_MESSAGE_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.message',
+    snippets: [
+      {
+        id: 'ws-reply',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsReply',
+        code: `if (oh.message.text === 'ping') {
+  await oh.send('pong');
+}`,
+      },
+      {
+        id: 'ws-count-messages',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsCountMessages',
+        code: `oh.session.count = (oh.session.count ?? 0) + 1;
+console.log('messages so far', oh.session.count);`,
+      },
+      {
+        id: 'ws-emit-event',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsEmitEvent',
+        code: `await oh.emit('ack', [{ index: oh.message.index }]);`,
+      },
+    ],
+  },
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    snippets: [
+      {
+        id: 'ws-assert-json',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsAssertJson',
+        code: `await oh.test('Message is JSON', () => {
+  JSON.parse(oh.message.text ?? '');
+});`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.variables',
+    snippets: [
+      GET_VARIABLE,
+      SET_VARIABLE,
+      {
+        id: 'ws-save-message-value',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsSaveMessageValue',
+        code: `const data = JSON.parse(oh.message.text ?? '{}');
+await oh.variables.set('last_event_id', String(data.id));`,
+      },
+      GET_VAULT_SECRET,
+    ],
+  },
+];
+
+const WS_AFTER_CLOSE_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    snippets: [
+      {
+        id: 'ws-closed-clean',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsClosedClean',
+        code: `await oh.test('Closed cleanly', () => {
+  oh.expect(oh.close.code).toBe(1000);
+});`,
+      },
+      {
+        id: 'ws-message-count',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsMessageCount',
+        code: `await oh.test('Messages arrived', () => {
+  oh.expect(oh.close.messages > 0).toBeTruthy();
+});`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
 export function getScriptSnippetGroups(kind: ScriptKind): ScriptSnippetGroup[] {
-  return kind === 'pre-request' ? PRE_REQUEST_GROUPS : POST_RESPONSE_GROUPS;
+  switch (kind) {
+    case 'pre-request':
+      return PRE_REQUEST_GROUPS;
+    case 'ws-before-connect':
+      return WS_BEFORE_CONNECT_GROUPS;
+    case 'ws-before-send':
+      return WS_BEFORE_SEND_GROUPS;
+    case 'ws-on-message':
+      return WS_ON_MESSAGE_GROUPS;
+    case 'ws-after-close':
+      return WS_AFTER_CLOSE_GROUPS;
+    default:
+      return POST_RESPONSE_GROUPS;
+  }
 }
 
 /** Case-insensitive label filter that preserves the group structure;

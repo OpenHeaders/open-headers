@@ -65,14 +65,20 @@ function runInSandbox(
     window.postMessage(
       {
         type: 'script.execute',
-        request: {
-          executionId,
-          kind: 'pre-request',
-          source,
-          request: BASE_REQUEST,
-          packages,
-          ...(sessionId !== undefined ? { sessionId } : {}),
-        },
+        request:
+          sessionId === undefined
+            ? { executionId, kind: 'pre-request', source, request: BASE_REQUEST, packages }
+            : {
+                executionId,
+                kind: 'ws-on-message',
+                source,
+                packages,
+                sessionId,
+                hook: {
+                  kind: 'ws-on-message',
+                  message: { direction: 'down', text: 'hi', dataBase64: 'aGk=', binary: false, index: 0 },
+                },
+              },
       },
       '*',
     );

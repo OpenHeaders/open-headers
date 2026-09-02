@@ -25,28 +25,15 @@
  * honestly.
  */
 
-import type {
-  RequestSnapshot,
-  ResponseSnapshot,
-  ScriptExecutionMode,
-  ScriptExecutionResult,
-  ScriptKind,
-} from '@openheaders/core/scripts';
+import type { ScriptExecutionMode, ScriptExecutionResult } from '@openheaders/core/scripts';
 import { DEFAULT_SCRIPT_EXECUTION_MODE, readScriptExecutionMode } from '@openheaders/core/scripts';
-import type { StepScriptRunner } from '@openheaders/oracle/live/request-exec/script-hooks';
+import type { RunScriptOptions } from '@openheaders/core/scripts/broker';
+import type { SessionScriptHost, StepScriptRunner } from '@openheaders/oracle/live/request-exec/script-hooks';
 import { hostStorage, OH } from '@openheaders/oracle/storage';
 
-/** One script execution the host's broker runs. Mirrors the extension
- *  offscreen host's `RunScriptOptions`. */
-export interface HostScriptRunOptions {
-  kind: ScriptKind;
-  source: string;
-  request: RequestSnapshot;
-  response?: ResponseSnapshot;
-  timeoutMs?: number;
-  /** Host-API tier — `'chain'` gets the read-only `oh.*` surface. */
-  hostContext?: 'interactive' | 'chain';
-}
+/** One script execution the host's broker runs — the broker's own
+ *  option shape: an HTTP one-shot, or one hook call of a live session. */
+export type HostScriptRunOptions = RunScriptOptions;
 
 export interface HostScriptCapability {
   /** The trust posture this runtime provides. The sandboxed-renderer
@@ -54,6 +41,9 @@ export interface HostScriptCapability {
    *  `'developer'`. */
   mode: ScriptExecutionMode;
   runScript(opts: HostScriptRunOptions): Promise<ScriptExecutionResult>;
+  /** A live session settled — release its runtime context (the
+   *  broker's `endSession`). */
+  endSession(sessionId: string): void;
 }
 
 /** The host's registered runtimes, keyed by the mode each provides. A
@@ -116,11 +106,7 @@ export async function resolveScriptRunner(options: {
   hostContext: 'interactive' | 'chain';
   forwarded?: boolean;
 }): Promise<ResolvedScriptRunner | null> {
-  const requestedMode =
-    options.forwarded === true || options.hostContext === 'chain'
-      ? DEFAULT_SCRIPT_EXECUTION_MODE
-      : await readScriptExecutionModeSlot(options.workspaceId);
-  const cap = capabilities[requestedMode] ?? capabilities[DEFAULT_SCRIPT_EXECUTION_MODE];
+  const cap = await resolveCapability(options);
   if (!cap) return null;
   return {
     mode: cap.mode,
@@ -133,19 +119,64 @@ export async function resolveScriptRunner(options: {
           response: input.response,
           hostContext: options.hostContext,
         })
-        .catch((err: unknown) => ({
-          // The port contract is "never throw" — a broker/transport
-          // fault surfaces as a failed script result, which the step
-          // runner turns into a run failure with the carrier message.
-          executionId: 'script-runtime-unavailable',
-          succeeded: false,
-          error: {
-            name: 'ScriptRuntimeError',
-            message: err instanceof Error ? err.message : String(err),
-          },
-          assertions: [],
-          consoleLog: [],
-          durationMs: 0,
-        })),
+        .catch(runtimeUnavailable),
+  };
+}
+
+/**
+ * Resolve the session script host for one live session, or `null`
+ * when this host has no script runtime. A session is always a LOCAL
+ * INTERACTIVE dispatch or a peer-forwarded one — the same mode gate as
+ * {@link resolveScriptRunner}: the slot is consulted locally, a
+ * forwarded session runs Safe or not at all.
+ */
+export async function resolveSessionScriptHost(options: {
+  workspaceId: string | null;
+  forwarded?: boolean;
+}): Promise<SessionScriptHost | null> {
+  const cap = await resolveCapability({ ...options, hostContext: 'interactive' });
+  if (!cap) return null;
+  return {
+    mode: cap.mode,
+    run: (input) =>
+      cap
+        .runScript({
+          kind: input.kind,
+          source: input.source,
+          sessionId: input.sessionId,
+          hook: input.hook,
+          hostContext: 'interactive',
+        })
+        .catch(runtimeUnavailable),
+    endSession: (sessionId) => cap.endSession(sessionId),
+  };
+}
+
+async function resolveCapability(options: {
+  workspaceId: string | null;
+  hostContext: 'interactive' | 'chain';
+  forwarded?: boolean;
+}): Promise<HostScriptCapability | null> {
+  const requestedMode =
+    options.forwarded === true || options.hostContext === 'chain'
+      ? DEFAULT_SCRIPT_EXECUTION_MODE
+      : await readScriptExecutionModeSlot(options.workspaceId);
+  return capabilities[requestedMode] ?? capabilities[DEFAULT_SCRIPT_EXECUTION_MODE] ?? null;
+}
+
+/** The port contract is "never throw" — a broker/transport fault
+ *  surfaces as a failed script result, which the step runner turns
+ *  into a run failure with the carrier message. */
+function runtimeUnavailable(err: unknown): ScriptExecutionResult {
+  return {
+    executionId: 'script-runtime-unavailable',
+    succeeded: false,
+    error: {
+      name: 'ScriptRuntimeError',
+      message: err instanceof Error ? err.message : String(err),
+    },
+    assertions: [],
+    consoleLog: [],
+    durationMs: 0,
   };
 }

@@ -28,6 +28,7 @@ import {
   type HostScriptRunOptions,
   readScriptExecutionModeSlot,
   resolveScriptRunner,
+  resolveSessionScriptHost,
   setHostScriptCapabilities,
 } from '../../../src/daemon/script-capability';
 
@@ -64,8 +65,8 @@ describe('capability registry', () => {
   });
 
   it('set/clear round-trips per mode', () => {
-    const safe = { mode: 'safe' as const, runScript: vi.fn() };
-    const developer = { mode: 'developer' as const, runScript: vi.fn() };
+    const safe = { mode: 'safe' as const, runScript: vi.fn(), endSession: vi.fn() };
+    const developer = { mode: 'developer' as const, runScript: vi.fn(), endSession: vi.fn() };
     setHostScriptCapabilities({ safe, developer });
     expect(getHostScriptCapability()).toBe(safe);
     expect(getHostScriptCapability('developer')).toBe(developer);
@@ -75,7 +76,7 @@ describe('capability registry', () => {
   });
 
   it('rejects a Developer runtime without a Safe fallback', () => {
-    const developer = { mode: 'developer' as const, runScript: vi.fn() };
+    const developer = { mode: 'developer' as const, runScript: vi.fn(), endSession: vi.fn() };
     expect(() => setHostScriptCapabilities({ developer })).toThrow(/Safe runtime/);
   });
 });
@@ -83,7 +84,7 @@ describe('capability registry', () => {
 describe('resolveScriptRunner', () => {
   it('threads the dispatch host-context into every runScript call', async () => {
     const runScript = vi.fn(async (_opts: HostScriptRunOptions) => okResult());
-    setHostScriptCapabilities({ safe: { mode: 'safe', runScript } });
+    setHostScriptCapabilities({ safe: { mode: 'safe', runScript, endSession: () => {} } });
     const chain = await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'chain' });
     await chain?.runner(input);
     expect(runScript).toHaveBeenCalledWith(expect.objectContaining({ hostContext: 'chain', kind: 'pre-request' }));
@@ -94,7 +95,7 @@ describe('resolveScriptRunner', () => {
   });
 
   it('reports the capability mode for snapshot attribution', async () => {
-    setHostScriptCapabilities({ safe: { mode: 'safe', runScript: async () => okResult() } });
+    setHostScriptCapabilities({ safe: { mode: 'safe', runScript: async () => okResult(), endSession: () => {} } });
     const resolved = await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'interactive' });
     expect(resolved?.mode).toBe('safe');
   });
@@ -103,6 +104,7 @@ describe('resolveScriptRunner', () => {
     setHostScriptCapabilities({
       safe: {
         mode: 'safe',
+        endSession: () => {},
         runScript: async () => {
           throw new Error('sandbox spawn failed');
         },
@@ -116,7 +118,7 @@ describe('resolveScriptRunner', () => {
   });
 
   it('consults the host-local mode slot for a local interactive dispatch', async () => {
-    setHostScriptCapabilities({ safe: { mode: 'safe', runScript: async () => okResult() } });
+    setHostScriptCapabilities({ safe: { mode: 'safe', runScript: async () => okResult(), endSession: () => {} } });
     await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'interactive' });
     expect(h.storageGet).toHaveBeenCalled();
   });
@@ -125,8 +127,8 @@ describe('resolveScriptRunner', () => {
     const safeRun = vi.fn(async () => okResult());
     const devRun = vi.fn(async () => okResult());
     setHostScriptCapabilities({
-      safe: { mode: 'safe', runScript: safeRun },
-      developer: { mode: 'developer', runScript: devRun },
+      safe: { mode: 'safe', runScript: safeRun, endSession: () => {} },
+      developer: { mode: 'developer', runScript: devRun, endSession: () => {} },
     });
     h.storageGet.mockResolvedValue({ ws1: 'developer' });
     const resolved = await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'interactive', forwarded: true });
@@ -141,8 +143,8 @@ describe('resolveScriptRunner', () => {
     const safeRun = vi.fn(async () => okResult());
     const devRun = vi.fn(async () => okResult());
     setHostScriptCapabilities({
-      safe: { mode: 'safe', runScript: safeRun },
-      developer: { mode: 'developer', runScript: devRun },
+      safe: { mode: 'safe', runScript: safeRun, endSession: () => {} },
+      developer: { mode: 'developer', runScript: devRun, endSession: () => {} },
     });
     h.storageGet.mockResolvedValue({ ws1: 'developer' });
     const resolved = await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'chain' });
@@ -157,8 +159,8 @@ describe('resolveScriptRunner', () => {
     const safeRun = vi.fn(async () => okResult());
     const devRun = vi.fn(async () => okResult());
     setHostScriptCapabilities({
-      safe: { mode: 'safe', runScript: safeRun },
-      developer: { mode: 'developer', runScript: devRun },
+      safe: { mode: 'safe', runScript: safeRun, endSession: () => {} },
+      developer: { mode: 'developer', runScript: devRun, endSession: () => {} },
     });
     h.storageGet.mockResolvedValue({ ws1: 'developer' });
     const resolved = await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'interactive' });
@@ -170,8 +172,8 @@ describe('resolveScriptRunner', () => {
 
   it('a developer slot for ANOTHER workspace stays Safe', async () => {
     setHostScriptCapabilities({
-      safe: { mode: 'safe', runScript: async () => okResult() },
-      developer: { mode: 'developer', runScript: async () => okResult() },
+      safe: { mode: 'safe', runScript: async () => okResult(), endSession: () => {} },
+      developer: { mode: 'developer', runScript: async () => okResult(), endSession: () => {} },
     });
     h.storageGet.mockResolvedValue({ other: 'developer' });
     const resolved = await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'interactive' });
@@ -179,7 +181,7 @@ describe('resolveScriptRunner', () => {
   });
 
   it('a developer slot with no Developer runtime falls back to Safe — recorded honestly', async () => {
-    setHostScriptCapabilities({ safe: { mode: 'safe', runScript: async () => okResult() } });
+    setHostScriptCapabilities({ safe: { mode: 'safe', runScript: async () => okResult(), endSession: () => {} } });
     h.storageGet.mockResolvedValue({ ws1: 'developer' });
     const resolved = await resolveScriptRunner({ workspaceId: 'ws1', hostContext: 'interactive' });
     expect(resolved?.mode).toBe('safe');
@@ -203,5 +205,59 @@ describe('readScriptExecutionModeSlot', () => {
     expect(await readScriptExecutionModeSlot('ws1')).toBe('safe');
     h.storageGet.mockRejectedValue(new Error('no backend'));
     expect(await readScriptExecutionModeSlot('ws1')).toBe('safe');
+  });
+});
+
+describe('resolveSessionScriptHost', () => {
+  const hook = {
+    kind: 'ws-on-message' as const,
+    message: { direction: 'down' as const, text: 'hi', dataBase64: 'aGk=', binary: false, index: 0 },
+  };
+
+  it('is null without a capability — the session runs scriptless', async () => {
+    expect(await resolveSessionScriptHost({ workspaceId: 'ws1' })).toBeNull();
+  });
+
+  it('runs a hook call through the capability as an interactive session execution and ends the session on it', async () => {
+    const runScript = vi.fn(async (_opts: HostScriptRunOptions) => okResult('hook'));
+    const endSession = vi.fn();
+    setHostScriptCapabilities({ safe: { mode: 'safe', runScript, endSession } });
+    const host = await resolveSessionScriptHost({ workspaceId: 'ws1' });
+    expect(host?.mode).toBe('safe');
+    const result = await host?.run({ kind: 'ws-on-message', source: 'x();', sessionId: 'send-1', hook });
+    expect(result?.executionId).toBe('hook');
+    expect(runScript).toHaveBeenCalledWith({
+      kind: 'ws-on-message',
+      source: 'x();',
+      sessionId: 'send-1',
+      hook,
+      hostContext: 'interactive',
+    });
+    host?.endSession('send-1');
+    expect(endSession).toHaveBeenCalledWith('send-1');
+  });
+
+  it('a local session rides the developer slot; a forwarded one stays Safe', async () => {
+    const safe = { mode: 'safe' as const, runScript: vi.fn(async () => okResult()), endSession: vi.fn() };
+    const developer = { mode: 'developer' as const, runScript: vi.fn(async () => okResult()), endSession: vi.fn() };
+    setHostScriptCapabilities({ safe, developer });
+    h.storageGet.mockResolvedValue({ ws1: 'developer' });
+    expect((await resolveSessionScriptHost({ workspaceId: 'ws1' }))?.mode).toBe('developer');
+    expect((await resolveSessionScriptHost({ workspaceId: 'ws1', forwarded: true }))?.mode).toBe('safe');
+  });
+
+  it('never throws — a broker fault folds into a failed hook result', async () => {
+    setHostScriptCapabilities({
+      safe: {
+        mode: 'safe',
+        runScript: async () => {
+          throw new Error('runtime gone');
+        },
+        endSession: () => {},
+      },
+    });
+    const host = await resolveSessionScriptHost({ workspaceId: 'ws1' });
+    const result = await host?.run({ kind: 'ws-on-message', source: 'x();', sessionId: 'send-2', hook });
+    expect(result).toMatchObject({ succeeded: false, error: { name: 'ScriptRuntimeError', message: 'runtime gone' } });
   });
 });

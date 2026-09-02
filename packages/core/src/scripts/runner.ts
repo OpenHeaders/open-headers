@@ -18,6 +18,15 @@
  * speaks to the engine. Scripts execute in a fresh scope per run — no
  * `globalThis.X = ...` carryover between pre-request and test scripts.
  *
+ * The `oh` surface is ONE core (`variables`, `vault`, `require`,
+ * `sendRequest`, `test`, `expect`, `session`) plus a family half the
+ * execution's kind picks: the HTTP pair sees `oh.request` /
+ * `oh.response` and the request mutators; a WebSocket hook sees its
+ * input — `oh.connect` with the dial mutators, `oh.message` with the
+ * send mutators or the reply verbs, `oh.close` — and folds its edits
+ * into one `sessionMutation` under the HTTP mutation's law (a complete
+ * diff replaces the pending one, all-empty normalizes to none).
+ *
  * Sessions: an execution carrying `sessionId` is one hook call of a
  * live session (a WebSocket, MQTT or gRPC session's connect / send /
  * message / close scripts). The runtime keeps ONE context per session
@@ -28,6 +37,7 @@
  */
 
 import type {
+  HttpScriptExecution,
   RequestMutation,
   RequestSnapshot,
   ResponseSnapshot,
@@ -36,9 +46,20 @@ import type {
   ScriptExecutionResult,
   ScriptHostRequest,
   ScriptHostResponse,
+  SessionScriptExecution,
+  SessionSendResult,
   TestAssertion,
 } from './index';
-import { clampScriptTimeoutMs } from './index';
+import { clampScriptTimeoutMs, isSessionScriptExecution } from './index';
+import type {
+  SessionHeader,
+  SessionParam,
+  SessionScriptMutation,
+  WsCloseSnapshot,
+  WsConnectSnapshot,
+  WsInboundMessageSnapshot,
+  WsOutboundMessageSnapshot,
+} from './session-hooks';
 
 /** Minimal console surface handed to scripts — platform-neutral (the
  *  DOM `Console` type isn't available in every host build). */
@@ -136,9 +157,11 @@ export async function executeScript(
   const consoleLog: ScriptConsoleEntry[] = [];
   const assertions: TestAssertion[] = [];
   let mutation: RequestMutation | undefined;
+  let sessionMutation: SessionScriptMutation | undefined;
   let error: { name: string; message: string; stack?: string } | undefined;
   const timeoutMs = clampScriptTimeoutMs(req.timeoutMs);
-  const session = req.sessionId !== undefined ? sessionContextFor(req.sessionId) : null;
+  const sessionId = isSessionScriptExecution(req) ? req.sessionId : undefined;
+  const session = sessionId !== undefined ? sessionContextFor(sessionId) : null;
 
   const stamp = (): number => Math.round(performance.now() - startedAt);
 
@@ -148,19 +171,19 @@ export async function executeScript(
     deps,
     assertions,
     capturingConsole,
-    (next) => {
-      // Every flush is a COMPLETE diff against the original request, so
-      // each one replaces the pending mutation outright. Merging field-wise
-      // would resurrect a change a later call reverted (setHeader then
-      // removeHeader must end as "no header mutation"). All-empty diffs
-      // normalize to undefined so a net-unchanged request reports none.
-      const hasChange =
-        next.method !== undefined ||
-        next.url !== undefined ||
-        next.headers !== undefined ||
-        next.params !== undefined ||
-        next.body !== undefined;
-      mutation = hasChange ? next : undefined;
+    {
+      // Every flush is a COMPLETE diff against the original input, so
+      // each one replaces the pending mutation outright. Merging
+      // field-wise would resurrect a change a later call reverted
+      // (setHeader then removeHeader must end as "no header mutation").
+      // All-empty diffs normalize to undefined so a net-unchanged input
+      // reports none — the family builders hand `undefined` for those.
+      emitMutation: (next) => {
+        mutation = next;
+      },
+      emitSessionMutation: (next) => {
+        sessionMutation = next;
+      },
     },
     session?.state,
   );
@@ -196,6 +219,7 @@ export async function executeScript(
     succeeded: !error,
     error,
     mutation,
+    sessionMutation,
     assertions,
     consoleLog,
     durationMs: Math.round(performance.now() - startedAt),
@@ -210,9 +234,8 @@ export async function executeScript(
 type AdHocRequestInput = Pick<RequestSnapshot, 'method' | 'url'> &
   Partial<Pick<RequestSnapshot, 'headers' | 'params' | 'body'>>;
 
-interface ScriptApi {
-  request: RequestSnapshot;
-  response?: ResponseSnapshot;
+/** The half of `oh` every family shares. */
+interface ScriptApiCore {
   /** The live session's shared state — present only on a session hook
    *  call (see the module doc). Mutate its fields; the object itself is
    *  the session's and cannot be reassigned. */
@@ -228,6 +251,12 @@ interface ScriptApi {
   sendRequest(request: AdHocRequestInput): Promise<ResponseSnapshot>;
   test(name: string, fn: () => void | Promise<void>): Promise<void>;
   expect(actual: unknown): Expectation;
+}
+
+/** The HTTP pair's `oh` — the request view and its mutators. */
+interface HttpScriptApi extends ScriptApiCore {
+  request: RequestSnapshot;
+  response?: ResponseSnapshot;
   setUrl(url: string): void;
   setMethod(method: RequestSnapshot['method']): void;
   setHeader(key: string, value: string): void;
@@ -236,6 +265,47 @@ interface ScriptApi {
   removeQueryParam(key: string): void;
   setBody(body: RequestSnapshot['body']): void;
 }
+
+/** Before connect — the dial view and the same mutator verbs the HTTP
+ *  request carries, plus the subprotocol offer. */
+interface WsConnectScriptApi extends ScriptApiCore {
+  readonly connect: WsConnectSnapshot;
+  setUrl(url: string): void;
+  setHeader(key: string, value: string): void;
+  removeHeader(key: string): void;
+  setQueryParam(key: string, value: string): void;
+  removeQueryParam(key: string): void;
+  setSubprotocols(subprotocols: readonly string[]): void;
+}
+
+/** Before send — the outgoing message view, rewrite or drop. */
+interface WsSendScriptApi extends ScriptApiCore {
+  readonly message: WsOutboundMessageSnapshot;
+  setMessage(text: string): void;
+  setEvent(eventName: string): void;
+  drop(): void;
+}
+
+/** On message — the captured inbound frame and the reply verbs. */
+interface WsInboundScriptApi extends ScriptApiCore {
+  readonly message: WsInboundMessageSnapshot;
+  send(text: string): Promise<void>;
+  sendBinary(base64: string): Promise<void>;
+  emit(eventName: string, args?: readonly unknown[], options?: { expectAck?: boolean }): Promise<void>;
+}
+
+/** After close — the end record, read-only. */
+interface WsCloseScriptApi extends ScriptApiCore {
+  readonly close: WsCloseSnapshot;
+}
+
+type ScriptApi = HttpScriptApi | WsConnectScriptApi | WsSendScriptApi | WsInboundScriptApi | WsCloseScriptApi;
+
+/** A family's own half — what it adds over the core. */
+type HttpFamily = Omit<HttpScriptApi, keyof ScriptApiCore>;
+type WsConnectFamily = Omit<WsConnectScriptApi, keyof ScriptApiCore>;
+type WsSendFamily = Omit<WsSendScriptApi, keyof ScriptApiCore>;
+type WsInboundFamily = Omit<WsInboundScriptApi, keyof ScriptApiCore>;
 
 interface Expectation {
   toBe(expected: unknown): void;
@@ -246,49 +316,34 @@ interface Expectation {
   toHaveStatus(expected: number): void;
 }
 
+interface MutationSinks {
+  emitMutation: (m: RequestMutation | undefined) => void;
+  emitSessionMutation: (m: SessionScriptMutation | undefined) => void;
+}
+
 function buildScriptApi(
   req: ScriptExecutionRequest,
   deps: ScriptRunnerDeps,
   assertions: TestAssertion[],
   capturingConsole: ScriptConsole,
-  emitMutation: (m: RequestMutation) => void,
+  sinks: MutationSinks,
   sessionState: Record<string, unknown> | undefined,
 ): ScriptApi {
-  const draftHeaders: Array<{ key: string; value: string }> = [...req.request.headers];
-  const draftParams: Array<{ key: string; value: string }> = [...req.request.params];
-  let draftUrl = req.request.url;
-  let draftMethod = req.request.method;
-  let draftBody = req.request.body;
   let rpcCounter = 0;
-
   const nextRpcId = (): string => {
     rpcCounter += 1;
     return `${req.executionId}:${rpcCounter}`;
   };
-
-  const flushMutation = (): void => {
-    emitMutation({
-      url: draftUrl !== req.request.url ? draftUrl : undefined,
-      method: draftMethod !== req.request.method ? draftMethod : undefined,
-      headers: arraysShallowEqual(draftHeaders, req.request.headers) ? undefined : [...draftHeaders],
-      params: arraysShallowEqual(draftParams, req.request.params) ? undefined : [...draftParams],
-      body: bodyChanged(draftBody, req.request.body) ? draftBody : undefined,
-    });
-  };
+  const sendHost = (request: ScriptHostRequest): Promise<ScriptHostResponse> => deps.sendHostRequest(request);
 
   const hostGet = async (name: string): Promise<string | null> => {
-    const response = await deps.sendHostRequest({
-      executionId: req.executionId,
-      rpcId: nextRpcId(),
-      op: 'variables.get',
-      name,
-    });
+    const response = await sendHost({ executionId: req.executionId, rpcId: nextRpcId(), op: 'variables.get', name });
     if (!response.ok) throw new Error(`oh.variables.get failed: ${response.error}`);
     return (response.value as string | null) ?? null;
   };
 
   const hostSet = async (name: string, value: string): Promise<void> => {
-    const response = await deps.sendHostRequest({
+    const response = await sendHost({
       executionId: req.executionId,
       rpcId: nextRpcId(),
       op: 'variables.set',
@@ -299,14 +354,29 @@ function buildScriptApi(
   };
 
   const hostVault = async (ref: string): Promise<string | null> => {
-    const response = await deps.sendHostRequest({
-      executionId: req.executionId,
-      rpcId: nextRpcId(),
-      op: 'vault.get',
-      ref,
-    });
+    const response = await sendHost({ executionId: req.executionId, rpcId: nextRpcId(), op: 'vault.get', ref });
     if (!response.ok) throw new Error(`oh.vault.get failed: ${response.error}`);
     return (response.value as string | null) ?? null;
+  };
+
+  const hostSendRequest = async (request: AdHocRequestInput): Promise<ResponseSnapshot> => {
+    // Normalize at the user-input boundary — the host's protocol type
+    // requires the full snapshot shape.
+    const snapshot: RequestSnapshot = {
+      method: request.method,
+      url: request.url,
+      headers: request.headers ?? [],
+      params: request.params ?? [],
+      body: request.body ?? { type: 'none' },
+    };
+    const response = await sendHost({
+      executionId: req.executionId,
+      rpcId: nextRpcId(),
+      op: 'sendRequest',
+      request: snapshot,
+    });
+    if (!response.ok) throw new Error(`oh.sendRequest failed: ${response.error}`);
+    return response.value as ResponseSnapshot;
   };
 
   // ── oh.require ──────────────────────────────────────────────────
@@ -339,38 +409,7 @@ function buildScriptApi(
     return module.exports;
   };
 
-  const hostSendRequest = async (request: AdHocRequestInput): Promise<ResponseSnapshot> => {
-    // Normalize at the user-input boundary — the host's protocol type
-    // requires the full snapshot shape.
-    const snapshot: RequestSnapshot = {
-      method: request.method,
-      url: request.url,
-      headers: request.headers ?? [],
-      params: request.params ?? [],
-      body: request.body ?? { type: 'none' },
-    };
-    const response = await deps.sendHostRequest({
-      executionId: req.executionId,
-      rpcId: nextRpcId(),
-      op: 'sendRequest',
-      request: snapshot,
-    });
-    if (!response.ok) throw new Error(`oh.sendRequest failed: ${response.error}`);
-    return response.value as ResponseSnapshot;
-  };
-
-  const api: ScriptApi = {
-    get request() {
-      return {
-        ...req.request,
-        url: draftUrl,
-        method: draftMethod,
-        headers: [...draftHeaders],
-        params: [...draftParams],
-        body: draftBody,
-      };
-    },
-    response: req.response,
+  const core: ScriptApiCore = {
     // A getter with no setter: `oh.session = {}` throws under strict
     // mode instead of silently detaching the script from the session.
     get session() {
@@ -402,49 +441,16 @@ function buildScriptApi(
       }
     },
     expect: makeExpectation,
-    setUrl(url) {
-      draftUrl = url;
-      flushMutation();
-    },
-    setMethod(method) {
-      draftMethod = method;
-      flushMutation();
-    },
-    setHeader(key, value) {
-      const idx = draftHeaders.findIndex((h) => h.key.toLowerCase() === key.toLowerCase());
-      if (idx >= 0) draftHeaders[idx] = { key, value };
-      else draftHeaders.push({ key, value });
-      flushMutation();
-    },
-    removeHeader(key) {
-      const lower = key.toLowerCase();
-      for (let i = draftHeaders.length - 1; i >= 0; i -= 1) {
-        if (draftHeaders[i]?.key.toLowerCase() === lower) draftHeaders.splice(i, 1);
-      }
-      flushMutation();
-    },
-    setQueryParam(key, value) {
-      // Query-param keys are case-sensitive (unlike header names) — match
-      // exactly. Replace the first row with that key, else append.
-      const idx = draftParams.findIndex((p) => p.key === key);
-      if (idx >= 0) draftParams[idx] = { key, value };
-      else draftParams.push({ key, value });
-      flushMutation();
-    },
-    removeQueryParam(key) {
-      for (let i = draftParams.length - 1; i >= 0; i -= 1) {
-        if (draftParams[i]?.key === key) draftParams.splice(i, 1);
-      }
-      flushMutation();
-    },
-    setBody(body) {
-      draftBody = body;
-      flushMutation();
-    },
   };
 
-  // The `oh` handed to PACKAGE bodies: identical surface (the getter
-  // walks the prototype chain, so `oh.request` stays the live draft
+  const api: ScriptApi = isSessionScriptExecution(req)
+    ? buildSessionApi(core, req, sinks, (message) =>
+        sendHost({ executionId: req.executionId, rpcId: nextRpcId(), op: 'session.send', ...message }),
+      )
+    : buildHttpApi(core, req, sinks);
+
+  // The `oh` handed to PACKAGE bodies: identical surface (the getters
+  // walk the prototype chain, so `oh.request` stays the live draft
   // view) except `require`, which refuses — packages can't require
   // other packages.
   const packageApi: ScriptApi = Object.create(api, {
@@ -456,6 +462,270 @@ function buildScriptApi(
   }) as ScriptApi;
 
   return api;
+}
+
+/**
+ * A family's `oh`: the family members as an own literal (its getters
+ * stay getters — a spread would freeze them to values) over the core
+ * as its prototype, so `oh.session` and the shared verbs resolve up
+ * the chain the way the package `oh` resolves to the script's.
+ */
+function withCore<F extends object>(core: ScriptApiCore, family: F): ScriptApiCore & F {
+  return Object.setPrototypeOf(family, core) as ScriptApiCore & F;
+}
+
+// ── The HTTP pair ─────────────────────────────────────────────────
+
+function buildHttpApi(core: ScriptApiCore, req: HttpScriptExecution, sinks: MutationSinks): HttpScriptApi {
+  const draftHeaders: Array<{ key: string; value: string }> = [...req.request.headers];
+  const draftParams: Array<{ key: string; value: string }> = [...req.request.params];
+  let draftUrl = req.request.url;
+  let draftMethod = req.request.method;
+  let draftBody = req.request.body;
+
+  const flushMutation = (): void => {
+    const next: RequestMutation = {
+      url: draftUrl !== req.request.url ? draftUrl : undefined,
+      method: draftMethod !== req.request.method ? draftMethod : undefined,
+      headers: arraysShallowEqual(draftHeaders, req.request.headers) ? undefined : [...draftHeaders],
+      params: arraysShallowEqual(draftParams, req.request.params) ? undefined : [...draftParams],
+      body: bodyChanged(draftBody, req.request.body) ? draftBody : undefined,
+    };
+    const hasChange =
+      next.method !== undefined ||
+      next.url !== undefined ||
+      next.headers !== undefined ||
+      next.params !== undefined ||
+      next.body !== undefined;
+    sinks.emitMutation(hasChange ? next : undefined);
+  };
+
+  const family: HttpFamily = {
+    get request() {
+      return {
+        ...req.request,
+        url: draftUrl,
+        method: draftMethod,
+        headers: [...draftHeaders],
+        params: [...draftParams],
+        body: draftBody,
+      };
+    },
+    response: req.response,
+    setUrl(url) {
+      draftUrl = url;
+      flushMutation();
+    },
+    setMethod(method) {
+      draftMethod = method;
+      flushMutation();
+    },
+    setHeader(key, value) {
+      setHeaderRow(draftHeaders, key, value);
+      flushMutation();
+    },
+    removeHeader(key) {
+      removeHeaderRows(draftHeaders, key);
+      flushMutation();
+    },
+    setQueryParam(key, value) {
+      setParamRow(draftParams, key, value);
+      flushMutation();
+    },
+    removeQueryParam(key) {
+      removeParamRows(draftParams, key);
+      flushMutation();
+    },
+    setBody(body) {
+      draftBody = body;
+      flushMutation();
+    },
+  };
+  return withCore(core, family);
+}
+
+// ── The session hooks ─────────────────────────────────────────────
+
+/** The `session.send` op minus the envelope — what a reply verb hands over. */
+type SessionSendMessage = Omit<Extract<ScriptHostRequest, { op: 'session.send' }>, 'executionId' | 'rpcId' | 'op'>;
+
+function buildSessionApi(
+  core: ScriptApiCore,
+  req: SessionScriptExecution,
+  sinks: MutationSinks,
+  sendSession: (message: SessionSendMessage) => Promise<ScriptHostResponse>,
+): ScriptApi {
+  const hook = req.hook;
+  switch (hook.kind) {
+    case 'ws-before-connect':
+      return buildWsConnectApi(core, hook.connect, sinks);
+    case 'ws-before-send':
+      return buildWsSendApi(core, hook.message, sinks);
+    case 'ws-on-message':
+      return buildWsInboundApi(core, hook.message, req.sessionId, sendSession);
+    case 'ws-after-close':
+      return withCore(core, { close: hook.close });
+    default: {
+      const unreachable: never = hook;
+      throw new Error(`unknown session hook ${(unreachable as { kind: string }).kind}`);
+    }
+  }
+}
+
+function buildWsConnectApi(core: ScriptApiCore, connect: WsConnectSnapshot, sinks: MutationSinks): WsConnectScriptApi {
+  const draftHeaders: SessionHeader[] = [...connect.headers];
+  const draftParams: SessionParam[] = [...connect.params];
+  let draftUrl = connect.url;
+  let draftSubprotocols: string[] = [...connect.subprotocols];
+
+  const flush = (): void => {
+    const next = {
+      url: draftUrl !== connect.url ? draftUrl : undefined,
+      headers: arraysShallowEqual(draftHeaders, connect.headers) ? undefined : [...draftHeaders],
+      params: arraysShallowEqual(draftParams, connect.params) ? undefined : [...draftParams],
+      subprotocols: stringListsEqual(draftSubprotocols, connect.subprotocols) ? undefined : [...draftSubprotocols],
+    };
+    const hasChange =
+      next.url !== undefined ||
+      next.headers !== undefined ||
+      next.params !== undefined ||
+      next.subprotocols !== undefined;
+    sinks.emitSessionMutation(hasChange ? { kind: 'ws-connect', ...next } : undefined);
+  };
+
+  const family: WsConnectFamily = {
+    get connect() {
+      return {
+        url: draftUrl,
+        headers: [...draftHeaders],
+        params: [...draftParams],
+        subprotocols: [...draftSubprotocols],
+        attempt: connect.attempt,
+      };
+    },
+    setUrl(url) {
+      draftUrl = url;
+      flush();
+    },
+    setHeader(key, value) {
+      setHeaderRow(draftHeaders, key, value);
+      flush();
+    },
+    removeHeader(key) {
+      removeHeaderRows(draftHeaders, key);
+      flush();
+    },
+    setQueryParam(key, value) {
+      setParamRow(draftParams, key, value);
+      flush();
+    },
+    removeQueryParam(key) {
+      removeParamRows(draftParams, key);
+      flush();
+    },
+    setSubprotocols(subprotocols) {
+      draftSubprotocols = [...subprotocols];
+      flush();
+    },
+  };
+  return withCore(core, family);
+}
+
+function buildWsSendApi(
+  core: ScriptApiCore,
+  message: WsOutboundMessageSnapshot,
+  sinks: MutationSinks,
+): WsSendScriptApi {
+  let draftText = message.text;
+  let draftEvent = message.eventName;
+  let dropped = false;
+
+  const flush = (): void => {
+    const next = {
+      text: draftText !== message.text ? draftText : undefined,
+      eventName: draftEvent !== message.eventName ? draftEvent : undefined,
+      ...(dropped ? { drop: true as const } : {}),
+    };
+    const hasChange = next.text !== undefined || next.eventName !== undefined || dropped;
+    sinks.emitSessionMutation(hasChange ? { kind: 'ws-send', ...next } : undefined);
+  };
+
+  const family: WsSendFamily = {
+    get message() {
+      return {
+        ...message,
+        text: draftText,
+        ...(draftEvent !== undefined ? { eventName: draftEvent } : {}),
+      };
+    },
+    setMessage(text) {
+      draftText = text;
+      flush();
+    },
+    setEvent(eventName) {
+      draftEvent = eventName;
+      flush();
+    },
+    drop() {
+      dropped = true;
+      flush();
+    },
+  };
+  return withCore(core, family);
+}
+
+function buildWsInboundApi(
+  core: ScriptApiCore,
+  message: WsInboundMessageSnapshot,
+  sessionId: string,
+  sendSession: (message: SessionSendMessage) => Promise<ScriptHostResponse>,
+): WsInboundScriptApi {
+  const deliver = async (verb: string, payload: Omit<SessionSendMessage, 'sessionId'>): Promise<void> => {
+    const response = await sendSession({ sessionId, ...payload });
+    if (!response.ok) throw new Error(`${verb} failed: ${response.error}`);
+    const result = response.value as SessionSendResult;
+    if (!result.success) throw new Error(`${verb} failed: ${result.error ?? 'the session refused the message'}`);
+  };
+  const family: WsInboundFamily = {
+    message,
+    send: (text: string) => deliver('oh.send', { messageText: text }),
+    sendBinary: (base64: string) => deliver('oh.sendBinary', { messageText: base64, binary: { encoding: 'base64' } }),
+    emit: (eventName: string, args: readonly unknown[] = [], options: { expectAck?: boolean } = {}) =>
+      deliver('oh.emit', {
+        messageText: JSON.stringify(args),
+        socketio: { eventName, expectAck: options.expectAck === true },
+      }),
+  };
+  return withCore(core, family);
+}
+
+// ── Row edits the HTTP request and the WebSocket dial share ───────
+
+function setHeaderRow(rows: Array<{ key: string; value: string }>, key: string, value: string): void {
+  const idx = rows.findIndex((h) => h.key.toLowerCase() === key.toLowerCase());
+  if (idx >= 0) rows[idx] = { key, value };
+  else rows.push({ key, value });
+}
+
+function removeHeaderRows(rows: Array<{ key: string; value: string }>, key: string): void {
+  const lower = key.toLowerCase();
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    if (rows[i]?.key.toLowerCase() === lower) rows.splice(i, 1);
+  }
+}
+
+/** Query-param keys are case-sensitive (unlike header names) — match
+ *  exactly. Replace the first row with that key, else append. */
+function setParamRow(rows: Array<{ key: string; value: string }>, key: string, value: string): void {
+  const idx = rows.findIndex((p) => p.key === key);
+  if (idx >= 0) rows[idx] = { key, value };
+  else rows.push({ key, value });
+}
+
+function removeParamRows(rows: Array<{ key: string; value: string }>, key: string): void {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    if (rows[i]?.key === key) rows.splice(i, 1);
+  }
 }
 
 function makeExpectation(actual: unknown): Expectation {
@@ -540,6 +810,10 @@ function arraysShallowEqual(
     if (a[i]?.key !== b[i]?.key || a[i]?.value !== b[i]?.value) return false;
   }
   return true;
+}
+
+function stringListsEqual(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, i) => value === b[i]);
 }
 
 function bodyChanged(a: RequestSnapshot['body'], b: RequestSnapshot['body']): boolean {

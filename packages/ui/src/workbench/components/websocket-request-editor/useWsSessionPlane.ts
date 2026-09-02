@@ -26,6 +26,7 @@ import type { ExecutedWsSnapshot, WebSocketRequest as WebSocketRequestEntity } f
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getWsResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/ws-response-example-sync-mirror';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useScriptPackages } from '@openheaders/ui/shared/hooks/readers/useScriptPackages';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import {
   applyWsResponseExampleCreate,
@@ -98,14 +99,21 @@ export function useWsSessionPlane({
   // Page-session resolution publisher — the host executing in this
   // page realm injects the CURRENT factory into the executor at
   // Connect, so republish on every renderer-scope change while a
-  // WebSocket editor is mounted (nothing can Connect without one).
+  // WebSocket editor is mounted (nothing can Connect without one). The
+  // Package Library rides along for the session hooks' `oh.require`.
   const resolverInputs = useVariableResolverInputs();
+  const scriptPackages = useScriptPackages(pageSession ? workspaceId : null);
   useEffect(() => {
     if (!pageSession) return;
     publishWsPageResolutionFactory(
-      makeWsPageResolutionFactory(resolverInputs, { collectionTrees, collections, folders }, workspaceId),
+      makeWsPageResolutionFactory(
+        resolverInputs,
+        { collectionTrees, collections, folders },
+        workspaceId,
+        scriptPackages.map((p) => ({ name: p.name, source: p.source })),
+      ),
     );
-  }, [pageSession, resolverInputs, collectionTrees, collections, folders]);
+  }, [pageSession, resolverInputs, collectionTrees, collections, folders, workspaceId, scriptPackages]);
 
   const handleConnect = useCallback(async () => {
     if (!entity || inFlight) return;
