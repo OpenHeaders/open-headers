@@ -110,6 +110,13 @@ export async function applyAuth(
     // resolves the config templates. Twin of the oracle arm.
     return {};
   }
+  if (auth.type === 'http-signature') {
+    // Nothing folds here — the signature is derived at the wire in
+    // `executeResolved` over the FINAL shape (see
+    // ResolvedRequest.httpSignature); the resolver only resolves the
+    // config templates. Twin of the oracle arm.
+    return {};
+  }
   if (auth.type === 'digest') {
     // Digest is challenge/response, and the browser's fetch stack has
     // no seat for the second leg — the SW skips the contribution like

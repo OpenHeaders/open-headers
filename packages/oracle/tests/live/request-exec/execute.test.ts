@@ -5,8 +5,9 @@
  * Exercised with a fake transport that captures what it was handed.
  */
 
-import { createHmac, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
+import { createHash, createHmac, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
 import {
+  buildHttpSignatureBase,
   type HawkCredentials,
   type JwtCredentials,
   type OAuth1Credentials,
@@ -1117,6 +1118,95 @@ describe('executeOverTransport — JWT Bearer minting', () => {
     const snap = await executeOverTransport(makeResolved({ jwt: { ...credentials, payload: '{nope' } }), transport);
     expect(snap.error).toContain('JWT Bearer signing failed');
     expect(snap.error).toContain('JWT payload is not valid JSON');
+  });
+});
+
+describe('executeOverTransport — HTTP Message Signature signing', () => {
+  const pair = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  const credentials = {
+    algorithm: 'ecdsa-p256-sha256' as const,
+    privateKey: pair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    secret: '',
+    keyId: 'oh-key-1',
+    components: '@method @target-uri content-type content-digest',
+    contentDigest: 'sha-256' as const,
+    expiresInSeconds: 300,
+  };
+
+  it('signs the final wire shape, mints Content-Digest over the body, replaces stale user rows, verifies under the public key', async () => {
+    const { transport, sent } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({
+        method: 'POST',
+        url: 'https://api.openheaders.io/v1/items?limit=5',
+        httpSignature: credentials,
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+          { key: 'Signature', value: 'sig1=:c3RhbGU=:' },
+        ],
+        body: { type: 'json', content: '{"ok":true}' },
+      }),
+      transport,
+    );
+    expect(snap.error).toBeNull();
+    const shipped = sent().headers;
+    const one = (name: string) => shipped.filter((h) => h.key.toLowerCase() === name);
+    expect(one('signature')).toHaveLength(1);
+    expect(one('signature-input')).toHaveLength(1);
+    expect(one('content-digest')[0]?.value).toBe(
+      `sha-256=:${createHash('sha256').update('{"ok":true}').digest('base64')}:`,
+    );
+    const input = one('signature-input')[0]?.value ?? '';
+    expect(input).toMatch(
+      /^sig1=\("@method" "@target-uri" "content-type" "content-digest"\);created=\d+;expires=\d+;keyid="oh-key-1"$/,
+    );
+    const created = Number(input.match(/created=(\d+)/)?.[1]);
+    expect(Number(input.match(/expires=(\d+)/)?.[1])).toBe(created + 300);
+    // Rebuild the base from the SHIPPED shape at the header's own
+    // created instant and verify the shipped signature under the key.
+    const { base } = await buildHttpSignatureBase(
+      { ...credentials, contentDigest: undefined },
+      { method: 'POST', url: sent().url, headers: shipped, timestampSec: created, nonce: '' },
+    );
+    const signature = Buffer.from((one('signature')[0]?.value ?? '').slice('sig1=:'.length, -1), 'base64');
+    expect(signature).toHaveLength(64);
+    expect(nodeVerify('sha256', Buffer.from(base), { key: pair.publicKey, dsaEncoding: 'ieee-p1363' }, signature)).toBe(
+      true,
+    );
+  });
+
+  it('a covered header the request does not carry is the send error naming it', async () => {
+    const { transport } = captureTransport();
+    const snap = await executeOverTransport(
+      makeResolved({ httpSignature: { ...credentials, components: '@method date' }, headers: [] }),
+      transport,
+    );
+    expect(snap.error).toBe('HTTP Message Signature signing failed: the request carries no "date" header to cover');
+  });
+
+  it('a multipart body under the digest setting is the send error; without the digest it signs', async () => {
+    const { transport, sent } = captureTransport();
+    const body: RequestBody = {
+      type: 'multipart',
+      multipartParts: [{ uid: 'mpart001', kind: 'text', name: 'a', value: 'b' }],
+    };
+    const refused = await executeOverTransport(
+      makeResolved({ method: 'POST', httpSignature: credentials, body, headers: [] }),
+      transport,
+    );
+    expect(refused.error).toBe('HTTP Message Signature signing failed: a multipart body cannot be content-digested');
+    const signed = await executeOverTransport(
+      makeResolved({
+        method: 'POST',
+        httpSignature: { ...credentials, components: '@method @path', contentDigest: undefined },
+        body,
+        headers: [],
+      }),
+      transport,
+    );
+    expect(signed.error).toBeNull();
+    expect(sent().headers.some((h) => h.key === 'Signature')).toBe(true);
+    expect(sent().headers.some((h) => h.key === 'Content-Digest')).toBe(false);
   });
 });
 

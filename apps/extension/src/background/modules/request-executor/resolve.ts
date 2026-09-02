@@ -10,6 +10,7 @@ import type {
   AwsSigV4Credentials,
   EdgeGridCredentials,
   HawkCredentials,
+  HttpSignatureCredentials,
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
@@ -110,6 +111,14 @@ export interface ResolvedRequest {
    * resolver's carry.
    */
   jwt?: JwtCredentials;
+  /**
+   * HTTP Message Signature config (RFC 9421), templates already
+   * resolved — present only when the effective auth is an enabled
+   * `http-signature` config. Signs at the wire in
+   * {@link executeResolved} over the FINAL shape — twin of the oracle
+   * resolver's carry.
+   */
+  httpSignature?: HttpSignatureCredentials;
   /**
    * DPoP proof material (RFC 9449) — present when the effective oauth2
    * bundle is bound to a key. `Authorization: DPoP <token>` folds here
@@ -343,6 +352,27 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // HTTP Message Signature config resolves here but signs at the wire
+  // — see {@link ResolvedRequest.httpSignature}.
+  const httpSignature: HttpSignatureCredentials | undefined =
+    effectiveAuth.type === 'http-signature' && !effectiveAuth.disabled
+      ? {
+          algorithm: effectiveAuth.algorithm,
+          privateKey: resolveStr(effectiveAuth.privateKey),
+          secret: resolveStr(effectiveAuth.secret),
+          ...(effectiveAuth.secretBase64 === true ? { secretBase64: true } : {}),
+          ...(effectiveAuth.keyId ? { keyId: resolveStr(effectiveAuth.keyId) } : {}),
+          components: resolveStr(effectiveAuth.components),
+          ...(effectiveAuth.contentDigest !== undefined ? { contentDigest: effectiveAuth.contentDigest } : {}),
+          ...(effectiveAuth.label ? { label: resolveStr(effectiveAuth.label) } : {}),
+          ...(effectiveAuth.created !== undefined ? { created: effectiveAuth.created } : {}),
+          ...(effectiveAuth.expiresInSeconds !== undefined ? { expiresInSeconds: effectiveAuth.expiresInSeconds } : {}),
+          ...(effectiveAuth.nonce !== undefined ? { nonce: effectiveAuth.nonce } : {}),
+          ...(effectiveAuth.includeAlgorithm !== undefined ? { includeAlgorithm: effectiveAuth.includeAlgorithm } : {}),
+          ...(effectiveAuth.tag ? { tag: resolveStr(effectiveAuth.tag) } : {}),
+        }
+      : undefined;
+
   // ── Body ────────────────────────────────────────────────────────
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
 
@@ -379,6 +409,7 @@ export async function resolveRequest(
       ...(edgegrid ? { edgegrid } : {}),
       ...(asap ? { asap } : {}),
       ...(jwt ? { jwt } : {}),
+      ...(httpSignature ? { httpSignature } : {}),
       ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },

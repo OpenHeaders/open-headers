@@ -18,6 +18,7 @@ import type {
   DigestCredentials,
   EdgeGridCredentials,
   HawkCredentials,
+  HttpSignatureCredentials,
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
@@ -196,6 +197,15 @@ export interface ResolvedRequest {
    * lifetime is set), never here.
    */
   jwt?: JwtCredentials;
+  /**
+   * HTTP Message Signature config (RFC 9421), templates already
+   * resolved — present only when the effective auth is an enabled
+   * `http-signature` config. Like SigV4 the signature is derived at
+   * EXECUTE time over the FINAL wire shape (the covered components
+   * read from the request the executor holds) and its headers ride
+   * only from there.
+   */
+  httpSignature?: HttpSignatureCredentials;
   /**
    * DPoP proof material (RFC 9449) — present when the effective oauth2
    * bundle is bound to a key. The `Authorization: DPoP <token>` header
@@ -431,6 +441,27 @@ export async function resolveRequest(
         }
       : undefined;
 
+  // HTTP Message Signature config resolves here but signs at execute
+  // time — see {@link ResolvedRequest.httpSignature}.
+  const httpSignature: HttpSignatureCredentials | undefined =
+    effectiveAuth.type === 'http-signature' && !effectiveAuth.disabled
+      ? {
+          algorithm: effectiveAuth.algorithm,
+          privateKey: resolveStr(effectiveAuth.privateKey),
+          secret: resolveStr(effectiveAuth.secret),
+          ...(effectiveAuth.secretBase64 === true ? { secretBase64: true } : {}),
+          ...(effectiveAuth.keyId ? { keyId: resolveStr(effectiveAuth.keyId) } : {}),
+          components: resolveStr(effectiveAuth.components),
+          ...(effectiveAuth.contentDigest !== undefined ? { contentDigest: effectiveAuth.contentDigest } : {}),
+          ...(effectiveAuth.label ? { label: resolveStr(effectiveAuth.label) } : {}),
+          ...(effectiveAuth.created !== undefined ? { created: effectiveAuth.created } : {}),
+          ...(effectiveAuth.expiresInSeconds !== undefined ? { expiresInSeconds: effectiveAuth.expiresInSeconds } : {}),
+          ...(effectiveAuth.nonce !== undefined ? { nonce: effectiveAuth.nonce } : {}),
+          ...(effectiveAuth.includeAlgorithm !== undefined ? { includeAlgorithm: effectiveAuth.includeAlgorithm } : {}),
+          ...(effectiveAuth.tag ? { tag: resolveStr(effectiveAuth.tag) } : {}),
+        }
+      : undefined;
+
   // Append params after auth — api-key-in-query lives in enabledParams.
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
@@ -508,6 +539,7 @@ export async function resolveRequest(
       ...(edgegrid ? { edgegrid } : {}),
       ...(asap ? { asap } : {}),
       ...(jwt ? { jwt } : {}),
+      ...(httpSignature ? { httpSignature } : {}),
       ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
@@ -619,6 +651,12 @@ export async function applyAuth(
     // Nothing folds here — the JWT mints at execute time (see
     // ResolvedRequest.jwt); the resolver only resolves the config
     // templates.
+    return {};
+  }
+  if (auth.type === 'http-signature') {
+    // Nothing folds here — the signature is derived at execute time
+    // over the FINAL wire shape (see ResolvedRequest.httpSignature);
+    // the resolver only resolves the config templates.
     return {};
   }
   if (auth.type === 'oauth2') {

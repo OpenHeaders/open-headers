@@ -1,5 +1,5 @@
-import { generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
-import { signEdgeGrid } from '@openheaders/core/auth-signing';
+import { createHash, createHmac, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
+import { buildHttpSignatureBase, signEdgeGrid } from '@openheaders/core/auth-signing';
 import type { Collection, Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 // Registers the `requests.*` setting definitions (import side effect) —
 // the executor's success path reads the response-body cap, which throws
@@ -470,6 +470,102 @@ describe('RequestExecutor', () => {
       }),
     );
     expect(snapshot.error).toBe('EdgeGrid signing failed: a multipart body cannot be content-hashed');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('signs http-signature requests at the wire over the shipping set with a minted Content-Digest, verifying under the secret', async () => {
+    mockWsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [{ uid: 'sigsec01', name: 'SIGNING_SECRET', value: 'oh-shared-secret', type: 'secret' }],
+    });
+    await executeRequestDraft(
+      makeRequest({
+        method: 'POST',
+        url: 'https://api.openheaders.io/v1/items?limit=5',
+        headers: [
+          { uid: 'stalesig', key: 'Signature', value: 'sig1=:c3RhbGU=:' },
+          { uid: 'cthdr001', key: 'Content-Type', value: 'application/json' },
+        ],
+        body: { type: 'json', content: '{"ok":true}' },
+        auth: {
+          type: 'http-signature',
+          algorithm: 'hmac-sha256',
+          privateKey: '',
+          secret: '{{SIGNING_SECRET}}',
+          keyId: 'oh-key-1',
+          components: '@method @target-uri content-type content-digest',
+          contentDigest: 'sha-256',
+          nonce: true,
+        },
+      }),
+    );
+    const [url, init] = fetchMock.mock.calls[0];
+    const headers = init.headers as Headers;
+    expect(headers.get('content-digest')).toBe(
+      `sha-256=:${createHash('sha256').update('{"ok":true}').digest('base64')}:`,
+    );
+    const input = headers.get('signature-input') ?? '';
+    expect(input).toMatch(
+      /^sig1=\("@method" "@target-uri" "content-type" "content-digest"\);created=\d+;keyid="oh-key-1";nonce="[0-9a-f]{32}"$/,
+    );
+    const created = Number(input.match(/created=(\d+)/)?.[1]);
+    const nonce = input.match(/nonce="([^"]+)"/)?.[1] ?? '';
+    const { base } = await buildHttpSignatureBase(
+      {
+        algorithm: 'hmac-sha256',
+        privateKey: '',
+        secret: 'oh-shared-secret',
+        keyId: 'oh-key-1',
+        components: '@method @target-uri content-type content-digest',
+        nonce: true,
+      },
+      {
+        method: 'POST',
+        url: String(url),
+        headers: [...headers.entries()].map(([key, v]) => ({ key, value: v })),
+        timestampSec: created,
+        nonce,
+      },
+    );
+    const expected = createHmac('sha256', 'oh-shared-secret').update(base).digest('base64');
+    expect(headers.get('signature')).toBe(`sig1=:${expected}:`);
+  });
+
+  it('an http-signature covering a header the request does not carry is the send error naming it', async () => {
+    const snapshot = await executeRequestDraft(
+      makeRequest({
+        method: 'POST',
+        headers: [],
+        body: { type: 'json', content: '{"ok":true}' },
+        auth: {
+          type: 'http-signature',
+          algorithm: 'hmac-sha256',
+          privateKey: '',
+          secret: 's',
+          components: '@method date',
+        },
+      }),
+    );
+    expect(snapshot.error).toBe('HTTP Message Signature signing failed: the request carries no "date" header to cover');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('an http-signature multipart POST under the digest setting is the send error', async () => {
+    const snapshot = await executeRequestDraft(
+      makeRequest({
+        method: 'POST',
+        body: { type: 'multipart', multipartParts: [{ uid: 'mpart001', kind: 'text', name: 'a', value: 'b' }] },
+        auth: {
+          type: 'http-signature',
+          algorithm: 'hmac-sha256',
+          privateKey: '',
+          secret: 's',
+          components: '@method',
+          contentDigest: 'sha-256',
+        },
+      }),
+    );
+    expect(snapshot.error).toBe('HTTP Message Signature signing failed: a multipart body cannot be content-digested');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

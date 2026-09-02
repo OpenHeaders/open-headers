@@ -13,6 +13,7 @@ import {
   signAwsSigV4,
   signEdgeGrid,
   signHawk,
+  signHttpMessage,
   signJwtBearer,
   signOAuth1,
 } from '@openheaders/core/auth-signing';
@@ -377,6 +378,39 @@ export async function executeResolved(
       req = { ...req, url, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
     } catch (err) {
       return errorSnapshot(`JWT Bearer signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // HTTP Message Signature signs HERE too — the final wire shape: the
+  // covered components read from the URL and the SHIPPING header set
+  // (a Request's guard sheds the names the browser never sends, so a
+  // covered `host` or `content-length` is the error naming it — the
+  // browser owns those), the Content-Digest minted over the body text;
+  // a multipart body has no signable bytes ahead of dispatch and RFC
+  // 9530 has no unsigned marker, so a digest over it is an honest send
+  // error. The three headers replace same-key rows; the signed shape
+  // mirrors back onto `req` for the offscreen cert-exception retry.
+  if (req.httpSignature) {
+    try {
+      const payload = hawkFetchPayload(init.body, fetchHeaders);
+      if (req.httpSignature.contentDigest !== undefined && init.body instanceof FormData) {
+        return errorSnapshot('HTTP Message Signature signing failed: a multipart body cannot be content-digested');
+      }
+      const shipping = new Request(req.url, { method: req.method, headers: fetchHeaders }).headers;
+      const signed = await signHttpMessage(req.httpSignature, {
+        method: req.method,
+        url: req.url,
+        headers: [...shipping.entries()].map(([key, value]) => ({ key, value })),
+        ...(payload ? { body: payload.text } : {}),
+        timestampSec: Math.floor(Date.now() / 1000),
+        nonce: generateOAuth1Nonce(),
+      });
+      for (const h of signed.headers) fetchHeaders.set(h.key, h.value);
+      req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(
+        `HTTP Message Signature signing failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -746,7 +780,7 @@ function streamedCaptureOf(
   }
 }
 
-/** 128-bit hex client nonce for OAuth1 + Hawk signing. */
+/** 128-bit hex client nonce for OAuth1, Hawk and HTTP Message Signature signing. */
 function generateOAuth1Nonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   let out = '';

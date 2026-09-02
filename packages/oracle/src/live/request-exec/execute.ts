@@ -19,6 +19,7 @@ import {
   signAwsSigV4,
   signEdgeGrid,
   signHawk,
+  signHttpMessage,
   signJwtBearer,
   signOAuth1,
 } from '@openheaders/core/auth-signing';
@@ -256,6 +257,34 @@ export async function executeOverTransport(
       if (signed.queryParams.length > 0) url = appendQueryParams(url, signed.queryParams);
     } catch (err) {
       return errorSnapshot(`JWT Bearer signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // HTTP Message Signature signs HERE too — the final wire shape: the
+  // covered components read from the URL and the transport's header
+  // rows, the Content-Digest minted over the body text; a multipart
+  // body has no signable bytes ahead of dispatch (the host picks the
+  // boundary) and RFC 9530 has no unsigned marker, so a digest over it
+  // is an honest send error. The three headers replace same-key rows.
+  if (resolved.httpSignature) {
+    try {
+      const payload = hawkPayloadOf(body, headers);
+      if (resolved.httpSignature.contentDigest !== undefined && body.kind === 'multipart') {
+        return errorSnapshot('HTTP Message Signature signing failed: a multipart body cannot be content-digested');
+      }
+      const signed = await signHttpMessage(resolved.httpSignature, {
+        method: resolved.method,
+        url,
+        headers,
+        ...(payload ? { body: payload.text } : {}),
+        timestampSec: Math.floor(Date.now() / 1000),
+        nonce: generateNonce(),
+      });
+      for (const h of signed.headers) setHeader(headers, h.key, h.value);
+    } catch (err) {
+      return errorSnapshot(
+        `HTTP Message Signature signing failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -598,7 +627,7 @@ function hawkPayloadOf(
   }
 }
 
-/** 128-bit hex client nonce for OAuth1 + Hawk signing. */
+/** 128-bit hex client nonce for OAuth1, Hawk and HTTP Message Signature signing. */
 function generateNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   let out = '';
