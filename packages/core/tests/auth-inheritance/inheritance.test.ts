@@ -24,6 +24,7 @@ import {
   authAllowedFor,
   authMaskFor,
   authPoolOf,
+  authRefusalLabel,
   defaultAuthEntry,
   type EffectiveAuth,
   effectiveAuthFor,
@@ -34,7 +35,7 @@ import {
   withDefaultAuthConfig,
   withoutDefaultAuth,
 } from '../../src/auth-inheritance';
-import type { AuthPoolEntry } from '../../src/types';
+import type { AuthPoolEntry, ConcreteAuthConfig } from '../../src/types';
 
 const ADMIN: AuthPoolEntry = { uid: 'admin001', name: 'Admin token', config: { type: 'bearer', token: '{{admin}}' } };
 const USER: AuthPoolEntry = { uid: 'user0001', name: 'User token', config: { type: 'bearer', token: '{{user}}' } };
@@ -217,31 +218,88 @@ describe('withDefaultAuthConfig / withoutDefaultAuth', () => {
 describe('the per-kind mask', () => {
   it('HTTP takes every type; the session kinds take their subsets', () => {
     expect(authMaskFor('http').has('oauth2')).toBe(true);
-    expect([...authMaskFor('websocket')].sort()).toEqual(['api-key', 'basic', 'bearer', 'none']);
-    expect([...authMaskFor('grpc')].sort()).toEqual(['api-key', 'basic', 'bearer', 'none']);
+    expect([...authMaskFor('websocket')].sort()).toEqual([
+      'api-key',
+      'aws-sigv4',
+      'basic',
+      'bearer',
+      'jwt',
+      'none',
+      'oauth2',
+    ]);
+    expect([...authMaskFor('grpc')].sort()).toEqual(['api-key', 'basic', 'bearer', 'jwt', 'none', 'oauth2']);
     expect([...authMaskFor('mqtt')].sort()).toEqual(['basic', 'none']);
   });
 
-  it('an api-key rides a session kind only in header placement', () => {
+  it('a query-placed api-key rides the kinds with a query leg — HTTP and the WebSocket handshake URL', () => {
     const header = { type: 'api-key', key: 'X-K', value: 'v', in: 'header' } as const;
     const query = { type: 'api-key', key: 'X-K', value: 'v', in: 'query' } as const;
     expect(authAllowedFor('websocket', header)).toBe(true);
-    expect(authAllowedFor('websocket', query)).toBe(false);
+    expect(authAllowedFor('websocket', query)).toBe(true);
+    expect(authAllowedFor('grpc', header)).toBe(true);
     expect(authAllowedFor('grpc', query)).toBe(false);
     expect(authAllowedFor('http', query)).toBe(true);
     expect(authAllowedFor('mqtt', header)).toBe(false);
+    expect(authRefusalLabel('grpc', query)).toBe('API Key in query');
+  });
+
+  it('OAuth 2.0 rides both session kinds; its query mode needs the query leg; a DPoP binding never rides one', () => {
+    const base: Extract<ConcreteAuthConfig, { type: 'oauth2' }> = {
+      type: 'oauth2',
+      credentialRef: 'oauth2-cred-abc12345',
+      flow: 'client-credentials',
+      tokenEndpoint: '',
+      clientId: '',
+      scopes: [],
+    };
+    expect(authRefusalLabel('websocket', base)).toBeNull();
+    expect(authRefusalLabel('grpc', base)).toBeNull();
+    expect(authRefusalLabel('websocket', { ...base, sendAs: 'query' })).toBeNull();
+    expect(authRefusalLabel('grpc', { ...base, sendAs: 'query' })).toBe('OAuth 2.0 in query');
+    expect(authRefusalLabel('websocket', { ...base, tokenBinding: 'dpop' })).toBe('OAuth 2.0 bound to a DPoP key');
+    expect(authRefusalLabel('grpc', { ...base, tokenBinding: 'dpop' })).toBe('OAuth 2.0 bound to a DPoP key');
+    expect(authRefusalLabel('http', { ...base, tokenBinding: 'dpop', sendAs: 'query' })).toBeNull();
+    expect(authRefusalLabel('mqtt', base)).toBe('OAuth 2.0');
+  });
+
+  it('JWT Bearer rides both session kinds in header mode; query mode needs the query leg', () => {
+    const header = {
+      type: 'jwt',
+      algorithm: 'HS256',
+      secret: 's',
+      privateKey: '',
+      payload: '{}',
+      addTo: 'header',
+    } as const;
+    const query = { ...header, addTo: 'query' } as const;
+    expect(authRefusalLabel('websocket', header)).toBeNull();
+    expect(authRefusalLabel('grpc', header)).toBeNull();
+    expect(authRefusalLabel('websocket', query)).toBeNull();
+    expect(authRefusalLabel('grpc', query)).toBe('JWT Bearer in query');
+  });
+
+  it('an AWS signature rides a WebSocket handshake only as the signed URL; gRPC never', () => {
+    const header = { type: 'aws-sigv4', accessKeyId: 'a', secretAccessKey: 's', service: '', region: '' } as const;
+    const query = { ...header, addTo: 'query' } as const;
+    expect(authRefusalLabel('websocket', query)).toBeNull();
+    expect(authRefusalLabel('websocket', header)).toBe('AWS Signature v4 in header');
+    expect(authRefusalLabel('websocket', { ...header, addTo: 'header' })).toBe('AWS Signature v4 in header');
+    expect(authRefusalLabel('grpc', query)).toBe('AWS Signature v4');
+    expect(authRefusalLabel('http', header)).toBeNull();
   });
 
   it('assertAuthAllowed names the inherited entry and the kind; the allowed kind passes', () => {
+    const dpopAuth: Extract<ConcreteAuthConfig, { type: 'oauth2' }> = {
+      type: 'oauth2',
+      credentialRef: 'oauth2-cred-abc12345',
+      flow: 'authorization-code-pkce',
+      tokenEndpoint: '',
+      clientId: '',
+      scopes: [],
+      tokenBinding: 'dpop',
+    };
     const effective: EffectiveAuth = {
-      auth: {
-        type: 'oauth2',
-        credentialRef: 'oauth2-cred-abc12345',
-        flow: 'authorization-code-pkce',
-        tokenEndpoint: '',
-        clientId: '',
-        scopes: [],
-      },
+      auth: dpopAuth,
       source: {
         level: 'collection',
         uid: 'col00001',
@@ -251,9 +309,11 @@ describe('the per-kind mask', () => {
       },
     };
     expect(assertAuthAllowed('websocket', effective)).toBe(
-      "Inherited OAuth 2.0 from Collection 'Payments' › Admin token cannot be applied to a WebSocket session.",
+      "Inherited OAuth 2.0 bound to a DPoP key from Collection 'Payments' › Admin token cannot be applied to a WebSocket session.",
     );
     expect(assertAuthAllowed('http', effective)).toBeNull();
+    const { tokenBinding: _binding, ...bearerAuth } = dpopAuth;
+    expect(assertAuthAllowed('grpc', { ...effective, auth: bearerAuth })).toBeNull();
   });
 
   it('an unnamed entry drops the entry suffix; the folder level and every kind noun read right', () => {
@@ -271,11 +331,19 @@ describe('the per-kind mask', () => {
 
   it('a query-placed api-key names its placement; bearer refuses on MQTT', () => {
     expect(
-      assertAuthAllowed('websocket', {
+      assertAuthAllowed('grpc', {
         auth: { type: 'api-key', key: 'k', value: 'v', in: 'query' },
         source: { level: 'collection', uid: 'col00001', name: 'API', entryUid: 'key00001', entryName: 'Key' },
       }),
-    ).toBe("Inherited API Key in query from Collection 'API' › Key cannot be applied to a WebSocket session.");
+    ).toBe("Inherited API Key in query from Collection 'API' › Key cannot be applied to a gRPC call.");
+    expect(
+      assertAuthAllowed('websocket', {
+        auth: { type: 'aws-sigv4', accessKeyId: 'a', secretAccessKey: 's', service: '', region: '' },
+        source: { level: 'collection', uid: 'col00001', name: 'API', entryUid: 'aws00001', entryName: 'Gateway' },
+      }),
+    ).toBe(
+      "Inherited AWS Signature v4 in header from Collection 'API' › Gateway cannot be applied to a WebSocket session.",
+    );
     expect(
       assertAuthAllowed('mqtt', {
         auth: { type: 'bearer', token: 't' },

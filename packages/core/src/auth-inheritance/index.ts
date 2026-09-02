@@ -252,28 +252,66 @@ const ALL_AUTH_TYPES: readonly ConcreteAuthConfig['type'][] = [
 
 const AUTH_MASKS: Record<AuthProtocolKind, ReadonlySet<ConcreteAuthConfig['type']>> = {
   http: new Set(ALL_AUTH_TYPES),
-  websocket: new Set(['none', 'bearer', 'basic', 'api-key']),
-  grpc: new Set(['none', 'bearer', 'basic', 'api-key']),
+  websocket: new Set(['none', 'bearer', 'basic', 'api-key', 'oauth2', 'jwt', 'aws-sigv4']),
+  grpc: new Set(['none', 'bearer', 'basic', 'api-key', 'oauth2', 'jwt']),
   mqtt: new Set(['none', 'basic']),
 };
 
+/** Whether the kind's dial carries a URL query string — an HTTP send
+ *  and a WebSocket handshake do; gRPC metadata and an MQTT CONNECT
+ *  have no query leg, so a query-placed credential never rides them. */
+const KIND_HAS_QUERY_LEG: Record<AuthProtocolKind, boolean> = {
+  http: true,
+  websocket: true,
+  grpc: false,
+  mqtt: false,
+};
+
 /**
- * The auth types `kind` can carry — handshake headers for WebSocket,
- * metadata pairs for gRPC, the CONNECT username/password for MQTT.
- * The renderer greys inherited entries outside it; the executors
- * refuse them by name (`assertAuthAllowed`) — never a silent none.
+ * The auth types `kind` can carry — handshake headers and the dial
+ * URL's query for WebSocket, metadata pairs for gRPC, the CONNECT
+ * username/password for MQTT. The renderer greys inherited entries
+ * outside it; the executors refuse them by name (`assertAuthAllowed`)
+ * — never a silent none.
  */
 export function authMaskFor(kind: AuthProtocolKind): ReadonlySet<ConcreteAuthConfig['type']> {
   return AUTH_MASKS[kind];
 }
 
-/** Whether `kind` can apply `auth` — the type mask plus the api-key
- *  placement rule (a handshake / metadata / CONNECT has no query leg,
- *  so a query-placed key never rides a session kind). */
+/**
+ * The refusal label when `kind` cannot apply `auth`, `null` when it
+ * can: the type mask first, then the placement rules the mask alone
+ * cannot see — a query-placed api-key / OAuth 2.0 / JWT token needs
+ * the kind's query leg; an AWS signature rides a WebSocket handshake
+ * only as the signed URL (the Authorization header mode is the HTTP
+ * send's); a DPoP-bound OAuth 2.0 config needs the per-hop proof only
+ * an HTTP send mints. The label names the placement the way the type
+ * label names the type ("API Key in query").
+ */
+export function authRefusalLabel(kind: AuthProtocolKind, auth: ConcreteAuthConfig): string | null {
+  const label = AUTH_TYPE_LABELS[auth.type];
+  if (!authMaskFor(kind).has(auth.type)) return label;
+  if (kind === 'http') return null;
+  const queryLeg = KIND_HAS_QUERY_LEG[kind];
+  switch (auth.type) {
+    case 'api-key':
+      return auth.in === 'query' && !queryLeg ? `${label} in query` : null;
+    case 'oauth2':
+      if (auth.tokenBinding === 'dpop') return `${label} bound to a DPoP key`;
+      return auth.sendAs === 'query' && !queryLeg ? `${label} in query` : null;
+    case 'jwt':
+      return auth.addTo === 'query' && !queryLeg ? `${label} in query` : null;
+    case 'aws-sigv4':
+      return auth.addTo === 'query' ? null : `${label} in header`;
+    default:
+      return null;
+  }
+}
+
+/** Whether `kind` can apply `auth` — the type mask plus the placement
+ *  rules ({@link authRefusalLabel}). */
 export function authAllowedFor(kind: AuthProtocolKind, auth: ConcreteAuthConfig): boolean {
-  if (!authMaskFor(kind).has(auth.type)) return false;
-  if (auth.type === 'api-key' && kind !== 'http') return auth.in === 'header';
-  return true;
+  return authRefusalLabel(kind, auth) === null;
 }
 
 /** The auth types' display labels — the executors' refusal copy
@@ -314,8 +352,8 @@ const AUTH_KIND_NOUNS: Record<AuthProtocolKind, string> = {
 export function assertAuthAllowed(kind: AuthProtocolKind, effective: EffectiveAuth): string | null {
   const { auth, source } = effective;
   if (auth.disabled === true || auth.type === 'none') return null;
-  if (authAllowedFor(kind, auth)) return null;
-  const label = auth.type === 'api-key' && auth.in === 'query' ? 'API Key in query' : AUTH_TYPE_LABELS[auth.type];
+  const label = authRefusalLabel(kind, auth);
+  if (label === null) return null;
   const noun = AUTH_KIND_NOUNS[kind];
   if (source === null || source.level === 'request') return `${label} cannot be applied to ${noun}.`;
   const levelName = source.level === 'collection' ? 'Collection' : 'Folder';

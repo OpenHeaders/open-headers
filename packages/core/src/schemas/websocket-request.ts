@@ -119,9 +119,11 @@ export const WebSocketBinaryEncodingSchema = v.picklist(['base64', 'hex']);
  * the CONNECT packet's auth payload (`{"token": …}`) — in-band
  * framing that works on every host. `inherit` resolves through the
  * ancestor pool (`@openheaders/core/auth-inheritance`) under the
- * WebSocket mask — bearer · basic · api-key in header — and carries
- * no `disabled` flag (the session kinds have no auth-row checkbox).
- * Absent = `none`. Wider own shapes (basic, OAuth2) are demand-gated.
+ * WebSocket mask — bearer · basic · api-key (header or the handshake
+ * URL's query) · OAuth 2.0 · JWT Bearer · AWS SigV4 as the signed URL
+ * — minted per dial (a reconnect re-mints), and carries no `disabled`
+ * flag (the session kinds have no auth-row checkbox). Absent =
+ * `none`. Wider own shapes (basic, OAuth2) are demand-gated.
  */
 export const WebSocketAuthSchema = v.variant('type', [
   v.object({ type: v.literal('none') }),

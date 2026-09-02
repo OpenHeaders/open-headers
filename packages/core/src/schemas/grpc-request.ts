@@ -78,8 +78,10 @@ export const GrpcMetadataPairSchema = v.object({
  * time, so the credential is host-neutral — an in-process and a
  * forwarded invoke inject identically. `inherit` resolves through the
  * ancestor pool (`@openheaders/core/auth-inheritance`) under the gRPC
- * mask — bearer · basic · api-key in header — and carries no
- * `disabled` flag (the session kinds have no auth-row checkbox).
+ * mask — bearer · basic · api-key in header · OAuth 2.0 · JWT Bearer,
+ * every one an `authorization` (or own-key) metadata pair — and
+ * carries no `disabled` flag (the session kinds have no auth-row
+ * checkbox).
  * Absent = `none`. Wider own shapes (basic, OAuth2) are demand-gated.
  */
 export const GrpcAuthSchema = v.variant('type', [
