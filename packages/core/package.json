@@ -104,6 +104,14 @@
       "import": "./src/scripts/runner.ts",
       "default": "./dist/scripts/runner.js"
     },
+    "./scripts/runtime": {
+      "import": "./src/scripts/runtime.ts",
+      "default": "./dist/scripts/runtime.js"
+    },
+    "./scripts/broker": {
+      "import": "./src/scripts/broker.ts",
+      "default": "./dist/scripts/broker.js"
+    },
     "./totp": {
       "import": "./src/totp/index.ts",
       "default": "./dist/totp/index.js"

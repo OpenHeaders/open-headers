@@ -8,54 +8,23 @@
  * grant covers exactly one file and no shared chunk can drag
  * `better-sqlite3` (a denied native addon) into this process.
  *
- * Everything matches the desktop runtimes exactly: the same
- * execute / result / host-request envelopes (here riding the fork IPC
- * channel — `process.on('message')` receives the data directly and
- * `process.send` posts up), the same shared runner core, and every
- * side-effecting `oh.*` call crossing to the daemon's broker — the
- * workspace-state posture does not relax with the transport. No
- * `scopeExtras`: Safe mode's scope is `oh` + `console`, nothing else.
+ * Everything matches the desktop runtimes exactly: the same shared
+ * runtime loop and runner core, the same envelopes (here riding the
+ * fork IPC channel — `process.on('message')` receives the data
+ * directly and `process.send` posts up), and every side-effecting
+ * `oh.*` call crossing to the daemon's broker — the workspace-state
+ * posture does not relax with the transport. No `scopeExtras`: Safe
+ * mode's scope is `oh` + `console`, nothing else.
  */
 
-import type { ScriptExecutionRequest, ScriptHostRequest, ScriptHostResponse } from '@openheaders/core/scripts';
-import { executeScript } from '@openheaders/core/scripts/runner';
+import { createScriptRuntime } from '@openheaders/core/scripts/runtime';
 
-function postUp(message: unknown): void {
+const runtime = createScriptRuntime((message) => {
   process.send?.(message);
-}
-
-// Each inbound `script.host-response` resolves the waiting promise.
-const pendingHostRpcs = new Map<string, (response: ScriptHostResponse) => void>();
-
-function sendHostRequest(request: ScriptHostRequest): Promise<ScriptHostResponse> {
-  const p = new Promise<ScriptHostResponse>((resolve) => {
-    pendingHostRpcs.set(request.rpcId, resolve);
-  });
-  postUp({ type: 'script.host-request', request });
-  return p;
-}
+});
 
 process.on('message', (data: unknown) => {
-  const message = data as
-    | { type: 'script.execute'; request: ScriptExecutionRequest }
-    | { type: 'script.host-response'; response: ScriptHostResponse }
-    | undefined;
-  if (!message || typeof message !== 'object') return;
-
-  if (message.type === 'script.execute') {
-    void executeScript(message.request, { sendHostRequest }).then((result) => {
-      postUp({ type: 'script.result', result });
-    });
-    return;
-  }
-
-  if (message.type === 'script.host-response') {
-    const resolver = pendingHostRpcs.get(message.response.rpcId);
-    if (resolver) {
-      pendingHostRpcs.delete(message.response.rpcId);
-      resolver(message.response);
-    }
-  }
+  runtime.handleMessage(data);
 });
 
 // A dropped IPC channel means the daemon is gone — exit instead of
@@ -65,4 +34,4 @@ process.on('disconnect', () => {
 });
 
 // Signal readiness so the broker can fan execute requests in.
-postUp({ type: 'sandbox.ready' });
+runtime.announceReady();

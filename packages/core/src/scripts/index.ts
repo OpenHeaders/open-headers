@@ -148,6 +148,18 @@ export interface ScriptExecutionRequest {
   timeoutMs?: number;
   /** Workspace script packages available to `oh.require` (active workspace). */
   packages?: ScriptPackageModule[];
+  /**
+   * The live session this execution is a hook of — the session's send
+   * id. Pins a runtime-side session context: `oh.session`, one plain
+   * object every hook call of the session shares (a counter across
+   * messages, a challenge kept from connect to the first reply), and
+   * the compiled-hook cache, so a chatty session never recompiles per
+   * event. Each call still runs in a fresh scope — only `oh.session`
+   * carries state across. The host ends the context with a
+   * `script.session-end` message when the session settles. Absent = a
+   * one-shot execution (an HTTP send's scripts).
+   */
+  sessionId?: string;
 }
 
 /**
@@ -227,15 +239,22 @@ export type ScriptHostResponse =
 // ── postMessage wire envelopes ─────────────────────────────────────
 
 /**
- * The offscreen doc brokers three kinds of messages between SW and
- * sandbox. Tagging them explicitly stops mis-routing when multiple
- * scripts run concurrently.
+ * The messages a broker and a script runtime exchange, whatever the
+ * transport (an offscreen iframe, a hidden window, a utility process,
+ * a permission fork). Tagging them explicitly stops mis-routing when
+ * multiple scripts run concurrently. Down (broker → runtime):
+ * `script.execute`, `script.host-response`, `script.session-end`. Up
+ * (runtime → broker): `sandbox.ready`, `script.result`,
+ * `script.host-request`. The two sets are disjoint, so a transport
+ * that echoes its own posts is safe.
  */
 export type ScriptWireMessage =
+  | { type: 'sandbox.ready' }
   | { type: 'script.execute'; request: ScriptExecutionRequest }
   | { type: 'script.result'; result: ScriptExecutionResult }
   | { type: 'script.host-request'; request: ScriptHostRequest }
-  | { type: 'script.host-response'; response: ScriptHostResponse };
+  | { type: 'script.host-response'; response: ScriptHostResponse }
+  | { type: 'script.session-end'; sessionId: string };
 
 // ── Execution modes ────────────────────────────────────────────────
 

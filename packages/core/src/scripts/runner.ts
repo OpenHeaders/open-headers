@@ -17,6 +17,14 @@
  * `sendHostRequest`, and the host's broker is the only thing that
  * speaks to the engine. Scripts execute in a fresh scope per run — no
  * `globalThis.X = ...` carryover between pre-request and test scripts.
+ *
+ * Sessions: an execution carrying `sessionId` is one hook call of a
+ * live session (a WebSocket, MQTT or gRPC session's connect / send /
+ * message / close scripts). The runtime keeps ONE context per session
+ * — the plain object behind `oh.session`, and the hook sources
+ * compiled once — until the host sends `script.session-end`
+ * ({@link endScriptSession}). Every hook call still gets a fresh call
+ * scope; `oh.session` is the only carrier across calls, by design.
  */
 
 import type {
@@ -54,6 +62,67 @@ export interface ScriptRunnerDeps {
   scopeExtras?: Record<string, unknown>;
 }
 
+/** A hook compiled once: the user source in its own scope, called per
+ *  execution with `oh`, `console` and the host's scope extras. */
+type CompiledHook = (...args: unknown[]) => Promise<void>;
+
+/** One live session's runtime state — see the module doc. */
+interface ScriptSessionContext {
+  /** The object behind `oh.session` — the session's whole script state. */
+  state: Record<string, unknown>;
+  /** Hook sources compiled once for the session, keyed by the source
+   *  itself: every level's script of one hook keeps its own entry, and
+   *  an edited source simply compiles a new one. */
+  compiled: Map<string, CompiledHook>;
+}
+
+const sessions = new Map<string, ScriptSessionContext>();
+
+function sessionContextFor(sessionId: string): ScriptSessionContext {
+  let context = sessions.get(sessionId);
+  if (context === undefined) {
+    context = { state: {}, compiled: new Map() };
+    sessions.set(sessionId, context);
+  }
+  return context;
+}
+
+/**
+ * Drop a session's runtime context — its `oh.session` state and its
+ * compiled hooks. The host sends `script.session-end` when the session
+ * settles; an unknown id is a no-op (the session never ran a hook, or
+ * the runtime respawned since).
+ */
+export function endScriptSession(sessionId: string): void {
+  sessions.delete(sessionId);
+}
+
+/**
+ * Compile user source in its own scope. We intentionally do NOT expose
+ * the host global — only `oh` + `console` (+ the host's declared scope
+ * extras) are passed as arguments. Anything else the script touches
+ * falls back to whatever globals the host's isolation layer left
+ * reachable.
+ */
+function compileHook(source: string, extraNames: readonly string[]): CompiledHook {
+  return new Function(
+    'oh',
+    'console',
+    ...extraNames,
+    `"use strict";\nreturn (async () => {\n${source}\n})();`,
+  ) as CompiledHook;
+}
+
+/** The session's compiled hook for `source`, compiling on first sight. */
+function compiledHookFor(context: ScriptSessionContext, source: string, extraNames: readonly string[]): CompiledHook {
+  let hook = context.compiled.get(source);
+  if (hook === undefined) {
+    hook = compileHook(source, extraNames);
+    context.compiled.set(source, hook);
+  }
+  return hook;
+}
+
 /**
  * Run one script execution request to completion. Never rejects for a
  * script-level fault — syntax errors, throws, and timeouts fold into a
@@ -69,40 +138,42 @@ export async function executeScript(
   let mutation: RequestMutation | undefined;
   let error: { name: string; message: string; stack?: string } | undefined;
   const timeoutMs = clampScriptTimeoutMs(req.timeoutMs);
+  const session = req.sessionId !== undefined ? sessionContextFor(req.sessionId) : null;
 
   const stamp = (): number => Math.round(performance.now() - startedAt);
 
   const capturingConsole = buildConsole(consoleLog, stamp);
-  const oh = buildScriptApi(req, deps, assertions, capturingConsole, (next) => {
-    // Every flush is a COMPLETE diff against the original request, so
-    // each one replaces the pending mutation outright. Merging field-wise
-    // would resurrect a change a later call reverted (setHeader then
-    // removeHeader must end as "no header mutation"). All-empty diffs
-    // normalize to undefined so a net-unchanged request reports none.
-    const hasChange =
-      next.method !== undefined ||
-      next.url !== undefined ||
-      next.headers !== undefined ||
-      next.params !== undefined ||
-      next.body !== undefined;
-    mutation = hasChange ? next : undefined;
-  });
+  const oh = buildScriptApi(
+    req,
+    deps,
+    assertions,
+    capturingConsole,
+    (next) => {
+      // Every flush is a COMPLETE diff against the original request, so
+      // each one replaces the pending mutation outright. Merging field-wise
+      // would resurrect a change a later call reverted (setHeader then
+      // removeHeader must end as "no header mutation"). All-empty diffs
+      // normalize to undefined so a net-unchanged request reports none.
+      const hasChange =
+        next.method !== undefined ||
+        next.url !== undefined ||
+        next.headers !== undefined ||
+        next.params !== undefined ||
+        next.body !== undefined;
+      mutation = hasChange ? next : undefined;
+    },
+    session?.state,
+  );
 
   const extraNames = Object.keys(deps.scopeExtras ?? {});
   const extraValues = extraNames.map((name) => (deps.scopeExtras as Record<string, unknown>)[name]);
 
   try {
-    // Compile user source in its own scope. We intentionally do NOT
-    // expose the host global — only `oh` + `console` (+ the host's
-    // declared scope extras) are passed as arguments. Anything else the
-    // script touches falls back to whatever globals the host's
-    // isolation layer left reachable.
-    const fn = new Function(
-      'oh',
-      'console',
-      ...extraNames,
-      `"use strict";\nreturn (async () => {\n${req.source}\n})();`,
-    ) as (...args: unknown[]) => Promise<void>;
+    // A syntax error surfaces here, from the compile, and folds into
+    // the failed result like a throw — a session's cache only ever
+    // holds hooks that compiled.
+    const fn =
+      session === null ? compileHook(req.source, extraNames) : compiledHookFor(session, req.source, extraNames);
     await withTimeout(fn(oh, capturingConsole, ...extraValues), timeoutMs);
   } catch (err) {
     if (err instanceof Error) {
@@ -142,6 +213,10 @@ type AdHocRequestInput = Pick<RequestSnapshot, 'method' | 'url'> &
 interface ScriptApi {
   request: RequestSnapshot;
   response?: ResponseSnapshot;
+  /** The live session's shared state — present only on a session hook
+   *  call (see the module doc). Mutate its fields; the object itself is
+   *  the session's and cannot be reassigned. */
+  readonly session?: Record<string, unknown>;
   variables: {
     get(name: string): Promise<string | null>;
     set(name: string, value: string): Promise<void>;
@@ -177,6 +252,7 @@ function buildScriptApi(
   assertions: TestAssertion[],
   capturingConsole: ScriptConsole,
   emitMutation: (m: RequestMutation) => void,
+  sessionState: Record<string, unknown> | undefined,
 ): ScriptApi {
   const draftHeaders: Array<{ key: string; value: string }> = [...req.request.headers];
   const draftParams: Array<{ key: string; value: string }> = [...req.request.params];
@@ -295,6 +371,11 @@ function buildScriptApi(
       };
     },
     response: req.response,
+    // A getter with no setter: `oh.session = {}` throws under strict
+    // mode instead of silently detaching the script from the session.
+    get session() {
+      return sessionState;
+    },
     variables: {
       get: hostGet,
       set: async (name, value) => {

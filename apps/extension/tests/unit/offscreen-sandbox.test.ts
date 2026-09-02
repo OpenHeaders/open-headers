@@ -28,6 +28,7 @@ function runInSandbox(
   source: string,
   onHostRequest: (req: ScriptHostRequest) => unknown,
   packages?: ScriptPackageModule[],
+  sessionId?: string,
 ): Promise<{ result: ScriptExecutionResult; hostRequests: ScriptHostRequest[] }> {
   nextExecution += 1;
   const executionId = `exec-${nextExecution}`;
@@ -64,12 +65,43 @@ function runInSandbox(
     window.postMessage(
       {
         type: 'script.execute',
-        request: { executionId, kind: 'pre-request', source, request: BASE_REQUEST, packages },
+        request: {
+          executionId,
+          kind: 'pre-request',
+          source,
+          request: BASE_REQUEST,
+          packages,
+          ...(sessionId !== undefined ? { sessionId } : {}),
+        },
       },
       '*',
     );
   });
 }
+
+describe('sandbox session context', () => {
+  it('keeps oh.session across the hook calls of one session and drops it on session-end', async () => {
+    await runInSandbox(`oh.session.count = (oh.session.count ?? 0) + 1;`, () => null, undefined, 'send-1');
+    const second = await runInSandbox(
+      `oh.session.count = (oh.session.count ?? 0) + 1; console.log('count', oh.session.count);`,
+      () => null,
+      undefined,
+      'send-1',
+    );
+    expect(second.result.succeeded).toBe(true);
+    expect(second.result.consoleLog.some((e) => e.args.join(' ') === 'count 2')).toBe(true);
+
+    window.postMessage({ type: 'script.session-end', sessionId: 'send-1' }, '*');
+    const after = await runInSandbox(`console.log('count', typeof oh.session.count);`, () => null, undefined, 'send-1');
+    expect(after.result.consoleLog.some((e) => e.args.join(' ') === 'count undefined')).toBe(true);
+    window.postMessage({ type: 'script.session-end', sessionId: 'send-1' }, '*');
+  });
+
+  it('exposes no oh.session to a one-shot execution', async () => {
+    const { result } = await runInSandbox(`console.log('session', typeof oh.session);`, () => null);
+    expect(result.consoleLog.some((e) => e.args.join(' ') === 'session undefined')).toBe(true);
+  });
+});
 
 describe('sandbox request mutations', () => {
   it('reports no mutation when a later call reverts an earlier one', async () => {

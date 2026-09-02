@@ -127,12 +127,12 @@ describe('createScriptWorkerTransport', () => {
     child.emit('message', { type: 'sandbox.ready' });
     await ready;
 
-    transport.post({ type: 'script.execute' });
-    expect(child.posted).toEqual([{ type: 'script.execute' }]);
+    transport.post({ type: 'script.session-end', sessionId: 'send-1' });
+    expect(child.posted).toEqual([{ type: 'script.session-end', sessionId: 'send-1' }]);
 
     transport.close('idle');
     expect(child.killed).toBe(true);
-    transport.post({ type: 'script.execute' });
+    transport.post({ type: 'script.session-end', sessionId: 'send-1' });
     expect(child.posted).toHaveLength(1);
   });
 
