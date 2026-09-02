@@ -32,7 +32,14 @@ export interface EchoAuthResponse {
     | { kind: 'none' }
     | { kind: 'basic'; username: string; password: string }
     | { kind: 'bearer'; token: string }
-    | { kind: 'scheme'; scheme: string; token: string };
+    | { kind: 'scheme'; scheme: string; token: string }
+    | {
+        kind: 'dpop';
+        token: string;
+        jkt: string;
+        proof: { verified: true; htm: string; htu: string; ath: true; nonce: string | null };
+      }
+    | { kind: 'dpop-invalid'; reason: string };
 }
 
 const JWT_COMPACT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -73,6 +80,16 @@ export function assertEchoAuth(echo: EchoAuthResponse, expected: ExpectedAuthWir
       break;
     case 'asap':
       assertAsap(echo, expected);
+      break;
+    case 'dpop':
+      // The echo verified the proof for this GET under the header JWK,
+      // the token's hash in `ath`, and the token's binding to that key.
+      expect(echo.auth).toMatchObject({
+        kind: 'dpop',
+        token: expected.token,
+        proof: { verified: true, htm: 'GET', ath: true },
+      });
+      expect((echo.auth as { jkt: string }).jkt).toMatch(/^[A-Za-z0-9_-]{43}$/);
       break;
   }
 }
