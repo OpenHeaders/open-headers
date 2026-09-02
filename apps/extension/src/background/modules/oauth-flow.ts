@@ -27,6 +27,7 @@
  */
 
 import {
+  boundDpopKeyOf,
   buildAuthorizationCodeTokenBody,
   buildAuthorizationUrl,
   buildClientAuthHeader,
@@ -35,19 +36,28 @@ import {
   buildPasswordCredentialsTokenBody,
   buildRefreshTokenBody,
   computeCodeChallenge,
+  DPOP_HEADER,
+  dpopAlgorithmOf,
   findOAuth2Preset,
   generateCodeVerifier,
+  generateDpopKey,
+  isDpopNonceChallengeFromTokenEndpoint,
   mintClientAssertion,
+  mintDpopProof,
   mintGrantAssertion,
   nonBodyExtraParams,
+  type OAuth2DpopKey,
   type OAuth2TokenBundle,
   parseAuthorizationRedirect,
   parseTokenResponse,
+  usesDpop,
   usesPkce,
 } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
+import { dpopNonceFor, rememberDpopNonce } from '@openheaders/oracle/live/request-exec/dpop-nonces';
+import { bindDpopKey } from '@openheaders/oracle/live/request-exec/oauth-exchange';
 import { identity } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
@@ -178,6 +188,7 @@ export async function launchAuthorizationCodeFlow(
     'authorization_code',
     buildClientAuthHeader(config),
     nonBodyExtraParams(config.extraTokenParams),
+    await dpopKeyForExchange(config, 'authorization_code'),
   );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return { bundle, redirectUri };
@@ -202,6 +213,7 @@ export async function performClientCredentialsFlow(
     'client_credentials',
     buildClientAuthHeader(config),
     nonBodyExtraParams(config.extraTokenParams),
+    await dpopKeyForExchange(config, 'client_credentials'),
   );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
@@ -226,6 +238,7 @@ export async function performPasswordCredentialsFlow(
     'password',
     buildClientAuthHeader(config),
     nonBodyExtraParams(config.extraTokenParams),
+    await dpopKeyForExchange(config, 'password'),
   );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
@@ -256,9 +269,28 @@ export async function performJwtBearerFlow(config: OAuth2Auth, workspaceId?: str
     'jwt_bearer',
     buildClientAuthHeader(config),
     nonBodyExtraParams(config.extraTokenParams),
+    await dpopKeyForExchange(config, 'jwt_bearer'),
   );
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
+}
+
+/**
+ * The DPoP key a fresh exchange binds its token to (RFC 9449 §5), or
+ * `undefined` for bearer tokens — twin of the oracle's
+ * `dpopKeyForExchange`, raising the SW's own error class. Query mode
+ * is refused before the wire: a DPoP token rides the header only.
+ */
+async function dpopKeyForExchange(config: OAuth2Auth, step: string): Promise<OAuth2DpopKey | undefined> {
+  if (!usesDpop(config)) return undefined;
+  if (config.sendAs === 'query') {
+    throw new OAuth2FlowError(step, 'DPoP-bound tokens ride the Authorization header — Send In cannot be the query');
+  }
+  try {
+    return await generateDpopKey(dpopAlgorithmOf(config));
+  } catch (err) {
+    throw new OAuth2FlowError(step, `DPoP key: ${(err as Error).message}`);
+  }
 }
 
 /** The client assertion for one token POST, or `undefined` under the
@@ -287,12 +319,15 @@ export async function performRefresh(config: OAuth2Auth, workspaceId?: string): 
   // refresh endpoint; fall back to the primary token endpoint when
   // the config doesn't override.
   const refreshEndpoint = config.refreshEndpoint?.trim() ? config.refreshEndpoint : config.tokenEndpoint;
+  // RFC 9449 §5 binds the refresh token to the key the exchange used —
+  // the refresh proves with the SAME key (twin of the oracle runner).
   const bundle = await exchangeForTokens(
     refreshEndpoint,
     body,
     'refresh_token',
     buildClientAuthHeader(config),
     nonBodyExtraParams(config.extraRefreshParams),
+    boundDpopKeyOf(current) ?? (await dpopKeyForExchange(config, 'refresh_token')),
   );
   // Providers sometimes omit refresh_token on refresh — carry the prior
   // one forward so the next refresh still works.
@@ -337,6 +372,7 @@ async function exchangeForTokens(
   step: string,
   clientAuthHeader: string | null = null,
   extras?: ReturnType<typeof nonBodyExtraParams>,
+  dpopKey?: OAuth2DpopKey,
 ): Promise<OAuth2TokenBundle> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -354,16 +390,30 @@ async function exchangeForTokens(
   // provider that handles both OAuth token endpoints AND a token-
   // reading LV workflow (common: upstream uses its own OAuth) pays a
   // single budget across both paths.
-  const response = await withRefreshRateLimit(tokenEndpoint, () =>
-    withHostAccess(tokenEndpoint, () =>
-      fetch(url, {
-        method: 'POST',
-        credentials: 'omit',
-        headers,
-        body,
-      }),
-    ),
-  );
+  // Under DPoP the POST carries a proof (§5); a 400 `use_dpop_nonce`
+  // answer is repeated ONCE with the issued nonce inside the same
+  // bucket payment — twin of the oracle exchange.
+  const send = async (nonce: string | undefined): Promise<Response> => {
+    const attempt =
+      dpopKey !== undefined
+        ? { ...headers, [DPOP_HEADER]: await mintDpopProof(dpopKey, { method: 'POST', url, nonce }) }
+        : headers;
+    return withHostAccess(tokenEndpoint, () =>
+      fetch(url, { method: 'POST', credentials: 'omit', headers: attempt, body }),
+    );
+  };
+  const response = await withRefreshRateLimit(tokenEndpoint, async () => {
+    if (dpopKey === undefined) return send(undefined);
+    const first = await send(dpopNonceFor(url));
+    const issued = first.headers.get('dpop-nonce')?.trim() || undefined;
+    rememberDpopNonce(url, issued);
+    if (issued === undefined || first.status !== 400) return first;
+    const challenge = safeJsonParse(await first.clone().text());
+    if (!isDpopNonceChallengeFromTokenEndpoint(first.status, challenge)) return first;
+    const second = await send(issued);
+    rememberDpopNonce(url, second.headers.get('dpop-nonce')?.trim() || undefined);
+    return second;
+  });
   const text = await response.text();
   if (!response.ok) {
     throw new OAuth2FlowError(
@@ -375,11 +425,14 @@ async function exchangeForTokens(
   if (!json) {
     throw new OAuth2FlowError(step, `Token endpoint returned non-JSON body: ${truncate(text, 200)}`);
   }
+  let bundle: OAuth2TokenBundle;
   try {
-    return parseTokenResponse(json);
+    bundle = parseTokenResponse(json);
   } catch (err) {
     throw new OAuth2FlowError(step, `Failed to parse token response: ${(err as Error).message}`);
   }
+  if (dpopKey !== undefined) bindDpopKey(bundle, dpopKey, step);
+  return bundle;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────

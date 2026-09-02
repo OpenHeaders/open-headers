@@ -6,9 +6,10 @@
  * or storage.
  */
 
-import { generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
-import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
+import { createPublicKey, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
+import { generateDpopKey, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
+import { __resetDpopNoncesForTests } from '@openheaders/oracle/live/request-exec/dpop-nonces';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.fn();
@@ -536,5 +537,111 @@ describe('refreshCredential — jwt-bearer dispatch', () => {
       }),
     );
     expect(sentBody().get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
+  });
+});
+
+// ── DPoP (RFC 9449) on the token POST — twin of the oracle exchange ──
+
+describe('DPoP-bound exchange (tokenBinding: dpop)', () => {
+  beforeEach(() => __resetDpopNoncesForTests());
+
+  function segment(jwt: string, index: number): Record<string, unknown> {
+    return JSON.parse(Buffer.from(jwt.split('.')[index], 'base64url').toString('utf8'));
+  }
+
+  function verifiesUnderHeaderJwk(jwt: string): boolean {
+    const [h, p, sig] = jwt.split('.');
+    const key = createPublicKey({ key: segment(jwt, 0).jwk as Record<string, string>, format: 'jwk' });
+    return nodeVerify(
+      'sha256',
+      Buffer.from(`${h}.${p}`),
+      { key, dsaEncoding: 'ieee-p1363' },
+      Buffer.from(sig, 'base64url'),
+    );
+  }
+
+  function proofOf(call: number): string {
+    const init = fetchMock.mock.calls[call][1] as RequestInit;
+    const proof = (init.headers as Record<string, string>).DPoP;
+    if (proof === undefined) throw new Error(`fetch call ${call} carried no DPoP header`);
+    return proof;
+  }
+
+  const dpopConfig = () => makeConfig({ flow: 'client-credentials', clientSecret: 'shh', tokenBinding: 'dpop' });
+
+  it('the POST carries a proof under a fresh ES256 key and the DPoP token comes back bound to it', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ access_token: 'at-bound', token_type: 'DPoP', expires_in: 3600 }));
+    const { performClientCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    const bundle = await performClientCredentialsFlow(dpopConfig());
+    const proof = proofOf(0);
+    expect(segment(proof, 0)).toMatchObject({ typ: 'dpop+jwt', alg: 'ES256', jwk: { kty: 'EC', crv: 'P-256' } });
+    expect(segment(proof, 1)).toMatchObject({ htm: 'POST', htu: 'https://auth.openheaders.io/token' });
+    expect(segment(proof, 1)).not.toHaveProperty('ath');
+    expect(verifiesUnderHeaderJwk(proof)).toBe(true);
+    expect(bundle.tokenType).toBe('DPoP');
+    expect(bundle.dpop).toMatchObject({ algorithm: 'ES256', publicJwk: segment(proof, 0).jwk });
+    expect(putTokenBundleMock).toHaveBeenCalledWith('oauth2-cred-test', bundle, expect.anything(), undefined);
+  });
+
+  it('a provider that answers Bearer ignored the binding — the bundle stays plain', async () => {
+    const { performClientCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    const bundle = await performClientCredentialsFlow(dpopConfig());
+    expect(proofOf(0)).toBeTruthy();
+    expect(bundle.dpop).toBeUndefined();
+  });
+
+  it('a use_dpop_nonce answer is repeated ONCE with the issued nonce, and the nonce rides the next POST up front', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'use_dpop_nonce' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', 'DPoP-Nonce': 'n-1' },
+        }),
+      )
+      // A fresh Response per call — a body reads once.
+      .mockImplementation(async () => jsonResponse({ access_token: 'at-bound', token_type: 'DPoP', expires_in: 3600 }));
+    const { performClientCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    const bundle = await performClientCredentialsFlow(dpopConfig());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(segment(proofOf(0), 1)).not.toHaveProperty('nonce');
+    expect(segment(proofOf(1), 1)).toMatchObject({ nonce: 'n-1' });
+    expect(segment(proofOf(1), 0).jwk).toEqual(segment(proofOf(0), 0).jwk);
+    expect(bundle.accessToken).toBe('at-bound');
+    await performClientCredentialsFlow(dpopConfig());
+    expect(segment(proofOf(2), 1)).toMatchObject({ nonce: 'n-1' });
+  });
+
+  it('Send In: query is refused before any wire activity', async () => {
+    const { performClientCredentialsFlow, OAuth2FlowError } = await import('@/background/modules/oauth-flow');
+    await expect(performClientCredentialsFlow({ ...dpopConfig(), sendAs: 'query' })).rejects.toBeInstanceOf(
+      OAuth2FlowError,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("the refresh proves with the bundle's BOUND key and the fresh token stays bound to it", async () => {
+    const key = await generateDpopKey('ES256');
+    getTokenBundleMock.mockResolvedValue({
+      accessToken: 'at-old',
+      refreshToken: 'rf-1',
+      tokenType: 'DPoP',
+      expiresAt: Date.now() - 1000,
+      issuedAt: Date.now() - 3_600_000,
+      scope: '',
+      dpop: key,
+    } satisfies OAuth2TokenBundle);
+    fetchMock.mockResolvedValue(jsonResponse({ access_token: 'at-new', token_type: 'DPoP', expires_in: 3600 }));
+    const { performRefresh } = await import('@/background/modules/oauth-flow');
+    const bundle = await performRefresh(makeConfig({ tokenBinding: 'dpop' }));
+    expect(segment(proofOf(0), 0).jwk).toEqual(key.publicJwk);
+    expect(bundle.dpop).toBe(key);
+    expect(bundle.refreshToken).toBe('rf-1');
+  });
+
+  it('a bearer config sends no proof', async () => {
+    const { performClientCredentialsFlow } = await import('@/background/modules/oauth-flow');
+    await performClientCredentialsFlow(makeConfig({ flow: 'client-credentials', clientSecret: 'shh' }));
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>).DPoP).toBeUndefined();
   });
 });

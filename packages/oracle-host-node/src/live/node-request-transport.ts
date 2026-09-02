@@ -158,6 +158,7 @@ import { type ConnectionRecord, createInstrumentedDial } from './instrumented-co
 import { WireExchangeError } from './request-transport/classify-error';
 import { digestRetryHop } from './request-transport/digest-leg';
 import { connectOptionsFor, dispatcherFor, httpVersionPolicy } from './request-transport/dispatcher';
+import { dpopRetryHop, withDpopProof } from './request-transport/dpop-leg';
 import { finalizeResponse } from './request-transport/finalize';
 import { captureJarCookies, type JarActivity, withJarCookie } from './request-transport/jar-leg';
 import { materializeProxyAttempt, resolveProxyAttempts } from './request-transport/proxy-route';
@@ -459,7 +460,15 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           };
         }
         const finalHopSentAt = performance.now();
-        let response = await wireHop(fetchFn, requestFn, request, hop, deadline, dispatcher, leg);
+        let response = await wireHop(
+          fetchFn,
+          requestFn,
+          request,
+          await withDpopProof(request, hop),
+          deadline,
+          dispatcher,
+          leg,
+        );
         if (jar !== undefined && jarActivity !== undefined) {
           jarActivity.cookiesCaptured.push(...captureJarCookies(jar, hop.url, response.headers));
         }
@@ -473,6 +482,27 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
               jarActivity.cookieHeaderAttached = retry.jarAttached;
             }
             jarActivity.cookiesCaptured.push(...retry.jarCaptured);
+          }
+        }
+        // And the DPoP nonce leg, for the same reason.
+        const dpopRetry = await dpopRetryHop(
+          fetchFn,
+          requestFn,
+          request,
+          hop,
+          response,
+          deadline,
+          dispatcher,
+          jar,
+          leg,
+        );
+        if (dpopRetry !== null) {
+          response = dpopRetry.response;
+          if (jarActivity !== undefined) {
+            if (jarActivity.cookieHeaderAttached === undefined && dpopRetry.jarAttached !== undefined) {
+              jarActivity.cookieHeaderAttached = dpopRetry.jarAttached;
+            }
+            jarActivity.cookiesCaptured.push(...dpopRetry.jarCaptured);
           }
         }
         // Manual mode is single-shot — no chain to record.

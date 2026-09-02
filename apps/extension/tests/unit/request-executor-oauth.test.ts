@@ -8,9 +8,11 @@
  *     (let the target API surface the 401).
  */
 
-import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
+import { createHash, createPublicKey, verify as nodeVerify } from 'node:crypto';
+import { generateDpopKey, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { Collection, Environment, OAuth2Auth, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetDpopNoncesForTests } from '@openheaders/oracle/live/request-exec/dpop-nonces';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fetchMock, getTokenBundleMock, performRefreshMock } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
@@ -18,10 +20,11 @@ const { fetchMock, getTokenBundleMock, performRefreshMock } = vi.hoisted(() => (
   performRefreshMock: vi.fn(),
 }));
 
-vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+const okFetch = (input: string, init?: RequestInit) => {
   fetchMock(input, init);
   return Promise.resolve(new Response('ok', { status: 200, statusText: 'OK' }));
-});
+};
+vi.stubGlobal('fetch', okFetch);
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getEnvironments: vi.fn(() => [] as Environment[]),
@@ -186,5 +189,95 @@ describe('executor — oauth2', () => {
     const [, init] = fetchMock.mock.calls[0];
     const headers = init.headers as Headers;
     expect(headers.get('Authorization')).toBe('Bearer at-stale');
+  });
+});
+
+// ── DPoP-bound bundles (RFC 9449 §7) ──────────────────────────────
+
+describe('executor — oauth2 under DPoP', () => {
+  function segment(jwt: string, index: number): Record<string, unknown> {
+    return JSON.parse(Buffer.from(jwt.split('.')[index], 'base64url').toString('utf8'));
+  }
+
+  function verifiesUnderHeaderJwk(jwt: string): boolean {
+    const [h, p, sig] = jwt.split('.');
+    const key = createPublicKey({ key: segment(jwt, 0).jwk as Record<string, string>, format: 'jwk' });
+    return nodeVerify(
+      'sha256',
+      Buffer.from(`${h}.${p}`),
+      { key, dsaEncoding: 'ieee-p1363' },
+      Buffer.from(sig, 'base64url'),
+    );
+  }
+
+  function proofOf(call: number): string {
+    const [, init] = fetchMock.mock.calls[call];
+    const proof = (init.headers as Headers).get('DPoP');
+    if (proof === null) throw new Error(`fetch call ${call} carried no DPoP header`);
+    return proof;
+  }
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    getTokenBundleMock.mockReset();
+    performRefreshMock.mockReset();
+    __resetDpopNoncesForTests();
+  });
+
+  afterEach(() => {
+    vi.stubGlobal('fetch', okFetch);
+  });
+
+  it('a bound bundle sends Authorization: DPoP and a proof for this send — htm / htu / ath — ignoring the prefix and query mode', async () => {
+    const key = await generateDpopKey('ES256');
+    getTokenBundleMock.mockResolvedValue(bundle({ accessToken: 'at-bound', tokenType: 'DPoP', dpop: key }));
+    await executeRequestDraft(makeOAuthRequest({ headerPrefix: 'Token', sendAs: 'query' }));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.openheaders.io/v1/me');
+    expect((init.headers as Headers).get('Authorization')).toBe('DPoP at-bound');
+    const proof = proofOf(0);
+    expect(segment(proof, 0)).toMatchObject({ typ: 'dpop+jwt', alg: 'ES256', jwk: key.publicJwk });
+    expect(segment(proof, 1)).toMatchObject({
+      htm: 'GET',
+      htu: 'https://api.openheaders.io/v1/me',
+      ath: createHash('sha256').update('at-bound').digest('base64url'),
+    });
+    expect(verifiesUnderHeaderJwk(proof)).toBe(true);
+  });
+
+  it("answers the resource's use_dpop_nonce challenge once with the issued nonce; the nonce rides the next send", async () => {
+    const key = await generateDpopKey('ES256');
+    getTokenBundleMock.mockResolvedValue(bundle({ accessToken: 'at-bound', tokenType: 'DPoP', dpop: key }));
+    let calls = 0;
+    vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
+      fetchMock(input, init);
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response('unauthorized', {
+            status: 401,
+            headers: { 'WWW-Authenticate': 'DPoP error="use_dpop_nonce"', 'DPoP-Nonce': 'n-1' },
+          }),
+        );
+      }
+      return Promise.resolve(new Response('ok', { status: 200, statusText: 'OK' }));
+    });
+    // The wire is the pin here — this file seeds no settings registry,
+    // so the snapshot's body path is not asserted.
+    await executeRequestDraft(makeOAuthRequest());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(segment(proofOf(0), 1)).not.toHaveProperty('nonce');
+    expect(segment(proofOf(1), 1)).toMatchObject({ nonce: 'n-1' });
+    await executeRequestDraft(makeOAuthRequest());
+    expect(segment(proofOf(2), 1)).toMatchObject({ nonce: 'n-1' });
+  });
+
+  it('a Bearer bundle carrying a stale key sends as a bearer with no proof', async () => {
+    const key = await generateDpopKey('ES256');
+    getTokenBundleMock.mockResolvedValue(bundle({ accessToken: 'at-plain', dpop: key }));
+    await executeRequestDraft(makeOAuthRequest());
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).get('Authorization')).toBe('Bearer at-plain');
+    expect((init.headers as Headers).get('DPoP')).toBeNull();
   });
 });

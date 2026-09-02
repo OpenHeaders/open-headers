@@ -119,6 +119,9 @@ function tokenFacts(bundle: OAuth2TokenBundle | null) {
     expiresAt: bundle.expiresAt,
     scope: bundle.scope,
     hasRefreshToken: bundle.refreshToken !== undefined,
+    // A DPoP-bound token names the thumbprint of the key it is bound
+    // to (RFC 9449 §6 `jkt`) — public by construction, never the key.
+    ...(bundle.dpop !== undefined ? { dpopKeyThumbprint: bundle.dpop.jkt } : {}),
   };
 }
 
@@ -262,7 +265,8 @@ export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolD
       description:
         "The state of a saved request's OAuth 2.0 credential on this host: the device authorization flow's " +
         'state when one was started (pending with the user code and verification URL, granted, denied, expired, ' +
-        "failed) and the stored token's facts (type, expiry, scope, whether a refresh token is held) — never " +
+        "failed) and the stored token's facts (type, expiry, scope, whether a refresh token is held, the DPoP key " +
+        'thumbprint when the token is bound) — never ' +
         'the token itself. Poll it after requests_authorize answers "pending".',
       inputSchema: {
         type: 'object',

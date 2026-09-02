@@ -19,6 +19,7 @@ import type { CookieJar } from '../cookie-jar';
 import type { ConnectionRecord } from '../instrumented-connector';
 import { withHostUserAgent } from '../user-agent';
 import { digestRetryHop } from './digest-leg';
+import { dpopRetryHop, withDpopProof } from './dpop-leg';
 import { finalizeResponse } from './finalize';
 import { captureJarCookies, type JarActivity, withJarCookie } from './jar-leg';
 import type { Deadline, HopState, NodeFetchFn, NodeRequestFn, StreamingLeg, WireLeg } from './seam';
@@ -81,6 +82,10 @@ export async function followRedirectChain(
       sendHop = { ...hop, headers };
       if (redirects === 0 && attached !== undefined) jarActivity = { ...jarActivity, cookieHeaderAttached: attached };
     }
+    // The DPoP proof is per hop too — this hop's method + target under
+    // the origin's nonce, and none once a cross-origin strip took the
+    // Authorization with it. Like the jar, it never joins the hop state.
+    sendHop = await withDpopProof(request, sendHop);
     // Marked per iteration so the surviving value is the FINAL hop's
     // dispatch instant — the boundary between the redirect and waiting
     // phases (a digest second leg stays inside this hop's wait).
@@ -103,6 +108,19 @@ export async function followRedirectChain(
           jarActivity = { ...jarActivity, cookieHeaderAttached: retry.jarAttached };
         }
         jarActivity.cookiesCaptured.push(...retry.jarCaptured);
+      }
+    }
+    // DPoP nonce leg — per hop as well: the resource's `use_dpop_nonce`
+    // challenge is answered once with a proof carrying the issued nonce;
+    // the proof stays out of the hop state (the next hop mints its own).
+    const dpopRetry = await dpopRetryHop(fetchFn, requestFn, request, hop, response, deadline, dispatcher, jar, leg);
+    if (dpopRetry !== null) {
+      response = dpopRetry.response;
+      if (jarActivity !== undefined) {
+        if (redirects === 0 && jarActivity.cookieHeaderAttached === undefined && dpopRetry.jarAttached !== undefined) {
+          jarActivity = { ...jarActivity, cookieHeaderAttached: dpopRetry.jarAttached };
+        }
+        jarActivity.cookiesCaptured.push(...dpopRetry.jarCaptured);
       }
     }
     const location = REDIRECT_STATUSES.has(response.status) ? response.headers.get('location') : null;

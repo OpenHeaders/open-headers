@@ -4,7 +4,13 @@
  * silent refresh-on-expiry).
  */
 
-import { canRenewSilently, isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
+import {
+  boundDpopKeyOf,
+  canRenewSilently,
+  DPOP_TOKEN_TYPE,
+  isExpired as isOAuthTokenExpired,
+  type OAuth2DpopProofMaterial,
+} from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
 import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { logger } from '@utils/logger';
@@ -25,16 +31,23 @@ function setAuthHeader(headers: Array<{ key: string; value: string }>, key: stri
   headers.push({ key, value });
 }
 
+/** What `applyAuth` hands back beyond the folded headers / params:
+ *  the DPoP proof material when the oauth2 bundle is key-bound — twin
+ *  of the oracle resolver's `AppliedAuth`. */
+export interface AppliedAuth {
+  dpop?: OAuth2DpopProofMaterial;
+}
+
 export async function applyAuth(
   auth: AuthConfig,
   headers: Array<{ key: string; value: string }>,
   params: Array<{ key: string; value: string }>,
   resolveStr: (s: string) => string,
-): Promise<void> {
+): Promise<AppliedAuth> {
   // `disabled` suspends the contribution without discarding the config
   // (the Headers table's auth-row checkbox drives it) — twin of the
   // oracle resolver's check.
-  if (auth.disabled || auth.type === 'none' || auth.type === 'inherit') return;
+  if (auth.disabled || auth.type === 'none' || auth.type === 'inherit') return {};
   if (auth.type === 'basic') {
     const u = resolveStr(auth.username);
     const p = resolveStr(auth.password);
@@ -48,54 +61,54 @@ export async function applyAuth(
     for (const byte of bytes) binary += String.fromCharCode(byte);
     const token = btoa(binary);
     setAuthHeader(headers, 'Authorization', `Basic ${token}`);
-    return;
+    return {};
   }
   if (auth.type === 'bearer') {
     setAuthHeader(headers, 'Authorization', `Bearer ${resolveStr(auth.token)}`);
-    return;
+    return {};
   }
   if (auth.type === 'api-key') {
     const k = resolveStr(auth.key);
     const v = resolveStr(auth.value);
     if (auth.in === 'header') setAuthHeader(headers, k, v);
     else params.push({ key: k, value: v });
-    return;
+    return {};
   }
   if (auth.type === 'aws-sigv4') {
     // Nothing folds here — SigV4 signs the FINAL wire shape in
     // `executeResolved` (see ResolvedRequest.awsSigV4); the resolver
     // only resolves the credential templates. Twin of the oracle arm.
-    return;
+    return {};
   }
   if (auth.type === 'oauth1') {
     // Nothing folds here — OAuth1 signs the FINAL wire shape in
     // `executeResolved` (see ResolvedRequest.oauth1); the resolver
     // only resolves the credential templates. Twin of the oracle arm.
-    return;
+    return {};
   }
   if (auth.type === 'hawk') {
     // Nothing folds here — Hawk signs the FINAL wire shape in
     // `executeResolved` (see ResolvedRequest.hawk); the resolver
     // only resolves the credential templates. Twin of the oracle arm.
-    return;
+    return {};
   }
   if (auth.type === 'edgegrid') {
     // Nothing folds here — EdgeGrid signs the FINAL wire shape in
     // `executeResolved` (see ResolvedRequest.edgegrid); the resolver
     // only resolves the credential templates. Twin of the oracle arm.
-    return;
+    return {};
   }
   if (auth.type === 'asap') {
     // Nothing folds here — the ASAP token mints at the wire in
     // `executeResolved` (see ResolvedRequest.asap); the resolver only
     // resolves the config templates. Twin of the oracle arm.
-    return;
+    return {};
   }
   if (auth.type === 'jwt') {
     // Nothing folds here — the JWT mints at the wire in
     // `executeResolved` (see ResolvedRequest.jwt); the resolver only
     // resolves the config templates. Twin of the oracle arm.
-    return;
+    return {};
   }
   if (auth.type === 'digest') {
     // Digest is challenge/response, and the browser's fetch stack has
@@ -103,7 +116,7 @@ export async function applyAuth(
     // a disabled one and the target's 401 is the actionable signal
     // (the OAuth2 silent-failure precedent). Node-runtime hosts drive
     // the exchange in their transport instead.
-    return;
+    return {};
   }
   if (auth.type === 'oauth2') {
     // OAuth2 access tokens live in the SW's per-workspace token
@@ -130,6 +143,14 @@ export async function applyAuth(
       }
     }
     if (bundle) {
+      const dpopKey = boundDpopKeyOf(bundle);
+      if (dpopKey !== undefined) {
+        // A DPoP-bound token MUST ride `Authorization: DPoP` (RFC 9449
+        // §7.1) — the binding wins the scheme over a set prefix and
+        // over query mode; the wire executor mints the proof.
+        setAuthHeader(headers, 'Authorization', `${DPOP_TOKEN_TYPE} ${bundle.accessToken}`);
+        return { dpop: { key: dpopKey, accessToken: bundle.accessToken } };
+      }
       if (auth.sendAs === 'query') {
         // Legacy URI Query Parameter method (RFC 6750 §2.3) — the UI
         // warns the user this is deprecated; we still honor it for
@@ -143,4 +164,5 @@ export async function applyAuth(
       }
     }
   }
+  return {};
 }

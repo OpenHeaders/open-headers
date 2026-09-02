@@ -29,12 +29,18 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import { buildClientAuthHeader, buildRefreshTokenBody, nonBodyExtraParams } from '@openheaders/core/oauth';
+import {
+  boundDpopKeyOf,
+  buildClientAuthHeader,
+  buildRefreshTokenBody,
+  nonBodyExtraParams,
+} from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '../../entity/oauth-token-store';
 import { exchangeForTokens, OAuth2FlowError } from './oauth-exchange';
 import {
+  dpopKeyForExchange,
   mintClientAssertionOrFail,
   performClientCredentialsFlow,
   performJwtBearerFlow,
@@ -76,12 +82,17 @@ export async function performRefresh(
   // refresh endpoint; fall back to the primary token endpoint when the
   // config doesn't override.
   const endpoint = config.refreshEndpoint?.trim() ? config.refreshEndpoint : config.tokenEndpoint;
+  // RFC 9449 §5 binds the refresh token to the key the exchange used —
+  // the refresh proves possession with the SAME key. A bearer bundle
+  // under a config that turned the binding on binds from here on.
+  const dpopKey = boundDpopKeyOf(current) ?? (await dpopKeyForExchange(config, 'refresh'));
   const bundle = await exchangeForTokens(transport, {
     endpoint,
     body,
     step: 'refresh',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraRefreshParams),
+    dpopKey,
   });
   if (!bundle.refreshToken && current.refreshToken) {
     bundle.refreshToken = current.refreshToken;

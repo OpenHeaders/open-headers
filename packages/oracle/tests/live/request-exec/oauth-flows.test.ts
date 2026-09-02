@@ -11,9 +11,10 @@
  * missing code, a launcher that never completes, a wrong flow.
  */
 
-import { createHash, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, verify as nodeVerify } from 'node:crypto';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetDpopNoncesForTests, rememberDpopNonce } from '../../../src/live/request-exec/dpop-nonces';
 import { OAuth2FlowError } from '../../../src/live/request-exec/oauth-exchange';
 import {
   performAuthorizationCodeFlow,
@@ -21,7 +22,7 @@ import {
   performJwtBearerFlow,
   performPasswordCredentialsFlow,
 } from '../../../src/live/request-exec/oauth-flows';
-import { __resetRateLimiterForTests } from '../../../src/live/request-exec/rate-limiter';
+import { __resetRateLimiterForTests, inspectRateLimiter } from '../../../src/live/request-exec/rate-limiter';
 import type { RequestTransport, TransportRequest, TransportResponse } from '../../../src/live/request-exec/transport';
 
 const store = vi.hoisted(() => ({
@@ -381,5 +382,151 @@ describe('performJwtBearerFlow', () => {
   it('a refused exchange surfaces as a jwt_bearer step failure', async () => {
     sendMock.mockResolvedValue(tokenResponse(JSON.stringify({ error: 'invalid_grant' }), 400));
     await expect(performJwtBearerFlow(grant(), 'ws-1', transport)).rejects.toMatchObject({ step: 'jwt_bearer' });
+  });
+});
+
+// ── DPoP (RFC 9449) on the token POST ─────────────────────────────
+
+/** Verify a compact JWS under the JWK its own header carries (ES256). */
+function verifiesUnderHeaderJwk(jwt: string): boolean {
+  const [h, p, sig] = jwt.split('.');
+  const header = segment(jwt, 0);
+  const key = createPublicKey({ key: header.jwk as Record<string, string>, format: 'jwk' });
+  return nodeVerify(
+    'sha256',
+    Buffer.from(`${h}.${p}`),
+    { key, dsaEncoding: 'ieee-p1363' },
+    Buffer.from(sig, 'base64url'),
+  );
+}
+
+function dpopHeader(request: TransportRequest): string {
+  const value = request.headers.find((h) => h.key === 'DPoP')?.value;
+  if (value === undefined) throw new Error('the POST carried no DPoP header');
+  return value;
+}
+
+const DPOP_FRESH = JSON.stringify({ access_token: 'at-bound', token_type: 'DPoP', expires_in: 3600 });
+
+describe('DPoP-bound exchange (tokenBinding: dpop)', () => {
+  beforeEach(() => __resetDpopNoncesForTests());
+
+  it('the POST carries a proof under a fresh ES256 key — typ dpop+jwt, htm POST, htu the endpoint, no ath — and the DPoP token comes back bound to it', async () => {
+    sendMock.mockResolvedValueOnce(tokenResponse(DPOP_FRESH));
+    const auth = makeAuth({ flow: 'client-credentials', tokenBinding: 'dpop' });
+    const bundle = await performClientCredentialsFlow(auth, 'ws-1', transport);
+    const proof = dpopHeader(sendMock.mock.calls[0]![0]);
+    expect(segment(proof, 0)).toMatchObject({ typ: 'dpop+jwt', alg: 'ES256', jwk: { kty: 'EC', crv: 'P-256' } });
+    expect(segment(proof, 1)).toMatchObject({ htm: 'POST', htu: 'https://auth.openheaders.io/token' });
+    expect(segment(proof, 1)).not.toHaveProperty('ath');
+    expect(segment(proof, 1)).not.toHaveProperty('nonce');
+    expect(verifiesUnderHeaderJwk(proof)).toBe(true);
+    expect(bundle.tokenType).toBe('DPoP');
+    expect(bundle.dpop).toMatchObject({ algorithm: 'ES256', publicJwk: segment(proof, 0).jwk });
+    expect(bundle.dpop?.jkt).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(store.putTokenBundle).toHaveBeenCalledWith('cred-1', bundle, auth, 'ws-1');
+  });
+
+  it('the config picks the family — a PS256 proof under an RSA key', async () => {
+    sendMock.mockResolvedValueOnce(tokenResponse(DPOP_FRESH));
+    await performClientCredentialsFlow(
+      makeAuth({ flow: 'client-credentials', tokenBinding: 'dpop', dpopAlgorithm: 'PS256' }),
+      'ws-1',
+      transport,
+    );
+    const header = segment(dpopHeader(sendMock.mock.calls[0]![0]), 0);
+    expect(header).toMatchObject({ alg: 'PS256', jwk: { kty: 'RSA' } });
+  });
+
+  it('a provider that answers a Bearer token ignored the binding — the bundle stays plain', async () => {
+    sendMock.mockResolvedValueOnce(tokenResponse(FRESH));
+    const bundle = await performClientCredentialsFlow(
+      makeAuth({ flow: 'client-credentials', tokenBinding: 'dpop' }),
+      'ws-1',
+      transport,
+    );
+    expect(bundle.tokenType).toBe('Bearer');
+    expect(bundle.dpop).toBeUndefined();
+  });
+
+  it('a use_dpop_nonce answer is repeated ONCE with the issued nonce, inside one bucket payment; the nonce is remembered', async () => {
+    sendMock
+      .mockResolvedValueOnce({
+        ...tokenResponse(JSON.stringify({ error: 'use_dpop_nonce' }), 400),
+        headers: [{ key: 'dpop-nonce', value: 'n-1' }],
+      })
+      .mockResolvedValueOnce(tokenResponse(DPOP_FRESH));
+    const auth = makeAuth({ flow: 'client-credentials', tokenBinding: 'dpop' });
+    const bundle = await performClientCredentialsFlow(auth, 'ws-1', transport);
+    expect(sendMock).toHaveBeenCalledTimes(2);
+    expect(segment(dpopHeader(sendMock.mock.calls[0]![0]), 1)).not.toHaveProperty('nonce');
+    expect(segment(dpopHeader(sendMock.mock.calls[1]![0]), 1)).toMatchObject({ nonce: 'n-1' });
+    // The same key signed both proofs.
+    expect(segment(dpopHeader(sendMock.mock.calls[1]![0]), 0).jwk).toEqual(
+      segment(dpopHeader(sendMock.mock.calls[0]![0]), 0).jwk,
+    );
+    expect(bundle.accessToken).toBe('at-bound');
+    expect(inspectRateLimiter('https://auth.openheaders.io')?.recentStartsInMinute).toBe(1);
+    // The next POST to that origin carries the nonce up front.
+    sendMock.mockResolvedValueOnce(tokenResponse(DPOP_FRESH));
+    await performClientCredentialsFlow(auth, 'ws-1', transport);
+    expect(segment(dpopHeader(sendMock.mock.calls[2]![0]), 1)).toMatchObject({ nonce: 'n-1' });
+  });
+
+  it('a second use_dpop_nonce answer is the exchange failure — no third POST', async () => {
+    const challenge = () => ({
+      ...tokenResponse(JSON.stringify({ error: 'use_dpop_nonce' }), 400),
+      headers: [{ key: 'dpop-nonce', value: 'n-2' }],
+    });
+    sendMock.mockResolvedValueOnce(challenge()).mockResolvedValueOnce(challenge());
+    await expect(
+      performClientCredentialsFlow(makeAuth({ flow: 'client-credentials', tokenBinding: 'dpop' }), 'ws-1', transport),
+    ).rejects.toMatchObject({ step: 'client_credentials', message: expect.stringContaining('400') });
+    expect(sendMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a cached nonce for the origin rides the first proof', async () => {
+    rememberDpopNonce('https://auth.openheaders.io/token', 'n-cached');
+    sendMock.mockResolvedValueOnce(tokenResponse(DPOP_FRESH));
+    await performClientCredentialsFlow(
+      makeAuth({ flow: 'client-credentials', tokenBinding: 'dpop' }),
+      'ws-1',
+      transport,
+    );
+    expect(segment(dpopHeader(sendMock.mock.calls[0]![0]), 1)).toMatchObject({ nonce: 'n-cached' });
+  });
+
+  it('Send In: query is refused before any wire activity — a DPoP token rides the header only', async () => {
+    await expect(
+      performClientCredentialsFlow(
+        makeAuth({ flow: 'client-credentials', tokenBinding: 'dpop', sendAs: 'query' }),
+        'ws-1',
+        transport,
+      ),
+    ).rejects.toMatchObject({ step: 'client_credentials', message: expect.stringContaining('Authorization header') });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('the jwt-bearer and password grants prove too; a bearer config sends no proof', async () => {
+    sendMock.mockResolvedValueOnce(tokenResponse(DPOP_FRESH));
+    await performJwtBearerFlow(
+      makeAuth({
+        flow: 'jwt-bearer',
+        tokenBinding: 'dpop',
+        assertionIssuer: 'svc@openheaders.io',
+        assertionAlgorithm: 'ES256',
+        assertionPrivateKey: P256_PEM,
+      }),
+      'ws-1',
+      transport,
+    );
+    expect(verifiesUnderHeaderJwk(dpopHeader(sendMock.mock.calls[0]![0]))).toBe(true);
+    sendMock.mockResolvedValueOnce(tokenResponse(FRESH));
+    await performPasswordCredentialsFlow(
+      makeAuth({ flow: 'password-credentials', username: 'alice', password: 'pw' }),
+      'ws-1',
+      transport,
+    );
+    expect(sendMock.mock.calls[1]![0].headers.some((h) => h.key === 'DPoP')).toBe(false);
   });
 });

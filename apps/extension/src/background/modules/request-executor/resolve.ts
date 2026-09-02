@@ -13,6 +13,7 @@ import type {
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
+import type { OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
 import type {
   CredentialsMode,
   ExecutedAuthAttribution,
@@ -109,6 +110,14 @@ export interface ResolvedRequest {
    * resolver's carry.
    */
   jwt?: JwtCredentials;
+  /**
+   * DPoP proof material (RFC 9449) — present when the effective oauth2
+   * bundle is bound to a key. `Authorization: DPoP <token>` folds here
+   * like every bundle; the proof mints at the wire in
+   * {@link executeResolved} for this send's method + URL — twin of the
+   * oracle resolver's carry (there the transport mints per hop).
+   */
+  dpop?: OAuth2DpopProofMaterial;
   /** The auth this send applies and its source — resolve-time
    *  attribution the executor stamps on the snapshot; absent when the
    *  request's own auth is `none`. Twin of the oracle's carry. */
@@ -240,7 +249,7 @@ export async function resolveRequest(
   // api-key-in-query + oauth2 `sendAs:'query'` push onto `enabledParams`,
   // so they ride the structured param list to the wire alongside the
   // user's params.
-  await applyAuth(effectiveAuth, headers, enabledParams, resolveStr);
+  const applied = await applyAuth(effectiveAuth, headers, enabledParams, resolveStr);
 
   // SigV4 credentials resolve here but sign at the wire — see
   // {@link ResolvedRequest.awsSigV4}.
@@ -370,6 +379,7 @@ export async function resolveRequest(
       ...(edgegrid ? { edgegrid } : {}),
       ...(asap ? { asap } : {}),
       ...(jwt ? { jwt } : {}),
+      ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],

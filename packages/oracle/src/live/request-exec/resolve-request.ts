@@ -21,7 +21,14 @@ import type {
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
-import { canRenewSilently, isExpired as isOAuthTokenExpired, type OAuth2TokenBundle } from '@openheaders/core/oauth';
+import {
+  boundDpopKeyOf,
+  canRenewSilently,
+  DPOP_TOKEN_TYPE,
+  isExpired as isOAuthTokenExpired,
+  type OAuth2DpopProofMaterial,
+  type OAuth2TokenBundle,
+} from '@openheaders/core/oauth';
 import type {
   AuthConfig,
   ExecutedAuthAttribution,
@@ -190,6 +197,14 @@ export interface ResolvedRequest {
    */
   jwt?: JwtCredentials;
   /**
+   * DPoP proof material (RFC 9449) — present when the effective oauth2
+   * bundle is bound to a key. The `Authorization: DPoP <token>` header
+   * folds here like every bundle; the proof itself mints on the
+   * TRANSPORT per hop (`htm` / `htu` are the hop's, the nonce the
+   * origin's), never here.
+   */
+  dpop?: OAuth2DpopProofMaterial;
+  /**
    * The auth this send applies and where it came from — the request's
    * own config or the ancestor pool entry its Inherit resolved to.
    * Resolve-time attribution the executor stamps on the snapshot
@@ -308,7 +323,7 @@ export async function resolveRequest(
     .map((h) => ({ key: resolveStr(h.key), value: resolveStr(h.value) }));
 
   // ── Auth folds into headers/params ──
-  await applyAuth(effectiveAuth, headers, enabledParams, resolveStr, {
+  const applied = await applyAuth(effectiveAuth, headers, enabledParams, resolveStr, {
     workspaceId: scope.workspaceId ?? undefined,
     refreshOAuth: options.refreshOAuth,
   });
@@ -493,6 +508,7 @@ export async function resolveRequest(
       ...(edgegrid ? { edgegrid } : {}),
       ...(asap ? { asap } : {}),
       ...(jwt ? { jwt } : {}),
+      ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
@@ -510,6 +526,12 @@ function indexTotpEntries(vault: Vault): Map<string, VaultSecretTotp> {
 interface ApplyAuthOptions {
   workspaceId?: string;
   refreshOAuth?: OAuthRefreshFn;
+}
+
+/** What `applyAuth` hands back beyond the folded headers / params:
+ *  the DPoP proof material when the oauth2 bundle is key-bound. */
+export interface AppliedAuth {
+  dpop?: OAuth2DpopProofMaterial;
 }
 
 /**
@@ -532,10 +554,10 @@ export async function applyAuth(
   params: Array<{ key: string; value: string }>,
   resolveStr: (s: string) => string,
   opts: ApplyAuthOptions,
-): Promise<void> {
+): Promise<AppliedAuth> {
   // `disabled` suspends the contribution without discarding the config
   // (the Headers table's auth-row checkbox drives it).
-  if (auth.disabled || auth.type === 'none' || auth.type === 'inherit') return;
+  if (auth.disabled || auth.type === 'none' || auth.type === 'inherit') return {};
   if (auth.type === 'basic') {
     const u = resolveStr(auth.username);
     const p = resolveStr(auth.password);
@@ -543,61 +565,61 @@ export async function applyAuth(
     // base64 the bytes so non-ASCII credentials (`pässwörd`) don't throw.
     const token = encodeBase64Bytes(new TextEncoder().encode(`${u}:${p}`));
     setAuthHeader(headers, 'Authorization', `Basic ${token}`);
-    return;
+    return {};
   }
   if (auth.type === 'bearer') {
     setAuthHeader(headers, 'Authorization', `Bearer ${resolveStr(auth.token)}`);
-    return;
+    return {};
   }
   if (auth.type === 'api-key') {
     const k = resolveStr(auth.key);
     const v = resolveStr(auth.value);
     if (auth.in === 'header') setAuthHeader(headers, k, v);
     else params.push({ key: k, value: v });
-    return;
+    return {};
   }
   if (auth.type === 'aws-sigv4') {
     // Nothing folds here — SigV4 signs the FINAL wire shape at execute
     // time (see ResolvedRequest.awsSigV4); the resolver only resolves
     // the credential templates.
-    return;
+    return {};
   }
   if (auth.type === 'digest') {
     // Nothing folds here either — digest is challenge/response, so the
     // honoring transport derives the Authorization header from the
     // target's 401 (see ResolvedRequest.digest); the resolver only
     // resolves the credential templates.
-    return;
+    return {};
   }
   if (auth.type === 'oauth1') {
     // Nothing folds here — OAuth1 signs the FINAL wire shape at execute
     // time (see ResolvedRequest.oauth1); the resolver only resolves the
     // credential templates.
-    return;
+    return {};
   }
   if (auth.type === 'hawk') {
     // Nothing folds here — Hawk signs the FINAL wire shape at execute
     // time (see ResolvedRequest.hawk); the resolver only resolves the
     // credential templates.
-    return;
+    return {};
   }
   if (auth.type === 'edgegrid') {
     // Nothing folds here — EdgeGrid signs the FINAL wire shape at
     // execute time (see ResolvedRequest.edgegrid); the resolver only
     // resolves the credential templates.
-    return;
+    return {};
   }
   if (auth.type === 'asap') {
     // Nothing folds here — the ASAP token mints at execute time (see
     // ResolvedRequest.asap); the resolver only resolves the config
     // templates.
-    return;
+    return {};
   }
   if (auth.type === 'jwt') {
     // Nothing folds here — the JWT mints at execute time (see
     // ResolvedRequest.jwt); the resolver only resolves the config
     // templates.
-    return;
+    return {};
   }
   if (auth.type === 'oauth2') {
     // Access tokens live in the per-workspace token store. Fetch the
@@ -618,6 +640,14 @@ export async function applyAuth(
       bundle = (await opts.refreshOAuth(auth)) ?? bundle;
     }
     if (bundle) {
+      const dpopKey = boundDpopKeyOf(bundle);
+      if (dpopKey !== undefined) {
+        // A DPoP-bound token MUST ride `Authorization: DPoP` (RFC 9449
+        // §7.1) — the binding wins the scheme over a set prefix and
+        // over query mode; the transport mints the proof per hop.
+        setAuthHeader(headers, 'Authorization', `${DPOP_TOKEN_TYPE} ${bundle.accessToken}`);
+        return { dpop: { key: dpopKey, accessToken: bundle.accessToken } };
+      }
       if (auth.sendAs === 'query') {
         params.push({ key: 'access_token', value: bundle.accessToken });
       } else {
@@ -628,6 +658,7 @@ export async function applyAuth(
       }
     }
   }
+  return {};
 }
 
 /**

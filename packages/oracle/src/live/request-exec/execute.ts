@@ -291,6 +291,7 @@ export async function executeOverTransport(
     followOriginalHttpMethod: resolved.followOriginalHttpMethod,
     followAuthorizationHeader: resolved.followAuthorizationHeader,
     ...(resolved.digest ? { digestAuth: resolved.digest } : {}),
+    ...(resolved.dpop ? { dpop: resolved.dpop } : {}),
     // Interactive sends (the response panel's surface) opt into the
     // transport's instrumented dial — socket phases + endpoints for
     // the meta popovers. Chains, MCP sends, and workflow steps keep

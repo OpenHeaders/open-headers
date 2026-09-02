@@ -6,7 +6,7 @@
  * bundle attach/refresh branches (token store mocked).
  */
 
-import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
+import { generateDpopKey, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { AuthConfig } from '@openheaders/core/types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyAuth } from '../../../src/live/request-exec/resolve-request';
@@ -48,8 +48,8 @@ function makeBundle(overrides: Partial<OAuth2TokenBundle> = {}): OAuth2TokenBund
 }
 
 async function run(auth: AuthConfig, headers: Pair[] = [], params: Pair[] = [], resolveStr = identity) {
-  await applyAuth(auth, headers, params, resolveStr, { workspaceId: 'ws-1' });
-  return { headers, params };
+  const applied = await applyAuth(auth, headers, params, resolveStr, { workspaceId: 'ws-1' });
+  return { headers, params, applied };
 }
 
 describe('applyAuth', () => {
@@ -234,4 +234,28 @@ describe('applyAuth', () => {
       expect(headers).toEqual([{ key: 'Authorization', value: 'Bearer at-fresh' }]);
     },
   );
+});
+
+describe('applyAuth — DPoP-bound bundles (RFC 9449 §7.1)', () => {
+  it('a bound bundle sends Authorization: DPoP and hands the proof material back; the prefix and query mode yield', async () => {
+    const key = await generateDpopKey('ES256');
+    getTokenBundleMock.mockResolvedValue(makeBundle({ tokenType: 'DPoP', dpop: key }));
+    const { headers, params, applied } = await run(makeOAuthAuth({ headerPrefix: 'Token', sendAs: 'query' }));
+    expect(headers).toEqual([{ key: 'Authorization', value: 'DPoP at-live' }]);
+    expect(params).toEqual([]);
+    expect(applied).toEqual({ dpop: { key, accessToken: 'at-live' } });
+  });
+
+  it('a Bearer bundle carrying a stale key sends as a bearer with nothing handed back', async () => {
+    const key = await generateDpopKey('ES256');
+    getTokenBundleMock.mockResolvedValue(makeBundle({ dpop: key }));
+    const { headers, applied } = await run(makeOAuthAuth());
+    expect(headers).toEqual([{ key: 'Authorization', value: 'Bearer at-live' }]);
+    expect(applied).toEqual({});
+  });
+
+  it('every other auth type hands back an empty result', async () => {
+    const { applied } = await run({ type: 'bearer', token: 'tok-1' });
+    expect(applied).toEqual({});
+  });
 });

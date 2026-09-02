@@ -26,6 +26,7 @@
  * all of it.
  */
 
+import type { OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
 import type { ExecutedRequestErrorHint, ExecutedTlsFacts } from '@openheaders/core/types';
 
 /** A single header on the wire. Repeated keys are allowed (the host
@@ -294,6 +295,17 @@ export interface TransportRequest {
    * the actionable signal.
    */
   digestAuth?: { username: string; password: string; disableRetry?: boolean };
+  /**
+   * DPoP proof material (RFC 9449) — the bound key and the access
+   * token the `Authorization: DPoP` header already carries. The
+   * honoring transport mints the `DPoP` proof header itself, per hop
+   * (`htm` / `htu` are THAT hop's method + target, `ath` the token's
+   * hash, the nonce the origin last issued), drops it alongside a
+   * stripped cross-origin Authorization, and answers a 401
+   * `use_dpop_nonce` challenge with one resend carrying the issued
+   * nonce. Plain data on the seam; never part of a cache key.
+   */
+  dpop?: OAuth2DpopProofMaterial;
   /**
    * Ask the transport to observe connection-level facts for THIS send
    * — socket phase timings (DNS / TCP / TLS), the negotiated ALPN

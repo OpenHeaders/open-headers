@@ -34,19 +34,22 @@ import {
   buildClientAuthHeader,
   buildDeviceAuthorizationBody,
   buildDeviceCodeTokenBody,
+  DPOP_HEADER,
+  mintDpopProof,
   nonBodyExtraParams,
   type OAuth2DeviceAuthorization,
   type OAuth2DeviceState,
+  type OAuth2DpopKey,
   parseDeviceAuthorizationResponse,
   stepDevicePoll,
 } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { appendQueryParams, logger } from '@openheaders/core/utils';
 import { putTokenBundle } from '../../entity/oauth-token-store';
-import { OAuth2FlowError } from './oauth-exchange';
-import { mintClientAssertionOrFail } from './oauth-flows';
+import { bindDpopKey, OAuth2FlowError, sendWithDpopNonceRetry } from './oauth-exchange';
+import { dpopKeyForExchange, mintClientAssertionOrFail } from './oauth-flows';
 import { withRefreshRateLimit } from './rate-limiter';
-import type { RequestTransport, TransportHeader } from './transport';
+import type { RequestTransport, TransportHeader, TransportResponse } from './transport';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -63,6 +66,9 @@ interface DeviceFlowSlot {
   config: OAuth2Auth;
   transport: RequestTransport;
   authorization: OAuth2DeviceAuthorization;
+  /** The DPoP key the polled token binds to (RFC 9449 §5) — minted at
+   *  the start, proved on every poll, attached to the granted bundle. */
+  dpopKey: OAuth2DpopKey | undefined;
   state: OAuth2DeviceState;
   timer: ReturnType<typeof setTimeout> | null;
 }
@@ -116,6 +122,10 @@ export async function startDeviceFlow(
   if (!endpoint) {
     throw new OAuth2FlowError('precondition', 'device code flow requires a deviceAuthorizationEndpoint');
   }
+  // The device authorization request is not a token request (§3.1 of
+  // RFC 8628 vs §5 of RFC 9449) — the key mints here so a refusal
+  // stops the flow before the wire, and the polls prove with it.
+  const dpopKey = await dpopKeyForExchange(config, 'device_authorization');
   const body = buildDeviceAuthorizationBody(config, await mintClientAssertionOrFail(config, 'device_authorization'));
   const headers: TransportHeader[] = [{ key: 'Accept', value: 'application/json' }];
   const clientAuthHeader = buildClientAuthHeader(config);
@@ -162,6 +172,7 @@ export async function startDeviceFlow(
     config,
     transport,
     authorization,
+    dpopKey,
     state: { state: 'pending', approval: approvalOf(authorization), startedAt: Date.now() },
     timer: null,
   };
@@ -193,7 +204,7 @@ function stopTimer(slot: DeviceFlowSlot): void {
 const isLive = (key: string, slot: DeviceFlowSlot): boolean => slots.get(key) === slot;
 
 async function poll(key: string, slot: DeviceFlowSlot): Promise<void> {
-  const { config, transport, authorization } = slot;
+  const { config, transport, authorization, dpopKey } = slot;
   let clientAssertion: string | undefined;
   try {
     clientAssertion = await mintClientAssertionOrFail(config, 'device_code');
@@ -208,18 +219,25 @@ async function poll(key: string, slot: DeviceFlowSlot): Promise<void> {
   const clientAuthHeader = buildClientAuthHeader(config);
   if (clientAuthHeader) headers.push({ key: 'Authorization', value: clientAuthHeader });
   const url = extras.query.length > 0 ? appendQueryParams(config.tokenEndpoint, extras.query) : config.tokenEndpoint;
-  let status: number;
-  let text: string;
-  try {
-    const response = await transport.send({
+  const send = async (nonce: string | undefined): Promise<TransportResponse> =>
+    transport.send({
       method: 'POST',
       url,
-      headers,
+      headers:
+        dpopKey !== undefined
+          ? [...headers, { key: DPOP_HEADER, value: await mintDpopProof(dpopKey, { method: 'POST', url, nonce }) }]
+          : headers,
       body: { kind: 'urlencoded', fields: [...body.entries()].map(([name, value]) => ({ name, value })) },
       redirect: 'follow',
       credentials: 'omit',
       maxBodyBytes: MAX_BODY_BYTES,
     });
+  let status: number;
+  let text: string;
+  try {
+    // A nonce challenge is the provider asking, not a poll outcome —
+    // the one immediate resend stays outside the reducer's cadence.
+    const response = dpopKey === undefined ? await send(undefined) : await sendWithDpopNonceRetry(url, send);
     status = response.status;
     text = response.body;
   } catch (err) {
@@ -240,6 +258,7 @@ async function poll(key: string, slot: DeviceFlowSlot): Promise<void> {
       return;
     }
     case 'granted':
+      if (dpopKey !== undefined) bindDpopKey(step.bundle, dpopKey, 'device_code');
       try {
         await putTokenBundle(config.credentialRef, step.bundle, config, slot.workspaceId);
       } catch (err) {

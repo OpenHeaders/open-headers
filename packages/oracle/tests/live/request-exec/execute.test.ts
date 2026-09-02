@@ -1134,6 +1134,29 @@ describe('executeOverTransport — digest carry', () => {
   });
 });
 
+describe('executeOverTransport — DPoP carry', () => {
+  it('forwards the proof material onto the transport seam untouched — the transport mints per hop', async () => {
+    const { transport, sent } = captureTransport();
+    const dpop = {
+      key: {
+        algorithm: 'ES256' as const,
+        privateKeyPkcs8: 'MIG…',
+        publicJwk: { kty: 'EC' as const, crv: 'P-256', x: 'x', y: 'y' },
+        jkt: 'thumb',
+      },
+      accessToken: 'at-bound',
+    };
+    await executeOverTransport(makeResolved({ dpop }), transport);
+    expect(sent().dpop).toEqual(dpop);
+  });
+
+  it('leaves dpop absent when the request carries no bound bundle', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved(), transport);
+    expect('dpop' in sent()).toBe(false);
+  });
+});
+
 describe('executeOverTransport — streaming capture mode (F1)', () => {
   const encoder = new TextEncoder();
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

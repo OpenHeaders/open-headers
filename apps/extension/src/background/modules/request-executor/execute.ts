@@ -16,10 +16,17 @@ import {
   signJwtBearer,
   signOAuth1,
 } from '@openheaders/core/auth-signing';
+import {
+  DPOP_HEADER,
+  isDpopNonceChallengeFromResource,
+  mintDpopProof,
+  type OAuth2DpopProofMaterial,
+} from '@openheaders/core/oauth';
 import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/types';
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
 import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
+import { dpopNonceFor, rememberDpopNonce } from '@openheaders/oracle/live/request-exec/dpop-nonces';
 import { ensureScheme } from '@openheaders/ui/shared/fetch';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
@@ -373,6 +380,22 @@ export async function executeResolved(
     }
   }
 
+  // DPoP proof mints HERE — this send's method + URL, the token's hash,
+  // the origin's nonce (the resolver folded `Authorization: DPoP`).
+  // Mirrored onto `req` for the offscreen cert-exception retry; a nonce
+  // challenge re-mints below. Browser fetch follows redirects opaquely,
+  // so the proof binds the first hop (the node transport re-mints per
+  // hop).
+  const dpop = req.dpop;
+  if (dpop !== undefined) {
+    try {
+      fetchHeaders.set(DPOP_HEADER, await dpopProofFor(dpop, req, dpopNonceFor(req.url)));
+      req = { ...req, headers: [...fetchHeaders.entries()].map(([key, value]) => ({ key, value })) };
+    } catch (err) {
+      return errorSnapshot(`DPoP proof signing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   const requestSize = {
     headersBytes: serializedHeaderBytes(fetchHeaders),
     bodyBytes,
@@ -399,7 +422,8 @@ export async function executeResolved(
   try {
     // Every user-facing fetch routes through withHostAccess — today a
     // pass-through, tomorrow the gate for a minimal-permissions SKU.
-    const response = await withHostAccess(req.url, () => fetch(req.url, init));
+    let response = await withHostAccess(req.url, () => fetch(req.url, init));
+    if (dpop !== undefined) response = await answerDpopNonceChallenge(response, dpop, req, init, fetchHeaders);
     // A successful fetch resets the Status pill — the user sees
     // green again on their next glance. A reset is a clean transition
     // from yellow (most recent failure) back to green (baseline).
@@ -818,4 +842,43 @@ export function errorSnapshot(message: string): ExecutedRequestSnapshot {
     error: message,
     scripts: null,
   };
+}
+
+function dpopProofFor(dpop: OAuth2DpopProofMaterial, req: ResolvedRequest, nonce: string | undefined): Promise<string> {
+  return mintDpopProof(dpop.key, { method: req.method, url: req.url, accessToken: dpop.accessToken, nonce });
+}
+
+function issuedDpopNonceOf(response: Response): string | undefined {
+  const value = response.headers.get('dpop-nonce')?.trim();
+  return value ? value : undefined;
+}
+
+/**
+ * The resource's `use_dpop_nonce` challenge (RFC 9449 §9): remember
+ * the nonce any answer issued, and when the answer is the challenge,
+ * re-mint the proof with the nonce and send ONCE more — a second
+ * challenge flows on as the response. The body init is reused (the
+ * executor never attaches a stream).
+ */
+async function answerDpopNonceChallenge(
+  response: Response,
+  dpop: OAuth2DpopProofMaterial,
+  req: ResolvedRequest,
+  init: RequestInit,
+  headers: Headers,
+): Promise<Response> {
+  const issued = issuedDpopNonceOf(response);
+  rememberDpopNonce(req.url, issued);
+  if (
+    issued === undefined ||
+    !isDpopNonceChallengeFromResource(response.status, response.headers.get('www-authenticate'))
+  ) {
+    return response;
+  }
+  await response.body?.cancel();
+  const retryHeaders = new Headers(headers);
+  retryHeaders.set(DPOP_HEADER, await dpopProofFor(dpop, req, issued));
+  const retry = await withHostAccess(req.url, () => fetch(req.url, { ...init, headers: retryHeaders }));
+  rememberDpopNonce(req.url, issuedDpopNonceOf(retry));
+  return retry;
 }

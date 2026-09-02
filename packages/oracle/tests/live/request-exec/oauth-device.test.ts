@@ -8,6 +8,7 @@
 
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetDpopNoncesForTests } from '../../../src/live/request-exec/dpop-nonces';
 import {
   __resetDeviceFlowsForTests,
   cancelDeviceFlow,
@@ -367,5 +368,94 @@ describe('cancel / supersede / status', () => {
     expect(getDeviceFlowState('cred-1', 'ws-1')).toMatchObject({ state: 'pending' });
     expect(getDeviceFlowState('cred-2', 'ws-1')).toMatchObject({ state: 'pending' });
     expect(getDeviceFlowState('cred-1', 'ws-2')).toBeNull();
+  });
+});
+
+// ── DPoP (RFC 9449) on the device grant ────────────────────────────
+
+function segment(jwt: string, index: number): Record<string, unknown> {
+  return JSON.parse(Buffer.from(jwt.split('.')[index], 'base64url').toString('utf8'));
+}
+
+describe('DPoP-bound device grant', () => {
+  beforeEach(() => __resetDpopNoncesForTests());
+
+  it('the device authorization POST carries no proof, every poll does under one key, and the granted DPoP token binds to it', async () => {
+    sendMock
+      .mockResolvedValueOnce(response(DEVICE_RESPONSE, 200, DEVICE_ENDPOINT))
+      .mockResolvedValueOnce(response({ error: 'authorization_pending' }, 400))
+      .mockResolvedValueOnce(response({ ...GRANT, token_type: 'DPoP' }));
+    await startDeviceFlow(makeAuth({ tokenBinding: 'dpop' }), 'ws-1', transport);
+    expect(header(sendMock.mock.calls[0]![0], 'DPoP')).toBeUndefined();
+    // The tick fires the poll timer; the proof then mints on real
+    // WebCrypto work behind the fake clock, so the send is awaited.
+    await tick(5000);
+    await vi.waitFor(() => expect(sendMock).toHaveBeenCalledTimes(2));
+    await tick(5000);
+    await vi.waitFor(() => expect(sendMock).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(getDeviceFlowState('cred-1', 'ws-1')).toMatchObject({ state: 'granted' }));
+    const first = header(sendMock.mock.calls[1]![0], 'DPoP') ?? '';
+    const second = header(sendMock.mock.calls[2]![0], 'DPoP') ?? '';
+    expect(segment(first, 1)).toMatchObject({ htm: 'POST', htu: TOKEN_ENDPOINT });
+    expect(segment(second, 0).jwk).toEqual(segment(first, 0).jwk);
+    expect(segment(second, 1).jti).not.toBe(segment(first, 1).jti);
+    expect(store.putTokenBundle).toHaveBeenCalledWith(
+      'cred-1',
+      expect.objectContaining({
+        tokenType: 'DPoP',
+        dpop: expect.objectContaining({ publicJwk: segment(first, 0).jwk }),
+      }),
+      expect.anything(),
+      'ws-1',
+    );
+  });
+
+  it('a use_dpop_nonce answer on a poll is repeated at once with the nonce — not a poll outcome, not a slow_down', async () => {
+    sendMock
+      .mockResolvedValueOnce(response(DEVICE_RESPONSE, 200, DEVICE_ENDPOINT))
+      .mockResolvedValueOnce({
+        ...response({ error: 'use_dpop_nonce' }, 400),
+        headers: [{ key: 'DPoP-Nonce', value: 'n-1' }],
+      })
+      .mockResolvedValueOnce(response({ error: 'authorization_pending' }, 400))
+      .mockResolvedValueOnce(response({ ...GRANT, token_type: 'DPoP' }));
+    await startDeviceFlow(makeAuth({ tokenBinding: 'dpop' }), 'ws-1', transport);
+    await tick(5000);
+    await vi.waitFor(() => expect(sendMock).toHaveBeenCalledTimes(3));
+    expect(segment(header(sendMock.mock.calls[1]![0], 'DPoP') ?? '', 1)).not.toHaveProperty('nonce');
+    expect(segment(header(sendMock.mock.calls[2]![0], 'DPoP') ?? '', 1)).toMatchObject({ nonce: 'n-1' });
+    // The resend answered pending: still one five-second interval, no slow_down.
+    await vi.waitFor(() =>
+      expect(getDeviceFlowState('cred-1', 'ws-1')).toMatchObject({
+        state: 'pending',
+        approval: { intervalSeconds: 5 },
+      }),
+    );
+    await tick(5000);
+    await vi.waitFor(() => expect(sendMock).toHaveBeenCalledTimes(4));
+    expect(segment(header(sendMock.mock.calls[3]![0], 'DPoP') ?? '', 1)).toMatchObject({ nonce: 'n-1' });
+    await vi.waitFor(() => expect(getDeviceFlowState('cred-1', 'ws-1')).toMatchObject({ state: 'granted' }));
+  });
+
+  it('a device grant the provider issues as Bearer stays a plain bundle', async () => {
+    sendMock
+      .mockResolvedValueOnce(response(DEVICE_RESPONSE, 200, DEVICE_ENDPOINT))
+      .mockResolvedValueOnce(response(GRANT));
+    await startDeviceFlow(makeAuth({ tokenBinding: 'dpop' }), 'ws-1', transport);
+    await tick(5000);
+    await vi.waitFor(() => expect(getDeviceFlowState('cred-1', 'ws-1')).toMatchObject({ state: 'granted' }));
+    expect(store.putTokenBundle).toHaveBeenCalledWith(
+      'cred-1',
+      expect.not.objectContaining({ dpop: expect.anything() }),
+      expect.anything(),
+      'ws-1',
+    );
+  });
+
+  it('Send In: query under DPoP is refused before the device authorization POST', async () => {
+    await expect(
+      startDeviceFlow(makeAuth({ tokenBinding: 'dpop', sendAs: 'query' }), 'ws-1', transport),
+    ).rejects.toBeInstanceOf(OAuth2FlowError);
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });

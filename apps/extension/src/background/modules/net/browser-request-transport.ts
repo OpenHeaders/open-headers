@@ -24,7 +24,14 @@
  * request executor onto the shared core.
  */
 
+import {
+  DPOP_HEADER,
+  isDpopNonceChallengeFromResource,
+  mintDpopProof,
+  type OAuth2DpopProofMaterial,
+} from '@openheaders/core/oauth';
 import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
+import { dpopNonceFor, rememberDpopNonce } from '@openheaders/oracle/live/request-exec/dpop-nonces';
 import {
   type RequestTransport,
   type TransportBody,
@@ -46,6 +53,13 @@ export const browserRequestTransport: RequestTransport = {
 
     const headers = new Headers();
     for (const { key, value } of request.headers) headers.append(key, value);
+    // DPoP proof (RFC 9449) — this send's method + URL, the token's
+    // hash, the origin's nonce. Browser fetch follows redirects
+    // opaquely, so the proof binds the FIRST hop (the node transport
+    // re-mints per hop); a same-origin redirect under DPoP fails at the
+    // resource, as documented.
+    const dpop = request.dpop;
+    if (dpop !== undefined) headers.set(DPOP_HEADER, await proofFor(dpop, request, dpopNonceFor(request.url)));
 
     const init: RequestInit = {
       method: request.method,
@@ -67,6 +81,25 @@ export const browserRequestTransport: RequestTransport = {
       let response: Response;
       try {
         response = await withHostAccess(request.url, () => fetch(request.url, init));
+        if (dpop !== undefined) {
+          // The resource's `use_dpop_nonce` challenge (§9) is answered
+          // once with a proof carrying the issued nonce; every answer's
+          // nonce feeds the origin cache.
+          const issued = issuedNonceOf(response);
+          rememberDpopNonce(request.url, issued);
+          if (
+            issued !== undefined &&
+            isDpopNonceChallengeFromResource(response.status, response.headers.get('www-authenticate'))
+          ) {
+            await response.body?.cancel();
+            const retryHeaders = new Headers(headers);
+            retryHeaders.set(DPOP_HEADER, await proofFor(dpop, request, issued));
+            response = await withHostAccess(request.url, () =>
+              fetch(request.url, { ...init, headers: retryHeaders, body: buildBody(request.body) }),
+            );
+            rememberDpopNonce(request.url, issuedNonceOf(response));
+          }
+        }
       } catch (err) {
         if (deadline?.expired()) throw timeoutError(request.timeoutMs);
         throw new TransportError(classifyFetchFailure(request.url, err));
@@ -98,6 +131,19 @@ export const browserRequestTransport: RequestTransport = {
     }
   },
 };
+
+function proofFor(
+  dpop: OAuth2DpopProofMaterial,
+  request: TransportRequest,
+  nonce: string | undefined,
+): Promise<string> {
+  return mintDpopProof(dpop.key, { method: request.method, url: request.url, accessToken: dpop.accessToken, nonce });
+}
+
+function issuedNonceOf(response: Response): string | undefined {
+  const value = response.headers.get('dpop-nonce')?.trim();
+  return value ? value : undefined;
+}
 
 /** Arm an abort deadline for the round-trip; `null` when no timeout is set. */
 function startDeadline(timeoutMs: number | undefined) {

@@ -28,13 +28,17 @@ import {
   buildJwtBearerTokenBody,
   buildPasswordCredentialsTokenBody,
   computeCodeChallenge,
+  dpopAlgorithmOf,
   findOAuth2Preset,
   generateCodeVerifier,
+  generateDpopKey,
   mintClientAssertion,
   mintGrantAssertion,
   nonBodyExtraParams,
+  type OAuth2DpopKey,
   type OAuth2TokenBundle,
   parseAuthorizationRedirect,
+  usesDpop,
   usesPkce,
 } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
@@ -123,6 +127,7 @@ export async function performAuthorizationCodeFlow(
     step: 'authorization_code',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraTokenParams),
+    dpopKey: await dpopKeyForExchange(config, 'authorization_code'),
   });
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return { bundle, redirectUri };
@@ -145,6 +150,7 @@ export async function performClientCredentialsFlow(
     step: 'client_credentials',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraTokenParams),
+    dpopKey: await dpopKeyForExchange(config, 'client_credentials'),
   });
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
@@ -167,6 +173,7 @@ export async function performPasswordCredentialsFlow(
     step: 'password',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraTokenParams),
+    dpopKey: await dpopKeyForExchange(config, 'password'),
   });
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
@@ -198,9 +205,30 @@ export async function performJwtBearerFlow(
     step: 'jwt_bearer',
     clientAuthHeader: buildClientAuthHeader(config),
     extras: nonBodyExtraParams(config.extraTokenParams),
+    dpopKey: await dpopKeyForExchange(config, 'jwt_bearer'),
   });
   await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return bundle;
+}
+
+/**
+ * The DPoP key a FRESH exchange binds its token to (RFC 9449 §5), or
+ * `undefined` when the config leaves the tokens bearer. A new pair per
+ * exchange — the previous token's key retires with it; the refresh
+ * leg reuses the stored key instead (`performRefresh`). A DPoP token
+ * can only ride the Authorization header (§7.1), so `sendAs: 'query'`
+ * is refused before any wire activity.
+ */
+export async function dpopKeyForExchange(config: OAuth2Auth, step: string): Promise<OAuth2DpopKey | undefined> {
+  if (!usesDpop(config)) return undefined;
+  if (config.sendAs === 'query') {
+    throw new OAuth2FlowError(step, 'DPoP-bound tokens ride the Authorization header — Send In cannot be the query');
+  }
+  try {
+    return await generateDpopKey(dpopAlgorithmOf(config));
+  } catch (err) {
+    throw new OAuth2FlowError(step, `DPoP key: ${(err as Error).message}`);
+  }
 }
 
 /** The client assertion for one token POST, or `undefined` under the

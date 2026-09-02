@@ -8,9 +8,10 @@
  * failure mapping (recoverable → null, unexpected → propagate).
  */
 
-import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
+import { generateDpopKey, type OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetDpopNoncesForTests } from '../../../src/live/request-exec/dpop-nonces';
 import {
   buildRefreshOAuthHook,
   OAuth2RefreshError,
@@ -300,5 +301,47 @@ describe('performRefresh — client assertion', () => {
     expect(fields.client_assertion_type).toBe('urn:ietf:params:oauth:client-assertion-type:jwt-bearer');
     const header = JSON.parse(Buffer.from(fields.client_assertion.split('.')[0], 'base64url').toString('utf8'));
     expect(header.alg).toBe('HS384');
+  });
+});
+
+// ── DPoP (RFC 9449 §5): the refresh proves with the BOUND key ──────
+
+function segment(jwt: string, index: number): Record<string, unknown> {
+  return JSON.parse(Buffer.from(jwt.split('.')[index], 'base64url').toString('utf8'));
+}
+
+describe('performRefresh — DPoP', () => {
+  beforeEach(() => {
+    __resetDpopNoncesForTests();
+    store.putTokenBundle.mockImplementation(async () => {});
+  });
+
+  it('a bound bundle refreshes under the SAME key, and the fresh DPoP token stays bound to it', async () => {
+    const key = await generateDpopKey('ES256');
+    store.getTokenBundle.mockResolvedValue(makeBundle({ tokenType: 'DPoP', dpop: key }));
+    sendMock.mockResolvedValue(jsonResponse({ access_token: 'at-fresh', token_type: 'DPoP', expires_in: 3600 }));
+    const bundle = await performRefresh(makeAuth({ tokenBinding: 'dpop' }), 'ws-1', transport);
+    const proof = sentHeader('DPoP');
+    expect(proof).not.toBeNull();
+    expect(segment(proof ?? '', 0).jwk).toEqual(key.publicJwk);
+    expect(segment(proof ?? '', 1)).toMatchObject({ htm: 'POST', htu: 'https://auth.openheaders.io/token' });
+    expect(bundle.dpop).toBe(key);
+    expect(bundle.refreshToken).toBe('rt-1');
+  });
+
+  it('a bearer bundle under a config that turned the binding on binds from the refresh with a fresh key', async () => {
+    store.getTokenBundle.mockResolvedValue(makeBundle());
+    sendMock.mockResolvedValue(jsonResponse({ access_token: 'at-fresh', token_type: 'DPoP', expires_in: 3600 }));
+    const bundle = await performRefresh(makeAuth({ tokenBinding: 'dpop' }), 'ws-1', transport);
+    expect(sentHeader('DPoP')).not.toBeNull();
+    expect(bundle.dpop).toMatchObject({ algorithm: 'ES256' });
+  });
+
+  it('a bearer config sends no proof even when a stale key rides the bundle', async () => {
+    const key = await generateDpopKey('ES256');
+    store.getTokenBundle.mockResolvedValue(makeBundle({ dpop: key }));
+    const bundle = await performRefresh(makeAuth(), 'ws-1', transport);
+    expect(sentHeader('DPoP')).toBeNull();
+    expect(bundle.dpop).toBeUndefined();
   });
 });
