@@ -146,6 +146,12 @@ function isRequestCompleteUnsafe(
       // secret or the asymmetric PEM. Everything else defaults ({}
       // payload, Bearer prefix) or is minted per send.
       return auth.algorithm.startsWith('HS') ? auth.secret.trim().length > 0 : auth.privateKey.trim().length > 0;
+    case 'http-signature':
+      // The signing key is the one must-have, per family: the HMAC
+      // secret or the asymmetric PEM. The covered list may be empty
+      // (§7.2.1 discourages it, the RFC allows it) and every parameter
+      // is minted per send or optional.
+      return auth.algorithm === 'hmac-sha256' ? auth.secret.trim().length > 0 : auth.privateKey.trim().length > 0;
   }
 }
 
@@ -175,7 +181,9 @@ export type RequestIncompleteReason =
   | 'oauth1-missing-private-key'
   | 'hawk-missing-auth-id'
   | 'jwt-missing-secret'
-  | 'jwt-missing-private-key';
+  | 'jwt-missing-private-key'
+  | 'http-signature-missing-secret'
+  | 'http-signature-missing-private-key';
 
 // ── Variable-resolution gating ─────────────────────────────────────
 
@@ -270,5 +278,10 @@ export function requestIncompleteReason(
         return auth.secret.trim().length > 0 ? null : 'jwt-missing-secret';
       }
       return auth.privateKey.trim().length > 0 ? null : 'jwt-missing-private-key';
+    case 'http-signature':
+      if (auth.algorithm === 'hmac-sha256') {
+        return auth.secret.trim().length > 0 ? null : 'http-signature-missing-secret';
+      }
+      return auth.privateKey.trim().length > 0 ? null : 'http-signature-missing-private-key';
   }
 }

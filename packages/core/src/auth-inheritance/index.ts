@@ -247,6 +247,7 @@ const ALL_AUTH_TYPES: readonly ConcreteAuthConfig['type'][] = [
   'oauth1',
   'hawk',
   'jwt',
+  'http-signature',
 ];
 
 const AUTH_MASKS: Record<AuthProtocolKind, ReadonlySet<ConcreteAuthConfig['type']>> = {
@@ -290,6 +291,7 @@ export const AUTH_TYPE_LABELS: Record<ConcreteAuthConfig['type'], string> = {
   oauth1: 'OAuth 1.0',
   hawk: 'Hawk Authentication',
   jwt: 'JWT Bearer',
+  'http-signature': 'HTTP Message Signature',
 };
 
 /** The kind noun WITH its article — "an MQTT session" needs `an`. */

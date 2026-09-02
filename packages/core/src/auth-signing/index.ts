@@ -59,6 +59,24 @@ export {
   selectDigestChallenge,
 } from './http-digest';
 export {
+  buildHttpSignatureBase,
+  contentDigestValue,
+  HTTP_SIGNATURE_ALGORITHMS,
+  HTTP_SIGNATURE_DEFAULT_COMPONENTS,
+  HTTP_SIGNATURE_DEFAULT_LABEL,
+  HTTP_SIGNATURE_DERIVED_COMPONENTS,
+  HTTP_SIGNATURE_DIGEST_ALGORITHMS,
+  type HttpSignatureAlgorithm,
+  type HttpSignatureBase,
+  type HttpSignatureCredentials,
+  type HttpSignatureDigestAlgorithm,
+  type HttpSignatureSigned,
+  type HttpSignatureSignInput,
+  isHttpSignatureAlgorithm,
+  parseHttpSignatureComponents,
+  signHttpMessage,
+} from './http-signature';
+export {
   isJwtAlgorithm,
   JWT_ALGORITHMS,
   type JwtAlgorithm,

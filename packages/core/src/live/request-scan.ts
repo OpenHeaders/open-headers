@@ -122,6 +122,17 @@ export function collectRequestTemplateStrings(request: Request): string[] {
       if (request.auth.headers) out.push(request.auth.headers);
       if (request.auth.headerPrefix) out.push(request.auth.headerPrefix);
       break;
+    case 'http-signature':
+      // Key material and the identifiers are templatable —
+      // `{{vault.signing_key}}` is the expected idiom; the covered
+      // list and the label are configuration text, templatable too.
+      if (request.auth.secret) out.push(request.auth.secret);
+      if (request.auth.privateKey) out.push(request.auth.privateKey);
+      if (request.auth.keyId) out.push(request.auth.keyId);
+      if (request.auth.components) out.push(request.auth.components);
+      if (request.auth.label) out.push(request.auth.label);
+      if (request.auth.tag) out.push(request.auth.tag);
+      break;
   }
 
   // ── Body ──

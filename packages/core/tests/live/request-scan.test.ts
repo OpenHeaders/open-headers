@@ -173,6 +173,36 @@ describe('collectRequestTemplateStrings — aws-sigv4 auth', () => {
   });
 });
 
+describe('collectRequestTemplateStrings — http-signature auth', () => {
+  it('collects the key material, identifiers, covered list and label so vault templates gate resolution', () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        auth: {
+          type: 'http-signature',
+          algorithm: 'ecdsa-p256-sha256',
+          privateKey: '{{vault.signing_key}}',
+          secret: '',
+          keyId: '{{env.KEY_ID}}',
+          components: '@method @target-uri content-digest',
+          contentDigest: 'sha-256',
+          label: 'sig1',
+          tag: '{{env.APP}}',
+        },
+      }),
+    );
+    expect(strings).toEqual(
+      expect.arrayContaining([
+        '{{vault.signing_key}}',
+        '{{env.KEY_ID}}',
+        '@method @target-uri content-digest',
+        'sig1',
+        '{{env.APP}}',
+      ]),
+    );
+    expect(strings).not.toContain('');
+  });
+});
+
 describe('collectRequestTemplateStrings — oauth1 auth', () => {
   it('collects every credential field so vault-templated secrets gate resolution', () => {
     const strings = collectRequestTemplateStrings(

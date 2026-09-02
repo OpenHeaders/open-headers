@@ -356,6 +356,44 @@ describe('buildWorkspaceExport — strip rules', () => {
     });
   });
 
+  it('blanks both http-signature key fields and keeps the covered list, label and parameters', () => {
+    const input = baseInput();
+    input.entities.requests = [
+      makeRequest({
+        auth: {
+          type: 'http-signature',
+          algorithm: 'hmac-sha256',
+          privateKey: 'super-sensitive-DO-NOT-EXPORT',
+          secret: 'also-sensitive',
+          secretBase64: true,
+          keyId: 'key-1',
+          components: '@method @target-uri content-digest',
+          contentDigest: 'sha-256',
+          label: 'sig1',
+          expiresInSeconds: 300,
+          nonce: true,
+          tag: 'app',
+        },
+      }),
+    ];
+
+    const exp = buildWorkspaceExport(input);
+    expect(exp.entities.requests[0].auth).toEqual({
+      type: 'http-signature',
+      algorithm: 'hmac-sha256',
+      privateKey: '',
+      secret: '',
+      secretBase64: true,
+      keyId: 'key-1',
+      components: '@method @target-uri content-digest',
+      contentDigest: 'sha-256',
+      label: 'sig1',
+      expiresInSeconds: 300,
+      nonce: true,
+      tag: 'app',
+    });
+  });
+
   it('blanks the EdgeGrid clientSecret and keeps the tokens, header list and body window', () => {
     const input = baseInput();
     input.entities.requests = [

@@ -893,6 +893,61 @@ export const JwtAuthSchema = v.object({
 });
 
 /**
+ * HTTP Message Signatures (RFC 9421) — the IETF request signature: a
+ * base built from the covered components (`@method`, `@target-uri`,
+ * `@authority`, `@scheme`, `@request-target`, `@path`, `@query`, and
+ * header field names, in the listed order) plus the signature
+ * parameters, signed under the key and delivered as `Signature-Input`
+ * + `Signature`. Like SigV4 the executor signs the FINAL wire shape
+ * just before dispatch, AFTER pre-request scripts; `created` / `expires`
+ * / `nonce` are minted per send. `Content-Digest` (RFC 9530) is minted
+ * over the body when `contentDigest` names an algorithm. Pure
+ * WebCrypto — both runtimes sign, the type is not host-gated.
+ *
+ * The HMAC family keys from `secret`; the asymmetric five from
+ * `privateKey` (PEM). Fields are plain strings (templates welcome —
+ * `{{vault.signing_key}}` is the expected idiom); completeness is a
+ * send-time gate, so partial configs stay saveable.
+ */
+export const HttpSignatureAuthSchema = v.object({
+  type: v.literal('http-signature'),
+  disabled: AuthDisabledSchema,
+  algorithm: v.picklist([
+    'rsa-pss-sha512',
+    'rsa-v1_5-sha256',
+    'hmac-sha256',
+    'ecdsa-p256-sha256',
+    'ecdsa-p384-sha384',
+    'ed25519',
+  ]),
+  privateKey: v.string(),
+  secret: v.string(),
+  /** The secret is base64-encoded key material; decode before keying. */
+  secretBase64: v.optional(v.boolean()),
+  /** The `keyid` parameter. Blank omits it. */
+  keyId: v.optional(v.string()),
+  /** The covered components in signing order, space- or comma-
+   *  separated. */
+  components: v.string(),
+  /** Mint `Content-Digest` over the body with this algorithm. Absent =
+   *  none. */
+  contentDigest: v.optional(v.picklist(['sha-256', 'sha-512'])),
+  /** The dictionary key both headers carry the signature under.
+   *  Absent = `sig1`. */
+  label: v.optional(v.string()),
+  /** Write the `created` parameter. Absent = on. */
+  created: v.optional(v.boolean()),
+  /** Write `expires` = created + this many seconds. Absent = none. */
+  expiresInSeconds: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+  /** Write a fresh random `nonce` per send. Absent = none. */
+  nonce: v.optional(v.boolean()),
+  /** Write the `alg` parameter. Absent = off. */
+  includeAlgorithm: v.optional(v.boolean()),
+  /** The application `tag` parameter. Blank omits it. */
+  tag: v.optional(v.string()),
+});
+
+/**
  * The auth shapes that can be put on the wire — every variant but
  * `inherit`. A collection's or folder's auth pool holds these (a pool
  * entry is always concrete), and the ancestor walk resolves a
@@ -926,6 +981,7 @@ export const ConcreteAuthConfigSchema = v.variant('type', [
   OAuth1AuthSchema,
   HawkAuthSchema,
   JwtAuthSchema,
+  HttpSignatureAuthSchema,
 ]);
 
 /**

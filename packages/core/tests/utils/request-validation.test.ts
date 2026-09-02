@@ -177,6 +177,29 @@ describe('requestIncompleteReason', () => {
     expect(isRequestComplete(makeRequest({ auth: { ...full, privateKey: '' } }))).toBe(false);
   });
 
+  it('reports the missing http-signature key per family', () => {
+    const hmac = {
+      type: 'http-signature' as const,
+      algorithm: 'hmac-sha256' as const,
+      privateKey: '',
+      secret: '{{vault.signing_secret}}',
+      components: '@method @target-uri',
+    };
+    expect(requestIncompleteReason(makeRequest({ auth: hmac }))).toBeNull();
+    expect(isRequestComplete(makeRequest({ auth: hmac }))).toBe(true);
+    expect(requestIncompleteReason(makeRequest({ auth: { ...hmac, secret: ' ' } }))).toBe(
+      'http-signature-missing-secret',
+    );
+    const ed = { ...hmac, algorithm: 'ed25519' as const, secret: '', privateKey: '{{vault.signing_key}}' };
+    expect(requestIncompleteReason(makeRequest({ auth: ed }))).toBeNull();
+    expect(requestIncompleteReason(makeRequest({ auth: { ...ed, privateKey: '' } }))).toBe(
+      'http-signature-missing-private-key',
+    );
+    // An empty covered list is legal (RFC 9421 B.2.1) — never a completeness gap.
+    expect(requestIncompleteReason(makeRequest({ auth: { ...ed, components: '' } }))).toBeNull();
+    expect(isRequestComplete(makeRequest({ auth: { ...ed, privateKey: '' } }))).toBe(false);
+  });
+
   it('reports each missing edgegrid credential in declaration order', () => {
     const full = {
       type: 'edgegrid' as const,

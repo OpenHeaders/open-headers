@@ -180,6 +180,12 @@ function stripConfigSecrets<A extends AuthConfig>(auth: A): A {
     // set; the claims/header JSON is configuration and survives.
     return { ...auth, secret: '', privateKey: '' } as A;
   }
+  if (auth.type === 'http-signature') {
+    // Both signing-key fields are key material — blank whichever is
+    // set; the covered list, label and parameters are configuration
+    // and survive.
+    return { ...auth, secret: '', privateKey: '' } as A;
+  }
   return auth;
 }
 
