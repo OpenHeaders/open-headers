@@ -53,6 +53,9 @@ export const workbenchEditorsWebsocket = {
     'Browser können ihn auf einem WebSocket nicht setzen. Eine explizite Authorization-Header-Zeile hat Vorrang.',
   'workbench.editors.websocket.auth.inheritUnsupported':
     '{type} — von {source} — kann nicht auf eine WebSocket-Sitzung angewendet werden.',
+  'workbench.editors.websocket.auth.helpOwn':
+    'Wird bei jedem Verbinden und jedem Wiederverbinden erzeugt: ein Header reist beim Handshake in der Desktop-App oder im Server (Browser können ihn nicht setzen), eine Query-Platzierung oder die signierte AWS-URL reist auf jedem Host in der Verbindungs-URL, und die Socket.IO-Variante sendet ein Bearer-artiges Token zusätzlich als auth-Payload des CONNECT. Eine explizite Header-Zeile mit demselben Namen hat Vorrang.',
+  'workbench.editors.websocket.auth.ownUnsupported': '{type} kann nicht auf eine WebSocket-Sitzung angewendet werden.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Wird auf jedem Host als auth-Payload des CONNECT-Pakets ({"token": …}) gesendet und in der Desktop-App ' +
     'oder im Server als Handshake-Header Authorization: Bearer. Eine explizite Authorization-Header-Zeile hat ' +

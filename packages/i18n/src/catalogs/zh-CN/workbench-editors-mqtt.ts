@@ -124,6 +124,7 @@ export const workbenchEditorsMqtt = {
     '随此行的 SUBSCRIBE 报文一次性发送的 User Properties。其含义由代理定义；不会附加到投递的消息上。',
   'workbench.editors.mqtt.topics.subscribeSettings': '设置',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type}——来自 {source}——无法应用于 MQTT 会话。',
+  'workbench.editors.mqtt.auth.ownUnsupported': '{type}无法应用于 MQTT 会话。',
   'workbench.editors.mqtt.auth.help':
     '作为 CONNECT 报文的 User Name 与 Password 在所有主机上发送——两个 MQTT 版本均支持。变量在连接时解析；保存的示例绝不捕获凭据。',
   'workbench.editors.mqtt.userProps.hint': '随 CONNECT 发送的用户属性——代理与其他工具可读取的自由元数据。',

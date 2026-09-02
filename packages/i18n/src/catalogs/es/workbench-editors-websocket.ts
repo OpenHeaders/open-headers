@@ -52,6 +52,9 @@ export const workbenchEditorsWebsocket = {
     'Authorization explícita tiene prioridad.',
   'workbench.editors.websocket.auth.inheritUnsupported':
     '{type} — de {source} — no puede aplicarse a una sesión WebSocket.',
+  'workbench.editors.websocket.auth.helpOwn':
+    'Se genera en cada conexión y en cada reconexión: un encabezado viaja en el handshake en la aplicación de escritorio o el servidor (los navegadores no pueden definirlo), una ubicación en la query o la URL firmada de AWS viaja en la URL de conexión en cada host, y la variante Socket.IO envía además un token de tipo bearer como carga auth del CONNECT. Una fila de encabezado explícita con el mismo nombre tiene prioridad.',
+  'workbench.editors.websocket.auth.ownUnsupported': '{type} no puede aplicarse a una sesión WebSocket.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Se envía como carga auth del paquete CONNECT ({"token": …}) en cada host, y como encabezado de ' +
     'handshake Authorization: Bearer en la aplicación de escritorio o el servidor. Una fila de encabezado ' +

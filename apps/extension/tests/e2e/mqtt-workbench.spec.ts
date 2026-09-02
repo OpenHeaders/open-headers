@@ -690,15 +690,15 @@ test('E11 — the probe identity opens the session; a wrong password refuses wit
     .filter({ hasText: 'Basic Auth' })
     .first()
     .click();
-  await page.getByTestId('mqtt-auth-username').filter({ visible: true }).first().fill('probe');
-  await page.getByTestId('mqtt-auth-password').filter({ visible: true }).first().fill('probe-secret');
+  await page.getByTestId('oh-auth-basic-username').filter({ visible: true }).first().fill('probe');
+  await page.getByTestId('oh-auth-basic-password').filter({ visible: true }).first().fill('probe-secret');
 
   await connectAndAwaitOpen();
   await disconnectAndAwaitClose();
 
   // The wrong password settles as the verbatim CONNACK refusal — the
   // classified pre-open error, never a synthesized status.
-  await page.getByTestId('mqtt-auth-password').filter({ visible: true }).first().fill('wrong-secret');
+  await page.getByTestId('oh-auth-basic-password').filter({ visible: true }).first().fill('wrong-secret');
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
   const errorState = page.getByTestId('mqtt-timeline-error-row').filter({ visible: true }).first();

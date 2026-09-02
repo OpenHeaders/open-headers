@@ -151,6 +151,9 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.help':
     'Sent as authorization: Bearer <token> metadata on the call. An explicit authorization metadata row takes precedence.',
   'workbench.editors.grpc.auth.inheritUnsupported': '{type} — from {source} — cannot be applied to a gRPC call.',
+  'workbench.editors.grpc.auth.helpOwn':
+    'Minted once per invoke and sent as authorization (or the key’s own name) metadata on the call — a query placement never rides a gRPC call. An explicit metadata row with the same name takes precedence.',
+  'workbench.editors.grpc.auth.ownUnsupported': '{type} cannot be applied to a gRPC call.',
   'workbench.editors.grpc.invoke.connectCompanion':
     'Connect the desktop app to invoke — composing and saving works here.',
   // ── gRPC streaming pane + message timeline ──────────────────────────

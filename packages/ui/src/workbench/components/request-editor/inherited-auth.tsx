@@ -64,7 +64,7 @@ const REFUSAL_QUALIFIER_KEYS: Record<NonNullable<AuthRefusal['qualifier']>, Mess
 /** The refused config as the sentence names it — the type label plus
  *  the placement qualifier ("API Key in query", "OAuth 2.0 bound to a
  *  DPoP key"), the executor's own composition localized. */
-function refusalTypeLabel(t: Translate, refusal: AuthRefusal): string {
+export function refusalTypeLabel(t: Translate, refusal: AuthRefusal): string {
   const type = t(authTypeLabelKey(refusal.type));
   return refusal.qualifier === null ? type : `${type} ${t(REFUSAL_QUALIFIER_KEYS[refusal.qualifier])}`;
 }

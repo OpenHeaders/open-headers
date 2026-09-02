@@ -40,6 +40,9 @@ export const workbenchEditorsWebsocket = {
     'Sent as the CONNECT packet’s auth payload ({"token": …}) on every host, and as an Authorization: Bearer handshake header on the desktop app or server. An explicit Authorization header row takes precedence over the header.',
   'workbench.editors.websocket.auth.inheritUnsupported':
     '{type} — from {source} — cannot be applied to a WebSocket session.',
+  'workbench.editors.websocket.auth.helpOwn':
+    'Minted at each Connect and every reconnect: a header rides the handshake on the desktop app or server (browsers cannot set it), a query placement or the AWS signed URL rides the dial URL on every host, and the Socket.IO flavor also sends a bearer-shaped token as the CONNECT auth payload. An explicit header row with the same name takes precedence.',
+  'workbench.editors.websocket.auth.ownUnsupported': '{type} cannot be applied to a WebSocket session.',
   'workbench.editors.websocket.events.hint':
     'Incoming events to show in the session timeline. With no rows, every event shows; the capture always records everything.',
   'workbench.editors.websocket.events.namePlaceholder': 'Event name',

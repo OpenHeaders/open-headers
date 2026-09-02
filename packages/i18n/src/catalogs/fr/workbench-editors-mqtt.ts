@@ -136,6 +136,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeSettings': 'Paramètres',
   'workbench.editors.mqtt.auth.inheritUnsupported':
     '{type} — de {source} — ne peut pas s’appliquer à une session MQTT.',
+  'workbench.editors.mqtt.auth.ownUnsupported': '{type} ne peut pas s’appliquer à une session MQTT.',
   'workbench.editors.mqtt.auth.help':
     'Envoyés comme User Name et Password du paquet CONNECT sur chaque hôte — les deux versions MQTT les transportent. Les variables se résolvent à la connexion ; les exemples enregistrés ne capturent jamais l’identifiant.',
   'workbench.editors.mqtt.userProps.hint':

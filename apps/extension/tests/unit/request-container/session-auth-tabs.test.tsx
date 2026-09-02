@@ -15,10 +15,16 @@
  *     outside the kind's mask greyed with the refusal tooltip — over
  *     the own types;
  *   - the pane carries the dangling-pick warning, the inert form with
- *     the parent's values, and the "Edit in parent" opener.
+ *     the parent's values, and the "Edit in parent" opener;
+ *   - the own offer IS the kind's mask (the request defines any type
+ *     its kind can carry): a pick seeds through the shared form, the
+ *     WebSocket SigV4 seeds in query mode, the placement selects offer
+ *     only what the kind can ride (no Query on gRPC, no Header for the
+ *     WebSocket signature, the DPoP binding parks), and a stored own
+ *     config the kind refuses is named above its form.
  */
 
-import type { Collection } from '@openheaders/core/types';
+import type { Collection, OAuth2Auth } from '@openheaders/core/types';
 import type { RequestAncestry } from '@openheaders/ui/workbench/components/request-container/ancestry';
 import type { InheritedAuthAttribution } from '@openheaders/ui/workbench/components/request-editor/inherited-auth';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -77,6 +83,14 @@ const OAUTH_FROM_FOLDER: InheritedAuthAttribution = {
     scopes: [],
   },
   source: { kind: 'folder', uid: 'fld00001', name: 'Tokens', entryName: '' },
+};
+const OAUTH_OWN: OAuth2Auth = {
+  type: 'oauth2',
+  credentialRef: 'oauth2-cred-abc12345',
+  flow: 'client-credentials',
+  tokenEndpoint: 'https://idp.openheaders.io/token',
+  clientId: 'client',
+  scopes: [],
 };
 const DPOP_OAUTH_FROM_FOLDER: InheritedAuthAttribution = {
   auth: { ...OAUTH_FROM_FOLDER.auth, tokenBinding: 'dpop' } as InheritedAuthAttribution['auth'],
@@ -386,5 +400,178 @@ describe('MqttAuthTab — Inherit', () => {
     const admin = options.find((o) => (o.textContent ?? '').includes('Admin token'));
     expect(admin?.getAttribute('aria-disabled')).toBe('true');
     expect(admin?.getAttribute('title')).toContain('cannot be applied to an MQTT session');
+  });
+});
+
+describe('own types are the kind’s mask', () => {
+  const ownTexts = (testId: string): string[] => openSelect(testId).map((o) => o.textContent ?? '');
+
+  it('the WebSocket select offers every type the mask carries; a pick seeds through the shared form', () => {
+    const onChange = vi.fn();
+    render(
+      <App>
+        <WebSocketAuthTab auth={{ type: 'none' }} socketioFlavor={false} onChange={onChange} />
+      </App>,
+    );
+    const options = openSelect('ws-auth-type');
+    const texts = options.map((o) => o.textContent ?? '');
+    expect(texts).toEqual([
+      'Inherit auth from parent',
+      'API Key',
+      'Basic Auth',
+      'Bearer Token',
+      'JWT Bearer',
+      'OAuth 2.0',
+      'AWS Signature v4',
+      'No Auth',
+    ]);
+    fireEvent.click(options[texts.indexOf('JWT Bearer')]);
+    expect(onChange).toHaveBeenLastCalledWith({
+      type: 'jwt',
+      algorithm: 'HS256',
+      secret: '',
+      privateKey: '',
+      payload: '',
+      addTo: 'header',
+    });
+  });
+
+  it('the WebSocket SigV4 seeds in query mode — the signed URL is the only leg', () => {
+    const onChange = vi.fn();
+    render(
+      <App>
+        <WebSocketAuthTab auth={{ type: 'none' }} socketioFlavor={false} onChange={onChange} />
+      </App>,
+    );
+    const options = openSelect('ws-auth-type');
+    fireEvent.click(options[options.findIndex((o) => o.textContent === 'AWS Signature v4')]);
+    expect(onChange).toHaveBeenLastCalledWith({
+      type: 'aws-sigv4',
+      accessKeyId: '',
+      secretAccessKey: '',
+      service: '',
+      region: '',
+      addTo: 'query',
+    });
+  });
+
+  it('the gRPC select offers the gRPC mask — no AWS signature; MQTT offers Basic alone', () => {
+    const grpc = render(
+      <App>
+        <GrpcAuthTab auth={{ type: 'none' }} onChange={() => {}} />
+      </App>,
+    );
+    expect(ownTexts('grpc-auth-type')).toEqual([
+      'Inherit auth from parent',
+      'API Key',
+      'Basic Auth',
+      'Bearer Token',
+      'JWT Bearer',
+      'OAuth 2.0',
+      'No Auth',
+    ]);
+    grpc.unmount();
+    render(
+      <App>
+        <MqttAuthTab auth={{ type: 'none' }} onChange={() => {}} />
+      </App>,
+    );
+    expect(ownTexts('mqtt-auth-type')).toEqual(['Inherit auth from parent', 'Basic Auth', 'No Auth']);
+  });
+
+  it('an own api-key on gRPC offers Header alone; on WebSocket both placements', () => {
+    const grpc = render(
+      <App>
+        <GrpcAuthTab auth={{ type: 'api-key', key: 'X-Api-Key', value: 'v', in: 'header' }} onChange={() => {}} />
+      </App>,
+    );
+    expect(ownTexts('oh-auth-apikey-in')).toEqual(['Header']);
+    expect(screen.queryByTestId('oh-auth-own-refusal')).toBeNull();
+    grpc.unmount();
+    render(
+      <App>
+        <WebSocketAuthTab
+          auth={{ type: 'api-key', key: 'X-Api-Key', value: 'v', in: 'header' }}
+          socketioFlavor={false}
+          onChange={() => {}}
+        />
+      </App>,
+    );
+    expect(ownTexts('oh-auth-apikey-in')).toEqual(['Header', 'Query Params']);
+  });
+
+  it('an own JWT on gRPC offers Header alone; a stored query-mode JWT is named above its form', () => {
+    const header = render(
+      <App>
+        <GrpcAuthTab
+          auth={{ type: 'jwt', algorithm: 'HS256', secret: 's', privateKey: '', payload: '{}', addTo: 'header' }}
+          onChange={() => {}}
+        />
+      </App>,
+    );
+    expect(ownTexts('oh-auth-jwt-add-to')).toEqual(['Header']);
+    header.unmount();
+    render(
+      <App>
+        <GrpcAuthTab
+          auth={{ type: 'jwt', algorithm: 'HS256', secret: 's', privateKey: '', payload: '{}', addTo: 'query' }}
+          onChange={() => {}}
+        />
+      </App>,
+    );
+    const refusal = screen.getByTestId('oh-auth-own-refusal');
+    expect(refusal.textContent).toBe('JWT Bearer in query cannot be applied to a gRPC call.');
+    expect(refusal.classList.contains('ant-typography-warning')).toBe(true);
+  });
+
+  it('an own WebSocket SigV4 offers the signed URL alone; a stored header-mode signature is named', () => {
+    render(
+      <App>
+        <WebSocketAuthTab
+          auth={{ type: 'aws-sigv4', accessKeyId: 'a', secretAccessKey: 's', service: '', region: '' }}
+          socketioFlavor={false}
+          onChange={() => {}}
+        />
+      </App>,
+    );
+    expect(ownTexts('oh-auth-aws-add-to')).toEqual(['Query Params']);
+    expect(screen.getByTestId('oh-auth-own-refusal').textContent).toBe(
+      'AWS Signature v4 in header cannot be applied to a WebSocket session.',
+    );
+  });
+
+  it('an own OAuth 2.0 on gRPC has no URL send mode and a parked DPoP binding; the WebSocket keeps URL', () => {
+    const grpc = render(
+      <App>
+        <GrpcAuthTab auth={OAUTH_OWN} onChange={() => {}} />
+      </App>,
+    );
+    expect(ownTexts('oh-auth-oauth2-send-as')).toEqual(['Request Headers']);
+    grpc.unmount();
+    const binding = render(
+      <App>
+        <GrpcAuthTab auth={OAUTH_OWN} onChange={() => {}} />
+      </App>,
+    );
+    const dpop = openSelect('oh-oauth2-token-binding').find((o) => o.textContent === 'DPoP');
+    expect(dpop?.getAttribute('aria-disabled')).toBe('true');
+    binding.unmount();
+    render(
+      <App>
+        <WebSocketAuthTab auth={OAUTH_OWN} socketioFlavor={false} onChange={() => {}} />
+      </App>,
+    );
+    expect(ownTexts('oh-auth-oauth2-send-as')).toEqual(['Request Headers', 'Request URL']);
+  });
+
+  it('an own MQTT Basic renders the shared form with the stored pair', () => {
+    render(
+      <App>
+        <MqttAuthTab auth={{ type: 'basic', username: 'john.doe', password: 'secret' }} onChange={() => {}} />
+      </App>,
+    );
+    expect(screen.getByTestId('oh-auth-basic-username').textContent).toBe('john.doe');
+    expect(screen.getByTestId('oh-auth-basic-password')).toBeTruthy();
+    expect(screen.queryByTestId('oh-auth-own-refusal')).toBeNull();
   });
 });

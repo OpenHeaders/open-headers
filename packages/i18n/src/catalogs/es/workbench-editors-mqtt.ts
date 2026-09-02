@@ -132,8 +132,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
     'User Properties enviadas una vez con el paquete SUBSCRIBE de esta fila. El broker define su significado; no se adjuntan a los mensajes entregados.',
   'workbench.editors.mqtt.topics.subscribeSettings': 'Ajustes',
-  'workbench.editors.mqtt.auth.inheritUnsupported':
-    '{type} — de {source} — no puede aplicarse a una sesión MQTT.',
+  'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — de {source} — no puede aplicarse a una sesión MQTT.',
+  'workbench.editors.mqtt.auth.ownUnsupported': '{type} no puede aplicarse a una sesión MQTT.',
   'workbench.editors.mqtt.auth.help':
     'Se envían como User Name y Password del paquete CONNECT en todos los hosts — ambas versiones de MQTT los transportan. Las variables se resuelven al conectar; los ejemplos guardados nunca capturan la credencial.',
   'workbench.editors.mqtt.userProps.hint':

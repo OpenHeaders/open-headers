@@ -33,6 +33,7 @@
  */
 
 import { CopyOutlined } from '@ant-design/icons';
+import { type AuthProtocolKind, authRefusalOf } from '@openheaders/core/auth-inheritance';
 import { useOAuthBundlesContext } from '@openheaders/ui/context';
 import { getCapability } from '@openheaders/core/capabilities';
 import { ASAP_ALGORITHMS } from '@openheaders/core/auth-signing';
@@ -111,6 +112,9 @@ type AssertionTextField =
 interface OAuth2AuthEditorProps {
   auth: OAuth2Auth;
   onChange: (auth: OAuth2Auth) => void;
+  /** The wire kind the config rides (default HTTP) — a session kind
+   *  cannot mint the per-hop DPoP proof, so the binding option parks. */
+  kind?: AuthProtocolKind;
 }
 
 /** The last Discover answer for this editor — the document it read
@@ -128,7 +132,7 @@ const DISCOVERED_ROW_LABEL: Record<OAuth2DiscoveredField, MessageKey> = {
   tokenEndpoint: 'workbench.editors.request.oauth.accessTokenUrl',
 };
 
-const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) => {
+const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange, kind = 'http' }) => {
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
@@ -154,6 +158,9 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
   // whatever the prefix says (RFC 9449 §7.1) — the row parks while bound.
   const bound = bundle !== null && boundDpopKeyOf(bundle) !== undefined;
   const dpop = usesDpop(auth);
+  // The binding is offered only where the kind can carry it — the ONE
+  // predicate the executors refuse by (`authRefusalOf`).
+  const dpopRefused = authRefusalOf(kind, { ...auth, tokenBinding: 'dpop' }) !== null;
   const setTokenBinding = (next: 'none' | 'dpop') => {
     if (next === 'dpop') {
       onChange({ ...auth, tokenBinding: 'dpop' });
@@ -454,7 +461,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             onChange={setTokenBinding}
             options={[
               { value: 'none', label: t('workbench.editors.request.oauth.tokenBindingNone') },
-              { value: 'dpop', label: t('workbench.editors.request.oauth.tokenBindingDpop') },
+              { value: 'dpop', label: t('workbench.editors.request.oauth.tokenBindingDpop'), disabled: dpopRefused },
             ]}
             style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
           />

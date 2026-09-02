@@ -47,6 +47,9 @@ export const workbenchEditorsWebsocket = {
     'Authorization explicite est prioritaire.',
   'workbench.editors.websocket.auth.inheritUnsupported':
     '{type} — de {source} — ne peut pas s’appliquer à une session WebSocket.',
+  'workbench.editors.websocket.auth.helpOwn':
+    'Émis à chaque connexion et à chaque reconnexion : un en-tête circule sur le handshake dans l’application de bureau ou le serveur (les navigateurs ne peuvent pas le définir), un placement en requête ou l’URL signée AWS circule sur l’URL de connexion sur chaque hôte, et la variante Socket.IO envoie aussi un jeton de type bearer comme charge utile auth du CONNECT. Une ligne d’en-tête explicite du même nom est prioritaire.',
+  'workbench.editors.websocket.auth.ownUnsupported': '{type} ne peut pas s’appliquer à une session WebSocket.',
   'workbench.editors.websocket.auth.helpSocketio':
     'Envoyé comme charge utile auth du paquet CONNECT ({"token": …}) sur chaque hôte, et comme en-tête de ' +
     "handshake Authorization: Bearer sur l'application de bureau ou le serveur. Une ligne d'en-tête " +

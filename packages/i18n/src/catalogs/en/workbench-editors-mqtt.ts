@@ -128,6 +128,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.auth.help':
     'Sent as the CONNECT packet’s User Name and Password on every host — both MQTT versions carry them. Variables resolve at Connect; saved examples never capture the credential.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — from {source} — cannot be applied to an MQTT session.',
+  'workbench.editors.mqtt.auth.ownUnsupported': '{type} cannot be applied to an MQTT session.',
   'workbench.editors.mqtt.userProps.hint':
     'User properties sent on CONNECT — free-form metadata the broker and other tooling can read.',
   'workbench.editors.mqtt.userProps.v311':

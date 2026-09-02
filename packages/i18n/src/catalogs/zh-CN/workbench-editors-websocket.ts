@@ -50,6 +50,9 @@ export const workbenchEditorsWebsocket = {
     '在握手时作为 Authorization: Bearer 标头发送——适用于桌面端应用或服务器；浏览器无法在 WebSocket 上设置它。' +
     '显式的 Authorization 标头行优先。',
   'workbench.editors.websocket.auth.inheritUnsupported': '{type}——来自 {source}——无法应用于 WebSocket 会话。',
+  'workbench.editors.websocket.auth.helpOwn':
+    '每次连接和每次重连时生成：标头在桌面端应用或服务器上随握手发送（浏览器无法设置），查询位置或 AWS 签名 URL 在每种主机上随连接 URL 发送，Socket.IO 变体还会将 bearer 类令牌作为 CONNECT 的 auth 负载发送。同名的显式标头行优先。',
+  'workbench.editors.websocket.auth.ownUnsupported': '{type}无法应用于 WebSocket 会话。',
   'workbench.editors.websocket.auth.helpSocketio':
     '在每种主机上作为 CONNECT 包的 auth 负载（{"token": …}）发送，并在桌面端应用或服务器上作为 ' +
     'Authorization: Bearer 握手标头发送。显式的 Authorization 标头行优先于该标头。',

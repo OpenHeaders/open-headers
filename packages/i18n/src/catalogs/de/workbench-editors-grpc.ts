@@ -198,6 +198,9 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.tab.auth': 'Autorisierung',
   'workbench.editors.grpc.auth.inheritUnsupported':
     '{type} — von {source} — kann nicht auf einen gRPC-Aufruf angewendet werden.',
+  'workbench.editors.grpc.auth.helpOwn':
+    'Wird einmal pro Aufruf erzeugt und als Metadata authorization (oder unter dem eigenen Namen des Schlüssels) am Aufruf gesendet — eine Query-Platzierung reist nie auf einem gRPC-Aufruf. Eine explizite Metadata-Zeile mit demselben Namen hat Vorrang.',
+  'workbench.editors.grpc.auth.ownUnsupported': '{type} kann nicht auf einen gRPC-Aufruf angewendet werden.',
   'workbench.editors.grpc.auth.help':
     'Wird als Metadata authorization: Bearer <token> am Aufruf gesendet. Eine explizite ' +
     'authorization-Metadata-Zeile hat Vorrang.',

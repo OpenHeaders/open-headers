@@ -187,8 +187,10 @@ export const workbenchEditorsGrpc = {
     'servidor — normalmente INVALID_ARGUMENT. Desactivado por defecto: la invocación falla antes de la red ' +
     'con el error de análisis exacto. Se aplica a todas las solicitudes gRPC.',
   'workbench.editors.grpc.tab.auth': 'Autorización',
-  'workbench.editors.grpc.auth.inheritUnsupported':
-    '{type} — de {source} — no puede aplicarse a una llamada gRPC.',
+  'workbench.editors.grpc.auth.inheritUnsupported': '{type} — de {source} — no puede aplicarse a una llamada gRPC.',
+  'workbench.editors.grpc.auth.helpOwn':
+    'Se genera una vez por invocación y se envía como metadata authorization (o con el nombre propio de la clave) en la llamada — una ubicación en la query nunca viaja en una llamada gRPC. Una fila de metadata explícita con el mismo nombre tiene prioridad.',
+  'workbench.editors.grpc.auth.ownUnsupported': '{type} no puede aplicarse a una llamada gRPC.',
   'workbench.editors.grpc.auth.help':
     'Se envía como metadata authorization: Bearer <token> en la llamada. Una fila de metadata authorization ' +
     'explícita tiene prioridad.',

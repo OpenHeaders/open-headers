@@ -7,6 +7,7 @@
  * empty config of the picked type.
  */
 
+import { type AuthProtocolKind, authRefusalOf } from '@openheaders/core/auth-inheritance';
 import {
   ASAP_ALGORITHMS,
   HTTP_SIGNATURE_ALGORITHMS,
@@ -17,10 +18,11 @@ import {
 import { getCapability } from '@openheaders/core/capabilities';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS, usesDpop } from '@openheaders/core/oauth';
 import type { ConcreteAuthConfig } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { Input, InputNumber, Select, Typography } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import AuthFormGroup from './AuthFormGroup';
 import {
@@ -39,8 +41,10 @@ const { Text } = Typography;
 
 export type ConcreteAuthType = ConcreteAuthConfig['type'];
 
-/** A fresh, empty config of `type` — what a type switch seeds. */
-export function seedAuthConfig(type: ConcreteAuthType): ConcreteAuthConfig {
+/** A fresh, empty config of `type` — what a type switch seeds. The
+ *  one seed the kind changes: an AWS signature rides a WebSocket
+ *  handshake only as the signed URL, so it seeds in query mode there. */
+export function seedAuthConfig(type: ConcreteAuthType, kind: AuthProtocolKind = 'http'): ConcreteAuthConfig {
   switch (type) {
     case 'none':
       return { type: 'none' };
@@ -60,7 +64,14 @@ export function seedAuthConfig(type: ConcreteAuthType): ConcreteAuthConfig {
         scopes: [],
       };
     case 'aws-sigv4':
-      return { type: 'aws-sigv4', accessKeyId: '', secretAccessKey: '', service: '', region: '' };
+      return {
+        type: 'aws-sigv4',
+        accessKeyId: '',
+        secretAccessKey: '',
+        service: '',
+        region: '',
+        ...(kind === 'websocket' ? { addTo: 'query' } : {}),
+      };
     case 'edgegrid':
       return { type: 'edgegrid', clientToken: '', accessToken: '', clientSecret: '' };
     case 'asap':
@@ -100,15 +111,44 @@ type FormProps<T extends ConcreteAuthType> = {
   onChange: (auth: ConcreteAuthConfig) => void;
 };
 
+/** A form whose placement select depends on the wire kind. */
+type PlacedFormProps<T extends ConcreteAuthType> = FormProps<T> & { kind: AuthProtocolKind };
+
+const PLACEMENTS = ['header', 'query'] as const;
+type Placement = (typeof PLACEMENTS)[number];
+
+/**
+ * The Add-to / Send-as options a kind admits — a placement is offered
+ * only when the config placed there can ride the kind
+ * (`authRefusalOf`, the ONE predicate the greying and the executors'
+ * refusals share): Query drops off a kind with no query leg (gRPC),
+ * Header drops off the WebSocket SigV4 (the signed URL is the
+ * credential). HTTP offers both; nothing is rewritten silently.
+ */
+function placementOptions(
+  t: Translate,
+  kind: AuthProtocolKind,
+  placed: (placement: Placement) => ConcreteAuthConfig,
+): { value: Placement; label: string }[] {
+  const labelKey = (placement: Placement): MessageKey =>
+    placement === 'header' ? 'workbench.editors.request.auth.addToHeader' : 'workbench.editors.request.auth.addToQuery';
+  return PLACEMENTS.filter((placement) => authRefusalOf(kind, placed(placement)) === null).map((placement) => ({
+    value: placement,
+    label: t(labelKey(placement)),
+  }));
+}
+
 /**
  * The fields of `auth`'s type. `none` renders nothing — the caller
  * owns that empty state (the tab's centered pane, the entry pane's
- * note).
+ * note). `kind` (default HTTP) shapes the placement selects — a
+ * session editor passes its wire kind.
  */
 export const AuthConfigFields: React.FC<{
   auth: ConcreteAuthConfig;
   onChange: (auth: ConcreteAuthConfig) => void;
-}> = ({ auth, onChange }) => {
+  kind?: AuthProtocolKind;
+}> = ({ auth, onChange, kind = 'http' }) => {
   switch (auth.type) {
     case 'none':
       return null;
@@ -117,9 +157,9 @@ export const AuthConfigFields: React.FC<{
     case 'bearer':
       return <BearerEditor auth={auth} onChange={onChange} />;
     case 'api-key':
-      return <ApiKeyEditor auth={auth} onChange={onChange} />;
+      return <ApiKeyEditor auth={auth} onChange={onChange} kind={kind} />;
     case 'aws-sigv4':
-      return <AwsSigV4Editor auth={auth} onChange={onChange} />;
+      return <AwsSigV4Editor auth={auth} onChange={onChange} kind={kind} />;
     case 'edgegrid':
       return <EdgeGridEditor auth={auth} onChange={onChange} />;
     case 'asap':
@@ -131,11 +171,11 @@ export const AuthConfigFields: React.FC<{
     case 'hawk':
       return <HawkEditor auth={auth} onChange={onChange} />;
     case 'jwt':
-      return <JwtEditor auth={auth} onChange={onChange} />;
+      return <JwtEditor auth={auth} onChange={onChange} kind={kind} />;
     case 'http-signature':
       return <HttpSignatureEditor auth={auth} onChange={onChange} />;
     case 'oauth2':
-      return <OAuth2AuthEditor auth={auth} onChange={onChange} />;
+      return <OAuth2AuthEditor auth={auth} onChange={onChange} kind={kind} />;
     default: {
       const _exhaustive: never = auth;
       void _exhaustive;
@@ -169,6 +209,7 @@ const BasicEditor: React.FC<FormProps<'basic'>> = ({ auth, onChange }) => {
             onChange={(next) => onChange({ ...auth, username: next })}
             placeholder={t('workbench.editors.request.auth.usernamePlaceholder')}
             style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            data-testid="oh-auth-basic-username"
           />
         </LabeledRow>
         <LabeledRow label={t('workbench.editors.request.auth.password')} info={info('basicPassword')}>
@@ -176,6 +217,7 @@ const BasicEditor: React.FC<FormProps<'basic'>> = ({ auth, onChange }) => {
             value={auth.password}
             onChange={(next) => onChange({ ...auth, password: next })}
             placeholder={t('workbench.editors.request.auth.passwordPlaceholder')}
+            data-testid="oh-auth-basic-password"
           />
         </LabeledRow>
       </FormGroup>
@@ -199,6 +241,7 @@ const BearerEditor: React.FC<FormProps<'bearer'>> = ({ auth, onChange }) => {
             // the Headers tab's inline auth row).
             onChange={(next) => onChange({ ...auth, token: next.replace(/^Bearer\s+/i, '') })}
             placeholder={t('workbench.editors.request.auth.tokenPlaceholder')}
+            data-testid="oh-auth-bearer-token"
           />
         </LabeledRow>
       </FormGroup>
@@ -207,9 +250,10 @@ const BearerEditor: React.FC<FormProps<'bearer'>> = ({ auth, onChange }) => {
   );
 };
 
-const ApiKeyEditor: React.FC<FormProps<'api-key'>> = ({ auth, onChange }) => {
+const ApiKeyEditor: React.FC<PlacedFormProps<'api-key'>> = ({ auth, onChange, kind }) => {
   const t = useT();
   const info = (key: AuthInfoKey) => authRowInfo(t, auth, key);
+  const placements = placementOptions(t, kind, (placement) => ({ ...auth, in: placement }));
   return (
     <AuthForm>
       <FormGroup auth={auth} group="credentials" modified={isSet(auth.key) || isSet(auth.value)}>
@@ -236,11 +280,8 @@ const ApiKeyEditor: React.FC<FormProps<'api-key'>> = ({ auth, onChange }) => {
             size="small"
             data-testid="oh-auth-apikey-in"
             value={auth.in}
-            onChange={(next: 'header' | 'query') => onChange({ ...auth, in: next })}
-            options={[
-              { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
-              { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
-            ]}
+            onChange={(next: Placement) => onChange({ ...auth, in: next })}
+            options={placements}
             style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
           />
         </LabeledRow>
@@ -258,9 +299,12 @@ const ApiKeyEditor: React.FC<FormProps<'api-key'>> = ({ auth, onChange }) => {
 // optional fields persist ABSENT (the Session Token pattern); the
 // header delivery persists absent too.
 
-const AwsSigV4Editor: React.FC<FormProps<'aws-sigv4'>> = ({ auth, onChange }) => {
+const AwsSigV4Editor: React.FC<PlacedFormProps<'aws-sigv4'>> = ({ auth, onChange, kind }) => {
   const t = useT();
   const info = (key: AuthInfoKey) => authRowInfo(t, auth, key);
+  const withPlacement = (placement: Placement): ConcreteAuthConfig =>
+    placement === 'query' ? { ...auth, addTo: 'query' } : (({ addTo: _omit, ...rest }) => rest)(auth);
+  const placements = placementOptions(t, kind, withPlacement);
   const setSessionToken = (next: string) => {
     if (next) {
       onChange({ ...auth, sessionToken: next });
@@ -326,13 +370,8 @@ const AwsSigV4Editor: React.FC<FormProps<'aws-sigv4'>> = ({ auth, onChange }) =>
             size="small"
             data-testid="oh-auth-aws-add-to"
             value={auth.addTo ?? 'header'}
-            onChange={(next: 'header' | 'query') =>
-              onChange(next === 'query' ? { ...auth, addTo: 'query' } : (({ addTo: _omit, ...rest }) => rest)(auth))
-            }
-            options={[
-              { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
-              { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
-            ]}
+            onChange={(next: Placement) => onChange(withPlacement(next))}
+            options={placements}
             style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
           />
         </LabeledRow>
@@ -1100,10 +1139,11 @@ const jsonFieldStyle: React.CSSProperties = {
   fontSize: 12,
 };
 
-const JwtEditor: React.FC<FormProps<'jwt'>> = ({ auth, onChange }) => {
+const JwtEditor: React.FC<PlacedFormProps<'jwt'>> = ({ auth, onChange, kind }) => {
   const t = useT();
   const info = (key: AuthInfoKey) => authRowInfo(t, auth, key);
   const symmetric = auth.algorithm.startsWith('HS');
+  const placements = placementOptions(t, kind, (placement) => ({ ...auth, addTo: placement }));
   const setHeaders = (next: string) => {
     if (next.trim()) {
       onChange({ ...auth, headers: next });
@@ -1224,11 +1264,8 @@ const JwtEditor: React.FC<FormProps<'jwt'>> = ({ auth, onChange }) => {
             size="small"
             data-testid="oh-auth-jwt-add-to"
             value={auth.addTo}
-            onChange={(next: 'header' | 'query') => onChange({ ...auth, addTo: next })}
-            options={[
-              { value: 'header', label: t('workbench.editors.request.auth.addToHeader') },
-              { value: 'query', label: t('workbench.editors.request.auth.addToQuery') },
-            ]}
+            onChange={(next: Placement) => onChange({ ...auth, addTo: next })}
+            options={placements}
             style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
           />
         </LabeledRow>
@@ -1260,14 +1297,22 @@ const JwtEditor: React.FC<FormProps<'jwt'>> = ({ auth, onChange }) => {
 //   • "Provider preset"           — pre-fills endpoints + default
 //     scopes from the core preset library.
 // The request tab stacks them in its rail (`layout: 'rail'`); the
-// pool entry pane lays them as labeled rows under the type row.
+// pool entry pane lays them as labeled rows under the type row. On a
+// kind with no query leg (gRPC) the query option is not offered — the
+// candidate is judged unbound, since a DPoP binding refuses either
+// placement and is the Token binding row's own concern.
 
 export const OAuth2RailControls: React.FC<{
   auth: Extract<ConcreteAuthConfig, { type: 'oauth2' }>;
   onChange: (auth: ConcreteAuthConfig) => void;
   layout: 'rail' | 'rows';
-}> = ({ auth, onChange, layout }) => {
+  kind?: AuthProtocolKind;
+}> = ({ auth, onChange, layout, kind = 'http' }) => {
   const t = useT();
+  const { tokenBinding: _binding, dpopAlgorithm: _algorithm, ...unbound } = auth;
+  const sendAsOffered = new Set(
+    placementOptions(t, kind, (placement) => ({ ...unbound, sendAs: placement })).map((o) => o.value),
+  );
   const applyPreset = useCallback(
     (presetId: string) => {
       if (presetId === 'custom') {
@@ -1292,12 +1337,15 @@ export const OAuth2RailControls: React.FC<{
   const sendAsSelect = (
     <Select
       size={layout === 'rail' ? 'middle' : 'small'}
+      data-testid="oh-auth-oauth2-send-as"
       value={auth.sendAs ?? 'header'}
       onChange={(next: 'header' | 'query') => onChange({ ...auth, sendAs: next })}
       options={[
         { value: 'header', label: t('workbench.editors.request.auth.sendAsHeaders') },
         // A DPoP-bound token rides the Authorization header only (RFC 9449 §7.1).
-        { value: 'query', label: t('workbench.editors.request.auth.sendAsUrl'), disabled: usesDpop(auth) },
+        ...(sendAsOffered.has('query')
+          ? [{ value: 'query', label: t('workbench.editors.request.auth.sendAsUrl'), disabled: usesDpop(auth) }]
+          : []),
       ]}
       style={{ width: '100%', ...(layout === 'rows' ? { maxWidth: FIELD_DEFAULT_MAX_WIDTH } : {}) }}
     />

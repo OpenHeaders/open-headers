@@ -662,7 +662,7 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
     .filter({ hasText: 'Bearer Token' })
     .first()
     .click();
-  await page.getByTestId('ws-auth-token').filter({ visible: true }).first().fill('sio-page-tok');
+  await page.getByTestId('oh-auth-bearer-token').filter({ visible: true }).first().fill('sio-page-tok');
 
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
   await expect(connectButton()).toBeEnabled();
