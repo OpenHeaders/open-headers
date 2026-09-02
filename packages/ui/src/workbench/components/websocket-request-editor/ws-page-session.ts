@@ -41,6 +41,10 @@ export type WsPageResolution = (template: string, unresolved: Set<string>) => st
 export interface WsPageSessionScope {
   resolve: WsPageResolution;
   authChain: AuthCarrier[];
+  /** The workspace the session runs under — the OAuth 2.0 token store
+   *  an inherited entry's bundle reads from (the page realm has no
+   *  active-workspace hook of its own). */
+  workspaceId: string | null;
 }
 
 /** Built per Connect — TOTP codes have ~30s lifetime, so the registry
@@ -97,6 +101,7 @@ async function buildPageTotpRegistry(vault: Vault): Promise<TotpRegistry> {
 export function makeWsPageResolutionFactory(
   inputs: RendererResolverInputs,
   ancestryInputs: RequestAncestryInputs,
+  workspaceId: string | null,
 ): WsPageResolutionFactory {
   return async (request) => {
     const resolver = buildRendererResolver(inputs, { totpRegistry: await buildPageTotpRegistry(inputs.vault) });
@@ -114,6 +119,6 @@ export function makeWsPageResolutionFactory(
       }
       return result.result;
     };
-    return { resolve, authChain: ancestry !== null ? authChainOf(ancestry) : [] };
+    return { resolve, authChain: ancestry !== null ? authChainOf(ancestry) : [], workspaceId };
   };
 }

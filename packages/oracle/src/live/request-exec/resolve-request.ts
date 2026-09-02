@@ -22,14 +22,7 @@ import type {
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
-import {
-  boundDpopKeyOf,
-  canRenewSilently,
-  DPOP_TOKEN_TYPE,
-  isExpired as isOAuthTokenExpired,
-  type OAuth2DpopProofMaterial,
-  type OAuth2TokenBundle,
-} from '@openheaders/core/oauth';
+import { boundDpopKeyOf, DPOP_TOKEN_TYPE, type OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
   ExecutedAuthAttribution,
@@ -45,12 +38,12 @@ import type {
 } from '@openheaders/core/types';
 import { appendQueryParams, encodeBase64Bytes, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { getTokenBundle } from '../../entity/oauth-token-store';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { resolveProxyCredential } from '../dial-policy';
 import { resolveClientCertificate } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { collectionUidForRequest, resolveRequestAuth } from './ancestor-chain';
+import { acquireOAuth2Bundle, type OAuthRefreshFn, oauth2AuthorizationValue } from './oauth2-bundle';
 import { buildResolver } from './resolver-scope';
 
 /** Resolved, wire-ready request. Auth + params are folded into `url`
@@ -240,9 +233,7 @@ export interface ResolvedRequestOutcome {
   totpUsed: ReadonlyArray<TotpUsage>;
 }
 
-/** Refresh an expired OAuth credential, returning a fresh bundle (or
- *  null when refresh is unavailable). Injected per host. */
-export type OAuthRefreshFn = (auth: Extract<AuthConfig, { type: 'oauth2' }>) => Promise<OAuth2TokenBundle | null>;
+export type { OAuthRefreshFn } from './oauth2-bundle';
 
 export interface ResolveRequestOptions {
   workspaceId?: string;
@@ -668,15 +659,10 @@ export async function applyAuth(
     // `null` means a recoverable refresh failure (we attach the stale
     // bundle so the target's 401 is the actionable signal); throwing
     // means an unexpected error the caller should surface.
-    let bundle = await getTokenBundle(auth.credentialRef, opts.workspaceId);
-    if (
-      bundle &&
-      isOAuthTokenExpired(bundle) &&
-      canRenewSilently(auth, Boolean(bundle.refreshToken)) &&
-      opts.refreshOAuth
-    ) {
-      bundle = (await opts.refreshOAuth(auth)) ?? bundle;
-    }
+    const bundle = await acquireOAuth2Bundle(auth, {
+      ...(opts.workspaceId !== undefined ? { workspaceId: opts.workspaceId } : {}),
+      ...(opts.refreshOAuth !== undefined ? { refreshOAuth: opts.refreshOAuth } : {}),
+    });
     if (bundle) {
       const dpopKey = boundDpopKeyOf(bundle);
       if (dpopKey !== undefined) {
@@ -689,10 +675,7 @@ export async function applyAuth(
       if (auth.sendAs === 'query') {
         params.push({ key: 'access_token', value: bundle.accessToken });
       } else {
-        // A set Header Prefix wins over the bundle's token_type — the
-        // user's fix for providers that issue a broken or vendor value.
-        const prefix = auth.headerPrefix?.trim() ? auth.headerPrefix.trim() : bundle.tokenType;
-        setAuthHeader(headers, 'Authorization', `${prefix} ${bundle.accessToken}`);
+        setAuthHeader(headers, 'Authorization', oauth2AuthorizationValue(auth, bundle));
       }
     }
   }

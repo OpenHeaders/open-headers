@@ -103,7 +103,7 @@ export function useWsSessionPlane({
   useEffect(() => {
     if (!pageSession) return;
     publishWsPageResolutionFactory(
-      makeWsPageResolutionFactory(resolverInputs, { collectionTrees, collections, folders }),
+      makeWsPageResolutionFactory(resolverInputs, { collectionTrees, collections, folders }, workspaceId),
     );
   }, [pageSession, resolverInputs, collectionTrees, collections, folders]);
 

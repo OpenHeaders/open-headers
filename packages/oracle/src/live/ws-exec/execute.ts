@@ -80,8 +80,10 @@ import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_HEARTBEAT_INTERVAL_MS, DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
 import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
+import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createWsStreamEmitter, registerActiveWsSession } from './session-plane';
@@ -146,6 +148,10 @@ export interface ExecuteWsSessionOptions {
   /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
    *  pins the wait. */
   reconnectJitter?: () => number;
+  /** Host hook renewing an expired OAuth 2.0 token before a dial
+   *  attaches it; absent = the stored bundle attaches as it is (the
+   *  page realm's posture — its background scheduler keeps it fresh). */
+  refreshOAuth?: OAuthRefreshFn;
 }
 
 export async function executeWsSession(
@@ -189,31 +195,20 @@ export async function executeWsSession(
   const withAuth = (snapshot: ExecutedWsSnapshot): ExecutedWsSnapshot =>
     authAttribution !== undefined ? { ...snapshot, auth: authAttribution } : snapshot;
   if (sessionAuth.refusal !== null) return withAuth(errorWsSnapshot(sessionAuth.refusal));
-  const appliedAuth = sessionAuth.auth.disabled === true ? null : sessionAuth.auth;
-  const bearerToken = appliedAuth?.type === 'bearer' ? resolveStr(appliedAuth.token).trim() : '';
-  let authHeader: WsTransportHeader | null =
-    bearerToken !== '' ? { key: 'Authorization', value: `Bearer ${bearerToken}` } : null;
-  if (appliedAuth?.type === 'basic') {
-    const username = resolveStr(appliedAuth.username);
-    const password = resolveStr(appliedAuth.password);
-    if (username !== '' || password !== '') {
-      const token = encodeBase64Bytes(new TextEncoder().encode(`${username}:${password}`));
-      authHeader = { key: 'Authorization', value: `Basic ${token}` };
-    }
-  } else if (appliedAuth?.type === 'api-key' && appliedAuth.in === 'header') {
-    const key = resolveStr(appliedAuth.key).trim();
-    if (key !== '') authHeader = { key, value: resolveStr(appliedAuth.value) };
-  }
+  // The credential resolves HERE with the other Connect-time templates
+  // (an unresolved reference gates the session below) and MINTS at
+  // each dial: a static pair is itself, an OAuth 2.0 token is the
+  // store's current bundle, a JWT stamps the dial's clock, an AWS
+  // signature covers the dial URL — so an auto-reconnect never redials
+  // on a stale credential.
+  const credential = resolveSessionCredential(sessionAuth.auth, resolveStr);
   const headers: WsTransportHeader[] = [];
-  let hasAuthHeaderRow = false;
   for (const row of request.headers) {
     if (row.enabled === false || !row.key.trim()) continue;
     const key = resolveStr(row.key);
     if (key.toLowerCase().startsWith('sec-websocket-') || RESERVED_HEADER_KEYS.has(key.toLowerCase())) continue;
-    if (authHeader !== null && key.toLowerCase() === authHeader.key.toLowerCase()) hasAuthHeaderRow = true;
     headers.push({ key, value: resolveStr(row.value) });
   }
-  if (authHeader !== null && !hasAuthHeaderRow) headers.push(authHeader);
   // Socket.IO flavor: the namespace, handshake path and protocol
   // revision resolve with the other target fields; the framing
   // controller CONNECTs the namespace once the engine.io open packet
@@ -227,14 +222,14 @@ export async function executeWsSession(
   };
   const subprotocols = socketioFlavor ? [] : request.subprotocols;
   // The handshake request headers as this executor composed them —
-  // the user rows and the credential above, plus the subprotocol offer
-  // the transport writes from its own field; the platform socket adds
-  // its own on top. Stamped on the open frame and the snapshot so the
-  // timeline's Connected row reads what left.
-  const requestHeaders = [
-    ...headers,
-    ...(subprotocols.length > 0 ? [{ key: 'Sec-WebSocket-Protocol', value: subprotocols.join(', ') }] : []),
-  ];
+  // the user rows and the credential minted at the dial, plus the
+  // subprotocol offer the transport writes from its own field; the
+  // platform socket adds its own on top. Stamped on the open frame
+  // and the snapshot so the timeline's Connected row reads what left;
+  // restamped by every dial (a reconnect re-mints the credential).
+  const subprotocolOffer =
+    subprotocols.length > 0 ? [{ key: 'Sec-WebSocket-Protocol', value: subprotocols.join(', ') }] : [];
+  let requestHeaders = [...headers, ...subprotocolOffer];
   const params = request.params
     .filter((p) => p.enabled !== false && p.key.trim() !== '')
     .map((p) => ({ ...p, key: resolveStr(p.key), value: resolveStr(p.value) }));
@@ -271,6 +266,10 @@ export async function executeWsSession(
     url = target.url;
     namespace = target.namespace;
   }
+  /** The URL the last dial went to — the base URL with the credential
+   *  the dial minted onto it; what the open frame and snapshot carry. */
+  let dialUrl = url;
+  const tokenWorkspaceId = options.workspaceId ?? undefined;
   const autoReconnect = request.autoReconnect === true;
   const reconnectPeriodMs = request.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
   const reconnectMaxAttempts = request.reconnectMaxAttempts;
@@ -422,7 +421,7 @@ export async function executeWsSession(
         // row names the peer and the handshake it attempted.
         resolve({
           ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.', hint),
-          url,
+          url: dialUrl,
           requestHeaders,
           ...(stopped ? { outcome: { kind: 'aborted' as const } } : {}),
           durationMs,
@@ -431,7 +430,7 @@ export async function executeWsSession(
       }
       resolve({
         outcome: { kind: 'connected' },
-        url,
+        url: dialUrl,
         requestHeaders,
         protocol,
         extensions,
@@ -474,17 +473,21 @@ export async function executeWsSession(
       if (heartbeatMessage === '') return;
       heartbeatTimer = setInterval(() => sendText(heartbeatMessage), heartbeatIntervalMs);
     };
-    // The socketio flavor ALSO lands the bearer token as the CONNECT
-    // packet's auth payload — in-band framing, so it works on hosts
-    // whose platform socket cannot carry the header.
-    const connectAuthJson = bearerToken !== '' ? JSON.stringify({ token: bearerToken }) : undefined;
+    // The socketio flavor ALSO lands a bearer-shaped token (bearer,
+    // OAuth 2.0, JWT) as the CONNECT packet's auth payload — in-band
+    // framing, so it works on hosts whose platform socket cannot carry
+    // the header; read at each connection's CONNECT from the dial's
+    // mint.
+    let connectBearerToken: string | undefined;
+    const connectAuthJson = (): string | undefined =>
+      connectBearerToken !== undefined ? JSON.stringify({ token: connectBearerToken }) : undefined;
     const socketioSession = socketioFlavor
       ? createSocketIoSessionController(
           namespace,
           sendText,
           {
             protocol: socketioSettings.protocol,
-            ...(connectAuthJson !== undefined ? { connectAuthJson } : {}),
+            connectAuthJson,
             ...(request.ackTimeoutMs !== undefined ? { ackTimeoutMs: request.ackTimeoutMs } : {}),
           },
           {
@@ -575,75 +578,115 @@ export async function executeWsSession(
       settle(error?.message, error?.hint);
     };
 
+    /** One dial: mint the credential for THIS attempt, then hand the
+     *  wire shape to the transport. A signer's refusal settles the
+     *  session with the error, nothing on the wire; a Stop or
+     *  Disconnect that lands while the mint is in flight settles
+     *  Stopped (no socket exists to abort). */
     const dial = (): void => {
-      writer = options.transport.connect(
-        {
-          url,
-          headers,
-          subprotocols,
-          ...tlsPolicy,
-          ...dialPolicy,
-          ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
-          ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
-          ...(request.followRedirects === true ? { followRedirects: true } : {}),
-          ...(request.maxRedirects !== undefined ? { maxRedirects: request.maxRedirects } : {}),
-        },
-        {
-          onOpen: (selectedProtocol, negotiatedExtensions, route) => {
-            attemptOpened = true;
-            protocol = selectedProtocol;
-            extensions = negotiatedExtensions;
-            // Route wire truth: the transport reports which plane decided
-            // (the request's own proxy setting, or the host's system
-            // plane) and what it decided — recorded verbatim.
-            if (route !== undefined) proxyRoute = route;
-            if (reconnectAttempt > 0) {
-              // A reconnect attempt's handshake settled — the new
-              // connection's facts are its row.
-              recordLifecycle({
-                kind: 'reconnected',
-                attempt: reconnectAttempt,
-                protocol: selectedProtocol,
-                extensions: negotiatedExtensions,
-              });
-            } else {
-              opened = true;
-              emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, { url, requestHeaders });
-            }
-            armIdleTimer();
-            startHeartbeat();
+      void (async () => {
+        let dialHeaders = headers;
+        let wireUrl = url;
+        if (credential !== null) {
+          let minted: Awaited<ReturnType<typeof mintSessionCredential>>;
+          try {
+            minted = await mintSessionCredential(credential, {
+              url,
+              headers,
+              ...(tokenWorkspaceId !== undefined ? { workspaceId: tokenWorkspaceId } : {}),
+              ...(options.refreshOAuth !== undefined ? { refreshOAuth: options.refreshOAuth } : {}),
+              now: new Date(),
+            });
+          } catch (err) {
+            settle(err instanceof Error ? err.message : String(err));
+            return;
+          }
+          if (settled) return;
+          if (stopped) {
+            settle();
+            return;
+          }
+          // An explicit user row carrying the credential's header takes
+          // precedence (the gRPC auth block's law), so one value rides
+          // the wire either way.
+          const rows = minted.headers.filter(
+            (h) => !headers.some((row) => row.key.toLowerCase() === h.key.toLowerCase()),
+          );
+          dialHeaders = [...headers, ...rows];
+          wireUrl = minted.url ?? (minted.query.length > 0 ? appendQueryParams(url, minted.query) : url);
+          connectBearerToken = minted.bearerToken;
+        }
+        requestHeaders = [...dialHeaders, ...subprotocolOffer];
+        dialUrl = wireUrl;
+        writer = options.transport.connect(
+          {
+            url: wireUrl,
+            headers: dialHeaders,
+            subprotocols,
+            ...tlsPolicy,
+            ...dialPolicy,
+            ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
+            ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
+            ...(request.followRedirects === true ? { followRedirects: true } : {}),
+            ...(request.maxRedirects !== undefined ? { maxRedirects: request.maxRedirects } : {}),
           },
-          onMessage: ({ data, binary }) => {
-            if (maxMessageBytes !== undefined && data.byteLength > maxMessageBytes) {
-              // The request's cap, one law on every host: the message
-              // is never captured and the session ends on the
-              // Message Too Big close naming both sizes.
-              closeRequested = true;
-              writer?.close(
-                WS_MESSAGE_TOO_BIG_CODE,
-                `Message of ${data.byteLength} bytes exceeds the ${maxMessageBytes} byte limit`,
-              );
-              return;
-            }
-            const dataBase64 = encodeBase64Bytes(data);
-            record({ direction: 'down', dataBase64, binary }, data.byteLength);
-            emitter?.message({ direction: 'down', dataBase64, binary, atMs: Date.now() });
-            armIdleTimer();
-            // The socket.io controller answers protocol obligations off
-            // the same feed the capture records — text frames only
-            // (binary attachments carry no engine.io grammar).
-            if (socketioSession !== null && !binary) socketioSession.handleFrame(new TextDecoder().decode(data));
+          {
+            onOpen: (selectedProtocol, negotiatedExtensions, route) => {
+              attemptOpened = true;
+              protocol = selectedProtocol;
+              extensions = negotiatedExtensions;
+              // Route wire truth: the transport reports which plane decided
+              // (the request's own proxy setting, or the host's system
+              // plane) and what it decided — recorded verbatim.
+              if (route !== undefined) proxyRoute = route;
+              if (reconnectAttempt > 0) {
+                // A reconnect attempt's handshake settled — the new
+                // connection's facts are its row.
+                recordLifecycle({
+                  kind: 'reconnected',
+                  attempt: reconnectAttempt,
+                  protocol: selectedProtocol,
+                  extensions: negotiatedExtensions,
+                });
+              } else {
+                opened = true;
+                emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, { url: dialUrl, requestHeaders });
+              }
+              armIdleTimer();
+              startHeartbeat();
+            },
+            onMessage: ({ data, binary }) => {
+              if (maxMessageBytes !== undefined && data.byteLength > maxMessageBytes) {
+                // The request's cap, one law on every host: the message
+                // is never captured and the session ends on the
+                // Message Too Big close naming both sizes.
+                closeRequested = true;
+                writer?.close(
+                  WS_MESSAGE_TOO_BIG_CODE,
+                  `Message of ${data.byteLength} bytes exceeds the ${maxMessageBytes} byte limit`,
+                );
+                return;
+              }
+              const dataBase64 = encodeBase64Bytes(data);
+              record({ direction: 'down', dataBase64, binary }, data.byteLength);
+              emitter?.message({ direction: 'down', dataBase64, binary, atMs: Date.now() });
+              armIdleTimer();
+              // The socket.io controller answers protocol obligations off
+              // the same feed the capture records — text frames only
+              // (binary attachments carry no engine.io grammar).
+              if (socketioSession !== null && !binary) socketioSession.handleFrame(new TextDecoder().decode(data));
+            },
+            onClose: (event) => {
+              close =
+                event.code === NO_CLOSE_FRAME_CODE
+                  ? null
+                  : { code: event.code, reason: event.reason, wasClean: event.wasClean };
+            },
+            onEnd: onStreamEnd,
           },
-          onClose: (event) => {
-            close =
-              event.code === NO_CLOSE_FRAME_CODE
-                ? null
-                : { code: event.code, reason: event.reason, wasClean: event.wasClean };
-          },
-          onEnd: onStreamEnd,
-        },
-        connectionController.signal,
-      );
+          connectionController.signal,
+        );
+      })();
     };
 
     dial();

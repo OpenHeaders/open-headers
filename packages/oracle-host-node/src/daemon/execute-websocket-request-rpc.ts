@@ -24,10 +24,12 @@
 import { hostBridge, type WsStreamEventWire } from '@openheaders/core/bridge';
 import { WebSocketRequestSchema } from '@openheaders/core/schemas';
 import type { ExecutedWsSnapshot, WebSocketRequest } from '@openheaders/core/types';
+import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { errorWsSnapshot, executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import type { WsTransport } from '@openheaders/oracle/live/ws-exec/transport';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { createNodeRequestTransport } from '../live/node-request-transport';
 import { createNodeWsTransport } from '../live/node-ws-transport';
 
 export interface ExecuteWebSocketRequestRpcResult {
@@ -40,6 +42,10 @@ export interface ExecuteWebSocketRequestRpcResult {
 // no pool to share; one instance keeps the seam symmetric with the
 // gRPC handler's.
 const nodeWsTransport = createNodeWsTransport();
+// The OAuth 2.0 silent-renewal leg dials through the node request
+// transport (the HTTP handler's seam — its proxy and trust planes
+// cover the token endpoint here too).
+const nodeRequestTransport = createNodeRequestTransport();
 
 /**
  * Default live-frame sink for an in-process caller — the host's local
@@ -104,6 +110,7 @@ export async function handleExecuteWebSocketRequestRpc(
       transport,
       sendId,
       emitStreamEvent,
+      refreshOAuth: buildRefreshOAuthHook(workspaceId ?? undefined, nodeRequestTransport),
     });
     return { success: true, snapshot };
   } catch (err) {

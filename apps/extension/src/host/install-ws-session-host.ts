@@ -82,7 +82,10 @@ async function handleExecuteWebSocketRequest(
   try {
     const scope = await factory(draft);
     const snapshot = await executeWsSession(draft, {
-      workspaceId: null,
+      // The scope pin is moot here (resolution and the auth chain are
+      // injected); the id names the token store an inherited OAuth 2.0
+      // entry's bundle reads from.
+      workspaceId: scope.workspaceId,
       environmentId: undefined,
       transport: browserWsTransport,
       sendId: payload.sendId,

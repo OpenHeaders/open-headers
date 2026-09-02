@@ -81,9 +81,10 @@ export interface SocketIoSessionHooks {
 export interface SocketIoSessionOptions {
   /** The socket.io revision the session speaks. */
   protocol: SocketIoProtocolRevision;
-  /** CONNECT auth payload as JSON text (v5 only — v4 has no CONNECT
-   *  payload and the controller never writes one there). */
-  connectAuthJson?: string;
+  /** CONNECT auth payload as JSON text, read at each connection's
+   *  CONNECT (the credential mints per dial) — v5 only: v4 has no
+   *  CONNECT payload and the controller never writes one there. */
+  connectAuthJson?: () => string | undefined;
   /** Wait (ms) for an ACK once armed; absent = wait forever. */
   ackTimeoutMs?: number;
 }
@@ -130,7 +131,7 @@ export function createSocketIoSessionController(
         // namespace server-side and takes no payload.
         if (!connectSent) {
           connectSent = true;
-          if (!legacy) sendFrame(encodeConnectPacket(namespace, options.connectAuthJson));
+          if (!legacy) sendFrame(encodeConnectPacket(namespace, options.connectAuthJson?.()));
           else if (namespace !== '/') sendFrame(encodeConnectPacket(namespace));
         }
         const cadence = handshakeCadence(frame.dataJson);

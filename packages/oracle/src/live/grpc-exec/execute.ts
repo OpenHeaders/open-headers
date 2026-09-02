@@ -43,8 +43,10 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
+import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { executeGrpcStream } from './execute-stream';
@@ -83,6 +85,9 @@ export interface ExecuteGrpcInvokeOptions {
    *  broadcasts); frames only flow when `sendId` is present too.
    *  Unary never emits — the resolving snapshot carries the reply. */
   emitStreamEvent?: (event: GrpcStreamEventWire) => void;
+  /** Host hook renewing an expired OAuth 2.0 token before the invoke
+   *  attaches it; absent = the stored bundle attaches as it is. */
+  refreshOAuth?: OAuthRefreshFn;
 }
 
 export async function executeGrpcInvoke(
@@ -182,31 +187,13 @@ export async function executeGrpcInvoke(
     metadata.push({ key, value: resolveStr(row.value) });
   }
   // Auth injection — the resolved credential becomes an `authorization`
-  // metadata pair (an api-key rides its own key) here, at the SAME
-  // resolve pass user rows ride, so the injected value is host-neutral
-  // (in-process and forwarded invokes inject identically). An explicit
-  // user row carrying the same key wins: injecting beside it would
-  // send the field twice.
-  const appliedAuth = sessionAuth.auth.disabled === true ? null : sessionAuth.auth;
-  let authPair: GrpcTransportHeader | null = null;
-  if (appliedAuth?.type === 'bearer') {
-    const token = resolveStr(appliedAuth.token);
-    if (token.trim() !== '') authPair = { key: 'authorization', value: `Bearer ${token}` };
-  } else if (appliedAuth?.type === 'basic') {
-    const username = resolveStr(appliedAuth.username);
-    const password = resolveStr(appliedAuth.password);
-    if (username !== '' || password !== '') {
-      const token = encodeBase64Bytes(new TextEncoder().encode(`${username}:${password}`));
-      authPair = { key: 'authorization', value: `Basic ${token}` };
-    }
-  } else if (appliedAuth?.type === 'api-key' && appliedAuth.in === 'header') {
-    const key = resolveStr(appliedAuth.key).trim();
-    if (key !== '') authPair = { key, value: resolveStr(appliedAuth.value) };
-  }
-  if (authPair !== null) {
-    const pair = authPair;
-    if (!metadata.some((m) => m.key.toLowerCase() === pair.key.toLowerCase())) metadata.push(pair);
-  }
+  // metadata pair (an api-key rides its own key) at the SAME resolve
+  // pass user rows ride, so the injected value is host-neutral
+  // (in-process and forwarded invokes inject identically); it MINTS
+  // once per invoke below (an OAuth 2.0 token read from the store, a
+  // JWT stamped with the invoke's clock). An explicit user row carrying
+  // the same key wins: injecting beside it would send the field twice.
+  const credential = resolveSessionCredential(sessionAuth.auth, resolveStr);
   const messageText = resolveStr(request.message);
   if (unresolved.size > 0) {
     return withAuth(
@@ -218,6 +205,27 @@ export async function executeGrpcInvoke(
 
   const authority = stripAuthorityScheme(url.trim());
   if (!authority) return withAuth(errorGrpcSnapshot('URL is empty'));
+  if (credential !== null) {
+    let minted: Awaited<ReturnType<typeof mintSessionCredential>>;
+    try {
+      minted = await mintSessionCredential(credential, {
+        url: `${request.tls !== false ? 'https' : 'http'}://${authority}/${method.service}/${method.rpc}`,
+        headers: metadata,
+        ...(options.workspaceId !== null ? { workspaceId: options.workspaceId } : {}),
+        ...(options.refreshOAuth !== undefined ? { refreshOAuth: options.refreshOAuth } : {}),
+        now: new Date(),
+      });
+    } catch (err) {
+      return withAuth(errorGrpcSnapshot(err instanceof Error ? err.message : String(err)));
+    }
+    // A query placement never reaches a gRPC call — the mask refused
+    // it by name — so the minted header pairs are the whole credential,
+    // lowercased the way gRPC metadata keys ride.
+    for (const pair of minted.headers) {
+      const key = pair.key.toLowerCase();
+      if (!metadata.some((m) => m.key.toLowerCase() === key)) metadata.push({ key, value: pair.value });
+    }
+  }
 
   // ── Message encode against the resolved input type ──
   // Client/bidi streams skip it: the composed text is what the Send

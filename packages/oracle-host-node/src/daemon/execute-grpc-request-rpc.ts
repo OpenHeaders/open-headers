@@ -25,9 +25,11 @@ import { GrpcRequestSchema, SpecSchema } from '@openheaders/core/schemas';
 import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/types';
 import { errorGrpcSnapshot, executeGrpcInvoke } from '@openheaders/oracle/live/grpc-exec/execute';
 import type { GrpcTransport } from '@openheaders/oracle/live/grpc-exec/transport';
+import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeGrpcTransport } from '../live/node-grpc-transport';
+import { createNodeRequestTransport } from '../live/node-request-transport';
 
 export interface ExecuteGrpcRequestRpcResult {
   success: boolean;
@@ -39,6 +41,10 @@ export interface ExecuteGrpcRequestRpcResult {
 // there is no pool to share; one instance keeps the seam symmetric
 // with the HTTP handler's.
 const nodeGrpcTransport = createNodeGrpcTransport();
+// The OAuth 2.0 silent-renewal leg dials through the node request
+// transport (the HTTP handler's seam — its proxy and trust planes
+// cover the token endpoint here too).
+const nodeRequestTransport = createNodeRequestTransport();
 
 /**
  * Default live-frame sink for an in-process caller — the host's local
@@ -104,6 +110,7 @@ export async function handleExecuteGrpcRequestRpc(
       spec,
       ...(sendId !== undefined ? { sendId } : {}),
       emitStreamEvent,
+      refreshOAuth: buildRefreshOAuthHook(workspaceId ?? undefined, nodeRequestTransport),
     });
     return { success: true, snapshot };
   } catch (err) {

@@ -78,11 +78,13 @@ export interface JwtSignInput {
 }
 
 /** Either `headers` or `queryParams` is populated, never both — the
- *  caller applies whichever without narrowing on the config. */
+ *  caller applies whichever without narrowing on the config; `token`
+ *  is the compact JWT itself for a caller that carries it in-band. */
 export interface JwtSignResult {
   headers: Array<{ key: string; value: string }>;
   /** Pairs to append to the URL's query (values NOT yet encoded). */
   queryParams: Array<{ key: string; value: string }>;
+  token: string;
 }
 
 export async function signJwtBearer(credentials: JwtCredentials, input: JwtSignInput): Promise<JwtSignResult> {
@@ -103,12 +105,13 @@ export async function signJwtBearer(credentials: JwtCredentials, input: JwtSignI
   const jwt = `${signingInput}.${base64Url(signature)}`;
 
   if (credentials.addTo === 'query') {
-    return { headers: [], queryParams: [{ key: 'token', value: jwt }] };
+    return { headers: [], queryParams: [{ key: 'token', value: jwt }], token: jwt };
   }
   const prefix = credentials.headerPrefix ?? 'Bearer';
   return {
     headers: [{ key: 'Authorization', value: prefix === '' ? jwt : `${prefix} ${jwt}` }],
     queryParams: [],
+    token: jwt,
   };
 }
 
