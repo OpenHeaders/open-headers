@@ -35,9 +35,11 @@ import type { OAuth2Auth, OAuth2Flow } from '../types/request';
 import { encodeBase64, encodeBase64Bytes } from '../utils/base64';
 import { CLIENT_ASSERTION_TYPE_JWT_BEARER, JWT_BEARER_GRANT_TYPE, usesClientAssertion } from './assertion';
 import { DEVICE_CODE_GRANT_TYPE } from './device';
+import type { OAuth2DpopKey } from './dpop';
 
 export * from './assertion';
 export * from './device';
+export * from './dpop';
 
 // ── Runtime state shape ────────────────────────────────────────────
 
@@ -66,7 +68,7 @@ export interface OAuth2TokenBundle {
    * (e.g. client-credentials flows usually omit it).
    */
   refreshToken?: string;
-  /** `Bearer` is the only value Chrome OAuth providers send in practice. */
+  /** `Bearer` in practice; `DPoP` for a sender-constrained token (RFC 9449 §5). */
   tokenType: string;
   /** Absolute expiry wall-clock ms. `null` = provider didn't say. */
   expiresAt: number | null;
@@ -78,6 +80,14 @@ export interface OAuth2TokenBundle {
   idToken?: string;
   /** Raw extra fields the provider returned (e.g. `ext_expires_in`). Preserved verbatim. */
   extra?: Record<string, string>;
+  /**
+   * The DPoP key this token is bound to (RFC 9449) — present when the
+   * exchange ran under `tokenBinding: 'dpop'`. Every send proves
+   * possession with it, and a refresh_token grant signs with the SAME
+   * key (§5 binds the refresh token to it); a fresh exchange mints a
+   * fresh pair. Sensitive like the tokens beside it.
+   */
+  dpop?: OAuth2DpopKey;
 }
 
 /** Seconds-to-expiry snapshot used by the UI "expires in Nmin" pill. */

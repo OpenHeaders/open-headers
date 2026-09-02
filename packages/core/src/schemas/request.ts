@@ -589,6 +589,18 @@ export const OAuth2AuthSchema = v.object({
    *  `token_type` (Bearer by default); set, it wins on the wire. A
    *  literal, never templated (the oauth2 config is not user-templated). */
   headerPrefix: v.optional(v.string()),
+  /**
+   * Sender-constrain the tokens (RFC 9449 DPoP): a key pair the host
+   * generates at the exchange signs a proof JWT on every token POST and
+   * every send; the provider issues `token_type: DPoP` (which then
+   * wins the scheme over `headerPrefix`, §7.1) and the resource
+   * verifies the proof against the bound key. The key persists beside
+   * the token bundle, never here. Absent = plain bearer tokens.
+   */
+  tokenBinding: v.optional(v.picklist(['dpop'])),
+  /** The proof's JWS family — asymmetric, the key is generated to
+   *  match; absent = ES256, the family every deployment supports. */
+  dpopAlgorithm: v.optional(v.string()),
   /** Optional extra params appended to the authorization URL. */
   extraAuthParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
   /**

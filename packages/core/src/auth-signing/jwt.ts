@@ -141,10 +141,31 @@ const CURVE_BY_BITS: Record<'256' | '384' | '512', 'P-256' | 'P-384' | 'P-521'> 
   '512': 'P-521',
 };
 
+/** A JWS family's WebCrypto shape — the hash every family digests
+ *  with, the curve the ES families sign on, the RSA algorithm name
+ *  for RS / PS. `curve` and `rsa` are `null` outside their family. */
+export interface JwtAlgorithmParts {
+  family: 'HS' | 'RS' | 'PS' | 'ES';
+  bits: '256' | '384' | '512';
+  hash: 'SHA-256' | 'SHA-384' | 'SHA-512';
+  curve: 'P-256' | 'P-384' | 'P-521' | null;
+  rsa: 'RSASSA-PKCS1-v1_5' | 'RSA-PSS' | null;
+}
+
+export function jwtAlgorithmParts(algorithm: JwtAlgorithm): JwtAlgorithmParts {
+  const family = algorithm.slice(0, 2) as JwtAlgorithmParts['family'];
+  const bits = algorithm.slice(2) as JwtAlgorithmParts['bits'];
+  return {
+    family,
+    bits,
+    hash: HASH_BY_BITS[bits],
+    curve: family === 'ES' ? CURVE_BY_BITS[bits] : null,
+    rsa: family === 'RS' ? 'RSASSA-PKCS1-v1_5' : family === 'PS' ? 'RSA-PSS' : null,
+  };
+}
+
 async function sign(credentials: JwtCredentials, data: Uint8Array): Promise<Uint8Array> {
-  const family = credentials.algorithm.slice(0, 2) as 'HS' | 'RS' | 'PS' | 'ES';
-  const bits = credentials.algorithm.slice(2) as '256' | '384' | '512';
-  const hash = HASH_BY_BITS[bits];
+  const { family, bits, hash } = jwtAlgorithmParts(credentials.algorithm);
 
   if (family === 'HS') {
     let keyBytes: Uint8Array;
