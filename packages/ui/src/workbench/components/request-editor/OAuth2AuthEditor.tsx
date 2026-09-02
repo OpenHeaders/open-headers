@@ -5,13 +5,18 @@
  *   • Token — the live bundle tied to this config's `credentialRef`:
  *     the token, the Authorization header prefix, the auto-refresh
  *     fact (the executor's on-send refresh — the checkbox only
- *     surfaces it), and the status with Refresh / Disconnect.
+ *     surfaces it), the status with Refresh / Disconnect, and — while
+ *     a device authorization is pending — the "waiting for you to
+ *     approve" block: the user code (copyable), Open (the verification
+ *     URL in the system browser), Cancel, the countdown. The host
+ *     polls; the block follows the `oauthDeviceState` feed and the
+ *     grant lands through the bundle subscription like every flow.
  *   • Grant — the form for running a fresh authorize flow: Token Name
- *     + Grant Type + Callback URL + Auth URL + Access Token URL +
- *     Client ID + Client Secret + PKCE Code Challenge Method /
- *     Verifier (when the grant is PKCE) + the JWT bearer grant's own
- *     claims (issuer / subject / additional claims) + Scope + State +
- *     Client Authentication.
+ *     + Grant Type + Callback URL + Auth URL + Device Authorization URL
+ *     (the device grant) + Access Token URL + Client ID + Client Secret
+ *     + PKCE Code Challenge Method / Verifier (when the grant is PKCE)
+ *     + the JWT bearer grant's own claims (issuer / subject /
+ *     additional claims) + Scope + State + Client Authentication.
  *   • Signing — rendered while an assertion is in play (a JWT client
  *     authentication, or the JWT bearer grant): the algorithm, key id,
  *     private key, audience, lifetime and extra protected headers the
@@ -33,7 +38,9 @@ import {
   ASSERTION_MAX_LIFETIME_SECONDS,
   CLIENT_SECRET_JWT_ALGORITHMS,
   canRenewSilently,
+  deviceVerificationUrl,
   isExpired,
+  type OAuth2DeviceState,
   secondsUntilExpiry,
   usesClientAssertion,
 } from '@openheaders/core/oauth';
@@ -41,7 +48,7 @@ import type { OAuth2Auth } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, App, Button, Checkbox, Input, InputNumber, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import AuthFormGroup from './AuthFormGroup';
@@ -97,12 +104,59 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
-  const { tokens, redirectUri, authorize, clientCredentials, passwordCredentials, jwtBearer, refresh, revoke } =
-    useOAuthBundlesContext();
+  const {
+    tokens,
+    redirectUri,
+    authorize,
+    clientCredentials,
+    passwordCredentials,
+    jwtBearer,
+    deviceStart,
+    deviceCancel,
+    deviceStates,
+    refresh,
+    revoke,
+  } = useOAuthBundlesContext();
   const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke'>(null);
 
   const bundle = tokens[auth.credentialRef] ?? null;
   const expired = bundle ? isExpired(bundle) : false;
+
+  // ── Device authorization (RFC 8628) ─────────────────────────────
+  // The host polls; this block only follows the state feed. A terminal
+  // transition toasts once (the ref remembers the state it announced)
+  // and the pending block ticks its countdown every second.
+  const deviceState: OAuth2DeviceState | null = deviceStates[auth.credentialRef] ?? null;
+  const devicePending = deviceState?.state === 'pending' ? deviceState : null;
+  const announcedRef = useRef<OAuth2DeviceState | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (devicePending === null) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [devicePending]);
+  useEffect(() => {
+    if (deviceState === null || deviceState.state === 'pending' || announcedRef.current === deviceState) return;
+    announcedRef.current = deviceState;
+    switch (deviceState.state) {
+      case 'granted':
+        message.success(t('workbench.editors.request.oauth.toast.deviceGranted'));
+        return;
+      case 'denied':
+        message.error(t('workbench.editors.request.oauth.toast.deviceDenied', { error: deviceState.message }));
+        return;
+      case 'expired':
+        message.warning(t('workbench.editors.request.oauth.toast.deviceExpired', { error: deviceState.message }));
+        return;
+      case 'failed':
+        message.error(t('workbench.editors.request.oauth.toast.deviceFailed', { error: deviceState.message }));
+        return;
+      case 'cancelled':
+        return;
+    }
+  }, [deviceState, message, t]);
+  const deviceHost = devicePending ? hostOf(devicePending.approval.verificationUri) : '';
 
   const grantType = useMemo(() => getGrantType(auth), [auth]);
   // The Signing group is in play for a JWT client authentication or
@@ -161,6 +215,18 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
         const res = await jwtBearer(auth);
         if (res.success) message.success(t('workbench.editors.request.oauth.toast.tokenReceived'));
         else message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
+      } else if (auth.flow === 'device-code') {
+        const res = await deviceStart(auth);
+        if (res.success && res.state?.state === 'pending') {
+          message.info(
+            t('workbench.editors.request.oauth.toast.deviceStarted', {
+              host: hostOf(res.state.approval.verificationUri),
+              code: res.state.approval.userCode,
+            }),
+          );
+        } else {
+          message.error(t('workbench.editors.request.oauth.toast.failed', { error: res.error ?? '' }));
+        }
       } else {
         const res = await authorize(auth);
         if (res.success) message.success(t('workbench.editors.request.oauth.toast.authorizationComplete'));
@@ -192,6 +258,19 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     }
   };
 
+  const handleDeviceOpen = () => {
+    if (!devicePending) return;
+    const url = deviceVerificationUrl(devicePending.approval);
+    const openUrl = getCapability('openExternalUrl');
+    if (openUrl) void openUrl(url);
+    else window.open(url, '_blank', 'noopener');
+  };
+
+  const handleDeviceCancel = async () => {
+    const cancelled = await deviceCancel(auth.credentialRef);
+    if (cancelled) message.info(t('workbench.editors.request.oauth.toast.deviceCancelled'));
+  };
+
   const handleCopyRedirect = async () => {
     if (!redirectUri) return;
     try {
@@ -206,6 +285,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
     auth.label !== undefined ||
     grantType.id !== 'authorization-code-pkce' ||
     auth.authorizationEndpoint !== undefined ||
+    auth.deviceAuthorizationEndpoint !== undefined ||
     auth.tokenEndpoint !== '' ||
     auth.clientId !== '' ||
     auth.clientSecret !== undefined ||
@@ -296,7 +376,49 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             </div>
           </LabeledRow>
         )}
-        {!bundle && <AuthFormNote>{t('workbench.editors.request.oauth.noTokenNote')}</AuthFormNote>}
+        {devicePending && (
+          <LabeledRow
+            label={t('workbench.editors.request.oauth.deviceCode')}
+            description={t('workbench.editors.request.oauth.deviceWaitingDesc')}
+            info={info('oauth2DeviceAuthUrl')}
+          >
+            <div
+              data-testid="oh-oauth2-device-pending"
+              style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            >
+              <Text strong style={{ fontSize: 12 }}>
+                {t('workbench.editors.request.oauth.deviceWaitingTitle', { host: deviceHost })}
+              </Text>
+              <Text
+                code
+                data-testid="oh-oauth2-device-user-code"
+                style={{ fontSize: 18, letterSpacing: 2, alignSelf: 'flex-start' }}
+                copyable={{
+                  text: devicePending.approval.userCode,
+                  onCopy: () => message.success(t('workbench.editors.request.oauth.toast.codeCopied')),
+                }}
+              >
+                {devicePending.approval.userCode}
+              </Text>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Button size="small" type="primary" data-testid="oh-oauth2-device-open" onClick={handleDeviceOpen}>
+                  {t('workbench.editors.request.oauth.deviceOpen')}
+                </Button>
+                <Button size="small" data-testid="oh-oauth2-device-cancel" onClick={() => void handleDeviceCancel()}>
+                  {t('workbench.editors.request.oauth.deviceCancel')}
+                </Button>
+                <Text type="secondary" style={{ fontSize: 11 }} data-testid="oh-oauth2-device-countdown">
+                  {`${t('workbench.editors.request.oauth.deviceExpiresIn', {
+                    duration: formatDuration(Math.max(0, Math.round((devicePending.approval.expiresAt - now) / 1000))),
+                  })} · ${t('workbench.editors.request.oauth.deviceCheckEvery', {
+                    seconds: devicePending.approval.intervalSeconds,
+                  })}`}
+                </Text>
+              </div>
+            </div>
+          </LabeledRow>
+        )}
+        {!bundle && !devicePending && <AuthFormNote>{t('workbench.editors.request.oauth.noTokenNote')}</AuthFormNote>}
       </AuthFormGroup>
 
       <AuthFormGroup auth={auth} group="grant" modified={grantModified}>
@@ -380,6 +502,19 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
               placeholder="https://example.com/login/oauth/authorize"
               value={auth.authorizationEndpoint ?? ''}
               onChange={(e) => onChange({ ...auth, authorizationEndpoint: e.target.value || undefined })}
+            />
+          </LabeledRow>
+        )}
+
+        {grantType.fields.deviceAuthUrl && (
+          <LabeledRow label={t('workbench.editors.request.oauth.deviceAuthUrl')} info={info('oauth2DeviceAuthUrl')}>
+            <Input
+              size="small"
+              style={fieldStyle}
+              data-testid="oh-oauth2-device-auth-url"
+              placeholder="https://example.com/login/device/code"
+              value={auth.deviceAuthorizationEndpoint ?? ''}
+              onChange={(e) => onChange({ ...auth, deviceAuthorizationEndpoint: e.target.value || undefined })}
             />
           </LabeledRow>
         )}
@@ -699,6 +834,7 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
           size="middle"
           onClick={() => void handleGetNewToken()}
           loading={busy === 'authorize'}
+          disabled={devicePending !== null}
           style={{ background: token.colorWarning, borderColor: token.colorWarning }}
         >
           {t('workbench.editors.request.oauth.getNewToken')}
@@ -821,6 +957,16 @@ const ParamsBlock: React.FC<{
     </div>
   );
 };
+
+/** The host the user approves on — the verification URI's host, or the
+ *  URI itself when it does not parse. */
+function hostOf(uri: string): string {
+  try {
+    return new URL(uri).host;
+  } catch {
+    return uri;
+  }
+}
 
 function formatDuration(seconds: number): string {
   if (seconds < 0) return 'expired';

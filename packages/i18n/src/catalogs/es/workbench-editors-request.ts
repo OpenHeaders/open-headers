@@ -404,6 +404,8 @@ export const workbenchEditorsRequest = {
     'El redirect_uri al que el proveedor devuelve el navegador con el código \u2014 regístrelo en el proveedor.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
     'El endpoint de autorización del proveedor al que se envía primero el navegador.',
+  'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
+    'El endpoint de autorización de dispositivo del proveedor (RFC 8628): devuelve el código de usuario y la URL de verificación que apruebas en cualquier dispositivo mientras este host sondea el endpoint de token.',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
     'El endpoint de token del proveedor donde se intercambia el código (o las credenciales).',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
@@ -696,6 +698,22 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.disconnected': 'OAuth: desconectado',
   'workbench.editors.request.oauth.toast.callbackCopied': 'URL de retorno copiada',
   'workbench.editors.request.oauth.toast.copyUnsupported': 'Copia no admitida — selecciona la URL manualmente',
+  'workbench.editors.request.oauth.deviceAuthUrl': 'URL de autorización de dispositivo',
+  'workbench.editors.request.oauth.deviceWaitingTitle': 'Esperando tu aprobación en {host}',
+  'workbench.editors.request.oauth.deviceWaitingDesc':
+    'Abre el enlace en cualquier dispositivo, introduce el código y aprueba. Esta página se actualiza sola.',
+  'workbench.editors.request.oauth.deviceCode': 'Código',
+  'workbench.editors.request.oauth.deviceOpen': 'Abrir',
+  'workbench.editors.request.oauth.deviceCancel': 'Cancelar',
+  'workbench.editors.request.oauth.deviceExpiresIn': 'Caduca en {duration}',
+  'workbench.editors.request.oauth.deviceCheckEvery': 'Comprobando cada {seconds} s',
+  'workbench.editors.request.oauth.toast.deviceStarted': 'OAuth: aprueba en {host} con el código {code}',
+  'workbench.editors.request.oauth.toast.deviceGranted': 'OAuth: autorización de dispositivo aprobada',
+  'workbench.editors.request.oauth.toast.deviceDenied': 'OAuth: la autorización fue rechazada — {error}',
+  'workbench.editors.request.oauth.toast.deviceExpired': 'OAuth: el código de dispositivo caducó — {error}',
+  'workbench.editors.request.oauth.toast.deviceFailed': 'Error en la autorización de dispositivo OAuth: {error}',
+  'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth: autorización de dispositivo cancelada',
+  'workbench.editors.request.oauth.toast.codeCopied': 'Código copiado',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': 'Esta solicitud no tiene cuerpo',

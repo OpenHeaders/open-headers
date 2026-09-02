@@ -100,6 +100,7 @@ export type AuthInfoKey =
   | 'oauth2GrantType'
   | 'oauth2CallbackUrl'
   | 'oauth2AuthUrl'
+  | 'oauth2DeviceAuthUrl'
   | 'oauth2AccessTokenUrl'
   | 'oauth2Username'
   | 'oauth2Password'
@@ -179,6 +180,10 @@ type AuthTokenId =
   | 'pkce'
   | 'authParams'
   | 'tokenEndpoint'
+  | 'deviceEndpoint'
+  | 'userCode'
+  | 'deviceCode'
+  | 'poll'
   | 'grantType'
   | 'code'
   | 'verifier'
@@ -354,16 +359,19 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
       ];
     }
     case 'oauth2': {
-      // Four legs: the authorize redirect (code grants), the token
-      // exchange, the send carrying the access token, the refresh —
-      // plus the minted JWT's claims while an assertion is in play (a
-      // JWT client authentication, or the JWT bearer grant whose
-      // assertion IS the grant and whose refresh is a fresh assertion).
+      // Four legs: the authorize redirect (code grants) or the device
+      // authorization request (the device grant), the token exchange
+      // (polled for the device grant), the send carrying the access
+      // token, the refresh — plus the minted JWT's claims while an
+      // assertion is in play (a JWT client authentication, or the JWT
+      // bearer grant whose assertion IS the grant and whose refresh is
+      // a fresh assertion).
       const grant = getGrantType(auth);
       const query = auth.sendAs === 'query';
       const basicClientAuth = auth.clientAuthentication === 'basic-header';
       const assertionClientAuth = usesClientAssertion(auth);
       const jwtBearer = grant.fields.assertion;
+      const device = grant.fields.deviceAuthUrl;
       const showAuthParams = (auth.extraAuthParams?.length ?? 0) > 0 || forced.has('oauth2AuthRequest');
       const showTokenParams = (auth.extraTokenParams?.length ?? 0) > 0 || forced.has('oauth2TokenRequest');
       const showRefreshParams = (auth.extraRefreshParams?.length ?? 0) > 0 || forced.has('oauth2RefreshRequest');
@@ -395,11 +403,33 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
           ],
         });
       }
+      if (device) {
+        // RFC 8628 §3.1 / §3.2: the device authorization request and
+        // the facts the user acts on (the device_code stays host-side).
+        lines.push({
+          opener: tok('deviceEndpoint', `POST ${IDP}/device`),
+          tokens: [
+            ...clientAuthTokens,
+            tok('scope', 'scope=openid profile'),
+            tok('userCode', '→ user_code=WDJB-MJHT'),
+            tok('userCode', 'verification_uri=…/activate'),
+            tok('poll', 'interval=5'),
+          ],
+        });
+      }
       lines.push({
-        opener: tok('tokenEndpoint', `POST ${IDP}/token`),
+        opener: tok('tokenEndpoint', `POST ${IDP}/token${device ? ' (every 5 s)' : ''}`),
         tokens: [
-          tok('grantType', jwtBearer ? 'grant_type=…:jwt-bearer' : `grant_type=${grant.wire}`),
+          tok(
+            'grantType',
+            jwtBearer
+              ? 'grant_type=…:jwt-bearer'
+              : device
+                ? 'grant_type=…:device_code'
+                : `grant_type=${grant.wire}`,
+          ),
           ...(jwtBearer ? [tok('assertion', `assertion=${JWT}`)] : []),
+          ...(device ? [tok('deviceCode', 'device_code=GmRhmhcx…')] : []),
           ...(grant.fields.authUrl ? [tok('code', 'code=SplxlOBe…')] : []),
           ...(grant.fields.pkce ? [tok('verifier', 'code_verifier=dBjftJeZ…')] : []),
           ...(grant.fields.resourceOwner
@@ -407,6 +437,7 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
             : []),
           ...clientAuthTokens,
           ...(showTokenParams ? [tok('tokenParams', 'audience=api')] : []),
+          ...(device ? [tok('poll', '← authorization_pending · slow_down · access_denied · expired_token')] : []),
         ],
       });
       if (assertionClientAuth || jwtBearer) {
@@ -649,6 +680,7 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   oauth2GrantType: ['grantType'],
   oauth2CallbackUrl: ['callback'],
   oauth2AuthUrl: ['authorize'],
+  oauth2DeviceAuthUrl: ['deviceEndpoint', 'userCode'],
   oauth2AccessTokenUrl: ['tokenEndpoint'],
   oauth2Username: ['username'],
   oauth2Password: ['password'],
@@ -758,6 +790,7 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
       'oauth2GrantType',
       'oauth2CallbackUrl',
       'oauth2AuthUrl',
+      'oauth2DeviceAuthUrl',
       'oauth2AccessTokenUrl',
       'oauth2Username',
       'oauth2Password',
@@ -853,6 +886,7 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   oauth2GrantType: 'workbench.editors.request.oauth.grantType',
   oauth2CallbackUrl: 'workbench.editors.request.oauth.callbackUrl',
   oauth2AuthUrl: 'workbench.editors.request.oauth.authUrl',
+  oauth2DeviceAuthUrl: 'workbench.editors.request.oauth.deviceAuthUrl',
   oauth2AccessTokenUrl: 'workbench.editors.request.oauth.accessTokenUrl',
   oauth2Username: 'workbench.editors.request.auth.username',
   oauth2Password: 'workbench.editors.request.auth.password',
@@ -942,6 +976,7 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   oauth2GrantType: 'workbench.editors.request.auth.rowInfo.oauth2GrantType',
   oauth2CallbackUrl: 'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl',
   oauth2AuthUrl: 'workbench.editors.request.auth.rowInfo.oauth2AuthUrl',
+  oauth2DeviceAuthUrl: 'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl',
   oauth2AccessTokenUrl: 'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl',
   oauth2Username: 'workbench.editors.request.auth.rowInfo.oauth2Username',
   oauth2Password: 'workbench.editors.request.auth.rowInfo.oauth2Password',

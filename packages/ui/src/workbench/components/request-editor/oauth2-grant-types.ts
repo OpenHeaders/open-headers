@@ -6,11 +6,12 @@
  * The dropdown offers the flows that actually run end-to-end on both
  * hosts: Authorization Code with and without PKCE (the same wire flow
  * — the persisted grantType suppresses the PKCE pair, see `usesPkce`
- * in core/oauth), Client Credentials, Password Credentials, and JWT
+ * in core/oauth), Client Credentials, Password Credentials, JWT
  * Bearer (RFC 7523 §2.1 — the signed assertion IS the grant; no
- * authorize leg, no refresh token). Implicit is removed by OAuth 2.1
- * and Device Code earns its keep only where there is no browser; both
- * stay out until a real integration needs one.
+ * authorize leg, no refresh token), and Device Code (RFC 8628 — the
+ * user approves on any device while the host polls; the headless
+ * hosts' one interactive grant). Implicit is removed by OAuth 2.1 and
+ * stays out.
  */
 
 import type { OAuth2Auth, OAuth2Flow } from '@openheaders/core/types';
@@ -20,17 +21,25 @@ export type GrantTypeId =
   | 'authorization-code'
   | 'client-credentials'
   | 'password-credentials'
-  | 'jwt-bearer';
+  | 'jwt-bearer'
+  | 'device-code';
 
 export interface GrantTypeDef {
   id: GrantTypeId;
   label: string;
   /** The `grant_type` value the token request carries. */
-  wire: 'authorization_code' | 'client_credentials' | 'password' | 'urn:ietf:params:oauth:grant-type:jwt-bearer';
+  wire:
+    | 'authorization_code'
+    | 'client_credentials'
+    | 'password'
+    | 'urn:ietf:params:oauth:grant-type:jwt-bearer'
+    | 'urn:ietf:params:oauth:grant-type:device_code';
   /** Which fields to render when this grant type is active. */
   fields: {
     callbackUrl: boolean;
     authUrl: boolean;
+    /** The device authorization endpoint (RFC 8628 §3.1). */
+    deviceAuthUrl: boolean;
     accessTokenUrl: boolean;
     clientId: boolean;
     clientSecret: boolean;
@@ -53,6 +62,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
     fields: {
       callbackUrl: true,
       authUrl: true,
+      deviceAuthUrl: false,
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
@@ -71,6 +81,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
     fields: {
       callbackUrl: true,
       authUrl: true,
+      deviceAuthUrl: false,
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
@@ -89,6 +100,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
     fields: {
       callbackUrl: false,
       authUrl: false,
+      deviceAuthUrl: false,
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
@@ -107,6 +119,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
     fields: {
       callbackUrl: false,
       authUrl: false,
+      deviceAuthUrl: false,
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
@@ -125,6 +138,7 @@ export const GRANT_TYPES: GrantTypeDef[] = [
     fields: {
       callbackUrl: false,
       authUrl: false,
+      deviceAuthUrl: false,
       accessTokenUrl: true,
       clientId: true,
       clientSecret: false,
@@ -136,12 +150,31 @@ export const GRANT_TYPES: GrantTypeDef[] = [
     },
     v5Flow: 'jwt-bearer',
   },
+  {
+    id: 'device-code',
+    label: 'Device Code',
+    wire: 'urn:ietf:params:oauth:grant-type:device_code',
+    fields: {
+      callbackUrl: false,
+      authUrl: false,
+      deviceAuthUrl: true,
+      accessTokenUrl: true,
+      clientId: true,
+      clientSecret: true,
+      resourceOwner: false,
+      pkce: false,
+      scope: true,
+      state: false,
+      assertion: false,
+    },
+    v5Flow: 'device-code',
+  },
 ];
 
 export function getGrantType(auth: OAuth2Auth): GrantTypeDef {
-  // Prefer the persisted UI choice. Rows that stored a grant type we
-  // don't offer (`implicit` / `device-code`) fall through to the
-  // working flow their wire `flow` already maps to.
+  // Prefer the persisted UI choice. A row that stored a grant type we
+  // don't offer (`implicit`) falls through to the working flow its
+  // wire `flow` already maps to.
   if (auth.grantType) {
     const match = GRANT_TYPES.find((g) => g.id === auth.grantType);
     if (match) return match;

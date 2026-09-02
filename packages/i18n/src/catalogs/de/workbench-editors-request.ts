@@ -420,6 +420,8 @@ export const workbenchEditorsRequest = {
     'Die redirect_uri, an die der Anbieter den Browser mit dem Code zurückschickt \u2014 beim Anbieter registrieren.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
     'Der Autorisierungs-Endpunkt des Anbieters, an den der Browser zuerst geschickt wird.',
+  'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
+    'Der Geräteautorisierungs-Endpunkt des Anbieters (RFC 8628) — liefert den Benutzercode und die Verifizierungs-URL, die Sie auf einem beliebigen Gerät freigeben, während dieser Host den Token-Endpunkt abfragt.',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
     'Der Token-Endpunkt des Anbieters, an dem der Code (oder die Zugangsdaten) getauscht wird.',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
@@ -712,6 +714,22 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.disconnected': 'OAuth: getrennt',
   'workbench.editors.request.oauth.toast.callbackCopied': 'Callback-URL kopiert',
   'workbench.editors.request.oauth.toast.copyUnsupported': 'Kopieren nicht unterstützt — wähle die URL manuell aus',
+  'workbench.editors.request.oauth.deviceAuthUrl': 'Geräteautorisierungs-URL',
+  'workbench.editors.request.oauth.deviceWaitingTitle': 'Warten auf Ihre Freigabe auf {host}',
+  'workbench.editors.request.oauth.deviceWaitingDesc':
+    'Öffnen Sie den Link auf einem beliebigen Gerät, geben Sie den Code ein und bestätigen Sie. Diese Seite aktualisiert sich von selbst.',
+  'workbench.editors.request.oauth.deviceCode': 'Code',
+  'workbench.editors.request.oauth.deviceOpen': 'Öffnen',
+  'workbench.editors.request.oauth.deviceCancel': 'Abbrechen',
+  'workbench.editors.request.oauth.deviceExpiresIn': 'Läuft ab in {duration}',
+  'workbench.editors.request.oauth.deviceCheckEvery': 'Prüfung alle {seconds} s',
+  'workbench.editors.request.oauth.toast.deviceStarted': 'OAuth: auf {host} mit dem Code {code} freigeben',
+  'workbench.editors.request.oauth.toast.deviceGranted': 'OAuth: Geräteautorisierung freigegeben',
+  'workbench.editors.request.oauth.toast.deviceDenied': 'OAuth: die Autorisierung wurde abgelehnt — {error}',
+  'workbench.editors.request.oauth.toast.deviceExpired': 'OAuth: der Gerätecode ist abgelaufen — {error}',
+  'workbench.editors.request.oauth.toast.deviceFailed': 'OAuth-Geräteautorisierung fehlgeschlagen: {error}',
+  'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth: Geräteautorisierung abgebrochen',
+  'workbench.editors.request.oauth.toast.codeCopied': 'Code kopiert',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': 'Diese Anfrage hat keinen Body',

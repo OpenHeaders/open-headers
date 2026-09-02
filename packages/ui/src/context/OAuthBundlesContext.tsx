@@ -23,7 +23,7 @@
  */
 
 import { useActiveWorkspaceId } from '../shared/hooks/readers/useActiveWorkspaceId';
-import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
+import type { OAuth2DeviceState, OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -53,6 +53,12 @@ export interface OAuthFlowResult {
   error?: string;
 }
 
+export interface OAuthDeviceStartResult {
+  success: boolean;
+  state?: OAuth2DeviceState;
+  error?: string;
+}
+
 export interface OAuthBundlesContextValue {
   tokens: Readonly<Record<string, OAuth2TokenBundle>>;
   isReady: boolean;
@@ -62,9 +68,22 @@ export interface OAuthBundlesContextValue {
   passwordCredentials: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
   /** The JWT bearer grant (RFC 7523 §2.1) — the host signs the assertion. */
   jwtBearer: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
+  /**
+   * The device grant (RFC 8628): `deviceStart` runs the device
+   * authorization request and answers the pending state; the host
+   * polls on its own, every transition landing in `deviceStates`
+   * (keyed by credentialRef — the `oauthDeviceState` broadcast, with
+   * the status RPC hydrating a late joiner); the grant lands in
+   * `tokens` like every other flow. `deviceCancel` stops the poll.
+   */
+  deviceStart: (config: OAuth2Auth) => Promise<OAuthDeviceStartResult>;
+  deviceCancel: (credentialRef: string) => Promise<boolean>;
+  deviceStates: Readonly<Record<string, OAuth2DeviceState>>;
   refresh: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
   revoke: (credentialRef: string) => Promise<boolean>;
 }
+
+const EMPTY_DEVICE_STATES: Readonly<Record<string, OAuth2DeviceState>> = Object.freeze({});
 
 const defaultContextValue: OAuthBundlesContextValue = {
   tokens: EMPTY_TOKENS,
@@ -74,6 +93,9 @@ const defaultContextValue: OAuthBundlesContextValue = {
   clientCredentials: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   passwordCredentials: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   jwtBearer: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
+  deviceStart: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
+  deviceCancel: async () => false,
+  deviceStates: EMPTY_DEVICE_STATES,
   refresh: async () => ({ success: false, error: 'OAuthBundlesProvider not mounted' }),
   revoke: async () => false,
 };
@@ -104,6 +126,7 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
   const [tokens, setTokens] = useState<Readonly<Record<string, OAuth2TokenBundle>>>(EMPTY_TOKENS);
   const [isReady, setIsReady] = useState(false);
   const [redirectUri, setRedirectUri] = useState<string | null>(null);
+  const [deviceStates, setDeviceStates] = useState<Readonly<Record<string, OAuth2DeviceState>>>(EMPTY_DEVICE_STATES);
   const readIdRef = useRef<string | null>(null);
 
   // ── Read path ─────────────────────────────────────────────────
@@ -130,6 +153,29 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
     });
     return hostStorage.subscribe(wsKeys(wsId).oauth, (blob) => {
       setTokens(extractTokens(blob));
+    });
+  }, [readWorkspaceId]);
+
+  // ── Device grant transitions ──────────────────────────────────
+  //
+  // The host fans every device-flow transition out as a broadcast (the
+  // full state; `null` clears). A flow started against the editing
+  // workspace carries its id; one started against the host's active
+  // workspace carries none — both belong to this provider's workspace.
+
+  useEffect(() => {
+    const wsId = readWorkspaceId;
+    setDeviceStates(EMPTY_DEVICE_STATES);
+    return hostBridge.subscribe('oauthDeviceState', (payload) => {
+      if (payload.workspaceId !== undefined && payload.workspaceId !== wsId) return;
+      setDeviceStates((prev) => {
+        if (payload.state === null) {
+          if (!(payload.credentialRef in prev)) return prev;
+          const { [payload.credentialRef]: _drop, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, [payload.credentialRef]: payload.state };
+      });
     });
   }, [readWorkspaceId]);
 
@@ -204,6 +250,39 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
     [writeWorkspaceId],
   );
 
+  const deviceStart = useCallback<OAuthBundlesContextValue['deviceStart']>(
+    async (config) => {
+      const workspaceId = writeWorkspaceId ?? undefined;
+      const result = await hostBridge
+        .call('oauthDeviceStart', { config, workspaceId })
+        .catch((err: Error): OAuthDeviceStartResult => ({ success: false, error: err.message }));
+      // The broadcast may have raced the RPC answer; the answer is the
+      // authoritative pending state either way.
+      if (result.success && result.state) {
+        const state = result.state;
+        setDeviceStates((prev) => ({ ...prev, [config.credentialRef]: state }));
+      }
+      return result;
+    },
+    [writeWorkspaceId],
+  );
+
+  const deviceCancel = useCallback<OAuthBundlesContextValue['deviceCancel']>(
+    async (credentialRef) => {
+      const workspaceId = writeWorkspaceId ?? undefined;
+      const result = await hostBridge
+        .call('oauthDeviceCancel', { credentialRef, workspaceId })
+        .catch((): { success: boolean; cancelled: boolean } => ({ success: false, cancelled: false }));
+      setDeviceStates((prev) => {
+        if (!(credentialRef in prev)) return prev;
+        const { [credentialRef]: _drop, ...rest } = prev;
+        return rest;
+      });
+      return result.cancelled;
+    },
+    [writeWorkspaceId],
+  );
+
   const refresh = useCallback<OAuthBundlesContextValue['refresh']>(
     async (config) => {
       const workspaceId = writeWorkspaceId ?? undefined;
@@ -233,10 +312,26 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
       clientCredentials,
       passwordCredentials,
       jwtBearer,
+      deviceStart,
+      deviceCancel,
+      deviceStates,
       refresh,
       revoke,
     }),
-    [tokens, isReady, redirectUri, authorize, clientCredentials, passwordCredentials, jwtBearer, refresh, revoke],
+    [
+      tokens,
+      isReady,
+      redirectUri,
+      authorize,
+      clientCredentials,
+      passwordCredentials,
+      jwtBearer,
+      deviceStart,
+      deviceCancel,
+      deviceStates,
+      refresh,
+      revoke,
+    ],
   );
 
   return <OAuthBundlesContext.Provider value={value}>{children}</OAuthBundlesContext.Provider>;

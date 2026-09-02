@@ -362,6 +362,8 @@ export const workbenchEditorsRequest = {
     'The redirect_uri the provider sends the browser back to with the code \u2014 register it with the provider.',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl':
     'The provider\u2019s authorization endpoint the browser is sent to first.',
+  'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
+    'The provider’s device authorization endpoint (RFC 8628) — answers the user code and the verification URL you approve on any device while this host polls the token endpoint.',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl':
     'The provider\u2019s token endpoint the code (or the credentials) is exchanged at.',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
@@ -644,6 +646,22 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.disconnected': 'OAuth: disconnected',
   'workbench.editors.request.oauth.toast.callbackCopied': 'Callback URL copied',
   'workbench.editors.request.oauth.toast.copyUnsupported': 'Copy not supported — select the URL manually',
+  'workbench.editors.request.oauth.deviceAuthUrl': 'Device Authorization URL',
+  'workbench.editors.request.oauth.deviceWaitingTitle': 'Waiting for you to approve on {host}',
+  'workbench.editors.request.oauth.deviceWaitingDesc':
+    'Open the link on any device, enter the code, and approve. This page updates on its own.',
+  'workbench.editors.request.oauth.deviceCode': 'Code',
+  'workbench.editors.request.oauth.deviceOpen': 'Open',
+  'workbench.editors.request.oauth.deviceCancel': 'Cancel',
+  'workbench.editors.request.oauth.deviceExpiresIn': 'Expires in {duration}',
+  'workbench.editors.request.oauth.deviceCheckEvery': 'Checking every {seconds}s',
+  'workbench.editors.request.oauth.toast.deviceStarted': 'OAuth: approve on {host} with code {code}',
+  'workbench.editors.request.oauth.toast.deviceGranted': 'OAuth: device authorization approved',
+  'workbench.editors.request.oauth.toast.deviceDenied': 'OAuth: the authorization was refused — {error}',
+  'workbench.editors.request.oauth.toast.deviceExpired': 'OAuth: the device code expired — {error}',
+  'workbench.editors.request.oauth.toast.deviceFailed': 'OAuth device authorization failed: {error}',
+  'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth: device authorization cancelled',
+  'workbench.editors.request.oauth.toast.codeCopied': 'Code copied',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': 'This request does not have a body',

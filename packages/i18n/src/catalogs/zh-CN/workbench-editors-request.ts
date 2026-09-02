@@ -341,6 +341,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.oauth2CallbackUrl':
     '提供方带着授权码把浏览器送回的 redirect_uri \u2014 需在提供方处注册。',
   'workbench.editors.request.auth.rowInfo.oauth2AuthUrl': '浏览器首先被送往的提供方授权端点。',
+  'workbench.editors.request.auth.rowInfo.oauth2DeviceAuthUrl':
+    '提供方的设备授权端点（RFC 8628）——返回用户代码和验证 URL，您可在任意设备上批准，同时此主机轮询令牌端点。',
   'workbench.editors.request.auth.rowInfo.oauth2AccessTokenUrl': '用授权码（或凭据）交换令牌的提供方令牌端点。',
   'workbench.editors.request.auth.rowInfo.oauth2Username':
     '资源所有者的用户名，放在令牌请求正文中发送 \u2014 仅密码授权。',
@@ -607,6 +609,21 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.toast.disconnected': 'OAuth：已断开连接',
   'workbench.editors.request.oauth.toast.callbackCopied': '回调 URL 已复制',
   'workbench.editors.request.oauth.toast.copyUnsupported': '不支持复制——请手动选择该 URL',
+  'workbench.editors.request.oauth.deviceAuthUrl': '设备授权 URL',
+  'workbench.editors.request.oauth.deviceWaitingTitle': '等待您在 {host} 上批准',
+  'workbench.editors.request.oauth.deviceWaitingDesc': '在任意设备上打开链接，输入代码并批准。此页面会自动更新。',
+  'workbench.editors.request.oauth.deviceCode': '代码',
+  'workbench.editors.request.oauth.deviceOpen': '打开',
+  'workbench.editors.request.oauth.deviceCancel': '取消',
+  'workbench.editors.request.oauth.deviceExpiresIn': '{duration} 后过期',
+  'workbench.editors.request.oauth.deviceCheckEvery': '每 {seconds} 秒检查一次',
+  'workbench.editors.request.oauth.toast.deviceStarted': 'OAuth：请在 {host} 上使用代码 {code} 批准',
+  'workbench.editors.request.oauth.toast.deviceGranted': 'OAuth：设备授权已批准',
+  'workbench.editors.request.oauth.toast.deviceDenied': 'OAuth：授权被拒绝 — {error}',
+  'workbench.editors.request.oauth.toast.deviceExpired': 'OAuth：设备代码已过期 — {error}',
+  'workbench.editors.request.oauth.toast.deviceFailed': 'OAuth 设备授权失败：{error}',
+  'workbench.editors.request.oauth.toast.deviceCancelled': 'OAuth：设备授权已取消',
+  'workbench.editors.request.oauth.toast.codeCopied': '代码已复制',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
   'workbench.editors.request.body.noBody': '此请求没有正文',

@@ -25,6 +25,7 @@
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { AuthConfig, AuthPoolEntry, Collection, CollectionTree } from '@openheaders/core/types';
+import type { OAuthBundlesContextValue } from '@openheaders/ui/context';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -169,6 +170,7 @@ const { default: AuthorizationTab } = await import(
   '@openheaders/ui/workbench/components/request-editor/AuthorizationTab'
 );
 const { AwarenessIdentityProvider } = await import('@openheaders/ui/shared/awareness');
+const { OAuthBundlesContext } = await import('@openheaders/ui/context');
 const { resolveWorkbenchIdentity } = await import('@/host/surface-identity-resolvers');
 const testIdentity = resolveWorkbenchIdentity();
 
@@ -1124,7 +1126,7 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
     closePopover();
   });
 
-  it('Grant type offers five grants and Client Authentication four methods', () => {
+  it('Grant type offers six grants and Client Authentication four methods', () => {
     renderTab(oauth2);
     fireEvent.mouseDown(screen.getByText('Authorization Code (With PKCE)'));
     const grants = Array.from(document.querySelectorAll('.ant-select-item-option-content')).map((el) => el.textContent);
@@ -1134,6 +1136,7 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
       'Client Credentials',
       'Password Credentials',
       'JWT Bearer',
+      'Device Code',
     ]);
     closePopover();
     fireEvent.mouseDown(screen.getByText('Send client credentials in body'));
@@ -1193,6 +1196,97 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
     ]);
     expect(popover.textContent).toContain('iss: svc@openheaders.io');
     closePopover();
+  });
+
+  it('the Device Code grant renders its endpoint row, no callback / auth URL / PKCE / state, and its (i) lights the device leg', () => {
+    const onChange = vi.fn();
+    const device: AuthConfig = { ...oauth2, flow: 'device-code', grantType: 'device-code' };
+    render(
+      <App>
+        <AuthorizationTab auth={device} onChange={onChange} />
+      </App>,
+    );
+    expect(screen.getByText('Device Authorization URL')).toBeTruthy();
+    expect(screen.getByText('Access Token URL')).toBeTruthy();
+    expect(screen.getByText('Client Secret')).toBeTruthy();
+    expect(screen.queryByText('Callback URL')).toBeNull();
+    expect(screen.queryByText('Auth URL')).toBeNull();
+    expect(screen.queryByText('Code Verifier')).toBeNull();
+    expect(screen.queryByText('State')).toBeNull();
+    expect(screen.queryByTestId('oh-oauth2-device-pending')).toBeNull();
+    fireEvent.change(screen.getByTestId('oh-oauth2-device-auth-url'), {
+      target: { value: 'https://auth.openheaders.io/device' },
+    });
+    expect(onChange).toHaveBeenCalledWith({
+      ...device,
+      deviceAuthorizationEndpoint: 'https://auth.openheaders.io/device',
+    });
+    const popover = openPopover('About Device Authorization URL');
+    expect(popover.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Grant');
+    expect(litTexts(popover)).toEqual([
+      'POST https://idp.openheaders.com/device',
+      '→ user_code=WDJB-MJHT',
+      'verification_uri=…/activate',
+    ]);
+    expect(popover.textContent).toContain('grant_type=…:device_code');
+    expect(popover.textContent).toContain('authorization_pending');
+    closePopover();
+  });
+
+  it('a pending device authorization shows the code, Open, Cancel and the countdown, and parks Get new access token', async () => {
+    const device: AuthConfig = { ...oauth2, flow: 'device-code', grantType: 'device-code' };
+    const deviceCancel = vi.fn(async () => true);
+    const opened: string[] = [];
+    registerCapability('openExternalUrl', async (url: string) => {
+      opened.push(url);
+      return { ok: true };
+    });
+    const pending: OAuthBundlesContextValue = {
+      tokens: {},
+      isReady: true,
+      redirectUri: null,
+      authorize: vi.fn(),
+      clientCredentials: vi.fn(),
+      passwordCredentials: vi.fn(),
+      jwtBearer: vi.fn(),
+      deviceStart: vi.fn(),
+      deviceCancel,
+      deviceStates: {
+        [device.credentialRef]: {
+          state: 'pending',
+          approval: {
+            userCode: 'WDJB-MJHT',
+            verificationUri: 'https://auth.openheaders.io/activate',
+            verificationUriComplete: 'https://auth.openheaders.io/activate?user_code=WDJB-MJHT',
+            expiresAt: Date.now() + 90_000,
+            intervalSeconds: 5,
+          },
+          startedAt: Date.now(),
+        },
+      },
+      refresh: vi.fn(),
+      revoke: vi.fn(),
+    };
+    try {
+      render(
+        <App>
+          <OAuthBundlesContext.Provider value={pending}>
+            <AuthorizationTab auth={device} onChange={vi.fn()} />
+          </OAuthBundlesContext.Provider>
+        </App>,
+      );
+      expect(screen.getByText('Waiting for you to approve on auth.openheaders.io')).toBeTruthy();
+      expect(screen.getByTestId('oh-oauth2-device-user-code').textContent).toContain('WDJB-MJHT');
+      expect(screen.getByTestId('oh-oauth2-device-countdown').textContent).toMatch(/Expires in 1m · Checking every 5s/);
+      expect(screen.queryByText(/out-of-band, use Bearer Token auth/)).toBeNull();
+      expect((screen.getByRole('button', { name: 'Get new access token' }) as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(screen.getByTestId('oh-oauth2-device-open'));
+      expect(opened).toEqual(['https://auth.openheaders.io/activate?user_code=WDJB-MJHT']);
+      fireEvent.click(screen.getByTestId('oh-oauth2-device-cancel'));
+      await waitFor(() => expect(deviceCancel).toHaveBeenCalledWith(device.credentialRef));
+    } finally {
+      unregisterCapability('openExternalUrl');
+    }
   });
 
   it('the Auto-refresh fact reads the grant: on for a renewable grant without a bundle, off for a code grant', () => {
