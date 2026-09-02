@@ -7,6 +7,7 @@
 import type { FileRef } from '../../files';
 import type { PostmanPullEvent } from '../../import/api-pull/types';
 import type { LicenseSnapshot } from '../../licensing';
+import type { OAuth2DeviceState } from '../../oauth';
 import type { ActivityEntry, MutationEnvelope, MutatorOutcome } from '../../sync';
 import type {
   BackendSyncStatusSnapshot,
@@ -166,6 +167,14 @@ export interface BridgeBroadcastContract {
    * never emit it.
    */
   secretsStorageState: SecretsStorageState;
+  /**
+   * Fires on every Device Authorization Grant transition for one
+   * credential (started, granted, denied, expired, failed, cancelled)
+   * — the OAuth 2.0 editor's "waiting for you to approve" feed.
+   * Payload is the full state so listeners never re-query; late
+   * joiners hydrate via the `oauthDeviceStatus` RPC. `null` clears.
+   */
+  oauthDeviceState: { workspaceId: string; credentialRef: string; state: OAuth2DeviceState | null };
   /**
    * Migration pull progress — ONE message for every connected surface
    * (the migration status log S5 addendum): each `PostmanPullEvent` the run

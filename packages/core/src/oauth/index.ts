@@ -18,8 +18,10 @@
  *
  * What does NOT live here:
  *   • Actually running the flow (chrome.identity.launchWebAuthFlow,
- *     fetch) — those cross the platform boundary; see the extension's
- *     `background/modules/oauth-flow.ts` for the runner.
+ *     fetch, the device poll's timer) — those cross the platform
+ *     boundary; see the oracle's `live/request-exec/oauth-*.ts` and
+ *     the extension's `background/modules/oauth-*.ts` runners. The
+ *     device grant's poll RULES are pure and live in `./device`.
  *   • Persistence of tokens — the Vault interface (§10) in the
  *     extension's `shared/vault/` is the store.
  *
@@ -32,8 +34,10 @@
 import type { OAuth2Auth, OAuth2Flow } from '../types/request';
 import { encodeBase64, encodeBase64Bytes } from '../utils/base64';
 import { CLIENT_ASSERTION_TYPE_JWT_BEARER, JWT_BEARER_GRANT_TYPE, usesClientAssertion } from './assertion';
+import { DEVICE_CODE_GRANT_TYPE } from './device';
 
 export * from './assertion';
+export * from './device';
 
 // ── Runtime state shape ────────────────────────────────────────────
 
@@ -373,16 +377,23 @@ export function buildPasswordCredentialsTokenBody(config: OAuth2Auth, clientAsse
   return body;
 }
 
-/** Device Code authorization POST — RFC 8628 §3.1. */
-export function buildDeviceAuthorizationBody(config: OAuth2Auth): URLSearchParams {
+/**
+ * Device Code authorization POST — RFC 8628 §3.1. The client-auth leg
+ * applies here too (§3.1 defers to RFC 6749 §3.2.1: a confidential
+ * client authenticates on the device authorization request, a public
+ * one sends its `client_id`) — the same `clientAuthentication` switch
+ * as every token body.
+ */
+export function buildDeviceAuthorizationBody(config: OAuth2Auth, clientAssertion?: string): URLSearchParams {
   const body = new URLSearchParams();
-  body.set('client_id', config.clientId);
+  applyClientAuth(body, config, clientAssertion, { secretRequired: false });
   if (config.scopes.length > 0) body.set('scope', config.scopes.join(' '));
   return body;
 }
 
 /** Device Code token POST (polled) — RFC 8628 §3.4. Same
- *  `clientAuthentication` switch as the other bodies. */
+ *  `clientAuthentication` switch and extra token params as the other
+ *  bodies. */
 export function buildDeviceCodeTokenBody(input: {
   config: OAuth2Auth;
   deviceCode: string;
@@ -390,9 +401,12 @@ export function buildDeviceCodeTokenBody(input: {
 }): URLSearchParams {
   const { config, deviceCode, clientAssertion } = input;
   const body = new URLSearchParams();
-  body.set('grant_type', 'urn:ietf:params:oauth:grant-type:device_code');
+  body.set('grant_type', DEVICE_CODE_GRANT_TYPE);
   body.set('device_code', deviceCode);
   applyClientAuth(body, config, clientAssertion, { secretRequired: false });
+  for (const { key, value, sendIn } of config.extraTokenParams ?? []) {
+    if (sendIn === undefined || sendIn === 'body') body.set(key, value);
+  }
   return body;
 }
 

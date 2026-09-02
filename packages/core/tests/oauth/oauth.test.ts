@@ -333,6 +333,23 @@ describe('buildDeviceAuthorizationBody + buildDeviceCodeTokenBody', () => {
     const body = buildDeviceAuthorizationBody(makeConfig({ flow: 'device-code' }));
     expect(body.get('client_id')).toBe('client-123');
     expect(body.get('scope')).toBe('read write');
+    expect(body.has('client_secret')).toBe(false);
+  });
+
+  it('device auth request authenticates a confidential client like every token POST (RFC 8628 §3.1)', () => {
+    const inBody = buildDeviceAuthorizationBody(makeConfig({ flow: 'device-code', clientSecret: 'shh' }));
+    expect(inBody.get('client_secret')).toBe('shh');
+    const basic = buildDeviceAuthorizationBody(
+      makeConfig({ flow: 'device-code', clientSecret: 'shh', clientAuthentication: 'basic-header' }),
+    );
+    expect(basic.has('client_id')).toBe(false);
+    expect(basic.has('client_secret')).toBe(false);
+    const asserted = buildDeviceAuthorizationBody(
+      makeConfig({ flow: 'device-code', clientAuthentication: 'private-key-jwt' }),
+      'a.b.c',
+    );
+    expect(asserted.get('client_assertion')).toBe('a.b.c');
+    expect(asserted.get('client_id')).toBe('client-123');
   });
 
   it('device token poll carries the RFC 8628 grant_type + device_code', () => {
@@ -343,6 +360,21 @@ describe('buildDeviceAuthorizationBody + buildDeviceCodeTokenBody', () => {
     expect(body.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:device_code');
     expect(body.get('device_code')).toBe('device-abc');
     expect(body.get('client_id')).toBe('client-123');
+  });
+
+  it('device token poll folds the body-routed extra token params like the other bodies', () => {
+    const body = buildDeviceCodeTokenBody({
+      config: makeConfig({
+        flow: 'device-code',
+        extraTokenParams: [
+          { uid: 'x1', key: 'audience', value: 'api.openheaders.io' },
+          { uid: 'x2', key: 'X-Tenant', value: 't1', sendIn: 'header' },
+        ],
+      }),
+      deviceCode: 'device-abc',
+    });
+    expect(body.get('audience')).toBe('api.openheaders.io');
+    expect(body.has('X-Tenant')).toBe(false);
   });
 });
 

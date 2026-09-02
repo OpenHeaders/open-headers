@@ -8,7 +8,7 @@
  * the editing-scope workspace surfaces through to `putTokenBundle`.
  */
 
-import type { OAuth2TokenBundle } from '../../oauth';
+import type { OAuth2DeviceState, OAuth2TokenBundle } from '../../oauth';
 import type { OAuth2Auth } from '../../types';
 
 export interface OAuthRpc {
@@ -50,6 +50,34 @@ export interface OAuthRpc {
   oauthJwtBearer: {
     req: { config: OAuth2Auth; workspaceId?: string };
     res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
+  };
+  /**
+   * Start a Device Authorization Grant (RFC 8628) for the given config:
+   * the host POSTs the device authorization request and answers with
+   * the pending state (the user code + verification URI the editor
+   * shows), then polls the token endpoint on its own timer — the flow
+   * outlives the RPC. Transitions arrive on the `oauthDeviceState`
+   * broadcast; the grant lands in the token store like every other.
+   * A second start for the same credential supersedes the first.
+   */
+  oauthDeviceStart: {
+    req: { config: OAuth2Auth; workspaceId?: string };
+    res: { success: boolean; state?: OAuth2DeviceState; error?: string };
+  };
+  /**
+   * The device flow's current state for `credentialRef` — a late
+   * joiner's hydration (a reopened editor, the CLI's poll). `null` when
+   * nothing was started or a cancel cleared it; terminal states stay
+   * readable until the next start.
+   */
+  oauthDeviceStatus: {
+    req: { credentialRef: string; workspaceId?: string };
+    res: { state: OAuth2DeviceState | null };
+  };
+  /** Stop the poll for `credentialRef` and clear its state. */
+  oauthDeviceCancel: {
+    req: { credentialRef: string; workspaceId?: string };
+    res: { success: boolean; cancelled: boolean };
   };
   /**
    * Force a refresh of the stored token for the given config. Useful
