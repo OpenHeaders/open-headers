@@ -18,7 +18,16 @@
  * projected trees — never a leaf's stored path.
  */
 
-import type { AuthConfig, AuthPoolEntry, AuthSource, ConcreteAuthConfig } from '../types';
+import { GRPC_AUTH_TYPES, HTTP_AUTH_TYPES, MQTT_AUTH_TYPES, WEBSOCKET_AUTH_TYPES } from '../schemas/session-auth';
+import type {
+  AuthConfig,
+  AuthPoolEntry,
+  AuthSource,
+  ConcreteAuthConfig,
+  GrpcAuth,
+  MqttAuth,
+  WebSocketAuth,
+} from '../types';
 
 /** A collection or folder as the rule sees it — the pool plus the
  *  pre-pool single field it still reads. */
@@ -234,27 +243,13 @@ export function withoutDefaultAuth(carrier: Pick<AuthCarrier, 'auths' | 'default
  *  the session kinds take only what their protocol can carry. */
 export type AuthProtocolKind = 'http' | 'websocket' | 'grpc' | 'mqtt';
 
-const ALL_AUTH_TYPES: readonly ConcreteAuthConfig['type'][] = [
-  'none',
-  'basic',
-  'bearer',
-  'api-key',
-  'oauth2',
-  'aws-sigv4',
-  'edgegrid',
-  'asap',
-  'digest',
-  'oauth1',
-  'hawk',
-  'jwt',
-  'http-signature',
-];
-
+/** The per-kind type lists, shared with the session kinds' own-auth
+ *  schemas (`schemas/session-auth.ts`) — the mask IS the schema. */
 const AUTH_MASKS: Record<AuthProtocolKind, ReadonlySet<ConcreteAuthConfig['type']>> = {
-  http: new Set(ALL_AUTH_TYPES),
-  websocket: new Set(['none', 'bearer', 'basic', 'api-key', 'oauth2', 'jwt', 'aws-sigv4']),
-  grpc: new Set(['none', 'bearer', 'basic', 'api-key', 'oauth2', 'jwt']),
-  mqtt: new Set(['none', 'basic']),
+  http: new Set(HTTP_AUTH_TYPES),
+  websocket: new Set(WEBSOCKET_AUTH_TYPES),
+  grpc: new Set(GRPC_AUTH_TYPES),
+  mqtt: new Set(MQTT_AUTH_TYPES),
 };
 
 /** Whether the kind's dial carries a URL query string — an HTTP send
@@ -276,6 +271,26 @@ const KIND_HAS_QUERY_LEG: Record<AuthProtocolKind, boolean> = {
  */
 export function authMaskFor(kind: AuthProtocolKind): ReadonlySet<ConcreteAuthConfig['type']> {
   return AUTH_MASKS[kind];
+}
+
+/** The auth config type a kind's request stores as its own — the HTTP
+ *  request takes every shape; a session kind its schema's subset. */
+export interface AuthConfigByKind {
+  http: AuthConfig;
+  websocket: WebSocketAuth;
+  grpc: GrpcAuth;
+  mqtt: MqttAuth;
+}
+
+/**
+ * Whether `auth` is a shape `kind`'s request can store as its own —
+ * `inherit` or a type inside the kind's mask. The narrowing a session
+ * editor applies to the shared auth form's output (the form edits one
+ * type at a time, so a form edit never fails it); placement rules are
+ * {@link authRefusalOf}'s, not this predicate's.
+ */
+export function authFitsKind<K extends AuthProtocolKind>(kind: K, auth: AuthConfig): auth is AuthConfigByKind[K] {
+  return auth.type === 'inherit' || AUTH_MASKS[kind].has(auth.type);
 }
 
 /** Why a config the mask admits by type still cannot ride the kind —
@@ -372,8 +387,9 @@ const AUTH_KIND_NOUNS: Record<AuthProtocolKind, string> = {
  * (`disabled`) or `none` resolution — nothing would contribute. The
  * copy names the source ("Inherited OAuth 2.0 from Collection
  * 'Payments' › Admin token cannot be applied to a WebSocket
- * session.") — a request's OWN config is always inside its schema's
- * subset, so the source is an ancestor entry in practice.
+ * session."); a request's OWN config is inside its schema's type
+ * subset, so it is refused only on placement ("JWT Bearer in query
+ * cannot be applied to a gRPC call.").
  */
 export function assertAuthAllowed(kind: AuthProtocolKind, effective: EffectiveAuth): string | null {
   const { auth, source } = effective;

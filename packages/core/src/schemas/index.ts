@@ -8,6 +8,7 @@ export { DeviceTrustedCertificateSchema, DeviceTrustSchema } from './device-trus
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
 export {
+  GrpcAuthSchema,
   GrpcMetadataPairSchema,
   GrpcMethodRefSchema,
   GrpcRequestSchema,
@@ -105,8 +106,11 @@ export { describeSchemaIssues, parseEntity, parseEntityArray, schemaParseError }
 export { ProxyCaptureSettingsSchema } from './proxy-capture';
 export { ProxyCaRecordSchema, ProxyTrustChangeSchema, ProxyTrustStoreIdSchema } from './proxy-trust';
 export {
+  ApiKeyAuthSchema,
   AuthConfigSchema,
   AwsSigV4AuthSchema,
+  BasicAuthSchema,
+  BearerAuthSchema,
   BodyTypeSchema,
   ClientCertificateRefSchema,
   CredentialsModeSchema,
@@ -116,6 +120,7 @@ export {
   HTTP_VERSIONS,
   HttpMethodSchema,
   HttpVersionSchema,
+  InheritAuthSchema,
   isValidProxyUrl,
   isValidUnixSocketPath,
   MAX_CLIENT_CERTIFICATE_REF_LENGTH,
@@ -135,6 +140,7 @@ export {
   MIN_MAX_REDIRECTS,
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
+  NoneAuthSchema,
   PROXY_MODES,
   ProxyCredentialRefSchema,
   ProxyModeSchema,
@@ -206,6 +212,14 @@ export {
 } from './rule';
 export { RuleDraftSchema } from './rule-draft';
 export { ScriptPackageNameSchema, ScriptPackageSchema } from './script-package';
+export type { AuthConfigType } from './session-auth';
+export {
+  GRPC_AUTH_TYPES,
+  HTTP_AUTH_TYPES,
+  MQTT_AUTH_TYPES,
+  requestAuthSchemaFor,
+  WEBSOCKET_AUTH_TYPES,
+} from './session-auth';
 export { SPEC_FORMATS, SpecFileNameSchema, SpecFileSchema, SpecFormatSchema, SpecSchema } from './spec';
 export {
   DESKTOP_SYSTEM_PROXY_MODES,

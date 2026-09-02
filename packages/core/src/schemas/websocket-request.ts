@@ -31,6 +31,7 @@ import {
   TlsVersionSchema,
   UnixSocketPathSchema,
 } from './request';
+import { requestAuthSchemaFor, WEBSOCKET_AUTH_TYPES } from './session-auth';
 
 /**
  * Session target: full `ws://` / `wss://` URL. Kept a plain bounded
@@ -109,35 +110,22 @@ export const WebSocketMessageFormatSchema = v.picklist(['text', 'json', 'xml', '
 export const WebSocketBinaryEncodingSchema = v.picklist(['base64', 'hex']);
 
 /**
- * Session credential — deliberately the `GrpcAuthSchema` SUBSET
- * (bearer is the session-protocol idiom). The executor resolves the
- * token at Connect and injects `Authorization: Bearer <token>` into
- * the handshake headers (a node-host capability like custom header
- * rows — the browser's WebSocket constructor cannot set it, so
+ * Session credential — the request's OWN auth, any type the WebSocket
+ * mask carries (`WEBSOCKET_AUTH_TYPES`: bearer · basic · api-key in a
+ * header or the handshake URL's query · OAuth 2.0 · JWT Bearer · AWS
+ * SigV4 as the signed URL), or `inherit`, resolving through the
+ * ancestor pool (`@openheaders/core/auth-inheritance`) under the same
+ * mask. The executor mints the wire form per DIAL (a reconnect
+ * re-mints): a handshake header (a node-host capability like custom
+ * header rows — the browser's WebSocket constructor cannot set it, so
  * page-realm sessions name it in the honesty notice instead of
- * silently dropping). The `socketio` flavor ALSO lands the token as
- * the CONNECT packet's auth payload (`{"token": …}`) — in-band
- * framing that works on every host. `inherit` resolves through the
- * ancestor pool (`@openheaders/core/auth-inheritance`) under the
- * WebSocket mask — bearer · basic · api-key (header or the handshake
- * URL's query) · OAuth 2.0 · JWT Bearer · AWS SigV4 as the signed URL
- * — minted per dial (a reconnect re-mints), and carries no `disabled`
- * flag (the session kinds have no auth-row checkbox). Absent =
- * `none`. Wider own shapes (basic, OAuth2) are demand-gated.
+ * silently dropping), a query pair on the dial URL, or the signed URL
+ * itself. The `socketio` flavor ALSO lands a bearer-shaped token
+ * (bearer, OAuth 2.0, JWT) as the CONNECT packet's auth payload
+ * (`{"token": …}`) — in-band framing that works on every host.
+ * Absent = `none`.
  */
-export const WebSocketAuthSchema = v.variant('type', [
-  v.object({ type: v.literal('none') }),
-  v.object({
-    type: v.literal('bearer'),
-    /** Token text; templates welcome (`{{token}}` resolves at Connect). */
-    token: v.string(),
-  }),
-  v.object({
-    type: v.literal('inherit'),
-    /** A named ancestor pool entry; absent = the nearest default. */
-    authUid: v.optional(UidSchema),
-  }),
-]);
+export const WebSocketAuthSchema = requestAuthSchemaFor(WEBSOCKET_AUTH_TYPES);
 
 /**
  * One Events-tab row (socketio flavor only): an incoming event the

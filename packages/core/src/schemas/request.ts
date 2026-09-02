@@ -954,6 +954,32 @@ export const HttpSignatureAuthSchema = v.object({
   tag: v.optional(v.string()),
 });
 
+/** The static credential shapes — named so the session kinds' schemas
+ *  compose their masked subsets from the same elements
+ *  (`session-auth.ts`). */
+export const NoneAuthSchema = v.object({ type: v.literal('none'), disabled: AuthDisabledSchema });
+
+export const BasicAuthSchema = v.object({
+  type: v.literal('basic'),
+  username: v.string(),
+  password: v.string(),
+  disabled: AuthDisabledSchema,
+});
+
+export const BearerAuthSchema = v.object({
+  type: v.literal('bearer'),
+  token: v.string(),
+  disabled: AuthDisabledSchema,
+});
+
+export const ApiKeyAuthSchema = v.object({
+  type: v.literal('api-key'),
+  key: v.string(),
+  value: v.string(),
+  in: v.picklist(['header', 'query']),
+  disabled: AuthDisabledSchema,
+});
+
 /**
  * The auth shapes that can be put on the wire — every variant but
  * `inherit`. A collection's or folder's auth pool holds these (a pool
@@ -961,25 +987,10 @@ export const HttpSignatureAuthSchema = v.object({
  * request's `inherit` to one of them.
  */
 export const ConcreteAuthConfigSchema = v.variant('type', [
-  v.object({ type: v.literal('none'), disabled: AuthDisabledSchema }),
-  v.object({
-    type: v.literal('basic'),
-    username: v.string(),
-    password: v.string(),
-    disabled: AuthDisabledSchema,
-  }),
-  v.object({
-    type: v.literal('bearer'),
-    token: v.string(),
-    disabled: AuthDisabledSchema,
-  }),
-  v.object({
-    type: v.literal('api-key'),
-    key: v.string(),
-    value: v.string(),
-    in: v.picklist(['header', 'query']),
-    disabled: AuthDisabledSchema,
-  }),
+  NoneAuthSchema,
+  BasicAuthSchema,
+  BearerAuthSchema,
+  ApiKeyAuthSchema,
   OAuth2AuthSchema,
   AwsSigV4AuthSchema,
   EdgeGridAuthSchema,

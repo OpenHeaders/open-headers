@@ -25,6 +25,7 @@ import {
   TlsVersionSchema,
   UnixSocketPathSchema,
 } from './request';
+import { GRPC_AUTH_TYPES, requestAuthSchemaFor } from './session-auth';
 
 /**
  * gRPC target: authority (`host` or `host:port`) without a scheme —
@@ -72,31 +73,18 @@ export const GrpcMetadataPairSchema = v.object({
 });
 
 /**
- * Call credential — deliberately a SUBSET of the HTTP `AuthConfigSchema`
- * (bearer is the gRPC idiom: the token rides the `authorization`
- * metadata field). The executor injects the resolved pair at invoke
- * time, so the credential is host-neutral — an in-process and a
- * forwarded invoke inject identically. `inherit` resolves through the
- * ancestor pool (`@openheaders/core/auth-inheritance`) under the gRPC
- * mask — bearer · basic · api-key in header · OAuth 2.0 · JWT Bearer,
- * every one an `authorization` (or own-key) metadata pair — and
- * carries no `disabled` flag (the session kinds have no auth-row
- * checkbox).
- * Absent = `none`. Wider own shapes (basic, OAuth2) are demand-gated.
+ * Call credential — the request's OWN auth, any type the gRPC mask
+ * carries (`GRPC_AUTH_TYPES`: bearer · basic · api-key in header ·
+ * OAuth 2.0 · JWT Bearer, header modes only — the call has no query
+ * leg), or `inherit`, resolving through the ancestor pool
+ * (`@openheaders/core/auth-inheritance`) under the same mask. Every
+ * type lands as an `authorization` (or own-key) metadata pair the
+ * executor mints once per invoke (an OAuth 2.0 token read from the
+ * store, a JWT stamped with the invoke's clock), so the credential is
+ * host-neutral — an in-process and a forwarded invoke inject
+ * identically. Absent = `none`.
  */
-export const GrpcAuthSchema = v.variant('type', [
-  v.object({ type: v.literal('none') }),
-  v.object({
-    type: v.literal('bearer'),
-    /** Token text; templates welcome (`{{token}}` resolves at invoke). */
-    token: v.string(),
-  }),
-  v.object({
-    type: v.literal('inherit'),
-    /** A named ancestor pool entry; absent = the nearest default. */
-    authUid: v.optional(UidSchema),
-  }),
-]);
+export const GrpcAuthSchema = requestAuthSchemaFor(GRPC_AUTH_TYPES);
 
 /**
  * Binding to the Protobuf spec that feeds the method selector —

@@ -26,6 +26,7 @@ import {
   TlsCipherSuitesSchema,
   TlsVersionSchema,
 } from './request';
+import { MQTT_AUTH_TYPES, requestAuthSchemaFor } from './session-auth';
 
 /**
  * Session target: full `mqtt://` / `mqtts://` / `ws://` / `wss://` URL.
@@ -171,33 +172,18 @@ export const MqttLastWillSchema = v.object({
 });
 
 /**
- * Session credential — MQTT-native Basic auth: the username/password
- * pair the CONNECT packet carries (both protocol versions speak it;
- * the reference client's exact scope). Templates welcome — the
- * executor resolves both fields at Connect, an empty resolved field
- * reads as absent (partial configs stay saveable — the WS bearer
- * posture), and the capture never carries the credential (the
- * volatile/secret law). `inherit` resolves through the ancestor pool
- * (`@openheaders/core/auth-inheritance`) under the MQTT mask — basic
- * only — and carries no `disabled` flag (the session kinds have no
- * auth-row checkbox). Absent = `none`. 5.0 enhanced AUTH is
- * demand-gated.
+ * Session credential — the request's OWN auth under the MQTT mask
+ * (`MQTT_AUTH_TYPES`: Basic alone — the username/password pair the
+ * CONNECT packet carries, which both protocol versions speak; the
+ * reference client's exact scope), or `inherit`, resolving through
+ * the ancestor pool (`@openheaders/core/auth-inheritance`) under the
+ * same mask. Templates welcome — the executor resolves both fields at
+ * Connect, an empty resolved field reads as absent (partial configs
+ * stay saveable — the WS bearer posture), and the capture never
+ * carries the credential (the volatile/secret law). Absent = `none`.
+ * 5.0 enhanced AUTH is demand-gated.
  */
-export const MqttAuthSchema = v.variant('type', [
-  v.object({ type: v.literal('none') }),
-  v.object({
-    type: v.literal('basic'),
-    /** CONNECT User Name; templates resolve at Connect. */
-    username: v.string(),
-    /** CONNECT Password, authored as text (travels as its UTF-8 bytes). */
-    password: v.string(),
-  }),
-  v.object({
-    type: v.literal('inherit'),
-    /** A named ancestor pool entry; absent = the nearest default. */
-    authUid: v.optional(UidSchema),
-  }),
-]);
+export const MqttAuthSchema = requestAuthSchemaFor(MQTT_AUTH_TYPES);
 
 /**
  * Binding to the AsyncAPI spec that feeds compose aids — ids-only
