@@ -1,8 +1,10 @@
 /**
- * ScriptsTab — Pre-request / Post-response scripts in ONE tab with a
- * left-rail picker + shared Monaco editor. Each rail entry carries an
- * `(i)` popover explaining when that script runs and its `oh.*` API —
- * the editor pane itself stays chrome-free.
+ * ScriptsTab — every script slot in ONE tab: the slot rail
+ * (`script-editor/ScriptRail`, drawn from `script-slots.ts`) beside the
+ * shared Monaco editor. Mounted by the request editor (`scope:
+ * 'request'` — the request's own slots, flat) and by the container
+ * editor (`scope: 'container'` — every kind's slots under its kind
+ * header; the placeholder speaks to every request the container holds).
  *
  * The editor is the shared CodeEditor host (Prettier-backed
  * `editor.action.formatDocument`) with a native Monaco ghost
@@ -15,230 +17,72 @@
  * at the cursor).
  *
  * A request inside a collection reads its ancestor chain in the
- * toolbar row: "Runs after 2 scripts: Collection ‘Payments’ ·
- * Folder ‘Tokens’" for the active phase — the levels the executor
- * composes ahead of this slot, each name opening that container's
- * Scripts section. Silent when no ancestor carries a script for the
- * phase (and on the container editor's own mount, which passes none).
+ * toolbar row (`AncestorScriptsLine`) for the active slot — the levels
+ * the executor composes ahead of it. Silent on the container editor's
+ * own mount, which passes none.
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
-import type { MessageKey } from '@openheaders/i18n';
-import { Button, Divider, Tooltip, theme } from 'antd';
+import { Divider, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { EXAMPLE_CARD_POPOVER_WIDTH, type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import type { AncestorScriptLevel, AncestorScriptLevels } from '../request-container/ancestry';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { AncestorScriptLevels } from '../request-container/ancestry';
+import AncestorScriptsLine, { type OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
-import { inheritSourceLabel } from './inherited-auth';
-import { settingsExampleCard } from './SettingsRowInfo';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
+import ScriptRail from '../script-editor/ScriptRail';
+import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
+import {
+  DEFAULT_SCRIPT_SLOT,
+  SCRIPT_SLOT_BY_KIND,
+  SCRIPT_SLOT_GROUPS,
+  type ScriptSlotFlags,
+  type ScriptSlotScope,
+  type ScriptSlotValues,
+} from '../script-editor/script-slots';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import DismissLayer from '../template-input/DismissLayer';
-import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
 import SetAsVariablePopover from '../template-input/SetAsVariablePopover';
 import { useAutoSuggestionContext } from '../template-input/SuggestionContextProvider';
 
 interface ScriptsTabProps {
-  preRequestScript: string;
-  postResponseScript: string;
-  onPreRequestChange: (value: string) => void;
-  onPostResponseChange: (value: string) => void;
+  /** The mount — a request's own slots, or a container's slots for
+   *  every request it holds (grouped rail, container placeholders). */
+  scope: ScriptSlotScope;
+  scripts: ScriptSlotValues;
+  onScriptChange: (kind: ScriptKind, value: string) => void;
+  /** Per-slot unsaved flags for the rail dots (see section-unsaved.ts). */
+  unsaved?: ScriptSlotFlags;
   /** Editing-scope workspace — target for "Save to Package Library". */
   workspaceId?: string | null;
   /** Open the Package Library tab (Packages popover footer). */
   onOpenPackageLibrary?: () => void;
-  /** Per-hook unsaved flags for the rail dots (see section-unsaved.ts). */
-  preRequestUnsaved?: boolean;
-  postResponseUnsaved?: boolean;
   /** The ancestor levels whose scripts run ahead of this request's, per
-   *  phase — the "Runs after …" line. Absent on container mounts. */
+   *  slot — the "Runs after …" line. Absent on container mounts. */
   ancestorScripts?: AncestorScriptLevels;
   /** Opens a container's Scripts section — the line's level links. */
-  onOpenContainerScripts?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  onOpenContainerScripts?: OpenContainerScripts;
 }
 
-// `oh.*` API labels are code — only the descriptions localize.
-// Both popovers lead with the Settings tab's shared example card: the
-// scripts bracket that same send, so the pre script lights the request
-// line it may rewrite and the post script lights the outcome it tests —
-// both alongside the scripts slot they execute in.
-const scriptInfo = (kind: ScriptKind, t: Translate): InfoPopoverContent =>
-  kind === 'pre-request'
-    ? {
-        title: t('workbench.editors.request.scripts.preInfoTitle'),
-        kicker: t('workbench.editors.request.tab.scripts'),
-        diagram: settingsExampleCard(['url', 'scripts']),
-        maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
-        summary: t('workbench.editors.request.scripts.preInfoSummary'),
-        sections: [
-          {
-            heading: t('workbench.editors.request.scripts.apiHeading'),
-            items: [
-              { label: 'oh.setHeader(name, value)', desc: t('workbench.editors.request.scripts.apiSetHeader') },
-              {
-                label: 'oh.setQueryParam(name, value)',
-                desc: t('workbench.editors.request.scripts.apiSetQueryParam'),
-              },
-              { label: 'oh.setUrl(url)', desc: t('workbench.editors.request.scripts.apiSetUrl') },
-              { label: 'oh.setBody(body)', desc: t('workbench.editors.request.scripts.apiSetBody') },
-              { label: 'oh.require(name)', desc: t('workbench.editors.request.scripts.apiRequire') },
-            ],
-          },
-        ],
-      }
-    : {
-        title: t('workbench.editors.request.scripts.postInfoTitle'),
-        kicker: t('workbench.editors.request.tab.scripts'),
-        diagram: settingsExampleCard(['chain', 'scripts']),
-        maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
-        summary: t('workbench.editors.request.scripts.postInfoSummary'),
-        sections: [
-          {
-            heading: t('workbench.editors.request.scripts.apiHeading'),
-            items: [
-              { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
-              { label: 'oh.require(name)', desc: t('workbench.editors.request.scripts.apiRequire') },
-            ],
-          },
-        ],
-      };
-
-const SCRIPT_PLACEHOLDER_KEY: Record<ScriptKind, MessageKey> = {
-  'pre-request': 'workbench.editors.request.scripts.prePlaceholder',
-  'post-response': 'workbench.editors.request.scripts.postPlaceholder',
-};
-
-// Row is a `role="button"` div (not a real <button>) so the
-// InfoTrigger — itself a <button> — can sit inline right after the
-// label without nesting interactive elements. Module-scope on purpose:
-// defined inside ScriptsTab its component type would change identity
-// every render, remounting both rows — and closing an open (i)
-// popover on any re-render of the tab.
-const Rail: React.FC<{
-  kind: ScriptKind;
-  label: string;
-  selected: boolean;
-  hasScript: boolean;
-  /** This hook's script differs from the saved request — the dot
-   *  renders in the sidebar/tab-bar dirty salmon (and shows even on
-   *  an emptied-but-unsaved script), matching the tab-label tones. */
-  unsaved?: boolean;
-  onSelect: (kind: ScriptKind) => void;
-}> = ({ kind, label, selected, hasScript, unsaved, onSelect }) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(kind)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(kind);
-        }
-      }}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '8px 10px',
-        background: selected ? token.colorFillTertiary : 'transparent',
-        borderRadius: 4,
-        cursor: 'pointer',
-        color: token.colorText,
-        fontSize: 13,
-      }}
-    >
-      <span>{label}</span>
-      <InfoTrigger content={scriptInfo(kind, t)} />
-      <span style={{ flex: 1 }} />
-      {(unsaved === true || hasScript) && (
-        <span
-          data-testid={unsaved === true ? 'oh-script-unsaved-dot' : undefined}
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: unsaved === true ? '#ff7875' : token.colorPrimary,
-            flexShrink: 0,
-          }}
-        />
-      )}
-    </div>
-  );
-};
-
-// The active phase's ancestor line — a count sentence and one link per
-// level, outer → inner (the order they run in). A `Text`-free span so
-// the links sit inline with the sentence.
-const AncestorScriptsLine: React.FC<{
-  levels: readonly AncestorScriptLevel[];
-  onOpen?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
-}> = ({ levels, onOpen }) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  if (levels.length === 0) return null;
-  return (
-    <span
-      data-testid="oh-scripts-runs-after"
-      style={{
-        flex: 1,
-        minWidth: 0,
-        display: 'inline-flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        columnGap: 4,
-        fontSize: 12,
-        color: token.colorTextSecondary,
-      }}
-    >
-      <span>
-        {levels.length === 1
-          ? t('workbench.editors.request.scripts.runsAfterOne')
-          : t('workbench.editors.request.scripts.runsAfter', { count: levels.length })}
-      </span>
-      {levels.map((level, i) => (
-        <span key={level.uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          {i > 0 && <span aria-hidden>·</span>}
-          <Button
-            type="link"
-            size="small"
-            data-testid="oh-scripts-ancestor-link"
-            style={{ padding: 0, height: 'auto', fontSize: 12 }}
-            disabled={onOpen === undefined}
-            onClick={() => onOpen?.(level.kind, level.uid, level.name)}
-          >
-            {inheritSourceLabel(t, level)}
-          </Button>
-        </span>
-      ))}
-    </span>
-  );
-};
-
 const ScriptsTab: React.FC<ScriptsTabProps> = ({
-  preRequestScript,
-  postResponseScript,
-  onPreRequestChange,
-  onPostResponseChange,
+  scope,
+  scripts,
+  onScriptChange,
+  unsaved,
   workspaceId = null,
   onOpenPackageLibrary,
-  preRequestUnsaved,
-  postResponseUnsaved,
   ancestorScripts,
   onOpenContainerScripts,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const [active, setActive] = useState<ScriptKind>('pre-request');
+  const [active, setActive] = useState<ScriptKind>(DEFAULT_SCRIPT_SLOT);
   const ancestorLevels =
     ancestorScripts === undefined ? [] : active === 'pre-request' ? ancestorScripts.pre : ancestorScripts.post;
   // Script-editor wrap — a per-pane override of the global
@@ -265,11 +109,8 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
     setAnchorNode(null);
   };
 
-  const value = active === 'pre-request' ? preRequestScript : postResponseScript;
-  const onChange = (v: string) => {
-    if (active === 'pre-request') onPreRequestChange(v);
-    else onPostResponseChange(v);
-  };
+  const value = scripts[active];
+  const onChange = (v: string) => onScriptChange(active, v);
 
   // Insert at the cursor, always starting on its own line: if the caret
   // sits mid-line the snippet gets a leading newline, and a trailing one
@@ -298,34 +139,14 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
 
   return (
     <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 120 }}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          width: 150,
-          position: 'sticky',
-          top: 0,
-          alignSelf: 'start',
-        }}
-      >
-        <Rail
-          kind="pre-request"
-          label={t('workbench.editors.request.scripts.preRequest')}
-          selected={active === 'pre-request'}
-          hasScript={preRequestScript.trim() !== ''}
-          unsaved={preRequestUnsaved}
-          onSelect={setActive}
-        />
-        <Rail
-          kind="post-response"
-          label={t('workbench.editors.request.scripts.postResponse')}
-          selected={active === 'post-response'}
-          hasScript={postResponseScript.trim() !== ''}
-          unsaved={postResponseUnsaved}
-          onSelect={setActive}
-        />
-      </div>
+      <ScriptRail
+        groups={SCRIPT_SLOT_GROUPS}
+        grouped={scope === 'container'}
+        active={active}
+        scripts={scripts}
+        unsaved={unsaved}
+        onSelect={setActive}
+      />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, minHeight: 0 }}>
         {/* Toolbar row ABOVE the editor (labelled variant of the shared
             cluster) — keeps the buttons out of the buffer so they never
@@ -359,7 +180,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
               actions="external"
               actionsRef={editorActionsRef}
               wordWrapOverride={wrapScript ? 'on' : 'off'}
-              placeholder={t(SCRIPT_PLACEHOLDER_KEY[active])}
+              placeholder={t(SCRIPT_SLOT_BY_KIND[active].placeholderKey[scope])}
               onEditorMount={(editor) => {
                 editorRef.current = editor;
                 installMenuIconInjector(editor, t('workbench.editors.scriptEditor.saveToPackage'));

@@ -37,14 +37,6 @@ export const workbenchEditors = {
   'workbench.editors.grid.suggestionValueAria': 'Valeur de {key}',
 
   // ── Ancestor scripts editor (collection/folder script slots) ───────
-  'workbench.editors.ancestorScripts.descriptionCollection':
-    "Ces scripts s'exécutent pour chaque requête de cette collection — le script pré-requête avant chaque envoi, " +
-    "le script post-réponse après chaque réponse. Ils s'exécutent en premier : scripts de collection, puis " +
-    'scripts de dossier, puis les scripts propres à la requête.',
-  'workbench.editors.ancestorScripts.descriptionFolder':
-    "Ces scripts s'exécutent pour chaque requête de ce dossier — le script pré-requête avant chaque envoi, le " +
-    "script post-réponse après chaque réponse. Ils s'exécutent après les scripts de la collection et avant les " +
-    'scripts propres à la requête.',
   'workbench.editors.ancestorScripts.notFoundCollection': 'Collection de requêtes introuvable.',
   'workbench.editors.ancestorScripts.notFoundFolder': 'Dossier introuvable.',
   'workbench.editors.ancestorScripts.saveFailed': "Impossible d'enregistrer les scripts.",

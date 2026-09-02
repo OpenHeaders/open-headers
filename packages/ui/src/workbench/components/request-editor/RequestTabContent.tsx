@@ -7,6 +7,7 @@
 import type { Collection } from '@openheaders/core/types';
 import type React from 'react';
 import type { AncestorScriptLevels, RequestAncestry } from '../request-container/ancestry';
+import { scriptSlotRecordOf, scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import AuthorizationTab from './AuthorizationTab';
 import type { InheritedAuthAttribution } from './inherited-auth';
 import BodyTab from './BodyTab';
@@ -125,14 +126,12 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
     case 'scripts':
       return (
         <ScriptsTab
-          preRequestScript={draft.preRequestScript ?? ''}
-          postResponseScript={draft.postResponseScript ?? ''}
-          onPreRequestChange={(preRequestScript) => setDraft((d) => ({ ...d, preRequestScript }))}
-          onPostResponseChange={(postResponseScript) => setDraft((d) => ({ ...d, postResponseScript }))}
+          scope="request"
+          scripts={scriptSlotValuesOf(draft)}
+          onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+          unsaved={unsavedSections === undefined ? undefined : scriptSlotRecordOf(unsavedSections, false)}
           workspaceId={workspaceId}
           onOpenPackageLibrary={onOpenPackageLibrary}
-          preRequestUnsaved={unsavedSections?.preRequestScript}
-          postResponseUnsaved={unsavedSections?.postResponseScript}
           ancestorScripts={ancestorScripts}
           onOpenContainerScripts={onOpenContainerScripts}
         />

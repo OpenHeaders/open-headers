@@ -45,10 +45,6 @@ export const workbenchEditors = {
   'workbench.editors.grid.suggestionValueAria': '{key} 的值',
 
   // ── Ancestor scripts editor (collection/folder script slots) ───────
-  'workbench.editors.ancestorScripts.descriptionCollection':
-    '这些脚本对此集合中的每个请求运行——请求前脚本在每次发送之前，响应后脚本在每次响应之后。它们最先运行：先是集合脚本，然后是文件夹脚本，最后是请求自己的脚本。',
-  'workbench.editors.ancestorScripts.descriptionFolder':
-    '这些脚本对此文件夹中的每个请求运行——请求前脚本在每次发送之前，响应后脚本在每次响应之后。它们在集合的脚本之后、请求自己的脚本之前运行。',
   'workbench.editors.ancestorScripts.notFoundCollection': '未找到请求集合。',
   'workbench.editors.ancestorScripts.notFoundFolder': '未找到文件夹。',
   'workbench.editors.ancestorScripts.saveFailed': '无法保存脚本。',

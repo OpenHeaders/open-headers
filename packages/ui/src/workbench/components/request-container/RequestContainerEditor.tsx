@@ -62,6 +62,12 @@ import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import VariableTable from '../panels/VariableTable';
 import { TabCount, TabDot } from '../request-editor/request-tab-items';
 import ScriptsTab from '../request-editor/ScriptsTab';
+import {
+  SCRIPT_KINDS,
+  SCRIPT_SLOT_FIELD,
+  type ScriptSlotValues,
+  scriptSlotValuesOf,
+} from '../script-editor/script-slots';
 import EditorHeader from '../shell/EditorHeader';
 import { SuggestionContextProvider } from '../template-input';
 import { useCollectionVariableConflictsUi } from '../variables/use-collection-variable-conflicts-ui';
@@ -126,8 +132,7 @@ interface ContainerEntity {
 
 interface ContainerDraft {
   pool: AuthPoolDraft;
-  pre: string;
-  post: string;
+  scripts: ScriptSlotValues;
   variables: Variable[];
 }
 
@@ -145,8 +150,7 @@ function poolDraftOf(entity: ContainerEntity | null): AuthPoolDraft {
 function draftOf(entity: ContainerEntity | null): ContainerDraft {
   return {
     pool: poolDraftOf(entity),
-    pre: entity?.preRequestScript ?? '',
-    post: entity?.postResponseScript ?? '',
+    scripts: scriptSlotValuesOf(entity ?? {}),
     variables: entity?.variables ?? EMPTY_VARS,
   };
 }
@@ -251,7 +255,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
 
   const saved = useMemo(() => draftOf(entity), [entity]);
   const authUnsaved = stableStringify(draft.pool) !== stableStringify(saved.pool);
-  const scriptsUnsaved = draft.pre !== saved.pre || draft.post !== saved.post;
+  const scriptsUnsaved = stableStringify(draft.scripts) !== stableStringify(saved.scripts);
   const variablesUnsaved = stableStringify(draft.variables) !== stableStringify(saved.variables);
 
   const handleSave = useCallback(() => {
@@ -297,10 +301,10 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         failed(result, 'auth');
       }
       if (scriptsUnsaved) {
-        const updates = [
-          { path: 'preRequestScript' as const, value: slotValue(draft.pre) },
-          { path: 'postResponseScript' as const, value: slotValue(draft.post) },
-        ];
+        const updates = SCRIPT_KINDS.map((slot) => ({
+          path: SCRIPT_SLOT_FIELD[slot],
+          value: slotValue(draft.scripts[slot]),
+        }));
         const result =
           kind === 'collection'
             ? await applyRequestCollectionSetScripts({ collectionUid: entity.uid, updates }, opts)
@@ -351,7 +355,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
 
   const localInstanceId = useLocalInstanceId();
 
-  const scriptsMark = (draft.pre.trim() ? 1 : 0) + (draft.post.trim() ? 1 : 0);
+  const scriptsMark = SCRIPT_KINDS.filter((slot) => draft.scripts[slot].trim()).length;
   const variablesMark = draft.variables.filter((v) => v.name.trim()).length;
   const sectionItems = useMemo(
     () => [
@@ -451,18 +455,12 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         );
       case 'scripts':
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24, gap: 16 }}>
-            <Text type="secondary">
-              {kind === 'collection'
-                ? t('workbench.editors.ancestorScripts.descriptionCollection')
-                : t('workbench.editors.ancestorScripts.descriptionFolder')}
-            </Text>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24 }}>
             <SuggestionContextProvider value={{ collectionId: suggestionCollectionId }}>
               <ScriptsTab
-                preRequestScript={draft.pre}
-                postResponseScript={draft.post}
-                onPreRequestChange={(v) => setDraft((d) => ({ ...d, pre: v }))}
-                onPostResponseChange={(v) => setDraft((d) => ({ ...d, post: v }))}
+                scope="container"
+                scripts={draft.scripts}
+                onScriptChange={(slot, value) => setDraft((d) => ({ ...d, scripts: { ...d.scripts, [slot]: value } }))}
                 workspaceId={workspaceId}
                 onOpenPackageLibrary={onOpenPackageLibrary}
               />

@@ -381,10 +381,10 @@ export class WorkbenchPage {
 
   /** Pick which script the Scripts tab's shared editor edits. The rail
    *  row's accessible name starts with the label but also folds in its
-   *  inline InfoTrigger ("Pre-request About Pre-request script"), so
+   *  inline InfoTrigger ("Before request About Before request script"), so
    *  match on the prefix — the ⓘ button itself starts with "About" and
    *  can't collide. */
-  async selectScriptRail(label: 'Pre-request' | 'Post-response'): Promise<void> {
+  async selectScriptRail(label: 'Before request' | 'After response'): Promise<void> {
     await this.page
       .getByRole('button', { name: new RegExp(`^${label}`) })
       .filter({ visible: true })

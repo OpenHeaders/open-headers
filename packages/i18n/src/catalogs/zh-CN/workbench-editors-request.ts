@@ -711,7 +711,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.discoveryPickPkce': 'PKCE {value}',
   'workbench.editors.request.oauth.discoveryPickDpop': 'DPoP 算法 {value}',
   'workbench.editors.request.oauth.discoveryPickAssertionAlg': '断言算法 {value}',
-  'workbench.editors.request.oauth.discoveryAudience': '颁发者标识为 {issuer} — 部分提供方要求以它作为断言 Audience，而不是访问令牌 URL',
+  'workbench.editors.request.oauth.discoveryAudience':
+    '颁发者标识为 {issuer} — 部分提供方要求以它作为断言 Audience，而不是访问令牌 URL',
   'workbench.editors.request.oauth.discoveryScopes': '提供的 Scope：{supported} — 已在 Scope 行中建议',
 
   // ── Body tab (encoding radios + format labels stay raw) ────────────
@@ -777,6 +778,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiTest': '注册断言',
   'workbench.editors.request.scripts.runsAfter': '在 {count} 个脚本之后运行：',
   'workbench.editors.request.scripts.runsAfterOne': '在 1 个脚本之后运行：',
+  'workbench.editors.request.scripts.prePlaceholderContainer': '编写在每个 HTTP 请求发送前运行的脚本。',
+  'workbench.editors.request.scripts.postPlaceholderContainer': '编写在每个 HTTP 响应结束时运行的脚本。',
   'workbench.editors.request.scripts.prePlaceholder': '用 JavaScript 在发送前修改此请求。',
   'workbench.editors.request.scripts.postPlaceholder': '用 JavaScript 在响应到达后测试并读取它。',
 

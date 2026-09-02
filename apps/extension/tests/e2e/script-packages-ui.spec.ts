@@ -75,7 +75,7 @@ interface Echo {
 async function openScripts(seed: string): Promise<void> {
   await workbench.openRequest(uids.get(seed)!);
   await workbench.openEditorTab(/Scripts/);
-  await workbench.selectScriptRail('Pre-request');
+  await workbench.selectScriptRail('Before request');
 }
 
 function squash(text: string): string {
@@ -105,10 +105,7 @@ test.describe('Package Library', () => {
 
   test('oh.require exports run in a pre-request script on the wire', async () => {
     await openScripts('pkg-wire');
-    await workbench.fillMonaco(
-      0,
-      `const utils = oh.require('utils'); oh.setHeader('X-Sum', String(utils.add(2, 3)));`,
-    );
+    await workbench.fillMonaco(0, `const utils = oh.require('utils'); oh.setHeader('X-Sum', String(utils.add(2, 3)));`);
     await workbench.send();
     const echo = await workbench.responseEcho<Echo>();
     expect(echo.headers['x-sum']).toBe('5');
@@ -172,9 +169,7 @@ test.describe('Script editor selection context menu', () => {
     const resolved = await workbench.rpc<{
       workspaceVariables?: { variables?: Array<{ name: string; value: string }> };
     }>('getWorkspaceVariables');
-    expect(resolved.workspaceVariables?.variables?.find((v) => v.name === 'pkg_ctx_var')?.value).toBe(
-      'token-abc-123',
-    );
+    expect(resolved.workspaceVariables?.variables?.find((v) => v.name === 'pkg_ctx_var')?.value).toBe('token-abc-123');
   });
 
   test('EncodeURIComponent rewrites the selection in place', async () => {
@@ -197,9 +192,7 @@ test.describe('TemplateInput selection context menu', () => {
       await expect(workbench.inputContextMenuItem(label)).toBeVisible();
     }
     await workbench.inputContextMenuItem('EncodeURIComponent').click();
-    await expect
-      .poll(async () => (await url.textContent()) ?? '')
-      .toBe(encodeURIComponent(`${API_ECHO_URL}`));
+    await expect.poll(async () => (await url.textContent()) ?? '').toBe(encodeURIComponent(`${API_ECHO_URL}`));
   });
 
   test('Set as variable from an input opens the create popover', async () => {

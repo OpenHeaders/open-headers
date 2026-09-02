@@ -810,12 +810,12 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.docs.empty': 'Nothing documented yet — switch to Write to add notes.',
 
   // ── Scripts tab (oh.* API labels + Monaco menu plane stay raw) ─────
-  'workbench.editors.request.scripts.preRequest': 'Pre-request',
-  'workbench.editors.request.scripts.postResponse': 'Post-response',
-  'workbench.editors.request.scripts.preInfoTitle': 'Pre-request script',
+  'workbench.editors.request.scripts.preRequest': 'Before request',
+  'workbench.editors.request.scripts.postResponse': 'After response',
+  'workbench.editors.request.scripts.preInfoTitle': 'Before request script',
   'workbench.editors.request.scripts.preInfoSummary':
     'Runs in a sandboxed iframe before the request is sent. Mutate the outgoing request with the oh API:',
-  'workbench.editors.request.scripts.postInfoTitle': 'Post-response script',
+  'workbench.editors.request.scripts.postInfoTitle': 'After response script',
   'workbench.editors.request.scripts.postInfoSummary':
     'Runs in a sandboxed iframe after the response arrives. Assertion results land in the Response panel:',
   'workbench.editors.request.scripts.apiHeading': 'API',
@@ -827,6 +827,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiTest': 'register an assertion',
   'workbench.editors.request.scripts.runsAfter': 'Runs after {count} scripts:',
   'workbench.editors.request.scripts.runsAfterOne': 'Runs after 1 script:',
+  'workbench.editors.request.scripts.prePlaceholderContainer':
+    'Write scripts to be run before each HTTP request is sent.',
+  'workbench.editors.request.scripts.postPlaceholderContainer':
+    'Write scripts to be run at the end of each HTTP response.',
   'workbench.editors.request.scripts.prePlaceholder': 'Use JavaScript to modify this request before it is sent.',
   'workbench.editors.request.scripts.postPlaceholder':
     'Use JavaScript to test and read this response after it arrives.',
@@ -1429,8 +1433,8 @@ export const workbenchEditorsRequest = {
   //    stay raw; assertion durations are diagnostic timing — exempt) ──
   'workbench.editors.request.response.assertions.pass': 'PASS',
   'workbench.editors.request.response.assertions.fail': 'FAIL',
-  'workbench.editors.request.response.console.preRequest': 'Pre-request',
-  'workbench.editors.request.response.console.postResponse': 'Post-response',
+  'workbench.editors.request.response.console.preRequest': 'Before request',
+  'workbench.editors.request.response.console.postResponse': 'After response',
 
   // ── Response empty / error states (executor error text stays raw) ──
   'workbench.editors.request.response.empty.sending': 'Sending request…',

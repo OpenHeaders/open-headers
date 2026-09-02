@@ -88,7 +88,7 @@ test.describe('Request editor — scripts written in the DOM run on Send', () =>
   test('a passing post-response assertion shows in the Assertions tab', async () => {
     await workbench.openRequest(uids.get('scripts-ui-pass')!);
     await workbench.openEditorTab(/Scripts/);
-    await workbench.selectScriptRail('Post-response');
+    await workbench.selectScriptRail('After response');
     await workbench.fillMonaco(0, `oh.test('status ok', () => oh.expect(oh.response.status).toBe(200));`);
     await workbench.send();
     await workbench.responseStatusText();
@@ -100,7 +100,7 @@ test.describe('Request editor — scripts written in the DOM run on Send', () =>
   test('a failing post-response assertion shows in the Assertions tab', async () => {
     await workbench.openRequest(uids.get('scripts-ui-fail')!);
     await workbench.openEditorTab(/Scripts/);
-    await workbench.selectScriptRail('Post-response');
+    await workbench.selectScriptRail('After response');
     await workbench.fillMonaco(0, `oh.test('always fails', () => oh.expect(1).toBe(2));`);
     await workbench.send();
     await workbench.responseStatusText();

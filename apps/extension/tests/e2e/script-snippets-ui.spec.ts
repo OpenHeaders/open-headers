@@ -103,7 +103,7 @@ interface Echo {
 /** Open a seeded request on its Scripts tab and pin the rail — always
  *  clicked, because rail state survives across tests that reuse a
  *  request (a prior test may have left it on the other script). */
-async function openScripts(seed: string, rail: 'Pre-request' | 'Post-response' = 'Pre-request'): Promise<void> {
+async function openScripts(seed: string, rail: 'Before request' | 'After response' = 'Before request'): Promise<void> {
   await workbench.openRequest(uids.get(seed)!);
   await workbench.openEditorTab(/Scripts/);
   await workbench.selectScriptRail(rail);
@@ -132,7 +132,7 @@ test.describe('Scripts tab — snippets popover UI', () => {
 
     // Switching rails is an outside click — it closes the popover, so
     // reopen it on the post-response rail.
-    await workbench.selectScriptRail('Post-response');
+    await workbench.selectScriptRail('After response');
     await workbench.toggleScriptSnippets();
     for (const group of getScriptSnippetGroups('post-response')) {
       await expect(popover.getByText(t(group.labelKey), { exact: true })).toBeVisible();
@@ -312,7 +312,7 @@ test.describe('Workflow / variable / vault snippets', () => {
 
 test.describe('Post-response test snippets surface in the Assertions tab', () => {
   test('Status code is 200 passes against the echo', async () => {
-    await openScripts('snip-t-status', 'Post-response');
+    await openScripts('snip-t-status', 'After response');
     await workbench.toggleScriptSnippets();
     await workbench.insertScriptSnippet('Status code is 200');
     await workbench.toggleScriptSnippets();
@@ -324,7 +324,7 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
   });
 
   test('Response header check passes against the echo JSON', async () => {
-    await openScripts('snip-t-header', 'Post-response');
+    await openScripts('snip-t-header', 'After response');
     await workbench.toggleScriptSnippets();
     await workbench.insertScriptSnippet('Response header check');
     await workbench.toggleScriptSnippets();
@@ -336,7 +336,7 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
   });
 
   test('Response time is below 200 ms passes against the local echo', async () => {
-    await openScripts('snip-t-time', 'Post-response');
+    await openScripts('snip-t-time', 'After response');
     await workbench.toggleScriptSnippets();
     await workbench.insertScriptSnippet('Response time is below 200 ms');
     await workbench.toggleScriptSnippets();
@@ -348,7 +348,7 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
   });
 
   test('Response body contains a string registers its (placeholder) failure', async () => {
-    await openScripts('snip-t-contains', 'Post-response');
+    await openScripts('snip-t-contains', 'After response');
     await workbench.toggleScriptSnippets();
     await workbench.insertScriptSnippet('Response body contains a string');
     await workbench.toggleScriptSnippets();
@@ -360,7 +360,7 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
   });
 
   test('Response body equals a string registers its (placeholder) failure', async () => {
-    await openScripts('snip-t-equals', 'Post-response');
+    await openScripts('snip-t-equals', 'After response');
     await workbench.toggleScriptSnippets();
     await workbench.insertScriptSnippet('Response body equals a string');
     await workbench.toggleScriptSnippets();
@@ -372,7 +372,7 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
   });
 
   test('Response body JSON value check parses the echo and registers its (placeholder) failure', async () => {
-    await openScripts('snip-t-json', 'Post-response');
+    await openScripts('snip-t-json', 'After response');
     await workbench.toggleScriptSnippets();
     await workbench.insertScriptSnippet('Response body JSON value check');
     await workbench.toggleScriptSnippets();
@@ -384,7 +384,7 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
   });
 
   test('a response value saved to a variable reads back (adapted to the echo shape)', async () => {
-    await openScripts('snip-save-val', 'Post-response');
+    await openScripts('snip-save-val', 'After response');
     await workbench.fillMonaco(
       0,
       `const data = JSON.parse(oh.response.body); await oh.variables.set('auth_token', data.method); console.log('saved-token', await oh.variables.get('auth_token'));`,

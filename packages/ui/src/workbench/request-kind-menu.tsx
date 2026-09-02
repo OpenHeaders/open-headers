@@ -31,15 +31,30 @@ export interface RequestKindMenuItem {
   labelKey: MessageKey;
 }
 
-/** All request kinds with their menu metadata. Array order is the
- *  definitive display order across every request create menu. */
-export const ALL_REQUEST_KINDS: RequestKindMenuItem[] = [
-  { key: 'http', code: 'HTTP', labelKey: 'shared.requestKinds.http.label' },
-  { key: 'grpc', code: 'gRPC', labelKey: 'shared.requestKinds.grpc.label' },
-  { key: 'websocket', code: 'WS', labelKey: 'shared.requestKinds.websocket.label' },
-  { key: 'socketio', code: 'S.IO', labelKey: 'shared.requestKinds.socketio.label' },
-  { key: 'mqtt', code: 'MQTT', labelKey: 'shared.requestKinds.mqtt.label' },
-];
+/** Each kind's badge code and label — the Record is exhaustive over
+ *  `RequestKind`, so a new kind cannot ship without its metadata. */
+const REQUEST_KIND_META: Readonly<Record<RequestKind, Omit<RequestKindMenuItem, 'key'>>> = {
+  http: { code: 'HTTP', labelKey: 'shared.requestKinds.http.label' },
+  grpc: { code: 'gRPC', labelKey: 'shared.requestKinds.grpc.label' },
+  websocket: { code: 'WS', labelKey: 'shared.requestKinds.websocket.label' },
+  socketio: { code: 'S.IO', labelKey: 'shared.requestKinds.socketio.label' },
+  mqtt: { code: 'MQTT', labelKey: 'shared.requestKinds.mqtt.label' },
+};
+
+/** The definitive display order across every request create menu. */
+const REQUEST_KIND_ORDER: readonly RequestKind[] = ['http', 'grpc', 'websocket', 'socketio', 'mqtt'];
+
+/** All request kinds with their menu metadata, in display order. */
+export const ALL_REQUEST_KINDS: RequestKindMenuItem[] = REQUEST_KIND_ORDER.map((key) => ({
+  key,
+  ...REQUEST_KIND_META[key],
+}));
+
+/** One kind's metadata — what a surface drawing a kind header (the
+ *  Scripts rail's groups) reads. */
+export function requestKindMeta(kind: RequestKind): RequestKindMenuItem {
+  return { key: kind, ...REQUEST_KIND_META[kind] };
+}
 
 /** The four-character kind codes sit tighter than the rule codes. */
 const REQUEST_KIND_BADGE_WIDTH = 36;
