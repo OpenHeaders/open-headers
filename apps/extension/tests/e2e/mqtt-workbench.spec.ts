@@ -60,6 +60,11 @@
  *       CONNECT packet and opens the session; a wrong password settles
  *       as the verbatim CONNACK refusal (Bad user name or password,
  *       code 4).
+ *   E12 session scripts: a Before connect script typed in the Scripts
+ *       tab runs in-page at the dial on the page realm's own script
+ *       host — the CONNECT carries its client id (the Connection tab
+ *       reads it back), the timeline mark, the Scripts tag and the
+ *       pane's Scripts tab console land.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -711,4 +716,41 @@ test('E11 — the probe identity opens the session; a wrong password refuses wit
   await expect(page.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
     'Bad user name or password (code 4)',
   );
+});
+
+// ── E12: a Before connect script runs in-page at the dial ───────────
+
+test('E12 — a Before connect script runs in-page at the dial: the CONNECT carries its client id, the mark and the console land', async () => {
+  // E11 left the wrong password on the draft — restore the probe
+  // identity so the CONNECT opens.
+  await page.getByTestId('oh-auth-basic-password').filter({ visible: true }).first().fill('probe-secret');
+  // The Scripts tab draws the MQTT slots flat; the script types into
+  // the shared editor (one line — Monaco's auto-indent law).
+  await page.getByRole('tab', { name: 'Scripts', exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('oh-script-rail').filter({ visible: true }).first()).toContainText('Before publish');
+  await workbench.selectScriptRail('Before connect');
+  await workbench.fillMonaco(0, `oh.setClientId('page-scripted'); console.log('dial', oh.connect.attempt);`);
+  await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
+
+  await connectAndAwaitOpen();
+
+  // The mark rode the timeline; the tag counts the one run.
+  const mark = page.getByTestId('mqtt-timeline-script-row').filter({ visible: true }).first();
+  await mark.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(mark).toContainText('Before connect');
+  await expect(page.getByTestId('mqtt-session-scripts-tag').filter({ visible: true }).first()).toHaveText(
+    'Scripts · 1',
+  );
+  // The CONNECT the page realm sent carried the scripted client id —
+  // the Connection tab reads it back.
+  const pane = page.getByTestId('mqtt-session-pane').filter({ visible: true }).first();
+  await pane.getByRole('tab', { name: 'Connection', exact: true }).click();
+  await expect(page.getByTestId('mqtt-connection-tab').filter({ visible: true }).first()).toContainText(
+    'page-scripted',
+  );
+  await pane.getByRole('tab', { name: 'Scripts', exact: true }).click();
+  await expect(page.getByTestId('mqtt-script-console-block').filter({ visible: true }).first()).toContainText('dial 0');
+  await pane.getByRole('tab', { name: 'Timeline', exact: true }).click();
+
+  await disconnectAndAwaitClose();
 });

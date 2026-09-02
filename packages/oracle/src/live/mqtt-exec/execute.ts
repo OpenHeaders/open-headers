@@ -75,6 +75,14 @@ import {
   mqttReasonCodeName,
 } from '@openheaders/core/mqtt';
 import type {
+  MqttConnectSnapshot,
+  MqttConnectSubscription,
+  MqttOutboundMessageSnapshot,
+  MqttScriptKind,
+  MqttScriptMessageProperties,
+  SessionHeader,
+} from '@openheaders/core/scripts';
+import type {
   ExecutedMqttEnd,
   ExecutedMqttEvent,
   ExecutedMqttSnapshot,
@@ -86,17 +94,26 @@ import type {
   TrustCertificateErrorHint,
   Vault,
 } from '@openheaders/core/types';
-import { decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
+import { decodeBase64Bytes, decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
 import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import { buildResolver } from '../request-exec/resolver-scope';
+import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
+import type { SessionScriptHost } from '../request-exec/script-hooks';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { hasSessionScriptChains } from '../request-exec/session-script-plane';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
-import { createMqttStreamEmitter, registerActiveMqttSession } from './session-plane';
+import { createMqttScriptPlane, type MqttScriptChains } from './script-plane';
+import {
+  createMqttStreamEmitter,
+  type MqttPublishOrigin,
+  type MqttPublishResult,
+  registerActiveMqttSession,
+} from './session-plane';
 import { type MqttByteTransport, type MqttStreamWriter, MqttTransportError } from './transport';
 
 /** Rolling-retention caps on the captured payload bytes / event count
@@ -141,6 +158,135 @@ export interface ExecuteMqttSessionOptions {
   /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
    *  pins the wait. */
   reconnectJitter?: () => number;
+  /** Host script capability — the session's hooks (Before connect /
+   *  Before publish / On message / After close) run through it; absent
+   *  = the session runs scriptless and records no script outcome. */
+  scriptHost?: SessionScriptHost;
+  /** Host-injected ancestor script carriers (outer → inner) — for page
+   *  realms whose oracle mirrors are empty (the `authChain` twin);
+   *  absent = the executor walks the tree index per slot kind. */
+  scriptChain?: readonly SlotChainCarrier[];
+}
+
+/** The four hooks' chains for the request — the ancestor levels'
+ *  slots (injected, or off the tree index) onto the request's own. */
+function mqttScriptChains(request: MqttRequest, options: ExecuteMqttSessionOptions): MqttScriptChains {
+  const compose = (kind: MqttScriptKind) =>
+    options.scriptChain !== undefined
+      ? composeSlotChain(options.scriptChain, request, kind)
+      : collectSlotChain(request, options.workspaceId, kind);
+  return {
+    'mqtt-before-connect': compose('mqtt-before-connect'),
+    'mqtt-before-publish': compose('mqtt-before-publish'),
+    'mqtt-on-message': compose('mqtt-on-message'),
+    'mqtt-after-close': compose('mqtt-after-close'),
+  };
+}
+
+/** A strict UTF-8 decode — `null` when the bytes are not text (the
+ *  script's `text` view of an inbound payload). */
+function decodeUtf8Text(bytes: Uint8Array): string | null {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/** The compose's per-message property block as a script reads it —
+ *  the enabled rows resolved, no row identities. */
+function scriptMessageProperties(
+  props: MqttMessageProperties | undefined,
+  resolveStr: (s: string) => string,
+): MqttScriptMessageProperties | undefined {
+  if (props === undefined) return undefined;
+  const rows = (props.userProperties ?? []).filter((row) => row.enabled !== false && row.key.trim() !== '');
+  const out: MqttScriptMessageProperties = {
+    ...(rows.length > 0
+      ? { userProperties: rows.map((row) => ({ key: resolveStr(row.key), value: resolveStr(row.value) })) }
+      : {}),
+    ...(props.responseTopic !== undefined && props.responseTopic !== ''
+      ? { responseTopic: resolveStr(props.responseTopic) }
+      : {}),
+    ...(props.correlationData !== undefined && props.correlationData !== ''
+      ? { correlationData: resolveStr(props.correlationData) }
+      : {}),
+    ...(props.messageExpiryInterval !== undefined ? { messageExpiryInterval: props.messageExpiryInterval } : {}),
+    ...(props.contentType !== undefined && props.contentType !== ''
+      ? { contentType: resolveStr(props.contentType) }
+      : {}),
+    ...(props.payloadFormatIndicator === true ? { payloadFormatIndicator: true } : {}),
+  };
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** The script-shaped property block onto the wire record — the block
+ *  as a hook left it (already resolved); 5.0 sessions only. */
+function wireScriptProperties(props: MqttScriptMessageProperties | undefined): MqttProperties | undefined {
+  if (props === undefined) return undefined;
+  const rows = (props.userProperties ?? []).filter((row) => row.key.trim() !== '');
+  const out: MqttProperties = {
+    ...(rows.length > 0 ? { userProperties: rows.map((row) => ({ key: row.key, value: row.value })) } : {}),
+    ...(props.responseTopic !== undefined && props.responseTopic !== '' ? { responseTopic: props.responseTopic } : {}),
+    ...(props.correlationData !== undefined && props.correlationData !== ''
+      ? { correlationData: new TextEncoder().encode(props.correlationData) }
+      : {}),
+    ...(props.messageExpiryInterval !== undefined ? { messageExpiryInterval: props.messageExpiryInterval } : {}),
+    ...(props.contentType !== undefined && props.contentType !== '' ? { contentType: props.contentType } : {}),
+    ...(props.payloadFormatIndicator === true ? { payloadFormatIndicator: 1 } : {}),
+  };
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** An inbound PUBLISH's 5.0 properties as a script reads them — the
+ *  reply-to facts and the user properties; absent when none rode. */
+function inboundScriptProperties(props: MqttProperties | undefined): MqttScriptMessageProperties | undefined {
+  if (props === undefined) return undefined;
+  const out: MqttScriptMessageProperties = {
+    ...(props.userProperties !== undefined && props.userProperties.length > 0
+      ? { userProperties: props.userProperties.map((p) => ({ key: p.key, value: p.value })) }
+      : {}),
+    ...(props.responseTopic !== undefined ? { responseTopic: props.responseTopic } : {}),
+    ...(props.correlationData !== undefined
+      ? { correlationData: new TextDecoder().decode(props.correlationData) }
+      : {}),
+    ...(props.messageExpiryInterval !== undefined ? { messageExpiryInterval: props.messageExpiryInterval } : {}),
+    ...(props.contentType !== undefined ? { contentType: props.contentType } : {}),
+    ...(props.payloadFormatIndicator === 1 ? { payloadFormatIndicator: true } : {}),
+  };
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** One open-time subscription as a script reads it. */
+function scriptSubscription(entry: SubscribeEntry): MqttConnectSubscription {
+  const { subscription } = entry;
+  return {
+    topicFilter: subscription.topicFilter,
+    qos: subscription.qos,
+    ...(subscription.noLocal !== undefined ? { noLocal: subscription.noLocal } : {}),
+    ...(subscription.retainAsPublished !== undefined ? { retainAsPublished: subscription.retainAsPublished } : {}),
+    ...(subscription.retainHandling !== undefined ? { retainHandling: subscription.retainHandling } : {}),
+    ...(entry.subscriptionId !== undefined ? { subscriptionId: entry.subscriptionId } : {}),
+    ...(entry.userProperties !== undefined ? { userProperties: entry.userProperties } : {}),
+  };
+}
+
+/** A script's subscription back onto the SUBSCRIBE unit — the 5.0
+ *  options apply on 5.0 sessions only (the version lens). */
+function subscribeEntryOf(sub: MqttConnectSubscription, v5: boolean): SubscribeEntry {
+  return {
+    subscription: {
+      topicFilter: sub.topicFilter,
+      qos: sub.qos,
+      ...(v5 && sub.noLocal !== undefined ? { noLocal: sub.noLocal } : {}),
+      ...(v5 && sub.retainAsPublished !== undefined ? { retainAsPublished: sub.retainAsPublished } : {}),
+      ...(v5 && sub.retainHandling !== undefined ? { retainHandling: sub.retainHandling } : {}),
+    },
+    ...(v5 && sub.subscriptionId !== undefined ? { subscriptionId: sub.subscriptionId } : {}),
+    ...(v5 && sub.userProperties !== undefined && sub.userProperties.length > 0
+      ? { userProperties: sub.userProperties.map((p) => ({ key: p.key, value: p.value })) }
+      : {}),
+  };
 }
 
 /** Decode a compose payload per its authored ENCODING — base64/hex
@@ -280,7 +426,9 @@ export async function executeMqttSession(
   // Blank client id = generated per connect (session resumption needs
   // a stable one — the Settings help copy carries that interaction).
   const configuredClientId = resolveStr(request.clientId ?? '').trim();
-  const clientId = configuredClientId !== '' ? configuredClientId : `oh-${generateUid()}${generateUid()}`;
+  // The client id the LAST dial's CONNECT carried — a Before connect
+  // hook may rename it per dial; the open frame and snapshot read it.
+  let clientId = configuredClientId !== '' ? configuredClientId : `oh-${generateUid()}${generateUid()}`;
 
   // Session credential (Basic — the MQTT mask's whole set) — the
   // request's own subset config, or Inherit resolved over the ancestor
@@ -315,7 +463,9 @@ export async function executeMqttSession(
         .filter((row) => row.enabled !== false && row.key.trim() !== '')
         .map((row) => ({ key: resolveStr(row.key), value: resolveStr(row.value) }))
     : [];
-  const connectProperties: MqttProperties = {
+  // The scalar CONNECT properties — the user-property pairs join at
+  // the dial (a Before connect hook may edit them per dial).
+  const connectScalarProperties: MqttProperties = {
     ...(v5 && request.sessionExpiryInterval !== undefined
       ? { sessionExpiryInterval: request.sessionExpiryInterval }
       : {}),
@@ -324,7 +474,6 @@ export async function executeMqttSession(
     ...(v5 && request.topicAliasMaximum !== undefined ? { topicAliasMaximum: request.topicAliasMaximum } : {}),
     ...(v5 && request.requestResponseInformation === true ? { requestResponseInformation: 1 } : {}),
     ...(v5 && request.requestProblemInformation === false ? { requestProblemInformation: 0 } : {}),
-    ...(connectUserProps.length > 0 ? { userProperties: connectUserProps } : {}),
   };
 
   // The will registers on CONNECT — a topic makes it exist (the entity
@@ -391,6 +540,10 @@ export async function executeMqttSession(
   const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: oracleResolution?.vault, resolve: resolveStr });
   const dialPolicy = sessionDialPolicy(request, oracleResolution?.vault);
   const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
+  // ── Script hooks — mounted only where a host runs scripts AND some
+  // level carries one; a scriptless session never touches the plane.
+  const scriptChains = options.scriptHost !== undefined ? mqttScriptChains(request, options) : null;
+  const scriptHost = scriptChains !== null && hasSessionScriptChains(scriptChains) ? options.scriptHost : undefined;
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedMqttSnapshot>((resolveRaw) => {
@@ -513,8 +666,24 @@ export async function executeMqttSession(
       record(event, 0);
       emitter?.item({ ...event, atMs: Date.now() });
     };
+    // The capture counts both directions — the After close record's
+    // facts (rolled-off events included).
+    let published = 0;
+    let received = 0;
+    // The script plane — every hook's mark lands on the event log at
+    // its current position like any other session fact.
+    const scripts =
+      scriptHost !== undefined && scriptChains !== null
+        ? createMqttScriptPlane({
+            sessionId: options.sendId,
+            host: scriptHost,
+            chains: scriptChains,
+            recordMark: recordFact,
+          })
+        : null;
     /** Record an outbound PUBLISH that reached the wire and emit it live. */
     const recordPublished = (packet: PendingPublish['packet']): void => {
+      published += 1;
       const payloadBase64 = encodeBase64Bytes(packet.payload);
       const fact = {
         kind: 'message' as const,
@@ -566,48 +735,77 @@ export async function executeMqttSession(
       unregisterSend();
       unregisterSession?.();
       failPendingAcks();
-      emitter?.end();
       const durationMs = Math.round(performance.now() - startedAt);
-      if (!opened) {
-        // A user-initiated end (Stop-abort, or the header's Cancel
-        // riding the clean-close rider — the pre-open close() stamps
-        // `end.by = 'client'`) settles as the ABORTED outcome, not a
-        // failure. A broker refusal stays a refusal even when the
-        // user also cancelled.
-        const aborted = refusalMessage === null && (stopped || end?.by === 'client');
-        resolve({
-          outcome: aborted
-            ? { kind: 'aborted' }
-            : {
-                kind: 'failed',
-                error: refusalMessage ?? errorMessage ?? 'The session ended before it opened.',
-                ...(refusalMessage === null && hint !== undefined ? { hint } : {}),
-              },
-          connack,
-          clientId,
-          events: [],
-          droppedMessages: 0,
-          // An abort that tore down an ESTABLISHED broker socket keeps
-          // its end record — the disconnect is a real event to log; a
-          // cancel before the socket ever came up carries none.
-          end: aborted && socketConnected && end !== null ? end : null,
-          durationMs,
-        });
+      // The record settles once the After close hook has run (a session
+      // that opened) and every queued hook landed its mark — the end
+      // frame and the snapshot's `scripts` record follow them.
+      const finish = (): void => {
+        emitter?.end();
+        const scriptsRecord = scripts?.summary();
+        scripts?.end();
+        const withScripts = (snapshot: ExecutedMqttSnapshot): ExecutedMqttSnapshot =>
+          scriptsRecord !== undefined ? { ...snapshot, scripts: scriptsRecord } : snapshot;
+        if (!opened) {
+          // A user-initiated end (Stop-abort, or the header's Cancel
+          // riding the clean-close rider — the pre-open close() stamps
+          // `end.by = 'client'`) settles as the ABORTED outcome, not a
+          // failure. A broker refusal stays a refusal even when the
+          // user also cancelled. The Before connect marks a pre-open
+          // session recorded ride its event log.
+          const aborted = refusalMessage === null && (stopped || end?.by === 'client');
+          resolve(
+            withScripts({
+              outcome: aborted
+                ? { kind: 'aborted' }
+                : {
+                    kind: 'failed',
+                    error: refusalMessage ?? errorMessage ?? 'The session ended before it opened.',
+                    ...(refusalMessage === null && hint !== undefined ? { hint } : {}),
+                  },
+              connack,
+              clientId,
+              events,
+              droppedMessages,
+              // An abort that tore down an ESTABLISHED broker socket keeps
+              // its end record — the disconnect is a real event to log; a
+              // cancel before the socket ever came up carries none.
+              end: aborted && socketConnected && end !== null ? end : null,
+              durationMs,
+            }),
+          );
+          return;
+        }
+        resolve(
+          withScripts({
+            outcome: { kind: 'connected' },
+            connack,
+            clientId,
+            events,
+            droppedMessages,
+            end,
+            ...(stopped ? { stopped: true } : {}),
+            ...(reconnectRefused !== undefined ? { reconnectRefused } : {}),
+            ...(reconnectExhausted !== undefined ? { reconnectExhausted } : {}),
+            durationMs,
+            ...(proxyRoute !== undefined ? { proxyRoute } : {}),
+          }),
+        );
+      };
+      if (scripts === null || !opened) {
+        finish();
         return;
       }
-      resolve({
-        outcome: { kind: 'connected' },
-        connack,
-        clientId,
-        events,
-        droppedMessages,
-        end,
-        ...(stopped ? { stopped: true } : {}),
-        ...(reconnectRefused !== undefined ? { reconnectRefused } : {}),
-        ...(reconnectExhausted !== undefined ? { reconnectExhausted } : {}),
-        durationMs,
-        ...(proxyRoute !== undefined ? { proxyRoute } : {}),
-      });
+      void scripts
+        .afterClose({
+          end,
+          connack: connack === null ? null : { sessionPresent: connack.sessionPresent, reasonCode: connack.reasonCode },
+          stopped,
+          published,
+          received,
+          droppedMessages,
+          durationMs,
+        })
+        .then(finish, finish);
     };
 
     /** Encode one packet against the session's version and write it —
@@ -726,7 +924,7 @@ export async function executeMqttSession(
             clientId,
             ...(proxyRoute !== undefined ? { proxyRoute } : {}),
           });
-          subscribeEntries(openSubscriptions);
+          subscribeEntries(dialSubscriptions);
           startKeepAlive();
           return;
         }
@@ -749,6 +947,7 @@ export async function executeMqttSession(
             else topic = inboundTopicAliases.get(alias) ?? '';
           }
           const payloadBase64 = encodeBase64Bytes(packet.payload);
+          received += 1;
           record(
             {
               kind: 'message',
@@ -771,6 +970,23 @@ export async function executeMqttSession(
             dup: packet.dup,
             atMs: Date.now(),
           });
+          // On message runs AFTER the capture, off the same packet,
+          // queued behind the session's earlier hooks — the capture
+          // never waits for it.
+          if (scripts !== null) {
+            const properties = inboundScriptProperties(packet.properties);
+            scripts.onMessage({
+              direction: 'down',
+              topic,
+              payloadBase64,
+              text: decodeUtf8Text(packet.payload),
+              qos: packet.qos,
+              retain: packet.retain,
+              dup: packet.dup,
+              ...(properties !== undefined ? { properties } : {}),
+              index: events.length + droppedMessages - 1,
+            });
+          }
           return;
         }
         case 'pubrel': {
@@ -892,83 +1108,183 @@ export async function executeMqttSession(
       settle(error?.message, error instanceof MqttTransportError ? error.hint : undefined);
     };
 
+    /** The CONNECT fields the LAST dial composed — the entity's values
+     *  as the Before connect chain left them (a reconnect re-runs it). */
+    let dialUsername = authUsername;
+    let dialPassword = authPassword;
+    let dialWill = will;
+    let dialUserProps = connectUserProps;
+    let dialSubscriptions = openSubscriptions;
+
+    /** One dial: run Before connect on the CONNECT as composed (the
+     *  entity's values, templates resolved) at EVERY dial — lenient: a
+     *  failed level leaves its input as it was — then hand the wire
+     *  shape to the transport. A Stop or Disconnect that lands while
+     *  the hook is in flight settles Stopped (no socket exists yet). */
     const dial = (): void => {
-      writer = options.transport.connect(
-        {
-          url,
-          timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
-          ...tlsPolicy,
-          ...dialPolicy,
-          ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
-        },
-        {
-          onConnect: (route) => {
-            socketConnected = true;
-            if (route !== undefined) proxyRoute = route;
-            const error = sendPacket({
-              type: 'connect',
-              clientId,
-              cleanStart: request.cleanStart ?? true,
-              keepAlive,
-              ...(authUsername !== '' ? { username: authUsername } : {}),
-              ...(authPassword !== '' ? { password: new TextEncoder().encode(authPassword) } : {}),
-              ...(will !== undefined ? { will } : {}),
-              ...(Object.keys(connectProperties).length > 0 ? { properties: connectProperties } : {}),
-            });
-            if (error !== null) {
-              refusalMessage = `The CONNECT packet did not compose: ${error}`;
-              controller.abort();
-            }
+      void (async () => {
+        if (scripts !== null) {
+          const input: MqttConnectSnapshot = {
+            url,
+            protocolVersion: v5 ? '5.0' : '3.1.1',
+            clientId,
+            username: authUsername,
+            password: authPassword,
+            will:
+              will === undefined
+                ? null
+                : {
+                    topic: will.topic,
+                    payloadBase64: encodeBase64Bytes(will.payload),
+                    qos: will.qos,
+                    retain: will.retain,
+                  },
+            subscriptions: openSubscriptions.map(scriptSubscription),
+            userProperties: connectUserProps.map((p): SessionHeader => ({ key: p.key, value: p.value })),
+            attempt: reconnectAttempt,
+          };
+          const connect = await scripts.beforeConnect(input);
+          if (settled) return;
+          if (stopped) {
+            settle();
+            return;
+          }
+          clientId = connect.clientId;
+          dialUsername = connect.username;
+          dialPassword = connect.password;
+          // An untouched will keeps the entity's (its 5.0 properties
+          // included); a rewritten one carries the script's fields over
+          // the entity's will properties; `null` registers none.
+          dialWill =
+            connect.will === input.will
+              ? will
+              : connect.will === null
+                ? undefined
+                : {
+                    topic: connect.will.topic,
+                    payload: decodeBase64Bytes(connect.will.payloadBase64) ?? new Uint8Array(0),
+                    qos: connect.will.qos,
+                    retain: connect.will.retain,
+                    ...(will?.properties !== undefined ? { properties: will.properties } : {}),
+                  };
+          dialUserProps = v5 ? connect.userProperties : [];
+          if (connect.subscriptions !== input.subscriptions) {
+            // The script's list IS the session's wanted set from this
+            // dial on — the open rows (and any live toggle before a
+            // redial) give way to it.
+            dialSubscriptions = connect.subscriptions.map((sub) => subscribeEntryOf(sub, v5));
+            desiredSubscriptions.clear();
+            for (const entry of dialSubscriptions) desiredSubscriptions.set(entry.subscription.topicFilter, entry);
+          }
+        }
+        const connectProperties: MqttProperties = {
+          ...connectScalarProperties,
+          ...(dialUserProps.length > 0 ? { userProperties: dialUserProps } : {}),
+        };
+        writer = options.transport.connect(
+          {
+            url,
+            timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
+            ...tlsPolicy,
+            ...dialPolicy,
+            ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
           },
-          onData: (chunk) => {
-            for (const event of decoder.push(chunk)) {
-              if (!event.ok) {
-                // A malformed BODY resynchronizes at the next boundary;
-                // an untrustworthy FIXED HEADER poisons the framing —
-                // nothing more can be read, so the connection tears down.
-                if (event.fatal) {
-                  if (!opened) refusalMessage = `The broker sent unreadable data: ${event.error}`;
-                  writer?.end();
-                  return;
-                }
-                continue;
+          {
+            onConnect: (route) => {
+              socketConnected = true;
+              if (route !== undefined) proxyRoute = route;
+              const error = sendPacket({
+                type: 'connect',
+                clientId,
+                cleanStart: request.cleanStart ?? true,
+                keepAlive,
+                ...(dialUsername !== '' ? { username: dialUsername } : {}),
+                ...(dialPassword !== '' ? { password: new TextEncoder().encode(dialPassword) } : {}),
+                ...(dialWill !== undefined ? { will: dialWill } : {}),
+                ...(Object.keys(connectProperties).length > 0 ? { properties: connectProperties } : {}),
+              });
+              if (error !== null) {
+                refusalMessage = `The CONNECT packet did not compose: ${error}`;
+                controller.abort();
               }
-              handlePacket(event.packet, event.remainingLength);
-              if (settled) return;
-            }
+            },
+            onData: (chunk) => {
+              for (const event of decoder.push(chunk)) {
+                if (!event.ok) {
+                  // A malformed BODY resynchronizes at the next boundary;
+                  // an untrustworthy FIXED HEADER poisons the framing —
+                  // nothing more can be read, so the connection tears down.
+                  if (event.fatal) {
+                    if (!opened) refusalMessage = `The broker sent unreadable data: ${event.error}`;
+                    writer?.end();
+                    return;
+                  }
+                  continue;
+                }
+                handlePacket(event.packet, event.remainingLength);
+                if (settled) return;
+              }
+            },
+            onEnd: onStreamEnd,
           },
-          onEnd: onStreamEnd,
-        },
-        controller.signal,
-      );
+          controller.signal,
+        );
+      })();
     };
 
     dial();
 
     unregisterSession = registerActiveMqttSession(options.sendId, {
-      publish: (message: MqttPublishWire) => {
+      publish: async (message: MqttPublishWire, origin: MqttPublishOrigin = 'rider'): Promise<MqttPublishResult> => {
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         const sendUnresolved = new Set<string>();
         const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
         const topic = riderResolve(message.topic).trim();
         const payloadText = riderResolve(message.payload);
-        const properties = v5 ? wireMessageProperties(message.properties, riderResolve) : undefined;
+        const properties = scriptMessageProperties(message.properties, riderResolve);
         if (sendUnresolved.size > 0) {
           return { success: false, error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).` };
         }
-        const decoded = decodeComposePayload(payloadText, message.format);
+        // The rider's spelling gates the publish (a malformed base64 /
+        // hex compose fails here); the hook then sees ONE byte
+        // spelling — text stays text, bytes ride as base64.
+        const authored = decodeComposePayload(payloadText, message.format);
+        if (!authored.ok) return { success: false, error: authored.error };
+        const bytes = message.format === 'base64' || message.format === 'hex';
+        let outbound: MqttOutboundMessageSnapshot = {
+          direction: 'up',
+          topic,
+          payload: bytes ? encodeBase64Bytes(authored.bytes) : payloadText,
+          format: bytes ? 'base64' : message.format === 'json' ? 'json' : 'text',
+          qos: message.qos ?? 0,
+          retain: message.retain ?? false,
+          ...(properties !== undefined ? { properties } : {}),
+          index: events.length + droppedMessages,
+        };
+        // Before publish — the rider's message only: a script's own
+        // publish is already a hook's product and never re-enters.
+        if (scripts !== null && origin === 'rider') {
+          const outcome = await scripts.beforePublish(outbound);
+          if (outcome.kind === 'dropped') {
+            return { success: false, error: `Dropped by the Before publish script at ${outcome.by}.` };
+          }
+          outbound = outcome.message;
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        }
+        const decoded = decodeComposePayload(outbound.payload, outbound.format);
         if (!decoded.ok) return { success: false, error: decoded.error };
-        const qos = message.qos ?? 0;
+        const wireProperties = v5 ? wireScriptProperties(outbound.properties) : undefined;
+        const qos = outbound.qos;
         const packetId = qos > 0 ? allocPacketId() : null;
         const packet: PendingPublish['packet'] = {
           type: 'publish',
-          topic,
+          topic: outbound.topic,
           payload: decoded.bytes,
           qos,
-          retain: message.retain ?? false,
+          retain: outbound.retain,
           dup: false,
           packetId,
-          ...(properties !== undefined ? { properties } : {}),
+          ...(wireProperties !== undefined ? { properties: wireProperties } : {}),
         };
         const error = sendPacket(packet);
         if (error !== null) return { success: false, error };

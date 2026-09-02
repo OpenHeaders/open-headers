@@ -248,7 +248,7 @@ describe('createNodeMqttTransport', () => {
       },
     });
     await until(() => items.includes('subscribed'));
-    const published = publishActiveMqttMessage('node-mqtt-tcp', { topic: 'probe/echo', payload: 'over-tcp' });
+    const published = await publishActiveMqttMessage('node-mqtt-tcp', { topic: 'probe/echo', payload: 'over-tcp' });
     expect(published).toEqual({ success: true });
     await until(() => items.filter((k) => k === 'message').length >= 2);
     closeActiveMqttSession('node-mqtt-tcp');
@@ -296,7 +296,7 @@ describe('createNodeMqttTransport', () => {
     });
     await until(() => items.includes('subscribed'));
     expect(broker.seenProtocol()).toBe('mqtt');
-    const published = publishActiveMqttMessage('node-mqtt-ws', { topic: 'probe/echo', payload: 'over-ws' });
+    const published = await publishActiveMqttMessage('node-mqtt-ws', { topic: 'probe/echo', payload: 'over-ws' });
     expect(published).toEqual({ success: true });
     await until(() => items.filter((k) => k === 'message').length >= 2);
     closeActiveMqttSession('node-mqtt-ws');

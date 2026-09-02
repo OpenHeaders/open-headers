@@ -1788,4 +1788,20 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiEmit': 'ein Socket.IO-Event senden',
   'workbench.editors.request.scripts.apiClose': 'der Abschlussdatensatz — Schließcode, Grund, Zähler, Dauer',
   'workbench.editors.request.scripts.apiSession': 'von jedem Hook dieser Sitzung geteilter Zustand',
+  'workbench.editors.request.scripts.apiMqttConnect':
+    'das CONNECT wie zusammengesetzt — Client-ID, Zugangsdaten, Testament, Abonnements, User Properties, Versuch',
+  'workbench.editors.request.scripts.apiSetClientId': 'die Client-ID ersetzen',
+  'workbench.editors.request.scripts.apiSetUsername': 'den Benutzernamen ersetzen',
+  'workbench.editors.request.scripts.apiSetPassword': 'das Passwort ersetzen',
+  'workbench.editors.request.scripts.apiSetWill': 'das Testament ersetzen (null registriert keines)',
+  'workbench.editors.request.scripts.apiAddSubscription': 'einen Topic-Filter beim Öffnen abonnieren',
+  'workbench.editors.request.scripts.apiSetUserProperty': 'eine 5.0-User-Property setzen',
+  'workbench.editors.request.scripts.apiMqttMessage': 'die Nachricht — Topic, Payload, QoS, Retain, Aufzeichnungsindex',
+  'workbench.editors.request.scripts.apiSetTopic': 'die Veröffentlichung umleiten',
+  'workbench.editors.request.scripts.apiSetPayload': 'die Payload ersetzen (Text oder Base64-Bytes)',
+  'workbench.editors.request.scripts.apiSetQos': 'die QoS setzen',
+  'workbench.editors.request.scripts.apiSetRetain': 'das RETAIN-Flag setzen',
+  'workbench.editors.request.scripts.apiPublish': 'eine Nachricht in die Sitzung veröffentlichen',
+  'workbench.editors.request.scripts.apiMqttClose':
+    'der Abschlussdatensatz — das Ende, das CONNACK, die Zähler, die Dauer',
 } as const satisfies Catalog;

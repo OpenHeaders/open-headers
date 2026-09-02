@@ -1,0 +1,48 @@
+/**
+ * MQTT update batch — the script slot record's flatten-diff (the
+ * WebSocket builder's law): an empty record on either side reads as
+ * no record, so a save without scripts never writes an empty leaf, a
+ * new slot sets its own leaf, an emptied slot tombstones it, and an
+ * untouched slot emits nothing.
+ */
+
+import type { MutatorContext } from '@openheaders/core/sync';
+import { buildMqttUpdateBatch } from '@openheaders/core/sync-builders/mutations/mqtt-request-mutations';
+import { describe, expect, it } from 'vitest';
+
+const ctx: MutatorContext = {
+  workspaceId: 'ws-1',
+  orgId: 'org-test',
+  hlc: { physicalMs: 1_000, logical: 0, nodeId: 'node-x' },
+  surfaceId: 'workbench',
+  deviceId: 'device-a',
+};
+
+function bodiesOf(live: unknown, next: Record<string, string>) {
+  return buildMqttUpdateBatch(
+    'mq1',
+    { scripts: next },
+    ctx,
+    () => [],
+    (_uid, path) => (path === 'scripts' ? live : undefined),
+  ).batch.mutations.map((m) => m.body);
+}
+
+describe('buildMqttUpdateBatch — scripts', () => {
+  it('an empty record over no record writes nothing', () => {
+    expect(bodiesOf(undefined, {})).toEqual([]);
+    expect(bodiesOf({}, {})).toEqual([]);
+  });
+
+  it('a new slot sets its leaf; an emptied slot tombstones it; an untouched one is silent', () => {
+    expect(bodiesOf(undefined, { 'mqtt-before-connect': 'a();' })).toEqual([
+      { kind: 'setField', type: 'mqttRequest', id: 'mq1', path: 'scripts.mqtt-before-connect', value: 'a();' },
+    ]);
+    expect(
+      bodiesOf({ 'mqtt-before-connect': 'a();', 'mqtt-on-message': 'm();' }, { 'mqtt-on-message': 'm();' }),
+    ).toEqual([{ kind: 'unsetField', type: 'mqttRequest', id: 'mq1', path: 'scripts.mqtt-before-connect' }]);
+    expect(bodiesOf({ 'mqtt-after-close': 'x();' }, {})).toEqual([
+      { kind: 'unsetField', type: 'mqttRequest', id: 'mq1', path: 'scripts.mqtt-after-close' },
+    ]);
+  });
+});

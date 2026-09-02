@@ -108,41 +108,50 @@ export function capturedMqttResponseFromSnapshot(snapshot: ExecutedMqttSnapshot)
   return {
     connack: { ...snapshot.connack },
     clientId: snapshot.clientId,
-    events: snapshot.events.map((event) => {
+    // The wire facts alone — a script mark is the run's record, not a
+    // fact the broker exchange produced, so an example never carries it.
+    events: snapshot.events.flatMap((event): CapturedMqttResponse['events'] => {
+      if (event.kind === 'script') return [];
       if (event.kind === 'message') {
-        return {
-          kind: 'message' as const,
-          direction: event.direction,
-          topic: event.topic,
-          payloadBase64: event.payloadBase64,
-          qos: event.qos,
-          retain: event.retain,
-          dup: event.dup,
-        };
+        return [
+          {
+            kind: 'message' as const,
+            direction: event.direction,
+            topic: event.topic,
+            payloadBase64: event.payloadBase64,
+            qos: event.qos,
+            retain: event.retain,
+            dup: event.dup,
+          },
+        ];
       }
       if (event.kind === 'subscribed') {
-        return { kind: 'subscribed' as const, grants: event.grants.map((g) => ({ ...g })) };
+        return [{ kind: 'subscribed' as const, grants: event.grants.map((g) => ({ ...g })) }];
       }
       if (event.kind === 'unsubscribed') {
-        return { kind: 'unsubscribed' as const, topicFilters: [...event.topicFilters] };
+        return [{ kind: 'unsubscribed' as const, topicFilters: [...event.topicFilters] }];
       }
-      if (event.kind === 'lost') return { kind: 'lost' as const, end: event.end === null ? null : { ...event.end } };
+      if (event.kind === 'lost') return [{ kind: 'lost' as const, end: event.end === null ? null : { ...event.end } }];
       if (event.kind === 'reconnecting') {
-        return {
-          kind: 'reconnecting' as const,
-          attempt: event.attempt,
-          delayMs: event.delayMs,
-          ...(event.error === undefined ? {} : { error: event.error }),
-        };
+        return [
+          {
+            kind: 'reconnecting' as const,
+            attempt: event.attempt,
+            delayMs: event.delayMs,
+            ...(event.error === undefined ? {} : { error: event.error }),
+          },
+        ];
       }
-      return {
-        kind: 'reconnected' as const,
-        attempt: event.attempt,
-        sessionPresent: event.sessionPresent,
-        reasonCode: event.reasonCode,
-        remainingLength: event.remainingLength,
-        ...(event.dropped === undefined ? {} : { dropped: event.dropped }),
-      };
+      return [
+        {
+          kind: 'reconnected' as const,
+          attempt: event.attempt,
+          sessionPresent: event.sessionPresent,
+          reasonCode: event.reasonCode,
+          remainingLength: event.remainingLength,
+          ...(event.dropped === undefined ? {} : { dropped: event.dropped }),
+        },
+      ];
     }),
     droppedMessages: snapshot.droppedMessages,
     end: snapshot.end === null ? null : { ...snapshot.end },

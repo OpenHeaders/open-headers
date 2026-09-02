@@ -14,7 +14,15 @@
  * synthesized; pretty/decoded views are display-side.
  */
 
-import type { ExecutedAuthAttribution, ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
+import type { MqttScriptKind, ScriptExecutionMode } from '../scripts';
+import type {
+  ExecutedAuthAttribution,
+  ExecutedProxyRoute,
+  ExecutedScriptFold,
+  ExecutedSessionScriptMark,
+  ScriptEventSummary,
+  TrustCertificateErrorHint,
+} from './request-execution';
 
 /** One captured PUBLISH of the session, in packet order. `direction`
  *  tags client-sent ('up') vs broker-sent ('down'). Payloads ride
@@ -102,17 +110,52 @@ export interface ExecutedMqttReconnected {
   dropped?: number;
 }
 
+/**
+ * One script hook ran — the per-event detail of the session's scripts
+ * ({@link ExecutedSessionScriptMark}) under the MQTT hook kinds.
+ * Recorded per event (a Before connect per dial, a Before publish per
+ * rider publish, an On message per captured inbound PUBLISH, the After
+ * close once) up to the mark cap; the snapshot's `scripts` record keeps
+ * the tallies past it. It rides the event log like every other fact,
+ * so the rolling retention applies to it too.
+ */
+export interface ExecutedMqttScriptMark extends ExecutedSessionScriptMark {
+  kind: 'script';
+  hook: MqttScriptKind;
+}
+
 /** The session's event log in packet order — PUBLISH messages both
- *  directions, the subscription lifecycle facts, and the reconnect
- *  cycle facts (lost / reconnecting / reconnected), one array so the
- *  timeline renders every row at its true chronological position. */
+ *  directions, the subscription lifecycle facts, the reconnect cycle
+ *  facts (lost / reconnecting / reconnected) and the script marks, one
+ *  array so the timeline renders every row at its true chronological
+ *  position. */
 export type ExecutedMqttEvent =
   | ExecutedMqttMessage
   | ExecutedMqttSubscribed
   | ExecutedMqttUnsubscribed
   | ExecutedMqttLost
   | ExecutedMqttReconnecting
-  | ExecutedMqttReconnected;
+  | ExecutedMqttReconnected
+  | ExecutedMqttScriptMark;
+
+/**
+ * The session's scripts as they ran — one record per hook the session
+ * carries scripts for: the once-per-session hooks keep their fold
+ * (Before connect: the LAST dial's, with the dials counted; After
+ * close: its one run), the per-event hooks keep a tally. Absent when
+ * no hook ran. `mode` is the trust posture the hooks ran under,
+ * recorded on the snapshot — never re-read from live settings.
+ */
+export interface ExecutedMqttScripts {
+  mode?: ScriptExecutionMode;
+  beforeConnect?: ExecutedScriptFold & { dials: number };
+  beforePublish?: ScriptEventSummary & { dropped: number };
+  onMessage?: ScriptEventSummary;
+  afterClose?: ExecutedScriptFold;
+  /** The per-event marks stopped at the cap — the tallies above kept
+   *  counting; the timeline shows the first events' detail only. */
+  marksCapped?: true;
+}
 
 /** The CONNACK as the broker answered it — reason code verbatim (the
  *  5.0 space, or the separate 3.1.1 return-code space; the request's
@@ -189,6 +232,9 @@ export interface ExecutedMqttSnapshot {
    *  request's own or a resolved ancestor pool entry; absent when the
    *  request's own auth is `none` (the HTTP snapshot's twin). */
   auth?: ExecutedAuthAttribution;
+  /** The session's script hooks as they ran — see {@link ExecutedMqttScripts};
+   *  absent when no hook ran. */
+  scripts?: ExecutedMqttScripts;
   /**
    * Wire truth for the session's proxy routing — present only when the
    * executing host's system plane decided something (the ws-scheme

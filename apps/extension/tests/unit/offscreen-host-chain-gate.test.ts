@@ -68,6 +68,8 @@ function hostRequest(executionId: string, op: ScriptHostRequest['op']): ScriptHo
       return { executionId, rpcId: 'rpc-4', op, ref: 'X' };
     case 'session.send':
       return { executionId, rpcId: 'rpc-5', op, sessionId: 'send-1', messageText: 'x' };
+    case 'session.publish':
+      return { executionId, rpcId: 'rpc-6', op, sessionId: 'send-1', message: { topic: 'probe/echo', payload: 'x' } };
   }
 }
 

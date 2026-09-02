@@ -150,7 +150,7 @@ describe('runWorkflowRefresh — script capability injection', () => {
       consoleLog: [],
       durationMs: 1,
     }));
-    setHostScriptCapabilities({ safe: { mode: 'safe', runScript } });
+    setHostScriptCapabilities({ safe: { mode: 'safe', runScript, endSession: () => {} } });
     try {
       h.runChain.mockResolvedValue(successOutcome());
       await runWorkflowRefresh({ workspaceId: 'ws-1', workflow: makeWorkflow(), environmentId: null });

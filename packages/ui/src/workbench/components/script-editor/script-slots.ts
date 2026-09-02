@@ -143,6 +143,15 @@ export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
       SCRIPT_SLOT_BY_KIND['ws-after-close'],
     ],
   },
+  {
+    requestKind: 'mqtt',
+    slots: [
+      SCRIPT_SLOT_BY_KIND['mqtt-before-connect'],
+      SCRIPT_SLOT_BY_KIND['mqtt-before-publish'],
+      SCRIPT_SLOT_BY_KIND['mqtt-on-message'],
+      SCRIPT_SLOT_BY_KIND['mqtt-after-close'],
+    ],
+  },
 ];
 
 /** The group a request of `kind` draws on its own tab — the Socket.IO

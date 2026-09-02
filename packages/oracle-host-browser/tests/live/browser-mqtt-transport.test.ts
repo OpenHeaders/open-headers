@@ -142,7 +142,7 @@ describe('createBrowserMqttTransport', () => {
     });
     await until(() => items.includes('subscribed'));
     expect(broker.seenProtocol()).toBe('mqtt');
-    const published = publishActiveMqttMessage('browser-mqtt-ws', { topic: 'probe/echo', payload: 'over-page' });
+    const published = await publishActiveMqttMessage('browser-mqtt-ws', { topic: 'probe/echo', payload: 'over-page' });
     expect(published).toEqual({ success: true });
     await until(() => items.filter((k) => k === 'message').length >= 2);
     closeActiveMqttSession('browser-mqtt-ws');

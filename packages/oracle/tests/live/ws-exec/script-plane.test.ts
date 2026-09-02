@@ -14,11 +14,10 @@ import type { ExecutedWsScriptMark } from '@openheaders/core/types';
 import type { ChainScript } from '@openheaders/oracle/live/request-exec/script-chain';
 import type { SessionScriptHost, SessionScriptInput } from '@openheaders/oracle/live/request-exec/script-hooks';
 import {
-  createWsScriptPlane,
-  hasWsScriptChains,
-  MAX_WS_SCRIPT_MARKS,
-  type WsScriptChains,
-} from '@openheaders/oracle/live/ws-exec/script-plane';
+  hasSessionScriptChains,
+  MAX_SESSION_SCRIPT_MARKS,
+} from '@openheaders/oracle/live/request-exec/session-script-plane';
+import { createWsScriptPlane, type WsScriptChains } from '@openheaders/oracle/live/ws-exec/script-plane';
 import { describe, expect, it, vi } from 'vitest';
 
 const level = (label: string, source: string, kind: ChainScript['level'] = 'collection'): ChainScript => ({
@@ -85,8 +84,8 @@ const inbound = (index: number): Extract<SessionHookInput, { kind: 'ws-on-messag
 
 describe('hasWsScriptChains', () => {
   it('is false for four empty chains and true once any hook carries a level', () => {
-    expect(hasWsScriptChains(EMPTY)).toBe(false);
-    expect(hasWsScriptChains({ ...EMPTY, 'ws-after-close': [level('A', 'close();')] })).toBe(true);
+    expect(hasSessionScriptChains(EMPTY)).toBe(false);
+    expect(hasSessionScriptChains({ ...EMPTY, 'ws-after-close': [level('A', 'close();')] })).toBe(true);
   });
 });
 
@@ -306,7 +305,7 @@ describe('marks and the record', () => {
       chains: { ...EMPTY, 'ws-on-message': [level('A', 'x();')] },
       recordMark,
     });
-    for (let i = 0; i < MAX_WS_SCRIPT_MARKS + 5; i += 1) plane.onMessage(inbound(i));
+    for (let i = 0; i < MAX_SESSION_SCRIPT_MARKS + 5; i += 1) plane.onMessage(inbound(i));
     await plane.afterClose({
       code: null,
       reason: '',
@@ -316,8 +315,8 @@ describe('marks and the record', () => {
       droppedMessages: 0,
       durationMs: 1,
     });
-    expect(recordMark).toHaveBeenCalledTimes(MAX_WS_SCRIPT_MARKS);
-    expect(plane.summary()).toMatchObject({ onMessage: { runs: MAX_WS_SCRIPT_MARKS + 5 }, marksCapped: true });
+    expect(recordMark).toHaveBeenCalledTimes(MAX_SESSION_SCRIPT_MARKS);
+    expect(plane.summary()).toMatchObject({ onMessage: { runs: MAX_SESSION_SCRIPT_MARKS + 5 }, marksCapped: true });
   });
 
   it('carries the console and the assertions on the mark, the last error on the tally', async () => {

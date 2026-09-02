@@ -559,11 +559,15 @@ describe('executeMqttSession — messages and QoS flows', () => {
     rig.establish();
     rig.push(acceptedConnack);
 
-    const bad = publishActiveMqttMessage('send-mqtt-publish', { topic: 'probe/bin', payload: '!!!', format: 'base64' });
+    const bad = await publishActiveMqttMessage('send-mqtt-publish', {
+      topic: 'probe/bin',
+      payload: '!!!',
+      format: 'base64',
+    });
     expect(bad.success).toBe(false);
     expect(bad.error).toContain('Base64');
 
-    const ok = publishActiveMqttMessage('send-mqtt-publish', {
+    const ok = await publishActiveMqttMessage('send-mqtt-publish', {
       topic: 'probe/{{team}}/out',
       payload: '48656c6c6f',
       format: 'hex',
@@ -585,7 +589,10 @@ describe('executeMqttSession — messages and QoS flows', () => {
     expect(rig.written.at(-1)?.type).toBe('pubrel');
     rig.push({ type: 'pubcomp', packetId: publish.packetId, reasonCode: 0 });
 
-    const unresolvedSend = publishActiveMqttMessage('send-mqtt-publish', { topic: 'probe/{{nope}}', payload: 'x' });
+    const unresolvedSend = await publishActiveMqttMessage('send-mqtt-publish', {
+      topic: 'probe/{{nope}}',
+      payload: 'x',
+    });
     expect(unresolvedSend.success).toBe(false);
     expect(unresolvedSend.error).toContain('nope');
 
@@ -776,7 +783,7 @@ describe('executeMqttSession — version lens and session end', () => {
     expect(subscribe.subscriptions[0]).toEqual({ topicFilter: 'probe/#', qos: 1 });
     expect(subscribe.properties).toBeUndefined();
 
-    const publish = publishActiveMqttMessage('send-mqtt-v311', {
+    const publish = await publishActiveMqttMessage('send-mqtt-v311', {
       topic: 'probe/out',
       payload: 'x',
       properties: { contentType: 'text/plain' },
@@ -936,7 +943,7 @@ describe('executeMqttSession — auto-reconnect', () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(rig.dialCount()).toBe(2);
     // Publishing between connections reports honestly instead of writing into the void.
-    expect(publishActiveMqttMessage('send-mqtt-reconnect', { topic: 'x', payload: 'y' }).success).toBe(false);
+    expect((await publishActiveMqttMessage('send-mqtt-reconnect', { topic: 'x', payload: 'y' })).success).toBe(false);
 
     rig.establish(1);
     const connect = rig.written[1][0];
@@ -950,9 +957,9 @@ describe('executeMqttSession — auto-reconnect', () => {
     }
     rig.push(1, { type: 'suback', packetId: 1, reasonCodes: [1] });
     // The new connection publishes again.
-    expect(publishActiveMqttMessage('send-mqtt-reconnect', { topic: 'sensors/1/temp', payload: '21' }).success).toBe(
-      true,
-    );
+    expect(
+      (await publishActiveMqttMessage('send-mqtt-reconnect', { topic: 'sensors/1/temp', payload: '21' })).success,
+    ).toBe(true);
     closeActiveMqttSession('send-mqtt-reconnect');
     await tick();
     const snapshot = await settled;
@@ -1337,15 +1344,15 @@ describe('executeMqttSession — auto-reconnect', () => {
     await tick();
     rig.establish(0);
     rig.push(0, acceptedConnack);
-    expect(publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q1', payload: 'one', qos: 1 })).toEqual({
-      success: true,
-    });
-    expect(publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q2', payload: 'two', qos: 2 })).toEqual({
-      success: true,
-    });
-    expect(publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q0', payload: 'zero' })).toEqual({
-      success: true,
-    });
+    await expect(
+      publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q1', payload: 'one', qos: 1 }),
+    ).resolves.toEqual({ success: true });
+    await expect(
+      publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q2', payload: 'two', qos: 2 }),
+    ).resolves.toEqual({ success: true });
+    await expect(
+      publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q0', payload: 'zero' }),
+    ).resolves.toEqual({ success: true });
     rig.push(0, { type: 'pubrec', packetId: 2, reasonCode: 0 });
     expect(rig.written[0].at(-1)).toMatchObject({ type: 'pubrel', packetId: 2 });
     rig.sever(0);
@@ -1358,9 +1365,9 @@ describe('executeMqttSession — auto-reconnect', () => {
     expect(rig.written[1][2]).toMatchObject({ type: 'pubrel', packetId: 2 });
     // Ids 1 and 2 stay reserved until their acks land — a new publish
     // never takes one over a retransmission still pending.
-    expect(
+    await expect(
       publishActiveMqttMessage('send-mqtt-reconnect-dup', { topic: 'probe/q1', payload: 'three', qos: 1 }),
-    ).toEqual({ success: true });
+    ).resolves.toEqual({ success: true });
     expect(rig.written[1].at(-1)).toMatchObject({ type: 'publish', packetId: 3, dup: false });
     rig.push(1, { type: 'puback', packetId: 1, reasonCode: 0 });
     rig.push(1, { type: 'pubcomp', packetId: 2, reasonCode: 0 });
@@ -1417,8 +1424,8 @@ describe('executeMqttSession — auto-reconnect', () => {
     rig.establish(0);
     rig.push(0, acceptedConnack);
     rig.push(0, { type: 'suback', packetId: 1, reasonCodes: [1] });
-    publishActiveMqttMessage('send-mqtt-reconnect-drop', { topic: 'probe/q1', payload: 'one', qos: 1 });
-    publishActiveMqttMessage('send-mqtt-reconnect-drop', { topic: 'probe/q2', payload: 'two', qos: 2 });
+    void publishActiveMqttMessage('send-mqtt-reconnect-drop', { topic: 'probe/q1', payload: 'one', qos: 1 });
+    void publishActiveMqttMessage('send-mqtt-reconnect-drop', { topic: 'probe/q2', payload: 'two', qos: 2 });
     rig.sever(0);
     await tick();
     await vi.advanceTimersByTimeAsync(1_000);

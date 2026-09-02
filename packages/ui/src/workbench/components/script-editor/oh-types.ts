@@ -328,6 +328,196 @@ interface OpenHeaders extends OpenHeadersCore {
 declare const oh: OpenHeaders;
 `;
 
+const OH_MQTT_PRELUDE = `
+type OhMqttQos = 0 | 1 | 2;
+
+/** The compose spellings a script reads and writes: UTF-8 text (JSON is
+ *  text) or the bytes as base64 — a hex compose re-spells as base64. */
+type OhMqttPayloadFormat = 'text' | 'json' | 'base64';
+
+/** The 5.0 per-message properties — ignored on a 3.1.1 session. */
+interface OhMqttMessageProperties {
+  userProperties?: Array<OhHeader>;
+  responseTopic?: string;
+  /** Text — travels as its UTF-8 bytes. */
+  correlationData?: string;
+  messageExpiryInterval?: number;
+  contentType?: string;
+  payloadFormatIndicator?: boolean;
+}
+`;
+
+const OH_MQTT_CONNECT = `
+/** The last will as the CONNECT registers it — the payload as bytes
+ *  (base64), the QoS and RETAIN flags. */
+interface OhMqttWill {
+  readonly topic: string;
+  readonly payloadBase64: string;
+  readonly qos: OhMqttQos;
+  readonly retain: boolean;
+}
+
+/** One open-time subscription — the Topics row as resolved. */
+interface OhMqttSubscription {
+  topicFilter: string;
+  qos: OhMqttQos;
+  noLocal?: boolean;
+  retainAsPublished?: boolean;
+  retainHandling?: 0 | 1 | 2;
+  subscriptionId?: number;
+  userProperties?: Array<OhHeader>;
+}
+
+/** The CONNECT as composed: the client id (the entity's, or the
+ *  per-connect generated one), the Basic credential's pair (\`''\` =
+ *  none), the will, the rows that SUBSCRIBE at open, the CONNECT user
+ *  properties (5.0). Templates already resolved. */
+interface OhMqttConnect {
+  readonly url: string;
+  readonly protocolVersion: '5.0' | '3.1.1';
+  readonly clientId: string;
+  readonly username: string;
+  readonly password: string;
+  readonly will: OhMqttWill | null;
+  readonly subscriptions: ReadonlyArray<OhMqttSubscription>;
+  readonly userProperties: ReadonlyArray<OhHeader>;
+  /** \`0\` for the first dial, \`n\` for the n-th auto-reconnect attempt. */
+  readonly attempt: number;
+}
+
+/** What \`oh.setWill\` accepts — the payload as text, or as bytes when
+ *  \`format\` says base64. */
+interface OhMqttWillInput {
+  topic: string;
+  payload: string;
+  format?: 'text' | 'base64';
+  qos?: OhMqttQos;
+  retain?: boolean;
+}
+
+/** The \`oh\` global inside an MQTT Before connect script — runs at
+ *  every dial, reconnect attempts included. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly connect: OhMqttConnect;
+  setClientId(clientId: string): void;
+  setUsername(username: string): void;
+  setPassword(password: string): void;
+  /** Replace the will; \`null\` registers none. */
+  setWill(will: OhMqttWillInput | null): void;
+  /** Replace the open-time subscription list. */
+  setSubscriptions(subscriptions: ReadonlyArray<OhMqttSubscription>): void;
+  /** Add (or replace by filter) one open-time subscription. */
+  addSubscription(topicFilter: string, options?: Partial<Omit<OhMqttSubscription, 'topicFilter'>>): void;
+  removeSubscription(topicFilter: string): void;
+  /** CONNECT user properties (5.0) — keys are case-sensitive. */
+  setUserProperty(key: string, value: string): void;
+  removeUserProperty(key: string): void;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_MQTT_PUBLISH = `
+/** The outgoing PUBLISH after template resolution: the topic, the
+ *  payload in the script spelling (\`format\` says which), the flags,
+ *  the 5.0 properties when the compose carries any. */
+interface OhMqttOutboundMessage {
+  readonly direction: 'up';
+  readonly topic: string;
+  readonly payload: string;
+  readonly format: OhMqttPayloadFormat;
+  readonly qos: OhMqttQos;
+  readonly retain: boolean;
+  readonly properties?: OhMqttMessageProperties;
+  /** The event-log position the message takes if it goes out. */
+  readonly index: number;
+}
+
+/** The \`oh\` global inside an MQTT Before publish script — runs once
+ *  per Send; the driver's own protocol frames never pass here. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly message: OhMqttOutboundMessage;
+  setTopic(topic: string): void;
+  /** Replace the payload — text by default; pass \`'base64'\` for bytes. */
+  setPayload(payload: string, format?: OhMqttPayloadFormat): void;
+  setQos(qos: OhMqttQos): void;
+  setRetain(retain: boolean): void;
+  /** Replace the 5.0 property block wholesale. */
+  setProperties(properties: OhMqttMessageProperties): void;
+  setUserProperty(key: string, value: string): void;
+  removeUserProperty(key: string): void;
+  /** Drop the message — nothing reaches the wire and Send reports it. */
+  drop(): void;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_MQTT_MESSAGE = `
+/** One captured inbound PUBLISH, after the capture: the topic (an alias
+ *  resolved), the payload bytes and their UTF-8 decode (\`null\` when the
+ *  bytes are not text), the flags as facts, the 5.0 properties the
+ *  packet carried, the event-log index it took. */
+interface OhMqttInboundMessage {
+  readonly direction: 'down';
+  readonly topic: string;
+  readonly payloadBase64: string;
+  readonly text: string | null;
+  readonly qos: OhMqttQos;
+  readonly retain: boolean;
+  readonly dup: boolean;
+  readonly properties?: OhMqttMessageProperties;
+  readonly index: number;
+}
+
+interface OhMqttPublishOptions {
+  format?: OhMqttPayloadFormat;
+  qos?: OhMqttQos;
+  retain?: boolean;
+  properties?: OhMqttMessageProperties;
+}
+
+/** The \`oh\` global inside an MQTT On message script — runs once per
+ *  captured inbound PUBLISH; the capture never waits for it. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly message: OhMqttInboundMessage;
+  /** Publish into this session — captured like any ↑ message, never
+   *  re-entering Before publish. */
+  publish(topic: string, payload: string, options?: OhMqttPublishOptions): Promise<void>;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_MQTT_CLOSE = `
+/** The session's end record: how the (last) connection ended — the
+ *  clean client DISCONNECT, the broker's DISCONNECT with its verbatim
+ *  reason, \`null\` for a severed connection — the CONNACK facts,
+ *  whether the user stopped it, the capture counts both directions and
+ *  the whole-session wall time. */
+interface OhMqttClose {
+  readonly end: { by: 'client' } | { by: 'broker'; reasonCode: number | null } | null;
+  readonly connack: { sessionPresent: boolean; reasonCode: number } | null;
+  readonly stopped: boolean;
+  readonly published: number;
+  readonly received: number;
+  readonly droppedMessages: number;
+  readonly durationMs: number;
+}
+
+/** The \`oh\` global inside an MQTT After close script — runs once when
+ *  a session that opened settles. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly close: OhMqttClose;
+}
+
+declare const oh: OpenHeaders;
+`;
+
 /** The HTTP pair's declaration — what the editor bootstraps with. */
 export const OH_AMBIENT_DTS = `${OH_PRELUDE}${OH_HTTP}`;
 
@@ -344,6 +534,14 @@ export function ohAmbientDts(kind: ScriptKind): string {
       return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_WS_MESSAGE}`;
     case 'ws-after-close':
       return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_WS_CLOSE}`;
+    case 'mqtt-before-connect':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_MQTT_PRELUDE}${OH_MQTT_CONNECT}`;
+    case 'mqtt-before-publish':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_MQTT_PRELUDE}${OH_MQTT_PUBLISH}`;
+    case 'mqtt-on-message':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_MQTT_PRELUDE}${OH_MQTT_MESSAGE}`;
+    case 'mqtt-after-close':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_MQTT_CLOSE}`;
     default:
       return OH_AMBIENT_DTS;
   }

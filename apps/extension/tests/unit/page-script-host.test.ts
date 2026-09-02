@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   bridgeCall: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: false, error: 'not under test' })),
   varSet: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ ok: true })),
   sessionSend: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
+  sessionPublish: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
   manifest: { sandbox: { pages: ['sandbox.html'] } } as { sandbox?: { pages?: string[] } },
 }));
 
@@ -29,6 +30,13 @@ vi.mock('@openheaders/ui/shared/sync/workspace-variables-write-client', () => ({
 vi.mock('@openheaders/oracle/live/ws-exec/session-plane', () => ({
   sendActiveWsSessionMessage: (...args: unknown[]) => h.sessionSend(...args),
 }));
+vi.mock('@openheaders/oracle/live/mqtt-exec/session-plane', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@openheaders/oracle/live/mqtt-exec/session-plane')>();
+  return {
+    scriptPublishToWire: actual.scriptPublishToWire,
+    publishActiveMqttMessage: (...args: unknown[]) => h.sessionPublish(...args),
+  };
+});
 vi.mock('@/types/browser', () => ({
   getBrowserAPI: () => ({
     runtime: { getManifest: () => h.manifest, getURL: (p: string) => `chrome-extension://x/${p}` },
@@ -149,6 +157,36 @@ describe('the oh.* host RPCs', () => {
     });
     expect(reply).toMatchObject({ ok: true, value: { success: true } });
     expect(h.sessionSend).toHaveBeenCalledWith('send-1', 'pong', undefined, undefined, 'script');
+  });
+
+  it('session.publish routes into the page-local MQTT registry as a script-origin publish, rows given identities', async () => {
+    const reply = await handlePageScriptHostRequest({
+      ...envelope,
+      op: 'session.publish',
+      sessionId: 'send-2',
+      message: {
+        topic: 'probe/ack',
+        payload: 'ok',
+        qos: 1,
+        properties: { userProperties: [{ key: 'k', value: 'v' }] },
+      },
+    });
+    expect(reply).toMatchObject({ ok: true, value: { success: true } });
+    const [sendId, wire, origin] = h.sessionPublish.mock.calls[0] as [
+      string,
+      {
+        topic: string;
+        payload: string;
+        qos: number;
+        properties: { userProperties: Array<{ uid: string; key: string; value: string }> };
+      },
+      string,
+    ];
+    expect(sendId).toBe('send-2');
+    expect(origin).toBe('script');
+    expect(wire).toMatchObject({ topic: 'probe/ack', payload: 'ok', qos: 1 });
+    expect(wire.properties.userProperties[0]).toMatchObject({ key: 'k', value: 'v' });
+    expect(typeof wire.properties.userProperties[0]?.uid).toBe('string');
   });
 
   it('never throws — a scope-less call folds into an error reply', async () => {

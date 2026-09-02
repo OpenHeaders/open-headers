@@ -30,6 +30,7 @@ import type { ExecutedMqttSnapshot, MqttRequest as MqttRequestEntity, MqttTopicR
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getMqttResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/mqtt-response-example-sync-mirror';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useScriptPackages } from '@openheaders/ui/shared/hooks/readers/useScriptPackages';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import {
   applyMqttResponseExampleCreate,
@@ -119,14 +120,21 @@ export function useMqttSessionPlane({
   // Page-session resolution publisher — the host executing in this
   // page realm injects the CURRENT factory into the executor at
   // Connect, so republish on every renderer-scope change while an
-  // MQTT editor is mounted (nothing can Connect without one).
+  // MQTT editor is mounted (nothing can Connect without one). The
+  // Package Library rides along for the session hooks' `oh.require`.
   const resolverInputs = useVariableResolverInputs();
+  const scriptPackages = useScriptPackages(pageSession ? workspaceId : null);
   useEffect(() => {
     if (!pageSession) return;
     publishMqttPageResolutionFactory(
-      makeMqttPageResolutionFactory(resolverInputs, { collectionTrees, collections, folders }),
+      makeMqttPageResolutionFactory(
+        resolverInputs,
+        { collectionTrees, collections, folders },
+        workspaceId,
+        scriptPackages.map((p) => ({ name: p.name, source: p.source })),
+      ),
     );
-  }, [pageSession, resolverInputs, collectionTrees, collections, folders]);
+  }, [pageSession, resolverInputs, collectionTrees, collections, folders, workspaceId, scriptPackages]);
 
   // Live Subscribe-toggle truth while the session is open — keyed by
   // row uid; seeded from the open-time SUBACK items (grants positional

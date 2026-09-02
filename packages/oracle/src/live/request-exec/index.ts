@@ -63,6 +63,16 @@ export {
   type StepScriptRunner,
 } from './script-hooks';
 export {
+  createSessionScriptPlaneCore,
+  hasSessionScriptChains,
+  MAX_SESSION_SCRIPT_MARKS,
+  type SessionLevelHandler,
+  type SessionScriptChains,
+  type SessionScriptMarkOf,
+  type SessionScriptPlaneCore,
+  type SessionScriptPlaneDeps,
+} from './session-script-plane';
+export {
   type RequestTransport,
   type TransportBody,
   TransportError,

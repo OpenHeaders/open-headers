@@ -122,7 +122,9 @@ function scriptedHost(
   return { host, ran, ended };
 }
 
-const marksOf = (lifecycle: readonly { kind: string }[] | undefined): ExecutedWsScriptMark[] =>
+const marksOf = (
+  lifecycle: readonly { kind: string }[] | undefined,
+): Array<ExecutedWsScriptMark & { atIndex: number }> =>
   (lifecycle ?? []).filter((item): item is ExecutedWsScriptMark & { atIndex: number } => item.kind === 'script');
 
 describe('executeWsSession — Before connect', () => {

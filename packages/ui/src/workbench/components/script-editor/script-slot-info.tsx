@@ -158,6 +158,41 @@ function sessionSlotGlossary(kind: SessionScriptKind, t: Translate): Array<{ lab
         { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
         session,
       ];
+    case 'mqtt-before-connect':
+      return [
+        { label: 'oh.connect', desc: t('workbench.editors.request.scripts.apiMqttConnect') },
+        { label: 'oh.setClientId(id)', desc: t('workbench.editors.request.scripts.apiSetClientId') },
+        { label: 'oh.setUsername(name)', desc: t('workbench.editors.request.scripts.apiSetUsername') },
+        { label: 'oh.setPassword(secret)', desc: t('workbench.editors.request.scripts.apiSetPassword') },
+        { label: 'oh.setWill(will)', desc: t('workbench.editors.request.scripts.apiSetWill') },
+        { label: 'oh.addSubscription(filter, options)', desc: t('workbench.editors.request.scripts.apiAddSubscription') },
+        { label: 'oh.setUserProperty(name, value)', desc: t('workbench.editors.request.scripts.apiSetUserProperty') },
+        session,
+      ];
+    case 'mqtt-before-publish':
+      return [
+        { label: 'oh.message', desc: t('workbench.editors.request.scripts.apiMqttMessage') },
+        { label: 'oh.setTopic(topic)', desc: t('workbench.editors.request.scripts.apiSetTopic') },
+        { label: 'oh.setPayload(payload, format)', desc: t('workbench.editors.request.scripts.apiSetPayload') },
+        { label: 'oh.setQos(qos)', desc: t('workbench.editors.request.scripts.apiSetQos') },
+        { label: 'oh.setRetain(retain)', desc: t('workbench.editors.request.scripts.apiSetRetain') },
+        { label: 'oh.setUserProperty(name, value)', desc: t('workbench.editors.request.scripts.apiSetUserProperty') },
+        { label: 'oh.drop()', desc: t('workbench.editors.request.scripts.apiDrop') },
+        session,
+      ];
+    case 'mqtt-on-message':
+      return [
+        { label: 'oh.message', desc: t('workbench.editors.request.scripts.apiMqttMessage') },
+        { label: 'oh.publish(topic, payload, options)', desc: t('workbench.editors.request.scripts.apiPublish') },
+        { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
+        session,
+      ];
+    case 'mqtt-after-close':
+      return [
+        { label: 'oh.close', desc: t('workbench.editors.request.scripts.apiMqttClose') },
+        { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
+        session,
+      ];
     default:
       return [];
   }

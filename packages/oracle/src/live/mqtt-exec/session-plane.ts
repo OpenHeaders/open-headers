@@ -23,7 +23,9 @@ import type {
   MqttStreamItemWire,
   MqttSubscriptionWire,
 } from '@openheaders/core/bridge';
+import type { SessionPublishMessage } from '@openheaders/core/scripts';
 import type { ExecutedProxyRoute } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 
 /** Flush the pending item batch on this cadence — the WS emitter's
  *  window; per-item `atMs` stamps keep arrival fidelity through the
@@ -114,6 +116,16 @@ export function createMqttStreamEmitter(sendId: string, emit: (event: MqttStream
 
 // ── Active-session registry (upstream riders) ───────────────────────
 
+/** Who is publishing: the user's rider (its Before publish hook runs),
+ *  or a script's `oh.publish` (already a hook's product — never
+ *  re-enters). */
+export type MqttPublishOrigin = 'rider' | 'script';
+
+export interface MqttPublishResult {
+  success: boolean;
+  error?: string;
+}
+
 /** The executor's handle for one open session — what the
  *  `publishMqttMessage` / `setMqttSubscription` / `closeMqttSession`
  *  RPCs reach. */
@@ -121,8 +133,10 @@ export interface ActiveMqttSessionHandle {
   /** Resolve `{{refs}}` through the resolver built at Connect, decode
    *  the payload per its ENCODING, and publish. A malformed payload,
    *  an unresolved reference, or an invalid topic reports on the RPC
-   *  alone — the session stays open. */
-  publish(message: MqttPublishWire): { success: boolean; error?: string };
+   *  alone — the session stays open. A rider publish runs the Before
+   *  publish hook first (the answer waits for it; a drop answers with
+   *  the dropping level's name); a script's publish never does. */
+  publish(message: MqttPublishWire, origin?: MqttPublishOrigin): Promise<MqttPublishResult>;
   /** SUBSCRIBE or UNSUBSCRIBE one filter, resolving when the broker's
    *  ack arrives — `grantCode` is the SUBACK grant / UNSUBACK reason
    *  verbatim (absent on a 3.1.1 UNSUBACK). A session ending before
@@ -150,14 +164,37 @@ export function registerActiveMqttSession(sendId: string, handle: ActiveMqttSess
 
 /** Publish one message into an open session. `success: false` names
  *  the reason: no such session (settled, unknown id), a resolve error,
- *  a payload-decode error, or an encode error. */
+ *  a payload-decode error, an encode error, or a Before publish level
+ *  that dropped the message. */
 export function publishActiveMqttMessage(
   sendId: string,
   message: MqttPublishWire,
-): { success: boolean; error?: string } {
+  origin: MqttPublishOrigin = 'rider',
+): Promise<MqttPublishResult> {
   const handle = activeSessions.get(sendId);
-  if (!handle) return { success: false, error: 'No open MQTT session with this id.' };
-  return handle.publish(message);
+  if (!handle) return Promise.resolve({ success: false, error: 'No open MQTT session with this id.' });
+  return handle.publish(message, origin);
+}
+
+/**
+ * A script's `oh.publish` message as the rider carries it — the
+ * `session.publish` host op's shape onto {@link MqttPublishWire}: the
+ * user-property pairs gain the row identities the rider's rows have
+ * (the executor resolves and filters them like any compose block).
+ */
+export function scriptPublishToWire(message: SessionPublishMessage): MqttPublishWire {
+  const { properties, ...rest } = message;
+  if (properties === undefined) return rest;
+  const { userProperties, ...scalars } = properties;
+  return {
+    ...rest,
+    properties: {
+      ...scalars,
+      ...(userProperties !== undefined
+        ? { userProperties: userProperties.map((row) => ({ uid: generateUid(), key: row.key, value: row.value })) }
+        : {}),
+    },
+  };
 }
 
 /** Toggle one live subscription on an open session. */

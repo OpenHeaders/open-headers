@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   executeRequestRpc: vi.fn(async (_input: unknown): Promise<unknown> => ({ success: false, error: 'not under test' })),
   transportSend: vi.fn(async (_req: unknown): Promise<unknown> => null),
   sessionSend: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
+  sessionPublish: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
 }));
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
@@ -217,6 +218,55 @@ describe('handleScriptHostRequest — sendRequest', () => {
 vi.mock('@openheaders/oracle/live/ws-exec/session-plane', () => ({
   sendActiveWsSessionMessage: (...args: unknown[]) => h.sessionSend(...args),
 }));
+vi.mock('@openheaders/oracle/live/mqtt-exec/session-plane', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@openheaders/oracle/live/mqtt-exec/session-plane')>();
+  return {
+    scriptPublishToWire: actual.scriptPublishToWire,
+    publishActiveMqttMessage: (...args: unknown[]) => h.sessionPublish(...args),
+  };
+});
+
+// ── session.publish — an MQTT hook's reply into its own session ─────
+
+describe('session.publish', () => {
+  it('routes to the active MQTT session as a script-origin publish, the rows given identities', async () => {
+    h.sessionPublish.mockResolvedValue({ success: true });
+    const reply = await handleScriptHostRequest({
+      op: 'session.publish',
+      executionId: 'e3',
+      rpcId: 'r3',
+      sessionId: 'send-2',
+      message: {
+        topic: 'probe/ack',
+        payload: 'ok',
+        qos: 1,
+        properties: { userProperties: [{ key: 'k', value: 'v' }] },
+      },
+    });
+    expect(reply).toEqual({ executionId: 'e3', rpcId: 'r3', ok: true, value: { success: true } });
+    const [sendId, wire, origin] = h.sessionPublish.mock.calls[0] as [
+      string,
+      { topic: string; properties: { userProperties: Array<{ uid: string; key: string }> } },
+      string,
+    ];
+    expect(sendId).toBe('send-2');
+    expect(origin).toBe('script');
+    expect(wire).toMatchObject({ topic: 'probe/ack', payload: 'ok', qos: 1 });
+    expect(typeof wire.properties.userProperties[0]?.uid).toBe('string');
+  });
+
+  it('a refused publish answers ok with the rider reason — the script reads it as a throw', async () => {
+    h.sessionPublish.mockResolvedValue({ success: false, error: 'No open MQTT session with this id.' });
+    const reply = await handleScriptHostRequest({
+      op: 'session.publish',
+      executionId: 'e4',
+      rpcId: 'r4',
+      sessionId: 'gone',
+      message: { topic: 'x', payload: 'y' },
+    });
+    expect(reply).toMatchObject({ ok: true, value: { success: false, error: 'No open MQTT session with this id.' } });
+  });
+});
 
 describe('session.send', () => {
   it('routes to the active WebSocket session as a script-origin write and answers the rider verdict', async () => {

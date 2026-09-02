@@ -20,7 +20,7 @@
  */
 
 import type { HttpMethod, RequestBody } from '../types';
-import type { SessionHookInput, SessionScriptMutation } from './session-hooks';
+import type { SessionHookInput, SessionPublishMessage, SessionScriptMutation } from './session-hooks';
 import type { HttpScriptKind, SessionScriptKind } from './slots';
 
 // ── Kinds ──────────────────────────────────────────────────────────
@@ -28,10 +28,24 @@ import type { HttpScriptKind, SessionScriptKind } from './slots';
 // files); the execution envelope below carries the kind as data.
 
 export type {
+  MqttCloseSnapshot,
+  MqttConnectMutation,
+  MqttConnectSnapshot,
+  MqttConnectSubscription,
+  MqttConnectWill,
+  MqttHookInput,
+  MqttInboundMessageSnapshot,
+  MqttOutboundMessageSnapshot,
+  MqttPublishMutation,
+  MqttScriptMessageProperties,
+  MqttScriptPayloadFormat,
+  MqttSessionQos,
+  MutatingMqttScriptKind,
   MutatingWsScriptKind,
   SessionHeader,
   SessionHookInput,
   SessionParam,
+  SessionPublishMessage,
   SessionScriptMutation,
   WsCloseSnapshot,
   WsConnectMutation,
@@ -274,6 +288,11 @@ export interface ScriptExecutionResult {
  *                                    `oh.emit`), the rider's shape: the
  *                                    host routes it to the active-session
  *                                    registry under the session's id.
+ *   • `session.publish(...)`       → { success, error? } — the MQTT
+ *                                    twin (`oh.publish`): one PUBLISH
+ *                                    into the hook's own session through
+ *                                    the publish rider as a script-origin
+ *                                    write.
  */
 export type ScriptHostRequest =
   | {
@@ -312,9 +331,18 @@ export type ScriptHostRequest =
       messageText: string;
       socketio?: { eventName: string; expectAck: boolean };
       binary?: { encoding: 'base64' | 'hex' };
+    }
+  | {
+      executionId: string;
+      rpcId: string;
+      op: 'session.publish';
+      /** The session's send id — the active-session registry key. */
+      sessionId: string;
+      message: SessionPublishMessage;
     };
 
-/** The `session.send` op's reply value — the rider's own answer. */
+/** The `session.send` / `session.publish` op's reply value — the
+ *  rider's own answer. */
 export interface SessionSendResult {
   success: boolean;
   error?: string;

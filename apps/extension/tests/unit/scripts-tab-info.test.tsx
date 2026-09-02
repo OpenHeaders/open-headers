@@ -238,20 +238,47 @@ describe('ScriptsTab request kinds', () => {
     expect(onChange).toHaveBeenCalledWith('ws-on-message', `await oh.send('pong');`);
   });
 
-  it('a container mount draws the HTTP group and the WebSocket group under their kind headers', () => {
+  it('a container mount draws the HTTP, WebSocket and MQTT groups under their kind headers', () => {
     renderTab({ scope: 'container' });
     expect(screen.getAllByTestId('oh-script-rail-group').map((g) => g.textContent)).toEqual([
       'HTTPHTTP',
       'WSWebSocket',
+      'MQTTMQTT',
     ]);
     fireEvent.click(screen.getByText('Before send'));
     expect(editor().placeholder).toBe('Write scripts to be run before each WebSocket message is sent.');
+    fireEvent.click(screen.getByText('Before publish'));
+    expect(editor().placeholder).toBe('Write scripts to be run before each MQTT message is published.');
   });
 
   it('a WebSocket slot popover lists the hook glossary', async () => {
     render(<ScriptsTab scope="request" requestKind="websocket" scripts={EMPTY} onScriptChange={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'About Before connect script' }));
     expect(await screen.findByText('oh.setSubprotocols(list)')).toBeTruthy();
+    expect(screen.getByText('oh.session')).toBeTruthy();
+  });
+
+  it('an MQTT request mount draws the four MQTT slots flat and edits report the MQTT kind', () => {
+    const onChange = vi.fn();
+    render(<ScriptsTab scope="request" requestKind="mqtt" scripts={EMPTY} onScriptChange={onChange} />);
+    expect(screen.getAllByTestId('oh-script-rail-row').map((row) => row.firstChild?.textContent)).toEqual([
+      'Before connect',
+      'Before publish',
+      'On message',
+      'After close',
+    ]);
+    expect(screen.queryByTestId('oh-script-rail-group')).toBeNull();
+    expect(screen.queryByText('Before send')).toBeNull();
+    fireEvent.click(screen.getByText('On message'));
+    fireEvent.change(editor(), { target: { value: `await oh.publish('probe/ack', 'ok');` } });
+    expect(onChange).toHaveBeenCalledWith('mqtt-on-message', `await oh.publish('probe/ack', 'ok');`);
+  });
+
+  it('an MQTT slot popover lists the hook glossary', async () => {
+    render(<ScriptsTab scope="request" requestKind="mqtt" scripts={EMPTY} onScriptChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'About Before connect script' }));
+    expect(await screen.findByText('oh.setClientId(id)')).toBeTruthy();
+    expect(screen.getByText('oh.addSubscription(filter, options)')).toBeTruthy();
     expect(screen.getByText('oh.session')).toBeTruthy();
   });
 });

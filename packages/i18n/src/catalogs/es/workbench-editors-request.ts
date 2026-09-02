@@ -1767,4 +1767,20 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiEmit': 'emitir un evento Socket.IO',
   'workbench.editors.request.scripts.apiClose': 'el registro de cierre — código, motivo, recuentos, duración',
   'workbench.editors.request.scripts.apiSession': 'estado compartido por cada hook de esta sesión',
+  'workbench.editors.request.scripts.apiMqttConnect':
+    'el CONNECT tal como se compuso — client id, credenciales, testamento, suscripciones, propiedades de usuario, intento',
+  'workbench.editors.request.scripts.apiSetClientId': 'reemplazar el client id',
+  'workbench.editors.request.scripts.apiSetUsername': 'reemplazar el nombre de usuario',
+  'workbench.editors.request.scripts.apiSetPassword': 'reemplazar la contraseña',
+  'workbench.editors.request.scripts.apiSetWill': 'reemplazar el testamento (null no registra ninguno)',
+  'workbench.editors.request.scripts.apiAddSubscription': 'suscribir un filtro de tema al abrir',
+  'workbench.editors.request.scripts.apiSetUserProperty': 'definir una propiedad de usuario 5.0',
+  'workbench.editors.request.scripts.apiMqttMessage': 'el mensaje — tema, carga útil, QoS, retain, índice de captura',
+  'workbench.editors.request.scripts.apiSetTopic': 'redirigir la publicación',
+  'workbench.editors.request.scripts.apiSetPayload': 'reemplazar la carga útil (texto, o bytes base64)',
+  'workbench.editors.request.scripts.apiSetQos': 'definir la QoS',
+  'workbench.editors.request.scripts.apiSetRetain': 'definir el indicador RETAIN',
+  'workbench.editors.request.scripts.apiPublish': 'publicar un mensaje en la sesión',
+  'workbench.editors.request.scripts.apiMqttClose':
+    'el registro de cierre — cómo terminó, el CONNACK, los conteos, la duración',
 } as const satisfies Catalog;

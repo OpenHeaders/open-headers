@@ -9,6 +9,7 @@
  */
 
 import type {
+  MqttConnectSnapshot,
   ScriptExecutionRequest,
   ScriptHostRequest,
   ScriptHostResponse,
@@ -76,7 +77,7 @@ async function runHook(
         executionId: request.executionId,
         rpcId: request.rpcId,
         ok: true,
-        value: request.op === 'session.send' ? { success: true } : null,
+        value: request.op === 'session.send' || request.op === 'session.publish' ? { success: true } : null,
       };
     },
   });
@@ -244,5 +245,243 @@ describe('the session across families', () => {
       },
     );
     expect(logged(result)).toEqual(['wss://events.openheaders.io/live?tenant=acme object']);
+  });
+});
+
+// ── The MQTT family ─────────────────────────────────────────────────
+
+const MQTT_CONNECT: MqttConnectSnapshot = {
+  url: 'mqtt://broker.openheaders.io:1883',
+  protocolVersion: '5.0',
+  clientId: 'oh-generated',
+  username: '',
+  password: '',
+  will: null,
+  subscriptions: [{ topicFilter: 'probe/echo/reply', qos: 1 }],
+  userProperties: [{ key: 'tenant', value: 'acme' }],
+  attempt: 0,
+};
+
+const MQTT_OUTBOUND: SessionHookInput = {
+  kind: 'mqtt-before-publish',
+  message: {
+    direction: 'up',
+    topic: 'probe/echo',
+    payload: '{"op":"ping"}',
+    format: 'json',
+    qos: 0,
+    retain: false,
+    properties: { contentType: 'application/json' },
+    index: 2,
+  },
+};
+
+const MQTT_INBOUND: SessionHookInput = {
+  kind: 'mqtt-on-message',
+  message: {
+    direction: 'down',
+    topic: 'probe/echo/reply',
+    payloadBase64: 'cGluZw==',
+    text: 'ping',
+    qos: 1,
+    retain: false,
+    dup: false,
+    properties: { responseTopic: 'probe/ack', correlationData: 'c-1' },
+    index: 3,
+  },
+};
+
+const MQTT_CLOSE: SessionHookInput = {
+  kind: 'mqtt-after-close',
+  close: {
+    end: { by: 'client' },
+    connack: { sessionPresent: false, reasonCode: 0 },
+    stopped: false,
+    published: 2,
+    received: 3,
+    droppedMessages: 0,
+    durationMs: 42,
+  },
+};
+
+describe('mqtt-before-connect', () => {
+  it('exposes the CONNECT view and folds the mutators into one connect mutation', async () => {
+    const result = await runHook(
+      `console.log(oh.connect.clientId, oh.connect.protocolVersion, oh.connect.subscriptions.length, oh.connect.attempt);
+       oh.setClientId('device-7');
+       oh.setUsername('device');
+       oh.setPassword('s3cret');
+       oh.addSubscription('devices/+/status', { qos: 1, noLocal: true });
+       oh.setUserProperty('client', 'openheaders');
+       oh.setWill({ topic: 'devices/7/status', payload: 'offline', retain: true });
+       console.log(oh.connect.will.payloadBase64, oh.connect.userProperties.length);`,
+      { kind: 'mqtt-before-connect', connect: MQTT_CONNECT },
+    );
+    expect(result.succeeded).toBe(true);
+    expect(logged(result)).toEqual(['oh-generated 5.0 1 0', 'b2ZmbGluZQ== 2']);
+    expect(result.sessionMutation).toEqual({
+      kind: 'mqtt-connect',
+      clientId: 'device-7',
+      username: 'device',
+      password: 's3cret',
+      will: { topic: 'devices/7/status', payloadBase64: 'b2ZmbGluZQ==', qos: 0, retain: true },
+      subscriptions: [
+        { topicFilter: 'probe/echo/reply', qos: 1 },
+        { topicFilter: 'devices/+/status', qos: 1, noLocal: true },
+      ],
+      userProperties: [
+        { key: 'tenant', value: 'acme' },
+        { key: 'client', value: 'openheaders' },
+      ],
+    });
+  });
+
+  it('a reverted edit reports no mutation; dropping the will is an explicit null', async () => {
+    const reverted = await runHook(
+      `oh.setUserProperty('x', '1'); oh.removeUserProperty('x'); oh.removeSubscription('nope'); oh.setClientId(oh.connect.clientId);`,
+      { kind: 'mqtt-before-connect', connect: MQTT_CONNECT },
+    );
+    expect(reverted.sessionMutation).toBeUndefined();
+    const dropped = await runHook(`oh.setWill(null);`, {
+      kind: 'mqtt-before-connect',
+      connect: { ...MQTT_CONNECT, will: { topic: 't', payloadBase64: 'eA==', qos: 0, retain: false } },
+    });
+    expect(dropped.sessionMutation).toEqual({
+      kind: 'mqtt-connect',
+      clientId: undefined,
+      username: undefined,
+      password: undefined,
+      will: null,
+      subscriptions: undefined,
+      userProperties: undefined,
+    });
+  });
+
+  it('has no WebSocket surface — oh.setSubprotocols is undefined', async () => {
+    const result = await runHook(`console.log(typeof oh.setSubprotocols, typeof oh.setClientId, typeof oh.request);`, {
+      kind: 'mqtt-before-connect',
+      connect: MQTT_CONNECT,
+    });
+    expect(logged(result)).toEqual(['undefined function undefined']);
+  });
+});
+
+describe('mqtt-before-publish', () => {
+  it('rewrites the topic, payload, flags and properties', async () => {
+    const result = await runHook(
+      `const payload = JSON.parse(oh.message.payload); payload.ts = 1;
+       oh.setPayload(JSON.stringify(payload)); oh.setTopic('probe/echo/v2'); oh.setQos(1); oh.setRetain(true);
+       oh.setUserProperty('trace', 'abc');
+       console.log(oh.message.topic, oh.message.qos, oh.message.properties.contentType, oh.message.index);`,
+      MQTT_OUTBOUND,
+    );
+    expect(result.succeeded).toBe(true);
+    expect(logged(result)).toEqual(['probe/echo/v2 1 application/json 2']);
+    expect(result.sessionMutation).toEqual({
+      kind: 'mqtt-publish',
+      topic: 'probe/echo/v2',
+      payload: '{"op":"ping","ts":1}',
+      format: undefined,
+      qos: 1,
+      retain: true,
+      properties: { contentType: 'application/json', userProperties: [{ key: 'trace', value: 'abc' }] },
+    });
+  });
+
+  it('setPayload may switch the spelling to bytes; drop is a mutation of its own', async () => {
+    const bytes = await runHook(`oh.setPayload('AQID', 'base64');`, MQTT_OUTBOUND);
+    expect(bytes.sessionMutation).toMatchObject({ kind: 'mqtt-publish', payload: 'AQID', format: 'base64' });
+    const dropped = await runHook(
+      `oh.setTopic('x'); oh.setTopic(oh.message.topic === 'x' ? 'probe/echo' : 'y'); oh.drop();`,
+      MQTT_OUTBOUND,
+    );
+    expect(dropped.sessionMutation).toEqual({
+      kind: 'mqtt-publish',
+      topic: undefined,
+      payload: undefined,
+      format: undefined,
+      qos: undefined,
+      retain: undefined,
+      properties: undefined,
+      drop: true,
+    });
+    const untouched = await runHook(`console.log(oh.message.direction);`, MQTT_OUTBOUND);
+    expect(untouched.sessionMutation).toBeUndefined();
+  });
+});
+
+describe('mqtt-on-message', () => {
+  it('replies through the session.publish host op with the reply-to facts', async () => {
+    const hostRequests: ScriptHostRequest[] = [];
+    const result = await runHook(
+      `await oh.publish(oh.message.properties.responseTopic, 'ack', { qos: oh.message.qos, properties: { correlationData: oh.message.properties.correlationData } });
+       await oh.publish('probe/bytes', 'AQID', { format: 'base64', retain: true });`,
+      MQTT_INBOUND,
+      { sessionId: 'session-publish', hostRequests },
+    );
+    endScriptSession('session-publish');
+    expect(result.succeeded).toBe(true);
+    expect(hostRequests.map((r) => (r.op === 'session.publish' ? [r.sessionId, r.message] : r.op))).toEqual([
+      ['session-publish', { topic: 'probe/ack', payload: 'ack', qos: 1, properties: { correlationData: 'c-1' } }],
+      ['session-publish', { topic: 'probe/bytes', payload: 'AQID', format: 'base64', retain: true }],
+    ]);
+  });
+
+  it('a refused publish throws into the script with the rider reason', async () => {
+    executions += 1;
+    const result = await executeScript(
+      {
+        executionId: `exec-${executions}`,
+        kind: 'mqtt-on-message',
+        source: `try { await oh.publish('x', 'y'); } catch (err) { console.log(err.message); }`,
+        sessionId: 'session-refused-mqtt',
+        hook: MQTT_INBOUND,
+      },
+      {
+        sendHostRequest: async (request) => ({
+          executionId: request.executionId,
+          rpcId: request.rpcId,
+          ok: true,
+          value: { success: false, error: 'The session is not open.' },
+        }),
+      },
+    );
+    endScriptSession('session-refused-mqtt');
+    expect(logged(result)).toEqual(['oh.publish failed: The session is not open.']);
+  });
+
+  it('registers assertions against the message', async () => {
+    const result = await runHook(
+      `await oh.test('is ping', () => oh.expect(oh.message.text).toBe('ping'));
+       await oh.test('is retained', () => oh.expect(oh.message.retain).toBeTruthy());`,
+      MQTT_INBOUND,
+    );
+    expect(result.assertions.map((a) => [a.name, a.passed])).toEqual([
+      ['is ping', true],
+      ['is retained', false],
+    ]);
+  });
+});
+
+describe('mqtt-after-close', () => {
+  it('reads the end record and asserts on it', async () => {
+    const result = await runHook(
+      `console.log(oh.close.end.by, oh.close.connack.reasonCode, oh.close.published, oh.close.received);
+       await oh.test('clean', () => oh.expect(oh.close.end.by).toBe('client'));`,
+      MQTT_CLOSE,
+    );
+    expect(logged(result)).toEqual(['client 0 2 3']);
+    expect(result.assertions).toEqual([{ name: 'clean', passed: true, durationMs: expect.any(Number) }]);
+  });
+
+  it('shares oh.session from Before connect to After close', async () => {
+    await runHook(
+      `oh.session.nonce = 'm1';`,
+      { kind: 'mqtt-before-connect', connect: MQTT_CONNECT },
+      { sessionId: 's-m' },
+    );
+    const result = await runHook(`console.log(oh.session.nonce);`, MQTT_CLOSE, { sessionId: 's-m' });
+    endScriptSession('s-m');
+    expect(logged(result)).toEqual(['m1']);
   });
 });

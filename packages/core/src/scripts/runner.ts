@@ -25,7 +25,11 @@
  * input — `oh.connect` with the dial mutators, `oh.message` with the
  * send mutators or the reply verbs, `oh.close` — and folds its edits
  * into one `sessionMutation` under the HTTP mutation's law (a complete
- * diff replaces the pending one, all-empty normalizes to none).
+ * diff replaces the pending one, all-empty normalizes to none); an
+ * MQTT hook is the twin on the CONNECT / PUBLISH plane (`oh.connect`
+ * with the client id / credential / will / subscription / user-property
+ * mutators, `oh.message` with the publish mutators or `oh.publish`,
+ * `oh.close`).
  *
  * Sessions: an execution carrying `sessionId` is one hook call of a
  * live session (a WebSocket, MQTT or gRPC session's connect / send /
@@ -52,8 +56,18 @@ import type {
 } from './index';
 import { clampScriptTimeoutMs, isSessionScriptExecution } from './index';
 import type {
+  MqttCloseSnapshot,
+  MqttConnectSnapshot,
+  MqttConnectSubscription,
+  MqttConnectWill,
+  MqttInboundMessageSnapshot,
+  MqttOutboundMessageSnapshot,
+  MqttScriptMessageProperties,
+  MqttScriptPayloadFormat,
+  MqttSessionQos,
   SessionHeader,
   SessionParam,
+  SessionPublishMessage,
   SessionScriptMutation,
   WsCloseSnapshot,
   WsConnectSnapshot,
@@ -299,13 +313,76 @@ interface WsCloseScriptApi extends ScriptApiCore {
   readonly close: WsCloseSnapshot;
 }
 
-type ScriptApi = HttpScriptApi | WsConnectScriptApi | WsSendScriptApi | WsInboundScriptApi | WsCloseScriptApi;
+/** What `oh.setWill` accepts — the will's payload as text, or as
+ *  bytes when `format` says base64; `null` drops the will. */
+interface MqttWillInput {
+  topic: string;
+  payload: string;
+  format?: 'text' | 'base64';
+  qos?: MqttSessionQos;
+  retain?: boolean;
+}
+
+/** Before connect (MQTT) — the CONNECT view and its mutators. */
+interface MqttConnectScriptApi extends ScriptApiCore {
+  readonly connect: MqttConnectSnapshot;
+  setClientId(clientId: string): void;
+  setUsername(username: string): void;
+  setPassword(password: string): void;
+  setWill(will: MqttWillInput | null): void;
+  setSubscriptions(subscriptions: readonly MqttConnectSubscription[]): void;
+  addSubscription(topicFilter: string, options?: Partial<Omit<MqttConnectSubscription, 'topicFilter'>>): void;
+  removeSubscription(topicFilter: string): void;
+  setUserProperty(key: string, value: string): void;
+  removeUserProperty(key: string): void;
+}
+
+/** Before publish — the outgoing PUBLISH view, rewrite or drop. */
+interface MqttPublishScriptApi extends ScriptApiCore {
+  readonly message: MqttOutboundMessageSnapshot;
+  setTopic(topic: string): void;
+  setPayload(payload: string, format?: MqttScriptPayloadFormat): void;
+  setQos(qos: MqttSessionQos): void;
+  setRetain(retain: boolean): void;
+  setProperties(properties: MqttScriptMessageProperties): void;
+  setUserProperty(key: string, value: string): void;
+  removeUserProperty(key: string): void;
+  drop(): void;
+}
+
+/** What `oh.publish` accepts beside the topic and payload. */
+type MqttPublishOptions = Omit<SessionPublishMessage, 'topic' | 'payload'>;
+
+/** On message (MQTT) — the captured inbound PUBLISH and the reply verb. */
+interface MqttInboundScriptApi extends ScriptApiCore {
+  readonly message: MqttInboundMessageSnapshot;
+  publish(topic: string, payload: string, options?: MqttPublishOptions): Promise<void>;
+}
+
+/** After close (MQTT) — the end record, read-only. */
+interface MqttCloseScriptApi extends ScriptApiCore {
+  readonly close: MqttCloseSnapshot;
+}
+
+type ScriptApi =
+  | HttpScriptApi
+  | WsConnectScriptApi
+  | WsSendScriptApi
+  | WsInboundScriptApi
+  | WsCloseScriptApi
+  | MqttConnectScriptApi
+  | MqttPublishScriptApi
+  | MqttInboundScriptApi
+  | MqttCloseScriptApi;
 
 /** A family's own half — what it adds over the core. */
 type HttpFamily = Omit<HttpScriptApi, keyof ScriptApiCore>;
 type WsConnectFamily = Omit<WsConnectScriptApi, keyof ScriptApiCore>;
 type WsSendFamily = Omit<WsSendScriptApi, keyof ScriptApiCore>;
 type WsInboundFamily = Omit<WsInboundScriptApi, keyof ScriptApiCore>;
+type MqttConnectFamily = Omit<MqttConnectScriptApi, keyof ScriptApiCore>;
+type MqttPublishFamily = Omit<MqttPublishScriptApi, keyof ScriptApiCore>;
+type MqttInboundFamily = Omit<MqttInboundScriptApi, keyof ScriptApiCore>;
 
 interface Expectation {
   toBe(expected: unknown): void;
@@ -444,9 +521,12 @@ function buildScriptApi(
   };
 
   const api: ScriptApi = isSessionScriptExecution(req)
-    ? buildSessionApi(core, req, sinks, (message) =>
-        sendHost({ executionId: req.executionId, rpcId: nextRpcId(), op: 'session.send', ...message }),
-      )
+    ? buildSessionApi(core, req, sinks, {
+        send: (message) =>
+          sendHost({ executionId: req.executionId, rpcId: nextRpcId(), op: 'session.send', ...message }),
+        publish: (message) =>
+          sendHost({ executionId: req.executionId, rpcId: nextRpcId(), op: 'session.publish', ...message }),
+      })
     : buildHttpApi(core, req, sinks);
 
   // The `oh` handed to PACKAGE bodies: identical surface (the getters
@@ -548,12 +628,23 @@ function buildHttpApi(core: ScriptApiCore, req: HttpScriptExecution, sinks: Muta
 
 /** The `session.send` op minus the envelope — what a reply verb hands over. */
 type SessionSendMessage = Omit<Extract<ScriptHostRequest, { op: 'session.send' }>, 'executionId' | 'rpcId' | 'op'>;
+/** The `session.publish` op minus the envelope — the MQTT reply verb's. */
+type SessionPublishRequest = Omit<
+  Extract<ScriptHostRequest, { op: 'session.publish' }>,
+  'executionId' | 'rpcId' | 'op'
+>;
+
+/** The session write ops a hook's reply verbs reach the host through. */
+interface SessionHostOps {
+  send(message: SessionSendMessage): Promise<ScriptHostResponse>;
+  publish(message: SessionPublishRequest): Promise<ScriptHostResponse>;
+}
 
 function buildSessionApi(
   core: ScriptApiCore,
   req: SessionScriptExecution,
   sinks: MutationSinks,
-  sendSession: (message: SessionSendMessage) => Promise<ScriptHostResponse>,
+  ops: SessionHostOps,
 ): ScriptApi {
   const hook = req.hook;
   switch (hook.kind) {
@@ -562,8 +653,16 @@ function buildSessionApi(
     case 'ws-before-send':
       return buildWsSendApi(core, hook.message, sinks);
     case 'ws-on-message':
-      return buildWsInboundApi(core, hook.message, req.sessionId, sendSession);
+      return buildWsInboundApi(core, hook.message, req.sessionId, ops.send);
     case 'ws-after-close':
+      return withCore(core, { close: hook.close });
+    case 'mqtt-before-connect':
+      return buildMqttConnectApi(core, hook.connect, sinks);
+    case 'mqtt-before-publish':
+      return buildMqttPublishApi(core, hook.message, sinks);
+    case 'mqtt-on-message':
+      return buildMqttInboundApi(core, hook.message, req.sessionId, ops.publish);
+    case 'mqtt-after-close':
       return withCore(core, { close: hook.close });
     default: {
       const unreachable: never = hook;
@@ -699,6 +798,213 @@ function buildWsInboundApi(
   return withCore(core, family);
 }
 
+// ── The MQTT hooks ────────────────────────────────────────────────
+
+function buildMqttConnectApi(
+  core: ScriptApiCore,
+  connect: MqttConnectSnapshot,
+  sinks: MutationSinks,
+): MqttConnectScriptApi {
+  let draftClientId = connect.clientId;
+  let draftUsername = connect.username;
+  let draftPassword = connect.password;
+  let draftWill: MqttConnectWill | null = connect.will === null ? null : { ...connect.will };
+  let draftSubscriptions: MqttConnectSubscription[] = connect.subscriptions.map((s) => ({ ...s }));
+  const draftUserProperties: SessionHeader[] = [...connect.userProperties];
+
+  const flush = (): void => {
+    const next = {
+      clientId: draftClientId !== connect.clientId ? draftClientId : undefined,
+      username: draftUsername !== connect.username ? draftUsername : undefined,
+      password: draftPassword !== connect.password ? draftPassword : undefined,
+      ...(jsonEqual(draftWill, connect.will) ? {} : { will: draftWill }),
+      subscriptions: jsonEqual(draftSubscriptions, connect.subscriptions) ? undefined : [...draftSubscriptions],
+      userProperties: arraysShallowEqual(draftUserProperties, connect.userProperties)
+        ? undefined
+        : [...draftUserProperties],
+    };
+    const hasChange =
+      next.clientId !== undefined ||
+      next.username !== undefined ||
+      next.password !== undefined ||
+      'will' in next ||
+      next.subscriptions !== undefined ||
+      next.userProperties !== undefined;
+    sinks.emitSessionMutation(hasChange ? { kind: 'mqtt-connect', ...next } : undefined);
+  };
+
+  const family: MqttConnectFamily = {
+    get connect() {
+      return {
+        url: connect.url,
+        protocolVersion: connect.protocolVersion,
+        clientId: draftClientId,
+        username: draftUsername,
+        password: draftPassword,
+        will: draftWill === null ? null : { ...draftWill },
+        subscriptions: draftSubscriptions.map((s) => ({ ...s })),
+        userProperties: [...draftUserProperties],
+        attempt: connect.attempt,
+      };
+    },
+    setClientId(clientId) {
+      draftClientId = clientId;
+      flush();
+    },
+    setUsername(username) {
+      draftUsername = username;
+      flush();
+    },
+    setPassword(password) {
+      draftPassword = password;
+      flush();
+    },
+    setWill(will) {
+      draftWill =
+        will === null
+          ? null
+          : {
+              topic: will.topic,
+              payloadBase64: will.format === 'base64' ? will.payload : utf8ToBase64(will.payload),
+              qos: will.qos ?? 0,
+              retain: will.retain ?? false,
+            };
+      flush();
+    },
+    setSubscriptions(subscriptions) {
+      draftSubscriptions = subscriptions.map((s) => ({ ...s }));
+      flush();
+    },
+    addSubscription(topicFilter, options = {}) {
+      const next: MqttConnectSubscription = { ...options, topicFilter, qos: options.qos ?? 0 };
+      const idx = draftSubscriptions.findIndex((s) => s.topicFilter === topicFilter);
+      if (idx >= 0) draftSubscriptions[idx] = next;
+      else draftSubscriptions.push(next);
+      flush();
+    },
+    removeSubscription(topicFilter) {
+      draftSubscriptions = draftSubscriptions.filter((s) => s.topicFilter !== topicFilter);
+      flush();
+    },
+    setUserProperty(key, value) {
+      setParamRow(draftUserProperties, key, value);
+      flush();
+    },
+    removeUserProperty(key) {
+      removeParamRows(draftUserProperties, key);
+      flush();
+    },
+  };
+  return withCore(core, family);
+}
+
+function buildMqttPublishApi(
+  core: ScriptApiCore,
+  message: MqttOutboundMessageSnapshot,
+  sinks: MutationSinks,
+): MqttPublishScriptApi {
+  let draftTopic = message.topic;
+  let draftPayload = message.payload;
+  let draftFormat = message.format;
+  let draftQos = message.qos;
+  let draftRetain = message.retain;
+  let draftProperties: MqttScriptMessageProperties | undefined =
+    message.properties === undefined ? undefined : { ...message.properties };
+  let dropped = false;
+
+  const flush = (): void => {
+    const next = {
+      topic: draftTopic !== message.topic ? draftTopic : undefined,
+      payload: draftPayload !== message.payload ? draftPayload : undefined,
+      format: draftFormat !== message.format ? draftFormat : undefined,
+      qos: draftQos !== message.qos ? draftQos : undefined,
+      retain: draftRetain !== message.retain ? draftRetain : undefined,
+      properties: jsonEqual(draftProperties ?? null, message.properties ?? null) ? undefined : (draftProperties ?? {}),
+      ...(dropped ? { drop: true as const } : {}),
+    };
+    const hasChange =
+      next.topic !== undefined ||
+      next.payload !== undefined ||
+      next.format !== undefined ||
+      next.qos !== undefined ||
+      next.retain !== undefined ||
+      next.properties !== undefined ||
+      dropped;
+    sinks.emitSessionMutation(hasChange ? { kind: 'mqtt-publish', ...next } : undefined);
+  };
+
+  const editProperties = (edit: (rows: SessionHeader[]) => void): void => {
+    const rows = [...(draftProperties?.userProperties ?? [])];
+    edit(rows);
+    draftProperties = { ...(draftProperties ?? {}), userProperties: rows };
+    flush();
+  };
+
+  const family: MqttPublishFamily = {
+    get message() {
+      return {
+        ...message,
+        topic: draftTopic,
+        payload: draftPayload,
+        format: draftFormat,
+        qos: draftQos,
+        retain: draftRetain,
+        ...(draftProperties !== undefined ? { properties: { ...draftProperties } } : {}),
+      };
+    },
+    setTopic(topic) {
+      draftTopic = topic;
+      flush();
+    },
+    setPayload(payload, format) {
+      draftPayload = payload;
+      if (format !== undefined) draftFormat = format;
+      flush();
+    },
+    setQos(qos) {
+      draftQos = qos;
+      flush();
+    },
+    setRetain(retain) {
+      draftRetain = retain;
+      flush();
+    },
+    setProperties(properties) {
+      draftProperties = { ...properties };
+      flush();
+    },
+    setUserProperty(key, value) {
+      editProperties((rows) => setParamRow(rows, key, value));
+    },
+    removeUserProperty(key) {
+      editProperties((rows) => removeParamRows(rows, key));
+    },
+    drop() {
+      dropped = true;
+      flush();
+    },
+  };
+  return withCore(core, family);
+}
+
+function buildMqttInboundApi(
+  core: ScriptApiCore,
+  message: MqttInboundMessageSnapshot,
+  sessionId: string,
+  publishSession: (message: SessionPublishRequest) => Promise<ScriptHostResponse>,
+): MqttInboundScriptApi {
+  const family: MqttInboundFamily = {
+    message,
+    publish: async (topic: string, payload: string, options: MqttPublishOptions = {}) => {
+      const response = await publishSession({ sessionId, message: { ...options, topic, payload } });
+      if (!response.ok) throw new Error(`oh.publish failed: ${response.error}`);
+      const result = response.value as SessionSendResult;
+      if (!result.success) throw new Error(`oh.publish failed: ${result.error ?? 'the session refused the message'}`);
+    },
+  };
+  return withCore(core, family);
+}
+
 // ── Row edits the HTTP request and the WebSocket dial share ───────
 
 function setHeaderRow(rows: Array<{ key: string; value: string }>, key: string, value: string): void {
@@ -814,6 +1120,22 @@ function arraysShallowEqual(
 
 function stringListsEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value, i) => value === b[i]);
+}
+
+/** Structural equality over plain data (the MQTT will / subscription /
+ *  property blocks) — JSON compare is exact for these shapes and runs
+ *  once per mutator call. */
+function jsonEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** UTF-8 text → base64 — the will payload's byte spelling, without a
+ *  platform module (every runtime the runner lives in has `btoa`). */
+function utf8ToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 function bodyChanged(a: RequestSnapshot['body'], b: RequestSnapshot['body']): boolean {

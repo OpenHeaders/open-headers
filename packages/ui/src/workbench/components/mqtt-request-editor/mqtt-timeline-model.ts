@@ -8,6 +8,7 @@
  * this module names.
  */
 
+import type { ExecutedMqttScriptMark } from '@openheaders/core/types';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import type React from 'react';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
@@ -57,7 +58,11 @@ export type MqttTimelineItem =
       reasonCode: number;
       remainingLength: number;
       dropped?: number;
-    };
+    }
+  /** One script hook ran — the session's per-event script detail at
+   *  its position in the log (the wire item and the snapshot event
+   *  carry the same mark). */
+  | ExecutedMqttScriptMark;
 
 /** The reconnect-cycle facts — the lifecycle rows that ride the item
  *  log (a dropped connection, each redial, the CONNACK that took). */

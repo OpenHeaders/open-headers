@@ -34,6 +34,9 @@ import TrustCertificateOffer from '../request-editor/response/TrustCertificateOf
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
 import MqttMessageTimeline from './MqttMessageTimeline';
+import MqttScriptsTag from './MqttScriptsTag';
+import MqttScriptsView from './MqttScriptsView';
+import { digestFromMarks, digestFromRecord, scriptMarksOf } from './mqtt-scripts';
 import {
   isReconnectItem,
   type MqttTimelineItem,
@@ -136,6 +139,26 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   // The live phase between connections — auto-reconnect is redialing;
   // read off the item log's last reconnect-cycle fact.
   const reconnecting = live !== null && snapshot === null && reconnectingAt(live.items, live.count);
+
+  // The session's scripts — the event log's marks (live: the feed's;
+  // settled: the snapshot's) feed the Scripts tab; the tag digests the
+  // marks live and the snapshot's record once settled (the record's
+  // tallies outlive the mark cap). A session with no hook shows neither.
+  const logItems = snapshot?.events ?? live?.items ?? [];
+  const logCount = snapshot?.events.length ?? live?.count ?? 0;
+  const logTimestamps = snapshot !== null ? timing?.itemTimestamps : live?.timestamps;
+  const scriptMarks = useMemo(
+    () => scriptMarksOf(logItems, logCount, logTimestamps),
+    [logItems, logCount, logTimestamps],
+  );
+  const scriptsDigest = useMemo(
+    () => (snapshot?.scripts !== undefined ? digestFromRecord(snapshot.scripts) : digestFromMarks(scriptMarks)),
+    [snapshot, scriptMarks],
+  );
+  const scriptsInPlay = scriptsDigest.runs > 0;
+  // The Scripts tab joins only once a hook ran — no teaser tab on a
+  // scriptless session; a selection it can no longer honor falls back.
+  const shownTab = activeTab === 'scripts' && !scriptsInPlay ? 'timeline' : activeTab;
 
   const lifecycle = useMemo((): MqttTimelineLifecycle => {
     if (snapshot === null) {
@@ -375,12 +398,14 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
             </Tag>
           </ConnectionDetailsTooltip>
           {proxyRouteHasBadge(live?.open?.proxyRoute) && <ProxyRouteTag route={live?.open?.proxyRoute} />}
+          <MqttScriptsTag digest={scriptsDigest} />
         </>
       ) : (
         <>
           {endTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{endTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
           {authAttributionHasBadge(snapshot.auth) && <AuthAttributionTag auth={snapshot.auth} />}
+          <MqttScriptsTag digest={scriptsDigest} />
           <Dropdown
             trigger={['click']}
             styles={{ root: { minWidth: 180 } }}
@@ -451,7 +476,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     >
       {noticeStrip}
       <Tabs
-        activeKey={activeTab}
+        activeKey={shownTab}
         onChange={setActiveTab}
         size="small"
         className="rules-response-tabs"
@@ -506,6 +531,31 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
               </div>
             ),
           },
+          ...(scriptsInPlay
+            ? [
+                {
+                  key: 'scripts',
+                  label: (
+                    <span data-testid="mqtt-session-view-scripts">
+                      {t('workbench.editors.mqtt.session.tab.scripts')}
+                    </span>
+                  ),
+                  children: (
+                    <div
+                      style={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '0 0 8px',
+                        minHeight: 0,
+                      }}
+                    >
+                      <MqttScriptsView marks={scriptMarks} marksCapped={scriptsDigest.marksCapped} />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
           {
             key: 'connection',
             label: t('workbench.editors.mqtt.session.tab.connection'),

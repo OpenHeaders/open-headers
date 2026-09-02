@@ -48,6 +48,10 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import ScriptsTab from '../request-editor/ScriptsTab';
+import { ancestorScriptLevels } from '../request-container/ancestry';
+import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
+import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import EditorHeader from '../shell/EditorHeader';
 import { composePublishWire } from './compose';
 import {
@@ -88,6 +92,11 @@ interface MqttRequestEditorProps {
   /** Opens a container's Authorization section — the Auth tab's
    *  "Edit in …" opener under Inherit. */
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  /** Opens a container's Scripts section — the Scripts tab's "Runs
+   *  after …" level links. */
+  onOpenContainerScripts?: OpenContainerScripts;
+  /** Open the Package Library tab (the Scripts tab's Packages popover footer). */
+  onOpenPackageLibrary?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -108,6 +117,7 @@ const emptyMqttDraft = (): MqttDraft => ({
   auth: { type: 'none' },
   lastWill: emptyLastWillDraft(),
   specLink: undefined,
+  scripts: {},
   clientId: '',
   cleanStart: true,
   sessionExpiryInterval: undefined,
@@ -140,6 +150,8 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   workspaceId,
   onOpenMqttResponseExample,
   onOpenContainerAuth,
+  onOpenContainerScripts,
+  onOpenPackageLibrary,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -166,6 +178,9 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
         : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
     [ancestry, draft.auth, draft.url],
   );
+  // The ancestor levels whose slots run ahead of this request's, per
+  // kind — the Scripts tab's "Runs after …" line.
+  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
   const [activeTab, setActiveTab] = useState('message');
 
   // Saved-messages selection plane: the compose is the selected row's
@@ -433,6 +448,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                           t('workbench.editors.mqtt.tab.lastWill')
                         ),
                       },
+                      { key: 'scripts', label: t('workbench.editors.mqtt.tab.scripts') },
                       { key: 'settings', label: t('workbench.editors.mqtt.tab.settings') },
                       { key: 'spec', label: <SpecTabLabel /> },
                     ]}
@@ -510,6 +526,21 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                       <MqttSpecTab
                         aids={aids}
                         onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
+                      />
+                    )}
+                    {/* The session's hooks — edited live: a saved slot
+                      takes effect on the NEXT Connect (the chain composes
+                      at the dial), so the tab never locks. */}
+                    {activeTab === 'scripts' && (
+                      <ScriptsTab
+                        scope="request"
+                        requestKind="mqtt"
+                        scripts={scriptSlotValuesOf(draft)}
+                        onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+                        workspaceId={workspaceId}
+                        onOpenPackageLibrary={onOpenPackageLibrary}
+                        ancestorScripts={ancestorScripts}
+                        onOpenContainerScripts={onOpenContainerScripts}
                       />
                     )}
                     {activeTab === 'settings' && (

@@ -363,6 +363,163 @@ const WS_AFTER_CLOSE_GROUPS: ScriptSnippetGroup[] = [
   VARIABLES_GROUP,
 ];
 
+// ── The MQTT hooks ──────────────────────────────────────────────────
+
+const MQTT_BEFORE_CONNECT_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.connect',
+    snippets: [
+      {
+        id: 'mqtt-set-client-id',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetClientId',
+        code: `oh.setClientId('device-' + Date.now().toString(36));`,
+      },
+      {
+        id: 'mqtt-set-credentials',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetCredentials',
+        code: `oh.setUsername('device');
+oh.setPassword(await oh.vault.get('secret_name'));`,
+      },
+      {
+        id: 'mqtt-add-subscription',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttAddSubscription',
+        code: `oh.addSubscription('devices/+/status', { qos: 1 });`,
+      },
+      {
+        id: 'mqtt-set-will',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetWill',
+        code: `oh.setWill({ topic: 'devices/status', payload: 'offline', retain: true });`,
+      },
+      {
+        id: 'mqtt-set-user-property',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetUserProperty',
+        code: `oh.setUserProperty('client', 'openheaders');`,
+      },
+      {
+        id: 'mqtt-reconnect-attempt',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttReconnectAttempt',
+        code: `if (oh.connect.attempt > 0) {
+  oh.setUserProperty('resume', String(oh.session.lastSeen ?? ''));
+}`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
+const MQTT_BEFORE_PUBLISH_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.publish',
+    snippets: [
+      {
+        id: 'mqtt-set-payload',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetPayload',
+        code: `const payload = JSON.parse(oh.message.payload);
+payload.sentAt = Date.now();
+oh.setPayload(JSON.stringify(payload));`,
+      },
+      {
+        id: 'mqtt-set-topic',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetTopic',
+        code: `oh.setTopic('devices/' + (await oh.variables.get('device_id')) + '/events');`,
+      },
+      {
+        id: 'mqtt-set-flags',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetFlags',
+        code: `oh.setQos(1);
+oh.setRetain(false);`,
+      },
+      {
+        id: 'mqtt-drop-message',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttDropMessage',
+        code: `if (oh.message.payload.trim() === '') {
+  oh.drop();
+}`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
+const MQTT_ON_MESSAGE_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.message',
+    snippets: [
+      {
+        id: 'mqtt-reply',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttReply',
+        code: `const replyTo = oh.message.properties?.responseTopic;
+if (replyTo) {
+  await oh.publish(replyTo, 'ack', { qos: oh.message.qos });
+}`,
+      },
+      {
+        id: 'mqtt-count-messages',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttCountMessages',
+        code: `oh.session.count = (oh.session.count ?? 0) + 1;
+console.log(oh.message.topic, 'messages so far', oh.session.count);`,
+      },
+    ],
+  },
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    snippets: [
+      {
+        id: 'mqtt-assert-json',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttAssertJson',
+        code: `await oh.test('Payload is JSON', () => {
+  JSON.parse(oh.message.text ?? '');
+});`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.variables',
+    snippets: [
+      GET_VARIABLE,
+      SET_VARIABLE,
+      {
+        id: 'mqtt-save-message-value',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSaveMessageValue',
+        code: `const data = JSON.parse(oh.message.text ?? '{}');
+await oh.variables.set('last_reading', String(data.value));`,
+      },
+      GET_VAULT_SECRET,
+    ],
+  },
+];
+
+const MQTT_AFTER_CLOSE_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    snippets: [
+      {
+        id: 'mqtt-closed-clean',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttClosedClean',
+        code: `await oh.test('Disconnected cleanly', () => {
+  oh.expect(oh.close.end?.by).toBe('client');
+});`,
+      },
+      {
+        id: 'mqtt-message-count',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttMessageCount',
+        code: `await oh.test('Messages arrived', () => {
+  oh.expect(oh.close.received > 0).toBeTruthy();
+});`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
 export function getScriptSnippetGroups(kind: ScriptKind): ScriptSnippetGroup[] {
   switch (kind) {
     case 'pre-request':
@@ -375,6 +532,14 @@ export function getScriptSnippetGroups(kind: ScriptKind): ScriptSnippetGroup[] {
       return WS_ON_MESSAGE_GROUPS;
     case 'ws-after-close':
       return WS_AFTER_CLOSE_GROUPS;
+    case 'mqtt-before-connect':
+      return MQTT_BEFORE_CONNECT_GROUPS;
+    case 'mqtt-before-publish':
+      return MQTT_BEFORE_PUBLISH_GROUPS;
+    case 'mqtt-on-message':
+      return MQTT_ON_MESSAGE_GROUPS;
+    case 'mqtt-after-close':
+      return MQTT_AFTER_CLOSE_GROUPS;
     default:
       return POST_RESPONSE_GROUPS;
   }

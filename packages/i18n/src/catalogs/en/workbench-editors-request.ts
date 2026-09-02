@@ -933,6 +933,21 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiEmit': 'emit a Socket.IO event',
   'workbench.editors.request.scripts.apiClose': 'the end record — close code, reason, counts, duration',
   'workbench.editors.request.scripts.apiSession': 'state shared by every hook of this session',
+  'workbench.editors.request.scripts.apiMqttConnect':
+    'the CONNECT as composed — client id, credentials, will, subscriptions, user properties, attempt',
+  'workbench.editors.request.scripts.apiSetClientId': 'replace the client id',
+  'workbench.editors.request.scripts.apiSetUsername': 'replace the user name',
+  'workbench.editors.request.scripts.apiSetPassword': 'replace the password',
+  'workbench.editors.request.scripts.apiSetWill': 'replace the last will (null registers none)',
+  'workbench.editors.request.scripts.apiAddSubscription': 'subscribe a topic filter at open',
+  'workbench.editors.request.scripts.apiSetUserProperty': 'set a 5.0 user property',
+  'workbench.editors.request.scripts.apiMqttMessage': 'the message — topic, payload, QoS, retain, capture index',
+  'workbench.editors.request.scripts.apiSetTopic': 'retarget the publish',
+  'workbench.editors.request.scripts.apiSetPayload': 'replace the payload (text, or base64 bytes)',
+  'workbench.editors.request.scripts.apiSetQos': 'set the QoS',
+  'workbench.editors.request.scripts.apiSetRetain': 'set the RETAIN flag',
+  'workbench.editors.request.scripts.apiPublish': 'publish a message into the session',
+  'workbench.editors.request.scripts.apiMqttClose': 'the end record — how it ended, the CONNACK, counts, duration',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.followRedirects': 'Automatically follow redirects',

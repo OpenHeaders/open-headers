@@ -51,6 +51,7 @@ import {
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import { createBrowserMqttTransport } from '@openheaders/oracle-host-browser/live/browser-mqtt-transport';
 import { getMqttPageResolutionFactory } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-page-session';
+import { getPageScriptHost, setPageScriptScope } from '@/host/page-script-host';
 
 // The ws session host's decorated bridge — installed by the import
 // order above; everything this module does not answer delegates to it.
@@ -62,6 +63,9 @@ const base: HostBridge = baseBridge;
 
 // Stateless — one stream per session (the node handler's symmetry).
 const browserMqttTransport = createBrowserMqttTransport();
+// The page realm's script runtime — the session's hooks run here, on
+// the sandbox iframe this page mounts (the ws host's); null on Firefox.
+const pageScriptHost = getPageScriptHost();
 
 /** In-page `mqttStreamEvent` fan-out — the emitter feeds these
  *  synchronously; batching already happened in the session plane. */
@@ -93,6 +97,9 @@ async function handleExecuteMqttRequest(
   }
   try {
     const scope = await factory(draft);
+    // The session's hooks answer their `oh.*` calls against this
+    // Connect's renderer scope.
+    setPageScriptScope(scope.scripts);
     const snapshot = await executeMqttSession(draft, {
       workspaceId: null,
       environmentId: undefined,
@@ -101,6 +108,8 @@ async function handleExecuteMqttRequest(
       emitStreamEvent: deliverMqttStreamEventLocally,
       resolution: scope.resolve,
       authChain: scope.authChain,
+      scriptChain: scope.scriptChain,
+      ...(pageScriptHost !== null ? { scriptHost: pageScriptHost } : {}),
     });
     return { success: true, snapshot };
   } catch (err) {

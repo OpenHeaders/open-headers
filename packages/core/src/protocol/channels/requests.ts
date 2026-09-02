@@ -9,6 +9,7 @@ import type {
   Collection,
   CollectionTree,
   ExecutedGrpcSnapshot,
+  ExecutedMqttScriptMark,
   ExecutedMqttSnapshot,
   ExecutedProxyRoute,
   ExecutedRequestSnapshot,
@@ -291,7 +292,10 @@ export type MqttStreamItemWire =
       remainingLength: number;
       dropped?: number;
       atMs: number;
-    };
+    }
+  /** One script hook ran — the session's per-event script detail at
+   *  its position in the event log (the snapshot's mark verbatim). */
+  | (ExecutedMqttScriptMark & { atMs: number });
 
 /**
  * One live frame of an open MQTT session — the `mqttStreamEvent`

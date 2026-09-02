@@ -88,6 +88,13 @@ const SET_PATHS = [
 const CONTAINER_SCALAR_PATHS: ReadonlySet<string> = new Set(['publishProperties', 'lastWill', 'specLink', 'auth']);
 type SetPath = (typeof SET_PATHS)[number];
 
+/** A record with no keys reads as no record — see the `scripts` note below. */
+function emptyRecordAsAbsent(value: unknown): unknown {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0
+    ? undefined
+    : value;
+}
+
 const isSetPath = (key: string): SetPath | null =>
   key === MQTT_REQUEST_TOPICS_PATH
     ? MQTT_REQUEST_TOPICS_PATH
@@ -150,13 +157,20 @@ export function buildMqttUpdateBatch(
     // `specLink`, `auth`) — emit a per-leaf flatten-diff so the edit
     // shares create's representation.
     if (value !== null && typeof value === 'object') {
+      // The script slot record is absent when empty (one `<kind>.js`
+      // sibling per present slot, no record leaf): an empty record on
+      // either side diffs as no record, so a save without scripts never
+      // writes an empty leaf and an emptied slot tombstones its own.
+      const record = key === 'scripts';
       bodies.push(
         ...synthesizeFieldDiff({
           type: MQTT_REQUEST_ENTITY_TYPE,
           id: mqttRequestUid,
           basePath: key,
-          oldValue: liveFieldValue(mqttRequestUid, key),
-          newValue: value,
+          oldValue: record
+            ? emptyRecordAsAbsent(liveFieldValue(mqttRequestUid, key))
+            : liveFieldValue(mqttRequestUid, key),
+          newValue: record ? emptyRecordAsAbsent(value) : value,
         }),
       );
       continue;

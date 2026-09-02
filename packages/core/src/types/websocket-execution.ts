@@ -12,12 +12,12 @@
  * ever rewritten or synthesized; pretty/decoded views are display-side.
  */
 
-import type { ScriptConsoleEntry, ScriptExecutionMode, TestAssertion, WsScriptKind } from '../scripts';
+import type { ScriptExecutionMode, WsScriptKind } from '../scripts';
 import type {
   ExecutedAuthAttribution,
   ExecutedProxyRoute,
-  ExecutedScriptChainStep,
   ExecutedScriptFold,
+  ExecutedSessionScriptMark,
   ScriptEventSummary,
   TrustCertificateErrorHint,
 } from './request-execution';
@@ -88,29 +88,16 @@ export interface ExecutedWsAckTimeout {
 }
 
 /**
- * One script hook ran — the per-event detail of the session's scripts:
- * which hook, the levels that ran with their verdicts, the folded
- * error, the console output and the assertions the hook registered.
+ * One script hook ran — the per-event detail of the session's scripts
+ * ({@link ExecutedSessionScriptMark}) under the WebSocket hook kinds.
  * Recorded per event (a Before connect per dial, a Before send per
  * rider send, an On message per captured inbound frame, the After
  * close once) up to the mark cap; the snapshot's `scripts` record
  * keeps the tallies past it.
  */
-export interface ExecutedWsScriptMark {
+export interface ExecutedWsScriptMark extends ExecutedSessionScriptMark {
   kind: 'script';
   hook: WsScriptKind;
-  succeeded: boolean;
-  durationMs: number;
-  /** The levels that ran, in order — see {@link ExecutedScriptChainStep}. */
-  chain: ExecutedScriptChainStep[];
-  error?: { name: string; message: string };
-  consoleLog?: ScriptConsoleEntry[];
-  assertions?: TestAssertion[];
-  /** Before connect: the dial this hook ran for (`0` = the first). */
-  attempt?: number;
-  /** Before send: a level dropped the message — the level's label;
-   *  nothing reached the wire. */
-  droppedBy?: string;
 }
 
 /**

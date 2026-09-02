@@ -16,6 +16,7 @@ import {
   ArrowUpOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  CodeOutlined,
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
@@ -28,7 +29,9 @@ import { Button, Tag, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
+import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import TimelineMessageViewer, { STREAM_HAIRLINE, type TimelineViewerModes } from '../shared/TimelineMessageViewer';
+import { MQTT_HOOK_LABEL_KEY } from './mqtt-scripts';
 import {
   CONNACK_DETAIL_PX,
   cellFont,
@@ -407,6 +410,44 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
                   </span>
                 );
               })}
+            </span>
+            {lifecycleTime(ts)}
+            {expandSlot(null)}
+          </div>
+        );
+      }
+      if (item.kind === 'script') {
+        // One hook ran — the hook, the levels that contributed and
+        // the verdict; a drop names the level, a failure its error.
+        const hook = t(MQTT_HOOK_LABEL_KEY[item.hook]);
+        const levels = item.chain
+          .map((step) =>
+            step.level === 'request'
+              ? t('workbench.editors.request.response.meta.scriptsLevelRequest')
+              : inheritSourceLabel(t, { kind: step.level, name: step.name }),
+          )
+          .join(' · ');
+        const text =
+          item.droppedBy !== undefined
+            ? t('workbench.editors.mqtt.timeline.scriptDropped', { hook, level: item.droppedBy })
+            : item.succeeded
+              ? t('workbench.editors.mqtt.timeline.script', { hook, levels })
+              : t('workbench.editors.mqtt.timeline.scriptFailed', { hook, error: item.error?.message ?? '' });
+        const attempt =
+          item.attempt !== undefined && item.attempt > 0
+            ? ` · ${t('workbench.editors.mqtt.timeline.scriptAttempt', { attempt: item.attempt })}`
+            : '';
+        return (
+          <div data-testid="mqtt-timeline-script-row" style={lifecycleRowStyle}>
+            <CodeOutlined
+              aria-hidden
+              style={{ fontSize: 11, color: item.succeeded ? token.colorTextTertiary : token.colorError }}
+            />
+            <span
+              {...(item.error !== undefined ? { title: item.error.message } : {})}
+              style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {`${text}${attempt} · ${formatDurationMs(item.durationMs)}`}
             </span>
             {lifecycleTime(ts)}
             {expandSlot(null)}

@@ -23,6 +23,9 @@
  *     `oh.sendBinary` into ITS open WebSocket session, through the
  *     active-session registry as a SCRIPT-origin write: captured and
  *     broadcast like any ↑ frame, never re-entering Before send.
+ *   • `session.publish(...)` — the MQTT twin: an On message hook's
+ *     `oh.publish` into its own session through the publish rider as a
+ *     script-origin write, never re-entering Before publish.
  *
  * Always resolves with a `ScriptHostResponse` — never throws — so the
  * broker forwards it back to the runtime without extra handling.
@@ -53,6 +56,7 @@ import {
 } from '@openheaders/oracle/entity/oauth-token-store';
 import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
 import { getCollections as getRuleCollections } from '@openheaders/oracle/entity/rule-store';
+import { publishActiveMqttMessage, scriptPublishToWire } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '@openheaders/oracle/sync';
@@ -89,6 +93,11 @@ export async function handleScriptHostRequest(request: ScriptHostRequest): Promi
             request.binary,
             'script',
           ),
+        );
+      case 'session.publish':
+        return okReply(
+          request,
+          await publishActiveMqttMessage(request.sessionId, scriptPublishToWire(request.message), 'script'),
         );
       default: {
         const unreachable: never = request;

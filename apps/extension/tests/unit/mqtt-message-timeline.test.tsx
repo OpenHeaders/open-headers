@@ -124,6 +124,69 @@ describe('MqttMessageTimeline — reconnect attempt rows', () => {
   });
 });
 
+describe('MqttMessageTimeline — script marks', () => {
+  const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
+  const scriptMark = (over: Partial<Extract<MqttTimelineItem, { kind: 'script' }>> = {}): MqttTimelineItem => ({
+    kind: 'script',
+    hook: 'mqtt-before-connect',
+    succeeded: true,
+    durationMs: 3,
+    chain: [
+      { level: 'collection', uid: 'col1', name: 'Fleet', durationMs: 2, succeeded: true },
+      { level: 'request', uid: 'req1', name: 'Probe', durationMs: 1, succeeded: true },
+    ],
+    ...over,
+  });
+
+  it('renders a hook run as a lifecycle row naming the hook and the levels, at its log position', () => {
+    render(
+      <MqttMessageTimeline
+        items={[
+          scriptMark(),
+          { kind: 'subscribed', grants: [{ topicFilter: 'probe/#', reasonCode: 1 }] },
+          scriptMark({ hook: 'mqtt-on-message' }),
+        ]}
+        count={3}
+        timestamps={[STARTED_AT + 5, STARTED_AT + 6, STARTED_AT + 7]}
+        lifecycle={lifecycle}
+        v5
+      />,
+    );
+    const rows = screen.getAllByTestId('mqtt-timeline-script-row');
+    expect(rows).toHaveLength(2);
+    // Newest first: the On message mark sits above the subscribed row,
+    // the connect mark below it; each carries its positional stamp.
+    expect(rows[0]?.textContent).toContain('On message — Collection ‘Fleet’ · Request · 3 ms');
+    expect(rows[0]?.textContent).toContain(formatMessageTime(STARTED_AT + 7));
+    expect(rows[1]?.textContent).toContain('Before connect — Collection ‘Fleet’ · Request · 3 ms');
+    const sequence = [
+      ...document.querySelectorAll(
+        '[data-testid="mqtt-timeline-subscribed-row"], [data-testid="mqtt-timeline-script-row"]',
+      ),
+    ].map((el) => el.getAttribute('data-testid'));
+    expect(sequence).toEqual(['mqtt-timeline-script-row', 'mqtt-timeline-subscribed-row', 'mqtt-timeline-script-row']);
+  });
+
+  it('a failed run reads the error, a drop names the level, a reconnect dial its attempt', () => {
+    render(
+      <MqttMessageTimeline
+        items={[
+          scriptMark({ succeeded: false, error: { name: 'Error', message: "Collection 'Fleet': boom" } }),
+          scriptMark({ hook: 'mqtt-before-publish', droppedBy: "Folder 'Guard'" }),
+          scriptMark({ attempt: 2 }),
+        ]}
+        count={3}
+        lifecycle={lifecycle}
+        v5
+      />,
+    );
+    const rows = screen.getAllByTestId('mqtt-timeline-script-row').map((el) => el.textContent ?? '');
+    expect(rows.some((r) => r.includes("Before connect failed — Collection 'Fleet': boom"))).toBe(true);
+    expect(rows.some((r) => r.includes("Before publish dropped the message — Folder 'Guard'"))).toBe(true);
+    expect(rows.some((r) => r.includes('attempt 2'))).toBe(true);
+  });
+});
+
 describe('MqttMessageTimeline — message viewer', () => {
   const message = (payload: string): MqttTimelineItem => ({
     kind: 'message',

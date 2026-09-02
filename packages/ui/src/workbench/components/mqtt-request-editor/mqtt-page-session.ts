@@ -8,8 +8,9 @@
  * a page realm — so the editor PUBLISHES a resolution factory built
  * from the renderer scope snapshot, and the page host injects its
  * product into `executeMqttSession` (`options.resolution` +
- * `options.authChain` — the ancestor pool chain the oracle walk
- * cannot derive in a page realm).
+ * `options.authChain` + `options.scriptChain` — the ancestor pool and
+ * script chains the oracle walk cannot derive in a page realm) and
+ * publishes the scope the session's script hooks answer against.
  *
  * Single-publisher module slot (the awareness-publisher discipline):
  * the MQTT editor republishes on every scope change while mounted; the
@@ -23,6 +24,7 @@
  */
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
+import type { ScriptPackageModule } from '@openheaders/core/scripts';
 import { generateTotp } from '@openheaders/core/totp';
 import type { MqttRequest, Vault, VaultSecretTotp } from '@openheaders/core/types';
 import type { TotpRegistry } from '@openheaders/core/variables';
@@ -30,18 +32,31 @@ import {
   buildRendererResolver,
   type RendererResolverInputs,
 } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
-import { authChainOf, findRequestAncestry, type RequestAncestryInputs } from '../request-container/ancestry';
+import {
+  type AncestorScriptCarrier,
+  authChainOf,
+  findRequestAncestry,
+  type RequestAncestryInputs,
+  scriptChainOf,
+} from '../request-container/ancestry';
+import { buildPageScriptScope, type PageScriptScope } from '../shared/page-script-scope';
 
 /** The executor's injected-resolution contract
  *  (`ExecuteMqttSessionOptions.resolution`). */
 export type MqttPageResolution = (template: string, unresolved: Set<string>) => string;
 
 /** What the page host injects into the executor per Connect: the
- *  template resolution plus the ancestor auth chain (outer → inner)
- *  the oracle walk cannot derive in a page realm. */
+ *  template resolution plus the ancestor auth chain and script chain
+ *  (outer → inner) the oracle walk cannot derive in a page realm, and
+ *  the scope the session's hooks answer against. */
 export interface MqttPageSessionScope {
   resolve: MqttPageResolution;
   authChain: AuthCarrier[];
+  scriptChain: AncestorScriptCarrier[];
+  scripts: PageScriptScope;
+  /** The workspace the session runs under — the scope the hooks' writes
+   *  land in (the page realm has no active-workspace hook of its own). */
+  workspaceId: string | null;
 }
 
 /** Built per Connect — TOTP codes have ~30s lifetime, so the registry
@@ -92,13 +107,16 @@ async function buildPageTotpRegistry(vault: Vault): Promise<TotpRegistry> {
 }
 
 /** Build the factory from one renderer scope snapshot. The collection
- *  scope and the auth chain both come off the TREES via the request's
- *  ancestry (the tree containment law — never the stored path); the
- *  environment defers to the active pointer the snapshot carries —
- *  the in-process Connect path. */
+ *  scope, the auth chain and the script chain all come off the TREES
+ *  via the request's ancestry (the tree containment law — never the
+ *  stored path); the environment defers to the active pointer the
+ *  snapshot carries — the in-process Connect path. `packages` is the
+ *  workspace's Package Library — the hooks' `oh.require`. */
 export function makeMqttPageResolutionFactory(
   inputs: RendererResolverInputs,
   ancestryInputs: RequestAncestryInputs,
+  workspaceId: string | null,
+  packages: readonly ScriptPackageModule[] = [],
 ): MqttPageResolutionFactory {
   return async (request) => {
     const resolver = buildRendererResolver(inputs, { totpRegistry: await buildPageTotpRegistry(inputs.vault) });
@@ -116,6 +134,12 @@ export function makeMqttPageResolutionFactory(
       }
       return result.result;
     };
-    return { resolve, authChain: ancestry !== null ? authChainOf(ancestry) : [] };
+    return {
+      resolve,
+      authChain: ancestry !== null ? authChainOf(ancestry) : [],
+      scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
+      scripts: buildPageScriptScope(resolver, context, inputs, workspaceId, packages),
+      workspaceId,
+    };
   };
 }

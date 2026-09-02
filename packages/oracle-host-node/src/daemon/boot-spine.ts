@@ -104,6 +104,7 @@ import {
   reconnectActiveMqttSessionNow,
   setActiveMqttSubscription,
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
+import { onDeviceFlowChange } from '@openheaders/oracle/live/request-exec/oauth-device';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
@@ -201,7 +202,6 @@ import { createMetricsProvider } from './metrics';
 import { createMetricsHttpHandler } from './metrics-http';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { createNmBootstrapHttpHandler } from './nm/nm-bootstrap-http';
-import { onDeviceFlowChange } from '@openheaders/oracle/live/request-exec/oauth-device';
 import { createOAuthCallbackHandler, OAUTH_CALLBACK_PATH } from './oauth-callback-http';
 import { createOAuthRpc } from './oauth-rpc';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
@@ -1362,7 +1362,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // answers `success: false`.
     if (type === 'publishMqttMessage') {
       return typeof message.sendId === 'string' && message.message !== undefined
-        ? publishActiveMqttMessage(message.sendId, message.message as MqttPublishWire)
+        ? await publishActiveMqttMessage(message.sendId, message.message as MqttPublishWire)
         : { success: false, error: 'No session id or message provided' };
     }
     if (type === 'setMqttSubscription') {

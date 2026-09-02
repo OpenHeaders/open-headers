@@ -24,7 +24,7 @@
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { ScriptPackageModule } from '@openheaders/core/scripts';
 import { generateTotp } from '@openheaders/core/totp';
-import type { Vault, VaultSecretTotp, WebSocketRequest, WorkspaceVariables } from '@openheaders/core/types';
+import type { Vault, VaultSecretTotp, WebSocketRequest } from '@openheaders/core/types';
 import type { TotpRegistry } from '@openheaders/core/variables';
 import {
   buildRendererResolver,
@@ -37,23 +37,15 @@ import {
   type RequestAncestryInputs,
   scriptChainOf,
 } from '../request-container/ancestry';
+import { buildPageScriptScope, type PageScriptScope } from '../shared/page-script-scope';
 
 /** The executor's injected-resolution contract
  *  (`ExecuteWsSessionOptions.resolution`). */
 export type WsPageResolution = (template: string, unresolved: Set<string>) => string;
 
-/** The renderer scope a session's script hooks answer against — the
- *  page host's `oh.*` servicing reads it (variables, the vault, the
- *  Package Library) in place of the oracle mirrors a node host has. */
-export interface WsPageScriptScope {
-  workspaceId: string | null;
-  /** The renderer resolver's read of one name — the full scope walk;
-   *  `null` when nothing in scope defines it. */
-  resolveVariable(name: string): string | null;
-  workspaceVariables: WorkspaceVariables;
-  vault: Vault;
-  packages: ScriptPackageModule[];
-}
+/** The renderer scope a session's script hooks answer against — see
+ *  `shared/page-script-scope.ts`. */
+export type WsPageScriptScope = PageScriptScope;
 
 /** What the page host injects into the executor per Connect: the
  *  template resolution plus the ancestor auth chain and script chain
@@ -143,21 +135,11 @@ export function makeWsPageResolutionFactory(
       }
       return result.result;
     };
-    const scripts: WsPageScriptScope = {
-      workspaceId,
-      resolveVariable: (name) => {
-        const result = resolver.resolveTemplate(`{{${name}}}`, context);
-        return result.variables.every((v) => v.resolved) ? result.result : null;
-      },
-      workspaceVariables: inputs.workspaceVariables,
-      vault: inputs.vault,
-      packages: [...packages],
-    };
     return {
       resolve,
       authChain: ancestry !== null ? authChainOf(ancestry) : [],
       scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
-      scripts,
+      scripts: buildPageScriptScope(resolver, context, inputs, workspaceId, packages),
       workspaceId,
     };
   };

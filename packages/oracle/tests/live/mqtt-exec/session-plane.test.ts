@@ -102,7 +102,7 @@ describe('active MQTT session registry', () => {
     const unregister = registerActiveMqttSession('send-2', {
       publish: (message) => {
         published.push(message.topic);
-        return { success: true };
+        return Promise.resolve({ success: true });
       },
       setSubscription: (subscription) => Promise.resolve({ success: true, grantCode: subscription.subscribe ? 1 : 0 }),
       close: () => {
@@ -113,7 +113,9 @@ describe('active MQTT session registry', () => {
         return true;
       },
     });
-    expect(publishActiveMqttMessage('send-2', { topic: 'probe/echo', payload: 'x' })).toEqual({ success: true });
+    await expect(publishActiveMqttMessage('send-2', { topic: 'probe/echo', payload: 'x' })).resolves.toEqual({
+      success: true,
+    });
     expect(published).toEqual(['probe/echo']);
     await expect(setActiveMqttSubscription('send-2', { topicFilter: 'probe/#', subscribe: true })).resolves.toEqual({
       success: true,
@@ -125,12 +127,12 @@ describe('active MQTT session registry', () => {
     expect(closedCount).toBe(1);
     unregister();
     expect(reconnectActiveMqttSessionNow('send-2')).toBe(false);
-    expect(publishActiveMqttMessage('send-2', { topic: 'late', payload: '' }).success).toBe(false);
+    expect((await publishActiveMqttMessage('send-2', { topic: 'late', payload: '' })).success).toBe(false);
     expect(closeActiveMqttSession('send-2')).toBe(false);
   });
 
   it('answers an unknown id without touching any handle', async () => {
-    const result = publishActiveMqttMessage('missing', { topic: 'x', payload: '' });
+    const result = await publishActiveMqttMessage('missing', { topic: 'x', payload: '' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('No open MQTT session');
     const sub = await setActiveMqttSubscription('missing', { topicFilter: 'x', subscribe: true });

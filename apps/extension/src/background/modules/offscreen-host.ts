@@ -398,6 +398,8 @@ export async function handleScriptHostRequest(request: ScriptHostRequest): Promi
         // The SW never runs a session hook — sessions execute in the
         // workbench page, whose own host answers this op.
         return errorReply(request.executionId, request.rpcId, 'session.send is not available to HTTP scripts');
+      case 'session.publish':
+        return errorReply(request.executionId, request.rpcId, 'session.publish is not available to HTTP scripts');
       default: {
         const unreachable: never = request;
         return errorReply(

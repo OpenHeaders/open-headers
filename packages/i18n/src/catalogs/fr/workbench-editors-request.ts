@@ -1794,4 +1794,20 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiEmit': 'émettre un événement Socket.IO',
   'workbench.editors.request.scripts.apiClose': 'l’enregistrement de fin — code de fermeture, raison, compteurs, durée',
   'workbench.editors.request.scripts.apiSession': 'état partagé par chaque hook de cette session',
+  'workbench.editors.request.scripts.apiMqttConnect':
+    'le CONNECT tel que composé — client id, identifiants, testament, abonnements, propriétés utilisateur, tentative',
+  'workbench.editors.request.scripts.apiSetClientId': 'remplacer le client id',
+  'workbench.editors.request.scripts.apiSetUsername': "remplacer le nom d'utilisateur",
+  'workbench.editors.request.scripts.apiSetPassword': 'remplacer le mot de passe',
+  'workbench.editors.request.scripts.apiSetWill': "remplacer le testament (null n'en enregistre aucun)",
+  'workbench.editors.request.scripts.apiAddSubscription': "abonner un filtre de sujet à l'ouverture",
+  'workbench.editors.request.scripts.apiSetUserProperty': 'définir une propriété utilisateur 5.0',
+  'workbench.editors.request.scripts.apiMqttMessage': 'le message — sujet, charge utile, QoS, retain, index de capture',
+  'workbench.editors.request.scripts.apiSetTopic': 'recibler la publication',
+  'workbench.editors.request.scripts.apiSetPayload': 'remplacer la charge utile (texte, ou octets base64)',
+  'workbench.editors.request.scripts.apiSetQos': 'définir la QoS',
+  'workbench.editors.request.scripts.apiSetRetain': 'définir le drapeau RETAIN',
+  'workbench.editors.request.scripts.apiPublish': 'publier un message dans la session',
+  'workbench.editors.request.scripts.apiMqttClose':
+    'le compte rendu de fin — la fin, le CONNACK, les comptes, la durée',
 } as const satisfies Catalog;

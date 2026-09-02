@@ -419,3 +419,21 @@ describe('compose parts — the editor placeholder per encoding', () => {
     expect(payloadPlaceholder(t, 'json', 'prompt')).toBe('prompt');
   });
 });
+
+describe('mqtt draft — script slots', () => {
+  it("carries the request's own slots through the draft and emits the present ones alone", () => {
+    const entity = mqttRequest({ scripts: { 'mqtt-before-connect': 'oh.setClientId("d-1");' } });
+    const draft = draftFromMqttRequest(entity);
+    expect(draft.scripts).toEqual({ 'mqtt-before-connect': 'oh.setClientId("d-1");' });
+    const updates = buildMqttRequestUpdates({ ...draft, scripts: { ...draft.scripts, 'mqtt-on-message': '   ' } });
+    expect(updates.scripts).toEqual({ 'mqtt-before-connect': 'oh.setClientId("d-1");' });
+  });
+
+  it('an entity without scripts and a draft that emptied its slot both project to an empty record', () => {
+    expect(buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest())).scripts).toEqual({});
+    const emptied = draftFromMqttRequest(mqttRequest({ scripts: { 'mqtt-after-close': 'x();' } }));
+    emptied.scripts = { 'mqtt-after-close': '' };
+    expect(buildMqttRequestUpdates(emptied).scripts).toEqual({});
+    expect(canonicalMqttRequestProjection(mqttRequest()).scripts).toEqual({});
+  });
+});

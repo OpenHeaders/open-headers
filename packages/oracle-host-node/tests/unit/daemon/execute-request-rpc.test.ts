@@ -355,10 +355,13 @@ describe('handleExecuteRequestRpc — scripts', () => {
     setHostScriptCapabilities({
       safe: {
         mode: 'safe',
+        endSession: () => {},
         runScript: async (opts) => ({
           executionId: 'e1',
           succeeded: true,
-          mutation: { headers: [...opts.request.headers, { key: 'X-Scripted', value: '1' }] },
+          mutation: {
+            headers: [...('request' in opts ? opts.request.headers : []), { key: 'X-Scripted', value: '1' }],
+          },
           assertions: [],
           consoleLog: [],
           durationMs: 2,
@@ -381,6 +384,7 @@ describe('handleExecuteRequestRpc — scripts', () => {
     setHostScriptCapabilities({
       safe: {
         mode: 'safe',
+        endSession: () => {},
         runScript: async () => ({
           executionId: 'e2',
           succeeded: true,
@@ -407,6 +411,7 @@ describe('handleExecuteRequestRpc — scripts', () => {
     setHostScriptCapabilities({
       safe: {
         mode: 'safe',
+        endSession: () => {},
         runScript: async () => ({
           executionId: 'e3',
           succeeded: false,

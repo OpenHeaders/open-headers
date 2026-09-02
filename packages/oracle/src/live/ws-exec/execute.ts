@@ -87,10 +87,11 @@ import { buildResolver } from '../request-exec/resolver-scope';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import { parseUrlParams, type SessionScriptHost } from '../request-exec/script-hooks';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { hasSessionScriptChains } from '../request-exec/session-script-plane';
 import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
-import { createWsScriptPlane, hasWsScriptChains, type WsScriptChains } from './script-plane';
+import { createWsScriptPlane, type WsScriptChains } from './script-plane';
 import { createWsStreamEmitter, registerActiveWsSession, type WsSendResult } from './session-plane';
 import { createSocketIoSessionController } from './socketio-session';
 import type { WsSessionWriter, WsTransport, WsTransportError, WsTransportHeader } from './transport';
@@ -309,7 +310,7 @@ export async function executeWsSession(
   // ── Script hooks — mounted only where a host runs scripts AND some
   // level carries one; a scriptless session never touches the plane.
   const scriptChains = options.scriptHost !== undefined ? wsScriptChains(request, options) : null;
-  const scriptHost = scriptChains !== null && hasWsScriptChains(scriptChains) ? options.scriptHost : undefined;
+  const scriptHost = scriptChains !== null && hasSessionScriptChains(scriptChains) ? options.scriptHost : undefined;
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedWsSnapshot>((resolveRaw) => {

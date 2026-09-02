@@ -385,7 +385,14 @@ export class WorkbenchPage {
    *  match on the prefix — the ⓘ button itself starts with "About" and
    *  can't collide. */
   async selectScriptRail(
-    label: 'Before request' | 'After response' | 'Before connect' | 'Before send' | 'On message' | 'After close',
+    label:
+      | 'Before request'
+      | 'After response'
+      | 'Before connect'
+      | 'Before send'
+      | 'Before publish'
+      | 'On message'
+      | 'After close',
   ): Promise<void> {
     await this.page
       .getByRole('button', { name: new RegExp(`^${label}`) })

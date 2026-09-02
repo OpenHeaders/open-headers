@@ -283,6 +283,28 @@ export interface ScriptEventSummary {
   levels: ScriptEventLevelSummary[];
 }
 
+/**
+ * One session script hook ran — the per-event detail every session
+ * family's timeline mark shares: the levels that ran with their
+ * verdicts, the folded error, the console output and the assertions
+ * the hook registered. A family's mark adds `kind: 'script'` and its
+ * own `hook` kind (`ExecutedWsScriptMark`, `ExecutedMqttScriptMark`).
+ */
+export interface ExecutedSessionScriptMark {
+  succeeded: boolean;
+  durationMs: number;
+  /** The levels that ran, in order — see {@link ExecutedScriptChainStep}. */
+  chain: ExecutedScriptChainStep[];
+  error?: { name: string; message: string };
+  consoleLog?: ScriptConsoleEntry[];
+  assertions?: TestAssertion[];
+  /** Before connect: the dial this hook ran for (`0` = the first). */
+  attempt?: number;
+  /** Before send / Before publish: a level dropped the message — the
+   *  level's label; nothing reached the wire. */
+  droppedBy?: string;
+}
+
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
    *  (DNS failure, network offline, aborted). */

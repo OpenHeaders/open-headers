@@ -16,6 +16,7 @@
  * of a saved block honestly unsets it instead of re-priming.
  */
 
+import type { MqttScriptKind } from '@openheaders/core/scripts';
 import type {
   MqttAuth,
   MqttLastWill,
@@ -34,6 +35,9 @@ import type {
 import { binaryEncodingError } from '@openheaders/core/utils';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
+
+/** The MQTT request's slot record — its own kind's keys. */
+export type MqttScriptSlots = Partial<Record<MqttScriptKind, string>>;
 
 /** Concrete form shape for one per-message 5.0 property block. */
 export interface MqttMessagePropertiesDraft {
@@ -81,6 +85,10 @@ export interface MqttDraft {
   auth: MqttAuth;
   lastWill: MqttLastWillDraft;
   specLink: MqttSpecLink | undefined;
+  /** The request's own script slots, keyed by kind (the Scripts tab
+   *  edits them; an emptied slot stays `''` in the form and drops out
+   *  of the save patch). */
+  scripts: MqttScriptSlots;
   clientId: string;
   /** Concrete — absent on the entity reads as on (the safe default). */
   cleanStart: boolean;
@@ -132,6 +140,9 @@ export interface MqttRequestUpdates {
   auth: MqttAuth;
   lastWill: MqttLastWill | undefined;
   specLink: MqttSpecLink | undefined;
+  /** The present slots alone — a blank slot is absent, so the write's
+   *  flatten-diff tombstones a slot the user emptied. */
+  scripts: MqttScriptSlots;
   clientId: string;
   cleanStart: boolean;
   sessionExpiryInterval: number | undefined;
@@ -230,6 +241,16 @@ export function rowsToUserProperties(rows: KeyValueRow[]): MqttUserPropertyRow[]
     }));
 }
 
+/** The slots carrying a non-blank source — a blank slot is absent
+ *  (the sibling files' law: no file, no slot). */
+export function presentScriptSlots(slots: MqttScriptSlots): MqttScriptSlots {
+  const out: MqttScriptSlots = {};
+  for (const [kind, source] of Object.entries(slots) as Array<[MqttScriptKind, string | undefined]>) {
+    if (source !== undefined && source.trim() !== '') out[kind] = source;
+  }
+  return out;
+}
+
 /** Trim the Topics grid's trailing ghost + unfilled rows away, keeping
  *  only the fields each row actually carries. */
 export function trimTopicRows(rows: MqttTopicRow[]): MqttTopicRow[] {
@@ -310,6 +331,7 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     auth: req.auth ?? { type: 'none' },
     lastWill: lastWillToDraft(req.lastWill),
     specLink: req.specLink,
+    scripts: { ...req.scripts },
     clientId: req.clientId ?? '',
     cleanStart: req.cleanStart ?? true,
     sessionExpiryInterval: req.sessionExpiryInterval,
@@ -355,6 +377,7 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     auth: draft.auth,
     lastWill: draftToLastWill(draft.lastWill),
     specLink: draft.specLink,
+    scripts: presentScriptSlots(draft.scripts),
     clientId: draft.clientId,
     cleanStart: draft.cleanStart,
     sessionExpiryInterval: draft.sessionExpiryInterval,

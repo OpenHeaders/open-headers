@@ -187,10 +187,14 @@ describe('handleExecuteWebSocketRequestRpc — happy path', () => {
   it('runs a stored request end to end: open, both directions, Disconnect', async () => {
     seedStorage([makeWsRequest()]);
     const { transport, sent, writes } = scriptedTransport();
-    const result = await runSession({ webSocketRequestUid: 'wsrq0001', sendId: 'send-1' }, transport, (sendId) => {
-      expect(sendActiveWsSessionMessage(sendId, 'hello')).toEqual({ success: true });
-      expect(closeActiveWsSession(sendId)).toBe(true);
-    });
+    const result = await runSession(
+      { webSocketRequestUid: 'wsrq0001', sendId: 'send-1' },
+      transport,
+      async (sendId) => {
+        await expect(sendActiveWsSessionMessage(sendId, 'hello')).resolves.toEqual({ success: true });
+        expect(closeActiveWsSession(sendId)).toBe(true);
+      },
+    );
     expect(result.success).toBe(true);
     const snapshot = result.snapshot;
     if (!snapshot) throw new Error('no snapshot');
@@ -313,8 +317,10 @@ describe('handleExecuteWebSocketRequestRpc — rider plane', () => {
     }));
     seedStorage([]);
     const { transport, writes } = scriptedTransport();
-    const result = await runSession({ draft: makeWsRequest(), sendId: 's-6' }, transport, (sendId) => {
-      expect(sendActiveWsSessionMessage(sendId, '{"token":"{{vault.api_token}}"}')).toEqual({ success: true });
+    const result = await runSession({ draft: makeWsRequest(), sendId: 's-6' }, transport, async (sendId) => {
+      await expect(sendActiveWsSessionMessage(sendId, '{"token":"{{vault.api_token}}"}')).resolves.toEqual({
+        success: true,
+      });
       closeActiveWsSession(sendId);
     });
     expect(writes).toEqual(['{"token":"tok-123"}']);
@@ -328,11 +334,11 @@ describe('handleExecuteWebSocketRequestRpc — rider plane', () => {
   it('fails a rider with unresolved refs alone — the session stays open', async () => {
     seedStorage([]);
     const { transport, writes } = scriptedTransport();
-    const result = await runSession({ draft: makeWsRequest(), sendId: 's-7' }, transport, (sendId) => {
-      const bad = sendActiveWsSessionMessage(sendId, 'x {{vault.missing}}');
+    const result = await runSession({ draft: makeWsRequest(), sendId: 's-7' }, transport, async (sendId) => {
+      const bad = await sendActiveWsSessionMessage(sendId, 'x {{vault.missing}}');
       expect(bad.success).toBe(false);
       expect(bad.error).toContain('vault.missing');
-      expect(sendActiveWsSessionMessage(sendId, 'still-open')).toEqual({ success: true });
+      await expect(sendActiveWsSessionMessage(sendId, 'still-open')).resolves.toEqual({ success: true });
       closeActiveWsSession(sendId);
     });
     expect(writes).toEqual(['still-open']);
@@ -345,7 +351,7 @@ describe('handleExecuteWebSocketRequestRpc — rider plane', () => {
     await runSession({ draft: makeWsRequest(), sendId: 's-8' }, transport, (sendId) => {
       closeActiveWsSession(sendId);
     });
-    expect(sendActiveWsSessionMessage('s-8', 'late').success).toBe(false);
+    expect((await sendActiveWsSessionMessage('s-8', 'late')).success).toBe(false);
     expect(closeActiveWsSession('s-8')).toBe(false);
   });
 });

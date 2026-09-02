@@ -17,10 +17,10 @@
  * renderer write), `vault.get` off the renderer's vault mirror (string
  * secrets — an OAuth bundle's token resolves on the node hosts),
  * `sendRequest` through the bridge to the SW's own Send pipeline, and
- * `session.send` into the page-local active-session registry as a
- * SCRIPT-origin write (captured like any ↑ frame, never re-entering
- * Before send). `oh.require` reads the workspace's Package Library off
- * the same scope.
+ * `session.send` / `session.publish` into the page-local active-session
+ * registries as SCRIPT-origin writes (captured like any ↑ frame, never
+ * re-entering Before send / Before publish). `oh.require` reads the
+ * workspace's Package Library off the same scope.
  *
  * Firefox ships no sandbox page (no `sandbox` manifest key) and keeps
  * the HTTP posture: {@link getPageScriptHost} answers `null` there and
@@ -39,6 +39,7 @@ import type {
 import { createScriptBroker, type SandboxTransport, type ScriptBroker } from '@openheaders/core/scripts/broker';
 import type { Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { publishActiveMqttMessage, scriptPublishToWire } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import type { SessionScriptHost } from '@openheaders/oracle/live/request-exec/script-hooks';
 import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import { applyWorkspaceVarSet } from '@openheaders/ui/shared/sync/workspace-variables-write-client';
@@ -222,6 +223,11 @@ export async function handlePageScriptHostRequest(request: ScriptHostRequest): P
             request.binary,
             'script',
           ),
+        );
+      case 'session.publish':
+        return okReply(
+          request,
+          await publishActiveMqttMessage(request.sessionId, scriptPublishToWire(request.message), 'script'),
         );
       default: {
         const unreachable: never = request;
