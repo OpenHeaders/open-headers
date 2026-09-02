@@ -178,6 +178,13 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.asapValue': 'Bearer <JWT firmado>',
   'workbench.editors.request.authPreview.asapHint':
     'Generado desde la pestaña Autorización (ASAP). Se firma un token nuevo con tu clave privada y se añade a esta cabecera al enviar la solicitud.',
+  'workbench.editors.request.authPreview.httpSignatureInputValue': 'sig1=(<componentes cubiertos>);created=…',
+  'workbench.editors.request.authPreview.httpSignatureValue': 'sig1=:<firma>:',
+  'workbench.editors.request.authPreview.httpSignatureHint':
+    'Generado desde la pestaña Autorización (Firma de mensaje HTTP). La petición se firma con tu clave al enviarla.',
+  'workbench.editors.request.authPreview.httpSignatureDigestValue': 'sha-256=:<resumen del cuerpo>:',
+  'workbench.editors.request.authPreview.httpSignatureDigestHint':
+    'Generado desde la pestaña Autorización (Firma de mensaje HTTP). El resumen del cuerpo se calcula al enviar.',
   'workbench.editors.request.authPreview.digestValue': 'Digest <respuesta al desafío>',
   'workbench.editors.request.authPreview.digestHint':
     'Generado desde la pestaña Autorización (Digest Auth). El valor se calcula a partir del desafío del ' +
@@ -213,6 +220,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.group.challenge': 'Desafío',
   'workbench.editors.request.auth.group.grant': 'Concesión',
   'workbench.editors.request.auth.group.advanced': 'Avanzado',
+  'workbench.editors.request.auth.group.coverage': 'Cobertura',
+  'workbench.editors.request.auth.group.parameters': 'Parámetros',
   'workbench.editors.request.auth.typeInfo.none':
     'No se añade nada \u2014 la solicitud sale exactamente como muestran sus pestañas Headers y Params.',
   'workbench.editors.request.auth.typeInfo.basic':
@@ -378,6 +387,39 @@ export const workbenchEditorsRequest = {
     'Claims extra fusionados al final \u2014 ganan sobre todo claim compuesto, jti / iat / exp incluidos.',
   'workbench.editors.request.auth.rowInfo.asapExpiresIn':
     'La vida estampada como exp \u2212 iat; en blanco = 3600, el techo del esquema.',
+  'workbench.editors.request.auth.typeInfo.httpSignature':
+    'La petición se firma al enviarla (RFC 9421): se construye una base de firma con los componentes cubiertos — el método, el destino, las cabeceras nombradas, un Content-Digest del cuerpo — más los parámetros de firma, se firma con la clave y viaja en Signature-Input y Signature; la clave nunca viaja.',
+  'workbench.editors.request.auth.groupInfo.httpSignature.signing':
+    'El algoritmo registrado, el ID de clave con el que el verificador localiza la clave, y la clave que firma — una clave privada PEM, o el secreto compartido bajo hmac-sha256.',
+  'workbench.editors.request.auth.groupInfo.httpSignature.coverage':
+    'Lo que cubre la firma: los componentes en orden de firma — los derivados como @method y @target-uri, cabeceras por nombre — y si se genera un Content-Digest del cuerpo para cubrirlo.',
+  'workbench.editors.request.auth.groupInfo.httpSignature.parameters':
+    'Los metadatos @signature-params: la etiqueta que llevan ambas cabeceras, los instantes created / expires, un nonce por envío, el parámetro alg, un tag de aplicación.',
+  'workbench.editors.request.auth.rowInfo.httpSigAlgorithm':
+    'Uno de los seis algoritmos registrados; el verificador debe tener la clave correspondiente. rsa-pss-sha512 encabeza los ejemplos de la RFC.',
+  'workbench.editors.request.auth.rowInfo.httpSigKeyId':
+    'Viaja como keyid — el verificador obtiene la clave pública (o el secreto) por él. En blanco omite el parámetro.',
+  'workbench.editors.request.auth.rowInfo.httpSigPrivateKey': 'El PEM que firma — PKCS#8, PKCS#1 o SEC1; nunca viaja.',
+  'workbench.editors.request.auth.rowInfo.httpSigSecret':
+    'El secreto compartido con el verificador — es la clave del HMAC; nunca viaja.',
+  'workbench.editors.request.auth.rowInfo.httpSigSecretBase64':
+    'El secreto es texto base64 — se decodifica a los bytes de clave antes de firmar.',
+  'workbench.editors.request.auth.rowInfo.httpSigComponents':
+    'Separados por espacios, en orden de firma: @method, @target-uri, @authority, @scheme, @request-target, @path, @query y nombres de cabecera. Una cabecera cubierta que la petición no lleva hace fallar el envío.',
+  'workbench.editors.request.auth.rowInfo.httpSigContentDigest':
+    'Genera Content-Digest sobre los bytes del cuerpo (RFC 9530) para que content-digest pueda cubrirse; un envío sin cuerpo resume el contenido vacío. Los cuerpos multipart no pueden resumirse.',
+  'workbench.editors.request.auth.rowInfo.httpSigLabel':
+    'La clave de diccionario bajo la que Signature-Input y Signature llevan esta firma; en blanco = sig1.',
+  'workbench.editors.request.auth.rowInfo.httpSigCreated':
+    'Escribe created = el instante de firma; los verificadores rechazan firmas caducadas con él. Desactivado omite el parámetro (y expires con él).',
+  'workbench.editors.request.auth.rowInfo.httpSigExpiresIn':
+    'Escribe expires = created + estos segundos; en blanco no escribe caducidad.',
+  'workbench.editors.request.auth.rowInfo.httpSigNonce':
+    'Escribe un nonce aleatorio por envío — la protección contra repetición de los verificadores que los registran.',
+  'workbench.editors.request.auth.rowInfo.httpSigIncludeAlg':
+    'Escribe alg con el algoritmo; desactivado lo deja a la clave que el verificador resuelve (el valor por defecto de la RFC).',
+  'workbench.editors.request.auth.rowInfo.httpSigTag':
+    'Un parámetro tag propio de la aplicación para distinguir firmas; en blanco lo omite.',
   'workbench.editors.request.auth.typeInfo.oauth2':
     'El cliente obtiene un token de acceso del proveedor \u2014 una autorización en el navegador y luego un intercambio de token, o un intercambio directo para las concesiones de máquina y contraseña \u2014 y cada envío lo lleva como token bearer, renovado al caducar si se emitió un token de renovación.',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -471,6 +513,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
   'workbench.editors.request.auth.type.jwtBearer': 'JWT Bearer',
+  'workbench.editors.request.auth.type.httpSignature': 'Firma de mensaje HTTP',
   'workbench.editors.request.auth.oauth1ConsumerKey': 'Consumer Key',
   'workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder': 'consumer key',
   'workbench.editors.request.auth.oauth1ConsumerSecret': 'Consumer Secret',
@@ -591,6 +634,26 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.asapSubjectPlaceholder': 'opcional \u2014 en blanco envía el emisor',
   'workbench.editors.request.auth.asapClaimsPlaceholder': 'opcional \u2014 JSON, p. ej. {"scope":"read"}',
   'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',
+  'workbench.editors.request.auth.httpSigAlgorithm': 'Algoritmo',
+  'workbench.editors.request.auth.httpSigKeyId': 'ID de clave',
+  'workbench.editors.request.auth.httpSigPrivateKey': 'Clave privada',
+  'workbench.editors.request.auth.httpSigSecret': 'Secreto compartido',
+  'workbench.editors.request.auth.httpSigSecretBase64': 'El secreto está codificado en base64',
+  'workbench.editors.request.auth.httpSigComponents': 'Componentes cubiertos',
+  'workbench.editors.request.auth.httpSigContentDigest': 'Content Digest',
+  'workbench.editors.request.auth.httpSigDigestNone': 'Ninguno',
+  'workbench.editors.request.auth.httpSigLabel': 'Etiqueta',
+  'workbench.editors.request.auth.httpSigCreated': 'Marca de tiempo created',
+  'workbench.editors.request.auth.httpSigExpiresIn': 'Expira tras (segundos)',
+  'workbench.editors.request.auth.httpSigNonce': 'Nonce',
+  'workbench.editors.request.auth.httpSigIncludeAlg': 'Parámetro de algoritmo (alg)',
+  'workbench.editors.request.auth.httpSigTag': 'Tag',
+  'workbench.editors.request.auth.httpSigKeyIdPlaceholder': 'p. ej. my-service-key-1',
+  'workbench.editors.request.auth.httpSigPrivateKeyPlaceholder': '-----BEGIN PRIVATE KEY----- (PEM)',
+  'workbench.editors.request.auth.httpSigSecretPlaceholder': 'el secreto compartido con el verificador',
+  'workbench.editors.request.auth.httpSigLabelPlaceholder': 'sig1',
+  'workbench.editors.request.auth.httpSigExpiresInPlaceholder': 'opcional — p. ej. 300',
+  'workbench.editors.request.auth.httpSigTagPlaceholder': 'opcional — un tag de aplicación',
   'workbench.editors.request.auth.sendAsLabel': 'Añadir los datos de autorización a',
   'workbench.editors.request.auth.sendAsHeaders': 'Encabezados de la solicitud',
   'workbench.editors.request.auth.sendAsUrl': 'URL de la solicitud',

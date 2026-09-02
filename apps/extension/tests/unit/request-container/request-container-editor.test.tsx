@@ -299,6 +299,7 @@ describe('RequestContainerEditor — the empty state', () => {
       'bearer',
       'digest',
       'hawk',
+      'http-signature',
       'jwt',
       'oauth1',
       'oauth2',
@@ -997,6 +998,58 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     closePopover();
   });
 
+  it('HTTP Message Signature reads as Signing · Coverage · Parameters; the type (i) lights both headers, the rows their parameters', () => {
+    const onChange = vi.fn();
+    const sig: AuthConfig = {
+      type: 'http-signature',
+      algorithm: 'rsa-pss-sha512',
+      privateKey: '',
+      secret: '',
+      components: '@method @target-uri',
+    };
+    const first = render(<AuthorizationTab auth={sig} onChange={onChange} />);
+    expect(screen.getByRole('button', { name: 'Signing' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Coverage' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Parameters' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Delivery' })).toBeNull();
+    expect(screen.getByTestId('oh-auth-http-signature-algorithm').textContent).toContain('rsa-pss-sha512');
+    expect(screen.getByTestId('oh-auth-http-signature-components').textContent).toBe('@method @target-uri');
+    // The asymmetric default shows the private key row, never the secret.
+    expect(screen.getByText('Private Key')).toBeTruthy();
+    expect(screen.queryByText('Shared Secret')).toBeNull();
+    const type = openPopover('About HTTP Message Signature');
+    expect(litTexts(type)).toEqual(['Signature-Input:', 'Signature:']);
+    expect(type.textContent).toContain('("@method" "@target-uri")');
+    expect(type.textContent).toContain('created=1618884473');
+    closePopover();
+    first.unmount();
+    // The Covered Components (i) sits under Coverage and lights the list and the signed lines.
+    const second = render(<AuthorizationTab auth={sig} onChange={onChange} />);
+    const covered = openPopover('About Covered Components');
+    expect(covered.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Coverage');
+    expect(litTexts(covered)).toEqual([
+      '("@method" "@target-uri")',
+      '"@method": POST',
+      '"@target-uri": https://api.openheaders.com/v1/users',
+      '"@signature-params": ("@method" "@target-uri")…',
+    ]);
+    closePopover();
+    second.unmount();
+    // The Nonce (i) forces its parameter into the Signature-Input line; the Content Digest (i) its header line.
+    const third = render(<AuthorizationTab auth={sig} onChange={onChange} />);
+    const nonce = openPopover('About Nonce');
+    expect(nonce.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Parameters');
+    expect(litTexts(nonce)).toEqual(['nonce="b3k2pp5k7z-50gnwp.yemd"']);
+    closePopover();
+    third.unmount();
+    render(<AuthorizationTab auth={{ ...sig, algorithm: 'hmac-sha256' }} onChange={onChange} />);
+    expect(screen.getByText('Shared Secret')).toBeTruthy();
+    expect(screen.getByTestId('oh-auth-http-signature-secret-base64')).toBeTruthy();
+    const digest = openPopover('About Content Digest');
+    expect(litTexts(digest)).toEqual(['Content-Digest:', 'sha-256=:X48E9qOokqqrvdts…:']);
+    closePopover();
+  });
+
   it("the pool entry pane's type select opens the compact sectioned popup — every type in view, two dividers", async () => {
     requestsState = {
       ...requestsState,
@@ -1009,16 +1062,17 @@ describe('AuthorizationTab — sectioned forms and the (i) popovers', () => {
     await waitFor(() => expect(document.querySelector('.oh-auth-type-popup')).toBeTruthy());
     const popup = document.querySelector('.oh-auth-type-popup');
     if (!popup) throw new Error('no popup');
-    // No virtual window: all twelve types are in the DOM at once; the
+    // No virtual window: all thirteen types are in the DOM at once; the
     // two label-less groups are the section dividers (vendor, none).
-    expect(popup.querySelectorAll('.ant-select-item-option')).toHaveLength(12);
+    expect(popup.querySelectorAll('.ant-select-item-option')).toHaveLength(13);
     expect(popup.querySelectorAll('.ant-select-item-group')).toHaveLength(2);
     const labels = Array.from(popup.querySelectorAll('.ant-select-item-option')).map((el) => el.textContent);
     expect(labels[0]).toBe('API Key');
-    expect(labels[8]).toBe('AWS Signature v4');
-    expect(labels[9]).toBe('Akamai EdgeGrid');
-    expect(labels[10]).toBe('ASAP (Atlassian)');
-    expect(labels[11]).toBe('No Auth');
+    expect(labels[5]).toBe('HTTP Message Signature');
+    expect(labels[9]).toBe('AWS Signature v4');
+    expect(labels[10]).toBe('Akamai EdgeGrid');
+    expect(labels[11]).toBe('ASAP (Atlassian)');
+    expect(labels[12]).toBe('No Auth');
     fireEvent.keyDown(input, { key: 'Escape' });
   });
 

@@ -45,6 +45,7 @@ const OWN_TYPES: readonly ConcreteAuthType[] = [
   'oauth1',
   'hawk',
   'jwt',
+  'http-signature',
 ];
 
 interface AuthorizationTabProps {

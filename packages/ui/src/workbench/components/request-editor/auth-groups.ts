@@ -19,7 +19,9 @@ export type AuthGroupKey =
   | 'delivery'
   | 'challenge'
   | 'grant'
-  | 'advanced';
+  | 'advanced'
+  | 'coverage'
+  | 'parameters';
 
 export const AUTH_GROUP_LABEL_KEY: Record<AuthGroupKey, MessageKey> = {
   credentials: 'workbench.editors.request.auth.group.credentials',
@@ -31,6 +33,8 @@ export const AUTH_GROUP_LABEL_KEY: Record<AuthGroupKey, MessageKey> = {
   challenge: 'workbench.editors.request.auth.group.challenge',
   grant: 'workbench.editors.request.auth.group.grant',
   advanced: 'workbench.editors.request.auth.group.advanced',
+  coverage: 'workbench.editors.request.auth.group.coverage',
+  parameters: 'workbench.editors.request.auth.group.parameters',
 };
 
 /** The types whose forms are sectioned, in their section order.
@@ -46,6 +50,7 @@ export type GroupedAuthType =
   | 'oauth1'
   | 'hawk'
   | 'jwt'
+  | 'http-signature'
   | 'oauth2';
 
 export const AUTH_TYPE_GROUPS: Record<GroupedAuthType, readonly AuthGroupKey[]> = {
@@ -59,6 +64,7 @@ export const AUTH_TYPE_GROUPS: Record<GroupedAuthType, readonly AuthGroupKey[]> 
   oauth1: ['signing', 'consumer', 'token', 'delivery'],
   hawk: ['credentials', 'signing', 'attributes'],
   jwt: ['signing', 'token', 'delivery'],
+  'http-signature': ['signing', 'coverage', 'parameters'],
   // Signing renders only while an assertion is in play (a JWT client
   // authentication or the JWT bearer grant).
   oauth2: ['token', 'grant', 'signing', 'advanced'],

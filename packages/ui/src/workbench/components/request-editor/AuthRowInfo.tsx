@@ -92,6 +92,19 @@ export type AuthInfoKey =
   | 'jwtExpiresIn'
   | 'jwtAddTo'
   | 'jwtHeaderPrefix'
+  | 'httpSigAlgorithm'
+  | 'httpSigKeyId'
+  | 'httpSigPrivateKey'
+  | 'httpSigSecret'
+  | 'httpSigSecretBase64'
+  | 'httpSigComponents'
+  | 'httpSigContentDigest'
+  | 'httpSigLabel'
+  | 'httpSigCreated'
+  | 'httpSigExpiresIn'
+  | 'httpSigNonce'
+  | 'httpSigIncludeAlg'
+  | 'httpSigTag'
   | 'oauth2Token'
   | 'oauth2HeaderPrefix'
   | 'oauth2TokenBinding'
@@ -213,7 +226,10 @@ type AuthTokenId =
   | 'assertion'
   | 'proof'
   | 'htu'
-  | 'ath';
+  | 'ath'
+  | 'label'
+  | 'created'
+  | 'tag';
 
 type Token = ExampleCardToken<AuthTokenId>;
 type Line = ExampleCardLine<AuthTokenId>;
@@ -229,6 +245,8 @@ const HAWK_TS = '1353832234';
 const HAWK_NONCE = 'j4h3g2';
 /** The SigV4 test suite's timestamp — the pinned vector's date. */
 const AMZ_DATE = '20150830T123600Z';
+/** RFC 9421's Appendix B `created` instant — the pinned vectors' clock. */
+const HTTP_SIG_CREATED = 1_618_884_473;
 
 const tok = (id: AuthTokenId, text: string): Token => ({ id, text });
 
@@ -573,6 +591,86 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
           : []),
       ];
     }
+    case 'http-signature': {
+      // The two headers the signer adds, then the signature base line
+      // by line — "the signed line is what the signature covers". The
+      // Content-Digest line and the optional parameters show when set
+      // / forced; the covered list is the config's own, in its order.
+      const show = (key: AuthInfoKey, set: boolean) => set || forced.has(key);
+      const label = auth.label?.trim() || 'sig1';
+      const components = auth.components
+        .split(/[\s,]+/)
+        .filter((c) => c !== '')
+        .map((c) => c.toLowerCase());
+      const digestAlgorithm = auth.contentDigest ?? 'sha-256';
+      const digestValue = `${digestAlgorithm}=:X48E9qOokqqrvdts…:`;
+      const showDigest = show('httpSigContentDigest', auth.contentDigest !== undefined);
+      const created = auth.created !== false;
+      const params: Token[] = [
+        ...(created ? [tok('created', `created=${HTTP_SIG_CREATED}`)] : []),
+        ...(created && show('httpSigExpiresIn', auth.expiresInSeconds !== undefined)
+          ? [tok('expires', `expires=${HTTP_SIG_CREATED + (auth.expiresInSeconds ?? 300)}`)]
+          : []),
+        ...(show('httpSigKeyId', (auth.keyId ?? '').trim() !== '')
+          ? [tok('kid', `keyid="${auth.keyId?.trim() || 'my-service-key-1'}"`)]
+          : []),
+        ...(show('httpSigIncludeAlg', auth.includeAlgorithm === true) ? [tok('alg', `alg="${auth.algorithm}"`)] : []),
+        ...(show('httpSigNonce', auth.nonce === true) ? [tok('nonce', 'nonce="b3k2pp5k7z-50gnwp.yemd"')] : []),
+        ...(show('httpSigTag', (auth.tag ?? '').trim() !== '')
+          ? [tok('tag', `tag="${auth.tag?.trim() || 'app'}"`)]
+          : []),
+      ];
+      const sample = (component: string): string => {
+        switch (component) {
+          case '@method':
+            return 'POST';
+          case '@target-uri':
+            return URL;
+          case '@authority':
+            return 'api.openheaders.com';
+          case '@scheme':
+            return 'https';
+          case '@request-target':
+          case '@path':
+            return '/v1/users';
+          case '@query':
+            return '?';
+          case 'content-digest':
+            return digestValue;
+          case 'content-type':
+            return 'application/json';
+          case 'date':
+            return 'Tue, 20 Apr 2021 02:07:55 GMT';
+          default:
+            return '…';
+        }
+      };
+      const covered = `(${components.map((c) => `"${c}"`).join(' ')})`;
+      return [
+        requestLine(),
+        ...(showDigest
+          ? [{ opener: tok('contentHash', 'Content-Digest:'), tokens: [tok('contentHash', digestValue)] }]
+          : []),
+        {
+          opener: tok('location', 'Signature-Input:'),
+          tokens: [tok('label', `${label}=`), tok('signedHeaders', covered), ...params],
+        },
+        {
+          opener: tok('location', 'Signature:'),
+          tokens: [
+            tok('label', `${label}=`),
+            tok('signature', `:wqcAqbmYJ2ji…: ← ${auth.algorithm === 'hmac-sha256' ? 'secret' : 'private key'}`),
+          ],
+        },
+        {
+          opener: 'signed',
+          tokens: [
+            ...components.map((c) => tok('signedHeaders', `"${c}": ${sample(c)}`)),
+            tok('signedHeaders', `"@signature-params": ${covered}…`),
+          ],
+        },
+      ];
+    }
     case 'aws-sigv4': {
       // The scope the card shows is the one the signer derives from the
       // card's own host when a field is blank — the same rule as the
@@ -698,6 +796,19 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   jwtExpiresIn: ['iat', 'exp'],
   jwtAddTo: ['location'],
   jwtHeaderPrefix: ['prefix'],
+  httpSigAlgorithm: ['signature'],
+  httpSigKeyId: ['kid'],
+  httpSigPrivateKey: ['signature'],
+  httpSigSecret: ['signature'],
+  httpSigSecretBase64: ['signature'],
+  httpSigComponents: ['signedHeaders'],
+  httpSigContentDigest: ['contentHash'],
+  httpSigLabel: ['label'],
+  httpSigCreated: ['created'],
+  httpSigExpiresIn: ['expires'],
+  httpSigNonce: ['nonce'],
+  httpSigIncludeAlg: ['alg'],
+  httpSigTag: ['tag'],
   oauth2Token: ['token'],
   oauth2HeaderPrefix: ['prefix'],
   oauth2TokenBinding: ['proof', 'htu', 'ath', 'prefix'],
@@ -810,6 +921,18 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
     token: ['jwtPayload', 'jwtHeaders', 'jwtExpiresIn'],
     delivery: ['jwtAddTo', 'jwtHeaderPrefix'],
   },
+  'http-signature': {
+    signing: ['httpSigAlgorithm', 'httpSigKeyId', 'httpSigPrivateKey', 'httpSigSecret', 'httpSigSecretBase64'],
+    coverage: ['httpSigComponents', 'httpSigContentDigest'],
+    parameters: [
+      'httpSigLabel',
+      'httpSigCreated',
+      'httpSigExpiresIn',
+      'httpSigNonce',
+      'httpSigIncludeAlg',
+      'httpSigTag',
+    ],
+  },
   // The rail's Add-to and Preset rows sit outside the sections.
   oauth2: {
     token: [
@@ -913,6 +1036,19 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   jwtExpiresIn: 'workbench.editors.request.auth.jwtExpiresIn',
   jwtAddTo: 'workbench.editors.request.auth.jwtAddTo',
   jwtHeaderPrefix: 'workbench.editors.request.auth.jwtHeaderPrefix',
+  httpSigAlgorithm: 'workbench.editors.request.auth.httpSigAlgorithm',
+  httpSigKeyId: 'workbench.editors.request.auth.httpSigKeyId',
+  httpSigPrivateKey: 'workbench.editors.request.auth.httpSigPrivateKey',
+  httpSigSecret: 'workbench.editors.request.auth.httpSigSecret',
+  httpSigSecretBase64: 'workbench.editors.request.auth.httpSigSecretBase64',
+  httpSigComponents: 'workbench.editors.request.auth.httpSigComponents',
+  httpSigContentDigest: 'workbench.editors.request.auth.httpSigContentDigest',
+  httpSigLabel: 'workbench.editors.request.auth.httpSigLabel',
+  httpSigCreated: 'workbench.editors.request.auth.httpSigCreated',
+  httpSigExpiresIn: 'workbench.editors.request.auth.httpSigExpiresIn',
+  httpSigNonce: 'workbench.editors.request.auth.httpSigNonce',
+  httpSigIncludeAlg: 'workbench.editors.request.auth.httpSigIncludeAlg',
+  httpSigTag: 'workbench.editors.request.auth.httpSigTag',
   oauth2Token: 'workbench.editors.request.oauth.tokenLabel',
   oauth2HeaderPrefix: 'workbench.editors.request.oauth.headerPrefix',
   oauth2TokenBinding: 'workbench.editors.request.oauth.tokenBinding',
@@ -1005,6 +1141,19 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   jwtExpiresIn: 'workbench.editors.request.auth.rowInfo.jwtExpiresIn',
   jwtAddTo: 'workbench.editors.request.auth.rowInfo.jwtAddTo',
   jwtHeaderPrefix: 'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix',
+  httpSigAlgorithm: 'workbench.editors.request.auth.rowInfo.httpSigAlgorithm',
+  httpSigKeyId: 'workbench.editors.request.auth.rowInfo.httpSigKeyId',
+  httpSigPrivateKey: 'workbench.editors.request.auth.rowInfo.httpSigPrivateKey',
+  httpSigSecret: 'workbench.editors.request.auth.rowInfo.httpSigSecret',
+  httpSigSecretBase64: 'workbench.editors.request.auth.rowInfo.httpSigSecretBase64',
+  httpSigComponents: 'workbench.editors.request.auth.rowInfo.httpSigComponents',
+  httpSigContentDigest: 'workbench.editors.request.auth.rowInfo.httpSigContentDigest',
+  httpSigLabel: 'workbench.editors.request.auth.rowInfo.httpSigLabel',
+  httpSigCreated: 'workbench.editors.request.auth.rowInfo.httpSigCreated',
+  httpSigExpiresIn: 'workbench.editors.request.auth.rowInfo.httpSigExpiresIn',
+  httpSigNonce: 'workbench.editors.request.auth.rowInfo.httpSigNonce',
+  httpSigIncludeAlg: 'workbench.editors.request.auth.rowInfo.httpSigIncludeAlg',
+  httpSigTag: 'workbench.editors.request.auth.rowInfo.httpSigTag',
   oauth2Token: 'workbench.editors.request.auth.rowInfo.oauth2Token',
   oauth2HeaderPrefix: 'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix',
   oauth2TokenBinding: 'workbench.editors.request.auth.rowInfo.oauth2TokenBinding',
@@ -1083,6 +1232,11 @@ const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKe
     token: 'workbench.editors.request.auth.groupInfo.jwt.token',
     delivery: 'workbench.editors.request.auth.groupInfo.jwt.delivery',
   },
+  'http-signature': {
+    signing: 'workbench.editors.request.auth.groupInfo.httpSignature.signing',
+    coverage: 'workbench.editors.request.auth.groupInfo.httpSignature.coverage',
+    parameters: 'workbench.editors.request.auth.groupInfo.httpSignature.parameters',
+  },
   oauth2: {
     token: 'workbench.editors.request.auth.groupInfo.oauth2.token',
     grant: 'workbench.editors.request.auth.groupInfo.oauth2.grant',
@@ -1103,6 +1257,7 @@ const TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
   oauth1: 'workbench.editors.request.auth.typeInfo.oauth1',
   hawk: 'workbench.editors.request.auth.typeInfo.hawk',
   jwt: 'workbench.editors.request.auth.typeInfo.jwt',
+  'http-signature': 'workbench.editors.request.auth.typeInfo.httpSignature',
   oauth2: 'workbench.editors.request.auth.typeInfo.oauth2',
 };
 

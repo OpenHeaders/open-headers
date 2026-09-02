@@ -201,6 +201,28 @@ export function previewAuthContributions(auth: AuthConfig, t: Translate): AuthPr
         params: [],
       };
     }
+    case 'http-signature': {
+      const headers: AuthPreviewEntry[] = [
+        {
+          key: 'Signature-Input',
+          value: t('workbench.editors.request.authPreview.httpSignatureInputValue'),
+          hint: t('workbench.editors.request.authPreview.httpSignatureHint'),
+        },
+        {
+          key: 'Signature',
+          value: t('workbench.editors.request.authPreview.httpSignatureValue'),
+          hint: t('workbench.editors.request.authPreview.httpSignatureHint'),
+        },
+      ];
+      if (auth.contentDigest !== undefined) {
+        headers.unshift({
+          key: 'Content-Digest',
+          value: t('workbench.editors.request.authPreview.httpSignatureDigestValue'),
+          hint: t('workbench.editors.request.authPreview.httpSignatureDigestHint'),
+        });
+      }
+      return { headers, params: [] };
+    }
     case 'oauth2': {
       const inQuery = auth.sendAs === 'query';
       const entry: AuthPreviewEntry = inQuery

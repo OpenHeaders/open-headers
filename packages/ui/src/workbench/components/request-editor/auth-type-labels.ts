@@ -30,6 +30,7 @@ export const AUTH_TYPE_OPTIONS: AuthTypeOption[] = [
   { value: 'oauth1', labelKey: 'workbench.editors.request.auth.type.oauth1' },
   { value: 'hawk', labelKey: 'workbench.editors.request.auth.type.hawk' },
   { value: 'jwt', labelKey: 'workbench.editors.request.auth.type.jwtBearer' },
+  { value: 'http-signature', labelKey: 'workbench.editors.request.auth.type.httpSignature' },
 ];
 
 export function authTypeLabelKey(type: AuthKind): MessageKey {

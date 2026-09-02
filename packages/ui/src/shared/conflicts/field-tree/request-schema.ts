@@ -198,6 +198,28 @@ const AUTH_UNION: FieldNode = union({
       headerPrefix: leaf('string', { coercion: 'optional-string' }),
       expiresInSeconds: leaf('number', { coercion: 'optional-number' }),
     }),
+    'http-signature': obj({
+      algorithm: enumLeaf([
+        'rsa-pss-sha512',
+        'rsa-v1_5-sha256',
+        'hmac-sha256',
+        'ecdsa-p256-sha256',
+        'ecdsa-p384-sha384',
+        'ed25519',
+      ]),
+      privateKey: leaf('string'),
+      secret: leaf('string'),
+      secretBase64: leaf('boolean', { coercion: 'boolean-strict' }),
+      keyId: leaf('string', { coercion: 'optional-string' }),
+      components: leaf('string'),
+      contentDigest: leaf('string', { coercion: 'optional-string' }),
+      label: leaf('string', { coercion: 'optional-string' }),
+      created: leaf('boolean', { coercion: 'boolean-strict' }),
+      expiresInSeconds: leaf('number', { coercion: 'optional-number' }),
+      nonce: leaf('boolean', { coercion: 'boolean-strict' }),
+      includeAlgorithm: leaf('boolean', { coercion: 'boolean-strict' }),
+      tag: leaf('string', { coercion: 'optional-string' }),
+    }),
   },
 });
 

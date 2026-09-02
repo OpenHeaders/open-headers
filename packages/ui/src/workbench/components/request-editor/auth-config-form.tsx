@@ -7,7 +7,13 @@
  * empty config of the picked type.
  */
 
-import { ASAP_ALGORITHMS, JWT_ALGORITHMS } from '@openheaders/core/auth-signing';
+import {
+  ASAP_ALGORITHMS,
+  HTTP_SIGNATURE_ALGORITHMS,
+  HTTP_SIGNATURE_DEFAULT_COMPONENTS,
+  HTTP_SIGNATURE_DIGEST_ALGORITHMS,
+  JWT_ALGORITHMS,
+} from '@openheaders/core/auth-signing';
 import { getCapability } from '@openheaders/core/capabilities';
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS, usesDpop } from '@openheaders/core/oauth';
 import type { ConcreteAuthConfig } from '@openheaders/core/types';
@@ -73,6 +79,14 @@ export function seedAuthConfig(type: ConcreteAuthType): ConcreteAuthConfig {
       return { type: 'hawk', authId: '', authKey: '', algorithm: 'sha256' };
     case 'jwt':
       return { type: 'jwt', algorithm: 'HS256', secret: '', privateKey: '', payload: '', addTo: 'header' };
+    case 'http-signature':
+      return {
+        type: 'http-signature',
+        algorithm: 'rsa-pss-sha512',
+        privateKey: '',
+        secret: '',
+        components: HTTP_SIGNATURE_DEFAULT_COMPONENTS,
+      };
     default: {
       const _exhaustive: never = type;
       void _exhaustive;
@@ -118,6 +132,8 @@ export const AuthConfigFields: React.FC<{
       return <HawkEditor auth={auth} onChange={onChange} />;
     case 'jwt':
       return <JwtEditor auth={auth} onChange={onChange} />;
+    case 'http-signature':
+      return <HttpSignatureEditor auth={auth} onChange={onChange} />;
     case 'oauth2':
       return <OAuth2AuthEditor auth={auth} onChange={onChange} />;
     default: {
@@ -869,6 +885,214 @@ const HawkEditor: React.FC<FormProps<'hawk'>> = ({ auth, onChange }) => {
 // sign — no host gating. Sections: Signing · Token · Delivery.
 
 const JWT_ALGORITHM_OPTIONS = JWT_ALGORITHMS.map((a) => ({ value: a, label: a }));
+
+// ── HTTP Message Signature editor ─────────────────────────────────
+//
+// Signing (algorithm, key id, the key per family) · Coverage (the
+// covered components, the content digest) · Parameters (label,
+// created, expires, nonce, the alg parameter, tag). The optional
+// strings drop from the config when blanked; the flags drop when
+// unchecked (`created` is the one flag that stores its OFF state —
+// absent means on).
+
+const HTTP_SIGNATURE_ALGORITHM_OPTIONS = HTTP_SIGNATURE_ALGORITHMS.map((a) => ({ value: a, label: a }));
+
+const HttpSignatureEditor: React.FC<FormProps<'http-signature'>> = ({ auth, onChange }) => {
+  const t = useT();
+  const info = (key: AuthInfoKey) => authRowInfo(t, auth, key);
+  const symmetric = auth.algorithm === 'hmac-sha256';
+  const setOptional = (field: 'keyId' | 'label' | 'tag') => (next: string) => {
+    if (next.trim()) {
+      onChange({ ...auth, [field]: next });
+    } else {
+      const { [field]: _omit, ...rest } = auth;
+      onChange(rest);
+    }
+  };
+  const setFlag = (field: 'secretBase64' | 'nonce' | 'includeAlgorithm') => (checked: boolean) => {
+    if (checked) {
+      onChange({ ...auth, [field]: true });
+    } else {
+      const { [field]: _omit, ...rest } = auth;
+      onChange(rest);
+    }
+  };
+  const digestOptions = [
+    { value: 'none', label: t('workbench.editors.request.auth.httpSigDigestNone') },
+    ...HTTP_SIGNATURE_DIGEST_ALGORITHMS.map((a) => ({ value: a, label: a })),
+  ];
+  return (
+    <AuthForm>
+      <FormGroup
+        auth={auth}
+        group="signing"
+        modified={
+          auth.algorithm !== 'rsa-pss-sha512' || isSet(auth.keyId) || isSet(auth.privateKey) || isSet(auth.secret)
+        }
+      >
+        <LabeledRow label={t('workbench.editors.request.auth.httpSigAlgorithm')} info={info('httpSigAlgorithm')}>
+          <Select
+            size="small"
+            data-testid="oh-auth-http-signature-algorithm"
+            value={auth.algorithm}
+            onChange={(next: (typeof HTTP_SIGNATURE_ALGORITHMS)[number]) => onChange({ ...auth, algorithm: next })}
+            options={HTTP_SIGNATURE_ALGORITHM_OPTIONS}
+            style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        <LabeledRow label={t('workbench.editors.request.auth.httpSigKeyId')} info={info('httpSigKeyId')}>
+          <TemplateInput
+            size="small"
+            value={auth.keyId ?? ''}
+            onChange={setOptional('keyId')}
+            placeholder={t('workbench.editors.request.auth.httpSigKeyIdPlaceholder')}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        {symmetric ? (
+          <>
+            <LabeledRow label={t('workbench.editors.request.auth.httpSigSecret')} info={info('httpSigSecret')}>
+              <SecretField
+                value={auth.secret}
+                onChange={(next) => onChange({ ...auth, secret: next })}
+                placeholder={t('workbench.editors.request.auth.httpSigSecretPlaceholder')}
+              />
+            </LabeledRow>
+            <AuthCheckboxRow
+              label={t('workbench.editors.request.auth.httpSigSecretBase64')}
+              checked={auth.secretBase64 === true}
+              testId="oh-auth-http-signature-secret-base64"
+              info={info('httpSigSecretBase64')}
+              onChange={setFlag('secretBase64')}
+            />
+          </>
+        ) : (
+          <LabeledRow label={t('workbench.editors.request.auth.httpSigPrivateKey')} info={info('httpSigPrivateKey')}>
+            <SecretField
+              value={auth.privateKey}
+              onChange={(next) => onChange({ ...auth, privateKey: next })}
+              placeholder={t('workbench.editors.request.auth.httpSigPrivateKeyPlaceholder')}
+            />
+          </LabeledRow>
+        )}
+      </FormGroup>
+      <FormGroup
+        auth={auth}
+        group="coverage"
+        modified={auth.components !== HTTP_SIGNATURE_DEFAULT_COMPONENTS || auth.contentDigest !== undefined}
+      >
+        <LabeledRow label={t('workbench.editors.request.auth.httpSigComponents')} info={info('httpSigComponents')}>
+          <TemplateInput
+            size="small"
+            data-testid="oh-auth-http-signature-components"
+            value={auth.components}
+            onChange={(next) => onChange({ ...auth, components: next })}
+            placeholder={HTTP_SIGNATURE_DEFAULT_COMPONENTS}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        <LabeledRow
+          label={t('workbench.editors.request.auth.httpSigContentDigest')}
+          info={info('httpSigContentDigest')}
+        >
+          <Select
+            size="small"
+            data-testid="oh-auth-http-signature-digest"
+            value={auth.contentDigest ?? 'none'}
+            onChange={(next: 'none' | (typeof HTTP_SIGNATURE_DIGEST_ALGORITHMS)[number]) => {
+              if (next === 'none') {
+                const { contentDigest: _omit, ...rest } = auth;
+                onChange(rest);
+              } else {
+                onChange({ ...auth, contentDigest: next });
+              }
+            }}
+            options={digestOptions}
+            style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+      </FormGroup>
+      <FormGroup
+        auth={auth}
+        group="parameters"
+        modified={
+          isSet(auth.label) ||
+          auth.created === false ||
+          auth.expiresInSeconds !== undefined ||
+          auth.nonce === true ||
+          auth.includeAlgorithm === true ||
+          isSet(auth.tag)
+        }
+      >
+        <LabeledRow label={t('workbench.editors.request.auth.httpSigLabel')} info={info('httpSigLabel')}>
+          <TemplateInput
+            size="small"
+            value={auth.label ?? ''}
+            onChange={setOptional('label')}
+            placeholder={t('workbench.editors.request.auth.httpSigLabelPlaceholder')}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        <AuthCheckboxRow
+          label={t('workbench.editors.request.auth.httpSigCreated')}
+          checked={auth.created !== false}
+          testId="oh-auth-http-signature-created"
+          info={info('httpSigCreated')}
+          onChange={(checked) => {
+            if (checked) {
+              const { created: _omit, ...rest } = auth;
+              onChange(rest);
+            } else {
+              onChange({ ...auth, created: false });
+            }
+          }}
+        />
+        <LabeledRow label={t('workbench.editors.request.auth.httpSigExpiresIn')} info={info('httpSigExpiresIn')}>
+          <InputNumber
+            size="small"
+            data-testid="oh-auth-http-signature-expires-in"
+            min={1}
+            value={auth.expiresInSeconds}
+            onChange={(next) => {
+              if (typeof next === 'number') {
+                onChange({ ...auth, expiresInSeconds: next });
+              } else {
+                const { expiresInSeconds: _omit, ...rest } = auth;
+                onChange(rest);
+              }
+            }}
+            placeholder={t('workbench.editors.request.auth.httpSigExpiresInPlaceholder')}
+            style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        <AuthCheckboxRow
+          label={t('workbench.editors.request.auth.httpSigNonce')}
+          checked={auth.nonce === true}
+          testId="oh-auth-http-signature-nonce"
+          info={info('httpSigNonce')}
+          onChange={setFlag('nonce')}
+        />
+        <AuthCheckboxRow
+          label={t('workbench.editors.request.auth.httpSigIncludeAlg')}
+          checked={auth.includeAlgorithm === true}
+          testId="oh-auth-http-signature-include-alg"
+          info={info('httpSigIncludeAlg')}
+          onChange={setFlag('includeAlgorithm')}
+        />
+        <LabeledRow label={t('workbench.editors.request.auth.httpSigTag')} info={info('httpSigTag')}>
+          <TemplateInput
+            size="small"
+            value={auth.tag ?? ''}
+            onChange={setOptional('tag')}
+            placeholder={t('workbench.editors.request.auth.httpSigTagPlaceholder')}
+            style={{ maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+      </FormGroup>
+      <AuthFormNote>{t('workbench.editors.request.auth.authAutoGeneratedNote')}</AuthFormNote>
+    </AuthForm>
+  );
+};
 
 const jsonFieldStyle: React.CSSProperties = {
   maxWidth: FIELD_DEFAULT_MAX_WIDTH,

@@ -131,6 +131,38 @@ describe('REQUEST_SCHEMA — Auth (ASAP) per-leaf', () => {
   });
 });
 
+describe('REQUEST_SCHEMA — Auth (HTTP Message Signature) per-leaf', () => {
+  const req = baseRequest({
+    auth: {
+      type: 'http-signature',
+      algorithm: 'ed25519',
+      privateKey: '{{vault.signing_key}}',
+      secret: '',
+      keyId: 'my-service-key-1',
+      components: '@method @target-uri content-digest',
+      contentDigest: 'sha-256',
+      label: 'sig1',
+      expiresInSeconds: 300,
+      nonce: true,
+      tag: 'app',
+    } as AuthConfig,
+  });
+
+  it('emits per-leaf paths for the HTTP Message Signature fields', () => {
+    const baseline = adapter.tracking.extractBaseline(req);
+    expect(baseline['auth.algorithm']).toBe('ed25519');
+    expect(baseline['auth.privateKey']).toBe('{{vault.signing_key}}');
+    expect(baseline['auth.keyId']).toBe('my-service-key-1');
+    expect(baseline['auth.components']).toBe('@method @target-uri content-digest');
+    expect(baseline['auth.contentDigest']).toBe('sha-256');
+    expect(baseline['auth.label']).toBe('sig1');
+    expect(baseline['auth.expiresInSeconds']).toBe('300');
+    expect(baseline['auth.nonce']).toBe('true');
+    expect(baseline['auth.tag']).toBe('app');
+    expect(baseline['union:auth']).toContain('"kind":"http-signature"');
+  });
+});
+
 describe('REQUEST_SCHEMA — Auth (EdgeGrid) per-leaf', () => {
   const req = baseRequest({
     auth: {

@@ -159,6 +159,13 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.authPreview.asapValue': 'Bearer <已签名 JWT>',
   'workbench.editors.request.authPreview.asapHint':
     '由\u201c授权\u201d标签生成（ASAP）。发送请求时用您的私钥签发新令牌并加入此标头。',
+  'workbench.editors.request.authPreview.httpSignatureInputValue': 'sig1=(<覆盖的组件>);created=…',
+  'workbench.editors.request.authPreview.httpSignatureValue': 'sig1=:<签名>:',
+  'workbench.editors.request.authPreview.httpSignatureHint':
+    '由“授权”标签页生成（HTTP 消息签名）。发送时使用你的密钥对请求签名。',
+  'workbench.editors.request.authPreview.httpSignatureDigestValue': 'sha-256=:<正文摘要>:',
+  'workbench.editors.request.authPreview.httpSignatureDigestHint':
+    '由“授权”标签页生成（HTTP 消息签名）。正文摘要在发送时计算。',
   'workbench.editors.request.authPreview.digestValue': 'Digest <challenge response>',
   'workbench.editors.request.authPreview.digestHint':
     '由授权标签页生成（Digest Auth）。发送请求时根据服务器的质询计算该值，然后带上它重新发送请求。',
@@ -187,6 +194,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.group.challenge': '质询',
   'workbench.editors.request.auth.group.grant': '授权',
   'workbench.editors.request.auth.group.advanced': '高级',
+  'workbench.editors.request.auth.group.coverage': '覆盖范围',
+  'workbench.editors.request.auth.group.parameters': '参数',
   'workbench.editors.request.auth.typeInfo.none': '不添加任何内容 \u2014 请求按 Headers 和 Params 标签页所示原样发出。',
   'workbench.editors.request.auth.typeInfo.basic':
     '用户名和密码以冒号连接、base64 编码后，每次发送都作为 Authorization: Basic 标头发出 \u2014 只是编码而非加密，因此仅限 HTTPS。',
@@ -319,6 +328,35 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.rowInfo.asapSubject': '代表谁——以 sub 发送；留空则发送签发者。',
   'workbench.editors.request.auth.rowInfo.asapClaims': '最后合并的附加声明——覆盖所有组合声明，包括 jti / iat / exp。',
   'workbench.editors.request.auth.rowInfo.asapExpiresIn': '以 exp \u2212 iat 标记的有效期；留空 = 3600，即方案上限。',
+  'workbench.editors.request.auth.typeInfo.httpSignature':
+    '请求在发送时签名（RFC 9421）：由覆盖的组件（方法、目标、指定的头、正文的 Content-Digest）加上签名参数构建签名基础，用密钥签名后以 Signature-Input 和 Signature 发送；密钥本身从不发送。',
+  'workbench.editors.request.auth.groupInfo.httpSignature.signing':
+    '已注册的算法、验证方用于查找密钥的密钥 ID，以及用于签名的密钥 — PEM 私钥，或 hmac-sha256 下的共享密钥。',
+  'workbench.editors.request.auth.groupInfo.httpSignature.coverage':
+    '签名覆盖的内容：按签名顺序排列的组件 — @method、@target-uri 等派生组件、按名称指定的头 — 以及是否生成正文的 Content-Digest 以供覆盖。',
+  'workbench.editors.request.auth.groupInfo.httpSignature.parameters':
+    '@signature-params 元数据：两个头共用的标签、created / expires 时刻、每次发送的 nonce、alg 参数、应用标签。',
+  'workbench.editors.request.auth.rowInfo.httpSigAlgorithm':
+    '六种已注册算法之一；验证方必须持有对应密钥。rsa-pss-sha512 是 RFC 示例的首选。',
+  'workbench.editors.request.auth.rowInfo.httpSigKeyId':
+    '以 keyid 发送 — 验证方据此获取公钥（或密钥）。留空则省略该参数。',
+  'workbench.editors.request.auth.rowInfo.httpSigPrivateKey': '用于签名的 PEM — PKCS#8、PKCS#1 或 SEC1；从不发送。',
+  'workbench.editors.request.auth.rowInfo.httpSigSecret': '与验证方共享的密钥 — HMAC 的密钥；从不发送。',
+  'workbench.editors.request.auth.rowInfo.httpSigSecretBase64': '密钥为 base64 文本 — 签名前先解码为原始密钥字节。',
+  'workbench.editors.request.auth.rowInfo.httpSigComponents':
+    '以空格分隔，按签名顺序：@method、@target-uri、@authority、@scheme、@request-target、@path、@query 以及头名称。覆盖了请求中不存在的头会使发送失败。',
+  'workbench.editors.request.auth.rowInfo.httpSigContentDigest':
+    '对正文字节生成 Content-Digest（RFC 9530），以便覆盖 content-digest；无正文的发送对空内容摘要。multipart 正文无法摘要。',
+  'workbench.editors.request.auth.rowInfo.httpSigLabel':
+    'Signature-Input 和 Signature 携带此签名所用的字典键；留空 = sig1。',
+  'workbench.editors.request.auth.rowInfo.httpSigCreated':
+    '写入 created = 签名时刻；验证方据此拒绝过时签名。关闭则省略该参数（expires 一并省略）。',
+  'workbench.editors.request.auth.rowInfo.httpSigExpiresIn': '写入 expires = created + 此秒数；留空则不写入过期。',
+  'workbench.editors.request.auth.rowInfo.httpSigNonce':
+    '每次发送写入一个新的随机 nonce — 供跟踪 nonce 的验证方防重放。',
+  'workbench.editors.request.auth.rowInfo.httpSigIncludeAlg':
+    '写入 alg 指明算法；关闭则由验证方解析的密钥决定（RFC 默认）。',
+  'workbench.editors.request.auth.rowInfo.httpSigTag': '应用专用的 tag 参数，供验证方区分签名；留空则省略。',
   'workbench.editors.request.auth.typeInfo.oauth2':
     '客户端从提供方获取访问令牌 \u2014 先在浏览器中授权再交换令牌，或对机器与密码授权直接交换 \u2014 每次发送都以 bearer 令牌携带；若签发了刷新令牌，过期时自动刷新。',
   'workbench.editors.request.auth.groupInfo.oauth2.token':
@@ -402,6 +440,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.type.oauth1': 'OAuth 1.0',
   'workbench.editors.request.auth.type.hawk': 'Hawk Authentication',
   'workbench.editors.request.auth.type.jwtBearer': 'JWT Bearer',
+  'workbench.editors.request.auth.type.httpSignature': 'HTTP 消息签名',
   'workbench.editors.request.auth.oauth1ConsumerKey': 'Consumer Key',
   'workbench.editors.request.auth.oauth1ConsumerKeyPlaceholder': 'consumer key',
   'workbench.editors.request.auth.oauth1ConsumerSecret': 'Consumer Secret',
@@ -513,6 +552,26 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.asapSubjectPlaceholder': '可选——留空则发送签发者',
   'workbench.editors.request.auth.asapClaimsPlaceholder': '可选——JSON，例如 {"scope":"read"}',
   'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',
+  'workbench.editors.request.auth.httpSigAlgorithm': '算法',
+  'workbench.editors.request.auth.httpSigKeyId': '密钥 ID',
+  'workbench.editors.request.auth.httpSigPrivateKey': '私钥',
+  'workbench.editors.request.auth.httpSigSecret': '共享密钥',
+  'workbench.editors.request.auth.httpSigSecretBase64': '密钥为 base64 编码',
+  'workbench.editors.request.auth.httpSigComponents': '覆盖的组件',
+  'workbench.editors.request.auth.httpSigContentDigest': 'Content Digest',
+  'workbench.editors.request.auth.httpSigDigestNone': '无',
+  'workbench.editors.request.auth.httpSigLabel': '标签',
+  'workbench.editors.request.auth.httpSigCreated': 'created 时间戳',
+  'workbench.editors.request.auth.httpSigExpiresIn': '过期时长（秒）',
+  'workbench.editors.request.auth.httpSigNonce': 'Nonce',
+  'workbench.editors.request.auth.httpSigIncludeAlg': '算法参数 (alg)',
+  'workbench.editors.request.auth.httpSigTag': 'Tag',
+  'workbench.editors.request.auth.httpSigKeyIdPlaceholder': '例如 my-service-key-1',
+  'workbench.editors.request.auth.httpSigPrivateKeyPlaceholder': '-----BEGIN PRIVATE KEY----- (PEM)',
+  'workbench.editors.request.auth.httpSigSecretPlaceholder': '与验证方共享的密钥',
+  'workbench.editors.request.auth.httpSigLabelPlaceholder': 'sig1',
+  'workbench.editors.request.auth.httpSigExpiresInPlaceholder': '可选 — 例如 300',
+  'workbench.editors.request.auth.httpSigTagPlaceholder': '可选 — 应用标签',
   'workbench.editors.request.auth.sendAsLabel': '将授权数据添加到',
   'workbench.editors.request.auth.sendAsHeaders': '请求标头',
   'workbench.editors.request.auth.sendAsUrl': '请求 URL',
