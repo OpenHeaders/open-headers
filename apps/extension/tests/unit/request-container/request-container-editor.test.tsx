@@ -1089,6 +1089,57 @@ describe('AuthorizationTab — the OAuth 2.0 editor on the sectioned anatomy', (
     expect(onChange).toHaveBeenCalledWith({ ...oauth2, headerPrefix: 'Token' });
   });
 
+  it('Token Binding offers None and DPoP; DPoP writes the binding and reveals Proof Algorithm', () => {
+    const onChange = vi.fn();
+    render(
+      <App>
+        <AuthorizationTab auth={oauth2} onChange={onChange} />
+      </App>,
+    );
+    expect(screen.getByText('Token Binding')).toBeTruthy();
+    expect(screen.queryByText('Proof Algorithm')).toBeNull();
+    fireEvent.mouseDown(screen.getByText('None (bearer)'));
+    const options = Array.from(document.querySelectorAll('.ant-select-item-option-content')).map(
+      (el) => el.textContent,
+    );
+    expect(options).toEqual(['None (bearer)', 'DPoP']);
+    fireEvent.click(screen.getByText('DPoP'));
+    expect(onChange).toHaveBeenCalledWith({ ...oauth2, tokenBinding: 'dpop' });
+  });
+
+  it('under DPoP the Proof Algorithm row shows the pick; None drops the binding and the algorithm together', () => {
+    const onChange = vi.fn();
+    render(
+      <App>
+        <AuthorizationTab auth={{ ...oauth2, tokenBinding: 'dpop', dpopAlgorithm: 'ES384' }} onChange={onChange} />
+      </App>,
+    );
+    expect(screen.getByText('Proof Algorithm')).toBeTruthy();
+    expect(screen.getByText('ES384')).toBeTruthy();
+    fireEvent.mouseDown(screen.getByText('DPoP'));
+    fireEvent.click(screen.getByText('None (bearer)'));
+    expect(onChange).toHaveBeenLastCalledWith(oauth2);
+  });
+
+  it('the Token Binding (i) lights the proof on the token POST, the DPoP scheme on the send, and the proof anatomy', () => {
+    renderTab({ ...oauth2, tokenBinding: 'dpop' });
+    const popover = openPopover('About Token Binding');
+    const lit = litTexts(popover);
+    expect(lit.some((text) => text.startsWith('DPoP: eyJ'))).toBe(true);
+    expect(lit).toContain('DPoP');
+    expect(lit).toContain('typ: dpop+jwt');
+    expect(lit).toContain('htm: GET');
+    expect(lit).toContain('ath: SHA-256(access_token)');
+    closePopover();
+  });
+
+  it('the Proof Algorithm (i) lights the alg of the proof', () => {
+    renderTab({ ...oauth2, tokenBinding: 'dpop' });
+    const popover = openPopover('About Proof Algorithm');
+    expect(litTexts(popover)).toEqual(['alg: ES256']);
+    closePopover();
+  });
+
   it('without a stored bundle the Token group closes on the out-of-band note', () => {
     renderTab(oauth2);
     expect(screen.getByText(/out-of-band, use Bearer Token auth/)).toBeTruthy();

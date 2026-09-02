@@ -94,6 +94,8 @@ export type AuthInfoKey =
   | 'jwtHeaderPrefix'
   | 'oauth2Token'
   | 'oauth2HeaderPrefix'
+  | 'oauth2TokenBinding'
+  | 'oauth2DpopAlgorithm'
   | 'oauth2AutoRefresh'
   | 'oauth2Status'
   | 'oauth2TokenName'
@@ -208,7 +210,10 @@ type AuthTokenId =
   | 'sub'
   | 'jti'
   | 'clientAssertion'
-  | 'assertion';
+  | 'assertion'
+  | 'proof'
+  | 'htu'
+  | 'ath';
 
 type Token = ExampleCardToken<AuthTokenId>;
 type Line = ExampleCardLine<AuthTokenId>;
@@ -367,7 +372,9 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
       // bearer grant whose assertion IS the grant and whose refresh is
       // a fresh assertion).
       const grant = getGrantType(auth);
-      const query = auth.sendAs === 'query';
+      // A DPoP-bound token rides the header only (RFC 9449 §7.1).
+      const dpop = auth.tokenBinding === 'dpop';
+      const query = auth.sendAs === 'query' && !dpop;
       const basicClientAuth = auth.clientAuthentication === 'basic-header';
       const assertionClientAuth = usesClientAssertion(auth);
       const jwtBearer = grant.fields.assertion;
@@ -437,6 +444,7 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
             : []),
           ...clientAuthTokens,
           ...(showTokenParams ? [tok('tokenParams', 'audience=api')] : []),
+          ...(dpop ? [tok('proof', `DPoP: ${JWT}`)] : []),
           ...(device ? [tok('poll', '← authorization_pending · slow_down · access_denied · expired_token')] : []),
         ],
       });
@@ -470,9 +478,27 @@ function exampleLines(auth: ConcreteAuthConfig, forced: ReadonlySet<AuthInfoKey>
           ? { opener: tok('location', 'query:'), tokens: [tok('token', `access_token=${JWT}`)] }
           : {
               opener: tok('location', 'Authorization:'),
-              tokens: [tok('prefix', auth.headerPrefix?.trim() || 'Bearer'), tok('token', JWT)],
+              tokens: [tok('prefix', dpop ? 'DPoP' : auth.headerPrefix?.trim() || 'Bearer'), tok('token', JWT)],
             },
       );
+      if (dpop) {
+        // RFC 9449 §4.2 — the proof every token POST and every send
+        // carries, signed by the key the token is bound to.
+        lines.push({
+          opener: tok('proof', 'DPoP:'),
+          tokens: [
+            tok('proof', 'typ: dpop+jwt'),
+            tok('alg', `alg: ${auth.dpopAlgorithm?.trim() || 'ES256'}`),
+            tok('proof', 'jwk: {kty: EC, crv: P-256, x, y}'),
+            tok('htu', 'htm: GET'),
+            tok('htu', 'htu: https://api.openheaders.com/v1/me'),
+            tok('ath', 'ath: SHA-256(access_token)'),
+            tok('iat', `iat: ${HAWK_TS}`),
+            tok('jti', 'jti: 6f1c2a0e-…'),
+            tok('nonce', 'nonce: (when the server issued one)'),
+          ],
+        });
+      }
       if (jwtBearer) {
         // No refresh token: expiry re-runs the grant with a fresh assertion.
         lines.push({
@@ -674,6 +700,8 @@ const ROW_TOKENS: Record<AuthInfoKey, readonly AuthTokenId[]> = {
   jwtHeaderPrefix: ['prefix'],
   oauth2Token: ['token'],
   oauth2HeaderPrefix: ['prefix'],
+  oauth2TokenBinding: ['proof', 'htu', 'ath', 'prefix'],
+  oauth2DpopAlgorithm: ['alg'],
   oauth2AutoRefresh: ['refresh', 'refreshToken'],
   oauth2Status: ['token', 'refresh'],
   oauth2TokenName: [],
@@ -784,7 +812,14 @@ const GROUP_ROWS: Record<CardType, Partial<Record<AuthGroupKey, readonly AuthInf
   },
   // The rail's Add-to and Preset rows sit outside the sections.
   oauth2: {
-    token: ['oauth2Token', 'oauth2HeaderPrefix', 'oauth2AutoRefresh', 'oauth2Status'],
+    token: [
+      'oauth2Token',
+      'oauth2HeaderPrefix',
+      'oauth2TokenBinding',
+      'oauth2DpopAlgorithm',
+      'oauth2AutoRefresh',
+      'oauth2Status',
+    ],
     grant: [
       'oauth2TokenName',
       'oauth2GrantType',
@@ -880,6 +915,8 @@ const ROW_TITLE_KEY: Record<AuthInfoKey, MessageKey> = {
   jwtHeaderPrefix: 'workbench.editors.request.auth.jwtHeaderPrefix',
   oauth2Token: 'workbench.editors.request.oauth.tokenLabel',
   oauth2HeaderPrefix: 'workbench.editors.request.oauth.headerPrefix',
+  oauth2TokenBinding: 'workbench.editors.request.oauth.tokenBinding',
+  oauth2DpopAlgorithm: 'workbench.editors.request.oauth.dpopAlgorithm',
   oauth2AutoRefresh: 'workbench.editors.request.oauth.autoRefresh',
   oauth2Status: 'workbench.editors.request.oauth.status',
   oauth2TokenName: 'workbench.editors.request.oauth.tokenName',
@@ -970,6 +1007,8 @@ const ROW_SUMMARY_KEY: Record<AuthInfoKey, MessageKey> = {
   jwtHeaderPrefix: 'workbench.editors.request.auth.rowInfo.jwtHeaderPrefix',
   oauth2Token: 'workbench.editors.request.auth.rowInfo.oauth2Token',
   oauth2HeaderPrefix: 'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix',
+  oauth2TokenBinding: 'workbench.editors.request.auth.rowInfo.oauth2TokenBinding',
+  oauth2DpopAlgorithm: 'workbench.editors.request.auth.rowInfo.oauth2DpopAlgorithm',
   oauth2AutoRefresh: 'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh',
   oauth2Status: 'workbench.editors.request.auth.rowInfo.oauth2Status',
   oauth2TokenName: 'workbench.editors.request.auth.rowInfo.oauth2TokenName',

@@ -330,6 +330,10 @@ export const workbenchEditorsRequest = {
     '此配置签发的 JWT — 作为每次令牌请求的客户端断言，或作为 JWT bearer 授权本身。',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     '上次流程存储的访问令牌 \u2014 每次发送都跟在 Bearer 之后；流程运行前为空。',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenBinding':
+    'DPoP（RFC 9449）将 Token 绑定到交换时生成的密钥对：每次 Token 请求和每次发送都携带针对该请求方法与 URL 签名的证明，提供方以 DPoP 形式签发 Token 并以该方案发送——标头前缀与 URL 模式让位。密钥与存储的 Token 放在一起，绝不进入配置。',
+  'workbench.editors.request.auth.rowInfo.oauth2DpopAlgorithm':
+    '证明的签名族——密钥对按其生成。ES256 是所有 DPoP 部署都接受的算法。',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'Authorization 头中位于令牌之前的方案 — 留空时发送提供商签发的 token_type（默认 Bearer）；设置后以其为准。',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
@@ -525,6 +529,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.tokenLabel': 'Token',
   'workbench.editors.request.oauth.noTokenPlaceholder': '还没有 token——使用下方的“获取新的访问 token”',
   'workbench.editors.request.oauth.headerPrefix': '标头前缀',
+  'workbench.editors.request.oauth.tokenBinding': 'Token 绑定',
+  'workbench.editors.request.oauth.tokenBindingNone': '无（bearer）',
+  'workbench.editors.request.oauth.tokenBindingDpop': 'DPoP',
+  'workbench.editors.request.oauth.dpopAlgorithm': '证明算法',
   'workbench.editors.request.oauth.autoRefresh': '自动刷新 Token',
   'workbench.editors.request.oauth.autoRefreshDesc': '发送请求前会自动刷新已过期的 token。',
   'workbench.editors.request.oauth.status': '状态',

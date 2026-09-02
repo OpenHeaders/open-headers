@@ -396,6 +396,10 @@ export const workbenchEditorsRequest = {
     'Le JWT que cette configuration émet — comme assertion client sur chaque requête de jeton, ou comme octroi JWT bearer lui-même.',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'Le jeton d\u2019accès stocké par le dernier flux \u2014 envoyé après Bearer à chaque envoi ; vide tant qu\u2019aucun flux n\u2019a été exécuté.',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenBinding':
+    "DPoP (RFC 9449) lie le jeton à une paire de clés générée lors de l'échange : chaque requête de jeton et chaque envoi porte une preuve signée pour la méthode et l'URL de cette requête, le fournisseur émet le jeton en DPoP et il est envoyé sous ce schéma — le préfixe d'en-tête et le mode URL s'effacent. La clé reste à côté du jeton stocké, jamais dans la configuration.",
+  'workbench.editors.request.auth.rowInfo.oauth2DpopAlgorithm':
+    'La famille de signature de la preuve — la paire de clés est générée en conséquence. ES256 est ce que tout déploiement DPoP accepte.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'Le schéma placé avant le jeton dans l’en-tête Authorization — vide, le token_type émis par le fournisseur est envoyé (Bearer par défaut) ; défini, il l’emporte sur le fil.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
@@ -614,6 +618,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.noTokenPlaceholder':
     "Aucun jeton pour l'instant — utilisez Obtenir un nouveau jeton d'accès ci-dessous",
   'workbench.editors.request.oauth.headerPrefix': "Préfixe d'en-tête",
+  'workbench.editors.request.oauth.tokenBinding': 'Liaison du jeton',
+  'workbench.editors.request.oauth.tokenBindingNone': 'Aucune (bearer)',
+  'workbench.editors.request.oauth.tokenBindingDpop': 'DPoP',
+  'workbench.editors.request.oauth.dpopAlgorithm': 'Algorithme de la preuve',
   'workbench.editors.request.oauth.autoRefresh': 'Rafraîchissement auto du jeton',
   'workbench.editors.request.oauth.autoRefreshDesc':
     "Votre jeton expiré sera rafraîchi automatiquement avant l'envoi d'une requête.",

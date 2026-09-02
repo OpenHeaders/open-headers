@@ -348,6 +348,10 @@ export const workbenchEditorsRequest = {
     'The JWT this config mints — as the client assertion on every token request, or as the JWT bearer grant itself.',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'The access token the last flow stored \u2014 sent after Bearer on every send; empty until a flow runs.',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenBinding':
+    "DPoP (RFC 9449) binds the token to a key pair generated at the exchange: every token request and every send carries a proof signed for that request's method and URL, the provider issues the token as DPoP and it is sent under that scheme — the header prefix and the URL mode step aside. The key stays beside the stored token, never in the config.",
+  'workbench.editors.request.auth.rowInfo.oauth2DpopAlgorithm':
+    'The signature family of the proof — the key pair is generated to match. ES256 is what every DPoP deployment accepts.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'The scheme before the token in the Authorization header — empty sends the token_type the provider issued (Bearer by default); set, it wins on the wire.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
@@ -557,6 +561,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.tokenLabel': 'Token',
   'workbench.editors.request.oauth.noTokenPlaceholder': 'No token yet — use Get new access token below',
   'workbench.editors.request.oauth.headerPrefix': 'Header Prefix',
+  'workbench.editors.request.oauth.tokenBinding': 'Token Binding',
+  'workbench.editors.request.oauth.tokenBindingNone': 'None (bearer)',
+  'workbench.editors.request.oauth.tokenBindingDpop': 'DPoP',
+  'workbench.editors.request.oauth.dpopAlgorithm': 'Proof Algorithm',
   'workbench.editors.request.oauth.autoRefresh': 'Auto-refresh Token',
   'workbench.editors.request.oauth.autoRefreshDesc':
     'Your expired token will be auto-refreshed before sending a request.',

@@ -406,6 +406,10 @@ export const workbenchEditorsRequest = {
     'Das JWT, das diese Konfiguration ausstellt — als Client-Assertion bei jeder Token-Anfrage oder als der JWT-Bearer-Grant selbst.',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'Das Access-Token, das der letzte Ablauf gespeichert hat \u2014 bei jedem Senden hinter Bearer geschickt; leer, bis ein Ablauf läuft.',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenBinding':
+    'DPoP (RFC 9449) bindet das Token an ein beim Austausch erzeugtes Schlüsselpaar: jede Token-Anfrage und jeder Versand trägt einen für Methode und URL dieser Anfrage signierten Nachweis, der Anbieter stellt das Token als DPoP aus und es wird unter diesem Schema gesendet — Header-Präfix und URL-Modus treten zurück. Der Schlüssel bleibt beim gespeicherten Token, nie in der Konfiguration.',
+  'workbench.editors.request.auth.rowInfo.oauth2DpopAlgorithm':
+    'Die Signaturfamilie des Nachweises — das Schlüsselpaar wird passend erzeugt. ES256 akzeptiert jede DPoP-Installation.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'Das Schema vor dem Token im Authorization-Header — leer wird der vom Anbieter ausgestellte token_type gesendet (standardmäßig Bearer); gesetzt gewinnt er auf der Leitung.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
@@ -622,6 +626,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.tokenLabel': 'Token',
   'workbench.editors.request.oauth.noTokenPlaceholder': 'Noch kein Token — nutze unten Neuen Zugriffstoken abrufen',
   'workbench.editors.request.oauth.headerPrefix': 'Header-Präfix',
+  'workbench.editors.request.oauth.tokenBinding': 'Token-Bindung',
+  'workbench.editors.request.oauth.tokenBindingNone': 'Keine (Bearer)',
+  'workbench.editors.request.oauth.tokenBindingDpop': 'DPoP',
+  'workbench.editors.request.oauth.dpopAlgorithm': 'Nachweis-Algorithmus',
   'workbench.editors.request.oauth.autoRefresh': 'Token automatisch erneuern',
   'workbench.editors.request.oauth.autoRefreshDesc':
     'Dein abgelaufener Token wird vor dem Senden einer Anfrage automatisch erneuert.',

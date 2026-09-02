@@ -9,7 +9,7 @@
 
 import { ASAP_ALGORITHMS, JWT_ALGORITHMS } from '@openheaders/core/auth-signing';
 import { getCapability } from '@openheaders/core/capabilities';
-import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
+import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS, usesDpop } from '@openheaders/core/oauth';
 import type { ConcreteAuthConfig } from '@openheaders/core/types';
 import { Input, InputNumber, Select, Typography } from 'antd';
 import type React from 'react';
@@ -1072,7 +1072,8 @@ export const OAuth2RailControls: React.FC<{
       onChange={(next: 'header' | 'query') => onChange({ ...auth, sendAs: next })}
       options={[
         { value: 'header', label: t('workbench.editors.request.auth.sendAsHeaders') },
-        { value: 'query', label: t('workbench.editors.request.auth.sendAsUrl') },
+        // A DPoP-bound token rides the Authorization header only (RFC 9449 §7.1).
+        { value: 'query', label: t('workbench.editors.request.auth.sendAsUrl'), disabled: usesDpop(auth) },
       ]}
       style={{ width: '100%', ...(layout === 'rows' ? { maxWidth: FIELD_DEFAULT_MAX_WIDTH } : {}) }}
     />

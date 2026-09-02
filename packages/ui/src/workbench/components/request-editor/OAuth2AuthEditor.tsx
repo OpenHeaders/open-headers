@@ -36,13 +36,16 @@ import { ASAP_ALGORITHMS } from '@openheaders/core/auth-signing';
 import {
   ASSERTION_DEFAULT_LIFETIME_SECONDS,
   ASSERTION_MAX_LIFETIME_SECONDS,
+  boundDpopKeyOf,
   CLIENT_SECRET_JWT_ALGORITHMS,
   canRenewSilently,
+  DPOP_DEFAULT_ALGORITHM,
   deviceVerificationUrl,
   isExpired,
   type OAuth2DeviceState,
   secondsUntilExpiry,
   usesClientAssertion,
+  usesDpop,
 } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -121,6 +124,18 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
 
   const bundle = tokens[auth.credentialRef] ?? null;
   const expired = bundle ? isExpired(bundle) : false;
+  // A stored token the provider issued as DPoP sends under that scheme
+  // whatever the prefix says (RFC 9449 §7.1) — the row parks while bound.
+  const bound = bundle !== null && boundDpopKeyOf(bundle) !== undefined;
+  const dpop = usesDpop(auth);
+  const setTokenBinding = (next: 'none' | 'dpop') => {
+    if (next === 'dpop') {
+      onChange({ ...auth, tokenBinding: 'dpop' });
+      return;
+    }
+    const { tokenBinding: _binding, dpopAlgorithm: _algorithm, ...rest } = auth;
+    onChange(rest);
+  };
 
   // ── Device authorization (RFC 8628) ─────────────────────────────
   // The host polls; this block only follows the state feed. A terminal
@@ -342,9 +357,35 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             value={auth.headerPrefix ?? ''}
             onChange={(e) => onChange({ ...auth, headerPrefix: e.target.value || undefined })}
             placeholder={bundle?.tokenType ?? 'Bearer'}
+            disabled={bound}
             style={fieldStyle}
           />
         </LabeledRow>
+        <LabeledRow label={t('workbench.editors.request.oauth.tokenBinding')} info={info('oauth2TokenBinding')}>
+          <Select
+            size="small"
+            data-testid="oh-oauth2-token-binding"
+            value={dpop ? 'dpop' : 'none'}
+            onChange={setTokenBinding}
+            options={[
+              { value: 'none', label: t('workbench.editors.request.oauth.tokenBindingNone') },
+              { value: 'dpop', label: t('workbench.editors.request.oauth.tokenBindingDpop') },
+            ]}
+            style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+          />
+        </LabeledRow>
+        {dpop && (
+          <LabeledRow label={t('workbench.editors.request.oauth.dpopAlgorithm')} info={info('oauth2DpopAlgorithm')}>
+            <Select
+              size="small"
+              data-testid="oh-oauth2-dpop-algorithm"
+              value={auth.dpopAlgorithm ?? DPOP_DEFAULT_ALGORITHM}
+              onChange={(next: string) => onChange({ ...auth, dpopAlgorithm: next })}
+              options={PRIVATE_KEY_ALGORITHM_OPTIONS}
+              style={{ width: '100%', maxWidth: FIELD_DEFAULT_MAX_WIDTH }}
+            />
+          </LabeledRow>
+        )}
         <LabeledRow
           label={t('workbench.editors.request.oauth.autoRefresh')}
           description={t('workbench.editors.request.oauth.autoRefreshDesc')}

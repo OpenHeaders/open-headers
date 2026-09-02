@@ -100,6 +100,8 @@ const AUTH_UNION: FieldNode = union({
       label: leaf('string', { coercion: 'optional-string' }),
       refreshEndpoint: leaf('string', { coercion: 'optional-string' }),
       clientAuthentication: leaf('string', { coercion: 'optional-string' }),
+      tokenBinding: leaf('string', { coercion: 'optional-string' }),
+      dpopAlgorithm: leaf('string', { coercion: 'optional-string' }),
       assertionAlgorithm: leaf('string', { coercion: 'optional-string' }),
       assertionPrivateKey: leaf('string', { coercion: 'optional-string' }),
       assertionKeyId: leaf('string', { coercion: 'optional-string' }),

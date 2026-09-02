@@ -390,6 +390,10 @@ export const workbenchEditorsRequest = {
     'El JWT que emite esta configuración — como aserción de cliente en cada solicitud de token, o como la propia concesión JWT bearer.',
   'workbench.editors.request.auth.rowInfo.oauth2Token':
     'El token de acceso que guardó el último flujo \u2014 enviado tras Bearer en cada envío; vacío hasta que se ejecute un flujo.',
+  'workbench.editors.request.auth.rowInfo.oauth2TokenBinding':
+    'DPoP (RFC 9449) vincula el token a un par de claves generado en el intercambio: cada solicitud de token y cada envío llevan una prueba firmada para el método y la URL de esa solicitud, el proveedor emite el token como DPoP y se envía bajo ese esquema — el prefijo del encabezado y el modo URL se apartan. La clave permanece junto al token almacenado, nunca en la configuración.',
+  'workbench.editors.request.auth.rowInfo.oauth2DpopAlgorithm':
+    'La familia de firma de la prueba — el par de claves se genera para coincidir. ES256 es lo que acepta todo despliegue DPoP.',
   'workbench.editors.request.auth.rowInfo.oauth2HeaderPrefix':
     'El esquema antes del token en la cabecera Authorization — vacío, se envía el token_type emitido por el proveedor (Bearer por defecto); definido, gana en el cable.',
   'workbench.editors.request.auth.rowInfo.oauth2AutoRefresh':
@@ -606,6 +610,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.oauth.tokenLabel': 'Token',
   'workbench.editors.request.oauth.noTokenPlaceholder': 'Aún no hay token — usa Obtener un token de acceso nuevo abajo',
   'workbench.editors.request.oauth.headerPrefix': 'Prefijo del encabezado',
+  'workbench.editors.request.oauth.tokenBinding': 'Vinculación del token',
+  'workbench.editors.request.oauth.tokenBindingNone': 'Ninguna (bearer)',
+  'workbench.editors.request.oauth.tokenBindingDpop': 'DPoP',
+  'workbench.editors.request.oauth.dpopAlgorithm': 'Algoritmo de la prueba',
   'workbench.editors.request.oauth.autoRefresh': 'Renovar el token automáticamente',
   'workbench.editors.request.oauth.autoRefreshDesc':
     'Tu token caducado se renovará automáticamente antes de enviar una solicitud.',
