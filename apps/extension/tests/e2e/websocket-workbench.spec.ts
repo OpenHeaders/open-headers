@@ -165,7 +165,9 @@ async function clickAddMenuItem(kind: string): Promise<void> {
   await page
     .locator('.ant-dropdown-menu-submenu-popup')
     .filter({ visible: true })
-    .getByRole('menuitem', { name: kind, exact: true })
+    // The item's accessible name leads with the kind code ("WS WebSocket") —
+    // match the label at its end.
+    .getByRole('menuitem', { name: new RegExp(`${kind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) })
     .first()
     .click();
 }
@@ -398,7 +400,9 @@ test('an AsyncAPI spec binds through the picker and the specLink persists', asyn
     .filter({ hasText: SPEC_NAME })
     .first()
     .click();
-  await expect(page.getByText(`Using ${SPEC_NAME}`).filter({ visible: true }).first()).toBeVisible();
+  // The select shows the linked spec's name (the former "Using …" footer
+  // line is gone — the select IS the link).
+  await expect(page.getByTestId('websocket-spec-select').filter({ visible: true }).first()).toContainText(SPEC_NAME);
 
   await page.getByRole('button', { name: /Save$/ }).filter({ visible: true }).first().click();
   await page
@@ -533,9 +537,10 @@ test('B7 — socketio runs in-page: namespace connect, decoded events, acked ech
   // EVENT by name.
   const eventNames = page.getByTestId('ws-sio-event-name').filter({ visible: true });
   await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 15_000 });
-  await timelineMessageRows().filter({ hasText: 'connect /probe' }).first().waitFor({ state: 'visible' });
-  await timelineMessageRows().filter({ hasText: 'connected /probe' }).first().waitFor({ state: 'visible' });
-  await timelineMessageRows().filter({ hasText: 'engine.io open' }).first().waitFor({ state: 'visible' });
+  // The engine.io open, our CONNECT and the server's connect ack are
+  // captured (the count says four) but hidden by the timeline's
+  // handshake filter — the decoded greeting is the visible proof.
+  await expect(page.getByText('4 messages').filter({ visible: true }).first()).toBeVisible();
 
   // Send emits the composed event with ack id 1; the reply EVENT and
   // the correlated ACK land decoded.
@@ -631,7 +636,8 @@ test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, O
   // shape riding the prefill bus as unsaved draft edits.
   await page.getByTestId('ws-example-open-in-request').filter({ visible: true }).first().click();
   await urlInput().waitFor({ state: 'visible', timeout: 10_000 });
-  await expect(urlInput()).toHaveValue(WS_PROBE_URL);
+  // The URL field is a template input (contenteditable) — read its text.
+  await expect(urlInput()).toHaveText(WS_PROBE_URL);
 });
 
 // ── B10: session credential + Events listen filter (Phase G) ────────

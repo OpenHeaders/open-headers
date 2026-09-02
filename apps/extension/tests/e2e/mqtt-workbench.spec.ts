@@ -123,7 +123,9 @@ async function clickAddMenuItem(kind: string): Promise<void> {
   await page
     .locator('.ant-dropdown-menu-submenu-popup')
     .filter({ visible: true })
-    .getByRole('menuitem', { name: kind, exact: true })
+    // The item's accessible name leads with the kind code ("WS WebSocket") —
+    // match the label at its end.
+    .getByRole('menuitem', { name: new RegExp(`${kind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) })
     .first()
     .click();
 }
