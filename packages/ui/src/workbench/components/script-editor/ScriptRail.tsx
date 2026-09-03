@@ -35,6 +35,9 @@ import type { ScriptSlotDescriptor, ScriptSlotFlags, ScriptSlotGroup, ScriptSlot
 export const SCRIPT_RAIL_WIDTH = 176;
 
 const KIND_BADGE_WIDTH = 36;
+/** A kind header's badge names the flavors that run its slots too
+ *  ("WS/S.IO") — the name stays the kind's, the rail keeps its width. */
+const FAMILY_BADGE_WIDTH = 56;
 
 interface ScriptRailProps {
   groups: readonly ScriptSlotGroup[];
@@ -112,6 +115,8 @@ const ScriptRailGroupHeader: React.FC<{ group: ScriptSlotGroup }> = ({ group }) 
   const { token } = theme.useToken();
   const t = useT();
   const meta = requestKindMeta(group.requestKind);
+  const flavors = (group.flavors ?? []).map(requestKindMeta);
+  const codes = [meta.code, ...flavors.map((flavor) => flavor.code)];
   return (
     <div
       data-testid="oh-script-rail-group"
@@ -125,7 +130,11 @@ const ScriptRailGroupHeader: React.FC<{ group: ScriptSlotGroup }> = ({ group }) 
         fontWeight: 600,
       }}
     >
-      {codeBadge(meta.code, KIND_BADGE_WIDTH, REQUEST_KIND_COLORS[group.requestKind])}
+      {codeBadge(
+        codes.join('/'),
+        flavors.length > 0 ? FAMILY_BADGE_WIDTH : KIND_BADGE_WIDTH,
+        REQUEST_KIND_COLORS[group.requestKind],
+      )}
       <span>{t(meta.labelKey)}</span>
     </div>
   );

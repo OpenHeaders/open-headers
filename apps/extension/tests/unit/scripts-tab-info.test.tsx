@@ -245,7 +245,10 @@ describe('ScriptsTab request kinds', () => {
   it('a container mount draws the HTTP, gRPC, WebSocket and MQTT groups under their kind headers', () => {
     renderTab({ scope: 'container' });
     const groups = screen.getAllByTestId('oh-script-rail-group');
-    expect(groups.map((g) => g.textContent)).toEqual(['HTTPHTTP', 'gRPCgRPC', 'WSWebSocket', 'MQTTMQTT']);
+    // The WebSocket header's badge names its Socket.IO flavor — the one
+    // group both flavors' sessions run; the rail keeps its width.
+    expect(groups.map((g) => g.textContent)).toEqual(['HTTPHTTP', 'gRPCgRPC', 'WS/S.IOWebSocket', 'MQTTMQTT']);
+    expect(screen.getByTestId('oh-script-rail').style.width).toBe('176px');
     // Each kind header's badge carries the kind's own tint — the tree
     // tags' color, not the picker's neutral gradient.
     expect(groups.map((g) => (g.firstChild as HTMLElement).style.color)).toEqual([
