@@ -14,3 +14,7 @@ export const CONTROL_RIGHT_INSET = 26;
 /** Left inset of rows that depend on the knob above them — the
  *  settings pages' one-level indent. */
 export const DEPENDENT_ROWS_INDENT = 16;
+
+/** Left inset of the rows under a group header — the caret's width
+ *  plus the header gap, so row labels line up with the group title. */
+export const GROUP_ROWS_INDENT = 16;

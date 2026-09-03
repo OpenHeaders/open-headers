@@ -4,12 +4,15 @@
  * children. A collapsed header carries the accent dot while any of
  * its hidden knobs is off its default (salmon while any is unsaved),
  * so customizations never disappear behind a fold. The optional (i)
- * opens the group's slice of the tab's shared example popover.
+ * opens the group's slice of the tab's shared example popover. The
+ * rows sit one caret-width in under the title; the block keeps the
+ * host column's own row gap.
  */
 
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { GROUP_ROWS_INDENT } from './constants';
 import ModifiedDot from './ModifiedDot';
 
 const { Text } = Typography;
@@ -78,7 +81,11 @@ const GroupSection: React.FC<{
         {(unsaved === true || modified === true) && !expanded && <ModifiedDot unsaved={unsaved} />}
         <div style={{ flex: 1, height: 1, background: token.colorSplit }} />
       </div>
-      {expanded && children}
+      {expanded && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'inherit', paddingLeft: GROUP_ROWS_INDENT }}>
+          {children}
+        </div>
+      )}
     </>
   );
 };
