@@ -123,6 +123,8 @@ describe('ScriptsTab rail', () => {
       'After response',
     ]);
     expect(screen.queryByTestId('oh-script-rail-group')).toBeNull();
+    // No header to nest under — the flat rows keep the rail's edge.
+    expect(screen.getAllByTestId('oh-script-rail-row')[0]?.style.paddingLeft).toBe('10px');
     expect(editor().placeholder).toBe('Use JavaScript to modify this request before it is sent.');
     fireEvent.click(screen.getByText('After response'));
     expect(editor().placeholder).toBe('Use JavaScript to test and read this response after it arrives.');
@@ -258,6 +260,12 @@ describe('ScriptsTab request kinds', () => {
       screen.getAllByTestId('oh-script-rail-row').map((row) => row.getAttribute('aria-pressed') === 'true');
     expect(pressed().indexOf(true)).toBe(0);
     expect(screen.getAllByTestId('oh-script-rail-row')[0]?.style.background).toBe('');
+    // The rows sit inset under their kind header; the header keeps the
+    // rail's edge.
+    expect(screen.getAllByTestId('oh-script-rail-row').map((row) => row.style.paddingLeft)).toEqual(
+      Array(13).fill('24px'),
+    );
+    expect(groups.map((g) => g.style.paddingLeft)).toEqual(Array(4).fill('10px'));
     fireEvent.click(screen.getByText('Before send'));
     expect(pressed().indexOf(true)).toBe(6);
     expect(editor().placeholder).toBe('Write scripts to be run before each WebSocket message is sent.');

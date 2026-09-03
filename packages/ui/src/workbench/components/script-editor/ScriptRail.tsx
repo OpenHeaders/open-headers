@@ -54,11 +54,14 @@ interface ScriptRailProps {
 // on any re-render of the tab.
 const ScriptRailRow: React.FC<{
   slot: ScriptSlotDescriptor;
+  /** Under a kind header the row sits inset from it — the header keeps
+   *  the rail's edge, its slots read as nested. */
+  inset: boolean;
   selected: boolean;
   hasScript: boolean;
   unsaved: boolean;
   onSelect: (kind: ScriptKind) => void;
-}> = ({ slot, selected, hasScript, unsaved, onSelect }) => {
+}> = ({ slot, inset, selected, hasScript, unsaved, onSelect }) => {
   const { token } = theme.useToken();
   const t = useT();
   return (
@@ -79,7 +82,7 @@ const ScriptRailRow: React.FC<{
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        padding: '7px 10px',
+        padding: inset ? '7px 10px 7px 24px' : '7px 10px',
         borderRadius: 4,
         cursor: 'pointer',
         color: token.colorText,
@@ -134,6 +137,7 @@ const ScriptRail: React.FC<ScriptRailProps> = ({ groups, grouped, active, script
       <ScriptRailRow
         key={slot.kind}
         slot={slot}
+        inset={grouped}
         selected={active === slot.kind}
         hasScript={scripts[slot.kind].trim() !== ''}
         unsaved={unsaved?.[slot.kind] === true}
