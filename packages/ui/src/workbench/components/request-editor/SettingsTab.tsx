@@ -545,13 +545,10 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       sessionCollapsed[key] = next;
       return { ...c, [key]: next };
     });
+  // The proxy trio counts through its mode on the plane (the unit law:
+  // the URL and the credential ref ride the mode; a bare ref is inert).
   const connModified = explicit
-    ? own('httpVersion') ||
-      own('resolveToAddress') ||
-      own('proxyMode') ||
-      own('proxyUrl') ||
-      own('proxyCredentialRef') ||
-      own('unixSocketPath')
+    ? own('httpVersion') || own('resolveToAddress') || own('proxyMode') || own('unixSocketPath')
     : (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
       value.resolveToAddress !== undefined ||
       value.proxyMode !== undefined ||
@@ -628,8 +625,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             >
             <SelectKnobRow
               label={t('workbench.editors.request.settings.httpVersion')}
-              value={value.httpVersion === 'auto' ? undefined : value.httpVersion}
-              onChange={(v) => onChange({ ...value, httpVersion: v === 'auto' ? undefined : (v as HttpVersion | undefined) })}
+              // On the plane an explicit `auto` is the request's own pin
+              // (it shadows an ancestor's version); off it `auto` is the
+              // cleared knob's spelling.
+              value={explicit || value.httpVersion !== 'auto' ? value.httpVersion : undefined}
+              onChange={(v) =>
+                onChange({ ...value, httpVersion: !explicit && v === 'auto' ? undefined : (v as HttpVersion | undefined) })
+              }
               info={settingsRowInfo(t, 'httpVersion')}
               options={[
                 { value: 'auto', label: t('workbench.editors.request.settings.httpVersionPlaceholder') },

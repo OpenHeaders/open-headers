@@ -6,6 +6,14 @@
  * `canonicalGrpcRequestProjection` projects the live entity into the
  * same shape so the dirty fingerprint compares apples-to-apples
  * (derived dirty — never setDirty).
+ *
+ * The inheritable knobs are TRI-STATE on the form (`undefined` = the
+ * chain's value or the runtime default, an explicit value = the
+ * request's own, whatever it is — the settings-inheritance law): the
+ * form carries the entity's value as it is, the save patch writes an
+ * explicit value only while the form holds one and clears the leaf
+ * when it does not (the update builder tombstones a stored slot on an
+ * explicit `undefined`).
  */
 
 import type { GrpcScriptKind } from '@openheaders/core/scripts';
@@ -60,8 +68,9 @@ export interface GrpcDraft {
    *  timeout rides it (`undefined` = the runtime's 20 s default). */
   keepaliveIntervalMs: number | undefined;
   keepaliveTimeoutMs: number | undefined;
-  /** Concrete like `auth` — absent on the entity reads as `true`. */
-  sslVerification: boolean;
+  /** `undefined` = inherit or verify-on; an explicit value is the
+   *  request's own either way. */
+  sslVerification: boolean | undefined;
   /** The rest of the TLS policy — `undefined` = the runtime default. */
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -92,7 +101,7 @@ export interface GrpcRequestUpdates {
   maxResponseBytes: number | undefined;
   keepaliveIntervalMs: number | undefined;
   keepaliveTimeoutMs: number | undefined;
-  sslVerification: boolean;
+  sslVerification: boolean | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -154,7 +163,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     maxResponseBytes: req.maxResponseBytes,
     keepaliveIntervalMs: req.keepaliveIntervalMs,
     keepaliveTimeoutMs: req.keepaliveTimeoutMs,
-    sslVerification: req.sslVerification ?? true,
+    sslVerification: req.sslVerification,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,

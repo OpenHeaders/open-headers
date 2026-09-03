@@ -483,6 +483,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onOpenResponseExample={openResponseExampleTab}
         onOpenContainerAuth={openContainerAuth}
         onOpenContainerScripts={openContainerScripts}
+        onOpenContainerSettings={openContainerSettings}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
@@ -505,6 +506,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onOpenGrpcResponseExample={openGrpcResponseExampleTab}
         onOpenContainerAuth={openContainerAuth}
         onOpenContainerScripts={openContainerScripts}
+        onOpenContainerSettings={openContainerSettings}
         onOpenPackageLibrary={openScriptPackages}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
@@ -519,6 +521,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onOpenWsResponseExample={openWsResponseExampleTab}
         onOpenContainerAuth={openContainerAuth}
         onOpenContainerScripts={openContainerScripts}
+        onOpenContainerSettings={openContainerSettings}
         onOpenPackageLibrary={openScriptPackages}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
@@ -533,6 +536,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         onOpenMqttResponseExample={openMqttResponseExampleTab}
         onOpenContainerAuth={openContainerAuth}
         onOpenContainerScripts={openContainerScripts}
+        onOpenContainerSettings={openContainerSettings}
         onOpenPackageLibrary={openScriptPackages}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}

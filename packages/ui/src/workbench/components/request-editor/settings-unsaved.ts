@@ -9,12 +9,13 @@
  * dots orange, and on save every orange dot either turns blue
  * (non-default) or disappears (back at default).
  *
- * Comparison runs on NORMALIZED values: a stored default-equivalent
- * (`followRedirects: true`, `httpVersion: 'auto'`, …) equals the
- * cleared knob, so an explicit saved default never reads as a pending
- * edit. Both sides project through {@link settingsSlice} — the draft
- * directly, the saved side via the last-primed `Request` (the same
- * baseline derived dirty compares against).
+ * Comparison runs on the RAW values — explicit wins on the ancestor
+ * plane: a stored `followRedirects: true` is the request's own value
+ * (it shadows whatever the collection sets), so it differs from the
+ * cleared knob exactly the way derived dirty sees it. Both sides
+ * project through {@link settingsSlice} — the draft directly, the saved
+ * side via the last-primed `Request` (the same baseline derived dirty
+ * compares against).
  */
 
 import type { Draft } from './draft';
@@ -48,23 +49,6 @@ export type SettingsKnobKey = (typeof SETTINGS_KNOB_KEYS)[number];
  *  optional fields, so both sides of the comparison fit this shape. */
 export type RequestSettingsSlice = Pick<Draft, SettingsKnobKey>;
 
-/** Stored values equivalent to the cleared knob (the runtime default);
- *  keys without an entry treat only `undefined` as default. */
-const DEFAULT_EQUIVALENT: { [K in SettingsKnobKey]?: RequestSettingsSlice[K] } = {
-  credentialsMode: 'omit',
-  followRedirects: true,
-  sslVerification: true,
-  httpVersion: 'auto',
-  cookieJar: false,
-  followOriginalHttpMethod: false,
-  followAuthorizationHeader: false,
-};
-
-function normalized(slice: RequestSettingsSlice, key: SettingsKnobKey): unknown {
-  const value = slice[key];
-  return value === DEFAULT_EQUIVALENT[key] ? undefined : value;
-}
-
 /** Project the settings knobs out of a draft or a live `Request`. */
 export function settingsSlice(source: RequestSettingsSlice): RequestSettingsSlice {
   return {
@@ -94,15 +78,15 @@ export function settingsSlice(source: RequestSettingsSlice): RequestSettingsSlic
 /** Shared empty set for surfaces rendered without a saved baseline. */
 export const NO_UNSAVED_SETTINGS: ReadonlySet<SettingsKnobKey> = new Set();
 
-/** Knobs whose normalized draft value differs from the saved one —
- *  one strict compare per knob, minted fresh per call. */
+/** Knobs whose draft value differs from the saved one — one strict
+ *  compare per knob, minted fresh per call. */
 export function unsavedSettingKeys(
   draft: RequestSettingsSlice,
   saved: RequestSettingsSlice,
 ): ReadonlySet<SettingsKnobKey> {
   const out = new Set<SettingsKnobKey>();
   for (const key of SETTINGS_KNOB_KEYS) {
-    if (normalized(draft, key) !== normalized(saved, key)) out.add(key);
+    if (draft[key] !== saved[key]) out.add(key);
   }
   return out;
 }

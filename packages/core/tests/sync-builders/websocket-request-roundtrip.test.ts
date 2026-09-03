@@ -57,10 +57,7 @@ function liveField(store: InMemoryDocumentStore, uid: string): WebSocketLiveFiel
     const m = store.materializeOne(WEBSOCKET_REQUEST_ENTITY_TYPE, uid);
     const r = m ? projectWebSocketRequest(m) : null;
     if (!r) return undefined;
-    if (path === 'subprotocols') return r.subprotocols;
-    if (path === 'specLink') return r.specLink;
-    if (path === 'auth') return r.auth;
-    return undefined;
+    return r[path as keyof WebSocketRequest];
   };
 }
 
@@ -332,5 +329,56 @@ describe('websocket request update batches', () => {
       buildWebSocketUpdateBatch('wsrq0001', { params: next }, ctx(2_000), liveSets, liveField(store, 'wsrq0001')),
     );
     expect(materialized(store, 'wsrq0001').params).toEqual(next);
+  });
+
+  it('tombstones a stored scalar knob the patch clears with an explicit undefined — a reset to inherit persists', () => {
+    const store = new InMemoryDocumentStore(wsSchemas);
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
+    applyBatch(
+      store,
+      buildWebSocketUpdateBatch(
+        'wsrq0001',
+        { sslVerification: false, timeoutMs: 15_000, handshakePath: '' },
+        ctx(2_000),
+        noSets,
+        liveField(store, 'wsrq0001'),
+      ),
+    );
+    expect(materialized(store, 'wsrq0001')).toMatchObject({
+      sslVerification: false,
+      timeoutMs: 15_000,
+      handshakePath: '',
+    });
+
+    const clear = buildWebSocketUpdateBatch(
+      'wsrq0001',
+      { sslVerification: undefined, timeoutMs: undefined, handshakePath: undefined },
+      ctx(3_000),
+      noSets,
+      liveField(store, 'wsrq0001'),
+    );
+    expect(clear.batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'unsetField', type: WEBSOCKET_REQUEST_ENTITY_TYPE, id: 'wsrq0001', path: 'sslVerification' },
+      { kind: 'unsetField', type: WEBSOCKET_REQUEST_ENTITY_TYPE, id: 'wsrq0001', path: 'timeoutMs' },
+      { kind: 'unsetField', type: WEBSOCKET_REQUEST_ENTITY_TYPE, id: 'wsrq0001', path: 'handshakePath' },
+    ]);
+    applyBatch(store, clear);
+    const after = materialized(store, 'wsrq0001');
+    expect(after.sslVerification).toBeUndefined();
+    expect(after.timeoutMs).toBeUndefined();
+    expect(after.handshakePath).toBeUndefined();
+  });
+
+  it('emits nothing for an undefined scalar the entity never carried (no HLC stamp on an untouched default)', () => {
+    const store = new InMemoryDocumentStore(wsSchemas);
+    applyBatch(store, buildWebSocketAddBatch(seed, ctx(1_000), null));
+    const payload = buildWebSocketUpdateBatch(
+      'wsrq0001',
+      { sslVerification: undefined, autoReconnect: undefined, headers: undefined },
+      ctx(2_000),
+      noSets,
+      liveField(store, 'wsrq0001'),
+    );
+    expect(payload.batch.mutations).toEqual([]);
   });
 });

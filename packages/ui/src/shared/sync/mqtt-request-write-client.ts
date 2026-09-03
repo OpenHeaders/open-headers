@@ -96,17 +96,16 @@ export async function applyMqttRequestUpdate(
       for (const row of rows) byUid.set(row.uid, row);
       return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
     },
-    // Baseline for the publishProperties / lastWill / specLink / scripts
-    // per-leaf flatten-diff — a save writes only the script slots that
-    // changed and tombstones the ones the draft emptied.
+    // Scalar pre-image reader from the same canonical snapshot — the
+    // publishProperties / lastWill / specLink / scripts flatten-diff
+    // baseline (a save writes only the script slots that changed and
+    // tombstones the ones the draft emptied) and the explicit-clear
+    // guard (a knob reset to inherit tombstones its leaf only while one
+    // is stored).
     (uid, path) => {
       const snap = mirror.getMqttRequestMirror(uid)?.mqttRequest;
       if (!snap) return undefined;
-      if (path === 'publishProperties') return snap.publishProperties;
-      if (path === 'lastWill') return snap.lastWill;
-      if (path === 'specLink') return snap.specLink;
-      if (path === 'scripts') return snap.scripts;
-      return undefined;
+      return snap[path as keyof MqttRequest];
     },
   );
   const ack = await applySyncPayload(payload);

@@ -108,6 +108,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
         {...(snapshot.connectionError !== undefined ? { connectionError: snapshot.connectionError } : {})}
         {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
         {...(snapshot.auth !== undefined ? { auth: snapshot.auth } : {})}
+        {...(snapshot.inheritedSettings !== undefined ? { inheritedSettings: snapshot.inheritedSettings } : {})}
       />
       <GrpcScriptsTag digest={scriptsDigest} />
       <Dropdown

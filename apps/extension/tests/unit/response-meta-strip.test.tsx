@@ -394,6 +394,25 @@ describe('ResponseMetaStrip auth attribution', () => {
     expect(await screen.findByText(/inherited from Collection ‘Payments’ › Admin token/)).toBeTruthy();
   });
 
+  it('tags the settings the run inherited, listing each against its level, and stays quiet otherwise', async () => {
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-inherited-settings')).toBeNull();
+    cleanup();
+    renderStrip({
+      inheritedSettings: [
+        { key: 'timeoutMs', level: 'collection', uid: 'col00001', name: 'Payments' },
+        { key: 'cookieJar', level: 'folder', uid: 'fld00001', name: 'Admin' },
+      ],
+    });
+    const tag = screen.getByTestId('oh-response-inherited-settings');
+    expect(tag.textContent).toBe('Inherited settings · 2');
+    fireEvent.mouseEnter(tag);
+    expect(await screen.findByText('Request timeout')).toBeTruthy();
+    expect(screen.getByText('Use cookie jar')).toBeTruthy();
+    expect(screen.getByText('Collection ‘Payments’')).toBeTruthy();
+    expect(screen.getByText('Folder ‘Admin’')).toBeTruthy();
+  });
+
   it("names the request's own configuration", async () => {
     renderStrip({ auth: { type: 'basic', source: { level: 'request' } } });
     fireEvent.mouseEnter(screen.getByTestId('oh-response-auth'));

@@ -33,6 +33,8 @@
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
+import { MQTT_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
+import { inheritedSettingsFor } from '@openheaders/core/settings-inheritance';
 import { MQTT_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { MqttRequest as MqttRequestEntity } from '@openheaders/core/types';
 import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
@@ -65,7 +67,8 @@ import {
   propertiesToDraft,
 } from './draft';
 import { subscribeMqttPrefill } from './mqtt-prefill-bus';
-import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
+import { findRequestAncestry, resolveInheritedAuthFor, settingsChainOf } from '../request-container/ancestry';
+import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
 import MqttAuthTab from './MqttAuthTab';
 import MqttLastWillTab from './MqttLastWillTab';
 import MqttMessageTab from './MqttMessageTab';
@@ -95,6 +98,9 @@ interface MqttRequestEditorProps {
   /** Opens a container's Scripts section — the Scripts tab's "Runs
    *  after …" level links. */
   onOpenContainerScripts?: OpenContainerScripts;
+  /** Opens a container's Settings section — the Settings rows'
+   *  "Inherited from … · Edit in parent" line. */
+  onOpenContainerSettings?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
   /** Open the Package Library tab (the Scripts tab's Packages popover footer). */
   onOpenPackageLibrary?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -119,24 +125,24 @@ const emptyMqttDraft = (): MqttDraft => ({
   specLink: undefined,
   scripts: {},
   clientId: '',
-  cleanStart: true,
+  cleanStart: undefined,
   sessionExpiryInterval: undefined,
   keepAlive: undefined,
   receiveMaximum: undefined,
   maximumPacketSize: undefined,
   topicAliasMaximum: undefined,
-  requestResponseInformation: false,
-  requestProblemInformation: true,
+  requestResponseInformation: undefined,
+  requestProblemInformation: undefined,
   timeoutMs: undefined,
-  autoReconnect: false,
+  autoReconnect: undefined,
   reconnectPeriodMs: undefined,
   reconnectMaxAttempts: undefined,
-  reconnectBackoff: true,
+  reconnectBackoff: undefined,
   resolveToAddress: undefined,
   proxyMode: undefined,
   proxyUrl: undefined,
   proxyCredentialRef: undefined,
-  sslVerification: true,
+  sslVerification: undefined,
   clientCertificateRef: undefined,
   tlsMinVersion: undefined,
   tlsMaxVersion: undefined,
@@ -151,6 +157,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   onOpenMqttResponseExample,
   onOpenContainerAuth,
   onOpenContainerScripts,
+  onOpenContainerSettings,
   onOpenPackageLibrary,
   onDirtyChange,
   registerSaveRef,
@@ -181,6 +188,17 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // The ancestor levels whose slots run ahead of this request's, per
   // kind — the Scripts tab's "Runs after …" line.
   const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
+  // The Settings tab's ancestor plane — the chain's knobs as the rows'
+  // placeholders (a switch's effective state) with their source line,
+  // off the same tree-read ancestry; the session plane reads the
+  // effective verification off it too. Explicit wins on the plane.
+  const inheritedSettings = useMemo<InheritedSettingsView>(
+    () => ({
+      ...(ancestry ? inheritedSettingsFor(settingsChainOf(ancestry), MQTT_INHERITABLE_SETTING_KEYS) : NO_INHERITED_SETTINGS),
+      onOpenSource: onOpenContainerSettings,
+    }),
+    [ancestry, onOpenContainerSettings],
+  );
   const [activeTab, setActiveTab] = useState('message');
 
   // Saved-messages selection plane: the compose is the selected row's
@@ -229,7 +247,14 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   }, [entity]);
 
   // ── Session plane + compose aids ─────────────────────────────────
-  const session = useMqttSessionPlane({ entity, draft, workspaceId, v5, onOpenMqttResponseExample });
+  const session = useMqttSessionPlane({
+    entity,
+    draft,
+    inherited: inheritedSettings,
+    workspaceId,
+    v5,
+    onOpenMqttResponseExample,
+  });
   const onExampleApplied = useCallback(() => setActiveTab('message'), []);
   const aids = useMqttComposeAids({ specLink: draft.specLink, workspaceId, setDraft, onApplied: onExampleApplied });
 
@@ -545,7 +570,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     )}
                     {activeTab === 'settings' && (
                       <SessionLock locked={session.inFlight}>
-                        <MqttSettingsTab draft={draft} setDraft={setDraft} v5={v5} />
+                        <MqttSettingsTab draft={draft} setDraft={setDraft} v5={v5} inherited={inheritedSettings} />
                       </SessionLock>
                     )}
                   </div>

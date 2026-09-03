@@ -1554,6 +1554,11 @@ export const workbenchEditorsRequest = {
     'Ohne Autorisierung gesendet — oberhalb der Anfrage ist nichts festgelegt.',
   'workbench.editors.request.response.meta.authDangling':
     'Der von der Anfrage gewählte Eintrag existiert nicht mehr — stattdessen wurde der Standard angewendet.',
+  'workbench.editors.request.response.meta.inheritedSettingsTag': 'Geerbte Einstellungen · {count}',
+  'workbench.editors.request.response.meta.inheritedSettingsTitle': 'Geerbte Einstellungen',
+  'workbench.editors.request.response.meta.inheritedSettingsSummary':
+    'Einstellungen, die der Lauf aus der Sammlung oder dem Ordner über der Anfrage übernommen hat — aufgelöst, wie der Tab Einstellungen sie zeigt; eigene Werte der Anfrage gehen der Kette vor.',
+  'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Einstellung · Quelle',
   'workbench.editors.request.response.meta.scriptsTag': 'Skripte · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Skriptkette',
   'workbench.editors.request.response.meta.scriptsSummary':

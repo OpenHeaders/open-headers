@@ -160,12 +160,12 @@ describe('WebSocket tab — limits rows', () => {
     expect(screen.getByTestId('websocket-managed-transport').textContent).toContain('WebSocket only');
   });
 
-  it('the draft round-trips the three fields; the redirect switch reads off by default', () => {
+  it('the draft round-trips the three fields; an absent redirect switch stays absent (tri-state — the chain’s value reaches the session)', () => {
     const tuned = websocketRequest({ maxMessageBytes: 65_536, followRedirects: true, maxRedirects: 5 });
     const updates = buildWebSocketRequestUpdates(draftFromWebSocketRequest(tuned));
     expect(updates).toMatchObject({ maxMessageBytes: 65_536, followRedirects: true, maxRedirects: 5 });
     const bare = buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest()));
-    expect(bare.followRedirects).toBe(false);
+    expect(bare.followRedirects).toBeUndefined();
     expect(bare.maxMessageBytes).toBeUndefined();
     expect(bare.maxRedirects).toBeUndefined();
   });

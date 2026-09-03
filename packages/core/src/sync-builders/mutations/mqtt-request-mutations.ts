@@ -40,8 +40,11 @@ export interface MqttRequestMutationPayload {
 /** Live-itemId reader for the set paths — see {@link request-mutations}' LiveSetEntries. */
 export type MqttLiveSetEntries = (mqttRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
-/** Current materialized value reader for container-valued scalar paths
- *  (`publishProperties`, `lastWill`, `specLink`, `auth`). */
+/** Current materialized value reader for scalar paths — the
+ *  container-valued ones' flatten-diff baseline (`publishProperties`,
+ *  `lastWill`, `specLink`, `auth`, `scripts`) and the explicit-clear
+ *  guard for every plain knob (see {@link request-mutations}'
+ *  LiveFieldValue). */
 export type MqttLiveFieldValue = (mqttRequestUid: string, path: string) => unknown;
 
 /**
@@ -122,9 +125,14 @@ export function buildMqttUpdateBatch(
 
   for (const [key, value] of Object.entries(updates)) {
     if (value === undefined) {
-      // Only an explicitly-present container-scalar key clears — its
-      // old leaves tombstone (an absent baseline diffs to nothing, so
-      // the editor's always-present keys stay no-ops when untouched).
+      // An explicitly-present key with `undefined` clears: a
+      // container scalar's old leaves tombstone through the flatten
+      // diff (an absent baseline diffs to nothing, so the editor's
+      // always-present keys stay no-ops when untouched); a plain knob
+      // tombstones its one slot, but only when the canonical pre-image
+      // actually carries a value — unconditional tombstones would
+      // stamp fresh HLCs on every untouched field and stomp a peer's
+      // concurrent set under LWW. Set-modeled paths never clear.
       if (CONTAINER_SCALAR_PATHS.has(key)) {
         bodies.push(
           ...synthesizeFieldDiff({
@@ -135,6 +143,8 @@ export function buildMqttUpdateBatch(
             newValue: undefined,
           }),
         );
+      } else if (isSetPath(key) === null && liveFieldValue(mqttRequestUid, key) !== undefined) {
+        bodies.push({ kind: 'unsetField', type: MQTT_REQUEST_ENTITY_TYPE, id: mqttRequestUid, path: key });
       }
       continue;
     }

@@ -1534,6 +1534,11 @@ export const workbenchEditorsRequest = {
     'Enviado sin autorización — no hay nada configurado por encima de la solicitud.',
   'workbench.editors.request.response.meta.authDangling':
     'La entrada elegida por la solicitud ya no existe — se aplicó el predeterminado en su lugar.',
+  'workbench.editors.request.response.meta.inheritedSettingsTag': 'Configuración heredada · {count}',
+  'workbench.editors.request.response.meta.inheritedSettingsTitle': 'Configuración heredada',
+  'workbench.editors.request.response.meta.inheritedSettingsSummary':
+    'Ajustes que la ejecución tomó de la colección o carpeta por encima de la solicitud — resueltos tal como los muestra su pestaña Configuración, con los valores propios de la solicitud por encima de la cadena.',
+  'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Ajuste · origen',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Cadena de scripts',
   'workbench.editors.request.response.meta.scriptsSummary':

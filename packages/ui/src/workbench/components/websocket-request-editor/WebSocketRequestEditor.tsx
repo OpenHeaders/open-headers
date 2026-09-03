@@ -31,6 +31,8 @@
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
+import { WEBSOCKET_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
+import { inheritedSettingsFor } from '@openheaders/core/settings-inheritance';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
 import { binaryEncodingError, generateUid } from '@openheaders/core/utils';
@@ -69,7 +71,8 @@ import { useSocketIoArgs } from './useSocketIoArgs';
 import { useWsSavedSelection } from './useWsSavedSelection';
 import { useWsComposeAids } from './useWsComposeAids';
 import { useWsSessionPlane } from './useWsSessionPlane';
-import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
+import { findRequestAncestry, resolveInheritedAuthFor, settingsChainOf } from '../request-container/ancestry';
+import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
 import WebSocketAuthTab from './WebSocketAuthTab';
 import WebSocketSettingsTab from './WebSocketSettingsTab';
 import { subscribeWsPrefill } from './ws-prefill-bus';
@@ -94,6 +97,9 @@ interface WebSocketRequestEditorProps {
   /** Opens a container's Scripts section — the Scripts tab's "Runs
    *  after …" level links. */
   onOpenContainerScripts?: OpenContainerScripts;
+  /** Opens a container's Settings section — the Settings rows'
+   *  "Inherited from … · Edit in parent" line. */
+  onOpenContainerSettings?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
   /** Open the Package Library tab (the Scripts tab's Packages popover footer). */
   onOpenPackageLibrary?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -113,7 +119,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   message: '',
   eventName: '',
   namespace: '',
-  handshakePath: '',
+  handshakePath: undefined,
   socketioProtocol: undefined,
   ackTimeoutMs: undefined,
   ackEnabled: false,
@@ -126,17 +132,17 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   proxyCredentialRef: undefined,
   unixSocketPath: undefined,
   timeoutMs: undefined,
-  autoReconnect: false,
+  autoReconnect: undefined,
   reconnectPeriodMs: undefined,
   reconnectMaxAttempts: undefined,
   maxMessageBytes: undefined,
-  followRedirects: false,
+  followRedirects: undefined,
   maxRedirects: undefined,
-  reconnectBackoff: true,
+  reconnectBackoff: undefined,
   idleTimeoutMs: undefined,
   heartbeatMessage: undefined,
   heartbeatIntervalMs: undefined,
-  sslVerification: true,
+  sslVerification: undefined,
   clientCertificateRef: undefined,
   tlsMinVersion: undefined,
   tlsMaxVersion: undefined,
@@ -150,6 +156,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   onOpenWsResponseExample,
   onOpenContainerAuth,
   onOpenContainerScripts,
+  onOpenContainerSettings,
   onOpenPackageLibrary,
   onDirtyChange,
   registerSaveRef,
@@ -185,6 +192,19 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // The ancestor levels whose slots run ahead of this request's, per
   // kind — the Scripts tab's "Runs after …" line.
   const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
+  // The Settings tab's ancestor plane — the chain's knobs as the rows'
+  // placeholders (a switch's effective state) with their source line,
+  // off the same tree-read ancestry; the session plane reads the
+  // effective verification off it too. Explicit wins on the plane.
+  const inheritedSettings = useMemo<InheritedSettingsView>(
+    () => ({
+      ...(ancestry
+        ? inheritedSettingsFor(settingsChainOf(ancestry), WEBSOCKET_INHERITABLE_SETTING_KEYS)
+        : NO_INHERITED_SETTINGS),
+      onOpenSource: onOpenContainerSettings,
+    }),
+    [ancestry, onOpenContainerSettings],
+  );
 
   // Saved-messages selection plane: the compose is the selected row's
   // editor. Every USER edit below rides the bound setter (compose
@@ -230,7 +250,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         binaryEncoding: captured.binaryEncoding ?? 'base64',
         eventName: captured.eventName ?? '',
         namespace: target.namespace,
-        handshakePath: captured.handshakePath ?? '',
+        handshakePath: captured.handshakePath,
         ackEnabled: captured.ackEnabled ?? false,
         sslVerification: captured.sslVerification,
         timeoutMs: captured.timeoutMs,
@@ -239,7 +259,13 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   }, [entity]);
 
   // ── Session plane, compose aids, Socket.IO args ──────────────────
-  const session = useWsSessionPlane({ entity, draft, workspaceId, onOpenWsResponseExample });
+  const session = useWsSessionPlane({
+    entity,
+    draft,
+    inherited: inheritedSettings,
+    workspaceId,
+    onOpenWsResponseExample,
+  });
   const onExampleApplied = useCallback(() => setActiveTab('message'), []);
   const aids = useWsComposeAids({
     specLink: draft.specLink,
@@ -570,7 +596,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                     )}
                     {activeTab === 'settings' && (
                       <SessionLock locked={session.inFlight}>
-                        <WebSocketSettingsTab draft={draft} setDraft={setDraft} socketioFlavor={socketioFlavor} />
+                        <WebSocketSettingsTab
+                          draft={draft}
+                          setDraft={setDraft}
+                          socketioFlavor={socketioFlavor}
+                          inherited={inheritedSettings}
+                        />
                       </SessionLock>
                     )}
                   </div>

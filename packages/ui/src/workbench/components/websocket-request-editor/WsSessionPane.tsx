@@ -26,6 +26,7 @@ import { Button, Dropdown, Segmented, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/response/AuthAttributionTag';
+import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-editor/response/InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
@@ -321,6 +322,9 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
           {closeTag !== null && <ConnectionDetailsTooltip rows={detailRows}>{closeTag}</ConnectionDetailsTooltip>}
           {proxyRouteHasBadge(snapshot.proxyRoute) && <ProxyRouteTag route={snapshot.proxyRoute} />}
           {authAttributionHasBadge(snapshot.auth) && <AuthAttributionTag auth={snapshot.auth} />}
+          {inheritedSettingsHasBadge(snapshot.inheritedSettings) && (
+            <InheritedSettingsTag kind="websocket" sources={snapshot.inheritedSettings} />
+          )}
           <WsScriptsTag digest={scriptsDigest} />
           <Dropdown
             trigger={['click']}

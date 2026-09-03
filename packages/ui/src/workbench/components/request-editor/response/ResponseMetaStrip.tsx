@@ -24,6 +24,7 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { subjectCommonName } from '../../trusted-roots/add-gate';
 import { TRUSTED_ROOTS_SETTING_KEY } from '../../trusted-roots/TrustedRootsPicker';
 import AuthAttributionTag, { authAttributionHasBadge } from './AuthAttributionTag';
+import InheritedSettingsTag, { inheritedSettingsHasBadge } from './InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
 import ScriptChainTag, { scriptChainHasBadge } from './ScriptChainTag';
 import { formatBytes } from './response-format';
@@ -881,6 +882,12 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
         <>
           <MetaDot />
           <AuthAttributionTag auth={response.auth} />
+        </>
+      )}
+      {inheritedSettingsHasBadge(response.inheritedSettings) && (
+        <>
+          <MetaDot />
+          <InheritedSettingsTag kind="http" sources={response.inheritedSettings} />
         </>
       )}
       {scriptChainHasBadge(response.scripts) && (

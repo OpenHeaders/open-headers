@@ -35,6 +35,7 @@ import {
 import { App } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
+import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
 import { capturedWsRequestFromDraft, capturedWsResponseFromSnapshot } from '../ws-response-example/ws-example-draft';
 import { buildWebSocketRequestUpdates, type WebSocketDraft } from './draft';
 import { type LiveWsSession, useLiveWsSession, type WsSessionTiming } from './useLiveWsSession';
@@ -44,6 +45,10 @@ import { makeWsPageResolutionFactory, publishWsPageResolutionFactory } from './w
 interface UseWsSessionPlaneInput {
   entity: WebSocketRequestEntity | null;
   draft: WebSocketDraft;
+  /** The request's ancestor plane — the effective verification switch
+   *  (own, else the chain's, else on) gates the page-session honesty
+   *  notice and stamps the captured example. */
+  inherited: InheritedSettingsView;
   workspaceId: string | null;
   /** "Save Response" landed — open the minted example's viewer tab. */
   onOpenWsResponseExample?: ((uid: string, name: string, websocketRequestUid: string) => void) | undefined;
@@ -77,11 +82,15 @@ export interface WsSessionPlane {
 export function useWsSessionPlane({
   entity,
   draft,
+  inherited,
   workspaceId,
   onOpenWsResponseExample,
 }: UseWsSessionPlaneInput): WsSessionPlane {
   const { message: toast } = App.useApp();
   const t = useT();
+  // The verification switch the session runs under — the request's
+  // own, else the chain's, else on (the rule the executor applies).
+  const sslVerification = draft.sslVerification ?? inherited.settings.sslVerification ?? true;
   const { collections, collectionTrees, executeWebSocket, folders } = useRequests();
 
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
@@ -136,7 +145,7 @@ export function useWsSessionPlane({
       if (draft.headers.some((h) => h.enabled !== false && h.key.trim() !== '')) {
         inapplicableKnobs.push(t('workbench.editors.websocket.session.knobHeaders'));
       }
-      if (!draft.sslVerification) {
+      if (!sslVerification) {
         inapplicableKnobs.push(t('workbench.editors.websocket.session.knobSslVerify'));
       }
       // A credential that rides the dial URL (a query-placed key or
@@ -202,6 +211,7 @@ export function useWsSessionPlane({
     entity,
     inFlight,
     draft,
+    sslVerification,
     pageSession,
     executeWebSocket,
     liveSession,
@@ -278,7 +288,12 @@ export function useWsSessionPlane({
           websocketRequestUid: entity.uid,
           name,
           capturedAt: new Date().toISOString(),
-          request: capturedWsRequestFromDraft(draft, entity.flavor),
+          // The capture records the CONCRETE flag the session used and
+          // the handshake path as authored ('' = the stock path).
+          request: capturedWsRequestFromDraft(
+            { ...draft, sslVerification, handshakePath: draft.handshakePath ?? '' },
+            entity.flavor,
+          ),
           response: capturedWsResponseFromSnapshot(snapshot),
         },
       },
@@ -294,7 +309,7 @@ export function useWsSessionPlane({
           : t('workbench.editors.websocket.toast.saveExampleFailed'),
       );
     }
-  }, [entity, workspaceId, snapshot, draft, toast, onOpenWsResponseExample, t]);
+  }, [entity, workspaceId, snapshot, draft, sslVerification, toast, onOpenWsResponseExample, t]);
 
   const canSaveResponse = workspaceId !== null && snapshot !== null && snapshot.outcome.kind === 'connected';
 

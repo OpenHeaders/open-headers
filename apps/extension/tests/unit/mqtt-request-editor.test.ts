@@ -78,7 +78,7 @@ describe('mqtt draft projections', () => {
     expect(updates.timeoutMs).toBe(30_000);
   });
 
-  it('reads absent knobs as their honest defaults', () => {
+  it('reads absent compose knobs as their honest defaults and keeps the absent settings switches absent (tri-state)', () => {
     const updates = buildMqttRequestUpdates(
       draftFromMqttRequest(
         mqttRequest({ protocolVersion: undefined, payloadFormat: undefined, qos: undefined, retain: undefined }),
@@ -88,12 +88,19 @@ describe('mqtt draft projections', () => {
     expect(updates.payloadFormat).toBe('text');
     expect(updates.qos).toBe(0);
     expect(updates.retain).toBe(false);
-    expect(updates.cleanStart).toBe(true);
-    expect(updates.sslVerification).toBe(true);
-    // The 5.0 CONNECT request flags read at their spec defaults.
-    expect(updates.requestResponseInformation).toBe(false);
-    expect(updates.requestProblemInformation).toBe(true);
+    // The inheritable switches stay absent so the chain's value reaches
+    // the session; an explicit value round-trips as the request's own.
+    expect(updates.cleanStart).toBeUndefined();
+    expect(updates.sslVerification).toBeUndefined();
+    expect(updates.requestResponseInformation).toBeUndefined();
+    expect(updates.requestProblemInformation).toBeUndefined();
     expect(updates.topicAliasMaximum).toBeUndefined();
+    const explicit = buildMqttRequestUpdates(
+      draftFromMqttRequest(mqttRequest({ cleanStart: true, sslVerification: true, requestProblemInformation: true })),
+    );
+    expect(explicit.cleanStart).toBe(true);
+    expect(explicit.sslVerification).toBe(true);
+    expect(explicit.requestProblemInformation).toBe(true);
   });
 
   it('carries the 5.0 topic-alias and request-information knobs through the round-trip', () => {
@@ -141,7 +148,7 @@ describe('mqtt draft projections', () => {
     expect(bare.alpnProtocol).toBeUndefined();
   });
 
-  it('carries the auto-reconnect knobs through the round-trip and reads them off by default', () => {
+  it('carries the auto-reconnect knobs through the round-trip; absent switches stay absent (tri-state)', () => {
     const updates = buildMqttRequestUpdates(
       draftFromMqttRequest(
         mqttRequest({ autoReconnect: true, reconnectPeriodMs: 2_000, reconnectMaxAttempts: 5, reconnectBackoff: true }),
@@ -152,10 +159,10 @@ describe('mqtt draft projections', () => {
     expect(updates.reconnectMaxAttempts).toBe(5);
     expect(updates.reconnectBackoff).toBe(true);
     const bare = buildMqttRequestUpdates(draftFromMqttRequest(mqttRequest()));
-    expect(bare.autoReconnect).toBe(false);
+    expect(bare.autoReconnect).toBeUndefined();
     expect(bare.reconnectPeriodMs).toBeUndefined();
     expect(bare.reconnectMaxAttempts).toBeUndefined();
-    expect(bare.reconnectBackoff).toBe(true);
+    expect(bare.reconnectBackoff).toBeUndefined();
   });
 
   it('keeps the canonical projection fingerprint-stable across a round-trip', () => {

@@ -10,6 +10,15 @@
  * `flavor` is deliberately NOT part of the draft: the creation menu's
  * two entries fix it at birth and the editor renders it as identity
  * chrome, so the save patch never carries it.
+ *
+ * The inheritable knobs are TRI-STATE on the form (`undefined` = the
+ * chain's value or the runtime default, an explicit value = the
+ * request's own, whatever it is — the settings-inheritance law): the
+ * form carries the entity's value as it is, the save patch writes an
+ * explicit value only while the form holds one and clears the leaf
+ * when it does not (the update builder tombstones a stored slot on an
+ * explicit `undefined`), so a request can inherit a collection's
+ * verification-off or shadow it with its own on.
  */
 
 import type { WsScriptKind } from '@openheaders/core/scripts';
@@ -53,8 +62,9 @@ export interface WebSocketDraft {
    *  re-splits on edit (the URL⇄params sync's law) — one value, two
    *  views, the official client's reading of a Socket.IO URL. */
   namespace: string;
-  /** Socket.IO handshake path (concrete — absent reads as '', the stock `/socket.io/`). */
-  handshakePath: string;
+  /** Socket.IO handshake path — inheritable; `undefined` = the chain's
+   *  path or the stock `/socket.io/`. */
+  handshakePath: string | undefined;
   /** Socket.IO protocol revision; `undefined` = v5, the default. */
   socketioProtocol: SocketIoProtocol | undefined;
   /** Socket.IO ack wait; `undefined` = wait forever. */
@@ -90,25 +100,24 @@ export interface WebSocketDraft {
    *  `undefined` = a normal TCP connection. */
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
-  /** The limits — the redirect switch concrete (absent on the entity
-   *  reads as off, the WebSocket standard's rule), the caps
-   *  `undefined` = the runtime default. */
+  /** The limits — every knob `undefined` = inherit or the runtime
+   *  default (the redirect switch's default is off, the WebSocket
+   *  standard's rule). */
   maxMessageBytes: number | undefined;
-  followRedirects: boolean;
+  followRedirects: boolean | undefined;
   maxRedirects: number | undefined;
-  /** The resilience policy — the two switches concrete (absent on the
-   *  entity reads as off / backoff on), the rest `undefined` = the
-   *  runtime default. */
-  autoReconnect: boolean;
+  /** The resilience policy — `undefined` = inherit or the runtime
+   *  default (reconnect off, backoff on). */
+  autoReconnect: boolean | undefined;
   reconnectPeriodMs: number | undefined;
   reconnectMaxAttempts: number | undefined;
-  reconnectBackoff: boolean;
+  reconnectBackoff: boolean | undefined;
   idleTimeoutMs: number | undefined;
   heartbeatMessage: string | undefined;
   heartbeatIntervalMs: number | undefined;
-  /** Concrete in the form — absent on the entity reads as verify-on
-   *  (the safe default the transport applies). */
-  sslVerification: boolean;
+  /** `undefined` = inherit or verify-on (the safe default the transport
+   *  applies); an explicit value is the request's own either way. */
+  sslVerification: boolean | undefined;
   /** The rest of the TLS policy — `undefined` = the runtime default. */
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -132,7 +141,7 @@ export interface WebSocketRequestUpdates {
   message: string;
   eventName: string;
   namespace: string;
-  handshakePath: string;
+  handshakePath: string | undefined;
   socketioProtocol: SocketIoProtocol | undefined;
   ackTimeoutMs: number | undefined;
   ackEnabled: boolean;
@@ -146,16 +155,16 @@ export interface WebSocketRequestUpdates {
   unixSocketPath: string | undefined;
   timeoutMs: number | undefined;
   maxMessageBytes: number | undefined;
-  followRedirects: boolean;
+  followRedirects: boolean | undefined;
   maxRedirects: number | undefined;
-  autoReconnect: boolean;
+  autoReconnect: boolean | undefined;
   reconnectPeriodMs: number | undefined;
   reconnectMaxAttempts: number | undefined;
-  reconnectBackoff: boolean;
+  reconnectBackoff: boolean | undefined;
   idleTimeoutMs: number | undefined;
   heartbeatMessage: string | undefined;
   heartbeatIntervalMs: number | undefined;
-  sslVerification: boolean;
+  sslVerification: boolean | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -290,7 +299,9 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     message: req.message,
     eventName: req.eventName ?? '',
     namespace: target.namespace,
-    handshakePath: req.handshakePath ?? '',
+    // An empty stored path is the pre-tri-state save's spelling of
+    // "not set" — it reads as absent, so the chain's path shows through.
+    handshakePath: req.handshakePath === '' ? undefined : req.handshakePath,
     socketioProtocol: req.socketioProtocol,
     ackTimeoutMs: req.ackTimeoutMs,
     ackEnabled: req.ackEnabled ?? false,
@@ -304,16 +315,16 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     unixSocketPath: req.unixSocketPath,
     timeoutMs: req.timeoutMs,
     maxMessageBytes: req.maxMessageBytes,
-    followRedirects: req.followRedirects ?? false,
+    followRedirects: req.followRedirects,
     maxRedirects: req.maxRedirects,
-    autoReconnect: req.autoReconnect ?? false,
+    autoReconnect: req.autoReconnect,
     reconnectPeriodMs: req.reconnectPeriodMs,
     reconnectMaxAttempts: req.reconnectMaxAttempts,
-    reconnectBackoff: req.reconnectBackoff ?? true,
+    reconnectBackoff: req.reconnectBackoff,
     idleTimeoutMs: req.idleTimeoutMs,
     heartbeatMessage: req.heartbeatMessage,
     heartbeatIntervalMs: req.heartbeatIntervalMs,
-    sslVerification: req.sslVerification ?? true,
+    sslVerification: req.sslVerification,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,

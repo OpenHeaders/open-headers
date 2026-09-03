@@ -42,10 +42,7 @@ function liveField(store: InMemoryDocumentStore, uid: string): GrpcLiveFieldValu
     const m = store.materializeOne(GRPC_REQUEST_ENTITY_TYPE, uid);
     const r = m ? projectGrpcRequest(m) : null;
     if (!r) return undefined;
-    if (path === 'method') return r.method;
-    if (path === 'auth') return r.auth;
-    if (path === 'specLink') return r.specLink;
-    return undefined;
+    return r[path as keyof GrpcRequest];
   };
 }
 
@@ -179,6 +176,36 @@ describe('grpc request update batches', () => {
       buildGrpcUpdateBatch('grpc0001', { sslVerification: false }, ctx(2_000), noSets, liveField(store, 'grpc0001')),
     );
     expect(materialized(store, 'grpc0001').sslVerification).toBe(false);
+  });
+
+  it('tombstones a stored scalar knob the patch clears with an explicit undefined — a reset to inherit persists', () => {
+    const store = new InMemoryDocumentStore(grpcSchemas);
+    applyBatch(store, buildGrpcAddBatch(seed, ctx(1_000), null));
+    applyBatch(
+      store,
+      buildGrpcUpdateBatch(
+        'grpc0001',
+        { sslVerification: false, timeoutMs: 5_000 },
+        ctx(2_000),
+        noSets,
+        liveField(store, 'grpc0001'),
+      ),
+    );
+    const clear = buildGrpcUpdateBatch(
+      'grpc0001',
+      { sslVerification: undefined, timeoutMs: undefined, keepaliveIntervalMs: undefined, metadata: undefined },
+      ctx(3_000),
+      noSets,
+      liveField(store, 'grpc0001'),
+    );
+    expect(clear.batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'unsetField', type: GRPC_REQUEST_ENTITY_TYPE, id: 'grpc0001', path: 'sslVerification' },
+      { kind: 'unsetField', type: GRPC_REQUEST_ENTITY_TYPE, id: 'grpc0001', path: 'timeoutMs' },
+    ]);
+    applyBatch(store, clear);
+    const after = materialized(store, 'grpc0001');
+    expect(after.sslVerification).toBeUndefined();
+    expect(after.timeoutMs).toBeUndefined();
   });
 
   it('persists a spec re-link through the per-leaf flatten-diff', () => {

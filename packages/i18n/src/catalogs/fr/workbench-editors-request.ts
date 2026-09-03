@@ -1555,6 +1555,11 @@ export const workbenchEditorsRequest = {
     "Envoyé sans autorisation — rien n'est défini au-dessus de la requête.",
   'workbench.editors.request.response.meta.authDangling':
     "L'entrée choisie par la requête n'existe plus — le défaut a été appliqué à la place.",
+  'workbench.editors.request.response.meta.inheritedSettingsTag': 'Paramètres hérités · {count}',
+  'workbench.editors.request.response.meta.inheritedSettingsTitle': 'Paramètres hérités',
+  'workbench.editors.request.response.meta.inheritedSettingsSummary':
+    "Paramètres que l'exécution a pris de la collection ou du dossier au-dessus de la requête — résolus comme l'onglet Paramètres les affiche, les valeurs propres à la requête l'emportant sur la chaîne.",
+  'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Paramètre · source',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Chaîne de scripts',
   'workbench.editors.request.response.meta.scriptsSummary':

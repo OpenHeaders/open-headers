@@ -236,15 +236,21 @@ describe('grpc draft projections', () => {
     expect(pairs).toEqual([{ uid: 'meta0001', key: 'x-api-key', value: 'v', description: undefined, enabled: true }]);
   });
 
-  it('normalizes absent auth and sslVerification to concrete form values — clearing round-trips', () => {
+  it('normalizes absent auth to a concrete form value while sslVerification stays tri-state — clearing round-trips either way', () => {
     const draft = draftFromGrpcRequest(entity);
     expect(draft.auth).toEqual({ type: 'none' });
-    expect(draft.sslVerification).toBe(true);
-    // The save patch always carries both, so a cleared bearer lands as
+    // Absent stays absent: the chain's verification switch reaches the
+    // call, and a reset to inherit rides the patch as an explicit
+    // undefined the update builder tombstones.
+    expect(draft.sslVerification).toBeUndefined();
+    // The save patch always carries auth, so a cleared bearer lands as
     // {type:'none'} rather than an undefined the update batch skips.
     const updates = buildGrpcRequestUpdates(draft);
     expect(updates.auth).toEqual({ type: 'none' });
-    expect(updates.sslVerification).toBe(true);
+    expect(updates.sslVerification).toBeUndefined();
+    expect(buildGrpcRequestUpdates(draftFromGrpcRequest({ ...entity, sslVerification: true })).sslVerification).toBe(
+      true,
+    );
   });
 
   it('normalizes absent description to an empty string — clearing docs round-trips', () => {

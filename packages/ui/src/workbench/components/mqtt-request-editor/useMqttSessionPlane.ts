@@ -42,6 +42,7 @@ import {
   capturedMqttRequestFromDraft,
   capturedMqttResponseFromSnapshot,
 } from '../mqtt-response-example/mqtt-example-draft';
+import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
 import { schemeOf } from './compose';
 import { buildMqttRequestUpdates, type MqttDraft, trimTopicRows } from './draft';
 import { makeMqttPageResolutionFactory, publishMqttPageResolutionFactory } from './mqtt-page-session';
@@ -58,6 +59,10 @@ export interface LiveSubscriptionMark {
 interface UseMqttSessionPlaneInput {
   entity: MqttRequestEntity | null;
   draft: MqttDraft;
+  /** The request's ancestor plane — the effective verification switch
+   *  (own, else the chain's, else on) gates the page-session honesty
+   *  notice and stamps the captured example. */
+  inherited: InheritedSettingsView;
   workspaceId: string | null;
   v5: boolean;
   /** "Save Response" landed — open the minted example's viewer tab. */
@@ -96,12 +101,16 @@ export interface MqttSessionPlane {
 export function useMqttSessionPlane({
   entity,
   draft,
+  inherited,
   workspaceId,
   v5,
   onOpenMqttResponseExample,
 }: UseMqttSessionPlaneInput): MqttSessionPlane {
   const { message: toast } = App.useApp();
   const t = useT();
+  // The verification switch the session runs under — the request's
+  // own, else the chain's, else on (the rule the executor applies).
+  const sslVerification = draft.sslVerification ?? inherited.settings.sslVerification ?? true;
   const { collections, collectionTrees, executeMqtt, folders } = useRequests();
 
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
@@ -228,7 +237,7 @@ export function useMqttSessionPlane({
     // the session's whole life instead of silently dropping (the
     // connect deadline DOES apply here).
     const inapplicableKnobs: string[] = [];
-    if (pageSession && !draft.sslVerification) {
+    if (pageSession && !sslVerification) {
       inapplicableKnobs.push(t('workbench.editors.mqtt.session.knobSslVerify'));
     }
     setHostNotice(
@@ -264,7 +273,7 @@ export function useMqttSessionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, v5, pageSession, executeMqtt, liveSession, toast, t]);
+  }, [entity, inFlight, draft, sslVerification, v5, pageSession, executeMqtt, liveSession, toast, t]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean DISCONNECT; the pending RPC above resolves with the
@@ -364,7 +373,8 @@ export function useMqttSessionPlane({
           mqttRequestUid: entity.uid,
           name,
           capturedAt: new Date().toISOString(),
-          request: capturedMqttRequestFromDraft(draft),
+          // The capture records the CONCRETE flag the session used.
+          request: capturedMqttRequestFromDraft({ ...draft, sslVerification }),
           response,
         },
       },
@@ -380,7 +390,7 @@ export function useMqttSessionPlane({
           : t('workbench.editors.mqtt.toast.saveExampleFailed'),
       );
     }
-  }, [entity, workspaceId, snapshot, draft, toast, onOpenMqttResponseExample, t]);
+  }, [entity, workspaceId, snapshot, draft, sslVerification, toast, onOpenMqttResponseExample, t]);
 
   const canSaveResponse = workspaceId !== null && snapshot !== null && snapshot.outcome.kind === 'connected';
 

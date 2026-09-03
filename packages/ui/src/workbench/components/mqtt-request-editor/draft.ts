@@ -14,6 +14,15 @@
  * container-scalar paths (publishProperties / lastWill / specLink):
  * every previously-saved leaf tombstones, so clearing the last field
  * of a saved block honestly unsets it instead of re-priming.
+ *
+ * The inheritable knobs are TRI-STATE on the form (`undefined` = the
+ * chain's value or the runtime default, an explicit value = the
+ * request's own, whatever it is — the settings-inheritance law): the
+ * form carries the entity's value as it is, the save patch writes an
+ * explicit value only while the form holds one and clears the leaf
+ * when it does not (the update builder tombstones a stored slot on an
+ * explicit `undefined`), so a request can inherit a collection's
+ * Clean Start off or shadow it with its own on.
  */
 
 import type { MqttScriptKind } from '@openheaders/core/scripts';
@@ -90,32 +99,33 @@ export interface MqttDraft {
    *  of the save patch). */
   scripts: MqttScriptSlots;
   clientId: string;
-  /** Concrete — absent on the entity reads as on (the safe default). */
-  cleanStart: boolean;
+  /** `undefined` = inherit or on (the safe default). */
+  cleanStart: boolean | undefined;
   sessionExpiryInterval: number | undefined;
   keepAlive: number | undefined;
   receiveMaximum: number | undefined;
   maximumPacketSize: number | undefined;
   topicAliasMaximum: number | undefined;
-  /** Concrete — absent on the entity reads as off (the spec default). */
-  requestResponseInformation: boolean;
-  /** Concrete — absent on the entity reads as on (the spec default). */
-  requestProblemInformation: boolean;
+  /** `undefined` = inherit or off (the spec default). */
+  requestResponseInformation: boolean | undefined;
+  /** `undefined` = inherit or on (the spec default). */
+  requestProblemInformation: boolean | undefined;
   timeoutMs: number | undefined;
-  /** Concrete — absent on the entity reads as off. */
-  autoReconnect: boolean;
+  /** `undefined` = inherit or off. */
+  autoReconnect: boolean | undefined;
   reconnectPeriodMs: number | undefined;
   reconnectMaxAttempts: number | undefined;
-  /** Concrete — absent on the entity reads as a fixed period. */
-  reconnectBackoff: boolean;
+  /** `undefined` = inherit or a fixed period. */
+  reconnectBackoff: boolean | undefined;
   /** The dial policy — `undefined` = system DNS / the host's proxy
    *  planes (the HTTP request's knobs on the broker dial). */
   resolveToAddress: string | undefined;
   proxyMode: ProxyMode | undefined;
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
-  /** Concrete — absent on the entity reads as verify-on. */
-  sslVerification: boolean;
+  /** `undefined` = inherit or verify-on; an explicit value is the
+   *  request's own either way. */
+  sslVerification: boolean | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -144,24 +154,24 @@ export interface MqttRequestUpdates {
    *  flatten-diff tombstones a slot the user emptied. */
   scripts: MqttScriptSlots;
   clientId: string;
-  cleanStart: boolean;
+  cleanStart: boolean | undefined;
   sessionExpiryInterval: number | undefined;
   keepAlive: number | undefined;
   receiveMaximum: number | undefined;
   maximumPacketSize: number | undefined;
   topicAliasMaximum: number | undefined;
-  requestResponseInformation: boolean;
-  requestProblemInformation: boolean;
+  requestResponseInformation: boolean | undefined;
+  requestProblemInformation: boolean | undefined;
   timeoutMs: number | undefined;
-  autoReconnect: boolean;
+  autoReconnect: boolean | undefined;
   reconnectPeriodMs: number | undefined;
   reconnectMaxAttempts: number | undefined;
-  reconnectBackoff: boolean;
+  reconnectBackoff: boolean | undefined;
   resolveToAddress: string | undefined;
   proxyMode: ProxyMode | undefined;
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
-  sslVerification: boolean;
+  sslVerification: boolean | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -333,24 +343,24 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     specLink: req.specLink,
     scripts: { ...req.scripts },
     clientId: req.clientId ?? '',
-    cleanStart: req.cleanStart ?? true,
+    cleanStart: req.cleanStart,
     sessionExpiryInterval: req.sessionExpiryInterval,
     keepAlive: req.keepAlive,
     receiveMaximum: req.receiveMaximum,
     maximumPacketSize: req.maximumPacketSize,
     topicAliasMaximum: req.topicAliasMaximum,
-    requestResponseInformation: req.requestResponseInformation ?? false,
-    requestProblemInformation: req.requestProblemInformation ?? true,
+    requestResponseInformation: req.requestResponseInformation,
+    requestProblemInformation: req.requestProblemInformation,
     timeoutMs: req.timeoutMs,
-    autoReconnect: req.autoReconnect ?? false,
+    autoReconnect: req.autoReconnect,
     reconnectPeriodMs: req.reconnectPeriodMs,
     reconnectMaxAttempts: req.reconnectMaxAttempts,
-    reconnectBackoff: req.reconnectBackoff ?? true,
+    reconnectBackoff: req.reconnectBackoff,
     resolveToAddress: req.resolveToAddress,
     proxyMode: req.proxyMode,
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
-    sslVerification: req.sslVerification ?? true,
+    sslVerification: req.sslVerification,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,

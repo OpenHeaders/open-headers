@@ -81,12 +81,26 @@ describe('websocket draft projections', () => {
     expect(updates.params).toEqual([{ uid: 'wspm0002', key: 'k', value: '', enabled: true, hasEquals: true }]);
   });
 
-  it('reads an absent sslVerification as verify-on and carries an explicit opt-out', () => {
-    expect(buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest())).sslVerification).toBe(true);
+  it('keeps an absent sslVerification absent (tri-state — the chain’s switch reaches the session) and carries an explicit value either way', () => {
+    expect(buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest())).sslVerification).toBeUndefined();
     expect(
       buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ sslVerification: false })))
         .sslVerification,
     ).toBe(false);
+    expect(
+      buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ sslVerification: true })))
+        .sslVerification,
+    ).toBe(true);
+  });
+
+  it('reads an empty stored handshake path as absent so the chain’s path shows through; a set one round-trips', () => {
+    expect(
+      buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ handshakePath: '' }))).handshakePath,
+    ).toBeUndefined();
+    expect(
+      buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest({ handshakePath: '/ws/' })))
+        .handshakePath,
+    ).toBe('/ws/');
   });
 
   it('round-trips the Unix-socket knob; absent stays undefined so the save patch skips it', () => {
@@ -97,7 +111,7 @@ describe('websocket draft projections', () => {
     expect(updates.unixSocketPath).toBe('/var/run/openheaders/ws.sock');
   });
 
-  it('carries the resilience policy through the round-trip and reads the switches off / backoff-on by default', () => {
+  it('carries the resilience policy through the round-trip; absent switches stay absent (tri-state)', () => {
     const tuned = websocketRequest({
       autoReconnect: true,
       reconnectPeriodMs: 2_000,
@@ -117,8 +131,8 @@ describe('websocket draft projections', () => {
     expect(updates.heartbeatMessage).toBe('{"type":"ping"}');
     expect(updates.heartbeatIntervalMs).toBe(15_000);
     const bare = buildWebSocketRequestUpdates(draftFromWebSocketRequest(websocketRequest()));
-    expect(bare.autoReconnect).toBe(false);
-    expect(bare.reconnectBackoff).toBe(true);
+    expect(bare.autoReconnect).toBeUndefined();
+    expect(bare.reconnectBackoff).toBeUndefined();
     expect(bare.idleTimeoutMs).toBeUndefined();
     expect(bare.heartbeatMessage).toBeUndefined();
   });

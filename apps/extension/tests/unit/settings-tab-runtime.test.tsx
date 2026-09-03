@@ -18,7 +18,7 @@ import { buildRequestTabItems } from '@openheaders/ui/workbench/components/reque
 import SettingsTab from '@openheaders/ui/workbench/components/request-editor/SettingsTab';
 import type { SettingsKnobKey } from '@openheaders/ui/workbench/components/request-editor/settings-unsaved';
 import type { SectionUnresolved } from '@openheaders/ui/workbench/components/request-editor/useSectionUnresolved';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // The antd Select dropdown measures itself via rc-resize-observer;
@@ -307,10 +307,10 @@ describe('SettingsTab on a node runtime', () => {
     expect(onChangeOff).toHaveBeenCalledWith(expect.objectContaining({ cookieJar: undefined }));
   });
 
-  it('dots the tab only while the cookie jar is on', () => {
+  it('dots the tab on any own cookie-jar value — explicit wins, an explicit off is the request’s own too', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ cookieJar: true })).toBe(1);
-    expect(settingsDotCount({ cookieJar: false })).toBe(0);
+    expect(settingsDotCount({ cookieJar: false })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 
@@ -341,10 +341,10 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount({ credentialsMode: 'include' })).toBe(0);
   });
 
-  it('dots the Settings tab when verification is off', () => {
+  it('dots the Settings tab on any own verification value (explicit wins); absent inherits and stays quiet', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ sslVerification: false })).toBe(1);
-    expect(settingsDotCount({ sslVerification: true })).toBe(0);
+    expect(settingsDotCount({ sslVerification: true })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 
@@ -546,11 +546,11 @@ describe('SettingsTab on a node runtime', () => {
     expect(dropdownOption('HTTP/3')).toBeTruthy();
   });
 
-  it('dots the tab only while a non-Auto version is picked', () => {
+  it('dots the tab on any own version — an explicit Auto pins the request off an ancestor’s version', () => {
     registerCapability('requestRuntime', () => 'node');
     expect(settingsDotCount({ httpVersion: '2' })).toBe(1);
     expect(settingsDotCount({ httpVersion: '1.1' })).toBe(1);
-    expect(settingsDotCount({ httpVersion: 'auto' })).toBe(0);
+    expect(settingsDotCount({ httpVersion: 'auto' })).toBe(1);
     expect(settingsDotCount()).toBe(0);
   });
 
@@ -795,7 +795,9 @@ describe('SettingsTab on a node runtime', () => {
     expect(settingsDotCount({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128' })).toBe(1);
     // Direct is off the Inherit default and dots too.
     expect(settingsDotCount({ proxyMode: 'direct' })).toBe(1);
-    // The credentials row hides while the mode isn't Custom — no control, no dot.
+    // The proxy trio is one unit keyed on the mode: a bare synced ref
+    // is inert (the chain's unit still applies) and its row hidden — no
+    // control, no dot.
     expect(settingsDotCount({ proxyCredentialRef: 'corp-proxy' })).toBe(0);
     expect(settingsDotCount()).toBe(0);
   });
@@ -1056,5 +1058,99 @@ describe('SettingsTab info popovers', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About Connection' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
     expect(litTokens()).toEqual(['h2', 'direct']);
+  });
+});
+
+describe('SettingsTab on the ancestor plane (settings inheritance, the request rows)', () => {
+  const view = (
+    settings: Record<string, unknown>,
+    onOpenSource?: (level: 'collection' | 'folder', uid: string, name: string) => void,
+  ) => ({
+    settings,
+    sources: Object.keys(settings).map((key) => ({
+      key: key as never,
+      level: 'collection' as const,
+      uid: 'col00001',
+      name: 'Payments',
+    })),
+    onOpenSource,
+  });
+
+  it('an inherited knob reads as the placeholder with the "Inherited from" line and the Edit in parent opener', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onOpenSource = vi.fn();
+    render(
+      <SettingsTab
+        value={{}}
+        onChange={() => {}}
+        inherited={view({ timeoutMs: 30_000, maxRedirects: 5 }, onOpenSource)}
+      />,
+    );
+    // rc-select renders the placeholder as a sibling span, not an input attribute.
+    expect(screen.getByText('30 s')).toBeTruthy();
+    expect(screen.getByText('5 hops')).toBeTruthy();
+    const notes = screen.getAllByTestId('oh-inherited-setting-note');
+    expect(notes.map((n) => n.getAttribute('data-key'))).toEqual(['maxRedirects', 'timeoutMs']);
+    expect(notes[1].textContent).toContain('Inherited from Collection ‘Payments’');
+    fireEvent.click(within(notes[1]).getByTestId('oh-inherited-setting-edit-in-parent'));
+    expect(onOpenSource).toHaveBeenCalledWith('collection', 'col00001', 'Payments');
+    // Nothing is the request's own — no reset, no dot.
+    expect(screen.queryByRole('button', { name: 'Reset Request timeout to default' })).toBeNull();
+  });
+
+  it('an inherited switch renders its effective state with the line; a toggle writes the explicit value', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{}} onChange={onChange} inherited={view({ followRedirects: false })} />);
+    const follow = screen.getByRole('switch', { name: 'Automatically follow redirects' });
+    expect(follow.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByTestId('oh-inherited-setting-note').getAttribute('data-key')).toBe('followRedirects');
+    // The redirect trio follows the EFFECTIVE switch — off, so hidden.
+    expect(screen.queryByRole('combobox', { name: 'Maximum redirects' })).toBeNull();
+    fireEvent.click(follow);
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ followRedirects: true }));
+  });
+
+  it('an own value shadows the inherited one — the row dots, the line goes, reset clears back to inherit', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(
+      <SettingsTab
+        value={{ timeoutMs: 5_000, sslVerification: true }}
+        onChange={onChange}
+        inherited={view({ timeoutMs: 30_000, sslVerification: false })}
+      />,
+    );
+    expect((screen.getByRole('combobox', { name: 'Request timeout' }) as HTMLInputElement).value).toBe('5 s');
+    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    // Explicit wins: an own `true` under the collection's `false` is the
+    // request's own value — checked, dotted, resettable.
+    expect(screen.getByRole('switch', { name: 'SSL certificate verification' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reset SSL certificate verification to default' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ sslVerification: undefined }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Request timeout to default' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ timeoutMs: undefined }));
+  });
+
+  it('a knob nobody sets keeps the runtime default as its placeholder, with no line', () => {
+    registerCapability('requestRuntime', () => 'node');
+    render(<SettingsTab value={{}} onChange={() => {}} inherited={view({ timeoutMs: 30_000 })} />);
+    expect(screen.getByText('2 MB (default)')).toBeTruthy();
+    expect(screen.getAllByTestId('oh-inherited-setting-note')).toHaveLength(1);
+  });
+
+  it('an explicit Auto version is the request’s own pin on the plane — shown as the value, not the ancestor’s placeholder', () => {
+    registerCapability('requestRuntime', () => 'node');
+    const onChange = vi.fn();
+    render(<SettingsTab value={{ httpVersion: 'auto' }} onChange={onChange} inherited={view({ httpVersion: '2' })} />);
+    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset HTTP version to default' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ httpVersion: undefined }));
+    cleanup();
+    render(<SettingsTab value={{}} onChange={onChange} inherited={view({ httpVersion: '2' })} />);
+    expect(screen.getByText('HTTP/2')).toBeTruthy();
+    expect(screen.getByTestId('oh-inherited-setting-note').getAttribute('data-key')).toBe('httpVersion');
   });
 });

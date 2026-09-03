@@ -38,8 +38,10 @@ export interface GrpcRequestMutationPayload {
 /** Live-itemId reader for the `metadata` set path — see {@link request-mutations}' LiveSetEntries. */
 export type GrpcLiveSetEntries = (grpcRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
-/** Current materialized value reader for object-valued scalar paths
- *  (`method`, `auth`, `specLink`, `scripts`). */
+/** Current materialized value reader for scalar paths — the
+ *  object-valued ones' flatten-diff baseline (`method`, `auth`,
+ *  `specLink`, `scripts`) and the explicit-clear guard for every plain
+ *  knob (see {@link request-mutations}' LiveFieldValue). */
 export type GrpcLiveFieldValue = (grpcRequestUid: string, path: string) => unknown;
 
 /** A record with no keys reads as no record — see the `scripts` note below. */
@@ -96,7 +98,18 @@ export function buildGrpcUpdateBatch(
   const bodies: MutationBody[] = [];
 
   for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
+    if (value === undefined) {
+      // A key explicitly present with `undefined` is the editor's
+      // "cleared back to inherit / default" encoding — tombstone the
+      // slot, but only when the canonical pre-image actually carries a
+      // value: unconditional tombstones would stamp fresh HLCs on every
+      // untouched field and stomp a peer's concurrent set under LWW.
+      // The set-modeled path never clears this way.
+      if (key !== GRPC_REQUEST_METADATA_PATH && liveFieldValue(grpcRequestUid, key) !== undefined) {
+        bodies.push({ kind: 'unsetField', type: GRPC_REQUEST_ENTITY_TYPE, id: grpcRequestUid, path: key });
+      }
+      continue;
+    }
 
     if (key === GRPC_REQUEST_METADATA_PATH && Array.isArray(value)) {
       bodies.push(

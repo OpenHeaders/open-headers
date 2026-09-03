@@ -31,6 +31,7 @@ import {
   capturedGrpcRequestFromDraft,
   capturedGrpcResponseFromSnapshot,
 } from '../grpc-response-example/grpc-example-draft';
+import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
 import { buildGrpcRequestUpdates, type GrpcDraft } from './draft';
 import type { GrpcMethodOption } from './method-selector';
 import { type GrpcStreamSession, type LiveGrpcStream, useLiveGrpcStream } from './useLiveGrpcStream';
@@ -38,6 +39,9 @@ import { type GrpcStreamSession, type LiveGrpcStream, useLiveGrpcStream } from '
 interface UseGrpcInvokePlaneInput {
   entity: GrpcRequestEntity | null;
   draft: GrpcDraft;
+  /** The request's ancestor plane — the effective verification switch
+   *  (own, else the chain's, else on) stamps the captured example. */
+  inherited: InheritedSettingsView;
   workspaceId: string | null;
   /** The method the compose targets — stamps the result pane's shape
    *  at invoke time. */
@@ -77,6 +81,7 @@ export interface GrpcInvokePlane {
 export function useGrpcInvokePlane({
   entity,
   draft,
+  inherited,
   workspaceId,
   selectedOption,
   sendInvalidMessage,
@@ -84,6 +89,9 @@ export function useGrpcInvokePlane({
 }: UseGrpcInvokePlaneInput): GrpcInvokePlane {
   const { message: toast } = App.useApp();
   const t = useT();
+  // The verification switch the call runs under — the request's own,
+  // else the chain's, else on (the rule the executor applies).
+  const sslVerification = draft.sslVerification ?? inherited.settings.sslVerification ?? true;
   const { executeGrpc } = useRequests();
   const { isConnected } = useRules();
 
@@ -176,7 +184,8 @@ export function useGrpcInvokePlane({
           grpcRequestUid: entity.uid,
           name,
           capturedAt: new Date().toISOString(),
-          request: capturedGrpcRequestFromDraft(draft),
+          // The capture records the CONCRETE flag the call used.
+          request: capturedGrpcRequestFromDraft({ ...draft, sslVerification }),
           response: capturedGrpcResponseFromSnapshot(response),
         },
       },
@@ -192,7 +201,7 @@ export function useGrpcInvokePlane({
           : t('workbench.editors.grpc.toast.saveExampleFailed'),
       );
     }
-  }, [entity, workspaceId, response, draft, toast, onOpenGrpcResponseExample, t]);
+  }, [entity, workspaceId, response, draft, sslVerification, toast, onOpenGrpcResponseExample, t]);
 
   const canSaveResponse = workspaceId !== null && response !== null && response.error === null;
 

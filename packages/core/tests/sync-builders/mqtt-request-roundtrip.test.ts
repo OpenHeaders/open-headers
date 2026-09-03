@@ -49,11 +49,7 @@ function liveField(store: InMemoryDocumentStore, uid: string): MqttLiveFieldValu
     const m = store.materializeOne(MQTT_REQUEST_ENTITY_TYPE, uid);
     const r = m ? projectMqttRequest(m) : null;
     if (!r) return undefined;
-    if (path === 'publishProperties') return r.publishProperties;
-    if (path === 'lastWill') return r.lastWill;
-    if (path === 'specLink') return r.specLink;
-    if (path === 'auth') return r.auth;
-    return undefined;
+    return r[path as keyof MqttRequest];
   };
 }
 
@@ -407,5 +403,37 @@ describe('mqtt request update batches', () => {
       buildMqttUpdateBatch('mqrq0001', { userProperties: next }, ctx(2_000), liveSets, liveField(store, 'mqrq0001')),
     );
     expect(materialized(store, 'mqrq0001').userProperties).toEqual(next);
+  });
+
+  it('tombstones a stored scalar knob the patch clears with an explicit undefined — a reset to inherit persists', () => {
+    const store = new InMemoryDocumentStore(mqttSchemas);
+    applyBatch(store, buildMqttAddBatch(seed, ctx(1_000), null));
+    applyBatch(
+      store,
+      buildMqttUpdateBatch(
+        'mqrq0001',
+        { cleanStart: false, keepAlive: 30 },
+        ctx(2_000),
+        noSets,
+        liveField(store, 'mqrq0001'),
+      ),
+    );
+    expect(materialized(store, 'mqrq0001')).toMatchObject({ cleanStart: false, keepAlive: 30 });
+
+    const clear = buildMqttUpdateBatch(
+      'mqrq0001',
+      { cleanStart: undefined, keepAlive: undefined, sslVerification: undefined },
+      ctx(3_000),
+      noSets,
+      liveField(store, 'mqrq0001'),
+    );
+    expect(clear.batch.mutations.map((m) => m.body)).toEqual([
+      { kind: 'unsetField', type: MQTT_REQUEST_ENTITY_TYPE, id: 'mqrq0001', path: 'cleanStart' },
+      { kind: 'unsetField', type: MQTT_REQUEST_ENTITY_TYPE, id: 'mqrq0001', path: 'keepAlive' },
+    ]);
+    applyBatch(store, clear);
+    const after = materialized(store, 'mqrq0001');
+    expect(after.cleanStart).toBeUndefined();
+    expect(after.keepAlive).toBeUndefined();
   });
 });

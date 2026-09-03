@@ -18,6 +18,29 @@ import type { SectionUnresolved } from './useSectionUnresolved';
 
 export type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings' | 'spec';
 
+/** The knobs whose rows render on a node runtime alone — the browser
+ *  keeps them as runtime-managed facts, so they never dot its tab. The
+ *  proxy trio counts through its MODE (the unit law: a URL or a
+ *  credential ref is the request's own only with the mode it rides;
+ *  a bare synced ref is inert and its row hidden). */
+const NODE_SETTINGS_KNOBS: readonly SettingsKnobKey[] = [
+  'sslVerification',
+  'tlsMinVersion',
+  'tlsMaxVersion',
+  'tlsCipherSuites',
+  'sniServerName',
+  'httpVersion',
+  'resolveToAddress',
+  'clientCertificateRef',
+  'proxyMode',
+  'unixSocketPath',
+  'cookieJar',
+  'maxResponseBytes',
+  'maxRedirects',
+  'followOriginalHttpMethod',
+  'followAuthorizationHeader',
+];
+
 /** Mini count badge on a tab label. `unsaved` recolors it in the
  *  sidebar/tab-bar dirty salmon — the section's rows differ from the
  *  saved request, and the badge doubles as the dirty dot. */
@@ -90,66 +113,34 @@ export function buildRequestTabItems(
   const paramCount = authContrib.params.length + draft.params.filter((p) => p.enabled && p.key.trim()).length;
   const headerCount = authContrib.headers.length + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
   const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
-  // Settings is "dirty" if any wired knob differs from default. Knobs
-  // that only exist on one runtime gate their contribution on it — a
-  // synced `credentialsMode` / `sslVerification` must not dot a tab
-  // that shows no such control.
+  // Settings dots while the request sets any knob of its OWN — explicit
+  // wins on the ancestor plane (a defined value is the request's,
+  // whatever it is; only absence inherits), the same reading the tab's
+  // rows give. Knobs that only exist on one runtime gate their
+  // contribution on it — a synced `credentialsMode` / `sslVerification`
+  // must not dot a tab that shows no such control. The hidden rows
+  // (the proxy URL with the mode not Custom, the redirect trio with
+  // follow off) count with their gate knob: a set value is still the
+  // request's own.
   const browserRuntime = (getCapability('requestRuntime')?.() ?? 'browser') === 'browser';
+  const own = (key: SettingsKnobKey): boolean => draft[key] !== undefined;
   const settingsDirty =
-    (browserRuntime && draft.credentialsMode === 'include') ||
-    (draft.followRedirects !== undefined && draft.followRedirects !== true) ||
-    (!browserRuntime && draft.sslVerification === false) ||
-    (!browserRuntime &&
-      (draft.tlsMinVersion !== undefined || draft.tlsMaxVersion !== undefined || draft.tlsCipherSuites !== undefined)) ||
-    (!browserRuntime && draft.sniServerName !== undefined) ||
-    (!browserRuntime && draft.httpVersion !== undefined && draft.httpVersion !== 'auto') ||
-    (!browserRuntime && draft.resolveToAddress !== undefined) ||
-    (!browserRuntime && draft.clientCertificateRef !== undefined) ||
-    // The proxy-credentials row hides while the mode isn't Custom, so a
-    // bare synced ref never dots; a set ref implies a set mode, which
-    // already counts. Any explicit mode (Direct or Custom) is off the
-    // Inherit default and dots.
-    (!browserRuntime && (draft.proxyMode !== undefined || draft.proxyUrl !== undefined)) ||
-    (!browserRuntime && draft.unixSocketPath !== undefined) ||
-    (!browserRuntime && draft.cookieJar === true) ||
-    draft.timeoutMs !== undefined ||
-    (!browserRuntime && draft.maxResponseBytes !== undefined) ||
-    // The redirect trio's rows hide while follow-redirects is off; no
-    // extra gate needed — a non-default followRedirects already dotted
-    // the tab above, so this clause only runs while the rows are shown.
-    (!browserRuntime &&
-      (draft.maxRedirects !== undefined ||
-        draft.followOriginalHttpMethod === true ||
-        draft.followAuthorizationHeader === true));
+    (browserRuntime && own('credentialsMode')) ||
+    own('followRedirects') ||
+    own('timeoutMs') ||
+    (!browserRuntime && NODE_SETTINGS_KNOBS.some(own));
   // Settings holds a knob that differs from the SAVED request — the
-  // orange (unsaved) tone outranks the blue non-default dot. Same
+  // orange (unsaved) tone outranks the blue own-value dot. Same
   // per-runtime visibility gates as `settingsDirty`: a synced delta on
-  // a knob with no row here must not dot the tab. Hidden-row deltas
-  // (proxy URL with mode ≠ Custom, the redirect trio with follow off)
-  // only ever arrive together with a delta on their visible gate knob,
-  // which already counts.
+  // a knob with no row here must not dot the tab; the proxy URL and
+  // credential rows are live under an own Custom mode, so their edits
+  // count here.
+  const has = (key: SettingsKnobKey): boolean => unsavedSettings.has(key);
   const settingsUnsaved =
-    (browserRuntime && unsavedSettings.has('credentialsMode')) ||
-    unsavedSettings.has('followRedirects') ||
-    unsavedSettings.has('timeoutMs') ||
-    (!browserRuntime &&
-      (unsavedSettings.has('sslVerification') ||
-        unsavedSettings.has('tlsMinVersion') ||
-        unsavedSettings.has('tlsMaxVersion') ||
-        unsavedSettings.has('tlsCipherSuites') ||
-        unsavedSettings.has('sniServerName') ||
-        unsavedSettings.has('httpVersion') ||
-        unsavedSettings.has('resolveToAddress') ||
-        unsavedSettings.has('clientCertificateRef') ||
-        unsavedSettings.has('proxyMode') ||
-        unsavedSettings.has('proxyUrl') ||
-        unsavedSettings.has('proxyCredentialRef') ||
-        unsavedSettings.has('unixSocketPath') ||
-        unsavedSettings.has('cookieJar') ||
-        unsavedSettings.has('maxResponseBytes') ||
-        unsavedSettings.has('maxRedirects') ||
-        unsavedSettings.has('followOriginalHttpMethod') ||
-        unsavedSettings.has('followAuthorizationHeader')));
+    (browserRuntime && has('credentialsMode')) ||
+    has('followRedirects') ||
+    has('timeoutMs') ||
+    (!browserRuntime && (NODE_SETTINGS_KNOBS.some(has) || has('proxyUrl') || has('proxyCredentialRef')));
 
   // Tone precedence on every label: red unresolved > salmon unsaved >
   // blue has-content. On the badge tabs (Params / Headers) the count

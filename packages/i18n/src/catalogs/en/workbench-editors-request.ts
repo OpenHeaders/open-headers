@@ -1394,6 +1394,13 @@ export const workbenchEditorsRequest = {
     'Sent without authorization — nothing is set above the request.',
   'workbench.editors.request.response.meta.authDangling':
     'The entry the request picked no longer exists — the default applied instead.',
+  // The Inherited settings tag — the knobs the run took from the
+  // levels above the request, each listed against its source.
+  'workbench.editors.request.response.meta.inheritedSettingsTag': 'Inherited settings · {count}',
+  'workbench.editors.request.response.meta.inheritedSettingsTitle': 'Inherited settings',
+  'workbench.editors.request.response.meta.inheritedSettingsSummary':
+    'Settings the run took from the collection or folder above the request — resolved the way its Settings tab shows them, the request’s own values winning over the chain.',
+  'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Setting · source',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Script chain',
   'workbench.editors.request.response.meta.scriptsSummary':

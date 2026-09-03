@@ -1262,6 +1262,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.authSummaryInherited': '{type}——继承自{source}。',
   'workbench.editors.request.response.meta.authSummaryNone': '未携带授权发送——请求之上未设置任何内容。',
   'workbench.editors.request.response.meta.authDangling': '请求选择的条目已不存在——改为应用了默认项。',
+  'workbench.editors.request.response.meta.inheritedSettingsTag': '继承的设置 · {count}',
+  'workbench.editors.request.response.meta.inheritedSettingsTitle': '继承的设置',
+  'workbench.editors.request.response.meta.inheritedSettingsSummary':
+    '本次运行从请求上方的集合或文件夹继承的设置——按“设置”标签页的显示方式解析，请求自身的值优先于继承链。',
+  'workbench.editors.request.response.meta.inheritedSettingsHeading': '设置 · 来源',
   'workbench.editors.request.response.meta.scriptsTag': '脚本 · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': '脚本链',
   'workbench.editors.request.response.meta.scriptsSummary':

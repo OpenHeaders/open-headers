@@ -1,9 +1,11 @@
 /**
  * Per-knob unsaved-vs-saved comparison (settings-unsaved.ts) — the
- * saved side of the Settings tab's orange dots. Comparison must run on
- * normalized values (an explicit stored default equals the cleared
- * knob) and must flag a knob reverted to its default but not yet saved
- * (the "orange even without a blue dot" case).
+ * saved side of the Settings tab's orange dots. Comparison runs on the
+ * RAW values (explicit wins on the ancestor plane: a stored default-
+ * equivalent is the request's own value, so it differs from the
+ * cleared knob exactly as derived dirty sees it) and must flag a knob
+ * reverted to its default but not yet saved (the "orange even without
+ * a blue dot" case).
  */
 
 import {
@@ -40,7 +42,7 @@ describe('unsavedSettingKeys', () => {
     expect(out.has('cookieJar')).toBe(true);
   });
 
-  it('treats explicit stored defaults as equal to the cleared knob', () => {
+  it('treats an explicit stored default as the request’s own value — it differs from the cleared knob (explicit wins)', () => {
     const explicitDefaults: RequestSettingsSlice = {
       credentialsMode: 'omit',
       followRedirects: true,
@@ -50,8 +52,9 @@ describe('unsavedSettingKeys', () => {
       followOriginalHttpMethod: false,
       followAuthorizationHeader: false,
     };
-    expect(unsavedSettingKeys({}, explicitDefaults).size).toBe(0);
-    expect(unsavedSettingKeys(explicitDefaults, {}).size).toBe(0);
+    expect([...unsavedSettingKeys({}, explicitDefaults)]).toEqual(Object.keys(explicitDefaults));
+    expect(unsavedSettingKeys(explicitDefaults, {}).size).toBe(7);
+    expect(unsavedSettingKeys(explicitDefaults, { ...explicitDefaults }).size).toBe(0);
   });
 
   it('still flags genuinely non-default booleans and versions', () => {

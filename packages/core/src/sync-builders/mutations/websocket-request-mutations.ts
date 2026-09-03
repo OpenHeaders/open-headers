@@ -41,7 +41,10 @@ export interface WebSocketRequestMutationPayload {
 /** Live-itemId reader for the set paths — see {@link request-mutations}' LiveSetEntries. */
 export type WebSocketLiveSetEntries = (webSocketRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
-/** Current materialized value reader for container-valued scalar paths (`subprotocols`, `specLink`, `auth`). */
+/** Current materialized value reader for scalar paths — the
+ *  container-valued ones' flatten-diff baseline (`subprotocols`,
+ *  `specLink`, `auth`, `scripts`) and the explicit-clear guard for
+ *  every plain knob (see {@link request-mutations}' LiveFieldValue). */
 export type WebSocketLiveFieldValue = (webSocketRequestUid: string, path: string) => unknown;
 
 /**
@@ -112,7 +115,18 @@ export function buildWebSocketUpdateBatch(
   const bodies: MutationBody[] = [];
 
   for (const [key, value] of Object.entries(updates)) {
-    if (value === undefined) continue;
+    if (value === undefined) {
+      // A key explicitly present with `undefined` is the editor's
+      // "cleared back to inherit / default" encoding — tombstone the
+      // slot, but only when the canonical pre-image actually carries a
+      // value: unconditional tombstones would stamp fresh HLCs on every
+      // untouched field and stomp a peer's concurrent set under LWW.
+      // Set-modeled paths never clear this way.
+      if (isSetPath(key) === null && liveFieldValue(webSocketRequestUid, key) !== undefined) {
+        bodies.push({ kind: 'unsetField', type: WEBSOCKET_REQUEST_ENTITY_TYPE, id: webSocketRequestUid, path: key });
+      }
+      continue;
+    }
 
     const setPath = isSetPath(key);
     if (setPath && Array.isArray(value)) {

@@ -30,6 +30,8 @@
 import { CaretRightOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
+import { HTTP_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
+import { inheritedSettingsFor } from '@openheaders/core/settings-inheritance';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
@@ -71,7 +73,13 @@ import {
   rowsToParams,
 } from './draft';
 import { type TabKey, buildRequestTabItems } from './request-tab-items';
-import { ancestorScriptLevels, findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
+import {
+  ancestorScriptLevels,
+  findRequestAncestry,
+  resolveInheritedAuthFor,
+  settingsChainOf,
+} from '../request-container/ancestry';
+import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
 import RequestTabContent from './RequestTabContent';
 import ScriptModeTag from './ScriptModeTag';
 import RequestUrlBar from './RequestUrlBar';
@@ -134,6 +142,9 @@ interface RequestEditorProps {
   /** Opens a container's Scripts section — the Scripts tab's
    *  "Runs after …" level links. */
   onOpenContainerScripts?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  /** Opens a container's Settings section — the Settings rows'
+   *  "Inherited from … · Edit in parent" line. */
+  onOpenContainerSettings?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 /** Payload the request editor hands the extract action. */
@@ -162,6 +173,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   onOpenResponseExample,
   onOpenContainerAuth,
   onOpenContainerScripts,
+  onOpenContainerSettings,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -195,6 +207,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const ancestorScripts = useMemo(
     () => (ancestry === undefined ? undefined : ancestorScriptLevels(ancestry)),
     [ancestry],
+  );
+  // The Settings tab's ancestor plane — the chain's knobs as the rows'
+  // placeholders (a switch's effective state) with their source line,
+  // off the same tree-read ancestry; a scratch draft sits under no
+  // level and keeps the runtime defaults. Explicit wins on the plane.
+  const inheritedSettings = useMemo<InheritedSettingsView>(
+    () => ({
+      ...(ancestry ? inheritedSettingsFor(settingsChainOf(ancestry), HTTP_INHERITABLE_SETTING_KEYS) : NO_INHERITED_SETTINGS),
+      onOpenSource: onOpenContainerSettings,
+    }),
+    [ancestry, onOpenContainerSettings],
   );
   const [activeTab, setActiveTab] = useState<TabKey>('params');
 
@@ -975,6 +998,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         onOpenContainerAuth={onOpenContainerAuth}
                         ancestorScripts={ancestorScripts}
                         onOpenContainerScripts={onOpenContainerScripts}
+                        inheritedSettings={inheritedSettings}
                         requestName={summary?.name}
                       />
                     </div>
