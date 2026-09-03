@@ -141,6 +141,7 @@ test.describe('Scripts tab — snippets popover UI', () => {
       }
     }
     await expect(popover.getByText('Request', { exact: true })).toHaveCount(0);
+    await expect(popover.getByText('Packages', { exact: true })).toHaveCount(0);
     await workbench.toggleScriptSnippets();
   });
 
@@ -323,10 +324,10 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
     await expect(workbench.responseRegion().getByText('PASS', { exact: true })).toBeVisible();
   });
 
-  test('Response header check passes against the echo JSON', async () => {
+  test('Content-Type header is present passes against the echo JSON', async () => {
     await openScripts('snip-t-header', 'After response');
     await workbench.toggleScriptSnippets();
-    await workbench.insertScriptSnippet('Response header check');
+    await workbench.insertScriptSnippet('Content-Type header is present');
     await workbench.toggleScriptSnippets();
     await workbench.send();
     await workbench.responseStatusText();
@@ -355,7 +356,7 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
     await workbench.send();
     await workbench.responseStatusText();
     await workbench.openResponseTab(/Assertions/);
-    await expect(workbench.responseRegion().getByText('Body contains string')).toBeVisible();
+    await expect(workbench.responseRegion().getByText('Response body contains a string')).toBeVisible();
     await expect(workbench.responseRegion().getByText('FAIL', { exact: true })).toBeVisible();
   });
 
@@ -367,19 +368,19 @@ test.describe('Post-response test snippets surface in the Assertions tab', () =>
     await workbench.send();
     await workbench.responseStatusText();
     await workbench.openResponseTab(/Assertions/);
-    await expect(workbench.responseRegion().getByText('Body is the expected string')).toBeVisible();
+    await expect(workbench.responseRegion().getByText('Response body equals a string')).toBeVisible();
     await expect(workbench.responseRegion().getByText('FAIL', { exact: true })).toBeVisible();
   });
 
-  test('Response body JSON value check parses the echo and registers its (placeholder) failure', async () => {
+  test('Response body JSON value is correct parses the echo and registers its (placeholder) failure', async () => {
     await openScripts('snip-t-json', 'After response');
     await workbench.toggleScriptSnippets();
-    await workbench.insertScriptSnippet('Response body JSON value check');
+    await workbench.insertScriptSnippet('Response body JSON value is correct');
     await workbench.toggleScriptSnippets();
     await workbench.send();
     await workbench.responseStatusText();
     await workbench.openResponseTab(/Assertions/);
-    await expect(workbench.responseRegion().getByText('JSON value is correct')).toBeVisible();
+    await expect(workbench.responseRegion().getByText('Response body JSON value is correct')).toBeVisible();
     await expect(workbench.responseRegion().getByText('FAIL', { exact: true })).toBeVisible();
   });
 

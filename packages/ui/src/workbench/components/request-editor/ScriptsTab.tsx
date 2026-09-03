@@ -347,7 +347,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           >
             <ScriptPackagesMenu workspaceId={workspaceId} onInsert={insertSnippet} onOpenLibrary={onOpenPackageLibrary} />
             <Divider orientation="vertical" style={{ margin: 0 }} />
-            <ScriptSnippetsMenu kind={active} onInsert={insertSnippet} />
+            <ScriptSnippetsMenu kind={active} scope={scope} onInsert={insertSnippet} />
           </div>
         </div>
       </div>

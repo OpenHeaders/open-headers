@@ -319,3 +319,36 @@ describe('ScriptsTab request kinds', () => {
     expect(screen.getByText('oh.session')).toBeTruthy();
   });
 });
+
+describe('ScriptsTab snippets menu', () => {
+  /** The open popover's group headers, in order. */
+  const groupHeaders = (): string[] =>
+    screen.getAllByTestId('oh-script-snippet-group').map((el) => el.textContent ?? '');
+
+  it('follows the rail — the selected hook’s own group leads, the tail shared', async () => {
+    render(<ScriptsTab scope="request" requestKind="websocket" scripts={EMPTY} onScriptChange={() => {}} />);
+    fireEvent.click(screen.getByTestId('oh-script-snippets'));
+    expect(await screen.findByRole('button', { name: 'Set the subprotocol offer' })).toBeTruthy();
+    expect(groupHeaders()).toEqual(['Connect', 'Variables', 'Requests']);
+    // A rail click is an outside click — the popover closes; reopen it
+    // on the After close row and the list is that hook's.
+    fireEvent.click(screen.getByText('After close'));
+    fireEvent.click(screen.getByTestId('oh-script-snippets'));
+    expect(await screen.findByRole('button', { name: 'Nothing was dropped' })).toBeTruthy();
+    expect(groupHeaders()).toEqual(['Close', 'Tests', 'Variables', 'Requests']);
+    expect(screen.queryByRole('button', { name: 'Set the subprotocol offer' })).toBeNull();
+  });
+
+  it('a container mount drops the request-only entries; a request mount keeps them', async () => {
+    renderTab({ scope: 'container' });
+    fireEvent.click(screen.getByTestId('oh-script-snippets'));
+    expect(await screen.findByRole('button', { name: 'Set a header' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Set the URL' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Set a JSON body' })).toBeNull();
+    cleanup();
+    renderTab();
+    fireEvent.click(screen.getByTestId('oh-script-snippets'));
+    expect(await screen.findByRole('button', { name: 'Set the URL' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Set a JSON body' })).toBeTruthy();
+  });
+});

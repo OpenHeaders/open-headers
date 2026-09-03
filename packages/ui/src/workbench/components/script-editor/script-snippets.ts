@@ -1,21 +1,38 @@
 /**
- * Snippet catalog for the Scripts tab — ready-to-insert `oh.*` examples,
- * grouped per script kind. Pure data: the menu component renders it, the
- * editor inserts `code` verbatim at the cursor.
+ * Snippet catalog for the Scripts tab — ready-to-insert `oh.*` examples
+ * per script kind. Pure data: the menu component renders it, the editor
+ * inserts `code` verbatim at the cursor.
  *
- * Every snippet must stay valid against the sandbox surface in
- * `apps/extension/src/offscreen/sandbox.ts` (typed for Monaco by
- * `oh-types.ts`) — these are the examples users learn the API from.
+ * Three laws shape every list:
+ * - The hook's OWN group leads, named for what the hook acts on
+ *   (Request · Response · Connect · Send · Message · Close · Publish ·
+ *   Invoke): one snippet per verb the hook's `oh` declares, plus one
+ *   that reads the hook's view. A snippet only ever calls what its
+ *   kind's ambient declaration (`oh-types.ts`) offers — the catalog
+ *   test pins that against the DTS.
+ * - One shared tail in one order: Tests (the after / on hooks alone),
+ *   Variables (get · set · the hook's "save a value" · vault),
+ *   Requests (the two ad-hoc sends). No Packages group — the Packages
+ *   menu beside this one inserts the real requires.
+ * - A test snippet's label IS its test name, verbatim — the menu and
+ *   the Tests view say the same sentence.
+ *
+ * A snippet marked `requestOnly` replaces a request's identity (its
+ * URL, method, body, gRPC message); a container's slot runs for every
+ * request it holds, so those entries stay off the container mount.
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import type { ScriptSlotScope } from './script-slots';
 
 export interface ScriptSnippet {
   id: string;
   labelKey: MessageKey;
   code: string;
+  /** Rewrites what the request IS — shown on the request mount alone. */
+  requestOnly?: true;
 }
 
 export interface ScriptSnippetGroup {
@@ -23,35 +40,7 @@ export interface ScriptSnippetGroup {
   snippets: ScriptSnippet[];
 }
 
-const SEND_REQUEST: ScriptSnippet = {
-  id: 'send-request',
-  labelKey: 'workbench.editors.scriptEditor.snippet.sendRequest',
-  code: `try {
-  const response = await oh.sendRequest({
-    url: 'https://api.openheaders.com/v1/items',
-    method: 'GET',
-  });
-  console.log(response.status, response.body);
-} catch (err) {
-  console.error(err);
-}`,
-};
-
-const SEND_REQUEST_WITH_BODY: ScriptSnippet = {
-  id: 'send-request-with-body',
-  labelKey: 'workbench.editors.scriptEditor.snippet.sendRequestJsonBody',
-  code: `try {
-  const response = await oh.sendRequest({
-    url: 'https://api.openheaders.com/v1/items',
-    method: 'POST',
-    headers: [{ key: 'Content-Type', value: 'application/json' }],
-    body: { type: 'json', content: JSON.stringify({ name: 'value' }) },
-  });
-  console.log(response.status, response.body);
-} catch (err) {
-  console.error(err);
-}`,
-};
+// ── The shared tail ─────────────────────────────────────────────────
 
 const GET_VARIABLE: ScriptSnippet = {
   id: 'get-variable',
@@ -72,22 +61,56 @@ const GET_VAULT_SECRET: ScriptSnippet = {
   code: `const secret = await oh.vault.get('secret_name');`,
 };
 
-const USE_PACKAGE: ScriptSnippet = {
-  id: 'use-package',
-  labelKey: 'workbench.editors.scriptEditor.snippet.usePackage',
-  code: `const pkg = oh.require('package_name');
-console.log(pkg);`,
+/** The Variables group; a hook's "save a value" snippet slots in
+ *  between the setter and the vault read. */
+function variablesGroup(save?: ScriptSnippet): ScriptSnippetGroup {
+  return {
+    labelKey: 'workbench.editors.scriptEditor.group.variables',
+    snippets: save
+      ? [GET_VARIABLE, SET_VARIABLE, save, GET_VAULT_SECRET]
+      : [GET_VARIABLE, SET_VARIABLE, GET_VAULT_SECRET],
+  };
+}
+
+const REQUESTS_GROUP: ScriptSnippetGroup = {
+  labelKey: 'workbench.editors.scriptEditor.group.requests',
+  snippets: [
+    {
+      id: 'send-request',
+      labelKey: 'workbench.editors.scriptEditor.snippet.sendRequest',
+      code: `try {
+  const response = await oh.sendRequest({
+    url: 'https://api.openheaders.com/v1/items',
+    method: 'GET',
+  });
+  console.log(response.status, response.body);
+} catch (err) {
+  console.error(err);
+}`,
+    },
+    {
+      id: 'send-request-with-body',
+      labelKey: 'workbench.editors.scriptEditor.snippet.sendRequestJsonBody',
+      code: `try {
+  const response = await oh.sendRequest({
+    url: 'https://api.openheaders.com/v1/items',
+    method: 'POST',
+    headers: [{ key: 'Content-Type', value: 'application/json' }],
+    body: { type: 'json', content: JSON.stringify({ name: 'value' }) },
+  });
+  console.log(response.status, response.body);
+} catch (err) {
+  console.error(err);
+}`,
+    },
+  ],
 };
 
-const WORKFLOWS_GROUP: ScriptSnippetGroup = {
-  labelKey: 'workbench.editors.scriptEditor.group.workflows',
-  snippets: [SEND_REQUEST, SEND_REQUEST_WITH_BODY],
-};
+function testsGroup(snippets: ScriptSnippet[]): ScriptSnippetGroup {
+  return { labelKey: 'workbench.editors.scriptEditor.group.tests', snippets };
+}
 
-const PACKAGES_GROUP: ScriptSnippetGroup = {
-  labelKey: 'workbench.editors.scriptEditor.group.packages',
-  snippets: [USE_PACKAGE],
-};
+// ── HTTP ────────────────────────────────────────────────────────────
 
 const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
   {
@@ -117,11 +140,13 @@ const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
         id: 'set-url',
         labelKey: 'workbench.editors.scriptEditor.snippet.setUrl',
         code: `oh.setUrl('https://api.openheaders.com/v1/items');`,
+        requestOnly: true,
       },
       {
         id: 'set-method',
         labelKey: 'workbench.editors.scriptEditor.snippet.setMethod',
         code: `oh.setMethod('POST');`,
+        requestOnly: true,
       },
       {
         id: 'set-json-body',
@@ -130,115 +155,133 @@ const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
   type: 'json',
   content: JSON.stringify({ name: 'value' }),
 });`,
+        requestOnly: true,
+      },
+      {
+        id: 'log-request',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logRequest',
+        code: `console.log(oh.request.method, oh.request.url, oh.request.headers.length + ' headers');`,
       },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.variables',
-    snippets: [GET_VARIABLE, SET_VARIABLE, GET_VAULT_SECRET],
-  },
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
 const POST_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
   {
-    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    labelKey: 'workbench.editors.scriptEditor.group.response',
     snippets: [
       {
-        id: 'status-code-200',
-        labelKey: 'workbench.editors.scriptEditor.snippet.statusCode200',
-        code: `await oh.test('Status code is 200', () => {
+        id: 'parse-json-body',
+        labelKey: 'workbench.editors.scriptEditor.snippet.parseJsonBody',
+        code: `const data = JSON.parse(oh.response.body);
+console.log(data);`,
+      },
+      {
+        id: 'find-response-header',
+        labelKey: 'workbench.editors.scriptEditor.snippet.findResponseHeader',
+        code: `const header = oh.response.headers.find((h) => h.key.toLowerCase() === 'content-type');
+console.log(header?.value);`,
+      },
+      {
+        id: 'log-response',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logResponse',
+        code: `console.log(oh.response.status, oh.response.statusText, oh.response.durationMs + ' ms');`,
+      },
+    ],
+  },
+  testsGroup([
+    {
+      id: 'status-code-200',
+      labelKey: 'workbench.editors.scriptEditor.snippet.statusCode200',
+      code: `await oh.test('Status code is 200', () => {
   oh.expect(oh.response).toHaveStatus(200);
 });`,
-      },
-      {
-        id: 'body-contains',
-        labelKey: 'workbench.editors.scriptEditor.snippet.bodyContains',
-        code: `await oh.test('Body contains string', () => {
+    },
+    {
+      id: 'body-contains',
+      labelKey: 'workbench.editors.scriptEditor.snippet.bodyContains',
+      code: `await oh.test('Response body contains a string', () => {
   oh.expect(oh.response.body).toContain('string_to_find');
 });`,
-      },
-      {
-        id: 'body-equals',
-        labelKey: 'workbench.editors.scriptEditor.snippet.bodyEquals',
-        code: `await oh.test('Body is the expected string', () => {
+    },
+    {
+      id: 'body-equals',
+      labelKey: 'workbench.editors.scriptEditor.snippet.bodyEquals',
+      code: `await oh.test('Response body equals a string', () => {
   oh.expect(oh.response.body).toBe('expected_body');
 });`,
-      },
-      {
-        id: 'json-value-check',
-        labelKey: 'workbench.editors.scriptEditor.snippet.jsonValueCheck',
-        code: `await oh.test('JSON value is correct', () => {
+    },
+    {
+      id: 'json-value-check',
+      labelKey: 'workbench.editors.scriptEditor.snippet.jsonValueCheck',
+      code: `await oh.test('Response body JSON value is correct', () => {
   const data = JSON.parse(oh.response.body);
   oh.expect(data.name).toBe('value');
 });`,
-      },
-      {
-        id: 'header-check',
-        labelKey: 'workbench.editors.scriptEditor.snippet.headerCheck',
-        code: `await oh.test('Content-Type header is present', () => {
+    },
+    {
+      id: 'header-check',
+      labelKey: 'workbench.editors.scriptEditor.snippet.headerCheck',
+      code: `await oh.test('Content-Type header is present', () => {
   const header = oh.response.headers.find((h) => h.key.toLowerCase() === 'content-type');
   oh.expect(header?.value).toContain('application/json');
 });`,
-      },
-      {
-        id: 'response-time',
-        labelKey: 'workbench.editors.scriptEditor.snippet.responseTime',
-        code: `await oh.test('Response time is below 200 ms', () => {
+    },
+    {
+      id: 'response-time',
+      labelKey: 'workbench.editors.scriptEditor.snippet.responseTime',
+      code: `await oh.test('Response time is below 200 ms', () => {
   oh.expect(oh.response.durationMs < 200).toBeTruthy();
 });`,
-      },
-    ],
-  },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.variables',
-    snippets: [
-      GET_VARIABLE,
-      SET_VARIABLE,
-      {
-        id: 'save-response-value',
-        labelKey: 'workbench.editors.scriptEditor.snippet.saveResponseValue',
-        code: `const data = JSON.parse(oh.response.body);
+    },
+  ]),
+  variablesGroup({
+    id: 'save-response-value',
+    labelKey: 'workbench.editors.scriptEditor.snippet.saveResponseValue',
+    code: `const data = JSON.parse(oh.response.body);
 await oh.variables.set('auth_token', data.token);`,
-      },
-      GET_VAULT_SECRET,
-    ],
-  },
+  }),
+  REQUESTS_GROUP,
 ];
 
-// ── The WebSocket hooks ─────────────────────────────────────────────
-
-const VARIABLES_GROUP: ScriptSnippetGroup = {
-  labelKey: 'workbench.editors.scriptEditor.group.variables',
-  snippets: [GET_VARIABLE, SET_VARIABLE, GET_VAULT_SECRET],
-};
+// ── WebSocket ───────────────────────────────────────────────────────
 
 const WS_BEFORE_CONNECT_GROUPS: ScriptSnippetGroup[] = [
   {
     labelKey: 'workbench.editors.scriptEditor.group.connect',
     snippets: [
       {
-        id: 'ws-set-query-param',
-        labelKey: 'workbench.editors.scriptEditor.snippet.setQueryParam',
-        code: `oh.setQueryParam('token', await oh.vault.get('secret_name'));`,
-      },
-      {
         id: 'ws-set-header',
         labelKey: 'workbench.editors.scriptEditor.snippet.setHeader',
         code: `oh.setHeader('X-Client', 'openheaders');`,
       },
       {
-        id: 'ws-set-subprotocols',
-        labelKey: 'workbench.editors.scriptEditor.snippet.wsSetSubprotocols',
-        code: `oh.setSubprotocols(['graphql-transport-ws']);`,
+        id: 'ws-remove-header',
+        labelKey: 'workbench.editors.scriptEditor.snippet.removeHeader',
+        code: `oh.removeHeader('X-Client');`,
+      },
+      {
+        id: 'ws-set-query-param',
+        labelKey: 'workbench.editors.scriptEditor.snippet.setQueryParam',
+        code: `oh.setQueryParam('token', await oh.vault.get('secret_name'));`,
+      },
+      {
+        id: 'ws-remove-query-param',
+        labelKey: 'workbench.editors.scriptEditor.snippet.removeQueryParam',
+        code: `oh.removeQueryParam('token');`,
       },
       {
         id: 'ws-set-url',
         labelKey: 'workbench.editors.scriptEditor.snippet.setUrl',
         code: `oh.setUrl('wss://ws.openheaders.com/live');`,
+        requestOnly: true,
+      },
+      {
+        id: 'ws-set-subprotocols',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsSetSubprotocols',
+        code: `oh.setSubprotocols(['graphql-transport-ws']);`,
       },
       {
         id: 'ws-reconnect-attempt',
@@ -247,11 +290,15 @@ const WS_BEFORE_CONNECT_GROUPS: ScriptSnippetGroup[] = [
   oh.setQueryParam('resume', String(oh.session.lastSeen ?? ''));
 }`,
       },
+      {
+        id: 'ws-log-dial',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logDial',
+        code: `console.log(oh.connect.url, 'attempt', oh.connect.attempt, oh.connect.subprotocols);`,
+      },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
 const WS_BEFORE_SEND_GROUPS: ScriptSnippetGroup[] = [
@@ -266,6 +313,11 @@ payload.sentAt = Date.now();
 oh.setMessage(JSON.stringify(payload));`,
       },
       {
+        id: 'ws-set-event',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsSetEvent',
+        code: `oh.setEvent('message:v2');`,
+      },
+      {
         id: 'ws-drop-message',
         labelKey: 'workbench.editors.scriptEditor.snippet.wsDropMessage',
         code: `if (oh.message.text.trim() === '') {
@@ -273,15 +325,14 @@ oh.setMessage(JSON.stringify(payload));`,
 }`,
       },
       {
-        id: 'ws-set-event',
-        labelKey: 'workbench.editors.scriptEditor.snippet.wsSetEvent',
-        code: `oh.setEvent('message:v2');`,
+        id: 'ws-log-outbound',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logOutgoingMessage',
+        code: `console.log('#' + oh.message.index, oh.message.eventName ?? 'message', oh.message.text);`,
       },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
 const WS_ON_MESSAGE_GROUPS: ScriptSnippetGroup[] = [
@@ -296,74 +347,87 @@ const WS_ON_MESSAGE_GROUPS: ScriptSnippetGroup[] = [
 }`,
       },
       {
-        id: 'ws-count-messages',
-        labelKey: 'workbench.editors.scriptEditor.snippet.wsCountMessages',
-        code: `oh.session.count = (oh.session.count ?? 0) + 1;
-console.log('messages so far', oh.session.count);`,
+        id: 'ws-reply-binary',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsReplyBinary',
+        code: `if (oh.message.binary) {
+  await oh.sendBinary(oh.message.dataBase64);
+}`,
       },
       {
         id: 'ws-emit-event',
         labelKey: 'workbench.editors.scriptEditor.snippet.wsEmitEvent',
         code: `await oh.emit('ack', [{ index: oh.message.index }]);`,
       },
+      {
+        id: 'ws-count-messages',
+        labelKey: 'workbench.editors.scriptEditor.snippet.wsCountMessages',
+        code: `oh.session.count = (oh.session.count ?? 0) + 1;
+console.log('messages so far', oh.session.count);`,
+      },
+      {
+        id: 'ws-log-message',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logMessage',
+        code: `console.log('#' + oh.message.index, oh.message.binary ? oh.message.dataBase64 : oh.message.text);`,
+      },
     ],
   },
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.tests',
-    snippets: [
-      {
-        id: 'ws-assert-json',
-        labelKey: 'workbench.editors.scriptEditor.snippet.wsAssertJson',
-        code: `await oh.test('Message is JSON', () => {
+  testsGroup([
+    {
+      id: 'ws-assert-json',
+      labelKey: 'workbench.editors.scriptEditor.snippet.wsAssertJson',
+      code: `await oh.test('Message is JSON', () => {
   JSON.parse(oh.message.text ?? '');
 });`,
-      },
-    ],
-  },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.variables',
-    snippets: [
-      GET_VARIABLE,
-      SET_VARIABLE,
-      {
-        id: 'ws-save-message-value',
-        labelKey: 'workbench.editors.scriptEditor.snippet.wsSaveMessageValue',
-        code: `const data = JSON.parse(oh.message.text ?? '{}');
+    },
+  ]),
+  variablesGroup({
+    id: 'ws-save-message-value',
+    labelKey: 'workbench.editors.scriptEditor.snippet.wsSaveMessageValue',
+    code: `const data = JSON.parse(oh.message.text ?? '{}');
 await oh.variables.set('last_event_id', String(data.id));`,
-      },
-      GET_VAULT_SECRET,
-    ],
-  },
+  }),
+  REQUESTS_GROUP,
 ];
 
 const WS_AFTER_CLOSE_GROUPS: ScriptSnippetGroup[] = [
   {
-    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    labelKey: 'workbench.editors.scriptEditor.group.close',
     snippets: [
       {
-        id: 'ws-closed-clean',
-        labelKey: 'workbench.editors.scriptEditor.snippet.wsClosedClean',
-        code: `await oh.test('Closed cleanly', () => {
-  oh.expect(oh.close.code).toBe(1000);
-});`,
-      },
-      {
-        id: 'ws-message-count',
-        labelKey: 'workbench.editors.scriptEditor.snippet.wsMessageCount',
-        code: `await oh.test('Messages arrived', () => {
-  oh.expect(oh.close.messages > 0).toBeTruthy();
-});`,
+        id: 'ws-log-close',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logClose',
+        code: `console.log(oh.close.code, oh.close.reason, oh.close.messages + ' messages', oh.close.durationMs + ' ms');`,
       },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  testsGroup([
+    {
+      id: 'ws-closed-clean',
+      labelKey: 'workbench.editors.scriptEditor.snippet.wsClosedClean',
+      code: `await oh.test('Session closed cleanly', () => {
+  oh.expect(oh.close.code).toBe(1000);
+});`,
+    },
+    {
+      id: 'ws-message-count',
+      labelKey: 'workbench.editors.scriptEditor.snippet.wsMessageCount',
+      code: `await oh.test('Messages arrived', () => {
+  oh.expect(oh.close.messages > 0).toBeTruthy();
+});`,
+    },
+    {
+      id: 'ws-nothing-dropped',
+      labelKey: 'workbench.editors.scriptEditor.snippet.wsNothingDropped',
+      code: `await oh.test('Nothing was dropped', () => {
+  oh.expect(oh.close.droppedMessages).toBe(0);
+});`,
+    },
+  ]),
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
-// ── The MQTT hooks ──────────────────────────────────────────────────
+// ── MQTT ────────────────────────────────────────────────────────────
 
 const MQTT_BEFORE_CONNECT_GROUPS: ScriptSnippetGroup[] = [
   {
@@ -402,11 +466,15 @@ oh.setPassword(await oh.vault.get('secret_name'));`,
   oh.setUserProperty('resume', String(oh.session.lastSeen ?? ''));
 }`,
       },
+      {
+        id: 'mqtt-log-dial',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logDial',
+        code: `console.log(oh.connect.url, oh.connect.clientId, 'attempt', oh.connect.attempt, oh.connect.subscriptions.length + ' subscriptions');`,
+      },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
 const MQTT_BEFORE_PUBLISH_GROUPS: ScriptSnippetGroup[] = [
@@ -432,17 +500,31 @@ oh.setPayload(JSON.stringify(payload));`,
 oh.setRetain(false);`,
       },
       {
+        id: 'mqtt-set-response-topic',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetResponseTopic',
+        code: `oh.setProperties({ ...oh.message.properties, responseTopic: 'devices/replies' });`,
+      },
+      {
+        id: 'mqtt-set-publish-user-property',
+        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSetPublishUserProperty',
+        code: `oh.setUserProperty('trace', Date.now().toString(36));`,
+      },
+      {
         id: 'mqtt-drop-message',
         labelKey: 'workbench.editors.scriptEditor.snippet.mqttDropMessage',
         code: `if (oh.message.payload.trim() === '') {
   oh.drop();
 }`,
       },
+      {
+        id: 'mqtt-log-outbound',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logOutgoingMessage',
+        code: `console.log('#' + oh.message.index, oh.message.topic, 'qos', oh.message.qos, oh.message.payload);`,
+      },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
 const MQTT_ON_MESSAGE_GROUPS: ScriptSnippetGroup[] = [
@@ -463,64 +545,70 @@ if (replyTo) {
         code: `oh.session.count = (oh.session.count ?? 0) + 1;
 console.log(oh.message.topic, 'messages so far', oh.session.count);`,
       },
+      {
+        id: 'mqtt-log-message',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logMessage',
+        code: `console.log('#' + oh.message.index, oh.message.topic, 'qos', oh.message.qos, oh.message.text ?? oh.message.payloadBase64);`,
+      },
     ],
   },
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.tests',
-    snippets: [
-      {
-        id: 'mqtt-assert-json',
-        labelKey: 'workbench.editors.scriptEditor.snippet.mqttAssertJson',
-        code: `await oh.test('Payload is JSON', () => {
+  testsGroup([
+    {
+      id: 'mqtt-assert-json',
+      labelKey: 'workbench.editors.scriptEditor.snippet.mqttAssertJson',
+      code: `await oh.test('Payload is JSON', () => {
   JSON.parse(oh.message.text ?? '');
 });`,
-      },
-    ],
-  },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.variables',
-    snippets: [
-      GET_VARIABLE,
-      SET_VARIABLE,
-      {
-        id: 'mqtt-save-message-value',
-        labelKey: 'workbench.editors.scriptEditor.snippet.mqttSaveMessageValue',
-        code: `const data = JSON.parse(oh.message.text ?? '{}');
+    },
+  ]),
+  variablesGroup({
+    id: 'mqtt-save-message-value',
+    labelKey: 'workbench.editors.scriptEditor.snippet.mqttSaveMessageValue',
+    code: `const data = JSON.parse(oh.message.text ?? '{}');
 await oh.variables.set('last_reading', String(data.value));`,
-      },
-      GET_VAULT_SECRET,
-    ],
-  },
+  }),
+  REQUESTS_GROUP,
 ];
 
 const MQTT_AFTER_CLOSE_GROUPS: ScriptSnippetGroup[] = [
   {
-    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    labelKey: 'workbench.editors.scriptEditor.group.close',
     snippets: [
       {
-        id: 'mqtt-closed-clean',
-        labelKey: 'workbench.editors.scriptEditor.snippet.mqttClosedClean',
-        code: `await oh.test('Disconnected cleanly', () => {
-  oh.expect(oh.close.end?.by).toBe('client');
-});`,
-      },
-      {
-        id: 'mqtt-message-count',
-        labelKey: 'workbench.editors.scriptEditor.snippet.mqttMessageCount',
-        code: `await oh.test('Messages arrived', () => {
-  oh.expect(oh.close.received > 0).toBeTruthy();
-});`,
+        id: 'mqtt-log-close',
+        labelKey: 'workbench.editors.scriptEditor.snippet.logClose',
+        code: `console.log(oh.close.end?.by ?? 'severed', oh.close.published + ' published', oh.close.received + ' received', oh.close.durationMs + ' ms');`,
       },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  testsGroup([
+    {
+      id: 'mqtt-closed-clean',
+      labelKey: 'workbench.editors.scriptEditor.snippet.mqttClosedClean',
+      code: `await oh.test('Disconnected cleanly', () => {
+  oh.expect(oh.close.end?.by).toBe('client');
+});`,
+    },
+    {
+      id: 'mqtt-message-count',
+      labelKey: 'workbench.editors.scriptEditor.snippet.mqttMessageCount',
+      code: `await oh.test('Messages arrived', () => {
+  oh.expect(oh.close.received > 0).toBeTruthy();
+});`,
+    },
+    {
+      id: 'mqtt-connack-accepted',
+      labelKey: 'workbench.editors.scriptEditor.snippet.mqttConnackAccepted',
+      code: `await oh.test('Broker accepted the session', () => {
+  oh.expect(oh.close.connack?.reasonCode).toBe(0);
+});`,
+    },
+  ]),
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
-// ── The gRPC hooks ──────────────────────────────────────────────────
+// ── gRPC ────────────────────────────────────────────────────────────
 
 const GRPC_BEFORE_INVOKE_GROUPS: ScriptSnippetGroup[] = [
   {
@@ -542,6 +630,7 @@ const GRPC_BEFORE_INVOKE_GROUPS: ScriptSnippetGroup[] = [
         code: `const message = JSON.parse(oh.invoke.messageText || '{}');
 message.requestedAt = new Date().toISOString();
 oh.setMessage(JSON.stringify(message));`,
+        requestOnly: true,
       },
       {
         id: 'grpc-log-call',
@@ -550,9 +639,8 @@ oh.setMessage(JSON.stringify(message));`,
       },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
 const GRPC_ON_MESSAGE_GROUPS: ScriptSnippetGroup[] = [
@@ -572,106 +660,97 @@ console.log('received so far', oh.session.received);`,
       },
     ],
   },
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.tests',
-    snippets: [
-      {
-        id: 'grpc-assert-decoded',
-        labelKey: 'workbench.editors.scriptEditor.snippet.grpcAssertDecoded',
-        code: `await oh.test('Message decoded', () => {
+  testsGroup([
+    {
+      id: 'grpc-assert-decoded',
+      labelKey: 'workbench.editors.scriptEditor.snippet.grpcAssertDecoded',
+      code: `await oh.test('Message decoded', () => {
   oh.expect(oh.message.value).toBeTruthy();
 });`,
-      },
-      {
-        id: 'grpc-assert-field',
-        labelKey: 'workbench.editors.scriptEditor.snippet.grpcAssertField',
-        code: `await oh.test('Field is set', () => {
+    },
+    {
+      id: 'grpc-assert-field',
+      labelKey: 'workbench.editors.scriptEditor.snippet.grpcAssertField',
+      code: `await oh.test('Message field is set', () => {
   oh.expect(oh.message.value?.name).toBeTruthy();
 });`,
-      },
-    ],
-  },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  {
-    labelKey: 'workbench.editors.scriptEditor.group.variables',
-    snippets: [
-      GET_VARIABLE,
-      SET_VARIABLE,
-      {
-        id: 'grpc-save-message-value',
-        labelKey: 'workbench.editors.scriptEditor.snippet.grpcSaveMessageValue',
-        code: `if (oh.message.direction === 'down' && oh.message.value) {
+    },
+  ]),
+  variablesGroup({
+    id: 'grpc-save-message-value',
+    labelKey: 'workbench.editors.scriptEditor.snippet.grpcSaveMessageValue',
+    code: `if (oh.message.direction === 'down' && oh.message.value) {
   await oh.variables.set('last_name', String(oh.message.value.name ?? ''));
 }`,
-      },
-      GET_VAULT_SECRET,
-    ],
-  },
+  }),
+  REQUESTS_GROUP,
 ];
 
 const GRPC_AFTER_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
   {
-    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    labelKey: 'workbench.editors.scriptEditor.group.response',
     snippets: [
       {
-        id: 'grpc-status-ok',
-        labelKey: 'workbench.editors.scriptEditor.snippet.grpcStatusOk',
-        code: `await oh.test('Status is OK', () => {
-  oh.expect(oh.response.status).toBe(0);
-});`,
-      },
-      {
-        id: 'grpc-message-count',
-        labelKey: 'workbench.editors.scriptEditor.snippet.grpcMessageCount',
-        code: `await oh.test('Messages arrived', () => {
-  oh.expect(oh.response.received > 0).toBeTruthy();
-});`,
-      },
-      {
-        id: 'grpc-trailer-check',
-        labelKey: 'workbench.editors.scriptEditor.snippet.grpcTrailerCheck',
-        code: `await oh.test('Trailer is present', () => {
-  const trailer = oh.response.trailers.find((t) => t.key === 'x-request-id');
-  oh.expect(trailer?.value).toBeTruthy();
-});`,
+        id: 'grpc-log-status',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcLogStatus',
+        code: `console.log('status', oh.response.status, oh.response.statusMessage ?? '', oh.response.received + ' received', oh.response.durationMs + ' ms');`,
       },
     ],
   },
-  WORKFLOWS_GROUP,
-  PACKAGES_GROUP,
-  VARIABLES_GROUP,
+  testsGroup([
+    {
+      id: 'grpc-status-ok',
+      labelKey: 'workbench.editors.scriptEditor.snippet.grpcStatusOk',
+      code: `await oh.test('Status is OK', () => {
+  oh.expect(oh.response.status).toBe(0);
+});`,
+    },
+    {
+      id: 'grpc-message-count',
+      labelKey: 'workbench.editors.scriptEditor.snippet.grpcMessageCount',
+      code: `await oh.test('Messages arrived', () => {
+  oh.expect(oh.response.received > 0).toBeTruthy();
+});`,
+    },
+    {
+      id: 'grpc-trailer-check',
+      labelKey: 'workbench.editors.scriptEditor.snippet.grpcTrailerCheck',
+      code: `await oh.test('Trailer is present', () => {
+  const trailer = oh.response.trailers.find((t) => t.key === 'x-request-id');
+  oh.expect(trailer?.value).toBeTruthy();
+});`,
+    },
+  ]),
+  variablesGroup(),
+  REQUESTS_GROUP,
 ];
 
-export function getScriptSnippetGroups(kind: ScriptKind): ScriptSnippetGroup[] {
-  switch (kind) {
-    case 'pre-request':
-      return PRE_REQUEST_GROUPS;
-    case 'grpc-before-invoke':
-      return GRPC_BEFORE_INVOKE_GROUPS;
-    case 'grpc-on-message':
-      return GRPC_ON_MESSAGE_GROUPS;
-    case 'grpc-after-response':
-      return GRPC_AFTER_RESPONSE_GROUPS;
-    case 'ws-before-connect':
-      return WS_BEFORE_CONNECT_GROUPS;
-    case 'ws-before-send':
-      return WS_BEFORE_SEND_GROUPS;
-    case 'ws-on-message':
-      return WS_ON_MESSAGE_GROUPS;
-    case 'ws-after-close':
-      return WS_AFTER_CLOSE_GROUPS;
-    case 'mqtt-before-connect':
-      return MQTT_BEFORE_CONNECT_GROUPS;
-    case 'mqtt-before-publish':
-      return MQTT_BEFORE_PUBLISH_GROUPS;
-    case 'mqtt-on-message':
-      return MQTT_ON_MESSAGE_GROUPS;
-    case 'mqtt-after-close':
-      return MQTT_AFTER_CLOSE_GROUPS;
-    default:
-      return POST_RESPONSE_GROUPS;
-  }
+/** The catalog, exhaustive over the slot kinds — a widened kind cannot
+ *  ship without its list. */
+const SCRIPT_SNIPPETS_BY_KIND: Record<ScriptKind, ScriptSnippetGroup[]> = {
+  'pre-request': PRE_REQUEST_GROUPS,
+  'post-response': POST_RESPONSE_GROUPS,
+  'ws-before-connect': WS_BEFORE_CONNECT_GROUPS,
+  'ws-before-send': WS_BEFORE_SEND_GROUPS,
+  'ws-on-message': WS_ON_MESSAGE_GROUPS,
+  'ws-after-close': WS_AFTER_CLOSE_GROUPS,
+  'mqtt-before-connect': MQTT_BEFORE_CONNECT_GROUPS,
+  'mqtt-before-publish': MQTT_BEFORE_PUBLISH_GROUPS,
+  'mqtt-on-message': MQTT_ON_MESSAGE_GROUPS,
+  'mqtt-after-close': MQTT_AFTER_CLOSE_GROUPS,
+  'grpc-before-invoke': GRPC_BEFORE_INVOKE_GROUPS,
+  'grpc-on-message': GRPC_ON_MESSAGE_GROUPS,
+  'grpc-after-response': GRPC_AFTER_RESPONSE_GROUPS,
+};
+
+/** The groups for one slot on one mount — the request mount reads the
+ *  whole list; the container mount drops the request-only entries. */
+export function getScriptSnippetGroups(kind: ScriptKind, scope: ScriptSlotScope = 'request'): ScriptSnippetGroup[] {
+  const groups = SCRIPT_SNIPPETS_BY_KIND[kind];
+  if (scope === 'request') return groups;
+  return groups
+    .map((group) => ({ labelKey: group.labelKey, snippets: group.snippets.filter((s) => !s.requestOnly) }))
+    .filter((group) => group.snippets.length > 0);
 }
 
 /** Case-insensitive label filter that preserves the group structure;

@@ -10,20 +10,27 @@ import { Button, Input, Popover, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import type { ScriptSlotScope } from './script-slots';
 import { filterScriptSnippetGroups, getScriptSnippetGroups } from './script-snippets';
 
 interface ScriptSnippetsMenuProps {
+  /** The selected rail row — the catalog is that hook's alone. */
   kind: ScriptKind;
+  /** The mount — a container's list drops the request-only entries. */
+  scope: ScriptSlotScope;
   onInsert: (code: string) => void;
 }
 
-const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert }) => {
+const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, scope, onInsert }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
-  const groups = useMemo(() => filterScriptSnippetGroups(getScriptSnippetGroups(kind), query, t), [kind, query, t]);
+  const groups = useMemo(
+    () => filterScriptSnippetGroups(getScriptSnippetGroups(kind, scope), query, t),
+    [kind, scope, query, t],
+  );
 
   const setOpenAndReset = (next: boolean) => {
     setOpen(next);
@@ -66,6 +73,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
         {groups.map((group) => (
           <div key={group.labelKey} style={{ display: 'flex', flexDirection: 'column' }}>
             <div
+              data-testid="oh-script-snippet-group"
               style={{
                 padding: '6px 4px 2px',
                 color: token.colorTextTertiary,
