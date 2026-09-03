@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 /**
- * ScriptsTab — the slot rail and its `(i)` popovers. The rows lead
- * with the Settings tab's shared example card: the before-request
- * card lights the request line the script may rewrite, the
- * after-response card lights the journey outcome it tests, each
- * alongside the scripts slot both execute in. The `oh.*` API glossary
- * stays beneath the card. The Monaco CodeEditor is mocked to a
- * textarea — the rail and popover chrome are the contract here, not
- * the editor.
+ * ScriptsTab — the slot rail and its `(i)` popovers. Every row leads
+ * with its kind's lifecycle card: one line per hook in wire order,
+ * the hook's label opening it, the wire moment and the fields of its
+ * `oh` view after, with the row's own line lit and the other hooks'
+ * lines quiet. The card is the kind's, not the level's — the container
+ * mount shows the same card. The `oh.*` API glossary stays beneath
+ * the card. The Monaco CodeEditor is mocked to a textarea — the rail
+ * and popover chrome are the contract here, not the editor.
  *
  * The two mounts: a request's tab draws its slots flat with the
  * request placeholders; a container's tab draws them under the HTTP
@@ -113,6 +113,9 @@ const ANCESTORS: AncestorScriptLevels = {
 const litTokens = (): string[] =>
   Array.from(document.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent ?? '');
 
+/** The lines of the open popover's card — one per hook of the kind. */
+const cardLines = (): number => document.querySelectorAll('.oh-info-eg-line').length;
+
 const editor = (): HTMLTextAreaElement => screen.getByTestId<HTMLTextAreaElement>('code-editor');
 
 describe('ScriptsTab rail', () => {
@@ -159,22 +162,47 @@ describe('ScriptsTab rail', () => {
 });
 
 describe('ScriptsTab rail info popovers', () => {
-  it('leads the before-request popover with the shared card, request line and scripts slot lit', async () => {
+  it('leads the before-request popover with the HTTP lifecycle card, its own line lit', async () => {
     renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'About Before request script' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
     expect(document.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Scripts');
-    expect(litTokens()).toEqual(['https://api.openheaders.com/v1/users', 'scripts: safe']);
+    // The card holds both HTTP hooks in wire order; the row's line —
+    // its label, the wire moment, the fields its `oh` view carries —
+    // is the lit one, the After response line stays quiet.
+    expect(cardLines()).toBe(2);
+    expect(litTokens()).toEqual([
+      'Before request',
+      'POST https://api.openheaders.com/v1/users',
+      'headers',
+      'params',
+      'body',
+    ]);
     expect(screen.getByText('oh.setHeader(name, value)')).toBeTruthy();
   });
 
-  it('leads the after-response popover with the outcome and scripts slot lit', async () => {
+  it('leads the after-response popover with the same card, the response line lit', async () => {
     renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'About After response script' }));
     expect(await screen.findByText('Example send')).toBeTruthy();
     expect(document.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Scripts');
-    expect(litTokens()).toEqual(['302 → 200', 'scripts: safe']);
+    expect(cardLines()).toBe(2);
+    expect(litTokens()).toEqual(['After response', '200', '143 ms', 'headers', 'body']);
     expect(screen.getByText('oh.test(name, fn)')).toBeTruthy();
+  });
+
+  it('the card is the kind’s, not the level’s — a container mount shows the same one', async () => {
+    renderTab({ scope: 'container' });
+    fireEvent.click(screen.getByRole('button', { name: 'About Before request script' }));
+    expect(await screen.findByText('Example send')).toBeTruthy();
+    expect(cardLines()).toBe(2);
+    expect(litTokens()).toEqual([
+      'Before request',
+      'POST https://api.openheaders.com/v1/users',
+      'headers',
+      'params',
+      'body',
+    ]);
   });
 
   it('keeps an open popover across a tab re-render', async () => {
@@ -291,19 +319,46 @@ describe('ScriptsTab request kinds', () => {
     expect(onChange).toHaveBeenCalledWith('grpc-after-response', `await oh.test('ok', () => {});`);
   });
 
-  it('a gRPC slot popover lists the hook glossary', async () => {
+  it('a gRPC slot popover leads with the call lifecycle card, its line lit, the glossary beneath', async () => {
     render(<ScriptsTab scope="request" requestKind="grpc" scripts={EMPTY} onScriptChange={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'About Before invoke script' }));
-    expect(await screen.findByText('oh.setMetadata(name, value)')).toBeTruthy();
+    expect(await screen.findByText('Example call')).toBeTruthy();
+    expect(cardLines()).toBe(3);
+    expect(litTokens()).toEqual(['Before invoke', 'CALL books.v1.Library/WatchBooks', 'metadata', 'message']);
+    expect(screen.getByText('oh.setMetadata(name, value)')).toBeTruthy();
     expect(screen.getByText('oh.setMessage(text)')).toBeTruthy();
     expect(screen.getByText('oh.session')).toBeTruthy();
   });
 
-  it('a WebSocket slot popover lists the hook glossary', async () => {
+  it('a WebSocket slot popover leads with the session lifecycle card, its line lit, the glossary beneath', async () => {
     render(<ScriptsTab scope="request" requestKind="websocket" scripts={EMPTY} onScriptChange={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'About Before connect script' }));
-    expect(await screen.findByText('oh.setSubprotocols(list)')).toBeTruthy();
+    expect(await screen.findByText('Example session')).toBeTruthy();
+    expect(cardLines()).toBe(4);
+    expect(litTokens()).toEqual([
+      'Before connect',
+      'CONNECT wss://api.openheaders.com/v1/stream',
+      'headers',
+      'params',
+      'subprotocols',
+      'attempt',
+    ]);
+    expect(screen.getByText('oh.setSubprotocols(list)')).toBeTruthy();
     expect(screen.getByText('oh.session')).toBeTruthy();
+  });
+
+  it('the WebSocket card carries the Socket.IO facts as S.IO tokens — one card for both flavors', async () => {
+    render(<ScriptsTab scope="request" requestKind="socketio" scripts={EMPTY} onScriptChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'About Before send script' }));
+    expect(await screen.findByText('Example session')).toBeTruthy();
+    expect(litTokens()).toEqual([
+      'Before send',
+      'SEND ↑ {"type":"subscribe"}',
+      'text',
+      'binary',
+      'S.IO event',
+      'S.IO ack',
+    ]);
   });
 
   it('an MQTT request mount draws the four MQTT slots flat and edits report the MQTT kind', () => {
@@ -320,6 +375,24 @@ describe('ScriptsTab request kinds', () => {
     fireEvent.click(screen.getByText('On message'));
     fireEvent.change(editor(), { target: { value: `await oh.publish('probe/ack', 'ok');` } });
     expect(onChange).toHaveBeenCalledWith('mqtt-on-message', `await oh.publish('probe/ack', 'ok');`);
+  });
+
+  it('an MQTT slot popover leads with the session lifecycle card, its line lit, the glossary beneath', async () => {
+    render(<ScriptsTab scope="request" requestKind="mqtt" scripts={EMPTY} onScriptChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'About After close script' }));
+    expect(await screen.findByText('Example session')).toBeTruthy();
+    expect(cardLines()).toBe(4);
+    expect(litTokens()).toEqual([
+      'After close',
+      'DISCONNECT',
+      'end',
+      'CONNACK',
+      'published',
+      'received',
+      'dropped',
+      'duration',
+    ]);
+    expect(screen.getByText('oh.close')).toBeTruthy();
   });
 
   it('an MQTT slot popover lists the hook glossary', async () => {

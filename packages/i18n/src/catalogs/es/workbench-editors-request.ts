@@ -876,11 +876,12 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.postResponse': 'Después de la respuesta',
   'workbench.editors.request.scripts.preInfoTitle': 'Script antes de la solicitud',
   'workbench.editors.request.scripts.preInfoSummary':
-    'Se ejecuta en un iframe aislado antes de enviar la solicitud. Modifica la solicitud saliente con la ' + 'API oh:',
+    'Se ejecuta una vez antes de que la solicitud salga. Reescribe la URL, las cabeceras, los parámetros ' +
+    'y el cuerpo con la API oh.',
   'workbench.editors.request.scripts.postInfoTitle': 'Script después de la respuesta',
   'workbench.editors.request.scripts.postInfoSummary':
-    'Se ejecuta en un iframe aislado cuando llega la respuesta. Los resultados de las aserciones aterrizan ' +
-    'en el panel Respuesta:',
+    'Se ejecuta una vez cuando llega la respuesta. Lee el estado, las cabeceras y el cuerpo; los ' +
+    'resultados de las aserciones aterrizan en el panel Respuesta.',
   'workbench.editors.request.scripts.apiHeading': 'API',
   'workbench.editors.request.scripts.apiSetHeader': 'añadir o reemplazar un encabezado',
   'workbench.editors.request.scripts.apiSetQueryParam': 'añadir o reemplazar un parámetro de consulta',

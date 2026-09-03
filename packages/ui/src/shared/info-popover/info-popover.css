@@ -284,7 +284,12 @@
   color: var(--ant-color-text-tertiary);
   margin-bottom: 4px;
 }
+/* Two columns: the openers on the left, every line's tokens starting
+ * from the same x; a line without an opener spans both. */
 .oh-info-eg-card {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 8px;
   border: 1px solid var(--ant-color-border-secondary);
   border-radius: 5px;
   background: var(--ant-color-fill-quaternary);
@@ -293,9 +298,18 @@
   font-size: 11px;
   line-height: 1.7;
 }
+/* A line is its two cells — `contents` keeps the markup (one div per
+ * line) while the opener and the tokens place themselves on the grid. */
 .oh-info-eg-line {
+  display: contents;
   color: var(--ant-color-text-secondary);
   word-break: break-word;
+}
+.oh-info-eg-line--bare > .oh-info-eg-toks {
+  grid-column: 1 / -1;
+}
+.oh-info-eg-toks {
+  min-width: 0;
 }
 .oh-info-eg-sep {
   color: var(--ant-color-text-secondary);

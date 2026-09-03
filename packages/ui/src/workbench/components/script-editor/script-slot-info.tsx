@@ -1,21 +1,87 @@
 /**
- * The rail's `(i)` cards — one per script slot. The HTTP pair leads
- * with the Settings tab's shared example card: the scripts bracket
- * that same send, so the before-request card lights the request line
- * the script may rewrite and the after-response card lights the
- * outcome it tests, both alongside the scripts slot they execute in,
- * with the `oh.*` API glossary beneath (API labels are code, only the
- * descriptions localize). A session slot's card names when its hook
- * runs and what it sees; its glossary lands with the hook's `oh.*`
- * surface. Exhaustive over the vocabulary — a widened kind cannot
- * ship without its card.
+ * The rail's `(i)` cards — one per script slot: kicker · title · the
+ * kind's lifecycle card · one sentence · the `oh.*` API glossary (API
+ * labels are code, only the descriptions localize).
+ *
+ * The lifecycle card is the shared `ExampleCard` over the kind's hooks
+ * in wire order — one line per hook, opened by the hook's own label,
+ * the wire moment with one concrete value first, then the fields of
+ * that hook's `oh` view — with the row's own line lit. Reading down
+ * the rail walks the lifecycle; the other lines stay quiet. The card
+ * is the kind's, not the level's: the container mount shows the same
+ * card, so the WebSocket card carries its Socket.IO facts as `S.IO`
+ * tokens. Tokens ride raw (the card idiom); the caption is the
+ * group's. `LIFECYCLE_LINE` is exhaustive over `ScriptKind` — a
+ * widened kind cannot ship without its line, nor without its card.
  */
 
 import type { ScriptKind, SessionScriptKind } from '@openheaders/core/scripts';
 import type { MessageKey } from '@openheaders/i18n';
-import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import { EXAMPLE_CARD_POPOVER_WIDTH, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { settingsExampleCard } from '../request-editor/SettingsRowInfo';
+import type React from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  EXAMPLE_CARD_POPOVER_WIDTH,
+  ExampleCard,
+  type ExampleCardLine,
+  type InfoPopoverContent,
+} from '@openheaders/ui/shared/info-popover';
+import { type ScriptSlotGroup, scriptSlotGroupOf } from './script-slots';
+
+interface LifecycleLine {
+  /** The wire moment the hook sits at, with one concrete value. */
+  wire: string;
+  /** The fields of the hook's `oh` view — what it sees there. */
+  facts: readonly string[];
+}
+
+const LIFECYCLE_LINE: Readonly<Record<ScriptKind, LifecycleLine>> = {
+  'pre-request': { wire: 'POST https://api.openheaders.com/v1/users', facts: ['headers', 'params', 'body'] },
+  'post-response': { wire: '200', facts: ['143 ms', 'headers', 'body'] },
+  'grpc-before-invoke': { wire: 'CALL books.v1.Library/WatchBooks', facts: ['metadata', 'message'] },
+  'grpc-on-message': { wire: 'FRAME ↑ ↓', facts: ['type', 'decoded value', 'index'] },
+  'grpc-after-response': {
+    wire: 'TRAILERS status 0 OK',
+    facts: ['headers', 'trailers', 'sent', 'received', 'duration'],
+  },
+  'ws-before-connect': {
+    wire: 'CONNECT wss://api.openheaders.com/v1/stream',
+    facts: ['headers', 'params', 'subprotocols', 'attempt'],
+  },
+  'ws-before-send': { wire: 'SEND ↑ {"type":"subscribe"}', facts: ['text', 'binary', 'S.IO event', 'S.IO ack'] },
+  'ws-on-message': { wire: 'MESSAGE ↓ {"type":"tick"}', facts: ['text', 'bytes', 'index'] },
+  'ws-after-close': { wire: 'CLOSE 1000', facts: ['reason', 'clean', 'messages', 'dropped', 'duration'] },
+  'mqtt-before-connect': {
+    wire: 'CONNECT mqtts://broker.openheaders.com:8883',
+    facts: ['client id', 'credentials', 'will', 'subscriptions', 'user properties'],
+  },
+  'mqtt-before-publish': { wire: 'PUBLISH ↑ sensors/1/temp', facts: ['payload', 'QoS', 'retain', 'properties'] },
+  'mqtt-on-message': { wire: 'PUBLISH ↓ sensors/2/temp', facts: ['payload', 'QoS', 'retain', 'dup', 'properties'] },
+  'mqtt-after-close': {
+    wire: 'DISCONNECT',
+    facts: ['end', 'CONNACK', 'published', 'received', 'dropped', 'duration'],
+  },
+};
+
+/** The token ids of one hook's line — its opener, its wire moment, its
+ *  facts — so the row lights the whole line. */
+function lineIds(kind: ScriptKind): string[] {
+  return [kind, `${kind}:wire`, ...LIFECYCLE_LINE[kind].facts.map((_, i) => `${kind}:${i}`)];
+}
+
+// Module-scope so the diagram's component type keeps its identity
+// across the rail's renders (the rows' own rule).
+const ScriptLifecycleCard: React.FC<{ group: ScriptSlotGroup; kind: ScriptKind }> = ({ group, kind }) => {
+  const t = useT();
+  const lines: ExampleCardLine<string>[] = group.slots.map((slot) => {
+    const [opener, wire, ...facts] = lineIds(slot.kind);
+    const line = LIFECYCLE_LINE[slot.kind];
+    return {
+      opener: { id: opener, text: t(slot.labelKey) },
+      tokens: [{ id: wire, text: line.wire }, ...facts.map((id, i) => ({ id, text: line.facts[i] }))],
+    };
+  });
+  return <ExampleCard caption={t(group.captionKey)} lines={lines} lit={new Set(lineIds(kind))} />;
+};
 
 const SESSION_SLOT_INFO: Readonly<Record<SessionScriptKind, { title: MessageKey; summary: MessageKey }>> = {
   'grpc-before-invoke': {
@@ -65,17 +131,23 @@ const SESSION_SLOT_INFO: Readonly<Record<SessionScriptKind, { title: MessageKey;
 };
 
 export function scriptSlotInfo(kind: ScriptKind, t: Translate): InfoPopoverContent {
+  const group = scriptSlotGroupOf(kind);
+  const card =
+    group !== undefined
+      ? { diagram: <ScriptLifecycleCard group={group} kind={kind} />, maxWidth: EXAMPLE_CARD_POPOVER_WIDTH }
+      : {};
+  const kicker = t('workbench.editors.request.tab.scripts');
+  const heading = t('workbench.editors.request.scripts.apiHeading');
   switch (kind) {
     case 'pre-request':
       return {
         title: t('workbench.editors.request.scripts.preInfoTitle'),
-        kicker: t('workbench.editors.request.tab.scripts'),
-        diagram: settingsExampleCard(['url', 'scripts']),
-        maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
+        kicker,
+        ...card,
         summary: t('workbench.editors.request.scripts.preInfoSummary'),
         sections: [
           {
-            heading: t('workbench.editors.request.scripts.apiHeading'),
+            heading,
             items: [
               { label: 'oh.setHeader(name, value)', desc: t('workbench.editors.request.scripts.apiSetHeader') },
               {
@@ -92,13 +164,12 @@ export function scriptSlotInfo(kind: ScriptKind, t: Translate): InfoPopoverConte
     case 'post-response':
       return {
         title: t('workbench.editors.request.scripts.postInfoTitle'),
-        kicker: t('workbench.editors.request.tab.scripts'),
-        diagram: settingsExampleCard(['chain', 'scripts']),
-        maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
+        kicker,
+        ...card,
         summary: t('workbench.editors.request.scripts.postInfoSummary'),
         sections: [
           {
-            heading: t('workbench.editors.request.scripts.apiHeading'),
+            heading,
             items: [
               { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
               { label: 'oh.require(name)', desc: t('workbench.editors.request.scripts.apiRequire') },
@@ -111,11 +182,10 @@ export function scriptSlotInfo(kind: ScriptKind, t: Translate): InfoPopoverConte
       const glossary = sessionSlotGlossary(kind, t);
       return {
         title: t(keys.title),
-        kicker: t('workbench.editors.request.tab.scripts'),
+        kicker,
+        ...card,
         summary: t(keys.summary),
-        ...(glossary.length > 0
-          ? { sections: [{ heading: t('workbench.editors.request.scripts.apiHeading'), items: glossary }] }
-          : {}),
+        ...(glossary.length > 0 ? { sections: [{ heading, items: glossary }] } : {}),
       };
     }
   }

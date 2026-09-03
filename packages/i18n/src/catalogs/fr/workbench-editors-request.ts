@@ -889,12 +889,12 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.postResponse': 'Après la réponse',
   'workbench.editors.request.scripts.preInfoTitle': 'Script avant la requête',
   'workbench.editors.request.scripts.preInfoSummary':
-    "S'exécute dans une iframe sandboxée avant l'envoi de la requête. Modifiez la requête sortante avec " +
-    "l'API oh :",
+    'S’exécute une fois avant le départ de la requête. Réécrivez l’URL, les en-têtes, les paramètres et ' +
+    'le corps avec l’API oh.',
   'workbench.editors.request.scripts.postInfoTitle': 'Script après la réponse',
   'workbench.editors.request.scripts.postInfoSummary':
-    "S'exécute dans une iframe sandboxée après l'arrivée de la réponse. Les résultats d'assertion " +
-    'atterrissent dans le panneau Réponse :',
+    'S’exécute une fois après l’arrivée de la réponse. Lisez le statut, les en-têtes et le corps ; les ' +
+    'résultats d’assertion atterrissent dans le panneau Réponse.',
   'workbench.editors.request.scripts.apiHeading': 'API',
   'workbench.editors.request.scripts.apiSetHeader': 'ajouter ou remplacer un en-tête',
   'workbench.editors.request.scripts.apiSetQueryParam': 'ajouter ou remplacer un paramètre de requête',

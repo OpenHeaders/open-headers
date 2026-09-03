@@ -46,6 +46,9 @@ export interface ScriptSlotGroup {
    *  Socket.IO flavor under WebSocket. The rail names them beside the
    *  kind. */
   flavors?: readonly RequestKind[];
+  /** The caption of the kind's lifecycle card (the `(i)` cards) — the
+   *  kind's Settings tab names its example the same way. */
+  captionKey: MessageKey;
   slots: readonly ScriptSlotDescriptor[];
 }
 
@@ -137,9 +140,14 @@ export const SCRIPT_SLOT_BY_KIND: Readonly<Record<ScriptKind, ScriptSlotDescript
  *  session kinds' groups join here with their build slices; both
  *  WebSocket flavors are one group (one wire family, one hook set). */
 export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
-  { requestKind: 'http', slots: [SCRIPT_SLOT_BY_KIND['pre-request'], SCRIPT_SLOT_BY_KIND['post-response']] },
+  {
+    requestKind: 'http',
+    captionKey: 'workbench.editors.request.settings.exampleCaption',
+    slots: [SCRIPT_SLOT_BY_KIND['pre-request'], SCRIPT_SLOT_BY_KIND['post-response']],
+  },
   {
     requestKind: 'grpc',
+    captionKey: 'workbench.editors.grpc.settings.exampleCaption',
     slots: [
       SCRIPT_SLOT_BY_KIND['grpc-before-invoke'],
       SCRIPT_SLOT_BY_KIND['grpc-on-message'],
@@ -149,6 +157,7 @@ export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
   {
     requestKind: 'websocket',
     flavors: ['socketio'],
+    captionKey: 'workbench.editors.websocket.settings.exampleCaption',
     slots: [
       SCRIPT_SLOT_BY_KIND['ws-before-connect'],
       SCRIPT_SLOT_BY_KIND['ws-before-send'],
@@ -158,6 +167,7 @@ export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
   },
   {
     requestKind: 'mqtt',
+    captionKey: 'workbench.editors.mqtt.settings.exampleCaption',
     slots: [
       SCRIPT_SLOT_BY_KIND['mqtt-before-connect'],
       SCRIPT_SLOT_BY_KIND['mqtt-before-publish'],
@@ -172,6 +182,12 @@ export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
  *  whose slots do not run yet (its editor mounts no Scripts tab). */
 export function scriptSlotGroupsFor(kind: RequestKind): readonly ScriptSlotGroup[] {
   return SCRIPT_SLOT_GROUPS.filter((group) => group.requestKind === kind || group.flavors?.includes(kind) === true);
+}
+
+/** The group a slot belongs to — its kind's lifecycle; absent for a
+ *  kind whose group has not joined the rail. */
+export function scriptSlotGroupOf(kind: ScriptKind): ScriptSlotGroup | undefined {
+  return SCRIPT_SLOT_GROUPS.find((group) => group.slots.some((slot) => slot.kind === kind));
 }
 
 /** The rail's first slot — the tab's initial selection. */

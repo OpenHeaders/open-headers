@@ -7,6 +7,11 @@
  * the lit ids, so the four cards share one markup and one look — the
  * `.oh-info-eg*` sheet — and a reader moving between editors meets
  * the same card. Tokens ride raw; only the caption is localized.
+ *
+ * The card is a two-column grid: the openers fill the left column and
+ * every line's tokens start from the same x (the lifecycle cards read
+ * their hook labels as a column); a line without an opener spans both
+ * columns, so a card of bare lines keeps its flush-left look.
  */
 
 import { Fragment } from 'react';
@@ -43,7 +48,7 @@ export function ExampleCard<Id extends string>({
       <div className="oh-info-eg-card">
         {lines.map((line) => (
           <div
-            className="oh-info-eg-line"
+            className={`oh-info-eg-line${line.opener === undefined ? ' oh-info-eg-line--bare' : ''}`}
             key={line.opener !== undefined ? openerText(line.opener) : line.tokens[0]?.id}
           >
             {line.opener !== undefined && (
@@ -55,12 +60,14 @@ export function ExampleCard<Id extends string>({
                 {openerText(line.opener)}
               </span>
             )}
-            {line.tokens.map((token, i) => (
-              <Fragment key={token.id}>
-                {i > 0 ? ' · ' : line.opener !== undefined ? ' ' : null}
-                <span className={`oh-info-eg-tok${lit.has(token.id) ? ' oh-info-eg-hl' : ''}`}>{token.text}</span>
-              </Fragment>
-            ))}
+            <span className="oh-info-eg-toks">
+              {line.tokens.map((token, i) => (
+                <Fragment key={token.id}>
+                  {i > 0 ? ' · ' : null}
+                  <span className={`oh-info-eg-tok${lit.has(token.id) ? ' oh-info-eg-hl' : ''}`}>{token.text}</span>
+                </Fragment>
+              ))}
+            </span>
           </div>
         ))}
       </div>

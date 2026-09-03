@@ -894,12 +894,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.postResponse': 'Nach der Antwort',
   'workbench.editors.request.scripts.preInfoTitle': 'Script vor der Anfrage',
   'workbench.editors.request.scripts.preInfoSummary':
-    'Läuft in einem isolierten iframe, bevor die Anfrage gesendet wird. Verändere die ausgehende Anfrage ' +
-    'mit der oh-API:',
+    'Läuft einmal, bevor die Anfrage abgeht. Schreibe URL, Header, Parameter und Body mit der oh-API um.',
   'workbench.editors.request.scripts.postInfoTitle': 'Script nach der Antwort',
   'workbench.editors.request.scripts.postInfoSummary':
-    'Läuft in einem isolierten iframe, nachdem die Antwort angekommen ist. Assertion-Ergebnisse landen im ' +
-    'Antwort-Panel:',
+    'Läuft einmal, nachdem die Antwort angekommen ist. Lies Status, Header und Body; Assertion-Ergebnisse ' +
+    'landen im Antwort-Panel.',
   'workbench.editors.request.scripts.apiHeading': 'API',
   'workbench.editors.request.scripts.apiSetHeader': 'einen Header hinzufügen oder ersetzen',
   'workbench.editors.request.scripts.apiSetQueryParam': 'einen Query-Parameter hinzufügen oder ersetzen',

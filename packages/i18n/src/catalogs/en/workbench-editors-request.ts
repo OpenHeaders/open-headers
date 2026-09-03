@@ -814,10 +814,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.postResponse': 'After response',
   'workbench.editors.request.scripts.preInfoTitle': 'Before request script',
   'workbench.editors.request.scripts.preInfoSummary':
-    'Runs in a sandboxed iframe before the request is sent. Mutate the outgoing request with the oh API:',
+    'Runs once before the request leaves. Rewrite the URL, headers, params and body with the oh API.',
   'workbench.editors.request.scripts.postInfoTitle': 'After response script',
   'workbench.editors.request.scripts.postInfoSummary':
-    'Runs in a sandboxed iframe after the response arrives. Assertion results land in the Response panel:',
+    'Runs once after the response lands. Read the status, headers and body; assertion results land in the ' +
+    'Response panel.',
   'workbench.editors.request.scripts.apiHeading': 'API',
   'workbench.editors.request.scripts.apiSetHeader': 'add or replace a header',
   'workbench.editors.request.scripts.apiSetQueryParam': 'add or replace a query parameter',

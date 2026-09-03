@@ -765,10 +765,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.preRequest': '请求前',
   'workbench.editors.request.scripts.postResponse': '响应后',
   'workbench.editors.request.scripts.preInfoTitle': '请求前脚本',
-  'workbench.editors.request.scripts.preInfoSummary': '在请求发送之前于沙箱化 iframe 中运行。用 oh API 修改传出请求：',
+  'workbench.editors.request.scripts.preInfoSummary': '在请求发出之前运行一次。用 oh API 重写 URL、标头、参数和正文。',
   'workbench.editors.request.scripts.postInfoTitle': '响应后脚本',
   'workbench.editors.request.scripts.postInfoSummary':
-    '在响应到达之后于沙箱化 iframe 中运行。断言结果显示在响应面板中：',
+    '在响应到达之后运行一次。读取状态、标头和正文；断言结果显示在响应面板中。',
   'workbench.editors.request.scripts.apiHeading': 'API',
   'workbench.editors.request.scripts.apiSetHeader': '添加或替换标头',
   'workbench.editors.request.scripts.apiSetQueryParam': '添加或替换查询参数',
