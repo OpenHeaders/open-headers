@@ -2,6 +2,7 @@ import type { StopOutlined } from '@ant-design/icons';
 import type React from 'react';
 import { createElement } from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import type { RequestKind } from '../../request-kind-menu';
 import { ExampleChip } from '../shared/ExampleChip';
 
 /** Every tree prefix tag is at most {@link TAG_CHARS} characters, so
@@ -71,11 +72,23 @@ export function methodTag(method: string, muted = false): React.ReactNode {
   );
 }
 
+/** A request kind's family tint — the tree tags' colors under one
+ *  name so a kind badge elsewhere (the Scripts rail's group headers)
+ *  matches the tree. HTTP takes GET's green: the method every new
+ *  request starts as, the tint the tree shows most. */
+export const REQUEST_KIND_COLORS: Record<RequestKind, string> = {
+  http: 'var(--oh-method-get, #0a7d33)',
+  grpc: 'var(--oh-method-grpc, #0b5cad)',
+  websocket: 'var(--oh-method-ws, #c2410c)',
+  socketio: 'var(--oh-method-ws, #c2410c)',
+  mqtt: 'var(--oh-method-mqtt, #7c3aed)',
+};
+
 /** Compact gRPC tag used as the leaf "icon" for gRPC request rows —
  *  same footprint as {@link methodTag} so both kinds align in the tree.
  *  `muted` greys the tag to signal an incomplete (draft) request. */
 export function grpcTag(muted = false): React.ReactNode {
-  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-grpc, #0b5cad)';
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : REQUEST_KIND_COLORS.grpc;
   return createElement(
     'span',
     {
@@ -102,7 +115,7 @@ export function grpcTag(muted = false): React.ReactNode {
  *  request-family anatomy). `muted` greys the tag to signal an
  *  incomplete (draft) request. */
 export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.ReactNode {
-  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-ws, #c2410c)';
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : REQUEST_KIND_COLORS.websocket;
   return createElement(
     'span',
     {
@@ -127,7 +140,7 @@ export function websocketTag(flavor: 'raw' | 'socketio', muted = false): React.R
  *  same footprint as {@link methodTag} so all kinds align in the tree.
  *  `muted` greys the tag to signal an incomplete (draft) request. */
 export function mqttTag(muted = false): React.ReactNode {
-  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : 'var(--oh-method-mqtt, #7c3aed)';
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : REQUEST_KIND_COLORS.mqtt;
   return createElement(
     'span',
     {

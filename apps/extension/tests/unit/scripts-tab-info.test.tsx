@@ -242,13 +242,24 @@ describe('ScriptsTab request kinds', () => {
 
   it('a container mount draws the HTTP, gRPC, WebSocket and MQTT groups under their kind headers', () => {
     renderTab({ scope: 'container' });
-    expect(screen.getAllByTestId('oh-script-rail-group').map((g) => g.textContent)).toEqual([
-      'HTTPHTTP',
-      'gRPCgRPC',
-      'WSWebSocket',
-      'MQTTMQTT',
+    const groups = screen.getAllByTestId('oh-script-rail-group');
+    expect(groups.map((g) => g.textContent)).toEqual(['HTTPHTTP', 'gRPCgRPC', 'WSWebSocket', 'MQTTMQTT']);
+    // Each kind header's badge carries the kind's own tint — the tree
+    // tags' color, not the picker's neutral gradient.
+    expect(groups.map((g) => (g.firstChild as HTMLElement).style.color)).toEqual([
+      'var(--oh-method-get, #0a7d33)',
+      'var(--oh-method-grpc, #0b5cad)',
+      'var(--oh-method-ws, #c2410c)',
+      'var(--oh-method-mqtt, #7c3aed)',
     ]);
+    // The selection is an aria state the stylesheet fills — no inline
+    // background to out-rank the hover rule.
+    const pressed = () =>
+      screen.getAllByTestId('oh-script-rail-row').map((row) => row.getAttribute('aria-pressed') === 'true');
+    expect(pressed().indexOf(true)).toBe(0);
+    expect(screen.getAllByTestId('oh-script-rail-row')[0]?.style.background).toBe('');
     fireEvent.click(screen.getByText('Before send'));
+    expect(pressed().indexOf(true)).toBe(6);
     expect(editor().placeholder).toBe('Write scripts to be run before each WebSocket message is sent.');
     fireEvent.click(screen.getByText('Before publish'));
     expect(editor().placeholder).toBe('Write scripts to be run before each MQTT message is published.');

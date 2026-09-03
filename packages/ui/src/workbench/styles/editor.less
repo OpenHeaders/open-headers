@@ -360,6 +360,17 @@
   .stated-default-hides-on-focus();
 }
 
+/* ── The Scripts tab's slot rail ───────────────────────────────────
+ * The hover and selected fills live here, not inline — an inline
+ * background would out-rank the hover rule. */
+.oh-script-rail-row:hover {
+  background: var(--ant-color-fill-quaternary);
+}
+
+.oh-script-rail-row[aria-pressed='true'] {
+  background: var(--ant-color-fill-tertiary);
+}
+
 /* ── Request container: the auth pool editor ─────────────────────────
  * The entries list's ⋯ menu shows on row hover, focus, or the
  * selected row (the sidebar rows' reveal idiom); an inherited auth

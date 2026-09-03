@@ -9,7 +9,15 @@
  * A row carries the slot's label, its `(i)` card and a dot: the
  * has-script primary dot, or the unsaved salmon dot when the slot
  * differs from the saved entity (shown even on an emptied-but-unsaved
- * script), matching the tab-label tones.
+ * script), matching the tab-label tones. The selected row and the
+ * hover fill are the stylesheet's (`.oh-script-rail-row` in
+ * editor.less, off `aria-pressed`) — an inline background would sit
+ * above the hover rule. A kind header's badge carries the kind's own
+ * tint, the tree tags' color.
+ *
+ * The rail scrolls on its own when it outgrows the pane (the container
+ * mount's four groups on a short window) — the editor beside it keeps
+ * the pane's height, so its toolbar and corner menus never scroll away.
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
@@ -18,6 +26,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { requestKindMeta } from '../../request-kind-menu';
+import { REQUEST_KIND_COLORS } from '../sidebar/icons';
 import { codeBadge } from '../shared/code-badge';
 import { scriptSlotInfo } from './script-slot-info';
 import type { ScriptSlotDescriptor, ScriptSlotFlags, ScriptSlotGroup, ScriptSlotValues } from './script-slots';
@@ -56,6 +65,8 @@ const ScriptRailRow: React.FC<{
     <div
       role="button"
       tabIndex={0}
+      className="oh-script-rail-row"
+      aria-pressed={selected}
       data-testid="oh-script-rail-row"
       onClick={() => onSelect(slot.kind)}
       onKeyDown={(e) => {
@@ -68,12 +79,11 @@ const ScriptRailRow: React.FC<{
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        padding: '8px 10px',
-        background: selected ? token.colorFillTertiary : 'transparent',
+        padding: '7px 10px',
         borderRadius: 4,
         cursor: 'pointer',
         color: token.colorText,
-        fontSize: 13,
+        fontSize: 12,
       }}
     >
       <span>{t(slot.labelKey)}</span>
@@ -108,11 +118,11 @@ const ScriptRailGroupHeader: React.FC<{ group: ScriptSlotGroup }> = ({ group }) 
         gap: 6,
         padding: '4px 10px 6px',
         color: token.colorText,
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: 600,
       }}
     >
-      {codeBadge(meta.code, KIND_BADGE_WIDTH)}
+      {codeBadge(meta.code, KIND_BADGE_WIDTH, REQUEST_KIND_COLORS[group.requestKind])}
       <span>{t(meta.labelKey)}</span>
     </div>
   );
@@ -138,9 +148,9 @@ const ScriptRail: React.FC<ScriptRailProps> = ({ groups, grouped, active, script
         flexDirection: 'column',
         gap: 4,
         width: SCRIPT_RAIL_WIDTH,
-        position: 'sticky',
-        top: 0,
-        alignSelf: 'start',
+        flexShrink: 0,
+        minHeight: 0,
+        overflowY: 'auto',
       }}
     >
       {grouped
