@@ -162,11 +162,12 @@ describe('applyRequestCollectionCreate', () => {
     expect(result.ok).toBe(true);
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
-    expect(createEnv?.body).toMatchObject({
+    if (createEnv === undefined) throw new Error('no create envelope');
+    expect(createEnv.body).toMatchObject({
       kind: 'create',
       type: REQUEST_COLLECTION_ENTITY_TYPE,
     });
-    const created = (createEnv?.body as { payload: { uid: string; path: string; name: string } }).payload;
+    const created = (createEnv.body as { payload: { uid: string; path: string; name: string } }).payload;
     expect(created.uid).toMatch(/^[0-9a-z]{8,}$/);
     expect(created.path.startsWith('requests/')).toBe(true);
     expect(created.path.endsWith(created.uid)).toBe(true);
