@@ -4,7 +4,8 @@
  * servicing off the renderer scope the editor publishes: variables
  * through the scope's resolver, `variables.set` through the workspace
  * write client under the page host's surface id, `vault.get` off the
- * scope's vault (string secrets alone), `sendRequest` through the
+ * scope's vault (string secrets) or the workspace's OAuth token store
+ * (a credentialRef's access token), `sendRequest` through the
  * bridge's `executeRequest`, `session.send` into the page-local
  * active-session registry as a SCRIPT-origin write; the host answers
  * `null` where the manifest declares no sandbox page (Firefox).
@@ -18,11 +19,15 @@ const h = vi.hoisted(() => ({
   varSet: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ ok: true })),
   sessionSend: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
   sessionPublish: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({ success: true })),
+  tokenBundle: vi.fn(async (..._args: unknown[]): Promise<unknown> => null),
   manifest: { sandbox: { pages: ['sandbox.html'] } } as { sandbox?: { pages?: string[] } },
 }));
 
 vi.mock('@openheaders/core/bridge', () => ({
   hostBridge: { call: (...args: unknown[]) => h.bridgeCall(...args) },
+}));
+vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
+  getTokenBundle: (...args: unknown[]) => h.tokenBundle(...args),
 }));
 vi.mock('@openheaders/ui/shared/sync/workspace-variables-write-client', () => ({
   applyWorkspaceVarSet: (...args: unknown[]) => h.varSet(...args),
@@ -103,13 +108,39 @@ describe('the oh.* host RPCs', () => {
     expect(refused).toMatchObject({ ok: false, error: 'oh.variables.set: rejected' });
   });
 
-  it('vault.get answers a string secret and null for any other kind', async () => {
+  it('vault.get answers a string secret without touching the token store', async () => {
     expect(await handlePageScriptHostRequest({ ...envelope, op: 'vault.get', ref: 'api_key' })).toMatchObject({
       value: 'k-1',
     });
+    expect(h.tokenBundle).not.toHaveBeenCalled();
+  });
+
+  it("vault.get reads any other ref as an OAuth credential off the workspace's token store — its access token", async () => {
+    h.tokenBundle.mockResolvedValueOnce({ accessToken: 'at-1', tokenType: 'Bearer', obtainedAt: 1 });
+    expect(await handlePageScriptHostRequest({ ...envelope, op: 'vault.get', ref: 'github-oauth' })).toMatchObject({
+      value: 'at-1',
+    });
+    expect(h.tokenBundle).toHaveBeenCalledWith('github-oauth', 'ws1');
+    // A TOTP entry is request-time, not script-time — and no bundle
+    // sits under its name either.
     expect(await handlePageScriptHostRequest({ ...envelope, op: 'vault.get', ref: 'otp' })).toMatchObject({
       value: null,
     });
+    expect(h.tokenBundle).toHaveBeenLastCalledWith('otp', 'ws1');
+  });
+
+  it('vault.get answers null for an OAuth ref when the scope names no workspace — nothing to read', async () => {
+    setPageScriptScope({
+      workspaceId: null,
+      resolveVariable: () => null,
+      workspaceVariables: { schemaVersion: 5, variables: [] },
+      vault: { schemaVersion: 5, secrets: [] },
+      packages: [],
+    });
+    expect(await handlePageScriptHostRequest({ ...envelope, op: 'vault.get', ref: 'github-oauth' })).toMatchObject({
+      value: null,
+    });
+    expect(h.tokenBundle).not.toHaveBeenCalled();
   });
 
   it('sendRequest dispatches a draft through the bridge and projects the snapshot', async () => {

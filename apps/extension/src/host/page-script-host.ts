@@ -15,8 +15,10 @@
  * full scope walk, `variables.set` through the workspace-variables
  * write client (HLC-stamped, synced, in the Activity Feed like any
  * renderer write), `vault.get` off the renderer's vault mirror (string
- * secrets — an OAuth bundle's token resolves on the node hosts),
- * `sendRequest` through the bridge to the SW's own Send pipeline, and
+ * secrets) or, for an OAuth 2.0 credentialRef, the workspace's token
+ * store the page's auth chain reads (the bundle's access token — the
+ * SW host's rule), `sendRequest` through the bridge to the SW's own
+ * Send pipeline, and
  * `session.send` / `session.publish` into the page-local active-session
  * registries as SCRIPT-origin writes (captured like any ↑ frame, never
  * re-entering Before send / Before publish). `oh.require` reads the
@@ -39,6 +41,7 @@ import type {
 import { createScriptBroker, type SandboxTransport, type ScriptBroker } from '@openheaders/core/scripts/broker';
 import type { Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import { getTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { publishActiveMqttMessage, scriptPublishToWire } from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import type { SessionScriptHost } from '@openheaders/oracle/live/request-exec/script-hooks';
 import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
@@ -167,11 +170,18 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
   }
 }
 
-function resolveVaultRef(ref: string): string | null {
-  const named = requireScope().vault.secrets.find((s) => s.name === ref);
-  // String-kind only — TOTP entries are request-time, an OAuth
-  // bundle's token resolves on the node hosts' script host.
-  return named !== undefined && named.kind === 'string' ? named.value : null;
+async function resolveVaultRef(ref: string): Promise<string | null> {
+  const current = requireScope();
+  const named = current.vault.secrets.find((s) => s.name === ref);
+  // A named secret answers its literal (string-kind only — TOTP
+  // entries are request-time, not script-time); anything else is read
+  // as an OAuth 2.0 credentialRef whose bundle surfaces its access
+  // token (the SW host's rule), off the workspace's token store the
+  // page's own auth chain reads — no workspace, no store.
+  if (named !== undefined && named.kind === 'string') return named.value;
+  if (current.workspaceId === null) return null;
+  const bundle = await getTokenBundle(ref, current.workspaceId);
+  return bundle?.accessToken ?? null;
 }
 
 async function dispatchAdHocRequest(snapshot: RequestSnapshot): Promise<ResponseSnapshot> {
@@ -210,7 +220,7 @@ export async function handlePageScriptHostRequest(request: ScriptHostRequest): P
         await writeWorkspaceVariable(request.name, request.value);
         return okReply(request, null);
       case 'vault.get':
-        return okReply(request, resolveVaultRef(request.ref));
+        return okReply(request, await resolveVaultRef(request.ref));
       case 'sendRequest':
         return okReply(request, await dispatchAdHocRequest(request.request));
       case 'session.send':
