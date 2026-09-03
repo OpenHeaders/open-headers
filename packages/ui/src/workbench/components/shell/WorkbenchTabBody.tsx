@@ -494,6 +494,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         workspaceId={editingScopeWorkspaceId}
         onOpenGrpcResponseExample={openGrpcResponseExampleTab}
         onOpenContainerAuth={openContainerAuth}
+        onOpenContainerScripts={openContainerScripts}
+        onOpenPackageLibrary={openScriptPackages}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
       />

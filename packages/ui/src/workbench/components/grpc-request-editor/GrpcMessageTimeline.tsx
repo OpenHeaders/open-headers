@@ -26,7 +26,11 @@
  * head in call order (a server stream's ↑ request message renders
  * BEFORE the head; a bidi call's later ↑ messages after it). The
  * position is recorded truth riding the head event and the capture,
- * never inferred display-side.
+ * never inferred display-side. The call's script marks interleave the
+ * same way at their own `atIndex` — each lands before the first
+ * visible message at or past its position, the rest trail the last
+ * message (the WebSocket timeline's law); grouped mode is clustering,
+ * so they join the head row at the chronological edge.
  *
  * Sort and grouping are the SSE list's anatomy on gRPC's own
  * `requests.grpcMessages*` SETTINGS (global, toolbar-written — the
@@ -67,6 +71,7 @@ import {
   CheckOutlined,
   ClearOutlined,
   CloseCircleOutlined,
+  CodeOutlined,
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
@@ -80,8 +85,10 @@ import { decodeBase64Bytes } from '@openheaders/core/utils';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import TimelineMessageViewer, {
   STREAM_HAIRLINE,
@@ -89,6 +96,7 @@ import TimelineMessageViewer, {
   useTimelineViewerModes,
   VIEWER_PX,
 } from '../shared/TimelineMessageViewer';
+import { GRPC_HOOK_LABEL_KEY, type GrpcScriptMarkItem } from './grpc-scripts';
 import { deriveGrpcFrameView, type GrpcMessageView } from './response-decode';
 
 const { Text } = Typography;
@@ -171,6 +179,9 @@ interface GrpcMessageTimelineProps {
   /** Session-only positional times (items[i] ↔ timestamps[i]). */
   timestamps?: readonly number[];
   lifecycle: GrpcTimelineLifecycle;
+  /** The call's script marks — rows interleaved at their capture
+   *  positions. Absent = the call ran no hook. */
+  scriptMarks?: readonly GrpcScriptMarkItem[];
   registry: ProtoRegistry | null;
   /** The rpc's resolved request type — ↑ frames decode as it. */
   inputType: string | null;
@@ -213,9 +224,13 @@ type ListEntry =
    *  state's re-window action lives on the group header. */
   | { key: string; kind: 'groupMore'; group: GrpcGroupIdentity; hidden: number }
   | { key: string; kind: 'row'; index: number }
-  | { key: string; kind: 'viewer'; index: number };
+  | { key: string; kind: 'viewer'; index: number }
+  /** One script hook's run — `index` into `scriptMarks`. */
+  | { key: string; kind: 'script'; index: number };
 
 type DirectionFilter = 'all' | 'up' | 'down';
+
+const NO_SCRIPT_MARKS: readonly GrpcScriptMarkItem[] = [];
 
 /** Stable chip palette — the same type name always lands on the same
  *  color within and across calls (the SSE badge recipe). */
@@ -331,6 +346,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   count,
   timestamps,
   lifecycle,
+  scriptMarks = NO_SCRIPT_MARKS,
   registry,
   inputType,
   outputType,
@@ -556,6 +572,15 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       out.push({ key: 'connected', kind: 'connected' });
       if (connectedDetailOpen) out.push({ key: 'connectedDetail', kind: 'connectedDetail' });
     };
+    // The script marks — a cleared log drops the marks that landed
+    // before the clear along with the messages.
+    const marks: number[] = [];
+    scriptMarks.forEach((mark, i) => {
+      if (mark.atIndex >= clearedCount) marks.push(i);
+    });
+    const pushMarks = (indexes: readonly number[]) => {
+      for (const i of indexes) out.push({ key: `s${i}`, kind: 'script', index: i });
+    };
     const headAt = lifecycle.headArrived ? (lifecycle.headAtMessage ?? 0) : null;
     const notice: ListEntry | null =
       filtering && displayRows.length === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
@@ -568,7 +593,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     } else {
       out.push({ key: 'sent', kind: 'sent' });
       if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
-      if (groups !== null && headAt !== null) pushConnected();
+      if (groups !== null) {
+        // Grouped mode clusters; the marks join the head row at the edge.
+        if (headAt !== null) pushConnected();
+        pushMarks(marks);
+      }
     }
 
     if (groups !== null) {
@@ -602,28 +631,40 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       }
     } else {
       // One event log in call order: walk ascending, drop the head row
-      // where the executor recorded it, then read the whole sequence
-      // in the sort direction.
-      const tokens: Array<number | 'connected'> = [];
+      // where the executor recorded it and each mark before the first
+      // visible message at or past its position (a filtered-out
+      // message never hides a mark), the rest trailing the last
+      // message, then read the whole sequence in the sort direction.
+      const tokens: Array<number | 'connected' | { mark: number }> = [];
       let connectedPushed = false;
+      let nextMark = 0;
       for (const index of visibleRows) {
         if (headAt !== null && !connectedPushed && index >= headAt) {
           tokens.push('connected');
           connectedPushed = true;
         }
+        while (nextMark < marks.length && scriptMarks[marks[nextMark]].atIndex <= index) {
+          tokens.push({ mark: marks[nextMark] });
+          nextMark += 1;
+        }
         tokens.push(index);
       }
       if (headAt !== null && !connectedPushed) tokens.push('connected');
+      for (; nextMark < marks.length; nextMark++) tokens.push({ mark: marks[nextMark] });
       if (newestFirst) tokens.reverse();
       for (const token of tokens) {
         if (token === 'connected') pushConnected();
-        else pushRow(token);
+        else if (typeof token === 'number') pushRow(token);
+        else pushMarks([token.mark]);
       }
     }
 
     // Bottom chronological edge.
     if (newestFirst) {
-      if (groups !== null && headAt !== null) pushConnected();
+      if (groups !== null) {
+        pushMarks([...marks].reverse());
+        if (headAt !== null) pushConnected();
+      }
       out.push({ key: 'sent', kind: 'sent' });
       if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
     } else {
@@ -644,6 +685,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     visibleRows,
     displayRows,
     groups,
+    scriptMarks,
     expanded,
     sentDetailOpen,
     connectedDetailOpen,
@@ -1203,6 +1245,39 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             <span>{t('workbench.editors.grpc.timeline.noMatches')}</span>
           </div>
         );
+      case 'script': {
+        // One hook ran — the hook, the levels that contributed and
+        // the verdict; a failure names its error.
+        const mark = scriptMarks[entry.index];
+        if (mark === undefined) return null;
+        const hook = t(GRPC_HOOK_LABEL_KEY[mark.hook]);
+        const levels = mark.chain
+          .map((step) =>
+            step.level === 'request'
+              ? t('workbench.editors.request.response.meta.scriptsLevelRequest')
+              : inheritSourceLabel(t, { kind: step.level, name: step.name }),
+          )
+          .join(' · ');
+        const text = mark.succeeded
+          ? t('workbench.editors.grpc.timeline.script', { hook, levels })
+          : t('workbench.editors.grpc.timeline.scriptFailed', { hook, error: mark.error?.message ?? '' });
+        return (
+          <div key={entry.key} data-testid="grpc-timeline-script-row" style={lifecycleRowStyle}>
+            <CodeOutlined
+              aria-hidden
+              style={{ fontSize: 11, color: mark.succeeded ? token.colorTextTertiary : token.colorError }}
+            />
+            <span
+              {...(mark.error !== undefined ? { title: mark.error.message } : {})}
+              style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {`${text} · ${formatDurationMs(mark.durationMs)}`}
+            </span>
+            {lifecycleTime(mark.atMs)}
+            {expandSlot(null)}
+          </div>
+        );
+      }
       case 'header':
         return renderGroupHeaderRow(entry.group, entry.count, entry.collapsed, 'grpc-timeline-group-header', entry.key);
       case 'groupMore':

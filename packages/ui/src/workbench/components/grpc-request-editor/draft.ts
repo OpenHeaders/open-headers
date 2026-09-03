@@ -8,6 +8,7 @@
  * (derived dirty — never setDirty).
  */
 
+import type { GrpcScriptKind } from '@openheaders/core/scripts';
 import type {
   GrpcAuth,
   GrpcMetadataPair,
@@ -18,6 +19,9 @@ import type {
   TlsVersion,
 } from '@openheaders/core/types';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
+
+/** The request's own script slots — its kind's keys alone. */
+export type GrpcScriptSlots = Partial<Record<GrpcScriptKind, string>>;
 
 export interface GrpcDraft {
   /** Docs-tab markdown; always concrete in the form (`''` = no docs) —
@@ -36,6 +40,10 @@ export interface GrpcDraft {
    *  round-trips (an update skips only `undefined` values). */
   auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
+  /** The request's own script slots, keyed by kind (the Scripts tab
+   *  edits them; an emptied slot stays `''` in the form and drops out
+   *  of the save patch). */
+  scripts: GrpcScriptSlots;
   /** The dial policy — `undefined` = system DNS / the host's proxy
    *  planes (the HTTP request's knobs on the channel). */
   resolveToAddress: string | undefined;
@@ -72,6 +80,9 @@ export interface GrpcRequestUpdates {
   metadata: GrpcMetadataPair[];
   auth: GrpcAuth;
   specLink: GrpcSpecLink | undefined;
+  /** The present slots alone — a blank slot is absent, so the write's
+   *  flatten-diff tombstones a slot the user emptied. */
+  scripts: GrpcScriptSlots;
   resolveToAddress: string | undefined;
   proxyMode: ProxyMode | undefined;
   proxyUrl: string | undefined;
@@ -87,6 +98,15 @@ export interface GrpcRequestUpdates {
   tlsMaxVersion: TlsVersion | undefined;
   tlsCipherSuites: string | undefined;
   sniServerName: string | undefined;
+}
+
+/** The slots with a non-blank source — the save patch's record. */
+export function presentScriptSlots(slots: GrpcScriptSlots): GrpcScriptSlots {
+  const out: GrpcScriptSlots = {};
+  for (const [kind, source] of Object.entries(slots) as Array<[GrpcScriptKind, string | undefined]>) {
+    if (source !== undefined && source.trim() !== '') out[kind] = source;
+  }
+  return out;
 }
 
 export function metadataToRows(pairs: readonly GrpcMetadataPair[]): KeyValueRow[] {
@@ -124,6 +144,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     metadata: metadataToRows(req.metadata),
     auth: req.auth ?? { type: 'none' },
     specLink: req.specLink,
+    scripts: { ...req.scripts },
     resolveToAddress: req.resolveToAddress,
     proxyMode: req.proxyMode,
     proxyUrl: req.proxyUrl,
@@ -153,6 +174,7 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     metadata: rowsToMetadata(draft.metadata),
     auth: draft.auth,
     specLink: draft.specLink,
+    scripts: presentScriptSlots(draft.scripts),
     resolveToAddress: draft.resolveToAddress,
     proxyMode: draft.proxyMode,
     proxyUrl: draft.proxyUrl,

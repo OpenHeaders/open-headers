@@ -18,7 +18,9 @@
  * the strip's Connection lost pill. The ⋯ menu carries the one view
  * choice — Include default values, the app-wide gRPC decode posture
  * (the same setting as Settings → Requests), rendering the fields the
- * wire omitted as their canonical defaults.
+ * wire omitted as their canonical defaults. A call that ran script
+ * hooks wears the strip's Scripts tag and a Scripts tab (the marks'
+ * console and assertions) — neither on a scriptless call.
  */
 
 import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
@@ -36,6 +38,9 @@ import { menuCheckIcon } from '../shared/menu-check';
 import GrpcMetaStrip from './GrpcMetaStrip';
 import GrpcResponseErrorState from './GrpcResponseErrorState';
 import GrpcResponseFailure from './GrpcResponseFailure';
+import GrpcScriptsTag from './GrpcScriptsTag';
+import GrpcScriptsView from './GrpcScriptsView';
+import { digestFromMarks, digestFromRecord, scriptMarkItems } from './grpc-scripts';
 import { deriveGrpcMessageView, grpcOutputTypeOf, withoutGrpcStatusPair } from './response-decode';
 
 const { Text } = Typography;
@@ -79,6 +84,16 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
   // the pill + error chip (the Postman convention).
   const metadataRows = useMemo(() => withoutGrpcStatusPair(snapshot.headers), [snapshot.headers]);
   const trailerRows = useMemo(() => withoutGrpcStatusPair(snapshot.trailers), [snapshot.trailers]);
+  // The call's scripts — the buffered exchange has no live phase, so
+  // the marks and the record both come off the snapshot; the tag
+  // digests the record (its tallies outlive the mark cap).
+  const scriptMarks = useMemo(() => scriptMarkItems(snapshot.scriptMarks ?? []), [snapshot.scriptMarks]);
+  const scriptsDigest = useMemo(
+    () => (snapshot.scripts !== undefined ? digestFromRecord(snapshot.scripts) : digestFromMarks(scriptMarks)),
+    [snapshot.scripts, scriptMarks],
+  );
+  const scriptsInPlay = scriptsDigest.runs > 0;
+  const shownTab = activeTab === 'scripts' && !scriptsInPlay ? 'response' : activeTab;
 
   // Right-aligned meta strip in the tab bar — the HTTP ResponsePanel's
   // one-row header format: status pill (hover popover with the code's
@@ -94,6 +109,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
         {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
         {...(snapshot.auth !== undefined ? { auth: snapshot.auth } : {})}
       />
+      <GrpcScriptsTag digest={scriptsDigest} />
       <Dropdown
         trigger={['click']}
         styles={{ root: { minWidth: 180 } }}
@@ -214,7 +230,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
       data-testid="grpc-response-pane"
     >
       <Tabs
-        activeKey={activeTab}
+        activeKey={shownTab}
         onChange={setActiveTab}
         size="small"
         className="rules-response-tabs"
@@ -249,6 +265,31 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
               </div>
             ),
           },
+          ...(scriptsInPlay
+            ? [
+                {
+                  key: 'scripts',
+                  label: (
+                    <span data-testid="grpc-response-view-scripts">
+                      {t('workbench.editors.grpc.response.tab.scripts')}
+                    </span>
+                  ),
+                  children: (
+                    <div
+                      style={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '0 0 8px',
+                        minHeight: 0,
+                      }}
+                    >
+                      <GrpcScriptsView marks={scriptMarks} marksCapped={scriptsDigest.marksCapped} />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
           {
             key: 'metadata',
             label:

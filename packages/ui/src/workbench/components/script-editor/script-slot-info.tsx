@@ -126,6 +126,26 @@ export function scriptSlotInfo(kind: ScriptKind, t: Translate): InfoPopoverConte
 function sessionSlotGlossary(kind: SessionScriptKind, t: Translate): Array<{ label: string; desc: string }> {
   const session = { label: 'oh.session', desc: t('workbench.editors.request.scripts.apiSession') };
   switch (kind) {
+    case 'grpc-before-invoke':
+      return [
+        { label: 'oh.invoke', desc: t('workbench.editors.request.scripts.apiInvoke') },
+        { label: 'oh.setMetadata(name, value)', desc: t('workbench.editors.request.scripts.apiSetMetadata') },
+        { label: 'oh.removeMetadata(name)', desc: t('workbench.editors.request.scripts.apiRemoveMetadata') },
+        { label: 'oh.setMessage(text)', desc: t('workbench.editors.request.scripts.apiGrpcSetMessage') },
+        session,
+      ];
+    case 'grpc-on-message':
+      return [
+        { label: 'oh.message', desc: t('workbench.editors.request.scripts.apiGrpcMessage') },
+        { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
+        session,
+      ];
+    case 'grpc-after-response':
+      return [
+        { label: 'oh.response', desc: t('workbench.editors.request.scripts.apiGrpcResponse') },
+        { label: 'oh.test(name, fn)', desc: t('workbench.editors.request.scripts.apiTest') },
+        session,
+      ];
     case 'ws-before-connect':
       return [
         { label: 'oh.connect', desc: t('workbench.editors.request.scripts.apiConnect') },

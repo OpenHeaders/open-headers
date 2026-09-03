@@ -16,7 +16,7 @@
  */
 
 import type { GrpcStreamEventWire, GrpcStreamMessageWire } from '@openheaders/core/bridge';
-import type { ExecutedProxyRoute } from '@openheaders/core/types';
+import type { ExecutedGrpcScriptMark, ExecutedProxyRoute } from '@openheaders/core/types';
 
 /** Flush the pending message batch on this cadence — the HTTP
  *  emitter's window; per-message `atMs` stamps keep arrival fidelity
@@ -48,6 +48,10 @@ export interface GrpcStreamEmitter {
   sent(metadata: ReadonlyArray<{ key: string; value: string }>): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: GrpcStreamMessageWire): void;
+  /** Push one script mark — immediate, like the head: the pooled
+   *  messages before it flush first so the mark's `atIndex` never
+   *  outruns the frames it counts. */
+  script(mark: ExecutedGrpcScriptMark): void;
   /** Settle the emitter (any end path): flush pending messages, then
    *  emit the final `end` frame. */
   end(): void;
@@ -100,6 +104,11 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
         return;
       }
       if (timer === null) timer = setTimeout(flush, FLUSH_INTERVAL_MS);
+    },
+    script(mark) {
+      if (settled) return;
+      flush();
+      emit({ sendId, seq: seq++, kind: 'script', mark, atMs: Date.now() });
     },
     end() {
       if (settled) return;

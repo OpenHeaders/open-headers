@@ -29,7 +29,9 @@
  * MQTT hook is the twin on the CONNECT / PUBLISH plane (`oh.connect`
  * with the client id / credential / will / subscription / user-property
  * mutators, `oh.message` with the publish mutators or `oh.publish`,
- * `oh.close`).
+ * `oh.close`); a gRPC hook brackets one call (`oh.invoke` with the
+ * metadata and message mutators, `oh.message` as the decoded frame
+ * read-only, `oh.response` as the end record).
  *
  * Sessions: an execution carrying `sessionId` is one hook call of a
  * live session (a WebSocket, MQTT or gRPC session's connect / send /
@@ -56,6 +58,9 @@ import type {
 } from './index';
 import { clampScriptTimeoutMs, isSessionScriptExecution } from './index';
 import type {
+  GrpcFrameSnapshot,
+  GrpcInvokeSnapshot,
+  GrpcResponseSnapshot,
   MqttCloseSnapshot,
   MqttConnectSnapshot,
   MqttConnectSubscription,
@@ -364,6 +369,24 @@ interface MqttCloseScriptApi extends ScriptApiCore {
   readonly close: MqttCloseSnapshot;
 }
 
+/** Before invoke (gRPC) — the call view and its mutators. */
+interface GrpcInvokeScriptApi extends ScriptApiCore {
+  readonly invoke: GrpcInvokeSnapshot;
+  setMetadata(key: string, value: string): void;
+  removeMetadata(key: string): void;
+  setMessage(text: string): void;
+}
+
+/** On message (gRPC) — the captured frame, read-only. */
+interface GrpcFrameScriptApi extends ScriptApiCore {
+  readonly message: GrpcFrameSnapshot;
+}
+
+/** After response (gRPC) — the end record, read-only. */
+interface GrpcResponseScriptApi extends ScriptApiCore {
+  readonly response: GrpcResponseSnapshot;
+}
+
 type ScriptApi =
   | HttpScriptApi
   | WsConnectScriptApi
@@ -373,7 +396,10 @@ type ScriptApi =
   | MqttConnectScriptApi
   | MqttPublishScriptApi
   | MqttInboundScriptApi
-  | MqttCloseScriptApi;
+  | MqttCloseScriptApi
+  | GrpcInvokeScriptApi
+  | GrpcFrameScriptApi
+  | GrpcResponseScriptApi;
 
 /** A family's own half — what it adds over the core. */
 type HttpFamily = Omit<HttpScriptApi, keyof ScriptApiCore>;
@@ -383,6 +409,7 @@ type WsInboundFamily = Omit<WsInboundScriptApi, keyof ScriptApiCore>;
 type MqttConnectFamily = Omit<MqttConnectScriptApi, keyof ScriptApiCore>;
 type MqttPublishFamily = Omit<MqttPublishScriptApi, keyof ScriptApiCore>;
 type MqttInboundFamily = Omit<MqttInboundScriptApi, keyof ScriptApiCore>;
+type GrpcInvokeFamily = Omit<GrpcInvokeScriptApi, keyof ScriptApiCore>;
 
 interface Expectation {
   toBe(expected: unknown): void;
@@ -664,6 +691,12 @@ function buildSessionApi(
       return buildMqttInboundApi(core, hook.message, req.sessionId, ops.publish);
     case 'mqtt-after-close':
       return withCore(core, { close: hook.close });
+    case 'grpc-before-invoke':
+      return buildGrpcInvokeApi(core, hook.invoke, sinks);
+    case 'grpc-on-message':
+      return withCore(core, { message: hook.message });
+    case 'grpc-after-response':
+      return withCore(core, { response: hook.response });
     default: {
       const unreachable: never = hook;
       throw new Error(`unknown session hook ${(unreachable as { kind: string }).kind}`);
@@ -1000,6 +1033,47 @@ function buildMqttInboundApi(
       if (!response.ok) throw new Error(`oh.publish failed: ${response.error}`);
       const result = response.value as SessionSendResult;
       if (!result.success) throw new Error(`oh.publish failed: ${result.error ?? 'the session refused the message'}`);
+    },
+  };
+  return withCore(core, family);
+}
+
+// ── The gRPC hooks ────────────────────────────────────────────────
+
+function buildGrpcInvokeApi(
+  core: ScriptApiCore,
+  invoke: GrpcInvokeSnapshot,
+  sinks: MutationSinks,
+): GrpcInvokeScriptApi {
+  const draftMetadata: SessionHeader[] = [...invoke.metadata];
+  let draftMessage = invoke.messageText;
+
+  const flush = (): void => {
+    const next = {
+      metadata: arraysShallowEqual(draftMetadata, invoke.metadata) ? undefined : [...draftMetadata],
+      messageText: draftMessage !== invoke.messageText ? draftMessage : undefined,
+    };
+    const hasChange = next.metadata !== undefined || next.messageText !== undefined;
+    sinks.emitSessionMutation(hasChange ? { kind: 'grpc-invoke', ...next } : undefined);
+  };
+
+  const family: GrpcInvokeFamily = {
+    get invoke() {
+      return { ...invoke, metadata: [...draftMetadata], messageText: draftMessage };
+    },
+    // Metadata keys ride lowercase on the wire and match case-
+    // insensitively — the header row edit.
+    setMetadata(key, value) {
+      setHeaderRow(draftMetadata, key, value);
+      flush();
+    },
+    removeMetadata(key) {
+      removeHeaderRows(draftMetadata, key);
+      flush();
+    },
+    setMessage(text) {
+      draftMessage = text;
+      flush();
     },
   };
   return withCore(core, family);

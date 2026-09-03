@@ -9,6 +9,7 @@
  */
 
 import type {
+  GrpcInvokeSnapshot,
   MqttConnectSnapshot,
   ScriptExecutionRequest,
   ScriptHostRequest,
@@ -483,5 +484,128 @@ describe('mqtt-after-close', () => {
     const result = await runHook(`console.log(oh.session.nonce);`, MQTT_CLOSE, { sessionId: 's-m' });
     endScriptSession('s-m');
     expect(logged(result)).toEqual(['m1']);
+  });
+});
+
+// ── gRPC ──────────────────────────────────────────────────────────
+
+const GRPC_INVOKE: GrpcInvokeSnapshot = {
+  target: 'grpc.openheaders.io:443',
+  service: 'library.v1.Library',
+  method: 'GetBook',
+  shape: 'unary',
+  metadata: [{ key: 'x-tenant', value: 'acme' }],
+  messageText: '{"name":"books/1"}',
+};
+
+const GRPC_FRAME: SessionHookInput = {
+  kind: 'grpc-on-message',
+  message: {
+    direction: 'down',
+    type: 'library.v1.Book',
+    value: { name: 'books/1', title: 'Field Guide' },
+    dataBase64: 'AA==',
+    compressed: false,
+    index: 0,
+  },
+};
+
+const GRPC_RESPONSE: SessionHookInput = {
+  kind: 'grpc-after-response',
+  response: {
+    httpStatus: 200,
+    status: 0,
+    statusSource: 'trailers',
+    headers: [{ key: 'x-probe', value: '1' }],
+    trailers: [{ key: 'x-probe-region', value: 'eu' }],
+    sent: 1,
+    received: 1,
+    stopped: false,
+    durationMs: 12,
+  },
+};
+
+describe('grpc-before-invoke', () => {
+  it('exposes the call view and folds the mutators into one invoke mutation', async () => {
+    const result = await runHook(
+      `console.log(oh.invoke.service + '/' + oh.invoke.method, oh.invoke.shape, oh.invoke.target, oh.invoke.metadata.length);
+       oh.setMetadata('X-Tenant', 'globex');
+       oh.setMetadata('x-trace', 't-1');
+       const message = JSON.parse(oh.invoke.messageText); message.name = 'books/2';
+       oh.setMessage(JSON.stringify(message));
+       console.log(oh.invoke.metadata.map((m) => m.key + '=' + m.value).join(','), oh.invoke.messageText);`,
+      { kind: 'grpc-before-invoke', invoke: GRPC_INVOKE },
+    );
+    expect(result.succeeded).toBe(true);
+    expect(logged(result)).toEqual([
+      'library.v1.Library/GetBook unary grpc.openheaders.io:443 1',
+      'X-Tenant=globex,x-trace=t-1 {"name":"books/2"}',
+    ]);
+    expect(result.sessionMutation).toEqual({
+      kind: 'grpc-invoke',
+      metadata: [
+        { key: 'X-Tenant', value: 'globex' },
+        { key: 'x-trace', value: 't-1' },
+      ],
+      messageText: '{"name":"books/2"}',
+    });
+  });
+
+  it('a reverted edit reports no mutation; a removal alone is one', async () => {
+    const reverted = await runHook(
+      `oh.setMetadata('x-trace', 't'); oh.removeMetadata('x-trace'); oh.setMessage(oh.invoke.messageText);`,
+      { kind: 'grpc-before-invoke', invoke: GRPC_INVOKE },
+    );
+    expect(reverted.sessionMutation).toBeUndefined();
+    const removed = await runHook(`oh.removeMetadata('x-tenant');`, {
+      kind: 'grpc-before-invoke',
+      invoke: GRPC_INVOKE,
+    });
+    expect(removed.sessionMutation).toEqual({ kind: 'grpc-invoke', metadata: [], messageText: undefined });
+  });
+
+  it('has no other family surface — oh.setHeader and oh.setClientId are undefined', async () => {
+    const result = await runHook(
+      `console.log(typeof oh.setHeader, typeof oh.setClientId, typeof oh.setMetadata, typeof oh.request);`,
+      { kind: 'grpc-before-invoke', invoke: GRPC_INVOKE },
+    );
+    expect(logged(result)).toEqual(['undefined undefined function undefined']);
+  });
+});
+
+describe('grpc-on-message', () => {
+  it('reads the decoded frame and asserts on it — no reply verb', async () => {
+    const result = await runHook(
+      `console.log(oh.message.direction, oh.message.type, oh.message.value.title, oh.message.index, typeof oh.send, typeof oh.publish);
+       await oh.test('has a name', () => oh.expect(oh.message.value.name).toBe('books/1'));
+       await oh.test('is sent', () => oh.expect(oh.message.direction).toBe('up'));`,
+      GRPC_FRAME,
+    );
+    expect(logged(result)).toEqual(['down library.v1.Book Field Guide 0 undefined undefined']);
+    expect(result.assertions.map((a) => [a.name, a.passed])).toEqual([
+      ['has a name', true],
+      ['is sent', false],
+    ]);
+    expect(result.sessionMutation).toBeUndefined();
+  });
+});
+
+describe('grpc-after-response', () => {
+  it('reads the end record and asserts on it', async () => {
+    const result = await runHook(
+      `console.log(oh.response.status, oh.response.statusSource, oh.response.sent, oh.response.received, oh.response.trailers[0].value);
+       await oh.test('ok', () => oh.expect(oh.response.status).toBe(0));`,
+      GRPC_RESPONSE,
+    );
+    expect(logged(result)).toEqual(['0 trailers 1 1 eu']);
+    expect(result.assertions).toEqual([{ name: 'ok', passed: true, durationMs: expect.any(Number) }]);
+  });
+
+  it('shares oh.session from Before invoke through On message to After response', async () => {
+    await runHook(`oh.session.frames = 0;`, { kind: 'grpc-before-invoke', invoke: GRPC_INVOKE }, { sessionId: 's-g' });
+    await runHook(`oh.session.frames += 1;`, GRPC_FRAME, { sessionId: 's-g' });
+    const result = await runHook(`console.log(oh.session.frames);`, GRPC_RESPONSE, { sessionId: 's-g' });
+    endScriptSession('s-g');
+    expect(logged(result)).toEqual(['1']);
   });
 });

@@ -29,6 +29,9 @@ import TrustCertificateOffer from '../request-editor/response/TrustCertificateOf
 import { ExampleChip } from '../shared/ExampleChip';
 import GrpcMessageTimeline, { type GrpcTimelineLifecycle } from './GrpcMessageTimeline';
 import GrpcMetaStrip from './GrpcMetaStrip';
+import GrpcScriptsTag from './GrpcScriptsTag';
+import GrpcScriptsView from './GrpcScriptsView';
+import { digestFromMarks, digestFromRecord, scriptMarkItems } from './grpc-scripts';
 import { grpcInputTypeOf, grpcOutputTypeOf, withoutGrpcStatusPair } from './response-decode';
 import type { GrpcStreamSession, LiveGrpcStream } from './useLiveGrpcStream';
 
@@ -78,6 +81,29 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
 
   const inputType = useMemo(() => grpcInputTypeOf(registry, method), [registry, method]);
   const outputType = useMemo(() => grpcOutputTypeOf(registry, method), [registry, method]);
+
+  // The call's scripts — the marks (live: the feed's; settled: the
+  // snapshot's, joined with the session timing the editor retained)
+  // feed the timeline rows and the Scripts tab; the tag digests the
+  // marks live and the snapshot's record once settled (the record's
+  // tallies outlive the mark cap). A call with no hook shows neither.
+  const scriptMarks = useMemo(
+    () =>
+      snapshot !== null
+        ? scriptMarkItems(snapshot.scriptMarks ?? [], session?.scriptMarkTimestamps)
+        : live !== null
+          ? scriptMarkItems(live.scriptMarks, live.scriptMarkTimestamps)
+          : [],
+    [snapshot, session, live],
+  );
+  const scriptsDigest = useMemo(
+    () => (snapshot?.scripts !== undefined ? digestFromRecord(snapshot.scripts) : digestFromMarks(scriptMarks)),
+    [snapshot, scriptMarks],
+  );
+  const scriptsInPlay = scriptsDigest.runs > 0;
+  // The Scripts tab joins only once a hook ran — no teaser tab on a
+  // scriptless call; a selection it can no longer honor falls back.
+  const shownTab = activeTab === 'scripts' && !scriptsInPlay ? 'timeline' : activeTab;
 
   const lifecycle = useMemo((): GrpcTimelineLifecycle => {
     if (snapshot === null) {
@@ -146,6 +172,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             {t('workbench.editors.grpc.stream.streamingBadge')}
           </Tag>
           {proxyRouteHasBadge(live?.head?.proxyRoute) && <ProxyRouteTag route={live?.head?.proxyRoute} />}
+          <GrpcScriptsTag digest={scriptsDigest} />
         </>
       ) : (
         <>
@@ -158,6 +185,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
             {...(snapshot.auth !== undefined ? { auth: snapshot.auth } : {})}
           />
+          <GrpcScriptsTag digest={scriptsDigest} />
           <Dropdown
             trigger={['click']}
             styles={{ root: { minWidth: 180 } }}
@@ -228,7 +256,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
       data-testid="grpc-stream-pane"
     >
       <Tabs
-        activeKey={activeTab}
+        activeKey={shownTab}
         onChange={setActiveTab}
         size="small"
         className="rules-response-tabs"
@@ -279,6 +307,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                     count={count}
                     {...(timestamps !== undefined ? { timestamps } : {})}
                     lifecycle={lifecycle}
+                    scriptMarks={scriptMarks}
                     registry={registry}
                     inputType={inputType}
                     outputType={outputType}
@@ -291,6 +320,31 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
               </div>
             ),
           },
+          ...(scriptsInPlay
+            ? [
+                {
+                  key: 'scripts',
+                  label: (
+                    <span data-testid="grpc-stream-view-scripts">
+                      {t('workbench.editors.grpc.response.tab.scripts')}
+                    </span>
+                  ),
+                  children: (
+                    <div
+                      style={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '0 0 8px',
+                        minHeight: 0,
+                      }}
+                    >
+                      <GrpcScriptsView marks={scriptMarks} marksCapped={scriptsDigest.marksCapped} />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
           {
             key: 'metadata',
             label:

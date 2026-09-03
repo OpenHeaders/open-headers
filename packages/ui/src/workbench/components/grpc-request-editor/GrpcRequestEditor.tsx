@@ -11,7 +11,8 @@
  *     (also the spec entry point in every state).
  *   - `GrpcMessageTab` / `GrpcAuthTab` / `GrpcServiceDefinitionTab` /
  *     `GrpcSettingsTab` — the compose tabs (Docs and Metadata ride the
- *     shared DocsTab/KeyValueTable directly).
+ *     shared DocsTab/KeyValueTable directly; Scripts mounts the shared
+ *     ScriptsTab under the gRPC kind — the call's three hooks).
  *
  * This file keeps what genuinely spans them: the draft + derived-dirty
  * reprime + prefill hand-off, the .proto import picker both spec entry
@@ -52,7 +53,10 @@ import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
-import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
+import ScriptsTab from '../request-editor/ScriptsTab';
+import { ancestorScriptLevels, findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
+import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
+import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import GrpcAuthTab from './GrpcAuthTab';
 import GrpcMessageTab from './GrpcMessageTab';
 import GrpcResponseEmptyState from './GrpcResponseEmptyState';
@@ -84,6 +88,11 @@ interface GrpcRequestEditorProps {
   /** Opens a container's Authorization section — the Auth tab's
    *  "Edit in …" opener under Inherit. */
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  /** Opens a container's Scripts section — the Scripts tab's "Runs
+   *  after …" level links. */
+  onOpenContainerScripts?: OpenContainerScripts;
+  /** Open the Package Library tab (the Scripts tab's Packages popover footer). */
+  onOpenPackageLibrary?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
 }
@@ -97,6 +106,7 @@ const emptyGrpcDraft = (): GrpcDraft => ({
   metadata: [],
   auth: { type: 'none' },
   specLink: undefined,
+  scripts: {},
   resolveToAddress: undefined,
   proxyMode: undefined,
   proxyUrl: undefined,
@@ -122,6 +132,8 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   workspaceId,
   onOpenGrpcResponseExample,
   onOpenContainerAuth,
+  onOpenContainerScripts,
+  onOpenPackageLibrary,
   onDirtyChange,
   registerSaveRef,
 }) => {
@@ -151,6 +163,9 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
         : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
     [ancestry, draft.auth, draft.url],
   );
+  // The ancestor levels whose slots run ahead of this request's, per
+  // kind — the Scripts tab's "Runs after …" line.
+  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
   const [activeTab, setActiveTab] = useState('message');
 
   const formFingerprint = useMemo(() => stableStringify(buildGrpcRequestUpdates(draft)), [draft]);
@@ -458,6 +473,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                       { key: 'message', label: t('workbench.editors.grpc.tab.message') },
                       { key: 'metadata', label: t('workbench.editors.grpc.tab.metadata') },
                       { key: 'auth', label: t('workbench.editors.grpc.tab.auth') },
+                      { key: 'scripts', label: t('workbench.editors.grpc.tab.scripts') },
                       { key: 'settings', label: t('workbench.editors.grpc.tab.settings') },
                       { key: 'spec', label: <SpecTabLabel /> },
                     ]}
@@ -490,6 +506,21 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                         clientStreamActive={invoke.clientStreamActive}
                         onSendStreamMessage={() => void invoke.handleSendStreamMessage()}
                         onEndStreaming={invoke.handleEndStreaming}
+                      />
+                    )}
+                    {/* The call's hooks — edited live: a saved slot
+                      takes effect on the NEXT Invoke (the chain composes
+                      at the invoke), so the tab never locks. */}
+                    {activeTab === 'scripts' && (
+                      <ScriptsTab
+                        scope="request"
+                        requestKind="grpc"
+                        scripts={scriptSlotValuesOf(draft)}
+                        onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+                        workspaceId={workspaceId}
+                        onOpenPackageLibrary={onOpenPackageLibrary}
+                        ancestorScripts={ancestorScripts}
+                        onOpenContainerScripts={onOpenContainerScripts}
                       />
                     )}
                     <SessionLock locked={invoke.invoking}>

@@ -101,6 +101,17 @@ const grpcRequests: GrpcRequest[] = [
     url: `127.0.0.1:${tlsPort}`,
     tls: true,
   }),
+  // E9: the call's script hooks run on the ANSWERING companion (the
+  // forwarded posture — Safe, no page realm): Before invoke sets the
+  // authorization metadata the probe mirrors back, On message reads
+  // the decoded reply, After response asserts on the status.
+  grpcRequest('e2egrpc9', 'GetBookScripted', 'GetBook', '{"name":"books/1"}', {
+    scripts: {
+      'grpc-before-invoke': `oh.setMetadata('authorization', 'Bearer scripted-on-companion');`,
+      'grpc-on-message': `console.log('decoded', oh.message.value.title);`,
+      'grpc-after-response': `await oh.test('status is OK', () => oh.expect(oh.response.status).toBe(0));`,
+    },
+  }),
 ];
 
 const values: Record<string, unknown> = {

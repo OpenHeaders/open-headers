@@ -948,6 +948,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiSetRetain': 'set the RETAIN flag',
   'workbench.editors.request.scripts.apiPublish': 'publish a message into the session',
   'workbench.editors.request.scripts.apiMqttClose': 'the end record — how it ended, the CONNACK, counts, duration',
+  'workbench.editors.request.scripts.apiInvoke':
+    'the call as composed — target, method, call shape, metadata, message text',
+  'workbench.editors.request.scripts.apiSetMetadata': 'set a metadata pair',
+  'workbench.editors.request.scripts.apiRemoveMetadata': 'remove a metadata pair',
+  'workbench.editors.request.scripts.apiGrpcSetMessage': 'replace the message text (JSON)',
+  'workbench.editors.request.scripts.apiGrpcMessage':
+    'the captured frame — direction, type, the decoded message, capture index',
+  'workbench.editors.request.scripts.apiGrpcResponse':
+    'the end record — status, metadata, trailers, counts both directions, duration',
 
   // ── Settings tab — wired knobs ─────────────────────────────────────
   'workbench.editors.request.settings.followRedirects': 'Automatically follow redirects',

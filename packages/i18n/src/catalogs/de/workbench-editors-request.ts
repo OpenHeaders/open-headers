@@ -1804,4 +1804,13 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiPublish': 'eine Nachricht in die Sitzung veröffentlichen',
   'workbench.editors.request.scripts.apiMqttClose':
     'der Abschlussdatensatz — das Ende, das CONNACK, die Zähler, die Dauer',
+  'workbench.editors.request.scripts.apiInvoke':
+    'der Aufruf wie zusammengestellt — Ziel, Methode, Aufrufform, Metadaten, Nachrichtentext',
+  'workbench.editors.request.scripts.apiSetMetadata': 'ein Metadaten-Paar setzen',
+  'workbench.editors.request.scripts.apiRemoveMetadata': 'ein Metadaten-Paar entfernen',
+  'workbench.editors.request.scripts.apiGrpcSetMessage': 'den Nachrichtentext ersetzen (JSON)',
+  'workbench.editors.request.scripts.apiGrpcMessage':
+    'der erfasste Frame — Richtung, Typ, die dekodierte Nachricht, Erfassungsindex',
+  'workbench.editors.request.scripts.apiGrpcResponse':
+    'der Abschlussdatensatz — Status, Metadaten, Trailer, Zähler in beide Richtungen, Dauer',
 } as const satisfies Catalog;

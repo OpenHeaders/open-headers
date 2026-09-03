@@ -21,6 +21,13 @@
  * flush-batched `grpcStreamEvent` emitter; timestamps on them are
  * session-only display data (the ratified Phase E law) — the snapshot
  * carries none.
+ *
+ * The script plane the invoke leg mounted rides along: On message
+ * runs after every captured frame either direction (the rider's
+ * upstream writes included — the rider itself has no hook), After
+ * response at settle for a call that produced a head, and the marks
+ * emit live through the emitter once it exists; the invoke leg attaches
+ * the record to the snapshot this leg resolves.
  */
 
 import type { GrpcStreamEventWire } from '@openheaders/core/bridge';
@@ -42,6 +49,7 @@ import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { pickSessionDialPolicy } from '../dial-policy';
 import { registerActiveSend } from '../request-exec/send-stream';
 import { pickSessionTlsPolicy } from '../tls-policy';
+import { type GrpcScriptPlane, grpcFrameSnapshot } from './script-plane';
 import { createGrpcStreamEmitter, registerActiveGrpcStream } from './stream-plane';
 import {
   GRPC_CANONICAL_CANCELLED,
@@ -91,6 +99,9 @@ export interface GrpcStreamExecuteParams {
   registry: ProtoRegistry;
   /** The rpc's resolved input type — upstream encodes ride it. */
   inputType: string;
+  /** The rpc's response type — the On message hook decodes ↓ frames
+   *  as it; `null` when the spec resolves none. */
+  outputType: string | null;
   shape: 'server-streaming' | 'client-streaming' | 'bidi-streaming';
   /** The composed message, encoded — written + half-closed at open for
    *  server-streaming; null for client/bidi (upstream rides the RPC
@@ -103,6 +114,9 @@ export interface GrpcStreamExecuteParams {
   emitEvent?: (event: GrpcStreamEventWire) => void;
   /** Response-body byte cap (framed wire bytes, the unary law). */
   maxBodyBytes: number;
+  /** The call's script plane, mounted by the invoke leg — absent on a
+   *  scriptless call. */
+  scripts?: GrpcScriptPlane;
 }
 
 export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<ExecutedGrpcSnapshot> {
@@ -118,6 +132,10 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
     // The dispatched metadata truth, live — the sent row's expansion
     // needs no settle to be honest.
     emitter?.sent(params.metadata);
+    const scripts = params.scripts ?? null;
+    // The marks recorded before the wire (Before invoke's) replay onto
+    // the live feed first; every later mark emits as it lands.
+    if (emitter !== null && scripts !== null) scripts.attach((mark) => emitter.script(mark));
     const reader = createGrpcFrameReader();
     const controller = new AbortController();
     let stopped = false;
@@ -129,10 +147,29 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
     let trailers: Array<{ key: string; value: string }> = [];
     let proxyRoute: ExecutedProxyRoute | undefined;
     const messages: ExecutedGrpcMessageFrame[] = [];
+    let sentCount = 0;
+    let receivedCount = 0;
     let bodyBytes = 0;
     let truncated = false;
     let halfClosed = false;
     const startedAt = performance.now();
+
+    /** On message runs AFTER the capture, off the frame just recorded,
+     *  queued behind the call's earlier hooks — the capture never waits
+     *  for it. The mark lands at the capture's current position. */
+    const hookCaptured = (direction: 'up' | 'down', dataBase64: string, compressed: boolean): void => {
+      if (scripts === null) return;
+      scripts.captured(messages.length);
+      scripts.onMessage(
+        grpcFrameSnapshot(params.registry, {
+          direction,
+          type: direction === 'up' ? params.inputType : params.outputType,
+          dataBase64,
+          compressed,
+          index: messages.length - 1,
+        }),
+      );
+    };
 
     const unregisterSend =
       params.sendId !== undefined
@@ -146,7 +183,9 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
     const recordUpstream = (encoded: Uint8Array): void => {
       const dataBase64 = encodeBase64Bytes(encoded);
       messages.push({ dataBase64, compressed: false, direction: 'up' });
+      sentCount += 1;
       emitter?.message({ direction: 'up', dataBase64, compressed: false, atMs: Date.now() });
+      hookCaptured('up', dataBase64, false);
     };
 
     const settle = (error?: Error): void => {
@@ -154,8 +193,14 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
       settledResolve = true;
       unregisterSend?.();
       unregisterStream?.();
-      emitter?.end();
       const durationMs = Math.round(performance.now() - startedAt);
+      // The record settles once the After response hook has run (a
+      // call that produced a head) and every queued hook landed its
+      // mark — the end frame and the snapshot follow them.
+      const finish = (snapshot: ExecutedGrpcSnapshot): void => {
+        emitter?.end();
+        resolve(snapshot);
+      };
       if (!headArrived) {
         const message = stopped
           ? 'Call stopped before a response arrived.'
@@ -168,7 +213,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
             ? error.canonicalStatus
             : undefined;
         const hint = !stopped && error instanceof GrpcTransportError ? error.hint : undefined;
-        resolve({
+        finish({
           httpStatus: 0,
           headers: [],
           trailers: [],
@@ -186,7 +231,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         return;
       }
       const status = extractGrpcStatus(headers, trailers);
-      resolve({
+      const snapshot: ExecutedGrpcSnapshot = {
         httpStatus,
         headers,
         trailers,
@@ -208,7 +253,28 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
         requestMetadata: params.metadata.map((m) => ({ key: m.key, value: m.value })),
         error: null,
-      });
+      };
+      if (scripts === null) {
+        finish(snapshot);
+        return;
+      }
+      void scripts
+        .afterResponse({
+          httpStatus,
+          status: status.code,
+          ...(status.message !== undefined ? { statusMessage: status.message } : {}),
+          statusSource: status.source,
+          headers,
+          trailers,
+          sent: sentCount,
+          received: receivedCount,
+          stopped,
+          durationMs,
+        })
+        .then(
+          () => finish(snapshot),
+          () => finish(snapshot),
+        );
     };
 
     let writer: GrpcStreamWriter;
@@ -246,7 +312,9 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
               const dataBase64 = encodeBase64Bytes(frame.data);
               const compressed = frame.flag !== 0;
               messages.push({ dataBase64, compressed, direction: 'down' });
+              receivedCount += 1;
               emitter?.message({ direction: 'down', dataBase64, compressed, atMs: Date.now() });
+              hookCaptured('down', dataBase64, compressed);
             }
             if (bodyBytes > params.maxBodyBytes) {
               truncated = true;

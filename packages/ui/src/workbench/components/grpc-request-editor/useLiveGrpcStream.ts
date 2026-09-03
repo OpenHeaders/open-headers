@@ -21,7 +21,7 @@
  */
 
 import { type GrpcStreamEventWire, type GrpcStreamMessageWire, hostBridge } from '@openheaders/core/bridge';
-import type { ExecutedProxyRoute } from '@openheaders/core/types';
+import type { ExecutedGrpcScriptMark, ExecutedProxyRoute } from '@openheaders/core/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Session-only stream timing retained past materialization — joins
@@ -35,6 +35,9 @@ export interface GrpcStreamSession {
   connectedAt?: number;
   /** Per-message host stamps in capture order. */
   messageTimestamps: number[];
+  /** Per-script-mark host stamps in mark order (the snapshot's
+   *  `scriptMarks` joins positionally). */
+  scriptMarkTimestamps: number[];
   /** When the call settled on the executing host — the end frame's
    *  host stamp, on every settle path. Absent = no end frame arrived. */
   settledAt?: number;
@@ -64,6 +67,11 @@ export interface LiveGrpcStream {
   /** Session-only host stamps, positional (items[i] ↔ timestamps[i]);
    *  append-only and reference-stable like `items`. */
   timestamps: number[];
+  /** The script marks the feed carried so far, each at its capture
+   *  position — append-only and reference-stable like `items`. */
+  scriptMarks: ExecutedGrpcScriptMark[];
+  /** Positional host stamps for `scriptMarks`. */
+  scriptMarkTimestamps: number[];
 }
 
 interface GrpcStreamAccumulator {
@@ -76,6 +84,8 @@ interface GrpcStreamAccumulator {
   settledAt?: number;
   items: GrpcStreamMessageWire[];
   timestamps: number[];
+  scriptMarks: ExecutedGrpcScriptMark[];
+  scriptMarkTimestamps: number[];
   lastSeq: number;
 }
 
@@ -109,6 +119,8 @@ export function useLiveGrpcStream(): {
       items: acc.items,
       count: acc.items.length,
       timestamps: acc.timestamps,
+      scriptMarks: acc.scriptMarks,
+      scriptMarkTimestamps: acc.scriptMarkTimestamps,
     });
   }, []);
 
@@ -132,6 +144,7 @@ export function useLiveGrpcStream(): {
       startedAt: acc.startedAt,
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
       messageTimestamps: [...acc.timestamps],
+      scriptMarkTimestamps: [...acc.scriptMarkTimestamps],
       ...(acc.settledAt !== undefined ? { settledAt: acc.settledAt } : {}),
     };
   }, []);
@@ -139,7 +152,16 @@ export function useLiveGrpcStream(): {
   const beginStream = useCallback(
     (sendId: string) => {
       endStream();
-      accRef.current = { sendId, startedAt: Date.now(), head: null, items: [], timestamps: [], lastSeq: -1 };
+      accRef.current = {
+        sendId,
+        startedAt: Date.now(),
+        head: null,
+        items: [],
+        timestamps: [],
+        scriptMarks: [],
+        scriptMarkTimestamps: [],
+        lastSeq: -1,
+      };
       // Commit the empty state NOW — the stream pane keys off a
       // non-null live feed, and a client-streaming call produces no
       // wire event until the user sends: without this seed the editor
@@ -166,6 +188,9 @@ export function useLiveGrpcStream(): {
             acc.items.push(item);
             acc.timestamps.push(item.atMs);
           }
+        } else if (event.kind === 'script') {
+          acc.scriptMarks.push(event.mark);
+          acc.scriptMarkTimestamps.push(event.atMs);
         } else if (event.kind === 'end') {
           // The end frame carries the host's call-settled instant; the
           // resolving RPC still ends the stream.

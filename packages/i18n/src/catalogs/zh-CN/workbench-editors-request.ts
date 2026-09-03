@@ -1476,4 +1476,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.scripts.apiSetRetain': '设置 RETAIN 标志',
   'workbench.editors.request.scripts.apiPublish': '向会话发布一条消息',
   'workbench.editors.request.scripts.apiMqttClose': '结束记录 — 结束方式、CONNACK、计数、时长',
+  'workbench.editors.request.scripts.apiInvoke': '组装完成的调用 — 目标、方法、调用形态、元数据、消息文本',
+  'workbench.editors.request.scripts.apiSetMetadata': '设置一对元数据',
+  'workbench.editors.request.scripts.apiRemoveMetadata': '移除一对元数据',
+  'workbench.editors.request.scripts.apiGrpcSetMessage': '替换消息文本（JSON）',
+  'workbench.editors.request.scripts.apiGrpcMessage': '捕获的帧 — 方向、类型、解码后的消息、捕获索引',
+  'workbench.editors.request.scripts.apiGrpcResponse': '结束记录 — 状态、元数据、trailer、双向计数、时长',
 } as const satisfies Catalog;

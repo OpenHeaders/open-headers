@@ -135,6 +135,14 @@ export const SCRIPT_SLOT_BY_KIND: Readonly<Record<ScriptKind, ScriptSlotDescript
 export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
   { requestKind: 'http', slots: [SCRIPT_SLOT_BY_KIND['pre-request'], SCRIPT_SLOT_BY_KIND['post-response']] },
   {
+    requestKind: 'grpc',
+    slots: [
+      SCRIPT_SLOT_BY_KIND['grpc-before-invoke'],
+      SCRIPT_SLOT_BY_KIND['grpc-on-message'],
+      SCRIPT_SLOT_BY_KIND['grpc-after-response'],
+    ],
+  },
+  {
     requestKind: 'websocket',
     slots: [
       SCRIPT_SLOT_BY_KIND['ws-before-connect'],

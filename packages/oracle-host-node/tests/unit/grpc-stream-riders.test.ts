@@ -10,7 +10,14 @@
 
 import { readFileSync } from 'node:fs';
 import { createServer as createHttp2Server, type Http2Server, type ServerHttp2Stream } from 'node:http2';
-import { buildRegistry, createGrpcFrameReader, decodeMessage, encodeMessage, parseProto, writeGrpcFrame } from '@openheaders/core/proto';
+import {
+  buildRegistry,
+  createGrpcFrameReader,
+  decodeMessage,
+  encodeMessage,
+  parseProto,
+  writeGrpcFrame,
+} from '@openheaders/core/proto';
 import { executeGrpcStream } from '@openheaders/oracle/live/grpc-exec/execute-stream';
 import {
   endActiveGrpcClientStream,
@@ -42,7 +49,10 @@ async function startProbe(): Promise<{ authority: string }> {
       stream.on('data', (chunk: Buffer) => {
         for (const frame of reader.push(new Uint8Array(chunk))) {
           const decoded = decodeMessage(registry, `${PKG}.ChatMessage`, frame.data) as { text?: string };
-          const echo = encodeMessage(registry, `${PKG}.ChatMessage`, { author: 'probe', text: `echo: ${decoded.text ?? ''}` });
+          const echo = encodeMessage(registry, `${PKG}.ChatMessage`, {
+            author: 'probe',
+            text: `echo: ${decoded.text ?? ''}`,
+          });
           stream.write(Buffer.from(writeGrpcFrame(echo)));
         }
       });
@@ -85,6 +95,7 @@ describe('grpc stream riders — app-shaped deferred sends', () => {
       metadata: [],
       registry,
       inputType: `${PKG}.ChatMessage`,
+      outputType: `${PKG}.ChatMessage`,
       shape: 'bidi-streaming',
       initialMessage: null,
       sendId: 'repro-bidi',
@@ -113,6 +124,7 @@ describe('grpc stream riders — app-shaped deferred sends', () => {
       metadata: [],
       registry,
       inputType: `${PKG}.UploadBookRequest`,
+      outputType: `${PKG}.UploadBooksSummary`,
       shape: 'client-streaming',
       initialMessage: null,
       sendId: 'repro-client',

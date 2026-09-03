@@ -16,11 +16,16 @@
  * subscriptions / user properties), Before publish per rider publish
  * (mutate topic / payload / QoS / retain / properties, or drop), On
  * message per captured inbound PUBLISH (observe, reply through
- * `oh.publish`, assert), After close once at settle. gRPC joins with
- * its own.
+ * `oh.publish`, assert), After close once at settle. The gRPC family
+ * brackets one call — Before invoke once before the wire (mutate the
+ * metadata and the message text), On message per captured frame BOTH
+ * directions with the message the executor decoded through the linked
+ * spec's registry (observe, assert — no reply verb: the upstream
+ * riders have no hook), After response once at settle (the status,
+ * the trailers, the counts).
  */
 
-import type { MqttScriptKind, WsScriptKind } from './slots';
+import type { GrpcScriptKind, MqttScriptKind, WsScriptKind } from './slots';
 
 export interface SessionHeader {
   key: string;
@@ -268,14 +273,91 @@ export type MqttHookInput =
   | { kind: 'mqtt-on-message'; message: MqttInboundMessageSnapshot }
   | { kind: 'mqtt-after-close'; close: MqttCloseSnapshot };
 
+// ── gRPC ──────────────────────────────────────────────────────────
+
+/** The call shape the linked spec declares for the method. */
+export type GrpcCallShape = 'unary' | 'server-streaming' | 'client-streaming' | 'bidi-streaming';
+
+/**
+ * Before invoke — the call as the executor composed it, once before
+ * the wire: the target authority, the method, the metadata rows
+ * template-resolved with the session credential NOT yet minted (it
+ * mints onto what the hook leaves — an explicit row with the
+ * credential's key still wins), and the composed message text. The
+ * text is what a unary or server-streaming call encodes at invoke; a
+ * client or bidi call opens an empty request stream and its Send
+ * rider writes the compose fresh each time, so the text there is the
+ * compose as it stood — a `messageText` mutation lands nowhere.
+ */
+export interface GrpcInvokeSnapshot {
+  target: string;
+  service: string;
+  method: string;
+  shape: GrpcCallShape;
+  metadata: SessionHeader[];
+  messageText: string;
+}
+
+/** The invoke diff — absent keys mean "no change"; the list replaces. */
+export interface GrpcInvokeMutation {
+  metadata?: SessionHeader[];
+  messageText?: string;
+}
+
+/**
+ * On message — one captured frame, either direction, after the
+ * capture: the message decoded through the linked spec's registry as
+ * the method's request type (↑) or response type (↓) — `null` when
+ * the bytes did not decode as that type, or the frame is compressed —
+ * the bytes as the capture holds them, and the capture index the
+ * frame took.
+ */
+export interface GrpcFrameSnapshot {
+  direction: 'up' | 'down';
+  /** The declared type's full name; `null` when the spec resolves none. */
+  type: string | null;
+  value: unknown;
+  dataBase64: string;
+  compressed: boolean;
+  index: number;
+}
+
+/**
+ * After response — the call's end record, once at settle for a call
+ * that produced a response head: the HTTP/2 status, the gRPC status
+ * as the reply carried it (`null` when it carried none) with its
+ * message and where it was found, the initial metadata and the
+ * trailers verbatim, the frame counts both directions, whether the
+ * user stopped the call, and the whole-call wall time.
+ */
+export interface GrpcResponseSnapshot {
+  httpStatus: number;
+  status: number | null;
+  statusMessage?: string;
+  statusSource: 'trailers' | 'headers' | null;
+  headers: SessionHeader[];
+  trailers: SessionHeader[];
+  sent: number;
+  received: number;
+  stopped: boolean;
+  durationMs: number;
+}
+
+/** One gRPC hook's input, discriminated on the slot kind. */
+export type GrpcHookInput =
+  | { kind: 'grpc-before-invoke'; invoke: GrpcInvokeSnapshot }
+  | { kind: 'grpc-on-message'; message: GrpcFrameSnapshot }
+  | { kind: 'grpc-after-response'; response: GrpcResponseSnapshot };
+
 // ── The union ─────────────────────────────────────────────────────
 
-/** Every session family's hook input — WebSocket and MQTT today. */
-export type SessionHookInput = WsHookInput | MqttHookInput;
+/** Every session family's hook input — WebSocket, MQTT and gRPC. */
+export type SessionHookInput = WsHookInput | MqttHookInput | GrpcHookInput;
 
 /** The kinds whose hook may hand a mutation back. */
 export type MutatingWsScriptKind = Extract<WsScriptKind, 'ws-before-connect' | 'ws-before-send'>;
 export type MutatingMqttScriptKind = Extract<MqttScriptKind, 'mqtt-before-connect' | 'mqtt-before-publish'>;
+export type MutatingGrpcScriptKind = Extract<GrpcScriptKind, 'grpc-before-invoke'>;
 
 /**
  * The one mutation a session hook folds to — the family's diff under
@@ -285,7 +367,8 @@ export type SessionScriptMutation =
   | ({ kind: 'ws-connect' } & WsConnectMutation)
   | ({ kind: 'ws-send' } & WsSendMutation)
   | ({ kind: 'mqtt-connect' } & MqttConnectMutation)
-  | ({ kind: 'mqtt-publish' } & MqttPublishMutation);
+  | ({ kind: 'mqtt-publish' } & MqttPublishMutation)
+  | ({ kind: 'grpc-invoke' } & GrpcInvokeMutation);
 
 /**
  * What `oh.publish` hands the host — the `session.publish` op's

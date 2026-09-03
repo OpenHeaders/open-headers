@@ -8,6 +8,7 @@ import type { WireSnippetRequest } from '../../snippet';
 import type {
   Collection,
   CollectionTree,
+  ExecutedGrpcScriptMark,
   ExecutedGrpcSnapshot,
   ExecutedMqttScriptMark,
   ExecutedMqttSnapshot,
@@ -140,6 +141,10 @@ export type GrpcStreamEventWire =
       metadata: Array<{ key: string; value: string }>;
     }
   | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
+  /** One script hook ran — the executor's mark (`atIndex` counts the
+   *  captured frames at that instant) plus the executing host's
+   *  wall-clock; emits immediately like `head`. */
+  | { sendId: string; seq: number; kind: 'script'; mark: ExecutedGrpcScriptMark; atMs: number }
   | {
       sendId: string;
       seq: number;

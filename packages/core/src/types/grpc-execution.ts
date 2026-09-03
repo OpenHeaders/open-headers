@@ -12,7 +12,15 @@
  * nothing here is ever rewritten to make a reply look well-formed.
  */
 
-import type { ExecutedAuthAttribution, ExecutedProxyRoute, TrustCertificateErrorHint } from './request-execution';
+import type { GrpcScriptKind, ScriptExecutionMode } from '../scripts';
+import type {
+  ExecutedAuthAttribution,
+  ExecutedProxyRoute,
+  ExecutedScriptFold,
+  ExecutedSessionScriptMark,
+  ScriptEventSummary,
+  TrustCertificateErrorHint,
+} from './request-execution';
 
 /** One message frame of the call, unwrapped from the wire: the payload
  *  bytes base64-encoded and the frame's compression flag as received
@@ -26,6 +34,40 @@ export interface ExecutedGrpcMessageFrame {
   dataBase64: string;
   compressed: boolean;
   direction?: 'up' | 'down';
+}
+
+/**
+ * One script hook ran — the per-event detail of the call's scripts
+ * ({@link ExecutedSessionScriptMark}) under the gRPC hook kinds.
+ * Recorded per event (Before invoke once, an On message per captured
+ * frame either direction, After response once) up to the mark cap;
+ * the snapshot's `scripts` record keeps the tallies past it. `atIndex`
+ * is the number of captured frames when the hook FINISHED, so the
+ * timeline renders the row at its true position while `messages` and
+ * its positional session timing stay untouched (the WebSocket
+ * lifecycle law — the frames array is positional, decoded by index).
+ */
+export interface ExecutedGrpcScriptMark extends ExecutedSessionScriptMark {
+  kind: 'script';
+  hook: GrpcScriptKind;
+  atIndex: number;
+}
+
+/**
+ * The call's scripts as they ran — one record per hook the call
+ * carries scripts for: the once-per-call hooks keep their fold, On
+ * message keeps a tally. Absent when no hook ran. `mode` is the trust
+ * posture the hooks ran under, recorded on the snapshot — never
+ * re-read from live settings.
+ */
+export interface ExecutedGrpcScripts {
+  mode?: ScriptExecutionMode;
+  beforeInvoke?: ExecutedScriptFold;
+  onMessage?: ScriptEventSummary;
+  afterResponse?: ExecutedScriptFold;
+  /** The per-event marks stopped at the cap — the tallies above kept
+   *  counting; the timeline shows the first frames' detail only. */
+  marksCapped?: true;
 }
 
 export interface ExecutedGrpcSnapshot {
@@ -109,6 +151,14 @@ export interface ExecutedGrpcSnapshot {
    *  carries none. Session display truth — examples never persist it
    *  (resolved values are volatile). */
   requestMetadata?: Array<{ key: string; value: string }>;
+  /** The call's script hooks as they ran — see {@link ExecutedGrpcScripts};
+   *  absent when no hook ran. */
+  scripts?: ExecutedGrpcScripts;
+  /** The per-event script marks in the order they landed, each at its
+   *  capture position — see {@link ExecutedGrpcScriptMark}. Absent
+   *  when no hook ran. Session display truth beside `scripts` —
+   *  examples never persist either. */
+  scriptMarks?: ExecutedGrpcScriptMark[];
   /** Non-null when the call failed before producing a response. */
   error: string | null;
   /** The canonical gRPC status the CLIENT runtime assigned a LOCAL

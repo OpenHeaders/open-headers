@@ -25,6 +25,17 @@
  * No live frames are emitted for unary — the resolving RPC's snapshot
  * carries the whole reply; streaming shapes feed the `grpcStreamEvent`
  * emitter the message timeline consumes.
+ *
+ * Script hooks (`script-plane.ts`) mount where a host runs scripts AND
+ * some level carries one: Before invoke runs once after template
+ * resolution and BEFORE the session credential mints (it mints onto
+ * the metadata the hook leaves — the WebSocket dial's law), rewriting
+ * the metadata rows and the composed message text; On message runs
+ * after every captured frame either direction, on both wire legs, with
+ * the frame decoded through the registry; After response runs once at
+ * settle for a call that produced a head. The snapshot carries the
+ * record and the position-stamped marks; every exit past the mount
+ * releases the call's runtime context.
  */
 
 import type { GrpcStreamEventWire } from '@openheaders/core/bridge';
@@ -37,19 +48,24 @@ import {
   parseProto,
   readGrpcFrames,
 } from '@openheaders/core/proto';
+import type { GrpcScriptKind } from '@openheaders/core/scripts';
 import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/types';
-import { encodeBase64Bytes } from '@openheaders/core/utils';
+import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { buildResolver } from '../request-exec/resolver-scope';
+import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
+import type { SessionScriptHost } from '../request-exec/script-hooks';
 import { registerActiveSend } from '../request-exec/send-stream';
+import { hasSessionScriptChains } from '../request-exec/session-script-plane';
 import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { executeGrpcStream } from './execute-stream';
+import { createGrpcScriptPlane, type GrpcScriptChains, grpcFrameSnapshot } from './script-plane';
 import {
   GRPC_CANONICAL_CANCELLED,
   type GrpcTransport,
@@ -88,6 +104,28 @@ export interface ExecuteGrpcInvokeOptions {
   /** Host hook renewing an expired OAuth 2.0 token before the invoke
    *  attaches it; absent = the stored bundle attaches as it is. */
   refreshOAuth?: OAuthRefreshFn;
+  /** Host script capability — the call's hooks (Before invoke / On
+   *  message / After response) run through it; absent = the call runs
+   *  scriptless and records no script outcome. */
+  scriptHost?: SessionScriptHost;
+  /** Host-injected ancestor script carriers (outer → inner) — the
+   *  session executors' seam for hosts whose oracle mirrors are empty;
+   *  absent = the executor walks the tree index per slot kind. */
+  scriptChain?: readonly SlotChainCarrier[];
+}
+
+/** The three hooks' chains for the request — the ancestor levels'
+ *  slots (injected, or off the tree index) onto the request's own. */
+function grpcScriptChains(request: GrpcRequest, options: ExecuteGrpcInvokeOptions): GrpcScriptChains {
+  const compose = (kind: GrpcScriptKind) =>
+    options.scriptChain !== undefined
+      ? composeSlotChain(options.scriptChain, request, kind)
+      : collectSlotChain(request, options.workspaceId, kind);
+  return {
+    'grpc-before-invoke': compose('grpc-before-invoke'),
+    'grpc-on-message': compose('grpc-on-message'),
+    'grpc-after-response': compose('grpc-after-response'),
+  };
 }
 
 export async function executeGrpcInvoke(
@@ -179,7 +217,7 @@ export async function executeGrpcInvoke(
   };
   const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: scope.vault, resolve: resolveStr });
   const dialPolicy = sessionDialPolicy(request, scope.vault);
-  const metadata: GrpcTransportHeader[] = [];
+  let metadata: GrpcTransportHeader[] = [];
   for (const row of request.metadata) {
     if (row.enabled === false || !row.key.trim()) continue;
     const key = resolveStr(row.key);
@@ -194,7 +232,7 @@ export async function executeGrpcInvoke(
   // JWT stamped with the invoke's clock). An explicit user row carrying
   // the same key wins: injecting beside it would send the field twice.
   const credential = resolveSessionCredential(sessionAuth.auth, resolveStr);
-  const messageText = resolveStr(request.message);
+  let messageText = resolveStr(request.message);
   if (unresolved.size > 0) {
     return withAuth(
       errorGrpcSnapshot(
@@ -205,6 +243,44 @@ export async function executeGrpcInvoke(
 
   const authority = stripAuthorityScheme(url.trim());
   if (!authority) return withAuth(errorGrpcSnapshot('URL is empty'));
+
+  // ── Script hooks — mounted only where a host runs scripts AND some
+  // level carries one; a scriptless call never touches the plane.
+  const scriptChains = options.scriptHost !== undefined ? grpcScriptChains(request, options) : null;
+  const scripts =
+    options.scriptHost !== undefined && scriptChains !== null && hasSessionScriptChains(scriptChains)
+      ? createGrpcScriptPlane({
+          sessionId: options.sendId ?? `grpc-${generateUid()}`,
+          host: options.scriptHost,
+          chains: scriptChains,
+        })
+      : null;
+  /** Every exit past the mount: the record and the marks onto the
+   *  snapshot, the call's runtime context released. */
+  const finishScripts = (snapshot: ExecutedGrpcSnapshot): ExecutedGrpcSnapshot => {
+    if (scripts === null) return snapshot;
+    const record = scripts.summary();
+    scripts.end();
+    return record === undefined ? snapshot : { ...snapshot, scripts: record, scriptMarks: [...scripts.marks] };
+  };
+  if (scripts !== null) {
+    // Before invoke sees the call as composed — the user's rows and
+    // the message text resolved, no credential yet — once, before the
+    // wire. Lenient: a failed level leaves its input as it was. The
+    // reserved keys stay the transport's whatever a level wrote.
+    const invoke = await scripts.beforeInvoke({
+      target: authority,
+      service: method.service,
+      method: method.rpc,
+      shape: rpc.streaming,
+      metadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+      messageText,
+    });
+    metadata = invoke.metadata
+      .filter((m) => !m.key.startsWith(':') && !RESERVED_METADATA_KEYS.has(m.key.toLowerCase()))
+      .map((m) => ({ key: m.key, value: m.value }));
+    messageText = invoke.messageText;
+  }
   if (credential !== null) {
     let minted: Awaited<ReturnType<typeof mintSessionCredential>>;
     try {
@@ -216,7 +292,7 @@ export async function executeGrpcInvoke(
         now: new Date(),
       });
     } catch (err) {
-      return withAuth(errorGrpcSnapshot(err instanceof Error ? err.message : String(err)));
+      return withAuth(finishScripts(errorGrpcSnapshot(err instanceof Error ? err.message : String(err))));
     }
     // A query placement never reaches a gRPC call — the mask refused
     // it by name — so the minted header pairs are the whole credential,
@@ -238,13 +314,15 @@ export async function executeGrpcInvoke(
     try {
       composed = messageText.trim() === '' ? {} : JSON.parse(messageText);
     } catch (err) {
-      return withAuth(errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`));
+      return withAuth(finishScripts(errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`)));
     }
     try {
       encoded = encodeMessage(registry, rpc.inputType, composed);
     } catch (err) {
       if (err instanceof ProtoCodecError) {
-        return withAuth(errorGrpcSnapshot(`The message does not match ${rpc.inputType}: ${err.message}`));
+        return withAuth(
+          finishScripts(errorGrpcSnapshot(`The message does not match ${rpc.inputType}: ${err.message}`)),
+        );
       }
       throw err;
     }
@@ -267,16 +345,18 @@ export async function executeGrpcInvoke(
       ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
       registry,
       inputType: rpc.inputType,
+      outputType: rpc.outputType,
       shape: rpc.streaming,
       initialMessage: rpc.streaming === 'server-streaming' ? encoded : null,
       ...(options.sendId !== undefined ? { sendId: options.sendId } : {}),
       ...(options.emitStreamEvent !== undefined ? { emitEvent: options.emitStreamEvent } : {}),
       maxBodyBytes,
+      ...(scripts !== null ? { scripts } : {}),
     });
-    return withAuth(streamSnapshot);
+    return withAuth(finishScripts(streamSnapshot));
   }
   if (encoded === null) {
-    return withAuth(errorGrpcSnapshot('The unary message failed to encode.'));
+    return withAuth(finishScripts(errorGrpcSnapshot('The unary message failed to encode.')));
   }
 
   // ── Wire exchange on the sendId spine ──
@@ -310,14 +390,38 @@ export async function executeGrpcInvoke(
     const durationMs = Math.round(performance.now() - startedAt);
     const { frames, incomplete } = readGrpcFrames(response.body);
     const status = extractGrpcStatus(response.headers, response.trailers);
-    return {
+    const headers = response.headers.map((h) => ({ key: h.key, value: h.value }));
+    const trailers = response.trailers.map((h) => ({ key: h.key, value: h.value }));
+    const messages = frames.map((f) => ({ dataBase64: encodeBase64Bytes(f.data), compressed: f.flag !== 0 }));
+    if (scripts !== null) {
+      // The buffered exchange captured every frame at once — On message
+      // runs per frame after the capture (the marks land past them),
+      // then After response settles the record before the snapshot.
+      scripts.captured(messages.length);
+      messages.forEach((frame, index) => {
+        scripts.onMessage(grpcFrameSnapshot(registry, { direction: 'down', type: rpc.outputType, ...frame, index }));
+      });
+      await scripts.afterResponse({
+        httpStatus: response.httpStatus,
+        status: status.code,
+        ...(status.message !== undefined ? { statusMessage: status.message } : {}),
+        statusSource: status.source,
+        headers,
+        trailers,
+        sent: 1,
+        received: messages.length,
+        stopped: false,
+        durationMs,
+      });
+    }
+    return finishScripts({
       httpStatus: response.httpStatus,
-      headers: response.headers.map((h) => ({ key: h.key, value: h.value })),
-      trailers: response.trailers.map((h) => ({ key: h.key, value: h.value })),
+      headers,
+      trailers,
       grpcStatus: status.code,
       ...(status.message !== undefined ? { grpcMessage: status.message } : {}),
       grpcStatusSource: status.source,
-      messages: frames.map((f) => ({ dataBase64: encodeBase64Bytes(f.data), compressed: f.flag !== 0 })),
+      messages,
       ...(incomplete ? { incompleteTail: true } : {}),
       bodyTruncated: response.bodyTruncated,
       ...(response.bodyTruncated ? { bodyCapBytes: maxBodyBytes } : {}),
@@ -331,7 +435,7 @@ export async function executeGrpcInvoke(
       requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
       error: null,
-    };
+    });
   } catch (err) {
     const durationMs = Math.round(performance.now() - startedAt);
     const message = stopped
@@ -349,14 +453,14 @@ export async function executeGrpcInvoke(
         ? err.canonicalStatus
         : undefined;
     const hint = !stopped && err instanceof GrpcTransportError ? err.hint : undefined;
-    return {
+    return finishScripts({
       ...errorGrpcSnapshot(message),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
       requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
       ...(localStatus !== undefined ? { localStatus } : {}),
       ...(hint !== undefined ? { hint } : {}),
       durationMs,
-    };
+    });
   } finally {
     unregister?.();
   }

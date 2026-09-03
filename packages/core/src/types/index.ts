@@ -71,7 +71,12 @@ export type {
   WorkspaceVisibility,
 } from './extension-workspace';
 // ── gRPC request ───────────────────────────────────────────────────
-export type { ExecutedGrpcMessageFrame, ExecutedGrpcSnapshot } from './grpc-execution';
+export type {
+  ExecutedGrpcMessageFrame,
+  ExecutedGrpcScriptMark,
+  ExecutedGrpcScripts,
+  ExecutedGrpcSnapshot,
+} from './grpc-execution';
 export type {
   GrpcAuth,
   GrpcMetadataPair,

@@ -266,6 +266,21 @@ describe('grpc draft projections', () => {
     expect(updates.unixSocketPath).toBe('/var/run/openheaders/grpc.sock');
   });
 
+  it("carries the request's own script slots through the draft and emits the present ones alone", () => {
+    const scripted: GrpcRequest = { ...entity, scripts: { 'grpc-before-invoke': 'oh.setMetadata("x", "1");' } };
+    const draft = draftFromGrpcRequest(scripted);
+    expect(draft.scripts).toEqual({ 'grpc-before-invoke': 'oh.setMetadata("x", "1");' });
+    const updates = buildGrpcRequestUpdates({ ...draft, scripts: { ...draft.scripts, 'grpc-on-message': '   ' } });
+    expect(updates.scripts).toEqual({ 'grpc-before-invoke': 'oh.setMetadata("x", "1");' });
+    // No scripts, or every slot emptied, both project to the empty
+    // record — the write's flatten-diff reads it as no record.
+    expect(buildGrpcRequestUpdates(draftFromGrpcRequest(entity)).scripts).toEqual({});
+    const emptied = draftFromGrpcRequest(scripted);
+    emptied.scripts = { 'grpc-before-invoke': '' };
+    expect(buildGrpcRequestUpdates(emptied).scripts).toEqual({});
+    expect(canonicalGrpcRequestProjection(entity).scripts).toEqual({});
+  });
+
   it('round-trips a bearer credential and a verify-off knob through the projections', () => {
     const secured: GrpcRequest = {
       ...entity,

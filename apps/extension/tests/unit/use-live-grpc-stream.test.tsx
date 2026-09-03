@@ -124,6 +124,36 @@ describe('useLiveGrpcStream', () => {
     expect(result.current.live?.count).toBe(1);
   });
 
+  it('accumulates script frames as position-stamped marks with their host stamps, into the session timing', () => {
+    const { result } = renderHook(() => useLiveGrpcStream());
+    act(() => result.current.beginStream('send-1'));
+    const mark = {
+      kind: 'script' as const,
+      hook: 'grpc-before-invoke' as const,
+      succeeded: true,
+      durationMs: 3,
+      chain: [],
+      atIndex: 0,
+    };
+    act(() => emit({ sendId: 'send-1', seq: 0, kind: 'script', mark, atMs: 90 }));
+    act(() => emit({ sendId: 'send-1', seq: 1, kind: 'messages', items: [msg('down', 100)] }));
+    act(() =>
+      emit({
+        sendId: 'send-1',
+        seq: 2,
+        kind: 'script',
+        mark: { ...mark, hook: 'grpc-on-message', atIndex: 1 },
+        atMs: 110,
+      }),
+    );
+    expect(result.current.live?.scriptMarks.map((m) => [m.hook, m.atIndex])).toEqual([
+      ['grpc-before-invoke', 0],
+      ['grpc-on-message', 1],
+    ]);
+    expect(result.current.live?.scriptMarkTimestamps).toEqual([90, 110]);
+    expect(result.current.takeSession()?.scriptMarkTimestamps).toEqual([90, 110]);
+  });
+
   it('takeSession snapshots timing including the head arrival, then endStream clears the feed', () => {
     const { result } = renderHook(() => useLiveGrpcStream());
     act(() => result.current.beginStream('send-1'));

@@ -28,6 +28,12 @@ import type { HttpScriptKind, SessionScriptKind } from './slots';
 // files); the execution envelope below carries the kind as data.
 
 export type {
+  GrpcCallShape,
+  GrpcFrameSnapshot,
+  GrpcHookInput,
+  GrpcInvokeMutation,
+  GrpcInvokeSnapshot,
+  GrpcResponseSnapshot,
   MqttCloseSnapshot,
   MqttConnectMutation,
   MqttConnectSnapshot,
@@ -40,6 +46,7 @@ export type {
   MqttScriptMessageProperties,
   MqttScriptPayloadFormat,
   MqttSessionQos,
+  MutatingGrpcScriptKind,
   MutatingMqttScriptKind,
   MutatingWsScriptKind,
   SessionHeader,

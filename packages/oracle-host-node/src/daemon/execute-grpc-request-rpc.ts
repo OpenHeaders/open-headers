@@ -14,10 +14,12 @@
  *
  * The entity and its linked Protobuf spec load from the workspace's
  * storage slots — the same validated reads the sync caches hydrate
- * from, so the invoke sees exactly what the workspace holds. No
- * scripts in this phase (the gRPC Scripts tab is a Phase G parity
- * decision), so there is no interactive/step pipeline split — the
- * executor is called directly.
+ * from, so the invoke sees exactly what the workspace holds. The
+ * call's script hooks ride the host's script capability when it has
+ * one (`resolveSessionScriptHost` — the HTTP send's mode gate: a
+ * forwarded invoke runs Safe or not at all); a host without one runs
+ * the call scriptless. There is no interactive/step pipeline split —
+ * the executor is called directly.
  */
 
 import { type GrpcStreamEventWire, hostBridge } from '@openheaders/core/bridge';
@@ -30,6 +32,7 @@ import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeGrpcTransport } from '../live/node-grpc-transport';
 import { createNodeRequestTransport } from '../live/node-request-transport';
+import { resolveSessionScriptHost } from './script-capability';
 
 export interface ExecuteGrpcRequestRpcResult {
   success: boolean;
@@ -103,6 +106,12 @@ export async function handleExecuteGrpcRequestRpc(
       spec = specs.find((s) => s.uid === specUid) ?? null;
     }
 
+    // A frame stamped with a foreign workspace is a peer-forwarded
+    // invoke — its scripts run Safe unconditionally (never this host's
+    // slot). The executor mounts the plane only where a level carries
+    // a script.
+    const forwarded = requestedWorkspaceId !== undefined && requestedWorkspaceId !== activeWorkspaceId;
+    const scriptHost = await resolveSessionScriptHost({ workspaceId: workspaceId ?? activeWorkspaceId, forwarded });
     const snapshot = await executeGrpcInvoke(request, {
       workspaceId,
       environmentId,
@@ -111,6 +120,7 @@ export async function handleExecuteGrpcRequestRpc(
       ...(sendId !== undefined ? { sendId } : {}),
       emitStreamEvent,
       refreshOAuth: buildRefreshOAuthHook(workspaceId ?? undefined, nodeRequestTransport),
+      ...(scriptHost !== null ? { scriptHost } : {}),
     });
     return { success: true, snapshot };
   } catch (err) {

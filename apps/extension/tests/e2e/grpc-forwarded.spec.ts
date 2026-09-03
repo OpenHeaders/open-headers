@@ -23,6 +23,11 @@
  *       seeded-live-state law), the corner Send/End controls drive the
  *       FORWARDED stream by sendId, a strict-encode mismatch fails the
  *       rider alone (stream intact), and the echo/summary settle 0 OK.
+ *   E9  script hooks run on the ANSWERING companion: a Before invoke
+ *       slot's metadata rewrite reaches the wire (the probe's echo),
+ *       the On message console and the After response assertion land
+ *       in the forwarded snapshot's Scripts tab, the strip's tag
+ *       counts the runs — the extension runs no page host for gRPC.
  *   E1  daemon gone → Invoke disables with the connect-the-desktop-app
  *       copy while composing stays usable.
  *
@@ -623,6 +628,29 @@ test('bidi: a sent message echoes back through the forwarded stream', async () =
 });
 
 // ── E1: no-companion affordance ─────────────────────────────────────
+
+// ── E9: script hooks on the answering companion ─────────────────────
+
+test('script hooks run on the companion: the rewrite echoes back, the console and the assertion land in the Scripts tab', async () => {
+  await openGrpcRequest('e2egrpc9');
+  await invokeButton().click();
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 20000 });
+  // Before invoke, one On message, After response.
+  await expect(page.getByTestId('grpc-session-scripts-tag').filter({ visible: true }).first()).toHaveText(
+    'Scripts · 3',
+  );
+  const responsePane = page.getByTestId('grpc-response-pane').filter({ visible: true }).first();
+  await workbench.openResponseTab(/Metadata/);
+  await expect(responsePane).toContainText('scripted-on-companion');
+  await workbench.openResponseTab(/Scripts/);
+  await expect(page.getByTestId('grpc-script-console-block').filter({ visible: true }).first()).toContainText(
+    'decoded The Open Headers Field Guide',
+  );
+  const tests = page.getByTestId('grpc-script-test-row').filter({ visible: true });
+  await expect(tests).toHaveCount(1);
+  await expect(tests.first()).toContainText('status is OK');
+  await expect(tests.first()).toContainText('PASS');
+});
 
 test('daemon gone: Invoke disables with the connect copy while composing stays usable', async () => {
   await stopDaemon();

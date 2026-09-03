@@ -84,13 +84,16 @@ export async function applyGrpcRequestUpdate(
       for (const row of rows) byUid.set(row.uid, row);
       return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
     },
-    // Baseline for the method / specLink per-leaf flatten-diff.
+    // Baseline for the method / auth / specLink / scripts per-leaf
+    // flatten-diff — a save writes only the script slots that changed
+    // and tombstones the ones the draft emptied.
     (uid, path) => {
       const snap = mirror.getGrpcRequestMirror(uid)?.grpcRequest;
       if (!snap) return undefined;
       if (path === 'method') return snap.method;
       if (path === 'auth') return snap.auth;
       if (path === 'specLink') return snap.specLink;
+      if (path === 'scripts') return snap.scripts;
       return undefined;
     },
   );

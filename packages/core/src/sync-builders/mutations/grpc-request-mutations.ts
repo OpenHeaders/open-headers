@@ -5,9 +5,10 @@
  * `(batch, sideEffects)` pairs as pure transforms — no oracle reads,
  * no IO. The one set-modeled field (`metadata`) routes through the
  * shared {@link synthesizeSetDiff} minimum-envelope synthesizer;
- * object-valued scalars (`method`, `auth`, `specLink`) route through
- * {@link synthesizeFieldDiff} so edits share create's per-leaf
- * representation and a cleared object tombstones its leaves.
+ * object-valued scalars (`method`, `auth`, `specLink`, the `scripts`
+ * slot record) route through {@link synthesizeFieldDiff} so edits
+ * share create's per-leaf representation and a cleared object
+ * tombstones its leaves.
  *
  * No side-effect intents: gRPC requests don't feed DNR or the
  * variables resolver.
@@ -37,8 +38,16 @@ export interface GrpcRequestMutationPayload {
 /** Live-itemId reader for the `metadata` set path — see {@link request-mutations}' LiveSetEntries. */
 export type GrpcLiveSetEntries = (grpcRequestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
-/** Current materialized value reader for object-valued scalar paths (`method`, `auth`, `specLink`). */
+/** Current materialized value reader for object-valued scalar paths
+ *  (`method`, `auth`, `specLink`, `scripts`). */
 export type GrpcLiveFieldValue = (grpcRequestUid: string, path: string) => unknown;
+
+/** A record with no keys reads as no record — see the `scripts` note below. */
+function emptyRecordAsAbsent(value: unknown): unknown {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0
+    ? undefined
+    : value;
+}
 
 /**
  * New gRPC request → seed batch. No side effects. `placement` is the
@@ -105,13 +114,20 @@ export function buildGrpcUpdateBatch(
     // Object-valued scalars (`method`, `auth`, `specLink`) — emit a per-leaf
     // flatten-diff so the edit shares create's representation.
     if (value !== null && typeof value === 'object') {
+      // The script slot record is absent when empty (one `<kind>.js`
+      // sibling per present slot, no record leaf): an empty record on
+      // either side diffs as no record, so a save without scripts never
+      // writes an empty leaf and an emptied slot tombstones its own.
+      const record = key === 'scripts';
       bodies.push(
         ...synthesizeFieldDiff({
           type: GRPC_REQUEST_ENTITY_TYPE,
           id: grpcRequestUid,
           basePath: key,
-          oldValue: liveFieldValue(grpcRequestUid, key),
-          newValue: value,
+          oldValue: record
+            ? emptyRecordAsAbsent(liveFieldValue(grpcRequestUid, key))
+            : liveFieldValue(grpcRequestUid, key),
+          newValue: record ? emptyRecordAsAbsent(value) : value,
         }),
       );
       continue;

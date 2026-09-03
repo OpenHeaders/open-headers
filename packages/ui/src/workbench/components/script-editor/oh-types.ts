@@ -14,7 +14,10 @@
  * HTTP pair adds `oh.request` / `oh.response` and the request
  * mutators; each WebSocket hook adds its own view and verbs
  * (`oh.connect` + the dial mutators, `oh.message` + the send mutators
- * or the reply verbs, `oh.close`) plus `oh.session`. The editor swaps
+ * or the reply verbs, `oh.close`) plus `oh.session`; the MQTT hooks
+ * are the twin on the CONNECT / PUBLISH plane; the gRPC hooks bracket
+ * one call (`oh.invoke` + the metadata and message mutators,
+ * `oh.message` as the decoded frame, `oh.response`). The editor swaps
  * the declaration with the rail selection (`setScriptAmbientKind`).
  *
  * The surface is split into NAMED interfaces (`OpenHeaders`,
@@ -518,6 +521,93 @@ interface OpenHeaders extends OpenHeadersCore {
 declare const oh: OpenHeaders;
 `;
 
+const OH_GRPC_INVOKE = `
+/** The call as composed: the target authority, the method, the
+ *  metadata rows resolved (the session credential NOT yet minted — it
+ *  mints onto what the script leaves), the composed message text. A
+ *  unary or server-streaming call encodes the text at invoke; a
+ *  client or bidi call opens an empty request stream and its Send
+ *  writes the compose fresh, so \`setMessage\` lands nowhere there. */
+interface OhGrpcInvoke {
+  readonly target: string;
+  readonly service: string;
+  readonly method: string;
+  readonly shape: 'unary' | 'server-streaming' | 'client-streaming' | 'bidi-streaming';
+  readonly metadata: ReadonlyArray<OhHeader>;
+  readonly messageText: string;
+}
+
+/** The \`oh\` global inside a gRPC Before invoke script — runs once
+ *  before the call leaves. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly invoke: OhGrpcInvoke;
+  /** Metadata keys match case-insensitively — replaces the row with
+   *  that key, else appends. */
+  setMetadata(key: string, value: string): void;
+  removeMetadata(key: string): void;
+  /** Replace the message text — JSON against the method's request type. */
+  setMessage(text: string): void;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_GRPC_MESSAGE = `
+/** One captured frame, either direction, after the capture: the
+ *  message decoded through the linked spec as the method's request
+ *  type (↑) or response type (↓) — \`null\` when the bytes did not
+ *  decode as it, or the frame is compressed — the bytes as captured,
+ *  the capture index it took. */
+interface OhGrpcFrame {
+  readonly direction: 'up' | 'down';
+  readonly type: string | null;
+  readonly value: any;
+  readonly dataBase64: string;
+  readonly compressed: boolean;
+  readonly index: number;
+}
+
+/** The \`oh\` global inside a gRPC On message script — runs once per
+ *  captured frame, sent and received alike; the capture never waits
+ *  for it. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly message: OhGrpcFrame;
+}
+
+declare const oh: OpenHeaders;
+`;
+
+const OH_GRPC_RESPONSE = `
+/** The call's end record: the HTTP/2 status, the gRPC status as the
+ *  reply carried it (\`null\` when it carried none) with its message
+ *  and where it was found, the initial metadata and the trailers
+ *  verbatim, the frame counts both directions, whether the user
+ *  stopped the call, the whole-call wall time. */
+interface OhGrpcResponse {
+  readonly httpStatus: number;
+  readonly status: number | null;
+  readonly statusMessage?: string;
+  readonly statusSource: 'trailers' | 'headers' | null;
+  readonly headers: ReadonlyArray<OhHeader>;
+  readonly trailers: ReadonlyArray<OhHeader>;
+  readonly sent: number;
+  readonly received: number;
+  readonly stopped: boolean;
+  readonly durationMs: number;
+}
+
+/** The \`oh\` global inside a gRPC After response script — runs once
+ *  when a call that produced a response settles. */
+interface OpenHeaders extends OpenHeadersCore {
+  readonly session: OhSessionState;
+  readonly response: OhGrpcResponse;
+}
+
+declare const oh: OpenHeaders;
+`;
+
 /** The HTTP pair's declaration — what the editor bootstraps with. */
 export const OH_AMBIENT_DTS = `${OH_PRELUDE}${OH_HTTP}`;
 
@@ -542,6 +632,12 @@ export function ohAmbientDts(kind: ScriptKind): string {
       return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_MQTT_PRELUDE}${OH_MQTT_MESSAGE}`;
     case 'mqtt-after-close':
       return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_MQTT_CLOSE}`;
+    case 'grpc-before-invoke':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_GRPC_INVOKE}`;
+    case 'grpc-on-message':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_GRPC_MESSAGE}`;
+    case 'grpc-after-response':
+      return `${OH_PRELUDE}${OH_SESSION_PRELUDE}${OH_GRPC_RESPONSE}`;
     default:
       return OH_AMBIENT_DTS;
   }

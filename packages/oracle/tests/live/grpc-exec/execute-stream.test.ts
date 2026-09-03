@@ -87,6 +87,7 @@ function params(transport: GrpcTransport, overrides: Partial<GrpcStreamExecutePa
     metadata: [],
     registry: REGISTRY,
     inputType: NOTE,
+    outputType: NOTE,
     shape: 'bidi-streaming',
     initialMessage: null,
     maxBodyBytes: 2 * 1024 * 1024,

@@ -132,7 +132,9 @@ describe('ScriptsTab rail', () => {
     renderTab({ scope: 'container' });
     expect(screen.getAllByTestId('oh-script-rail-group')[0]?.textContent).toBe('HTTPHTTP');
     expect(editor().placeholder).toBe('Write scripts to be run before each HTTP request is sent.');
-    fireEvent.click(screen.getByText('After response'));
+    // The HTTP pair's row leads; the gRPC group's After response row
+    // sits under its own kind header further down.
+    fireEvent.click(screen.getAllByText('After response')[0] as HTMLElement);
     expect(editor().placeholder).toBe('Write scripts to be run at the end of each HTTP response.');
   });
 
@@ -238,10 +240,11 @@ describe('ScriptsTab request kinds', () => {
     expect(onChange).toHaveBeenCalledWith('ws-on-message', `await oh.send('pong');`);
   });
 
-  it('a container mount draws the HTTP, WebSocket and MQTT groups under their kind headers', () => {
+  it('a container mount draws the HTTP, gRPC, WebSocket and MQTT groups under their kind headers', () => {
     renderTab({ scope: 'container' });
     expect(screen.getAllByTestId('oh-script-rail-group').map((g) => g.textContent)).toEqual([
       'HTTPHTTP',
+      'gRPCgRPC',
       'WSWebSocket',
       'MQTTMQTT',
     ]);
@@ -249,6 +252,29 @@ describe('ScriptsTab request kinds', () => {
     expect(editor().placeholder).toBe('Write scripts to be run before each WebSocket message is sent.');
     fireEvent.click(screen.getByText('Before publish'));
     expect(editor().placeholder).toBe('Write scripts to be run before each MQTT message is published.');
+  });
+
+  it('a gRPC request mount draws the three gRPC slots flat and edits report the gRPC kind', () => {
+    const onChange = vi.fn();
+    render(<ScriptsTab scope="request" requestKind="grpc" scripts={EMPTY} onScriptChange={onChange} />);
+    expect(screen.getAllByTestId('oh-script-rail-row').map((row) => row.firstChild?.textContent)).toEqual([
+      'Before invoke',
+      'On message',
+      'After response',
+    ]);
+    expect(screen.queryByTestId('oh-script-rail-group')).toBeNull();
+    expect(screen.queryByText('Before connect')).toBeNull();
+    fireEvent.click(screen.getByText('After response'));
+    fireEvent.change(editor(), { target: { value: `await oh.test('ok', () => {});` } });
+    expect(onChange).toHaveBeenCalledWith('grpc-after-response', `await oh.test('ok', () => {});`);
+  });
+
+  it('a gRPC slot popover lists the hook glossary', async () => {
+    render(<ScriptsTab scope="request" requestKind="grpc" scripts={EMPTY} onScriptChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'About Before invoke script' }));
+    expect(await screen.findByText('oh.setMetadata(name, value)')).toBeTruthy();
+    expect(screen.getByText('oh.setMessage(text)')).toBeTruthy();
+    expect(screen.getByText('oh.session')).toBeTruthy();
   });
 
   it('a WebSocket slot popover lists the hook glossary', async () => {

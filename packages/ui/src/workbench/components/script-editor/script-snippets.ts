@@ -520,10 +520,139 @@ const MQTT_AFTER_CLOSE_GROUPS: ScriptSnippetGroup[] = [
   VARIABLES_GROUP,
 ];
 
+// ── The gRPC hooks ──────────────────────────────────────────────────
+
+const GRPC_BEFORE_INVOKE_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.invoke',
+    snippets: [
+      {
+        id: 'grpc-set-metadata',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcSetMetadata',
+        code: `oh.setMetadata('x-api-key', await oh.vault.get('secret_name'));`,
+      },
+      {
+        id: 'grpc-remove-metadata',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcRemoveMetadata',
+        code: `oh.removeMetadata('x-api-key');`,
+      },
+      {
+        id: 'grpc-set-message',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcSetMessage',
+        code: `const message = JSON.parse(oh.invoke.messageText || '{}');
+message.requestedAt = new Date().toISOString();
+oh.setMessage(JSON.stringify(message));`,
+      },
+      {
+        id: 'grpc-log-call',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcLogCall',
+        code: `console.log(oh.invoke.service + '/' + oh.invoke.method, oh.invoke.shape, oh.invoke.target);`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
+const GRPC_ON_MESSAGE_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.message',
+    snippets: [
+      {
+        id: 'grpc-log-message',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcLogMessage',
+        code: `console.log(oh.message.direction === 'up' ? 'sent' : 'received', oh.message.type, oh.message.value);`,
+      },
+      {
+        id: 'grpc-count-messages',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcCountMessages',
+        code: `oh.session.received = (oh.session.received ?? 0) + (oh.message.direction === 'down' ? 1 : 0);
+console.log('received so far', oh.session.received);`,
+      },
+    ],
+  },
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    snippets: [
+      {
+        id: 'grpc-assert-decoded',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcAssertDecoded',
+        code: `await oh.test('Message decoded', () => {
+  oh.expect(oh.message.value).toBeTruthy();
+});`,
+      },
+      {
+        id: 'grpc-assert-field',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcAssertField',
+        code: `await oh.test('Field is set', () => {
+  oh.expect(oh.message.value?.name).toBeTruthy();
+});`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.variables',
+    snippets: [
+      GET_VARIABLE,
+      SET_VARIABLE,
+      {
+        id: 'grpc-save-message-value',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcSaveMessageValue',
+        code: `if (oh.message.direction === 'down' && oh.message.value) {
+  await oh.variables.set('last_name', String(oh.message.value.name ?? ''));
+}`,
+      },
+      GET_VAULT_SECRET,
+    ],
+  },
+];
+
+const GRPC_AFTER_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
+  {
+    labelKey: 'workbench.editors.scriptEditor.group.tests',
+    snippets: [
+      {
+        id: 'grpc-status-ok',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcStatusOk',
+        code: `await oh.test('Status is OK', () => {
+  oh.expect(oh.response.status).toBe(0);
+});`,
+      },
+      {
+        id: 'grpc-message-count',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcMessageCount',
+        code: `await oh.test('Messages arrived', () => {
+  oh.expect(oh.response.received > 0).toBeTruthy();
+});`,
+      },
+      {
+        id: 'grpc-trailer-check',
+        labelKey: 'workbench.editors.scriptEditor.snippet.grpcTrailerCheck',
+        code: `await oh.test('Trailer is present', () => {
+  const trailer = oh.response.trailers.find((t) => t.key === 'x-request-id');
+  oh.expect(trailer?.value).toBeTruthy();
+});`,
+      },
+    ],
+  },
+  WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
+  VARIABLES_GROUP,
+];
+
 export function getScriptSnippetGroups(kind: ScriptKind): ScriptSnippetGroup[] {
   switch (kind) {
     case 'pre-request':
       return PRE_REQUEST_GROUPS;
+    case 'grpc-before-invoke':
+      return GRPC_BEFORE_INVOKE_GROUPS;
+    case 'grpc-on-message':
+      return GRPC_ON_MESSAGE_GROUPS;
+    case 'grpc-after-response':
+      return GRPC_AFTER_RESPONSE_GROUPS;
     case 'ws-before-connect':
       return WS_BEFORE_CONNECT_GROUPS;
     case 'ws-before-send':

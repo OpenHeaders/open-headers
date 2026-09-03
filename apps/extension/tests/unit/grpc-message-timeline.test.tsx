@@ -27,6 +27,7 @@ import GrpcMessageTimeline, {
   type GrpcTimelineItem,
   type GrpcTimelineLifecycle,
 } from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcMessageTimeline';
+import type { GrpcScriptMarkItem } from '@openheaders/ui/workbench/components/grpc-request-editor/grpc-scripts';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
@@ -391,6 +392,63 @@ describe('GrpcMessageTimeline toolbar', () => {
     fireEvent.click(screen.getByTestId('grpc-timeline-clear'));
     expect(screen.queryAllByTestId('grpc-timeline-message-row')).toHaveLength(0);
     expect(screen.getByTestId('grpc-timeline-sent-row')).toBeTruthy();
+  });
+});
+
+describe('GrpcMessageTimeline script marks', () => {
+  const scriptMark = (over: Partial<GrpcScriptMarkItem> = {}): GrpcScriptMarkItem => ({
+    kind: 'script',
+    hook: 'grpc-on-message',
+    succeeded: true,
+    durationMs: 3,
+    chain: [
+      { level: 'collection', uid: 'col1', name: 'Library', durationMs: 1, succeeded: true },
+      { level: 'request', uid: 'req1', name: 'Chat', durationMs: 2, succeeded: true },
+    ],
+    atIndex: 1,
+    ...over,
+  });
+
+  /** Document order of the message and script rows alone. */
+  const markSequence = (): string[] =>
+    [
+      ...document.querySelectorAll(
+        '[data-testid="grpc-timeline-message-row"], [data-testid="grpc-timeline-script-row"]',
+      ),
+    ].map((el) => {
+      if (el.getAttribute('data-testid') === 'grpc-timeline-script-row') return 'script';
+      const text = el.textContent ?? '';
+      for (const word of ['ping', 'pong', 'done']) if (text.includes(word)) return word;
+      return 'row';
+    });
+
+  it('renders a hook run as a row naming the hook and the levels, interleaved at its capture position', () => {
+    setSetting('requests.grpcMessagesNewestFirst', false);
+    renderTimeline({
+      scriptMarks: [
+        scriptMark({ hook: 'grpc-before-invoke', atIndex: 0, atMs: 1_700_000_000_010 }),
+        scriptMark({ atIndex: 1 }),
+        scriptMark({ hook: 'grpc-after-response', atIndex: 3 }),
+      ],
+    });
+    const rows = screen.getAllByTestId('grpc-timeline-script-row');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.textContent).toContain('Before invoke — Collection ‘Library’ · Request');
+    expect(rows[0]?.textContent).toContain('3 ms');
+    expect(rows[1]?.textContent).toContain('On message');
+    expect(rows[2]?.textContent).toContain('After response');
+    // Position 0 lands before the first message, position 1 before the
+    // second, position 3 (past the last) trails.
+    expect(markSequence()).toEqual(['script', 'ping', 'script', 'pong', 'done', 'script']);
+  });
+
+  it('a failed run reads the error on the red glyph; newest-first reverses the log', () => {
+    renderTimeline({
+      scriptMarks: [scriptMark({ atIndex: 1, succeeded: false, error: { name: 'Error', message: 'Request: boom' } })],
+    });
+    const row = screen.getByTestId('grpc-timeline-script-row');
+    expect(row.textContent).toContain('On message failed — Request: boom');
+    expect(markSequence()).toEqual(['done', 'pong', 'script', 'ping']);
   });
 });
 
