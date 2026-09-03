@@ -286,6 +286,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     automaticLayout: true,
     readOnly,
     scrollBeyondLastLine: false,
+    // Monaco's default swallows EVERY wheel event over the buffer, even
+    // one it cannot scroll by — an editor embedded in a scrolling pane
+    // (a timeline's expanded row, a form) then pins the page under the
+    // pointer. Consume only the wheels that moved the buffer, so at
+    // either edge the wheel chains to the enclosing scroller.
+    scrollbar: { alwaysConsumeMouseWheel: false },
     // Flush-to-top layout: line 1 butts up against the editor border
     // (matches other API clients' editors). Bottom padding is fine —
     // it's just breathing room at the scroll bottom.
