@@ -25,6 +25,7 @@
 
 import type * as v from 'valibot';
 import type { AuthPoolEntrySchema, CollectionSchema, FolderSchema, SpecLinkSchema } from '../schemas/collection';
+import type { InheritableSettingsSchema } from '../schemas/inheritable-settings';
 import type { HttpMethod } from './request';
 import type { RuleType } from './rule';
 
@@ -37,6 +38,16 @@ export type SpecLink = v.InferOutput<typeof SpecLinkSchema>;
 
 /** One named, concrete auth config in a container's pool. */
 export type AuthPoolEntry = v.InferOutput<typeof AuthPoolEntrySchema>;
+
+/**
+ * The inheritable request settings a container carries — the union of
+ * the four request kinds' Settings-tab knobs under their own names,
+ * every key optional. See `InheritableSettingsSchema`.
+ */
+export type InheritableSettings = v.InferOutput<typeof InheritableSettingsSchema>;
+
+/** One knob's name. */
+export type InheritableSettingKey = keyof InheritableSettings;
 
 /**
  * `_folder.yaml` — the lightweight grouping folder inside a collection.

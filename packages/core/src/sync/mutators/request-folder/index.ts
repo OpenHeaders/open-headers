@@ -15,11 +15,18 @@ export {
   setRequestFolderScripts,
 } from './scripts';
 export {
+  type RequestFolderSettingPath,
+  requestFolderSettingPath,
+  type SetRequestFolderSettingsArgs,
+  setRequestFolderSettings,
+} from './settings';
+export {
   REQUEST_FOLDER_AUTHS_PATH,
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_DEFAULT_AUTH_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_FOLDER_ITEMS_PATH,
+  REQUEST_FOLDER_SETTINGS_PATH,
   REQUEST_FOLDER_TREE_KINDS,
   type RequestFolderItemSlot,
   type RequestFolderParentRef,

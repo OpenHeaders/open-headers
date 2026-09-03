@@ -1,7 +1,8 @@
 /**
  * Ancestor carrier walk — the one place that derives a request's
  * collection/folder chain for ancestor-composed concerns (script
- * slots, the auth pool, the collection scope).
+ * slots, the auth pool, the inheritable settings, the collection
+ * scope).
  *
  * The chain is read off the TREE INDEX — the parent-owned slots, the
  * containment authority — through `ancestorChain`, never off the
@@ -20,12 +21,20 @@ import {
   effectiveAuthFor,
   hostOf,
 } from '@openheaders/core/auth-inheritance';
+import type { InheritableSettingKeysByKind } from '@openheaders/core/schemas';
 import type { ScriptSlotCarrier } from '@openheaders/core/scripts';
+import {
+  type EffectiveSettings,
+  effectiveKindSettingsFor,
+  type KindSettings,
+  type SettingsCarrier,
+} from '@openheaders/core/settings-inheritance';
 import type {
   AuthConfig,
   AuthPoolEntry,
   ConcreteAuthConfig,
   ExecutedAuthAttribution,
+  InheritableSettings,
   Request,
 } from '@openheaders/core/types';
 import {
@@ -39,8 +48,8 @@ import { REQUEST_TREE } from '../../sync/post-state/request-folder-post-state';
 import { getOracleForCurrentWorkspace, getOracleForWorkspace } from '../../sync/service/accessors';
 
 /** The ancestor fields the composed concerns read — the script slots
- *  (`ScriptSlotCarrier`: the HTTP pair and the session record) and the
- *  auth pool. */
+ *  (`ScriptSlotCarrier`: the HTTP pair and the session record), the
+ *  auth pool and the inheritable settings. */
 export interface AncestorCarrierEntity extends ScriptSlotCarrier {
   uid: string;
   path: string;
@@ -48,6 +57,7 @@ export interface AncestorCarrierEntity extends ScriptSlotCarrier {
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
+  settings?: InheritableSettings;
 }
 
 export interface AncestorCarrier {
@@ -187,5 +197,44 @@ export function resolveSessionAuth(
       ...(effective.danglingAuthUid !== undefined ? { danglingAuthUid: effective.danglingAuthUid } : {}),
     },
     refusal,
+  };
+}
+
+function toSettingsCarrier(carrier: AncestorCarrier): SettingsCarrier {
+  const { entity } = carrier;
+  return { level: carrier.level, uid: entity.uid, name: entity.name, settings: entity.settings };
+}
+
+/** A leaf as the settings resolution sees it — its identity for the
+ *  chain walk plus its own knobs of the kind. */
+export type SettingsLeaf<K extends AuthProtocolKind> = { uid: string; path: string } & KindSettings<K>;
+
+export interface ResolvedRequestSettings<K extends AuthProtocolKind> {
+  /** The effective knobs of the kind — the leaf's own over the chain's. */
+  settings: KindSettings<K>;
+  /** The snapshot attribution; `undefined` when no knob came from an ancestor. */
+  attribution: EffectiveSettings<InheritableSettingKeysByKind[K]>['sources'] | undefined;
+}
+
+/**
+ * Resolve a leaf's settings of `kind` against its ancestor chain
+ * through THE rule (`@openheaders/core/settings-inheritance`): its own
+ * knobs win, an absent knob reads the nearest ancestor that sets it,
+ * else the runtime default. `chain` is the host-injected carriers for
+ * page realms whose oracle mirrors are empty (the auth twin); absent =
+ * the tree-index walk. A leaf with no ancestors resolves to its own
+ * knobs, unattributed.
+ */
+export function resolveRequestSettings<K extends AuthProtocolKind>(
+  kind: K,
+  leaf: SettingsLeaf<K>,
+  workspaceId: string | null,
+  chain?: readonly SettingsCarrier[],
+): ResolvedRequestSettings<K> {
+  const carriers = chain ?? collectAncestorCarriers(leaf, workspaceId).map(toSettingsCarrier);
+  const effective = effectiveKindSettingsFor(kind, leaf, carriers);
+  return {
+    settings: effective.settings,
+    attribution: effective.sources.length > 0 ? effective.sources : undefined,
   };
 }

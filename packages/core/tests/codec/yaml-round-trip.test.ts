@@ -172,6 +172,27 @@ describe('yaml codec — round-trip parity', () => {
     expect(cleared.collectionYaml).toBe(raw);
   });
 
+  it('_collection.yaml with inheritable settings — one nested record, round-trips; an empty record is the absent key', () => {
+    const raw = loadFixture('_collection.yaml');
+    const parsed = parseCollection(raw, { path: 'requests/auth-c0ll1111' });
+    const write = mergePatch(parsed, (draft) => {
+      draft.settings = { timeoutMs: 30_000, sslVerification: false, proxyMode: 'direct' };
+    });
+    const out = serializeCollection(write);
+    // Nested keys emit in the schema's order, whatever the write's.
+    expect(out.collectionYaml).toContain(
+      'settings:\n  proxyMode: direct\n  sslVerification: false\n  timeoutMs: 30000',
+    );
+    const reparsed = parseCollection(out.collectionYaml, { path: 'requests/auth-c0ll1111' });
+    expect(reparsed.value.settings).toEqual({ timeoutMs: 30_000, sslVerification: false, proxyMode: 'direct' });
+    const cleared = serializeCollection(
+      mergePatch(reparsed, (draft) => {
+        draft.settings = {};
+      }),
+    );
+    expect(cleared.collectionYaml).toBe(raw);
+  });
+
   it('_collection.yaml with specLink — inline generation bookkeeping, round-trips', () => {
     const raw = loadFixture('_collection.yaml');
     const parsed = parseCollection(raw, { path: 'requests/auth-c0ll1111' });
@@ -255,6 +276,24 @@ describe('yaml codec — round-trip parity', () => {
     const cleared = serializeFolder(
       mergePatch(reparsed, (draft) => {
         delete draft.auth;
+      }),
+    );
+    expect(cleared.folderYaml).toBe(raw);
+  });
+
+  it('_folder.yaml with inheritable settings — the collection contract, round-trips', () => {
+    const raw = loadFixture('_folder.yaml');
+    const parsed = parseFolder(raw, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
+    const write = mergePatch(parsed, (draft) => {
+      draft.settings = { timeoutMs: 5_000, keepAlive: 30 };
+    });
+    const out = serializeFolder(write);
+    expect(out.folderYaml).toContain('settings:\n  timeoutMs: 5000\n  keepAlive: 30');
+    const reparsed = parseFolder(out.folderYaml, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
+    expect(reparsed.value.settings).toEqual({ timeoutMs: 5_000, keepAlive: 30 });
+    const cleared = serializeFolder(
+      mergePatch(reparsed, (draft) => {
+        delete draft.settings;
       }),
     );
     expect(cleared.folderYaml).toBe(raw);

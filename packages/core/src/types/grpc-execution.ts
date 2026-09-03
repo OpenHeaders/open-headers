@@ -18,6 +18,7 @@ import type {
   ExecutedProxyRoute,
   ExecutedScriptFold,
   ExecutedSessionScriptMark,
+  InheritedSettingSource,
   ScriptEventSummary,
   TrustCertificateErrorHint,
 } from './request-execution';
@@ -110,6 +111,9 @@ export interface ExecutedGrpcSnapshot {
    *  own or a resolved ancestor pool entry; absent when the request's
    *  own auth is `none` (the HTTP snapshot's twin). */
   auth?: ExecutedAuthAttribution;
+  /** The settings knobs the call read from an ancestor's `settings`
+   *  (the HTTP snapshot's twin); absent when none. */
+  inheritedSettings?: InheritedSettingSource[];
   /**
    * Wire truth for the call's proxy routing — the effective route as
    * the dial ran it. gRPC editors carry no request-plane proxy knobs

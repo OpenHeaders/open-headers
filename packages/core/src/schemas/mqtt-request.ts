@@ -197,6 +197,19 @@ export const MqttSpecLinkSchema = v.object({
 
 export const MAX_ALPN_PROTOCOL_LENGTH = 255;
 
+/**
+ * The CONNECT-level numeric knobs, named so the request schema and the
+ * container settings schema (`inheritable-settings.ts`) validate the
+ * same bounds: seconds on the wire for the intervals, counts for the
+ * windows, bytes for the packet cap.
+ */
+export const MqttSessionExpiryIntervalSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(0xffff_ffff));
+export const MqttKeepAliveSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(65_535));
+export const MqttReceiveMaximumSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65_535));
+export const MqttMaximumPacketSizeSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(0xffff_ffff));
+export const MqttTopicAliasMaximumSchema = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(65_535));
+export const MqttAlpnProtocolSchema = v.pipe(v.string(), v.maxLength(MAX_ALPN_PROTOCOL_LENGTH));
+
 const MqttRequestObjectSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   uid: UidSchema,
@@ -253,16 +266,16 @@ const MqttRequestObjectSchema = v.object({
   cleanStart: v.optional(v.boolean()),
   /** 5.0 Session Expiry Interval, seconds. Ignored under clean start
    *  unless a later session resumes — the help copy carries that. */
-  sessionExpiryInterval: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(0xffff_ffff))),
+  sessionExpiryInterval: v.optional(MqttSessionExpiryIntervalSchema),
   /** Keep Alive, seconds — the driver answers/emits PINGREQ. Absent = 60. */
-  keepAlive: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(65_535))),
+  keepAlive: v.optional(MqttKeepAliveSchema),
   /** 5.0 Receive Maximum — inbound QoS>0 flow-control window. */
-  receiveMaximum: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65_535))),
+  receiveMaximum: v.optional(MqttReceiveMaximumSchema),
   /** 5.0 Maximum Packet Size this client accepts, bytes. */
-  maximumPacketSize: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(0xffff_ffff))),
+  maximumPacketSize: v.optional(MqttMaximumPacketSizeSchema),
   /** 5.0 Topic Alias Maximum — how many topic aliases the broker may
    *  address this client with. Absent = 0 (the broker sends none). */
-  topicAliasMaximum: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(65_535))),
+  topicAliasMaximum: v.optional(MqttTopicAliasMaximumSchema),
   /** 5.0 Request Response Information — asks the broker for Response
    *  Information on CONNACK (the request/response pattern's base
    *  topic). Absent = off (the spec default). */
@@ -367,7 +380,7 @@ const MqttRequestObjectSchema = v.object({
    * MQTT on a shared TLS port select on it. Absent = no ALPN offer.
    * Templates welcome. Node runtimes only.
    */
-  alpnProtocol: v.optional(v.pipe(v.string(), v.maxLength(MAX_ALPN_PROTOCOL_LENGTH))),
+  alpnProtocol: v.optional(MqttAlpnProtocolSchema),
 });
 
 /** The persisted MqttRequest shape with the proxy mode / URL tie —

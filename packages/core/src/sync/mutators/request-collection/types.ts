@@ -28,3 +28,7 @@ export const REQUEST_COLLECTION_AUTHS_PATH = 'auths';
 
 /** Scalar field naming the pool's default entry; absent = the first entry. */
 export const REQUEST_COLLECTION_DEFAULT_AUTH_PATH = 'defaultAuthUid';
+
+/** Nested object holding the inheritable request settings — one leaf per
+ *  knob (`settings.<key>`), never written whole. */
+export const REQUEST_COLLECTION_SETTINGS_PATH = 'settings';

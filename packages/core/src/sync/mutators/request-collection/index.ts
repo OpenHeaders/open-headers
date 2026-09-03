@@ -19,6 +19,12 @@ export {
   type SetRequestCollectionScriptsArgs,
   setRequestCollectionScripts,
 } from './scripts';
+export {
+  type RequestCollectionSettingPath,
+  requestCollectionSettingPath,
+  type SetRequestCollectionSettingsArgs,
+  setRequestCollectionSettings,
+} from './settings';
 export { INVALIDATE_RESOLVER, invalidateResolverIntent } from './side-effects';
 export {
   REQUEST_COLLECTION_SPEC_LINK_PATH,
@@ -29,6 +35,7 @@ export {
   REQUEST_COLLECTION_AUTHS_PATH,
   REQUEST_COLLECTION_DEFAULT_AUTH_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_COLLECTION_SETTINGS_PATH,
   REQUEST_COLLECTION_VARS_PATH,
 } from './types';
 export {

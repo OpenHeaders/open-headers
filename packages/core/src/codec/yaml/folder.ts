@@ -21,6 +21,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { FolderSchema } from '../../schemas/collection';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
+import { hasInheritableSettings } from '../../schemas/inheritable-settings';
 import type { Folder } from '../../types/collection';
 import { emitCanonicalYaml } from './canonical-emit';
 import { FOLDER_FIELD_ORDER } from './ordering';
@@ -54,7 +55,22 @@ export interface FolderSerializeOutput {
 
 export function serializeFolder(write: WriteableDocument<Folder>): FolderSerializeOutput {
   return {
-    folderYaml: emitCanonicalYaml(write.value, FolderSchema, FOLDER_FIELD_ORDER, unknownFieldsOf(write)),
+    folderYaml: emitCanonicalYaml(
+      omitFolderDefaults(write.value),
+      FolderSchema,
+      FOLDER_FIELD_ORDER,
+      unknownFieldsOf(write),
+    ),
     scriptFiles: scriptSiblingsFromFields(write.value),
   };
+}
+
+/** A settings record that sets nothing is the absent key — see the
+ *  collection codec's normalization. */
+function omitFolderDefaults(value: Folder): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...value };
+  if (!hasInheritableSettings(value.settings)) {
+    delete out.settings;
+  }
+  return out;
 }

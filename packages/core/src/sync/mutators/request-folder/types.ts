@@ -49,6 +49,9 @@ export const REQUEST_FOLDER_AUTHS_PATH = 'auths';
 /** Scalar field naming the folder pool's default entry; absent = the first entry. */
 export const REQUEST_FOLDER_DEFAULT_AUTH_PATH = 'defaultAuthUid';
 
+/** Nested object holding the inheritable request settings — the collection's contract. */
+export const REQUEST_FOLDER_SETTINGS_PATH = 'settings';
+
 /** Discriminator for the two parent kinds that can hold a request-folder. */
 export type RequestFolderParentType = typeof REQUEST_COLLECTION_ENTITY_TYPE | typeof REQUEST_FOLDER_ENTITY_TYPE;
 

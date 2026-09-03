@@ -17,6 +17,7 @@
  * collections would peel them off into their own paths the same way.
  */
 
+import { hasInheritableSettings } from '@openheaders/core/schemas';
 import {
   type ChildPlacement,
   type MaterializedEntity,
@@ -102,6 +103,9 @@ function stripSets(collection: Collection): unknown {
   const shell = JSON.parse(JSON.stringify(collection)) as Record<string, unknown>;
   delete shell.variables;
   delete shell.auths;
+  // A settings record that sets nothing never seeds: an empty-object
+  // leaf at `settings` would fight the per-knob leaves written later.
+  if (!hasInheritableSettings(collection.settings)) delete shell.settings;
   return shell;
 }
 

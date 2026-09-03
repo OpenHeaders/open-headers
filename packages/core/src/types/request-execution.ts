@@ -5,6 +5,7 @@
 
 import type { ResourceTimingEntry } from '../resource-timing';
 import type { RequestMutation, ScriptConsoleEntry, ScriptExecutionMode, TestAssertion } from '../scripts';
+import type { InheritableSettingKey } from './collection';
 import type { ConcreteAuthConfig, CredentialsMode } from './request';
 
 /**
@@ -220,6 +221,21 @@ export interface ExecutedAuthAttribution {
   source: AuthSource | null;
   /** The request named a pool entry that no longer exists; the default applied instead. */
   danglingAuthUid?: string;
+}
+
+/**
+ * One settings knob a send read from an ANCESTOR — the collection or
+ * folder whose `settings` supplied it (`@openheaders/core/settings-
+ * inheritance`). A run's `inheritedSettings` lists only the knobs the
+ * request left absent and an ancestor set; a knob the request sets
+ * itself, or nobody sets, is never listed. Attribution only —
+ * recorded at resolve time, never read back from live tree state.
+ */
+export interface InheritedSettingSource {
+  key: InheritableSettingKey;
+  level: 'collection' | 'folder';
+  uid: string;
+  name: string;
 }
 
 /**
@@ -441,6 +457,12 @@ export interface ExecutedRequestSnapshot {
    * source. Attribution only — never read from live tree state.
    */
   auth?: ExecutedAuthAttribution;
+  /**
+   * The settings knobs this send read from an ancestor's `settings` —
+   * see {@link InheritedSettingSource}; absent when every knob the
+   * send used was the request's own or the runtime default.
+   */
+  inheritedSettings?: InheritedSettingSource[];
   /**
    * The `Cookie` header value the runtime's cookie jar attached to the
    * FIRST hop of this send (the per-request `cookieJar` opt-in, honored

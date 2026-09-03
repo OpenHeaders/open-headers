@@ -32,6 +32,7 @@ import {
   EnvironmentSchema,
   GrpcRequestSchema,
   GrpcResponseExampleSchema,
+  InheritableSettingsSchema,
   LiveVariableSchema,
   LiveWorkflowSchema,
   MqttRequestSchema,
@@ -366,8 +367,9 @@ const FolderShellSchema = v.object({
 });
 
 // Request-folder shells additionally carry the ancestor script slots,
-// the auth pool's default scalar (the entries are set members) and the
-// pre-pool `auth` field (field absent ↔ no script / transparent level).
+// the auth pool's default scalar (the entries are set members), the
+// pre-pool `auth` field and the inheritable settings record (field
+// absent ↔ no script / transparent level).
 const RequestFolderShellSchema = v.object({
   schemaVersion: SchemaVersionSchema,
   name: v.string(),
@@ -377,6 +379,7 @@ const RequestFolderShellSchema = v.object({
   scripts: v.optional(SessionScriptSlotsSchema),
   defaultAuthUid: v.optional(UidSchema),
   auth: v.optional(AuthConfigSchema),
+  settings: v.optional(InheritableSettingsSchema),
 });
 
 // `conditions` is universal across rule variants. `action.requestHeaders`

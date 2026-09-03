@@ -18,6 +18,7 @@ import type {
   ExecutedProxyRoute,
   ExecutedScriptFold,
   ExecutedSessionScriptMark,
+  InheritedSettingSource,
   ScriptEventSummary,
   TrustCertificateErrorHint,
 } from './request-execution';
@@ -206,6 +207,9 @@ export interface ExecutedWsSnapshot {
    *  request's own or a resolved ancestor pool entry; absent when the
    *  request's own auth is `none` (the HTTP snapshot's twin). */
   auth?: ExecutedAuthAttribution;
+  /** The settings knobs the session read from an ancestor's
+   *  `settings` (the HTTP snapshot's twin); absent when none. */
+  inheritedSettings?: InheritedSettingSource[];
   /** The session's script hooks as they ran — see {@link ExecutedWsScripts};
    *  absent when no hook ran. */
   scripts?: ExecutedWsScripts;

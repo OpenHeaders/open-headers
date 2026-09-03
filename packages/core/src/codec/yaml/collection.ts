@@ -30,6 +30,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { CollectionSchema } from '../../schemas/collection';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
+import { hasInheritableSettings } from '../../schemas/inheritable-settings';
 import type { Collection } from '../../types/collection';
 import { emitCanonicalYaml } from './canonical-emit';
 import { COLLECTION_FIELD_ORDER } from './ordering';
@@ -81,6 +82,11 @@ function omitCollectionDefaults(value: Collection): Record<string, unknown> {
   }
   if (out.defaultEnvironmentId === null) {
     delete out.defaultEnvironmentId;
+  }
+  // A settings record that sets nothing is the absent key — the last
+  // knob's unset leaves an empty record on the materialized entity.
+  if (!hasInheritableSettings(value.settings)) {
+    delete out.settings;
   }
   return out;
 }

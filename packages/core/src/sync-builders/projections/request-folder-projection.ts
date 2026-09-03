@@ -14,7 +14,13 @@
  * legacy consumers expect.
  */
 
-import { AuthConfigSchema, AuthPoolEntrySchema, SessionScriptSlotsSchema } from '@openheaders/core/schemas';
+import {
+  AuthConfigSchema,
+  AuthPoolEntrySchema,
+  hasInheritableSettings,
+  InheritableSettingsObjectSchema,
+  SessionScriptSlotsSchema,
+} from '@openheaders/core/schemas';
 import {
   type MaterializedEntity,
   type MutationBatch,
@@ -58,6 +64,10 @@ export function seedRequestFolder(folder: Folder, ctx: MutatorContext): Mutation
       // data — read as a one-entry pool until the first pool write.
       ...(folder.defaultAuthUid !== undefined ? { defaultAuthUid: folder.defaultAuthUid } : {}),
       ...(folder.auth !== undefined ? { auth: folder.auth } : {}),
+      // The inheritable settings ride the seed when they set anything
+      // (the flattener keys one leaf per knob); an empty record never
+      // seeds — see the collection projection.
+      ...(hasInheritableSettings(folder.settings) ? { settings: folder.settings } : {}),
     },
   };
   const bodies: MutationBody[] = [body];
@@ -117,6 +127,12 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
   // last slot's unset leaves an empty record behind).
   const scripts = v.safeParse(SessionScriptSlotsSchema, data.scripts);
   const scriptRecord = scripts.success && Object.keys(scripts.output).length > 0 ? scripts.output : undefined;
+  // The inheritable settings — carried when well-formed per knob and
+  // non-empty (the object shape without the proxy pair tie: per-leaf
+  // writes compose transiently; the last knob's unset leaves an empty
+  // record behind).
+  const settings = v.safeParse(InheritableSettingsObjectSchema, data.settings);
+  const settingsRecord = settings.success && hasInheritableSettings(settings.output) ? settings.output : undefined;
   return {
     schemaVersion,
     uid: materialized.id,
@@ -129,6 +145,7 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
     ...(auths.length > 0 ? { auths } : {}),
     ...(typeof data.defaultAuthUid === 'string' ? { defaultAuthUid: data.defaultAuthUid } : {}),
     ...(auth.success ? { auth: auth.output } : {}),
+    ...(settingsRecord !== undefined ? { settings: settingsRecord } : {}),
   };
 }
 

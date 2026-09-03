@@ -96,6 +96,10 @@
       "import": "./src/auth-inheritance/index.ts",
       "default": "./dist/auth-inheritance/index.js"
     },
+    "./settings-inheritance": {
+      "import": "./src/settings-inheritance/index.ts",
+      "default": "./dist/settings-inheritance/index.js"
+    },
     "./scripts": {
       "import": "./src/scripts/index.ts",
       "default": "./dist/scripts/index.js"

@@ -9,6 +9,7 @@
  * renderer (`useRequestCollectionMutator` / variable write client).
  */
 
+import type { InheritableSettingUpdate } from '@openheaders/core/settings-inheritance';
 import {
   deleteRequestCollection,
   deriveSideEffectsForEnvelope,
@@ -23,6 +24,7 @@ import {
   renameRequestCollection,
   setRequestCollectionPinnedAndDefault,
   setRequestCollectionScripts,
+  setRequestCollectionSettings,
   setRequestCollectionSpecLink,
   setRequestCollectionVar,
 } from '@openheaders/core/sync';
@@ -86,6 +88,22 @@ export function buildSetRequestCollectionScriptsBatch(
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
   return setRequestCollectionScripts(ctx, input);
+}
+
+export interface SetRequestCollectionSettingsInput {
+  collectionUid: string;
+  /** Knob updates; `value: undefined` clears the knob. */
+  updates: ReadonlyArray<InheritableSettingUpdate>;
+}
+
+/** Per-knob `setField` / `unsetField` under `settings.<key>` — the
+ *  object is never written whole (the flattened create leaves and a
+ *  peer's concurrent knob edit would be clobbered). */
+export function buildSetRequestCollectionSettingsBatch(
+  input: SetRequestCollectionSettingsInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return setRequestCollectionSettings(ctx, input);
 }
 
 export interface SetRequestCollectionSpecLinkInput {

@@ -27,11 +27,21 @@ export const COLLECTION_FIELD_ORDER = [
   'auth',
   'defaultAuthUid',
   'auths',
+  'settings',
   'specLink',
   'variables',
 ] as const;
 
-export const FOLDER_FIELD_ORDER = ['schemaVersion', 'uid', 'name', 'order', 'auth', 'defaultAuthUid', 'auths'] as const;
+export const FOLDER_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'order',
+  'auth',
+  'defaultAuthUid',
+  'auths',
+  'settings',
+] as const;
 
 /**
  * Rule entries — shared across all 8 variants. Each variant carries its

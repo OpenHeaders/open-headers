@@ -9,6 +9,7 @@
  * and the renderer (`useRequestFolderMutator` write client).
  */
 
+import type { InheritableSettingUpdate } from '@openheaders/core/settings-inheritance';
 import {
   createRequestFolder,
   deleteRequestFolder,
@@ -28,6 +29,7 @@ import {
   type RequestFolderScriptPath,
   renameRequestFolder,
   setRequestFolderScripts,
+  setRequestFolderSettings,
 } from '@openheaders/core/sync';
 import { buildAuthPoolReplacement } from '@openheaders/core/sync-builders';
 import type { AuthPoolEntry, Folder } from '@openheaders/core/types';
@@ -109,6 +111,20 @@ export function buildSetRequestFolderScriptsBatch(
   ctx: MutatorContext,
 ): RequestFolderMutationPayload {
   return setRequestFolderScripts(ctx, input);
+}
+
+export interface SetRequestFolderSettingsInput {
+  folderUid: string;
+  /** Knob updates; `value: undefined` clears the knob. */
+  updates: ReadonlyArray<InheritableSettingUpdate>;
+}
+
+/** See `buildSetRequestCollectionSettingsBatch` — per-knob leaves on a folder. */
+export function buildSetRequestFolderSettingsBatch(
+  input: SetRequestFolderSettingsInput,
+  ctx: MutatorContext,
+): RequestFolderMutationPayload {
+  return setRequestFolderSettings(ctx, input);
 }
 
 export interface SetRequestFolderAuthPoolInput {

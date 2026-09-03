@@ -20,6 +20,7 @@ import {
   collectAncestorCarriers,
   collectionUidForRequest,
   resolveRequestAuth,
+  resolveRequestSettings,
   resolveSessionAuth,
 } from '../../../src/live/request-exec/ancestor-chain';
 import type { EntityOracle } from '../../../src/sync/oracle';
@@ -304,5 +305,69 @@ describe('resolveSessionAuth', () => {
     });
     const { auth, ...rest } = WS_LEAF;
     expect(resolveSessionAuth('grpc', rest, null).attribution).toBeUndefined();
+  });
+});
+
+describe('resolveRequestSettings', () => {
+  it("the request's own knob wins; an absent one reads the innermost ancestor, attributed", () => {
+    seedTree(
+      makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false } }),
+      makeFolder({ settings: { timeoutMs: 5_000 } }),
+      INNER,
+      makeRequest(),
+    );
+    const resolved = resolveRequestSettings('http', makeRequest({ maxResponseBytes: 4_096 }), null);
+    expect(resolved.settings).toEqual({ timeoutMs: 5_000, sslVerification: false, maxResponseBytes: 4_096 });
+    // Sources ride in the kind's key order, not the chain's.
+    expect(resolved.attribution).toEqual([
+      { key: 'sslVerification', level: 'collection', uid: 'rcol0001', name: 'API' },
+      { key: 'timeoutMs', level: 'folder', uid: 'rfold001', name: 'Auth' },
+    ]);
+  });
+
+  it('a request slotted under another folder inherits from its SLOT parent, whatever its path says', () => {
+    seedTree(
+      makeCollection(),
+      makeFolder({ settings: { timeoutMs: 5_000 } }),
+      { ...INNER, settings: { timeoutMs: 1_000 } },
+      makeRequest(),
+      { slotRequestUnder: 'outer' },
+    );
+    expect(resolveRequestSettings('http', makeRequest(), null).settings.timeoutMs).toBe(5_000);
+  });
+
+  it('a kind reads its own key list — an HTTP-only knob never reaches an MQTT session', () => {
+    seedTree(
+      makeCollection({ settings: { httpVersion: '2', timeoutMs: 30_000, keepAlive: 15 } }),
+      makeFolder(),
+      INNER,
+      makeRequest(),
+    );
+    const resolved = resolveRequestSettings('mqtt', { uid: 'req00001', path: makeRequest().path }, null);
+    expect(resolved.settings).toEqual({ timeoutMs: 30_000, keepAlive: 15 });
+    expect(resolved.attribution?.map((s) => s.key)).toEqual(['timeoutMs', 'keepAlive']);
+  });
+
+  it('nothing inherited = own knobs, unattributed; a scratch draft and a missing oracle resolve the same way', () => {
+    seedTree(makeCollection(), makeFolder(), INNER, makeRequest());
+    expect(resolveRequestSettings('http', makeRequest({ timeoutMs: 1_000 }), null)).toEqual({
+      settings: { timeoutMs: 1_000 },
+      attribution: undefined,
+    });
+    expect(resolveRequestSettings('http', makeRequest({ uid: 'req00009', path: 'scratch/x' }), null)).toEqual({
+      settings: {},
+      attribution: undefined,
+    });
+    expect(resolveRequestSettings('http', makeRequest(), 'ws-9').attribution).toBeUndefined();
+  });
+
+  it('an injected chain replaces the walk (the page-realm twin)', () => {
+    const resolved = resolveRequestSettings('websocket', { uid: 'ws000001', path: 'scratch/ws' }, null, [
+      { level: 'collection', uid: 'rcol0001', name: 'API', settings: { maxMessageBytes: 2_048, httpVersion: '2' } },
+    ]);
+    expect(resolved.settings).toEqual({ maxMessageBytes: 2_048 });
+    expect(resolved.attribution).toEqual([
+      { key: 'maxMessageBytes', level: 'collection', uid: 'rcol0001', name: 'API' },
+    ]);
   });
 });

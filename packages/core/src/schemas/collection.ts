@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
+import { InheritableSettingsSchema } from './inheritable-settings';
 import { AuthConfigSchema, ConcreteAuthConfigSchema } from './request';
 import { SessionScriptSlotsSchema } from './script-slots';
 import { VariableSchema } from './variable';
@@ -93,6 +94,19 @@ export const CollectionSchema = v.object({
    * (`authPoolOf`); the first pool write clears it. Never written.
    */
   auth: v.optional(AuthConfigSchema),
+  /**
+   * The inheritable request settings — meaningful under
+   * request-collection routing only, like the pool. ONE nested object
+   * under the request kinds' own field names
+   * (`@openheaders/core/schemas` — `InheritableSettingsSchema`): a
+   * request that leaves a knob absent reads the NEAREST ancestor that
+   * sets it (`@openheaders/core/settings-inheritance`), per knob — a
+   * folder's `timeoutMs` shadows the collection's while the
+   * collection's `sslVerification` still applies. Absent or empty =
+   * transparent. Persisted inline in `_collection.yaml`; the sync
+   * flattener keys one leaf per knob.
+   */
+  settings: v.optional(InheritableSettingsSchema),
   /** Present only on collections generated from a spec document. */
   specLink: v.optional(SpecLinkSchema),
 });
@@ -121,4 +135,7 @@ export const FolderSchema = v.object({
   defaultAuthUid: v.optional(UidSchema),
   /** See {@link CollectionSchema}'s `auth` — the pre-pool field, read only. */
   auth: v.optional(AuthConfigSchema),
+  /** See {@link CollectionSchema}'s `settings` — same contract,
+   *  request-folder routing only; inline in `_folder.yaml`. */
+  settings: v.optional(InheritableSettingsSchema),
 });
