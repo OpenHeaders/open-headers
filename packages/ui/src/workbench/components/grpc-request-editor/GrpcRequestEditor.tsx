@@ -34,8 +34,6 @@
  */
 
 import { CaretRightOutlined, CheckOutlined } from '@ant-design/icons';
-import { GRPC_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
-import { inheritedSettingsFor } from '@openheaders/core/settings-inheritance';
 import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -63,7 +61,11 @@ import {
   settingsChainOf,
 } from '../request-container/ancestry';
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
-import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
+import {
+  type InheritedSettingsView,
+  inheritedSettingsViewFor,
+  NO_INHERITED_SETTINGS,
+} from '../shared/inherited-settings/inherited-settings';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import GrpcAuthTab from './GrpcAuthTab';
 import GrpcMessageTab from './GrpcMessageTab';
@@ -183,10 +185,10 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   // off the same tree-read ancestry; the invoke plane reads the
   // effective verification off it too. Explicit wins on the plane.
   const inheritedSettings = useMemo<InheritedSettingsView>(
-    () => ({
-      ...(ancestry ? inheritedSettingsFor(settingsChainOf(ancestry), GRPC_INHERITABLE_SETTING_KEYS) : NO_INHERITED_SETTINGS),
-      onOpenSource: onOpenContainerSettings,
-    }),
+    () =>
+      ancestry
+        ? inheritedSettingsViewFor('grpc', settingsChainOf(ancestry), 'request', onOpenContainerSettings)
+        : { ...NO_INHERITED_SETTINGS, onOpenSource: onOpenContainerSettings },
     [ancestry, onOpenContainerSettings],
   );
   const [activeTab, setActiveTab] = useState('message');

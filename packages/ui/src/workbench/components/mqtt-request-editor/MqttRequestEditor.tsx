@@ -33,8 +33,6 @@
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
-import { MQTT_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
-import { inheritedSettingsFor } from '@openheaders/core/settings-inheritance';
 import { MQTT_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { MqttRequest as MqttRequestEntity } from '@openheaders/core/types';
 import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
@@ -68,7 +66,11 @@ import {
 } from './draft';
 import { subscribeMqttPrefill } from './mqtt-prefill-bus';
 import { findRequestAncestry, resolveInheritedAuthFor, settingsChainOf } from '../request-container/ancestry';
-import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
+import {
+  type InheritedSettingsView,
+  inheritedSettingsViewFor,
+  NO_INHERITED_SETTINGS,
+} from '../shared/inherited-settings/inherited-settings';
 import MqttAuthTab from './MqttAuthTab';
 import MqttLastWillTab from './MqttLastWillTab';
 import MqttMessageTab from './MqttMessageTab';
@@ -193,10 +195,10 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // off the same tree-read ancestry; the session plane reads the
   // effective verification off it too. Explicit wins on the plane.
   const inheritedSettings = useMemo<InheritedSettingsView>(
-    () => ({
-      ...(ancestry ? inheritedSettingsFor(settingsChainOf(ancestry), MQTT_INHERITABLE_SETTING_KEYS) : NO_INHERITED_SETTINGS),
-      onOpenSource: onOpenContainerSettings,
-    }),
+    () =>
+      ancestry
+        ? inheritedSettingsViewFor('mqtt', settingsChainOf(ancestry), 'request', onOpenContainerSettings)
+        : { ...NO_INHERITED_SETTINGS, onOpenSource: onOpenContainerSettings },
     [ancestry, onOpenContainerSettings],
   );
   const [activeTab, setActiveTab] = useState('message');

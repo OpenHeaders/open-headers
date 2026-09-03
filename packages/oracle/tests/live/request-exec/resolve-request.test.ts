@@ -135,8 +135,8 @@ beforeEach(() => {
 describe('resolveRequest — inherited settings', () => {
   it("an ancestor's knob reaches the resolved request; the innermost level wins; the attribution rides in key order", async () => {
     seed(
-      makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false, followRedirects: false } }),
-      makeFolder({ settings: { timeoutMs: 5_000 } }),
+      makeCollection({ settings: { http: { timeoutMs: 30_000, sslVerification: false, followRedirects: false } } }),
+      makeFolder({ settings: { http: { timeoutMs: 5_000 } } }),
     );
     const { resolved } = await resolveRequest(makeRequest(), {});
     expect(resolved.timeoutMs).toBe(5_000);
@@ -150,7 +150,7 @@ describe('resolveRequest — inherited settings', () => {
   });
 
   it("the request's own knob shadows every ancestor's, whatever its value, and is never attributed", async () => {
-    seed(makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false } }), makeFolder());
+    seed(makeCollection({ settings: { http: { timeoutMs: 30_000, sslVerification: false } } }), makeFolder());
     const { resolved } = await resolveRequest(makeRequest({ timeoutMs: 1_000, sslVerification: true }), {});
     expect(resolved.timeoutMs).toBe(1_000);
     expect(resolved.sslVerification).toBe(true);
@@ -164,7 +164,9 @@ describe('resolveRequest — inherited settings', () => {
     });
     seed(
       makeCollection({
-        settings: { proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080', proxyCredentialRef: 'corp-proxy' },
+        settings: {
+          http: { proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080', proxyCredentialRef: 'corp-proxy' },
+        },
       }),
       makeFolder(),
     );
@@ -178,7 +180,7 @@ describe('resolveRequest — inherited settings', () => {
 
   it("a request's own `direct` mode shadows the collection's proxy route whole — no URL leaks down", async () => {
     seed(
-      makeCollection({ settings: { proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080' } }),
+      makeCollection({ settings: { http: { proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:8080' } } }),
       makeFolder(),
     );
     const { resolved } = await resolveRequest(makeRequest({ proxyMode: 'direct' }), {});
@@ -192,7 +194,7 @@ describe('resolveRequest — inherited settings', () => {
       schemaVersion: 5,
       variables: [{ uid: 'var00001', name: 'EDGE', value: 'edge-eu', type: 'default' }],
     });
-    seed(makeCollection({ settings: { sniServerName: '{{EDGE}}.openheaders.io' } }), makeFolder());
+    seed(makeCollection({ settings: { http: { sniServerName: '{{EDGE}}.openheaders.io' } } }), makeFolder());
     const { resolved } = await resolveRequest(makeRequest(), {});
     expect(resolved.sniServerName).toBe('edge-eu.openheaders.io');
     expect(resolved.inheritedSettings).toEqual([
@@ -201,12 +203,12 @@ describe('resolveRequest — inherited settings', () => {
   });
 
   it('an inherited SNI template nobody defines fails the resolvability gate — nothing literal ships', async () => {
-    seed(makeCollection({ settings: { sniServerName: '{{EDGE}}.openheaders.io' } }), makeFolder());
+    seed(makeCollection({ settings: { http: { sniServerName: '{{EDGE}}.openheaders.io' } } }), makeFolder());
     await expect(resolveRequest(makeRequest(), {})).rejects.toBeInstanceOf(UnresolvedRequestError);
   });
 
   it('an inherited cookie jar keys on the workspace the run resolved against', async () => {
-    seed(makeCollection({ settings: { cookieJar: true } }), makeFolder());
+    seed(makeCollection({ settings: { http: { cookieJar: true } } }), makeFolder());
     const { resolved } = await resolveRequest(makeRequest(), {});
     expect(resolved.cookieJarKey).toBe('ws-active');
     const pinned = await resolveRequest(makeRequest(), { workspaceId: 'ws-1' });

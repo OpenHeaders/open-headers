@@ -1,11 +1,13 @@
 /**
  * Inheritable settings round-trip — a container's `settings` is one
- * leaf per knob under `settings.<key>`. The seeds flatten the record;
+ * leaf per knob per kind under `settings.<kind>.<key>`. The seeds
+ * flatten the record;
  * `buildSet*SettingsBatch` writes per knob (`setField` / `unsetField`).
  * Pins:
  *   - seed + materialize round-trips the record on both containers;
  *   - a knob write lands beside the seeded knobs; a peer's concurrent
- *     knob edit survives it (per-leaf convergence);
+ *     knob edit survives it (per-leaf convergence); a write on one
+ *     kind's slice never touches another's;
  *   - clearing the last knob leaves the container transparent — the
  *     folder projection drops the record, the collection's reads empty;
  *   - an empty record never seeds a `settings` leaf, and a later knob
@@ -46,7 +48,7 @@ const collectionSeed: Collection = {
   variables: [],
   pinnedEnvironmentIds: [],
   defaultEnvironmentId: null,
-  settings: { timeoutMs: 30_000, sslVerification: false },
+  settings: { http: { timeoutMs: 30_000, sslVerification: false }, grpc: { timeoutMs: 2_000 } },
 };
 
 const folderSeed: Folder = {
@@ -54,7 +56,7 @@ const folderSeed: Folder = {
   uid: 'rf-1',
   path: 'requests/api-rc-1/auth-rf-1',
   name: 'Auth',
-  settings: { timeoutMs: 5_000 },
+  settings: { websocket: { timeoutMs: 5_000 } },
 };
 
 function materializedCollection(store: InMemoryDocumentStore): Collection {
@@ -75,30 +77,32 @@ describe('collection settings', () => {
   it('seed + materialize round-trips the record', () => {
     const store = new InMemoryDocumentStore();
     applyBatch(store, seedRequestCollection(collectionSeed, ctx(1_000)));
-    expect(materializedCollection(store).settings).toEqual({ timeoutMs: 30_000, sslVerification: false });
+    expect(materializedCollection(store).settings).toEqual({
+      http: { timeoutMs: 30_000, sslVerification: false },
+      grpc: { timeoutMs: 2_000 },
+    });
   });
 
-  it('a knob write lands beside the seeded knobs; a peer knob edit survives it', () => {
+  it('a knob write lands beside the seeded knobs; a peer knob edit survives it; another kind stays', () => {
     const store = new InMemoryDocumentStore();
     applyBatch(store, seedRequestCollection(collectionSeed, ctx(1_000)));
     applyBatch(
       store,
       buildSetRequestCollectionSettingsBatch(
-        { collectionUid: 'rc-1', updates: [{ key: 'cookieJar', value: true }] },
+        { collectionUid: 'rc-1', updates: [{ kind: 'http', key: 'cookieJar', value: true }] },
         ctx(2_000),
       ).batch,
     );
     applyBatch(
       store,
       buildSetRequestCollectionSettingsBatch(
-        { collectionUid: 'rc-1', updates: [{ key: 'timeoutMs', value: 1_000 }] },
+        { collectionUid: 'rc-1', updates: [{ kind: 'http', key: 'timeoutMs', value: 1_000 }] },
         ctx(2_000, 'node-y'),
       ).batch,
     );
     expect(materializedCollection(store).settings).toEqual({
-      timeoutMs: 1_000,
-      sslVerification: false,
-      cookieJar: true,
+      http: { timeoutMs: 1_000, sslVerification: false, cookieJar: true },
+      grpc: { timeoutMs: 2_000 },
     });
   });
 
@@ -107,8 +111,9 @@ describe('collection settings', () => {
     applyBatch(store, seedRequestCollection(collectionSeed, ctx(1_000)));
     const updates = settingUpdatesBetween(collectionSeed.settings, {});
     expect(updates).toEqual([
-      { key: 'sslVerification', value: undefined },
-      { key: 'timeoutMs', value: undefined },
+      { kind: 'http', key: 'sslVerification', value: undefined },
+      { kind: 'http', key: 'timeoutMs', value: undefined },
+      { kind: 'grpc', key: 'timeoutMs', value: undefined },
     ]);
     applyBatch(store, buildSetRequestCollectionSettingsBatch({ collectionUid: 'rc-1', updates }, ctx(2_000)).batch);
     expect(hasInheritableSettings(materializedCollection(store).settings)).toBe(false);
@@ -124,11 +129,11 @@ describe('collection settings', () => {
     applyBatch(
       store,
       buildSetRequestCollectionSettingsBatch(
-        { collectionUid: 'rc-1', updates: [{ key: 'timeoutMs', value: 2_000 }] },
+        { collectionUid: 'rc-1', updates: [{ kind: 'mqtt', key: 'timeoutMs', value: 2_000 }] },
         ctx(2_000),
       ).batch,
     );
-    expect(materializedCollection(store).settings).toEqual({ timeoutMs: 2_000 });
+    expect(materializedCollection(store).settings).toEqual({ mqtt: { timeoutMs: 2_000 } });
   });
 });
 
@@ -136,7 +141,7 @@ describe('folder settings', () => {
   it('seed + materialize round-trips the record', () => {
     const store = new InMemoryDocumentStore();
     applyBatch(store, seedRequestFolder(folderSeed, ctx(1_000)));
-    expect(materializedFolder(store).settings).toEqual({ timeoutMs: 5_000 });
+    expect(materializedFolder(store).settings).toEqual({ websocket: { timeoutMs: 5_000 } });
   });
 
   it('a knob write lands; clearing the last knob drops the record from the projection', () => {
@@ -145,19 +150,19 @@ describe('folder settings', () => {
     applyBatch(
       store,
       buildSetRequestFolderSettingsBatch(
-        { folderUid: 'rf-1', updates: [{ key: 'proxyMode', value: 'direct' }] },
+        { folderUid: 'rf-1', updates: [{ kind: 'websocket', key: 'proxyMode', value: 'direct' }] },
         ctx(2_000),
       ).batch,
     );
-    expect(materializedFolder(store).settings).toEqual({ timeoutMs: 5_000, proxyMode: 'direct' });
+    expect(materializedFolder(store).settings).toEqual({ websocket: { timeoutMs: 5_000, proxyMode: 'direct' } });
     applyBatch(
       store,
       buildSetRequestFolderSettingsBatch(
         {
           folderUid: 'rf-1',
           updates: [
-            { key: 'timeoutMs', value: undefined },
-            { key: 'proxyMode', value: undefined },
+            { kind: 'websocket', key: 'timeoutMs', value: undefined },
+            { kind: 'websocket', key: 'proxyMode', value: undefined },
           ],
         },
         ctx(3_000),
@@ -174,7 +179,13 @@ describe('folder settings', () => {
     // composes into the record; the projection stays fail-soft.
     store.apply({
       ...seedRequestFolder(folderSeed, ctx(2_000)).mutations[0],
-      body: { kind: 'setField', type: 'request-folder', id: 'rf-1', path: 'settings.timeoutMs', value: 'soon' },
+      body: {
+        kind: 'setField',
+        type: 'request-folder',
+        id: 'rf-1',
+        path: 'settings.websocket.timeoutMs',
+        value: 'soon',
+      },
     });
     expect(materializedFolder(store).settings).toBeUndefined();
   });

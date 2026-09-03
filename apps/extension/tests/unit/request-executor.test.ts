@@ -1235,7 +1235,7 @@ describe('RequestExecutor — inherited settings', () => {
         variables: [],
         pinnedEnvironmentIds: [],
         defaultEnvironmentId: null,
-        settings: { followRedirects: false, credentialsMode: 'include' },
+        settings: { http: { followRedirects: false, credentialsMode: 'include' } },
       } satisfies Collection,
     ]);
   });

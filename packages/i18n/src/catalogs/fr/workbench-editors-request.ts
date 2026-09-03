@@ -595,6 +595,13 @@ export const workbenchEditorsRequest = {
     "L'entrée choisie par cette requête n'existe plus — le défaut le plus proche s'applique à la place.",
   'workbench.editors.request.auth.editInParent': 'Modifier dans le parent',
   'workbench.editors.request.settings.inheritedFrom': 'Hérité de {source}',
+  'workbench.editors.request.settings.overridesSource': 'Remplace {source} ({value})',
+  'workbench.editors.request.settings.settingChainTitle': 'Où ce réglage est défini',
+  'workbench.editors.request.settings.settingChainSummary':
+    'Chaque niveau qui définit ce réglage, du plus externe au plus interne — la valeur la plus interne est celle en vigueur.',
+  'workbench.editors.request.settings.settingChainHeading': 'Niveaux',
+  'workbench.editors.request.settings.thisRequest': 'Cette requête',
+  'workbench.editors.request.settings.thisFolder': 'Ce dossier',
   'workbench.editors.request.auth.resetToInheritedAuth': "Rétablir l'autorisation héritée",
   'workbench.editors.request.auth.resizeRailAria': "Redimensionner le rail des types d'auth",
   'workbench.editors.request.auth.username': "Nom d'utilisateur",

@@ -30,8 +30,6 @@
 import { CaretRightOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
-import { HTTP_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
-import { inheritedSettingsFor } from '@openheaders/core/settings-inheritance';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
@@ -79,7 +77,11 @@ import {
   resolveInheritedAuthFor,
   settingsChainOf,
 } from '../request-container/ancestry';
-import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
+import {
+  type InheritedSettingsView,
+  inheritedSettingsViewFor,
+  NO_INHERITED_SETTINGS,
+} from '../shared/inherited-settings/inherited-settings';
 import RequestTabContent from './RequestTabContent';
 import ScriptModeTag from './ScriptModeTag';
 import RequestUrlBar from './RequestUrlBar';
@@ -213,10 +215,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // off the same tree-read ancestry; a scratch draft sits under no
   // level and keeps the runtime defaults. Explicit wins on the plane.
   const inheritedSettings = useMemo<InheritedSettingsView>(
-    () => ({
-      ...(ancestry ? inheritedSettingsFor(settingsChainOf(ancestry), HTTP_INHERITABLE_SETTING_KEYS) : NO_INHERITED_SETTINGS),
-      onOpenSource: onOpenContainerSettings,
-    }),
+    () =>
+      ancestry
+        ? inheritedSettingsViewFor('http', settingsChainOf(ancestry), 'request', onOpenContainerSettings)
+        : { ...NO_INHERITED_SETTINGS, onOpenSource: onOpenContainerSettings },
     [ancestry, onOpenContainerSettings],
   );
   const [activeTab, setActiveTab] = useState<TabKey>('params');

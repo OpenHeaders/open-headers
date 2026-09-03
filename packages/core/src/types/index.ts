@@ -28,6 +28,7 @@ export type {
   AuthPoolEntry,
   Collection,
   CollectionTree,
+  ContainerSettings,
   Folder,
   FolderNode,
   GrpcRequestNode,

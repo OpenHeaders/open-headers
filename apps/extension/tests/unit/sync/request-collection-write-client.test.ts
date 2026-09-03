@@ -228,22 +228,22 @@ describe('applyRequestCollectionSetSettings', () => {
   it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
     const mirror = makeMirror([]);
     const result = await applyRequestCollectionSetSettings(
-      { collectionUid: 'missing', updates: [{ key: 'timeoutMs', value: 30_000 }] },
+      { collectionUid: 'missing', updates: [{ kind: 'http', key: 'timeoutMs', value: 30_000 }] },
       { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
     );
     expect(result).toEqual({ ok: false, reason: 'not-found' });
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('emits one leaf per knob — setField for a value, unsetField for a cleared one — under the settings batch id', async () => {
+  it('emits one leaf per knob per kind — setField for a value, unsetField for a cleared one — under the settings batch id', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror([{ uid: 'rc-1', path: 'requests/api-rc-1', name: 'API' }]);
     const result = await applyRequestCollectionSetSettings(
       {
         collectionUid: 'rc-1',
         updates: [
-          { key: 'timeoutMs', value: 30_000 },
-          { key: 'sslVerification', value: undefined },
+          { kind: 'http', key: 'timeoutMs', value: 30_000 },
+          { kind: 'websocket', key: 'sslVerification', value: undefined },
         ],
       },
       { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
@@ -256,14 +256,14 @@ describe('applyRequestCollectionSetSettings', () => {
         kind: 'setField',
         type: REQUEST_COLLECTION_ENTITY_TYPE,
         id: 'rc-1',
-        path: 'settings.timeoutMs',
+        path: 'settings.http.timeoutMs',
         value: 30_000,
       }),
       expect.objectContaining({
         kind: 'unsetField',
         type: REQUEST_COLLECTION_ENTITY_TYPE,
         id: 'rc-1',
-        path: 'settings.sslVerification',
+        path: 'settings.websocket.sslVerification',
       }),
     ]);
   });

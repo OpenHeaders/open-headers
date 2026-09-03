@@ -29,10 +29,10 @@
 import {
   AuthConfigSchema,
   CollectionSchema,
+  ContainerSettingsSchema,
   EnvironmentSchema,
   GrpcRequestSchema,
   GrpcResponseExampleSchema,
-  InheritableSettingsSchema,
   LiveVariableSchema,
   LiveWorkflowSchema,
   MqttRequestSchema,
@@ -379,7 +379,7 @@ const RequestFolderShellSchema = v.object({
   scripts: v.optional(SessionScriptSlotsSchema),
   defaultAuthUid: v.optional(UidSchema),
   auth: v.optional(AuthConfigSchema),
-  settings: v.optional(InheritableSettingsSchema),
+  settings: v.optional(ContainerSettingsSchema),
 });
 
 // `conditions` is universal across rule variants. `action.requestHeaders`

@@ -356,7 +356,8 @@ function entryRows(): HTMLElement[] {
 
 describe('RequestContainerEditor — the Settings section', () => {
   // The node runtime: the TLS & trust group (SSL certificate
-  // verification — ONE knob for every kind) renders on every sub-tab.
+  // verification — one row per kind, each kind's own value) renders
+  // on every sub-tab.
   beforeEach(() => {
     registerCapability('requestRuntime', () => 'node');
   });
@@ -409,27 +410,30 @@ describe('RequestContainerEditor — the Settings section', () => {
     expect(headerButton('Saved').disabled).toBe(true);
   });
 
-  it('a shared knob edited on one sub-tab shows on the others; the sub-tab and rail dots follow the per-knob flags', () => {
+  it('a knob edited on one sub-tab is that kind’s alone; the sub-tab and rail dots follow the per-knob flags', () => {
     renderSettings();
     expect(screen.queryByTestId('oh-section-unsaved')).toBeNull();
     expect(sslSwitch('request').getAttribute('aria-checked')).toBe('true');
     fireEvent.click(sslSwitch('request'));
     expect(sslSwitch('request').getAttribute('aria-checked')).toBe('false');
     // The rail's Settings tab counts the one set knob, unsaved; the
-    // HTTP sub-tab dots unsaved — and so does every other kind's, the
-    // knob being one row everywhere.
+    // HTTP sub-tab dots unsaved — and no other kind's: the HTTP
+    // slice's verification is HTTP's alone (the per-kind law).
     expect(within(settingsRailTab()).getByTestId('oh-section-count-unsaved').textContent).toBe('1');
-    for (const kind of ['http', 'websocket', 'mqtt', 'grpc']) {
+    expect(
+      within(screen.getByTestId('oh-container-settings-kind-http')).getByTestId('oh-section-unsaved'),
+    ).toBeTruthy();
+    for (const kind of ['websocket', 'mqtt', 'grpc']) {
       expect(
-        within(screen.getByTestId(`oh-container-settings-kind-${kind}`)).getByTestId('oh-section-unsaved'),
-      ).toBeTruthy();
+        within(screen.getByTestId(`oh-container-settings-kind-${kind}`)).queryByTestId('oh-section-unsaved'),
+      ).toBeNull();
     }
     fireEvent.click(screen.getByRole('tab', { name: 'WebSocket' }));
-    expect(sslSwitch('websocket').getAttribute('aria-checked')).toBe('false');
+    expect(sslSwitch('websocket').getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('tab', { name: 'MQTT' }));
-    expect(sslSwitch('mqtt').getAttribute('aria-checked')).toBe('false');
+    expect(sslSwitch('mqtt').getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('tab', { name: 'gRPC' }));
-    expect(sslSwitch('grpc').getAttribute('aria-checked')).toBe('false');
+    expect(sslSwitch('grpc').getAttribute('aria-checked')).toBe('true');
     // Back on HTTP the row's reset clears the knob — nothing unsaved.
     fireEvent.click(screen.getByRole('tab', { name: 'HTTP' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reset SSL certificate verification to default' }));
@@ -440,14 +444,23 @@ describe('RequestContainerEditor — the Settings section', () => {
   it('Save hands the write client the changed knobs alone — a cleared knob rides as an unset', async () => {
     requestsState = {
       ...requestsState,
-      collections: [makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false, maxRedirects: 5 } })],
+      collections: [
+        makeCollection({
+          settings: {
+            http: { timeoutMs: 30_000, sslVerification: false, maxRedirects: 5 },
+            grpc: { timeoutMs: 2_000 },
+          },
+        }),
+      ],
     };
     renderSettings();
     expect(within(settingsRailTab()).queryByTestId('oh-section-count-unsaved')).toBeNull();
     expect(timeoutKnob().value).toBe('30 s');
     fireEvent.click(sslSwitch('request'));
     fireEvent.click(screen.getByRole('button', { name: 'Reset Request timeout to default' }));
-    expect(within(settingsRailTab()).getByTestId('oh-section-count-unsaved').textContent).toBe('2');
+    // Three knobs still set across two kinds (the cleared timeout
+    // left the count), two of them unsaved.
+    expect(within(settingsRailTab()).getByTestId('oh-section-count-unsaved').textContent).toBe('3');
 
     fireEvent.click(await findSaveButton());
     await waitFor(() => expect(applyRequestCollectionSetSettings).toHaveBeenCalledTimes(1));
@@ -455,8 +468,8 @@ describe('RequestContainerEditor — the Settings section', () => {
       {
         collectionUid: 'col00001',
         updates: [
-          { key: 'sslVerification', value: true },
-          { key: 'timeoutMs', value: undefined },
+          { kind: 'http', key: 'sslVerification', value: true },
+          { kind: 'http', key: 'timeoutMs', value: undefined },
         ],
       },
       { workspaceId: 'ws00001', surfaceId: 'workbench' },
@@ -465,10 +478,10 @@ describe('RequestContainerEditor — the Settings section', () => {
     expect(applyRequestCollectionSetScripts).not.toHaveBeenCalled();
   });
 
-  it('a folder shows the collection’s values as placeholders with the inherited line; Edit in parent opens the source; its own value writes through the folder client', async () => {
+  it('a folder shows the collection’s values of the kind as placeholders with the inherited line; Edit in parent opens the source; its own value overrides with the line and writes through the folder client', async () => {
     requestsState = {
       ...requestsState,
-      collections: [makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false } })],
+      collections: [makeCollection({ settings: { http: { timeoutMs: 30_000, sslVerification: false } } })],
     };
     const onOpenContainerSettings = vi.fn();
     renderSettings({ kind: 'folder', entityUid: 'fld00001', onOpenContainerSettings });
@@ -487,19 +500,29 @@ describe('RequestContainerEditor — the Settings section', () => {
     expect(onOpenContainerSettings).toHaveBeenCalledWith('collection', 'col00001', 'Payments');
     expect(headerButton('Saved').disabled).toBe(true);
 
+    // The collection's HTTP slice says nothing to the WebSocket rows.
+    fireEvent.click(screen.getByRole('tab', { name: 'WebSocket' }));
+    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'HTTP' }));
+
     // The folder's own timeout shadows the collection's — the line
-    // leaves the row; Save writes the one knob through the folder
-    // client.
+    // turns into the overrides reading, naming the value it shadows;
+    // Save writes the one knob through the folder client.
     fireEvent.change(timeoutKnob(), { target: { value: '5s' } });
     fireEvent.blur(timeoutKnob());
     expect(timeoutKnob().value).toBe('5 s');
-    expect(screen.getAllByTestId('oh-inherited-setting-note').map((n) => n.getAttribute('data-key'))).toEqual([
-      'sslVerification',
+    const after = screen.getAllByTestId('oh-inherited-setting-note');
+    expect(after.map((n) => `${n.getAttribute('data-key')}:${n.getAttribute('data-reading')}`)).toEqual([
+      'sslVerification:inherited',
+      'timeoutMs:overrides',
     ]);
+    expect(after[1].textContent).toContain('Overrides Collection ‘Payments’ (30 s)');
+    // One level above sets it — no chain to list.
+    expect(within(after[1]).queryByTestId('oh-inherited-setting-chain')).toBeNull();
     fireEvent.click(await findSaveButton());
     await waitFor(() => expect(applyRequestFolderSetSettings).toHaveBeenCalledTimes(1));
     expect(applyRequestFolderSetSettings).toHaveBeenCalledWith(
-      { folderUid: 'fld00001', updates: [{ key: 'timeoutMs', value: 5000 }] },
+      { folderUid: 'fld00001', updates: [{ kind: 'http', key: 'timeoutMs', value: 5000 }] },
       { workspaceId: 'ws00001', surfaceId: 'workbench' },
     );
     expect(applyRequestCollectionSetSettings).not.toHaveBeenCalled();

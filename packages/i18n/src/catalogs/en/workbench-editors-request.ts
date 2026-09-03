@@ -545,6 +545,13 @@ export const workbenchEditorsRequest = {
   // The settings rows' inherited line — {source} is the level label
   // above (Collection ‘X’ / Folder ‘X’).
   'workbench.editors.request.settings.inheritedFrom': 'Inherited from {source}',
+  'workbench.editors.request.settings.overridesSource': 'Overrides {source} ({value})',
+  'workbench.editors.request.settings.settingChainTitle': 'Where this setting is set',
+  'workbench.editors.request.settings.settingChainSummary':
+    'Every level that sets this knob, outermost first — the innermost value is the one in effect.',
+  'workbench.editors.request.settings.settingChainHeading': 'Levels',
+  'workbench.editors.request.settings.thisRequest': 'This request',
+  'workbench.editors.request.settings.thisFolder': 'This folder',
   'workbench.editors.request.auth.resetToInheritedAuth': 'Reset to inherited auth',
   'workbench.editors.request.auth.resizeRailAria': 'Resize auth-type rail',
   'workbench.editors.request.auth.username': 'Username',

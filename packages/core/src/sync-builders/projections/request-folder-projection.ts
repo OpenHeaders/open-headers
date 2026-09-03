@@ -17,8 +17,8 @@
 import {
   AuthConfigSchema,
   AuthPoolEntrySchema,
+  ContainerSettingsObjectSchema,
   hasInheritableSettings,
-  InheritableSettingsObjectSchema,
   SessionScriptSlotsSchema,
 } from '@openheaders/core/schemas';
 import {
@@ -128,10 +128,10 @@ export function projectRequestFolder(materialized: MaterializedEntity, parentPat
   const scripts = v.safeParse(SessionScriptSlotsSchema, data.scripts);
   const scriptRecord = scripts.success && Object.keys(scripts.output).length > 0 ? scripts.output : undefined;
   // The inheritable settings — carried when well-formed per knob and
-  // non-empty (the object shape without the proxy pair tie: per-leaf
+  // non-empty (the record shape without the proxy pair tie: per-leaf
   // writes compose transiently; the last knob's unset leaves an empty
-  // record behind).
-  const settings = v.safeParse(InheritableSettingsObjectSchema, data.settings);
+  // slice or record behind).
+  const settings = v.safeParse(ContainerSettingsObjectSchema, data.settings);
   const settingsRecord = settings.success && hasInheritableSettings(settings.output) ? settings.output : undefined;
   return {
     schemaVersion,

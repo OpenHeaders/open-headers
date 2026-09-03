@@ -25,7 +25,7 @@
 
 import type * as v from 'valibot';
 import type { AuthPoolEntrySchema, CollectionSchema, FolderSchema, SpecLinkSchema } from '../schemas/collection';
-import type { InheritableSettingsSchema } from '../schemas/inheritable-settings';
+import type { ContainerSettingsSchema, InheritableSettingsSchema } from '../schemas/inheritable-settings';
 import type { HttpMethod } from './request';
 import type { RuleType } from './rule';
 
@@ -40,14 +40,22 @@ export type SpecLink = v.InferOutput<typeof SpecLinkSchema>;
 export type AuthPoolEntry = v.InferOutput<typeof AuthPoolEntrySchema>;
 
 /**
- * The inheritable request settings a container carries — the union of
- * the four request kinds' Settings-tab knobs under their own names,
- * every key optional. See `InheritableSettingsSchema`.
+ * The inheritable settings VOCABULARY — the union of the four request
+ * kinds' Settings-tab knobs under their own names, every key optional:
+ * one name, one value type wherever a knob is typed. See
+ * `InheritableSettingsSchema`.
  */
 export type InheritableSettings = v.InferOutput<typeof InheritableSettingsSchema>;
 
 /** One knob's name. */
 export type InheritableSettingKey = keyof InheritableSettings;
+
+/**
+ * The record a container carries — one slice of the vocabulary per
+ * request kind, each optional; a knob set under one kind is that
+ * kind's alone. See `ContainerSettingsSchema`.
+ */
+export type ContainerSettings = v.InferOutput<typeof ContainerSettingsSchema>;
 
 /**
  * `_folder.yaml` — the lightweight grouping folder inside a collection.

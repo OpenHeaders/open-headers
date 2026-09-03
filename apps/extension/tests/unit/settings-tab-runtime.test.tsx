@@ -11,6 +11,7 @@
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
+import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
 import { VaultContext, type VaultContextValue } from '@openheaders/ui/context';
 import { emptyDraft } from '@openheaders/ui/workbench/components/request-editor/draft';
@@ -18,7 +19,8 @@ import { buildRequestTabItems } from '@openheaders/ui/workbench/components/reque
 import SettingsTab from '@openheaders/ui/workbench/components/request-editor/SettingsTab';
 import type { SettingsKnobKey } from '@openheaders/ui/workbench/components/request-editor/settings-unsaved';
 import type { SectionUnresolved } from '@openheaders/ui/workbench/components/request-editor/useSectionUnresolved';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { inheritedSettingsViewFor } from '@openheaders/ui/workbench/components/shared/inherited-settings/inherited-settings';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // The antd Select dropdown measures itself via rc-resize-observer;
@@ -1111,7 +1113,7 @@ describe('SettingsTab on the ancestor plane (settings inheritance, the request r
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ followRedirects: true }));
   });
 
-  it('an own value shadows the inherited one — the row dots, the line goes, reset clears back to inherit', () => {
+  it('an own value shadows the inherited one — the row dots, the line reads Overrides, reset clears back to inherit', () => {
     registerCapability('requestRuntime', () => 'node');
     const onChange = vi.fn();
     render(
@@ -1122,7 +1124,15 @@ describe('SettingsTab on the ancestor plane (settings inheritance, the request r
       />,
     );
     expect((screen.getByRole('combobox', { name: 'Request timeout' }) as HTMLInputElement).value).toBe('5 s');
-    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    // Transparency: the shadowed level and its value stay on the row.
+    const notes = screen.getAllByTestId('oh-inherited-setting-note');
+    expect(notes.map((n) => `${n.getAttribute('data-key')}:${n.getAttribute('data-reading')}`)).toEqual([
+      'sslVerification:overrides',
+      'timeoutMs:overrides',
+    ]);
+    expect(notes[0].textContent).toContain('Overrides Collection ‘Payments’ (Disabled)');
+    expect(notes[1].textContent).toContain('Overrides Collection ‘Payments’ (30 s)');
+    expect(screen.queryByTestId('oh-inherited-setting-chain')).toBeNull();
     // Explicit wins: an own `true` under the collection's `false` is the
     // request's own value — checked, dotted, resettable.
     expect(screen.getByRole('switch', { name: 'SSL certificate verification' }).getAttribute('aria-checked')).toBe(
@@ -1145,12 +1155,40 @@ describe('SettingsTab on the ancestor plane (settings inheritance, the request r
     registerCapability('requestRuntime', () => 'node');
     const onChange = vi.fn();
     render(<SettingsTab value={{ httpVersion: 'auto' }} onChange={onChange} inherited={view({ httpVersion: '2' })} />);
-    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    expect(screen.getByTestId('oh-inherited-setting-note').textContent).toContain(
+      'Overrides Collection ‘Payments’ (HTTP/2)',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Reset HTTP version to default' }));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ httpVersion: undefined }));
     cleanup();
     render(<SettingsTab value={{}} onChange={onChange} inherited={view({ httpVersion: '2' })} />);
     expect(screen.getByText('HTTP/2')).toBeTruthy();
     expect(screen.getByTestId('oh-inherited-setting-note').getAttribute('data-key')).toBe('httpVersion');
+  });
+
+  it('a knob set at two levels above carries the chain (i) on the line — inherited from the nearest, or overridden with every value on the way down', async () => {
+    registerCapability('requestRuntime', () => 'node');
+    const chain: SettingsCarrier[] = [
+      { level: 'collection', uid: 'col00001', name: 'Payments', settings: { http: { tlsMinVersion: '1.3' } } },
+      { level: 'folder', uid: 'fld00001', name: 'Cards', settings: { http: { tlsMinVersion: '1.2' } } },
+    ];
+    const inherited = inheritedSettingsViewFor('http', chain, 'request', undefined);
+    render(<SettingsTab value={{}} onChange={() => {}} inherited={inherited} />);
+    const note = screen.getByTestId('oh-inherited-setting-note');
+    expect(note.getAttribute('data-reading')).toBe('inherited');
+    expect(note.textContent).toContain('Inherited from Folder ‘Cards’');
+    expect(within(note).getByTestId('oh-inherited-setting-chain')).toBeTruthy();
+    cleanup();
+    render(<SettingsTab value={{ tlsMinVersion: '1.1' }} onChange={() => {}} inherited={inherited} />);
+    const own = screen.getByTestId('oh-inherited-setting-note');
+    expect(own.getAttribute('data-reading')).toBe('overrides');
+    expect(own.textContent).toContain('Overrides Folder ‘Cards’ (1.2)');
+    fireEvent.click(within(own).getByRole('button', { name: 'About Where this setting is set' }));
+    await waitFor(() => expect(screen.getByText('Where this setting is set')).toBeTruthy());
+    const rows = screen
+      .getAllByText(/^(Collection ‘Payments’|Folder ‘Cards’|This request)$/)
+      .map((el) => el.textContent);
+    expect(rows).toEqual(['Collection ‘Payments’', 'Folder ‘Cards’', 'This request']);
+    for (const value of ['1.3', '1.2', '1.1']) expect(screen.getAllByText(value).length).toBeGreaterThan(0);
   });
 });

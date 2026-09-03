@@ -588,6 +588,13 @@ export const workbenchEditorsRequest = {
     'La entrada elegida por esta solicitud ya no existe — se aplica el predeterminado más cercano.',
   'workbench.editors.request.auth.editInParent': 'Editar en el elemento padre',
   'workbench.editors.request.settings.inheritedFrom': 'Heredado de {source}',
+  'workbench.editors.request.settings.overridesSource': 'Sobrescribe {source} ({value})',
+  'workbench.editors.request.settings.settingChainTitle': 'Dónde se define este ajuste',
+  'workbench.editors.request.settings.settingChainSummary':
+    'Cada nivel que define este ajuste, del más externo al más interno — el valor más interno es el que rige.',
+  'workbench.editors.request.settings.settingChainHeading': 'Niveles',
+  'workbench.editors.request.settings.thisRequest': 'Esta solicitud',
+  'workbench.editors.request.settings.thisFolder': 'Esta carpeta',
   'workbench.editors.request.auth.resetToInheritedAuth': 'Restablecer la autorización heredada',
   'workbench.editors.request.auth.resizeRailAria': 'Redimensionar el riel de tipos de autenticación',
   'workbench.editors.request.auth.username': 'Nombre de usuario',

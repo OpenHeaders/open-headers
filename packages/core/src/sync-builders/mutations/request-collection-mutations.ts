@@ -9,7 +9,7 @@
  * renderer (`useRequestCollectionMutator` / variable write client).
  */
 
-import type { InheritableSettingUpdate } from '@openheaders/core/settings-inheritance';
+import type { ContainerSettingUpdate } from '@openheaders/core/settings-inheritance';
 import {
   deleteRequestCollection,
   deriveSideEffectsForEnvelope,
@@ -92,11 +92,11 @@ export function buildSetRequestCollectionScriptsBatch(
 
 export interface SetRequestCollectionSettingsInput {
   collectionUid: string;
-  /** Knob updates; `value: undefined` clears the knob. */
-  updates: ReadonlyArray<InheritableSettingUpdate>;
+  /** Knob updates on their kinds' slices; `value: undefined` clears the knob. */
+  updates: ReadonlyArray<ContainerSettingUpdate>;
 }
 
-/** Per-knob `setField` / `unsetField` under `settings.<key>` — the
+/** Per-knob `setField` / `unsetField` under `settings.<kind>.<key>` — the
  *  object is never written whole (the flattened create leaves and a
  *  peer's concurrent knob edit would be clobbered). */
 export function buildSetRequestCollectionSettingsBatch(

@@ -200,7 +200,15 @@ describe('WebSocket Settings tab on the ancestor plane', () => {
         />,
       ),
     );
-    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    // Own values over the collection's — the lines turn into the
+    // overrides reading, naming the shadowed value the row's way.
+    const notes = screen.getAllByTestId('oh-inherited-setting-note');
+    expect(notes.map((n) => `${n.getAttribute('data-key')}:${n.getAttribute('data-reading')}`)).toEqual([
+      'timeoutMs:overrides',
+      'sslVerification:overrides',
+    ]);
+    expect(notes[0].textContent).toContain('Overrides Collection ‘Payments’ (30 s)');
+    expect(notes[1].textContent).toContain('Overrides Collection ‘Payments’ (Disabled)');
     fireEvent.click(screen.getByRole('button', { name: 'Reset SSL certificate verification to default' }));
     expect(nextDraft(setDraft, own).sslVerification).toBeUndefined();
     fireEvent.click(screen.getByRole('button', { name: 'Reset Connect timeout to default' }));
@@ -242,7 +250,9 @@ describe('MQTT Settings tab on the ancestor plane', () => {
     render(
       scoped(<MqttSettingsTab draft={own} setDraft={setDraft} v5 inherited={collectionView({ cleanStart: false })} />),
     );
-    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    expect(screen.getByTestId('oh-inherited-setting-note').textContent).toContain(
+      'Overrides Collection ‘Payments’ (Disabled)',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Reset Clean Start to default' }));
     expect(nextDraft(setDraft, own).cleanStart).toBeUndefined();
   });
@@ -290,7 +300,9 @@ describe('gRPC Settings tab on the ancestor plane', () => {
       ),
     );
     expect((screen.getByRole('combobox', { name: 'Call timeout' }) as HTMLInputElement).value).toBe('5 s');
-    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+    expect(screen.getByTestId('oh-inherited-setting-note').textContent).toContain(
+      'Overrides Collection ‘Payments’ (30 s)',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Reset Call timeout to default' }));
     const cleared = nextDraft(setDraft, own);
     expect(cleared.timeoutMs).toBeUndefined();

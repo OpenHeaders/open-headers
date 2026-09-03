@@ -28,9 +28,9 @@
 
 import { FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
 import { authPoolOf, LEGACY_AUTH_ENTRY_UID } from '@openheaders/core/auth-inheritance';
-import { definedSettingKeys, INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
+import { definedSettingCount } from '@openheaders/core/schemas';
 import { type ScriptSlotCarrier, scriptSlotPath } from '@openheaders/core/scripts';
-import { inheritedSettingsFor, settingUpdatesBetween } from '@openheaders/core/settings-inheritance';
+import { type SettingsCarrier, settingUpdatesBetween } from '@openheaders/core/settings-inheritance';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
 import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
@@ -39,8 +39,7 @@ import type {
   AuthPoolEntry,
   Collection,
   HttpMethod,
-  InheritableSettingKey,
-  InheritableSettings,
+  ContainerSettings,
   Variable,
 } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -82,7 +81,6 @@ import {
   scriptSlotFlagsBetween,
   scriptSlotValuesOf,
 } from '../script-editor/script-slots';
-import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
 import EditorHeader from '../shell/EditorHeader';
 import { SuggestionContextProvider } from '../template-input';
 import { useCollectionVariableConflictsUi } from '../variables/use-collection-variable-conflicts-ui';
@@ -144,19 +142,20 @@ interface ContainerEntity extends ScriptSlotCarrier {
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
-  settings?: InheritableSettings;
+  settings?: ContainerSettings;
   variables?: Variable[];
 }
 
 interface ContainerDraft {
   pool: AuthPoolDraft;
   scripts: ScriptSlotValues;
-  settings: InheritableSettings;
+  settings: ContainerSettings;
   variables: Variable[];
 }
 
 const EMPTY_VARS: Variable[] = [];
-const EMPTY_SETTINGS: InheritableSettings = {};
+const EMPTY_SETTINGS: ContainerSettings = {};
+const NO_SETTINGS_CHAIN: readonly SettingsCarrier[] = [];
 
 /** The whole pool as the draft's auth slot — a transparent level (no
  *  pool) is the empty list; the legacy single-auth read seeds as its
@@ -230,13 +229,12 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
 
   // A folder's Settings rows read the chain above it (outer → inner,
   // off the trees) for their placeholders — the per-knob cascade's
-  // own answer; a collection has nothing above it. Both sit on the
-  // ancestor plane (explicit wins).
-  const inheritedSettings = useMemo((): InheritedSettingsView => {
+  // own answer, per kind; a collection has nothing above it. Both sit
+  // on the ancestor plane (explicit wins).
+  const settingsChain = useMemo((): readonly SettingsCarrier[] => {
     const ancestry = kind === 'folder' ? findFolderAncestry(collectionTrees, collections, folders, entityUid) : null;
-    if (ancestry === null) return { ...NO_INHERITED_SETTINGS, onOpenSource: onOpenContainerSettings };
-    return { ...inheritedSettingsFor(settingsChainOf(ancestry), INHERITABLE_SETTING_KEYS), onOpenSource: onOpenContainerSettings };
-  }, [kind, collectionTrees, collections, folders, entityUid, onOpenContainerSettings]);
+    return ancestry === null ? NO_SETTINGS_CHAIN : settingsChainOf(ancestry);
+  }, [kind, collectionTrees, collections, folders, entityUid]);
 
   const [activeSection, setActiveSection] = useState<RequestContainerSection>(section ?? 'overview');
   useEffect(() => {
@@ -299,10 +297,6 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
   const settingsUpdates = useMemo(
     () => settingUpdatesBetween(saved.settings, draft.settings),
     [saved.settings, draft.settings],
-  );
-  const settingsUnsavedKeys = useMemo(
-    () => new Set<InheritableSettingKey>(settingsUpdates.map((update) => update.key)),
-    [settingsUpdates],
   );
   const settingsUnsaved = settingsUpdates.length > 0;
   const variablesUnsaved = stableStringify(draft.variables) !== stableStringify(saved.variables);
@@ -426,7 +420,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
   const localInstanceId = useLocalInstanceId();
 
   const scriptsMark = SCRIPT_KINDS.filter((slot) => draft.scripts[slot].trim()).length;
-  const settingsMark = definedSettingKeys(draft.settings).length;
+  const settingsMark = definedSettingCount(draft.settings);
   const variablesMark = draft.variables.filter((v) => v.name.trim()).length;
   const sectionItems = useMemo(
     () => [
@@ -596,8 +590,9 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
               <SettingsSection
                 settings={draft.settings}
                 onChange={(settings) => setDraft((d) => ({ ...d, settings }))}
-                unsaved={settingsUnsavedKeys}
-                inherited={inheritedSettings}
+                unsaved={settingsUpdates}
+                chain={settingsChain}
+                onOpenSource={onOpenContainerSettings}
                 workspaceId={workspaceId}
               />
             </SuggestionContextProvider>

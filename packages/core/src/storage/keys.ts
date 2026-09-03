@@ -29,6 +29,7 @@ import type {
   BackendConnection,
   CliProvisionRecord,
   Collection,
+  ContainerSettings,
   DaemonAuthToken,
   DaemonConfig,
   DaemonUserRecord,
@@ -37,7 +38,6 @@ import type {
   ExtensionWorkspace,
   GrpcRequest,
   GrpcResponseExample,
-  InheritableSettings,
   LiveFallbackPrioritySnapshot,
   LiveVariable,
   LiveWorkflow,
@@ -288,7 +288,7 @@ export interface PersistedLocalFolder {
   /** The pre-pool single default auth — read only, see `FolderSchema`. */
   auth?: AuthConfig;
   /** The inheritable request settings (request folders only) — see `FolderSchema`. */
-  settings?: InheritableSettings;
+  settings?: ContainerSettings;
 }
 
 /** See {@link OH.desktopWatchActivity}. */

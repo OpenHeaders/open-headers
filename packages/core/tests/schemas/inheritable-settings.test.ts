@@ -6,24 +6,33 @@
  *     tls, authority) are outside it;
  *   - the request field schemas bound every knob; the proxy pair tie
  *     holds on the persisted shape;
- *   - a collection and a folder carry the record; an empty record and
- *     an undefined-valued knob read as transparent.
+ *   - a kind's slice holds the kind's knobs alone, with the proxy tie;
+ *   - a collection and a folder carry the per-kind record; an empty
+ *     record, an empty slice and an undefined-valued knob read as
+ *     transparent.
  */
 
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import { CollectionSchema, FolderSchema } from '../../src/schemas/collection';
 import {
+  ContainerSettingsObjectSchema,
+  ContainerSettingsSchema,
+  definedSettingCount,
   definedSettingKeys,
   GRPC_INHERITABLE_SETTING_KEYS,
   HTTP_INHERITABLE_SETTING_KEYS,
+  HttpSettingsSchema,
   hasInheritableSettings,
   INHERITABLE_SETTING_KEYS,
   INHERITABLE_SETTING_KEYS_BY_KIND,
   InheritableSettingsObjectSchema,
   InheritableSettingsSchema,
   MQTT_INHERITABLE_SETTING_KEYS,
+  MqttSettingsObjectSchema,
+  SETTINGS_KINDS,
   WEBSOCKET_INHERITABLE_SETTING_KEYS,
+  WebSocketSettingsSchema,
 } from '../../src/schemas/inheritable-settings';
 
 const REQUEST_ONLY = ['namespace', 'subprotocols', 'protocolVersion', 'clientId', 'lastWill', 'tls', 'authority'];
@@ -92,6 +101,31 @@ describe('InheritableSettingsSchema — validation', () => {
     expect(v.safeParse(InheritableSettingsSchema, { proxyUrl: 'http://p.openheaders.io' }).success).toBe(false);
     expect(v.safeParse(InheritableSettingsObjectSchema, { proxyMode: 'url' }).success).toBe(true);
   });
+});
+
+describe('ContainerSettingsSchema — one slice per kind', () => {
+  it("each slice's key set is its kind's list, in its order", () => {
+    for (const kind of SETTINGS_KINDS) {
+      expect(Object.keys(ContainerSettingsObjectSchema.entries[kind].wrapped.entries)).toEqual([
+        ...INHERITABLE_SETTING_KEYS_BY_KIND[kind],
+      ]);
+    }
+    expect(SETTINGS_KINDS).toEqual(Object.keys(ContainerSettingsObjectSchema.entries));
+  });
+
+  it("a slice holds its kind's knobs alone — a knob of another kind is dropped, never carried", () => {
+    expect(v.parse(MqttSettingsObjectSchema, { keepAlive: 30, cookieJar: true })).toEqual({ keepAlive: 30 });
+    expect(v.parse(WebSocketSettingsSchema, { maxMessageBytes: 4_096, httpVersion: '2' })).toEqual({
+      maxMessageBytes: 4_096,
+    });
+  });
+
+  it('the proxy pair tie holds on every persisted slice', () => {
+    expect(v.safeParse(HttpSettingsSchema, { proxyMode: 'url' }).success).toBe(false);
+    expect(v.safeParse(WebSocketSettingsSchema, { proxyUrl: 'http://p.openheaders.io' }).success).toBe(false);
+    expect(v.safeParse(ContainerSettingsSchema, { grpc: { proxyMode: 'url' } }).success).toBe(false);
+    expect(v.safeParse(ContainerSettingsObjectSchema, { grpc: { proxyMode: 'url' } }).success).toBe(true);
+  });
 
   it('a collection and a folder carry the record', () => {
     const collection = v.parse(CollectionSchema, {
@@ -100,30 +134,37 @@ describe('InheritableSettingsSchema — validation', () => {
       path: 'requests/api-rcol0001',
       name: 'API',
       variables: [],
-      settings: { timeoutMs: 30_000, cookieJar: true },
+      settings: { http: { timeoutMs: 30_000, cookieJar: true }, mqtt: { keepAlive: 30 } },
     });
-    expect(collection.settings).toEqual({ timeoutMs: 30_000, cookieJar: true });
+    expect(collection.settings).toEqual({ http: { timeoutMs: 30_000, cookieJar: true }, mqtt: { keepAlive: 30 } });
     const folder = v.parse(FolderSchema, {
       schemaVersion: 5,
       uid: 'rfold001',
       path: 'requests/api-rcol0001/auth-rfold001',
       name: 'Auth',
-      settings: { sslVerification: false },
+      settings: { websocket: { sslVerification: false } },
     });
-    expect(folder.settings).toEqual({ sslVerification: false });
-    expect(v.safeParse(FolderSchema, { ...folder, settings: { timeoutMs: 1 } }).success).toBe(false);
+    expect(folder.settings).toEqual({ websocket: { sslVerification: false } });
+    expect(v.safeParse(FolderSchema, { ...folder, settings: { http: { timeoutMs: 1 } } }).success).toBe(false);
+  });
+
+  it('a pre-slice record (knobs at the top level) reads as setting nothing', () => {
+    expect(v.parse(ContainerSettingsSchema, { timeoutMs: 30_000 })).toEqual({});
   });
 });
 
-describe('definedSettingKeys / hasInheritableSettings', () => {
-  it('lists defined knobs in key order; an empty or undefined-valued record is transparent', () => {
-    expect(definedSettingKeys({ cookieJar: true, timeoutMs: 1_000, httpVersion: undefined })).toEqual([
+describe('definedSettingKeys / definedSettingCount / hasInheritableSettings', () => {
+  it("lists a slice's defined knobs in key order; counts across kinds; an empty or undefined-valued record is transparent", () => {
+    expect(definedSettingKeys('http', { cookieJar: true, timeoutMs: 1_000, httpVersion: undefined })).toEqual([
       'cookieJar',
       'timeoutMs',
     ]);
+    expect(definedSettingKeys('grpc', undefined)).toEqual([]);
+    expect(definedSettingCount({ http: { timeoutMs: 1 }, websocket: { timeoutMs: 2, autoReconnect: false } })).toBe(3);
     expect(hasInheritableSettings(undefined)).toBe(false);
     expect(hasInheritableSettings({})).toBe(false);
-    expect(hasInheritableSettings({ timeoutMs: undefined })).toBe(false);
-    expect(hasInheritableSettings({ timeoutMs: 1_000 })).toBe(true);
+    expect(hasInheritableSettings({ http: {} })).toBe(false);
+    expect(hasInheritableSettings({ http: { timeoutMs: undefined } })).toBe(false);
+    expect(hasInheritableSettings({ mqtt: { keepAlive: 30 } })).toBe(true);
   });
 });

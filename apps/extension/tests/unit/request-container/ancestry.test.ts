@@ -256,15 +256,15 @@ describe('settingsChainOf', () => {
   it('lists the collection then the folders outer → inner with their settings records, transparent levels included', () => {
     const ancestry = findRequestAncestry(
       [TREE],
-      [makeCollection({ settings: { timeoutMs: 30_000 } })],
-      [FOLDERS[0], { ...FOLDERS[1], settings: { sslVerification: false } }],
+      [makeCollection({ settings: { http: { timeoutMs: 30_000 } } })],
+      [FOLDERS[0], { ...FOLDERS[1], settings: { websocket: { sslVerification: false } } }],
       'req00002',
     );
     if (ancestry === null) throw new Error('expected an ancestry');
     expect(settingsChainOf(ancestry)).toEqual([
-      { level: 'collection', uid: 'col00001', name: 'Payments', settings: { timeoutMs: 30_000 } },
+      { level: 'collection', uid: 'col00001', name: 'Payments', settings: { http: { timeoutMs: 30_000 } } },
       { level: 'folder', uid: 'fld00001', name: 'Cards', settings: undefined },
-      { level: 'folder', uid: 'fld00002', name: 'Refunds', settings: { sslVerification: false } },
+      { level: 'folder', uid: 'fld00002', name: 'Refunds', settings: { websocket: { sslVerification: false } } },
     ]);
   });
 });

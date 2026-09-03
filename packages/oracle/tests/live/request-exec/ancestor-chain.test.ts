@@ -311,8 +311,8 @@ describe('resolveSessionAuth', () => {
 describe('resolveRequestSettings', () => {
   it("the request's own knob wins; an absent one reads the innermost ancestor, attributed", () => {
     seedTree(
-      makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false } }),
-      makeFolder({ settings: { timeoutMs: 5_000 } }),
+      makeCollection({ settings: { http: { timeoutMs: 30_000, sslVerification: false } } }),
+      makeFolder({ settings: { http: { timeoutMs: 5_000 } } }),
       INNER,
       makeRequest(),
     );
@@ -328,17 +328,19 @@ describe('resolveRequestSettings', () => {
   it('a request slotted under another folder inherits from its SLOT parent, whatever its path says', () => {
     seedTree(
       makeCollection(),
-      makeFolder({ settings: { timeoutMs: 5_000 } }),
-      { ...INNER, settings: { timeoutMs: 1_000 } },
+      makeFolder({ settings: { http: { timeoutMs: 5_000 } } }),
+      { ...INNER, settings: { http: { timeoutMs: 1_000 } } },
       makeRequest(),
       { slotRequestUnder: 'outer' },
     );
     expect(resolveRequestSettings('http', makeRequest(), null).settings.timeoutMs).toBe(5_000);
   });
 
-  it('a kind reads its own key list — an HTTP-only knob never reaches an MQTT session', () => {
+  it("a kind reads its own slice — the HTTP slice's knobs never reach an MQTT session", () => {
     seedTree(
-      makeCollection({ settings: { httpVersion: '2', timeoutMs: 30_000, keepAlive: 15 } }),
+      makeCollection({
+        settings: { http: { httpVersion: '2', timeoutMs: 30_000 }, mqtt: { timeoutMs: 30_000, keepAlive: 15 } },
+      }),
       makeFolder(),
       INNER,
       makeRequest(),
@@ -363,7 +365,12 @@ describe('resolveRequestSettings', () => {
 
   it('an injected chain replaces the walk (the page-realm twin)', () => {
     const resolved = resolveRequestSettings('websocket', { uid: 'ws000001', path: 'scratch/ws' }, null, [
-      { level: 'collection', uid: 'rcol0001', name: 'API', settings: { maxMessageBytes: 2_048, httpVersion: '2' } },
+      {
+        level: 'collection',
+        uid: 'rcol0001',
+        name: 'API',
+        settings: { websocket: { maxMessageBytes: 2_048 }, http: { httpVersion: '2' } },
+      },
     ]);
     expect(resolved.settings).toEqual({ maxMessageBytes: 2_048 });
     expect(resolved.attribution).toEqual([

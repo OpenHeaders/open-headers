@@ -31,8 +31,6 @@
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
-import { WEBSOCKET_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
-import { inheritedSettingsFor } from '@openheaders/core/settings-inheritance';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
 import { binaryEncodingError, generateUid } from '@openheaders/core/utils';
@@ -72,7 +70,11 @@ import { useWsSavedSelection } from './useWsSavedSelection';
 import { useWsComposeAids } from './useWsComposeAids';
 import { useWsSessionPlane } from './useWsSessionPlane';
 import { findRequestAncestry, resolveInheritedAuthFor, settingsChainOf } from '../request-container/ancestry';
-import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
+import {
+  type InheritedSettingsView,
+  inheritedSettingsViewFor,
+  NO_INHERITED_SETTINGS,
+} from '../shared/inherited-settings/inherited-settings';
 import WebSocketAuthTab from './WebSocketAuthTab';
 import WebSocketSettingsTab from './WebSocketSettingsTab';
 import { subscribeWsPrefill } from './ws-prefill-bus';
@@ -197,12 +199,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // off the same tree-read ancestry; the session plane reads the
   // effective verification off it too. Explicit wins on the plane.
   const inheritedSettings = useMemo<InheritedSettingsView>(
-    () => ({
-      ...(ancestry
-        ? inheritedSettingsFor(settingsChainOf(ancestry), WEBSOCKET_INHERITABLE_SETTING_KEYS)
-        : NO_INHERITED_SETTINGS),
-      onOpenSource: onOpenContainerSettings,
-    }),
+    () =>
+      ancestry
+        ? inheritedSettingsViewFor('websocket', settingsChainOf(ancestry), 'request', onOpenContainerSettings)
+        : { ...NO_INHERITED_SETTINGS, onOpenSource: onOpenContainerSettings },
     [ancestry, onOpenContainerSettings],
   );
 

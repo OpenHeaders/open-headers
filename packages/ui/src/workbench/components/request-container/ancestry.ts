@@ -27,7 +27,7 @@ import type {
   Collection,
   CollectionTree,
   ConcreteAuthConfig,
-  InheritableSettings,
+  ContainerSettings,
   TreeNode,
 } from '@openheaders/core/types';
 
@@ -41,7 +41,7 @@ export interface AncestorAuthCarrier extends ScriptSlotCarrier {
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
-  settings?: InheritableSettings;
+  settings?: ContainerSettings;
 }
 
 export interface RequestAncestry {

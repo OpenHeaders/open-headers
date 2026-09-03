@@ -98,17 +98,24 @@ const COLLECTION: SettingsCarrier = {
   uid: 'rcol0001',
   name: 'Telemetry',
   settings: {
-    keepAlive: 15,
-    cleanStart: false,
-    timeoutMs: 5_000,
-    sessionExpiryInterval: 300,
-    alpnProtocol: 'mqtt',
-    sslVerification: false,
-    // Session knobs of other kinds never reach an MQTT session.
-    maxMessageBytes: 1_024,
+    mqtt: {
+      keepAlive: 15,
+      cleanStart: false,
+      timeoutMs: 5_000,
+      sessionExpiryInterval: 300,
+      alpnProtocol: 'mqtt',
+      sslVerification: false,
+    },
+    // Another kind's slice never reaches an MQTT session.
+    websocket: { maxMessageBytes: 1_024 },
   },
 };
-const FOLDER: SettingsCarrier = { level: 'folder', uid: 'rfold001', name: 'Sensors', settings: { keepAlive: 45 } };
+const FOLDER: SettingsCarrier = {
+  level: 'folder',
+  uid: 'rfold001',
+  name: 'Sensors',
+  settings: { mqtt: { keepAlive: 45 } },
+};
 
 describe('executeMqttSession — inherited settings', () => {
   it('the injected chain supplies every absent knob to the dial and the CONNECT; the innermost level wins; the snapshot attributes them', async () => {

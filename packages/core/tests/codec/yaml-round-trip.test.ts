@@ -172,19 +172,26 @@ describe('yaml codec — round-trip parity', () => {
     expect(cleared.collectionYaml).toBe(raw);
   });
 
-  it('_collection.yaml with inheritable settings — one nested record, round-trips; an empty record is the absent key', () => {
+  it('_collection.yaml with inheritable settings — one slice per kind, round-trips; an empty record is the absent key', () => {
     const raw = loadFixture('_collection.yaml');
     const parsed = parseCollection(raw, { path: 'requests/auth-c0ll1111' });
     const write = mergePatch(parsed, (draft) => {
-      draft.settings = { timeoutMs: 30_000, sslVerification: false, proxyMode: 'direct' };
+      draft.settings = {
+        mqtt: { keepAlive: 30 },
+        http: { timeoutMs: 30_000, sslVerification: false, proxyMode: 'direct' },
+      };
     });
     const out = serializeCollection(write);
-    // Nested keys emit in the schema's order, whatever the write's.
+    // Nested keys emit in the schema's order — the kinds, then each
+    // slice's knobs — whatever the write's.
     expect(out.collectionYaml).toContain(
-      'settings:\n  proxyMode: direct\n  sslVerification: false\n  timeoutMs: 30000',
+      'settings:\n  http:\n    proxyMode: direct\n    sslVerification: false\n    timeoutMs: 30000\n  mqtt:\n    keepAlive: 30',
     );
     const reparsed = parseCollection(out.collectionYaml, { path: 'requests/auth-c0ll1111' });
-    expect(reparsed.value.settings).toEqual({ timeoutMs: 30_000, sslVerification: false, proxyMode: 'direct' });
+    expect(reparsed.value.settings).toEqual({
+      http: { timeoutMs: 30_000, sslVerification: false, proxyMode: 'direct' },
+      mqtt: { keepAlive: 30 },
+    });
     const cleared = serializeCollection(
       mergePatch(reparsed, (draft) => {
         draft.settings = {};
@@ -285,12 +292,12 @@ describe('yaml codec — round-trip parity', () => {
     const raw = loadFixture('_folder.yaml');
     const parsed = parseFolder(raw, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
     const write = mergePatch(parsed, (draft) => {
-      draft.settings = { timeoutMs: 5_000, keepAlive: 30 };
+      draft.settings = { websocket: { timeoutMs: 5_000, maxMessageBytes: 4_096 } };
     });
     const out = serializeFolder(write);
-    expect(out.folderYaml).toContain('settings:\n  timeoutMs: 5000\n  keepAlive: 30');
+    expect(out.folderYaml).toContain('settings:\n  websocket:\n    timeoutMs: 5000\n    maxMessageBytes: 4096');
     const reparsed = parseFolder(out.folderYaml, { path: 'requests/auth-c0ll1111/tokens-f0ld3r12' });
-    expect(reparsed.value.settings).toEqual({ timeoutMs: 5_000, keepAlive: 30 });
+    expect(reparsed.value.settings).toEqual({ websocket: { timeoutMs: 5_000, maxMessageBytes: 4_096 } });
     const cleared = serializeFolder(
       mergePatch(reparsed, (draft) => {
         delete draft.settings;

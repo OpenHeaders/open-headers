@@ -1,24 +1,25 @@
 /**
- * Inheritable settings — the ONE nested `settings` object a collection
- * or folder carries for the requests under it, under the request
- * kinds' own field names.
+ * Inheritable settings — the `settings` record a collection or folder
+ * carries for the requests under it: one slice PER REQUEST KIND (HTTP
+ * · WebSocket · MQTT · gRPC), each under the kind's own field names.
  *
  * A request's Settings tab knobs are per-request synced data; a
- * container's `settings` holds the same knobs one level up, and a
- * request that leaves a knob absent reads the nearest ancestor's
- * value (`@openheaders/core/settings-inheritance` — THE rule). Every
- * key is an optional scalar validated by the request schemas' own
- * field schemas, so a container never stores a value a request could
- * not; the sync flattener turns the object into one leaf per knob, so
- * two devices editing two knobs never clobber each other.
+ * container's slice of the request's kind holds the same knobs one
+ * level up, and a request that leaves a knob absent reads the nearest
+ * ancestor's value (`@openheaders/core/settings-inheritance` — THE
+ * rule). Every key is an optional scalar validated by the request
+ * schemas' own field schemas, so a container never stores a value a
+ * request could not; the sync flattener turns the record into one
+ * leaf per knob per kind, so two devices editing two knobs never
+ * clobber each other.
  *
- * The object is the UNION of the four kinds' knobs. A shared name is
- * one knob for every kind (`timeoutMs` bounds an HTTP round-trip, a
- * session dial and a gRPC call alike — one value, one row); a
- * kind-only name (`maxMessageBytes`, `keepAlive`, `keepaliveIntervalMs`)
- * applies to that kind's requests and no other. The per-kind key lists
- * say what each kind reads, typed against its request schema so a
- * renamed request field fails here first.
+ * The vocabulary object below is the UNION of the four kinds' knobs —
+ * one name, one value type, one row label wherever a knob is shown;
+ * the per-kind key lists carve the slices out of it, typed against
+ * each request schema so a renamed request field fails here first. A
+ * shared NAME is still a separate VALUE per kind: the HTTP slice's
+ * `timeoutMs` bounds HTTP round-trips alone, the WebSocket slice's the
+ * session dial (the per-kind law).
  *
  * Request-only knobs never inherit and are absent from the object:
  * the WebSocket `namespace` and `subprotocols`, the MQTT
@@ -313,16 +314,77 @@ export const INHERITABLE_SETTING_KEYS_BY_KIND: {
   grpc: GRPC_INHERITABLE_SETTING_KEYS,
 };
 
-/** The knobs `settings` sets — defined values only, in the object's
- *  key order; a record left behind by unsets reads as empty. */
-export function definedSettingKeys(
-  settings: Partial<InheritableSettingsShape> | undefined,
-): (keyof InheritableSettingsShape)[] {
-  if (settings === undefined) return [];
-  return INHERITABLE_SETTING_KEYS.filter((key) => settings[key] !== undefined);
+/** The kinds a container's record slices by, in the record's order. */
+export const SETTINGS_KINDS = ['http', 'websocket', 'mqtt', 'grpc'] as const satisfies readonly AuthProtocolKind[];
+
+/** One kind's slice of the vocabulary — the knobs its requests read,
+ *  every key optional (absent = inherit or the runtime default). */
+export type KindSettingsShape<K extends AuthProtocolKind> = {
+  [P in InheritableSettingKeysByKind[K]]?: InheritableSettingsShape[P];
+};
+
+/** A kind's slice without the cross-field ties — what a projection
+ *  reads fail-soft. */
+export const HttpSettingsObjectSchema = v.pick(InheritableSettingsObjectSchema, [...HTTP_INHERITABLE_SETTING_KEYS]);
+export const WebSocketSettingsObjectSchema = v.pick(InheritableSettingsObjectSchema, [
+  ...WEBSOCKET_INHERITABLE_SETTING_KEYS,
+]);
+export const MqttSettingsObjectSchema = v.pick(InheritableSettingsObjectSchema, [...MQTT_INHERITABLE_SETTING_KEYS]);
+export const GrpcSettingsObjectSchema = v.pick(InheritableSettingsObjectSchema, [...GRPC_INHERITABLE_SETTING_KEYS]);
+
+/** A kind's persisted slice — the proxy mode / URL tie every request
+ *  schema pipes ({@link proxyPairChecks}). */
+export const HttpSettingsSchema = v.pipe(HttpSettingsObjectSchema, ...proxyPairChecks<KindSettingsShape<'http'>>());
+export const WebSocketSettingsSchema = v.pipe(
+  WebSocketSettingsObjectSchema,
+  ...proxyPairChecks<KindSettingsShape<'websocket'>>(),
+);
+export const MqttSettingsSchema = v.pipe(MqttSettingsObjectSchema, ...proxyPairChecks<KindSettingsShape<'mqtt'>>());
+export const GrpcSettingsSchema = v.pipe(GrpcSettingsObjectSchema, ...proxyPairChecks<KindSettingsShape<'grpc'>>());
+
+/**
+ * The record a collection or folder carries — one slice per request
+ * kind, each optional. A knob set under one kind is that kind's alone:
+ * an HTTP TLS floor never reaches a WebSocket session under the same
+ * collection (the per-kind law). The sync flattener keys one leaf per
+ * knob per kind (`settings.<kind>.<key>`); a slice or the record left
+ * behind by unsets reads as empty. Without the ties — the fail-soft
+ * projection read.
+ */
+export const ContainerSettingsObjectSchema = v.object({
+  http: v.optional(HttpSettingsObjectSchema),
+  websocket: v.optional(WebSocketSettingsObjectSchema),
+  mqtt: v.optional(MqttSettingsObjectSchema),
+  grpc: v.optional(GrpcSettingsObjectSchema),
+});
+
+/** The persisted record — every slice with its proxy tie. */
+export const ContainerSettingsSchema = v.object({
+  http: v.optional(HttpSettingsSchema),
+  websocket: v.optional(WebSocketSettingsSchema),
+  mqtt: v.optional(MqttSettingsSchema),
+  grpc: v.optional(GrpcSettingsSchema),
+});
+
+type ContainerSettingsShape = v.InferOutput<typeof ContainerSettingsObjectSchema>;
+
+/** The knobs a kind's slice sets — defined values only, in the kind's
+ *  key order; a slice left behind by unsets reads as empty. */
+export function definedSettingKeys<K extends AuthProtocolKind>(
+  kind: K,
+  slice: KindSettingsShape<K> | undefined,
+): InheritableSettingKeysByKind[K][] {
+  if (slice === undefined) return [];
+  return INHERITABLE_SETTING_KEYS_BY_KIND[kind].filter((key) => slice[key] !== undefined);
+}
+
+/** How many knobs the record sets across its kinds. */
+export function definedSettingCount(settings: ContainerSettingsShape | undefined): number {
+  if (settings === undefined) return 0;
+  return SETTINGS_KINDS.reduce((n, kind) => n + definedSettingKeys(kind, settings[kind]).length, 0);
 }
 
 /** Whether the record sets anything — a transparent level otherwise. */
-export function hasInheritableSettings(settings: Partial<InheritableSettingsShape> | undefined): boolean {
-  return definedSettingKeys(settings).length > 0;
+export function hasInheritableSettings(settings: ContainerSettingsShape | undefined): boolean {
+  return definedSettingCount(settings) > 0;
 }

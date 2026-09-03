@@ -67,17 +67,24 @@ const COLLECTION: SettingsCarrier = {
   uid: 'rcol0001',
   name: 'Realtime',
   settings: {
-    sslVerification: false,
-    timeoutMs: 4_000,
-    followRedirects: true,
-    maxRedirects: 3,
-    unixSocketPath: '/tmp/oh.sock',
-    maxMessageBytes: 2_048,
-    // An HTTP-only knob never reaches a WebSocket session.
-    httpVersion: '2',
+    websocket: {
+      sslVerification: false,
+      timeoutMs: 4_000,
+      followRedirects: true,
+      maxRedirects: 3,
+      unixSocketPath: '/tmp/oh.sock',
+      maxMessageBytes: 2_048,
+    },
+    // The HTTP slice never reaches a WebSocket session.
+    http: { httpVersion: '2' },
   },
 };
-const FOLDER: SettingsCarrier = { level: 'folder', uid: 'rfold001', name: 'Edge', settings: { timeoutMs: 9_000 } };
+const FOLDER: SettingsCarrier = {
+  level: 'folder',
+  uid: 'rfold001',
+  name: 'Edge',
+  settings: { websocket: { timeoutMs: 9_000 } },
+};
 
 describe('executeWsSession — inherited settings', () => {
   it('the injected chain supplies every absent knob to the connect request; the innermost level wins; the snapshot attributes them', async () => {
@@ -143,7 +150,7 @@ describe('executeWsSession — inherited settings', () => {
       transport: rig.transport,
       sendId: 'send-ws-set-3',
       resolution: plainResolution,
-      settingsChain: [{ ...COLLECTION, settings: { maxMessageBytes: 16 } }],
+      settingsChain: [{ ...COLLECTION, settings: { websocket: { maxMessageBytes: 16 } } }],
     });
     await settleTick();
     rig.callbacks().onOpen('', '');
@@ -164,7 +171,7 @@ describe('executeWsSession — inherited settings', () => {
       transport: rig.transport,
       sendId: 'send-ws-set-4',
       resolution: plainResolution,
-      settingsChain: [{ ...COLLECTION, settings: { handshakePath: '/rt/' } }],
+      settingsChain: [{ ...COLLECTION, settings: { websocket: { handshakePath: '/rt/' } } }],
     });
     await settleTick();
     expect(rig.wire().url).toBe('wss://events.openheaders.io/rt/?EIO=4&transport=websocket');

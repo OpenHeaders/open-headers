@@ -144,9 +144,12 @@ describe('executeGrpcInvoke — inherited settings', () => {
   it("an ancestor's knob reaches the transport; the innermost level wins; an HTTP-only knob stays out; the reply attributes them in key order", async () => {
     seedChain(
       makeCollection({
-        settings: { timeoutMs: 8_000, keepaliveIntervalMs: 15_000, sslVerification: false, httpVersion: '2' },
+        settings: {
+          grpc: { timeoutMs: 8_000, keepaliveIntervalMs: 15_000, sslVerification: false },
+          http: { httpVersion: '2', timeoutMs: 1_000 },
+        },
       }),
-      makeFolder({ settings: { timeoutMs: 2_000 } }),
+      makeFolder({ settings: { grpc: { timeoutMs: 2_000 } } }),
     );
     const rig = unaryTransport();
     const snapshot = await executeGrpcInvoke(makeGrpcRequest({ maxResponseBytes: 512 }), {
@@ -168,7 +171,7 @@ describe('executeGrpcInvoke — inherited settings', () => {
   });
 
   it("the request's own knob shadows the chain's and drops out of the attribution", async () => {
-    seedChain(makeCollection({ settings: { timeoutMs: 8_000, keepaliveTimeoutMs: 3_000 } }), makeFolder());
+    seedChain(makeCollection({ settings: { grpc: { timeoutMs: 8_000, keepaliveTimeoutMs: 3_000 } } }), makeFolder());
     const rig = unaryTransport();
     const snapshot = await executeGrpcInvoke(makeGrpcRequest({ timeoutMs: 500 }), {
       ...OPTIONS,
@@ -182,7 +185,7 @@ describe('executeGrpcInvoke — inherited settings', () => {
   });
 
   it('a transport failure stamps the attribution too; no ancestor knob = no attribution', async () => {
-    seedChain(makeCollection({ settings: { timeoutMs: 8_000 } }), makeFolder());
+    seedChain(makeCollection({ settings: { grpc: { timeoutMs: 8_000 } } }), makeFolder());
     const failing = unaryTransport(() => Promise.reject(new Error('connection refused')));
     const failed = await executeGrpcInvoke(makeGrpcRequest(), { ...OPTIONS, transport: failing.transport });
     expect(failed.error).toBe('connection refused');

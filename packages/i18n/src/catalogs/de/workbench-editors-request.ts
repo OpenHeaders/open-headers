@@ -605,6 +605,13 @@ export const workbenchEditorsRequest = {
     'Der von dieser Anfrage gewählte Eintrag existiert nicht mehr — stattdessen gilt der nächstgelegene Standard.',
   'workbench.editors.request.auth.editInParent': 'Im übergeordneten Element bearbeiten',
   'workbench.editors.request.settings.inheritedFrom': 'Geerbt von {source}',
+  'workbench.editors.request.settings.overridesSource': 'Überschreibt {source} ({value})',
+  'workbench.editors.request.settings.settingChainTitle': 'Wo diese Einstellung gesetzt ist',
+  'workbench.editors.request.settings.settingChainSummary':
+    'Jede Ebene, die diese Einstellung setzt, von außen nach innen — der innerste Wert gilt.',
+  'workbench.editors.request.settings.settingChainHeading': 'Ebenen',
+  'workbench.editors.request.settings.thisRequest': 'Diese Anfrage',
+  'workbench.editors.request.settings.thisFolder': 'Dieser Ordner',
   'workbench.editors.request.auth.resetToInheritedAuth': 'Auf geerbte Autorisierung zurücksetzen',
   'workbench.editors.request.auth.resizeRailAria': 'Größe der Authentifizierungstyp-Leiste ändern',
   'workbench.editors.request.auth.username': 'Benutzername',

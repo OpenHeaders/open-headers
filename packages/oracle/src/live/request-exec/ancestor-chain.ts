@@ -25,7 +25,7 @@ import type { InheritableSettingKeysByKind } from '@openheaders/core/schemas';
 import type { ScriptSlotCarrier } from '@openheaders/core/scripts';
 import {
   type EffectiveSettings,
-  effectiveKindSettingsFor,
+  effectiveSettingsFor,
   type KindSettings,
   type SettingsCarrier,
 } from '@openheaders/core/settings-inheritance';
@@ -33,8 +33,8 @@ import type {
   AuthConfig,
   AuthPoolEntry,
   ConcreteAuthConfig,
+  ContainerSettings,
   ExecutedAuthAttribution,
-  InheritableSettings,
   Request,
 } from '@openheaders/core/types';
 import {
@@ -57,7 +57,7 @@ export interface AncestorCarrierEntity extends ScriptSlotCarrier {
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
-  settings?: InheritableSettings;
+  settings?: ContainerSettings;
 }
 
 export interface AncestorCarrier {
@@ -232,7 +232,7 @@ export function resolveRequestSettings<K extends AuthProtocolKind>(
   chain?: readonly SettingsCarrier[],
 ): ResolvedRequestSettings<K> {
   const carriers = chain ?? collectAncestorCarriers(leaf, workspaceId).map(toSettingsCarrier);
-  const effective = effectiveKindSettingsFor(kind, leaf, carriers);
+  const effective = effectiveSettingsFor(kind, leaf, carriers);
   return {
     settings: effective.settings,
     attribution: effective.sources.length > 0 ? effective.sources : undefined,

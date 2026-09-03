@@ -9,7 +9,7 @@
  * and the renderer (`useRequestFolderMutator` write client).
  */
 
-import type { InheritableSettingUpdate } from '@openheaders/core/settings-inheritance';
+import type { ContainerSettingUpdate } from '@openheaders/core/settings-inheritance';
 import {
   createRequestFolder,
   deleteRequestFolder,
@@ -115,8 +115,8 @@ export function buildSetRequestFolderScriptsBatch(
 
 export interface SetRequestFolderSettingsInput {
   folderUid: string;
-  /** Knob updates; `value: undefined` clears the knob. */
-  updates: ReadonlyArray<InheritableSettingUpdate>;
+  /** Knob updates on their kinds' slices; `value: undefined` clears the knob. */
+  updates: ReadonlyArray<ContainerSettingUpdate>;
 }
 
 /** See `buildSetRequestCollectionSettingsBatch` — per-knob leaves on a folder. */
