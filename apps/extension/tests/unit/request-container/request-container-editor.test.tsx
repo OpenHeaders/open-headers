@@ -395,6 +395,42 @@ describe('RequestContainerEditor — the pool editor', () => {
     expect(screen.queryByTestId('oh-auth-inherited-form')).toBeNull();
   });
 
+  it('the Auth types title’s (i) lists every type the + offers, in its order, with its summary', () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ auths: [ADMIN], defaultAuthUid: 'admin001' })],
+    };
+    renderEditor({ section: 'authorization' });
+    fireEvent.click(screen.getByLabelText('About Auth types'));
+    const popover = document.querySelector('.oh-info-popover');
+    if (!popover) throw new Error('no popover');
+    expect(popover.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Authorization');
+    expect(popover.querySelector('.oh-info-popover-title')?.textContent).toBe('Auth types');
+    expect(
+      Array.from(popover.querySelectorAll('.oh-info-popover-section-item-label')).map((el) => el.textContent),
+    ).toEqual([
+      'API Key',
+      'Basic Auth',
+      'Bearer Token',
+      'Digest Auth',
+      'Hawk Authentication',
+      'HTTP Message Signature',
+      'JWT Bearer',
+      'OAuth 1.0',
+      'OAuth 2.0',
+      'AWS Signature v4',
+      'Akamai EdgeGrid',
+      'ASAP (Atlassian)',
+      'No Auth',
+    ]);
+    // The list carries no example card — a type's card needs a
+    // concrete config, and the entry's Auth Type row keeps it.
+    expect(popover.querySelector('.oh-info-eg')).toBeNull();
+    expect(popover.querySelectorAll('.oh-info-popover-section-item-desc')[2]?.textContent).toBe(
+      'The token is sent verbatim after the Bearer scheme in the Authorization header on every send.',
+    );
+  });
+
   it('+ offers the types; a pick appends a seeded entry, selected, and Save writes the whole pool', async () => {
     requestsState = {
       ...requestsState,

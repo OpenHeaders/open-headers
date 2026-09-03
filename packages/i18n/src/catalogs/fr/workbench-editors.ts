@@ -56,6 +56,11 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.emptySubtitleFolder':
     "Choisissez un type d'autorisation pour les requêtes de ce dossier",
   'workbench.editors.requestContainer.auth.authTypes': "Types d'autorisation",
+  'workbench.editors.requestContainer.auth.authTypesInfo':
+    'Le pool d’un conteneur : une entrée par schéma dont ses requêtes ont besoin. Les requêtes en Hériter ' +
+    'utilisent l’entrée par défaut, un motif d’hôte dirige les requêtes correspondantes vers une autre ' +
+    'entrée, et une requête peut en choisir une par son nom.',
+  'workbench.editors.requestContainer.auth.authTypesInfoHeading': 'Types',
   'workbench.editors.requestContainer.auth.addEntryAria': "Ajouter un type d'autorisation",
   'workbench.editors.requestContainer.auth.change': 'Changer',
   'workbench.editors.requestContainer.auth.changeHint':

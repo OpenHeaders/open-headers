@@ -64,6 +64,11 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.emptySubtitleFolder':
     'Wähle einen Autorisierungstyp für die Anfragen in diesem Ordner',
   'workbench.editors.requestContainer.auth.authTypes': 'Autorisierungstypen',
+  'workbench.editors.requestContainer.auth.authTypesInfo':
+    'Der Pool eines Containers: ein Eintrag pro Schema, das seine Anfragen brauchen. Anfragen auf Erben ' +
+    'nutzen den Standard, ein Host-Muster leitet passende Anfragen an einen anderen Eintrag, und eine ' +
+    'Anfrage kann einen per Name wählen.',
+  'workbench.editors.requestContainer.auth.authTypesInfoHeading': 'Typen',
   'workbench.editors.requestContainer.auth.addEntryAria': 'Autorisierungstyp hinzufügen',
   'workbench.editors.requestContainer.auth.change': 'Ändern',
   'workbench.editors.requestContainer.auth.changeHint': 'Die von {source} geerbte Autorisierung überschreiben.',

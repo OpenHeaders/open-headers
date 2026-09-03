@@ -1,10 +1,12 @@
 /**
- * The pool's left panel: "Auth types" with the header control (the
- * `+` type dropdown, or a folder's Change), one row per entry — its
- * label (the name, else the type's label), the Default tag, and on an
- * editable pool the ⋯ menu (Make default · Rename · Delete) with the
- * rename running inline in the row. An inherited pool lists the same
- * rows read-only.
+ * The pool's left panel: "Auth types" with its `(i)` (the pool in one
+ * sentence, then every type the `+` offers with its one-line summary —
+ * the whole offer in one place; an entry's Auth Type row keeps its
+ * single type's card) and the header control (the `+` type dropdown,
+ * or a folder's Change), one row per entry — its label (the name, else
+ * the type's label), the Default tag, and on an editable pool the ⋯
+ * menu (Make default · Rename · Delete) with the rename running inline
+ * in the row. An inherited pool lists the same rows read-only.
  */
 
 import { EllipsisOutlined } from '@ant-design/icons';
@@ -12,7 +14,10 @@ import type { AuthPoolEntry } from '@openheaders/core/types';
 import { Button, Dropdown, Input, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { AUTH_TYPE_SUMMARY_KEY } from '../request-editor/AuthRowInfo';
+import { AUTH_TYPE_SECTIONS } from '../request-editor/auth-type-menu';
 import { authTypeLabelKey } from '../request-editor/inherited-auth';
 
 const { Text } = Typography;
@@ -29,6 +34,26 @@ export interface AuthPoolListProps {
     onSetDefault: (uid: string) => void;
     onRename: (uid: string, name: string) => void;
     onDelete: (uid: string) => void;
+  };
+}
+
+/** The title's popover: the pool in one sentence, then every type the
+ *  `+` offers, in its order, with the type's summary. */
+function authTypesInfo(t: Translate): InfoPopoverContent {
+  return {
+    kicker: t('workbench.editors.request.tab.authorization'),
+    title: t('workbench.editors.requestContainer.auth.authTypes'),
+    summary: t('workbench.editors.requestContainer.auth.authTypesInfo'),
+    sections: [
+      {
+        heading: t('workbench.editors.requestContainer.auth.authTypesInfoHeading'),
+        layout: 'stacked',
+        items: AUTH_TYPE_SECTIONS.flat().map((type) => ({
+          label: t(authTypeLabelKey(type)),
+          desc: t(AUTH_TYPE_SUMMARY_KEY[type]),
+        })),
+      },
+    ],
   };
 }
 
@@ -53,9 +78,11 @@ const AuthPoolList: React.FC<AuthPoolListProps> = ({
   return (
     <div data-testid="oh-auth-pool-list" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 32, marginBottom: 6 }}>
-        <Text strong style={{ fontSize: 14, flex: 1 }}>
+        <Text strong style={{ fontSize: 14 }}>
           {t('workbench.editors.requestContainer.auth.authTypes')}
         </Text>
+        <InfoTrigger content={authTypesInfo(t)} />
+        <span style={{ flex: 1 }} />
         {headerAction}
       </div>
       {entries.map((entry) => {

@@ -1250,7 +1250,9 @@ const GROUP_SUMMARY_KEY: Record<CardType, Partial<Record<AuthGroupKey, MessageKe
   },
 };
 
-const TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
+/** Every type's one-sentence summary — the Auth Type row's card and
+ *  the container's Auth types list read the same sentences. */
+export const AUTH_TYPE_SUMMARY_KEY: Record<CardType | 'none', MessageKey> = {
   none: 'workbench.editors.request.auth.typeInfo.none',
   basic: 'workbench.editors.request.auth.typeInfo.basic',
   bearer: 'workbench.editors.request.auth.typeInfo.bearer',
@@ -1285,7 +1287,7 @@ export function authTypeInfo(t: Translate, auth: ConcreteAuthConfig): InfoPopove
       kicker: t('workbench.editors.request.tab.authorization'),
       title: t(authTypeLabelKey('none')),
       ...card(auth, ['none'], []),
-      summary: t(TYPE_SUMMARY_KEY.none),
+      summary: t(AUTH_TYPE_SUMMARY_KEY.none),
     };
   }
   if (!isCardType(auth)) return undefined;
@@ -1294,7 +1296,7 @@ export function authTypeInfo(t: Translate, auth: ConcreteAuthConfig): InfoPopove
     kicker: t('workbench.editors.request.tab.authorization'),
     title: t(authTypeLabelKey(auth.type)),
     ...card(auth, lit, []),
-    summary: t(TYPE_SUMMARY_KEY[auth.type]),
+    summary: t(AUTH_TYPE_SUMMARY_KEY[auth.type]),
   };
 }
 

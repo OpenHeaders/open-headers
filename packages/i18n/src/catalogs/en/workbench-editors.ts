@@ -52,6 +52,10 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.emptySubtitleFolder':
     'Select an authorization type for requests in this folder',
   'workbench.editors.requestContainer.auth.authTypes': 'Auth types',
+  'workbench.editors.requestContainer.auth.authTypesInfo':
+    'A container’s pool: one entry per scheme its requests need. Requests set to Inherit use the default, ' +
+    'a host pattern routes matching requests to another entry, and a request may pick one by name.',
+  'workbench.editors.requestContainer.auth.authTypesInfoHeading': 'Types',
   'workbench.editors.requestContainer.auth.addEntryAria': 'Add auth type',
   'workbench.editors.requestContainer.auth.change': 'Change',
   'workbench.editors.requestContainer.auth.changeHint': 'Override the inherited auth configuration from {source}.',

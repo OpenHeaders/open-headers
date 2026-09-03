@@ -57,6 +57,11 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.emptySubtitleFolder':
     'Elige un tipo de autorización para las solicitudes de esta carpeta',
   'workbench.editors.requestContainer.auth.authTypes': 'Tipos de autorización',
+  'workbench.editors.requestContainer.auth.authTypesInfo':
+    'El pool de un contenedor: una entrada por cada esquema que necesitan sus solicitudes. Las ' +
+    'solicitudes en Heredar usan la predeterminada, un patrón de host dirige las solicitudes coincidentes ' +
+    'a otra entrada, y una solicitud puede elegir una por nombre.',
+  'workbench.editors.requestContainer.auth.authTypesInfoHeading': 'Tipos',
   'workbench.editors.requestContainer.auth.addEntryAria': 'Añadir tipo de autorización',
   'workbench.editors.requestContainer.auth.change': 'Cambiar',
   'workbench.editors.requestContainer.auth.changeHint': 'Anular la configuración de autorización heredada de {source}.',
