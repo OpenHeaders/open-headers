@@ -24,7 +24,7 @@ import type { WsTimelineLifecycleItem as WsTimelineLifecycleItemForTest } from '
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
@@ -539,5 +539,19 @@ describe('WsMessageTimeline — script marks', () => {
     expect(rows.some((r) => r.includes("Before connect failed — Collection 'Payments': boom"))).toBe(true);
     expect(rows.some((r) => r.includes("Before send dropped the message — Folder 'Guard'"))).toBe(true);
     expect(rows.some((r) => r.includes('attempt 2'))).toBe(true);
+  });
+
+  it("the row's hover (i) opens the WebSocket lifecycle card with the mark's hook line lit", () => {
+    renderTimeline({ lifecycleItems: [scriptMark({ hook: 'ws-on-message', atIndex: 2, attempt: undefined })] });
+    const row = screen.getByTestId('ws-timeline-script-row');
+    expect(row.classList.contains('oh-info-hover-host')).toBe(true);
+    const trigger = within(row).getByRole('button', { name: 'About On message script' });
+    expect(trigger.classList.contains('oh-info-trigger--hover')).toBe(true);
+    fireEvent.click(trigger);
+    // The rail row's card verbatim — four hook lines, On message's lit.
+    expect(document.querySelectorAll('.oh-info-eg-line')).toHaveLength(4);
+    const lit = Array.from(document.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent);
+    expect(lit).toEqual(['On message', 'MESSAGE ↓ {"type":"tick"}', 'text', 'bytes', 'index']);
+    expect(screen.getByText('oh.send(text)')).toBeTruthy();
   });
 });

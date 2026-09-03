@@ -29,7 +29,9 @@ import { Button, Tag, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { inheritSourceLabel } from '../request-editor/inherited-auth';
+import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import TimelineMessageViewer, { STREAM_HAIRLINE, type TimelineViewerModes } from '../shared/TimelineMessageViewer';
 import { MQTT_HOOK_LABEL_KEY } from './mqtt-scripts';
 import {
@@ -438,7 +440,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             ? ` · ${t('workbench.editors.mqtt.timeline.scriptAttempt', { attempt: item.attempt })}`
             : '';
         return (
-          <div data-testid="mqtt-timeline-script-row" style={lifecycleRowStyle}>
+          <div className="oh-info-hover-host" data-testid="mqtt-timeline-script-row" style={lifecycleRowStyle}>
             <CodeOutlined
               aria-hidden
               style={{ fontSize: 11, color: item.succeeded ? token.colorTextTertiary : token.colorError }}
@@ -449,6 +451,10 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             >
               {`${text}${attempt} · ${formatDurationMs(item.durationMs)}`}
             </span>
+            {/* The hook's own (i) — the rail row's lifecycle card, the
+              mark's hook line lit; revealed on hover so a chatty
+              session's marks stay a quiet column. */}
+            <InfoTrigger className="oh-info-trigger--hover" content={scriptSlotInfo(item.hook, t)} />
             {lifecycleTime(ts)}
             {expandSlot(null)}
           </div>

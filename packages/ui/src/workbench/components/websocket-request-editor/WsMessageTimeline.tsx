@@ -71,6 +71,7 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import TimelineMessageViewer, {
@@ -81,6 +82,7 @@ import TimelineMessageViewer, {
 } from '../shared/TimelineMessageViewer';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import { formatBytes } from '../request-editor/response/response-format';
+import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
 import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { reconnectExhaustedMessage, type WsTimelineLifecycleItem } from './ws-lifecycle';
@@ -1555,7 +1557,12 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               ? ` · ${t('workbench.editors.websocket.timeline.scriptAttempt', { attempt: item.attempt })}`
               : '';
           return (
-            <div key={entry.key} data-testid="ws-timeline-script-row" style={lifecycleRowStyle}>
+            <div
+              key={entry.key}
+              className="oh-info-hover-host"
+              data-testid="ws-timeline-script-row"
+              style={lifecycleRowStyle}
+            >
               <CodeOutlined
                 aria-hidden
                 style={{ fontSize: 11, color: item.succeeded ? token.colorTextTertiary : token.colorError }}
@@ -1566,6 +1573,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               >
                 {`${text}${attempt} · ${formatDurationMs(item.durationMs)}`}
               </span>
+              {/* The hook's own (i) — the rail row's lifecycle card, the
+                mark's hook line lit; revealed on hover so a chatty
+                session's marks stay a quiet column. */}
+              <InfoTrigger className="oh-info-trigger--hover" content={scriptSlotInfo(item.hook, t)} />
               {lifecycleTime(item.atMs)}
               {expandSlot(null)}
             </div>

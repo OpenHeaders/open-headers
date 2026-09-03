@@ -17,9 +17,9 @@ import {
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-timeline-model';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
-import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
+import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
@@ -184,6 +184,22 @@ describe('MqttMessageTimeline — script marks', () => {
     expect(rows.some((r) => r.includes("Before connect failed — Collection 'Fleet': boom"))).toBe(true);
     expect(rows.some((r) => r.includes("Before publish dropped the message — Folder 'Guard'"))).toBe(true);
     expect(rows.some((r) => r.includes('attempt 2'))).toBe(true);
+  });
+
+  it("the row's hover (i) opens the MQTT lifecycle card with the mark's hook line lit", () => {
+    render(
+      <MqttMessageTimeline items={[scriptMark({ hook: 'mqtt-before-publish' })]} count={1} lifecycle={lifecycle} v5 />,
+    );
+    const row = screen.getByTestId('mqtt-timeline-script-row');
+    expect(row.classList.contains('oh-info-hover-host')).toBe(true);
+    const trigger = within(row).getByRole('button', { name: 'About Before publish script' });
+    expect(trigger.classList.contains('oh-info-trigger--hover')).toBe(true);
+    fireEvent.click(trigger);
+    // The rail row's card verbatim — four hook lines, Before publish's lit.
+    expect(document.querySelectorAll('.oh-info-eg-line')).toHaveLength(4);
+    const lit = Array.from(document.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent);
+    expect(lit).toEqual(['Before publish', 'PUBLISH ↑ sensors/1/temp', 'payload', 'QoS', 'retain', 'properties']);
+    expect(screen.getByText('oh.setTopic(topic)')).toBeTruthy();
   });
 });
 

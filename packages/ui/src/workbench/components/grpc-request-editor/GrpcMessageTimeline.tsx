@@ -86,10 +86,12 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
+import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import TimelineMessageViewer, {
   STREAM_HAIRLINE,
   StreamLastRow,
@@ -1262,7 +1264,12 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           ? t('workbench.editors.grpc.timeline.script', { hook, levels })
           : t('workbench.editors.grpc.timeline.scriptFailed', { hook, error: mark.error?.message ?? '' });
         return (
-          <div key={entry.key} data-testid="grpc-timeline-script-row" style={lifecycleRowStyle}>
+          <div
+            key={entry.key}
+            className="oh-info-hover-host"
+            data-testid="grpc-timeline-script-row"
+            style={lifecycleRowStyle}
+          >
             <CodeOutlined
               aria-hidden
               style={{ fontSize: 11, color: mark.succeeded ? token.colorTextTertiary : token.colorError }}
@@ -1273,6 +1280,10 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             >
               {`${text} · ${formatDurationMs(mark.durationMs)}`}
             </span>
+            {/* The hook's own (i) — the rail row's lifecycle card, the
+              mark's hook line lit; revealed on hover so a chatty
+              stream's marks stay a quiet column. */}
+            <InfoTrigger className="oh-info-trigger--hover" content={scriptSlotInfo(mark.hook, t)} />
             {lifecycleTime(mark.atMs)}
             {expandSlot(null)}
           </div>
