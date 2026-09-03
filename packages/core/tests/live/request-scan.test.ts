@@ -242,3 +242,12 @@ describe('collectRequestTemplateStrings — oauth1 auth', () => {
     expect(strings).toHaveLength(3);
   });
 });
+
+describe('collectRequestTemplateStrings — SNI override', () => {
+  it('collects the SNI server name (a template like the URL) and skips an absent one', () => {
+    expect(collectRequestTemplateStrings(makeRequest({ sniServerName: 'edge-{{env.TEAM}}.openheaders.io' }))).toContain(
+      'edge-{{env.TEAM}}.openheaders.io',
+    );
+    expect(collectRequestTemplateStrings(makeRequest())).toEqual(['https://api.openheaders.io/token']);
+  });
+});

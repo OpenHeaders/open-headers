@@ -182,9 +182,16 @@ export async function executeRequestDraft(
     if (postRun.outcome) scriptOutcome = { ...(scriptOutcome ?? {}), postResponse: postRun.outcome };
   }
 
-  // The auth the send ran with and its source — resolve-time
-  // attribution, stamped on success and error alike.
-  const attributed = outcome.resolved.auth !== undefined ? { ...wireResult, auth: outcome.resolved.auth } : wireResult;
+  // The auth the send ran with and its source, and the settings an
+  // ancestor supplied — resolve-time attribution, stamped on success
+  // and error alike.
+  const attributed: ExecutedRequestSnapshot = {
+    ...wireResult,
+    ...(outcome.resolved.auth !== undefined ? { auth: outcome.resolved.auth } : {}),
+    ...(outcome.resolved.inheritedSettings !== undefined
+      ? { inheritedSettings: outcome.resolved.inheritedSettings }
+      : {}),
+  };
   return scriptOutcome ? { ...attributed, scripts: scriptOutcome } : attributed;
 }
 

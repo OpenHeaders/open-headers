@@ -318,7 +318,7 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     });
     const { transport, sent } = captureTransport();
     await runStepRequest(
-      makeRequest({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }),
+      makeRequest({ proxyMode: 'url', proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'corp-proxy' }),
       opts(transport),
     );
     expect(sent().proxyUrl).toBe('http://proxy.openheaders.io:3128');
@@ -329,7 +329,11 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
   it('an unresolved proxyCredentialRef still reaches the transport as the bare ref', async () => {
     const { transport, sent } = captureTransport();
     await runStepRequest(
-      makeRequest({ proxyUrl: 'http://proxy.openheaders.io:3128', proxyCredentialRef: 'missing-entry' }),
+      makeRequest({
+        proxyMode: 'url',
+        proxyUrl: 'http://proxy.openheaders.io:3128',
+        proxyCredentialRef: 'missing-entry',
+      }),
       opts(transport),
     );
     expect(sent().proxyUrl).toBe('http://proxy.openheaders.io:3128');

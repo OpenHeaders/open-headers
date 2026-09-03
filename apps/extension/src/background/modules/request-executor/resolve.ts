@@ -19,13 +19,18 @@ import type {
   CredentialsMode,
   ExecutedAuthAttribution,
   HttpMethod,
+  InheritedSettingSource,
   Request,
   RequestBody,
   VaultSecretTotp,
 } from '@openheaders/core/types';
 import { isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
-import { collectionUidForRequest, resolveRequestAuth } from '@openheaders/oracle/live/request-exec/ancestor-chain';
+import {
+  collectionUidForRequest,
+  resolveRequestAuth,
+  resolveRequestSettings,
+} from '@openheaders/oracle/live/request-exec/ancestor-chain';
 import type { ExecuteRequestOptions } from './api';
 import { applyAuth } from './auth';
 import { buildResolvedBody, defaultContentType } from './body';
@@ -131,6 +136,11 @@ export interface ResolvedRequest {
    *  attribution the executor stamps on the snapshot; absent when the
    *  request's own auth is `none`. Twin of the oracle's carry. */
   auth?: ExecutedAuthAttribution;
+  /** The settings knobs an ANCESTOR supplied to this send — resolve-
+   *  time attribution the executor stamps on the snapshot; absent when
+   *  every knob was the request's own or the runtime default. Twin of
+   *  the oracle's carry. */
+  inheritedSettings?: InheritedSettingSource[];
   // auth folds into `url` + `headers`; params ride structured to the wire.
 }
 
@@ -187,7 +197,13 @@ export async function resolveRequest(
   // was suspended); `applyAuth` skips the disabled contribution whole.
   // Twin of the oracle resolver's leg (`resolve-request.ts`).
   const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scope.workspaceId);
-  const gated: Request = { ...request, auth: effectiveAuth };
+  // The settings knobs cascade over the same chain — the request's own
+  // defined knob wins, an absent one reads the nearest ancestor that
+  // sets it (THE core rule). The effective knobs compose the tail
+  // below; the browser runtime honors the cookie policy, the redirect
+  // switch and the round-trip ceiling — the rest is node-only.
+  const { settings, attribution: settingsAttribution } = resolveRequestSettings('http', request, scope.workspaceId);
+  const gated: Request = { ...request, ...settings, auth: effectiveAuth };
 
   // Architectural gate: refuse to dispatch when any `{{ref}}` in the
   // draft can't be resolved. Mirrors the DNR compile pipeline's
@@ -400,9 +416,9 @@ export async function resolveRequest(
       // Cookie-jar policy. `'omit'` is the safe default when the request
       // doesn't explicitly opt in — even with `<all_urls>` granted, we
       // never ride the browser's cookie jar by accident. See ARCHITECTURE.md §14.
-      credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
-      followRedirects: request.followRedirects,
-      timeoutMs: request.timeoutMs,
+      credentialsMode: settings.credentialsMode === 'include' ? 'include' : 'omit',
+      followRedirects: settings.followRedirects,
+      timeoutMs: settings.timeoutMs,
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(oauth1 ? { oauth1 } : {}),
       ...(hawk ? { hawk } : {}),
@@ -412,6 +428,7 @@ export async function resolveRequest(
       ...(httpSignature ? { httpSignature } : {}),
       ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+      ...(settingsAttribution !== undefined ? { inheritedSettings: settingsAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };

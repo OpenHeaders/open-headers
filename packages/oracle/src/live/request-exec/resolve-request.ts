@@ -29,6 +29,7 @@ import type {
   FormField,
   HttpMethod,
   HttpVersion,
+  InheritedSettingSource,
   MultipartPart,
   Request,
   RequestBody,
@@ -42,7 +43,7 @@ import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/ext
 import { resolveProxyCredential } from '../dial-policy';
 import { resolveClientCertificate } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
-import { collectionUidForRequest, resolveRequestAuth } from './ancestor-chain';
+import { collectionUidForRequest, resolveRequestAuth, resolveRequestSettings } from './ancestor-chain';
 import { acquireOAuth2Bundle, type OAuthRefreshFn, oauth2AuthorizationValue } from './oauth2-bundle';
 import { buildResolver } from './resolver-scope';
 
@@ -215,6 +216,14 @@ export interface ResolvedRequest {
    * `none`.
    */
   auth?: ExecutedAuthAttribution;
+  /**
+   * The settings knobs an ANCESTOR supplied to this send — the
+   * collection or folder each inherited value came from, in the HTTP
+   * key order. Resolve-time attribution the executor stamps on the
+   * snapshot (success and error alike); absent when every knob was
+   * the request's own or the runtime default.
+   */
+  inheritedSettings?: InheritedSettingSource[];
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -274,7 +283,13 @@ export async function resolveRequest(
   // wire. A disabled inherit resolves too (the attribution names what
   // was suspended); `applyAuth` skips the disabled contribution whole.
   const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scope.workspaceId);
-  const gated: Request = { ...request, auth: effectiveAuth };
+  // The settings knobs cascade over the same chain — the request's own
+  // defined knob wins, an absent one reads the nearest ancestor that
+  // sets it (THE core rule). The effective knobs compose the tail of
+  // the resolved request below, and an inherited SNI template passes
+  // the gate exactly like the request's own.
+  const { settings, attribution: settingsAttribution } = resolveRequestSettings('http', request, scope.workspaceId);
+  const gated: Request = { ...request, ...settings, auth: effectiveAuth };
 
   // Architectural gate: refuse to dispatch when any `{{ref}}` can't be
   // resolved.
@@ -457,13 +472,13 @@ export async function resolveRequest(
   resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
   // ── Client certificate (ref → PEM against the local vault) ──
-  const clientCertificate = resolveClientCertificate(request.clientCertificateRef, scope.vault);
+  const clientCertificate = resolveClientCertificate(settings.clientCertificateRef, scope.vault);
   // ── SNI override — a template like the URL; an empty resolution
   //    reads as no override ──
-  const sniServerName = request.sniServerName !== undefined ? resolveStr(request.sniServerName).trim() : '';
+  const sniServerName = settings.sniServerName !== undefined ? resolveStr(settings.sniServerName).trim() : '';
 
   // ── Proxy credential (ref → user:password against the local vault) ──
-  const proxyCredential = resolveProxyCredential(request.proxyCredentialRef, scope.vault);
+  const proxyCredential = resolveProxyCredential(settings.proxyCredentialRef, scope.vault);
 
   // ── Trust anchors (the workspace the run resolved against + this device) ──
   // Same workspace pin the cookie jar keys on: an unpinned send
@@ -492,12 +507,14 @@ export async function resolveRequest(
       url: resolvedUrl,
       headers,
       body: resolvedBody,
-      credentialsMode: request.credentialsMode === 'include' ? 'include' : 'omit',
-      followRedirects: request.followRedirects,
-      sslVerification: request.sslVerification,
-      tlsMinVersion: request.tlsMinVersion,
-      tlsMaxVersion: request.tlsMaxVersion,
-      tlsCipherSuites: request.tlsCipherSuites,
+      // Every knob below is the EFFECTIVE value — the request's own,
+      // else the nearest ancestor's, else absent (the runtime default).
+      credentialsMode: settings.credentialsMode === 'include' ? 'include' : 'omit',
+      followRedirects: settings.followRedirects,
+      sslVerification: settings.sslVerification,
+      tlsMinVersion: settings.tlsMinVersion,
+      tlsMaxVersion: settings.tlsMaxVersion,
+      tlsCipherSuites: settings.tlsCipherSuites,
       ...(sniServerName !== '' ? { sniServerName } : {}),
       ...(trustAnchors !== undefined
         ? {
@@ -505,24 +522,24 @@ export async function resolveRequest(
             trustAnchorCounts: { workspace: trustAnchors.workspace, device: trustAnchors.device },
           }
         : {}),
-      httpVersion: request.httpVersion,
-      resolveToAddress: request.resolveToAddress,
+      httpVersion: settings.httpVersion,
+      resolveToAddress: settings.resolveToAddress,
       ...clientCertificate,
-      proxyMode: request.proxyMode,
-      proxyUrl: request.proxyUrl,
+      proxyMode: settings.proxyMode,
+      proxyUrl: settings.proxyUrl,
       ...proxyCredential,
-      unixSocketPath: request.unixSocketPath,
+      unixSocketPath: settings.unixSocketPath,
       // The jar is keyed by the workspace the run resolved against, so
       // sessions never bleed across workspaces. An unpinned send
       // resolved against the runtime-Active workspace's mirrors, so its
       // jar key is that workspace's id — the same key the jar
       // inspection RPCs resolve an omitted workspaceId to.
-      ...(request.cookieJar === true ? { cookieJarKey: scope.workspaceId ?? getActiveWorkspaceId() } : {}),
-      timeoutMs: request.timeoutMs,
-      maxResponseBytes: request.maxResponseBytes,
-      maxRedirects: request.maxRedirects,
-      followOriginalHttpMethod: request.followOriginalHttpMethod,
-      followAuthorizationHeader: request.followAuthorizationHeader,
+      ...(settings.cookieJar === true ? { cookieJarKey: scope.workspaceId ?? getActiveWorkspaceId() } : {}),
+      timeoutMs: settings.timeoutMs,
+      maxResponseBytes: settings.maxResponseBytes,
+      maxRedirects: settings.maxRedirects,
+      followOriginalHttpMethod: settings.followOriginalHttpMethod,
+      followAuthorizationHeader: settings.followAuthorizationHeader,
       ...(awsSigV4 ? { awsSigV4 } : {}),
       ...(digest ? { digest } : {}),
       ...(oauth1 ? { oauth1 } : {}),
@@ -533,6 +550,7 @@ export async function resolveRequest(
       ...(httpSignature ? { httpSignature } : {}),
       ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+      ...(settingsAttribution !== undefined ? { inheritedSettings: settingsAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
   };

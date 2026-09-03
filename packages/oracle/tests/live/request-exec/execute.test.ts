@@ -125,23 +125,38 @@ describe('executeOverTransport', () => {
     expect(failed.sslVerificationDisabled).toBe(true);
   });
 
-  it('hands the workspace trusted roots to the transport and counts them on the snapshot', async () => {
+  it('hands the trust anchors to the transport and stamps the per-scope counts on the snapshot', async () => {
+    // The resolver composes the list from the workspace's roots followed
+    // by the device's pins and records how many came from each scope —
+    // the snapshot counts ride those counts, never the list's length.
     const roots = [
       '-----BEGIN CERTIFICATE-----\nA\n-----END CERTIFICATE-----\n',
       '-----BEGIN CERTIFICATE-----\nB\n-----END CERTIFICATE-----\n',
+      '-----BEGIN CERTIFICATE-----\nPIN\n-----END CERTIFICATE-----\n',
     ];
+    const anchors = { trustedRootsPem: roots, trustAnchorCounts: { workspace: 2, device: 1 } };
     const { transport, sent } = captureTransport();
-    const ok = await executeOverTransport(makeResolved({ trustedRootsPem: roots }), transport);
+    const ok = await executeOverTransport(makeResolved(anchors), transport);
     expect(sent().trustedRootsPem).toEqual(roots);
     expect(ok.trustedRootsApplied).toBe(2);
+    expect(ok.deviceTrustApplied).toBe(1);
 
     const failing: RequestTransport = {
       async send() {
         throw new TransportError('Connection refused by api.openheaders.io.');
       },
     };
-    const failed = await executeOverTransport(makeResolved({ trustedRootsPem: roots }), failing);
+    const failed = await executeOverTransport(makeResolved(anchors), failing);
     expect(failed.trustedRootsApplied).toBe(2);
+    expect(failed.deviceTrustApplied).toBe(1);
+
+    // A scope that contributed nothing leaves its count off.
+    const workspaceOnly = await executeOverTransport(
+      makeResolved({ trustedRootsPem: roots.slice(0, 2), trustAnchorCounts: { workspace: 2, device: 0 } }),
+      transport,
+    );
+    expect(workspaceOnly.trustedRootsApplied).toBe(2);
+    expect(workspaceOnly.deviceTrustApplied).toBeUndefined();
   });
 
   it('counts the roots under verification-off too — the snapshot says what trust the dial ran with', async () => {
@@ -150,6 +165,7 @@ describe('executeOverTransport', () => {
       makeResolved({
         sslVerification: false,
         trustedRootsPem: ['-----BEGIN CERTIFICATE-----\nA\n-----END CERTIFICATE-----\n'],
+        trustAnchorCounts: { workspace: 1, device: 0 },
       }),
       transport,
     );
@@ -167,6 +183,7 @@ describe('executeOverTransport', () => {
       makeResolved({
         httpVersion: '3',
         trustedRootsPem: ['-----BEGIN CERTIFICATE-----\nA\n-----END CERTIFICATE-----\n'],
+        trustAnchorCounts: { workspace: 1, device: 0 },
       }),
       transport,
     );
@@ -1471,5 +1488,29 @@ describe('executeOverTransport — streaming capture mode (F1)', () => {
     const snap = await executeOverTransport(makeResolved(), transport);
     expect(snap.body).toBe('buffered');
     expect(streamingCalled).toBe(false);
+  });
+});
+
+describe('executeOverTransport — inherited settings attribution', () => {
+  const INHERITED = [{ key: 'timeoutMs' as const, level: 'collection' as const, uid: 'rcol0001', name: 'API' }];
+
+  it('stamps the resolve-time attribution on the success snapshot', async () => {
+    const { transport } = captureTransport();
+    const snapshot = await executeOverTransport(makeResolved({ inheritedSettings: INHERITED }), transport);
+    expect(snapshot.error).toBeNull();
+    expect(snapshot.inheritedSettings).toEqual(INHERITED);
+  });
+
+  it('stamps it on the error snapshot too, and leaves an unattributed send bare', async () => {
+    const failing: RequestTransport = {
+      async send() {
+        throw new TransportError('Could not reach the host.');
+      },
+    };
+    const failed = await executeOverTransport(makeResolved({ inheritedSettings: INHERITED }), failing);
+    expect(failed.error).toBe('Could not reach the host.');
+    expect(failed.inheritedSettings).toEqual(INHERITED);
+    const { transport } = captureTransport();
+    expect((await executeOverTransport(makeResolved(), transport)).inheritedSettings).toBeUndefined();
   });
 });

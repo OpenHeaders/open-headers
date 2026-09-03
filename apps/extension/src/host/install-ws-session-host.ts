@@ -100,6 +100,7 @@ async function handleExecuteWebSocketRequest(
       resolution: scope.resolve,
       authChain: scope.authChain,
       scriptChain: scope.scriptChain,
+      settingsChain: scope.settingsChain,
       ...(pageScriptHost !== null ? { scriptHost: pageScriptHost } : {}),
     });
     return { success: true, snapshot };

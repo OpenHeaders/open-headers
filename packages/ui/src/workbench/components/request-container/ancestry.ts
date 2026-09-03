@@ -20,24 +20,28 @@ import {
 } from '@openheaders/core/auth-inheritance';
 import type { ScriptKind, ScriptSlotCarrier } from '@openheaders/core/scripts';
 import { readScriptSlot, SCRIPT_KINDS } from '@openheaders/core/scripts';
+import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import type {
   AuthConfig,
   AuthPoolEntry,
   Collection,
   CollectionTree,
   ConcreteAuthConfig,
+  InheritableSettings,
   TreeNode,
 } from '@openheaders/core/types';
 
-/** A container as the renderer's ancestry reads it — the auth pool and
- *  the script slots (`ScriptSlotCarrier`: the HTTP pair and the session
- *  record) the Scripts tab's "Runs after …" line names. */
+/** A container as the renderer's ancestry reads it — the auth pool, the
+ *  script slots (`ScriptSlotCarrier`: the HTTP pair and the session
+ *  record) the Scripts tab's "Runs after …" line names, and the
+ *  inheritable settings the request rows read their placeholders from. */
 export interface AncestorAuthCarrier extends ScriptSlotCarrier {
   uid: string;
   name: string;
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
+  settings?: InheritableSettings;
 }
 
 export interface RequestAncestry {
@@ -168,6 +172,19 @@ export function authChainOf(ancestry: RequestAncestry): AuthCarrier[] {
         defaultAuthUid: f.defaultAuthUid,
         auth: f.auth,
       }),
+    ),
+  ];
+}
+
+/** The ancestry as the settings rule's chain (outer → inner) — what a
+ *  page-realm session host injects in place of the tree-index walk
+ *  (the `authChainOf` twin for the per-knob cascade). */
+export function settingsChainOf(ancestry: RequestAncestry): SettingsCarrier[] {
+  const { collection } = ancestry;
+  return [
+    { level: 'collection', uid: collection.uid, name: collection.name, settings: collection.settings },
+    ...ancestry.folders.map(
+      (f): SettingsCarrier => ({ level: 'folder', uid: f.uid, name: f.name, settings: f.settings }),
     ),
   ];
 }

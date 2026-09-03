@@ -23,6 +23,7 @@
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { ScriptPackageModule } from '@openheaders/core/scripts';
+import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import { generateTotp } from '@openheaders/core/totp';
 import type { Vault, VaultSecretTotp, WebSocketRequest } from '@openheaders/core/types';
 import type { TotpRegistry } from '@openheaders/core/variables';
@@ -36,6 +37,7 @@ import {
   findRequestAncestry,
   type RequestAncestryInputs,
   scriptChainOf,
+  settingsChainOf,
 } from '../request-container/ancestry';
 import { buildPageScriptScope, type PageScriptScope } from '../shared/page-script-scope';
 
@@ -48,13 +50,16 @@ export type WsPageResolution = (template: string, unresolved: Set<string>) => st
 export type WsPageScriptScope = PageScriptScope;
 
 /** What the page host injects into the executor per Connect: the
- *  template resolution plus the ancestor auth chain and script chain
- *  (outer → inner) the oracle walk cannot derive in a page realm, and
- *  the scope the session's hooks answer against. */
+ *  template resolution plus the ancestor auth, script and settings
+ *  chains (outer → inner) the oracle walk cannot derive in a page
+ *  realm, and the scope the session's hooks answer against. */
 export interface WsPageSessionScope {
   resolve: WsPageResolution;
   authChain: AuthCarrier[];
   scriptChain: AncestorScriptCarrier[];
+  /** The ancestor settings carriers (outer → inner) — the per-knob
+   *  cascade the session's Settings knobs resolve over. */
+  settingsChain: SettingsCarrier[];
   scripts: WsPageScriptScope;
   /** The workspace the session runs under — the OAuth 2.0 token store
    *  an inherited entry's bundle reads from (the page realm has no
@@ -139,6 +144,7 @@ export function makeWsPageResolutionFactory(
       resolve,
       authChain: ancestry !== null ? authChainOf(ancestry) : [],
       scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
+      settingsChain: ancestry !== null ? settingsChainOf(ancestry) : [],
       scripts: buildPageScriptScope(resolver, context, inputs, workspaceId, packages),
       workspaceId,
     };

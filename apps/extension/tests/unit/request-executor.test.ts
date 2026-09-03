@@ -1217,3 +1217,49 @@ describe('pre-request script mutations', () => {
     expect((init.headers as Headers).get('content-type')).toBe('application/vnd.openheaders+json');
   });
 });
+
+describe('RequestExecutor — inherited settings', () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    mockEnvs.mockReturnValue([]);
+    mockActiveEnvId.mockReturnValue(null);
+    mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] });
+    mockRequestFolders.mockReturnValue([]);
+    mockRequestCollections.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'rc-1',
+        path: 'requests/auth-coll',
+        name: 'Auth',
+        variables: [],
+        pinnedEnvironmentIds: [],
+        defaultEnvironmentId: null,
+        settings: { followRedirects: false, credentialsMode: 'include' },
+      } satisfies Collection,
+    ]);
+  });
+
+  it("the collection's knobs reach the wire when the request leaves them absent, and the snapshot attributes them", async () => {
+    const snapshot = await executeRequestDraft(makeRequest({ path: 'requests/auth-coll/login-abcd' }));
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.redirect).toBe('manual');
+    expect(init.credentials).toBe('include');
+    expect(snapshot.inheritedSettings).toEqual([
+      { key: 'followRedirects', level: 'collection', uid: 'rc-1', name: 'Auth' },
+      { key: 'credentialsMode', level: 'collection', uid: 'rc-1', name: 'Auth' },
+    ]);
+  });
+
+  it("the request's own knob shadows the collection's; a request outside the collection inherits nothing", async () => {
+    const own = await executeRequestDraft(
+      makeRequest({ path: 'requests/auth-coll/login-abcd', followRedirects: true }),
+    );
+    expect((fetchMock.mock.calls[0][1] as RequestInit).redirect).toBe('follow');
+    expect(own.inheritedSettings).toEqual([{ key: 'credentialsMode', level: 'collection', uid: 'rc-1', name: 'Auth' }]);
+    fetchMock.mockReset();
+    const outside = await executeRequestDraft(makeRequest());
+    expect((fetchMock.mock.calls[0][1] as RequestInit).credentials).toBe('omit');
+    expect(outside.inheritedSettings).toBeUndefined();
+  });
+});

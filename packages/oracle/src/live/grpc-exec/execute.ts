@@ -54,7 +54,7 @@ import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
-import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
+import { collectionUidForRequest, resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
@@ -195,6 +195,12 @@ export async function executeGrpcInvoke(
     return result.result;
   };
 
+  // The settings knobs cascade over the ancestor chain — the request's
+  // own defined knob wins, an absent one reads the nearest ancestor
+  // that sets it (THE core rule). Every knob below reads the EFFECTIVE
+  // value; the ancestor-supplied ones stamp the snapshot.
+  const { settings, attribution: inheritedSettings } = resolveRequestSettings('grpc', request, scope.workspaceId);
+
   const url = resolveStr(request.url);
   // Session credential — the request's own subset config, or Inherit
   // resolved over the ancestor pool chain (THE core rule). A resolved
@@ -206,17 +212,22 @@ export async function executeGrpcInvoke(
     scope.workspaceId,
   );
   const authAttribution = sessionAuth.attribution;
-  const withAuth = (snapshot: ExecutedGrpcSnapshot): ExecutedGrpcSnapshot =>
-    authAttribution !== undefined ? { ...snapshot, auth: authAttribution } : snapshot;
-  if (sessionAuth.refusal !== null) return withAuth(errorGrpcSnapshot(sessionAuth.refusal));
+  // Every settled snapshot stamps the resolve-time attributions — the
+  // auth the call applied and the settings an ancestor supplied.
+  const withAttribution = (snapshot: ExecutedGrpcSnapshot): ExecutedGrpcSnapshot => ({
+    ...snapshot,
+    ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+    ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
+  });
+  if (sessionAuth.refusal !== null) return withAttribution(errorGrpcSnapshot(sessionAuth.refusal));
   const authorityOverride = request.authority !== undefined ? resolveStr(request.authority).trim() : '';
   const channelKnobs = {
     ...(authorityOverride !== '' ? { authorityOverride } : {}),
-    ...(request.keepaliveIntervalMs !== undefined ? { keepaliveIntervalMs: request.keepaliveIntervalMs } : {}),
-    ...(request.keepaliveTimeoutMs !== undefined ? { keepaliveTimeoutMs: request.keepaliveTimeoutMs } : {}),
+    ...(settings.keepaliveIntervalMs !== undefined ? { keepaliveIntervalMs: settings.keepaliveIntervalMs } : {}),
+    ...(settings.keepaliveTimeoutMs !== undefined ? { keepaliveTimeoutMs: settings.keepaliveTimeoutMs } : {}),
   };
-  const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: scope.vault, resolve: resolveStr });
-  const dialPolicy = sessionDialPolicy(request, scope.vault);
+  const tlsPolicy = sessionTlsPolicy({ request: settings, trustedRootsPem, vault: scope.vault, resolve: resolveStr });
+  const dialPolicy = sessionDialPolicy(settings, scope.vault);
   let metadata: GrpcTransportHeader[] = [];
   for (const row of request.metadata) {
     if (row.enabled === false || !row.key.trim()) continue;
@@ -234,7 +245,7 @@ export async function executeGrpcInvoke(
   const credential = resolveSessionCredential(sessionAuth.auth, resolveStr);
   let messageText = resolveStr(request.message);
   if (unresolved.size > 0) {
-    return withAuth(
+    return withAttribution(
       errorGrpcSnapshot(
         `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before invoking.`,
       ),
@@ -242,7 +253,7 @@ export async function executeGrpcInvoke(
   }
 
   const authority = stripAuthorityScheme(url.trim());
-  if (!authority) return withAuth(errorGrpcSnapshot('URL is empty'));
+  if (!authority) return withAttribution(errorGrpcSnapshot('URL is empty'));
 
   // ── Script hooks — mounted only where a host runs scripts AND some
   // level carries one; a scriptless call never touches the plane.
@@ -292,7 +303,7 @@ export async function executeGrpcInvoke(
         now: new Date(),
       });
     } catch (err) {
-      return withAuth(finishScripts(errorGrpcSnapshot(err instanceof Error ? err.message : String(err))));
+      return withAttribution(finishScripts(errorGrpcSnapshot(err instanceof Error ? err.message : String(err))));
     }
     // A query placement never reaches a gRPC call — the mask refused
     // it by name — so the minted header pairs are the whole credential,
@@ -314,13 +325,15 @@ export async function executeGrpcInvoke(
     try {
       composed = messageText.trim() === '' ? {} : JSON.parse(messageText);
     } catch (err) {
-      return withAuth(finishScripts(errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`)));
+      return withAttribution(
+        finishScripts(errorGrpcSnapshot(`The message is not valid JSON: ${(err as Error).message}`)),
+      );
     }
     try {
       encoded = encodeMessage(registry, rpc.inputType, composed);
     } catch (err) {
       if (err instanceof ProtoCodecError) {
-        return withAuth(
+        return withAttribution(
           finishScripts(errorGrpcSnapshot(`The message does not match ${rpc.inputType}: ${err.message}`)),
         );
       }
@@ -328,7 +341,7 @@ export async function executeGrpcInvoke(
     }
   }
 
-  const maxBodyBytes = request.maxResponseBytes ?? MAX_BODY_BYTES;
+  const maxBodyBytes = settings.maxResponseBytes ?? MAX_BODY_BYTES;
 
   // ── Streaming shapes: the stream executor owns the wire from here ──
   if (rpc.streaming !== 'unary') {
@@ -340,9 +353,9 @@ export async function executeGrpcInvoke(
       ...dialPolicy,
       ...channelKnobs,
       path: `/${method.service}/${method.rpc}`,
-      ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
+      ...(settings.unixSocketPath !== undefined ? { unixSocketPath: settings.unixSocketPath } : {}),
       metadata,
-      ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
+      ...(settings.timeoutMs !== undefined ? { timeoutMs: settings.timeoutMs } : {}),
       registry,
       inputType: rpc.inputType,
       outputType: rpc.outputType,
@@ -353,10 +366,10 @@ export async function executeGrpcInvoke(
       maxBodyBytes,
       ...(scripts !== null ? { scripts } : {}),
     });
-    return withAuth(finishScripts(streamSnapshot));
+    return withAttribution(finishScripts(streamSnapshot));
   }
   if (encoded === null) {
-    return withAuth(finishScripts(errorGrpcSnapshot('The unary message failed to encode.')));
+    return withAttribution(finishScripts(errorGrpcSnapshot('The unary message failed to encode.')));
   }
 
   // ── Wire exchange on the sendId spine ──
@@ -379,10 +392,10 @@ export async function executeGrpcInvoke(
         ...dialPolicy,
         ...channelKnobs,
         path: `/${method.service}/${method.rpc}`,
-        ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
+        ...(settings.unixSocketPath !== undefined ? { unixSocketPath: settings.unixSocketPath } : {}),
         metadata,
         message: encoded,
-        ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
+        ...(settings.timeoutMs !== undefined ? { timeoutMs: settings.timeoutMs } : {}),
         maxBodyBytes,
       },
       controller?.signal,
@@ -414,28 +427,29 @@ export async function executeGrpcInvoke(
         durationMs,
       });
     }
-    return finishScripts({
-      httpStatus: response.httpStatus,
-      headers,
-      trailers,
-      grpcStatus: status.code,
-      ...(status.message !== undefined ? { grpcMessage: status.message } : {}),
-      grpcStatusSource: status.source,
-      messages,
-      ...(incomplete ? { incompleteTail: true } : {}),
-      bodyTruncated: response.bodyTruncated,
-      ...(response.bodyTruncated ? { bodyCapBytes: maxBodyBytes } : {}),
-      bodyBytes: response.body.byteLength,
-      durationMs,
-      // Route wire truth: the transport reports which plane decided
-      // (the request's own proxy setting, or the host's system plane)
-      // and what it decided — recorded verbatim.
-      ...(response.proxyRoute !== undefined ? { proxyRoute: response.proxyRoute } : {}),
-      ...(response.connectionError !== undefined ? { connectionError: response.connectionError } : {}),
-      requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
-      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
-      error: null,
-    });
+    return withAttribution(
+      finishScripts({
+        httpStatus: response.httpStatus,
+        headers,
+        trailers,
+        grpcStatus: status.code,
+        ...(status.message !== undefined ? { grpcMessage: status.message } : {}),
+        grpcStatusSource: status.source,
+        messages,
+        ...(incomplete ? { incompleteTail: true } : {}),
+        bodyTruncated: response.bodyTruncated,
+        ...(response.bodyTruncated ? { bodyCapBytes: maxBodyBytes } : {}),
+        bodyBytes: response.body.byteLength,
+        durationMs,
+        // Route wire truth: the transport reports which plane decided
+        // (the request's own proxy setting, or the host's system plane)
+        // and what it decided — recorded verbatim.
+        ...(response.proxyRoute !== undefined ? { proxyRoute: response.proxyRoute } : {}),
+        ...(response.connectionError !== undefined ? { connectionError: response.connectionError } : {}),
+        requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+        error: null,
+      }),
+    );
   } catch (err) {
     const durationMs = Math.round(performance.now() - startedAt);
     const message = stopped
@@ -453,14 +467,15 @@ export async function executeGrpcInvoke(
         ? err.canonicalStatus
         : undefined;
     const hint = !stopped && err instanceof GrpcTransportError ? err.hint : undefined;
-    return finishScripts({
-      ...errorGrpcSnapshot(message),
-      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
-      requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
-      ...(localStatus !== undefined ? { localStatus } : {}),
-      ...(hint !== undefined ? { hint } : {}),
-      durationMs,
-    });
+    return withAttribution(
+      finishScripts({
+        ...errorGrpcSnapshot(message),
+        requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+        ...(localStatus !== undefined ? { localStatus } : {}),
+        ...(hint !== undefined ? { hint } : {}),
+        durationMs,
+      }),
+    );
   } finally {
     unregister?.();
   }

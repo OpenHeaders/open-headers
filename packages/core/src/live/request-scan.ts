@@ -42,6 +42,11 @@ export function collectRequestTemplateStrings(request: Request): string[] {
     if (h.value) out.push(h.value);
   }
 
+  // ── SNI override — the Settings tab's one templatable knob; the
+  //    executors gate it on the EFFECTIVE request, so an inherited
+  //    template answers here like the request's own ──
+  if (request.sniServerName) out.push(request.sniServerName);
+
   // ── Auth ──
   switch (request.auth.type) {
     case 'none':

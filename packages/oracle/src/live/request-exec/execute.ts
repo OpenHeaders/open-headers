@@ -430,9 +430,11 @@ export async function executeOverTransport(
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
       ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
       ...(deviceTrustApplied !== undefined ? { deviceTrustApplied } : {}),
-      // The auth the send ran with and its source — resolve-time
-      // attribution, stamped on success and error alike.
+      // The auth the send ran with and its source, and the settings an
+      // ancestor supplied — resolve-time attribution, stamped on
+      // success and error alike.
       ...(resolved.auth !== undefined ? { auth: resolved.auth } : {}),
+      ...(resolved.inheritedSettings !== undefined ? { inheritedSettings: resolved.inheritedSettings } : {}),
       // The transport reports an actual cross-origin Authorization
       // re-send (only the redirect loop can know); stamp it so the
       // response surface marks the run.
@@ -477,6 +479,7 @@ export async function executeOverTransport(
       ...(trustedRootsApplied !== undefined ? { trustedRootsApplied } : {}),
       ...(deviceTrustApplied !== undefined ? { deviceTrustApplied } : {}),
       ...(resolved.auth !== undefined ? { auth: resolved.auth } : {}),
+      ...(resolved.inheritedSettings !== undefined ? { inheritedSettings: resolved.inheritedSettings } : {}),
     };
   } finally {
     unregister?.();

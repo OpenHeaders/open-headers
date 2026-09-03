@@ -54,6 +54,7 @@
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { WsSendBinaryWire, WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
 import type { WsOutboundMessageSnapshot, WsScriptKind } from '@openheaders/core/scripts';
+import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import {
   encodeEventPacket,
   isValidNamespace,
@@ -81,7 +82,7 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_HEARTBEAT_INTERVAL_MS, DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
-import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
+import { collectionUidForRequest, resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
@@ -151,6 +152,10 @@ export interface ExecuteWsSessionOptions {
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
   authChain?: readonly AuthCarrier[];
+  /** Host-injected ancestor settings carriers (outer → inner) — for
+   *  page realms whose oracle mirrors are empty (the `authChain` twin);
+   *  absent = the executor walks the tree index. */
+  settingsChain?: readonly SettingsCarrier[];
   /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
    *  pins the wait. */
   reconnectJitter?: () => number;
@@ -200,8 +205,24 @@ export async function executeWsSession(
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
-  const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: oracleResolution?.vault, resolve: resolveStr });
-  const dialPolicy = sessionDialPolicy(request, oracleResolution?.vault);
+  // The settings knobs cascade over the ancestor chain — the request's
+  // own defined knob wins, an absent one reads the nearest ancestor
+  // that sets it (THE core rule; the injected chain serves page realms
+  // whose oracle mirrors are empty). Every knob below reads the
+  // EFFECTIVE value; the ancestor-supplied ones stamp the snapshot.
+  const { settings, attribution: inheritedSettings } = resolveRequestSettings(
+    'websocket',
+    request,
+    options.workspaceId,
+    options.settingsChain,
+  );
+  const tlsPolicy = sessionTlsPolicy({
+    request: settings,
+    trustedRootsPem,
+    vault: oracleResolution?.vault,
+    resolve: resolveStr,
+  });
+  const dialPolicy = sessionDialPolicy(settings, oracleResolution?.vault);
 
   let url = resolveStr(request.url).trim();
   // Session credential — the request's own subset config, or Inherit
@@ -221,9 +242,14 @@ export async function executeWsSession(
     options.authChain,
   );
   const authAttribution = sessionAuth.attribution;
-  const withAuth = (snapshot: ExecutedWsSnapshot): ExecutedWsSnapshot =>
-    authAttribution !== undefined ? { ...snapshot, auth: authAttribution } : snapshot;
-  if (sessionAuth.refusal !== null) return withAuth(errorWsSnapshot(sessionAuth.refusal));
+  // Every settle path stamps the resolve-time attributions — the auth
+  // the session applied and the settings an ancestor supplied.
+  const withAttribution = (snapshot: ExecutedWsSnapshot): ExecutedWsSnapshot => ({
+    ...snapshot,
+    ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+    ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
+  });
+  if (sessionAuth.refusal !== null) return withAttribution(errorWsSnapshot(sessionAuth.refusal));
   // The credential resolves HERE with the other Connect-time templates
   // (an unresolved reference gates the session below) and MINTS at
   // each dial: a static pair is itself, an OAuth 2.0 token is the
@@ -246,8 +272,8 @@ export async function executeWsSession(
   const socketioFlavor = request.flavor === 'socketio';
   const socketioSettings = {
     namespace: socketioFlavor ? resolveStr(request.namespace ?? '') : '',
-    handshakePath: socketioFlavor ? resolveStr(request.handshakePath ?? '') : '',
-    protocol: request.socketioProtocol ?? SOCKET_IO_DEFAULT_PROTOCOL,
+    handshakePath: socketioFlavor ? resolveStr(settings.handshakePath ?? '') : '',
+    protocol: settings.socketioProtocol ?? SOCKET_IO_DEFAULT_PROTOCOL,
   };
   const subprotocols = socketioFlavor ? [] : request.subprotocols;
   // The handshake request headers as this executor composed them —
@@ -265,18 +291,18 @@ export async function executeWsSession(
   // The heartbeat frame is a raw-flavor knob (engine.io answers its
   // own pings); resolved with the other Connect-time templates.
   const heartbeatMessage =
-    !socketioFlavor && request.heartbeatMessage !== undefined ? resolveStr(request.heartbeatMessage) : '';
+    !socketioFlavor && settings.heartbeatMessage !== undefined ? resolveStr(settings.heartbeatMessage) : '';
   let namespace = '/';
   if (unresolved.size > 0) {
-    return withAuth(
+    return withAttribution(
       errorWsSnapshot(
         `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
       ),
     );
   }
-  if (url === '') return withAuth(errorWsSnapshot('URL is empty'));
+  if (url === '') return withAttribution(errorWsSnapshot('URL is empty'));
   if (!/^wss?:\/\//i.test(url)) {
-    return withAuth(errorWsSnapshot('The URL must start with ws:// or wss://.'));
+    return withAttribution(errorWsSnapshot('The URL must start with ws:// or wss://.'));
   }
   if (params.length > 0) url = appendQueryParams(url, params);
   if (socketioFlavor) {
@@ -287,10 +313,10 @@ export async function executeWsSession(
     try {
       target = resolveSocketIoTarget(url, socketioSettings);
     } catch {
-      return withAuth(errorWsSnapshot('The URL is not valid.'));
+      return withAttribution(errorWsSnapshot('The URL is not valid.'));
     }
     if (!isValidNamespace(target.namespace)) {
-      return withAuth(errorWsSnapshot('The Socket.IO namespace must not contain a comma.'));
+      return withAttribution(errorWsSnapshot('The Socket.IO namespace must not contain a comma.'));
     }
     url = target.url;
     namespace = target.namespace;
@@ -299,14 +325,14 @@ export async function executeWsSession(
    *  the dial minted onto it; what the open frame and snapshot carry. */
   let dialUrl = url;
   const tokenWorkspaceId = options.workspaceId ?? undefined;
-  const autoReconnect = request.autoReconnect === true;
-  const reconnectPeriodMs = request.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
-  const reconnectMaxAttempts = request.reconnectMaxAttempts;
-  const reconnectBackoff = request.reconnectBackoff !== false;
+  const autoReconnect = settings.autoReconnect === true;
+  const reconnectPeriodMs = settings.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
+  const reconnectMaxAttempts = settings.reconnectMaxAttempts;
+  const reconnectBackoff = settings.reconnectBackoff !== false;
   const reconnectJitter = options.reconnectJitter ?? Math.random;
-  const idleTimeoutMs = request.idleTimeoutMs;
-  const heartbeatIntervalMs = request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
-  const maxMessageBytes = request.maxMessageBytes;
+  const idleTimeoutMs = settings.idleTimeoutMs;
+  const heartbeatIntervalMs = settings.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+  const maxMessageBytes = settings.maxMessageBytes;
   // ── Script hooks — mounted only where a host runs scripts AND some
   // level carries one; a scriptless session never touches the plane.
   const scriptChains = options.scriptHost !== undefined ? wsScriptChains(request, options) : null;
@@ -314,8 +340,7 @@ export async function executeWsSession(
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedWsSnapshot>((resolveRaw) => {
-    // Every settle path stamps the resolved-auth attribution.
-    const resolve = (snapshot: ExecutedWsSnapshot): void => resolveRaw(withAuth(snapshot));
+    const resolve = (snapshot: ExecutedWsSnapshot): void => resolveRaw(withAttribution(snapshot));
     const emitter =
       options.emitStreamEvent !== undefined ? createWsStreamEmitter(options.sendId, options.emitStreamEvent) : null;
     let stopped = false;
@@ -566,7 +591,7 @@ export async function executeWsSession(
           {
             protocol: socketioSettings.protocol,
             connectAuthJson,
-            ...(request.ackTimeoutMs !== undefined ? { ackTimeoutMs: request.ackTimeoutMs } : {}),
+            ...(settings.ackTimeoutMs !== undefined ? { ackTimeoutMs: settings.ackTimeoutMs } : {}),
           },
           {
             onHandshake: ({ pingIntervalMs, pingTimeoutMs }) => {
@@ -728,10 +753,10 @@ export async function executeWsSession(
             subprotocols: dialSubprotocols,
             ...tlsPolicy,
             ...dialPolicy,
-            ...(request.unixSocketPath !== undefined ? { unixSocketPath: request.unixSocketPath } : {}),
-            ...(request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}),
-            ...(request.followRedirects === true ? { followRedirects: true } : {}),
-            ...(request.maxRedirects !== undefined ? { maxRedirects: request.maxRedirects } : {}),
+            ...(settings.unixSocketPath !== undefined ? { unixSocketPath: settings.unixSocketPath } : {}),
+            ...(settings.timeoutMs !== undefined ? { timeoutMs: settings.timeoutMs } : {}),
+            ...(settings.followRedirects === true ? { followRedirects: true } : {}),
+            ...(settings.maxRedirects !== undefined ? { maxRedirects: settings.maxRedirects } : {}),
           },
           {
             onOpen: (selectedProtocol, negotiatedExtensions, route) => {

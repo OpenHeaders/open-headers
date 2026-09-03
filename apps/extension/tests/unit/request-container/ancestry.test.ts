@@ -22,6 +22,7 @@ import {
   findRequestAncestry,
   inheritPoolLevels,
   resolveInheritedAuthFor,
+  settingsChainOf,
 } from '@openheaders/ui/workbench/components/request-container/ancestry';
 import { describe, expect, it } from 'vitest';
 
@@ -248,5 +249,22 @@ describe('ancestorScriptLevels', () => {
 
   it('a scratch draft (no ancestry) has no levels', () => {
     expect(ancestorScriptLevels(null)).toEqual({});
+  });
+});
+
+describe('settingsChainOf', () => {
+  it('lists the collection then the folders outer → inner with their settings records, transparent levels included', () => {
+    const ancestry = findRequestAncestry(
+      [TREE],
+      [makeCollection({ settings: { timeoutMs: 30_000 } })],
+      [FOLDERS[0], { ...FOLDERS[1], settings: { sslVerification: false } }],
+      'req00002',
+    );
+    if (ancestry === null) throw new Error('expected an ancestry');
+    expect(settingsChainOf(ancestry)).toEqual([
+      { level: 'collection', uid: 'col00001', name: 'Payments', settings: { timeoutMs: 30_000 } },
+      { level: 'folder', uid: 'fld00001', name: 'Cards', settings: undefined },
+      { level: 'folder', uid: 'fld00002', name: 'Refunds', settings: { sslVerification: false } },
+    ]);
   });
 });

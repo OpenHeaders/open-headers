@@ -82,6 +82,7 @@ import type {
   MqttScriptMessageProperties,
   SessionHeader,
 } from '@openheaders/core/scripts';
+import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import type {
   ExecutedMqttEnd,
   ExecutedMqttEvent,
@@ -99,7 +100,7 @@ import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
-import { collectionUidForRequest, resolveSessionAuth } from '../request-exec/ancestor-chain';
+import { collectionUidForRequest, resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import { buildResolver } from '../request-exec/resolver-scope';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import type { SessionScriptHost } from '../request-exec/script-hooks';
@@ -155,6 +156,10 @@ export interface ExecuteMqttSessionOptions {
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
   authChain?: readonly AuthCarrier[];
+  /** Host-injected ancestor settings carriers (outer → inner) — for
+   *  page realms whose oracle mirrors are empty (the `authChain` twin);
+   *  absent = the executor walks the tree index. */
+  settingsChain?: readonly SettingsCarrier[];
   /** The backoff jitter draw, [0, 1) — `Math.random` unless a test
    *  pins the wait. */
   reconnectJitter?: () => number;
@@ -417,6 +422,17 @@ export async function executeMqttSession(
 
   const unresolved = new Set<string>();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
+  // The settings knobs cascade over the ancestor chain — the request's
+  // own defined knob wins, an absent one reads the nearest ancestor
+  // that sets it (THE core rule; the injected chain serves page realms
+  // whose oracle mirrors are empty). Every knob below reads the
+  // EFFECTIVE value; the ancestor-supplied ones stamp the snapshot.
+  const { settings, attribution: inheritedSettings } = resolveRequestSettings(
+    'mqtt',
+    request,
+    options.workspaceId,
+    options.settingsChain,
+  );
 
   const version: MqttProtocolVersion =
     request.protocolVersion === '3.1.1' ? MQTT_PROTOCOL_VERSIONS.v311 : MQTT_PROTOCOL_VERSIONS.v5;
@@ -447,9 +463,14 @@ export async function executeMqttSession(
     options.authChain,
   );
   const authAttribution = sessionAuth.attribution;
-  const withAuth = (snapshot: ExecutedMqttSnapshot): ExecutedMqttSnapshot =>
-    authAttribution !== undefined ? { ...snapshot, auth: authAttribution } : snapshot;
-  if (sessionAuth.refusal !== null) return withAuth(errorMqttSnapshot(sessionAuth.refusal));
+  // Every settle path stamps the resolve-time attributions — the auth
+  // the session applied and the settings an ancestor supplied.
+  const withAttribution = (snapshot: ExecutedMqttSnapshot): ExecutedMqttSnapshot => ({
+    ...snapshot,
+    ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+    ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
+  });
+  if (sessionAuth.refusal !== null) return withAttribution(errorMqttSnapshot(sessionAuth.refusal));
   const appliedAuth = sessionAuth.auth.disabled === true ? null : sessionAuth.auth;
   const basicAuth = appliedAuth?.type === 'basic' ? appliedAuth : null;
   const authUsername = basicAuth !== null ? resolveStr(basicAuth.username).trim() : '';
@@ -466,14 +487,14 @@ export async function executeMqttSession(
   // The scalar CONNECT properties — the user-property pairs join at
   // the dial (a Before connect hook may edit them per dial).
   const connectScalarProperties: MqttProperties = {
-    ...(v5 && request.sessionExpiryInterval !== undefined
-      ? { sessionExpiryInterval: request.sessionExpiryInterval }
+    ...(v5 && settings.sessionExpiryInterval !== undefined
+      ? { sessionExpiryInterval: settings.sessionExpiryInterval }
       : {}),
-    ...(v5 && request.receiveMaximum !== undefined ? { receiveMaximum: request.receiveMaximum } : {}),
-    ...(v5 && request.maximumPacketSize !== undefined ? { maximumPacketSize: request.maximumPacketSize } : {}),
-    ...(v5 && request.topicAliasMaximum !== undefined ? { topicAliasMaximum: request.topicAliasMaximum } : {}),
-    ...(v5 && request.requestResponseInformation === true ? { requestResponseInformation: 1 } : {}),
-    ...(v5 && request.requestProblemInformation === false ? { requestProblemInformation: 0 } : {}),
+    ...(v5 && settings.receiveMaximum !== undefined ? { receiveMaximum: settings.receiveMaximum } : {}),
+    ...(v5 && settings.maximumPacketSize !== undefined ? { maximumPacketSize: settings.maximumPacketSize } : {}),
+    ...(v5 && settings.topicAliasMaximum !== undefined ? { topicAliasMaximum: settings.topicAliasMaximum } : {}),
+    ...(v5 && settings.requestResponseInformation === true ? { requestResponseInformation: 1 } : {}),
+    ...(v5 && settings.requestProblemInformation === false ? { requestProblemInformation: 0 } : {}),
   };
 
   // The will registers on CONNECT — a topic makes it exist (the entity
@@ -482,7 +503,7 @@ export async function executeMqttSession(
   if (request.lastWill !== undefined && request.lastWill.topic.trim() !== '') {
     const willTopic = resolveStr(request.lastWill.topic).trim();
     const willPayload = decodeComposePayload(resolveStr(request.lastWill.payload), request.lastWill.format);
-    if (!willPayload.ok) return withAuth(errorMqttSnapshot(`Last will: ${willPayload.error}`));
+    if (!willPayload.ok) return withAttribution(errorMqttSnapshot(`Last will: ${willPayload.error}`));
     const willProps: MqttProperties = {
       ...(v5 ? (wireMessageProperties(request.lastWill.properties, resolveStr) ?? {}) : {}),
       ...(v5 && request.lastWill.willDelayInterval !== undefined
@@ -517,29 +538,34 @@ export async function executeMqttSession(
   });
 
   if (unresolved.size > 0) {
-    return withAuth(
+    return withAttribution(
       errorMqttSnapshot(
         `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
       ),
     );
   }
-  if (url === '') return withAuth(errorMqttSnapshot('URL is empty'));
+  if (url === '') return withAttribution(errorMqttSnapshot('URL is empty'));
   if (!/^(mqtts?|wss?):\/\//i.test(url)) {
-    return withAuth(errorMqttSnapshot('The URL must start with mqtt://, mqtts://, ws:// or wss://.'));
+    return withAttribution(errorMqttSnapshot('The URL must start with mqtt://, mqtts://, ws:// or wss://.'));
   }
 
-  const keepAlive = request.keepAlive ?? DEFAULT_KEEP_ALIVE_S;
-  const autoReconnect = request.autoReconnect === true;
-  const reconnectPeriodMs = request.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
-  const reconnectMaxAttempts = request.reconnectMaxAttempts;
-  const reconnectBackoff = request.reconnectBackoff !== false;
+  const keepAlive = settings.keepAlive ?? DEFAULT_KEEP_ALIVE_S;
+  const autoReconnect = settings.autoReconnect === true;
+  const reconnectPeriodMs = settings.reconnectPeriodMs ?? DEFAULT_RECONNECT_PERIOD_MS;
+  const reconnectMaxAttempts = settings.reconnectMaxAttempts;
+  const reconnectBackoff = settings.reconnectBackoff !== false;
   const reconnectJitter = options.reconnectJitter ?? Math.random;
   // The client-certificate pair resolves against the vault the oracle
   // scope carries; a host-injected resolution has no vault, so the ref
   // passes through bare and the transport fails the dial loudly.
-  const tlsPolicy = sessionTlsPolicy({ request, trustedRootsPem, vault: oracleResolution?.vault, resolve: resolveStr });
-  const dialPolicy = sessionDialPolicy(request, oracleResolution?.vault);
-  const alpnProtocol = request.alpnProtocol !== undefined ? resolveStr(request.alpnProtocol).trim() : '';
+  const tlsPolicy = sessionTlsPolicy({
+    request: settings,
+    trustedRootsPem,
+    vault: oracleResolution?.vault,
+    resolve: resolveStr,
+  });
+  const dialPolicy = sessionDialPolicy(settings, oracleResolution?.vault);
+  const alpnProtocol = settings.alpnProtocol !== undefined ? resolveStr(settings.alpnProtocol).trim() : '';
   // ── Script hooks — mounted only where a host runs scripts AND some
   // level carries one; a scriptless session never touches the plane.
   const scriptChains = options.scriptHost !== undefined ? mqttScriptChains(request, options) : null;
@@ -547,8 +573,7 @@ export async function executeMqttSession(
 
   // ── The live session on the sendId spine ──
   return new Promise<ExecutedMqttSnapshot>((resolveRaw) => {
-    // Every settle path stamps the resolved-auth attribution.
-    const resolve = (snapshot: ExecutedMqttSnapshot): void => resolveRaw(withAuth(snapshot));
+    const resolve = (snapshot: ExecutedMqttSnapshot): void => resolveRaw(withAttribution(snapshot));
     const emitter =
       options.emitStreamEvent !== undefined ? createMqttStreamEmitter(options.sendId, options.emitStreamEvent) : null;
     const controller = new AbortController();
@@ -1184,7 +1209,7 @@ export async function executeMqttSession(
         writer = options.transport.connect(
           {
             url,
-            timeoutMs: request.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
+            timeoutMs: settings.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
             ...tlsPolicy,
             ...dialPolicy,
             ...(alpnProtocol !== '' ? { alpnProtocol } : {}),
@@ -1196,7 +1221,7 @@ export async function executeMqttSession(
               const error = sendPacket({
                 type: 'connect',
                 clientId,
-                cleanStart: request.cleanStart ?? true,
+                cleanStart: settings.cleanStart ?? true,
                 keepAlive,
                 ...(dialUsername !== '' ? { username: dialUsername } : {}),
                 ...(dialPassword !== '' ? { password: new TextEncoder().encode(dialPassword) } : {}),
