@@ -234,12 +234,12 @@ async function persist<P extends ParentRefShape>(
   config: FolderTreeCacheConfig<P>,
 ): Promise<void> {
   try {
-    const persisted: PersistedLocalFolder[] = folders.map((f) => ({
-      schemaVersion: f.schemaVersion,
-      uid: f.uid,
-      path: f.path,
-      name: f.name,
-    }));
+    // The projected folders whole — the collection cache's posture. A
+    // request folder's ancestor fields (the script slots, the auth
+    // pool, the inheritable settings) ride the slot the renderer
+    // mirrors read; a slot trimmed to the identity fields left every
+    // container editor blind to what its folder carried.
+    const persisted: PersistedLocalFolder[] = folders;
     await hostStorage.set(config.storageKey(workspaceId), persisted);
   } catch (err) {
     logger.info(config.loggerTag, `persist failed (ws=${workspaceId}):`, (err as Error).message);
