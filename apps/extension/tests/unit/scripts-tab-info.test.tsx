@@ -27,6 +27,7 @@ import type { AncestorScriptLevels } from '@openheaders/ui/workbench/components/
 import ScriptsTab from '@openheaders/ui/workbench/components/request-editor/ScriptsTab';
 import {
   emptyScriptSlotValues,
+  type ScriptSlotFlags,
   type ScriptSlotScope,
   type ScriptSlotValues,
 } from '@openheaders/ui/workbench/components/script-editor/script-slots';
@@ -83,6 +84,7 @@ function renderTab(
   extra: {
     scope?: ScriptSlotScope;
     scripts?: ScriptSlotValues;
+    unsaved?: ScriptSlotFlags;
     ancestorScripts?: AncestorScriptLevels;
     onOpenContainerScripts?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
   } = {},
@@ -119,6 +121,14 @@ const cardLines = (): number => document.querySelectorAll('.oh-info-eg-line').le
 const editor = (): HTMLTextAreaElement => screen.getByTestId<HTMLTextAreaElement>('code-editor');
 
 describe('ScriptsTab rail', () => {
+  it('a container mount dots the session slots its flags name — the unsaved dot on the flagged row alone', () => {
+    renderTab({ scope: 'container', unsaved: { 'mqtt-before-publish': true } });
+    const dots = screen.getAllByTestId('oh-script-unsaved-dot');
+    expect(dots).toHaveLength(1);
+    const row = dots[0]?.closest('[data-testid="oh-script-rail-row"]');
+    expect(row?.firstChild?.textContent).toBe('Before publish');
+  });
+
   it('a request mount draws the two slots flat, the before-request slot active with its placeholder', () => {
     renderTab();
     expect(screen.getAllByTestId('oh-script-rail-row').map((row) => row.firstChild?.textContent)).toEqual([

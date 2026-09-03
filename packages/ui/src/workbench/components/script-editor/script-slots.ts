@@ -232,3 +232,15 @@ export function scriptSlotValuesOf(carrier: ScriptSlotCarrier): ScriptSlotValues
 export function scriptSlotFlagsOf(flags: { preRequestScript: boolean; postResponseScript: boolean }): ScriptSlotFlags {
   return { 'pre-request': flags.preRequestScript, 'post-response': flags.postResponseScript };
 }
+
+/** The per-slot unsaved flags of a draft against its saved sources —
+ *  the container editor's dots over the whole vocabulary: a slot is
+ *  unsaved when its editor text differs from the entity's, verbatim
+ *  (the section's own dirty rule); only the flagged slots are set. */
+export function scriptSlotFlagsBetween(draft: ScriptSlotValues, saved: ScriptSlotValues): ScriptSlotFlags {
+  const flags: Partial<Record<ScriptKind, boolean>> = {};
+  for (const kind of SCRIPT_KINDS) {
+    if (draft[kind] !== saved[kind]) flags[kind] = true;
+  }
+  return flags;
+}

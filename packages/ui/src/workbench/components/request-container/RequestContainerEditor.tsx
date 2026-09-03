@@ -63,7 +63,12 @@ import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import VariableTable from '../panels/VariableTable';
 import { TabCount, TabDot } from '../request-editor/request-tab-items';
 import ScriptsTab from '../request-editor/ScriptsTab';
-import { SCRIPT_KINDS, type ScriptSlotValues, scriptSlotValuesOf } from '../script-editor/script-slots';
+import {
+  SCRIPT_KINDS,
+  type ScriptSlotValues,
+  scriptSlotFlagsBetween,
+  scriptSlotValuesOf,
+} from '../script-editor/script-slots';
 import EditorHeader from '../shell/EditorHeader';
 import { SuggestionContextProvider } from '../template-input';
 import { useCollectionVariableConflictsUi } from '../variables/use-collection-variable-conflicts-ui';
@@ -249,7 +254,13 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
 
   const saved = useMemo(() => draftOf(entity), [entity]);
   const authUnsaved = stableStringify(draft.pool) !== stableStringify(saved.pool);
-  const scriptsUnsaved = stableStringify(draft.scripts) !== stableStringify(saved.scripts);
+  // Per slot — the rail's dots and the Save's slice read the same
+  // flags; the section is unsaved when any slot is.
+  const scriptsUnsavedSlots = useMemo(
+    () => scriptSlotFlagsBetween(draft.scripts, saved.scripts),
+    [draft.scripts, saved.scripts],
+  );
+  const scriptsUnsaved = SCRIPT_KINDS.some((slot) => scriptsUnsavedSlots[slot] === true);
   const variablesUnsaved = stableStringify(draft.variables) !== stableStringify(saved.variables);
 
   const handleSave = useCallback(() => {
@@ -297,7 +308,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
       if (scriptsUnsaved) {
         // Only the slots that changed ride the batch — a save never
         // rewrites a slot the user did not touch.
-        const updates = SCRIPT_KINDS.filter((slot) => draft.scripts[slot] !== saved.scripts[slot]).map((slot) => ({
+        const updates = SCRIPT_KINDS.filter((slot) => scriptsUnsavedSlots[slot] === true).map((slot) => ({
           path: scriptSlotPath(slot),
           value: slotValue(draft.scripts[slot]),
         }));
@@ -331,7 +342,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     workspaceId,
     kind,
     draft,
-    saved.scripts,
+    scriptsUnsavedSlots,
     authUnsaved,
     scriptsUnsaved,
     variablesUnsaved,
@@ -474,6 +485,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
               <ScriptsTab
                 scope="container"
                 scripts={draft.scripts}
+                unsaved={scriptsUnsavedSlots}
                 onScriptChange={(slot, value) => setDraft((d) => ({ ...d, scripts: { ...d.scripts, [slot]: value } }))}
                 workspaceId={workspaceId}
                 onOpenPackageLibrary={onOpenPackageLibrary}

@@ -24,6 +24,7 @@
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
+import { scriptSlotPath } from '@openheaders/core/scripts';
 import type { AuthConfig, AuthPoolEntry, Collection, CollectionTree } from '@openheaders/core/types';
 import type { OAuthBundlesContextValue } from '@openheaders/ui/context';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -145,6 +146,14 @@ vi.mock('@openheaders/ui/shared/hooks/readers/useRequests', () => ({
 }));
 vi.mock('@openheaders/ui/shared/hooks/readers/useRules', () => ({
   useRules: () => ({ activeWorkspaceId: 'ws00001', localCollections: [], templateCollections: [] }),
+}));
+// The Scripts section's Monaco CodeEditor as a textarea (the sibling
+// specs' idiom) — the rail and the draft's write path are the contract
+// here, not Monaco, whose language workers do not run under jsdom.
+vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
+  default: ({ value, onChange }: { value?: string; onChange?: (next: string) => void }) => (
+    <textarea data-testid="code-editor" value={value} onChange={(e) => onChange?.(e.target.value)} />
+  ),
 }));
 const replaceRequestCollectionVariables = vi.fn(async () => ({ ok: true as const }));
 vi.mock('@openheaders/ui/shared/hooks/mutators/useVariableMutator', () => ({
@@ -268,6 +277,29 @@ describe('RequestContainerEditor — sections', () => {
     const section = sectionOf(rail);
     expect(section?.style.boxSizing).toBe('border-box');
     expect(section?.style.overflow).toBe('');
+  });
+
+  it('an edited session slot dots its own rail row and rides Save alone — the untouched slots never write', async () => {
+    renderEditor({ section: 'scripts' });
+    expect(screen.queryByTestId('oh-script-unsaved-dot')).toBeNull();
+    const rows = screen.getAllByTestId('oh-script-rail-row');
+    const publishRow = rows.find((row) => row.firstChild?.textContent === 'Before publish');
+    if (publishRow === undefined) throw new Error('no Before publish row');
+    fireEvent.click(publishRow);
+    fireEvent.change(screen.getByTestId('code-editor'), { target: { value: 'oh.setTopic("sensors/1/temp")' } });
+    const dots = screen.getAllByTestId('oh-script-unsaved-dot');
+    expect(dots).toHaveLength(1);
+    expect(publishRow.querySelector('[data-testid="oh-script-unsaved-dot"]')).not.toBeNull();
+
+    fireEvent.click(await findSaveButton());
+    await waitFor(() => expect(applyRequestCollectionSetScripts).toHaveBeenCalledTimes(1));
+    expect(applyRequestCollectionSetScripts).toHaveBeenCalledWith(
+      {
+        collectionUid: 'col00001',
+        updates: [{ path: scriptSlotPath('mqtt-before-publish'), value: 'oh.setTopic("sensors/1/temp")' }],
+      },
+      { workspaceId: 'ws00001', surfaceId: 'workbench' },
+    );
   });
 
   it('the Authorization section is the same border-box pane, scrolling as a whole', () => {
