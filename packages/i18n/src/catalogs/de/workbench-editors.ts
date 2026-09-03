@@ -56,6 +56,10 @@ export const workbenchEditors = {
   'workbench.editors.ancestorAuth.saveFailed': 'Autorisierung konnte nicht gespeichert werden.',
   'workbench.editors.ancestorAuth.saveFailedDetail': 'Autorisierung konnte nicht gespeichert werden: {message}',
 
+  // ── Ancestor settings (collection/folder inheritable settings) ─────
+  'workbench.editors.ancestorSettings.saveFailed': 'Einstellungen konnten nicht gespeichert werden.',
+  'workbench.editors.ancestorSettings.saveFailedDetail': 'Einstellungen konnten nicht gespeichert werden: {message}',
+
   // ── Anfragen-Container-Editor (Sammlung / Ordner: ein Tab, Abschnitte) ──
   'workbench.editors.requestContainer.tab.overview': 'Übersicht',
   'workbench.editors.requestContainer.auth.emptyTitle': 'Keine Autorisierung konfiguriert',

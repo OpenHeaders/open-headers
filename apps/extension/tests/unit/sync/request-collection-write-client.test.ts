@@ -64,6 +64,7 @@ import {
   applyRequestCollectionDelete,
   applyRequestCollectionRemoveVar,
   applyRequestCollectionRename,
+  applyRequestCollectionSetSettings,
   applyRequestCollectionSetVar,
 } from '@openheaders/ui/shared/sync/request-collection-write-client';
 import {
@@ -219,6 +220,51 @@ describe('applyRequestCollectionRename', () => {
       path: 'name',
       value: 'Renamed',
     });
+  });
+});
+
+describe('applyRequestCollectionSetSettings', () => {
+  it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
+    const mirror = makeMirror([]);
+    const result = await applyRequestCollectionSetSettings(
+      { collectionUid: 'missing', updates: [{ key: 'timeoutMs', value: 30_000 }] },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('emits one leaf per knob — setField for a value, unsetField for a cleared one — under the settings batch id', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror([{ uid: 'rc-1', path: 'requests/api-rc-1', name: 'API' }]);
+    const result = await applyRequestCollectionSetSettings(
+      {
+        collectionUid: 'rc-1',
+        updates: [
+          { key: 'timeoutMs', value: 30_000 },
+          { key: 'sslVerification', value: undefined },
+        ],
+      },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.batchId).toBe('request-collection-settings-rc-1');
+    expect(batch.mutations.map((m) => m.body)).toEqual([
+      expect.objectContaining({
+        kind: 'setField',
+        type: REQUEST_COLLECTION_ENTITY_TYPE,
+        id: 'rc-1',
+        path: 'settings.timeoutMs',
+        value: 30_000,
+      }),
+      expect.objectContaining({
+        kind: 'unsetField',
+        type: REQUEST_COLLECTION_ENTITY_TYPE,
+        id: 'rc-1',
+        path: 'settings.sslVerification',
+      }),
+    ]);
   });
 });
 

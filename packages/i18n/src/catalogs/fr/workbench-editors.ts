@@ -48,6 +48,10 @@ export const workbenchEditors = {
   'workbench.editors.ancestorAuth.saveFailed': "Impossible d'enregistrer l'autorisation.",
   'workbench.editors.ancestorAuth.saveFailedDetail': "Impossible d'enregistrer l'autorisation : {message}",
 
+  // ── Ancestor settings (collection/folder inheritable settings) ─────
+  'workbench.editors.ancestorSettings.saveFailed': "Impossible d'enregistrer les paramètres.",
+  'workbench.editors.ancestorSettings.saveFailedDetail': "Impossible d'enregistrer les paramètres : {message}",
+
   // ── Éditeur du conteneur de requêtes (collection / dossier : un onglet, des sections) ──
   'workbench.editors.requestContainer.tab.overview': 'Aperçu',
   'workbench.editors.requestContainer.auth.emptyTitle': 'Aucune autorisation configurée',

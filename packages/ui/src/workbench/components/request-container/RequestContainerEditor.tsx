@@ -1,10 +1,10 @@
 /**
  * RequestContainerEditor — THE editor of a request collection or a
  * request folder: one tab per container, its concerns as sub-tabs —
- * Overview · Authorization · Scripts · Variables (folders carry no
- * variables: the collection is the only variable-scoping container).
- * The request editor's shape: one header, one Save, one dirty state,
- * a modified dot per section.
+ * Overview · Authorization · Scripts · Settings · Variables (folders
+ * carry no variables: the collection is the only variable-scoping
+ * container). The request editor's shape: one header, one Save, one
+ * dirty state, a modified dot per section.
  *
  * Replaces the per-concern tab modes (`request-collection-auth`,
  * `-scripts`, `-vars` and the folder pair) that each concern's epic had
@@ -12,12 +12,13 @@
  * an editor of its own.
  *
  * Draft = the container's editable slots (the auth pool's default
- * entry, the two script slots, the variables); `useReprime` derives
- * dirty from the draft vs the live entity; Save writes only the slots
- * that changed, each through its own write client (the batches those
- * clients mint are per-slot by design — the pool is a set replacement
- * plus its default scalar, scripts are sibling files, variables a set
- * replacement).
+ * entry, the two script slots, the inheritable settings, the
+ * variables); `useReprime` derives dirty from the draft vs the live
+ * entity; Save writes only the slots that changed, each through its
+ * own write client (the batches those clients mint are per-slot by
+ * design — the pool is a set replacement plus its default scalar,
+ * scripts are sibling files, settings one leaf per changed knob,
+ * variables a set replacement).
  *
  * Level-honest auth: at a collection the transparent choice reads "No
  * default" (there is no parent), at a folder "Inherit from
@@ -27,11 +28,21 @@
 
 import { FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
 import { authPoolOf, LEGACY_AUTH_ENTRY_UID } from '@openheaders/core/auth-inheritance';
+import { definedSettingKeys, INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
 import { type ScriptSlotCarrier, scriptSlotPath } from '@openheaders/core/scripts';
+import { inheritedSettingsFor, settingUpdatesBetween } from '@openheaders/core/settings-inheritance';
 import type { PersistedLocalFolder } from '@openheaders/core/storage';
 import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
-import type { AuthConfig, AuthPoolEntry, Collection, HttpMethod, Variable } from '@openheaders/core/types';
+import type {
+  AuthConfig,
+  AuthPoolEntry,
+  Collection,
+  HttpMethod,
+  InheritableSettingKey,
+  InheritableSettings,
+  Variable,
+} from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   EntityScopeProvider,
@@ -49,10 +60,12 @@ import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import {
   applyRequestCollectionSetAuthPool,
   applyRequestCollectionSetScripts,
+  applyRequestCollectionSetSettings,
 } from '@openheaders/ui/shared/sync/request-collection-write-client';
 import {
   applyRequestFolderSetAuthPool,
   applyRequestFolderSetScripts,
+  applyRequestFolderSetSettings,
 } from '@openheaders/ui/shared/sync/request-folder-write-client';
 import { App, Tabs, Typography, theme } from 'antd';
 import type React from 'react';
@@ -69,11 +82,13 @@ import {
   scriptSlotFlagsBetween,
   scriptSlotValuesOf,
 } from '../script-editor/script-slots';
+import { type InheritedSettingsView, NO_INHERITED_SETTINGS } from '../shared/inherited-settings/inherited-settings';
 import EditorHeader from '../shell/EditorHeader';
 import { SuggestionContextProvider } from '../template-input';
 import { useCollectionVariableConflictsUi } from '../variables/use-collection-variable-conflicts-ui';
-import { findFolderAncestry, findFolderCollectionUid, nearestAuthPool } from './ancestry';
+import { findFolderAncestry, findFolderCollectionUid, nearestAuthPool, settingsChainOf } from './ancestry';
 import AuthPoolSection, { type AuthPoolDraft } from './AuthPoolSection';
+import SettingsSection from './SettingsSection';
 
 const { Text } = Typography;
 
@@ -118,6 +133,9 @@ interface RequestContainerEditorProps {
   /** Opens a container's Authorization section — an inheriting
    *  folder's "Edit in …" opener onto the supplying level. */
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
+  /** Opens a container's Settings section — a folder's inherited
+   *  rows' "Edit in parent" opener onto the supplying level. */
+  onOpenContainerSettings?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
 }
 
 interface ContainerEntity extends ScriptSlotCarrier {
@@ -126,16 +144,19 @@ interface ContainerEntity extends ScriptSlotCarrier {
   auths?: AuthPoolEntry[];
   defaultAuthUid?: string;
   auth?: AuthConfig;
+  settings?: InheritableSettings;
   variables?: Variable[];
 }
 
 interface ContainerDraft {
   pool: AuthPoolDraft;
   scripts: ScriptSlotValues;
+  settings: InheritableSettings;
   variables: Variable[];
 }
 
 const EMPTY_VARS: Variable[] = [];
+const EMPTY_SETTINGS: InheritableSettings = {};
 
 /** The whole pool as the draft's auth slot — a transparent level (no
  *  pool) is the empty list; the legacy single-auth read seeds as its
@@ -150,6 +171,7 @@ function draftOf(entity: ContainerEntity | null): ContainerDraft {
   return {
     pool: poolDraftOf(entity),
     scripts: scriptSlotValuesOf(entity ?? {}),
+    settings: entity?.settings ?? EMPTY_SETTINGS,
     variables: entity?.variables ?? EMPTY_VARS,
   };
 }
@@ -174,6 +196,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
   onDirtyChange,
   registerSaveRef,
   onOpenContainerAuth,
+  onOpenContainerSettings,
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
@@ -204,6 +227,16 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     if (kind !== 'folder') return undefined;
     return nearestAuthPool(findFolderAncestry(collectionTrees, collections, folders, entityUid));
   }, [kind, collectionTrees, collections, folders, entityUid]);
+
+  // A folder's Settings rows read the chain above it (outer → inner,
+  // off the trees) for their placeholders — the per-knob cascade's
+  // own answer; a collection has nothing above it. Both sit on the
+  // ancestor plane (explicit wins).
+  const inheritedSettings = useMemo((): InheritedSettingsView => {
+    const ancestry = kind === 'folder' ? findFolderAncestry(collectionTrees, collections, folders, entityUid) : null;
+    if (ancestry === null) return { ...NO_INHERITED_SETTINGS, onOpenSource: onOpenContainerSettings };
+    return { ...inheritedSettingsFor(settingsChainOf(ancestry), INHERITABLE_SETTING_KEYS), onOpenSource: onOpenContainerSettings };
+  }, [kind, collectionTrees, collections, folders, entityUid, onOpenContainerSettings]);
 
   const [activeSection, setActiveSection] = useState<RequestContainerSection>(section ?? 'overview');
   useEffect(() => {
@@ -261,12 +294,23 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     [draft.scripts, saved.scripts],
   );
   const scriptsUnsaved = SCRIPT_KINDS.some((slot) => scriptsUnsavedSlots[slot] === true);
+  // Per knob — the rail dot, the sub-tab dots and the Save's slice read
+  // the same diff; only the knobs that changed ride the write.
+  const settingsUpdates = useMemo(
+    () => settingUpdatesBetween(saved.settings, draft.settings),
+    [saved.settings, draft.settings],
+  );
+  const settingsUnsavedKeys = useMemo(
+    () => new Set<InheritableSettingKey>(settingsUpdates.map((update) => update.key)),
+    [settingsUpdates],
+  );
+  const settingsUnsaved = settingsUpdates.length > 0;
   const variablesUnsaved = stableStringify(draft.variables) !== stableStringify(saved.variables);
 
   const handleSave = useCallback(() => {
     if (!entity || !isDirty || !workspaceId) return;
     const opts = { workspaceId, surfaceId: 'workbench' };
-    const failed = (result: SyncSimpleResult, slot: 'auth' | 'scripts') => {
+    const failed = (result: SyncSimpleResult, slot: 'auth' | 'scripts' | 'settings') => {
       if (result.ok) return;
       if (result.reason === 'not-found') {
         message.error(t('workbench.editors.requestContainer.deletedElsewhere'));
@@ -278,6 +322,14 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
           detail
             ? t('workbench.editors.ancestorAuth.saveFailedDetail', { message: detail })
             : t('workbench.editors.ancestorAuth.saveFailed'),
+        );
+        return;
+      }
+      if (slot === 'settings') {
+        message.error(
+          detail
+            ? t('workbench.editors.ancestorSettings.saveFailedDetail', { message: detail })
+            : t('workbench.editors.ancestorSettings.saveFailed'),
         );
         return;
       }
@@ -318,6 +370,14 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
             : await applyRequestFolderSetScripts({ folderUid: entity.uid, updates }, opts);
         failed(result, 'scripts');
       }
+      if (settingsUnsaved) {
+        // One leaf per changed knob — never the object whole.
+        const result =
+          kind === 'collection'
+            ? await applyRequestCollectionSetSettings({ collectionUid: entity.uid, updates: settingsUpdates }, opts)
+            : await applyRequestFolderSetSettings({ folderUid: entity.uid, updates: settingsUpdates }, opts);
+        failed(result, 'settings');
+      }
       if (kind === 'collection' && variablesUnsaved) {
         const result = await replaceRequestCollectionVariables(entity.uid, draft.variables);
         if (result.ok) {
@@ -343,8 +403,10 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
     kind,
     draft,
     scriptsUnsavedSlots,
+    settingsUpdates,
     authUnsaved,
     scriptsUnsaved,
+    settingsUnsaved,
     variablesUnsaved,
     replaceRequestCollectionVariables,
     conflictsUi,
@@ -364,6 +426,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
   const localInstanceId = useLocalInstanceId();
 
   const scriptsMark = SCRIPT_KINDS.filter((slot) => draft.scripts[slot].trim()).length;
+  const settingsMark = definedSettingKeys(draft.settings).length;
   const variablesMark = draft.variables.filter((v) => v.name.trim()).length;
   const sectionItems = useMemo(
     () => [
@@ -390,6 +453,19 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
           </span>
         ),
       },
+      {
+        key: 'settings',
+        label: (
+          <span>
+            {t('workbench.editors.request.tab.settings')}
+            {settingsMark > 0 ? (
+              <TabCount n={settingsMark} unsaved={settingsUnsaved} />
+            ) : settingsUnsaved ? (
+              <TabDot tone="unsaved" />
+            ) : null}
+          </span>
+        ),
+      },
       ...(kind === 'collection'
         ? [
             {
@@ -408,7 +484,18 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
           ]
         : []),
     ],
-    [t, kind, draft.pool.auths.length, authUnsaved, scriptsMark, scriptsUnsaved, variablesMark, variablesUnsaved],
+    [
+      t,
+      kind,
+      draft.pool.auths.length,
+      authUnsaved,
+      scriptsMark,
+      scriptsUnsaved,
+      settingsMark,
+      settingsUnsaved,
+      variablesMark,
+      variablesUnsaved,
+    ],
   );
 
   if (!entity) {
@@ -489,6 +576,29 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
                 onScriptChange={(slot, value) => setDraft((d) => ({ ...d, scripts: { ...d.scripts, [slot]: value } }))}
                 workspaceId={workspaceId}
                 onOpenPackageLibrary={onOpenPackageLibrary}
+              />
+            </SuggestionContextProvider>
+          </div>
+        );
+      case 'settings':
+        return (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              boxSizing: 'border-box',
+              padding: 24,
+              overflow: 'auto',
+            }}
+          >
+            <SuggestionContextProvider value={{ collectionId: suggestionCollectionId }}>
+              <SettingsSection
+                settings={draft.settings}
+                onChange={(settings) => setDraft((d) => ({ ...d, settings }))}
+                unsaved={settingsUnsavedKeys}
+                inherited={inheritedSettings}
+                workspaceId={workspaceId}
               />
             </SuggestionContextProvider>
           </div>

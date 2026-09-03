@@ -49,6 +49,10 @@ export const workbenchEditors = {
   'workbench.editors.ancestorAuth.saveFailed': 'No se pudo guardar la autorización.',
   'workbench.editors.ancestorAuth.saveFailedDetail': 'No se pudo guardar la autorización: {message}',
 
+  // ── Ancestor settings (collection/folder inheritable settings) ─────
+  'workbench.editors.ancestorSettings.saveFailed': 'No se pudo guardar la configuración.',
+  'workbench.editors.ancestorSettings.saveFailedDetail': 'No se pudo guardar la configuración: {message}',
+
   // ── Editor del contenedor de solicitudes (colección / carpeta: una pestaña, secciones) ──
   'workbench.editors.requestContainer.tab.overview': 'Resumen',
   'workbench.editors.requestContainer.auth.emptyTitle': 'Sin autorización configurada',

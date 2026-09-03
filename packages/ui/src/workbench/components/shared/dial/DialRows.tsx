@@ -39,6 +39,7 @@ import { SelectKnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows
 import { Typography } from 'antd';
 import type React from 'react';
 import VaultSelectFooter from '../../variables/VaultSelectFooter';
+import { type InheritedSettingsView, inheritedRowsFor } from '../inherited-settings/inherited-settings';
 import { type DialInfoKey, dialRowInfo } from './dial-row-info';
 
 const { Text } = Typography;
@@ -78,14 +79,34 @@ export interface DialRowsProps {
   /** Keys whose value differs from the saved baseline (the HTTP tab's
    *  unsaved plane); absent = no such plane. */
   unsaved?: ReadonlySet<string>;
+  /** The ancestor plane: inherited values as placeholders with their
+   *  source line. The proxy trio is one unit — an inherited mode's URL
+   *  reads in the Proxy row's placeholder; the URL rows render for an
+   *  OWN Custom mode alone (a URL never rides another level's mode). */
+  inherited?: InheritedSettingsView;
   /** `<prefix>-resolve-to-address`, `<prefix>-proxy-mode`, … */
   testIdPrefix: string;
 }
 
-const DialRows: React.FC<DialRowsProps> = ({ groupLabel, value, onChange, rowInfo, unsaved, testIdPrefix }) => {
+const DialRows: React.FC<DialRowsProps> = ({
+  groupLabel,
+  value,
+  onChange,
+  rowInfo,
+  unsaved,
+  inherited,
+  testIdPrefix,
+}) => {
   const t = useT();
   const info = (key: DialInfoKey): InfoPopoverContent => rowInfo?.(key) ?? dialRowInfo(t, key, groupLabel);
   const isUnsaved = (key: DialKey): boolean => unsaved?.has(key) === true;
+  const rows = inheritedRowsFor(inherited);
+  const proxyModeLabel = (mode: ProxyMode): string => {
+    if (mode === 'direct') return t('workbench.editors.request.settings.proxyModeDirect');
+    const url = inherited?.settings.proxyUrl;
+    const custom = t('workbench.editors.request.settings.proxyModeCustom');
+    return url === undefined ? custom : `${custom} — ${url}`;
+  };
   // Vault string entries feed the proxy-credentials picker — a
   // `user:password` pair is string-shaped, no dedicated entry kind. The
   // context defaults to an empty vault when no provider is mounted, so
@@ -106,7 +127,12 @@ const DialRows: React.FC<DialRowsProps> = ({ groupLabel, value, onChange, rowInf
         value={value.resolveToAddress}
         onChange={(resolveToAddress) => set({ resolveToAddress })}
         info={info('resolveToAddress')}
-        placeholder={t('workbench.editors.request.settings.resolveToAddressPlaceholder')}
+        {...rows.field(
+          'resolveToAddress',
+          value.resolveToAddress,
+          t('workbench.editors.request.settings.resolveToAddressPlaceholder'),
+          String,
+        )}
         maxLength={MAX_RESOLVE_TO_ADDRESS_LENGTH}
         error={
           value.resolveToAddress !== undefined && !RESOLVE_TO_ADDRESS_PATTERN.test(value.resolveToAddress)
@@ -135,7 +161,12 @@ const DialRows: React.FC<DialRowsProps> = ({ groupLabel, value, onChange, rowInf
           { value: 'direct', label: t('workbench.editors.request.settings.proxyModeDirect') },
           { value: 'url', label: t('workbench.editors.request.settings.proxyModeCustom') },
         ]}
-        placeholder={t('workbench.editors.request.settings.proxyModePlaceholder')}
+        {...rows.field(
+          'proxyMode',
+          value.proxyMode,
+          t('workbench.editors.request.settings.proxyModePlaceholder'),
+          proxyModeLabel,
+        )}
         modified={value.proxyMode !== undefined || value.proxyUrl !== undefined}
         unsaved={isUnsaved('proxyMode')}
         onReset={() => set({ proxyMode: undefined, proxyUrl: undefined, proxyCredentialRef: undefined })}

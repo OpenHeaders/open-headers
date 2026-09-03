@@ -52,6 +52,7 @@ import {
   applyRequestFolderDelete,
   applyRequestFolderMove,
   applyRequestFolderRename,
+  applyRequestFolderSetSettings,
 } from '@openheaders/ui/shared/sync/request-folder-write-client';
 import {
   lastBodiesSeen,
@@ -211,6 +212,52 @@ describe('applyRequestFolderRename', () => {
       path: 'name',
       value: 'Renamed',
     });
+  });
+});
+
+describe('applyRequestFolderSetSettings', () => {
+  it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
+    const mirror = makeMirror([]);
+    const result = await applyRequestFolderSetSettings(
+      { folderUid: 'missing', updates: [{ key: 'timeoutMs', value: 30_000 }] },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('emits one leaf per knob — setField for a value, unsetField for a cleared one — under the settings batch id', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const folder = makeFolder('rfold-1', 'requests/api-rc-1/auth-rfold-1');
+    const mirror = makeMirror([folder]);
+    const result = await applyRequestFolderSetSettings(
+      {
+        folderUid: 'rfold-1',
+        updates: [
+          { key: 'timeoutMs', value: 30_000 },
+          { key: 'sslVerification', value: undefined },
+        ],
+      },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.batchId).toBe('request-folder-settings-rfold-1');
+    expect(batch.mutations.map((m) => m.body)).toEqual([
+      expect.objectContaining({
+        kind: 'setField',
+        type: REQUEST_FOLDER_ENTITY_TYPE,
+        id: 'rfold-1',
+        path: 'settings.timeoutMs',
+        value: 30_000,
+      }),
+      expect.objectContaining({
+        kind: 'unsetField',
+        type: REQUEST_FOLDER_ENTITY_TYPE,
+        id: 'rfold-1',
+        path: 'settings.sslVerification',
+      }),
+    ]);
   });
 });
 

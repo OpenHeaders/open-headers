@@ -40,6 +40,9 @@ const SelectKnobRow: React.FC<{
   unsaved?: boolean;
   /** Row undo; defaults to clearing the value back to undefined. */
   onReset?: () => void;
+  /** A line under the row naming where the effective value comes from
+   *  (an inherited setting's source); renders after the warning. */
+  note?: React.ReactNode;
 }> = ({
   label,
   value,
@@ -56,6 +59,7 @@ const SelectKnobRow: React.FC<{
   modified,
   unsaved,
   onReset,
+  note,
 }) => {
   // Controlled only when a footer needs to dismiss the popup itself;
   // motion off so the navigate-away dismissal is instant, no leave
@@ -113,6 +117,7 @@ const SelectKnobRow: React.FC<{
           {warning}
         </Text>
       )}
+      {note}
     </div>
   );
 };

@@ -32,7 +32,24 @@ const TextKnobRow: React.FC<{
   unsaved?: boolean;
   /** Row undo; defaults to clearing the value back to undefined. */
   onReset?: () => void;
-}> = ({ label, value, onChange, info, placeholder, maxLength, error, warning, example, testId, unsaved, onReset }) => (
+  /** A line under the row naming where the effective value comes from
+   *  (an inherited setting's source); outranks the example line. */
+  note?: React.ReactNode;
+}> = ({
+  label,
+  value,
+  onChange,
+  info,
+  placeholder,
+  maxLength,
+  error,
+  warning,
+  example,
+  testId,
+  unsaved,
+  onReset,
+  note,
+}) => (
   <div style={{ display: 'flex', flexDirection: 'column' }}>
     <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
       <Text style={{ fontSize: 13 }}>{label}</Text>
@@ -64,7 +81,8 @@ const TextKnobRow: React.FC<{
         {warning}
       </Text>
     )}
-    {error === undefined && warning === undefined && example !== undefined && (
+    {error === undefined && warning === undefined && note}
+    {error === undefined && warning === undefined && note === undefined && example !== undefined && (
       <Text
         type="secondary"
         style={{

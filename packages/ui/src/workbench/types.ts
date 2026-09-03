@@ -81,7 +81,7 @@ export type TabMode =
  * one tab per container, the concerns as sections — never a tab mode
  * per concern.
  */
-export type RequestContainerSection = 'overview' | 'authorization' | 'scripts' | 'variables';
+export type RequestContainerSection = 'overview' | 'authorization' | 'scripts' | 'settings' | 'variables';
 
 export interface WorkbenchTab {
   /** Unique tab identifier. Format: 'create-{counter}', 'edit-{uid}', 'col-{uid}', 'folder-{uid}'. */

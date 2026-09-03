@@ -16,12 +16,14 @@
  * defaults to the handshake cadence), MQTT neither (keep-alive is its
  * CONNECT knob). Same contract as the TLS & trust block: the block
  * edits a `ResilienceValue` and hands the WHOLE next value back — the
- * host merges it into its draft (the session drafts keep the two
- * booleans concrete); modified dots track distance from the runtime
- * defaults; the optional `unsaved` set adds the unsaved marker per
- * row. Labels, placeholders and help come from the request-settings
- * catalog; an editor with richer popover copy passes `rowInfo` and
- * falls back to the shared copy for the keys it leaves undefined.
+ * host merges it into its draft (the session tabs re-concretize the
+ * two switches at their seam; a container keeps them optional);
+ * modified dots track distance from the runtime defaults, or on the
+ * ancestor plane (`inherited`) any own value; the optional `unsaved`
+ * set adds the unsaved marker per row. Labels, placeholders and help
+ * come from the request-settings catalog; an editor with richer
+ * popover copy passes `rowInfo` and falls back to the shared copy for
+ * the keys it leaves undefined.
  */
 
 import {
@@ -40,16 +42,18 @@ import {
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { ComboKnobRow, DependentRows, GroupSection, KnobRow, TextKnobRow } from '@openheaders/ui/shared/settings-rows';
 import type React from 'react';
+import { type InheritedSettingsView, inheritedRowsFor } from '../inherited-settings/inherited-settings';
 import { type ResilienceInfoKey, type ResilienceLiveness, resilienceRowInfo } from './resilience-row-info';
 
-/** The policy slice the block edits — the two switches concrete (the
- *  session drafts' posture: absent on the entity reads as off /
- *  backoff on), the rest `undefined` = the runtime default. */
+/** The policy slice the block edits — every key optional, `undefined`
+ *  = the runtime default (reconnect off, backoff on, no waits); the
+ *  session tabs hand the switches in concrete and read them back the
+ *  same way. */
 export interface ResilienceValue {
-  autoReconnect: boolean;
+  autoReconnect?: boolean | undefined;
   reconnectPeriodMs?: number | undefined;
   reconnectMaxAttempts?: number | undefined;
-  reconnectBackoff: boolean;
+  reconnectBackoff?: boolean | undefined;
   idleTimeoutMs?: number | undefined;
   heartbeatMessage?: string | undefined;
   heartbeatIntervalMs?: number | undefined;
@@ -70,10 +74,10 @@ export type ResilienceKey = (typeof RESILIENCE_KEYS)[number];
 /** Whether any row sits off its runtime default. */
 export function isResilienceModified(value: ResilienceValue): boolean {
   return (
-    value.autoReconnect ||
+    value.autoReconnect === true ||
     value.reconnectPeriodMs !== undefined ||
     value.reconnectMaxAttempts !== undefined ||
-    !value.reconnectBackoff ||
+    value.reconnectBackoff === false ||
     value.idleTimeoutMs !== undefined ||
     value.heartbeatMessage !== undefined ||
     value.heartbeatIntervalMs !== undefined
@@ -106,6 +110,10 @@ export interface SessionResilienceGroupProps {
   /** Keys whose value differs from the saved baseline; absent = no
    *  such plane. */
   unsaved?: ReadonlySet<string>;
+  /** The ancestor plane: inherited values as placeholders (a switch's
+   *  effective state) with their source line; on it explicit wins —
+   *  any own value dots. Absent = the runtime-default plane. */
+  inherited?: InheritedSettingsView;
   /** `<prefix>-auto-reconnect`, `<prefix>-reconnect-period`, … */
   testIdPrefix: string;
 }
@@ -120,6 +128,7 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
   liveness,
   rowInfo,
   unsaved,
+  inherited,
   testIdPrefix,
 }) => {
   const t = useT();
@@ -127,6 +136,13 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
     rowInfo?.(key) ?? resilienceRowInfo(t, key, groupLabel, liveness);
   const isUnsaved = (key: ResilienceKey): boolean => unsaved?.has(key) === true;
   const set = (patch: Partial<ResilienceValue>): void => onChange({ ...value, ...patch });
+  const rows = inheritedRowsFor(inherited);
+  const explicit = inherited !== undefined;
+  const reconnect = rows.toggle('autoReconnect', value.autoReconnect, false);
+  const backoff = rows.toggle('reconnectBackoff', value.reconnectBackoff, true);
+  // The heartbeat interval rides a heartbeat frame — the row's own or
+  // the inherited one.
+  const heartbeatMessageEffective = value.heartbeatMessage ?? inherited?.settings.heartbeatMessage;
 
   return (
     <GroupSection
@@ -134,17 +150,18 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
       expanded={expanded}
       onToggle={onToggle}
       info={groupInfo}
-      modified={isResilienceModified(value)}
+      modified={explicit ? RESILIENCE_KEYS.some((key) => value[key] !== undefined) : isResilienceModified(value)}
       unsaved={RESILIENCE_KEYS.some(isUnsaved)}
     >
       <KnobRow
         label={t('workbench.editors.request.settings.autoReconnect')}
-        checked={value.autoReconnect}
-        modified={value.autoReconnect}
+        checked={reconnect.checked}
+        modified={explicit ? value.autoReconnect !== undefined : value.autoReconnect === true}
         unsaved={isUnsaved('autoReconnect')}
-        onReset={() => set({ autoReconnect: false })}
+        onReset={() => set({ autoReconnect: undefined })}
         onChange={(autoReconnect) => set({ autoReconnect })}
         info={info('autoReconnect')}
+        note={reconnect.note}
         testId={`${testIdPrefix}-auto-reconnect`}
       />
       <DependentRows>
@@ -156,8 +173,13 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
           presets={RECONNECT_PERIOD_PRESETS}
           interpret={interpretDuration}
           format={formatDurationMs}
-          placeholder={t('workbench.editors.request.settings.reconnectPeriodPlaceholder')}
-          disabled={!value.autoReconnect}
+          {...rows.field(
+            'reconnectPeriodMs',
+            value.reconnectPeriodMs,
+            t('workbench.editors.request.settings.reconnectPeriodPlaceholder'),
+            formatDurationMs,
+          )}
+          disabled={!reconnect.checked}
           unsaved={isUnsaved('reconnectPeriodMs')}
           testId={`${testIdPrefix}-reconnect-period`}
         />
@@ -169,20 +191,26 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
           presets={RECONNECT_MAX_ATTEMPTS_PRESETS}
           interpret={interpretReconnectMaxAttempts}
           format={String}
-          placeholder={t('workbench.editors.request.settings.reconnectMaxAttemptsPlaceholder')}
-          disabled={!value.autoReconnect}
+          {...rows.field(
+            'reconnectMaxAttempts',
+            value.reconnectMaxAttempts,
+            t('workbench.editors.request.settings.reconnectMaxAttemptsPlaceholder'),
+            String,
+          )}
+          disabled={!reconnect.checked}
           unsaved={isUnsaved('reconnectMaxAttempts')}
           testId={`${testIdPrefix}-reconnect-max-attempts`}
         />
         <KnobRow
           label={t('workbench.editors.request.settings.reconnectBackoff')}
-          checked={value.reconnectBackoff}
-          modified={!value.reconnectBackoff}
+          checked={backoff.checked}
+          modified={explicit ? value.reconnectBackoff !== undefined : value.reconnectBackoff === false}
           unsaved={isUnsaved('reconnectBackoff')}
-          onReset={() => set({ reconnectBackoff: true })}
+          onReset={() => set({ reconnectBackoff: undefined })}
           onChange={(reconnectBackoff) => set({ reconnectBackoff })}
           info={info('reconnectBackoff')}
-          disabled={!value.autoReconnect}
+          disabled={!reconnect.checked}
+          note={backoff.note}
           testId={`${testIdPrefix}-reconnect-backoff`}
         />
       </DependentRows>
@@ -195,10 +223,15 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
           presets={IDLE_TIMEOUT_PRESETS}
           interpret={interpretDuration}
           format={formatDurationMs}
-          placeholder={t(
-            liveness === 'socketio'
-              ? 'workbench.editors.request.settings.idleTimeoutSocketioPlaceholder'
-              : 'workbench.editors.request.settings.idleTimeoutPlaceholder',
+          {...rows.field(
+            'idleTimeoutMs',
+            value.idleTimeoutMs,
+            t(
+              liveness === 'socketio'
+                ? 'workbench.editors.request.settings.idleTimeoutSocketioPlaceholder'
+                : 'workbench.editors.request.settings.idleTimeoutPlaceholder',
+            ),
+            formatDurationMs,
           )}
           unsaved={isUnsaved('idleTimeoutMs')}
           testId={`${testIdPrefix}-idle-timeout`}
@@ -211,7 +244,12 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
             value={value.heartbeatMessage}
             onChange={(heartbeatMessage) => set({ heartbeatMessage })}
             info={info('heartbeatMessage')}
-            placeholder={t('workbench.editors.request.settings.heartbeatMessagePlaceholder')}
+            {...rows.field(
+              'heartbeatMessage',
+              value.heartbeatMessage,
+              t('workbench.editors.request.settings.heartbeatMessagePlaceholder'),
+              String,
+            )}
             maxLength={MAX_HEARTBEAT_MESSAGE_LENGTH}
             example={t('workbench.editors.request.settings.heartbeatMessageExample')}
             unsaved={isUnsaved('heartbeatMessage')}
@@ -226,8 +264,13 @@ const SessionResilienceGroup: React.FC<SessionResilienceGroupProps> = ({
               presets={HEARTBEAT_INTERVAL_PRESETS}
               interpret={interpretDuration}
               format={formatDurationMs}
-              placeholder={t('workbench.editors.request.settings.heartbeatIntervalPlaceholder')}
-              disabled={value.heartbeatMessage === undefined}
+              {...rows.field(
+                'heartbeatIntervalMs',
+                value.heartbeatIntervalMs,
+                t('workbench.editors.request.settings.heartbeatIntervalPlaceholder'),
+                formatDurationMs,
+              )}
+              disabled={heartbeatMessageEffective === undefined}
               unsaved={isUnsaved('heartbeatIntervalMs')}
               testId={`${testIdPrefix}-heartbeat-interval`}
             />

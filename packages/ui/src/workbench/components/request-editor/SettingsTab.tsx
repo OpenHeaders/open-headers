@@ -201,6 +201,7 @@ import {
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
 import DialRows from '../shared/dial/DialRows';
+import { type InheritedSettingsView, inheritedRowsFor } from '../shared/inherited-settings/inherited-settings';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
 import CookieJarRow from './CookieJarRow';
 import { GROUP_LABEL_KEY, GROUP_ORDER, type SettingsGroupKey } from './settings-groups';
@@ -292,7 +293,17 @@ interface SettingsTabProps {
    *  settings-unsaved.ts) — their dots render in the sidebar/tab-bar
    *  dirty salmon, outranking the blue non-default tone. Omitted = no
    *  baseline, every dot keeps its blue non-default meaning. */
-  unsaved?: ReadonlySet<SettingsKnobKey>;
+  unsaved?: ReadonlySet<string>;
+  /** `request` (default): the request's own tab, with the per-workspace
+   *  script-mode chooser, the cookie jar's contents and the runtime-
+   *  managed sheet. `container`: a collection's / folder's HTTP rows —
+   *  the inheritable knobs alone. */
+  scope?: 'request' | 'container';
+  /** The ancestor plane: inherited values as placeholders (a switch's
+   *  effective state) with their source line; on it explicit wins —
+   *  any own value dots, whatever it is. Absent = the runtime-default
+   *  plane (dots track distance from the defaults). */
+  inherited?: InheritedSettingsView;
 }
 
 interface RuntimeManagedDef {
@@ -473,10 +484,26 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   onChange,
   workspaceId = null,
   unsaved = NO_UNSAVED_SETTINGS,
+  scope = 'request',
+  inherited,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const container = scope === 'container';
+  const rows = inheritedRowsFor(inherited);
+  // On the ancestor plane explicit wins: any own value is the row's
+  // own, whatever it is; off it a knob dots off its runtime default.
+  const explicit = inherited !== undefined;
+  const own = (key: SettingsKnobKey): boolean => value[key] !== undefined;
+  const follow = rows.toggle('followRedirects', value.followRedirects, true);
+  const originalMethod = rows.toggle('followOriginalHttpMethod', value.followOriginalHttpMethod, false);
+  const authHeader = rows.toggle('followAuthorizationHeader', value.followAuthorizationHeader, false);
+  const jar = rows.toggle('cookieJar', value.cookieJar, false);
+  const browserCookies = {
+    checked: (value.credentialsMode ?? inherited?.settings.credentialsMode) === 'include',
+    note: rows.note('credentialsMode', value.credentialsMode),
+  };
   const scriptMode = useScriptExecutionMode(workspaceId);
   const remoteScriptsSafe = getCapability('remoteScriptRuntime')?.() === 'safe';
   const managedRows =
@@ -493,6 +520,20 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   const formatHops = (count: number): string => t('workbench.editors.request.settings.maxRedirectsHops', { count });
   const redirectPresets = REDIRECT_PRESET_VALUES.map((v) => ({ value: v, label: formatHops(v) }));
   const interpretHops = countInterpreter(REDIRECT_BOUNDS, formatHops);
+  const httpVersionLabel = (version: HttpVersion): string => {
+    switch (version) {
+      case 'auto':
+        return t('workbench.editors.request.settings.httpVersionPlaceholder');
+      case '1.1':
+        return 'HTTP/1.1';
+      case '2':
+        return 'HTTP/2';
+      case '2-prior-knowledge':
+        return t('workbench.editors.request.settings.httpVersionPriorKnowledge');
+      case '3':
+        return 'HTTP/3';
+    }
+  };
   // Collapsible group state — all expanded by default; a collapsed
   // group's header keeps the accent dot while it hides a modified knob.
   // Folds seed from (and write back to) the session store, so a fold
@@ -504,23 +545,39 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       sessionCollapsed[key] = next;
       return { ...c, [key]: next };
     });
-  const connModified =
-    (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
-    value.resolveToAddress !== undefined ||
-    value.proxyMode !== undefined ||
-    value.proxyUrl !== undefined ||
-    value.proxyCredentialRef !== undefined ||
-    value.unixSocketPath !== undefined;
+  const connModified = explicit
+    ? own('httpVersion') ||
+      own('resolveToAddress') ||
+      own('proxyMode') ||
+      own('proxyUrl') ||
+      own('proxyCredentialRef') ||
+      own('unixSocketPath')
+    : (value.httpVersion !== undefined && value.httpVersion !== 'auto') ||
+      value.resolveToAddress !== undefined ||
+      value.proxyMode !== undefined ||
+      value.proxyUrl !== undefined ||
+      value.proxyCredentialRef !== undefined ||
+      value.unixSocketPath !== undefined;
   // Short-circuit: past the first clause redirects are being followed,
   // so the trio rows are visible and may contribute.
-  const redirectsModified =
-    value.followRedirects === false ||
-    value.maxRedirects !== undefined ||
-    value.followOriginalHttpMethod === true ||
-    value.followAuthorizationHeader === true;
-  const cookiesModified = runtime === 'browser' ? value.credentialsMode === 'include' : value.cookieJar === true;
+  const redirectsModified = explicit
+    ? own('followRedirects') || own('maxRedirects') || own('followOriginalHttpMethod') || own('followAuthorizationHeader')
+    : value.followRedirects === false ||
+      value.maxRedirects !== undefined ||
+      value.followOriginalHttpMethod === true ||
+      value.followAuthorizationHeader === true;
+  const cookiesModified =
+    runtime === 'browser'
+      ? explicit
+        ? own('credentialsMode')
+        : value.credentialsMode === 'include'
+      : explicit
+        ? own('cookieJar')
+        : value.cookieJar === true;
   const executionModified =
-    value.timeoutMs !== undefined || value.maxResponseBytes !== undefined || scriptMode.mode === 'developer';
+    value.timeoutMs !== undefined ||
+    value.maxResponseBytes !== undefined ||
+    (!container && scriptMode.mode === 'developer');
   // Per-group unsaved aggregation for the collapsed headers — same
   // membership as the *Modified predicates above. The script-mode knob
   // never contributes: it saves per-workspace on change, so it is
@@ -581,7 +638,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                 { value: '2-prior-knowledge', label: t('workbench.editors.request.settings.httpVersionPriorKnowledge') },
                 { value: '3', label: 'HTTP/3' },
               ]}
-              placeholder={t('workbench.editors.request.settings.httpVersionPlaceholder')}
+              {...rows.field(
+                'httpVersion',
+                value.httpVersion,
+                t('workbench.editors.request.settings.httpVersionPlaceholder'),
+                httpVersionLabel,
+              )}
               testId="oh-http-version-select"
               unsaved={unsaved.has('httpVersion')}
             />
@@ -591,6 +653,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               onChange={(next) => onChange({ ...value, ...next })}
               rowInfo={(key) => settingsRowInfo(t, key)}
               unsaved={unsaved}
+              inherited={inherited}
               testIdPrefix="request"
             />
             <TextKnobRow
@@ -598,7 +661,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               value={value.unixSocketPath}
               onChange={(unixSocketPath) => onChange({ ...value, unixSocketPath })}
               info={settingsRowInfo(t, 'unixSocket')}
-              placeholder={t('workbench.editors.request.settings.unixSocketPlaceholder')}
+              {...rows.field(
+                'unixSocketPath',
+                value.unixSocketPath,
+                t('workbench.editors.request.settings.unixSocketPlaceholder'),
+                String,
+              )}
               maxLength={MAX_UNIX_SOCKET_PATH_LENGTH}
               error={
                 value.unixSocketPath !== undefined && !isValidUnixSocketPath(value.unixSocketPath)
@@ -625,6 +693,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               onChange={(next) => onChange({ ...value, ...next })}
               rowInfo={(key) => settingsRowInfo(t, key)}
               unsaved={unsaved}
+              inherited={inherited}
+              trustedRootsRow={!container}
               testIdPrefix="request"
             />
           </>
@@ -639,14 +709,15 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             >
         <KnobRow
           label={t('workbench.editors.request.settings.followRedirects')}
-          checked={value.followRedirects ?? true}
-          modified={value.followRedirects === false}
+          checked={follow.checked}
+          modified={explicit ? own('followRedirects') : value.followRedirects === false}
           unsaved={unsaved.has('followRedirects')}
           onReset={() => onChange({ ...value, followRedirects: undefined })}
           onChange={(checked) => onChange({ ...value, followRedirects: checked })}
           info={settingsRowInfo(t, 'followRedirects')}
+          note={follow.note}
         />
-        {runtime === 'node' && value.followRedirects !== false && (
+        {runtime === 'node' && follow.checked && (
           <>
             <ComboKnobRow
               label={t('workbench.editors.request.settings.maxRedirects')}
@@ -656,28 +727,39 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               presets={redirectPresets}
               interpret={interpretHops}
               format={formatHops}
-              placeholder={t('workbench.editors.request.settings.maxRedirectsPlaceholder')}
+              {...rows.field(
+                'maxRedirects',
+                value.maxRedirects,
+                t('workbench.editors.request.settings.maxRedirectsPlaceholder'),
+                formatHops,
+              )}
               unsaved={unsaved.has('maxRedirects')}
             />
             <KnobRow
               label={t('workbench.editors.request.settings.followOriginalMethod')}
-              checked={value.followOriginalHttpMethod === true}
-              modified={value.followOriginalHttpMethod === true}
+              checked={originalMethod.checked}
+              modified={explicit ? own('followOriginalHttpMethod') : value.followOriginalHttpMethod === true}
               unsaved={unsaved.has('followOriginalHttpMethod')}
               onReset={() => onChange({ ...value, followOriginalHttpMethod: undefined })}
-              onChange={(checked) => onChange({ ...value, followOriginalHttpMethod: checked || undefined })}
+              onChange={(checked) =>
+                onChange({ ...value, followOriginalHttpMethod: explicit ? checked : checked || undefined })
+              }
               info={settingsRowInfo(t, 'followOriginalMethod')}
+              note={originalMethod.note}
             />
             <KnobRow
               label={t('workbench.editors.request.settings.followAuthHeader')}
-              checked={value.followAuthorizationHeader === true}
-              modified={value.followAuthorizationHeader === true}
+              checked={authHeader.checked}
+              modified={explicit ? own('followAuthorizationHeader') : value.followAuthorizationHeader === true}
               unsaved={unsaved.has('followAuthorizationHeader')}
               onReset={() => onChange({ ...value, followAuthorizationHeader: undefined })}
-              onChange={(checked) => onChange({ ...value, followAuthorizationHeader: checked || undefined })}
+              onChange={(checked) =>
+                onChange({ ...value, followAuthorizationHeader: explicit ? checked : checked || undefined })
+              }
               info={settingsRowInfo(t, 'followAuthHeader')}
               warning={t('workbench.editors.request.settings.followAuthHeaderWarning')}
               warningWhenChecked
+              note={authHeader.note}
             />
           </>
         )}
@@ -693,26 +775,30 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         {runtime === 'browser' && (
           <KnobRow
             label={t('workbench.editors.request.settings.sendBrowserCookies')}
-            checked={value.credentialsMode === 'include'}
-            modified={value.credentialsMode === 'include'}
+            checked={browserCookies.checked}
+            modified={explicit ? own('credentialsMode') : value.credentialsMode === 'include'}
             unsaved={unsaved.has('credentialsMode')}
             onReset={() => onChange({ ...value, credentialsMode: undefined })}
-            onChange={(checked) => onChange({ ...value, credentialsMode: checked ? 'include' : undefined })}
+            onChange={(checked) =>
+              onChange({ ...value, credentialsMode: checked ? 'include' : explicit ? 'omit' : undefined })
+            }
             info={settingsRowInfo(t, 'sendBrowserCookies')}
+            note={browserCookies.note}
           />
         )}
         {runtime === 'node' && (
           <>
             <KnobRow
               label={t('workbench.editors.request.settings.cookieJar')}
-              checked={value.cookieJar === true}
-              modified={value.cookieJar === true}
+              checked={jar.checked}
+              modified={explicit ? own('cookieJar') : value.cookieJar === true}
               unsaved={unsaved.has('cookieJar')}
               onReset={() => onChange({ ...value, cookieJar: undefined })}
-              onChange={(checked) => onChange({ ...value, cookieJar: checked || undefined })}
+              onChange={(checked) => onChange({ ...value, cookieJar: explicit ? checked : checked || undefined })}
               info={settingsRowInfo(t, 'cookieJar')}
+              note={jar.note}
             />
-            <CookieJarRow />
+            {!container && <CookieJarRow />}
           </>
         )}
         </GroupSection>
@@ -724,7 +810,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               modified={executionModified}
               unsaved={executionUnsaved}
             >
-        {runtime === 'node' && scriptMode.available && (
+        {!container && runtime === 'node' && scriptMode.available && (
           <SelectKnobRow
             label={t('workbench.editors.request.settings.scriptMode')}
             value={scriptMode.mode}
@@ -751,7 +837,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           presets={TIMEOUT_PRESETS}
           interpret={interpretTimeout}
           format={formatDurationMs}
-          placeholder={t('workbench.editors.request.settings.timeoutPlaceholder')}
+          {...rows.field(
+            'timeoutMs',
+            value.timeoutMs,
+            t('workbench.editors.request.settings.timeoutPlaceholder'),
+            formatDurationMs,
+          )}
           unsaved={unsaved.has('timeoutMs')}
         />
         {runtime === 'node' && (
@@ -763,21 +854,28 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             presets={SIZE_PRESETS}
             interpret={interpretResponseSize}
             format={formatByteSize}
-            placeholder={t('workbench.editors.request.settings.responseSizeLimitPlaceholder')}
+            {...rows.field(
+              'maxResponseBytes',
+              value.maxResponseBytes,
+              t('workbench.editors.request.settings.responseSizeLimitPlaceholder'),
+              formatByteSize,
+            )}
             unsaved={unsaved.has('maxResponseBytes')}
           />
         )}
 
         </GroupSection>
-        <RuntimeManagedSheet
-          runtime={runtime}
-          rows={sheetRows}
-          groupOrder={GROUP_ORDER}
-          groupLabel={(group) => t(GROUP_LABEL_KEY[group])}
-          groupInfo={(group) => settingsGroupInfo(t, group)}
-          expanded={(group) => collapsed[`sheet-${group}`] !== true}
-          onToggle={(group) => toggleGroup(`sheet-${group}`)}
-        />
+        {!container && (
+          <RuntimeManagedSheet
+            runtime={runtime}
+            rows={sheetRows}
+            groupOrder={GROUP_ORDER}
+            groupLabel={(group) => t(GROUP_LABEL_KEY[group])}
+            groupInfo={(group) => settingsGroupInfo(t, group)}
+            expanded={(group) => collapsed[`sheet-${group}`] !== true}
+            onToggle={(group) => toggleGroup(`sheet-${group}`)}
+          />
+        )}
       </div>
     </ConfigProvider>
   );

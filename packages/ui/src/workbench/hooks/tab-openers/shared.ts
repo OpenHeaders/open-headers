@@ -109,6 +109,10 @@ export interface UseTabOpenersApi {
   openRequestCollectionAuth: (uid: string, name: string) => void;
   /** Open a request folder's tab on its Authorization section. */
   openRequestFolderAuth: (uid: string, name: string) => void;
+  /** Open a request collection's tab on its Settings section. */
+  openRequestCollectionSettings: (uid: string, name: string) => void;
+  /** Open a request folder's tab on its Settings section. */
+  openRequestFolderSettings: (uid: string, name: string) => void;
   openTemplateCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   /**

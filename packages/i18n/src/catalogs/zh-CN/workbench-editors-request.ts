@@ -506,6 +506,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.optionMissingEntry': '条目缺失',
   'workbench.editors.request.auth.danglingPick': '此请求选择的条目已不存在——改为应用最近的默认项。',
   'workbench.editors.request.auth.editInParent': '在父级中编辑',
+  'workbench.editors.request.settings.inheritedFrom': '继承自 {source}',
   'workbench.editors.request.auth.resetToInheritedAuth': '重置为继承的授权',
   'workbench.editors.request.auth.resizeRailAria': '调整授权类型栏宽度',
   'workbench.editors.request.auth.username': '用户名',

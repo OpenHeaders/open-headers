@@ -587,6 +587,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.danglingPick':
     'La entrada elegida por esta solicitud ya no existe — se aplica el predeterminado más cercano.',
   'workbench.editors.request.auth.editInParent': 'Editar en el elemento padre',
+  'workbench.editors.request.settings.inheritedFrom': 'Heredado de {source}',
   'workbench.editors.request.auth.resetToInheritedAuth': 'Restablecer la autorización heredada',
   'workbench.editors.request.auth.resizeRailAria': 'Redimensionar el riel de tipos de autenticación',
   'workbench.editors.request.auth.username': 'Nombre de usuario',

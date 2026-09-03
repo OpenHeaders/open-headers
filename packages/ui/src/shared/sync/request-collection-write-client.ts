@@ -24,9 +24,11 @@ import {
   buildSetRequestCollectionAuthPoolBatch,
   buildSetRequestCollectionPinnedAndDefaultBatch,
   buildSetRequestCollectionScriptsBatch,
+  buildSetRequestCollectionSettingsBatch,
   buildSetRequestCollectionSpecLinkBatch,
   buildSetRequestCollectionVarBatch,
   type SetRequestCollectionScriptsInput,
+  type SetRequestCollectionSettingsInput,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { AuthPoolEntry, Collection, SpecLink, Variable } from '@openheaders/core/types';
@@ -160,6 +162,24 @@ export async function applyRequestCollectionSetScripts(
     batchId: opts.batchId ?? `request-collection-scripts-${input.collectionUid}`,
   });
   return applySyncPayload(buildSetRequestCollectionScriptsBatch(input, ctx));
+}
+
+export type ApplyRequestCollectionSetSettingsInput = SetRequestCollectionSettingsInput;
+
+/** Persist the collection's inheritable settings — one leaf per knob
+ *  that changed (`settingUpdatesBetween`), never the object whole;
+ *  `value: undefined` clears a knob back to transparent. */
+export async function applyRequestCollectionSetSettings(
+  input: ApplyRequestCollectionSetSettingsInput,
+  opts: RequestCollectionWriteOptions,
+): Promise<RequestCollectionSimpleResult> {
+  const mirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  if (!mirror.getRequestCollectionMirror(input.collectionUid)) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `request-collection-settings-${input.collectionUid}`,
+  });
+  return applySyncPayload(buildSetRequestCollectionSettingsBatch(input, ctx));
 }
 
 export interface ApplyRequestCollectionSetAuthPoolInput {

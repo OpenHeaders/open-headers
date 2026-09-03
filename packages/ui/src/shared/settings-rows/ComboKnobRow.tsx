@@ -27,28 +27,34 @@ const ComboKnobRow: React.FC<{
   placeholder: string;
   disabled?: boolean;
   unsaved?: boolean;
+  /** A line under the row naming where the effective value comes from
+   *  (an inherited setting's source). */
+  note?: React.ReactNode;
   testId?: string;
-}> = ({ label, value, onChange, info, presets, interpret, format, placeholder, disabled, unsaved, testId }) => (
-  <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
-    <Text style={{ fontSize: 13 }}>{label}</Text>
-    <InfoTrigger content={info} />
-    {(unsaved === true || value !== undefined) && <ModifiedDot unsaved={unsaved} />}
-    <span style={{ flex: 1 }} />
-    <ComboKnob
-      value={value}
-      onChange={onChange}
-      presets={presets}
-      interpret={interpret}
-      format={format}
-      placeholder={placeholder}
-      disabled={disabled}
-      ariaLabel={label}
-      testId={testId}
-      style={{ width: CONTROL_WIDTH }}
-    />
-    <ResetSlot>
-      {value !== undefined && disabled !== true && <RowReset label={label} onReset={() => onChange(undefined)} />}
-    </ResetSlot>
+}> = ({ label, value, onChange, info, presets, interpret, format, placeholder, disabled, unsaved, note, testId }) => (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="rules-settings-row" style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+      <Text style={{ fontSize: 13 }}>{label}</Text>
+      <InfoTrigger content={info} />
+      {(unsaved === true || value !== undefined) && <ModifiedDot unsaved={unsaved} />}
+      <span style={{ flex: 1 }} />
+      <ComboKnob
+        value={value}
+        onChange={onChange}
+        presets={presets}
+        interpret={interpret}
+        format={format}
+        placeholder={placeholder}
+        disabled={disabled}
+        ariaLabel={label}
+        testId={testId}
+        style={{ width: CONTROL_WIDTH }}
+      />
+      <ResetSlot>
+        {value !== undefined && disabled !== true && <RowReset label={label} onReset={() => onChange(undefined)} />}
+      </ResetSlot>
+    </div>
+    {note}
   </div>
 );
 

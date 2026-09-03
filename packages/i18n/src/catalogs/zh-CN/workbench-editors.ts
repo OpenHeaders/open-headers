@@ -56,6 +56,10 @@ export const workbenchEditors = {
   'workbench.editors.ancestorAuth.saveFailed': '无法保存授权。',
   'workbench.editors.ancestorAuth.saveFailedDetail': '无法保存授权：{message}',
 
+  // ── Ancestor settings (collection/folder inheritable settings) ─────
+  'workbench.editors.ancestorSettings.saveFailed': '无法保存设置。',
+  'workbench.editors.ancestorSettings.saveFailedDetail': '无法保存设置：{message}',
+
   // ── 请求容器编辑器（集合 / 文件夹：一个标签页，多个分区） ──
   'workbench.editors.requestContainer.tab.overview': '概览',
   'workbench.editors.requestContainer.auth.emptyTitle': '未配置授权',

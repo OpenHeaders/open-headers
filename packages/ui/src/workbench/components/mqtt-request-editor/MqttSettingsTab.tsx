@@ -1,101 +1,21 @@
 /**
- * MqttSettingsTab — per-request connection knobs in the request
- * Settings tab's exact anatomy: collapsible group sections
- * (Connection · Session resilience · Session — MQTT 5.0 · TLS & trust) whose headers carry
- * the (i) group popovers, `label · (i) · control` rows from the shared
- * settings-row family with the effective defaults legible in the
- * controls, modified dots, and per-row resets. The Connection group
- * seats the shared `DialRows` block between the keep-alive and the
- * connect timeout; the TLS & trust group is the shared `TlsTrustGroup`
- * block with the ALPN offer as its MQTT-only row. Every shared row's
- * popover keeps the session example card over the block's own copy.
- *
- * The tab edits the draft directly, so the dots track distance from
- * the PROTOCOL defaults — there is no saved-baseline (unsaved) plane
- * here; the editor's own dirty fingerprint covers "not saved yet".
- * The 5.0-only session group renders disabled-honest on 3.1.1: the
- * group header carries the honest line once and the rows stay
- * visible, disabled, values intact.
+ * MqttSettingsTab — the request's Settings tab: the shared MQTT rows
+ * (`MqttSettingsRows`, the same rows a container's Settings section
+ * renders) over the editor draft. The draft keeps its switches
+ * concrete and the client id as '' — this seam maps them onto the
+ * rows' optional value (a default-equivalent switch reads as absent,
+ * so the dots track distance from the protocol defaults) and
+ * re-concretizes what the rows hand back. There is no saved-baseline
+ * (unsaved) plane here; the editor's own dirty fingerprint covers
+ * "not saved yet".
  */
 
-import {
-  MAX_ALPN_PROTOCOL_LENGTH,
-  MAX_REQUEST_TIMEOUT_MS,
-  MIN_REQUEST_TIMEOUT_MS,
-} from '@openheaders/core/schemas';
-import { useT } from '@openheaders/ui/context/LocaleContext';
-import {
-  byteSizeInterpreter,
-  countInterpreter,
-  durationMsInterpreter,
-  durationSecondsInterpreter,
-  formatByteSize,
-  formatDurationMs,
-  formatDurationSeconds,
-  numericPresets,
-} from '@openheaders/ui/shared/combo-knob';
-import {
-  ComboKnobRow,
-  GroupSection,
-  KnobRow,
-  TextKnobRow,
-} from '@openheaders/ui/shared/settings-rows';
-import { ConfigProvider, Typography, theme } from 'antd';
+import { MQTT_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
 import type React from 'react';
-import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import DialRows, { isDialModified } from '../shared/dial/DialRows';
-import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup';
-import type { ResilienceInfoKey } from '../shared/resilience/resilience-row-info';
-import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
+import { sliceOf } from '../shared/inherited-settings/inherited-settings';
 import type { MqttDraft } from './draft';
-import { type MqttResilienceInfoKey, mqttSettingsGroupInfo, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
-import { MQTT_GROUP_LABEL_KEY } from './settings-groups';
-
-const { Text } = Typography;
-
-/** CONNECT carries the Client ID as UTF-8; brokers must accept at
- *  least 23 bytes but commonly allow far more — cap the field
- *  generously without inviting essays. */
-const MAX_CLIENT_ID_LENGTH = 256;
-
-/** Bounded interpreters + preset lists for the numeric combo knobs —
- *  free text becomes concrete candidates ("30" → "30 s" / "30 min");
- *  readings outside the wire field's range stay visible as disabled
- *  entries naming the violated bound. Keep-alive and session expiry
- *  are whole seconds on the wire; the connect timeout and the
- *  reconnect period are app milliseconds; packet size is bytes. */
-const interpretKeepAlive = durationSecondsInterpreter({ min: 0, max: 65_535 });
-const KEEP_ALIVE_PRESETS = numericPresets([15, 30, 60, 300], formatDurationSeconds);
-const interpretSessionExpiry = durationSecondsInterpreter({ min: 0, max: 0xffff_ffff });
-const SESSION_EXPIRY_PRESETS = numericPresets([300, 3_600, 86_400], formatDurationSeconds);
-const interpretTimeout = durationMsInterpreter({ min: MIN_REQUEST_TIMEOUT_MS, max: MAX_REQUEST_TIMEOUT_MS });
-const TIMEOUT_PRESETS = numericPresets([1_000, 5_000, 10_000, 30_000, 60_000], formatDurationMs);
-const interpretReceiveMaximum = countInterpreter({ min: 1, max: 65_535 });
-const RECEIVE_MAXIMUM_PRESETS = numericPresets([1, 5, 20, 100], String);
-const interpretMaxPacketSize = byteSizeInterpreter({ min: 1, max: 0xffff_ffff });
-const interpretTopicAliasMaximum = countInterpreter({ min: 0, max: 65_535 });
-const TOPIC_ALIAS_MAXIMUM_PRESETS = numericPresets([10, 50, 100], String);
-const MAX_PACKET_SIZE_PRESETS = numericPresets(
-  [64, 256, 1024, 10_240].map((kb) => kb * 1024),
-  formatByteSize,
-);
-
-/** The resilience rows MQTT masks in — the reconnect quartet lights
- *  the session card; the liveness rows never render here. */
-const MQTT_RESILIENCE_ROWS: Record<MqttResilienceInfoKey, true> = {
-  autoReconnect: true,
-  reconnectPeriod: true,
-  reconnectMaxAttempts: true,
-  reconnectBackoff: true,
-};
-const isMqttResilienceRow = (key: ResilienceInfoKey): key is MqttResilienceInfoKey => key in MQTT_RESILIENCE_ROWS;
-
-/** Session-scoped memory of the group folds: the tab unmounts on
- *  every editor tab switch, and a fold choice must survive that.
- *  Shared by every MQTT editor — a fold is a reading preference, not
- *  per-request state — and deliberately not persisted to disk. */
-const sessionCollapsed: Record<string, boolean> = {};
+import MqttSettingsRows, { type MqttSettingsValue } from './MqttSettingsRows';
 
 interface MqttSettingsTabProps {
   draft: MqttDraft;
@@ -103,226 +23,40 @@ interface MqttSettingsTabProps {
   v5: boolean;
 }
 
-const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }) => {
-  const t = useT();
-  const { token } = theme.useToken();
-  // Collapsible group state — all expanded by default; a collapsed
-  // group's header keeps the accent dot while it hides a modified
-  // knob. Folds seed from (and write back to) the session store, so a
-  // fold survives the tab's unmount on every editor tab switch.
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => ({ ...sessionCollapsed }));
-  const toggleGroup = (key: string): void =>
-    setCollapsed((c) => {
-      const next = !(c[key] ?? false);
-      sessionCollapsed[key] = next;
-      return { ...c, [key]: next };
-    });
-  const connectionModified =
-    draft.clientId !== '' ||
-    !draft.cleanStart ||
-    draft.keepAlive !== undefined ||
-    isDialModified(draft) ||
-    draft.timeoutMs !== undefined;
-  const sessionModified =
-    draft.sessionExpiryInterval !== undefined ||
-    draft.receiveMaximum !== undefined ||
-    draft.maximumPacketSize !== undefined ||
-    draft.topicAliasMaximum !== undefined ||
-    draft.requestResponseInformation ||
-    !draft.requestProblemInformation;
+/** The draft as the rows' value: the inheritable keys as they are, the
+ *  concrete switches read as absent at their protocol default, the
+ *  empty client id as absent. */
+function valueOf(draft: MqttDraft): MqttSettingsValue {
+  return {
+    ...sliceOf(draft, MQTT_INHERITABLE_SETTING_KEYS),
+    clientId: draft.clientId === '' ? undefined : draft.clientId,
+    cleanStart: draft.cleanStart ? undefined : false,
+    requestResponseInformation: draft.requestResponseInformation ? true : undefined,
+    requestProblemInformation: draft.requestProblemInformation ? undefined : false,
+    sslVerification: draft.sslVerification ? undefined : false,
+    autoReconnect: draft.autoReconnect ? true : undefined,
+    reconnectBackoff: draft.reconnectBackoff ? undefined : false,
+  };
+}
 
-  return (
-    <ConfigProvider
-      theme={{
-        components: {
-          // An empty knob means "the default in effect" — its stated
-          // default must read as live behavior, not a disabled
-          // control, so placeholders render at full text contrast,
-          // exactly like a set value; the dot and reset affordances
-          // carry the customized-vs-default distinction.
-          Select: { colorTextPlaceholder: token.colorText },
-          Input: { colorTextPlaceholder: token.colorText },
-          InputNumber: { colorTextPlaceholder: token.colorText },
-        },
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
-        <GroupSection
-          label={t(MQTT_GROUP_LABEL_KEY.connection)}
-          expanded={collapsed.connection !== true}
-          onToggle={() => toggleGroup('connection')}
-          info={mqttSettingsGroupInfo(t, 'connection')}
-          modified={connectionModified}
-        >
-          <TextKnobRow
-            label={t('workbench.editors.mqtt.settings.clientIdLabel')}
-            value={draft.clientId === '' ? undefined : draft.clientId}
-            onChange={(clientId) => setDraft((d) => ({ ...d, clientId: clientId ?? '' }))}
-            info={mqttSettingsRowInfo(t, 'clientId')}
-            placeholder={t('workbench.editors.mqtt.settings.clientIdPlaceholder')}
-            maxLength={MAX_CLIENT_ID_LENGTH}
-            example={t('workbench.editors.mqtt.settings.clientIdExample')}
-            testId="mqtt-client-id"
-          />
-          <KnobRow
-            label={t(
-              v5
-                ? 'workbench.editors.mqtt.settings.cleanStartLabel'
-                : 'workbench.editors.mqtt.settings.cleanSessionLabel',
-            )}
-            checked={draft.cleanStart}
-            modified={!draft.cleanStart}
-            onReset={() => setDraft((d) => ({ ...d, cleanStart: true }))}
-            onChange={(cleanStart) => setDraft((d) => ({ ...d, cleanStart }))}
-            info={mqttSettingsRowInfo(t, v5 ? 'cleanStart' : 'cleanSession')}
-            testId="mqtt-clean-start"
-          />
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.keepAliveLabel')}
-            value={draft.keepAlive}
-            onChange={(keepAlive) => setDraft((d) => ({ ...d, keepAlive }))}
-            info={mqttSettingsRowInfo(t, 'keepAlive')}
-            presets={KEEP_ALIVE_PRESETS}
-            interpret={interpretKeepAlive}
-            format={formatDurationSeconds}
-            placeholder={t('workbench.editors.mqtt.settings.keepAlivePlaceholder')}
-            testId="mqtt-keep-alive"
-          />
-          <DialRows
-            groupLabel={t(MQTT_GROUP_LABEL_KEY.connection)}
-            value={draft}
-            onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
-            rowInfo={(key) => mqttSettingsRowInfo(t, key)}
-            testIdPrefix="mqtt"
-          />
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.timeoutLabel')}
-            value={draft.timeoutMs}
-            onChange={(timeoutMs) => setDraft((d) => ({ ...d, timeoutMs }))}
-            info={mqttSettingsRowInfo(t, 'timeout')}
-            presets={TIMEOUT_PRESETS}
-            interpret={interpretTimeout}
-            format={formatDurationMs}
-            placeholder={t('workbench.editors.mqtt.settings.timeoutPlaceholder')}
-            testId="mqtt-timeout"
-          />
-        </GroupSection>
-        <SessionResilienceGroup
-          groupLabel={t(MQTT_GROUP_LABEL_KEY.resilience)}
-          groupInfo={mqttSettingsGroupInfo(t, 'resilience')}
-          expanded={collapsed.resilience !== true}
-          onToggle={() => toggleGroup('resilience')}
-          value={draft}
-          onChange={(next) => setDraft((d) => ({ ...d, ...next }))}
-          liveness="none"
-          rowInfo={(key) => (isMqttResilienceRow(key) ? mqttSettingsRowInfo(t, key) : undefined)}
-          testIdPrefix="mqtt"
-        />
-        <GroupSection
-          label={t(MQTT_GROUP_LABEL_KEY.session)}
-          expanded={collapsed.session !== true}
-          onToggle={() => toggleGroup('session')}
-          info={mqttSettingsGroupInfo(t, 'session')}
-          modified={sessionModified}
-        >
-          {!v5 && (
-            <Text type="secondary" style={{ fontSize: 11, marginBottom: 4 }}>
-              {t('workbench.editors.mqtt.settings.sessionV311')}
-            </Text>
-          )}
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.sessionExpiryLabel')}
-            value={draft.sessionExpiryInterval}
-            onChange={(sessionExpiryInterval) => setDraft((d) => ({ ...d, sessionExpiryInterval }))}
-            info={mqttSettingsRowInfo(t, 'sessionExpiry')}
-            presets={SESSION_EXPIRY_PRESETS}
-            interpret={interpretSessionExpiry}
-            format={formatDurationSeconds}
-            placeholder={t('workbench.editors.mqtt.settings.zeroDefault')}
-            disabled={!v5}
-            testId="mqtt-session-expiry"
-          />
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.receiveMaximumLabel')}
-            value={draft.receiveMaximum}
-            onChange={(receiveMaximum) => setDraft((d) => ({ ...d, receiveMaximum }))}
-            info={mqttSettingsRowInfo(t, 'receiveMaximum')}
-            presets={RECEIVE_MAXIMUM_PRESETS}
-            interpret={interpretReceiveMaximum}
-            format={String}
-            placeholder={t('workbench.editors.mqtt.settings.receiveMaximumPlaceholder')}
-            disabled={!v5}
-            testId="mqtt-receive-maximum"
-          />
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.maxPacketSizeLabel')}
-            value={draft.maximumPacketSize}
-            onChange={(maximumPacketSize) => setDraft((d) => ({ ...d, maximumPacketSize }))}
-            info={mqttSettingsRowInfo(t, 'maxPacketSize')}
-            presets={MAX_PACKET_SIZE_PRESETS}
-            interpret={interpretMaxPacketSize}
-            format={formatByteSize}
-            placeholder={t('workbench.editors.mqtt.settings.noLimit')}
-            disabled={!v5}
-            testId="mqtt-max-packet-size"
-          />
-          <ComboKnobRow
-            label={t('workbench.editors.mqtt.settings.topicAliasMaximumLabel')}
-            value={draft.topicAliasMaximum}
-            onChange={(topicAliasMaximum) => setDraft((d) => ({ ...d, topicAliasMaximum }))}
-            info={mqttSettingsRowInfo(t, 'topicAliasMaximum')}
-            presets={TOPIC_ALIAS_MAXIMUM_PRESETS}
-            interpret={interpretTopicAliasMaximum}
-            format={String}
-            placeholder={t('workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder')}
-            disabled={!v5}
-            testId="mqtt-topic-alias-maximum"
-          />
-          <KnobRow
-            label={t('workbench.editors.mqtt.settings.requestResponseInfoLabel')}
-            checked={draft.requestResponseInformation}
-            modified={draft.requestResponseInformation}
-            onReset={() => setDraft((d) => ({ ...d, requestResponseInformation: false }))}
-            onChange={(requestResponseInformation) => setDraft((d) => ({ ...d, requestResponseInformation }))}
-            info={mqttSettingsRowInfo(t, 'requestResponseInformation')}
-            disabled={!v5}
-            testId="mqtt-request-response-info"
-          />
-          <KnobRow
-            label={t('workbench.editors.mqtt.settings.requestProblemInfoLabel')}
-            checked={draft.requestProblemInformation}
-            modified={!draft.requestProblemInformation}
-            onReset={() => setDraft((d) => ({ ...d, requestProblemInformation: true }))}
-            onChange={(requestProblemInformation) => setDraft((d) => ({ ...d, requestProblemInformation }))}
-            info={mqttSettingsRowInfo(t, 'requestProblemInformation')}
-            disabled={!v5}
-            testId="mqtt-request-problem-info"
-          />
-        </GroupSection>
-        <TlsTrustGroup
-          groupLabel={t(MQTT_GROUP_LABEL_KEY.tls)}
-          groupInfo={mqttSettingsGroupInfo(t, 'tls')}
-          expanded={collapsed.tls !== true}
-          onToggle={() => toggleGroup('tls')}
-          value={draft}
-          onChange={(next) => setDraft((d) => ({ ...d, ...next, sslVerification: next.sslVerification !== false }))}
-          rowInfo={(key) => mqttSettingsRowInfo(t, key)}
-          testIdPrefix="mqtt"
-        >
-          <TextKnobRow
-            label={t('workbench.editors.mqtt.settings.alpnLabel')}
-            value={draft.alpnProtocol}
-            onChange={(alpnProtocol) => setDraft((d) => ({ ...d, alpnProtocol }))}
-            info={mqttSettingsRowInfo(t, 'alpn')}
-            placeholder={t('workbench.editors.mqtt.settings.alpnPlaceholder')}
-            maxLength={MAX_ALPN_PROTOCOL_LENGTH}
-            example={t('workbench.editors.mqtt.settings.alpnExample')}
-            testId="mqtt-alpn-protocol"
-          />
-        </TlsTrustGroup>
-      </div>
-    </ConfigProvider>
-  );
-};
+const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5 }) => (
+  <MqttSettingsRows
+    value={valueOf(draft)}
+    onChange={(next) =>
+      setDraft((d) => ({
+        ...d,
+        ...next,
+        clientId: next.clientId ?? '',
+        cleanStart: next.cleanStart !== false,
+        requestResponseInformation: next.requestResponseInformation === true,
+        requestProblemInformation: next.requestProblemInformation !== false,
+        sslVerification: next.sslVerification !== false,
+        autoReconnect: next.autoReconnect === true,
+        reconnectBackoff: next.reconnectBackoff !== false,
+      }))
+    }
+    v5={v5}
+  />
+);
 
 export default MqttSettingsTab;

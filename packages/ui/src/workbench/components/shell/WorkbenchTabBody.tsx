@@ -106,6 +106,8 @@ interface WorkbenchTabBodyProps {
   openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
   openRequestCollectionAuth: UseTabOpenersApi['openRequestCollectionAuth'];
   openRequestFolderAuth: UseTabOpenersApi['openRequestFolderAuth'];
+  openRequestCollectionSettings: UseTabOpenersApi['openRequestCollectionSettings'];
+  openRequestFolderSettings: UseTabOpenersApi['openRequestFolderSettings'];
   openRequestCollectionScripts: UseTabOpenersApi['openRequestCollectionScripts'];
   openRequestFolderScripts: UseTabOpenersApi['openRequestFolderScripts'];
 
@@ -164,6 +166,8 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openMqttRequestEditTab,
   openRequestCollectionAuth,
   openRequestFolderAuth,
+  openRequestCollectionSettings,
+  openRequestFolderSettings,
   openRequestCollectionScripts,
   openRequestFolderScripts,
   handleSwitchWorkspace,
@@ -188,6 +192,10 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   // onto the container's Scripts section.
   const openContainerScripts = (kind: 'collection' | 'folder', uid: string, name: string) =>
     kind === 'collection' ? openRequestCollectionScripts(uid, name) : openRequestFolderScripts(uid, name);
+  // The Settings rows' "Inherited from … · Edit in parent" line — the
+  // same dispatch onto the container's Settings section.
+  const openContainerSettings = (kind: 'collection' | 'folder', uid: string, name: string) =>
+    kind === 'collection' ? openRequestCollectionSettings(uid, name) : openRequestFolderSettings(uid, name);
   if (tab.mode === 'edit' && tab.ruleUid) {
     return (
       <RuleEditor
@@ -231,6 +239,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
           registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
           onOpenContainerAuth={openContainerAuth}
+          onOpenContainerSettings={openContainerSettings}
         />
       );
     }
@@ -289,6 +298,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
           onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
           registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
           onOpenContainerAuth={openContainerAuth}
+          onOpenContainerSettings={openContainerSettings}
         />
       );
     }

@@ -24,7 +24,9 @@ import {
   buildRenameRequestFolderBatch,
   buildSetRequestFolderAuthPoolBatch,
   buildSetRequestFolderScriptsBatch,
+  buildSetRequestFolderSettingsBatch,
   type SetRequestFolderScriptsInput,
+  type SetRequestFolderSettingsInput,
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import type { AuthPoolEntry } from '@openheaders/core/types';
 import {
@@ -118,6 +120,24 @@ export async function applyRequestFolderSetScripts(
     batchId: opts.batchId ?? `request-folder-scripts-${input.folderUid}`,
   });
   return applySyncPayload(buildSetRequestFolderScriptsBatch(input, ctx));
+}
+
+export type ApplyRequestFolderSetSettingsInput = SetRequestFolderSettingsInput;
+
+/** Persist the folder's inheritable settings — one leaf per knob that
+ *  changed (`settingUpdatesBetween`), never the object whole;
+ *  `value: undefined` clears a knob back to transparent. */
+export async function applyRequestFolderSetSettings(
+  input: ApplyRequestFolderSetSettingsInput,
+  opts: RequestFolderWriteOptions,
+): Promise<RequestFolderSimpleResult> {
+  const mirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  if (!mirror.getRequestFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `request-folder-settings-${input.folderUid}`,
+  });
+  return applySyncPayload(buildSetRequestFolderSettingsBatch(input, ctx));
 }
 
 export interface ApplyRequestFolderSetAuthPoolInput {

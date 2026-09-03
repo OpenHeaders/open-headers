@@ -44,6 +44,10 @@ export const workbenchEditors = {
   'workbench.editors.ancestorAuth.saveFailed': 'Could not save authorization.',
   'workbench.editors.ancestorAuth.saveFailedDetail': 'Could not save authorization: {message}',
 
+  // ── Ancestor settings (collection/folder inheritable settings) ─────
+  'workbench.editors.ancestorSettings.saveFailed': 'Could not save settings.',
+  'workbench.editors.ancestorSettings.saveFailedDetail': 'Could not save settings: {message}',
+
   // ── Request container editor (a collection / folder: one tab, sections) ──
   'workbench.editors.requestContainer.tab.overview': 'Overview',
   'workbench.editors.requestContainer.auth.emptyTitle': 'No auth configured',

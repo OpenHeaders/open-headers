@@ -41,6 +41,8 @@ export type RequestOpeners = Pick<
   | 'openRequestFolderScripts'
   | 'openRequestCollectionAuth'
   | 'openRequestFolderAuth'
+  | 'openRequestCollectionSettings'
+  | 'openRequestFolderSettings'
   | 'openRequestEditTab'
   | 'openCreateRequestTab'
   | 'openGrpcRequestEditTab'
@@ -134,6 +136,16 @@ export function useRequestOpeners(
 
   const openRequestFolderAuth = useCallback(
     (uid: string, name: string) => openRequestContainerSection('folder', uid, name, 'authorization'),
+    [openRequestContainerSection],
+  );
+
+  const openRequestCollectionSettings = useCallback(
+    (uid: string, name: string) => openRequestContainerSection('collection', uid, name, 'settings'),
+    [openRequestContainerSection],
+  );
+
+  const openRequestFolderSettings = useCallback(
+    (uid: string, name: string) => openRequestContainerSection('folder', uid, name, 'settings'),
     [openRequestContainerSection],
   );
 
@@ -527,6 +539,8 @@ export function useRequestOpeners(
     openRequestFolderScripts,
     openRequestCollectionAuth,
     openRequestFolderAuth,
+    openRequestCollectionSettings,
+    openRequestFolderSettings,
     openRequestEditTab,
     openCreateRequestTab,
     openGrpcRequestEditTab,

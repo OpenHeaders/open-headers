@@ -594,6 +594,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.danglingPick':
     "L'entrée choisie par cette requête n'existe plus — le défaut le plus proche s'applique à la place.",
   'workbench.editors.request.auth.editInParent': 'Modifier dans le parent',
+  'workbench.editors.request.settings.inheritedFrom': 'Hérité de {source}',
   'workbench.editors.request.auth.resetToInheritedAuth': "Rétablir l'autorisation héritée",
   'workbench.editors.request.auth.resizeRailAria': "Redimensionner le rail des types d'auth",
   'workbench.editors.request.auth.username': "Nom d'utilisateur",

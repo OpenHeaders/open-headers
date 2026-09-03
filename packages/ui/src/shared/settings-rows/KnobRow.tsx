@@ -28,6 +28,9 @@ const KnobRow: React.FC<{
   onReset?: () => void;
   /** Disabled-honest: the knob stays visible with its value, inert. */
   disabled?: boolean;
+  /** A line under the row naming where the effective value comes from
+   *  (an inherited setting's source); renders after the warning. */
+  note?: React.ReactNode;
   testId?: string;
 }> = ({
   label,
@@ -40,6 +43,7 @@ const KnobRow: React.FC<{
   unsaved,
   onReset,
   disabled,
+  note,
   testId,
 }) => {
   const t = useT();
@@ -71,6 +75,7 @@ const KnobRow: React.FC<{
           {warning}
         </Text>
       )}
+      {note}
     </div>
   );
 };

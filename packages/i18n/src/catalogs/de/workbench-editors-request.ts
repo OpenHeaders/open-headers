@@ -604,6 +604,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.danglingPick':
     'Der von dieser Anfrage gewählte Eintrag existiert nicht mehr — stattdessen gilt der nächstgelegene Standard.',
   'workbench.editors.request.auth.editInParent': 'Im übergeordneten Element bearbeiten',
+  'workbench.editors.request.settings.inheritedFrom': 'Geerbt von {source}',
   'workbench.editors.request.auth.resetToInheritedAuth': 'Auf geerbte Autorisierung zurücksetzen',
   'workbench.editors.request.auth.resizeRailAria': 'Größe der Authentifizierungstyp-Leiste ändern',
   'workbench.editors.request.auth.username': 'Benutzername',

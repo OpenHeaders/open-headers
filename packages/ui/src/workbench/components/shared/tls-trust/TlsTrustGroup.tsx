@@ -36,6 +36,7 @@ import { Typography } from 'antd';
 import type React from 'react';
 import TrustedRootsSettingsRow from '../../trusted-roots/TrustedRootsSettingsRow';
 import VaultSelectFooter from '../../variables/VaultSelectFooter';
+import { type InheritedSettingsView, inheritedRowsFor } from '../inherited-settings/inherited-settings';
 import { type TlsTrustInfoKey, tlsTrustRowInfo } from './tls-trust-row-info';
 
 const { Text } = Typography;
@@ -93,6 +94,14 @@ export interface TlsTrustGroupProps {
   /** Keys whose value differs from the saved baseline (the HTTP tab's
    *  unsaved plane); absent = no such plane. */
   unsaved?: ReadonlySet<string>;
+  /** The ancestor plane: inherited values as placeholders (a switch's
+   *  effective state) with their source line; on it explicit wins —
+   *  any own value dots, whatever it is. Absent = the runtime-default
+   *  plane (dots track distance from the defaults). */
+  inherited?: InheritedSettingsView;
+  /** The Trusted certificates row — a workspace / device fact, off on
+   *  a container's surface (a container inherits nothing there). */
+  trustedRootsRow?: boolean;
   /** `<prefix>-ssl-verify`, `<prefix>-trusted-roots`, … */
   testIdPrefix: string;
   /** Protocol-only rows, rendered after the shared ones. */
@@ -108,12 +117,18 @@ const TlsTrustGroup: React.FC<TlsTrustGroupProps> = ({
   onChange,
   rowInfo,
   unsaved,
+  inherited,
+  trustedRootsRow = true,
   testIdPrefix,
   children,
 }) => {
   const t = useT();
   const info = (key: TlsTrustInfoKey): InfoPopoverContent => rowInfo?.(key) ?? tlsTrustRowInfo(t, key, groupLabel);
   const isUnsaved = (key: TlsTrustKey): boolean => unsaved?.has(key) === true;
+  const rows = inheritedRowsFor(inherited);
+  const explicit = inherited !== undefined;
+  const verification = rows.toggle('sslVerification', value.sslVerification, true);
+  const versionLabel = (version: TlsVersion): string => version;
   // The client-certificate knob picks over THIS device's vault entries
   // by name — the request stores the name, each device resolves its
   // own entry; a ref with no entry here warns in place. The context
@@ -134,28 +149,34 @@ const TlsTrustGroup: React.FC<TlsTrustGroupProps> = ({
       expanded={expanded}
       onToggle={onToggle}
       info={groupInfo}
-      modified={isTlsTrustModified(value)}
+      modified={explicit ? TLS_TRUST_KEYS.some((key) => value[key] !== undefined) : isTlsTrustModified(value)}
       unsaved={TLS_TRUST_KEYS.some(isUnsaved)}
     >
       <KnobRow
         label={t('workbench.editors.request.settings.sslVerification')}
-        checked={value.sslVerification !== false}
-        modified={value.sslVerification === false}
+        checked={verification.checked}
+        modified={explicit ? value.sslVerification !== undefined : value.sslVerification === false}
         unsaved={isUnsaved('sslVerification')}
         onReset={() => set({ sslVerification: undefined })}
         onChange={(checked) => set({ sslVerification: checked })}
         info={info('sslVerification')}
         warning={t('workbench.editors.request.settings.sslVerificationWarning')}
+        note={verification.note}
         testId={`${testIdPrefix}-ssl-verify`}
       />
-      <TrustedRootsSettingsRow kicker={groupLabel} testId={`${testIdPrefix}-trusted-roots`} />
+      {trustedRootsRow && <TrustedRootsSettingsRow kicker={groupLabel} testId={`${testIdPrefix}-trusted-roots`} />}
       <SelectKnobRow
         label={t('workbench.editors.request.settings.clientCertificate')}
         value={value.clientCertificateRef}
         onChange={(clientCertificateRef) => set({ clientCertificateRef })}
         info={info('clientCertificate')}
         options={clientCertificateOptions}
-        placeholder={t('workbench.editors.request.settings.clientCertificatePlaceholder')}
+        {...rows.field(
+          'clientCertificateRef',
+          value.clientCertificateRef,
+          t('workbench.editors.request.settings.clientCertificatePlaceholder'),
+          String,
+        )}
         searchable
         notFoundContent={
           <Text type="secondary" style={{ fontSize: 12, padding: '6px 8px' }}>
@@ -190,7 +211,12 @@ const TlsTrustGroup: React.FC<TlsTrustGroupProps> = ({
           label: v,
           disabled: value.tlsMaxVersion !== undefined && tlsVersionRank(v) > tlsVersionRank(value.tlsMaxVersion),
         }))}
-        placeholder={t('workbench.editors.request.settings.tlsMinPlaceholder')}
+        {...rows.field(
+          'tlsMinVersion',
+          value.tlsMinVersion,
+          t('workbench.editors.request.settings.tlsMinPlaceholder'),
+          versionLabel,
+        )}
         modified={value.tlsMinVersion !== undefined}
         unsaved={isUnsaved('tlsMinVersion')}
         warning={
@@ -210,7 +236,12 @@ const TlsTrustGroup: React.FC<TlsTrustGroupProps> = ({
           label: v,
           disabled: value.tlsMinVersion !== undefined && tlsVersionRank(v) < tlsVersionRank(value.tlsMinVersion),
         }))}
-        placeholder={t('workbench.editors.request.settings.tlsMaxPlaceholder')}
+        {...rows.field(
+          'tlsMaxVersion',
+          value.tlsMaxVersion,
+          t('workbench.editors.request.settings.tlsMaxPlaceholder'),
+          versionLabel,
+        )}
         modified={value.tlsMaxVersion !== undefined}
         unsaved={isUnsaved('tlsMaxVersion')}
         testId={`${testIdPrefix}-tls-max`}
@@ -220,7 +251,12 @@ const TlsTrustGroup: React.FC<TlsTrustGroupProps> = ({
         value={value.tlsCipherSuites}
         onChange={(tlsCipherSuites) => set({ tlsCipherSuites })}
         info={info('tlsCipherSuites')}
-        placeholder={t('workbench.editors.request.settings.tlsCipherSuitesPlaceholder')}
+        {...rows.field(
+          'tlsCipherSuites',
+          value.tlsCipherSuites,
+          t('workbench.editors.request.settings.tlsCipherSuitesPlaceholder'),
+          String,
+        )}
         maxLength={MAX_TLS_CIPHER_SUITES_LENGTH}
         error={
           value.tlsCipherSuites !== undefined && !TLS_CIPHER_SUITES_PATTERN.test(value.tlsCipherSuites)
@@ -236,7 +272,7 @@ const TlsTrustGroup: React.FC<TlsTrustGroupProps> = ({
         value={value.sniServerName}
         onChange={(sniServerName) => set({ sniServerName })}
         info={info('sni')}
-        placeholder={t('workbench.editors.request.settings.sniPlaceholder')}
+        {...rows.field('sniServerName', value.sniServerName, t('workbench.editors.request.settings.sniPlaceholder'), String)}
         maxLength={MAX_SNI_SERVER_NAME_LENGTH}
         example={t('workbench.editors.request.settings.sniExample')}
         unsaved={isUnsaved('sniServerName')}

@@ -542,6 +542,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.danglingPick':
     'The entry this request picked no longer exists \u2014 the nearest default applies instead.',
   'workbench.editors.request.auth.editInParent': 'Edit in parent',
+  // The settings rows' inherited line — {source} is the level label
+  // above (Collection ‘X’ / Folder ‘X’).
+  'workbench.editors.request.settings.inheritedFrom': 'Inherited from {source}',
   'workbench.editors.request.auth.resetToInheritedAuth': 'Reset to inherited auth',
   'workbench.editors.request.auth.resizeRailAria': 'Resize auth-type rail',
   'workbench.editors.request.auth.username': 'Username',

@@ -17,6 +17,13 @@
  *     folder's own pool, Reset returning to inherited;
  *   - an asked-for section is honored, a user switch is reported, and
  *     viewing Scripts reports the review gesture;
+ *   - the Settings section: the four kind sub-tabs over the request
+ *     rows (no managed sheet, no script-mode, no trusted-roots row, no
+ *     request-only rows), a shared knob edited on one sub-tab reading
+ *     on the others, Save handing the write client the changed knobs
+ *     alone (a cleared knob as an unset), the rail dot on the per-knob
+ *     flags, a folder's rows showing the collection's values as
+ *     placeholders with the inherited line and the Edit-in opener;
  *   - the request-level Authorization tab's Inherit pane names the
  *     resolved entry with the Inherited tag, the Edit-in opener and
  *     the inert form, and with ancestry the select lists the entries
@@ -27,9 +34,9 @@ import { registerCapability, unregisterCapability } from '@openheaders/core/capa
 import { scriptSlotPath } from '@openheaders/core/scripts';
 import type { AuthConfig, AuthPoolEntry, Collection, CollectionTree } from '@openheaders/core/types';
 import type { OAuthBundlesContextValue } from '@openheaders/ui/context';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from 'antd';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 if (typeof document.queryCommandSupported !== 'function') {
   document.queryCommandSupported = (() => false) as typeof document.queryCommandSupported;
@@ -161,15 +168,19 @@ vi.mock('@openheaders/ui/shared/hooks/mutators/useVariableMutator', () => ({
 }));
 const applyRequestCollectionSetAuthPool = vi.fn(async () => ({ ok: true as const }));
 const applyRequestCollectionSetScripts = vi.fn(async () => ({ ok: true as const }));
+const applyRequestCollectionSetSettings = vi.fn(async () => ({ ok: true as const }));
 vi.mock('@openheaders/ui/shared/sync/request-collection-write-client', () => ({
   applyRequestCollectionSetAuthPool,
   applyRequestCollectionSetScripts,
+  applyRequestCollectionSetSettings,
 }));
 const applyRequestFolderSetAuthPool = vi.fn(async () => ({ ok: true as const }));
 const applyRequestFolderSetScripts = vi.fn(async () => ({ ok: true as const }));
+const applyRequestFolderSetSettings = vi.fn(async () => ({ ok: true as const }));
 vi.mock('@openheaders/ui/shared/sync/request-folder-write-client', () => ({
   applyRequestFolderSetAuthPool,
   applyRequestFolderSetScripts,
+  applyRequestFolderSetSettings,
 }));
 
 const { default: RequestContainerEditor } = await import(
@@ -230,14 +241,14 @@ function sectionTabs(): string[] {
 }
 
 describe('RequestContainerEditor — sections', () => {
-  it('a collection shows Overview · Authorization · Scripts · Variables, in that order', () => {
+  it('a collection shows Overview · Authorization · Scripts · Settings · Variables, in that order', () => {
     renderEditor();
-    expect(sectionTabs()).toEqual(['Overview', 'Authorization', 'Scripts', 'Variables']);
+    expect(sectionTabs()).toEqual(['Overview', 'Authorization', 'Scripts', 'Settings', 'Variables']);
   });
 
   it('a folder carries no Variables section', () => {
     renderEditor({ kind: 'folder', entityUid: 'fld00001' });
-    expect(sectionTabs()).toEqual(['Overview', 'Authorization', 'Scripts']);
+    expect(sectionTabs()).toEqual(['Overview', 'Authorization', 'Scripts', 'Settings']);
   });
 
   it('the overview offers Add Request only — no Variables / Scripts / Authorization buttons', () => {
@@ -342,6 +353,164 @@ async function pickMenuItem(trigger: HTMLElement, label: string): Promise<void> 
 function entryRows(): HTMLElement[] {
   return screen.getAllByTestId('oh-auth-pool-entry');
 }
+
+describe('RequestContainerEditor — the Settings section', () => {
+  // The node runtime: the TLS & trust group (SSL certificate
+  // verification — ONE knob for every kind) renders on every sub-tab.
+  beforeEach(() => {
+    registerCapability('requestRuntime', () => 'node');
+  });
+  afterEach(() => {
+    unregisterCapability('requestRuntime');
+  });
+
+  const kindTabs = (): string[] =>
+    within(screen.getByTestId('oh-container-settings-kinds'))
+      .getAllByRole('tab')
+      .map((tab) => tab.textContent ?? '');
+  const sslSwitch = (prefix: string): HTMLElement => screen.getByTestId(`${prefix}-ssl-verify`);
+  const timeoutKnob = (): HTMLInputElement =>
+    screen.getByRole('combobox', { name: 'Request timeout' }) as HTMLInputElement;
+  const settingsRailTab = (): HTMLElement => screen.getByRole('tab', { name: /Settings/ });
+  // The picked sub-tab is session memory (a reading preference that
+  // survives the section's remount) — every leg opens on HTTP itself.
+  const renderSettings = (props: Partial<React.ComponentProps<typeof RequestContainerEditor>> = {}) => {
+    const rendered = renderEditor({ section: 'settings', ...props });
+    fireEvent.click(screen.getByRole('tab', { name: 'HTTP' }));
+    return rendered;
+  };
+
+  it('carries the four kind sub-tabs, HTTP first, over the request rows — no managed sheet, no script-mode row, no trusted-roots row', () => {
+    renderSettings();
+    expect(kindTabs()).toEqual(['HTTP', 'WebSocket', 'MQTT', 'gRPC']);
+    expect(timeoutKnob()).toBeTruthy();
+    expect(sslSwitch('request')).toBeTruthy();
+    expect(screen.queryByTestId('oh-managed-scripts-row')).toBeNull();
+    expect(screen.queryByTestId('oh-script-mode-select')).toBeNull();
+    expect(screen.queryByTestId('request-trusted-roots')).toBeNull();
+    expect(screen.queryByTestId('oh-cookie-jar-row')).toBeNull();
+  });
+
+  it('the session sub-tabs leave the request-only rows out and show every flavor’s rows', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: 'WebSocket' }));
+    expect(screen.queryByTestId('websocket-subprotocols')).toBeNull();
+    expect(screen.queryByTestId('websocket-namespace')).toBeNull();
+    expect(screen.getByTestId('websocket-handshake-path')).toBeTruthy();
+    expect(screen.getByTestId('websocket-heartbeat-message')).toBeTruthy();
+    expect(screen.queryByTestId('websocket-trusted-roots')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'MQTT' }));
+    expect(screen.queryByTestId('mqtt-client-id')).toBeNull();
+    expect(screen.getByTestId('mqtt-session-expiry').hasAttribute('disabled')).toBe(false);
+    fireEvent.click(screen.getByRole('tab', { name: 'gRPC' }));
+    expect(screen.queryByTestId('grpc-authority')).toBeNull();
+    expect(screen.queryByTestId('grpc-send-invalid-message')).toBeNull();
+    expect(screen.queryByTestId('grpc-managed-compression')).toBeNull();
+    expect(headerButton('Saved').disabled).toBe(true);
+  });
+
+  it('a shared knob edited on one sub-tab shows on the others; the sub-tab and rail dots follow the per-knob flags', () => {
+    renderSettings();
+    expect(screen.queryByTestId('oh-section-unsaved')).toBeNull();
+    expect(sslSwitch('request').getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(sslSwitch('request'));
+    expect(sslSwitch('request').getAttribute('aria-checked')).toBe('false');
+    // The rail's Settings tab counts the one set knob, unsaved; the
+    // HTTP sub-tab dots unsaved — and so does every other kind's, the
+    // knob being one row everywhere.
+    expect(within(settingsRailTab()).getByTestId('oh-section-count-unsaved').textContent).toBe('1');
+    for (const kind of ['http', 'websocket', 'mqtt', 'grpc']) {
+      expect(
+        within(screen.getByTestId(`oh-container-settings-kind-${kind}`)).getByTestId('oh-section-unsaved'),
+      ).toBeTruthy();
+    }
+    fireEvent.click(screen.getByRole('tab', { name: 'WebSocket' }));
+    expect(sslSwitch('websocket').getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(screen.getByRole('tab', { name: 'MQTT' }));
+    expect(sslSwitch('mqtt').getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(screen.getByRole('tab', { name: 'gRPC' }));
+    expect(sslSwitch('grpc').getAttribute('aria-checked')).toBe('false');
+    // Back on HTTP the row's reset clears the knob — nothing unsaved.
+    fireEvent.click(screen.getByRole('tab', { name: 'HTTP' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset SSL certificate verification to default' }));
+    expect(screen.queryByTestId('oh-section-unsaved')).toBeNull();
+    expect(headerButton('Saved').disabled).toBe(true);
+  });
+
+  it('Save hands the write client the changed knobs alone — a cleared knob rides as an unset', async () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false, maxRedirects: 5 } })],
+    };
+    renderSettings();
+    expect(within(settingsRailTab()).queryByTestId('oh-section-count-unsaved')).toBeNull();
+    expect(timeoutKnob().value).toBe('30 s');
+    fireEvent.click(sslSwitch('request'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Request timeout to default' }));
+    expect(within(settingsRailTab()).getByTestId('oh-section-count-unsaved').textContent).toBe('2');
+
+    fireEvent.click(await findSaveButton());
+    await waitFor(() => expect(applyRequestCollectionSetSettings).toHaveBeenCalledTimes(1));
+    expect(applyRequestCollectionSetSettings).toHaveBeenCalledWith(
+      {
+        collectionUid: 'col00001',
+        updates: [
+          { key: 'sslVerification', value: true },
+          { key: 'timeoutMs', value: undefined },
+        ],
+      },
+      { workspaceId: 'ws00001', surfaceId: 'workbench' },
+    );
+    expect(applyRequestCollectionSetAuthPool).not.toHaveBeenCalled();
+    expect(applyRequestCollectionSetScripts).not.toHaveBeenCalled();
+  });
+
+  it('a folder shows the collection’s values as placeholders with the inherited line; Edit in parent opens the source; its own value writes through the folder client', async () => {
+    requestsState = {
+      ...requestsState,
+      collections: [makeCollection({ settings: { timeoutMs: 30_000, sslVerification: false } })],
+    };
+    const onOpenContainerSettings = vi.fn();
+    renderSettings({ kind: 'folder', entityUid: 'fld00001', onOpenContainerSettings });
+    // The inherited value reads as the placeholder (no own value, no
+    // dot); the switch shows the inherited state.
+    expect(timeoutKnob().value).toBe('');
+    // rc-select renders the placeholder as a sibling span, not an
+    // input attribute.
+    expect(screen.getByText('30 s')).toBeTruthy();
+    expect(sslSwitch('request').getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByTestId('oh-setting-modified-dot')).toBeNull();
+    const notes = screen.getAllByTestId('oh-inherited-setting-note');
+    expect(notes.map((note) => note.getAttribute('data-key'))).toEqual(['sslVerification', 'timeoutMs']);
+    expect(notes[1].textContent).toContain('Inherited from Collection ‘Payments’');
+    fireEvent.click(within(notes[1]).getByTestId('oh-inherited-setting-edit-in-parent'));
+    expect(onOpenContainerSettings).toHaveBeenCalledWith('collection', 'col00001', 'Payments');
+    expect(headerButton('Saved').disabled).toBe(true);
+
+    // The folder's own timeout shadows the collection's — the line
+    // leaves the row; Save writes the one knob through the folder
+    // client.
+    fireEvent.change(timeoutKnob(), { target: { value: '5s' } });
+    fireEvent.blur(timeoutKnob());
+    expect(timeoutKnob().value).toBe('5 s');
+    expect(screen.getAllByTestId('oh-inherited-setting-note').map((n) => n.getAttribute('data-key'))).toEqual([
+      'sslVerification',
+    ]);
+    fireEvent.click(await findSaveButton());
+    await waitFor(() => expect(applyRequestFolderSetSettings).toHaveBeenCalledTimes(1));
+    expect(applyRequestFolderSetSettings).toHaveBeenCalledWith(
+      { folderUid: 'fld00001', updates: [{ key: 'timeoutMs', value: 5000 }] },
+      { workspaceId: 'ws00001', surfaceId: 'workbench' },
+    );
+    expect(applyRequestCollectionSetSettings).not.toHaveBeenCalled();
+  });
+
+  it('a collection’s rows read the runtime defaults — no inherited line anywhere', () => {
+    renderSettings();
+    expect(screen.getByText('No limit')).toBeTruthy();
+    expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
+  });
+});
 
 describe('RequestContainerEditor — the empty state', () => {
   it('a transparent collection shows the type card grid; a card mints the default entry, Save writes it', async () => {
