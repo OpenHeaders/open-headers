@@ -155,7 +155,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 120 }}>
+    <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
       <ScriptRail
         groups={groups}
         grouped={scope === 'container'}
@@ -164,7 +164,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         unsaved={unsaved}
         onSelect={setActive}
       />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, minHeight: 120 }}>
         {/* Toolbar row ABOVE the editor (labelled variant of the shared
             cluster) — keeps the buttons out of the buffer so they never
             cover long first lines. */}

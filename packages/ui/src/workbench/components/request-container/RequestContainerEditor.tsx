@@ -438,7 +438,16 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         );
       case 'authorization':
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24, overflow: 'auto' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              boxSizing: 'border-box',
+              padding: 24,
+              overflow: 'auto',
+            }}
+          >
             <SuggestionContextProvider value={{ collectionId: suggestionCollectionId }}>
               <AuthPoolSection
                 kind={kind}
@@ -452,7 +461,15 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         );
       case 'scripts':
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 24 }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              boxSizing: 'border-box',
+              padding: 24,
+            }}
+          >
             <SuggestionContextProvider value={{ collectionId: suggestionCollectionId }}>
               <ScriptsTab
                 scope="container"

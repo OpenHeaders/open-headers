@@ -250,6 +250,32 @@ describe('RequestContainerEditor — sections', () => {
     expect(onSectionChange).toHaveBeenCalledWith('scripts');
     expect(onScriptsViewed).toHaveBeenCalledWith('col00001');
   });
+
+  // The section wrapper — the padded box under the tab strip. 100% tall
+  // AND padded, it must be border-box, or it runs 48px past its clipped
+  // parent and the pane's bottom edge is cut off.
+  const sectionOf = (node: HTMLElement): HTMLElement | null => {
+    let el: HTMLElement | null = node.parentElement;
+    while (el && el.style.padding !== '24px') el = el.parentElement;
+    return el;
+  };
+
+  it('the Scripts section is a border-box pane; the four-group rail scrolls on its own, the editor keeps the pane', () => {
+    renderEditor({ section: 'scripts' });
+    const rail = screen.getByTestId('oh-script-rail');
+    expect(screen.getAllByTestId('oh-script-rail-group')).toHaveLength(4);
+    expect(rail.style.overflowY).toBe('auto');
+    const section = sectionOf(rail);
+    expect(section?.style.boxSizing).toBe('border-box');
+    expect(section?.style.overflow).toBe('');
+  });
+
+  it('the Authorization section is the same border-box pane, scrolling as a whole', () => {
+    renderEditor({ section: 'authorization' });
+    const section = sectionOf(screen.getByTestId('oh-auth-pool-empty'));
+    expect(section?.style.boxSizing).toBe('border-box');
+    expect(section?.style.overflow).toBe('auto');
+  });
 });
 
 /** Open a type select from the keyboard and pick `label`. */
