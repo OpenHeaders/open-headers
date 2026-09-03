@@ -260,7 +260,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.scripts.failed': '{count} en échec',
   'workbench.editors.mqtt.session.scripts.dropped': '{count} abandonnés',
   'workbench.editors.mqtt.session.scripts.marksCapped':
-    "Le détail par événement s'est arrêté après {count} exécutions ; les compteurs du tag Scripts ont continué.",
+    'Le détail par événement s’est arrêté après {count} exécutions ; les hooks continuent de s’exécuter et les compteurs complets arrivent à la fin de la session.',
   'workbench.editors.mqtt.session.duration': '{ms} ms',
   'workbench.editors.mqtt.session.sendIdle': 'Connectez-vous pour publier des messages.',
   'workbench.editors.mqtt.session.sendFailed': 'La publication du message a échoué',

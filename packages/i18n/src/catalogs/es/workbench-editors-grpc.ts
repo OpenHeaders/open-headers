@@ -260,7 +260,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.scripts.failed': '{count} fallidas',
   'workbench.editors.grpc.scripts.dropped': '{count} descartados',
   'workbench.editors.grpc.scripts.marksCapped':
-    'El detalle por mensaje se detuvo tras {count} ejecuciones; los conteos de la etiqueta Scripts siguieron.',
+    'El detalle por mensaje se detuvo tras {count} ejecuciones; los hooks siguen ejecutándose y los conteos completos llegan al terminar la llamada.',
   'workbench.editors.grpc.toast.deletedOtherTab': 'La solicitud gRPC se eliminó desde otra pestaña',
   'workbench.editors.grpc.toast.updateFailed': 'No se pudo actualizar la solicitud gRPC',
   'workbench.editors.grpc.toast.updateFailedDetail': 'No se pudo actualizar la solicitud gRPC: {message}',

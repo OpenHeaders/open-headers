@@ -24,17 +24,19 @@ import type {
   SessionHookInput,
   SessionScriptKind,
 } from '@openheaders/core/scripts';
-import type {
-  ExecutedScriptFold,
-  ExecutedSessionScriptMark,
-  ScriptEventLevelSummary,
-  ScriptEventSummary,
+import {
+  type ExecutedScriptFold,
+  type ExecutedSessionScriptMark,
+  MAX_SESSION_SCRIPT_MARKS,
+  type ScriptEventLevelSummary,
+  type ScriptEventSummary,
 } from '@openheaders/core/types';
 import { type ChainFold, type ChainScript, runScriptChain } from './script-chain';
 import type { SessionScriptHost } from './script-hooks';
 
-/** Per-event marks stop past this many — the tallies keep counting. */
-export const MAX_SESSION_SCRIPT_MARKS = 1000;
+// The cap is core's (the panes read it too — a live pane holding this
+// many marks knows the detail stopped); re-exported for the executors.
+export { MAX_SESSION_SCRIPT_MARKS };
 
 /** The composed chain per hook — an empty chain means the hook never runs. */
 export type SessionScriptChains<K extends SessionScriptKind> = Readonly<Record<K, readonly ChainScript[]>>;

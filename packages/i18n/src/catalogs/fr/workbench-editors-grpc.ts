@@ -251,7 +251,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.scripts.failed': '{count} en échec',
   'workbench.editors.grpc.scripts.dropped': '{count} abandonnés',
   'workbench.editors.grpc.scripts.marksCapped':
-    'Le détail par message s’est arrêté après {count} exécutions ; les comptes de l’étiquette Scripts ont continué.',
+    'Le détail par message s’est arrêté après {count} exécutions ; les hooks continuent de s’exécuter et les comptes complets arrivent à la fin de l’appel.',
   'workbench.editors.grpc.toast.deletedOtherTab': 'La requête gRPC a été supprimée depuis un autre onglet',
   'workbench.editors.grpc.toast.updateFailed': 'Échec de la mise à jour de la requête gRPC',
   'workbench.editors.grpc.toast.updateFailedDetail': 'Échec de la mise à jour de la requête gRPC : {message}',

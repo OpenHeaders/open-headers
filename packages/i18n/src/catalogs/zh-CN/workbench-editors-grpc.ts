@@ -218,7 +218,8 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.scripts.runsOne': '1 次运行',
   'workbench.editors.grpc.scripts.failed': '{count} 次失败',
   'workbench.editors.grpc.scripts.dropped': '{count} 条被丢弃',
-  'workbench.editors.grpc.scripts.marksCapped': '逐消息详情在 {count} 次运行后停止；脚本标签中的计数仍在继续。',
+  'workbench.editors.grpc.scripts.marksCapped':
+    '逐消息详情在 {count} 次运行后停止记录；钩子仍在继续运行，完整计数将在调用结束时给出。',
   'workbench.editors.grpc.toast.deletedOtherTab': 'gRPC 请求已从另一个标签页中被删除',
   'workbench.editors.grpc.toast.updateFailed': '更新 gRPC 请求失败',
   'workbench.editors.grpc.toast.updateFailedDetail': '更新 gRPC 请求失败：{message}',

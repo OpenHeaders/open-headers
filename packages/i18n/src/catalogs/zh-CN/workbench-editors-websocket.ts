@@ -305,5 +305,5 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.scripts.failed': '{count} 次失败',
   'workbench.editors.websocket.session.scripts.dropped': '{count} 次丢弃',
   'workbench.editors.websocket.session.scripts.marksCapped':
-    '逐事件详情在 {count} 次运行后停止记录；脚本标签中的计数仍在继续。',
+    '逐事件详情在 {count} 次运行后停止记录；钩子仍在继续运行，完整计数将在会话结束时给出。',
 } as const satisfies Catalog;

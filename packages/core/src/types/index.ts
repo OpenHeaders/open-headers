@@ -266,6 +266,7 @@ export type {
   ScriptEventSummary,
   TrustCertificateErrorHint,
 } from './request-execution';
+export { MAX_SESSION_SCRIPT_MARKS } from './request-execution';
 // ── Response example ───────────────────────────────────────────────
 export type { CapturedRequest, CapturedResponse, ResponseExample } from './response-example';
 // ── Rule ───────────────────────────────────────────────────────────

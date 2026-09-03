@@ -239,7 +239,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.session.scripts.runsOne': '1 次运行',
   'workbench.editors.mqtt.session.scripts.failed': '{count} 次失败',
   'workbench.editors.mqtt.session.scripts.dropped': '{count} 条丢弃',
-  'workbench.editors.mqtt.session.scripts.marksCapped': '逐事件详情在 {count} 次运行后停止；脚本标签中的计数仍在继续。',
+  'workbench.editors.mqtt.session.scripts.marksCapped':
+    '逐事件详情在 {count} 次运行后停止记录；钩子仍在继续运行，完整计数将在会话结束时给出。',
   'workbench.editors.mqtt.session.duration': '{ms} 毫秒',
   'workbench.editors.mqtt.session.sendIdle': '连接后即可发布消息。',
   'workbench.editors.mqtt.session.sendFailed': '发布消息失败',

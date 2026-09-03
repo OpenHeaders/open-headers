@@ -341,5 +341,5 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.scripts.failed': '{count} fallidas',
   'workbench.editors.websocket.session.scripts.dropped': '{count} descartados',
   'workbench.editors.websocket.session.scripts.marksCapped':
-    'El detalle por evento se detuvo tras {count} ejecuciones; los recuentos de la etiqueta Scripts siguieron.',
+    'El detalle por evento se detuvo tras {count} ejecuciones; los hooks siguen ejecutándose y los recuentos completos llegan al cerrarse la sesión.',
 } as const satisfies Catalog;

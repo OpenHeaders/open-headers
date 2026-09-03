@@ -10,11 +10,12 @@
  */
 
 import type { SessionScriptKind } from '@openheaders/core/scripts';
-import type {
-  ExecutedScriptFold,
-  ExecutedSessionScriptMark,
-  ScriptEventLevelSummary,
-  ScriptEventSummary,
+import {
+  type ExecutedScriptFold,
+  type ExecutedSessionScriptMark,
+  MAX_SESSION_SCRIPT_MARKS,
+  type ScriptEventLevelSummary,
+  type ScriptEventSummary,
 } from '@openheaders/core/types';
 
 /** A `script` mark as a pane holds it — with its display index and,
@@ -87,7 +88,11 @@ export function finishDigest<K extends SessionScriptKind>(
   };
 }
 
-/** The live session's digest — off the marks the feed carried so far. */
+/** The live session's digest — off the marks the feed carried so far.
+ *  The plane records no mark past the cap, so a pane holding the cap's
+ *  worth knows the detail stopped (the settled record says so itself);
+ *  a feed whose early marks rolled away under the capture's retention
+ *  reads under the cap until the record lands. */
 export function digestFromMarks<K extends SessionScriptKind>(
   marks: readonly SessionScriptMarkItem<K>[],
   order: readonly K[],
@@ -101,7 +106,7 @@ export function digestFromMarks<K extends SessionScriptKind>(
     }
     tallyMark(digest, mark);
   }
-  return finishDigest(byHook, order, false);
+  return finishDigest(byHook, order, marks.length >= MAX_SESSION_SCRIPT_MARKS);
 }
 
 /** A once-per-session hook's record as its digest — the fold ran

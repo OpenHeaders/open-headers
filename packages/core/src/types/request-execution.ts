@@ -284,6 +284,15 @@ export interface ScriptEventSummary {
 }
 
 /**
+ * Per-event script marks stop past this many in one session — the
+ * plane records no mark after it (never rolls, so the timeline's
+ * positional joins hold) while the record's tallies keep counting;
+ * the record says so (`marksCapped`), and a live pane holding this
+ * many marks knows the detail has stopped.
+ */
+export const MAX_SESSION_SCRIPT_MARKS = 1000;
+
+/**
  * One session script hook ran — the per-event detail every session
  * family's timeline mark shares: the levels that ran with their
  * verdicts, the folded error, the console output and the assertions

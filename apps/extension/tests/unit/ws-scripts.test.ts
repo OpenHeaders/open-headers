@@ -2,10 +2,11 @@
  * The session pane's scripts digest — one tally per hook over the live
  * feed's marks or the settled snapshot's record, in hook order, hooks
  * that never ran absent; the record's Before connect fold reads its
- * dial count as the runs and the mark cap flag rides through.
+ * dial count as the runs and the mark cap flag rides through; live,
+ * a feed holding the cap's worth of marks reads as capped.
  */
 
-import type { ExecutedWsScripts } from '@openheaders/core/types';
+import { type ExecutedWsScripts, MAX_SESSION_SCRIPT_MARKS } from '@openheaders/core/types';
 import {
   digestFromMarks,
   digestFromRecord,
@@ -59,6 +60,14 @@ describe('digestFromMarks', () => {
 
   it('is empty without marks', () => {
     expect(digestFromMarks([])).toEqual({ hooks: [], runs: 0, failed: 0, marksCapped: false });
+  });
+
+  it("reads the cap live — a feed holding the cap's worth of marks knows the detail stopped", () => {
+    const marks = Array.from({ length: MAX_SESSION_SCRIPT_MARKS }, (_, i) => mark({ atIndex: i }));
+    expect(digestFromMarks(marks.slice(0, -1)).marksCapped).toBe(false);
+    const capped = digestFromMarks(marks);
+    expect(capped.marksCapped).toBe(true);
+    expect(capped.runs).toBe(MAX_SESSION_SCRIPT_MARKS);
   });
 });
 

@@ -281,7 +281,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.session.scripts.failed': '{count} failed',
   'workbench.editors.websocket.session.scripts.dropped': '{count} dropped',
   'workbench.editors.websocket.session.scripts.marksCapped':
-    'Per-event detail stopped after {count} runs; the counts in the Scripts tag kept going.',
+    'Per-event detail stopped after {count} runs; the hooks keep running and the full counts land when the session settles.',
   'workbench.editors.websocket.timeline.filterAll': 'All',
   'workbench.editors.websocket.timeline.filterSent': 'Sent',
   'workbench.editors.websocket.timeline.filterReceived': 'Received',
