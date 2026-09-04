@@ -61,7 +61,11 @@ const ServerAdminPanel: React.FC<ServerAdminPanelProps> = ({ info, onClose, onOp
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }} data-testid="server-admin-panel">
+    <div
+      className="rules-right-panel rules-right-panel--server-admin"
+      style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+      data-testid="server-admin-panel"
+    >
       <PanelHeader title={t('workbench.toolWindows.serverAdmin')} info={info} wiring={wiring} />
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <List
