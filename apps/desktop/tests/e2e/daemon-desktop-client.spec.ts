@@ -114,7 +114,7 @@ async function spawnDaemon(port: number, token: string): Promise<void> {
           return 0;
         }
       },
-      { timeout: 30000 },
+      { timeout: 5_000 },
     )
     .toBe(200);
 }
@@ -252,7 +252,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .toBe(401);
 
@@ -293,14 +293,14 @@ test('joining the daemon syncs its workspace and data down', async () => {
 
   // The daemon's workspace appears among the desktop's — consumed, not
   // copied: its Org binds to the backend record.
-  await expect.poll(() => workspaceIds(desktopRig), { timeout: 30000 }).toContain(daemonWorkspaceId);
+  await expect.poll(() => workspaceIds(desktopRig), { timeout: 5_000 }).toContain(daemonWorkspaceId);
   // The seeded rule synced down with it.
-  await expect.poll(async () => hasRule(desktopRig, SEEDED_ON_DAEMON), { timeout: 30000 }).toBe(true);
+  await expect.poll(async () => hasRule(desktopRig, SEEDED_ON_DAEMON), { timeout: 5_000 }).toBe(true);
 });
 
 test('an edit in the consumed workspace routes up to the daemon', async () => {
   await createRule(desktopRig, daemonWorkspaceId, ROUTED_UP);
-  await expect.poll(async () => hasRule(daemonRig, ROUTED_UP), { timeout: 30000 }).toBe(true);
+  await expect.poll(async () => hasRule(daemonRig, ROUTED_UP), { timeout: 5_000 }).toBe(true);
 });
 
 test('a home-workspace edit never reaches the daemon', async () => {
@@ -310,7 +310,7 @@ test('a home-workspace edit never reaches the daemon', async () => {
   // the home rule not being there is a real withhold, not latency.
   const marker = `DaC settle marker ${RUN}`;
   await createRule(desktopRig, daemonWorkspaceId, marker);
-  await expect.poll(async () => hasRule(daemonRig, marker), { timeout: 30000 }).toBe(true);
+  await expect.poll(async () => hasRule(daemonRig, marker), { timeout: 5_000 }).toBe(true);
   expect(await hasRule(daemonRig, HOME_ONLY)).toBe(false);
   // And the daemon never gained a foreign workspace.
   expect(await workspaceIds(daemonRig)).toEqual([daemonWorkspaceId]);
@@ -327,7 +327,7 @@ test('kill switch queues consumed-workspace edits; re-enable flushes them', asyn
   expect(await hasRule(daemonRig, QUEUED_OFFLINE)).toBe(false);
 
   await setBackendEnabled(true);
-  await expect.poll(async () => hasRule(daemonRig, QUEUED_OFFLINE), { timeout: 30000 }).toBe(true);
+  await expect.poll(async () => hasRule(daemonRig, QUEUED_OFFLINE), { timeout: 5_000 }).toBe(true);
 });
 
 test('evictWorkspace discards the consumed workspace host-locally', async () => {
@@ -341,7 +341,7 @@ test('evictWorkspace discards the consumed workspace host-locally', async () => 
   expect(result.success, result.error).toBe(true);
 
   // Gone locally, untouched on the daemon.
-  await expect.poll(() => workspaceIds(desktopRig), { timeout: 15000 }).not.toContain(daemonWorkspaceId);
+  await expect.poll(() => workspaceIds(desktopRig), { timeout: 3_000 }).not.toContain(daemonWorkspaceId);
   expect(await hasRule(desktopRig, SEEDED_ON_DAEMON)).toBe(false);
   expect(await hasRule(daemonRig, SEEDED_ON_DAEMON)).toBe(true);
   expect(await hasRule(daemonRig, ROUTED_UP)).toBe(true);
@@ -352,8 +352,8 @@ test('re-enabling the wire syncs the evicted workspace back down', async () => {
   // SQLite log stripes, the document store, and the wire echo set — so
   // the daemon's re-sent catch-up must apply, not die at a dedup layer.
   await setBackendEnabled(true);
-  await expect.poll(() => workspaceIds(desktopRig), { timeout: 30000 }).toContain(daemonWorkspaceId);
-  await expect.poll(async () => hasRule(desktopRig, SEEDED_ON_DAEMON), { timeout: 30000 }).toBe(true);
+  await expect.poll(() => workspaceIds(desktopRig), { timeout: 5_000 }).toContain(daemonWorkspaceId);
+  await expect.poll(async () => hasRule(desktopRig, SEEDED_ON_DAEMON), { timeout: 5_000 }).toBe(true);
   expect(await hasRule(desktopRig, ROUTED_UP)).toBe(true);
 });
 
