@@ -33,7 +33,7 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 });
 
@@ -79,7 +79,7 @@ interface DocumentWireShape {
 }
 
 test('Cache Storage reads, entry document, deletes, quota and clear ride the plane end-to-end', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   const page = await context.newPage();
   await page.goto(PLAYGROUND_URL);
 
