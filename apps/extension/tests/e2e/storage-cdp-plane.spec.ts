@@ -47,7 +47,7 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 });
 
@@ -119,7 +119,7 @@ async function pollMainScope(tabId: number, until: (scope: ScopeWire) => boolean
 }
 
 test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach degrade', async () => {
-  test.setTimeout(slowMo > 0 ? 600_000 : 120_000);
+  test.setTimeout(slowMo > 0 ? 600_000 : 90_000);
   const page = await context.newPage();
   await page.goto(`${STORAGE_PAGE_URL}${pagePace}`);
 
@@ -251,7 +251,7 @@ test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach 
       const kinds = new Set(bucket.map((m) => m.kind));
       return kinds.has('indexeddb') && kinds.has('cachestorage');
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   const pushes = (await rpcPage.evaluate(
     () => (window as unknown as { __ohInvalidations: unknown[] }).__ohInvalidations,
