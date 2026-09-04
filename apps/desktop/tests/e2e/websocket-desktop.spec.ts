@@ -10,21 +10,22 @@
  *       frame proves the subprotocol offer AND the custom handshake
  *       header made the wire, Send echoes (↑ then ↓ in call order),
  *       live rows carry session timestamps, Disconnect settles the
- *       clean Closed 1000 with the Disconnected lifecycle row at the
- *       recorded edge.
+ *       Disconnected pill (the clean 1000 rides its hover sheet) with
+ *       the Disconnected lifecycle row at the recorded edge.
  *   W2  `?push=` live batches: enabled param rows reach the wire
  *       (appendQueryParams) and unsolicited server messages land in
  *       the live timeline.
  *   W3  close-code menu: a server close with a foreign code renders
- *       VERBATIM — code + reason on the warning tint, never
- *       synthesized (the capture law's display twin).
+ *       VERBATIM — code + reason on the ended row, never synthesized
+ *       (the capture law's display twin); the pill reads Disconnected
+ *       like every session that opened.
  *   W4  refused dial: a dead port settles as the classified error row
  *       at the timeline's edge with the Connect failed pill.
  *   W5  socketio flavor (Phase E): the hand-rolled engine.io/socket.io
  *       framing against the REAL socket.io server at `/net/sio-probe` —
  *       namespace CONNECT, decoded event rows (greeting), an acked
- *       `echo` emit whose EVENT / reply / ACK all land, control frames
- *       subdued, clean Disconnect.
+ *       `echo` emit whose EVENT / reply / ACK all land, the handshake
+ *       control frames counted but hidden by default, clean Disconnect.
  *   W6  Save Response (Phase F): a settled session freezes into a
  *       WsResponseExample — viewer tab with the captured close pill,
  *       sidebar example leaf under the parent request, "Open in
@@ -117,7 +118,7 @@ async function showRequestsView(): Promise<void> {
     .getByRole('button', { name: /REQUESTS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10_000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 3_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
@@ -154,25 +155,26 @@ async function openWebsocketRequest(uid: string): Promise<void> {
   const row = workbench.locator(`[data-item-id="websocket-request-${uid}"]`);
   if (!(await row.isVisible().catch(() => false))) {
     const collection = workbench.locator('[data-item-id="req-col-e2ewscol"]');
-    await collection.waitFor({ state: 'visible', timeout: 10_000 });
+    await collection.waitFor({ state: 'visible', timeout: 3_000 });
     await collection.click();
   }
-  await row.waitFor({ state: 'visible', timeout: 5000 });
+  await row.waitFor({ state: 'visible', timeout: 3_000 });
   await row.click();
-  await connectButton().waitFor({ state: 'visible', timeout: 10_000 });
+  await connectButton().waitFor({ state: 'visible', timeout: 3_000 });
 }
 
 /** Connect and wait for the handshake to settle on the live badge. */
 async function connectAndAwaitOpen(): Promise<void> {
-  await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => connectButton().isEnabled(), { timeout: 3_000 }).toBe(true);
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
 }
 
-/** Disconnect (the clean close 1000) and wait for the settled tag. */
-async function disconnectAndAwaitClose(text: string): Promise<void> {
+/** Disconnect (the clean close 1000) and wait for the settled pill —
+ *  Disconnected for any session that opened; the code rides the sheet. */
+async function disconnectAndAwaitClose(): Promise<void> {
   await connectButton().filter({ hasText: 'Disconnect' }).click();
-  await closeTag().filter({ hasText: text }).waitFor({ state: 'visible', timeout: 20_000 });
+  await closeTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -232,7 +234,7 @@ test.afterAll(async () => {
 
 // ── W1: full session walk ───────────────────────────────────────────
 
-test('W1 — Connect morphs, the greeting proves subprotocol + header, Send echoes, Disconnect reads Closed 1000', async () => {
+test('W1 — Connect morphs, the greeting proves subprotocol + header, Send echoes, Disconnect reads Disconnected', async () => {
   await openWebsocketRequest('e2ewsd01');
   await connectAndAwaitOpen();
 
@@ -242,7 +244,7 @@ test('W1 — Connect morphs, the greeting proves subprotocol + header, Send echo
   // The greeting frame mirrors the `x-probe-client` header — the
   // custom handshake header made the wire.
   const greetingRow = timelineMessageRows().filter({ hasText: 'oh-desktop-e2e' }).first();
-  await greetingRow.waitFor({ state: 'visible', timeout: 15_000 });
+  await greetingRow.waitFor({ state: 'visible', timeout: 3_000 });
 
   // The Connected lifecycle row reads plain; expanding it shows the
   // negotiated subprotocol among the handshake facts.
@@ -251,7 +253,7 @@ test('W1 — Connect morphs, the greeting proves subprotocol + header, Send echo
     .filter({ visible: true })
     .filter({ hasText: 'Connected' })
     .first();
-  await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await connectedRow.waitFor({ state: 'visible', timeout: 3_000 });
   await connectedRow.click();
   await expect(workbench.getByTestId('ws-timeline-handshake-details').filter({ visible: true }).first()).toContainText(
     'oh-e2e-proto',
@@ -264,13 +266,13 @@ test('W1 — Connect morphs, the greeting proves subprotocol + header, Send echo
   await timelineMessageRows()
     .filter({ hasText: 'echo:hello probe' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 15_000 }).toBe(3);
+    .waitFor({ state: 'visible', timeout: 3_000 });
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 3_000 }).toBe(3);
 
   // Live-session rows carry timestamps (the session-only law).
   expect(await workbench.getByTestId('ws-timeline-message-time').filter({ visible: true }).count()).toBeGreaterThan(0);
 
-  await disconnectAndAwaitClose('Closed 1000');
+  await disconnectAndAwaitClose();
 
   // The settled timeline reads newest-first: Disconnected at the new
   // edge, echo ↓ above hello ↑ (call order reversed), the greeting ↓,
@@ -305,10 +307,10 @@ test('W2 — enabled param rows reach the wire and unsolicited pushes land live'
 
   // The greeting plus three timed pushes — the `?push=3&ms=60` params
   // only exist on the wire if appendQueryParams ran.
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 20_000 }).toBe(4);
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(4);
   await timelineMessageRows().filter({ hasText: 'probe push 3/3' }).first().waitFor({ state: 'visible' });
 
-  await disconnectAndAwaitClose('Closed 1000');
+  await disconnectAndAwaitClose();
 });
 
 // ── W3: close-code menu — verbatim foreign close ────────────────────
@@ -319,26 +321,27 @@ test('W3 — a server close with a foreign code renders code + reason verbatim',
 
   // The compose text IS the probe's close command — sending it makes
   // the server close 4321 "probe-menu"; the session settles without a
-  // local Disconnect.
+  // local Disconnect. The ended row's detail leads with the code (no
+  // phrase for a foreign one) and carries the reason verbatim.
   await sendButton().click();
-  await closeTag().filter({ hasText: 'Closed 4321' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await closeTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 5_000 });
   await workbench
-    .getByTestId('ws-timeline-ended-row')
+    .getByTestId('ws-timeline-ended-details')
     .filter({ visible: true })
-    .filter({ hasText: '4321 probe-menu' })
+    .filter({ hasText: /4321:\s*probe-menu/ })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 3_000 });
 });
 
 // ── W4: refused dial — classified pre-open error ────────────────────
 
 test('W4 — a dead port settles as the classified refused-dial error state', async () => {
   await openWebsocketRequest('e2ewsd04');
-  await expect.poll(async () => connectButton().isEnabled(), { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => connectButton().isEnabled(), { timeout: 3_000 }).toBe(true);
   await connectButton().click();
 
   const errorState = workbench.getByTestId('ws-timeline-error-row').filter({ visible: true }).first();
-  await errorState.waitFor({ state: 'visible', timeout: 20_000 });
+  await errorState.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(workbench.getByTestId('ws-session-error-detail').filter({ visible: true }).first()).toContainText(
     `Connection refused by 127.0.0.1:${WS_DEAD_PORT}`,
   );
@@ -356,28 +359,30 @@ test('W5 — socketio handshake, namespace connect, acked echo event and decoded
   // our namespace CONNECT, the server's connect ack, then the first
   // EVENT decoded by name.
   const eventNames = workbench.getByTestId('ws-sio-event-name').filter({ visible: true });
-  await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 3_000 });
   // The greeting mirrors the CONNECT auth payload — the session
   // credential made the socket.io handshake (Phase G).
-  await timelineMessageRows().filter({ hasText: 'sio-tok-e2e' }).first().waitFor({ state: 'visible', timeout: 10_000 });
-  await timelineMessageRows().filter({ hasText: 'connect /probe' }).first().waitFor({ state: 'visible' });
-  await timelineMessageRows().filter({ hasText: 'connected /probe' }).first().waitFor({ state: 'visible' });
-  await timelineMessageRows().filter({ hasText: 'engine.io open' }).first().waitFor({ state: 'visible' });
+  await timelineMessageRows().filter({ hasText: 'sio-tok-e2e' }).first().waitFor({ state: 'visible', timeout: 3_000 });
+  // The engine.io open, our CONNECT and the server's connect ack are
+  // captured (the count says four) but hidden by the timeline's
+  // handshake filter, on by default — the decoded greeting is the
+  // visible proof.
+  await expect(workbench.getByText('4 messages').filter({ visible: true }).first()).toBeVisible({ timeout: 3_000 });
 
   // Send emits the composed `echo` event with an ack id; the server's
   // reply event AND the correlated ACK land decoded.
   await expect(sendButton()).toBeEnabled();
   await sendButton().click();
-  await eventNames.filter({ hasText: 'echo:reply' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  await eventNames.filter({ hasText: 'echo:reply' }).first().waitFor({ state: 'visible', timeout: 3_000 });
   const echoRow = timelineMessageRows().filter({ hasText: 'echo' }).filter({ hasText: '#1' }).first();
-  await echoRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await echoRow.waitFor({ state: 'visible', timeout: 3_000 });
   await timelineMessageRows()
     .filter({ hasText: 'ack' })
     .filter({ hasText: '#1' })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 3_000 });
 
-  await disconnectAndAwaitClose('Closed 1000');
+  await disconnectAndAwaitClose();
 });
 
 // ── W6: Save Response — the settled session freezes into an example ──
@@ -386,7 +391,7 @@ test('W6 — Save Response mints the example: viewer close pill, sidebar leaf, O
   // A fresh settled session on the W1 request — the capture target.
   await openWebsocketRequest('e2ewsd01');
   await connectAndAwaitOpen();
-  await disconnectAndAwaitClose('Closed 1000');
+  await disconnectAndAwaitClose();
 
   // Save Response lives in the session pane's ⋯ actions menu (first item).
   await workbench.getByTestId('ws-session-actions').filter({ visible: true }).first().click();
@@ -396,7 +401,7 @@ test('W6 — Save Response mints the example: viewer close pill, sidebar leaf, O
   // pill + the read-only result pane.
   await workbench.getByTestId('ws-example-result-pane').filter({ visible: true }).first().waitFor({
     state: 'visible',
-    timeout: 15_000,
+    timeout: 3_000,
   });
   await workbench
     .getByTestId('ws-example-close-tag')
@@ -410,12 +415,12 @@ test('W6 — Save Response mints the example: viewer close pill, sidebar leaf, O
     .locator('[data-item-id^="ws-example-"]')
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 3_000 });
 
   // "Open in Request" returns to the parent editor with the captured
   // shape riding the prefill bus as unsaved draft edits.
   await workbench.getByTestId('ws-example-open-in-request').filter({ visible: true }).first().click();
-  await connectButton().waitFor({ state: 'visible', timeout: 10_000 });
+  await connectButton().waitFor({ state: 'visible', timeout: 3_000 });
   await expect
     .poll(
       async () =>
@@ -435,7 +440,7 @@ test('W7 — the bearer credential lands as the Authorization handshake header',
   await timelineMessageRows()
     .filter({ hasText: '"authorization":"Bearer raw-tok-e2e"' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 3_000 });
 
-  await disconnectAndAwaitClose('Closed 1000');
+  await disconnectAndAwaitClose();
 });
