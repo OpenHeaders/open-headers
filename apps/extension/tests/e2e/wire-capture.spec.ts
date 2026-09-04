@@ -50,7 +50,7 @@ test.beforeAll(async () => {
         });
         return res.snapshot?.wire !== undefined;
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
 });
