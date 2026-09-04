@@ -141,7 +141,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 });
@@ -227,7 +227,7 @@ test('the extension joins and adopts the daemon workspace as active', async () =
         const res = await extensionRpc<{ activeWorkspaceId?: string }>('listWorkspaces');
         return res?.activeWorkspaceId ?? '';
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(daemonWorkspaceId);
 });
@@ -291,7 +291,7 @@ test('an SW-host import propagates upstream — the daemon sees the environment'
         const environments = payload.environments as Array<{ uid: string; name: string }>;
         return environments.some((e) => e.name === 'extension: imported env');
       },
-      { timeout: 30000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 });
