@@ -64,8 +64,8 @@ let page: Page;
 const daemonLog: string[] = [];
 
 async function waitForWorkbench(target: Page): Promise<void> {
-  await target.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
-  await expect(target.getByRole('button', { name: 'Settings menu' })).toBeVisible({ timeout: 30_000 });
+  await target.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
+  await expect(target.getByRole('button', { name: 'Settings menu' })).toBeVisible({ timeout: 5_000 });
 }
 
 /** The language picker row inside the settings surface. */
@@ -149,7 +149,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 30_000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 
@@ -178,7 +178,7 @@ test('the gate follows the browser locale and never resolves pseudo', async () =
   const frContext = await browser.newContext({ locale: 'fr-FR' });
   const frPage = await frContext.newPage();
   await frPage.goto(`${ORIGIN}/`);
-  await frPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+  await frPage.waitForSelector('[data-testid=login-gate]', { timeout: 5_000 });
   const frGate = frPage.locator('[data-testid=login-gate]');
   await expect(frGate).toContainText('Installer ce serveur');
   await expect(frGate).not.toContainText('⟦');
@@ -187,7 +187,7 @@ test('the gate follows the browser locale and never resolves pseudo', async () =
 
   // The en-US profile the rest of the suite rides: English gate.
   await page.goto(`${ORIGIN}/`);
-  await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+  await page.waitForSelector('[data-testid=login-gate]', { timeout: 5_000 });
   const gate = page.locator('[data-testid=login-gate]');
   await expect(gate).toContainText('Set up this server');
   await expect(gate).not.toContainText('⟦');
@@ -259,8 +259,8 @@ test('the choice persists across reload; a fresh profile gates in its own locale
   // persisted locale paints from boot. The workbench chrome is pseudoized now,
   // so the wait keys on the delimiters, not English accessible names.
   await page.reload();
-  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
-  await expect(page.locator('#root')).toContainText('⟦', { timeout: 30_000 });
+  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
+  await expect(page.locator('#root')).toContainText('⟦', { timeout: 5_000 });
 
   // A fresh fr-FR profile on the same origin: no stored setting, no
   // stored session — the gate renders that browser's own French, and
@@ -269,7 +269,7 @@ test('the choice persists across reload; a fresh profile gates in its own locale
   const freshContext = await browser.newContext({ locale: 'fr-FR' });
   const freshPage = await freshContext.newPage();
   await freshPage.goto(`${ORIGIN}/`);
-  await freshPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+  await freshPage.waitForSelector('[data-testid=login-gate]', { timeout: 5_000 });
   const gate = freshPage.locator('[data-testid=login-gate]');
   await expect(gate).toContainText('Se connecter à ce serveur');
   await expect(gate).not.toContainText('⟦');
