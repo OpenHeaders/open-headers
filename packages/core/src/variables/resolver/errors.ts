@@ -149,7 +149,7 @@ export function buildHint(
       if (namespace === 'vault') return 'Set this secret in the Vault.';
       if (namespace === 'collection') return 'Set this variable in the current collection.';
       if (namespace === 'workspace') return 'Set this variable in Workspace Variables.';
-      if (namespace === 'file') return 'Upload this file in Settings → Files (or reference it by its sha256 hash).';
+      if (namespace === 'file') return 'Reference this file by its sha256 hash.';
       if (namespace === 'live')
         return 'No Live Variable by that name. Create one in Live Variables, or wait for its first refresh to populate.';
       if (namespace === 'step')
