@@ -6,7 +6,8 @@
  *     kind sets it; a transparent level passes through; nobody = absent;
  *   - the result MERGES across levels, knob by knob;
  *   - a slice never reaches another kind (the per-kind law);
- *   - the proxy trio is one unit under the level that sets the mode;
+ *   - the proxy trio is one unit under the level that sets the mode —
+ *     or the request's own URL (a set URL is explicit routing);
  *   - `sources` lists only the knobs an ancestor supplied, in key order;
  *   - an empty record, an empty slice and an undefined-valued knob are
  *     transparent;
@@ -157,6 +158,15 @@ describe('effectiveSettingsFor — the proxy trio is one unit', () => {
       collection({ http: proxied }),
     ]);
     expect(r.settings).toEqual({ proxyMode: 'url', proxyUrl: 'http://own.openheaders.io:3128' });
+    expect(r.sources).toEqual([]);
+  });
+
+  it("the request's own URL without a mode owns the unit — explicit routing, an ancestor's mode never shadows it", () => {
+    const r = effectiveSettingsFor('http', { proxyUrl: 'http://own.openheaders.io:3128' }, [
+      collection({ http: proxied }),
+      folder({ http: { proxyMode: 'direct' } }),
+    ]);
+    expect(r.settings).toEqual({ proxyUrl: 'http://own.openheaders.io:3128' });
     expect(r.sources).toEqual([]);
   });
 

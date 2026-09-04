@@ -15,7 +15,8 @@
  * HTTP TLS floor is HTTP's alone (the per-kind law). The proxy trio
  * (mode · URL · credential ref) resolves as ONE unit keyed on the
  * mode: the level that sets the mode supplies the URL and the
- * credential ref with it.
+ * credential ref with it. A request's own URL owns the unit too — a
+ * set URL is explicit routing on the transport seam, mode or no mode.
  *
  * Auth inherits a whole config from a pool; scripts compose
  * additively outer → inner; settings cascade knob by knob — three
@@ -89,6 +90,10 @@ function proxyModeKeyOf<K extends AuthProtocolKind>(kind: K): KindSettingKey<K> 
   return INHERITABLE_SETTING_KEYS_BY_KIND[kind].find((k) => k === 'proxyMode');
 }
 
+function proxyUrlKeyOf<K extends AuthProtocolKind>(kind: K): KindSettingKey<K> | undefined {
+  return INHERITABLE_SETTING_KEYS_BY_KIND[kind].find((k) => k === 'proxyUrl');
+}
+
 /**
  * Resolve the effective settings of `kind` for a request — its own
  * knobs over the chain (outer → inner). Per key: the request's own
@@ -96,7 +101,10 @@ function proxyModeKeyOf<K extends AuthProtocolKind>(kind: K): KindSettingKey<K> 
  * kind defines it supplies it and is recorded as its source; else the
  * key stays absent. The proxy trio resolves as one unit under
  * whichever level defines `proxyMode` — that level's URL and
- * credential ref ride with it, and an outer level's never do.
+ * credential ref ride with it, and an outer level's never do. The
+ * request owns the unit on its own URL as well: a set `proxyUrl` is
+ * explicit routing on the transport seam whatever the mode says, so
+ * an ancestor's mode never shadows it.
  */
 export function effectiveSettingsFor<K extends AuthProtocolKind>(
   kind: K,
@@ -106,10 +114,14 @@ export function effectiveSettingsFor<K extends AuthProtocolKind>(
   const keys = INHERITABLE_SETTING_KEYS_BY_KIND[kind];
   const settings: SettingsOf<KindSettingKey<K>> = {};
   const sources: InheritedSettingSource[] = [];
-  // The proxy unit's owner: the request when it sets the mode, else
-  // the innermost ancestor that does; resolved once, read per key.
+  // The proxy unit's owner: the request when it sets the mode or the
+  // URL, else the innermost ancestor that sets the mode; resolved
+  // once, read per key.
   const proxyModeKey = proxyModeKeyOf(kind);
-  const ownProxy = proxyModeKey !== undefined && own[proxyModeKey] !== undefined;
+  const proxyUrlKey = proxyUrlKeyOf(kind);
+  const ownProxy =
+    (proxyModeKey !== undefined && own[proxyModeKey] !== undefined) ||
+    (proxyUrlKey !== undefined && own[proxyUrlKey] !== undefined);
   const proxyLevel = ownProxy || proxyModeKey === undefined ? -1 : innermostDefining(chain, kind, proxyModeKey);
   for (const key of keys) {
     const ownValue = own[key];
