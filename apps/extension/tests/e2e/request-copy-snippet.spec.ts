@@ -43,7 +43,7 @@ function readCapturedCopy(): Promise<string> {
 
 /** Poll the captured write until the copy lands (or the poll times out). */
 async function expectClipboard(expected: string): Promise<void> {
-  await expect.poll(readCapturedCopy, { timeout: 10000 }).toBe(expected);
+  await expect.poll(readCapturedCopy, { timeout: 5_000 }).toBe(expected);
   // Reset so the next test can't pass on a stale capture.
   await page.evaluate(() => {
     window.__ohCopiedText = undefined;
