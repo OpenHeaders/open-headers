@@ -49,6 +49,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { createExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -150,50 +151,6 @@ function nmManifestContent(): string {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
-/**
- * (Re-)seed the peer's backend registry record — same encrypted blob
- * format and page-context posture as the live-network suite. An EMPTY
- * authToken is the fresh-install shape the bootstrap module targets.
- */
-async function seedBackend(page: Page, seed: { backendUrl: string; authToken: string }): Promise<void> {
-  await page.evaluate(async ({ backendUrl, authToken }) => {
-    const key = await new Promise<CryptoKey>((resolve, reject) => {
-      const open = indexedDB.open('oh-secret-cipher', 1);
-      open.onerror = () => reject(open.error);
-      open.onsuccess = () => {
-        const db = open.result;
-        const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result as CryptoKey);
-      };
-    });
-    const record = {
-      id: 'nm-bootstrap-e2e-backend',
-      label: 'nm-bootstrap e2e desktop',
-      url: backendUrl,
-      authToken,
-      autoConnect: true,
-      enabled: true,
-      addedAt: new Date().toISOString(),
-      lastConnectedAt: null,
-    };
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      new TextEncoder().encode(JSON.stringify([record])),
-    );
-    const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-    packed.set(iv, 0);
-    packed.set(new Uint8Array(ciphertext), iv.length);
-    let binary = '';
-    for (const byte of packed) binary += String.fromCharCode(byte);
-    await new Promise<void>((resolve) => {
-      chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-    });
-  }, seed);
-}
-
 test.describe.configure({ mode: 'serial' });
 
 function step(message: string): void {
@@ -234,7 +191,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .not.toBe(0);
 });
@@ -253,7 +210,7 @@ test('desktop boot registers/repairs the NM manifest for installed browsers', as
   // The boot log names every target's outcome; an installed Chrome must
   // never be `skipped` (repair keeps an existing manifest converged).
   await expect
-    .poll(() => /NM manifest (registered|repaired|unchanged)/.test(daemonLog()), { timeout: 20000 })
+    .poll(() => /NM manifest (registered|repaired|unchanged)/.test(daemonLog()), { timeout: 5_000 })
     .toBe(true);
   expect(daemonLog()).not.toContain('identity bootstrap stays inert');
 });
@@ -335,10 +292,21 @@ test('Chromium spawns the host from the manifest and the SW-boot attempt rides t
   // proof-ladder shape. (`chrome.runtime.reload()` is no path here: it
   // DISABLES an unpacked `--load-extension` extension pending the
   // profile's developer-mode consent.)
-  const seedPage = await seedContext.newPage();
-  await seedPage.goto(`chrome-extension://${extensionId}/merge-showcase.html`);
-  await seedPage.waitForLoadState('load');
-  await seedBackend(seedPage, { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: '' });
+  // The shared dual-app harness seeds the record with the extension's
+  // at-rest key (existence probe, husk heal, a timed read the mint race
+  // cannot hang); an EMPTY token is the fresh-install shape the
+  // bootstrap module targets.
+  const harness = createExtensionSeedHarness({
+    context: () => seedContext,
+    extensionId: () => extensionId,
+    token: () => '',
+    daemonPort: DAEMON_PORT,
+    recordId: 'nm-bootstrap-e2e-backend',
+    recordLabel: 'nm-bootstrap e2e desktop',
+    logTag: 'nm-bootstrap seed',
+  });
+  await harness.extensionPage();
+  await harness.seedBackendRetrying({ enabled: true });
   step('backend seeded (empty token)');
   await seedContext.close();
 
@@ -352,7 +320,7 @@ test('Chromium spawns the host from the manifest and the SW-boot attempt rides t
   // allowlisted browser would mint.
   await expect
     .poll(() => /bootstrap refused \(browser-unverified\)|nmSession minted/.test(daemonLog().slice(logMark)), {
-      timeout: 60000,
+      timeout: 20_000,
     })
     .toBe(true);
 
