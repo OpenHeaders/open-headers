@@ -374,7 +374,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .toBe(401);
 
@@ -422,7 +422,7 @@ test('the daemon inventories the connected browser tabs', async () => {
         const { peers } = await listTabs();
         return (peers ?? []).some((peer) => peer.tabs.some((tab) => tab.url.startsWith(PLAYGROUND_URL)));
       },
-      { timeout: 30000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 });
@@ -432,7 +432,7 @@ test('the daemon inventories the connected browser tabs', async () => {
 test('the Live Network window streams a watched playground tab live', async () => {
   await setToolWindowOpen(true);
   await expect(workbench.locator('[data-testid="traffic-monitor-peers"]')).toHaveText('Connected browsers: 1', {
-    timeout: 15000,
+    timeout: 5_000,
   });
 
   await pickPlaygroundTab();
@@ -442,24 +442,26 @@ test('the Live Network window streams a watched playground tab live', async () =
   // from the earlier goto stay below it and the grid holds EXACTLY the
   // one probe, not a replayed history.
   await playground.evaluate(() => fetch('/api/echo?probe=live-1').then((r) => r.text()));
-  await expect(workbench.locator('.dt-row')).toHaveCount(1, { timeout: 15000 });
+  await expect(workbench.locator('.dt-row')).toHaveCount(1, { timeout: 5_000 });
 
   // The stream stays live while watched.
   await playground.evaluate(() => fetch('/api/echo?probe=live-2').then((r) => r.text()));
-  await expect(echoRows()).toHaveCount(2, { timeout: 15000 });
+  await expect(echoRows()).toHaveCount(2, { timeout: 5_000 });
 });
 
 // ── Replay on reopen ────────────────────────────────────────────────
 
 test('reopening the window rebuilds the view from replay', async () => {
+  // The dock's body stack keeps an opened tool window mounted and
+  // display-toggles it — closed reads hidden, never absent.
   await setToolWindowOpen(false);
-  await expect(workbench.locator('[data-testid="traffic-monitor-source-rail"]')).toHaveCount(0);
+  await expect(workbench.locator('[data-testid="traffic-monitor-source-rail"]')).toBeHidden({ timeout: 3_000 });
 
   await setToolWindowOpen(true);
   await pickPlaygroundTab();
 
   // No fresh traffic — both probes come back from the engine's replay.
-  await expect(echoRows()).toHaveCount(2, { timeout: 15000 });
+  await expect(echoRows()).toHaveCount(2, { timeout: 5_000 });
 });
 
 // ── Row inspection survives the tool window ─────────────────────────
@@ -478,7 +480,7 @@ test('a wire flap re-subscribes the watch and replays what the wire missed', asy
   if (!peerA) throw new Error('peer A not launched');
   await setToolWindowOpen(true);
   await pickPlaygroundTab();
-  await expect(echoRows()).toHaveCount(2, { timeout: 15000 });
+  await expect(echoRows()).toHaveCount(2, { timeout: 5_000 });
 
   // Drop the wire: the registry mirror tears the connection down live,
   // which tears every telemetry session down at the source.
@@ -487,7 +489,7 @@ test('a wire flap re-subscribes the watch and replays what the wire missed', asy
     authToken: token,
     enabled: false,
   });
-  await expect.poll(peerCount, { timeout: 15000 }).toBe(0);
+  await expect.poll(peerCount, { timeout: 5_000 }).toBe(0);
 
   // Fired while the wire is down: the engine keeps its session floor,
   // so this request lands ABOVE it and must come back in the replay —
@@ -503,12 +505,12 @@ test('a wire flap re-subscribes the watch and replays what the wire missed', asy
     authToken: token,
     enabled: true,
   });
-  await expect.poll(peerCount, { timeout: 15000 }).toBe(1);
-  await expect(echoRows()).toHaveCount(3, { timeout: 15000 });
+  await expect.poll(peerCount, { timeout: 5_000 }).toBe(1);
+  await expect(echoRows()).toHaveCount(3, { timeout: 5_000 });
 
   // And the stream is live again.
   await playground.evaluate(() => fetch('/api/echo?probe=live-3').then((r) => r.text()));
-  await expect(echoRows()).toHaveCount(4, { timeout: 15000 });
+  await expect(echoRows()).toHaveCount(4, { timeout: 5_000 });
 });
 
 // ── Service-worker termination ──────────────────────────────────────
@@ -527,13 +529,13 @@ test('terminating the extension service worker self-heals the stream', async () 
   // Revive: an extension page load spins the service worker back up;
   // the persisted registry redials, the relay re-subscribes the watch.
   await (await peerPage(peerA)).reload();
-  await expect.poll(peerCount, { timeout: 30000 }).toBe(1);
+  await expect.poll(peerCount, { timeout: 5_000 }).toBe(1);
 
   // The stream is live again end to end. (How much history the replay
   // carries across an SW death is engine policy — the law under test is
   // that the watch self-heals without a re-pick.)
   await playground.evaluate(() => fetch('/api/echo?probe=live-4').then((r) => r.text()));
-  await expect(workbench.locator('.dt-row').filter({ hasText: 'live-4' })).toHaveCount(1, { timeout: 15000 });
+  await expect(workbench.locator('.dt-row').filter({ hasText: 'live-4' })).toHaveCount(1, { timeout: 5_000 });
 });
 
 // ── Second peer: qualified partitions ───────────────────────────────
@@ -548,7 +550,7 @@ test('a second browser peer is listed and never bleeds into the watched partitio
   playgroundB = await peerB.context.newPage();
   await playgroundB.goto(PLAYGROUND_URL);
 
-  await expect.poll(peerCount, { timeout: 30000 }).toBe(2);
+  await expect.poll(peerCount, { timeout: 5_000 }).toBe(2);
 
   // Traffic in peer B's playground tab — the watched partition is peer
   // A's tab, so nothing may cross (peer-qualified partition identity).
@@ -571,7 +573,7 @@ test('a non-loopback wire keeps syncing but its telemetry is refused', async () 
   await seedBackend(peerB, { backendUrl: `ws://${lan}:${DAEMON_PORT}`, authToken: token, enabled: true });
 
   // The peer drops telemetry frames: it vanishes from the inventory.
-  await expect.poll(peerCount, { timeout: 30000 }).toBe(1);
+  await expect.poll(peerCount, { timeout: 5_000 }).toBe(1);
 
   // But the wire itself is alive — the sync plane still replicates: an
   // MCP-created rule lands in the peer's storage over the LAN wire.
@@ -589,7 +591,7 @@ test('a non-loopback wire keeps syncing but its telemetry is refused', async () 
     },
   });
   await expect
-    .poll(async () => (peerB ? ruleVisibleInPeer(peerB, 'WAN probe rule') : false), { timeout: 30000 })
+    .poll(async () => (peerB ? ruleVisibleInPeer(peerB, 'WAN probe rule') : false), { timeout: 5_000 })
     .toBe(true);
 });
 
@@ -610,7 +612,7 @@ test('a burst streams within budget and the grid stays virtualized', async () =>
     }
   }, BURST_SIZE);
   await expect(workbench.locator('.dt-row').filter({ hasText: `burst=${BURST_SIZE - 1}` })).toHaveCount(1, {
-    timeout: 60000,
+    timeout: 20_000,
   });
   const wallMs = Date.now() - startedAt;
   await burstDone;
