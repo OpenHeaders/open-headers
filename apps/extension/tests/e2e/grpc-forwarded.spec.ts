@@ -138,7 +138,7 @@ async function waitDaemonHealthy(): Promise<void> {
           return 0;
         }
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 }
@@ -190,17 +190,17 @@ async function openGrpcRequest(uid: string): Promise<void> {
   const row = page.locator(`[data-item-id="grpc-request-${uid}"]`);
   if (!(await row.isVisible().catch(() => false))) {
     const collection = page.locator('[data-item-id="req-col-e2ecol01"]');
-    await collection.waitFor({ state: 'visible', timeout: 10000 });
+    await collection.waitFor({ state: 'visible', timeout: 5_000 });
     await collection.click();
   }
   await row.waitFor({ state: 'visible', timeout: 5000 });
   await row.click();
-  await invokeButton().waitFor({ state: 'visible', timeout: 10000 });
+  await invokeButton().waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 /** Wait until the live invoke gate settles on the expected enablement. */
 async function waitInvokeEnabled(enabled: boolean): Promise<void> {
-  await expect.poll(async () => invokeButton().isEnabled(), { timeout: 30000 }).toBe(enabled);
+  await expect.poll(async () => invokeButton().isEnabled(), { timeout: 20_000 }).toBe(enabled);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -309,7 +309,7 @@ test('the daemon mints its workspace and reboots on the seeded gRPC entities', a
 });
 
 test('the extension joins and the gRPC entities replicate down', async () => {
-  test.setTimeout(150000);
+  test.setTimeout(60_000);
   extensionContext = await chromium.launchPersistentContext('', {
     headless: false,
     args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
@@ -381,7 +381,7 @@ test('the extension joins and the gRPC entities replicate down', async () => {
   // proven leg) — its absence means the WS pipe never came up.
   await expect
     .poll(async () => (await replicatedState()).hasRule, {
-      timeout: 45000,
+      timeout: 20_000,
       message: 'the daemon workspace never replicated — the extension did not join the WS backend',
     })
     .toBe(true);
@@ -390,7 +390,7 @@ test('the extension joins and the gRPC entities replicate down', async () => {
   const finalState = await replicatedState();
   await expect
     .poll(async () => (await replicatedState()).hasGrpc, {
-      timeout: 30000,
+      timeout: 5_000,
       message: `grpcRequests slot missing from replication; slot content: ${finalState.slot}`,
     })
     .toBe(true);
@@ -410,14 +410,14 @@ test('the workbench opens on the joined workspace', async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   workbench = new WorkbenchPage(page);
 
   try {
     await workbench.showRequestsView();
     await workbench.collapseRightSidebar();
-    await page.locator('[data-item-id="req-col-e2ecol01"]').waitFor({ state: 'visible', timeout: 15000 });
+    await page.locator('[data-item-id="req-col-e2ecol01"]').waitFor({ state: 'visible', timeout: 5_000 });
   } catch (err) {
     const active = await workbench.rpc<{ workspace?: { id: string; name: string } }>('getActiveWorkspace');
     const sidebar = await page
@@ -452,14 +452,14 @@ test('opt-in OFF: the forwarded Invoke renders the host-aware refusal notice', a
   await waitInvokeEnabled(true);
   await invokeButton().click();
   const notice = page.getByTestId('peer-execute-disabled-notice').filter({ visible: true }).first();
-  await notice.waitFor({ state: 'visible', timeout: 15000 });
+  await notice.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(notice).toContainText(/turned off/);
 });
 
 // ── E3: forwarded unary OK ──────────────────────────────────────────
 
 test('flipping backend.allowLocalPeerExecute on lets the same Invoke round-trip 0 OK', async () => {
-  test.setTimeout(150000);
+  test.setTimeout(60_000);
   await stopDaemon();
   await setPeerExecute(true);
   spawnDaemon();
@@ -483,7 +483,7 @@ test('flipping backend.allowLocalPeerExecute on lets the same Invoke round-trip 
           .isVisible()
           .catch(() => false);
       },
-      { timeout: 60000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
 
@@ -501,7 +501,7 @@ test('flipping backend.allowLocalPeerExecute on lets the same Invoke round-trip 
 test('bearer auth reaches the wire as authorization metadata', async () => {
   await openGrpcRequest('e2egrpc6');
   await invokeButton().click();
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 20000 });
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
   await workbench.openResponseTab(/Metadata/);
   const responsePane = page.getByTestId('grpc-response-pane').filter({ visible: true }).first();
   await expect(responsePane).toContainText('x-echo-authorization');
@@ -511,7 +511,7 @@ test('bearer auth reaches the wire as authorization metadata', async () => {
 test('an explicit authorization metadata row wins over the auth tab', async () => {
   await openGrpcRequest('e2egrpc7');
   await invokeButton().click();
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 20000 });
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
   await workbench.openResponseTab(/Metadata/);
   const responsePane = page.getByTestId('grpc-response-pane').filter({ visible: true }).first();
   await expect(responsePane).toContainText('Bearer explicit-row-wins');
@@ -523,14 +523,14 @@ test('default TLS verify rejects the self-signed target; verify-off round-trips'
   await openGrpcRequest('e2egrpc8');
   await invokeButton().click();
   const errorState = page.getByTestId('grpc-response-error-state').filter({ visible: true }).first();
-  await errorState.waitFor({ state: 'visible', timeout: 20000 });
+  await errorState.waitFor({ state: 'visible', timeout: 5_000 });
 
   // Flip SSL verification off in the Settings tab — a draft edit; the
   // Invoke sends the current compose state.
   await workbench.openEditorTab(/Settings/);
   await page.getByTestId('grpc-ssl-verify').filter({ visible: true }).first().click();
   await invokeButton().click();
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 20000 });
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 // ── E4: forwarded server stream ─────────────────────────────────────
@@ -538,11 +538,11 @@ test('default TLS verify rejects the self-signed target; verify-off round-trips'
 test('a forwarded server stream fans frames back into the timeline live', async () => {
   await openGrpcRequest('e2egrpc2');
   await invokeButton().click();
-  await streamPane().waitFor({ state: 'visible', timeout: 15000 });
+  await streamPane().waitFor({ state: 'visible', timeout: 5_000 });
   // The ↑ composed request frame plus three ↓ books (capture records
   // BOTH directions) arrive over the backend wire and the call settles.
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 20000 }).toBe(4);
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 15000 });
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(4);
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
   // Live-session frames carry timestamps (the session-only law).
   expect(await page.getByTestId('grpc-timeline-message-time').filter({ visible: true }).count()).toBeGreaterThan(0);
 });
@@ -552,12 +552,12 @@ test('a forwarded server stream fans frames back into the timeline live', async 
 test('Stop mid-stream keeps arrived frames and reads 1 CANCELLED', async () => {
   await openGrpcRequest('e2egrpc3');
   await invokeButton().click();
-  await streamPane().waitFor({ state: 'visible', timeout: 15000 });
+  await streamPane().waitFor({ state: 'visible', timeout: 5_000 });
   // The ↑ request frame plus at least two ↓ books mid-stream.
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 20000 }).toBeGreaterThanOrEqual(3);
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBeGreaterThanOrEqual(3);
   // Invoke has morphed into Stop.
   await invokeButton().click();
-  await expect(statusTag()).toContainText('1 CANCELLED', { timeout: 15000 });
+  await expect(statusTag()).toContainText('1 CANCELLED', { timeout: 5_000 });
   expect(await timelineMessageRows().count()).toBeGreaterThanOrEqual(3);
 });
 
@@ -577,9 +577,9 @@ test('client stream: the timeline mounts instantly and the riders drive the forw
   const sendButton = page.getByTestId('grpc-stream-send').filter({ visible: true }).first();
   await expect(sendButton).toBeEnabled();
   await sendButton.click();
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 15000 }).toBe(1);
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(1);
   await sendButton.click();
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 15000 }).toBe(2);
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(2);
 
   // Strict encode: a buffer that doesn't match the input type fails
   // the RIDER alone — toast, stream intact.
@@ -592,17 +592,17 @@ test('client stream: the timeline mounts instantly and the riders drive the forw
     .locator('.ant-message')
     .getByText(/Unknown field `nope`/)
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByTestId('grpc-streaming-badge').filter({ visible: true }).first().waitFor({ state: 'visible' });
 
   // Restore a valid buffer, send, half-close → summary ↓ + 0 OK.
   await workbench.fillMonaco(0, '{"book":{"name":"books/e2e-3"}}');
   await sendButton.click();
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 15000 }).toBe(3);
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(3);
   await page.getByTestId('grpc-stream-end').filter({ visible: true }).first().click();
   // The summary ↓ frame joins the three ↑ frames.
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 15000 }).toBe(4);
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 15000 });
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(4);
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
   await expect(streamPane()).toContainText('bookCount');
 });
 
@@ -620,11 +620,11 @@ test('bidi: a sent message echoes back through the forwarded stream', async () =
   const sendButton = page.getByTestId('grpc-stream-send').filter({ visible: true }).first();
   await sendButton.click();
   // The ↑ frame and the probe's echo ↓ both land in the timeline.
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 15000 }).toBe(2);
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(2);
   await expect(streamPane()).toContainText('echo: hello');
 
   await page.getByTestId('grpc-stream-end').filter({ visible: true }).first().click();
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 15000 });
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 // ── E1: no-companion affordance ─────────────────────────────────────
@@ -634,7 +634,7 @@ test('bidi: a sent message echoes back through the forwarded stream', async () =
 test('script hooks run on the companion: the rewrite echoes back, the console and the assertion land in the Scripts tab', async () => {
   await openGrpcRequest('e2egrpc9');
   await invokeButton().click();
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 20000 });
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
   // Before invoke, one On message, After response.
   await expect(page.getByTestId('grpc-session-scripts-tag').filter({ visible: true }).first()).toHaveText(
     'Scripts · 3',
@@ -664,7 +664,7 @@ test('daemon gone: Invoke disables with the connect copy while composing stays u
     .filter({ visible: true })
     .getByText(/Connect the desktop app to invoke/)
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // Compose stays usable — the method selector still opens and lists
   // the linked spec's rpcs.
@@ -674,6 +674,6 @@ test('daemon gone: Invoke disables with the connect copy while composing stays u
     .filter({ visible: true })
     .getByText('WatchBooks', { exact: false })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await page.keyboard.press('Escape');
 });
