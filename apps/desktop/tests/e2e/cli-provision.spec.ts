@@ -97,11 +97,16 @@ async function readCliConfig(): Promise<Record<string, unknown> | null> {
   }
 }
 
+/** Tools › AI · MCP Server › Clients — the CLI row's page. The tree
+ *  opens a parent only around an active descendant, so the walk goes
+ *  through the group landing pages' links. */
 async function openSettingsMcp(): Promise<void> {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
-  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).click();
-  await expect(workbench.getByText('Command-line access')).toBeVisible();
+  await workbench.locator('.settings-category-nav').getByRole('button', { name: 'Tools', exact: true }).click();
+  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).filter({ visible: true }).click();
+  await workbench.getByRole('button', { name: 'Clients', exact: true }).filter({ visible: true }).click();
+  await expect(workbench.getByText('CLI access', { exact: true })).toBeVisible({ timeout: 3_000 });
 }
 
 async function closeSettings(): Promise<void> {
@@ -163,7 +168,7 @@ test.beforeAll(async () => {
           return null;
         }
       },
-      { timeout: 45_000 },
+      { timeout: 20_000 },
     )
     .toBe('unconfigured');
 });
@@ -275,7 +280,7 @@ test('a ledger revoke flips the card to stale and re-arms the gate', async () =>
   await openSettingsMcp();
   await expect(
     workbench.getByText('The saved CLI token is no longer valid — set up access again to reconnect.'),
-  ).toBeVisible({ timeout: 10_000 });
+  ).toBeVisible({ timeout: 3_000 });
   await closeSettings();
 
   await openTerminalPanel();
@@ -300,7 +305,7 @@ test('a malformed file is refused and reported in the card, the gate, and the RP
   expect(await cliLedgerRows()).toHaveLength(rowsBefore);
 
   await openSettingsMcp();
-  await expect(workbench.getByTestId('cli-access-malformed')).toBeVisible({ timeout: 10_000 });
+  await expect(workbench.getByTestId('cli-access-malformed')).toBeVisible({ timeout: 3_000 });
   await expect(workbench.getByTestId('cli-access-provision')).toHaveCount(0);
   await closeSettings();
 
@@ -309,7 +314,7 @@ test('a malformed file is refused and reported in the card, the gate, and the RP
   await expect(gate).toContainText('The CLI config file can’t be read');
   await gate.getByRole('button', { name: 'Open Settings' }).click();
   await expect(gate).toBeHidden();
-  await expect(workbench.getByText('Command-line access')).toBeVisible();
+  await expect(workbench.getByText('CLI access', { exact: true })).toBeVisible();
   await closeSettings();
 });
 
@@ -334,7 +339,7 @@ test('a foreign config reads external, never prompts, and Connect repoints it', 
   await openSettingsMcp();
   await expect(
     workbench.getByText(`The CLI is currently connected to a different back-end (${foreignUrl}).`, { exact: false }),
-  ).toBeVisible({ timeout: 10_000 });
+  ).toBeVisible({ timeout: 3_000 });
   await workbench.getByRole('button', { name: 'Connect to this app' }).click();
 
   await expect
