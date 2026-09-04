@@ -55,6 +55,7 @@ export const GLOSSARY: readonly string[] = [
   'Cookie',
   'Set-Cookie',
   'User-Agent',
+  'Bearer',
   // Set-Cookie attribute tokens (RFC 6265 vocabulary — cookie surfaces
   // show them raw as field/column labels)
   'Domain',

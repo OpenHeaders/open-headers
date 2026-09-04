@@ -445,6 +445,7 @@ export const sharedComponents = {
   'shared.timelineGroup.showNewestOnly': '仅显示最新 {count} 条',
   // Compose-editor toolbar wrap toggle + the "Editor" dropdown.
   'shared.codeEditor.wrap': '自动换行',
+  'shared.codeEditor.formatError': '无法格式化 — 解析错误',
   'shared.editorMenu.label': '编辑器',
   'shared.editorMenu.thisEditor': '此编辑器',
   'shared.editorMenu.allEditors': '所有编辑器',

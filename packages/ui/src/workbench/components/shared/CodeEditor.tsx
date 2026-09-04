@@ -15,6 +15,7 @@
  */
 
 import { useUiTheme } from '@openheaders/ui/context';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import Editor, { type Monaco } from '@monaco-editor/react';
 import { Alert, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
@@ -101,6 +102,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const { attachJwtDetection, jwtModal } = useMonacoJwtEdit({ readOnly });
   const { token } = theme.useToken();
   const { monacoTheme } = useUiTheme();
+  const t = useT();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   // Mounted-instance signal for effects that must attach editor
   // listeners — the ref alone can't re-run an effect at mount time.
@@ -377,7 +379,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           showIcon
           closable
           onClose={() => setFormatError(null)}
-          title="Cannot format — parse error"
+          title={t('shared.codeEditor.formatError')}
           description={
             <pre
               style={{
