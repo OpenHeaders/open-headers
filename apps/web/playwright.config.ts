@@ -7,10 +7,14 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'list',
+  // A locator action or assertion that cannot complete is a failing
+  // read, not a hang: it names itself within five seconds instead of
+  // waiting out the whole test budget.
+  expect: { timeout: 5_000 },
   use: {
     trace: 'on-first-retry',
-    // Fail fast on a wrong selector instead of stalling to the test budget.
-    actionTimeout: 15_000,
+    actionTimeout: 5_000,
+    navigationTimeout: 10_000,
   },
   projects: [
     {
