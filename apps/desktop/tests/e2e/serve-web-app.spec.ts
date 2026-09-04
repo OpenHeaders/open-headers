@@ -52,7 +52,10 @@ const INITIALIZE_PARAMS = {
   clientInfo: { name: 'openheaders-serve-web-client', version: '0.0.0' },
 };
 
-const TOKEN_INPUT = 'input[data-testid=login-gate-token], [data-testid=login-gate-token] input';
+const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
+const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
+const USER_EMAIL = 'john.doe@openheaders.io';
+const USER_PASSWORD = 'serve-web-e2e-pass';
 
 let electronApp: ElectronApplication;
 let workbench: Page;
@@ -193,7 +196,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45_000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 
@@ -206,6 +209,35 @@ test.beforeAll(async () => {
   });
   expect(minted.ok).toBe(true);
   token = minted.secret ?? '';
+
+  // The directory user the tab signs in as — the front door takes no
+  // pairing token from a browser: an editor grant on the desktop's
+  // active workspace (the tab's editor flow writes) and a password,
+  // admitted over the desktop's own admin plane. The minted token
+  // stays the MCP seed's operator plane.
+  const active = await workbench.evaluate(async () => {
+    const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
+    return (await bridge.invoke({ type: 'getActiveWorkspaceId' })) as { activeWorkspaceId: string | null };
+  });
+  expect(active.activeWorkspaceId).toBeTruthy();
+  const admitted = await workbench.evaluate(
+    async ({ email, password, workspaceId }) => {
+      const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
+      const created = (await bridge.invoke({
+        type: 'oh.daemon.users.create',
+        displayName: 'John Doe',
+        email,
+        grants: [{ workspaceId, role: 'editor' }],
+      })) as { ok: boolean; userId?: string; error?: string };
+      if (!created.ok) return created;
+      return (await bridge.invoke({ type: 'oh.daemon.users.setPassword', userId: created.userId, password })) as {
+        ok: boolean;
+        error?: string;
+      };
+    },
+    { email: USER_EMAIL, password: USER_PASSWORD, workspaceId: active.activeWorkspaceId },
+  );
+  expect(admitted.ok, admitted.error).toBe(true);
 
   browser = await chromium.launch();
 });
@@ -254,20 +286,30 @@ test('MCP seeds a desktop-side rule before any tab joins', async () => {
   expect(desktopWorkspaceIds.length).toBeGreaterThan(0);
 });
 
-// ── Gate + join with the desktop-minted token ───────────────────────
+// ── Gate + join at the password card ────────────────────────────────
 
-test('a browser tab gates and joins with the desktop-minted token', async () => {
-  context = await browser.newContext();
+test('a browser tab gates and joins as the admitted directory user', async () => {
+  // A desktop-window viewport: at the 1280-wide default the empty
+  // state's rule submenu lands off-screen and closes under the pointer.
+  context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
   page = await context.newPage();
   watchConsole(page, 'tab');
   await page.goto(`${ORIGIN}/`);
 
-  await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
-  await page.fill(TOKEN_INPUT, token);
-  await page.click('[data-testid=login-gate-submit]');
-  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
+  await page.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
+  await page.fill(EMAIL_INPUT, USER_EMAIL);
+  await page.fill(PASSWORD_INPUT, USER_PASSWORD);
+  await page.click('[data-testid=login-gate-password-submit]');
+  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
 
-  await expect.poll(() => readHostSlot(page, 'oh.webBackendToken')).toBe(token);
+  // The persisted secret is the session the login minted — never the
+  // operator token, which no browser holds.
+  await expect
+    .poll(async () => {
+      const slot = await readHostSlot(page, 'oh.webBackendToken');
+      return typeof slot === 'string' && slot.length > 0 && slot !== token;
+    })
+    .toBe(true);
   const joined = (await readHostSlot(page, 'oh.joinedOrgs')) as Array<{ backendId: string }> | null;
   expect(joined?.map((row) => row.backendId)).toEqual(['web-serving-daemon']);
 });
@@ -275,10 +317,10 @@ test('a browser tab gates and joins with the desktop-minted token', async () => 
 // ── Down-sync + live replication ────────────────────────────────────
 
 test('the desktop rule synced down and an MCP rename replicates live', async () => {
-  await expect.poll(() => ruleInTabIdb(page, 'Desktop web rule'), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => ruleInTabIdb(page, 'Desktop web rule'), { timeout: 5_000 }).toBe(true);
 
   await callTool('rules_update', { uid: ruleUid, updates: { name: 'Desktop web rule v2' } });
-  await expect.poll(() => ruleInTabIdb(page, 'Desktop web rule v2'), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => ruleInTabIdb(page, 'Desktop web rule v2'), { timeout: 5_000 }).toBe(true);
 });
 
 // ── Join → adopt + upward sync through the real editor flow ─────────
@@ -291,9 +333,14 @@ test('join adopted the desktop workspace and a tab-created rule syncs up', async
     })
     .toBe(true);
 
-  await page.getByRole('button', { name: 'Create rule', exact: false }).first().click();
-  await page.getByText('Block Requests', { exact: false }).first().click();
-  await page.waitForSelector('input[value="New Block Rule"]', { timeout: 10_000 });
+  // The command palette's New Block Rule command — the keyboard path
+  // into a draft (the empty state's Create rule menu nests templated
+  // types in hover submenus, which a headless pointer cannot hold).
+  await page.getByRole('button', { name: 'Search or run a command', exact: false }).first().click();
+  const palette = page.getByPlaceholder('Search rules, collections, or type > for commands...');
+  await palette.fill('New Block Rule');
+  await page.getByText('New Block Rule', { exact: true }).filter({ visible: true }).first().click();
+  await page.waitForSelector('input[value^="New Block Rule"]', { timeout: 5_000 });
   await page
     .locator('button:visible')
     .filter({ hasText: /^Save$/ })
@@ -301,7 +348,7 @@ test('join adopted the desktop workspace and a tab-created rule syncs up', async
     .click();
 
   // Save dialog: Save arms only once a target collection is chosen.
-  await page.waitForSelector('.ant-modal', { timeout: 10_000 });
+  await page.waitForSelector('.ant-modal', { timeout: 5_000 });
   const collectionOption = page.locator('.ant-modal [role=option]').first();
   if ((await collectionOption.count()) > 0) {
     await collectionOption.click();
@@ -323,7 +370,7 @@ test('join adopted the desktop workspace and a tab-created rule syncs up', async
         const rules = await callTool('rules_list', {});
         return (rules.rules as Array<{ name: string }>).some((r) => r.name === 'New Block Rule');
       },
-      { timeout: 30_000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 });
@@ -334,13 +381,13 @@ test('flipping backend.serveWebApp off stops serving on the next request; on res
   await setServeWebApp(false);
   // Off: `/` reverts to the web-less `default` posture and falls through
   // to the daemon's 400 fallback — no HTML leaves the process.
-  await expect.poll(async () => (await fetch(`${ORIGIN}/`)).status, { timeout: 10_000 }).toBe(400);
+  await expect.poll(async () => (await fetch(`${ORIGIN}/`)).status, { timeout: 5_000 }).toBe(400);
   // The joined tab's WS pipe is flag-independent — a rename still lands.
   await callTool('rules_update', { uid: ruleUid, updates: { name: 'Desktop web rule v3' } });
-  await expect.poll(() => ruleInTabIdb(page, 'Desktop web rule v3'), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => ruleInTabIdb(page, 'Desktop web rule v3'), { timeout: 5_000 }).toBe(true);
 
   await setServeWebApp(true);
-  await expect.poll(async () => (await fetch(`${ORIGIN}/`)).status, { timeout: 10_000 }).toBe(200);
+  await expect.poll(async () => (await fetch(`${ORIGIN}/`)).status, { timeout: 5_000 }).toBe(200);
   expect(await (await fetch(`${ORIGIN}/`)).text()).toContain('<div id="root">');
 });
 
