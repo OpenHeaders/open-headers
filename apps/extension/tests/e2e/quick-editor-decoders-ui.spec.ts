@@ -133,7 +133,7 @@ async function publishHeaderRule(name: string, headerName: string, value: string
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(90_000);
   context = await chromium.launchPersistentContext('', {
     headless: false,
     slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
@@ -153,7 +153,7 @@ test.beforeAll(async () => {
   playgroundPage = await context.newPage();
   await playgroundPage.goto(PLAYGROUND_URL);
   await expect
-    .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+    .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 5_000 })
     .toBe(BASIC_ORIGINAL);
 
   // ── Pin the tab into CDP so the panel gets a lifecycle feed with no
@@ -164,13 +164,13 @@ test.beforeAll(async () => {
 
   panelPage = await context.newPage();
   await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${tabId}`);
-  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 
   // Attach is async — keep re-firing until a captured row shows up.
   await expect(async () => {
     await echoFetch();
     await expect(panelPage.locator('.dt-row').filter({ hasText: 'echo' }).first()).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
 });
 
 test.afterAll(async () => {
@@ -190,7 +190,7 @@ test.describe('Panel quick editor — compact inline decoder', () => {
     // element-not-found. The rule may land in either section — a fire
     // join gap still leaves the published rule as a future match, and
     // both row shapes hover-open the same quick editor.
-    await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(RULE_NAME, { timeout: 10_000 });
+    await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(RULE_NAME, { timeout: 5_000 });
     const ruleRow = panelPage.locator('.dt-matched-rule').filter({ hasText: RULE_NAME }).first();
     await expect(ruleRow).toBeVisible();
     await ruleRow.hover();
@@ -263,7 +263,7 @@ test.describe('Panel quick editor — compact inline decoder', () => {
 
     // Re-fire: the DNR recompile lands async after the mutation.
     await expect
-      .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 5_000 })
       .toBe(BASIC_EDITED);
   });
 });
@@ -305,7 +305,7 @@ async function fillDocMonaco(text: string): Promise<void> {
  *  re-select an echo row first. */
 async function openCompactEditor(): Promise<void> {
   await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).first().click();
-  await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(RULE_NAME, { timeout: 10_000 });
+  await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(RULE_NAME, { timeout: 5_000 });
   const ruleRow = panelPage.locator('.dt-matched-rule').filter({ hasText: RULE_NAME }).first();
   await ruleRow.hover();
   await expect(popover()).toBeVisible();
@@ -342,7 +342,7 @@ test.describe('Panel value document — the compact editor escalation', () => {
     await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText('Base64 value');
     await expect(async () => {
       expect(await docMonacoText()).toContain('admin@openheaders.io:rotated2026!!');
-    }).toPass({ timeout: 15_000 });
+    }).toPass({ timeout: 5_000 });
     // Pristine document: nothing to save, no preview strip.
     await expect(docRoot().locator('.dt-storagedoc-save')).toBeDisabled();
     await expect(docRoot().getByLabel('Encoded preview')).toHaveCount(0);
@@ -383,7 +383,7 @@ test.describe('Panel value document — the compact editor escalation', () => {
 
     // Re-fire: the DNR recompile lands async after the mutation.
     await expect
-      .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .poll(async () => (await echoFetch()).headers[HEADER_NAME.toLowerCase()], { timeout: 5_000 })
       .toBe(DOC_EDITED);
   });
 
@@ -396,7 +396,7 @@ test.describe('Panel value document — the compact editor escalation', () => {
     // The document reflects the saved edit — the canonical, not a draft.
     await expect(async () => {
       expect(await docMonacoText()).toContain(DOC_DECODED);
-    }).toPass({ timeout: 15_000 });
+    }).toPass({ timeout: 5_000 });
   });
 });
 
@@ -418,10 +418,10 @@ function cookieDocPill(): Locator {
 
 test.describe('Panel value document — pair grid for a cookie value', () => {
   test('a cookie value keeps the compact textarea but escalates to a grid document', async () => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     await publishHeaderRule(COOKIE_RULE_NAME, COOKIE_HEADER, COOKIE_ORIGINAL);
     await expect
-      .poll(async () => (await echoFetch()).headers[COOKIE_HEADER.toLowerCase()], { timeout: 15_000 })
+      .poll(async () => (await echoFetch()).headers[COOKIE_HEADER.toLowerCase()], { timeout: 5_000 })
       .toBe(COOKIE_ORIGINAL);
 
     // A fresh row that fired BOTH rules — attribution is per-request,
@@ -433,7 +433,7 @@ test.describe('Panel value document — pair grid for a cookie value', () => {
     }
     await panelPage.locator('.dt-row').filter({ hasText: 'echo' }).last().click();
     await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(COOKIE_RULE_NAME, {
-      timeout: 10_000,
+      timeout: 5_000,
     });
     await panelPage.locator('.dt-matched-rule').filter({ hasText: COOKIE_RULE_NAME }).first().hover();
     await expect(popover()).toBeVisible();
@@ -500,7 +500,7 @@ test.describe('Panel value document — pair grid for a cookie value', () => {
     await expect(cookieDocPill().locator('.dt-editor-tab-dirty')).toHaveCount(0);
 
     await expect
-      .poll(async () => (await echoFetch()).headers[COOKIE_HEADER.toLowerCase()], { timeout: 15_000 })
+      .poll(async () => (await echoFetch()).headers[COOKIE_HEADER.toLowerCase()], { timeout: 5_000 })
       .toBe(COOKIE_EDITED);
   });
 });
@@ -532,10 +532,10 @@ const JWT_RESIGNED = makeJWT(JWT_HEADER_OBJ, JWT_PAYLOAD_EDITED_OBJ, RESIGN_SECR
 
 test.describe('Workbench JWT modal — re-sign a published Bearer value onto the wire', () => {
   test('the modal re-signs with the secret and Save carries the prefix back', async () => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     await publishHeaderRule(JWT_RULE_NAME, JWT_HEADER_NAME, `Bearer ${JWT_ORIGINAL}`);
     await expect
-      .poll(async () => (await echoFetch()).headers[JWT_HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .poll(async () => (await echoFetch()).headers[JWT_HEADER_NAME.toLowerCase()], { timeout: 5_000 })
       .toBe(`Bearer ${JWT_ORIGINAL}`);
 
     // The publish flow leaves the rule editor open — its value field
@@ -581,7 +581,7 @@ test.describe('Workbench JWT modal — re-sign a published Bearer value onto the
 
     // The wire token is byte-equal to the independent node:crypto HMAC.
     await expect
-      .poll(async () => (await echoFetch()).headers[JWT_HEADER_NAME.toLowerCase()], { timeout: 15_000 })
+      .poll(async () => (await echoFetch()).headers[JWT_HEADER_NAME.toLowerCase()], { timeout: 5_000 })
       .toBe(`Bearer ${JWT_RESIGNED}`);
   });
 });
