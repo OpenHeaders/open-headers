@@ -50,7 +50,7 @@ async function openSelectorMenu(): Promise<void> {
   await expect(async () => {
     await selectorTrigger().click();
     await expect(selectorRows().first()).toBeVisible({ timeout: 1_000 });
-  }).toPass({ timeout: 10_000 });
+  }).toPass({ timeout: 5_000 });
 }
 
 /** Close via Escape, falling back to the trigger toggle. */
@@ -82,7 +82,7 @@ function rowsWithText(text: string): Locator {
 /** Submit an expression through the REPL prompt. */
 async function evaluate(expression: string): Promise<void> {
   const input = panelPage.locator('.dt-console-prompt-input');
-  await expect(input).toBeEnabled({ timeout: 10_000 });
+  await expect(input).toBeEnabled({ timeout: 5_000 });
   await input.fill(expression);
   await input.press('Enter');
 }
@@ -95,7 +95,7 @@ function nextTag(): string {
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(90_000);
   context = await chromium.launchPersistentContext('', {
     headless: false,
     args: [
@@ -128,7 +128,7 @@ test.beforeAll(async () => {
   panelPage = await context.newPage();
   panelPage.on('pageerror', (err) => console.error('[panel pageerror]', err.stack ?? err.message));
   await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${tabId}`);
-  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 
   const consoleTab = panelPage.locator('[data-tool-window="console"]').first();
   if ((await consoleTab.getAttribute('aria-selected')) !== 'true') {
@@ -154,7 +154,7 @@ test('selector lists every context shape: top first at depth 0, cross-origin fra
   await expect(async () => {
     await openSelectorMenu();
     await expect(selectorRows().filter({ hasText: 'oh-sw.js' }).first()).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
   const rows = selectorRows();
 
   // Top frame + two iframes + worker + SW at minimum (the rig may add
@@ -210,7 +210,7 @@ test('console attribution: one identifiable row per context after logAll', async
   const prefixes = await contextsPage.evaluate((t) => window.ohContexts.logAll(t), tag);
   expect(prefixes).toHaveLength(5);
 
-  await expect(rowsWithText(tag)).toHaveCount(5, { timeout: 15_000 });
+  await expect(rowsWithText(tag)).toHaveCount(5, { timeout: 5_000 });
   for (const prefix of [
     '[top 127.0.0.1:3000]',
     '[frame 127.0.0.1:3000]',
@@ -228,7 +228,7 @@ test('REPL evaluates in the selected context: top, cross-origin frame, service w
   const topEcho = rowsWithText('document.title').last();
   await expect(topEcho).toHaveAttribute('data-source', 'command');
   await expect(rowsWithText('JS contexts · Open Headers Playground').last()).toHaveAttribute('data-source', 'result', {
-    timeout: 10_000,
+    timeout: 5_000,
   });
 
   // Cross-origin frame — a different document, and the non-top warning tint.
@@ -236,19 +236,19 @@ test('REPL evaluates in the selected context: top, cross-origin frame, service w
   await expect(panelPage.locator('.dt-console-context--warn')).toHaveCount(1);
   await evaluate('document.title');
   await expect(rowsWithText('OH context frame · localhost:3000').last()).toHaveAttribute('data-source', 'result', {
-    timeout: 10_000,
+    timeout: 5_000,
   });
 
   // Service worker — no document, its own registration scope.
   await pickContext('oh-sw.js');
   await evaluate('[typeof document, self.registration.scope]');
   const swResult = rowsWithText('/src/contexts/').last();
-  await expect(swResult).toHaveAttribute('data-source', 'result', { timeout: 10_000 });
+  await expect(swResult).toHaveAttribute('data-source', 'result', { timeout: 5_000 });
   await expect(swResult).toContainText('undefined');
 
   // Errors render as error-level results, never silently.
   await evaluate('ohNoSuchGlobal.probe');
-  await expect(rowsWithText('ReferenceError').last()).toHaveAttribute('data-level', 'error', { timeout: 10_000 });
+  await expect(rowsWithText('ReferenceError').last()).toHaveAttribute('data-level', 'error', { timeout: 5_000 });
 
   // Back to top clears the warning tint. (Row text concatenates title +
   // subtitle, so anchor on the title prefix rather than exact-matching.)
@@ -259,7 +259,7 @@ test('REPL evaluates in the selected context: top, cross-origin frame, service w
 test('"Selected context only" hides other contexts\' rows and restores on toggle-off', async () => {
   const tag = nextTag();
   await contextsPage.evaluate((t) => window.ohContexts.logAll(t), tag);
-  await expect(rowsWithText(tag)).toHaveCount(5, { timeout: 15_000 });
+  await expect(rowsWithText(tag)).toHaveCount(5, { timeout: 5_000 });
 
   // The toggle lives in the Console settings pane behind the gear; the pane
   // stays open across toggles, so open it once and click the checkbox.
@@ -351,7 +351,7 @@ test('"Log XMLHttpRequests" synthesizes finished-loading rows for page fetches, 
   // A page fetch of this page's own document — an XHR-category request.
   await contextsPage.evaluate(() => fetch('/src/contexts/index.html?oh-xhr-log').then((r) => r.text()));
   const xhrRow = rowsWithText('Fetch finished loading: GET').filter({ hasText: 'oh-xhr-log' });
-  await expect(xhrRow.first()).toBeVisible({ timeout: 15_000 });
+  await expect(xhrRow.first()).toBeVisible({ timeout: 5_000 });
   // The URL is a live link into the Network plane.
   await expect(xhrRow.first().locator('.dt-console-req-link')).toBeVisible();
 
@@ -364,7 +364,7 @@ test('eager evaluation previews the prompt text and obeys its setting', async ()
   const input = panelPage.locator('.dt-console-prompt-input');
   await expect(input).toBeEnabled();
   await input.fill('40 + 2');
-  await expect(panelPage.locator('.dt-console-prompt-preview-text')).toHaveText('42', { timeout: 10_000 });
+  await expect(panelPage.locator('.dt-console-prompt-preview-text')).toHaveText('42', { timeout: 5_000 });
 
   await openSettingsPane();
   await panelPage.getByRole('checkbox', { name: 'Eager evaluation' }).click();
