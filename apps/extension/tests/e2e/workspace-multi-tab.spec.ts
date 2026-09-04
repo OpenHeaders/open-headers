@@ -63,7 +63,7 @@ async function openWorkspace(): Promise<Page> {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   return page;
 }
@@ -73,7 +73,7 @@ async function openWorkspace(): Promise<Page> {
  * RPC round-trip + broadcast settling, so we tolerate a brief window
  * between mount and final-title write.
  */
-async function waitForTitle(page: Page, expected: string, timeoutMs = 8000): Promise<void> {
+async function waitForTitle(page: Page, expected: string, timeoutMs = 5_000): Promise<void> {
   await expect
     .poll(async () => await page.title(), {
       timeout: timeoutMs,
@@ -207,7 +207,7 @@ test.describe('Workspace tab title — route composition', () => {
 
       await expect
         .poll(async () => await page2.title(), {
-          timeout: 8000,
+          timeout: 5_000,
           message: 'expected page2 title to become "#2 <tab-label> — Open Headers"',
         })
         .toMatch(/^#2 \S.* — Open Headers$/);
