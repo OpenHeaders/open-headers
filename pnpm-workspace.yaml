@@ -7,3 +7,8 @@ packages:
 # that window. Adopt a fresher version consciously via
 # minimumReleaseAgeExclude, never by default.
 minimumReleaseAge: 10080
+# qs 6.16.0 (published 2026-08-29) closes GHSA-4mjr-xmp4-gh2g and
+# GHSA-x5fp-wj9c-mxmx; adopted 2026-09-04 inside the window on purpose.
+# Drop this entry after 2026-09-06 — the cooldown covers it from then.
+minimumReleaseAgeExclude:
+  - qs
