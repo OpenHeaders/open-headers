@@ -9,6 +9,7 @@
  * reasons, `sourceHash` stamped for the re-import diff).
  */
 
+import { defaultAuthEntry } from '@openheaders/core/auth-inheritance';
 import type { ImportReport, PostmanPullResult } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -351,11 +352,15 @@ describe('materializePostmanPull', () => {
       { ensureWorkspaceFor },
     );
 
+    // Each ancestor's default auth lands as a one-entry pool under a
+    // minted uid — the pool's default is the imported config.
     const [collection] = snapshotRequestCollectionPostStates(wsId).map((ps) => ps.collection);
-    expect(collection.auth).toEqual({ type: 'bearer', token: '{{auth_token}}' });
+    expect(collection.auths).toHaveLength(1);
+    expect(defaultAuthEntry(collection)?.config).toEqual({ type: 'bearer', token: '{{auth_token}}' });
 
     const [folder] = snapshotRequestFolderPostStates(wsId).map((ps) => ps.folder);
-    expect(folder.auth).toEqual({ type: 'basic', username: 'svc', password: 'pw' });
+    expect(folder.auths).toHaveLength(1);
+    expect(defaultAuthEntry(folder)?.config).toEqual({ type: 'basic', username: 'svc', password: 'pw' });
 
     // The request without its own auth imports as `inherit` — the
     // ancestor carriers resolve it at send time.
