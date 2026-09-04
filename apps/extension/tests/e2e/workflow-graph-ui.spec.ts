@@ -75,7 +75,7 @@ test.beforeAll(async () => {
         probeUid = res.request?.uid ?? '';
         return res.success === true;
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
   await rpc(readiness, 'deleteLocalRequest', { requestUid: probeUid });
@@ -171,17 +171,17 @@ test('graph toggle renders the step DAG and returns to the form loss-free', asyn
     .getByRole('button', { name: /WORKFLOWS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 5_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
   const row = page.locator(`[data-item-id="workflow-${workflowUid}"]`);
-  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.click();
 
   // The editor opens on the Form view: step editors visible, no pane.
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
-  await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+  await saveButton.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByTestId('wf-graph-pane')).toHaveCount(0);
 
   await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
@@ -319,15 +319,15 @@ test('graph editing: connect adds a dependsOn edge, edge remove, add step, cycle
     .getByRole('button', { name: /WORKFLOWS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 5_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
   const row = page.locator(`[data-item-id="workflow-${workflowUid}"]`);
-  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.click();
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
-  await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+  await saveButton.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(saveButton).toBeDisabled();
   await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
@@ -481,18 +481,18 @@ test('run overlay: per-node states, masked value reveal, publication split', asy
     .getByRole('button', { name: /WORKFLOWS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 5_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
   const row = page.locator(`[data-item-id="workflow-${workflowUid}"]`);
-  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.click();
   await page
     .getByRole('button', { name: 'Save' })
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByTestId('wf-graph-pane')).toBeVisible();
 
