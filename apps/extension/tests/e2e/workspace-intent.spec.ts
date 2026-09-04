@@ -51,14 +51,14 @@ async function openWorkspace(hash = ''): Promise<Page> {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   return page;
 }
 
 async function expectDocsPanelVisible(page: Page): Promise<void> {
   const docsPanel = page.locator('.rules-right-panel--docs');
-  await expect(docsPanel).toBeVisible({ timeout: 10000 });
+  await expect(docsPanel).toBeVisible({ timeout: 5_000 });
 }
 
 /**
@@ -68,7 +68,7 @@ async function expectDocsPanelVisible(page: Page): Promise<void> {
  */
 async function expectActiveSection(page: Page, sectionId: string): Promise<void> {
   const panel = page.locator(`.rules-right-panel--docs[data-active-section="${sectionId}"]`);
-  await expect(panel).toBeVisible({ timeout: 10000 });
+  await expect(panel).toBeVisible({ timeout: 5_000 });
 }
 
 // ── Cold-start ──────────────────────────────────────────────────────
@@ -201,7 +201,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
           const root = document.getElementById('root');
           return root !== null && root.children.length > 0;
         },
-        { timeout: 15000 },
+        { timeout: 5_000 },
       )
       .catch(() => {
         // Some Playwright builds surface the new window as a page-in-
