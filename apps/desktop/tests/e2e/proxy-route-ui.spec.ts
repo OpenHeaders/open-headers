@@ -64,6 +64,11 @@ let token: string;
 let scratchDir: string;
 
 let httpsEcho: Rig;
+/** The system-plane leg's own echo: the transport pools a CONNECT
+ *  tunnel per proxy + target, so a second send to the request-plane
+ *  leg's echo would ride that tunnel and the rig would log nothing
+ *  new — a fresh target forces a fresh CONNECT, the wire truth. */
+let envEcho: Rig;
 let connectProxy: ProxyRig;
 let socks5Proxy: Socks5Rig;
 let pacServer: Rig;
@@ -135,7 +140,7 @@ async function showRequestsView(): Promise<void> {
     .getByRole('button', { name: /REQUESTS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10_000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 2_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
@@ -158,10 +163,10 @@ async function openRequest(uid: string): Promise<void> {
     for (let i = 0; i < count; i += 1) {
       if (await row.isVisible().catch(() => false)) break;
       await collections.nth(i).click();
-      await row.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
+      await row.waitFor({ state: 'visible', timeout: 1_000 }).catch(() => {});
     }
   }
-  await row.waitFor({ state: 'visible', timeout: 5000 });
+  await row.waitFor({ state: 'visible', timeout: 2_000 });
   await row.scrollIntoViewIfNeeded();
   await row.click();
 }
@@ -170,17 +175,17 @@ async function openRequest(uid: string): Promise<void> {
 async function setRequestProxyMode(optionTitle: string): Promise<void> {
   await workbench.getByRole('tab', { name: 'Settings' }).filter({ visible: true }).first().click();
   const select = workbench.getByTestId('request-proxy-mode').filter({ visible: true }).first();
-  await select.waitFor({ state: 'visible', timeout: 10_000 });
+  await select.waitFor({ state: 'visible', timeout: 2_000 });
   await select.click();
   const option = workbench.locator(`.ant-select-item-option[title="${optionTitle}"]`).filter({ visible: true }).first();
-  await option.waitFor({ state: 'visible', timeout: 10_000 });
+  await option.waitFor({ state: 'visible', timeout: 2_000 });
   await option.click();
 }
 
 /** Type the request-plane proxy URL into the Settings tab's URL row. */
 async function setRequestProxyUrl(url: string): Promise<void> {
   const input = workbench.getByTestId('request-proxy-url').filter({ visible: true }).first();
-  await input.waitFor({ state: 'visible', timeout: 10_000 });
+  await input.waitFor({ state: 'visible', timeout: 2_000 });
   await input.fill(url);
 }
 
@@ -189,18 +194,24 @@ async function setRequestProxyUrl(url: string): Promise<void> {
 async function resetRequestProxyRow(): Promise<void> {
   await workbench.getByRole('tab', { name: 'Settings' }).filter({ visible: true }).first().click();
   const reset = workbench.getByRole('button', { name: 'Reset Proxy to default' }).filter({ visible: true }).first();
-  await reset.waitFor({ state: 'visible', timeout: 10_000 });
+  await reset.waitFor({ state: 'visible', timeout: 2_000 });
   await reset.click();
 }
 
-/** Open the Settings sheet on the Proxy · Outbound category. The Proxy
- *  group row lands on a link page; the Outbound link mounts the pane. */
+/** Open the Settings sheet on Connectivity › Proxy › Outbound Requests.
+ *  The tree opens a parent only around an active descendant, so the
+ *  walk goes through the group landing pages: the Connectivity nav row,
+ *  its Proxy link, then Proxy's Outbound Requests link — each link is
+ *  the only button of that name while its parent's row is still the
+ *  deepest one the nav shows. */
 async function openProxySettings(): Promise<void> {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
-  await workbench.locator('.settings-category-nav').getByText('Proxy', { exact: true }).click();
-  await workbench.getByRole('button', { name: 'Outbound Requests', exact: true }).click();
-  await workbench.getByTestId('oh-sysproxy-mode').waitFor({ state: 'visible', timeout: 10_000 });
+  const nav = workbench.locator('.settings-category-nav');
+  await nav.getByRole('button', { name: 'Connectivity', exact: true }).click();
+  await workbench.getByRole('button', { name: 'Proxy', exact: true }).filter({ visible: true }).first().click();
+  await workbench.getByRole('button', { name: 'Outbound Requests', exact: true }).filter({ visible: true }).click();
+  await workbench.getByTestId('oh-sysproxy-mode').waitFor({ state: 'visible', timeout: 2_000 });
 }
 
 /** Close the Settings sheet (edits applied live — closing loses nothing). */
@@ -208,7 +219,7 @@ async function closeSettings(): Promise<void> {
   await workbench.keyboard.press('Escape');
   await workbench
     .getByTestId('oh-sysproxy-mode')
-    .waitFor({ state: 'hidden', timeout: 10_000 })
+    .waitFor({ state: 'hidden', timeout: 3_000 })
     .catch(() => {});
 }
 
@@ -220,7 +231,7 @@ async function setEnvironmentMode(mode: 'system' | 'manual' | 'pac' | 'off'): Pr
 /** Commit a value into one of the pane's blur-committed inputs. */
 async function fillEnvironmentField(testId: string, value: string): Promise<void> {
   const input = workbench.getByTestId(testId).filter({ visible: true }).first();
-  await input.waitFor({ state: 'visible', timeout: 10_000 });
+  await input.waitFor({ state: 'visible', timeout: 2_000 });
   await input.fill(value);
   await input.press('Enter');
 }
@@ -236,17 +247,17 @@ const proxyTag = () => workbench.getByTestId('oh-response-proxy-route').filter({
  *  arrival is the wire truth; the 200 and the tag are asserted after. */
 async function sendAndExpectArrival(log: string[], before: number): Promise<void> {
   await clickSend();
-  await expect.poll(() => log.length, { timeout: 45_000 }).toBeGreaterThan(before);
+  await expect.poll(() => log.length, { timeout: 3_000 }).toBeGreaterThan(before);
   await expect
     .poll(
       async () =>
         (await workbench.getByTestId('oh-response-status').filter({ visible: true }).textContent())?.trim() ?? '',
       {
-        timeout: 45_000,
+        timeout: 3_000,
       },
     )
     .toContain('200');
-  await expect(proxyTag().first()).toBeVisible({ timeout: 15_000 });
+  await expect(proxyTag().first()).toBeVisible({ timeout: 2_000 });
 }
 
 /** Send a leg that must stay quiet-direct: 200 arrives, the rig logs
@@ -260,11 +271,11 @@ async function sendAndExpectQuietDirect(): Promise<void> {
       async () =>
         (await workbench.getByTestId('oh-response-status').filter({ visible: true }).textContent())?.trim() ?? '',
       {
-        timeout: 45_000,
+        timeout: 3_000,
       },
     )
     .toContain('200');
-  await expect.poll(() => proxyTag().count(), { timeout: 15_000 }).toBe(0);
+  await expect.poll(() => proxyTag().count(), { timeout: 2_000 }).toBe(0);
   expect(connectProxy.tunnels.length).toBe(tunnelsBefore);
   expect(socks5Proxy.targets.length).toBe(socksBefore);
 }
@@ -273,7 +284,7 @@ async function sendAndExpectQuietDirect(): Promise<void> {
 async function proxySourceFact(): Promise<string> {
   await proxyTag().first().hover();
   const popover = workbench.locator('.ant-popover:visible').first();
-  await popover.waitFor({ state: 'visible', timeout: 5_000 });
+  await popover.waitFor({ state: 'visible', timeout: 2_000 });
   const text = (await popover.textContent()) ?? '';
   await workbench.keyboard.press('Escape');
   await workbench.mouse.move(0, 0);
@@ -285,7 +296,8 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
   scratchDir = await mkdtemp(path.join(tmpdir(), 'oh-proxyroute-e2e-'));
   const material = await mintLocalhostCert(scratchDir);
-  [httpsEcho, connectProxy, socks5Proxy] = await Promise.all([
+  [httpsEcho, envEcho, connectProxy, socks5Proxy] = await Promise.all([
+    startHttpsEcho(material),
     startHttpsEcho(material),
     startConnectProxy(),
     startSocks5Proxy(),
@@ -325,7 +337,7 @@ test.beforeAll(async () => {
           return false;
         }
       },
-      { timeout: 45_000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
   await expect
@@ -337,7 +349,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45_000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
   const minted = await invoke<{ ok: boolean; secret?: string }>({
@@ -368,7 +380,7 @@ test.beforeAll(async () => {
     ...base,
     name: 'GET https echo (environment)',
     method: 'GET',
-    url: `https://localhost:${httpsEcho.port}/environment`,
+    url: `https://localhost:${envEcho.port}/environment`,
     sslVerification: false,
   });
   if (LAN_IP !== null && lanEcho !== null) {
@@ -392,14 +404,14 @@ test.beforeAll(async () => {
           .isVisible()
           .catch(() => false);
       },
-      { timeout: 15_000 },
+      { timeout: 2_000 },
     )
     .toBe(true);
 });
 
 test.afterAll(async () => {
   await electronApp?.close();
-  await Promise.all([httpsEcho, connectProxy, socks5Proxy, pacServer, lanEcho].map((rig) => rig?.close()));
+  await Promise.all([httpsEcho, envEcho, connectProxy, socks5Proxy, pacServer, lanEcho].map((rig) => rig?.close()));
   await rm(scratchDir, { recursive: true, force: true });
 });
 
@@ -435,7 +447,7 @@ test.describe('system plane — the settings pane to the wire', () => {
 
     await openRequest(environmentUid);
     await sendAndExpectArrival(connectProxy.tunnels, connectProxy.tunnels.length);
-    expect(connectProxy.tunnels.at(-1)).toBe(`localhost:${httpsEcho.port}`);
+    expect(connectProxy.tunnels.at(-1)).toBe(`localhost:${envEcho.port}`);
     expect(await proxySourceFact()).toContain('Manual proxy configuration');
   });
 
@@ -445,7 +457,7 @@ test.describe('system plane — the settings pane to the wire', () => {
     await workbench.getByTestId('oh-sysproxy-preview-run').click();
     await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText(
       `PROXY 127.0.0.1:${connectProxy.port}`,
-      { timeout: 10_000 },
+      { timeout: 3_000 },
     );
     await closeSettings();
   });
@@ -474,7 +486,7 @@ test.describe('system plane — the settings pane to the wire', () => {
     // hang whichever test follows.
     await workbench.getByTestId('oh-sysproxy-manual-supported').click();
     await closeSettings();
-    await workbench.getByTestId('oh-sysproxy-mode').waitFor({ state: 'hidden', timeout: 10_000 });
+    await workbench.getByTestId('oh-sysproxy-mode').waitFor({ state: 'hidden', timeout: 3_000 });
   });
 
   test('an explicit per-request Direct opt-out beats the answering environment — quiet direct', async () => {
@@ -493,13 +505,13 @@ test.describe('system plane — the settings pane to the wire', () => {
     await workbench.getByTestId('oh-sysproxy-preview-run').click();
     await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText(
       `PROXY 127.0.0.1:${connectProxy.port}`,
-      { timeout: 10_000 },
+      { timeout: 3_000 },
     );
 
     // Chromium's implicit bypass: a loopback URL never reaches the PAC.
     await fillEnvironmentField('oh-sysproxy-preview-url', `https://localhost:${httpsEcho.port}/`);
     await workbench.getByTestId('oh-sysproxy-preview-run').click();
-    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText('DIRECT', { timeout: 10_000 });
+    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText('DIRECT', { timeout: 3_000 });
     await closeSettings();
   });
 
@@ -541,12 +553,12 @@ test.describe('system plane — remote PAC over real trust', () => {
     await fillEnvironmentField('oh-sysproxy-preview-url', `https://${REMOTE_HOST}/echo/preview`);
     await workbench.getByTestId('oh-sysproxy-preview-run').click();
     await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText(`PROXY ${REMOTE_HOST}:`, {
-      timeout: 20_000,
+      timeout: 3_000,
     });
 
     await fillEnvironmentField('oh-sysproxy-preview-url', 'https://openheaders.io/');
     await workbench.getByTestId('oh-sysproxy-preview-run').click();
-    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText('DIRECT', { timeout: 20_000 });
+    await expect(workbench.getByTestId('oh-sysproxy-preview-result')).toContainText('DIRECT', { timeout: 3_000 });
 
     await setEnvironmentMode('off');
     await closeSettings();
