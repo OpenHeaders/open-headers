@@ -100,11 +100,19 @@ export function createTreeOrderCache(
   // hydrate — which runs after the re-seed.
   let armed = false;
 
+  const persist = async (): Promise<void> => {
+    try {
+      await hostStorage.set(wsKeys(workspaceId).treeOrder, record);
+    } catch (err) {
+      // A missing or failing host adapter never fails the hydrate — the
+      // in-memory record is consistent; the next event writes again.
+      logger.info('TreeOrderCache', `persist failed (ws=${workspaceId}):`, (err as Error).message);
+    }
+  };
+
   const refreshFromOracle = (): void => {
     record = projectTreeOrder(oracle);
-    void hostStorage.set(wsKeys(workspaceId).treeOrder, record).catch((err: unknown) => {
-      logger.info('TreeOrderCache', `persist failed (ws=${workspaceId}):`, (err as Error).message);
-    });
+    void persist();
   };
 
   const unsubscribe = broadcast.subscribe((event: BroadcastEvent) => {
