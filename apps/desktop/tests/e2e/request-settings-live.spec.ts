@@ -24,6 +24,7 @@ import path from 'node:path';
 import { parseWorkspaceExport } from '@openheaders/core/workspace-export';
 import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
 import {
+  devH3HelperBinary,
   freePort,
   mintClientCert,
   mintLocalhostCert,
@@ -44,6 +45,7 @@ import {
 } from './request-settings-rigs';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
+const REPO_ROOT = path.resolve(__dirname, '../../../..');
 // Off the default 8137 so the suite never collides with a real install.
 const DAEMON_PORT = 18537;
 
@@ -402,6 +404,10 @@ test("httpVersion '2' against a cleartext target fails honestly, naming the prio
 
 test("httpVersion '3' rides the bundled helper over real QUIC, protocol reported from the wire", async () => {
   test.skip(h3Rig === null, 'caddy not on PATH — no local QUIC target');
+  test.skip(
+    devH3HelperBinary(REPO_ROOT) === null,
+    'no oh-h3-helper under native/h3-helper (dist/<target> or target/release) and no OPENHEADERS_H3_HELPER override',
+  );
   const snapshot = await exec(
     draft({ url: `https://127.0.0.1:${h3Rig?.port}/`, sslVerification: false, httpVersion: '3' }),
   );

@@ -13,7 +13,7 @@
  */
 
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import http2 from 'node:http2';
 import https from 'node:https';
@@ -21,6 +21,7 @@ import net from 'node:net';
 import path from 'node:path';
 import type tls from 'node:tls';
 import { promisify } from 'node:util';
+import { h3HelperBinaryName, h3HelperTargetName } from '@openheaders/oracle-host-node/live/h3-helper/helper-binary';
 
 const execFileAsync = promisify(execFile);
 
@@ -226,6 +227,26 @@ export async function startH2cEcho(): Promise<Rig> {
   });
   const port = await listen(server);
   return { port, close: closer(server) };
+}
+
+/**
+ * Whether the app under test can spawn an HTTP/3 helper: the
+ * `OPENHEADERS_H3_HELPER` override, else the dev tree's candidates the
+ * desktop main resolves (`native/h3-helper/dist/<target>/` then
+ * `target/release/`). Null when none exists — the QUIC leg skips by
+ * name instead of failing on the honest not-bundled sentence.
+ */
+export function devH3HelperBinary(repoRoot: string): string | null {
+  const override = process.env.OPENHEADERS_H3_HELPER;
+  if (override !== undefined && override !== '') return existsSync(override) ? override : null;
+  const crateRoot = path.join(repoRoot, 'native', 'h3-helper');
+  const binaryName = h3HelperBinaryName();
+  const target = h3HelperTargetName();
+  const candidates = [
+    ...(target !== null ? [path.join(crateRoot, 'dist', target, binaryName)] : []),
+    path.join(crateRoot, 'target', 'release', binaryName),
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
 /**
