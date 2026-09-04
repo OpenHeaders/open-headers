@@ -48,9 +48,9 @@ export interface CommitRowMenuHandlers {
 type MenuItems = NonNullable<MenuProps['items']>;
 
 /** Icon gutter + right-aligned inert shortcut hint (the IDE anatomy). */
-function menuLabel(icon: React.ReactNode | null, text: string, hint?: string): React.ReactNode {
+function menuLabel(icon: React.ReactNode | null, text: string, hint?: string, testid?: string): React.ReactNode {
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 220 }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 220 }} data-testid={testid}>
       <span style={{ width: 16, flex: '0 0 auto', display: 'inline-flex', justifyContent: 'center' }}>{icon}</span>
       <span style={{ flex: '1 1 auto', fontSize: 13 }}>{text}</span>
       {hint !== undefined && <span style={{ flex: '0 0 auto', fontSize: 12, opacity: 0.55 }}>{hint}</span>}
@@ -138,11 +138,19 @@ function gitSubmenu(row: WorkspaceTreeWorkingChangeWire, t: Translate, h: Commit
       { type: 'divider' },
       {
         key: 'git-push',
-        label: menuLabel(<RiseOutlined />, t('workbench.commitTool.menu.push'), '⇧⌘K'),
+        label: menuLabel(<RiseOutlined />, t('workbench.commitTool.menu.push'), '⇧⌘K', 'commit-tool-menu-push'),
         onClick: () => h.onPush(),
       },
-      { key: 'git-pull', label: menuLabel(null, t('workbench.commitTool.menu.pull')), onClick: () => h.onPull() },
-      { key: 'git-fetch', label: menuLabel(null, t('workbench.commitTool.menu.fetch')), onClick: () => h.onFetch() },
+      {
+        key: 'git-pull',
+        label: menuLabel(null, t('workbench.commitTool.menu.pull'), undefined, 'commit-tool-menu-pull'),
+        onClick: () => h.onPull(),
+      },
+      {
+        key: 'git-fetch',
+        label: menuLabel(null, t('workbench.commitTool.menu.fetch'), undefined, 'commit-tool-menu-fetch'),
+        onClick: () => h.onFetch(),
+      },
       { type: 'divider' },
       { key: 'git-merge', label: menuLabel(<ForkOutlined />, t('workbench.commitTool.menu.merge')), disabled: true },
       { key: 'git-rebase', label: menuLabel(null, t('workbench.commitTool.menu.rebase')), disabled: true },
@@ -154,7 +162,12 @@ function gitSubmenu(row: WorkspaceTreeWorkingChangeWire, t: Translate, h: Commit
       },
       {
         key: 'git-new-branch',
-        label: menuLabel(<PlusOutlined />, t('workbench.commitTool.menu.newBranch'), '⌥⌘N'),
+        label: menuLabel(
+          <PlusOutlined />,
+          t('workbench.commitTool.menu.newBranch'),
+          '⌥⌘N',
+          'commit-tool-menu-new-branch',
+        ),
         onClick: () => h.onNewBranch(),
       },
       { key: 'git-new-tag', label: menuLabel(null, t('workbench.commitTool.menu.newTag')), disabled: true },
