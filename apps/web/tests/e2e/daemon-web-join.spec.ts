@@ -230,9 +230,9 @@ async function openSignedInUntil(
   const target = await ctx.newPage();
   watchConsole(target, label);
   await target.goto(ORIGIN);
-  await target.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
+  await target.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
   await signInAtGate(target, email, password);
-  await target.waitForSelector(readySelector, { timeout: 30_000 });
+  await target.waitForSelector(readySelector, { timeout: 5_000 });
   return [ctx, target];
 }
 
@@ -333,7 +333,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 30_000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 
@@ -354,7 +354,7 @@ test.beforeAll(async () => {
   proxy.stderr?.on('data', (chunk: Buffer) => {
     proxyOut += chunk.toString();
   });
-  await expect.poll(() => proxyOut.includes('listening'), { timeout: 15_000 }).toBe(true);
+  await expect.poll(() => proxyOut.includes('listening'), { timeout: 5_000 }).toBe(true);
 
   browser = await chromium.launch();
 });
@@ -434,7 +434,7 @@ test('an unclaimed server draws the setup card and asks a browser for no machine
   const firstPage = await firstContext.newPage();
   watchConsole(firstPage, 'unclaimed');
   await firstPage.goto(`${ORIGIN}/`);
-  await firstPage.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+  await firstPage.waitForSelector('[data-testid=login-gate]', { timeout: 5_000 });
 
   const gate = firstPage.locator('[data-testid=login-gate]');
   await expect(gate).toContainText('Set up this server');
@@ -481,16 +481,16 @@ test('a claimed server signs the admin in; a wrong password is refused in band',
   page = await context.newPage();
   watchConsole(page, 'loopback');
   await page.goto(`${ORIGIN}/`);
-  await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
+  await page.waitForSelector('[data-testid=login-gate]', { timeout: 5_000 });
   await expect(page.locator('[data-testid=login-gate]')).toContainText('Sign in to this server');
   expect(await page.$('[data-testid=login-gate-token]')).toBeNull();
 
   await signInAtGate(page, ADMIN_EMAIL, 'not-the-password');
-  await page.waitForSelector('[data-testid=login-gate-error]', { timeout: 15_000 });
+  await page.waitForSelector('[data-testid=login-gate-error]', { timeout: 5_000 });
   await expect(page.locator('[data-testid=login-gate-error]')).toContainText('Sign-in failed');
 
   await signInAtGate(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
+  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
 
   // A session persisted origin-scoped, only after the WELCOME accepted
   // it — and it is NOT the operator's bootstrap token.
@@ -504,10 +504,10 @@ test('a claimed server signs the admin in; a wrong password is refused in band',
 // ── Down-sync + live replication ────────────────────────────────────
 
 test('the daemon rule synced down and an MCP rename replicates live', async () => {
-  await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule'), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule'), { timeout: 5_000 }).toBe(true);
 
   await callTool('rules_update', { uid: ruleUid, updates: { name: 'Daemon web rule v2' } });
-  await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule v2'), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule v2'), { timeout: 5_000 }).toBe(true);
 });
 
 // ── No inbound echo of the catch-up stream ──────────────────────────
@@ -548,19 +548,14 @@ test('join adopted the daemon workspace and a tab-created rule syncs up', async 
   const adopted = (await readHostSlot(page, 'oh.runtimeActive.active')) as string;
   expect(wireAdopted('loopback', adopted), consoleLines.join('\n')).toBe(true);
 
-  // 'Block Requests' expands a template submenu; 'Blank Rule' is the
-  // plain editor flow this leg drives. The two-level dropdown animates,
-  // so retry the whole gesture (Escape resets a half-open menu) rather
-  // than racing one click against the submenu settling.
-  await expect(async () => {
-    await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Create rule', exact: false }).first().click();
-    await page.getByText('Block Requests', { exact: false }).first().hover();
-    // force: the animating popup's hit-test loses to the empty-state
-    // host it overlaps mid-fade; the item itself is resolved + visible.
-    await page.getByRole('menuitem', { name: 'Blank Rule' }).click({ timeout: 2000, force: true });
-  }).toPass({ timeout: 30_000 });
-  await page.waitForSelector('input[value="New Block Rule"]', { timeout: 10_000 });
+  // The command palette's New Block Rule command — the keyboard path
+  // into a draft (the empty state's Create rule menu nests templated
+  // types in hover submenus, which a headless pointer cannot hold).
+  await page.getByRole('button', { name: 'Search or run a command', exact: false }).first().click();
+  const palette = page.getByPlaceholder('Search rules, collections, or type > for commands...');
+  await palette.fill('New Block Rule');
+  await page.getByText('New Block Rule', { exact: true }).filter({ visible: true }).first().click();
+  await page.waitForSelector('input[value^="New Block Rule"]', { timeout: 5_000 });
   await page
     .locator('button:visible')
     .filter({ hasText: /^Save$/ })
@@ -570,7 +565,7 @@ test('join adopted the daemon workspace and a tab-created rule syncs up', async 
   // Save dialog: Save arms only once a target collection is chosen.
   // The adopted workspace already carries the daemon's collection —
   // pick it; fall back to creating one inline on an empty workspace.
-  await page.waitForSelector('.ant-modal', { timeout: 10_000 });
+  await page.waitForSelector('.ant-modal', { timeout: 5_000 });
   const collectionOption = page.locator('.ant-modal [role=option]').first();
   if ((await collectionOption.count()) > 0) {
     await collectionOption.click();
@@ -592,7 +587,7 @@ test('join adopted the daemon workspace and a tab-created rule syncs up', async 
         const rules = await callTool('rules_list', {});
         return (rules.rules as Array<{ name: string }>).some((r) => r.name === 'New Block Rule');
       },
-      { timeout: 30_000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 });
@@ -614,7 +609,7 @@ test('a reload skips the gate and rejoins with the daemon data present', async (
   await page.reload();
   await page.waitForTimeout(1500);
   expect(await page.$('[data-testid=login-gate]')).toBeNull();
-  await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule v2'), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => ruleInTabIdb(page, 'Daemon web rule v2'), { timeout: 5_000 }).toBe(true);
   await context.close();
 });
 
@@ -674,11 +669,30 @@ async function adminOverWire(calls: Array<Record<string, unknown>>): Promise<Arr
   return responses;
 }
 
-/** Open Settings → Backend on `target` via the topbar gear menu. */
+/**
+ * Open Settings → Connectivity › Backend › Connections on `target` via
+ * the topbar gear menu. Backend is a group node whose children (the
+ * tier-zero card lives on Connections) appear in the tree only around
+ * an active descendant, so the walk goes through the landing pages.
+ */
 async function openBackendSettings(target: Page): Promise<void> {
   await target.click('[aria-label="Settings menu"]');
   await target.click('text=Settings…');
-  await target.click('.settings-category-nav button:has-text("Backend")');
+  await target.locator('.settings-category-nav').getByRole('button', { name: 'Connectivity', exact: true }).click();
+  await target.getByRole('button', { name: 'Backend', exact: true }).filter({ visible: true }).click();
+  await target.getByRole('button', { name: 'Connections', exact: true }).filter({ visible: true }).click();
+}
+
+/**
+ * Open one Server Admin domain tab from the dock strip's nav rows. The
+ * settings CTA lands on the Users domain; every other domain (Paired
+ * devices, Git, Audit, Server) is its own singleton tab behind the
+ * Server Admin tool window — one row, one tab, no everything-page.
+ */
+async function openServerAdminSection(target: Page, section: 'devices' | 'git' | 'audit'): Promise<void> {
+  const strip = target.locator('[data-tool-window="server-admin"]').first();
+  if ((await strip.getAttribute('aria-selected')) !== 'true') await strip.click();
+  await target.click(`[data-testid=server-admin-panel-${section}]`);
 }
 
 test('admin console: the server projection feeds the invite, and users and devices are managed from the tab; a directory user sees no admin CTA', async () => {
@@ -687,10 +701,11 @@ test('admin console: the server projection feeds the invite, and users and devic
   // an operator credential the browser never sees.
   const [operatorContext, operatorPage] = await openSignedIn('admin-console', ADMIN_EMAIL, ADMIN_PASSWORD);
 
-  // Settings → Backend → the probe-gated CTA → the console tab.
+  // Settings → Backend › Connections → the probe-gated CTA → the Users
+  // domain tab.
   await openBackendSettings(operatorPage);
   await operatorPage.click('[data-testid=open-daemon-admin]');
-  await expect(operatorPage.locator('[data-testid=server-admin-console]')).toBeVisible();
+  await expect(operatorPage.locator('[data-testid=server-admin-tab]')).toBeVisible();
 
   const seededName = daemonWorkspaceNames.get(daemonWorkspaceIds[0]) ?? '';
   expect(seededName).not.toBe('');
@@ -716,13 +731,15 @@ test('admin console: the server projection feeds the invite, and users and devic
   await expect(aliceRow).toContainText(seededName);
   await expect(aliceRow).not.toContainText(daemonWorkspaceIds[0]);
 
-  // The Git card targets the server's workspace set too (A6): its
+  // The Git domain targets the server's workspace set too (A6): its
   // select lands on the server's first workspace by name.
+  await openServerAdminSection(operatorPage, 'git');
   await expect(operatorPage.locator('[data-testid=server-admin-git-workspace]')).toContainText(seededName);
 
-  // Device management in the same console: mint a token in the UI —
-  // the secret surfaces exactly once — then revoke it and watch the
-  // daemon evict the live peer riding it.
+  // Device management on the Paired devices domain: mint a token in
+  // the UI — the secret surfaces exactly once — then revoke it and
+  // watch the daemon evict the live peer riding it.
+  await openServerAdminSection(operatorPage, 'devices');
   await operatorPage.fill(
     'input[data-testid=backend-tokens-mint-label], [data-testid=backend-tokens-mint-label] input',
     'console device',
@@ -775,9 +792,10 @@ test('admin console: the server projection feeds the invite, and users and devic
   await deviceClosed;
   await expect(operatorPage.locator(`[data-testid=backend-token-row-${consoleRow?.id}]`)).toContainText('Revoked');
 
-  // Reports below tokens: the operator's own admin calls above are
+  // The Audit domain: the operator's own admin calls above are
   // enforcement rows, and each gated connect (this tab's join included)
   // stamped a distinguishable Admission row.
+  await openServerAdminSection(operatorPage, 'audit');
   const reports = operatorPage.locator('[data-testid=daemon-audit-reports]');
   await operatorPage.click('[data-testid=daemon-audit-refresh]');
   await expect(reports).toContainText('daemon.admin');
@@ -786,7 +804,7 @@ test('admin console: the server projection feeds the invite, and users and devic
 
   await operatorContext.close();
 
-  // The console admitted Alice without an email (its one optional
+  // The Users domain admitted Alice without an email (its one optional
   // field); a browser sign-in keys on an email, so the plain-user leg
   // rides a wire-admitted user carrying one.
   const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
@@ -860,8 +878,8 @@ test('zero grants: the awaiting-access screen stands, then a live grant resolves
 
   // The screen resolves in place — no reload — onto an active pointer
   // set by the WIRE adoption, not the mount-plane safety net.
-  await zoePage.waitForSelector('[data-testid=awaiting-access-screen]', { state: 'detached', timeout: 30_000 });
-  await zoePage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  await zoePage.waitForSelector('[data-testid=awaiting-access-screen]', { state: 'detached', timeout: 5_000 });
+  await zoePage.waitForSelector('[aria-label="Settings menu"]', { timeout: 5_000 });
   await expect.poll(() => readHostSlot(zoePage, 'oh.runtimeActive.active')).toBe(grantedWorkspaceId);
   await expect.poll(() => wireAdopted('zero-grant-zoe', grantedWorkspaceId)).toBe(true);
 
@@ -926,7 +944,7 @@ test('a workspace created from the joined tab is created on the server', async (
         const rows = await callTool('workspaces_list', {});
         return (rows.workspaces as Array<{ name: string }>).some((ws) => ws.name === 'Tab Created');
       },
-      { timeout: 30_000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
   await creatorContext.close();
@@ -966,7 +984,7 @@ test('password login: the operator sets a password in the console; a fresh gate 
   await operatorPage.click('[data-testid=server-admin-password-save]');
   // The projection refreshes: the row's action now offers a reset.
   await expect(operatorPage.locator(`[data-testid=server-admin-password-${piaId}]`)).toContainText('Reset password', {
-    timeout: 15_000,
+    timeout: 5_000,
   });
   await operatorContext.close();
 
@@ -976,18 +994,18 @@ test('password login: the operator sets a password in the console; a fresh gate 
   const piaPage = await piaContext.newPage();
   watchConsole(piaPage, 'password-pia');
   await piaPage.goto(ORIGIN);
-  await piaPage.waitForSelector(EMAIL_INPUT, { timeout: 30_000 });
+  await piaPage.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
   // Managed login (password) — same rule, and the native clients ride
   // along here too.
   expect(await piaPage.$('[data-testid=login-gate-skip]')).toBeNull();
   expect(await piaPage.$('[data-testid=login-gate-native-clients]')).not.toBeNull();
   await signInAtGate(piaPage, 'pia@openheaders.io', 'not-her-password');
-  await piaPage.waitForSelector('[data-testid=login-gate-error]', { timeout: 15_000 });
+  await piaPage.waitForSelector('[data-testid=login-gate-error]', { timeout: 5_000 });
   await expect(piaPage.locator('[data-testid=login-gate-error]')).toContainText('Sign-in failed');
 
   await signInAtGate(piaPage, 'pia@openheaders.io', 'pia-first-password');
-  await piaPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
-  await piaPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+  await piaPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
+  await piaPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 5_000 });
 
   // The login minted a session-kind ledger row bound to Pia — the same
   // shape the SSO flow mints, on the same revocation surface.
@@ -1012,7 +1030,7 @@ test('a plain-http non-loopback origin explains the secure-context requirement',
   const lanPage = await lanContext.newPage();
   watchConsole(lanPage, 'plain-http-lan');
   await lanPage.goto(`http://${lan}:${DAEMON_PORT}/`);
-  await lanPage.waitForSelector('[data-testid=insecure-context-notice]', { timeout: 15_000 });
+  await lanPage.waitForSelector('[data-testid=insecure-context-notice]', { timeout: 5_000 });
   // Nothing in the app can resolve this from here, so every way out
   // must carry the page that explains it — on the docs site, not a
   // section name in a README the reader would have to go find.
@@ -1041,10 +1059,10 @@ test('a TLS non-loopback origin gates and joins over wss through the rig proxy',
   const tlsPage = await tlsContext.newPage();
   watchConsole(tlsPage, 'tls');
   await tlsPage.goto(`https://oh.test:${PROXY_PORT}/`);
-  await tlsPage.waitForSelector(EMAIL_INPUT, { timeout: 15_000 });
+  await tlsPage.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
   await signInAtGate(tlsPage, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await tlsPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
-  await expect.poll(() => ruleInTabIdb(tlsPage, 'Daemon web rule v2'), { timeout: 30_000 }).toBe(true);
+  await tlsPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
+  await expect.poll(() => ruleInTabIdb(tlsPage, 'Daemon web rule v2'), { timeout: 5_000 }).toBe(true);
   await tlsBrowser.close();
 });
 
@@ -1096,7 +1114,7 @@ test('the first browser claims an unclaimed server, hears what that unpaired, an
             return 0;
           }
         },
-        { timeout: 30_000 },
+        { timeout: 20_000 },
       )
       .toBe(200);
 
@@ -1111,7 +1129,7 @@ test('the first browser claims an unclaimed server, hears what that unpaired, an
     const claimPage = await claimContext.newPage();
     watchConsole(claimPage, 'claim');
     await claimPage.goto(`${claimOrigin}/`);
-    await claimPage.waitForSelector(setupInput('name'), { timeout: 30_000 });
+    await claimPage.waitForSelector(setupInput('name'), { timeout: 5_000 });
 
     // Loopback is the proof: the code field is offered and left empty.
     await claimPage.fill(setupInput('name'), 'John Doe');
@@ -1122,11 +1140,11 @@ test('the first browser claims an unclaimed server, hears what that unpaired, an
 
     // The claim revoked the seeded bootstrap token and says which
     // devices that costs before handing the tab over.
-    await claimPage.waitForSelector('[data-testid=login-gate-setup-done]', { timeout: 30_000 });
+    await claimPage.waitForSelector('[data-testid=login-gate-setup-done]', { timeout: 5_000 });
     await expect(claimPage.locator('[data-testid=login-gate-setup-done]')).toContainText('Pair it again');
     await claimPage.click('[data-testid=login-gate-setup-continue]');
-    await claimPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
-    await claimPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 30_000 });
+    await claimPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
+    await claimPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 5_000 });
 
     // The session is an ordinary password-login row, and the claim is
     // one-shot by state: the route answers its uniform refusal now.
