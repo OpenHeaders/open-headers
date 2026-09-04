@@ -25,6 +25,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
 import {
+  devH3HelperBinary,
   mintLocalhostCert,
   type Rig,
   startH2cEcho,
@@ -34,6 +35,7 @@ import {
 } from './request-settings-rigs';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
+const REPO_ROOT = path.resolve(__dirname, '../../../..');
 // Port etiquette: off every prior suite's ports (18137, 18337–18339,
 // 18443, 18537, 18637, 18737, 18747, 18937, 19037, 19039, 19137,
 // 19237, 19337).
@@ -148,10 +150,10 @@ async function openRequest(uid: string): Promise<void> {
 async function setHttpVersion(optionTitle: string): Promise<void> {
   await workbench.getByRole('tab', { name: 'Settings' }).filter({ visible: true }).first().click();
   const select = workbench.getByTestId('oh-http-version-select').filter({ visible: true }).first();
-  await select.waitFor({ state: 'visible', timeout: 10_000 });
+  await select.waitFor({ state: 'visible', timeout: 3_000 });
   await select.click();
   const option = workbench.locator(`.ant-select-item-option[title="${optionTitle}"]`).filter({ visible: true }).first();
-  await option.waitFor({ state: 'visible', timeout: 10_000 });
+  await option.waitFor({ state: 'visible', timeout: 3_000 });
   await option.click();
 }
 
@@ -167,7 +169,7 @@ async function versionFact(): Promise<string> {
   const globe = workbench.getByTestId('oh-response-network').filter({ visible: true }).first();
   await globe.hover();
   const fact = workbench.getByTestId('oh-response-http-version').filter({ visible: true }).first();
-  await fact.waitFor({ state: 'visible', timeout: 5_000 });
+  await fact.waitFor({ state: 'visible', timeout: 2_000 });
   const text = (await fact.textContent())?.trim() ?? '';
   await workbench.keyboard.press('Escape');
   await workbench.mouse.move(0, 0);
@@ -179,7 +181,7 @@ async function versionFact(): Promise<string> {
  *  a stale read can never satisfy the poll. */
 async function sendAndExpectVersion(expected: string): Promise<void> {
   await clickSend();
-  await expect.poll(() => versionFact().catch(() => ''), { timeout: 45_000 }).toBe(expected);
+  await expect.poll(() => versionFact().catch(() => ''), { timeout: 10_000 }).toBe(expected);
   const tag = workbench.getByTestId('oh-response-status').filter({ visible: true });
   expect((await tag.textContent())?.trim()).toContain('200');
 }
@@ -197,7 +199,7 @@ async function sendAndExpectError(pattern: RegExp): Promise<void> {
           .first()
           .textContent()
           .catch(() => '')) ?? '',
-      { timeout: 45_000 },
+      { timeout: 10_000 },
     )
     .toMatch(pattern);
 }
@@ -360,6 +362,10 @@ test.describe('HTTP version — knob to wire through the workbench UI', () => {
 
   test("the '3' pin rides real QUIC and the strip reports h3 — after auto picked h2 over TCP", async () => {
     test.skip(h3Rig === null, 'caddy not on PATH — no local QUIC target');
+    test.skip(
+      devH3HelperBinary(REPO_ROOT) === null,
+      'no oh-h3-helper under native/h3-helper (dist/<target> or target/release) and no OPENHEADERS_H3_HELPER override',
+    );
     await openRequest(h3Uid);
     await sendAndExpectVersion('HTTP/2');
     await setHttpVersion('HTTP/3');
