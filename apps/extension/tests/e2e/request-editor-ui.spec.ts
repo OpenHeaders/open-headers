@@ -117,7 +117,7 @@ test.describe('Request editor — PDF response rendering (UI)', () => {
     // byte views. Labels carry a glyph prefix — anchor on the trailing
     // text.
     const preview = workbench.responsePdfPreview();
-    await preview.waitFor({ state: 'visible', timeout: 15000 });
+    await preview.waitFor({ state: 'visible', timeout: 5_000 });
     expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
 
