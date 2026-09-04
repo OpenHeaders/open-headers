@@ -268,7 +268,7 @@ function wsProbe(page: Page, url: string): Promise<FrameProbe> {
     (u: string) =>
       new Promise<FrameProbe>((resolve) => {
         const ws = new WebSocket(u);
-        const timer = setTimeout(() => resolve({ timeout: true }), 8_000);
+        const timer = setTimeout(() => resolve({ timeout: true }), 5_000);
         ws.addEventListener('message', (ev) => {
           clearTimeout(timer);
           resolve({ data: String(ev.data), origin: ev.origin });
@@ -297,7 +297,7 @@ async function openToolWindow(id: string): Promise<void> {
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(180_000);
+  test.setTimeout(90_000);
   context = await chromium.launchPersistentContext('', {
     headless: false,
     args: [
@@ -377,7 +377,7 @@ test.beforeAll(async () => {
   panelPage = await context.newPage();
   panelPage.on('pageerror', (err) => console.error('[panel pageerror]', err.stack ?? err.message));
   await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${inScopeTabId}`);
-  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 test.afterAll(async () => {
@@ -401,7 +401,7 @@ test('PG1 — console error-subtype renders the description stack, not the previ
   await inScopePage.evaluate(() => console.error(new Error('pg1-boom')));
 
   const row = consoleRows('pg1-boom').first();
-  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row).toBeVisible({ timeout: 5_000 });
   const text = (await row.locator('.dt-console-msg').innerText()).trim();
   expect(text).toContain('Error: pg1-boom');
   // The preview body would render `{stack: …, message: 'pg1-boom'}`.
@@ -416,10 +416,10 @@ test('PG2 — %s/%d substitute; %c consumes its CSS argument without leaking it'
     console.log('%caudit-pg2-styled', 'color:red', 'tail');
   });
 
-  await expect(consoleRows('audit-pg2 user ana has 7 pts').first()).toBeVisible({ timeout: 15_000 });
+  await expect(consoleRows('audit-pg2 user ana has 7 pts').first()).toBeVisible({ timeout: 5_000 });
 
   const styled = consoleRows('audit-pg2-styled').first();
-  await expect(styled).toBeVisible({ timeout: 15_000 });
+  await expect(styled).toBeVisible({ timeout: 5_000 });
   const text = (await styled.locator('.dt-console-msg').innerText()).trim();
   expect(text).toContain('audit-pg2-styled tail');
   expect(text).not.toContain('color:red');
@@ -440,7 +440,7 @@ test('PD2 + X2 — a CDP fire carries its matched pattern onto the panel "Patter
     }, IN_URL);
     return (fires as ParityFiresResult).counters?.[ruleUids.get(F1_RULE) ?? ''];
   };
-  await expect.poll(readF1Counter, { timeout: 10_000 }).toBe(1);
+  await expect.poll(readF1Counter, { timeout: 5_000 }).toBe(1);
   // Settled — the count must hold at exactly one (no late double-report).
   await inScopePage.waitForTimeout(1_000);
   expect(await readF1Counter()).toBe(1);
@@ -449,16 +449,16 @@ test('PD2 + X2 — a CDP fire carries its matched pattern onto the panel "Patter
   // on the FIRE row specifically ("would match" future rows compute their own
   // pattern projection, so they can't stand in for the PD2 threading).
   const row = panelPage.locator('.dt-row').filter({ hasText: 'oh=f1' }).first();
-  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row).toBeVisible({ timeout: 5_000 });
   await row.click();
   await openToolWindow('matched-rules');
-  await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(F1_RULE, { timeout: 10_000 });
+  await expect(panelPage.locator('.dt-matched-rules-panel-body')).toContainText(F1_RULE, { timeout: 5_000 });
   const fireRow = panelPage
     .locator('.dt-matched-rule')
     .filter({ hasText: F1_RULE })
     .filter({ hasNot: panelPage.locator('.dt-matched-rule-future') })
     .first();
-  await expect(fireRow).toBeVisible({ timeout: 10_000 });
+  await expect(fireRow).toBeVisible({ timeout: 5_000 });
   const pattern = fireRow.locator('.dt-matched-rule-pattern');
   await expect(pattern).toBeVisible();
   await expect(pattern).toContainText('Pattern:');
@@ -524,7 +524,7 @@ test('PA1 + PA2 — a ws:// url-filter matches a relative socket; injected frame
         const timer = setTimeout(() => {
           es.close();
           resolve({ timeout: true });
-        }, 8_000);
+        }, 5_000);
         es.addEventListener('synthetic', (ev) => {
           clearTimeout(timer);
           es.close();
@@ -558,7 +558,7 @@ test('PE1 — a mid-page arm makes the next wrapper fire invisible to a page mes
   const control = await wsProbe(pe1Page, '/net/ws-echo?case=audit-pa&leg=pe1-control');
   expect(control.data).toBe('{"auditInjected":true}');
   await expect
-    .poll(() => pe1Page.evaluate(() => window.__ohAuditFires?.length ?? 0), { timeout: 10_000 })
+    .poll(() => pe1Page.evaluate(() => window.__ohAuditFires?.length ?? 0), { timeout: 5_000 })
     .toBeGreaterThan(0);
 
   // Mid-page arm: pin the loaded tab — the reset path must re-capture the
@@ -581,7 +581,7 @@ test('PE1 — a mid-page arm makes the next wrapper fire invisible to a page mes
     // Give a stray postMessage dispatch a beat to land before reading.
     await pe1Page.waitForTimeout(500);
     expect(await pe1Page.evaluate(() => window.__ohAuditFires?.length ?? 0)).toBe(0);
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 15_000 });
 
   await pin(pe1TabId, false);
   await pe1Page.close();
@@ -611,7 +611,7 @@ test('PE2 — bypassCSP is URL-gated: matched origin bypasses, unmatched keeps i
     });
 
   // Matched origin: the bypass engages (apply is async after attach — poll).
-  await expect.poll(inlineProbe, { timeout: 15_000 }).toBe(1);
+  await expect.poll(inlineProbe, { timeout: 5_000 }).toBe(1);
 
   // Unmatched origin (the localhost:3000 sibling serves the same page, the
   // url-filter names 127.0.0.1 only): CSP must be back in force.
@@ -646,7 +646,7 @@ test('PE2 — bypassCSP is URL-gated: matched origin bypasses, unmatched keeps i
         : 'the first returning document kept its CSP (re-derive landed after its CSP init); bypass re-gained on the next document',
   });
   await pe2Page.reload();
-  await expect.poll(inlineProbe, { timeout: 15_000 }).toBe(1);
+  await expect.poll(inlineProbe, { timeout: 5_000 }).toBe(1);
 
   await pin(pe2TabId, false);
   await pe2Page.close();
@@ -670,7 +670,7 @@ test('PF1 — worker interception survives page-only Emulation overrides', async
   // `Emulation.setTimezoneOverride` steers Intl immediately, unlike
   // `navigator.language` (which mirrors the UA-triple acceptLanguage).
   await expect
-    .poll(() => inScopePage.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone), { timeout: 15_000 })
+    .poll(() => inScopePage.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone), { timeout: 5_000 })
     .toBe('Europe/Berlin');
 
   // …while a WORKER-originated fetch is still intercepted (mock lands).
@@ -681,7 +681,7 @@ test('PF1 — worker interception survives page-only Emulation overrides', async
         // relative fetch would throw a URL-parse TypeError before the wire.
         const src = `fetch('${location.origin}/echo?oh=pf1').then((r) => r.text()).then((t) => postMessage(t)).catch((e) => postMessage('ERR:' + e));`;
         const worker = new window.Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
-        const timer = setTimeout(() => reject(new Error('worker fetch timed out')), 15_000);
+        const timer = setTimeout(() => reject(new Error('worker fetch timed out')), 5_000);
         worker.onmessage = (ev) => {
           clearTimeout(timer);
           worker.terminate();
@@ -746,7 +746,7 @@ test('PC2 — closing a pinned tab drops the pin: no phantom pin, no attach faul
 
   // The tab-forgotten fanout must drop the pin from the overlay…
   await expect
-    .poll(async () => ((await cdpStatus()).context?.pinnedTabs ?? []).includes(pc2TabId), { timeout: 15_000 })
+    .poll(async () => ((await cdpStatus()).context?.pinnedTabs ?? []).includes(pc2TabId), { timeout: 5_000 })
     .toBe(false);
 
   // …and a later reconcile (any input change) must not chase the dead tab
@@ -782,6 +782,6 @@ test('PC3 — the popup mounts the "Tab out of scope" dormancy chip for an out-o
   // master on and a realizable debug rule present the chip must show.
   const popupPage = await context.newPage();
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
-  await expect(popupPage.getByText('Tab out of scope')).toBeVisible({ timeout: 15_000 });
+  await expect(popupPage.getByText('Tab out of scope')).toBeVisible({ timeout: 5_000 });
   await popupPage.close();
 });
