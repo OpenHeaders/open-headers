@@ -68,7 +68,7 @@ test.beforeAll(async () => {
         probeUid = res.request?.uid ?? '';
         return res.success === true;
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
   await rpc(readiness, 'deleteLocalRequest', { requestUid: probeUid });
@@ -125,15 +125,15 @@ async function openWorkflowEditor(page: Page, workflowUid: string): Promise<Loca
     .getByRole('button', { name: /WORKFLOWS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 5_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
   const row = page.locator(`[data-item-id="workflow-${workflowUid}"]`);
-  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.click();
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
-  await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+  await saveButton.waitFor({ state: 'visible', timeout: 5_000 });
   return saveButton;
 }
 
