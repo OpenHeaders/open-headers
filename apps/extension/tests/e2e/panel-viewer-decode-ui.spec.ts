@@ -116,7 +116,7 @@ async function fillModalMonaco(text: string): Promise<void> {
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(90_000);
   context = await chromium.launchPersistentContext('', {
     headless: false,
     slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
@@ -145,13 +145,13 @@ test.beforeAll(async () => {
   // the page error itself.
   panelPage.on('pageerror', (err) => console.error('[panel pageerror]', err.stack ?? err.message));
   await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${tabId}`);
-  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 
   // Attach is async — keep re-firing until a captured row shows up.
   await expect(async () => {
     await echoPost();
     await expect(panelPage.locator('.dt-row').filter({ hasText: 'echo' }).first()).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
 });
 
 test.afterAll(async () => {
@@ -164,7 +164,7 @@ test.describe('Payload tab — read-only whole-buffer decode viewer', () => {
     await panelPage.getByRole('tab', { name: 'Payload' }).click();
 
     const chip = panelPage.locator('.dt-payload-view .dt-codeviewer-decode').first();
-    await expect(chip).toBeVisible({ timeout: 15_000 });
+    await expect(chip).toBeVisible({ timeout: 5_000 });
     await expect(chip).toHaveAttribute('title', /Base64 value/);
 
     await chip.click();
@@ -190,7 +190,7 @@ test.describe('Headers tab — row view icon opens the read-only modal', () => {
       .locator('.dt-kv-row')
       .filter({ hasText: new RegExp(HEADER_NAME, 'i') })
       .first();
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toBeVisible({ timeout: 5_000 });
 
     // The action lane is hover-revealed (rail law) — hover first, then
     // the per-type tooltip is the aria contract.
@@ -232,7 +232,7 @@ test.describe('Headers tab — glance "Open in new tab" opens the value-view sna
       .locator('.dt-kv-row')
       .filter({ hasText: new RegExp(HEADER_NAME, 'i') })
       .first();
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toBeVisible({ timeout: 5_000 });
     await row.hover();
     await row.getByRole('button', { name: 'View decoded — Base64 value' }).click();
 
@@ -284,7 +284,7 @@ test.describe('Jar cookie row — hint glyph and read-only view icon', () => {
     await panelPage.getByRole('navigation', { name: 'Storage type' }).getByText('Cookies').click();
 
     const row = panelPage.locator('.dt-storage-row').filter({ hasText: JAR_COOKIE_NAME }).first();
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toBeVisible({ timeout: 5_000 });
 
     // Hint glyph rides the value cell inline (parity with the cookies tab).
     await expect(row.locator('.dt-cookie-value-hint')).toHaveText('b64');
@@ -319,7 +319,7 @@ test.describe('Jar cookie row — hint glyph and read-only view icon', () => {
 
 test.describe('localStorage entry document — editable whole-buffer decode with write-back', () => {
   test('the stored base64 value opens the full editor; Save re-encodes into the buffer', async () => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     const storageTab = panelPage.locator('[data-tool-window="storage"]').first();
     if ((await storageTab.getAttribute('aria-selected')) !== 'true') {
       await storageTab.click();
@@ -327,12 +327,12 @@ test.describe('localStorage entry document — editable whole-buffer decode with
     await panelPage.getByRole('navigation', { name: 'Storage type' }).getByText('Local storage').click();
 
     const row = panelPage.locator('.dt-storage-row').filter({ hasText: STORAGE_KEY }).first();
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toBeVisible({ timeout: 5_000 });
     await row.click();
 
     await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText(STORAGE_KEY);
     const chip = docRoot().locator('.dt-codeviewer-decode').first();
-    await expect(chip).toBeVisible({ timeout: 15_000 });
+    await expect(chip).toBeVisible({ timeout: 5_000 });
     await expect(chip).toHaveAttribute('title', /Base64 value/);
 
     await chip.click();
@@ -354,7 +354,7 @@ test.describe('localStorage entry document — editable whole-buffer decode with
     // The write-back landed: the document buffer holds the re-encoded
     // value and the document is dirty.
     await expect(docRoot().locator('.monaco-editor').first()).toContainText(EDITED_B64);
-    await expect(docRoot().locator('.dt-storagedoc-save')).toBeEnabled({ timeout: 10_000 });
+    await expect(docRoot().locator('.dt-storagedoc-save')).toBeEnabled({ timeout: 5_000 });
   });
 
   test('the dirty document Save commits the re-encoded value to localStorage', async () => {
@@ -364,7 +364,7 @@ test.describe('localStorage entry document — editable whole-buffer decode with
 
     // Byte-equal to the independent Buffer encode.
     await expect
-      .poll(() => playgroundPage.evaluate((key: string) => localStorage.getItem(key), STORAGE_KEY), { timeout: 15_000 })
+      .poll(() => playgroundPage.evaluate((key: string) => localStorage.getItem(key), STORAGE_KEY), { timeout: 5_000 })
       .toBe(EDITED_B64);
     await expect(save).toBeDisabled();
   });
