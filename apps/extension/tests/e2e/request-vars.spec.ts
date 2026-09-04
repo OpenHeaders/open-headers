@@ -106,7 +106,7 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 
   // One import seeds vault + env + collection + workspace into the active
@@ -479,7 +479,7 @@ test.describe('Request executor — live scope', () => {
           const res = await rpc<{ workflows?: Array<{ uid: string }> }>('listLiveWorkflows');
           return (res.workflows ?? []).some((w) => w.uid === workflowUid);
         },
-        { timeout: 10000 },
+        { timeout: 5_000 },
       )
       .toBe(true);
     const wfPub = await rpc<{ success: boolean; error?: string }>('updateLiveWorkflow', {
@@ -493,7 +493,7 @@ test.describe('Request executor — live scope', () => {
           const res = await rpc<{ variables?: Array<{ uid: string }> }>('listLiveVariables');
           return (res.variables ?? []).some((v) => v.uid === lvUid);
         },
-        { timeout: 10000 },
+        { timeout: 5_000 },
       )
       .toBe(true);
     const lvPub = await rpc<{ success: boolean; error?: string }>('updateLiveVariable', {
