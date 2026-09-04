@@ -57,7 +57,7 @@ async function launch(): Promise<void> {
           return false;
         }
       },
-      { timeout: 45_000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
 }
@@ -100,7 +100,7 @@ test.afterAll(async () => {
 });
 
 test('the workbench boots in English', async () => {
-  await expect(workbench.getByRole('button', { name: 'Settings menu' })).toBeVisible({ timeout: 30_000 });
+  await expect(workbench.getByRole('button', { name: 'Settings menu' })).toBeVisible({ timeout: 10_000 });
   await expect(workbench.locator('#root')).not.toContainText('⟦');
 });
 
@@ -114,11 +114,20 @@ test('the pseudo switch re-renders the workbench in place', async () => {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
   await workbench.locator('.settings-category-nav').getByText('General', { exact: true }).click();
+  // The picker is a select: the option sits in its dropdown, the pick
+  // lands in the row's content cell.
   const row = languageRow();
-  await expect(row).toBeVisible();
-  await row.getByText(PSEUDO_NATIVE_NAME).click();
+  await expect(row).toBeVisible({ timeout: 3_000 });
+  await row.locator('.ant-select').first().click();
+  // The options render a name beside a description, so antd stamps no
+  // title attribute — match the row by its visible text.
+  await workbench
+    .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option')
+    .filter({ hasText: PSEUDO_NATIVE_NAME })
+    .first()
+    .click();
 
-  await expect(row).toContainText('⟦');
+  await expect(row).toContainText('⟦', { timeout: 3_000 });
   const stamp = await workbench.evaluate(
     () => (window as Window & { __ohI18nSwitchProbe?: boolean }).__ohI18nSwitchProbe === true,
   );
@@ -127,8 +136,12 @@ test('the pseudo switch re-renders the workbench in place', async () => {
 
 test('technical plane vocabulary stays raw under pseudo', async () => {
   const row = languageRow();
-  await expect(row.getByText('English', { exact: true })).toBeVisible();
-  await expect(row.getByText(PSEUDO_NATIVE_NAME)).toBeVisible();
+  await expect(row.locator('.ant-select-content').first()).toContainText(PSEUDO_NATIVE_NAME, { timeout: 3_000 });
+  // The registry names stay raw inside the open dropdown.
+  await row.locator('.ant-select').first().click();
+  const menu = workbench.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').first();
+  await expect(menu.getByText('English', { exact: true })).toBeVisible({ timeout: 3_000 });
+  await workbench.keyboard.press('Escape');
   expect(await workbench.evaluate(() => document.documentElement.lang)).toBe('en');
 });
 
@@ -153,5 +166,5 @@ test('the choice persists across an app restart', async () => {
   // The relaunched window paints pseudoized from boot; asserting on
   // the delimiters (not English accessible names, which no longer
   // exist) is itself the persistence proof.
-  await expect(workbench.locator('#root')).toContainText('⟦', { timeout: 30_000 });
+  await expect(workbench.locator('#root')).toContainText('⟦', { timeout: 10_000 });
 });
