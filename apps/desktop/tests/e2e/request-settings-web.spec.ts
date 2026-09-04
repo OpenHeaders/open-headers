@@ -4,8 +4,11 @@
  * (`executeRequest` + the cookie-jar pair) driven through a REAL wire
  * end to end. The built desktop app serves the web bundle
  * (`backend.serveWebApp`) on an off-default port; a Playwright Chromium
- * tab pairs with a desktop-minted token and clicks Send in the served
- * workbench, so the send travels renderer → `dispatchWebRpc` →
+ * tab signs in at the front door's password card as a directory user
+ * admitted with an editor grant over the desktop's admin plane (the
+ * server front door: a browser never pastes a pairing token — the
+ * desktop-minted token stays the MCP seed's operator plane) and clicks
+ * Send in the served workbench, so the send travels renderer → `dispatchWebRpc` →
  * `wire-requests-rpc` (workspace/env stamp) → WS wire →
  * `peer-requests-rpc` (opt-in gate → capability → audit) →
  * `runStepRequest` → undici against the S14 HTTP rig.
@@ -62,7 +65,10 @@ const INITIALIZE_PARAMS = {
   clientInfo: { name: 'openheaders-settings-web-client', version: '0.0.0' },
 };
 
-const TOKEN_INPUT = 'input[data-testid=login-gate-token], [data-testid=login-gate-token] input';
+const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
+const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
+const USER_EMAIL = 'john.doe@openheaders.io';
+const USER_PASSWORD = 'settings-web-e2e-pass';
 
 let electronApp: ElectronApplication;
 let workbench: Page;
@@ -128,6 +134,36 @@ async function setUserSetting(key: string, value: unknown): Promise<void> {
   );
 }
 
+/** The desktop's own bridge onto the daemon's admin plane — the same
+ *  handle the settings console uses. */
+async function invokeDesktop<T>(message: Record<string, unknown>): Promise<T> {
+  return (await workbench.evaluate(async (msg) => {
+    const bridge = (window as unknown as { oh: { invoke(m: Record<string, unknown>): Promise<unknown> } }).oh;
+    return await bridge.invoke(msg);
+  }, message)) as T;
+}
+
+/** Admit the directory user the tab signs in as: an editor grant on the
+ *  desktop's active workspace (the forwarded Send needs the write
+ *  capability) and a password — admission confers access, one act. */
+async function admitTabUser(): Promise<void> {
+  const active = await invokeDesktop<{ activeWorkspaceId: string | null }>({ type: 'getActiveWorkspaceId' });
+  expect(active.activeWorkspaceId).toBeTruthy();
+  const created = await invokeDesktop<{ ok: boolean; userId?: string; error?: string }>({
+    type: 'oh.daemon.users.create',
+    displayName: 'John Doe',
+    email: USER_EMAIL,
+    grants: [{ workspaceId: active.activeWorkspaceId, role: 'editor' }],
+  });
+  expect(created.ok, created.error).toBe(true);
+  const passworded = await invokeDesktop<{ ok: boolean; error?: string }>({
+    type: 'oh.daemon.users.setPassword',
+    userId: created.userId,
+    password: USER_PASSWORD,
+  });
+  expect(passworded.ok, passworded.error).toBe(true);
+}
+
 /** Seed one saved request desktop-side via the real MCP write tool; the
  *  entity syncs down into the joined tab. Returns its uid. */
 async function seedRequest(request: Record<string, unknown>): Promise<string> {
@@ -180,10 +216,10 @@ async function openRequest(uid: string): Promise<void> {
     for (let i = 0; i < count; i += 1) {
       if (await row.isVisible().catch(() => false)) break;
       await collections.nth(i).click();
-      await row.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
+      await row.waitFor({ state: 'visible', timeout: 1_000 }).catch(() => {});
     }
   }
-  await row.waitFor({ state: 'visible', timeout: 5000 });
+  await row.waitFor({ state: 'visible', timeout: 3_000 });
   await row.scrollIntoViewIfNeeded();
   await row.click();
 }
@@ -196,24 +232,50 @@ async function send(): Promise<void> {
 /** Wait for the response status chip; return its text. */
 async function responseStatusText(): Promise<string> {
   const tag = page.getByTestId('oh-response-status').filter({ visible: true });
-  await tag.waitFor({ state: 'visible', timeout: 30_000 });
+  await tag.waitFor({ state: 'visible', timeout: 10_000 });
   return (await tag.textContent())?.trim() ?? '';
 }
 
 /** Read the verbatim wire body via the response Body tab's Raw view. */
 async function responseRawBody(): Promise<string> {
   const picker = page.getByTestId('oh-response-view-picker').filter({ visible: true }).first();
-  await picker.waitFor({ state: 'visible', timeout: 30_000 });
+  await picker.waitFor({ state: 'visible', timeout: 10_000 });
   await picker.click();
   await page.locator('.ant-dropdown-menu-item').filter({ hasText: /Raw$/ }).filter({ visible: true }).first().click();
   const body = page.getByTestId('oh-response-body').filter({ visible: true });
-  await body.waitFor({ state: 'visible', timeout: 15_000 });
+  await body.waitFor({ state: 'visible', timeout: 5_000 });
   return (await body.textContent())?.trim() ?? '';
 }
 
 /** The editor Settings tab's cookie-jar inspection row. */
 function jarRow() {
   return page.getByTestId('oh-cookie-jar-row').filter({ visible: true });
+}
+
+/** Open the active request editor's Settings tab and prove it took —
+ *  a click that lands on the tab's box without selecting it names what
+ *  covered the strip. */
+async function openSettingsTab(): Promise<void> {
+  const tab = page.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first();
+  await tab.click();
+  await expect
+    .poll(
+      async () => {
+        const selected = await tab.getAttribute('aria-selected');
+        if (selected === 'true') return 'selected';
+        const box = await tab.boundingBox();
+        if (box === null) return 'no box';
+        return await page.evaluate(
+          ([x, y]) => {
+            const el = document.elementFromPoint(x, y);
+            return `covered by <${el?.tagName.toLowerCase()} class="${el?.className}"> ${el?.textContent?.slice(0, 60)}`;
+          },
+          [box.x + box.width / 2, box.y + box.height / 2],
+        );
+      },
+      { timeout: 3_000 },
+    )
+    .toBe('selected');
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -263,12 +325,9 @@ test.beforeAll(async () => {
     )
     .toBe(200);
 
-  const minted = await workbench.evaluate(async () => {
-    const bridge = (window as unknown as { oh: { invoke(msg: Record<string, unknown>): Promise<unknown> } }).oh;
-    return (await bridge.invoke({ type: 'oh.daemon.tokens.mint', label: 'settings-web-e2e' })) as {
-      ok: boolean;
-      secret?: string;
-    };
+  const minted = await invokeDesktop<{ ok: boolean; secret?: string }>({
+    type: 'oh.daemon.tokens.mint',
+    label: 'settings-web-e2e',
   });
   expect(minted.ok).toBe(true);
   token = minted.secret ?? '';
@@ -299,16 +358,27 @@ test.beforeAll(async () => {
     cookieJar: true,
   });
 
+  // The directory user admitted BEFORE the tab loads: the gate is a
+  // pure function of server state, and an admitted account with a
+  // password turns the unclaimed setup card into the sign-in card.
+  await admitTabUser();
+
   browser = await chromium.launch();
-  context = await browser.newContext();
+  // A desktop-window viewport: the editor's tab strip overflows at the
+  // 1280-wide default, and a Playwright click on a tab at the strip's
+  // scrolled edge lands after antd re-applies its own transform — the
+  // pointer's tab moves between mousedown and mouseup and nothing
+  // selects. A person sees a settled strip; the tab does too.
+  context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
   page = await context.newPage();
   watchConsole(page, 'tab');
   await page.goto(`${ORIGIN}/`);
 
-  await page.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
-  await page.fill(TOKEN_INPUT, token);
-  await page.click('[data-testid=login-gate-submit]');
-  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
+  await page.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
+  await page.fill(EMAIL_INPUT, USER_EMAIL);
+  await page.fill(PASSWORD_INPUT, USER_PASSWORD);
+  await page.click('[data-testid=login-gate-password-submit]');
+  await page.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 10_000 });
 });
 
 test.afterAll(async () => {
@@ -330,7 +400,7 @@ test('the seeded requests sync down into the served workbench', async () => {
           .isVisible()
           .catch(() => false);
       },
-      { timeout: 30_000 },
+      { timeout: 10_000 },
     )
     .toBe(true);
 });
@@ -341,10 +411,10 @@ test('opt-in OFF: the forwarded Send renders the host-aware refusal notice', asy
   await openRequest(echoUid);
   await send();
   const notice = page.getByTestId('peer-execute-disabled-notice').filter({ visible: true });
-  await notice.waitFor({ state: 'visible', timeout: 15_000 });
+  await notice.waitFor({ state: 'visible', timeout: 5_000 });
   const message = (await notice.textContent()) ?? '';
   expect(message).toContain('Sending from this device\u2019s browsers is turned off in the desktop app');
-  expect(message).toContain('Settings \u2192 Backend');
+  expect(message).toContain('Connectivity \u203a Backend \u203a Server');
 });
 
 // ── Gate outcome 2: flipped ON per frame, no restart ─────────────────
@@ -372,7 +442,7 @@ test('the response meta strip attributes the run to the serving host', async () 
   // hostname label is computable here.
   const expectedLabel = hostname().split('.')[0]?.trim().toLowerCase() ?? '';
   const tag = page.getByTestId('oh-response-executed-on').filter({ visible: true });
-  await tag.waitFor({ state: 'visible', timeout: 15_000 });
+  await tag.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(tag).toContainText(`Sent from ${expectedLabel}`);
 });
 
@@ -402,13 +472,14 @@ test('the next jar send attaches the stored cookie from the daemon jar', async (
 });
 
 test('the jar row shows the value-free count over the forwarded summary channel', async () => {
-  await page
-    .getByRole('tab', { name: /Settings/ })
-    .filter({ visible: true })
-    .first()
-    .click();
+  await openSettingsTab();
+  // The row hides itself when the forwarded summary fails — a miss
+  // reports the channel's raw answer through the tab's own bridge.
+  const summary = await invokeTab<unknown>({ type: 'getCookieJarSummary' }).catch((err: Error) => `rejected: ${err.message}`);
   const row = jarRow();
-  await row.waitFor({ state: 'visible', timeout: 15_000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 }).catch((err: Error) => {
+    throw new Error(`jar row absent; getCookieJarSummary answered ${JSON.stringify(summary)} — ${err.message}`);
+  });
   await expect(row).toContainText('1 cookie in this workspace');
 });
 
@@ -486,19 +557,15 @@ test('the Settings tab states the forwarded script posture as a fact row', async
   // run here", and no chooser renders (the mode slot belongs to the
   // serving host).
   await openRequest(echoUid);
-  await page
-    .getByRole('tab', { name: /Settings/ })
-    .filter({ visible: true })
-    .first()
-    .click();
+  await openSettingsTab();
   const reveal = page
     .getByRole('button', { name: /runtime-managed/ })
     .filter({ visible: true })
     .first();
-  await reveal.waitFor({ state: 'visible', timeout: 15_000 });
+  await reveal.waitFor({ state: 'visible', timeout: 5_000 });
   await reveal.click();
   const scriptsRow = page.getByTestId('oh-managed-scripts-row').filter({ visible: true }).first();
-  await scriptsRow.waitFor({ state: 'visible', timeout: 15_000 });
+  await scriptsRow.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(scriptsRow).toContainText('Safe mode');
   await expect(page.getByTestId('oh-script-mode-select')).toHaveCount(0);
 });
@@ -597,7 +664,7 @@ test('an in-tab import syncs up the wire — the daemon sees the imported reques
         const requests = payload.requests as Array<{ name: string }>;
         return requests.some((r) => r.name === 'web: imported probe');
       },
-      { timeout: 30_000 },
+      { timeout: 10_000 },
     )
     .toBe(true);
 });
@@ -639,6 +706,7 @@ test('a desktop-side import lands in the daemon stores and down-syncs into the j
           workspaceVars: { schemaVersion: 5, variables: [] },
           liveWorkflows: [],
           liveVariables: [],
+          specs: [],
         },
         meta: {
           redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
@@ -650,6 +718,7 @@ test('a desktop-side import lands in the daemon stores and down-syncs into the j
             liveVariables: 0,
             templates: 0,
             secrets: 0,
+            specs: 0,
           },
         },
       },
@@ -668,7 +737,7 @@ test('a desktop-side import lands in the daemon stores and down-syncs into the j
         const environments = payload.environments as Array<{ uid: string; name: string }>;
         return environments.some((e) => e.name === 'desktop: imported env');
       },
-      { timeout: 30_000 },
+      { timeout: 10_000 },
     )
     .toBe(true);
 
@@ -688,7 +757,7 @@ test('a desktop-side import lands in the daemon stores and down-syncs into the j
         });
         return (snapshot.entries ?? []).some((e) => e.environment?.name === 'desktop: imported env');
       },
-      { timeout: 30_000 },
+      { timeout: 10_000 },
     )
     .toBe(true);
 });
@@ -745,6 +814,7 @@ test('a No-environment tab forces an env-free run — the daemon pointer must no
         workspaceVars: { schemaVersion: 5, variables: [] },
         liveWorkflows: [],
         liveVariables: [],
+        specs: [],
       },
       meta: {
         redactions: { vault: 'omitted', liveCache: 'omitted', oauthTokens: 'omitted', totpCooldowns: 'omitted' },
@@ -756,6 +826,7 @@ test('a No-environment tab forces an env-free run — the daemon pointer must no
           liveVariables: 0,
           templates: 0,
           secrets: 0,
+          specs: 0,
         },
       },
     },
@@ -777,7 +848,7 @@ test('a No-environment tab forces an env-free run — the daemon pointer must no
         envUidOnDaemon = environments.find((e) => e.name === 'web: probe env')?.uid ?? '';
         return envUidOnDaemon !== '';
       },
-      { timeout: 30_000 },
+      { timeout: 10_000 },
     )
     .toBe(true);
 
