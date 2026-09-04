@@ -45,7 +45,7 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 });
 
