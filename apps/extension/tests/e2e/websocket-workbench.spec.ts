@@ -153,7 +153,7 @@ function urlInput() {
 /** The collection row's hover-revealed `+` (create-only) menu icon. */
 async function openCollectionAddMenu(): Promise<void> {
   const row = page.locator(`[data-item-id="req-col-${collectionUid}"]`);
-  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.hover();
   await row.locator('.rules-sidebar-collection-actions .anticon-plus').first().click();
 }
@@ -186,7 +186,7 @@ async function commitAutoRename(defaultLabel: RegExp, name: string): Promise<voi
           const el = document.activeElement;
           return el instanceof HTMLInputElement ? el.value : '';
         }),
-      { timeout: 10000 },
+      { timeout: 5_000 },
     )
     .toMatch(defaultLabel);
   await page.keyboard.insertText(name);
@@ -214,14 +214,14 @@ async function websocketRow(name: string) {
     if (anyLeaf === 0) {
       await page.locator(`[data-item-id="req-col-${collectionUid}"]`).click();
     }
-    await row.waitFor({ state: 'visible', timeout: 10000 });
+    await row.waitFor({ state: 'visible', timeout: 5_000 });
   }
   return row;
 }
 
 async function openWebsocketRequest(name: string): Promise<void> {
   await (await websocketRow(name)).click();
-  await urlInput().waitFor({ state: 'visible', timeout: 10000 });
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 /** Assert the needs-url gate: Connect visible, disabled, its tooltip
@@ -229,7 +229,7 @@ async function openWebsocketRequest(name: string): Promise<void> {
  *  (the `wsPageSession` capability retired the runtime gate). */
 async function expectConnectNeedsUrl(): Promise<void> {
   const button = connectButton();
-  await button.waitFor({ state: 'visible', timeout: 10000 });
+  await button.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(button).toBeDisabled();
   // Park first so the hover always lands as a fresh mouseenter.
   await page.mouse.move(0, 0);
@@ -239,7 +239,7 @@ async function expectConnectNeedsUrl(): Promise<void> {
     .filter({ visible: true })
     .getByText(CONNECT_NEEDS_URL_COPY)
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await page.mouse.move(0, 0);
 }
 
@@ -262,7 +262,7 @@ function timelineMessageRows() {
 /** Disconnect (the clean close 1000) and wait for the settled tag. */
 async function disconnectAndAwaitClose(): Promise<void> {
   await connectButton().filter({ hasText: 'Disconnect' }).click();
-  await closeTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await closeTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -314,7 +314,7 @@ test('the collection + menu creates a raw WebSocket request gated only on its em
 
   // The editor is open on the fresh entity — empty-state session pane
   // attached, Connect present, disabled only for the missing URL.
-  await urlInput().waitFor({ state: 'visible', timeout: 10000 });
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByTestId('ws-session-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await expectConnectNeedsUrl();
 });
@@ -340,7 +340,7 @@ test('url, message and subprotocols survive Save + reload + reopen', async () =>
     .getByRole('button', { name: /Saved$/ })
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   await workbench.reload();
   await workbench.showRequestsView();
@@ -353,7 +353,7 @@ test('url, message and subprotocols survive Save + reload + reopen', async () =>
   // out at collapsed width and renders only the first wrapped char
   // line — the poll rides out that relayout, while a truly squished
   // editor (the sliver bug class) never settles to the full text.
-  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain(WS_MESSAGE);
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain(WS_MESSAGE);
   await page.getByRole('tab', { name: 'Settings' }).filter({ visible: true }).first().click();
   await expect(
     page.getByTestId('websocket-subprotocols').filter({ visible: true }).first().locator('.ant-select-selection-item'),
@@ -372,7 +372,7 @@ test('the sibling menu entry creates a Socket.IO-flavored request', async () => 
 
   // The editor header names the flavor; the fresh entity's empty URL
   // is the only Connect gate.
-  await urlInput().waitFor({ state: 'visible', timeout: 10000 });
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByText('Socket.IO', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expectConnectNeedsUrl();
 });
@@ -412,7 +412,7 @@ test('an AsyncAPI spec binds through the picker and the specLink persists', asyn
     .getByRole('button', { name: /Saved$/ })
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   await workbench.reload();
   await workbench.showRequestsView();
@@ -437,7 +437,7 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
   await expect(connectButton()).toHaveText(/Disconnect/);
 
   // The greeting names the negotiated subprotocol — the offer rode the
@@ -445,13 +445,13 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
   await timelineMessageRows()
     .filter({ hasText: `"protocol":"${WS_SUBPROTOCOL}"` })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   const connectedRow = page
     .getByTestId('ws-timeline-connected-row')
     .filter({ visible: true })
     .filter({ hasText: 'Connected' })
     .first();
-  await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await connectedRow.waitFor({ state: 'visible', timeout: 5_000 });
   await connectedRow.click();
   await expect(page.getByTestId('ws-timeline-handshake-details').filter({ visible: true }).first()).toContainText(
     WS_SUBPROTOCOL,
@@ -464,7 +464,7 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
   await timelineMessageRows()
     .filter({ hasText: `echo:${WS_MESSAGE}` })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // No node-only knob configured — no honesty notice on this session.
   await expect(page.getByTestId('ws-host-knob-notice')).toHaveCount(0);
@@ -475,7 +475,7 @@ test('B5 — Connect runs the session in-page: greeting subprotocol, Send echo, 
     .filter({ visible: true })
     .filter({ hasText: 'Disconnected' })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 // ── B6: per-knob honesty — a header row is named, never silently sent ─
@@ -492,7 +492,7 @@ test('B6 — a configured header row rides the honesty notice and honestly stays
 
   await connectButton().click();
   const notice = page.getByTestId('ws-host-knob-notice').filter({ visible: true }).first();
-  await notice.waitFor({ state: 'visible', timeout: 20_000 });
+  await notice.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(notice).toContainText('custom handshake headers');
 
   // The greeting mirrors an EMPTY x-probe-client — the configured row
@@ -500,7 +500,7 @@ test('B6 — a configured header row rides the honesty notice and honestly stays
   await timelineMessageRows()
     .filter({ hasText: '"xProbeClient":""' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   await disconnectAndAwaitClose();
   // The notice persists on the settled capture — honesty for the
@@ -533,13 +533,13 @@ test('B7 — socketio runs in-page: namespace connect, decoded events, acked ech
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
 
   // The greeting proves the whole handshake chain decoded: engine.io
   // open, our namespace CONNECT, the server's connect ack, the first
   // EVENT by name.
   const eventNames = page.getByTestId('ws-sio-event-name').filter({ visible: true });
-  await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  await eventNames.filter({ hasText: 'probe:hello' }).first().waitFor({ state: 'visible', timeout: 5_000 });
   // The engine.io open, our CONNECT and the server's connect ack are
   // captured (the count says four) but hidden by the timeline's
   // handshake filter — the decoded greeting is the visible proof.
@@ -549,17 +549,17 @@ test('B7 — socketio runs in-page: namespace connect, decoded events, acked ech
   // the correlated ACK land decoded.
   await expect(sendButton()).toBeEnabled();
   await sendButton().click();
-  await eventNames.filter({ hasText: 'echo:reply' }).first().waitFor({ state: 'visible', timeout: 15_000 });
+  await eventNames.filter({ hasText: 'echo:reply' }).first().waitFor({ state: 'visible', timeout: 5_000 });
   await timelineMessageRows()
     .filter({ hasText: 'echo' })
     .filter({ hasText: '#1' })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await timelineMessageRows()
     .filter({ hasText: 'ack' })
     .filter({ hasText: '#1' })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   await disconnectAndAwaitClose();
 });
@@ -581,7 +581,7 @@ test('B8 — "Use example message" synthesizes the scaffold payload; the channel
     .first()
     .click();
   // Poll: Monaco repaints a beat after the pick lands the synthesis.
-  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"topics"');
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('"topics"');
   const composed = await workbench.monacoText(0);
   expect(composed).toContain('"orders"');
   expect(composed).toContain('"format": "full"');
@@ -590,7 +590,7 @@ test('B8 — "Use example message" synthesizes the scaffold payload; the channel
   // composes its example (const op) and switches back to Message.
   await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   const browser = page.getByTestId('ws-asyncapi-browser').filter({ visible: true }).first();
-  await browser.waitFor({ state: 'visible', timeout: 10_000 });
+  await browser.waitFor({ state: 'visible', timeout: 5_000 });
   await browser.getByText('ping', { exact: true }).first().click();
   await page
     .getByRole('tab', { name: 'Message', exact: true })
@@ -598,7 +598,7 @@ test('B8 — "Use example message" synthesizes the scaffold payload; the channel
     .first()
     .waitFor({ state: 'visible' });
   // Poll: Monaco repaints a beat after the tab switch lands the text.
-  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"op": "ping"');
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('"op": "ping"');
 });
 
 // ── B9: Save Response — the settled session freezes into an example ──
@@ -608,7 +608,7 @@ test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, O
   await urlInput().fill(WS_PROBE_URL);
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
   await disconnectAndAwaitClose();
 
   // Save Response lives in the session pane's ⋯ actions menu (first item).
@@ -619,7 +619,7 @@ test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, O
   // pill + the read-only result pane.
   await page.getByTestId('ws-example-result-pane').filter({ visible: true }).first().waitFor({
     state: 'visible',
-    timeout: 15_000,
+    timeout: 5_000,
   });
   await page
     .getByTestId('ws-example-close-tag')
@@ -633,12 +633,12 @@ test('B9 — Save Response mints the example: viewer close pill, sidebar leaf, O
     .locator('[data-item-id^="ws-example-"]')
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // "Open in Request" returns to the parent editor with the captured
   // shape riding the prefill bus as unsaved draft edits.
   await page.getByTestId('ws-example-open-in-request').filter({ visible: true }).first().click();
-  await urlInput().waitFor({ state: 'visible', timeout: 10_000 });
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   // The URL field is a template input (contenteditable) — read its text.
   await expect(urlInput()).toHaveText(WS_PROBE_URL);
 });
@@ -670,7 +670,7 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
 
   // The greeting mirrors the CONNECT auth payload — the credential
   // works IN the page realm, so no honesty notice appears on THIS
@@ -679,7 +679,7 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
   await timelineMessageRows()
     .filter({ hasText: 'sio-page-tok' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByTestId('ws-host-knob-notice').filter({ visible: true })).toHaveCount(0);
 
   // Send the acked echo: the correlated ACK lands (proof the reply
@@ -691,7 +691,7 @@ test('B10 — the bearer credential rides the CONNECT auth payload in-page and t
     .filter({ hasText: 'ack' })
     .filter({ hasText: '#1' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   const eventNames = page.getByTestId('ws-sio-event-name').filter({ visible: true });
   await expect(eventNames.filter({ hasText: 'echo:reply' })).toHaveCount(0);
 
@@ -753,7 +753,7 @@ test('B11 — an inherited query-mode JWT rides the handshake URL in-page, no ho
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
 
   // The greeting mirrors the request-target the probe saw — the JWT
   // minted at the dial rode the URL's token parameter — and no
@@ -761,7 +761,7 @@ test('B11 — an inherited query-mode JWT rides the handshake URL in-page, no ho
   await timelineMessageRows()
     .filter({ hasText: '"url":"/net/ws-probe?token=eyJ' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByTestId('ws-host-knob-notice').filter({ visible: true })).toHaveCount(0);
 
   await disconnectAndAwaitClose();
@@ -772,7 +772,7 @@ test('B12 — an inherited OAuth 2.0 header credential is named in the honesty n
 
   await connectButton().click();
   const notice = page.getByTestId('ws-host-knob-notice').filter({ visible: true }).first();
-  await notice.waitFor({ state: 'visible', timeout: 20_000 });
+  await notice.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(notice).toContainText('handshake header');
 
   // The greeting mirrors an EMPTY authorization — the platform socket
@@ -780,7 +780,7 @@ test('B12 — an inherited OAuth 2.0 header credential is named in the honesty n
   await timelineMessageRows()
     .filter({ hasText: '"authorization":""' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   await disconnectAndAwaitClose();
 });
@@ -812,7 +812,7 @@ test('B13 — an own query-mode JWT defined on the request rides the handshake U
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
 
   // The greeting mirrors the request-target the probe saw — the own
   // JWT minted at the dial rode the URL's token parameter; nothing
@@ -820,7 +820,7 @@ test('B13 — an own query-mode JWT defined on the request rides the handshake U
   await timelineMessageRows()
     .filter({ hasText: '"url":"/net/ws-probe?token=eyJ' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByTestId('ws-host-knob-notice').filter({ visible: true })).toHaveCount(0);
 
   await disconnectAndAwaitClose();
@@ -840,16 +840,16 @@ test('B14 — a Before connect script runs in-page at the dial: the greeting car
 
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
 
   // The greeting mirrors the request-target — the script's param rode
   // the dial URL the page realm opened.
   await timelineMessageRows()
     .filter({ hasText: 'tag=from-page-script' })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   const mark = page.getByTestId('ws-timeline-script-row').filter({ visible: true }).first();
-  await mark.waitFor({ state: 'visible', timeout: 10_000 });
+  await mark.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(mark).toContainText('Before connect');
   await expect(page.getByTestId('ws-session-scripts-tag').filter({ visible: true }).first()).toHaveText('Scripts · 1');
   await page.getByTestId('ws-session-view-scripts').filter({ visible: true }).first().click();
