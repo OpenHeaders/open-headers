@@ -63,9 +63,13 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.appearance.title': 'Apariencia',
   'workbench.sidebar.appearance.showIndentGuides': 'Mostrar las guías de sangría',
   'workbench.sidebar.dnd.itemsCount': ({ count }, locale) =>
-    plural(locale, Number(count), { one: '{count} elemento', other: '{count} elementos' }),
+    plural(locale, Number(count), { one: '{count} elemento', many: '{count} elementos', other: '{count} elementos' }),
   'workbench.sidebar.toast.itemsMoved': ({ count }, locale) =>
-    plural(locale, Number(count), { one: '{count} elemento movido', other: '{count} elementos movidos' }),
+    plural(locale, Number(count), {
+      one: '{count} elemento movido',
+      many: '{count} elementos movidos',
+      other: '{count} elementos movidos',
+    }),
   'workbench.sidebar.toast.moveFailed': 'Error al mover',
   'workbench.sidebar.filterPlaceholder': 'Filtrar',
 

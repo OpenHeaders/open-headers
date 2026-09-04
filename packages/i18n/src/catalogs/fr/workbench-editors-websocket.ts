@@ -155,8 +155,9 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.settings.handshakePathExample': 'ex. /net/sio-probe',
   'workbench.editors.websocket.settings.namespaceLabel': 'Espace de noms',
   'workbench.editors.websocket.settings.namespaceHelp':
-    "L'espace de noms auquel la session se connecte — vide, elle se connecte à la racine /. Les sessions " +
-    "composent directement le transport websocket ; il n'y a pas de repli long-polling.",
+    "L'espace de noms auquel la session se connecte — le chemin de l'URL, tel que le client officiel le lit " +
+    "(ws://host/admin rejoint /admin). Modifiez-le ici ou dans l'URL ; les deux restent synchronisés. Vide rejoint la " +
+    'racine /.',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (défaut)',
   'workbench.editors.websocket.settings.namespaceExample': 'p. ex. /admin',
   'workbench.editors.websocket.settings.socketioProtocolLabel': 'Protocole',

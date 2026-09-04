@@ -460,6 +460,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.wsMessagesGroupByEvent.label': '按事件分组',
   'workbench.settings.def.requests.wsMessagesGroupByEvent.description':
     '把 Socket.IO 会话时间线聚在可折叠的已解码事件名标题下（控制帧按其线上类型归类）。与按方向分组组合时，每个（事件，方向）对得到自己的分组。仅适用于 Socket.IO 会话——原始 WebSocket 帧不携带事件名。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.label': '隐藏心跳',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.description':
+    '在 Socket.IO 会话时间线中隐藏 engine.io 的 ping / pong 保活行。这些帧仍会被捕获和导出——仅显示层过滤它们。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.label': '隐藏握手帧',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.description':
+    '在会话时间线中隐藏 Socket.IO 握手帧行——engine.io 的 open / close 以及带确认的命名空间连接。断开连接和连接错误始终显示。这些帧仍会被捕获和导出。时间线工具栏更改的是同一设置。',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': '每组行数',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     '按方向分组时，每组只显示这么多条最新消息——窗口随新消息到来滑动，两个分组因此可以同时观察。0 表示显示全部消息。时间线工具栏更改的是同一设置。',

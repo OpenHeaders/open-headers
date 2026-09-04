@@ -154,10 +154,18 @@ export const workbenchEditorsWebsocket = {
     'Techo de reloj solo para el handshake de conexión; una sesión abierta no tiene techo. Vacío no fija ' +
     'ningún plazo.',
   'workbench.editors.websocket.settings.timeoutPlaceholder': 'Sin límite (por defecto)',
+  'workbench.editors.websocket.settings.handshakePathLabel': 'Ruta del handshake',
+  'workbench.editors.websocket.settings.handshakePathHelp':
+    'La ruta del servidor que marca el handshake engine.io — el punto de montaje de Socket.IO, no el espacio de ' +
+    'nombres. Vacío marca el /socket.io/ estándar. Las sesiones marcan directamente el transporte websocket; no hay ' +
+    'respaldo de long-polling.',
+  'workbench.editors.websocket.settings.handshakePathPlaceholder': '/socket.io/ (predeterminado)',
+  'workbench.editors.websocket.settings.handshakePathExample': 'p. ej. /net/sio-probe',
   'workbench.editors.websocket.settings.namespaceLabel': 'Espacio de nombres',
   'workbench.editors.websocket.settings.namespaceHelp':
-    'El espacio de nombres al que se conecta la sesión — vacío conecta a la raíz /. Las sesiones marcan ' +
-    'directamente el transporte websocket; no hay respaldo de long-polling.',
+    'El espacio de nombres al que se conecta la sesión — la ruta de la URL, tal como la lee el cliente oficial ' +
+    '(ws://host/admin conecta a /admin). Edítalo aquí o en la URL; ambos se mantienen sincronizados. Vacío conecta a ' +
+    'la raíz /.',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (por defecto)',
   'workbench.editors.websocket.settings.namespaceExample': 'p. ej. /admin',
   'workbench.editors.websocket.settings.socketioProtocolLabel': 'Protocolo',
@@ -287,6 +295,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.sortOrder': 'Orden de clasificación',
   'workbench.editors.websocket.timeline.groupByDirection': 'Agrupar por dirección',
   'workbench.editors.websocket.timeline.groupByEvent': 'Agrupar por evento',
+  'workbench.editors.websocket.timeline.hideHeartbeat': 'Ocultar heartbeat (ping / pong)',
+  'workbench.editors.websocket.timeline.hideHandshake': 'Ocultar tramas de handshake (open / connect)',
   'workbench.editors.websocket.timeline.rowsPerGroup': 'Filas por grupo',
   'workbench.editors.websocket.timeline.noLimit': 'Sin límite',
   'workbench.editors.websocket.timeline.clearMessages': 'Borrar los mensajes',

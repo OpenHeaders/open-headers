@@ -83,7 +83,7 @@ export const workbenchChromeWorkspace = {
     'est maintenant. Vérifiez ce qui sera publié avant de confirmer :',
   'workbench.workspace.publicShare.reviewUpdateNote': 'Partager à nouveau remplace la copie publique au même lien.',
   'workbench.workspace.publicShare.reviewStripped':
-    'Jamais inclus : entrées du coffre, jetons OAuth, valeurs live, contenus de fichiers et valeurs des ' +
+    'Jamais inclus : entrées du vault, jetons OAuth, valeurs live, contenus de fichiers et valeurs des ' +
     'variables secrètes.',
   'workbench.workspace.publicShare.reviewStrippedCount':
     '{count} valeurs de variables secrètes restent masquées — leurs noms restent visibles.',

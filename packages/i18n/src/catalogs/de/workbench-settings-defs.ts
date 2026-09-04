@@ -599,6 +599,17 @@ export const workbenchSettingsDefs = {
     'nach Richtung erhält jedes Paar (Ereignis, Richtung) eine eigene Gruppe. Gilt nur für ' +
     'Socket.IO-Sitzungen — rohe WebSocket-Frames tragen keine Ereignisnamen. Die Zeitverlaufs-Toolbar ' +
     'ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.label': 'Heartbeat ausblenden',
+  'workbench.settings.def.requests.wsMessagesHideHeartbeat.description':
+    'Blendet die engine.io ping / pong Keep-alive-Zeilen in Socket.IO-Sitzungszeitleisten aus. Die Frames werden ' +
+    'weiterhin erfasst und exportiert — nur die Anzeige filtert sie. Die Zeitleisten-Symbolleiste ändert dieselbe ' +
+    'Einstellung.',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.label': 'Handshake-Frames ausblenden',
+  'workbench.settings.def.requests.wsMessagesHideHandshake.description':
+    'Blendet die Zeilen des Socket.IO-Handshake-Framings — engine.io open / close und den Namespace-Connect mit ' +
+    'seiner Bestätigung — in Sitzungszeitleisten aus. Verbindungsabbrüche und Verbindungsfehler werden immer ' +
+    'angezeigt. Die Frames werden weiterhin erfasst und exportiert. Die Zeitleisten-Symbolleiste ändert dieselbe ' +
+    'Einstellung.',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.label': 'Zeilen pro Gruppe',
   'workbench.settings.def.requests.wsMessagesGroupRowLimit.description':
     'Zeigt beim Gruppieren nach Richtung nur so viele der neuesten Nachrichten jeder Gruppe — das Fenster ' +

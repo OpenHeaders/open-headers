@@ -92,7 +92,7 @@ export const workbenchSettings = {
   'workbench.settings.category.backendServer.sub.devices': 'Geräte',
   'workbench.settings.category.backendPairing.label': 'Desktop-Kopplung',
   'workbench.settings.category.backendPairing.description':
-    'Wie sich dieser Browser mit der Open-Headers-Desktop-App auf diesem Computer koppelt und was eine gekoppelte App sehen darf.',
+    'Wie sich dieser Browser mit der Open Headers Desktop-App auf diesem Computer koppelt und was eine gekoppelte App sehen darf.',
   'workbench.settings.category.backendPairing.sub.automatic': 'Automatisch',
   'workbench.settings.category.backendPairing.sub.policy': 'Richtlinie',
   'workbench.settings.category.backendPairing.sub.sharing': 'Freigabe',

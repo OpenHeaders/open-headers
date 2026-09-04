@@ -157,10 +157,17 @@ export const workbenchEditorsWebsocket = {
     'Wanduhr-Obergrenze nur für den Verbindungs-Handshake — eine offene Sitzung hat keine Obergrenze. Leer ' +
     'setzt keine Frist.',
   'workbench.editors.websocket.settings.timeoutPlaceholder': 'Kein Limit (Standard)',
+  'workbench.editors.websocket.settings.handshakePathLabel': 'Handshake-Pfad',
+  'workbench.editors.websocket.settings.handshakePathHelp':
+    'Der Serverpfad, den der engine.io-Handshake wählt — der Socket.IO-Mount, nicht der Namespace. Leer wählt das ' +
+    'Standard-/socket.io/. Sitzungen wählen direkt den websocket-Transport; es gibt keinen Fallback auf long-polling.',
+  'workbench.editors.websocket.settings.handshakePathPlaceholder': '/socket.io/ (Standard)',
+  'workbench.editors.websocket.settings.handshakePathExample': 'z. B. /net/sio-probe',
   'workbench.editors.websocket.settings.namespaceLabel': 'Namespace',
   'workbench.editors.websocket.settings.namespaceHelp':
-    'Der Namespace, mit dem sich die Sitzung verbindet — leer verbindet mit der Wurzel /. Sitzungen wählen ' +
-    'direkt den websocket-Transport; es gibt keinen Fallback auf long-polling.',
+    'Der Namespace, mit dem sich die Sitzung verbindet — der URL-Pfad, wie ihn der offizielle Client liest ' +
+    '(ws://host/admin verbindet mit /admin). Hier oder in der URL bearbeiten; beide bleiben synchron. Leer verbindet ' +
+    'mit der Wurzel /.',
   'workbench.editors.websocket.settings.namespacePlaceholder': '/ (Standard)',
   'workbench.editors.websocket.settings.namespaceExample': 'z. B. /admin',
   'workbench.editors.websocket.settings.socketioProtocolLabel': 'Protokoll',
@@ -295,6 +302,8 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.sortOrder': 'Sortierreihenfolge',
   'workbench.editors.websocket.timeline.groupByDirection': 'Nach Richtung gruppieren',
   'workbench.editors.websocket.timeline.groupByEvent': 'Nach Ereignis gruppieren',
+  'workbench.editors.websocket.timeline.hideHeartbeat': 'Heartbeat ausblenden (ping / pong)',
+  'workbench.editors.websocket.timeline.hideHandshake': 'Handshake-Frames ausblenden (open / connect)',
   'workbench.editors.websocket.timeline.rowsPerGroup': 'Zeilen pro Gruppe',
   'workbench.editors.websocket.timeline.noLimit': 'Kein Limit',
   'workbench.editors.websocket.timeline.clearMessages': 'Nachrichten leeren',

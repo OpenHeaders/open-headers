@@ -85,7 +85,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.publicShare.reviewUpdateNote':
     'Compartir de nuevo reemplaza la copia pública en el mismo enlace.',
   'workbench.workspace.publicShare.reviewStripped':
-    'Nunca se incluyen: entradas del baúl, tokens OAuth, valores en vivo, contenidos de archivos y los valores ' +
+    'Nunca se incluyen: entradas del vault, tokens OAuth, valores en vivo, contenidos de archivos y los valores ' +
     'de variables secretas.',
   'workbench.workspace.publicShare.reviewStrippedCount':
     '{count} valores de variables secretas permanecen ocultos — sus nombres siguen visibles.',

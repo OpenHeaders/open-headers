@@ -79,7 +79,7 @@ export const workbenchChromeWorkspace = {
     '任何拥有链接的人都会看到此工作区当前状态的只读快照。请在确认前检查将要发布的内容：',
   'workbench.workspace.publicShare.reviewUpdateNote': '再次共享会在同一链接下替换公开副本。',
   'workbench.workspace.publicShare.reviewStripped':
-    '永不包含：保险库条目、OAuth 令牌、实时值、文件内容以及机密类型变量的值。',
+    '永不包含：vault 条目、OAuth 令牌、实时值、文件内容以及机密类型变量的值。',
   'workbench.workspace.publicShare.reviewStrippedCount': '{count} 个机密变量的值保持隐藏 — 名称仍然可见。',
   'workbench.workspace.publicShare.reviewContents': '内容',
   'workbench.workspace.publicShare.reviewEmpty': '此工作区是空的 — 发布的快照也会是空的。',

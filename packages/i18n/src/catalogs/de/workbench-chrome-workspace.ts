@@ -86,7 +86,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.publicShare.reviewUpdateNote':
     'Erneutes Teilen ersetzt die öffentliche Kopie unter demselben Link.',
   'workbench.workspace.publicShare.reviewStripped':
-    'Nie enthalten: Vault-Einträge, OAuth-Tokens, Live-Werte, Dateiinhalte und die Werte geheimer Variablen.',
+    'Nie enthalten: vault-Einträge, OAuth-Tokens, Live-Werte, Dateiinhalte und die Werte geheimer Variablen.',
   'workbench.workspace.publicShare.reviewStrippedCount':
     '{count} geheime Variablenwerte bleiben verborgen — ihre Namen bleiben sichtbar.',
   'workbench.workspace.publicShare.reviewContents': 'Inhalt',
