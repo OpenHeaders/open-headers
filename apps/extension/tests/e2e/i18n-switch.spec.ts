@@ -40,7 +40,7 @@ async function waitForRoot(page: Page): Promise<void> {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 }
 
