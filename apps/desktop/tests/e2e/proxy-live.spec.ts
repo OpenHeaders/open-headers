@@ -51,6 +51,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { createExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -89,8 +90,6 @@ interface ChromeProxySettings {
 
 interface ExtensionPeer {
   context: BrowserContext;
-  /** Lazily-(re)created extension page — always reach it via {@link peerPage}. */
-  popup: Page | null;
   extensionId: string;
 }
 
@@ -99,6 +98,19 @@ let workbench: Page;
 let token: string;
 let peerA: ExtensionPeer | undefined;
 let playground: Page;
+
+/** The shared dual-app harness: the extension keep-alive page and the
+ *  cipher-guarded backend seed (existence probe before any open, husk
+ *  heal, a timed read the mint race cannot hang). */
+const harness = createExtensionSeedHarness({
+  context: () => peerA?.context,
+  extensionId: () => peerA?.extensionId ?? '',
+  token: () => token,
+  daemonPort: DAEMON_PORT,
+  recordId: 'proxy-live-e2e-backend',
+  recordLabel: 'proxy-live e2e desktop',
+  logTag: 'proxy-live setup',
+});
 
 /** Invoke a daemon admin channel through the Workbench bridge. */
 async function bridgeInvoke<T>(message: Record<string, unknown>): Promise<T> {
@@ -201,105 +213,19 @@ async function launchExtensionPeer(): Promise<ExtensionPeer> {
   const bootWorker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 
-  const peer: ExtensionPeer = { context, popup: null, extensionId };
+  const peer: ExtensionPeer = { context, extensionId };
+  peerA = peer;
   await peerPage(peer);
   return peer;
 }
 
 /**
- * The peer's live extension page — created on demand, recreated when the
- * app kills it (no extension page is immortal; nothing ever evaluates in
- * the WORKER context — the live-network harness law).
+ * The peer's live extension page — the harness's keep-alive page,
+ * recreated when the app kills it (nothing ever evaluates in the WORKER
+ * context — the live-network harness law).
  */
-async function peerPage(peer: ExtensionPeer): Promise<Page> {
-  if (peer.popup && !peer.popup.isClosed()) return peer.popup;
-  const page = await peer.context.newPage();
-  await page.goto(`chrome-extension://${peer.extensionId}/merge-showcase.html`);
-  await page.waitForLoadState('load');
-  peer.popup = page;
-  return page;
-}
-
-/**
- * (Re-)seed the peer's backend registry record — same encrypted blob
- * format and page-context posture as the live-network suite.
- */
-async function seedBackend(
-  peer: ExtensionPeer,
-  seed: { backendUrl: string; authToken: string; enabled: boolean },
-): Promise<void> {
-  const page = await peerPage(peer);
-  await page.evaluate(async ({ backendUrl, authToken, enabled }) => {
-    const key = await new Promise<CryptoKey>((resolve, reject) => {
-      const open = indexedDB.open('oh-secret-cipher', 1);
-      open.onerror = () => reject(open.error);
-      open.onsuccess = () => {
-        const db = open.result;
-        const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result as CryptoKey);
-      };
-    });
-    const record = {
-      id: 'proxy-live-e2e-backend',
-      label: 'proxy-live e2e desktop',
-      url: backendUrl,
-      authToken,
-      autoConnect: true,
-      enabled,
-      addedAt: new Date().toISOString(),
-      lastConnectedAt: null,
-    };
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      new TextEncoder().encode(JSON.stringify([record])),
-    );
-    const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-    packed.set(iv, 0);
-    packed.set(new Uint8Array(ciphertext), iv.length);
-    let binary = '';
-    for (const byte of packed) binary += String.fromCharCode(byte);
-    await new Promise<void>((resolve) => {
-      chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-    });
-  }, seed);
-}
-
-/** Whether the peer's storage already holds a backends blob. */
-async function backendsSeeded(peer: ExtensionPeer): Promise<boolean> {
-  const page = await peerPage(peer);
-  return page.evaluate(
-    async () =>
-      new Promise<boolean>((resolve) => {
-        chrome.storage.local.get('oh.backends', (items) => {
-          resolve(typeof items?.['oh.backends'] === 'string' && (items['oh.backends'] as string).length > 0);
-        });
-      }),
-  );
-}
-
-/** Seed with retry + read-back verification (the write can land even
- *  when the evaluate context dies to the app's own reaction). */
-async function seedBackendRetrying(
-  peer: ExtensionPeer,
-  seed: { backendUrl: string; authToken: string; enabled: boolean },
-): Promise<void> {
-  let seedError: unknown;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      await seedBackend(peer, seed);
-      return;
-    } catch (err) {
-      seedError = err;
-      console.log(`[proxy-live setup] seed attempt ${attempt} failed: ${String(err).split('\n')[0]}`);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const landed = await backendsSeeded(peer).catch(() => false);
-      if (landed) return;
-    }
-  }
-  throw new Error(`seedBackend failed: ${String(seedError)}`);
+async function peerPage(_peer: ExtensionPeer): Promise<Page> {
+  return harness.extensionPage();
 }
 
 /** Minimal MCP tools/call — how the suite mints enforcement rules. */
@@ -360,7 +286,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .toBe(401);
 
@@ -386,11 +312,7 @@ test.beforeAll(async () => {
 
   peerA = await launchExtensionPeer();
   setupStep('peer A launched');
-  await seedBackendRetrying(peerA, {
-    backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`,
-    authToken: token,
-    enabled: true,
-  });
+  await harness.seedBackendRetrying({ enabled: true });
   setupStep('peer A seeded');
 
   playground = await peerA.context.newPage();
@@ -428,7 +350,7 @@ test('enabling routing pushes a scoped PAC with DIRECT failover to the browser',
         const status = await routingStatus();
         return status.active && status.peers.some((peer) => peer.applied && peer.mode === 'pac');
       },
-      { timeout: 15000 },
+      { timeout: 3_000 },
     )
     .toBe(true);
 
@@ -461,7 +383,7 @@ test('a scoped host arrives at the proxy; an un-scoped host stays direct', async
     )
     .catch(() => undefined);
   await openWireSource();
-  await expect(probeRows('routed-1').first()).toBeVisible({ timeout: 15000 });
+  await expect(probeRows('routed-1').first()).toBeVisible({ timeout: 3_000 });
 
   // The un-scoped mapped host resolves IN the browser and succeeds
   // direct — and the proxy never sees it.
@@ -481,20 +403,20 @@ test('routing survives a wire flap and clears only on explicit disable', async (
 
   // Flap the wire: disable the backend record — the browser keeps the
   // routing config (only an explicit disabled PUSH clears it).
-  await seedBackend(peerA, { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token, enabled: false });
-  await expect.poll(async () => (await routingStatus()).peers.length, { timeout: 15000 }).toBe(0);
+  await harness.seedBackend({ enabled: false });
+  await expect.poll(async () => (await routingStatus()).peers.length, { timeout: 3_000 }).toBe(0);
   const duringFlap = await browserProxySettings(peerA);
   expect(duringFlap.value.mode).toBe('pac_script');
 
   // Wire back: the peer re-acks.
-  await seedBackend(peerA, { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token, enabled: true });
+  await harness.seedBackend({ enabled: true });
   await expect
     .poll(
       async () => {
         const status = await routingStatus();
         return status.peers.some((peer) => peer.applied && peer.mode === 'pac');
       },
-      { timeout: 20000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 
@@ -505,7 +427,7 @@ test('routing survives a wire flap and clears only on explicit disable', async (
   });
   expect(flipped.ok, flipped.error).toBe(true);
   await expect
-    .poll(async () => (await browserProxySettings(peerA as ExtensionPeer)).value.mode, { timeout: 15000 })
+    .poll(async () => (await browserProxySettings(peerA as ExtensionPeer)).value.mode, { timeout: 3_000 })
     .not.toBe('pac_script');
 });
 
@@ -517,7 +439,7 @@ test('a captured response body is retained and the Response tab pulls it lazily'
   expect(echoed.body).toContain('retained-1');
 
   await openWireSource();
-  await expect(probeRows('retained-1').first()).toBeVisible({ timeout: 15000 });
+  await expect(probeRows('retained-1').first()).toBeVisible({ timeout: 3_000 });
 
   // Inspect the row as a main editor tab, open its Response tab — the
   // body arrives over the lifeline's lazy `request-body` pull, served
@@ -530,7 +452,7 @@ test('a captured response body is retained and the Response tab pulls it lazily'
   // would be an identity-churn bug, not a test flake.
   await expect(editorTab).toHaveAttribute('aria-selected', 'true');
   await expect(workbench.locator('.view-line').filter({ hasText: 'retained-1' }).first()).toBeVisible({
-    timeout: 15000,
+    timeout: 3_000,
   });
 });
 
@@ -562,7 +484,7 @@ test('a mock rule serves without re-origination', async () => {
         const served = await viaProxy('http://127.0.0.1:59999/api/none?probe=mock-1');
         return served.status === 418 && served.body.includes('"mocked":true') ? 'mocked' : served.status;
       },
-      { timeout: 15000 },
+      { timeout: 3_000 },
     )
     .toBe('mocked');
 });
@@ -599,7 +521,7 @@ test('a network substitution keeps the real wire and replaces the body', async (
           ? 'substituted'
           : `${served.status}:${served.body.slice(0, 40)}`;
       },
-      { timeout: 15000 },
+      { timeout: 3_000 },
     )
     .toBe('substituted');
 });
@@ -633,7 +555,7 @@ test('a request-body rule rewrites the upstream body', async () => {
         const parsed = JSON.parse(served.body) as { body?: { raw?: string } };
         return parsed.body?.raw === '{"rewritten":true}' ? 'rewritten' : (parsed.body?.raw ?? served.status);
       },
-      { timeout: 15000 },
+      { timeout: 3_000 },
     )
     .toBe('rewritten');
 });
@@ -654,7 +576,7 @@ test('an over-cap body truncates the capture, never the wire', async () => {
   expect(served.body).toContain(filler.slice(0, 64));
 
   await openWireSource();
-  await expect(probeRows('overcap-1').first()).toBeVisible({ timeout: 15000 });
+  await expect(probeRows('overcap-1').first()).toBeVisible({ timeout: 3_000 });
 });
 
 // ── Manual-inspection hold ──────────────────────────────────────────
