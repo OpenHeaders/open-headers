@@ -132,7 +132,7 @@ async function spawnDaemon(port: number, token: string): Promise<SpawnedDaemon> 
           return 0;
         }
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
   return { proc, exited, log };
@@ -234,7 +234,7 @@ async function latestWorker(): Promise<Worker> {
   // MV3 idle-kills the SW once nothing pokes it (e.g. while no wire is
   // up between remove and re-join). Wake it through an extension page
   // runtime message and wait for the fresh registration.
-  const waiter = context.waitForEvent('serviceworker', { timeout: 10000 }).catch(() => null);
+  const waiter = context.waitForEvent('serviceworker', { timeout: 5_000 }).catch(() => null);
   await workbench
     .evaluate(() => {
       void chrome.runtime.sendMessage({ type: 'oh-e2e-wake' }).catch(() => undefined);
@@ -303,7 +303,9 @@ async function deliverIntent(intent: object): Promise<void> {
 // ── UI drivers ──────────────────────────────────────────────────────
 
 async function openBackendSettings(): Promise<void> {
-  await deliverIntent({ kind: 'open-settings', target: { categoryId: 'backend' } });
+  // Backend is a group node since the settings shell regroup; the
+  // connections list is its Connections child (the popup pill's target).
+  await deliverIntent({ kind: 'open-settings', target: { categoryId: 'backendConnections' } });
   await expect(workbench.getByRole('button', { name: 'Add back-end' })).toBeVisible();
 }
 
@@ -364,7 +366,7 @@ async function addBackendViaWizard(join: WizardJoin): Promise<void> {
 
   await modal.getByRole('button', { name: /Verify & connect/ }).click();
   // Probe + enable + join-adopt dwell; the modal closes on commit.
-  await expect(modal).toBeHidden({ timeout: 45000 });
+  await expect(modal).toBeHidden({ timeout: 20_000 });
 }
 
 /** The connection row's enabled Switch. On-flips ride the probe gate. */
@@ -372,7 +374,7 @@ async function toggleBackendEnabled(label: string, on: boolean): Promise<void> {
   const toggle = workbench.getByRole('switch', { name: `${label} enabled` });
   await expect(toggle).toBeVisible();
   await toggle.click();
-  await expect.poll(async () => toggle.getAttribute('aria-checked'), { timeout: 30000 }).toBe(on ? 'true' : 'false');
+  await expect.poll(async () => toggle.getAttribute('aria-checked'), { timeout: 10_000 }).toBe(on ? 'true' : 'false');
 }
 
 async function openWorkspaceDropdown(): Promise<void> {
@@ -383,7 +385,7 @@ async function openWorkspaceDropdown(): Promise<void> {
   // "switcher-open flake", mechanism proven via trace). Park the mouse
   // away and let any toast expire before clicking.
   await workbench.mouse.move(0, 0);
-  await expect(workbench.locator('.ant-message-notice')).toHaveCount(0, { timeout: 10000 });
+  await expect(workbench.locator('.ant-message-notice')).toHaveCount(0, { timeout: 5_000 });
   // Aim at the trigger's left edge — its center is the Org badge, whose
   // own tooltip swallows the click and the dropdown never opens.
   await workbench.getByRole('button', { name: /is editing workspace/ }).click({ position: { x: 12, y: 12 } });
@@ -423,7 +425,7 @@ async function createRuleInScope(name: string): Promise<void> {
   // value-attribute selector the moment fill() lands. Prefix match:
   // the draft name dedups against existing rules ("New Block Rule (2)"
   // when the backend already carries one — the WAN daemon does).
-  const nameInput = await workbench.waitForSelector('input[value^="New Block Rule"]', { timeout: 10000 });
+  const nameInput = await workbench.waitForSelector('input[value^="New Block Rule"]', { timeout: 5_000 });
   await nameInput.fill(name);
   await workbench.keyboard.press('Tab');
   await workbench
@@ -435,7 +437,7 @@ async function createRuleInScope(name: string): Promise<void> {
   // Save dialog: pick the workspace's collection, or mint one inline on
   // an empty (fresh daemon) workspace.
   const dialog = workbench.locator('.ant-modal:visible').last();
-  await expect(dialog).toBeVisible({ timeout: 10000 });
+  await expect(dialog).toBeVisible({ timeout: 5_000 });
   const collectionOption = dialog.locator('[role=option]').first();
   if ((await collectionOption.count()) > 0) {
     await collectionOption.click();
@@ -450,13 +452,13 @@ async function createRuleInScope(name: string): Promise<void> {
     .filter({ hasText: /^Save$/ })
     .last()
     .click();
-  await expect(dialog).toBeHidden({ timeout: 10000 });
+  await expect(dialog).toBeHidden({ timeout: 5_000 });
 }
 
 // ── Suite ───────────────────────────────────────────────────────────
 
 test.describe.configure({ mode: 'serial' });
-test.setTimeout(120000);
+test.setTimeout(60_000);
 
 test.beforeAll(async () => {
   const tokenA = `oh_${randomBytes(32).toString('base64url')}`;
@@ -565,7 +567,7 @@ test('backend A joins through the wizard and its data syncs down', async () => {
     token: rigA.token,
     expectAdditionalNote: false,
   });
-  await expect.poll(() => ruleVisibleInExtension(SEEDED_A), { timeout: 45000 }).toBe(true);
+  await expect.poll(() => ruleVisibleInExtension(SEEDED_A), { timeout: 20_000 }).toBe(true);
   const rows = await joinedOrgRows();
   expect(rows.length).toBe(1);
   orgA = rows[0];
@@ -581,7 +583,7 @@ test('backend B joins through the wizard with the additional-back-end note', asy
     token: rigB.token,
     expectAdditionalNote: true,
   });
-  await expect.poll(() => ruleVisibleInExtension(sentinelB), { timeout: 45000 }).toBe(true);
+  await expect.poll(() => ruleVisibleInExtension(sentinelB), { timeout: 20_000 }).toBe(true);
   const rows = await joinedOrgRows();
   expect(rows.length).toBe(2);
   const found = rows.find((row) => row.org.id !== orgA.org.id);
@@ -617,7 +619,7 @@ test('the status pill lists one row per backend', async () => {
 test('Publish appears once joined targets exist', async () => {
   await deliverIntent({ kind: 'open-workspace-manager' });
   await expect(workbench.getByRole('button', { name: 'Publish workspace to a back-end' }).first()).toBeVisible({
-    timeout: 10000,
+    timeout: 5_000,
   });
   await workbench.keyboard.press('Escape');
 });
@@ -627,12 +629,12 @@ test('Publish appears once joined targets exist', async () => {
 test('an edit in each Org routes to exactly its owning backend', async () => {
   await switchToOrg(`via ${LABEL_A}`);
   await createRuleInScope(ROUTED_A);
-  await expect.poll(() => backendHasRule(rigA, ROUTED_A), { timeout: 45000 }).toBe(true);
+  await expect.poll(() => backendHasRule(rigA, ROUTED_A), { timeout: 5_000 }).toBe(true);
   expect(await backendHasRule(rigB, ROUTED_A)).toBe(false);
 
   await switchToOrg(`via ${LABEL_B}`);
   await createRuleInScope(ROUTED_B);
-  await expect.poll(() => backendHasRule(rigB, ROUTED_B), { timeout: 45000 }).toBe(true);
+  await expect.poll(() => backendHasRule(rigB, ROUTED_B), { timeout: 5_000 }).toBe(true);
   expect(await backendHasRule(rigA, ROUTED_B)).toBe(false);
 
   // No cross-workspace pollution in either direction.
@@ -653,12 +655,12 @@ test('offline edits flush independently per backend', async () => {
   await createRuleInScope(LIVE_B);
 
   // B's pipe never stalled; A's edit stays queued while its wire is off.
-  await expect.poll(() => backendHasRule(rigB, LIVE_B), { timeout: 45000 }).toBe(true);
+  await expect.poll(() => backendHasRule(rigB, LIVE_B), { timeout: 5_000 }).toBe(true);
   expect(await backendHasRule(rigA, QUEUED_A)).toBe(false);
 
   await openBackendSettings();
   await toggleBackendEnabled(LABEL_A, true);
-  await expect.poll(() => backendHasRule(rigA, QUEUED_A), { timeout: 45000 }).toBe(true);
+  await expect.poll(() => backendHasRule(rigA, QUEUED_A), { timeout: 10_000 }).toBe(true);
   await closeSettings();
 });
 
@@ -676,7 +678,7 @@ test('a second record claiming the same Org is refused and surfaced', async () =
     expectAdditionalNote: true,
   });
   await expect(workbench.getByRole('alert').filter({ hasText: 'is already provided by' })).toBeVisible({
-    timeout: 30000,
+    timeout: 5_000,
   });
   // The Org stayed bound to the original record.
   const rows = await joinedOrgRows();
@@ -700,7 +702,7 @@ test('remove with Keep orphans the group and leaves the other backend untouched'
   // Keep local copies is the pre-selected recommended card.
   await expect(dialog.getByRole('radio', { name: /Keep local copies/ })).toHaveAttribute('aria-checked', 'true');
   await dialog.getByRole('button', { name: 'Remove back-end' }).click();
-  await expect(dialog).toBeHidden({ timeout: 15000 });
+  await expect(dialog).toBeHidden({ timeout: 5_000 });
   await closeSettings();
 
   // The orphan group renders; B's workspaces stayed local.
@@ -729,13 +731,13 @@ test('remove with Discard backs up, deletes locally, and leaves the daemon data 
   await expect(dialog).toBeVisible();
   await dialog.getByRole('radio', { name: /Discard local copies/ }).click();
   await dialog.getByRole('button', { name: 'Back up, then remove' }).click();
-  await expect(dialog).toBeHidden({ timeout: 30000 });
+  await expect(dialog).toBeHidden({ timeout: 10_000 });
   await closeSettings();
 
   // Backups downloaded, local copies gone, daemon data never touched.
   expect(downloads.length).toBeGreaterThan(downloadsBefore);
   expect(downloads.at(-1)?.suggestedFilename()).toMatch(/-backup\.openheaders\.yaml$/);
-  await expect.poll(() => ruleVisibleInExtension(SEEDED_A), { timeout: 15000 }).toBe(false);
+  await expect.poll(() => ruleVisibleInExtension(SEEDED_A), { timeout: 5_000 }).toBe(false);
   expect(await backendHasRule(rigA, SEEDED_A)).toBe(true);
   expect(await backendHasRule(rigA, QUEUED_A)).toBe(true);
   expect((await joinedOrgRows()).length).toBe(0);
@@ -755,7 +757,7 @@ test('re-joining the discarded backend syncs its workspaces back down', async ()
   await closeSettings();
   // The re-join re-binds the Org through a fresh WELCOME claim — the
   // Discard pruned the old rows, so this is a genuine first join.
-  await expect.poll(async () => (await joinedOrgRows()).length, { timeout: 30000 }).toBe(1);
+  await expect.poll(async () => (await joinedOrgRows()).length, { timeout: 20_000 }).toBe(1);
   const rows = await joinedOrgRows();
   expect(rows[0].org.id).toBe(orgA.org.id);
   expect(rows[0].backendId).not.toBe(orgA.backendId);
@@ -768,8 +770,8 @@ test('re-joining the discarded backend syncs its workspaces back down', async ()
 // and removes the list entity without a tombstone, so this re-join is
 // a genuine first join and the daemon streams everything back down.
 test('re-joined workspaces sync their data back down after a Discard', async () => {
-  await expect.poll(() => ruleVisibleInExtension(SEEDED_A), { timeout: 45000 }).toBe(true);
-  await expect.poll(() => ruleVisibleInExtension(QUEUED_A), { timeout: 45000 }).toBe(true);
+  await expect.poll(() => ruleVisibleInExtension(SEEDED_A), { timeout: 20_000 }).toBe(true);
+  await expect.poll(() => ruleVisibleInExtension(QUEUED_A), { timeout: 5_000 }).toBe(true);
 });
 
 test('SIGTERM shuts the spawned daemons down clean', async () => {
