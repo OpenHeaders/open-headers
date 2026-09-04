@@ -95,7 +95,7 @@ async function fillModalMonaco(index: number, text: string): Promise<void> {
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(90_000);
   context = await chromium.launchPersistentContext('', {
     headless: false,
     slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : undefined,
@@ -124,13 +124,13 @@ test.beforeAll(async () => {
   // the page error itself (this caught the ellipsis-measure loop).
   panelPage.on('pageerror', (err) => console.error('[panel pageerror]', err.stack ?? err.message));
   await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${tabId}`);
-  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 
   // Attach is async — keep re-firing until a captured row shows up.
   await expect(async () => {
     await echoPost();
     await expect(panelPage.locator('.dt-row').filter({ hasText: 'echo' }).first()).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
 });
 
 test.afterAll(async () => {
@@ -144,7 +144,7 @@ test.describe('Payload tab — read-only JWT viewer', () => {
 
     // Decorations refresh debounced after Prettier rewrites the buffer.
     const token = panelPage.locator('.dt-payload-view .oh-jwt-token-link').first();
-    await expect(token).toBeVisible({ timeout: 15_000 });
+    await expect(token).toBeVisible({ timeout: 5_000 });
 
     await activateToken(token);
     const modal = jwtModal();
@@ -163,7 +163,7 @@ test.describe('Payload tab — read-only JWT viewer', () => {
 
 test.describe('localStorage entry document — editable JWT with write-back', () => {
   test('the stored token opens the full editor; re-sign writes back into the buffer', async () => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     const storageTab = panelPage.locator('[data-tool-window="storage"]').first();
     if ((await storageTab.getAttribute('aria-selected')) !== 'true') {
       await storageTab.click();
@@ -171,12 +171,12 @@ test.describe('localStorage entry document — editable JWT with write-back', ()
     await panelPage.getByRole('navigation', { name: 'Storage type' }).getByText('Local storage').click();
 
     const row = panelPage.locator('.dt-storage-row').filter({ hasText: STORAGE_KEY }).first();
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toBeVisible({ timeout: 5_000 });
     await row.click();
 
     await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText(STORAGE_KEY);
     const token = docRoot().locator('.oh-jwt-token-link').first();
-    await expect(token).toBeVisible({ timeout: 15_000 });
+    await expect(token).toBeVisible({ timeout: 5_000 });
 
     await activateToken(token);
     const modal = jwtModal();
@@ -194,7 +194,7 @@ test.describe('localStorage entry document — editable JWT with write-back', ()
     // The write-back landed: the document is dirty (word wrap splits
     // the token across rendered lines, so the buffer itself is pinned
     // by the byte-equal localStorage readback after Save).
-    await expect(docRoot().locator('.dt-storagedoc-save')).toBeEnabled({ timeout: 10_000 });
+    await expect(docRoot().locator('.dt-storagedoc-save')).toBeEnabled({ timeout: 5_000 });
   });
 
   test('the dirty document Save commits the re-signed token to localStorage', async () => {
@@ -204,7 +204,7 @@ test.describe('localStorage entry document — editable JWT with write-back', ()
 
     // Byte-equal to the independent node:crypto HMAC.
     await expect
-      .poll(() => playgroundPage.evaluate((key: string) => localStorage.getItem(key), STORAGE_KEY), { timeout: 15_000 })
+      .poll(() => playgroundPage.evaluate((key: string) => localStorage.getItem(key), STORAGE_KEY), { timeout: 5_000 })
       .toBe(STORED_RESIGNED);
     await expect(save).toBeDisabled();
   });
