@@ -57,7 +57,7 @@ test.beforeAll(async () => {
         probeUid = res?.collection?.uid ?? '';
         return res?.success === true;
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
   await rpc(readiness, 'deleteLocalRequestCollection', { uid: probeUid });
@@ -76,7 +76,7 @@ async function newRpcPage(): Promise<Page> {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   return page;
 }
@@ -223,8 +223,8 @@ async function importPostmanViaBridge(
         name: string;
         method: string;
         url: string;
-        headers: Array<{ key: string; value: string; enabled?: boolean }>;
-        params: Array<{ key: string; value: string }>;
+        headers: Array<{ uid: string; key: string; value: string; enabled?: boolean }>;
+        params: Array<{ uid: string; key: string; value: string }>;
         auth: { type: string; [k: string]: unknown };
         body: { type: string; content?: string };
       };
@@ -262,7 +262,9 @@ async function importPostmanViaBridge(
   for (const { folderPath, request } of parsed.requests) {
     const key = folderPath.join('/');
     const parentPath = folderPathMap.get(key) ?? collection.path;
-    await rpc(page, 'createLocalRequest', {
+    // A refused create names itself here — the later tree readback
+    // would otherwise report the request as merely missing.
+    const created = (await rpc(page, 'createLocalRequest', {
       name: request.name,
       parentPath,
       seed: {
@@ -273,7 +275,8 @@ async function importPostmanViaBridge(
         auth: request.auth,
         body: request.body,
       },
-    });
+    })) as { success: boolean; error?: string };
+    expect(created.success, `${request.name}: ${created.error}`).toBe(true);
   }
 
   return collection;
@@ -300,7 +303,9 @@ test.describe('Phase 11 — Postman import', () => {
             name: 'Login',
             method: 'POST' as const,
             url: 'https://api.openheaders.io/auth/login',
-            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            // Every row carries its uid — the parser mints one per row
+            // and the request schema requires it.
+            headers: [{ uid: 'hdrlogn1', key: 'Content-Type', value: 'application/json' }],
             params: [],
             auth: { type: 'none' as const },
             body: {
