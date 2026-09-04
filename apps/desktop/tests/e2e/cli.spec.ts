@@ -117,7 +117,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .toBe(401);
 
@@ -294,22 +294,27 @@ test('a failed send exits 1 and still emits the --json payload first', async () 
 
 // ── Onboarding: the Settings → MCP page carries the CLI snippet ─────
 
-test('the Settings → MCP page shows the oh connect one-liner with the live port', async () => {
+test('the Settings MCP Clients page shows the oh connect one-liner with the live port', async () => {
   // Collapse the first-run Docs panel — its tour overlay can swallow
   // synthetic clicks (the git-desktop.spec idiom).
   const docsTab = workbench.locator('[data-tool-window="docs"]').first();
   if ((await docsTab.getAttribute('aria-selected').catch(() => null)) === 'true') {
     await docsTab.click();
   }
+  // Tools › AI · MCP Server › Clients — the tree opens a parent only
+  // around an active descendant, so the walk goes through the group
+  // landing pages' links.
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
-  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).click();
+  await workbench.locator('.settings-category-nav').getByRole('button', { name: 'Tools', exact: true }).click();
+  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).filter({ visible: true }).click();
+  await workbench.getByRole('button', { name: 'Clients', exact: true }).filter({ visible: true }).click();
 
   await workbench.getByRole('tab', { name: 'CLI', exact: true }).click();
-  await expect(workbench.getByText('npm install -g @openheaders/cli')).toBeVisible();
+  await expect(workbench.getByText('npm install -g @openheaders/cli')).toBeVisible({ timeout: 3_000 });
   await expect(
     workbench.getByText(`oh connect --daemon http://127.0.0.1:${DAEMON_PORT} --token YOUR_ACCESS_TOKEN`),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 3_000 });
 
   await workbench.keyboard.press('Escape');
 });
