@@ -131,7 +131,7 @@ async function waitDaemonHealthy(): Promise<void> {
           return 0;
         }
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 }
@@ -188,29 +188,29 @@ async function openGrpcRequest(uid: string, collectionUid = 'e2ecol01'): Promise
   const row = page.locator(`[data-item-id="grpc-request-${uid}"]`);
   if (!(await row.isVisible().catch(() => false))) {
     const collection = page.locator(`[data-item-id="req-col-${collectionUid}"]`);
-    await collection.waitFor({ state: 'visible', timeout: 10000 });
+    await collection.waitFor({ state: 'visible', timeout: 5_000 });
     await collection.click();
   }
   await row.waitFor({ state: 'visible', timeout: 5000 });
   await row.click();
-  await invokeButton().waitFor({ state: 'visible', timeout: 10000 });
+  await invokeButton().waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 /** Expand the SPECS sidebar section and open a spec's editor tab. */
 async function openSpec(specUid: string): Promise<void> {
   const header = page.getByRole('button', { name: /SPECS/ }).filter({ visible: true }).first();
-  await header.waitFor({ state: 'visible', timeout: 10000 });
+  await header.waitFor({ state: 'visible', timeout: 5_000 });
   if ((await header.getAttribute('aria-expanded')) !== 'true') {
     await header.click();
   }
   const row = page.locator(`[data-item-id="spec-${specUid}"]`);
-  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.click();
 }
 
 /** Wait until the live invoke gate settles on the expected enablement. */
 async function waitInvokeEnabled(enabled: boolean): Promise<void> {
-  await expect.poll(async () => invokeButton().isEnabled(), { timeout: 30000 }).toBe(enabled);
+  await expect.poll(async () => invokeButton().isEnabled(), { timeout: 20_000 }).toBe(enabled);
 }
 
 async function invokeAndAwaitOk(): Promise<void> {
@@ -232,7 +232,7 @@ async function invokeAndAwaitOk(): Promise<void> {
           .isVisible()
           .catch(() => false);
       },
-      { timeout: 60000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
 }
@@ -248,7 +248,7 @@ async function saveAndSettle(): Promise<void> {
     .getByRole('button', { name: /Saved$/ })
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -352,7 +352,7 @@ test('the daemon mints its workspace and reboots on the seeded gRPC entities', a
 });
 
 test('the extension joins and the gRPC entities replicate down', async () => {
-  test.setTimeout(150000);
+  test.setTimeout(60_000);
   extensionContext = await chromium.launchPersistentContext('', {
     headless: false,
     args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
@@ -415,7 +415,7 @@ test('the extension joins and the gRPC entities replicate down', async () => {
   };
   await expect
     .poll(replicated, {
-      timeout: 45000,
+      timeout: 20_000,
       message: 'the seeded gRPC entities never replicated — the extension did not join the WS backend',
     })
     .toBe(true);
@@ -435,11 +435,11 @@ test('the workbench opens on the joined workspace', async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   workbench = new WorkbenchPage(page);
   await openWorkbenchViews();
-  await page.locator('[data-item-id="req-col-e2ecol01"]').waitFor({ state: 'visible', timeout: 15000 });
+  await page.locator('[data-item-id="req-col-e2ecol01"]').waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 // ── G3: Docs tab round-trip ─────────────────────────────────────────
@@ -487,7 +487,7 @@ test('Generate Collection on the single-service spec lands flat with pre-filled 
   await page.getByTestId('spec-generate-confirm').filter({ visible: true }).first().click();
 
   // One request per rpc: the 5 generated join the 2 seeded.
-  await expect.poll(async () => (await wsSlot('grpcRequests')).length, { timeout: 15000 }).toBe(7);
+  await expect.poll(async () => (await wsSlot('grpcRequests')).length, { timeout: 5_000 }).toBe(7);
   const requests = await wsSlot('grpcRequests');
   const generated = requests.filter((r) => r.uid !== 'e2egrpc1' && r.uid !== 'e2egrpc2');
   expect(new Set(generated.map((r) => r.name))).toEqual(
@@ -507,10 +507,10 @@ test('Generate Collection on the single-service spec lands flat with pre-filled 
 
   // Sidebar: the collection expands to gRPC leaves, no folder rows.
   const colRow = page.locator(`[data-item-id="req-col-${(generatedCol as SlotEntity).uid}"]`);
-  await colRow.waitFor({ state: 'visible', timeout: 10000 });
+  await colRow.waitFor({ state: 'visible', timeout: 5_000 });
   await colRow.click();
   const genGetBook = generated.find((r) => r.name === 'GetBook') as SlotEntity;
-  await page.locator(`[data-item-id="grpc-request-${genGetBook.uid}"]`).waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator(`[data-item-id="grpc-request-${genGetBook.uid}"]`).waitFor({ state: 'visible', timeout: 5_000 });
   expect(await page.locator('[data-item-id^="req-folder-"]').filter({ visible: true }).count()).toBe(0);
 
   // The example message pre-fill: field-aware synthesis echoes the
@@ -540,7 +540,7 @@ test('the Collections popover lists the link in sync; Update is disabled with th
     .locator('[data-testid^="spec-link-in-sync-"]')
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   const updateButton = page.locator('[data-testid^="spec-link-update-"]').filter({ visible: true }).first();
   await expect(updateButton).toBeDisabled();
@@ -550,7 +550,7 @@ test('the Collections popover lists the link in sync; Update is disabled with th
     .filter({ visible: true })
     .getByText(/Updating from a Protobuf spec is not available yet/)
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // Inside clicks keep the popover open; re-clicking the trigger
   // closes it (the toolbar-popover law).
@@ -571,7 +571,7 @@ test('editing and saving the spec flips the drift badge', async () => {
     .locator('[data-testid^="spec-link-drifted-"]')
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByTestId('spec-collections-popover').filter({ visible: true }).first().click();
 });
 
@@ -584,17 +584,17 @@ test('Generate Collection on the two-service spec folders per service full name'
   await expect(nameInput).toHaveValue('ShelfSuite');
   await page.getByTestId('spec-generate-confirm').filter({ visible: true }).first().click();
 
-  await expect.poll(async () => (await wsSlot('grpcRequests')).length, { timeout: 15000 }).toBe(9);
+  await expect.poll(async () => (await wsSlot('grpcRequests')).length, { timeout: 5_000 }).toBe(9);
 
   const collections = await wsSlot('requestCollections');
   const shelfCol = collections.find((c) => c.name === 'ShelfSuite') as SlotEntity;
   expect(shelfCol).toBeTruthy();
   const colRow = page.locator(`[data-item-id="req-col-${shelfCol.uid}"]`);
-  await colRow.waitFor({ state: 'visible', timeout: 10000 });
+  await colRow.waitFor({ state: 'visible', timeout: 5_000 });
   await colRow.click();
 
   const folderRows = page.locator('[data-item-id^="req-folder-"]').filter({ visible: true });
-  await expect.poll(async () => folderRows.count(), { timeout: 10000 }).toBe(2);
+  await expect.poll(async () => folderRows.count(), { timeout: 5_000 }).toBe(2);
   await expect(folderRows.filter({ hasText: 'openheaders.e2e.LibraryService' }).first()).toBeVisible();
   await expect(folderRows.filter({ hasText: 'openheaders.e2e.ShelfService' }).first()).toBeVisible();
 
@@ -603,7 +603,7 @@ test('Generate Collection on the two-service spec folders per service full name'
   const requests = await wsSlot('grpcRequests');
   const getShelf = requests.find((r) => r.name === 'GetShelf') as SlotEntity;
   expect(getShelf).toBeTruthy();
-  await page.locator(`[data-item-id="grpc-request-${getShelf.uid}"]`).waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator(`[data-item-id="grpc-request-${getShelf.uid}"]`).waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 // ── Save Response: unary capture + viewer + prefill hand-off ────────
@@ -618,11 +618,11 @@ test('Save Response freezes a unary result; the viewer opens and lands a sidebar
     .locator('.ant-message')
     .getByText(/Saved example/)
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // The viewer tab auto-opens on the captured facts.
   const examplePane = page.getByTestId('grpc-example-result-pane').filter({ visible: true }).first();
-  await examplePane.waitFor({ state: 'visible', timeout: 10000 });
+  await examplePane.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(examplePane).toContainText('The Open Headers Field Guide');
   await expect(page.getByTestId('grpc-example-method').filter({ visible: true }).first()).toHaveText(
     'BookService / GetBook',
@@ -633,7 +633,7 @@ test('Save Response freezes a unary result; the viewer opens and lands a sidebar
     .locator('[data-item-id^="grpc-example-"]')
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 test('"Open in Request" hands the EDITED example draft to the parent editor', async () => {
@@ -658,8 +658,8 @@ test('a settled stream capture renders the recorded interleave without timestamp
   await waitInvokeEnabled(true);
   await invokeButton().click();
   // The ↑ composed request frame plus three ↓ books, then settle.
-  await expect.poll(async () => timelineMessageRows().count(), { timeout: 20000 }).toBe(4);
-  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 15000 });
+  await expect.poll(async () => timelineMessageRows().count(), { timeout: 5_000 }).toBe(4);
+  await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });
 
   // The Save Response item appears only once the snapshot settles —
   // first item of the pane's ⋯ actions menu.
@@ -669,15 +669,15 @@ test('a settled stream capture renders the recorded interleave without timestamp
     .locator('.ant-message')
     .getByText(/Saved example/)
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   const examplePane = page.getByTestId('grpc-example-result-pane').filter({ visible: true }).first();
-  await examplePane.waitFor({ state: 'visible', timeout: 10000 });
+  await examplePane.waitFor({ state: 'visible', timeout: 5_000 });
 
   // Both directions captured, no session timestamps (the session-only
   // law — a reopened capture shows messages without times).
   await expect
-    .poll(async () => examplePane.getByTestId('grpc-timeline-message-row').count(), { timeout: 10000 })
+    .poll(async () => examplePane.getByTestId('grpc-timeline-message-row').count(), { timeout: 5_000 })
     .toBe(4);
   expect(await examplePane.getByTestId('grpc-timeline-message-time').count()).toBe(0);
 
