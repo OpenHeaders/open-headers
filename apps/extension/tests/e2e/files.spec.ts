@@ -47,7 +47,7 @@ test.beforeAll(async () => {
         probeFileId = resp?.fileRef?.fileId ?? '';
         return resp?.success === true;
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
   await rpc(readinessPage, 'deleteFile', { fileId: probeFileId });
@@ -66,7 +66,7 @@ async function newRpcPage(): Promise<Page> {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   return page;
 }
