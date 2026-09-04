@@ -44,8 +44,28 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
+
+  // On a fresh profile the active workspace's sync service bootstraps
+  // async and the write-path RPCs error until it is up — the sends
+  // above it never touch it, so probe with a real putFile once (the
+  // files spec's readiness idiom) and delete the probe blob after.
+  let probeFileId = '';
+  await expect
+    .poll(
+      async () => {
+        const resp = await rpc<{ success: boolean; fileRef?: { fileId: string } }>('putFile', {
+          filename: 'readiness-probe.txt',
+          bytesBase64: btoa('probe'),
+        });
+        probeFileId = resp?.fileRef?.fileId ?? '';
+        return resp?.success === true;
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
+  await rpc('deleteFile', { fileId: probeFileId });
 });
 
 test.afterAll(async () => {
@@ -91,8 +111,8 @@ async function uploadFile(filename: string, content: string, mimeType = 'text/pl
       });
     },
     { filename, content, mimeType },
-  )) as { success: boolean; fileRef?: FileRef };
-  expect(resp.success).toBe(true);
+  )) as { success: boolean; fileRef?: FileRef; error?: string };
+  expect(resp.success, resp.error).toBe(true);
   expect(resp.fileRef).toBeDefined();
   return resp.fileRef!;
 }
