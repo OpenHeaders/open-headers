@@ -28,9 +28,10 @@ import path from 'node:path';
 import { _electron, type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
-// Port etiquette: off every prior suite's ports (18137, 18337–18339,
-// 18443, 18537, 18637, 18737, 18747, 18937, 19037, 19039, 19137, 19237).
-const DAEMON_PORT = 19337;
+// Port etiquette: off every prior suite's ports, and off 19337 — the
+// dev machine's standing UX docker rig publishes the daemon there, and
+// its healthz answers for ours while its MCP route 404s.
+const DAEMON_PORT = 21837;
 
 const ORIGIN = `http://127.0.0.1:${DAEMON_PORT}`;
 const MCP_URL = `${ORIGIN}/mcp`;
@@ -123,7 +124,7 @@ async function showRequestsView(): Promise<void> {
     .getByRole('button', { name: /REQUESTS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10_000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 5_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
@@ -146,10 +147,10 @@ async function openRequest(uid: string): Promise<void> {
     for (let i = 0; i < count; i += 1) {
       if (await row.isVisible().catch(() => false)) break;
       await collections.nth(i).click();
-      await row.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
+      await row.waitFor({ state: 'visible', timeout: 1_000 }).catch(() => {});
     }
   }
-  await row.waitFor({ state: 'visible', timeout: 5000 });
+  await row.waitFor({ state: 'visible', timeout: 3_000 });
   await row.scrollIntoViewIfNeeded();
   await row.click();
 }
@@ -161,7 +162,7 @@ async function sendProbe(name: ProbeName): Promise<void> {
   await openRequest(uid as string);
   await workbench.getByRole('button', { name: /Send$/ }).filter({ visible: true }).click();
   const tag = workbench.getByTestId('oh-response-status').filter({ visible: true });
-  await tag.waitFor({ state: 'visible', timeout: 30_000 });
+  await tag.waitFor({ state: 'visible', timeout: 10_000 });
   expect((await tag.textContent())?.trim()).toContain('200');
 }
 
@@ -171,7 +172,7 @@ async function sendProbe(name: ProbeName): Promise<void> {
  *  law), so a second click may be needed before the menu items exist. */
 async function pickResponseView(label: RegExp): Promise<void> {
   const picker = workbench.getByTestId('oh-response-view-picker').filter({ visible: true }).first();
-  await picker.waitFor({ state: 'visible', timeout: 15_000 });
+  await picker.waitFor({ state: 'visible', timeout: 5_000 });
   await picker.click();
   const item = workbench
     .locator('.ant-dropdown-menu-item')
@@ -179,10 +180,10 @@ async function pickResponseView(label: RegExp): Promise<void> {
     .filter({ visible: true })
     .first();
   try {
-    await item.waitFor({ state: 'visible', timeout: 2000 });
+    await item.waitFor({ state: 'visible', timeout: 1_000 });
   } catch {
     await picker.click();
-    await item.waitFor({ state: 'visible', timeout: 15_000 });
+    await item.waitFor({ state: 'visible', timeout: 5_000 });
   }
   await item.click();
 }
@@ -190,7 +191,7 @@ async function pickResponseView(label: RegExp): Promise<void> {
 /** Text of the response Body view picker (detected language / view). */
 async function responseViewPickerLabel(): Promise<string> {
   const picker = workbench.getByTestId('oh-response-view-picker').filter({ visible: true }).first();
-  await picker.waitFor({ state: 'visible', timeout: 15_000 });
+  await picker.waitFor({ state: 'visible', timeout: 5_000 });
   return (await picker.textContent())?.trim() ?? '';
 }
 
@@ -198,7 +199,7 @@ async function responseViewPickerLabel(): Promise<string> {
 async function responseRawBody(): Promise<string> {
   await pickResponseView(/Raw$/);
   const body = workbench.getByTestId('oh-response-body').filter({ visible: true });
-  await body.waitFor({ state: 'visible', timeout: 15_000 });
+  await body.waitFor({ state: 'visible', timeout: 5_000 });
   return (await body.innerText()).trim();
 }
 
@@ -206,7 +207,7 @@ async function responseRawBody(): Promise<string> {
 async function responseHexText(): Promise<string> {
   await pickResponseView(/Hex$/);
   const hex = workbench.getByTestId('oh-response-hex').filter({ visible: true });
-  await hex.waitFor({ state: 'visible', timeout: 15_000 });
+  await hex.waitFor({ state: 'visible', timeout: 5_000 });
   return (await hex.textContent()) ?? '';
 }
 
@@ -313,7 +314,7 @@ test.beforeAll(async () => {
           .isVisible()
           .catch(() => false);
       },
-      { timeout: 15_000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 });
@@ -326,7 +327,7 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
   test('PNG opens on the image Preview and the blob decodes under the CSP', async () => {
     await sendProbe('image');
     const img = workbench.getByTestId('oh-response-image-preview').filter({ visible: true });
-    await img.waitFor({ state: 'visible', timeout: 15_000 });
+    await img.waitFor({ state: 'visible', timeout: 5_000 });
     expect(await responseViewPickerLabel()).toMatch(/Hex$/);
     expect(await responsePreviewToggle().count()).toBe(1);
 
@@ -342,7 +343,7 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
   test('SVG stays a text body (XML grammar) with the image Preview on top', async () => {
     await sendProbe('svg');
     const img = workbench.getByTestId('oh-response-image-preview').filter({ visible: true });
-    await img.waitFor({ state: 'visible', timeout: 15_000 });
+    await img.waitFor({ state: 'visible', timeout: 5_000 });
     await expect.poll(async () => img.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await shot('svg-preview');
 
@@ -354,7 +355,7 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
   test('WAV opens on the media Preview and reaches metadata under the CSP', async () => {
     await sendProbe('media');
     const media = workbench.getByTestId('oh-response-media-preview').filter({ visible: true });
-    await media.waitFor({ state: 'visible', timeout: 15_000 });
+    await media.waitFor({ state: 'visible', timeout: 5_000 });
     expect(await responseViewPickerLabel()).toMatch(/Hex$/);
 
     // HAVE_METADATA (1) or better proves the blob loaded — a media-src
@@ -369,7 +370,7 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
   test('PDF opens on the iframe Preview and the viewer plugin renders it', async () => {
     await sendProbe('pdf');
     const frame = workbench.getByTestId('oh-response-pdf-preview').filter({ visible: true });
-    await frame.waitFor({ state: 'visible', timeout: 15_000 });
+    await frame.waitFor({ state: 'visible', timeout: 5_000 });
     expect(await responseViewPickerLabel()).toMatch(/Hex$/);
 
     // Render proof: Chromium's PDF viewer mounts an <embed> inside the
@@ -378,7 +379,7 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
     await workbench
       .frameLocator('[data-testid="oh-response-pdf-preview"]')
       .locator('embed')
-      .waitFor({ state: 'attached', timeout: 15_000 });
+      .waitFor({ state: 'attached', timeout: 5_000 });
     // Paint settle for the screenshot artifact — the embed attaches
     // before the viewer rasterizes the first page.
     await workbench.waitForTimeout(1_000);
@@ -442,7 +443,7 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
     await openRequest(redirectDemoteUid);
     await workbench.getByRole('button', { name: /Send$/ }).filter({ visible: true }).click();
     const tag = workbench.getByTestId('oh-response-status').filter({ visible: true });
-    await tag.waitFor({ state: 'visible', timeout: 30_000 });
+    await tag.waitFor({ state: 'visible', timeout: 10_000 });
     expect((await tag.textContent())?.trim()).toContain('200');
 
     // Wire proof of the demotion: the echo target reports the method
@@ -451,14 +452,14 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
     expect(raw).toContain('"method": "GET"');
 
     const redirectsTag = workbench.getByTestId('oh-response-redirects').filter({ visible: true });
-    await redirectsTag.waitFor({ state: 'visible', timeout: 15_000 });
+    await redirectsTag.waitFor({ state: 'visible', timeout: 5_000 });
     expect((await redirectsTag.textContent())?.trim()).toBe('1 redirect');
 
     // Popover chain: the hop as sent (POST → 303 + Location) with the
     // method-demotion note, then the final response line.
     await redirectsTag.hover();
     const hop = workbench.getByTestId('oh-response-redirect-hop').filter({ visible: true });
-    await hop.waitFor({ state: 'visible', timeout: 15_000 });
+    await hop.waitFor({ state: 'visible', timeout: 5_000 });
     const hopText = (await hop.textContent()) ?? '';
     expect(hopText).toContain('POST http://127.0.0.1:3000/net/redirect-demote');
     expect(hopText).toContain('303');
@@ -474,7 +475,7 @@ test.describe('Response viewer — content-type sweep (desktop workbench)', () =
     const duration = workbench.getByTestId('oh-response-duration').filter({ visible: true });
     await duration.hover();
     const ladderTotal = workbench.getByText('Total (network)').filter({ visible: true });
-    await ladderTotal.waitFor({ state: 'visible', timeout: 15_000 });
+    await ladderTotal.waitFor({ state: 'visible', timeout: 5_000 });
     for (const label of ['Redirects', 'Waiting (TTFB)', 'Content download']) {
       expect(await workbench.getByText(label).filter({ visible: true }).count()).toBeGreaterThan(0);
     }
