@@ -66,9 +66,11 @@ function jwtLinks(): Locator {
 }
 
 /** The body buffer's text with Monaco's soft-wrap newlines stripped —
- *  the buffer itself is a single line. */
+ *  the buffer itself is a single line. The wrap indents each
+ *  continuation line, so the indent goes with its newline (the compact
+ *  JSON fixture carries no whitespace of its own). */
 async function bodyText(): Promise<string> {
-  return (await workbench.monacoText(0)).replace(/\n/g, '');
+  return (await workbench.monacoText(0)).replace(/\n\s*/g, '');
 }
 
 function jwtModal(): Locator {
@@ -148,8 +150,12 @@ test.describe('Request body — in-buffer JWT decoder', () => {
 
     // Decoded view: payload pane (header pane is the modal's first
     // Monaco) carries the token's claims, expiry reads as valid, and
-    // Save is disabled while nothing is dirty.
-    expect(await workbench.monacoTextWithin(modal, 1)).toContain('"sub": "user@openheaders.io"');
+    // Save is disabled while nothing is dirty. Polled — a one-shot read
+    // can race Monaco's initial line layout (the first paint may hold
+    // just the opening brace).
+    await expect
+      .poll(() => workbench.monacoTextWithin(modal, 1), { timeout: 5_000 })
+      .toContain('"sub": "user@openheaders.io"');
     await expect(modal.getByText('Token not expired')).toBeVisible();
     await expect(modal.getByRole('button', { name: /Save$/ })).toBeDisabled();
 
