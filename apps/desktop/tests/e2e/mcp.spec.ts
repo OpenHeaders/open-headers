@@ -134,7 +134,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .toBe(401);
 
@@ -211,6 +211,9 @@ test('lists the read + write catalog with the write tier enabled', async () => {
     'workspaces_create',
     'workspaces_switch',
     'environments_switch',
+    // The headless OAuth plane's status read — write-tier, beside its
+    // execute-tier acquire (`requests_authorize`).
+    'requests_authorize_status',
   ]);
 });
 
@@ -285,7 +288,7 @@ test('the created rule appears live in the open Workbench window', async () => {
     .getByRole('button', { name: /\bRULES\b/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 15_000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 3_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
@@ -751,21 +754,33 @@ test('the stdio bridge fails fast when the app is not running', async () => {
 
 // ── Settings → MCP page ─────────────────────────────────────────────
 
-test('the Settings → MCP page surfaces tiers, tokens, and client snippets', async () => {
+test('the Settings MCP pages surface the tiers and the client snippets', async () => {
+  // Tools › AI · MCP Server is a group over Access (server + permission
+  // knobs) and Clients (the CLI row + config snippets); the tree opens a
+  // parent only around an active descendant, so the walk goes through
+  // the group landing pages. Paired devices left this page for
+  // Connectivity › Backend › Server (its own coverage lives in the CLI
+  // provisioning spec's ledger legs).
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
-  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).click();
+  const nav = workbench.locator('.settings-category-nav');
+  await nav.getByRole('button', { name: 'Tools', exact: true }).click();
+  await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).filter({ visible: true }).click();
+  await workbench.getByRole('button', { name: 'Access', exact: true }).filter({ visible: true }).click();
 
-  await expect(workbench.getByText('Enable MCP server')).toBeVisible();
-  await expect(workbench.getByText('Allow write tools')).toBeVisible();
-  await expect(workbench.getByText('Allow execute tools')).toBeVisible();
-  await expect(workbench.getByText('Allow secret reveal')).toBeVisible();
-  await expect(workbench.getByText('Paired devices')).toBeVisible();
-  await expect(workbench.getByText('Connect a client')).toBeVisible();
+  // Labels drop the page's context: the section header says MCP.
+  for (const label of ['Enable', 'Traffic observation', 'Write tools', 'Execute tools', 'Secret reveal']) {
+    await expect(workbench.getByText(label, { exact: true }).filter({ visible: true }).first()).toBeVisible({
+      timeout: 3_000,
+    });
+  }
+
+  await nav.getByRole('button', { name: 'Clients', exact: true }).click();
+  await expect(workbench.getByText('Connect a client')).toBeVisible({ timeout: 3_000 });
 
   // The suite runs off the default port — the snippets must carry it.
   await workbench.getByRole('tab', { name: 'HTTP', exact: true }).click();
-  await expect(workbench.getByText(`http://127.0.0.1:${DAEMON_PORT}/mcp`)).toBeVisible();
+  await expect(workbench.getByText(`http://127.0.0.1:${DAEMON_PORT}/mcp`)).toBeVisible({ timeout: 3_000 });
 
   await workbench.keyboard.press('Escape');
 });
@@ -878,7 +893,7 @@ test('the MCP-created rule syncs into a connected browser extension', async () =
               });
             }),
         ),
-      { timeout: 30000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 });
@@ -934,7 +949,7 @@ test('the MCP admission chain survives a live bindAddress rebind', async () => {
           return 0;
         }
       },
-      { timeout: 15000 },
+      { timeout: 3_000 },
     )
     .toBe(200);
 
@@ -955,7 +970,7 @@ test('the MCP admission chain survives a live bindAddress rebind', async () => {
           return 0;
         }
       },
-      { timeout: 15000 },
+      { timeout: 3_000 },
     )
     .toBe(200);
 });
