@@ -45,6 +45,7 @@ import {
   type Page,
   test,
 } from '@playwright/test';
+import { createExtensionSeedHarness } from './agent-traffic-harness';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const EXTENSION_PATH = path.resolve(APP_ROOT, '../extension/dist/chrome');
@@ -124,6 +125,9 @@ function startStub(): Promise<void> {
   const routes = new Map<string, unknown>([
     ['/workspaces', WORKSPACE_LIST],
     ['/workspaces/ws-team', WORKSPACE_DETAIL],
+    // The workspace globals envelope — no rows, so the pull reads the
+    // workspace clean rather than reporting a dropped globals leg.
+    ['/workspaces/ws-team/global-variables', { values: [] }],
     ['/collections/e2eowner-c1', COLLECTION_PAYLOAD],
     ['/environments/e2eowner-e1', ENVIRONMENT_PAYLOAD],
   ]);
@@ -197,7 +201,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .toBe(401);
 });
@@ -223,7 +227,7 @@ test('consent click 1 — detection fills in status-only vendor rows', async () 
   await modal.getByRole('button', { name: 'Scan this computer' }).click();
   // Real per-OS probes run on this machine — assert statuses appear,
   // not which tools this host happens to have installed.
-  await expect(modal.getByText(/Detected|Not found/).first()).toBeVisible({ timeout: 15000 });
+  await expect(modal.getByText(/Detected|Not found/).first()).toBeVisible({ timeout: 3_000 });
   await pace(workbench);
 });
 
@@ -236,7 +240,7 @@ test("Postman's Import reveals the inline stepper and the key lists the workspac
   await modal.getByRole('button', { name: 'List workspaces' }).click();
   // The enumeration-only preflight answers the picker, pre-selected.
   const picker = modal.getByRole('checkbox', { name: /OpenHeaders Team/ });
-  await expect(picker).toBeVisible({ timeout: 15000 });
+  await expect(picker).toBeVisible({ timeout: 3_000 });
   await expect(picker).toBeChecked();
   await expect(modal.getByText('1 collections · 1 environments')).toBeVisible();
   expect(stubCalls.map((call) => call.path)).toEqual(['/workspaces', '/workspaces/ws-team']);
@@ -251,13 +255,15 @@ test('consent click 2 — Import selected starts the unattended background pull'
 });
 
 test('the pull drains the stub — key on every call, uid item forms, nothing else', async () => {
-  // Preflight (list + detail) + the narrowed pull's four calls.
-  await expect.poll(() => stubCalls.length, { timeout: 30000 }).toBe(6);
+  // Preflight (list + detail) + the narrowed pull's five calls: the
+  // workspace globals, then the items.
+  await expect.poll(() => stubCalls.length, { timeout: 5_000 }).toBe(7);
   expect(stubCalls.map((call) => call.path)).toEqual([
     '/workspaces',
     '/workspaces/ws-team',
     '/workspaces',
     '/workspaces/ws-team',
+    '/workspaces/ws-team/global-variables',
     '/collections/e2eowner-c1',
     '/environments/e2eowner-e1',
   ]);
@@ -266,7 +272,7 @@ test('the pull drains the stub — key on every call, uid item forms, nothing el
 
 test('the corner task settles into the report flip with the folded month budget', async () => {
   const processes = workbench.getByRole('dialog', { name: 'Processes' });
-  await expect(processes.getByText('Import finished')).toBeVisible({ timeout: 30000 });
+  await expect(processes.getByText('Import finished')).toBeVisible({ timeout: 5_000 });
   await pace(workbench);
 
   // The month budget folded off the stub's headers into the run state.
@@ -300,7 +306,7 @@ test('the click-through opens the report in place, then Open workspace jumps int
     .first()
     .click();
   const report = workbench.getByRole('dialog').filter({ hasText: 'Postman import report' });
-  await expect(report).toBeVisible({ timeout: 15000 });
+  await expect(report).toBeVisible({ timeout: 3_000 });
   // Workspace parity — the counterpart carries the vendor workspace's
   // exact name; viewing the report never switches the workspace.
   await expect(report).toContainText('OpenHeaders Team');
@@ -311,7 +317,7 @@ test('the click-through opens the report in place, then Open workspace jumps int
   // the collapse header, whose accessible name contains the button's.
   await report.getByRole('button', { name: 'Open workspace', exact: true }).first().click();
   await expect(report).toHaveCount(0);
-  await expect(workbench.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 15000 });
+  await expect(workbench.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 3_000 });
   await pace(workbench);
 });
 
@@ -339,69 +345,22 @@ test('a connected extension mirrors the finished run in its own corner', async (
   const bootWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
   const extensionId = bootWorker.url().split('/')[2];
 
-  // Keep a client page attached so the MV3 service worker never idles
-  // out mid-test. Every storage evaluation below runs in THIS page —
-  // the extension origin's chrome.storage and IndexedDB are shared with
-  // the SW, and a page context survives the SW restarts that destroy
-  // worker execution contexts mid-call.
-  const popup = await extensionContext.newPage();
-  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-
-  // Join the desktop's daemon socket — the `oh.backends` record is a
-  // sensitive slot, seeded with the extension's own at-rest key (same
-  // blob format as mcp.spec). The key is minted by the SW on first
-  // boot, so the read polls until it exists.
-  await popup.evaluate(
-    async ({ backendUrl, authToken }) => {
-      const readKey = (): Promise<CryptoKey | null> =>
-        new Promise((resolve, reject) => {
-          const open = indexedDB.open('oh-secret-cipher', 1);
-          open.onerror = () => reject(open.error);
-          open.onsuccess = () => {
-            const db = open.result;
-            if (!db.objectStoreNames.contains('keys')) {
-              db.close();
-              resolve(null);
-              return;
-            }
-            const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve((request.result as CryptoKey | undefined) ?? null);
-          };
-        });
-      let key: CryptoKey | null = null;
-      for (let attempt = 0; attempt < 40 && key === null; attempt++) {
-        key = await readKey().catch(() => null);
-        if (key === null) await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-      if (key === null) throw new Error('at-rest cipher key never appeared');
-      const record = {
-        id: 'e2e-desktop-backend',
-        label: 'e2e desktop',
-        url: backendUrl,
-        authToken,
-        autoConnect: true,
-        enabled: true,
-        addedAt: new Date().toISOString(),
-        lastConnectedAt: null,
-      };
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        key,
-        new TextEncoder().encode(JSON.stringify([record])),
-      );
-      const packed = new Uint8Array(iv.length + ciphertext.byteLength);
-      packed.set(iv, 0);
-      packed.set(new Uint8Array(ciphertext), iv.length);
-      let binary = '';
-      for (const byte of packed) binary += String.fromCharCode(byte);
-      await new Promise<void>((resolve) => {
-        chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
-      });
-    },
-    { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token },
-  );
+  // The shared dual-app harness seeds the `oh.backends` record with the
+  // extension's own at-rest key: an existence probe before any open (an
+  // eager open would mint the schema-less husk that blocks the SW's
+  // cipher init), a husk heal, and a retry loop over the mint race. Its
+  // keep-alive page is the storage evaluate surface below.
+  const harness = createExtensionSeedHarness({
+    context: () => extensionContext,
+    extensionId: () => extensionId,
+    token: () => token,
+    daemonPort: DAEMON_PORT,
+    recordId: 'e2e-desktop-backend',
+    recordLabel: 'e2e desktop',
+    logTag: 'migration-pull setup',
+  });
+  const popup = await harness.extensionPage();
+  await harness.seedBackendRetrying({ enabled: true });
 
   // The counterpart workspace syncs down before the mirror is asserted
   // so the click-through test below has somewhere to land.
@@ -416,7 +375,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
               });
             }),
         ),
-      { timeout: 30000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 
@@ -426,7 +385,7 @@ test('a connected extension mirrors the finished run in its own corner', async (
   await extensionWorkbench.goto(`chrome-extension://${extensionId}/workbench.html`);
   // The panel starts closed on a fresh page — the permanent footer slot
   // anchors the mirrored done task.
-  await expect(extensionWorkbench.getByText('Import finished')).toBeVisible({ timeout: 30000 });
+  await expect(extensionWorkbench.getByText('Import finished')).toBeVisible({ timeout: 5_000 });
   await pace(extensionWorkbench);
 });
 
@@ -440,7 +399,7 @@ test('the extension click-through opens the mirrored report and jumps to the syn
   await page.getByText('Import finished').first().click();
   await page.getByRole('dialog', { name: 'Processes' }).getByRole('button', { name: 'View report' }).first().click();
   const report = page.getByRole('dialog').filter({ hasText: 'Postman import report' });
-  await expect(report).toBeVisible({ timeout: 15000 });
+  await expect(report).toBeVisible({ timeout: 3_000 });
   // The summary rides the mirrored run state; the report ring itself is
   // host-local to the desktop, so the section shows the counterpart's
   // name with no local report entry.
@@ -449,7 +408,7 @@ test('the extension click-through opens the mirrored report and jumps to the syn
 
   await report.getByRole('button', { name: 'Open workspace', exact: true }).first().click();
   await expect(report).toHaveCount(0);
-  await expect(page.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByLabel(/editing workspace: OpenHeaders Team/)).toBeVisible({ timeout: 3_000 });
   await pace(page);
 });
 
@@ -484,8 +443,9 @@ test('a complete re-pull refreshes the counterpart workspace instead of duplicat
   }, API_KEY);
   expect(started.started).toBe(true);
 
-  // The second run drains the stub exactly like the first.
-  await expect.poll(() => stubCalls.length, { timeout: 30000 }).toBe(callsBefore + 4);
+  // The second run drains the stub exactly like the first — the
+  // workspace detail, its globals, the collection and the environment.
+  await expect.poll(() => stubCalls.length, { timeout: 5_000 }).toBe(callsBefore + 5);
   await expect
     .poll(
       async () =>
@@ -497,7 +457,7 @@ test('a complete re-pull refreshes the counterpart workspace instead of duplicat
           };
           return `${state.runId}:${state.phase}`;
         }),
-      { timeout: 30000 },
+      { timeout: 5_000 },
     )
     .toBe(`${started.runId}:done`);
 
@@ -510,7 +470,7 @@ test('a complete re-pull refreshes the counterpart workspace instead of duplicat
     .getByRole('button', { name: /REQUESTS/ })
     .filter({ visible: true })
     .first();
-  await section.waitFor({ state: 'visible', timeout: 10000 });
+  await section.waitFor({ state: 'visible', timeout: 3_000 });
   await pace(workbench);
   if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
   await expect(workbench.locator('[data-item-id^="req-col-"]').filter({ visible: true })).toHaveCount(1);
@@ -524,7 +484,7 @@ test('the re-pull report records the replacement transform', async () => {
     .first()
     .click();
   const report = workbench.getByRole('dialog').filter({ hasText: 'Postman import report' });
-  await expect(report).toBeVisible({ timeout: 15000 });
+  await expect(report).toBeVisible({ timeout: 3_000 });
   await expect(report).toContainText('replaced by this pull');
   await pace(workbench);
   await report.getByRole('button', { name: 'Close' }).last().click();
