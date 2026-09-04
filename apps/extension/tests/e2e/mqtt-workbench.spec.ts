@@ -113,7 +113,7 @@ function urlInput() {
 /** The collection row's hover-revealed `+` (create-only) menu icon. */
 async function openCollectionAddMenu(): Promise<void> {
   const row = page.locator(`[data-item-id="req-col-${collectionUid}"]`);
-  await row.waitFor({ state: 'visible', timeout: 10000 });
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
   await row.hover();
   await row.locator('.rules-sidebar-collection-actions .anticon-plus').first().click();
 }
@@ -146,7 +146,7 @@ async function commitAutoRename(defaultLabel: RegExp, name: string): Promise<voi
           const el = document.activeElement;
           return el instanceof HTMLInputElement ? el.value : '';
         }),
-      { timeout: 10000 },
+      { timeout: 5_000 },
     )
     .toMatch(defaultLabel);
   await page.keyboard.insertText(name);
@@ -174,14 +174,14 @@ async function mqttRow(name: string) {
     if (anyLeaf === 0) {
       await page.locator(`[data-item-id="req-col-${collectionUid}"]`).click();
     }
-    await row.waitFor({ state: 'visible', timeout: 10000 });
+    await row.waitFor({ state: 'visible', timeout: 5_000 });
   }
   return row;
 }
 
 async function openMqttRequest(name: string): Promise<void> {
   await (await mqttRow(name)).click();
-  await urlInput().waitFor({ state: 'visible', timeout: 10000 });
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 /** Assert a Connect gate: the button visible, disabled, its tooltip
@@ -190,7 +190,7 @@ async function openMqttRequest(name: string): Promise<void> {
  *  gate and the named tcp-scheme affordance. */
 async function expectConnectGate(copy: string): Promise<void> {
   const button = connectButton();
-  await button.waitFor({ state: 'visible', timeout: 10000 });
+  await button.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(button).toBeDisabled();
   // Park first so the hover always lands as a fresh mouseenter.
   await page.mouse.move(0, 0);
@@ -200,7 +200,7 @@ async function expectConnectGate(copy: string): Promise<void> {
     .filter({ visible: true })
     .getByText(copy)
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await page.mouse.move(0, 0);
 }
 
@@ -224,13 +224,13 @@ function timelineMessageRows() {
 async function connectAndAwaitOpen(): Promise<void> {
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
-  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await liveBadge().filter({ hasText: 'Connected' }).waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 /** Disconnect (the clean DISCONNECT + close) and wait for the tag. */
 async function disconnectAndAwaitClose(): Promise<void> {
   await connectButton().filter({ hasText: 'Disconnect' }).click();
-  await endTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 20_000 });
+  await endTag().filter({ hasText: 'Disconnected' }).waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -284,7 +284,7 @@ test('E1 — the collection + menu creates an MQTT request gated only on its emp
   // session pane shows the connect hint, and Connect is PRESENT but
   // disabled only for the missing URL (the `mqttPageSession`
   // capability retired the runtime gate on this surface).
-  await urlInput().waitFor({ state: 'visible', timeout: 10000 });
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByTestId('mqtt-session-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await expectConnectGate(CONNECT_NEEDS_URL_COPY);
 });
@@ -336,7 +336,7 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
     .getByRole('button', { name: /Saved$/ })
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   await workbench.reload();
   await workbench.showRequestsView();
@@ -353,7 +353,7 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
   // width and renders only the first wrapped char line — the poll
   // rides out that relayout, while a truly squished editor never
   // settles to the full text.
-  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain(MQTT_PAYLOAD);
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain(MQTT_PAYLOAD);
   await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue(MQTT_TOPIC);
   // The reload remounts the editor, so the rail is back to its
   // collapsed default — expand it to see the persisted row.
@@ -377,7 +377,7 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
 test('E3 — on 3.1.1 the CONNECT user-properties grid is inert with the honest copy', async () => {
   await page.getByRole('tab', { name: 'Properties', exact: true }).filter({ visible: true }).first().click();
   const propsTab = page.getByTestId('mqtt-user-props').filter({ visible: true }).first();
-  await propsTab.waitFor({ state: 'visible', timeout: 10000 });
+  await propsTab.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(propsTab).toContainText('CONNECT user properties are an MQTT 5.0 feature — this request targets 3.1.1.');
   await expect(propsTab.locator('[aria-disabled="true"]').first()).toBeVisible();
 });
@@ -417,7 +417,7 @@ test('E4 — an AsyncAPI spec binds through the picker and the specLink persists
     .getByRole('button', { name: /Saved$/ })
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   await workbench.reload();
   await workbench.showRequestsView();
@@ -445,7 +445,7 @@ test('E5 — invalid Base64 shows the inline error and the Send gate names the f
   await workbench.fillMonaco(0, 'not base64 !!!');
 
   const inlineError = page.getByTestId('mqtt-encoding-error').filter({ visible: true }).first();
-  await inlineError.waitFor({ state: 'visible', timeout: 10000 });
+  await inlineError.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(inlineError).toContainText('Not valid Base64');
 
   const send = page.getByTestId('mqtt-send-message').filter({ visible: true }).first();
@@ -458,7 +458,7 @@ test('E5 — invalid Base64 shows the inline error and the Send gate names the f
     .filter({ visible: true })
     .getByText('Fix the payload encoding first.')
     .first()
-    .waitFor({ state: 'visible', timeout: 10000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await page.mouse.move(0, 0);
 });
 
@@ -516,10 +516,10 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
     .filter({ visible: true })
     .filter({ hasText: 'Connected' })
     .first();
-  await connectedRow.waitFor({ state: 'visible', timeout: 10_000 });
+  await connectedRow.waitFor({ state: 'visible', timeout: 5_000 });
   await connectedRow.click();
   const connackDetails = page.getByTestId('mqtt-timeline-connack-details').filter({ visible: true }).first();
-  await connackDetails.waitFor({ state: 'visible', timeout: 10_000 });
+  await connackDetails.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(connackDetails).toContainText('cmd: connack');
   // aedes frames the 3.1.1 CONNACK with Remaining Length 2 — recorded
   // at decode, rendered verbatim.
@@ -527,7 +527,7 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   await expect(connackDetails).toContainText('reasonCode: 0 (Connection Accepted)');
   await expect(connackDetails).toContainText('sessionPresent: false');
   await connectedRow.click();
-  await connackDetails.waitFor({ state: 'hidden', timeout: 10_000 });
+  await connackDetails.waitFor({ state: 'hidden', timeout: 5_000 });
 
   // Both rows subscribed at open in ONE packet — the Subscribed
   // lifecycle row records each SUBACK grant verbatim.
@@ -537,12 +537,12 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
     .filter({ hasText: 'probe/echo/reply' })
     .filter({ hasText: 'probe/retained' })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // The pre-seeded retained message arrives on subscribe carrying its
   // Retained fact tag.
   const retainedRow = timelineMessageRows().filter({ hasText: 'retained-hello' }).first();
-  await retainedRow.waitFor({ state: 'visible', timeout: 15_000 });
+  await retainedRow.waitFor({ state: 'visible', timeout: 5_000 });
   await retainedRow
     .getByTestId('mqtt-timeline-retained-tag')
     .filter({ hasText: 'Retained' })
@@ -558,11 +558,11 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
     .filter({ has: page.getByTestId('mqtt-timeline-topic-chip').filter({ hasText: 'probe/echo/reply' }) })
     .filter({ hasText: ECHO_PAYLOAD })
     .first()
-    .waitFor({ state: 'visible', timeout: 15_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
   await timelineMessageRows()
     .filter({ has: page.getByTestId('mqtt-timeline-topic-chip').filter({ hasText: /^probe\/echo$/ }) })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // No node-only knob configured — no honesty notice on this session.
   await expect(page.getByTestId('mqtt-host-knob-notice')).toHaveCount(0);
@@ -573,7 +573,7 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
     .filter({ visible: true })
     .filter({ hasText: 'Disconnected' })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 });
 
 // ── E7: tcp-scheme honesty — the scheme is named, never downgraded ──
@@ -594,7 +594,7 @@ test('E8 — SSL verification off rides the honesty notice for the session’s w
 
   await connectAndAwaitOpen();
   const notice = page.getByTestId('mqtt-host-knob-notice').filter({ visible: true }).first();
-  await notice.waitFor({ state: 'visible', timeout: 10_000 });
+  await notice.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(notice).toContainText('disabled SSL verification');
 
   await disconnectAndAwaitClose();
@@ -621,7 +621,7 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
     .first()
     .click();
   // Poll: Monaco repaints a beat after the pick lands the synthesis.
-  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"topics"');
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('"topics"');
   const composed = await workbench.monacoText(0);
   expect(composed).toContain('"orders"');
   expect(composed).toContain('"format": "full"');
@@ -632,7 +632,7 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
   // channel address, and switches back to Message.
   await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
   const browser = page.getByTestId('mqtt-asyncapi-browser').filter({ visible: true }).first();
-  await browser.waitFor({ state: 'visible', timeout: 10_000 });
+  await browser.waitFor({ state: 'visible', timeout: 5_000 });
   await browser.getByText('ping', { exact: true }).first().click();
   await page
     .getByRole('tab', { name: 'Message', exact: true })
@@ -640,7 +640,7 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
     .first()
     .waitFor({ state: 'visible' });
   // Poll: Monaco repaints a beat after the tab switch lands the text.
-  await expect.poll(async () => workbench.monacoText(0), { timeout: 10_000 }).toContain('"op": "ping"');
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('"op": "ping"');
   await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue('/ws/control');
 });
 
@@ -661,7 +661,7 @@ test('E10 — Save Response mints the example: viewer end pill, sidebar leaf, Op
   // + the read-only result pane.
   await page.getByTestId('mqtt-example-result-pane').filter({ visible: true }).first().waitFor({
     state: 'visible',
-    timeout: 15_000,
+    timeout: 5_000,
   });
   await page
     .getByTestId('mqtt-example-end-tag')
@@ -675,12 +675,12 @@ test('E10 — Save Response mints the example: viewer end pill, sidebar leaf, Op
     .locator('[data-item-id^="mqtt-example-"]')
     .filter({ visible: true })
     .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
+    .waitFor({ state: 'visible', timeout: 5_000 });
 
   // "Open in Request" returns to the parent editor with the captured
   // shape riding the prefill bus as unsaved draft edits.
   await page.getByTestId('mqtt-example-open-in-request').filter({ visible: true }).first().click();
-  await urlInput().waitFor({ state: 'visible', timeout: 10_000 });
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   await expect(urlInput()).toHaveValue(MQTT_WS_PROBE_URL);
 });
 
@@ -712,7 +712,7 @@ test('E11 — the probe identity opens the session; a wrong password refuses wit
   await expect(connectButton()).toBeEnabled();
   await connectButton().click();
   const errorState = page.getByTestId('mqtt-timeline-error-row').filter({ visible: true }).first();
-  await errorState.waitFor({ state: 'visible', timeout: 20_000 });
+  await errorState.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByTestId('mqtt-session-error-detail').filter({ visible: true }).first()).toContainText(
     'Bad user name or password (code 4)',
   );
@@ -736,7 +736,7 @@ test('E12 — a Before connect script runs in-page at the dial: the CONNECT carr
 
   // The mark rode the timeline; the tag counts the one run.
   const mark = page.getByTestId('mqtt-timeline-script-row').filter({ visible: true }).first();
-  await mark.waitFor({ state: 'visible', timeout: 10_000 });
+  await mark.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(mark).toContainText('Before connect');
   await expect(page.getByTestId('mqtt-session-scripts-tag').filter({ visible: true }).first()).toHaveText(
     'Scripts · 1',
