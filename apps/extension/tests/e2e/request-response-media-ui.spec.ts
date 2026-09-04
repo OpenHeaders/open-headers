@@ -124,7 +124,7 @@ async function sendProbe(name: (typeof PROBE_REQUESTS)[number]): Promise<void> {
 test.describe('Response viewer — content-type sweep (UI)', () => {
   test('PNG opens on the image Preview; Hex shows the signature bytes', async () => {
     await sendProbe('image');
-    await workbench.responseImagePreview().waitFor({ state: 'visible', timeout: 15000 });
+    await workbench.responseImagePreview().waitFor({ state: 'visible', timeout: 5_000 });
     expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
 
@@ -134,7 +134,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
 
   test('SVG stays a text body (XML grammar) with the image Preview on top', async () => {
     await sendProbe('svg');
-    await workbench.responseImagePreview().waitFor({ state: 'visible', timeout: 15000 });
+    await workbench.responseImagePreview().waitFor({ state: 'visible', timeout: 5_000 });
 
     // Toggling Preview off lands on Pretty — the picker names the
     // detected language, not an encoding view (svg is TEXT).
@@ -195,7 +195,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     await expect(workbench.responseBodyNotice('Duplicate JSON keys — the last value is shown: dup')).toBeVisible();
     await workbench.responsePreviewToggle().click();
     const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
     const text = await tree.innerText();
     expect(text).toContain('9007199254740993');
     expect(text).toContain('3.14159265358979323846');
@@ -224,7 +224,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
       });
     };
     await expect
-      .poll(copiedFiltered, { timeout: 15000 })
+      .poll(copiedFiltered, { timeout: 5_000 })
       .toContain('oh_http_requests_total{code="500",path="/api/echo"} 3');
     const filtered = await copiedFiltered();
     expect(filtered).toContain('# TYPE oh_http_requests counter');
@@ -240,7 +240,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
     const list = workbench.responseSseEventList();
-    await list.waitFor({ state: 'visible', timeout: 15000 });
+    await list.waitFor({ state: 'visible', timeout: 5_000 });
 
     // One row per wire block, newest-first: the bare-data closer tops
     // the list, the named events and the heartbeat comment all show.
@@ -260,7 +260,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     // (F3 law — int64 verbatim).
     await rows.filter({ hasText: 'tick' }).first().click();
     const viewer = workbench.responseSseEventViewer();
-    await viewer.waitFor({ state: 'visible', timeout: 15000 });
+    await viewer.waitFor({ state: 'visible', timeout: 5_000 });
     await expect(viewer).toContainText('9007199254740993');
 
     // Stream-level search narrows the rows, display-only.
@@ -271,7 +271,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     // JSONPath still narrows over the record list, lossless in the
     // result (the filter opens the Pretty pane).
     await workbench.filterResponseBody('$..resourceVersion');
-    await expect.poll(() => workbench.responsePrettyText(), { timeout: 15000 }).toContain('9007199254740993');
+    await expect.poll(() => workbench.responsePrettyText(), { timeout: 5_000 }).toContain('9007199254740993');
   });
 
   test('SSE Raw stays the wire verbatim behind the event list', async () => {
@@ -312,7 +312,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
     await workbench.responsePreviewToggle().click();
     const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
     // Record rows start collapsed — open the second record to read it.
     await tree.getByRole('button', { name: /^1\b/ }).click();
     expect(await tree.innerText()).toContain('api.openheaders.io');
@@ -335,7 +335,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
     await workbench.responsePreviewToggle().click();
     const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
     const text = await tree.innerText();
     // int64 past double precision displays exactly (F3 law) …
     expect(text).toContain('9007199254740993');
@@ -352,7 +352,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
     await workbench.responsePreviewToggle().click();
     const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
     const text = await tree.innerText();
     expect(text).toContain('9007199254740993');
     expect(text).toContain("h'00FF10'");
@@ -367,7 +367,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     // Schema-less: the tree is a structural guess and says so.
     await expect(workbench.responseBodyNotice('Schema-less decode (best effort)')).toBeVisible();
     const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
     const text = await tree.innerText();
     // Field numbers key the tree; varints past double precision display
     // exactly (F3 law); the guess ladder yields text, nested-message,
@@ -384,7 +384,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
     await workbench.responsePreviewToggle().click();
     const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
     // The compressed frame degrades to a primitive diagnostic — visible
     // without expanding its (non-existent) children.
     expect(await tree.innerText()).toContain('compressed(3 bytes)');
@@ -399,7 +399,7 @@ test.describe('Response viewer — content-type sweep (UI)', () => {
 
   test('WAV opens on the media Preview with the byte views behind it', async () => {
     await sendProbe('media');
-    await workbench.responseMediaPreview().waitFor({ state: 'visible', timeout: 15000 });
+    await workbench.responseMediaPreview().waitFor({ state: 'visible', timeout: 5_000 });
     expect(await workbench.responseViewPickerLabel()).toMatch(/Hex$/);
 
     const hex = await workbench.responseHexText();
@@ -420,11 +420,11 @@ test.describe('Response viewer — streaming sends (UI)', () => {
     await workbench.openRequest(seededUids.get('sse-stream')!);
     await workbench.send();
     // Send morphs into Stop for every in-flight send (S8 law 5).
-    await workbench.requestStopButton().waitFor({ state: 'visible', timeout: 15000 });
+    await workbench.requestStopButton().waitFor({ state: 'visible', timeout: 5_000 });
     // The live phase: the head status paints as soon as it arrives and
     // the SSE head lights the event LIST (not a text tail) — rows land
     // newest-first with session timestamps and the connected row below.
-    await workbench.responseLiveTail().waitFor({ state: 'visible', timeout: 15000 });
+    await workbench.responseLiveTail().waitFor({ state: 'visible', timeout: 5_000 });
     await expect(workbench.responseLiveStatus()).toContainText('200');
     // The live phase keeps the real tab chrome: the meta facts sit in
     // the tab bar (pulsing dot · status · ticking elapsed · bytes) and
@@ -432,16 +432,16 @@ test.describe('Response viewer — streaming sends (UI)', () => {
     await expect(workbench.responseLiveMeta()).toBeVisible();
     const elapsedBefore = await workbench.responseLiveElapsed().innerText();
     await expect
-      .poll(async () => workbench.responseLiveElapsed().innerText(), { timeout: 5000 })
+      .poll(async () => workbench.responseLiveElapsed().innerText(), { timeout: 5_000 })
       .not.toBe(elapsedBefore);
     await workbench.openResponseTab(/Headers/);
     await expect(workbench.responseRegion()).toContainText('text/event-stream');
     await workbench.openResponseTab(/Body/);
     const liveList = workbench.responseSseEventList();
-    await liveList.waitFor({ state: 'visible', timeout: 15000 });
+    await liveList.waitFor({ state: 'visible', timeout: 5_000 });
     // Odd ticks carry two JSON data lines — the row preview shows the
     // payload verbatim (collapsed to one line), not a re-spaced print.
-    await expect(liveList).toContainText('{"seq":1}', { timeout: 15000 });
+    await expect(liveList).toContainText('{"seq":1}', { timeout: 5_000 });
     await expect(workbench.responseSseConnectedRow()).toContainText('Connected to');
     expect(await workbench.responseSseEventTimes().count()).toBeGreaterThan(0);
 
@@ -454,7 +454,7 @@ test.describe('Response viewer — streaming sends (UI)', () => {
     await expect(workbench.responseStreamedTag()).toBeVisible();
     expect(await workbench.responseViewPickerLabel()).toMatch(/Text$/);
     const list = workbench.responseSseEventList();
-    await list.waitFor({ state: 'visible', timeout: 15000 });
+    await list.waitFor({ state: 'visible', timeout: 5_000 });
     await expect(list).toContainText('{"seq":1}');
     await expect(workbench.responseSseLifecycleRow()).toContainText('Connection stopped');
     expect(await workbench.responseSseEventTimes().count()).toBeGreaterThan(0);
@@ -478,7 +478,7 @@ test.describe('Response viewer — streaming sends (UI)', () => {
     expect(await workbench.responsePreviewToggle().count()).toBe(1);
     await workbench.responsePreviewToggle().click();
     const tree = workbench.responseJsonPreview();
-    await tree.waitFor({ state: 'visible', timeout: 15000 });
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
     // Rows start collapsed — walk down to the last record's name.
     await tree.getByRole('button', { name: /^2\b/ }).click();
     await tree.getByRole('button', { name: /^object\b/ }).click();
