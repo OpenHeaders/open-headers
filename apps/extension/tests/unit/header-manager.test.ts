@@ -39,6 +39,14 @@ vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   }),
 }));
 
+// The host resolves every pause marker over the rules tree into the
+// paused uid set (core's computePausedUids, pinned there and in the
+// oracle store's own tests); the compiler only sees a rule's membership.
+const pausedUids = vi.hoisted(() => new Set<string>());
+vi.mock('@openheaders/oracle/entity/pause-markers-store', () => ({
+  getPausedUids: () => pausedUids,
+  applyExternalSnapshot: vi.fn(),
+}));
 vi.mock('@utils/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -49,7 +57,6 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { formatUrlPattern } from '@openheaders/core/utils';
-import { __setMarkersForTests as setPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
 
@@ -97,7 +104,7 @@ describe('header-manager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setRulesPaused(false);
-    setPauseMarkers({});
+    pausedUids.clear();
     mockGetDynamicRules.mockResolvedValue([]);
     mockUpdateDynamicRules.mockResolvedValue(undefined);
   });
@@ -264,12 +271,13 @@ describe('header-manager', () => {
     });
   });
 
-  // ── Paused collections/folders ──
+  // ── Paused containers ──
 
-  describe('pause markers (collection/folder paths)', () => {
-    it('skips rules under a paused collection path', async () => {
-      setPauseMarkers({ 'rules/api-collection': 'paused' });
+  describe('pause markers (resolved container uids)', () => {
+    it('skips a rule resolved as paused through its collection', async () => {
+      pausedUids.add('col-api1').add('rul-api1');
       const rule = makeHeaderRule({
+        uid: 'rul-api1',
         path: 'rules/api-collection/my-rule-a1b2',
         action: {
           requestHeaders: [{ uid: 'thm00026', operation: 'override', headerName: 'X-Api', value: 'value' }],
@@ -285,9 +293,10 @@ describe('header-manager', () => {
       expect(rules).toHaveLength(0);
     });
 
-    it('allows rules from non-paused collections', async () => {
-      setPauseMarkers({ 'rules/api-collection': 'paused' });
+    it('allows rules outside the paused container', async () => {
+      pausedUids.add('col-api1').add('rul-api1');
       const rule = makeHeaderRule({
+        uid: 'rul-oth1',
         path: 'rules/other-collection/my-rule-c3d4',
         action: {
           requestHeaders: [{ uid: 'thm00027', operation: 'override', headerName: 'X-Other', value: 'value' }],
@@ -303,9 +312,10 @@ describe('header-manager', () => {
       expect(rules.length).toBeGreaterThan(0);
     });
 
-    it('skips rules under a paused sub-folder', async () => {
-      setPauseMarkers({ 'rules/my-collection/staging-folder': 'paused' });
+    it('skips a rule resolved as paused through its sub-folder', async () => {
+      pausedUids.add('fld-stg1').add('rul-stg1');
       const rule = makeHeaderRule({
+        uid: 'rul-stg1',
         path: 'rules/my-collection/staging-folder/my-rule-e5f6',
         action: {
           requestHeaders: [{ uid: 'thm00028', operation: 'override', headerName: 'X-Staged', value: 'value' }],
@@ -321,9 +331,10 @@ describe('header-manager', () => {
       expect(rules).toHaveLength(0);
     });
 
-    it('allows rules when collection is unpaused', async () => {
-      setPauseMarkers({ 'rules/api-collection': 'paused' });
+    it('allows the rule again once its container is unpaused', async () => {
+      pausedUids.add('col-api1').add('rul-api1');
       const rule = makeHeaderRule({
+        uid: 'rul-api1',
         path: 'rules/api-collection/my-rule-a1b2',
         action: {
           requestHeaders: [{ uid: 'thm00029', operation: 'override', headerName: 'X-Api', value: 'value' }],
@@ -336,8 +347,8 @@ describe('header-manager', () => {
       await flushPromises();
       expect(getRulesFromLastCall()).toHaveLength(0);
 
-      // Unpause
-      setPauseMarkers({});
+      // Unpause — the host's resolution drops the container and its rule.
+      pausedUids.clear();
       updateNetworkRules([rule]);
       await flushPromises();
 
@@ -346,13 +357,12 @@ describe('header-manager', () => {
     });
 
     it('honors an unpaused override on a folder beneath a paused collection', async () => {
-      // Closest-specifier wins: collection paused, but the staging folder
-      // carries an explicit 'unpaused' override so its rules still fire.
-      setPauseMarkers({
-        'rules/api-collection': 'paused',
-        'rules/api-collection/staging-folder': 'unpaused',
-      });
+      // Closest-specifier wins: the collection is paused, the staging
+      // folder carries an explicit 'unpaused' override — the host's
+      // resolution leaves that folder and its rule out of the set.
+      pausedUids.add('col-api1').add('fld-oth1').add('rul-pau1');
       const overriddenRule = makeHeaderRule({
+        uid: 'rul-ovr1',
         path: 'rules/api-collection/staging-folder/my-rule-x1y2',
         action: {
           requestHeaders: [{ uid: 'thm00030', operation: 'override', headerName: 'X-Override', value: 'value' }],
@@ -361,6 +371,7 @@ describe('header-manager', () => {
         conditions: hostConditions(['openheaders.io']),
       });
       const stillPausedRule = makeHeaderRule({
+        uid: 'rul-pau1',
         path: 'rules/api-collection/other-folder/my-rule-z3w4',
         action: {
           requestHeaders: [{ uid: 'thm00031', operation: 'override', headerName: 'X-Other', value: 'value' }],
