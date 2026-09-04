@@ -46,7 +46,7 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 
   // Seed an OAuth bundle under the shared credentialRef so a post-/pre-
@@ -55,6 +55,23 @@ test.beforeAll(async () => {
   // isn't a named vault secret).
   const seed = await rpc<{ success: boolean; error?: string }>('oauthClientCredentials', { config: OAUTH2_SEED_AUTH });
   expect(seed.success, seed.error).toBe(true);
+
+  // On a fresh profile the active workspace's sync service bootstraps
+  // async and a script's `oh.variables.set` (a host write) is refused
+  // until it is up — the sends before it never touch it, so probe
+  // through the same channel the variable legs use until the host
+  // accepts the write.
+  await expect
+    .poll(
+      async () => {
+        const res = await rpc<{ success: boolean; snapshot?: ExecSnapshot }>('executeRequest', {
+          draft: draft({ preRequestScript: `await oh.variables.set('e2e_readiness_probe', 'ready');` }),
+        });
+        return res.snapshot?.scripts?.preRequest?.succeeded === true;
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
 });
 
 test.afterAll(async () => {
@@ -203,7 +220,7 @@ test.describe('Request executor — pre-request scripts', () => {
   });
 
   test('oh.variables.set then get round-trips through the host', async () => {
-    const { echo } = await execScripted(
+    const { snapshot, echo } = await execScripted(
       draft({
         preRequestScript: `
           await oh.variables.set('e2e_script_var', 'set-by-script');
@@ -212,6 +229,9 @@ test.describe('Request executor — pre-request scripts', () => {
         `,
       }),
     );
+    // A rejected host write names itself here instead of as a missing header.
+    const pre = snapshot.scripts!.preRequest!;
+    expect(pre.succeeded, JSON.stringify(pre.error)).toBe(true);
     expect(echo.headers['x-var']).toBe('set-by-script');
   });
 
