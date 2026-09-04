@@ -177,7 +177,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 });
@@ -296,13 +296,13 @@ test('the extension joins over the LAN bind and the rule syncs down', async () =
 
   // Consume-only join: the daemon's workspace (and the MCP-created rule
   // inside it) replicates into chrome.storage under oh.ws.<id>.rules.
-  await expect.poll(() => ruleVisibleInExtension('Daemon header rule'), { timeout: 30000 }).toBe(true);
+  await expect.poll(() => ruleVisibleInExtension('Daemon header rule'), { timeout: 20_000 }).toBe(true);
 });
 
 test('an MCP mutation replicates live into the connected extension', async () => {
   await callTool('rules_update', { uid: ruleUid, updates: { name: 'Daemon header rule v2' } });
 
-  await expect.poll(() => ruleVisibleInExtension('Daemon header rule v2'), { timeout: 30000 }).toBe(true);
+  await expect.poll(() => ruleVisibleInExtension('Daemon header rule v2'), { timeout: 5_000 }).toBe(true);
 });
 
 // ── Consume-only upward semantics ───────────────────────────────────
