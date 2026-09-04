@@ -169,7 +169,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 
@@ -184,7 +184,7 @@ test.beforeAll(async () => {
   proxy.stderr?.on('data', (chunk: Buffer) => {
     proxyOut += chunk.toString();
   });
-  await expect.poll(() => proxyOut.includes('listening'), { timeout: 15000 }).toBe(true);
+  await expect.poll(() => proxyOut.includes('listening'), { timeout: 5_000 }).toBe(true);
 });
 
 test.afterAll(async () => {
