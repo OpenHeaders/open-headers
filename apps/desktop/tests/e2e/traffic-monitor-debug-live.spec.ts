@@ -423,7 +423,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 45000 },
+      { timeout: 20_000 },
     )
     .not.toBe(0);
 
@@ -472,7 +472,7 @@ test('the rail lists the Chrome peer with the Debug-mode switch and per-tab bug 
   // The peer lands in the inventory once its wire is up — the panel's
   // tabs watch pushes it into the rail.
   await expect
-    .poll(async () => await workbench.locator('[data-testid="traffic-monitor-peer"]').count(), { timeout: 30000 })
+    .poll(async () => await workbench.locator('[data-testid="traffic-monitor-peer"]').count(), { timeout: 5_000 })
     .toBeGreaterThan(0);
 
   // Chrome reports `debug.available` — the master switch renders on the
@@ -533,7 +533,7 @@ test('flipping Debug mode from the rail writes the extension setting and attache
   // reads the same key).
   await expect
     .poll(async () => (await extensionUserSettings(peerA as ExtensionPeer))['inspection.cdpEnabled'] === true, {
-      timeout: 10000,
+      timeout: 3_000,
     })
     .toBe(true);
 
@@ -541,7 +541,7 @@ test('flipping Debug mode from the rail writes the extension setting and attache
   const pill = await (peerA as ExtensionPeer).context.newPage();
   await pill.goto(`chrome-extension://${(peerA as ExtensionPeer).extensionId}/popup.html`);
   await expect(pill.locator('[aria-label="Toggle debug mode"]').first()).toHaveAttribute('aria-checked', 'true', {
-    timeout: 10000,
+    timeout: 3_000,
   });
   await pill.close();
 
@@ -554,7 +554,7 @@ test('flipping Debug mode from the rail writes the extension setting and attache
           .locator('.anticon-bug')
           .count()
           .catch(() => 0),
-      { timeout: 30000 },
+      { timeout: 5_000 },
     )
     .toBeGreaterThan(0);
   await expect(playgroundDebugAffordance()).toHaveAttribute('aria-pressed', 'true');
@@ -575,7 +575,7 @@ test('the attached tab serves response bodies — CDP fidelity end to end', asyn
   expect(echoed).toContain('debug-live-1');
 
   await expect(workbench.locator('.dt-row').filter({ hasText: 'debug-live-1' }).first()).toBeVisible({
-    timeout: 15000,
+    timeout: 3_000,
   });
 
   // Inspect the row; the Response tab pulls the body lazily — a serve
@@ -588,7 +588,7 @@ test('the attached tab serves response bodies — CDP fidelity end to end', asyn
   await workbench.getByRole('tab', { name: 'Response', exact: true }).first().click();
   await expect(editorTab).toHaveAttribute('aria-selected', 'true');
   await expect(workbench.locator('.view-line').filter({ hasText: 'debug-live-1' }).first()).toBeVisible({
-    timeout: 15000,
+    timeout: 3_000,
   });
 });
 
@@ -608,7 +608,7 @@ test('inspect-tab CTAs hand off locally: rule draft + Create API request', async
   await workbench.getByRole('button', { name: 'Override query params' }).first().click();
   await workbench.getByText('Open in workspace').first().click();
   await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Rules' }).first()).toBeVisible({
-    timeout: 10000,
+    timeout: 3_000,
   });
   // The draft seeded the captured URL into the rule form's URL-pattern
   // editor. Keep-alive editor tabs hold the same URL text hidden, so
@@ -626,7 +626,7 @@ test('inspect-tab CTAs hand off locally: rule draft + Create API request', async
   await workbench.getByRole('tab', { name: 'Headers', exact: true }).first().click();
   await workbench.getByRole('button', { name: 'Create API request' }).first().click();
   await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'API Requests' }).first()).toBeVisible({
-    timeout: 10000,
+    timeout: 3_000,
   });
 });
 
@@ -643,7 +643,7 @@ test("the storage pane lists the watched tab's localStorage over the relay", asy
   const pane = workbench.locator('[data-testid="traffic-monitor-storage-pane"]');
   await expect(pane).toBeVisible();
   const row = pane.locator('.dt-storage-row').filter({ hasText: 'oh-e2e-storage-key' }).first();
-  await expect(row).toBeVisible({ timeout: 20000 });
+  await expect(row).toBeVisible({ timeout: 5_000 });
   await expect(row).toContainText('oh-e2e-storage-value');
 });
 
@@ -657,7 +657,7 @@ test('a storage row opens as an editor tab and a desktop delete actuates in the 
   await expect(editorTab).toHaveAttribute('aria-selected', 'true');
   await expect(workbench.locator('.rules-breadcrumbs').filter({ hasText: 'Traffic' }).first()).toBeVisible();
   await expect(workbench.locator('.view-line').filter({ hasText: 'oh-e2e-storage-value' }).first()).toBeVisible({
-    timeout: 20000,
+    timeout: 5_000,
   });
 
   // Delete the row from the desktop — the verb executes IN the
@@ -668,10 +668,10 @@ test('a storage row opens as an editor tab and a desktop delete actuates in the 
   await row.hover();
   await row.getByRole('button', { name: 'Delete oh-e2e-storage-key' }).click();
   await expect
-    .poll(() => playground.evaluate(() => localStorage.getItem('oh-e2e-storage-key')), { timeout: 20000 })
+    .poll(() => playground.evaluate(() => localStorage.getItem('oh-e2e-storage-key')), { timeout: 5_000 })
     .toBeNull();
   await expect(pane.locator('.dt-storage-row').filter({ hasText: 'oh-e2e-storage-key' })).toHaveCount(0, {
-    timeout: 20000,
+    timeout: 5_000,
   });
 });
 
@@ -707,7 +707,7 @@ test("the console pane streams the watched tab's console output, view-only", asy
   // console stream relayed over the wire (never a desktop derivation).
   await playground.evaluate(() => console.log('oh-e2e-console-probe'));
   await expect(pane.locator('.dt-console-row').filter({ hasText: 'oh-e2e-console-probe' }).first()).toBeVisible({
-    timeout: 20000,
+    timeout: 5_000,
   });
 
   // View-only law: the REPL prompt never mounts on the remote surface.
@@ -725,7 +725,7 @@ test('the console pane replays the retained log across collapse/reopen', async (
   // the earlier probe returns without re-emitting it.
   await strip.click();
   await expect(pane.locator('.dt-console-row').filter({ hasText: 'oh-e2e-console-probe' }).first()).toBeVisible({
-    timeout: 20000,
+    timeout: 5_000,
   });
 });
 
@@ -739,7 +739,7 @@ test('un-pinning from the rail detaches and returns the row to the ghost state',
   // Snapshot patch drops the pin; the detach commits async — the change
   // push converges the affordance to the un-pressed hover-ghost state.
   await expect
-    .poll(async () => await playgroundDebugAffordance().getAttribute('aria-pressed'), { timeout: 30000 })
+    .poll(async () => await playgroundDebugAffordance().getAttribute('aria-pressed'), { timeout: 5_000 })
     .toBe('false');
 });
 
@@ -762,11 +762,11 @@ test('the wire settings popover flips routing and shows the ack tags', async () 
 
   // The ack block renders once the peer acks with an applied mode.
   const acks = workbench.locator('[data-testid="traffic-monitor-wire-routing-acks"]');
-  await expect(acks.filter({ hasText: 'PAC' }).first()).toBeVisible({ timeout: 20000 });
+  await expect(acks.filter({ hasText: 'PAC' }).first()).toBeVisible({ timeout: 5_000 });
 
   // Off again — the ack block clears.
   await routingSwitch.click();
-  await expect(acks).toHaveCount(0, { timeout: 15000 });
+  await expect(acks).toHaveCount(0, { timeout: 3_000 });
 });
 
 // ── Selection survives dock-tab switches ────────────────────────────
@@ -806,7 +806,7 @@ test("a scoped routed exchange joins the watched tab's row to the wire capture",
         const status = await routingStatus();
         return status.active && status.peers.some((peer) => peer.applied && peer.mode === 'pac');
       },
-      { timeout: 15000 },
+      { timeout: 3_000 },
     )
     .toBe(true);
 
@@ -845,9 +845,9 @@ test("a scoped routed exchange joins the watched tab's row to the wire capture",
   // The tab view's row upgrades IN PLACE: the ℹ join glyph lands on the
   // annotation rail once the derive-at-consume join matches the twins.
   const row = workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first();
-  await expect(row).toBeVisible({ timeout: 15000 });
+  await expect(row).toBeVisible({ timeout: 3_000 });
   await expect(row.locator('.dt-annot-glyph')).toHaveAttribute('aria-label', 'System Proxy joined', {
-    timeout: 15000,
+    timeout: 3_000,
   });
 });
 
@@ -863,7 +863,7 @@ test('the joined row serves the response body over the wire — without Debug mo
   await workbench.getByRole('tab', { name: 'Response', exact: true }).first().click();
   await expect(editorTab).toHaveAttribute('aria-selected', 'true');
   await expect(workbench.locator('.view-line').filter({ hasText: 'wire-served' }).first()).toBeVisible({
-    timeout: 15000,
+    timeout: 3_000,
   });
 });
 
@@ -874,21 +874,21 @@ test('the wire twin wears the seen-on-tab annotation and jumps back to the tab s
   // The twin row carries the seen annotation from the historical record
   // the tab view wrote at join time.
   const wireRow = workbench.locator('.dt-row').filter({ hasText: 'wirejoin-1' }).first();
-  await expect(wireRow).toBeVisible({ timeout: 15000 });
+  await expect(wireRow).toBeVisible({ timeout: 3_000 });
   const glyph = wireRow.locator('.dt-annot-glyph');
-  await expect(glyph).toHaveAttribute('aria-label', 'Seen on a browser tab', { timeout: 15000 });
+  await expect(glyph).toHaveAttribute('aria-label', 'Seen on a browser tab', { timeout: 3_000 });
 
   // The popover names the witnessing tab and offers the jump back.
   await glyph.hover();
   const popover = workbench.locator('.ant-popover').filter({ hasText: PLAYGROUND_TITLE }).first();
-  await expect(popover).toBeVisible({ timeout: 10000 });
+  await expect(popover).toBeVisible({ timeout: 3_000 });
   await popover.getByRole('button', { name: 'Show in tab source' }).click();
 
   // Back on the tab source with the twin row selected.
   await expect(playgroundRow()).toHaveAttribute('aria-pressed', 'true');
   await expect(
     workbench.locator('.dt-row[data-selected="true"]').filter({ hasText: 'wirejoin-1' }).first(),
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible({ timeout: 3_000 });
 });
 
 // ── Phase 6 perf pins (PLAN §6 budgets) ─────────────────────────────
@@ -966,7 +966,7 @@ test('perf: a 300-burst on the watched tab stays in budget with the join active'
     }
   }, BURST_SIZE);
   await expect(workbench.locator('.dt-row').filter({ hasText: `burst=${BURST_SIZE - 1}` })).toHaveCount(1, {
-    timeout: 60000,
+    timeout: 20_000,
   });
   const wallMs = Date.now() - startedAt;
   await burstDone;
