@@ -164,7 +164,7 @@ function popoverBodyMode(): Locator {
 }
 
 async function popoverBodyText(): Promise<string> {
-  await popoverBody().waitFor({ state: 'visible', timeout: 15_000 });
+  await popoverBody().waitFor({ state: 'visible', timeout: 5_000 });
   return (await popoverBody().locator('.view-lines').innerText()).replace(/\u00a0/g, ' ');
 }
 
@@ -172,7 +172,7 @@ async function popoverBodyText(): Promise<string> {
  *  can race Monaco's initial line layout (the first paint may hold just
  *  the opening brace) \u2014 then return the settled text. */
 async function popoverBodyTextWith(substr: string): Promise<string> {
-  await expect.poll(popoverBodyText, { timeout: 15_000 }).toContain(substr);
+  await expect.poll(popoverBodyText, { timeout: 5_000 }).toContain(substr);
   return popoverBodyText();
 }
 
@@ -277,7 +277,7 @@ function rulePill(): Locator {
 
 /** Switch the document's format-aware body editor to Raw mode. */
 async function switchDocBodyToRaw(): Promise<void> {
-  await docRoot().locator('.ant-segmented').waitFor({ state: 'visible', timeout: 15_000 });
+  await docRoot().locator('.ant-segmented').waitFor({ state: 'visible', timeout: 5_000 });
   await docRoot().locator('.ant-segmented-item').filter({ hasText: 'Raw' }).click();
 }
 
@@ -296,7 +296,7 @@ function closeGuard(): Locator {
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(90_000);
   context = await chromium.launchPersistentContext('', {
     headless: false,
     args: [
@@ -327,7 +327,7 @@ test.beforeAll(async () => {
   panelPage = await context.newPage();
   panelPage.on('pageerror', (err) => console.error('[panel pageerror]', err.stack ?? err.message));
   await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${tabId}`);
-  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 
   // Attach is async — keep re-firing until a captured row shows up.
   await expect(async () => {
@@ -335,7 +335,7 @@ test.beforeAll(async () => {
     await expect(panelPage.locator('.dt-row').filter({ hasText: 'fidelity-json' }).first()).toBeVisible({
       timeout: 2_000,
     });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
 });
 
 test.afterAll(async () => {
@@ -343,12 +343,12 @@ test.afterAll(async () => {
 });
 
 test('a no-edit override shows a formatted view yet serves the origin bytes exactly', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await rowFor('fidelity-json').click();
   await openResponseSection();
   // The CDP body fetch is lazy — the CTA's draft reads the attached
   // body, so wait for the hazard bytes to render before clicking.
-  await expect(panelPage.getByText('9007199254740993').first()).toBeVisible({ timeout: 15_000 });
+  await expect(panelPage.getByText('9007199254740993').first()).toBeVisible({ timeout: 5_000 });
 
   await cta('Override Response').click();
   await expect(popover()).toBeVisible();
@@ -365,10 +365,10 @@ test('a no-edit override shows a formatted view yet serves the origin bytes exac
   // the verbatim short-circuit, the epic's headline invariant.
   await popover().getByRole('button', { name: /Save$/ }).click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
-  await expect.poll(async () => (await findRuleByBody(FIDELITY_BODY))?.published, { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => (await findRuleByBody(FIDELITY_BODY))?.published, { timeout: 5_000 }).toBe(true);
 
   // The served response is byte-identical to what the origin sent.
-  await expect.poll(async () => (await fetchServed(FIDELITY_PATH)).text, { timeout: 20_000 }).toBe(FIDELITY_BODY);
+  await expect.poll(async () => (await fetchServed(FIDELITY_PATH)).text, { timeout: 5_000 }).toBe(FIDELITY_BODY);
   const served = await fetchServed(FIDELITY_PATH);
   expect(served.text).toBe(FIDELITY_BODY);
   if (served.contentLength !== null) {
@@ -385,7 +385,7 @@ test('an edited minified original serves minified — profile re-emission with h
     await rowFor('fidelity-json').click();
     await openResponseSection();
     await expect(cta('Edit override')).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
 
   await cta('Edit override').click();
   await expect(popover()).toBeVisible();
@@ -399,19 +399,19 @@ test('an edited minified original serves minified — profile re-emission with h
   await save.click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
 
-  await expect.poll(async () => (await findRuleByBody(EDITED_WIRE))?.published, { timeout: 15_000 }).toBe(true);
-  await expect.poll(async () => (await fetchServed(FIDELITY_PATH)).text, { timeout: 20_000 }).toBe(EDITED_WIRE);
+  await expect.poll(async () => (await findRuleByBody(EDITED_WIRE))?.published, { timeout: 5_000 }).toBe(true);
+  await expect.poll(async () => (await fetchServed(FIDELITY_PATH)).text, { timeout: 5_000 }).toBe(EDITED_WIRE);
 });
 
 test('a templated body formats in the popover and a no-edit Save round-trips the bytes', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await expect(async () => {
     await fetchServed(TEMPLATE_PATH);
     await expect(rowFor('fidelity-template')).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
   await rowFor('fidelity-template').click();
   await openResponseSection();
-  await expect(panelPage.getByText('session.token').first()).toBeVisible({ timeout: 15_000 });
+  await expect(panelPage.getByText('session.token').first()).toBeVisible({ timeout: 5_000 });
 
   await cta('Override Response').click();
   await expect(popover()).toBeVisible();
@@ -424,18 +424,18 @@ test('a templated body formats in the popover and a no-edit Save round-trips the
 
   await popover().getByRole('button', { name: /Save$/ }).click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
-  await expect.poll(async () => (await findRuleByBody(TEMPLATE_BODY))?.published, { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => (await findRuleByBody(TEMPLATE_BODY))?.published, { timeout: 5_000 }).toBe(true);
 });
 
 test('"Open in tab" escalates to the rule document: Save mints + publishes, the edit rides the wire, and a dirty close walks the guard', async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(60_000);
   await expect(async () => {
     await fetchServed(TAB_ORIGIN_PATH);
     await expect(rowFor('oh-override-tab')).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
   await rowFor('oh-override-tab').click();
   await openResponseSection();
-  await expect(panelPage.getByText('OH_PROBE_JSON_OK').first()).toBeVisible({ timeout: 15_000 });
+  await expect(panelPage.getByText('OH_PROBE_JSON_OK').first()).toBeVisible({ timeout: 5_000 });
 
   await cta('Override Response').click();
   await expect(popover()).toBeVisible();
@@ -459,12 +459,12 @@ test('"Open in tab" escalates to the rule document: Save mints + publishes, the 
 
   // First Save mints + publishes and re-keys the tab: the pill takes
   // the final name and the draft dot drops.
-  await expect.poll(async () => (await findRuleByBody(TAB_EDITED_BODY))?.published, { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => (await findRuleByBody(TAB_EDITED_BODY))?.published, { timeout: 5_000 }).toBe(true);
   await expect(rulePill()).toContainText(TAB_RULE_NAME);
-  await expect(rulePill().locator('.dt-editor-tab-dirty')).toHaveCount(0, { timeout: 15_000 });
+  await expect(rulePill().locator('.dt-editor-tab-dirty')).toHaveCount(0, { timeout: 5_000 });
 
   // The served response reflects the edit byte-for-byte.
-  await expect.poll(async () => (await fetchServed(TAB_ORIGIN_PATH)).text, { timeout: 20_000 }).toBe(TAB_EDITED_BODY);
+  await expect.poll(async () => (await fetchServed(TAB_ORIGIN_PATH)).text, { timeout: 5_000 }).toBe(TAB_EDITED_BODY);
 
   // Dirty the (now edit-mode, remounted) document and close: the guard
   // must offer Save / Don't save / Cancel — Cancel keeps the tab…
@@ -507,14 +507,14 @@ function postEcho(body: string): Promise<string> {
 }
 
 test('a no-edit request-body override stores and puts on the wire the captured bytes exactly', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await expect(async () => {
     await postEcho(FIDELITY_BODY);
     await expect(rowFor('oh-ovr-reqbody')).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
   await rowFor('oh-ovr-reqbody').click();
   await openSection('Payload');
-  await expect(panelPage.getByText('9007199254740993').first()).toBeVisible({ timeout: 15_000 });
+  await expect(panelPage.getByText('9007199254740993').first()).toBeVisible({ timeout: 5_000 });
 
   await cta('Override request body').click();
   await expect(popover()).toBeVisible();
@@ -528,16 +528,16 @@ test('a no-edit request-body override stores and puts on the wire the captured b
   await popover().getByRole('button', { name: /Save$/ }).click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
   await expect
-    .poll(async () => (await findRequestBodyRuleByBody(FIDELITY_BODY))?.published, { timeout: 15_000 })
+    .poll(async () => (await findRequestBodyRuleByBody(FIDELITY_BODY))?.published, { timeout: 5_000 })
     .toBe(true);
 
   // The wire truth: a request with a DIFFERENT page body is sent with
   // the stored bytes — byte-identical to the original capture.
-  await expect.poll(() => postEcho('{"page":"body"}'), { timeout: 20_000 }).toBe(FIDELITY_BODY);
+  await expect.poll(() => postEcho('{"page":"body"}'), { timeout: 5_000 }).toBe(FIDELITY_BODY);
 });
 
 test('a ws frame override seeds the frame verbatim and a no-edit Save stores the frame bytes exactly', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await playgroundPage.evaluate(
     ({ p, frame }: { p: string; frame: string }) =>
       new Promise<void>((resolve, reject) => {
@@ -552,14 +552,14 @@ test('a ws frame override seeds the frame verbatim and a no-edit Save stores the
       }),
     { p: WS_URL_PATH, frame: WS_FRAME_BODY },
   );
-  await expect(rowFor('ws-echo')).toBeVisible({ timeout: 15_000 });
+  await expect(rowFor('ws-echo')).toBeVisible({ timeout: 5_000 });
   await rowFor('ws-echo').click();
   await openSection('Messages');
 
   // The SEND frame (the echo carries the same marker with an `echo:`
   // prefix — the direction class disambiguates).
   const frameRow = panelPage.locator('.dt-ws-row.dt-ws-row--send').filter({ hasText: 'OH_WS_FIDELITY' }).first();
-  await expect(frameRow).toBeVisible({ timeout: 15_000 });
+  await expect(frameRow).toBeVisible({ timeout: 5_000 });
   // The row actions are hover-revealed (opacity 0 + pointer-events none
   // at rest) — hover the row first or the click never passes hit-testing.
   await frameRow.hover();
@@ -572,12 +572,12 @@ test('a ws frame override seeds the frame verbatim and a no-edit Save stores the
   await popover().getByRole('button', { name: /Save$/ }).click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
   await expect
-    .poll(async () => (await findMessageRuleByPayload('ws', WS_FRAME_BODY))?.published, { timeout: 15_000 })
+    .poll(async () => (await findMessageRuleByPayload('ws', WS_FRAME_BODY))?.published, { timeout: 5_000 })
     .toBe(true);
 });
 
 test('an sse event override seeds the event verbatim and a no-edit Save stores the event bytes exactly', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await playgroundPage.evaluate(
     (p: string) =>
       new Promise<void>((resolve) => {
@@ -601,12 +601,12 @@ test('an sse event override seeds the event verbatim and a no-edit Save stores t
   );
   // The traffic Name column shows the LAST path segment plus the query
   // ("4?ms=50") — the parent "sse/" directory never appears in the row.
-  await expect(rowFor('4?ms=50')).toBeVisible({ timeout: 15_000 });
+  await expect(rowFor('4?ms=50')).toBeVisible({ timeout: 5_000 });
   await rowFor('4?ms=50').click();
   await openSection('EventStream');
 
   const eventRow = panelPage.locator('.dt-sse-row').filter({ hasText: '{"seq":2}' }).first();
-  await expect(eventRow).toBeVisible({ timeout: 15_000 });
+  await expect(eventRow).toBeVisible({ timeout: 5_000 });
   // Hover-revealed row actions — same hit-test gate as the ws leg.
   await eventRow.hover();
   await eventRow.locator('button').filter({ hasText: 'Override' }).click();
@@ -618,7 +618,7 @@ test('an sse event override seeds the event verbatim and a no-edit Save stores t
   await popover().getByRole('button', { name: /Save$/ }).click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
   await expect
-    .poll(async () => (await findMessageRuleByPayload('sse', SSE_EVENT_BODY))?.published, { timeout: 15_000 })
+    .poll(async () => (await findMessageRuleByPayload('sse', SSE_EVENT_BODY))?.published, { timeout: 5_000 })
     .toBe(true);
 });
 
@@ -636,18 +636,18 @@ function fetchEchoHeader(): Promise<string | null> {
 }
 
 test('a header-row Override seeds name and value verbatim and the edited value rides the wire', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await expect(async () => {
     expect(await fetchEchoHeader()).toBe(PROBE_HEADER_ORIGINAL);
     await expect(rowFor('oh-ovr-header')).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
   await rowFor('oh-ovr-header').click();
   await openSection('Headers');
 
   // The probe header's request-header row — actions are hover-revealed
   // (same hit-test gate as the ws/sse rows).
   const headerRow = panelPage.locator('.dt-kv-row').filter({ hasText: PROBE_HEADER }).first();
-  await expect(headerRow).toBeVisible({ timeout: 15_000 });
+  await expect(headerRow).toBeVisible({ timeout: 5_000 });
   await headerRow.hover();
   await headerRow.locator('button').filter({ hasText: 'Override' }).click();
   await expect(popover()).toBeVisible();
@@ -663,12 +663,12 @@ test('a header-row Override seeds name and value verbatim and the edited value r
   await save.click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
   await expect
-    .poll(async () => (await findHeaderRuleByValue(PROBE_HEADER_OVERRIDE))?.published, { timeout: 15_000 })
+    .poll(async () => (await findHeaderRuleByValue(PROBE_HEADER_OVERRIDE))?.published, { timeout: 5_000 })
     .toBe(true);
 
   // Wire truth: the page keeps sending the ORIGINAL value; the echo
   // reflects the override the extension applied.
-  await expect.poll(() => fetchEchoHeader(), { timeout: 20_000 }).toBe(PROBE_HEADER_OVERRIDE);
+  await expect.poll(() => fetchEchoHeader(), { timeout: 5_000 }).toBe(PROBE_HEADER_OVERRIDE);
 });
 
 /** GET the redirect-covered path and reflect where it landed. */
@@ -681,11 +681,11 @@ function fetchRedirected(): Promise<{ url: string; text: string }> {
 }
 
 test('the Redirect CTA gates on its unresolved variable seed and a literal target redirects on the wire', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await expect(async () => {
     await fetchServed(REDIRECT_ECHO_PATH);
     await expect(rowFor('oh-ovr-redirect')).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  }).toPass({ timeout: 20_000 });
   await rowFor('oh-ovr-redirect').click();
   await openSection('Headers');
 
@@ -717,17 +717,17 @@ test('the Redirect CTA gates on its unresolved variable seed and a literal targe
   await save.click();
   await expect(panelPage.locator('[data-rule-popover-root]')).toHaveCount(0);
   await expect
-    .poll(async () => (await findRedirectRuleByTarget(REDIRECT_TARGET))?.published, { timeout: 15_000 })
+    .poll(async () => (await findRedirectRuleByTarget(REDIRECT_TARGET))?.published, { timeout: 5_000 })
     .toBe(true);
 
   // Wire truth: the fetch lands on the redirect target.
-  await expect.poll(async () => (await fetchRedirected()).url, { timeout: 20_000 }).toBe(REDIRECT_TARGET);
+  await expect.poll(async () => (await fetchRedirected()).url, { timeout: 5_000 }).toBe(REDIRECT_TARGET);
   const landed = await fetchRedirected();
   expect(landed.text).toContain('OH_PROBE_JSON_OK');
 });
 
 test('a minified localStorage value opens Formatted in its document and a formatted edit saves in the stored profile', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(60_000);
   await playgroundPage.evaluate(({ key, value }: { key: string; value: string }) => localStorage.setItem(key, value), {
     key: LS_FORMAT_KEY,
     value: LS_FORMAT_WIRE,
@@ -740,7 +740,7 @@ test('a minified localStorage value opens Formatted in its document and a format
   await panelPage.getByRole('navigation', { name: 'Storage type' }).getByText('Local storage').click();
 
   const row = panelPage.locator('.dt-storage-row').filter({ hasText: LS_FORMAT_KEY }).first();
-  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row).toBeVisible({ timeout: 5_000 });
   await row.click();
   await expect(docRoot().locator('.dt-storagedoc-crumb')).toContainText(LS_FORMAT_KEY);
 
@@ -748,17 +748,17 @@ test('a minified localStorage value opens Formatted in its document and a format
   // only there — the stored value is minified).
   const docText = async () =>
     (await docRoot().locator('.monaco-editor .view-lines').first().innerText()).replace(/\u00a0/g, ' ');
-  await expect.poll(docText, { timeout: 15_000 }).toContain('"ok": true');
+  await expect.poll(docText, { timeout: 5_000 }).toContain('"ok": true');
   await expect(docRoot().getByRole('radio', { name: 'Formatted' })).toHaveAttribute('aria-checked', 'true');
   const save = docRoot().locator('.dt-storagedoc-save');
   await expect(save).toBeDisabled();
 
   // Raw is the stored bytes exactly — and mode toggles never dirty.
   await docRoot().getByRole('radio', { name: 'Raw' }).click();
-  await expect.poll(docText, { timeout: 15_000 }).toBe(LS_FORMAT_WIRE);
+  await expect.poll(docText, { timeout: 5_000 }).toBe(LS_FORMAT_WIRE);
   await expect(save).toBeDisabled();
   await docRoot().getByRole('radio', { name: 'Formatted' }).click();
-  await expect.poll(docText, { timeout: 15_000 }).toContain('"ok": true');
+  await expect.poll(docText, { timeout: 5_000 }).toContain('"ok": true');
   await expect(save).toBeDisabled();
 
   // A formatted-space edit (single line — inter-token whitespace is
@@ -768,7 +768,7 @@ test('a minified localStorage value opens Formatted in its document and a format
   await save.click();
   await expect
     .poll(() => playgroundPage.evaluate((key: string) => localStorage.getItem(key), LS_FORMAT_KEY), {
-      timeout: 15_000,
+      timeout: 5_000,
     })
     .toBe(LS_FORMAT_EDITED_WIRE);
   await expect(save).toBeDisabled();
