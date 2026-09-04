@@ -104,7 +104,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 30_000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 
@@ -139,11 +139,11 @@ test('the tab registers the worker, precaches the build, and is controlled', asy
   await page.goto(`${ORIGIN}/`);
   // The unpaired boot gates (daemon reachable, no token) — fine; the
   // worker registers regardless of the gate.
-  await page.waitForSelector('[data-testid=login-gate]', { timeout: 30_000 });
+  await page.waitForSelector('[data-testid=login-gate]', { timeout: 5_000 });
 
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect
-    .poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null), { timeout: 15_000 })
+    .poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null), { timeout: 5_000 })
     .toBe(true);
 
   const cacheKeys = await page.evaluate(() => caches.keys());
@@ -190,7 +190,7 @@ test('a reload with the daemon gone serves the cached shell and mounts offline-f
   // No gate (the probe failed), no insecure notice — the Workbench
   // mounts on local data alone, served entirely from the worker cache.
   await expect(page.getByRole('button', { name: 'Create rule', exact: false }).first()).toBeVisible({
-    timeout: 30_000,
+    timeout: 5_000,
   });
   expect(await page.$('[data-testid=login-gate]')).toBeNull();
 });
@@ -208,7 +208,7 @@ test('a reload behind a proxy answering 502 for the dead daemon serves the cache
   try {
     await page.reload();
     await expect(page.getByRole('button', { name: 'Create rule', exact: false }).first()).toBeVisible({
-      timeout: 30_000,
+      timeout: 5_000,
     });
     expect(await page.$('[data-testid=login-gate]')).toBeNull();
   } finally {
