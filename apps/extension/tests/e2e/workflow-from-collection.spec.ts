@@ -59,7 +59,7 @@ test.beforeAll(async () => {
         probeUid = res.request?.uid ?? '';
         return res.success === true;
       },
-      { timeout: 30000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
   await rpc(readiness, 'deleteLocalRequest', { requestUid: probeUid });
@@ -167,13 +167,13 @@ test('collection ⋯ → Create Workflow… picker seeds, opens, and saves a cha
     .getByRole('button', { name: /REQUESTS/ })
     .filter({ visible: true })
     .first();
-  await sectionHeader.waitFor({ state: 'visible', timeout: 10000 });
+  await sectionHeader.waitFor({ state: 'visible', timeout: 5_000 });
   if ((await sectionHeader.getAttribute('aria-expanded')) !== 'true') {
     await sectionHeader.click();
   }
 
   const collectionRow = page.locator(`[data-item-id="req-col-${collection.uid}"]`);
-  await collectionRow.waitFor({ state: 'visible', timeout: 10000 });
+  await collectionRow.waitFor({ state: 'visible', timeout: 5_000 });
   await collectionRow.hover();
   await collectionRow.locator('.anticon-ellipsis').click();
   await page.getByRole('menuitem', { name: 'Create Workflow…' }).click();
@@ -199,7 +199,7 @@ test('collection ⋯ → Create Workflow… picker seeds, opens, and saves a cha
   // Draft editor: named after the collection, one step per selected
   // request in tree order, implicit sequential chain in the graph.
   const saveButton = page.getByRole('button', { name: 'Save' }).filter({ visible: true }).first();
-  await saveButton.waitFor({ state: 'visible', timeout: 10000 });
+  await saveButton.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(page.getByText('Auth flow', { exact: true }).first()).toBeVisible();
 
   await page.getByText('Preview', { exact: true }).filter({ visible: true }).first().click();
