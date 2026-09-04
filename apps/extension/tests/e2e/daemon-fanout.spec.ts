@@ -210,7 +210,7 @@ test.beforeAll(async () => {
           return 0;
         }
       },
-      { timeout: 30_000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 });
@@ -260,7 +260,7 @@ test('two peers join; the __global__ catch-up names the daemon Org', async () =>
   // Delta-only scope (the workspace-list singleton) — every envelope
   // carries the daemon's home-Org id, which inbound applies must match.
   peerA.send({ type: 'oh.sync.stateVector', workspaceId: '__global__', perNodeMaxHlc: {} });
-  await expect.poll(() => peerA.frames.some((f) => f.type === 'oh.sync.synced'), { timeout: 15_000 }).toBe(true);
+  await expect.poll(() => peerA.frames.some((f) => f.type === 'oh.sync.synced'), { timeout: 5_000 }).toBe(true);
   const globalEnvelope = mutationFramesOf(peerA).map(envelopeOf)[0];
   expect(globalEnvelope, 'a __global__ delta envelope').toBeDefined();
   orgId = globalEnvelope.orgId as string;
@@ -286,7 +286,7 @@ test("peer-a's mutation reaches peer-b live through the hub relay", async () => 
         mutationFramesOf(peerB)
           .slice(framesBefore)
           .some((f) => envelopeOf(f).mutationId === 'fanout-live-1'),
-      { timeout: 15_000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
 });
@@ -334,7 +334,7 @@ test('a host-local (layout) mutation is dropped at ingest and relayed to no one'
         mutationFramesOf(peerB)
           .slice(framesBefore)
           .some((f) => envelopeOf(f).mutationId === 'fanout-live-2'),
-      { timeout: 15_000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
   const layoutRelayed = mutationFramesOf(peerB).some((f) => envelopeOf(f).mutationId === 'fanout-layout-1');
