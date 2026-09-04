@@ -308,7 +308,7 @@ async function seedLiveVariable(envUid: string): Promise<void> {
         const res = await workbench.rpc<{ workflows?: Array<{ uid: string }> }>('listLiveWorkflows');
         return (res.workflows ?? []).some((w) => w.uid === workflowUid);
       },
-      { timeout: 10000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
   const wfPub = await workbench.rpc<{ success: boolean; error?: string }>('updateLiveWorkflow', {
@@ -322,7 +322,7 @@ async function seedLiveVariable(envUid: string): Promise<void> {
         const res = await workbench.rpc<{ variables?: Array<{ uid: string }> }>('listLiveVariables');
         return (res.variables ?? []).some((v) => v.uid === lvUid);
       },
-      { timeout: 10000 },
+      { timeout: 5_000 },
     )
     .toBe(true);
   const lvPub = await workbench.rpc<{ success: boolean; error?: string }>('updateLiveVariable', {
@@ -372,7 +372,7 @@ async function resolvesInEditor(ref: string, expected: string | RegExp): Promise
       const echo = await workbench.responseEcho<Echo>().catch(() => null);
       return (echo?.headers['x-scope'] as string | undefined) ?? '';
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
   if (expected instanceof RegExp) await headerValue.toMatch(expected);
   else await headerValue.toEqual(expected);
