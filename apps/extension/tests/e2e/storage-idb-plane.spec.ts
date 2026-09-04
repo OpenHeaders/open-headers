@@ -37,7 +37,7 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 });
 
@@ -102,7 +102,7 @@ interface RecordDocumentWire {
 }
 
 test('IndexedDB reads, previews, key wire, writes and deletes ride the plane end-to-end', async () => {
-  test.setTimeout(slowMo > 0 ? 600_000 : 120_000);
+  test.setTimeout(slowMo > 0 ? 600_000 : 90_000);
   const page = await context.newPage();
   await page.goto(`${STORAGE_PAGE_URL}${pagePace}`);
 
