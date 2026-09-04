@@ -84,7 +84,7 @@ async function pin(id: number, pinned: boolean): Promise<void> {
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(180_000);
+  test.setTimeout(90_000);
   context = await chromium.launchPersistentContext('', {
     headless: false,
     args: [
@@ -124,7 +124,7 @@ test.beforeAll(async () => {
   panelPage = await context.newPage();
   panelPage.on('pageerror', (err) => console.error('[panel pageerror]', err.stack ?? err.message));
   await panelPage.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${tabId}`);
-  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await panelPage.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 
   // SW-target attach convergence: the worker target rides a discovery poll,
   // and its Network stream has no replay — keep firing warm-up worker
@@ -136,7 +136,7 @@ test.beforeAll(async () => {
     const res = await swPage.evaluate((m) => window.ohSw.fetchFromWorker(`/probe/text?oh-case=${m}`), marker);
     expect(res.ok).toBe(true);
     await expect(gearRows(marker).first()).toBeVisible({ timeout: 3_000 });
-  }).toPass({ timeout: 60_000 });
+  }).toPass({ timeout: 20_000 });
 });
 
 test.afterAll(async () => {
@@ -150,7 +150,7 @@ test('a synthetic SW-served fetch renders one page row marked (ServiceWorker) an
   // The synthetic route's Name cell reads "probe" (no query) — unique to
   // this leg (the worker-fetch probes carry query-suffixed names).
   const synthetic = rows('probe');
-  await expect(synthetic.first()).toBeVisible({ timeout: 15_000 });
+  await expect(synthetic.first()).toBeVisible({ timeout: 5_000 });
   await expect(synthetic.first()).toContainText('(ServiceWorker)');
 
   // No network was hit — the worker minted the response — so no ⚙ row may
@@ -171,7 +171,7 @@ test("a cache-miss probe renders the page row AND the worker's ⚙ pass-through 
   );
   expect(status).toBe(200);
 
-  await expect(rows(marker)).toHaveCount(2, { timeout: 15_000 });
+  await expect(rows(marker)).toHaveCount(2, { timeout: 5_000 });
   await expect(gearRows(marker)).toHaveCount(1);
   await expect(pageRows(marker)).toHaveCount(1);
   // The page-side row was answered by the worker's respondWith.
@@ -185,7 +185,7 @@ test('an oh-fetch renders a pure ⚙ row with status, headers, and a fetchable b
   expect(res.status).toBe(200);
 
   const row = gearRows(marker).first();
-  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row).toBeVisible({ timeout: 5_000 });
   // No page ever requested this URL — the worker row is the only one.
   await panelPage.waitForTimeout(1_500);
   await expect(rows(marker)).toHaveCount(1);
@@ -202,7 +202,7 @@ test('an oh-fetch renders a pure ⚙ row with status, headers, and a fetchable b
     await headersTab.click();
   }
   const headersPane = panelPage.locator('.dt-headers-pane');
-  await expect(headersPane).toBeVisible({ timeout: 10_000 });
+  await expect(headersPane).toBeVisible({ timeout: 5_000 });
   await expect(headersPane).toContainText(marker);
   await expect(headersPane).toContainText('200');
   await expect(headersPane).toContainText('application/json');
@@ -210,7 +210,7 @@ test('an oh-fetch renders a pure ⚙ row with status, headers, and a fetchable b
   // Response pane: the body rides the on-demand pull through the composite
   // router's `target:` leg (Network.getResponseBody on the worker target).
   await panelPage.getByRole('tab', { name: 'Response' }).click();
-  await expect(panelPage.getByText('OH_PROBE_JSON_OK').first()).toBeVisible({ timeout: 15_000 });
+  await expect(panelPage.getByText('OH_PROBE_JSON_OK').first()).toBeVisible({ timeout: 5_000 });
 });
 
 test('unpinning stops the plane: history rows persist, new worker fetches mint nothing', async () => {
@@ -231,11 +231,11 @@ test('unpinning stops the plane: history rows persist, new worker fetches mint n
     expect(res.ok).toBe(true);
     await panelPage.waitForTimeout(2_000);
     await expect(rows(marker)).toHaveCount(0);
-  }).toPass({ timeout: 45_000 });
+  }).toPass({ timeout: 20_000 });
 });
 
 test("extension-self plane: a request-editor Send appears as a row in the workbench tab's panel", async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(60_000);
   // The workbench resolves its OWN tab id — extension pages are outside
   // `chrome.tabs.query` url-pattern matching.
   const workbenchTabId = await workbenchPage.evaluate(
@@ -253,7 +253,7 @@ test("extension-self plane: a request-editor Send appears as a row in the workbe
   const selfPanel = await context.newPage();
   selfPanel.on('pageerror', (err) => console.error('[self-panel pageerror]', err.stack ?? err.message));
   await selfPanel.goto(`chrome-extension://${extensionId}/panel.html?ohInspectTabId=${workbenchTabId}`);
-  await selfPanel.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 15_000 });
+  await selfPanel.locator('.dt-panel-root').waitFor({ state: 'visible', timeout: 5_000 });
 
   // Same drive recipe as the request-editor UI specs: seed, reload so the
   // sidebar renders deterministically, requests view + docs collapsed,
