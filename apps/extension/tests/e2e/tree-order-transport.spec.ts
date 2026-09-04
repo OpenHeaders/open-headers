@@ -137,7 +137,7 @@ async function importOverExisting(envelope: ExportEnvelope, yaml: string, keepTa
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  test.setTimeout(180_000);
+  test.setTimeout(90_000);
   profileDir = await mkdtemp(path.join(tmpdir(), 'oh-tree-order-e2e-'));
 
   // Boot once to mint the default workspace and learn its id, seed the
@@ -156,7 +156,7 @@ test.beforeAll(async () => {
         const registry = await storageGet<Array<{ id: string }>>('oh.workspaces');
         return registry?.some((workspace) => workspace.id === workspaceId) ?? false;
       },
-      { timeout: 30_000 },
+      { timeout: 20_000 },
     )
     .toBe(true);
   const values = JSON.parse(helper(['seed', 'legacy'], undefined, { OH_E2E_WORKSPACE_ID: workspaceId })) as Record<
