@@ -60,7 +60,7 @@ test.beforeAll(async () => {
       const root = document.getElementById('root');
       return root !== null && root.children.length > 0;
     },
-    { timeout: 15000 },
+    { timeout: 5_000 },
   );
 
   // The wire-recovery plane (webRequest → extension-traffic channel)
@@ -68,7 +68,7 @@ test.beforeAll(async () => {
   // classify WITHOUT the recovered code — the documented degradation.
   // Warm it up so the recovered-code suite asserts the steady state.
   await expect
-    .poll(async () => (await send('http://127.0.0.1:59117/echo')).error ?? '', { timeout: 30000 })
+    .poll(async () => (await send('http://127.0.0.1:59117/echo')).error ?? '', { timeout: 20_000 })
     .toContain('net::');
 });
 
