@@ -22,16 +22,19 @@
  *     regime (the win, in a real browser). Frame counts are environment-
  *     noisy and only logged.
  *
- * The dropped-frame numbers are only trustworthy on a PRODUCTION build —
- * a dev build's react-refresh + unminified renders inflate jank by ~10×.
- * Default `webServer` boots the playground dev server, which is fine for
- * the deterministic render-count assertion; for honest paint absolutes,
- * point the spec at a production preview:
- *   pnpm --filter @openheaders/playground build
- *   pnpm --filter @openheaders/playground preview &   # serves :3000
- *   PANEL_PERF=1 pnpm --filter @openheaders/extension exec playwright test panel-perf --headed
- * (Playwright reuses the existing :3000 server.) Run headed — headless
- * caps the virtual refresh and hides compositing.
+ * The numbers are only trustworthy on a PRODUCTION build, headed —
+ * a dev build's react-refresh + unminified renders make every commit
+ * ~18 ms at every size (the 1000-request legs alone overrun the 120 s
+ * budget), and headless caps the virtual refresh and hides compositing.
+ * The default `webServer` boots the playground dev server on :3000; the
+ * documented run points the harness at a production preview on a spare
+ * port through `OH_E2E_PANEL_PERF_ORIGIN` (the dev server stays up):
+ *   pnpm --dir playground build
+ *   (cd playground && pnpm exec vite preview --port 3100 --strictPort) &
+ *   PANEL_PERF=1 OH_E2E_PANEL_PERF_ORIGIN=http://127.0.0.1:3100 \
+ *     pnpm --filter @openheaders/extension exec playwright test panel-perf --headed
+ * (the playground is symlinked, not a workspace member — `--filter` never
+ * matches it; `--dir` does).
  *
  * Gated behind `PANEL_PERF=1` so the default e2e suite stays fast.
  */
@@ -70,7 +73,8 @@ declare global {
   }
 }
 
-const HARNESS_URL = 'http://127.0.0.1:3000/src/perf/index.html';
+const HARNESS_ORIGIN = process.env.OH_E2E_PANEL_PERF_ORIGIN ?? 'http://127.0.0.1:3000';
+const HARNESS_URL = `${HARNESS_ORIGIN}/src/perf/index.html`;
 const REQUEST_COUNTS = [250, 500, 1000];
 
 const enabled = process.env.PANEL_PERF === '1';
