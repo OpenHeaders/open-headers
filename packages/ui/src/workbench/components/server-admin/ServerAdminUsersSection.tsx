@@ -628,7 +628,11 @@ const ServerAdminUsersSection: React.FC = () => {
           </Form.Item>
           {addKind === 'user' && (
             <Form.Item name="email" style={{ flex: 1 }}>
-              <Input placeholder={t('workbench.serverAdmin.users.emailPlaceholder')} maxLength={128} />
+              <Input
+                placeholder={t('workbench.serverAdmin.users.emailPlaceholder')}
+                maxLength={128}
+                data-testid="server-admin-add-email"
+              />
             </Form.Item>
           )}
           {/* Admission confers access (the server-access plan A2): the

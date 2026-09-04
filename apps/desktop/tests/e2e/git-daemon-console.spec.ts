@@ -2,19 +2,22 @@
  * Git daemon-console e2e — the T7-automatable core (the git-sync plan §10
  * Phase 7 / §11.5) on the REAL remote-wire stack: a headless daemon
  * serving the Workbench web bundle, browser tabs as its clients, the
- * admin console's Git card driving the daemon's bindings over the
- * `daemon.admin`-gated `oh.daemon.workspaceTree.dispatch` channel, and
- * contributor-authored commits resolved through the user directory.
+ * Server Admin Git domain tab's card driving the daemon's bindings over
+ * the `daemon.admin`-gated `oh.daemon.workspaceTree.dispatch` channel,
+ * and contributor-authored commits resolved through the user directory.
  *
  *   D1  the daemon serves the web bundle entry document on its bind.
- *   D2  an operator-token tab joins, and the Backend pane's admin
- *       affordance opens the daemon-admin console.
- *   D3  the console Git card binds a daemon-side folder over the wire:
- *       repo auto-init on the daemon's disk, first commit lands.
- *   D4  directory users minted through the console: create, password,
- *       per-user Git email (the §11.5 knob), workspace grants.
+ *   D2  a directory admin (admitted over the operator wire, signed in at
+ *       the front door's password card — a browser never pastes a
+ *       token) opens the Server Admin surface from the Backend ›
+ *       Connections card's admin affordance.
+ *   D3  the Git domain tab's card binds a daemon-side folder over the
+ *       wire: repo auto-init on the daemon's disk, first commit lands.
+ *   D4  directory users minted through the Users domain tab: create
+ *       with the mandatory workspace grant (admission confers access),
+ *       password, per-user Git email (the §11.5 knob).
  *   D5  a directory user signs in via password login; the granted
- *       workspace syncs down; the admin console stays denied to them.
+ *       workspace syncs down; the admin affordance stays hidden to them.
  *   D6  sole-contributor authorship: the user's edit commits AUTHORED
  *       by them (directory displayName + email), committer = operator.
  *   D7  the Git-email override wins the attribution chain on the next
@@ -32,6 +35,8 @@
  * its single-machine honest core. The card's dirty count does not
  * stream live to remote console tabs (known P7 residual) — status here
  * is refreshed through real gestures, never asserted on live push.
+ *
+ * Every tab is headless Chromium — nothing shows on screen.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon` and
  * `pnpm turbo build --filter=@openheaders/web`.
@@ -57,8 +62,14 @@ const electronBinary = createRequire(path.join(REPO_ROOT, 'packages/oracle-host-
 const DAEMON_PORT = 20037;
 const ORIGIN = `http://127.0.0.1:${DAEMON_PORT}`;
 
+const EMAIL_INPUT = 'input[data-testid=login-gate-email], [data-testid=login-gate-email] input';
+const PASSWORD_INPUT = 'input[data-testid=login-gate-password], [data-testid=login-gate-password] input';
+
 const OPERATOR_NAME = 'OH Operator';
 const OPERATOR_EMAIL = 'operator@openheaders.io';
+const ADMIN_NAME = 'John Doe';
+const ADMIN_EMAIL = 'john@openheaders.io';
+const ADMIN_PASSWORD = 'john-console-pass';
 const DANA_NAME = 'Dana Reyes';
 const DANA_EMAIL = 'dana@openheaders.io';
 const DANA_GIT_EMAIL = 'dana.git@openheaders.io';
@@ -216,12 +227,12 @@ async function spawnDaemon(): Promise<void> {
           return 0;
         }
       },
-      { timeout: 30_000 },
+      { timeout: 20_000 },
     )
     .toBe(200);
 }
 
-// ── MCP helpers (operator token; assertions only) ───────────────────
+// ── MCP helpers (operator token; seed + assertions only) ────────────
 
 async function mcpRpc(method: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
   const response = await fetch(`${ORIGIN}/mcp`, {
@@ -242,6 +253,87 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<Re
   const result = json.result as { isError?: boolean; content: Array<{ text: string }> };
   expect(result.isError, `${name}: ${result.content?.[0]?.text}`).toBeFalsy();
   return JSON.parse(result.content[0]?.text ?? '{}') as Record<string, unknown>;
+}
+
+// ── operator wire (the admin plane a browser never rides) ───────────
+
+/**
+ * Drive the daemon's gated peer admin plane over a raw operator wire
+ * (Node's global WebSocket): HELLO with the pre-seeded operator token,
+ * then request/response on the `<type>:response` idiom.
+ */
+async function adminOverWire(calls: Array<Record<string, unknown>>): Promise<Array<Record<string, unknown>>> {
+  const socket = new WebSocket(`ws://127.0.0.1:${DAEMON_PORT}`);
+  const inbox = new Map<string, Array<Record<string, unknown>>>();
+  const waiters = new Map<string, (frame: Record<string, unknown>) => void>();
+  socket.addEventListener('message', (event) => {
+    const frame = JSON.parse(String(event.data)) as Record<string, unknown> & { type: string };
+    const waiter = waiters.get(frame.type);
+    if (waiter) {
+      waiters.delete(frame.type);
+      waiter(frame);
+      return;
+    }
+    const queue = inbox.get(frame.type) ?? [];
+    queue.push(frame);
+    inbox.set(frame.type, queue);
+  });
+  const awaitFrame = (type: string): Promise<Record<string, unknown>> => {
+    const queued = inbox.get(type)?.shift();
+    if (queued) return Promise.resolve(queued);
+    return new Promise((resolve) => waiters.set(type, resolve));
+  };
+  await new Promise<void>((resolve, reject) => {
+    socket.addEventListener('open', () => resolve(), { once: true });
+    socket.addEventListener('error', () => reject(new Error('admin wire failed to open')), { once: true });
+  });
+  const welcomePromise = awaitFrame('oh.sync.welcome');
+  socket.send(
+    JSON.stringify({
+      type: 'oh.sync.hello',
+      protocolVersion: 1,
+      role: 'web',
+      nodeId: 'e2e-git-console-wire',
+      workspaceId: 'e2e-git-console-wire',
+      agent: '@openheaders/web@e2e',
+      authToken: operatorToken,
+    }),
+  );
+  const welcome = (await welcomePromise) as { accepted?: boolean };
+  expect(welcome.accepted).toBe(true);
+  const responses: Array<Record<string, unknown>> = [];
+  for (const call of calls) {
+    const responsePromise = awaitFrame(`${String(call.type)}:response`);
+    socket.send(JSON.stringify(call));
+    responses.push(await responsePromise);
+  }
+  socket.close();
+  return responses;
+}
+
+/**
+ * Admit the directory admin the console tab signs in as: an owner grant
+ * on the seeded workspace (admission confers access — one act), a
+ * password, and the `daemon.admin` role the Backend card's affordance
+ * is probe-gated on.
+ */
+async function admitConsoleAdmin(): Promise<void> {
+  const [created] = await adminOverWire([
+    {
+      type: 'oh.daemon.users.create',
+      displayName: ADMIN_NAME,
+      email: ADMIN_EMAIL,
+      grants: [{ workspaceId, role: 'owner' }],
+    },
+  ]);
+  const payload = created.payload as { ok: boolean; userId?: string; error?: string };
+  expect(payload.ok, payload.error).toBe(true);
+  const [passworded, promoted] = await adminOverWire([
+    { type: 'oh.daemon.users.setPassword', userId: payload.userId, password: ADMIN_PASSWORD },
+    { type: 'oh.daemon.users.setDaemonAdmin', userId: payload.userId, allowed: true },
+  ]);
+  expect((passworded.payload as { ok: boolean }).ok).toBe(true);
+  expect((promoted.payload as { ok: boolean }).ok).toBe(true);
 }
 
 // ── page helpers ────────────────────────────────────────────────────
@@ -296,7 +388,7 @@ function ruleInTabIdb(target: Page, name: string): Promise<boolean> {
 
 /** Wait for antd modal zoom motion to settle before clicking inside it. */
 async function settleModal(target: Page): Promise<void> {
-  await expect(target.locator('.ant-modal[class*="zoom-"]')).toHaveCount(0, { timeout: 10_000 });
+  await expect(target.locator('.ant-modal[class*="zoom-"]')).toHaveCount(0);
 }
 
 /** Pick an option by exact title in the one open antd select dropdown. */
@@ -306,30 +398,50 @@ async function pickDropdownOption(target: Page, label: string): Promise<void> {
     .click();
 }
 
-/** Join through the token leg of the login gate (the operator tab). */
-async function joinWithToken(target: Page, token: string): Promise<void> {
-  await target.goto(`${ORIGIN}/`);
-  await target.waitForSelector('[data-testid=login-gate]', { timeout: 15_000 });
-  await target.fill('input[data-testid=login-gate-token], [data-testid=login-gate-token] input', token);
-  await target.click('[data-testid=login-gate-submit]');
-  await target.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
+/**
+ * A served tab at a desktop-window viewport: the request editor's tab
+ * strip and the rule editor overflow the 1280-wide default.
+ */
+async function openTab(label: string): Promise<[BrowserContext, Page]> {
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  const target = await context.newPage();
+  watchConsole(target, label);
+  return [context, target];
 }
 
-/** Sign in through the password leg of the login gate (directory users). */
+/** Sign in at the front door's password card (directory users and the admin alike). */
 async function joinWithPassword(target: Page, email: string, password: string): Promise<void> {
   await target.goto(`${ORIGIN}/`);
-  await target.waitForSelector('[data-testid=login-gate-password]', { timeout: 15_000 });
-  await target.fill('input[data-testid=login-gate-email], [data-testid=login-gate-email] input', email);
-  await target.fill('input[data-testid=login-gate-password], [data-testid=login-gate-password] input', password);
+  await target.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
+  await target.fill(EMAIL_INPUT, email);
+  await target.fill(PASSWORD_INPUT, password);
   await target.click('[data-testid=login-gate-password-submit]');
-  await target.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 30_000 });
+  await target.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
 }
 
-/** Open Settings → Backend on a workbench tab. */
-async function openBackendPane(target: Page): Promise<void> {
+/**
+ * Open Settings → Connectivity › Backend › Connections on a workbench
+ * tab. Backend is a group node whose children (the tier-zero card lives
+ * on Connections) appear in the tree only around an active descendant,
+ * so the walk goes through the landing pages.
+ */
+async function openBackendSettings(target: Page): Promise<void> {
   await target.getByRole('button', { name: 'Settings menu' }).click();
   await target.getByRole('button', { name: 'Settings…' }).click();
-  await target.locator('.settings-category-nav').getByText('Backend', { exact: true }).click();
+  await target.locator('.settings-category-nav').getByRole('button', { name: 'Connectivity', exact: true }).click();
+  await target.getByRole('button', { name: 'Backend', exact: true }).filter({ visible: true }).click();
+  await target.getByRole('button', { name: 'Connections', exact: true }).filter({ visible: true }).click();
+}
+
+/**
+ * Bring one Server Admin domain tab to the front from the dock strip's
+ * nav rows — every domain is its own singleton workbench tab, and the
+ * gestures below need theirs visible.
+ */
+async function openServerAdminSection(section: 'users' | 'git'): Promise<void> {
+  const strip = adminPage.locator('[data-tool-window="server-admin"]').first();
+  if ((await strip.getAttribute('aria-selected')) !== 'true') await strip.click();
+  await adminPage.click(`[data-testid=server-admin-panel-${section}]`);
 }
 
 /**
@@ -339,103 +451,71 @@ async function openBackendPane(target: Page): Promise<void> {
  */
 async function nudgeCardStatus(): Promise<void> {
   await adminPage.getByTestId('git-pane-bypass-hooks-switch').click();
-  await expect(adminPage.getByTestId('git-pane-bypass-hooks-warning')).toBeVisible({ timeout: 15_000 });
+  await expect(adminPage.getByTestId('git-pane-bypass-hooks-warning')).toBeVisible();
   await adminPage.getByTestId('git-pane-bypass-hooks-switch').click();
-  await expect(adminPage.getByTestId('git-pane-bypass-hooks-warning')).toBeHidden({ timeout: 15_000 });
+  await expect(adminPage.getByTestId('git-pane-bypass-hooks-warning')).toBeHidden();
 }
 
-/** Commit whatever the daemon tree holds through the console card. */
+/** Commit whatever the daemon tree holds through the Git domain tab's card. */
 async function commitViaConsole(message: string): Promise<void> {
   const before = commitCount();
+  await openServerAdminSection('git');
   await nudgeCardStatus();
-  await expect(adminPage.getByTestId('git-pane-commit-button')).toBeEnabled({ timeout: 15_000 });
+  await expect(adminPage.getByTestId('git-pane-commit-button')).toBeEnabled();
   await adminPage.getByTestId('git-pane-commit-message').fill(message);
   await adminPage.getByTestId('git-pane-commit-button').click();
-  await expect.poll(() => commitCount(), { timeout: 45_000 }).toBe(before + 1);
-  await expect.poll(() => ws('status', '--porcelain'), { timeout: 30_000 }).toBe('');
+  await expect.poll(() => commitCount(), { timeout: 5_000 }).toBe(before + 1);
+  await expect.poll(() => ws('status', '--porcelain'), { timeout: 5_000 }).toBe('');
 }
 
-/** The console directory row for a user, located by display name. */
+/** The directory row for a user on the Users domain tab, located by display name. */
 function userRow(name: string): Locator {
   return adminPage.locator('[data-testid^="server-admin-user-"]').filter({ hasText: name });
 }
 
-/** Create a directory user through the console form. */
+/**
+ * Admit a directory user through the Users tab's form. Admission
+ * confers access: the form carries the mandatory workspace + role, so
+ * the Editor grant on the seeded workspace lands in the same act.
+ */
 async function createUser(name: string, email: string): Promise<void> {
+  await openServerAdminSection('users');
   await adminPage.getByTestId('server-admin-add-name').fill(name);
-  await adminPage.locator('input[placeholder*="mail" i]').first().fill(email);
+  await adminPage.getByTestId('server-admin-add-email').fill(email);
+  await adminPage.getByTestId('server-admin-add-workspace').click();
+  await pickDropdownOption(adminPage, workspaceName);
+  await adminPage.getByTestId('server-admin-add-role').click();
+  await pickDropdownOption(adminPage, 'Editor');
   await adminPage.getByTestId('server-admin-add-user').click();
-  await expect(userRow(name)).toBeVisible({ timeout: 15_000 });
+  await expect(userRow(name)).toBeVisible();
+  await expect(userRow(name).locator('.ant-tag').filter({ hasText: 'Editor' })).toBeVisible();
 }
 
-/** Set a user's password through the console modal. */
+/** Set a user's password through the Users tab's modal. */
 async function setUserPassword(name: string, password: string): Promise<void> {
+  await openServerAdminSection('users');
   await userRow(name).getByRole('button', { name: 'Set password' }).click();
   await settleModal(adminPage);
   await adminPage.getByTestId('server-admin-password-input').fill(password);
   await adminPage.getByTestId('server-admin-password-save').click();
-  await expect(adminPage.getByTestId('server-admin-password-input')).toBeHidden({ timeout: 15_000 });
+  await expect(adminPage.getByTestId('server-admin-password-input')).toBeHidden();
 }
 
 /**
- * Grant `role` on the seeded workspace through the row's grant editor.
- * The Grant button is located by text, never by ARIA name — an antd
- * button's accessible name grows a "loading" prefix mid-flight, which
- * makes a `getByRole` name-match hang on any re-resolution.
- */
-async function grantWorkspace(name: string, role: string): Promise<void> {
-  const row = userRow(name);
-  await row.locator('.ant-select').first().click();
-  await pickDropdownOption(adminPage, workspaceName);
-  await row.locator('.ant-select').nth(1).click();
-  await pickDropdownOption(adminPage, role);
-  await row.locator('button').filter({ hasText: 'Grant' }).click();
-  await expect(row.locator('.ant-tag').filter({ hasText: role })).toBeVisible({ timeout: 15_000 });
-}
-
-/**
- * Create a rule through the real editor flow of a joined web tab and
- * wait for it to reach the daemon's materialized git tree.
+ * Create a rule on a joined web tab through the command palette's New
+ * Block Rule command (the keyboard path into a draft — the empty
+ * state's Create rule menu nests templated types in hover submenus a
+ * headless pointer cannot hold), name it, save it into a collection,
+ * and wait for it to reach the daemon's materialized git tree.
  */
 async function createRuleViaEditor(target: Page, name: string): Promise<void> {
-  // Collapse the Docs panel first — its website copy carries the same
-  // rule-flavored text the flow's matchers target.
-  const docsTab = target.locator('[data-tool-window="docs"]').first();
-  if ((await docsTab.getAttribute('aria-selected').catch(() => null)) === 'true') {
-    await docsTab.click();
-  }
-  // Bring the HTTP Rules view up — a fresh workspace opens on a
-  // welcome surface.
-  const rulesTab = target.locator('[data-tool-window="http-rules"]').first();
-  if ((await rulesTab.getAttribute('aria-selected')) !== 'true') {
-    await rulesTab.click();
-    await expect(rulesTab).toHaveAttribute('aria-selected', 'true', { timeout: 10_000 });
-  }
-  // The sidebar's New-rule button is always present; the welcome tab's
-  // Create-rule CTA disappears once the workspace has content.
-  await target.getByRole('button', { name: 'New rule', exact: true }).first().click();
-  const blockItem = target.getByRole('menuitem', { name: /Block Requests/ }).first();
-  await blockItem.waitFor({ timeout: 10_000 });
-  await blockItem.click();
-
-  // The editor's name field is a controlled input — its value lives on
-  // the DOM property, so match by inputValue, not a [value=] selector.
-  const inputs = target.locator('input:visible');
-  const findNameInput = async (): Promise<number> => {
-    const count = await inputs.count();
-    for (let i = 0; i < count; i++) {
-      if (
-        (await inputs
-          .nth(i)
-          .inputValue()
-          .catch(() => '')) === 'New Block Rule'
-      )
-        return i;
-    }
-    return -1;
-  };
-  await expect.poll(findNameInput, { timeout: 10_000 }).toBeGreaterThan(-1);
-  await inputs.nth(await findNameInput()).fill(name);
+  await target.getByRole('button', { name: 'Search or run a command', exact: false }).first().click();
+  const palette = target.getByPlaceholder('Search rules, collections, or type > for commands...');
+  await palette.fill('New Block Rule');
+  await target.getByText('New Block Rule', { exact: true }).filter({ visible: true }).first().click();
+  const nameInput = target.locator('input[value^="New Block Rule"]').filter({ visible: true }).first();
+  await nameInput.waitFor({ timeout: 5_000 });
+  await nameInput.fill(name);
   await target
     .locator('button:visible')
     .filter({ hasText: /^Save$/ })
@@ -443,7 +523,7 @@ async function createRuleViaEditor(target: Page, name: string): Promise<void> {
     .click();
 
   // Save dialog: Save arms only once a target collection is chosen.
-  await target.waitForSelector('.ant-modal', { timeout: 10_000 });
+  await target.waitForSelector('.ant-modal', { timeout: 5_000 });
   await settleModal(target);
   const collectionOption = target.locator('.ant-modal [role=option]').first();
   if ((await collectionOption.count()) > 0) {
@@ -460,13 +540,12 @@ async function createRuleViaEditor(target: Page, name: string): Promise<void> {
     .last()
     .click();
 
-  await expect.poll(() => treeContains(wsDir, name), { timeout: 45_000 }).toBe(true);
+  await expect.poll(() => treeContains(wsDir, name), { timeout: 5_000 }).toBe(true);
 }
 
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  test.setTimeout(120_000);
   root = await mkdtemp(path.join(os.tmpdir(), 'oh-git-daemon-console-'));
   wsDir = path.join(root, 'ws');
   remoteDir = path.join(root, 'remote.git');
@@ -492,6 +571,11 @@ test.beforeAll(async () => {
   const created = await callTool('workspaces_create', { name: workspaceName, activate: true });
   workspaceId = (created.workspace as { id: string }).id;
 
+  // The admin admitted BEFORE any tab loads: the gate is a pure
+  // function of server state, and an admitted account with a password
+  // turns the unclaimed setup card into the sign-in card.
+  await admitConsoleAdmin();
+
   browser = await chromium.launch();
 });
 
@@ -513,72 +597,65 @@ test('D1 — the daemon serves the web bundle entry document on its bind', async
   expect(await res.text()).toContain('<div id="root">');
 });
 
-// ── D2: operator joins, the admin console opens ─────────────────────
+// ── D2: the admin signs in, the Server Admin surface opens ──────────
 
-test('D2 — an operator tab joins and the Backend pane opens the daemon-admin console', async () => {
-  adminContext = await browser.newContext();
-  adminPage = await adminContext.newPage();
-  watchConsole(adminPage, 'admin');
-  await joinWithToken(adminPage, operatorToken);
+test('D2 — the admin signs in at the front door and the Backend card opens the Server Admin surface', async () => {
+  [adminContext, adminPage] = await openTab('admin');
+  await joinWithPassword(adminPage, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-  await openBackendPane(adminPage);
+  // Settings → Backend › Connections → the probe-gated CTA → the Users
+  // domain tab.
+  await openBackendSettings(adminPage);
   await adminPage.getByTestId('open-daemon-admin').click();
-  await expect(adminPage.getByTestId('server-admin-console')).toBeVisible({ timeout: 15_000 });
+  await expect(adminPage.getByTestId('server-admin-tab')).toBeVisible();
 });
 
 // ── D3: bind + first commit over the dispatch wire ──────────────────
 
-test('D3 — the console Git card binds a daemon-side folder and lands the first commit', async () => {
-  test.setTimeout(120_000);
-  await expect(adminPage.getByTestId('server-admin-git-workspace')).toBeVisible({ timeout: 15_000 });
+test('D3 — the Git domain tab binds a daemon-side folder and lands the first commit', async () => {
+  await openServerAdminSection('git');
+  await expect(adminPage.getByTestId('server-admin-git-workspace')).toBeVisible();
   await adminPage.getByTestId('server-admin-git-workspace').click();
   await pickDropdownOption(adminPage, workspaceName);
   await adminPage.getByTestId('git-pane-path-input').fill(wsDir);
   await adminPage.getByTestId('git-pane-bind-button').click();
 
-  await expect.poll(() => existsSync(path.join(wsDir, '.git')), { timeout: 45_000 }).toBe(true);
-  await expect.poll(() => existsSync(path.join(wsDir, 'workspace.yaml')), { timeout: 30_000 }).toBe(true);
+  await expect.poll(() => existsSync(path.join(wsDir, '.git')), { timeout: 5_000 }).toBe(true);
+  await expect.poll(() => existsSync(path.join(wsDir, 'workspace.yaml')), { timeout: 5_000 }).toBe(true);
 
   await commitViaConsole('daemon console: initial tree');
   expect(ws('log', '-1', '--format=%s')).toBe('daemon console: initial tree');
 });
 
-// ── D4: directory users through the console ─────────────────────────
+// ── D4: directory users through the Users domain tab ────────────────
 
-test('D4 — the console mints two directory users with passwords, grants, and one Git email', async () => {
-  test.setTimeout(120_000);
+test('D4 — the Users tab mints two directory users with grants, passwords, and one Git email', async () => {
   await createUser(DANA_NAME, DANA_EMAIL);
   await setUserPassword(DANA_NAME, DANA_PASSWORD);
-  await grantWorkspace(DANA_NAME, 'Editor');
 
   await createUser(ELI_NAME, ELI_EMAIL);
   await setUserPassword(ELI_NAME, ELI_PASSWORD);
-  await grantWorkspace(ELI_NAME, 'Editor');
 });
 
 // ── D5: password login + RBAC posture ───────────────────────────────
 
-test('D5 — Dana signs in via password, the granted workspace syncs down, admin stays denied', async () => {
-  test.setTimeout(120_000);
-  danaContext = await browser.newContext();
-  danaPage = await danaContext.newPage();
-  watchConsole(danaPage, 'dana');
+test('D5 — Dana signs in via password, the granted workspace syncs down, the admin affordance stays hidden', async () => {
+  [danaContext, danaPage] = await openTab('dana');
   await joinWithPassword(danaPage, DANA_EMAIL, DANA_PASSWORD);
 
-  await expect.poll(() => readHostSlot(danaPage, 'oh.runtimeActive.active'), { timeout: 30_000 }).toBe(workspaceId);
+  await expect.poll(() => readHostSlot(danaPage, 'oh.runtimeActive.active'), { timeout: 5_000 }).toBe(workspaceId);
 
   // The admin affordance is probe-gated per session — a directory user
   // sees no console entry (the server re-gates every call regardless).
-  await openBackendPane(danaPage);
+  await openBackendSettings(danaPage);
   await expect(danaPage.getByTestId('open-daemon-admin')).toHaveCount(0);
   await danaPage.keyboard.press('Escape');
-  await expect(danaPage.locator('.ant-modal-wrap:visible')).toHaveCount(0, { timeout: 10_000 });
+  await expect(danaPage.locator('.ant-modal-wrap:visible')).toHaveCount(0);
 });
 
 // ── D6: sole-contributor authorship ─────────────────────────────────
 
 test('D6 — a directory user edit commits AUTHORED by them; the committer stays the operator', async () => {
-  test.setTimeout(120_000);
   await createRuleViaEditor(danaPage, 'Dana pipeline rule');
   await commitViaConsole('daemon console: dana sole edit');
 
@@ -591,13 +668,13 @@ test('D6 — a directory user edit commits AUTHORED by them; the committer stays
 
 // ── D7: the per-user Git-email knob wins the chain ──────────────────
 
-test('D7 — a Git-email override set in the console wins attribution on the next commit', async () => {
-  test.setTimeout(120_000);
+test('D7 — a Git-email override set on the Users tab wins attribution on the next commit', async () => {
+  await openServerAdminSection('users');
   await userRow(DANA_NAME).getByRole('button', { name: 'Set Git email' }).click();
   await settleModal(adminPage);
   await adminPage.getByTestId('server-admin-git-email-input').fill(DANA_GIT_EMAIL);
   await adminPage.getByTestId('server-admin-git-email-save').click();
-  await expect(adminPage.getByTestId('server-admin-git-email-input')).toBeHidden({ timeout: 15_000 });
+  await expect(adminPage.getByTestId('server-admin-git-email-input')).toBeHidden();
 
   await createRuleViaEditor(danaPage, 'Dana override rule');
   await commitViaConsole('daemon console: dana gitEmail edit');
@@ -607,12 +684,9 @@ test('D7 — a Git-email override set in the console wins attribution on the nex
 // ── D8: mixed batch → operator author + trailers ────────────────────
 
 test('D8 — a two-user batch lands operator-authored with one Co-Authored-By per contributor', async () => {
-  test.setTimeout(120_000);
-  eliContext = await browser.newContext();
-  eliPage = await eliContext.newPage();
-  watchConsole(eliPage, 'eli');
+  [eliContext, eliPage] = await openTab('eli');
   await joinWithPassword(eliPage, ELI_EMAIL, ELI_PASSWORD);
-  await expect.poll(() => readHostSlot(eliPage, 'oh.runtimeActive.active'), { timeout: 30_000 }).toBe(workspaceId);
+  await expect.poll(() => readHostSlot(eliPage, 'oh.runtimeActive.active'), { timeout: 5_000 }).toBe(workspaceId);
 
   await createRuleViaEditor(danaPage, 'Dana mixed rule');
   await createRuleViaEditor(eliPage, 'Eli mixed rule');
@@ -629,10 +703,10 @@ test('D8 — a two-user batch lands operator-authored with one Co-Authored-By pe
 // ── D9: push/pull over a real bare remote ───────────────────────────
 
 test('D9 — console Push establishes tracking; a foreign clone edit converges on Pull and reaches a live client', async () => {
-  test.setTimeout(180_000);
   runGit(root, daemonGitConfig, ['init', '--bare', remoteDir]);
   ws('remote', 'add', 'origin', remoteDir);
 
+  await openServerAdminSection('git');
   await adminPage.getByTestId('git-pane-push-button').click();
   await expect
     .poll(
@@ -643,10 +717,10 @@ test('D9 — console Push establishes tracking; a foreign clone edit converges o
           return null;
         }
       },
-      { timeout: 30_000 },
+      { timeout: 5_000 },
     )
     .toBe(ws('rev-parse', 'HEAD'));
-  await expect(adminPage.getByTestId('git-pane-remote-line')).toContainText('in sync', { timeout: 15_000 });
+  await expect(adminPage.getByTestId('git-pane-remote-line')).toContainText('in sync');
 
   // The "second machine": a peer clone renames Dana's rule and pushes.
   runGit(root, cloneGitConfig, ['clone', remoteDir, cloneDir]);
@@ -659,12 +733,12 @@ test('D9 — console Push establishes tracking; a foreign clone edit converges o
   const foreignSha = clone('rev-parse', 'HEAD');
 
   await adminPage.getByTestId('git-pane-pull-button').click();
-  await expect.poll(() => ws('rev-parse', 'HEAD'), { timeout: 45_000 }).toBe(foreignSha);
-  await expect.poll(() => ws('status', '--porcelain'), { timeout: 30_000 }).toBe('');
+  await expect.poll(() => ws('rev-parse', 'HEAD'), { timeout: 5_000 }).toBe(foreignSha);
+  await expect.poll(() => ws('status', '--porcelain'), { timeout: 5_000 }).toBe('');
 
   // The full T7 loop: the foreign edit swept into the engine and
   // reached a LIVE web client over the daemon's wire.
-  await expect.poll(() => ruleInTabIdb(danaPage, 'Renamed by clone'), { timeout: 45_000 }).toBe(true);
+  await expect.poll(() => ruleInTabIdb(danaPage, 'Renamed by clone'), { timeout: 5_000 }).toBe(true);
 });
 
 // ── Hygiene ─────────────────────────────────────────────────────────
