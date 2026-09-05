@@ -196,11 +196,11 @@ jobs:
         run: node scripts/build-h3-helper.mjs "${{ steps.leg_target.outputs.target }}"
         shell: bash
 
-      - name: Build desktop application
-        run: pnpm --filter @openheaders/desktop build
-        env:
-          NODE_ENV: production
-
+      # No standalone desktop build here: every dist:* script rebuilds
+      # through `predist` (2026.9.0 built each leg twice, 4–7.5 min
+      # apiece, the first output fully overwritten). The single build
+      # runs AFTER the version pin below, so a beta's -beta.N version
+      # is the one electron-builder sees.
       - name: Setup macOS code signing
         if: matrix.os == 'macos-latest'
         uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7.0.0
@@ -208,12 +208,6 @@ jobs:
           p12-file-base64: ${{ secrets.MACOS_CERTIFICATE }}
           p12-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
-
-      - name: Clean electron-builder cache
-        run: |
-          rm -rf apps/desktop/dist
-          mkdir -p apps/desktop/dist
-        shell: bash
 
       - name: Detect beta build
         id: detect_beta
