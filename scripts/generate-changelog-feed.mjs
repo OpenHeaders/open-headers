@@ -26,10 +26,14 @@
  * Entry-existence law: a release the tag cuts WITHOUT an entry file
  * still gets an index row (version/date, no notes link), and rows from
  * the previously published index survive regeneration — the feed's
- * history is additive. Indexes complement `versions.json`; the updater
- * never reads them (the updates plan feed law).
+ * history is additive. The stub rows follow the bytes: a suite beta
+ * builds the desktop only, so it stubs the desktop only (the other
+ * streams' beta rows exist only where an entry was authored); a stable
+ * ships every stream and stubs all five. Indexes complement
+ * `versions.json`; the updater never reads them (the updates plan feed
+ * law).
  *
- * Usage: node scripts/generate-changelog-feed.mjs <tag> <output-dir> [prior-index.json]
+ * Usage: node scripts/generate-changelog-feed.mjs [--repo-root=<dir>] <tag> <output-dir> [prior-index.json]
  */
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -37,8 +41,6 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STREAMS, compareCalVer, parseFrontmatter, parseInlineMap } from './lib/changelog.mjs';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const changelogDir = path.join(repoRoot, 'changelog');
 const FEED_BASE = 'https://updates.openheaders.com/changelog';
 
 // Public history starts at the first public release — earlier versions
@@ -50,19 +52,30 @@ const FIRST_PUBLIC_VERSION = '2026.7.23';
 // version, like versions.json's extension entry). A stream-lane tag
 // (`v*-cli` / `v*-daemon`) cuts only its own stream.
 const CUT_APPS = { desktop: null, cli: 'apps/cli', daemon: 'apps/daemon', web: 'apps/web', extension: 'apps/extension' };
+// The streams whose bytes a suite BETA ships — the only ones an
+// entry-less beta rows (release.yml builds the desktop legs alone on a
+// beta tag; cli/daemon/web/extension ship on stable only).
+const BETA_BUILT_APPS = ['desktop'];
 
 function fail(message) {
   console.error(`generate-changelog-feed: ${message}`);
   process.exit(1);
 }
 
+const args = process.argv.slice(2);
+const repoRootArg = args.find((arg) => arg.startsWith('--repo-root='));
+const repoRoot = repoRootArg
+  ? path.resolve(repoRootArg.slice('--repo-root='.length))
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const changelogDir = path.join(repoRoot, 'changelog');
+
 function readJson(relativePath) {
   return JSON.parse(readFileSync(path.join(repoRoot, relativePath), 'utf8'));
 }
 
-const [tag, outputDir, priorIndexPath] = process.argv.slice(2);
+const [tag, outputDir, priorIndexPath] = args.filter((arg) => !arg.startsWith('--'));
 if (!tag?.startsWith('v')) fail(`expected the release tag as first argument, got '${tag}'`);
-if (!outputDir) fail('usage: generate-changelog-feed.mjs <tag> <output-dir> [prior-index.json]');
+if (!outputDir) fail('usage: generate-changelog-feed.mjs [--repo-root=<dir>] <tag> <output-dir> [prior-index.json]');
 
 const betaN = tag.match(/-beta\.(\d+)$/)?.[1] ?? null;
 const lane = tag.match(/-(cli|daemon)$/)?.[1] ?? null;
@@ -169,9 +182,14 @@ function indexRow(entry) {
 const rows = new Map(entries.map((entry) => [`${entry.stream}@${entry.fields.version}`, indexRow(entry)]));
 
 // Entry-existence law: releases without entries still appear —
-// version/date only, no notes link.
+// version/date only, no notes link. Only for the streams whose bytes
+// this tag ships: a suite beta stubs the desktop alone (the
+// 2026.9.1-beta.1 run rowed five streams for one desktop build); a
+// stable or a lane tag stubs every stream it cuts.
 const today = new Date().toISOString().slice(0, 10);
-for (const [app, version] of Object.entries(cutVersions)) {
+const stubApps = betaN && !lane ? BETA_BUILT_APPS : Object.keys(cutVersions);
+for (const app of stubApps) {
+  const version = cutVersions[app];
   const key = `${app}@${version}`;
   if (rows.has(key)) continue;
   rows.set(key, {
