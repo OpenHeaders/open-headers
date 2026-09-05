@@ -16,6 +16,13 @@ permissions:
   contents: write
   packages: write
 
+# Two tag runs must never interleave their feed uploads (pointers are
+# global per channel); they queue instead — a queued release is never
+# cancelled, its bytes may already be on the feed.
+concurrency:
+  group: release-feed
+  cancel-in-progress: false
+
 # The vite production builds need more than the runners' ~2GB default
 # Node heap.
 env:
