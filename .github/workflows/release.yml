@@ -1108,8 +1108,7 @@ jobs:
 
       # The store cron (check-store-versions.yml) keeps `extension.stores`
       # live on the channel manifest; the generator builds fresh and would
-      # drop it until the next cron run. Carry the live object forward —
-      # fail-open: no live manifest or no stores means nothing to carry.
+      # drop it until the next cron run. Carry the live object forward.
       # Betas additionally carry cli/daemon whole, from the live STABLE
       # manifest: beta tags stage no standalone binaries, so those
       # entries must name the newest tag whose release page actually
@@ -1117,44 +1116,51 @@ jobs:
       # the website's install one-liners build download URLs from
       # `tag`, and carrying from the beta manifest would freeze them at
       # the last binary-bearing beta forever.
+      #
+      # The live stable manifest is read ONCE, retried, and its absence
+      # is FATAL on both channels: a stable that cannot read it would
+      # publish a manifest without `extension.stores` (the website's
+      # download surfaces go blind until the cron's next pass); a beta
+      # would name cli/daemon at a beta tag whose page hosts no
+      # binaries. Nothing has been uploaded at this point, so a failure
+      # here publishes nothing and the release job can simply run again
+      # once the feed answers. A manifest that lacks an entry is still
+      # "nothing to carry" — that is a state, not a read failure.
       - name: Carry forward live manifest entries
         run: |
           CHANNEL=stable
           if [ "${{ steps.release_type.outputs.is_prerelease }}" = "true" ]; then CHANNEL=beta; fi
+          if ! curl -fsS --retry 3 --retry-all-errors --max-time 30 \
+            "https://updates.openheaders.com/versions/stable.json" -o live_stable.json; then
+            echo "::error::the live stable manifest (versions/stable.json) could not be read — nothing carried forward, nothing published"
+            exit 1
+          fi
           # Stores carry on stable only — the beta manifest carries no
           # extension entry at all (stores are the extension's only
           # channel; no sideload zips exist on any channel).
           if [ "$CHANNEL" = "stable" ]; then
-            if curl -fsS --max-time 30 "https://updates.openheaders.com/versions/stable.json" -o live_versions.json; then
-              STORES=$(jq -c '.extension.stores // empty' live_versions.json)
-              if [ -n "$STORES" ]; then
-                node scripts/patch-versions-entry.mjs processed_files/versions.json extension \
-                  "{\"stores\":${STORES}}" > versions_with_stores.json
-                mv versions_with_stores.json processed_files/versions.json
-                echo "Carried extension.stores: ${STORES}"
-              else
-                echo "Live stable manifest has no extension.stores — nothing to carry"
-              fi
+            STORES=$(jq -c '.extension.stores // empty' live_stable.json)
+            if [ -n "$STORES" ]; then
+              node scripts/patch-versions-entry.mjs processed_files/versions.json extension \
+                "{\"stores\":${STORES}}" > versions_with_stores.json
+              mv versions_with_stores.json processed_files/versions.json
+              echo "Carried extension.stores: ${STORES}"
             else
-              echo "No live stable manifest — nothing to carry"
+              echo "Live stable manifest has no extension.stores — nothing to carry"
             fi
           fi
           if [ "$CHANNEL" = "beta" ]; then
-            if curl -fsS --max-time 30 "https://updates.openheaders.com/versions/stable.json" -o live_stable.json; then
-              for APP in cli daemon; do
-                ENTRY=$(jq -c ".${APP} // empty" live_stable.json)
-                if [ -n "$ENTRY" ]; then
-                  node scripts/patch-versions-entry.mjs processed_files/versions.json "$APP" \
-                    "$ENTRY" > versions_patched.json
-                  mv versions_patched.json processed_files/versions.json
-                  echo "Carried ${APP} entry from stable: ${ENTRY}"
-                else
-                  echo "Live stable manifest has no ${APP} entry — nothing to carry"
-                fi
-              done
-            else
-              echo "No live stable manifest — cli/daemon entries not carried"
-            fi
+            for APP in cli daemon; do
+              ENTRY=$(jq -c ".${APP} // empty" live_stable.json)
+              if [ -n "$ENTRY" ]; then
+                node scripts/patch-versions-entry.mjs processed_files/versions.json "$APP" \
+                  "$ENTRY" > versions_patched.json
+                mv versions_patched.json processed_files/versions.json
+                echo "Carried ${APP} entry from stable: ${ENTRY}"
+              else
+                echo "Live stable manifest has no ${APP} entry — nothing to carry"
+              fi
+            done
           fi
           cat processed_files/versions.json
 
