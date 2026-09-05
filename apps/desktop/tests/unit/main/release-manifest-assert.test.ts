@@ -2,25 +2,20 @@
  * Behavior of `scripts/assert-release-manifest.mjs` — the release step
  * that proves every asset the tag's channel ships is staged before the
  * first upload. Run as a child process against fixture directories,
- * like the feed staging suites; the standalone binary names carry the
- * cli/daemon versions the script reads from their package.json files.
+ * like the feed staging suites, with a fixture repo root
+ * (`--repo-root`) holding the five shipping apps' package.json files:
+ * the standalone binary names carry the cli/daemon versions read from
+ * there, and every app's base must equal the tag base (lockstep).
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const REPO_ROOT = path.resolve(__dirname, '../../../../..');
-const SCRIPT = path.join(REPO_ROOT, 'scripts/assert-release-manifest.mjs');
-
-function appVersion(app: string): string {
-  return JSON.parse(readFileSync(path.join(REPO_ROOT, 'apps', app, 'package.json'), 'utf8')).version;
-}
-
-const CLI = appVersion('cli');
-const DAEMON = appVersion('daemon');
+const SCRIPT = path.resolve(__dirname, '../../../../../scripts/assert-release-manifest.mjs');
+const LOCKSTEP_APPS = ['desktop', 'cli', 'daemon', 'extension', 'web'];
 
 function updateInfo(version: string): string {
   const lines = [
@@ -54,11 +49,11 @@ const STABLE_ASSETS = [
   'open-headers_2026.9.0_arm64.deb',
   'open-headers-2026.9.0.x86_64.rpm',
   'open-headers-2026.9.0.aarch64.rpm',
-  `oh-${CLI}-mac-arm64`,
-  `oh-${CLI}-linux-x64`,
-  `oh-${CLI}-win-x64.exe`,
-  `ohd-${DAEMON}-mac-arm64`,
-  `ohd-${DAEMON}-linux-x64`,
+  'oh-2026.9.0-mac-arm64',
+  'oh-2026.9.0-linux-x64',
+  'oh-2026.9.0-win-x64.exe',
+  'ohd-2026.9.0-mac-arm64',
+  'ohd-2026.9.0-linux-x64',
   'SHA256SUMS.txt',
   'THIRD-PARTY-NOTICES-oh-ohd.txt',
   'install-oh.sh',
@@ -80,13 +75,28 @@ const BETA_YMLS = ['beta.yml', 'beta-mac.yml', 'beta-linux.yml'];
 
 let workDir: string;
 
-function stage(version: string, assets: string[], ymls: string[], ymlVersion = version): { run: () => string } {
+interface StageOptions {
+  ymlVersion?: string;
+  appVersions?: Partial<Record<string, string>>;
+}
+
+function stage(version: string, assets: string[], ymls: string[], options: StageOptions = {}): { run: () => string } {
   workDir = mkdtempSync(path.join(tmpdir(), 'oh-release-manifest-'));
   const dir = path.join(workDir, 'processed_files');
   mkdirSync(dir);
   for (const name of assets) writeFileSync(path.join(dir, name), 'bytes');
-  for (const name of ymls) writeFileSync(path.join(dir, name), updateInfo(ymlVersion));
-  const run = () => execFileSync(process.execPath, [SCRIPT, `v${version}`, dir], { encoding: 'utf8' });
+  for (const name of ymls) writeFileSync(path.join(dir, name), updateInfo(options.ymlVersion ?? version));
+  const root = path.join(workDir, 'repo');
+  const base = version.replace(/-beta\.\d+$/, '');
+  for (const app of LOCKSTEP_APPS) {
+    mkdirSync(path.join(root, 'apps', app), { recursive: true });
+    writeFileSync(
+      path.join(root, 'apps', app, 'package.json'),
+      JSON.stringify({ version: options.appVersions?.[app] ?? base }),
+    );
+  }
+  const run = () =>
+    execFileSync(process.execPath, [SCRIPT, `--repo-root=${root}`, `v${version}`, dir], { encoding: 'utf8' });
   return { run };
 }
 
@@ -95,10 +105,12 @@ afterEach(() => {
 });
 
 describe('assert-release-manifest', () => {
-  it('passes a complete stable set and reports the count', () => {
+  it('passes a complete stable set and reports the count and the lockstep', () => {
     const { run } = stage(STABLE_VERSION, STABLE_ASSETS, STABLE_YMLS);
 
-    expect(run()).toContain('expects 30 assets, 30 files staged');
+    const output = run();
+    expect(output).toContain('expects 30 assets, 30 files staged');
+    expect(output).toContain('apps/{desktop,cli,daemon,extension,web} in lockstep at 2026.9.0');
   });
 
   it('passes the trimmed beta set', () => {
@@ -118,7 +130,7 @@ describe('assert-release-manifest', () => {
     const desktopOnly = STABLE_ASSETS.filter((name) => !/^(oh|ohd)-|SHA256SUMS|THIRD-PARTY|install-oh/.test(name));
     const { run } = stage(STABLE_VERSION, desktopOnly, STABLE_YMLS);
 
-    expect(run).toThrow(new RegExp(`missing: oh-${CLI.replaceAll('.', '\\.')}-mac-arm64`));
+    expect(run).toThrow(/missing: oh-2026\.9\.0-mac-arm64/);
   });
 
   it('fails a beta set missing a pointer', () => {
@@ -135,9 +147,21 @@ describe('assert-release-manifest', () => {
   });
 
   it('fails when an update-info file carries another version', () => {
-    const { run } = stage(STABLE_VERSION, STABLE_ASSETS, STABLE_YMLS, '2026.8.3');
+    const { run } = stage(STABLE_VERSION, STABLE_ASSETS, STABLE_YMLS, { ymlVersion: '2026.8.3' });
 
     expect(run).toThrow(/version mismatch: latest\.yml \(version: 2026\.8\.3\)/);
+  });
+
+  it('fails when a shipping app is not in lockstep with the tag base', () => {
+    const { run } = stage(STABLE_VERSION, STABLE_ASSETS, STABLE_YMLS, { appVersions: { web: '2026.8.4' } });
+
+    expect(run).toThrow(/lockstep: apps\/web\/package\.json is 2026\.8\.4, the tag base is 2026\.9\.0/);
+  });
+
+  it('compares the desktop by base, so a leg-pinned beta version still passes', () => {
+    const { run } = stage(BETA_VERSION, BETA_ASSETS, BETA_YMLS, { appVersions: { desktop: BETA_VERSION } });
+
+    expect(run()).toContain('in lockstep at 2026.9.1');
   });
 
   it('reports unexpected files without failing', () => {
