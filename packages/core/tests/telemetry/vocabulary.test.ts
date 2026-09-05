@@ -65,6 +65,8 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
   { name: 'upgrade_cta_clicked', surface: 'grace-banner' },
   { name: 'feature_used', feature: 'mcp-server' },
   { name: 'feature_used', feature: 'server-admin' },
+  { name: 'feature_used', feature: 'popup' },
+  { name: 'feature_used', feature: 'rule-toggle' },
   { name: 'mcp_client_connected', client: 'claude-code' },
 ];
 

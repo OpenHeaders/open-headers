@@ -81,6 +81,11 @@ export const TelemetryFeatureIdSchema = v.picklist([
   // hard-off) and the server admin console tab.
   'mcp-server',
   'server-admin',
+  // S31 popup engagement (2026-09-05): the toolbar surface itself
+  // (popup or side panel mounted) and a rule switched from it — the
+  // two gestures most store installs make and no other id covered.
+  'popup',
+  'rule-toggle',
 ]);
 
 /**

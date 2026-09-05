@@ -18,6 +18,7 @@ import {
 } from '@openheaders/ui/context';
 import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import {
   useAppUpdateNotification,
   useDesktopAppSuggestion,
@@ -150,6 +151,10 @@ const AppContent: React.FC<AppContentProps> = ({ resolveIdentity }) => {
     getCapability('announceSurfaceReady')?.().catch((error: Error) => {
       logger.info(surface.mode, 'announceSurfaceReady failed:', error.message);
     });
+
+    // Opening the toolbar surface (popup or side panel) is the
+    // engagement gesture most installs make and nothing else records.
+    noteFeatureUsed('popup');
 
     return disposePresence;
   }, [surface]);

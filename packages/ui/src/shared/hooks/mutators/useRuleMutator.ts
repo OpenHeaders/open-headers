@@ -11,6 +11,7 @@
 
 import type { TelemetryRuleCreatedOrigin } from '@openheaders/core/telemetry';
 import type { RuleSeed } from '@openheaders/core/utils';
+import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
 import {
   applyRuleCreate,
   applyRuleDelete,
@@ -59,9 +60,13 @@ export function useRuleMutator(opts: UseRuleMutatorOptions): UseRuleMutatorApi {
     applyRuleUpdate(ruleUid, updates, writeOpts),
   );
 
-  const toggleRule = useGuardedMutation(workspaceId, surfaceId, (writeOpts, ruleUid: string, enabled: boolean) =>
-    applyRuleToggle(ruleUid, enabled, writeOpts),
-  );
+  const toggleRule = useGuardedMutation(workspaceId, surfaceId, (writeOpts, ruleUid: string, enabled: boolean) => {
+    // A rule switched from the toolbar surface is the popup's one
+    // real activity signal (plan §3, S31); every popup mutator mounts
+    // with the `popup` surface id, the side panel included.
+    if (surfaceId === 'popup') noteFeatureUsed('rule-toggle');
+    return applyRuleToggle(ruleUid, enabled, writeOpts);
+  });
 
   const deleteRule = useGuardedMutation(workspaceId, surfaceId, (writeOpts, ruleUid: string) =>
     applyRuleDelete(ruleUid, writeOpts),
