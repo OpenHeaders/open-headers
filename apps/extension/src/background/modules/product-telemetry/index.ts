@@ -266,7 +266,7 @@ export function detectDistributionChannel(): TelemetryChannelId {
  * and workspace count, bucketed. Reads two storage keys at boot; any
  * failure just omits the buckets — context, never worth blocking over.
  */
-async function readScaleBuckets(): Promise<
+export async function readScaleBuckets(): Promise<
   Pick<Extract<TelemetryEvent, { name: 'session_start' }>, 'rules' | 'workspaces'>
 > {
   try {
@@ -319,10 +319,11 @@ export async function buildEnvelopeFacts(): Promise<TelemetryEnvelopeFacts> {
 }
 
 async function buildSessionStart(): Promise<TelemetryEvent | null> {
-  // Unmappable platforms skip the event rather than misreport (the
-  // envelope stays unstamped too); the per-process facts ride the
-  // envelope, so the event carries only the scale-of-use measurements.
-  if ((await telemetryPlatform()) === null) return null;
+  // The per-process facts ride the envelope, so the event carries only
+  // the scale-of-use measurements. An unmappable platform (ChromeOS)
+  // leaves the envelope unstamped but still counts the session — the
+  // install is a real store user either way (S31; before, those
+  // installs announced a first_run and were never seen again).
   return { name: 'session_start', ...(await readScaleBuckets()) };
 }
 
