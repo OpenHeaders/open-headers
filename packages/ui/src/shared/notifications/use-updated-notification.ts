@@ -17,7 +17,7 @@
  */
 
 import { getCapability } from '@openheaders/core/capabilities';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useT } from '../../context/LocaleContext';
 import { useSettingsReady } from '../../workbench/settings/hooks';
 import { getBuildInfo } from '../build-info';
@@ -27,6 +27,10 @@ const LAST_RUN_VERSION_KEY = 'oh.lastRunVersion';
 
 export function useUpdatedNotification(onOpenWhatsNew?: () => void): void {
   const t = useT();
+  // The entry outlives this render and the workbench's tab opener is
+  // re-created on every tab-list change — resolve it at click time.
+  const onOpenWhatsNewRef = useRef(onOpenWhatsNew);
+  onOpenWhatsNewRef.current = onOpenWhatsNew;
   // Entries capture copy at push time — hold the announcement until the
   // settings store resolves `general.language` (same rule as
   // useAppUpdateNotification); the latch stays untouched while waiting.
@@ -50,7 +54,9 @@ export function useUpdatedNotification(onOpenWhatsNew?: () => void): void {
       title: t('shared.notifications.toast.updatedTo', { version }),
       dedupeKey: `app-updated:${version}`,
       actions:
-        hasNotes && onOpenWhatsNew ? [{ label: t('shared.notifications.toast.seeWhatsNew'), run: onOpenWhatsNew }] : [],
+        hasNotes && onOpenWhatsNewRef.current
+          ? [{ label: t('shared.notifications.toast.seeWhatsNew'), run: () => onOpenWhatsNewRef.current?.() }]
+          : [],
     });
-  }, [ready, t, onOpenWhatsNew]);
+  }, [ready, t]);
 }

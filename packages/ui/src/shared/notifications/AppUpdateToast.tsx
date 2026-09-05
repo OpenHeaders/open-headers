@@ -112,6 +112,13 @@ interface AppUpdateToastProps {
 const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, onOpenWhatsNew }) => {
   const { notification } = App.useApp();
   const t = useT();
+  // The post-update timeline entry outlives this render, and a tab
+  // opener is re-created on every tab-list change — actions resolve
+  // the latest callbacks at click time.
+  const onOpenUpdateSettingsRef = useRef(onOpenUpdateSettings);
+  onOpenUpdateSettingsRef.current = onOpenUpdateSettings;
+  const onOpenWhatsNewRef = useRef(onOpenWhatsNew);
+  onOpenWhatsNewRef.current = onOpenWhatsNew;
   // `${version}:${phase}` whose balloon closed — that phase stays
   // quiet. Any close counts: a ✕ is a dismissal, an action click means
   // the user already acted, a programmatic close precedes a quiet
@@ -134,7 +141,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       <ToastCornerMenu
         onPick={(key) => {
           close();
-          if (key === 'settings') onOpenUpdateSettings();
+          if (key === 'settings') onOpenUpdateSettingsRef.current();
           else writeIgnoredVersion(version);
         }}
       />
@@ -304,10 +311,10 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
       }
       if (previous === null || previous === currentVersion) return;
       const url = releasePageUrl(currentVersion);
-      const whatsNewTab = onOpenWhatsNew && getCapability('getWhatsNew')?.() ? onOpenWhatsNew : null;
       const openReleasePage = (): void => {
-        if (whatsNewTab) {
-          whatsNewTab();
+        const openWhatsNew = onOpenWhatsNewRef.current;
+        if (openWhatsNew && getCapability('getWhatsNew')?.()) {
+          openWhatsNew();
           return;
         }
         const openUrl = getCapability('openExternalUrl');
@@ -387,7 +394,7 @@ const AppUpdateToast: React.FC<AppUpdateToastProps> = ({ onOpenUpdateSettings, o
     return () => {
       cancelled = true;
     };
-  }, [notification, onOpenUpdateSettings, onOpenWhatsNew, t]);
+  }, [notification, t]);
 
   return null;
 };

@@ -106,6 +106,21 @@ describe('useUpdatedNotification', () => {
     expect(window.localStorage.getItem(LAST_RUN_VERSION_KEY)).toBe('2026.7.27');
   });
 
+  it('runs the opener supplied at click time, not the one captured at push', async () => {
+    window.localStorage.setItem(LAST_RUN_VERSION_KEY, '2026.7.26');
+    registerCapability('getWhatsNew', () => '## Fixes');
+    const stale = vi.fn();
+    const fresh = vi.fn();
+    await initSettingsStore();
+    const { rerender } = render(<Harness onOpenWhatsNew={stale} />);
+    rerender(<Harness onOpenWhatsNew={fresh} />);
+
+    expect(latest).toHaveLength(1);
+    latest[0]?.actions?.[0]?.run();
+    expect(stale).not.toHaveBeenCalled();
+    expect(fresh).toHaveBeenCalledTimes(1);
+  });
+
   it('announces without an action when the build bundles no notes', async () => {
     window.localStorage.setItem(LAST_RUN_VERSION_KEY, '2026.7.26');
     await initSettingsStore();
