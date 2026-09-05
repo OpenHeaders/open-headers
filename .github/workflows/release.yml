@@ -45,8 +45,9 @@ jobs:
     env:
       OH_DESKTOP_CHANNEL: release
     strategy:
-      # One OS leg failing must not cancel the others — the release job
-      # publishes whatever legs produced artifacts.
+      # One OS leg failing must not cancel the others — every leg
+      # reports, so one run diagnoses every failure; the release job
+      # itself runs only when all of them succeeded.
       fail-fast: false
       matrix:
         # macOS and Linux run one leg PER ARCH so the two
@@ -537,6 +538,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: desktop-${{ matrix.os }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
+          # A leg whose electron-builder wrote nothing must fail here,
+          # not upload an empty artifact and stay green.
+          if-no-files-found: error
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.exe
@@ -823,6 +827,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: binaries-${{ matrix.os }}
+          if-no-files-found: error
           path: release-binaries/*
 
   # No extension leg: extension distribution is store-listings only
@@ -831,9 +836,13 @@ jobs:
   # apps/extension/package.json.
 
   release:
-    # Runs as long as the workflow wasn't cancelled — a failed OS leg
-    # still yields a release from the legs that produced artifacts.
-    if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && !cancelled() && needs.build-desktop.result != 'cancelled' }}
+    # Every needed job must have SUCCEEDED — a failed leg publishes
+    # nothing (2026.9.0 shipped a one-arch latest-mac.yml for 49
+    # minutes off a failed mac x64 leg). `!cancelled()` only makes the
+    # expression evaluate when a needed job failed or was skipped (the
+    # default would skip this job silently); the result checks decide.
+    # build-binaries is stable-only, so a beta sees it skipped.
+    if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && needs.build-desktop.result == 'success' && (needs.build-binaries.result == 'success' || (contains(github.ref_name, '-beta') && needs.build-binaries.result == 'skipped')) }}
     needs: [build-desktop, build-binaries]
     runs-on: ubuntu-latest
 
@@ -933,14 +942,17 @@ jobs:
           done
 
           # Two mac legs write two one-arch update-info files; the feed
-          # serves ONE latest-mac.yml, so union their files lists. A
-          # single input (the arm64-only beta lane, or a failed leg)
-          # passes through unchanged; a merge conflict fails the
-          # release before any pointer is published.
+          # serves ONE latest-mac.yml, so union their files lists. The
+          # arm64-only beta lane passes its single input through
+          # unchanged; a stable tag requires both arch files (one alone
+          # would strand the other arch's updater); a merge conflict
+          # fails the release before any pointer is published.
+          MIN_MAC_INPUTS=2
+          if [ "${{ steps.release_type.outputs.is_prerelease }}" = "true" ]; then MIN_MAC_INPUTS=1; fi
           for NAME in latest-mac.yml beta-mac.yml; do
             MAC_YMLS=$(find dist -path "dist/desktop-macos-latest-*" -name "$NAME" | sort)
             if [ -n "$MAC_YMLS" ]; then
-              node scripts/merge-mac-update-yml.mjs "processed_files/$NAME" $MAC_YMLS
+              node scripts/merge-mac-update-yml.mjs "--min-inputs=$MIN_MAC_INPUTS" "processed_files/$NAME" $MAC_YMLS
             fi
           done
 
@@ -1305,7 +1317,7 @@ jobs:
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           name: "${{ github.ref_name }}"
           files: processed_files/*
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
           body_path: release_body.md
           generate_release_notes: false
           # The body is generated whole every run — appending would

@@ -10,9 +10,11 @@
  * x64 entries first and the top-level `path`/`sha512` naming the x64
  * asset, with arm64 clients selecting their file from the `files:`
  * list by name. A single input passes through byte-identical — the
- * beta lane builds arm64 only.
+ * beta lane builds arm64 only. A stable tag passes `--min-inputs=2`:
+ * one arch's file alone would ship a pointer the other arch's clients
+ * cannot resolve, so fewer inputs than that fail the release.
  *
- * Usage: node scripts/merge-mac-update-yml.mjs <output-file> <input-file>...
+ * Usage: node scripts/merge-mac-update-yml.mjs [--min-inputs=N] <output-file> <input-file>...
  */
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -69,9 +71,16 @@ function entryUrl(entry) {
   return match[1];
 }
 
-const [output, ...inputs] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const minInputsArg = args.find((arg) => arg.startsWith('--min-inputs='));
+const minInputs = minInputsArg ? Number(minInputsArg.slice('--min-inputs='.length)) : 1;
+if (!Number.isInteger(minInputs) || minInputs < 1) fail(`--min-inputs expects a positive integer, got '${minInputsArg}'`);
+const [output, ...inputs] = args.filter((arg) => arg !== minInputsArg);
 if (!output || inputs.length === 0) {
-  fail('usage: merge-mac-update-yml.mjs <output-file> <input-file>...');
+  fail('usage: merge-mac-update-yml.mjs [--min-inputs=N] <output-file> <input-file>...');
+}
+if (inputs.length < minInputs) {
+  fail(`expected at least ${minInputs} update-info inputs, got ${inputs.length} (${inputs.join(', ')})`);
 }
 
 mkdirSync(path.dirname(output), { recursive: true });

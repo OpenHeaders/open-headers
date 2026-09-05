@@ -40,14 +40,18 @@ const X64_YML = [
 
 let workDir: string;
 
-function merge(files: Record<string, string>, inputNames: string[]): { out: string; run: () => string } {
+function merge(
+  files: Record<string, string>,
+  inputNames: string[],
+  flags: string[] = [],
+): { out: string; run: () => string } {
   workDir = mkdtempSync(path.join(tmpdir(), 'oh-mac-yml-merge-'));
   for (const [name, content] of Object.entries(files)) {
     writeFileSync(path.join(workDir, name), content);
   }
   const out = path.join(workDir, 'merged', 'latest-mac.yml');
   const run = () =>
-    execFileSync(process.execPath, [SCRIPT, out, ...inputNames.map((name) => path.join(workDir, name))], {
+    execFileSync(process.execPath, [SCRIPT, ...flags, out, ...inputNames.map((name) => path.join(workDir, name))], {
       encoding: 'utf8',
     });
   return { out, run };
@@ -88,6 +92,19 @@ describe('merge-mac-update-yml', () => {
     run();
 
     expect(readFileSync(out, 'utf8')).toBe(ARM64_YML);
+  });
+
+  it('fails below --min-inputs (a stable tag with one mac leg)', () => {
+    const { run } = merge({ 'arm64.yml': ARM64_YML }, ['arm64.yml'], ['--min-inputs=2']);
+
+    expect(run).toThrow(/expected at least 2 update-info inputs, got 1/);
+  });
+
+  it('merges normally when --min-inputs is met', () => {
+    const { out, run } = merge({ 'a.yml': X64_YML, 'b.yml': ARM64_YML }, ['a.yml', 'b.yml'], ['--min-inputs=2']);
+    run();
+
+    expect(readFileSync(out, 'utf8')).toContain('  - url: OpenHeaders-2026.8.3-mac-arm64.zip');
   });
 
   it('deduplicates identical entries across inputs', () => {
