@@ -14,6 +14,13 @@
  *   changelog/assets/<stream>/<version>/…    — entry assets
  *   llms.txt (feed root)                     — llms.txt pointer for AI agents
  *
+ * The indexes span every entry in the tree; the per-entry objects and
+ * assets stage ONLY for the versions this tag cuts — every earlier
+ * entry is already live (staged by its own tag) and cached immutable,
+ * so re-putting it is minutes of upload for identical bytes. A
+ * published entry's bytes therefore never move: a correction to
+ * history ships as a new entry, never as a rewrite.
+ *
  * Asset refs are relative in the canonical tree and rewritten to
  * absolute feed URLs here (relative-at-source, resolve-at-projection).
  * Entry-existence law: a release the tag cuts WITHOUT an entry file
@@ -70,6 +77,15 @@ function resolveAssets(text, stream) {
   return text.replaceAll('](./assets/', `](${FEED_BASE}/assets/${stream}/`);
 }
 
+// ── The streams and versions this tag cuts ───────────────────────────
+const severityByApp = readJson('.github/release-severity.json');
+const cutApps = lane ? { [lane]: CUT_APPS[lane] } : CUT_APPS;
+const cutVersions = {};
+for (const [app, pkgDir] of Object.entries(cutApps)) {
+  cutVersions[app] = pkgDir ? readJson(`${pkgDir}/package.json`).version.replace(/-beta\.\d+$/, '') : tagBase;
+}
+const isCut = (stream, version) => cutVersions[stream] === version;
+
 // ── Walk the canonical tree ──────────────────────────────────────────
 const entries = [];
 for (const stream of readdirSync(changelogDir)) {
@@ -81,6 +97,7 @@ for (const stream of readdirSync(changelogDir)) {
     const assetsDir = path.join(yearDir, 'assets');
     if (existsSync(assetsDir)) {
       for (const version of readdirSync(assetsDir)) {
+        if (!isCut(stream, version)) continue;
         cpSync(path.join(assetsDir, version), path.join(outRoot, 'assets', stream, version), { recursive: true });
       }
     }
@@ -110,10 +127,11 @@ function entryJson(entry) {
   };
 }
 
-// ── Per-entry objects (prose entries only — stubs have nothing to say)
+// ── Per-entry objects (prose entries only — stubs have nothing to say;
+// this tag's cut versions only — earlier entries are live already)
 const byKey = new Map(entries.map((entry) => [`${entry.stream}@${entry.fields.version}`, entry]));
 for (const entry of entries) {
-  if (entry.body === '') continue;
+  if (entry.body === '' || !isCut(entry.stream, entry.fields.version)) continue;
   const streamDir = path.join(outRoot, entry.stream);
   mkdirSync(streamDir, { recursive: true });
   writeFileSync(path.join(streamDir, `${entry.fields.version}.json`), `${JSON.stringify(entryJson(entry), null, 2)}\n`);
@@ -121,12 +139,6 @@ for (const entry of entries) {
 }
 
 // ── Immutable per-beta snapshots for the streams this tag cuts ───────
-const severityByApp = readJson('.github/release-severity.json');
-const cutApps = lane ? { [lane]: CUT_APPS[lane] } : CUT_APPS;
-const cutVersions = {};
-for (const [app, pkgDir] of Object.entries(cutApps)) {
-  cutVersions[app] = pkgDir ? readJson(`${pkgDir}/package.json`).version.replace(/-beta\.\d+$/, '') : tagBase;
-}
 if (betaN) {
   for (const app of Object.keys(cutApps)) {
     if (app === 'extension') continue;

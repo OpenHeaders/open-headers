@@ -1306,6 +1306,13 @@ jobs:
       # release and the pointer files exist, so no published URL can
       # name missing bytes. Pointer/channel files are excluded — their
       # home is desktop/<channel>/ and versions/.
+      #
+      # Every object is a conditional put (If-None-Match: *): a dl/ key
+      # is written once and never overwritten. An existing key with the
+      # same size is reported and left alone; a different size is a
+      # hard error — two runs of one tag disagreeing on bytes is never
+      # resolved by the later one winning. The objects are independent,
+      # so they upload eight at a time.
       - name: Upload release artifacts to R2
         if: steps.r2.outputs.enabled == 'true'
         env:
@@ -1315,25 +1322,47 @@ jobs:
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
         run: |
-          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          find processed_files -maxdepth 1 -type f \
-            ! -name 'latest*.yml' ! -name 'beta*.yml' ! -name 'versions.json' | while read -r file; do
-            NAME="$(basename "$file")"
-            case "$NAME" in
-              *.txt) TYPE="text/plain; charset=utf-8" ;;
-              *.asc) TYPE="text/plain; charset=utf-8" ;;
-              *.sh) TYPE="text/x-shellscript; charset=utf-8" ;;
-              *.ps1) TYPE="text/plain; charset=utf-8" ;;
-              *.zip) TYPE="application/zip" ;;
-              *) TYPE="application/octet-stream" ;;
+          export ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          put_dl() {
+            local file="$1" name key type
+            name="$(basename "$file")"
+            key="dl/${GITHUB_REF_NAME}/${name}"
+            case "$name" in
+              *.txt) type="text/plain; charset=utf-8" ;;
+              *.asc) type="text/plain; charset=utf-8" ;;
+              *.sh) type="text/x-shellscript; charset=utf-8" ;;
+              *.ps1) type="text/plain; charset=utf-8" ;;
+              *.zip) type="application/zip" ;;
+              *) type="application/octet-stream" ;;
             esac
+            local err
             # Per-tag paths never change — cache as immutable.
-            aws s3 cp "$file" "s3://${R2_BUCKET}/dl/${GITHUB_REF_NAME}/${NAME}" \
+            if err=$(aws s3api put-object --bucket "$R2_BUCKET" --key "$key" --body "$file" \
               --endpoint-url "$ENDPOINT" --region auto \
-              --content-type "$TYPE" \
+              --content-type "$type" \
               --cache-control "public, max-age=31536000, immutable" \
-              --no-progress
-          done
+              --if-none-match '*' 2>&1 >/dev/null); then
+              echo "put ${key}"
+              return 0
+            fi
+            if ! grep -q PreconditionFailed <<< "$err"; then
+              echo "::error::put ${key} failed: ${err}"
+              return 1
+            fi
+            local live_size local_size
+            live_size=$(aws s3api head-object --bucket "$R2_BUCKET" --key "$key" \
+              --endpoint-url "$ENDPOINT" --region auto --query ContentLength --output text)
+            local_size=$(stat -c %s "$file")
+            if [ "$live_size" != "$local_size" ]; then
+              echo "::error::${key} already exists with ${live_size} bytes; this run has ${local_size} — a dl/ object is never overwritten"
+              return 1
+            fi
+            echo "kept ${key} (already live, ${live_size} bytes)"
+          }
+          export -f put_dl
+          find processed_files -maxdepth 1 -type f \
+            ! -name 'latest*.yml' ! -name 'beta*.yml' ! -name 'versions.json' -print0 \
+            | sort -z | xargs -0 -P 8 -n 1 bash -c 'put_dl "$1"' _
 
       # The GitHub release page stays the human-browsable home and a
       # redundant copy of every artifact — machine contracts point at
@@ -1409,6 +1438,17 @@ jobs:
           fi
           find feed -type f | sort
 
+      # Two tiers, so a reader can never see an index that names bytes
+      # not yet on the feed: first the immutable objects (apt pool debs,
+      # rpm Packages, hash-prefixed repodata, changelog entries and
+      # assets, the archive keys), eight at a time — pool debs and rpms
+      # are copied bucket-internally from the dl/ objects uploaded
+      # above, not egressed twice; then the mutable indexes and
+      # pointers one at a time in dependency order (apt Packages →
+      # Release → Release.gpg → InRelease; repomd.xml → its signature;
+      # changelog views; the installer scripts; desktop/<channel>/*.yml;
+      # versions/<channel>.json last — the manifest that names the
+      # release to every client).
       - name: Upload update feed to R2
         if: steps.r2.outputs.enabled == 'true'
         env:
@@ -1420,26 +1460,28 @@ jobs:
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
         run: |
-          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          find feed -type f | while read -r file; do
-            KEY="${file#feed/}"
+          export ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          put_feed() {
+            local file="$1" key type cache name
+            key="${file#feed/}"
+            name="$(basename "$file")"
             case "$file" in
-              *.yml)  TYPE="text/yaml" ;;
-              *.json) TYPE="application/json" ;;
-              *.md)   TYPE="text/markdown; charset=utf-8" ;;
-              *.ps1)  TYPE="text/plain; charset=utf-8" ;;
-              *.txt)  TYPE="text/plain; charset=utf-8" ;;
-              *.sh)   TYPE="text/x-shellscript; charset=utf-8" ;;
-              *.asc)  TYPE="text/plain; charset=utf-8" ;;
-              *.webp) TYPE="image/webp" ;;
-              *.png)  TYPE="image/png" ;;
-              *.deb)  TYPE="application/vnd.debian.binary-package" ;;
-              *.rpm)  TYPE="application/x-rpm" ;;
-              *.xml)  TYPE="text/xml; charset=utf-8" ;;
-              *.gz)   TYPE="application/gzip" ;;
-              *.gpg)  TYPE="application/pgp-signature" ;;
-              */Release|*/InRelease|*/Packages) TYPE="text/plain; charset=utf-8" ;;
-              *)      TYPE="application/octet-stream" ;;
+              *.yml)  type="text/yaml" ;;
+              *.json) type="application/json" ;;
+              *.md)   type="text/markdown; charset=utf-8" ;;
+              *.ps1)  type="text/plain; charset=utf-8" ;;
+              *.txt)  type="text/plain; charset=utf-8" ;;
+              *.sh)   type="text/x-shellscript; charset=utf-8" ;;
+              *.asc)  type="text/plain; charset=utf-8" ;;
+              *.webp) type="image/webp" ;;
+              *.png)  type="image/png" ;;
+              *.deb)  type="application/vnd.debian.binary-package" ;;
+              *.rpm)  type="application/x-rpm" ;;
+              *.xml)  type="text/xml; charset=utf-8" ;;
+              *.gz)   type="application/gzip" ;;
+              *.gpg)  type="application/pgp-signature" ;;
+              */Release|*/InRelease|*/Packages) type="text/plain; charset=utf-8" ;;
+              *)      type="application/octet-stream" ;;
             esac
             # Short cache so a fresh release is visible within minutes
             # of the pointer upload — clients check at most daily.
@@ -1448,19 +1490,70 @@ jobs:
             # change once shipped — those cache as immutable. repomd.xml
             # (and its signature) is the one mutable rpm index name, so
             # it stays on the short-cache default.
-            case "$KEY" in
+            case "$key" in
               rpm/*/repodata/repomd.xml*)
-                CACHE="public, max-age=300, must-revalidate" ;;
+                cache="public, max-age=300, must-revalidate" ;;
               changelog/assets/*|changelog/*-beta.*.json|apt/*/pool/*|rpm/*/Packages/*|rpm/*/repodata/*)
-                CACHE="public, max-age=31536000, immutable" ;;
+                cache="public, max-age=31536000, immutable" ;;
               *)
-                CACHE="public, max-age=300, must-revalidate" ;;
+                cache="public, max-age=300, must-revalidate" ;;
             esac
-            aws s3 cp "$file" "s3://${R2_BUCKET}/${KEY}" \
+            case "$key" in
+              apt/*/pool/*|rpm/*/Packages/*)
+                # The same bytes already live under dl/<tag>/ — a
+                # bucket-internal copy, no second egress from the runner.
+                if [ -f "processed_files/${name}" ]; then
+                  aws s3api copy-object --bucket "$R2_BUCKET" --key "$key" \
+                    --copy-source "${R2_BUCKET}/dl/${GITHUB_REF_NAME}/${name}" \
+                    --endpoint-url "$ENDPOINT" --region auto \
+                    --metadata-directive REPLACE \
+                    --content-type "$type" --cache-control "$cache" >/dev/null
+                  echo "copied ${key} from dl/${GITHUB_REF_NAME}/${name}"
+                  return 0
+                fi ;;
+            esac
+            aws s3 cp "$file" "s3://${R2_BUCKET}/${key}" \
               --endpoint-url "$ENDPOINT" --region auto \
-              --content-type "$TYPE" \
-              --cache-control "$CACHE" \
+              --content-type "$type" \
+              --cache-control "$cache" \
               --no-progress
+          }
+          export -f put_feed
+
+          # The mutable tier, ranked; everything else is an immutable
+          # object and goes first.
+          index_rank() {
+            case "$1" in
+              apt/*/dists/*/Packages|apt/*/dists/*/Packages.gz) echo 10 ;;
+              apt/*/dists/*/Release)     echo 11 ;;
+              apt/*/dists/*/Release.gpg) echo 12 ;;
+              apt/*/dists/*/InRelease)   echo 13 ;;
+              rpm/*/repodata/repomd.xml)     echo 20 ;;
+              rpm/*/repodata/repomd.xml.asc) echo 21 ;;
+              changelog/*/*) echo "" ;;
+              changelog/*.json) echo 30 ;;
+              llms.txt)     echo 31 ;;
+              install.sh|install.ps1) echo 40 ;;
+              desktop/*)    echo 50 ;;
+              versions/*)   echo 60 ;;
+              *) echo "" ;;
+            esac
+          }
+          : > objects.txt
+          : > indexes.txt
+          while read -r file; do
+            rank=$(index_rank "${file#feed/}")
+            if [ -n "$rank" ]; then
+              echo "${rank} ${file}" >> indexes.txt
+            else
+              echo "$file" >> objects.txt
+            fi
+          done < <(find feed -type f | sort)
+
+          echo "immutable objects: $(wc -l < objects.txt), indexes and pointers: $(wc -l < indexes.txt)"
+          if [ -s objects.txt ]; then
+            tr '\n' '\0' < objects.txt | xargs -0 -P 8 -n 1 bash -c 'put_feed "$1"' _
+          fi
+          sort -n -k1,1 -k2 indexes.txt | while read -r rank file; do
+            put_feed "$file"
           done
-
-
