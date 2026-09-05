@@ -20,6 +20,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# The CLI e2e legs run the real `oh` binary; without this every run
+# counts as a product session in the telemetry dataset.
+env:
+  OH_TELEMETRY: '0'
+
 jobs:
   # Computes which slices of the tree a push touched, so the non-turbo
   # jobs (the extension shards) can skip when nothing they cover

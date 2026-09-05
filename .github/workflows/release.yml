@@ -39,6 +39,9 @@ env:
   DO_NOT_TRACK: 1
   VSCMD_SKIP_SENDTELEMETRY: 1
   NEEDRESTART_SUSPEND: 1
+  # Our own product telemetry off on every leg: the smoke runs of the
+  # built `oh` would otherwise count as product sessions.
+  OH_TELEMETRY: '0'
 
 jobs:
   build-desktop:

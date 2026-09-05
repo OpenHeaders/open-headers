@@ -26,6 +26,9 @@ env:
   NODE_OPTIONS: --max-old-space-size=4096
   RELEASE_REPO: OpenHeaders/open-headers
   R2_BUCKET: oh-updates
+  # Our own product telemetry off on every leg: the smoke runs of the
+  # built `oh` would otherwise count as product sessions.
+  OH_TELEMETRY: '0'
 
 jobs:
   parse:
