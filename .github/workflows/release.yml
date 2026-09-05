@@ -36,6 +36,8 @@ jobs:
   build-desktop:
     if: ${{ !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') }}
     runs-on: ${{ matrix.os }}
+    # 2026.9.0: 29 min on the mac legs with every cache cold.
+    timeout-minutes: 60
     # Shipped-artifact hardening (terser passes, strip-testid runtime,
     # debug-console removal, license-chunk bytecode) — release pipeline
     # only, so local production builds and the e2e target stay
@@ -534,13 +536,25 @@ jobs:
       # overhead); that economics died with the move to free public
       # runners, so the pair lives in build-binaries' macos row again —
       # off this critical path.
+      # The upload is retried once on failure (2026.9.0: the mac x64
+      # leg's 564 MB blob uploaded whole, then one ECONNRESET on the
+      # finalize call failed the leg and cost a rerun — the action
+      # itself does not retry). Installers are already compressed, so
+      # the artifact zip stores them; seven days covers a release's
+      # verification window (the bytes' homes are the feed and the
+      # release page). Only the update-info files travel — never
+      # builder-debug.yml.
       - name: Upload desktop artifacts
+        id: upload_desktop
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: desktop-${{ matrix.os }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
           # A leg whose electron-builder wrote nothing must fail here,
           # not upload an empty artifact and stay green.
           if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.exe
@@ -551,7 +565,30 @@ jobs:
             apps/desktop/dist/*.AppImage
             apps/desktop/dist/*.deb
             apps/desktop/dist/*.rpm
-            apps/desktop/dist/*.yml
+            apps/desktop/dist/latest*.yml
+            apps/desktop/dist/beta*.yml
+
+      - name: Upload desktop artifacts (retry)
+        if: steps.upload_desktop.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: desktop-${{ matrix.os }}${{ matrix.arch && format('-{0}', matrix.arch) || '' }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          overwrite: true
+          path: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.msi
+            apps/desktop/dist/*.pkg
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/*.blockmap
+            apps/desktop/dist/*.AppImage
+            apps/desktop/dist/*.deb
+            apps/desktop/dist/*.rpm
+            apps/desktop/dist/latest*.yml
+            apps/desktop/dist/beta*.yml
 
   # Standalone `oh` and `ohd` (win32 is not a daemon target) ship on
   # STABLE tags only — betas carry no standalone binaries: the daemon
@@ -568,6 +605,8 @@ jobs:
   build-binaries:
     if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && !contains(github.ref_name, '-beta') }}
     runs-on: ${{ matrix.os }}
+    # 2026.9.0: 6 min per leg.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -823,10 +862,25 @@ jobs:
         shell: bash
 
       - name: Upload binary artifacts
+        id: upload_binaries
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: binaries-${{ matrix.os }}
           if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          path: release-binaries/*
+
+      - name: Upload binary artifacts (retry)
+        if: steps.upload_binaries.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: binaries-${{ matrix.os }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          overwrite: true
           path: release-binaries/*
 
   # No extension leg: extension distribution is store-listings only
@@ -844,6 +898,8 @@ jobs:
     if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && needs.build-desktop.result == 'success' && (needs.build-binaries.result == 'success' || (contains(github.ref_name, '-beta') && needs.build-binaries.result == 'skipped')) }}
     needs: [build-desktop, build-binaries]
     runs-on: ubuntu-latest
+    # 2026.9.0: 18 min, of which 17 were the two serial uploads.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
