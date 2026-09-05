@@ -1,9 +1,13 @@
 /**
  * GraphqlRequest mutator catalog — routing constants.
  *
- * One set-modeled path lives on the GraphqlRequest entity:
+ * Two set-modeled paths live on the GraphqlRequest entity:
  *
- *   - `headers` — request header rows (`{ key, value, description?, enabled? }`)
+ *   - `headers`  — request header rows (`{ key, value, description?, enabled? }`)
+ *   - `examples` — the ordered slots of the response examples captured
+ *                  from it (the HTTP `ResponseExample` kind: a GraphQL
+ *                  send IS an HTTP exchange, so the request holds the
+ *                  HTTP example type under the same containment law)
  *
  * Every other field — `name`, `description`, `url`, `query`,
  * `variables`, `operationName`, the HTTP settings knobs, the HTTP
@@ -22,6 +26,9 @@ export const GRAPHQL_REQUEST_ENTITY_TYPE = 'graphqlRequest';
 
 /** Set path for request header rows. */
 export const GRAPHQL_REQUEST_HEADERS_PATH = 'headers';
+
+/** Set path on a GraphQL request holding its response examples' ordered slots. */
+export const GRAPHQL_REQUEST_EXAMPLES_PATH = 'examples';
 
 /**
  * Wire shape for a header row. Mirrors `RequestHeader` field-for-field

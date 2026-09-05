@@ -5,6 +5,7 @@
  * 「模式」= schema；「资源管理器」= explorer；「变量」= variables.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsGraphql = {
@@ -12,7 +13,21 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.notFound': '未找到 GraphQL 请求。',
   'workbench.editors.graphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
   'workbench.editors.graphql.query.label': 'Query',
-  'workbench.editors.graphql.query.pendingExecution': '执行查询将随下一阶段推出。',
+  'workbench.editors.graphql.query.stop': '停止',
+  'workbench.editors.graphql.query.stopTooltip': '停止查询并保留已到达的内容',
+  'workbench.editors.graphql.operation.placeholder': '操作',
+  'workbench.editors.graphql.operation.tooltip':
+    'Query 执行的操作——文档包含多个操作；所选操作以 operationName 随请求发送。',
+  'workbench.editors.graphql.response.errors': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个错误' }),
+  'workbench.editors.graphql.response.errorsTitle': 'GraphQL 错误',
+  'workbench.editors.graphql.response.errorsSummary':
+    '服务器以 HTTP {status} 返回了 errors[] 列表——某个字段失败、文档被拒绝或缺少认证。请一并查看 data：部分数据，或 null。',
+  'workbench.editors.graphql.response.dataNull': 'data 为 null——每个根字段都向上传播了空值，或请求在执行前被拒绝。',
+  'workbench.editors.graphql.response.extensions': 'extensions',
+  'workbench.editors.graphql.response.extensionsTitle': '响应扩展',
+  'workbench.editors.graphql.response.extensionsSummary':
+    '服务器的 extensions 对象随 data 一同返回——追踪、成本、缓存提示，以及它选择附加的任何内容。',
   'workbench.editors.graphql.query.hint': '文档——一个或多个操作，可包含片段。',
   'workbench.editors.graphql.query.prettify': '美化',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',

@@ -8,6 +8,7 @@
 
 import {
   createRequestFolder,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   grpcRequestChild,
@@ -20,6 +21,7 @@ import {
   responseExampleChild,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { seedGraphqlRequest } from '@openheaders/core/sync-builders/projections/graphql-request-projection';
 import { seedGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
 import { seedGrpcResponseExample } from '@openheaders/core/sync-builders/projections/grpc-response-example-projection';
 import { seedMqttRequest } from '@openheaders/core/sync-builders/projections/mqtt-request-projection';
@@ -29,6 +31,7 @@ import { seedResponseExample } from '@openheaders/core/sync-builders/projections
 import { seedWebSocketRequest } from '@openheaders/core/sync-builders/projections/websocket-request-projection';
 import type {
   Collection,
+  GraphqlRequest,
   GrpcRequest,
   GrpcResponseExample,
   MqttRequest,
@@ -100,6 +103,18 @@ const mqtt = (uid: string, parentPath: string): MqttRequest =>
     savedMessages: [],
     userProperties: [],
   }) as unknown as MqttRequest;
+
+const graphql = (uid: string, parentPath: string): GraphqlRequest =>
+  ({
+    schemaVersion: 5,
+    uid,
+    path: `${parentPath}/gql-${uid}`,
+    name: uid,
+    url: '',
+    query: '',
+    headers: [],
+    auth: { type: 'inherit' },
+  }) as unknown as GraphqlRequest;
 
 const httpExample = (uid: string, requestUid: string): ResponseExample => ({
   schemaVersion: 5,
@@ -287,6 +302,44 @@ describe('treeDescendants', () => {
     const byUid = new Map(under.leaves.map((leaf) => [leaf.uid, sortedLeaves(leaf.examples).map((e) => e.uid)]));
     expect(byUid.get('req00001')).toEqual(['ex000001', 'ex000002', 'ex000003']);
     expect(byUid.get('grq00001')).toEqual(['gex00001']);
+  });
+
+  it('takes a GraphQL request’s examples with it — the HTTP example kind under the GraphQL leaf', async () => {
+    await oracle.apply(seedGraphqlRequest(graphql('gql00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
+    await oracle.apply(seedRequest(http('req00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
+    const q1 = { type: GRAPHQL_REQUEST_ENTITY_TYPE, uid: 'gql00001' } as const;
+    const r1 = { type: REQUEST_ENTITY_TYPE, uid: 'req00001' } as const;
+    // Slotted under the GraphQL request — the marker names the parent kind.
+    await oracle.apply(
+      seedResponseExample({ ...httpExample('ex000011', 'gql00001'), requestKind: 'graphql' }, ctxFactory(), {
+        parent: q1,
+      }),
+      [],
+      'inbound',
+    );
+    // An old-client capture whose parent field names the GraphQL request, no slot.
+    await oracle.apply(
+      seedResponseExample({ ...httpExample('ex000012', 'gql00001'), requestKind: 'graphql' }, ctxFactory()),
+      [],
+      'inbound',
+    );
+    // The HTTP sibling's own example stays its own.
+    await oracle.apply(
+      seedResponseExample(httpExample('ex000013', 'req00001'), ctxFactory(), { parent: r1 }),
+      [],
+      'inbound',
+    );
+
+    expect(sortedLeaves(requestExamples(oracle, q1))).toEqual([
+      { type: RESPONSE_EXAMPLE_ENTITY_TYPE, uid: 'ex000011' },
+      { type: RESPONSE_EXAMPLE_ENTITY_TYPE, uid: 'ex000012' },
+    ]);
+    expect(requestExamples(oracle, r1)).toEqual([{ type: RESPONSE_EXAMPLE_ENTITY_TYPE, uid: 'ex000013' }]);
+
+    const under = treeDescendants(oracle, REQUEST_TREE, A);
+    const byUid = new Map(under.leaves.map((leaf) => [leaf.uid, sortedLeaves(leaf.examples).map((e) => e.uid)]));
+    expect(byUid.get('gql00001')).toEqual(['ex000011', 'ex000012']);
+    expect(byUid.get('req00001')).toEqual(['ex000013']);
   });
 
   it('is empty for a container the tree does not know', () => {

@@ -40,6 +40,7 @@ import ResponseHeadersView from './ResponseHeadersView';
 import ResponseLiveMetaStrip from './ResponseLiveMetaStrip';
 import ResponseLiveTail from './ResponseLiveTail';
 import ResponseMetaStrip from './ResponseMetaStrip';
+import type { GraphqlResponseFacts } from './graphql-response';
 import { setCookieLinesOf } from './response-cookies';
 import { detectBodyLanguage } from './response-format';
 import { withWireCookieHeaders } from './response-headers';
@@ -157,6 +158,10 @@ interface ResponsePanelProps {
   extractRequiresSave?: boolean;
   /** Resend the request — the error state's trust gesture retries through it. */
   onResend?: () => void;
+  /** A GraphQL send's answer facts (`errors[]`, `extensions`) for the
+   *  meta strip's tags — derived by the GraphQL editor, absent for an
+   *  HTTP send. */
+  graphql?: GraphqlResponseFacts | null;
 }
 
 const ResponsePanel: React.FC<ResponsePanelProps> = ({
@@ -171,6 +176,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   onSaveResponse,
   extractRequiresSave,
   onResend,
+  graphql,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -330,7 +336,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           tabBarExtraContent={{
             right: (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-                <ResponseMetaStrip response={response} />
+                <ResponseMetaStrip response={response} graphql={graphql} />
                 {onExtractToWorkflow ? (
                   <CreateWorkflowDropdown onExtractToWorkflow={onExtractToWorkflow} liveWorkflows={liveWorkflows} />
                 ) : extractRequiresSave ? (

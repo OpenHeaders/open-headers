@@ -35,8 +35,14 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { REQUEST_ENTITY_TYPE, REQUEST_EXAMPLES_PATH } from '@openheaders/core/sync';
+import {
+  GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_EXAMPLES_PATH,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_EXAMPLES_PATH,
+} from '@openheaders/core/sync';
 import type { RendererContextHandle, RequestSyncMirror, ResponseExampleSyncMirror } from '@openheaders/ui/context';
+import type { GraphqlRequestSyncMirror } from '@openheaders/ui/context/mirrors/graphql-request-sync-mirror';
 import {
   applyResponseExampleCreate,
   applyResponseExampleDelete,
@@ -102,6 +108,24 @@ function makeRequestMirror(uids: string[] = ['req-1'], tail: string | null = nul
     liveOrderedSetItems: (_uid, setPath) =>
       setPath === REQUEST_EXAMPLES_PATH && tail !== null ? [{ itemId: 'rex-0', orderKey: tail }] : [],
     subscribeRequestMirror: () => () => undefined,
+    subscribeAny: () => () => undefined,
+    hydrated: Promise.resolve(),
+    dispose: () => undefined,
+  };
+}
+
+/** The GraphQL parent mirror: `gql-1` live with the given `examples` tail. */
+function makeGraphqlMirror(uids: string[] = ['gql-1'], tail: string | null = null): GraphqlRequestSyncMirror {
+  return {
+    getGraphqlRequestMirror: (uid) =>
+      uids.includes(uid)
+        ? ({ graphqlRequest: { uid } } as unknown as ReturnType<GraphqlRequestSyncMirror['getGraphqlRequestMirror']>)
+        : null,
+    listGraphqlRequests: () => [],
+    liveSetItems: () => [],
+    liveOrderedSetItems: (_uid, setPath) =>
+      setPath === GRAPHQL_REQUEST_EXAMPLES_PATH && tail !== null ? [{ itemId: 'rex-0', orderKey: tail }] : [],
+    subscribeGraphqlRequestMirror: () => () => undefined,
     subscribeAny: () => () => undefined,
     hydrated: Promise.resolve(),
     dispose: () => undefined,
@@ -391,5 +415,117 @@ describe('applyResponseExampleDelete', () => {
       { kind: 'removeFromSet', type: REQUEST_ENTITY_TYPE, id: 'req-1', path: REQUEST_EXAMPLES_PATH, itemId: 'rex-1' },
       { kind: 'delete', type: RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'rex-1' },
     ]);
+  });
+});
+
+describe('the GraphQL parent kind (requestKind: graphql)', () => {
+  it('creates under the GraphQL request: its mirror decides membership, the slot lands on its examples set', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const source = makeExample('rex-src', { requestUid: 'gql-1', requestKind: 'graphql' });
+    const result = await applyResponseExampleCreate(
+      {
+        requestPath: 'requests/api-rc1/viewer-gql-1',
+        example: {
+          requestUid: source.requestUid,
+          requestKind: 'graphql',
+          name: source.name,
+          capturedAt: source.capturedAt,
+          request: source.request,
+          response: source.response,
+        },
+      },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror: makeMirror([]),
+        // The HTTP request mirror does NOT know gql-1 — the GraphQL mirror must be the one consulted.
+        requestMirror: makeRequestMirror([]),
+        graphqlRequestMirror: makeGraphqlMirror(['gql-1']),
+        context: makeContextHandle(),
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.responseExample.requestKind).toBe('graphql');
+    expect(result.responseExample.path.startsWith('requests/api-rc1/viewer-gql-1/examples/')).toBe(true);
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const bodies = batch.mutations.map((m) => m.body);
+    expect(bodies[0]).toMatchObject({ kind: 'create', type: RESPONSE_EXAMPLE_ENTITY_TYPE });
+    expect(bodies[1]).toMatchObject({
+      kind: 'addToSet',
+      type: GRAPHQL_REQUEST_ENTITY_TYPE,
+      id: 'gql-1',
+      path: GRAPHQL_REQUEST_EXAMPLES_PATH,
+      itemId: result.responseExample.uid,
+    });
+  });
+
+  it('returns not-found when the GraphQL parent is not live', async () => {
+    const source = makeExample('rex-src', { requestUid: 'gql-9', requestKind: 'graphql' });
+    const result = await applyResponseExampleCreate(
+      {
+        requestPath: 'requests/api-rc1/viewer-gql-9',
+        example: {
+          requestUid: source.requestUid,
+          requestKind: 'graphql',
+          name: source.name,
+          capturedAt: source.capturedAt,
+          request: source.request,
+          response: source.response,
+        },
+      },
+      {
+        workspaceId: 'ws-1',
+        surfaceId: 'workbench',
+        mirror: makeMirror([]),
+        graphqlRequestMirror: makeGraphqlMirror(['gql-1']),
+        context: makeContextHandle(),
+      },
+    );
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('deletes with the slot tombstone on the GraphQL parent', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror([makeExample('rex-1', { requestUid: 'gql-1', requestKind: 'graphql' })]);
+    const result = await applyResponseExampleDelete('rex-1', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations.map((m) => m.body)).toEqual([
+      {
+        kind: 'removeFromSet',
+        type: GRAPHQL_REQUEST_ENTITY_TYPE,
+        id: 'gql-1',
+        path: GRAPHQL_REQUEST_EXAMPLES_PATH,
+        itemId: 'rex-1',
+      },
+      { kind: 'delete', type: RESPONSE_EXAMPLE_ENTITY_TYPE, id: 'rex-1' },
+    ]);
+  });
+
+  it('duplicates carrying the kind marker forward', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const source = makeExample('rex-1', {
+      requestUid: 'gql-1',
+      requestKind: 'graphql',
+      path: 'requests/api-rc1/viewer-gql-1/examples/list-users-rex-1',
+    });
+    const result = await applyResponseExampleDuplicate('rex-1', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror: makeMirror([source]),
+      graphqlRequestMirror: makeGraphqlMirror(['gql-1']),
+      context: makeContextHandle(),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.responseExample.requestKind).toBe('graphql');
+    expect(result.responseExample.name).toBe('List Users 2');
   });
 });

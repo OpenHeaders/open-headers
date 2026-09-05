@@ -51,6 +51,7 @@ import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-wo
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
 import type { CliProvisionStatus } from './cli-provision';
+import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
 import { type ExecuteGrpcRequestRpcResult, handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 import { hostDisplayLabel } from './host-os';
@@ -64,6 +65,9 @@ export { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSA
 
 const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
   executeRequest: 'workspace.write',
+  // The GraphqlRequest entity's Query compiles to an HTTP send — the
+  // same egress, the same tier.
+  executeGraphqlRequest: 'workspace.write',
   // The GrpcRequest entity's Invoke — same tier as the HTTP send: it
   // is network egress on a peer's behalf, so it shares the opt-in AND
   // the write capability.
@@ -80,6 +84,11 @@ const CAPABILITY_BY_CHANNEL: Record<string, Capability> = {
 export interface PeerRequestsRpcOptions {
   /** Injectable for tests; defaults to the real handler (shared transport singleton). */
   executeRequest?: (
+    message: Record<string, unknown>,
+    emitStreamFrame: (event: RequestStreamEventWire) => void,
+  ) => Promise<ExecuteRequestRpcResult>;
+  /** Injectable for tests; defaults to the real GraphQL handler (the compile + the HTTP run leg). */
+  executeGraphqlRequest?: (
     message: Record<string, unknown>,
     emitStreamFrame: (event: RequestStreamEventWire) => void,
   ) => Promise<ExecuteRequestRpcResult>;
@@ -140,6 +149,10 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
     options.executeRequest ??
     ((message: Record<string, unknown>, emitStreamFrame: (event: RequestStreamEventWire) => void) =>
       handleExecuteRequestRpc(message, undefined, emitStreamFrame));
+  const executeGraphqlRequest =
+    options.executeGraphqlRequest ??
+    ((message: Record<string, unknown>, emitStreamFrame: (event: RequestStreamEventWire) => void) =>
+      handleExecuteGraphqlRequestRpc(message, undefined, emitStreamFrame));
   const executeGrpcRequest =
     options.executeGrpcRequest ??
     ((message: Record<string, unknown>, emitStreamEvent: (event: GrpcStreamEventWire) => void) =>
@@ -202,7 +215,7 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
       // decision was made). The tier is per trust boundary: the peer's
       // loopback fact picks which opt-in governs and which refusal
       // names it.
-      if (type === 'executeRequest' || type === 'executeGrpcRequest') {
+      if (type === 'executeRequest' || type === 'executeGraphqlRequest' || type === 'executeGrpcRequest') {
         const loopback = peer.isLoopback === true;
         if (!(await peerExecuteAllowed(loopback))) {
           throw new Error(loopback ? LOCAL_PEER_EXECUTE_DISABLED_MESSAGE : REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
@@ -230,6 +243,13 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           // time on success and error snapshots alike; refusals throw
           // above and carry no snapshot to stamp.
           const result = await executeRequest(message, peerStreamFrameSink(peer.userId));
+          return result.snapshot
+            ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
+            : result;
+        }
+        case 'executeGraphqlRequest': {
+          // The compiled HTTP send — the HTTP branch's stamp verbatim.
+          const result = await executeGraphqlRequest(message, peerStreamFrameSink(peer.userId));
           return result.snapshot
             ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
             : result;

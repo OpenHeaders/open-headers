@@ -1,10 +1,9 @@
 /**
- * GraphQL workbench legs — the Phase B entity/editor gate on the
- * standalone extension workbench: real Chromium with the built
- * extension, no daemon. Execution is the next slice's, so every leg
- * here is the entity's: it persists, it edits, it renames, it deletes,
- * and the shell reads honestly (Query present but disabled with the
- * copy naming why).
+ * GraphQL workbench legs — the Phase B entity/editor gate and the
+ * Phase C execution gate on the standalone extension workbench: real
+ * Chromium with the built extension, no daemon. The SW runs the
+ * compiled HTTP send natively (the twin of the node hosts' route), so
+ * the execution legs ride the playground's GraphQL probe on port 3000.
  *
  *   E1  context-create: the collection `+` menu's "Add GraphQL Request"
  *       mints a persisted entity, the primed breadcrumb rename commits
@@ -12,7 +11,7 @@
  *       rides the same StatusBar rename gate as its siblings), the
  *       sidebar leaf carries the GQL tag, the Query tab is the default
  *       surface with the explorer's CTA scaffold, and the Query button
- *       is disabled with the honest copy.
+ *       is live with the ⌘/Ctrl+Enter hint.
  *   E2  edit → Save → reload → reopen: the endpoint URL, the document
  *       and the variables persist through a full page reload — the
  *       disk fan-out round trip (`graphql.yaml` + `query.graphql` +
@@ -22,8 +21,18 @@
  *       operation's variable definitions.
  *   E4  the flavor readings: the container's Settings section names
  *       the HTTP sub-tab "HTTP · GraphQL".
- *   E5  sidebar rename + delete: the leaf's inline rename lands on the
- *       entity, and the delete gesture removes it from the tree.
+ *   E5  execution through the SW twin: Query posts the live draft's
+ *       envelope to the probe — the response pane lands the 200 and the
+ *       echoed variable in the body.
+ *   E6  the 200-with-errors trap: the probe's `partial` field answers
+ *       data beside errors[] — the meta strip carries the error-toned
+ *       GraphQL errors tag.
+ *   E7  Save Response: the exchange freezes into an HTTP ResponseExample
+ *       marked `requestKind: 'graphql'`, nested under the GraphQL leaf
+ *       in the sidebar and opened in its viewer tab.
+ *   E8  sidebar rename + delete: the leaf's inline rename lands on the
+ *       entity, and the delete gesture removes it from the tree (the
+ *       example cascades with it).
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -39,7 +48,6 @@ import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
-const QUERY_PENDING_COPY = 'Running a query lands with the next slice.';
 const GRAPHQL_NAME = 'Probe GraphQL';
 const RENAMED_NAME = 'Viewer GraphQL';
 const GRAPHQL_URL = 'https://api.openheaders.io/graphql';
@@ -47,6 +55,11 @@ const GRAPHQL_URL = 'https://api.openheaders.io/graphql';
 // object's contract); Prettify is what lays it out.
 const GRAPHQL_QUERY = 'query Viewer($first: Int) { viewer { id notes(first: $first) { id } } }';
 const GRAPHQL_VARIABLES = '{"first": 10}';
+// The playground's GraphQL probe — the Playwright webServer boots it.
+const PROBE_URL = 'http://127.0.0.1:3000/api/graphql';
+const ECHO_QUERY = 'query Echo($t: String!) { echo(text: $t) }';
+const ECHO_VARIABLES = '{"t": "hi-from-the-workbench"}';
+const PARTIAL_QUERY = '{ partial { ok broken } }';
 
 let context: BrowserContext;
 let extensionId: string;
@@ -190,18 +203,18 @@ test('E1 — the collection + menu creates a GraphQL request with the Query scaf
 
   // The editor is open on the fresh entity — the Query tab is the
   // default surface with the explorer's CTA scaffold, and Query is
-  // PRESENT but disabled with the copy naming the slice it lands with.
+  // live: the hover hint carries the verb and the chord.
   await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByTestId('graphql-explorer-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
   await expect(page.getByTestId('graphql-explorer-introspect').filter({ visible: true }).first()).toBeDisabled();
   const button = queryButton();
-  await expect(button).toBeDisabled();
+  await expect(button).toBeEnabled();
   await page.mouse.move(0, 0);
   await button.hover();
   await page
     .locator('.ant-tooltip')
     .filter({ visible: true })
-    .getByText(QUERY_PENDING_COPY)
+    .filter({ hasText: 'Query' })
     .first()
     .waitFor({ state: 'visible', timeout: 5_000 });
   await page.mouse.move(0, 0);
@@ -260,9 +273,75 @@ test('E4 — the collection’s Settings section names the HTTP sub-tab “HTTP 
   await expect(kinds.getByTestId('oh-container-settings-kind-http')).toHaveText('HTTP · GraphQL');
 });
 
-// ── E5: sidebar rename + delete ─────────────────────────────────────
+// ── E5: execution through the SW twin ──────────────────────────────
 
-test('E5 — the sidebar leaf renames inline and the delete gesture removes the entity', async () => {
+test('E5 — Query posts the live draft to the probe: the 200 lands in the pane with the echoed variable', async () => {
+  await urlInput().fill(PROBE_URL);
+  await workbench.fillMonaco(0, ECHO_QUERY);
+  await workbench.fillMonaco(1, ECHO_VARIABLES);
+  await queryButton().click();
+  expect(await workbench.responseStatusText()).toBe('200 OK');
+  const body = await workbench.responseRawBody();
+  expect(body).toContain('"echo":"hi-from-the-workbench"');
+  // A clean answer carries no errors tag; the probe's extensions ride
+  // beside data and get their own neutral tag.
+  expect(await page.getByTestId('oh-response-graphql-errors').filter({ visible: true }).count()).toBe(0);
+  await page
+    .getByTestId('oh-response-graphql-extensions')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 5_000 });
+});
+
+// ── E6: the 200-with-errors trap ────────────────────────────────────
+
+test('E6 — a partial answer (data beside errors[]) carries the error-toned GraphQL errors tag', async () => {
+  await workbench.fillMonaco(0, PARTIAL_QUERY);
+  await queryButton().click();
+  expect(await workbench.responseStatusText()).toBe('200 OK');
+  const errorsTag = page.getByTestId('oh-response-graphql-errors').filter({ visible: true }).first();
+  await errorsTag.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(errorsTag).toHaveText('1 error');
+  await expect(errorsTag).toHaveClass(/ant-tag-error/);
+  // The popover names the failed path — the trap read honestly.
+  await errorsTag.hover();
+  await page
+    .getByTestId('oh-response-graphql-error')
+    .filter({ visible: true })
+    .filter({ hasText: 'partial.broken' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 5_000 });
+  await page.mouse.move(0, 0);
+});
+
+// ── E7: Save Response ───────────────────────────────────────────────
+
+test('E7 — Save Response freezes the exchange as an example nested under the GraphQL leaf', async () => {
+  await page.getByRole('button', { name: 'More response actions' }).filter({ visible: true }).last().click();
+  await page
+    .locator('.ant-dropdown:not(.ant-dropdown-hidden)')
+    .getByRole('menuitem', { name: /Save Response/ })
+    .first()
+    .click();
+  // The minted example opens in its viewer tab (the "Open as Request" action is the viewer's).
+  await page
+    .getByRole('button', { name: /Open as Request/ })
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+  // The sidebar nests the example leaf under the GraphQL request row —
+  // the row toggles its children on open.
+  const leaf = page.locator('[data-item-id^="resp-example-"]').filter({ visible: true }).first();
+  if (!(await leaf.isVisible().catch(() => false))) {
+    await (await graphqlRow(GRAPHQL_NAME)).click();
+  }
+  await leaf.waitFor({ state: 'visible', timeout: 5_000 });
+  await openGraphqlRequest(GRAPHQL_NAME);
+});
+
+// ── E8: sidebar rename + delete ─────────────────────────────────────
+
+test('E8 — the sidebar leaf renames inline and the delete gesture removes the entity', async () => {
   const row = await graphqlRow(GRAPHQL_NAME);
   await row.hover();
   await row.locator('.rules-sidebar-item-menu').click();
@@ -292,6 +371,10 @@ test('E5 — the sidebar leaf renames inline and the delete gesture removes the 
   const confirm = page.locator('.ant-modal-confirm .ant-btn-dangerous');
   if (await confirm.isVisible({ timeout: 1500 }).catch(() => false)) await confirm.click();
   await expect(page.locator('[data-item-id^="graphql-request-"]').filter({ visible: true })).toHaveCount(0, {
+    timeout: 5_000,
+  });
+  // The example cascaded with its parent.
+  await expect(page.locator('[data-item-id^="resp-example-"]').filter({ visible: true })).toHaveCount(0, {
     timeout: 5_000,
   });
 });

@@ -100,6 +100,7 @@ export {
   type DeleteGraphqlRequestArgs,
   deleteGraphqlRequest,
   GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_EXAMPLES_PATH,
   GRAPHQL_REQUEST_HEADERS_PATH,
   GRAPHQL_REQUEST_MUTATOR_VERSION,
   type GraphqlRequestHeaderRow,

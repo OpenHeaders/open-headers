@@ -83,6 +83,54 @@ function renderStrip(overrides: Partial<ExecutedRequestSnapshot> = {}) {
   return render(<ResponseMetaStrip response={makeSnapshot(overrides)} />);
 }
 
+describe('ResponseMetaStrip GraphQL tags', () => {
+  const facts = {
+    errors: [{ message: 'The `broken` field always errors.', path: 'partial.broken', location: '1:16', code: 'X' }],
+    dataNull: false,
+    extensionsJson: '{\n  "probe": 1\n}',
+  };
+
+  it('shows no GraphQL tags on an HTTP send (no facts)', () => {
+    renderStrip();
+    expect(screen.queryByTestId('oh-response-graphql-errors')).toBeNull();
+    expect(screen.queryByTestId('oh-response-graphql-extensions')).toBeNull();
+  });
+
+  it('tags a GraphQL answer carrying errors[] in the error tone, pluralized, beside the extensions tag', () => {
+    render(<ResponseMetaStrip response={makeSnapshot()} graphql={facts} />);
+    const errors = screen.getByTestId('oh-response-graphql-errors');
+    expect(errors.textContent).toBe('1 error');
+    expect(errors.className).toContain('ant-tag-error');
+    expect(screen.getByTestId('oh-response-graphql-extensions').textContent).toBe('extensions');
+  });
+
+  it('shows neither tag on a clean GraphQL answer', () => {
+    render(
+      <ResponseMetaStrip response={makeSnapshot()} graphql={{ errors: [], dataNull: false, extensionsJson: null }} />,
+    );
+    expect(screen.queryByTestId('oh-response-graphql-errors')).toBeNull();
+    expect(screen.queryByTestId('oh-response-graphql-extensions')).toBeNull();
+  });
+
+  it('lists every error with its path, location and code in the popover', () => {
+    render(
+      <ResponseMetaStrip
+        response={makeSnapshot({ status: 200 })}
+        graphql={{ ...facts, errors: [...facts.errors, { message: 'second', path: null, location: null, code: null }] }}
+      />,
+    );
+    const tag = screen.getByTestId('oh-response-graphql-errors');
+    expect(tag.textContent).toBe('2 errors');
+    fireEvent.mouseEnter(tag);
+    return screen.findAllByTestId('oh-response-graphql-error').then((rows) => {
+      expect(rows).toHaveLength(2);
+      expect(rows[0].textContent).toContain('path partial.broken');
+      expect(rows[0].textContent).toContain('at 1:16');
+      expect(rows[1].textContent).toBe('second');
+    });
+  });
+});
+
 describe('ResponseMetaStrip status chip', () => {
   it('keeps the server-sent reason phrase', () => {
     renderStrip();

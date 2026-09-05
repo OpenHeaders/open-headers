@@ -242,6 +242,9 @@ const EXAMPLE_BINDINGS: Record<string, Pick<ExampleKind, 'child' | 'storageKey'>
   [GRPC_REQUEST_ENTITY_TYPE]: { child: grpcResponseExampleChild, storageKey: (ws) => wsKeys(ws).grpcResponseExamples },
   [WEBSOCKET_REQUEST_ENTITY_TYPE]: { child: wsResponseExampleChild, storageKey: (ws) => wsKeys(ws).wsResponseExamples },
   [MQTT_REQUEST_ENTITY_TYPE]: { child: mqttResponseExampleChild, storageKey: (ws) => wsKeys(ws).mqttResponseExamples },
+  // The GraphQL request holds the HTTP example kind (its send IS an
+  // HTTP exchange) — the same child verbs and storage slot.
+  [GRAPHQL_REQUEST_ENTITY_TYPE]: { child: responseExampleChild, storageKey: (ws) => wsKeys(ws).responseExamples },
 };
 
 const EXAMPLES: ReadonlyArray<ExampleKind> = EXAMPLE_CONTAINER_KINDS.map((kind) => ({

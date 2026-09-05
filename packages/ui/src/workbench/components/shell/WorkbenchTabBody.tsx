@@ -557,6 +557,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <GraphqlRequestEditor
         graphqlRequestUid={tab.graphqlRequestUid}
         workspaceId={editingScopeWorkspaceId}
+        onOpenResponseExample={openResponseExampleTab}
         onOpenContainerAuth={openContainerAuth}
         onOpenContainerScripts={openContainerScripts}
         onOpenContainerSettings={openContainerSettings}

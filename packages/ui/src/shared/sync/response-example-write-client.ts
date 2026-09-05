@@ -12,6 +12,8 @@
  */
 
 import {
+  GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_EXAMPLES_PATH,
   keyBetween,
   REQUEST_ENTITY_TYPE,
   REQUEST_EXAMPLES_PATH,
@@ -26,6 +28,10 @@ import {
 } from '@openheaders/core/sync-builders/mutations/response-example-mutations';
 import type { ResponseExample } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
+import {
+  type GraphqlRequestSyncMirror,
+  getGraphqlRequestSyncMirrorForWorkspace,
+} from '../../context/mirrors/graphql-request-sync-mirror';
 import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/mirrors/request-sync-mirror';
 import {
   getResponseExampleSyncMirrorForWorkspace,
@@ -50,6 +56,49 @@ export interface ResponseExampleWriteOptions extends BaseSyncWriteOptions {
   mirror?: ResponseExampleSyncMirror;
   /** Override the parent request mirror the create reads its `examples` tail from (tests). */
   requestMirror?: RequestSyncMirror;
+  /** Override the GraphQL parent mirror — the `requestKind: 'graphql'` examples' holder (tests). */
+  graphqlRequestMirror?: GraphqlRequestSyncMirror;
+}
+
+/** The mirror slice an example's parent is read from: live membership + the `examples` tail. */
+interface ExampleParentReader {
+  hydrated: Promise<void>;
+  has: (uid: string) => boolean;
+  liveOrderedSetItems: (uid: string, setPath: string) => Array<{ itemId: string; orderKey: string }>;
+  examplesPath: string;
+}
+
+/**
+ * The parent an example nests under, by kind: an HTTP request, or a
+ * GraphQL request when the example carries `requestKind: 'graphql'`
+ * (its send compiled to one HTTP exchange; the request holds the HTTP
+ * example kind at its own `examples` path).
+ */
+function parentRefOf(example: Pick<ResponseExample, 'requestUid' | 'requestKind'>): ResponseExampleParentRef {
+  return {
+    type: example.requestKind === 'graphql' ? GRAPHQL_REQUEST_ENTITY_TYPE : REQUEST_ENTITY_TYPE,
+    uid: example.requestUid,
+  };
+}
+
+/** The parent kind's mirror slice a create reads (membership + the `examples` tail). */
+function parentReaderFor(parent: ResponseExampleParentRef, opts: ResponseExampleWriteOptions): ExampleParentReader {
+  if (parent.type === GRAPHQL_REQUEST_ENTITY_TYPE) {
+    const mirror = opts.graphqlRequestMirror ?? getGraphqlRequestSyncMirrorForWorkspace(opts.workspaceId);
+    return {
+      hydrated: mirror.hydrated,
+      has: (uid) => mirror.getGraphqlRequestMirror(uid) !== null,
+      liveOrderedSetItems: mirror.liveOrderedSetItems,
+      examplesPath: GRAPHQL_REQUEST_EXAMPLES_PATH,
+    };
+  }
+  const mirror = opts.requestMirror ?? getRequestSyncMirrorForWorkspace(opts.workspaceId);
+  return {
+    hydrated: mirror.hydrated,
+    has: (uid) => mirror.getRequestMirror(uid) !== null,
+    liveOrderedSetItems: mirror.liveOrderedSetItems,
+    examplesPath: REQUEST_EXAMPLES_PATH,
+  };
 }
 
 /**
@@ -78,10 +127,10 @@ export async function applyResponseExampleCreate(
 ): Promise<ResponseExampleMutationResult> {
   const mirror = resolveMirror(opts, getResponseExampleSyncMirrorForWorkspace);
   await mirror.hydrated;
-  const requestMirror = opts.requestMirror ?? getRequestSyncMirrorForWorkspace(opts.workspaceId);
-  await requestMirror.hydrated;
-  const parent: ResponseExampleParentRef = { type: REQUEST_ENTITY_TYPE, uid: request.example.requestUid };
-  if (!requestMirror.getRequestMirror(parent.uid)) return { ok: false, reason: 'not-found' };
+  const parent = parentRefOf(request.example);
+  const reader = parentReaderFor(parent, opts);
+  await reader.hydrated;
+  if (!reader.has(parent.uid)) return { ok: false, reason: 'not-found' };
   const uid = generateUid();
   const created: ResponseExample = {
     ...request.example,
@@ -90,7 +139,7 @@ export async function applyResponseExampleCreate(
     path: `${request.requestPath}/examples/${toFolderName(request.example.name, uid)}`,
   };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const live = requestMirror.liveOrderedSetItems(parent.uid, REQUEST_EXAMPLES_PATH);
+  const live = reader.liveOrderedSetItems(parent.uid, reader.examplesPath);
   const payload = buildAddResponseExampleBatch(created, ctx, {
     parent,
     orderKey: keyBetween(live.at(-1)?.orderKey ?? null, null),
@@ -153,6 +202,7 @@ export async function applyResponseExampleDuplicate(
       requestPath,
       example: {
         requestUid: source.requestUid,
+        ...(source.requestKind !== undefined ? { requestKind: source.requestKind } : {}),
         name,
         capturedAt: source.capturedAt,
         request: source.request,
@@ -172,10 +222,6 @@ export async function applyResponseExampleDelete(
   const entry = mirror.getResponseExampleMirror(exampleUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildDeleteResponseExampleBatch(
-    exampleUid,
-    { type: REQUEST_ENTITY_TYPE, uid: entry.responseExample.requestUid },
-    ctx,
-  );
+  const payload = buildDeleteResponseExampleBatch(exampleUid, parentRefOf(entry.responseExample), ctx);
   return applySyncPayload(payload);
 }

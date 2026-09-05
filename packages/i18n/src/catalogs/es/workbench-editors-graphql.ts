@@ -5,6 +5,7 @@
  * = schema; «explorador» = explorer; «variables» stays.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsGraphql = {
@@ -12,7 +13,22 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.notFound': 'Solicitud GraphQL no encontrada.',
   'workbench.editors.graphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
   'workbench.editors.graphql.query.label': 'Query',
-  'workbench.editors.graphql.query.pendingExecution': 'Ejecutar una consulta llega con la próxima entrega.',
+  'workbench.editors.graphql.query.stop': 'Detener',
+  'workbench.editors.graphql.query.stopTooltip': 'Detener la consulta y conservar lo que ha llegado',
+  'workbench.editors.graphql.operation.placeholder': 'Operación',
+  'workbench.editors.graphql.operation.tooltip':
+    'La operación que Query ejecuta — el documento contiene varias; la elección viaja por el cable como operationName.',
+  'workbench.editors.graphql.response.errors': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} error', many: '{count} errores', other: '{count} errores' }),
+  'workbench.editors.graphql.response.errorsTitle': 'Errores GraphQL',
+  'workbench.editors.graphql.response.errorsSummary':
+    'El servidor respondió HTTP {status} con una lista errors[] — un campo falló, el documento fue rechazado o faltaba la autenticación. Lee data al lado: parcial, o null.',
+  'workbench.editors.graphql.response.dataNull':
+    'data es null — cada campo raíz propagó el nulo, o la solicitud fue rechazada antes de ejecutarse.',
+  'workbench.editors.graphql.response.extensions': 'extensions',
+  'workbench.editors.graphql.response.extensionsTitle': 'Extensiones de la respuesta',
+  'workbench.editors.graphql.response.extensionsSummary':
+    'El objeto extensions del servidor viaja junto a data — trazas, coste, pistas de caché, lo que haya decidido adjuntar.',
   'workbench.editors.graphql.query.hint': 'El documento — una o más operaciones, fragmentos bienvenidos.',
   'workbench.editors.graphql.query.prettify': 'Embellecer',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',

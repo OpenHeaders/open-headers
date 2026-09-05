@@ -329,6 +329,21 @@ export interface RequestsContextValue {
     environmentId?: string;
     sendId: string;
   }) => Promise<ExecutedMqttSnapshot | null>;
+
+  /** GraphQL Query — the GraphqlRequest entity's executor channel. The
+   *  executing host compiles the entity ONCE into its HTTP send and
+   *  runs the HTTP pipeline (the SW natively, the node hosts in-process,
+   *  the web tab forwarded to its daemon), so the answer IS an HTTP
+   *  snapshot. `operationName` overrides the stored pick for this send;
+   *  `sendId` joins the same live-stream + `abortRequestSend` registry
+   *  as `execute`. */
+  executeGraphql: (input: {
+    graphqlRequestUid?: string;
+    draft?: GraphqlRequest;
+    operationName?: string;
+    environmentId?: string;
+    sendId?: string;
+  }) => Promise<ExecutedRequestSnapshot | null>;
 }
 
 const defaultContextValue: RequestsContextValue = {
@@ -373,6 +388,7 @@ const defaultContextValue: RequestsContextValue = {
   executeGrpc: () => Promise.resolve(null),
   executeWebSocket: () => Promise.resolve(null),
   executeMqtt: () => Promise.resolve(null),
+  executeGraphql: () => Promise.resolve(null),
 };
 
 export const RequestsContext = createContext<RequestsContextValue>(defaultContextValue);
@@ -1157,6 +1173,14 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [],
   );
 
+  const executeGraphql = useCallback<RequestsContextValue['executeGraphql']>(
+    async (input) => {
+      const resp = await hostBridge.call('executeGraphqlRequest', input).catch(() => null);
+      return resp?.success ? (resp.snapshot ?? null) : null;
+    },
+    [],
+  );
+
   const value = useMemo<RequestsContextValue>(
     () => ({
       requests,
@@ -1200,6 +1224,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       executeGrpc,
       executeWebSocket,
       executeMqtt,
+      executeGraphql,
     }),
     [
       requests,
@@ -1243,6 +1268,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       executeGrpc,
       executeWebSocket,
       executeMqtt,
+      executeGraphql,
     ],
   );
 

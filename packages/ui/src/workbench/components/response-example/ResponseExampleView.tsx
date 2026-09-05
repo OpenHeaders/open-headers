@@ -93,12 +93,17 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
   const { message } = App.useApp();
   const t = useT();
   const { example, hydrated } = useResponseExample(workspaceId, exampleUid);
-  const { requests } = useRequests();
+  const { requests, graphqlRequests } = useRequests();
 
-  const parentRequest = useMemo(
-    () => (example ? (requests.find((r) => r.uid === example.requestUid) ?? null) : null),
-    [requests, example],
-  );
+  // The parent by kind: an HTTP request, or the GraphQL request a
+  // `requestKind: 'graphql'` capture ran from (name only — the fork
+  // below is an HTTP scratch either way, the capture being one).
+  const parentRequest = useMemo(() => {
+    if (!example) return null;
+    const parents: ReadonlyArray<{ uid: string; name: string }> =
+      example.requestKind === 'graphql' ? graphqlRequests : requests;
+    return parents.find((r) => r.uid === example.requestUid) ?? null;
+  }, [requests, graphqlRequests, example]);
 
   const [draft, setDraft] = useState<ExampleDraft | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('params');

@@ -24,6 +24,8 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { subjectCommonName } from '../../trusted-roots/add-gate';
 import { TRUSTED_ROOTS_SETTING_KEY } from '../../trusted-roots/TrustedRootsPicker';
 import AuthAttributionTag, { authAttributionHasBadge } from './AuthAttributionTag';
+import { GraphqlErrorsTag, GraphqlExtensionsTag } from './GraphqlResponseTags';
+import type { GraphqlResponseFacts } from './graphql-response';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from './InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
 import ScriptChainTag, { scriptChainHasBadge } from './ScriptChainTag';
@@ -714,6 +716,10 @@ function networkContent(
 
 interface ResponseMetaStripProps {
   response: ExecutedRequestSnapshot;
+  /** The GraphQL facts of a GraphQL send's answer — the `errors[]` and
+   *  `extensions` tags. Only the GraphQL editor derives them: an HTTP
+   *  send never carries the prop. */
+  graphql?: GraphqlResponseFacts | null;
 }
 
 /** Tiny round separator between the strip's facts — shared with the
@@ -728,7 +734,7 @@ export const MetaDot: React.FC = () => {
   );
 };
 
-const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
+const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, graphql }) => {
   const { token } = theme.useToken();
   const t = useT();
   const { message } = App.useApp();
@@ -813,6 +819,18 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response }) => {
           {formatBytes(stripBytes)}
         </Text>
       </InfoPopover>
+      {graphql != null && graphql.errors.length > 0 && (
+        <>
+          <MetaDot />
+          <GraphqlErrorsTag facts={graphql} status={response.status} />
+        </>
+      )}
+      {graphql != null && graphql.extensionsJson !== null && (
+        <>
+          <MetaDot />
+          <GraphqlExtensionsTag facts={graphql} />
+        </>
+      )}
       {response.tlsFloorLowered && (
         <>
           <MetaDot />

@@ -8,4 +8,9 @@ export {
   type MoveGraphqlRequestArgs,
   moveGraphqlRequest,
 } from './lifecycle';
-export { GRAPHQL_REQUEST_ENTITY_TYPE, GRAPHQL_REQUEST_HEADERS_PATH, type GraphqlRequestHeaderRow } from './types';
+export {
+  GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_EXAMPLES_PATH,
+  GRAPHQL_REQUEST_HEADERS_PATH,
+  type GraphqlRequestHeaderRow,
+} from './types';

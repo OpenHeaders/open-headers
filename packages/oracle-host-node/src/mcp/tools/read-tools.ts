@@ -19,6 +19,7 @@
 import type { ActivityEntry } from '@openheaders/core/sync';
 import type {
   Environment,
+  GraphqlRequest,
   LiveWorkflow,
   Request,
   Rule,
@@ -33,6 +34,7 @@ import {
   getOracleForWorkspace,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
+  snapshotGraphqlRequestPostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
   snapshotRequestCollectionPostStates,
@@ -86,6 +88,19 @@ function projectRequestRow(request: Request): Record<string, unknown> {
     uid: request.uid,
     name: request.name,
     method: request.method,
+    url: request.url,
+    path: request.path,
+  };
+}
+
+/** A GraphQL request's row — the kind named, the method the compile
+ *  always sends; `requests_send` runs it through the same compile. */
+function projectGraphqlRequestRow(request: GraphqlRequest): Record<string, unknown> {
+  return {
+    uid: request.uid,
+    name: request.name,
+    kind: 'graphql',
+    method: 'POST',
     url: request.url,
     path: request.path,
   };
@@ -223,7 +238,8 @@ export function createReadToolDefinitions(): McpToolDefinition[] {
       name: 'requests_list',
       title: 'List API requests',
       description:
-        'List the saved API requests in a workspace: uid, name, method, url, path. ' +
+        'List the saved API requests in a workspace: uid, name, method, url, path. GraphQL requests are ' +
+        'listed too (kind: "graphql"; they send as one POST) — requests_send runs either kind by uid. ' +
         'Use requests_get for the full definition (headers, params, auth, body, scripts).',
       inputSchema: {
         type: 'object',
@@ -235,7 +251,10 @@ export function createReadToolDefinitions(): McpToolDefinition[] {
         const workspaceId = requireWorkspace(args);
         return {
           workspaceId,
-          requests: snapshotRequestPostStates(workspaceId).map((ps) => projectRequestRow(ps.request)),
+          requests: [
+            ...snapshotRequestPostStates(workspaceId).map((ps) => projectRequestRow(ps.request)),
+            ...snapshotGraphqlRequestPostStates(workspaceId).map((ps) => projectGraphqlRequestRow(ps.graphqlRequest)),
+          ],
         };
       },
     },

@@ -5,6 +5,7 @@
  * = schema; « explorateur » = explorer; « variables » stays.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsGraphql = {
@@ -12,7 +13,22 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.notFound': 'Requête GraphQL introuvable.',
   'workbench.editors.graphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
   'workbench.editors.graphql.query.label': 'Query',
-  'workbench.editors.graphql.query.pendingExecution': 'L’exécution d’une requête arrive avec la prochaine tranche.',
+  'workbench.editors.graphql.query.stop': 'Arrêter',
+  'workbench.editors.graphql.query.stopTooltip': 'Arrêter la requête et garder ce qui est arrivé',
+  'workbench.editors.graphql.operation.placeholder': 'Opération',
+  'workbench.editors.graphql.operation.tooltip':
+    'L’opération que Query exécute — le document en contient plusieurs ; le choix voyage sur le fil comme operationName.',
+  'workbench.editors.graphql.response.errors': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} erreur', many: '{count} erreurs', other: '{count} erreurs' }),
+  'workbench.editors.graphql.response.errorsTitle': 'Erreurs GraphQL',
+  'workbench.editors.graphql.response.errorsSummary':
+    'Le serveur a répondu HTTP {status} avec une liste errors[] — un champ a échoué, le document a été refusé, ou l’authentification manquait. Lisez data à côté : partiel, ou null.',
+  'workbench.editors.graphql.response.dataNull':
+    'data est null — chaque champ racine a remonté, ou la requête a été refusée avant exécution.',
+  'workbench.editors.graphql.response.extensions': 'extensions',
+  'workbench.editors.graphql.response.extensionsTitle': 'Extensions de la réponse',
+  'workbench.editors.graphql.response.extensionsSummary':
+    'L’objet extensions du serveur voyage à côté de data — traçage, coût, indices de cache, tout ce qu’il a choisi d’attacher.',
   'workbench.editors.graphql.query.hint': 'Le document — une ou plusieurs opérations, fragments bienvenus.',
   'workbench.editors.graphql.query.prettify': 'Embellir',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',

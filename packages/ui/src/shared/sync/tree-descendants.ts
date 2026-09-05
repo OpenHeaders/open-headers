@@ -21,6 +21,7 @@
 
 import {
   GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_EXAMPLES_PATH,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_EXAMPLES_PATH,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
@@ -95,7 +96,7 @@ export interface RequestLeafMirrors {
   graphqlMirror: GraphqlRequestSyncMirror;
 }
 
-/** The four example mirrors, one per leaf kind. */
+/** The four example mirrors — the GraphQL leaf holds the HTTP example kind, so it reads the response-example mirror. */
 export interface RequestExampleMirrors {
   responseExampleMirror: ResponseExampleSyncMirror;
   grpcExampleMirror: GrpcResponseExampleSyncMirror;
@@ -374,6 +375,29 @@ const EXAMPLE_KINDS: ReadonlyArray<ExampleKind> = [
         hydrated: mirror.hydrated,
         has: (uid) => mirror.getMqttResponseExampleMirror(uid) !== null,
         list: () => mirror.listMqttResponseExamples().map((e) => ({ uid: e.uid, parentUid: e.mqttRequestUid })),
+      };
+    },
+  },
+  // A GraphQL send compiles to one HTTP exchange — the request holds the
+  // HTTP example kind under the same `examples` law.
+  {
+    requestType: GRAPHQL_REQUEST_ENTITY_TYPE,
+    exampleType: RESPONSE_EXAMPLE_ENTITY_TYPE,
+    examplesPath: GRAPHQL_REQUEST_EXAMPLES_PATH,
+    leaf: (workspaceId, mirrors) => {
+      const mirror = mirrors.graphqlMirror ?? getGraphqlRequestSyncMirrorForWorkspace(workspaceId);
+      return {
+        hydrated: mirror.hydrated,
+        liveOrderedSetItems: mirror.liveOrderedSetItems,
+        list: mirror.listGraphqlRequests,
+      };
+    },
+    examples: (workspaceId, mirrors) => {
+      const mirror = mirrors.responseExampleMirror ?? getResponseExampleSyncMirrorForWorkspace(workspaceId);
+      return {
+        hydrated: mirror.hydrated,
+        has: (uid) => mirror.getResponseExampleMirror(uid) !== null,
+        list: () => mirror.listResponseExamples().map((e) => ({ uid: e.uid, parentUid: e.requestUid })),
       };
     },
   },

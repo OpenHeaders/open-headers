@@ -179,6 +179,35 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   const walkRequestTree = useCallback(
     (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
       const items: TreeNode[] = [];
+      // One saved-response leaf under its parent row — the same node
+      // whether the parent is an HTTP or a GraphQL request (a GraphQL
+      // send IS an HTTP exchange, so it holds the HTTP example kind).
+      const responseExampleLeaf = (example: ResponseExample, exampleParentId: string, exampleDepth: number): TreeNode => ({
+        id: `resp-example-${example.uid}`,
+        kind: 'leaf',
+        label: example.name,
+        depth: exampleDepth,
+        expandable: false,
+        parentId: exampleParentId,
+        icon: exampleTag(),
+        canRename: true,
+        canDelete: true,
+        canAddChild: false,
+        onOpen: () => {
+          p.onSelectResponseExample?.(example.uid, example.name, example.requestUid);
+        },
+        onRename: async (name: string) => {
+          void p.renameResponseExample(example.uid, name);
+        },
+        onDuplicate: () => {
+          void p.duplicateResponseExample(example.uid);
+        },
+        onDelete: () =>
+          p.confirmDelete(example.name, () => {
+            void p.deleteResponseExample(example.uid);
+          }),
+        awareness: { entityType: RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: example.uid },
+      });
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           if (
@@ -612,12 +641,17 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             undefined,
             t,
           );
+          // A GraphQL send is an HTTP exchange — its captures are HTTP
+          // response examples keyed by this request's uid, nested here
+          // exactly as under an HTTP request row.
+          const graphqlExamples = p.responseExamplesByRequest.get(node.uid) ?? [];
+          const hasGraphqlExamples = graphqlExamples.length > 0;
           items.push({
             id: gid,
             kind: 'leaf',
             label: node.name,
             depth,
-            expandable: false,
+            expandable: hasGraphqlExamples,
             parentId,
             icon: graphqlTag(!graphqlComplete),
             badge: graphqlBadge,
@@ -625,6 +659,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             canDelete: true,
             canAddChild: false,
             onOpen: () => {
+              if (hasGraphqlExamples) p.toggleExpand(gid);
               p.onSelectGraphqlRequest?.(node.uid, node.name);
             },
             onRename: async (name: string) => {
@@ -636,6 +671,9 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               }),
             awareness: { entityType: GRAPHQL_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
+          if (hasGraphqlExamples && p.isExpandedKey(gid)) {
+            for (const example of graphqlExamples) items.push(responseExampleLeaf(example, gid, depth + 1));
+          }
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;
@@ -714,34 +752,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             awareness: { entityType: REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
           if (hasExamples && p.isExpandedKey(rid)) {
-            for (const example of examples) {
-              items.push({
-                id: `resp-example-${example.uid}`,
-                kind: 'leaf',
-                label: example.name,
-                depth: depth + 1,
-                expandable: false,
-                parentId: rid,
-                icon: exampleTag(),
-                canRename: true,
-                canDelete: true,
-                canAddChild: false,
-                onOpen: () => {
-                  p.onSelectResponseExample?.(example.uid, example.name, example.requestUid);
-                },
-                onRename: async (name: string) => {
-                  void p.renameResponseExample(example.uid, name);
-                },
-                onDuplicate: () => {
-                  void p.duplicateResponseExample(example.uid);
-                },
-                onDelete: () =>
-                  p.confirmDelete(example.name, () => {
-                    void p.deleteResponseExample(example.uid);
-                  }),
-                awareness: { entityType: RESPONSE_EXAMPLE_ENTITY_TYPE, entityId: example.uid },
-              });
-            }
+            for (const example of examples) items.push(responseExampleLeaf(example, rid, depth + 1));
           }
         }
       }

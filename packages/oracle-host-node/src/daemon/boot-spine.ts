@@ -185,6 +185,7 @@ import { createCliProvisionService } from './cli-provision';
 import { composePeerPush } from './compose-peer-push';
 import { composePeerRpc } from './compose-peer-rpc';
 import { handleDeviceTrustRpc, isDeviceTrustRpc } from './device-trust-rpc';
+import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
 import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteMqttRequestRpc } from './execute-mqtt-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
@@ -1288,6 +1289,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // lives. Same channel contract the extension SW handles.
     if (type === 'executeRequest') {
       return await handleExecuteRequestRpc(message);
+    }
+    // Workbench GraphQL Query — the GraphqlRequest entity compiled ONCE
+    // into its HTTP send, then the same run leg as executeRequest.
+    if (type === 'executeGraphqlRequest') {
+      return await handleExecuteGraphqlRequestRpc(message);
     }
     // Device trust — this machine's pinned certificates and the
     // presented-chain probe behind the response surface's trust gesture.

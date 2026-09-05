@@ -1,6 +1,7 @@
 /** API-request CRUD + execution RPCs (active workspace). */
 
-import type { Request } from '@openheaders/core/types';
+import { GraphqlRequestSchema } from '@openheaders/core/schemas';
+import type { ExecutedRequestSnapshot, GraphqlRequest, Request } from '@openheaders/core/types';
 import { createRequestDraft, takeRequestDraft } from '@openheaders/oracle/entity/request-draft-store';
 import {
   addRequest,
@@ -20,11 +21,51 @@ import {
   renameRequestFolder,
   updateRequest,
 } from '@openheaders/oracle/entity/request-store';
+import { compileGraphqlRequest } from '@openheaders/oracle/live/graphql-exec/execute';
+import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { wsRequest } from '../../../ws-request';
 import { executeRequest, executeRequestDraft } from '../../request-executor';
 import { stopActiveSend } from '../../request-executor/send-stream';
+import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
+
+/**
+ * `executeGraphqlRequest` — the SW twin of the node host's route: the
+ * entity (the storage slot's, or the editor's live draft) compiles ONCE
+ * into its HTTP send and rides `executeRequestDraft` — the same
+ * resolve → scripts → fetch pipeline, so the result IS an HTTP
+ * snapshot with the attribution the response surface already renders.
+ * Result discipline verbatim from `executeRequest`.
+ */
+async function executeGraphqlRequestRpc(
+  message: Record<string, unknown>,
+): Promise<{ success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string }> {
+  const graphqlRequestUid = typeof message.graphqlRequestUid === 'string' ? message.graphqlRequestUid : undefined;
+  const draft = message.draft as GraphqlRequest | undefined;
+  const operationName = typeof message.operationName === 'string' ? message.operationName : undefined;
+  const environmentId =
+    typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
+  const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
+
+  let entity: GraphqlRequest | undefined;
+  if (graphqlRequestUid) {
+    const all = await hostStorage.getValidatedArray(
+      wsKeys(getActiveWorkspaceId()).graphqlRequests,
+      GraphqlRequestSchema,
+    );
+    const loaded = all.find((r) => r.uid === graphqlRequestUid);
+    if (!loaded) return { success: true, snapshot: errorSnapshot(`GraphQL request ${graphqlRequestUid} not found`) };
+    entity = loaded;
+  } else {
+    entity = draft;
+  }
+  if (!entity) return { success: false, error: 'No GraphQL request or draft provided' };
+  const compiled = compileGraphqlRequest(entity, operationName !== undefined ? { operationName } : {});
+  const snapshot = await executeRequestDraft(compiled, { environmentId, sendId });
+  return { success: true, snapshot };
+}
 
 export const requestHandlers: HandlerMap = {
   getLocalRequests: ({ respond }) => {
@@ -178,6 +219,13 @@ export const requestHandlers: HandlerMap = {
           respond({ success: true, snapshot });
         }
       })
+      .catch((error: Error) => respond({ success: false, error: error.message }));
+    return true;
+  },
+
+  executeGraphqlRequest: ({ message, respond }) => {
+    executeGraphqlRequestRpc(message)
+      .then((result) => respond(result))
       .catch((error: Error) => respond({ success: false, error: error.message }));
     return true;
   },

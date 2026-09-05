@@ -96,6 +96,31 @@ export async function handleExecuteRequestRpc(
 ): Promise<ExecuteRequestRpcResult> {
   const requestUid = typeof message.requestUid === 'string' ? message.requestUid : undefined;
   const draft = message.draft as Request | undefined;
+
+  let request: Request | undefined;
+  if (requestUid) {
+    const loaded = getRequest(requestUid);
+    if (!loaded) return { success: true, snapshot: errorSnapshot(`Request ${requestUid} not found`) };
+    request = loaded;
+  } else {
+    request = draft;
+  }
+  if (!request) return { success: false, error: 'No request or draft provided' };
+  return runRequestRpc(request, message, transport, emitStreamFrame);
+}
+
+/**
+ * The run leg of `executeRequest` for an already-loaded request — the
+ * pin rules, the script-capability gate, the interactive vs step
+ * runner, the mode stamp. Shared with `executeGraphqlRequest`, whose
+ * handler compiles its entity into exactly this shape first.
+ */
+export async function runRequestRpc(
+  request: Request,
+  message: Record<string, unknown>,
+  transport: RequestTransport = nodeTransport,
+  emitStreamFrame: (event: RequestStreamEventWire) => void = broadcastStreamFrameLocally,
+): Promise<ExecuteRequestRpcResult> {
   const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
   const stream: ExecuteStreamOptions | undefined =
     sendId !== undefined ? { sendId, emitFrame: emitStreamFrame } : undefined;
@@ -108,16 +133,6 @@ export async function handleExecuteRequestRpc(
       : environmentId === null
         ? getActiveWorkspaceId()
         : null;
-
-  let request: Request | undefined;
-  if (requestUid) {
-    const loaded = getRequest(requestUid);
-    if (!loaded) return { success: true, snapshot: errorSnapshot(`Request ${requestUid} not found`) };
-    request = loaded;
-  } else {
-    request = draft;
-  }
-  if (!request) return { success: false, error: 'No request or draft provided' };
 
   try {
     // A frame stamped with a foreign workspace is a peer-forwarded send

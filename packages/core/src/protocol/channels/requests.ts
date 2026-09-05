@@ -16,6 +16,7 @@ import type {
   ExecutedRequestSnapshot,
   ExecutedWsLifecycle,
   ExecutedWsSnapshot,
+  GraphqlRequest,
   GrpcRequest,
   MqttMessageProperties,
   MqttPayloadFormat,
@@ -673,6 +674,31 @@ export interface RequestRpc {
       sendId: string;
     };
     res: { success: boolean; snapshot?: ExecutedMqttSnapshot; error?: string };
+  };
+
+  /**
+   * The GraphqlRequest entity's Query — `executeRequest`'s sibling
+   * keyed off the entity kind. The executing host compiles the entity
+   * ONCE (`toHttpRequest`: one POST of the `{query, variables,
+   * operationName}` envelope, the SAME uid + path so the ancestor
+   * chain resolves unchanged) and runs the HTTP pipeline, so the
+   * result IS an HTTP snapshot — auth, inherited-settings and script
+   * attribution ride it exactly as for a request. `graphqlRequestUid`
+   * takes precedence over `draft`; `operationName` overrides the
+   * entity's stored pick for this send (the operation select's live
+   * choice); `environmentId` / `workspaceId` / `sendId` are
+   * `executeRequest`'s verbatim.
+   */
+  executeGraphqlRequest: {
+    req: {
+      graphqlRequestUid?: string;
+      draft?: GraphqlRequest;
+      operationName?: string;
+      environmentId?: string | null;
+      workspaceId?: string;
+      sendId?: string;
+    };
+    res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
   };
   /**
    * Publish one message into an open MQTT session, keyed by the

@@ -64,6 +64,14 @@ export const ResponseExampleSchema = v.object({
   name: v.pipe(v.string(), v.minLength(1)),
   /** ISO timestamp of the capture moment — a historical fact. */
   capturedAt: v.string(),
+  /**
+   * The kind of request the exchange ran from when it was not an HTTP
+   * request: a GraphQL request compiles to one HTTP POST, so its
+   * capture IS an HTTP exchange and reuses this shape verbatim — the
+   * marker names the parent kind for the readers (the sidebar leaf,
+   * the viewer's "GraphQL" chip). Absent = an HTTP request.
+   */
+  requestKind: v.optional(v.literal('graphql')),
   request: CapturedRequestSchema,
   response: CapturedResponseSchema,
 });

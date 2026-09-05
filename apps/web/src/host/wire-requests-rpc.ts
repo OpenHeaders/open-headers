@@ -1,10 +1,10 @@
 /**
  * Workbench request channels over the web tab's single wire —
- * `executeRequest` / `executeGrpcRequest` (with the `abortRequestSend`
- * stop counterpart and the gRPC upstream riders `sendGrpcStreamMessage`
- * / `endGrpcClientStream`) and the cookie-jar channels travel to the
- * serving daemon and answer from its spine (the tab oracle has no
- * network transport and no jar). The daemon's live `requestStreamEvent`
+ * `executeRequest` / `executeGraphqlRequest` / `executeGrpcRequest`
+ * (with the `abortRequestSend` stop counterpart and the gRPC upstream
+ * riders `sendGrpcStreamMessage` / `endGrpcClientStream`) and the
+ * cookie-jar channels travel to the serving daemon and answer from its
+ * spine (the tab oracle has no network transport and no jar). The daemon's live `requestStreamEvent`
  * / `grpcStreamEvent` frames for a forwarded send come back down the
  * same wire — `wire-request-stream.ts` / `wire-grpc-stream.ts` claim
  * them.
@@ -42,6 +42,7 @@ const EXECUTE_TIMEOUT_MARGIN_MS = 15_000;
 
 const FORWARDED_CHANNELS = [
   'executeRequest',
+  'executeGraphqlRequest',
   'executeGrpcRequest',
   'sendGrpcStreamMessage',
   'endGrpcClientStream',
@@ -120,7 +121,9 @@ async function forwardExecuteGrpcRequest(message: Record<string, unknown>): Prom
  * channels {@link isForwardedRequestsChannel} owns.
  */
 export async function forwardRequestsRpc(message: Record<string, unknown>): Promise<unknown> {
-  if (message.type === 'executeRequest') {
+  // The GraphQL Query compiles to an HTTP send on the daemon — the same
+  // stamps, margin and error-snapshot degrade as `executeRequest`.
+  if (message.type === 'executeRequest' || message.type === 'executeGraphqlRequest') {
     return forwardExecuteRequest(message);
   }
   if (message.type === 'executeGrpcRequest') {

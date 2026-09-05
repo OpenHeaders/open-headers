@@ -4,6 +4,7 @@
  * SDL, introspection) rides raw inside keyed values.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsGraphql = {
@@ -11,7 +12,22 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.notFound': 'GraphQL request not found.',
   'workbench.editors.graphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
   'workbench.editors.graphql.query.label': 'Query',
-  'workbench.editors.graphql.query.pendingExecution': 'Running a query lands with the next slice.',
+  'workbench.editors.graphql.query.stop': 'Stop',
+  'workbench.editors.graphql.query.stopTooltip': 'Stop the query and keep what has arrived',
+  'workbench.editors.graphql.operation.placeholder': 'Operation',
+  'workbench.editors.graphql.operation.tooltip':
+    'The operation this Query runs — the document holds several; the pick rides the wire as operationName.',
+  'workbench.editors.graphql.response.errors': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} error', other: '{count} errors' }),
+  'workbench.editors.graphql.response.errorsTitle': 'GraphQL errors',
+  'workbench.editors.graphql.response.errorsSummary':
+    'The server answered HTTP {status} with an errors[] list — a field failed, the document was refused, or auth was missing. Read data beside it: partial, or null.',
+  'workbench.editors.graphql.response.dataNull':
+    'data is null — every root field bubbled, or the request was refused before execution.',
+  'workbench.editors.graphql.response.extensions': 'extensions',
+  'workbench.editors.graphql.response.extensionsTitle': 'Response extensions',
+  'workbench.editors.graphql.response.extensionsSummary':
+    'The server’s extensions object rides beside data — tracing, cost, cache hints, whatever it chose to attach.',
   'workbench.editors.graphql.query.hint': 'The document — one or more operations, fragments welcome.',
   'workbench.editors.graphql.query.prettify': 'Prettify',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',

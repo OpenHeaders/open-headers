@@ -2,8 +2,8 @@
  * Response examples as request children — the containment index for
  * the four example kinds.
  *
- * A request (HTTP, gRPC, WebSocket, MQTT) owns its examples through
- * one ordered set at its `examples` path; the slot `{ uid, type }` is
+ * A request (HTTP, gRPC, WebSocket, MQTT, GraphQL) owns its examples
+ * through one ordered set at its `examples` path; the slot `{ uid, type }` is
  * the ONE containment authority. An example's `path` is the request's
  * projected path plus the example's frozen `pathSegment`, and its
  * parent-uid field (`requestUid` and siblings) re-projects from the
@@ -14,7 +14,7 @@
  * A request is a LEAF of the folder tree and a CONTAINER here, so the
  * index is a sibling of `folder-tree-post-state.ts` rather than a
  * generalisation of it: one pass over `materializeAll()` inverting
- * the four request kinds' `examples` sets into `exampleUid → (request,
+ * the five request kinds' `examples` sets into `exampleUid → (request,
  * position)`, memoized per oracle revision, composing the request's
  * path through the folder-tree index. The same conflict rules apply —
  * a child in two live slots keeps the higher add-HLC one (the other is
@@ -25,6 +25,8 @@
 
 import {
   compareHlc,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_EXAMPLES_PATH,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_EXAMPLES_PATH,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
@@ -42,6 +44,7 @@ import {
   WEBSOCKET_REQUEST_EXAMPLES_PATH,
   WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { projectGraphqlRequest } from '@openheaders/core/sync-builders/projections/graphql-request-projection';
 import { projectGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
 import type { ExampleParent } from '@openheaders/core/sync-builders/projections/leaf-path';
 import { projectMqttRequest } from '@openheaders/core/sync-builders/projections/mqtt-request-projection';
@@ -99,6 +102,15 @@ export const EXAMPLE_CONTAINER_KINDS: ReadonlyArray<ExampleContainerKind> = [
     parentUidField: 'mqttRequestUid',
     examplesPath: MQTT_REQUEST_EXAMPLES_PATH,
     projectPath: (m, parentPath) => projectMqttRequest(m, parentPath)?.path ?? null,
+  },
+  // A GraphQL send compiles to one HTTP exchange, so the request holds
+  // the HTTP example kind — same parent-uid field, same example type.
+  {
+    requestType: GRAPHQL_REQUEST_ENTITY_TYPE,
+    exampleType: RESPONSE_EXAMPLE_ENTITY_TYPE,
+    parentUidField: 'requestUid',
+    examplesPath: GRAPHQL_REQUEST_EXAMPLES_PATH,
+    projectPath: (m, parentPath) => projectGraphqlRequest(m, parentPath)?.path ?? null,
   },
 ];
 

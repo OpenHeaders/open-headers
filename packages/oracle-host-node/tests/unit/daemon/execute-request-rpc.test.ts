@@ -8,7 +8,7 @@
  * cooldown gates, and the runtime-Active cookie-jar key stamp.
  */
 
-import type { Environment, Request, Vault } from '@openheaders/core/types';
+import type { Environment, GraphqlRequest, Request, Vault } from '@openheaders/core/types';
 import type {
   RequestTransport,
   TransportRequest,
@@ -81,6 +81,7 @@ vi.mock('@openheaders/oracle/entity/device-trust-store', () => ({
 }));
 
 import { __resetRateLimiterForTests } from '@openheaders/oracle/live/request-exec/rate-limiter';
+import { handleExecuteGraphqlRequestRpc } from '../../../src/daemon/execute-graphql-request-rpc';
 import { handleExecuteRequestRpc } from '../../../src/daemon/execute-request-rpc';
 import { setHostScriptCapabilities } from '../../../src/daemon/script-capability';
 
@@ -608,5 +609,66 @@ describe('handleExecuteRequestRpc — streaming capture mode (sendId)', () => {
     expect(result.snapshot?.body).toBe('buffered');
     expect(streamingCalls()).toBe(0);
     expect(frames).toHaveLength(0);
+  });
+});
+
+describe('handleExecuteGraphqlRequestRpc — draft path', () => {
+  const TWO_OPERATIONS = 'query A { echo(text: "a") } query B { echo(text: "b") }';
+  function makeGraphql(overrides: Partial<GraphqlRequest> = {}): GraphqlRequest {
+    return {
+      schemaVersion: 5,
+      uid: 'g1',
+      path: 'requests/default/g1',
+      name: 'G',
+      url: 'https://api.openheaders.io/graphql',
+      query: 'query Viewer { viewer { id } }',
+      headers: [],
+      auth: { type: 'none' },
+      ...overrides,
+    };
+  }
+
+  it('compiles the entity ONCE and runs the HTTP leg: one POST of the JSON envelope', async () => {
+    const { transport, sent } = captureTransport();
+    const result = await handleExecuteGraphqlRequestRpc(
+      { draft: makeGraphql({ variables: '{"first": 2}' }) },
+      transport,
+      () => {},
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.status).toBe(200);
+    expect(result.snapshot?.error).toBeNull();
+    const request = sent();
+    expect(request.method).toBe('POST');
+    expect(request.url).toBe('https://api.openheaders.io/graphql');
+    expect(request.headers.some((h) => h.key.toLowerCase() === 'content-type' && h.value === 'application/json')).toBe(
+      true,
+    );
+    expect(request.body.kind).toBe('raw');
+    if (request.body.kind !== 'raw') return;
+    expect(JSON.parse(request.body.content)).toEqual({
+      query: 'query Viewer { viewer { id } }',
+      variables: { first: 2 },
+    });
+  });
+
+  it('puts the live operationName override on the wire over the stored pick', async () => {
+    const { transport, sent } = captureTransport();
+    await handleExecuteGraphqlRequestRpc(
+      { draft: makeGraphql({ query: TWO_OPERATIONS, operationName: 'A' }), operationName: 'B' },
+      transport,
+      () => {},
+    );
+    const body = sent().body;
+    expect(body.kind).toBe('raw');
+    if (body.kind !== 'raw') return;
+    expect(JSON.parse(body.content)).toEqual({ query: TWO_OPERATIONS, operationName: 'B' });
+  });
+
+  it('answers success: false with no entity or draft', async () => {
+    const { transport, calls } = captureTransport();
+    const result = await handleExecuteGraphqlRequestRpc({}, transport, () => {});
+    expect(result).toEqual({ success: false, error: 'No GraphQL request or draft provided' });
+    expect(calls()).toBe(0);
   });
 });

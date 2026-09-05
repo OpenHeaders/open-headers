@@ -16,7 +16,7 @@ import {
   type DocumentNode,
   exampleVariables,
   type OperationDefinitionNode,
-  parseDocument,
+  type ParseResult,
   printNode,
   selectedOperation,
 } from '@openheaders/core/graphql';
@@ -36,6 +36,9 @@ const { Text } = Typography;
 interface GraphqlQueryTabProps {
   draft: GraphqlDraft;
   setDraft: Dispatch<SetStateAction<GraphqlDraft>>;
+  /** The editor's ONE parse of the document (the operation select and
+   *  the send read it too) — the prettify and generate gestures share it. */
+  parsed: ParseResult;
 }
 
 /** The operation the pick names — the stored name when the document
@@ -56,15 +59,12 @@ function pickedOperation(document: DocumentNode, operationName: string): Operati
  *  law). */
 const EXPLORER_SOURCES = ['introspect', 'spec', 'import'] as const;
 
-const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft }) => {
+const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft, parsed }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [variablesOpen, setVariablesOpen] = useState(() => draft.variables.trim() !== '');
   const servicesRef = useRef<{ dispose: () => void } | null>(null);
 
-  // The parse the prettify and generate gestures read — recomputed per
-  // keystroke like the markers, never persisted.
-  const parsed = useMemo(() => parseDocument(draft.query), [draft.query]);
   const canPrettify = parsed.document !== null && draft.query.trim() !== '';
   const operation = useMemo(
     () => (parsed.document === null ? null : pickedOperation(parsed.document, draft.operationName)),

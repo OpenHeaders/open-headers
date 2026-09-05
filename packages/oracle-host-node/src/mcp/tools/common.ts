@@ -25,12 +25,14 @@ import {
 } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
+import { compileGraphqlRequest } from '@openheaders/oracle/live/graphql-exec/execute';
 import { makeOracleInverseAccess, peekActiveWorkspaceId, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import {
   applySyncRequest,
   getOracleForWorkspace,
   nextSwMutatorContextForWorkspace,
   snapshotEnvironmentPostStates,
+  snapshotGraphqlRequestPostStates,
   snapshotRequestPostStates,
 } from '@openheaders/oracle/sync/service';
 import { listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
@@ -114,12 +116,18 @@ export function requireStringArg(args: Record<string, unknown>, name: string): s
 }
 
 /** Uid-keyed request lookup with the agent-readable miss copy. */
+/**
+ * The request a uid names, as the executors run it: an HTTP request
+ * verbatim, or a GraphQL request compiled ONCE into its HTTP send (the
+ * same uid + path, so auth, settings and scripts resolve off the tree
+ * unchanged) — the execute tools take either kind with no new shape.
+ */
 export function findRequest(workspaceId: string, uid: string): Request {
   const match = snapshotRequestPostStates(workspaceId).find((ps) => ps.request.uid === uid);
-  if (!match) {
-    throw new McpToolInputError(`no request with uid '${uid}' in workspace '${workspaceId}' — see requests_list`);
-  }
-  return match.request;
+  if (match) return match.request;
+  const graphql = snapshotGraphqlRequestPostStates(workspaceId).find((ps) => ps.graphqlRequest.uid === uid);
+  if (graphql) return compileGraphqlRequest(graphql.graphqlRequest);
+  throw new McpToolInputError(`no request with uid '${uid}' in workspace '${workspaceId}' — see requests_list`);
 }
 
 /**

@@ -8,7 +8,7 @@
  * helper is what it reaches for once the user commits.
  */
 
-import { GRAPHQL_REQUEST_HEADERS_PATH } from '@openheaders/core/sync';
+import { GRAPHQL_REQUEST_ENTITY_TYPE, GRAPHQL_REQUEST_HEADERS_PATH } from '@openheaders/core/sync';
 import {
   buildGraphqlAddBatch,
   buildGraphqlDeleteBatch,
@@ -23,6 +23,7 @@ import {
 } from '../../context/mirrors/graphql-request-sync-mirror';
 import type { RequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
 import type { RequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
+import type { ResponseExampleSyncMirror } from '../../context/mirrors/response-example-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -30,6 +31,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
+import { applyRequestExampleDeletes, requestExamples } from './tree-descendants';
 import { requestTreeMirrors, resolveChildPlacement, resolveLeafParent, unresolvableParent } from './tree-placement';
 
 export type GraphqlRequestUpdates = Partial<Omit<GraphqlRequest, 'uid' | 'path' | 'pathSegment' | 'schemaVersion'>>;
@@ -47,6 +49,8 @@ export interface GraphqlRequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the parent-resolving container mirrors for tests. */
   collectionMirror?: RequestCollectionSyncMirror;
   folderMirror?: RequestFolderSyncMirror;
+  /** Override the response-example mirror the delete cascade reads (tests) — a GraphQL request holds the HTTP example kind. */
+  exampleMirror?: ResponseExampleSyncMirror;
 }
 
 /**
@@ -130,8 +134,17 @@ export async function applyGraphqlRequestDelete(
   await mirror.hydrated;
   const entry = mirror.getGraphqlRequestMirror(graphqlRequestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
+  // Cascade: the request's examples go first (`tree-descendants.ts`).
+  const examples = await requestExamples(
+    opts.workspaceId,
+    { graphqlMirror: mirror, responseExampleMirror: opts.exampleMirror },
+    { type: GRAPHQL_REQUEST_ENTITY_TYPE, uid: graphqlRequestUid },
+  );
+  const handle = resolveRendererContext(opts);
+  const cascade = await applyRequestExampleDeletes(examples, handle, `request-delete-cascade-${graphqlRequestUid}`);
+  if (!cascade.ok) return cascade;
   const parent = await resolveLeafParent(requestTreeMirrors(opts.workspaceId, opts), entry.graphqlRequest.path);
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(
     parent
       ? buildGraphqlDeleteBatch(graphqlRequestUid, parent, ctx)
