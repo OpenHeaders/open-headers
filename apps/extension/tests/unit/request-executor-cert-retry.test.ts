@@ -168,6 +168,14 @@ describe('buildWirePlan', () => {
     expect(plan.body).toEqual({ kind: 'text', content: '{"query":"query Q { ok }","variables":{"v":2}}' });
   });
 
+  it('folds the graphql operation pick into the wire body', async () => {
+    const plan = await buildWirePlan(
+      makeResolved({ body: { type: 'graphql', content: 'query A { a } query B { b }', operationName: 'B' } }),
+      1024,
+    );
+    expect(plan.body).toEqual({ kind: 'text', content: '{"query":"query A { a } query B { b }","operationName":"B"}' });
+  });
+
   it('keeps enabled form entries only', async () => {
     const plan = await buildWirePlan(
       makeResolved({

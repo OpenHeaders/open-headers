@@ -66,7 +66,12 @@ type OhRequestBody =
   | { readonly type: 'text'; readonly content: string; readonly rawFormat?: 'text' | 'javascript' | 'html' }
   | { readonly type: 'form'; readonly formParts: ReadonlyArray<OhFormField> }
   | { readonly type: 'multipart'; readonly multipartParts: ReadonlyArray<OhMultipartPart> }
-  | { readonly type: 'graphql'; readonly content: string; readonly graphqlVariables?: string };
+  | {
+      readonly type: 'graphql';
+      readonly content: string;
+      readonly graphqlVariables?: string;
+      readonly operationName?: string;
+    };
 
 /** The outgoing request. Mutable in pre-request scripts via
  *  \`oh.setUrl\` / \`oh.setHeader\` / \`oh.setMethod\` / \`oh.setBody\`;
@@ -136,7 +141,7 @@ type OhAdHocRequestBody =
   | { type: 'text'; content: string; rawFormat?: 'text' | 'javascript' | 'html' }
   | { type: 'form'; formParts: Array<OhFormField> }
   | { type: 'multipart'; multipartParts: Array<OhMultipartPart> }
-  | { type: 'graphql'; content: string; graphqlVariables?: string };
+  | { type: 'graphql'; content: string; graphqlVariables?: string; operationName?: string };
 
 interface OhAdHocRequest {
   method: OhHttpMethod;

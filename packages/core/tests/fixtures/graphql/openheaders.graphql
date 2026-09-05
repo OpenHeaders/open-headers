@@ -1,0 +1,170 @@
+"""
+The OpenHeaders playground schema — every construct the client's
+census, explorer, completion, validation and example-synthesis legs
+need, on openheaders.io. The playground probe serves exactly this file.
+"""
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+"""An ISO-8601 date-time string, e.g. `2026-01-01T00:00:00Z`."""
+scalar DateTime @specifiedBy(url: "https://openheaders.io/scalars/date-time")
+
+"""Anything with a globally unique id."""
+interface Node {
+  """The globally unique id."""
+  id: ID!
+}
+
+"""Anything that carries audit timestamps."""
+interface Timestamped {
+  createdAt: DateTime!
+  updatedAt: DateTime
+}
+
+"""A user's role inside a workspace."""
+enum Role {
+  """Can read and change everything, including members."""
+  OWNER
+  """Can read and change requests."""
+  EDITOR
+  """Can read only."""
+  VIEWER
+  """Superseded by VIEWER."""
+  GUEST @deprecated(reason: "Use VIEWER.")
+}
+
+"""A person with an account on openheaders.io."""
+type User implements Node & Timestamped {
+  id: ID!
+  """Display name, e.g. `John Doe`."""
+  name: String!
+  """Primary e-mail address."""
+  email: String!
+  role: Role!
+  """Profile picture URL, when set."""
+  avatarUrl: String
+  createdAt: DateTime!
+  updatedAt: DateTime
+  """Notes the user authored, newest first."""
+  notes(first: Int = 10, after: String): NoteConnection!
+  """The user's handle before profiles had names."""
+  username: String @deprecated(reason: "Use `name`.")
+}
+
+"""A note attached to a request or folder."""
+type Note implements Node & Timestamped {
+  id: ID!
+  title: String!
+  body: String
+  tags: [String!]!
+  author: User!
+  pinned: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime
+}
+
+"""Anything a search can find."""
+union SearchResult = User | Note
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+type NoteEdge {
+  cursor: String!
+  node: Note!
+}
+
+type NoteConnection {
+  edges: [NoteEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type UserEdge {
+  cursor: String!
+  node: User!
+}
+
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+"""A partial result: `data` beside `errors[]` — the 200-with-errors trap."""
+type Partial {
+  """Always resolves."""
+  ok: String!
+  """Always errors."""
+  broken: String!
+}
+
+"""Geographic coordinates."""
+input GeoInput {
+  latitude: Float!
+  longitude: Float!
+}
+
+"""Every scalar kind, a list and a nested input — the example-synthesis fixture."""
+input NoteInput {
+  """The note's title."""
+  title: String!
+  body: String
+  tags: [String!] = []
+  pinned: Boolean = false
+  priority: Int
+  score: Float
+  authorId: ID!
+  visibleTo: Role = EDITOR
+  location: GeoInput
+  remindAt: DateTime
+}
+
+"""Exactly one of the two."""
+input NoteLookup @oneOf {
+  id: ID
+  title: String
+}
+
+type Query {
+  """Echoes `text` back — the variables round trip."""
+  echo(text: String!): String!
+  """The signed-in user, or null when anonymous."""
+  viewer: User
+  """One user by id."""
+  user(id: ID!): User
+  """Every user, paginated."""
+  users(first: Int = 10, after: String, role: Role): UserConnection!
+  """One note, by id or title."""
+  note(lookup: NoteLookup!): Note
+  """Full-text search across users and notes."""
+  search(term: String!, limit: Int = 5): [SearchResult!]!
+  """Any node by id."""
+  node(id: ID!): Node
+  """Resolves after `ms` milliseconds — the timeout knob."""
+  slow(ms: Int!): Boolean!
+  """Always errors, with `data: null`."""
+  failing: String!
+  """Partial data beside errors."""
+  partial: Partial!
+  """Requires `Authorization: Bearer probe-token`."""
+  gated: String!
+  """Superseded by `viewer`."""
+  me: User @deprecated(reason: "Use `viewer`.")
+}
+
+type Mutation {
+  """Creates a note; state lives per process and resets on restart."""
+  createNote(input: NoteInput!): Note!
+  """Deletes a note; true when it existed."""
+  deleteNote(id: ID!): Boolean!
+  """Changes a user's role."""
+  setRole(userId: ID!, role: Role!): User!
+}
+
+"""Marks a field as expensive to resolve; the playground logs the cost."""
+directive @cost(weight: Int! = 1) repeatable on FIELD_DEFINITION | OBJECT

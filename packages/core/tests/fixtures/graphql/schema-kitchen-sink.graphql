@@ -1,0 +1,88 @@
+"""A schema exercising every type-system production."""
+schema @cost(weight: 0) {
+  query: QueryRoot
+  mutation: MutationRoot
+  subscription: SubscriptionRoot
+}
+
+extend schema @cost(weight: 1)
+
+"A single-line description."
+scalar Money @specifiedBy(url: "https://openheaders.io/scalars/money")
+
+extend scalar Money @cost
+
+interface Named {
+  name: String!
+}
+
+interface Entity implements Named {
+  id: ID!
+  name: String!
+}
+
+type Thing implements Named & Entity @cost(weight: 3) {
+  id: ID!
+  """
+  Multi-line
+  description
+  """
+  name: String!
+  price(currency: String = "USD", "Rounding mode." round: Boolean): Money
+  labels: [[String!]!]
+  parent: Thing
+}
+
+extend type Thing implements Named {
+  extra: Int @deprecated
+}
+
+extend interface Named @cost {
+  alias: String
+}
+
+union Anything = Thing | Other
+
+extend union Anything = | Third
+
+type Other { id: ID! }
+
+type Third { id: ID! }
+
+enum Color @cost {
+  RED
+  """Green."""
+  GREEN @deprecated(reason: "Use RED.")
+}
+
+extend enum Color {
+  BLUE
+}
+
+input Filter @oneOf {
+  id: ID
+  name: String
+}
+
+extend input Filter @cost {
+  color: Color = RED
+  nested: [Filter!] = [{ id: "1" }, { name: "x" }]
+}
+
+type QueryRoot {
+  things(filter: Filter, colors: [Color!] = [RED, GREEN], money: Money = 1.5): [Thing!]!
+  anything: Anything
+}
+
+type MutationRoot {
+  touch(id: ID!): Boolean!
+}
+
+type SubscriptionRoot {
+  touched: Thing!
+}
+
+directive @cost(weight: Int! = 1) repeatable on FIELD_DEFINITION | OBJECT | SCHEMA | SCALAR | INTERFACE | ENUM | INPUT_OBJECT | FRAGMENT_DEFINITION | QUERY
+
+"""Marks a field internal."""
+directive @internal on FIELD_DEFINITION | ARGUMENT_DEFINITION | INPUT_FIELD_DEFINITION | ENUM_VALUE

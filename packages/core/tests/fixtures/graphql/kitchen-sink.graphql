@@ -1,0 +1,51 @@
+# Every executable production, on the openheaders.io schema.
+query Users($first: Int = 10, $after: String, $role: Role = EDITOR, $withNotes: Boolean!, $geo: GeoInput = { latitude: 1.5, longitude: -2 })
+@cost(weight: 2) {
+  users(first: $first, after: $after, role: $role) {
+    totalCount
+    pageInfo { hasNextPage endCursor }
+    edges {
+      cursor
+      node {
+        ...UserFields
+        notes(first: 2) @include(if: $withNotes) {
+          edges { node { id title tags pinned } }
+        }
+      }
+    }
+  }
+  anyone: search(term: "john", limit: 3) {
+    __typename
+    ... on User { id name }
+    ... on Note { id title }
+    ... @skip(if: false) { __typename }
+  }
+  lookup: note(lookup: { title: "Release notes" }) { id }
+  echo(text: """
+    A block
+      string
+  """)
+}
+
+mutation CreateNote($input: NoteInput!) {
+  createNote(input: $input) {
+    id
+    author { ...UserFields }
+  }
+}
+
+subscription OnNote {
+  noteChanged { id }
+}
+
+fragment UserFields on User @cost {
+  id
+  name
+  email
+  role
+  avatarUrl
+}
+
+{
+  viewer { id }
+}

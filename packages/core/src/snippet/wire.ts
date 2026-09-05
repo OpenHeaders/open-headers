@@ -13,8 +13,8 @@ import type { WireHeader, WireSnippetRequest } from './types';
  * `variablesText` embeds as parsed JSON when valid and is omitted on
  * parse failure, matching the executors' lenient posture.
  */
-export function graphqlWireBody(content: string, variablesText: string | undefined): string {
-  const wire: { query: string; variables?: unknown } = { query: content };
+export function graphqlWireBody(content: string, variablesText: string | undefined, operationName?: string): string {
+  const wire: { query: string; variables?: unknown; operationName?: string } = { query: content };
   const trimmed = variablesText?.trim();
   if (trimmed) {
     try {
@@ -23,6 +23,7 @@ export function graphqlWireBody(content: string, variablesText: string | undefin
       // Leave `variables` unset — `{query}` alone is valid GraphQL wire.
     }
   }
+  if (operationName) wire.operationName = operationName;
   return JSON.stringify(wire);
 }
 
@@ -56,7 +57,7 @@ export function wireTextBody(body: RequestBody): string | null {
     case 'text':
       return body.content;
     case 'graphql':
-      return graphqlWireBody(body.content, body.graphqlVariables);
+      return graphqlWireBody(body.content, body.graphqlVariables, body.operationName);
     default:
       return null;
   }

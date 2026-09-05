@@ -224,6 +224,10 @@
       "import": "./src/mqtt/index.ts",
       "default": "./dist/mqtt/index.js"
     },
+    "./graphql": {
+      "import": "./src/graphql/index.ts",
+      "default": "./dist/graphql/index.js"
+    },
     "./cli-config": {
       "import": "./src/cli-config/index.ts",
       "default": "./dist/cli-config/index.js"

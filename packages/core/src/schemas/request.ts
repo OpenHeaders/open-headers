@@ -1184,8 +1184,10 @@ export const FormFieldSchema = v.object({
  *                   (text + file refs by hash). The browser sets the
  *                   boundary at fetch time.
  *   - `graphql`   — `content` is the query string; `graphqlVariables`
- *                   is the optional JSON-encoded variables object.
- *                   The executor JSON-wraps both into a single
+ *                   is the optional JSON-encoded variables object;
+ *                   `operationName` is the optional operation to run
+ *                   when the document holds several. The executor
+ *                   JSON-wraps all three into a single
  *                   `application/json` POST body per the GraphQL HTTP
  *                   transport spec.
  */
@@ -1225,6 +1227,10 @@ export const RequestBodySchema = v.variant('type', [
     type: v.literal('graphql'),
     content: v.string(),
     graphqlVariables: v.optional(v.string()),
+    /** The operation to run when the document holds several — the
+     *  wire envelope's `operationName`. Absent = the document's only
+     *  operation. */
+    operationName: v.optional(v.string()),
   }),
 ]);
 

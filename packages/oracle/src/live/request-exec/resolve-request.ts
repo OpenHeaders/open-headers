@@ -720,10 +720,10 @@ export function buildResolvedBody(body: RequestBody, resolveStr: (s: string) => 
         ? { type: 'text', content: resolveStr(body.content), rawFormat: body.rawFormat }
         : { type: 'text', content: resolveStr(body.content) };
     case 'graphql': {
-      const variables = body.graphqlVariables !== undefined ? resolveStr(body.graphqlVariables) : undefined;
-      return variables !== undefined
-        ? { type: 'graphql', content: resolveStr(body.content), graphqlVariables: variables }
-        : { type: 'graphql', content: resolveStr(body.content) };
+      const resolved: RequestBody = { type: 'graphql', content: resolveStr(body.content) };
+      if (body.graphqlVariables !== undefined) resolved.graphqlVariables = resolveStr(body.graphqlVariables);
+      if (body.operationName !== undefined) resolved.operationName = body.operationName;
+      return resolved;
     }
     case 'form': {
       const resolvedParts: FormField[] = body.formParts.map((part) => {

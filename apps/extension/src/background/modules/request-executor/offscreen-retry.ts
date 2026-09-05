@@ -91,7 +91,10 @@ async function buildWirePlanBody(req: ResolvedRequest): Promise<WirePlanBody> {
     case 'text':
       return { kind: 'text', content: req.body.content };
     case 'graphql':
-      return { kind: 'text', content: graphqlWireText(req.body.content, req.body.graphqlVariables) };
+      return {
+        kind: 'text',
+        content: graphqlWireText(req.body.content, req.body.graphqlVariables, req.body.operationName),
+      };
     case 'form':
       return {
         kind: 'form',

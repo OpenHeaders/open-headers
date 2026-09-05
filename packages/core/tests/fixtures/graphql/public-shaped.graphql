@@ -1,0 +1,72 @@
+"""
+A public-API-shaped schema (a countries directory), sanitized onto
+openheaders.io — the shape introspection results from public servers
+take: relay connections, filters as input objects, custom scalars.
+"""
+scalar JSON
+
+type Continent {
+  code: ID!
+  name: String!
+  countries: [Country!]!
+}
+
+type Country {
+  code: ID!
+  name: String!
+  native: String!
+  capital: String
+  currency: String
+  emoji: String!
+  phone: String!
+  continent: Continent!
+  languages: [Language!]!
+  states: [State!]!
+  awsRegion: String!
+  meta: JSON
+}
+
+type Language {
+  code: ID!
+  name: String!
+  native: String!
+  rtl: Boolean!
+}
+
+type State {
+  code: String
+  name: String!
+  country: Country!
+}
+
+input StringQueryOperatorInput {
+  eq: String
+  ne: String
+  in: [String!]
+  nin: [String!]
+  regex: String
+}
+
+input CountryFilterInput {
+  code: StringQueryOperatorInput
+  currency: StringQueryOperatorInput
+  continent: StringQueryOperatorInput
+  name: StringQueryOperatorInput
+}
+
+input ContinentFilterInput {
+  code: StringQueryOperatorInput
+}
+
+input LanguageFilterInput {
+  code: StringQueryOperatorInput
+}
+
+type Query {
+  continent(code: ID!): Continent
+  continents(filter: ContinentFilterInput = {}): [Continent!]!
+  country(code: ID!): Country
+  countries(filter: CountryFilterInput = {}): [Country!]!
+  language(code: ID!): Language
+  languages(filter: LanguageFilterInput = {}): [Language!]!
+}

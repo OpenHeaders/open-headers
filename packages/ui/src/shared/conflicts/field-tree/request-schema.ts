@@ -271,6 +271,7 @@ const BODY_UNION: FieldNode = union({
     graphql: obj({
       content: leaf('string'),
       graphqlVariables: leaf('string', { coercion: 'optional-string' }),
+      operationName: leaf('string', { coercion: 'optional-string' }),
     }),
   },
 });

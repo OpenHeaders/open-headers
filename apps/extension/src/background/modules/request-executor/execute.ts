@@ -201,7 +201,7 @@ export async function executeResolved(
     case 'graphql': {
       // GraphQL wire fold — see graphqlWireText: `{"query", "variables"}`
       // as application/json, shared with the offscreen wire-plan builder.
-      const wireText = graphqlWireText(req.body.content, req.body.graphqlVariables);
+      const wireText = graphqlWireText(req.body.content, req.body.graphqlVariables, req.body.operationName);
       init.body = wireText;
       bodyBytes = stringBodyBytes(wireText);
       break;

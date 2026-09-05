@@ -373,6 +373,18 @@ describe('executeOverTransport', () => {
     expect(sent().body).toEqual({ kind: 'raw', content: JSON.stringify({ query: 'query{x}', variables: { v: 1 } }) });
   });
 
+  it('carries the graphql operation pick on the wire envelope', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(
+      makeResolved({ body: { type: 'graphql', content: 'query A{x} query B{y}', operationName: 'B' } }),
+      transport,
+    );
+    expect(sent().body).toEqual({
+      kind: 'raw',
+      content: JSON.stringify({ query: 'query A{x} query B{y}', operationName: 'B' }),
+    });
+  });
+
   it('omits invalid graphql variables rather than sending a malformed body', async () => {
     const { transport, sent } = captureTransport();
     await executeOverTransport(

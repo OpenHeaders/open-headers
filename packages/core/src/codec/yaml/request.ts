@@ -10,7 +10,7 @@
  *   test.js            # optional
  *
  * The codec's job is translation between the runtime `Request` object
- * (which has `body: { type, content?, graphqlVariables? }` + optional
+ * (which has `body: { type, content?, graphqlVariables?, operationName? }` + optional
  * scripts as string fields) and the on-disk fan-out. The caller (desktop
  * storage service, future team-sync layer) handles filesystem I/O.
  *
@@ -168,10 +168,12 @@ function assembleBody(
         type: 'multipart',
         multipartParts: Array.isArray(raw.multipartParts) ? (raw.multipartParts as MultipartPart[]) : [],
       };
-    case 'graphql':
-      return graphqlVariables !== undefined
-        ? { type: 'graphql', content: content ?? '', graphqlVariables }
-        : { type: 'graphql', content: content ?? '' };
+    case 'graphql': {
+      const body: RequestBody = { type: 'graphql', content: content ?? '' };
+      if (graphqlVariables !== undefined) body.graphqlVariables = graphqlVariables;
+      if (typeof raw.operationName === 'string') body.operationName = raw.operationName;
+      return body;
+    }
   }
 }
 
@@ -251,8 +253,11 @@ function manifestBodyOf(body: RequestBody): Record<string, unknown> {
     case 'text':
       return body.rawFormat !== undefined ? { type: 'text', rawFormat: body.rawFormat } : { type: 'text' };
     case 'graphql':
-      // graphqlVariables fans out to variables.json; query fans out to body.graphql.
-      return { type: 'graphql' };
+      // graphqlVariables fans out to variables.json; query fans out to
+      // body.graphql; the operation pick stays on the manifest.
+      return body.operationName !== undefined
+        ? { type: 'graphql', operationName: body.operationName }
+        : { type: 'graphql' };
     case 'form':
       return { type: 'form', formParts: body.formParts };
     case 'multipart':

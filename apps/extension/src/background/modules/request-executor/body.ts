@@ -38,11 +38,12 @@ export function buildResolvedBody(body: RequestBody, resolveStr: (s: string) => 
     case 'graphql': {
       // GraphQL variables are JSON text the user typed — resolve
       // templates inside it the same way as the query string. The
-      // wire-side JSON wrap happens in `executeResolved`.
-      const variables = body.graphqlVariables !== undefined ? resolveStr(body.graphqlVariables) : undefined;
-      return variables !== undefined
-        ? { type: 'graphql', content: resolveStr(body.content), graphqlVariables: variables }
-        : { type: 'graphql', content: resolveStr(body.content) };
+      // operation pick is a name, never templated. The wire-side JSON
+      // wrap happens in `executeResolved`.
+      const resolved: RequestBody = { type: 'graphql', content: resolveStr(body.content) };
+      if (body.graphqlVariables !== undefined) resolved.graphqlVariables = resolveStr(body.graphqlVariables);
+      if (body.operationName !== undefined) resolved.operationName = body.operationName;
+      return resolved;
     }
     case 'form': {
       const resolvedParts: FormField[] = body.formParts.map((part) => {
@@ -93,15 +94,16 @@ export function buildResolvedBody(body: RequestBody, resolveStr: (s: string) => 
 /**
  * GraphQL HTTP transport wire body
  * (https://graphql.org/learn/serving-over-http/): `{"query": "...",
- * "variables": {...}}` as application/json. `variablesText` is JSON
- * text the user typed; it embeds as parsed JSON when valid and is
- * omitted on parse failure (better to send `{query}` than a malformed
- * wire body that crashes the server JSON parser). Shared by the SW
- * wire layer and the offscreen wire-plan builder so the two fold
+ * "variables": {...}, "operationName": "..."}` as application/json.
+ * `variablesText` is JSON text the user typed; it embeds as parsed
+ * JSON when valid and is omitted on parse failure (better to send
+ * `{query}` than a malformed wire body that crashes the server JSON
+ * parser). `operationName` rides only when set. Shared by the SW wire
+ * layer and the offscreen wire-plan builder so the two fold
  * identically.
  */
-export function graphqlWireText(content: string, variablesText: string | undefined): string {
-  const wire: { query: string; variables?: unknown } = { query: content };
+export function graphqlWireText(content: string, variablesText: string | undefined, operationName?: string): string {
+  const wire: { query: string; variables?: unknown; operationName?: string } = { query: content };
   const trimmed = variablesText?.trim();
   if (trimmed) {
     try {
@@ -111,6 +113,7 @@ export function graphqlWireText(content: string, variablesText: string | undefin
       // accept as "no variables" rather than 400.
     }
   }
+  if (operationName) wire.operationName = operationName;
   return JSON.stringify(wire);
 }
 

@@ -524,10 +524,11 @@ async function buildTransportBody(body: RequestBody): Promise<TransportBody> {
     case 'text':
       return { kind: 'raw', content: body.content };
     case 'graphql': {
-      // GraphQL HTTP transport: `{"query": "...", "variables": {...}}`.
-      // `graphqlVariables` is JSON text — embed it parsed when valid,
-      // else omit (better to send `{query}` than a malformed wire body).
-      const wire: { query: string; variables?: unknown } = { query: body.content };
+      // GraphQL HTTP transport: `{"query": "...", "variables": {...},
+      // "operationName": "..."}`. `graphqlVariables` is JSON text —
+      // embed it parsed when valid, else omit (better to send `{query}`
+      // than a malformed wire body); `operationName` rides only when set.
+      const wire: { query: string; variables?: unknown; operationName?: string } = { query: body.content };
       const variablesText = body.graphqlVariables?.trim();
       if (variablesText) {
         try {
@@ -536,6 +537,7 @@ async function buildTransportBody(body: RequestBody): Promise<TransportBody> {
           // Leave `variables` unset.
         }
       }
+      if (body.operationName) wire.operationName = body.operationName;
       return { kind: 'raw', content: JSON.stringify(wire) };
     }
     case 'form': {
