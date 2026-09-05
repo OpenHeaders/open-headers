@@ -66,6 +66,10 @@ const runtimeMock = {
   lastError: null as chrome.runtime.LastError | null,
 };
 
+const managementMock = {
+  getSelf: vi.fn(async () => ({ id: 'test-id', installType: 'normal' as chrome.management.ExtensionInstallType })),
+};
+
 const tabsMock = {
   query: vi.fn((_queryInfo, callback) => callback?.([])),
   get: vi.fn((_tabId, callback) => callback?.({})),
@@ -206,6 +210,7 @@ const debuggerMock = {
 export const chrome = {
   storage: storageMock,
   runtime: runtimeMock,
+  management: managementMock,
   debugger: debuggerMock,
   tabs: tabsMock,
   alarms: alarmsMock,

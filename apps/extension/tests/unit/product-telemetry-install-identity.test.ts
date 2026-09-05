@@ -48,6 +48,41 @@ describe('detectDistributionChannel', () => {
     });
     expect(detectDistributionChannel()).toBe('chrome-store');
   });
+
+  it('reports dev for a development install type ahead of the manifest marker', async () => {
+    const { detectDistributionChannel, resolveInstallType } = await loadModule();
+    (chrome.management.getSelf as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 'test-id',
+      installType: 'development',
+    });
+    await resolveInstallType();
+    // The development flag short-circuits before the manifest is read.
+    expect(detectDistributionChannel()).toBe('dev');
+    // A later resolve with a normal install type clears the cached flag.
+    await resolveInstallType();
+    expect(detectDistributionChannel()).toBe('dev');
+    vi.mocked(chrome.runtime.getManifest).mockReturnValueOnce({
+      manifest_version: 3,
+      name: 'Open Headers',
+      version: '4.0.0',
+      update_url: 'https://clients2.google.com/service/update2/crx',
+    });
+    expect(detectDistributionChannel()).toBe('chrome-store');
+  });
+
+  it('a throwing getSelf reads as not-development and falls back to the manifest marker', async () => {
+    const { detectDistributionChannel, resolveInstallType } = await loadModule();
+    (chrome.management.getSelf as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('unavailable'));
+    await resolveInstallType();
+    expect(detectDistributionChannel()).toBe('dev');
+    vi.mocked(chrome.runtime.getManifest).mockReturnValueOnce({
+      manifest_version: 3,
+      name: 'Open Headers',
+      version: '4.0.0',
+      update_url: 'https://clients2.google.com/service/update2/crx',
+    });
+    expect(detectDistributionChannel()).toBe('chrome-store');
+  });
 });
 
 describe('buildEnvelopeFacts', () => {

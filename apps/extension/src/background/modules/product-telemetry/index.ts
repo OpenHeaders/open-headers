@@ -223,14 +223,37 @@ function detectBrowserKind(): 'chrome' | 'firefox' | 'edge' | 'safari' | 'other'
 }
 
 /**
+ * Whether the browser loaded this build as a development install
+ * (`management.getSelf().installType === 'development'` — unpacked on
+ * Chromium, a temporary add-on on Firefox). `getSelf` needs no
+ * `management` permission on any engine; an engine without it, or one
+ * that throws, reads as not-development. Resolved once at boot and
+ * cached: the channel read is synchronous (it feeds the uninstall URL
+ * too) and the fact never changes over an extension's lifetime.
+ */
+let developmentInstall = false;
+
+export async function resolveInstallType(): Promise<void> {
+  const api = typeof browser !== 'undefined' ? browser : chrome;
+  try {
+    const self = await api.management?.getSelf?.();
+    developmentInstall = self?.installType === 'development';
+  } catch {
+    developmentInstall = false;
+  }
+}
+
+/**
  * The store this build ships through — a static fact of the browser
- * flavor. On Chromium engines only a store-delivered build carries an
- * `update_url` in its runtime manifest, so an unpacked dev load reports
- * `dev` instead of inflating store install counts. Firefox has no such
- * marker (AMO-listed builds carry none either) and Safari builds only
- * ever arrive through the store.
+ * flavor. A development install (above) reports `dev` on every engine
+ * so it never inflates store install counts; on Chromium the runtime
+ * manifest's `update_url` is the fallback marker (only a
+ * store-delivered build carries one). Firefox has no such marker
+ * (AMO-listed builds carry none either) and Safari builds only ever
+ * arrive through the store.
  */
 export function detectDistributionChannel(): TelemetryChannelId {
+  if (developmentInstall) return 'dev';
   if (isFirefox) return 'firefox-amo';
   if (isSafari) return 'safari-store';
   if (!runtime.getManifest().update_url) return 'dev';
@@ -374,8 +397,10 @@ const controller = new ProductTelemetryController({
  */
 export function initProductTelemetry(): void {
   alarms?.create(FLUSH_ALARM, { periodInMinutes: FLUSH_PERIOD_MINUTES });
-  void controller
-    .init()
+  // The install type resolves before the controller boots: the first
+  // identity change registers the uninstall URL with the channel in it.
+  void resolveInstallType()
+    .then(() => controller.init())
     .then(() => {
       // Enabled transitions can queue events of their own (the
       // consent-time session_start re-fire) — flush right behind the
