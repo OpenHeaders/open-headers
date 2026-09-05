@@ -11,10 +11,11 @@ on:
   # legs, no release job, nothing published.
   workflow_dispatch:
 
-# packages: write — the ubuntu binaries leg pushes the ohd image to ghcr.
+# Least privilege per job: the build legs only read the checkout; the
+# binaries leg pushes the ohd image to ghcr; the release job writes the
+# release and moves the ghcr pointer.
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 # Two tag runs must never interleave their feed uploads (pointers are
 # global per channel); they queue instead — a queued release is never
@@ -31,11 +32,20 @@ env:
   # absolute URLs into this repo's release pages.
   RELEASE_REPO: OpenHeaders/open-headers
   R2_BUCKET: oh-updates
+  # Log noise off: turbo's telemetry banner, the Visual Studio
+  # telemetry orphan (vctip) on the Windows legs, needrestart's service
+  # prompts after apt installs on the Linux legs.
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
+  VSCMD_SKIP_SENDTELEMETRY: 1
+  NEEDRESTART_SUSPEND: 1
 
 jobs:
   build-desktop:
     if: ${{ !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     # 2026.9.0: 29 min on the mac legs with every cache cold.
     timeout-minutes: 60
     # Shipped-artifact hardening (terser passes, strip-testid runtime,
@@ -70,6 +80,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -260,7 +271,6 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Secrets are not readable in step `if:` expressions, so surface
       # their presence as an output; missing credentials mean the
@@ -294,8 +304,6 @@ jobs:
           else
             pnpm dist:win:unsigned
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Signed stable lane: the installed binaries need Authenticode
       # too — the NM chain's host verification anchors on the signed
@@ -307,8 +315,6 @@ jobs:
         working-directory: apps/desktop
         shell: bash
         run: pnpm dist:win:unsigned:dir
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sign app executable
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
@@ -386,8 +392,6 @@ jobs:
         working-directory: apps/desktop
         shell: bash
         run: pnpm dist:win:frompacked
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Find Windows Executable
         if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
@@ -522,8 +526,6 @@ jobs:
             fi
           fi
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # The mac oh/ohd pair used to ride this leg (10×-billed macOS
       # minutes made a second runner the pipeline's most expensive
@@ -599,6 +601,9 @@ jobs:
   build-binaries:
     if: ${{ github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && !contains(github.ref_name, '-beta') }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      packages: write
     # 2026.9.0: 6 min per leg.
     timeout-minutes: 25
     strategy:
@@ -613,6 +618,7 @@ jobs:
           # Full history so build stamps derived from commit counts
           # mean something on release binaries.
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -824,9 +830,12 @@ jobs:
           fi
           docker rm -f "$CONTAINER"
 
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker push "$IMAGE:$OHD_VERSION"
+          docker logout ghcr.io
         shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Stage binary assets
         run: |
@@ -892,12 +901,17 @@ jobs:
     if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' && !contains(github.ref_name, '-ext') && !contains(github.ref_name, '-cli') && !contains(github.ref_name, '-daemon') && needs.build-desktop.result == 'success' && (needs.build-binaries.result == 'success' || (contains(github.ref_name, '-beta') && needs.build-binaries.result == 'skipped')) }}
     needs: [build-desktop, build-binaries]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     # 2026.9.0: 18 min, of which 17 were the two serial uploads.
     timeout-minutes: 45
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Determine release type
         id: release_type
@@ -1062,8 +1076,14 @@ jobs:
             echo "::notice::GPG_PRIVATE_KEY not configured - SHA256SUMS.txt ships unsigned"
             exit 0
           fi
+          # A throwaway keyring, gone when the step ends — the secret
+          # key never lands in the runner's default home; the
+          # passphrase travels on stdin, never in an argv `ps` can read.
+          export GNUPGHOME
+          GNUPGHOME=$(mktemp -d)
+          trap 'rm -rf "$GNUPGHOME"' EXIT
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+          printf '%s\n' "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
             --armor --detach-sign \
             --output processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt
           gpg --verify processed_files/SHA256SUMS.txt.asc processed_files/SHA256SUMS.txt

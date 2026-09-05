@@ -106,8 +106,9 @@ try {
   if (!secretFpr || secretFpr !== keyringFpr) {
     fail(`signing key ${secretFpr} does not match the committed archive keyring ${keyringFpr} — installs verify against the committed key`);
   }
-  const sign = ['--yes', '--pinentry-mode', 'loopback', '--passphrase', passphrase, '--local-user', secretFpr];
-  gpg([...sign, '--armor', '--detach-sign', '--output', `${repomdPath}.asc`, repomdPath]);
+  // The passphrase travels on stdin — never in an argv `ps` can read.
+  const sign = ['--yes', '--pinentry-mode', 'loopback', '--passphrase-fd', '0', '--local-user', secretFpr];
+  gpg([...sign, '--armor', '--detach-sign', '--output', `${repomdPath}.asc`, repomdPath], { input: passphrase });
   gpg(['--verify', `${repomdPath}.asc`, repomdPath], { stdio: 'ignore' });
 } finally {
   rmSync(gnupghome, { recursive: true, force: true });

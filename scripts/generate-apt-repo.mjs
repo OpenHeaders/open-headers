@@ -150,9 +150,12 @@ try {
   if (!secretFpr || secretFpr !== keyringFpr) {
     fail(`signing key ${secretFpr} does not match the committed archive keyring ${keyringFpr} — installs verify against the committed key`);
   }
-  const sign = ['--yes', '--pinentry-mode', 'loopback', '--passphrase', passphrase, '--local-user', secretFpr];
-  gpg([...sign, '--clearsign', '--output', path.join(distsDir, 'InRelease'), releasePath]);
-  gpg([...sign, '--armor', '--detach-sign', '--output', path.join(distsDir, 'Release.gpg'), releasePath]);
+  // The passphrase travels on stdin — never in an argv `ps` can read.
+  const sign = ['--yes', '--pinentry-mode', 'loopback', '--passphrase-fd', '0', '--local-user', secretFpr];
+  gpg([...sign, '--clearsign', '--output', path.join(distsDir, 'InRelease'), releasePath], { input: passphrase });
+  gpg([...sign, '--armor', '--detach-sign', '--output', path.join(distsDir, 'Release.gpg'), releasePath], {
+    input: passphrase,
+  });
   gpg(['--verify', path.join(distsDir, 'InRelease')], { stdio: 'ignore' });
   gpg(['--verify', path.join(distsDir, 'Release.gpg'), releasePath], { stdio: 'ignore' });
 } finally {
