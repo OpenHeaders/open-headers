@@ -30,7 +30,7 @@ interface CategoryRow {
 // Coarse review categories over the snapshot's own array names — the
 // summary omits zero-count keys, so absent keys simply contribute 0.
 const CATEGORY_ROWS: readonly CategoryRow[] = [
-  { labelKey: 'workbench.workspace.publicShare.cat.requests', countKeys: ['requests', 'grpcRequests', 'websocketRequests', 'mqttRequests'] },
+  { labelKey: 'workbench.workspace.publicShare.cat.requests', countKeys: ['requests', 'grpcRequests', 'websocketRequests', 'mqttRequests', 'graphqlRequests'] },
   { labelKey: 'workbench.workspace.publicShare.cat.collections', countKeys: ['collections', 'requestCollections', 'templateCollections'] },
   { labelKey: 'workbench.workspace.publicShare.cat.folders', countKeys: ['folders', 'requestFolders', 'templateFolders'] },
   { labelKey: 'workbench.workspace.publicShare.cat.rules', countKeys: ['rules'] },

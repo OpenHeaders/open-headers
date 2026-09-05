@@ -93,6 +93,7 @@ export function applyTreeOrder(state: WorkspaceTreeState, slots: TreeSlotReader)
     state.grpcRequests,
     state.websocketRequests,
     state.mqttRequests,
+    state.graphqlRequests,
     state.templateCollections,
     state.templateFolders,
     state.templates,

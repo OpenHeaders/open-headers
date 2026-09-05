@@ -22,6 +22,7 @@
 
 import type { ScriptKind } from '@openheaders/core/scripts';
 import { Divider, theme } from 'antd';
+import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
@@ -45,6 +46,8 @@ interface ScriptRailProps {
   grouped: boolean;
   active: ScriptKind;
   scripts: ScriptSlotValues;
+  /** A flavor's own labels over its family's slots — see ScriptsTab. */
+  slotLabels?: Partial<Readonly<Record<ScriptKind, MessageKey>>>;
   unsaved?: ScriptSlotFlags;
   onSelect: (kind: ScriptKind) => void;
 }
@@ -63,8 +66,9 @@ const ScriptRailRow: React.FC<{
   selected: boolean;
   hasScript: boolean;
   unsaved: boolean;
+  labelKey: MessageKey;
   onSelect: (kind: ScriptKind) => void;
-}> = ({ slot, inset, selected, hasScript, unsaved, onSelect }) => {
+}> = ({ slot, inset, selected, hasScript, unsaved, labelKey, onSelect }) => {
   const { token } = theme.useToken();
   const t = useT();
   return (
@@ -92,7 +96,7 @@ const ScriptRailRow: React.FC<{
         fontSize: 12,
       }}
     >
-      <span>{t(slot.labelKey)}</span>
+      <span>{t(labelKey)}</span>
       <InfoTrigger content={scriptSlotInfo(slot.kind, t)} />
       <span style={{ flex: 1 }} />
       {(unsaved || hasScript) && (
@@ -140,7 +144,15 @@ const ScriptRailGroupHeader: React.FC<{ group: ScriptSlotGroup }> = ({ group }) 
   );
 };
 
-const ScriptRail: React.FC<ScriptRailProps> = ({ groups, grouped, active, scripts, unsaved, onSelect }) => {
+const ScriptRail: React.FC<ScriptRailProps> = ({
+  groups,
+  grouped,
+  active,
+  scripts,
+  slotLabels,
+  unsaved,
+  onSelect,
+}) => {
   const rows = (group: ScriptSlotGroup) =>
     group.slots.map((slot) => (
       <ScriptRailRow
@@ -150,6 +162,7 @@ const ScriptRail: React.FC<ScriptRailProps> = ({ groups, grouped, active, script
         selected={active === slot.kind}
         hasScript={scripts[slot.kind].trim() !== ''}
         unsaved={unsaved?.[slot.kind] === true}
+        labelKey={slotLabels?.[slot.kind] ?? slot.labelKey}
         onSelect={onSelect}
       />
     ));

@@ -63,7 +63,9 @@ import {
   FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
   folderChild,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
+  graphqlRequestChild,
   grpcRequestChild,
   grpcResponseExampleChild,
   type MaterializedEntity,
@@ -200,6 +202,11 @@ const REQUESTS: TreeSpec<typeof REQUEST_COLLECTION_ENTITY_TYPE, typeof REQUEST_T
       storageKey: (ws) => wsKeys(ws).websocketRequests,
     },
     { entityType: MQTT_REQUEST_ENTITY_TYPE, child: mqttRequestChild, storageKey: (ws) => wsKeys(ws).mqttRequests },
+    {
+      entityType: GRAPHQL_REQUEST_ENTITY_TYPE,
+      child: graphqlRequestChild,
+      storageKey: (ws) => wsKeys(ws).graphqlRequests,
+    },
   ],
 };
 

@@ -68,6 +68,7 @@ export {
   snapshotEnvironmentPostStates,
   snapshotFilesPostStates,
   snapshotFolderPostStates,
+  snapshotGraphqlRequestPostStates,
   snapshotGrpcRequestPostStates,
   snapshotGrpcResponseExamplePostStates,
   snapshotLayoutStatePostStates,

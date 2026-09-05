@@ -7,6 +7,7 @@
 
 import { type MutationBatch, REQUEST_EXAMPLES_PATH } from '@openheaders/core/sync';
 import type { RequestCollectionSyncMirror, RequestFolderSyncMirror, RequestSyncMirror } from '@openheaders/ui/context';
+import type { GraphqlRequestSyncMirror } from '@openheaders/ui/context/mirrors/graphql-request-sync-mirror';
 import type { GrpcRequestSyncMirror } from '@openheaders/ui/context/mirrors/grpc-request-sync-mirror';
 import type { GrpcResponseExampleSyncMirror } from '@openheaders/ui/context/mirrors/grpc-response-example-sync-mirror';
 import type { MqttRequestSyncMirror } from '@openheaders/ui/context/mirrors/mqtt-request-sync-mirror';
@@ -96,6 +97,7 @@ export interface LeafEntries {
   grpc?: Record<string, string>;
   ws?: Record<string, string>;
   mqtt?: Record<string, string>;
+  graphql?: Record<string, string>;
 }
 
 export function makeRequestLeafMirrors(leaves: LeafEntries, exampleSlots: ExampleSlots = {}) {
@@ -103,6 +105,7 @@ export function makeRequestLeafMirrors(leaves: LeafEntries, exampleSlots: Exampl
   const grpc = leafMirror(leaves.grpc ?? {}, exampleSlots);
   const ws = leafMirror(leaves.ws ?? {}, exampleSlots);
   const mqtt = leafMirror(leaves.mqtt ?? {}, exampleSlots);
+  const graphql = leafMirror(leaves.graphql ?? {}, exampleSlots);
   return {
     requestMirror: {
       ...http,
@@ -132,6 +135,13 @@ export function makeRequestLeafMirrors(leaves: LeafEntries, exampleSlots: Exampl
       listMqttRequests: mqtt.list,
       subscribeMqttRequestMirror: () => () => undefined,
     } as unknown as MqttRequestSyncMirror,
+    graphqlMirror: {
+      ...graphql,
+      getGraphqlRequestMirror: (uid: string) =>
+        graphql.get(uid) && { graphqlRequest: graphql.list().find((r) => r.uid === uid), ...graphql.get(uid) },
+      listGraphqlRequests: graphql.list,
+      subscribeGraphqlRequestMirror: () => () => undefined,
+    } as unknown as GraphqlRequestSyncMirror,
   };
 }
 

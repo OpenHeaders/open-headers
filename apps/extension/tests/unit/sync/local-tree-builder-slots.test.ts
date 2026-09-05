@@ -41,6 +41,7 @@ describe('buildRequestCollectionTrees — slot order', () => {
       [grpc('grp00001', collection.path)],
       [ws('wss00001', collection.path)],
       [],
+      [],
       (parent) => (parent.uid === collection.uid ? ['wss00001', 'fol00001', 'req00003', 'grp00001'] : ['req00002']),
     );
     expect(trees[0].tree.map((n) => `${n.type}:${n.uid}`)).toEqual([
@@ -59,6 +60,7 @@ describe('buildRequestCollectionTrees — slot order', () => {
       [collection],
       [folder],
       [http('req00001', collection.path), http('req00002', folder.path)],
+      [],
       [],
       [],
       [],

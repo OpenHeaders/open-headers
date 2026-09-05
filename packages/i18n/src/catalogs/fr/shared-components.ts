@@ -292,6 +292,7 @@ export const sharedComponents = {
   'shared.requestKinds.websocket.label': 'WebSocket',
   'shared.requestKinds.socketio.label': 'Socket.IO',
   'shared.requestKinds.mqtt.label': 'MQTT',
+  'shared.requestKinds.graphql.label': 'GraphQL',
 
   // ── System rule-template registry ──────────────────────────────────
   'shared.ruleTemplates.blankRule': 'Règle vierge',

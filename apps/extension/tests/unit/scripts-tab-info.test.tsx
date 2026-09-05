@@ -145,7 +145,9 @@ describe('ScriptsTab rail', () => {
 
   it('a container mount draws the slots under the HTTP kind header with the container placeholders', () => {
     renderTab({ scope: 'container' });
-    expect(screen.getAllByTestId('oh-script-rail-group')[0]?.textContent).toBe('HTTPHTTP');
+    // The HTTP header names its GraphQL flavor — a GraphQL request runs
+    // the pair (the wire-family law), the badge reads HTTP/GQL.
+    expect(screen.getAllByTestId('oh-script-rail-group')[0]?.textContent).toBe('HTTP/GQLHTTP');
     expect(editor().placeholder).toBe('Write scripts to be run before each HTTP request is sent.');
     // The HTTP pair's row leads; the gRPC group's After response row
     // sits under its own kind header further down.
@@ -285,7 +287,7 @@ describe('ScriptsTab request kinds', () => {
     const groups = screen.getAllByTestId('oh-script-rail-group');
     // The WebSocket header's badge names its Socket.IO flavor — the one
     // group both flavors' sessions run; the rail keeps its width.
-    expect(groups.map((g) => g.textContent)).toEqual(['HTTPHTTP', 'gRPCgRPC', 'WS/S.IOWebSocket', 'MQTTMQTT']);
+    expect(groups.map((g) => g.textContent)).toEqual(['HTTP/GQLHTTP', 'gRPCgRPC', 'WS/S.IOWebSocket', 'MQTTMQTT']);
     expect(screen.getByTestId('oh-script-rail').style.width).toBe('176px');
     // Each kind header's badge carries the kind's own tint — the tree
     // tags' color, not the picker's neutral gradient.

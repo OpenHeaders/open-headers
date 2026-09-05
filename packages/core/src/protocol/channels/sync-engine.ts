@@ -12,6 +12,7 @@ import type {
   SyncExtensionWorkspacePostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGraphqlRequestPostState,
   SyncGrpcRequestPostState,
   SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
@@ -176,6 +177,16 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotMqttRequests': {
     req: { workspaceId?: string };
     res: { entries: SyncMqttRequestPostState[] } | SyncRpcNotReadyResponse;
+  };
+  /**
+   * Snapshot the active workspace's full GraphqlRequest oracle state.
+   * Same semantics as `oh.sync.snapshotRequests` —
+   * `(graphqlRequest, setItemIds)` per uid, matching the broadcast
+   * `graphqlRequestPostState` payload.
+   */
+  'oh.sync.snapshotGraphqlRequests': {
+    req: { workspaceId?: string };
+    res: { entries: SyncGraphqlRequestPostState[] } | SyncRpcNotReadyResponse;
   };
   /**
    * Snapshot the active workspace's full WebSocket response-example

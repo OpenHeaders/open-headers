@@ -20,6 +20,7 @@ import {
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
   type FolderParentRef,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_ENTITY_TYPE,
   mergeOrderedEntries,
@@ -177,6 +178,7 @@ const REQUEST_LEAF_KINDS: ReadonlyArray<TreeDndLeafKind> = [
   { idPrefix: 'grpc-request-', entityType: GRPC_REQUEST_ENTITY_TYPE },
   { idPrefix: 'websocket-request-', entityType: WEBSOCKET_REQUEST_ENTITY_TYPE },
   { idPrefix: 'mqtt-request-', entityType: MQTT_REQUEST_ENTITY_TYPE },
+  { idPrefix: 'graphql-request-', entityType: GRAPHQL_REQUEST_ENTITY_TYPE },
 ];
 const TEMPLATE_LEAF_KINDS: ReadonlyArray<TreeDndLeafKind> = [{ idPrefix: 'tpl-', entityType: TEMPLATE_ENTITY_TYPE }];
 

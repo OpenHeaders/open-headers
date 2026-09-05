@@ -159,6 +159,7 @@ export async function sweepWorkspaceTree(options: SweepWorkspaceTreeOptions): Pr
   dropKeys(read.state.grpcRequests);
   dropKeys(read.state.websocketRequests);
   dropKeys(read.state.mqttRequests);
+  dropKeys(read.state.graphqlRequests);
   dropKeys(read.state.templates);
   dropKeys(read.state.specs);
   dropKeys(read.state.liveWorkflows);

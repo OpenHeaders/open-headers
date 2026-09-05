@@ -36,6 +36,7 @@ import type {
   DeviceTrust,
   Environment,
   ExtensionWorkspace,
+  GraphqlRequest,
   GrpcRequest,
   GrpcResponseExample,
   LiveFallbackPrioritySnapshot,
@@ -585,6 +586,7 @@ export interface WorkspaceKeys {
   grpcRequests: StorageKey<GrpcRequest[]>;
   websocketRequests: StorageKey<WebSocketRequest[]>;
   mqttRequests: StorageKey<MqttRequest[]>;
+  graphqlRequests: StorageKey<GraphqlRequest[]>;
   requestCollections: StorageKey<Collection[]>;
   requestFolders: StorageKey<PersistedLocalFolder[]>;
   templates: StorageKey<Template[]>;
@@ -785,6 +787,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     grpcRequests: storageKey<GrpcRequest[]>(`${p}.grpcRequests`),
     websocketRequests: storageKey<WebSocketRequest[]>(`${p}.websocketRequests`),
     mqttRequests: storageKey<MqttRequest[]>(`${p}.mqttRequests`),
+    graphqlRequests: storageKey<GraphqlRequest[]>(`${p}.graphqlRequests`),
     requestCollections: storageKey<Collection[]>(`${p}.requestCollections`),
     requestFolders: storageKey<PersistedLocalFolder[]>(`${p}.requestFolders`),
     templates: storageKey<Template[]>(`${p}.templates`),

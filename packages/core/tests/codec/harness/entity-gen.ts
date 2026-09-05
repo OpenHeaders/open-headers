@@ -19,6 +19,7 @@ import {
   parseCollection,
   parseEnvironment,
   parseFolder,
+  parseGraphqlRequest,
   parseGrpcRequest,
   parseLiveVariable,
   parseLiveWorkflow,
@@ -34,6 +35,7 @@ import {
   serializeCollection,
   serializeEnvironment,
   serializeFolder,
+  serializeGraphqlRequest,
   serializeGrpcRequest,
   serializeLiveVariable,
   serializeLiveWorkflow,
@@ -49,6 +51,7 @@ import {
 } from '../../../src/codec/yaml';
 import { CollectionSchema, FolderSchema } from '../../../src/schemas/collection';
 import { freshDocument, type ParsedDocument, type WriteableDocument } from '../../../src/schemas/document';
+import { GraphqlRequestSchema } from '../../../src/schemas/graphql-request';
 import { GrpcRequestSchema } from '../../../src/schemas/grpc-request';
 import { LiveVariableSchema, LiveWorkflowSchema } from '../../../src/schemas/live';
 import { MqttRequestSchema } from '../../../src/schemas/mqtt-request';
@@ -60,6 +63,7 @@ import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '../../
 import { WebSocketRequestSchema } from '../../../src/schemas/websocket-request';
 import { WorkspaceManifestSchema } from '../../../src/schemas/workspace';
 import type { Collection, Folder } from '../../../src/types/collection';
+import type { GraphqlRequest } from '../../../src/types/graphql-request';
 import type { GrpcRequest } from '../../../src/types/grpc-request';
 import type { LiveVariable, LiveWorkflow } from '../../../src/types/live';
 import type { MqttRequest } from '../../../src/types/mqtt-request';
@@ -947,6 +951,101 @@ export const ENTITY_CASES: readonly EntityCase[] = [
     fresh: freshDocument,
     serialize: (write) => serializeMqttRequest(write as WriteableDocument<MqttRequest>).mqttYaml,
     parse: (yaml) => parseMqttRequest(yaml, { path: 'requests/gen-c0ll0000/gen-mqtt0000' }),
+    mutate: editName,
+  },
+  {
+    name: 'graphql-request',
+    schema: GraphqlRequestSchema,
+    generate: (rng) => ({
+      schemaVersion: 5,
+      uid: uid(rng),
+      path: 'requests/gen-c0ll0000/gen-gql00000',
+      name: `GraphQL ${word(rng)}`,
+      url: `https://api.openheaders.io/${word(rng)}/graphql`,
+      query: '',
+      ...opt(
+        'operationName',
+        maybe(rng, 0.3, () => word(rng)),
+      ),
+      headers: Array.from({ length: rng.int(2) }, () => keyValueRow(rng)),
+      auth: rng.next() < 0.5 ? { type: 'inherit' } : { type: 'bearer', token: '{{token}}' },
+      ...opt(
+        'specLink',
+        maybe(rng, 0.3, () => ({ specUid: uid(rng) })),
+      ),
+      ...opt(
+        'credentialsMode',
+        maybe(rng, 0.2, () => 'include' as const),
+      ),
+      ...opt(
+        'followRedirects',
+        maybe(rng, 0.2, () => false),
+      ),
+      ...opt(
+        'httpVersion',
+        maybe(rng, 0.2, () => rng.pick(['1.1', '2'] as const)),
+      ),
+      ...opt(
+        'sslVerification',
+        maybe(rng, 0.2, () => false),
+      ),
+      ...opt(
+        'clientCertificateRef',
+        maybe(rng, 0.2, () => `cert-${word(rng)}`),
+      ),
+      ...opt(
+        'tlsMinVersion',
+        maybe(rng, 0.2, () => rng.pick(['1.0', '1.2'] as const)),
+      ),
+      ...opt(
+        'sniServerName',
+        maybe(rng, 0.2, () => `${word(rng)}.openheaders.io`),
+      ),
+      ...opt(
+        'resolveToAddress',
+        maybe(rng, 0.2, () => rng.pick(['10.0.0.12', '2001:db8::1'] as const)),
+      ),
+      ...(maybe(rng, 0.2, () => true) === true
+        ? {
+            proxyMode: 'url' as const,
+            proxyUrl: 'http://proxy.openheaders.io:8080',
+            ...opt(
+              'proxyCredentialRef',
+              maybe(rng, 0.5, () => `proxy-${word(rng)}`),
+            ),
+          }
+        : opt(
+            'proxyMode',
+            maybe(rng, 0.2, () => 'direct' as const),
+          )),
+      ...opt(
+        'unixSocketPath',
+        maybe(rng, 0.2, () => `/var/run/openheaders/${word(rng)}.sock`),
+      ),
+      ...opt(
+        'cookieJar',
+        maybe(rng, 0.2, () => true),
+      ),
+      ...opt(
+        'timeoutMs',
+        maybe(rng, 0.3, () => 1_000 + rng.int(60_000)),
+      ),
+      ...opt(
+        'maxResponseBytes',
+        maybe(rng, 0.2, () => 1_024 + rng.int(1_000_000)),
+      ),
+      ...opt(
+        'maxRedirects',
+        maybe(rng, 0.2, () => rng.int(20)),
+      ),
+      ...opt(
+        'followAuthorizationHeader',
+        maybe(rng, 0.2, () => true),
+      ),
+    }),
+    fresh: freshDocument,
+    serialize: (write) => serializeGraphqlRequest(write as WriteableDocument<GraphqlRequest>).graphqlYaml,
+    parse: (yaml) => parseGraphqlRequest(yaml, { path: 'requests/gen-c0ll0000/gen-gql00000' }),
     mutate: editName,
   },
   {

@@ -41,6 +41,7 @@ export type EntityPostState = Partial<
     | 'grpcRequestPostState'
     | 'websocketRequestPostState'
     | 'mqttRequestPostState'
+    | 'graphqlRequestPostState'
     | 'requestCollectionPostState'
     | 'requestFolderPostState'
     | 'templatePostState'

@@ -23,6 +23,7 @@
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
+import type { MessageKey } from '@openheaders/i18n';
 import { Divider, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
@@ -64,6 +65,11 @@ interface ScriptsTabProps {
   requestKind?: RequestKind;
   scripts: ScriptSlotValues;
   onScriptChange: (kind: ScriptKind, value: string) => void;
+  /** A flavor's own labels over its family's slots — the GraphQL
+   *  editor reads the HTTP pair as Before query / After response
+   *  (the storage keys and files stay the pair's). Absent = the kind's
+   *  labels. */
+  slotLabels?: Partial<Readonly<Record<ScriptKind, MessageKey>>>;
   /** Per-slot unsaved flags for the rail dots (see section-unsaved.ts). */
   unsaved?: ScriptSlotFlags;
   /** Editing-scope workspace — target for "Save to Package Library". */
@@ -82,6 +88,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   requestKind,
   scripts,
   onScriptChange,
+  slotLabels,
   unsaved,
   workspaceId = null,
   onOpenPackageLibrary,
@@ -161,6 +168,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         grouped={scope === 'container'}
         active={active}
         scripts={scripts}
+        slotLabels={slotLabels}
         unsaved={unsaved}
         onSelect={setActive}
       />

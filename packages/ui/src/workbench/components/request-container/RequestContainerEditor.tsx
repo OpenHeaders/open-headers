@@ -99,6 +99,7 @@ export interface RequestContainerOverviewActions {
   onSelectGrpcRequest: (uid: string, name: string) => void;
   onSelectWebSocketRequest: (uid: string, name: string, flavor?: 'raw' | 'socketio') => void;
   onSelectMqttRequest: (uid: string, name: string) => void;
+  onSelectGraphqlRequest: (uid: string, name: string) => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onCreateGrpcRequest?: (context: { collectionId: string; folderPath?: string }) => void;
   onCreateWebSocketRequest?: (context: {
@@ -107,6 +108,7 @@ export interface RequestContainerOverviewActions {
     flavor: 'raw' | 'socketio';
   }) => void;
   onCreateMqttRequest?: (context: { collectionId: string; folderPath?: string }) => void;
+  onCreateGraphqlRequest?: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
 }
 

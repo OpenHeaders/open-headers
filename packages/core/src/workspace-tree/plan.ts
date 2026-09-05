@@ -14,6 +14,7 @@ import {
   serializeCollection,
   serializeEnvironment,
   serializeFolder,
+  serializeGraphqlRequest,
   serializeGrpcRequest,
   serializeLiveVariable,
   serializeLiveWorkflow,
@@ -39,6 +40,7 @@ import {
   FOLDER_MANIFEST_FILE,
   GITATTRIBUTES_FILE,
   GITIGNORE_FILE,
+  GRAPHQL_REQUEST_MANIFEST_FILE,
   GRPC_REQUEST_MANIFEST_FILE,
   LIVE_VARIABLE_MANIFEST_FILE,
   LIVE_WORKFLOW_MANIFEST_FILE,
@@ -152,6 +154,14 @@ export function planWorkspaceTree(state: WorkspaceTreeState, unknowns: TreeUnkno
     add(`${mqttRequest.path}/${MQTT_REQUEST_MANIFEST_FILE}`, out.mqttYaml);
     if (out.payloadFile) add(`${mqttRequest.path}/${out.payloadFile.fileName}`, out.payloadFile.content);
     for (const file of out.scriptFiles) add(`${mqttRequest.path}/${file.fileName}`, file.content);
+  }
+
+  for (const graphqlRequest of state.graphqlRequests) {
+    const out = serializeGraphqlRequest(toWrite(graphqlRequest, unknowns[graphqlRequest.uid]));
+    add(`${graphqlRequest.path}/${GRAPHQL_REQUEST_MANIFEST_FILE}`, out.graphqlYaml);
+    if (out.queryFile) add(`${graphqlRequest.path}/${out.queryFile.fileName}`, out.queryFile.content);
+    if (out.variablesFile) add(`${graphqlRequest.path}/${out.variablesFile.fileName}`, out.variablesFile.content);
+    for (const file of out.scriptFiles) add(`${graphqlRequest.path}/${file.fileName}`, file.content);
   }
 
   for (const template of state.templates) {

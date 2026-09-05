@@ -23,6 +23,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import type { ParentRefShape } from '../../src/sync';
 import type { Collection, Folder } from '../../src/types/collection';
+import type { GraphqlRequest } from '../../src/types/graphql-request';
 import type { GrpcRequest } from '../../src/types/grpc-request';
 import type { LiveVariable, LiveWorkflow } from '../../src/types/live';
 import type { MqttRequest } from '../../src/types/mqtt-request';
@@ -114,6 +115,12 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
     if (rng.next() < 0.5) draft.payload = `{"probe":"${uid8(rng)}"}`;
     if (rng.next() < 0.5) draft.scripts = { 'mqtt-before-publish': `oh.setTopic('${uid8(rng)}');\n` };
   });
+  const graphqlRequest = generateAs<GraphqlRequest>('graphql-request', rng, (draft) => {
+    placed(rng, requestCollection.path)(draft);
+    if (rng.next() < 0.5) draft.query = `query Probe { echo(text: "${uid8(rng)}") }`;
+    if (rng.next() < 0.5) draft.variables = `{"text":"${uid8(rng)}"}`;
+    if (rng.next() < 0.5) draft.postResponseScript = `oh.test('${uid8(rng)}', () => {});\n`;
+  });
 
   const templateCollection = generateAs<Collection>('collection', rng, placed(rng, 'templates'));
   const template = generateAs<Template>('template', rng, placed(rng, templateCollection.path));
@@ -151,6 +158,7 @@ function generateState(rng: Rng): { state: WorkspaceTreeState; unknowns: TreeUnk
       grpcRequests: [grpcRequest],
       websocketRequests: [websocketRequest],
       mqttRequests: [mqttRequest],
+      graphqlRequests: [graphqlRequest],
       requestCollections: [requestCollection],
       requestFolders: [requestFolder],
       templates: [template],
@@ -192,6 +200,7 @@ function shuffledSlots(state: WorkspaceTreeState, rng: Rng): TreeSlotReader {
     ...state.grpcRequests,
     ...state.websocketRequests,
     ...state.mqttRequests,
+    ...state.graphqlRequests,
     ...state.templates,
   ];
   for (const entity of all) byUid.set(entity.uid, entity);
@@ -230,6 +239,7 @@ function shuffledSlots(state: WorkspaceTreeState, rng: Rng): TreeSlotReader {
       ...state.grpcRequests,
       ...state.websocketRequests,
       ...state.mqttRequests,
+      ...state.graphqlRequests,
       ...state.templates,
     ]);
   };

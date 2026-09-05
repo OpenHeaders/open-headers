@@ -251,6 +251,7 @@ const SUMMARY_COUNT_KEYS = [
   'grpcRequests',
   'websocketRequests',
   'mqttRequests',
+  'graphqlRequests',
   'responseExamples',
   'grpcResponseExamples',
   'wsResponseExamples',

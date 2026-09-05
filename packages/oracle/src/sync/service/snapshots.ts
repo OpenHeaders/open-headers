@@ -8,6 +8,7 @@ import type {
   SyncEnvironmentPostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGraphqlRequestPostState,
   SyncGrpcRequestPostState,
   SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
@@ -42,6 +43,7 @@ import {
   FILES_REGISTRATION,
   FOLDER_REGISTRATION,
   flatSnapshot,
+  GRAPHQL_REQUEST_REGISTRATION,
   GRPC_REQUEST_REGISTRATION,
   GRPC_RESPONSE_EXAMPLE_REGISTRATION,
   LAYOUT_STATE_REGISTRATION,
@@ -156,6 +158,11 @@ export function snapshotWebSocketRequestPostStates(workspaceId?: string): SyncWe
 export function snapshotMqttRequestPostStates(workspaceId?: string): SyncMqttRequestPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, MQTT_REQUEST_REGISTRATION) : [];
+}
+
+export function snapshotGraphqlRequestPostStates(workspaceId?: string): SyncGraphqlRequestPostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, GRAPHQL_REQUEST_REGISTRATION) : [];
 }
 
 export function snapshotRequestCollectionPostStates(workspaceId?: string): SyncRequestCollectionPostState[] {

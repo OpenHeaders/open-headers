@@ -1,5 +1,5 @@
 /**
- * Shared request-kind menu definitions — the four protocols the API
+ * Shared request-kind menu definitions — the protocols the API
  * Requests family can author, in one canonical order, so no surface
  * has to pick a default kind on the user's behalf.
  *
@@ -22,7 +22,7 @@ import type { ItemType } from 'antd/es/menu/interface';
 import { codeBadge } from './components/shared/code-badge';
 
 /** Protocol flavors offered by every context-less request create. */
-export type RequestKind = 'http' | 'grpc' | 'websocket' | 'socketio' | 'mqtt';
+export type RequestKind = 'http' | 'grpc' | 'websocket' | 'socketio' | 'mqtt' | 'graphql';
 
 export interface RequestKindMenuItem {
   key: RequestKind;
@@ -39,10 +39,11 @@ const REQUEST_KIND_META: Readonly<Record<RequestKind, Omit<RequestKindMenuItem, 
   websocket: { code: 'WS', labelKey: 'shared.requestKinds.websocket.label' },
   socketio: { code: 'S.IO', labelKey: 'shared.requestKinds.socketio.label' },
   mqtt: { code: 'MQTT', labelKey: 'shared.requestKinds.mqtt.label' },
+  graphql: { code: 'GQL', labelKey: 'shared.requestKinds.graphql.label' },
 };
 
 /** The definitive display order across every request create menu. */
-const REQUEST_KIND_ORDER: readonly RequestKind[] = ['http', 'grpc', 'websocket', 'socketio', 'mqtt'];
+const REQUEST_KIND_ORDER: readonly RequestKind[] = ['http', 'grpc', 'websocket', 'socketio', 'mqtt', 'graphql'];
 
 /** All request kinds with their menu metadata, in display order. */
 export const ALL_REQUEST_KINDS: RequestKindMenuItem[] = REQUEST_KIND_ORDER.map((key) => ({
@@ -85,6 +86,9 @@ export interface RequestKindAddMenuOptions {
   /** Requests side — "Add MQTT Request" item (pub/sub session-shaped
    *  sibling entity kind). */
   onAddMqttRequest?: () => void;
+  /** Requests side — "Add GraphQL Request" item (own entity kind,
+   *  executed as an HTTP send through the compile). */
+  onAddGraphqlRequest?: () => void;
 }
 
 /**
@@ -95,7 +99,14 @@ export interface RequestKindAddMenuOptions {
  * behalf.
  */
 export function requestKindAddMenuItems(
-  { onAddRequest, onAddGrpcRequest, onAddWebSocketRequest, onAddSocketIoRequest, onAddMqttRequest }: RequestKindAddMenuOptions,
+  {
+    onAddRequest,
+    onAddGrpcRequest,
+    onAddWebSocketRequest,
+    onAddSocketIoRequest,
+    onAddMqttRequest,
+    onAddGraphqlRequest,
+  }: RequestKindAddMenuOptions,
   t: Translate,
 ): ItemType[] {
   const handlers: Partial<Record<RequestKind, () => void>> = {
@@ -104,6 +115,7 @@ export function requestKindAddMenuItems(
     websocket: onAddWebSocketRequest,
     socketio: onAddSocketIoRequest,
     mqtt: onAddMqttRequest,
+    graphql: onAddGraphqlRequest,
   };
   const items: ItemType[] = [];
   for (const rk of ALL_REQUEST_KINDS) {

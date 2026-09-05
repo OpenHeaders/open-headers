@@ -209,6 +209,7 @@ const overview = {
   onSelectGrpcRequest: vi.fn(),
   onSelectWebSocketRequest: vi.fn(),
   onSelectMqttRequest: vi.fn(),
+  onSelectGraphqlRequest: vi.fn(),
   onCreateRequest: vi.fn(),
   onOpenFolderOverview: vi.fn(),
 };
@@ -377,13 +378,15 @@ describe('RequestContainerEditor — the Settings section', () => {
   // survives the section's remount) — every leg opens on HTTP itself.
   const renderSettings = (props: Partial<React.ComponentProps<typeof RequestContainerEditor>> = {}) => {
     const rendered = renderEditor({ section: 'settings', ...props });
-    fireEvent.click(screen.getByRole('tab', { name: 'HTTP' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'HTTP · GraphQL' }));
     return rendered;
   };
 
   it('carries the four kind sub-tabs, HTTP first, over the request rows — no managed sheet, no script-mode row, no trusted-roots row', () => {
     renderSettings();
-    expect(kindTabs()).toEqual(['HTTP', 'WebSocket', 'MQTT', 'gRPC']);
+    // The HTTP sub-tab names its GraphQL flavor — a GraphQL request reads
+    // the `http` slice (the wire-family law), never a fifth slice.
+    expect(kindTabs()).toEqual(['HTTP · GraphQL', 'WebSocket', 'MQTT', 'gRPC']);
     expect(timeoutKnob()).toBeTruthy();
     expect(sslSwitch('request')).toBeTruthy();
     expect(screen.queryByTestId('oh-managed-scripts-row')).toBeNull();
@@ -435,7 +438,7 @@ describe('RequestContainerEditor — the Settings section', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'gRPC' }));
     expect(sslSwitch('grpc').getAttribute('aria-checked')).toBe('true');
     // Back on HTTP the row's reset clears the knob — nothing unsaved.
-    fireEvent.click(screen.getByRole('tab', { name: 'HTTP' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'HTTP · GraphQL' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reset SSL certificate verification to default' }));
     expect(screen.queryByTestId('oh-section-unsaved')).toBeNull();
     expect(headerButton('Saved').disabled).toBe(true);
@@ -503,7 +506,7 @@ describe('RequestContainerEditor — the Settings section', () => {
     // The collection's HTTP slice says nothing to the WebSocket rows.
     fireEvent.click(screen.getByRole('tab', { name: 'WebSocket' }));
     expect(screen.queryByTestId('oh-inherited-setting-note')).toBeNull();
-    fireEvent.click(screen.getByRole('tab', { name: 'HTTP' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'HTTP · GraphQL' }));
 
     // The folder's own timeout shadows the collection's — the line
     // turns into the overrides reading, naming the value it shadows;

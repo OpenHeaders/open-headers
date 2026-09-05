@@ -170,6 +170,10 @@ interface SidebarProps {
   onSelectMqttRequest?: (uid: string, name: string, autoRename?: boolean) => void;
   /** Context-create an MQTT request from a container's "+" menu. */
   onCreateMqttRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
+  /** Open a GraphQL request's edit tab (the own entity kind executed as an HTTP send). */
+  onSelectGraphqlRequest?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Context-create a GraphQL request from a container's "+" menu. */
+  onCreateGraphqlRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
@@ -241,6 +245,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateWebSocketRequest,
   onSelectMqttRequest,
   onCreateMqttRequest,
+  onSelectGraphqlRequest,
+  onCreateGraphqlRequest,
   onSelectResponseExample,
   onSelectGrpcResponseExample,
   onSelectWsResponseExample,
@@ -333,6 +339,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     grpcRequests: allGrpcRequests,
     websocketRequests: allWebSocketRequests,
     mqttRequests: allMqttRequests,
+    graphqlRequests: allGraphqlRequests,
     collections: requestCollections,
     collectionTrees: requestCollectionTrees,
     updateRequest: updateRequestData,
@@ -343,6 +350,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteWebSocketRequest,
     updateMqttRequest: updateMqttRequestData,
     deleteMqttRequest,
+    updateGraphqlRequest: updateGraphqlRequestData,
+    deleteGraphqlRequest,
     createCollection: createRequestCollectionRpc,
     renameCollection: renameRequestCollectionRpc,
     deleteCollection: deleteRequestCollectionRpc,
@@ -750,6 +759,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     allGrpcRequests,
     allWebSocketRequests,
     allMqttRequests,
+    allGraphqlRequests,
     resolver,
     dirtyRequestUids,
     scriptsReviewPendingUids,
@@ -785,6 +795,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteWebSocketRequest,
     updateMqttRequestData,
     deleteMqttRequest,
+    updateGraphqlRequestData,
+    deleteGraphqlRequest,
     createRequestFolderRpc,
     renameRequestFolderRpc,
     deleteRequestFolderRpc,
@@ -798,6 +810,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCreateWebSocketRequest,
     onSelectMqttRequest,
     onCreateMqttRequest,
+    onSelectGraphqlRequest,
+    onCreateGraphqlRequest,
     onSelectResponseExample,
     onSelectGrpcResponseExample,
     onSelectWsResponseExample,

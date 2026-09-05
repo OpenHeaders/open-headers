@@ -83,6 +83,13 @@ export interface RequestNode {
   method: HttpMethod;
 }
 
+export interface GraphqlRequestNode {
+  type: 'graphql-request';
+  uid: string;
+  name: string;
+  path: string;
+}
+
 export interface GrpcRequestNode {
   type: 'grpc-request';
   uid: string;
@@ -127,6 +134,7 @@ export interface TemplateNode {
 export type TreeNode =
   | FolderNode
   | RequestNode
+  | GraphqlRequestNode
   | GrpcRequestNode
   | WebSocketRequestNode
   | MqttRequestNode

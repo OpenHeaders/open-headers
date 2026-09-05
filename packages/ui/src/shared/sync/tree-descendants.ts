@@ -20,6 +20,7 @@
  */
 
 import {
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_EXAMPLES_PATH,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
@@ -37,6 +38,7 @@ import {
   WEBSOCKET_REQUEST_EXAMPLES_PATH,
   WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { buildGraphqlDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/graphql-request-mutations';
 import { buildGrpcDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/grpc-request-mutations';
 import { buildDeleteGrpcResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
 import { buildMqttDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/mqtt-request-mutations';
@@ -47,6 +49,10 @@ import { buildDeleteResponseExampleEntityBatch } from '@openheaders/core/sync-bu
 import { buildWebSocketDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/websocket-request-mutations';
 import { buildDeleteWsResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/ws-response-example-mutations';
 import { parentPathOf } from '@openheaders/core/utils';
+import {
+  type GraphqlRequestSyncMirror,
+  getGraphqlRequestSyncMirrorForWorkspace,
+} from '../../context/mirrors/graphql-request-sync-mirror';
 import {
   type GrpcRequestSyncMirror,
   getGrpcRequestSyncMirrorForWorkspace,
@@ -80,12 +86,13 @@ import type { RendererContextHandle } from '../../context/renderer-mutator-conte
 import { applySyncPayload, type SyncMutationPayload, type SyncSimpleResult } from './apply-payload';
 import type { RequestTreeMirrors } from './tree-placement';
 
-/** The four leaf mirrors of the request tree. */
+/** The leaf mirrors of the request tree, one per kind. */
 export interface RequestLeafMirrors {
   requestMirror: RequestSyncMirror;
   grpcMirror: GrpcRequestSyncMirror;
   websocketMirror: WebSocketRequestSyncMirror;
   mqttMirror: MqttRequestSyncMirror;
+  graphqlMirror: GraphqlRequestSyncMirror;
 }
 
 /** The four example mirrors, one per leaf kind. */
@@ -107,6 +114,7 @@ export function requestLeafMirrors(workspaceId: string, overrides: RequestLeafMi
     grpcMirror: overrides.grpcMirror ?? getGrpcRequestSyncMirrorForWorkspace(workspaceId),
     websocketMirror: overrides.websocketMirror ?? getWebSocketRequestSyncMirrorForWorkspace(workspaceId),
     mqttMirror: overrides.mqttMirror ?? getMqttRequestSyncMirrorForWorkspace(workspaceId),
+    graphqlMirror: overrides.graphqlMirror ?? getGraphqlRequestSyncMirrorForWorkspace(workspaceId),
   };
 }
 
@@ -257,6 +265,12 @@ function leafKinds(mirrors: RequestLeafMirrors): LeafKind[] {
       has: (uid) => mirrors.mqttMirror.getMqttRequestMirror(uid) !== null,
       list: () => mirrors.mqttMirror.listMqttRequests(),
     },
+    {
+      type: GRAPHQL_REQUEST_ENTITY_TYPE,
+      hydrated: mirrors.graphqlMirror.hydrated,
+      has: (uid) => mirrors.graphqlMirror.getGraphqlRequestMirror(uid) !== null,
+      list: () => mirrors.graphqlMirror.listGraphqlRequests(),
+    },
   ];
 }
 
@@ -372,6 +386,7 @@ const LEAF_TOMBSTONES: Record<RequestItemType, Tombstone> = {
   [GRPC_REQUEST_ENTITY_TYPE]: buildGrpcDeleteEntityBatch,
   [WEBSOCKET_REQUEST_ENTITY_TYPE]: buildWebSocketDeleteEntityBatch,
   [MQTT_REQUEST_ENTITY_TYPE]: buildMqttDeleteEntityBatch,
+  [GRAPHQL_REQUEST_ENTITY_TYPE]: buildGraphqlDeleteEntityBatch,
 };
 
 const EXAMPLE_TOMBSTONES: Record<string, Tombstone> = {

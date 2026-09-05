@@ -256,6 +256,7 @@ export const workbenchChrome = {
   'workbench.shell.tabLabel.newWebSocketRequest': '新 WebSocket 请求',
   'workbench.shell.tabLabel.newSocketIoRequest': '新 Socket.IO 请求',
   'workbench.shell.tabLabel.newMqttRequest': '新 MQTT 请求',
+  'workbench.shell.tabLabel.newGraphqlRequest': '新 GraphQL 请求',
   'workbench.shell.tabLabel.newWorkflow': '新工作流',
   'workbench.shell.tabLabel.newLiveVariable': '新 Live 变量',
 

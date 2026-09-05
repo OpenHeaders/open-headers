@@ -50,6 +50,7 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
     grpcRequests: [],
     websocketRequests: [],
     mqttRequests: [],
+    graphqlRequests: [],
     responseExamples: [],
     grpcResponseExamples: [],
     wsResponseExamples: [],

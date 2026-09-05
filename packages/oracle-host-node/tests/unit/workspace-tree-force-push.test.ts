@@ -81,6 +81,7 @@ function baseState(): WorkspaceTreeState {
     grpcRequests: [],
     websocketRequests: [],
     mqttRequests: [],
+    graphqlRequests: [],
     requestCollections: [],
     requestFolders: [],
     templates: [],

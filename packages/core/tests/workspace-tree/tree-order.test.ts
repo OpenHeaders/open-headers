@@ -90,6 +90,7 @@ function state(overrides: Partial<WorkspaceTreeState> = {}): WorkspaceTreeState 
     grpcRequests: [],
     websocketRequests: [],
     mqttRequests: [],
+    graphqlRequests: [],
     requestCollections: [requestCollection],
     requestFolders: [],
     templates: [],

@@ -44,6 +44,7 @@ import { workbenchDocsDiagrams } from './workbench-docs-diagrams';
 import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
 import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
+import { workbenchEditorsGraphql } from './workbench-editors-graphql';
 import { workbenchEditorsGrpc } from './workbench-editors-grpc';
 import { workbenchEditorsMqtt } from './workbench-editors-mqtt';
 import { workbenchEditorsRequest } from './workbench-editors-request';
@@ -105,6 +106,7 @@ type EnCatalog = typeof shared &
   typeof workbenchDocsSystemStatus &
   typeof workbenchDocsVariables &
   typeof workbenchEditors &
+  typeof workbenchEditorsGraphql &
   typeof workbenchEditorsGrpc &
   typeof workbenchEditorsMqtt &
   typeof workbenchEditorsRequest &
@@ -162,6 +164,7 @@ export const en: EnCatalog = {
   ...workbenchDocsSystemStatus,
   ...workbenchDocsVariables,
   ...workbenchEditors,
+  ...workbenchEditorsGraphql,
   ...workbenchEditorsGrpc,
   ...workbenchEditorsMqtt,
   ...workbenchEditorsRequest,

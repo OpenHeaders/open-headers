@@ -61,6 +61,7 @@ export type TabMode =
   | 'grpc-edit'
   | 'websocket-edit'
   | 'mqtt-edit'
+  | 'graphql-edit'
   | 'response-example'
   | 'grpc-response-example'
   | 'ws-response-example'
@@ -195,6 +196,8 @@ export interface WorkbenchTab {
   websocketRequestUid?: string;
   /** For mqtt-edit tabs: the MqttRequest uid being edited. */
   mqttRequestUid?: string;
+  /** For graphql-edit tabs: the GraphqlRequest uid being edited. */
+  graphqlRequestUid?: string;
   /** For response-example tabs: the frozen example being viewed. */
   responseExampleUid?: string;
   /** For grpc-response-example tabs: the captured example being viewed. */

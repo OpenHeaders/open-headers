@@ -92,6 +92,7 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
     k.grpcRequests,
     k.websocketRequests,
     k.mqttRequests,
+    k.graphqlRequests,
     k.requestCollections,
     k.requestFolders,
     k.templates,

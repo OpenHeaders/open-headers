@@ -30,6 +30,7 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     grpcRequests: [],
     websocketRequests: [],
     mqttRequests: [],
+    graphqlRequests: [],
     responseExamples: [],
     grpcResponseExamples: [],
     wsResponseExamples: [],

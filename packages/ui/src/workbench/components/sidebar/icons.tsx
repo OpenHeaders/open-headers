@@ -82,6 +82,7 @@ export const REQUEST_KIND_COLORS: Record<RequestKind, string> = {
   websocket: 'var(--oh-method-ws, #c2410c)',
   socketio: 'var(--oh-method-ws, #c2410c)',
   mqtt: 'var(--oh-method-mqtt, #7c3aed)',
+  graphql: 'var(--oh-method-graphql, #e10098)',
 };
 
 /** Compact gRPC tag used as the leaf "icon" for gRPC request rows —
@@ -158,6 +159,32 @@ export function mqttTag(muted = false): React.ReactNode {
       },
     },
     'MQTT',
+  );
+}
+
+/** Compact GraphQL tag used as the leaf "icon" for GraphQL request
+ *  rows — same footprint as {@link methodTag} so all kinds align in
+ *  the tree. `muted` greys the tag to signal an incomplete (draft)
+ *  request. */
+export function graphqlTag(muted = false): React.ReactNode {
+  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : REQUEST_KIND_COLORS.graphql;
+  return createElement(
+    'span',
+    {
+      key: 'graphql',
+      style: {
+        display: 'inline-block',
+        minWidth: TAG_WIDTH,
+        fontSize: 9,
+        fontWeight: 700,
+        color,
+        fontFamily: "'SF Mono', monospace",
+        textAlign: 'right',
+        opacity: muted ? 0.7 : 1,
+        flexShrink: 0,
+      },
+    },
+    'GQL',
   );
 }
 

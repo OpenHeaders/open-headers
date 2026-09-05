@@ -6,6 +6,7 @@
 
 import type { Collection, Request } from '@openheaders/core/types';
 import {
+  buildEmptyGraphqlRequest,
   buildEmptyGrpcRequest,
   buildEmptyMqttRequest,
   buildEmptyRequest,
@@ -14,6 +15,7 @@ import {
   toFolderName,
 } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { applyGraphqlRequestCreate } from '@openheaders/ui/shared/sync/graphql-request-write-client';
 import { applyGrpcRequestCreate } from '@openheaders/ui/shared/sync/grpc-request-write-client';
 import { applyMqttRequestCreate } from '@openheaders/ui/shared/sync/mqtt-request-write-client';
 import { applyRequestCreate } from '@openheaders/ui/shared/sync/request-write-client';
@@ -51,6 +53,8 @@ export type RequestOpeners = Pick<
   | 'openCreateWebSocketRequestTab'
   | 'openMqttRequestEditTab'
   | 'openCreateMqttRequestTab'
+  | 'openGraphqlRequestEditTab'
+  | 'openCreateGraphqlRequestTab'
   | 'openDuplicateRequestScratch'
   | 'openResponseExampleTab'
   | 'openGrpcResponseExampleTab'
@@ -509,6 +513,68 @@ export function useRequestOpeners(
     [allTabs, addTab, switchTab],
   );
 
+  const openGraphqlRequestEditTab = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `graphql-request-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        if (autoRename) setPendingRenameTabId(id);
+        return;
+      }
+      addTab({
+        id,
+        label: name,
+        // Tab icon reads `ruleType` as a free-form type hint — the
+        // GQL tag mirrors the sidebar leaf tag.
+        ruleType: 'GQL',
+        dirty: false,
+        mode: 'graphql-edit',
+        graphqlRequestUid: uid,
+      });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab, setPendingRenameTabId],
+  );
+
+  const openCreateGraphqlRequestTab = useCallback(
+    (context: { collectionId?: string; folderPath?: string }) => {
+      // Context-create only — no draft mode: the gesture always comes
+      // from a container's "+" menu, so the destination is known and
+      // the entity persists immediately (born clean, like the gRPC
+      // context-create path).
+      const parentPath = resolveContextParentPath(context, requestCollections);
+      if (!workspaceId || !parentPath) return;
+      const baseName = t('workbench.shell.tabLabel.newGraphqlRequest');
+      const existingNames = new Set<string>();
+      for (const tab of allTabs) existingNames.add(tab.label);
+      let draftName = baseName;
+      let counter = 2;
+      while (existingNames.has(draftName)) {
+        draftName = `${baseName} (${counter++})`;
+      }
+      const uid = generateUid();
+      const seed = buildEmptyGraphqlRequest({
+        uid,
+        name: draftName,
+        path: `${parentPath}/${toFolderName(draftName, uid)}`,
+      });
+      const tabId = `graphql-request-${uid}`;
+      void applyGraphqlRequestCreate(seed, { workspaceId, surfaceId }).then((result) => {
+        if (!result.ok) return;
+        addTab({
+          id: tabId,
+          label: draftName,
+          ruleType: 'GQL',
+          dirty: false,
+          mode: 'graphql-edit',
+          graphqlRequestUid: uid,
+        });
+        setPendingRenameTabId(tabId);
+      });
+    },
+    [allTabs, addTab, requestCollections, workspaceId, surfaceId, setPendingRenameTabId, t],
+  );
+
   const openMqttResponseExampleTab = useCallback(
     (uid: string, name: string, mqttRequestUid: string) => {
       // Matches the sidebar example-node id so the active tab drives
@@ -549,6 +615,8 @@ export function useRequestOpeners(
     openCreateWebSocketRequestTab,
     openMqttRequestEditTab,
     openCreateMqttRequestTab,
+    openGraphqlRequestEditTab,
+    openCreateGraphqlRequestTab,
     openDuplicateRequestScratch,
     openResponseExampleTab,
     openGrpcResponseExampleTab,

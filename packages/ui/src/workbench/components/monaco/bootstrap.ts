@@ -69,6 +69,7 @@ import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import { allVariants } from '@openheaders/ui/themes';
 import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/platform/hover/browser/hoverService';
+import { registerGraphqlLanguage } from '../../languages/graphql';
 import { registerPrometheusLanguage } from '../../languages/prometheus';
 import { registerPrettierFormatters } from './formatters';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
@@ -98,6 +99,13 @@ configureTsLanguageService();
 // (Monaco ships no built-in for it), registered under the registry id
 // `prometheus`. Tokenizer only; no worker, no language service.
 registerPrometheusLanguage(monacoEdCore);
+
+// GraphQL grammar — our own Monarch tokenizer over the spec's lexical
+// grammar (executable + type-system documents), registered under the
+// registry id `graphql`. Tokenizer + language configuration only; the
+// completion / diagnostics providers ride `@openheaders/core/graphql`
+// from the GraphQL editor that binds them.
+registerGraphqlLanguage(monacoEdCore);
 
 // Register Prettier as Monaco's `DocumentFormattingEditProvider` for
 // languages Monaco has no built-in formatter for (JS / XML). JSON /

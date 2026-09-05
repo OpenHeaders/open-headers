@@ -1,6 +1,7 @@
 import { FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import type { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import {
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
   MQTT_REQUEST_ENTITY_TYPE,
@@ -13,6 +14,7 @@ import {
   WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type {
+  GraphqlRequest,
   GrpcRequest,
   GrpcResponseExample,
   MqttRequest,
@@ -29,7 +31,17 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
-import { composeBadge, exampleTag, folderTag, grpcTag, iconEl, methodTag, mqttTag, websocketTag } from './icons';
+import {
+  composeBadge,
+  exampleTag,
+  folderTag,
+  graphqlTag,
+  grpcTag,
+  iconEl,
+  methodTag,
+  mqttTag,
+  websocketTag,
+} from './icons';
 import { requestKindAddMenuItems } from '../../request-kind-menu';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
@@ -42,6 +54,7 @@ interface UseRequestTreeNodesParams {
   allGrpcRequests: readonly GrpcRequest[];
   allWebSocketRequests: readonly WebSocketRequest[];
   allMqttRequests: readonly MqttRequest[];
+  allGraphqlRequests: readonly GraphqlRequest[];
   resolver: ReturnType<typeof useVariableResolver>;
   dirtyRequestUids?: ReadonlySet<string>;
   /** Post-import: imported request uids whose scripts the user hasn't
@@ -85,6 +98,8 @@ interface UseRequestTreeNodesParams {
   deleteWebSocketRequest: (uid: string) => Promise<unknown> | unknown;
   updateMqttRequestData: (uid: string, patch: Partial<MqttRequest>) => Promise<unknown> | unknown;
   deleteMqttRequest: (uid: string) => Promise<unknown> | unknown;
+  updateGraphqlRequestData: (uid: string, patch: Partial<GraphqlRequest>) => Promise<unknown> | unknown;
+  deleteGraphqlRequest: (uid: string) => Promise<unknown> | unknown;
   createRequestFolderRpc: (
     name: string,
     parentPath: string,
@@ -108,6 +123,9 @@ interface UseRequestTreeNodesParams {
   onSelectMqttRequest?: (uid: string, name: string, autoRename?: boolean) => void;
   /** Context-create an MQTT request from a container's "+" menu. */
   onCreateMqttRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
+  onSelectGraphqlRequest?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Context-create a GraphQL request from a container's "+" menu. */
+  onCreateGraphqlRequest?: (context: { collectionId?: string; folderPath?: string }) => void;
   /** Open a saved response example in its read-only viewer tab. */
   onSelectResponseExample?: (uid: string, name: string, requestUid: string) => void;
   /** Open a saved gRPC response example in its viewer tab. */
@@ -136,8 +154,11 @@ interface UseRequestTreeNodesParams {
 function subtreeHasRequestMatch(nodes: CoreTreeNode[], lowerFilter: string): boolean {
   for (const n of nodes) {
     if (
-      (n.type === 'request' || n.type === 'grpc-request' || n.type === 'websocket-request' ||
-        n.type === 'mqtt-request') &&
+      (n.type === 'request' ||
+        n.type === 'grpc-request' ||
+        n.type === 'websocket-request' ||
+        n.type === 'mqtt-request' ||
+        n.type === 'graphql-request') &&
       n.name.toLowerCase().includes(lowerFilter)
     ) {
       return true;
@@ -213,6 +234,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             });
             p.onCreateMqttRequest?.({ collectionId, folderPath: node.path });
           };
+          const onAddGraphqlRequest = () => {
+            p.setExpandedKeys((prev) => {
+              const next = new Set(prev);
+              next.add(fid);
+              return next;
+            });
+            p.onCreateGraphqlRequest?.({ collectionId, folderPath: node.path });
+          };
           // Post-import ancestor-script review badge — same treatment
           // as request rows: warning chip until the user opens the
           // folder's Scripts editor.
@@ -266,6 +295,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                     }
                   : {}),
                 ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
+                ...(p.onCreateGraphqlRequest ? { onAddGraphqlRequest } : {}),
                 onAddFolder,
               },
               t,
@@ -333,6 +363,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                             }
                           : {}),
                         ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
+                        ...(p.onCreateGraphqlRequest ? { onAddGraphqlRequest } : {}),
                       },
                       t,
                     ),
@@ -565,6 +596,46 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               });
             }
           }
+        } else if (node.type === 'graphql-request') {
+          if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
+          const gid = `graphql-request-${node.uid}`;
+          const fullGraphql = p.allGraphqlRequests.find((r) => r.uid === node.uid);
+          // A GraphQL request is complete once it has an endpoint URL —
+          // until then it renders as a draft, mirroring the sibling
+          // request kinds' completeness treatment.
+          const graphqlComplete = !fullGraphql || fullGraphql.url.trim().length > 0;
+          const graphqlBadge = composeBadge(
+            graphqlComplete
+              ? null
+              : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
+            p.dirtyRequestUids?.has(node.uid) ?? false,
+            undefined,
+            t,
+          );
+          items.push({
+            id: gid,
+            kind: 'leaf',
+            label: node.name,
+            depth,
+            expandable: false,
+            parentId,
+            icon: graphqlTag(!graphqlComplete),
+            badge: graphqlBadge,
+            canRename: true,
+            canDelete: true,
+            canAddChild: false,
+            onOpen: () => {
+              p.onSelectGraphqlRequest?.(node.uid, node.name);
+            },
+            onRename: async (name: string) => {
+              void p.updateGraphqlRequestData(node.uid, { name });
+            },
+            onDelete: () =>
+              p.confirmDelete(node.name, () => {
+                void p.deleteGraphqlRequest(node.uid);
+              }),
+            awareness: { entityType: GRAPHQL_REQUEST_ENTITY_TYPE, entityId: node.uid },
+          });
         } else if (node.type === 'request') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const rid = `request-${node.uid}`;
@@ -693,6 +764,11 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.deleteMqttRequest,
       p.onSelectMqttRequest,
       p.onCreateMqttRequest,
+      p.allGraphqlRequests,
+      p.updateGraphqlRequestData,
+      p.deleteGraphqlRequest,
+      p.onSelectGraphqlRequest,
+      p.onCreateGraphqlRequest,
       p.requestCollections,
       p.resolver,
       p.isExpandedKey,
@@ -772,6 +848,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         });
         p.onCreateMqttRequest?.({ collectionId: collection.uid });
       };
+      const onAddGraphqlRequest = () => {
+        p.setExpandedKeys((prev) => {
+          const next = new Set(prev);
+          next.add(colId);
+          return next;
+        });
+        p.onCreateGraphqlRequest?.({ collectionId: collection.uid });
+      };
       const onAddFolder = () => {
         void p.createRequestFolderRpc(t('workbench.sidebar.defaults.newFolder'), collection.path).then((f) => {
           if (f) {
@@ -838,6 +922,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                 }
               : {}),
             ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
+            ...(p.onCreateGraphqlRequest ? { onAddGraphqlRequest } : {}),
             onAddFolder,
           },
           t,
@@ -908,6 +993,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                         }
                       : {}),
                     ...(p.onCreateMqttRequest ? { onAddMqttRequest } : {}),
+                    ...(p.onCreateGraphqlRequest ? { onAddGraphqlRequest } : {}),
                   },
                   t,
                 ),
@@ -938,6 +1024,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.onCreateGrpcRequest,
     p.onCreateWebSocketRequest,
     p.onCreateMqttRequest,
+    p.onCreateGraphqlRequest,
     p.draftsByLocationRequest,
     p.buildRequestDraftNode,
     p.setExpandedKeys,

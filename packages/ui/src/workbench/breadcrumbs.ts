@@ -127,6 +127,13 @@ export function computeBreadcrumbs(
     }
     return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
   }
+  if (tab.mode === 'graphql-edit' && tab.graphqlRequestUid) {
+    const hit = computeRequestTrail(tab.graphqlRequestUid, requestCollectionTrees);
+    if (hit) {
+      return [t('workbench.shell.breadcrumbs.apiRequests'), hit.collectionName, ...hit.folderTrail, displayLabel];
+    }
+    return [t('workbench.shell.breadcrumbs.apiRequests'), displayLabel];
+  }
   if (tab.mode === 'response-example') {
     // Frozen example under a request — extend the parent request's
     // trail with the example's own label.
@@ -360,7 +367,8 @@ export function computeRequestTrail(
           (n.type === 'request' ||
             n.type === 'grpc-request' ||
             n.type === 'websocket-request' ||
-            n.type === 'mqtt-request') &&
+            n.type === 'mqtt-request' ||
+            n.type === 'graphql-request') &&
           n.uid === requestUid
         )
           return true;

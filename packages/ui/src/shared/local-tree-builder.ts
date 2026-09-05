@@ -22,6 +22,7 @@ import { mergeOrderedEntries } from '@openheaders/core/sync';
 import type {
   Collection,
   CollectionTree,
+  GraphqlRequest,
   GrpcRequest,
   MqttRequest,
   Request,
@@ -127,23 +128,26 @@ export function buildRequestCollectionTrees(
   grpcRequests: GrpcRequest[] = [],
   websocketRequests: WebSocketRequest[] = [],
   mqttRequests: MqttRequest[] = [],
+  graphqlRequests: GraphqlRequest[] = [],
   slotsOf: ContainerSlotReader = NO_SLOTS,
 ): CollectionTree[] {
   // All request kinds share the collection tree (S8 scope law:
   // collections hold every request family). Children are merged per
   // parent in the parent's slot order when `slotsOf` has it; the
   // by-path net runs folders, then HTTP requests, then gRPC, then
-  // WebSocket, then MQTT, each in array order.
+  // WebSocket, then MQTT, then GraphQL, each in array order.
   type RequestLeaf =
     | { kind: 'http'; uid: string; entity: Request }
     | { kind: 'grpc'; uid: string; entity: GrpcRequest }
     | { kind: 'websocket'; uid: string; entity: WebSocketRequest }
-    | { kind: 'mqtt'; uid: string; entity: MqttRequest };
+    | { kind: 'mqtt'; uid: string; entity: MqttRequest }
+    | { kind: 'graphql'; uid: string; entity: GraphqlRequest };
   const leaves: RequestLeaf[] = [
     ...requests.map((entity): RequestLeaf => ({ kind: 'http', uid: entity.uid, entity })),
     ...grpcRequests.map((entity): RequestLeaf => ({ kind: 'grpc', uid: entity.uid, entity })),
     ...websocketRequests.map((entity): RequestLeaf => ({ kind: 'websocket', uid: entity.uid, entity })),
     ...mqttRequests.map((entity): RequestLeaf => ({ kind: 'mqtt', uid: entity.uid, entity })),
+    ...graphqlRequests.map((entity): RequestLeaf => ({ kind: 'graphql', uid: entity.uid, entity })),
   ];
   return buildTrees(
     collections,
@@ -169,7 +173,9 @@ export function buildRequestCollectionTrees(
                 path: leaf.entity.path,
                 flavor: leaf.entity.flavor,
               }
-            : { type: 'mqtt-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path },
+            : leaf.kind === 'mqtt'
+              ? { type: 'mqtt-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path }
+              : { type: 'graphql-request', uid: leaf.entity.uid, name: leaf.entity.name, path: leaf.entity.path },
     slotsOf,
   );
 }

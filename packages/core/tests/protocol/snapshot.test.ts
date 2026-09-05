@@ -35,6 +35,7 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     grpcRequests: [],
     websocketRequests: [],
     mqttRequests: [],
+    graphqlRequests: [],
     responseExamples: [],
     grpcResponseExamples: [],
     wsResponseExamples: [],
@@ -96,6 +97,7 @@ describe('WorkspaceSnapshotSchema', () => {
       'grpcRequests',
       'websocketRequests',
       'mqttRequests',
+      'graphqlRequests',
       'responseExamples',
       'grpcResponseExamples',
       'wsResponseExamples',
@@ -110,6 +112,7 @@ describe('WorkspaceSnapshotSchema', () => {
     expect(parsed.specs).toEqual([]);
     expect(parsed.websocketRequests).toEqual([]);
     expect(parsed.mqttRequests).toEqual([]);
+    expect(parsed.graphqlRequests).toEqual([]);
   });
 
   it('validates an embedded takenAtHlc state vector', () => {

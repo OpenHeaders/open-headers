@@ -27,6 +27,7 @@ import type {
   SyncExtensionWorkspacePostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGraphqlRequestPostState,
   SyncGrpcRequestPostState,
   SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
@@ -448,6 +449,13 @@ export interface BridgeBroadcastContract {
      * `userProperties` paths without round-tripping.
      */
     mqttRequestPostState?: SyncMqttRequestPostState;
+    /**
+     * Post-commit projection for GraphqlRequest envelopes. Renderer
+     * mirrors fold this so the GraphQL editor sees post-commit shape +
+     * live itemIds for the set-modeled `headers` path without
+     * round-tripping.
+     */
+    graphqlRequestPostState?: SyncGraphqlRequestPostState;
     /**
      * Post-commit projection for WebSocket response-example envelopes.
      * Frozen flat record — no itemId map.

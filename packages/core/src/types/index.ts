@@ -31,6 +31,7 @@ export type {
   ContainerSettings,
   Folder,
   FolderNode,
+  GraphqlRequestNode,
   GrpcRequestNode,
   InheritableSettingKey,
   InheritableSettings,
@@ -73,6 +74,8 @@ export type {
   ExtensionWorkspaceSource,
   WorkspaceVisibility,
 } from './extension-workspace';
+// ── GraphQL request ────────────────────────────────────────────────
+export type { GraphqlAuth, GraphqlRequest, GraphqlRequestSeed } from './graphql-request';
 // ── gRPC request ───────────────────────────────────────────────────
 export type {
   ExecutedGrpcMessageFrame,

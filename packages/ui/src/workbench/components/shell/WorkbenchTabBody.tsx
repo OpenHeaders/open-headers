@@ -26,6 +26,7 @@ import FolderOverview from '../overviews/FolderOverview';
 import LiveVariablesEditor from '../variables/LiveVariablesEditor';
 import LiveVariableEditor from '../live/LiveVariableEditor';
 import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
+import GraphqlRequestEditor from '../graphql-request-editor/GraphqlRequestEditor';
 import GrpcRequestEditor from '../grpc-request-editor/GrpcRequestEditor';
 import MqttRequestEditor from '../mqtt-request-editor/MqttRequestEditor';
 import WebSocketRequestEditor from '../websocket-request-editor/WebSocketRequestEditor';
@@ -82,6 +83,7 @@ interface WorkbenchTabBodyProps {
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
   openCreateWebSocketRequestTab: UseTabOpenersApi['openCreateWebSocketRequestTab'];
   openCreateMqttRequestTab: UseTabOpenersApi['openCreateMqttRequestTab'];
+  openCreateGraphqlRequestTab: UseTabOpenersApi['openCreateGraphqlRequestTab'];
   /** The request container editor's section changed — recorded on
    *  the tab so a reopen lands where the user left. */
   setContainerSection: (tabId: string, section: RequestContainerSection) => void;
@@ -104,6 +106,7 @@ interface WorkbenchTabBodyProps {
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openWebSocketRequestEditTab: UseTabOpenersApi['openWebSocketRequestEditTab'];
   openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
+  openGraphqlRequestEditTab: UseTabOpenersApi['openGraphqlRequestEditTab'];
   openRequestCollectionAuth: UseTabOpenersApi['openRequestCollectionAuth'];
   openRequestFolderAuth: UseTabOpenersApi['openRequestFolderAuth'];
   openRequestCollectionSettings: UseTabOpenersApi['openRequestCollectionSettings'];
@@ -146,6 +149,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openCreateGrpcRequestTab,
   openCreateWebSocketRequestTab,
   openCreateMqttRequestTab,
+  openCreateGraphqlRequestTab,
   setContainerSection,
   onRequestScriptsViewed,
   openRequestEditTab,
@@ -164,6 +168,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openGrpcRequestEditTab,
   openWebSocketRequestEditTab,
   openMqttRequestEditTab,
+  openGraphqlRequestEditTab,
   openRequestCollectionAuth,
   openRequestFolderAuth,
   openRequestCollectionSettings,
@@ -228,10 +233,12 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
             onSelectGrpcRequest: openGrpcRequestEditTab,
             onSelectWebSocketRequest: openWebSocketRequestEditTab,
             onSelectMqttRequest: openMqttRequestEditTab,
+            onSelectGraphqlRequest: openGraphqlRequestEditTab,
             onCreateRequest: openCreateRequestTab,
             onCreateGrpcRequest: openCreateGrpcRequestTab,
             onCreateWebSocketRequest: openCreateWebSocketRequestTab,
             onCreateMqttRequest: openCreateMqttRequestTab,
+            onCreateGraphqlRequest: openCreateGraphqlRequestTab,
             onOpenFolderOverview: openRequestFolderOverview,
           }}
           onOpenPackageLibrary={openScriptPackages}
@@ -287,10 +294,12 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
             onSelectGrpcRequest: openGrpcRequestEditTab,
             onSelectWebSocketRequest: openWebSocketRequestEditTab,
             onSelectMqttRequest: openMqttRequestEditTab,
+            onSelectGraphqlRequest: openGraphqlRequestEditTab,
             onCreateRequest: openCreateRequestTab,
             onCreateGrpcRequest: openCreateGrpcRequestTab,
             onCreateWebSocketRequest: openCreateWebSocketRequestTab,
             onCreateMqttRequest: openCreateMqttRequestTab,
+            onCreateGraphqlRequest: openCreateGraphqlRequestTab,
             onOpenFolderOverview: openRequestFolderOverview,
           }}
           onOpenPackageLibrary={openScriptPackages}
@@ -534,6 +543,20 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         mqttRequestUid={tab.mqttRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenMqttResponseExample={openMqttResponseExampleTab}
+        onOpenContainerAuth={openContainerAuth}
+        onOpenContainerScripts={openContainerScripts}
+        onOpenContainerSettings={openContainerSettings}
+        onOpenPackageLibrary={openScriptPackages}
+        onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+        registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+      />
+    );
+  }
+  if (tab.mode === 'graphql-edit' && tab.graphqlRequestUid) {
+    return (
+      <GraphqlRequestEditor
+        graphqlRequestUid={tab.graphqlRequestUid}
+        workspaceId={editingScopeWorkspaceId}
         onOpenContainerAuth={openContainerAuth}
         onOpenContainerScripts={openContainerScripts}
         onOpenContainerSettings={openContainerSettings}

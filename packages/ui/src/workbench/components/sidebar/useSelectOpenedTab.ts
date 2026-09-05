@@ -144,7 +144,8 @@ export function useSelectOpenedTab({
         activeTabId.startsWith('websocket-request-') ||
         activeTabId.startsWith('ws-example-') ||
         activeTabId.startsWith('mqtt-request-') ||
-        activeTabId.startsWith('mqtt-example-')) &&
+        activeTabId.startsWith('mqtt-example-') ||
+        activeTabId.startsWith('graphql-request-')) &&
       view === 'api-requests'
     ) {
       nodeId = activeTabId;
@@ -164,7 +165,9 @@ export function useSelectOpenedTab({
           ? 'websocket-request-'
           : activeTabId.startsWith('mqtt-request-') || activeTabId.startsWith('mqtt-example-')
             ? 'mqtt-request-'
-            : 'request-';
+            : activeTabId.startsWith('graphql-request-')
+              ? 'graphql-request-'
+              : 'request-';
       const targetUid = activeTabId.startsWith('resp-example-')
         ? (resolveResponseExampleParent?.(activeTabId.replace('resp-example-', '')) ?? null)
         : activeTabId.startsWith('grpc-example-')
@@ -184,7 +187,8 @@ export function useSelectOpenedTab({
               (n.type === 'request' ||
                 n.type === 'grpc-request' ||
                 n.type === 'websocket-request' ||
-                n.type === 'mqtt-request') &&
+                n.type === 'mqtt-request' ||
+                n.type === 'graphql-request') &&
               n.uid === targetUid
             )
               return trail;

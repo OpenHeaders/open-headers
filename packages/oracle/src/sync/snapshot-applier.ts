@@ -38,6 +38,7 @@ import {
   type SyncEnvironmentPostState,
   type SyncFilesPostState,
   type SyncFolderPostState,
+  type SyncGraphqlRequestPostState,
   type SyncGrpcRequestPostState,
   type SyncGrpcResponseExamplePostState,
   type SyncLayoutStatePostState,
@@ -72,6 +73,7 @@ import {
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_EXAMPLES_PATH,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
@@ -98,6 +100,7 @@ import { seedCollection } from '@openheaders/core/sync-builders/projections/coll
 import { seedEnvironment } from '@openheaders/core/sync-builders/projections/env-projection';
 import { seedFiles } from '@openheaders/core/sync-builders/projections/files-projection';
 import { seedFolder } from '@openheaders/core/sync-builders/projections/folder-projection';
+import { seedGraphqlRequest } from '@openheaders/core/sync-builders/projections/graphql-request-projection';
 import { seedGrpcRequest } from '@openheaders/core/sync-builders/projections/grpc-request-projection';
 import { seedGrpcResponseExample } from '@openheaders/core/sync-builders/projections/grpc-response-example-projection';
 import { seedLayoutState } from '@openheaders/core/sync-builders/projections/layout-state-projection';
@@ -207,6 +210,9 @@ export async function applyWorkspaceSnapshot(
   );
   await seedEach<SyncMqttRequestPostState>('mqttRequests', snapshot.mqttRequests, (p, ctx) =>
     seedMqttRequest(p.mqttRequest, ctx),
+  );
+  await seedEach<SyncGraphqlRequestPostState>('graphqlRequests', snapshot.graphqlRequests, (p, ctx) =>
+    seedGraphqlRequest(p.graphqlRequest, ctx),
   );
   await seedEach<SyncSpecPostState>('specs', snapshot.specs, (p, ctx) => seedSpec(p.spec, ctx));
   await seedEach<SyncScriptPackagePostState>('scriptPackages', snapshot.scriptPackages, (p, ctx) =>
@@ -342,6 +348,7 @@ function collectTreeSlots(snapshot: WorkspaceSnapshot): ContainerSlots[] {
         [GRPC_REQUEST_ENTITY_TYPE, snapshot.grpcRequests.map((p) => p.grpcRequest)],
         [WEBSOCKET_REQUEST_ENTITY_TYPE, snapshot.websocketRequests.map((p) => p.websocketRequest)],
         [MQTT_REQUEST_ENTITY_TYPE, snapshot.mqttRequests.map((p) => p.mqttRequest)],
+        [GRAPHQL_REQUEST_ENTITY_TYPE, snapshot.graphqlRequests.map((p) => p.graphqlRequest)],
       ),
       childrenPath: FOLDER_CHILDREN_PATH,
       itemsPath: FOLDER_ITEMS_PATH,

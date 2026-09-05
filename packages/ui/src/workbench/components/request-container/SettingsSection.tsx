@@ -3,7 +3,7 @@
  * `settings` record a collection / folder carries for the requests
  * under it, ONE SLICE PER REQUEST KIND (the per-knob cascade within a
  * kind — `@openheaders/core/settings-inheritance`), edited through
- * per-kind sub-tabs (HTTP · WebSocket · MQTT · gRPC) that render the
+ * per-kind sub-tabs (HTTP · GraphQL, WebSocket, MQTT, gRPC) that render the
  * request Settings tabs' own rows over the kind's slice. A knob set
  * under one sub-tab is that kind's alone: the HTTP timeout never
  * reaches a WebSocket session under the same collection, and the
@@ -43,6 +43,12 @@ const KIND_LABEL_KEY: Record<AuthProtocolKind, MessageKey> = {
   websocket: 'shared.requestKinds.websocket.label',
   mqtt: 'shared.requestKinds.mqtt.label',
   grpc: 'shared.requestKinds.grpc.label',
+};
+
+/** The flavors a kind's slice also serves — a GraphQL request reads the
+ *  `http` slice (the wire-family law), so the sub-tab names it. */
+const KIND_FLAVOR_LABEL_KEYS: Partial<Record<AuthProtocolKind, readonly MessageKey[]>> = {
+  http: ['shared.requestKinds.graphql.label'],
 };
 
 const EMPTY_SLICE: KindSettings<AuthProtocolKind> = {};
@@ -97,7 +103,7 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
     key: k,
     label: (
       <span data-testid={`oh-container-settings-kind-${k}`}>
-        {t(KIND_LABEL_KEY[k])}
+        {[KIND_LABEL_KEY[k], ...(KIND_FLAVOR_LABEL_KEYS[k] ?? [])].map((key) => t(key)).join(' · ')}
         {kindUnsaved(k) ? <TabDot tone="unsaved" /> : null}
       </span>
     ),

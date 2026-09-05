@@ -267,6 +267,46 @@ export const MQTT_REQUEST_FIELD_ORDER = [
 ] as const;
 
 /**
+ * GraphQL request manifest (`graphql.yaml`): identity + endpoint +
+ * the operation pick + header rows + auth + spec binding + the HTTP
+ * settings knobs in the HTTP request's own order. The document, the
+ * variables and the script pair never serialize into the manifest —
+ * they fan out into `query.graphql` / `variables.json` /
+ * `pre-request.js` / `post-response.js` (see `graphql-request.ts`).
+ */
+export const GRAPHQL_REQUEST_FIELD_ORDER = [
+  'schemaVersion',
+  'uid',
+  'name',
+  'description',
+  'url',
+  'operationName',
+  'headers',
+  'auth',
+  'specLink',
+  'credentialsMode',
+  'followRedirects',
+  'sslVerification',
+  'tlsMinVersion',
+  'tlsMaxVersion',
+  'tlsCipherSuites',
+  'sniServerName',
+  'httpVersion',
+  'resolveToAddress',
+  'clientCertificateRef',
+  'proxyMode',
+  'proxyUrl',
+  'proxyCredentialRef',
+  'unixSocketPath',
+  'cookieJar',
+  'timeoutMs',
+  'maxResponseBytes',
+  'maxRedirects',
+  'followOriginalHttpMethod',
+  'followAuthorizationHeader',
+] as const;
+
+/**
  * `path` is excluded from persisted YAML on purpose — it's the folder
  * name on disk (slug-uid), derivable from the filesystem. The runtime
  * Rule / Collection / Request value carries `path`; the codec strips it

@@ -7,6 +7,7 @@ export { DaemonPrincipalKindSchema, DaemonUserRecordSchema } from './daemon-user
 export { DeviceTrustedCertificateSchema, DeviceTrustSchema } from './device-trust';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
+export { GraphqlAuthSchema, GraphqlRequestSchema, GraphqlRequestSeedSchema } from './graphql-request';
 export {
   GrpcAuthSchema,
   GrpcMetadataPairSchema,

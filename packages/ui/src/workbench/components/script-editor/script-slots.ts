@@ -142,6 +142,9 @@ export const SCRIPT_SLOT_BY_KIND: Readonly<Record<ScriptKind, ScriptSlotDescript
 export const SCRIPT_SLOT_GROUPS: readonly ScriptSlotGroup[] = [
   {
     requestKind: 'http',
+    // A GraphQL request is an HTTP send: the pair runs for it (the
+    // wire-family law) — the rail names the flavor beside the kind.
+    flavors: ['graphql'],
     captionKey: 'workbench.editors.request.settings.exampleCaption',
     slots: [SCRIPT_SLOT_BY_KIND['pre-request'], SCRIPT_SLOT_BY_KIND['post-response']],
   },

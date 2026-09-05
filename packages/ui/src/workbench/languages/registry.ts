@@ -12,8 +12,9 @@
  *   • JavaScript / XML — Monaco has no built-in formatter. We register
  *     a Prettier-backed provider in `components/monaco/formatters.ts`
  *     that runs through the same action.
- *   • Text / GraphQL — no formatter at all; the Format button stays
- *     hidden by Monaco's action-not-supported reflex.
+ *   • Text — no formatter at all; the Format button stays hidden by
+ *     Monaco's action-not-supported reflex. GraphQL prettifies through
+ *     the core printer from its own editor, not the Format action.
  *
  * This registry therefore only carries a LABEL for the UI (dropdowns,
  * tab strips). Formatter metadata (which parser, which plugins) now
@@ -65,16 +66,14 @@ export const LANGUAGES: Record<LanguageId, LanguageDef> = {
 /**
  * Map a registry id to the Monaco language id Monaco internally
  * registers. For most languages the id is identical, but `text` needs
- * to be mapped to Monaco's built-in `plaintext` and `graphql` has no
- * native Monaco grammar so we fall back to plaintext until the
- * GraphQL plugin is wired. `prometheus` is our own Monarch grammar
- * (`languages/prometheus.ts`), registered under the same id in the
+ * to be mapped to Monaco's built-in `plaintext`. `graphql` and
+ * `prometheus` are our own Monarch grammars (`languages/graphql.ts`,
+ * `languages/prometheus.ts`), registered under the same ids in the
  * Monaco bootstrap. `protobuf` maps to Monaco's built-in basic
  * language, which registers under the id `proto`.
  */
 export function toMonacoLanguage(id: LanguageId): string {
   if (id === 'text') return 'plaintext';
-  if (id === 'graphql') return 'plaintext';
   if (id === 'protobuf') return 'proto';
   return id;
 }

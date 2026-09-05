@@ -49,6 +49,7 @@ import type {
   SyncEnvironmentPostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGraphqlRequestPostState,
   SyncGrpcRequestPostState,
   SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,
@@ -107,6 +108,7 @@ export interface WorkspaceSnapshot {
   grpcRequests: SyncGrpcRequestPostState[];
   websocketRequests: SyncWebSocketRequestPostState[];
   mqttRequests: SyncMqttRequestPostState[];
+  graphqlRequests: SyncGraphqlRequestPostState[];
   responseExamples: SyncResponseExamplePostState[];
   grpcResponseExamples: SyncGrpcResponseExamplePostState[];
   wsResponseExamples: SyncWsResponseExamplePostState[];
@@ -156,6 +158,7 @@ export const WorkspaceSnapshotSchema = v.object({
   grpcRequests: v.optional(v.array(v.unknown()), []),
   websocketRequests: v.optional(v.array(v.unknown()), []),
   mqttRequests: v.optional(v.array(v.unknown()), []),
+  graphqlRequests: v.optional(v.array(v.unknown()), []),
   responseExamples: v.optional(v.array(v.unknown()), []),
   grpcResponseExamples: v.optional(v.array(v.unknown()), []),
   wsResponseExamples: v.optional(v.array(v.unknown()), []),

@@ -609,6 +609,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateWebSocketRequestTab,
     openMqttRequestEditTab,
     openCreateMqttRequestTab,
+    openGraphqlRequestEditTab,
+    openCreateGraphqlRequestTab,
     openResponseExampleTab,
     openGrpcResponseExampleTab,
     openWsResponseExampleTab,
@@ -1090,6 +1092,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       } else if (tab.mode === 'mqtt-edit' && tab.mqttRequestUid) {
         void requestsApi.updateMqttRequest(tab.mqttRequestUid, { name: newName });
         updateTab(tab.id, { label: newName });
+      } else if (tab.mode === 'graphql-edit' && tab.graphqlRequestUid) {
+        void requestsApi.updateGraphqlRequest(tab.graphqlRequestUid, { name: newName });
+        updateTab(tab.id, { label: newName });
       } else if (tab.mode === 'request-create' || tab.mode === 'rule-create' || tab.mode === 'live-workflow-create') {
         // Draft name change — no persistence until Save. Update both
         // the tab label and the `draftName` field so the editor's
@@ -1255,6 +1260,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openCreateGrpcRequestTab={openCreateGrpcRequestTab}
         openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
         openCreateMqttRequestTab={openCreateMqttRequestTab}
+        openCreateGraphqlRequestTab={openCreateGraphqlRequestTab}
         setContainerSection={setContainerSection}
         onRequestScriptsViewed={markRequestScriptsReviewed}
         openRequestEditTab={openRequestEditTab}
@@ -1273,6 +1279,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openGrpcRequestEditTab={openGrpcRequestEditTab}
         openWebSocketRequestEditTab={openWebSocketRequestEditTab}
         openMqttRequestEditTab={openMqttRequestEditTab}
+        openGraphqlRequestEditTab={openGraphqlRequestEditTab}
         openRequestCollectionAuth={openRequestCollectionAuth}
         openRequestFolderAuth={openRequestFolderAuth}
         openRequestCollectionSettings={openRequestCollectionSettings}
@@ -1321,6 +1328,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openGrpcRequestEditTab,
       openWebSocketRequestEditTab,
       openMqttRequestEditTab,
+      openGraphqlRequestEditTab,
       openRequestCollectionAuth,
       openRequestFolderAuth,
       openRequestCollectionSettings,
@@ -1336,6 +1344,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateGrpcRequestTab,
       openCreateWebSocketRequestTab,
       openCreateMqttRequestTab,
+      openCreateGraphqlRequestTab,
       setContainerSection,
       markRequestScriptsReviewed,
       openRequestEditTab,
@@ -1396,6 +1405,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       const openIn = (context: { collectionId?: string; folderPath?: string }) => {
         if (kind === 'grpc') openCreateGrpcRequestTab(context);
         else if (kind === 'mqtt') openCreateMqttRequestTab(context);
+        else if (kind === 'graphql') openCreateGraphqlRequestTab(context);
         else openCreateWebSocketRequestTab({ ...context, flavor: kind === 'socketio' ? 'socketio' : 'raw' });
       };
       const existing = requestsApi.collections[0];
@@ -1412,6 +1422,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateGrpcRequestTab,
       openCreateWebSocketRequestTab,
       openCreateMqttRequestTab,
+      openCreateGraphqlRequestTab,
       requestsApi.collections,
       requestsApi.createCollection,
       t,
@@ -1536,7 +1547,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openWebSocketRequestEditTab={openWebSocketRequestEditTab}
         openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
         openMqttRequestEditTab={openMqttRequestEditTab}
+        openGraphqlRequestEditTab={openGraphqlRequestEditTab}
         openCreateMqttRequestTab={openCreateMqttRequestTab}
+        openCreateGraphqlRequestTab={openCreateGraphqlRequestTab}
         openResponseExampleTab={openResponseExampleTab}
         openGrpcResponseExampleTab={openGrpcResponseExampleTab}
         openWsResponseExampleTab={openWsResponseExampleTab}
@@ -1594,7 +1607,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openWebSocketRequestEditTab,
       openCreateWebSocketRequestTab,
       openMqttRequestEditTab,
+      openGraphqlRequestEditTab,
       openCreateMqttRequestTab,
+      openCreateGraphqlRequestTab,
       openResponseExampleTab,
       openGrpcResponseExampleTab,
       openWsResponseExampleTab,
@@ -1819,6 +1834,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 activeTab.mode === 'grpc-edit' ||
                 activeTab.mode === 'websocket-edit' ||
                 activeTab.mode === 'mqtt-edit' ||
+                activeTab.mode === 'graphql-edit' ||
                 activeTab.mode === 'request-create' ||
                 activeTab.mode === 'rule-create' ||
                 activeTab.mode === 'live-variable-edit' ||

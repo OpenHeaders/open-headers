@@ -1,7 +1,7 @@
 /**
  * The two request create menus share one row vocabulary: a code badge
  * then the protocol's short name (HTTP / gRPC / WebSocket / Socket.IO /
- * MQTT). The panel's `+` offers them under New Request ▸, a container's
+ * MQTT · GraphQL). The panel's `+` offers them under New Request ▸, a container's
  * `+` under Add Request ▸ beside Add Folder, and the flat list behind
  * an "Add request" button lists the same rows in the same order.
  */
@@ -22,10 +22,10 @@ function childrenOf(item: ItemType): ItemType[] {
   return item && 'children' in item && Array.isArray(item.children) ? item.children : [];
 }
 
-const SHORT = ['HTTP', 'gRPC', 'WebSocket', 'Socket.IO', 'MQTT'];
+const SHORT = ['HTTP', 'gRPC', 'WebSocket', 'Socket.IO', 'MQTT', 'GraphQL'];
 
 describe('request create menus', () => {
-  it('New Request ▸ lists the five kinds by short name', () => {
+  it('New Request ▸ lists the six kinds by short name', () => {
     const items = buildRequestKindMenuItems(() => undefined, t);
     expect(items.map(labelOf)).toEqual(SHORT);
   });
@@ -49,6 +49,7 @@ describe('request create menus', () => {
         onAddWebSocketRequest: () => undefined,
         onAddSocketIoRequest: () => undefined,
         onAddMqttRequest: () => undefined,
+        onAddGraphqlRequest: () => undefined,
         onAddFolder: () => undefined,
       },
       t,

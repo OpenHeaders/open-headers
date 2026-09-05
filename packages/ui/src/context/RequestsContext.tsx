@@ -39,6 +39,7 @@ import {
 import type {
   Collection,
   CollectionTree,
+  GraphqlRequest,
   GrpcRequest,
   MqttRequest,
   Request,
@@ -94,6 +95,12 @@ import {
   applyMqttRequestUpdate,
   type MqttRequestUpdates,
 } from '../shared/sync/mqtt-request-write-client';
+import {
+  applyGraphqlRequestCreate,
+  applyGraphqlRequestDelete,
+  applyGraphqlRequestUpdate,
+  type GraphqlRequestUpdates,
+} from '../shared/sync/graphql-request-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
 import { getRequestCollectionSyncMirrorForWorkspace } from './mirrors/request-collection-sync-mirror';
 import { getRequestFolderSyncMirrorForWorkspace } from './mirrors/request-folder-sync-mirror';
@@ -112,6 +119,9 @@ export type WebSocketRequestWriteResult = GrpcRequestWriteResult;
 
 /** Structured ack for MQTT request writes — same anatomy as {@link GrpcRequestWriteResult}. */
 export type MqttRequestWriteResult = GrpcRequestWriteResult;
+
+/** Structured ack for GraphQL request writes — same anatomy as {@link GrpcRequestWriteResult}. */
+export type GraphqlRequestWriteResult = GrpcRequestWriteResult;
 
 export interface RequestsContextValue {
   requests: Request[];
@@ -133,6 +143,12 @@ export interface RequestsContextValue {
    * {@link grpcRequests}.
    */
   mqttRequests: MqttRequest[];
+  /**
+   * GraphQL requests — the own entity kind executed as an HTTP send
+   * through the compile, sharing the collection tree. Same population
+   * rules as {@link grpcRequests}.
+   */
+  graphqlRequests: GraphqlRequest[];
   collections: Collection[];
   /**
    * Flat request-folder list. Populated on the override branch
@@ -201,6 +217,22 @@ export interface RequestsContextValue {
   }) => Promise<MqttRequest | null>;
   updateMqttRequest: (mqttRequestUid: string, updates: MqttRequestUpdates) => Promise<MqttRequestWriteResult>;
   deleteMqttRequest: (mqttRequestUid: string) => Promise<boolean>;
+
+  /**
+   * GraphQL request CRUD — override branch only (the workbench is the
+   * only surface with GraphQL gestures); the legacy branch resolves
+   * null/false.
+   */
+  createGraphqlRequest: (input: {
+    name: string;
+    parentPath: string;
+    seed?: Partial<GraphqlRequest>;
+  }) => Promise<GraphqlRequest | null>;
+  updateGraphqlRequest: (
+    graphqlRequestUid: string,
+    updates: GraphqlRequestUpdates,
+  ) => Promise<GraphqlRequestWriteResult>;
+  deleteGraphqlRequest: (graphqlRequestUid: string) => Promise<boolean>;
 
   createCollection: (name: string) => Promise<Collection | null>;
   renameCollection: (collectionUid: string, name: string) => Promise<boolean>;
@@ -304,6 +336,7 @@ const defaultContextValue: RequestsContextValue = {
   grpcRequests: [],
   websocketRequests: [],
   mqttRequests: [],
+  graphqlRequests: [],
   collections: [],
   folders: [],
   collectionTrees: [],
@@ -321,6 +354,9 @@ const defaultContextValue: RequestsContextValue = {
   createMqttRequest: () => Promise.resolve(null),
   updateMqttRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
   deleteMqttRequest: () => Promise.resolve(false),
+  createGraphqlRequest: () => Promise.resolve(null),
+  updateGraphqlRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
+  deleteGraphqlRequest: () => Promise.resolve(false),
   createCollection: () => Promise.resolve(null),
   renameCollection: () => Promise.resolve(false),
   deleteCollection: () => Promise.resolve(false),
@@ -363,6 +399,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   const [grpcRequests, setGrpcRequests] = useState<GrpcRequest[]>([]);
   const [websocketRequests, setWebSocketRequests] = useState<WebSocketRequest[]>([]);
   const [mqttRequests, setMqttRequests] = useState<MqttRequest[]>([]);
+  const [graphqlRequests, setGraphqlRequests] = useState<GraphqlRequest[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [folders, setFolders] = useState<PersistedLocalFolder[]>([]);
   const [collectionTrees, setCollectionTrees] = useState<CollectionTree[]>([]);
@@ -427,6 +464,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setGrpcRequests([]);
       setWebSocketRequests([]);
       setMqttRequests([]);
+      setGraphqlRequests([]);
       setCollections([]);
       setFolders([]);
       setCollectionTrees([]);
@@ -439,6 +477,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     let currentGrpcRequests: GrpcRequest[] = [];
     let currentWebSocketRequests: WebSocketRequest[] = [];
     let currentMqttRequests: MqttRequest[] = [];
+    let currentGraphqlRequests: GraphqlRequest[] = [];
     let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
 
@@ -463,6 +502,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           currentGrpcRequests,
           currentWebSocketRequests,
           currentMqttRequests,
+          currentGraphqlRequests,
           slotsOf,
         ),
       );
@@ -490,6 +530,11 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setMqttRequests(currentMqttRequests);
       recomputeTrees();
     });
+    const unsubGraphqlRequests = hostStorage.subscribe(wsKeys(wsId).graphqlRequests, (record) => {
+      currentGraphqlRequests = record ?? [];
+      setGraphqlRequests(currentGraphqlRequests);
+      recomputeTrees();
+    });
     const unsubCollections = hostStorage.subscribe(wsKeys(wsId).requestCollections, (record) => {
       currentCollections = record ?? [];
       setCollections(currentCollections);
@@ -506,20 +551,23 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       hostStorage.get(wsKeys(wsId).grpcRequests),
       hostStorage.get(wsKeys(wsId).websocketRequests),
       hostStorage.get(wsKeys(wsId).mqttRequests),
+      hostStorage.get(wsKeys(wsId).graphqlRequests),
       hostStorage.get(wsKeys(wsId).requestCollections),
       hostStorage.get(wsKeys(wsId).requestFolders),
-    ]).then(([reqRecord, grpcRecord, wsRecord, mqttRecord, colRecord, foldersRecord]) => {
+    ]).then(([reqRecord, grpcRecord, wsRecord, mqttRecord, graphqlRecord, colRecord, foldersRecord]) => {
       if (overrideIdRef.current !== wsId) return;
       currentRequests = reqRecord ?? [];
       currentGrpcRequests = grpcRecord ?? [];
       currentWebSocketRequests = wsRecord ?? [];
       currentMqttRequests = mqttRecord ?? [];
+      currentGraphqlRequests = graphqlRecord ?? [];
       currentCollections = colRecord ?? [];
       currentFolders = foldersRecord ?? [];
       setRequests(currentRequests);
       setGrpcRequests(currentGrpcRequests);
       setWebSocketRequests(currentWebSocketRequests);
       setMqttRequests(currentMqttRequests);
+      setGraphqlRequests(currentGraphqlRequests);
       setCollections(currentCollections);
       setFolders(currentFolders);
       recomputeTrees();
@@ -531,6 +579,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       unsubGrpcRequests();
       unsubWebSocketRequests();
       unsubMqttRequests();
+      unsubGraphqlRequests();
       unsubCollections();
       unsubFolders();
       unsubCollectionSlots();
@@ -815,6 +864,57 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
+  const createGraphqlRequest = useCallback<RequestsContextValue['createGraphqlRequest']>(
+    async (input) => {
+      if (!isOverridden) return null;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return null;
+      const uid = generateUid();
+      const created: GraphqlRequest = {
+        schemaVersion: 5,
+        uid,
+        path: `${input.parentPath}/${toFolderName(input.name, uid)}`,
+        name: input.name,
+        url: input.seed?.url ?? '',
+        query: input.seed?.query ?? '',
+        headers: input.seed?.headers ?? [],
+        auth: input.seed?.auth ?? { type: 'inherit' },
+        ...(input.seed?.description !== undefined ? { description: input.seed.description } : {}),
+        ...(input.seed?.variables !== undefined ? { variables: input.seed.variables } : {}),
+        ...(input.seed?.operationName !== undefined ? { operationName: input.seed.operationName } : {}),
+        ...(input.seed?.specLink !== undefined ? { specLink: input.seed.specLink } : {}),
+        ...(input.seed?.timeoutMs !== undefined ? { timeoutMs: input.seed.timeoutMs } : {}),
+      };
+      const result = await applyGraphqlRequestCreate(created, { workspaceId: wsId, surfaceId });
+      return result.ok ? created : null;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const updateGraphqlRequest = useCallback<RequestsContextValue['updateGraphqlRequest']>(
+    async (graphqlRequestUid, updates) => {
+      if (!isOverridden) return { ok: false, reason: 'other', message: 'no provider' };
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return { ok: false, reason: 'other', message: 'no workspace' };
+      const result = await applyGraphqlRequestUpdate(graphqlRequestUid, updates, { workspaceId: wsId, surfaceId });
+      if (result.ok) return { ok: true };
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message ?? '' };
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const deleteGraphqlRequest = useCallback<RequestsContextValue['deleteGraphqlRequest']>(
+    async (graphqlRequestUid) => {
+      if (!isOverridden) return false;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return false;
+      const result = await applyGraphqlRequestDelete(graphqlRequestUid, { workspaceId: wsId, surfaceId });
+      return result.ok;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
   const createCollection = useCallback<RequestsContextValue['createCollection']>(
     async (name) => {
       if (isOverridden) {
@@ -1063,6 +1163,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       grpcRequests,
       websocketRequests,
       mqttRequests,
+      graphqlRequests,
       collections,
       folders,
       collectionTrees,
@@ -1080,6 +1181,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createMqttRequest,
       updateMqttRequest,
       deleteMqttRequest,
+      createGraphqlRequest,
+      updateGraphqlRequest,
+      deleteGraphqlRequest,
       createCollection,
       renameCollection,
       deleteCollection,
@@ -1102,6 +1206,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       grpcRequests,
       websocketRequests,
       mqttRequests,
+      graphqlRequests,
       collections,
       folders,
       collectionTrees,
@@ -1119,6 +1224,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       createMqttRequest,
       updateMqttRequest,
       deleteMqttRequest,
+      createGraphqlRequest,
+      updateGraphqlRequest,
+      deleteGraphqlRequest,
       createCollection,
       renameCollection,
       deleteCollection,

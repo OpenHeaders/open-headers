@@ -16,7 +16,9 @@
 import {
   type ChildMutators,
   collectionChild,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
+  graphqlRequestChild,
   grpcRequestChild,
   MQTT_REQUEST_ENTITY_TYPE,
   mqttRequestChild,
@@ -47,6 +49,7 @@ export type TreeLeafEntityType =
   | typeof GRPC_REQUEST_ENTITY_TYPE
   | typeof WEBSOCKET_REQUEST_ENTITY_TYPE
   | typeof MQTT_REQUEST_ENTITY_TYPE
+  | typeof GRAPHQL_REQUEST_ENTITY_TYPE
   | typeof TEMPLATE_ENTITY_TYPE;
 
 export type TreeId = 'rules' | 'requests' | 'templates';
@@ -57,6 +60,7 @@ const LEAF_CHILD: Record<TreeLeafEntityType, ChildMutators<ParentRefShape>> = {
   [GRPC_REQUEST_ENTITY_TYPE]: grpcRequestChild,
   [WEBSOCKET_REQUEST_ENTITY_TYPE]: webSocketRequestChild,
   [MQTT_REQUEST_ENTITY_TYPE]: mqttRequestChild,
+  [GRAPHQL_REQUEST_ENTITY_TYPE]: graphqlRequestChild,
   [TEMPLATE_ENTITY_TYPE]: templateChild,
 };
 

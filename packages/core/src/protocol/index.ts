@@ -139,6 +139,7 @@ export type {
   SyncExtensionWorkspacePostState,
   SyncFilesPostState,
   SyncFolderPostState,
+  SyncGraphqlRequestPostState,
   SyncGrpcRequestPostState,
   SyncGrpcResponseExamplePostState,
   SyncLayoutStatePostState,

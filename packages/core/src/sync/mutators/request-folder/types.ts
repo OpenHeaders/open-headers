@@ -19,6 +19,7 @@
  * effects are empty.
  */
 
+import type { GRAPHQL_REQUEST_ENTITY_TYPE } from '../graphql-request/types';
 import type { GRPC_REQUEST_ENTITY_TYPE } from '../grpc-request/types';
 import type { MQTT_REQUEST_ENTITY_TYPE } from '../mqtt-request/types';
 import type { REQUEST_ENTITY_TYPE } from '../request/types';
@@ -75,7 +76,8 @@ export type RequestItemType =
   | typeof REQUEST_ENTITY_TYPE
   | typeof GRPC_REQUEST_ENTITY_TYPE
   | typeof WEBSOCKET_REQUEST_ENTITY_TYPE
-  | typeof MQTT_REQUEST_ENTITY_TYPE;
+  | typeof MQTT_REQUEST_ENTITY_TYPE
+  | typeof GRAPHQL_REQUEST_ENTITY_TYPE;
 
 /**
  * Slot marker stored under `parent.items[requestUid]`. The `type`

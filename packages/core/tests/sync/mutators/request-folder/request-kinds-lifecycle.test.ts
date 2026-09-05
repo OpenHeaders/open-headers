@@ -2,22 +2,27 @@
  * The four request kinds share one `items` set on their parent; each
  * kind's slot names the catalog that owns the leaf so a reader never
  * probes four stores. One suite pins the three kinds without a
- * catalog-local suite (gRPC / WebSocket / MQTT).
+ * catalog-local suite (gRPC / WebSocket / MQTT / GraphQL). * catalog-local suite (gRPC / WebSocket / MQTT).
  */
 
 import { describe, expect, it } from 'vitest';
 import {
+  createGraphqlRequest,
   createGrpcRequest,
   createMqttRequest,
   createWebSocketRequest,
+  deleteGraphqlRequest,
   deleteGrpcRequest,
   deleteMqttRequest,
   deleteWebSocketRequest,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_MUTATOR_VERSION,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_MUTATOR_VERSION,
   MQTT_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_MUTATOR_VERSION,
   type MutatorContext,
+  moveGraphqlRequest,
   moveGrpcRequest,
   moveMqttRequest,
   moveWebSocketRequest,
@@ -89,6 +94,26 @@ const kinds = [
     remove: () => deleteMqttRequest(ctx(), { mqttRequestUid: 'q-1', parent: folder }),
     move: () =>
       moveMqttRequest(ctx(), { mqttRequestUid: 'q-1', oldParent: collection, newParent: folder, orderKey: 'k' }),
+  },
+  {
+    label: 'GraphQL',
+    entityType: GRAPHQL_REQUEST_ENTITY_TYPE,
+    version: GRAPHQL_REQUEST_MUTATOR_VERSION,
+    create: () =>
+      createGraphqlRequest(ctx(), {
+        graphqlRequestUid: 'q-1',
+        parent: collection,
+        payload: { name: 'Echo' },
+        orderKey: 'mm',
+      }),
+    remove: () => deleteGraphqlRequest(ctx(), { graphqlRequestUid: 'q-1', parent: folder }),
+    move: () =>
+      moveGraphqlRequest(ctx(), {
+        graphqlRequestUid: 'q-1',
+        oldParent: collection,
+        newParent: folder,
+        orderKey: 'k',
+      }),
   },
 ];
 

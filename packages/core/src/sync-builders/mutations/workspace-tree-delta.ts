@@ -53,7 +53,9 @@ import {
   FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
   folderChild,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
+  graphqlRequestChild,
   grpcRequestChild,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
@@ -88,6 +90,7 @@ import type {
   Collection,
   Environment,
   Folder,
+  GraphqlRequest,
   GrpcRequest,
   MqttRequest,
   WebSocketRequest,
@@ -102,6 +105,12 @@ import {
 import { buildDeleteCollectionBatch } from './collection-mutations';
 import { buildDeleteEnvironmentBatch } from './env-mutations';
 import { buildDeleteFolderBatch, buildDeleteFolderEntityBatch } from './folder-mutations';
+import {
+  buildGraphqlAddBatch,
+  buildGraphqlDeleteBatch,
+  buildGraphqlDeleteEntityBatch,
+  buildGraphqlUpdateBatch,
+} from './graphql-request-mutations';
 import {
   buildGrpcAddBatch,
   buildGrpcDeleteBatch,
@@ -171,6 +180,7 @@ const MANIFEST_OF: ReadonlyMap<string, string> = new Map([
   [GRPC_REQUEST_ENTITY_TYPE, 'grpc.yaml'],
   [WEBSOCKET_REQUEST_ENTITY_TYPE, 'websocket.yaml'],
   [MQTT_REQUEST_ENTITY_TYPE, 'mqtt.yaml'],
+  [GRAPHQL_REQUEST_ENTITY_TYPE, 'graphql.yaml'],
   [TEMPLATE_ENTITY_TYPE, 'template.yaml'],
   [SPEC_ENTITY_TYPE, 'spec.yaml'],
   [LIVE_WORKFLOW_ENTITY_TYPE, 'workflow.yaml'],
@@ -212,6 +222,7 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
   collect(next.grpcRequests);
   collect(next.websocketRequests);
   collect(next.mqttRequests);
+  collect(next.graphqlRequests);
   collect(next.templates);
   collect(next.specs);
   collect(next.liveWorkflows);
@@ -373,6 +384,13 @@ export function synthesizeWorkspaceTreeDelta(args: WorkspaceTreeDeltaArgs): Emis
     placeRequest,
     deps,
   );
+  emitGraphqlRequests(
+    out,
+    next.graphqlRequests.filter((entity) => touched(entity.path)),
+    prev.graphqlRequests,
+    placeRequest,
+    deps,
+  );
 
   emitPathMoves(out, prev, next, touched, tail, deps);
   for (const reorder of slotOrder.reorders) {
@@ -398,7 +416,13 @@ function treeOrderInput(next: TreeReadResult['state'], touched: (entityPath: str
     requests: {
       collections: next.requestCollections,
       folders: next.requestFolders,
-      leaves: [...next.requests, ...next.grpcRequests, ...next.websocketRequests, ...next.mqttRequests],
+      leaves: [
+        ...next.requests,
+        ...next.grpcRequests,
+        ...next.websocketRequests,
+        ...next.mqttRequests,
+        ...next.graphqlRequests,
+      ],
       rootOrder: manifestOrder?.requests,
     },
     templates: {
@@ -564,6 +588,56 @@ function emitMqttRequests(
   }
 }
 
+function emitGraphqlRequests(
+  out: EmissionBatch[],
+  entries: readonly GraphqlRequest[],
+  prevItems: readonly GraphqlRequest[],
+  place: PlaceRequest,
+  deps: ImportEmissionDeps,
+): void {
+  const prevByUid = byUid(prevItems);
+  for (const entity of entries) {
+    const prevEntity = prevByUid.get(entity.uid);
+    if (!prevEntity) {
+      const payload = buildGraphqlAddBatch(entity, deps.nextCtx(), place(entity));
+      out.push({
+        label: `graphql-request:${entity.uid} (create)`,
+        batch: payload.batch,
+        sideEffects: payload.sideEffects,
+      });
+      continue;
+    }
+    const { updates, removedKeys } = diffKeys(
+      prevEntity as unknown as Record<string, unknown>,
+      entity as unknown as Record<string, unknown>,
+      LEAF_SKIP,
+    );
+    if (Object.keys(updates).length > 0) {
+      const payload = buildGraphqlUpdateBatch(
+        entity.uid,
+        updates as Partial<Omit<GraphqlRequest, 'uid' | 'path'>>,
+        deps.nextCtx(),
+        (id, setPath) => deps.liveSetEntries(GRAPHQL_REQUEST_ENTITY_TYPE, id, setPath),
+        (_id, path) => (prevEntity as unknown as Record<string, unknown>)[path],
+      );
+      out.push({
+        label: `graphql-request:${entity.uid} (update)`,
+        batch: payload.batch,
+        sideEffects: payload.sideEffects,
+      });
+    }
+    if (removedKeys.length > 0) {
+      const bodies: MutationBody[] = removedKeys.map((key) => ({
+        kind: 'unsetField',
+        type: GRAPHQL_REQUEST_ENTITY_TYPE,
+        id: entity.uid,
+        path: key,
+      }));
+      out.push(bodiesBatch(`graphql-request:${entity.uid} (unset)`, bodies, deps.nextCtx()));
+    }
+  }
+}
+
 // ── Path moves (directory renames) ──────────────────────────────────
 
 interface MoveFamily {
@@ -685,6 +759,13 @@ function emitPathMoves(
   emitLeafMoves(
     out,
     requestLeaf(MQTT_REQUEST_ENTITY_TYPE, mqttRequestChild, next.mqttRequests, prev.mqttRequests),
+    touched,
+    tail,
+    deps,
+  );
+  emitLeafMoves(
+    out,
+    requestLeaf(GRAPHQL_REQUEST_ENTITY_TYPE, graphqlRequestChild, next.graphqlRequests, prev.graphqlRequests),
     touched,
     tail,
     deps,
@@ -949,6 +1030,15 @@ function emitDeletions(
       parent
         ? buildMqttDeleteBatch(mqttRequest.uid, parent, deps.nextCtx())
         : buildMqttDeleteEntityBatch(mqttRequest.uid, deps.nextCtx()),
+    );
+  }
+  for (const graphqlRequest of vanished(prev.graphqlRequests, GRAPHQL_REQUEST_ENTITY_TYPE)) {
+    const parent = requestLeafParent(graphqlRequest.path);
+    push(
+      `graphql-request:${graphqlRequest.uid} (delete)`,
+      parent
+        ? buildGraphqlDeleteBatch(graphqlRequest.uid, parent, deps.nextCtx())
+        : buildGraphqlDeleteEntityBatch(graphqlRequest.uid, deps.nextCtx()),
     );
   }
   for (const template of vanished(prev.templates, TEMPLATE_ENTITY_TYPE)) {

@@ -10,6 +10,7 @@
 // (the container's own tombstone covers the slots).
 
 import {
+  GRAPHQL_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_ENTITY_TYPE,
   MQTT_REQUEST_ENTITY_TYPE,
   type MutationBatch,
@@ -19,6 +20,7 @@ import {
   type SideEffectIntent,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { buildGraphqlDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/graphql-request-mutations';
 import { buildGrpcDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/grpc-request-mutations';
 import { buildMqttDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/mqtt-request-mutations';
 import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
@@ -38,6 +40,7 @@ const LEAF_TOMBSTONES: Record<string, LeafTombstone> = {
   [GRPC_REQUEST_ENTITY_TYPE]: buildGrpcDeleteEntityBatch,
   [WEBSOCKET_REQUEST_ENTITY_TYPE]: buildWebSocketDeleteEntityBatch,
   [MQTT_REQUEST_ENTITY_TYPE]: buildMqttDeleteEntityBatch,
+  [GRAPHQL_REQUEST_ENTITY_TYPE]: buildGraphqlDeleteEntityBatch,
 };
 
 /** Tombstone everything under `parent` on the request tree: each leaf's examples, the leaf, then folders deepest-first. */

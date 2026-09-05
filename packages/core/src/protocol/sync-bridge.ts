@@ -17,6 +17,7 @@ import type {
   ExtensionWorkspace,
   FileRef,
   Folder,
+  GraphqlRequest,
   GrpcRequest,
   GrpcResponseExample,
   LiveFallbackPriorityMember,
@@ -291,6 +292,21 @@ export interface SyncWebSocketRequestPostState {
 export interface SyncMqttRequestPostState {
   mqttRequest: MqttRequest;
   /** Map keyed by set path (`topics`, `savedMessages`, `userProperties`). */
+  setItemIds: Record<string, string[]>;
+  /** Live `(itemId, orderKey)` pairs at each set-modeled path — see
+   *  {@link SyncRequestPostState.setOrderKeys}. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
+/**
+ * Post-commit projection for a GraphqlRequest envelope. Parallel to
+ * {@link SyncRequestPostState} — carries the materialized
+ * {@link GraphqlRequest} and the live itemIds the oracle holds at the
+ * set-modeled `headers` path.
+ */
+export interface SyncGraphqlRequestPostState {
+  graphqlRequest: GraphqlRequest;
+  /** Map keyed by set path (`headers`). */
   setItemIds: Record<string, string[]>;
   /** Live `(itemId, orderKey)` pairs at each set-modeled path — see
    *  {@link SyncRequestPostState.setOrderKeys}. */
@@ -739,6 +755,14 @@ export interface SyncBroadcastEvent {
    * rolled-back batches leave it `undefined`.
    */
   mqttRequestPostState?: SyncMqttRequestPostState;
+  /**
+   * Populated for GraphqlRequest envelopes whose batch left a
+   * materialized GraphQL request in place. Tombstoned requests and
+   * rolled-back batches leave it `undefined`.
+   */
+  graphqlRequestPostState?: SyncGraphqlRequestPostState;
+  /**
+   * Populated for WebSocket response-example envelopes whose batch left  mqttRequestPostState?: SyncMqttRequestPostState;
   /**
    * Populated for WebSocket response-example envelopes whose batch left
    * a materialized example in place. Tombstoned examples and

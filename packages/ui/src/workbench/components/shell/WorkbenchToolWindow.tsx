@@ -93,7 +93,7 @@ interface WorkbenchToolWindowProps {
   openRequestEditTab: UseTabOpenersApi['openRequestEditTab'];
   openCreateRequestTab: UseTabOpenersApi['openCreateRequestTab'];
   /** Destination-less request create — the API Requests header `+`
-   *  offers all four protocols and resolves the collection itself. */
+   *  offers every protocol and resolves the collection itself. */
   onCreateRequestOfKind: (kind: RequestKind) => void;
   openGrpcRequestEditTab: UseTabOpenersApi['openGrpcRequestEditTab'];
   openCreateGrpcRequestTab: UseTabOpenersApi['openCreateGrpcRequestTab'];
@@ -101,6 +101,8 @@ interface WorkbenchToolWindowProps {
   openCreateWebSocketRequestTab: UseTabOpenersApi['openCreateWebSocketRequestTab'];
   openMqttRequestEditTab: UseTabOpenersApi['openMqttRequestEditTab'];
   openCreateMqttRequestTab: UseTabOpenersApi['openCreateMqttRequestTab'];
+  openGraphqlRequestEditTab: UseTabOpenersApi['openGraphqlRequestEditTab'];
+  openCreateGraphqlRequestTab: UseTabOpenersApi['openCreateGraphqlRequestTab'];
   openResponseExampleTab: UseTabOpenersApi['openResponseExampleTab'];
   openGrpcResponseExampleTab: UseTabOpenersApi['openGrpcResponseExampleTab'];
   openWsResponseExampleTab: UseTabOpenersApi['openWsResponseExampleTab'];
@@ -174,6 +176,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openCreateWebSocketRequestTab,
   openMqttRequestEditTab,
   openCreateMqttRequestTab,
+  openGraphqlRequestEditTab,
+  openCreateGraphqlRequestTab,
   openResponseExampleTab,
   openGrpcResponseExampleTab,
   openWsResponseExampleTab,
@@ -260,6 +264,8 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onCreateWebSocketRequest={openCreateWebSocketRequestTab}
           onSelectMqttRequest={openMqttRequestEditTab}
           onCreateMqttRequest={openCreateMqttRequestTab}
+          onSelectGraphqlRequest={openGraphqlRequestEditTab}
+          onCreateGraphqlRequest={openCreateGraphqlRequestTab}
           onSelectResponseExample={openResponseExampleTab}
           onSelectGrpcResponseExample={openGrpcResponseExampleTab}
           onSelectWsResponseExample={openWsResponseExampleTab}

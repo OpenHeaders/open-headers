@@ -31,6 +31,7 @@ import {
   CollectionSchema,
   ContainerSettingsSchema,
   EnvironmentSchema,
+  GraphqlRequestSchema,
   GrpcRequestSchema,
   GrpcResponseExampleSchema,
   LiveVariableSchema,
@@ -61,6 +62,8 @@ import {
   FILES_ENTITY_TYPE,
   FILES_REFS_PATH,
   FOLDER_ENTITY_TYPE,
+  GRAPHQL_REQUEST_ENTITY_TYPE,
+  GRAPHQL_REQUEST_HEADERS_PATH,
   GRPC_REQUEST_ENTITY_TYPE,
   GRPC_REQUEST_METADATA_PATH,
   GRPC_RESPONSE_EXAMPLE_ENTITY_TYPE,
@@ -125,6 +128,7 @@ import { createEnvironmentCache } from './caches/environment-cache';
 import { createExtensionWorkspaceCache } from './caches/extension-workspace-cache';
 import { createFilesCache } from './caches/files-cache';
 import { createFolderCache } from './caches/folder-cache';
+import { createGraphqlRequestCache } from './caches/graphql-request-cache';
 import { createGrpcRequestCache } from './caches/grpc-request-cache';
 import { createGrpcResponseExampleCache } from './caches/grpc-response-example-cache';
 import { createLayoutStateCache } from './caches/layout-state-cache';
@@ -161,6 +165,7 @@ import {
 } from './post-state/extension-workspace-post-state';
 import { projectFilesPostState, projectFilesSingleton } from './post-state/files-post-state';
 import { projectFolderByUid, projectFolderPostState } from './post-state/folder-post-state';
+import { projectGraphqlRequestByUid, projectGraphqlRequestPostState } from './post-state/graphql-request-post-state';
 import { projectGrpcRequestByUid, projectGrpcRequestPostState } from './post-state/grpc-request-post-state';
 import {
   projectGrpcResponseExampleByUid,
@@ -529,6 +534,16 @@ export const MQTT_REQUEST_REGISTRATION = flatEntity({
   localWriteSchema: MqttRequestSchema,
 });
 
+export const GRAPHQL_REQUEST_REGISTRATION = flatEntity({
+  entityType: GRAPHQL_REQUEST_ENTITY_TYPE,
+  createCache: createGraphqlRequestCache,
+  postStateKey: 'graphqlRequestPostState',
+  projectPostState: projectGraphqlRequestPostState,
+  projectByUid: projectGraphqlRequestByUid,
+  setPaths: [GRAPHQL_REQUEST_HEADERS_PATH],
+  localWriteSchema: GraphqlRequestSchema,
+});
+
 export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
   entityType: REQUEST_COLLECTION_ENTITY_TYPE,
   createCache: createRequestCollectionCache,
@@ -740,6 +755,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   GRPC_REQUEST_REGISTRATION,
   WEBSOCKET_REQUEST_REGISTRATION,
   MQTT_REQUEST_REGISTRATION,
+  GRAPHQL_REQUEST_REGISTRATION,
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
   RESPONSE_EXAMPLE_REGISTRATION,
