@@ -1301,7 +1301,9 @@ jobs:
           fail_on_unmatched_files: false
           body_path: release_body.md
           generate_release_notes: false
-          append_body: true
+          # The body is generated whole every run — appending would
+          # double it when the action re-finds an existing release.
+          append_body: false
 
       # The update feed: static pointer files on R2 behind
       # updates.openheaders.com. The yml/json
