@@ -763,8 +763,9 @@ jobs:
       # the probe re-runs boot + /healthz inside it before anything is
       # pushed (glibc drift between runner and base would surface here).
       # ghcr is a recoverable channel like GitHub Releases, so it rides
-      # the pipeline (the job itself is stable-only, so the image and
-      # :latest always move together).
+      # the pipeline. Only the VERSION tag is pushed here — `:latest`
+      # is a pointer like the feed's, and the release job moves it
+      # after the feed pointers, never before the release exists.
       - name: Build and push ohd Docker image
         if: matrix.os == 'ubuntu-latest' && github.repository_owner == 'OpenHeaders'
         run: |
@@ -792,8 +793,6 @@ jobs:
 
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker push "$IMAGE:$OHD_VERSION"
-          docker tag "$IMAGE:$OHD_VERSION" "$IMAGE:latest"
-          docker push "$IMAGE:latest"
         shell: bash
 
       - name: Stage binary assets
@@ -1299,6 +1298,63 @@ jobs:
             echo "No prose entry for desktop ${VERSION_BASE} — release body unchanged"
           fi
 
+      # The update feed: static pointer files on R2 behind
+      # updates.openheaders.com. The yml/json pointers carry absolute
+      # URLs to this release's artifacts (the feed's own dl/ path, or
+      # the GitHub assets when R2 is off). Everything below stages into
+      # a local tree — no network beyond two fail-open reads — and runs
+      # BEFORE any byte is uploaded or the release exists, so a staging
+      # failure leaves nothing half-published. A beta tag stages only
+      # beta/ paths — stable pointers can never move.
+      - name: Stage update feed pointers
+        run: |
+          node scripts/generate-update-feed.mjs "$GITHUB_REF_NAME" \
+            "${{ steps.dl_base.outputs.url }}" \
+            processed_files feed
+
+      # The signed apt repository (the distribution plan §8, Phase 7):
+      # pool + dists staged into the same tree the pointer upload
+      # walks, indexes signed in-lane with the DEDICATED archive key —
+      # never the release GPG key. Missing key secrets or missing deb
+      # artifacts degrade to "apt tree unchanged" instead of failing
+      # the release; a key that does not match the committed keyring
+      # fails hard (the deb postinst pins that keyring).
+      - name: Stage apt repository
+        run: |
+          node scripts/generate-apt-repo.mjs "$GITHUB_REF_NAME" processed_files feed
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+
+      # The signed rpm/dnf repository — the second Linux leg, same
+      # posture as apt: staged into the same tree, repomd.xml signed
+      # in-lane with the same DEDICATED archive key, missing secrets or
+      # missing rpm artifacts degrade to "rpm tree unchanged".
+      # createrepo_c reads the rpm headers and writes repodata/.
+      - name: Stage rpm repository
+        run: |
+          sudo apt-get update && sudo apt-get install -y createrepo-c
+          node scripts/generate-rpm-repo.mjs "$GITHUB_REF_NAME" processed_files feed
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+
+      # Changelog feed objects (the changelog plan §4.1) stage into the
+      # same tree the pointer upload walks. The previously published
+      # index is merged in fail-open — it may carry rows for entry-less
+      # releases the canonical tree never records.
+      - name: Stage changelog feed objects
+        run: |
+          curl -fsS --max-time 30 "https://updates.openheaders.com/changelog/index.json" -o prior_index.json \
+            || rm -f prior_index.json
+          if [ -f prior_index.json ]; then
+            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed prior_index.json
+          else
+            echo "No live changelog index — generating from the tree alone"
+            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed
+          fi
+          find feed -type f | sort
+
       # Release bytes live on the feed bucket under an immutable
       # per-tag path — Cloudflare's edge caches them (a zone Cache Rule
       # keys /dl/* without query strings), R2 egress is free, and
@@ -1366,13 +1422,17 @@ jobs:
 
       # The GitHub release page stays the human-browsable home and a
       # redundant copy of every artifact — machine contracts point at
-      # the feed.
+      # the feed. Created as a DRAFT: the assets upload here, the feed
+      # pointers move next, and the page goes public as the last step
+      # — nobody sees a release whose feed is not yet complete, and a
+      # failure between here and the flip leaves an invisible draft,
+      # not a public page with stale pointers.
       - name: Create Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: "${{ github.ref_name }}"
-          draft: false
+          draft: true
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           name: "${{ github.ref_name }}"
           files: processed_files/*
@@ -1382,61 +1442,6 @@ jobs:
           # The body is generated whole every run — appending would
           # double it when the action re-finds an existing release.
           append_body: false
-
-      # The update feed: static pointer files on R2 behind
-      # updates.openheaders.com. The yml/json
-      # pointers carry absolute URLs to this release's artifacts (the
-      # feed's own dl/ path, or the GitHub assets when R2 is off), so
-      # staging happens only after the bytes exist. A beta tag stages
-      # only beta/ paths — stable pointers can never move.
-      - name: Stage update feed pointers
-        run: |
-          node scripts/generate-update-feed.mjs "$GITHUB_REF_NAME" \
-            "${{ steps.dl_base.outputs.url }}" \
-            processed_files feed
-
-      # The signed apt repository (the distribution plan §8, Phase 7):
-      # pool + dists staged into the same tree the pointer upload
-      # walks, indexes signed in-lane with the DEDICATED archive key —
-      # never the release GPG key. Missing key secrets or missing deb
-      # artifacts degrade to "apt tree unchanged" instead of failing
-      # the release; a key that does not match the committed keyring
-      # fails hard (the deb postinst pins that keyring).
-      - name: Stage apt repository
-        run: |
-          node scripts/generate-apt-repo.mjs "$GITHUB_REF_NAME" processed_files feed
-        env:
-          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
-          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
-
-      # The signed rpm/dnf repository — the second Linux leg, same
-      # posture as apt: staged into the same tree, repomd.xml signed
-      # in-lane with the same DEDICATED archive key, missing secrets or
-      # missing rpm artifacts degrade to "rpm tree unchanged".
-      # createrepo_c reads the rpm headers and writes repodata/.
-      - name: Stage rpm repository
-        run: |
-          sudo apt-get update && sudo apt-get install -y createrepo-c
-          node scripts/generate-rpm-repo.mjs "$GITHUB_REF_NAME" processed_files feed
-        env:
-          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
-          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
-
-      # Changelog feed objects (the changelog plan §4.1) stage into the
-      # same tree the pointer upload walks. The previously published
-      # index is merged in fail-open — it may carry rows for entry-less
-      # releases the canonical tree never records.
-      - name: Stage changelog feed objects
-        run: |
-          curl -fsS --max-time 30 "https://updates.openheaders.com/changelog/index.json" -o prior_index.json \
-            || rm -f prior_index.json
-          if [ -f prior_index.json ]; then
-            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed prior_index.json
-          else
-            echo "No live changelog index — generating from the tree alone"
-            node scripts/generate-changelog-feed.mjs "$GITHUB_REF_NAME" feed
-          fi
-          find feed -type f | sort
 
       # Two tiers, so a reader can never see an index that names bytes
       # not yet on the feed: first the immutable objects (apt pool debs,
@@ -1557,3 +1562,25 @@ jobs:
           sort -n -k1,1 -k2 indexes.txt | while read -r rank file; do
             put_feed "$file"
           done
+
+      # The last pointer to move: the page goes public only once every
+      # byte and every feed pointer it names is live.
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$RELEASE_REPO" --draft=false
+
+      # `:latest` moves after the feed pointers, by manifest reference
+      # — no image pull, the version tag's manifest is re-tagged in the
+      # registry. Stable only: the binaries leg that pushed the version
+      # tag never runs on a beta.
+      - name: Promote ohd image to latest
+        if: steps.release_type.outputs.is_prerelease == 'false' && github.repository_owner == 'OpenHeaders'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OHD_VERSION=$(node -p "require('./apps/daemon/package.json').version")
+          IMAGE=ghcr.io/openheaders/ohd
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE:$OHD_VERSION"
+          docker logout ghcr.io
