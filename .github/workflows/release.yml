@@ -977,15 +977,29 @@ jobs:
             (cd processed_files && shasum -a 256 $BINS > SHA256SUMS.txt)
             # Installer scripts ride every release so the stable
             # /releases/latest/download one-liners always resolve. The
-            # ps1 prefers the windows-leg artifact copy — that one is
-            # Authenticode-signed on stable.
+            # ps1 is the windows-leg artifact copy ONLY — that one is
+            # Authenticode-signed; the checkout copy is not, and the
+            # body says it is signed, so a missing artifact copy fails
+            # the release rather than shipping the unsigned one.
             cp apps/cli/scripts/install.sh processed_files/install-oh.sh
-            [ -f processed_files/install-oh.ps1 ] || cp apps/cli/scripts/install.ps1 processed_files/install-oh.ps1
+            if [ ! -f processed_files/install-oh.ps1 ]; then
+              echo "::error::install-oh.ps1 (the signed windows-leg copy) is missing from the binaries artifact"
+              exit 1
+            fi
           fi
 
           echo "Files prepared for release:"
           ls -la processed_files/
         shell: bash
+
+      # The expected-asset manifest: every file the tag's channel ships
+      # must be staged, non-empty, and every update-info pointer must
+      # carry the tag's version — checked here, before any upload, so
+      # a leg that succeeded without its file, a naming drift, or a
+      # pointer family out of step fails with the names, never as a
+      # published URL to nothing.
+      - name: Assert release manifest
+        run: node scripts/assert-release-manifest.mjs "$GITHUB_REF_NAME" processed_files
 
       # Detached GPG signature over the checksums manifest — a trust
       # root beyond TLS for the standalone binaries. Missing key means
@@ -1114,39 +1128,55 @@ jobs:
           I_DOCKER=$(icon docker)
 
           # Tables lead, prose collapses into <details> — the reader is
-          # here for download links. Betas build no pkg/msi/mac-x64, so
-          # those rows/blocks only render on stable. No section title
-          # carries a version: the desktop version IS the release tag,
-          # and the independently-versioned surfaces (extension, oh,
-          # ohd) show theirs in asset filenames / store pages.
+          # here for download links. Every desktop link is derived from
+          # the STAGED files (like bin_row below): a cell renders only
+          # when its file is in processed_files, so the table can never
+          # name an asset that does not exist — betas' trimmed target
+          # set (mac arm64 dmg/zip; Linux x64 AppImage/deb; no rpm,
+          # pkg, msi) falls out of that. No section title carries a
+          # version: the desktop version IS the release tag, and the
+          # independently-versioned surfaces (extension, oh, ohd) show
+          # theirs in asset filenames / store pages.
+          dl_link() {
+            if [ -f "processed_files/$2" ]; then printf '[%s](%s/%s)' "$1" "$DL" "$2"; fi
+          }
+          row() {
+            local platform="$1" cells=""
+            shift
+            for cell in "$@"; do
+              [ -n "$cell" ] || continue
+              cells="${cells:+${cells} · }${cell}"
+            done
+            if [ -n "$cells" ]; then echo "| ${platform} | ${cells} |"; fi
+          }
           {
             echo "## Desktop App"
             echo ""
             echo "| Platform | Downloads |"
             echo "| --- | --- |"
-            # Betas build a trimmed target set (mac arm64 dmg/zip; Linux
-            # x64 AppImage/deb; no rpm) — the table only links what the
-            # legs actually shipped.
-            if [ "$IS_PRERELEASE" = "true" ]; then
-              echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) |"
-              echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
-              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) |"
-              echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) |"
-            else
-              echo "| ${I_MAC} macOS | [Apple Silicon (DMG)](${DL}/OpenHeaders-${VERSION}-mac-arm64.dmg) · [Intel (DMG)](${DL}/OpenHeaders-${VERSION}-mac-x64.dmg) |"
-              echo "| ${I_WIN} Windows | [Installer (EXE)](${DL}/OpenHeaders-${VERSION}-Setup.exe) |"
-              echo "| ${I_LINUX} Linux | [AppImage x64](${DL}/OpenHeaders-${VERSION}-x86_64.AppImage) · [AppImage ARM64](${DL}/OpenHeaders-${VERSION}-arm64.AppImage) |"
-              echo "| ${I_DEBIAN} Debian / Ubuntu | [x64 (deb)](${DL}/open-headers_${VERSION}_amd64.deb) · [ARM64 (deb)](${DL}/open-headers_${VERSION}_arm64.deb) |"
-              echo "| ${I_FEDORA} Fedora / RHEL | [x64 (rpm)](${DL}/open-headers-${VERSION}.x86_64.rpm) · [ARM64 (rpm)](${DL}/open-headers-${VERSION}.aarch64.rpm) |"
-            fi
+            row "${I_MAC} macOS" \
+              "$(dl_link 'Apple Silicon (DMG)' "OpenHeaders-${VERSION}-mac-arm64.dmg")" \
+              "$(dl_link 'Intel (DMG)' "OpenHeaders-${VERSION}-mac-x64.dmg")"
+            row "${I_WIN} Windows" "$(dl_link 'Installer (EXE)' "OpenHeaders-${VERSION}-Setup.exe")"
+            row "${I_LINUX} Linux" \
+              "$(dl_link 'AppImage x64' "OpenHeaders-${VERSION}-x86_64.AppImage")" \
+              "$(dl_link 'AppImage ARM64' "OpenHeaders-${VERSION}-arm64.AppImage")"
+            row "${I_DEBIAN} Debian / Ubuntu" \
+              "$(dl_link 'x64 (deb)' "open-headers_${VERSION}_amd64.deb")" \
+              "$(dl_link 'ARM64 (deb)' "open-headers_${VERSION}_arm64.deb")"
+            row "${I_FEDORA} Fedora / RHEL" \
+              "$(dl_link 'x64 (rpm)' "open-headers-${VERSION}.x86_64.rpm")" \
+              "$(dl_link 'ARM64 (rpm)' "open-headers-${VERSION}.aarch64.rpm")"
             if [ "$IS_PRERELEASE" != "true" ]; then
               echo ""
               echo "<details><summary><b>Enterprise - Managed deployment (MDM / GPO)</b></summary>"
               echo ""
               echo "| Platform | Downloads |"
               echo "| --- | --- |"
-              echo "| ${I_MAC} macOS | [PKG Apple Silicon](${DL}/OpenHeaders-${VERSION}-mac-arm64.pkg) · [PKG Intel](${DL}/OpenHeaders-${VERSION}-mac-x64.pkg) |"
-              echo "| ${I_WIN} Windows | [MSI](${DL}/OpenHeaders-${VERSION}.msi) |"
+              row "${I_MAC} macOS" \
+                "$(dl_link 'PKG Apple Silicon' "OpenHeaders-${VERSION}-mac-arm64.pkg")" \
+                "$(dl_link 'PKG Intel' "OpenHeaders-${VERSION}-mac-x64.pkg")"
+              row "${I_WIN} Windows" "$(dl_link 'MSI' "OpenHeaders-${VERSION}.msi")"
               echo ""
               echo "macOS PKGs are signed and notarized; the Windows MSI is Authenticode-signed."
               echo ""

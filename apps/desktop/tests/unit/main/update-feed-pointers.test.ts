@@ -59,7 +59,11 @@ afterEach(() => {
 
 describe('generate-update-feed', () => {
   it('stages stable pointers with absolute asset URLs', () => {
-    const { out, run } = stage('v2026.7.2', { 'latest-mac.yml': LATEST_MAC_YML, 'versions.json': VERSIONS_JSON });
+    const { out, run } = stage('v2026.7.2', {
+      'latest-mac.yml': LATEST_MAC_YML,
+      'versions.json': VERSIONS_JSON,
+      'install-oh.ps1': '# signed artifact copy',
+    });
     run();
 
     const yml = readFileSync(path.join(out, 'desktop/stable/latest-mac.yml'), 'utf8');
@@ -75,7 +79,7 @@ describe('generate-update-feed', () => {
     expect(existsSync(path.join(out, 'install.ps1'))).toBe(true);
   });
 
-  it('prefers the signed install-oh.ps1 release artifact for the feed copy', () => {
+  it('stages the signed install-oh.ps1 release artifact as the feed copy', () => {
     const { out, run } = stage('v2026.7.2', {
       'latest-mac.yml': LATEST_MAC_YML,
       'versions.json': VERSIONS_JSON,
@@ -84,6 +88,12 @@ describe('generate-update-feed', () => {
     run();
 
     expect(readFileSync(path.join(out, 'install.ps1'), 'utf8')).toBe('# signed artifact copy');
+  });
+
+  it('fails a stable tag without the signed install-oh.ps1 instead of staging the checkout copy', () => {
+    const { run } = stage('v2026.7.2', { 'latest-mac.yml': LATEST_MAC_YML, 'versions.json': VERSIONS_JSON });
+
+    expect(run).toThrow(/install-oh\.ps1 .* is missing/);
   });
 
   it('a beta tag never touches stable paths', () => {
@@ -128,7 +138,11 @@ describe('generate-update-feed', () => {
       'url: OpenHeaders-2026.7.2-mac-arm64.zip',
       `url: ${DOWNLOAD_BASE}/OpenHeaders-2026.7.2-mac-arm64.zip`,
     );
-    const { out, run } = stage('v2026.7.2', { 'latest-mac.yml': absolute, 'versions.json': VERSIONS_JSON });
+    const { out, run } = stage('v2026.7.2', {
+      'latest-mac.yml': absolute,
+      'versions.json': VERSIONS_JSON,
+      'install-oh.ps1': '# signed',
+    });
     run();
 
     const yml = readFileSync(path.join(out, 'desktop/stable/latest-mac.yml'), 'utf8');
@@ -137,7 +151,7 @@ describe('generate-update-feed', () => {
   });
 
   it('still stages the severity manifest when no desktop legs produced feed files', () => {
-    const { out, run } = stage('v2026.7.2', { 'versions.json': VERSIONS_JSON });
+    const { out, run } = stage('v2026.7.2', { 'versions.json': VERSIONS_JSON, 'install-oh.ps1': '# signed' });
     run();
 
     expect(existsSync(path.join(out, 'desktop'))).toBe(false);

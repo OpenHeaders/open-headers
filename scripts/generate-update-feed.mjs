@@ -92,16 +92,15 @@ copyFileSync(versionsPath, path.join(outputDir, 'versions', `${channel}.json`));
 
 // CLI install scripts ride the stable feed root — the printed
 // one-liners fetch them from updates.openheaders.com directly. The ps1
-// prefers the release-artifact copy (the windows leg's, Authenticode-
-// signed on stable) over the unsigned checkout copy, so saved-file runs
-// under AllSigned execution policies keep working from the feed too.
+// is ONLY the release-artifact copy (the windows leg's, Authenticode-
+// signed): the checkout copy is unsigned, and a saved-file run under an
+// AllSigned execution policy would break on it — a missing artifact
+// copy fails the release instead of shipping the unsigned one silently.
 if (channel === 'stable') {
   copyFileSync(path.join(repoRoot, 'apps/cli/scripts/install.sh'), path.join(outputDir, 'install.sh'));
   const signedPs1 = path.join(inputDir, 'install-oh.ps1');
-  copyFileSync(
-    existsSync(signedPs1) ? signedPs1 : path.join(repoRoot, 'apps/cli/scripts/install.ps1'),
-    path.join(outputDir, 'install.ps1'),
-  );
+  if (!existsSync(signedPs1)) fail('install-oh.ps1 (the signed windows-leg copy) is missing from the input directory');
+  copyFileSync(signedPs1, path.join(outputDir, 'install.ps1'));
 }
 
 console.error(`generate-update-feed: staged ${channel} feed for ${tag} in ${outputDir}`);
