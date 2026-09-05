@@ -182,10 +182,19 @@ describe('bootCliProductTelemetry — session_start', () => {
 });
 
 describe('detectCliChannel', () => {
-  it('reads homebrew cellars, npm trees, and everything else', () => {
+  it('reads homebrew cellars, npm trees, and a checkout script as dev', () => {
     expect(detectCliChannel('/opt/homebrew/Cellar/openheaders-cli/2026.7.2/bin/oh')).toBe('brew');
     expect(detectCliChannel('/usr/local/lib/node_modules/@openheaders/cli/bin/oh')).toBe('npm');
-    expect(detectCliChannel('/Users/dev/oh/dist/oh')).toBe('unknown');
+    expect(detectCliChannel('/Users/dev/oh/dist/oh')).toBe('dev');
+    expect(detectCliChannel('/Users/dev/oh/apps/cli/dist/oh.js', '/usr/local/bin/node')).toBe('dev');
+  });
+
+  it('reports dev under a CI runner whatever the install shape', () => {
+    expect(detectCliChannel('/usr/local/lib/node_modules/@openheaders/cli/bin/oh', '', { CI: 'true' })).toBe('dev');
+    expect(detectCliChannel('/$bunfs/root/oh', '/home/runner/.local/bin/oh', { GITHUB_ACTIONS: 'true' })).toBe('dev');
+    // An explicitly falsy flag is not a CI runner.
+    expect(detectCliChannel('/$bunfs/root/oh', '/home/dev/.local/bin/oh', { CI: 'false' })).toBe('github-release');
+    expect(detectCliChannel('/$bunfs/root/oh', '/home/dev/.local/bin/oh', { CI: '' })).toBe('github-release');
   });
 
   it('attributes standalone binaries by the executable location, feed installs to github-release', () => {

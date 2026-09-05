@@ -55,6 +55,10 @@ export interface CliProductTelemetryDeps {
   now?: () => number;
 }
 
+function envFlagSet(value: string | undefined): boolean {
+  return value !== undefined && value !== '' && !['0', 'false'].includes(value.toLowerCase());
+}
+
 /**
  * Where this `oh` came from — a static fact of the installed path
  * (Homebrew cellar vs an npm `node_modules` tree), never a request.
@@ -65,8 +69,14 @@ export interface CliProductTelemetryDeps {
  * own location is the channel fact. A compiled binary outside a
  * package manager's tree can only have come from the release feed
  * (`install.sh`/`install.ps1` or a manual download).
+ *
+ * Two shapes are development by construction and report `dev`: any run
+ * under a CI runner (`CI` / `GITHUB_ACTIONS` — the e2e and release
+ * smoke legs), and a plain script outside every package-manager tree
+ * (a repo checkout's `dist/`). The CLI never reports `unknown`.
  */
-export function detectCliChannel(scriptPath: string, execPath = ''): TelemetryChannelId {
+export function detectCliChannel(scriptPath: string, execPath = '', env: NodeJS.ProcessEnv = {}): TelemetryChannelId {
+  if (envFlagSet(env.CI) || envFlagSet(env.GITHUB_ACTIONS)) return 'dev';
   // Cellar before node_modules: the formula's libexec tree contains one.
   // node_modules before the /homebrew/ residual: `npm -g` under a
   // Homebrew-installed Node lands in /opt/homebrew/lib/node_modules and
@@ -82,7 +92,7 @@ export function detectCliChannel(scriptPath: string, execPath = ''): TelemetryCh
     if (binary.includes('winget')) return 'winget';
     return 'github-release';
   }
-  return 'unknown';
+  return 'dev';
 }
 
 /**
@@ -242,7 +252,7 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     const installStore = configReadable
       ? createConfigInstallStore(configPath)
       : createInMemoryProductTelemetryInstallStore({ installId: mintTelemetryInstallId(), installedAt: now() });
-    const channel = deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath);
+    const channel = deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath, env);
     const platform = deps.platform ?? process.platform;
     const cliVersion = deps.cliVersion ?? CLI_VERSION;
     const controller = new ProductTelemetryController({
