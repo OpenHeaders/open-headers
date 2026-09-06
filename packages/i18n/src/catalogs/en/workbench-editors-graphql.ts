@@ -95,6 +95,11 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': 'Reading the file failed: {message}',
   'workbench.editors.graphql.schema.importFailed': 'Importing the schema failed',
   'workbench.editors.graphql.schema.imported': 'Imported “{name}” as a GraphQL spec and linked it.',
+  'workbench.editors.graphql.explorer.title': 'Schema explorer',
+  'workbench.editors.graphql.explorer.hide': 'Hide the explorer',
+  'workbench.editors.graphql.explorer.show': 'Show the explorer',
+  'workbench.editors.graphql.explorer.showDescriptions': 'Show descriptions',
+  'workbench.editors.graphql.explorer.hideDescriptions': 'Hide descriptions',
   'workbench.editors.graphql.builder.broken': 'Fix the document to use the builder — it does not parse.',
   'workbench.editors.graphql.builder.otherOperation':
     'The document’s operation is a {operation} — only its root fields can be selected here.',

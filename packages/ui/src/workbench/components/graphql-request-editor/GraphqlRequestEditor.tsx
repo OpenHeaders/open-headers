@@ -204,6 +204,8 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     [ancestry, onOpenContainerSettings],
   );
   const [activeTab, setActiveTab] = useState('query');
+  // The Query tab's explorer pane, folded or not — here so a tab switch keeps it (the WS rail's owner).
+  const [explorerCollapsed, setExplorerCollapsed] = useState(false);
 
   // ── Schema plane ─────────────────────────────────────────────────
   // The resolved schema feeds the explorer, the editor services and
@@ -609,10 +611,13 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                         setDraft={setDraft}
                         parsed={parsed}
                         schema={schemaState.schema}
+                        explorerCollapsed={explorerCollapsed}
+                        onExplorerCollapsedChange={setExplorerCollapsed}
                         sources={{
                           canIntrospect: draft.url.trim() !== '',
                           introspecting: schemaState.introspection.kind === 'loading',
                           onIntrospect: () => void schemaState.introspect(),
+                          refreshable: schemaState.choice === 'introspection',
                           onUseSpec: () => setActiveTab('schema'),
                           onImportSchema: handleImportSchema,
                         }}

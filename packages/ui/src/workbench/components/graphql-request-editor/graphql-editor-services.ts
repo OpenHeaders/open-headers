@@ -217,11 +217,18 @@ function ensureProviders(monacoApi: Monaco): void {
   monacoApi.languages.registerHoverProvider('graphql', hoverProvider);
 }
 
-/** Apply the builder's span edits through the editor's edit stack — one undo step, dirty deriving like typed text. */
+/** Where a builder edit sits in the undo stack: a gesture is one step
+ *  (`'step'`); a typing session OPENS with its first keystroke and
+ *  CONTINUES without a stop until {@link sealBuilderEdits}, so Cmd+Z
+ *  takes the whole typed value back at once. */
+export type BuilderUndo = 'step' | 'open' | 'continue';
+
+/** Apply the builder's span edits through the editor's edit stack — dirty deriving like typed text. */
 export function executeBuilderEdits(
   editor: monaco.editor.IStandaloneCodeEditor,
   monacoApi: Monaco,
   edits: readonly BuilderEdit[],
+  undo: BuilderUndo = 'step',
 ): void {
   const model = editor.getModel();
   if (model === null || edits.length === 0) return;
@@ -230,8 +237,13 @@ export function executeBuilderEdits(
     const to = model.getPositionAt(edit.end);
     return { range: new monacoApi.Range(from.lineNumber, from.column, to.lineNumber, to.column), text: edit.text };
   });
-  editor.pushUndoStop();
+  if (undo !== 'continue') editor.pushUndoStop();
   editor.executeEdits('graphql-builder', operations);
+  if (undo === 'step') editor.pushUndoStop();
+}
+
+/** Close a typing session's undo group — the next edit, typed or planned, starts its own. */
+export function sealBuilderEdits(editor: monaco.editor.IStandaloneCodeEditor): void {
   editor.pushUndoStop();
 }
 

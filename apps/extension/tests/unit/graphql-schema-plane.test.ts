@@ -8,12 +8,20 @@
  *     the failure kinds otherwise (transport, HTTP status, a server's
  *     errors[], no `__schema`, a malformed result).
  *   - `GraphqlExplorer.tsx` — the one-way insertion text of a field.
+ *   - `graphql-argument-input.ts` — the builder's value cell: which
+ *     arguments quote for the user, the cell's text for a document
+ *     value, the document's value for the cell's text.
  *   - `graphql-editor-services.ts` — the hover markdown per symbol.
  */
 
-import { parseDocument, schemaFromSdl, symbolAt } from '@openheaders/core/graphql';
+import { parseDocument, parseValue, schemaFromSdl, symbolAt } from '@openheaders/core/graphql';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { fieldInsertionText } from '@openheaders/ui/workbench/components/graphql-request-editor/GraphqlExplorer';
+import {
+  argumentInputText,
+  argumentLiteral,
+  argumentQuotes,
+} from '@openheaders/ui/workbench/components/graphql-request-editor/graphql-argument-input';
 import { hoverMarkdown } from '@openheaders/ui/workbench/components/graphql-request-editor/graphql-editor-services';
 import {
   failureMessage,
@@ -127,6 +135,68 @@ describe('fieldInsertionText', () => {
     expect(fieldInsertionText(field('viewer'), schema)).toBe('viewer { }');
     expect(fieldInsertionText(field('user'), schema)).toBe('user(id: $id) { }');
     expect(fieldInsertionText(field('echo'), schema)).toBe('echo(text: $text)');
+  });
+});
+
+describe('the builder’s argument value cell', () => {
+  const CELL_SDL = `scalar DateTime
+enum Role { ADMIN MEMBER }
+input Filter { role: Role }
+type Query {
+  users(first: Int, after: String, id: ID, since: DateTime, role: Role, filter: Filter, active: Boolean): Int
+}`;
+  const cellSchema = (() => {
+    const built = schemaFromSdl(CELL_SDL).schema;
+    if (built === null) throw new Error('fixture schema');
+    return built;
+  })();
+  const arg = (name: string) => {
+    const query = cellSchema.types.get('Query');
+    if (query === undefined || query.kind !== 'OBJECT') throw new Error('Query');
+    const found = query.fields[0].args.find((entry) => entry.name === name);
+    if (found === undefined) throw new Error(name);
+    return found;
+  };
+  const value = (text: string) => {
+    const node = parseValue(text).value;
+    if (node === null) throw new Error(text);
+    return node;
+  };
+
+  it('quotes for String, ID and custom scalars — not for Int, Boolean, enums or input objects', () => {
+    expect(argumentQuotes(arg('after'), cellSchema)).toBe(true);
+    expect(argumentQuotes(arg('id'), cellSchema)).toBe(true);
+    expect(argumentQuotes(arg('since'), cellSchema)).toBe(true);
+    expect(argumentQuotes(arg('first'), cellSchema)).toBe(false);
+    expect(argumentQuotes(arg('active'), cellSchema)).toBe(false);
+    expect(argumentQuotes(arg('role'), cellSchema)).toBe(false);
+    expect(argumentQuotes(arg('filter'), cellSchema)).toBe(false);
+  });
+
+  it('shows the bare string of a quoted literal, the printed node otherwise, nothing when unset', () => {
+    expect(argumentInputText(null, true)).toBe('');
+    expect(argumentInputText(value('"say \\"hi\\""'), true)).toBe('say "hi"');
+    expect(argumentInputText(value('"x"'), false)).toBe('"x"');
+    expect(argumentInputText(value('$first'), true)).toBe('$first');
+    expect(argumentInputText(value('2'), false)).toBe('2');
+    expect(argumentInputText(value('{ role: ADMIN }'), false)).toBe('{ role: ADMIN }');
+  });
+
+  it('lands a quoted cell’s text as an escaped string literal, a $variable through, an empty cell as ""', () => {
+    expect(argumentLiteral('hi', true)).toEqual({ kind: 'value', text: '"hi"' });
+    expect(argumentLiteral('say "hi"', true)).toEqual({ kind: 'value', text: '"say \\"hi\\""' });
+    expect(argumentLiteral('$text', true)).toEqual({ kind: 'value', text: '$text' });
+    expect(argumentLiteral('$ not a variable', true)).toEqual({ kind: 'value', text: '"$ not a variable"' });
+    expect(argumentLiteral('', true)).toEqual({ kind: 'value', text: '""' });
+  });
+
+  it('takes a bare cell’s text as one GraphQL value and waits while it is not one', () => {
+    expect(argumentLiteral(' 2 ', false)).toEqual({ kind: 'value', text: '2' });
+    expect(argumentLiteral('-', false)).toEqual({ kind: 'invalid' });
+    expect(argumentLiteral('ADMIN', false)).toEqual({ kind: 'value', text: 'ADMIN' });
+    expect(argumentLiteral('{ role: ADMIN }', false)).toEqual({ kind: 'value', text: '{ role: ADMIN }' });
+    expect(argumentLiteral('$first', false)).toEqual({ kind: 'value', text: '$first' });
+    expect(argumentLiteral('', false)).toEqual({ kind: 'invalid' });
   });
 });
 

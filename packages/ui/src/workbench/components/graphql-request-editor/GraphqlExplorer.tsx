@@ -8,9 +8,10 @@
  * a one-way "Insert at cursor". The BUILDER rung, on the root page: a
  * checkbox per field by PATH under the picked operation's root —
  * checked when the document selects it directly — with an expander
- * into the return type's fields, the checked field's arguments (a
- * checkbox writes `arg: $arg` and declares the variable; the input
- * takes a literal or a `$variable`), and the set's fragments read-only.
+ * into the return type's fields, the field's arguments (a checkbox
+ * writes `arg: $arg` and declares the variable; the cell takes a
+ * literal or a `$variable` as the user types, selecting the field first
+ * when the document does not yet), and the set's fragments read-only.
  * The document stays the source of truth: every gesture is span edits
  * through the editor's edit stack (`@openheaders/core/graphql`'s
  * builder), and the projection re-reads from the Query tab's one parse.
@@ -20,7 +21,16 @@
  * render at once.
  */
 
-import { ArrowLeftOutlined, CaretDownOutlined, CaretRightOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  AlignLeftOutlined,
+  ArrowLeftOutlined,
+  CaretDownOutlined,
+  CaretRightOutlined,
+  LeftOutlined,
+  ReloadOutlined,
+  RightOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
 import {
   argumentAt,
   type BuilderContext,
@@ -39,8 +49,6 @@ import {
   namedTypeOf,
   type OperationDefinitionNode,
   type OperationType,
-  parseValue,
-  printNode,
   printTypeRef,
   removeArgumentEdits,
   rootTypeName,
@@ -48,9 +56,13 @@ import {
   setArgumentEdits,
 } from '@openheaders/core/graphql';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { createStoredPreference } from '@openheaders/ui/shared/hooks/useStoredPreference';
 import { Button, Checkbox, Input, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { argumentInputText, argumentLiteral, argumentQuotes } from './graphql-argument-input';
+import type { BuilderUndo } from './graphql-editor-services';
+import './graphql-explorer.css';
 
 const { Text } = Typography;
 
@@ -65,14 +77,20 @@ export interface GraphqlBuilder {
   readonly operation: OperationDefinitionNode | null;
   /** The document is non-empty and does not parse — nothing to project or edit. */
   readonly broken: boolean;
-  /** Runs one gesture: `plan` reads the editor's current text and answers the edits, applied through its edit stack. */
-  readonly run: (plan: (context: BuilderContext) => readonly BuilderEdit[]) => void;
+  /** Runs one gesture: `plan` reads the editor's current text and answers the edits, applied through its edit stack — one undo step unless a typing session says otherwise. */
+  readonly run: (plan: (context: BuilderContext) => readonly BuilderEdit[], undo?: BuilderUndo) => void;
+  /** Closes a typing session's undo group. */
+  readonly seal: () => void;
 }
 
 interface GraphqlExplorerProps {
   schema: GraphqlSchema;
   onInsert: (text: string) => void;
   builder: GraphqlBuilder;
+  /** Collapses the pane to its strip. */
+  onHide: () => void;
+  /** Re-runs the introspection — present while that is the active source; a spec source has nothing to refresh. */
+  refresh: { readonly refreshing: boolean; readonly onRefresh: () => void } | null;
 }
 
 /** A field's place in the picked operation — the path from the root, the field last. */
@@ -84,6 +102,16 @@ interface BuilderPosition {
 const SEARCH_LIMIT = 100;
 
 const ROOT_OPERATIONS = ['query', 'mutation', 'subscription'] as const;
+
+const DESCRIPTION_MODES = ['shown', 'hidden'] as const;
+type DescriptionMode = (typeof DESCRIPTION_MODES)[number];
+
+/** One preference for every explorer — the descriptions toggle, kept across reloads. */
+const useDescriptionsPreference = createStoredPreference<DescriptionMode>(
+  'oh.graphql.explorer.descriptions',
+  DESCRIPTION_MODES,
+  'shown',
+);
 
 /** The field as the document would select it: required arguments as
  *  same-named variables, an empty selection set on a composite type. */
@@ -128,32 +156,41 @@ function buildIndex(schema: GraphqlSchema): SearchIndex {
 }
 
 interface ArgumentValueInputProps {
-  /** The value the document holds, printed; '' when the argument is not set. */
+  /** The text the document's value projects to; '' when the argument is not set. */
   value: string;
   placeholder: string;
   invalidHint: string;
-  /** Commits the text; false when it is not one GraphQL value (the input shows the error until the next change). */
-  onCommit: (text: string) => boolean;
+  /** Lands the text as the argument's value — live, every keystroke; false when it is not one value yet (the cell shows the error until the next change). */
+  onInput: (text: string, undo: BuilderUndo) => boolean;
+  /** The typing session ended (blur / Enter) — its undo group closes. */
+  onSessionEnd: () => void;
   testId: string;
 }
 
-/** The argument's value cell — a draft until Enter / blur commits it. */
+/** The argument's value cell — writes the document as the user types,
+ *  one undo group per typing session; the projection re-syncs the cell
+ *  only while it is not focused. */
 const ArgumentValueInput: React.FC<ArgumentValueInputProps> = ({
   value,
   placeholder,
   invalidHint,
-  onCommit,
+  onInput,
+  onSessionEnd,
   testId,
 }) => {
   const [text, setText] = useState(value);
   const [invalid, setInvalid] = useState(false);
+  const focused = useRef(false);
+  const session = useRef(false);
   useEffect(() => {
+    if (focused.current) return;
     setText(value);
     setInvalid(false);
   }, [value]);
-  const commit = () => {
-    if (text.trim() === value.trim()) return;
-    setInvalid(!onCommit(text));
+  const endSession = () => {
+    if (!session.current) return;
+    session.current = false;
+    onSessionEnd();
   };
   return (
     <Tooltip title={invalid ? invalidHint : undefined} open={invalid ? undefined : false}>
@@ -162,12 +199,22 @@ const ArgumentValueInput: React.FC<ArgumentValueInputProps> = ({
         value={text}
         placeholder={placeholder}
         status={invalid ? 'error' : undefined}
-        onChange={(e) => {
-          setText(e.target.value);
-          setInvalid(false);
+        onFocus={() => {
+          focused.current = true;
         }}
-        onPressEnter={commit}
-        onBlur={commit}
+        onChange={(e) => {
+          const next = e.target.value;
+          setText(next);
+          const landed = onInput(next, session.current ? 'continue' : 'open');
+          if (landed) session.current = true;
+          setInvalid(!landed);
+        }}
+        onPressEnter={endSession}
+        onBlur={() => {
+          focused.current = false;
+          endSession();
+          if (!invalid) setText(value);
+        }}
         style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, height: 20, minWidth: 0, flex: 1 }}
         data-testid={testId}
       />
@@ -175,13 +222,16 @@ const ArgumentValueInput: React.FC<ArgumentValueInputProps> = ({
   );
 };
 
-const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, builder }) => {
+const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, builder, onHide, refresh }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [stack, setStack] = useState<readonly ExplorerLocation[]>([{ kind: 'root' }]);
   const [term, setTerm] = useState('');
   // The builder's expanded paths — the only state the explorer keeps of its own.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  // The root sections fold — open by default, per mount like the paths.
+  const [collapsedRoots, setCollapsedRoots] = useState<ReadonlySet<OperationType>>(() => new Set());
+  const [descriptions, setDescriptions] = useDescriptionsPreference();
   // A new schema (a refresh, another source) restarts at the roots.
   useEffect(() => {
     setStack([{ kind: 'root' }]);
@@ -204,19 +254,27 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
       return next;
     });
 
+  const toggleRoot = (operationType: OperationType) =>
+    setCollapsedRoots((current) => {
+      const next = new Set(current);
+      if (next.has(operationType)) next.delete(operationType);
+      else next.add(operationType);
+      return next;
+    });
+
   const monoStyle: React.CSSProperties = { fontFamily: "'SF Mono', monospace", fontSize: 11 };
   const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, padding: '1px 0' };
   const linkStyle: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 12 };
   const gutterStyle: React.CSSProperties = { width: 16, minWidth: 16, height: 16, padding: 0 };
 
-  const typeLink = (name: string): React.ReactNode => {
+  const typeLink = (name: string, muted = false): React.ReactNode => {
     const type = schema.types.get(name);
     if (type === undefined || !isExplorable(type)) return <span style={monoStyle}>{name}</span>;
     return (
       <Button
         type="link"
         size="small"
-        style={{ ...linkStyle, ...monoStyle }}
+        style={{ ...linkStyle, ...monoStyle, ...(muted ? { color: token.colorTextSecondary } : {}) }}
         onClick={() => push({ kind: 'type', name })}
         data-testid={`graphql-explorer-type-${name}`}
       >
@@ -225,28 +283,59 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
     );
   };
 
-  const fieldLabel = (typeName: string, field: GraphqlField): React.ReactNode => (
+  // The docs pages link a name to its page and print the signature; the
+  // builder's tree does neither — its rows are neutral `name Type`, the
+  // arguments their own rows, the row's own controls the only
+  // affordances (the reference's tree), the docs a line beneath.
+  const fieldLabel = (typeName: string, field: GraphqlField, link = true): React.ReactNode => (
     <>
-      <Button
-        type="link"
-        size="small"
-        style={{
-          ...linkStyle,
-          ...(field.deprecationReason !== null ? { textDecoration: 'line-through', opacity: 0.7 } : {}),
-        }}
-        onClick={() => push({ kind: 'field', typeName, fieldName: field.name })}
-      >
-        {field.name}
-      </Button>
+      {link ? (
+        <Button
+          type="link"
+          size="small"
+          style={{
+            ...linkStyle,
+            ...(field.deprecationReason !== null ? { textDecoration: 'line-through', opacity: 0.7 } : {}),
+          }}
+          onClick={() => push({ kind: 'field', typeName, fieldName: field.name })}
+        >
+          {field.name}
+        </Button>
+      ) : (
+        <span
+          style={{
+            ...monoStyle,
+            fontSize: 12,
+            ...(field.deprecationReason !== null ? { textDecoration: 'line-through', opacity: 0.7 } : {}),
+          }}
+        >
+          {field.name}
+        </span>
+      )}
       <span style={{ ...monoStyle, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {argumentSignature(field.args)}: {printTypeRef(field.type)}
+        {link ? `${argumentSignature(field.args)}: ${printTypeRef(field.type)}` : printTypeRef(field.type)}
       </span>
     </>
   );
 
-  const fieldRow = (typeName: string, field: GraphqlField): React.ReactNode => (
-    <div key={field.name} style={rowStyle} data-testid={`graphql-explorer-field-${typeName}.${field.name}`}>
-      {fieldLabel(typeName, field)}
+  /** The description under a row when the toggle shows them — indented to the row's label column. */
+  const descriptionLine = (text: string | null, indent: number, testId: string): React.ReactNode =>
+    descriptions === 'shown' && text !== null ? (
+      <Text
+        type="secondary"
+        style={{ fontSize: 11, display: 'block', paddingLeft: indent, whiteSpace: 'pre-wrap' }}
+        data-testid={testId}
+      >
+        {text}
+      </Text>
+    ) : null;
+
+  const fieldRow = (typeName: string, field: GraphqlField, described = false): React.ReactNode => (
+    <div key={field.name}>
+      <div style={rowStyle} data-testid={`graphql-explorer-field-${typeName}.${field.name}`}>
+        {fieldLabel(typeName, field)}
+      </div>
+      {described && descriptionLine(field.description, 0, `graphql-explorer-description-${typeName}.${field.name}`)}
     </div>
   );
 
@@ -265,51 +354,85 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
   const fieldNodeAt = (position: BuilderPosition) =>
     operation === null || operation.operation !== position.operationType ? null : fieldAt(operation, position.path);
 
+  // A click on the row block itself — not on a control inside it.
+  const isRowClick = (event: React.MouseEvent<HTMLDivElement>): boolean =>
+    !(event.target instanceof Element && event.target.closest('label, button, input') !== null);
+
   const argumentRow = (position: BuilderPosition, arg: GraphqlInputValue): React.ReactNode => {
     const node = fieldNodeAt(position);
     const argument = node === null ? null : argumentAt(node, arg.name);
     const key = `${positionKey(position)}.${arg.name}`;
     const { path } = position;
+    const quotes = argumentQuotes(arg, schema);
+    // Checking an argument of a field the document does not select yet
+    // selects the field first — the two edits one undo step. Unchecking a
+    // REQUIRED one takes the field with it: without the argument the
+    // selection would not be valid.
+    const required = arg.type.kind === 'NON_NULL' && arg.defaultValue === null;
+    const checkArgument = () => {
+      if (argument !== null) {
+        builder.run((context) =>
+          required ? deselectFieldEdits(context, path) : removeArgumentEdits(context, path, arg.name),
+        );
+        return;
+      }
+      const set = (context: BuilderContext) => setArgumentEdits(context, path, arg.name, `$${arg.name}`);
+      if (node !== null) {
+        builder.run(set);
+        return;
+      }
+      builder.run((context) => selectFieldEdits(context, position.operationType, path), 'open');
+      builder.run(set, 'continue');
+      builder.seal();
+    };
+    const buildable = buildableFor(position.operationType);
     return (
-      <div key={arg.name} style={{ ...rowStyle, alignItems: 'center' }} data-testid={`graphql-builder-arg-${key}`}>
+      <div
+        key={arg.name}
+        className="graphql-explorer-row"
+        style={{ ...rowStyle, alignItems: 'center' }}
+        onClick={(event) => {
+          if (buildable && isRowClick(event)) checkArgument();
+        }}
+        data-testid={`graphql-builder-arg-${key}`}
+      >
         <span style={gutterStyle} />
         <Checkbox
           checked={argument !== null}
-          onChange={() =>
-            builder.run((context) =>
-              argument === null
-                ? setArgumentEdits(context, path, arg.name, `$${arg.name}`)
-                : removeArgumentEdits(context, path, arg.name),
-            )
-          }
+          disabled={!buildable}
+          onChange={checkArgument}
           data-testid={`graphql-builder-arg-check-${key}`}
         />
         <span
           style={{
             ...monoStyle,
+            fontSize: 12,
             ...(arg.deprecationReason !== null ? { textDecoration: 'line-through', opacity: 0.7 } : {}),
           }}
         >
-          {arg.name}:
+          {arg.name}
         </span>
-        <ArgumentValueInput
-          value={argument === null ? '' : printNode(argument.value)}
-          placeholder={t('workbench.editors.graphql.builder.argumentPlaceholder')}
-          invalidHint={t('workbench.editors.graphql.builder.invalidValue')}
-          onCommit={(text) => {
-            if (text.trim() === '') {
-              builder.run((context) => removeArgumentEdits(context, path, arg.name));
+        {argument !== null && (
+          <ArgumentValueInput
+            value={argumentInputText(argument.value, quotes)}
+            placeholder={t('workbench.editors.graphql.builder.argumentPlaceholder')}
+            invalidHint={t('workbench.editors.graphql.builder.invalidValue')}
+            onInput={(text, undo) => {
+              const literal = argumentLiteral(text, quotes);
+              if (literal.kind === 'invalid') return false;
+              builder.run((context) => setArgumentEdits(context, path, arg.name, literal.text), undo);
               return true;
-            }
-            if (parseValue(text.trim()).value === null) return false;
-            builder.run((context) => setArgumentEdits(context, path, arg.name, text));
-            return true;
-          }}
-          testId={`graphql-builder-arg-value-${key}`}
-        />
+            }}
+            onSessionEnd={builder.seal}
+            testId={`graphql-builder-arg-value-${key}`}
+          />
+        )}
         <span style={{ ...monoStyle, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
           {printTypeRef(arg.type)}
         </span>
+        <Tag style={{ margin: 0, fontSize: 9, lineHeight: '14px' }} data-testid={`graphql-builder-arg-tag-${key}`}>
+          ARG
+        </Tag>
       </div>
     );
   };
@@ -323,49 +446,63 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
     const expandable = children.length > 0 || field.args.length > 0;
     const isExpanded = expandable && expanded.has(key);
     const hint = disabledHint(position.operationType);
+    const toggleChecked = () => {
+      if (!buildable) return;
+      if (checked) {
+        builder.run((context) => deselectFieldEdits(context, position.path));
+        return;
+      }
+      builder.run((context) => selectFieldEdits(context, position.operationType, position.path));
+      if (expandable) toggleExpanded(key, true);
+    };
     const checkbox = (
       <Checkbox
         checked={checked}
         disabled={!buildable}
-        onChange={() => {
-          if (checked) {
-            builder.run((context) => deselectFieldEdits(context, position.path));
-            return;
-          }
-          builder.run((context) => selectFieldEdits(context, position.operationType, position.path));
-          if (expandable) toggleExpanded(key, true);
-        }}
+        onChange={toggleChecked}
         data-testid={`graphql-builder-check-${key}`}
       />
     );
     return (
       <div key={field.name}>
         <div
-          style={{ ...rowStyle, alignItems: 'center' }}
-          data-testid={`graphql-explorer-field-${typeName}.${field.name}`}
+          className="graphql-explorer-row"
+          onClick={(event) => {
+            if (!isRowClick(event)) return;
+            if (expandable) toggleExpanded(key);
+            else toggleChecked();
+          }}
+          data-testid={`graphql-builder-row-${key}`}
         >
-          {expandable ? (
-            <Button
-              type="text"
-              size="small"
-              icon={isExpanded ? <CaretDownOutlined /> : <CaretRightOutlined />}
-              onClick={() => toggleExpanded(key)}
-              aria-label={t(
-                isExpanded ? 'workbench.editors.graphql.builder.collapse' : 'workbench.editors.graphql.builder.expand',
-              )}
-              aria-expanded={isExpanded}
-              style={{ ...gutterStyle, fontSize: 10 }}
-              data-testid={`graphql-builder-expand-${key}`}
-            />
-          ) : (
-            <span style={gutterStyle} />
-          )}
-          {hint === undefined ? checkbox : <Tooltip title={hint}>{checkbox}</Tooltip>}
-          {fieldLabel(typeName, field)}
+          <div
+            style={{ ...rowStyle, alignItems: 'center' }}
+            data-testid={`graphql-explorer-field-${typeName}.${field.name}`}
+          >
+            {expandable ? (
+              <Button
+                type="text"
+                size="small"
+                icon={isExpanded ? <CaretDownOutlined /> : <CaretRightOutlined />}
+                onClick={() => toggleExpanded(key)}
+                aria-label={t(
+                  isExpanded ? 'workbench.editors.graphql.builder.collapse' : 'workbench.editors.graphql.builder.expand',
+                )}
+                aria-expanded={isExpanded}
+                style={{ ...gutterStyle, fontSize: 10 }}
+                data-testid={`graphql-builder-expand-${key}`}
+              />
+            ) : (
+              <span style={gutterStyle} />
+            )}
+            {hint === undefined ? checkbox : <Tooltip title={hint}>{checkbox}</Tooltip>}
+            {fieldLabel(typeName, field, false)}
+          </div>
+          {descriptionLine(field.description, 44, `graphql-builder-description-${key}`)}
+          {descriptions === 'shown' && deprecation(field.deprecationReason, `graphql-builder-deprecated-${key}`, 44)}
         </div>
         {isExpanded && (
           <div style={{ paddingLeft: 22 }}>
-            {checked && field.args.map((arg) => argumentRow(position, arg))}
+            {field.args.map((arg) => argumentRow(position, arg))}
             {checked &&
               operation !== null &&
               fragmentsAt(operation, position.path).map((row) => (
@@ -408,9 +545,9 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
     </Text>
   );
 
-  const deprecation = (reason: string | null, testid: string): React.ReactNode =>
+  const deprecation = (reason: string | null, testid: string, indent = 0): React.ReactNode =>
     reason === null ? null : (
-      <Text type="warning" style={{ fontSize: 11, display: 'block' }} data-testid={testid}>
+      <Text type="warning" style={{ fontSize: 11, display: 'block', paddingLeft: indent }} data-testid={testid}>
         {t('workbench.editors.graphql.explorer.deprecated', { reason })}
       </Text>
     );
@@ -457,11 +594,35 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
           if (name === null || type === undefined || (type.kind !== 'OBJECT' && type.kind !== 'INTERFACE')) {
             return null;
           }
+          const open = !collapsedRoots.has(operationType);
           return (
             <div key={operationType} data-testid={`graphql-explorer-root-${operationType}`}>
-              {sectionTitle(operationType)}
-              <div style={{ marginBottom: 2 }}>{typeLink(name)}</div>
-              {type.fields.map((field) => builderRow(name, field, { operationType, path: [field.name] }))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={open ? <CaretDownOutlined /> : <CaretRightOutlined />}
+                  onClick={() => toggleRoot(operationType)}
+                  aria-expanded={open}
+                  aria-label={t(
+                    open ? 'workbench.editors.graphql.builder.collapse' : 'workbench.editors.graphql.builder.expand',
+                  )}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                    color: token.colorTextSecondary,
+                    padding: '0 4px',
+                    height: 20,
+                  }}
+                  data-testid={`graphql-explorer-root-toggle-${operationType}`}
+                >
+                  {operationType}
+                </Button>
+                {typeLink(name, true)}
+              </div>
+              {open && type.fields.map((field) => builderRow(name, field, { operationType, path: [field.name] }))}
             </div>
           );
         })}
@@ -494,7 +655,7 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
           {(type.kind === 'OBJECT' || type.kind === 'INTERFACE') && (
             <>
               {sectionTitle(t('workbench.editors.graphql.explorer.fields'))}
-              {type.fields.map((field) => fieldRow(type.name, field))}
+              {type.fields.map((field) => fieldRow(type.name, field, true))}
             </>
           )}
           {type.kind === 'ENUM' && (
@@ -631,6 +792,52 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
           style={{ fontSize: 12 }}
           data-testid="graphql-explorer-search"
         />
+        <Tooltip
+          title={t(
+            descriptions === 'shown'
+              ? 'workbench.editors.graphql.explorer.hideDescriptions'
+              : 'workbench.editors.graphql.explorer.showDescriptions',
+          )}
+        >
+          <Button
+            size="small"
+            type={descriptions === 'shown' ? 'default' : 'text'}
+            icon={<AlignLeftOutlined />}
+            onClick={() => setDescriptions(descriptions === 'shown' ? 'hidden' : 'shown')}
+            aria-pressed={descriptions === 'shown'}
+            aria-label={t(
+              descriptions === 'shown'
+                ? 'workbench.editors.graphql.explorer.hideDescriptions'
+                : 'workbench.editors.graphql.explorer.showDescriptions',
+            )}
+            style={{ fontSize: 11 }}
+            data-testid="graphql-explorer-descriptions"
+          />
+        </Tooltip>
+        {refresh !== null && (
+          <Tooltip title={t('workbench.editors.graphql.schema.refresh')}>
+            <Button
+              size="small"
+              type="text"
+              icon={<ReloadOutlined />}
+              loading={refresh.refreshing}
+              onClick={refresh.onRefresh}
+              aria-label={t('workbench.editors.graphql.schema.refresh')}
+              style={{ fontSize: 11 }}
+              data-testid="graphql-explorer-refresh"
+            />
+          </Tooltip>
+        )}
+        <Tooltip title={t('workbench.editors.graphql.explorer.hide')}>
+          <Button
+            size="small"
+            type="text"
+            icon={<LeftOutlined style={{ fontSize: 10 }} />}
+            onClick={onHide}
+            aria-label={t('workbench.editors.graphql.explorer.hide')}
+            data-testid="graphql-explorer-hide"
+          />
+        </Tooltip>
       </div>
       <div
         className="rules-thin-scrollbar"
@@ -639,6 +846,46 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
         {body}
       </div>
     </div>
+  );
+};
+
+/** The explorer's collapsed state — a narrow vertical strip flush at the
+ *  pane's edge, the whole strip one button that brings the pane back
+ *  (the WS rail's strip, mirrored to the left). */
+export const GraphqlExplorerStrip: React.FC<{ onExpand: () => void }> = ({ onExpand }) => {
+  const { token } = theme.useToken();
+  const t = useT();
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Tooltip placement="right" title={t('workbench.editors.graphql.explorer.show')}>
+      <button
+        type="button"
+        aria-label={t('workbench.editors.graphql.explorer.show')}
+        onClick={onExpand}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        data-testid="graphql-explorer-strip"
+        style={{
+          flex: '0 0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+          width: 26,
+          padding: '8px 0',
+          border: 'none',
+          borderRight: `1px solid ${token.colorBorderSecondary}`,
+          background: hovered ? token.colorFillTertiary : 'transparent',
+          cursor: 'pointer',
+          color: token.colorTextSecondary,
+        }}
+      >
+        <RightOutlined style={{ fontSize: 10, flexShrink: 0 }} />
+        <span style={{ writingMode: 'vertical-lr', fontSize: 12, letterSpacing: 0.3, whiteSpace: 'nowrap' }}>
+          {t('workbench.editors.graphql.explorer.title')}
+        </span>
+      </button>
+    </Tooltip>
   );
 };
 

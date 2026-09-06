@@ -733,3 +733,111 @@ test('E16 — typed text projects onto the builder, a broken document disables i
   await expect(check('query.viewer')).not.toBeChecked();
   await expect(check('query.viewer')).toBeEnabled();
 });
+
+// ── E17: the explorer header — descriptions, folding roots, the strip; the live value cell ──
+
+test('E17 — descriptions toggle and persist, the root sections fold, the pane folds to its strip, Refresh re-introspects, a String argument writes as the user types and undoes as one', async () => {
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  const check = (key: string) => explorer.getByTestId(`graphql-builder-check-${key}`);
+  const document = () => workbench.monacoText(0);
+  const tab = (name: string) => page.getByRole('tab', { name, exact: true }).filter({ visible: true }).first();
+  await workbench.fillMonaco(0, 'query Echo { viewer { id } }');
+
+  // Descriptions show under the root rows by default; the toggle hides
+  // them, and the choice outlives the explorer — a tab switch remounts it.
+  await expect(explorer.getByTestId('graphql-builder-description-query.echo')).toContainText('Echoes');
+  await explorer.getByTestId('graphql-explorer-descriptions').click();
+  await expect(explorer.getByTestId('graphql-builder-description-query.echo')).toHaveCount(0);
+  await tab('Headers').click();
+  await tab('Query').click();
+  await expect(check('query.viewer')).toBeChecked();
+  await expect(explorer.getByTestId('graphql-builder-description-query.echo')).toHaveCount(0);
+  await explorer.getByTestId('graphql-explorer-descriptions').click();
+  await expect(explorer.getByTestId('graphql-builder-description-query.echo')).toBeVisible();
+
+  // The Mutation section folds and unfolds.
+  await expect(check('mutation.createNote')).toBeVisible();
+  await explorer.getByTestId('graphql-explorer-root-toggle-mutation').click();
+  await expect(check('mutation.createNote')).toHaveCount(0);
+  await explorer.getByTestId('graphql-explorer-root-toggle-mutation').click();
+  await expect(check('mutation.createNote')).toBeVisible();
+
+  // The pane folds to its strip and comes back. The hidden pane is read
+  // off the split library's own class, on the innermost split pane
+  // holding the explorer (the editor group's outer pane holds it too):
+  // its zero-width box still holds the explorer's one-pixel border,
+  // which Playwright counts as visible.
+  const explorerPane = page
+    .locator('.split-view-view')
+    .filter({ has: page.getByTestId('graphql-explorer') })
+    .last();
+  await explorer.getByTestId('graphql-explorer-hide').click();
+  const strip = page.getByTestId('graphql-explorer-strip').filter({ visible: true }).first();
+  await expect(strip).toBeVisible();
+  await expect(explorerPane).not.toHaveClass(/split-view-view-visible/);
+  await strip.click();
+  await expect(explorerPane).toHaveClass(/split-view-view-visible/);
+  await expect(strip).toHaveCount(0);
+  await expect(check('query.viewer')).toBeChecked();
+
+  // The row block is the target: a click expands a composite row, and
+  // checks a leaf — the same either way, with or without a description.
+  await explorer.getByTestId('graphql-builder-row-query.viewer').click();
+  await expect(check('query.viewer.id')).toBeChecked();
+  await explorer.getByTestId('graphql-builder-row-query.failing').click();
+  await expect.poll(document, { timeout: 5_000 }).toBe('query Echo { viewer { id } failing }');
+  await explorer.getByTestId('graphql-builder-row-query.failing').click();
+  await expect.poll(document, { timeout: 5_000 }).toBe('query Echo { viewer { id } }');
+
+  // Refresh re-runs the introspection from the header; the projection survives it.
+  await explorer.getByTestId('graphql-explorer-refresh').click();
+  await expect(explorer.getByTestId('graphql-explorer-refresh')).toBeEnabled({ timeout: 10_000 });
+  await expect(check('query.viewer')).toBeChecked();
+
+  // A String argument writes as the user types — quoted for them, no
+  // Enter — and the typing session undoes as ONE step; a `$variable`
+  // typed in the cell passes through and declares itself.
+  await check('query.echo').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo($text: String!) { viewer { id } echo(text: $text) }');
+  await expect(explorer.getByTestId('graphql-builder-arg-tag-query.echo.text')).toHaveText('ARG');
+  const textValue = explorer.getByTestId('graphql-builder-arg-value-query.echo.text');
+  await textValue.click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await textValue.pressSequentially('hi');
+  await expect.poll(document, { timeout: 5_000 }).toBe('query Echo { viewer { id } echo(text: "hi") }');
+  await expect(textValue).toHaveValue('hi');
+  await page.locator('.monaco-editor').filter({ visible: true }).nth(0).click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo($text: String!) { viewer { id } echo(text: $text) }');
+  await textValue.fill('$again');
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo($again: String!) { viewer { id } echo(text: $again) }');
+
+  // Unchecking a REQUIRED argument takes its field along — the selection
+  // would not be valid without it.
+  await explorer.getByTestId('graphql-builder-arg-check-query.echo.text').click();
+  await expect.poll(document, { timeout: 5_000 }).toBe('query Echo { viewer { id } }');
+  await expect(check('query.echo')).not.toBeChecked();
+
+  // An unchecked field expands to its argument rows, no cell until the
+  // argument is checked; checking one there selects the field too, as
+  // ONE undo step.
+  await explorer.getByTestId('graphql-builder-expand-query.slow').click();
+  const msCheck = explorer.getByTestId('graphql-builder-arg-check-query.slow.ms');
+  await expect(msCheck).not.toBeChecked();
+  await expect(explorer.getByTestId('graphql-builder-arg-value-query.slow.ms')).toHaveCount(0);
+  await msCheck.click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('slow(ms: $ms)');
+  expect(await document()).toContain('$ms: Int!');
+  await expect(check('query.slow')).toBeChecked();
+  await expect(explorer.getByTestId('graphql-builder-arg-value-query.slow.ms')).toHaveValue('$ms');
+  await page.locator('.monaco-editor').filter({ visible: true }).nth(0).click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
+  await expect.poll(document, { timeout: 5_000 }).toBe('query Echo { viewer { id } }');
+  await expect(check('query.slow')).not.toBeChecked();
+});

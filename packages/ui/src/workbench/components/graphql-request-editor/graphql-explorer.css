@@ -1,0 +1,12 @@
+/* The builder's row block — the reference's tree: the whole row,
+   description included, is ONE hover target, and a click on it toggles
+   the expander (or the checkbox on a leaf). A class rule, not state, so
+   a hover never re-renders the tree. */
+.graphql-explorer-row {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.graphql-explorer-row:hover {
+  background: var(--ant-color-fill-tertiary);
+}

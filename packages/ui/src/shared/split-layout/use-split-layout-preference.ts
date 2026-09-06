@@ -12,66 +12,20 @@
  * stacks them) so it lines up with the `split-right` / `split-down`
  * glyphs the toggle reuses.
  *
- * Each preference is global: one value shared by every mounted editor
- * of that kind, backed by a module-level store + `localStorage` so all
- * instances stay in lockstep within a document and the choice survives
- * reloads while staying browser-local — no awareness/sync coupling.
- * Failure-soft: any storage exception falls back to the in-memory
- * default.
+ * Each preference is global — one value shared by every mounted editor
+ * of that kind, browser-local, failure-soft — the stored-preference
+ * store's contract (`createStoredPreference`).
  */
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { createStoredPreference } from '@openheaders/ui/shared/hooks/useStoredPreference';
 
 export type SplitLayout = 'horizontal' | 'vertical';
 
-const VALID: ReadonlySet<SplitLayout> = new Set(['horizontal', 'vertical']);
+const LAYOUTS: readonly SplitLayout[] = ['horizontal', 'vertical'];
 
 export function createSplitLayoutPreference(
   storageKey: string,
   defaultLayout: SplitLayout,
 ): () => [SplitLayout, (next: SplitLayout) => void] {
-  function read(): SplitLayout {
-    try {
-      const raw = globalThis.localStorage?.getItem(storageKey);
-      if (raw && VALID.has(raw as SplitLayout)) return raw as SplitLayout;
-    } catch {
-      // ignore — private mode / locked storage
-    }
-    return defaultLayout;
-  }
-
-  function write(layout: SplitLayout): void {
-    try {
-      globalThis.localStorage?.setItem(storageKey, layout);
-    } catch {
-      // ignore
-    }
-  }
-
-  let current: SplitLayout = read();
-  const listeners = new Set<() => void>();
-
-  function subscribe(listener: () => void): () => void {
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }
-
-  function getSnapshot(): SplitLayout {
-    return current;
-  }
-
-  return function useSplitLayoutPreference(): [SplitLayout, (next: SplitLayout) => void] {
-    const layout = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-
-    const setLayout = useCallback((next: SplitLayout) => {
-      if (next === current || !VALID.has(next)) return;
-      current = next;
-      write(next);
-      for (const listener of listeners) listener();
-    }, []);
-
-    return [layout, setLayout];
-  };
+  return createStoredPreference(storageKey, LAYOUTS, defaultLayout);
 }

@@ -327,10 +327,12 @@ test('G6 — the explorer introspects through the route: fields with description
   const explorer = workbench.getByTestId('graphql-explorer').filter({ visible: true }).first();
   await explorer.waitFor({ state: 'visible', timeout: 10_000 });
   await expect(explorer.getByTestId('graphql-explorer-field-Query.echo')).toBeVisible();
-  // A root row leads with the builder's expander — the field link is named.
-  await explorer.getByTestId('graphql-explorer-field-Query.echo').getByRole('button', { name: 'echo' }).click();
-  await expect(explorer.getByText('Echoes `text` back — the variables round trip.')).toBeVisible();
-  await explorer.getByTestId('graphql-explorer-back').click();
+  // A root row is neutral text — its description sits beneath it, and a
+  // deprecated one names the reason there too.
+  await expect(explorer.getByTestId('graphql-builder-description-query.echo')).toHaveText(
+    'Echoes `text` back — the variables round trip.',
+  );
+  await expect(explorer.getByTestId('graphql-builder-deprecated-query.me')).toContainText('Use `viewer`.');
   await explorer.getByTestId('graphql-explorer-search').fill('me');
   await explorer.getByTestId('graphql-explorer-field-Query.me').getByRole('button', { name: 'me' }).click();
   await expect(explorer.getByTestId('graphql-explorer-deprecated')).toContainText('Use `viewer`.');
@@ -421,6 +423,13 @@ test('G9 — Copy as cURL from the GraphQL row renders one POST of the envelope'
     .click();
   const curlItem = workbench.getByRole('menuitem', { name: 'cURL', exact: true }).filter({ visible: true }).last();
   await curlItem.waitFor({ state: 'visible', timeout: 5_000 });
+  // The submenu slides in — a click mid-motion lands on the pane beneath
+  // and the pointer's leave closes the popup; wait for rc-motion's
+  // classes to drop (the git spec's settle), then enter the item first.
+  await expect(
+    workbench.locator('[class*="ant-dropdown"][class*="-enter"], [class*="ant-dropdown"][class*="-appear"]'),
+  ).toHaveCount(0);
+  await curlItem.hover();
   await curlItem.click();
   let text = '';
   await expect

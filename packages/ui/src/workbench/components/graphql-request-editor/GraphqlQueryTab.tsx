@@ -9,7 +9,10 @@
  * with the collapsible VARIABLES drawer under it (Monaco JSON,
  * validated against the selected operation's variable definitions and
  * the schema; "Generate variables" from the synthesis, schema-aware).
- * The explorer / editor split is the WS compose recipe's Allotment.
+ * The explorer / editor split is the WS compose recipe's Allotment —
+ * the explorer pane HIDES when collapsed and its strip sits flush
+ * beside the editor then (the WS rail's discipline: one tree in every
+ * state, the editor never remounts on a toggle).
  */
 
 import {
@@ -36,8 +39,13 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import type { GraphqlDraft } from './draft';
-import { attachGraphqlEditorServices, executeBuilderEdits } from './graphql-editor-services';
-import GraphqlExplorer, { type GraphqlBuilder } from './GraphqlExplorer';
+import {
+  attachGraphqlEditorServices,
+  type BuilderUndo,
+  executeBuilderEdits,
+  sealBuilderEdits,
+} from './graphql-editor-services';
+import GraphqlExplorer, { type GraphqlBuilder, GraphqlExplorerStrip } from './GraphqlExplorer';
 
 const { Text } = Typography;
 
@@ -47,6 +55,8 @@ export interface GraphqlExplorerSources {
   canIntrospect: boolean;
   introspecting: boolean;
   onIntrospect: () => void;
+  /** Introspection is the active source — the explorer header offers Refresh. */
+  refreshable: boolean;
   /** Switches to the Schema tab, where the spec picker lives. */
   onUseSpec: () => void;
   onImportSchema: () => void;
@@ -61,6 +71,9 @@ interface GraphqlQueryTabProps {
   /** The resolved schema — null until a source resolves. */
   schema: GraphqlSchema | null;
   sources: GraphqlExplorerSources;
+  /** The explorer pane folded to its strip — owned by the editor so a tab switch keeps it. */
+  explorerCollapsed: boolean;
+  onExplorerCollapsedChange: (collapsed: boolean) => void;
 }
 
 /** The operation the pick names — the stored name when the document
@@ -78,7 +91,15 @@ function pickedOperation(document: DocumentNode, operationName: string): Operati
 
 const EXPLORER_SOURCES = ['introspect', 'spec', 'import'] as const;
 
-const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft, parsed, schema, sources }) => {
+const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
+  draft,
+  setDraft,
+  parsed,
+  schema,
+  sources,
+  explorerCollapsed,
+  onExplorerCollapsedChange,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const [variablesOpen, setVariablesOpen] = useState(() => draft.variables.trim() !== '');
@@ -138,7 +159,7 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft, pars
   // explorer re-projects from that one parse. Focus stays in the explorer.
   const broken = parsed.document === null && draft.query.trim() !== '';
   const runBuilder = useCallback(
-    (plan: (context: BuilderContext) => readonly BuilderEdit[]) => {
+    (plan: (context: BuilderContext) => readonly BuilderEdit[], undo: BuilderUndo = 'step') => {
       const editor = editorRef.current;
       const monacoApi = monacoRef.current;
       if (editor === null || monacoApi === null || schema === null) return;
@@ -146,11 +167,18 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft, pars
       const current = source === draft.query;
       const document = current ? parsed.document : parseDocument(source).document;
       const picked = current ? operation : document === null ? null : pickedOperation(document, draft.operationName);
-      executeBuilderEdits(editor, monacoApi, plan({ source, document, operation: picked, schema }));
+      executeBuilderEdits(editor, monacoApi, plan({ source, document, operation: picked, schema }), undo);
     },
     [schema, draft.query, draft.operationName, parsed.document, operation],
   );
-  const builder = useMemo<GraphqlBuilder>(() => ({ operation, broken, run: runBuilder }), [operation, broken, runBuilder]);
+  const sealBuilder = useCallback(() => {
+    const editor = editorRef.current;
+    if (editor !== null) sealBuilderEdits(editor);
+  }, []);
+  const builder = useMemo<GraphqlBuilder>(
+    () => ({ operation, broken, run: runBuilder, seal: sealBuilder }),
+    [operation, broken, runBuilder, sealBuilder],
+  );
 
   const sourceLabel = (source: (typeof EXPLORER_SOURCES)[number]): string => {
     switch (source) {
@@ -179,182 +207,193 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft, pars
 
   return (
     <div style={{ flex: 1, minHeight: 320, display: 'flex' }} data-testid="graphql-query-tab">
-      <Allotment proportionalLayout separator>
-        <Allotment.Pane minSize={160} preferredSize="30%">
-          {schema !== null ? (
-            <GraphqlExplorer schema={schema} onInsert={insertAtCursor} builder={builder} />
-          ) : (
-            // The explorer's empty state — the reference's CTA trio in our
-            // scaffold idiom: the fact, the hint, three live actions.
-            <div
-              style={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                padding: 16,
-                textAlign: 'center',
-                borderRight: `1px solid ${token.colorBorderSecondary}`,
-              }}
-              data-testid="graphql-explorer-empty"
-            >
-              <Text strong style={{ fontSize: 12 }}>
-                {t('workbench.editors.graphql.explorer.emptyTitle')}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {t('workbench.editors.graphql.explorer.emptyHint')}
-              </Text>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
-                {EXPLORER_SOURCES.map((source) => {
-                  const introspect = source === 'introspect';
-                  const disabled = introspect && (!sources.canIntrospect || sources.introspecting);
-                  return (
-                    <Tooltip
-                      key={source}
-                      title={introspect && !sources.canIntrospect ? t('workbench.editors.graphql.explorer.needsUrl') : undefined}
-                    >
-                      <span style={{ display: 'inline-flex' }}>
-                        <Button
-                          type="link"
-                          size="small"
-                          disabled={disabled}
-                          onClick={sourceAction(source)}
-                          style={{ fontSize: 12, padding: 0, height: 'auto' }}
-                          data-testid={`graphql-explorer-${source}`}
-                        >
-                          {sourceLabel(source)}
-                        </Button>
-                      </span>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </Allotment.Pane>
-        <Allotment.Pane minSize={240}>
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0 6px 8px' }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {t('workbench.editors.graphql.query.hint')}
-              </Text>
-              <span style={{ flex: 1 }} />
-              <Tooltip title={t('workbench.editors.graphql.query.prettify')}>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<FormatPainterOutlined />}
-                  disabled={!canPrettify}
-                  onClick={handlePrettify}
-                  aria-label={t('workbench.editors.graphql.query.prettify')}
-                  data-testid="graphql-prettify"
-                />
-              </Tooltip>
-            </div>
-            <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column', paddingLeft: 8 }}>
-              <CodeEditor
-                language="graphql"
-                value={draft.query}
-                onChange={(query) => setDraft((d) => ({ ...d, query }))}
-                placeholder={t('workbench.editors.graphql.query.placeholder')}
-                fill
-                onEditorMount={(editor, monacoApi) => {
-                  editorRef.current = editor;
-                  monacoRef.current = monacoApi;
-                  servicesRef.current?.dispose();
-                  const services = attachGraphqlEditorServices(editor, monacoApi);
-                  services.setSchema(schemaRef.current);
-                  servicesRef.current = services;
-                  editor.onDidDispose(() => {
-                    servicesRef.current?.dispose();
-                    servicesRef.current = null;
-                    editorRef.current = null;
-                  });
-                }}
+      {explorerCollapsed && <GraphqlExplorerStrip onExpand={() => onExplorerCollapsedChange(false)} />}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Allotment proportionalLayout separator>
+          <Allotment.Pane minSize={160} preferredSize="30%" visible={!explorerCollapsed}>
+            {schema !== null ? (
+              <GraphqlExplorer
+                schema={schema}
+                onInsert={insertAtCursor}
+                builder={builder}
+                onHide={() => onExplorerCollapsedChange(true)}
+                refresh={
+                  sources.refreshable ? { refreshing: sources.introspecting, onRefresh: sources.onIntrospect } : null
+                }
               />
-            </div>
-            {/* The Variables drawer — collapsed by default on a request
-              without variables, the header row always attached. */}
-            <div
-              style={{
-                borderTop: `1px solid ${token.colorBorderSecondary}`,
-                marginLeft: 8,
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-                flex: variablesOpen ? '0 0 38%' : '0 0 auto',
-              }}
-              data-testid="graphql-variables-drawer"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
-                <Button
-                  size="small"
-                  type="text"
-                  icon={variablesOpen ? <CaretDownOutlined /> : <CaretRightOutlined />}
-                  onClick={() => setVariablesOpen((open) => !open)}
-                  style={{ fontSize: 12, fontWeight: 600 }}
-                  aria-expanded={variablesOpen}
-                  data-testid="graphql-variables-toggle"
-                >
-                  {t('workbench.editors.graphql.variables.title')}
-                </Button>
-                {firstProblem !== undefined && (
-                  <Tooltip
-                    title={
-                      <div style={{ whiteSpace: 'pre-wrap' }}>
-                        {variableProblems.map((problem) => problem.message).join('\n')}
-                      </div>
-                    }
-                  >
-                    <Text
-                      type={firstProblem.severity === 'error' ? 'danger' : 'warning'}
-                      style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
-                      data-testid="graphql-variables-problems"
-                    >
-                      {t('workbench.editors.graphql.variables.problems', { count: variableProblems.length })} ·{' '}
-                      {firstProblem.message}
-                    </Text>
-                  </Tooltip>
-                )}
+            ) : (
+              // The explorer's empty state — the reference's CTA trio in our
+              // scaffold idiom: the fact, the hint, three live actions.
+              <div
+                style={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  padding: 16,
+                  textAlign: 'center',
+                  borderRight: `1px solid ${token.colorBorderSecondary}`,
+                }}
+                data-testid="graphql-explorer-empty"
+              >
+                <Text strong style={{ fontSize: 12 }}>
+                  {t('workbench.editors.graphql.explorer.emptyTitle')}
+                </Text>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('workbench.editors.graphql.explorer.emptyHint')}
+                </Text>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+                  {EXPLORER_SOURCES.map((source) => {
+                    const introspect = source === 'introspect';
+                    const disabled = introspect && (!sources.canIntrospect || sources.introspecting);
+                    return (
+                      <Tooltip
+                        key={source}
+                        title={introspect && !sources.canIntrospect ? t('workbench.editors.graphql.explorer.needsUrl') : undefined}
+                      >
+                        <span style={{ display: 'inline-flex' }}>
+                          <Button
+                            type="link"
+                            size="small"
+                            disabled={disabled}
+                            onClick={sourceAction(source)}
+                            style={{ fontSize: 12, padding: 0, height: 'auto' }}
+                            data-testid={`graphql-explorer-${source}`}
+                          >
+                            {sourceLabel(source)}
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </Allotment.Pane>
+          <Allotment.Pane minSize={240}>
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0 6px 8px' }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('workbench.editors.graphql.query.hint')}
+                </Text>
                 <span style={{ flex: 1 }} />
-                <Tooltip
-                  title={
-                    canGenerate
-                      ? t('workbench.editors.graphql.variables.generateHint')
-                      : t('workbench.editors.graphql.variables.generateNeedsOperation')
-                  }
-                >
-                  <span style={{ display: 'inline-flex' }}>
-                    <Button
-                      size="small"
-                      type="text"
-                      disabled={!canGenerate}
-                      onClick={handleGenerate}
-                      style={{ fontSize: 11 }}
-                      data-testid="graphql-generate-variables"
-                    >
-                      {t('workbench.editors.graphql.variables.generate')}
-                    </Button>
-                  </span>
+                <Tooltip title={t('workbench.editors.graphql.query.prettify')}>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<FormatPainterOutlined />}
+                    disabled={!canPrettify}
+                    onClick={handlePrettify}
+                    aria-label={t('workbench.editors.graphql.query.prettify')}
+                    data-testid="graphql-prettify"
+                  />
                 </Tooltip>
               </div>
-              {variablesOpen && (
-                <div style={{ flex: 1, minHeight: 80, display: 'flex', flexDirection: 'column' }}>
-                  <CodeEditor
-                    language="json"
-                    value={draft.variables}
-                    onChange={(variables) => setDraft((d) => ({ ...d, variables }))}
-                    placeholder={t('workbench.editors.graphql.variables.placeholder')}
-                    fill
-                  />
+              <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column', paddingLeft: 8 }}>
+                <CodeEditor
+                  language="graphql"
+                  value={draft.query}
+                  onChange={(query) => setDraft((d) => ({ ...d, query }))}
+                  placeholder={t('workbench.editors.graphql.query.placeholder')}
+                  fill
+                  onEditorMount={(editor, monacoApi) => {
+                    editorRef.current = editor;
+                    monacoRef.current = monacoApi;
+                    servicesRef.current?.dispose();
+                    const services = attachGraphqlEditorServices(editor, monacoApi);
+                    services.setSchema(schemaRef.current);
+                    servicesRef.current = services;
+                    editor.onDidDispose(() => {
+                      servicesRef.current?.dispose();
+                      servicesRef.current = null;
+                      editorRef.current = null;
+                    });
+                  }}
+                />
+              </div>
+              {/* The Variables drawer — collapsed by default on a request
+                without variables, the header row always attached. */}
+              <div
+                style={{
+                  borderTop: `1px solid ${token.colorBorderSecondary}`,
+                  marginLeft: 8,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  flex: variablesOpen ? '0 0 38%' : '0 0 auto',
+                }}
+                data-testid="graphql-variables-drawer"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={variablesOpen ? <CaretDownOutlined /> : <CaretRightOutlined />}
+                    onClick={() => setVariablesOpen((open) => !open)}
+                    style={{ fontSize: 12, fontWeight: 600 }}
+                    aria-expanded={variablesOpen}
+                    data-testid="graphql-variables-toggle"
+                  >
+                    {t('workbench.editors.graphql.variables.title')}
+                  </Button>
+                  {firstProblem !== undefined && (
+                    <Tooltip
+                      title={
+                        <div style={{ whiteSpace: 'pre-wrap' }}>
+                          {variableProblems.map((problem) => problem.message).join('\n')}
+                        </div>
+                      }
+                    >
+                      <Text
+                        type={firstProblem.severity === 'error' ? 'danger' : 'warning'}
+                        style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
+                        data-testid="graphql-variables-problems"
+                      >
+                        {t('workbench.editors.graphql.variables.problems', { count: variableProblems.length })} ·{' '}
+                        {firstProblem.message}
+                      </Text>
+                    </Tooltip>
+                  )}
+                  <span style={{ flex: 1 }} />
+                  <Tooltip
+                    title={
+                      canGenerate
+                        ? t('workbench.editors.graphql.variables.generateHint')
+                        : t('workbench.editors.graphql.variables.generateNeedsOperation')
+                    }
+                  >
+                    <span style={{ display: 'inline-flex' }}>
+                      <Button
+                        size="small"
+                        type="text"
+                        disabled={!canGenerate}
+                        onClick={handleGenerate}
+                        style={{ fontSize: 11 }}
+                        data-testid="graphql-generate-variables"
+                      >
+                        {t('workbench.editors.graphql.variables.generate')}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </div>
-              )}
+                {variablesOpen && (
+                  <div style={{ flex: 1, minHeight: 80, display: 'flex', flexDirection: 'column' }}>
+                    <CodeEditor
+                      language="json"
+                      value={draft.variables}
+                      onChange={(variables) => setDraft((d) => ({ ...d, variables }))}
+                      placeholder={t('workbench.editors.graphql.variables.placeholder')}
+                      fill
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Allotment.Pane>
-      </Allotment>
+          </Allotment.Pane>
+        </Allotment>
+      </div>
     </div>
   );
 };
