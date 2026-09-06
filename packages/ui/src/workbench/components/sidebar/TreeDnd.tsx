@@ -65,14 +65,13 @@ import {
   closestCenter,
   DndContext,
   DragOverlay,
-  KeyboardSensor,
   MeasuringStrategy,
   PointerSensor,
   useDndContext,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { getEventCoordinates } from '@dnd-kit/utilities';
 import { theme } from 'antd';
 import type React from 'react';
@@ -230,10 +229,13 @@ const anchorPillToCursor: Modifier = ({ activatorEvent, draggingNodeRect, transf
 export function TreeDnd({ nodes, renderNode, config, selectedIds, onMoved }: TreeDndProps): React.ReactElement {
   const t = useT();
   const { token } = theme.useToken();
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  // Pointer only: the keyboard half of the move gesture is Alt+Arrow
+  // (`useTreeKeyboardMoves`). A dnd-kit keyboard sensor would read the
+  // Enter that commits a row's inline rename — and every Space typed
+  // into it — as a grab of the row (its listeners sit on the row, so
+  // any descendant's key reaches them), and could never land the drop:
+  // the landing spot is read off the pointer.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const byId = useMemo(() => new Map<string, TreeNode>(nodes.map((n) => [n.id, n])), [nodes]);
   const participantIds = useMemo(() => nodes.filter((n) => roleOf(n, config) !== null).map((n) => n.id), [nodes, config]);
@@ -438,7 +440,7 @@ function SortableRow({
 
   // The whole row is the drag surface: the pointer sensor's distance
   // constraint keeps clicks and double-clicks on the row body from
-  // starting a drag, and the keyboard sensor pairs with the focused row.
+  // starting a drag.
   return (
     <div
       ref={setNodeRef}

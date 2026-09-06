@@ -100,9 +100,11 @@ async function clickAddMenuItem(kind: string): Promise<void> {
     .click();
 }
 
-/** Commit the create gesture's primed breadcrumb rename: wait until
- *  the auto-focused input holds the default label (its text arrives
- *  selected), replace it, Enter. */
+/** Commit a primed rename (the create gesture's breadcrumb input, the
+ *  sidebar row's inline input): wait until the auto-focused input holds
+ *  the default label (its text arrives selected), replace it with REAL
+ *  keystrokes — the Space in the name is the sidebar tree's keyboard
+ *  regression — then Enter. */
 async function commitAutoRename(defaultLabel: RegExp, name: string): Promise<void> {
   await expect
     .poll(
@@ -114,7 +116,7 @@ async function commitAutoRename(defaultLabel: RegExp, name: string): Promise<voi
       { timeout: 5_000 },
     )
     .toMatch(defaultLabel);
-  await page.keyboard.insertText(name);
+  await page.keyboard.type(name);
   await page.keyboard.press('Enter');
 }
 
@@ -276,6 +278,8 @@ test('E4 — the collection’s Settings section names the HTTP sub-tab “HTTP 
 // ── E5: execution through the SW twin ──────────────────────────────
 
 test('E5 — Query posts the live draft to the probe: the 200 lands in the pane with the echoed variable', async () => {
+  // E4 left the container editor in front — back to the request.
+  await openGraphqlRequest(GRAPHQL_NAME);
   await urlInput().fill(PROBE_URL);
   await workbench.fillMonaco(0, ECHO_QUERY);
   await workbench.fillMonaco(1, ECHO_VARIABLES);

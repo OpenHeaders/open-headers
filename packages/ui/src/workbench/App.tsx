@@ -1039,6 +1039,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     wsResponseExamples,
     mqttRequests: requestsApi.mqttRequests,
     mqttResponseExamples,
+    graphqlRequests: requestsApi.graphqlRequests,
     specs,
     workspaces: workspacesApi.workspaces,
     editingScopeWorkspaceId,

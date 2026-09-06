@@ -22,6 +22,7 @@ import type {
   CollectionTree,
   Environment,
   ExtensionWorkspace,
+  GraphqlRequest,
   GrpcRequest,
   GrpcResponseExample,
   LiveVariable,
@@ -68,6 +69,7 @@ interface UseWorkbenchActiveTabOptions {
   wsResponseExamples: readonly WsResponseExample[];
   mqttRequests: readonly MqttRequest[];
   mqttResponseExamples: readonly MqttResponseExample[];
+  graphqlRequests: readonly GraphqlRequest[];
   specs: readonly Spec[];
   workspaces: ExtensionWorkspace[];
   editingScopeWorkspaceId: string | null;
@@ -116,6 +118,7 @@ export function useWorkbenchActiveTab({
   wsResponseExamples,
   mqttRequests,
   mqttResponseExamples,
+  graphqlRequests,
   specs,
   workspaces,
   editingScopeWorkspaceId,
@@ -216,6 +219,10 @@ export function useWorkbenchActiveTab({
       templates,
       environments,
       requests,
+      grpcRequests,
+      websocketRequests,
+      mqttRequests,
+      graphqlRequests,
       localCollectionTrees,
       requestCollectionTrees,
       templateCollectionTrees,
@@ -232,6 +239,10 @@ export function useWorkbenchActiveTab({
       templates,
       environments,
       requests,
+      grpcRequests,
+      websocketRequests,
+      mqttRequests,
+      graphqlRequests,
       localCollectionTrees,
       requestCollectionTrees,
       templateCollectionTrees,

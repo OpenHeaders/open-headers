@@ -27,9 +27,12 @@
 import type {
   CollectionTree,
   Environment,
+  GraphqlRequest,
+  GrpcRequest,
   GrpcResponseExample,
   LiveVariable,
   LiveWorkflow,
+  MqttRequest,
   MqttResponseExample,
   Request,
   ResponseExample,
@@ -37,6 +40,7 @@ import type {
   Spec,
   Template,
   TreeNode,
+  WebSocketRequest,
   WsResponseExample,
 } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
@@ -48,6 +52,10 @@ export interface TabDisplayLookups {
   templates: readonly Template[];
   environments: readonly Environment[];
   requests: readonly Request[];
+  grpcRequests: readonly GrpcRequest[];
+  websocketRequests: readonly WebSocketRequest[];
+  mqttRequests: readonly MqttRequest[];
+  graphqlRequests: readonly GraphqlRequest[];
   localCollectionTrees: readonly CollectionTree[];
   requestCollectionTrees: readonly CollectionTree[];
   templateCollectionTrees: readonly CollectionTree[];
@@ -98,6 +106,26 @@ export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups, t
     case 'request-edit': {
       if (!tab.requestUid) return tab.label;
       const req = lookups.requests.find((r) => r.uid === tab.requestUid);
+      return req ? req.name : tab.label;
+    }
+    case 'grpc-edit': {
+      if (!tab.grpcRequestUid) return tab.label;
+      const req = lookups.grpcRequests.find((r) => r.uid === tab.grpcRequestUid);
+      return req ? req.name : tab.label;
+    }
+    case 'websocket-edit': {
+      if (!tab.websocketRequestUid) return tab.label;
+      const req = lookups.websocketRequests.find((r) => r.uid === tab.websocketRequestUid);
+      return req ? req.name : tab.label;
+    }
+    case 'mqtt-edit': {
+      if (!tab.mqttRequestUid) return tab.label;
+      const req = lookups.mqttRequests.find((r) => r.uid === tab.mqttRequestUid);
+      return req ? req.name : tab.label;
+    }
+    case 'graphql-edit': {
+      if (!tab.graphqlRequestUid) return tab.label;
+      const req = lookups.graphqlRequests.find((r) => r.uid === tab.graphqlRequestUid);
       return req ? req.name : tab.label;
     }
     case 'response-example': {
