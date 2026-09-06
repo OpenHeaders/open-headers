@@ -139,7 +139,7 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateGraphql.blurb':
     'Générez une collection à partir de ce schéma. Les champs racine Query et Mutation deviennent des requêtes GraphQL ' +
     'avec leur document et des variables d’exemple pré-remplis, regroupées dans un dossier par type racine lorsque les ' +
-    'deux existent ; les champs de souscription sont laissés de côté. La collection reste liée à cette spécification.',
+    'deux existent ; les champs de subscription sont laissés de côté. La collection reste liée à cette spécification.',
   'workbench.editors.spec.generateGraphql.requestsCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} requête GraphQL',
@@ -154,10 +154,10 @@ export const workbenchEditorsSpec = {
     'Chaque requête générée cible ce point de terminaison ; laissez vide pour renseigner l’URL plus tard.',
   'workbench.editors.spec.generateGraphql.subscriptionsSkipped': ({ count, fields }, locale) =>
     `${plural(locale, Number(count), {
-      one: '{count} champ de souscription laissé de côté',
-      many: '{count} champs de souscription laissés de côté',
-      other: '{count} champs de souscription laissés de côté',
-    })} (${fields}) — les souscriptions ne sont pas prises en charge.`,
+      one: '{count} champ de subscription laissé de côté',
+      many: '{count} champs de subscription laissés de côté',
+      other: '{count} champs de subscription laissés de côté',
+    })} (${fields}) — les subscriptions ne sont pas prises en charge.`,
   'workbench.editors.spec.generateGraphql.problem': 'Problème de schéma : {message}',
   'workbench.editors.spec.update.button': 'Mettre à jour',
   'workbench.editors.spec.update.protoUnavailable':
