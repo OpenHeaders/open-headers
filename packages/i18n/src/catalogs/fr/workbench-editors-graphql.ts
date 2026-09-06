@@ -45,7 +45,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.introspect': 'Utiliser l’introspection GraphQL',
   'workbench.editors.graphql.explorer.useSpec': 'Utiliser une spec GraphQL',
   'workbench.editors.graphql.explorer.importSchema': 'Importer un schéma GraphQL',
-  'workbench.editors.graphql.explorer.landsWithSchema': 'Arrive avec la tranche schéma.',
   'workbench.editors.graphql.variables.title': 'Variables',
   'workbench.editors.graphql.variables.generate': 'Générer les variables',
   'workbench.editors.graphql.variables.generateHint':
@@ -55,7 +54,7 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.headers.hint.contentType':
     'Chaque opération GraphQL envoie l’enveloppe {query, variables, operationName} en JSON. Ajoutez votre propre ligne Content-Type pour la remplacer.',
   'workbench.editors.graphql.schema.sourceLabel': 'Source du schéma',
-  'workbench.editors.graphql.schema.sourcePlaceholder': 'Sélectionnez un schéma ou collez un lien vers celui-ci',
+  'workbench.editors.graphql.schema.sourcePlaceholder': 'Sélectionnez une source de schéma',
   'workbench.editors.graphql.schema.or': 'OU',
   'workbench.editors.graphql.schema.hint':
     'Le schéma alimente l’explorateur, la complétion et la validation — introspecté depuis le serveur via l’authentification et les paramètres de cette requête, lié depuis une spec GraphQL, ou importé depuis un fichier SDL ou d’introspection.',
@@ -64,4 +63,44 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.toast.deletedOtherTab': 'Cette requête GraphQL a été supprimée dans un autre onglet.',
   'workbench.editors.graphql.toast.updateFailed': 'L’enregistrement de la requête GraphQL a échoué',
   'workbench.editors.graphql.toast.updateFailedDetail': 'L’enregistrement de la requête GraphQL a échoué : {message}',
+  'workbench.editors.graphql.explorer.needsUrl': 'Saisissez d’abord l’URL du point de terminaison.',
+  'workbench.editors.graphql.explorer.introspecting': 'Introspection…',
+  'workbench.editors.graphql.explorer.search': 'Rechercher des types et des champs',
+  'workbench.editors.graphql.explorer.noResults': 'Rien ne correspond à « {term} ».',
+  'workbench.editors.graphql.explorer.back': 'Retour',
+  'workbench.editors.graphql.explorer.fields': 'Champs',
+  'workbench.editors.graphql.explorer.arguments': 'Arguments',
+  'workbench.editors.graphql.explorer.values': 'Valeurs',
+  'workbench.editors.graphql.explorer.inputFields': 'Champs d’entrée',
+  'workbench.editors.graphql.explorer.implements': 'Implémente',
+  'workbench.editors.graphql.explorer.possibleTypes': 'Types possibles',
+  'workbench.editors.graphql.explorer.returns': 'Retourne',
+  'workbench.editors.graphql.explorer.specifiedBy': 'Spécifié par',
+  'workbench.editors.graphql.explorer.deprecated': 'Obsolète : {reason}',
+  'workbench.editors.graphql.explorer.insert': 'Insérer au curseur',
+  'workbench.editors.graphql.explorer.insertHint':
+    'Ajoute le champ au document à la position du curseur — ses arguments obligatoires en variables, un jeu de sélection vide s’il retourne un objet. À sens unique : le document reste le vôtre.',
+  'workbench.editors.graphql.schema.source.introspection': 'Introspection GraphQL',
+  'workbench.editors.graphql.schema.source.spec': 'Spec GraphQL liée',
+  'workbench.editors.graphql.schema.refresh': 'Actualiser',
+  'workbench.editors.graphql.schema.fetchedAt': 'Introspecté le {when}',
+  'workbench.editors.graphql.schema.notIntrospected':
+    'Pas encore introspecté — le schéma se charge depuis le point de terminaison avec l’authentification, les en-têtes et les paramètres de cette requête.',
+  'workbench.editors.graphql.schema.introspectFailed': 'L’introspection a échoué : {message}',
+  'workbench.editors.graphql.schema.specLabel': 'Spec GraphQL',
+  'workbench.editors.graphql.schema.specPlaceholder': 'Sélectionnez une spec GraphQL',
+  'workbench.editors.graphql.schema.specMissing': 'La spec liée n’existe plus dans cet espace de travail.',
+  'workbench.editors.graphql.schema.summaryTypes': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} type', many: '{count} types', other: '{count} types' }),
+  'workbench.editors.graphql.schema.problems': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} problème de schéma',
+      many: '{count} problèmes de schéma',
+      other: '{count} problèmes de schéma',
+    }),
+  'workbench.editors.graphql.schema.importReadFailed': 'La lecture du fichier a échoué : {message}',
+  'workbench.editors.graphql.schema.importFailed': 'L’import du schéma a échoué',
+  'workbench.editors.graphql.schema.imported': '« {name} » importé comme spec GraphQL et lié.',
+  'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} problème', many: '{count} problèmes', other: '{count} problèmes' }),
 } as const satisfies Catalog;

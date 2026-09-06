@@ -30,7 +30,18 @@
  *   E7  Save Response: the exchange freezes into an HTTP ResponseExample
  *       marked `requestKind: 'graphql'`, nested under the GraphQL leaf
  *       in the sidebar and opened in its viewer tab.
- *   E8  sidebar rename + delete: the leaf's inline rename lands on the
+ *   E8  the schema plane's introspection source: the explorer CTA runs
+ *       INTROSPECTION_QUERY through the SW twin (the compile — the
+ *       request's auth and settings apply), the docs explorer lists the
+ *       probe's Query fields, a deprecated field names its reason,
+ *       "Insert at cursor" lands the field in the document, and the
+ *       Schema tab reports the resolved schema with Refresh.
+ *   E9  the schema plane's spec source: the SPECS section's `+` menu
+ *       mints a GraphQL spec whose editor shows the SDL outline groups
+ *       and a clean validation strip; the request's Schema tab links
+ *       it and the explorer resolves from the spec (the entity's
+ *       synced `specLink`, saved).
+ *   E10 sidebar rename + delete: the leaf's inline rename lands on the
  *       entity, and the delete gesture removes it from the tree (the
  *       example cascades with it).
  *
@@ -60,6 +71,7 @@ const PROBE_URL = 'http://127.0.0.1:3000/api/graphql';
 const ECHO_QUERY = 'query Echo($t: String!) { echo(text: $t) }';
 const ECHO_VARIABLES = '{"t": "hi-from-the-workbench"}';
 const PARTIAL_QUERY = '{ partial { ok broken } }';
+const SPEC_NAME = 'Notes Schema';
 
 let context: BrowserContext;
 let extensionId: string;
@@ -343,9 +355,74 @@ test('E7 — Save Response freezes the exchange as an example nested under the G
   await openGraphqlRequest(GRAPHQL_NAME);
 });
 
-// ── E8: sidebar rename + delete ─────────────────────────────────────
+// ── E8: the introspection source ────────────────────────────────────
 
-test('E8 — the sidebar leaf renames inline and the delete gesture removes the entity', async () => {
+test('E8 — the explorer CTA introspects through the SW twin: fields, deprecations, insert at cursor, the Schema tab', async () => {
+  await page.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('graphql-explorer-introspect').filter({ visible: true }).first().click();
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await explorer.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(explorer.getByTestId('graphql-explorer-field-Query.echo')).toBeVisible();
+
+  // Search narrows to the deprecated `me`; its page names the reason.
+  await explorer.getByTestId('graphql-explorer-search').fill('me');
+  await explorer.getByTestId('graphql-explorer-field-Query.me').getByRole('button').first().click();
+  await expect(explorer.getByTestId('graphql-explorer-deprecated')).toContainText('Use `viewer`.');
+
+  // Insert at cursor — one-way into the document.
+  await explorer.getByTestId('graphql-explorer-insert').click();
+  await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('me { }');
+
+  // The Schema tab reports the resolved schema and offers Refresh.
+  await page.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('graphql-schema-summary').filter({ visible: true }).first()).toContainText('Query');
+  await expect(page.getByTestId('graphql-schema-introspect').filter({ visible: true }).first()).toHaveText('Refresh');
+});
+
+// ── E9: the spec source ─────────────────────────────────────────────
+
+test('E9 — a GraphQL spec from the SPECS menu outlines its SDL, and the request links it as its schema source', async () => {
+  await page.getByTestId('sidebar-create-spec').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-dropdown')
+    .filter({ visible: true })
+    .getByRole('menuitem', { name: /GraphQL$/ })
+    .first()
+    .click();
+  await commitAutoRename(/^New Specification/, SPEC_NAME);
+  const outline = page.getByTestId('spec-outline-pane').filter({ visible: true }).first();
+  await outline.waitFor({ state: 'visible', timeout: 5_000 });
+  // Root group rows read "▶ Query 3" — the label plus the child count.
+  for (const group of ['Query', 'Mutation', 'Subscription', 'Types', 'Directives']) {
+    await expect(outline.getByRole('treeitem', { name: new RegExp(`^▶ ${group} \\d`) }).first()).toBeVisible();
+  }
+  await expect(page.getByText('No problems found').filter({ visible: true }).first()).toBeVisible();
+
+  // Back on the request: the Schema tab's spec source resolves the explorer from the spec.
+  await openGraphqlRequest(GRAPHQL_NAME);
+  await page.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
+  await page.getByTestId('graphql-schema-source').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-select-dropdown')
+    .filter({ visible: true })
+    .getByTitle('Linked GraphQL spec')
+    .first()
+    .click();
+  await page.getByTestId('graphql-schema-spec-select').filter({ visible: true }).first().click();
+  await page.locator('.ant-select-dropdown').filter({ visible: true }).getByTitle(SPEC_NAME).first().click();
+  await expect(page.getByTestId('graphql-schema-summary').filter({ visible: true }).first()).toContainText(
+    'Subscription',
+  );
+  await page.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await expect(explorer.getByTestId('graphql-explorer-field-Query.viewer')).toBeVisible();
+  await expect(explorer.getByTestId('graphql-explorer-field-Query.echo')).toHaveCount(0);
+  await saveAndAwaitClean();
+});
+
+// ── E10: sidebar rename + delete ────────────────────────────────────
+
+test('E10 — the sidebar leaf renames inline and the delete gesture removes the entity', async () => {
   const row = await graphqlRow(GRAPHQL_NAME);
   await row.hover();
   await row.locator('.rules-sidebar-item-menu').click();

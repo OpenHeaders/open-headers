@@ -168,3 +168,33 @@ export function buildGraphqlRequestUpdates(draft: GraphqlDraft): GraphqlRequestU
 export function canonicalGraphqlRequestProjection(req: GraphqlRequest): GraphqlRequestUpdates {
   return buildGraphqlRequestUpdates(draftFromGraphqlRequest(req));
 }
+
+/**
+ * The full-fidelity entity the executor channel consumes, off the LIVE
+ * draft — Query (and introspection) test-fire without persisting,
+ * exactly like the HTTP editor's Send. The identity is the saved
+ * entity's (the SAME uid + path, so the ancestor chain resolves off the
+ * tree unchanged); an absent leaf stays absent (the save projection's
+ * `undefined` never lands on the wire shape).
+ */
+export function draftEntity(entity: GraphqlRequest, draft: GraphqlDraft): GraphqlRequest {
+  const updates = buildGraphqlRequestUpdates(draft);
+  return {
+    schemaVersion: entity.schemaVersion,
+    uid: entity.uid,
+    path: entity.path,
+    ...(entity.pathSegment !== undefined ? { pathSegment: entity.pathSegment } : {}),
+    name: entity.name,
+    ...(updates.description !== '' ? { description: updates.description } : {}),
+    url: updates.url,
+    query: updates.query,
+    ...(updates.variables !== undefined ? { variables: updates.variables } : {}),
+    ...(updates.operationName !== undefined ? { operationName: updates.operationName } : {}),
+    headers: updates.headers,
+    auth: updates.auth,
+    ...(updates.specLink !== undefined ? { specLink: updates.specLink } : {}),
+    ...graphqlSettingsSlice(updates),
+    ...(updates.preRequestScript !== undefined ? { preRequestScript: updates.preRequestScript } : {}),
+    ...(updates.postResponseScript !== undefined ? { postResponseScript: updates.postResponseScript } : {}),
+  };
+}

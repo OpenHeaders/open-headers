@@ -43,7 +43,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.introspect': 'Use GraphQL introspection',
   'workbench.editors.graphql.explorer.useSpec': 'Use a GraphQL spec',
   'workbench.editors.graphql.explorer.importSchema': 'Import a GraphQL schema',
-  'workbench.editors.graphql.explorer.landsWithSchema': 'Lands with the schema slice.',
   'workbench.editors.graphql.variables.title': 'Variables',
   'workbench.editors.graphql.variables.generate': 'Generate variables',
   'workbench.editors.graphql.variables.generateHint':
@@ -53,7 +52,7 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.headers.hint.contentType':
     'Every GraphQL operation posts the {query, variables, operationName} envelope as JSON. Add your own Content-Type row to override.',
   'workbench.editors.graphql.schema.sourceLabel': 'Schema source',
-  'workbench.editors.graphql.schema.sourcePlaceholder': 'Select a schema or paste a link to one',
+  'workbench.editors.graphql.schema.sourcePlaceholder': 'Select a schema source',
   'workbench.editors.graphql.schema.or': 'OR',
   'workbench.editors.graphql.schema.hint':
     'The schema feeds the explorer, completion and validation — introspected from the server through this request’s auth and settings, linked from a GraphQL spec, or imported from an SDL or introspection file.',
@@ -62,4 +61,40 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.toast.deletedOtherTab': 'This GraphQL request was deleted in another tab.',
   'workbench.editors.graphql.toast.updateFailed': 'Saving the GraphQL request failed',
   'workbench.editors.graphql.toast.updateFailedDetail': 'Saving the GraphQL request failed: {message}',
+  'workbench.editors.graphql.explorer.needsUrl': 'Enter the endpoint URL first.',
+  'workbench.editors.graphql.explorer.introspecting': 'Introspecting…',
+  'workbench.editors.graphql.explorer.search': 'Search types and fields',
+  'workbench.editors.graphql.explorer.noResults': 'Nothing matches “{term}”.',
+  'workbench.editors.graphql.explorer.back': 'Back',
+  'workbench.editors.graphql.explorer.fields': 'Fields',
+  'workbench.editors.graphql.explorer.arguments': 'Arguments',
+  'workbench.editors.graphql.explorer.values': 'Values',
+  'workbench.editors.graphql.explorer.inputFields': 'Input fields',
+  'workbench.editors.graphql.explorer.implements': 'Implements',
+  'workbench.editors.graphql.explorer.possibleTypes': 'Possible types',
+  'workbench.editors.graphql.explorer.returns': 'Returns',
+  'workbench.editors.graphql.explorer.specifiedBy': 'Specified by',
+  'workbench.editors.graphql.explorer.deprecated': 'Deprecated: {reason}',
+  'workbench.editors.graphql.explorer.insert': 'Insert at cursor',
+  'workbench.editors.graphql.explorer.insertHint':
+    'Adds the field to the document at the cursor — its required arguments as variables, an empty selection set when it returns an object. One-way: the document stays yours.',
+  'workbench.editors.graphql.schema.source.introspection': 'GraphQL introspection',
+  'workbench.editors.graphql.schema.source.spec': 'Linked GraphQL spec',
+  'workbench.editors.graphql.schema.refresh': 'Refresh',
+  'workbench.editors.graphql.schema.fetchedAt': 'Introspected {when}',
+  'workbench.editors.graphql.schema.notIntrospected':
+    'Not introspected yet — the schema loads from the endpoint through this request’s auth, headers and settings.',
+  'workbench.editors.graphql.schema.introspectFailed': 'Introspection failed: {message}',
+  'workbench.editors.graphql.schema.specLabel': 'GraphQL spec',
+  'workbench.editors.graphql.schema.specPlaceholder': 'Select a GraphQL spec',
+  'workbench.editors.graphql.schema.specMissing': 'The linked spec no longer exists in this workspace.',
+  'workbench.editors.graphql.schema.summaryTypes': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} type', other: '{count} types' }),
+  'workbench.editors.graphql.schema.problems': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} schema problem', other: '{count} schema problems' }),
+  'workbench.editors.graphql.schema.importReadFailed': 'Reading the file failed: {message}',
+  'workbench.editors.graphql.schema.importFailed': 'Importing the schema failed',
+  'workbench.editors.graphql.schema.imported': 'Imported “{name}” as a GraphQL spec and linked it.',
+  'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} problem', other: '{count} problems' }),
 } as const satisfies Catalog;

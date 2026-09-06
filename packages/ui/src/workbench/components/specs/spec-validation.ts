@@ -11,7 +11,11 @@
  * set is a later phase). AsyncAPI runs its census parser: a document
  * that is not an AsyncAPI mapping at all is an error; census issues
  * (unresolved `$ref`s, unknown channels, malformed entries) surface as
- * warnings. Local only: no network, no external linters.
+ * warnings. GraphQL reads the root through the core schema model: a
+ * syntax error or malformed introspection JSON is an error, and so is
+ * every build problem (a type defined twice, an extension of nothing)
+ * — each with its `line:column` on an SDL root. Local only: no
+ * network, no external linters.
  *
  * `useSpecAnalysis` debounces the pure checks behind an idle delay so
  * typing never parses per keystroke (performance law); each idle tick
@@ -27,12 +31,15 @@
  */
 
 import { type AsyncApiIssue, AsyncApiParseError, parseAsyncApi } from '@openheaders/core/asyncapi';
+import { positionAt } from '@openheaders/core/graphql';
 import { OpenApiParseError, parseOpenApi, SCHEMA_ONLY_RESPONSES_DROP_PATH } from '@openheaders/core/import';
 import { ProtoParseError, parseProto } from '@openheaders/core/proto';
 import type { SpecFormat } from '@openheaders/core/types';
 import { useEffect, useRef, useState } from 'react';
 import type { LanguageId } from '../../languages/registry';
 import { buildAsyncApiOutline } from './asyncapi-outline';
+import { buildGraphqlOutline } from './graphql-outline';
+import { isGraphqlSdlFileName, readGraphqlSchemaSource } from './graphql-schema-source';
 import { buildProtoOutline } from './proto-outline';
 import { buildSpecOutline, type SpecOutlineNode, specOutlineGroups } from './spec-outline';
 
@@ -46,12 +53,14 @@ export interface SpecValidationResult {
 /** Monaco language for a spec source file, from its extension. */
 export function specFileLanguage(fileName: string): LanguageId {
   if (fileName.endsWith('.proto')) return 'protobuf';
+  if (isGraphqlSdlFileName(fileName)) return 'graphql';
   return fileName.endsWith('.json') ? 'json' : 'yaml';
 }
 
 /** Header badge label for a spec source file's syntax. */
 export function specFileSyntaxLabel(fileName: string): string {
   if (fileName.endsWith('.proto')) return 'PROTO';
+  if (isGraphqlSdlFileName(fileName)) return 'SDL';
   return fileName.endsWith('.json') ? 'JSON' : 'YAML';
 }
 
@@ -71,6 +80,17 @@ function asyncApiIssueLine(issue: AsyncApiIssue): string {
 }
 
 export function validateSpecSource(content: string, format: SpecFormat): SpecValidationResult {
+  if (format === 'graphql') {
+    const source = readGraphqlSchemaSource(content);
+    return {
+      errors: source.result.errors.map((problem) => {
+        if (source.kind !== 'sdl') return problem.message;
+        const at = positionAt(content, problem.start);
+        return `${at.line}:${at.column}: ${problem.message}`;
+      }),
+      warnings: [],
+    };
+  }
   if (format === 'asyncapi') {
     try {
       const census = parseAsyncApi(content);
@@ -109,6 +129,7 @@ export function validateSpecSource(content: string, format: SpecFormat): SpecVal
 /** Outline groups for the structure pane, format-dispatched. Null when
  *  the buffer does not parse (caller keeps the last good tree). */
 export function buildSpecOutlineGroups(content: string, format: SpecFormat): SpecOutlineNode[] | null {
+  if (format === 'graphql') return buildGraphqlOutline(content);
   if (format === 'asyncapi') return buildAsyncApiOutline(content);
   if (format === 'protobuf') return buildProtoOutline(content);
   const outline = buildSpecOutline(content);

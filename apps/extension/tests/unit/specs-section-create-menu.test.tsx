@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The sidebar SPECS header's `+` menu: every format row leads with the
- * badge of the request kind the format feeds (HTTP / gRPC / WS+MQTT),
+ * badge of the request kind the format feeds (HTTP / gRPC / WS+MQTT / GQL),
  * the same code badge the New Request menu teaches — the menu reads as
  * a mapping, not a glossary of spec formats.
  */
@@ -41,6 +41,6 @@ describe('specs section create menu', () => {
     const rows = (await screen.findAllByRole('menuitem')).map((el) =>
       (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
     );
-    expect(rows).toEqual(['HTTPOpenAPI 3.1', 'gRPCProtobuf 3', 'WS/MQTTAsyncAPI 3.0']);
+    expect(rows).toEqual(['HTTPOpenAPI 3.1', 'gRPCProtobuf 3', 'WS/MQTTAsyncAPI 3.0', 'GQLGraphQL']);
   });
 });

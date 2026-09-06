@@ -1,17 +1,19 @@
 /**
  * The Query editor's Monaco binding over `@openheaders/core/graphql` —
  * diagnostics (`parseDocument` + `validateDocument`) as model markers,
- * completion (`completionsAt`) as a completion provider. One grammar,
- * three surfaces: the same parser the executor picks operations with
- * drives the squigglies here.
+ * completion (`completionsAt`) as a completion provider, hover
+ * (`symbolAt`) as a hover provider. One grammar, four surfaces: the
+ * same parser the executor picks operations with drives the
+ * squigglies here.
  *
  * Providers register ONCE per Monaco instance for the `graphql`
  * language (the spec editor's registry idiom) and answer only for the
  * models an editor enrolled through {@link attachGraphqlEditorServices}
  * — the legacy body mode's `graphql` editor keeps its plain tokenizer
- * until it enrolls. The schema is per enrolled model: `null` until the
- * schema plane lands, which still yields fragment, variable and keyword
- * completion and the schema-free validation rules.
+ * until it enrolls. The schema is per enrolled model: `null` until a
+ * source resolves (fragment, variable and keyword completion and the
+ * schema-free validation rules still apply), the resolved model once
+ * the schema plane hands it over through `setSchema`.
  */
 
 import type { Monaco } from '@monaco-editor/react';
@@ -19,10 +21,15 @@ import {
   type CompletionItem,
   type CompletionKind,
   completionsAt,
+  type DocumentNode,
   type GraphqlError,
+  type GraphqlInputValue,
   type GraphqlSchema,
+  type HoverSymbol,
   parseDocument,
   positionAt,
+  printTypeRef,
+  symbolAt,
   type ValidationRule,
   validateDocument,
 } from '@openheaders/core/graphql';
@@ -32,6 +39,8 @@ export const GRAPHQL_MARKER_OWNER = 'openheaders-graphql';
 
 interface EnrolledModel {
   schema: GraphqlSchema | null;
+  /** Last parse — keyed by model version so hovers never re-parse an unchanged buffer. */
+  parsed: { version: number; document: DocumentNode | null } | null;
 }
 
 const enrolled = new Map<string, EnrolledModel>();
@@ -126,6 +135,73 @@ function provideCompletions(
   return { suggestions: result.items.map((item) => toCompletionItem(monacoApi, item, range)) };
 }
 
+function documentFor(entry: EnrolledModel, model: monaco.editor.ITextModel): DocumentNode | null {
+  const version = model.getVersionId();
+  if (entry.parsed !== null && entry.parsed.version === version) return entry.parsed.document;
+  const document = parseDocument(model.getValue()).document;
+  entry.parsed = { version, document };
+  return document;
+}
+
+function argumentLine(argument: GraphqlInputValue): string {
+  const defaultValue = argument.defaultValue === null ? '' : ` = ${argument.defaultValue}`;
+  return `${argument.name}: ${printTypeRef(argument.type)}${defaultValue}`;
+}
+
+function deprecationLine(reason: string | null): string[] {
+  return reason === null ? [] : [`**Deprecated**: ${reason}`];
+}
+
+/** The hover's markdown blocks for a symbol — signature first, prose after. */
+export function hoverMarkdown(symbol: HoverSymbol): string[] {
+  switch (symbol.kind) {
+    case 'field': {
+      const args = symbol.field.args.length === 0 ? '' : `(${symbol.field.args.map(argumentLine).join(', ')})`;
+      return [
+        `\`\`\`graphql\n${symbol.parentType}.${symbol.field.name}${args}: ${printTypeRef(symbol.field.type)}\n\`\`\``,
+        ...(symbol.field.description === null ? [] : [symbol.field.description]),
+        ...deprecationLine(symbol.field.deprecationReason),
+      ];
+    }
+    case 'argument':
+    case 'directive-argument':
+      return [
+        `\`\`\`graphql\n${argumentLine(symbol.argument)}\n\`\`\``,
+        ...(symbol.argument.description === null ? [] : [symbol.argument.description]),
+        ...deprecationLine(symbol.argument.deprecationReason),
+      ];
+    case 'directive': {
+      const args = symbol.directive.args.length === 0 ? '' : `(${symbol.directive.args.map(argumentLine).join(', ')})`;
+      return [
+        `\`\`\`graphql\n@${symbol.directive.name}${args} on ${symbol.directive.locations.join(' | ')}\n\`\`\``,
+        ...(symbol.directive.description === null ? [] : [symbol.directive.description]),
+      ];
+    }
+    case 'type':
+      return [
+        `\`\`\`graphql\n${symbol.type.kind.toLowerCase().replace('_object', '')} ${symbol.type.name}\n\`\`\``,
+        ...(symbol.type.description === null ? [] : [symbol.type.description]),
+      ];
+    case 'variable':
+      return [`\`\`\`graphql\n$${symbol.name}: ${symbol.type}\n\`\`\``];
+    case 'fragment':
+      return [`\`\`\`graphql\nfragment ${symbol.name} on ${symbol.typeCondition}\n\`\`\``];
+  }
+}
+
+function provideHover(model: monaco.editor.ITextModel, position: monaco.Position): monaco.languages.Hover | null {
+  const entry = enrolled.get(model.uri.toString());
+  if (entry === undefined) return null;
+  const document = documentFor(entry, model);
+  if (document === null) return null;
+  const symbol = symbolAt(document, model.getOffsetAt(position), entry.schema);
+  if (symbol === null) return null;
+  return {
+    range: rangeOf(model.getValue(), symbol.span.start, symbol.span.end),
+    contents: hoverMarkdown(symbol).map((value) => ({ value })),
+  };
+}
+
 function ensureProviders(monacoApi: Monaco): void {
   if (registeredApis.has(monacoApi)) return;
   registeredApis.add(monacoApi);
@@ -134,6 +210,10 @@ function ensureProviders(monacoApi: Monaco): void {
     provideCompletionItems: (model, position) => provideCompletions(monacoApi, model, position),
   };
   monacoApi.languages.registerCompletionItemProvider('graphql', completionProvider);
+  const hoverProvider: monaco.languages.HoverProvider = {
+    provideHover: (model, position) => provideHover(model, position),
+  };
+  monacoApi.languages.registerHoverProvider('graphql', hoverProvider);
 }
 
 /**
@@ -149,7 +229,7 @@ export function attachGraphqlEditorServices(
   const model = editor.getModel();
   if (model === null) return { dispose: () => {}, setSchema: () => {} };
   const uri = model.uri.toString();
-  enrolled.set(uri, { schema: null });
+  enrolled.set(uri, { schema: null, parsed: null });
   ensureProviders(monacoApi);
   refreshMarkers(monacoApi, model);
   const subscription = model.onDidChangeContent(() => refreshMarkers(monacoApi, model));

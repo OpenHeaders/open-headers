@@ -9,16 +9,23 @@
  * seed (gRPC epic Phase A) carries `index.proto` and parses through
  * the census parser with all four call shapes present. The asyncapi
  * seed (WebSocket epic Phase A) carries `index.yaml` and censuses
- * issue-free with every outline group populated.
+ * issue-free with every outline group populated. The graphql seed
+ * (GraphQL epic Phase D) carries `index.graphql` and builds a clean
+ * schema with all three roots; an imported schema file keeps its own
+ * name when its extension names the syntax, else the sniffed
+ * canonical root name.
  */
 
 import { parseAsyncApi } from '@openheaders/core/asyncapi';
+import { schemaFromSdl } from '@openheaders/core/graphql';
 import { parseOpenApi } from '@openheaders/core/import';
 import { parseProto } from '@openheaders/core/proto';
 import { SpecSchema } from '@openheaders/core/schemas';
 import {
   ASYNCAPI_30_SCAFFOLD,
   createBlankSpecSeed,
+  createImportedGraphqlSpecSeed,
+  GRAPHQL_SDL_SCAFFOLD,
   OPENAPI_31_SCAFFOLD,
   PROTO_SPEC_ROOT_FILE_NAME,
   PROTO3_SCAFFOLD,
@@ -86,6 +93,33 @@ describe('createBlankSpecSeed', () => {
     expect(census.operations.map((o) => o.action)).toEqual(['send', 'receive', 'send']);
     expect(census.componentMessages.length).toBeGreaterThan(0);
     expect(census.componentSchemas.length).toBeGreaterThan(0);
+  });
+
+  it('seeds a single root index.graphql carrying the SDL template, which builds clean with three roots', () => {
+    const seed = createBlankSpecSeed('My Schema', 'graphql');
+    expect(seed.format).toBe('graphql');
+    expect(seed.files).toHaveLength(1);
+    expect(seed.files[0].uid).toBe(seed.rootFileUid);
+    expect(seed.files[0].fileName).toBe('index.graphql');
+    expect(seed.files[0].content).toBe(GRAPHQL_SDL_SCAFFOLD);
+    const spec = { ...seed, schemaVersion: 5, uid: 'spec0004', path: 'specs/my-schema-spec0004' };
+    expect(() => v.parse(SpecSchema, spec)).not.toThrow();
+    const built = schemaFromSdl(GRAPHQL_SDL_SCAFFOLD);
+    expect(built.errors).toEqual([]);
+    expect(built.schema?.queryType).toBe('Query');
+    expect(built.schema?.mutationType).toBe('Mutation');
+    expect(built.schema?.subscriptionType).toBe('Subscription');
+  });
+
+  it('an imported schema file keeps a syntax-named file name, else takes the sniffed canonical root', () => {
+    const sdl = createImportedGraphqlSpecSeed('Notes', 'notes.graphqls', 'type Query { id: ID }');
+    expect(sdl.format).toBe('graphql');
+    expect(sdl.files[0].fileName).toBe('notes.graphqls');
+    const renamed = createImportedGraphqlSpecSeed('Notes', 'schema.txt', 'type Query { id: ID }');
+    expect(renamed.files[0].fileName).toBe('index.graphql');
+    const json = createImportedGraphqlSpecSeed('Notes', 'export.dump', '{ "data": { "__schema": {} } }');
+    expect(json.files[0].fileName).toBe('index.json');
+    expect(createImportedGraphqlSpecSeed('Notes', 'schema.json', '{}').files[0].fileName).toBe('schema.json');
   });
 
   it('proto template parses through the census parser with all four call shapes', () => {

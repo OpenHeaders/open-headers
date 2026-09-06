@@ -315,6 +315,9 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   // own modal, each family gated on its own servers in the census.
   const isProtobuf = spec.format === 'protobuf';
   const isAsyncApi = spec.format === 'asyncapi';
+  // A GraphQL schema feeds the GraphQL requests that link it; its
+  // Generate Collection bridge is Phase E's.
+  const isGraphql = spec.format === 'graphql';
   const generateAction =
     linkedCollections.length === 0 ? (
       <Button
@@ -395,7 +398,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
 
   const headerActions = (
     <>
-      {(!isAsyncApi || asyncApiGeneratable) && generateAction}
+      {!isGraphql && (!isAsyncApi || asyncApiGeneratable) && generateAction}
       <Tooltip
         title={t(outlineOpen ? 'workbench.editors.spec.outline.hide' : 'workbench.editors.spec.outline.show')}
         placement="bottom"
@@ -454,7 +457,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
             </Allotment.Pane>
           </Allotment>
         </div>
-        {isProtobuf ? (
+        {isGraphql ? null : isProtobuf ? (
           <GenerateProtoCollectionModal
             open={generateOpen}
             spec={spec}

@@ -35,7 +35,18 @@ export type SpecOutlineKind =
   | 'enum'
   // AsyncAPI documents (`asyncapi-outline.ts` derives these; server /
   // operation / message / schema kinds are shared).
-  | 'channel';
+  | 'channel'
+  // GraphQL schemas (`graphql-outline.ts` derives these; `enum` is
+  // shared with Protobuf).
+  | 'type'
+  | 'field'
+  | 'interface'
+  | 'union'
+  | 'enumValue'
+  | 'input'
+  | 'inputField'
+  | 'scalar'
+  | 'directive';
 
 export interface SpecOutlineNode {
   /** Stable tree key — kind-prefixed path so expansion survives recomputes. */
@@ -58,6 +69,10 @@ export interface SpecOutlineNode {
   action?: AsyncApiOperationAction;
   /** Wire protocol chip — AsyncAPI server nodes only. */
   protocol?: string;
+  /** `[String!]!` — the declared type beside a GraphQL field / input field row. */
+  typeText?: string;
+  /** The row is deprecated — GraphQL fields, arguments and enum values. */
+  deprecated?: boolean;
   children: SpecOutlineNode[];
 }
 

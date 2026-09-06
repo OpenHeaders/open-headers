@@ -5,15 +5,17 @@
  * operation — it writes `operationName`) + the Query button (the HTTP
  * Send ⇄ Stop morph and the ⌘/Ctrl+Enter chord verbatim; no method
  * select, the transport is fixed), then the seven tabs — Docs · Query
- * (the explorer scaffold + the Monaco `graphql` editor + the Variables
- * drawer) · Authorization (the HTTP mask + the ancestor pool: a GraphQL
- * request presents as `http` to the auth mask) · Headers (own rows +
- * the auto trio) · Schema (the source picker shell) · Scripts (the
- * frozen HTTP pair, labelled Before query / After response) · Settings
- * (the HTTP tab as kind `http` — the container's `http` slice on the
- * ancestor plane) — and the HTTP response pane BELOW (the HTTP editor's
- * split, never a drawer) with the GraphQL `errors[]` / `extensions`
- * strip tags.
+ * (the docs explorer over the resolved schema + the Monaco `graphql`
+ * editor fed the same schema + the Variables drawer) · Authorization
+ * (the HTTP mask + the ancestor pool: a GraphQL request presents as
+ * `http` to the auth mask) · Headers (own rows + the auto trio) ·
+ * Schema (the source select: introspection through the compile, a
+ * linked `graphql` Spec, an imported file) · Scripts (the frozen HTTP
+ * pair, labelled Before query / After response) · Settings (the HTTP
+ * tab as kind `http` — the container's `http` slice on the ancestor
+ * plane) — and the HTTP response pane BELOW (the HTTP editor's split,
+ * never a drawer) with the GraphQL `errors[]` / `extensions` strip
+ * tags.
  *
  * Query test-fires the LIVE draft: the executing host compiles the
  * entity ONCE into its HTTP send (`executeGraphqlRequest`), so the
@@ -43,6 +45,7 @@ import {
   applyResponseExampleCreate,
   nextExampleName,
 } from '@openheaders/ui/shared/sync/response-example-write-client';
+import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { Allotment } from 'allotment';
 import { App, Button, ConfigProvider, Input, Select, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -71,9 +74,11 @@ import {
   inheritedSettingsViewFor,
   NO_INHERITED_SETTINGS,
 } from '../shared/inherited-settings/inherited-settings';
+import { createImportedGraphqlSpecSeed } from '../specs/spec-scaffold';
 import {
   buildGraphqlRequestUpdates,
   canonicalGraphqlRequestProjection,
+  draftEntity,
   draftFromGraphqlRequest,
   emptyGraphqlDraft,
   type GraphqlDraft,
@@ -82,6 +87,7 @@ import {
 import GraphqlHeadersTab from './GraphqlHeadersTab';
 import GraphqlQueryTab from './GraphqlQueryTab';
 import GraphqlSchemaTab from './GraphqlSchemaTab';
+import { useGraphqlSchema } from './use-graphql-schema';
 
 const { Text } = Typography;
 
@@ -138,36 +144,6 @@ function withSettings(draft: GraphqlDraft, next: RequestSettingsDraft): GraphqlD
   };
 }
 
-/**
- * The full-fidelity entity the executor channel consumes, off the LIVE
- * draft — Query test-fires without persisting, exactly like the HTTP
- * editor's Send. The identity is the saved entity's (the SAME uid +
- * path, so the ancestor chain resolves off the tree unchanged); an
- * absent leaf stays absent (the save projection's `undefined` never
- * lands on the wire shape).
- */
-function draftEntity(entity: GraphqlRequestEntity, draft: GraphqlDraft): GraphqlRequestEntity {
-  const updates = buildGraphqlRequestUpdates(draft);
-  return {
-    schemaVersion: entity.schemaVersion,
-    uid: entity.uid,
-    path: entity.path,
-    ...(entity.pathSegment !== undefined ? { pathSegment: entity.pathSegment } : {}),
-    name: entity.name,
-    ...(updates.description !== '' ? { description: updates.description } : {}),
-    url: updates.url,
-    query: updates.query,
-    ...(updates.variables !== undefined ? { variables: updates.variables } : {}),
-    ...(updates.operationName !== undefined ? { operationName: updates.operationName } : {}),
-    headers: updates.headers,
-    auth: updates.auth,
-    ...(updates.specLink !== undefined ? { specLink: updates.specLink } : {}),
-    ...graphqlSettingsSlice(updates),
-    ...(updates.preRequestScript !== undefined ? { preRequestScript: updates.preRequestScript } : {}),
-    ...(updates.postResponseScript !== undefined ? { postResponseScript: updates.postResponseScript } : {}),
-  };
-}
-
 const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   graphqlRequestUid,
   workspaceId,
@@ -220,6 +196,37 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     [ancestry, onOpenContainerSettings],
   );
   const [activeTab, setActiveTab] = useState('query');
+
+  // ── Schema plane ─────────────────────────────────────────────────
+  // The resolved schema feeds the explorer, the editor services and
+  // the variables validation; introspection rides the compile.
+  const schemaState = useGraphqlSchema({ entity, draft, workspaceId, executeGraphql });
+  const schemaFileInputRef = useRef<HTMLInputElement>(null);
+  const handleImportSchema = useCallback(() => schemaFileInputRef.current?.click(), []);
+  // An SDL / introspection file lands as a `graphql` Spec (the synced
+  // form) and links here — the gRPC editor's .proto import recipe.
+  const handleSchemaFilePicked = useCallback(
+    async (file: File) => {
+      if (!workspaceId) return;
+      const text = await file.text().catch((err: Error) => err);
+      if (text instanceof Error) {
+        toast.error(t('workbench.editors.graphql.schema.importReadFailed', { message: text.message }));
+        return;
+      }
+      const name = file.name.replace(/\.(graphql|gql|graphqls|json)$/i, '') || file.name;
+      const result = await applySpecCreate(
+        { spec: createImportedGraphqlSpecSeed(name, file.name, text) },
+        { workspaceId, surfaceId: 'workbench' },
+      );
+      if (!result.ok) {
+        toast.error(t('workbench.editors.graphql.schema.importFailed'));
+        return;
+      }
+      setDraft((d) => ({ ...d, specLink: { specUid: result.spec.uid } }));
+      toast.success(t('workbench.editors.graphql.schema.imported', { name }));
+    },
+    [workspaceId, toast, t],
+  );
 
   // ONE parse of the document per keystroke — the Query tab's prettify
   // / generate gestures, the operation select and the send all read it.
@@ -507,6 +514,18 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
         onKeyDownCapture={handleEditorKeyDown}
       >
         <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
+        <input
+          ref={schemaFileInputRef}
+          type="file"
+          accept=".graphql,.gql,.graphqls,.json"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) void handleSchemaFilePicked(file);
+          }}
+          data-testid="graphql-schema-file-input"
+        />
         {/* Editor / response split — the HTTP editor's layout: the
             response pane is always attached below (or beside), the
             orientation is the shared persisted preference, and
@@ -553,7 +572,21 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                         onChange={(description) => setDraft((d) => ({ ...d, description }))}
                       />
                     )}
-                    {activeTab === 'query' && <GraphqlQueryTab draft={draft} setDraft={setDraft} parsed={parsed} />}
+                    {activeTab === 'query' && (
+                      <GraphqlQueryTab
+                        draft={draft}
+                        setDraft={setDraft}
+                        parsed={parsed}
+                        schema={schemaState.schema}
+                        sources={{
+                          canIntrospect: draft.url.trim() !== '',
+                          introspecting: schemaState.introspection.kind === 'loading',
+                          onIntrospect: () => void schemaState.introspect(),
+                          onUseSpec: () => setActiveTab('schema'),
+                          onImportSchema: handleImportSchema,
+                        }}
+                      />
+                    )}
                     {activeTab === 'authorization' && (
                       <AuthorizationTab
                         auth={draft.auth}
@@ -572,7 +605,17 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                         inheritedFrom={inheritedAuth}
                       />
                     )}
-                    {activeTab === 'schema' && <GraphqlSchemaTab />}
+                    {activeTab === 'schema' && (
+                      <GraphqlSchemaTab
+                        state={schemaState}
+                        specLink={draft.specLink}
+                        hasUrl={draft.url.trim() !== ''}
+                        onSpecLinkChange={(specUid) =>
+                          setDraft((d) => ({ ...d, specLink: specUid === undefined ? undefined : { specUid } }))
+                        }
+                        onImportSchema={handleImportSchema}
+                      />
+                    )}
                     {activeTab === 'scripts' && (
                       <ScriptsTab
                         scope="request"

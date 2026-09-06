@@ -1,7 +1,7 @@
 /**
  * SpecsSection — the `api-requests` view's SPECS group, listing the
  * workspace's API specification documents. Header `+` opens a format
- * menu (OpenAPI 3.1 / Protobuf 3 / AsyncAPI 3.0, each behind the badge of
+ * menu (OpenAPI 3.1 / Protobuf 3 / AsyncAPI 3.0 / GraphQL, each behind the badge of
  * the request kind it feeds) and creates a new spec from that
  * format's blank scaffold; the body lists the spec nodes. Owns only
  * its own `theme.useToken()` read; the node list, the create action,
@@ -20,7 +20,7 @@ import { SectionHeader } from './SectionHeader';
 import type { TreeNode } from './types';
 import type { SidebarNodeRenderers } from './useSidebarNodeRenderers';
 
-const CREATE_FORMATS: readonly SpecCreateFormat[] = ['openapi-3.1', 'protobuf', 'asyncapi'];
+const CREATE_FORMATS: readonly SpecCreateFormat[] = ['openapi-3.1', 'protobuf', 'asyncapi', 'graphql'];
 
 /** The request kinds each format feeds — the badge the New Request
  *  menu teaches, so the create menu reads as a mapping, not a glossary.
@@ -29,6 +29,7 @@ const CREATE_FORMAT_KINDS: Record<SpecCreateFormat, string> = {
   'openapi-3.1': 'HTTP',
   protobuf: 'gRPC',
   asyncapi: 'WS/MQTT',
+  graphql: 'GQL',
 };
 
 interface SpecsSectionProps {

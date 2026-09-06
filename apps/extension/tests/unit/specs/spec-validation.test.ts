@@ -5,11 +5,13 @@
  * are warnings, the blank scaffolds validate clean (vendor parity:
  * 0 errors / 0 warnings on creation), file syntax derives from the
  * extension (invariant #15), and validation dispatches on the spec's
- * format — protobuf and asyncapi sources run their census parsers.
+ * format — protobuf and asyncapi sources run their census parsers,
+ * graphql roots the core schema model (SDL or introspection JSON).
  */
 
 import {
   ASYNCAPI_30_SCAFFOLD,
+  GRAPHQL_SDL_SCAFFOLD,
   OPENAPI_31_SCAFFOLD,
   PROTO3_SCAFFOLD,
 } from '@openheaders/ui/workbench/components/specs/spec-scaffold';
@@ -67,6 +69,33 @@ describe('validateSpecSource', () => {
     expect(result.warnings[0]).toContain('paths');
   });
 
+  it('graphql scaffold validates clean through the schema model', () => {
+    const result = validateSpecSource(GRAPHQL_SDL_SCAFFOLD, 'graphql');
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('reports a graphql syntax error and a build problem with their positions', () => {
+    const syntax = validateSpecSource('type Query {', 'graphql');
+    expect(syntax.errors).toHaveLength(1);
+    expect(syntax.errors[0]).toMatch(/^1:\d+: /);
+    const duplicate = validateSpecSource('type A { id: ID }\ntype A { id: ID }', 'graphql');
+    expect(duplicate.errors).toEqual(['2:6: Type `A` is defined more than once.']);
+  });
+
+  it('reads a graphql introspection root and reports malformed JSON', () => {
+    const good = validateSpecSource(
+      JSON.stringify({ data: { __schema: { queryType: { name: 'Query' }, types: [], directives: [] } } }),
+      'graphql',
+    );
+    expect(good.errors).toEqual([]);
+    const bad = validateSpecSource('{ "data": ', 'graphql');
+    expect(bad.errors).toHaveLength(1);
+    expect(bad.errors[0]).toContain('Not valid JSON');
+    const noSchema = validateSpecSource('{ "data": {} }', 'graphql');
+    expect(noSchema.errors).toEqual(['Introspection: no `__schema` object in the response.']);
+  });
+
   it('protobuf scaffold validates clean through the census parser', () => {
     const result = validateSpecSource(PROTO3_SCAFFOLD, 'protobuf');
     expect(result.errors).toEqual([]);
@@ -110,8 +139,11 @@ describe('spec file syntax derivation', () => {
     expect(specFileLanguage('index.yml')).toBe('yaml');
     expect(specFileLanguage('index.json')).toBe('json');
     expect(specFileLanguage('index.proto')).toBe('protobuf');
+    expect(specFileLanguage('index.graphql')).toBe('graphql');
+    expect(specFileLanguage('schema.gql')).toBe('graphql');
     expect(specFileSyntaxLabel('index.yaml')).toBe('YAML');
     expect(specFileSyntaxLabel('index.json')).toBe('JSON');
     expect(specFileSyntaxLabel('index.proto')).toBe('PROTO');
+    expect(specFileSyntaxLabel('index.graphql')).toBe('SDL');
   });
 });

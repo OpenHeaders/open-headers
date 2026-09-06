@@ -26,6 +26,7 @@ export {
 } from './compile';
 export { type CompletionItem, type CompletionKind, type CompletionResult, completionsAt } from './complete';
 export { exampleForType, exampleVariables, type JsonValue, valueToJson } from './example';
+export { type HoverSymbol, symbolAt } from './hover';
 export {
   dedentBlockString,
   Lexer,
@@ -85,3 +86,4 @@ export {
 } from './schema';
 export * from './types';
 export { type GraphqlDiagnostic, type ValidationRule, validateDocument } from './validate';
+export { type VariablesDiagnostic, validateVariables } from './variables';

@@ -12,4 +12,5 @@ export const SPEC_FORMAT_LABELS: Record<SpecFormat, string> = {
   'openapi-3.1': 'OpenAPI 3.1',
   protobuf: 'Protobuf 3',
   asyncapi: 'AsyncAPI 3.0',
+  graphql: 'GraphQL',
 };

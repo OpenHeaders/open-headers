@@ -3,7 +3,9 @@
  * Servers / Tags / Paths / Components / Security / Files for OpenAPI,
  * Package / Imports / Services / Messages / Enums / Files for
  * Protobuf, Servers / Channels / Operations / Messages / Components /
- * Files for AsyncAPI; left of the code editor).
+ * Files for AsyncAPI, Query / Mutation / Subscription / Types /
+ * Interfaces / Unions / Enums / Inputs / Scalars / Directives / Files
+ * for GraphQL; left of the code editor).
  *
  * Pure presentation over the derived outline groups (parse-on-idle
  * result — never stored, never recomputed here) plus the entity's file
@@ -87,6 +89,15 @@ const GROUP_LABEL_KEYS: Record<string, MessageKey> = {
   enums: 'workbench.editors.spec.outline.groups.enums',
   channels: 'workbench.editors.spec.outline.groups.channels',
   operations: 'workbench.editors.spec.outline.groups.operations',
+  query: 'workbench.editors.spec.outline.groups.query',
+  mutation: 'workbench.editors.spec.outline.groups.mutation',
+  subscription: 'workbench.editors.spec.outline.groups.subscription',
+  types: 'workbench.editors.spec.outline.groups.types',
+  interfaces: 'workbench.editors.spec.outline.groups.interfaces',
+  unions: 'workbench.editors.spec.outline.groups.unions',
+  inputs: 'workbench.editors.spec.outline.groups.inputs',
+  scalars: 'workbench.editors.spec.outline.groups.scalars',
+  directives: 'workbench.editors.spec.outline.groups.directives',
   files: 'workbench.editors.spec.outline.groups.files',
 };
 
@@ -278,7 +289,34 @@ function entryTitle(node: SpecOutlineNode, wiring: AffordanceWiring): React.Reac
         minWidth: 0,
       }}
     >
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.label}</span>
+      <span
+        style={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          // A deprecated GraphQL row reads struck through, the editor's
+          // completion-list treatment.
+          ...(node.deprecated === true ? { textDecoration: 'line-through', opacity: 0.7 } : {}),
+        }}
+        {...(node.deprecated === true ? { 'data-testid': `spec-outline-deprecated-${node.label}` } : {})}
+      >
+        {node.label}
+      </span>
+      {node.typeText !== undefined && (
+        <span
+          style={{
+            fontSize: 10,
+            fontFamily: "'SF Mono', monospace",
+            color: 'var(--ant-color-text-tertiary, #999)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flexShrink: 1,
+          }}
+        >
+          {node.typeText}
+        </span>
+      )}
       {node.kind === 'path' &&
         wiring.canInsert &&
         addButton(

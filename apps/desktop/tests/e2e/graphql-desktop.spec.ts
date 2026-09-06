@@ -22,6 +22,12 @@
  *   G5  Save Response: the exchange freezes into an HTTP ResponseExample
  *       marked for the GraphQL parent — viewer tab, sidebar leaf under
  *       the GraphQL row.
+ *   G6  introspection through the compile: the explorer CTA runs
+ *       INTROSPECTION_QUERY on the node host's route; the docs
+ *       explorer lists Query.echo with its description, a deprecated
+ *       field names its reason, the Schema tab reports the schema.
+ *   G7  schema-fed completion: the suggest widget offers the probe's
+ *       root fields inside a fresh selection set.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle (extension `graphql-workbench.spec.ts`), the ⌘/Ctrl+Enter
@@ -300,4 +306,49 @@ test('G5 — Save Response mints the example under the GraphQL leaf and opens it
     await workbench.locator('[data-item-id="graphql-request-e2egqd01"]').click();
   }
   await leaf.waitFor({ state: 'visible', timeout: 5_000 });
+});
+
+// ── G6: introspection through the compile ───────────────────────────
+
+test('G6 — the explorer introspects through the route: fields with descriptions, deprecations, the Schema tab', async () => {
+  await openGraphqlRequest('e2egqd02');
+  await workbench.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  await workbench.getByTestId('graphql-explorer-introspect').filter({ visible: true }).first().click();
+  const explorer = workbench.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await explorer.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(explorer.getByTestId('graphql-explorer-field-Query.echo')).toBeVisible();
+  await explorer.getByTestId('graphql-explorer-field-Query.echo').getByRole('button').first().click();
+  await expect(explorer.getByText('Echoes `text` back — the variables round trip.')).toBeVisible();
+  await explorer.getByTestId('graphql-explorer-back').click();
+  await explorer.getByTestId('graphql-explorer-search').fill('me');
+  await explorer.getByTestId('graphql-explorer-field-Query.me').getByRole('button').first().click();
+  await expect(explorer.getByTestId('graphql-explorer-deprecated')).toContainText('Use `viewer`.');
+  await workbench.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
+  await expect(workbench.getByTestId('graphql-schema-summary').filter({ visible: true }).first()).toContainText(
+    'Mutation',
+  );
+  await expect(workbench.getByTestId('graphql-schema-introspect').filter({ visible: true }).first()).toHaveText(
+    'Refresh',
+  );
+});
+
+// ── G7: schema-fed completion ───────────────────────────────────────
+
+test('G7 — the suggest widget offers the root fields once the schema resolved', async () => {
+  await workbench.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  const editor = workbench
+    .getByTestId('graphql-query-tab')
+    .filter({ visible: true })
+    .first()
+    .locator('.monaco-editor')
+    .first();
+  await editor.locator('.view-lines').click();
+  await workbench.keyboard.press('End');
+  await workbench.keyboard.press('Enter');
+  await workbench.keyboard.type('{ ec');
+  await workbench.keyboard.press('Control+Space');
+  const suggest = workbench.locator('.suggest-widget').filter({ visible: true }).first();
+  await suggest.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(suggest.locator('.monaco-list-row').filter({ hasText: 'echo' }).first()).toBeVisible();
+  await workbench.keyboard.press('Escape');
 });

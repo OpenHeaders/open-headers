@@ -11,12 +11,21 @@
  * spec. The AsyncAPI template is a 3.0 live-events sample covering
  * servers (protocol chips) / channels / send+receive operations /
  * component messages and schemas with `$ref`s, so every outline group
- * demonstrates itself. Creation only ever mints the single root file;
- * the schema's multi-file shape is exercised by future phases.
+ * demonstrates itself. The GraphQL template is an SDL notes sample
+ * covering every outline group — the three root types, object /
+ * interface / union / enum / input / scalar types and a directive.
+ * Creation only ever mints the single root file; the schema's
+ * multi-file shape is exercised by future phases.
  */
 
 import type { Spec, SpecFormat } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import {
+  GRAPHQL_INTROSPECTION_ROOT_FILE_NAME,
+  GRAPHQL_SDL_ROOT_FILE_NAME,
+  graphqlSchemaSourceKind,
+  isGraphqlSchemaFileName,
+} from './graphql-schema-source';
 
 export const SPEC_ROOT_FILE_NAME = 'index.yaml';
 export const JSON_SPEC_ROOT_FILE_NAME = 'index.json';
@@ -251,8 +260,97 @@ components:
           type: object
 `;
 
+export const GRAPHQL_SDL_SCAFFOLD = `"""
+Sample notes API — every construct the GraphQL client's explorer,
+completion and validation read.
+"""
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+"""An ISO-8601 date-time string."""
+scalar DateTime
+
+"""Anything with a globally unique id."""
+interface Node {
+  id: ID!
+}
+
+"""A person with an account."""
+type User implements Node {
+  id: ID!
+  name: String!
+  email: String!
+  role: Role!
+  """Notes the user authored, newest first."""
+  notes(first: Int = 10, after: String): [Note!]!
+}
+
+"""A note attached to a request or folder."""
+type Note implements Node {
+  id: ID!
+  title: String!
+  body: String
+  tags: [String!]!
+  author: User!
+  createdAt: DateTime!
+}
+
+"""A user's role inside a workspace."""
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+"""Anything a search can find."""
+union SearchResult = User | Note
+
+"""The fields a new note carries."""
+input NoteInput {
+  title: String!
+  body: String
+  tags: [String!] = []
+  authorId: ID!
+}
+
+type Query {
+  """The signed-in user, or null when anonymous."""
+  viewer: User
+  """One user by id."""
+  user(id: ID!): User
+  """Full-text search across users and notes."""
+  search(term: String!, limit: Int = 5): [SearchResult!]!
+}
+
+type Mutation {
+  """Creates a note."""
+  createNote(input: NoteInput!): Note!
+  """Deletes a note; true when it existed."""
+  deleteNote(id: ID!): Boolean!
+}
+
+type Subscription {
+  """Fires for every note created."""
+  noteCreated: Note!
+}
+
+"""Marks a field as expensive to resolve."""
+directive @cost(weight: Int! = 1) on FIELD_DEFINITION
+`;
+
 /** The formats the sidebar's create menu offers. */
-export type SpecCreateFormat = Extract<SpecFormat, 'openapi-3.1' | 'protobuf' | 'asyncapi'>;
+export type SpecCreateFormat = Extract<SpecFormat, 'openapi-3.1' | 'protobuf' | 'asyncapi' | 'graphql'>;
+
+/** Each creatable format's blank root file. */
+const BLANK_ROOTS: Record<SpecCreateFormat, { fileName: string; content: string }> = {
+  'openapi-3.1': { fileName: SPEC_ROOT_FILE_NAME, content: OPENAPI_31_SCAFFOLD },
+  protobuf: { fileName: PROTO_SPEC_ROOT_FILE_NAME, content: PROTO3_SCAFFOLD },
+  asyncapi: { fileName: SPEC_ROOT_FILE_NAME, content: ASYNCAPI_30_SCAFFOLD },
+  graphql: { fileName: GRAPHQL_SDL_ROOT_FILE_NAME, content: GRAPHQL_SDL_SCAFFOLD },
+};
 
 /**
  * Seed for `applySpecCreate`: a named spec of the chosen format
@@ -264,9 +362,7 @@ export function createBlankSpecSeed(
   format: SpecCreateFormat = 'openapi-3.1',
 ): Omit<Spec, 'uid' | 'path' | 'schemaVersion'> {
   const rootFileUid = generateUid();
-  const fileName = format === 'protobuf' ? PROTO_SPEC_ROOT_FILE_NAME : SPEC_ROOT_FILE_NAME;
-  const content =
-    format === 'protobuf' ? PROTO3_SCAFFOLD : format === 'asyncapi' ? ASYNCAPI_30_SCAFFOLD : OPENAPI_31_SCAFFOLD;
+  const { fileName, content } = BLANK_ROOTS[format];
   return {
     name,
     format,
@@ -308,6 +404,32 @@ export function createImportedProtoSpecSeed(
     format: 'protobuf',
     rootFileUid,
     files: [{ uid: rootFileUid, fileName, content }],
+  };
+}
+
+/**
+ * Seed for `applySpecCreate` from an imported GraphQL schema file (the
+ * GraphQL editor's Schema tab / explorer import action). SDL or an
+ * introspection result, verbatim as the single root file; the file
+ * keeps its own name when its extension names the syntax, else the
+ * root takes the canonical name for the syntax the text sniffs as —
+ * the extension picks the parser (invariant #15).
+ */
+export function createImportedGraphqlSpecSeed(
+  name: string,
+  fileName: string,
+  content: string,
+): Omit<Spec, 'uid' | 'path' | 'schemaVersion'> {
+  const rootFileUid = generateUid();
+  const canonical =
+    graphqlSchemaSourceKind(content) === 'introspection'
+      ? GRAPHQL_INTROSPECTION_ROOT_FILE_NAME
+      : GRAPHQL_SDL_ROOT_FILE_NAME;
+  return {
+    name,
+    format: 'graphql',
+    rootFileUid,
+    files: [{ uid: rootFileUid, fileName: isGraphqlSchemaFileName(fileName) ? fileName : canonical, content }],
   };
 }
 
