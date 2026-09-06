@@ -768,11 +768,11 @@ test('E17 — descriptions toggle and persist, the root sections fold, the pane 
   await explorer.getByTestId('graphql-explorer-descriptions').click();
   await expect(explorer.getByTestId('graphql-builder-description-query.echo')).toBeVisible();
 
-  // The Mutation section folds and unfolds.
+  // The Mutation section folds on its caret and unfolds on the row block.
   await expect(check('mutation.createNote')).toBeVisible();
   await explorer.getByTestId('graphql-explorer-root-toggle-mutation').click();
   await expect(check('mutation.createNote')).toHaveCount(0);
-  await explorer.getByTestId('graphql-explorer-root-toggle-mutation').click();
+  await explorer.getByTestId('graphql-explorer-root-row-mutation').click();
   await expect(check('mutation.createNote')).toBeVisible();
 
   // The pane folds to its strip and comes back. The hidden pane is read

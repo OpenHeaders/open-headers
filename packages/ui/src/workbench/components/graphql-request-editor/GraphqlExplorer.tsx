@@ -290,14 +290,14 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
   const linkStyle: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 12 };
   const gutterStyle: React.CSSProperties = { width: 16, minWidth: 16, height: 16, padding: 0 };
 
-  const typeLink = (name: string, muted = false): React.ReactNode => {
+  const typeLink = (name: string): React.ReactNode => {
     const type = schema.types.get(name);
     if (type === undefined || !isExplorable(type)) return <span style={monoStyle}>{name}</span>;
     return (
       <Button
         type="link"
         size="small"
-        style={{ ...linkStyle, ...monoStyle, ...(muted ? { color: token.colorTextSecondary } : {}) }}
+        style={{ ...linkStyle, ...monoStyle }}
         onClick={() => push({ kind: 'type', name })}
         data-testid={`graphql-explorer-type-${name}`}
       >
@@ -657,7 +657,14 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
           const open = !collapsedRoots.has(operationType);
           return (
             <div key={operationType} data-testid={`graphql-explorer-root-${operationType}`}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+              <div
+                className="graphql-explorer-row"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}
+                onClick={(event) => {
+                  if (isRowClick(event)) toggleRoot(operationType);
+                }}
+                data-testid={`graphql-explorer-root-row-${operationType}`}
+              >
                 <Button
                   size="small"
                   type="text"
@@ -680,7 +687,6 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
                 >
                   {operationType}
                 </Button>
-                {typeLink(name, true)}
               </div>
               {open && type.fields.map((field) => builderRow(name, field, { operationType, path: [field.name] }))}
             </div>
