@@ -80,6 +80,7 @@ export const workbenchImportExport = {
   'workbench.importExport.hub.kindInsomnia': 'Insomnia 导出',
   'workbench.importExport.hub.kindBrunoSuffix': '文件或集合文件夹',
   'workbench.importExport.hub.kindOpenapi': 'OpenAPI 3.x 文档',
+  'workbench.importExport.hub.kindGraphqlSchema': 'GraphQL 模式（SDL 或内省 JSON）',
   'workbench.importExport.hub.kindWorkspaceSuffix': '工作区导出',
   'workbench.importExport.hub.autoDetected': '格式会被自动识别。',
   'workbench.importExport.hub.browseFiles': '浏览文件…',
@@ -339,6 +340,9 @@ export const workbenchImportExport = {
   'workbench.importExport.sectioned.titleOpenapi': '从 OpenAPI 导入',
   'workbench.importExport.sectioned.blurbOpenapi':
     '导入 OpenAPI 3.x 文档（JSON 或 YAML）。操作成为 {{baseUrl}} 下的请求，标签成为文件夹，参数和请求体被保留（仅有 schema 的请求体会得到占位脚手架），安全方案映射为身份验证——导入后填写 {{clientId}}/{{clientSecret}} 占位符。文档也可以作为可编辑的规范保留，并链接到生成的集合。',
+  'workbench.importExport.sectioned.titleGraphqlSchema': '导入 GRAPHQL 模式',
+  'workbench.importExport.sectioned.blurbGraphqlSchema':
+    '导入 GraphQL 模式——SDL 文本或内省结果。它会成为一个可编辑的规范，供 GraphQL 请求作为模式来源链接；之后打开它即可从根字段生成一个请求集合。',
   'workbench.importExport.sectioned.tooltipNothingParsed': '尚未解析出任何内容',
   'workbench.importExport.sectioned.tooltipNeedsNames': '每个集合都需要名称',
   'workbench.importExport.sectioned.cantReadImport': '无法读取此导入',

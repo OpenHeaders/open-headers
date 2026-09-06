@@ -32,6 +32,33 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.stopTooltip': 'Stop the request and keep what has arrived',
   'workbench.editors.request.menu.copyAsCurl': 'Copy as cURL',
   'workbench.editors.request.menu.copyAsFetch': 'Copy as fetch',
+  'workbench.editors.request.convert.menu': 'Convert to GraphQL request',
+  'workbench.editors.request.convert.title': 'CONVERT TO GRAPHQL REQUEST',
+  'workbench.editors.request.convert.body':
+    '"{name}" becomes a GraphQL request in the same place — headers, auth, scripts, settings and docs carry over, and the HTTP request is removed.',
+  'workbench.editors.request.convert.noteParamsFolded': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} query parameter is folded into the URL.',
+      other: '{count} query parameters are folded into the URL.',
+    }),
+  'workbench.editors.request.convert.noteDisabledParamsDropped': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} disabled query parameter is dropped — a GraphQL request keeps none.',
+      other: '{count} disabled query parameters are dropped — a GraphQL request keeps none.',
+    }),
+  'workbench.editors.request.convert.noteMethodChanged':
+    'The {method} method becomes POST — every GraphQL operation posts.',
+  'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} saved response moves under the new request.',
+      other: '{count} saved responses move under the new request.',
+    }),
+  'workbench.editors.request.convert.ok': 'Convert',
+  'workbench.editors.request.convert.notConvertible': 'Only a request whose body is GraphQL can be converted.',
+  'workbench.editors.request.convert.saveFirst': 'Save the request before converting it.',
+  'workbench.editors.request.convert.failed': 'Could not convert the request.',
+  'workbench.editors.request.convert.failedDetail': 'Could not convert the request: {message}',
+  'workbench.editors.request.convert.done': 'Converted "{name}" to a GraphQL request.',
   'workbench.editors.request.schemeHint':
     'Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in.',
 

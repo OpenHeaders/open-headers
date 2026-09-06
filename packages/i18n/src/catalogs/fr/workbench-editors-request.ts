@@ -48,6 +48,37 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.stopTooltip': 'Arrêter la requête et conserver ce qui est arrivé',
   'workbench.editors.request.menu.copyAsCurl': 'Copier en cURL',
   'workbench.editors.request.menu.copyAsFetch': 'Copier en fetch',
+  'workbench.editors.request.convert.menu': 'Convertir en requête GraphQL',
+  'workbench.editors.request.convert.title': 'CONVERTIR EN REQUÊTE GRAPHQL',
+  'workbench.editors.request.convert.body':
+    '« {name} » devient une requête GraphQL au même endroit — en-têtes, authentification, scripts, paramètres et docs sont conservés, et la requête HTTP est supprimée.',
+  'workbench.editors.request.convert.noteParamsFolded': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} paramètre de requête est replié dans l’URL.',
+      many: '{count} paramètres de requête sont repliés dans l’URL.',
+      other: '{count} paramètres de requête sont repliés dans l’URL.',
+    }),
+  'workbench.editors.request.convert.noteDisabledParamsDropped': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} paramètre de requête désactivé est abandonné — une requête GraphQL n’en conserve aucun.',
+      many: '{count} paramètres de requête désactivés sont abandonnés — une requête GraphQL n’en conserve aucun.',
+      other: '{count} paramètres de requête désactivés sont abandonnés — une requête GraphQL n’en conserve aucun.',
+    }),
+  'workbench.editors.request.convert.noteMethodChanged':
+    'La méthode {method} devient POST — chaque opération GraphQL est un POST.',
+  'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} réponse enregistrée passe sous la nouvelle requête.',
+      many: '{count} réponses enregistrées passent sous la nouvelle requête.',
+      other: '{count} réponses enregistrées passent sous la nouvelle requête.',
+    }),
+  'workbench.editors.request.convert.ok': 'Convertir',
+  'workbench.editors.request.convert.notConvertible':
+    'Seule une requête dont le corps est GraphQL peut être convertie.',
+  'workbench.editors.request.convert.saveFirst': 'Enregistrez la requête avant de la convertir.',
+  'workbench.editors.request.convert.failed': 'Impossible de convertir la requête.',
+  'workbench.editors.request.convert.failedDetail': 'Impossible de convertir la requête : {message}',
+  'workbench.editors.request.convert.done': '« {name} » convertie en requête GraphQL.',
   'workbench.editors.request.schemeHint':
     "Votre URL n'a pas de schéma. Elle sera envoyée en https:// — cliquez sur la barre d'URL et appuyez sur " +
     'Tab ou Entrée pour la fixer.',

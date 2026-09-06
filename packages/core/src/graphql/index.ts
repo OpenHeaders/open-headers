@@ -19,12 +19,21 @@ export {
 } from './census';
 export {
   type CompileOptions,
+  compileGraphqlRequest,
   type GraphqlRequestLike,
   type GraphqlRequestSettings,
   type HttpSettingKey,
   toHttpRequest,
 } from './compile';
 export { type CompletionItem, type CompletionKind, type CompletionResult, completionsAt } from './complete';
+export {
+  type ConvertNote,
+  fromHttpRequest,
+  type GraphqlRequestContent,
+  type HttpRequestLike,
+  type HttpToGraphqlResult,
+  isConvertibleToGraphql,
+} from './convert';
 export { exampleForType, exampleVariables, type JsonValue, valueToJson } from './example';
 export { type HoverSymbol, symbolAt } from './hover';
 export {
@@ -84,6 +93,7 @@ export {
   schemaToSdl,
   typeRefOf,
 } from './schema';
+export { operationNameFor, type SynthesizedOperation, type SynthesizeOptions, synthesizeOperation } from './synthesize';
 export * from './types';
 export { type GraphqlDiagnostic, type ValidationRule, validateDocument } from './validate';
 export { type VariablesDiagnostic, validateVariables } from './variables';

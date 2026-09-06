@@ -200,6 +200,7 @@ function makeRequestsValue(
     executeWebSocket: vi.fn(async () => null),
     executeMqtt: vi.fn(async () => null),
     executeGraphql: vi.fn(async () => null),
+    convertRequestToGraphql: vi.fn(async () => null),
     ...overrides,
   };
 }

@@ -69,6 +69,12 @@ export interface TreeNode {
    */
   onCopyAsCurl?: () => void;
   onCopyAsFetch?: () => void;
+  /**
+   * Convert this HTTP request leaf into a GraphQL request — enables
+   * the leaf context menu's "Convert to GraphQL request" item. Wired
+   * only for HTTP request leaves whose body is the graphql body mode.
+   */
+  onConvertToGraphql?: () => void;
   onAddItem?: () => void;
   /**
    * Open the workspace-export modal for this leaf. Wired only for rule

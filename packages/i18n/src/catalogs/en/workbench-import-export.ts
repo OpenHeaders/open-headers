@@ -74,6 +74,7 @@ export const workbenchImportExport = {
   'workbench.importExport.hub.kindInsomnia': 'Insomnia export',
   'workbench.importExport.hub.kindBrunoSuffix': 'file or collection folder',
   'workbench.importExport.hub.kindOpenapi': 'OpenAPI 3.x document',
+  'workbench.importExport.hub.kindGraphqlSchema': 'GraphQL schema (SDL or introspection JSON)',
   'workbench.importExport.hub.kindWorkspaceSuffix': 'workspace export',
   'workbench.importExport.hub.autoDetected': 'The format is recognized automatically.',
   'workbench.importExport.hub.browseFiles': 'Browse files…',
@@ -345,6 +346,9 @@ export const workbenchImportExport = {
   'workbench.importExport.sectioned.titleOpenapi': 'IMPORT FROM OPENAPI',
   'workbench.importExport.sectioned.blurbOpenapi':
     'Import an OpenAPI 3.x document (JSON or YAML). Operations become requests under {{baseUrl}}, tags become folders, parameters and request bodies are preserved (schema-only bodies get a placeholder scaffold), and security schemes map to auth — fill in the {{clientId}}/{{clientSecret}} placeholders after importing. The document can also live on as an editable specification linked to the generated collection.',
+  'workbench.importExport.sectioned.titleGraphqlSchema': 'IMPORT GRAPHQL SCHEMA',
+  'workbench.importExport.sectioned.blurbGraphqlSchema':
+    'Import a GraphQL schema — SDL text or an introspection result. It lands as an editable specification that GraphQL requests link as their schema source; open it afterwards to generate a collection of requests from its root fields.',
   'workbench.importExport.sectioned.tooltipNothingParsed': 'Nothing parsed yet',
   'workbench.importExport.sectioned.tooltipNeedsNames': 'Every collection needs a name',
   'workbench.importExport.sectioned.cantReadImport': "Couldn't read this import",

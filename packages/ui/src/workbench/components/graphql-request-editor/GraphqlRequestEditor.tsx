@@ -27,10 +27,16 @@
  * flow through the RequestsContext's `updateGraphqlRequest`.
  */
 
-import { CaretRightOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, CopyOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
-import { censusDocument, parseDocument, toHttpRequest, wireOperationName } from '@openheaders/core/graphql';
+import {
+  censusDocument,
+  compileGraphqlRequest,
+  parseDocument,
+  toHttpRequest,
+  wireOperationName,
+} from '@openheaders/core/graphql';
 import { GRAPHQL_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, GraphqlRequest as GraphqlRequestEntity } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
@@ -47,10 +53,11 @@ import {
 } from '@openheaders/ui/shared/sync/response-example-write-client';
 import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { Allotment } from 'allotment';
-import { App, Button, ConfigProvider, Input, Select, Tabs, Tooltip, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, Input, type MenuProps, Select, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
+import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import {
   ancestorScriptLevels,
   findRequestAncestry,
@@ -161,6 +168,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const { collections, collectionTrees, folders, graphqlRequests, updateGraphqlRequest, executeGraphql } =
     useRequests();
   const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
+  const copySnippet = useCopyRequestSnippet();
 
   const entity = useMemo(
     () => graphqlRequests.find((r) => r.uid === graphqlRequestUid) ?? null,
@@ -433,6 +441,24 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // serving daemon) set the expectation at the button.
   const remoteDispatchHost = getCapability('remoteRequestDispatch')?.();
 
+  // ⋯ menu — snippet copies of the CURRENT draft through the compile
+  // (one POST of the envelope, the operation pick applied), resolved
+  // host-side exactly as a Query would resolve it.
+  const overflowItems: MenuProps['items'] = [
+    {
+      key: 'copy-as-curl',
+      icon: <CopyOutlined />,
+      label: t('workbench.editors.request.menu.copyAsCurl'),
+      onClick: () => void copySnippet({ draft: compileGraphqlRequest(draftEntity(entity, draft)) }, 'curl'),
+    },
+    {
+      key: 'copy-as-fetch',
+      icon: <CopyOutlined />,
+      label: t('workbench.editors.request.menu.copyAsFetch'),
+      onClick: () => void copySnippet({ draft: compileGraphqlRequest(draftEntity(entity, draft)) }, 'fetch'),
+    },
+  ];
+
   const headerActions = (
     <Tooltip
       placement="bottom"
@@ -513,7 +539,12 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
         }}
         onKeyDownCapture={handleEditorKeyDown}
       >
-        <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
+        <EditorHeader
+          title={headerTitle}
+          actions={headerActions}
+          overflowItems={overflowItems}
+          shell={shell.headerProps}
+        />
         <input
           ref={schemaFileInputRef}
           type="file"

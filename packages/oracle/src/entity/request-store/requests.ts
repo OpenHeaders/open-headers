@@ -8,12 +8,14 @@ import {
   buildDeleteEntityBatch,
   buildUpdateBatch,
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
-import type { Collection, Folder, Request } from '@openheaders/core/types';
+import type { Collection, Folder, GraphqlRequest, Request } from '@openheaders/core/types';
 import { generateUid, parentPathOf, toFolderName } from '@openheaders/core/utils';
+import type { GraphqlRequestCache } from '@openheaders/oracle/sync/caches/graphql-request-cache';
 import type { RequestCache } from '@openheaders/oracle/sync/caches/request-cache';
 import type { RequestCollectionCache } from '@openheaders/oracle/sync/caches/request-collection-cache';
 import type { RequestFolderCache } from '@openheaders/oracle/sync/caches/request-folder-cache';
 import {
+  GRAPHQL_REQUEST_REGISTRATION,
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
   REQUEST_REGISTRATION,
@@ -131,7 +133,19 @@ export function getRequestInWorkspace(uid: string, workspaceId: string): Request
 }
 
 /**
- * Set of every request uid in an explicit workspace, or `null` when no
+ * A GraphQL request by uid in an explicit workspace — the workflow
+ * step's second lookup: a step names a request uid of either kind, and
+ * the chain adapter compiles a GraphQL one into its HTTP send.
+ */
+export function getGraphqlRequestInWorkspace(uid: string, workspaceId: string): GraphqlRequest | null {
+  const cache = getCacheForWorkspace<GraphqlRequestCache>(GRAPHQL_REQUEST_REGISTRATION, workspaceId);
+  if (!cache) return null;
+  return cache.getGraphqlRequests().find((r) => r.uid === uid) ?? null;
+}
+
+/**
+ * Set of every request uid a workflow step may name in an explicit
+ * workspace — HTTP and GraphQL requests alike — or `null` when no
  * service is materialized for that workspace. Callers that gate on
  * request existence (`workflowStepsResolvable`) treat `null` as
  * "registry not hydrated — skip the gate", so a workflow step is never
@@ -141,7 +155,10 @@ export function getRequestInWorkspace(uid: string, workspaceId: string): Request
 export function getRequestUidsForWorkspace(workspaceId: string): ReadonlySet<string> | null {
   const cache = getCacheForWorkspace<RequestCache>(REQUEST_REGISTRATION, workspaceId);
   if (!cache) return null;
-  return new Set(cache.getRequests().map((r) => r.uid));
+  const uids = new Set(cache.getRequests().map((r) => r.uid));
+  const graphql = getCacheForWorkspace<GraphqlRequestCache>(GRAPHQL_REQUEST_REGISTRATION, workspaceId);
+  for (const request of graphql?.getGraphqlRequests() ?? []) uids.add(request.uid);
+  return uids;
 }
 
 /**

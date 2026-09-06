@@ -45,6 +45,7 @@ export {
   addRequest,
   addRequestToCollection,
   deleteRequest,
+  getGraphqlRequestInWorkspace,
   getRequest,
   getRequestCollectionsForWorkspace,
   getRequestFoldersForWorkspace,

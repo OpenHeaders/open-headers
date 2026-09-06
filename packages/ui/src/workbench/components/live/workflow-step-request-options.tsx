@@ -11,7 +11,7 @@
 
 import { FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
 import type { GlobalToken } from 'antd/es/theme/interface';
-import { METHOD_COLORS } from '../sidebar/icons';
+import { METHOD_COLORS, REQUEST_KIND_COLORS } from '../sidebar/icons';
 
 /**
  * Request the step's Request picker can choose from. The structured
@@ -23,14 +23,19 @@ import { METHOD_COLORS } from '../sidebar/icons';
 export interface StepRequestChoice {
   uid: string;
   name: string;
+  /** The HTTP verb — or the kind code (`GQL`) for a GraphQL request,
+   *  which runs as one POST through the compile. */
   method: string;
+  /** Present for a GraphQL request — the tag takes the kind's tint. */
+  kind?: 'graphql';
   collectionName: string | null;
   folderTrail: string[];
 }
 
 export function buildRequestPickerOptions(availableRequests: StepRequestChoice[], token: GlobalToken) {
   return availableRequests.map((r) => {
-    const methodColor = METHOD_COLORS[r.method] ?? token.colorTextSecondary;
+    const methodColor =
+      r.kind === 'graphql' ? REQUEST_KIND_COLORS.graphql : (METHOD_COLORS[r.method] ?? token.colorTextSecondary);
     // String for filterOption + accessibility; stays consistent
     // with the JSX the user sees (same segments, same order).
     const titleSegments = [r.collectionName, ...r.folderTrail, `${r.method} ${r.name}`].filter(

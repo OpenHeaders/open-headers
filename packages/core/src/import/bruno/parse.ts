@@ -133,7 +133,11 @@ export function parseBrunoFiles(files: BrunoFile[]): BrunoParseResult {
     if (dirCmp !== 0) return dirCmp;
     return (a.seq ?? Number.POSITIVE_INFINITY) - (b.seq ?? Number.POSITIVE_INFINITY);
   });
-  const requests: BrunoParsedRequest[] = converted.map((c) => ({ folderPath: c.folderPath, request: c.request }));
+  const requests: BrunoParsedRequest[] = converted.map((c) => ({
+    folderPath: c.folderPath,
+    request: c.request,
+    ...(c.kind !== undefined ? { kind: c.kind } : {}),
+  }));
 
   // Every directory on the way to a request becomes a folder — parents
   // first, deduped, so the write path can create them in order.

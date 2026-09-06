@@ -17,7 +17,8 @@
 
 import type { FetchAdapter } from '@openheaders/core/live';
 import type { Request } from '@openheaders/core/types';
-import { getRequestInWorkspace } from '../../entity/request-store';
+import { getGraphqlRequestInWorkspace, getRequestInWorkspace } from '../../entity/request-store';
+import { compileGraphqlRequest } from '../graphql-exec/execute';
 import { withRefreshRateLimit } from './rate-limiter';
 import type { OAuthRefreshFn } from './resolve-request';
 import { runStepRequest } from './run-step-request';
@@ -54,7 +55,10 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
   const { workspaceId, environmentId, transport, refreshOAuth, prepareRequest, scriptRunner } = options;
   return {
     async executeStep(step, stepCaptures) {
-      const request = getRequestInWorkspace(step.requestUid, workspaceId);
+      // A step names a request of either kind: an HTTP request runs as
+      // is; a GraphQL request compiles ONCE into its HTTP send (the
+      // same uid + path, so the ancestor chain resolves unchanged).
+      const request = stepRequest(step.requestUid, workspaceId);
       if (!request) {
         // A fetch-phase failure to the core runner — the workflow is
         // structurally broken (references a deleted request); the
@@ -93,4 +97,11 @@ export function buildChainFetchAdapter(options: ChainFetchAdapterOptions): Fetch
       };
     },
   };
+}
+
+function stepRequest(requestUid: string, workspaceId: string): Request | null {
+  const http = getRequestInWorkspace(requestUid, workspaceId);
+  if (http) return http;
+  const graphql = getGraphqlRequestInWorkspace(requestUid, workspaceId);
+  return graphql ? compileGraphqlRequest(graphql) : null;
 }

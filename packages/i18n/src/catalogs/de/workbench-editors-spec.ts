@@ -126,10 +126,32 @@ export const workbenchEditorsSpec = {
     'Das Dokument deklariert keinen ws-, wss- oder mqtt-Server für die Verbindung.',
   'workbench.editors.spec.generateWs.partial': 'Mit Lücken generiert — {created} erstellt, {failed} fehlgeschlagen.',
   'workbench.editors.spec.generateWs.skipped': '{operation} übersprungen: {reason}.',
+  'workbench.editors.spec.generateGraphql.blurb':
+    'Generiere eine Sammlung aus diesem Schema. Die Wurzelfelder von Query und Mutation werden zu GraphQL-Anfragen ' +
+    'mit vorausgefülltem Dokument und Beispielvariablen, je Wurzeltyp in einem Ordner gruppiert, wenn beide ' +
+    'vorhanden sind; Subscription-Felder bleiben außen vor. Die Sammlung bleibt mit dieser Spezifikation verknüpft.',
+  'workbench.editors.spec.generateGraphql.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} GraphQL-Anfrage', other: '{count} GraphQL-Anfragen' }),
+  'workbench.editors.spec.generateGraphql.empty':
+    'Das Schema deklariert keine Query- oder Mutation-Felder, aus denen generiert werden könnte.',
+  'workbench.editors.spec.generateGraphql.partial':
+    'Mit Lücken generiert — {created} erstellt, {failed} fehlgeschlagen.',
+  'workbench.editors.spec.generateGraphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
+  'workbench.editors.spec.generateGraphql.urlHint':
+    'Jede generierte Anfrage zielt auf diesen Endpunkt; leer lassen, um die URL später einzutragen.',
+  'workbench.editors.spec.generateGraphql.subscriptionsSkipped': ({ count, fields }, locale) =>
+    `${plural(locale, Number(count), {
+      one: '{count} Subscription-Feld ausgelassen',
+      other: '{count} Subscription-Felder ausgelassen',
+    })} (${fields}) — Subscriptions werden nicht unterstützt.`,
+  'workbench.editors.spec.generateGraphql.problem': 'Schemaproblem: {message}',
   'workbench.editors.spec.update.button': 'Aktualisieren',
   'workbench.editors.spec.update.protoUnavailable':
     'Aktualisieren aus einer Protobuf-Spezifikation ist noch nicht verfügbar — generiere eine frische ' +
     'Sammlung, um Änderungen zu übernehmen.',
+  'workbench.editors.spec.update.graphqlUnavailable':
+    'Aktualisieren aus einem GraphQL-Schema ist noch nicht verfügbar — generiere eine frische Sammlung, um ' +
+    'Änderungen zu übernehmen.',
   'workbench.editors.spec.update.inSyncBadge': 'Synchron mit dem gespeicherten Dokument',
   'workbench.editors.spec.update.driftedBadge': 'Die Spezifikation hat sich seit der letzten Aktualisierung geändert',
   'workbench.editors.spec.update.modalTitle': 'SAMMLUNG AKTUALISIEREN',

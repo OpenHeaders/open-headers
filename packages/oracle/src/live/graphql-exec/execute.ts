@@ -16,22 +16,14 @@
  * answer, and the editor's diagnostics already said so.
  */
 
-import { censusDocument, parseDocument, toHttpRequest, wireOperationName } from '@openheaders/core/graphql';
+import { type CompileOptions, compileGraphqlRequest as compileForWire } from '@openheaders/core/graphql';
 import type { GraphqlRequest, Request } from '@openheaders/core/types';
 
-export interface CompileGraphqlRequestOptions {
-  /** The operation select's live choice — overrides the entity's stored pick for this send. */
-  readonly operationName?: string;
-}
+export type CompileGraphqlRequestOptions = CompileOptions;
 
-/** The compiled HTTP request the executors run for a GraphQL request. */
+/** The compiled HTTP request the executors run for a GraphQL request —
+ *  the core composition (parse → census pick → `toHttpRequest`), the
+ *  same one the renderer's "Copy as" snippet renders. */
 export function compileGraphqlRequest(entity: GraphqlRequest, options: CompileGraphqlRequestOptions = {}): Request {
-  const { operationName: stored, ...fields } = entity;
-  const requested = options.operationName ?? stored;
-  const parsed = parseDocument(entity.query);
-  const operationName =
-    parsed.document === null ? requested : wireOperationName(censusDocument(parsed.document), requested);
-  // The pick is decided HERE — the stored name never reaches the compile
-  // on its own, so a single-operation document sends nothing on the wire.
-  return toHttpRequest(fields, operationName !== undefined ? { operationName } : {});
+  return compileForWire(entity, options);
 }

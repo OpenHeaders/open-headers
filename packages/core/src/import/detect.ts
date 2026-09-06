@@ -29,6 +29,9 @@ export type DetectedImportSource =
   | { kind: 'openapi' }
   /** An `.openheaders.*` workspace export (JSON or YAML). */
   | { kind: 'workspace' }
+  /** A GraphQL schema — SDL text or an introspection result (`__schema`
+   *  JSON, bare or under `data`) — landed as a `graphql` Spec. */
+  | { kind: 'graphql-schema' }
   /** Nothing recognizable — the hub shows a hint, never a dead-end. */
   | { kind: 'unknown' };
 
@@ -109,6 +112,12 @@ export function detectImportSource(text: string): DetectedImportSource {
     if (typeof parsed.name === 'string' && Array.isArray(parsed.values)) return { kind: 'postman' };
 
     if (parsed.kind === 'workspace-export') return { kind: 'workspace' };
+
+    // An introspection result — `{ __schema }` bare or under `data`
+    // (the standard introspection query's answer saved as a file).
+    if (isRecord(parsed.__schema) || (isRecord(parsed.data) && isRecord(parsed.data.__schema))) {
+      return { kind: 'graphql-schema' };
+    }
     return { kind: 'unknown' };
   }
 
@@ -137,6 +146,19 @@ export function detectImportSource(text: string): DetectedImportSource {
     /^\s*url:\s*\S/m.test(trimmed)
   ) {
     return { kind: 'bruno' };
+  }
+
+  // GraphQL SDL — keyed on a type-system definition line: `schema {`,
+  // `type Query {`, `interface Node`, `enum Role {`, `input X {`,
+  // `union U =`, `scalar S`, `directive @d`, each also in its `extend`
+  // form. A description block string may precede it; prose mentioning
+  // "type" never starts a line with a definition keyword + a Name.
+  if (
+    /^\s*(?:extend\s+)?(?:schema\s*(?:@\w+(?:\([^)]*\))?\s*)*\{|(?:type|interface|input|enum)\s+[_A-Za-z]\w*\b|union\s+[_A-Za-z]\w*\s*(?:@\w+(?:\([^)]*\))?\s*)*=|scalar\s+[_A-Za-z]\w*\s*$|directive\s+@[_A-Za-z]\w*)/m.test(
+      trimmed,
+    )
+  ) {
+    return { kind: 'graphql-schema' };
   }
 
   return { kind: 'unknown' };

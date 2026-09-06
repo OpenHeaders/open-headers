@@ -44,6 +44,21 @@
  *   E10 sidebar rename + delete: the leaf's inline rename lands on the
  *       entity, and the delete gesture removes it from the tree (the
  *       example cascades with it).
+ *   E11 Generate Collection from the E9 spec (the Phase E bridge): the
+ *       modal names the endpoint, one GraphQL request per Query /
+ *       Mutation root field lands in a folder per root type, the
+ *       subscription field is named and left out, and a generated
+ *       mutation runs against the probe through the compile.
+ *   E12 Convert to GraphQL request: an HTTP request whose body is the
+ *       graphql body mode becomes a GraphQL request in the same place
+ *       through the sidebar verb — the HTTP row is gone, the new row
+ *       runs against the probe with the carried document + variables.
+ *   E13 Copy as cURL from the GraphQL editor's ⋯ menu: the snippet is
+ *       one POST of the envelope (the clipboard write is stubbed and
+ *       read back — the copy-snippet spec's idiom).
+ *   E14 the import hub's schema-file leg: pasted SDL is recognized as a
+ *       GraphQL schema, the sectioned modal lands it as a `graphql`
+ *       Spec, and the SPECS section shows it.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -190,6 +205,15 @@ test.beforeAll(async () => {
   await popup.close();
 
   page = await context.newPage();
+  // Capture-the-write clipboard stub (E13) — Chromium refuses clipboard
+  // permission grants on chrome-extension:// origins, so the text the
+  // app hands the platform API is recorded instead.
+  await page.addInitScript(() => {
+    navigator.clipboard.writeText = (text: string) => {
+      (window as unknown as { __ohCopiedText?: string }).__ohCopiedText = text;
+      return Promise.resolve();
+    };
+  });
   workbench = await WorkbenchPage.open(page, extensionId);
 
   // The suite collection through the real CRUD RPC (page realm).
@@ -458,4 +482,153 @@ test('E10 — the sidebar leaf renames inline and the delete gesture removes the
   await expect(page.locator('[data-item-id^="resp-example-"]').filter({ visible: true })).toHaveCount(0, {
     timeout: 5_000,
   });
+});
+
+// ── E11: Generate Collection from the GraphQL spec ──────────────────
+
+const GENERATED_COLLECTION = 'Notes Generated';
+
+test('E11 — Generate Collection lands one GraphQL request per root field, foldered per root type, and a generated mutation runs', async () => {
+  const specRow = page
+    .locator('[data-item-id^="spec-"]')
+    .filter({ hasText: SPEC_NAME })
+    .filter({ visible: true })
+    .first();
+  await specRow.waitFor({ state: 'visible', timeout: 5_000 });
+  await specRow.click();
+  await page.getByTestId('spec-generate-collection').filter({ visible: true }).first().click();
+  const nameInput = page.getByTestId('spec-generate-name').filter({ visible: true }).first();
+  await nameInput.waitFor({ state: 'visible', timeout: 5_000 });
+  await nameInput.fill(GENERATED_COLLECTION);
+  await page.getByTestId('spec-generate-graphql-url').filter({ visible: true }).first().fill(PROBE_URL);
+  // The scaffold's Subscription field is named and left out.
+  await expect(page.getByTestId('spec-generate-graphql-subscriptions').filter({ visible: true }).first()).toContainText(
+    'noteCreated',
+  );
+  await page.getByTestId('spec-generate-confirm').filter({ visible: true }).first().click();
+
+  const collection = page
+    .locator('[data-item-id^="req-col-"]')
+    .filter({ hasText: GENERATED_COLLECTION })
+    .filter({ visible: true })
+    .first();
+  await collection.waitFor({ state: 'visible', timeout: 10_000 });
+  await collection.click();
+  const mutationFolder = page
+    .locator('[data-item-id^="req-folder-"]')
+    .filter({ hasText: 'Mutation' })
+    .filter({ visible: true })
+    .first();
+  await mutationFolder.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(
+    page.locator('[data-item-id^="req-folder-"]').filter({ hasText: 'Query' }).filter({ visible: true }).first(),
+  ).toBeVisible();
+  await mutationFolder.click();
+  const deleteNote = page
+    .locator('[data-item-id^="graphql-request-"]')
+    .filter({ hasText: 'deleteNote' })
+    .filter({ visible: true })
+    .first();
+  await deleteNote.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(
+    page.locator('[data-item-id^="graphql-request-"]').filter({ hasText: 'createNote' }).filter({ visible: true }),
+  ).toHaveCount(1);
+  await deleteNote.click();
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(urlInput()).toHaveValue(PROBE_URL);
+  // The generated document + example variables run as generated.
+  await queryButton().click();
+  expect(await workbench.responseStatusText()).toBe('200 OK');
+  expect(await workbench.responsePrettyText()).toMatch(/"deleteNote":\s*(true|false)/);
+});
+
+// ── E12: Convert to GraphQL request ─────────────────────────────────
+
+const CONVERTED_NAME = 'Echo HTTP';
+
+test('E12 — the sidebar verb converts an HTTP request with a GraphQL body into a GraphQL request in its place', async () => {
+  const httpUid = await workbench.seedRequest({
+    name: CONVERTED_NAME,
+    method: 'POST',
+    url: PROBE_URL,
+    auth: { type: 'none' },
+    body: { type: 'graphql', content: ECHO_QUERY, graphqlVariables: ECHO_VARIABLES },
+  });
+  const httpRow = page.locator(`[data-item-id="request-${httpUid}"]`);
+  if (!(await httpRow.isVisible().catch(() => false))) {
+    for (const colRow of await page.locator('[data-item-id^="req-col-"]').filter({ visible: true }).all()) {
+      if (await httpRow.isVisible().catch(() => false)) break;
+      await colRow.click();
+      await httpRow.waitFor({ state: 'visible', timeout: 1_500 }).catch(() => {});
+    }
+  }
+  await httpRow.waitFor({ state: 'visible', timeout: 5_000 });
+  await httpRow.hover();
+  await httpRow.locator('.rules-sidebar-item-menu').click();
+  await page
+    .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item', {
+      hasText: 'Convert to GraphQL request',
+    })
+    .first()
+    .click();
+  await page.getByTestId('request-convert-graphql-confirm').waitFor({ state: 'visible', timeout: 5_000 });
+  await page.locator('.ant-modal-confirm .ant-btn-primary').first().click();
+
+  const converted = await graphqlRow(CONVERTED_NAME);
+  await expect(converted).toBeVisible();
+  await expect(page.locator(`[data-item-id="request-${httpUid}"]`)).toHaveCount(0, { timeout: 5_000 });
+  // The new editor opened on the converted entity: the carried
+  // document + variables run against the probe.
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(urlInput()).toHaveValue(PROBE_URL);
+  await queryButton().click();
+  expect(await workbench.responseStatusText()).toBe('200 OK');
+  expect(await workbench.responsePrettyText()).toContain('hi-from-the-workbench');
+});
+
+// ── E13: Copy as cURL ───────────────────────────────────────────────
+
+test('E13 — Copy as cURL from the GraphQL editor renders one POST of the envelope', async () => {
+  await openGraphqlRequest(CONVERTED_NAME);
+  await workbench.copyAsFromEditor('cURL');
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __ohCopiedText?: string }).__ohCopiedText ?? ''), {
+      timeout: 5_000,
+    })
+    .toMatch(/^curl /);
+  const copied = await page.evaluate(() => (window as unknown as { __ohCopiedText?: string }).__ohCopiedText ?? '');
+  expect(copied).toContain(PROBE_URL);
+  expect(copied).toContain("-X 'POST'");
+  expect(copied).toContain('"query"');
+  expect(copied).toContain('hi-from-the-workbench');
+});
+
+// ── E14: the import hub's schema-file leg ───────────────────────────
+
+const PASTED_SDL = 'type Query {\n  ping: String!\n}\n';
+
+test('E14 — a pasted SDL document is recognized as a GraphQL schema and lands as a spec', async () => {
+  await page.getByTestId('sidebar-create-request').filter({ visible: true }).first().click();
+  await page
+    .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item', { hasText: 'Import' })
+    .first()
+    .click();
+  const paste = page.getByPlaceholder('Paste a curl command or URL').filter({ visible: true }).first();
+  await paste.waitFor({ state: 'visible', timeout: 5_000 });
+  await paste.fill(PASTED_SDL);
+  await paste.press('Enter');
+  const modal = page
+    .locator('.ant-modal')
+    .filter({ hasText: 'IMPORT GRAPHQL SCHEMA' })
+    .filter({ visible: true })
+    .first();
+  await modal.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(modal.getByTestId('import-sectioned-spec')).toContainText('GraphQL');
+  await modal.getByRole('button', { name: /^Import$/ }).click();
+  const specRow = page
+    .locator('[data-item-id^="spec-"]')
+    .filter({ hasText: 'GraphQL schema' })
+    .filter({ visible: true })
+    .first();
+  await specRow.waitFor({ state: 'visible', timeout: 10_000 });
 });

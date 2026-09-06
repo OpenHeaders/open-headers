@@ -28,6 +28,8 @@ import type {
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { compileGraphqlRequest, isConvertibleToGraphql } from '@openheaders/core/graphql';
+import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraphql';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
@@ -174,6 +176,7 @@ function subtreeHasRequestMatch(nodes: CoreTreeNode[], lowerFilter: string): boo
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   const t = useT();
   const copySnippet = useCopyRequestSnippet();
+  const convertToGraphql = useConvertRequestToGraphql();
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkRequestTree = useCallback(
@@ -669,6 +672,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 void p.deleteGraphqlRequest(node.uid);
               }),
+            // The snippet rides the compile — one POST of the envelope,
+            // resolved host-side exactly as a Query would be.
+            ...(fullGraphql
+              ? {
+                  onCopyAsCurl: () => void copySnippet({ draft: compileGraphqlRequest(fullGraphql) }, 'curl'),
+                  onCopyAsFetch: () => void copySnippet({ draft: compileGraphqlRequest(fullGraphql) }, 'fetch'),
+                }
+              : {}),
             awareness: { entityType: GRAPHQL_REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
           if (hasGraphqlExamples && p.isExpandedKey(gid)) {
@@ -748,6 +759,14 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                   onCopyAsFetch: () => void copySnippet({ draft: fullRequest }, 'fetch'),
                 }
               : {}),
+            // The explicit bridge to the GraphQL kind — offered only
+            // where the body already IS GraphQL.
+            ...(fullRequest && isConvertibleToGraphql(fullRequest)
+              ? {
+                  onConvertToGraphql: () =>
+                    convertToGraphql(fullRequest, (uid, name) => p.onSelectGraphqlRequest?.(uid, name)),
+                }
+              : {}),
             ...exportNodeFields({ kind: 'request', uid: node.uid, name: node.name }, p.onExportEntity),
             awareness: { entityType: REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
@@ -813,6 +832,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.onOpenRequestFolderOverview,
       p.onCreateWorkflowFromContainer,
       copySnippet,
+      convertToGraphql,
       t,
     ],
   );

@@ -47,6 +47,7 @@ import type { Monaco } from '@monaco-editor/react';
 import CodeEditor from '../shared/CodeEditor';
 import EditorHeader from '../shell/EditorHeader';
 import GenerateCollectionModal from './GenerateCollectionModal';
+import GenerateGraphqlCollectionModal from './GenerateGraphqlCollectionModal';
 import GenerateProtoCollectionModal from './GenerateProtoCollectionModal';
 import GenerateWsCollectionModal from './GenerateWsCollectionModal';
 import SpecOutlinePane from './SpecOutlinePane';
@@ -315,9 +316,16 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
   // own modal, each family gated on its own servers in the census.
   const isProtobuf = spec.format === 'protobuf';
   const isAsyncApi = spec.format === 'asyncapi';
-  // A GraphQL schema feeds the GraphQL requests that link it; its
-  // Generate Collection bridge is Phase E's.
+  // GraphQL schemas generate GraphqlRequest rows through their own
+  // modal (one per Query / Mutation root field); like proto links,
+  // Update (spec-diff re-plan) is an OpenAPI flow — the button stays
+  // disabled with the honest tooltip.
   const isGraphql = spec.format === 'graphql';
+  const updateUnavailableHint = isProtobuf
+    ? t('workbench.editors.spec.update.protoUnavailable')
+    : isGraphql
+      ? t('workbench.editors.spec.update.graphqlUnavailable')
+      : undefined;
   const generateAction =
     linkedCollections.length === 0 ? (
       <Button
@@ -361,11 +369,11 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
                       />
                     )}
                   </Tooltip>
-                  <Tooltip title={isProtobuf ? t('workbench.editors.spec.update.protoUnavailable') : undefined}>
+                  <Tooltip title={updateUnavailableHint}>
                     <Button
                       size="small"
                       style={{ fontSize: 11 }}
-                      disabled={!drifted || isProtobuf}
+                      disabled={!drifted || updateUnavailableHint !== undefined}
                       onClick={() => setUpdateTarget(c)}
                       data-testid={`spec-link-update-${c.uid}`}
                     >
@@ -398,7 +406,7 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
 
   const headerActions = (
     <>
-      {!isGraphql && (!isAsyncApi || asyncApiGeneratable) && generateAction}
+      {(!isAsyncApi || asyncApiGeneratable) && generateAction}
       <Tooltip
         title={t(outlineOpen ? 'workbench.editors.spec.outline.hide' : 'workbench.editors.spec.outline.show')}
         placement="bottom"
@@ -457,7 +465,15 @@ const SpecEditorTab: React.FC<SpecEditorTabProps> = ({ specUid, workspaceId, onD
             </Allotment.Pane>
           </Allotment>
         </div>
-        {isGraphql ? null : isProtobuf ? (
+        {isGraphql ? (
+          <GenerateGraphqlCollectionModal
+            open={generateOpen}
+            spec={spec}
+            content={rootFile.content}
+            editorDirty={isDirty}
+            onCancel={() => setGenerateOpen(false)}
+          />
+        ) : isProtobuf ? (
           <GenerateProtoCollectionModal
             open={generateOpen}
             spec={spec}

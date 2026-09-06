@@ -24,7 +24,7 @@ import ImportCurlModal from '../import/ImportCurlModal';
 import ImportHarModal from '../import/ImportHarModal';
 import ImportPostmanModal from '../import/ImportPostmanModal';
 import ImportSectionedModal, { type SectionedPreset, type SectionedSourceKind } from '../import/ImportSectionedModal';
-import { createImportedSpecSeed } from '../specs/spec-scaffold';
+import { createImportedGraphqlSpecSeed, createImportedSpecSeed } from '../specs/spec-scaffold';
 import MigrateAccountPullModal from '../import/MigrateAccountPullModal';
 import MigrateToolModal from '../import/MigrateToolModal';
 import ExportModal, { type ExportModalScope } from './ExportModal';
@@ -105,7 +105,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   const [importPostmanInitialText, setImportPostmanInitialText] = useState<string | undefined>(undefined);
   const [importSectionedState, setImportSectionedState] = useState<
     | { open: false }
-    | { open: true; kind: SectionedSourceKind; text: string }
+    | { open: true; kind: SectionedSourceKind; text: string; fileName?: string }
     | { open: true; kind: 'bruno'; files: BrunoFile[] }
   >({ open: false });
   const [importSourceContext, setImportSourceContext] = useState<{ collectionId?: string } | undefined>(undefined);
@@ -267,7 +267,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
    * inline with a hint.
    */
   const routeText = useCallback(
-    (detected: DetectedImportSource, text: string, collectionId?: string) => {
+    (detected: DetectedImportSource, text: string, collectionId?: string, fileName?: string) => {
       setImportSourceModalOpen(false);
       switch (detected.kind) {
         case 'curl':
@@ -288,6 +288,16 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         case 'openapi':
           setImportSectionedState({ open: true, kind: detected.kind, text });
           break;
+        case 'graphql-schema':
+          // A bare schema lands as a `graphql` Spec; the picked file's
+          // name (when there is one) names it.
+          setImportSectionedState({
+            open: true,
+            kind: detected.kind,
+            text,
+            ...(fileName !== undefined ? { fileName } : {}),
+          });
+          break;
         case 'workspace':
           setImportPreviewState({ open: true, rawText: text, source: 'clipboard' });
           break;
@@ -299,7 +309,8 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
   );
 
   const routeDetectedText = useCallback(
-    (detected: DetectedImportSource, text: string) => routeText(detected, text, importSourceContext?.collectionId),
+    (detected: DetectedImportSource, text: string, fileName?: string) =>
+      routeText(detected, text, importSourceContext?.collectionId, fileName),
     [routeText, importSourceContext],
   );
 
@@ -363,7 +374,7 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           setImportPreviewState({ open: true, rawText: text, source: 'file' });
           return;
         }
-        routeDetectedText(detected, text);
+        routeDetectedText(detected, text, file.name);
       } catch (err) {
         // File-read failures (sandbox quirks, perms) — surface inline.
         setImportPreviewState({ open: true, rawText: '', source: 'file' });
@@ -514,6 +525,9 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
         open={importSectionedState.open}
         sourceKind={importSectionedState.open ? importSectionedState.kind : 'postman-backup'}
         initialText={importSectionedState.open && 'text' in importSectionedState ? importSectionedState.text : undefined}
+        initialFileName={
+          importSectionedState.open && 'fileName' in importSectionedState ? importSectionedState.fileName : undefined
+        }
         initialFiles={
           importSectionedState.open && 'files' in importSectionedState ? importSectionedState.files : undefined
         }
@@ -535,10 +549,20 @@ const ImportExportModals = forwardRef<ImportExportModalsHandle, ImportExportModa
           const r = await requestsApi.createRequest({ name, parentPath, seed });
           return r ? { uid: r.uid } : null;
         }}
+        createGraphqlRequest={async ({ name, parentPath, seed }) => {
+          const r = await requestsApi.createGraphqlRequest({ name, parentPath, seed });
+          return r ? { uid: r.uid } : null;
+        }}
         createSpec={async ({ name, content, format }) => {
           if (!editingScopeWorkspaceId) return null;
+          // A GraphQL schema keeps the editor's import recipe: the
+          // root file is `index.graphql` or `index.json` by sniff.
+          const spec =
+            format === 'graphql'
+              ? createImportedGraphqlSpecSeed(name, '', content)
+              : createImportedSpecSeed(name, content, format);
           const result = await applySpecCreate(
-            { spec: createImportedSpecSeed(name, content, format) },
+            { spec },
             { workspaceId: editingScopeWorkspaceId, surfaceId: IMPORT_ATTRIBUTION_SURFACE_ID },
           );
           return result.ok ? { uid: result.spec.uid } : null;

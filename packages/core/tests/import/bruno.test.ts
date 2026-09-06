@@ -222,7 +222,15 @@ body:graphql {
   query { ping }
 }
 `;
-    expect(parseBruno(content).requests[0]!.request.body).toEqual({ type: 'graphql', content: 'query { ping }' });
+    const parsed = parseBruno(content).requests[0]!;
+    expect(parsed.request.body).toEqual({ type: 'graphql', content: 'query { ping }' });
+    // Bruno distinguishes the type — the landing loop mints a GraphqlRequest.
+    expect(parsed.kind).toBe('graphql');
+  });
+
+  it('leaves the kind absent on requests Bruno types as http', () => {
+    const content = withBody('graphql', `body:graphql {\n  query { ping }\n}\n`);
+    expect(parseBruno(content).requests[0]!.kind).toBeUndefined();
   });
 
   it('imports form-urlencoded bodies with disabled rows', () => {
@@ -495,10 +503,9 @@ describe('stripBrunoRootPrefix', () => {
   });
 
   it('strips exactly one level — genuine shared subfolders survive', () => {
-    expect(stripBrunoRootPrefix([{ path: 'coll/auth/login.bru' }, { path: 'coll/auth/logout.bru' }]).map((f) => f.path)).toEqual([
-      'auth/login.bru',
-      'auth/logout.bru',
-    ]);
+    expect(
+      stripBrunoRootPrefix([{ path: 'coll/auth/login.bru' }, { path: 'coll/auth/logout.bru' }]).map((f) => f.path),
+    ).toEqual(['auth/login.bru', 'auth/logout.bru']);
   });
 
   it('leaves unshared, root-level, and environments-rooted paths alone', () => {
@@ -515,9 +522,8 @@ describe('stripBrunoRootPrefix', () => {
   });
 
   it('normalizes separators while stripping', () => {
-    expect(stripBrunoRootPrefix([{ path: 'coll\\ping.bru' }, { path: '/coll/auth/login.bru' }]).map((f) => f.path)).toEqual([
-      'ping.bru',
-      'auth/login.bru',
-    ]);
+    expect(
+      stripBrunoRootPrefix([{ path: 'coll\\ping.bru' }, { path: '/coll/auth/login.bru' }]).map((f) => f.path),
+    ).toEqual(['ping.bru', 'auth/login.bru']);
   });
 });

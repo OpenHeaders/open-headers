@@ -136,10 +136,36 @@ export const workbenchEditorsSpec = {
     'Le document ne déclare aucun serveur ws, wss ou mqtt auquel se connecter.',
   'workbench.editors.spec.generateWs.partial': 'Génération incomplète — {created} créées, {failed} en échec.',
   'workbench.editors.spec.generateWs.skipped': '{operation} ignorée : {reason}.',
+  'workbench.editors.spec.generateGraphql.blurb':
+    'Générez une collection à partir de ce schéma. Les champs racine Query et Mutation deviennent des requêtes GraphQL ' +
+    'avec leur document et des variables d’exemple pré-remplis, regroupées dans un dossier par type racine lorsque les ' +
+    'deux existent ; les champs de souscription sont laissés de côté. La collection reste liée à cette spécification.',
+  'workbench.editors.spec.generateGraphql.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} requête GraphQL',
+      many: '{count} requêtes GraphQL',
+      other: '{count} requêtes GraphQL',
+    }),
+  'workbench.editors.spec.generateGraphql.empty':
+    'Le schéma ne déclare aucun champ Query ou Mutation à partir duquel générer.',
+  'workbench.editors.spec.generateGraphql.partial': 'Génération incomplète — {created} créées, {failed} en échec.',
+  'workbench.editors.spec.generateGraphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
+  'workbench.editors.spec.generateGraphql.urlHint':
+    'Chaque requête générée cible ce point de terminaison ; laissez vide pour renseigner l’URL plus tard.',
+  'workbench.editors.spec.generateGraphql.subscriptionsSkipped': ({ count, fields }, locale) =>
+    `${plural(locale, Number(count), {
+      one: '{count} champ de souscription laissé de côté',
+      many: '{count} champs de souscription laissés de côté',
+      other: '{count} champs de souscription laissés de côté',
+    })} (${fields}) — les souscriptions ne sont pas prises en charge.`,
+  'workbench.editors.spec.generateGraphql.problem': 'Problème de schéma : {message}',
   'workbench.editors.spec.update.button': 'Mettre à jour',
   'workbench.editors.spec.update.protoUnavailable':
     "La mise à jour depuis une spécification Protobuf n'est pas encore disponible — générez une nouvelle " +
     'collection pour récupérer les changements.',
+  'workbench.editors.spec.update.graphqlUnavailable':
+    "La mise à jour depuis un schéma GraphQL n'est pas encore disponible — générez une nouvelle collection pour " +
+    'récupérer les changements.',
   'workbench.editors.spec.update.inSyncBadge': 'Synchronisée avec le document enregistré',
   'workbench.editors.spec.update.driftedBadge': 'La spécification a changé depuis la dernière mise à jour',
   'workbench.editors.spec.update.modalTitle': 'METTRE À JOUR LA COLLECTION',

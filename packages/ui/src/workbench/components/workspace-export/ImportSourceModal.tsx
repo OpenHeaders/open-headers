@@ -278,6 +278,7 @@ const ImportSourceModal: React.FC<Props> = ({
                   Bruno <code>.bru</code> {t('workbench.importExport.hub.kindBrunoSuffix')}
                 </li>
                 <li>{t('workbench.importExport.hub.kindOpenapi')}</li>
+                <li>{t('workbench.importExport.hub.kindGraphqlSchema')}</li>
                 <li>
                   <code>.openheaders.yaml</code> {t('workbench.importExport.hub.kindWorkspaceSuffix')}
                 </li>
@@ -296,7 +297,7 @@ const ImportSourceModal: React.FC<Props> = ({
               <input
                 ref={inputRef}
                 type="file"
-                accept=".har,.json,.yaml,.yml,.bru,application/json,application/yaml,text/yaml,text/plain"
+                accept=".har,.json,.yaml,.yml,.bru,.graphql,.gql,.graphqls,application/json,application/yaml,text/yaml,text/plain"
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {

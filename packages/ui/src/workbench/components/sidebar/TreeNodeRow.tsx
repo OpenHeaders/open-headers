@@ -15,6 +15,7 @@ import {
   ExportOutlined,
   MoreOutlined,
   PlusOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -379,6 +380,16 @@ export function TreeNodeRow({
                                 ]
                               : []),
                           ],
+                        },
+                      ]
+                    : []),
+                  ...(node.onConvertToGraphql
+                    ? [
+                        {
+                          key: 'convert-to-graphql',
+                          icon: <SwapOutlined />,
+                          label: t('workbench.sidebar.menu.convertToGraphql'),
+                          onClick: () => node.onConvertToGraphql?.(),
                         },
                       ]
                     : []),

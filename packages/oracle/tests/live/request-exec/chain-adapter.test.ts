@@ -6,17 +6,19 @@
  * StepResponse mapping, error→throw).
  */
 
-import type { ExecutedRequestSnapshot, Request, WorkflowStep } from '@openheaders/core/types';
+import type { ExecutedRequestSnapshot, GraphqlRequest, Request, WorkflowStep } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildChainFetchAdapter } from '../../../src/live/request-exec/chain-adapter';
 import type { RequestTransport } from '../../../src/live/request-exec/transport';
 
 const getRequestInWorkspaceMock = vi.fn();
+const getGraphqlRequestInWorkspaceMock = vi.fn();
 const runStepRequestMock = vi.fn();
 const withRefreshRateLimitMock = vi.fn();
 
 vi.mock('../../../src/entity/request-store', () => ({
   getRequestInWorkspace: (uid: string, ws: string) => getRequestInWorkspaceMock(uid, ws),
+  getGraphqlRequestInWorkspace: (uid: string, ws: string) => getGraphqlRequestInWorkspaceMock(uid, ws),
 }));
 vi.mock('../../../src/live/request-exec/run-step-request', () => ({
   runStepRequest: (...args: unknown[]) => runStepRequestMock(...args),
@@ -73,6 +75,8 @@ const ctx = { workflowUid: 'wf-1', workspaceId: 'ws-1', environmentId: null };
 
 beforeEach(() => {
   getRequestInWorkspaceMock.mockReset();
+  getGraphqlRequestInWorkspaceMock.mockReset();
+  getGraphqlRequestInWorkspaceMock.mockReturnValue(null);
   runStepRequestMock.mockReset();
   withRefreshRateLimitMock.mockReset();
   // Default: the rate limiter is a pass-through wrapper.
@@ -176,5 +180,33 @@ describe('buildChainFetchAdapter', () => {
     const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
     await adapter.executeStep(makeStep({ runScripts: true }), new Map(), ctx);
     expect(runStepRequestMock.mock.calls[0][1].scriptRunner).toBeUndefined();
+  });
+  it('runs a GraphQL request step through the compile: one POST of the envelope on the same uid + path', async () => {
+    getRequestInWorkspaceMock.mockReturnValue(null);
+    const graphql: GraphqlRequest = {
+      schemaVersion: 5,
+      uid: 'gqlviewer',
+      path: 'requests/api/viewer-gqlviewer',
+      name: 'Viewer',
+      url: 'https://api.openheaders.io/graphql',
+      query: 'query Viewer { viewer { id } }',
+      variables: '{"first": 1}',
+      headers: [],
+      auth: { type: 'inherit' },
+    };
+    getGraphqlRequestInWorkspaceMock.mockReturnValue(graphql);
+    runStepRequestMock.mockResolvedValue(makeSnapshot());
+    const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
+    await adapter.executeStep(makeStep({ requestUid: 'gqlviewer' }), {});
+    expect(getGraphqlRequestInWorkspaceMock).toHaveBeenCalledWith('gqlviewer', 'ws-1');
+    const compiled = runStepRequestMock.mock.calls[0]?.[0] as Request;
+    expect(compiled.uid).toBe('gqlviewer');
+    expect(compiled.path).toBe('requests/api/viewer-gqlviewer');
+    expect(compiled.method).toBe('POST');
+    expect(compiled.body).toEqual({
+      type: 'graphql',
+      content: 'query Viewer { viewer { id } }',
+      graphqlVariables: '{"first": 1}',
+    });
   });
 });

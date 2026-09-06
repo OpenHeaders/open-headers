@@ -16,6 +16,8 @@
 
 import { HTTP_INHERITABLE_SETTING_KEYS } from '../schemas/inheritable-settings';
 import type { AuthConfig, Request, RequestBody, RequestHeader, RequestSpecLink } from '../types/request';
+import { censusDocument, wireOperationName } from './census';
+import { parseDocument } from './parse';
 
 export type HttpSettingKey = (typeof HTTP_INHERITABLE_SETTING_KEYS)[number];
 
@@ -91,4 +93,22 @@ export function toHttpRequest(input: GraphqlRequestLike, options: CompileOptions
     ...(input.preRequestScript !== undefined ? { preRequestScript: input.preRequestScript } : {}),
     ...(input.postResponseScript !== undefined ? { postResponseScript: input.postResponseScript } : {}),
   };
+}
+
+/**
+ * The whole compile the executing hosts (and the renderer's "Copy as"
+ * snippet) run: the operation pick decided by the census's rule —
+ * one operation → nothing on the wire; several → the requested name
+ * when held, else the first named; an unparseable document sends as
+ * written — then `toHttpRequest`. The stored `operationName` never
+ * reaches the compile on its own, so a stale pick (the document no
+ * longer holds it) never reaches the wire.
+ */
+export function compileGraphqlRequest(input: GraphqlRequestLike, options: CompileOptions = {}): Request {
+  const { operationName: stored, ...fields } = input;
+  const requested = options.operationName ?? stored;
+  const parsed = parseDocument(input.query);
+  const operationName =
+    parsed.document === null ? requested : wireOperationName(censusDocument(parsed.document), requested);
+  return toHttpRequest(fields, operationName !== undefined ? { operationName } : {});
 }

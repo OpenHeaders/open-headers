@@ -52,6 +52,23 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.stopTooltip': '停止请求并保留已到达的内容',
   'workbench.editors.request.menu.copyAsCurl': '复制为 cURL',
   'workbench.editors.request.menu.copyAsFetch': '复制为 fetch',
+  'workbench.editors.request.convert.menu': '转换为 GraphQL 请求',
+  'workbench.editors.request.convert.title': '转换为 GRAPHQL 请求',
+  'workbench.editors.request.convert.body':
+    '“{name}”将在原位置变为 GraphQL 请求——请求头、认证、脚本、设置和文档都会保留，HTTP 请求将被移除。',
+  'workbench.editors.request.convert.noteParamsFolded': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个查询参数将折叠进 URL。' }),
+  'workbench.editors.request.convert.noteDisabledParamsDropped': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个已禁用的查询参数将被丢弃——GraphQL 请求不保留查询参数。' }),
+  'workbench.editors.request.convert.noteMethodChanged': '{method} 方法将变为 POST——每个 GraphQL 操作都以 POST 发送。',
+  'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个已保存的响应将移到新请求下。' }),
+  'workbench.editors.request.convert.ok': '转换',
+  'workbench.editors.request.convert.notConvertible': '只有请求体为 GraphQL 的请求才能转换。',
+  'workbench.editors.request.convert.saveFirst': '请先保存请求再转换。',
+  'workbench.editors.request.convert.failed': '无法转换该请求。',
+  'workbench.editors.request.convert.failedDetail': '无法转换该请求：{message}',
+  'workbench.editors.request.convert.done': '已将“{name}”转换为 GraphQL 请求。',
   'workbench.editors.request.schemeHint':
     '你的 URL 没有协议前缀。它将按 https:// 发送——点击 URL 栏并按 Tab 或 Enter 即可锁定。',
 

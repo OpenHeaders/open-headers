@@ -112,8 +112,20 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateWs.noServer': '文档未声明可连接的 ws、wss 或 mqtt 服务器。',
   'workbench.editors.spec.generateWs.partial': '生成时有缺口——{created} 个已创建，{failed} 个失败。',
   'workbench.editors.spec.generateWs.skipped': '已跳过 {operation}：{reason}。',
+  'workbench.editors.spec.generateGraphql.blurb':
+    '从此模式生成一个集合。Query 和 Mutation 的根字段变成 GraphQL 请求并预填充文档与示例变量，两者都存在时按根类型分组到各自的文件夹；订阅字段不会生成。集合会与此规范保持关联。',
+  'workbench.editors.spec.generateGraphql.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个 GraphQL 请求' }),
+  'workbench.editors.spec.generateGraphql.empty': '模式未声明可供生成的 Query 或 Mutation 字段。',
+  'workbench.editors.spec.generateGraphql.partial': '生成时有缺口——{created} 个已创建，{failed} 个失败。',
+  'workbench.editors.spec.generateGraphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
+  'workbench.editors.spec.generateGraphql.urlHint': '每个生成的请求都指向此端点；留空则稍后再填写 URL。',
+  'workbench.editors.spec.generateGraphql.subscriptionsSkipped': ({ count, fields }, locale) =>
+    `已跳过 ${plural(locale, Number(count), { other: '{count} 个订阅字段' })}（${fields}）——不支持订阅。`,
+  'workbench.editors.spec.generateGraphql.problem': '模式问题：{message}',
   'workbench.editors.spec.update.button': '更新',
   'workbench.editors.spec.update.protoUnavailable': '暂不支持从 Protobuf 规范更新——请生成一个新集合来获取更改。',
+  'workbench.editors.spec.update.graphqlUnavailable': '暂不支持从 GraphQL 模式更新——请生成一个新集合来获取更改。',
   'workbench.editors.spec.update.inSyncBadge': '与已保存的文档同步',
   'workbench.editors.spec.update.driftedBadge': '规范在上次更新后发生了变化',
   'workbench.editors.spec.update.modalTitle': '更新集合',

@@ -60,6 +60,33 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.stopTooltip': 'Die Anfrage stoppen und behalten, was bereits angekommen ist',
   'workbench.editors.request.menu.copyAsCurl': 'Als cURL kopieren',
   'workbench.editors.request.menu.copyAsFetch': 'Als fetch kopieren',
+  'workbench.editors.request.convert.menu': 'In GraphQL-Anfrage umwandeln',
+  'workbench.editors.request.convert.title': 'IN GRAPHQL-ANFRAGE UMWANDELN',
+  'workbench.editors.request.convert.body':
+    '„{name}“ wird an derselben Stelle zu einer GraphQL-Anfrage — Header, Auth, Skripte, Einstellungen und Doku bleiben erhalten, die HTTP-Anfrage wird entfernt.',
+  'workbench.editors.request.convert.noteParamsFolded': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} Query-Parameter wird in die URL eingefaltet.',
+      other: '{count} Query-Parameter werden in die URL eingefaltet.',
+    }),
+  'workbench.editors.request.convert.noteDisabledParamsDropped': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} deaktivierter Query-Parameter entfällt — eine GraphQL-Anfrage behält keinen.',
+      other: '{count} deaktivierte Query-Parameter entfallen — eine GraphQL-Anfrage behält keinen.',
+    }),
+  'workbench.editors.request.convert.noteMethodChanged':
+    'Die Methode {method} wird zu POST — jede GraphQL-Operation postet.',
+  'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} gespeicherte Antwort wandert unter die neue Anfrage.',
+      other: '{count} gespeicherte Antworten wandern unter die neue Anfrage.',
+    }),
+  'workbench.editors.request.convert.ok': 'Umwandeln',
+  'workbench.editors.request.convert.notConvertible': 'Nur eine Anfrage mit GraphQL-Body kann umgewandelt werden.',
+  'workbench.editors.request.convert.saveFirst': 'Speichere die Anfrage, bevor du sie umwandelst.',
+  'workbench.editors.request.convert.failed': 'Die Anfrage konnte nicht umgewandelt werden.',
+  'workbench.editors.request.convert.failedDetail': 'Die Anfrage konnte nicht umgewandelt werden: {message}',
+  'workbench.editors.request.convert.done': '„{name}“ in eine GraphQL-Anfrage umgewandelt.',
   'workbench.editors.request.schemeHint':
     'Deine URL hat kein Schema. Sie wird als https:// gesendet — klicke in die URL-Leiste und drücke Tab ' +
     'oder die Eingabetaste, um es festzuschreiben.',

@@ -490,6 +490,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         workspaceId={editingScopeWorkspaceId}
         onOpenPackageLibrary={openScriptPackages}
         onOpenResponseExample={openResponseExampleTab}
+        onOpenGraphqlRequest={openGraphqlRequestEditTab}
         onOpenContainerAuth={openContainerAuth}
         onOpenContainerScripts={openContainerScripts}
         onOpenContainerSettings={openContainerSettings}

@@ -49,6 +49,7 @@ const RequestsSection: React.FC<RequestsSectionProps> = ({
             <PlusOutlined
               style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
               onClick={(e) => e.stopPropagation()}
+              data-testid="sidebar-create-request"
             />
           </Dropdown>
         }

@@ -22,8 +22,8 @@
  * before seeding).
  */
 
-import { CollectionSchema, GraphqlRequestSchema } from '@openheaders/core/schemas';
-import type { Collection, GraphqlRequest } from '@openheaders/core/types';
+import { CollectionSchema, GraphqlRequestSchema, RequestSchema } from '@openheaders/core/schemas';
+import type { Collection, GraphqlRequest, Request } from '@openheaders/core/types';
 import { toFolderName } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
@@ -87,8 +87,30 @@ const graphqlRequests: GraphqlRequest[] = [
   }),
 ];
 
+// G8: an HTTP request whose body is the graphql body mode — the
+// "Convert to GraphQL request" source; its query row folds into the
+// URL honestly on conversion.
+const HTTP_UID = 'e2ehttp1';
+const httpRequest: Request = v.parse(RequestSchema, {
+  schemaVersion: 5,
+  uid: HTTP_UID,
+  path: `${collection.path}/${toFolderName('Probe Echo HTTP', HTTP_UID)}`,
+  name: 'Probe Echo HTTP',
+  method: 'POST',
+  url: probeUrl,
+  headers: [],
+  params: [{ uid: 'e2eprm01', key: 'trace', value: 'convert' }],
+  auth: { type: 'inherit' },
+  body: {
+    type: 'graphql',
+    content: 'query Echo($t: String!) { echo(text: $t) }',
+    graphqlVariables: '{"t": "hi-from-the-converted-request"}',
+  },
+});
+
 const values: Record<string, unknown> = {
   [`oh.ws.${workspaceId}.requestCollections`]: [collection],
+  [`oh.ws.${workspaceId}.requests`]: [httpRequest],
   [`oh.ws.${workspaceId}.graphqlRequests`]: graphqlRequests,
 };
 

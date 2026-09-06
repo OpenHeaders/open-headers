@@ -45,6 +45,7 @@ vi.mock('@/background/modules/request-executor', () => ({
 vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: (uid: string) => getRequestMock(uid),
   getRequestInWorkspace: (uid: string, _workspaceId: string) => getRequestMock(uid),
+  getGraphqlRequestInWorkspace: () => null,
 }));
 
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({

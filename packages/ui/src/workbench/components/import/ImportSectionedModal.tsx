@@ -21,13 +21,13 @@ import {
   type BrunoFile,
   BrunoParseError,
   type BrunoParseResult,
+  createReport,
   diffImportReports,
   hashImportSource,
   type ImportReport,
   type ImportReportDiff,
   InsomniaParseError,
   OpenApiParseError,
-  type OpenApiSpecFormat,
   PostmanBackupParseError,
   parseBruno,
   parseBrunoFiles,
@@ -36,7 +36,8 @@ import {
   parsePostmanBackup,
   recordDrop,
 } from '@openheaders/core/import';
-import type { AuthConfig, Request, RequestHeader, Variable } from '@openheaders/core/types';
+import type { GraphqlRequestContent } from '@openheaders/core/graphql';
+import type { AuthConfig, Request, RequestHeader, SpecFormat, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { trackProductTelemetryEvent } from '@openheaders/ui/shared/product-telemetry';
 import { Alert, App as AntApp, Button, Divider, Input, Modal, Radio, Space, Tag, Tooltip, Typography, theme } from 'antd';
@@ -44,6 +45,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { SPEC_FORMAT_LABELS } from '../specs/spec-format-labels';
 import ImportReportPanel from './ImportReportPanel';
 import { landSectionedCollections, type SectionedCollection } from './land-collections';
 import ReimportDiffPanel from './ReimportDiffPanel';
@@ -53,7 +55,10 @@ const { Text, Paragraph } = Typography;
 
 // ── Source-neutral parse shape ─────────────────────────────────────
 
-export type SectionedSourceKind = 'postman-backup' | 'insomnia' | 'bruno' | 'openapi';
+export type SectionedSourceKind = 'postman-backup' | 'insomnia' | 'bruno' | 'openapi' | 'graphql-schema';
+
+/** The spec formats an imported document can land as. */
+export type SectionedSpecFormat = Extract<SpecFormat, 'openapi-3.0' | 'openapi-3.1' | 'graphql'>;
 
 interface SectionedEnvironment {
   name: string;
@@ -71,7 +76,7 @@ interface SectionedPreset {
 interface SectionedSpec {
   name: string;
   content: string;
-  format: OpenApiSpecFormat;
+  format: SectionedSpecFormat;
   collectionIndex: number | null;
 }
 
@@ -100,7 +105,18 @@ const SOURCE_LABELS: Record<SectionedSourceKind, { title: MessageKey; blurb: Mes
     title: 'workbench.importExport.sectioned.titleOpenapi',
     blurb: 'workbench.importExport.sectioned.blurbOpenapi',
   },
+  'graphql-schema': {
+    title: 'workbench.importExport.sectioned.titleGraphqlSchema',
+    blurb: 'workbench.importExport.sectioned.blurbGraphqlSchema',
+  },
 };
+
+/** A bare schema file names nothing; the picked file's name (sans
+ *  extension) is the spec's, else a plain label. */
+function graphqlSchemaSpecName(fileName: string | undefined): string {
+  const base = fileName?.replace(/\.(graphql|gql|graphqls|json)$/i, '').trim();
+  return base ? base : 'GraphQL schema';
+}
 
 function fromBrunoResult(r: BrunoParseResult): SectionedParse {
   return {
@@ -112,8 +128,19 @@ function fromBrunoResult(r: BrunoParseResult): SectionedParse {
   };
 }
 
-function parseSectioned(kind: SectionedSourceKind, text: string): SectionedParse {
+function parseSectioned(kind: SectionedSourceKind, text: string, fileName?: string): SectionedParse {
   switch (kind) {
+    case 'graphql-schema':
+      // A schema document alone — no collections; it lands as a
+      // `graphql` Spec the GraphQL requests link as their schema
+      // source (the specs plane validates the text on open).
+      return {
+        collections: [],
+        environments: [],
+        headerPresets: [],
+        specs: [{ name: graphqlSchemaSpecName(fileName), content: text, format: 'graphql', collectionIndex: null }],
+        report: createReport('graphql-schema'),
+      };
     case 'postman-backup': {
       const r = parsePostmanBackup(text);
       return {
@@ -194,6 +221,9 @@ interface ImportSectionedModalProps {
   sourceKind: SectionedSourceKind;
   /** The recognized paste/file text — parsed on open, like the hub's Postman hand-off. */
   initialText?: string;
+  /** The picked file's name when the text came from a file — names a
+   *  bare schema document's spec. */
+  initialFileName?: string;
   /** A picked Bruno collection folder (`bruno` only) — collection-relative
    *  paths + contents from the hub's folder picker. Wins over `initialText`. */
   initialFiles?: BrunoFile[];
@@ -223,10 +253,18 @@ interface ImportSectionedModalProps {
     parentPath: string;
     seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
+  /** Lands a GraphQL-typed source request (Bruno's `meta.type:
+   *  graphql`) as a GraphqlRequest entity. Absent on hosts without the
+   *  GraphQL plane — those land as HTTP requests with a report note. */
+  createGraphqlRequest?: (payload: {
+    name: string;
+    parentPath: string;
+    seed: GraphqlRequestContent;
+  }) => Promise<{ uid: string } | null>;
   /** Lands an imported document as a spec entity (API Specs Phase G).
    *  Absent on hosts without a spec plane — importable documents then
    *  drop from the spec leg with a report entry. */
-  createSpec?: (payload: { name: string; content: string; format: OpenApiSpecFormat }) => Promise<{
+  createSpec?: (payload: { name: string; content: string; format: SectionedSpecFormat }) => Promise<{
     uid: string;
   } | null>;
   /** Binds a landed collection to the spec it was generated from —
@@ -260,9 +298,9 @@ function toStageError(err: unknown, t: Translate): Stage {
 
 // Everything this modal parses is committed input (routed paste, picked
 // file or folder), so a parse failure beacons `import-parse-failed`.
-function parseText(sourceKind: SectionedSourceKind, text: string, t: Translate): Stage {
+function parseText(sourceKind: SectionedSourceKind, text: string, t: Translate, fileName?: string): Stage {
   try {
-    return { kind: 'parsed', source: text, result: parseSectioned(sourceKind, text) };
+    return { kind: 'parsed', source: text, result: parseSectioned(sourceKind, text, fileName) };
   } catch (err) {
     trackProductTelemetryEvent({ name: 'error_beacon', code: 'import-parse-failed' });
     return toStageError(err, t);
@@ -288,6 +326,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   open,
   sourceKind,
   initialText,
+  initialFileName,
   initialFiles,
   onCancel,
   onImported,
@@ -299,6 +338,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
   setFolderAuth,
   setCollectionVariables,
   createRequest,
+  createGraphqlRequest,
   createSpec,
   setCollectionSpecLink,
   createEnvironment,
@@ -323,14 +363,14 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     const next = initialFiles
       ? parseFiles(initialFiles, t)
       : initialText
-        ? parseText(sourceKind, initialText, t)
+        ? parseText(sourceKind, initialText, t, initialFileName)
         : ({ kind: 'empty' } as const);
     setStage(next);
     setCollectionNames(next.kind === 'parsed' ? next.result.collections.map((c) => c.name) : []);
     setBusy(false);
     setDiff(null);
     setIncludeSpec(true);
-  }, [open, sourceKind, initialText, initialFiles, t]);
+  }, [open, sourceKind, initialText, initialFileName, initialFiles, t]);
 
   // Re-import-diff lookup on every parse — same contract as the other
   // stage-2 modals (keyed by sourceHash, nice-to-have on failure).
@@ -390,6 +430,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           ...(setFolderAuth ? { setFolderAuth } : {}),
           ...(setCollectionVariables ? { setCollectionVariables } : {}),
           createRequest,
+          ...(createGraphqlRequest ? { createGraphqlRequest } : {}),
         },
         report,
       );
@@ -484,7 +525,15 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
         }
       }
 
-      trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: true });
+      // The wire-compat law (vocabulary → worker → deploy → emitters):
+      // the `graphql-schema` member is in the vocabulary, but the
+      // deployed worker drops any batch carrying a member it does not
+      // know and the client keeps re-sending it, so this source beacons
+      // only once the worker deploy carries it (the GraphQL client
+      // epic's ledger owns the flip).
+      if (sourceKind !== 'graphql-schema') {
+        trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: true });
+      }
       onImported({ importedCollections: collectionsImported, report });
 
       const summaryParts: string[] = [];
@@ -514,7 +563,9 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
           message: err instanceof Error ? err.message : String(err),
         }),
       );
-      trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
+      if (sourceKind !== 'graphql-schema') {
+        trackProductTelemetryEvent({ name: 'import_run', source: sourceKind, ok: false });
+      }
     } finally {
       setBusy(false);
     }
@@ -531,6 +582,7 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
     setFolderAuth,
     setCollectionVariables,
     createRequest,
+    createGraphqlRequest,
     createSpec,
     setCollectionSpecLink,
     createEnvironment,
@@ -662,8 +714,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
               >
                 <Space size={6} wrap>
                   {stage.result.specs.map((s, i) => (
-                    <Tag key={i} icon={<FileTextOutlined />}>
-                      {s.name} · {s.format === 'openapi-3.0' ? 'OpenAPI 3.0' : 'OpenAPI 3.1'}
+                    <Tag key={i} icon={<FileTextOutlined />} data-testid="import-sectioned-spec">
+                      {s.name} · {SPEC_FORMAT_LABELS[s.format]}
                     </Tag>
                   ))}
                 </Space>
@@ -750,7 +802,8 @@ const ImportSectionedModal: React.FC<ImportSectionedModalProps> = ({
 
           {stage.result.collections.length === 0 &&
             stage.result.environments.length === 0 &&
-            stage.result.headerPresets.length === 0 && (
+            stage.result.headerPresets.length === 0 &&
+            stage.result.specs.length === 0 && (
               <Alert
                 type="info"
                 showIcon

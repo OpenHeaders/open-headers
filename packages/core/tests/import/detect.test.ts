@@ -290,4 +290,30 @@ describe('detectImportSource', () => {
       expect(detectImportSource('please import my requests')).toEqual({ kind: 'unknown' });
     });
   });
+  describe('graphql schema', () => {
+    it('detects SDL by a type-system definition line, a description block first included', () => {
+      expect(detectImportSource('type Query {\n  viewer: User\n}\n')).toEqual({ kind: 'graphql-schema' });
+      expect(detectImportSource('"""The notes API."""\nschema {\n  query: Query\n}\n')).toEqual({
+        kind: 'graphql-schema',
+      });
+      expect(detectImportSource('scalar DateTime\n\ninterface Node { id: ID! }')).toEqual({ kind: 'graphql-schema' });
+      expect(detectImportSource('extend type Query { me: User }')).toEqual({ kind: 'graphql-schema' });
+      expect(detectImportSource('union SearchResult = User | Note')).toEqual({ kind: 'graphql-schema' });
+      expect(detectImportSource('directive @cost(weight: Int!) on FIELD_DEFINITION')).toEqual({
+        kind: 'graphql-schema',
+      });
+    });
+
+    it('detects an introspection result, bare or under data', () => {
+      const schema = { queryType: { name: 'Query' }, types: [] };
+      expect(detectImportSource(JSON.stringify({ __schema: schema }))).toEqual({ kind: 'graphql-schema' });
+      expect(detectImportSource(JSON.stringify({ data: { __schema: schema } }))).toEqual({ kind: 'graphql-schema' });
+    });
+
+    it('does not mistake prose, an executable document, or other JSON for a schema', () => {
+      expect(detectImportSource('The type of a request is chosen in the editor.')).toEqual({ kind: 'unknown' });
+      expect(detectImportSource('query Viewer { viewer { id } }')).toEqual({ kind: 'unknown' });
+      expect(detectImportSource('{"data": {"viewer": {"id": "1"}}}')).toEqual({ kind: 'unknown' });
+    });
+  });
 });

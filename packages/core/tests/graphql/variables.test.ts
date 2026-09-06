@@ -7,7 +7,7 @@
  * posture where custom types pass.
  */
 
-import { censusDocument, validateVariables } from '@openheaders/core/graphql';
+import { censusDocument, type GraphqlSchema, validateVariables } from '@openheaders/core/graphql';
 import { describe, expect, it } from 'vitest';
 import { OPENHEADERS_SDL, parseOrThrow, schemaOrThrow } from './helpers';
 
@@ -23,7 +23,7 @@ const CREATE = operation(
 );
 const ECHO = operation('query Echo($t: String!, $n: Int = 1) { echo(text: $t) }');
 
-const messages = (source: ReturnType<typeof operation>, json: string, s = schema) =>
+const messages = (source: ReturnType<typeof operation>, json: string, s: GraphqlSchema | null = schema) =>
   validateVariables(source, s, json).map((d) => `${d.severity}:${d.message}`);
 
 describe('validateVariables', () => {

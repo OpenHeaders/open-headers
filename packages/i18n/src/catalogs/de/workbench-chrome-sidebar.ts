@@ -94,6 +94,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.menu.copyAs': 'Kopieren als',
   'workbench.sidebar.menu.copyAsCurl': 'cURL',
   'workbench.sidebar.menu.copyAsFetch': 'fetch',
+  'workbench.sidebar.menu.convertToGraphql': 'In GraphQL-Anfrage umwandeln',
   'workbench.sidebar.menu.pauseCollection': 'Sammlung pausieren',
   'workbench.sidebar.menu.unpauseCollection': 'Sammlung fortsetzen',
   'workbench.sidebar.menu.pauseFolder': 'Ordner pausieren',

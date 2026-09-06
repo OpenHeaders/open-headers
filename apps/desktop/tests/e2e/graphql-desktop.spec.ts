@@ -28,6 +28,13 @@
  *       field names its reason, the Schema tab reports the schema.
  *   G7  schema-fed completion: the suggest widget offers the probe's
  *       root fields inside a fresh selection set.
+ *   G8  Convert to GraphQL request (the Phase E bridge): the sidebar
+ *       verb turns the seeded HTTP request (graphql body mode, one
+ *       query row) into a GraphQL request in its place — the row
+ *       swaps kinds, the query row folds into the URL, and the carried
+ *       document + variables run through the node host's route.
+ *   G9  Copy as cURL from the GraphQL row: the snippet is one POST of
+ *       the envelope, read back from the main-process clipboard.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle (extension `graphql-workbench.spec.ts`), the ⌘/Ctrl+Enter
@@ -351,4 +358,77 @@ test('G7 — the suggest widget offers the root fields once the schema resolved'
   await suggest.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(suggest.locator('.monaco-list-row').filter({ hasText: 'echo' }).first()).toBeVisible();
   await workbench.keyboard.press('Escape');
+});
+
+// ── G8: Convert to GraphQL request ──────────────────────────────────
+
+test('G8 — the sidebar verb converts the HTTP request with a GraphQL body into a GraphQL request in its place', async () => {
+  const httpRow = workbench.locator('[data-item-id="request-e2ehttp1"]');
+  if (!(await httpRow.isVisible().catch(() => false))) {
+    await workbench.locator('[data-item-id="req-col-e2egqcol"]').click();
+  }
+  await httpRow.waitFor({ state: 'visible', timeout: 5_000 });
+  await httpRow.hover();
+  await httpRow.locator('.rules-sidebar-item-menu').click();
+  await workbench
+    .locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item', {
+      hasText: 'Convert to GraphQL request',
+    })
+    .first()
+    .click();
+  const confirm = workbench.getByTestId('request-convert-graphql-confirm');
+  await confirm.waitFor({ state: 'visible', timeout: 5_000 });
+  // The honest fold: the one query row goes into the URL.
+  await expect(confirm).toContainText('1 query parameter is folded into the URL.');
+  await workbench.locator('.ant-modal-confirm .ant-btn-primary').first().click();
+
+  const converted = workbench
+    .locator('[data-item-id^="graphql-request-"]')
+    .filter({ hasText: 'Probe Echo HTTP' })
+    .filter({ visible: true })
+    .first();
+  await converted.waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(workbench.locator('[data-item-id="request-e2ehttp1"]')).toHaveCount(0, { timeout: 5_000 });
+  await queryButton().waitFor({ state: 'visible', timeout: 10_000 });
+  await expect(workbench.getByTestId('graphql-url-input').filter({ visible: true }).first()).toHaveValue(
+    `${PROBE_URL}?trace=convert`,
+  );
+  expect(await queryAndAwaitStatus()).toBe('200 OK');
+  expect(await responseBodyText()).toMatch(/"echo":\s*"hi-from-the-converted-request"/);
+});
+
+// ── G9: Copy as cURL ────────────────────────────────────────────────
+
+test('G9 — Copy as cURL from the GraphQL row renders one POST of the envelope', async () => {
+  const row = workbench
+    .locator('[data-item-id^="graphql-request-"]')
+    .filter({ hasText: 'Probe Echo HTTP' })
+    .filter({ visible: true })
+    .first();
+  await row.hover();
+  await electronApp.evaluate(({ clipboard }) => clipboard.clear());
+  await row.locator('.rules-sidebar-item-menu').click();
+  // Click the submenu title outright — a hover does not reliably
+  // expand it under the Electron rig.
+  await workbench
+    .locator('.ant-dropdown:not(.ant-dropdown-hidden)')
+    .getByRole('menuitem', { name: /Copy as/ })
+    .first()
+    .click();
+  const curlItem = workbench.getByRole('menuitem', { name: 'cURL', exact: true }).filter({ visible: true }).last();
+  await curlItem.waitFor({ state: 'visible', timeout: 5_000 });
+  await curlItem.click();
+  let text = '';
+  await expect
+    .poll(
+      async () => {
+        text = await electronApp.evaluate(({ clipboard }) => clipboard.readText());
+        return text;
+      },
+      { timeout: 10_000 },
+    )
+    .toMatch(/^curl /);
+  expect(text).toContain("-X 'POST'");
+  expect(text).toContain('"query"');
+  expect(text).toContain('hi-from-the-converted-request');
 });

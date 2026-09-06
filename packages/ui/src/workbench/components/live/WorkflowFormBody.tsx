@@ -21,6 +21,7 @@ import { InlineDescription, LIVE_FORM_PAD_X, Section } from './layout';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import RefreshPolicyEditor from './RefreshPolicyEditor';
+import type { StepRequestChoice } from './workflow-step-request-options';
 import WorkflowStepEditor from './WorkflowStepEditor';
 
 const { Text } = Typography;
@@ -44,7 +45,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
-  const { requests, collectionTrees: requestCollectionTrees, isReady: requestsReady } = useRequests();
+  const { requests, graphqlRequests, collectionTrees: requestCollectionTrees, isReady: requestsReady } = useRequests();
 
   // Construct a full LiveWorkflow shape so the validator + layout
   // helper see a coherent object. Synthetic `uid` / `path` /
@@ -69,7 +70,12 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   // validator can't make — it needs the request registry. Guarded by
   // `requestsReady` so a not-yet-hydrated request store never
   // false-flags every step as referencing a deleted request.
-  const knownRequestUids = useMemo(() => new Set(requests.map((r) => r.uid)), [requests]);
+  // A step names a request of either kind — a GraphQL request runs
+  // through the compile as one POST.
+  const knownRequestUids = useMemo(
+    () => new Set([...requests.map((r) => r.uid), ...graphqlRequests.map((r) => r.uid)]),
+    [requests, graphqlRequests],
+  );
   const validationErrors = useMemo(() => {
     const shape = validateWorkflowShape(draftWorkflow);
     if (!requestsReady) return shape;
@@ -117,9 +123,9 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
   // because the Select builds JSX: icons per segment, method colored
   // per METHOD_COLORS. `title` (string) stays on the option for
   // showSearch filtering.
-  const availableRequests = useMemo(
-    () =>
-      requests.map((r) => {
+  const availableRequests = useMemo<StepRequestChoice[]>(
+    () => [
+      ...requests.map((r): StepRequestChoice => {
         const trail = computeRequestTrail(r.uid, requestCollectionTrees);
         return {
           uid: r.uid,
@@ -129,7 +135,19 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({
           folderTrail: trail?.folderTrail ?? [],
         };
       }),
-    [requests, requestCollectionTrees],
+      ...graphqlRequests.map((r): StepRequestChoice => {
+        const trail = computeRequestTrail(r.uid, requestCollectionTrees);
+        return {
+          uid: r.uid,
+          name: r.name,
+          method: 'GQL',
+          kind: 'graphql',
+          collectionName: trail?.collectionName ?? null,
+          folderTrail: trail?.folderTrail ?? [],
+        };
+      }),
+    ],
+    [requests, graphqlRequests, requestCollectionTrees],
   );
 
   const updateStep = (idx: number, next: DraftStep) => {

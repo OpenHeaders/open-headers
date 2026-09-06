@@ -16,6 +16,8 @@ export interface BrunoConvertedRequest {
   request: CurlRequest;
   /** `meta.seq` — user ordering inside the folder. */
   seq: number | undefined;
+  /** `meta.type: graphql` — the request is Bruno's GraphQL type. */
+  kind: 'graphql' | undefined;
 }
 
 function entryValue(entries: BruEntry[], key: string): string | undefined {
@@ -43,6 +45,8 @@ export function convertBruRequest(
   const seqRaw = meta && entryValue(meta.entries, 'seq');
   const seq =
     seqRaw !== undefined && seqRaw.trim() !== '' && !Number.isNaN(Number(seqRaw)) ? Number(seqRaw) : undefined;
+  const kind: BrunoConvertedRequest['kind'] =
+    meta && entryValue(meta.entries, 'type')?.trim() === 'graphql' ? 'graphql' : undefined;
 
   const methodBlock = blocks.find((b) => (METHOD_BLOCKS as readonly string[]).includes(b.name));
   const method = coerceMethod(methodBlock?.name, jsonPath, report);
@@ -91,7 +95,7 @@ export function convertBruRequest(
   const body = buildBody(blocks, methodBlock, meta, jsonPath, report);
   reportUnsupportedBlocks(blocks, jsonPath, report);
 
-  return { request: { name, method, url: base, headers: headersWithoutAuth, params, auth, body }, seq };
+  return { request: { name, method, url: base, headers: headersWithoutAuth, params, auth, body }, seq, kind };
 }
 
 /** `params:path` rows substitute the `:name` placeholders in the URL — same convention as Postman `url.variable`. */

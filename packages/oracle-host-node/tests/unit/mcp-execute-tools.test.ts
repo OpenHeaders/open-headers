@@ -13,8 +13,9 @@ import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
-import type { OAuth2Auth } from '@openheaders/core/types';
-import { logger as consoleLogger } from '@openheaders/core/utils';
+import { buildGraphqlAddBatch } from '@openheaders/core/sync-builders/mutations/graphql-request-mutations';
+import type { GraphqlRequest, OAuth2Auth } from '@openheaders/core/types';
+import { logger as consoleLogger, toFolderName } from '@openheaders/core/utils';
 import { getTokenBundle, putTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
@@ -27,13 +28,14 @@ import { __initSyncServiceForTests, dispose as disposeSyncService } from '@openh
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createNodeRequestTransport } from '../../src/live/node-request-transport';
 import { type McpToolDefinition, McpToolInputError } from '../../src/mcp/registry';
+import { applyMcpMutation, mintMcpContext } from '../../src/mcp/tools/common';
 import {
   createExecuteToolDefinitions,
   type McpWorkflowRunArgs,
   type McpWorkflowRunOutcome,
 } from '../../src/mcp/tools/execute-tools';
 import { createReadToolDefinitions } from '../../src/mcp/tools/read-tools';
-import { createWriteToolDefinitions } from '../../src/mcp/tools/write-tools';
+import { createWriteToolDefinitions, placeRequest, resolveRequestParentPath } from '../../src/mcp/tools/write-tools';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const wsId = 'ws-mcp-execute';
@@ -291,6 +293,48 @@ describe('requests_send', () => {
 
   it('errors on an unknown request uid', async () => {
     await expect(call('requests_send', { uid: 'missing' })).rejects.toThrow(/see requests_list/);
+  });
+
+  // The headless leg for the GraphQL kind: `oh request send` resolves
+  // its target through `requests_list` and runs `requests_send` — one
+  // compile into the HTTP send, the operation pick applied, no new
+  // tool shape.
+  it('runs a GraphQL request through the compile: one POST of the envelope, listed with its kind', async () => {
+    const parentPath = await resolveRequestParentPath(wsId, undefined);
+    const uid = 'gqlmcp01';
+    const graphql: GraphqlRequest = {
+      schemaVersion: 5,
+      uid,
+      path: `${parentPath}/${toFolderName('Viewer', uid)}`,
+      name: 'Viewer',
+      url: `http://127.0.0.1:${port}/graphql`,
+      query: 'query A { a } query B { echo(text: "b") }',
+      variables: '{"first": 1}',
+      operationName: 'B',
+      headers: [{ uid: 'hdrgql01', key: 'X-Kind', value: 'graphql' }],
+      auth: { type: 'none' },
+    };
+    await applyMcpMutation(buildGraphqlAddBatch(graphql, mintMcpContext(wsId), placeRequest(wsId, graphql.path)));
+
+    const listed = (await call('requests_list', {})) as { requests: Array<Record<string, unknown>> };
+    expect(listed.requests.find((r) => r.uid === uid)).toMatchObject({
+      kind: 'graphql',
+      method: 'POST',
+      name: 'Viewer',
+    });
+
+    const result = await call('requests_send', { uid });
+    expect(result.sent).toBe(true);
+    expect((result.response as { status: number }).status).toBe(200);
+    expect(captured?.method).toBe('POST');
+    expect(captured?.url).toBe('/graphql');
+    expect(captured?.headers['content-type']).toBe('application/json');
+    expect(captured?.headers['x-kind']).toBe('graphql');
+    expect(JSON.parse(captured?.body ?? '')).toEqual({
+      query: 'query A { a } query B { echo(text: "b") }',
+      variables: { first: 1 },
+      operationName: 'B',
+    });
   });
 });
 

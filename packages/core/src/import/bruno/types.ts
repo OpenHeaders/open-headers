@@ -20,6 +20,14 @@ export interface BrunoFile {
 export interface BrunoParsedRequest {
   folderPath: string[];
   request: CurlRequest;
+  /**
+   * `meta.type: graphql` — Bruno distinguishes GraphQL requests as
+   * their own type, so the landing loop mints a GraphqlRequest from
+   * the converted shape (the body's document + variables, the URL,
+   * headers, auth) instead of an HTTP request with a graphql body.
+   * Absent = an HTTP request.
+   */
+  kind?: 'graphql';
 }
 
 export interface BrunoParsedFolder {

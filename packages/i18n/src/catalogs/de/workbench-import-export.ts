@@ -91,6 +91,7 @@ export const workbenchImportExport = {
   'workbench.importExport.hub.kindInsomnia': 'Insomnia-Export',
   'workbench.importExport.hub.kindBrunoSuffix': 'Datei oder Sammlungsordner',
   'workbench.importExport.hub.kindOpenapi': 'OpenAPI-3.x-Dokument',
+  'workbench.importExport.hub.kindGraphqlSchema': 'GraphQL-Schema (SDL oder Introspektions-JSON)',
   'workbench.importExport.hub.kindWorkspaceSuffix': 'Arbeitsbereich-Export',
   'workbench.importExport.hub.autoDetected': 'Das Format wird automatisch erkannt.',
   'workbench.importExport.hub.browseFiles': 'Dateien durchsuchen…',
@@ -401,6 +402,9 @@ export const workbenchImportExport = {
     'ein Platzhalter-Gerüst), und Sicherheitsschemata werden auf Auth abgebildet — fülle die Platzhalter ' +
     '{{clientId}}/{{clientSecret}} nach dem Import aus. Das Dokument kann auch als bearbeitbare ' +
     'Spezifikation weiterleben, verknüpft mit der erzeugten Sammlung.',
+  'workbench.importExport.sectioned.titleGraphqlSchema': 'GRAPHQL-SCHEMA IMPORTIEREN',
+  'workbench.importExport.sectioned.blurbGraphqlSchema':
+    'Importiere ein GraphQL-Schema — SDL-Text oder ein Introspektionsergebnis. Es wird zu einer bearbeitbaren Spezifikation, die GraphQL-Anfragen als Schemaquelle verknüpfen; öffne sie danach, um aus ihren Wurzelfeldern eine Sammlung von Anfragen zu generieren.',
   'workbench.importExport.sectioned.tooltipNothingParsed': 'Noch nichts geparst',
   'workbench.importExport.sectioned.tooltipNeedsNames': 'Jede Sammlung braucht einen Namen',
   'workbench.importExport.sectioned.cantReadImport': 'Dieser Import ließ sich nicht lesen',

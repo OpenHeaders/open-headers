@@ -128,6 +128,7 @@ export const TelemetryImportSourceIdSchema = v.picklist([
   'bruno',
   'openapi',
   'workspace',
+  'graphql-schema',
   'unknown',
 ]);
 

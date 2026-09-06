@@ -131,4 +131,75 @@ describe('landSectionedCollections', () => {
     expect(report.drops).toHaveLength(1);
     expect(report.drops[0].reason).toContain('failed to write');
   });
+  it('lands a GraphQL-typed request as a GraphqlRequest through the reverse bridge when the leg exists', async () => {
+    const createGraphqlRequest = vi.fn(async () => ({ uid: 'gql-1' }));
+    const legs = makeLegs({ createGraphqlRequest });
+    const report = createReport('bruno');
+    const section = makeSection({
+      requests: [
+        {
+          folderPath: [],
+          kind: 'graphql',
+          request: {
+            name: 'Viewer',
+            method: 'POST',
+            url: 'https://api.openheaders.io/graphql',
+            headers: [{ uid: 'h1', key: 'X-Trace', value: '{{trace}}' }],
+            params: [{ uid: 'p1', key: 'tenant', value: 'acme' }],
+            auth: { type: 'bearer', token: '{{token}}' },
+            body: { type: 'graphql', content: 'query { viewer { id } }', graphqlVariables: '{}' },
+            description: 'The viewer.',
+            settings: { followRedirects: false },
+            preRequestScript: 'oh.log("pre");',
+          },
+        },
+      ],
+    });
+    const landed = await landSectionedCollections([section], ['GQL'], legs, report);
+    expect(landed.requestsImported).toBe(1);
+    expect(legs.createRequest).not.toHaveBeenCalled();
+    expect(createGraphqlRequest).toHaveBeenCalledWith({
+      name: 'Viewer',
+      parentPath: 'requests/GQL',
+      seed: {
+        description: 'The viewer.',
+        url: 'https://api.openheaders.io/graphql?tenant=acme',
+        query: 'query { viewer { id } }',
+        variables: '{}',
+        headers: [{ uid: 'h1', key: 'X-Trace', value: '{{trace}}' }],
+        auth: { type: 'bearer', token: '{{token}}' },
+        followRedirects: false,
+        preRequestScript: 'oh.log("pre");',
+      },
+    });
+    expect(report.transforms).toEqual([]);
+  });
+
+  it('lands a GraphQL-typed request as an HTTP request with a transform note when the surface has no leg', async () => {
+    const legs = makeLegs();
+    const report = createReport('bruno');
+    const section = makeSection({
+      requests: [
+        {
+          folderPath: [],
+          kind: 'graphql',
+          request: {
+            ...makeRequest('Viewer').request,
+            method: 'POST',
+            body: { type: 'graphql', content: 'query { viewer { id } }' },
+          },
+        },
+      ],
+    });
+    const landed = await landSectionedCollections([section], ['GQL'], legs, report);
+    expect(landed.requestsImported).toBe(1);
+    expect(legs.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Viewer',
+        seed: expect.objectContaining({ body: expect.objectContaining({ type: 'graphql' }) }),
+      }),
+    );
+    expect(report.transforms).toHaveLength(1);
+    expect(report.transforms[0]?.reason).toContain('no GraphQL request plane');
+  });
 });

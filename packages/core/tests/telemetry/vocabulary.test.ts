@@ -349,6 +349,7 @@ describe('telemetry vocabulary — sync pins', () => {
       'bruno',
       'openapi',
       'workspace',
+      'graphql-schema',
       'unknown',
     ]);
   });

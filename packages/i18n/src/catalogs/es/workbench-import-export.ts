@@ -90,6 +90,7 @@ export const workbenchImportExport = {
   'workbench.importExport.hub.kindInsomnia': 'Exportación de Insomnia',
   'workbench.importExport.hub.kindBrunoSuffix': 'archivo o carpeta de colección',
   'workbench.importExport.hub.kindOpenapi': 'Documento OpenAPI 3.x',
+  'workbench.importExport.hub.kindGraphqlSchema': 'Esquema GraphQL (SDL o JSON de introspección)',
   'workbench.importExport.hub.kindWorkspaceSuffix': 'exportación de espacio de trabajo',
   'workbench.importExport.hub.autoDetected': 'El formato se reconoce automáticamente.',
   'workbench.importExport.hub.browseFiles': 'Examinar archivos…',
@@ -441,6 +442,9 @@ export const workbenchImportExport = {
     'se asignan a la autenticación — rellena los marcadores {{clientId}}/{{clientSecret}} tras importar. El ' +
     'documento también puede seguir viviendo como una especificación editable vinculada a la colección ' +
     'generada.',
+  'workbench.importExport.sectioned.titleGraphqlSchema': 'IMPORTAR ESQUEMA GRAPHQL',
+  'workbench.importExport.sectioned.blurbGraphqlSchema':
+    'Importa un esquema GraphQL — texto SDL o un resultado de introspección. Se convierte en una especificación editable que las solicitudes GraphQL vinculan como fuente del esquema; ábrela después para generar una colección de solicitudes a partir de sus campos raíz.',
   'workbench.importExport.sectioned.tooltipNothingParsed': 'Aún no se ha analizado nada',
   'workbench.importExport.sectioned.tooltipNeedsNames': 'Cada colección necesita un nombre',
   'workbench.importExport.sectioned.cantReadImport': 'No se pudo leer esta importación',

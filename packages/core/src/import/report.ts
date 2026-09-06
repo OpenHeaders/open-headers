@@ -41,6 +41,7 @@ export const FLAT_IMPORT_SOURCES = [
   'insomnia',
   'bruno',
   'openapi',
+  'graphql-schema',
 ] as const;
 export const IMPORT_SOURCES = [...FLAT_IMPORT_SOURCES, 'workspace-export'] as const;
 export const ImportSourceSchema = v.picklist(IMPORT_SOURCES);
@@ -140,6 +141,7 @@ export const FlatImportReportSchema = v.variant('source', [
   flatArm('insomnia'),
   flatArm('bruno'),
   flatArm('openapi'),
+  flatArm('graphql-schema'),
 ]);
 
 export const WorkspaceExportImportReportSchema = v.object({
@@ -163,6 +165,7 @@ export const ImportReportSchema = v.variant('source', [
   v.object({ ...baseFields, source: v.literal('insomnia') }),
   v.object({ ...baseFields, source: v.literal('bruno') }),
   v.object({ ...baseFields, source: v.literal('openapi') }),
+  v.object({ ...baseFields, source: v.literal('graphql-schema') }),
   WorkspaceExportImportReportSchema,
 ]);
 export type ImportReport = v.InferOutput<typeof ImportReportSchema>;

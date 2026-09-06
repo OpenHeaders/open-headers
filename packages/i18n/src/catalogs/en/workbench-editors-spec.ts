@@ -102,9 +102,26 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.generateWs.noServer': 'The document declares no ws, wss, or mqtt server to connect to.',
   'workbench.editors.spec.generateWs.partial': 'Generated with gaps — {created} created, {failed} failed.',
   'workbench.editors.spec.generateWs.skipped': 'Skipped {operation}: {reason}.',
+  'workbench.editors.spec.generateGraphql.blurb':
+    'Generate a collection from this schema. Query and Mutation root fields become GraphQL requests with their document and example variables pre-filled, grouped in a folder per root type when both exist; subscription fields are left out. The collection stays linked to this spec.',
+  'workbench.editors.spec.generateGraphql.requestsCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} GraphQL request', other: '{count} GraphQL requests' }),
+  'workbench.editors.spec.generateGraphql.empty': 'The schema declares no Query or Mutation fields to generate from.',
+  'workbench.editors.spec.generateGraphql.partial': 'Generated with gaps — {created} created, {failed} failed.',
+  'workbench.editors.spec.generateGraphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
+  'workbench.editors.spec.generateGraphql.urlHint':
+    'Every generated request targets this endpoint; leave it blank to fill the URL in later.',
+  'workbench.editors.spec.generateGraphql.subscriptionsSkipped': ({ count, fields }, locale) =>
+    `${plural(locale, Number(count), {
+      one: '{count} subscription field left out',
+      other: '{count} subscription fields left out',
+    })} (${fields}) — subscriptions are not supported.`,
+  'workbench.editors.spec.generateGraphql.problem': 'Schema problem: {message}',
   'workbench.editors.spec.update.button': 'Update',
   'workbench.editors.spec.update.protoUnavailable':
     'Updating from a Protobuf spec is not available yet — generate a fresh collection to pick up changes.',
+  'workbench.editors.spec.update.graphqlUnavailable':
+    'Updating from a GraphQL schema is not available yet — generate a fresh collection to pick up changes.',
   'workbench.editors.spec.update.inSyncBadge': 'In sync with the saved document',
   'workbench.editors.spec.update.driftedBadge': 'The specification changed since the last update',
   'workbench.editors.spec.update.modalTitle': 'UPDATE COLLECTION',

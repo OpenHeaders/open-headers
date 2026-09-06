@@ -48,6 +48,7 @@ import type {
   WebSocketRequest,
 } from '@openheaders/core/types';
 import { withDefaultAuthConfig } from '@openheaders/core/auth-inheritance';
+import { HTTP_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -101,6 +102,10 @@ import {
   applyGraphqlRequestUpdate,
   type GraphqlRequestUpdates,
 } from '../shared/sync/graphql-request-write-client';
+import {
+  applyConvertRequestToGraphql,
+  type ConvertRequestToGraphqlResult,
+} from '../shared/sync/convert-request-to-graphql';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '../shared/sync/request-write-client';
 import { getRequestCollectionSyncMirrorForWorkspace } from './mirrors/request-collection-sync-mirror';
 import { getRequestFolderSyncMirrorForWorkspace } from './mirrors/request-folder-sync-mirror';
@@ -233,6 +238,14 @@ export interface RequestsContextValue {
     updates: GraphqlRequestUpdates,
   ) => Promise<GraphqlRequestWriteResult>;
   deleteGraphqlRequest: (graphqlRequestUid: string) => Promise<boolean>;
+
+  /**
+   * "Convert to GraphQL request" — the explicit tree operation: the
+   * HTTP request (graphql body mode) becomes a GraphqlRequest in the
+   * same slot, its saved responses following, and the HTTP entity is
+   * removed. Override branch only; the legacy branch resolves null.
+   */
+  convertRequestToGraphql: (requestUid: string) => Promise<ConvertRequestToGraphqlResult | null>;
 
   createCollection: (name: string) => Promise<Collection | null>;
   renameCollection: (collectionUid: string, name: string) => Promise<boolean>;
@@ -370,6 +383,7 @@ const defaultContextValue: RequestsContextValue = {
   updateMqttRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
   deleteMqttRequest: () => Promise.resolve(false),
   createGraphqlRequest: () => Promise.resolve(null),
+  convertRequestToGraphql: () => Promise.resolve(null),
   updateGraphqlRequest: () => Promise.resolve({ ok: false, reason: 'other', message: 'no provider' }),
   deleteGraphqlRequest: () => Promise.resolve(false),
   createCollection: () => Promise.resolve(null),
@@ -886,23 +900,43 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       const wsId = activeWorkspaceIdOverride ?? null;
       if (!wsId) return null;
       const uid = generateUid();
+      // The seed's content leaves ride verbatim — the bridges (Generate
+      // Collection, the Bruno leg, Convert) carry docs, scripts and the
+      // settings knobs, never just the endpoint and the document.
+      const seed = input.seed ?? {};
+      const settings: Partial<GraphqlRequest> = {};
+      for (const key of HTTP_INHERITABLE_SETTING_KEYS) {
+        if (seed[key] !== undefined) Object.assign(settings, { [key]: seed[key] });
+      }
       const created: GraphqlRequest = {
         schemaVersion: 5,
         uid,
         path: `${input.parentPath}/${toFolderName(input.name, uid)}`,
         name: input.name,
-        url: input.seed?.url ?? '',
-        query: input.seed?.query ?? '',
-        headers: input.seed?.headers ?? [],
-        auth: input.seed?.auth ?? { type: 'inherit' },
-        ...(input.seed?.description !== undefined ? { description: input.seed.description } : {}),
-        ...(input.seed?.variables !== undefined ? { variables: input.seed.variables } : {}),
-        ...(input.seed?.operationName !== undefined ? { operationName: input.seed.operationName } : {}),
-        ...(input.seed?.specLink !== undefined ? { specLink: input.seed.specLink } : {}),
-        ...(input.seed?.timeoutMs !== undefined ? { timeoutMs: input.seed.timeoutMs } : {}),
+        url: seed.url ?? '',
+        query: seed.query ?? '',
+        headers: seed.headers ?? [],
+        auth: seed.auth ?? { type: 'inherit' },
+        ...(seed.description !== undefined ? { description: seed.description } : {}),
+        ...(seed.variables !== undefined ? { variables: seed.variables } : {}),
+        ...(seed.operationName !== undefined ? { operationName: seed.operationName } : {}),
+        ...(seed.specLink !== undefined ? { specLink: seed.specLink } : {}),
+        ...settings,
+        ...(seed.preRequestScript !== undefined ? { preRequestScript: seed.preRequestScript } : {}),
+        ...(seed.postResponseScript !== undefined ? { postResponseScript: seed.postResponseScript } : {}),
       };
       const result = await applyGraphqlRequestCreate(created, { workspaceId: wsId, surfaceId });
       return result.ok ? created : null;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
+
+  const convertRequestToGraphql = useCallback<RequestsContextValue['convertRequestToGraphql']>(
+    async (requestUid) => {
+      if (!isOverridden) return null;
+      const wsId = activeWorkspaceIdOverride ?? null;
+      if (!wsId) return null;
+      return applyConvertRequestToGraphql(requestUid, { workspaceId: wsId, surfaceId });
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
@@ -1206,6 +1240,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       updateMqttRequest,
       deleteMqttRequest,
       createGraphqlRequest,
+      convertRequestToGraphql,
       updateGraphqlRequest,
       deleteGraphqlRequest,
       createCollection,
@@ -1250,6 +1285,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       updateMqttRequest,
       deleteMqttRequest,
       createGraphqlRequest,
+      convertRequestToGraphql,
       updateGraphqlRequest,
       deleteGraphqlRequest,
       createCollection,

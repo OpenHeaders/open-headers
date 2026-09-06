@@ -27,7 +27,7 @@
  * persisting first.
  */
 
-import { CaretRightOutlined, CopyOutlined, LoadingOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, CopyOutlined, LoadingOutlined, SwapOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
@@ -53,6 +53,8 @@ import { isMac } from '@openheaders/ui/shared/platform';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
+import { isConvertibleToGraphql } from '@openheaders/core/graphql';
+import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraphql';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
 import EditorHeader from '../shell/EditorHeader';
@@ -138,6 +140,9 @@ interface RequestEditorProps {
    *  after "Save Response" mints one so the frozen exchange is
    *  immediately inspectable. */
   onOpenResponseExample?: (uid: string, name: string, requestUid: string) => void;
+  /** Open a GraphQL request's editor — called once "Convert to GraphQL
+   *  request" landed the new entity (this tab closes with its own). */
+  onOpenGraphqlRequest?: (uid: string, name: string) => void;
   /** Opens a container's Authorization section — the Auth tab's
    *  "Edit in …" opener under Inherit. */
   onOpenContainerAuth?: (kind: 'collection' | 'folder', uid: string, name: string) => void;
@@ -173,6 +178,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   workspaceId = null,
   onOpenPackageLibrary,
   onOpenResponseExample,
+  onOpenGraphqlRequest,
   onOpenContainerAuth,
   onOpenContainerScripts,
   onOpenContainerSettings,
@@ -190,6 +196,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     execute,
   } = useRequests();
   const copySnippet = useCopyRequestSnippet();
+  const convertToGraphql = useConvertRequestToGraphql();
 
   const isCreateMode = mode === 'request-create';
 
@@ -785,6 +792,25 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       label: t('workbench.editors.request.menu.copyAsFetch'),
       onClick: () => void copySnippet({ draft: buildDraftRequest() }, 'fetch'),
     },
+    // The explicit bridge to the GraphQL kind — a SAVED request whose
+    // body already is GraphQL; unsaved edits would be lost, so a dirty
+    // form is told to save first.
+    ...(summary !== null && isConvertibleToGraphql(summary)
+      ? [
+          {
+            key: 'convert-to-graphql',
+            icon: <SwapOutlined />,
+            label: t('workbench.editors.request.convert.menu'),
+            onClick: () => {
+              if (isDirty) {
+                message.warning(t('workbench.editors.request.convert.saveFirst'));
+                return;
+              }
+              convertToGraphql(summary, (uid, name) => onOpenGraphqlRequest?.(uid, name));
+            },
+          },
+        ]
+      : []),
   ];
 
   const headerActions = (

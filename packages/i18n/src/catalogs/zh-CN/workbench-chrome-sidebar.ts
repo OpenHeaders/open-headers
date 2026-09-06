@@ -90,6 +90,7 @@ export const workbenchChromeSidebar = {
   'workbench.sidebar.menu.copyAs': '复制为',
   'workbench.sidebar.menu.copyAsCurl': 'cURL',
   'workbench.sidebar.menu.copyAsFetch': 'fetch',
+  'workbench.sidebar.menu.convertToGraphql': '转换为 GraphQL 请求',
   'workbench.sidebar.menu.pauseCollection': '暂停集合',
   'workbench.sidebar.menu.unpauseCollection': '恢复集合',
   'workbench.sidebar.menu.pauseFolder': '暂停文件夹',

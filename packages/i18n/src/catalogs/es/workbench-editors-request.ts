@@ -49,6 +49,36 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.stopTooltip': 'Detener la solicitud y conservar lo que haya llegado',
   'workbench.editors.request.menu.copyAsCurl': 'Copiar como cURL',
   'workbench.editors.request.menu.copyAsFetch': 'Copiar como fetch',
+  'workbench.editors.request.convert.menu': 'Convertir en solicitud GraphQL',
+  'workbench.editors.request.convert.title': 'CONVERTIR EN SOLICITUD GRAPHQL',
+  'workbench.editors.request.convert.body':
+    '"{name}" se convierte en una solicitud GraphQL en el mismo lugar — encabezados, autenticación, scripts, ajustes y documentación se conservan, y la solicitud HTTP se elimina.',
+  'workbench.editors.request.convert.noteParamsFolded': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} parámetro de consulta se pliega en la URL.',
+      many: '{count} parámetros de consulta se pliegan en la URL.',
+      other: '{count} parámetros de consulta se pliegan en la URL.',
+    }),
+  'workbench.editors.request.convert.noteDisabledParamsDropped': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} parámetro de consulta desactivado se descarta — una solicitud GraphQL no conserva ninguno.',
+      many: '{count} parámetros de consulta desactivados se descartan — una solicitud GraphQL no conserva ninguno.',
+      other: '{count} parámetros de consulta desactivados se descartan — una solicitud GraphQL no conserva ninguno.',
+    }),
+  'workbench.editors.request.convert.noteMethodChanged':
+    'El método {method} pasa a ser POST — toda operación GraphQL se envía por POST.',
+  'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} respuesta guardada pasa bajo la nueva solicitud.',
+      many: '{count} respuestas guardadas pasan bajo la nueva solicitud.',
+      other: '{count} respuestas guardadas pasan bajo la nueva solicitud.',
+    }),
+  'workbench.editors.request.convert.ok': 'Convertir',
+  'workbench.editors.request.convert.notConvertible': 'Solo se puede convertir una solicitud cuyo cuerpo sea GraphQL.',
+  'workbench.editors.request.convert.saveFirst': 'Guarda la solicitud antes de convertirla.',
+  'workbench.editors.request.convert.failed': 'No se pudo convertir la solicitud.',
+  'workbench.editors.request.convert.failedDetail': 'No se pudo convertir la solicitud: {message}',
+  'workbench.editors.request.convert.done': '"{name}" convertida en solicitud GraphQL.',
   'workbench.editors.request.schemeHint':
     'Tu URL no tiene esquema. Se enviará como https:// — haz clic en la barra de URL y pulsa Tab o Intro ' +
     'para fijarlo.',
