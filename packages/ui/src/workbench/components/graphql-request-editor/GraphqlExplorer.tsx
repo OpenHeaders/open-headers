@@ -11,7 +11,10 @@
  * into the return type's fields, the field's arguments (a checkbox
  * writes `arg: $arg` and declares the variable; the cell takes a
  * literal or a `$variable` as the user types, selecting the field first
- * when the document does not yet), and the set's fragments read-only.
+ * when the document does not yet), a union's members and an
+ * interface's implementers as `... on T` rows (checked when the inline
+ * fragment exists, the member's fields beneath), and the set's other
+ * fragments read-only.
  * The document stays the source of truth: every gesture is span edits
  * through the editor's edit stack (`@openheaders/core/graphql`'s
  * builder), and the projection re-reads from the Query tab's one parse.
@@ -35,6 +38,8 @@ import {
   argumentAt,
   type BuilderContext,
   type BuilderEdit,
+  type BuilderPath,
+  type BuilderStep,
   deselectFieldEdits,
   fieldAt,
   fieldsOf,
@@ -47,8 +52,10 @@ import {
   isCompositeType,
   isIntrospectionName,
   namedTypeOf,
+  nodeAt,
   type OperationDefinitionNode,
   type OperationType,
+  possibleTypesOf,
   printTypeRef,
   removeArgumentEdits,
   rootTypeName,
@@ -93,10 +100,22 @@ interface GraphqlExplorerProps {
   refresh: { readonly refreshing: boolean; readonly onRefresh: () => void } | null;
 }
 
-/** A field's place in the picked operation — the path from the root, the field last. */
+/** A row's place in the picked operation — the path from the root, the row's own step last. */
 interface BuilderPosition {
   readonly operationType: OperationType;
-  readonly path: readonly string[];
+  readonly path: BuilderPath;
+}
+
+/** One row of the builder's tree — a field, or a member's `... on T`. */
+interface TreeRow {
+  readonly position: BuilderPosition;
+  readonly label: React.ReactNode;
+  readonly description: string | null;
+  readonly deprecationReason: string | null;
+  readonly args: readonly GraphqlInputValue[];
+  /** The type the row's children come from — its fields, then its members; undefined on a leaf. */
+  readonly type: GraphqlNamedType | undefined;
+  readonly testId: string;
 }
 
 const SEARCH_LIMIT = 100;
@@ -133,8 +152,12 @@ function isExplorable(type: GraphqlNamedType): boolean {
   return !isIntrospectionName(type.name) && !isBuiltInScalar(type.name);
 }
 
+function stepKey(step: BuilderStep): string {
+  return typeof step === 'string' ? step : `on:${step.on}`;
+}
+
 function positionKey(position: BuilderPosition): string {
-  return `${position.operationType}.${position.path.join('.')}`;
+  return `${position.operationType}.${position.path.map(stepKey).join('.')}`;
 }
 
 interface SearchIndex {
@@ -353,6 +376,11 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
   };
   const fieldNodeAt = (position: BuilderPosition) =>
     operation === null || operation.operation !== position.operationType ? null : fieldAt(operation, position.path);
+  const selectedAt = (position: BuilderPosition): boolean =>
+    operation !== null && operation.operation === position.operationType && nodeAt(operation, position.path) !== null;
+  // A union's members and an interface's implementers — the `... on T` rows a composite row lists after its fields.
+  const membersOf = (type: GraphqlNamedType | undefined): readonly string[] =>
+    type !== undefined && (type.kind === 'UNION' || type.kind === 'INTERFACE') ? possibleTypesOf(schema, type) : [];
 
   // A click on the row block itself — not on a control inside it.
   const isRowClick = (event: React.MouseEvent<HTMLDivElement>): boolean =>
@@ -437,13 +465,14 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
     );
   };
 
-  const builderRow = (typeName: string, field: GraphqlField, position: BuilderPosition): React.ReactNode => {
+  const treeRow = (row: TreeRow): React.ReactNode => {
+    const { position, type } = row;
     const key = positionKey(position);
     const buildable = buildableFor(position.operationType);
-    const checked = fieldNodeAt(position) !== null;
-    const returnType = schema.types.get(namedTypeOf(field.type));
-    const children = fieldsOf(returnType);
-    const expandable = children.length > 0 || field.args.length > 0;
+    const checked = selectedAt(position);
+    const children = fieldsOf(type);
+    const members = membersOf(type);
+    const expandable = children.length > 0 || members.length > 0 || row.args.length > 0;
     const isExpanded = expandable && expanded.has(key);
     const hint = disabledHint(position.operationType);
     const toggleChecked = () => {
@@ -464,7 +493,7 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
       />
     );
     return (
-      <div key={field.name}>
+      <div key={key}>
         <div
           className="graphql-explorer-row"
           onClick={(event) => {
@@ -474,10 +503,7 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
           }}
           data-testid={`graphql-builder-row-${key}`}
         >
-          <div
-            style={{ ...rowStyle, alignItems: 'center' }}
-            data-testid={`graphql-explorer-field-${typeName}.${field.name}`}
-          >
+          <div style={{ ...rowStyle, alignItems: 'center' }} data-testid={row.testId}>
             {expandable ? (
               <Button
                 type="text"
@@ -495,38 +521,72 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
               <span style={gutterStyle} />
             )}
             {hint === undefined ? checkbox : <Tooltip title={hint}>{checkbox}</Tooltip>}
-            {fieldLabel(typeName, field, false)}
+            {row.label}
           </div>
-          {descriptionLine(field.description, 44, `graphql-builder-description-${key}`)}
-          {descriptions === 'shown' && deprecation(field.deprecationReason, `graphql-builder-deprecated-${key}`, 44)}
+          {descriptionLine(row.description, 44, `graphql-builder-description-${key}`)}
+          {descriptions === 'shown' && deprecation(row.deprecationReason, `graphql-builder-deprecated-${key}`, 44)}
         </div>
         {isExpanded && (
           <div style={{ paddingLeft: 22 }}>
-            {field.args.map((arg) => argumentRow(position, arg))}
+            {row.args.map((arg) => argumentRow(position, arg))}
             {checked &&
               operation !== null &&
-              fragmentsAt(operation, position.path).map((row) => (
-                <Tooltip key={`${row.start}`} title={t('workbench.editors.graphql.builder.fragmentReadOnly')}>
+              fragmentsAt(operation, position.path, members).map((fragment) => (
+                <Tooltip key={`${fragment.start}`} title={t('workbench.editors.graphql.builder.fragmentReadOnly')}>
                   <div style={{ ...rowStyle, alignItems: 'center' }} data-testid={`graphql-builder-fragment-${key}`}>
                     <span style={gutterStyle} />
                     <span style={gutterStyle} />
                     <Text type="secondary" style={{ ...monoStyle, fontStyle: 'italic' }}>
-                      {row.label}
+                      {fragment.label}
                     </Text>
                   </div>
                 </Tooltip>
               ))}
-            {returnType !== undefined &&
+            {type !== undefined &&
               children.map((child) =>
-                builderRow(returnType.name, child, {
+                builderRow(type.name, child, {
                   operationType: position.operationType,
                   path: [...position.path, child.name],
+                }),
+              )}
+            {type !== undefined &&
+              members.map((name) =>
+                memberRow(type.name, name, {
+                  operationType: position.operationType,
+                  path: [...position.path, { on: name }],
                 }),
               )}
           </div>
         )}
       </div>
     );
+  };
+
+  const builderRow = (typeName: string, field: GraphqlField, position: BuilderPosition): React.ReactNode =>
+    treeRow({
+      position,
+      label: fieldLabel(typeName, field, false),
+      description: field.description,
+      deprecationReason: field.deprecationReason,
+      args: field.args,
+      type: schema.types.get(namedTypeOf(field.type)),
+      testId: `graphql-explorer-field-${typeName}.${field.name}`,
+    });
+
+  // One `... on T` row per possible type of a union or interface — checked
+  // when the inline fragment exists, the member's own fields beneath it.
+  const memberRow = (parentTypeName: string, name: string, position: BuilderPosition): React.ReactNode => {
+    const type = schema.types.get(name);
+    if (type === undefined) return null;
+    return treeRow({
+      position,
+      label: <span style={{ ...monoStyle, fontSize: 12 }}>{`... on ${type.name}`}</span>,
+      description: type.description,
+      deprecationReason: null,
+      args: [],
+      type,
+      testId: `graphql-explorer-member-${parentTypeName}.${type.name}`,
+    });
   };
 
   const description = (text: string | null): React.ReactNode =>

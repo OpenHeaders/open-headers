@@ -414,21 +414,27 @@ test('G9 — Copy as cURL from the GraphQL row renders one POST of the envelope'
   await row.hover();
   await electronApp.evaluate(({ clipboard }) => clipboard.clear());
   await row.locator('.rules-sidebar-item-menu').click();
-  // Click the submenu title outright — a hover does not reliably
-  // expand it under the Electron rig.
-  await workbench
+  // Both popups slide in — a click mid-motion lands beside the moving
+  // item (the submenu misses its enter and never opens; the cURL click
+  // lands on the pane beneath and the pointer's leave closes the
+  // popup). Wait for rc-motion's classes to drop (the git spec's
+  // settle), enter the item, then click — the submenu title outright,
+  // a hover alone does not reliably expand it under the Electron rig.
+  const settled = () =>
+    expect(
+      workbench.locator('[class*="ant-dropdown"][class*="-enter"], [class*="ant-dropdown"][class*="-appear"]'),
+    ).toHaveCount(0);
+  const copyAs = workbench
     .locator('.ant-dropdown:not(.ant-dropdown-hidden)')
     .getByRole('menuitem', { name: /Copy as/ })
-    .first()
-    .click();
+    .first();
+  await copyAs.waitFor({ state: 'visible', timeout: 5_000 });
+  await settled();
+  await copyAs.hover();
+  await copyAs.click();
   const curlItem = workbench.getByRole('menuitem', { name: 'cURL', exact: true }).filter({ visible: true }).last();
   await curlItem.waitFor({ state: 'visible', timeout: 5_000 });
-  // The submenu slides in — a click mid-motion lands on the pane beneath
-  // and the pointer's leave closes the popup; wait for rc-motion's
-  // classes to drop (the git spec's settle), then enter the item first.
-  await expect(
-    workbench.locator('[class*="ant-dropdown"][class*="-enter"], [class*="ant-dropdown"][class*="-appear"]'),
-  ).toHaveCount(0);
+  await settled();
   await curlItem.hover();
   await curlItem.click();
   let text = '';

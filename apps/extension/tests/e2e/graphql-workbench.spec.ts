@@ -71,6 +71,19 @@
  *       checkboxes (a nested leaf checked, its sibling not, an argument
  *       value read back), a broken document disables the builder with
  *       the notice, and a mended one re-enables it.
+ *   E17 the explorer header and the live cell: the descriptions toggle
+ *       persists across a remount, the root sections fold, the pane
+ *       folds to its strip, Refresh re-introspects, a String argument
+ *       writes quoted as the user types and undoes as one step, a
+ *       required argument unchecked takes its field, an argument on an
+ *       unchecked field selects it.
+ *   E18 the member rows: a union-typed field expands to `... on T` rows
+ *       (one per member, the type's description beneath, no field rows
+ *       of its own); checking one lands the field with the fragment on
+ *       the member's first leaf, a member leaf joins the fragment,
+ *       unchecking the fragment as the field's last selection leaves
+ *       `__typename` with the field still checked; an interface-typed
+ *       field lists its own fields first, then its implementers.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -840,4 +853,73 @@ test('E17 — descriptions toggle and persist, the root sections fold, the pane 
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
   await expect.poll(document, { timeout: 5_000 }).toBe('query Echo { viewer { id } }');
   await expect(check('query.slow')).not.toBeChecked();
+});
+
+// ── E18: the member rows — a union's `... on T`, an interface's fields then implementers ──
+
+test('E18 — a union field lists its members as `... on T` rows that check in with the member’s first leaf and leave `__typename` behind; an interface lists its fields, then its implementers', async () => {
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  const check = (key: string) => explorer.getByTestId(`graphql-builder-check-${key}`);
+  const document = () => workbench.monacoText(0);
+  await workbench.fillMonaco(0, 'query Echo { viewer { id } }');
+
+  // `search` (a union) expands to its ARG row and one row per member —
+  // the type's description beneath — and no field rows of its own.
+  await explorer.getByTestId('graphql-builder-expand-query.search').click();
+  await expect(explorer.getByTestId('graphql-explorer-member-SearchResult.User')).toBeVisible();
+  await expect(explorer.getByTestId('graphql-explorer-member-SearchResult.Note')).toBeVisible();
+  await expect(explorer.getByTestId('graphql-builder-description-query.search.on:User')).toContainText('A person');
+  await expect(explorer.locator('[data-testid^="graphql-builder-row-query.search."]')).toHaveCount(2);
+
+  // Checking `... on User` lands `search` (its required `$term`
+  // declared) with the fragment on the member's first leaf; the row
+  // expands onto the member's fields, the leaf read back checked.
+  await check('query.search.on:User').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo($term: String!) { viewer { id } search(term: $term) { ... on User { id } } }');
+  await expect(check('query.search')).toBeChecked();
+  await expect(check('query.search.on:User')).toBeChecked();
+  await expect(check('query.search.on:User.id')).toBeChecked();
+  await expect(check('query.search.on:Note')).not.toBeChecked();
+
+  // A member leaf joins the fragment's set.
+  await check('query.search.on:User.name').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('... on User { id name }');
+
+  // Unchecking the fragment as the field's last selection leaves
+  // `__typename` — `search` stays checked on a set that is never empty.
+  await check('query.search.on:User').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo($term: String!) { viewer { id } search(term: $term) { __typename } }');
+  await expect(check('query.search')).toBeChecked();
+  await expect(check('query.search.on:User')).not.toBeChecked();
+
+  // `node` (an interface) lists its own fields first, then its implementers.
+  await explorer.getByTestId('graphql-builder-expand-query.node').click();
+  await expect
+    .poll(() =>
+      explorer
+        .locator('[data-testid^="graphql-builder-row-query.node."]')
+        .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-testid'))),
+    )
+    .toEqual([
+      'graphql-builder-row-query.node.id',
+      'graphql-builder-row-query.node.on:User',
+      'graphql-builder-row-query.node.on:Note',
+    ]);
+  await check('query.node.on:Note').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe(
+      'query Echo($term: String!, $id: ID!) { viewer { id } search(term: $term) { __typename } node(id: $id) { ... on Note { id } } }',
+    );
+  await check('query.node.on:Note').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe(
+      'query Echo($term: String!, $id: ID!) { viewer { id } search(term: $term) { __typename } node(id: $id) { __typename } }',
+    );
+  await expect(check('query.node')).toBeChecked();
 });

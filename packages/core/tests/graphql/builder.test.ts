@@ -18,6 +18,7 @@ import {
   fieldAt,
   fragmentsAt,
   isBuilderBroken,
+  nodeAt,
   type OperationDefinitionNode,
   parseDocument,
   parseValue,
@@ -65,8 +66,22 @@ describe('projection', () => {
     expect(fieldAt(operation, ['viewer', 'name'])).toBeNull();
     expect(fieldAt(operation, ['viewer', 'email'])).toBeNull();
     expect(fragmentsAt(operation, ['viewer']).map((row) => row.label)).toEqual(['...UserFields', '... on User']);
+    expect(fragmentsAt(operation, ['viewer'], ['User']).map((row) => row.label)).toEqual(['...UserFields']);
     const notes = fieldAt(operation, ['viewer', 'notes']);
     expect(notes === null ? null : argumentAt(notes, 'first')?.value.kind).toBe('IntValue');
+  });
+
+  it('walks an `on` step into the first inline fragment with that type condition', () => {
+    const operation = operationOf(
+      '{ search(term: "x") { __typename ... on User { id } ... on User { email } ... on Note { title } ... { body } } }',
+    );
+    expect(nodeAt(operation, ['search', { on: 'User' }])?.kind).toBe('InlineFragment');
+    expect(fieldAt(operation, ['search', { on: 'User' }])).toBeNull();
+    expect(fieldAt(operation, ['search', { on: 'User' }, 'id'])?.name.value).toBe('id');
+    expect(fieldAt(operation, ['search', { on: 'User' }, 'email'])).toBeNull();
+    expect(fieldAt(operation, ['search', { on: 'Note' }, 'title'])?.name.value).toBe('title');
+    expect(nodeAt(operation, ['search', { on: 'Role' }])).toBeNull();
+    expect(fragmentsAt(operation, ['search'], ['User', 'Note']).map((row) => row.label)).toEqual(['...']);
   });
 
   it('keeps the name of an aliased field and takes the first match', () => {
@@ -143,6 +158,77 @@ describe('selectFieldEdits', () => {
     expect(applied(source, selectFieldEdits(context(source), 'query', ['partial', 'ok']))).toBe(
       'fragment F on User { id }\n\nquery {\n  partial { ok }\n}\n',
     );
+  });
+});
+
+describe('member rows', () => {
+  it("lands a union-typed field's own check on `__typename` and a member's `... on T` with its first leaf", () => {
+    expect(applied('', selectFieldEdits(context(''), 'query', ['search']))).toBe(
+      'query ($term: String!) {\n  search(term: $term) { __typename }\n}\n',
+    );
+    expect(applied('', selectFieldEdits(context(''), 'query', ['search', { on: 'User' }]))).toBe(
+      'query ($term: String!) {\n  search(term: $term) { ... on User { id } }\n}\n',
+    );
+  });
+
+  it('creates the missing fragment on the way down following the layout, and appends inside an existing one', () => {
+    const oneLine = '{ search(term: "x") { __typename } }';
+    expect(applied(oneLine, selectFieldEdits(context(oneLine), 'query', ['search', { on: 'Note' }, 'title']))).toBe(
+      '{ search(term: "x") { __typename ... on Note { title } } }',
+    );
+    const pretty = 'query ($term: String!) {\n  search(term: $term) {\n    ... on User {\n      id\n    }\n  }\n}\n';
+    expect(applied(pretty, selectFieldEdits(context(pretty), 'query', ['search', { on: 'User' }, 'name']))).toBe(
+      'query ($term: String!) {\n  search(term: $term) {\n    ... on User {\n      id\n      name\n    }\n  }\n}\n',
+    );
+    expect(applied(pretty, selectFieldEdits(context(pretty), 'query', ['search', { on: 'Note' }]))).toBe(
+      'query ($term: String!) {\n  search(term: $term) {\n    ... on User {\n      id\n    }\n    ... on Note { id }\n  }\n}\n',
+    );
+  });
+
+  it("removes a fragment with its children, leaving `__typename` when it was the field's last selection", () => {
+    const beside = '{ search(term: "x") { __typename ... on User { id } } }';
+    expect(applied(beside, deselectFieldEdits(context(beside), ['search', { on: 'User' }]))).toBe(
+      '{ search(term: "x") { __typename } }',
+    );
+    const alone = 'query ($term: String!) { search(term: $term) { ... on User { id name } } }';
+    expect(applied(alone, deselectFieldEdits(context(alone), ['search', { on: 'User' }]))).toBe(
+      'query ($term: String!) { search(term: $term) { __typename } }',
+    );
+    expect(applied(alone, deselectFieldEdits(context(alone), ['search', { on: 'User' }, 'id']))).toBe(
+      'query ($term: String!) { search(term: $term) { ... on User { name } } }',
+    );
+    const leaf = 'query ($term: String!) { search(term: $term) { ... on User { id } } }';
+    expect(applied(leaf, deselectFieldEdits(context(leaf), ['search', { on: 'User' }, 'id']))).toBe(
+      'query ($term: String!) { search(term: $term) { __typename } }',
+    );
+  });
+
+  it('undeclares the variables only the removed fragment referenced', () => {
+    const source =
+      'query ($term: String!, $first: Int) { search(term: $term) { ... on User { notes(first: $first) { totalCount } } } }';
+    expect(applied(source, deselectFieldEdits(context(source), ['search', { on: 'User' }]))).toBe(
+      'query ($term: String!) { search(term: $term) { __typename } }',
+    );
+  });
+
+  it("lists an interface's own fields as plain steps and its implementers as members", () => {
+    const source = '{ node(id: "n1") { id } }';
+    const withMember = applied(source, selectFieldEdits(context(source), 'query', ['node', { on: 'User' }, 'name']));
+    expect(withMember).toBe('{ node(id: "n1") { id ... on User { name } } }');
+    expect(applied(withMember, deselectFieldEdits(context(withMember), ['node', { on: 'User' }]))).toBe(source);
+  });
+
+  it('takes the operation with a root fragment that was its last selection', () => {
+    const source = '{ ... on Query { viewer { id } } }';
+    expect(applied(source, deselectFieldEdits(context(source), [{ on: 'Query' }]))).toBe('');
+  });
+
+  it('refuses a type that is not a possible type of the step, and arguments on a fragment step', () => {
+    expect(selectFieldEdits(context(''), 'query', ['search', { on: 'Role' }])).toEqual([]);
+    expect(selectFieldEdits(context(''), 'query', ['viewer', { on: 'Note' }])).toEqual([]);
+    const source = '{ search(term: "x") { ... on User { id } } }';
+    expect(setArgumentEdits(context(source), ['search', { on: 'User' }], 'term', '"y"')).toEqual([]);
+    expect(removeArgumentEdits(context(source), ['search', { on: 'User' }], 'term')).toEqual([]);
   });
 });
 

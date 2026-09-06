@@ -8,16 +8,20 @@
  * user's layout and comments kept. The edited text re-parses and the
  * projection follows: one parse, two surfaces.
  *
- * Reads walk direct Field nodes by name (an alias keeps the name; the
- * first match wins). Fragment spreads and inline fragments are reported
- * as read-only rows and never projected as selections. Writes follow
+ * A path is a list of steps: a field by name, or an inline fragment by
+ * its type condition — the `... on T` row a union or interface member
+ * gets. Reads walk direct Field nodes by name (an alias keeps the name;
+ * the first match wins) and an `on` step into the first inline fragment
+ * with that type condition. Named spreads and the inline fragments the
+ * tree does not project are reported as read-only rows. Writes follow
  * the local layout — a multi-line selection set gets the new selection
  * on its own line at the siblings' indent, a single-line one gets it
  * space-separated — and keep the document valid at every step: a
- * composite field lands with its first leaf, the last selection leaving
- * a nested set takes its parent field with it, the last root selection
- * removes the operation, and a variable the builder no longer
- * references loses its declaration.
+ * composite field or a fragment lands with its first leaf, the last
+ * selection leaving a nested set takes its parent field with it, a
+ * fragment leaving as a field's last selection leaves `__typename`
+ * behind, the last root selection removes the operation, and a variable
+ * the builder no longer references loses its declaration.
  */
 
 import { parseValue } from './parse';
@@ -29,6 +33,7 @@ import {
   type GraphqlSchema,
   isLeafType,
   namedTypeOf,
+  possibleTypesOf,
   printTypeRef,
   rootTypeName,
 } from './schema';
@@ -38,6 +43,7 @@ import type {
   DirectiveNode,
   DocumentNode,
   FieldNode,
+  InlineFragmentNode,
   OperationDefinitionNode,
   OperationType,
   SelectionNode,
@@ -60,12 +66,25 @@ export interface BuilderContext {
   readonly schema: GraphqlSchema;
 }
 
-/** A fragment in a selection set — shown read-only, never projected. */
+/** One step of a builder path — a field by name, or an inline fragment by its type condition (`... on T`). */
+export type BuilderStep = string | { readonly on: string };
+
+export type BuilderPath = readonly BuilderStep[];
+
+/** The document node a path lands on — the Field of a name step, the InlineFragment of an `on` step. */
+export type BuilderNode = FieldNode | InlineFragmentNode;
+
+/** A fragment in a selection set the tree does not project — shown read-only. */
 export interface BuilderFragmentRow extends Span {
   readonly kind: 'spread' | 'inline';
   /** `...Name` / `... on Type` / `...` */
   readonly label: string;
 }
+
+/** A path step resolved against the schema — the field it names, or the possible type its `on` step narrows to. */
+export type SchemaStep =
+  | { readonly kind: 'field'; readonly field: GraphqlField }
+  | { readonly kind: 'on'; readonly type: GraphqlNamedType };
 
 interface VariableEntry {
   readonly name: string;
@@ -81,24 +100,41 @@ function directField(set: SelectionSetNode, name: string): FieldNode | null {
   return null;
 }
 
-/** The direct Field at `path`, or null when any step is missing. */
-export function fieldAt(operation: OperationDefinitionNode, path: readonly string[]): FieldNode | null {
-  let set: SelectionSetNode | null = operation.selectionSet;
-  let field: FieldNode | null = null;
-  for (const name of path) {
-    if (set === null) return null;
-    field = directField(set, name);
-    if (field === null) return null;
-    set = field.selectionSet;
+function directFragment(set: SelectionSetNode, type: string): InlineFragmentNode | null {
+  for (const selection of set.selections) {
+    if (selection.kind === 'InlineFragment' && selection.typeCondition?.name.value === type) return selection;
   }
-  return field;
+  return null;
+}
+
+function stepInto(set: SelectionSetNode, step: BuilderStep): BuilderNode | null {
+  return typeof step === 'string' ? directField(set, step) : directFragment(set, step.on);
+}
+
+/** The node at `path` — each step's direct field or inline fragment, the first match; null when any step is missing. */
+export function nodeAt(operation: OperationDefinitionNode, path: BuilderPath): BuilderNode | null {
+  let set: SelectionSetNode | null = operation.selectionSet;
+  let node: BuilderNode | null = null;
+  for (const step of path) {
+    if (set === null) return null;
+    node = stepInto(set, step);
+    if (node === null) return null;
+    set = node.selectionSet;
+  }
+  return node;
+}
+
+/** The Field at `path`; null when a step is missing or the path ends on an `on` step. */
+export function fieldAt(operation: OperationDefinitionNode, path: BuilderPath): FieldNode | null {
+  const node = nodeAt(operation, path);
+  return node !== null && node.kind === 'Field' ? node : null;
 }
 
 /** The selection set under `path` — the operation's own for `[]`; null when a step is missing or the field has none. */
-export function selectionSetAt(operation: OperationDefinitionNode, path: readonly string[]): SelectionSetNode | null {
+export function selectionSetAt(operation: OperationDefinitionNode, path: BuilderPath): SelectionSetNode | null {
   if (path.length === 0) return operation.selectionSet;
-  const field = fieldAt(operation, path);
-  return field === null ? null : field.selectionSet;
+  const node = nodeAt(operation, path);
+  return node === null ? null : node.selectionSet;
 }
 
 export function argumentAt(field: FieldNode, name: string): ArgumentNode | null {
@@ -106,9 +142,11 @@ export function argumentAt(field: FieldNode, name: string): ArgumentNode | null 
   return null;
 }
 
+/** The read-only fragment rows under `path` — every named spread, and the inline fragments whose type condition is not one of `projected` (the member rows the tree walks itself). */
 export function fragmentsAt(
   operation: OperationDefinitionNode,
-  path: readonly string[],
+  path: BuilderPath,
+  projected: readonly string[] = [],
 ): readonly BuilderFragmentRow[] {
   const set = selectionSetAt(operation, path);
   if (set === null) return [];
@@ -117,30 +155,44 @@ export function fragmentsAt(
     if (selection.kind === 'FragmentSpread') {
       rows.push({ kind: 'spread', label: `...${selection.name.value}`, start: selection.start, end: selection.end });
     } else if (selection.kind === 'InlineFragment') {
-      const label = selection.typeCondition === null ? '...' : `... on ${selection.typeCondition.name.value}`;
+      const condition = selection.typeCondition === null ? null : selection.typeCondition.name.value;
+      if (condition !== null && projected.includes(condition)) continue;
+      const label = condition === null ? '...' : `... on ${condition}`;
       rows.push({ kind: 'inline', label, start: selection.start, end: selection.end });
     }
   }
   return rows;
 }
 
-/** The schema field at each step of `path` under the root type of `operationType`; null when a step is unknown. */
-export function schemaFieldsAlong(
+/** Each step of `path` resolved under the root type of `operationType`; null when a step names no field or no possible type. */
+export function schemaStepsAlong(
   schema: GraphqlSchema,
   operationType: OperationType,
-  path: readonly string[],
-): readonly GraphqlField[] | null {
+  path: BuilderPath,
+): readonly SchemaStep[] | null {
   const rootName = rootTypeName(schema, operationType);
   if (rootName === null) return null;
   let type = schema.types.get(rootName);
-  const fields: GraphqlField[] = [];
-  for (const name of path) {
-    const field = fieldsOf(type).find((entry) => entry.name === name);
-    if (field === undefined) return null;
-    fields.push(field);
-    type = schema.types.get(namedTypeOf(field.type));
+  const steps: SchemaStep[] = [];
+  for (const step of path) {
+    if (typeof step === 'string') {
+      const field = fieldsOf(type).find((entry) => entry.name === step);
+      if (field === undefined) return null;
+      steps.push({ kind: 'field', field });
+      type = schema.types.get(namedTypeOf(field.type));
+    } else {
+      const member =
+        type !== undefined && possibleTypesOf(schema, type).includes(step.on) ? schema.types.get(step.on) : undefined;
+      if (member === undefined) return null;
+      steps.push({ kind: 'on', type: member });
+      type = member;
+    }
   }
-  return fields;
+  return steps;
+}
+
+function stepType(schema: GraphqlSchema, step: SchemaStep): GraphqlNamedType | undefined {
+  return step.kind === 'field' ? schema.types.get(namedTypeOf(step.field.type)) : step.type;
 }
 
 /** The first leaf a composite lands with — a plain (argument-free, live) leaf field, else `__typename`. */
@@ -162,7 +214,7 @@ function isRequired(arg: GraphqlInputValue): boolean {
 function collectVariables(
   node: SelectionNode | SelectionSetNode | ArgumentNode | DirectiveNode | ValueNode,
   into: Set<string>,
-  except: FieldNode | ArgumentNode | null = null,
+  except: SelectionNode | ArgumentNode | null = null,
 ): void {
   if (node === except) return;
   switch (node.kind) {
@@ -204,7 +256,7 @@ function collectVariables(
 /** The variables `removed` references that nothing else in the operation (nor `replacement`) does. */
 function orphanedVariables(
   operation: OperationDefinitionNode,
-  removed: FieldNode | ArgumentNode,
+  removed: SelectionNode | ArgumentNode,
   replacement: ValueNode | null,
 ): ReadonlySet<string> {
   const gone = new Set<string>();
@@ -313,23 +365,26 @@ function removeDefinitionEdit(context: BuilderContext, node: DefinitionNode): Bu
   return { start: node.start, end: next === undefined ? node.end : next.start, text: '' };
 }
 
-function fieldText(field: GraphqlField, variables: VariableEntry[]): string {
+/** The step as the document selects it — a field with its required arguments as same-named variables, or `... on T`. */
+function stepText(step: SchemaStep, variables: VariableEntry[]): string {
+  if (step.kind === 'on') return `... on ${step.type.name}`;
+  const { field } = step;
   const required = field.args.filter(isRequired);
   for (const arg of required) variables.push({ name: arg.name, type: printTypeRef(arg.type) });
   if (required.length === 0) return field.name;
   return `${field.name}(${required.map((arg) => `${arg.name}: $${arg.name}`).join(', ')})`;
 }
 
-/** `a { b { c { leaf } } }` for the tail of a path — a composite end lands with its first leaf. */
-function nestedSelection(schema: GraphqlSchema, tail: readonly GraphqlField[], variables: VariableEntry[]): string {
+/** `a { b { ... on T { leaf } } }` for the tail of a path — a composite end (a field, or a fragment) lands with its first leaf. */
+function nestedSelection(schema: GraphqlSchema, tail: readonly SchemaStep[], variables: VariableEntry[]): string {
   const last = tail[tail.length - 1];
   if (last === undefined) return '';
-  const named = schema.types.get(namedTypeOf(last.type));
-  let text = fieldText(last, variables);
+  const named = stepType(schema, last);
+  let text = stepText(last, variables);
   if (named !== undefined && !isLeafType(named)) text = `${text} { ${firstLeafSelection(schema, named)} }`;
   for (let index = tail.length - 2; index >= 0; index--) {
-    const field = tail[index];
-    if (field !== undefined) text = `${fieldText(field, variables)} { ${text} }`;
+    const step = tail[index];
+    if (step !== undefined) text = `${stepText(step, variables)} { ${text} }`;
   }
   return text;
 }
@@ -340,30 +395,30 @@ export function isBuilderBroken(context: Pick<BuilderContext, 'source' | 'docume
 }
 
 /**
- * Check a field: the document gains the missing tail of `path` as one
- * nested selection (required arguments as variables, a composite end
- * with its first leaf) and the variables their declarations. An empty
- * document gets the operation minted around it; a document without an
- * operation gets one appended.
+ * Check a row — a field, or a member's `... on T`: the document gains
+ * the missing tail of `path` as one nested selection (required
+ * arguments as variables, a composite end with its first leaf) and the
+ * variables their declarations. An empty document gets the operation
+ * minted around it; a document without an operation gets one appended.
  */
 export function selectFieldEdits(
   context: BuilderContext,
   operationType: OperationType,
-  path: readonly string[],
+  path: BuilderPath,
 ): readonly BuilderEdit[] {
   if (path.length === 0 || isBuilderBroken(context)) return [];
-  const along = schemaFieldsAlong(context.schema, operationType, path);
+  const along = schemaStepsAlong(context.schema, operationType, path);
   if (along === null) return [];
   const { operation } = context;
   if (operation !== null && operation.operation !== operationType) return [];
   let depth = 0;
   let set: SelectionSetNode | null = operation === null ? null : operation.selectionSet;
-  let field: FieldNode | null = null;
+  let node: BuilderNode | null = null;
   while (set !== null && depth < path.length) {
-    const name = path[depth];
-    const next = name === undefined ? null : directField(set, name);
+    const step = path[depth];
+    const next = step === undefined ? null : stepInto(set, step);
     if (next === null) break;
-    field = next;
+    node = next;
     depth++;
     set = next.selectionSet;
   }
@@ -381,9 +436,9 @@ export function selectFieldEdits(
     return [{ start: context.source.length, end: context.source.length, text: `${gap}${body}` }];
   }
   const edits: BuilderEdit[] = [];
-  if (set === null && field !== null) {
+  if (set === null && node !== null) {
     // The deepest field has no selection set — it gains one around the tail.
-    edits.push({ start: field.end, end: field.end, text: ` { ${text} }` });
+    edits.push({ start: node.end, end: node.end, text: ` { ${text} }` });
   } else if (set !== null) {
     edits.push(appendSelectionEdit(context.source, set, text));
   }
@@ -392,29 +447,37 @@ export function selectFieldEdits(
   return edits;
 }
 
+/** The step at `depth` is a fragment that is a FIELD's selection — removed as the field's last one, it leaves `__typename`, so the field stays selected on a set that is never empty. */
+function leavesTypename(path: BuilderPath, depth: number): boolean {
+  return depth >= 2 && typeof path[depth - 1] !== 'string' && typeof path[depth - 2] === 'string';
+}
+
 /**
- * Uncheck a field: its node goes with the separator before it; the last
+ * Uncheck a row: its node goes with the separator before it; the last
  * selection of a nested set takes the parent field with it (up the
- * path), the last root selection takes the operation; variables only
- * the removed subtree referenced lose their declarations.
+ * path) — except a fragment under a field, which leaves `__typename` in
+ * its place; the last root selection takes the operation; variables
+ * only the removed subtree referenced lose their declarations.
  */
-export function deselectFieldEdits(context: BuilderContext, path: readonly string[]): readonly BuilderEdit[] {
+export function deselectFieldEdits(context: BuilderContext, path: BuilderPath): readonly BuilderEdit[] {
   const { operation } = context;
   if (operation === null || path.length === 0 || isBuilderBroken(context)) return [];
-  if (fieldAt(operation, path) === null) return [];
+  if (nodeAt(operation, path) === null) return [];
   let depth = path.length;
   while (depth > 1) {
     const set = selectionSetAt(operation, path.slice(0, depth - 1));
-    if (set === null || set.selections.length > 1) break;
+    if (set === null || set.selections.length > 1 || leavesTypename(path, depth)) break;
     depth--;
   }
   const target = path.slice(0, depth);
-  const field = fieldAt(operation, target);
+  const node = nodeAt(operation, target);
   const parentSet = selectionSetAt(operation, target.slice(0, -1));
-  if (field === null || parentSet === null) return [];
-  if (parentSet.selections.length <= 1) return [removeDefinitionEdit(context, operation)];
-  const edits: BuilderEdit[] = [removeSelectionEdit(parentSet, field)];
-  const undeclare = variableDefinitionsEdit(context, operation, [], orphanedVariables(operation, field, null));
+  if (node === null || parentSet === null) return [];
+  const edits: BuilderEdit[] = [];
+  if (parentSet.selections.length > 1) edits.push(removeSelectionEdit(parentSet, node));
+  else if (leavesTypename(target, depth)) edits.push({ start: node.start, end: node.end, text: '__typename' });
+  else return [removeDefinitionEdit(context, operation)];
+  const undeclare = variableDefinitionsEdit(context, operation, [], orphanedVariables(operation, node, null));
   if (undeclare !== null) edits.push(undeclare);
   return edits;
 }
@@ -427,15 +490,16 @@ export function deselectFieldEdits(context: BuilderContext, path: readonly strin
  */
 export function setArgumentEdits(
   context: BuilderContext,
-  path: readonly string[],
+  path: BuilderPath,
   argumentName: string,
   valueText: string,
 ): readonly BuilderEdit[] {
   const { operation } = context;
   if (operation === null || isBuilderBroken(context)) return [];
   const field = fieldAt(operation, path);
-  const along = schemaFieldsAlong(context.schema, operation.operation, path);
-  const schemaField = along === null ? undefined : along[along.length - 1];
+  const along = schemaStepsAlong(context.schema, operation.operation, path);
+  const end = along === null ? undefined : along[along.length - 1];
+  const schemaField = end !== undefined && end.kind === 'field' ? end.field : undefined;
   if (field === null || schemaField === undefined) return [];
   const arg = schemaField.args.find((entry) => entry.name === argumentName);
   if (arg === undefined) return [];
@@ -463,7 +527,7 @@ export function setArgumentEdits(
 /** Uncheck an argument: it goes with its separator (the parentheses with the last one); an orphaned variable is undeclared. */
 export function removeArgumentEdits(
   context: BuilderContext,
-  path: readonly string[],
+  path: BuilderPath,
   argumentName: string,
 ): readonly BuilderEdit[] {
   const { operation } = context;
