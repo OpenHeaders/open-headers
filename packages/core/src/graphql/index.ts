@@ -9,6 +9,23 @@
  */
 
 export {
+  applyBuilderEdits,
+  argumentAt,
+  type BuilderContext,
+  type BuilderEdit,
+  type BuilderFragmentRow,
+  deselectFieldEdits,
+  fieldAt,
+  firstLeafSelection,
+  fragmentsAt,
+  isBuilderBroken,
+  removeArgumentEdits,
+  schemaFieldsAlong,
+  selectFieldEdits,
+  selectionSetAt,
+  setArgumentEdits,
+} from './builder';
+export {
   type CensusFragment,
   type CensusOperation,
   type CensusVariable,
@@ -46,7 +63,7 @@ export {
   type TokenKind,
   tokenize,
 } from './lexer';
-export { type ParseResult, parseDocument } from './parse';
+export { type ParseResult, type ParseValueResult, parseDocument, parseValue } from './parse';
 export { type PrintOptions, printBlockString, printCompact, printNode, printString } from './print';
 export {
   BUILT_IN_SCALARS,

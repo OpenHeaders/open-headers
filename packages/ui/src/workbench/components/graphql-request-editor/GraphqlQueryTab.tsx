@@ -1,7 +1,8 @@
 /**
  * GraphqlQueryTab — the Query tab: the EXPLORER pane on the left (the
- * docs explorer over the resolved schema; until a source resolves, the
- * CTA scaffold — introspect / use a spec / import a schema, each live)
+ * docs explorer AND the two-way builder over the resolved schema; until
+ * a source resolves, the CTA scaffold — introspect / use a spec /
+ * import a schema, each live)
  * beside the QUERY EDITOR (Monaco `graphql` over our Monarch grammar,
  * diagnostics + completion + hover bound to `@openheaders/core/graphql`
  * and fed the schema, the prettify glyph through the core printer)
@@ -12,11 +13,14 @@
  */
 
 import {
+  type BuilderContext,
+  type BuilderEdit,
   censusDocument,
   type DocumentNode,
   exampleVariables,
   type GraphqlSchema,
   type OperationDefinitionNode,
+  parseDocument,
   type ParseResult,
   printNode,
   selectedOperation,
@@ -32,8 +36,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import type { GraphqlDraft } from './draft';
-import { attachGraphqlEditorServices } from './graphql-editor-services';
-import GraphqlExplorer from './GraphqlExplorer';
+import { attachGraphqlEditorServices, executeBuilderEdits } from './graphql-editor-services';
+import GraphqlExplorer, { type GraphqlBuilder } from './GraphqlExplorer';
 
 const { Text } = Typography;
 
@@ -127,6 +131,27 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft, pars
     editor.focus();
   }, []);
 
+  // The builder's two-way half: a gesture plans span edits over the
+  // editor's CURRENT text (the tab's parse serves while the editor holds
+  // the draft; a buffer mid-flight re-parses once) and lands them through
+  // the edit stack, so the change re-parses like typed text and the
+  // explorer re-projects from that one parse. Focus stays in the explorer.
+  const broken = parsed.document === null && draft.query.trim() !== '';
+  const runBuilder = useCallback(
+    (plan: (context: BuilderContext) => readonly BuilderEdit[]) => {
+      const editor = editorRef.current;
+      const monacoApi = monacoRef.current;
+      if (editor === null || monacoApi === null || schema === null) return;
+      const source = editor.getValue();
+      const current = source === draft.query;
+      const document = current ? parsed.document : parseDocument(source).document;
+      const picked = current ? operation : document === null ? null : pickedOperation(document, draft.operationName);
+      executeBuilderEdits(editor, monacoApi, plan({ source, document, operation: picked, schema }));
+    },
+    [schema, draft.query, draft.operationName, parsed.document, operation],
+  );
+  const builder = useMemo<GraphqlBuilder>(() => ({ operation, broken, run: runBuilder }), [operation, broken, runBuilder]);
+
   const sourceLabel = (source: (typeof EXPLORER_SOURCES)[number]): string => {
     switch (source) {
       case 'introspect':
@@ -157,7 +182,7 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({ draft, setDraft, pars
       <Allotment proportionalLayout separator>
         <Allotment.Pane minSize={160} preferredSize="30%">
           {schema !== null ? (
-            <GraphqlExplorer schema={schema} onInsert={insertAtCursor} />
+            <GraphqlExplorer schema={schema} onInsert={insertAtCursor} builder={builder} />
           ) : (
             // The explorer's empty state — the reference's CTA trio in our
             // scaffold idiom: the fact, the hint, three live actions.

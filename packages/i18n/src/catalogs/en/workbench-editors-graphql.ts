@@ -95,6 +95,14 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': 'Reading the file failed: {message}',
   'workbench.editors.graphql.schema.importFailed': 'Importing the schema failed',
   'workbench.editors.graphql.schema.imported': 'Imported “{name}” as a GraphQL spec and linked it.',
+  'workbench.editors.graphql.builder.broken': 'Fix the document to use the builder — it does not parse.',
+  'workbench.editors.graphql.builder.otherOperation':
+    'The document’s operation is a {operation} — only its root fields can be selected here.',
+  'workbench.editors.graphql.builder.expand': 'Expand',
+  'workbench.editors.graphql.builder.collapse': 'Collapse',
+  'workbench.editors.graphql.builder.fragmentReadOnly': 'Fragments are read-only here — edit them in the document.',
+  'workbench.editors.graphql.builder.argumentPlaceholder': 'value or $variable',
+  'workbench.editors.graphql.builder.invalidValue': 'Not a GraphQL value.',
   'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} problem', other: '{count} problems' }),
 } as const satisfies Catalog;

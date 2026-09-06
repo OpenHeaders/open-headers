@@ -18,6 +18,7 @@
 
 import type { Monaco } from '@monaco-editor/react';
 import {
+  type BuilderEdit,
   type CompletionItem,
   type CompletionKind,
   completionsAt,
@@ -214,6 +215,24 @@ function ensureProviders(monacoApi: Monaco): void {
     provideHover: (model, position) => provideHover(model, position),
   };
   monacoApi.languages.registerHoverProvider('graphql', hoverProvider);
+}
+
+/** Apply the builder's span edits through the editor's edit stack — one undo step, dirty deriving like typed text. */
+export function executeBuilderEdits(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  monacoApi: Monaco,
+  edits: readonly BuilderEdit[],
+): void {
+  const model = editor.getModel();
+  if (model === null || edits.length === 0) return;
+  const operations = edits.map((edit) => {
+    const from = model.getPositionAt(edit.start);
+    const to = model.getPositionAt(edit.end);
+    return { range: new monacoApi.Range(from.lineNumber, from.column, to.lineNumber, to.column), text: edit.text };
+  });
+  editor.pushUndoStop();
+  editor.executeEdits('graphql-builder', operations);
+  editor.pushUndoStop();
 }
 
 /**

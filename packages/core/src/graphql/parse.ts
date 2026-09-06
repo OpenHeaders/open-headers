@@ -150,6 +150,14 @@ class Parser {
     return { kind: 'Document', definitions, start: first.start, end: this.last.end };
   }
 
+  /** One value standing alone — a literal or a variable, nothing after it. */
+  standaloneValue(): ValueNode {
+    const node = this.value(false);
+    const tail = this.peek();
+    if (tail.kind !== 'eof') this.fail(`Unexpected ${this.describe(tail)} after the value.`, tail);
+    return node;
+  }
+
   private definition(): DefinitionNode {
     const token = this.peek();
     if (token.kind === 'punct' && token.value === '{') return this.operationDefinition();
@@ -752,4 +760,15 @@ function boundary<T>(run: () => T): { value: T | null; errors: readonly GraphqlE
 export function parseDocument(source: string): ParseResult {
   const result = boundary(() => new Parser(source).document());
   return { document: result.value, errors: result.errors };
+}
+
+export interface ParseValueResult {
+  readonly value: ValueNode | null;
+  readonly errors: readonly GraphqlError[];
+}
+
+/** Parse one value on its own — the builder's argument inputs. Never throws. */
+export function parseValue(source: string): ParseValueResult {
+  const result = boundary(() => new Parser(source).standaloneValue());
+  return { value: result.value, errors: result.errors };
 }

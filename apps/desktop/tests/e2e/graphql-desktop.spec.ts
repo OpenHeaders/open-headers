@@ -163,6 +163,9 @@ async function responseBodyText(): Promise<string> {
     .locator('.monaco-editor .view-lines')
     .first();
   await lines.waitFor({ state: 'visible', timeout: 10_000 });
+  // The Pretty view lays its lines out a beat after the status lands —
+  // a read that catches the opening brace alone is early, not wrong.
+  await expect.poll(async () => (await lines.innerText()).includes('\n'), { timeout: 5_000 }).toBe(true);
   return (await lines.innerText()).replace(/\u00a0/g, ' ');
 }
 
@@ -324,11 +327,12 @@ test('G6 — the explorer introspects through the route: fields with description
   const explorer = workbench.getByTestId('graphql-explorer').filter({ visible: true }).first();
   await explorer.waitFor({ state: 'visible', timeout: 10_000 });
   await expect(explorer.getByTestId('graphql-explorer-field-Query.echo')).toBeVisible();
-  await explorer.getByTestId('graphql-explorer-field-Query.echo').getByRole('button').first().click();
+  // A root row leads with the builder's expander — the field link is named.
+  await explorer.getByTestId('graphql-explorer-field-Query.echo').getByRole('button', { name: 'echo' }).click();
   await expect(explorer.getByText('Echoes `text` back — the variables round trip.')).toBeVisible();
   await explorer.getByTestId('graphql-explorer-back').click();
   await explorer.getByTestId('graphql-explorer-search').fill('me');
-  await explorer.getByTestId('graphql-explorer-field-Query.me').getByRole('button').first().click();
+  await explorer.getByTestId('graphql-explorer-field-Query.me').getByRole('button', { name: 'me' }).click();
   await expect(explorer.getByTestId('graphql-explorer-deprecated')).toContainText('Use `viewer`.');
   await workbench.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
   await expect(workbench.getByTestId('graphql-schema-summary').filter({ visible: true }).first()).toContainText(

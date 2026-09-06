@@ -93,6 +93,13 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': '读取文件失败：{message}',
   'workbench.editors.graphql.schema.importFailed': '导入模式失败',
   'workbench.editors.graphql.schema.imported': '已将“{name}”导入为 GraphQL 规范并关联。',
+  'workbench.editors.graphql.builder.broken': '请先修正文档再使用构建器——它无法解析。',
+  'workbench.editors.graphql.builder.otherOperation': '文档中的操作是 {operation}——此处只能选择它的根字段。',
+  'workbench.editors.graphql.builder.expand': '展开',
+  'workbench.editors.graphql.builder.collapse': '折叠',
+  'workbench.editors.graphql.builder.fragmentReadOnly': '片段在此处只读——请在文档中编辑。',
+  'workbench.editors.graphql.builder.argumentPlaceholder': '值或 $variable',
+  'workbench.editors.graphql.builder.invalidValue': '不是 GraphQL 值。',
   'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个问题' }),
 } as const satisfies Catalog;

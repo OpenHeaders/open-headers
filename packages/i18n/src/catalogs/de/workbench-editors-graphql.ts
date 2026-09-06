@@ -98,6 +98,16 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': 'Die Datei konnte nicht gelesen werden: {message}',
   'workbench.editors.graphql.schema.importFailed': 'Der Schema-Import ist fehlgeschlagen',
   'workbench.editors.graphql.schema.imported': '„{name}“ als GraphQL-Spec importiert und verknüpft.',
+  'workbench.editors.graphql.builder.broken':
+    'Korrigieren Sie das Dokument, um den Builder zu nutzen — es lässt sich nicht parsen.',
+  'workbench.editors.graphql.builder.otherOperation':
+    'Die Operation des Dokuments ist eine {operation} — nur ihre Wurzelfelder lassen sich hier auswählen.',
+  'workbench.editors.graphql.builder.expand': 'Ausklappen',
+  'workbench.editors.graphql.builder.collapse': 'Einklappen',
+  'workbench.editors.graphql.builder.fragmentReadOnly':
+    'Fragmente sind hier schreibgeschützt — bearbeiten Sie sie im Dokument.',
+  'workbench.editors.graphql.builder.argumentPlaceholder': 'Wert oder $variable',
+  'workbench.editors.graphql.builder.invalidValue': 'Kein GraphQL-Wert.',
   'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Problem', other: '{count} Probleme' }),
 } as const satisfies Catalog;

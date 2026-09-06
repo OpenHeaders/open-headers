@@ -59,6 +59,18 @@
  *   E14 the import hub's schema-file leg: pasted SDL is recognized as a
  *       GraphQL schema, the sectioned modal lands it as a `graphql`
  *       Spec, and the SPECS section shows it.
+ *   E15 the builder writes the document (the Phase F two-way half):
+ *       the explorer projects the converted request's `echo`; checking
+ *       `viewer` lands it with its first leaf and expands the row, a
+ *       nested leaf joins the set, unchecking `echo` removes it AND its
+ *       orphaned `$t`, an optional argument checks in as a declared
+ *       variable, a typed literal replaces it (the variable undeclared),
+ *       a required-argument field declares its variable — and the built
+ *       document runs against the probe through the compile.
+ *   E16 the document writes the explorer: typed text projects onto the
+ *       checkboxes (a nested leaf checked, its sibling not, an argument
+ *       value read back), a broken document disables the builder with
+ *       the notice, and a mended one re-enables it.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -390,7 +402,7 @@ test('E8 — the explorer CTA introspects through the SW twin: fields, deprecati
 
   // Search narrows to the deprecated `me`; its page names the reason.
   await explorer.getByTestId('graphql-explorer-search').fill('me');
-  await explorer.getByTestId('graphql-explorer-field-Query.me').getByRole('button').first().click();
+  await explorer.getByTestId('graphql-explorer-field-Query.me').getByRole('button', { name: 'me' }).click();
   await expect(explorer.getByTestId('graphql-explorer-deprecated')).toContainText('Use `viewer`.');
 
   // Insert at cursor — one-way into the document.
@@ -633,4 +645,91 @@ test('E14 — a pasted SDL document is recognized as a GraphQL schema and lands 
     .filter({ visible: true })
     .first();
   await specRow.waitFor({ state: 'visible', timeout: 10_000 });
+});
+
+// ── E15: the builder writes the document ────────────────────────────
+
+const BUILDER_ECHO_DOCUMENT = 'query Echo($t: String!) { echo(text: $t) }';
+
+test('E15 — the builder’s checkboxes write the document: selections, an argument as a variable then a literal, orphaned variables undeclared', async () => {
+  await openGraphqlRequest(CONVERTED_NAME);
+  await page.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  await workbench.fillMonaco(0, BUILDER_ECHO_DOCUMENT);
+  // The converted request has no schema source yet — introspect the
+  // probe through the compile (the E8 path).
+  await page.getByTestId('graphql-explorer-introspect').filter({ visible: true }).first().click();
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await explorer.waitFor({ state: 'visible', timeout: 10_000 });
+  const check = (key: string) => explorer.getByTestId(`graphql-builder-check-${key}`);
+  const document = () => workbench.monacoText(0);
+
+  // The document projects onto the root: `echo` checked, `viewer` not.
+  await expect(check('query.echo')).toBeChecked();
+  await expect(check('query.viewer')).not.toBeChecked();
+
+  // A composite lands with its first leaf, space-separated on the one-line set; the row expands.
+  await check('query.viewer').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('echo(text: $t) viewer { id }');
+  await expect(check('query.viewer')).toBeChecked();
+  await check('query.viewer.name').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('viewer { id name }');
+
+  // Unchecking `echo` takes the node and the `$t` only it referenced.
+  await check('query.echo').click();
+  await expect.poll(document, { timeout: 5_000 }).toBe('query Echo { viewer { id name } }');
+
+  // An optional argument checks in as a declared variable, a typed literal replaces it and undeclares the variable.
+  await check('query.users').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('users { totalCount }');
+  await explorer.getByTestId('graphql-builder-arg-check-query.users.first').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo($first: Int) { viewer { id name } users(first: $first) { totalCount } }');
+  const firstValue = explorer.getByTestId('graphql-builder-arg-value-query.users.first');
+  await expect(firstValue).toHaveValue('$first');
+  await firstValue.fill('2');
+  await firstValue.press('Enter');
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo { viewer { id name } users(first: 2) { totalCount } }');
+
+  // A required argument rides as a variable declared with its type.
+  await check('query.user').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toBe('query Echo($id: ID!) { viewer { id name } users(first: 2) { totalCount } user(id: $id) { id } }');
+
+  // The built document runs: generated variables, one POST through the compile.
+  await page.getByTestId('graphql-generate-variables').filter({ visible: true }).first().click();
+  await expect.poll(async () => workbench.monacoText(1), { timeout: 5_000 }).toMatch(/"id":\s*"/);
+  await queryButton().click();
+  expect(await workbench.responseStatusText()).toBe('200 OK');
+  await expect.poll(() => workbench.responsePrettyText(), { timeout: 5_000 }).toContain('"totalCount"');
+});
+
+// ── E16: the document writes the explorer ───────────────────────────
+
+test('E16 — typed text projects onto the builder, a broken document disables it, a mended one re-enables it', async () => {
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  const check = (key: string) => explorer.getByTestId(`graphql-builder-check-${key}`);
+  await workbench.fillMonaco(0, '{ viewer { email } users(first: 3) { totalCount } }');
+  await expect(check('query.viewer')).toBeChecked();
+  await expect(check('query.user')).not.toBeChecked();
+  // The rows expanded in E15 keep their state — the nested projection reads back.
+  await expect(check('query.viewer.email')).toBeChecked();
+  await expect(check('query.viewer.name')).not.toBeChecked();
+  await expect(explorer.getByTestId('graphql-builder-arg-check-query.users.first')).toBeChecked();
+  await expect(explorer.getByTestId('graphql-builder-arg-value-query.users.first')).toHaveValue('3');
+
+  // A document that does not parse has nothing to project — the notice, every checkbox disabled.
+  await workbench.fillMonaco(0, '{ viewer {');
+  await explorer.getByTestId('graphql-builder-broken').waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(check('query.viewer')).toBeDisabled();
+
+  // Mended, the builder is back and the projection follows the text.
+  await workbench.fillMonaco(0, '{ partial { ok } }');
+  await expect(explorer.getByTestId('graphql-builder-broken')).toHaveCount(0);
+  await expect(check('query.partial')).toBeChecked();
+  await expect(check('query.viewer')).not.toBeChecked();
+  await expect(check('query.viewer')).toBeEnabled();
 });
