@@ -539,7 +539,8 @@ test('E11 — Generate Collection lands one GraphQL request per root field, fold
   // The generated document + example variables run as generated.
   await queryButton().click();
   expect(await workbench.responseStatusText()).toBe('200 OK');
-  expect(await workbench.responsePrettyText()).toMatch(/"deleteNote":\s*(true|false)/);
+  // Polled: the Pretty view's Monaco lays its lines out a beat after the status lands.
+  await expect.poll(() => workbench.responsePrettyText(), { timeout: 5_000 }).toMatch(/"deleteNote":\s*(true|false)/);
 });
 
 // ── E12: Convert to GraphQL request ─────────────────────────────────
@@ -583,7 +584,7 @@ test('E12 — the sidebar verb converts an HTTP request with a GraphQL body into
   await expect(urlInput()).toHaveValue(PROBE_URL);
   await queryButton().click();
   expect(await workbench.responseStatusText()).toBe('200 OK');
-  expect(await workbench.responsePrettyText()).toContain('hi-from-the-workbench');
+  await expect.poll(() => workbench.responsePrettyText(), { timeout: 5_000 }).toContain('hi-from-the-workbench');
 });
 
 // ── E13: Copy as cURL ───────────────────────────────────────────────
@@ -624,7 +625,8 @@ test('E14 — a pasted SDL document is recognized as a GraphQL schema and lands 
     .first();
   await modal.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(modal.getByTestId('import-sectioned-spec')).toContainText('GraphQL');
-  await modal.getByRole('button', { name: /^Import$/ }).click();
+  // The button's icon prefixes its accessible name — anchor the label at the end (the Save driver's idiom).
+  await modal.getByRole('button', { name: /Import$/ }).click();
   const specRow = page
     .locator('[data-item-id^="spec-"]')
     .filter({ hasText: 'GraphQL schema' })
