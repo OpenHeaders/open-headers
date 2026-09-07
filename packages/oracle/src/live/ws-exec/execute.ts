@@ -49,10 +49,21 @@
  * raw flavor writes `heartbeatMessage` on its interval through the
  * same captured send path — neither WebSocket client can send a
  * control PING, so an LB keepalive is an app frame everywhere.
+ *
+ * GraphQL subscriptions (the GraphQL client's Phase H): a session
+ * carrying a `graphql` plan mounts the `graphql-transport-ws` client
+ * above the same seam — the envelope's texts resolve with the other
+ * Connect-time templates, `connection_init` leaves on open with the
+ * session credential's minted headers as its payload, the ack
+ * subscribes, pings pong, and the server's `complete` / `error` (or
+ * the Disconnect rider's Stop, after the client's own `complete`)
+ * ends the session on the clean close. The derived request never asks
+ * for a reconnect, so the plane's resilience never redials one.
  */
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { WsSendBinaryWire, WsSendSocketIoWire, WsStreamEventWire } from '@openheaders/core/bridge';
+import { type GraphqlWsSubscriptionPlan, graphqlWsSubscribePayload } from '@openheaders/core/graphql';
 import type { WsOutboundMessageSnapshot, WsScriptKind } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import {
@@ -92,6 +103,7 @@ import { hasSessionScriptChains } from '../request-exec/session-script-plane';
 import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
+import { createGraphqlWsSessionController } from './graphql-ws-session';
 import { createWsScriptPlane, type WsScriptChains } from './script-plane';
 import { createWsStreamEmitter, registerActiveWsSession, type WsSendResult } from './session-plane';
 import { createSocketIoSessionController } from './socketio-session';
@@ -171,6 +183,13 @@ export interface ExecuteWsSessionOptions {
    *  realms whose oracle mirrors are empty (the `authChain` twin);
    *  absent = the executor walks the tree index per slot kind. */
   scriptChain?: readonly SlotChainCarrier[];
+  /**
+   * Mount the `graphql-transport-ws` client above the session — the
+   * GraphQL request's subscription plan (`compileGraphqlSubscription`),
+   * its envelope texts resolved here with the other Connect-time
+   * templates. Absent = a plain session.
+   */
+  graphql?: GraphqlWsSubscriptionPlan;
 }
 
 /** The four hooks' chains for the request — the ancestor levels'
@@ -292,6 +311,17 @@ export async function executeWsSession(
   // own pings); resolved with the other Connect-time templates.
   const heartbeatMessage =
     !socketioFlavor && settings.heartbeatMessage !== undefined ? resolveStr(settings.heartbeatMessage) : '';
+  // The subscription envelope resolves with the other Connect-time
+  // templates — the document and the variables text (an unresolved
+  // reference gates the session below, the HTTP send's law).
+  const graphqlPlan =
+    options.graphql !== undefined
+      ? {
+          query: resolveStr(options.graphql.query),
+          ...(options.graphql.variables !== undefined ? { variables: resolveStr(options.graphql.variables) } : {}),
+          ...(options.graphql.operationName !== undefined ? { operationName: options.graphql.operationName } : {}),
+        }
+      : null;
   let namespace = '/';
   if (unresolved.size > 0) {
     return withAttribution(
@@ -613,6 +643,26 @@ export async function executeWsSession(
           },
         )
       : null;
+    // The subscription controller writes its protocol frames through
+    // the same captured path; its `connection_init` payload is the
+    // session credential's minted headers (read at each dial's mint),
+    // and its end is the clean close the Disconnect rider sends.
+    let connectCredentialHeaders: WsTransportHeader[] = [];
+    const closeCleanly = (): void => {
+      if (settled || closeRequested) return;
+      closeRequested = true;
+      writer?.close(WS_DISCONNECT_CODE, '');
+    };
+    const graphqlSession =
+      graphqlPlan !== null
+        ? createGraphqlWsSessionController(sendText, closeCleanly, {
+            subscribe: graphqlWsSubscribePayload(graphqlPlan.query, graphqlPlan.variables, graphqlPlan.operationName),
+            connectionParams: () =>
+              connectCredentialHeaders.length > 0
+                ? Object.fromEntries(connectCredentialHeaders.map((h) => [h.key.toLowerCase(), h.value]))
+                : undefined,
+          })
+        : null;
 
     /** Arm the wait before the next attempt; `error` is the attempt
      *  just failed, carried onto the next attempt's row. A spent
@@ -741,6 +791,7 @@ export async function executeWsSession(
           dialHeaders = [...userRows, ...rows];
           wireUrl = minted.url ?? (minted.query.length > 0 ? appendQueryParams(wireUrl, minted.query) : wireUrl);
           connectBearerToken = minted.bearerToken;
+          connectCredentialHeaders = rows;
         }
         const offer =
           dialSubprotocols.length > 0 ? [{ key: 'Sec-WebSocket-Protocol', value: dialSubprotocols.join(', ') }] : [];
@@ -782,6 +833,7 @@ export async function executeWsSession(
               }
               armIdleTimer();
               startHeartbeat();
+              graphqlSession?.start();
             },
             onMessage: ({ data, binary }) => {
               if (maxMessageBytes !== undefined && data.byteLength > maxMessageBytes) {
@@ -804,6 +856,7 @@ export async function executeWsSession(
               // the same feed the capture records — text frames only
               // (binary attachments carry no engine.io grammar).
               if (socketioSession !== null && text !== null) socketioSession.handleFrame(text);
+              if (graphqlSession !== null && text !== null) graphqlSession.handleFrame(text);
               // On message runs AFTER the capture, off the same frame,
               // queued behind the session's earlier hooks — the capture
               // never waits for it.
@@ -917,8 +970,10 @@ export async function executeWsSession(
           }
           return;
         }
-        closeRequested = true;
-        writer?.close(WS_DISCONNECT_CODE, '');
+        // A subscription's Disconnect is its Stop: the client's own
+        // `complete` leaves first, then the clean close.
+        graphqlSession?.stop();
+        closeCleanly();
       },
       reconnectNow: () => {
         if (settled || fireReconnectNow === null) return false;

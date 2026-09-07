@@ -3,7 +3,8 @@
  * lexer, parser (executable + type-system documents), printer, the
  * schema model with its introspection / SDL bridges, operation
  * census, the validation subset, the completion model, example
- * variables, and the compile into the HTTP request the executor runs.
+ * variables, the compile into the HTTP request the executor runs, and
+ * the subscriptions half over `graphql-transport-ws`.
  * Pure functions, zero platform deps. Import via
  * `@openheaders/core/graphql`.
  */
@@ -115,6 +116,33 @@ export {
   schemaToSdl,
   typeRefOf,
 } from './schema';
+export {
+  compileGraphqlSubscription,
+  decodeGraphqlWsClientMessage,
+  decodeGraphqlWsServerMessage,
+  encodeGraphqlWsMessage,
+  GRAPHQL_WS_INITIAL_STATE,
+  GRAPHQL_WS_SUBPROTOCOL,
+  GRAPHQL_WS_SUBSCRIPTION_ID,
+  type GraphqlSubscriptionCompile,
+  type GraphqlWsCapturedFrame,
+  type GraphqlWsClientEffect,
+  type GraphqlWsClientInput,
+  type GraphqlWsClientMessage,
+  type GraphqlWsClientState,
+  type GraphqlWsClientStep,
+  type GraphqlWsCloseMeaning,
+  type GraphqlWsExecutionResult,
+  type GraphqlWsPhase,
+  type GraphqlWsServerMessage,
+  type GraphqlWsSubscribePayload,
+  type GraphqlWsSubscriptionPlan,
+  graphqlWsCloseMeaning,
+  graphqlWsSubscribePayload,
+  reduceGraphqlWsClient,
+  replayGraphqlWsCapture,
+  subscriptionUrlOf,
+} from './subscription';
 export { operationNameFor, type SynthesizedOperation, type SynthesizeOptions, synthesizeOperation } from './synthesize';
 export * from './types';
 export { type GraphqlDiagnostic, type ValidationRule, validateDocument } from './validate';

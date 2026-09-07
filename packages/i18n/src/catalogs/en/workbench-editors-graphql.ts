@@ -110,4 +110,28 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.builder.invalidValue': 'Not a GraphQL value.',
   'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} problem', other: '{count} problems' }),
+  // ── Subscriptions (graphql-transport-ws over the WebSocket plane) ──
+  'workbench.editors.graphql.subscription.tooltip':
+    'Subscribe — opens the subscription over WebSocket (graphql-transport-ws) and streams its events',
+  'workbench.editors.graphql.subscription.stopTooltip': 'Stop the subscription — sends complete and closes the session',
+  'workbench.editors.graphql.subscription.browserHost': 'Subscriptions run on the desktop app or in the extension.',
+  'workbench.editors.graphql.subscription.openFailed': 'Opening the subscription failed',
+  'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
+  'workbench.editors.graphql.subscription.subscribing': 'Subscribing…',
+  'workbench.editors.graphql.subscription.subscribed': 'Subscribed',
+  'workbench.editors.graphql.subscription.completed': 'Completed',
+  'workbench.editors.graphql.subscription.stopped': 'Stopped',
+  'workbench.editors.graphql.subscription.errored': 'Error',
+  'workbench.editors.graphql.subscription.closed': 'Closed {code}',
+  'workbench.editors.graphql.subscription.events': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} event', other: '{count} events' }),
+  'workbench.editors.graphql.subscription.errorsSummary':
+    'The subscription answered an errors[] list — a field failed in an event, or the operation was refused before it started.',
+  'workbench.editors.graphql.subscription.close.badRequest': 'Bad request',
+  'workbench.editors.graphql.subscription.close.unauthorized': 'Unauthorized',
+  'workbench.editors.graphql.subscription.close.forbidden': 'Forbidden',
+  'workbench.editors.graphql.subscription.close.subprotocolNotAcceptable': 'Subprotocol not acceptable',
+  'workbench.editors.graphql.subscription.close.connectionInitTimeout': 'Connection initialisation timeout',
+  'workbench.editors.graphql.subscription.close.subscriberAlreadyExists': 'Subscriber already exists',
+  'workbench.editors.graphql.subscription.close.tooManyInitRequests': 'Too many initialisation requests',
 } as const satisfies Catalog;

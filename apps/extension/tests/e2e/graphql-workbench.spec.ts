@@ -94,7 +94,7 @@
  */
 
 import path from 'node:path';
-import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, chromium, expect, type Locator, type Page, test } from '@playwright/test';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
@@ -922,4 +922,129 @@ test('E18 — a union field lists its members as `... on T` rows that check in w
       'query Echo($term: String!, $id: ID!) { viewer { id } search(term: $term) { __typename } node(id: $id) { __typename } }',
     );
   await expect(check('query.node')).toBeChecked();
+});
+
+// ── E19: subscriptions over the WebSocket plane ─────────────────────
+
+const TICKS_DOCUMENT = 'subscription { tick(everyMs: 100, take: 3) }';
+const TICKS_OPEN_DOCUMENT = 'subscription { tick(everyMs: 100, take: 100) }';
+const NOTE_CREATED_DOCUMENT = 'subscription { noteCreated { id title author { name } } }';
+const CREATE_NOTE_DOCUMENT = 'mutation { createNote(input: { title: "Live note", authorId: "2" }) { id } }';
+
+/** A request under the generated collection's Mutation folder — the
+ *  sidebar rows toggle, so each level is clicked only while its child
+ *  stays hidden (E12's reveal idiom). */
+async function revealGeneratedRequest(name: string): Promise<Locator> {
+  const row = page
+    .locator('[data-item-id^="graphql-request-"]')
+    .filter({ hasText: name })
+    .filter({ visible: true })
+    .first();
+  const collection = page
+    .locator('[data-item-id^="req-col-"]')
+    .filter({ hasText: GENERATED_COLLECTION })
+    .filter({ visible: true })
+    .first();
+  const folder = page
+    .locator('[data-item-id^="req-folder-"]')
+    .filter({ hasText: 'Mutation' })
+    .filter({ visible: true })
+    .first();
+  for (let attempt = 0; attempt < 2 && !(await row.isVisible().catch(() => false)); attempt++) {
+    if (!(await folder.isVisible().catch(() => false))) {
+      await collection.click();
+      await folder.waitFor({ state: 'visible', timeout: 1_500 }).catch(() => {});
+    }
+    if ((await folder.isVisible().catch(() => false)) && !(await row.isVisible().catch(() => false))) {
+      await folder.click();
+      await row.waitFor({ state: 'visible', timeout: 1_500 }).catch(() => {});
+    }
+  }
+  await row.waitFor({ state: 'visible', timeout: 5_000 });
+  return row;
+}
+
+function subscriptionPhase() {
+  return page.getByTestId('graphql-subscription-phase').filter({ visible: true }).first();
+}
+
+function subscriptionEvents() {
+  return page.getByTestId('graphql-subscription-events').filter({ visible: true }).first();
+}
+
+/** The timeline's `next` rows as rendered (newest first — the default sort), each read for its tick. */
+async function tickRows(): Promise<number[]> {
+  return page
+    .getByTestId('ws-timeline-message-row')
+    .filter({ visible: true })
+    .filter({ hasText: '"type":"next"' })
+    .evaluateAll((rows) => rows.map((row) => Number(/"tick":(\d+)/.exec(row.textContent ?? '')?.[1] ?? Number.NaN)));
+}
+
+test('E19 — a picked subscription rides the WebSocket plane: three ticks in order then the server’s complete; noteCreated fired by a second request’s mutation; Stop mid-stream sends the client’s complete and freezes the count', async () => {
+  await openGraphqlRequest(CONVERTED_NAME);
+  await workbench.fillMonaco(1, '{}');
+
+  // (a) tick — Query opens the session pane in the response slot; the
+  // phase runs Subscribed → Completed on the server's complete, three
+  // events land in order, the socket closes clean and Query is back.
+  await workbench.fillMonaco(0, TICKS_DOCUMENT);
+  await queryButton().click();
+  await page
+    .getByTestId('ws-session-pane')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(subscriptionPhase()).toHaveText('Completed', { timeout: 5_000 });
+  await expect(subscriptionEvents()).toHaveText('3 events');
+  await expect(page.getByTestId('ws-session-close-tag').filter({ visible: true }).first()).toHaveText('Disconnected');
+  await expect.poll(tickRows, { timeout: 5_000 }).toEqual([3, 2, 1]);
+  await expect(queryButton()).toBeVisible();
+  expect(await page.getByTestId('graphql-subscription-errors').filter({ visible: true }).count()).toBe(0);
+
+  // (b) noteCreated — the session stays open while a SECOND request's
+  // createNote runs over the POST in its own tab; back on the listener
+  // the event landed, shaped by the subscriber's document.
+  await workbench.fillMonaco(0, NOTE_CREATED_DOCUMENT);
+  await queryButton().click();
+  await expect(subscriptionPhase()).toHaveText('Subscribed', { timeout: 5_000 });
+  const createNote = await revealGeneratedRequest('createNote');
+  await createNote.click();
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
+  await workbench.fillMonaco(0, CREATE_NOTE_DOCUMENT);
+  await workbench.fillMonaco(1, '{}');
+  await queryButton().click();
+  expect(await workbench.responseStatusText()).toBe('200 OK');
+  await openGraphqlRequest(CONVERTED_NAME);
+  await expect(subscriptionEvents()).toHaveText('1 event', { timeout: 5_000 });
+  await expect(
+    page
+      .getByTestId('ws-timeline-message-row')
+      .filter({ visible: true })
+      .filter({ hasText: '"title":"Live note"' })
+      .first(),
+  ).toBeVisible();
+  await expect(subscriptionPhase()).toHaveText('Subscribed');
+
+  // (c) Stop mid-stream — the client's complete leaves, the socket
+  // closes clean, and no event lands after it.
+  await page.getByTestId('graphql-stop-button').filter({ visible: true }).first().click();
+  await expect(subscriptionPhase()).toHaveText('Stopped', { timeout: 5_000 });
+  await workbench.fillMonaco(0, TICKS_OPEN_DOCUMENT);
+  await queryButton().click();
+  await expect(subscriptionEvents()).toHaveText(/^[2-9]\d* events$/, { timeout: 5_000 });
+  await page.getByTestId('graphql-stop-button').filter({ visible: true }).first().click();
+  await expect(subscriptionPhase()).toHaveText('Stopped', { timeout: 5_000 });
+  await expect(page.getByTestId('ws-session-close-tag').filter({ visible: true }).first()).toHaveText('Disconnected');
+  const frozen = await subscriptionEvents().textContent();
+  await page.waitForTimeout(400);
+  await expect(subscriptionEvents()).toHaveText(frozen ?? '');
+  await expect(
+    page
+      .getByTestId('ws-timeline-message-row')
+      .filter({ visible: true })
+      .filter({ hasText: '{"id":"1","type":"complete"}' })
+      .first(),
+  ).toBeVisible();
+  await expect(queryButton()).toBeVisible();
 });

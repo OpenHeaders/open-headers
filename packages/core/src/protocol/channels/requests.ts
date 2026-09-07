@@ -701,6 +701,32 @@ export interface RequestRpc {
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
   };
   /**
+   * The GraphqlRequest entity's SUBSCRIPTION — the one operation kind
+   * that leaves the POST: the executing host compiles the entity into
+   * the WebSocket session it rides (`compileGraphqlSubscription`: the
+   * URL derived `http(s)` → `ws(s)`, the `graphql-transport-ws`
+   * subprotocol, the SAME uid + path so the ancestor chain resolves
+   * unchanged) and runs it on the `executeWebSocketRequest` plane with
+   * the protocol client mounted — the frames ride `wsStreamEvent`, the
+   * result IS a WebSocket snapshot, `closeWsSession` is the Stop (the
+   * client's `complete`, then the clean close), `abortRequestSend` the
+   * Stop-abort. Answered where `executeWebSocketRequest` is answered
+   * (the node hosts in-process, the extension workbench in its page
+   * realm); `graphqlRequestUid` takes precedence over `draft`;
+   * `operationName` overrides the stored pick; `sendId` is REQUIRED.
+   */
+  executeGraphqlSubscription: {
+    req: {
+      graphqlRequestUid?: string;
+      draft?: GraphqlRequest;
+      operationName?: string;
+      environmentId?: string | null;
+      workspaceId?: string;
+      sendId: string;
+    };
+    res: { success: boolean; snapshot?: ExecutedWsSnapshot; error?: string };
+  };
+  /**
    * Publish one message into an open MQTT session, keyed by the
    * connect's `sendId`. The EXECUTOR resolves {{variables}} through
    * the resolver it built at Connect and decodes the payload per its

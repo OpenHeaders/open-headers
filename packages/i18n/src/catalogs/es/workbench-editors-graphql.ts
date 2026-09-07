@@ -117,4 +117,30 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.builder.invalidValue': 'No es un valor GraphQL.',
   'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} problema', many: '{count} problemas', other: '{count} problemas' }),
+  // ── Suscripciones (graphql-transport-ws sobre el plano WebSocket) ──
+  'workbench.editors.graphql.subscription.tooltip':
+    'Suscribirse — abre la subscription por WebSocket (graphql-transport-ws) y transmite sus eventos',
+  'workbench.editors.graphql.subscription.stopTooltip': 'Detener la subscription — envía complete y cierra la sesión',
+  'workbench.editors.graphql.subscription.browserHost':
+    'Las subscriptions se ejecutan en la aplicación de escritorio o en la extensión.',
+  'workbench.editors.graphql.subscription.openFailed': 'No se pudo abrir la subscription',
+  'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
+  'workbench.editors.graphql.subscription.subscribing': 'Suscribiendo…',
+  'workbench.editors.graphql.subscription.subscribed': 'Suscrito',
+  'workbench.editors.graphql.subscription.completed': 'Completada',
+  'workbench.editors.graphql.subscription.stopped': 'Detenida',
+  'workbench.editors.graphql.subscription.errored': 'Error',
+  'workbench.editors.graphql.subscription.closed': 'Cerrada {code}',
+  'workbench.editors.graphql.subscription.events': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} evento', many: '{count} eventos', other: '{count} eventos' }),
+  'workbench.editors.graphql.subscription.errorsSummary':
+    'La subscription respondió con una lista errors[] — un campo falló en un evento, o la operación fue rechazada antes de empezar.',
+  'workbench.editors.graphql.subscription.close.badRequest': 'Solicitud incorrecta',
+  'workbench.editors.graphql.subscription.close.unauthorized': 'No autorizado',
+  'workbench.editors.graphql.subscription.close.forbidden': 'Prohibido',
+  'workbench.editors.graphql.subscription.close.subprotocolNotAcceptable': 'Subprotocolo no aceptable',
+  'workbench.editors.graphql.subscription.close.connectionInitTimeout':
+    'Tiempo de inicialización de la conexión agotado',
+  'workbench.editors.graphql.subscription.close.subscriberAlreadyExists': 'El suscriptor ya existe',
+  'workbench.editors.graphql.subscription.close.tooManyInitRequests': 'Demasiadas solicitudes de inicialización',
 } as const satisfies Catalog;

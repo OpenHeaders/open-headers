@@ -13,7 +13,9 @@ import { Tag, theme } from 'antd';
 import type React from 'react';
 import type { GraphqlResponseFacts } from './graphql-response';
 
-function ErrorList({ facts }: { facts: GraphqlResponseFacts }) {
+/** Every error's message, path, location and code — the popover body
+ *  the HTTP answer's tag and a subscription's share. */
+export function GraphqlErrorList({ facts }: { facts: GraphqlResponseFacts }) {
   const { token } = theme.useToken();
   const t = useT();
   const note: React.CSSProperties = { fontSize: 11, color: token.colorTextTertiary, fontFamily: 'monospace' };
@@ -53,7 +55,7 @@ function errorsContent(facts: GraphqlResponseFacts, status: number, t: Translate
     title: t('workbench.editors.graphql.response.errorsTitle'),
     kicker: t('workbench.editors.request.response.meta.kicker'),
     summary: t('workbench.editors.graphql.response.errorsSummary', { status }),
-    description: <ErrorList facts={facts} />,
+    description: <GraphqlErrorList facts={facts} />,
   };
 }
 

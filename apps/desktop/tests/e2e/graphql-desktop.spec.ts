@@ -35,6 +35,12 @@
  *       document + variables run through the node host's route.
  *   G9  Copy as cURL from the GraphQL row: the snippet is one POST of
  *       the envelope, read back from the main-process clipboard.
+ *   G10 subscriptions over the WebSocket plane (Phase H): a picked
+ *       `subscription` rides the node host's `executeGraphqlSubscription`
+ *       route — three ticks in order then the server's complete;
+ *       noteCreated fired by a second request's createNote while the
+ *       first listens; Stop mid-stream sends the client's complete and
+ *       freezes the count.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle (extension `graphql-workbench.spec.ts`), the ⌘/Ctrl+Enter
@@ -143,6 +149,17 @@ async function openGraphqlRequest(uid: string): Promise<void> {
   await row.waitFor({ state: 'visible', timeout: 5000 });
   await row.click();
   await queryButton().waitFor({ state: 'visible', timeout: 10_000 });
+}
+
+/** Bring an OPEN request's tab back to the front — the editor may be
+ *  mid-session (Stop in place of Query), so the URL input is the wait. */
+async function activateGraphqlRequest(uid: string): Promise<void> {
+  await workbench.locator(`[data-item-id="graphql-request-${uid}"]`).click();
+  await workbench
+    .getByTestId('graphql-url-input')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 5_000 });
 }
 
 /** Query and wait for the settled status chip; return its text. */
@@ -450,4 +467,84 @@ test('G9 — Copy as cURL from the GraphQL row renders one POST of the envelope'
   expect(text).toContain("-X 'POST'");
   expect(text).toContain('"query"');
   expect(text).toContain('hi-from-the-converted-request');
+});
+
+// ── G10: subscriptions over the WebSocket plane ─────────────────────
+
+function subscriptionPhase(): Locator {
+  return workbench.getByTestId('graphql-subscription-phase').filter({ visible: true }).first();
+}
+
+function subscriptionEvents(): Locator {
+  return workbench.getByTestId('graphql-subscription-events').filter({ visible: true }).first();
+}
+
+/** The timeline's `next` rows as rendered (newest first — the default sort), each read for its tick. */
+async function tickRows(): Promise<number[]> {
+  return workbench
+    .getByTestId('ws-timeline-message-row')
+    .filter({ visible: true })
+    .filter({ hasText: '"type":"next"' })
+    .evaluateAll((rows) => rows.map((row) => Number(/"tick":(\d+)/.exec(row.textContent ?? '')?.[1] ?? Number.NaN)));
+}
+
+test('G10 — a picked subscription rides the WebSocket plane: three ticks then complete; noteCreated fired by a second request; Stop mid-stream', async () => {
+  // (a) tick — three events in order, the server's complete, the clean close.
+  await openGraphqlRequest('e2egqd06');
+  await queryButton().click();
+  await workbench
+    .getByTestId('ws-session-pane')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(subscriptionPhase()).toHaveText('Completed', { timeout: 5_000 });
+  await expect(subscriptionEvents()).toHaveText('3 events');
+  await expect(workbench.getByTestId('ws-session-close-tag').filter({ visible: true }).first()).toHaveText(
+    'Disconnected',
+  );
+  await expect.poll(tickRows, { timeout: 5_000 }).toEqual([3, 2, 1]);
+  await expect(queryButton()).toBeVisible();
+  expect(await workbench.getByTestId('graphql-subscription-errors').filter({ visible: true }).count()).toBe(0);
+
+  // (b) noteCreated — the listener stays open while the mutation runs
+  // over the POST in its own tab; the event lands shaped by the
+  // subscriber's document.
+  await openGraphqlRequest('e2egqd07');
+  await queryButton().click();
+  await expect(subscriptionPhase()).toHaveText('Subscribed', { timeout: 5_000 });
+  await openGraphqlRequest('e2egqd08');
+  expect(await queryAndAwaitStatus()).toBe('200 OK');
+  await activateGraphqlRequest('e2egqd07');
+  await expect(subscriptionEvents()).toHaveText('1 event', { timeout: 5_000 });
+  await expect(
+    workbench
+      .getByTestId('ws-timeline-message-row')
+      .filter({ visible: true })
+      .filter({ hasText: '"title":"Live note"' })
+      .first(),
+  ).toBeVisible();
+  await workbench.getByTestId('graphql-stop-button').filter({ visible: true }).first().click();
+  await expect(subscriptionPhase()).toHaveText('Stopped', { timeout: 5_000 });
+
+  // (c) Stop mid-stream — the client's complete leaves, the socket
+  // closes clean, and no event lands after it.
+  await openGraphqlRequest('e2egqd09');
+  await queryButton().click();
+  await expect(subscriptionEvents()).toHaveText(/^[2-9]\d* events$/, { timeout: 5_000 });
+  await workbench.getByTestId('graphql-stop-button').filter({ visible: true }).first().click();
+  await expect(subscriptionPhase()).toHaveText('Stopped', { timeout: 5_000 });
+  await expect(workbench.getByTestId('ws-session-close-tag').filter({ visible: true }).first()).toHaveText(
+    'Disconnected',
+  );
+  const frozen = await subscriptionEvents().textContent();
+  await workbench.waitForTimeout(400);
+  await expect(subscriptionEvents()).toHaveText(frozen ?? '');
+  await expect(
+    workbench
+      .getByTestId('ws-timeline-message-row')
+      .filter({ visible: true })
+      .filter({ hasText: '{"id":"1","type":"complete"}' })
+      .first(),
+  ).toBeVisible();
+  await expect(queryButton()).toBeVisible();
 });

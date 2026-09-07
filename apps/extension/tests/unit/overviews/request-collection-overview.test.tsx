@@ -112,6 +112,7 @@ function makeRequestsValue(overrides: Partial<RequestsContextValue> = {}): Reque
     executeWebSocket: vi.fn(async () => null),
     executeMqtt: vi.fn(async () => null),
     executeGraphql: vi.fn(async () => null),
+    executeGraphqlSubscription: vi.fn(async () => null),
     convertRequestToGraphql: vi.fn(async () => null),
     ...overrides,
   };

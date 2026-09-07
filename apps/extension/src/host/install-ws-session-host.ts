@@ -10,9 +10,11 @@
  * module mirrors are empty in a page realm).
  *
  * Wiring shape: a {@link HostBridge} DECORATOR over the chrome
- * transport. The four WebSocket channels (`executeWebSocketRequest`
- * draft path, `sendWsMessage`, `closeWsSession`, `reconnectWsSessionNow`)
- * answer locally, and
+ * transport. The WebSocket channels (`executeWebSocketRequest` draft
+ * path, `executeGraphqlSubscription` draft path — the GraphQL request
+ * compiled into the session it rides, the `graphql-transport-ws`
+ * client mounted — `sendWsMessage`, `closeWsSession`,
+ * `reconnectWsSessionNow`) answer locally, and
  * `wsStreamEvent` subscribers are fed synchronously from the in-page
  * emitter — no broadcast hop, so the editor, `RequestsContext`, and
  * `useLiveWsSession` ride the exact code paths the node hosts answer.
@@ -37,6 +39,8 @@ import {
   type WsStreamEventWire,
 } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
+import { compileGraphqlSubscription, type GraphqlWsSubscriptionPlan } from '@openheaders/core/graphql';
+import type { WebSocketRequest } from '@openheaders/core/types';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { errorWsSnapshot, executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import {
@@ -63,16 +67,16 @@ function deliverWsStreamEventLocally(event: WsStreamEventWire): void {
   for (const handler of wsStreamSubscribers) handler(event);
 }
 
-async function handleExecuteWebSocketRequest(
-  payload: BridgeRpcRequest<'executeWebSocketRequest'>,
+/** The page realm executes DRAFTS only — the editor always connects
+ *  its current compose state, so a uid-only call never originates
+ *  here (and this realm has no storage-slot entity read). */
+const DRAFTS_ONLY = 'The page-realm session host executes drafts only';
+
+async function runPageWsSession(
+  draft: WebSocketRequest,
+  sendId: string,
+  graphql?: GraphqlWsSubscriptionPlan,
 ): Promise<BridgeRpcResponse<'executeWebSocketRequest'>> {
-  const draft = payload.draft;
-  if (draft === undefined) {
-    // The page host executes DRAFTS only — the editor always connects
-    // its current compose state, so a uid-only call never originates
-    // here (and this realm has no storage-slot entity read).
-    return { success: false, error: 'The page-realm session host executes drafts only' };
-  }
   const factory = getWsPageResolutionFactory();
   if (factory === null) {
     // Unreachable through the UI — Connect lives in the editor whose
@@ -80,7 +84,7 @@ async function handleExecuteWebSocketRequest(
     // structurally, never resolve templates as empty.
     return {
       success: true,
-      snapshot: errorWsSnapshot('The editor scope is not ready — reopen the WebSocket request and try again.'),
+      snapshot: errorWsSnapshot('The editor scope is not ready — reopen the request and try again.'),
     };
   }
   try {
@@ -95,18 +99,41 @@ async function handleExecuteWebSocketRequest(
       workspaceId: scope.workspaceId,
       environmentId: undefined,
       transport: browserWsTransport,
-      sendId: payload.sendId,
+      sendId,
       emitStreamEvent: deliverWsStreamEventLocally,
       resolution: scope.resolve,
       authChain: scope.authChain,
       scriptChain: scope.scriptChain,
       settingsChain: scope.settingsChain,
       ...(pageScriptHost !== null ? { scriptHost: pageScriptHost } : {}),
+      ...(graphql !== undefined ? { graphql } : {}),
     });
     return { success: true, snapshot };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
+}
+
+function handleExecuteWebSocketRequest(
+  payload: BridgeRpcRequest<'executeWebSocketRequest'>,
+): Promise<BridgeRpcResponse<'executeWebSocketRequest'>> {
+  if (payload.draft === undefined) return Promise.resolve({ success: false, error: DRAFTS_ONLY });
+  return runPageWsSession(payload.draft, payload.sendId);
+}
+
+/** The subscription compiles here, in the page realm — a refusal (a
+ *  URL outside http(s) / ws(s), an auth type the WebSocket mask cannot
+ *  carry) is a failed-outcome snapshot like the node route's. */
+function handleExecuteGraphqlSubscription(
+  payload: BridgeRpcRequest<'executeGraphqlSubscription'>,
+): Promise<BridgeRpcResponse<'executeGraphqlSubscription'>> {
+  if (payload.draft === undefined) return Promise.resolve({ success: false, error: DRAFTS_ONLY });
+  const compiled = compileGraphqlSubscription(
+    payload.draft,
+    payload.operationName !== undefined ? { operationName: payload.operationName } : {},
+  );
+  if (!compiled.ok) return Promise.resolve({ success: true, snapshot: errorWsSnapshot(compiled.error) });
+  return runPageWsSession(compiled.request, payload.sendId, compiled.plan);
 }
 
 const wsSessionHostBridge: HostBridge = {
@@ -117,6 +144,10 @@ const wsSessionHostBridge: HostBridge = {
     if (type === 'executeWebSocketRequest') {
       const payload = args[0] as BridgeRpcRequest<'executeWebSocketRequest'>;
       return handleExecuteWebSocketRequest(payload) as Promise<BridgeRpcResponse<K>>;
+    }
+    if (type === 'executeGraphqlSubscription') {
+      const payload = args[0] as BridgeRpcRequest<'executeGraphqlSubscription'>;
+      return handleExecuteGraphqlSubscription(payload) as Promise<BridgeRpcResponse<K>>;
     }
     if (type === 'sendWsMessage') {
       const payload = args[0] as BridgeRpcRequest<'sendWsMessage'>;

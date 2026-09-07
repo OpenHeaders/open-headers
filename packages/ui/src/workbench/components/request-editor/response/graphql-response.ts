@@ -6,7 +6,8 @@
  * was missing), whether `data` came back null, and the server's
  * `extensions` object. Derived once per snapshot by the GraphQL
  * editor and never by the panel for an HTTP send — a REST body with an
- * `errors` key is not a GraphQL response.
+ * `errors` key is not a GraphQL response. The envelope reader serves
+ * a subscription's events too — one `next` payload is one envelope.
  */
 
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
@@ -60,6 +61,13 @@ export function graphqlResponseFacts(response: ExecutedRequestSnapshot): Graphql
   } catch {
     return null;
   }
+  return graphqlEnvelopeFacts(parsed);
+}
+
+/** The facts of one parsed execution result — the POST's body or a
+ *  subscription event's `next` payload; null when the value is not
+ *  the `data` / `errors[]` envelope. */
+export function graphqlEnvelopeFacts(parsed: unknown): GraphqlResponseFacts | null {
   if (!isRecord(parsed) || !('data' in parsed || 'errors' in parsed)) return null;
   const errors = Array.isArray(parsed.errors)
     ? parsed.errors.map(errorOf).filter((entry): entry is GraphqlResponseError => entry !== null)

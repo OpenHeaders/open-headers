@@ -20,7 +20,13 @@
  * Query test-fires the LIVE draft: the executing host compiles the
  * entity ONCE into its HTTP send (`executeGraphqlRequest`), so the
  * answer IS an HTTP snapshot with the auth / inherited-settings /
- * script attribution the pane already renders. Save Response freezes
+ * script attribution the pane already renders. A picked SUBSCRIPTION
+ * is the one operation that leaves the POST: Query opens it over the
+ * WebSocket plane (`executeGraphqlSubscription` — the URL derived, the
+ * `graphql-transport-ws` client mounted), the WebSocket session pane
+ * replaces the HTTP response pane with the subscription's phase and
+ * events leading its strip, and Query morphs to Stop (the client's
+ * `complete`, then the clean close). Save Response freezes
  * the exchange as an HTTP `ResponseExample` marked `requestKind:
  * 'graphql'`, nested under this request. Dirty derives from
  * form-vs-canonical equality via `useReprime` (never setDirty); saves
@@ -34,6 +40,7 @@ import {
   censusDocument,
   compileGraphqlRequest,
   parseDocument,
+  selectedOperation,
   toHttpRequest,
   wireOperationName,
 } from '@openheaders/core/graphql';
@@ -82,6 +89,7 @@ import {
   NO_INHERITED_SETTINGS,
 } from '../shared/inherited-settings/inherited-settings';
 import { createImportedGraphqlSpecSeed } from '../specs/spec-scaffold';
+import WsSessionPane from '../websocket-request-editor/WsSessionPane';
 import {
   buildGraphqlRequestUpdates,
   canonicalGraphqlRequestProjection,
@@ -94,7 +102,10 @@ import {
 import GraphqlHeadersTab from './GraphqlHeadersTab';
 import GraphqlQueryTab from './GraphqlQueryTab';
 import GraphqlSchemaTab from './GraphqlSchemaTab';
+import GraphqlSubscriptionTags from './GraphqlSubscriptionTags';
+import { useGraphqlSubscriptionState } from './graphql-subscription';
 import { useGraphqlSchema } from './use-graphql-schema';
+import { useGraphqlSubscriptionPlane } from './useGraphqlSubscriptionPlane';
 
 const { Text } = Typography;
 
@@ -252,6 +263,11 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const showOperationSelect = census !== null && census.operations.length > 1;
   const wireOperation =
     census === null ? undefined : wireOperationName(census, draft.operationName === '' ? undefined : draft.operationName);
+  // The operation Query runs — a subscription leaves the POST for the
+  // WebSocket plane (the census's pick rule, so the wire and the
+  // button agree).
+  const pickedOperation = census === null ? null : selectedOperation(census, wireOperation);
+  const isSubscription = pickedOperation?.operation === 'subscription';
 
   const formFingerprint = useMemo(() => stableStringify(buildGraphqlRequestUpdates(draft)), [draft]);
 
@@ -313,8 +329,29 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     [response],
   );
 
+  // ── The subscription plane (a picked `subscription` operation) ──
+  const subscription = useGraphqlSubscriptionPlane({
+    entity,
+    draft,
+    operationName: wireOperation,
+    sslVerification: draft.sslVerification ?? inheritedSettings.settings.sslVerification ?? true,
+    workspaceId,
+  });
+  const subscriptionState = useGraphqlSubscriptionState(subscription.live, subscription.snapshot);
+  const subscriptionPaneOpen = subscription.live !== null || subscription.snapshot !== null;
+  const inFlight = sending || subscription.inFlight;
+
   const handleQuery = useCallback(async () => {
-    if (!entity || sending) return;
+    if (!entity || inFlight) return;
+    if (isSubscription) {
+      if (subscription.disabledReason !== null) return;
+      // The session pane takes the response slot — a settled HTTP
+      // answer clears with it.
+      setResponse(null);
+      await subscription.handleSubscribe();
+      return;
+    }
+    subscription.handleClear();
     setSending(true);
     setResponse(null);
     // Mint the send id and open the live-stream feed BEFORE the RPC
@@ -330,16 +367,21 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     setSending(false);
     setResponse(snapshot);
     setSseSession(session === null ? null : { ...session, endedAt: Date.now() });
-  }, [entity, sending, draft, executeGraphql, beginStream, endStream, takeSseSession]);
+  }, [entity, inFlight, isSubscription, subscription, draft, executeGraphql, beginStream, endStream, takeSseSession]);
 
   // Stop the in-flight query — the host aborts the exchange and the
   // pending `executeGraphql` resolves with a snapshot materialized from
-  // whatever arrived.
+  // whatever arrived. An open subscription stops through its own
+  // plane (the client's complete, then the clean close).
   const handleStop = useCallback(() => {
+    if (subscription.inFlight) {
+      subscription.handleStop();
+      return;
+    }
     const sendId = activeSendIdRef.current;
     if (!sendId) return;
     hostBridge.call('abortRequestSend', { sendId }).catch(() => {});
-  }, []);
+  }, [subscription]);
 
   // ⌘/Ctrl+Enter queries from anywhere in the editor — the same MORPH as
   // the button: while a query is in flight the chord stops it. Capture
@@ -350,13 +392,13 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
       if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
       e.stopPropagation();
-      if (sending) {
+      if (inFlight) {
         handleStop();
         return;
       }
       void handleQuery();
     },
-    [sending, handleQuery, handleStop],
+    [inFlight, handleQuery, handleStop],
   );
 
   // Save Response — freeze the current exchange as an example under
@@ -461,16 +503,29 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     },
   ];
 
+  // A subscription that cannot open on this host names why on the
+  // button — the honest disabled posture, never a silent no-op.
+  const queryDisabledReason = isSubscription ? subscription.disabledReason : null;
   const headerActions = (
     <Tooltip
       placement="bottom"
       open={queryTooltipSuppressed ? false : undefined}
       title={
-        sending ? (
-          <ShortcutHintTitle label={QUERY_SHORTCUT}>{t('workbench.editors.graphql.query.stopTooltip')}</ShortcutHintTitle>
+        queryDisabledReason !== null ? (
+          queryDisabledReason
+        ) : inFlight ? (
+          <ShortcutHintTitle label={QUERY_SHORTCUT}>
+            {t(
+              isSubscription
+                ? 'workbench.editors.graphql.subscription.stopTooltip'
+                : 'workbench.editors.graphql.query.stopTooltip',
+            )}
+          </ShortcutHintTitle>
         ) : (
           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-            <ShortcutHintTitle label={QUERY_SHORTCUT}>{t('workbench.editors.graphql.query.label')}</ShortcutHintTitle>
+            <ShortcutHintTitle label={QUERY_SHORTCUT}>
+              {t(isSubscription ? 'workbench.editors.graphql.subscription.tooltip' : 'workbench.editors.graphql.query.label')}
+            </ShortcutHintTitle>
             {remoteDispatchHost !== undefined && (
               <span style={{ fontSize: 11, opacity: 0.75 }}>
                 {t('workbench.editors.request.send.remoteDispatchHint', { host: remoteDispatchHost })}
@@ -481,7 +536,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
       }
     >
       <span style={{ display: 'inline-flex' }} onMouseLeave={() => setQueryTooltipSuppressed(false)}>
-        {sending ? (
+        {inFlight ? (
           // Query morphs into Stop for every in-flight send — the HTTP
           // editor's recipe, error token darkened one notch.
           <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
@@ -515,6 +570,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
               void handleQuery();
             }}
             style={{ fontSize: 11 }}
+            disabled={queryDisabledReason !== null}
             data-testid="graphql-query-button"
           >
             {t('workbench.editors.graphql.query.label')}
@@ -682,18 +738,36 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
               </div>
             </Allotment.Pane>
             <Allotment.Pane minSize={layout === 'vertical' ? 120 : 280}>
-              <ResponsePanel
-                response={response}
-                sending={sending}
-                live={live}
-                sseSession={sseSession}
-                layout={layout}
-                onLayoutChange={setLayout}
-                onClear={() => setResponse(null)}
-                onSaveResponse={() => void handleSaveResponse()}
-                onResend={() => void handleQuery()}
-                graphql={graphqlFacts}
-              />
+              {subscriptionPaneOpen ? (
+                // The subscription's session pane — the WebSocket
+                // editor's, the protocol's facts leading its strip. No
+                // Save Response: an HTTP example carries a status the
+                // session never had.
+                <WsSessionPane
+                  live={subscription.live}
+                  snapshot={subscription.snapshot}
+                  timing={subscription.timing}
+                  hostNotice={subscription.hostNotice}
+                  flavor="raw"
+                  title={t('workbench.editors.graphql.subscription.paneTitle')}
+                  leadingTags={<GraphqlSubscriptionTags state={subscriptionState} live={subscription.live !== null} />}
+                  onClear={subscription.handleClear}
+                  onReconnect={() => void handleQuery()}
+                />
+              ) : (
+                <ResponsePanel
+                  response={response}
+                  sending={sending}
+                  live={live}
+                  sseSession={sseSession}
+                  layout={layout}
+                  onLayoutChange={setLayout}
+                  onClear={() => setResponse(null)}
+                  onSaveResponse={() => void handleSaveResponse()}
+                  onResend={() => void handleQuery()}
+                  graphql={graphqlFacts}
+                />
+              )}
             </Allotment.Pane>
           </Allotment>
         </div>

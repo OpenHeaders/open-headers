@@ -14,7 +14,8 @@
  * no request-level credential — and one GraphQL request per G-leg of
  * the Phase C gate: the echo round trip, the partial (200-with-errors)
  * answer, the gated pair (inherited bearer vs. an explicit `none`),
- * the two-operation document with a stored pick.
+ * the two-operation document with a stored pick, the subscriptions
+ * (ticks, the listener, its mutation, the open stream).
  *
  * The probe URL rides OH_E2E_GRAPHQL_PROBE_URL (the playground's
  * `/api/graphql` on 3000 when the Playwright webServer boots it). The
@@ -84,6 +85,21 @@ const graphqlRequests: GraphqlRequest[] = [
   graphqlRequest('e2egqd05', 'Probe Two Operations', {
     query: 'query A { echo(text: "answer-a") } query B { echo(text: "answer-b") }',
     operationName: 'B',
+  }),
+  // G10: the subscriptions over the WebSocket plane — three ticks then
+  // the server's complete; the listener a second request's mutation
+  // fires; the open stream Stop cuts.
+  graphqlRequest('e2egqd06', 'Probe Ticks', {
+    query: 'subscription { tick(everyMs: 100, take: 3) }',
+  }),
+  graphqlRequest('e2egqd07', 'Probe Note Created', {
+    query: 'subscription { noteCreated { id title author { name } } }',
+  }),
+  graphqlRequest('e2egqd08', 'Probe Create Note', {
+    query: 'mutation { createNote(input: { title: "Live note", authorId: "2" }) { id } }',
+  }),
+  graphqlRequest('e2egqd09', 'Probe Ticks Open', {
+    query: 'subscription { tick(everyMs: 100, take: 100) }',
   }),
 ];
 

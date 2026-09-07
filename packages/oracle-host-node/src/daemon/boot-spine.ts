@@ -186,6 +186,7 @@ import { composePeerPush } from './compose-peer-push';
 import { composePeerRpc } from './compose-peer-rpc';
 import { handleDeviceTrustRpc, isDeviceTrustRpc } from './device-trust-rpc';
 import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
+import { handleExecuteGraphqlSubscriptionRpc } from './execute-graphql-subscription-rpc';
 import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteMqttRequestRpc } from './execute-mqtt-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
@@ -1336,6 +1337,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // when the session settles.
     if (type === 'executeWebSocketRequest') {
       return await handleExecuteWebSocketRequestRpc(message);
+    }
+    // Workbench GraphQL subscription — the GraphqlRequest entity
+    // compiled into the WebSocket session it rides, same plane.
+    if (type === 'executeGraphqlSubscription') {
+      return await handleExecuteGraphqlSubscriptionRpc(message);
     }
     // Riders for an open WebSocket session — the executor's
     // active-session registry resolves and writes / starts the clean

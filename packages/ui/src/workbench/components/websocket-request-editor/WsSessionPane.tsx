@@ -68,6 +68,13 @@ interface WsSessionPaneProps {
    *  captured as an example (connected, non-error). First item of the
    *  ⋯ actions menu. */
   onSaveResponse?: () => void;
+  /** The pane's title — the WebSocket editor's "Response" unless the
+   *  mounting editor names its own (a GraphQL subscription). */
+  title?: string;
+  /** Tags leading the meta strip in both phases — a protocol riding
+   *  the session states its own facts before the socket's (a GraphQL
+   *  subscription's phase and events). */
+  leadingTags?: React.ReactNode;
 }
 
 const WsSessionPane: React.FC<WsSessionPaneProps> = ({
@@ -81,6 +88,8 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   onSaveResponse,
   onReconnect,
   onSaveMessage,
+  title,
+  leadingTags,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -303,6 +312,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
 
   const metaStrip = (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
+      {leadingTags}
       {snapshot === null ? (
         <>
           <ConnectionDetailsTooltip rows={detailRows}>
@@ -406,7 +416,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         }}
       >
         <Text strong style={{ fontSize: 12 }}>
-          {t('workbench.editors.websocket.session.paneTitle')}
+          {title ?? t('workbench.editors.websocket.session.paneTitle')}
         </Text>
         {/* The Scripts view joins only once a hook ran — no teaser
           switch on a scriptless session. */}

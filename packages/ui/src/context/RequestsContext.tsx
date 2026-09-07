@@ -357,6 +357,23 @@ export interface RequestsContextValue {
     environmentId?: string;
     sendId?: string;
   }) => Promise<ExecutedRequestSnapshot | null>;
+
+  /** GraphQL subscription — the `executeWebSocket` sibling for a
+   *  GraphqlRequest whose picked operation is a subscription: the
+   *  executing host compiles the entity into the WebSocket session it
+   *  rides and runs it on the WebSocket plane with the
+   *  `graphql-transport-ws` client mounted, so the answer IS a WebSocket
+   *  snapshot and the frames ride `wsStreamEvent`. Answered where
+   *  `executeWebSocket` is answered. `sendId` is required: it keys the
+   *  `closeWsSession` rider (Stop) and the shared active-send registry.
+   *  The promise resolves when the SESSION settles. */
+  executeGraphqlSubscription: (input: {
+    graphqlRequestUid?: string;
+    draft?: GraphqlRequest;
+    operationName?: string;
+    environmentId?: string;
+    sendId: string;
+  }) => Promise<ExecutedWsSnapshot | null>;
 }
 
 const defaultContextValue: RequestsContextValue = {
@@ -403,6 +420,7 @@ const defaultContextValue: RequestsContextValue = {
   executeWebSocket: () => Promise.resolve(null),
   executeMqtt: () => Promise.resolve(null),
   executeGraphql: () => Promise.resolve(null),
+  executeGraphqlSubscription: () => Promise.resolve(null),
 };
 
 export const RequestsContext = createContext<RequestsContextValue>(defaultContextValue);
@@ -1215,6 +1233,14 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [],
   );
 
+  const executeGraphqlSubscription = useCallback<RequestsContextValue['executeGraphqlSubscription']>(
+    async (input) => {
+      const resp = await hostBridge.call('executeGraphqlSubscription', input).catch(() => null);
+      return resp?.success ? (resp.snapshot ?? null) : null;
+    },
+    [],
+  );
+
   const value = useMemo<RequestsContextValue>(
     () => ({
       requests,
@@ -1260,6 +1286,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       executeWebSocket,
       executeMqtt,
       executeGraphql,
+      executeGraphqlSubscription,
     }),
     [
       requests,
@@ -1305,6 +1332,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       executeWebSocket,
       executeMqtt,
       executeGraphql,
+      executeGraphqlSubscription,
     ],
   );
 

@@ -107,4 +107,28 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.builder.invalidValue': '不是 GraphQL 值。',
   'workbench.editors.graphql.variables.problems': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个问题' }),
+  // ── 订阅（WebSocket 平面上的 graphql-transport-ws）──
+  'workbench.editors.graphql.subscription.tooltip':
+    '订阅 — 通过 WebSocket（graphql-transport-ws）打开 subscription 并流式接收其事件',
+  'workbench.editors.graphql.subscription.stopTooltip': '停止 subscription — 发送 complete 并关闭会话',
+  'workbench.editors.graphql.subscription.browserHost': 'Subscription 在桌面应用或扩展中运行。',
+  'workbench.editors.graphql.subscription.openFailed': '打开 subscription 失败',
+  'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
+  'workbench.editors.graphql.subscription.subscribing': '订阅中…',
+  'workbench.editors.graphql.subscription.subscribed': '已订阅',
+  'workbench.editors.graphql.subscription.completed': '已完成',
+  'workbench.editors.graphql.subscription.stopped': '已停止',
+  'workbench.editors.graphql.subscription.errored': '错误',
+  'workbench.editors.graphql.subscription.closed': '已关闭 {code}',
+  'workbench.editors.graphql.subscription.events': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 个事件' }),
+  'workbench.editors.graphql.subscription.errorsSummary':
+    'Subscription 返回了 errors[] 列表 — 某个事件中的字段失败，或操作在启动前被拒绝。',
+  'workbench.editors.graphql.subscription.close.badRequest': '请求无效',
+  'workbench.editors.graphql.subscription.close.unauthorized': '未授权',
+  'workbench.editors.graphql.subscription.close.forbidden': '禁止访问',
+  'workbench.editors.graphql.subscription.close.subprotocolNotAcceptable': '子协议不可接受',
+  'workbench.editors.graphql.subscription.close.connectionInitTimeout': '连接初始化超时',
+  'workbench.editors.graphql.subscription.close.subscriberAlreadyExists': '订阅者已存在',
+  'workbench.editors.graphql.subscription.close.tooManyInitRequests': '初始化请求过多',
 } as const satisfies Catalog;
