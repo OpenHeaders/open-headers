@@ -166,5 +166,13 @@ type Mutation {
   setRole(userId: ID!, role: Role!): User!
 }
 
+"""Live events over WebSocket — the same URL, the `graphql-transport-ws` subprotocol."""
+type Subscription {
+  """Fires for every note `createNote` lands, for as long as the client listens."""
+  noteCreated: Note!
+  """Counts from 1 to `take`, one event every `everyMs` milliseconds, then completes."""
+  tick(everyMs: Int = 1000, take: Int = 3): Int!
+}
+
 """Marks a field as expensive to resolve; the playground logs the cost."""
 directive @cost(weight: Int! = 1) repeatable on FIELD_DEFINITION | OBJECT

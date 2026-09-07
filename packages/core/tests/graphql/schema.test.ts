@@ -26,7 +26,7 @@ describe('schemaFromSdl — the openheaders fixture', () => {
   it('reads the schema definition and roots', () => {
     expect(schema.queryType).toBe('Query');
     expect(schema.mutationType).toBe('Mutation');
-    expect(schema.subscriptionType).toBeNull();
+    expect(schema.subscriptionType).toBe('Subscription');
     expect(schema.description).toContain('The OpenHeaders playground schema');
   });
 

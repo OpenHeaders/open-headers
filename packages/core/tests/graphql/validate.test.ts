@@ -57,7 +57,8 @@ describe('validateDocument — schema rules', () => {
     expect(rulesOf('query ($x: Nope) { echo(text: "a") }')).toContain('unknown-type');
     expect(rulesOf('fragment F on Nope { id } { viewer { ...F } }')).toContain('unknown-type');
     expect(rulesOf('{ search(term: "a") { ... on Nope { id } } }')).toContain('unknown-type');
-    expect(rulesOf('subscription { x }')).toEqual(['unknown-type']);
+    expect(rulesOf('subscription { x }')).toEqual(['unknown-field']);
+    expect(rulesOf('subscription { x }', schemaOrThrow('type Query { a: Int }'))).toEqual(['unknown-type']);
     expect(messagesOf('query ($x: Nope) { echo(text: "a") }')).toContain('Unknown type `Nope`.');
   });
 
