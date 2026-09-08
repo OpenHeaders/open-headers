@@ -15,7 +15,10 @@
  * the Phase C gate: the echo round trip, the partial (200-with-errors)
  * answer, the gated pair (inherited bearer vs. an explicit `none`),
  * the two-operation document with a stored pick, the subscriptions
- * (ticks, the listener, its mutation, the open stream).
+ * (ticks, the listener, its mutation, the open stream) — and the spec
+ * binding leg: a `graphql` Spec, a collection generated from it whose
+ * link carries a STALE hash (the drift), and a request in it linked
+ * to the same spec.
  *
  * The probe URL rides OH_E2E_GRAPHQL_PROBE_URL (the playground's
  * `/api/graphql` on 3000 when the Playwright webServer boots it). The
@@ -23,8 +26,8 @@
  * before seeding).
  */
 
-import { CollectionSchema, GraphqlRequestSchema, RequestSchema } from '@openheaders/core/schemas';
-import type { Collection, GraphqlRequest, Request } from '@openheaders/core/types';
+import { CollectionSchema, GraphqlRequestSchema, RequestSchema, SpecSchema } from '@openheaders/core/schemas';
+import type { Collection, GraphqlRequest, Request, Spec } from '@openheaders/core/types';
 import { toFolderName } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
@@ -124,10 +127,65 @@ const httpRequest: Request = v.parse(RequestSchema, {
   },
 });
 
+// G13: the spec binding — a `graphql` Spec (SDL), a collection generated
+// from it with a stale `sourceHash` (the spec "changed since"), and a
+// request inside it linked to the spec: the Spec tab names the spec,
+// the collection and the drift; the Schema tab resolves from it.
+const SPEC_UID = 'e2egqspc';
+const SPEC_ROOT_UID = 'e2egqspf';
+const spec: Spec = v.parse(SpecSchema, {
+  schemaVersion: 5,
+  uid: SPEC_UID,
+  path: `specs/${toFolderName('Probe Schema', SPEC_UID)}`,
+  name: 'Probe Schema',
+  format: 'graphql',
+  rootFileUid: SPEC_ROOT_UID,
+  files: [
+    {
+      uid: SPEC_ROOT_UID,
+      fileName: 'index.graphql',
+      content: [
+        'type Query {',
+        '  """The signed-in user."""',
+        '  viewer: Viewer',
+        '  note(id: ID!): Note',
+        '}',
+        'type Viewer { id: ID! name: String! }',
+        'type Note { id: ID! title: String! }',
+        '',
+      ].join('\n'),
+    },
+  ],
+});
+
+const GENERATED_COLLECTION_UID = 'e2egqgen';
+const generatedCollection: Collection = v.parse(CollectionSchema, {
+  schemaVersion: 5,
+  uid: GENERATED_COLLECTION_UID,
+  path: `requests/${toFolderName('Probe Generated', GENERATED_COLLECTION_UID)}`,
+  name: 'Probe Generated',
+  variables: [],
+  specLink: { specUid: SPEC_UID, sourceHash: 'stale-generation-hash' },
+});
+
+const LINKED_UID = 'e2egqd10';
+const linkedRequest: GraphqlRequest = v.parse(GraphqlRequestSchema, {
+  schemaVersion: 5,
+  uid: LINKED_UID,
+  path: `${generatedCollection.path}/${toFolderName('Probe Linked', LINKED_UID)}`,
+  name: 'Probe Linked',
+  url: probeUrl,
+  query: 'query Viewer { viewer { id name } }',
+  headers: [],
+  auth: { type: 'inherit' },
+  specLink: { specUid: SPEC_UID },
+});
+
 const values: Record<string, unknown> = {
-  [`oh.ws.${workspaceId}.requestCollections`]: [collection],
+  [`oh.ws.${workspaceId}.requestCollections`]: [collection, generatedCollection],
   [`oh.ws.${workspaceId}.requests`]: [httpRequest],
-  [`oh.ws.${workspaceId}.graphqlRequests`]: graphqlRequests,
+  [`oh.ws.${workspaceId}.graphqlRequests`]: [...graphqlRequests, linkedRequest],
+  [`oh.ws.${workspaceId}.specs`]: [spec],
 };
 
 process.stdout.write(JSON.stringify(values));

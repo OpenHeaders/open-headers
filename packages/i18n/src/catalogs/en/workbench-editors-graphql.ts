@@ -85,8 +85,9 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.notIntrospected':
     'Not introspected yet — the schema loads from the endpoint through this request’s auth, headers and settings.',
   'workbench.editors.graphql.schema.introspectFailed': 'Introspection failed: {message}',
-  'workbench.editors.graphql.schema.specLabel': 'GraphQL spec',
-  'workbench.editors.graphql.schema.specPlaceholder': 'Select a GraphQL spec',
+  'workbench.editors.graphql.schema.noSpecLinked': 'No GraphQL spec is linked.',
+  'workbench.editors.graphql.schema.linkInSpecTab': 'Link one in the Spec tab',
+  'workbench.editors.graphql.schema.changeInSpecTab': 'Change in the Spec tab',
   'workbench.editors.graphql.schema.specMissing': 'The linked spec no longer exists in this workspace.',
   'workbench.editors.graphql.schema.summaryTypes': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} type', other: '{count} types' }),
@@ -95,6 +96,11 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': 'Reading the file failed: {message}',
   'workbench.editors.graphql.schema.importFailed': 'Importing the schema failed',
   'workbench.editors.graphql.schema.imported': 'Imported “{name}” as a GraphQL spec and linked it.',
+  'workbench.editors.graphql.spec.selectLabel': 'GraphQL spec',
+  'workbench.editors.graphql.spec.selectPlaceholder': 'Link a GraphQL spec…',
+  'workbench.editors.graphql.spec.none': 'No GraphQL spec is linked to this request.',
+  'workbench.editors.graphql.spec.hint':
+    'The linked spec is this request’s schema source — the explorer, completion and validation read it. Inside a spec-generated collection the request reads the collection’s link until it links its own.',
   'workbench.editors.graphql.explorer.title': 'Schema explorer',
   'workbench.editors.graphql.explorer.hide': 'Hide the explorer',
   'workbench.editors.graphql.explorer.show': 'Show the explorer',

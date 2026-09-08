@@ -83,8 +83,9 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.fetchedAt': '自省于 {when}',
   'workbench.editors.graphql.schema.notIntrospected': '尚未自省——模式将通过此请求的认证、头部和设置从端点加载。',
   'workbench.editors.graphql.schema.introspectFailed': '自省失败：{message}',
-  'workbench.editors.graphql.schema.specLabel': 'GraphQL 规范',
-  'workbench.editors.graphql.schema.specPlaceholder': '选择一个 GraphQL 规范',
+  'workbench.editors.graphql.schema.noSpecLinked': '未关联 GraphQL 规范。',
+  'workbench.editors.graphql.schema.linkInSpecTab': '在“规范”标签页中关联',
+  'workbench.editors.graphql.schema.changeInSpecTab': '在“规范”标签页中更改',
   'workbench.editors.graphql.schema.specMissing': '关联的规范已不存在于此工作区。',
   'workbench.editors.graphql.schema.summaryTypes': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个类型' }),
@@ -93,6 +94,11 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': '读取文件失败：{message}',
   'workbench.editors.graphql.schema.importFailed': '导入模式失败',
   'workbench.editors.graphql.schema.imported': '已将“{name}”导入为 GraphQL 规范并关联。',
+  'workbench.editors.graphql.spec.selectLabel': 'GraphQL 规范',
+  'workbench.editors.graphql.spec.selectPlaceholder': '关联一个 GraphQL 规范…',
+  'workbench.editors.graphql.spec.none': '此请求未关联任何 GraphQL 规范。',
+  'workbench.editors.graphql.spec.hint':
+    '关联的规范是此请求的架构来源——浏览器、补全和校验都读取它。在由规范生成的集合中，请求在关联自己的规范之前读取集合的关联。',
   'workbench.editors.graphql.explorer.title': '架构浏览器',
   'workbench.editors.graphql.explorer.hide': '隐藏浏览器',
   'workbench.editors.graphql.explorer.show': '显示浏览器',

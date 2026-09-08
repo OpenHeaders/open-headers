@@ -38,9 +38,10 @@
  *       Schema tab reports the resolved schema with Refresh.
  *   E9  the schema plane's spec source: the SPECS section's `+` menu
  *       mints a GraphQL spec whose editor shows the SDL outline groups
- *       and a clean validation strip; the request's Schema tab links
- *       it and the explorer resolves from the spec (the entity's
- *       synced `specLink`, saved).
+ *       and a clean validation strip; the request's Schema tab points
+ *       at the Spec tab, the Spec tab links it, the Schema tab reads
+ *       the same link and the explorer resolves from the spec (the
+ *       entity's synced `specLink`, saved).
  *   E10 sidebar rename + delete: the leaf's inline rename lands on the
  *       entity, and the delete gesture removes it from the tree (the
  *       example cascades with it).
@@ -100,6 +101,12 @@
  *       inside the query moves the pick back; a second
  *       mutation field lands IN the existing mutation and the pick
  *       returns; Query runs the picked operation.
+ *   E22 the Spec tab (Phase J) on a generated request: the E11
+ *       collection's deleteNote reads its own link to the E9 spec with
+ *       the collection line; the picker changes it to the E14 spec and
+ *       the Schema tab resolves that one; clearing the picker falls
+ *       back to the collection's link (the inherited placeholder, the
+ *       introspection source disabled), saved.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -474,7 +481,9 @@ test('E9 — a GraphQL spec from the SPECS menu outlines its SDL, and the reques
   }
   await expect(page.getByText('No problems found').filter({ visible: true }).first()).toBeVisible();
 
-  // Back on the request: the Schema tab's spec source resolves the explorer from the spec.
+  // Back on the request: the Schema tab's spec source has no link yet
+  // and points at the Spec tab — the binding surface — where the link
+  // is set; the Schema tab then reads the same link.
   await openGraphqlRequest(GRAPHQL_NAME);
   await page.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('graphql-schema-source').filter({ visible: true }).first().click();
@@ -484,8 +493,12 @@ test('E9 — a GraphQL spec from the SPECS menu outlines its SDL, and the reques
     .getByTitle('Linked GraphQL spec')
     .first()
     .click();
-  await page.getByTestId('graphql-schema-spec-select').filter({ visible: true }).first().click();
+  await page.getByTestId('graphql-schema-spec-link').filter({ visible: true }).first().click();
+  await page.getByTestId('graphql-spec-select').filter({ visible: true }).first().click();
   await page.locator('.ant-select-dropdown').filter({ visible: true }).getByTitle(SPEC_NAME).first().click();
+  await expect(page.getByTestId('graphql-spec-name').filter({ visible: true }).first()).toHaveText(SPEC_NAME);
+  await page.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('graphql-schema-spec-name').filter({ visible: true }).first()).toHaveText(SPEC_NAME);
   await expect(page.getByTestId('graphql-schema-summary').filter({ visible: true }).first()).toContainText(
     'Subscription',
   );
@@ -1204,4 +1217,80 @@ test('E21 — a check on a dimmed section appends a named operation and moves th
   await queryButton().click();
   expect(await workbench.responseStatusText()).toBe('200 OK');
   await expect.poll(() => workbench.responsePrettyText(), { timeout: 5_000 }).toMatch(/"deleteNote":\s*(true|false)/);
+});
+
+// ── E22: the Spec tab ───────────────────────────────────────────────
+
+const PASTED_SPEC_NAME = 'GraphQL schema';
+
+test('E22 — the Spec tab reads the generated request’s link with its collection, changes it, and falls back to the collection’s link when cleared', async () => {
+  // The E11 collection's deleteNote — its own link to the E9 spec.
+  const deleteNote = page
+    .locator('[data-item-id^="graphql-request-"]')
+    .filter({ hasText: 'deleteNote' })
+    .filter({ visible: true })
+    .first();
+  if (!(await deleteNote.isVisible().catch(() => false))) {
+    await page
+      .locator('[data-item-id^="req-col-"]')
+      .filter({ hasText: GENERATED_COLLECTION })
+      .filter({ visible: true })
+      .first()
+      .click();
+    await page
+      .locator('[data-item-id^="req-folder-"]')
+      .filter({ hasText: 'Mutation' })
+      .filter({ visible: true })
+      .first()
+      .click();
+  }
+  await deleteNote.waitFor({ state: 'visible', timeout: 5_000 });
+  await deleteNote.click();
+  await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
+  await page.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
+  const specTab = page.getByTestId('graphql-spec-tab').filter({ visible: true }).first();
+  await specTab.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(specTab.getByTestId('graphql-spec-name')).toHaveText(SPEC_NAME);
+  await expect(specTab.getByTestId('graphql-spec-from-collection')).toContainText(GENERATED_COLLECTION);
+  await expect(specTab.getByTestId('graphql-spec-drifted')).toHaveCount(0);
+
+  // The picker changes the request's own link — the collection line
+  // goes (a different spec than the generation's); the Schema tab
+  // resolves the new one.
+  await specTab.getByTestId('graphql-spec-select').click();
+  await page.locator('.ant-select-dropdown').filter({ visible: true }).getByTitle(PASTED_SPEC_NAME).first().click();
+  await expect(specTab.getByTestId('graphql-spec-name')).toHaveText(PASTED_SPEC_NAME);
+  await expect(specTab.getByTestId('graphql-spec-from-collection')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('graphql-schema-spec-name').filter({ visible: true }).first()).toHaveText(
+    PASTED_SPEC_NAME,
+  );
+  const summary = page.getByTestId('graphql-schema-summary').filter({ visible: true }).first();
+  await expect(summary).toContainText('Query');
+  await expect(summary).not.toContainText('Mutation');
+  // The Schema tab's link opens the Spec tab.
+  await page.getByTestId('graphql-schema-spec-link').filter({ visible: true }).first().click();
+  await specTab.waitFor({ state: 'visible', timeout: 5_000 });
+
+  // Clearing the picker leaves the request reading the collection's
+  // link — the inherited placeholder, the collection line back.
+  const select = specTab.getByTestId('graphql-spec-select');
+  await select.hover();
+  await select.locator('.ant-select-clear').click();
+  await expect(select).toContainText(`Inherited from the collection: ${SPEC_NAME}`);
+  await expect(specTab.getByTestId('graphql-spec-name')).toHaveText(SPEC_NAME);
+  await expect(specTab.getByTestId('graphql-spec-from-collection')).toContainText(GENERATED_COLLECTION);
+  // An inherited link is not the request's to clear — the Schema tab's
+  // introspection source is disabled under it.
+  await page.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
+  await expect(page.getByTestId('graphql-schema-spec-name').filter({ visible: true }).first()).toHaveText(SPEC_NAME);
+  await page.getByTestId('graphql-schema-source').filter({ visible: true }).first().click();
+  await expect(
+    page
+      .locator('.ant-select-dropdown')
+      .filter({ visible: true })
+      .locator('.ant-select-item-option-disabled[title="GraphQL introspection"]'),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await saveAndAwaitClean();
 });

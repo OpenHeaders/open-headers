@@ -87,8 +87,9 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.notIntrospected':
     'Pas encore introspecté — le schéma se charge depuis le point de terminaison avec l’authentification, les en-têtes et les paramètres de cette requête.',
   'workbench.editors.graphql.schema.introspectFailed': 'L’introspection a échoué : {message}',
-  'workbench.editors.graphql.schema.specLabel': 'Spec GraphQL',
-  'workbench.editors.graphql.schema.specPlaceholder': 'Sélectionnez une spec GraphQL',
+  'workbench.editors.graphql.schema.noSpecLinked': 'Aucune spec GraphQL n’est liée.',
+  'workbench.editors.graphql.schema.linkInSpecTab': 'Lier une spec dans l’onglet Spec',
+  'workbench.editors.graphql.schema.changeInSpecTab': 'Modifier dans l’onglet Spec',
   'workbench.editors.graphql.schema.specMissing': 'La spec liée n’existe plus dans cet espace de travail.',
   'workbench.editors.graphql.schema.summaryTypes': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} type', many: '{count} types', other: '{count} types' }),
@@ -101,6 +102,11 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': 'La lecture du fichier a échoué : {message}',
   'workbench.editors.graphql.schema.importFailed': 'L’import du schéma a échoué',
   'workbench.editors.graphql.schema.imported': '« {name} » importé comme spec GraphQL et lié.',
+  'workbench.editors.graphql.spec.selectLabel': 'Spec GraphQL',
+  'workbench.editors.graphql.spec.selectPlaceholder': 'Lier une spec GraphQL…',
+  'workbench.editors.graphql.spec.none': 'Aucune spec GraphQL n’est liée à cette requête.',
+  'workbench.editors.graphql.spec.hint':
+    'La spec liée est la source de schéma de cette requête — l’explorateur, la complétion et la validation la lisent. Dans une collection générée depuis une spec, la requête lit le lien de la collection tant qu’elle n’a pas lié la sienne.',
   'workbench.editors.graphql.explorer.title': 'Explorateur de schéma',
   'workbench.editors.graphql.explorer.hide': 'Masquer l’explorateur',
   'workbench.editors.graphql.explorer.show': 'Afficher l’explorateur',

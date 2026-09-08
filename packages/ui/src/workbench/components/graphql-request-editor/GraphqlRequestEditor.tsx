@@ -4,7 +4,7 @@
  * operation select (shown only when the document holds more than one
  * operation — it writes `operationName`) + the Query button (the HTTP
  * Send ⇄ Stop morph and the ⌘/Ctrl+Enter chord verbatim; no method
- * select, the transport is fixed), then the seven tabs — Docs · Query
+ * select, the transport is fixed), then the eight tabs — Docs · Query
  * (the docs explorer over the resolved schema + the Monaco `graphql`
  * editor fed the same schema + the Variables drawer) · Authorization
  * (the HTTP mask + the ancestor pool: a GraphQL request presents as
@@ -13,9 +13,11 @@
  * linked `graphql` Spec, an imported file) · Scripts (the frozen HTTP
  * pair, labelled Before query / After response) · Settings (the HTTP
  * tab as kind `http` — the container's `http` slice on the ancestor
- * plane) — and the HTTP response pane BELOW (the HTTP editor's split,
- * never a drawer) with the GraphQL `errors[]` / `extensions` strip
- * tags.
+ * plane) · Spec (last, behind the family's divider: the `graphql` spec
+ * binding — the request's own link or its collection's, the drift; the
+ * Schema tab reads the same link as its spec source) — and the HTTP
+ * response pane BELOW (the HTTP editor's split, never a drawer) with
+ * the GraphQL `errors[]` / `extensions` strip tags.
  *
  * Query test-fires the LIVE draft: the executing host compiles the
  * entity ONCE into its HTTP send (`executeGraphqlRequest`), so the
@@ -89,6 +91,7 @@ import {
   inheritedSettingsViewFor,
   NO_INHERITED_SETTINGS,
 } from '../shared/inherited-settings/inherited-settings';
+import SpecTabLabel from '../shared/SpecTabLabel';
 import { createImportedGraphqlSpecSeed } from '../specs/spec-scaffold';
 import WsSessionPane from '../websocket-request-editor/WsSessionPane';
 import {
@@ -103,9 +106,11 @@ import {
 import GraphqlHeadersTab from './GraphqlHeadersTab';
 import GraphqlQueryTab from './GraphqlQueryTab';
 import GraphqlSchemaTab from './GraphqlSchemaTab';
+import GraphqlSpecTab from './GraphqlSpecTab';
 import GraphqlSubscriptionTags from './GraphqlSubscriptionTags';
 import { useGraphqlSubscriptionState } from './graphql-subscription';
 import { useGraphqlSchema } from './use-graphql-schema';
+import { useGraphqlSpecBinding } from './useGraphqlSpecBinding';
 import { useGraphqlSubscriptionPlane } from './useGraphqlSubscriptionPlane';
 
 const { Text } = Typography;
@@ -219,10 +224,13 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // The Query tab's explorer pane, folded or not — here so a tab switch keeps it (the WS rail's owner).
   const [explorerCollapsed, setExplorerCollapsed] = useState(false);
 
-  // ── Schema plane ─────────────────────────────────────────────────
-  // The resolved schema feeds the explorer, the editor services and
-  // the variables validation; introspection rides the compile.
-  const schemaState = useGraphqlSchema({ entity, draft, workspaceId, executeGraphql });
+  // ── Spec binding + schema plane ──────────────────────────────────
+  // The binding (the request's own link, else its collection's) is the
+  // Spec tab's and the schema's spec source alike; the resolved schema
+  // feeds the explorer, the editor services and the variables
+  // validation; introspection rides the compile.
+  const specs = useGraphqlSpecBinding(workspaceId, ancestry?.collection, draft);
+  const schemaState = useGraphqlSchema({ entity, draft, workspaceId, binding: specs.binding, executeGraphql });
   // The last introspection's failure — the explorer's card and the
   // Schema tab's dot read the same line.
   const introspectionError = schemaState.introspection.kind === 'error' ? schemaState.introspection.message : null;
@@ -653,6 +661,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                       },
                       { key: 'scripts', label: t('workbench.editors.graphql.tab.scripts') },
                       { key: 'settings', label: t('workbench.editors.graphql.tab.settings') },
+                      { key: 'spec', label: <SpecTabLabel /> },
                     ]}
                   />
                 </div>
@@ -687,7 +696,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                           onIntrospect: () => void schemaState.introspect(),
                           refreshable: schemaState.choice === 'introspection',
                           error: introspectionError,
-                          onUseSpec: () => setActiveTab('schema'),
+                          onUseSpec: () => setActiveTab('spec'),
                           onImportSchema: handleImportSchema,
                         }}
                       />
@@ -713,12 +722,11 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                     {activeTab === 'schema' && (
                       <GraphqlSchemaTab
                         state={schemaState}
-                        specLink={draft.specLink}
+                        specs={specs}
                         hasUrl={draft.url.trim() !== ''}
-                        onSpecLinkChange={(specUid) =>
-                          setDraft((d) => ({ ...d, specLink: specUid === undefined ? undefined : { specUid } }))
-                        }
+                        onUnlinkSpec={() => setDraft((d) => ({ ...d, specLink: undefined }))}
                         onImportSchema={handleImportSchema}
+                        onOpenSpecTab={() => setActiveTab('spec')}
                       />
                     )}
                     {activeTab === 'scripts' && (
@@ -744,6 +752,15 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                         inherited={inheritedSettings}
                         value={graphqlSettingsSlice(draft)}
                         onChange={(next) => setDraft((d) => withSettings(d, next))}
+                      />
+                    )}
+                    {activeTab === 'spec' && (
+                      <GraphqlSpecTab
+                        specs={specs}
+                        specLink={draft.specLink}
+                        onSpecLinkChange={(specUid) =>
+                          setDraft((d) => ({ ...d, specLink: specUid === undefined ? undefined : { specUid } }))
+                        }
                       />
                     )}
                   </div>

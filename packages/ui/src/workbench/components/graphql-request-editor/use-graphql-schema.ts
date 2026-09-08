@@ -1,15 +1,16 @@
 /**
  * useGraphqlSchema — the request's resolved schema in one hook: the
- * source (the entity's ids-only `specLink` names a linked `graphql`
- * Spec — the synced form; otherwise the LOCAL-plane introspection
- * cache keyed by this request), the schema model built from it, the
- * source's own problems, and the introspection plane: `introspect()`
- * runs `INTROSPECTION_QUERY` THROUGH THE COMPILE — the live draft with
- * the introspection document as its query rides the same
- * `executeGraphqlRequest` route the Query button uses, so the
- * request's auth, headers, inherited settings, proxy, CA and cookies
- * all apply; never a bare fetch. The answer persists on the local
- * plane with its fetched-at stamp; Refresh re-runs it.
+ * source (the spec binding's linked `graphql` Spec — the request's own
+ * ids-only `specLink` or its collection's, the synced form; otherwise
+ * the LOCAL-plane introspection cache keyed by this request), the
+ * schema model built from it, the source's own problems, and the
+ * introspection plane: `introspect()` runs `INTROSPECTION_QUERY`
+ * THROUGH THE COMPILE — the live draft with the introspection document
+ * as its query rides the same `executeGraphqlRequest` route the Query
+ * button uses, so the request's auth, headers, inherited settings,
+ * proxy, CA and cookies all apply; never a bare fetch. The answer
+ * persists on the local plane with its fetched-at stamp; Refresh
+ * re-runs it.
  */
 
 import {
@@ -19,7 +20,6 @@ import {
   schemaFromIntrospection,
 } from '@openheaders/core/graphql';
 import type { ExecutedRequestSnapshot, GraphqlRequest, Spec } from '@openheaders/core/types';
-import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { readGraphqlSchemaSource } from '../specs/graphql-schema-source';
 import { draftEntity, type GraphqlDraft } from './draft';
@@ -28,6 +28,7 @@ import {
   readIntrospectionCache,
   writeIntrospectionCache,
 } from './graphql-schema-cache';
+import type { GraphqlSpecBinding } from './useGraphqlSpecBinding';
 
 export type GraphqlSchemaSourceChoice = 'introspection' | 'spec';
 
@@ -46,16 +47,11 @@ export type GraphqlIntrospectionFailure =
   | { readonly kind: 'malformed'; readonly messages: readonly string[] };
 
 export interface GraphqlSchemaState {
-  /** The source the schema resolves from — `spec` while the entity links one. */
+  /** The source the schema resolves from — `spec` while a link binds one (own or the collection's). */
   readonly choice: GraphqlSchemaSourceChoice;
   readonly schema: GraphqlSchema | null;
   /** The resolved source's build problems (an SDL type defined twice, a malformed introspection). */
   readonly problems: readonly string[];
-  /** The workspace's `graphql` specs and the one the entity links (null = unlinked or missing). */
-  readonly graphqlSpecs: readonly Spec[];
-  readonly linkedSpec: Spec | null;
-  /** True while a `specLink` names a spec the workspace no longer holds. */
-  readonly linkMissing: boolean;
   readonly introspection: GraphqlIntrospectionStatus;
   /** Run (or re-run) the introspection through the compile; resolves with the failure, or null on success. */
   readonly introspect: () => Promise<GraphqlIntrospectionFailure | null>;
@@ -65,6 +61,8 @@ interface UseGraphqlSchemaArgs {
   entity: GraphqlRequest | null;
   draft: GraphqlDraft;
   workspaceId: string | null;
+  /** The spec binding — its linked spec is the schema source. */
+  binding: GraphqlSpecBinding;
   executeGraphql: (input: { draft: GraphqlRequest }) => Promise<ExecutedRequestSnapshot | null>;
 }
 
@@ -114,16 +112,11 @@ export function useGraphqlSchema({
   entity,
   draft,
   workspaceId,
+  binding,
   executeGraphql,
 }: UseGraphqlSchemaArgs): GraphqlSchemaState {
-  const specs = useSpecs(workspaceId);
-  const graphqlSpecs = useMemo(() => specs.filter((spec) => spec.format === 'graphql'), [specs]);
-  const specUid = draft.specLink?.specUid;
-  const linkedSpec = useMemo(
-    () => (specUid === undefined ? null : (graphqlSpecs.find((spec) => spec.uid === specUid) ?? null)),
-    [graphqlSpecs, specUid],
-  );
-  const choice: GraphqlSchemaSourceChoice = specUid === undefined ? 'introspection' : 'spec';
+  const linkedSpec = binding.kind === 'linked' ? binding.spec : null;
+  const choice: GraphqlSchemaSourceChoice = binding.kind === 'unlinked' ? 'introspection' : 'spec';
 
   // The local plane's entry for this request — read once per request,
   // replaced by each introspection.
@@ -185,9 +178,6 @@ export function useGraphqlSchema({
     choice,
     schema: resolved.schema,
     problems: resolved.problems,
-    graphqlSpecs,
-    linkedSpec,
-    linkMissing: specUid !== undefined && linkedSpec === null,
     introspection: status,
     introspect,
   };

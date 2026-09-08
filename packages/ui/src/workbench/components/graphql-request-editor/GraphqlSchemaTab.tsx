@@ -4,14 +4,16 @@
  * linked `graphql` Spec) plus the import affordance that mints a Spec
  * from an SDL / introspection file and links it. Introspection shows
  * its fetched-at stamp and an explicit Refresh; its failures print
- * verbatim. The linked-spec source is the entity's ids-only `specLink`
- * (the synced form) over the workspace's GraphQL specs — the HTTP Spec
- * tab's picker recipe. A resolved schema reports its size and roots;
- * its build problems list beneath.
+ * verbatim. The linked-spec source reads the spec binding (the
+ * request's own ids-only `specLink`, else its collection's) and names
+ * the spec — the LINK itself is the Spec tab's, the family's binding
+ * surface, so this tab points there instead of carrying a second
+ * picker; picking introspection while the request links its own spec
+ * clears the link (a save-worthy change). A resolved schema reports
+ * its size and roots; its build problems list beneath.
  */
 
 import { isBuiltInScalar, isIntrospectionName } from '@openheaders/core/graphql';
-import type { RequestSpecLink } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Select, Tag, Typography } from 'antd';
 import type React from 'react';
@@ -19,31 +21,40 @@ import { useMemo, useState } from 'react';
 import SpecEmptyCta from '../shared/SpecEmptyCta';
 import { SPEC_FORMAT_LABELS } from '../specs/spec-format-labels';
 import type { GraphqlSchemaSourceChoice, GraphqlSchemaState } from './use-graphql-schema';
+import type { GraphqlSpecBindingState } from './useGraphqlSpecBinding';
 
 const { Text } = Typography;
 
 interface GraphqlSchemaTabProps {
   state: GraphqlSchemaState;
-  specLink: RequestSpecLink | undefined;
+  specs: GraphqlSpecBindingState;
   /** The endpoint is set — introspection has somewhere to go. */
   hasUrl: boolean;
-  onSpecLinkChange: (specUid: string | undefined) => void;
+  /** Clears the request's own link (the introspection pick). */
+  onUnlinkSpec: () => void;
   /** Opens the editor's schema file picker. */
   onImportSchema: () => void;
+  /** Switches the editor to the Spec tab — where the link is set. */
+  onOpenSpecTab: () => void;
 }
 
 const GraphqlSchemaTab: React.FC<GraphqlSchemaTabProps> = ({
   state,
-  specLink,
+  specs,
   hasUrl,
-  onSpecLinkChange,
+  onUnlinkSpec,
   onImportSchema,
+  onOpenSpecTab,
 }) => {
   const t = useT();
+  const { binding, graphqlSpecs } = specs;
   // The select's own pick while no spec is linked yet — a link makes
   // the choice the entity's.
   const [pending, setPending] = useState<GraphqlSchemaSourceChoice | null>(null);
-  const choice: GraphqlSchemaSourceChoice = specLink !== undefined ? 'spec' : (pending ?? 'introspection');
+  const choice: GraphqlSchemaSourceChoice = binding.kind !== 'unlinked' ? 'spec' : (pending ?? 'introspection');
+  // A link inherited from the collection is not the request's to
+  // clear — introspection needs the request's own link, or none.
+  const inheritedLink = binding.kind !== 'unlinked' && binding.source === 'collection';
 
   const summary = useMemo(() => {
     if (state.schema === null) return null;
@@ -73,12 +84,16 @@ const GraphqlSchemaTab: React.FC<GraphqlSchemaTabProps> = ({
           style={{ width: '100%' }}
           value={choice}
           options={[
-            { value: 'introspection', label: t('workbench.editors.graphql.schema.source.introspection') },
+            {
+              value: 'introspection',
+              label: t('workbench.editors.graphql.schema.source.introspection'),
+              disabled: inheritedLink,
+            },
             { value: 'spec', label: t('workbench.editors.graphql.schema.source.spec') },
           ]}
           onChange={(next: GraphqlSchemaSourceChoice) => {
             setPending(next);
-            if (next === 'introspection' && specLink !== undefined) onSpecLinkChange(undefined);
+            if (next === 'introspection' && binding.kind !== 'unlinked') onUnlinkSpec();
           }}
           data-testid="graphql-schema-source"
         />
@@ -120,27 +135,50 @@ const GraphqlSchemaTab: React.FC<GraphqlSchemaTabProps> = ({
 
       {choice === 'spec' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} data-testid="graphql-schema-spec">
-          {state.graphqlSpecs.length === 0 ? (
+          {binding.kind === 'unlinked' && graphqlSpecs.length === 0 ? (
             <SpecEmptyCta format={SPEC_FORMAT_LABELS.graphql} testid="graphql-schema-spec-empty" />
-          ) : (
-            <div>
-              <Text type="secondary" style={{ display: 'block', fontSize: 11, marginBottom: 4 }}>
-                {t('workbench.editors.graphql.schema.specLabel')}
+          ) : binding.kind === 'unlinked' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t('workbench.editors.graphql.schema.noSpecLinked')}
               </Text>
-              <Select
-                style={{ width: '100%' }}
-                allowClear
-                placeholder={t('workbench.editors.graphql.schema.specPlaceholder')}
-                // null, not undefined — an undefined value flips the antd
-                // Select to uncontrolled.
-                value={specLink?.specUid ?? null}
-                options={state.graphqlSpecs.map((spec) => ({ value: spec.uid, label: spec.name }))}
-                onChange={(specUid: string | undefined) => onSpecLinkChange(specUid)}
-                data-testid="graphql-schema-spec-select"
-              />
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, fontSize: 12, height: 'auto' }}
+                onClick={onOpenSpecTab}
+                data-testid="graphql-schema-spec-link"
+              >
+                {t('workbench.editors.graphql.schema.linkInSpecTab')}
+              </Button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {binding.kind === 'linked' && (
+                <>
+                  <Text style={{ fontSize: 12 }} data-testid="graphql-schema-spec-name">
+                    {binding.spec.name}
+                  </Text>
+                  <Tag style={{ margin: 0, fontSize: 11 }}>{SPEC_FORMAT_LABELS[binding.spec.format]}</Tag>
+                  {binding.collection !== null && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {t('workbench.editors.request.spec.fromCollection', { name: binding.collection.name })}
+                    </Text>
+                  )}
+                </>
+              )}
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, fontSize: 12, height: 'auto' }}
+                onClick={onOpenSpecTab}
+                data-testid="graphql-schema-spec-link"
+              >
+                {t('workbench.editors.graphql.schema.changeInSpecTab')}
+              </Button>
             </div>
           )}
-          {state.linkMissing && (
+          {binding.kind === 'missing' && (
             <Text type="warning" style={{ fontSize: 11 }} data-testid="graphql-schema-spec-missing">
               {t('workbench.editors.graphql.schema.specMissing')}
             </Text>

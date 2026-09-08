@@ -48,6 +48,11 @@
  *   G12 the pick follows the cursor: on the two-operation document the
  *       cursor moved into B makes B the select's operation and the one
  *       Query runs, A dimmed in the editor; moved into A, A.
+ *   G13 the Spec tab (Phase J): a seeded request linked to a seeded
+ *       `graphql` Spec inside a collection generated from it — the tab
+ *       names the spec, the collection and the drift (the collection's
+ *       stale hash); the Schema tab resolves the same link as its spec
+ *       source and the explorer lists the spec's root fields.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle (extension `graphql-workbench.spec.ts`), the ⌘/Ctrl+Enter
@@ -146,10 +151,10 @@ function errorsTag(): Locator {
   return workbench.getByTestId('oh-response-graphql-errors').filter({ visible: true }).first();
 }
 
-async function openGraphqlRequest(uid: string): Promise<void> {
+async function openGraphqlRequest(uid: string, collectionUid = 'e2egqcol'): Promise<void> {
   const row = workbench.locator(`[data-item-id="graphql-request-${uid}"]`);
   if (!(await row.isVisible().catch(() => false))) {
-    const collection = workbench.locator('[data-item-id="req-col-e2egqcol"]');
+    const collection = workbench.locator(`[data-item-id="req-col-${collectionUid}"]`);
     await collection.waitFor({ state: 'visible', timeout: 10_000 });
     await collection.click();
   }
@@ -631,4 +636,35 @@ test('G12 — the cursor’s operation becomes the pick: the select follows and 
   await expect.poll(dimmed, { timeout: 5_000 }).toContain('answer-b');
   expect(await queryAndAwaitStatus()).toBe('200 OK');
   expect(await responseBodyText()).toMatch(/"echo":\s*"answer-a"/);
+});
+
+// ── G13: the Spec tab ───────────────────────────────────────────────
+
+test('G13 — the Spec tab names the linked spec, its collection and the drift; the Schema tab resolves the same link', async () => {
+  await openGraphqlRequest('e2egqd10', 'e2egqgen');
+  // The Query tab is the one open on entry: the explorer already
+  // resolves from the linked spec (the binding is the schema source).
+  // Read it first — with eight tabs the desktop pane's tab bar
+  // overflows and antd keeps the ACTIVE tab in view, so after Spec the
+  // leading tabs sit scrolled out of reach.
+  const explorer = workbench.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await expect(explorer.getByTestId('graphql-explorer-field-Query.note')).toBeVisible();
+  await workbench.getByRole('tab', { name: 'Spec', exact: true }).filter({ visible: true }).first().click();
+  const specTab = workbench.getByTestId('graphql-spec-tab').filter({ visible: true }).first();
+  await specTab.waitFor({ state: 'visible', timeout: 5_000 });
+  await expect(specTab.getByTestId('graphql-spec-name')).toHaveText('Probe Schema');
+  await expect(specTab.getByTestId('graphql-spec-from-collection')).toContainText('Probe Generated');
+  // The collection's link hashes a generation the saved root no longer matches.
+  await expect(specTab.getByTestId('graphql-spec-drifted')).toBeVisible();
+
+  await workbench.getByRole('tab', { name: 'Schema', exact: true }).filter({ visible: true }).first().click();
+  await expect(workbench.getByTestId('graphql-schema-source').filter({ visible: true }).first()).toContainText(
+    'Linked GraphQL spec',
+  );
+  await expect(workbench.getByTestId('graphql-schema-spec-name').filter({ visible: true }).first()).toHaveText(
+    'Probe Schema',
+  );
+  await expect(workbench.getByTestId('graphql-schema-summary').filter({ visible: true }).first()).toContainText(
+    'Query',
+  );
 });

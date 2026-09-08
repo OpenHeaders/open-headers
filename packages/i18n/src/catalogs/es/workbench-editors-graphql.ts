@@ -87,8 +87,9 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.notIntrospected':
     'Aún sin introspección — el esquema se carga desde el endpoint con la autenticación, las cabeceras y los ajustes de esta petición.',
   'workbench.editors.graphql.schema.introspectFailed': 'La introspección falló: {message}',
-  'workbench.editors.graphql.schema.specLabel': 'Spec GraphQL',
-  'workbench.editors.graphql.schema.specPlaceholder': 'Selecciona una spec GraphQL',
+  'workbench.editors.graphql.schema.noSpecLinked': 'No hay ninguna spec GraphQL vinculada.',
+  'workbench.editors.graphql.schema.linkInSpecTab': 'Vincular una en la pestaña Spec',
+  'workbench.editors.graphql.schema.changeInSpecTab': 'Cambiar en la pestaña Spec',
   'workbench.editors.graphql.schema.specMissing': 'La spec vinculada ya no existe en este espacio de trabajo.',
   'workbench.editors.graphql.schema.summaryTypes': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} tipo', many: '{count} tipos', other: '{count} tipos' }),
@@ -101,6 +102,11 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.schema.importReadFailed': 'La lectura del archivo falló: {message}',
   'workbench.editors.graphql.schema.importFailed': 'La importación del esquema falló',
   'workbench.editors.graphql.schema.imported': '«{name}» importado como spec GraphQL y vinculado.',
+  'workbench.editors.graphql.spec.selectLabel': 'Spec GraphQL',
+  'workbench.editors.graphql.spec.selectPlaceholder': 'Vincular una spec GraphQL…',
+  'workbench.editors.graphql.spec.none': 'No hay ninguna spec GraphQL vinculada a esta solicitud.',
+  'workbench.editors.graphql.spec.hint':
+    'La spec vinculada es la fuente del esquema de esta solicitud: el explorador, el autocompletado y la validación la leen. Dentro de una colección generada desde una spec, la solicitud lee el vínculo de la colección hasta que vincula la suya.',
   'workbench.editors.graphql.explorer.title': 'Explorador de esquema',
   'workbench.editors.graphql.explorer.hide': 'Ocultar el explorador',
   'workbench.editors.graphql.explorer.show': 'Mostrar el explorador',
