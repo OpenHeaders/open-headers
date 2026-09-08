@@ -15,7 +15,7 @@ export const GLOSSARY: readonly string[] = [
   'Postman',
   'Insomnia',
   'Bruno',
-  // Browser proper nouns (backend-details window titles)
+  // Browser proper nouns (docs diagram window titles)
   'Chrome',
   'Firefox',
   'Edge',
@@ -93,7 +93,7 @@ export const GLOSSARY: readonly string[] = [
   'Server Timing',
   // Encoding names
   'Base64',
-  // Architecture component names (backend-details scenes)
+  // Architecture component names (docs topology diagrams)
   'sync-engine',
   'rule-engine',
   'oracle',

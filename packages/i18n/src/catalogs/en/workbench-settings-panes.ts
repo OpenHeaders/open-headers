@@ -1,6 +1,6 @@
 /**
  * Workbench settings — custom pane components: the backend pane
- * (wizard, tier cards, connections, device details), daemon tokens,
+ * (wizard, connections, device details), daemon tokens,
  * MCP pane, license pane, and keymap pane.
  */
 
@@ -211,111 +211,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.fallback.pruneTitle': 'Remove this host?',
   'workbench.settings.backendPane.fallback.pruneBody':
     "It rejoins automatically if it still holds an exclusive workflow's seed.",
-
-  // ── Backend pane: tier cards ────────────────────────────────────────
-  // The tier registry (`backend-tier-data.ts`) renders inside a
-  // fixed-geometry SVG card. Titles, capability bullets, and range-
-  // category labels are keyed; IP ranges, URL patterns, and platform
-  // proper nouns stay literal (technical plane). Networking vocabulary
-  // inside keyed labels (loopback, RFC1918, mDNS, …) is
-  // glossary-protected on translator handoff.
-  'workbench.settings.backendPane.tier.cardAria': '{title} tier card',
-  'workbench.settings.backendPane.tier.badge.today': 'Today',
-  'workbench.settings.backendPane.tier.badge.roadmap': 'Roadmap',
-  'workbench.settings.backendPane.tier.inheritsFrom': 'Inherits from {tier}',
-  'workbench.settings.backendPane.tier.newInTier': '+ New in this tier',
-  'workbench.settings.backendPane.tier.supports': 'Supports',
-  'workbench.settings.backendPane.tier.in-browser.title': 'In-browser',
-  'workbench.settings.backendPane.tier.in-browser.sub': 'extension service worker',
-  'workbench.settings.backendPane.tier.desktop-app.title': 'Desktop app',
-  'workbench.settings.backendPane.tier.desktop-app.sub': 'embedded server',
-  'workbench.settings.backendPane.tier.local-self-hosted.title': 'Local server',
-  'workbench.settings.backendPane.tier.local-self-hosted.sub': 'on your LAN',
-  'workbench.settings.backendPane.tier.remote-self-hosted.title': 'Remote server',
-  'workbench.settings.backendPane.tier.remote-self-hosted.sub': 'on the WAN',
-  'workbench.settings.backendPane.tier.bullet.zeroSetup': 'zero setup',
-  'workbench.settings.backendPane.tier.bullet.minimalSetup': 'minimal setup',
-  'workbench.settings.backendPane.tier.bullet.standardSetup': 'standard setup',
-  'workbench.settings.backendPane.tier.bullet.singleDevice': 'single device',
-  'workbench.settings.backendPane.tier.bullet.multipleDevices': 'multiple devices',
-  'workbench.settings.backendPane.tier.bullet.perBrowserInstance': 'per-browser instance',
-  'workbench.settings.backendPane.tier.bullet.perAppInstance': 'per-app instance',
-  'workbench.settings.backendPane.tier.bullet.multiBrowserInstances': 'multi-browser instances',
-  'workbench.settings.backendPane.tier.bullet.multiAppInstances': 'multi-app instances',
-  'workbench.settings.backendPane.tier.bullet.multiSurfaceEditing': 'multi-surface concurrent editing',
-  'workbench.settings.backendPane.tier.bullet.multiWindowEditing': 'multi-window concurrent editing',
-  'workbench.settings.backendPane.tier.bullet.localhostOnly': 'Localhost-only',
-  'workbench.settings.backendPane.tier.bullet.localhostSupported': 'Localhost-supported',
-  'workbench.settings.backendPane.tier.bullet.lanReachable': 'LAN-reachable',
-  'workbench.settings.backendPane.tier.bullet.wanReachable': 'WAN/Internet-reachable',
-  'workbench.settings.backendPane.tier.bullet.nativeFilesystem': 'native filesystem',
-  'workbench.settings.backendPane.tier.bullet.yamlOnDisk': 'YAML on disk',
-  'workbench.settings.backendPane.tier.bullet.gitIntegration': 'git integration (local/remote)',
-  'workbench.settings.backendPane.tier.bullet.clients': 'browser ext · desktop app · CLI',
-  'workbench.settings.backendPane.tier.bullet.headlessByDefault': 'headless by default · website opt-in',
-  'workbench.settings.backendPane.tier.bullet.teamReady': 'team-ready',
-  'workbench.settings.backendPane.tier.bullet.ssoAuth': 'SSO Auth',
-  'workbench.settings.backendPane.tier.bullet.rbac': 'RBAC user management',
-  'workbench.settings.backendPane.tier.bullet.auditLogs': 'audit logs & reports',
-  'workbench.settings.backendPane.tier.note.soon': 'soon',
-  'workbench.settings.backendPane.tier.group.allOs': 'All OS',
-  'workbench.settings.backendPane.tier.group.embedded': 'Embedded',
-  'workbench.settings.backendPane.tier.group.hyperscalers': 'Hyperscalers',
-  'workbench.settings.backendPane.tier.group.euNative': 'EU-native',
-  'workbench.settings.backendPane.tier.group.other': 'Other',
-  'workbench.settings.backendPane.tier.group.enterprise': 'Enterprise',
-  'workbench.settings.backendPane.tier.platform.yourCloud': 'Your cloud',
-  'workbench.settings.backendPane.tier.platform.onPrem': 'On-prem',
-  'workbench.settings.backendPane.tier.platform.homeServer': 'Home server',
-  'workbench.settings.backendPane.tier.platform.oldLaptop': 'Old laptop',
-  'workbench.settings.backendPane.tier.platform.miniPc': 'Mini PC',
-  'workbench.settings.backendPane.tier.reach.none': 'N/A',
-  'workbench.settings.backendPane.tier.reach.localhost': 'Localhost',
-  'workbench.settings.backendPane.tier.reach.lan': 'Localhost/LAN',
-  'workbench.settings.backendPane.tier.reach.wan': 'Internet/WAN',
-  'workbench.settings.backendPane.tier.cat.whyNoWire': 'Why no wire?',
-  'workbench.settings.backendPane.tier.cat.sameBrowserSurfaces': 'Same-browser surfaces',
-  'workbench.settings.backendPane.tier.cat.perBrowserInstance': 'Per-browser instance',
-  'workbench.settings.backendPane.tier.cat.ipv4Loopback': 'IPv4 loopback',
-  'workbench.settings.backendPane.tier.cat.ipv6Loopback': 'IPv6 loopback',
-  'workbench.settings.backendPane.tier.cat.defaultPort': 'Default port',
-  'workbench.settings.backendPane.tier.cat.localhostLoopback': 'Localhost / loopback',
-  'workbench.settings.backendPane.tier.cat.rfc1918': 'RFC1918 private IPv4',
-  'workbench.settings.backendPane.tier.cat.ipv6Ula': 'IPv6 ULA',
-  'workbench.settings.backendPane.tier.cat.cgnat': 'CGNAT / overlay',
-  'workbench.settings.backendPane.tier.cat.zeroConfig': 'Zero-config / no-DHCP fallback',
-  'workbench.settings.backendPane.tier.cat.mdns': 'mDNS hostnames',
-  'workbench.settings.backendPane.tier.cat.publicDns': 'Public DNS hostname',
-  'workbench.settings.backendPane.tier.cat.publicIpv4': 'Public IPv4',
-  'workbench.settings.backendPane.tier.cat.publicIpv6': 'Public IPv6',
-  'workbench.settings.backendPane.tier.cat.transport': 'Transport',
-  'workbench.settings.backendPane.tier.rangeNote.backendIsSw':
-    'no port to listen on, no IPC surface exposed to other devices',
-  'workbench.settings.backendPane.tier.rangeNote.runtimeMessaging':
-    'popup / workbench / DevTools / side-panel talk to the SW in-process',
-  'workbench.settings.backendPane.tier.rangeNote.storageLocal':
-    'Chrome ≠ Firefox ≠ Edge — separate data per browser, no cross-device, no cross-browser',
-  'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typically 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'override in Backup and Sync › Your devices',
-  'workbench.settings.backendPane.tier.rangeNote.serverOwnBox': 'IPv4 — server on your own box (Docker, sidecar)',
-  'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
-  'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'practically fd00::/8 — IPv6 private allocation',
-  'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale, etc.',
-  'workbench.settings.backendPane.tier.rangeNote.ipv4LinkLocal': 'IPv4 link-local (APIPA)',
-  'workbench.settings.backendPane.tier.rangeNote.ipv6LinkLocal': 'IPv6 link-local — every interface auto-assigns one',
-  'workbench.settings.backendPane.tier.rangeNote.bonjour': 'Bonjour / Avahi',
-  'workbench.settings.backendPane.tier.rangeNote.tlsCert': 'recommended — TLS cert',
-  'workbench.settings.backendPane.tier.rangeNote.publicIpv4': 'anything outside RFC1918 / 100.64/10',
-  'workbench.settings.backendPane.tier.rangeNote.globallyRoutable': 'globally routable',
-  'workbench.settings.backendPane.tier.rangeNote.tlsRequired': 'required — clients refuse ws:// to a non-loopback host',
-
-  // ── Backend pane: scene-diagram aria labels ────────────────────────
-  // The topology scenes themselves stay literal English (illustration
-  // plane, S3 glyph precedent); only their accessible names localize.
-  'workbench.settings.backendPane.detail.aria.in-browser': 'In-browser back-end',
-  'workbench.settings.backendPane.detail.aria.desktop-app': 'Desktop app back-end',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': 'Local LAN server back-end',
-  'workbench.settings.backendPane.detail.aria.remote-self-hosted': 'Remote self-hosted back-end',
 
   // ── Keymap pane body ───────────────────────────────────────────────
   'workbench.settings.keymapPane.searchPlaceholder': 'Search shortcuts',

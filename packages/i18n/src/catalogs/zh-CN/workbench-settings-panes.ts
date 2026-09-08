@@ -18,9 +18,9 @@
  * 预设 and 快捷键 reuse workbench-settings-defs-keyboard; 配对 =
  * pair carries the shared mint（配对码 = pairing code）; 红绿灯 /
  * scope vocabulary unchanged. MINTS: 轮换 = rotate (a token); 贮藏 =
- * git stash; 层级卡 = tier card (层级 carried from chrome); 信任存储
- * = trust store; 证书颁发机构 = certificate authority (CA raw in
- * chip contexts); 救援分支 = rescue branch; 落到 = fall back to.
+ * git stash; 信任存储 = trust store; 证书颁发机构 = certificate
+ * authority (CA raw in chip contexts); 救援分支 = rescue branch; 落到 =
+ * fall back to.
  */
 
 import { formatMessage, plural } from '../../runtime';
@@ -209,110 +209,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.fallback.selfTag': '此浏览器',
   'workbench.settings.backendPane.fallback.pruneTitle': '移除此主机？',
   'workbench.settings.backendPane.fallback.pruneBody': '如果它仍持有某个独占工作流的 seed，会自动重新加入。',
-
-  // ── Backend pane: tier cards ────────────────────────────────────────
-  // The tier registry (`backend-tier-data.ts`) renders inside a
-  // fixed-geometry SVG card. Titles, capability bullets, and range-
-  // category labels are keyed; IP ranges, URL patterns, and platform
-  // proper nouns stay literal (technical plane). Networking vocabulary
-  // inside keyed labels (loopback, RFC1918, mDNS, …) is
-  // glossary-protected on translator handoff.
-  'workbench.settings.backendPane.tier.cardAria': '{title} 层级卡',
-  'workbench.settings.backendPane.tier.badge.today': '现已可用',
-  'workbench.settings.backendPane.tier.badge.roadmap': '路线图',
-  'workbench.settings.backendPane.tier.inheritsFrom': '继承自{tier}',
-  'workbench.settings.backendPane.tier.newInTier': '+ 此层级新增',
-  'workbench.settings.backendPane.tier.supports': '支持',
-  'workbench.settings.backendPane.tier.in-browser.title': '浏览器内',
-  'workbench.settings.backendPane.tier.in-browser.sub': '扩展 Service Worker',
-  'workbench.settings.backendPane.tier.desktop-app.title': '桌面端应用',
-  'workbench.settings.backendPane.tier.desktop-app.sub': '内嵌服务器',
-  'workbench.settings.backendPane.tier.local-self-hosted.title': '本地服务器',
-  'workbench.settings.backendPane.tier.local-self-hosted.sub': '在你的 LAN 上',
-  'workbench.settings.backendPane.tier.remote-self-hosted.title': '远程服务器',
-  'workbench.settings.backendPane.tier.remote-self-hosted.sub': '在 WAN 上',
-  'workbench.settings.backendPane.tier.bullet.zeroSetup': '零设置',
-  'workbench.settings.backendPane.tier.bullet.minimalSetup': '极简设置',
-  'workbench.settings.backendPane.tier.bullet.standardSetup': '标准设置',
-  'workbench.settings.backendPane.tier.bullet.singleDevice': '单台设备',
-  'workbench.settings.backendPane.tier.bullet.multipleDevices': '多台设备',
-  'workbench.settings.backendPane.tier.bullet.perBrowserInstance': '按浏览器实例',
-  'workbench.settings.backendPane.tier.bullet.perAppInstance': '按应用实例',
-  'workbench.settings.backendPane.tier.bullet.multiBrowserInstances': '多浏览器实例',
-  'workbench.settings.backendPane.tier.bullet.multiAppInstances': '多应用实例',
-  'workbench.settings.backendPane.tier.bullet.multiSurfaceEditing': '多界面并发编辑',
-  'workbench.settings.backendPane.tier.bullet.multiWindowEditing': '多窗口并发编辑',
-  'workbench.settings.backendPane.tier.bullet.localhostOnly': '仅限 localhost',
-  'workbench.settings.backendPane.tier.bullet.localhostSupported': '支持 localhost',
-  'workbench.settings.backendPane.tier.bullet.lanReachable': 'LAN 可达',
-  'workbench.settings.backendPane.tier.bullet.wanReachable': 'WAN/互联网可达',
-  'workbench.settings.backendPane.tier.bullet.nativeFilesystem': '原生文件系统',
-  'workbench.settings.backendPane.tier.bullet.yamlOnDisk': '磁盘上的 YAML',
-  'workbench.settings.backendPane.tier.bullet.gitIntegration': 'git 集成（本地/远程）',
-  'workbench.settings.backendPane.tier.bullet.clients': '浏览器扩展 · 桌面端应用 · CLI',
-  'workbench.settings.backendPane.tier.bullet.headlessByDefault': '默认无界面 · 网站可选启用',
-  'workbench.settings.backendPane.tier.bullet.teamReady': '团队就绪',
-  'workbench.settings.backendPane.tier.bullet.ssoAuth': 'SSO 身份验证',
-  'workbench.settings.backendPane.tier.bullet.rbac': 'RBAC 用户管理',
-  'workbench.settings.backendPane.tier.bullet.auditLogs': '审计日志与报告',
-  'workbench.settings.backendPane.tier.note.soon': '即将推出',
-  'workbench.settings.backendPane.tier.group.allOs': '所有操作系统',
-  'workbench.settings.backendPane.tier.group.embedded': '内嵌',
-  'workbench.settings.backendPane.tier.group.hyperscalers': '超大规模云',
-  'workbench.settings.backendPane.tier.group.euNative': '欧盟本土云',
-  'workbench.settings.backendPane.tier.group.other': '其他',
-  'workbench.settings.backendPane.tier.group.enterprise': '企业级',
-  'workbench.settings.backendPane.tier.platform.yourCloud': '你的云',
-  'workbench.settings.backendPane.tier.platform.onPrem': '本地部署',
-  'workbench.settings.backendPane.tier.platform.homeServer': '家庭服务器',
-  'workbench.settings.backendPane.tier.platform.oldLaptop': '旧笔记本电脑',
-  'workbench.settings.backendPane.tier.platform.miniPc': '迷你主机',
-  'workbench.settings.backendPane.tier.reach.none': 'N/A',
-  'workbench.settings.backendPane.tier.reach.localhost': 'Localhost',
-  'workbench.settings.backendPane.tier.reach.lan': 'Localhost/LAN',
-  'workbench.settings.backendPane.tier.reach.wan': '互联网/WAN',
-  'workbench.settings.backendPane.tier.cat.whyNoWire': '为什么没有线路？',
-  'workbench.settings.backendPane.tier.cat.sameBrowserSurfaces': '同浏览器界面',
-  'workbench.settings.backendPane.tier.cat.perBrowserInstance': '按浏览器实例',
-  'workbench.settings.backendPane.tier.cat.ipv4Loopback': 'IPv4 环回',
-  'workbench.settings.backendPane.tier.cat.ipv6Loopback': 'IPv6 环回',
-  'workbench.settings.backendPane.tier.cat.defaultPort': '默认端口',
-  'workbench.settings.backendPane.tier.cat.localhostLoopback': 'Localhost / 环回',
-  'workbench.settings.backendPane.tier.cat.rfc1918': 'RFC1918 私有 IPv4',
-  'workbench.settings.backendPane.tier.cat.ipv6Ula': 'IPv6 ULA',
-  'workbench.settings.backendPane.tier.cat.cgnat': 'CGNAT / overlay',
-  'workbench.settings.backendPane.tier.cat.zeroConfig': '零配置 / 无 DHCP 回退',
-  'workbench.settings.backendPane.tier.cat.mdns': 'mDNS 主机名',
-  'workbench.settings.backendPane.tier.cat.publicDns': '公共 DNS 主机名',
-  'workbench.settings.backendPane.tier.cat.publicIpv4': '公网 IPv4',
-  'workbench.settings.backendPane.tier.cat.publicIpv6': '公网 IPv6',
-  'workbench.settings.backendPane.tier.cat.transport': '传输',
-  'workbench.settings.backendPane.tier.rangeNote.backendIsSw': '没有可监听的端口，没有向其他设备公开的 IPC 界面',
-  'workbench.settings.backendPane.tier.rangeNote.runtimeMessaging':
-    '弹窗 / 工作区编辑器 / DevTools / 侧边面板与 SW 进程内通信',
-  'workbench.settings.backendPane.tier.rangeNote.storageLocal':
-    'Chrome ≠ Firefox ≠ Edge——每个浏览器数据独立，不跨设备、不跨浏览器',
-  'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': '通常为 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': '在备份与同步 › 你的设备中覆盖',
-  'workbench.settings.backendPane.tier.rangeNote.serverOwnBox': 'IPv4——服务器在你自己的机器上（Docker、sidecar）',
-  'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
-  'workbench.settings.backendPane.tier.rangeNote.ulaPractically': '实际上是 fd00::/8——IPv6 私有分配',
-  'workbench.settings.backendPane.tier.rangeNote.overlayVendors': 'Tailscale 等',
-  'workbench.settings.backendPane.tier.rangeNote.ipv4LinkLocal': 'IPv4 链路本地（APIPA）',
-  'workbench.settings.backendPane.tier.rangeNote.ipv6LinkLocal': 'IPv6 链路本地——每个接口自动分配一个',
-  'workbench.settings.backendPane.tier.rangeNote.bonjour': 'Bonjour / Avahi',
-  'workbench.settings.backendPane.tier.rangeNote.tlsCert': '推荐——TLS 证书',
-  'workbench.settings.backendPane.tier.rangeNote.publicIpv4': 'RFC1918 / 100.64/10 之外的一切',
-  'workbench.settings.backendPane.tier.rangeNote.globallyRoutable': '全球可路由',
-  'workbench.settings.backendPane.tier.rangeNote.tlsRequired': '必需——客户端拒绝对非环回主机使用 ws://',
-
-  // ── Backend pane: scene-diagram aria labels ────────────────────────
-  // The topology scenes themselves stay literal English (illustration
-  // plane, S3 glyph precedent); only their accessible names localize.
-  'workbench.settings.backendPane.detail.aria.in-browser': '浏览器内后端',
-  'workbench.settings.backendPane.detail.aria.desktop-app': '桌面端应用后端',
-  'workbench.settings.backendPane.detail.aria.local-self-hosted': '本地 LAN 服务器后端',
-  'workbench.settings.backendPane.detail.aria.remote-self-hosted': '远程自托管后端',
 
   // ── Keymap pane body ───────────────────────────────────────────────
   'workbench.settings.keymapPane.searchPlaceholder': '搜索快捷键',

@@ -398,10 +398,9 @@ export type DocSurface = 'popup' | 'side-panel' | 'workbench' | 'devtools';
 const SURFACE_ORDER: DocSurface[] = ['popup', 'side-panel', 'workbench', 'devtools'];
 
 /**
- * Raw labels stay for the SVG-internal glyph `<title>`s and the
- * settings backend-details scenes (both English by the diagram
- * boundary); the visible tile captions under the glyphs resolve
- * through `SURFACE_LABEL_KEYS` instead.
+ * Raw labels stay for the SVG-internal glyph `<title>`s (English by
+ * the diagram boundary); the visible tile captions under the glyphs
+ * resolve through `SURFACE_LABEL_KEYS` instead.
  */
 export const SURFACE_LABELS: Record<DocSurface, string> = {
   popup: 'Popup',
