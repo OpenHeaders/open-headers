@@ -1,23 +1,20 @@
 /**
- * Workspace Sharing + Diff Viewer — persisted UI state for the
- * import-preview and the diff viewer it renders with.
+ * Diff Viewer — persisted UI state for the import preview and the diff
+ * viewer it renders with.
  *
  * The `importPreview*` keys back the diff-viewer toolbar in the import
  * modal — each toolbar control reads/writes its own setting so the
- * user's preferences survive across sessions. The `importPreviewDiff*`
- * defs live on the Editor › Diff Viewer page (storage keys unchanged);
- * the Workspace Sharing page keeps the merge-strategy row and points
- * at the viewer through `workspaceSharing.diffViewerHome`.
+ * user's preferences survive across sessions. Every def lives on the
+ * Editor › Diff Viewer page; the storage keys keep their
+ * `workspaceSharing.*` prefix from where the viewer first shipped.
  */
 
 import * as v from 'valibot';
-import DiffViewerHomeRow from '../components/diff-viewer-home-row';
 import { registerSetting } from '../registry';
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'workspaceSharing.importPreviewShowMergeStrategy': boolean;
-    'workspaceSharing.diffViewerHome': string;
     'workspaceSharing.importPreviewDiffViewer': 'side-by-side' | 'unified';
     'workspaceSharing.importPreviewDiffWhitespace': 'none' | 'ignore';
     'workspaceSharing.importPreviewDiffCollapseUnchanged': boolean;
@@ -36,23 +33,9 @@ registerSetting({
   schema: v.boolean(),
   labelKey: 'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label',
   descriptionKey: 'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description',
-  category: 'workspaceSharing',
+  category: 'diffViewer',
   tags: ['import', 'preview', 'sidebar', 'strategy', 'sharing'],
   scope: 'user',
-});
-
-registerSetting({
-  key: 'workspaceSharing.diffViewerHome',
-  type: 'info',
-  default: '',
-  schema: v.string(),
-  labelKey: 'workbench.settings.def.workspaceSharing.diffViewerHome.label',
-  descriptionKey: 'workbench.settings.def.workspaceSharing.diffViewerHome.description',
-  category: 'workspaceSharing',
-  subcategory: 'importPreview',
-  tags: ['import', 'preview', 'diff', 'viewer'],
-  scope: 'user',
-  customEditor: DiffViewerHomeRow,
 });
 
 registerSetting({

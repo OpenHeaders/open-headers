@@ -450,8 +450,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.mcpPane.connect.blurb':
     '选择你的客户端，把 token 占位符替换为访问 token，如果安装在别处再调整应用路径。客户端连接时应用必须在运行。',
   'workbench.settings.mcpPane.tokensHome': '访问 token 的生成与撤销位于',
-  'workbench.settings.workspaceSharingPane.diffViewerHome':
-    '差异的布局、空白和边栏选项由应用中的所有差异共享——请在此处设置：',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle': 'claude_desktop_config.json——合并进现有文件',
   'workbench.settings.mcpPane.snippet.runOnceTitle': '在终端中运行一次',
   'workbench.settings.mcpPane.snippet.cliTitle': '在终端中运行一次——之后的 oh 运行无需任何标志',

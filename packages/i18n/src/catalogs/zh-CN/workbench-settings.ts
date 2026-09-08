@@ -209,9 +209,7 @@ export const workbenchSettings = {
   'workbench.settings.category.diffViewer.description':
     '差异的呈现方式——布局、空白和边栏——在应用比较两个版本的任何地方。',
   'workbench.settings.category.diffViewer.sub.view': '视图',
-  'workbench.settings.category.workspaceSharing.label': '工作区共享',
-  'workbench.settings.category.workspaceSharing.description': '工作区导出的导入预览的显示偏好。',
-  'workbench.settings.category.workspaceSharing.sub.importPreview': '导入预览',
+  'workbench.settings.category.diffViewer.sub.importPreview': '导入预览',
   'workbench.settings.category.versionControl.label': '版本控制',
   'workbench.settings.category.versionControl.description': '基于 Git 的工作区——其背后的历史与工作树。',
   'workbench.settings.category.git.label': 'Git',

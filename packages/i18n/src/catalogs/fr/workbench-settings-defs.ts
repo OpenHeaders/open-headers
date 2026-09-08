@@ -705,10 +705,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.rulesEngine.draftUrlStrategy.option.raw.description':
     'Correspond à cette URL telle quelle, sans normalisation',
 
-  // ── Workspace Sharing category defs ────────────────────────────────
-  'workbench.settings.def.workspaceSharing.diffViewerHome.label': 'Visionneuse de diff',
-  'workbench.settings.def.workspaceSharing.diffViewerHome.description':
-    'L’aperçu s’affiche avec les réglages de la visionneuse de diff de toute l’application.',
+  // ── Diff Viewer category defs ──────────────────────────────────────
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.label':
     'Afficher la stratégie de fusion sur les lignes',
   'workbench.settings.def.workspaceSharing.importPreviewShowMergeStrategy.description':

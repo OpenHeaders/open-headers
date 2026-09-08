@@ -532,8 +532,6 @@ export const workbenchSettingsPanes = {
     'Wähle deinen Client, ersetze den Token-Platzhalter durch einen Zugriffstoken und passe den App-Pfad an, ' +
     'falls du woanders installiert hast. Die App muss laufen, damit sich Clients verbinden können.',
   'workbench.settings.mcpPane.tokensHome': 'Zugriffstoken werden erzeugt und widerrufen unter',
-  'workbench.settings.workspaceSharingPane.diffViewerHome':
-    'Layout-, Leerraum- und Randspalten-Optionen gelten für jeden Diff in der App – einstellbar unter',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — in die bestehende Datei einmischen',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Einmal in einem Terminal ausführen',

@@ -234,10 +234,7 @@ export const workbenchSettings = {
   'workbench.settings.category.diffViewer.description':
     'Wie Diffs dargestellt werden – Layout, Leerraum und Randspalte – überall, wo die App zwei Versionen vergleicht.',
   'workbench.settings.category.diffViewer.sub.view': 'Ansicht',
-  'workbench.settings.category.workspaceSharing.label': 'Arbeitsbereich-Freigabe',
-  'workbench.settings.category.workspaceSharing.description':
-    'Anzeigeeinstellungen für die Import-Vorschau von Arbeitsbereich-Exporten.',
-  'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import-Vorschau',
+  'workbench.settings.category.diffViewer.sub.importPreview': 'Import-Vorschau',
   'workbench.settings.category.versionControl.label': 'Versionsverwaltung',
   'workbench.settings.category.versionControl.description':
     'Git-gestützte Arbeitsbereiche – der Verlauf und der Arbeitsbaum dahinter.',

@@ -531,8 +531,6 @@ export const workbenchSettingsPanes = {
     'Elige tu cliente, reemplaza el marcador del token por un token de acceso y ajusta la ruta de la aplicación ' +
     'si la instalaste en otro sitio. La aplicación debe estar en ejecución para que los clientes se conecten.',
   'workbench.settings.mcpPane.tokensHome': 'Los tokens de acceso se generan y revocan en',
-  'workbench.settings.workspaceSharingPane.diffViewerHome':
-    'Las opciones de disposición, espacios en blanco y margen se comparten con todos los diffs de la aplicación; se ajustan en',
   'workbench.settings.mcpPane.snippet.claudeDesktopTitle':
     'claude_desktop_config.json — fusiónalo con el archivo existente',
   'workbench.settings.mcpPane.snippet.runOnceTitle': 'Ejecútalo una vez en un terminal',

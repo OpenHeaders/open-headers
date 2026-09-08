@@ -1,7 +1,9 @@
 /**
  * Editor settings group — pins the IntelliJ-shaped Editor root: a group
  * node over Code Editor (the former root page, re-keyed `codeEditor`;
- * storage keys untouched). Diff Viewer joins as the second child.
+ * storage keys untouched). Diff Viewer joins as the second child and
+ * carries the import preview's own section — every `workspaceSharing.*`
+ * def, keys untouched.
  */
 
 import '@openheaders/ui/workbench/settings/categories';
@@ -46,12 +48,11 @@ describe('editor settings group', () => {
     const diffViewer = getCategory('diffViewer');
     expect(diffViewer?.parent).toBe('editor');
     expect(diffViewer?.labelKey).toBeTruthy();
-    expect(diffViewer?.subcategories?.map((s) => s.id)).toEqual(['view']);
-    const defs = byCategory('diffViewer');
-    expect(defs).toHaveLength(7);
-    for (const def of defs) {
+    expect(diffViewer?.subcategories?.map((s) => s.id)).toEqual(['view', 'importPreview']);
+    const view = byCategory('diffViewer').filter((d) => d.subcategory === 'view');
+    expect(view).toHaveLength(7);
+    for (const def of view) {
       expect(def.key.startsWith('workspaceSharing.importPreviewDiff'), def.key).toBe(true);
-      expect(def.subcategory).toBe('view');
     }
     expect(
       allCategories()
@@ -60,12 +61,13 @@ describe('editor settings group', () => {
     ).toEqual(['codeEditor', 'diffViewer']);
   });
 
-  it('workspace sharing keeps the merge-strategy row and points at the diff viewer instead of carrying it', () => {
-    const sharing = getCategory('workspaceSharing');
-    expect(sharing?.subcategories?.map((s) => s.id)).toEqual(['importPreview']);
-    const keys = byCategory('workspaceSharing').map((d) => d.key);
-    expect(keys).toEqual(['workspaceSharing.importPreviewShowMergeStrategy', 'workspaceSharing.diffViewerHome']);
-    expect(getDef('workspaceSharing.diffViewerHome')?.customEditor).toBeDefined();
-    expect(getDef('workspaceSharing.importPreviewDiffViewer')?.category).toBe('diffViewer');
+  it('the import preview section carries the merge-strategy row alone; the pointer row is gone', () => {
+    const keys = byCategory('diffViewer')
+      .filter((d) => d.subcategory === 'importPreview')
+      .map((d) => d.key);
+    expect(keys).toEqual(['workspaceSharing.importPreviewShowMergeStrategy']);
+    expect(getDef('workspaceSharing.diffViewerHome')).toBeUndefined();
+    expect(getCategory('workspaceSharing')).toBeUndefined();
+    expect(byCategory('diffViewer')).toHaveLength(8);
   });
 });

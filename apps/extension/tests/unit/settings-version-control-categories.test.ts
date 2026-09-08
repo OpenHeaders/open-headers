@@ -1,11 +1,11 @@
 /**
- * Version Control settings group — pins the regroup of the Git group
- * (desktop, teasered) and Workspace Sharing (every host) under one
- * all-host group node; Git keeps its own children one level deeper.
+ * Version Control settings group — pins the all-host group node over the
+ * Git group alone (desktop, teasered elsewhere), which keeps its own
+ * children one level deeper. The import-preview rows that once sat here
+ * as Workspace Sharing live on Editor › Diff Viewer.
  */
 
 import '@openheaders/ui/workbench/settings/categories';
-import '@openheaders/ui/workbench/settings/schema/workspace-sharing';
 import { allCategories, byCategory, getCategory } from '@openheaders/ui/workbench/settings/registry';
 import { describe, expect, it } from 'vitest';
 
@@ -20,13 +20,13 @@ describe('version control settings group', () => {
     expect(byCategory('versionControl')).toHaveLength(0);
   });
 
-  it('git then workspace sharing are its children, with short nav labels', () => {
+  it('git is its only child, with a short nav label; workspace sharing is gone', () => {
     const children = allCategories()
       .filter((c) => c.parent === 'versionControl')
       .map((c) => c.id);
-    expect(children).toEqual(['git', 'workspaceSharing']);
+    expect(children).toEqual(['git']);
     for (const id of children) expect(getCategory(id)?.labelKey).toBeTruthy();
-    expect(byCategory('workspaceSharing').length).toBeGreaterThan(0);
+    expect(getCategory('workspaceSharing')).toBeUndefined();
   });
 
   it('git keeps its teaser and its own children one level deeper', () => {

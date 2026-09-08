@@ -215,10 +215,7 @@ export const workbenchSettings = {
   'workbench.settings.category.diffViewer.description':
     'How diffs render — layout, whitespace and the gutter — wherever the app compares two versions.',
   'workbench.settings.category.diffViewer.sub.view': 'View',
-  'workbench.settings.category.workspaceSharing.label': 'Workspace Sharing',
-  'workbench.settings.category.workspaceSharing.description':
-    'Display preferences for the workspace-export import preview.',
-  'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import Preview',
+  'workbench.settings.category.diffViewer.sub.importPreview': 'Import Preview',
   'workbench.settings.category.versionControl.label': 'Version Control',
   'workbench.settings.category.versionControl.description':
     'Git-backed workspaces — the history and the working tree behind them.',

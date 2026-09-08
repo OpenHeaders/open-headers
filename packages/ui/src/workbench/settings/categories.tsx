@@ -20,7 +20,6 @@ import {
   ClusterOutlined,
   CodeOutlined,
   BugOutlined,
-  CloudDownloadOutlined,
   CloudSyncOutlined,
   DatabaseOutlined,
   DiffOutlined,
@@ -448,8 +447,11 @@ registerCategory({
   descriptionKey: 'workbench.settings.category.diffViewer.description',
   // The app-wide diff surface. Its defs keep their `workspaceSharing.*`
   // storage keys (the import preview is where the viewer first shipped);
-  // the Workspace Sharing page points here instead of carrying them.
-  subcategories: [{ id: 'view', labelKey: 'workbench.settings.category.diffViewer.sub.view', order: 10 }],
+  // the import preview's own rows sit in a section of their own here.
+  subcategories: [
+    { id: 'view', labelKey: 'workbench.settings.category.diffViewer.sub.view', order: 10 },
+    { id: 'importPreview', labelKey: 'workbench.settings.category.diffViewer.sub.importPreview', order: 20 },
+  ],
 });
 
 registerCategory({
@@ -504,18 +506,6 @@ registerCategory({
     { id: 'popup-navigation', labelKey: 'workbench.settings.category.keyboard.sub.popup-navigation', order: 120 },
     { id: 'popup-rows', labelKey: 'workbench.settings.category.keyboard.sub.popup-rows', order: 130 },
     { id: 'popup-tabs', labelKey: 'workbench.settings.category.keyboard.sub.popup-tabs', order: 140 },
-  ],
-});
-
-registerCategory({
-  id: 'workspaceSharing',
-  labelKey: 'workbench.settings.category.workspaceSharing.label',
-  parent: 'versionControl',
-  icon: <CloudDownloadOutlined />,
-  order: 20,
-  descriptionKey: 'workbench.settings.category.workspaceSharing.description',
-  subcategories: [
-    { id: 'importPreview', labelKey: 'workbench.settings.category.workspaceSharing.sub.importPreview', order: 10 },
   ],
 });
 

@@ -232,10 +232,7 @@ export const workbenchSettings = {
   'workbench.settings.category.diffViewer.description':
     'Comment les diffs s’affichent – disposition, espaces et gouttière – partout où l’application compare deux versions.',
   'workbench.settings.category.diffViewer.sub.view': 'Affichage',
-  'workbench.settings.category.workspaceSharing.label': "Partage d'espace de travail",
-  'workbench.settings.category.workspaceSharing.description':
-    "Préférences d'affichage pour l'aperçu d'import des exports d'espace de travail.",
-  'workbench.settings.category.workspaceSharing.sub.importPreview': "Aperçu d'import",
+  'workbench.settings.category.diffViewer.sub.importPreview': "Aperçu d'import",
   'workbench.settings.category.versionControl.label': 'Gestion de versions',
   'workbench.settings.category.versionControl.description':
     "Espaces de travail adossés à Git : l'historique et l'arborescence de travail derrière eux.",
