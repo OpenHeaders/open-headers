@@ -30,19 +30,17 @@ export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
   'workbench.settings.backendPane.showDiagrams': '显示图解',
   'workbench.settings.backendPane.learnMore': '了解更多',
+  'workbench.settings.backendPane.rowMenuAria': '{label} 的操作',
   'workbench.settings.backendPane.tierZero.title.extension': '此浏览器',
-  'workbench.settings.backendPane.tierZero.title.desktop': '此应用',
-  'workbench.settings.backendPane.tierZero.title.web': '此应用',
-  'workbench.settings.backendPane.tierZero.copy.extension':
-    '扩展自身处理并存储你的数据——工作区、规则和 vault 都留在此浏览器中。始终开启；无需设置。',
+  'workbench.settings.backendPane.tierZero.title.desktop': '此电脑',
+  'workbench.settings.backendPane.tierZero.title.web': '此服务器',
+  'workbench.settings.backendPane.tierZero.copy.extension': '你的工作区就在这里。它们只通过下方的位置进行备份与同步。',
   'workbench.settings.backendPane.tierZero.copy.desktop':
-    '桌面端应用进程就是后端。其他本地客户端连接到它；你的数据留在这台机器上。始终开启；无需设置。',
+    '你的工作区在此电脑的桌面端应用中。它们只通过下方的位置进行备份与同步。',
   'workbench.settings.backendPane.tierZero.copy.web':
-    '提供此页面的应用就是后端。你的数据留在那台主机上。始终开启；无需设置。',
+    '你的工作区在此服务器上。在这里登录的每个浏览器和设备都在处理同一份副本。',
   'workbench.settings.backendPane.tierZero.alwaysOn': '始终开启',
-  'workbench.settings.backendPane.tierZero.adminTitle': '服务器管理',
-  'workbench.settings.backendPane.tierZero.adminDescription': '管理用户目录和按工作区的访问授权。',
-  'workbench.settings.backendPane.tierZero.adminOpen': '打开管理控制台',
+  'workbench.settings.backendPane.tierZero.administer': '管理…',
   'workbench.settings.backendPane.scenario.desktop-app.title': '桌面应用程序',
   'workbench.settings.backendPane.scenario.desktop-app.hint': '这台机器上的 Open Headers 应用',
   'workbench.settings.backendPane.scenario.local-self-hosted.title': '本地 / LAN',

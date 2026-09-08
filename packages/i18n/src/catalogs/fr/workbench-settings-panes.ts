@@ -25,23 +25,20 @@ export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
   'workbench.settings.backendPane.showDiagrams': 'Afficher les diagrammes',
   'workbench.settings.backendPane.learnMore': 'En savoir plus',
+  'workbench.settings.backendPane.rowMenuAria': 'Actions pour {label}',
   'workbench.settings.backendPane.tierZero.title.extension': 'Ce navigateur',
-  'workbench.settings.backendPane.tierZero.title.desktop': 'Cette application',
-  'workbench.settings.backendPane.tierZero.title.web': 'Cette application',
+  'workbench.settings.backendPane.tierZero.title.desktop': 'Cet ordinateur',
+  'workbench.settings.backendPane.tierZero.title.web': 'Ce serveur',
   'workbench.settings.backendPane.tierZero.copy.extension':
-    "L'extension elle-même traite et stocke vos données — espaces de travail, règles et vault vivent dans ce " +
-    'navigateur. Toujours actif ; aucune configuration.',
+    'Vos espaces de travail vivent ici. Ils ne sont sauvegardés et synchronisés que par les lieux ci-dessous.',
   'workbench.settings.backendPane.tierZero.copy.desktop':
-    "Le processus de l'application de bureau est le back-end. Les autres clients locaux s'y connectent ; vos " +
-    'données vivent sur cette machine. Toujours actif ; aucune configuration.',
+    "Vos espaces de travail vivent dans l'application de bureau sur cet ordinateur. Ils ne sont sauvegardés et " +
+    'synchronisés que par les lieux ci-dessous.',
   'workbench.settings.backendPane.tierZero.copy.web':
-    "L'application qui a servi cette page est le back-end. Vos données vivent sur cet hôte. Toujours actif ; " +
-    'aucune configuration.',
+    "Vos espaces de travail vivent sur ce serveur. Chaque navigateur et appareil qui s'y connecte travaille sur " +
+    'les mêmes copies.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Toujours actif',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Administration du serveur',
-  'workbench.settings.backendPane.tierZero.adminDescription':
-    "Gérez l'annuaire des utilisateurs et les accès accordés par espace de travail.",
-  'workbench.settings.backendPane.tierZero.adminOpen': "Ouvrir la console d'administration",
+  'workbench.settings.backendPane.tierZero.administer': 'Administrer…',
   'workbench.settings.backendPane.scenario.desktop-app.title': 'Application de bureau',
   'workbench.settings.backendPane.scenario.desktop-app.hint': "L'application Open Headers sur cette machine",
   'workbench.settings.backendPane.scenario.local-self-hosted.title': 'Local / LAN',

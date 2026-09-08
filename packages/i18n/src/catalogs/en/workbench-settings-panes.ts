@@ -11,20 +11,19 @@ export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
   'workbench.settings.backendPane.showDiagrams': 'Show diagrams',
   'workbench.settings.backendPane.learnMore': 'Learn more',
+  'workbench.settings.backendPane.rowMenuAria': 'Actions for {label}',
   'workbench.settings.backendPane.tierZero.title.extension': 'This browser',
-  'workbench.settings.backendPane.tierZero.title.desktop': 'This app',
-  'workbench.settings.backendPane.tierZero.title.web': 'This app',
+  'workbench.settings.backendPane.tierZero.title.desktop': 'This computer',
+  'workbench.settings.backendPane.tierZero.title.web': 'This server',
   'workbench.settings.backendPane.tierZero.copy.extension':
-    'The extension itself processes and stores your data — workspaces, rules, and vault live in this browser. Always on; no setup.',
+    'Your workspaces live here. They are backed up and synced only through the places below.',
   'workbench.settings.backendPane.tierZero.copy.desktop':
-    'The desktop app process is the back-end. Other local clients connect into it; your data lives on this machine. Always on; no setup.',
+    'Your workspaces live in the desktop app on this computer. They are backed up and synced only through the ' +
+    'places below.',
   'workbench.settings.backendPane.tierZero.copy.web':
-    'The app that served this page is the back-end. Your data lives on that host. Always on; no setup.',
+    'Your workspaces live on this server. Every browser and device that signs in here works on the same copies.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Always on',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Server administration',
-  'workbench.settings.backendPane.tierZero.adminDescription':
-    'Manage the user directory and per-workspace access grants.',
-  'workbench.settings.backendPane.tierZero.adminOpen': 'Open admin console',
+  'workbench.settings.backendPane.tierZero.administer': 'Administer…',
   'workbench.settings.backendPane.scenario.desktop-app.title': 'Desktop Application',
   'workbench.settings.backendPane.scenario.desktop-app.hint': 'The Open Headers app on this machine',
   'workbench.settings.backendPane.scenario.local-self-hosted.title': 'Local / LAN',

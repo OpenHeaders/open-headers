@@ -19,13 +19,12 @@
  * before it commits, exactly the gate the old "Switch to …" ran.
  */
 
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Checkbox, theme, Typography } from 'antd';
+import { Checkbox, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
-import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
-import { useOptionalSettingsHost } from './settings-host-context';
+import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
+import { useOpenServerAdmin } from '../../hooks/OpenServerAdminContext';
 import { hostJoinsBackends, tierZeroMode } from '../schema/backend';
 import { useSetting } from '../hooks';
 import type { CategoryPaneProps } from '../types';
@@ -44,6 +43,15 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
   // config row (it remains reachable via settings search).
   const [showDiagrams, setShowDiagrams] = useSetting('backend.showDiagrams');
 
+  // Admin-console entry — rendered only when the probe says this subject
+  // administers the back-end AND the shell provides the opener. The
+  // probe answers for the host's own server: the desktop's spine is
+  // band 1's card; the web host's serving daemon is its band-2 row.
+  // Pure affordance honesty; the server gates every call regardless.
+  const adminStatus = useServerAdminStatus();
+  const openServerAdmin = useOpenServerAdmin();
+  const administer = adminStatus === 'admin' && openServerAdmin ? openServerAdmin : null;
+
   return (
     <Pane>
       <PaneHeader category={category} />
@@ -54,10 +62,9 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
             {t('workbench.settings.backendPane.showDiagrams')}
           </span>
         </Checkbox>
-        <DocsLink />
       </div>
 
-      <BackendTierZeroCard host={host} />
+      <BackendTierZeroCard host={host} administer={administer} />
 
       {showDiagrams && (
         <div
@@ -84,33 +91,6 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
 
       {hostJoinsBackends(host) && <BackendConnectionsList host={host} />}
     </Pane>
-  );
-};
-
-// ── Docs link ──────────────────────────────────────────────────────
-
-/**
- * "Learn more" link to the back-end diagram in the docs. When the
- * inspector-nav provider isn't mounted (e.g. settings opened from a
- * surface that doesn't host the docs panel), the link silently hides.
- * A modal host is dismissed on click — the docs open behind it.
- */
-const DocsLink: React.FC = () => {
-  const t = useT();
-  const nav = useOptionalInspectorNav();
-  const host = useOptionalSettingsHost();
-  if (!nav) return null;
-  return (
-    <Typography.Link
-      onClick={(e) => {
-        e.preventDefault();
-        nav.openDocs('paradigm');
-        host?.close();
-      }}
-      style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-    >
-      {t('workbench.settings.backendPane.learnMore')} <ArrowRightOutlined style={{ fontSize: 10 }} />
-    </Typography.Link>
   );
 };
 

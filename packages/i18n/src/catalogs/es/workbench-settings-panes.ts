@@ -26,23 +26,20 @@ export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
   'workbench.settings.backendPane.showDiagrams': 'Mostrar los diagramas',
   'workbench.settings.backendPane.learnMore': 'Más información',
+  'workbench.settings.backendPane.rowMenuAria': 'Acciones para {label}',
   'workbench.settings.backendPane.tierZero.title.extension': 'Este navegador',
-  'workbench.settings.backendPane.tierZero.title.desktop': 'Esta aplicación',
-  'workbench.settings.backendPane.tierZero.title.web': 'Esta aplicación',
+  'workbench.settings.backendPane.tierZero.title.desktop': 'Este equipo',
+  'workbench.settings.backendPane.tierZero.title.web': 'Este servidor',
   'workbench.settings.backendPane.tierZero.copy.extension':
-    'La propia extensión procesa y almacena tus datos — los espacios de trabajo, las reglas y el vault viven ' +
-    'en este navegador. Siempre activo; sin configuración.',
+    'Tus espacios de trabajo viven aquí. Solo se respaldan y sincronizan a través de los lugares de abajo.',
   'workbench.settings.backendPane.tierZero.copy.desktop':
-    'El proceso de la aplicación de escritorio es el back-end. Los demás clientes locales se conectan a él; ' +
-    'tus datos viven en esta máquina. Siempre activo; sin configuración.',
+    'Tus espacios de trabajo viven en la aplicación de escritorio de este equipo. Solo se respaldan y sincronizan ' +
+    'a través de los lugares de abajo.',
   'workbench.settings.backendPane.tierZero.copy.web':
-    'La aplicación que sirvió esta página es el back-end. Tus datos viven en ese host. Siempre activo; sin ' +
-    'configuración.',
+    'Tus espacios de trabajo viven en este servidor. Cada navegador y dispositivo que inicia sesión aquí trabaja ' +
+    'sobre las mismas copias.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Siempre activo',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Administración del servidor',
-  'workbench.settings.backendPane.tierZero.adminDescription':
-    'Gestiona el directorio de usuarios y los accesos concedidos por espacio de trabajo.',
-  'workbench.settings.backendPane.tierZero.adminOpen': 'Abrir la consola de administración',
+  'workbench.settings.backendPane.tierZero.administer': 'Administrar…',
   'workbench.settings.backendPane.scenario.desktop-app.title': 'Aplicación de escritorio',
   'workbench.settings.backendPane.scenario.desktop-app.hint': 'La aplicación de Open Headers en esta máquina',
   'workbench.settings.backendPane.scenario.local-self-hosted.title': 'Local / LAN',

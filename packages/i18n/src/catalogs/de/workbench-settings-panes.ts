@@ -28,23 +28,20 @@ export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
   'workbench.settings.backendPane.showDiagrams': 'Diagramme anzeigen',
   'workbench.settings.backendPane.learnMore': 'Mehr erfahren',
+  'workbench.settings.backendPane.rowMenuAria': 'Aktionen für {label}',
   'workbench.settings.backendPane.tierZero.title.extension': 'Dieser Browser',
-  'workbench.settings.backendPane.tierZero.title.desktop': 'Diese App',
-  'workbench.settings.backendPane.tierZero.title.web': 'Diese App',
+  'workbench.settings.backendPane.tierZero.title.desktop': 'Dieser Computer',
+  'workbench.settings.backendPane.tierZero.title.web': 'Dieser Server',
   'workbench.settings.backendPane.tierZero.copy.extension':
-    'Die Erweiterung selbst verarbeitet und speichert deine Daten — Arbeitsbereiche, Regeln und vault leben ' +
-    'in diesem Browser. Immer an; keine Einrichtung.',
+    'Deine Arbeitsbereiche leben hier. Sie werden nur über die Orte unten gesichert und synchronisiert.',
   'workbench.settings.backendPane.tierZero.copy.desktop':
-    'Der Prozess der Desktop-App ist das Back-end. Andere lokale Clients verbinden sich zu ihm; deine Daten ' +
-    'leben auf dieser Maschine. Immer an; keine Einrichtung.',
+    'Deine Arbeitsbereiche leben in der Desktop-App auf diesem Computer. Sie werden nur über die Orte unten ' +
+    'gesichert und synchronisiert.',
   'workbench.settings.backendPane.tierZero.copy.web':
-    'Die App, die diese Seite ausgeliefert hat, ist das Back-end. Deine Daten leben auf diesem Host. Immer ' +
-    'an; keine Einrichtung.',
+    'Deine Arbeitsbereiche leben auf diesem Server. Jeder Browser und jedes Gerät, das sich hier anmeldet, ' +
+    'arbeitet an denselben Kopien.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Immer an',
-  'workbench.settings.backendPane.tierZero.adminTitle': 'Server-Verwaltung',
-  'workbench.settings.backendPane.tierZero.adminDescription':
-    'Das Benutzerverzeichnis und die Zugriffsrechte pro Arbeitsbereich verwalten.',
-  'workbench.settings.backendPane.tierZero.adminOpen': 'Verwaltungskonsole öffnen',
+  'workbench.settings.backendPane.tierZero.administer': 'Verwalten…',
   'workbench.settings.backendPane.scenario.desktop-app.title': 'Desktop-Anwendung',
   'workbench.settings.backendPane.scenario.desktop-app.hint': 'Die App von Open Headers auf dieser Maschine',
   'workbench.settings.backendPane.scenario.local-self-hosted.title': 'Lokal / LAN',
