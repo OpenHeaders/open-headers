@@ -17,7 +17,9 @@
  * members and an
  * interface's implementers as `... on T` rows (checked when the inline
  * fragment exists, the member's fields beneath), and the set's other
- * fragments read-only.
+ * fragments read-only. The root sections of the other operation types
+ * DIM while an operation is picked but stay live: a check there lands
+ * in (or appends) that type's operation and the pick follows it.
  * The document stays the source of truth: every gesture is span edits
  * through the editor's edit stack (`@openheaders/core/graphql`'s
  * builder), and the projection re-reads from the Query tab's one parse.
@@ -65,7 +67,6 @@ import {
   removeArgumentEdits,
   removeInputFieldEdits,
   rootTypeName,
-  selectFieldEdits,
   setArgumentEdits,
   setInputFieldEdits,
   type ValueNode,
@@ -94,6 +95,8 @@ export interface GraphqlBuilder {
   readonly broken: boolean;
   /** Runs one gesture: `plan` reads the editor's current text and answers the edits, applied through its edit stack — one undo step unless a typing session says otherwise. */
   readonly run: (plan: (context: BuilderContext) => readonly BuilderEdit[], undo?: BuilderUndo) => void;
+  /** Checks a row: the select edits through the edit stack, then the pick moved to the operation the check landed in. */
+  readonly select: (operationType: OperationType, path: BuilderPath, undo?: BuilderUndo) => void;
   /** Closes a typing session's undo group. */
   readonly seal: () => void;
 }
@@ -392,15 +395,11 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
   // ── The builder rung ────────────────────────────────────────────
 
   const { operation } = builder;
-  const buildableFor = (operationType: OperationType): boolean =>
-    !builder.broken && (operation === null || operation.operation === operationType);
-  const disabledHint = (operationType: OperationType): string | undefined => {
-    if (builder.broken) return t('workbench.editors.graphql.builder.broken');
-    if (operation !== null && operation.operation !== operationType) {
-      return t('workbench.editors.graphql.builder.otherOperation', { operation: operation.operation });
-    }
-    return undefined;
-  };
+  const buildable = !builder.broken;
+  const brokenHint = builder.broken ? t('workbench.editors.graphql.builder.broken') : undefined;
+  // The other types' sections dim while an operation is picked — live,
+  // projecting nothing (the picked operation is the projection's root).
+  const dimmed = (operationType: OperationType): boolean => operation !== null && operation.operation !== operationType;
   const fieldNodeAt = (position: BuilderPosition) =>
     operation === null || operation.operation !== position.operationType ? null : fieldAt(operation, position.path);
   const selectedAt = (position: BuilderPosition): boolean =>
@@ -440,11 +439,10 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
         builder.run(set);
         return;
       }
-      builder.run((context) => selectFieldEdits(context, position.operationType, path), 'open');
+      builder.select(position.operationType, path, 'open');
       builder.run(set, 'continue');
       builder.seal();
     };
-    const buildable = buildableFor(position.operationType);
     return (
       <div key={value.name}>
         <div
@@ -571,20 +569,18 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
   const treeRow = (row: TreeRow): React.ReactNode => {
     const { position, type } = row;
     const key = positionKey(position);
-    const buildable = buildableFor(position.operationType);
     const checked = selectedAt(position);
     const children = fieldsOf(type);
     const members = membersOf(type);
     const expandable = children.length > 0 || members.length > 0 || row.args.length > 0;
     const isExpanded = expandable && expanded.has(key);
-    const hint = disabledHint(position.operationType);
     const toggleChecked = () => {
       if (!buildable) return;
       if (checked) {
         builder.run((context) => deselectFieldEdits(context, position.path));
         return;
       }
-      builder.run((context) => selectFieldEdits(context, position.operationType, position.path));
+      builder.select(position.operationType, position.path);
       if (expandable) toggleExpanded(key, true);
     };
     const checkbox = (
@@ -623,7 +619,7 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
             ) : (
               <span style={gutterStyle} />
             )}
-            {hint === undefined ? checkbox : <Tooltip title={hint}>{checkbox}</Tooltip>}
+            {brokenHint === undefined ? checkbox : <Tooltip title={brokenHint}>{checkbox}</Tooltip>}
             {row.label}
           </div>
           {descriptionLine(row.description, 44, `graphql-builder-description-${key}`)}
@@ -759,7 +755,11 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
           }
           const open = !collapsedRoots.has(operationType);
           return (
-            <div key={operationType} data-testid={`graphql-explorer-root-${operationType}`}>
+            <div
+              key={operationType}
+              className={dimmed(operationType) ? 'graphql-explorer-root-dimmed' : undefined}
+              data-testid={`graphql-explorer-root-${operationType}`}
+            >
               <div
                 className="graphql-explorer-row"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}

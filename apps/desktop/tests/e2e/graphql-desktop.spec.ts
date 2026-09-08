@@ -45,6 +45,9 @@
  *       projects onto the expanded argument's input fields (title
  *       checked with its value), a key appends as a declared variable
  *       and leaves with its declaration.
+ *   G12 the pick follows the cursor: on the two-operation document the
+ *       cursor moved into B makes B the select's operation and the one
+ *       Query runs; moved into A, A.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle (extension `graphql-workbench.spec.ts`), the ⌘/Ctrl+Enter
@@ -589,4 +592,32 @@ test('G11 — an input-object argument expands to its input fields: the literal 
   await inputCheck('body').click();
   await expect.poll(queryDocumentText, { timeout: 5_000 }).toContain('authorId: "2" }');
   expect(await queryDocumentText()).not.toContain('$body');
+});
+
+// ── G12: the pick follows the cursor ────────────────────────────────
+
+test('G12 — the cursor’s operation becomes the pick: the select follows and Query runs it', async () => {
+  await openGraphqlRequest('e2egqd05');
+  await workbench.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  const select = workbench.getByTestId('graphql-operation-select').filter({ visible: true }).first();
+  await select.waitFor({ state: 'visible', timeout: 5_000 });
+  const lines = workbench
+    .getByTestId('graphql-query-tab')
+    .filter({ visible: true })
+    .first()
+    .locator('.monaco-editor .view-lines')
+    .first();
+  // The seeded document is one line — `query A {…} query B {…}`; End
+  // lands the cursor in B, Home in A (both the user's own navigation).
+  await lines.click();
+  await workbench.keyboard.press('End');
+  await expect(select).toContainText('B');
+  expect(await queryAndAwaitStatus()).toBe('200 OK');
+  expect(await responseBodyText()).toMatch(/"echo":\s*"answer-b"/);
+
+  await lines.click();
+  await workbench.keyboard.press('Home');
+  await expect(select).toContainText('A');
+  expect(await queryAndAwaitStatus()).toBe('200 OK');
+  expect(await responseBodyText()).toMatch(/"echo":\s*"answer-a"/);
 });

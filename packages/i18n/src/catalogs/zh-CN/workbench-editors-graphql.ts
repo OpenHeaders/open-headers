@@ -99,7 +99,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.showDescriptions': '显示描述',
   'workbench.editors.graphql.explorer.hideDescriptions': '隐藏描述',
   'workbench.editors.graphql.builder.broken': '请先修正文档再使用构建器——它无法解析。',
-  'workbench.editors.graphql.builder.otherOperation': '文档中的操作是 {operation}——此处只能选择它的根字段。',
   'workbench.editors.graphql.builder.expand': '展开',
   'workbench.editors.graphql.builder.collapse': '折叠',
   'workbench.editors.graphql.builder.fragmentReadOnly': '片段在此处只读——请在文档中编辑。',

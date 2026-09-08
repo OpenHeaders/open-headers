@@ -107,8 +107,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.showDescriptions': 'Mostrar descripciones',
   'workbench.editors.graphql.explorer.hideDescriptions': 'Ocultar descripciones',
   'workbench.editors.graphql.builder.broken': 'Corrige el documento para usar el constructor — no se puede analizar.',
-  'workbench.editors.graphql.builder.otherOperation':
-    'La operación del documento es una {operation} — solo sus campos raíz pueden seleccionarse aquí.',
   'workbench.editors.graphql.builder.expand': 'Expandir',
   'workbench.editors.graphql.builder.collapse': 'Contraer',
   'workbench.editors.graphql.builder.fragmentReadOnly':

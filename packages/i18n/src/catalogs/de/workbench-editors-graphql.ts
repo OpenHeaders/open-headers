@@ -105,8 +105,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.hideDescriptions': 'Beschreibungen ausblenden',
   'workbench.editors.graphql.builder.broken':
     'Korrigieren Sie das Dokument, um den Builder zu nutzen — es lässt sich nicht parsen.',
-  'workbench.editors.graphql.builder.otherOperation':
-    'Die Operation des Dokuments ist eine {operation} — nur ihre Wurzelfelder lassen sich hier auswählen.',
   'workbench.editors.graphql.builder.expand': 'Ausklappen',
   'workbench.editors.graphql.builder.collapse': 'Einklappen',
   'workbench.editors.graphql.builder.fragmentReadOnly':

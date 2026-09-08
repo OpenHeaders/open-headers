@@ -25,6 +25,8 @@ import {
   isBuilderBroken,
   nodeAt,
   type OperationDefinitionNode,
+  operationForType,
+  operationTargetName,
   parseDocument,
   parseValue,
   removeArgumentEdits,
@@ -153,8 +155,7 @@ describe('selectFieldEdits', () => {
     );
   });
 
-  it('refuses another operation type, an unknown path, a selected path and a broken document', () => {
-    expect(selectFieldEdits(context('{ viewer { id } }'), 'mutation', ['createNote'])).toEqual([]);
+  it('refuses an unknown path, a selected path and a broken document', () => {
     expect(selectFieldEdits(context('{ viewer { id } }'), 'query', ['viewer', 'nope'])).toEqual([]);
     expect(selectFieldEdits(context('{ viewer { id } }'), 'query', ['viewer', 'id'])).toEqual([]);
     expect(selectFieldEdits(context('{ viewer {'), 'query', ['viewer'])).toEqual([]);
@@ -165,6 +166,57 @@ describe('selectFieldEdits', () => {
     expect(applied(source, selectFieldEdits(context(source), 'query', ['partial', 'ok']))).toBe(
       'fragment F on User { id }\n\nquery {\n  partial { ok }\n}\n',
     );
+  });
+});
+
+describe('operations', () => {
+  const TWO = 'query Viewer { viewer { id } }\n\nmutation DeleteNote($id: ID!) {\n  deleteNote(id: $id)\n}\n';
+
+  it('appends a named operation of another type and names the anonymous sibling after its first root field', () => {
+    const shorthand = '{ viewer { id } }';
+    const target = operationForType(context(shorthand), 'mutation', ['deleteNote']);
+    expect(target.kind).toBe('new');
+    expect(operationTargetName(target)).toBe('DeleteNote');
+    expect(applied(shorthand, selectFieldEdits(context(shorthand), 'mutation', ['deleteNote']))).toBe(TWO);
+    const keyword = 'query ($first: Int) { users(first: $first) { totalCount } }';
+    expect(applied(keyword, selectFieldEdits(context(keyword), 'mutation', ['createNote']))).toBe(
+      'query Users($first: Int) { users(first: $first) { totalCount } }\n\nmutation CreateNote($input: NoteInput!) {\n  createNote(input: $input) { id }\n}\n',
+    );
+  });
+
+  it('suffixes a name the document already holds', () => {
+    const source = 'query DeleteNote { viewer { id } }';
+    expect(applied(source, selectFieldEdits(context(source), 'mutation', ['deleteNote']))).toBe(
+      'query DeleteNote { viewer { id } }\n\nmutation DeleteNote2($id: ID!) {\n  deleteNote(id: $id)\n}\n',
+    );
+    // An anonymous sibling collides too — it is named first, the new operation after it.
+    const twice = 'query Viewer { viewer { id } }\n{ viewer { name } }';
+    expect(applyBuilderEdits(twice, selectFieldEdits(context(twice), 'subscription', ['tick']))).toBe(
+      'query Viewer { viewer { id } }\nquery Viewer2 { viewer { name } }\n\nsubscription Tick {\n  tick\n}\n',
+    );
+  });
+
+  it('lands in the first existing operation of the type, declaring the variables there, and reports it as the target', () => {
+    const target = operationForType(context(TWO), 'mutation', ['setRole']);
+    expect(target.kind).toBe('existing');
+    expect(operationTargetName(target)).toBe('DeleteNote');
+    expect(applied(TWO, selectFieldEdits(context(TWO), 'mutation', ['setRole']))).toBe(
+      'query Viewer { viewer { id } }\n\nmutation DeleteNote($id: ID!, $userId: ID!, $role: Role!) {\n  deleteNote(id: $id)\n  setRole(userId: $userId, role: $role) { id }\n}\n',
+    );
+    // A field the operation already holds is no edit — the target still names where the pick moves.
+    expect(selectFieldEdits(context(TWO), 'mutation', ['deleteNote'])).toEqual([]);
+    expect(operationTargetName(operationForType(context(TWO), 'mutation', ['deleteNote']))).toBe('DeleteNote');
+    // The picked operation wins over document order when it is of the type.
+    expect(operationTargetName(operationForType(context(TWO), 'query', ['echo']))).toBe('Viewer');
+  });
+
+  it('mints an anonymous operation only on a document without one', () => {
+    expect(operationForType(context(''), 'mutation', ['deleteNote'])).toEqual({
+      kind: 'new',
+      name: null,
+      siblings: [],
+    });
+    expect(operationTargetName(operationForType(context('fragment F on User { id }'), 'query', ['viewer']))).toBeNull();
   });
 });
 

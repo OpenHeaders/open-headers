@@ -13,6 +13,11 @@
  * under it (Monaco JSON, validated against the selected operation's
  * variable definitions and the schema; "Generate variables" from the
  * synthesis, schema-aware; its own cluster in the drawer's header).
+ * The PICK (`operationName`) follows the document: a check that lands
+ * in another operation moves it there, and the cursor's own operation
+ * claims it on the user's navigation (a click, the arrow keys — never
+ * typing, an edit, or a value swap) whenever the document holds
+ * several — the tree, the select and the Query button read one state.
  * The explorer / editor split is the WS compose recipe's Allotment —
  * the explorer pane HIDES when collapsed and its strip sits flush
  * beside the editor then (the WS rail's discipline: one tree in every
@@ -22,15 +27,21 @@
 import {
   type BuilderContext,
   type BuilderEdit,
+  type BuilderPath,
   censusDocument,
   type DocumentNode,
   exampleVariables,
   type GraphqlSchema,
   type OperationDefinitionNode,
+  type OperationType,
+  operationForType,
+  operationTargetName,
   parseDocument,
   type ParseResult,
+  selectFieldEdits,
   selectedOperation,
   validateVariables,
+  wireOperationName,
 } from '@openheaders/core/graphql';
 import {
   CaretDownOutlined,
@@ -151,6 +162,39 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
     () => (parsed.document === null ? null : pickedOperation(parsed.document, draft.operationName)),
     [parsed.document, draft.operationName],
   );
+  // The pick's settle: `name` becomes the operation Query runs when the
+  // document holds several and the wire does not run it already — so a
+  // gesture that lands where the pick sits leaves the draft alone.
+  const settlePick = useCallback(
+    (document: DocumentNode | null, name: string) => {
+      if (document === null) return;
+      const census = censusDocument(document);
+      if (census.operations.length < 2 || !census.operations.some((entry) => entry.name === name)) return;
+      setDraft((d) =>
+        wireOperationName(census, d.operationName === '' ? undefined : d.operationName) === name
+          ? d
+          : { ...d, operationName: name },
+      );
+    },
+    [setDraft],
+  );
+  // The cursor-follow reads the tab's latest parse through a ref — the
+  // listener is bound once, at the editor's mount.
+  const parsedRef = useRef(parsed);
+  parsedRef.current = parsed;
+  const followCursor = useCallback(
+    (offset: number) => {
+      const document = parsedRef.current.document;
+      if (document === null) return;
+      for (const definition of document.definitions) {
+        if (definition.kind !== 'OperationDefinition' || definition.name === null) continue;
+        if (offset < definition.start || offset > definition.end) continue;
+        settlePick(document, definition.name.value);
+        return;
+      }
+    },
+    [settlePick],
+  );
   const canGenerate = operation !== null && operation.variableDefinitions.length > 0;
   const variableProblems = useMemo(
     () => (operation === null ? [] : validateVariables(operation, schema, draft.variables)),
@@ -184,26 +228,43 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
   // the edit stack, so the change re-parses like typed text and the
   // explorer re-projects from that one parse. Focus stays in the explorer.
   const broken = parsed.document === null && draft.query.trim() !== '';
+  const builderSite = useCallback(() => {
+    const editor = editorRef.current;
+    const monacoApi = monacoRef.current;
+    if (editor === null || monacoApi === null || schema === null) return null;
+    const source = editor.getValue();
+    const current = source === draft.query;
+    const document = current ? parsed.document : parseDocument(source).document;
+    const picked = current ? operation : document === null ? null : pickedOperation(document, draft.operationName);
+    const context: BuilderContext = { source, document, operation: picked, schema };
+    return { editor, monacoApi, context };
+  }, [schema, draft.query, draft.operationName, parsed.document, operation]);
   const runBuilder = useCallback(
     (plan: (context: BuilderContext) => readonly BuilderEdit[], undo: BuilderUndo = 'step') => {
-      const editor = editorRef.current;
-      const monacoApi = monacoRef.current;
-      if (editor === null || monacoApi === null || schema === null) return;
-      const source = editor.getValue();
-      const current = source === draft.query;
-      const document = current ? parsed.document : parseDocument(source).document;
-      const picked = current ? operation : document === null ? null : pickedOperation(document, draft.operationName);
-      executeBuilderEdits(editor, monacoApi, plan({ source, document, operation: picked, schema }), undo);
+      const site = builderSite();
+      if (site !== null) executeBuilderEdits(site.editor, site.monacoApi, plan(site.context), undo);
     },
-    [schema, draft.query, draft.operationName, parsed.document, operation],
+    [builderSite],
+  );
+  // A check lands where `operationForType` says — the pick follows it
+  // there, read off the text the edit left behind.
+  const selectBuilder = useCallback(
+    (operationType: OperationType, path: BuilderPath, undo: BuilderUndo = 'step') => {
+      const site = builderSite();
+      if (site === null) return;
+      const landing = operationTargetName(operationForType(site.context, operationType, path));
+      executeBuilderEdits(site.editor, site.monacoApi, selectFieldEdits(site.context, operationType, path), undo);
+      if (landing !== null) settlePick(parseDocument(site.editor.getValue()).document, landing);
+    },
+    [builderSite, settlePick],
   );
   const sealBuilder = useCallback(() => {
     const editor = editorRef.current;
     if (editor !== null) sealBuilderEdits(editor);
   }, []);
   const builder = useMemo<GraphqlBuilder>(
-    () => ({ operation, broken, run: runBuilder, seal: sealBuilder }),
-    [operation, broken, runBuilder, sealBuilder],
+    () => ({ operation, broken, run: runBuilder, select: selectBuilder, seal: sealBuilder }),
+    [operation, broken, runBuilder, selectBuilder, sealBuilder],
   );
 
   const localSourceLabel = (source: (typeof EXPLORER_LOCAL_SOURCES)[number]): string =>
@@ -363,7 +424,15 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
                     const services = attachGraphqlEditorServices(editor, monacoApi);
                     services.setSchema(schemaRef.current);
                     servicesRef.current = services;
+                    // The user's own navigation only — typing, a builder
+                    // edit and a value swap move the cursor for other reasons.
+                    const cursor = editor.onDidChangeCursorPosition((event) => {
+                      if (event.reason !== monacoApi.editor.CursorChangeReason.Explicit) return;
+                      const model = editor.getModel();
+                      if (model !== null) followCursor(model.getOffsetAt(event.position));
+                    });
                     editor.onDidDispose(() => {
+                      cursor.dispose();
                       servicesRef.current?.dispose();
                       servicesRef.current = null;
                       editorRef.current = null;

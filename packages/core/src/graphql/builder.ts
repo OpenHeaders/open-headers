@@ -29,6 +29,15 @@
  * promoted to one, on the way), and a key removed takes its emptied
  * parents with it up to the argument — the same last-child law as the
  * selections.
+ *
+ * A document holds several operations at once. A check lands in the
+ * PICKED operation when it is of the row's type, else in the first
+ * operation of that type, else a named one is appended — its name the
+ * root field's in PascalCase, suffixed past a collision — and every
+ * anonymous operation the document held is named after its first root
+ * field in the same edit (the grammar forbids an anonymous operation
+ * beside a named one). The explorer moves the pick to where the check
+ * landed.
  */
 
 import { parseValue } from './parse';
@@ -44,6 +53,7 @@ import {
   printTypeRef,
   rootTypeName,
 } from './schema';
+import { operationNameFor } from './synthesize';
 import type {
   ArgumentNode,
   DefinitionNode,
@@ -253,6 +263,94 @@ export function firstLeafSelection(schema: GraphqlSchema, type: GraphqlNamedType
   return '__typename';
 }
 
+// ── Operations ─────────────────────────────────────────────────────
+
+/** An anonymous operation and the name a check gives it in the same edit. */
+export interface OperationNaming {
+  readonly operation: OperationDefinitionNode;
+  readonly name: string;
+}
+
+/** Where a check on a root field lands — an operation the document holds, or the named one it appends. */
+export type OperationTarget =
+  | { readonly kind: 'existing'; readonly operation: OperationDefinitionNode }
+  | {
+      readonly kind: 'new';
+      /** Null when the document holds no operation — the minted one stays anonymous. */
+      readonly name: string | null;
+      /** The anonymous operations named alongside — every one the document holds. */
+      readonly siblings: readonly OperationNaming[];
+    };
+
+function operationsOf(document: DocumentNode | null): readonly OperationDefinitionNode[] {
+  if (document === null) return [];
+  return document.definitions.filter((node): node is OperationDefinitionNode => node.kind === 'OperationDefinition');
+}
+
+function firstRootField(operation: OperationDefinitionNode): string {
+  for (const selection of operation.selectionSet.selections)
+    if (selection.kind === 'Field') return selection.name.value;
+  return '';
+}
+
+/** `base`, or `base2`, `base3`… past the names in `taken`. */
+function uniqueOperationName(base: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(base)) return base;
+  let suffix = 2;
+  while (taken.has(`${base}${suffix}`)) suffix++;
+  return `${base}${suffix}`;
+}
+
+/**
+ * The operation a check on `path` under `operationType` lands in: the
+ * picked one when it is of that type, else the document's first of
+ * that type, else a new one — anonymous on a document without an
+ * operation, named after the root field (`deleteNote` → `DeleteNote`,
+ * suffixed past a collision) otherwise, with every anonymous operation
+ * the document holds named after its first root field first.
+ */
+export function operationForType(
+  context: BuilderContext,
+  operationType: OperationType,
+  path: BuilderPath,
+): OperationTarget {
+  const { operation } = context;
+  if (operation !== null && operation.operation === operationType) return { kind: 'existing', operation };
+  const operations = operationsOf(context.document);
+  const first = operations.find((entry) => entry.operation === operationType);
+  if (first !== undefined) return { kind: 'existing', operation: first };
+  if (operations.length === 0) return { kind: 'new', name: null, siblings: [] };
+  const taken = new Set<string>();
+  for (const entry of operations) if (entry.name !== null) taken.add(entry.name.value);
+  const siblings: OperationNaming[] = [];
+  for (const entry of operations) {
+    if (entry.name !== null) continue;
+    const name = uniqueOperationName(operationNameFor(firstRootField(entry)), taken);
+    taken.add(name);
+    siblings.push({ operation: entry, name });
+  }
+  const step = path[0];
+  const name = uniqueOperationName(operationNameFor(typeof step === 'string' ? step : ''), taken);
+  return { kind: 'new', name, siblings };
+}
+
+/** The name the pick moves to after a check lands in `target`; null for an anonymous operation. */
+export function operationTargetName(target: OperationTarget): string | null {
+  if (target.kind === 'new') return target.name;
+  return target.operation.name === null ? null : target.operation.name.value;
+}
+
+/** Name an anonymous operation — the shorthand gains the keyword with it, the keyword form the name after it (`query ($x)` reads `query Name($x)` after). */
+function operationNameEdit(context: BuilderContext, operation: OperationDefinitionNode, name: string): BuilderEdit {
+  if (isShorthand(context.source, operation)) {
+    return { start: operation.start, end: operation.start, text: `query ${name} ` };
+  }
+  const at = operation.start + operation.operation.length;
+  const first = operation.variableDefinitions[0];
+  const open = first === undefined ? -1 : context.source.lastIndexOf('(', first.start);
+  return { start: at, end: open > at ? open : at, text: ` ${name}` };
+}
+
 // ── Variables ──────────────────────────────────────────────────────
 
 function isRequired(arg: GraphqlInputValue): boolean {
@@ -452,8 +550,10 @@ export function isBuilderBroken(context: Pick<BuilderContext, 'source' | 'docume
  * Check a row — a field, or a member's `... on T`: the document gains
  * the missing tail of `path` as one nested selection (required
  * arguments as variables, a composite end with its first leaf) and the
- * variables their declarations. An empty document gets the operation
- * minted around it; a document without an operation gets one appended.
+ * variables their declarations, in the operation `operationForType`
+ * names. An empty document gets the operation minted around it; a
+ * document without one of that type gets one appended — named, with
+ * its anonymous siblings named alongside, when it holds another.
  */
 export function selectFieldEdits(
   context: BuilderContext,
@@ -463,8 +563,8 @@ export function selectFieldEdits(
   if (path.length === 0 || isBuilderBroken(context)) return [];
   const along = schemaStepsAlong(context.schema, operationType, path);
   if (along === null) return [];
-  const { operation } = context;
-  if (operation !== null && operation.operation !== operationType) return [];
+  const target = operationForType(context, operationType, path);
+  const operation = target.kind === 'existing' ? target.operation : null;
   let depth = 0;
   let set: SelectionSetNode | null = operation === null ? null : operation.selectionSet;
   let node: BuilderNode | null = null;
@@ -479,16 +579,19 @@ export function selectFieldEdits(
   if (depth === path.length) return [];
   const variables: VariableEntry[] = [];
   const text = nestedSelection(context.schema, along.slice(depth), variables);
-  if (operation === null) {
-    const head =
-      variables.length === 0
-        ? operationType
-        : `${operationType} (${variables.map((entry) => `$${entry.name}: ${entry.type}`).join(', ')})`;
+  if (target.kind === 'new') {
+    // `query (…)` anonymous, `query Name(…)` named — the printer's two layouts.
+    const named = target.name === null ? operationType : `${operationType} ${target.name}`;
+    const list = variables.map((entry) => `$${entry.name}: ${entry.type}`).join(', ');
+    const head = variables.length === 0 ? named : target.name === null ? `${named} (${list})` : `${named}(${list})`;
     const body = `${head} {\n  ${text}\n}\n`;
     if (context.document === null) return [{ start: 0, end: context.source.length, text: body }];
     const gap = context.source.endsWith('\n') ? '\n' : '\n\n';
-    return [{ start: context.source.length, end: context.source.length, text: `${gap}${body}` }];
+    const edits: BuilderEdit[] = [{ start: context.source.length, end: context.source.length, text: `${gap}${body}` }];
+    for (const sibling of target.siblings) edits.push(operationNameEdit(context, sibling.operation, sibling.name));
+    return edits;
   }
+  if (operation === null) return [];
   const edits: BuilderEdit[] = [];
   if (set === null && node !== null) {
     // The deepest field has no selection set — it gains one around the tail.

@@ -92,6 +92,13 @@
  *       input type expands and lands as a nested literal, unchecking
  *       the last nested key takes its parent, and the last key of the
  *       required argument takes the field.
+ *   E21 the multi-operation model: the other types' sections dim but
+ *       stay live; a check on a mutation field appends a named mutation
+ *       (the anonymous query named after its first root field in the
+ *       same edit), the select and the tree follow it; a click inside
+ *       the query moves the pick back and dims the mutation; a second
+ *       mutation field lands IN the existing mutation and the pick
+ *       returns; Query runs the picked operation.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -1121,4 +1128,67 @@ test('E20 — an input-object argument expands to its input fields: keys open th
   await inputCheck('authorId').click();
   await expect.poll(document, { timeout: 5_000 }).toBe('');
   await expect(check('mutation.createNote')).not.toBeChecked();
+});
+
+// ── E21: the multi-operation model — the dim, the append, the cursor-follow, the landing ──
+
+test('E21 — a check on a dimmed section appends a named operation and moves the pick; a click inside an operation moves it back; a second field lands in the existing operation', async () => {
+  await openGraphqlRequest(CONVERTED_NAME);
+  await page.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await explorer.waitFor({ state: 'visible', timeout: 10_000 });
+  const check = (key: string) => explorer.getByTestId(`graphql-builder-check-${key}`);
+  const root = (type: string) => explorer.getByTestId(`graphql-explorer-root-${type}`);
+  const select = () => page.getByTestId('graphql-operation-select').filter({ visible: true }).first();
+  const document = () => workbench.monacoText(0);
+  await workbench.fillMonaco(0, '{ viewer { id } }');
+
+  // An anonymous query is picked: the Mutation section dims, its rows stay live and read unchecked.
+  await expect(check('query.viewer')).toBeChecked();
+  await expect(root('mutation')).toHaveClass(/graphql-explorer-root-dimmed/);
+  await expect(root('query')).not.toHaveClass(/graphql-explorer-root-dimmed/);
+  await expect(check('mutation.deleteNote')).toBeEnabled();
+  await expect(check('mutation.deleteNote')).not.toBeChecked();
+  await expect(select()).toHaveCount(0);
+
+  // The check appends `mutation DeleteNote` with its variable and names
+  // the query after its first root field; the pick moves to the mutation.
+  await check('mutation.deleteNote').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('query Viewer { viewer { id } }');
+  expect(await document()).toContain('mutation DeleteNote($id: ID!)');
+  expect(await document()).toContain('deleteNote(id: $id)');
+  await expect(select()).toContainText('DeleteNote');
+  await expect(check('mutation.deleteNote')).toBeChecked();
+  await expect(check('query.viewer')).not.toBeChecked();
+  await expect(root('query')).toHaveClass(/graphql-explorer-root-dimmed/);
+  await expect(root('mutation')).not.toHaveClass(/graphql-explorer-root-dimmed/);
+
+  // A click on the query's line (line 1) makes it the picked operation again.
+  await page
+    .locator('.monaco-editor')
+    .filter({ visible: true })
+    .nth(0)
+    .locator('.view-lines')
+    .click({ position: { x: 24, y: 8 } });
+  await expect(select()).toContainText('Viewer');
+  await expect(check('query.viewer')).toBeChecked();
+  await expect(check('mutation.deleteNote')).not.toBeChecked();
+  await expect(root('mutation')).toHaveClass(/graphql-explorer-root-dimmed/);
+
+  // A second mutation field lands IN the existing mutation — one
+  // mutation in the document — and the pick returns to it.
+  await check('mutation.createNote').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('createNote(input: $input) { id }');
+  expect((await document()).match(/mutation /g)).toHaveLength(1);
+  expect(await document()).toContain('$input: NoteInput!');
+  await expect(select()).toContainText('DeleteNote');
+  await expect(check('mutation.createNote')).toBeChecked();
+  await expect(check('mutation.deleteNote')).toBeChecked();
+
+  // Query runs the picked mutation with generated variables.
+  await page.getByTestId('graphql-generate-variables').filter({ visible: true }).first().click();
+  await expect.poll(async () => workbench.monacoText(1), { timeout: 5_000 }).toMatch(/"id":\s*"/);
+  await queryButton().click();
+  expect(await workbench.responseStatusText()).toBe('200 OK');
+  await expect.poll(() => workbench.responsePrettyText(), { timeout: 5_000 }).toMatch(/"deleteNote":\s*(true|false)/);
 });
