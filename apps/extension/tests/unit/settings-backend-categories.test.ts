@@ -38,7 +38,7 @@ describe('backend settings group', () => {
     const connections = getCategory('backendConnections');
     expect(connections?.parent).toBe('backend');
     expect(connections?.renderPane).toBeDefined();
-    expect(getDef('backend.showDiagrams')?.category).toBe('backendConnections');
+    expect(byCategory('backendConnections')).toHaveLength(0);
     const children = allCategories()
       .filter((c) => c.parent === 'backend')
       .map((c) => c.id);

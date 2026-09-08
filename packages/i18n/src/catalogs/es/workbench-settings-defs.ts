@@ -99,9 +99,6 @@ export const workbenchSettingsDefs = {
     'Si el back-end queda sin conexión, el primer host alcanzable de esta lista refresca por sí mismo la ' +
     'credencial de un workflow exclusivo. Los hosts se alistan automáticamente; arrastra para reordenar el ' +
     'rango.',
-  'workbench.settings.def.backend.showDiagrams.label': 'Mostrar los diagramas del back-end',
-  'workbench.settings.def.backend.showDiagrams.description':
-    'Muestra los paneles ilustrados de niveles y de flujo de datos en la configuración de Backend.',
 
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Activar',

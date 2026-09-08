@@ -64,9 +64,6 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.offlineFallbackOrder.label': 'Host order',
   'workbench.settings.def.backend.offlineFallbackOrder.description':
     "If the backend goes offline, the first reachable host on this list self-refreshes an exclusive workflow's credential. Hosts enlist automatically; drag to re-rank.",
-  'workbench.settings.def.backend.showDiagrams.label': 'Show back-end diagrams',
-  'workbench.settings.def.backend.showDiagrams.description':
-    'Show the illustrated tier and data-flow panels in Backend settings.',
 
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Enable',

@@ -83,9 +83,6 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.offlineFallbackOrder.description':
     'Si le back-end passe hors ligne, le premier hôte joignable de cette liste rafraîchit lui-même ' +
     "l'identifiant d'un workflow exclusif. Les hôtes s'enrôlent automatiquement ; glissez pour reclasser.",
-  'workbench.settings.def.backend.showDiagrams.label': 'Afficher les diagrammes back-end',
-  'workbench.settings.def.backend.showDiagrams.description':
-    'Affiche les panneaux illustrés de paliers et de flux de données dans les réglages Backend.',
 
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Activer',

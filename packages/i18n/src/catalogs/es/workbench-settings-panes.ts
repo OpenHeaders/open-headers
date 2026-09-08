@@ -24,7 +24,6 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
-  'workbench.settings.backendPane.showDiagrams': 'Mostrar los diagramas',
   'workbench.settings.backendPane.learnMore': 'Más información',
   'workbench.settings.backendPane.rowMenuAria': 'Acciones para {label}',
   'workbench.settings.backendPane.tierZero.title.extension': 'Este navegador',

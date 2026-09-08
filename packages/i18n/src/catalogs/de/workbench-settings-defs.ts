@@ -84,9 +84,6 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.offlineFallbackOrder.description':
     'Geht das Back-end offline, frischt der erste erreichbare Host auf dieser Liste die Zugangsdaten eines ' +
     'exklusiven Workflows selbst auf. Hosts tragen sich automatisch ein; ziehe zum Umsortieren.',
-  'workbench.settings.def.backend.showDiagrams.label': 'Back-end-Diagramme anzeigen',
-  'workbench.settings.def.backend.showDiagrams.description':
-    'Zeigt die illustrierten Stufen- und Datenfluss-Tafeln in den Back-end-Einstellungen.',
 
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': 'Aktivieren',

@@ -124,7 +124,6 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.pingIntervalMs': number;
     'backend.showBadgeWhenDisconnected': boolean;
     'backend.offlineFallbackOrder': string;
-    'backend.showDiagrams': boolean;
   }
 }
 
@@ -430,16 +429,4 @@ registerSetting({
   scope: 'user',
   when: () => getCurrentHost() === 'extension',
   customEditor: OfflineFallbackOrderRow,
-});
-
-registerSetting({
-  key: 'backend.showDiagrams',
-  type: 'boolean',
-  default: true,
-  schema: v.boolean(),
-  labelKey: 'workbench.settings.def.backend.showDiagrams.label',
-  descriptionKey: 'workbench.settings.def.backend.showDiagrams.description',
-  category: 'backendConnections',
-  tags: ['diagram', 'preview', 'illustration', 'panels', 'svg'],
-  scope: 'user',
 });

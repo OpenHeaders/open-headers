@@ -70,8 +70,6 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.backend.offlineFallbackOrder.label': '主机顺序',
   'workbench.settings.def.backend.offlineFallbackOrder.description':
     '如果后端离线，此列表上第一个可达的主机会自行刷新独占工作流的凭据。主机自动加入；拖动可重新排序。',
-  'workbench.settings.def.backend.showDiagrams.label': '显示后端示意图',
-  'workbench.settings.def.backend.showDiagrams.description': '在后端设置中显示图解的档位与数据流面板。',
 
   // ── MCP category defs ──────────────────────────────────────────────
   'workbench.settings.def.mcp.enabled.label': '启用',

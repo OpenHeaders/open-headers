@@ -19,29 +19,18 @@
  * before it commits, exactly the gate the old "Switch to …" ran.
  */
 
-import { Checkbox, theme } from 'antd';
 import type React from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { useServerAdminStatus } from '../../components/server-admin/use-server-admin-status';
 import { useOpenServerAdmin } from '../../hooks/OpenServerAdminContext';
-import { hostJoinsBackends, tierZeroMode } from '../schema/backend';
-import { useSetting } from '../hooks';
+import { hostJoinsBackends } from '../schema/backend';
 import type { CategoryPaneProps } from '../types';
 import { BackendConnectionsList } from './backend-connections-list';
-import { BackendDetailDiagram } from './backend-details';
-import { BackendTierCard } from './backend-tier-card';
 import { BackendTierZeroCard } from './backend-tier-zero-card';
 import { Pane, PaneHeader } from './pane-chrome';
 
 const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
-  const { token } = theme.useToken();
-  const t = useT();
   const host = getCurrentHost();
-
-  // Pane-level view toggle, rendered inline as a checkbox rather than a
-  // config row (it remains reachable via settings search).
-  const [showDiagrams, setShowDiagrams] = useSetting('backend.showDiagrams');
 
   // Admin-console entry — rendered only when the probe says this subject
   // administers the back-end AND the shell provides the opener. The
@@ -56,38 +45,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
     <Pane>
       <PaneHeader category={category} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 6 }}>
-        <Checkbox checked={showDiagrams} onChange={(e) => setShowDiagrams(e.target.checked)}>
-          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>
-            {t('workbench.settings.backendPane.showDiagrams')}
-          </span>
-        </Checkbox>
-      </div>
-
       <BackendTierZeroCard host={host} administer={administer} />
-
-      {showDiagrams && (
-        <div
-          style={{
-            background: token.colorBgContainer,
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 10,
-            padding: '10px 12px',
-            marginBottom: 14,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ flex: '1 1 360px', minWidth: 320 }}>
-            <BackendTierCard mode={tierZeroMode(host)} />
-          </div>
-          <div style={{ flex: '1 1 360px', minWidth: 320 }}>
-            <BackendDetailDiagram mode={tierZeroMode(host)} />
-          </div>
-        </div>
-      )}
 
       {hostJoinsBackends(host) && <BackendConnectionsList host={host} />}
     </Pane>

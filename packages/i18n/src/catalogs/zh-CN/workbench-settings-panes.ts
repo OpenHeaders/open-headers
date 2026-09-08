@@ -28,7 +28,6 @@ import type { Catalog } from '../../types';
 
 export const workbenchSettingsPanes = {
   // ── Backend pane body ──────────────────────────────────────────────
-  'workbench.settings.backendPane.showDiagrams': '显示图解',
   'workbench.settings.backendPane.learnMore': '了解更多',
   'workbench.settings.backendPane.rowMenuAria': '{label} 的操作',
   'workbench.settings.backendPane.tierZero.title.extension': '此浏览器',
