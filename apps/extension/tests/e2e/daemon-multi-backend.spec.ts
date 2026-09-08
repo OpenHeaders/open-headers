@@ -9,9 +9,9 @@
  *   2. Both backends join through the REAL BackendPane wizard (scenario
  *      tile → address → token pair → probe-gated enable), the second
  *      add carrying the additional-back-end note.
- *   3. Both Org groups show in the workspace switcher with their
- *      "via <backend>" attribution; the status pill lists one row per
- *      backend; Publish appears once joined targets exist.
+ *   3. Both Org groups show in the workspace switcher headed by their
+ *      place — the record's label, "· server"; the status pill lists
+ *      one row per backend; Publish appears once joined targets exist.
  *   4. Routing: an editor-flow rule created in each Org lands on
  *      exactly the backend owning that Org — never the other, and
  *      neither backend ever gains a foreign workspace.
@@ -400,8 +400,8 @@ async function closeWorkspaceDropdown(): Promise<void> {
 /**
  * An Org group header in the switcher, matched by any text it carries.
  * Spawned daemons all name their Org after the host machine, so the
- * "via <backend>" annotation is the only unambiguous key — exactly the
- * disambiguation that affordance exists to provide.
+ * record's label — which leads the place the header names — is the only
+ * unambiguous key; exactly the disambiguation the label exists for.
  */
 function orgHeader(hasText: string) {
   return workbench.getByRole('button', { name: /^Switch to / }).filter({ hasText });
@@ -595,16 +595,12 @@ test('backend B joins through the wizard with the additional-back-end note', asy
 
 // ── Switcher + surfaces while both wires are live ───────────────────
 
-test('both Org groups show in the switcher with via-attribution', async () => {
+test('both Org groups show in the switcher headed by their place', async () => {
   await openWorkspaceDropdown();
-  await expect(orgHeader(`via ${LABEL_A}`)).toBeVisible();
-  await expect(orgHeader(`via ${LABEL_B}`)).toBeVisible();
-  // Reach ladder: both wires advertise a loopback bind tier (the WAN
-  // daemon sits behind a TLS proxy on a loopback bind), so the
-  // multi-browser step is gone and the next steps up remain.
-  await expect(workbench.getByText('Sync across your devices')).toBeVisible();
-  await expect(workbench.getByText('Sync with your team')).toBeVisible();
-  await expect(workbench.getByText('Sync across browsers on this device')).toBeHidden();
+  await expect(orgHeader(`${LABEL_A} · server`)).toBeVisible();
+  await expect(orgHeader(`${LABEL_B} · server`)).toBeVisible();
+  // The one entry row into Backup and Sync, whatever is connected.
+  await expect(workbench.getByRole('menuitem', { name: 'Backup and Sync…' })).toBeVisible();
   await closeWorkspaceDropdown();
 });
 
@@ -627,12 +623,12 @@ test('Publish appears once joined targets exist', async () => {
 // ── Routing leg — edits land on exactly the owning backend ──────────
 
 test('an edit in each Org routes to exactly its owning backend', async () => {
-  await switchToOrg(`via ${LABEL_A}`);
+  await switchToOrg(LABEL_A);
   await createRuleInScope(ROUTED_A);
   await expect.poll(() => backendHasRule(rigA, ROUTED_A), { timeout: 5_000 }).toBe(true);
   expect(await backendHasRule(rigB, ROUTED_A)).toBe(false);
 
-  await switchToOrg(`via ${LABEL_B}`);
+  await switchToOrg(LABEL_B);
   await createRuleInScope(ROUTED_B);
   await expect.poll(() => backendHasRule(rigB, ROUTED_B), { timeout: 5_000 }).toBe(true);
   expect(await backendHasRule(rigA, ROUTED_B)).toBe(false);
@@ -649,9 +645,9 @@ test('offline edits flush independently per backend', async () => {
   await toggleBackendEnabled(LABEL_A, false);
   await closeSettings();
 
-  await switchToOrg(`via ${LABEL_A}`);
+  await switchToOrg(LABEL_A);
   await createRuleInScope(QUEUED_A);
-  await switchToOrg(`via ${LABEL_B}`);
+  await switchToOrg(LABEL_B);
   await createRuleInScope(LIVE_B);
 
   // B's pipe never stalled; A's edit stays queued while its wire is off.
