@@ -670,17 +670,16 @@ async function adminOverWire(calls: Array<Record<string, unknown>>): Promise<Arr
 }
 
 /**
- * Open Settings → Connectivity › Backend › Connections on `target` via
- * the topbar gear menu. Backend is a group node whose children (the
- * tier-zero card lives on Connections) appear in the tree only around
- * an active descendant, so the walk goes through the landing pages.
+ * Open Settings → Backup and Sync › Sync on `target` via the topbar
+ * gear menu. Backup and Sync is a root whose children (the always-on
+ * card lives on Sync) appear in the tree only around an active
+ * descendant, so the walk goes through the landing page.
  */
 async function openBackendSettings(target: Page): Promise<void> {
   await target.click('[aria-label="Settings menu"]');
   await target.click('text=Settings…');
-  await target.locator('.settings-category-nav').getByRole('button', { name: 'Connectivity', exact: true }).click();
-  await target.getByRole('button', { name: 'Backend', exact: true }).filter({ visible: true }).click();
-  await target.getByRole('button', { name: 'Connections', exact: true }).filter({ visible: true }).click();
+  await target.locator('.settings-category-nav').getByRole('button', { name: 'Backup and Sync', exact: true }).click();
+  await target.getByRole('button', { name: 'Sync', exact: true }).filter({ visible: true }).click();
 }
 
 /**
@@ -701,9 +700,10 @@ test('admin console: the server projection feeds the invite, and users and devic
   // an operator credential the browser never sees.
   const [operatorContext, operatorPage] = await openSignedIn('admin-console', ADMIN_EMAIL, ADMIN_PASSWORD);
 
-  // Settings → Backend › Connections → the probe-gated CTA → the Users
-  // domain tab.
+  // Settings → Backup and Sync › Sync → the served row's ⋯ → the
+  // probe-gated Administer item → the Users domain tab.
   await openBackendSettings(operatorPage);
+  await operatorPage.click('[data-testid=synced-row-menu]');
   await operatorPage.click('[data-testid=open-daemon-admin]');
   await expect(operatorPage.locator('[data-testid=server-admin-tab]')).toBeVisible();
 
@@ -818,7 +818,7 @@ test('admin console: the server projection feeds the invite, and users and devic
   const [aliceContext, alicePage] = await openSignedIn('plain-user', 'ada@openheaders.io', 'ada-first-password');
   await openBackendSettings(alicePage);
   await expect(alicePage.locator('text=Always on').first()).toBeVisible();
-  expect(await alicePage.$('[data-testid=open-daemon-admin]')).toBeNull();
+  expect(await alicePage.$('[data-testid=synced-row-menu]')).toBeNull();
   await aliceContext.close();
 });
 
@@ -975,6 +975,7 @@ test('password login: the operator sets a password in the console; a fresh gate 
   // write path runs over the wire into the gated admin plane.
   const [operatorContext, operatorPage] = await openSignedIn('password-admin', ADMIN_EMAIL, ADMIN_PASSWORD);
   await openBackendSettings(operatorPage);
+  await operatorPage.click('[data-testid=synced-row-menu]');
   await operatorPage.click('[data-testid=open-daemon-admin]');
   await operatorPage.click(`[data-testid=server-admin-password-${piaId}]`);
   await operatorPage.fill(

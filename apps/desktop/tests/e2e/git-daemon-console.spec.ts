@@ -420,17 +420,16 @@ async function joinWithPassword(target: Page, email: string, password: string): 
 }
 
 /**
- * Open Settings → Connectivity › Backend › Connections on a workbench
- * tab. Backend is a group node whose children (the tier-zero card lives
- * on Connections) appear in the tree only around an active descendant,
- * so the walk goes through the landing pages.
+ * Open Settings → Backup and Sync › Sync on a workbench tab. Backup and
+ * Sync is a root whose children (the always-on card lives on Sync)
+ * appear in the tree only around an active descendant, so the walk goes
+ * through the landing page.
  */
 async function openBackendSettings(target: Page): Promise<void> {
   await target.getByRole('button', { name: 'Settings menu' }).click();
   await target.getByRole('button', { name: 'Settings…' }).click();
-  await target.locator('.settings-category-nav').getByRole('button', { name: 'Connectivity', exact: true }).click();
-  await target.getByRole('button', { name: 'Backend', exact: true }).filter({ visible: true }).click();
-  await target.getByRole('button', { name: 'Connections', exact: true }).filter({ visible: true }).click();
+  await target.locator('.settings-category-nav').getByRole('button', { name: 'Backup and Sync', exact: true }).click();
+  await target.getByRole('button', { name: 'Sync', exact: true }).filter({ visible: true }).click();
 }
 
 /**
@@ -603,9 +602,10 @@ test('D2 — the admin signs in at the front door and the Backend card opens the
   [adminContext, adminPage] = await openTab('admin');
   await joinWithPassword(adminPage, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-  // Settings → Backend › Connections → the probe-gated CTA → the Users
-  // domain tab.
+  // Settings → Backup and Sync › Sync → the served row's ⋯ → the
+  // probe-gated Administer item → the Users domain tab.
   await openBackendSettings(adminPage);
+  await adminPage.getByTestId('synced-row-menu').click();
   await adminPage.getByTestId('open-daemon-admin').click();
   await expect(adminPage.getByTestId('server-admin-tab')).toBeVisible();
 });
@@ -646,9 +646,10 @@ test('D5 — Dana signs in via password, the granted workspace syncs down, the a
   await expect.poll(() => readHostSlot(danaPage, 'oh.runtimeActive.active'), { timeout: 5_000 }).toBe(workspaceId);
 
   // The admin affordance is probe-gated per session — a directory user
-  // sees no console entry (the server re-gates every call regardless).
+  // sees no ⋯ on the served row at all (the server re-gates every call
+  // regardless).
   await openBackendSettings(danaPage);
-  await expect(danaPage.getByTestId('open-daemon-admin')).toHaveCount(0);
+  await expect(danaPage.getByTestId('synced-row-menu')).toHaveCount(0);
   await danaPage.keyboard.press('Escape');
   await expect(danaPage.locator('.ant-modal-wrap:visible')).toHaveCount(0);
 });

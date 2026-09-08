@@ -108,6 +108,7 @@ export const BackendServedRow: React.FC<{ administer: (() => void) | null }> = (
             size="small"
             type="text"
             icon={<MoreOutlined />}
+            data-testid="synced-row-menu"
             aria-label={t('workbench.settings.backendPane.rowMenuAria', { label: place })}
           />
         </Dropdown>

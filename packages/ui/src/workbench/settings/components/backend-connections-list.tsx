@@ -226,6 +226,7 @@ const ConnectionRow: React.FC<{
             size="small"
             type="text"
             icon={<MoreOutlined />}
+            data-testid="synced-row-menu"
             aria-label={t('workbench.settings.backendPane.rowMenuAria', { label: placeText })}
           />
         </Dropdown>

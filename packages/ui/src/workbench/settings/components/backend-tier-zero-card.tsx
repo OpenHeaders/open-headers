@@ -103,6 +103,7 @@ export const BackendTierZeroCard: React.FC<{ host: Host; administer: (() => void
               size="small"
               type="text"
               icon={<MoreOutlined />}
+              data-testid="tier-zero-menu"
               aria-label={t('workbench.settings.backendPane.rowMenuAria', { label: title })}
             />
           </Dropdown>
