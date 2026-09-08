@@ -132,9 +132,6 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
               target={messageActionsRef}
               language="json"
               labels
-              findText={t('workbench.editors.scriptEditor.find')}
-              replaceText={t('workbench.editors.scriptEditor.replace')}
-              formatText={t('workbench.editors.scriptEditor.beautify')}
             />
           )}
           <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="ws-editor-menu" />

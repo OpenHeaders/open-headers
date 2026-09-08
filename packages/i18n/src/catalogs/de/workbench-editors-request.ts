@@ -889,7 +889,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.body.modeGraphqlDescription':
     'Variablen müssen gültiges JSON sein; ein nicht parsbares Variablen-Feld wird aus dem gesendeten Body ' +
     'weggelassen und die Query geht allein.',
-  'workbench.editors.request.body.beautify': 'Verschönern',
   'workbench.editors.request.body.format': 'Formatieren',
   'workbench.editors.request.body.formatAria': 'Body formatieren',
   'workbench.editors.request.body.queryTitle': 'Abfrage',

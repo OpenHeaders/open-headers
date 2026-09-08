@@ -455,7 +455,7 @@ function classifyGrpcFailure(
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve host ${authority} (DNS lookup failed). Check the target and your network.`;
+      return `Could not resolve host ${authority}.`;
     case 'ECONNREFUSED':
       return `Connection refused by ${authority}. Is the gRPC server running on that host/port?`;
     case 'EHOSTUNREACH':

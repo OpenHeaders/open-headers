@@ -168,14 +168,14 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
             ? t('workbench.editors.timelineViewer.showMessage')
             : t('workbench.editors.timelineViewer.showHexdump')}
         </Button>
-        <Tooltip title={t('workbench.editors.scriptEditor.find')} placement="bottom">
+        <Tooltip title={t('shared.codeEditor.find')} placement="bottom">
           <Button
             size="small"
             type="text"
             icon={<SearchOutlined />}
             disabled={mode.hex}
             onClick={() => actionsRef.current?.find()}
-            aria-label={t('workbench.editors.scriptEditor.find')}
+            aria-label={t('shared.codeEditor.find')}
             data-testid={`${testIdPrefix}-viewer-find`}
           />
         </Tooltip>

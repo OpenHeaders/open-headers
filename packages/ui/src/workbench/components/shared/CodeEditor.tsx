@@ -214,8 +214,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // Whether a `DocumentFormattingEditProvider` is registered for the
   // language — single source of truth for "is this buffer
   // formattable?". JSON / CSS / HTML have Monaco's built-ins; JS / XML
-  // are registered by `registerPrettierFormatters`. Unregistered
-  // languages (text, graphql) return false → button stays hidden.
+  // are registered by `registerPrettierFormatters`, graphql by
+  // `registerGraphqlFormatter`. Unregistered languages (text) return
+  // false → button stays hidden.
   const formattable = isFormattableLanguage(language);
 
   const runFormat = useCallback(async () => {

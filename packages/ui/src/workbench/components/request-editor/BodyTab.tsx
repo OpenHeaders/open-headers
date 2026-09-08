@@ -290,7 +290,6 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           <CodeEditorActions
             target={rawActionsRef}
             language={rawLangForEditor}
-            formatText={t('workbench.editors.request.body.beautify')}
             style={{ marginLeft: 'auto' }}
           />
         )}

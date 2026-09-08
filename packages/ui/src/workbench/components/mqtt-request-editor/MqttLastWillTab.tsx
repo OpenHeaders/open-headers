@@ -64,9 +64,6 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           target={payloadActionsRef}
           language={PAYLOAD_FORMAT_LANGUAGE[draft.lastWill.format]}
           labels
-          findText={t('workbench.editors.scriptEditor.find')}
-          replaceText={t('workbench.editors.scriptEditor.replace')}
-          formatText={t('workbench.editors.scriptEditor.beautify')}
         />
         <EditorViewMenu wrap={wrapPayload} onWrapChange={setWrapPayload} data-testid="mqtt-will-editor-menu" />
       </div>

@@ -29,8 +29,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.response.extensionsTitle': 'Antwort-Extensions',
   'workbench.editors.graphql.response.extensionsSummary':
     'Das extensions-Objekt des Servers reist neben data — Tracing, Kosten, Cache-Hinweise, was immer er anhängen wollte.',
-  'workbench.editors.graphql.query.hint': 'Das Dokument — eine oder mehrere Operationen, Fragmente willkommen.',
-  'workbench.editors.graphql.query.prettify': 'Formatieren',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',
   'workbench.editors.graphql.tab.docs': 'Docs',
   'workbench.editors.graphql.tab.query': 'Query',
@@ -43,6 +41,8 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.emptyHint':
     'Geben Sie die Server-URL ein, um das Schema per Introspektion zu laden.',
   'workbench.editors.graphql.explorer.introspect': 'GraphQL-Introspektion verwenden',
+  'workbench.editors.graphql.explorer.loadFailed': 'Das GraphQL-Schema konnte nicht geladen werden.',
+  'workbench.editors.graphql.explorer.tryAgain': 'Erneut versuchen',
   'workbench.editors.graphql.explorer.useSpec': 'Eine GraphQL-Spezifikation verwenden',
   'workbench.editors.graphql.explorer.importSchema': 'Ein GraphQL-Schema importieren',
   'workbench.editors.graphql.variables.title': 'Variablen',

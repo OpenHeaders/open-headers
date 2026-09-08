@@ -755,7 +755,6 @@ export const workbenchEditorsRequest = {
     '按照 GraphQL HTTP 传输规范，将查询和变量作为一个 application/json 载荷（{ query, variables }）发送。',
   'workbench.editors.request.body.modeGraphqlDescription':
     '变量必须是有效的 JSON；无法解析的变量面板会从线上正文中省略，仅发送查询。',
-  'workbench.editors.request.body.beautify': '美化',
   'workbench.editors.request.body.format': '格式化',
   'workbench.editors.request.body.formatAria': '格式化正文',
   'workbench.editors.request.body.queryTitle': 'Query',

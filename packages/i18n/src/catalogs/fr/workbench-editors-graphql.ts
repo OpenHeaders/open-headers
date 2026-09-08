@@ -29,8 +29,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.response.extensionsTitle': 'Extensions de la réponse',
   'workbench.editors.graphql.response.extensionsSummary':
     'L’objet extensions du serveur voyage à côté de data — traçage, coût, indices de cache, tout ce qu’il a choisi d’attacher.',
-  'workbench.editors.graphql.query.hint': 'Le document — une ou plusieurs opérations, fragments bienvenus.',
-  'workbench.editors.graphql.query.prettify': 'Embellir',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',
   'workbench.editors.graphql.tab.docs': 'Docs',
   'workbench.editors.graphql.tab.query': 'Query',
@@ -43,6 +41,8 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.emptyHint':
     'Saisissez l’URL du serveur pour charger le schéma par introspection.',
   'workbench.editors.graphql.explorer.introspect': 'Utiliser l’introspection GraphQL',
+  'workbench.editors.graphql.explorer.loadFailed': 'Impossible de charger le schéma GraphQL.',
+  'workbench.editors.graphql.explorer.tryAgain': 'Réessayer',
   'workbench.editors.graphql.explorer.useSpec': 'Utiliser une spec GraphQL',
   'workbench.editors.graphql.explorer.importSchema': 'Importer un schéma GraphQL',
   'workbench.editors.graphql.variables.title': 'Variables',
@@ -133,7 +133,11 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.subscription.errored': 'Erreur',
   'workbench.editors.graphql.subscription.closed': 'Fermée {code}',
   'workbench.editors.graphql.subscription.events': ({ count }, locale) =>
-    plural(locale, Number(count), { one: '{count} événement', many: '{count} événements', other: '{count} événements' }),
+    plural(locale, Number(count), {
+      one: '{count} événement',
+      many: '{count} événements',
+      other: '{count} événements',
+    }),
   'workbench.editors.graphql.subscription.errorsSummary':
     'La subscription a répondu une liste errors[] — un champ a échoué dans un événement, ou l’opération a été refusée avant de démarrer.',
   'workbench.editors.graphql.subscription.close.badRequest': 'Requête invalide',

@@ -874,7 +874,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.body.modeGraphqlDescription':
     'Las variables deben ser JSON válido; un panel de variables no analizable se omite del cuerpo enviado ' +
     'y la consulta va sola.',
-  'workbench.editors.request.body.beautify': 'Embellecer',
   'workbench.editors.request.body.format': 'Formatear',
   'workbench.editors.request.body.formatAria': 'Formatear el cuerpo',
   'workbench.editors.request.body.queryTitle': 'Consulta',

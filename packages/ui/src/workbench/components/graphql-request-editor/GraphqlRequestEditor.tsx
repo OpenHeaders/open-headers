@@ -73,6 +73,7 @@ import {
 } from '../request-container/ancestry';
 import AuthorizationTab from '../request-editor/AuthorizationTab';
 import DocsTab from '../request-editor/DocsTab';
+import { TabDot } from '../request-editor/request-tab-items';
 import { graphqlResponseFacts } from '../request-editor/response/graphql-response';
 import ResponsePanel from '../request-editor/response/ResponsePanel';
 import ScriptsTab from '../request-editor/ScriptsTab';
@@ -222,6 +223,9 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // The resolved schema feeds the explorer, the editor services and
   // the variables validation; introspection rides the compile.
   const schemaState = useGraphqlSchema({ entity, draft, workspaceId, executeGraphql });
+  // The last introspection's failure — the explorer's card and the
+  // Schema tab's dot read the same line.
+  const introspectionError = schemaState.introspection.kind === 'error' ? schemaState.introspection.message : null;
   const schemaFileInputRef = useRef<HTMLInputElement>(null);
   const handleImportSchema = useCallback(() => schemaFileInputRef.current?.click(), []);
   // An SDL / introspection file lands as a `graphql` Spec (the synced
@@ -638,7 +642,15 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                       { key: 'query', label: t('workbench.editors.graphql.tab.query') },
                       { key: 'authorization', label: t('workbench.editors.graphql.tab.authorization') },
                       { key: 'headers', label: t('workbench.editors.graphql.tab.headers') },
-                      { key: 'schema', label: t('workbench.editors.graphql.tab.schema') },
+                      {
+                        key: 'schema',
+                        label: (
+                          <>
+                            {t('workbench.editors.graphql.tab.schema')}
+                            {introspectionError !== null && <TabDot tone="error" />}
+                          </>
+                        ),
+                      },
                       { key: 'scripts', label: t('workbench.editors.graphql.tab.scripts') },
                       { key: 'settings', label: t('workbench.editors.graphql.tab.settings') },
                     ]}
@@ -674,6 +686,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                           introspecting: schemaState.introspection.kind === 'loading',
                           onIntrospect: () => void schemaState.introspect(),
                           refreshable: schemaState.choice === 'introspection',
+                          error: introspectionError,
                           onUseSpec: () => setActiveTab('schema'),
                           onImportSchema: handleImportSchema,
                         }}

@@ -29,8 +29,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.response.extensionsTitle': 'Extensiones de la respuesta',
   'workbench.editors.graphql.response.extensionsSummary':
     'El objeto extensions del servidor viaja junto a data — trazas, coste, pistas de caché, lo que haya decidido adjuntar.',
-  'workbench.editors.graphql.query.hint': 'El documento — una o más operaciones, fragmentos bienvenidos.',
-  'workbench.editors.graphql.query.prettify': 'Embellecer',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',
   'workbench.editors.graphql.tab.docs': 'Docs',
   'workbench.editors.graphql.tab.query': 'Query',
@@ -43,6 +41,8 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.emptyHint':
     'Introduce la URL del servidor para cargar el esquema mediante introspección.',
   'workbench.editors.graphql.explorer.introspect': 'Usar introspección GraphQL',
+  'workbench.editors.graphql.explorer.loadFailed': 'No se pudo cargar el esquema GraphQL.',
+  'workbench.editors.graphql.explorer.tryAgain': 'Reintentar',
   'workbench.editors.graphql.explorer.useSpec': 'Usar una spec GraphQL',
   'workbench.editors.graphql.explorer.importSchema': 'Importar un esquema GraphQL',
   'workbench.editors.graphql.variables.title': 'Variables',

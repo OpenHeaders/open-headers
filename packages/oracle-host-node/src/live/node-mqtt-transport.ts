@@ -108,7 +108,7 @@ function classifyMqttDialFailure(
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve host ${host} (DNS lookup failed). Check the target and your network.`;
+      return `Could not resolve host ${host}.`;
     case 'ECONNREFUSED':
       return `Connection refused by ${host}. Is the MQTT broker running on that host/port?`;
     case 'EHOSTUNREACH':

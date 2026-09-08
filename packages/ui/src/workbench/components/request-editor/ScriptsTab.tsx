@@ -182,9 +182,6 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             target={editorActionsRef}
             language="javascript"
             labels
-            findText={t('workbench.editors.scriptEditor.find')}
-            replaceText={t('workbench.editors.scriptEditor.replace')}
-            formatText={t('workbench.editors.scriptEditor.beautify')}
           />
           <EditorViewMenu wrap={wrapScript} onWrapChange={setWrapScript} data-testid="oh-script-editor-menu" />
         </div>

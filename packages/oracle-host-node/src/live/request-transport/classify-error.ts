@@ -120,7 +120,7 @@ function classifyH3Failure(host: string, err: H3HelperFailure, request: Transpor
   const pinned = request.resolveToAddress;
   switch (err.code) {
     case 'dns':
-      return `Could not resolve host ${host} (DNS lookup failed). Check the URL and your network.`;
+      return `Could not resolve host ${host}.`;
     case 'connect-timeout':
       return pinned !== undefined
         ? `${pinned} did not answer the QUIC handshake — the request's resolve-to-address setting points ${host} there, and its "HTTP version" setting pins this send to HTTP/3. The target may not speak HTTP/3 on that address, or UDP may be blocked; set the HTTP version to Auto to negotiate over TCP instead.`
@@ -225,8 +225,8 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
       return proxied !== undefined
-        ? `Could not resolve the proxy host ${proxyHostOf(proxied)} (DNS lookup failed). Check the request's proxy URL.`
-        : `Could not resolve host ${host} (DNS lookup failed). Check the URL and your network.`;
+        ? `Could not resolve the proxy host ${proxyHostOf(proxied)}. Check the request's proxy URL.`
+        : `Could not resolve host ${host}.`;
     case 'ECONNREFUSED':
       if (proxied !== undefined) {
         return `Connection refused by the proxy at ${proxyHostOf(proxied)} — the request routes this send through it. Is the proxy running?`;

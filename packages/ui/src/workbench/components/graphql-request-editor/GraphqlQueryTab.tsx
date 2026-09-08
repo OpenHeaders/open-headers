@@ -5,10 +5,14 @@
  * import a schema, each live)
  * beside the QUERY EDITOR (Monaco `graphql` over our Monarch grammar,
  * diagnostics + completion + hover bound to `@openheaders/core/graphql`
- * and fed the schema, the prettify glyph through the core printer)
- * with the collapsible VARIABLES drawer under it (Monaco JSON,
- * validated against the selected operation's variable definitions and
- * the schema; "Generate variables" from the synthesis, schema-aware).
+ * and fed the schema; its Find / Replace / Format cluster — Format
+ * through the core printer's Monaco provider — and the Editor menu
+ * live in the row ABOVE the buffer, the Body tab's toolbar idiom, so
+ * the buttons never cover the document's first lines) with the
+ * collapsible VARIABLES drawer
+ * under it (Monaco JSON, validated against the selected operation's
+ * variable definitions and the schema; "Generate variables" from the
+ * synthesis, schema-aware; its own cluster in the drawer's header).
  * The explorer / editor split is the WS compose recipe's Allotment —
  * the explorer pane HIDES when collapsed and its strip sits flush
  * beside the editor then (the WS rail's discipline: one tree in every
@@ -25,19 +29,28 @@ import {
   type OperationDefinitionNode,
   parseDocument,
   type ParseResult,
-  printNode,
   selectedOperation,
   validateVariables,
 } from '@openheaders/core/graphql';
-import { CaretDownOutlined, CaretRightOutlined, FormatPainterOutlined } from '@ant-design/icons';
+import {
+  CaretDownOutlined,
+  CaretRightOutlined,
+  CloudDownloadOutlined,
+  DeploymentUnitOutlined,
+  FileTextOutlined,
+  ImportOutlined,
+} from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Allotment } from 'allotment';
-import { Button, Tooltip, Typography, theme } from 'antd';
+import { Alert, Button, Divider, Tooltip, Typography, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSettingValue } from '../../settings/hooks';
 import CodeEditor from '../shared/CodeEditor';
+import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
+import EditorViewMenu from '../shared/EditorViewMenu';
 import type { GraphqlDraft } from './draft';
 import {
   attachGraphqlEditorServices,
@@ -57,6 +70,8 @@ export interface GraphqlExplorerSources {
   onIntrospect: () => void;
   /** Introspection is the active source — the explorer header offers Refresh. */
   refreshable: boolean;
+  /** The last introspection's failure, one line — the scaffold shows it with a retry. */
+  error: string | null;
   /** Switches to the Schema tab, where the spec picker lives. */
   onUseSpec: () => void;
   onImportSchema: () => void;
@@ -66,7 +81,7 @@ interface GraphqlQueryTabProps {
   draft: GraphqlDraft;
   setDraft: Dispatch<SetStateAction<GraphqlDraft>>;
   /** The editor's ONE parse of the document (the operation select and
-   *  the send read it too) — the prettify and generate gestures share it. */
+   *  the send read it too) — the generate gesture and the builder share it. */
   parsed: ParseResult;
   /** The resolved schema — null until a source resolves. */
   schema: GraphqlSchema | null;
@@ -89,7 +104,15 @@ function pickedOperation(document: DocumentNode, operationName: string): Operati
   return null;
 }
 
-const EXPLORER_SOURCES = ['introspect', 'spec', 'import'] as const;
+/** The two sources that need no endpoint — the row under the rule. */
+const EXPLORER_LOCAL_SOURCES = ['spec', 'import'] as const;
+
+const EXPLORER_LOCAL_SOURCE_ICONS: Record<(typeof EXPLORER_LOCAL_SOURCES)[number], React.ReactNode> = {
+  spec: <FileTextOutlined />,
+  import: <ImportOutlined />,
+};
+
+const EXPLORER_LINK_STYLE: React.CSSProperties = { fontSize: 12, padding: 0, height: 'auto' };
 
 const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
   draft,
@@ -103,6 +126,16 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [variablesOpen, setVariablesOpen] = useState(() => draft.variables.trim() !== '');
+  // The clusters live in the rows above the editors (`actions="external"`).
+  const queryActionsRef = useRef<CodeEditorActionsTarget | null>(null);
+  const variablesActionsRef = useRef<CodeEditorActionsTarget | null>(null);
+  // The tab's one Wrap knob, shared by the query and variables editors:
+  // the global `editor.wordWrap` until the Editor menu toggles it, the
+  // toggle's value after ("This editor" over "All editors").
+  const globalWordWrap = useSettingValue('editor.wordWrap');
+  const [wrapOverride, setWrapOverride] = useState<boolean | null>(null);
+  const wrap = wrapOverride ?? globalWordWrap !== 'off';
+  const wordWrapOverride = wrapOverride === null ? undefined : wrapOverride ? 'on' : 'off';
   const servicesRef = useRef<{ dispose: () => void; setSchema: (schema: GraphqlSchema | null) => void } | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<import('@monaco-editor/react').Monaco | null>(null);
@@ -114,7 +147,6 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
     servicesRef.current?.setSchema(schema);
   }, [schema]);
 
-  const canPrettify = parsed.document !== null && draft.query.trim() !== '';
   const operation = useMemo(
     () => (parsed.document === null ? null : pickedOperation(parsed.document, draft.operationName)),
     [parsed.document, draft.operationName],
@@ -124,12 +156,6 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
     () => (operation === null ? [] : validateVariables(operation, schema, draft.variables)),
     [operation, schema, draft.variables],
   );
-
-  const handlePrettify = useCallback(() => {
-    if (parsed.document === null) return;
-    const pretty = printNode(parsed.document);
-    setDraft((d) => (d.query === pretty ? d : { ...d, query: pretty }));
-  }, [parsed.document, setDraft]);
 
   const handleGenerate = useCallback(() => {
     if (operation === null) return;
@@ -180,28 +206,12 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
     [operation, broken, runBuilder, sealBuilder],
   );
 
-  const sourceLabel = (source: (typeof EXPLORER_SOURCES)[number]): string => {
-    switch (source) {
-      case 'introspect':
-        return sources.introspecting
-          ? t('workbench.editors.graphql.explorer.introspecting')
-          : t('workbench.editors.graphql.explorer.introspect');
-      case 'spec':
-        return t('workbench.editors.graphql.explorer.useSpec');
-      case 'import':
-        return t('workbench.editors.graphql.explorer.importSchema');
-    }
-  };
-  const sourceAction = (source: (typeof EXPLORER_SOURCES)[number]): (() => void) => {
-    switch (source) {
-      case 'introspect':
-        return sources.onIntrospect;
-      case 'spec':
-        return sources.onUseSpec;
-      case 'import':
-        return sources.onImportSchema;
-    }
-  };
+  const localSourceLabel = (source: (typeof EXPLORER_LOCAL_SOURCES)[number]): string =>
+    source === 'spec'
+      ? t('workbench.editors.graphql.explorer.useSpec')
+      : t('workbench.editors.graphql.explorer.importSchema');
+  const localSourceAction = (source: (typeof EXPLORER_LOCAL_SOURCES)[number]): (() => void) =>
+    source === 'spec' ? sources.onUseSpec : sources.onImportSchema;
 
   const firstProblem = variableProblems[0];
 
@@ -222,52 +232,109 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
                 }
               />
             ) : (
-              // The explorer's empty state — the reference's CTA trio in our
-              // scaffold idiom: the fact, the hint, three live actions.
+              // The explorer's empty state — a failed introspection's card at
+              // the top, then the CTA scaffold centered in the rest: the glyph,
+              // the fact, ONE slot the endpoint decides — the hint until the
+              // URL is set, the introspection action after — a rule, and the
+              // two endpoint-free sources in a row under it.
               <div
                 style={{
                   height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  padding: 16,
-                  textAlign: 'center',
+                  minHeight: 0,
                   borderRight: `1px solid ${token.colorBorderSecondary}`,
                 }}
                 data-testid="graphql-explorer-empty"
               >
-                <Text strong style={{ fontSize: 12 }}>
+                {sources.error !== null && (
+                  // Title-only: the description variant forces antd's large
+                  // title size; the lines and the retry compose in the slot.
+                  <Alert
+                    type="error"
+                    showIcon
+                    title={
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                        <Text strong style={{ fontSize: 12 }}>
+                          {t('workbench.editors.graphql.explorer.loadFailed')}
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 11, wordBreak: 'break-word' }}>
+                          {sources.error}
+                        </Text>
+                        <Button
+                          size="small"
+                          loading={sources.introspecting}
+                          onClick={sources.onIntrospect}
+                          style={{ fontSize: 11, marginTop: 2 }}
+                          data-testid="graphql-explorer-retry"
+                        >
+                          {t('workbench.editors.graphql.explorer.tryAgain')}
+                        </Button>
+                      </div>
+                    }
+                    style={{ margin: '8px 8px 0 0', padding: '6px 10px', fontSize: 12, alignItems: 'flex-start' }}
+                    data-testid="graphql-explorer-error"
+                  />
+                )}
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: 16,
+                    textAlign: 'center',
+                  }}
+                >
+                <DeploymentUnitOutlined style={{ fontSize: 32, color: token.colorTextQuaternary, marginBottom: 4 }} />
+                <Text strong style={{ fontSize: 13 }}>
                   {t('workbench.editors.graphql.explorer.emptyTitle')}
                 </Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {t('workbench.editors.graphql.explorer.emptyHint')}
-                </Text>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
-                  {EXPLORER_SOURCES.map((source) => {
-                    const introspect = source === 'introspect';
-                    const disabled = introspect && (!sources.canIntrospect || sources.introspecting);
-                    return (
-                      <Tooltip
-                        key={source}
-                        title={introspect && !sources.canIntrospect ? t('workbench.editors.graphql.explorer.needsUrl') : undefined}
-                      >
-                        <span style={{ display: 'inline-flex' }}>
-                          <Button
-                            type="link"
-                            size="small"
-                            disabled={disabled}
-                            onClick={sourceAction(source)}
-                            style={{ fontSize: 12, padding: 0, height: 'auto' }}
-                            data-testid={`graphql-explorer-${source}`}
-                          >
-                            {sourceLabel(source)}
-                          </Button>
-                        </span>
-                      </Tooltip>
-                    );
-                  })}
+                {sources.canIntrospect ? (
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<CloudDownloadOutlined />}
+                    loading={sources.introspecting}
+                    onClick={sources.onIntrospect}
+                    style={EXPLORER_LINK_STYLE}
+                    data-testid="graphql-explorer-introspect"
+                  >
+                    {sources.introspecting
+                      ? t('workbench.editors.graphql.explorer.introspecting')
+                      : t('workbench.editors.graphql.explorer.introspect')}
+                  </Button>
+                ) : (
+                  <Text type="secondary" style={{ fontSize: 12 }} data-testid="graphql-explorer-hint">
+                    {t('workbench.editors.graphql.explorer.emptyHint')}
+                  </Text>
+                )}
+                <Divider style={{ margin: '8px 0 4px', minWidth: 0, width: 'min(100%, 320px)' }} />
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    columnGap: 20,
+                    rowGap: 6,
+                  }}
+                >
+                  {EXPLORER_LOCAL_SOURCES.map((source) => (
+                    <Button
+                      key={source}
+                      type="link"
+                      size="small"
+                      icon={EXPLORER_LOCAL_SOURCE_ICONS[source]}
+                      onClick={localSourceAction(source)}
+                      style={EXPLORER_LINK_STYLE}
+                      data-testid={`graphql-explorer-${source}`}
+                    >
+                      {localSourceLabel(source)}
+                    </Button>
+                  ))}
+                </div>
                 </div>
               </div>
             )}
@@ -275,21 +342,9 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
           <Allotment.Pane minSize={240}>
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0 6px 8px' }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {t('workbench.editors.graphql.query.hint')}
-                </Text>
                 <span style={{ flex: 1 }} />
-                <Tooltip title={t('workbench.editors.graphql.query.prettify')}>
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<FormatPainterOutlined />}
-                    disabled={!canPrettify}
-                    onClick={handlePrettify}
-                    aria-label={t('workbench.editors.graphql.query.prettify')}
-                    data-testid="graphql-prettify"
-                  />
-                </Tooltip>
+                <CodeEditorActions target={queryActionsRef} language="graphql" />
+                <EditorViewMenu wrap={wrap} onWrapChange={setWrapOverride} data-testid="graphql-editor-menu" />
               </div>
               <div style={{ flex: 1, minHeight: 120, display: 'flex', flexDirection: 'column', paddingLeft: 8 }}>
                 <CodeEditor
@@ -298,6 +353,9 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
                   onChange={(query) => setDraft((d) => ({ ...d, query }))}
                   placeholder={t('workbench.editors.graphql.query.placeholder')}
                   fill
+                  actions="external"
+                  actionsRef={queryActionsRef}
+                  wordWrapOverride={wordWrapOverride}
                   onEditorMount={(editor, monacoApi) => {
                     editorRef.current = editor;
                     monacoRef.current = monacoApi;
@@ -357,6 +415,7 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
                     </Tooltip>
                   )}
                   <span style={{ flex: 1 }} />
+                  {variablesOpen && <CodeEditorActions target={variablesActionsRef} language="json" />}
                   <Tooltip
                     title={
                       canGenerate
@@ -386,6 +445,9 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
                       onChange={(variables) => setDraft((d) => ({ ...d, variables }))}
                       placeholder={t('workbench.editors.graphql.variables.placeholder')}
                       fill
+                      actions="external"
+                      actionsRef={variablesActionsRef}
+                      wordWrapOverride={wordWrapOverride}
                     />
                   </div>
                 )}

@@ -16,7 +16,7 @@
  *       and the variables persist through a full page reload — the
  *       disk fan-out round trip (`graphql.yaml` + `query.graphql` +
  *       `variables.json`) read back through the editor.
- *   E3  the document plane: Prettify rewrites the buffer through the
+ *   E3  the document plane: Format rewrites the buffer through the
  *       core printer, and Generate variables fills the drawer from the
  *       operation's variable definitions.
  *   E4  the flavor readings: the container's Settings section names
@@ -103,7 +103,7 @@ const GRAPHQL_NAME = 'Probe GraphQL';
 const RENAMED_NAME = 'Viewer GraphQL';
 const GRAPHQL_URL = 'https://api.openheaders.io/graphql';
 // Single line — Monaco auto-indents multi-line inserts (the page
-// object's contract); Prettify is what lays it out.
+// object's contract); Format is what lays it out.
 const GRAPHQL_QUERY = 'query Viewer($first: Int) { viewer { id notes(first: $first) { id } } }';
 const GRAPHQL_VARIABLES = '{"first": 10}';
 // The playground's GraphQL probe — the Playwright webServer boots it.
@@ -269,7 +269,10 @@ test('E1 — the collection + menu creates a GraphQL request with the Query scaf
   // live: the hover hint carries the verb and the chord.
   await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
   await page.getByTestId('graphql-explorer-empty').filter({ visible: true }).first().waitFor({ state: 'visible' });
-  await expect(page.getByTestId('graphql-explorer-introspect').filter({ visible: true }).first()).toBeDisabled();
+  // No endpoint yet — the scaffold's slot holds the hint, not the
+  // introspection action.
+  await expect(page.getByTestId('graphql-explorer-hint').filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByTestId('graphql-explorer-introspect')).toHaveCount(0);
   const button = queryButton();
   await expect(button).toBeEnabled();
   await page.mouse.move(0, 0);
@@ -307,10 +310,18 @@ test('E2 — the endpoint, the document and the variables survive Save + reload 
   await expect.poll(async () => workbench.monacoText(1), { timeout: 5_000 }).toContain('"first": 10');
 });
 
-// ── E3: the document plane — prettify + generate variables ──────────
+// ── E3: the document plane — format + generate variables ────────────
 
-test('E3 — Prettify lays the document out through the core printer and Generate variables fills the drawer', async () => {
-  await page.getByTestId('graphql-prettify').filter({ visible: true }).first().click();
+test('E3 — Format lays the document out through the core printer and Generate variables fills the drawer', async () => {
+  // The query editor's cluster is the tab's first; the variables drawer's
+  // JSON cluster follows it.
+  await page
+    .getByTestId('graphql-query-tab')
+    .filter({ visible: true })
+    .first()
+    .getByTestId('code-editor-format')
+    .first()
+    .click();
   // The pretty printer breaks the selection set onto its own lines —
   // the reopened single-line document now spans several view lines.
   await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toMatch(/viewer \{\s*\n\s*id/);

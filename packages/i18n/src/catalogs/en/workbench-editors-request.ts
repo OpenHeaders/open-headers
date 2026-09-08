@@ -814,7 +814,6 @@ export const workbenchEditorsRequest = {
     'Sends the query and variables as one application/json payload — { query, variables } — per the GraphQL HTTP transport.',
   'workbench.editors.request.body.modeGraphqlDescription':
     'Variables must be valid JSON; an unparsable variables pane is omitted from the wire body and the query is sent alone.',
-  'workbench.editors.request.body.beautify': 'Beautify',
   'workbench.editors.request.body.format': 'Format',
   'workbench.editors.request.body.formatAria': 'Format body',
   'workbench.editors.request.body.queryTitle': 'Query',

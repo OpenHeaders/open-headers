@@ -269,9 +269,6 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
                             target={payloadActionsRef}
                             language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
                             labels
-                            findText={t('workbench.editors.scriptEditor.find')}
-                            replaceText={t('workbench.editors.scriptEditor.replace')}
-                            formatText={t('workbench.editors.scriptEditor.beautify')}
                           />
                           <EditorViewMenu
                             wrap={wrapPayload}

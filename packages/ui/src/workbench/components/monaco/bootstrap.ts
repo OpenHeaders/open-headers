@@ -71,7 +71,7 @@ import { allVariants } from '@openheaders/ui/themes';
 import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/platform/hover/browser/hoverService';
 import { registerGraphqlLanguage } from '../../languages/graphql';
 import { registerPrometheusLanguage } from '../../languages/prometheus';
-import { registerPrettierFormatters } from './formatters';
+import { registerGraphqlFormatter, registerPrettierFormatters } from './formatters';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
 
 // ── Phase 1: synchronous monaco-singleton configuration ──────────
@@ -114,6 +114,7 @@ registerGraphqlLanguage(monacoEdCore);
 // `editor.action.formatDocument`, which dispatches to whichever
 // provider owns the model's language.
 registerPrettierFormatters(monacoEdCore as unknown as typeof import('monaco-editor'));
+registerGraphqlFormatter(monacoEdCore as unknown as typeof import('monaco-editor'));
 
 // Monaco's chrome tooltips (find-widget buttons, Aa / ab / .* input
 // toggles) default to ABOVE the control. The find widget sits at the

@@ -11,15 +11,16 @@ import { AlignLeftOutlined, SearchOutlined, SwapOutlined } from '@ant-design/ico
 import { Button, Tooltip } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { type LanguageId, toMonacoLanguage } from '../../languages/registry';
 
-/** Monaco language ids that have a registered formatter — either
- *  Monaco's built-in LSP (JSON / CSS / HTML) or our Prettier provider
- *  (JS / XML). `plaintext` + graphql fallbacks stay off. The set is
+/** Monaco language ids that have a registered formatter — Monaco's
+ *  built-in LSP (JSON / CSS / HTML), our Prettier provider (JS / XML)
+ *  or the core GraphQL printer. `plaintext` stays off. The set is
  *  source-of-truth constant: adding a language here requires adding a
  *  provider somewhere Monaco can see. */
-const MONACO_FORMATTABLE_LANGUAGES = new Set(['javascript', 'json', 'css', 'html', 'xml']);
+const MONACO_FORMATTABLE_LANGUAGES = new Set(['javascript', 'json', 'css', 'html', 'xml', 'graphql']);
 
 export function isFormattableLanguage(language: LanguageId): boolean {
   return MONACO_FORMATTABLE_LANGUAGES.has(toMonacoLanguage(language));
@@ -41,10 +42,6 @@ interface CodeEditorActionsProps {
   /** Show the action names as visible button text next to the icons
    *  (e.g. the Scripts tab's toolbar row) — icon-only when omitted. */
   labels?: boolean;
-  /** Action names — tooltips always, visible text with `labels`. */
-  findText?: string;
-  replaceText?: string;
-  formatText?: string;
   style?: React.CSSProperties;
 }
 
@@ -53,11 +50,14 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
   language,
   readOnly = false,
   labels = false,
-  findText = 'Find',
-  replaceText = 'Replace',
-  formatText = 'Format',
   style,
 }) => {
+  // The cluster owns its three names — Find / Replace / Format on every
+  // host, the same verbs the keymap and the Settings page use.
+  const t = useT();
+  const findText = t('shared.codeEditor.find');
+  const replaceText = t('shared.codeEditor.replace');
+  const formatText = t('shared.codeEditor.format');
   // Live registry hints — rebinding in Settings → Keyboard repaints
   // the tooltips, and the same settings drive the actual Monaco
   // keybindings (see monaco/editor-keybindings.ts).
@@ -75,6 +75,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
           icon={<SearchOutlined />}
           onClick={() => target.current?.find()}
           aria-label={findText}
+          data-testid="code-editor-find"
         >
           {labels ? findText : null}
         </Button>
@@ -90,6 +91,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
             icon={<SwapOutlined />}
             onClick={() => target.current?.replace()}
             aria-label={replaceText}
+            data-testid="code-editor-replace"
           >
             {labels ? replaceText : null}
           </Button>
@@ -106,6 +108,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
             icon={<AlignLeftOutlined />}
             onClick={() => target.current?.format()}
             aria-label={formatText}
+            data-testid="code-editor-format"
           >
             {labels ? formatText : null}
           </Button>

@@ -441,6 +441,9 @@ export const sharedComponents = {
   'shared.timelineGroup.showNewestOnly': 'Afficher seulement les {count} plus récents',
   // Compose-editor toolbar wrap toggle + the "Editor" dropdown.
   'shared.codeEditor.wrap': 'Retour à la ligne',
+  'shared.codeEditor.find': 'Rechercher',
+  'shared.codeEditor.replace': 'Remplacer',
+  'shared.codeEditor.format': 'Formater',
   'shared.codeEditor.formatError': 'Formatage impossible — erreur d’analyse',
   'shared.editorMenu.label': 'Éditeur',
   'shared.editorMenu.thisEditor': 'Cet éditeur',

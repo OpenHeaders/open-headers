@@ -101,7 +101,7 @@ export function classifyProxyLegFailure(
   switch (failureCode(err)) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve the proxy host ${proxyHost} (DNS lookup failed) — ${via}.`;
+      return `Could not resolve the proxy host ${proxyHost} — ${via}.`;
     case 'ECONNREFUSED':
       return `Connection refused by the proxy at ${proxyHost} — ${via}. Is the proxy running?`;
     case 'EHOSTUNREACH':

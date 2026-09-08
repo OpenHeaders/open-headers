@@ -28,8 +28,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.response.extensionsTitle': '响应扩展',
   'workbench.editors.graphql.response.extensionsSummary':
     '服务器的 extensions 对象随 data 一同返回——追踪、成本、缓存提示，以及它选择附加的任何内容。',
-  'workbench.editors.graphql.query.hint': '文档——一个或多个操作，可包含片段。',
-  'workbench.editors.graphql.query.prettify': '美化',
   'workbench.editors.graphql.query.placeholder': 'query { viewer { id } }',
   'workbench.editors.graphql.tab.docs': '文档',
   'workbench.editors.graphql.tab.query': 'Query',
@@ -41,6 +39,8 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.explorer.emptyTitle': '浏览服务器提供的数据',
   'workbench.editors.graphql.explorer.emptyHint': '输入服务器 URL，通过自省加载模式。',
   'workbench.editors.graphql.explorer.introspect': '使用 GraphQL 自省',
+  'workbench.editors.graphql.explorer.loadFailed': '无法加载 GraphQL 模式。',
+  'workbench.editors.graphql.explorer.tryAgain': '重试',
   'workbench.editors.graphql.explorer.useSpec': '使用 GraphQL 规范',
   'workbench.editors.graphql.explorer.importSchema': '导入 GraphQL 模式',
   'workbench.editors.graphql.variables.title': '变量',

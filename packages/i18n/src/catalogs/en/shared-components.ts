@@ -463,6 +463,9 @@ export const sharedComponents = {
   // Compose-editor toolbar wrap toggle — shared by every request
   // editor's Monaco compose surface.
   'shared.codeEditor.wrap': 'Wrap',
+  'shared.codeEditor.find': 'Find',
+  'shared.codeEditor.replace': 'Replace',
+  'shared.codeEditor.format': 'Format',
   // The Format action's refusal alert title — the parse error's
   // own text rides the description verbatim.
   'shared.codeEditor.formatError': 'Cannot format — parse error',
