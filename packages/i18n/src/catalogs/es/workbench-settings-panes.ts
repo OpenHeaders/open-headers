@@ -113,7 +113,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.autoConnect': 'Conexión automática',
   'workbench.settings.backendPane.connections.orgConflict':
     'La Org «{org}» ya la proporciona {provider} — no se ha unido',
-  'workbench.settings.backendPane.connections.removedBackend': 'un back-end eliminado',
+  'workbench.settings.backendPane.connections.removedBackend': 'una conexión eliminada',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': 'Conectando con {label}…',
@@ -127,15 +127,13 @@ export const workbenchSettingsPanes = {
     'Su dirección y su emparejamiento se olvidan. Aún no se había sincronizado nada desde él.',
   'workbench.settings.backendPane.remove.aria': 'Eliminar {label}',
   'workbench.settings.backendPane.remove.removed': 'Se eliminó {label}.',
-  'workbench.settings.backendPane.remove.tooltip':
-    'Eliminar este back-end — tú eliges qué pasa con sus espacios de trabajo sincronizados',
   'workbench.settings.backendPane.remove.workspaceCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} espacio de trabajo',
       many: '{count} espacios de trabajo',
       other: '{count} espacios de trabajo',
     }),
-  'workbench.settings.backendPane.remove.body.prefix': 'Este back-end proporciona',
+  'workbench.settings.backendPane.remove.body.prefix': 'Esta conexión proporciona',
   'workbench.settings.backendPane.remove.body.suffix':
     'con {workspaces} sincronizados en este dispositivo. Sus propios datos nunca se tocan — elige qué pasa ' +
     'con las copias locales.',
@@ -147,13 +145,13 @@ export const workbenchSettingsPanes = {
     'conexión.',
   'workbench.settings.backendPane.remove.discard.title': 'Descartar las copias locales',
   'workbench.settings.backendPane.remove.discard.description':
-    'Cada espacio de trabajo se respalda primero en un archivo descargado y luego se elimina de este ' +
-    'dispositivo. Volver a unirse al back-end más adelante los sincroniza de nuevo.',
+    'Cada espacio de trabajo se respalda primero en un archivo descargado y luego se elimina de este dispositivo. ' +
+    'Volver a conectar más adelante los sincroniza de nuevo.',
   'workbench.settings.backendPane.remove.discard.includeSecrets':
     'Incluir los secretos del vault en los archivos de respaldo (en claro — guarda los archivos a salvo)',
-  'workbench.settings.backendPane.remove.removeBackend': 'Eliminar el back-end',
+  'workbench.settings.backendPane.remove.removeBackend': 'Eliminar la conexión',
   'workbench.settings.backendPane.remove.backupThenRemove': 'Respaldar y luego eliminar',
-  'workbench.settings.backendPane.remove.progress.removing': 'Eliminando el back-end…',
+  'workbench.settings.backendPane.remove.progress.removing': 'Eliminando la conexión…',
   'workbench.settings.backendPane.remove.progress.preparing': 'Preparando los respaldos…',
   'workbench.settings.backendPane.remove.progress.backingUp': 'Respaldando «{name}»…',
   'workbench.settings.backendPane.remove.progress.deleting': 'Eliminando «{name}»…',
@@ -241,10 +239,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': 'Permitir pares de la LAN',
   'workbench.settings.backendPane.lan.confirmCancel': 'Mantener solo loopback',
   'workbench.settings.backendPane.lan.confirmBody':
-    'El back-end de escritorio se vinculará a todas las interfaces de red locales para que otros dispositivos ' +
-    'de tu red puedan conectarse. Toda conexión — LAN o loopback — debe presentar un token de autenticación ' +
-    'emparejado; no existe ningún camino sin token. Los dispositivos se emparejan con el código que muestra ' +
-    'la aplicación (o pega un token en Copia de seguridad y sincronización › Sincronización).',
+    'La aplicación de escritorio escuchará en todas las interfaces de red locales para que otros dispositivos de ' +
+    'tu red puedan conectarse. Toda conexión, desde tu red o desde este equipo, debe presentar un token ' +
+    'emparejado; no existe ningún camino sin token. Los dispositivos se emparejan con el código que muestra la ' +
+    'aplicación (o pega un token en Copia de seguridad y sincronización › Sincronización).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':

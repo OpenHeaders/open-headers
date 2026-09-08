@@ -119,7 +119,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.autoConnect': 'Automatisch verbinden',
   'workbench.settings.backendPane.connections.orgConflict':
     'Die Org „{org}“ liefert bereits {provider} — nicht beigetreten',
-  'workbench.settings.backendPane.connections.removedBackend': 'ein entferntes Back-end',
+  'workbench.settings.backendPane.connections.removedBackend': 'eine entfernte Verbindung',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': 'Verbinden mit {label}…',
@@ -133,11 +133,9 @@ export const workbenchSettingsPanes = {
     'Seine Adresse und Kopplung werden vergessen. Es wurde noch nichts von ihm synchronisiert.',
   'workbench.settings.backendPane.remove.aria': '{label} entfernen',
   'workbench.settings.backendPane.remove.removed': '{label} entfernt.',
-  'workbench.settings.backendPane.remove.tooltip':
-    'Dieses Back-end entfernen — du entscheidest, was mit seinen synchronisierten Arbeitsbereichen passiert',
   'workbench.settings.backendPane.remove.workspaceCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Arbeitsbereich', other: '{count} Arbeitsbereiche' }),
-  'workbench.settings.backendPane.remove.body.prefix': 'Dieses Back-end liefert',
+  'workbench.settings.backendPane.remove.body.prefix': 'Diese Verbindung liefert',
   'workbench.settings.backendPane.remove.body.suffix':
     'mit {workspaces}, die auf dieses Gerät synchronisiert sind. Seine eigenen Daten werden nie berührt — ' +
     'entscheide, was mit den lokalen Kopien passiert.',
@@ -148,13 +146,13 @@ export const workbenchSettingsPanes = {
     '{orgs} hören auf zu synchronisieren. Die {workspaces} bleiben als lokale Offline-Daten auf diesem Gerät.',
   'workbench.settings.backendPane.remove.discard.title': 'Lokale Kopien verwerfen',
   'workbench.settings.backendPane.remove.discard.description':
-    'Jeder Arbeitsbereich wird zuerst in eine heruntergeladene Datei gesichert und dann von diesem Gerät ' +
-    'gelöscht. Ein späterer Beitritt zum Back-end synchronisiert sie wieder herunter.',
+    'Jeder Arbeitsbereich wird zuerst in eine heruntergeladene Datei gesichert und dann von diesem Gerät gelöscht. ' +
+    'Ein späteres erneutes Verbinden synchronisiert sie wieder herunter.',
   'workbench.settings.backendPane.remove.discard.includeSecrets':
     'vault-Secrets in die Backup-Dateien aufnehmen (Klartext — bewahre die Dateien sicher auf)',
-  'workbench.settings.backendPane.remove.removeBackend': 'Back-end entfernen',
+  'workbench.settings.backendPane.remove.removeBackend': 'Verbindung entfernen',
   'workbench.settings.backendPane.remove.backupThenRemove': 'Sichern, dann entfernen',
-  'workbench.settings.backendPane.remove.progress.removing': 'Back-end wird entfernt…',
+  'workbench.settings.backendPane.remove.progress.removing': 'Verbindung wird entfernt…',
   'workbench.settings.backendPane.remove.progress.preparing': 'Backups werden vorbereitet…',
   'workbench.settings.backendPane.remove.progress.backingUp': '„{name}“ wird gesichert…',
   'workbench.settings.backendPane.remove.progress.deleting': '„{name}“ wird gelöscht…',
@@ -243,10 +241,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': 'LAN-Peers erlauben',
   'workbench.settings.backendPane.lan.confirmCancel': 'Nur Loopback behalten',
   'workbench.settings.backendPane.lan.confirmBody':
-    'Das Desktop-Back-end bindet dann jede lokale Netzwerkschnittstelle, sodass sich andere Geräte in deinem ' +
-    'Netzwerk verbinden können. Jede Verbindung — LAN oder Loopback — muss einen gekoppelten Auth-Token ' +
-    'vorlegen; es gibt keinen tokenfreien Weg. Geräte koppeln mit dem Code, den die App zeigt (oder fügen ' +
-    'einen Token unter Sicherung und Synchronisierung › Synchronisierung ein).',
+    'Die Desktop-App lauscht dann auf jeder lokalen Netzwerkschnittstelle, sodass sich andere Geräte in deinem ' +
+    'Netzwerk verbinden können. Jede Verbindung, aus deinem Netzwerk oder von diesem Computer, muss einen ' +
+    'gekoppelten Token vorlegen; es gibt keinen tokenfreien Weg. Geräte koppeln mit dem Code, den die App zeigt ' +
+    '(oder fügen einen Token unter Sicherung und Synchronisierung › Synchronisierung ein).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':

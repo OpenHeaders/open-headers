@@ -100,7 +100,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.repair': '重新配对',
   'workbench.settings.backendPane.connections.autoConnect': '自动连接',
   'workbench.settings.backendPane.connections.orgConflict': 'Org“{org}”已由 {provider} 提供——未加入',
-  'workbench.settings.backendPane.connections.removedBackend': '一个已移除的后端',
+  'workbench.settings.backendPane.connections.removedBackend': '一个已移除的连接',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': '正在连接到 {label}…',
@@ -112,10 +112,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.remove.confirmBody': '它的地址和配对会被忘记。尚未从它同步过任何内容。',
   'workbench.settings.backendPane.remove.aria': '移除 {label}',
   'workbench.settings.backendPane.remove.removed': '已移除 {label}。',
-  'workbench.settings.backendPane.remove.tooltip': '移除此后端——由你决定其已同步工作区的去向',
   'workbench.settings.backendPane.remove.workspaceCount': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个工作区' }),
-  'workbench.settings.backendPane.remove.body.prefix': '此后端提供',
+  'workbench.settings.backendPane.remove.body.prefix': '此连接提供',
   'workbench.settings.backendPane.remove.body.suffix':
     '，其中 {workspaces} 已同步到这台设备。它自己的数据绝不会被触碰——请选择本地副本的去向。',
   'workbench.settings.backendPane.remove.outcomeAria': '移除结果',
@@ -125,11 +124,11 @@ export const workbenchSettingsPanes = {
     '{orgs} 停止同步。{workspaces} 作为离线本地数据留在这台设备上。',
   'workbench.settings.backendPane.remove.discard.title': '丢弃本地副本',
   'workbench.settings.backendPane.remove.discard.description':
-    '每个工作区先备份到下载文件，然后从这台设备删除。之后重新加入该后端会把它们重新同步下来。',
+    '每个工作区先备份到下载文件，然后从这台设备删除。之后重新连接会把它们重新同步下来。',
   'workbench.settings.backendPane.remove.discard.includeSecrets': '在备份文件中包含 vault 机密（明文——请妥善保管文件）',
-  'workbench.settings.backendPane.remove.removeBackend': '移除后端',
+  'workbench.settings.backendPane.remove.removeBackend': '移除连接',
   'workbench.settings.backendPane.remove.backupThenRemove': '先备份，再移除',
-  'workbench.settings.backendPane.remove.progress.removing': '正在移除后端…',
+  'workbench.settings.backendPane.remove.progress.removing': '正在移除连接…',
   'workbench.settings.backendPane.remove.progress.preparing': '正在准备备份…',
   'workbench.settings.backendPane.remove.progress.backingUp': '正在备份“{name}”…',
   'workbench.settings.backendPane.remove.progress.deleting': '正在删除“{name}”…',
@@ -204,7 +203,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': '允许 LAN 对等方',
   'workbench.settings.backendPane.lan.confirmCancel': '仅保留环回',
   'workbench.settings.backendPane.lan.confirmBody':
-    '桌面后端将绑定每个本地网络接口，使你网络上的其他设备可以连接。每条连接——无论 LAN 还是环回——都必须出示已配对的身份验证 token；没有免 token 的通道。设备用应用显示的配对码配对（或把 token 粘贴到备份与同步 › 同步）。',
+    '桌面端应用将在每个本地网络接口上监听，使你网络上的其他设备可以连接。每条连接——无论来自你的网络还是这台电脑——都必须出示已配对的 token；没有免 token 的通道。设备用应用显示的配对码配对（或把 token ' +
+    '粘贴到备份与同步 › 同步）。',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':

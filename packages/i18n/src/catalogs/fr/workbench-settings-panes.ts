@@ -114,7 +114,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.autoConnect': 'Connexion automatique',
   'workbench.settings.backendPane.connections.orgConflict':
     "L'Org « {org} » est déjà fournie par {provider} — non jointe",
-  'workbench.settings.backendPane.connections.removedBackend': 'un back-end supprimé',
+  'workbench.settings.backendPane.connections.removedBackend': 'une connexion supprimée',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': 'Connexion à {label}…',
@@ -128,15 +128,13 @@ export const workbenchSettingsPanes = {
     "Son adresse et son appairage sont oubliés. Rien n'en a encore été synchronisé.",
   'workbench.settings.backendPane.remove.aria': 'Supprimer {label}',
   'workbench.settings.backendPane.remove.removed': '{label} supprimé.',
-  'workbench.settings.backendPane.remove.tooltip':
-    'Supprimer ce back-end — vous choisissez le sort de ses espaces de travail synchronisés',
   'workbench.settings.backendPane.remove.workspaceCount': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} espace de travail',
       many: '{count} espaces de travail',
       other: '{count} espaces de travail',
     }),
-  'workbench.settings.backendPane.remove.body.prefix': 'Ce back-end fournit',
+  'workbench.settings.backendPane.remove.body.prefix': 'Cette connexion fournit',
   'workbench.settings.backendPane.remove.body.suffix':
     'avec {workspaces} synchronisés sur cet appareil. Ses propres données ne sont jamais touchées — choisissez ' +
     'le sort des copies locales.',
@@ -148,13 +146,13 @@ export const workbenchSettingsPanes = {
     'ligne.',
   'workbench.settings.backendPane.remove.discard.title': 'Abandonner les copies locales',
   'workbench.settings.backendPane.remove.discard.description':
-    "Chaque espace de travail est d'abord sauvegardé dans un fichier téléchargé, puis supprimé de cet " +
-    'appareil. Rejoindre le back-end plus tard les synchronise à nouveau.',
+    "Chaque espace de travail est d'abord sauvegardé dans un fichier téléchargé, puis supprimé de cet appareil. Se " +
+    'reconnecter plus tard les synchronise à nouveau.',
   'workbench.settings.backendPane.remove.discard.includeSecrets':
     'Inclure les secrets du vault dans les fichiers de sauvegarde (en clair — gardez les fichiers en sécurité)',
-  'workbench.settings.backendPane.remove.removeBackend': 'Supprimer le back-end',
+  'workbench.settings.backendPane.remove.removeBackend': 'Supprimer la connexion',
   'workbench.settings.backendPane.remove.backupThenRemove': 'Sauvegarder, puis supprimer',
-  'workbench.settings.backendPane.remove.progress.removing': 'Suppression du back-end…',
+  'workbench.settings.backendPane.remove.progress.removing': 'Suppression de la connexion…',
   'workbench.settings.backendPane.remove.progress.preparing': 'Préparation des sauvegardes…',
   'workbench.settings.backendPane.remove.progress.backingUp': 'Sauvegarde de « {name} »…',
   'workbench.settings.backendPane.remove.progress.deleting': 'Suppression de « {name} »…',
@@ -243,10 +241,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': 'Autoriser les pairs LAN',
   'workbench.settings.backendPane.lan.confirmCancel': 'Garder le loopback uniquement',
   'workbench.settings.backendPane.lan.confirmBody':
-    'Le back-end de bureau se liera à chaque interface réseau locale pour que les autres appareils de votre ' +
-    'réseau puissent se connecter. Chaque connexion — LAN ou loopback — doit présenter un jeton ' +
-    "d'authentification appairé ; il n'existe aucun chemin sans jeton. Les appareils s'appairent avec le code " +
-    "que l'application affiche (ou collez un jeton dans Sauvegarde et synchronisation › Synchronisation).",
+    "L'application de bureau écoutera sur chaque interface réseau locale pour que les autres appareils de votre " +
+    'réseau puissent se connecter. Chaque connexion, depuis votre réseau ou depuis cet ordinateur, doit présenter ' +
+    "un jeton appairé ; il n'existe aucun chemin sans jeton. Les appareils s'appairent avec le code que " +
+    "l'application affiche (ou collez un jeton dans Sauvegarde et synchronisation › Synchronisation).",
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':

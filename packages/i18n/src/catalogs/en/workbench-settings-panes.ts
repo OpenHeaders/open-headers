@@ -87,7 +87,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.autoConnect': 'Auto-connect',
   'workbench.settings.backendPane.connections.orgConflict':
     'Org “{org}” is already provided by {provider} — not joined',
-  'workbench.settings.backendPane.connections.removedBackend': 'a removed back-end',
+  'workbench.settings.backendPane.connections.removedBackend': 'a removed connection',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': 'Connecting to {label}…',
@@ -101,11 +101,9 @@ export const workbenchSettingsPanes = {
     'Its address and pairing are forgotten. Nothing was synced from it yet.',
   'workbench.settings.backendPane.remove.aria': 'Remove {label}',
   'workbench.settings.backendPane.remove.removed': 'Removed {label}.',
-  'workbench.settings.backendPane.remove.tooltip':
-    'Remove this back-end — you choose what happens to its synced workspaces',
   'workbench.settings.backendPane.remove.workspaceCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} workspace', other: '{count} workspaces' }),
-  'workbench.settings.backendPane.remove.body.prefix': 'This back-end provides',
+  'workbench.settings.backendPane.remove.body.prefix': 'This connection provides',
   'workbench.settings.backendPane.remove.body.suffix':
     'with {workspaces} synced to this device. Its own data is never touched — choose what happens to the local copies.',
   'workbench.settings.backendPane.remove.outcomeAria': 'Removal outcome',
@@ -115,12 +113,13 @@ export const workbenchSettingsPanes = {
     '{orgs} stop syncing. The {workspaces} stay on this device as offline local data.',
   'workbench.settings.backendPane.remove.discard.title': 'Discard local copies',
   'workbench.settings.backendPane.remove.discard.description':
-    'Each workspace is first backed up to a downloaded file, then deleted from this device. Re-joining the back-end later syncs them down again.',
+    'Each workspace is first backed up to a downloaded file, then deleted from this device. Connecting again later ' +
+    'syncs them down again.',
   'workbench.settings.backendPane.remove.discard.includeSecrets':
     'Include vault secrets in the backup files (plaintext — keep the files safe)',
-  'workbench.settings.backendPane.remove.removeBackend': 'Remove back-end',
+  'workbench.settings.backendPane.remove.removeBackend': 'Remove connection',
   'workbench.settings.backendPane.remove.backupThenRemove': 'Back up, then remove',
-  'workbench.settings.backendPane.remove.progress.removing': 'Removing back-end…',
+  'workbench.settings.backendPane.remove.progress.removing': 'Removing connection…',
   'workbench.settings.backendPane.remove.progress.preparing': 'Preparing backups…',
   'workbench.settings.backendPane.remove.progress.backingUp': 'Backing up "{name}"…',
   'workbench.settings.backendPane.remove.progress.deleting': 'Deleting "{name}"…',
@@ -204,7 +203,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': 'Allow LAN peers',
   'workbench.settings.backendPane.lan.confirmCancel': 'Keep loopback only',
   'workbench.settings.backendPane.lan.confirmBody':
-    'The desktop back-end will bind every local network interface so other devices on your network can connect. Every connection — LAN or loopback — must present a paired auth token; there is no token-free path. Devices pair with the code the app shows (or paste a token into Backup and Sync › Sync).',
+    'The desktop app will listen on every local network interface so other devices on your network can connect. ' +
+    'Every connection, from your network or from this computer, must present a paired token; there is no ' +
+    'token-free path. Devices pair with the code the app shows (or paste a token into Backup and Sync › Sync).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':
