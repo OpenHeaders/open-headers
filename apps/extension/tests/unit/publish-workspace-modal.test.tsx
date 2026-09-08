@@ -42,7 +42,15 @@ window.matchMedia = ((query: string) => ({
   dispatchEvent: () => false,
 })) as typeof window.matchMedia;
 
-afterEach(cleanup);
+afterEach(async () => {
+  cleanup();
+  // antd's Form debounces its error list on a 10 ms timer through a
+  // delay-state hook that never clears on unmount; after the file's
+  // last case the timer can fire into a torn-down jsdom (`window is
+  // not defined`, a CI shard failure). Let it elapse while the
+  // environment stands.
+  await new Promise<void>((resolve) => setTimeout(resolve, 20));
+});
 
 const SOURCE: ExtensionWorkspace = {
   schemaVersion: 5,
