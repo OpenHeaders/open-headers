@@ -100,6 +100,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.menu.edit': 'Modifier…',
   'workbench.settings.backendPane.connections.menu.remove': 'Supprimer…',
   'workbench.settings.backendPane.connections.place.desktopApp': 'Application de bureau sur cet ordinateur',
+  'workbench.settings.backendPane.placement.section': 'Nouveaux espaces de travail',
+  'workbench.settings.backendPane.placement.label': 'Où ils vont',
+  'workbench.settings.backendPane.placement.description':
+    'Changez-le à tout moment. Les espaces de travail existants restent où ils sont.',
   'workbench.settings.backendPane.connections.writeFailed': 'Impossible d’enregistrer la connexion',
   'workbench.settings.backendPane.connections.status.connected': 'Connecté',
   'workbench.settings.backendPane.connections.status.connecting': 'Connexion…',

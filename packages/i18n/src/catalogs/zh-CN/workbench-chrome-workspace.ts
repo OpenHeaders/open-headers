@@ -123,8 +123,6 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deletedElsewhere': '此工作区已在另一个标签页中被删除',
   'workbench.workspace.updateFailed': '更新工作区失败',
   'workbench.workspace.updateFailedWithMessage': '更新工作区失败：{message}',
-  'workbench.workspace.newWorkspacesGoTo': '新工作区归入',
-  'workbench.workspace.orgPrefHint': '随时可以更改——现有工作区保持原位。',
   'workbench.workspace.otherWorkspaces': '其他工作区',
   'workbench.workspace.dragToReorder': '拖动以重新排序',
   'workbench.workspace.activePill': '活动',

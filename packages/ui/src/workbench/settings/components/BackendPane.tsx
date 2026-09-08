@@ -27,6 +27,7 @@ import { useOpenServerAdmin } from '../../hooks/OpenServerAdminContext';
 import { hostJoinsBackends } from '../schema/backend';
 import type { CategoryPaneProps } from '../types';
 import { BackendConnectionsList } from './backend-connections-list';
+import { BackendPlacementRow } from './backend-placement-row';
 import { BackendServedRow } from './backend-served-row';
 import { BackendTierZeroCard } from './backend-tier-zero-card';
 import { Pane, PaneHeader, PaneSection } from './pane-chrome';
@@ -58,6 +59,8 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category }) => {
           <BackendServedRow administer={administer} />
         </PaneSection>
       )}
+
+      <BackendPlacementRow />
     </Pane>
   );
 };

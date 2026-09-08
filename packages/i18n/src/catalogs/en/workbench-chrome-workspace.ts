@@ -124,8 +124,6 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deletedElsewhere': 'This workspace was deleted from another tab',
   'workbench.workspace.updateFailed': 'Failed to update workspace',
   'workbench.workspace.updateFailedWithMessage': 'Failed to update workspace: {message}',
-  'workbench.workspace.newWorkspacesGoTo': 'New workspaces go to',
-  'workbench.workspace.orgPrefHint': 'Change it anytime — existing workspaces stay where they are.',
   'workbench.workspace.otherWorkspaces': 'Other workspaces',
   'workbench.workspace.dragToReorder': 'Drag to reorder',
   'workbench.workspace.activePill': 'Active',

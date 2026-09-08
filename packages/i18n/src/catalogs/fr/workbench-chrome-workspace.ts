@@ -130,8 +130,6 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deletedElsewhere': 'Cet espace de travail a été supprimé depuis un autre onglet',
   'workbench.workspace.updateFailed': "Échec de la mise à jour de l'espace de travail",
   'workbench.workspace.updateFailedWithMessage': "Échec de la mise à jour de l'espace de travail : {message}",
-  'workbench.workspace.newWorkspacesGoTo': 'Les nouveaux espaces de travail vont dans',
-  'workbench.workspace.orgPrefHint': 'Changez-le à tout moment — les espaces de travail existants restent où ils sont.',
   'workbench.workspace.otherWorkspaces': 'Autres espaces de travail',
   'workbench.workspace.dragToReorder': 'Glissez pour réordonner',
   'workbench.workspace.activePill': 'Actif',

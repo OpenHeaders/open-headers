@@ -30,15 +30,14 @@ import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } f
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getCapability } from '@openheaders/core/capabilities';
-import { type IdentitySnapshot, type OrgDescriptor, orgCatalogue } from '@openheaders/core/identity';
+import { type OrgDescriptor, orgCatalogue } from '@openheaders/core/identity';
 import type { BackendReach } from '@openheaders/core/protocol';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { usePublishTargets } from '@openheaders/ui/shared/backend';
 import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
-import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
-import { orgChoiceCatalogue, resolveNewWorkspaceOrgId } from '@openheaders/ui/shared/workspace-org/org-choice';
+import { orgChoiceCatalogue } from '@openheaders/ui/shared/workspace-org/org-choice';
 import { orgFullLabelText } from '@openheaders/ui/shared/workspace-org/org-copy';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
@@ -89,10 +88,11 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   // host's OWN bind tier (self entry).
   const { self: reach } = useBackendReach();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
-  // Org-choice surfaces (the new-workspace preference, Duplicate-into)
-  // offer the clamped set — server Orgs only on the joined web host;
-  // the grouped LIST below keeps the full catalogue, since a workspace
-  // that exists still needs its Org section rendered.
+  // Org-choice surfaces (Duplicate-into; the new-workspace placement
+  // row lives on Backup and Sync › Sync) offer the clamped set — server
+  // Orgs only on the joined web host; the grouped LIST below keeps the
+  // full catalogue, since a workspace that exists still needs its Org
+  // section rendered.
   const orgChoices = useMemo(() => orgChoiceCatalogue(catalogue), [catalogue]);
 
   // Publish = Duplicate-into pointed at a joined Org. A workspace's own
@@ -234,8 +234,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
       <HomeOrgIdentityCard />
 
-      <NewWorkspaceOrgPreference snapshot={snapshot} catalogue={orgChoices} reach={reach} />
-
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -357,63 +355,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           return false;
         }}
       />
-    </div>
-  );
-};
-
-// ── New-workspace Org preference ────────────────────────────────────
-//
-// Where newly-created workspaces bind by default. Shown only once the
-// identity holds more than one Org — with a single Org there is nothing
-// to choose. The resolved value falls back to the widest-reach Org
-// (`defaultNewWorkspaceOrgId`) when the user has set no explicit
-// preference, so the control always reflects what creation will do.
-
-const NewWorkspaceOrgPreference: React.FC<{
-  snapshot: IdentitySnapshot | null;
-  catalogue: OrgDescriptor[];
-  reach: BackendReach | null;
-}> = ({ snapshot, catalogue, reach }) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  const { prefs, isReady, setDefaultNewWorkspaceOrgId } = useOrgBindingPrefs();
-
-  if (catalogue.length <= 1) return null;
-  const resolved = resolveNewWorkspaceOrgId(snapshot, prefs.defaultNewWorkspaceOrgId);
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        flexWrap: 'wrap',
-        margin: '4px 0 16px',
-        padding: '8px 12px',
-        border: `1px solid ${token.colorBorderSecondary}`,
-        borderRadius: token.borderRadius,
-      }}
-    >
-      <Text style={{ fontSize: 13, flexShrink: 0 }}>{t('workbench.workspace.newWorkspacesGoTo')}</Text>
-      <Select
-        size="small"
-        value={resolved ?? undefined}
-        disabled={!isReady}
-        onChange={(orgId) => void setDefaultNewWorkspaceOrgId(orgId)}
-        style={{ minWidth: 200 }}
-        options={catalogue.map((descriptor) => ({
-          value: descriptor.id,
-          label: (
-            <Space size={6}>
-              <OrgIcon descriptor={descriptor} size={13} />
-              {orgFullLabelText(t, descriptor, reach)}
-            </Space>
-          ),
-        }))}
-      />
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        {t('workbench.workspace.orgPrefHint')}
-      </Text>
     </div>
   );
 };

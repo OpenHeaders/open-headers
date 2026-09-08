@@ -133,8 +133,6 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.deletedElsewhere': 'Dieser Arbeitsbereich wurde aus einem anderen Tab gelöscht',
   'workbench.workspace.updateFailed': 'Arbeitsbereich konnte nicht aktualisiert werden',
   'workbench.workspace.updateFailedWithMessage': 'Arbeitsbereich konnte nicht aktualisiert werden: {message}',
-  'workbench.workspace.newWorkspacesGoTo': 'Neue Arbeitsbereiche gehen an',
-  'workbench.workspace.orgPrefHint': 'Jederzeit änderbar — bestehende Arbeitsbereiche bleiben, wo sie sind.',
   'workbench.workspace.otherWorkspaces': 'Weitere Arbeitsbereiche',
   'workbench.workspace.dragToReorder': 'Ziehe zum Neuordnen',
   'workbench.workspace.activePill': 'Aktiv',
