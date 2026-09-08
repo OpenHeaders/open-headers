@@ -197,7 +197,7 @@ describe('buildChainFetchAdapter', () => {
     getGraphqlRequestInWorkspaceMock.mockReturnValue(graphql);
     runStepRequestMock.mockResolvedValue(makeSnapshot());
     const adapter = buildChainFetchAdapter({ workspaceId: 'ws-1', environmentId: null, transport });
-    await adapter.executeStep(makeStep({ requestUid: 'gqlviewer' }), {});
+    await adapter.executeStep(makeStep({ requestUid: 'gqlviewer' }), new Map(), ctx);
     expect(getGraphqlRequestInWorkspaceMock).toHaveBeenCalledWith('gqlviewer', 'ws-1');
     const compiled = runStepRequestMock.mock.calls[0]?.[0] as Request;
     expect(compiled.uid).toBe('gqlviewer');

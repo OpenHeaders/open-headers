@@ -15,7 +15,7 @@
  * state is exposed via `aria-disabled` + the native `disabled` property.
  */
 
-import type { LiveWorkflow, Request } from '@openheaders/core/types';
+import type { GraphqlRequest, LiveWorkflow, Request } from '@openheaders/core/types';
 import { cleanup, render, screen } from '@testing-library/react';
 import { App } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -106,8 +106,14 @@ function makeRequest(overrides: Partial<Request> = {}): Request {
 // Mutable so a test can simulate the fixture step's request being
 // deleted. Defaults to the request the workflow fixture's step points
 // at, so the non-deletion cases render with no validity error.
-let requestsState: { requests: Request[]; collectionTrees: unknown[]; isReady: boolean } = {
+let requestsState: {
+  requests: Request[];
+  graphqlRequests: GraphqlRequest[];
+  collectionTrees: unknown[];
+  isReady: boolean;
+} = {
   requests: [makeRequest()],
+  graphqlRequests: [],
   collectionTrees: [],
   isReady: true,
 };
@@ -130,7 +136,7 @@ const testIdentity = resolveWorkbenchIdentity();
 
 afterEach(() => {
   cleanup();
-  requestsState = { requests: [makeRequest()], collectionTrees: [], isReady: true };
+  requestsState = { requests: [makeRequest()], graphqlRequests: [], collectionTrees: [], isReady: true };
 });
 
 function renderEditor() {
@@ -162,14 +168,14 @@ describe('LiveWorkflowEditor — deleted-request validity', () => {
 
   it('flags the step when its backing request was deleted', () => {
     // Request gone from the store, registry hydrated (`isReady`).
-    requestsState = { requests: [], collectionTrees: [], isReady: true };
+    requestsState = { requests: [], graphqlRequests: [], collectionTrees: [], isReady: true };
     const { container } = renderEditor();
     expect(container.querySelector('.ant-select-status-error')).not.toBeNull();
   });
 
   it('does not flag the step while the request store is still loading', () => {
     // Empty requests but NOT ready — a cold store must not false-flag.
-    requestsState = { requests: [], collectionTrees: [], isReady: false };
+    requestsState = { requests: [], graphqlRequests: [], collectionTrees: [], isReady: false };
     const { container } = renderEditor();
     expect(container.querySelector('.ant-select-status-error')).toBeNull();
   });
