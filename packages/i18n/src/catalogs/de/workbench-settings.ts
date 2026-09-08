@@ -76,29 +76,28 @@ export const workbenchSettings = {
   // ── Categories ─────────────────────────────────────────────────────
   'workbench.settings.category.connectivity.label': 'Konnektivität',
   'workbench.settings.category.connectivity.description':
-    'Wie dieser Host andere erreicht – die Back-ends, mit denen er sich verbindet, und die Proxys dazwischen.',
-  'workbench.settings.category.backend.label': 'Back-end',
+    'Wie Anfragen von diesem Gerät ins Netzwerk gelangen – und die Proxys dazwischen.',
+  'workbench.settings.category.backend.label': 'Sicherung und Synchronisierung',
   'workbench.settings.category.backend.description':
-    'Wo deine Arbeitsbereiche, Regeln, dein vault und dein Verlauf leben. Wähle den Host, der zu deiner ' +
-    'Reichweite passt — so oder so nur lokal.',
-  'workbench.settings.category.backendConnections.label': 'Verbindungen',
+    'Wo deine Arbeitsbereiche gesichert und synchronisiert werden – die Desktop-App auf diesem Computer oder ein Server, den du oder dein Team betreibt.',
+  'workbench.settings.category.backendConnections.label': 'Synchronisierung',
   'workbench.settings.category.backendConnections.description':
-    'Die immer aktive lokale Engine und die Back-ends, mit denen sich dieser Host verbindet.',
-  'workbench.settings.category.backendServer.label': 'Server',
+    'Die Orte, mit denen sich deine Arbeitsbereiche synchronisieren, und wie du dich dort anmeldest.',
+  'workbench.settings.category.backendServer.label': 'Deine Geräte',
   'workbench.settings.category.backendServer.description':
-    'Diese App als Server: wer in deinem Netzwerk sich verbinden darf, was verbundene Peers hier ausführen dürfen und welche Geräte du gekoppelt hast.',
+    'Lass deine anderen Geräte sich mit diesem Computer synchronisieren und sieh die Geräte, die du gekoppelt hast.',
   'workbench.settings.category.backendServer.sub.network': 'Netzwerk',
   'workbench.settings.category.backendServer.sub.peer-requests': 'Anfragen von Peers',
   'workbench.settings.category.backendServer.sub.devices': 'Geräte',
-  'workbench.settings.category.backendPairing.label': 'Desktop-Kopplung',
+  'workbench.settings.category.backendPairing.label': 'Desktop-App',
   'workbench.settings.category.backendPairing.description':
-    'Wie sich dieser Browser mit der Open Headers Desktop-App auf diesem Computer koppelt und was eine gekoppelte App sehen darf.',
+    'Wie sich dieser Browser mit der Desktop-App auf diesem Computer verbindet und was die App sehen darf.',
   'workbench.settings.category.backendPairing.sub.automatic': 'Automatisch',
   'workbench.settings.category.backendPairing.sub.policy': 'Richtlinie',
   'workbench.settings.category.backendPairing.sub.sharing': 'Freigabe',
-  'workbench.settings.category.backendReliability.label': 'Zuverlässigkeit',
+  'workbench.settings.category.backendReliability.label': 'Erweitert',
   'workbench.settings.category.backendReliability.description':
-    'Wiederverbindungsverhalten und Offline-Ausweichen für jede Back-end-Verbindung.',
+    'Wiederverbindung, Status und Offline-Ausweichen für jede Synchronisierungsverbindung.',
   'workbench.settings.category.backendReliability.sub.reconnection': 'Wiederverbindung',
   'workbench.settings.category.backendReliability.sub.status': 'Status',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Offline-Ausweichen',
@@ -241,7 +240,7 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import-Vorschau',
   'workbench.settings.category.versionControl.label': 'Versionsverwaltung',
   'workbench.settings.category.versionControl.description':
-    'Git-gestützte Arbeitsbereiche und der Export-/Import-Pfad, der einen Arbeitsbereich ohne Git teilt.',
+    'Git-gestützte Arbeitsbereiche – der Verlauf und der Arbeitsbaum dahinter.',
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Binde diesen Arbeitsbereich an einen Ordner auf der Festplatte — einen lebendigen, git-freundlichen ' +

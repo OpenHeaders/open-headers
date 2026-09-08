@@ -77,29 +77,28 @@ export const workbenchSettings = {
   // ── Categories ─────────────────────────────────────────────────────
   'workbench.settings.category.connectivity.label': 'Conectividad',
   'workbench.settings.category.connectivity.description':
-    'Cómo este host llega a los demás: los back-ends a los que se conecta y los proxies intermedios.',
-  'workbench.settings.category.backend.label': 'Backend',
+    'Cómo las solicitudes de este dispositivo llegan a la red, y los proxies intermedios.',
+  'workbench.settings.category.backend.label': 'Copia de seguridad y sincronización',
   'workbench.settings.category.backend.description':
-    'Donde viven tus espacios de trabajo, reglas, vault e historial. Elige el host que llegue tan lejos como ' +
-    'necesites — solo local en cualquier caso.',
-  'workbench.settings.category.backendConnections.label': 'Conexiones',
+    'Dónde se respaldan y sincronizan tus espacios de trabajo: la aplicación de escritorio en este equipo, o un servidor que gestionas tú o tu equipo.',
+  'workbench.settings.category.backendConnections.label': 'Sincronización',
   'workbench.settings.category.backendConnections.description':
-    'El motor local siempre activo y los back-ends a los que se conecta este host.',
-  'workbench.settings.category.backendServer.label': 'Servidor',
+    'Los lugares con los que se sincronizan tus espacios de trabajo, y cómo inicias sesión en ellos.',
+  'workbench.settings.category.backendServer.label': 'Tus dispositivos',
   'workbench.settings.category.backendServer.description':
-    'Esta aplicación como servidor: quién de tu red puede conectarse, qué pueden ejecutar aquí los pares conectados y los dispositivos que has emparejado.',
+    'Permite que tus otros dispositivos se sincronicen con este equipo, y consulta los dispositivos que has emparejado.',
   'workbench.settings.category.backendServer.sub.network': 'Red',
   'workbench.settings.category.backendServer.sub.peer-requests': 'Solicitudes de pares',
   'workbench.settings.category.backendServer.sub.devices': 'Dispositivos',
-  'workbench.settings.category.backendPairing.label': 'Emparejamiento de escritorio',
+  'workbench.settings.category.backendPairing.label': 'Aplicación de escritorio',
   'workbench.settings.category.backendPairing.description':
-    'Cómo se empareja este navegador con la aplicación de escritorio de Open Headers en este equipo, y qué puede ver una aplicación emparejada.',
+    'Cómo se conecta este navegador con la aplicación de escritorio en este equipo, y qué puede ver la aplicación.',
   'workbench.settings.category.backendPairing.sub.automatic': 'Automático',
   'workbench.settings.category.backendPairing.sub.policy': 'Política',
   'workbench.settings.category.backendPairing.sub.sharing': 'Uso compartido',
-  'workbench.settings.category.backendReliability.label': 'Fiabilidad',
+  'workbench.settings.category.backendReliability.label': 'Avanzado',
   'workbench.settings.category.backendReliability.description':
-    'Comportamiento de reconexión y respaldo sin conexión para todas las conexiones al back-end.',
+    'Reconexión, estado y respaldo sin conexión para cada conexión de sincronización.',
   'workbench.settings.category.backendReliability.sub.reconnection': 'Reconexión',
   'workbench.settings.category.backendReliability.sub.status': 'Estado',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Respaldo sin conexión',
@@ -249,7 +248,7 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Vista previa de importación',
   'workbench.settings.category.versionControl.label': 'Control de versiones',
   'workbench.settings.category.versionControl.description':
-    'Espacios de trabajo respaldados por Git y la ruta de exportación/importación que comparte un espacio de trabajo sin él.',
+    'Espacios de trabajo respaldados por Git: el historial y el árbol de trabajo detrás de ellos.',
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Vincula este espacio de trabajo a una carpeta en disco — un árbol YAML vivo y compatible con git.',

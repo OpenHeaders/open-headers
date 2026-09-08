@@ -31,7 +31,7 @@ describe('application settings group', () => {
     expect(getCategory('about')?.when).toBeUndefined();
   });
 
-  it('the nav has exactly nine roots in the settled order', () => {
+  it('the nav has exactly ten roots in the settled order', () => {
     const roots = allCategories()
       .filter((c) => c.parent === undefined)
       .map((c) => c.id);
@@ -43,6 +43,7 @@ describe('application settings group', () => {
       'requests',
       'versionControl',
       'tools',
+      'backend',
       'connectivity',
       'application',
     ]);

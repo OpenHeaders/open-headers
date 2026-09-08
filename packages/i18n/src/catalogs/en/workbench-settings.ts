@@ -63,28 +63,28 @@ export const workbenchSettings = {
   // ── Categories ─────────────────────────────────────────────────────
   'workbench.settings.category.connectivity.label': 'Connectivity',
   'workbench.settings.category.connectivity.description':
-    'How this host reaches other things — the back-ends it connects to and the proxies in between.',
-  'workbench.settings.category.backend.label': 'Backend',
+    'How requests from this device reach the network, and the proxies in between.',
+  'workbench.settings.category.backend.label': 'Backup and Sync',
   'workbench.settings.category.backend.description':
-    'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
-  'workbench.settings.category.backendConnections.label': 'Connections',
+    'Where your workspaces are backed up and synced — the desktop app on this computer, or a server you or your team run.',
+  'workbench.settings.category.backendConnections.label': 'Sync',
   'workbench.settings.category.backendConnections.description':
-    'The always-on local engine and the back-ends this host connects to.',
-  'workbench.settings.category.backendServer.label': 'Server',
+    'The places your workspaces sync with, and how you sign in to them.',
+  'workbench.settings.category.backendServer.label': 'Your devices',
   'workbench.settings.category.backendServer.description':
-    'This app as a server: who on your network may connect, what connected peers may run here, and the devices you have paired.',
+    'Let your other devices sync with this computer, and see the devices you have paired.',
   'workbench.settings.category.backendServer.sub.network': 'Network',
   'workbench.settings.category.backendServer.sub.peer-requests': 'Requests from peers',
   'workbench.settings.category.backendServer.sub.devices': 'Devices',
-  'workbench.settings.category.backendPairing.label': 'Desktop Pairing',
+  'workbench.settings.category.backendPairing.label': 'Desktop app',
   'workbench.settings.category.backendPairing.description':
-    'How this browser pairs with the Open Headers desktop app on this computer, and what a paired app may see.',
+    'How this browser connects to the desktop app on this computer, and what the app may see.',
   'workbench.settings.category.backendPairing.sub.automatic': 'Automatic',
   'workbench.settings.category.backendPairing.sub.policy': 'Policy',
   'workbench.settings.category.backendPairing.sub.sharing': 'Sharing',
-  'workbench.settings.category.backendReliability.label': 'Reliability',
+  'workbench.settings.category.backendReliability.label': 'Advanced',
   'workbench.settings.category.backendReliability.description':
-    'Reconnection behavior and offline fallback for every back-end connection.',
+    'Reconnection, status, and offline fallback for every sync connection.',
   'workbench.settings.category.backendReliability.sub.reconnection': 'Reconnection',
   'workbench.settings.category.backendReliability.sub.status': 'Status',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Offline fallback',
@@ -221,7 +221,7 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.sub.importPreview': 'Import Preview',
   'workbench.settings.category.versionControl.label': 'Version Control',
   'workbench.settings.category.versionControl.description':
-    'Git-backed workspaces, and the export/import path that shares a workspace without one.',
+    'Git-backed workspaces — the history and the working tree behind them.',
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Bind this workspace to an on-disk folder — a live, git-friendly YAML tree.',

@@ -1,8 +1,8 @@
 /**
- * Connectivity settings group — pins the regroup of the Backend group
- * (every host) and the Proxy group (desktop / daemon admin, teasered
- * elsewhere) under one ungated group node; both keep their own children
- * one level deeper.
+ * Connectivity settings group — pins the ungated group node over the
+ * Proxy group (desktop / daemon admin, teasered elsewhere), which keeps
+ * its own children one level deeper. Backup and Sync left it for a root
+ * of its own; nothing sync-related nests here any more.
  */
 
 import '@openheaders/ui/workbench/settings/categories';
@@ -20,23 +20,20 @@ describe('connectivity settings group', () => {
     expect(byCategory('connectivity')).toHaveLength(0);
   });
 
-  it('backend then proxy are its children, with short nav labels', () => {
+  it('proxy is its only child, with a short nav label and its teaser', () => {
     const children = allCategories().filter((c) => c.parent === 'connectivity');
-    expect(children.map((c) => c.id)).toEqual(['backend', 'proxy']);
+    expect(children.map((c) => c.id)).toEqual(['proxy']);
     for (const child of children) expect(child.labelKey).toBeTruthy();
-    expect(getCategory('backend')?.when).toBeUndefined();
     expect(getCategory('proxy')?.teaserWhenUnavailable).toBe('proxy');
   });
 
-  it('both groups keep their own children one level deeper', () => {
+  it('proxy keeps its own children one level deeper', () => {
     const ordered = allCategories().map((c) => c.id);
-    const backendAt = ordered.indexOf('backend');
-    expect(ordered[backendAt + 1]).toBe('backendConnections');
     expect(ordered.slice(ordered.indexOf('proxy'), ordered.indexOf('proxy') + 3)).toEqual([
       'proxy',
       'proxyOutbound',
       'proxyTrust',
     ]);
-    expect(ordered.indexOf('connectivity')).toBeLessThan(backendAt);
+    expect(ordered.indexOf('connectivity')).toBeLessThan(ordered.indexOf('proxy'));
   });
 });

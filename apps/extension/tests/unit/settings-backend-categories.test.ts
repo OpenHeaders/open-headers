@@ -1,7 +1,8 @@
 /**
- * Backend settings group — pins the split of the old single Backend
- * page into child categories under the `backend` group node. Each child
- * declares its subcategories and every def it owns tags one of them, so
+ * Backup and Sync settings group — pins the `backend` root (the id never
+ * moved; only the labels say Backup and Sync) and the split of the old
+ * single page into its child categories. Each child declares its
+ * subcategories and every def it owns tags one of them, so
  * `CategoryPane` never renders an orphan list.
  */
 
@@ -21,9 +22,16 @@ function expectDefsTagDeclaredSubcategories(categoryId: string): void {
 }
 
 describe('backend settings group', () => {
-  it('backend is a group node with no defs of its own; connections is its first child', () => {
+  it('backend is an ungated root between tools and connectivity, with no defs of its own; sync is its first child', () => {
     const backend = getCategory('backend');
-    expect(backend?.parent).toBe('connectivity');
+    expect(backend?.parent).toBeUndefined();
+    expect(backend?.when).toBeUndefined();
+    expect(backend?.teaserWhenUnavailable).toBeUndefined();
+    const roots = allCategories()
+      .filter((c) => c.parent === undefined)
+      .map((c) => c.id);
+    expect(roots.indexOf('backend')).toBe(roots.indexOf('tools') + 1);
+    expect(roots.indexOf('connectivity')).toBe(roots.indexOf('backend') + 1);
     expect(backend?.renderPane).toBeDefined();
     expect(backend?.subcategories).toBeUndefined();
     expect(byCategory('backend')).toHaveLength(0);
@@ -35,6 +43,8 @@ describe('backend settings group', () => {
       .filter((c) => c.parent === 'backend')
       .map((c) => c.id);
     expect(children).toEqual(['backendConnections', 'backendPairing', 'backendServer', 'backendReliability']);
+    const ordered = allCategories().map((c) => c.id);
+    expect(ordered[ordered.indexOf('backend') + 1]).toBe('backendConnections');
   });
 
   it('nests the reliability page under the backend node', () => {

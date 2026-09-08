@@ -2,9 +2,9 @@
  * Category registry for the settings shell.
  *
  * Each entry becomes one row in the left nav, in `order` among its
- * siblings. The tree has nine roots — Appearance & Behavior, Keyboard,
- * Code Editor, Browser Interceptor, API Requests, Version Control,
- * Tools, Connectivity, Application — each group root a
+ * siblings. The tree has ten roots — Appearance & Behavior, Keyboard,
+ * Editor, Browser Interceptor, API Requests, Version Control, Tools,
+ * Backup and Sync, Connectivity, Application — each group root a
  * `GroupLandingPane` over its children (`parent`), nesting as deep as a
  * page needs. New categories declare their icon here and their
  * label/description as `workbench.settings.category.*` catalog keys;
@@ -21,7 +21,7 @@ import {
   CodeOutlined,
   BugOutlined,
   CloudDownloadOutlined,
-  CloudServerOutlined,
+  CloudSyncOutlined,
   DatabaseOutlined,
   DiffOutlined,
   DownloadOutlined,
@@ -66,21 +66,22 @@ registerCategory({
   icon: <GlobalOutlined />,
   order: 80,
   descriptionKey: 'workbench.settings.category.connectivity.description',
-  // Group node over how this host reaches other things: the Backend
-  // group (every host) and the Proxy group (desktop / daemon admin,
-  // teasered elsewhere). The group itself stays ungated.
+  // Group node over how requests leave this device: the Proxy group
+  // (desktop / daemon admin, teasered elsewhere). The group itself stays
+  // ungated.
   renderPane: GroupLandingPane,
 });
 
 registerCategory({
   id: 'backend',
   labelKey: 'workbench.settings.category.backend.label',
-  parent: 'connectivity',
-  icon: <CloudServerOutlined />,
-  order: 10,
+  icon: <CloudSyncOutlined />,
+  order: 75,
   descriptionKey: 'workbench.settings.category.backend.description',
-  // Group node over the back-end pages: Connections (every host), Desktop
-  // Pairing (extension), Server (desktop) and Reliability (every host).
+  // Group node over the sync pages: Sync (every host), Desktop app
+  // (extension), Your devices (desktop) and Advanced (every host). The
+  // id and its children's ids are the ones the deep links carry; only
+  // the labels say Backup and Sync.
   renderPane: GroupLandingPane,
 });
 
@@ -524,9 +525,8 @@ registerCategory({
   icon: <BranchesOutlined />,
   order: 60,
   descriptionKey: 'workbench.settings.category.versionControl.description',
-  // Group node over the two ways a workspace leaves this host: the Git
-  // binding (desktop) and the export/import path that shares a
-  // workspace without one (every host).
+  // Group node over the Git binding (desktop, teasered elsewhere) — the
+  // history and the working tree a workspace keeps on disk.
   renderPane: GroupLandingPane,
 });
 

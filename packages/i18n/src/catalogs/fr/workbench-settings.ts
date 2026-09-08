@@ -72,29 +72,28 @@ export const workbenchSettings = {
   // ── Categories ─────────────────────────────────────────────────────
   'workbench.settings.category.connectivity.label': 'Connectivité',
   'workbench.settings.category.connectivity.description':
-    'Comment cet hôte atteint le reste : les back-ends auxquels il se connecte et les proxys entre les deux.',
-  'workbench.settings.category.backend.label': 'Backend',
+    'Comment les requêtes de cet appareil atteignent le réseau, et les proxys entre les deux.',
+  'workbench.settings.category.backend.label': 'Sauvegarde et synchronisation',
   'workbench.settings.category.backend.description':
-    "Où vivent vos espaces de travail, règles, vault et historique. Choisissez l'hôte qui correspond à votre " +
-    'portée — local uniquement dans tous les cas.',
-  'workbench.settings.category.backendConnections.label': 'Connexions',
+    "Où vos espaces de travail sont sauvegardés et synchronisés : l'application de bureau sur cet ordinateur, ou un serveur que vous ou votre équipe faites tourner.",
+  'workbench.settings.category.backendConnections.label': 'Synchronisation',
   'workbench.settings.category.backendConnections.description':
-    'Le moteur local toujours actif et les back-ends auxquels cet hôte se connecte.',
-  'workbench.settings.category.backendServer.label': 'Serveur',
+    'Les endroits avec lesquels vos espaces de travail se synchronisent, et comment vous vous y connectez.',
+  'workbench.settings.category.backendServer.label': 'Vos appareils',
   'workbench.settings.category.backendServer.description':
-    'Cette application en tant que serveur : qui sur votre réseau peut se connecter, ce que les pairs connectés peuvent exécuter ici, et les appareils que vous avez appairés.',
+    'Laissez vos autres appareils se synchroniser avec cet ordinateur, et voyez les appareils que vous avez appairés.',
   'workbench.settings.category.backendServer.sub.network': 'Réseau',
   'workbench.settings.category.backendServer.sub.peer-requests': 'Requêtes des pairs',
   'workbench.settings.category.backendServer.sub.devices': 'Appareils',
-  'workbench.settings.category.backendPairing.label': 'Appairage bureau',
+  'workbench.settings.category.backendPairing.label': 'Application de bureau',
   'workbench.settings.category.backendPairing.description':
-    "Comment ce navigateur s'appaire avec l'application de bureau Open Headers sur cet ordinateur, et ce qu'une application appairée peut voir.",
+    "Comment ce navigateur se connecte à l'application de bureau sur cet ordinateur, et ce que l'application peut voir.",
   'workbench.settings.category.backendPairing.sub.automatic': 'Automatique',
   'workbench.settings.category.backendPairing.sub.policy': 'Politique',
   'workbench.settings.category.backendPairing.sub.sharing': 'Partage',
-  'workbench.settings.category.backendReliability.label': 'Fiabilité',
+  'workbench.settings.category.backendReliability.label': 'Avancé',
   'workbench.settings.category.backendReliability.description':
-    'Comportement de reconnexion et repli hors ligne pour chaque connexion au back-end.',
+    'Reconnexion, état et repli hors ligne pour chaque connexion de synchronisation.',
   'workbench.settings.category.backendReliability.sub.reconnection': 'Reconnexion',
   'workbench.settings.category.backendReliability.sub.status': 'État',
   'workbench.settings.category.backendReliability.sub.offline-fallback': 'Repli hors ligne',
@@ -239,7 +238,7 @@ export const workbenchSettings = {
   'workbench.settings.category.workspaceSharing.sub.importPreview': "Aperçu d'import",
   'workbench.settings.category.versionControl.label': 'Gestion de versions',
   'workbench.settings.category.versionControl.description':
-    'Espaces de travail adossés à Git et le chemin export/import qui partage un espace de travail sans lui.',
+    "Espaces de travail adossés à Git : l'historique et l'arborescence de travail derrière eux.",
   'workbench.settings.category.git.label': 'Git',
   'workbench.settings.category.git.description':
     'Liez cet espace de travail à un dossier sur disque — une arborescence YAML vivante, adaptée à git.',
