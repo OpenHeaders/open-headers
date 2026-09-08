@@ -249,7 +249,7 @@ describe('BackendWizard', () => {
     next();
     next();
 
-    expect(screen.getByText(/This is an additional back-end/)).toBeTruthy();
+    expect(screen.getByText(/This is an additional connection/)).toBeTruthy();
   });
 
   it('the first add carries no additional-connection note', async () => {
@@ -259,7 +259,7 @@ describe('BackendWizard', () => {
     next();
     next();
 
-    expect(screen.queryByText(/This is an additional back-end/)).toBeNull();
+    expect(screen.queryByText(/This is an additional connection/)).toBeNull();
   });
 
   it('a probe abort keeps the wizard open', async () => {

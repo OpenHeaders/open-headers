@@ -56,24 +56,20 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.next': 'Siguiente',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Terminar sin conectar',
   'workbench.settings.backendPane.wizard.connectIntro':
-    '¿Dónde marca este cliente al back-end? La conexión permanece apagada hasta que el paso final la ' + 'verifica.',
-  'workbench.settings.backendPane.wizard.pairIntro':
-    'Acredita este dispositivo ante el back-end — empareja con el código que muestra, o pega un token. ' +
-    'Puedes probar la conexión antes de activarla.',
+    'La dirección a la que se conecta este dispositivo. Nada se conecta hasta que el último paso la verifica.',
   'workbench.settings.backendPane.wizard.autoPairFallback':
     'El emparejamiento automático con la aplicación de escritorio no se completó — puede que no esté en ' +
     'ejecución, o que este navegador no se haya podido verificar. Empareja con el código o el token en su lugar.',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
-    'Listo: {label} en {url}, emparejado. Activarlo verifica primero la accesibilidad y la autenticación; si ' +
-    'todo va bien, sus espacios de trabajo se sincronizan y quedan utilizables sin conexión.',
+    'Listo: {label} en {url}, sesión iniciada. Conectar verifica primero la dirección y el inicio de sesión; ' +
+    'sus espacios de trabajo se sincronizan después y quedan utilizables sin conexión.',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    'Listo: {label} en {url} — aún SIN emparejar. Activarlo verifica primero la accesibilidad y la ' +
-    'autenticación; si todo va bien, sus espacios de trabajo se sincronizan y quedan utilizables sin ' +
-    'conexión.',
-  'workbench.settings.backendPane.wizard.additionalBackend':
-    'Este es un back-end adicional. Sus Orgs aparecen como grupos nuevos en el selector de espacios de ' +
-    'trabajo, el popover de estado gana una fila por back-end, y cada Org se sincroniza desde exactamente un ' +
-    'back-end — una Org ya proporcionada por otra conexión no se une dos veces.',
+    'Listo: {label} en {url} — aún sin iniciar sesión. Conectar verifica primero la dirección y el inicio de ' +
+    'sesión; sus espacios de trabajo se sincronizan después y quedan utilizables sin conexión.',
+  'workbench.settings.backendPane.wizard.additionalConnection':
+    'Esta es una conexión adicional. Sus espacios de trabajo aparecen como un grupo nuevo en el selector, el ' +
+    'popover de estado gana una fila para ella, y cada grupo se sincroniza desde exactamente un lugar — un ' +
+    'grupo que otra conexión ya proporciona no se une dos veces.',
   'workbench.settings.backendPane.wizard.disableFirst':
     '{label} está conectado. Editar la conexión es mover un cable con corriente, así que primero se ' +
     'desconecta — tus ajustes y el emparejamiento se conservan, y al reactivarla se verifica la nueva ' +
@@ -168,15 +164,17 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.pairWithCode': 'Emparejar con un código',
   'workbench.settings.backendPane.pair.pasteTokenTitle': 'Pegar un token',
   'workbench.settings.backendPane.pair.codeBlurb':
-    'Introduce el código que mostró el back-end. Lo cambiaremos por un token de autenticación y conectaremos ' +
-    'este navegador.',
+    'Introduce el código que muestra la aplicación de escritorio o el servidor. Se cambia por un token que ' +
+    'inicia la sesión de este dispositivo.',
   'workbench.settings.backendPane.pair.tokenBlurb':
-    'Pega el token que mostró el back-end — una rotación muestra el secreto nuevo una sola vez. Se guarda ' +
-    'como la credencial de este navegador.',
+    'Pega el token que muestra la aplicación de escritorio o el servidor — una rotación muestra el secreto ' +
+    'nuevo una sola vez. Se guarda como la credencial de este dispositivo.',
   'workbench.settings.backendPane.pair.codePlaceholder': 'Código de 6 dígitos',
   'workbench.settings.backendPane.pair.deviceNamePlaceholder': 'Nombre del dispositivo (opcional)',
-  'workbench.settings.backendPane.pair.codeRequired': 'Introduce el código de emparejamiento que muestra el back-end.',
-  'workbench.settings.backendPane.pair.pasteTokenRequired': 'Pega el token que mostró el back-end.',
+  'workbench.settings.backendPane.pair.codeRequired':
+    'Introduce el código de emparejamiento que muestra la aplicación de escritorio o el servidor.',
+  'workbench.settings.backendPane.pair.pasteTokenRequired':
+    'Pega el token que muestra la aplicación de escritorio o el servidor.',
   'workbench.settings.backendPane.pair.pairAction': 'Emparejar',
   'workbench.settings.backendPane.pair.saveToken': 'Guardar el token',
   'workbench.settings.backendPane.pair.tokenSaved': 'Token de autenticación guardado.',
@@ -186,10 +184,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unknown':
     'Ese código es desconocido o ha caducado. Pide un código nuevo y vuelve a intentarlo.',
   'workbench.settings.backendPane.pair.fail.expired':
-    'Ese código de emparejamiento ha caducado. Genera uno nuevo en el back-end.',
-  'workbench.settings.backendPane.pair.fail.consumed': 'Ese código ya se usó. Genera uno nuevo en el back-end.',
+    'Ese código de emparejamiento ha caducado. Genera uno nuevo en la aplicación de escritorio o el servidor.',
+  'workbench.settings.backendPane.pair.fail.consumed':
+    'Ese código ya se usó. Genera uno nuevo en la aplicación de escritorio o el servidor.',
   'workbench.settings.backendPane.pair.fail.unreachable':
-    'No se pudo alcanzar el back-end en {url}. ¿Está ejecutándose en esa dirección?',
+    'Nada respondió en {url}. ¿Está ejecutándose en esa dirección?',
   'workbench.settings.backendPane.pair.fail.generic': 'El emparejamiento falló. Vuelve a intentarlo.',
   'workbench.settings.backendPane.pair.nmRequired':
     'El emparejamiento manual con la aplicación de escritorio está desactivado: este navegador solo se conecta mediante emparejamiento verificado. Consulta el ajuste «Exigir emparejamiento verificado».',
@@ -197,18 +196,18 @@ export const workbenchSettingsPanes = {
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Nombre',
   'workbench.settings.backendPane.field.label.description':
-    'Cómo se llama este back-end en toda la aplicación. Por defecto, su dirección.',
+    'Cómo se llama esta conexión en toda la aplicación. Por defecto, su dirección.',
   'workbench.settings.backendPane.field.label.placeholder': 'VM del trabajo',
-  'workbench.settings.backendPane.field.label.aria': 'Nombre del back-end',
-  'workbench.settings.backendPane.field.url.label': 'Dirección del back-end',
+  'workbench.settings.backendPane.field.label.aria': 'Nombre de la conexión',
+  'workbench.settings.backendPane.field.url.label': 'Dirección',
   'workbench.settings.backendPane.field.url.description':
-    'Dónde marca este cliente al back-end. `ws://` para hosts locales / LAN, `wss://` para remotos.',
+    '`ws://` para este equipo o tu red, `wss://` para un servidor remoto.',
   'workbench.settings.backendPane.field.url.schemeAria': 'Esquema',
   'workbench.settings.backendPane.field.url.addressAria': 'Dirección',
   'workbench.settings.backendPane.field.url.portAria': 'Puerto',
-  'workbench.settings.backendPane.field.auth.label': 'Autenticación',
+  'workbench.settings.backendPane.field.auth.label': 'Inicio de sesión',
   'workbench.settings.backendPane.field.auth.description':
-    'Cómo se acredita este dispositivo ante el back-end. Empareja con un código, o pega un token ' + 'directamente.',
+    'Cómo inicia sesión este dispositivo. Empareja con un código, o pega un token directamente.',
   'workbench.settings.backendPane.field.auth.codeAria': 'Código de emparejamiento',
   'workbench.settings.backendPane.field.auth.tokenAria': 'Token de autenticación',
   'workbench.settings.backendPane.field.auth.tokenPlaceholder': 'Pega un token',

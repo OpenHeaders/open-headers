@@ -40,17 +40,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.next': 'Next',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Finish without connecting',
   'workbench.settings.backendPane.wizard.connectIntro':
-    'Where does this client dial the back-end? The connection stays off until the final step verifies it.',
-  'workbench.settings.backendPane.wizard.pairIntro':
-    'Prove this device to the back-end — pair with the code it displays, or paste a token. You can test the connection before turning it on.',
+    'The address this device connects to. Nothing connects until the last step verifies it.',
   'workbench.settings.backendPane.wizard.autoPairFallback':
     "Automatic pairing with the desktop app didn't go through — it may not be running, or this browser could not be verified. Pair with the code or token instead.",
   'workbench.settings.backendPane.wizard.readyIntroPaired':
-    'Ready: {label} at {url}, paired. Turning it on verifies reachability and authentication first; on success its workspaces sync down and stay usable offline.',
+    'Ready: {label} at {url}, signed in. Connect verifies the address and the sign-in first; its workspaces then sync down and stay usable offline.',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    'Ready: {label} at {url} — NOT paired yet. Turning it on verifies reachability and authentication first; on success its workspaces sync down and stay usable offline.',
-  'workbench.settings.backendPane.wizard.additionalBackend':
-    "This is an additional back-end. Its Orgs appear as new groups in the workspace switcher, the status popover gains a row per back-end, and each Org syncs from exactly one back-end — an Org already provided by another connection won't join twice.",
+    'Ready: {label} at {url} — not signed in yet. Connect verifies the address and the sign-in first; its workspaces then sync down and stay usable offline.',
+  'workbench.settings.backendPane.wizard.additionalConnection':
+    "This is an additional connection. Its workspaces appear as a new group in the workspace switcher, the status popover gains a row for it, and each group syncs from exactly one place — a group another connection already provides won't join twice.",
   'workbench.settings.backendPane.wizard.disableFirst':
     '{label} is connected. Editing the connection means moving a live wire, so it disconnects first — your settings and pairing are kept, and turning it back on verifies the new configuration before anything connects.',
   'workbench.settings.backendPane.wizard.disconnectEdit': 'Disconnect and edit',
@@ -134,13 +132,13 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.pairWithCode': 'Pair with a code',
   'workbench.settings.backendPane.pair.pasteTokenTitle': 'Paste a token',
   'workbench.settings.backendPane.pair.codeBlurb':
-    "Enter the code the back-end displayed. We'll exchange it for an auth token and connect this browser.",
+    'Enter the code shown on the desktop app or server. It is exchanged for a token that signs this device in.',
   'workbench.settings.backendPane.pair.tokenBlurb':
-    "Paste the token the back-end displayed — a rotation shows the new secret once. It's saved as this browser's credential.",
+    "Paste the token shown on the desktop app or server — a rotation shows the new secret once. It's saved as this device's credential.",
   'workbench.settings.backendPane.pair.codePlaceholder': '6-digit code',
   'workbench.settings.backendPane.pair.deviceNamePlaceholder': 'Device name (optional)',
-  'workbench.settings.backendPane.pair.codeRequired': 'Enter the pairing code shown on the back-end.',
-  'workbench.settings.backendPane.pair.pasteTokenRequired': 'Paste the token the back-end displayed.',
+  'workbench.settings.backendPane.pair.codeRequired': 'Enter the pairing code shown on the desktop app or server.',
+  'workbench.settings.backendPane.pair.pasteTokenRequired': 'Paste the token shown on the desktop app or server.',
   'workbench.settings.backendPane.pair.pairAction': 'Pair',
   'workbench.settings.backendPane.pair.saveToken': 'Save token',
   'workbench.settings.backendPane.pair.tokenSaved': 'Auth token saved.',
@@ -150,11 +148,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unknown':
     'That code is unknown or has expired. Ask for a fresh code and try again.',
   'workbench.settings.backendPane.pair.fail.expired':
-    'That pairing code has expired. Generate a new one on the back-end.',
+    'That pairing code has expired. Generate a new one on the desktop app or server.',
   'workbench.settings.backendPane.pair.fail.consumed':
-    'That code was already used. Generate a new one on the back-end.',
-  'workbench.settings.backendPane.pair.fail.unreachable':
-    "Couldn't reach the back-end at {url}. Is it running on that address?",
+    'That code was already used. Generate a new one on the desktop app or server.',
+  'workbench.settings.backendPane.pair.fail.unreachable': 'Nothing answered at {url}. Is it running on that address?',
   'workbench.settings.backendPane.pair.fail.generic': 'Pairing failed. Try again.',
   'workbench.settings.backendPane.pair.nmRequired':
     'Manual pairing with the desktop app is turned off — this browser connects only through verified pairing. See the "Require verified pairing" setting.',
@@ -162,18 +159,18 @@ export const workbenchSettingsPanes = {
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Name',
   'workbench.settings.backendPane.field.label.description':
-    'What this back-end is called across the app. Defaults to its address.',
+    'What this connection is called across the app. Defaults to its address.',
   'workbench.settings.backendPane.field.label.placeholder': 'Work VM',
-  'workbench.settings.backendPane.field.label.aria': 'Back-end name',
-  'workbench.settings.backendPane.field.url.label': 'Backend address',
+  'workbench.settings.backendPane.field.label.aria': 'Connection name',
+  'workbench.settings.backendPane.field.url.label': 'Address',
   'workbench.settings.backendPane.field.url.description':
-    'Where this client dials the back-end. `ws://` for local / LAN hosts, `wss://` for remote.',
+    '`ws://` for this computer or your network, `wss://` for a remote server.',
   'workbench.settings.backendPane.field.url.schemeAria': 'Scheme',
   'workbench.settings.backendPane.field.url.addressAria': 'Address',
   'workbench.settings.backendPane.field.url.portAria': 'Port',
-  'workbench.settings.backendPane.field.auth.label': 'Authentication',
+  'workbench.settings.backendPane.field.auth.label': 'Sign in',
   'workbench.settings.backendPane.field.auth.description':
-    'How this device proves itself to the back-end. Pair with a code, or paste a token directly.',
+    'How this device signs in. Pair with a code, or paste a token directly.',
   'workbench.settings.backendPane.field.auth.codeAria': 'Pairing code',
   'workbench.settings.backendPane.field.auth.tokenAria': 'Auth token',
   'workbench.settings.backendPane.field.auth.tokenPlaceholder': 'Paste a token',

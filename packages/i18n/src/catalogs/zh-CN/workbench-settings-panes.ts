@@ -55,17 +55,15 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.back': '返回',
   'workbench.settings.backendPane.wizard.next': '下一步',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': '完成但不连接',
-  'workbench.settings.backendPane.wizard.connectIntro': '此客户端在哪里拨号后端？连接保持关闭，直到最后一步验证通过。',
-  'workbench.settings.backendPane.wizard.pairIntro':
-    '向后端证明这台设备——用它显示的配对码配对，或粘贴一个 token。开启前可以先测试连接。',
+  'workbench.settings.backendPane.wizard.connectIntro': '此设备连接到的地址。在最后一步验证通过前不会建立任何连接。',
   'workbench.settings.backendPane.wizard.autoPairFallback':
     '未能自动与桌面应用配对——它可能未在运行，或无法验证此浏览器。请改用配对码或 token 配对。',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
-    '就绪：{label}，地址 {url}，已配对。开启时会先验证可达性和身份验证；成功后其工作区同步下来，并可离线使用。',
+    '就绪：{label}，地址 {url}，已登录。连接会先验证地址和登录；随后其工作区同步下来，并可离线使用。',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    '就绪：{label}，地址 {url}——尚未配对。开启时会先验证可达性和身份验证；成功后其工作区同步下来，并可离线使用。',
-  'workbench.settings.backendPane.wizard.additionalBackend':
-    '这是一个额外的后端。它的 Org 会作为新分组出现在工作区切换器中，状态弹出框为每个后端增加一行，每个 Org 只从一个后端同步——已由其他连接提供的 Org 不会重复加入。',
+    '就绪：{label}，地址 {url}——尚未登录。连接会先验证地址和登录；随后其工作区同步下来，并可离线使用。',
+  'workbench.settings.backendPane.wizard.additionalConnection':
+    '这是一个额外的连接。它的工作区会作为新分组出现在工作区切换器中，状态弹出框为它增加一行，每个分组只从一个位置同步——已由其他连接提供的分组不会重复加入。',
   'workbench.settings.backendPane.wizard.disableFirst':
     '{label} 已连接。编辑连接等于挪动带电的线路，所以会先断开——你的设置和配对保留，重新开启时会先验证新配置再连接。',
   'workbench.settings.backendPane.wizard.disconnectEdit': '断开并编辑',
@@ -140,13 +138,13 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.pairWithCode': '用配对码配对',
   'workbench.settings.backendPane.pair.pasteTokenTitle': '粘贴 token',
   'workbench.settings.backendPane.pair.codeBlurb':
-    '输入后端显示的配对码。我们会用它换取身份验证 token 并连接此浏览器。',
+    '输入桌面端应用或服务器显示的配对码。它会换取一个令此设备登录的 token。',
   'workbench.settings.backendPane.pair.tokenBlurb':
-    '粘贴后端显示的 token——轮换只显示新机密一次。它会被保存为此浏览器的凭据。',
+    '粘贴桌面端应用或服务器显示的 token——轮换只显示新机密一次。它会被保存为此设备的凭据。',
   'workbench.settings.backendPane.pair.codePlaceholder': '6 位配对码',
   'workbench.settings.backendPane.pair.deviceNamePlaceholder': '设备名称（可选）',
-  'workbench.settings.backendPane.pair.codeRequired': '请输入后端显示的配对码。',
-  'workbench.settings.backendPane.pair.pasteTokenRequired': '请粘贴后端显示的 token。',
+  'workbench.settings.backendPane.pair.codeRequired': '请输入桌面端应用或服务器显示的配对码。',
+  'workbench.settings.backendPane.pair.pasteTokenRequired': '请粘贴桌面端应用或服务器显示的 token。',
   'workbench.settings.backendPane.pair.pairAction': '配对',
   'workbench.settings.backendPane.pair.saveToken': '保存 token',
   'workbench.settings.backendPane.pair.tokenSaved': '身份验证 token 已保存。',
@@ -154,27 +152,25 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.switchToToken': '有 token？改为粘贴它',
   'workbench.settings.backendPane.pair.switchToCode': '改用配对码？',
   'workbench.settings.backendPane.pair.fail.unknown': '该配对码未知或已过期。请索取新的配对码后重试。',
-  'workbench.settings.backendPane.pair.fail.expired': '该配对码已过期。请在后端生成一个新的。',
-  'workbench.settings.backendPane.pair.fail.consumed': '该配对码已被使用。请在后端生成一个新的。',
-  'workbench.settings.backendPane.pair.fail.unreachable': '无法在 {url} 访问到后端。它在那个地址上运行吗？',
+  'workbench.settings.backendPane.pair.fail.expired': '该配对码已过期。请在桌面端应用或服务器上生成一个新的。',
+  'workbench.settings.backendPane.pair.fail.consumed': '该配对码已被使用。请在桌面端应用或服务器上生成一个新的。',
+  'workbench.settings.backendPane.pair.fail.unreachable': '{url} 没有任何响应。它在那个地址上运行吗？',
   'workbench.settings.backendPane.pair.fail.generic': '配对失败。请重试。',
   'workbench.settings.backendPane.pair.nmRequired':
     '与桌面应用的手动配对已关闭——此浏览器仅通过经验证的配对进行连接。请参阅"要求经验证的配对"设置。',
 
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': '名称',
-  'workbench.settings.backendPane.field.label.description': '此后端在整个应用中的叫法。默认为它的地址。',
+  'workbench.settings.backendPane.field.label.description': '此连接在整个应用中的叫法。默认为它的地址。',
   'workbench.settings.backendPane.field.label.placeholder': '工作 VM',
-  'workbench.settings.backendPane.field.label.aria': '后端名称',
-  'workbench.settings.backendPane.field.url.label': '后端地址',
-  'workbench.settings.backendPane.field.url.description':
-    '此客户端在哪里拨号后端。本地 / LAN 主机用 `ws://`，远程用 `wss://`。',
+  'workbench.settings.backendPane.field.label.aria': '连接名称',
+  'workbench.settings.backendPane.field.url.label': '地址',
+  'workbench.settings.backendPane.field.url.description': '这台电脑或你的网络用 `ws://`，远程服务器用 `wss://`。',
   'workbench.settings.backendPane.field.url.schemeAria': '协议',
   'workbench.settings.backendPane.field.url.addressAria': '地址',
   'workbench.settings.backendPane.field.url.portAria': '端口',
-  'workbench.settings.backendPane.field.auth.label': '身份验证',
-  'workbench.settings.backendPane.field.auth.description':
-    '这台设备如何向后端证明自己。用配对码配对，或直接粘贴 token。',
+  'workbench.settings.backendPane.field.auth.label': '登录',
+  'workbench.settings.backendPane.field.auth.description': '这台设备如何登录。用配对码配对，或直接粘贴 token。',
   'workbench.settings.backendPane.field.auth.codeAria': '配对码',
   'workbench.settings.backendPane.field.auth.tokenAria': '身份验证 token',
   'workbench.settings.backendPane.field.auth.tokenPlaceholder': '粘贴 token',

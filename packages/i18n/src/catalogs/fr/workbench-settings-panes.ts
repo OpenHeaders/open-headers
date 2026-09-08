@@ -55,25 +55,20 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.next': 'Suivant',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Terminer sans connecter',
   'workbench.settings.backendPane.wizard.connectIntro':
-    "Où ce client appelle-t-il le back-end ? La connexion reste désactivée jusqu'à ce que la dernière étape la " +
-    'vérifie.',
-  'workbench.settings.backendPane.wizard.pairIntro':
-    "Prouvez cet appareil auprès du back-end — appairez avec le code qu'il affiche, ou collez un jeton. Vous " +
-    "pouvez tester la connexion avant de l'activer.",
+    "L'adresse à laquelle cet appareil se connecte. Rien ne se connecte avant que la dernière étape ne la vérifie.",
   'workbench.settings.backendPane.wizard.autoPairFallback':
     "L'appairage automatique avec l'application de bureau n'a pas abouti — elle n'est peut-être pas lancée, ou " +
     "ce navigateur n'a pas pu être vérifié. Appairez plutôt avec le code ou le jeton.",
   'workbench.settings.backendPane.wizard.readyIntroPaired':
-    "Prêt : {label} sur {url}, appairé. L'activation vérifie d'abord la joignabilité et l'authentification ; en " +
-    'cas de succès, ses espaces de travail se synchronisent et restent utilisables hors ligne.',
+    "Prêt : {label} sur {url}, connecté. Connecter vérifie d'abord l'adresse et la connexion ; ses espaces de " +
+    'travail se synchronisent ensuite et restent utilisables hors ligne.',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    "Prêt : {label} sur {url} — PAS encore appairé. L'activation vérifie d'abord la joignabilité et " +
-    "l'authentification ; en cas de succès, ses espaces de travail se synchronisent et restent utilisables hors " +
-    'ligne.',
-  'workbench.settings.backendPane.wizard.additionalBackend':
-    "C'est un back-end supplémentaire. Ses Orgs apparaissent comme de nouveaux groupes dans le sélecteur " +
-    "d'espaces de travail, le popover de statut gagne une ligne par back-end, et chaque Org se synchronise " +
-    'depuis exactement un back-end — une Org déjà fournie par une autre connexion ne sera pas jointe deux fois.',
+    "Prêt : {label} sur {url} — pas encore connecté. Connecter vérifie d'abord l'adresse et la connexion ; ses " +
+    'espaces de travail se synchronisent ensuite et restent utilisables hors ligne.',
+  'workbench.settings.backendPane.wizard.additionalConnection':
+    "C'est une connexion supplémentaire. Ses espaces de travail apparaissent comme un nouveau groupe dans le " +
+    'sélecteur, le popover de statut gagne une ligne pour elle, et chaque groupe se synchronise depuis un seul ' +
+    'endroit — un groupe déjà fourni par une autre connexion ne rejoint pas deux fois.',
   'workbench.settings.backendPane.wizard.disableFirst':
     '{label} est connecté. Modifier la connexion revient à déplacer un fil sous tension, donc elle se ' +
     "déconnecte d'abord — vos réglages et l'appairage sont conservés, et la réactivation vérifie la nouvelle " +
@@ -168,15 +163,17 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.pairWithCode': 'Appairer avec un code',
   'workbench.settings.backendPane.pair.pasteTokenTitle': 'Coller un jeton',
   'workbench.settings.backendPane.pair.codeBlurb':
-    "Saisissez le code affiché par le back-end. Nous l'échangerons contre un jeton d'authentification et " +
-    'connecterons ce navigateur.',
+    "Saisissez le code affiché par l'application de bureau ou le serveur. Il est échangé contre un jeton qui " +
+    'connecte cet appareil.',
   'workbench.settings.backendPane.pair.tokenBlurb':
-    "Collez le jeton affiché par le back-end — un renouvellement n'affiche le nouveau secret qu'une fois. Il " +
-    'est enregistré comme identifiant de ce navigateur.',
+    "Collez le jeton affiché par l'application de bureau ou le serveur — un renouvellement n'affiche le nouveau " +
+    "secret qu'une fois. Il est enregistré comme identifiant de cet appareil.",
   'workbench.settings.backendPane.pair.codePlaceholder': 'Code à 6 chiffres',
   'workbench.settings.backendPane.pair.deviceNamePlaceholder': "Nom de l'appareil (facultatif)",
-  'workbench.settings.backendPane.pair.codeRequired': "Saisissez le code d'appairage affiché sur le back-end.",
-  'workbench.settings.backendPane.pair.pasteTokenRequired': 'Collez le jeton affiché par le back-end.',
+  'workbench.settings.backendPane.pair.codeRequired':
+    "Saisissez le code d'appairage affiché par l'application de bureau ou le serveur.",
+  'workbench.settings.backendPane.pair.pasteTokenRequired':
+    "Collez le jeton affiché par l'application de bureau ou le serveur.",
   'workbench.settings.backendPane.pair.pairAction': 'Appairer',
   'workbench.settings.backendPane.pair.saveToken': 'Enregistrer le jeton',
   'workbench.settings.backendPane.pair.tokenSaved': "Jeton d'authentification enregistré.",
@@ -186,11 +183,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unknown':
     'Ce code est inconnu ou a expiré. Demandez un code neuf et réessayez.',
   'workbench.settings.backendPane.pair.fail.expired':
-    "Ce code d'appairage a expiré. Générez-en un nouveau sur le back-end.",
+    "Ce code d'appairage a expiré. Générez-en un nouveau sur l'application de bureau ou le serveur.",
   'workbench.settings.backendPane.pair.fail.consumed':
-    'Ce code a déjà été utilisé. Générez-en un nouveau sur le back-end.',
+    "Ce code a déjà été utilisé. Générez-en un nouveau sur l'application de bureau ou le serveur.",
   'workbench.settings.backendPane.pair.fail.unreachable':
-    "Impossible de joindre le back-end sur {url}. S'exécute-t-il à cette adresse ?",
+    "Rien n'a répondu sur {url}. S'exécute-t-il à cette adresse ?",
   'workbench.settings.backendPane.pair.fail.generic': "Échec de l'appairage. Réessayez.",
   'workbench.settings.backendPane.pair.nmRequired':
     "L'appairage manuel avec l'application de bureau est désactivé — ce navigateur ne se connecte que par appairage vérifié. Voir le réglage « Exiger un appairage vérifié ».",
@@ -198,18 +195,18 @@ export const workbenchSettingsPanes = {
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Nom',
   'workbench.settings.backendPane.field.label.description':
-    "Le nom de ce back-end dans toute l'application. Par défaut, son adresse.",
+    "Le nom de cette connexion dans toute l'application. Par défaut, son adresse.",
   'workbench.settings.backendPane.field.label.placeholder': 'VM du travail',
-  'workbench.settings.backendPane.field.label.aria': 'Nom du back-end',
-  'workbench.settings.backendPane.field.url.label': 'Adresse du back-end',
+  'workbench.settings.backendPane.field.label.aria': 'Nom de la connexion',
+  'workbench.settings.backendPane.field.url.label': 'Adresse',
   'workbench.settings.backendPane.field.url.description':
-    'Où ce client appelle le back-end. `ws://` pour les hôtes locaux / LAN, `wss://` pour le distant.',
+    '`ws://` pour cet ordinateur ou votre réseau, `wss://` pour un serveur distant.',
   'workbench.settings.backendPane.field.url.schemeAria': 'Schéma',
   'workbench.settings.backendPane.field.url.addressAria': 'Adresse',
   'workbench.settings.backendPane.field.url.portAria': 'Port',
-  'workbench.settings.backendPane.field.auth.label': 'Authentification',
+  'workbench.settings.backendPane.field.auth.label': 'Connexion',
   'workbench.settings.backendPane.field.auth.description':
-    'Comment cet appareil se prouve auprès du back-end. Appairez avec un code, ou collez un jeton directement.',
+    'Comment cet appareil se connecte. Appairez avec un code, ou collez un jeton directement.',
   'workbench.settings.backendPane.field.auth.codeAria': "Code d'appairage",
   'workbench.settings.backendPane.field.auth.tokenAria': "Jeton d'authentification",
   'workbench.settings.backendPane.field.auth.tokenPlaceholder': 'Collez un jeton',

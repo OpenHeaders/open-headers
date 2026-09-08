@@ -265,7 +265,7 @@ const WizardDialog: React.FC<{
               { label, url: record.url },
             )}
           />
-          {isAdditionalConnection && <StepIntro text={t('workbench.settings.backendPane.wizard.additionalBackend')} />}
+          {isAdditionalConnection && <StepIntro text={t('workbench.settings.backendPane.wizard.additionalConnection')} />}
         </div>
       )}
     </Modal>

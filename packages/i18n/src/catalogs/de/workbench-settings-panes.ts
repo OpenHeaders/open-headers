@@ -58,26 +58,21 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.next': 'Weiter',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Ohne Verbinden abschließen',
   'workbench.settings.backendPane.wizard.connectIntro':
-    'Wo wählt sich dieser Client beim Back-end ein? Die Verbindung bleibt aus, bis der letzte Schritt sie ' +
+    'Die Adresse, mit der sich dieses Gerät verbindet. Nichts verbindet sich, bevor der letzte Schritt sie ' +
     'geprüft hat.',
-  'workbench.settings.backendPane.wizard.pairIntro':
-    'Weise dieses Gerät beim Back-end aus — kopple mit dem Code, den es anzeigt, oder füge einen Token ein. ' +
-    'Du kannst die Verbindung testen, bevor du sie einschaltest.',
   'workbench.settings.backendPane.wizard.autoPairFallback':
     'Die automatische Kopplung mit der Desktop-App ist nicht zustande gekommen — sie läuft möglicherweise ' +
     'nicht, oder dieser Browser konnte nicht verifiziert werden. Kopple stattdessen mit dem Code oder Token.',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
-    'Bereit: {label} unter {url}, gekoppelt. Beim Einschalten werden zuerst Erreichbarkeit und ' +
-    'Authentifizierung geprüft; bei Erfolg synchronisieren seine Arbeitsbereiche herunter und bleiben offline ' +
-    'nutzbar.',
+    'Bereit: {label} unter {url}, angemeldet. Verbinden prüft zuerst Adresse und Anmeldung; seine ' +
+    'Arbeitsbereiche synchronisieren danach herunter und bleiben offline nutzbar.',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    'Bereit: {label} unter {url} — noch NICHT gekoppelt. Beim Einschalten werden zuerst Erreichbarkeit und ' +
-    'Authentifizierung geprüft; bei Erfolg synchronisieren seine Arbeitsbereiche herunter und bleiben offline ' +
-    'nutzbar.',
-  'workbench.settings.backendPane.wizard.additionalBackend':
-    'Dies ist ein zusätzliches Back-end. Seine Orgs erscheinen als neue Gruppen im Arbeitsbereich-Umschalter, ' +
-    'das Status-Popover bekommt eine Zeile pro Back-end, und jede Org synchronisiert von genau einem Back-end ' +
-    '— eine Org, die schon eine andere Verbindung liefert, tritt nicht doppelt bei.',
+    'Bereit: {label} unter {url} — noch nicht angemeldet. Verbinden prüft zuerst Adresse und Anmeldung; seine ' +
+    'Arbeitsbereiche synchronisieren danach herunter und bleiben offline nutzbar.',
+  'workbench.settings.backendPane.wizard.additionalConnection':
+    'Dies ist eine zusätzliche Verbindung. Ihre Arbeitsbereiche erscheinen als neue Gruppe im Umschalter, das ' +
+    'Status-Popover bekommt eine Zeile für sie, und jede Gruppe synchronisiert von genau einem Ort — eine ' +
+    'Gruppe, die eine andere Verbindung bereits bereitstellt, tritt nicht zweimal bei.',
   'workbench.settings.backendPane.wizard.disableFirst':
     '{label} ist verbunden. Die Verbindung zu bearbeiten heißt, eine stromführende Leitung zu bewegen, also ' +
     'wird zuerst getrennt — deine Einstellungen und die Kopplung bleiben erhalten, und das Wiedereinschalten ' +
@@ -167,15 +162,17 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.pairWithCode': 'Mit einem Code koppeln',
   'workbench.settings.backendPane.pair.pasteTokenTitle': 'Einen Token einfügen',
   'workbench.settings.backendPane.pair.codeBlurb':
-    'Gib den Code ein, den das Back-end angezeigt hat. Wir tauschen ihn gegen einen Auth-Token und verbinden ' +
-    'diesen Browser.',
+    'Gib den Code ein, den die Desktop-App oder der Server anzeigt. Er wird gegen einen Token getauscht, der ' +
+    'dieses Gerät anmeldet.',
   'workbench.settings.backendPane.pair.tokenBlurb':
-    'Füge den Token ein, den das Back-end angezeigt hat — eine Rotation zeigt das neue Secret einmalig. Er ' +
-    'wird als Zugangsdaten dieses Browsers gespeichert.',
+    'Füge den Token ein, den die Desktop-App oder der Server anzeigt — eine Rotation zeigt das neue Secret ' +
+    'einmalig. Er wird als Zugangsdaten dieses Geräts gespeichert.',
   'workbench.settings.backendPane.pair.codePlaceholder': '6-stelliger Code',
   'workbench.settings.backendPane.pair.deviceNamePlaceholder': 'Gerätename (optional)',
-  'workbench.settings.backendPane.pair.codeRequired': 'Gib den Kopplungscode ein, den das Back-end zeigt.',
-  'workbench.settings.backendPane.pair.pasteTokenRequired': 'Füge den Token ein, den das Back-end angezeigt hat.',
+  'workbench.settings.backendPane.pair.codeRequired':
+    'Gib den Kopplungscode ein, den die Desktop-App oder der Server zeigt.',
+  'workbench.settings.backendPane.pair.pasteTokenRequired':
+    'Füge den Token ein, den die Desktop-App oder der Server anzeigt.',
   'workbench.settings.backendPane.pair.pairAction': 'Koppeln',
   'workbench.settings.backendPane.pair.saveToken': 'Token speichern',
   'workbench.settings.backendPane.pair.tokenSaved': 'Auth-Token gespeichert.',
@@ -185,11 +182,11 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.pair.fail.unknown':
     'Dieser Code ist unbekannt oder abgelaufen. Bitte um einen frischen Code und versuche es erneut.',
   'workbench.settings.backendPane.pair.fail.expired':
-    'Dieser Kopplungscode ist abgelaufen. Erzeuge auf dem Back-end einen neuen.',
+    'Dieser Kopplungscode ist abgelaufen. Erzeuge auf der Desktop-App oder dem Server einen neuen.',
   'workbench.settings.backendPane.pair.fail.consumed':
-    'Dieser Code wurde bereits verwendet. Erzeuge auf dem Back-end einen neuen.',
+    'Dieser Code wurde bereits verwendet. Erzeuge auf der Desktop-App oder dem Server einen neuen.',
   'workbench.settings.backendPane.pair.fail.unreachable':
-    'Das Back-end unter {url} war nicht erreichbar. Läuft es auf dieser Adresse?',
+    'Unter {url} hat nichts geantwortet. Läuft es auf dieser Adresse?',
   'workbench.settings.backendPane.pair.fail.generic': 'Kopplung fehlgeschlagen. Versuche es erneut.',
   'workbench.settings.backendPane.pair.nmRequired':
     'Manuelle Kopplung mit der Desktop-App ist deaktiviert — dieser Browser verbindet sich nur über verifizierte Kopplung. Siehe die Einstellung „Verifizierte Kopplung erzwingen".',
@@ -197,18 +194,18 @@ export const workbenchSettingsPanes = {
   // ── Backend pane: record field editors ─────────────────────────────
   'workbench.settings.backendPane.field.label.label': 'Name',
   'workbench.settings.backendPane.field.label.description':
-    'So heißt dieses Back-end überall in der App. Standard ist seine Adresse.',
+    'So heißt diese Verbindung überall in der App. Standard ist ihre Adresse.',
   'workbench.settings.backendPane.field.label.placeholder': 'Arbeits-VM',
-  'workbench.settings.backendPane.field.label.aria': 'Back-end-Name',
-  'workbench.settings.backendPane.field.url.label': 'Back-end-Adresse',
+  'workbench.settings.backendPane.field.label.aria': 'Verbindungsname',
+  'workbench.settings.backendPane.field.url.label': 'Adresse',
   'workbench.settings.backendPane.field.url.description':
-    'Wo sich dieser Client beim Back-end einwählt. `ws://` für lokale / LAN-Hosts, `wss://` für entfernte.',
+    '`ws://` für diesen Computer oder dein Netzwerk, `wss://` für einen entfernten Server.',
   'workbench.settings.backendPane.field.url.schemeAria': 'Schema',
   'workbench.settings.backendPane.field.url.addressAria': 'Adresse',
   'workbench.settings.backendPane.field.url.portAria': 'Port',
-  'workbench.settings.backendPane.field.auth.label': 'Authentifizierung',
+  'workbench.settings.backendPane.field.auth.label': 'Anmeldung',
   'workbench.settings.backendPane.field.auth.description':
-    'Wie sich dieses Gerät beim Back-end ausweist. Kopple mit einem Code oder füge direkt einen Token ein.',
+    'Wie sich dieses Gerät anmeldet. Kopple mit einem Code oder füge direkt einen Token ein.',
   'workbench.settings.backendPane.field.auth.codeAria': 'Kopplungscode',
   'workbench.settings.backendPane.field.auth.tokenAria': 'Auth-Token',
   'workbench.settings.backendPane.field.auth.tokenPlaceholder': 'Token einfügen',
