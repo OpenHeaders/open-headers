@@ -84,6 +84,14 @@
  *       unchecking the fragment as the field's last selection leaves
  *       `__typename` with the field still checked; an interface-typed
  *       field lists its own fields first, then its implementers.
+ *   E20 the input-object rows: an argument of an input type expands to
+ *       its input fields; checking one opens the argument's literal
+ *       (promoting the `$input` a required argument landed with, which
+ *       loses its declaration) with the key as a declared variable, a
+ *       typed literal replaces it, a sibling key appends, a nested
+ *       input type expands and lands as a nested literal, unchecking
+ *       the last nested key takes its parent, and the last key of the
+ *       required argument takes the field.
  *
  * Requires the extension `dist/chrome` build.
  *
@@ -1058,4 +1066,59 @@ test('E19 — a picked subscription rides the WebSocket plane: three ticks in or
       .first(),
   ).toBeVisible();
   await expect(queryButton()).toBeVisible();
+});
+
+// ── E20: the input-object rows — an argument's input fields as rows keyed into its literal ──
+
+test('E20 — an input-object argument expands to its input fields: keys open the literal, promote the variable, append, nest, and the last one takes the required argument’s field', async () => {
+  await openGraphqlRequest(CONVERTED_NAME);
+  await page.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await explorer.waitFor({ state: 'visible', timeout: 10_000 });
+  const check = (key: string) => explorer.getByTestId(`graphql-builder-check-${key}`);
+  const inputCheck = (key: string) =>
+    explorer.getByTestId(`graphql-builder-input-check-mutation.createNote.input.${key}`);
+  const document = () => workbench.monacoText(0);
+  await workbench.fillMonaco(0, '');
+
+  // The required `input` lands as a variable; its row expands to NoteInput's fields.
+  await check('mutation.createNote').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('createNote(input: $input) { id }');
+  await explorer.getByTestId('graphql-builder-arg-expand-mutation.createNote.input').click();
+  await expect(inputCheck('title')).toBeVisible();
+  await expect(inputCheck('title')).not.toBeChecked();
+
+  // A key opens the literal over the variable — `$input` undeclared, `$title` declared with the field's type.
+  await inputCheck('title').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('createNote(input: { title: $title }) { id }');
+  expect(await document()).toContain('$title: String!');
+  expect(await document()).not.toContain('$input');
+  await expect(inputCheck('title')).toBeChecked();
+
+  // A typed literal replaces the variable, quoted for the String field.
+  const titleValue = explorer.getByTestId('graphql-builder-input-value-mutation.createNote.input.title');
+  await expect(titleValue).toHaveValue('$title');
+  await titleValue.fill('Hi');
+  await titleValue.press('Enter');
+  await expect.poll(document, { timeout: 5_000 }).toContain('input: { title: "Hi" }');
+  expect(await document()).not.toContain('$title');
+
+  // A sibling key appends; a nested input type expands and lands as a nested literal.
+  await inputCheck('authorId').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('input: { title: "Hi", authorId: $authorId }');
+  await explorer.getByTestId('graphql-builder-input-expand-mutation.createNote.input.location').click();
+  await inputCheck('location.latitude').click();
+  await expect
+    .poll(document, { timeout: 5_000 })
+    .toContain('input: { title: "Hi", authorId: $authorId, location: { latitude: $latitude } }');
+  expect(await document()).toContain('$latitude: Float!');
+
+  // The last nested key takes its parent; the last key of the required argument takes the field.
+  await inputCheck('location.latitude').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('input: { title: "Hi", authorId: $authorId }');
+  await inputCheck('title').click();
+  await expect.poll(document, { timeout: 5_000 }).toContain('input: { authorId: $authorId }');
+  await inputCheck('authorId').click();
+  await expect.poll(document, { timeout: 5_000 }).toBe('');
+  await expect(check('mutation.createNote')).not.toBeChecked();
 });

@@ -11,7 +11,10 @@
  * into the return type's fields, the field's arguments (a checkbox
  * writes `arg: $arg` and declares the variable; the cell takes a
  * literal or a `$variable` as the user types, selecting the field first
- * when the document does not yet), a union's members and an
+ * when the document does not yet; an input-object argument expands to
+ * its input fields as rows of the same shape, keyed into the
+ * argument's object literal, nested input types beneath), a union's
+ * members and an
  * interface's implementers as `... on T` rows (checked when the inline
  * fragment exists, the member's fields beneath), and the set's other
  * fragments read-only.
@@ -48,6 +51,8 @@ import {
   type GraphqlInputValue,
   type GraphqlNamedType,
   type GraphqlSchema,
+  type InputFieldPath,
+  inputFieldAt,
   isBuiltInScalar,
   isCompositeType,
   isIntrospectionName,
@@ -58,9 +63,12 @@ import {
   possibleTypesOf,
   printTypeRef,
   removeArgumentEdits,
+  removeInputFieldEdits,
   rootTypeName,
   selectFieldEdits,
   setArgumentEdits,
+  setInputFieldEdits,
+  type ValueNode,
 } from '@openheaders/core/graphql';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { createStoredPreference } from '@openheaders/ui/shared/hooks/useStoredPreference';
@@ -116,6 +124,25 @@ interface TreeRow {
   /** The type the row's children come from — its fields, then its members; undefined on a leaf. */
   readonly type: GraphqlNamedType | undefined;
   readonly testId: string;
+}
+
+/** One value row of the builder — an argument, or an input field keyed
+ *  into an argument's literal: the checkbox, the name, the cell while
+ *  set, the type, the tag; an input-object type expands to its fields
+ *  beneath. */
+interface ValueRowSpec {
+  readonly position: BuilderPosition;
+  readonly value: GraphqlInputValue;
+  /** The document's value for the row; null while unset. */
+  readonly node: ValueNode | null;
+  readonly testKey: string;
+  /** The set gesture's plan for `text` — the row's own edit. */
+  readonly set: (context: BuilderContext, text: string) => readonly BuilderEdit[];
+  readonly remove: (context: BuilderContext) => readonly BuilderEdit[];
+  readonly children: (type: GraphqlNamedType) => readonly React.ReactNode[];
+  /** The input-object types open above this row — the cycle guard. */
+  readonly open: readonly string[];
+  readonly testPrefix: 'arg' | 'input';
 }
 
 const SEARCH_LIMIT = 100;
@@ -386,26 +413,30 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
   const isRowClick = (event: React.MouseEvent<HTMLDivElement>): boolean =>
     !(event.target instanceof Element && event.target.closest('label, button, input') !== null);
 
-  const argumentRow = (position: BuilderPosition, arg: GraphqlInputValue): React.ReactNode => {
-    const node = fieldNodeAt(position);
-    const argument = node === null ? null : argumentAt(node, arg.name);
-    const key = `${positionKey(position)}.${arg.name}`;
+  /** The input object an argument or input field expands into; undefined on a scalar, an enum, or a type already open above it (a cycle). */
+  const inputTypeOf = (value: GraphqlInputValue, open: readonly string[]): GraphqlNamedType | undefined => {
+    const type = schema.types.get(namedTypeOf(value.type));
+    return type !== undefined && type.kind === 'INPUT_OBJECT' && !open.includes(type.name) ? type : undefined;
+  };
+
+  const valueRow = (spec: ValueRowSpec): React.ReactNode => {
+    const { position, value, node, testKey, open, testPrefix } = spec;
     const { path } = position;
-    const quotes = argumentQuotes(arg, schema);
-    // Checking an argument of a field the document does not select yet
-    // selects the field first — the two edits one undo step. Unchecking a
-    // REQUIRED one takes the field with it: without the argument the
-    // selection would not be valid.
-    const required = arg.type.kind === 'NON_NULL' && arg.defaultValue === null;
-    const checkArgument = () => {
-      if (argument !== null) {
-        builder.run((context) =>
-          required ? deselectFieldEdits(context, path) : removeArgumentEdits(context, path, arg.name),
-        );
+    const fieldNode = fieldNodeAt(position);
+    const quotes = argumentQuotes(value, schema);
+    const expandKey = `${testPrefix}:${testKey}`;
+    const inputType = inputTypeOf(value, open);
+    const expandable = inputType !== undefined;
+    const isExpanded = expandable && expanded.has(expandKey);
+    // Checking a value of a field the document does not select yet
+    // selects the field first — the two edits one undo step.
+    const check = () => {
+      if (node !== null) {
+        builder.run(spec.remove);
         return;
       }
-      const set = (context: BuilderContext) => setArgumentEdits(context, path, arg.name, `$${arg.name}`);
-      if (node !== null) {
+      const set = (context: BuilderContext) => spec.set(context, `$${value.name}`);
+      if (fieldNode !== null) {
         builder.run(set);
         return;
       }
@@ -415,54 +446,126 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
     };
     const buildable = buildableFor(position.operationType);
     return (
-      <div
-        key={arg.name}
-        className="graphql-explorer-row"
-        style={{ ...rowStyle, alignItems: 'center' }}
-        onClick={(event) => {
-          if (buildable && isRowClick(event)) checkArgument();
-        }}
-        data-testid={`graphql-builder-arg-${key}`}
-      >
-        <span style={gutterStyle} />
-        <Checkbox
-          checked={argument !== null}
-          disabled={!buildable}
-          onChange={checkArgument}
-          data-testid={`graphql-builder-arg-check-${key}`}
-        />
-        <span
-          style={{
-            ...monoStyle,
-            fontSize: 12,
-            ...(arg.deprecationReason !== null ? { textDecoration: 'line-through', opacity: 0.7 } : {}),
+      <div key={value.name}>
+        <div
+          className="graphql-explorer-row"
+          style={{ ...rowStyle, alignItems: 'center' }}
+          onClick={(event) => {
+            if (!isRowClick(event)) return;
+            if (expandable) toggleExpanded(expandKey);
+            else if (buildable) check();
           }}
+          data-testid={`graphql-builder-${testPrefix}-${testKey}`}
         >
-          {arg.name}
-        </span>
-        {argument !== null && (
-          <ArgumentValueInput
-            value={argumentInputText(argument.value, quotes)}
-            placeholder={t('workbench.editors.graphql.builder.argumentPlaceholder')}
-            invalidHint={t('workbench.editors.graphql.builder.invalidValue')}
-            onInput={(text, undo) => {
-              const literal = argumentLiteral(text, quotes);
-              if (literal.kind === 'invalid') return false;
-              builder.run((context) => setArgumentEdits(context, path, arg.name, literal.text), undo);
-              return true;
-            }}
-            onSessionEnd={builder.seal}
-            testId={`graphql-builder-arg-value-${key}`}
+          {expandable ? (
+            <Button
+              type="text"
+              size="small"
+              icon={isExpanded ? <CaretDownOutlined /> : <CaretRightOutlined />}
+              onClick={() => toggleExpanded(expandKey)}
+              aria-label={t(
+                isExpanded ? 'workbench.editors.graphql.builder.collapse' : 'workbench.editors.graphql.builder.expand',
+              )}
+              aria-expanded={isExpanded}
+              style={{ ...gutterStyle, fontSize: 10 }}
+              data-testid={`graphql-builder-${testPrefix}-expand-${testKey}`}
+            />
+          ) : (
+            <span style={gutterStyle} />
+          )}
+          <Checkbox
+            checked={node !== null}
+            disabled={!buildable}
+            onChange={check}
+            data-testid={`graphql-builder-${testPrefix}-check-${testKey}`}
           />
-        )}
-        <span style={{ ...monoStyle, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
-          {printTypeRef(arg.type)}
-        </span>
-        <Tag style={{ margin: 0, fontSize: 9, lineHeight: '14px' }} data-testid={`graphql-builder-arg-tag-${key}`}>
-          ARG
-        </Tag>
+          <span
+            style={{
+              ...monoStyle,
+              fontSize: 12,
+              ...(value.deprecationReason !== null ? { textDecoration: 'line-through', opacity: 0.7 } : {}),
+            }}
+          >
+            {value.name}
+          </span>
+          {node !== null && (
+            <ArgumentValueInput
+              value={argumentInputText(node, quotes)}
+              placeholder={t('workbench.editors.graphql.builder.argumentPlaceholder')}
+              invalidHint={t('workbench.editors.graphql.builder.invalidValue')}
+              onInput={(text, undo) => {
+                const literal = argumentLiteral(text, quotes);
+                if (literal.kind === 'invalid') return false;
+                builder.run((context) => spec.set(context, literal.text), undo);
+                return true;
+              }}
+              onSessionEnd={builder.seal}
+              testId={`graphql-builder-${testPrefix}-value-${testKey}`}
+            />
+          )}
+          <span style={{ ...monoStyle, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
+            {printTypeRef(value.type)}
+          </span>
+          <Tag style={{ margin: 0, fontSize: 9, lineHeight: '14px' }} data-testid={`graphql-builder-${testPrefix}-tag-${testKey}`}>
+            ARG
+          </Tag>
+        </div>
+        {isExpanded && inputType !== undefined && <div style={{ paddingLeft: 22 }}>{spec.children(inputType)}</div>}
       </div>
     );
+  };
+
+  /** An input field's row — keyed into `argumentName`'s literal at `keys`; its own input fields beneath when it is an input object. */
+  const inputFieldRow = (
+    position: BuilderPosition,
+    argumentName: string,
+    keys: InputFieldPath,
+    field: GraphqlInputValue,
+    open: readonly string[],
+  ): React.ReactNode => {
+    const fieldNode = fieldNodeAt(position);
+    const argument = fieldNode === null ? null : argumentAt(fieldNode, argumentName);
+    const objectField = argument === null ? null : inputFieldAt(argument.value, keys);
+    const { path } = position;
+    return valueRow({
+      position,
+      value: field,
+      node: objectField === null ? null : objectField.value,
+      testKey: `${positionKey(position)}.${argumentName}.${keys.join('.')}`,
+      set: (context, text) => setInputFieldEdits(context, path, argumentName, keys, text),
+      remove: (context) => removeInputFieldEdits(context, path, argumentName, keys),
+      children: (type) =>
+        type.kind === 'INPUT_OBJECT'
+          ? type.inputFields.map((child) =>
+              inputFieldRow(position, argumentName, [...keys, child.name], child, [...open, type.name]),
+            )
+          : [],
+      open,
+      testPrefix: 'input',
+    });
+  };
+
+  const argumentRow = (position: BuilderPosition, arg: GraphqlInputValue): React.ReactNode => {
+    const fieldNode = fieldNodeAt(position);
+    const argument = fieldNode === null ? null : argumentAt(fieldNode, arg.name);
+    const { path } = position;
+    // Unchecking a REQUIRED argument takes the field with it: without
+    // the argument the selection would not be valid.
+    const required = arg.type.kind === 'NON_NULL' && arg.defaultValue === null;
+    return valueRow({
+      position,
+      value: arg,
+      node: argument === null ? null : argument.value,
+      testKey: `${positionKey(position)}.${arg.name}`,
+      set: (context, text) => setArgumentEdits(context, path, arg.name, text),
+      remove: (context) => (required ? deselectFieldEdits(context, path) : removeArgumentEdits(context, path, arg.name)),
+      children: (type) =>
+        type.kind === 'INPUT_OBJECT'
+          ? type.inputFields.map((child) => inputFieldRow(position, arg.name, [child.name], child, [type.name]))
+          : [],
+      open: [],
+      testPrefix: 'arg',
+    });
   };
 
   const treeRow = (row: TreeRow): React.ReactNode => {

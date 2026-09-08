@@ -6,8 +6,11 @@
  * minted on a blank), deselect (the separator goes with the node, the
  * last child takes its parent, the last root selection takes the
  * operation, orphaned variables undeclared), arguments (set in place /
- * appended / opened, removed with their parentheses), and the layout
- * rules (multi-line sets get a line, single-line sets a space).
+ * appended / opened, removed with their parentheses), input fields
+ * (the argument's object literal opened / promoted / appended /
+ * replaced by key path, a key removed with its emptied parents up to
+ * the argument), and the layout rules (multi-line sets get a line,
+ * single-line sets a space).
  */
 
 import {
@@ -17,14 +20,18 @@ import {
   deselectFieldEdits,
   fieldAt,
   fragmentsAt,
+  inputFieldAt,
+  inputFieldsAlong,
   isBuilderBroken,
   nodeAt,
   type OperationDefinitionNode,
   parseDocument,
   parseValue,
   removeArgumentEdits,
+  removeInputFieldEdits,
   selectFieldEdits,
   setArgumentEdits,
+  setInputFieldEdits,
   validateDocument,
 } from '@openheaders/core/graphql';
 import { describe, expect, it } from 'vitest';
@@ -308,5 +315,106 @@ describe('arguments', () => {
     expect(parseValue('{ id: $x, tags: ["a"] }').value?.kind).toBe('ObjectValue');
     expect(parseValue('1 2').value).toBeNull();
     expect(parseValue('').value).toBeNull();
+  });
+});
+
+describe('input fields', () => {
+  const CREATE = ['createNote'];
+  const set = (source: string, keys: readonly string[], text: string) =>
+    applied(source, setInputFieldEdits(context(source), CREATE, 'input', keys, text));
+  const remove = (source: string, keys: readonly string[]) =>
+    applied(source, removeInputFieldEdits(context(source), CREATE, 'input', keys));
+
+  it('opens the literal on an unset argument, promotes a variable the argument held, appends a key and replaces one in place', () => {
+    expect(set('mutation { createNote { id } }', ['title'], '"Hi"')).toBe(
+      'mutation { createNote(input: { title: "Hi" }) { id } }',
+    );
+    // The `$input` only the promoted value referenced loses its declaration.
+    expect(set('mutation ($input: NoteInput!) { createNote(input: $input) { id } }', ['title'], '"Hi"')).toBe(
+      'mutation { createNote(input: { title: "Hi" }) { id } }',
+    );
+    expect(set('mutation { createNote(input: { title: "Hi" }) { id } }', ['authorId'], '"2"')).toBe(
+      'mutation { createNote(input: { title: "Hi", authorId: "2" }) { id } }',
+    );
+    expect(set('mutation { createNote(input: { title: "Hi", authorId: "2" }) { id } }', ['title'], '"Yo"')).toBe(
+      'mutation { createNote(input: { title: "Yo", authorId: "2" }) { id } }',
+    );
+    expect(set('mutation { createNote(input: {}) { id } }', ['title'], '"Hi"')).toBe(
+      'mutation { createNote(input: { title: "Hi" }) { id } }',
+    );
+  });
+
+  it('nests through an input-object field, opening the missing tail as nested literals', () => {
+    const one = set(
+      'mutation { createNote(input: { title: "Hi", authorId: "2" }) { id } }',
+      ['location', 'latitude'],
+      '1.5',
+    );
+    expect(one).toBe(
+      'mutation { createNote(input: { title: "Hi", authorId: "2", location: { latitude: 1.5 } }) { id } }',
+    );
+    expect(set(one, ['location', 'longitude'], '2')).toBe(
+      'mutation { createNote(input: { title: "Hi", authorId: "2", location: { latitude: 1.5, longitude: 2 } }) { id } }',
+    );
+    const field = fieldAt(operationOf(one), CREATE);
+    const input = field === null ? null : argumentAt(field, 'input');
+    if (input === null) throw new Error('no input argument');
+    expect(inputFieldAt(input.value, ['location', 'latitude'])?.name.value).toBe('latitude');
+    expect(inputFieldAt(input.value, ['location', 'longitude'])).toBeNull();
+    expect(inputFieldAt(input.value, ['title', 'x'])).toBeNull();
+    expect(inputFieldAt(input.value, [])).toBeNull();
+  });
+
+  it("declares a variable with the input field's type, undeclares it when a literal replaces it, and resolves keys against the schema", () => {
+    const declared = set('mutation { createNote(input: { authorId: "2" }) { id } }', ['title'], '$title');
+    expect(declared).toBe('mutation ($title: String!) { createNote(input: { authorId: "2", title: $title }) { id } }');
+    expect(set(declared, ['title'], '"Hi"')).toBe(
+      'mutation { createNote(input: { authorId: "2", title: "Hi" }) { id } }',
+    );
+    // A variable a sibling key still references stays declared.
+    const shared = 'mutation ($t: String!) { createNote(input: { title: $t, body: $t }) { id } }';
+    expect(set(shared, ['title'], '"Hi"')).toBe(
+      'mutation ($t: String!) { createNote(input: { title: "Hi", body: $t }) { id } }',
+    );
+    const arg = {
+      name: 'input',
+      description: null,
+      type: { kind: 'NAMED' as const, name: 'NoteInput' },
+      defaultValue: null,
+      deprecationReason: null,
+    };
+    expect(inputFieldsAlong(schema, arg, ['location', 'latitude'])?.map((f) => f.name)).toEqual([
+      'location',
+      'latitude',
+    ]);
+    expect(inputFieldsAlong(schema, arg, ['title', 'x'])).toBeNull();
+    expect(inputFieldsAlong(schema, arg, ['nope'])).toBeNull();
+    expect(setInputFieldEdits(context(shared), CREATE, 'input', ['nope'], '1')).toEqual([]);
+    expect(setInputFieldEdits(context(shared), CREATE, 'input', ['title'], '"unterminated')).toEqual([]);
+  });
+
+  it('removes a key with its separator, the last nested key with its parent, and the last key with the argument — a required one with its field', () => {
+    const full =
+      'mutation { createNote(input: { title: "Hi", authorId: "2", location: { latitude: 1.5, longitude: 2 } }) { id } }';
+    expect(remove(full, ['location', 'longitude'])).toBe(
+      'mutation { createNote(input: { title: "Hi", authorId: "2", location: { latitude: 1.5 } }) { id } }',
+    );
+    expect(
+      remove('mutation { createNote(input: { title: "Hi", location: { latitude: 1.5 } }) { id } }', [
+        'location',
+        'latitude',
+      ]),
+    ).toBe('mutation { createNote(input: { title: "Hi" }) { id } }');
+    expect(remove(full, ['title'])).toBe(
+      'mutation { createNote(input: { authorId: "2", location: { latitude: 1.5, longitude: 2 } }) { id } }',
+    );
+    // `input` is required — its last key takes the field, and the operation with it.
+    expect(remove('mutation { createNote(input: { title: "Hi" }) { id } }', ['title'])).toBe('');
+    expect(remove('mutation { createNote(input: { title: "Hi" }) { id } deleteNote(id: "1") }', ['title'])).toBe(
+      'mutation { deleteNote(id: "1") }',
+    );
+    expect(remove('mutation { createNote(input: { title: "Hi" }) { id } }', ['nope'])).toBe(
+      'mutation { createNote(input: { title: "Hi" }) { id } }',
+    );
   });
 });

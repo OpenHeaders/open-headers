@@ -22,6 +22,13 @@
  * fragment leaving as a field's last selection leaves `__typename`
  * behind, the last root selection removes the operation, and a variable
  * the builder no longer references loses its declaration.
+ *
+ * An input-object argument is a subtree of its own: its input fields
+ * project onto the argument's object literal by KEY PATH, a key is set
+ * in place (the literal opened, or a variable the argument held
+ * promoted to one, on the way), and a key removed takes its emptied
+ * parents with it up to the argument — the same last-child law as the
+ * selections.
  */
 
 import { parseValue } from './parse';
@@ -44,6 +51,8 @@ import type {
   DocumentNode,
   FieldNode,
   InlineFragmentNode,
+  ObjectFieldNode,
+  ObjectValueNode,
   OperationDefinitionNode,
   OperationType,
   SelectionNode,
@@ -70,6 +79,9 @@ export interface BuilderContext {
 export type BuilderStep = string | { readonly on: string };
 
 export type BuilderPath = readonly BuilderStep[];
+
+/** The keys into an argument's object literal — an input field, then the input fields beneath it. */
+export type InputFieldPath = readonly string[];
 
 /** The document node a path lands on — the Field of a name step, the InlineFragment of an `on` step. */
 export type BuilderNode = FieldNode | InlineFragmentNode;
@@ -142,6 +154,42 @@ export function argumentAt(field: FieldNode, name: string): ArgumentNode | null 
   return null;
 }
 
+function objectField(value: ObjectValueNode, key: string): ObjectFieldNode | null {
+  for (const field of value.fields) if (field.name.value === key) return field;
+  return null;
+}
+
+/** The object field at `keys` inside `value` — each step a direct key of an object literal; null when a step is missing, the value there is not an object, or `keys` is empty. */
+export function inputFieldAt(value: ValueNode, keys: InputFieldPath): ObjectFieldNode | null {
+  let current: ValueNode = value;
+  let found: ObjectFieldNode | null = null;
+  for (const key of keys) {
+    if (current.kind !== 'ObjectValue') return null;
+    found = objectField(current, key);
+    if (found === null) return null;
+    current = found.value;
+  }
+  return found;
+}
+
+/** Each key of `keys` resolved as an input field under `arg`'s input type, then the previous key's; null when a step names no field or the type there is not an input object. */
+export function inputFieldsAlong(
+  schema: GraphqlSchema,
+  arg: GraphqlInputValue,
+  keys: InputFieldPath,
+): readonly GraphqlInputValue[] | null {
+  let type = schema.types.get(namedTypeOf(arg.type));
+  const along: GraphqlInputValue[] = [];
+  for (const key of keys) {
+    if (type === undefined || type.kind !== 'INPUT_OBJECT') return null;
+    const field = type.inputFields.find((entry) => entry.name === key);
+    if (field === undefined) return null;
+    along.push(field);
+    type = schema.types.get(namedTypeOf(field.type));
+  }
+  return along;
+}
+
 /** The read-only fragment rows under `path` — every named spread, and the inline fragments whose type condition is not one of `projected` (the member rows the tree walks itself). */
 export function fragmentsAt(
   operation: OperationDefinitionNode,
@@ -211,10 +259,13 @@ function isRequired(arg: GraphqlInputValue): boolean {
   return arg.type.kind === 'NON_NULL' && arg.defaultValue === null;
 }
 
+/** A node a gesture removes or replaces — what the orphan check leaves out of the "still referenced" walk. */
+type Removed = SelectionNode | ArgumentNode | ObjectFieldNode | ValueNode;
+
 function collectVariables(
-  node: SelectionNode | SelectionSetNode | ArgumentNode | DirectiveNode | ValueNode,
+  node: SelectionNode | SelectionSetNode | ArgumentNode | DirectiveNode | ObjectFieldNode | ValueNode,
   into: Set<string>,
-  except: SelectionNode | ArgumentNode | null = null,
+  except: Removed | null = null,
 ): void {
   if (node === except) return;
   switch (node.kind) {
@@ -225,7 +276,10 @@ function collectVariables(
       for (const value of node.values) collectVariables(value, into, except);
       return;
     case 'ObjectValue':
-      for (const field of node.fields) collectVariables(field.value, into, except);
+      for (const field of node.fields) collectVariables(field, into, except);
+      return;
+    case 'ObjectField':
+      collectVariables(node.value, into, except);
       return;
     case 'Argument':
       collectVariables(node.value, into, except);
@@ -256,7 +310,7 @@ function collectVariables(
 /** The variables `removed` references that nothing else in the operation (nor `replacement`) does. */
 function orphanedVariables(
   operation: OperationDefinitionNode,
-  removed: SelectionNode | ArgumentNode,
+  removed: Removed,
   replacement: ValueNode | null,
 ): ReadonlySet<string> {
   const gone = new Set<string>();
@@ -488,34 +542,49 @@ export function deselectFieldEdits(context: BuilderContext, path: BuilderPath): 
  * held before is replaced in place, a variable it alone referenced is
  * undeclared. Text that is not one GraphQL value yields no edit.
  */
+/** A checked field's argument as the schema and the document know it; null when the path lands on no field or the field has no such argument. */
+interface ArgumentSite {
+  readonly operation: OperationDefinitionNode;
+  readonly field: FieldNode;
+  readonly arg: GraphqlInputValue;
+  readonly existing: ArgumentNode | null;
+}
+
+function argumentSite(context: BuilderContext, path: BuilderPath, argumentName: string): ArgumentSite | null {
+  const { operation } = context;
+  if (operation === null || isBuilderBroken(context)) return null;
+  const field = fieldAt(operation, path);
+  const along = schemaStepsAlong(context.schema, operation.operation, path);
+  const end = along === null ? undefined : along[along.length - 1];
+  const schemaField = end !== undefined && end.kind === 'field' ? end.field : undefined;
+  if (field === null || schemaField === undefined) return null;
+  const arg = schemaField.args.find((entry) => entry.name === argumentName);
+  if (arg === undefined) return null;
+  return { operation, field, arg, existing: argumentAt(field, argumentName) };
+}
+
+/** The argument set to `text` — replaced in place, appended to the list, or the list opened. */
+function argumentValueEdit(site: ArgumentSite, text: string): BuilderEdit {
+  const { field, existing } = site;
+  if (existing !== null) return { start: existing.value.start, end: existing.value.end, text };
+  const last = field.arguments[field.arguments.length - 1];
+  if (last !== undefined) return { start: last.end, end: last.end, text: `, ${site.arg.name}: ${text}` };
+  return { start: field.name.end, end: field.name.end, text: `(${site.arg.name}: ${text})` };
+}
+
 export function setArgumentEdits(
   context: BuilderContext,
   path: BuilderPath,
   argumentName: string,
   valueText: string,
 ): readonly BuilderEdit[] {
-  const { operation } = context;
-  if (operation === null || isBuilderBroken(context)) return [];
-  const field = fieldAt(operation, path);
-  const along = schemaStepsAlong(context.schema, operation.operation, path);
-  const end = along === null ? undefined : along[along.length - 1];
-  const schemaField = end !== undefined && end.kind === 'field' ? end.field : undefined;
-  if (field === null || schemaField === undefined) return [];
-  const arg = schemaField.args.find((entry) => entry.name === argumentName);
-  if (arg === undefined) return [];
+  const site = argumentSite(context, path, argumentName);
+  if (site === null) return [];
+  const { operation, arg, existing } = site;
   const text = valueText.trim();
   const parsed = parseValue(text).value;
   if (parsed === null) return [];
-  const existing = argumentAt(field, argumentName);
-  const edits: BuilderEdit[] = [];
-  const last = field.arguments[field.arguments.length - 1];
-  if (existing !== null) {
-    edits.push({ start: existing.value.start, end: existing.value.end, text });
-  } else if (last !== undefined) {
-    edits.push({ start: last.end, end: last.end, text: `, ${argumentName}: ${text}` });
-  } else {
-    edits.push({ start: field.name.end, end: field.name.end, text: `(${argumentName}: ${text})` });
-  }
+  const edits: BuilderEdit[] = [argumentValueEdit(site, text)];
   const wanted: VariableEntry[] =
     parsed.kind === 'Variable' ? [{ name: parsed.name.value, type: printTypeRef(arg.type) }] : [];
   const orphaned = existing === null ? new Set<string>() : orphanedVariables(operation, existing, parsed);
@@ -552,6 +621,129 @@ export function removeArgumentEdits(
   }
   const edits: BuilderEdit[] = [removal];
   const undeclare = variableDefinitionsEdit(context, operation, [], orphanedVariables(operation, existing, null));
+  if (undeclare !== null) edits.push(undeclare);
+  return edits;
+}
+
+// ── Input fields ───────────────────────────────────────────────────
+
+/** `{ k1: { k2: text } }` for the keys from `from` on — the literal the missing tail of a key path opens. */
+function nestedLiteral(keys: InputFieldPath, from: number, text: string): string {
+  let inner = text;
+  for (let index = keys.length - 1; index >= from; index--) inner = `{ ${keys[index]}: ${inner} }`;
+  return inner;
+}
+
+/** Insert `text` as the last key of `value` — `{ }` opens around it, a list gains it after the last key. */
+function appendObjectFieldEdit(value: ObjectValueNode, text: string): BuilderEdit {
+  const last = value.fields[value.fields.length - 1];
+  if (last === undefined) return { start: value.start, end: value.end, text: `{ ${text} }` };
+  return { start: last.end, end: last.end, text: `, ${text}` };
+}
+
+/** Remove one of several keys with the separator before it (after it, for the first). */
+function removeObjectFieldEdit(value: ObjectValueNode, field: ObjectFieldNode): BuilderEdit {
+  const index = value.fields.indexOf(field);
+  const previous = value.fields[index - 1];
+  if (previous !== undefined) return { start: previous.end, end: field.end, text: '' };
+  const next = value.fields[index + 1];
+  return { start: field.start, end: next === undefined ? field.end : next.start, text: '' };
+}
+
+/**
+ * Give an input field of a checked field's argument a value — a
+ * literal or a `$variable` (declared with the input field's type when
+ * new). The argument's object literal opens when the argument is not
+ * set, a value it holds that is not an object (a `$variable`, a
+ * scalar) is promoted to one, the missing keys on the way open as
+ * nested literals, and an existing key is replaced in place; a
+ * variable only the replaced value referenced is undeclared. Text
+ * that is not one GraphQL value yields no edit.
+ */
+export function setInputFieldEdits(
+  context: BuilderContext,
+  path: BuilderPath,
+  argumentName: string,
+  keys: InputFieldPath,
+  valueText: string,
+): readonly BuilderEdit[] {
+  const site = argumentSite(context, path, argumentName);
+  if (site === null || keys.length === 0) return [];
+  const { operation, arg, existing } = site;
+  const along = inputFieldsAlong(context.schema, arg, keys);
+  const leaf = along === null ? undefined : along[along.length - 1];
+  if (leaf === undefined) return [];
+  const text = valueText.trim();
+  const parsed = parseValue(text).value;
+  if (parsed === null) return [];
+  const edits: BuilderEdit[] = [];
+  let replaced: ValueNode | null = null;
+  if (existing === null) {
+    edits.push(argumentValueEdit(site, nestedLiteral(keys, 0, text)));
+  } else {
+    let current: ValueNode = existing.value;
+    let depth = 0;
+    while (depth < keys.length) {
+      const key = keys[depth];
+      if (key === undefined) break;
+      if (current.kind !== 'ObjectValue') {
+        replaced = current;
+        edits.push({ start: current.start, end: current.end, text: nestedLiteral(keys, depth, text) });
+        break;
+      }
+      const field = objectField(current, key);
+      if (field === null) {
+        edits.push(appendObjectFieldEdit(current, `${key}: ${nestedLiteral(keys, depth + 1, text)}`));
+        break;
+      }
+      current = field.value;
+      depth++;
+    }
+    if (depth === keys.length) {
+      replaced = current;
+      edits.push({ start: current.start, end: current.end, text });
+    }
+  }
+  const wanted: VariableEntry[] =
+    parsed.kind === 'Variable' ? [{ name: parsed.name.value, type: printTypeRef(leaf.type) }] : [];
+  const orphaned = replaced === null ? new Set<string>() : orphanedVariables(operation, replaced, parsed);
+  const variables = variableDefinitionsEdit(context, operation, wanted, orphaned);
+  if (variables !== null) edits.push(variables);
+  return edits;
+}
+
+/**
+ * Uncheck an input field: the key goes with its separator; the last
+ * key of a nested literal takes its parent key with it (up the path),
+ * and the last key of the argument's literal takes the argument — a
+ * required one its field, as the argument's own uncheck does; an
+ * orphaned variable is undeclared.
+ */
+export function removeInputFieldEdits(
+  context: BuilderContext,
+  path: BuilderPath,
+  argumentName: string,
+  keys: InputFieldPath,
+): readonly BuilderEdit[] {
+  const site = argumentSite(context, path, argumentName);
+  if (site === null || keys.length === 0) return [];
+  const { operation, arg, existing } = site;
+  if (existing === null || inputFieldAt(existing.value, keys) === null) return [];
+  let depth = keys.length;
+  while (depth > 1) {
+    const parent = inputFieldAt(existing.value, keys.slice(0, depth - 1));
+    if (parent === null || parent.value.kind !== 'ObjectValue' || parent.value.fields.length > 1) break;
+    depth--;
+  }
+  const top = existing.value;
+  if (depth === 1 && top.kind === 'ObjectValue' && top.fields.length === 1) {
+    return isRequired(arg) ? deselectFieldEdits(context, path) : removeArgumentEdits(context, path, argumentName);
+  }
+  const target = inputFieldAt(existing.value, keys.slice(0, depth));
+  const containerValue = depth === 1 ? top : inputFieldAt(existing.value, keys.slice(0, depth - 1))?.value;
+  if (target === null || containerValue === undefined || containerValue.kind !== 'ObjectValue') return [];
+  const edits: BuilderEdit[] = [removeObjectFieldEdit(containerValue, target)];
+  const undeclare = variableDefinitionsEdit(context, operation, [], orphanedVariables(operation, target, null));
   if (undeclare !== null) edits.push(undeclare);
   return edits;
 }

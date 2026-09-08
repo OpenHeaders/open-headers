@@ -41,6 +41,10 @@
  *       noteCreated fired by a second request's createNote while the
  *       first listens; Stop mid-stream sends the client's complete and
  *       freezes the count.
+ *   G11 the input-object rows: the seeded createNote's `input` literal
+ *       projects onto the expanded argument's input fields (title
+ *       checked with its value), a key appends as a declared variable
+ *       and leaves with its declaration.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle (extension `graphql-workbench.spec.ts`), the ⌘/Ctrl+Enter
@@ -547,4 +551,42 @@ test('G10 — a picked subscription rides the WebSocket plane: three ticks then 
       .first(),
   ).toBeVisible();
   await expect(queryButton()).toBeVisible();
+});
+
+// ── G11: the input-object rows ──────────────────────────────────────
+
+/** The query editor's document as its Monaco lays it out; NBSPs normalized. */
+async function queryDocumentText(): Promise<string> {
+  const lines = workbench
+    .getByTestId('graphql-query-tab')
+    .filter({ visible: true })
+    .first()
+    .locator('.monaco-editor .view-lines')
+    .first();
+  return (await lines.innerText()).replace(/\u00a0/g, ' ');
+}
+
+test('G11 — an input-object argument expands to its input fields: the literal projects onto them, a key appends as a variable and leaves with it', async () => {
+  await openGraphqlRequest('e2egqd08');
+  await workbench.getByRole('tab', { name: 'Query', exact: true }).filter({ visible: true }).first().click();
+  await workbench.getByTestId('graphql-explorer-introspect').filter({ visible: true }).first().click();
+  const explorer = workbench.getByTestId('graphql-explorer').filter({ visible: true }).first();
+  await explorer.waitFor({ state: 'visible', timeout: 10_000 });
+  const inputCheck = (key: string) =>
+    explorer.getByTestId(`graphql-builder-input-check-mutation.createNote.input.${key}`);
+
+  await explorer.getByTestId('graphql-builder-expand-mutation.createNote').click();
+  await explorer.getByTestId('graphql-builder-arg-expand-mutation.createNote.input').click();
+  await expect(inputCheck('title')).toBeChecked();
+  await expect(explorer.getByTestId('graphql-builder-input-value-mutation.createNote.input.title')).toHaveValue(
+    'Live note',
+  );
+  await expect(inputCheck('body')).not.toBeChecked();
+
+  await inputCheck('body').click();
+  await expect.poll(queryDocumentText, { timeout: 5_000 }).toContain('authorId: "2", body: $body }');
+  expect(await queryDocumentText()).toContain('$body: String');
+  await inputCheck('body').click();
+  await expect.poll(queryDocumentText, { timeout: 5_000 }).toContain('authorId: "2" }');
+  expect(await queryDocumentText()).not.toContain('$body');
 });
