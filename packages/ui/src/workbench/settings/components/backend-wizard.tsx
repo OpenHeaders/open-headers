@@ -42,6 +42,8 @@ import type { BackendEnableSwitchHandle } from './use-backend-enable-switch';
 export interface BackendWizardTarget {
   recordId: string;
   mode: 'add' | 'edit';
+  /** The scenario the verb that opened the wizard stands for; the record's derived mode otherwise. */
+  scenario?: BackendMode;
 }
 
 const STEPS = [
@@ -65,15 +67,24 @@ export const BackendWizard: React.FC<{
   }, [record, onClose]);
   if (!record) return null;
 
-  return <WizardDialog record={record} mode={target.mode} enableSwitch={enableSwitch} onClose={onClose} />;
+  return (
+    <WizardDialog
+      record={record}
+      mode={target.mode}
+      initialScenario={target.scenario ?? null}
+      enableSwitch={enableSwitch}
+      onClose={onClose}
+    />
+  );
 };
 
 const WizardDialog: React.FC<{
   record: BackendConnection;
   mode: 'add' | 'edit';
+  initialScenario: BackendMode | null;
   enableSwitch: BackendEnableSwitchHandle;
   onClose: () => void;
-}> = ({ record, mode, enableSwitch, onClose }) => {
+}> = ({ record, mode, initialScenario, enableSwitch, onClose }) => {
   const t = useT();
   const host = getCurrentHost();
   const scenarios = scenariosForHost(host);
@@ -84,7 +95,7 @@ const WizardDialog: React.FC<{
   // Edit lands on the connect step with the scenario derived from the
   // record; add starts at the scenario choice.
   const derivedMode = deriveBackendMode(host, { ...record, enabled: true });
-  const [scenario, setScenario] = useState<BackendMode>(derivedMode);
+  const [scenario, setScenario] = useState<BackendMode>(initialScenario ?? derivedMode);
   const [step, setStep] = useState(mode === 'add' ? 0 : 1);
   const [finishing, setFinishing] = useState(false);
   const [autoPairing, setAutoPairing] = useState(false);

@@ -22,7 +22,14 @@ import { useSyncExternalStore } from 'react';
 
 export type ServerAdminStatus = 'unknown' | 'admin' | 'denied';
 
+/** Who the probe says the caller is — the served tab's signed-in user. */
+export interface ServerAdminIdentity {
+  readonly displayName: string;
+  readonly email: string | null;
+}
+
 let status: ServerAdminStatus = 'unknown';
+let identity: ServerAdminIdentity | null = null;
 /** A real server answer landed — the fact is settled for this session. */
 let definitive = false;
 let inFlight = false;
@@ -69,6 +76,7 @@ function ensureProbe(): void {
       // unconditionally.
       definitive = true;
       status = resp.admin ? 'admin' : 'denied';
+      identity = resp.user ?? null;
       notify();
     })
     .catch(() => setStatus('denied'))
@@ -98,6 +106,12 @@ export function getServerAdminStatusSettled(): boolean {
   return definitive;
 }
 
+/** The caller's identity from the settled probe; null before it lands or when the server names none. */
+export function getServerAdminIdentity(): ServerAdminIdentity | null {
+  ensureProbe();
+  return identity;
+}
+
 /**
  * Re-ask NOW, skipping the retry cooldown. For hosts that observe a
  * transport-level readiness signal — the web tab's wire handshake
@@ -125,6 +139,7 @@ export function subscribeServerAdminStatus(listener: () => void): () => void {
 /** Test seam — resets the store so each rig starts unprobed. */
 export function __resetServerAdminStatusForTests(): void {
   status = 'unknown';
+  identity = null;
   definitive = false;
   inFlight = false;
   reprobeQueued = false;
@@ -134,6 +149,10 @@ export function __resetServerAdminStatusForTests(): void {
 
 export function useServerAdminStatus(): ServerAdminStatus {
   return useSyncExternalStore(subscribeServerAdminStatus, getServerAdminStatus, getServerAdminStatus);
+}
+
+export function useServerAdminIdentity(): ServerAdminIdentity | null {
+  return useSyncExternalStore(subscribeServerAdminStatus, getServerAdminIdentity, getServerAdminIdentity);
 }
 
 export function useServerAdminStatusSettled(): boolean {

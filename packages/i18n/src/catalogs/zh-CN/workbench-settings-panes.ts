@@ -77,16 +77,18 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.testConnection': '测试连接',
 
   // ── Backend pane: connections list ─────────────────────────────────
-  'workbench.settings.backendPane.connections.title': '连接',
-  'workbench.settings.backendPane.connections.blurbBrowser':
-    '此浏览器已加入的后端。它们的工作区同步下来，并可离线使用。',
-  'workbench.settings.backendPane.connections.blurbApp': '此应用已加入的后端。它们的工作区同步下来，并可离线使用。',
-  'workbench.settings.backendPane.connections.add': '添加后端',
+  'workbench.settings.backendPane.connections.title': '同步对象',
+  'workbench.settings.backendPane.connections.connectDesktop': '连接桌面端应用',
+  'workbench.settings.backendPane.connections.signInServer': '登录服务器…',
+  'workbench.settings.backendPane.connections.emptyDesktopLine': '在此电脑的多个浏览器之间同步：连接桌面端应用。',
+  'workbench.settings.backendPane.connections.emptyServerLine':
+    '在你的多台设备之间或与团队同步：登录 OpenHeaders Server。',
+  'workbench.settings.backendPane.connections.menu.connect': '连接',
+  'workbench.settings.backendPane.connections.menu.disconnect': '断开',
+  'workbench.settings.backendPane.connections.menu.edit': '编辑…',
+  'workbench.settings.backendPane.connections.menu.remove': '移除…',
+  'workbench.settings.backendPane.connections.place.desktopApp': '此电脑上的桌面端应用',
   'workbench.settings.backendPane.connections.writeFailed': '无法保存连接',
-  'workbench.settings.backendPane.connections.emptyBrowser':
-    '没有连接——一切都运行在此浏览器中。添加后端即可从桌面端应用或自托管服务器同步工作区。',
-  'workbench.settings.backendPane.connections.emptyApp':
-    '没有连接——一切都运行在此应用中。添加后端即可从桌面端应用或自托管服务器同步工作区。',
   'workbench.settings.backendPane.connections.status.connected': '已连接',
   'workbench.settings.backendPane.connections.status.connecting': '正在连接…',
   'workbench.settings.backendPane.connections.status.authRequired': '需要重新配对',
@@ -94,12 +96,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.status.off': '关闭',
   'workbench.settings.backendPane.connections.repair': '重新配对',
   'workbench.settings.backendPane.connections.autoConnect': '自动连接',
-  'workbench.settings.backendPane.connections.editTooltipConnected': '编辑（会先断开）',
-  'workbench.settings.backendPane.connections.editTooltip': '编辑',
-  'workbench.settings.backendPane.connections.editAria': '编辑 {label}',
-  'workbench.settings.backendPane.connections.disconnectTooltip': '断开（设置会保留）',
-  'workbench.settings.backendPane.connections.connectTooltip': '验证并连接',
-  'workbench.settings.backendPane.connections.enabledAria': '{label} 已启用',
   'workbench.settings.backendPane.connections.orgConflict': 'Org“{org}”已由 {provider} 提供——未加入',
   'workbench.settings.backendPane.connections.removedBackend': '一个已移除的后端',
 

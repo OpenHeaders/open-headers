@@ -306,14 +306,14 @@ async function openBackendSettings(): Promise<void> {
   // Backend is a group node since the settings shell regroup; the
   // connections list is its Connections child (the popup pill's target).
   await deliverIntent({ kind: 'open-settings', target: { categoryId: 'backendConnections' } });
-  await expect(workbench.getByRole('button', { name: 'Add back-end' })).toBeVisible();
+  await expect(workbench.getByRole('button', { name: 'Sign in to a server…' })).toBeVisible();
 }
 
 async function closeSettings(): Promise<void> {
   // The settings modal's header close button carries the icon's name
   // (Esc needs in-modal focus; the mask ignores clicks).
   await workbench.locator('.settings-modal').getByRole('button', { name: 'close', exact: true }).click();
-  await expect(workbench.getByRole('button', { name: 'Add back-end' })).toBeHidden();
+  await expect(workbench.getByRole('button', { name: 'Sign in to a server…' })).toBeHidden();
 }
 
 interface WizardJoin {
@@ -328,7 +328,7 @@ interface WizardJoin {
 
 /** Add + enable one backend through the real wizard. Settings must be open. */
 async function addBackendViaWizard(join: WizardJoin): Promise<void> {
-  await workbench.getByRole('button', { name: 'Add back-end' }).click();
+  await workbench.getByRole('button', { name: 'Sign in to a server…' }).click();
   const modal = workbench.getByRole('dialog', { name: 'Add back-end' });
   await expect(modal).toBeVisible();
 

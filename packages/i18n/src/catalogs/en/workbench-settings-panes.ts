@@ -62,17 +62,19 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.testConnection': 'Test connection',
 
   // ── Backend pane: connections list ─────────────────────────────────
-  'workbench.settings.backendPane.connections.title': 'Connections',
-  'workbench.settings.backendPane.connections.blurbBrowser':
-    'Back-ends this browser has joined. Their workspaces sync down and stay usable offline.',
-  'workbench.settings.backendPane.connections.blurbApp':
-    'Back-ends this app has joined. Their workspaces sync down and stay usable offline.',
-  'workbench.settings.backendPane.connections.add': 'Add back-end',
+  'workbench.settings.backendPane.connections.title': 'Synced with',
+  'workbench.settings.backendPane.connections.connectDesktop': 'Connect desktop app',
+  'workbench.settings.backendPane.connections.signInServer': 'Sign in to a server…',
+  'workbench.settings.backendPane.connections.emptyDesktopLine':
+    'Sync across browsers on this computer: connect the desktop app.',
+  'workbench.settings.backendPane.connections.emptyServerLine':
+    'Sync across your devices or with a team: sign in to an OpenHeaders Server.',
+  'workbench.settings.backendPane.connections.menu.connect': 'Connect',
+  'workbench.settings.backendPane.connections.menu.disconnect': 'Disconnect',
+  'workbench.settings.backendPane.connections.menu.edit': 'Edit…',
+  'workbench.settings.backendPane.connections.menu.remove': 'Remove…',
+  'workbench.settings.backendPane.connections.place.desktopApp': 'Desktop app on this computer',
   'workbench.settings.backendPane.connections.writeFailed': 'Could not save the connection',
-  'workbench.settings.backendPane.connections.emptyBrowser':
-    'No connections — everything runs in this browser. Add a back-end to sync workspaces from the desktop app or a self-hosted server.',
-  'workbench.settings.backendPane.connections.emptyApp':
-    'No connections — everything runs in this app. Add a back-end to sync workspaces from the desktop app or a self-hosted server.',
   'workbench.settings.backendPane.connections.status.connected': 'Connected',
   'workbench.settings.backendPane.connections.status.connecting': 'Connecting…',
   'workbench.settings.backendPane.connections.status.authRequired': 'Re-pair needed',
@@ -80,12 +82,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.status.off': 'Off',
   'workbench.settings.backendPane.connections.repair': 'Re-pair',
   'workbench.settings.backendPane.connections.autoConnect': 'Auto-connect',
-  'workbench.settings.backendPane.connections.editTooltipConnected': 'Edit (disconnects first)',
-  'workbench.settings.backendPane.connections.editTooltip': 'Edit',
-  'workbench.settings.backendPane.connections.editAria': 'Edit {label}',
-  'workbench.settings.backendPane.connections.disconnectTooltip': 'Disconnect (settings are kept)',
-  'workbench.settings.backendPane.connections.connectTooltip': 'Verify and connect',
-  'workbench.settings.backendPane.connections.enabledAria': '{label} enabled',
   'workbench.settings.backendPane.connections.orgConflict':
     'Org “{org}” is already provided by {provider} — not joined',
   'workbench.settings.backendPane.connections.removedBackend': 'a removed back-end',

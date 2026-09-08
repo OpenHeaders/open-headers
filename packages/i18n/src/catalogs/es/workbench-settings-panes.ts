@@ -87,21 +87,19 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.testConnection': 'Probar la conexión',
 
   // ── Backend pane: connections list ─────────────────────────────────
-  'workbench.settings.backendPane.connections.title': 'Conexiones',
-  'workbench.settings.backendPane.connections.blurbBrowser':
-    'Los back-ends a los que este navegador se ha unido. Sus espacios de trabajo se sincronizan y quedan ' +
-    'utilizables sin conexión.',
-  'workbench.settings.backendPane.connections.blurbApp':
-    'Los back-ends a los que esta aplicación se ha unido. Sus espacios de trabajo se sincronizan y quedan ' +
-    'utilizables sin conexión.',
-  'workbench.settings.backendPane.connections.add': 'Añadir un back-end',
+  'workbench.settings.backendPane.connections.title': 'Sincronizado con',
+  'workbench.settings.backendPane.connections.connectDesktop': 'Conectar la aplicación de escritorio',
+  'workbench.settings.backendPane.connections.signInServer': 'Iniciar sesión en un servidor…',
+  'workbench.settings.backendPane.connections.emptyDesktopLine':
+    'Sincronizar entre los navegadores de este equipo: conecta la aplicación de escritorio.',
+  'workbench.settings.backendPane.connections.emptyServerLine':
+    'Sincronizar entre tus dispositivos o con un equipo de trabajo: inicia sesión en un OpenHeaders Server.',
+  'workbench.settings.backendPane.connections.menu.connect': 'Conectar',
+  'workbench.settings.backendPane.connections.menu.disconnect': 'Desconectar',
+  'workbench.settings.backendPane.connections.menu.edit': 'Editar…',
+  'workbench.settings.backendPane.connections.menu.remove': 'Eliminar…',
+  'workbench.settings.backendPane.connections.place.desktopApp': 'Aplicación de escritorio en este equipo',
   'workbench.settings.backendPane.connections.writeFailed': 'No se pudo guardar la conexión',
-  'workbench.settings.backendPane.connections.emptyBrowser':
-    'Sin conexiones — todo se ejecuta en este navegador. Añade un back-end para sincronizar espacios de ' +
-    'trabajo desde la aplicación de escritorio o un servidor autoalojado.',
-  'workbench.settings.backendPane.connections.emptyApp':
-    'Sin conexiones — todo se ejecuta en esta aplicación. Añade un back-end para sincronizar espacios de ' +
-    'trabajo desde la aplicación de escritorio o un servidor autoalojado.',
   'workbench.settings.backendPane.connections.status.connected': 'Conectado',
   'workbench.settings.backendPane.connections.status.connecting': 'Conectando…',
   'workbench.settings.backendPane.connections.status.authRequired': 'Hace falta reemparejar',
@@ -109,12 +107,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.status.off': 'Apagado',
   'workbench.settings.backendPane.connections.repair': 'Reemparejar',
   'workbench.settings.backendPane.connections.autoConnect': 'Conexión automática',
-  'workbench.settings.backendPane.connections.editTooltipConnected': 'Editar (primero se desconecta)',
-  'workbench.settings.backendPane.connections.editTooltip': 'Editar',
-  'workbench.settings.backendPane.connections.editAria': 'Editar {label}',
-  'workbench.settings.backendPane.connections.disconnectTooltip': 'Desconectar (los ajustes se conservan)',
-  'workbench.settings.backendPane.connections.connectTooltip': 'Verificar y conectar',
-  'workbench.settings.backendPane.connections.enabledAria': '{label} activado',
   'workbench.settings.backendPane.connections.orgConflict':
     'La Org «{org}» ya la proporciona {provider} — no se ha unido',
   'workbench.settings.backendPane.connections.removedBackend': 'un back-end eliminado',

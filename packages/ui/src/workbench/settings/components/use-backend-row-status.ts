@@ -7,9 +7,19 @@
  */
 
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import { useBackendSyncStatus } from '../../../shared/hooks/useBackendSyncStatus';
 
 export type BackendRowStatus = 'connected' | 'connecting' | 'auth-required' | 'error' | 'off';
+
+/** The state word beside a row's place — one vocabulary for every row. */
+export const BACKEND_ROW_STATUS_LABEL: Record<BackendRowStatus, MessageKey> = {
+  connected: 'workbench.settings.backendPane.connections.status.connected',
+  connecting: 'workbench.settings.backendPane.connections.status.connecting',
+  'auth-required': 'workbench.settings.backendPane.connections.status.authRequired',
+  error: 'workbench.settings.backendPane.connections.status.error',
+  off: 'workbench.settings.backendPane.connections.status.off',
+};
 
 export interface BackendRowStatusApi {
   status: BackendRowStatus;
@@ -29,7 +39,11 @@ export function useBackendRowStatus(record: BackendConnection): BackendRowStatus
 
 function deriveRowStatus(record: BackendConnection, entry: BackendSyncStatus | undefined): BackendRowStatus {
   if (!record.enabled) return 'off';
-  // No slot yet — the wire for this record hasn't spoken.
+  return slotStatus(entry);
+}
+
+/** The state of one live slot — no slot yet means the wire hasn't spoken. */
+export function slotStatus(entry: BackendSyncStatus | undefined): BackendRowStatus {
   if (!entry) return 'connecting';
   if (entry.state === 'green') return 'connected';
   if (entry.state === 'red') {

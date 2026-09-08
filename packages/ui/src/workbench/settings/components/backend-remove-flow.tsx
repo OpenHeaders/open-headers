@@ -1,8 +1,8 @@
 /**
  * Remove flow for a backend record (the multi-backend plan §4).
  *
- * An unbound record (no consumed Orgs) removes through a plain
- * Popconfirm — nothing was synced from it, only its address and pairing
+ * An unbound record (no consumed Orgs) removes through the app's plain
+ * confirm — nothing was synced from it, only its address and pairing
  * are forgotten. A bound record opens the outcome dialog with the two
  * posture-independent choices scoped to this backend's Org subset:
  *
@@ -24,12 +24,11 @@
  * never touches its own data.
  */
 
-import { DeleteOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { removeBackend } from '@openheaders/core/backends';
 import type { BackendConnection, Org } from '@openheaders/core/types';
 import { slugify } from '@openheaders/core/utils';
-import { App as AntApp, Button, Checkbox, Modal, Popconfirm, Tooltip, theme } from 'antd';
+import { App as AntApp, Button, Checkbox, Modal, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -80,63 +79,60 @@ export async function orchestrateDiscardRemoval(deps: DiscardRemovalDeps): Promi
   return { ok: true, failedDeletes };
 }
 
-export const BackendRemoveButton: React.FC<{
-  record: BackendConnection;
-  label: string;
-  consumedOrgs: readonly Org[];
-  onRemoved: () => void;
-}> = ({ record, label, consumedOrgs, onRemoved }) => {
-  const { message } = AntApp.useApp();
+export interface BackendRemoveHandle {
+  /** Start the flow — the confirm for an unbound record, the outcome dialog for a bound one. */
+  remove: () => void;
+  /** The outcome dialog while it is open; mount it beside the row. */
+  element: React.ReactNode;
+}
+
+/**
+ * The remove verb behind a row's ⋯ menu. An unbound record confirms in
+ * place through the app's modal (nothing was synced from it); a bound
+ * record opens the outcome dialog.
+ */
+export function useBackendRemove(
+  record: BackendConnection,
+  label: string,
+  consumedOrgs: readonly Org[],
+  onRemoved: () => void,
+): BackendRemoveHandle {
+  const { message, modal } = AntApp.useApp();
   const t = useT();
   const [open, setOpen] = useState(false);
 
   if (consumedOrgs.length === 0) {
-    const remove = async (): Promise<void> => {
-      await removeBackend(record.id);
-      onRemoved();
-      message.success(t('workbench.settings.backendPane.remove.removed', { label }));
+    return {
+      remove: () => {
+        modal.confirm({
+          title: t('workbench.settings.backendPane.remove.confirmTitle', { label }),
+          content: t('workbench.settings.backendPane.remove.confirmBody'),
+          okText: t('shared.action.remove'),
+          okButtonProps: { danger: true },
+          onOk: async () => {
+            await removeBackend(record.id);
+            onRemoved();
+            message.success(t('workbench.settings.backendPane.remove.removed', { label }));
+          },
+        });
+      },
+      element: null,
     };
-    return (
-      <Popconfirm
-        title={t('workbench.settings.backendPane.remove.confirmTitle', { label })}
-        description={t('workbench.settings.backendPane.remove.confirmBody')}
-        okText={t('shared.action.remove')}
-        okButtonProps={{ danger: true }}
-        onConfirm={() => void remove()}
-      >
-        <Button
-          size="small"
-          danger
-          icon={<DeleteOutlined />}
-          aria-label={t('workbench.settings.backendPane.remove.aria', { label })}
-        />
-      </Popconfirm>
-    );
   }
 
-  return (
-    <>
-      <Tooltip title={t('workbench.settings.backendPane.remove.tooltip')}>
-        <Button
-          size="small"
-          danger
-          icon={<DeleteOutlined />}
-          aria-label={t('workbench.settings.backendPane.remove.aria', { label })}
-          onClick={() => setOpen(true)}
-        />
-      </Tooltip>
-      {open && (
-        <BackendRemoveDialog
-          record={record}
-          label={label}
-          consumedOrgs={consumedOrgs}
-          onClose={() => setOpen(false)}
-          onRemoved={onRemoved}
-        />
-      )}
-    </>
-  );
-};
+  return {
+    remove: () => setOpen(true),
+    element: open ? (
+      <BackendRemoveDialog
+        record={record}
+        label={label}
+        consumedOrgs={consumedOrgs}
+        onClose={() => setOpen(false)}
+        onRemoved={onRemoved}
+      />
+    ) : null,
+  };
+}
 
 const BackendRemoveDialog: React.FC<{
   record: BackendConnection;

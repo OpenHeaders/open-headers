@@ -1,26 +1,28 @@
 /**
- * Connections list — the managed `OH.backends` records on the Back-end
- * pane (the multi-backend plan §4). One row per record: status dot,
- * label, address, the Orgs consumed from it, the auto-connect and
- * enabled toggles, re-pair, edit, remove.
+ * "Synced with" — band 2 of the Sync page (the Backup and Sync UX plan
+ * §5.2): one row per `OH.backends` record, the place first, the state
+ * second, the address as the tertiary line. The row's ⋯ carries
+ * Connect / Disconnect, Edit and Remove; Re-pair stays inline as the
+ * one primary gesture a broken wire needs; Auto-connect stays a
+ * checkbox.
  *
- * Life of a record: **Add** creates it disabled with loopback defaults
- * and opens the wizard (`backend-wizard.tsx`: scenario → connect → pair
- * → turn on); the row's Edit reopens the same wizard. The **enabled
- * toggle is the probe gate** — off→on verifies reachability + auth and
- * hard-aborts without committing on failure, so nothing connects until
- * the probe passes; an enabled record's wizard goes disable-first.
+ * Life of a record: the two verbs under the list — Connect desktop app,
+ * Sign in to a server… — create it disabled with loopback defaults and
+ * open the wizard (`backend-wizard.tsx`) on the scenario they stand
+ * for; the row's Edit reopens the same wizard. **Connect is the probe
+ * gate** — off→on verifies reachability + auth and hard-aborts without
+ * committing on failure, so nothing connects until the probe passes; an
+ * enabled record's wizard goes disable-first.
  *
- * Remove delegates to `backend-remove-flow.tsx`: a Popconfirm for
- * records with no consumed Orgs, the Keep-local-copies / Discard
- * outcome dialog for bound records.
+ * Remove delegates to `backend-remove-flow.tsx`: a plain confirm for
+ * records with no consumed Orgs, the Keep-local-copies / Discard outcome
+ * dialog for bound records.
  */
 
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Checkbox, Switch, Tooltip, theme } from 'antd';
+import { MoreOutlined } from '@ant-design/icons';
+import { Button, Checkbox, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { type BackendConnectionPatch, createBackend, getBackend, updateBackend } from '@openheaders/core/backends';
 import { getOrgBackendBindings } from '@openheaders/core/identity';
@@ -30,15 +32,19 @@ import { useBackends } from '../../../shared/backend';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { useBackendOrgConflicts } from '../../../shared/hooks/useBackendOrgConflicts';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
-import { deriveBackendMode } from '../schema/backend';
+import { type BackendMode, deriveBackendMode } from '../schema/backend';
 import { BackendIcon, backendModeIcon } from './backend-icons';
+import { backendPlace } from './backend-place';
 import { backendDisplayLabel } from './backend-record-context';
-import { BackendRemoveButton } from './backend-remove-flow';
+import { useBackendRemove } from './backend-remove-flow';
+import { BackendRowStatusDot } from './backend-row-status-dot';
+import { scenariosForHost } from './backend-scenarios';
 import { BackendWizard, type BackendWizardTarget } from './backend-wizard';
 import { PairPopover } from './pair-popover';
+import { PaneSection } from './pane-chrome';
 import { type BackendEnableSwitchHandle, useBackendEnableSwitch } from './use-backend-enable-switch';
 import { useBackendRegistryWrite } from './use-backend-registry-write';
-import { type BackendRowStatus, useBackendRowStatus } from './use-backend-row-status';
+import { BACKEND_ROW_STATUS_LABEL, useBackendRowStatus } from './use-backend-row-status';
 
 export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const { token } = theme.useToken();
@@ -48,70 +54,21 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const enableSwitch = useBackendEnableSwitch();
   const write = useBackendRegistryWrite();
   const [wizard, setWizard] = useState<BackendWizardTarget | null>(null);
+  // The desktop-app verb exists where that scenario is joinable — a
+  // browser host; the desktop app IS the desktop app.
+  const offersDesktopApp = scenariosForHost(host).some((s) => s.mode === 'desktop-app');
 
-  const add = async (): Promise<void> => {
+  const add = async (scenario: BackendMode): Promise<void> => {
     // A host that cannot store the record refuses here; the wizard must
     // not open on a record that was never created.
     const created = await write(() => createBackend());
-    if (created) setWizard({ recordId: created.id, mode: 'add' });
+    if (created) setWizard({ recordId: created.id, mode: 'add', scenario });
   };
 
   return (
-    <section style={{ marginBottom: 12 }}>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          gap: 12,
-          marginBottom: 6,
-          padding: '0 2px',
-        }}
-      >
-        <div>
-          <h3
-            style={{
-              margin: 0,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: 0.3,
-              textTransform: 'uppercase',
-              color: token.colorTextSecondary,
-            }}
-          >
-            {t('workbench.settings.backendPane.connections.title')}
-          </h3>
-          <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
-            {t(
-              host === 'extension'
-                ? 'workbench.settings.backendPane.connections.blurbBrowser'
-                : 'workbench.settings.backendPane.connections.blurbApp',
-            )}
-          </div>
-        </div>
-        <Button size="small" icon={<PlusOutlined />} onClick={() => void add()}>
-          {t('workbench.settings.backendPane.connections.add')}
-        </Button>
-      </header>
-      {backends.length === 0 ? (
-        <div
-          style={{
-            padding: '14px 12px',
-            fontSize: 12,
-            color: token.colorTextTertiary,
-            background: token.colorBgContainer,
-            border: `1px dashed ${token.colorBorderSecondary}`,
-            borderRadius: 10,
-          }}
-        >
-          {t(
-            host === 'extension'
-              ? 'workbench.settings.backendPane.connections.emptyBrowser'
-              : 'workbench.settings.backendPane.connections.emptyApp',
-          )}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <PaneSection title={t('workbench.settings.backendPane.connections.title')}>
+      {backends.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
           {backends.map((record) => (
             <ConnectionRow
               key={record.id}
@@ -124,18 +81,26 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
           ))}
         </div>
       )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {offersDesktopApp && (
+          <Button size="small" onClick={() => void add('desktop-app')}>
+            {t('workbench.settings.backendPane.connections.connectDesktop')}
+          </Button>
+        )}
+        <Button size="small" onClick={() => void add('local-self-hosted')}>
+          {t('workbench.settings.backendPane.connections.signInServer')}
+        </Button>
+      </div>
+      {backends.length === 0 && (
+        <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary, lineHeight: 1.5 }}>
+          {offersDesktopApp && <div>{t('workbench.settings.backendPane.connections.emptyDesktopLine')}</div>}
+          <div>{t('workbench.settings.backendPane.connections.emptyServerLine')}</div>
+        </div>
+      )}
       {wizard && <BackendWizard target={wizard} enableSwitch={enableSwitch} onClose={() => setWizard(null)} />}
       {enableSwitch.overlayElement}
-    </section>
+    </PaneSection>
   );
-};
-
-const STATUS_LABEL: Record<BackendRowStatus, MessageKey> = {
-  connected: 'workbench.settings.backendPane.connections.status.connected',
-  connecting: 'workbench.settings.backendPane.connections.status.connecting',
-  'auth-required': 'workbench.settings.backendPane.connections.status.authRequired',
-  error: 'workbench.settings.backendPane.connections.status.error',
-  off: 'workbench.settings.backendPane.connections.status.off',
 };
 
 const ConnectionRow: React.FC<{
@@ -147,12 +112,23 @@ const ConnectionRow: React.FC<{
 }> = ({ record, orgConflicts, enableSwitch, onEdit, onRemoved }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const host = getCurrentHost();
   const { status, detail } = useBackendRowStatus(record);
   const consumedOrgs = useConsumedOrgs(record.id);
   const write = useBackendRegistryWrite();
 
+  // Dialog titles and toasts keep the record's own name (label, else
+  // its address); the row itself names the place.
   const label = backendDisplayLabel(record);
-  const icon = backendModeIcon(deriveBackendMode(getCurrentHost(), { ...record, enabled: true }));
+  const place = backendPlace(
+    host,
+    record,
+    consumedOrgs.map((org) => org.name),
+  );
+  const placeText =
+    place.kind === 'desktop-app' ? t('workbench.settings.backendPane.connections.place.desktopApp') : place.name;
+  const icon = backendModeIcon(deriveBackendMode(host, { ...record, enabled: true }));
+  const removal = useBackendRemove(record, label, consumedOrgs, onRemoved);
 
   const patch = (next: BackendConnectionPatch): void => {
     void write(() => updateBackend(record.id, next));
@@ -168,22 +144,27 @@ const ConnectionRow: React.FC<{
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-        <StatusDot status={status} detail={detail} />
+        <BackendRowStatusDot status={status} detail={detail} />
         <span style={{ flex: 'none', display: 'inline-flex' }} aria-hidden>
           <BackendIcon kind={icon} size={24} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: token.colorText,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {label}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+            <span
+              style={{
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: token.colorText,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {placeText}
+            </span>
+            <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
+              {t(BACKEND_ROW_STATUS_LABEL[status])}
+            </span>
           </div>
           <div
             style={{
@@ -195,12 +176,6 @@ const ConnectionRow: React.FC<{
             }}
           >
             {record.url}
-            {consumedOrgs.length > 0 && (
-              <>
-                {' · '}
-                {consumedOrgs.map((org) => org.name).join(', ')}
-              </>
-            )}
           </div>
         </div>
         {status === 'auth-required' && (
@@ -216,41 +191,49 @@ const ConnectionRow: React.FC<{
             {t('workbench.settings.backendPane.connections.autoConnect')}
           </span>
         </Checkbox>
-        <Tooltip
-          title={t(
-            record.enabled
-              ? 'workbench.settings.backendPane.connections.editTooltipConnected'
-              : 'workbench.settings.backendPane.connections.editTooltip',
-          )}
+        <Dropdown
+          trigger={['click']}
+          menu={{
+            items: [
+              {
+                key: 'toggle',
+                label: t(
+                  record.enabled
+                    ? 'workbench.settings.backendPane.connections.menu.disconnect'
+                    : 'workbench.settings.backendPane.connections.menu.connect',
+                ),
+                disabled: enableSwitch.busy,
+                onClick: () => {
+                  void enableSwitch.setEnabled(record, !record.enabled);
+                },
+              },
+              {
+                key: 'edit',
+                label: t('workbench.settings.backendPane.connections.menu.edit'),
+                onClick: onEdit,
+              },
+              { type: 'divider' },
+              {
+                key: 'remove',
+                label: t('workbench.settings.backendPane.connections.menu.remove'),
+                danger: true,
+                onClick: removal.remove,
+              },
+            ],
+          }}
         >
           <Button
             size="small"
-            icon={<EditOutlined />}
-            aria-label={t('workbench.settings.backendPane.connections.editAria', { label })}
-            onClick={onEdit}
+            type="text"
+            icon={<MoreOutlined />}
+            aria-label={t('workbench.settings.backendPane.rowMenuAria', { label: placeText })}
           />
-        </Tooltip>
-        <BackendRemoveButton record={record} label={label} consumedOrgs={consumedOrgs} onRemoved={onRemoved} />
-        <Tooltip
-          title={t(
-            record.enabled
-              ? 'workbench.settings.backendPane.connections.disconnectTooltip'
-              : 'workbench.settings.backendPane.connections.connectTooltip',
-          )}
-        >
-          <Switch
-            checked={record.enabled}
-            disabled={enableSwitch.busy}
-            aria-label={t('workbench.settings.backendPane.connections.enabledAria', { label })}
-            onChange={(next) => {
-              void enableSwitch.setEnabled(record, next);
-            }}
-          />
-        </Tooltip>
+        </Dropdown>
       </div>
       {orgConflicts.map((conflict) => (
         <OrgConflictNotice key={conflict.orgId} conflict={conflict} />
       ))}
+      {removal.element}
     </div>
   );
 };
@@ -286,34 +269,6 @@ const OrgConflictNotice: React.FC<{ conflict: BackendOrgConflict }> = ({ conflic
     >
       {t('workbench.settings.backendPane.connections.orgConflict', { org: conflict.orgName, provider: providerLabel })}
     </div>
-  );
-};
-
-const StatusDot: React.FC<{ status: BackendRowStatus; detail: string | null }> = ({ status, detail }) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  const color: Record<BackendRowStatus, string> = {
-    connected: token.colorSuccess,
-    connecting: token.colorWarning,
-    'auth-required': token.colorWarning,
-    error: token.colorError,
-    off: token.colorTextQuaternary,
-  };
-  return (
-    <Tooltip title={detail ?? t(STATUS_LABEL[status])}>
-      <span
-        role="status"
-        aria-label={t(STATUS_LABEL[status])}
-        style={{
-          flex: 'none',
-          width: 8,
-          height: 8,
-          borderRadius: 999,
-          background: color[status],
-          display: 'inline-block',
-        }}
-      />
-    </Tooltip>
   );
 };
 
