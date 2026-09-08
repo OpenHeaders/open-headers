@@ -10,6 +10,7 @@ export {
 export type { OrgSyncAnnotation, OrgSyncAnnotationKind } from './org-sync-annotation';
 export {
   deriveOrgSyncAnnotation,
+  orgStateText,
   orgSyncAnnotationText,
   orphanedOrgAnnotation,
   useOrgSyncAnnotations,

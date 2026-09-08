@@ -54,6 +54,25 @@ export function orgSyncAnnotationText(t: Translate, annotation: OrgSyncAnnotatio
   return t(ANNOTATION_KEYS[annotation.kind], { label: annotation.backendLabel ?? '' });
 }
 
+const STATE_KEYS: Partial<Record<OrgSyncAnnotationKind, MessageKey>> = {
+  removed: 'shared.org.sync.removed',
+  off: 'shared.org.state.off',
+  repair: 'shared.org.state.repair',
+  disconnected: 'shared.org.state.disconnected',
+  orphaned: 'shared.org.sync.orphaned',
+};
+
+/**
+ * The state alone, for a surface that already names the place (the
+ * switcher's group headers — the Backup and Sync UX plan §5.3): the
+ * warning tones keep their inline text, the quiet ones say nothing, so
+ * this is `null` for a healthy or connecting wire.
+ */
+export function orgStateText(t: Translate, annotation: OrgSyncAnnotation): string | null {
+  const key = STATE_KEYS[annotation.kind];
+  return key ? t(key) : null;
+}
+
 /**
  * Pure derivation: one Org's annotation from the bindings map, the
  * registry list, and the per-backend slot snapshot.

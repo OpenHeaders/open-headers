@@ -25,7 +25,12 @@ export const sharedWorkspace = {
   'shared.org.sync.synced': 'via {label}',
   'shared.org.sync.repair': 'via {label} — réassociation nécessaire',
   'shared.org.sync.disconnected': 'via {label} — déconnecté',
-  'shared.org.sync.orphaned': 'back-end supprimé — copies locales',
+  'shared.org.sync.orphaned': 'connexion supprimée — copies locales',
+
+  // ── Org states beside a place (the switcher headers name the place) ─
+  'shared.org.state.off': 'désactivé, pas de synchronisation',
+  'shared.org.state.repair': 'réassociation nécessaire',
+  'shared.org.state.disconnected': 'déconnecté',
 
   // ── Org scope descriptions (WorkspaceOrgBadge tooltip) ─────────────
   'shared.org.scope.local.browser': 'Reste sur cet appareil, dans ce navigateur. Jamais synchronisé nulle part.',

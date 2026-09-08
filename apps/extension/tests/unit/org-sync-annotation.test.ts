@@ -4,12 +4,18 @@
  * a missing / disabled / down / re-pair / green backend → the matching
  * tone + kind (render sites word each kind through the catalog), so a
  * disable or outage is visible on every surface, not only the Settings
- * row. `orgSyncAnnotationText` pins the English wording per kind.
+ * row. `orgSyncAnnotationText` pins the English wording per kind;
+ * `orgStateText` the state alone beside a header that names the place.
  */
 
 import type { BackendConnection } from '@openheaders/core/types';
 import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
-import { deriveOrgSyncAnnotation, orgSyncAnnotationText, orphanedOrgAnnotation } from '@openheaders/ui/shared/backend';
+import {
+  deriveOrgSyncAnnotation,
+  orgStateText,
+  orgSyncAnnotationText,
+  orphanedOrgAnnotation,
+} from '@openheaders/ui/shared/backend';
 import { describe, expect, it } from 'vitest';
 
 const ORG_ID = 'org-backend';
@@ -98,9 +104,30 @@ describe('deriveOrgSyncAnnotation', () => {
     expect(annotation && orgSyncAnnotationText(t, annotation)).toBe('via ws://127.0.0.1:8137 — off, not syncing');
   });
 
-  it('an orphaned Org group reads back-end removed', () => {
+  it('an orphaned Org group reads connection removed', () => {
     const annotation = orphanedOrgAnnotation();
     expect(annotation).toEqual({ tone: 'warning', kind: 'orphaned' });
-    expect(orgSyncAnnotationText(t, annotation)).toBe('back-end removed — local copies');
+    expect(orgSyncAnnotationText(t, annotation)).toBe('connection removed — local copies');
+  });
+});
+
+describe('orgStateText', () => {
+  it('words the warning states alone — the header beside it already names the place', () => {
+    expect(orgStateText(t, { tone: 'warning', kind: 'off', backendLabel: 'Desktop application' })).toBe(
+      'off, not syncing',
+    );
+    expect(orgStateText(t, { tone: 'warning', kind: 'repair', backendLabel: 'Desktop application' })).toBe(
+      're-pair needed',
+    );
+    expect(orgStateText(t, { tone: 'warning', kind: 'disconnected', backendLabel: 'Desktop application' })).toBe(
+      'disconnected',
+    );
+    expect(orgStateText(t, { tone: 'warning', kind: 'removed' })).toBe('no longer syncing');
+    expect(orgStateText(t, orphanedOrgAnnotation())).toBe('connection removed — local copies');
+  });
+
+  it('says nothing for a healthy or connecting wire', () => {
+    expect(orgStateText(t, { tone: 'quiet', kind: 'synced', backendLabel: 'Desktop application' })).toBeNull();
+    expect(orgStateText(t, { tone: 'quiet', kind: 'connecting', backendLabel: 'Desktop application' })).toBeNull();
   });
 });

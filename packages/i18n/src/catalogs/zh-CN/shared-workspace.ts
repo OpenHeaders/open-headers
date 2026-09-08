@@ -30,7 +30,12 @@ export const sharedWorkspace = {
   'shared.org.sync.synced': '通过 {label}',
   'shared.org.sync.repair': '通过 {label}——需要重新配对',
   'shared.org.sync.disconnected': '通过 {label}——已断开连接',
-  'shared.org.sync.orphaned': '后端已移除——本地副本',
+  'shared.org.sync.orphaned': '连接已移除——本地副本',
+
+  // ── Org states beside a place (the switcher headers name the place) ─
+  'shared.org.state.off': '已关闭，不同步',
+  'shared.org.state.repair': '需要重新配对',
+  'shared.org.state.disconnected': '已断开连接',
 
   // ── Org scope descriptions (WorkspaceOrgBadge tooltip) ─────────────
   'shared.org.scope.local.browser': '保留在此设备上的此浏览器内。绝不同步到任何地方。',

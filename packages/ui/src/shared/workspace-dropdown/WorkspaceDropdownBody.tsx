@@ -40,12 +40,7 @@ import { Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace/workspace-prefix';
-import {
-  type OrgSyncAnnotation,
-  orgSyncAnnotationText,
-  orphanedOrgAnnotation,
-  useOrgSyncAnnotations,
-} from '../backend';
+import { orgStateText, orphanedOrgAnnotation, useOrgSyncAnnotations } from '../backend';
 import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { useOrgPlace } from '../workspace-org/use-org-place';
@@ -451,7 +446,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     // A null descriptor in grouped mode means the Org left the identity
     // snapshot — its backend record was removed with local copies kept.
     const label = descriptor ? placeOf(descriptor) : t('shared.workspaceDropdown.orphanedOrgHeader');
-    const annotation: OrgSyncAnnotation | null = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
+    // The header names the place, so only a state worth warning about
+    // reads beside it — a healthy or connecting wire says nothing.
+    const annotation = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
+    const state = annotation ? orgStateText(t, annotation) : null;
     // Name the workspace the switch lands on, inline in the header —
     // the consequence of the click is visible before hovering. Shown
     // only when the click actually moves somewhere; the "why" (the
@@ -521,11 +519,11 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
             </Text>
           </Tooltip>
         )}
-        {annotation && (
+        {state && (
           <Text
             style={{
               fontSize: 10,
-              color: annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
+              color: token.colorWarningText,
               maxWidth: 190,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -533,7 +531,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
               flexShrink: 0,
             }}
           >
-            {orgSyncAnnotationText(t, annotation)}
+            {state}
           </Text>
         )}
       </div>
