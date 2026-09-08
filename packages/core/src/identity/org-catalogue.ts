@@ -17,6 +17,7 @@
  * which point every consumer lights up without a code change.
  */
 
+import { isLoopbackBackendUrl } from '../backends/registry';
 import type { BackendReach } from '../protocol';
 import type { HostKind, Org } from '../types';
 import type { PlatformKind } from '../utils/host-detect';
@@ -138,9 +139,10 @@ export function orgIdentityLabel(descriptor: OrgDescriptor): string {
 /**
  * Second-person host-kind hint classification for the *home* Org —
  * which "this is where you are" sub-label the Org carries beneath
- * {@link orgIdentityLabel} ("This browser" / "This device" / "Local
+ * {@link orgIdentityLabel} ("This browser" / "This computer" / "Local
  * server" / "Remote server" in the UI's wording). `null` for a joined
- * Org: a backend the user joined isn't "this" anything.
+ * Org: a backend the user joined isn't "this" anything — its place
+ * reads off the record that provides it ({@link providingBackendKind}).
  *
  * Daemon hosts disambiguate by `reach` ({@link BackendReach}):
  * `wan` → `daemon-remote` (a public deployment), anything else →
@@ -158,6 +160,22 @@ export function orgHostHintKind(descriptor: OrgDescriptor, reach?: BackendReach 
     return reach === 'wan' ? 'daemon-remote' : 'daemon-local';
   }
   return descriptor.hostKind;
+}
+
+/**
+ * Where a joined Org's providing backend sits, read off its record (the
+ * Backup and Sync UX plan D3 — places, never URLs): a loopback address
+ * dialed from a browser host is the desktop app on this computer;
+ * anything else is a server — a LAN / WAN address, or no record at all
+ * (the web tab's serving daemon, present by construction). The desktop
+ * host never joins the desktop app, so a loopback address seen from
+ * there is a daemon on the same machine. `viewer` is the host kind the
+ * viewing host mints its own home Org with.
+ */
+export type ProvidingBackendKind = 'desktop-app' | 'server';
+
+export function providingBackendKind(viewer: HostKind, url: string | null): ProvidingBackendKind {
+  return viewer !== 'desktop' && url !== null && isLoopbackBackendUrl(url) ? 'desktop-app' : 'server';
 }
 
 /**

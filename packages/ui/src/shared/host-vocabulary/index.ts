@@ -14,6 +14,8 @@
  * that hasn't wired the seam still renders sensible copy.
  */
 
+import type { HostKind } from '@openheaders/core/types';
+
 export type Host = 'extension' | 'web' | 'desktop';
 
 interface HostVocabulary {
@@ -39,6 +41,15 @@ export function setCurrentHost(host: Host): void {
 /** The host this UI bundle is running in. */
 export function getCurrentHost(): Host {
   return currentHost;
+}
+
+/**
+ * The host kind this host mints its own home Org with — the viewer as
+ * core's classifiers see it. The extension and a served web tab are
+ * both browsers; only the desktop app is a desktop.
+ */
+export function viewerHostKind(host: Host = currentHost): HostKind {
+  return host === 'desktop' ? 'desktop' : 'browser';
 }
 
 export function instanceLabel(host: Host = currentHost): string {

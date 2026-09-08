@@ -30,11 +30,12 @@
  */
 
 import { getPrimaryBackend, isLoopbackBackendUrl } from '@openheaders/core/backends';
+import { providingBackendKind } from '@openheaders/core/identity';
 import { WS_PORT } from '@openheaders/core/protocol';
 import type { BackendConnection } from '@openheaders/core/types';
 import { lazy } from 'react';
 import * as v from 'valibot';
-import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
+import { getCurrentHost, type Host, viewerHostKind } from '../../../shared/host-vocabulary';
 import { useSettingValue } from '../hooks';
 import { registerSetting } from '../registry';
 import { get as getSettingValue } from '../store';
@@ -76,12 +77,13 @@ export function hostJoinsBackends(host: Host): boolean {
  * read off the record, never stored (the multi-backend plan §1). No
  * enabled entry means tier zero; an enabled entry classifies by URL:
  * `wss` is a remote back-end, a loopback address dialed from a browser
- * host is the desktop app, anything else is a local / LAN daemon.
+ * host is the desktop app (core's `providingBackendKind` owns that
+ * rule), anything else is a local / LAN daemon.
  */
 export function deriveBackendMode(host: Host, primary: BackendConnection | null): BackendMode {
   if (!primary?.enabled) return tierZeroMode(host);
   if (/^wss:/i.test(primary.url)) return 'remote-self-hosted';
-  if (host !== 'desktop' && isLoopbackBackendUrl(primary.url)) return 'desktop-app';
+  if (providingBackendKind(viewerHostKind(host), primary.url) === 'desktop-app') return 'desktop-app';
   return 'local-self-hosted';
 }
 

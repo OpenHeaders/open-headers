@@ -105,6 +105,8 @@ export {
   orgCatalogue,
   orgHostHintKind,
   orgIdentityLabel,
+  type ProvidingBackendKind,
+  providingBackendKind,
 } from './org-catalogue';
 export { resolveOrgActiveWorkspace } from './org-workspace';
 export {

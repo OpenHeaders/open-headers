@@ -12,6 +12,7 @@ import {
   orgCatalogue,
   orgHostHintKind,
   orgIdentityLabel,
+  providingBackendKind,
 } from '../../src/identity/org-catalogue';
 import type { IdentitySnapshot } from '../../src/identity/resolver';
 import type { Org, OrgMembership, Principal, User } from '../../src/types';
@@ -149,6 +150,28 @@ describe('orgHostHintKind', () => {
     const snap = makeSnapshot([privateHome, realHome, realTeam], HOME_ORG);
     expect(orgHostHintKind(describeOrg(snap, TEAM_ORG) as OrgDescriptor)).toBeNull();
     expect(orgHostHintKind(describeOrg(snap, LOCAL_ORG) as OrgDescriptor)).toBeNull();
+  });
+});
+
+describe('providingBackendKind', () => {
+  it('a loopback address dialed from a browser host is the desktop app on this computer', () => {
+    expect(providingBackendKind('browser', 'ws://127.0.0.1:8137')).toBe('desktop-app');
+    expect(providingBackendKind('browser', 'ws://localhost:8137')).toBe('desktop-app');
+    expect(providingBackendKind('browser', 'ws://[::1]:8137')).toBe('desktop-app');
+  });
+
+  it('a LAN or WAN address is a server from every host', () => {
+    expect(providingBackendKind('browser', 'ws://192.168.1.20:8137')).toBe('server');
+    expect(providingBackendKind('browser', 'wss://acme.openheaders.io')).toBe('server');
+    expect(providingBackendKind('desktop', 'wss://acme.openheaders.io')).toBe('server');
+  });
+
+  it('the desktop host never joins the desktop app — a loopback address there is a daemon on this machine', () => {
+    expect(providingBackendKind('desktop', 'ws://127.0.0.1:9137')).toBe('server');
+  });
+
+  it('no record at all is the server the tab was served by', () => {
+    expect(providingBackendKind('browser', null)).toBe('server');
   });
 });
 
