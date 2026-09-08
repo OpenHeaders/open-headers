@@ -9,7 +9,7 @@
 import '@openheaders/ui/workbench/settings/categories';
 import '@openheaders/ui/workbench/settings/schema/editor';
 import '@openheaders/ui/workbench/settings/schema/workspace-sharing';
-import { allCategories, byCategory, getCategory, getDef } from '@openheaders/ui/workbench/settings/registry';
+import { allCategories, allDefs, byCategory, getCategory, getDef } from '@openheaders/ui/workbench/settings/registry';
 import { describe, expect, it } from 'vitest';
 
 describe('editor settings group', () => {
@@ -66,7 +66,7 @@ describe('editor settings group', () => {
       .filter((d) => d.subcategory === 'importPreview')
       .map((d) => d.key);
     expect(keys).toEqual(['workspaceSharing.importPreviewShowMergeStrategy']);
-    expect(getDef('workspaceSharing.diffViewerHome')).toBeUndefined();
+    expect(allDefs().map((d) => String(d.key))).not.toContain('workspaceSharing.diffViewerHome');
     expect(getCategory('workspaceSharing')).toBeUndefined();
     expect(byCategory('diffViewer')).toHaveLength(8);
   });
