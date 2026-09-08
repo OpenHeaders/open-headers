@@ -23,27 +23,22 @@ export const workbenchSettingsPanes = {
     'Your workspaces live on this server. Every browser and device that signs in here works on the same copies.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Always on',
   'workbench.settings.backendPane.tierZero.administer': 'Administer…',
-  'workbench.settings.backendPane.scenario.desktop-app.title': 'Desktop Application',
-  'workbench.settings.backendPane.scenario.desktop-app.hint': 'The Open Headers app on this machine',
-  'workbench.settings.backendPane.scenario.local-self-hosted.title': 'Local / LAN',
-  'workbench.settings.backendPane.scenario.local-self-hosted.hint': 'A server on this machine or your network',
-  'workbench.settings.backendPane.scenario.remote-self-hosted.title': 'Remote / WAN',
-  'workbench.settings.backendPane.scenario.remote-self-hosted.hint': 'A server you self-host on your own VM',
-  'workbench.settings.backendPane.wizard.step.scenario': 'Scenario',
   'workbench.settings.backendPane.wizard.step.connect': 'Connect',
-  'workbench.settings.backendPane.wizard.step.pair': 'Pair',
-  'workbench.settings.backendPane.wizard.step.turnOn': 'Turn on',
-  'workbench.settings.backendPane.wizard.addTitle': 'Add back-end',
   'workbench.settings.backendPane.wizard.editTitle': 'Edit {label}',
+  'workbench.settings.backendPane.wizard.title.desktop': 'Connect desktop app',
+  'workbench.settings.backendPane.wizard.title.server': 'Sign in to a server',
+  'workbench.settings.backendPane.wizard.step.address': 'Address',
+  'workbench.settings.backendPane.wizard.step.signIn': 'Sign in',
+  'workbench.settings.backendPane.wizard.connect': 'Connect',
+  'workbench.settings.backendPane.wizard.checkAgain': 'Check again',
+  'workbench.settings.backendPane.wizard.checking': 'Checking {host}…',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing':
+    '{host} asks this device to pair. Enter the code it shows, or paste a token.',
+  'workbench.settings.backendPane.wizard.verdict.signedIn': 'Signed in to {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Signed in.',
   'workbench.settings.backendPane.wizard.back': 'Back',
   'workbench.settings.backendPane.wizard.next': 'Next',
-  'workbench.settings.backendPane.wizard.comingSoon': 'Coming soon',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Finish without connecting',
-  'workbench.settings.backendPane.wizard.verifyConnect': 'Verify & connect',
-  'workbench.settings.backendPane.wizard.scenarioIntro':
-    'What kind of back-end is this? Pick a tile to see what the tier gives you.',
-  'workbench.settings.backendPane.wizard.scenarioAria': 'Back-end scenario',
-  'workbench.settings.backendPane.wizard.soonBadge': 'Soon',
   'workbench.settings.backendPane.wizard.connectIntro':
     'Where does this client dial the back-end? The connection stays off until the final step verifies it.',
   'workbench.settings.backendPane.wizard.pairIntro':
@@ -59,7 +54,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.disableFirst':
     '{label} is connected. Editing the connection means moving a live wire, so it disconnects first — your settings and pairing are kept, and turning it back on verifies the new configuration before anything connects.',
   'workbench.settings.backendPane.wizard.disconnectEdit': 'Disconnect and edit',
-  'workbench.settings.backendPane.wizard.testConnection': 'Test connection',
 
   // ── Backend pane: connections list ─────────────────────────────────
   'workbench.settings.backendPane.connections.title': 'Synced with',

@@ -19,6 +19,7 @@ describe('describeProbeResult', () => {
       protocolVersion: 1,
       role: 'extension',
       agent: 'test',
+      orgName: null,
     };
     const notice = describeProbeResult(ok, 'Desktop Application', t);
     expect(notice.level).toBe('success');

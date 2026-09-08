@@ -6,13 +6,15 @@
  * one primary gesture a broken wire needs; Auto-connect stays a
  * checkbox.
  *
- * Life of a record: the two verbs under the list — Connect desktop app,
- * Sign in to a server… — create it disabled with loopback defaults and
- * open the wizard (`backend-wizard.tsx`) on the scenario they stand
- * for; the row's Edit reopens the same wizard. **Connect is the probe
- * gate** — off→on verifies reachability + auth and hard-aborts without
- * committing on failure, so nothing connects until the probe passes; an
- * enabled record's wizard goes disable-first.
+ * Life of a record: the two verbs under the list create it disabled.
+ * Connect desktop app pairs over native messaging first and opens the
+ * wizard (`backend-wizard.tsx`) only as its fallback
+ * (`use-connect-desktop-app.ts`); Sign in to a server… opens the wizard
+ * on an empty address; the row's Edit reopens the same wizard on the
+ * place. **Connect is the probe gate** — off→on verifies reachability +
+ * auth and hard-aborts without committing on failure, so nothing
+ * connects until the probe passes; an enabled record's wizard goes
+ * disable-first.
  *
  * Remove delegates to `backend-remove-flow.tsx`: a plain confirm for
  * records with no consumed Orgs, the Keep-local-copies / Discard outcome
@@ -29,21 +31,21 @@ import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { BackendOrgConflict } from '@openheaders/core/storage';
 import type { BackendConnection, Org } from '@openheaders/core/types';
 import { backendPlace, useBackends } from '../../../shared/backend';
-import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
+import { getCurrentHost, type Host, viewerHostKind } from '../../../shared/host-vocabulary';
 import { useBackendOrgConflicts } from '../../../shared/hooks/useBackendOrgConflicts';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
-import { type BackendMode, deriveBackendMode } from '../schema/backend';
+import { deriveBackendMode } from '../schema/backend';
 import { BackendIcon, backendModeIcon } from './backend-icons';
 import { backendDisplayLabel } from './backend-record-context';
 import { useBackendRemove } from './backend-remove-flow';
 import { BackendRowStatusDot } from './backend-row-status-dot';
-import { scenariosForHost } from './backend-scenarios';
 import { BackendWizard, type BackendWizardTarget } from './backend-wizard';
 import { PairPopover } from './pair-popover';
 import { PaneSection } from './pane-chrome';
 import { type BackendEnableSwitchHandle, useBackendEnableSwitch } from './use-backend-enable-switch';
 import { useBackendRegistryWrite } from './use-backend-registry-write';
 import { BACKEND_ROW_STATUS_LABEL, useBackendRowStatus } from './use-backend-row-status';
+import { useConnectDesktopApp } from './use-connect-desktop-app';
 
 export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const { token } = theme.useToken();
@@ -53,15 +55,17 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const enableSwitch = useBackendEnableSwitch();
   const write = useBackendRegistryWrite();
   const [wizard, setWizard] = useState<BackendWizardTarget | null>(null);
-  // The desktop-app verb exists where that scenario is joinable — a
-  // browser host; the desktop app IS the desktop app.
-  const offersDesktopApp = scenariosForHost(host).some((s) => s.mode === 'desktop-app');
+  // The desktop-app verb exists where the desktop app is a place to join
+  // — a browser viewer; the desktop app IS the desktop app.
+  const offersDesktopApp = viewerHostKind(host) === 'browser';
+  const desktopApp = useConnectDesktopApp(enableSwitch, setWizard);
 
-  const add = async (scenario: BackendMode): Promise<void> => {
+  const signInToServer = async (): Promise<void> => {
     // A host that cannot store the record refuses here; the wizard must
-    // not open on a record that was never created.
-    const created = await write(() => createBackend());
-    if (created) setWizard({ recordId: created.id, mode: 'add', scenario });
+    // not open on a record that was never created. The bare scheme is
+    // the empty address the wizard opens on.
+    const created = await write(() => createBackend({ url: 'ws://' }));
+    if (created) setWizard({ recordId: created.id, mode: 'add', kind: 'server' });
   };
 
   return (
@@ -74,7 +78,7 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
               record={record}
               orgConflicts={orgConflicts.filter((c) => c.backendId === record.id)}
               enableSwitch={enableSwitch}
-              onEdit={() => setWizard({ recordId: record.id, mode: 'edit' })}
+              onEdit={(place) => setWizard({ recordId: record.id, mode: 'edit', place })}
               onRemoved={() => setWizard(null)}
             />
           ))}
@@ -82,11 +86,11 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {offersDesktopApp && (
-          <Button size="small" onClick={() => void add('desktop-app')}>
+          <Button size="small" loading={desktopApp.busy} onClick={() => void desktopApp.connect()}>
             {t('workbench.settings.backendPane.connections.connectDesktop')}
           </Button>
         )}
-        <Button size="small" onClick={() => void add('local-self-hosted')}>
+        <Button size="small" onClick={() => void signInToServer()}>
           {t('workbench.settings.backendPane.connections.signInServer')}
         </Button>
       </div>
@@ -106,7 +110,7 @@ const ConnectionRow: React.FC<{
   record: BackendConnection;
   orgConflicts: BackendOrgConflict[];
   enableSwitch: BackendEnableSwitchHandle;
-  onEdit: () => void;
+  onEdit: (place: string) => void;
   onRemoved: () => void;
 }> = ({ record, orgConflicts, enableSwitch, onEdit, onRemoved }) => {
   const { token } = theme.useToken();
@@ -208,7 +212,7 @@ const ConnectionRow: React.FC<{
               {
                 key: 'edit',
                 label: t('workbench.settings.backendPane.connections.menu.edit'),
-                onClick: onEdit,
+                onClick: () => onEdit(placeText),
               },
               { type: 'divider' },
               {

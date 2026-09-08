@@ -1,57 +1,94 @@
 /**
- * Add/edit wizard for one `OH.backends` record (the multi-backend plan
- * §4) — the guided flow behind "Add back-end" and the row's Edit:
- * scenario → connect → pair → turn on.
+ * Add/edit wizard for one `OH.backends` record — the dialog behind the
+ * Sync page's two verbs and the row's Edit (the Backup and Sync UX plan
+ * §5.4): address → sign in → connect. No scenario step: what the place
+ * is follows from its address (`providingBackendKind`), and the verb
+ * that opened the wizard is its title.
  *
  * The wizard is a guided view over the SAME record-scoped field
- * components the inline editor used, not a staged draft: fields commit
- * on blur onto the disabled record, which is safe by the S4 staging
+ * components the row editor used, not a staged draft: fields commit on
+ * blur onto the disabled record, which is safe by the S4 staging
  * guarantee (a disabled record has no wire to move), and the final step
  * routes through `useBackendEnableSwitch` — the probe-gated enable is
  * the one activation path.
  *
+ *   - The sign-in step reads its verdict off the same probe: the server
+ *     asks this device to pair (`auth-required`), or the credential
+ *     already signs in (the WELCOME names the place), or nothing
+ *     answered. Entering the step probes; a pairing that lands a token
+ *     probes again, so the line flips to "Signed in" on its own.
  *   - Editing an ENABLED record goes disable-first, explicitly: the
  *     wizard opens on a gate pane whose one action is the kill-switch
  *     disable; connection fields never render for a live wire.
  *   - Cancelling a fresh add removes the just-created record (it was
  *     born disabled and unbound; nothing synced from it).
- *   - "Soon" scenarios preview their tier diagrams but can't proceed.
+ *   - The desktop verb's automatic pairing happens BEFORE the wizard
+ *     (`use-connect-desktop-app.ts`); the wizard is its fallback, and
+ *     `autoPairFailed` puts the explanation on the address step.
  */
 
-import { removeBackend, updateBackend } from '@openheaders/core/backends';
-import { getCapability } from '@openheaders/core/capabilities';
+import { removeBackend } from '@openheaders/core/backends';
+import { type ProvidingBackendKind, providingBackendKind } from '@openheaders/core/identity';
 import type { BackendConnection } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { Alert, App as AntApp, Button, Modal, Steps, theme } from 'antd';
+import { Alert, Button, Modal, Steps, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
-import { describeProbeResult, probeBackendConnection, useBackends } from '../../../shared/backend';
-import { getCurrentHost } from '../../../shared/host-vocabulary';
-import { type BackendMode, deriveBackendMode } from '../schema/backend';
+import { useEffect, useRef, useState } from 'react';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import {
+  describeProbeResult,
+  type ProbeConnectionResult,
+  type ProbeNotice,
+  probeBackendConnection,
+  urlHost,
+  useBackends,
+} from '../../../shared/backend';
+import { getCurrentHost, viewerHostKind } from '../../../shared/host-vocabulary';
 import BackendAuthTokenField from './backend-auth-token-field';
-import { BackendDetailDiagram } from './backend-details';
-import { BackendIcon } from './backend-icons';
 import BackendLabelField from './backend-label-field';
 import { BackendRecordProvider, backendDisplayLabel } from './backend-record-context';
-import { type ScenarioDescriptor, scenariosForHost } from './backend-scenarios';
-import { BackendTierCard } from './backend-tier-card';
 import BackendUrlField from './backend-url-field';
 import type { BackendEnableSwitchHandle } from './use-backend-enable-switch';
 
 export interface BackendWizardTarget {
   recordId: string;
   mode: 'add' | 'edit';
-  /** The scenario the verb that opened the wizard stands for; the record's derived mode otherwise. */
-  scenario?: BackendMode;
+  /** The verb a fresh add stands for; an edit derives the kind from the record. */
+  kind?: ProvidingBackendKind;
+  /** What the row calls the place — an edit's title. */
+  place?: string;
+  /** The desktop verb's automatic pairing already failed — the address step says so. */
+  autoPairFailed?: boolean;
+}
+
+/**
+ * What the sign-in step says about the address, read off one probe:
+ * the server asks this device to pair, the credential already signs in
+ * (named by the WELCOME's Org when it carries one), or nothing usable
+ * answered (the probe's own notice, reachable-but or unreachable).
+ */
+export type SignInVerdict =
+  | { kind: 'needs-pairing' }
+  | { kind: 'signed-in'; name: string | null }
+  | { kind: 'unanswered'; notice: ProbeNotice };
+
+export function signInVerdict(result: ProbeConnectionResult, label: string, t: Translate): SignInVerdict {
+  if (result.ok) return { kind: 'signed-in', name: result.orgName };
+  if (result.reason === 'handshake-rejected' && result.rejectReason === 'auth-required') {
+    return { kind: 'needs-pairing' };
+  }
+  return { kind: 'unanswered', notice: describeProbeResult(result, label, t) };
 }
 
 const STEPS = [
-  { titleKey: 'workbench.settings.backendPane.wizard.step.scenario' },
+  { titleKey: 'workbench.settings.backendPane.wizard.step.address' },
+  { titleKey: 'workbench.settings.backendPane.wizard.step.signIn' },
   { titleKey: 'workbench.settings.backendPane.wizard.step.connect' },
-  { titleKey: 'workbench.settings.backendPane.wizard.step.pair' },
-  { titleKey: 'workbench.settings.backendPane.wizard.step.turnOn' },
 ] as const;
+
+const ADDRESS_STEP = 0;
+const SIGN_IN_STEP = 1;
+const CONNECT_STEP = 2;
 
 export const BackendWizard: React.FC<{
   target: BackendWizardTarget;
@@ -67,45 +104,56 @@ export const BackendWizard: React.FC<{
   }, [record, onClose]);
   if (!record) return null;
 
-  return (
-    <WizardDialog
-      record={record}
-      mode={target.mode}
-      initialScenario={target.scenario ?? null}
-      enableSwitch={enableSwitch}
-      onClose={onClose}
-    />
-  );
+  return <WizardDialog record={record} target={target} enableSwitch={enableSwitch} onClose={onClose} />;
 };
 
 const WizardDialog: React.FC<{
   record: BackendConnection;
-  mode: 'add' | 'edit';
-  initialScenario: BackendMode | null;
+  target: BackendWizardTarget;
   enableSwitch: BackendEnableSwitchHandle;
   onClose: () => void;
-}> = ({ record, mode, initialScenario, enableSwitch, onClose }) => {
+}> = ({ record, target, enableSwitch, onClose }) => {
   const t = useT();
   const host = getCurrentHost();
-  const scenarios = scenariosForHost(host);
   const backends = useBackends();
+  const { mode } = target;
   // An add beyond the first record (the fresh record itself counts) —
-  // worth a word on what a second back-end changes.
-  const isAdditionalBackend = mode === 'add' && backends.length > 1;
-  // Edit lands on the connect step with the scenario derived from the
-  // record; add starts at the scenario choice.
-  const derivedMode = deriveBackendMode(host, { ...record, enabled: true });
-  const [scenario, setScenario] = useState<BackendMode>(initialScenario ?? derivedMode);
-  const [step, setStep] = useState(mode === 'add' ? 0 : 1);
+  // worth a word on what a second connection changes.
+  const isAdditionalConnection = mode === 'add' && backends.length > 1;
+  const kind = target.kind ?? providingBackendKind(viewerHostKind(host), record.url);
+  const [step, setStep] = useState(ADDRESS_STEP);
   const [finishing, setFinishing] = useState(false);
-  const [autoPairing, setAutoPairing] = useState(false);
-  // The automatic attempt already failed once this wizard — the pair
-  // step explains itself and the scenario step won't re-spawn the host.
-  const [autoPairFellBack, setAutoPairFellBack] = useState(false);
+  const [verdict, setVerdict] = useState<SignInVerdict | null>(null);
+  const [probing, setProbing] = useState(false);
+  // Only the latest probe may write the verdict — an address or token
+  // edit while one is in flight starts another.
+  const probeSeq = useRef(0);
 
   const label = backendDisplayLabel(record);
-  const selected = scenarios.find((s) => s.mode === scenario) ?? null;
   const hasToken = record.authToken.trim().length > 0;
+
+  const probe = async (): Promise<void> => {
+    const seq = ++probeSeq.current;
+    setProbing(true);
+    const role = host === 'desktop' ? 'desktop' : host === 'web' ? 'web' : 'extension';
+    const result = await probeBackendConnection(record.url, {
+      agent: `${role}-wizard-probe`,
+      nodeId: `probe-${generateUid()}`,
+      workspaceId: `probe-${generateUid()}`,
+      role,
+      authToken: record.authToken,
+    });
+    if (seq !== probeSeq.current) return;
+    setProbing(false);
+    setVerdict(signInVerdict(result, label, t));
+  };
+
+  // Entering the sign-in step asks the address; a credential landing
+  // while there (a pairing, a pasted token) asks again.
+  useEffect(() => {
+    if (step !== SIGN_IN_STEP) return;
+    void probe();
+  }, [step, record.authToken]);
 
   const cancel = async (): Promise<void> => {
     // A fresh add that never connected leaves no trace behind; an edit's
@@ -113,32 +161,6 @@ const WizardDialog: React.FC<{
     // only the probe-gated enable can turn them into a wire.
     if (mode === 'add') await removeBackend(record.id);
     onClose();
-  };
-
-  /**
-   * Leaving the scenario step: a fresh add of the desktop-app scenario
-   * on a host with the NM plane first tries the pair-without-a-code
-   * gesture (the observability plan Phase 7) — the daemon verifies this
-   * browser from OS truth and answers with a token, and the wizard
-   * jumps straight to Turn on. Every failure falls through to the
-   * manual steps with the pair step explaining the fallback.
-   */
-  const advanceFromScenario = async (): Promise<void> => {
-    const autoPair = getCapability('nmAutoPair');
-    if (mode !== 'add' || scenario !== 'desktop-app' || !autoPair || autoPairFellBack) {
-      setStep(1);
-      return;
-    }
-    setAutoPairing(true);
-    const result = await autoPair({ url: record.url });
-    setAutoPairing(false);
-    if (result.ok) {
-      await updateBackend(record.id, { authToken: result.token });
-      setStep(3);
-      return;
-    }
-    setAutoPairFellBack(true);
-    setStep(1);
   };
 
   const finish = async (connect: boolean): Promise<void> => {
@@ -152,61 +174,40 @@ const WizardDialog: React.FC<{
     if (committed) onClose();
   };
 
+  const title =
+    mode === 'edit'
+      ? t('workbench.settings.backendPane.wizard.editTitle', { label: target.place ?? label })
+      : kind === 'desktop-app'
+        ? t('workbench.settings.backendPane.wizard.title.desktop')
+        : t('workbench.settings.backendPane.wizard.title.server');
+
   if (record.enabled) {
     return (
-      <Modal
-        title={t('workbench.settings.backendPane.wizard.editTitle', { label })}
-        open
-        onCancel={onClose}
-        width={520}
-        footer={null}
-      >
+      <Modal title={title} open onCancel={onClose} width={520} footer={null}>
         <DisableFirstGate record={record} label={label} enableSwitch={enableSwitch} />
       </Modal>
     );
   }
 
-  const nextDisabled = (step === 0 && (!selected || selected.soon)) || (step === 1 && !urlLooksComplete(record.url));
-
-  // The silent attempt lands the user on the connect step, so the
-  // explanation shows there immediately and again on the pair step.
-  const fallbackAlert = autoPairFellBack ? (
-    <Alert
-      type="info"
-      showIcon
-      title={t('workbench.settings.backendPane.wizard.autoPairFallback')}
-      style={{ marginBottom: 10 }}
-    />
-  ) : null;
+  const nextDisabled = step === ADDRESS_STEP && !urlLooksComplete(record.url);
 
   return (
     <Modal
-      title={
-        mode === 'add'
-          ? t('workbench.settings.backendPane.wizard.addTitle')
-          : t('workbench.settings.backendPane.wizard.editTitle', { label })
-      }
+      title={title}
       open
       onCancel={() => void cancel()}
       mask={{ closable: false }}
-      width={720}
+      width={640}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
           <Button onClick={() => void cancel()}>{t('shared.action.cancel')}</Button>
           <div style={{ display: 'flex', gap: 8 }}>
-            {step > 0 && (
+            {step > ADDRESS_STEP && (
               <Button onClick={() => setStep(step - 1)}>{t('workbench.settings.backendPane.wizard.back')}</Button>
             )}
-            {step < STEPS.length - 1 ? (
-              <Button
-                type="primary"
-                disabled={nextDisabled}
-                loading={autoPairing}
-                onClick={() => void (step === 0 ? advanceFromScenario() : setStep(step + 1))}
-              >
-                {step === 0 && selected?.soon
-                  ? t('workbench.settings.backendPane.wizard.comingSoon')
-                  : t('workbench.settings.backendPane.wizard.next')}
+            {step < CONNECT_STEP ? (
+              <Button type="primary" disabled={nextDisabled} onClick={() => setStep(step + 1)}>
+                {t('workbench.settings.backendPane.wizard.next')}
               </Button>
             ) : (
               <>
@@ -214,7 +215,7 @@ const WizardDialog: React.FC<{
                   {t('workbench.settings.backendPane.wizard.finishWithoutConnecting')}
                 </Button>
                 <Button type="primary" loading={finishing} onClick={() => void finish(true)}>
-                  {t('workbench.settings.backendPane.wizard.verifyConnect')}
+                  {t('workbench.settings.backendPane.wizard.connect')}
                 </Button>
               </>
             )}
@@ -228,28 +229,33 @@ const WizardDialog: React.FC<{
         items={STEPS.map((s) => ({ title: t(s.titleKey) }))}
         style={{ margin: '4px 0 16px' }}
       />
-      {step === 0 && (
-        <ScenarioStep scenarios={scenarios} selected={scenario} onSelect={setScenario} />
-      )}
-      {step === 1 && (
+      {step === ADDRESS_STEP && (
         <BackendRecordProvider record={record}>
-          {fallbackAlert}
+          {target.autoPairFailed && (
+            <Alert
+              type="info"
+              showIcon
+              title={t('workbench.settings.backendPane.wizard.autoPairFallback')}
+              style={{ marginBottom: 10 }}
+            />
+          )}
           <StepIntro text={t('workbench.settings.backendPane.wizard.connectIntro')} />
           <BackendLabelField />
           <BackendUrlField />
         </BackendRecordProvider>
       )}
-      {step === 2 && (
+      {step === SIGN_IN_STEP && (
         <BackendRecordProvider record={record}>
-          {fallbackAlert}
-          <StepIntro text={t('workbench.settings.backendPane.wizard.pairIntro')} />
+          <SignInVerdictLine verdict={verdict} probing={probing} host={urlHost(record.url)} />
           <BackendAuthTokenField />
           <div style={{ padding: '8px 12px' }}>
-            <TestConnectionButton record={record} label={label} />
+            <Button loading={probing} onClick={() => void probe()}>
+              {t('workbench.settings.backendPane.wizard.checkAgain')}
+            </Button>
           </div>
         </BackendRecordProvider>
       )}
-      {step === 3 && (
+      {step === CONNECT_STEP && (
         <div style={{ padding: '4px 2px' }}>
           <StepIntro
             text={t(
@@ -259,7 +265,7 @@ const WizardDialog: React.FC<{
               { label, url: record.url },
             )}
           />
-          {isAdditionalBackend && <StepIntro text={t('workbench.settings.backendPane.wizard.additionalBackend')} />}
+          {isAdditionalConnection && <StepIntro text={t('workbench.settings.backendPane.wizard.additionalBackend')} />}
         </div>
       )}
     </Modal>
@@ -280,132 +286,48 @@ const StepIntro: React.FC<{ text: string }> = ({ text }) => {
   return <p style={{ fontSize: 12.5, color: token.colorTextSecondary, margin: '0 0 10px' }}>{text}</p>;
 };
 
-const ScenarioStep: React.FC<{
-  scenarios: readonly ScenarioDescriptor[];
-  selected: BackendMode;
-  onSelect: (mode: BackendMode) => void;
-}> = ({ scenarios, selected, onSelect }) => {
+/**
+ * The sign-in step's one line: what the address answered. A probe in
+ * flight reads as checking; an unanswered probe carries the shared
+ * probe notice (the same copy Connect would fire), so the step never
+ * blocks — the credential field stays usable underneath either way.
+ */
+const SignInVerdictLine: React.FC<{ verdict: SignInVerdict | null; probing: boolean; host: string }> = ({
+  verdict,
+  probing,
+  host,
+}) => {
   const t = useT();
-  return (
-    <div>
-      <StepIntro text={t('workbench.settings.backendPane.wizard.scenarioIntro')} />
-      <div
-        role="radiogroup"
-        aria-label={t('workbench.settings.backendPane.wizard.scenarioAria')}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${Math.min(scenarios.length, 3)}, minmax(0, 1fr))`,
-          gap: 8,
-          marginBottom: 12,
-        }}
-      >
-        {scenarios.map((s) => (
-          <ScenarioTile key={s.mode} descriptor={s} selected={selected === s.mode} onSelect={() => onSelect(s.mode)} />
-        ))}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 320px', minWidth: 300 }}>
-          <BackendTierCard mode={selected} />
-        </div>
-        <div style={{ flex: '1 1 320px', minWidth: 300 }}>
-          <BackendDetailDiagram mode={selected} />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ScenarioTile: React.FC<{
-  descriptor: ScenarioDescriptor;
-  selected: boolean;
-  onSelect: () => void;
-}> = ({ descriptor, selected, onSelect }) => {
-  const { token } = theme.useToken();
-  const t = useT();
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '8px 10px',
-        borderRadius: 8,
-        background: selected ? token.colorPrimaryBg : token.colorBgContainer,
-        border: `1px solid ${selected ? token.colorPrimary : token.colorBorderSecondary}`,
-        cursor: 'pointer',
-        transition: 'border-color 120ms, background 120ms',
-        fontFamily: 'inherit',
-        color: token.colorText,
-        textAlign: 'left',
-        overflow: 'hidden',
-      }}
-    >
-      <span
-        style={{
-          flex: 'none',
-          display: 'inline-flex',
-          filter: selected ? 'none' : 'grayscale(0.7) opacity(0.7)',
-          transition: 'filter 120ms',
-        }}
-        aria-hidden
-      >
-        <BackendIcon kind={descriptor.icon} size={28} />
-      </span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span
-          style={{
-            display: 'block',
-            fontSize: 12.5,
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {t(descriptor.titleKey)}
-        </span>
-        <span
-          style={{
-            display: 'block',
-            fontSize: 10.5,
-            color: token.colorTextTertiary,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {t(descriptor.hintKey)}
-        </span>
-      </span>
-      {descriptor.soon && (
-        <span
-          style={{
-            position: 'absolute',
-            top: 4,
-            right: 4,
-            padding: '0 4px',
-            fontSize: 7.5,
-            fontWeight: 700,
-            letterSpacing: 0.2,
-            textTransform: 'uppercase',
-            borderRadius: 999,
-            background: token.colorWarningBg,
-            color: token.colorWarningText,
-            border: `1px solid ${token.colorWarningBorder}`,
-            lineHeight: '11px',
-            pointerEvents: 'none',
-          }}
-        >
-          {t('workbench.settings.backendPane.wizard.soonBadge')}
-        </span>
-      )}
-    </button>
-  );
+  if (probing || !verdict) {
+    return <StepIntro text={t('workbench.settings.backendPane.wizard.checking', { host })} />;
+  }
+  switch (verdict.kind) {
+    case 'needs-pairing':
+      return <StepIntro text={t('workbench.settings.backendPane.wizard.verdict.needsPairing', { host })} />;
+    case 'signed-in':
+      return (
+        <Alert
+          type="success"
+          showIcon
+          title={
+            verdict.name
+              ? t('workbench.settings.backendPane.wizard.verdict.signedIn', { name: verdict.name })
+              : t('workbench.settings.backendPane.wizard.verdict.signedInUnnamed')
+          }
+          style={{ marginBottom: 10 }}
+        />
+      );
+    case 'unanswered':
+      return (
+        <Alert
+          type={verdict.notice.level}
+          showIcon
+          title={verdict.notice.message}
+          description={verdict.notice.description}
+          style={{ marginBottom: 10 }}
+        />
+      );
+  }
 };
 
 /**
@@ -429,34 +351,5 @@ const DisableFirstGate: React.FC<{
         {t('workbench.settings.backendPane.wizard.disconnectEdit')}
       </Button>
     </div>
-  );
-};
-
-/** Reachability + auth probe with the record's own URL and token. */
-const TestConnectionButton: React.FC<{ record: BackendConnection; label: string }> = ({ record, label }) => {
-  const { notification } = AntApp.useApp();
-  const t = useT();
-  const [testing, setTesting] = useState(false);
-  const host = getCurrentHost();
-  const role = host === 'desktop' ? 'desktop' : host === 'web' ? 'web' : 'extension';
-
-  const test = async (): Promise<void> => {
-    setTesting(true);
-    const result = await probeBackendConnection(record.url, {
-      agent: `${role}-wizard-probe`,
-      nodeId: `probe-${generateUid()}`,
-      workspaceId: `probe-${generateUid()}`,
-      role,
-      authToken: record.authToken,
-    });
-    setTesting(false);
-    const notice = describeProbeResult(result, label, t);
-    notification[notice.level]({ message: notice.message, description: notice.description });
-  };
-
-  return (
-    <Button loading={testing} onClick={() => void test()}>
-      {t('workbench.settings.backendPane.wizard.testConnection')}
-    </Button>
   );
 };

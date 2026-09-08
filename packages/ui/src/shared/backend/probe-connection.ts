@@ -42,7 +42,15 @@ export interface ProbeFailure {
 }
 
 export type ProbeConnectionResult =
-  | { ok: true; latencyMs: number; protocolVersion: number; role: string; agent: string }
+  | {
+      ok: true;
+      latencyMs: number;
+      protocolVersion: number;
+      role: string;
+      agent: string;
+      /** The responder's home Org name — what the place is called; null when the WELCOME carried none. */
+      orgName: string | null;
+    }
   | ProbeFailure;
 
 export interface ProbeOptions {
@@ -172,6 +180,7 @@ export async function probeBackendConnection(url: string, opts: ProbeOptions): P
         protocolVersion: welcome.protocolVersion,
         role: welcome.role,
         agent: welcome.agent,
+        orgName: welcome.org?.name ?? null,
       });
     });
 

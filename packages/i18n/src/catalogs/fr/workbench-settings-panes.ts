@@ -38,28 +38,22 @@ export const workbenchSettingsPanes = {
     'les mêmes copies.',
   'workbench.settings.backendPane.tierZero.alwaysOn': 'Toujours actif',
   'workbench.settings.backendPane.tierZero.administer': 'Administrer…',
-  'workbench.settings.backendPane.scenario.desktop-app.title': 'Application de bureau',
-  'workbench.settings.backendPane.scenario.desktop-app.hint': "L'application Open Headers sur cette machine",
-  'workbench.settings.backendPane.scenario.local-self-hosted.title': 'Local / LAN',
-  'workbench.settings.backendPane.scenario.local-self-hosted.hint': 'Un serveur sur cette machine ou sur votre réseau',
-  'workbench.settings.backendPane.scenario.remote-self-hosted.title': 'Distant / WAN',
-  'workbench.settings.backendPane.scenario.remote-self-hosted.hint':
-    'Un serveur que vous auto-hébergez sur votre propre VM',
-  'workbench.settings.backendPane.wizard.step.scenario': 'Scénario',
   'workbench.settings.backendPane.wizard.step.connect': 'Connexion',
-  'workbench.settings.backendPane.wizard.step.pair': 'Appairage',
-  'workbench.settings.backendPane.wizard.step.turnOn': 'Activation',
-  'workbench.settings.backendPane.wizard.addTitle': 'Ajouter un back-end',
   'workbench.settings.backendPane.wizard.editTitle': 'Modifier {label}',
+  'workbench.settings.backendPane.wizard.title.desktop': "Connecter l'application de bureau",
+  'workbench.settings.backendPane.wizard.title.server': 'Se connecter à un serveur',
+  'workbench.settings.backendPane.wizard.step.address': 'Adresse',
+  'workbench.settings.backendPane.wizard.step.signIn': 'Connexion',
+  'workbench.settings.backendPane.wizard.connect': 'Connecter',
+  'workbench.settings.backendPane.wizard.checkAgain': 'Vérifier à nouveau',
+  'workbench.settings.backendPane.wizard.checking': 'Vérification de {host}…',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing':
+    "{host} demande à cet appareil de s'appairer. Saisissez le code qu'il affiche, ou collez un jeton.",
+  'workbench.settings.backendPane.wizard.verdict.signedIn': 'Connecté à {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Connecté.',
   'workbench.settings.backendPane.wizard.back': 'Retour',
   'workbench.settings.backendPane.wizard.next': 'Suivant',
-  'workbench.settings.backendPane.wizard.comingSoon': 'Bientôt disponible',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Terminer sans connecter',
-  'workbench.settings.backendPane.wizard.verifyConnect': 'Vérifier et connecter',
-  'workbench.settings.backendPane.wizard.scenarioIntro':
-    'Quel genre de back-end est-ce ? Choisissez une tuile pour voir ce que le palier vous apporte.',
-  'workbench.settings.backendPane.wizard.scenarioAria': 'Scénario de back-end',
-  'workbench.settings.backendPane.wizard.soonBadge': 'Bientôt',
   'workbench.settings.backendPane.wizard.connectIntro':
     "Où ce client appelle-t-il le back-end ? La connexion reste désactivée jusqu'à ce que la dernière étape la " +
     'vérifie.',
@@ -85,7 +79,6 @@ export const workbenchSettingsPanes = {
     "déconnecte d'abord — vos réglages et l'appairage sont conservés, et la réactivation vérifie la nouvelle " +
     'configuration avant toute connexion.',
   'workbench.settings.backendPane.wizard.disconnectEdit': 'Déconnecter et modifier',
-  'workbench.settings.backendPane.wizard.testConnection': 'Tester la connexion',
 
   // ── Backend pane: connections list ─────────────────────────────────
   'workbench.settings.backendPane.connections.title': 'Synchronisé avec',
