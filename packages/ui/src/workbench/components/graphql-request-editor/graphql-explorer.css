@@ -10,9 +10,3 @@
 .graphql-explorer-row:hover {
   background: var(--ant-color-fill-tertiary);
 }
-
-/* The root sections of the operation types the pick is not — dimmed as
-   a whole, every row still live: a check there moves the pick. */
-.graphql-explorer-root-dimmed {
-  opacity: 0.55;
-}

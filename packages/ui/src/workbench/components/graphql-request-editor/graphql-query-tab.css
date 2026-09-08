@@ -1,0 +1,6 @@
+/* The operations the pick is not — dimmed in the query editor as the
+   reference does, the picked one at full strength. An inline decoration
+   over each operation's span, so the gutter and the layout stay. */
+.monaco-editor .graphql-inactive-operation {
+  opacity: 0.45;
+}

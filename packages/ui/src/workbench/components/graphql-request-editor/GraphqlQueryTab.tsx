@@ -70,6 +70,7 @@ import {
   sealBuilderEdits,
 } from './graphql-editor-services';
 import GraphqlExplorer, { type GraphqlBuilder, GraphqlExplorerStrip } from './GraphqlExplorer';
+import './graphql-query-tab.css';
 
 const { Text } = Typography;
 
@@ -195,6 +196,35 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
     },
     [settlePick],
   );
+  // The inactive operations' dim — one decoration per operation that is
+  // not the pick, re-set from the tab's parse; a remount takes a fresh
+  // collection (the editor's own) and re-runs through the mount tick.
+  const dimRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const [editorMounts, setEditorMounts] = useState(0);
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monacoApi = monacoRef.current;
+    const dim = dimRef.current;
+    const model = editor?.getModel() ?? null;
+    if (editor === null || monacoApi === null || dim === null || model === null) return;
+    // The parse is of the draft — an editor mid-flight settles on the next render.
+    if (model.getValue() !== draft.query) return;
+    const document = parsed.document;
+    const inactive =
+      document === null || operation === null
+        ? []
+        : document.definitions.filter((node) => node.kind === 'OperationDefinition' && node !== operation);
+    dim.set(
+      inactive.map((node) => {
+        const from = model.getPositionAt(node.start);
+        const to = model.getPositionAt(node.end);
+        return {
+          range: new monacoApi.Range(from.lineNumber, from.column, to.lineNumber, to.column),
+          options: { inlineClassName: 'graphql-inactive-operation' },
+        };
+      }),
+    );
+  }, [parsed.document, operation, draft.query, editorMounts]);
   const canGenerate = operation !== null && operation.variableDefinitions.length > 0;
   const variableProblems = useMemo(
     () => (operation === null ? [] : validateVariables(operation, schema, draft.variables)),
@@ -420,6 +450,8 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
                   onEditorMount={(editor, monacoApi) => {
                     editorRef.current = editor;
                     monacoRef.current = monacoApi;
+                    dimRef.current = editor.createDecorationsCollection();
+                    setEditorMounts((count) => count + 1);
                     servicesRef.current?.dispose();
                     const services = attachGraphqlEditorServices(editor, monacoApi);
                     services.setSchema(schemaRef.current);
@@ -433,6 +465,7 @@ const GraphqlQueryTab: React.FC<GraphqlQueryTabProps> = ({
                     });
                     editor.onDidDispose(() => {
                       cursor.dispose();
+                      dimRef.current = null;
                       servicesRef.current?.dispose();
                       servicesRef.current = null;
                       editorRef.current = null;

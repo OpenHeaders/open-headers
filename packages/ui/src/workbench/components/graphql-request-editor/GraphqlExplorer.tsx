@@ -18,8 +18,9 @@
  * interface's implementers as `... on T` rows (checked when the inline
  * fragment exists, the member's fields beneath), and the set's other
  * fragments read-only. The root sections of the other operation types
- * DIM while an operation is picked but stay live: a check there lands
- * in (or appends) that type's operation and the pick follows it.
+ * stay live: a check there lands in (or appends) that type's operation
+ * and the pick follows it — the editor dims the operations the pick
+ * is not.
  * The document stays the source of truth: every gesture is span edits
  * through the editor's edit stack (`@openheaders/core/graphql`'s
  * builder), and the projection re-reads from the Query tab's one parse.
@@ -397,9 +398,6 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
   const { operation } = builder;
   const buildable = !builder.broken;
   const brokenHint = builder.broken ? t('workbench.editors.graphql.builder.broken') : undefined;
-  // The other types' sections dim while an operation is picked — live,
-  // projecting nothing (the picked operation is the projection's root).
-  const dimmed = (operationType: OperationType): boolean => operation !== null && operation.operation !== operationType;
   const fieldNodeAt = (position: BuilderPosition) =>
     operation === null || operation.operation !== position.operationType ? null : fieldAt(operation, position.path);
   const selectedAt = (position: BuilderPosition): boolean =>
@@ -755,11 +753,7 @@ const GraphqlExplorer: React.FC<GraphqlExplorerProps> = ({ schema, onInsert, bui
           }
           const open = !collapsedRoots.has(operationType);
           return (
-            <div
-              key={operationType}
-              className={dimmed(operationType) ? 'graphql-explorer-root-dimmed' : undefined}
-              data-testid={`graphql-explorer-root-${operationType}`}
-            >
+            <div key={operationType} data-testid={`graphql-explorer-root-${operationType}`}>
               <div
                 className="graphql-explorer-row"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}

@@ -92,11 +92,12 @@
  *       input type expands and lands as a nested literal, unchecking
  *       the last nested key takes its parent, and the last key of the
  *       required argument takes the field.
- *   E21 the multi-operation model: the other types' sections dim but
- *       stay live; a check on a mutation field appends a named mutation
+ *   E21 the multi-operation model: the other types' sections stay live;
+ *       the editor dims the operations the pick is not; a check on a
+ *       mutation field appends a named mutation
  *       (the anonymous query named after its first root field in the
- *       same edit), the select and the tree follow it; a click inside
- *       the query moves the pick back and dims the mutation; a second
+ *       same edit), the select, the tree and the dim follow it; a click
+ *       inside the query moves the pick back; a second
  *       mutation field lands IN the existing mutation and the pick
  *       returns; Query runs the picked operation.
  *
@@ -1138,15 +1139,22 @@ test('E21 — a check on a dimmed section appends a named operation and moves th
   const explorer = page.getByTestId('graphql-explorer').filter({ visible: true }).first();
   await explorer.waitFor({ state: 'visible', timeout: 10_000 });
   const check = (key: string) => explorer.getByTestId(`graphql-builder-check-${key}`);
-  const root = (type: string) => explorer.getByTestId(`graphql-explorer-root-${type}`);
   const select = () => page.getByTestId('graphql-operation-select').filter({ visible: true }).first();
   const document = () => workbench.monacoText(0);
+  // The editor's dimmed text — the operations the pick is not.
+  const dimmed = () =>
+    page
+      .locator('.monaco-editor')
+      .filter({ visible: true })
+      .nth(0)
+      .locator('.view-lines .graphql-inactive-operation')
+      .allInnerTexts()
+      .then((parts) => parts.join('').replace(/[\s\u00a0]+/g, ' '));
   await workbench.fillMonaco(0, '{ viewer { id } }');
 
-  // An anonymous query is picked: the Mutation section dims, its rows stay live and read unchecked.
+  // An anonymous query is picked: nothing dims, the Mutation rows stay live and read unchecked.
   await expect(check('query.viewer')).toBeChecked();
-  await expect(root('mutation')).toHaveClass(/graphql-explorer-root-dimmed/);
-  await expect(root('query')).not.toHaveClass(/graphql-explorer-root-dimmed/);
+  await expect.poll(dimmed, { timeout: 5_000 }).toBe('');
   await expect(check('mutation.deleteNote')).toBeEnabled();
   await expect(check('mutation.deleteNote')).not.toBeChecked();
   await expect(select()).toHaveCount(0);
@@ -1160,8 +1168,12 @@ test('E21 — a check on a dimmed section appends a named operation and moves th
   await expect(select()).toContainText('DeleteNote');
   await expect(check('mutation.deleteNote')).toBeChecked();
   await expect(check('query.viewer')).not.toBeChecked();
-  await expect(root('query')).toHaveClass(/graphql-explorer-root-dimmed/);
-  await expect(root('mutation')).not.toHaveClass(/graphql-explorer-root-dimmed/);
+  // The query dims in the editor, the picked mutation reads at full strength.
+  await expect.poll(dimmed, { timeout: 5_000 }).toContain('query Viewer');
+  expect(await dimmed()).not.toContain('DeleteNote');
+  await expect(
+    page.locator('.monaco-editor').filter({ visible: true }).nth(0).locator('.graphql-inactive-operation').first(),
+  ).toHaveCSS('opacity', '0.45');
 
   // A click on the query's line (line 1) makes it the picked operation again.
   await page
@@ -1173,7 +1185,8 @@ test('E21 — a check on a dimmed section appends a named operation and moves th
   await expect(select()).toContainText('Viewer');
   await expect(check('query.viewer')).toBeChecked();
   await expect(check('mutation.deleteNote')).not.toBeChecked();
-  await expect(root('mutation')).toHaveClass(/graphql-explorer-root-dimmed/);
+  await expect.poll(dimmed, { timeout: 5_000 }).toContain('mutation DeleteNote');
+  expect(await dimmed()).not.toContain('Viewer');
 
   // A second mutation field lands IN the existing mutation — one
   // mutation in the document — and the pick returns to it.

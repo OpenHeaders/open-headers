@@ -47,7 +47,7 @@
  *       and leaves with its declaration.
  *   G12 the pick follows the cursor: on the two-operation document the
  *       cursor moved into B makes B the select's operation and the one
- *       Query runs; moved into A, A.
+ *       Query runs, A dimmed in the editor; moved into A, A.
  *
  * Deliberately NOT here (covered elsewhere): the entity/editor
  * lifecycle (extension `graphql-workbench.spec.ts`), the ⌘/Ctrl+Enter
@@ -578,6 +578,8 @@ test('G11 — an input-object argument expands to its input fields: the literal 
   const inputCheck = (key: string) =>
     explorer.getByTestId(`graphql-builder-input-check-mutation.createNote.input.${key}`);
 
+  // The other types' rows stay live beside a picked mutation.
+  await expect(explorer.getByTestId('graphql-builder-check-query.viewer')).toBeEnabled();
   await explorer.getByTestId('graphql-builder-expand-mutation.createNote').click();
   await explorer.getByTestId('graphql-builder-arg-expand-mutation.createNote.input').click();
   await expect(inputCheck('title')).toBeChecked();
@@ -609,15 +611,24 @@ test('G12 — the cursor’s operation becomes the pick: the select follows and 
     .first();
   // The seeded document is one line — `query A {…} query B {…}`; End
   // lands the cursor in B, Home in A (both the user's own navigation).
+  // The editor's dimmed text — the operation the pick is not.
+  const dimmed = () =>
+    lines
+      .locator('.graphql-inactive-operation')
+      .allInnerTexts()
+      .then((parts) => parts.join('').replace(/[\s\u00a0]+/g, ' '));
   await lines.click();
   await workbench.keyboard.press('End');
   await expect(select).toContainText('B');
+  await expect.poll(dimmed, { timeout: 5_000 }).toContain('answer-a');
+  expect(await dimmed()).not.toContain('answer-b');
   expect(await queryAndAwaitStatus()).toBe('200 OK');
   expect(await responseBodyText()).toMatch(/"echo":\s*"answer-b"/);
 
   await lines.click();
   await workbench.keyboard.press('Home');
   await expect(select).toContainText('A');
+  await expect.poll(dimmed, { timeout: 5_000 }).toContain('answer-b');
   expect(await queryAndAwaitStatus()).toBe('200 OK');
   expect(await responseBodyText()).toMatch(/"echo":\s*"answer-a"/);
 });
