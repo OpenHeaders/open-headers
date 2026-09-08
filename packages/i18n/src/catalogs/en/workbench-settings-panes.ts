@@ -207,7 +207,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': 'Allow LAN peers',
   'workbench.settings.backendPane.lan.confirmCancel': 'Keep loopback only',
   'workbench.settings.backendPane.lan.confirmBody':
-    'The desktop back-end will bind every local network interface so other devices on your network can connect. Every connection — LAN or loopback — must present a paired auth token; there is no token-free path. Devices pair with the code the app shows (or paste a token into Connectivity › Backend › Connections).',
+    'The desktop back-end will bind every local network interface so other devices on your network can connect. Every connection — LAN or loopback — must present a paired auth token; there is no token-free path. Devices pair with the code the app shows (or paste a token into Backup and Sync › Sync).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':
@@ -304,7 +304,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.storageLocal':
     'Chrome ≠ Firefox ≠ Edge — separate data per browser, no cross-device, no cross-browser',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'typically 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'override in Connectivity › Backend › Server',
+  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'override in Backup and Sync › Your devices',
   'workbench.settings.backendPane.tier.rangeNote.serverOwnBox': 'IPv4 — server on your own box (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': 'practically fd00::/8 — IPv6 private allocation',
@@ -376,9 +376,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.explainer.generateText':
     'shows you the secret to copy and paste into the device yourself.',
   'workbench.settings.backendTokens.explainer.pairText':
-    'shows a short code the device enters under Connectivity › Backend › Connections › Pair with a code (or opens a link, as a fallback) — use it when someone else sets up the device.',
+    'shows a short code the device enters under Backup and Sync › Sync › Pair with a code (or opens a link, as a fallback) — use it when someone else sets up the device.',
   'workbench.settings.backendTokens.empty':
-    "No devices yet. Generate a token and paste it into the device's Connectivity › Backend › Connections, or pair a device and have it enter the code there.",
+    "No devices yet. Generate a token and paste it into the device's Backup and Sync › Sync, or pair a device and have it enter the code there.",
   'workbench.settings.backendTokens.mintFailed': 'Failed to mint token: {message}',
   'workbench.settings.backendTokens.rotateFailed': 'Failed to rotate: {message}',
   'workbench.settings.backendTokens.revokeFailed': 'Failed to revoke: {message}',
@@ -426,7 +426,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.pairModal.pairedBody':
     "The device confirmed the code. A fresh access token was issued and saved on that device; it appears in the list below. If the device can't connect, revoke the entry and pair again.",
   'workbench.settings.backendTokens.pairModal.intro.part1': 'On the other device, open',
-  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Connectivity › Backend › Connections',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Backup and Sync › Sync',
   'workbench.settings.backendTokens.pairModal.intro.part2': ', point its',
   'workbench.settings.backendTokens.pairModal.intro.address': 'Backend address',
   'workbench.settings.backendTokens.pairModal.intro.part3': 'at this app, then click',

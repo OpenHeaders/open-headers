@@ -5,8 +5,8 @@
  * glyph stay raw. Mints: 通过 = via / over; ACTIVE tag = 活动; 活动
  * 工作区 = active workspace; 规则引擎 = rule engine; 局域网（LAN）/
  * 互联网（WAN）keep the raw acronym parenthetical; multi-* titles =
- * 多浏览器 / 多设备 / 多用户; "Lands on" = 会落在; desktop settings
- * label quoted in reach copy minted here as “与网络上的设备同步”.
+ * 多浏览器 / 多设备 / 多用户; "Lands on" = 会落在; the desktop setting
+ * quoted in reach copy reuses the settings-defs mint “与网络设备同步”.
  */
 
 import type { Catalog } from '../../types';
@@ -68,8 +68,7 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.reach.multiBrowserBody': '安装桌面应用——此设备上的每个浏览器就会共享相同的工作区。',
   'shared.workspaceDropdown.reach.multiDevice': '在你的设备之间同步',
   'shared.workspaceDropdown.reach.multiDeviceTitle': '多设备',
-  'shared.workspaceDropdown.reach.multiDeviceBody':
-    '在桌面应用中开启“与网络上的设备同步”，让同一网络中的设备共享工作区。',
+  'shared.workspaceDropdown.reach.multiDeviceBody': '在桌面应用中开启“与网络设备同步”，让同一网络中的设备共享工作区。',
   'shared.workspaceDropdown.reach.multiUser': '与你的团队同步',
   'shared.workspaceDropdown.reach.multiUserTitle': '多用户',
   'shared.workspaceDropdown.reach.multiUserBody':

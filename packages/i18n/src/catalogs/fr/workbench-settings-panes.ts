@@ -10,7 +10,7 @@
  * `streamable HTTP`, snippet filenames (claude_desktop_config.json),
  * the `oh-license.…` key prefix (web.ts precedent) and the {chord} /
  * {token} / {url} holes. Settings paths quote the fr shell mints
- * (`Connectivité › Backend`); `Administration du daemon` copies the
+ * (`Sauvegarde et synchronisation › Synchronisation`); `Administration du daemon` copies the
  * fr/workbench-server-admin title; `palier` / `siège` / `annuaire`
  * reuse the daemon-admin + settings-defs register; `Préréglage de
  * raccourcis` and `Capturer` reuse fr/workbench-settings-defs-keyboard
@@ -254,7 +254,7 @@ export const workbenchSettingsPanes = {
     'Le back-end de bureau se liera à chaque interface réseau locale pour que les autres appareils de votre ' +
     'réseau puissent se connecter. Chaque connexion — LAN ou loopback — doit présenter un jeton ' +
     "d'authentification appairé ; il n'existe aucun chemin sans jeton. Les appareils s'appairent avec le code " +
-    "que l'application affiche (ou collez un jeton dans Connectivité › Backend › Connexions).",
+    "que l'application affiche (ou collez un jeton dans Sauvegarde et synchronisation › Synchronisation).",
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':
@@ -352,7 +352,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.storageLocal':
     'Chrome ≠ Firefox ≠ Edge — données séparées par navigateur, ni inter-appareils, ni inter-navigateurs',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'généralement 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'remplaçable dans Connectivité › Backend › Serveur',
+  'workbench.settings.backendPane.tier.rangeNote.portOverride':
+    'remplaçable dans Sauvegarde et synchronisation › Vos appareils',
   'workbench.settings.backendPane.tier.rangeNote.serverOwnBox':
     'IPv4 — serveur sur votre propre machine (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
@@ -430,10 +431,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.explainer.generateText':
     "vous montre le secret à copier et coller vous-même dans l'appareil.",
   'workbench.settings.backendTokens.explainer.pairText':
-    "affiche un code court que l'appareil saisit sous Connectivité › Backend › Connexions › Appairer avec un " +
+    "affiche un code court que l'appareil saisit sous Sauvegarde et synchronisation › Synchronisation › Appairer avec un " +
     "code (ou ouvre un lien, en repli) — utilisez-le quand quelqu'un d'autre configure l'appareil.",
   'workbench.settings.backendTokens.empty':
-    'Aucun appareil pour le moment. Générez un jeton et collez-le dans Connectivité › Backend › Connexions de ' +
+    'Aucun appareil pour le moment. Générez un jeton et collez-le dans Sauvegarde et synchronisation › Synchronisation de ' +
     "l'appareil, ou appairez un appareil et faites-lui saisir le code là-bas.",
   'workbench.settings.backendTokens.mintFailed': 'Échec de la création du jeton : {message}',
   'workbench.settings.backendTokens.rotateFailed': 'Échec du renouvellement : {message}',
@@ -490,7 +491,7 @@ export const workbenchSettingsPanes = {
     "apparaît dans la liste ci-dessous. Si l'appareil ne parvient pas à se connecter, révoquez l'entrée et " +
     'appairez à nouveau.',
   'workbench.settings.backendTokens.pairModal.intro.part1': "Sur l'autre appareil, ouvrez",
-  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Connectivité › Backend › Connexions',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Sauvegarde et synchronisation › Synchronisation',
   'workbench.settings.backendTokens.pairModal.intro.part2': ', pointez son',
   'workbench.settings.backendTokens.pairModal.intro.address': 'Adresse du back-end',
   'workbench.settings.backendTokens.pairModal.intro.part3': 'vers cette application, puis cliquez sur',

@@ -76,7 +76,7 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.reach.multiDevice': 'Sync across your devices',
   'shared.workspaceDropdown.reach.multiDeviceTitle': 'Multi-device',
   'shared.workspaceDropdown.reach.multiDeviceBody':
-    'In the desktop app, turn on “Sync with devices on your network” so your devices on the same network share ' +
+    'In the desktop app, turn on “Sync with network devices” so your devices on the same network share ' +
     'workspaces.',
   'shared.workspaceDropdown.reach.multiUser': 'Sync with your team',
   'shared.workspaceDropdown.reach.multiUserTitle': 'Multi-user',

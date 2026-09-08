@@ -459,9 +459,9 @@ export const sharedComponents = {
   // Peer-execute refusal notice (the quoted phrases are the settings
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':
-    '从此设备的浏览器发送请求已在桌面应用中关闭。请在 连接 › 后端 › 服务器 中启用“允许此设备的浏览器发送请求”。',
+    '从此设备的浏览器发送请求已在桌面应用中关闭。请在 备份与同步 › 你的设备 中启用“允许此设备的浏览器发送请求”。',
   'shared.peerExecute.remoteDisabled':
-    '从其他设备发送请求已在所连接的主机上关闭。请在那台机器的 连接 › 后端 › 服务器 中启用“允许其他已连接设备发送请求”。',
+    '从其他设备发送请求已在所连接的主机上关闭。请在那台机器的 备份与同步 › 你的设备 中启用“允许其他已连接设备发送请求”。',
   'shared.peerExecute.enableCta': '在桌面应用中启用',
 
   // ── Desktop teaser ─────────────────────────────────────────────────

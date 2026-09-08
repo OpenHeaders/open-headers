@@ -73,7 +73,7 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.reach.multiDevice': 'Sincronizar entre tus dispositivos',
   'shared.workspaceDropdown.reach.multiDeviceTitle': 'Multidispositivo',
   'shared.workspaceDropdown.reach.multiDeviceBody':
-    'En la aplicación de escritorio, activa «Sincronizar con los dispositivos de tu red» para que tus ' +
+    'En la aplicación de escritorio, activa «Sincronizar con los dispositivos de la red» para que tus ' +
     'dispositivos en la misma red compartan los espacios de trabajo.',
   'shared.workspaceDropdown.reach.multiUser': 'Sincronizar con tu equipo',
   'shared.workspaceDropdown.reach.multiUserTitle': 'Multiusuario',

@@ -73,7 +73,7 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.reach.multiDevice': 'Über deine Geräte hinweg synchronisieren',
   'shared.workspaceDropdown.reach.multiDeviceTitle': 'Multi-Gerät',
   'shared.workspaceDropdown.reach.multiDeviceBody':
-    'Schalte in der Desktop-App „Mit Geräten in deinem Netzwerk synchronisieren“ ein, damit deine Geräte im ' +
+    'Schalte in der Desktop-App „Mit Netzwerkgeräten synchronisieren“ ein, damit deine Geräte im ' +
     'selben Netzwerk Arbeitsbereiche teilen.',
   'shared.workspaceDropdown.reach.multiUser': 'Mit deinem Team synchronisieren',
   'shared.workspaceDropdown.reach.multiUserTitle': 'Multi-User',

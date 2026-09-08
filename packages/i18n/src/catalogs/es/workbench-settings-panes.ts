@@ -252,7 +252,7 @@ export const workbenchSettingsPanes = {
     'El back-end de escritorio se vinculará a todas las interfaces de red locales para que otros dispositivos ' +
     'de tu red puedan conectarse. Toda conexión — LAN o loopback — debe presentar un token de autenticación ' +
     'emparejado; no existe ningún camino sin token. Los dispositivos se emparejan con el código que muestra ' +
-    'la aplicación (o pega un token en Conectividad › Backend › Conexiones).',
+    'la aplicación (o pega un token en Copia de seguridad y sincronización › Sincronización).',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':
@@ -350,7 +350,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.storageLocal':
     'Chrome ≠ Firefox ≠ Edge — datos separados por navegador, sin cruce entre dispositivos ni navegadores',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': 'normalmente 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': 'modificable en Conectividad › Backend › Servidor',
+  'workbench.settings.backendPane.tier.rangeNote.portOverride':
+    'modificable en Copia de seguridad y sincronización › Tus dispositivos',
   'workbench.settings.backendPane.tier.rangeNote.serverOwnBox':
     'IPv4 — servidor en tu propia máquina (Docker, sidecar)',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
@@ -428,10 +429,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.explainer.generateText':
     'te muestra el secreto para que lo copies y lo pegues tú mismo en el dispositivo.',
   'workbench.settings.backendTokens.explainer.pairText':
-    'muestra un código corto que el dispositivo introduce en Conectividad › Backend › Conexiones › Emparejar ' +
+    'muestra un código corto que el dispositivo introduce en Copia de seguridad y sincronización › Sincronización › Emparejar ' +
     'con un código (o abre un enlace, como respaldo) — úsalo cuando otra persona configura el dispositivo.',
   'workbench.settings.backendTokens.empty':
-    'Aún no hay dispositivos. Genera un token y pégalo en Conectividad › Backend › Conexiones del dispositivo, ' +
+    'Aún no hay dispositivos. Genera un token y pégalo en Copia de seguridad y sincronización › Sincronización del dispositivo, ' +
     'o empareja un dispositivo y que introduzca allí el código.',
   'workbench.settings.backendTokens.mintFailed': 'No se pudo acuñar el token: {message}',
   'workbench.settings.backendTokens.rotateFailed': 'No se pudo rotar: {message}',
@@ -490,7 +491,8 @@ export const workbenchSettingsPanes = {
     'aparece en la lista de abajo. Si el dispositivo no puede conectarse, revoca la entrada y empareja de ' +
     'nuevo.',
   'workbench.settings.backendTokens.pairModal.intro.part1': 'En el otro dispositivo, abre',
-  'workbench.settings.backendTokens.pairModal.intro.settingsPath': 'Conectividad › Backend › Conexiones',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath':
+    'Copia de seguridad y sincronización › Sincronización',
   'workbench.settings.backendTokens.pairModal.intro.part2': ', apunta su',
   'workbench.settings.backendTokens.pairModal.intro.address': 'Dirección del back-end',
   'workbench.settings.backendTokens.pairModal.intro.part3': 'a esta aplicación y haz clic en',

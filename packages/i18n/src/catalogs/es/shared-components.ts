@@ -458,10 +458,10 @@ export const sharedComponents = {
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':
     'El envío desde los navegadores de este dispositivo está desactivado en la aplicación de escritorio. ' +
-    'Activa «Permitir que los navegadores de este dispositivo envíen solicitudes» en Conectividad › Backend › Servidor.',
+    'Activa «Permitir que los navegadores de este dispositivo envíen solicitudes» en Copia de seguridad y sincronización › Tus dispositivos.',
   'shared.peerExecute.remoteDisabled':
     'El envío desde otros dispositivos está desactivado en el host conectado. Activa «Permitir que otros ' +
-    'dispositivos conectados envíen solicitudes» en su Conectividad › Backend › Servidor en esa máquina.',
+    'dispositivos conectados envíen solicitudes» en su Copia de seguridad y sincronización › Tus dispositivos en esa máquina.',
   'shared.peerExecute.enableCta': 'Activar en la aplicación de escritorio',
 
   // ── Desktop teaser ─────────────────────────────────────────────────

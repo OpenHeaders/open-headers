@@ -70,7 +70,7 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.reach.multiDevice': 'Synchroniser entre vos appareils',
   'shared.workspaceDropdown.reach.multiDeviceTitle': 'Multi-appareil',
   'shared.workspaceDropdown.reach.multiDeviceBody':
-    "Dans l'application de bureau, activez « Synchroniser avec les appareils de votre réseau » pour que vos " +
+    "Dans l'application de bureau, activez « Synchroniser avec les appareils du réseau » pour que vos " +
     'appareils sur le même réseau partagent les espaces de travail.',
   'shared.workspaceDropdown.reach.multiUser': 'Synchroniser avec votre équipe',
   'shared.workspaceDropdown.reach.multiUserTitle': 'Multi-utilisateur',

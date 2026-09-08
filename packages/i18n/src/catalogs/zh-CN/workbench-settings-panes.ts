@@ -12,7 +12,7 @@
  * (claude_desktop_config.json), the `oh-license.…` key prefix, git
  * command vocabulary (`git remote add`, `--no-verify`, HEAD), and
  * the {chord} / {token} / {url} holes. Settings paths quote the zh
- * shell mints（连接 › 后端）; 守护进程管理 matches the daemon-admin
+ * shell mints（备份与同步 › 同步）; 守护进程管理 matches the daemon-admin
  * title; 席位 / 档 / 免费档 / 目录用户 / 吊销 / 准入 reuse the
  * daemon-admin mints; 签发 = mint (a token) reuses the chrome mint;
  * 预设 and 快捷键 reuse workbench-settings-defs-keyboard; 配对 =
@@ -208,7 +208,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.lan.confirmOk': '允许 LAN 对等方',
   'workbench.settings.backendPane.lan.confirmCancel': '仅保留环回',
   'workbench.settings.backendPane.lan.confirmBody':
-    '桌面后端将绑定每个本地网络接口，使你网络上的其他设备可以连接。每条连接——无论 LAN 还是环回——都必须出示已配对的身份验证 token；没有免 token 的通道。设备用应用显示的配对码配对（或把 token 粘贴到连接 › 后端 › 连接）。',
+    '桌面后端将绑定每个本地网络接口，使你网络上的其他设备可以连接。每条连接——无论 LAN 还是环回——都必须出示已配对的身份验证 token；没有免 token 的通道。设备用应用显示的配对码配对（或把 token 粘贴到备份与同步 › 同步）。',
 
   // ── Backend pane: offline fallback order ───────────────────────────
   'workbench.settings.backendPane.fallback.empty':
@@ -303,7 +303,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.tier.rangeNote.storageLocal':
     'Chrome ≠ Firefox ≠ Edge——每个浏览器数据独立，不跨设备、不跨浏览器',
   'workbench.settings.backendPane.tier.rangeNote.typicalLoopback': '通常为 127.0.0.1',
-  'workbench.settings.backendPane.tier.rangeNote.portOverride': '在连接 › 后端 › 服务器中覆盖',
+  'workbench.settings.backendPane.tier.rangeNote.portOverride': '在备份与同步 › 你的设备中覆盖',
   'workbench.settings.backendPane.tier.rangeNote.serverOwnBox': 'IPv4——服务器在你自己的机器上（Docker、sidecar）',
   'workbench.settings.backendPane.tier.rangeNote.ipv6': 'IPv6',
   'workbench.settings.backendPane.tier.rangeNote.ulaPractically': '实际上是 fd00::/8——IPv6 私有分配',
@@ -366,9 +366,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.explainer.intro': '两种方式都会在下方添加一个 token。',
   'workbench.settings.backendTokens.explainer.generateText': '会显示机密，由你自己复制并粘贴到设备中。',
   'workbench.settings.backendTokens.explainer.pairText':
-    '会显示一个短配对码，设备在连接 › 后端 › 连接 › 用配对码配对处输入（或作为回退打开一个链接）——由别人设置设备时用这种方式。',
+    '会显示一个短配对码，设备在备份与同步 › 同步 › 用配对码配对处输入（或作为回退打开一个链接）——由别人设置设备时用这种方式。',
   'workbench.settings.backendTokens.empty':
-    '还没有设备。生成一个 token 并粘贴到设备的连接 › 后端 › 连接中，或配对一台设备并让它在那里输入配对码。',
+    '还没有设备。生成一个 token 并粘贴到设备的备份与同步 › 同步中，或配对一台设备并让它在那里输入配对码。',
   'workbench.settings.backendTokens.mintFailed': '签发 token 失败：{message}',
   'workbench.settings.backendTokens.rotateFailed': '轮换失败：{message}',
   'workbench.settings.backendTokens.revokeFailed': '吊销失败：{message}',
@@ -415,7 +415,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendTokens.pairModal.pairedBody':
     '设备确认了配对码。已签发一个新的访问 token 并保存在那台设备上；它出现在下方列表中。如果设备无法连接，请吊销该条目并重新配对。',
   'workbench.settings.backendTokens.pairModal.intro.part1': '在另一台设备上，打开',
-  'workbench.settings.backendTokens.pairModal.intro.settingsPath': '连接 › 后端 › 连接',
+  'workbench.settings.backendTokens.pairModal.intro.settingsPath': '备份与同步 › 同步',
   'workbench.settings.backendTokens.pairModal.intro.part2': '，把它的',
   'workbench.settings.backendTokens.pairModal.intro.address': '后端地址',
   'workbench.settings.backendTokens.pairModal.intro.part3': '指向此应用，然后点击',
