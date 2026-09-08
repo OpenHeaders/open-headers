@@ -1,9 +1,9 @@
 /**
  * org-copy — render-side wording for the Org identity plane. Core
- * classifies (`orgHostHintKind`); these resolvers translate each
- * classification, so the second-person host-kind hint and the full
- * "hint: name" label render in the viewer's locale with the raw Org
- * name riding inside the keyed value.
+ * classifies (`orgHostHintKind`, `providingBackendKind`); these
+ * resolvers translate each classification, so the second-person
+ * host-kind hint and the place an Org reads as render in the viewer's
+ * locale with the raw names riding inside the keyed values.
  */
 
 import type { OrgDescriptor, OrgHostHintKind } from '@openheaders/core/identity';
@@ -11,6 +11,7 @@ import { orgHostHintKind } from '@openheaders/core/identity';
 import type { BackendReach } from '@openheaders/core/protocol';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import type { BackendPlace } from '../backend/backend-place';
 
 const HINT_KEYS: Record<OrgHostHintKind, MessageKey> = {
   browser: 'shared.org.hint.browser',
@@ -26,10 +27,24 @@ export function orgHostHintText(t: Translate, descriptor: OrgDescriptor, reach?:
 }
 
 /**
- * Full single-line Org label — "This browser: Chrome", "This device:
- * my-mac". Joined Orgs (no hint) fall through to the stored name.
+ * The place an Org reads as (the Backup and Sync UX plan D3): the home
+ * Org by its hint alone — "This browser", "This computer" — and a
+ * joined Org by its providing backend's place — "This computer ·
+ * desktop app", "<label> · desktop app", "<name> · server". `place` is
+ * the joined Org's (`backendPlace`); the home Org ignores it, and a
+ * joined Org without one reads by its stored name.
  */
-export function orgFullLabelText(t: Translate, descriptor: OrgDescriptor, reach?: BackendReach | null): string {
+export function orgPlaceText(
+  t: Translate,
+  descriptor: OrgDescriptor,
+  reach: BackendReach | null,
+  place: BackendPlace | null,
+): string {
   const hint = orgHostHintText(t, descriptor, reach);
-  return hint ? t('shared.org.fullLabel', { hint, name: descriptor.name }) : descriptor.name;
+  if (hint) return hint;
+  if (!place) return descriptor.name;
+  if (place.kind === 'desktop-app') {
+    return place.name ? t('shared.org.place.desktopAppNamed', { name: place.name }) : t('shared.org.place.desktopApp');
+  }
+  return t('shared.org.place.server', { name: place.name ?? descriptor.name });
 }

@@ -1,7 +1,7 @@
 /**
  * Workspace-org family — the shared workspace dropdown body (popup +
  * sidepanel + devpanel + workbench), the Org identity plane it renders
- * (host-kind hints, full labels, sync-provenance annotations), and the
+ * (host-kind hints, places, sync-provenance annotations), and the
  * org-scope vocabulary behind the WorkspaceOrgBadge tooltip.
  *
  * Display labels compose viewer-side: core classifies (`orgHostHintKind`,
@@ -17,11 +17,14 @@ import type { Catalog } from '../../types';
 export const sharedWorkspace = {
   // ── Org host-kind hints (second-person home-Org sub-labels) ────────
   'shared.org.hint.browser': 'This browser',
-  'shared.org.hint.desktop': 'This device',
+  'shared.org.hint.desktop': 'This computer',
   'shared.org.hint.serverLocal': 'Local server',
   'shared.org.hint.serverRemote': 'Remote server',
-  // Full single-line Org label — "This browser: Chrome", "This device: my-mac".
-  'shared.org.fullLabel': '{hint}: {name}',
+
+  // ── Org places — what a joined Org's group header reads as ─────────
+  'shared.org.place.desktopApp': 'This computer · desktop app',
+  'shared.org.place.desktopAppNamed': '{name} · desktop app',
+  'shared.org.place.server': '{name} · server',
 
   // ── Org sync-provenance annotations ("via <backend>") ──────────────
   'shared.org.sync.removed': 'no longer syncing',

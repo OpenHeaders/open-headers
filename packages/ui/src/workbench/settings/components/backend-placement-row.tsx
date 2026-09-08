@@ -15,21 +15,18 @@ import { Select, Space } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useBackendReach } from '../../../shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '../../../shared/hooks/useOrgBindingPrefs';
 import { orgChoiceCatalogue, resolveNewWorkspaceOrgId } from '../../../shared/workspace-org/org-choice';
-import { orgFullLabelText } from '../../../shared/workspace-org/org-copy';
 import { OrgIcon } from '../../../shared/workspace-org/OrgIcon';
+import { useOrgPlace } from '../../../shared/workspace-org/use-org-place';
 import FieldRow from '../fields/FieldRow';
 import { PaneSection } from './pane-chrome';
 
 export const BackendPlacementRow: React.FC = () => {
   const t = useT();
   const snapshot = useIdentitySnapshot();
-  // Org labels only read reach for the home Org's host hint — the
-  // host's OWN bind tier (self entry).
-  const { self: reach } = useBackendReach();
+  const placeOf = useOrgPlace();
   const catalogue = useMemo(() => orgChoiceCatalogue(orgCatalogue(snapshot)), [snapshot]);
   const { prefs, isReady, setDefaultNewWorkspaceOrgId } = useOrgBindingPrefs();
   const resolved = resolveNewWorkspaceOrgId(snapshot, prefs.defaultNewWorkspaceOrgId);
@@ -53,7 +50,7 @@ export const BackendPlacementRow: React.FC = () => {
             label: (
               <Space size={6}>
                 <OrgIcon descriptor={descriptor} size={13} />
-                {orgFullLabelText(t, descriptor, reach)}
+                {placeOf(descriptor)}
               </Space>
             ),
           }))}

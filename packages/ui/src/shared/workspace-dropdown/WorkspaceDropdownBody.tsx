@@ -47,8 +47,8 @@ import {
   useOrgSyncAnnotations,
 } from '../backend';
 import { useBackendReach } from '../hooks/useBackendReach';
-import { orgFullLabelText } from '../workspace-org/org-copy';
 import { OrgIcon } from '../workspace-org/OrgIcon';
+import { useOrgPlace } from '../workspace-org/use-org-place';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
 import './WorkspaceDropdownBody.css';
 
@@ -169,8 +169,9 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   // hover hint the moment the surrounding dropdown closes.
   const hintOpen = open ? undefined : false;
   // widest drives the "extend your reach" ladder (a step already reached
-  // anywhere drops out); self labels the home Org's host-kind hint.
-  const { widest: reach, self: selfReach } = useBackendReach();
+  // anywhere drops out).
+  const { widest: reach } = useBackendReach();
+  const placeOf = useOrgPlace();
   const annotateOrg = useOrgSyncAnnotations();
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef<InputRef>(null);
@@ -449,9 +450,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
     // A null descriptor in grouped mode means the Org left the identity
     // snapshot — its backend record was removed with local copies kept.
-    const label = descriptor
-      ? orgFullLabelText(t, descriptor, selfReach)
-      : t('shared.workspaceDropdown.orphanedOrgHeader');
+    const label = descriptor ? placeOf(descriptor) : t('shared.workspaceDropdown.orphanedOrgHeader');
     const annotation: OrgSyncAnnotation | null = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
     // Name the workspace the switch lands on, inline in the header —
     // the consequence of the click is visible before hovering. Shown

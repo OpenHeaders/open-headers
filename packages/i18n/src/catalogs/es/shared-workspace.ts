@@ -11,10 +11,14 @@ import type { Catalog } from '../../types';
 export const sharedWorkspace = {
   // ── Org host-kind hints (second-person home-Org sub-labels) ────────
   'shared.org.hint.browser': 'Este navegador',
-  'shared.org.hint.desktop': 'Este dispositivo',
+  'shared.org.hint.desktop': 'Este equipo',
   'shared.org.hint.serverLocal': 'Servidor local',
   'shared.org.hint.serverRemote': 'Servidor remoto',
-  'shared.org.fullLabel': '{hint}: {name}',
+
+  // ── Org places — what a joined Org's group header reads as ─────────
+  'shared.org.place.desktopApp': 'Este equipo · aplicación de escritorio',
+  'shared.org.place.desktopAppNamed': '{name} · aplicación de escritorio',
+  'shared.org.place.server': '{name} · servidor',
 
   // ── Org sync-provenance annotations ("via <backend>") ──────────────
   'shared.org.sync.removed': 'ya no se sincroniza',

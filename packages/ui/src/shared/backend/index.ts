@@ -1,3 +1,5 @@
+export type { BackendPlace } from './backend-place';
+export { backendPlace, urlHost } from './backend-place';
 export {
   ensureBackendsHydrated,
   primaryBackendUrl,

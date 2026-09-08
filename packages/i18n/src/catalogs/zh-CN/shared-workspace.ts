@@ -14,10 +14,14 @@ import type { Catalog } from '../../types';
 export const sharedWorkspace = {
   // ── Org host-kind hints (second-person home-Org sub-labels) ────────
   'shared.org.hint.browser': '此浏览器',
-  'shared.org.hint.desktop': '此设备',
+  'shared.org.hint.desktop': '此电脑',
   'shared.org.hint.serverLocal': '本地服务器',
   'shared.org.hint.serverRemote': '远程服务器',
-  'shared.org.fullLabel': '{hint}：{name}',
+
+  // ── Org places — what a joined Org's group header reads as ─────────
+  'shared.org.place.desktopApp': '此电脑 · 桌面应用',
+  'shared.org.place.desktopAppNamed': '{name} · 桌面应用',
+  'shared.org.place.server': '{name} · 服务器',
 
   // ── Org sync-provenance annotations ("via <backend>") ──────────────
   'shared.org.sync.removed': '不再同步',

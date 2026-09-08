@@ -31,14 +31,12 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import { getCapability } from '@openheaders/core/capabilities';
 import { type OrgDescriptor, orgCatalogue } from '@openheaders/core/identity';
-import type { BackendReach } from '@openheaders/core/protocol';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { usePublishTargets } from '@openheaders/ui/shared/backend';
-import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { orgChoiceCatalogue } from '@openheaders/ui/shared/workspace-org/org-choice';
-import { orgFullLabelText } from '@openheaders/ui/shared/workspace-org/org-copy';
+import { useOrgPlace } from '@openheaders/ui/shared/workspace-org/use-org-place';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
@@ -84,9 +82,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const canDelete = api.workspaces.length > 1;
 
   const snapshot = useIdentitySnapshot();
-  // Org labels only read reach for the home Org's host hint — the
-  // host's OWN bind tier (self entry).
-  const { self: reach } = useBackendReach();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
   // Org-choice surfaces (Duplicate-into; the new-workspace placement
   // row lives on Backup and Sync › Sync) offer the clamped set — server
@@ -242,7 +237,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
                   <div key={group.orgId} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {/* The home Org is already headed by HomeOrgIdentityCard
                         above; every other Org gets its own section header. */}
-                    {!group.descriptor?.isHome && <OrgGroupHeader descriptor={group.descriptor} reach={reach} />}
+                    {!group.descriptor?.isHome && <OrgGroupHeader descriptor={group.descriptor} />}
                     {group.items.map(renderRow)}
                   </div>
                 ))
@@ -276,7 +271,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
       <DuplicateWorkspaceModal
         source={duplicateTarget}
         catalogue={orgChoices}
-        reach={reach}
         onCancel={() => setDuplicateTarget(null)}
         onSubmit={async (values) => {
           if (!duplicateTarget) return false;
@@ -361,12 +355,10 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
 // ── Org section header ──────────────────────────────────────────────
 
-const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null; reach: BackendReach | null }> = ({
-  descriptor,
-  reach,
-}) => {
+const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null }> = ({ descriptor }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const placeOf = useOrgPlace();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px' }}>
       {descriptor && <OrgIcon descriptor={descriptor} size={14} style={{ color: token.colorTextTertiary }} />}
@@ -379,7 +371,7 @@ const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null; reach: Backen
           color: token.colorTextTertiary,
         }}
       >
-        {descriptor ? orgFullLabelText(t, descriptor, reach) : t('workbench.workspace.otherWorkspaces')}
+        {descriptor ? placeOf(descriptor) : t('workbench.workspace.otherWorkspaces')}
       </Text>
     </div>
   );
@@ -689,19 +681,13 @@ interface DuplicateFormValues {
 interface DuplicateWorkspaceModalProps {
   source: ExtensionWorkspace | null;
   catalogue: OrgDescriptor[];
-  reach: BackendReach | null;
   onCancel: () => void;
   onSubmit: (values: DuplicateFormValues) => Promise<boolean>;
 }
 
-const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
-  source,
-  catalogue,
-  reach,
-  onCancel,
-  onSubmit,
-}) => {
+const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({ source, catalogue, onCancel, onSubmit }) => {
   const t = useT();
+  const placeOf = useOrgPlace();
   const [form] = Form.useForm<DuplicateFormValues>();
 
   const handleOk = useCallback(async () => {
@@ -765,7 +751,7 @@ const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
                 label: (
                   <Space size={6}>
                     <OrgIcon descriptor={descriptor} size={13} />
-                    {orgFullLabelText(t, descriptor, reach)}
+                    {placeOf(descriptor)}
                   </Space>
                 ),
               }))}

@@ -28,13 +28,12 @@ import { type BackendConnectionPatch, createBackend, getBackend, updateBackend }
 import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { BackendOrgConflict } from '@openheaders/core/storage';
 import type { BackendConnection, Org } from '@openheaders/core/types';
-import { useBackends } from '../../../shared/backend';
+import { backendPlace, useBackends } from '../../../shared/backend';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { useBackendOrgConflicts } from '../../../shared/hooks/useBackendOrgConflicts';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { type BackendMode, deriveBackendMode } from '../schema/backend';
 import { BackendIcon, backendModeIcon } from './backend-icons';
-import { backendPlace } from './backend-place';
 import { backendDisplayLabel } from './backend-record-context';
 import { useBackendRemove } from './backend-remove-flow';
 import { BackendRowStatusDot } from './backend-row-status-dot';
@@ -125,8 +124,7 @@ const ConnectionRow: React.FC<{
     record,
     consumedOrgs.map((org) => org.name),
   );
-  const placeText =
-    place.kind === 'desktop-app' ? t('workbench.settings.backendPane.connections.place.desktopApp') : place.name;
+  const placeText = place.name ?? t('workbench.settings.backendPane.connections.place.desktopApp');
   const icon = backendModeIcon(deriveBackendMode(host, { ...record, enabled: true }));
   const removal = useBackendRemove(record, label, consumedOrgs, onRemoved);
 
