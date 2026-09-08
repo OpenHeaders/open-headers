@@ -4,9 +4,9 @@
  * 此 Org), workspace names, backend labels/URLs, LAN/WAN and the →
  * glyph stay raw. Mints: 通过 = via / over; ACTIVE tag = 活动; 活动
  * 工作区 = active workspace; 规则引擎 = rule engine; 局域网（LAN）/
- * 互联网（WAN）keep the raw acronym parenthetical; multi-* titles =
- * 多浏览器 / 多设备 / 多用户; "Lands on" = 会落在; the desktop setting
- * quoted in reach copy reuses the settings-defs mint “与网络设备同步”.
+ * 互联网（WAN）keep the raw acronym parenthetical; "Lands on" = 会落在;
+ * places: 此电脑 = this computer, 桌面应用 = desktop app, 服务器 =
+ * server; the entry row mirrors the settings root mint 备份与同步.
  */
 
 import type { Catalog } from '../../types';
@@ -71,17 +71,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.import': '导入',
   'shared.workspaceDropdown.manage': '管理工作区',
 
-  // ── "Extend your reach" footer rows + popovers ──────────────────────
-  'shared.workspaceDropdown.reach.multiBrowser': '在此设备的多个浏览器之间同步',
-  'shared.workspaceDropdown.reach.multiBrowserTitle': '多浏览器',
-  'shared.workspaceDropdown.reach.multiBrowserBody': '安装桌面应用——此设备上的每个浏览器就会共享相同的工作区。',
-  'shared.workspaceDropdown.reach.multiDevice': '在你的设备之间同步',
-  'shared.workspaceDropdown.reach.multiDeviceTitle': '多设备',
-  'shared.workspaceDropdown.reach.multiDeviceBody': '在桌面应用中开启“与网络设备同步”，让同一网络中的设备共享工作区。',
-  'shared.workspaceDropdown.reach.multiUser': '与你的团队同步',
-  'shared.workspaceDropdown.reach.multiUserTitle': '多用户',
-  'shared.workspaceDropdown.reach.multiUserBody':
-    '连接到共享服务器——在你的网络中或通过互联网——让服务器上的每个人都在相同的工作区中工作。',
+  // ── The one entry row into Backup and Sync (the plan D2) ────────────
+  'shared.workspaceDropdown.backupAndSync': '备份与同步…',
 
   // ── Org-switch header (inline landing annotation + why-tooltip) ─────
   'shared.workspaceDropdown.orgSwitch.aria': '切换到 {label}',

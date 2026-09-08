@@ -2,9 +2,10 @@
  * Workspace-org family — German. Mirrors `catalogs/en/shared-workspace.ts`
  * key for key; Org names (diese Org, f.), workspace names, backend
  * labels/URLs, LAN/WAN and the → glyph stay raw. Mints: via = über;
- * multi-* titles = Multi-Browser / Multi-Gerät / Multi-User; "Lands
- * on" = Du landest auf; ACTIVE tag = AKTIV; rule engine =
- * Regel-Engine (f.).
+ * places: Dieser Computer / Desktop-App / Server; "Lands on" = Du
+ * landest auf; ACTIVE tag = AKTIV; rule engine = Regel-Engine (f.);
+ * the entry row mirrors the settings root mint Sicherung und
+ * Synchronisierung.
  */
 
 import type { Catalog } from '../../types';
@@ -74,21 +75,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.import': 'Importieren',
   'shared.workspaceDropdown.manage': 'Arbeitsbereiche verwalten',
 
-  // ── "Extend your reach" footer rows + popovers ──────────────────────
-  'shared.workspaceDropdown.reach.multiBrowser': 'Über Browser auf diesem Gerät synchronisieren',
-  'shared.workspaceDropdown.reach.multiBrowserTitle': 'Multi-Browser',
-  'shared.workspaceDropdown.reach.multiBrowserBody':
-    'Installiere die Desktop-App — jeder Browser auf diesem Gerät teilt dann dieselben Arbeitsbereiche.',
-  'shared.workspaceDropdown.reach.multiDevice': 'Über deine Geräte hinweg synchronisieren',
-  'shared.workspaceDropdown.reach.multiDeviceTitle': 'Multi-Gerät',
-  'shared.workspaceDropdown.reach.multiDeviceBody':
-    'Schalte in der Desktop-App „Mit Netzwerkgeräten synchronisieren“ ein, damit deine Geräte im ' +
-    'selben Netzwerk Arbeitsbereiche teilen.',
-  'shared.workspaceDropdown.reach.multiUser': 'Mit deinem Team synchronisieren',
-  'shared.workspaceDropdown.reach.multiUserTitle': 'Multi-User',
-  'shared.workspaceDropdown.reach.multiUserBody':
-    'Verbinde dich mit einem gemeinsamen Server — in deinem Netzwerk oder über das Internet — damit alle darauf ' +
-    'in denselben Arbeitsbereichen arbeiten.',
+  // ── The one entry row into Backup and Sync (the plan D2) ────────────
+  'shared.workspaceDropdown.backupAndSync': 'Sicherung und Synchronisierung…',
 
   // ── Org-switch header (inline landing annotation + why-tooltip) ─────
   'shared.workspaceDropdown.orgSwitch.aria': 'Zu {label} wechseln',

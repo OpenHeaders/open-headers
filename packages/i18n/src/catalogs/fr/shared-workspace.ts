@@ -70,22 +70,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.import': 'Importer',
   'shared.workspaceDropdown.manage': 'Gérer les espaces de travail',
 
-  // ── "Extend your reach" footer rows + popovers ──────────────────────
-  'shared.workspaceDropdown.reach.multiBrowser': 'Synchroniser entre les navigateurs de cet appareil',
-  'shared.workspaceDropdown.reach.multiBrowserTitle': 'Multi-navigateur',
-  'shared.workspaceDropdown.reach.multiBrowserBody':
-    "Installez l'application de bureau — chaque navigateur de cet appareil partage alors les mêmes espaces de " +
-    'travail.',
-  'shared.workspaceDropdown.reach.multiDevice': 'Synchroniser entre vos appareils',
-  'shared.workspaceDropdown.reach.multiDeviceTitle': 'Multi-appareil',
-  'shared.workspaceDropdown.reach.multiDeviceBody':
-    "Dans l'application de bureau, activez « Synchroniser avec les appareils du réseau » pour que vos " +
-    'appareils sur le même réseau partagent les espaces de travail.',
-  'shared.workspaceDropdown.reach.multiUser': 'Synchroniser avec votre équipe',
-  'shared.workspaceDropdown.reach.multiUserTitle': 'Multi-utilisateur',
-  'shared.workspaceDropdown.reach.multiUserBody':
-    'Connectez-vous à un serveur partagé — sur votre réseau ou via internet — pour que tous ses membres ' +
-    'travaillent dans les mêmes espaces de travail.',
+  // ── The one entry row into Backup and Sync (the plan D2) ────────────
+  'shared.workspaceDropdown.backupAndSync': 'Sauvegarde et synchronisation…',
 
   // ── Org-switch header (inline landing annotation + why-tooltip) ─────
   'shared.workspaceDropdown.orgSwitch.aria': 'Passer à {label}',

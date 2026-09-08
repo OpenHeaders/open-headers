@@ -23,12 +23,10 @@
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
-  DesktopOutlined,
+  CloudSyncOutlined,
   ExportOutlined,
-  GlobalOutlined,
   ImportOutlined,
   SettingOutlined,
-  TeamOutlined,
 } from '@ant-design/icons';
 import type { OrgDescriptor } from '@openheaders/core/identity';
 import { resolveOrgActiveWorkspace } from '@openheaders/core/identity';
@@ -41,7 +39,6 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace/workspace-prefix';
 import { orgStateText, orphanedOrgAnnotation, useOrgSyncAnnotations } from '../backend';
-import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { useOrgPlace } from '../workspace-org/use-org-place';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
@@ -55,10 +52,10 @@ export interface WorkspaceDropdownBodyProps {
   /**
    * The hosting dropdown's open state. The body stays mounted across
    * open/close, so when a click closes the dropdown while the pointer
-   * rests on a hover hint (org header popover, check-icon tooltip,
-   * reach-row popover), no mouseout ever fires and the hint would
-   * linger over whatever the click revealed. All hover hints inside
-   * the body force-hide while this is false.
+   * rests on a hover hint (the header's landing tooltip, the check-icon
+   * tooltip, the ACTIVE tag explainer), no mouseout ever fires and the
+   * hint would linger over whatever the click revealed. All hover hints
+   * inside the body force-hide while this is false.
    */
   open?: boolean;
   workspaces: ExtensionWorkspace[];
@@ -99,18 +96,18 @@ export interface WorkspaceDropdownBodyProps {
     describe: (orgId: string) => OrgDescriptor | null;
   };
   /**
-   * Opens the back-end Settings category. When supplied, the dropdown
-   * shows the "extend your reach" footer — rows contextual to the
-   * connected backend's {@link BackendReach} tier. Omit it to hide the
-   * footer entirely.
+   * Opens Settings › Backup and Sync › Sync. When supplied, the dropdown
+   * carries its one entry row into Backup and Sync (the plan D2 — the
+   * VS Code gear-menu shape); the row always shows, whatever is
+   * connected. Omit it to hide the row entirely.
    */
   onOpenBackendSettings?: () => void;
   /**
-   * Placement for popovers inside this dropdown body (the reach-row
-   * footer and the "ACTIVE" tag explainer). Narrow surfaces (popup /
-   * sidepanel) prefer `top` — `right` would overflow the viewport on a
-   * 350-400px window. Wide surfaces (workbench / devpanel) keep the
-   * default `right` so the popover doesn't cover the rows above it.
+   * Placement for the "ACTIVE" tag explainer popover. Narrow surfaces
+   * (popup / sidepanel) prefer `top` — `right` would overflow the
+   * viewport on a 350-400px window. Wide surfaces (workbench /
+   * devpanel) keep the default `right` so the popover doesn't cover the
+   * rows above it.
    */
   popoverPlacement?: 'top' | 'right';
 }
@@ -163,9 +160,6 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   // `undefined` keeps antd's hover behavior; `false` force-hides every
   // hover hint the moment the surrounding dropdown closes.
   const hintOpen = open ? undefined : false;
-  // widest drives the "extend your reach" ladder (a step already reached
-  // anywhere drops out).
-  const { widest: reach } = useBackendReach();
   const placeOf = useOrgPlace();
   const annotateOrg = useOrgSyncAnnotations();
   const [searchText, setSearchText] = useState('');
@@ -241,50 +235,6 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     () => (activeId ? (workspaces.find((w) => w.id === activeId) ?? null) : null),
     [workspaces, activeId],
   );
-
-  // "Extend your reach" footer — contextual to the connected backend's
-  // reach tier (`null` = no backend). Each row names the *benefit*; its
-  // popover explains the *how*. A tier the user has already reached
-  // drops out, so the footer only ever points at genuine next steps;
-  // at `wan` reach there is nothing above, so the footer disappears.
-  const reachRows = useMemo(() => {
-    if (!onOpenBackendSettings) return [];
-    const rows: Array<{ key: string; icon: React.ReactNode; label: string; popover: React.ReactNode }> = [];
-    if (reach === null) {
-      rows.push({
-        key: 'multi-browser',
-        icon: <GlobalOutlined style={{ fontSize: 12 }} />,
-        label: t('shared.workspaceDropdown.reach.multiBrowser'),
-        popover: renderPopoverBlock(
-          t('shared.workspaceDropdown.reach.multiBrowserTitle'),
-          t('shared.workspaceDropdown.reach.multiBrowserBody'),
-        ),
-      });
-    }
-    if (reach === 'loopback') {
-      rows.push({
-        key: 'multi-device',
-        icon: <DesktopOutlined style={{ fontSize: 12 }} />,
-        label: t('shared.workspaceDropdown.reach.multiDevice'),
-        popover: renderPopoverBlock(
-          t('shared.workspaceDropdown.reach.multiDeviceTitle'),
-          t('shared.workspaceDropdown.reach.multiDeviceBody'),
-        ),
-      });
-    }
-    if (reach !== 'wan') {
-      rows.push({
-        key: 'multi-user',
-        icon: <TeamOutlined style={{ fontSize: 12 }} />,
-        label: t('shared.workspaceDropdown.reach.multiUser'),
-        popover: renderPopoverBlock(
-          t('shared.workspaceDropdown.reach.multiUserTitle'),
-          t('shared.workspaceDropdown.reach.multiUserBody'),
-        ),
-      });
-    }
-    return rows;
-  }, [reach, onOpenBackendSettings, t]);
 
   const handleClose = (): void => {
     setSearchText('');
@@ -600,35 +550,24 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         </>
       )}
 
-      {reachRows.length > 0 && (
+      {onOpenBackendSettings && (
         <>
           <Divider style={{ margin: '4px 0' }} />
-          {reachRows.map((row) => (
-            <Popover
-              key={row.key}
-              placement={popoverPlacement}
-              mouseEnterDelay={0.3}
-              open={hintOpen}
-              content={row.popover}
-              // The Dropdown panel this body lives in portals at
-              // `zIndexPopupBase + 50`; lift the popover above it so it
-              // doesn't render behind the rows it explains.
-              zIndex={token.zIndexPopupBase + 100}
-            >
-              <div
-                role="menuitem"
-                className="oh-env-row"
-                style={{ ...baseRowStyle, color: token.colorTextSecondary }}
-                onClick={() => {
-                  onOpenBackendSettings?.();
-                  handleClose();
-                }}
-              >
-                {row.icon}
-                <Text style={{ fontSize: 13 }}>{row.label}</Text>
-              </div>
-            </Popover>
-          ))}
+          {/* The one entry row into Backup and Sync — always shown (the
+              CTA-scaffold law), whatever is connected; the Sync page
+              carries the guidance the old reach ladder spelled out. */}
+          <div
+            role="menuitem"
+            className="oh-env-row"
+            style={{ ...baseRowStyle, color: token.colorTextSecondary }}
+            onClick={() => {
+              onOpenBackendSettings();
+              handleClose();
+            }}
+          >
+            <CloudSyncOutlined style={{ fontSize: 12 }} />
+            <Text style={{ fontSize: 13 }}>{t('shared.workspaceDropdown.backupAndSync')}</Text>
+          </div>
         </>
       )}
 

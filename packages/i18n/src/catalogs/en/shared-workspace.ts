@@ -76,21 +76,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.import': 'Import',
   'shared.workspaceDropdown.manage': 'Manage workspaces',
 
-  // ── "Extend your reach" footer rows + popovers ──────────────────────
-  'shared.workspaceDropdown.reach.multiBrowser': 'Sync across browsers on this device',
-  'shared.workspaceDropdown.reach.multiBrowserTitle': 'Multi-browser',
-  'shared.workspaceDropdown.reach.multiBrowserBody':
-    'Install the desktop app — every browser on this device then shares the same workspaces.',
-  'shared.workspaceDropdown.reach.multiDevice': 'Sync across your devices',
-  'shared.workspaceDropdown.reach.multiDeviceTitle': 'Multi-device',
-  'shared.workspaceDropdown.reach.multiDeviceBody':
-    'In the desktop app, turn on “Sync with network devices” so your devices on the same network share ' +
-    'workspaces.',
-  'shared.workspaceDropdown.reach.multiUser': 'Sync with your team',
-  'shared.workspaceDropdown.reach.multiUserTitle': 'Multi-user',
-  'shared.workspaceDropdown.reach.multiUserBody':
-    'Connect to a shared server — on your network or over the internet — so everyone on it works in the same ' +
-    'workspaces.',
+  // ── The one entry row into Backup and Sync (the plan D2) ────────────
+  'shared.workspaceDropdown.backupAndSync': 'Backup and Sync…',
 
   // ── Org-switch header (inline landing annotation + why-tooltip) ─────
   'shared.workspaceDropdown.orgSwitch.aria': 'Switch to {label}',
