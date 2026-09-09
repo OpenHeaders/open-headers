@@ -628,6 +628,20 @@ test('Publish appears once joined targets exist', async () => {
   await workbench.keyboard.press('Escape');
 });
 
+// ── Manual-inspection hold — both wires live, nothing removed yet ────
+
+test('hold the stack open for manual inspection', async () => {
+  test.skip(process.env.OH_E2E_HOLD !== '1', 'set OH_E2E_HOLD=1 to keep the stack open with both backends joined');
+  test.setTimeout(0);
+  for (const rig of [rigA, rigB]) {
+    console.log(
+      `[multi-backend] ${rig.label}: ${rig.wsParts.scheme}://${rig.wsParts.address}:${rig.wsParts.port} token ${rig.token}`,
+    );
+  }
+  console.log('[multi-backend] holding the extension + both daemons open — stop the runner to tear down');
+  await new Promise(() => {});
+});
+
 // ── Routing leg — edits land on exactly the owning backend ──────────
 
 test('an edit in each Org routes to exactly its owning backend', async () => {
