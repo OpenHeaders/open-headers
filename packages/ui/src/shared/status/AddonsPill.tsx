@@ -25,7 +25,6 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { isLoopbackBackendUrl } from '@openheaders/core/backends';
 import { providingBackendKind } from '@openheaders/core/identity';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
 import { App as AntApp, Button, Popover, Tag, Typography, theme } from 'antd';
@@ -104,8 +103,11 @@ const CliRow: React.FC = () => {
   const isDesktop = host === 'desktop';
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
-  const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
-  const desktopConnected = loopback?.enabled === true && syncSlots[loopback.id]?.state === 'green';
+  // The desktop app's record by the place rule — the same read as the
+  // Daemon row below, so a loopback daemon on another port never passes
+  // for the desktop this row asks.
+  const desktopApp = backends.find((b) => providingBackendKind(viewerHostKind(host), b.url) === 'desktop-app');
+  const desktopConnected = desktopApp?.enabled === true && syncSlots[desktopApp.id]?.state === 'green';
   React.useEffect(() => {
     if (!isDesktop) return;
     let alive = true;
