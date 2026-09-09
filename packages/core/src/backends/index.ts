@@ -12,6 +12,7 @@ export {
   getBackend,
   getBackends,
   getPrimaryBackend,
+  isDesktopAppBackendUrl,
   isLoopbackBackendUrl,
   refreshBackendsFromHostStorage,
   removeBackend,

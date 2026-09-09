@@ -22,13 +22,13 @@
  */
 
 import { pruneJoinedOrgsForBackend } from '../identity/registry';
-import { pruneBackendOrgConflictsForBackend } from './org-conflicts';
-import { WS_SERVER_URL } from '../protocol';
+import { WS_PORT, WS_SERVER_URL } from '../protocol';
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
 import type { BackendConnection } from '../types';
 import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
+import { pruneBackendOrgConflictsForBackend } from './org-conflicts';
 
 let current: readonly BackendConnection[] = [];
 const listeners = new Set<() => void>();
@@ -215,4 +215,16 @@ export function isLoopbackBackendUrl(raw: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Is this the desktop app's own WebSocket URL — loopback on the port the
+ * desktop app binds (`WS_PORT`; the Backup and Sync UX plan D3)? A
+ * loopback address on any other port is a standalone daemon on this
+ * machine, a server in its own right. A desktop app rebound to another
+ * port reads as that too — the rule knows the default bind alone.
+ */
+export function isDesktopAppBackendUrl(raw: string): boolean {
+  if (!isLoopbackBackendUrl(raw)) return false;
+  return new URL(raw).port === String(WS_PORT);
 }

@@ -31,6 +31,17 @@ describe('backendPlace', () => {
     });
   });
 
+  it('a loopback daemon on another port is a server on this computer from a browser host too', () => {
+    expect(backendPlace('extension', { label: 'Daemon A', url: 'ws://127.0.0.1:19537' }, ['my-mac'])).toEqual({
+      kind: 'server',
+      name: 'Daemon A',
+    });
+    expect(backendPlace('extension', { label: '', url: 'ws://127.0.0.1:19337' }, ['my-mac'])).toEqual({
+      kind: 'server',
+      name: 'my-mac',
+    });
+  });
+
   it('on the desktop host a loopback address is a server on this computer, named by its host', () => {
     expect(backendPlace('desktop', { label: '', url: 'ws://127.0.0.1:9137' }, [])).toEqual({
       kind: 'server',

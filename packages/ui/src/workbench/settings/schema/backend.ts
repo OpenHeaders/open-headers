@@ -76,9 +76,9 @@ export function hostJoinsBackends(host: Host): boolean {
  * Derive the presentation mode from the connection registry — "kind" is
  * read off the record, never stored (the multi-backend plan §1). No
  * enabled entry means tier zero; an enabled entry classifies by URL:
- * `wss` is a remote back-end, a loopback address dialed from a browser
- * host is the desktop app (core's `providingBackendKind` owns that
- * rule), anything else is a local / LAN daemon.
+ * `wss` is a remote back-end, the desktop app's own loopback port dialed
+ * from a browser host is the desktop app (core's `providingBackendKind`
+ * owns that rule), anything else is a local / LAN daemon.
  */
 export function deriveBackendMode(host: Host, primary: BackendConnection | null): BackendMode {
   if (!primary?.enabled) return tierZeroMode(host);

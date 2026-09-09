@@ -166,8 +166,14 @@ describe('providingBackendKind', () => {
     expect(providingBackendKind('desktop', 'wss://acme.openheaders.io')).toBe('server');
   });
 
+  it('a loopback daemon on another port is a server on this machine, from a browser too', () => {
+    expect(providingBackendKind('browser', 'ws://127.0.0.1:19537')).toBe('server');
+    expect(providingBackendKind('browser', 'ws://localhost')).toBe('server');
+  });
+
   it('the desktop host never joins the desktop app — a loopback address there is a daemon on this machine', () => {
     expect(providingBackendKind('desktop', 'ws://127.0.0.1:9137')).toBe('server');
+    expect(providingBackendKind('desktop', 'ws://127.0.0.1:8137')).toBe('server');
   });
 
   it('no record at all is the server the tab was served by', () => {

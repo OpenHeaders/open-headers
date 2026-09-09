@@ -2,8 +2,9 @@
  * The place a joined backend reads as (the Backup and Sync UX plan D3:
  * places, never URLs) — the one rule behind the Sync page's "Synced
  * with" rows and the workspace switcher's group headers. The kind is
- * core's `providingBackendKind` (loopback from a browser host = the
- * desktop app on this computer, anything else a server); the name is
+ * core's `providingBackendKind` (the desktop app's own loopback port from a
+ * browser host = the desktop app on this computer, anything else a
+ * server — a loopback daemon on another port included); the name is
  * the user's own label first, then — for a server — the workspace
  * group it provides (one group per server, its name is the server's),
  * then the address's host. An unlabelled desktop app carries no name:

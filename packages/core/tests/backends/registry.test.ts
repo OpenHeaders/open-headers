@@ -21,6 +21,7 @@ import {
   getBackend,
   getBackends,
   getPrimaryBackend,
+  isDesktopAppBackendUrl,
   isLoopbackBackendUrl,
   refreshBackendsFromHostStorage,
   removeBackend,
@@ -193,5 +194,14 @@ describe('backends registry — mirror + cap-1 writer', () => {
     expect(isLoopbackBackendUrl('wss://oh.openheaders.io')).toBe(false);
     expect(isLoopbackBackendUrl('')).toBe(false);
     expect(isLoopbackBackendUrl('not a url')).toBe(false);
+  });
+
+  it('recognises the desktop app by its loopback port alone', () => {
+    expect(isDesktopAppBackendUrl('ws://127.0.0.1:8137')).toBe(true);
+    expect(isDesktopAppBackendUrl('ws://[::1]:8137')).toBe(true);
+    expect(isDesktopAppBackendUrl('ws://127.0.0.1:19537')).toBe(false);
+    expect(isDesktopAppBackendUrl('ws://localhost')).toBe(false);
+    expect(isDesktopAppBackendUrl('ws://192.168.1.20:8137')).toBe(false);
+    expect(isDesktopAppBackendUrl('not a url')).toBe(false);
   });
 });
