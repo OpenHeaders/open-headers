@@ -138,6 +138,7 @@ const ConnectionRow: React.FC<{
 
   return (
     <div
+      data-testid="synced-row"
       style={{
         background: token.colorBgContainer,
         border: `1px solid ${token.colorBorderSecondary}`,

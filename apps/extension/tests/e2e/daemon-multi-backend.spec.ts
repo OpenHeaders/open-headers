@@ -6,9 +6,10 @@
  *      a second spawned daemon by default; set OH_DROPLET_TOKEN to run
  *      the wss:// leg against a standing WAN daemon instead (the epic's
  *      live-acceptance shape — TLS, real DNS, reverse proxy).
- *   2. Both backends join through the REAL BackendPane wizard (scenario
- *      tile → address → token pair → probe-gated enable), the second
- *      add carrying the additional-back-end note.
+ *   2. Both backends join through the REAL Sync-page wizard (Sign in to
+ *      a server… → address → the sign-in step's probe verdict → pasted
+ *      token → Connect, the probe-gated enable), the second add
+ *      carrying the additional-connection note.
  *   3. Both Org groups show in the workspace switcher headed by their
  *      place — the record's label, "· server"; the status pill lists
  *      one row per backend; Publish appears once joined targets exist.
@@ -317,7 +318,6 @@ async function closeSettings(): Promise<void> {
 }
 
 interface WizardJoin {
-  tile: 'Desktop Application' | 'Local / LAN' | 'Remote / WAN';
   label: string;
   scheme: 'ws' | 'wss';
   address: string;
@@ -329,15 +329,11 @@ interface WizardJoin {
 /** Add + enable one backend through the real wizard. Settings must be open. */
 async function addBackendViaWizard(join: WizardJoin): Promise<void> {
   await workbench.getByRole('button', { name: 'Sign in to a server…' }).click();
-  const modal = workbench.getByRole('dialog', { name: 'Add back-end' });
+  const modal = workbench.getByRole('dialog', { name: 'Sign in to a server' });
   await expect(modal).toBeVisible();
 
-  // Scenario step — the tile must be joinable (no Soon badge).
-  await modal.getByRole('radio', { name: new RegExp(join.tile) }).click();
-  await modal.getByRole('button', { name: 'Next' }).click();
-
-  // Connect step — label + URL parts (commit on Enter).
-  const nameField = modal.getByRole('textbox', { name: 'Back-end name', exact: true });
+  // Address step — name + URL parts (commit on Enter).
+  const nameField = modal.getByRole('textbox', { name: 'Connection name', exact: true });
   await nameField.fill(join.label);
   await nameField.press('Enter');
   if (join.scheme === 'wss') {
@@ -352,29 +348,43 @@ async function addBackendViaWizard(join: WizardJoin): Promise<void> {
   await portField.press('Enter');
   await modal.getByRole('button', { name: 'Next' }).click();
 
-  // Pair step — paste the token directly.
+  // Sign-in step — the probe's verdict without a credential is the
+  // daemon asking to pair; the pasted token re-probes into signed in.
+  await expect(modal.getByText(/asks this device to pair/)).toBeVisible();
   await modal.getByText('Use an auth token instead').click();
   const tokenField = modal.getByRole('textbox', { name: 'Auth token', exact: true });
   await tokenField.fill(join.token);
   await tokenField.press('Enter');
+  await expect(modal.getByText(/^Signed in/)).toBeVisible();
   await modal.getByRole('button', { name: 'Next' }).click();
 
-  // Turn-on step — the second-backend onboarding note (S8 surface).
-  const note = modal.getByText(/This is an additional back-end/);
+  // Connect step — the second-connection onboarding note (S8 surface).
+  const note = modal.getByText(/This is an additional connection/);
   if (join.expectAdditionalNote) await expect(note).toBeVisible();
   else await expect(note).toBeHidden();
 
-  await modal.getByRole('button', { name: /Verify & connect/ }).click();
+  await modal.getByRole('button', { name: /^Connect$/ }).click();
   // Probe + enable + join-adopt dwell; the modal closes on commit.
   await expect(modal).toBeHidden({ timeout: 20_000 });
 }
 
-/** The connection row's enabled Switch. On-flips ride the probe gate. */
+/** One Synced-with row, keyed by the place it names (the record's label). */
+function syncedRow(label: string) {
+  return workbench.getByTestId('synced-row').filter({ hasText: label });
+}
+
+/** Open the row's ⋯ menu and pick one item by its label. */
+async function rowMenuAction(label: string, item: string): Promise<void> {
+  await workbench.getByRole('button', { name: `Actions for ${label}` }).click();
+  await workbench.getByRole('menuitem', { name: item, exact: true }).click();
+}
+
+/** Connect / Disconnect on the row's ⋯ menu. On-flips ride the probe gate. */
 async function toggleBackendEnabled(label: string, on: boolean): Promise<void> {
-  const toggle = workbench.getByRole('switch', { name: `${label} enabled` });
-  await expect(toggle).toBeVisible();
-  await toggle.click();
-  await expect.poll(async () => toggle.getAttribute('aria-checked'), { timeout: 10_000 }).toBe(on ? 'true' : 'false');
+  await rowMenuAction(label, on ? 'Connect' : 'Disconnect');
+  await expect(syncedRow(label).getByText(on ? 'Connected' : 'Off', { exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 async function openWorkspaceDropdown(): Promise<void> {
@@ -559,7 +569,6 @@ let orgB: JoinedOrgRow;
 test('backend A joins through the wizard and its data syncs down', async () => {
   await openBackendSettings();
   await addBackendViaWizard({
-    tile: 'Local / LAN',
     label: LABEL_A,
     scheme: rigA.wsParts.scheme,
     address: rigA.wsParts.address,
@@ -573,9 +582,8 @@ test('backend A joins through the wizard and its data syncs down', async () => {
   orgA = rows[0];
 });
 
-test('backend B joins through the wizard with the additional-back-end note', async () => {
+test('backend B joins through the wizard with the additional-connection note', async () => {
   await addBackendViaWizard({
-    tile: rigB.wsParts.scheme === 'wss' ? 'Remote / WAN' : 'Local / LAN',
     label: LABEL_B,
     scheme: rigB.wsParts.scheme,
     address: rigB.wsParts.address,
@@ -665,7 +673,6 @@ test('offline edits flush independently per backend', async () => {
 test('a second record claiming the same Org is refused and surfaced', async () => {
   await openBackendSettings();
   await addBackendViaWizard({
-    tile: 'Local / LAN',
     label: `${LABEL_A} twin`,
     scheme: rigA.wsParts.scheme,
     address: rigA.wsParts.address,
@@ -680,8 +687,8 @@ test('a second record claiming the same Org is refused and surfaced', async () =
   const rows = await joinedOrgRows();
   expect(rows.find((row) => row.org.id === orgA.org.id)?.backendId).toBe(orgA.backendId);
 
-  // The twin consumed nothing, so its remove is the plain Popconfirm.
-  await workbench.getByRole('button', { name: `Remove ${LABEL_A} twin` }).click();
+  // The twin consumed nothing, so its remove is the plain confirm.
+  await rowMenuAction(`${LABEL_A} twin`, 'Remove…');
   await workbench.getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(workbench.getByRole('alert').filter({ hasText: 'is already provided by' })).toBeHidden();
   await closeSettings();
@@ -692,12 +699,12 @@ test('a second record claiming the same Org is refused and surfaced', async () =
 test('remove with Keep orphans the group and leaves the other backend untouched', async () => {
   const rulesOnB = await backendRuleNames(rigB);
   await openBackendSettings();
-  await workbench.getByRole('button', { name: `Remove ${LABEL_B}` }).click();
+  await rowMenuAction(LABEL_B, 'Remove…');
   const dialog = workbench.getByRole('dialog', { name: `Remove ${LABEL_B}?` });
   await expect(dialog).toBeVisible();
   // Keep local copies is the pre-selected recommended card.
   await expect(dialog.getByRole('radio', { name: /Keep local copies/ })).toHaveAttribute('aria-checked', 'true');
-  await dialog.getByRole('button', { name: 'Remove back-end' }).click();
+  await dialog.getByRole('button', { name: 'Remove connection' }).click();
   await expect(dialog).toBeHidden({ timeout: 5_000 });
   await closeSettings();
 
@@ -722,7 +729,7 @@ test('remove with Discard backs up, deletes locally, and leaves the daemon data 
 
   const downloadsBefore = downloads.length;
   await openBackendSettings();
-  await workbench.getByRole('button', { name: `Remove ${LABEL_A}` }).click();
+  await rowMenuAction(LABEL_A, 'Remove…');
   const dialog = workbench.getByRole('dialog', { name: `Remove ${LABEL_A}?` });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('radio', { name: /Discard local copies/ }).click();
@@ -742,7 +749,6 @@ test('remove with Discard backs up, deletes locally, and leaves the daemon data 
 test('re-joining the discarded backend syncs its workspaces back down', async () => {
   await openBackendSettings();
   await addBackendViaWizard({
-    tile: 'Local / LAN',
     label: `${LABEL_A} rejoined`,
     scheme: rigA.wsParts.scheme,
     address: rigA.wsParts.address,
