@@ -5,7 +5,7 @@
  * stay discoverable instead of silently disappearing.
  *
  * The CTA is state-aware: with the companion desktop app CONNECTED on
- * this machine (live loopback wire truth, same derivation as the
+ * this machine (live wire truth, same derivation as the
  * status popover's Desktop-app row) and the `companionReveal`
  * capability present, the primary action hands off — front the desktop
  * app and reveal this feature there. With the app INSTALLED but not
@@ -22,13 +22,13 @@
  */
 
 import { DownloadOutlined, SelectOutlined } from '@ant-design/icons';
-import { isLoopbackBackendUrl } from '@openheaders/core/backends';
 import { getCapability } from '@openheaders/core/capabilities';
 import { Button, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useBackends } from '../backend';
+import { desktopAppRecord, useBackends } from '../backend';
+import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { noteFeatureUsed } from '../product-telemetry';
 import { DESKTOP_TEASER_COPY, type DesktopFeature } from './features';
@@ -61,18 +61,18 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
   const [launchable, setLaunchable] = useState(false);
   const [launching, setLaunching] = useState(false);
 
-  // Live loopback wire truth — the enabled loopback record's sync slot
-  // going green IS "the desktop app is running and connected here".
+  // Live wire truth — the desktop app's record (the place rule) with its
+  // sync slot green IS "the desktop app is running and connected here".
   // No presence probe: anything short of connected keeps download.
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
-  const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
+  const desktopApp = desktopAppRecord(getCurrentHost(), backends);
   const companionReveal = getCapability('companionReveal');
   const companionConnected =
     companionReveal !== undefined &&
-    loopback !== undefined &&
-    loopback.enabled &&
-    syncSlots[loopback.id]?.state === 'green';
+    desktopApp !== undefined &&
+    desktopApp.enabled &&
+    syncSlots[desktopApp.id]?.state === 'green';
 
   useEffect(() => {
     if (companionConnected) return;

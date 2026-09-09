@@ -44,3 +44,17 @@ export function urlHost(url: string): string {
     return url;
   }
 }
+
+/**
+ * The desktop app's record among this host's connections, by the place
+ * rule — the ONE read behind every "is the desktop app connected here"
+ * surface (the status popover's companion row, the add-ons pill, the
+ * teaser, the suggestion card, the peer-execute notice). A loopback
+ * daemon on another port is a server and never passes for it.
+ */
+export function desktopAppRecord<T extends Pick<BackendConnection, 'url'>>(
+  host: Host,
+  backends: readonly T[],
+): T | undefined {
+  return backends.find((record) => providingBackendKind(viewerHostKind(host), record.url) === 'desktop-app');
+}

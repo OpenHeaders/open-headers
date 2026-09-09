@@ -3,7 +3,8 @@
  * half and whether the pair is live:
  *
  *   - extension host → a "Desktop app" row: connection state derived
- *     from the loopback backend record's own sync slot; with no record
+ *     from the desktop app's record (the place rule) and its own sync
+ *     slot; with no record
  *     at all, the `nmHostPresence` capability answers from OS truth
  *     whether the desktop was ever installed here — "not installed"
  *     earns a Download action that resolves this platform's latest
@@ -21,7 +22,7 @@
  */
 
 import { DownloadOutlined } from '@ant-design/icons';
-import { createBackend, isLoopbackBackendUrl, updateBackend } from '@openheaders/core/backends';
+import { createBackend, updateBackend } from '@openheaders/core/backends';
 import { getCapability, type NmHostPresenceVerdict } from '@openheaders/core/capabilities';
 import { WS_PORT } from '@openheaders/core/protocol';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
@@ -34,7 +35,7 @@ import {
   INSTALL_BROWSER_LABELS,
   INSTALLABLE_BROWSERS,
 } from '../../workbench/data/extension-stores';
-import { useBackends } from '../backend';
+import { desktopAppRecord, useBackends } from '../backend';
 import { DESKTOP_DOWNLOAD_URL, fetchLatestDesktopInstaller } from '../desktop-teaser/update-feed';
 import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
@@ -51,8 +52,9 @@ export type DesktopCompanionState =
   | 'unknown';
 
 /**
- * Pure derivation of the Desktop-app row's state. The loopback record
- * (when one exists) is the whole answer — its sync slot is live wire
+ * Derivation of the Desktop-app row's state. The desktop app's record
+ * (when one exists — `desktopAppRecord`, the place rule for this host)
+ * is the whole answer — its sync slot is live wire
  * truth; only a record-less registry consults the presence probe
  * (`true` / `false` / `null` = unresolved or no capability).
  */
@@ -61,10 +63,10 @@ export function deriveDesktopCompanionState(
   syncSlots: Readonly<Record<string, BackendSyncStatus | undefined>>,
   presence: boolean | null,
 ): DesktopCompanionState {
-  const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
-  if (loopback) {
-    if (!loopback.enabled) return 'off';
-    const slot = syncSlots[loopback.id];
+  const desktopApp = desktopAppRecord(getCurrentHost(), backends);
+  if (desktopApp) {
+    if (!desktopApp.enabled) return 'off';
+    const slot = syncSlots[desktopApp.id];
     if (!slot) return 'connecting';
     return slot.state === 'green' ? 'connected' : 'not-connected';
   }
@@ -84,13 +86,13 @@ const DesktopAppRow: React.FC = () => {
   const t = useT();
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
-  const hasLoopbackRecord = backends.some((b) => isLoopbackBackendUrl(b.url));
+  const hasDesktopAppRecord = desktopAppRecord(getCurrentHost(), backends) !== undefined;
   const [presence, setPresence] = React.useState<NmHostPresenceVerdict | null>(null);
 
   // The probe spawns a real process — consult it only when no record
   // can answer, and only once per mount (the impl caches briefly too).
   React.useEffect(() => {
-    if (hasLoopbackRecord) return;
+    if (hasDesktopAppRecord) return;
     const probe = getCapability('nmHostPresence');
     if (!probe) {
       setPresence({ present: false, anchored: false });
@@ -103,7 +105,7 @@ const DesktopAppRow: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, [hasLoopbackRecord]);
+  }, [hasDesktopAppRecord]);
 
   const state = deriveDesktopCompanionState(backends, syncSlots, presence === null ? null : presence.present);
   // Unresolved probe: render nothing rather than flash a wrong guess.

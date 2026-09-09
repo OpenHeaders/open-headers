@@ -15,7 +15,6 @@
  */
 
 import { SelectOutlined } from '@ant-design/icons';
-import { isLoopbackBackendUrl } from '@openheaders/core/backends';
 import { getCapability } from '@openheaders/core/capabilities';
 import {
   LOCAL_PEER_EXECUTE_DISABLED_MESSAGE,
@@ -25,7 +24,8 @@ import { Button, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useBackends } from '@openheaders/ui/shared/backend';
+import { desktopAppRecord, useBackends } from '@openheaders/ui/shared/backend';
+import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { useBackendSyncStatus } from '@openheaders/ui/shared/hooks/useBackendSyncStatus';
 
 const { Text } = Typography;
@@ -45,15 +45,15 @@ const PeerExecuteDisabledNotice: React.FC<{ kind: PeerExecuteRefusalKind }> = ({
   const t = useT();
   const [revealing, setRevealing] = useState(false);
 
-  // Live loopback wire truth — the DesktopTeaser derivation verbatim:
-  // an enabled loopback record with a green sync slot IS "the desktop
-  // app is running and connected here".
+  // Live wire truth — the DesktopTeaser derivation verbatim: the desktop
+  // app's record (the place rule), enabled, with a green sync slot IS
+  // "the desktop app is running and connected here".
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
-  const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
+  const desktopApp = desktopAppRecord(getCurrentHost(), backends);
   const companionReveal = getCapability('companionReveal');
   const companionConnected =
-    companionReveal !== undefined && loopback?.enabled === true && syncSlots[loopback.id]?.state === 'green';
+    companionReveal !== undefined && desktopApp?.enabled === true && syncSlots[desktopApp.id]?.state === 'green';
 
   const reveal = async (): Promise<void> => {
     if (!companionReveal) return;

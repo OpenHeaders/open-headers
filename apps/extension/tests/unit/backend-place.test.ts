@@ -5,7 +5,7 @@
  * desktop app carries no name, it IS this computer.
  */
 
-import { backendPlace, urlHost } from '@openheaders/ui/shared/backend';
+import { backendPlace, desktopAppRecord, urlHost } from '@openheaders/ui/shared/backend';
 import { describe, expect, it } from 'vitest';
 
 describe('backendPlace', () => {
@@ -62,6 +62,15 @@ describe('backendPlace', () => {
       name: 'acme.openheaders.io',
     });
     expect(urlHost('not a url')).toBe('not a url');
+  });
+
+  it('the desktop app record is the one the place rule calls the desktop app — never a loopback daemon on another port', () => {
+    const desktop = { url: 'ws://127.0.0.1:8137' };
+    const daemon = { url: 'ws://127.0.0.1:19537' };
+    const server = { url: 'wss://acme.openheaders.io' };
+    expect(desktopAppRecord('extension', [server, daemon, desktop])).toBe(desktop);
+    expect(desktopAppRecord('extension', [server, daemon])).toBeUndefined();
+    expect(desktopAppRecord('desktop', [desktop])).toBeUndefined();
   });
 
   it("a backend present by construction — the web tab's serving daemon — is the server its group names", () => {

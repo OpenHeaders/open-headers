@@ -1,7 +1,7 @@
 /**
- * Desktop-app companion row state derivation — the loopback record
- * (when one exists) answers alone from its live sync slot; only a
- * record-less registry consults the NM presence probe.
+ * Desktop-app companion row state derivation — the desktop app's record
+ * (when one exists, by the place rule) answers alone from its live sync
+ * slot; only a registry without one consults the NM presence probe.
  */
 
 import '@openheaders/ui/workbench/settings/schema';
@@ -28,7 +28,7 @@ function slot(state: BackendSyncStatus['state']): BackendSyncStatus {
 }
 
 describe('deriveDesktopCompanionState', () => {
-  it('a green sync slot on the loopback record reads connected', () => {
+  it("a green sync slot on the desktop app's record reads connected", () => {
     expect(deriveDesktopCompanionState([backend()], { b1: slot('green') }, null)).toBe('connected');
   });
 
@@ -40,14 +40,16 @@ describe('deriveDesktopCompanionState', () => {
     expect(deriveDesktopCompanionState([backend()], { b1: slot('red') }, null)).toBe('not-connected');
   });
 
-  it('a disabled loopback record reads off — presence is never consulted', () => {
+  it('a disabled desktop-app record reads off — presence is never consulted', () => {
     expect(deriveDesktopCompanionState([backend({ enabled: false })], {}, false)).toBe('off');
   });
 
-  it('a LAN-only registry falls through to the presence probe', () => {
+  it('a registry of servers alone falls through to the presence probe — a loopback daemon on another port included', () => {
     const lan = backend({ id: 'b2', url: 'ws://192.168.1.20:8137' });
+    const localDaemon = backend({ id: 'b3', url: 'ws://127.0.0.1:19537' });
     expect(deriveDesktopCompanionState([lan], {}, true)).toBe('installed-not-connected');
     expect(deriveDesktopCompanionState([lan], {}, false)).toBe('not-installed');
+    expect(deriveDesktopCompanionState([localDaemon], { b3: slot('green') }, false)).toBe('not-installed');
   });
 
   it('an unresolved probe with no record reads unknown', () => {

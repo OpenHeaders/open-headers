@@ -8,13 +8,13 @@
  * inside the app it advertises.
  *
  * Retires permanently (persisted flag, same idiom as the seed nudges)
- * on the real completion signal, not just the click: the loopback
- * backend's sync slot going green — the desktop app is running and
- * connected here — or the native-messaging presence probe reporting an
- * install on this machine. Either way the pitch is moot. The download
- * action itself resolves this platform's latest installer from the
- * update feed (same single-flight fetch as the desktop teaser) with the
- * website's install section as fallback and secondary link.
+ * on the real completion signal, not just the click: the desktop app's
+ * record (the place rule) with its sync slot green — the desktop app is
+ * running and connected here — or the native-messaging presence probe
+ * reporting an install on this machine. Either way the pitch is moot.
+ * The download action itself resolves this platform's latest installer
+ * from the update feed (same single-flight fetch as the desktop teaser)
+ * with the website's install section as fallback and secondary link.
  *
  * Standing advice, not a historical record: like the seed nudges it
  * follows a live locale switch via the sanctioned dismiss-and-reissue
@@ -23,13 +23,13 @@
 
 import { BranchesOutlined, CodeOutlined, FundViewOutlined, RobotOutlined } from '@ant-design/icons';
 import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
-import { isLoopbackBackendUrl } from '@openheaders/core/backends';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
-import { useBackends } from '../backend';
+import { desktopAppRecord, useBackends } from '../backend';
 import { DESKTOP_DOWNLOAD_URL, fetchLatestDesktopInstaller } from '../desktop-teaser/update-feed';
+import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { dismissSuggestionByKey, pushSuggestion } from './store';
 
@@ -77,8 +77,8 @@ export function useDesktopAppSuggestion(): void {
   const { snapshot: syncSlots, isReady: syncReady } = useBackendSyncStatus();
 
   const companion = getCapability('companionReveal') !== undefined;
-  const loopback = backends.find((b) => isLoopbackBackendUrl(b.url));
-  const connected = loopback !== undefined && loopback.enabled && syncSlots[loopback.id]?.state === 'green';
+  const desktopApp = desktopAppRecord(getCurrentHost(), backends);
+  const connected = desktopApp !== undefined && desktopApp.enabled && syncSlots[desktopApp.id]?.state === 'green';
 
   useEffect(() => {
     if (!companion || isDone()) return undefined;
