@@ -1,13 +1,13 @@
 /**
- * PublishWorkspaceModal — the Publish target picker over the
+ * PublishWorkspaceModal — the "Copy to <place>" target picker over the
  * Duplicate-into RPC (the publish-target picker design). Pins:
  *   - the submitted values (the `duplicateWorkspace` options payload):
  *     source name pre-filled, first healthy target pre-selected,
  *     secrets excluded by default;
  *   - one target keeps the one-click shape — no picker, the OK button
- *     names the Org;
- *   - unhealthy targets render disabled in the picker with the
- *     annotation wording, and a lone unhealthy target disables OK.
+ *     names the place, a healthy place carries no state;
+ *   - unhealthy targets render disabled in the picker with the state
+ *     beside the place, and a lone unhealthy target disables OK.
  */
 
 import type { ExtensionWorkspace } from '@openheaders/core/types';
@@ -67,6 +67,7 @@ function makeTarget(overrides: Partial<PublishTarget> = {}): PublishTarget {
   return {
     orgId: 'org-staging',
     orgName: 'Staging',
+    place: 'Staging · server',
     healthy: true,
     annotation: { tone: 'quiet', kind: 'synced', backendLabel: 'Desktop app' },
     ...overrides,
@@ -85,13 +86,14 @@ describe('PublishWorkspaceModal', () => {
       makeTarget({
         orgId: 'org-down',
         orgName: 'Down',
+        place: 'Down · server',
         healthy: false,
         annotation: { tone: 'warning', kind: 'disconnected', backendLabel: 'Box' },
       }),
       makeTarget(),
     ]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith({
@@ -108,6 +110,7 @@ describe('PublishWorkspaceModal', () => {
       makeTarget({
         orgId: 'org-team',
         orgName: 'Team',
+        place: 'Work VM · server',
         healthy: false,
         annotation: { tone: 'warning', kind: 'repair', backendLabel: 'Work VM' },
       }),
@@ -118,17 +121,18 @@ describe('PublishWorkspaceModal', () => {
     await waitFor(() => {
       const disabled = document.querySelectorAll('.ant-select-item-option-disabled');
       expect(disabled.length).toBe(1);
-      expect(disabled[0]?.textContent).toContain('Team');
-      expect(disabled[0]?.textContent).toContain('via Work VM — re-pair needed');
+      expect(disabled[0]?.textContent).toContain('Work VM · server');
+      expect(disabled[0]?.textContent).toContain('re-pair needed');
     });
   });
 
-  it('a single target keeps the one-click shape — no picker, OK names the Org', async () => {
+  it('a single target keeps the one-click shape — no picker, OK names the place, no state beside a healthy one', async () => {
     const { onSubmit } = renderModal([makeTarget()]);
 
     expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.getByText('via Desktop app')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Publish to Staging' }));
+    expect(screen.getByText('Staging · server')).toBeTruthy();
+    expect(screen.queryByText(/via /)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy to Staging · server' }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith({
@@ -143,15 +147,16 @@ describe('PublishWorkspaceModal', () => {
     renderModal([
       makeTarget({ healthy: false, annotation: { tone: 'warning', kind: 'off', backendLabel: 'Desktop app' } }),
     ]);
-    const ok = screen.getByRole('button', { name: 'Publish to Staging' }) as HTMLButtonElement;
+    const ok = screen.getByRole('button', { name: 'Copy to Staging · server' }) as HTMLButtonElement;
     expect(ok.disabled).toBe(true);
+    expect(screen.getByText('off, not syncing')).toBeTruthy();
   });
 
   it('opting into secrets rides the payload', async () => {
     const { onSubmit } = renderModal([makeTarget()]);
 
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.click(screen.getByRole('button', { name: 'Publish to Staging' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy to Staging · server' }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith({

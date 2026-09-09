@@ -1,7 +1,8 @@
 /**
- * derivePublishTargets — the joined-Org enumeration behind the Publish
+ * derivePublishTargets — the joined-Org enumeration behind the Copy-to
  * picker (the publish-target picker design). Pins:
- *   - one target per binding, name-sorted, the home Org never listed;
+ *   - one target per binding, place-sorted, each reading as the place
+ *     the caller's resolver names, the home Org never listed;
  *   - health folds out of the annotation ladder: green / connecting
  *     stay selectable, off / disconnected / re-pair / removed-record
  *     list unhealthy with the annotation wording;
@@ -39,15 +40,18 @@ afterEach(() => {
   teardown();
 });
 
+const placeOf = (descriptor: { name: string }): string => `${descriptor.name} · server`;
+
 function derive(backends = [RECORD_A, RECORD_B], slots: BackendSyncStatusSnapshot = {}) {
-  return derivePublishTargets(getIdentitySnapshot(), getOrgBackendBindings(), backends, slots);
+  return derivePublishTargets(getIdentitySnapshot(), getOrgBackendBindings(), backends, slots, placeOf);
 }
 
 describe('derivePublishTargets', () => {
-  it('lists every joined Org name-sorted, never the home Org', () => {
+  it('lists every joined Org place-sorted, each as the place the resolver names, never the home Org', () => {
     const targets = derive();
     expect(targets.map((t) => t.orgId)).toEqual([ORG_A.id, ORG_B.id]);
     expect(targets.map((t) => t.orgName)).toEqual(['Staging', 'Team']);
+    expect(targets.map((t) => t.place)).toEqual(['Staging · server', 'Team · server']);
     const homeOrgId = getIdentitySnapshot()?.user.homeOrgId;
     expect(targets.some((t) => t.orgId === homeOrgId)).toBe(false);
   });
@@ -89,6 +93,6 @@ describe('derivePublishTargets', () => {
   });
 
   it('a null snapshot yields no targets', () => {
-    expect(derivePublishTargets(null, getOrgBackendBindings(), [RECORD_A], {})).toEqual([]);
+    expect(derivePublishTargets(null, getOrgBackendBindings(), [RECORD_A], {}, placeOf)).toEqual([]);
   });
 });

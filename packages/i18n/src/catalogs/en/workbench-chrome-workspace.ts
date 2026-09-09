@@ -115,9 +115,9 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateOk': 'Duplicate',
   'workbench.workspace.duplicateFailed': 'Failed to duplicate workspace',
   'workbench.workspace.duplicatedToast': 'Duplicated "{source}" → "{name}"',
-  'workbench.workspace.publishFailed': 'Failed to publish workspace',
-  'workbench.workspace.publishedToast': 'Published "{name}" to {org}',
-  'workbench.workspace.selectedOrgFallback': 'the selected Org',
+  'workbench.workspace.publishFailed': 'Failed to copy workspace',
+  'workbench.workspace.publishedToast': 'Copied "{name}" to {place}',
+  'workbench.workspace.selectedOrgFallback': 'the chosen destination',
   'workbench.workspace.editTitle': 'Edit workspace',
   'workbench.workspace.saveOk': 'Save',
   'workbench.workspace.updatedToast': 'Updated "{name}"',
@@ -130,7 +130,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.switch': 'Switch',
   'workbench.workspace.renameAria': 'Rename workspace',
   'workbench.workspace.duplicateAria': 'Duplicate workspace',
-  'workbench.workspace.publishAria': 'Publish workspace to a back-end',
+  'workbench.workspace.publishAria': 'Copy workspace to a desktop app or server',
   'workbench.workspace.deleteAria': 'Delete workspace',
   'workbench.workspace.prefixLabel': 'Prefix',
   'workbench.workspace.nameLabel': 'Name',
@@ -140,7 +140,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.descriptionLabel': 'Description (optional)',
   'workbench.workspace.copyOfName': 'Copy of {name}',
   'workbench.workspace.copyOfPlaceholder': 'Copy of …',
-  'workbench.workspace.intoOrg': 'Into Org',
+  'workbench.workspace.intoOrg': 'Where it goes',
   'workbench.workspace.includeSecrets': 'Include vault contents (secrets)',
   'workbench.workspace.includeSecretsHint':
     'Re-enter secrets in the copy if needed. OAuth connections are re-authorized either way.',
@@ -155,18 +155,16 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.nowActiveToast': '"{name}" is now the active workspace',
   'workbench.workspace.switcherAria': 'This {unit} is editing workspace: {name}. Click to switch.',
 
-  // ── Workspace: publish modal ────────────────────────────────────────
-  'workbench.workspace.publishTitle': 'Publish "{name}"',
-  'workbench.workspace.publishTitleFallback': 'Publish workspace',
-  'workbench.workspace.publishToOk': 'Publish to {org}',
-  'workbench.workspace.publishOk': 'Publish',
+  // ── Workspace: publish modal — "Copy to <place>" to the user ────────
+  'workbench.workspace.publishTitle': 'Copy "{name}"',
+  'workbench.workspace.publishTitleFallback': 'Copy workspace',
+  'workbench.workspace.publishToOk': 'Copy to {place}',
+  'workbench.workspace.publishOk': 'Copy',
   'workbench.workspace.publishIntro':
-    'Publishing copies this workspace into the chosen Org, where it syncs through that back-end. The original ' +
+    'A copy of this workspace lands on the desktop app or server you pick and syncs from there. The original ' +
     'stays here.',
-  'workbench.workspace.toOrg': 'To Org',
-  'workbench.workspace.pickTargetOrg': 'Pick a target Org',
-  'workbench.workspace.includeSecretsPublishHint':
-    'Re-enter secrets in the published copy if needed. OAuth connections are re-authorized either way.',
+  'workbench.workspace.toOrg': 'Copy to',
+  'workbench.workspace.pickTargetOrg': 'Pick where the copy goes',
 
   // ── Workspace: home-Org identity card ───────────────────────────────
   'workbench.workspace.org.logoButton': 'Logo',

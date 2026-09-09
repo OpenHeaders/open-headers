@@ -12,7 +12,7 @@
  *      carrying the additional-connection note.
  *   3. Both Org groups show in the workspace switcher headed by their
  *      place — the record's label, "· server"; the status pill lists
- *      one row per backend; Publish appears once joined targets exist.
+ *      one row per backend; Copy to appears once joined targets exist.
  *   4. Routing: an editor-flow rule created in each Org lands on
  *      exactly the backend owning that Org — never the other, and
  *      neither backend ever gains a foreign workspace.
@@ -620,9 +620,11 @@ test('the status pill lists one row per backend', async () => {
   await workbench.keyboard.press('Escape');
 });
 
-test('Publish appears once joined targets exist', async () => {
+test('the copy-to verb appears once joined targets exist', async () => {
   await deliverIntent({ kind: 'open-workspace-manager' });
-  await expect(workbench.getByRole('button', { name: 'Publish workspace to a back-end' }).first()).toBeVisible({
+  await expect(
+    workbench.getByRole('button', { name: 'Copy workspace to a desktop app or server' }).first(),
+  ).toBeVisible({
     timeout: 5_000,
   });
   await workbench.keyboard.press('Escape');

@@ -121,9 +121,9 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateOk': 'Dupliquer',
   'workbench.workspace.duplicateFailed': "Échec de la duplication de l'espace de travail",
   'workbench.workspace.duplicatedToast': '« {source} » dupliqué → « {name} »',
-  'workbench.workspace.publishFailed': "Échec de la publication de l'espace de travail",
-  'workbench.workspace.publishedToast': '« {name} » publié vers {org}',
-  'workbench.workspace.selectedOrgFallback': "l'Org sélectionnée",
+  'workbench.workspace.publishFailed': "Échec de la copie de l'espace de travail",
+  'workbench.workspace.publishedToast': '« {name} » copié vers {place}',
+  'workbench.workspace.selectedOrgFallback': 'la destination choisie',
   'workbench.workspace.editTitle': "Modifier l'espace de travail",
   'workbench.workspace.saveOk': 'Enregistrer',
   'workbench.workspace.updatedToast': '« {name} » mis à jour',
@@ -136,7 +136,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.switch': 'Basculer',
   'workbench.workspace.renameAria': "Renommer l'espace de travail",
   'workbench.workspace.duplicateAria': "Dupliquer l'espace de travail",
-  'workbench.workspace.publishAria': "Publier l'espace de travail vers un back-end",
+  'workbench.workspace.publishAria': "Copier l'espace de travail vers une application de bureau ou un serveur",
   'workbench.workspace.deleteAria': "Supprimer l'espace de travail",
   'workbench.workspace.prefixLabel': 'Préfixe',
   'workbench.workspace.nameLabel': 'Nom',
@@ -146,7 +146,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.descriptionLabel': 'Description (facultatif)',
   'workbench.workspace.copyOfName': 'Copie de {name}',
   'workbench.workspace.copyOfPlaceholder': 'Copie de …',
-  'workbench.workspace.intoOrg': "Dans l'Org",
+  'workbench.workspace.intoOrg': 'Destination',
   'workbench.workspace.includeSecrets': 'Inclure le contenu du vault (secrets)',
   'workbench.workspace.includeSecretsHint':
     'Ressaisissez les secrets dans la copie si nécessaire. Les connexions OAuth sont à réautoriser dans tous ' +
@@ -163,18 +163,15 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.switcherAria': "Ce {unit} modifie l'espace de travail : {name}. Cliquez pour changer.",
 
   // ── Workspace: publish modal ────────────────────────────────────────
-  'workbench.workspace.publishTitle': 'Publier « {name} »',
-  'workbench.workspace.publishTitleFallback': "Publier l'espace de travail",
-  'workbench.workspace.publishToOk': 'Publier vers {org}',
-  'workbench.workspace.publishOk': 'Publier',
+  'workbench.workspace.publishTitle': 'Copier « {name} »',
+  'workbench.workspace.publishTitleFallback': "Copier l'espace de travail",
+  'workbench.workspace.publishToOk': 'Copier vers {place}',
+  'workbench.workspace.publishOk': 'Copier',
   'workbench.workspace.publishIntro':
-    "La publication copie cet espace de travail dans l'Org choisie, où il se synchronise via ce back-end. " +
-    "L'original reste ici.",
-  'workbench.workspace.toOrg': "Vers l'Org",
-  'workbench.workspace.pickTargetOrg': 'Choisissez une Org cible',
-  'workbench.workspace.includeSecretsPublishHint':
-    'Ressaisissez les secrets dans la copie publiée si nécessaire. Les connexions OAuth sont à réautoriser dans ' +
-    'tous les cas.',
+    "Une copie de cet espace de travail est déposée sur l'application de bureau ou le serveur choisi et se " +
+    "synchronise depuis là. L'original reste ici.",
+  'workbench.workspace.toOrg': 'Copier vers',
+  'workbench.workspace.pickTargetOrg': 'Choisissez où va la copie',
 
   // ── Workspace: home-Org identity card ───────────────────────────────
   'workbench.workspace.org.logoButton': 'Logo',

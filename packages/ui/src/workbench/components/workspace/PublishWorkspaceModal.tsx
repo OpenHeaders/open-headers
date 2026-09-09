@@ -1,16 +1,18 @@
 /**
- * PublishWorkspaceModal — "Publish to <backend>" as presentation over
- * the Duplicate-into RPC (the publish-target picker design). Targets are joined
- * Orgs labeled with their "via <backend>" provenance: exactly one
- * target keeps the one-click shape (no picker, the OK button names the
- * Org); two or more get a Select. Unhealthy targets list disabled with
- * the same annotation wording the workspace dropdown uses. Secrets are
- * excluded unless opted in, and the source workspace always stays —
- * Publish copies, never moves.
+ * PublishWorkspaceModal — "Copy to <place>" as presentation over the
+ * Duplicate-into RPC (the publish-target picker design; the Backup and
+ * Sync UX plan §5.5). Targets are joined Orgs read as places — the
+ * switcher's headers: "<label> · server", "This computer · desktop
+ * app" — with a state beside the place only when it warns (off,
+ * disconnected, re-pair needed), the switcher's silence otherwise.
+ * Exactly one target keeps the one-click shape (no picker, the OK
+ * button names the place); two or more get a Select. Unhealthy targets
+ * list disabled. Secrets are excluded unless opted in, and the source
+ * workspace always stays — a copy, never a move.
  */
 
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import { orgSyncAnnotationText, type PublishTarget } from '@openheaders/ui/shared/backend';
+import { orgStateText, type PublishTarget } from '@openheaders/ui/shared/backend';
 import { Checkbox, Form, Input, Modal, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
@@ -33,7 +35,6 @@ interface PublishWorkspaceModalProps {
 }
 
 const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, targets, onCancel, onSubmit }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const [form] = Form.useForm<PublishFormValues>();
 
@@ -62,7 +63,7 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
           : t('workbench.workspace.publishTitleFallback')
       }
       okText={
-        single ? t('workbench.workspace.publishToOk', { org: single.orgName }) : t('workbench.workspace.publishOk')
+        single ? t('workbench.workspace.publishToOk', { place: single.place }) : t('workbench.workspace.publishOk')
       }
       okButtonProps={{ disabled: firstHealthy === null }}
       onCancel={() => {
@@ -106,16 +107,9 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
               </Form.Item>
               <div style={{ marginBottom: 16 }}>
                 <Text strong style={{ fontSize: 13 }}>
-                  {single.orgName}
-                </Text>{' '}
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: single.annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
-                  }}
-                >
-                  {orgSyncAnnotationText(t, single.annotation)}
+                  {single.place}
                 </Text>
+                <TargetState annotation={single.annotation} />
               </div>
             </>
           ) : (
@@ -130,15 +124,8 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
                   disabled: !target.healthy,
                   label: (
                     <span>
-                      {target.orgName}{' '}
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: target.annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
-                        }}
-                      >
-                        {orgSyncAnnotationText(t, target.annotation)}
-                      </Text>
+                      {target.place}
+                      <TargetState annotation={target.annotation} />
                     </span>
                   ),
                 }))}
@@ -150,11 +137,25 @@ const PublishWorkspaceModal: React.FC<PublishWorkspaceModalProps> = ({ source, t
             <Checkbox>{t('workbench.workspace.includeSecrets')}</Checkbox>
           </Form.Item>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('workbench.workspace.includeSecretsPublishHint')}
+            {t('workbench.workspace.includeSecretsHint')}
           </Text>
         </Form>
       )}
     </Modal>
+  );
+};
+
+/** The warning state beside a place — nothing for a healthy or connecting wire. */
+const TargetState: React.FC<{ annotation: PublishTarget['annotation'] }> = ({ annotation }) => {
+  const { token } = theme.useToken();
+  const t = useT();
+  const state = orgStateText(t, annotation);
+  if (!state) return null;
+  return (
+    <>
+      {' '}
+      <Text style={{ fontSize: 12, color: token.colorWarningText }}>{state}</Text>
+    </>
   );
 };
 

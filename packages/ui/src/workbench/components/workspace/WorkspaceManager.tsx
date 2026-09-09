@@ -312,7 +312,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           message.success(
             t('workbench.workspace.publishedToast', {
               name: created.name,
-              org: target?.orgName ?? t('workbench.workspace.selectedOrgFallback'),
+              place: target?.place ?? t('workbench.workspace.selectedOrgFallback'),
             }),
           );
           return true;

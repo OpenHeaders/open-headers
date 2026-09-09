@@ -114,9 +114,9 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateOk': '创建副本',
   'workbench.workspace.duplicateFailed': '创建工作区副本失败',
   'workbench.workspace.duplicatedToast': '已创建副本：“{source}” → “{name}”',
-  'workbench.workspace.publishFailed': '发布工作区失败',
-  'workbench.workspace.publishedToast': '已将“{name}”发布到 {org}',
-  'workbench.workspace.selectedOrgFallback': '所选 Org',
+  'workbench.workspace.publishFailed': '复制工作区失败',
+  'workbench.workspace.publishedToast': '已将“{name}”复制到 {place}',
+  'workbench.workspace.selectedOrgFallback': '所选目标',
   'workbench.workspace.editTitle': '编辑工作区',
   'workbench.workspace.saveOk': '保存',
   'workbench.workspace.updatedToast': '已更新“{name}”',
@@ -129,7 +129,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.switch': '切换',
   'workbench.workspace.renameAria': '重命名工作区',
   'workbench.workspace.duplicateAria': '创建工作区副本',
-  'workbench.workspace.publishAria': '将工作区发布到后端',
+  'workbench.workspace.publishAria': '将工作区复制到桌面应用或服务器',
   'workbench.workspace.deleteAria': '删除工作区',
   'workbench.workspace.prefixLabel': '前缀',
   'workbench.workspace.nameLabel': '名称',
@@ -139,7 +139,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.descriptionLabel': '描述（可选）',
   'workbench.workspace.copyOfName': '{name} 的副本',
   'workbench.workspace.copyOfPlaceholder': '… 的副本',
-  'workbench.workspace.intoOrg': '归入 Org',
+  'workbench.workspace.intoOrg': '目标位置',
   'workbench.workspace.includeSecrets': '包含 vault 内容（机密）',
   'workbench.workspace.includeSecretsHint': '如有需要，在副本中重新输入机密。无论如何，OAuth 连接都需要重新授权。',
 
@@ -152,15 +152,14 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.switcherAria': '此 {unit} 正在编辑工作区：{name}。点击可切换。',
 
   // ── Workspace: publish modal ────────────────────────────────────────
-  'workbench.workspace.publishTitle': '发布“{name}”',
-  'workbench.workspace.publishTitleFallback': '发布工作区',
-  'workbench.workspace.publishToOk': '发布到 {org}',
-  'workbench.workspace.publishOk': '发布',
-  'workbench.workspace.publishIntro': '发布会将此工作区复制到所选 Org，并通过该后端同步。原工作区保留在这里。',
-  'workbench.workspace.toOrg': '目标 Org',
-  'workbench.workspace.pickTargetOrg': '选择目标 Org',
-  'workbench.workspace.includeSecretsPublishHint':
-    '如有需要，在发布的副本中重新输入机密。无论如何，OAuth 连接都需要重新授权。',
+  'workbench.workspace.publishTitle': '复制“{name}”',
+  'workbench.workspace.publishTitleFallback': '复制工作区',
+  'workbench.workspace.publishToOk': '复制到 {place}',
+  'workbench.workspace.publishOk': '复制',
+  'workbench.workspace.publishIntro':
+    '此工作区的副本会放到所选的桌面应用或服务器上，并从那里同步。原工作区保留在这里。',
+  'workbench.workspace.toOrg': '复制到',
+  'workbench.workspace.pickTargetOrg': '选择副本的去处',
 
   // ── Workspace: home-Org identity card ───────────────────────────────
   'workbench.workspace.org.logoButton': 'Logo',
