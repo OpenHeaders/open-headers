@@ -1,6 +1,7 @@
 export { ApiRequestsIcon } from './ApiRequestsIcon';
 export { CaptureActiveIcon } from './CaptureActiveIcon';
 export { CaptureStartIcon } from './CaptureStartIcon';
+export { GoToIcon } from './GoToIcon';
 export { KeyboardIcon } from './KeyboardIcon';
 export { LanguageIcon, type LanguageIconProps } from './LanguageIcon';
 export { RecordStartIcon } from './RecordStartIcon';

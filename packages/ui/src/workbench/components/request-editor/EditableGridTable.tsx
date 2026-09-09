@@ -40,7 +40,7 @@
  * presentation constants in `editable-grid-styles.ts`.
  */
 
-import { EditOutlined, InfoCircleOutlined, MoreOutlined, RiseOutlined } from '@ant-design/icons';
+import { EditOutlined, InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -48,6 +48,7 @@ import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { GoToIcon } from '@openheaders/ui/shared/icons';
 import type { GripResizeXEvent } from '../template-input';
 import {
   cellFont,
@@ -480,7 +481,7 @@ export function EditableGridTable<Row>({
                 className="editable-grid-suggestion-action"
                 type="link"
                 size="small"
-                icon={<RiseOutlined />}
+                icon={<GoToIcon />}
                 onClick={s.action.onClick}
                 style={{ fontSize: 12, height: 20, padding: '0 4px', flexShrink: 0 }}
               >

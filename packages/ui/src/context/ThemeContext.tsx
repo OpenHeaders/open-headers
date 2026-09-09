@@ -51,6 +51,7 @@ interface ThemeContextValue {
 
 // Sentinel default — ThemeProvider always overrides this. The variant
 // shape is required so consumers don't need to null-check `variant`.
+import { darkLinkAlgorithm } from '@openheaders/ui/themes/dark/link-tokens';
 import { lightDefault as DEFAULT_VARIANT } from '@openheaders/ui/themes/light/default';
 
 export const ThemeContext = createContext<ThemeContextValue>({
@@ -137,11 +138,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   // ── Ant theme config ─────────────────────────────────────────────
-  const algorithms: Array<typeof theme.darkAlgorithm> = [isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm];
-  if (isCompactMode) algorithms.push(theme.compactAlgorithm);
-
   // Every variant pins a primary; the accent is the fallback either way.
   const primaryColor = variant.honorsAccentColor ? accentColor : (variant.antdTokens.colorPrimary ?? accentColor);
+  const algorithms: Array<typeof theme.darkAlgorithm> = [isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm];
+  if (isCompactMode) algorithms.push(theme.compactAlgorithm);
+  // Dark links read in a pale tint of the primary — see link-tokens.
+  if (isDarkMode) algorithms.push(darkLinkAlgorithm(primaryColor));
   const antTheme = useMemo(
     () => ({
       algorithm: algorithms.length === 1 ? algorithms[0] : algorithms,
@@ -184,7 +186,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     }),
     // `algorithms` rebuilds every render but its content is stable when
     // these inputs are; including primitives here keeps the memo honest.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: algorithms is derived from isDarkMode + isCompactMode
+    // biome-ignore lint/correctness/useExhaustiveDependencies: algorithms is derived from isDarkMode + isCompactMode + primaryColor
     [variant, accentColor, primaryColor, isDarkMode, isCompactMode, uiScale, fontFamily],
   );
 

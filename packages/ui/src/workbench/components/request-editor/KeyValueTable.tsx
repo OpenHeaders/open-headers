@@ -11,11 +11,11 @@
  * HeadersTab) don't have to change.
  */
 
-import { RiseOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { GoToIcon } from '@openheaders/ui/shared/icons';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 import type { AuxColumn } from './editable-grid-types';
 import {
@@ -224,7 +224,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
                 className="editable-grid-suggestion-action"
                 type="link"
                 size="small"
-                icon={<RiseOutlined />}
+                icon={<GoToIcon />}
                 onClick={warning.action.onClick}
                 style={{ fontSize: 12, height: 20, padding: '0 4px', flexShrink: 0 }}
               >
