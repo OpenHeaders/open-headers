@@ -314,11 +314,25 @@ describe('RequestContainerEditor — sections', () => {
     );
   });
 
-  it('the Authorization section is the same border-box pane, scrolling as a whole', () => {
+  it('the Authorization section is the same border-box pane; the empty grid scrolls itself', () => {
     renderEditor({ section: 'authorization' });
-    const section = sectionOf(screen.getByTestId('oh-auth-pool-empty'));
+    const empty = screen.getByTestId('oh-auth-pool-empty');
+    expect(empty.style.overflowY).toBe('auto');
+    const section = sectionOf(empty);
     expect(section?.style.boxSizing).toBe('border-box');
-    expect(section?.style.overflow).toBe('auto');
+    expect(section?.style.overflow).toBe('');
+  });
+
+  it('an own pool fills the pane, the entries rail and the entry body each scrolling on their own', () => {
+    renderEditor({ section: 'authorization' });
+    fireEvent.click(
+      screen.getAllByTestId('oh-auth-type-card').find((c) => c.getAttribute('data-type') === 'jwt') as HTMLElement,
+    );
+    const pool = screen.getByTestId('oh-auth-pool');
+    expect(pool.style.flexGrow).toBe('1');
+    expect(pool.style.minHeight).toBe('0px');
+    expect(screen.getByTestId('oh-auth-pool-rail').style.overflowY).toBe('auto');
+    expect(screen.getByTestId('oh-auth-pool-body').style.overflowY).toBe('auto');
   });
 });
 

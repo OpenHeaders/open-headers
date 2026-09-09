@@ -539,7 +539,6 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
               height: '100%',
               boxSizing: 'border-box',
               padding: 24,
-              overflow: 'auto',
             }}
           >
             <SuggestionContextProvider value={{ collectionId: suggestionCollectionId }}>

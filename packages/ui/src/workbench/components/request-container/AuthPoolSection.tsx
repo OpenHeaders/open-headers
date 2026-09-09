@@ -150,14 +150,19 @@ const AuthPoolSection: React.FC<AuthPoolSectionProps> = ({ kind, pool, onChange,
     </span>
   );
 
+  // The two panels fill the pane and scroll on their own — a long
+  // entry form never drags the list along, and the divider between
+  // them runs the pane's full height.
   return (
-    <div data-testid="oh-auth-pool" style={{ display: 'flex', alignItems: 'stretch', minHeight: 320 }}>
+    <div data-testid="oh-auth-pool" style={{ display: 'flex', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
       <div
+        data-testid="oh-auth-pool-rail"
         style={{
           width: LIST_WIDTH,
           flexShrink: 0,
           paddingRight: 16,
           borderRight: `1px solid ${token.colorBorderSecondary}`,
+          overflowY: 'auto',
         }}
       >
         <AuthPoolList
@@ -180,7 +185,7 @@ const AuthPoolSection: React.FC<AuthPoolSectionProps> = ({ kind, pool, onChange,
               })}
         />
       </div>
-      <div style={{ flex: 1, minWidth: 0, paddingLeft: 24 }}>
+      <div data-testid="oh-auth-pool-body" style={{ flex: 1, minWidth: 0, paddingLeft: 24, overflowY: 'auto' }}>
         {selected !== undefined &&
           (inheriting ? (
             <AuthEntryPane

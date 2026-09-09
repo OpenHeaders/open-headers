@@ -20,50 +20,51 @@ const AuthTypeGrid: React.FC<{
   onPick: (type: ConcreteAuthType) => void;
 }> = ({ kind, onPick }) => {
   const t = useT();
+  // The pane scrolls itself; the content centres by auto margins, not
+  // justify-content, so a short pane still reaches the title.
   return (
-    <div
-      data-testid="oh-auth-pool-empty"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        flex: 1,
-        minHeight: 320,
-        padding: 24,
-      }}
-    >
-      <Text strong style={{ fontSize: 15 }}>
-        {t('workbench.editors.requestContainer.auth.emptyTitle')}
-      </Text>
-      <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', maxWidth: 440 }}>
-        {kind === 'collection'
-          ? t('workbench.editors.requestContainer.auth.emptySubtitleCollection')
-          : t('workbench.editors.requestContainer.auth.emptySubtitleFolder')}
-      </Text>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginTop: 18 }}>
-        {AUTH_TYPE_SECTIONS.map((section) => (
-          <div
-            key={section[0]}
-            data-testid="oh-auth-type-section"
-            style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, maxWidth: 920 }}
-          >
-            {section.map((type) => (
-              <button
-                key={type}
-                type="button"
-                className="oh-auth-type-card"
-                data-testid="oh-auth-type-card"
-                data-type={type}
-                onClick={() => onPick(type)}
-              >
-                <span className="oh-auth-type-card-icon">{authTypeIcon(type)}</span>
-                <span>{t(authTypeLabelKey(type))}</span>
-              </button>
-            ))}
-          </div>
-        ))}
+    <div data-testid="oh-auth-pool-empty" style={{ display: 'flex', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+          margin: 'auto',
+          padding: 24,
+        }}
+      >
+        <Text strong style={{ fontSize: 15 }}>
+          {t('workbench.editors.requestContainer.auth.emptyTitle')}
+        </Text>
+        <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', maxWidth: 440 }}>
+          {kind === 'collection'
+            ? t('workbench.editors.requestContainer.auth.emptySubtitleCollection')
+            : t('workbench.editors.requestContainer.auth.emptySubtitleFolder')}
+        </Text>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginTop: 18 }}>
+          {AUTH_TYPE_SECTIONS.map((section) => (
+            <div
+              key={section[0]}
+              data-testid="oh-auth-type-section"
+              style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, maxWidth: 920 }}
+            >
+              {section.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className="oh-auth-type-card"
+                  data-testid="oh-auth-type-card"
+                  data-type={type}
+                  onClick={() => onPick(type)}
+                >
+                  <span className="oh-auth-type-card-icon">{authTypeIcon(type)}</span>
+                  <span>{t(authTypeLabelKey(type))}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
