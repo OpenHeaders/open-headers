@@ -888,6 +888,26 @@ describe('RequestContainerEditor — a folder inheriting', () => {
 });
 
 describe('AuthorizationTab — the request-level Inherit pane', () => {
+  it('the shell fills the tab on a zero height with an auto basis; the rail and the form scroll on their own', () => {
+    render(
+      <AuthorizationTab
+        auth={{ type: 'inherit' }}
+        onChange={vi.fn()}
+        inheritedFrom={{
+          auth: BEARER,
+          source: { kind: 'collection', uid: 'col00001', name: 'Payments', entryName: '' },
+        }}
+      />,
+    );
+    const shell = screen.getByTestId('oh-auth-shell');
+    expect(shell.style.height).toBe('0px');
+    expect(shell.style.flexBasis).toBe('auto');
+    expect(shell.style.flexGrow).toBe('1');
+    expect(screen.getByTestId('oh-auth-rail').style.overflowY).toBe('auto');
+    expect(screen.getByTestId('oh-auth-rail').style.position).toBe('');
+    expect(screen.getByTestId('oh-auth-body').style.overflowY).toBe('auto');
+  });
+
   it('names the resolved entry with the Inherited tag, the Edit-in opener, and the form inert', () => {
     const onOpen = vi.fn();
     render(

@@ -1,9 +1,10 @@
 /**
  * auth-layout — the Authorization tab anatomy every protocol editor
- * shares: a sticky left rail (auth-type picker + contextual note)
- * behind a draggable divider, a right pane for the type's form, the
- * centered empty state for the no-auth case, the 90px labeled row and
- * the masked secret field. The HTTP tab is the reference; the MQTT and
+ * shares: a left rail (auth-type picker + contextual note) behind a
+ * draggable divider, a right pane for the type's form, the two
+ * filling the pane and scrolling on their own, the centered empty
+ * state for the no-auth case, the 90px labeled row and the masked
+ * secret field. The HTTP tab is the reference; the MQTT and
  * gRPC tabs render the same parts so the three read as one surface.
  */
 
@@ -48,24 +49,25 @@ export const AuthTabShell: React.FC<{ rail: React.ReactNode; children: React.Rea
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
+  // The shell fills the tab's scroll chain and the rail and the form
+  // each scroll on their own — the picker never slides with a long
+  // form, and the divider runs the pane's full height. `height: 0`
+  // with an AUTO basis is what keeps the form's height from leaking
+  // up: the wrapper's height is indefinite, so a percentage basis
+  // (`flex: 1`) falls back to content and the outer scrollport
+  // scrolls again. A sticky rail did not do either: it pinned at the
+  // scrollport top while the wrapper's padding scrolled away above it.
   return (
-    <div style={{ display: 'flex', minHeight: 320 }}>
-      {/* Left rail — sticks to the top of the scroll container so the
-          auth-type picker stays visible while a long right-pane form
-          scrolls past it. `align-self: start` keeps the rail
-          content-sized so `position: sticky` has something to anchor
-          against; without it the flex item stretches to the row's
-          full height and sticky collapses to a no-op. */}
+    <div data-testid="oh-auth-shell" style={{ display: 'flex', flex: '1 1 auto', height: 0, minHeight: 0 }}>
       <div
+        data-testid="oh-auth-rail"
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
           width: railWidth,
           flexShrink: 0,
-          position: 'sticky',
-          top: 0,
-          alignSelf: 'start',
+          overflowY: 'auto',
         }}
       >
         {rail}
@@ -106,7 +108,9 @@ export const AuthTabShell: React.FC<{ rail: React.ReactNode; children: React.Rea
         <span style={{ width: 1, background: token.colorBorderSecondary }} />
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+      <div data-testid="oh-auth-body" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        {children}
+      </div>
     </div>
   );
 };
