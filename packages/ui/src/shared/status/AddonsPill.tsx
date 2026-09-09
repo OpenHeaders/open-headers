@@ -10,9 +10,10 @@
  *   - extension → Desktop app (OS-truth install detection + download
  *     CTA, see `companion-rows`), CLI (coarse state probed over the
  *     wire from the connected desktop, pointer copy when nothing
- *     answers), plus a Daemon row when a self-hosted (non-loopback)
- *     backend record exists — a browser can't detect an unconfigured
- *     daemon, so no record means no row.
+ *     answers), plus a Daemon row when a server record exists (the
+ *     place rule — anything but the desktop app's own loopback port) —
+ *     a browser can't detect an unconfigured daemon, so no record means
+ *     no row.
  *   - desktop  → Extensions (connected peers / store links), CLI
  *     (`oh.daemon.cli.status` — the provisioning card's live truth,
  *     with the one-click provision remedy), MCP (surfaced once the
@@ -25,6 +26,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { isLoopbackBackendUrl } from '@openheaders/core/backends';
+import { providingBackendKind } from '@openheaders/core/identity';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
 import { App as AntApp, Button, Popover, Tag, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
@@ -33,7 +35,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { confirmEnableMcp } from '@openheaders/ui/workbench/settings/mcp-consent';
 import { useBackends } from '../backend';
-import { getCurrentHost } from '../host-vocabulary';
+import { getCurrentHost, viewerHostKind } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { CompanionStatusRows } from './companion-rows';
 import { STATUS_TAG_WIDTH } from './StatusPill';
@@ -236,13 +238,15 @@ const McpRow: React.FC = () => {
 };
 
 /**
- * Daemon row — a STANDALONE self-hosted daemon on the LAN/WAN, never
- * the desktop app's embedded daemon (that plane is the Desktop-app
- * row's story). Both browser and desktop surfaces can be a daemon's
- * CLIENT, so the row mirrors a configured non-loopback back-end
- * record's wire state; with none, it stays visible as a neutral
- * "not configured" for discoverability. Web's serving daemon already
- * reads in the sync rows.
+ * Daemon row — a STANDALONE daemon, on the LAN/WAN or on this machine
+ * on another port, never the desktop app's embedded daemon (that plane
+ * is the Desktop-app row's story). Which is which is the place rule
+ * (core's `providingBackendKind`, the Backup and Sync UX plan D3), the
+ * same read as the Sync rows and the switcher headers. Both browser
+ * and desktop surfaces can be a daemon's CLIENT, so the row mirrors the
+ * first server record's wire state; with none, it stays visible as a
+ * neutral "not configured" for discoverability. Web's serving daemon
+ * already reads in the sync rows.
  */
 const ServerRow: React.FC = () => {
   const t = useT();
@@ -250,7 +254,7 @@ const ServerRow: React.FC = () => {
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
   if (host !== 'extension' && host !== 'desktop') return null;
-  const serverRecord = backends.find((b) => !isLoopbackBackendUrl(b.url));
+  const serverRecord = backends.find((b) => providingBackendKind(viewerHostKind(host), b.url) === 'server');
   if (!serverRecord) {
     return (
       <AddonRow
