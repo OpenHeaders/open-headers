@@ -388,6 +388,51 @@
   opacity: 1;
 }
 
+/* The empty pool's type cards — the fills live here, not inline, so
+ * hover and focus out-rank them: the border and icon take the primary
+ * colour, the face lifts a shade. The glyph sits in the label's grey at
+ * rest (a hairline at 20px), so the card reads as one quiet unit. */
+.oh-auth-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 92px;
+  height: 76px;
+  padding: 6px 4px;
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: var(--ant-border-radius);
+  background: var(--ant-color-bg-container);
+  color: var(--ant-color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+
+  .oh-auth-type-card-icon {
+    font-size: 20px;
+    color: var(--ant-color-text-secondary);
+    transition: color 0.15s ease;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--ant-color-primary);
+    background: var(--ant-color-fill-quaternary);
+    color: var(--ant-color-text);
+
+    .oh-auth-type-card-icon {
+      color: var(--ant-color-primary);
+    }
+  }
+}
+
 /* The auth-type select's popup: the whole list in view at the label
  * size, the label-less option groups drawn as section dividers. */
 .oh-auth-type-popup {

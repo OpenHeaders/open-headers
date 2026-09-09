@@ -561,6 +561,8 @@ describe('RequestContainerEditor — the empty state', () => {
       'asap',
       'none',
     ]);
+    const sections = screen.getAllByTestId('oh-auth-type-section');
+    expect(sections.map((s) => s.querySelectorAll('[data-testid="oh-auth-type-card"]').length)).toEqual([9, 3, 1]);
     fireEvent.click(cards.find((c) => c.getAttribute('data-type') === 'bearer') as HTMLElement);
 
     expect(screen.queryByTestId('oh-auth-pool-empty')).toBeNull();

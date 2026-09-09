@@ -9,26 +9,12 @@
  * list in view, no inner scroll, option rows at the label size.
  */
 
-import {
-  AmazonOutlined,
-  CloudServerOutlined,
-  FileProtectOutlined,
-  HighlightOutlined,
-  IdcardOutlined,
-  KeyOutlined,
-  LinkOutlined,
-  LockOutlined,
-  LoginOutlined,
-  SafetyCertificateOutlined,
-  SecurityScanOutlined,
-  StopOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { MenuProps, SelectProps } from 'antd';
 import type React from 'react';
 export type { ConcreteAuthType } from './auth-config-form';
 import type { ConcreteAuthType } from './auth-config-form';
+import { AuthTypeIcon } from './auth-type-icons';
 import { authTypeLabelKey, type InheritSelectItem, ownAuthTypeOptions } from './inherited-auth';
 
 /** The offer in sections — the credential schemes, the vendor
@@ -57,24 +43,9 @@ export const AUTH_TYPE_SELECT_POPUP: AuthTypeSelectPopupProps = {
   virtual: false,
 };
 
-const AUTH_TYPE_ICONS: Record<ConcreteAuthType, React.ReactNode> = {
-  'api-key': <KeyOutlined />,
-  basic: <UserOutlined />,
-  bearer: <SafetyCertificateOutlined />,
-  digest: <LockOutlined />,
-  hawk: <SecurityScanOutlined />,
-  'http-signature': <HighlightOutlined />,
-  jwt: <FileProtectOutlined />,
-  oauth1: <LinkOutlined />,
-  oauth2: <LoginOutlined />,
-  'aws-sigv4': <AmazonOutlined />,
-  edgegrid: <CloudServerOutlined />,
-  asap: <IdcardOutlined />,
-  none: <StopOutlined />,
-};
-
+/** The type's glyph — see auth-type-icons. */
 export function authTypeIcon(type: ConcreteAuthType): React.ReactNode {
-  return AUTH_TYPE_ICONS[type];
+  return <AuthTypeIcon type={type} />;
 }
 
 /** The type a menu item key names — the dropdowns' `onClick` reads a
