@@ -66,9 +66,6 @@ export const workbenchEditors = {
     'entrée, et une requête peut en choisir une par son nom.',
   'workbench.editors.requestContainer.auth.authTypesInfoHeading': 'Types',
   'workbench.editors.requestContainer.auth.addEntryAria': "Ajouter un type d'autorisation",
-  'workbench.editors.requestContainer.auth.change': 'Changer',
-  'workbench.editors.requestContainer.auth.changeHint':
-    "Remplacer la configuration d'autorisation héritée de {source}.",
   'workbench.editors.requestContainer.auth.inheritedTag': 'Hérité',
   'workbench.editors.requestContainer.auth.rename': 'Renommer',
   'workbench.editors.requestContainer.auth.noneEntryNote':

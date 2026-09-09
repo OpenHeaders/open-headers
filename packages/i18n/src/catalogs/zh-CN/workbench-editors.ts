@@ -70,8 +70,6 @@ export const workbenchEditors = {
     '容器的授权池：其请求所需的每种方案一个条目。设为继承的请求使用默认条目，主机模式将匹配的请求路由到另一条目，请求也可按名称选择一个。',
   'workbench.editors.requestContainer.auth.authTypesInfoHeading': '类型',
   'workbench.editors.requestContainer.auth.addEntryAria': '添加授权类型',
-  'workbench.editors.requestContainer.auth.change': '更改',
-  'workbench.editors.requestContainer.auth.changeHint': '覆盖从{source}继承的授权配置。',
   'workbench.editors.requestContainer.auth.inheritedTag': '已继承',
   'workbench.editors.requestContainer.auth.rename': '重命名',
   'workbench.editors.requestContainer.auth.noneEntryNote': '使用此条目的请求将不带授权发送。',

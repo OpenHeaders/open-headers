@@ -61,8 +61,6 @@ export const workbenchEditors = {
     'a host pattern routes matching requests to another entry, and a request may pick one by name.',
   'workbench.editors.requestContainer.auth.authTypesInfoHeading': 'Types',
   'workbench.editors.requestContainer.auth.addEntryAria': 'Add auth type',
-  'workbench.editors.requestContainer.auth.change': 'Change',
-  'workbench.editors.requestContainer.auth.changeHint': 'Override the inherited auth configuration from {source}.',
   'workbench.editors.requestContainer.auth.inheritedTag': 'Inherited',
   'workbench.editors.requestContainer.auth.rename': 'Rename',
   'workbench.editors.requestContainer.auth.noneEntryNote': 'Requests using this entry send without authorization.',

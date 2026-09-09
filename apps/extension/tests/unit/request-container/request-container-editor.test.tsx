@@ -336,8 +336,9 @@ describe('RequestContainerEditor — sections', () => {
   });
 });
 
-/** Open a type select from the keyboard and pick `label`. */
-async function pickSelectOption(testId: string, label: string): Promise<void> {
+/** Open a type select from the keyboard and pick `label`; `settles`
+ *  false when the pick unmounts the select (a folder's mint). */
+async function pickSelectOption(testId: string, label: string, settles = true): Promise<void> {
   const select = screen.getByTestId(testId);
   const input = select.querySelector('input');
   if (!input) throw new Error('no select input');
@@ -346,7 +347,7 @@ async function pickSelectOption(testId: string, label: string): Promise<void> {
     selector: '.ant-select-item-option-content *, .ant-select-item-option-content',
   });
   fireEvent.click(option);
-  await waitFor(() => expect(screen.getByTestId(testId).textContent).toContain(label));
+  if (settles) await waitFor(() => expect(screen.getByTestId(testId).textContent).toContain(label));
 }
 
 /** Open a dropdown trigger and click the menu item labelled `label` —
@@ -808,7 +809,8 @@ describe('RequestContainerEditor — a folder inheriting', () => {
     expect(rows[1].textContent).toContain('Default');
     expect(screen.queryAllByTestId('oh-auth-pool-entry-actions')).toHaveLength(0);
     expect(screen.queryByTestId('oh-auth-pool-add')).toBeNull();
-    expect(screen.getByTestId('oh-auth-pool-change')).toBeTruthy();
+    expect(screen.getByTestId('oh-auth-pool-change').textContent).toContain('User token');
+    expect(screen.getByTestId('oh-auth-pool-change').textContent).toContain('Default');
     expect(screen.getByTestId('oh-auth-entry-heading').textContent).toBe('User token');
     expect(screen.getByTestId('oh-auth-entry-inherited-tag').textContent).toBe('Inherited');
     expect(screen.getByTestId('oh-auth-inherited-form').hasAttribute('inert')).toBe(true);
@@ -849,13 +851,19 @@ describe('RequestContainerEditor — a folder inheriting', () => {
     expect(onOpenContainerAuth).toHaveBeenCalledWith('folder', 'fld00001', 'Cards');
   });
 
-  it("Change mints the folder's own first entry of the picked type; Reset returns to inherited", async () => {
+  it("the rail select's Inherited group reads an ancestor entry; a This folder type mints the folder's own first entry; Reset returns to inherited", async () => {
     requestsState = {
       ...requestsState,
-      collections: [makeCollection({ auths: [ADMIN], defaultAuthUid: 'admin001' })],
+      collections: [makeCollection({ auths: [ADMIN, USER], defaultAuthUid: 'admin001' })],
     };
     renderEditor({ kind: 'folder', entityUid: 'fld00001', section: 'authorization' });
-    await pickMenuItem(screen.getByTestId('oh-auth-pool-change'), 'API Key');
+    expect(screen.getByTestId('oh-auth-entry-heading').textContent).toBe('Admin token');
+    await pickSelectOption('oh-auth-pool-change', 'User token');
+    expect(screen.getByText('Inherited', { selector: '.ant-select-item-group' })).toBeTruthy();
+    expect(screen.getByText('This folder', { selector: '.ant-select-item-group' })).toBeTruthy();
+    expect(screen.getByTestId('oh-auth-entry-heading').textContent).toBe('User token');
+    expect(screen.getByTestId('oh-auth-inherited-form').hasAttribute('inert')).toBe(true);
+    await pickSelectOption('oh-auth-pool-change', 'API Key', false);
     expect(entryRows()).toHaveLength(1);
     expect(entryRows()[0].textContent).toContain('API Key');
     expect(entryRows()[0].textContent).toContain('Default');

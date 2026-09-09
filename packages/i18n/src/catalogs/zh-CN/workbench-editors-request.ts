@@ -520,6 +520,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.refusalQualifier.inHeader': '（标头）',
   'workbench.editors.request.auth.refusalQualifier.dpopBound': '（绑定 DPoP 密钥）',
   'workbench.editors.request.auth.groupOwn': '此请求',
+  'workbench.editors.request.auth.groupOwnFolder': '此文件夹',
   'workbench.editors.request.auth.optionMissingEntry': '条目缺失',
   'workbench.editors.request.auth.danglingPick': '此请求选择的条目已不存在——改为应用最近的默认项。',
   'workbench.editors.request.auth.editInParent': '在父级中编辑',

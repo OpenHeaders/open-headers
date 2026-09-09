@@ -613,6 +613,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.refusalQualifier.inHeader': 'en encabezado',
   'workbench.editors.request.auth.refusalQualifier.dpopBound': 'vinculado a una clave DPoP',
   'workbench.editors.request.auth.groupOwn': 'Esta solicitud',
+  'workbench.editors.request.auth.groupOwnFolder': 'Esta carpeta',
   'workbench.editors.request.auth.optionMissingEntry': 'Entrada faltante',
   'workbench.editors.request.auth.danglingPick':
     'La entrada elegida por esta solicitud ya no existe — se aplica el predeterminado más cercano.',

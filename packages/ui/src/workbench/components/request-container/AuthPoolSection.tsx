@@ -7,24 +7,33 @@
  *     dropdown), Make default / Rename / Delete per row, and the
  *     selected entry's pane;
  *   • a folder inheriting — the nearest ancestor's pool in the same
- *     two panels, read-only, with Change (a type dropdown that mints
- *     the folder's own first entry) and Edit in the source.
+ *     two panels, read-only, under the request rail's select — the
+ *     Inherited group (the ancestor's entries, a pick reads one) over
+ *     This folder (a type mints the folder's own first entry) — and
+ *     Edit in the source.
  * Pure draft surface: every gesture goes through `onChange`; the
  * container editor's one Save persists. Nothing is ever copied down —
  * a folder's own pool overrides the default; the ancestors' entries
  * stay reachable by a request's pick.
  */
 
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, UndoOutlined } from '@ant-design/icons';
 import type { AuthPoolEntry } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Dropdown, Popconfirm, theme } from 'antd';
+import { Button, Dropdown, Popconfirm, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { seedAuthConfig } from '../request-editor/auth-config-form';
-import { authTypeFromMenuKey, authTypeMenuItems, type ConcreteAuthType } from '../request-editor/auth-type-menu';
-import { inheritSourceLabel } from '../request-editor/inherited-auth';
+import {
+  AUTH_TYPE_SECTIONS,
+  AUTH_TYPE_SELECT_POPUP,
+  authTypeFromMenuKey,
+  authTypeMenuItems,
+  type ConcreteAuthType,
+  sectionedOwnAuthTypeItems,
+} from '../request-editor/auth-type-menu';
+import { buildInheritedPoolGroup, parseInheritSelectValue } from '../request-editor/inherited-auth';
 import AuthEntryPane, { type InheritedPoolSource } from './AuthEntryPane';
 import AuthPoolList from './AuthPoolList';
 import AuthTypeGrid from './AuthTypeGrid';
@@ -109,34 +118,48 @@ const AuthPoolSection: React.FC<AuthPoolSectionProps> = ({ kind, pool, onChange,
   };
   const typeMenu = { items: authTypeMenuItems(t), onClick: onPickType };
 
-  const headerAction = inheriting ? (
-    <Dropdown
-      trigger={['click']}
-      menu={{
-        items: [
-          {
-            type: 'group',
-            label: t('workbench.editors.requestContainer.auth.changeHint', {
-              source: inheritSourceLabel(t, inherited),
-            }),
-            children: authTypeMenuItems(t),
-          },
-        ],
-        onClick: onPickType,
+  // The inheriting folder's select — the request rail's anatomy: the
+  // Inherited group over This folder; a pick from the first reads
+  // that entry, one from the second mints the folder's own.
+  const inheritSelect = inheriting ? (
+    <Select
+      size="middle"
+      data-testid="oh-auth-pool-change"
+      {...AUTH_TYPE_SELECT_POPUP}
+      value={selected === undefined ? undefined : `inherit:${selected.uid}`}
+      onChange={(value: string) => {
+        const pick = parseInheritSelectValue(value);
+        if (pick !== null) {
+          if (pick.authUid !== undefined) setPickedUid(pick.authUid);
+          return;
+        }
+        const type = authTypeFromMenuKey(value);
+        if (type !== null) mint(type);
       }}
-    >
-      <Button size="small" data-testid="oh-auth-pool-change">
-        {t('workbench.editors.requestContainer.auth.change')}
-      </Button>
-    </Dropdown>
-  ) : (
+      options={[
+        buildInheritedPoolGroup({ t, entries: inherited.entries, defaultUid: inherited.defaultUid }),
+        ...sectionedOwnAuthTypeItems(t, AUTH_TYPE_SECTIONS.flat(), t('workbench.editors.request.auth.groupOwnFolder')),
+      ]}
+      style={{ width: '100%' }}
+    />
+  ) : undefined;
+
+  const headerAction = inheriting ? null : (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       {kind === 'folder' && (
-        <Popconfirm title={t('workbench.editors.requestContainer.auth.resetConfirm')} onConfirm={resetToInherited}>
-          <Button size="small" type="text" data-testid="oh-auth-pool-reset">
-            {t('workbench.editors.requestContainer.auth.resetToInherited')}
-          </Button>
-        </Popconfirm>
+        // Icon-only, the settings rows' undo idiom — the label would
+        // wrap the rail's title onto two lines.
+        <Tooltip title={t('workbench.editors.requestContainer.auth.resetToInherited')}>
+          <Popconfirm title={t('workbench.editors.requestContainer.auth.resetConfirm')} onConfirm={resetToInherited}>
+            <Button
+              size="small"
+              type="text"
+              icon={<UndoOutlined />}
+              aria-label={t('workbench.editors.requestContainer.auth.resetToInherited')}
+              data-testid="oh-auth-pool-reset"
+            />
+          </Popconfirm>
+        </Tooltip>
       )}
       <Dropdown trigger={['click']} menu={typeMenu}>
         <Button
@@ -171,6 +194,7 @@ const AuthPoolSection: React.FC<AuthPoolSectionProps> = ({ kind, pool, onChange,
           selectedUid={selected?.uid}
           onSelect={setPickedUid}
           headerAction={headerAction}
+          beforeEntries={inheritSelect}
           {...(inheriting
             ? {}
             : {

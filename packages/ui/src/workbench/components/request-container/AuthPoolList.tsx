@@ -27,8 +27,12 @@ export interface AuthPoolListProps {
   defaultUid: string | undefined;
   selectedUid: string | undefined;
   onSelect: (uid: string) => void;
-  /** The header's control beside the title — `+` or Change. */
+  /** The header's control beside the title — `+` (and the folder's
+   *  reset); `null` on an inherited pool. */
   headerAction: React.ReactNode;
+  /** Under the header, above the rows — the inheriting folder's type
+   *  select. */
+  beforeEntries?: React.ReactNode;
   /** Absent = read-only rows (an inherited pool). */
   actions?: {
     onSetDefault: (uid: string) => void;
@@ -63,6 +67,7 @@ const AuthPoolList: React.FC<AuthPoolListProps> = ({
   selectedUid,
   onSelect,
   headerAction,
+  beforeEntries,
   actions,
 }) => {
   const { token } = theme.useToken();
@@ -85,6 +90,7 @@ const AuthPoolList: React.FC<AuthPoolListProps> = ({
         <span style={{ flex: 1 }} />
         {headerAction}
       </div>
+      {beforeEntries !== undefined && <div style={{ marginBottom: 8 }}>{beforeEntries}</div>}
       {entries.map((entry) => {
         const isSelected = entry.uid === selectedUid;
         const label = entry.name !== '' ? entry.name : t(authTypeLabelKey(entry.config.type));

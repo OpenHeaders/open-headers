@@ -17,7 +17,7 @@ import {
   type AuthRefusal,
   authRefusalOf,
 } from '@openheaders/core/auth-inheritance';
-import type { AuthConfig, ConcreteAuthConfig } from '@openheaders/core/types';
+import type { AuthConfig, AuthPoolEntry, ConcreteAuthConfig } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Button, Tag, Tooltip, Typography } from 'antd';
 import type React from 'react';
@@ -275,6 +275,34 @@ export function buildInheritedGroup(opts: {
     });
   }
   return { label: t('workbench.editors.request.auth.groupInherited'), options };
+}
+
+/**
+ * The Inherited group over ONE pool — a folder's rail select over the
+ * nearest ancestor's entries: every entry by name (else its type's
+ * label) with its type icon, the pool's default tagged; each value is
+ * the entry's uid pick (a folder has no follow-the-default value — the
+ * pick selects the row to read).
+ */
+export function buildInheritedPoolGroup(opts: {
+  t: Translate;
+  entries: readonly AuthPoolEntry[];
+  defaultUid: string;
+}): InheritSelectGroup {
+  const { t, entries, defaultUid } = opts;
+  return {
+    label: t('workbench.editors.request.auth.groupInherited'),
+    options: entries.map((entry) => ({
+      value: `${INHERIT_ENTRY_PREFIX}${entry.uid}`,
+      label: (
+        <OptionLabel
+          type={entry.config.type}
+          text={entry.name !== '' ? entry.name : t(authTypeLabelKey(entry.config.type))}
+          isDefault={entry.uid === defaultUid}
+        />
+      ),
+    })),
+  };
 }
 
 // ── The Inherit pane (heading · tag · opener · warnings · inert form) ──

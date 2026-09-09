@@ -565,6 +565,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.refusalQualifier.inHeader': 'in header',
   'workbench.editors.request.auth.refusalQualifier.dpopBound': 'bound to a DPoP key',
   'workbench.editors.request.auth.groupOwn': 'This request',
+  'workbench.editors.request.auth.groupOwnFolder': 'This folder',
   'workbench.editors.request.auth.optionMissingEntry': 'Missing entry',
   'workbench.editors.request.auth.danglingPick':
     'The entry this request picked no longer exists \u2014 the nearest default applies instead.',

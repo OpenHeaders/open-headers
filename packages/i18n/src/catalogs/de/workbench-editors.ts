@@ -74,8 +74,6 @@ export const workbenchEditors = {
     'Anfrage kann einen per Name wählen.',
   'workbench.editors.requestContainer.auth.authTypesInfoHeading': 'Typen',
   'workbench.editors.requestContainer.auth.addEntryAria': 'Autorisierungstyp hinzufügen',
-  'workbench.editors.requestContainer.auth.change': 'Ändern',
-  'workbench.editors.requestContainer.auth.changeHint': 'Die von {source} geerbte Autorisierung überschreiben.',
   'workbench.editors.requestContainer.auth.inheritedTag': 'Geerbt',
   'workbench.editors.requestContainer.auth.rename': 'Umbenennen',
   'workbench.editors.requestContainer.auth.noneEntryNote':

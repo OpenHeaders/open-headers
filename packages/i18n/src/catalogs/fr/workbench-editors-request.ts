@@ -621,6 +621,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.refusalQualifier.inHeader': 'en en-tête',
   'workbench.editors.request.auth.refusalQualifier.dpopBound': 'lié à une clé DPoP',
   'workbench.editors.request.auth.groupOwn': 'Cette requête',
+  'workbench.editors.request.auth.groupOwnFolder': 'Ce dossier',
   'workbench.editors.request.auth.optionMissingEntry': 'Entrée manquante',
   'workbench.editors.request.auth.danglingPick':
     "L'entrée choisie par cette requête n'existe plus — le défaut le plus proche s'applique à la place.",
