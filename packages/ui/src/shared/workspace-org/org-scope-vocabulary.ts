@@ -7,10 +7,11 @@
  *   - host-kind     — keyed by {@link HostKind}: the base identity glyph
  *                     for the host process that minted the Org.
  *
- * The identity *label* itself is `orgIdentityLabel` from core — every Org
- * reads by its stored `name`; `orgHostHintText` (org-copy.ts) adds the
- * home Org's second-person host-kind sub-label. `isPrivate` drives
- * neither vocabulary; it records whether a backend hosts the Org.
+ * The label the badge shows is the PLACE (`useOrgPlace` / `orgPlaceText`
+ * in org-copy.ts — the Backup and Sync UX plan D3); the Org's stored
+ * `name` (`orgIdentityLabel` from core) reads only where the Org names
+ * itself, the home identity card. `isPrivate` drives neither vocabulary;
+ * it records whether a backend hosts the Org.
  *
  * Per-scope describers — separation of concerns: each scope kind owns
  * its own description function (`describeLocalScope`, `describePersonalScope`,

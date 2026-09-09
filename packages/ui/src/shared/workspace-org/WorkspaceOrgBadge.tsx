@@ -1,18 +1,22 @@
 /**
  * WorkspaceOrgBadge — the per-workspace "where does this live?" badge
  * (U3.5, the unified-oracle model §6.2). Resolves a workspace's `orgId`
- * to a scope tag: icon + colour + label per Org.
+ * to a scope tag: icon + colour + the PLACE the Org reads as (the Backup
+ * and Sync UX plan D3 — `useOrgPlace`, the same resolver as the
+ * switcher's headers): "This browser", "Daemon B · server", "This
+ * computer · desktop app". Never the Org's stored name — a daemon mints
+ * that after its host machine, so two servers can share it.
  *
  * Always visible — §6.2 calls for the org-binding affordance to be a
  * permanent fixture, not something that appears only once a second Org
- * exists. With one Org seeded it simply reads "On this device".
+ * exists. With one Org seeded it simply reads "This browser".
  *
  * Purely presentational. A workspace's Org binding is set at create
  * time and never changes (the Session-47 collapse — Duplicate-into
  * replaces re-home), so this badge has no edit affordance attached.
  */
 
-import { type OrgDescriptor, orgIdentityLabel } from '@openheaders/core/identity';
+import type { OrgDescriptor } from '@openheaders/core/identity';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Tag, Tooltip } from 'antd';
 import type React from 'react';
@@ -20,6 +24,7 @@ import { useBackendMode } from '../hooks/useBackendMode';
 import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from './OrgIcon';
 import { orgScopeVisual } from './org-scope-vocabulary';
+import { useOrgPlace } from './use-org-place';
 
 export interface WorkspaceOrgBadgeProps {
   /** Resolved Org for the workspace; `null` during the pre-bootstrap window. */
@@ -42,10 +47,11 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
   const { self: reach } = useBackendReach();
   const mode = useBackendMode();
   const t = useT();
+  const placeOf = useOrgPlace();
   if (!descriptor) return null;
 
   const visual = orgScopeVisual(t, descriptor, { mode, reach });
-  const label = orgIdentityLabel(descriptor);
+  const label = placeOf(descriptor);
 
   return (
     <Tooltip
@@ -69,14 +75,14 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
           paddingInline: compact ? 4 : 6,
           userSelect: 'none',
           // Let the host (flex parent) decide the cap; this badge must
-          // be willing to shrink and ellipsize so long device names
-          // (e.g. "Engineering-Team-MacBook-Pro") don't push siblings
+          // be willing to shrink and ellipsize so a long place (a long
+          // connection label, "· server" behind it) doesn't push siblings
           // off-screen on the sidepanel.
           display: 'inline-flex',
           alignItems: 'center',
           // OrgIcon isn't an `.anticon`, so antd's built-in icon→label
           // margin never applies — the flex gap provides the breathing
-          // room between the glyph and the Org name.
+          // room between the glyph and the place.
           columnGap: compact ? 3 : 4,
           maxWidth: '100%',
           minWidth: 0,

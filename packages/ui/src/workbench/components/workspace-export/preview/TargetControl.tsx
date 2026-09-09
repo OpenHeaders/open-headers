@@ -21,6 +21,7 @@ import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySna
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import { orgChoiceCatalogue, resolveNewWorkspaceOrgId } from '@openheaders/ui/shared/workspace-org/org-choice';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
+import { useOrgPlace } from '@openheaders/ui/shared/workspace-org/use-org-place';
 
 const { Text } = Typography;
 
@@ -41,6 +42,7 @@ const TargetControl: React.FC<{
   size?: 'small' | 'middle';
 }> = ({ target, onChange, workspaces, activeWorkspaceId, envelope, size = 'small' }) => {
   const t = useT();
+  const placeOf = useOrgPlace();
   const exportName = envelope.workspace.name;
 
   // Local name buffer so the user can type freely without re-render
@@ -125,14 +127,14 @@ const TargetControl: React.FC<{
                   label: (
                     <Space size={6}>
                       <OrgIcon descriptor={descriptor} size={13} />
-                      {descriptor.name}
+                      {placeOf(descriptor)}
                     </Space>
                   ),
                 }))}
               />
               <Text type="secondary" style={{ fontSize: labelFontSize - 1 }}>
                 {selectedOrg && !selectedOrg.isHome
-                  ? t('workbench.importExport.target.landsOnOrg', { name: selectedOrg.name })
+                  ? t('workbench.importExport.target.landsOnOrg', { name: placeOf(selectedOrg) })
                   : t('workbench.importExport.target.staysLocal')}
               </Text>
             </>
