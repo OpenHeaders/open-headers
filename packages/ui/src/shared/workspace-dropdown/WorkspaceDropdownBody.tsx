@@ -294,12 +294,16 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     pickWorkspace(targetWs.id, targetWs.id === selectedId, targetWs.id === activeId);
   };
 
-  const renderRow = (w: ExtensionWorkspace): React.ReactNode => {
+  // Under a group header a row indents past the header's Org icon (12px
+  // glyph + 6px gap), so the workspaces read as the header's children.
+  const renderRow = (w: ExtensionWorkspace, grouped: boolean): React.ReactNode => {
     const isSelected = w.id === selectedId;
     const isActive = w.id === activeId;
-    const rowStyle: React.CSSProperties = isSelected
-      ? { ...baseRowStyle, background: token.colorPrimaryBg, color: token.colorPrimaryText }
-      : { ...baseRowStyle };
+    const rowStyle: React.CSSProperties = {
+      ...baseRowStyle,
+      ...(grouped ? { paddingLeft: 26 } : {}),
+      ...(isSelected ? { background: token.colorPrimaryBg, color: token.colorPrimaryText } : {}),
+    };
     return (
       <div
         key={w.id}
@@ -529,10 +533,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           ? groups.map((group) => (
               <div key={group.orgId}>
                 {renderOrgHeader(group.orgId, group.descriptor)}
-                {group.items.map(renderRow)}
+                {group.items.map((w) => renderRow(w, true))}
               </div>
             ))
-          : filtered.map(renderRow)}
+          : filtered.map((w) => renderRow(w, false))}
       </div>
 
       {orgGrouping && orgGrouping.catalogue.length > 1 && activeWorkspace && (
