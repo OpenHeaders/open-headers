@@ -723,9 +723,9 @@ test('remove with Keep orphans the group and leaves the other backend untouched'
 });
 
 test('remove with Discard backs up, deletes locally, and leaves the daemon data intact', async () => {
-  // Park the tab on the home Org before its scope is deleted.
-  const identity = (await swStorageGet('oh.syntheticIdentity')) as { org: { name: string } };
-  await switchToOrg(identity.org.name);
+  // Park the tab on the home Org — headed by its place, "This browser" —
+  // before its scope is deleted.
+  await switchToOrg('This browser');
 
   const downloadsBefore = downloads.length;
   await openBackendSettings();
