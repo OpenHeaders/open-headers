@@ -87,7 +87,12 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.appliesTo': 'Auf Host anwenden',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
-    'Optionales Host-Muster (*-Platzhalter). Eine Anfrage auf Erben, deren URL-Host passt, erhält diesen Eintrag vor dem Standard. Leer — nur als Standard oder über die Wahl einer Anfrage erreichbar.',
+    'Eine Anfrage auf Erben, deren URL-Host passt, erhält diesen Eintrag vor dem Standard.',
+  'workbench.editors.requestContainer.auth.appliesToOptionalTag': '(optional)',
+  'workbench.editors.requestContainer.auth.appliesToInfoSummary':
+    'Beschränkt diesen Eintrag auf Anfragen, deren URL-Host zum Muster passt.',
+  'workbench.editors.requestContainer.auth.appliesToInfoRules':
+    'Groß-/Kleinschreibung egal; * steht für beliebige Zeichen, ein Muster ohne Platzhalter verlangt den exakten Host. Port und Pfad zählen nie. Leer ist der Eintrag nur als Standard oder über die Wahl einer Anfrage erreichbar.',
   'workbench.editors.requestContainer.auth.resetToInherited': 'Auf Geerbt zurücksetzen',
   'workbench.editors.requestContainer.auth.resetConfirm':
     'Einträge des Ordners entfernen? Anfragen fallen auf die Sammlung zurück.',

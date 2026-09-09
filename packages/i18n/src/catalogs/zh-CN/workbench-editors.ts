@@ -82,7 +82,11 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.appliesTo': '应用于主机',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
-    '可选的主机模式（* 通配符）。设置为继承的请求，其 URL 主机匹配时优先于默认项获得此条目。留空——仅作为默认项或通过请求的选择使用。',
+    '设置为继承的请求，其 URL 主机匹配时优先于默认项获得此条目。',
+  'workbench.editors.requestContainer.auth.appliesToOptionalTag': '（可选）',
+  'workbench.editors.requestContainer.auth.appliesToInfoSummary': '将此条目限定于 URL 主机与模式匹配的请求。',
+  'workbench.editors.requestContainer.auth.appliesToInfoRules':
+    '不区分大小写；* 匹配任意字符序列，不含通配符的模式要求主机完全一致。端口和路径均不参与匹配。留空时，此条目仅作为默认项或通过请求的选择使用。',
   'workbench.editors.requestContainer.auth.resetToInherited': '重置为继承',
   'workbench.editors.requestContainer.auth.resetConfirm': '移除文件夹的条目？请求将回落到集合。',
   'workbench.editors.requestContainer.deletedElsewhere': '此条目已在另一个窗口中被删除。',

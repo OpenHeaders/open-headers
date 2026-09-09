@@ -187,19 +187,26 @@ export const AuthFormNote: React.FC<{ children: React.ReactNode }> = ({ children
   </Text>
 );
 
-/** `label · (i)` over the field column; the (i) opens the row's slice
- *  of the type's example (AuthRowInfo). An optional description
- *  reads under the label in the note size. */
+/** `label · (optional) · (i)` over the field column; the (i) opens the
+ *  row's slice of the type's example (AuthRowInfo). An optional
+ *  description reads under the label in the note size. */
 export const AuthLabeledRow: React.FC<{
   label: string;
+  /** The muted "(optional)" tag after the label — the rule editor's idiom. */
+  optionalTag?: string;
   info?: InfoPopoverContent;
   description?: React.ReactNode;
   children: React.ReactNode;
-}> = ({ label, info, description, children }) => (
+}> = ({ label, optionalTag, info, description, children }) => (
   <div style={{ display: 'grid', gridTemplateColumns: `${AUTH_LABEL_WIDTH}px 1fr`, alignItems: 'start', gap: 12 }}>
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, minHeight: 24 }}>
         <Text style={{ fontSize: 13, lineHeight: '24px' }}>{label}</Text>
+        {optionalTag !== undefined && (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {optionalTag}
+          </Text>
+        )}
         {info !== undefined && <InfoTrigger content={info} />}
       </div>
       {description !== undefined && (

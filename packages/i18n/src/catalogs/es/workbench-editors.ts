@@ -80,7 +80,12 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.appliesTo': 'Aplicar al host',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
-    'Patrón de host opcional (comodín *). Una solicitud en Heredar cuyo host de URL coincida recibe esta entrada antes que el predeterminado. Vacío — se alcanza solo como predeterminado o por la elección de una solicitud.',
+    'Una solicitud en Heredar cuyo host de URL coincida recibe esta entrada antes que el predeterminado.',
+  'workbench.editors.requestContainer.auth.appliesToOptionalTag': '(opcional)',
+  'workbench.editors.requestContainer.auth.appliesToInfoSummary':
+    'Limita esta entrada a las solicitudes cuyo host de URL coincide con el patrón.',
+  'workbench.editors.requestContainer.auth.appliesToInfoRules':
+    'No distingue mayúsculas; * equivale a cualquier secuencia de caracteres y un patrón sin comodín exige el host exacto. El puerto y la ruta nunca cuentan. Vacío, la entrada solo se alcanza como predeterminada o por la elección de una solicitud.',
   'workbench.editors.requestContainer.auth.resetToInherited': 'Restablecer a heredado',
   'workbench.editors.requestContainer.auth.resetConfirm':
     '¿Eliminar las entradas de la carpeta? Las solicitudes recaerán en la colección.',

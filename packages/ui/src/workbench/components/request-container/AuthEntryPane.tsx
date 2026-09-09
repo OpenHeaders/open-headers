@@ -83,7 +83,16 @@ const AuthEntryPane: React.FC<AuthEntryPaneProps> = ({ entry, onChange, inherite
       )}
       <AuthConfigFields auth={entry.config} onChange={(config) => onChange?.({ ...entry, config })} />
       <Divider style={{ margin: '4px 0' }} />
-      <AuthLabeledRow label={t('workbench.editors.requestContainer.auth.appliesTo')}>
+      <AuthLabeledRow
+        label={t('workbench.editors.requestContainer.auth.appliesTo')}
+        optionalTag={t('workbench.editors.requestContainer.auth.appliesToOptionalTag')}
+        info={{
+          kicker: t('workbench.editors.request.tab.authorization'),
+          title: t('workbench.editors.requestContainer.auth.appliesTo'),
+          summary: t('workbench.editors.requestContainer.auth.appliesToInfoSummary'),
+          description: t('workbench.editors.requestContainer.auth.appliesToInfoRules'),
+        }}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Input
             size="small"

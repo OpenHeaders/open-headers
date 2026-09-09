@@ -80,7 +80,12 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.appliesTo': "Appliquer à l'hôte",
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
-    "Motif d'hôte facultatif (joker *). Une requête en héritage dont l'hôte de l'URL correspond reçoit cette entrée avant le défaut. Vide — atteinte uniquement comme défaut ou par le choix d'une requête.",
+    "Une requête en héritage dont l'hôte de l'URL correspond reçoit cette entrée avant le défaut.",
+  'workbench.editors.requestContainer.auth.appliesToOptionalTag': '(facultatif)',
+  'workbench.editors.requestContainer.auth.appliesToInfoSummary':
+    "Limite cette entrée aux requêtes dont l'hôte de l'URL correspond au motif.",
+  'workbench.editors.requestContainer.auth.appliesToInfoRules':
+    "Insensible à la casse ; * remplace toute suite de caractères, un motif sans joker exige l'hôte exact. Le port et le chemin ne comptent jamais. Vide, l'entrée n'est atteinte que comme défaut ou par le choix d'une requête.",
   'workbench.editors.requestContainer.auth.resetToInherited': "Rétablir l'héritage",
   'workbench.editors.requestContainer.auth.resetConfirm':
     'Supprimer les entrées du dossier ? Les requêtes retomberont sur la collection.',

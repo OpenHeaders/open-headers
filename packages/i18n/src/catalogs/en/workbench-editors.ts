@@ -73,7 +73,12 @@ export const workbenchEditors = {
   'workbench.editors.requestContainer.auth.appliesTo': 'Apply to host',
   'workbench.editors.requestContainer.auth.appliesToPlaceholder': '*.openheaders.com',
   'workbench.editors.requestContainer.auth.appliesToHelp':
-    'Optional host pattern (* wildcard). A request set to Inherit whose URL host matches gets this entry ahead of the default. Empty \u2014 reached only as the default or by a request\u2019s pick.',
+    'A request set to Inherit whose URL host matches gets this entry ahead of the default.',
+  'workbench.editors.requestContainer.auth.appliesToOptionalTag': '(optional)',
+  'workbench.editors.requestContainer.auth.appliesToInfoSummary':
+    'Scopes this entry to the requests whose URL host matches the pattern.',
+  'workbench.editors.requestContainer.auth.appliesToInfoRules':
+    'Case-insensitive; * matches any run of characters, a pattern without one is an exact host match. The port and the path never count. Leave it empty and the entry is reached only as the default or by a request\u2019s pick.',
   'workbench.editors.requestContainer.auth.resetToInherited': 'Reset to inherited',
   'workbench.editors.requestContainer.auth.resetConfirm':
     'Remove the folder\u2019s entries? Requests fall through to the collection.',
