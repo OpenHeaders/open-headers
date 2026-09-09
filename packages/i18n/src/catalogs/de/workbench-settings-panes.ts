@@ -663,35 +663,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.loginItemsButton': 'Anmeldeobjekte öffnen',
   'workbench.settings.proxyTrustPane.helper.actionFailed': 'Helfer-Aktion fehlgeschlagen: {message}',
 
-  // ── Backend-details scene pills ────────────────────────────────────
-  // Architecture component names (sync-engine · rule-engine · oracle ·
-  // vault) are glossary vocabulary and ride raw inside the pills; only
-  // the connective text keys here.
-  'workbench.settings.backendDetails.backEndTitle': 'Back-end = {engine}',
-  'workbench.settings.backendDetails.servedOn': 'ausgeliefert über {via}',
-  'workbench.settings.backendDetails.apiClientsTitle': 'API-Clients = {count}',
-  'workbench.settings.backendDetails.frontEndTitle': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'Front-end = {count} gehostete Oberfläche',
-      other: 'Front-end = {count} gehostete Oberflächen',
-    }),
-  'workbench.settings.backendDetails.optIn': '(Opt-in)',
-
-  // ── Backend-details device-frame labels ────────────────────────────
-  // The scene diagrams' device-container labels are user-facing scene
-  // vocabulary and key here. Inner window corners ("Browser" / "CLI"),
-  // the CI/CD YAML mock, prompt glyphs, and engine/where pill args stay
-  // raw as diagram internals. Browser window titles (Chrome / Firefox /
-  // Edge) are glossary proper nouns; the in-browser combined title keys
-  // with the brand vocabulary raw inside the value.
-  'workbench.settings.backendDetails.device.laptop': 'Laptop',
-  'workbench.settings.backendDetails.device.desktop': 'Desktop',
-  'workbench.settings.backendDetails.device.workstation': 'Workstation',
-  'workbench.settings.backendDetails.device.localServer': 'Lokaler Server',
-  'workbench.settings.backendDetails.device.remoteServer': 'Entfernter Server',
-  'workbench.settings.backendDetails.device.yourDevice': 'Dein Gerät',
-  'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers — Chrome / Edge / Firefox',
-
   // ── Git pane (workspace-tree binding card, the git-sync plan §9) ─────────
   'workbench.settings.gitPane.notBound.title': 'Kein Ordner gebunden',
   'workbench.settings.gitPane.notBound.body':

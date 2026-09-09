@@ -663,36 +663,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.loginItemsButton': 'Ouvrir les éléments de connexion',
   'workbench.settings.proxyTrustPane.helper.actionFailed': 'L’action de l’assistant a échoué : {message}',
 
-  // ── Backend-details scene pills ────────────────────────────────────
-  // Architecture component names (sync-engine · rule-engine · oracle ·
-  // vault) are glossary vocabulary and ride raw inside the pills; only
-  // the connective text keys here.
-  'workbench.settings.backendDetails.backEndTitle': 'Back-end = {engine}',
-  'workbench.settings.backendDetails.servedOn': 'servi sur {via}',
-  'workbench.settings.backendDetails.apiClientsTitle': 'Clients API = {count}',
-  'workbench.settings.backendDetails.frontEndTitle': ({ count }, locale) =>
-    plural(locale, Number(count), {
-      one: 'Front-end = {count} surface hébergée',
-      many: 'Front-end = {count} surfaces hébergées',
-      other: 'Front-end = {count} surfaces hébergées',
-    }),
-  'workbench.settings.backendDetails.optIn': '(opt-in)',
-
-  // ── Backend-details device-frame labels ────────────────────────────
-  // The scene diagrams' device-container labels are user-facing scene
-  // vocabulary and key here. Inner window corners ("Browser" / "CLI"),
-  // the CI/CD YAML mock, prompt glyphs, and engine/where pill args stay
-  // raw as diagram internals. Browser window titles (Chrome / Firefox /
-  // Edge) are glossary proper nouns; the in-browser combined title keys
-  // with the brand vocabulary raw inside the value.
-  'workbench.settings.backendDetails.device.laptop': 'Portable',
-  'workbench.settings.backendDetails.device.desktop': 'Ordinateur de bureau',
-  'workbench.settings.backendDetails.device.workstation': 'Station de travail',
-  'workbench.settings.backendDetails.device.localServer': 'Serveur local',
-  'workbench.settings.backendDetails.device.remoteServer': 'Serveur distant',
-  'workbench.settings.backendDetails.device.yourDevice': 'Votre appareil',
-  'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers — Chrome / Edge / Firefox',
-
   // ── Panneau Git (carte de liaison workspace-arborescence) ──────────
   'workbench.settings.gitPane.notBound.title': 'Aucun dossier lié',
   'workbench.settings.gitPane.notBound.body':

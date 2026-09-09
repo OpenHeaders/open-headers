@@ -536,32 +536,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.loginItemsButton': '打开登录项',
   'workbench.settings.proxyTrustPane.helper.actionFailed': '助手操作失败：{message}',
 
-  // ── Backend-details scene pills ────────────────────────────────────
-  // Architecture component names (sync-engine · rule-engine · oracle ·
-  // vault) are glossary vocabulary and ride raw inside the pills; only
-  // the connective text keys here.
-  'workbench.settings.backendDetails.backEndTitle': '后端 = {engine}',
-  'workbench.settings.backendDetails.servedOn': '经由 {via} 提供',
-  'workbench.settings.backendDetails.apiClientsTitle': 'API 客户端 = {count}',
-  'workbench.settings.backendDetails.frontEndTitle': ({ count }, locale) =>
-    plural(locale, Number(count), { other: '前端 = {count} 个托管界面' }),
-  'workbench.settings.backendDetails.optIn': '（可选启用）',
-
-  // ── Backend-details device-frame labels ────────────────────────────
-  // The scene diagrams' device-container labels are user-facing scene
-  // vocabulary and key here. Inner window corners ("Browser" / "CLI"),
-  // the CI/CD YAML mock, prompt glyphs, and engine/where pill args stay
-  // raw as diagram internals. Browser window titles (Chrome / Firefox /
-  // Edge) are glossary proper nouns; the in-browser combined title keys
-  // with the brand vocabulary raw inside the value.
-  'workbench.settings.backendDetails.device.laptop': '笔记本电脑',
-  'workbench.settings.backendDetails.device.desktop': '台式机',
-  'workbench.settings.backendDetails.device.workstation': '工作站',
-  'workbench.settings.backendDetails.device.localServer': '本地服务器',
-  'workbench.settings.backendDetails.device.remoteServer': '远程服务器',
-  'workbench.settings.backendDetails.device.yourDevice': '你的设备',
-  'workbench.settings.backendDetails.inBrowserTitle': 'Open Headers——Chrome / Edge / Firefox',
-
   // ── Git pane (workspace-tree binding card, the git-sync plan §9) ─────────
   'workbench.settings.gitPane.notBound.title': '未绑定文件夹',
   'workbench.settings.gitPane.notBound.body':
