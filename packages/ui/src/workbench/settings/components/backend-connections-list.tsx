@@ -59,6 +59,12 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   // — a browser viewer; the desktop app IS the desktop app.
   const offersDesktopApp = viewerHostKind(host) === 'browser';
   const desktopApp = useConnectDesktopApp(enableSwitch, setWizard);
+  // A record being added is the verb's, not the list's yet: the wizard
+  // holds it (a cancel removes it) or the desktop handoff does (paired,
+  // then enabled). It joins the rows once it is connected or the wizard
+  // finishes without connecting — never as an "Off" row behind a modal.
+  const addingId = wizard?.mode === 'add' ? wizard.recordId : desktopApp.pendingRecordId;
+  const rows = addingId === null ? backends : backends.filter((record) => record.id !== addingId);
 
   const signInToServer = async (): Promise<void> => {
     // A host that cannot store the record refuses here; the wizard must
@@ -70,9 +76,9 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
 
   return (
     <PaneSection title={t('workbench.settings.backendPane.connections.title')}>
-      {backends.length > 0 && (
+      {rows.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-          {backends.map((record) => (
+          {rows.map((record) => (
             <ConnectionRow
               key={record.id}
               record={record}
@@ -94,7 +100,7 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
           {t('workbench.settings.backendPane.connections.signInServer')}
         </Button>
       </div>
-      {backends.length === 0 && (
+      {rows.length === 0 && (
         <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary, lineHeight: 1.5 }}>
           {offersDesktopApp && <div>{t('workbench.settings.backendPane.connections.emptyDesktopLine')}</div>}
           <div>{t('workbench.settings.backendPane.connections.emptyServerLine')}</div>

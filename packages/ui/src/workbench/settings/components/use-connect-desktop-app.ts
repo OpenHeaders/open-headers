@@ -24,6 +24,8 @@ export interface ConnectDesktopAppHandle {
   connect: () => Promise<void>;
   /** The handoff is in flight — the verb disables meanwhile. */
   busy: boolean;
+  /** The fresh record while the handoff runs — the list keeps it off screen until it is paired or the wizard has it. */
+  pendingRecordId: string | null;
 }
 
 export function useConnectDesktopApp(
@@ -31,7 +33,7 @@ export function useConnectDesktopApp(
   openWizard: (target: BackendWizardTarget) => void,
 ): ConnectDesktopAppHandle {
   const write = useBackendRegistryWrite();
-  const [busy, setBusy] = useState(false);
+  const [pendingRecordId, setPendingRecordId] = useState<string | null>(null);
 
   const connect = async (): Promise<void> => {
     // A host that cannot store the record refuses here; nothing opens on
@@ -43,17 +45,19 @@ export function useConnectDesktopApp(
       openWizard({ recordId: created.id, mode: 'add', kind: 'desktop-app' });
       return;
     }
-    setBusy(true);
+    setPendingRecordId(created.id);
     const result = await autoPair({ url: created.url });
     if (!result.ok) {
-      setBusy(false);
+      // The wizard takes the record over in the same render the pending
+      // mark clears, so the row never shows between the two.
       openWizard({ recordId: created.id, mode: 'add', kind: 'desktop-app', autoPairFailed: true });
+      setPendingRecordId(null);
       return;
     }
     const paired = await write(() => updateBackend(created.id, { authToken: result.token }));
-    setBusy(false);
+    setPendingRecordId(null);
     if (paired) await enableSwitch.setEnabled(paired, true);
   };
 
-  return { connect, busy };
+  return { connect, busy: pendingRecordId !== null, pendingRecordId };
 }

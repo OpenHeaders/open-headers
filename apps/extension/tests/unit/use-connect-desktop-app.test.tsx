@@ -92,6 +92,35 @@ describe('useConnectDesktopApp', () => {
     expect(openWizard).not.toHaveBeenCalled();
   });
 
+  it('the fresh record is pending while the handoff runs — the list keeps it off screen — and clears once paired', async () => {
+    let grant: (() => void) | null = null;
+    registerCapability(
+      'nmAutoPair',
+      () =>
+        new Promise((resolve) => {
+          grant = () => resolve({ ok: true, token: 'nm-tok', browser: 'chrome' });
+        }),
+    );
+    const enableSwitch = createEnableSwitchStub();
+    const { hook } = renderConnect(enableSwitch);
+
+    let done: Promise<void> = Promise.resolve();
+    await act(async () => {
+      done = hook.result.current.connect();
+      await Promise.resolve();
+    });
+    const [record] = getBackends();
+    expect(hook.result.current.pendingRecordId).toBe(record.id);
+    expect(hook.result.current.busy).toBe(true);
+
+    await act(async () => {
+      grant?.();
+      await done;
+    });
+    expect(hook.result.current.pendingRecordId).toBeNull();
+    expect(hook.result.current.busy).toBe(false);
+  });
+
   it('a refused handoff opens the wizard on the unpaired record with the fallback flagged', async () => {
     registerCapability('nmAutoPair', async () => ({ ok: false, reason: 'refused' }));
     const enableSwitch = createEnableSwitchStub();
