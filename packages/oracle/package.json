@@ -164,6 +164,6 @@
     "@types/node": "^22.19.15",
     "fast-check": "^4.8.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

@@ -105,6 +105,6 @@
     "cross-env": "^7.0.3",
     "electron": "^39.8.10",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
