@@ -20,9 +20,11 @@ import { panelStorage } from './panel-storage';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
+import { sharedChrome } from './shared-chrome';
 import { sharedComponents } from './shared-components';
 import { sharedHeaderValidation } from './shared-header-validation';
 import { sharedInfoCookies } from './shared-info-cookies';
+import { sharedInfoStatus } from './shared-info-status';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
@@ -46,9 +48,11 @@ export const ko: Catalog = {
   ...popup,
   ...shared,
   ...sharedAwareness,
+  ...sharedChrome,
   ...sharedComponents,
   ...sharedHeaderValidation,
   ...sharedInfoCookies,
+  ...sharedInfoStatus,
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
