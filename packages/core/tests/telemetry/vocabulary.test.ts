@@ -410,7 +410,8 @@ describe('toTelemetryLocale', () => {
     expect(toTelemetryLocale('fr')).toBe('fr');
     expect(toTelemetryLocale('zh-CN')).toBe('zh-CN');
     expect(toTelemetryLocale('pseudo')).toBe('other');
-    expect(toTelemetryLocale('ja')).toBe('other');
+    expect(toTelemetryLocale('ja')).toBe('ja');
+    expect(toTelemetryLocale('ko')).toBe('other');
     expect(toTelemetryLocale('')).toBe('other');
   });
 });
