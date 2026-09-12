@@ -12,6 +12,7 @@ import { extension as extensionDe } from './de/extension';
 import { extension as extensionEs } from './es/extension';
 import { extension as extensionFr } from './fr/extension';
 import { extension as extensionJa } from './ja/extension';
+import { extension as extensionKo } from './ko/extension';
 import { extension as extensionZhCn } from './zh-CN/extension';
 
 export const STATIC_EXTENSION_CATALOGS: Readonly<Record<string, Catalog>> = {
@@ -19,5 +20,6 @@ export const STATIC_EXTENSION_CATALOGS: Readonly<Record<string, Catalog>> = {
   es: extensionEs,
   fr: extensionFr,
   ja: extensionJa,
+  ko: extensionKo,
   'zh-CN': extensionZhCn,
 };

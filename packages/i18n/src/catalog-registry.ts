@@ -26,6 +26,7 @@ const loaders: Readonly<Record<string, () => Promise<Catalog>>> = {
   es: async () => (await import('./catalogs/es')).es,
   fr: async () => (await import('./catalogs/fr')).fr,
   ja: async () => (await import('./catalogs/ja')).ja,
+  ko: async () => (await import('./catalogs/ko')).ko,
   'zh-CN': async () => (await import('./catalogs/zh-CN')).zhCN,
 };
 

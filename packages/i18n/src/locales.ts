@@ -20,6 +20,7 @@ export const LOCALES: readonly LocaleDef[] = [
   { code: 'de', englishName: 'German', nativeName: 'Deutsch', direction: 'ltr' },
   { code: 'zh-CN', englishName: 'Chinese (Simplified)', nativeName: '简体中文', direction: 'ltr' },
   { code: 'ja', englishName: 'Japanese', nativeName: '日本語', direction: 'ltr' },
+  { code: 'ko', englishName: 'Korean', nativeName: '한국어', direction: 'ltr' },
   { code: PSEUDO_LOCALE, englishName: 'Pseudo (UI test)', nativeName: '⟦Þšéûðö⟧', direction: 'ltr', synthetic: true },
 ];
 

@@ -411,7 +411,8 @@ describe('toTelemetryLocale', () => {
     expect(toTelemetryLocale('zh-CN')).toBe('zh-CN');
     expect(toTelemetryLocale('pseudo')).toBe('other');
     expect(toTelemetryLocale('ja')).toBe('ja');
-    expect(toTelemetryLocale('ko')).toBe('other');
+    expect(toTelemetryLocale('ko')).toBe('ko');
+    expect(toTelemetryLocale('pt-BR')).toBe('other');
     expect(toTelemetryLocale('')).toBe('other');
   });
 });
