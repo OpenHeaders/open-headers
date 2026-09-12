@@ -43,6 +43,11 @@ import { workbenchEditorsRule } from './workbench-editors-rule';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
 import { workbenchScriptPackages } from './workbench-script-packages';
+import { workbenchSettings } from './workbench-settings';
+import { workbenchSettingsDefs } from './workbench-settings-defs';
+import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
+import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
+import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchTrustedRoots } from './workbench-trusted-roots';
 
 export const ja: Catalog = {
@@ -84,5 +89,10 @@ export const ja: Catalog = {
   ...workbenchEditorsSpec,
   ...workbenchEditorsWebsocket,
   ...workbenchScriptPackages,
+  ...workbenchSettings,
+  ...workbenchSettingsDefs,
+  ...workbenchSettingsDefsDevpanel,
+  ...workbenchSettingsDefsKeyboard,
+  ...workbenchSettingsPanes,
   ...workbenchTrustedRoots,
 };
