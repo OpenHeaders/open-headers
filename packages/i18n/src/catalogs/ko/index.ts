@@ -31,6 +31,8 @@ import { sharedMergeEditor } from './shared-merge-editor';
 import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
+import { tui } from './tui';
+import { web } from './web';
 import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
@@ -46,13 +48,17 @@ import { workbenchEditorsMqtt } from './workbench-editors-mqtt';
 import { workbenchEditorsRule } from './workbench-editors-rule';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
+import { workbenchImportExport } from './workbench-import-export';
+import { workbenchLive } from './workbench-live';
 import { workbenchScriptPackages } from './workbench-script-packages';
+import { workbenchServerAdmin } from './workbench-server-admin';
 import { workbenchSettings } from './workbench-settings';
 import { workbenchSettingsDefs } from './workbench-settings-defs';
 import { workbenchSettingsDefsDevpanel } from './workbench-settings-defs-devpanel';
 import { workbenchSettingsDefsKeyboard } from './workbench-settings-defs-keyboard';
 import { workbenchSettingsPanes } from './workbench-settings-panes';
 import { workbenchTrustedRoots } from './workbench-trusted-roots';
+import { workbenchVariables } from './workbench-variables';
 
 export const ko: Catalog = {
   ...desktop,
@@ -81,6 +87,8 @@ export const ko: Catalog = {
   ...sharedNotifications,
   ...sharedResolutionHints,
   ...sharedWorkspace,
+  ...tui,
+  ...web,
   ...workbench,
   ...workbenchChrome,
   ...workbenchChromeSidebar,
@@ -96,11 +104,15 @@ export const ko: Catalog = {
   ...workbenchEditorsRule,
   ...workbenchEditorsSpec,
   ...workbenchEditorsWebsocket,
+  ...workbenchImportExport,
+  ...workbenchLive,
   ...workbenchScriptPackages,
+  ...workbenchServerAdmin,
   ...workbenchSettings,
   ...workbenchSettingsDefs,
   ...workbenchSettingsDefsDevpanel,
   ...workbenchSettingsDefsKeyboard,
   ...workbenchSettingsPanes,
   ...workbenchTrustedRoots,
+  ...workbenchVariables,
 };
