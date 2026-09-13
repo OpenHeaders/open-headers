@@ -32,6 +32,9 @@ import { sharedNotifications } from './shared-notifications';
 import { sharedResolutionHints } from './shared-resolution-hints';
 import { sharedWorkspace } from './shared-workspace';
 import { workbench } from './workbench';
+import { workbenchChrome } from './workbench-chrome';
+import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
+import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchTrustedRoots } from './workbench-trusted-roots';
 
@@ -63,6 +66,9 @@ export const ru: Catalog = {
   ...sharedResolutionHints,
   ...sharedWorkspace,
   ...workbench,
+  ...workbenchChrome,
+  ...workbenchChromeSidebar,
+  ...workbenchChromeWorkspace,
   ...workbenchScriptPackages,
   ...workbenchTrustedRoots,
 };
