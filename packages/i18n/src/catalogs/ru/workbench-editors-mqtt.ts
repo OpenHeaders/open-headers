@@ -1,0 +1,353 @@
+/**
+ * Workbench editors — the MQTT client editor — Russian. Mirrors
+ * `catalogs/en/workbench-editors-mqtt.ts` key for key. Wire
+ * vocabulary rides raw inside keyed values: mqtt/mqtts/ws/wss schemes,
+ * CONNECT / PUBLISH / SUBSCRIBE / PINGREQ / CONNACK / DISCONNECT /
+ * RETAIN tokens, QoS, topic filters (+ / #), Base64 / Hexadecimal
+ * encodings, AsyncAPI, `Last Will` / `Docs` tab nouns, and the 5.0
+ * property and setting names (Response Topic / Correlation Data /
+ * Clean Start / Keep Alive / …) which the spec fixes in English.
+ * топик = topic; фильтр топиков = topic filter; полезная нагрузка =
+ * payload (shared mint); Удерживать = the Retain flag / Удержано =
+ * Retained; последняя воля = last will (prose); подписка = subscribe /
+ * subscription; сеанс = session; брокер = broker; устойчивость =
+ * resilience; повторное подключение = redial / reconnect; Авторизация
+ * / Сообщение / Топики / Свойства / Настройки / Скрипты = the editor
+ * tab family. Every raw token takes a head noun or a hyphenated
+ * apposition (пакет CONNECT, пакет DISCONNECT, сеансы {scheme}://,
+ * сообщения QoS 1/2).
+ */
+
+import type { Catalog } from '../../types';
+
+export const workbenchEditorsMqtt = {
+  // ── MQTT request editor ─────────────────────────────────────────────
+  'workbench.editors.mqtt.notFound': 'Запрос MQTT не найден.',
+  'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
+  'workbench.editors.mqtt.version.tooltip':
+    'Версия протокола MQTT, на которой говорит сеанс.\n5.0 · свойства и параметры подписки\n3.1.1 · брокеры, отвергающие 5.0',
+  'workbench.editors.mqtt.version.v5': 'V5',
+  'workbench.editors.mqtt.version.v311': 'V3.1.1',
+  'workbench.editors.mqtt.version.lockedWhileConnected': 'Нельзя менять версию, пока соединение установлено.',
+  'workbench.editors.mqtt.connect.label': 'Подключиться',
+  'workbench.editors.mqtt.connect.disconnect': 'Отключиться',
+  'workbench.editors.mqtt.connect.cancel': 'Отмена',
+  'workbench.editors.mqtt.connect.reconnectNow': 'Переподключиться сейчас',
+  'workbench.editors.mqtt.connect.reconnectNowHint':
+    'Выполнить следующую попытку переподключения, не дожидаясь конца периода',
+  'workbench.editors.mqtt.connect.browserHost': 'Сеансы MQTT выполняются в настольном приложении или на сервере.',
+  'workbench.editors.mqtt.connect.needsUrl': 'Для подключения введите URL-адрес брокера.',
+  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
+    'Сеансы {scheme}:// выполняются в настольном приложении или на сервере — переключитесь на ws:// или wss://, чтобы подключиться здесь.',
+  'workbench.editors.mqtt.tab.docs': 'Docs',
+  'workbench.editors.mqtt.tab.message': 'Сообщение',
+  'workbench.editors.mqtt.tab.topics': 'Топики',
+  'workbench.editors.mqtt.tab.auth': 'Авторизация',
+  'workbench.editors.mqtt.tab.properties': 'Свойства',
+  'workbench.editors.mqtt.tab.lastWill': 'Last Will',
+  'workbench.editors.mqtt.tab.settings': 'Настройки',
+  'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
+  'workbench.editors.mqtt.qos.meaning0': 'Не более одного раза',
+  'workbench.editors.mqtt.qos.meaning1': 'Не менее одного раза',
+  'workbench.editors.mqtt.qos.meaning2': 'Ровно один раз',
+  'workbench.editors.mqtt.retainLabel': 'Удерживать',
+  'workbench.editors.mqtt.sendLabel': 'Отправить',
+  'workbench.editors.mqtt.topicPlaceholder': 'Топик для публикации',
+  'workbench.editors.mqtt.topicExample': 'например, sensors/1/temperature',
+  'workbench.editors.mqtt.payload.formatText': 'Текст',
+  'workbench.editors.mqtt.payload.formatJson': 'JSON',
+  'workbench.editors.mqtt.payload.formatBase64': 'Base64',
+  'workbench.editors.mqtt.payload.formatHex': 'Шестнадцатеричный',
+  'workbench.editors.mqtt.payload.invalidGate': 'Сначала исправьте кодировку полезной нагрузки.',
+  'workbench.editors.mqtt.payload.invalidBase64': 'Недопустимый Base64 — публикуются именно декодированные байты.',
+  'workbench.editors.mqtt.payload.invalidHex': 'Недопустимый hex — пары цифр 0-9 a-f декодируются в публикуемые байты.',
+  'workbench.editors.mqtt.payloadPlaceholder': 'Составьте полезную нагрузку для публикации…',
+  'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 двоичной полезной нагрузки, например aGVsbG8=…',
+  'workbench.editors.mqtt.payloadPlaceholderHex': 'Hex двоичной полезной нагрузки, например 48656c6c6f…',
+  'workbench.editors.mqtt.props.buttonTooltip': 'Параметры сообщения',
+  'workbench.editors.mqtt.props.hint': 'Метаданные MQTT 5.0, отправляемые с каждым сообщением.',
+  'workbench.editors.mqtt.props.v311': 'Свойства сообщения — возможность MQTT 5.0, а этот запрос нацелен на 3.1.1.',
+  'workbench.editors.mqtt.props.userPropKey': 'Свойство',
+  'workbench.editors.mqtt.props.userPropValue': 'Значение',
+  'workbench.editors.mqtt.props.addUserProp': 'Пользовательское свойство',
+  'workbench.editors.mqtt.props.removeUserProp': 'Удалить пользовательское свойство',
+  'workbench.editors.mqtt.props.responseTopic': 'Response Topic',
+  'workbench.editors.mqtt.props.responseTopicDesc':
+    'Топик, в который получателя просят ответить — запрос/ответ поверх pub/sub. Пусто — свойство не отправляется.',
+  'workbench.editors.mqtt.props.correlationData': 'Correlation Data',
+  'workbench.editors.mqtt.props.correlationDataDesc':
+    'Непрозрачный токен, который получатель копирует в свой ответ, чтобы ответ можно было сопоставить с этим сообщением. Пусто — свойство не отправляется.',
+  'workbench.editors.mqtt.props.messageExpiry': 'Message Expiry Interval',
+  'workbench.editors.mqtt.props.messageExpiryDesc':
+    'Сколько секунд брокер держит сообщение доступным для доставки; по истечении оно отбрасывается вместо доставки. Пусто — сообщение никогда не истекает.',
+  'workbench.editors.mqtt.props.messageExpiryPlaceholder': 'Без срока (по умолчанию)',
+  'workbench.editors.mqtt.props.contentType': 'Content Type',
+  'workbench.editors.mqtt.props.contentTypeDesc':
+    'MIME-тип, описывающий полезную нагрузку; передаётся получателям как есть. Пусто — свойство не отправляется.',
+  'workbench.editors.mqtt.props.payloadFormatIndicator': 'Payload Format Indicator',
+  'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
+    'Помечает полезную нагрузку как текст UTF-8, а не как байты без указанного формата; брокер и получатели могут её проверять.',
+  'workbench.editors.mqtt.props.nonePlaceholder': 'Нет (по умолчанию)',
+  'workbench.editors.mqtt.props.sectionProperties': 'Свойства',
+  'workbench.editors.mqtt.props.sectionPropertiesDesc':
+    'Произвольные пары ключ–значение, передаваемые с сообщением — метаданные приложения, которые брокер пропускает как есть.',
+  'workbench.editors.mqtt.props.sectionSettings': 'Настройки',
+  'workbench.editors.mqtt.saved.title': 'Сохранённые сообщения',
+  'workbench.editors.mqtt.saved.addTooltip': 'Сохранить текущий черновик как повторно используемое сообщение',
+  'workbench.editors.mqtt.saved.topicTagPlaceholder': 'топик',
+  'workbench.editors.mqtt.saved.showRail': 'Показать сохранённые сообщения',
+  'workbench.editors.mqtt.saved.hideRail': 'Скрыть сохранённые сообщения',
+  'workbench.editors.mqtt.saved.emptyHint':
+    'Сохраняйте сообщения, чтобы использовать их повторно во время активного соединения.',
+  'workbench.editors.mqtt.saved.defaultName': 'Сообщение',
+  'workbench.editors.mqtt.saved.sendTooltip': 'Опубликовать это сохранённое сообщение как есть',
+  'workbench.editors.mqtt.saved.rename': 'Переименовать',
+  'workbench.editors.mqtt.saved.duplicate': 'Дублировать',
+  'workbench.editors.mqtt.saved.delete': 'Удалить',
+  'workbench.editors.mqtt.topics.hint':
+    'Подписки, с которыми открывается сеанс. Подстановочные знаки + и # приветствуются; выключенные строки сохраняются, но не подписываются.',
+  'workbench.editors.mqtt.topics.filterLabel': 'Топик',
+  'workbench.editors.mqtt.topics.filterPlaceholder': 'Топик, например sensors/+/temperature',
+  'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
+  'workbench.editors.mqtt.topics.optionsColLabel': 'Параметры',
+  'workbench.editors.mqtt.topics.optionsTooltip': 'Параметры подписки',
+  'workbench.editors.mqtt.topics.subscribeColLabel': 'Подписка',
+  'workbench.editors.mqtt.topics.subscribeLabel': 'Подписываться при открытии сеанса',
+  'workbench.editors.mqtt.topics.subscribeLiveLabel':
+    'Подписаться / отписаться в открытом сеансе — сохранённая строка не меняется',
+  'workbench.editors.mqtt.topics.optionsHint': 'Параметры подписки MQTT 5.0 для этой строки.',
+  'workbench.editors.mqtt.topics.noLocal': 'No Local',
+  'workbench.editors.mqtt.topics.noLocalDesc': 'Брокер не возвращает этому клиенту его собственные публикации.',
+  'workbench.editors.mqtt.topics.retainAsPublished': 'Retain As Published',
+  'workbench.editors.mqtt.topics.retainAsPublishedDesc':
+    'Сообщения сохраняют флаг RETAIN ровно таким, каким он был при публикации.',
+  'workbench.editors.mqtt.topics.retainHandling': 'Retain Handling',
+  'workbench.editors.mqtt.topics.retainHandlingDesc':
+    'Отправляет ли брокер существующие удерживаемые сообщения при оформлении этой подписки.',
+  'workbench.editors.mqtt.topics.retainHandlingValuesHeading': 'Значения',
+  'workbench.editors.mqtt.topics.retainHandling0': '0 · Получать при подписке',
+  'workbench.editors.mqtt.topics.retainHandling0Desc':
+    'Брокер отправляет удерживаемые сообщения при каждом оформлении этой подписки.',
+  'workbench.editors.mqtt.topics.retainHandling1': '1 · Только для новых подписок',
+  'workbench.editors.mqtt.topics.retainHandling1Desc':
+    'Брокер отправляет удерживаемые сообщения, только если этой подписки ещё нет.',
+  'workbench.editors.mqtt.topics.retainHandling2': '2 · Не получать',
+  'workbench.editors.mqtt.topics.retainHandling2Desc': 'Брокер не отправляет удерживаемые сообщения для этой подписки.',
+  'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
+  'workbench.editors.mqtt.topics.subscriptionIdDesc':
+    'Числовой идентификатор, который брокер прикрепляет к сообщениям, доставленным через эту подписку.',
+  'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Нет (по умолчанию)',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'Свойства',
+  'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'Пользовательские свойства, отправляемые один раз с пакетом SUBSCRIBE этой строки. Их смысл определяет брокер; к доставляемым сообщениям они не прикрепляются.',
+  'workbench.editors.mqtt.topics.subscribeSettings': 'Настройки',
+  'workbench.editors.mqtt.auth.help':
+    'Отправляется как User Name и Password пакета CONNECT на любом хосте — их несут обе версии MQTT. Переменные разрешаются при подключении; сохранённые примеры никогда не захватывают учётные данные.',
+  'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — из {source} — нельзя применить к сеансу MQTT.',
+  'workbench.editors.mqtt.auth.ownUnsupported': '{type} нельзя применить к сеансу MQTT.',
+  'workbench.editors.mqtt.userProps.hint':
+    'Пользовательские свойства, отправляемые в CONNECT — произвольные метаданные, которые могут читать брокер и другие инструменты.',
+  'workbench.editors.mqtt.userProps.v311':
+    'Пользовательские свойства CONNECT — возможность MQTT 5.0, а этот запрос нацелен на 3.1.1.',
+  'workbench.editors.mqtt.userProps.keyPlaceholder': 'Свойство',
+  'workbench.editors.mqtt.userProps.valuePlaceholder': 'Значение',
+  'workbench.editors.mqtt.will.hint':
+    'Регистрируется у брокера в CONNECT и публикуется за вас, если сеанс оборвётся без корректного отключения. Пустой топик — воли нет.',
+  'workbench.editors.mqtt.will.topicPlaceholder': 'Топик для последней воли',
+  'workbench.editors.mqtt.will.topicExample': 'например, clients/reporter/status',
+  'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, в секундах — MQTT 5.0.',
+  'workbench.editors.mqtt.will.delayLabel': 'Задержка воли',
+  'workbench.editors.mqtt.will.delayPlaceholder': '0 с (по умолчанию)',
+  'workbench.editors.mqtt.will.payloadPlaceholder': 'Составьте полезную нагрузку последней воли…',
+  'workbench.editors.mqtt.spec.selectLabel': 'Спецификация AsyncAPI',
+  'workbench.editors.mqtt.spec.selectPlaceholder': 'Привязать спецификацию AsyncAPI',
+  'workbench.editors.mqtt.spec.summary': 'серверов: {servers} · каналов: {channels} · операций: {operations}',
+  'workbench.editors.mqtt.spec.parseFailure': 'Спецификация не разбирается: {message}',
+  'workbench.editors.mqtt.spec.issues': 'проблем в спецификации: {count}',
+  'workbench.editors.mqtt.spec.useExample': 'Использовать пример сообщения…',
+  'workbench.editors.mqtt.spec.browser.hint':
+    'Выберите сообщение, чтобы составить его пример полезной нагрузки; сообщение канала также заполняет топик публикации.',
+  'workbench.editors.mqtt.spec.browser.servers': 'Servers',
+  'workbench.editors.mqtt.spec.browser.channels': 'Channels',
+  'workbench.editors.mqtt.spec.browser.operations': 'Operations',
+  'workbench.editors.mqtt.spec.browser.components': 'Components',
+  'workbench.editors.mqtt.settings.exampleCaption': 'Пример сеанса',
+  'workbench.editors.mqtt.settings.clientIdLabel': 'Client ID',
+  'workbench.editors.mqtt.settings.clientIdHelp':
+    'Идентификатор, который несёт CONNECT. Пусто — при каждом подключении генерируется новый; для возобновления сеанса брокера нужен постоянный идентификатор.',
+  'workbench.editors.mqtt.settings.clientIdPlaceholder': 'Авто — генерируется при подключении',
+  'workbench.editors.mqtt.settings.cleanStartLabel': 'Clean Start',
+  'workbench.editors.mqtt.settings.cleanStartHelp':
+    'Начинать новый сеанс брокера при подключении. Выключите, чтобы возобновить подписки и сообщения в очереди из предыдущего сеанса — для этого также нужен постоянный Client ID.',
+  'workbench.editors.mqtt.settings.sessionExpiryLabel': 'Session Expiry Interval',
+  'workbench.editors.mqtt.settings.sessionExpiryHelp':
+    'Сколько брокер хранит сеанс после отключения — 0 завершает его при отключении. Clean Start лишь отбрасывает предыдущий сеанс при подключении; интервал в любом случае управляет новым.',
+  'workbench.editors.mqtt.settings.zeroDefault': '0 с (по умолчанию)',
+  'workbench.editors.mqtt.settings.keepAliveLabel': 'Keep Alive',
+  'workbench.editors.mqtt.settings.keepAliveHelp':
+    'Интервал пингов, который сеанс обещает брокеру — клиент отвечает и отправляет PINGREQ. Пусто — 60 с; 0 выключает keep-alive.',
+  'workbench.editors.mqtt.settings.keepAlivePlaceholder': '60 с (по умолчанию)',
+  'workbench.editors.mqtt.settings.timeoutLabel': 'Тайм-аут подключения',
+  'workbench.editors.mqtt.settings.timeoutHelp':
+    'Предел реального времени только на установление соединения — у открытого сеанса предела нет. Пусто — 30 с по умолчанию.',
+  'workbench.editors.mqtt.settings.timeoutPlaceholder': '30 с (по умолчанию)',
+  'workbench.editors.mqtt.settings.receiveMaximumLabel': 'Receive Maximum',
+  'workbench.editors.mqtt.settings.receiveMaximumHelp':
+    'Сколько сообщений QoS 1/2 может одновременно находиться в пути к этому клиенту. Пусто — значение по умолчанию из спецификации, 65 535.',
+  'workbench.editors.mqtt.settings.receiveMaximumPlaceholder': '65 535 (по умолчанию)',
+  'workbench.editors.mqtt.settings.maxPacketSizeLabel': 'Maximum Packet Size',
+  'workbench.editors.mqtt.settings.maxPacketSizeHelp':
+    'Наибольший пакет, который принимает этот клиент — брокер отбрасывает более крупные. Пусто — без ограничения.',
+  'workbench.editors.mqtt.settings.noLimit': 'Без ограничения (по умолчанию)',
+  'workbench.editors.mqtt.settings.cleanSessionLabel': 'Clean Session',
+  'workbench.editors.mqtt.settings.topicAliasMaximumLabel': 'Topic Alias Maximum',
+  'workbench.editors.mqtt.settings.topicAliasMaximumHelp':
+    'Сколько псевдонимов топиков брокер может использовать при обращении к этому клиенту — публикации с псевдонимом несут число вместо топика. Пусто — ни одного, значение по умолчанию из спецификации.',
+  'workbench.editors.mqtt.settings.topicAliasMaximumPlaceholder': '0 (по умолчанию)',
+  'workbench.editors.mqtt.settings.requestResponseInfoLabel': 'Request Response Information',
+  'workbench.editors.mqtt.settings.requestResponseInfoHelp':
+    'Запросить у брокера Response Information в CONNACK — базовый топик для обменов запрос/ответ. По умолчанию выключено.',
+  'workbench.editors.mqtt.settings.requestProblemInfoLabel': 'Request Problem Information',
+  'workbench.editors.mqtt.settings.requestProblemInfoHelp':
+    'Разрешить брокеру прикреплять Reason String и пользовательские свойства к пакетам об ошибках. По умолчанию включено.',
+  'workbench.editors.mqtt.settings.clientIdExample': 'например, reporter-1',
+  'workbench.editors.mqtt.settings.alpnLabel': 'Протокол ALPN',
+  'workbench.editors.mqtt.settings.alpnHelp':
+    'Прикладной протокол, предлагаемый в рукопожатии TLS сеансов mqtts — брокеры, мультиплексирующие MQTT на общем порту TLS, выбирают по нему. Пусто — ничего не предлагается.',
+  'workbench.editors.mqtt.settings.alpnPlaceholder': 'Нет (по умолчанию)',
+  'workbench.editors.mqtt.settings.alpnExample': 'например, mqtt',
+  'workbench.editors.mqtt.settings.group.connection': 'Соединение',
+  'workbench.editors.mqtt.settings.group.session': 'Сеанс — MQTT 5.0',
+  'workbench.editors.mqtt.settings.group.tls': 'TLS и доверие',
+  'workbench.editors.mqtt.settings.group.resilience': 'Устойчивость сеанса',
+  'workbench.editors.mqtt.settings.groupInfo.resilience':
+    'Переоткрывается ли оборванное соединение и насколько терпеливо: период повторного подключения, предел попыток и экспоненциальная выдержка между попытками.',
+  'workbench.editors.mqtt.settings.groupInfo.connection':
+    'Как CONNECT открывает сеанс: идентичность, которую он предъявляет, начинает ли он с чистого листа, и пределы пингов и подключения, которые он обещает.',
+  'workbench.editors.mqtt.settings.groupInfo.session':
+    'Условия MQTT 5.0, которые CONNECT предлагает брокеру: сколько сеанс переживает отключение, плюс пределы сообщений в пути и размера пакета, которые принимает этот клиент.',
+  'workbench.editors.mqtt.settings.groupInfo.tls':
+    'Как сеансы mqtts/wss устанавливают доверие: проверяется ли сертификат брокера по системным корневым сертификатам, какой клиентский сертификат предъявляет это устройство, окно версий TLS и список шифров, а также имя SNI и предложение ALPN в рукопожатии.',
+  'workbench.editors.mqtt.settings.sessionV311': 'Настройки MQTT 5.0 — этот запрос нацелен на 3.1.1.',
+  // ── Session pane ────────────────────────────────────────────────────
+  'workbench.editors.mqtt.session.emptyTitle': 'Ответ',
+  'workbench.editors.mqtt.session.emptyHint': 'Подключитесь, чтобы отправлять и получать сообщения.',
+  'workbench.editors.mqtt.session.connectFailed': 'Не удалось открыть сеанс',
+  'workbench.editors.mqtt.session.connectingBadge': 'Подключение',
+  'workbench.editors.mqtt.session.connectedBadge': 'Подключено',
+  'workbench.editors.mqtt.session.notSubscribed': 'Нет подписок на топики',
+  'workbench.editors.mqtt.session.subscribedOne': 'Подписка на 1 топик',
+  'workbench.editors.mqtt.session.subscribedMany': 'Подписка на топики: {count}',
+  'workbench.editors.mqtt.session.tab.timeline': 'Хронология',
+  'workbench.editors.mqtt.session.tab.connection': 'Соединение',
+  'workbench.editors.mqtt.session.tab.scripts': 'Скрипты',
+  'workbench.editors.mqtt.tab.scripts': 'Скрипты',
+  'workbench.editors.mqtt.timeline.script': '{hook} — {levels}',
+  'workbench.editors.mqtt.timeline.scriptFailed': '{hook} — ошибка: {error}',
+  'workbench.editors.mqtt.timeline.scriptDropped': '{hook} отбросил сообщение — {level}',
+  'workbench.editors.mqtt.timeline.scriptAttempt': 'попытка {attempt}',
+  'workbench.editors.mqtt.session.scripts.empty': 'В этом сеансе не выполнялся ни один скрипт.',
+  'workbench.editors.mqtt.session.scripts.console': 'Консоль',
+  'workbench.editors.mqtt.session.scripts.tests': 'Tests',
+  'workbench.editors.mqtt.session.scripts.consoleEmpty': 'В журнале пусто.',
+  'workbench.editors.mqtt.session.scripts.testsEmpty': 'Проверки не зарегистрированы.',
+  'workbench.editors.mqtt.session.scripts.attempt': 'попытка {attempt}',
+  'workbench.editors.mqtt.session.scripts.atMessage': 'событие {index}',
+  'workbench.editors.mqtt.session.scripts.tag': 'Скрипты · {count}',
+  'workbench.editors.mqtt.session.scripts.tagTitle': 'Скрипты сеанса',
+  'workbench.editors.mqtt.session.scripts.tagSummary':
+    'Хуки, выполненные в этом сеансе, и уровни, которые в них участвовали.',
+  'workbench.editors.mqtt.session.scripts.tagSummaryFailed':
+    'Хук завершился ошибкой — его последняя ошибка указана под ним.',
+  'workbench.editors.mqtt.session.scripts.runs': 'запусков: {count}',
+  'workbench.editors.mqtt.session.scripts.runsOne': '1 запуск',
+  'workbench.editors.mqtt.session.scripts.failed': 'с ошибкой: {count}',
+  'workbench.editors.mqtt.session.scripts.dropped': 'отброшено: {count}',
+  'workbench.editors.mqtt.session.scripts.marksCapped':
+    'Подробности по событиям перестали записываться после {count} запусков; хуки продолжают работать, и полные счётчики появятся, когда сеанс завершится.',
+  'workbench.editors.mqtt.session.duration': '{ms} ms',
+  'workbench.editors.mqtt.session.sendIdle': 'Подключитесь, чтобы публиковать сообщения.',
+  'workbench.editors.mqtt.session.sendFailed': 'Не удалось опубликовать сообщение',
+  'workbench.editors.mqtt.session.subscribeFailed': 'Не удалось изменить подписку',
+  'workbench.editors.mqtt.session.hostNotice': 'Работает через сокет браузера — {knobs} на этом хосте не действуют.',
+  'workbench.editors.mqtt.session.knobSslVerify': 'отключённая проверка SSL',
+  'workbench.editors.mqtt.session.disconnectedTag': 'Отключено',
+  'workbench.editors.mqtt.session.brokerDisconnectedTag': 'Отключено брокером',
+  'workbench.editors.mqtt.session.severedTag': 'Соединение оборвано',
+  'workbench.editors.mqtt.session.stoppedTag': 'Остановлено',
+  'workbench.editors.mqtt.session.connectFailedTag': 'Сбой подключения',
+  'workbench.editors.mqtt.session.abortedTag': 'Прервано',
+  'workbench.editors.mqtt.timeline.aborted': 'Соединение прервано',
+  'workbench.editors.mqtt.timeline.abortedDisconnected': 'Отключено от брокера',
+  'workbench.editors.mqtt.timeline.lost': 'Соединение потеряно',
+  'workbench.editors.mqtt.timeline.reconnecting': 'Попытка переподключения {attempt}',
+  'workbench.editors.mqtt.timeline.reconnected': 'Повторно подключено к брокеру',
+  'workbench.editors.mqtt.session.reconnectingBadge': 'Переподключение',
+  'workbench.editors.mqtt.session.reconnectRefusedTag': 'Переподключение отклонено',
+  'workbench.editors.mqtt.session.reconnectRefused': 'переподключение отклонено: {reason}',
+  'workbench.editors.mqtt.timeline.reconnectingAfter': 'Попытка переподключения {attempt} через {delay}',
+  'workbench.editors.mqtt.timeline.reconnectingNow': 'Попытка переподключения {attempt} сейчас',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedOne': 'одно неподтверждённое сообщение отброшено',
+  'workbench.editors.mqtt.timeline.reconnectedDroppedMany': 'неподтверждённых сообщений отброшено: {count}',
+  'workbench.editors.mqtt.session.reconnectExhaustedTag': 'Переподключение прекращено',
+  'workbench.editors.mqtt.session.reconnectExhausted': 'переподключение прекращено после {attempts}',
+  'workbench.editors.mqtt.session.reconnectExhaustedReason': 'переподключение прекращено после {attempts}: {reason}',
+  'workbench.editors.mqtt.session.reconnectAttemptsOne': 'одной попытки',
+  'workbench.editors.mqtt.session.reconnectAttemptsMany': 'попыток ({count})',
+  'workbench.editors.mqtt.session.cleanDisconnect': 'корректное отключение',
+  'workbench.editors.mqtt.session.brokerDisconnect': 'брокер отправил DISCONNECT: {reason}',
+  'workbench.editors.mqtt.session.brokerDisconnectBare': 'брокер отправил DISCONNECT',
+  'workbench.editors.mqtt.session.severed': 'соединение завершилось без DISCONNECT',
+  'workbench.editors.mqtt.session.connectionClientId': 'Client ID',
+  'workbench.editors.mqtt.session.connectionReason': 'Причина CONNACK',
+  'workbench.editors.mqtt.session.connectionSessionPresent': 'Session present',
+  'workbench.editors.mqtt.session.yes': 'Да',
+  'workbench.editors.mqtt.session.no': 'Нет',
+  'workbench.editors.mqtt.session.connectionNote':
+    'Факты CONNACK так, как ответил брокер — коды причин как есть, имена рядом с ними.',
+  // ── Message timeline ────────────────────────────────────────────────
+  'workbench.editors.mqtt.timeline.connecting': 'Подключение',
+  'workbench.editors.mqtt.timeline.connected': 'Подключено к брокеру',
+  'workbench.editors.mqtt.timeline.disconnected': 'Отключено',
+  'workbench.editors.mqtt.timeline.stopped': 'Остановлено',
+  'workbench.editors.mqtt.timeline.subscribed': 'Подписка на',
+  'workbench.editors.mqtt.timeline.unsubscribed': 'Отписка от',
+  'workbench.editors.mqtt.timeline.grantFailed': 'Отклонено, код {code}',
+  'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
+  'workbench.editors.mqtt.timeline.noMatches': 'Нет сообщений, соответствующих фильтру.',
+  'workbench.editors.mqtt.timeline.searchMessages': 'Поиск сообщений',
+  'workbench.editors.mqtt.timeline.messageCount': 'сообщений: {count}',
+  'workbench.editors.mqtt.timeline.dropped': 'старых сообщений выпало из захвата: {count}',
+  'workbench.editors.mqtt.timeline.topicFilterAll': 'Все топики',
+  'workbench.editors.mqtt.timeline.filterAll': 'Все',
+  'workbench.editors.mqtt.timeline.filterSent': 'Отправленные',
+  'workbench.editors.mqtt.timeline.filterReceived': 'Полученные',
+  'workbench.editors.mqtt.timeline.newestFirst': 'Сначала новые',
+  'workbench.editors.mqtt.timeline.oldestFirst': 'Сначала старые',
+  'workbench.editors.mqtt.timeline.sortOrder': 'Порядок сортировки',
+  'workbench.editors.mqtt.timeline.clearMessages': 'Очистить сообщения',
+  'workbench.editors.mqtt.timeline.trustCertificate': 'Доверять сертификату',
+  'workbench.editors.mqtt.timeline.newMessages': 'Новые сообщения',
+  'workbench.editors.mqtt.timeline.binaryMessage': 'Двоичная полезная нагрузка ({bytes} байт)',
+  'workbench.editors.mqtt.timeline.byteCount': '{bytes} B',
+  'workbench.editors.mqtt.timeline.retainedTag': 'Удержано',
+  'workbench.editors.mqtt.timeline.sentAria': 'Отправлено',
+  'workbench.editors.mqtt.timeline.receivedAria': 'Получено',
+  'workbench.editors.mqtt.toast.deletedOtherTab': 'Этот запрос MQTT был удалён в другой вкладке.',
+  'workbench.editors.mqtt.toast.updateFailed': 'Не удалось сохранить запрос MQTT',
+  'workbench.editors.mqtt.toast.updateFailedDetail': 'Не удалось сохранить запрос MQTT: {message}',
+  'workbench.editors.mqtt.session.saveResponse': 'Сохранить ответ',
+  'workbench.editors.mqtt.toast.savedExample': 'Пример {name} сохранён',
+  'workbench.editors.mqtt.toast.saveExampleFailed': 'Не удалось сохранить пример',
+  'workbench.editors.mqtt.toast.saveExampleFailedDetail': 'Не удалось сохранить пример: {message}',
+  // ── Response example viewer ─────────────────────────────────────────
+  'workbench.editors.mqttExample.loading': 'Загрузка примера…',
+  'workbench.editors.mqttExample.notFound': 'Этого примера больше нет — возможно, он был удалён в другой вкладке.',
+  'workbench.editors.mqttExample.openInRequest': 'Открыть в запросе',
+  'workbench.editors.mqttExample.openInRequestTooltip':
+    'Открыть родительский запрос MQTT с этой захваченной формой как несохранёнными правками.',
+  'workbench.editors.mqttExample.capturedTooltip': 'Захвачено {date}',
+  'workbench.editors.mqttExample.toast.deletedOtherTab': 'Этот пример был удалён в другой вкладке.',
+  'workbench.editors.mqttExample.toast.saveFailed': 'Не удалось сохранить пример',
+  'workbench.editors.mqttExample.toast.saveFailedDetail': 'Не удалось сохранить пример: {message}',
+} as const satisfies Catalog;
