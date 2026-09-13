@@ -412,6 +412,7 @@ describe('toTelemetryLocale', () => {
     expect(toTelemetryLocale('pseudo')).toBe('other');
     expect(toTelemetryLocale('ja')).toBe('ja');
     expect(toTelemetryLocale('ko')).toBe('ko');
+    expect(toTelemetryLocale('ru')).toBe('ru');
     expect(toTelemetryLocale('pt-BR')).toBe('other');
     expect(toTelemetryLocale('')).toBe('other');
   });

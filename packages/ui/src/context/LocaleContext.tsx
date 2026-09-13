@@ -41,6 +41,7 @@ import esES from 'antd/locale/es_ES';
 import frFR from 'antd/locale/fr_FR';
 import jaJP from 'antd/locale/ja_JP';
 import koKR from 'antd/locale/ko_KR';
+import ruRU from 'antd/locale/ru_RU';
 import zhCN from 'antd/locale/zh_CN';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
@@ -65,6 +66,7 @@ const ANTD_LOCALES: Readonly<Record<string, AntdLocale>> = {
   fr: frFR,
   ja: jaJP,
   ko: koKR,
+  ru: ruRU,
   'zh-CN': zhCN,
   pseudo: enUS,
 };

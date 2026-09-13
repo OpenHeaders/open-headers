@@ -36,7 +36,7 @@ export const TelemetryBrowserKindSchema = v.picklist(['chrome', 'firefox', 'edge
  * list is pinned here and a vocabulary test keeps the two registries in
  * sync — growing it is a deliberate disclosure addition.
  */
-export const TelemetryLocaleSchema = v.picklist(['en', 'fr', 'es', 'de', 'zh-CN', 'ja', 'ko', 'other']);
+export const TelemetryLocaleSchema = v.picklist(['en', 'fr', 'es', 'de', 'zh-CN', 'ja', 'ko', 'ru', 'other']);
 
 /** Map a resolved app locale onto the vocabulary; unlisted codes (pseudo, future waves) read as `other`. */
 export function toTelemetryLocale(code: string): TelemetryLocale {
