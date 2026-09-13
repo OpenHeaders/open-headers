@@ -420,17 +420,17 @@ export const workbenchChrome = {
   'workbench.toolWindows.info.apiRequests.docsDesc': '요청에 대한 자유 형식 메모입니다. Markdown 문법을 지원합니다.',
   'workbench.toolWindows.info.apiRequests.paramsLabel': 'Params',
   'workbench.toolWindows.info.apiRequests.paramsDesc': '요청 URL 주소에 덧붙는 쿼리 매개변수입니다.',
-  'workbench.toolWindows.info.apiRequests.authorizationLabel': 'Authorization',
+  'workbench.toolWindows.info.apiRequests.authorizationLabel': '인가',
   'workbench.toolWindows.info.apiRequests.authorizationDesc':
     '상위에서 상속, Basic, Bearer Token, API Key 또는 OAuth 2.0 방식이며 보낼 때 적용됩니다.',
-  'workbench.toolWindows.info.apiRequests.headersLabel': 'Headers',
+  'workbench.toolWindows.info.apiRequests.headersLabel': '헤더',
   'workbench.toolWindows.info.apiRequests.headersDesc': '요청 헤더이며, 변수 참조는 보낼 때 해석됩니다.',
-  'workbench.toolWindows.info.apiRequests.bodyLabel': 'Body',
+  'workbench.toolWindows.info.apiRequests.bodyLabel': '본문',
   'workbench.toolWindows.info.apiRequests.bodyDesc':
     'Form data, URL 인코딩, raw (Text, JavaScript, JSON, HTML, XML) 또는 GraphQL 형식입니다.',
-  'workbench.toolWindows.info.apiRequests.scriptsLabel': 'Scripts',
+  'workbench.toolWindows.info.apiRequests.scriptsLabel': '스크립트',
   'workbench.toolWindows.info.apiRequests.scriptsDesc': '요청 전 및 응답 후 JavaScript 훅입니다.',
-  'workbench.toolWindows.info.apiRequests.settingsLabel': 'Settings',
+  'workbench.toolWindows.info.apiRequests.settingsLabel': '설정',
   'workbench.toolWindows.info.apiRequests.settingsDesc': '요청별 동작입니다. SSL 검증, 리디렉션 등.',
   'workbench.toolWindows.info.trafficMonitor.summary':
     '통합 라이브 트래픽 보기입니다. 목록에서 소스를 고르세요: 연결된 브라우저 탭 (확장 프로그램이 트래픽을 라이브로 스트리밍) 또는 시스템 프록시 (이 컴퓨터에서 로컬 프록시 포트를 가리키는 모든 도구). 둘 다 DevTools 패널이 쓰는 것과 같은 네트워크 로그를 렌더링하며, 소스를 선택하기 전까지는 아무것도 스트리밍되지 않습니다. 저장된 세션은 세션 아래에 있습니다. 끝날 때 자동으로 이름이 붙고 정리되며, 클릭하면 탭으로 다시 재생됩니다.',

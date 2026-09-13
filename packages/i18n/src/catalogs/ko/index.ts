@@ -35,6 +35,13 @@ import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
+import { workbenchEditors } from './workbench-editors';
+import { workbenchEditorsGraphql } from './workbench-editors-graphql';
+import { workbenchEditorsGrpc } from './workbench-editors-grpc';
+import { workbenchEditorsMqtt } from './workbench-editors-mqtt';
+import { workbenchEditorsRule } from './workbench-editors-rule';
+import { workbenchEditorsSpec } from './workbench-editors-spec';
+import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
 import { workbenchScriptPackages } from './workbench-script-packages';
 import { workbenchTrustedRoots } from './workbench-trusted-roots';
 
@@ -69,6 +76,13 @@ export const ko: Catalog = {
   ...workbenchChrome,
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
+  ...workbenchEditors,
+  ...workbenchEditorsGraphql,
+  ...workbenchEditorsGrpc,
+  ...workbenchEditorsMqtt,
+  ...workbenchEditorsRule,
+  ...workbenchEditorsSpec,
+  ...workbenchEditorsWebsocket,
   ...workbenchScriptPackages,
   ...workbenchTrustedRoots,
 };
