@@ -20,14 +20,15 @@ describe('getCatalog', () => {
     // Real locales land file by file, so their catalogs may be a subset
     // of English (per-key fallback covers the rest); keys English does
     // not have are always a bug. Per-file key parity is enforced by
-    // scripts/lint-locales.mjs.
+    // scripts/lint-locales.mjs. The gate imports all eight locale
+    // catalogs cold, which outruns the default timeout on a CI runner.
     const sourceKeys = new Set(Object.keys(en));
     for (const def of LOCALES) {
       await loadCatalog(def.code);
       const foreign = Object.keys(getCatalog(def.code)).filter((key) => !sourceKeys.has(key));
       expect(foreign, `catalog "${def.code}"`).toEqual([]);
     }
-  });
+  }, 30_000);
 });
 
 describe('loadCatalog', () => {

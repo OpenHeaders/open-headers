@@ -16,10 +16,10 @@
 import { type HostStorage, requireHostStorage, setHostStorage } from '@openheaders/core/storage';
 import { useBackendRegistryWrite } from '@openheaders/ui/workbench/settings/components/use-backend-registry-write';
 import { hostJoinsBackends } from '@openheaders/ui/workbench/settings/schema/backend';
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 function createHostStorageFake(): HostStorage {
   const map = new Map<string, unknown>();
@@ -58,6 +58,10 @@ function refuseWrites(): void {
 beforeEach(() => {
   setHostStorage(createHostStorageFake());
 });
+
+// The refusal tests leave an open antd notification; unmount it before
+// jsdom is torn down, or its close timer runs React with no `window`.
+afterEach(cleanup);
 
 describe('useBackendRegistryWrite', () => {
   it('passes a successful write through', async () => {
