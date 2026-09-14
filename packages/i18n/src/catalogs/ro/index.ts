@@ -35,6 +35,10 @@ import { workbench } from './workbench';
 import { workbenchChrome } from './workbench-chrome';
 import { workbenchChromeSidebar } from './workbench-chrome-sidebar';
 import { workbenchChromeWorkspace } from './workbench-chrome-workspace';
+import { workbenchDocs } from './workbench-docs';
+import { workbenchDocsDebugMode } from './workbench-docs-debug-mode';
+import { workbenchDocsSystemStatus } from './workbench-docs-system-status';
+import { workbenchDocsVariables } from './workbench-docs-variables';
 import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsGraphql } from './workbench-editors-graphql';
 import { workbenchEditorsGrpc } from './workbench-editors-grpc';
@@ -81,6 +85,10 @@ export const ro: Catalog = {
   ...workbenchChrome,
   ...workbenchChromeSidebar,
   ...workbenchChromeWorkspace,
+  ...workbenchDocs,
+  ...workbenchDocsDebugMode,
+  ...workbenchDocsSystemStatus,
+  ...workbenchDocsVariables,
   ...workbenchEditors,
   ...workbenchEditorsGraphql,
   ...workbenchEditorsGrpc,
