@@ -37,9 +37,13 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.serverHint': 'Build, Version und Release Notes',
 
   // ── Release-notes card ─────────────────────────────────────────────
+  'workbench.serverAdmin.build.sectionTitle': 'Build',
+  'workbench.serverAdmin.build.sectionHint': 'Der Server-Build, den diese Konsole verwaltet.',
+  'workbench.serverAdmin.build.versionLabel': 'Version',
+  'workbench.serverAdmin.build.versionUnknown': 'Unbekannt',
   'workbench.serverAdmin.notes.sectionTitle': 'Versionshinweise',
   'workbench.serverAdmin.notes.sectionHint': 'Was im Server-Build enthalten ist, das diese Konsole verwaltet.',
-  'workbench.serverAdmin.notes.versionLine': 'Server {version}',
+  'workbench.serverAdmin.notes.empty': 'Dieser Build enthält keine Versionshinweise.',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Benutzer',

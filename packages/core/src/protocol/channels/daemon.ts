@@ -61,7 +61,8 @@ export interface DaemonRpc {
    * build (the changelog plan §4.3), served here so the admin console
    * renders them without the browser ever dialing the feed. `notes`
    * null = entry-less build (entry-existence law) or a host that
-   * embeds none (the desktop); the card hides either way.
+   * embeds none (the desktop); the admin console then shows the
+   * version alone over an empty release-notes card.
    */
   'oh.daemon.changelog.get': {
     req: Record<string, never>;

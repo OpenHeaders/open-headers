@@ -37,9 +37,13 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.serverHint': '构建、版本与更新日志',
 
   // ── Release-notes card ─────────────────────────────────────────────
+  'workbench.serverAdmin.build.sectionTitle': '构建',
+  'workbench.serverAdmin.build.sectionHint': '此控制台所管理的服务器构建版本。',
+  'workbench.serverAdmin.build.versionLabel': '版本',
+  'workbench.serverAdmin.build.versionUnknown': '未知',
   'workbench.serverAdmin.notes.sectionTitle': '版本说明',
   'workbench.serverAdmin.notes.sectionHint': '此控制台所管理服务器构建版本的更新内容。',
-  'workbench.serverAdmin.notes.versionLine': '服务器 {version}',
+  'workbench.serverAdmin.notes.empty': '此构建版本未附带版本说明。',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': '用户',

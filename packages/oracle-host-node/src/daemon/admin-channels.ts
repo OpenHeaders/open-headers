@@ -69,7 +69,8 @@ export interface AdminChannelDeps {
    * This build's own release notes (`oh.daemon.changelog.get`): the
    * running server version and the `changelog/daemon` entry body the
    * daemon host embedded at build (the changelog plan §4.3) — null
-   * notes = entry-less build, the admin card hides. Optional so
+   * notes = entry-less build, the admin console shows an empty
+   * release-notes card under the version. Optional so
    * dispatch tables composed without it (the desktop host, test rigs)
    * answer an honest nothing instead of failing construction.
    */
@@ -205,7 +206,7 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
 
   // This build's own release notes — served rather than fetched (the
   // browser never dials the feed, the changelog plan §4.3). Null notes
-  // (entry-less build, or a host that embeds none) hide the card.
+  // (entry-less build, or a host that embeds none) empty the notes card.
   handlers.set('oh.daemon.changelog.get', () => ({
     version: deps.changelog?.version ?? null,
     notes: deps.changelog?.notes ?? null,

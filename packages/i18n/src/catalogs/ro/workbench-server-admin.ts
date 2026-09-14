@@ -55,10 +55,14 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.serverHint': 'Build, versiune și note de lansare',
 
   // ── Release-notes card ─────────────────────────────────────────────
+  'workbench.serverAdmin.build.sectionTitle': 'Build',
+  'workbench.serverAdmin.build.sectionHint': 'Build-ul serverului pe care îl administrează această consolă.',
+  'workbench.serverAdmin.build.versionLabel': 'Versiune',
+  'workbench.serverAdmin.build.versionUnknown': 'Necunoscută',
   'workbench.serverAdmin.notes.sectionTitle': 'Note de lansare',
   'workbench.serverAdmin.notes.sectionHint':
     'Ce a fost livrat în build-ul de server pe care îl administrează această consolă.',
-  'workbench.serverAdmin.notes.versionLine': 'Server {version}',
+  'workbench.serverAdmin.notes.empty': 'Acest build nu include note de lansare.',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Utilizatori',

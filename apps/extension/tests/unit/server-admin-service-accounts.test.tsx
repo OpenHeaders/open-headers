@@ -42,7 +42,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
 vi.mock('@openheaders/ui/workbench/settings/components/backend-tokens-section', () => ({ default: () => null }));
 vi.mock('@openheaders/ui/workbench/settings/components/git/git-workspace-card', () => ({ default: () => null }));
 vi.mock('@openheaders/ui/workbench/components/server-admin/ServerAuditReports', () => ({ default: () => null }));
-vi.mock('@openheaders/ui/workbench/components/server-admin/ServerReleaseNotesCard', () => ({ default: () => null }));
+vi.mock('@openheaders/ui/workbench/components/server-admin/ServerBuildSection', () => ({ default: () => null }));
 
 function directoryUser(overrides: Record<string, unknown>): Record<string, unknown> {
   return {

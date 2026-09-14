@@ -5,11 +5,9 @@
  * only; the server re-gates every call as the caller per frame, so a
  * revoked admin sees in-band errors here, never a bypass.
  *
- * The Devices and Server domains mount their self-contained components
- * directly (`BackendTokensSection` polls its own ledger,
- * `ServerReleaseNotesCard` reads the served build's entry); Users, Git
- * and Audit have their own section components on the shared directory
- * spine.
+ * The Devices domain mounts the self-contained `BackendTokensSection`
+ * (it polls its own ledger); Users, Git, Audit and Server have their
+ * own section components on the shared directory spine.
  */
 
 import { Empty, Spin } from 'antd';
@@ -20,7 +18,7 @@ import type { ServerAdminSection } from './sections';
 import ServerAdminAuditSection from './ServerAdminAuditSection';
 import ServerAdminGitSection from './ServerAdminGitSection';
 import ServerAdminUsersSection from './ServerAdminUsersSection';
-import ServerReleaseNotesCard from './ServerReleaseNotesCard';
+import ServerBuildSection from './ServerBuildSection';
 import { type ServerAdminStatus, useServerAdminStatus } from './use-server-admin-status';
 
 const SECTION_BODIES: Record<ServerAdminSection, React.FC> = {
@@ -28,7 +26,7 @@ const SECTION_BODIES: Record<ServerAdminSection, React.FC> = {
   devices: BackendTokensSection,
   git: ServerAdminGitSection,
   audit: ServerAdminAuditSection,
-  server: ServerReleaseNotesCard,
+  server: ServerBuildSection,
 };
 
 const ServerAdminTab: React.FC<{ section: ServerAdminSection }> = ({ section }) => {

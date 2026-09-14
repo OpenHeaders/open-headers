@@ -52,9 +52,13 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.serverHint': 'Сборка, версия и примечания к выпуску',
 
   // ── Release-notes card ─────────────────────────────────────────────
+  'workbench.serverAdmin.build.sectionTitle': 'Сборка',
+  'workbench.serverAdmin.build.sectionHint': 'Сборка сервера, которой управляет эта консоль.',
+  'workbench.serverAdmin.build.versionLabel': 'Версия',
+  'workbench.serverAdmin.build.versionUnknown': 'Неизвестно',
   'workbench.serverAdmin.notes.sectionTitle': 'Примечания к выпуску',
   'workbench.serverAdmin.notes.sectionHint': 'Что вошло в сборку сервера, которым управляет эта консоль.',
-  'workbench.serverAdmin.notes.versionLine': 'Сервер {version}',
+  'workbench.serverAdmin.notes.empty': 'В этой сборке нет примечаний к выпуску.',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Пользователи',

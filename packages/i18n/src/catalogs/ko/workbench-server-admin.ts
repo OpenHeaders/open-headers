@@ -43,9 +43,13 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.serverHint': '빌드, 버전, 릴리스 노트',
 
   // ── Release-notes card ─────────────────────────────────────────────
+  'workbench.serverAdmin.build.sectionTitle': '빌드',
+  'workbench.serverAdmin.build.sectionHint': '이 콘솔이 관리하는 서버 빌드.',
+  'workbench.serverAdmin.build.versionLabel': '버전',
+  'workbench.serverAdmin.build.versionUnknown': '알 수 없음',
   'workbench.serverAdmin.notes.sectionTitle': '릴리스 노트',
   'workbench.serverAdmin.notes.sectionHint': '이 콘솔이 관리하는 서버 빌드에 무엇이 실렸는지.',
-  'workbench.serverAdmin.notes.versionLine': '서버 {version}',
+  'workbench.serverAdmin.notes.empty': '이 빌드에는 릴리스 노트가 없습니다.',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': '사용자',
