@@ -413,6 +413,7 @@ describe('toTelemetryLocale', () => {
     expect(toTelemetryLocale('ja')).toBe('ja');
     expect(toTelemetryLocale('ko')).toBe('ko');
     expect(toTelemetryLocale('ru')).toBe('ru');
+    expect(toTelemetryLocale('ro')).toBe('ro');
     expect(toTelemetryLocale('pt-BR')).toBe('other');
     expect(toTelemetryLocale('')).toBe('other');
   });
