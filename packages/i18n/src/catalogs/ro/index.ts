@@ -10,7 +10,9 @@ import { extension } from './extension';
 import { panel } from './panel';
 import { panelConsole } from './panel-console';
 import { panelDocs } from './panel-docs';
+import { panelNetwork } from './panel-network';
 import { panelQuickEditor } from './panel-quick-editor';
+import { panelStorage } from './panel-storage';
 import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
@@ -30,7 +32,9 @@ export const ro: Catalog = {
   ...panel,
   ...panelConsole,
   ...panelDocs,
+  ...panelNetwork,
   ...panelQuickEditor,
+  ...panelStorage,
   ...popup,
   ...shared,
   ...sharedAwareness,
