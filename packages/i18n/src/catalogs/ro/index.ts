@@ -7,6 +7,11 @@
 import type { Catalog } from '../../types';
 import { desktop } from './desktop';
 import { extension } from './extension';
+import { panel } from './panel';
+import { panelConsole } from './panel-console';
+import { panelDocs } from './panel-docs';
+import { panelQuickEditor } from './panel-quick-editor';
+import { popup } from './popup';
 import { shared } from './shared';
 import { sharedAwareness } from './shared-awareness';
 import { sharedComponents } from './shared-components';
@@ -22,6 +27,11 @@ import { workbenchTrustedRoots } from './workbench-trusted-roots';
 export const ro: Catalog = {
   ...desktop,
   ...extension,
+  ...panel,
+  ...panelConsole,
+  ...panelDocs,
+  ...panelQuickEditor,
+  ...popup,
   ...shared,
   ...sharedAwareness,
   ...sharedComponents,
