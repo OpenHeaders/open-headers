@@ -45,6 +45,7 @@ import { workbenchEditors } from './workbench-editors';
 import { workbenchEditorsGraphql } from './workbench-editors-graphql';
 import { workbenchEditorsGrpc } from './workbench-editors-grpc';
 import { workbenchEditorsMqtt } from './workbench-editors-mqtt';
+import { workbenchEditorsRequest } from './workbench-editors-request';
 import { workbenchEditorsRule } from './workbench-editors-rule';
 import { workbenchEditorsSpec } from './workbench-editors-spec';
 import { workbenchEditorsWebsocket } from './workbench-editors-websocket';
@@ -101,6 +102,7 @@ export const ru: Catalog = {
   ...workbenchEditorsGraphql,
   ...workbenchEditorsGrpc,
   ...workbenchEditorsMqtt,
+  ...workbenchEditorsRequest,
   ...workbenchEditorsRule,
   ...workbenchEditorsSpec,
   ...workbenchEditorsWebsocket,
