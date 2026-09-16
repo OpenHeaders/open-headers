@@ -105,6 +105,24 @@ function settingsTabTone(knobs: KnobValues, unsaved: SettingsKnobKey[]): 'none' 
   return container.querySelector('span[style*="border-radius: 50%"]') ? 'default' : 'none';
 }
 
+describe('SettingsTab on a browser runtime with the knobs of a delegated node place', () => {
+  it('unlocks the node knobs while the managed sheet and the cookie rows stay the context\'s', () => {
+    render(<SettingsTab value={{}} onChange={() => {}} knobsRuntime="node" />);
+    expect(screen.getByTestId('oh-http-version-select')).toBeTruthy();
+    expect(screen.getByText('Response size limit')).toBeTruthy();
+    expect(screen.getByText('Send browser cookies')).toBeTruthy();
+    expect(screen.queryByText('Cookie jar')).toBeNull();
+    expect(screen.getByText('11 browser-managed')).toBeTruthy();
+  });
+
+  it('the execution place knob renders on every runtime, cleared as Automatic', () => {
+    renderTab();
+    const select = screen.getByTestId('oh-execution-place-select');
+    expect(select).toBeTruthy();
+    expect(select.textContent).toContain('Automatic');
+  });
+});
+
 describe('SettingsTab on a browser runtime (capability absent)', () => {
   it('shows both wired knobs and the browser-managed sheet', () => {
     renderTab();

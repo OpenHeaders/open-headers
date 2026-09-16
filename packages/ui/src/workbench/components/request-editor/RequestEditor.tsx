@@ -688,6 +688,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     kind: 'http',
     preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
   });
+  // A delegated send's socket opens on a node place — its knobs are
+  // live on the Settings tab (the sheet and the cookie rows stay ours).
+  const delegatedKnobs = executionPlace.state === 'ready' && executionPlace.reason.kind === 'delegated';
 
   const handleSend = useCallback(async () => {
     if (sending) return;
@@ -1042,6 +1045,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         ancestorScripts={ancestorScripts}
                         onOpenContainerScripts={onOpenContainerScripts}
                         inheritedSettings={inheritedSettings}
+                        {...(delegatedKnobs ? { knobsRuntime: 'node' as const } : {})}
                         requestName={summary?.name}
                       />
                     </div>

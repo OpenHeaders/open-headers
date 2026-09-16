@@ -775,6 +775,9 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                         scope="request"
                         workspaceId={workspaceId}
                         inherited={inheritedSettings}
+                        {...(queryPlace.state === 'ready' && queryPlace.reason.kind === 'delegated'
+                          ? { knobsRuntime: 'node' as const }
+                          : {})}
                         value={graphqlSettingsSlice(draft)}
                         onChange={(next) => setDraft((d) => withSettings(d, next))}
                       />

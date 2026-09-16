@@ -966,6 +966,10 @@ async function executeDelegated(input: {
     wire: delegatedWireFor(place.backendId),
     workspaceId: place.workspaceId,
   });
+  // The node-only knobs and the vault material the resolver carried
+  // for this place (`ResolvedRequest.delegated`) ride the seam one for
+  // one — the place applies what the browser socket never could.
+  const { trustAnchorCounts, maxResponseBytes, ...knobs } = req.delegated ?? {};
   const request: TransportRequest = {
     method: req.method,
     url: req.url,
@@ -973,9 +977,22 @@ async function executeDelegated(input: {
     body: input.body,
     redirect: req.followRedirects === false ? 'manual' : 'follow',
     credentials: req.credentialsMode,
-    maxBodyBytes: maxBodyBytes(),
+    ...knobs,
+    maxBodyBytes: maxResponseBytes ?? maxBodyBytes(),
     ...(req.timeoutMs !== undefined ? { timeoutMs: req.timeoutMs } : {}),
     captureNetwork: true,
+  };
+  // Trust-relaxing knobs and the trust list in force are stamped on
+  // the snapshot — attribution of what the send did, never a live read.
+  const trustMarkers = {
+    ...(request.sslVerification === false ? { sslVerificationDisabled: true } : {}),
+    ...(request.tlsMinVersion === '1.0' || request.tlsMinVersion === '1.1' ? { tlsFloorLowered: true } : {}),
+    ...(trustAnchorCounts !== undefined && trustAnchorCounts.workspace > 0
+      ? { trustedRootsApplied: trustAnchorCounts.workspace }
+      : {}),
+    ...(trustAnchorCounts !== undefined && trustAnchorCounts.device > 0
+      ? { deviceTrustApplied: trustAnchorCounts.device }
+      : {}),
   };
   // Stop only — the deadline rides inside the frame and the place
   // enforces it, answering the partial body exactly as it would its own.
@@ -1038,6 +1055,7 @@ async function executeDelegated(input: {
       ...(response.authorizationForwarded ? { authorizationForwarded: true } : {}),
       ...(streamedCapture !== undefined ? { streamedCapture } : {}),
       ...(response.executedOn !== undefined ? { executedOn: response.executedOn } : {}),
+      ...trustMarkers,
       requestSize: input.requestSize,
       error: null,
       scripts: null,
@@ -1079,6 +1097,7 @@ async function executeDelegated(input: {
       bodyBytes: 0,
       durationMs,
       requestSize: input.requestSize,
+      ...trustMarkers,
       error: message,
       ...(hint !== undefined ? { errorHint: hint } : {}),
       ...(executedOn !== undefined ? { executedOn } : {}),

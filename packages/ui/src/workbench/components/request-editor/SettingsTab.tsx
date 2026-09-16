@@ -300,6 +300,12 @@ interface SettingsTabProps {
    *  dirty salmon, outranking the blue non-default tone. Omitted = no
    *  baseline, every dot keeps its blue non-default meaning. */
   unsaved?: ReadonlySet<string>;
+  /** The runtime whose KNOBS this tab unlocks — `node` when the send is
+   *  delegated to a place that applies them (the Execution Place plan:
+   *  the socket opens there, so its knobs are live), else this host's
+   *  own. The managed fact sheet and the cookie rows stay the CONTEXT's
+   *  — scripts run here, the jar is this surface's. */
+  knobsRuntime?: RequestRuntimeKind;
   /** `request` (default): the request's own tab, with the per-workspace
    *  script-mode chooser, the cookie jar's contents and the runtime-
    *  managed sheet. `container`: a collection's / folder's HTTP rows —
@@ -495,10 +501,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   unsaved = NO_UNSAVED_SETTINGS,
   scope = 'request',
   inherited,
+  knobsRuntime,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const runtime: RequestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const knobRuntime: RequestRuntimeKind = knobsRuntime ?? runtime;
   const container = scope === 'container';
   const rows = inheritedRowsFor(inherited);
   // On the ancestor plane explicit wins: any own value is the row's
@@ -624,7 +632,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
-        {runtime === 'node' && (
+        {knobRuntime === 'node' && (
           <>
             <GroupSection
               label={t('workbench.editors.request.settings.group.connection')}
@@ -730,7 +738,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           info={settingsRowInfo(t, 'followRedirects')}
           note={follow.note}
         />
-        {runtime === 'node' && follow.checked && (
+        {knobRuntime === 'node' && follow.checked && (
           <>
             <ComboKnobRow
               label={t('workbench.editors.request.settings.maxRedirects')}
@@ -873,7 +881,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           )}
           unsaved={unsaved.has('timeoutMs')}
         />
-        {runtime === 'node' && (
+        {knobRuntime === 'node' && (
           <ComboKnobRow
             label={t('workbench.editors.request.settings.responseSizeLimit')}
             value={value.maxResponseBytes}

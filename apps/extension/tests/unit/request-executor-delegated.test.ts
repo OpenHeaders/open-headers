@@ -40,12 +40,22 @@ vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
 
 Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true, writable: true });
 
+const VAULT: Vault = {
+  schemaVersion: 5,
+  secrets: [
+    { uid: 'v1', kind: 'client-certificate', name: 'mtls', cert: 'CERT-PEM', key: 'KEY-PEM' },
+    { uid: 'v2', kind: 'string', name: 'proxy-cred', value: 'user:secret' },
+  ],
+};
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getEnvironments: vi.fn(() => [] as Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
   getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as WorkspaceVariables),
-  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
+  getVault: vi.fn(() => VAULT),
+}));
+vi.mock('@openheaders/oracle/live/trust-anchors', () => ({
+  getTrustAnchorsForSend: () => ({ pems: ['ROOT-PEM'], workspace: 1, device: 0 }),
 }));
 vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: vi.fn(() => null),
@@ -209,6 +219,63 @@ describe('delegated send — the frame', () => {
         { kind: 'file', name: 'doc', filename: 'a.bin', mimeType: 'application/octet-stream', bytesBase64: 'AQID' },
       ],
     });
+  });
+});
+
+describe('delegated send — the node-only knobs', () => {
+  it('carries the effective node knobs, the vault material and the trust list, and stamps the trust markers', async () => {
+    h.wsRequest.mockResolvedValue({ success: true, response: RESPONSE, executedOn: EXECUTED_ON });
+    const snap = await executeRequestDraft(
+      makeRequest({
+        sslVerification: false,
+        tlsMinVersion: '1.1',
+        sniServerName: 'edge.openheaders.io',
+        httpVersion: '2',
+        clientCertificateRef: 'mtls',
+        proxyMode: 'url',
+        proxyUrl: 'http://proxy.openheaders.io:8080',
+        proxyCredentialRef: 'proxy-cred',
+        maxResponseBytes: 4096,
+        maxRedirects: 3,
+        followAuthorizationHeader: true,
+      }),
+      PLACE,
+    );
+    const request = sentFrames('delegateRequest')[0].frame.request;
+    expect(request).toMatchObject({
+      sslVerification: false,
+      tlsMinVersion: '1.1',
+      sniServerName: 'edge.openheaders.io',
+      httpVersion: '2',
+      trustedRootsPem: ['ROOT-PEM'],
+      clientCertificateRef: 'mtls',
+      clientCertificatePem: 'CERT-PEM',
+      clientCertificateKeyPem: 'KEY-PEM',
+      proxyMode: 'url',
+      proxyUrl: 'http://proxy.openheaders.io:8080',
+      proxyCredentialRef: 'proxy-cred',
+      proxyCredential: 'user:secret',
+      maxBodyBytes: 4096,
+      maxRedirects: 3,
+      followAuthorizationHeader: true,
+    });
+    expect(request).not.toHaveProperty('trustAnchorCounts');
+    expect(snap.sslVerificationDisabled).toBe(true);
+    expect(snap.tlsFloorLowered).toBe(true);
+    expect(snap.trustedRootsApplied).toBe(1);
+    expect(snap.deviceTrustApplied).toBeUndefined();
+  });
+
+  it('a send without node knobs carries none and the body cap is the app-wide one', async () => {
+    h.wsRequest.mockResolvedValue({ success: true, response: RESPONSE, executedOn: EXECUTED_ON });
+    const snap = await executeRequestDraft(makeRequest(), PLACE);
+    const request = sentFrames('delegateRequest')[0].frame.request as Record<string, unknown>;
+    expect(request.sslVerification).toBeUndefined();
+    expect(request.clientCertificateRef).toBeUndefined();
+    expect(request.trustedRootsPem).toEqual(['ROOT-PEM']);
+    expect(request.maxBodyBytes).toBe(2 * 1024 * 1024);
+    expect(snap.sslVerificationDisabled).toBeUndefined();
+    expect(snap.trustedRootsApplied).toBe(1);
   });
 });
 

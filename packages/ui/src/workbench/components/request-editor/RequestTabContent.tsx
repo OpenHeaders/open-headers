@@ -5,6 +5,7 @@
  */
 
 import type { Collection } from '@openheaders/core/types';
+import type { RequestRuntimeKind } from '@openheaders/core/capabilities';
 import type React from 'react';
 import type { AncestorScriptLevels, RequestAncestry } from '../request-container/ancestry';
 import { scriptSlotFlagsOf, scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
@@ -67,6 +68,10 @@ interface RequestTabContentProps {
   /** The ancestor plane for the Settings tab — the chain's knobs as
    *  the rows' placeholders, with their source line and opener. */
   inheritedSettings?: InheritedSettingsView;
+  /** The runtime whose knobs the Settings tab unlocks — `node` when the
+   *  send is delegated to a place that applies them (the Execution
+   *  Place plan); absent = this host's own runtime. */
+  knobsRuntime?: RequestRuntimeKind;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -88,6 +93,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   ancestorScripts,
   onOpenContainerScripts,
   inheritedSettings,
+  knobsRuntime,
 }) => {
   switch (tab) {
     case 'docs':
@@ -182,8 +188,10 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
               maxRedirects: next.maxRedirects,
               followOriginalHttpMethod: next.followOriginalHttpMethod,
               followAuthorizationHeader: next.followAuthorizationHeader,
+              executionPlace: next.executionPlace,
             }))
           }
+          {...(knobsRuntime !== undefined ? { knobsRuntime } : {})}
         />
       );
   }

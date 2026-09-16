@@ -15,22 +15,31 @@ import type {
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
 import type { OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
+import type { KindSettings } from '@openheaders/core/settings-inheritance';
 import type {
   CredentialsMode,
   ExecutedAuthAttribution,
   HttpMethod,
+  HttpVersion,
   InheritedSettingSource,
+  ProxyMode,
   Request,
   RequestBody,
+  TlsVersion,
+  Vault,
   VaultSecretTotp,
 } from '@openheaders/core/types';
 import { isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
+import { resolveProxyCredential } from '@openheaders/oracle/live/dial-policy';
 import {
   collectionUidForRequest,
   resolveRequestAuth,
   resolveRequestSettings,
 } from '@openheaders/oracle/live/request-exec/ancestor-chain';
+import { resolveClientCertificate } from '@openheaders/oracle/live/tls-policy';
+import { getTrustAnchorsForSend } from '@openheaders/oracle/live/trust-anchors';
+import { getActiveWorkspaceId } from '../workspace/workspace-store';
 import type { ExecuteRequestOptions } from './api';
 import { applyAuth } from './auth';
 import { buildResolvedBody, defaultContentType } from './body';
@@ -141,7 +150,83 @@ export interface ResolvedRequest {
    *  every knob was the request's own or the runtime default. Twin of
    *  the oracle's carry. */
   inheritedSettings?: InheritedSettingSource[];
+  /**
+   * The node-only knobs and the vault material a DELEGATED send
+   * carries to the place that opens its socket (the Execution Place
+   * plan: the context resolves, the place applies). Resolved only when
+   * the send names a place — the browser's own socket cannot apply
+   * them and the certificate and proxy secrets stay out of memory
+   * otherwise. The oracle resolver's own carry, one for one.
+   */
+  delegated?: DelegatedKnobs;
   // auth folds into `url` + `headers`; params ride structured to the wire.
+}
+
+/** The seam knobs a node place applies — see {@link ResolvedRequest.delegated}. */
+export interface DelegatedKnobs {
+  sslVerification?: boolean;
+  tlsMinVersion?: TlsVersion;
+  tlsMaxVersion?: TlsVersion;
+  tlsCipherSuites?: string;
+  sniServerName?: string;
+  trustedRootsPem?: string[];
+  trustAnchorCounts?: { workspace: number; device: number };
+  httpVersion?: HttpVersion;
+  resolveToAddress?: string;
+  clientCertificateRef?: string;
+  clientCertificatePem?: string;
+  clientCertificateKeyPem?: string;
+  clientCertificatePassphrase?: string;
+  proxyMode?: ProxyMode;
+  proxyUrl?: string;
+  proxyCredentialRef?: string;
+  proxyCredential?: string;
+  unixSocketPath?: string;
+  maxResponseBytes?: number;
+  maxRedirects?: number;
+  followOriginalHttpMethod?: boolean;
+  followAuthorizationHeader?: boolean;
+}
+
+/** The delegated carry off the effective settings and the local vault
+ *  — the SNI override is a template like the URL; the trust anchors
+ *  are the workspace's roots and this device's pins. */
+function delegatedKnobsOf(
+  settings: KindSettings<'http'>,
+  vault: Vault,
+  workspaceId: string,
+  resolveStr: (s: string) => string,
+): DelegatedKnobs {
+  const sniServerName = settings.sniServerName !== undefined ? resolveStr(settings.sniServerName).trim() : '';
+  const trustAnchors = getTrustAnchorsForSend(workspaceId);
+  return {
+    ...(settings.sslVerification !== undefined ? { sslVerification: settings.sslVerification } : {}),
+    ...(settings.tlsMinVersion !== undefined ? { tlsMinVersion: settings.tlsMinVersion } : {}),
+    ...(settings.tlsMaxVersion !== undefined ? { tlsMaxVersion: settings.tlsMaxVersion } : {}),
+    ...(settings.tlsCipherSuites !== undefined ? { tlsCipherSuites: settings.tlsCipherSuites } : {}),
+    ...(sniServerName !== '' ? { sniServerName } : {}),
+    ...(trustAnchors !== undefined
+      ? {
+          trustedRootsPem: trustAnchors.pems,
+          trustAnchorCounts: { workspace: trustAnchors.workspace, device: trustAnchors.device },
+        }
+      : {}),
+    ...(settings.httpVersion !== undefined ? { httpVersion: settings.httpVersion } : {}),
+    ...(settings.resolveToAddress !== undefined ? { resolveToAddress: settings.resolveToAddress } : {}),
+    ...resolveClientCertificate(settings.clientCertificateRef, vault),
+    ...(settings.proxyMode !== undefined ? { proxyMode: settings.proxyMode } : {}),
+    ...(settings.proxyUrl !== undefined ? { proxyUrl: settings.proxyUrl } : {}),
+    ...resolveProxyCredential(settings.proxyCredentialRef, vault),
+    ...(settings.unixSocketPath !== undefined ? { unixSocketPath: settings.unixSocketPath } : {}),
+    ...(settings.maxResponseBytes !== undefined ? { maxResponseBytes: settings.maxResponseBytes } : {}),
+    ...(settings.maxRedirects !== undefined ? { maxRedirects: settings.maxRedirects } : {}),
+    ...(settings.followOriginalHttpMethod !== undefined
+      ? { followOriginalHttpMethod: settings.followOriginalHttpMethod }
+      : {}),
+    ...(settings.followAuthorizationHeader !== undefined
+      ? { followAuthorizationHeader: settings.followAuthorizationHeader }
+      : {}),
+  };
 }
 
 /** Tagged error thrown from {@link resolveRequest} when any `{{ref}}`
@@ -429,6 +514,16 @@ export async function resolveRequest(
       ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
       ...(settingsAttribution !== undefined ? { inheritedSettings: settingsAttribution } : {}),
+      ...(options.executionPlace !== undefined
+        ? {
+            delegated: delegatedKnobsOf(
+              settings,
+              scope.vault,
+              options.workspaceId ?? getActiveWorkspaceId(),
+              resolveStr,
+            ),
+          }
+        : {}),
     },
     totpUsed: [...totpUsed.values()],
   };
