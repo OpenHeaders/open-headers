@@ -524,6 +524,21 @@ export interface TransportResponse {
    * least one cookie was stored.
    */
   cookiesCaptured?: string[];
+  /**
+   * Who opened the socket, when it was not this process — a
+   * DELEGATING transport (the Execution Place plan's second channel
+   * family) carries the answering host's stamp through the seam so
+   * the executor's snapshot attributes the egress honestly. Absent on
+   * every transport that dials from the executing process.
+   */
+  executedOn?: TransportExecutedOn;
+}
+
+/** The answering host's stamp — set by that host, never a live read. */
+export interface TransportExecutedOn {
+  kind: 'backend';
+  /** The executing machine's hostname label. */
+  name: string;
 }
 
 /**
@@ -542,10 +557,14 @@ export interface TransportResponse {
  *  (the SW classifies after the fact). */
 export class TransportError extends Error {
   readonly hint?: ExecutedRequestErrorHint;
-  constructor(message: string, hint?: ExecutedRequestErrorHint) {
+  /** Where the send failed when a delegating transport carried the
+   *  answering host's refusal — see {@link TransportResponse.executedOn}. */
+  readonly executedOn?: TransportExecutedOn;
+  constructor(message: string, hint?: ExecutedRequestErrorHint, executedOn?: TransportExecutedOn) {
     super(message);
     this.name = 'TransportError';
     if (hint !== undefined) this.hint = hint;
+    if (executedOn !== undefined) this.executedOn = executedOn;
   }
 }
 

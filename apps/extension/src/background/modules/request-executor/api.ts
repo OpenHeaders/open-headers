@@ -72,6 +72,15 @@ export interface ExecuteRequestOptions {
    * Chain/workflow fetches leave it unset.
    */
   sendId?: string;
+  /**
+   * The place this send's socket opens on when it is not this service
+   * worker — the resolved role's backend by EXPLICIT id (the Execution
+   * Place plan). Resolution, signing, scripts, the TOTP gate and the
+   * snapshot stay here (the context); only the round-trip rides the
+   * `delegateRequest` family to that backend. Chain/workflow fetches
+   * leave it unset.
+   */
+  executionPlace?: { backendId: string };
 }
 
 /** Resolve + execute a persisted request by uid. */
@@ -147,6 +156,14 @@ export async function executeRequestDraft(
   const wireResult = await executeResolved(finalResolved, {
     silentStatus: options.silentStatus,
     sendId: options.sendId,
+    ...(options.executionPlace !== undefined
+      ? {
+          place: {
+            backendId: options.executionPlace.backendId,
+            workspaceId: options.workspaceId ?? getActiveWorkspaceId(),
+          },
+        }
+      : {}),
   });
 
   // ── TOTP cooldown record ───────────────────────────────────────

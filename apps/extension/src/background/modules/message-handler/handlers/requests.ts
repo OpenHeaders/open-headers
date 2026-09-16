@@ -48,6 +48,7 @@ async function executeGraphqlRequestRpc(
   const environmentId =
     typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
+  const executionPlace = executionPlaceOf(message);
 
   let entity: GraphqlRequest | undefined;
   if (graphqlRequestUid) {
@@ -63,8 +64,16 @@ async function executeGraphqlRequestRpc(
   }
   if (!entity) return { success: false, error: 'No GraphQL request or draft provided' };
   const compiled = compileGraphqlRequest(entity, operationName !== undefined ? { operationName } : {});
-  const snapshot = await executeRequestDraft(compiled, { environmentId, sendId });
+  const snapshot = await executeRequestDraft(compiled, { environmentId, sendId, ...executionPlace });
   return { success: true, snapshot };
+}
+
+/** The frame's place, when it names one by an explicit backend id. */
+function executionPlaceOf(message: Record<string, unknown>): { executionPlace?: { backendId: string } } {
+  const place = message.executionPlace;
+  if (!place || typeof place !== 'object') return {};
+  const backendId = (place as { backendId?: unknown }).backendId;
+  return typeof backendId === 'string' && backendId !== '' ? { executionPlace: { backendId } } : {};
 }
 
 export const requestHandlers: HandlerMap = {
@@ -206,10 +215,11 @@ export const requestHandlers: HandlerMap = {
     const draft = message.draft as Request | undefined;
     const environmentId = message.environmentId as string | null | undefined;
     const sendId = message.sendId as string | undefined;
+    const executionPlace = executionPlaceOf(message);
     const exec = requestUid
-      ? executeRequest(requestUid, { environmentId, sendId })
+      ? executeRequest(requestUid, { environmentId, sendId, ...executionPlace })
       : draft
-        ? executeRequestDraft(draft, { environmentId, sendId })
+        ? executeRequestDraft(draft, { environmentId, sendId, ...executionPlace })
         : Promise.resolve(null);
     exec
       .then((snapshot) => {

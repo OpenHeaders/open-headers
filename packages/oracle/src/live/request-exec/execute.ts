@@ -445,6 +445,9 @@ export async function executeOverTransport(
       ...(response.cookieHeaderAttached !== undefined ? { cookieHeaderAttached: response.cookieHeaderAttached } : {}),
       ...(response.cookiesCaptured !== undefined ? { cookiesCaptured: response.cookiesCaptured } : {}),
       ...(streamedCapture !== undefined ? { streamedCapture } : {}),
+      // A delegating transport names the host that opened the socket —
+      // the egress the target saw belongs to that machine.
+      ...(response.executedOn !== undefined ? { executedOn: response.executedOn } : {}),
       error: null,
       scripts: null,
     };
@@ -470,9 +473,13 @@ export async function executeOverTransport(
     // A transport that classified a remedy hands it over verbatim — the
     // response surface turns it into the action (trust the certificate).
     const errorHint = err instanceof TransportError ? err.hint : undefined;
+    // Where the send failed is still the answering host, when one
+    // answered through a delegating transport.
+    const executedOn = err instanceof TransportError ? err.executedOn : undefined;
     return {
       ...errorSnapshot(message),
       ...(errorHint !== undefined ? { errorHint } : {}),
+      ...(executedOn !== undefined ? { executedOn } : {}),
       durationMs,
       ...(verificationOff ? { sslVerificationDisabled: true } : {}),
       ...(tlsFloorLowered ? { tlsFloorLowered: true } : {}),
@@ -496,7 +503,7 @@ export async function executeOverTransport(
  * rider. Buffered sends never stamp: without the streaming leg there is
  * no early end and no engagement.
  */
-function streamedCaptureOf(
+export function streamedCaptureOf(
   response: TransportResponse,
   stopped: boolean,
   liveEngaged: boolean,

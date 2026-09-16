@@ -27,13 +27,22 @@ import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/t
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
 import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
+import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
 import { dpopNonceFor, rememberDpopNonce } from '@openheaders/oracle/live/request-exec/dpop-nonces';
+import { streamedCaptureOf as streamedCaptureOfTransport } from '@openheaders/oracle/live/request-exec/execute';
+import {
+  type TransportBody,
+  TransportError,
+  type TransportMultipartPart,
+  type TransportRequest,
+} from '@openheaders/oracle/live/request-exec/transport';
 import { ensureScheme } from '@openheaders/ui/shared/fetch';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { base64ToBytes } from '@/shared/wire-fetch/plan';
+import { delegatedWireFor } from '../net/delegated-wire';
 import { recordLog } from '../observability-log';
 import { graphqlWireText } from './body';
 import { classifyFetchFailure } from './failure-classify';
@@ -92,9 +101,16 @@ function startExchangeControl(timeoutMs: number | undefined, sendId: string | un
   };
 }
 
+/** The place a delegated send's socket opens on — the resolved role's
+ *  backend by EXPLICIT id, and the workspace the place gates on. */
+export interface ExecutionPlaceLeg {
+  backendId: string;
+  workspaceId: string;
+}
+
 export async function executeResolved(
   req: ResolvedRequest,
-  options: { silentStatus?: boolean; sendId?: string } = {},
+  options: { silentStatus?: boolean; sendId?: string; place?: ExecutionPlaceLeg } = {},
 ): Promise<ExecutedRequestSnapshot> {
   const trimmed = req.url.trim();
   if (!trimmed) {
@@ -184,11 +200,18 @@ export async function executeResolved(
   // URLSearchParams (browser-set Content-Type); `multipart` produces
   // FormData (browser-set Content-Type with boundary); JSON / XML /
   // text / graphql produce raw strings using the resolved content.
+  // A delegated send's socket opens on a node place, which puts the
+  // same draft's body on the wire for every method — the omission is
+  // the browser's fact alone.
   const method = req.method.toUpperCase();
-  const requestBodyOmitted = (method === 'GET' || method === 'HEAD') && req.body.type !== 'none';
+  const requestBodyOmitted =
+    options.place === undefined && (method === 'GET' || method === 'HEAD') && req.body.type !== 'none';
   if (requestBodyOmitted) req = { ...req, body: { type: 'none' } };
   let bodyBytes = 0;
   let bodyApproximate = false;
+  // The seam's shape of the same body, kept beside the fetch init for
+  // the delegated leg — file parts stay blobs until that leg needs bytes.
+  let seamBody: SeamBody = { kind: 'none' };
   switch (req.body.type) {
     case 'none':
       break;
@@ -196,6 +219,7 @@ export async function executeResolved(
     case 'xml':
     case 'text':
       init.body = req.body.content;
+      seamBody = { kind: 'raw', content: req.body.content };
       bodyBytes = stringBodyBytes(req.body.content);
       break;
     case 'graphql': {
@@ -203,6 +227,7 @@ export async function executeResolved(
       // as application/json, shared with the offscreen wire-plan builder.
       const wireText = graphqlWireText(req.body.content, req.body.graphqlVariables, req.body.operationName);
       init.body = wireText;
+      seamBody = { kind: 'raw', content: wireText };
       bodyBytes = stringBodyBytes(wireText);
       break;
     }
@@ -211,11 +236,14 @@ export async function executeResolved(
       // entry becomes a URLSearchParams field. Disabled rows stay on
       // disk for later re-enable but are skipped on the wire.
       const params = new URLSearchParams();
+      const fields: Array<{ name: string; value: string }> = [];
       for (const p of req.body.formParts) {
         if (p.enabled === false) continue;
         params.append(p.key, p.value);
+        fields.push({ name: p.key, value: p.value });
       }
       init.body = params;
+      seamBody = { kind: 'urlencoded', fields };
       bodyBytes = stringBodyBytes(params.toString());
       break;
     }
@@ -226,6 +254,7 @@ export async function executeResolved(
       // snapshot so the user sees exactly what slipped through.
       const built = await buildMultipartForm(req.body.multipartParts);
       init.body = built.form;
+      seamBody = { kind: 'multipart', parts: built.parts };
       bodyBytes = built.bodyBytes;
       bodyApproximate = true;
       // IMPORTANT: clear any user-set `Content-Type: multipart/form-data`
@@ -435,6 +464,20 @@ export async function executeResolved(
     bodyBytes,
     ...(bodyApproximate ? { bodyApproximate: true } : {}),
   };
+
+  // The delegated leg: the final wire shape above — signed, folded —
+  // rides to the place; everything below is the browser's own socket.
+  if (options.place !== undefined) {
+    return executeDelegated({
+      req,
+      headers: fetchHeaders,
+      body: await seamBodyBytes(seamBody),
+      requestSize,
+      place: options.place,
+      ...(options.sendId !== undefined ? { sendId: options.sendId } : {}),
+      ...(options.silentStatus !== undefined ? { silentStatus: options.silentStatus } : {}),
+    });
+  }
 
   // Per-request timeout + interactive Stop — the abort surfaces below
   // with a message naming what fired, mirroring the node transport's
@@ -833,13 +876,17 @@ async function fetchPayloadHash(body: RequestInit['body']): Promise<string> {
  * A future dedicated Status-subsystem entry could surface this more
  * loudly once we have the UI affordance.
  */
-async function buildMultipartForm(parts: readonly MultipartPart[]): Promise<{ form: FormData; bodyBytes: number }> {
+async function buildMultipartForm(
+  parts: readonly MultipartPart[],
+): Promise<{ form: FormData; bodyBytes: number; parts: SeamMultipartPart[] }> {
   const form = new FormData();
   const fields: MultipartFieldSize[] = [];
+  const seamParts: SeamMultipartPart[] = [];
   for (const part of parts) {
     if (part.enabled === false) continue;
     if (part.kind === 'text') {
       form.append(part.name, part.value);
+      seamParts.push({ kind: 'text', name: part.name, value: part.value });
       fields.push({ name: part.name, payloadBytes: stringBodyBytes(part.value) });
       continue;
     }
@@ -857,10 +904,189 @@ async function buildMultipartForm(parts: readonly MultipartPart[]): Promise<{ fo
       // for generic blobs, which some servers treat as opaque).
       const typed = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
       form.append(part.name, typed, ref.filename);
+      seamParts.push({ kind: 'file', name: part.name, filename: ref.filename, mimeType, blob: typed });
       fields.push({ name: part.name, filename: ref.filename, mimeType, payloadBytes: typed.size });
     }
   }
-  return { form, bodyBytes: estimateMultipartBytes(fields) };
+  return { form, bodyBytes: estimateMultipartBytes(fields), parts: seamParts };
+}
+
+/** The seam's multipart part with the file still a blob — bytes are
+ *  read only when a delegated leg needs them, never for the browser's
+ *  own fetch (FormData takes the blob as is). */
+type SeamMultipartPart =
+  | { kind: 'text'; name: string; value: string }
+  | { kind: 'file'; name: string; filename: string; mimeType: string; blob: Blob };
+
+type SeamBody = Exclude<TransportBody, { kind: 'multipart' }> | { kind: 'multipart'; parts: SeamMultipartPart[] };
+
+async function seamBodyBytes(body: SeamBody): Promise<TransportBody> {
+  if (body.kind !== 'multipart') return body;
+  const parts: TransportMultipartPart[] = [];
+  for (const part of body.parts) {
+    parts.push(
+      part.kind === 'text'
+        ? part
+        : {
+            kind: 'file',
+            name: part.name,
+            filename: part.filename,
+            mimeType: part.mimeType,
+            bytes: new Uint8Array(await part.blob.arrayBuffer()),
+          },
+    );
+  }
+  return { kind: 'multipart', parts };
+}
+
+/**
+ * The delegated round-trip — the Execution Place plan's context side:
+ * the final wire shape (signed, folded, the body as bytes) rides the
+ * delegating transport to the place that opens the socket; the live
+ * frames the place streams back feed THIS surface's own emitter (the
+ * response panel tails the same `sendId`); a Stop forwards as the
+ * place's abort through the shared exchange control; the answer maps
+ * onto the snapshot with the node-side facts the place observed and
+ * `executedOn` naming who answered. The browser's own knobs stay on
+ * the browser: no resource timing, no webRequest wire capture, no
+ * offscreen certificate retry — the place's TLS stack is the one that
+ * dialed.
+ */
+async function executeDelegated(input: {
+  req: ResolvedRequest;
+  headers: Headers;
+  body: TransportBody;
+  requestSize: NonNullable<ExecutedRequestSnapshot['requestSize']>;
+  place: ExecutionPlaceLeg;
+  sendId?: string;
+  silentStatus?: boolean;
+}): Promise<ExecutedRequestSnapshot> {
+  const { req, place } = input;
+  const transport = createDelegatingRequestTransport({
+    wire: delegatedWireFor(place.backendId),
+    workspaceId: place.workspaceId,
+  });
+  const request: TransportRequest = {
+    method: req.method,
+    url: req.url,
+    headers: [...input.headers.entries()].map(([key, value]) => ({ key, value })),
+    body: input.body,
+    redirect: req.followRedirects === false ? 'manual' : 'follow',
+    credentials: req.credentialsMode,
+    maxBodyBytes: maxBodyBytes(),
+    ...(req.timeoutMs !== undefined ? { timeoutMs: req.timeoutMs } : {}),
+    captureNetwork: true,
+  };
+  // Stop only — the deadline rides inside the frame and the place
+  // enforces it, answering the partial body exactly as it would its own.
+  const exchange = startExchangeControl(undefined, input.sendId);
+  const emitter = input.sendId ? createStreamEmitter(input.sendId) : null;
+  const startedAt = performance.now();
+  let headArrived = false;
+  try {
+    const response = await transport.sendStreaming?.(
+      request,
+      {
+        onHead: (head) => {
+          headArrived = true;
+          emitter?.head({
+            status: head.status,
+            statusText: head.statusText,
+            url: head.url,
+            headers: [...head.headers],
+          });
+        },
+        onChunk: (bytes, totalBytes) => emitter?.chunk(bytes, totalBytes),
+      },
+      exchange?.signal,
+    );
+    if (response === undefined) throw new Error('The delegating transport has no streaming leg');
+    emitter?.done();
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (!input.silentStatus) {
+      reportStatus({
+        subsystem: 'requests',
+        state: 'green',
+        message: `Last request: ${response.status} ${response.statusText || 'OK'}`,
+      });
+    }
+    const streamedCapture = streamedCaptureOfTransport(
+      response,
+      exchange?.stopped() === true,
+      (emitter?.chunkFramesSent() ?? 0) > 0,
+    );
+    const capBytes = request.maxBodyBytes;
+    return {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url || req.url,
+      headers: [...response.headers],
+      ...(response.trailers !== undefined && response.trailers.length > 0 ? { trailers: [...response.trailers] } : {}),
+      ...(response.redirectChain !== undefined && response.redirectChain.length > 0
+        ? { redirectChain: [...response.redirectChain] }
+        : {}),
+      ...(response.phaseTimings !== undefined ? { phaseTimings: { ...response.phaseTimings } } : {}),
+      ...(response.network !== undefined ? { network: { ...response.network } } : {}),
+      ...(response.httpVersion !== undefined ? { httpVersion: response.httpVersion } : {}),
+      ...(response.proxyRoute !== undefined ? { proxyRoute: { ...response.proxyRoute } } : {}),
+      body: response.body,
+      ...(response.bodyEncoding ? { bodyEncoding: response.bodyEncoding } : {}),
+      bodyTruncated: response.bodyTruncated,
+      ...(response.bodyTruncated ? { bodyCapBytes: capBytes } : {}),
+      bodyBytes: response.bodyBytes,
+      durationMs,
+      ...(response.authorizationForwarded ? { authorizationForwarded: true } : {}),
+      ...(streamedCapture !== undefined ? { streamedCapture } : {}),
+      ...(response.executedOn !== undefined ? { executedOn: response.executedOn } : {}),
+      requestSize: input.requestSize,
+      error: null,
+      scripts: null,
+    };
+  } catch (err) {
+    if (headArrived) emitter?.done();
+    const durationMs = Math.round(performance.now() - startedAt);
+    const stoppedBeforeHead = exchange?.stopped() === true && !headArrived;
+    const message = stoppedBeforeHead
+      ? 'Request stopped before a response arrived.'
+      : err instanceof Error
+        ? err.message
+        : String(err);
+    const hint = err instanceof TransportError ? err.hint : undefined;
+    const executedOn = err instanceof TransportError ? err.executedOn : undefined;
+    logger.info('RequestExecutor', `delegated send failed for ${req.url}: ${message}`);
+    recordLog({
+      subsystem: 'request-executor',
+      op: 'delegate',
+      level: 'error',
+      message: `Delegated send to backend ${place.backendId} failed for ${req.url}: ${message}`,
+      context: { workspaceId: place.workspaceId, errorClass: err instanceof Error ? err.name : undefined },
+    });
+    if (!input.silentStatus) {
+      reportStatus({
+        subsystem: 'requests',
+        state: 'yellow',
+        message: `Last request failed: ${message}`,
+        context: { url: req.url, errorClass: err instanceof Error ? err.name : undefined },
+      });
+    }
+    return {
+      status: 0,
+      statusText: '',
+      url: req.url,
+      headers: [],
+      body: '',
+      bodyTruncated: false,
+      bodyBytes: 0,
+      durationMs,
+      requestSize: input.requestSize,
+      error: message,
+      ...(hint !== undefined ? { errorHint: hint } : {}),
+      ...(executedOn !== undefined ? { executedOn } : {}),
+      scripts: null,
+    };
+  } finally {
+    exchange?.clear();
+  }
 }
 
 export function errorSnapshot(message: string): ExecutedRequestSnapshot {

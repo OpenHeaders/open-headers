@@ -54,6 +54,11 @@ export interface CookieJarEntryWire {
  * `requestStreamEvent` broadcast as soon as the executing host sees it —
  * status and headers render before the body finishes (or ever ends).
  */
+/** A delegated send's target — the place's backend record, by id. */
+export interface ExecutionPlaceTarget {
+  backendId: string;
+}
+
 export interface RequestStreamHeadWire {
   status: number;
   statusText: string;
@@ -501,6 +506,17 @@ export interface RequestRpc {
        * it — the RPC contract is unchanged either way.
        */
       sendId?: string;
+      /**
+       * The PLACE this send's socket opens on, when it is not the
+       * executing host itself (the Execution Place plan): the resolved
+       * role's backend, by EXPLICIT id — never the default wire. The
+       * host still resolves, signs, runs scripts and builds the
+       * snapshot as the context; only the round-trip is delegated to
+       * that backend over the `delegateRequest` family, and the
+       * snapshot's `executedOn` names who answered. Omitted = the
+       * socket opens here.
+       */
+      executionPlace?: ExecutionPlaceTarget;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
   };
@@ -697,6 +713,8 @@ export interface RequestRpc {
       environmentId?: string | null;
       workspaceId?: string;
       sendId?: string;
+      /** The compiled HTTP send's place — `executeRequest`'s verbatim. */
+      executionPlace?: ExecutionPlaceTarget;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
   };
