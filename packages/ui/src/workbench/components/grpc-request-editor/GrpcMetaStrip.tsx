@@ -14,6 +14,7 @@ import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/inf
 import { Tag, theme } from 'antd';
 import type React from 'react';
 import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/response/AuthAttributionTag';
+import ExecutedOnTag, { type ExecutedOnStamp } from '../request-editor/response/ExecutedOnTag';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-editor/response/InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 
@@ -83,7 +84,11 @@ const GrpcMetaStrip: React.FC<{
    *  `ExecutedGrpcSnapshot.inheritedSettings`) — the shared attribution
    *  tag; examples omit it like the route. */
   inheritedSettings?: readonly InheritedSettingSource[];
-}> = ({ status, stopped, error, localStatus, connectionError, proxyRoute, auth, inheritedSettings }) => {
+  /** The host that answered the invoke on this surface's behalf (see
+   *  `ExecutedGrpcSnapshot.executedOn`) — the shared "Sent from" tag;
+   *  absent when the invoke ran on this surface's own host. */
+  executedOn?: ExecutedOnStamp;
+}> = ({ status, stopped, error, localStatus, connectionError, proxyRoute, auth, inheritedSettings, executedOn }) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
@@ -130,6 +135,7 @@ const GrpcMetaStrip: React.FC<{
       {proxyRouteHasBadge(proxyRoute) && <ProxyRouteTag route={proxyRoute} />}
       {authAttributionHasBadge(auth) && <AuthAttributionTag auth={auth} />}
       {inheritedSettingsHasBadge(inheritedSettings) && <InheritedSettingsTag kind="grpc" sources={inheritedSettings} />}
+      {executedOn !== undefined && <ExecutedOnTag executedOn={executedOn} />}
     </span>
   );
 };

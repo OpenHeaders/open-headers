@@ -24,6 +24,7 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { subjectCommonName } from '../../trusted-roots/add-gate';
 import { TRUSTED_ROOTS_SETTING_KEY } from '../../trusted-roots/TrustedRootsPicker';
 import AuthAttributionTag, { authAttributionHasBadge } from './AuthAttributionTag';
+import ExecutedOnTag from './ExecutedOnTag';
 import { GraphqlErrorsTag, GraphqlExtensionsTag } from './GraphqlResponseTags';
 import type { GraphqlResponseFacts } from './graphql-response';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from './InheritedSettingsTag';
@@ -688,18 +689,6 @@ function cookieJarContent(response: ExecutedRequestSnapshot, t: Translate): Info
   };
 }
 
-/** Popover for the neutral tag on a run a REMOTE host executed on this
- *  surface's behalf (a forwarded send answered by the connected
- *  back-end) — attribution of where the egress connection was actually
- *  made, stamped by the answering host at run time. */
-function executedOnContent(name: string, t: Translate): InfoPopoverContent {
-  return {
-    title: t('workbench.editors.request.response.meta.executedOnTitle'),
-    kicker: t('workbench.editors.request.response.meta.kicker'),
-    summary: t('workbench.editors.request.response.meta.executedOnSummary', { name }),
-  };
-}
-
 function networkContent(
   response: ExecutedRequestSnapshot,
   t: Translate,
@@ -917,11 +906,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, graphql
       {response.executedOn !== undefined && (
         <>
           <MetaDot />
-          <InfoPopover content={executedOnContent(response.executedOn.name, t)} trigger="hover">
-            <Tag color="default" data-testid="oh-response-executed-on" style={{ marginInlineEnd: 0, cursor: 'help' }}>
-              {t('workbench.editors.request.response.meta.executedOnTag', { name: response.executedOn.name })}
-            </Tag>
-          </InfoPopover>
+          <ExecutedOnTag executedOn={response.executedOn} />
         </>
       )}
       {(response.cookieHeaderAttached !== undefined || response.cookiesCaptured !== undefined) && (

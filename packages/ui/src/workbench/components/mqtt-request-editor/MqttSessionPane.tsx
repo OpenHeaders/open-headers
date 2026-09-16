@@ -28,6 +28,7 @@ import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/response/AuthAttributionTag';
+import ExecutedOnTag from '../request-editor/response/ExecutedOnTag';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-editor/response/InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
@@ -409,6 +410,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
           {inheritedSettingsHasBadge(snapshot.inheritedSettings) && (
             <InheritedSettingsTag kind="mqtt" sources={snapshot.inheritedSettings} />
           )}
+          {snapshot.executedOn !== undefined && <ExecutedOnTag executedOn={snapshot.executedOn} />}
           <MqttScriptsTag digest={scriptsDigest} />
           <Dropdown
             trigger={['click']}
