@@ -83,6 +83,7 @@ import TimelineMessageViewer, {
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import { formatBytes } from '../request-editor/response/response-format';
 import { scriptSlotInfo } from '../script-editor/script-slot-info';
+import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../shared/PeerExecuteDisabledNotice';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
 import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { reconnectExhaustedMessage, type WsTimelineLifecycleItem } from './ws-lifecycle';
@@ -1993,6 +1994,8 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     }
   };
 
+  const refusalKind = peerExecuteRefusalKind(lifecycle.errorMessage);
+
   const menuOptionLabel = (label: string, checked: boolean): React.ReactNode => (
     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
       {label}
@@ -2125,6 +2128,15 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           />
         </Tooltip>
       </div>
+      {/* A delegated open the place refused under its two-tier opt-in:
+          the host-aware notice (the named tier, the reveal hand-off)
+          above the list — the HTTP and gRPC error states' idiom; the
+          error row below keeps the log's own line. */}
+      {refusalKind !== null && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+          <PeerExecuteDisabledNotice kind={refusalKind} />
+        </div>
+      )}
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {stickyGroup !== null && groups !== null && (
           <div

@@ -17,10 +17,18 @@ import {
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-timeline-model';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
 import '@openheaders/ui/workbench/settings/schema/requests';
+import { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// The notice's own contract (the tier copy, the reveal hand-off) is pinned
+// elsewhere — here only the mount and the tier it was handed.
+vi.mock('@openheaders/ui/workbench/components/shared/PeerExecuteDisabledNotice', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@openheaders/ui/workbench/components/shared/PeerExecuteDisabledNotice')>()),
+  default: ({ kind }: { kind: string }) => <div data-testid="peer-execute-disabled-notice" data-kind={kind} />,
+}));
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
   default: ({ value, readOnly }: { value?: string; readOnly?: boolean }) => (
@@ -260,5 +268,33 @@ describe('MqttMessageTimeline — trust certificate gesture', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(button);
     expect(onTrustCertificate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MqttMessageTimeline — the delegated open refused by the place', () => {
+  const refused = (errorMessage: string): MqttTimelineLifecycle => ({
+    startedAt: STARTED_AT,
+    connected: false,
+    errorMessage,
+    endedAt: STARTED_AT + 200,
+  });
+
+  it('mounts the host-aware refusal notice above the list for the opt-in refusal string alone', () => {
+    const { unmount } = render(
+      <MqttMessageTimeline items={[]} count={0} lifecycle={refused(LOCAL_PEER_EXECUTE_DISABLED_MESSAGE)} v5 />,
+    );
+    const notice = screen.getByTestId('peer-execute-disabled-notice');
+    expect(notice.getAttribute('data-kind')).toBe('local');
+    // The notice sits above the list, never inside a pinned row.
+    expect(notice.closest('[data-testid="mqtt-timeline-error-row"]')).toBeNull();
+    expect(screen.getByTestId('mqtt-timeline-error-row')).toBeTruthy();
+    unmount();
+    const remote = render(
+      <MqttMessageTimeline items={[]} count={0} lifecycle={refused(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE)} v5 />,
+    );
+    expect(screen.getByTestId('peer-execute-disabled-notice').getAttribute('data-kind')).toBe('remote');
+    remote.unmount();
+    render(<MqttMessageTimeline items={[]} count={0} lifecycle={refused('Could not reach broker.openheaders.io')} v5 />);
+    expect(screen.queryByTestId('peer-execute-disabled-notice')).toBeNull();
   });
 });

@@ -55,6 +55,7 @@ import {
 } from './mqtt-timeline-model';
 import MqttTimelineEntryRow from './MqttTimelineEntryRow';
 import MqttTimelineToolbar from './MqttTimelineToolbar';
+import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../shared/PeerExecuteDisabledNotice';
 import { StreamLastRow, useTimelineViewerModes } from '../shared/TimelineMessageViewer';
 
 interface MqttMessageTimelineProps {
@@ -330,6 +331,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     return total;
   }, [items, count, clearedCount]);
 
+  const refusalKind = peerExecuteRefusalKind(lifecycle.errorMessage);
+
   return (
     <div
       data-testid="mqtt-message-timeline"
@@ -349,6 +352,15 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         onNewestFirstChange={setNewestFirst}
         onClear={() => setClearedCount(count)}
       />
+      {/* A delegated open the place refused under its two-tier opt-in:
+          the host-aware notice (the named tier, the reveal hand-off)
+          above the list — the HTTP and gRPC error states' idiom; the
+          error row below keeps the log's own line. */}
+      {refusalKind !== null && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+          <PeerExecuteDisabledNotice kind={refusalKind} />
+        </div>
+      )}
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {hasNewMessages && (
           <Button

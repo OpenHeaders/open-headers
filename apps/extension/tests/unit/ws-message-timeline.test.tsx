@@ -15,6 +15,7 @@
  * <textarea> — the contract under test is the list, not Monaco.
  */
 
+import { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
 import WsMessageTimeline, {
   type WsTimelineItem,
@@ -26,6 +27,13 @@ import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// The notice's own contract (the tier copy, the reveal hand-off) is pinned
+// elsewhere — here only the mount and the tier it was handed.
+vi.mock('@openheaders/ui/workbench/components/shared/PeerExecuteDisabledNotice', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@openheaders/ui/workbench/components/shared/PeerExecuteDisabledNotice')>()),
+  default: ({ kind }: { kind: string }) => <div data-testid="peer-execute-disabled-notice" data-kind={kind} />,
+}));
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
   default: ({ value, readOnly }: { value?: string; readOnly?: boolean }) => (
@@ -553,5 +561,34 @@ describe('WsMessageTimeline — script marks', () => {
     const lit = Array.from(document.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent);
     expect(lit).toEqual(['On message', 'MESSAGE ↓ {"type":"tick"}', 'text', 'bytes', 'index']);
     expect(screen.getByText('oh.send(text)')).toBeTruthy();
+  });
+});
+
+describe('WsMessageTimeline — the delegated open refused by the place', () => {
+  it('mounts the host-aware refusal notice above the list for the opt-in refusal string alone', () => {
+    const { unmount } = renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: { startedAt: 1_700_000_000_000, connected: false, errorMessage: LOCAL_PEER_EXECUTE_DISABLED_MESSAGE },
+    });
+    const notice = screen.getByTestId('peer-execute-disabled-notice');
+    expect(notice.getAttribute('data-kind')).toBe('local');
+    // The notice sits above the list, never inside a pinned row.
+    expect(notice.closest('[data-testid="ws-timeline-error-row"]')).toBeNull();
+    expect(screen.getByTestId('ws-timeline-error-row')).toBeTruthy();
+    unmount();
+    const remote = renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: { startedAt: 1_700_000_000_000, connected: false, errorMessage: REMOTE_PEER_EXECUTE_DISABLED_MESSAGE },
+    });
+    expect(screen.getByTestId('peer-execute-disabled-notice').getAttribute('data-kind')).toBe('remote');
+    remote.unmount();
+    renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: { startedAt: 1_700_000_000_000, connected: false, errorMessage: 'Could not reach ws.openheaders.io' },
+    });
+    expect(screen.queryByTestId('peer-execute-disabled-notice')).toBeNull();
   });
 });
