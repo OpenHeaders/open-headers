@@ -16,10 +16,18 @@ import { type MqttStreamCallbacks, MqttTransportError } from '../../../src/live/
 const REQUEST = { url: 'mqtts://broker.openheaders.io:8883', sslVerification: true, timeoutMs: 5000 };
 const EXECUTED_ON = { kind: 'backend' as const, name: 'workbox' };
 
+/** One event variant minus the wire's own stamps — Omit distributed
+ *  over the union so each variant keeps its own fields. */
+type SocketEventInput = DelegatedSocketEvent extends infer E
+  ? E extends DelegatedSocketEvent
+    ? Omit<E, 'socketId' | 'seq'>
+    : never
+  : never;
+
 interface FakeWire extends DelegatedSocketWire {
   calls: Array<Record<string, unknown>>;
   listeners: Map<string, (event: DelegatedSocketEvent) => void>;
-  emit(socketId: string, event: Omit<DelegatedSocketEvent, 'socketId' | 'seq'>): void;
+  emit(socketId: string, event: SocketEventInput): void;
 }
 
 function fakeWire(answer: (frame: Record<string, unknown>) => Promise<unknown>): FakeWire {

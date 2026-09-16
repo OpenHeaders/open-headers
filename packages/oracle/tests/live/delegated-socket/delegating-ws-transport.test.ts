@@ -22,10 +22,18 @@ const REQUEST = {
 };
 const EXECUTED_ON = { kind: 'backend' as const, name: 'workbox' };
 
+/** One event variant minus the wire's own stamps — Omit distributed
+ *  over the union so each variant keeps its own fields. */
+type SocketEventInput = DelegatedSocketEvent extends infer E
+  ? E extends DelegatedSocketEvent
+    ? Omit<E, 'socketId' | 'seq'>
+    : never
+  : never;
+
 interface FakeWire extends DelegatedSocketWire {
   calls: Array<Record<string, unknown>>;
   listeners: Map<string, (event: DelegatedSocketEvent) => void>;
-  emit(socketId: string, event: Omit<DelegatedSocketEvent, 'socketId' | 'seq'> & { seq?: number }): void;
+  emit(socketId: string, event: SocketEventInput & { seq?: number }): void;
 }
 
 function fakeWire(answer: (frame: Record<string, unknown>) => Promise<unknown>): FakeWire {
