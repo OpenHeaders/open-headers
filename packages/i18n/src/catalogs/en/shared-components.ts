@@ -520,6 +520,8 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': 'This device',
   'shared.executionPlace.option.desktopApp': 'The desktop app',
   'shared.executionPlace.option.server': 'The server',
+  'shared.executionPlace.knob.cookieJar': 'the cookie jar',
+  'shared.executionPlace.knobsNotApplied': 'Not applied on {place}: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'This request is set to run on {place}, which cannot run it from here yet.',
   'shared.desktopTeaser.cta': 'Download the desktop app',

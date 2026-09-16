@@ -36,6 +36,8 @@ export interface UseExecutionPlaceInput {
   inapplicableKnobs?: readonly PageSessionKnob[];
   /** The per-send pick (or the settings layers' role); absent = Auto. */
   preference?: ExecutionPlacePreference;
+  /** Memoized by the caller — the context's knobs a delegated socket cannot honour. */
+  delegationKnobs?: readonly PageSessionKnob[];
 }
 
 export interface UseExecutionPlaceResult extends ExecutionPlaceResolution {
@@ -60,6 +62,7 @@ export function useExecutionPlace({
   mqttTransport,
   inapplicableKnobs,
   preference,
+  delegationKnobs,
 }: UseExecutionPlaceInput): UseExecutionPlaceResult {
   const { state: desktopApp, launchable } = useDesktopCompanion();
   const backends = useBackends();
@@ -93,6 +96,7 @@ export function useExecutionPlace({
       ...(server !== null ? { workspaceServer: { name: server.name, connected: server.connected } } : {}),
       ...(preference !== undefined ? { preference } : {}),
       ...(inapplicableKnobs !== undefined ? { inapplicableKnobs } : {}),
+      ...(delegationKnobs !== undefined ? { delegationKnobs } : {}),
     });
     return { ...resolution, target: targetOf(resolution, desktopAppBackendId, server?.backendId ?? null) };
   }, [
@@ -111,6 +115,7 @@ export function useExecutionPlace({
     server,
     preference,
     inapplicableKnobs,
+    delegationKnobs,
   ]);
 }
 

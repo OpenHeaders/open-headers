@@ -497,6 +497,8 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': 'Cet appareil',
   'shared.executionPlace.option.desktopApp': "L'application de bureau",
   'shared.executionPlace.option.server': 'Le serveur',
+  'shared.executionPlace.knob.cookieJar': 'le cookie jar',
+  'shared.executionPlace.knobsNotApplied': 'Sans effet sur {place} : {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Cette requête est configurée pour s’exécuter sur {place}, ce qui n’est pas encore possible d’ici.',
   'shared.desktopTeaser.cta': "Télécharger l'application de bureau",

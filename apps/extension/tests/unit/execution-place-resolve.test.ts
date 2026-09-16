@@ -185,7 +185,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
       place: 'desktop-app',
       placeName: null,
       state: 'ready',
-      reason: { kind: 'delegated', role: 'desktop-app' },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
       cta: null,
       alternatives: [],
     });
@@ -193,7 +193,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
       place: 'workspace-server',
       placeName: 'Acme',
       state: 'ready',
-      reason: { kind: 'delegated', role: 'workspace-server' },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
       cta: null,
       alternatives: [],
       serverName: 'Acme',
@@ -234,7 +234,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
     // Delegated, the place applies every knob — none is named.
     expect(
       resolve('mqtt', EXTENSION, 'connected', { mqttTransport: 'tcp', inapplicableKnobs: ['sslVerify'] }).reason,
-    ).toEqual({ kind: 'delegated', role: 'desktop-app' });
+    ).toEqual({ kind: 'delegated', role: 'desktop-app', knobs: [] });
   });
 });
 
@@ -352,7 +352,7 @@ describe('resolveExecutionPlace — the preference', () => {
       place: 'desktop-app',
       placeName: null,
       state: 'ready',
-      reason: { kind: 'delegated', role: 'desktop-app' },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
       cta: null,
       alternatives: ['here', 'workspace-server'],
       serverName: 'Acme',
@@ -363,7 +363,7 @@ describe('resolveExecutionPlace — the preference', () => {
       place: 'workspace-server',
       placeName: 'Acme',
       state: 'ready',
-      reason: { kind: 'delegated', role: 'workspace-server' },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
       cta: null,
       alternatives: ['here'],
       serverName: 'Acme',
@@ -409,5 +409,24 @@ describe('mqttTransportOf / isSessionKind', () => {
 
   it('names the three session kinds', () => {
     expect(KINDS.filter(isSessionKind)).toEqual(['graphql-subscription', 'websocket', 'mqtt']);
+  });
+});
+
+describe('resolveExecutionPlace — the knobs a delegated socket cannot honour (Phase E)', () => {
+  it('a delegated send names the knobs handed in; a send that runs here never carries them', () => {
+    const delegation = { delegationKnobs: ['cookieJar'] as const };
+    expect(resolve('http', EXTENSION, 'connected', { ...delegation, preference: 'desktop-app' }).reason).toEqual({
+      kind: 'delegated',
+      role: 'desktop-app',
+      knobs: ['cookieJar'],
+    });
+    expect(
+      resolve('http', EXTENSION, 'not-connected', { ...SERVER_UP, ...delegation, preference: 'workspace-server' })
+        .reason,
+    ).toEqual({ kind: 'delegated', role: 'workspace-server', knobs: ['cookieJar'] });
+    expect(resolve('http', EXTENSION, 'connected', delegation).reason).toEqual({ kind: 'runs-here-browser' });
+    expect(resolve('http', EXTENSION, 'connected', { ...delegation, preference: 'here' }).reason).toEqual({
+      kind: 'runs-here-browser',
+    });
   });
 });

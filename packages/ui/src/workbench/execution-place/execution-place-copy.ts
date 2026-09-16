@@ -11,7 +11,9 @@ import type { ExecutionPlaceResolution, ExecutionPlaceRole, PageSessionKnob } fr
 export interface ExecutionPlaceCopy {
   chip: string;
   reason: string;
-  /** The knobs a page-realm session cannot apply, as one sentence; null when none. */
+  /** The knobs the resolved place cannot apply (a page-realm session's
+   *  node-only knobs, a delegated send's cookie jar), as one sentence;
+   *  null when none. */
   knobs: string | null;
 }
 
@@ -28,11 +30,12 @@ export function executionPlaceOptionLabel(role: ExecutionPlaceRole, placeName: s
   }
 }
 
-/** The knob names the page-realm planes and the control share. */
+/** The knob names the page-realm planes, the HTTP editor and the control share. */
 export const PAGE_KNOB_KEY = {
   headers: 'workbench.editors.websocket.session.knobHeaders',
   sslVerify: 'workbench.editors.websocket.session.knobSslVerify',
   auth: 'workbench.editors.websocket.session.knobAuth',
+  cookieJar: 'shared.executionPlace.knob.cookieJar',
 } as const satisfies Record<PageSessionKnob, string>;
 
 function roleName(role: ExecutionPlaceResolution['place'], placeName: string | null, t: Translate): string {
@@ -109,21 +112,30 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
         reason: t('shared.executionPlace.reason.noRuntime'),
         knobs: null,
       };
-    case 'delegated':
+    case 'delegated': {
       // Off-device transit is NAMED: a server receives the resolved
       // values; the desktop app on this device receives nothing the
-      // vault does not already sync there.
+      // vault does not already sync there. The context's knobs the
+      // delegated socket cannot honour (the cookie jar) are named too.
+      const knobs =
+        reason.knobs.length > 0
+          ? t('shared.executionPlace.knobsNotApplied', {
+              place,
+              knobs: reason.knobs.map((knob) => t(PAGE_KNOB_KEY[knob])).join(', '),
+            })
+          : null;
       return reason.role === 'desktop-app'
         ? {
             chip: t('shared.executionPlace.chip.desktopApp'),
             reason: t('shared.executionPlace.reason.delegatedDesktopApp'),
-            knobs: null,
+            knobs,
           }
         : {
             chip: t('shared.executionPlace.chip.server', { place }),
             reason: t('shared.executionPlace.reason.delegatedServer', { place }),
-            knobs: null,
+            knobs,
           };
+    }
     case 'preference-unavailable': {
       const preferred = roleName(reason.preferred, null, t);
       return {

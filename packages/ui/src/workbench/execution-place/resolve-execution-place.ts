@@ -57,9 +57,12 @@ export type ExecutionPlaceState = 'ready' | 'needs-companion' | 'unsupported';
  *  any page can open; mqtt(s):// dials a raw TCP socket no page can. */
 export type MqttTransport = 'websocket' | 'tcp' | 'unknown';
 
-/** Node-only knobs configured on a draft that a page-realm session
- *  cannot apply — named at the control, never silently dropped. */
-export type PageSessionKnob = 'headers' | 'sslVerify' | 'auth';
+/** Knobs configured on a draft that the resolved place cannot apply —
+ *  named at the control, never silently dropped: the node-only knobs a
+ *  page-realm session leaves unapplied, and the context's cookie jar a
+ *  delegated socket never sees (the browser's store on the extension,
+ *  the app's jar on the desktop app — the jar key never rides). */
+export type PageSessionKnob = 'headers' | 'sslVerify' | 'auth' | 'cookieJar';
 
 /** The capability markers the reader derives from — read once by the
  *  caller (`getCapability`), absent markers as their defaults. */
@@ -99,6 +102,10 @@ export interface ExecutionPlaceInput {
   preference?: ExecutionPlacePreference;
   /** Knobs a page-realm session would leave unapplied (the draft's, before Connect). */
   inapplicableKnobs?: readonly PageSessionKnob[];
+  /** Knobs the context applies on its own socket that a delegated one
+   *  cannot honour (the HTTP send's cookie jar) — named only when the
+   *  send resolves to another place. */
+  delegationKnobs?: readonly PageSessionKnob[];
 }
 
 export type ExecutionPlaceReason =
@@ -120,8 +127,9 @@ export type ExecutionPlaceReason =
   | { kind: 'session-not-forwarded'; name: string | null }
   /** A browser surface with neither an engine nor a page-realm socket for this kind. */
   | { kind: 'no-runtime' }
-  /** Resolved here; the chosen place opens the socket on this send's behalf. */
-  | { kind: 'delegated'; role: Exclude<ExecutionPlaceRole, 'here'> }
+  /** Resolved here; the chosen place opens the socket on this send's
+   *  behalf — with the context's knobs that socket cannot honour. */
+  | { kind: 'delegated'; role: Exclude<ExecutionPlaceRole, 'here'>; knobs: readonly PageSessionKnob[] }
   /** A preferred role no leg can honour yet. */
   | { kind: 'preference-unavailable'; preferred: ExecutionPlaceRole };
 
@@ -149,6 +157,7 @@ export interface ExecutionPlaceResolution {
 }
 
 const NO_ALTERNATIVES: readonly ExecutionPlaceRole[] = [];
+const NO_KNOBS: readonly PageSessionKnob[] = [];
 
 export function mqttTransportOf(url: string): MqttTransport {
   const trimmed = url.trim();
@@ -263,7 +272,7 @@ function delegatedTo(
     place: role,
     placeName: role === 'workspace-server' ? (input.workspaceServer?.name ?? null) : null,
     state: 'ready',
-    reason: { kind: 'delegated', role },
+    reason: { kind: 'delegated', role, knobs: input.delegationKnobs ?? NO_KNOBS },
     cta: null,
     alternatives,
   };

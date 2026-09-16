@@ -479,6 +479,8 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': 'このデバイス',
   'shared.executionPlace.option.desktopApp': 'デスクトップアプリ',
   'shared.executionPlace.option.server': 'サーバー',
+  'shared.executionPlace.knob.cookieJar': 'Cookie jar',
+  'shared.executionPlace.knobsNotApplied': '{place}では適用されません：{knobs}。',
   'shared.executionPlace.reason.preferenceUnavailable':
     'このリクエストは{place}で実行するように設定されていますが、ここからはまだ実行できません。',
   'shared.desktopTeaser.cta': 'デスクトップアプリをダウンロード',

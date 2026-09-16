@@ -500,6 +500,8 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': 'Este dispositivo',
   'shared.executionPlace.option.desktopApp': 'La aplicación de escritorio',
   'shared.executionPlace.option.server': 'El servidor',
+  'shared.executionPlace.knob.cookieJar': 'el cookie jar',
+  'shared.executionPlace.knobsNotApplied': 'Sin efecto en {place}: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Esta solicitud está configurada para ejecutarse en {place}, lo que aún no es posible desde aquí.',
   'shared.desktopTeaser.cta': 'Descargar la aplicación de escritorio',

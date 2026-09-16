@@ -29,6 +29,7 @@
 
 import { CaretRightOutlined, CopyOutlined, LoadingOutlined, SwapOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
@@ -57,7 +58,7 @@ import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraph
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
-import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import type { ExecutionPlacePreference, PageSessionKnob } from '../../execution-place/resolve-execution-place';
 import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import { useSettingValue } from '../../settings/hooks';
@@ -684,9 +685,20 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // the per-send layer; the settings layers fold in beneath it.
   const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
   const globalPlace = useSettingValue('requests.executionPlace');
+  // The context's cookie jar never reaches a delegated socket — the
+  // browser's store rides this surface's fetch alone (`credentialsMode`
+  // on a browser runtime), the app's jar its node transport alone
+  // (`cookieJar` on a node runtime; the jar key never rides the wire).
+  // Named at the control whenever the effective knob is on.
+  const jarOn =
+    (getCapability('requestRuntime')?.() ?? 'browser') === 'node'
+      ? (draft.cookieJar ?? inheritedSettings.settings.cookieJar ?? false)
+      : (draft.credentialsMode ?? inheritedSettings.settings.credentialsMode) === 'include';
+  const delegationKnobs = useMemo((): readonly PageSessionKnob[] => (jarOn ? ['cookieJar'] : []), [jarOn]);
   const executionPlace = useExecutionPlace({
     kind: 'http',
     preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
+    delegationKnobs,
   });
   // A delegated send's socket opens on a node place — its knobs are
   // live on the Settings tab (the sheet and the cookie rows stay ours).

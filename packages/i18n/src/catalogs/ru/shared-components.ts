@@ -528,6 +528,8 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': 'Это устройство',
   'shared.executionPlace.option.desktopApp': 'Настольное приложение',
   'shared.executionPlace.option.server': 'Сервер',
+  'shared.executionPlace.knob.cookieJar': 'хранилище Cookie',
+  'shared.executionPlace.knobsNotApplied': '{place} не применяет: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Для этого запроса задано место выполнения: {place}. Отсюда оно пока недоступно.',
   'shared.desktopTeaser.cta': 'Скачать настольное приложение',

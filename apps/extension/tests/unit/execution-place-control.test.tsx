@@ -157,7 +157,7 @@ describe('ExecutionPlaceControl', () => {
         resolution={resolution({
           place: 'workspace-server',
           placeName: 'Acme',
-          reason: { kind: 'delegated', role: 'workspace-server' },
+          reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
           alternatives: ['here', 'desktop-app'],
           serverName: 'Acme',
         })}
@@ -174,6 +174,20 @@ describe('ExecutionPlaceControl', () => {
     ).toBeTruthy();
     const options = screen.getAllByTestId('execution-place-option');
     expect(options.map((o) => o.getAttribute('data-role'))).toEqual(['workspace-server', 'here', 'desktop-app']);
+  });
+
+  it('a delegated send names the cookie jar the place cannot apply', async () => {
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          place: 'desktop-app',
+          reason: { kind: 'delegated', role: 'desktop-app', knobs: ['cookieJar'] },
+          alternatives: ['here'],
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    expect(await screen.findByText('Not applied on the desktop app: the cookie jar.')).toBeTruthy();
   });
 
   it('no picker without an onPick, nor with nothing else to choose', () => {
@@ -249,7 +263,7 @@ describe('executionPlaceCopy', () => {
 
   it('a delegated send to the desktop app names no transit — loopback carries nothing new', () => {
     const copy = executionPlaceCopy(
-      resolution({ place: 'desktop-app', reason: { kind: 'delegated', role: 'desktop-app' } }),
+      resolution({ place: 'desktop-app', reason: { kind: 'delegated', role: 'desktop-app', knobs: [] } }),
       t as never,
     );
     expect(copy.chip).toBe('shared.executionPlace.chip.desktopApp');
