@@ -144,6 +144,8 @@ export {
   CredentialsModeSchema,
   DialPolicySchema,
   DigestAuthSchema,
+  EXECUTION_PLACE_ROLES,
+  ExecutionPlaceRoleSchema,
   HeartbeatMessageSchema,
   HTTP_VERSIONS,
   HttpMethodSchema,

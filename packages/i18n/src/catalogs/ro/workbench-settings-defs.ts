@@ -491,6 +491,16 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Limita corpului răspunsului (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Cât din corpul unui răspuns păstrează executorul pentru afișare. Corpurile mai mari sunt trunchiate la această limită — dimensiunea completă este măsurată și raportată în continuare. Ridicarea limitei crește consumul de memorie per filă de cerere deschisă.',
+  'workbench.settings.def.requests.executionPlace.label': 'Locul de execuție',
+  'workbench.settings.def.requests.executionPlace.description': 'Unde își deschid conexiunea cererile API dacă o colecție, un folder sau o cerere nu își setează propriul loc: pe acest dispozitiv, în aplicația desktop sau pe serverul spațiului de lucru.',
+  'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automat',
+  'workbench.settings.def.requests.executionPlace.option.auto.description': 'Rulează aici când acest dispozitiv poate, altfel în singurul loc care poate.',
+  'workbench.settings.def.requests.executionPlace.option.here.label': 'Acest dispozitiv',
+  'workbench.settings.def.requests.executionPlace.option.here.description': 'Suprafața din care trimiteți deschide conexiunea.',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'Aplicația desktop',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.description': 'Aplicația desktop de pe acest dispozitiv deschide conexiunea.',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'Serverul spațiului de lucru',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description': 'Serverul care furnizează spațiul de lucru deschide conexiunea; valorile rezolvate ajung la el.',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Cele mai noi primele',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Ordinea listei Server-Sent Events — cele mai noi evenimente sus. Dezactivați pentru a citi de la cele mai vechi. Bara de instrumente a listei modifică aceeași setare.',

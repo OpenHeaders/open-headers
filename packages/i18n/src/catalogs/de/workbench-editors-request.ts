@@ -1311,6 +1311,9 @@ export const workbenchEditorsRequest = {
     'und die Antwort als gekürzt markiert. Leer lassen für das Standardlimit von 2 048 KB (2 MB). Erhöhe ' +
     'es auf bis zu 10 240 KB (10 MB) für größere Payloads, oder senke es, um zu testen, wie eine gekürzte ' +
     'Antwort aussieht.',
+  'workbench.editors.request.settings.executionPlace': 'Ausführung auf',
+  'workbench.editors.request.settings.executionPlaceInfo': 'Wo die Verbindung dieser Anfrage geöffnet wird: auf diesem Gerät, in der Desktop-App oder auf dem Server des Arbeitsbereichs. Die Anfrage wird weiterhin hier aufgelöst; nur die Verbindung wandert. Automatisch führt sie hier aus, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
+  'workbench.editors.request.settings.executionPlacePlaceholder': 'Automatisch',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
   'workbench.editors.request.settings.maxMessageSize': 'Max. Nachrichtengröße',

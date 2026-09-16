@@ -13,6 +13,7 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
+  ExecutionPlaceRoleSchema,
   MaxResponseBytesSchema,
   ProxyCredentialRefSchema,
   ProxyModeSchema,
@@ -222,6 +223,13 @@ const GrpcRequestObjectSchema = v.object({
    * (the safe default); `false` accepts self-signed dev servers.
    */
   sslVerification: v.optional(v.boolean()),
+  /**
+   * Where the session's socket opens — the HTTP request's knob (the
+   * Execution Place plan): a ROLE, absent = Automatic, inheritable;
+   * a role this surface cannot honour is named at the control, never
+   * honoured silently.
+   */
+  executionPlace: v.optional(ExecutionPlaceRoleSchema),
   /**
    * Vault `client-certificate` entry NAME presented in the TLS
    * handshake — mutual-TLS servers. The PEM pair never rides the

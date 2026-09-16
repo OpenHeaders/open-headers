@@ -23,6 +23,7 @@
 
 import type { WsScriptKind } from '@openheaders/core/scripts';
 import type {
+  ExecutionPlaceRole,
   ProxyMode,
   SocketIoProtocol,
   TlsVersion,
@@ -118,6 +119,7 @@ export interface WebSocketDraft {
   /** `undefined` = inherit or verify-on (the safe default the transport
    *  applies); an explicit value is the request's own either way. */
   sslVerification: boolean | undefined;
+  executionPlace: ExecutionPlaceRole | undefined;
   /** The rest of the TLS policy — `undefined` = the runtime default. */
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -165,6 +167,7 @@ export interface WebSocketRequestUpdates {
   heartbeatMessage: string | undefined;
   heartbeatIntervalMs: number | undefined;
   sslVerification: boolean | undefined;
+  executionPlace: ExecutionPlaceRole | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -325,6 +328,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
     heartbeatMessage: req.heartbeatMessage,
     heartbeatIntervalMs: req.heartbeatIntervalMs,
     sslVerification: req.sslVerification,
+    executionPlace: req.executionPlace,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
@@ -371,6 +375,7 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
     heartbeatMessage: draft.heartbeatMessage,
     heartbeatIntervalMs: draft.heartbeatIntervalMs,
     sslVerification: draft.sslVerification,
+    executionPlace: draft.executionPlace,
     clientCertificateRef: draft.clientCertificateRef,
     tlsMinVersion: draft.tlsMinVersion,
     tlsMaxVersion: draft.tlsMaxVersion,

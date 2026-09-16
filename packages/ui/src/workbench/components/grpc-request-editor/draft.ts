@@ -18,6 +18,7 @@
 
 import type { GrpcScriptKind } from '@openheaders/core/scripts';
 import type {
+  ExecutionPlaceRole,
   GrpcAuth,
   GrpcMetadataPair,
   GrpcMethodRef,
@@ -71,6 +72,7 @@ export interface GrpcDraft {
   /** `undefined` = inherit or verify-on; an explicit value is the
    *  request's own either way. */
   sslVerification: boolean | undefined;
+  executionPlace: ExecutionPlaceRole | undefined;
   /** The rest of the TLS policy — `undefined` = the runtime default. */
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
@@ -102,6 +104,7 @@ export interface GrpcRequestUpdates {
   keepaliveIntervalMs: number | undefined;
   keepaliveTimeoutMs: number | undefined;
   sslVerification: boolean | undefined;
+  executionPlace: ExecutionPlaceRole | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -164,6 +167,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
     keepaliveIntervalMs: req.keepaliveIntervalMs,
     keepaliveTimeoutMs: req.keepaliveTimeoutMs,
     sslVerification: req.sslVerification,
+    executionPlace: req.executionPlace,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
@@ -194,6 +198,7 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
     keepaliveIntervalMs: draft.keepaliveIntervalMs,
     keepaliveTimeoutMs: draft.keepaliveTimeoutMs,
     sslVerification: draft.sslVerification,
+    executionPlace: draft.executionPlace,
     clientCertificateRef: draft.clientCertificateRef,
     tlsMinVersion: draft.tlsMinVersion,
     tlsMaxVersion: draft.tlsMaxVersion,

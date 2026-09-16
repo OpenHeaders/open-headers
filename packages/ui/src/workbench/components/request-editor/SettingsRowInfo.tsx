@@ -63,6 +63,7 @@ export type SettingsInfoKey =
   | 'cookieJar'
   | 'timeout'
   | 'responseSizeLimit'
+  | 'executionPlace'
   | 'scriptMode';
 
 /** The single send every row popover illustrates. Holding one example
@@ -115,6 +116,7 @@ const HIGHLIGHT: Record<SettingsInfoKey, TokenId> = {
   cookieJar: 'jar',
   timeout: 'time',
   responseSizeLimit: 'cap',
+  executionPlace: 'dial',
   scriptMode: 'scripts',
 };
 
@@ -186,6 +188,7 @@ const TITLE_KEY: Record<OwnInfoKey, MessageKey> = {
   cookieJar: 'workbench.editors.request.settings.cookieJar',
   timeout: 'workbench.editors.request.settings.timeout',
   responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimit',
+  executionPlace: 'workbench.editors.request.settings.executionPlace',
   scriptMode: 'workbench.editors.request.settings.scriptMode',
 };
 
@@ -210,6 +213,7 @@ const GROUP_OF: Record<SettingsInfoKey, SettingsGroupKey> = {
   cookieJar: 'cookies',
   timeout: 'execution',
   responseSizeLimit: 'execution',
+  executionPlace: 'execution',
   scriptMode: 'execution',
 };
 
@@ -228,6 +232,7 @@ const SUMMARY_KEY: Record<Exclude<OwnInfoKey, RichInfoKey>, MessageKey> = {
   cookieJar: 'workbench.editors.request.settings.cookieJarInfo',
   timeout: 'workbench.editors.request.settings.timeoutInfo',
   responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimitInfo',
+  executionPlace: 'workbench.editors.request.settings.executionPlaceInfo',
 };
 
 /** Tokens of the shared example — for callers (the runtime-managed

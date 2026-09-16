@@ -1298,6 +1298,9 @@ export const workbenchEditorsRequest = {
     'Tamaño máximo del cuerpo de respuesta leído del cable; lo que pase de ahí se corta y la respuesta ' +
     'queda marcada como truncada. Déjalo vacío para el límite por defecto de 2 048 KB (2 MB). Súbelo hasta ' +
     '10 240 KB (10 MB) para cargas mayores, o bájalo para probar cómo se ve una respuesta truncada.',
+  'workbench.editors.request.settings.executionPlace': 'Se ejecuta en',
+  'workbench.editors.request.settings.executionPlaceInfo': 'Dónde se abre la conexión de esta solicitud: en este dispositivo, en la aplicación de escritorio o en el servidor del espacio de trabajo. La solicitud sigue resolviéndose aquí; solo se desplaza la conexión. Automático la ejecuta aquí cuando este dispositivo puede, y si no, en el único lugar que puede.',
+  'workbench.editors.request.settings.executionPlacePlaceholder': 'Automático',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
   'workbench.editors.request.settings.maxMessageSize': 'Tamaño máx. de mensaje',

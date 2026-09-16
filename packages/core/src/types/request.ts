@@ -29,6 +29,7 @@ import type {
   DialPolicySchema,
   DigestAuthSchema,
   EdgeGridAuthSchema,
+  ExecutionPlaceRoleSchema,
   FileRefSchema,
   FormFieldSchema,
   HawkAuthSchema,
@@ -174,6 +175,9 @@ export type ResiliencePolicy = v.InferOutput<typeof ResiliencePolicySchema>;
  * from this knob.
  */
 export type HttpVersion = v.InferOutput<typeof HttpVersionSchema>;
+
+/** The execution place a request prefers — see `ExecutionPlaceRoleSchema`. */
+export type ExecutionPlaceRole = v.InferOutput<typeof ExecutionPlaceRoleSchema>;
 
 /**
  * Request-plane proxy routing mode. Absent = inherit the executing

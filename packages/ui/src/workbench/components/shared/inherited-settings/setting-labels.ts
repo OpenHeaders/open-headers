@@ -35,6 +35,7 @@ const SHARED_LABEL_KEY: Readonly<Record<InheritableSettingKey, MessageKey>> = {
   timeoutMs: 'workbench.editors.request.settings.timeout',
   maxResponseBytes: 'workbench.editors.request.settings.responseSizeLimit',
   maxMessageBytes: 'workbench.editors.request.settings.maxMessageSize',
+  executionPlace: 'workbench.editors.request.settings.executionPlace',
   autoReconnect: 'workbench.editors.request.settings.autoReconnect',
   reconnectPeriodMs: 'workbench.editors.request.settings.reconnectPeriod',
   reconnectMaxAttempts: 'workbench.editors.request.settings.reconnectMaxAttempts',

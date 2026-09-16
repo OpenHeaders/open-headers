@@ -146,6 +146,7 @@ const emptyWebSocketDraft = (): WebSocketDraft => ({
   heartbeatMessage: undefined,
   heartbeatIntervalMs: undefined,
   sslVerification: undefined,
+  executionPlace: undefined,
   clientCertificateRef: undefined,
   tlsMinVersion: undefined,
   tlsMaxVersion: undefined,

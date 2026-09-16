@@ -63,6 +63,7 @@ const draft: WebSocketDraft = {
   tlsMaxVersion: undefined,
   tlsCipherSuites: undefined,
   sniServerName: undefined,
+  executionPlace: undefined,
 };
 
 describe('WsTargetRow', () => {

@@ -182,7 +182,8 @@ import {
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
 } from '@openheaders/core/schemas';
-import type { HttpVersion, ProxyMode, TlsVersion } from '@openheaders/core/types';
+import { EXECUTION_PLACE_ROLES } from '@openheaders/core/schemas';
+import type { ExecutionPlaceRole, HttpVersion, ProxyMode, TlsVersion } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   byteSizeInterpreter,
@@ -200,6 +201,7 @@ import {
   SelectKnobRow,
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
+import { executionPlaceOptionLabel } from '../../execution-place/execution-place-copy';
 import DialRows from '../shared/dial/DialRows';
 import { type InheritedSettingsView, inheritedRowsFor } from '../shared/inherited-settings/inherited-settings';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
@@ -281,6 +283,10 @@ export interface RequestSettingsDraft {
   /** Keep the Authorization header on cross-origin redirect hops.
    *  Defaults to false. Node runtimes only. */
   followAuthorizationHeader?: boolean;
+  /** Where the send's socket opens — a ROLE (the Execution Place
+   *  plan); undefined = Automatic. Every runtime; a role this device
+   *  cannot honour is named at the send control, never silent. */
+  executionPlace?: ExecutionPlaceRole;
 }
 
 interface SettingsTabProps {
@@ -479,6 +485,9 @@ const SIZE_PRESETS = numericPresets(
 const REDIRECT_BOUNDS = { min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS };
 const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
 
+const isExecutionPlaceRole = (value: string | undefined): value is ExecutionPlaceRole =>
+  value !== undefined && (EXECUTION_PLACE_ROLES as readonly string[]).includes(value);
+
 const SettingsTab: React.FC<SettingsTabProps> = ({
   value,
   onChange,
@@ -574,6 +583,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   const executionModified =
     value.timeoutMs !== undefined ||
     value.maxResponseBytes !== undefined ||
+    value.executionPlace !== undefined ||
     (!container && scriptMode.mode === 'developer');
   // Per-group unsaved aggregation for the collapsed headers — same
   // membership as the *Modified predicates above. The script-mode knob
@@ -595,7 +605,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     'followAuthorizationHeader',
   );
   const cookiesUnsaved = runtime === 'browser' ? hasUnsaved('credentialsMode') : hasUnsaved('cookieJar');
-  const executionUnsaved = hasUnsaved('timeoutMs', 'maxResponseBytes');
+  const executionUnsaved = hasUnsaved('timeoutMs', 'maxResponseBytes', 'executionPlace');
+  const placeLabel = (role: ExecutionPlaceRole): string => executionPlaceOptionLabel(role, null, t);
 
   return (
     <ConfigProvider
@@ -831,6 +842,21 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             }
           />
         )}
+        <SelectKnobRow
+          label={t('workbench.editors.request.settings.executionPlace')}
+          value={value.executionPlace}
+          onChange={(v) => onChange({ ...value, executionPlace: isExecutionPlaceRole(v) ? v : undefined })}
+          info={settingsRowInfo(t, 'executionPlace')}
+          options={EXECUTION_PLACE_ROLES.map((role) => ({ value: role, label: placeLabel(role) }))}
+          {...rows.field(
+            'executionPlace',
+            value.executionPlace,
+            t('workbench.editors.request.settings.executionPlacePlaceholder'),
+            placeLabel,
+          )}
+          testId="oh-execution-place-select"
+          unsaved={unsaved.has('executionPlace')}
+        />
         <ComboKnobRow
           label={t('workbench.editors.request.settings.timeout')}
           value={value.timeoutMs}

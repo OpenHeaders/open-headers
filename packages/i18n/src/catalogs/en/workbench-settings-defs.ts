@@ -445,6 +445,21 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.label': 'Response Body Limit (MB)',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',
+  'workbench.settings.def.requests.executionPlace.label': 'Execution place',
+  'workbench.settings.def.requests.executionPlace.description':
+    'Where API requests open their connection unless a collection, folder or request sets its own: on this device, on the desktop app, or on the workspace’s server.',
+  'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatic',
+  'workbench.settings.def.requests.executionPlace.option.auto.description':
+    'Runs here when this device can, else on the one place that can.',
+  'workbench.settings.def.requests.executionPlace.option.here.label': 'This device',
+  'workbench.settings.def.requests.executionPlace.option.here.description':
+    'The surface you send from opens the connection.',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'The desktop app',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
+    'The desktop app on this device opens the connection.',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'The workspace’s server',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
+    'The server providing the workspace opens the connection; the resolved values travel to it.',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Order of the Server-Sent Events list — newest events at the top. Turn off to read oldest first. The list toolbar changes this same setting.',

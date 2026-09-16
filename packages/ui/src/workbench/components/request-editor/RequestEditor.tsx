@@ -58,7 +58,9 @@ import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
 import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
+import { useSettingValue } from '../../settings/hooks';
 import EditorHeader from '../shell/EditorHeader';
 import { useRequestWorkflowStepContext } from '../live/useRequestWorkflowStepContext';
 import { mergeRequestForSave } from './merge-request-for-save';
@@ -500,6 +502,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         httpVersion: draft.httpVersion,
         resolveToAddress: draft.resolveToAddress,
         clientCertificateRef: draft.clientCertificateRef,
+        executionPlace: draft.executionPlace,
         proxyMode: draft.proxyMode,
         proxyUrl: draft.proxyUrl,
         proxyCredentialRef: draft.proxyCredentialRef,
@@ -656,6 +659,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       httpVersion: draft.httpVersion,
       resolveToAddress: draft.resolveToAddress,
       clientCertificateRef: draft.clientCertificateRef,
+      executionPlace: draft.executionPlace,
       proxyMode: draft.proxyMode,
       proxyUrl: draft.proxyUrl,
       proxyCredentialRef: draft.proxyCredentialRef,
@@ -679,7 +683,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // picked delegated place, or here). The pick is this editor's own —
   // the per-send layer; the settings layers fold in beneath it.
   const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
-  const executionPlace = useExecutionPlace({ kind: 'http', preference: placePick });
+  const globalPlace = useSettingValue('requests.executionPlace');
+  const executionPlace = useExecutionPlace({
+    kind: 'http',
+    preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
+  });
 
   const handleSend = useCallback(async () => {
     if (sending) return;

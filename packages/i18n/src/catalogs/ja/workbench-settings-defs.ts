@@ -455,6 +455,16 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.label': 'レスポンスボディの上限（MB）',
   'workbench.settings.def.requests.responseBodyCapMB.description':
     '表示のためにエグゼキューターが保持するレスポンスボディの量です。これより大きいボディはこの上限で切り詰められますが、完全なサイズは引き続き計測され報告されます。上限を上げると、開いているリクエストタブごとのメモリ使用量が増えます。',
+  'workbench.settings.def.requests.executionPlace.label': '実行場所',
+  'workbench.settings.def.requests.executionPlace.description': 'コレクション、フォルダー、リクエストが独自に設定しない限り、API リクエストが接続を開く場所: このデバイス、デスクトップアプリ、またはワークスペースのサーバー。',
+  'workbench.settings.def.requests.executionPlace.option.auto.label': '自動',
+  'workbench.settings.def.requests.executionPlace.option.auto.description': 'このデバイスで実行できるときはここで、できないときは実行できる唯一の場所で実行します。',
+  'workbench.settings.def.requests.executionPlace.option.here.label': 'このデバイス',
+  'workbench.settings.def.requests.executionPlace.option.here.description': '送信元の画面が接続を開きます。',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'デスクトップアプリ',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.description': 'このデバイスのデスクトップアプリが接続を開きます。',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'ワークスペースのサーバー',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description': 'ワークスペースを提供するサーバーが接続を開きます。解決済みの値はそこへ送られます。',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': '新しい順',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Server-Sent Events の一覧の順序です。新しいイベントを上に置きます。古い順に読むにはオフにしてください。一覧のツールバーでも同じ設定を変更できます。',

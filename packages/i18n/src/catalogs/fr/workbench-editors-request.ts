@@ -1316,6 +1316,9 @@ export const workbenchEditorsRequest = {
     'est marquée comme tronquée. Laissez vide pour la limite par défaut de 2 048 KB (2 MB). Montez ' +
     "jusqu'à 10 240 KB (10 MB) pour des charges utiles plus grandes, ou abaissez-la pour tester l'apparence " +
     "d'une réponse tronquée.",
+  'workbench.editors.request.settings.executionPlace': 'S’exécute sur',
+  'workbench.editors.request.settings.executionPlaceInfo': 'Où s’ouvre la connexion de cette requête : sur cet appareil, sur l’application de bureau ou sur le serveur de l’espace de travail. La requête est toujours résolue ici ; seule la connexion se déplace. Automatique l’exécute ici quand cet appareil le peut, sinon sur le seul endroit qui le peut.',
+  'workbench.editors.request.settings.executionPlacePlaceholder': 'Automatique',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
   'workbench.editors.request.settings.maxMessageSize': 'Taille max. des messages',

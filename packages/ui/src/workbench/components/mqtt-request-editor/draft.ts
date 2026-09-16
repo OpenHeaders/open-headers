@@ -27,6 +27,7 @@
 
 import type { MqttScriptKind } from '@openheaders/core/scripts';
 import type {
+  ExecutionPlaceRole,
   MqttAuth,
   MqttLastWill,
   MqttMessageProperties,
@@ -126,6 +127,7 @@ export interface MqttDraft {
   /** `undefined` = inherit or verify-on; an explicit value is the
    *  request's own either way. */
   sslVerification: boolean | undefined;
+  executionPlace: ExecutionPlaceRole | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -172,6 +174,7 @@ export interface MqttRequestUpdates {
   proxyUrl: string | undefined;
   proxyCredentialRef: string | undefined;
   sslVerification: boolean | undefined;
+  executionPlace: ExecutionPlaceRole | undefined;
   clientCertificateRef: string | undefined;
   tlsMinVersion: TlsVersion | undefined;
   tlsMaxVersion: TlsVersion | undefined;
@@ -361,6 +364,7 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
     proxyUrl: req.proxyUrl,
     proxyCredentialRef: req.proxyCredentialRef,
     sslVerification: req.sslVerification,
+    executionPlace: req.executionPlace,
     clientCertificateRef: req.clientCertificateRef,
     tlsMinVersion: req.tlsMinVersion,
     tlsMaxVersion: req.tlsMaxVersion,
@@ -407,6 +411,7 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
     proxyUrl: draft.proxyUrl,
     proxyCredentialRef: draft.proxyCredentialRef,
     sslVerification: draft.sslVerification,
+    executionPlace: draft.executionPlace,
     clientCertificateRef: draft.clientCertificateRef,
     tlsMinVersion: draft.tlsMinVersion,
     tlsMaxVersion: draft.tlsMaxVersion,

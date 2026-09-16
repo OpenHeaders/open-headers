@@ -549,6 +549,16 @@ export const workbenchSettingsDefs = {
     "Quelle part d'un corps de réponse l'exécuteur garde pour l'affichage. Les corps plus gros sont tronqués " +
     'à cette limite — la taille complète est toujours mesurée et rapportée. Monter la limite augmente la ' +
     'mémoire utilisée par onglet de requête ouvert.',
+  'workbench.settings.def.requests.executionPlace.label': 'Lieu d’exécution',
+  'workbench.settings.def.requests.executionPlace.description': 'Où les requêtes API ouvrent leur connexion, sauf si une collection, un dossier ou une requête définit le sien : sur cet appareil, sur l’application de bureau ou sur le serveur de l’espace de travail.',
+  'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatique',
+  'workbench.settings.def.requests.executionPlace.option.auto.description': 'S’exécute ici quand cet appareil le peut, sinon sur le seul endroit qui le peut.',
+  'workbench.settings.def.requests.executionPlace.option.here.label': 'Cet appareil',
+  'workbench.settings.def.requests.executionPlace.option.here.description': 'La surface depuis laquelle vous envoyez ouvre la connexion.',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'L’application de bureau',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.description': 'L’application de bureau de cet appareil ouvre la connexion.',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'Le serveur de l’espace de travail',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description': 'Le serveur qui fournit l’espace de travail ouvre la connexion ; les valeurs résolues lui sont transmises.',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Ordre de la liste des Server-Sent Events — les événements les plus récents en haut. Désactivez pour ' +

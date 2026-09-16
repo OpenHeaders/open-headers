@@ -146,6 +146,7 @@ const emptyMqttDraft = (): MqttDraft => ({
   proxyUrl: undefined,
   proxyCredentialRef: undefined,
   sslVerification: undefined,
+  executionPlace: undefined,
   clientCertificateRef: undefined,
   tlsMinVersion: undefined,
   tlsMaxVersion: undefined,

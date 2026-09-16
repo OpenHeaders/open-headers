@@ -233,6 +233,7 @@ export type {
   ConcreteAuthConfig,
   CredentialsMode,
   DialPolicy,
+  ExecutionPlaceRole,
   FileRef,
   FormField,
   HttpMethod,

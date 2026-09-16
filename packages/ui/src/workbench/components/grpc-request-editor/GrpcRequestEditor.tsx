@@ -131,6 +131,7 @@ const emptyGrpcDraft = (): GrpcDraft => ({
   keepaliveIntervalMs: undefined,
   keepaliveTimeoutMs: undefined,
   sslVerification: undefined,
+  executionPlace: undefined,
   clientCertificateRef: undefined,
   tlsMinVersion: undefined,
   maxResponseBytes: undefined,

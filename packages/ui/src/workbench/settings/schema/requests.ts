@@ -3,6 +3,8 @@
  * workbench Send path).
  */
 
+import { EXECUTION_PLACE_ROLES } from '@openheaders/core/schemas';
+import type { ExecutionPlaceRole } from '@openheaders/core/types';
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import DeviceTrustRow from '../components/device-trust-row';
@@ -13,6 +15,7 @@ import { registerSetting } from '../registry';
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'requests.responseBodyCapMB': number;
+    'requests.executionPlace': 'auto' | ExecutionPlaceRole;
     'requests.sseEventsNewestFirst': boolean;
     'requests.sseEventsGroupByName': boolean;
     'requests.sseEventsGroupRowLimit': number;
@@ -53,6 +56,46 @@ registerSetting({
   tags: ['response', 'body', 'truncate', 'limit', 'size', 'cap'],
   scope: 'user',
   numberRange: { min: 1, max: getCurrentHost() === 'desktop' ? 100 : 10, step: 1 },
+});
+
+// The execution place — fork 3's GLOBAL layer (the Execution Place
+// plan): where API requests open their connection when no collection,
+// folder or request sets its own role. A ROLE, never a device fact:
+// the shared reader resolves it per device and names a role this
+// device cannot honour instead of honouring anything silently.
+registerSetting({
+  key: 'requests.executionPlace',
+  subcategory: 'http',
+  type: 'enum',
+  default: 'auto',
+  schema: v.picklist(['auto', ...EXECUTION_PLACE_ROLES]),
+  labelKey: 'workbench.settings.def.requests.executionPlace.label',
+  descriptionKey: 'workbench.settings.def.requests.executionPlace.description',
+  category: 'requests',
+  tags: ['place', 'run', 'execute', 'delegate', 'desktop', 'server', 'device'],
+  scope: 'user',
+  enumOptions: [
+    {
+      value: 'auto',
+      labelKey: 'workbench.settings.def.requests.executionPlace.option.auto.label',
+      descriptionKey: 'workbench.settings.def.requests.executionPlace.option.auto.description',
+    },
+    {
+      value: 'here',
+      labelKey: 'workbench.settings.def.requests.executionPlace.option.here.label',
+      descriptionKey: 'workbench.settings.def.requests.executionPlace.option.here.description',
+    },
+    {
+      value: 'desktop-app',
+      labelKey: 'workbench.settings.def.requests.executionPlace.option.desktop-app.label',
+      descriptionKey: 'workbench.settings.def.requests.executionPlace.option.desktop-app.description',
+    },
+    {
+      value: 'workspace-server',
+      labelKey: 'workbench.settings.def.requests.executionPlace.option.workspace-server.label',
+      descriptionKey: 'workbench.settings.def.requests.executionPlace.option.workspace-server.description',
+    },
+  ],
 });
 
 // gRPC invoke pre-flight: by default a message that isn't valid JSON

@@ -43,6 +43,7 @@ import {
 import {
   ClientCertificateRefSchema,
   CredentialsModeSchema,
+  ExecutionPlaceRoleSchema,
   HeartbeatMessageSchema,
   HttpVersionSchema,
   MaxRedirectsSchema,
@@ -95,6 +96,7 @@ export const InheritableSettingsObjectSchema = v.object({
   timeoutMs: v.optional(RequestTimeoutMsSchema),
   maxResponseBytes: v.optional(MaxResponseBytesSchema),
   maxMessageBytes: v.optional(MaxResponseBytesSchema),
+  executionPlace: v.optional(ExecutionPlaceRoleSchema),
   // ── Session resilience ──
   autoReconnect: v.optional(v.boolean()),
   reconnectPeriodMs: v.optional(RequestTimeoutMsSchema),
@@ -155,6 +157,7 @@ export const INHERITABLE_SETTING_KEYS = [
   'timeoutMs',
   'maxResponseBytes',
   'maxMessageBytes',
+  'executionPlace',
   'autoReconnect',
   'reconnectPeriodMs',
   'reconnectMaxAttempts',
@@ -213,6 +216,7 @@ export const HTTP_INHERITABLE_SETTING_KEYS = [
   'cookieJar',
   'timeoutMs',
   'maxResponseBytes',
+  'executionPlace',
 ] as const satisfies readonly (HttpRequestKey & keyof InheritableSettingsShape)[];
 
 /** The knobs a WebSocket / Socket.IO session reads — everything on its
@@ -243,6 +247,7 @@ export const WEBSOCKET_INHERITABLE_SETTING_KEYS = [
   'handshakePath',
   'socketioProtocol',
   'ackTimeoutMs',
+  'executionPlace',
 ] as const satisfies readonly (WebSocketRequestKey & keyof InheritableSettingsShape)[];
 
 /** The knobs an MQTT session reads — everything on its Settings tab
@@ -273,6 +278,7 @@ export const MQTT_INHERITABLE_SETTING_KEYS = [
   'topicAliasMaximum',
   'requestResponseInformation',
   'requestProblemInformation',
+  'executionPlace',
 ] as const satisfies readonly (MqttRequestKey & keyof InheritableSettingsShape)[];
 
 /** The knobs a gRPC call reads — everything on its Settings tab but
@@ -294,6 +300,7 @@ export const GRPC_INHERITABLE_SETTING_KEYS = [
   'maxResponseBytes',
   'keepaliveIntervalMs',
   'keepaliveTimeoutMs',
+  'executionPlace',
 ] as const satisfies readonly (GrpcRequestKey & keyof InheritableSettingsShape)[];
 
 /** Per kind, the knob names that kind's requests read. */

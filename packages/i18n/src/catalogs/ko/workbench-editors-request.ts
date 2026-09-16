@@ -1199,6 +1199,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.responseSizeLimit': '응답 크기 제한',
   'workbench.editors.request.settings.responseSizeLimitInfo':
     '전송선에서 읽는 최대 응답 본문 크기입니다. 넘는 부분은 잘리고 응답에 잘림 표시가 붙습니다. 비우면 기본 제한인 2,048 KB (2 MB)입니다. 큰 페이로드에는 최대 10,240 KB (10 MB)까지 올리고, 잘린 응답이 어떻게 보이는지 시험하려면 낮추세요.',
+  'workbench.editors.request.settings.executionPlace': '실행 위치',
+  'workbench.editors.request.settings.executionPlaceInfo': '이 요청의 연결을 여는 곳: 이 기기, 데스크톱 앱 또는 워크스페이스 서버입니다. 요청은 여전히 여기에서 확인되며 연결만 이동합니다. 자동은 이 기기에서 가능하면 여기에서, 아니면 가능한 유일한 곳에서 실행합니다.',
+  'workbench.editors.request.settings.executionPlacePlaceholder': '자동',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
   'workbench.editors.request.settings.maxMessageSize': '최대 메시지 크기',

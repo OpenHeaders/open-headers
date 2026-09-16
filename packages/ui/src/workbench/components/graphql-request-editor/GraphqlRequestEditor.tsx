@@ -86,7 +86,9 @@ import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine'
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
 import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
+import { useSettingValue } from '../../settings/hooks';
 import EditorHeader from '../shell/EditorHeader';
 import {
   type InheritedSettingsView,
@@ -358,7 +360,11 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // Where a query runs — the HTTP send's reader with this editor's own
   // per-send pick; a subscription reads its session plane's (below).
   const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
-  const queryPlace = useExecutionPlace({ kind: 'graphql-query', preference: placePick });
+  const globalPlace = useSettingValue('requests.executionPlace');
+  const queryPlace = useExecutionPlace({
+    kind: 'graphql-query',
+    preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
+  });
 
   const handleQuery = useCallback(async () => {
     if (!entity || inFlight) return;

@@ -1284,6 +1284,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.responseSizeLimit': 'Предел размера ответа',
   'workbench.editors.request.settings.responseSizeLimitInfo':
     'Максимальный размер тела ответа, читаемый из сети; всё сверх него обрезается, и ответ помечается как обрезанный. Оставьте пустым для предела по умолчанию 2 048 КБ (2 МБ). Поднимите до 10 240 КБ (10 МБ) для крупных полезных нагрузок или понизьте, чтобы посмотреть, как выглядит обрезанный ответ.',
+  'workbench.editors.request.settings.executionPlace': 'Выполнять на',
+  'workbench.editors.request.settings.executionPlaceInfo': 'Где открывается соединение этого запроса: на этом устройстве, в настольном приложении или на сервере рабочего пространства. Запрос по-прежнему разрешается здесь; перемещается только соединение. «Автоматически» выполняет его здесь, когда это устройство может, иначе — в единственном месте, которое может.',
+  'workbench.editors.request.settings.executionPlacePlaceholder': 'Автоматически',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
   'workbench.editors.request.settings.maxMessageSize': 'Макс. размер сообщения',

@@ -13,6 +13,7 @@ import type {
   AuthConfig,
   CredentialsMode,
   ExecutedRequestSnapshot,
+  ExecutionPlaceRole,
   HttpMethod,
   HttpVersion,
   ProxyMode,
@@ -79,6 +80,7 @@ export interface DraftData {
   maxRedirects?: number;
   followOriginalHttpMethod?: boolean;
   followAuthorizationHeader?: boolean;
+  executionPlace?: ExecutionPlaceRole;
   preRequestScript?: string;
   postResponseScript?: string;
   /** Draft's last response, carried across the tab swap so the
@@ -152,6 +154,7 @@ export function useSaveRequestFlow({
             maxRedirects: draftData.maxRedirects,
             followOriginalHttpMethod: draftData.followOriginalHttpMethod,
             followAuthorizationHeader: draftData.followAuthorizationHeader,
+            executionPlace: draftData.executionPlace,
             preRequestScript: draftData.preRequestScript,
             postResponseScript: draftData.postResponseScript,
           },
@@ -207,6 +210,7 @@ export function useSaveRequestFlow({
           maxRedirects: saveModalDraftData.maxRedirects,
           followOriginalHttpMethod: saveModalDraftData.followOriginalHttpMethod,
           followAuthorizationHeader: saveModalDraftData.followAuthorizationHeader,
+          executionPlace: saveModalDraftData.executionPlace,
           preRequestScript: saveModalDraftData.preRequestScript,
           postResponseScript: saveModalDraftData.postResponseScript,
         },

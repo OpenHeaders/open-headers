@@ -1066,6 +1066,9 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.responseSizeLimit': '响应大小限制',
   'workbench.editors.request.settings.responseSizeLimitInfo':
     '从线路上读取的响应体最大大小；超出部分被截断，响应会被标记为已截断。留空为默认限制 2,048 KB（2 MB）。可提高到 10,240 KB（10 MB）以容纳更大的负载，或降低它来测试截断的响应是什么样子。',
+  'workbench.editors.request.settings.executionPlace': '运行位置',
+  'workbench.editors.request.settings.executionPlaceInfo': '此请求的连接在何处建立：此设备、桌面应用或工作区的服务器。请求仍在此处解析，只有连接会转移。“自动”会在此设备可行时在此运行，否则在唯一可行的位置运行。',
+  'workbench.editors.request.settings.executionPlacePlaceholder': '自动',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
   'workbench.editors.request.settings.maxMessageSize': '最大消息大小',

@@ -97,6 +97,20 @@ export const HTTP_VERSIONS = ['auto', '1.1', '2', '2-prior-knowledge', '3'] as c
 export const HttpVersionSchema = v.picklist(HTTP_VERSIONS);
 
 /**
+ * The execution place ROLES a request can prefer (the Execution Place
+ * plan, fork 3): `here` — the surface the user sits at opens the
+ * socket; `desktop-app` — the desktop app on this device does;
+ * `workspace-server` — the workspace's own providing server does. A
+ * role means the same thing on every device and resolves per device
+ * through the place rule, which is why it syncs; absent = Automatic
+ * (run here when this host can, else the one eligible place). A role
+ * the host cannot honour is never honoured silently — the send
+ * control names the requirement.
+ */
+export const EXECUTION_PLACE_ROLES = ['here', 'desktop-app', 'workspace-server'] as const;
+export const ExecutionPlaceRoleSchema = v.picklist(EXECUTION_PLACE_ROLES);
+
+/**
  * Reference to a vault `client-certificate` entry by NAME. The vault is
  * local-per-device and never syncs, so the entry name is the only
  * cross-device contract — a synced request finds each device's own
@@ -1460,6 +1474,13 @@ const RequestObjectSchema = v.object({
    * {@link MaxResponseBytesSchema}.
    */
   maxResponseBytes: v.optional(MaxResponseBytesSchema),
+  /**
+   * Where the send's socket opens — see {@link ExecutionPlaceRoleSchema}.
+   * Absent = Automatic. Inheritable (collection > folder > request);
+   * the global row under Settings › API requests sits beneath the
+   * chain and a per-send pick on the send control sits above it.
+   */
+  executionPlace: v.optional(ExecutionPlaceRoleSchema),
   /**
    * Cap on the number of 3xx redirects followed before the send fails
    * with an error naming the limit. Only meaningful while
