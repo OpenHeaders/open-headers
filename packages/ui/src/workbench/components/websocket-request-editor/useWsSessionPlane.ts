@@ -33,7 +33,10 @@ import {
   nextWsExampleName,
 } from '@openheaders/ui/shared/sync/ws-response-example-write-client';
 import { App } from 'antd';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { executionPlaceCopy, PAGE_KNOB_KEY } from '../../execution-place/execution-place-copy';
+import type { ExecutionPlaceResolution, PageSessionKnob } from '../../execution-place/resolve-execution-place';
+import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
 import { capturedWsRequestFromDraft, capturedWsResponseFromSnapshot } from '../ws-response-example/ws-example-draft';
@@ -69,6 +72,8 @@ export interface WsSessionPlane {
   hostNotice: string | null;
   /** Honest gate copy for a disabled Connect; null = enabled. */
   connectDisabledReason: string | null;
+  /** Where Connect would run this session, by the shared reader. */
+  executionPlace: ExecutionPlaceResolution;
   handleConnect: () => Promise<void>;
   handleDisconnect: () => void;
   /** Dial the armed reconnect attempt now instead of after its wait. */
@@ -78,6 +83,8 @@ export interface WsSessionPlane {
   handleSaveResponse: () => Promise<void>;
   canSaveResponse: boolean;
 }
+
+const NO_KNOBS: readonly PageSessionKnob[] = [];
 
 export function useWsSessionPlane({
   entity,
@@ -95,6 +102,50 @@ export function useWsSessionPlane({
 
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const pageSession = requestRuntimeKind !== 'node' && (getCapability('wsPageSession')?.() ?? false);
+  // The node-only knobs a page-realm session cannot apply — derived
+  // from the draft BEFORE Connect so the place control names them up
+  // front; the same list stamps the session pane's notice at Connect.
+  // A credential that rides the dial URL (a query-placed key or token,
+  // the AWS signed URL) reaches the server from any host, and the
+  // socketio flavor's bearer-shaped tokens (bearer, OAuth 2.0, JWT)
+  // ride the CONNECT auth payload too; every other resolved credential
+  // is a handshake header the platform socket cannot carry — Inherit
+  // resolves over the tree ancestry first (the executor's twin).
+  const pageKnobs = useMemo<readonly PageSessionKnob[]>(() => {
+    if (!pageSession || entity === null) return NO_KNOBS;
+    const knobs: PageSessionKnob[] = [];
+    if (draft.headers.some((h) => h.enabled !== false && h.key.trim() !== '')) knobs.push('headers');
+    if (!sslVerification) knobs.push('sslVerify');
+    const effectiveAuth =
+      draft.auth.type === 'inherit'
+        ? resolveInheritedAuthFor(
+            findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+            draft.auth,
+            draft.url,
+          ).auth
+        : draft.auth;
+    const socketio = entity.flavor === 'socketio';
+    const headerBorne =
+      !('disabled' in effectiveAuth && effectiveAuth.disabled === true) &&
+      (effectiveAuth.type === 'basic' ||
+        (effectiveAuth.type === 'api-key' && effectiveAuth.in === 'header') ||
+        (effectiveAuth.type === 'bearer' && effectiveAuth.token.trim() !== '' && !socketio) ||
+        (effectiveAuth.type === 'oauth2' && effectiveAuth.sendAs !== 'query' && !socketio) ||
+        (effectiveAuth.type === 'jwt' && effectiveAuth.addTo === 'header' && !socketio));
+    if (headerBorne) knobs.push('auth');
+    return knobs.length > 0 ? knobs : NO_KNOBS;
+  }, [
+    pageSession,
+    entity,
+    draft.headers,
+    draft.auth,
+    draft.url,
+    sslVerification,
+    collectionTrees,
+    collections,
+    folders,
+  ]);
+  const executionPlace = useExecutionPlace({ kind: 'websocket', inapplicableKnobs: pageKnobs });
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);
   const [timing, setTiming] = useState<WsSessionTiming | null>(null);
@@ -140,41 +191,7 @@ export function useWsSessionPlane({
     // cannot carry custom handshake headers or skip TLS verification —
     // a CONFIGURED knob is named for the session's whole life instead
     // of silently dropping (the connect deadline DOES apply here).
-    const inapplicableKnobs: string[] = [];
-    if (pageSession) {
-      if (draft.headers.some((h) => h.enabled !== false && h.key.trim() !== '')) {
-        inapplicableKnobs.push(t('workbench.editors.websocket.session.knobHeaders'));
-      }
-      if (!sslVerification) {
-        inapplicableKnobs.push(t('workbench.editors.websocket.session.knobSslVerify'));
-      }
-      // A credential that rides the dial URL (a query-placed key or
-      // token, the AWS signed URL) reaches the server from any host,
-      // and the socketio flavor's bearer-shaped tokens (bearer, OAuth
-      // 2.0, JWT) ride the CONNECT auth payload too; every other
-      // resolved credential is a handshake header the platform socket
-      // cannot carry — Inherit resolves over the tree ancestry first
-      // (the executor's twin).
-      const effectiveAuth =
-        draft.auth.type === 'inherit'
-          ? resolveInheritedAuthFor(
-              findRequestAncestry(collectionTrees, collections, folders, entity.uid),
-              draft.auth,
-              draft.url,
-            ).auth
-          : draft.auth;
-      const socketio = entity.flavor === 'socketio';
-      const headerBorne =
-        !('disabled' in effectiveAuth && effectiveAuth.disabled === true) &&
-        (effectiveAuth.type === 'basic' ||
-          (effectiveAuth.type === 'api-key' && effectiveAuth.in === 'header') ||
-          (effectiveAuth.type === 'bearer' && effectiveAuth.token.trim() !== '' && !socketio) ||
-          (effectiveAuth.type === 'oauth2' && effectiveAuth.sendAs !== 'query' && !socketio) ||
-          (effectiveAuth.type === 'jwt' && effectiveAuth.addTo === 'header' && !socketio));
-      if (headerBorne) {
-        inapplicableKnobs.push(t('workbench.editors.websocket.session.knobAuth'));
-      }
-    }
+    const inapplicableKnobs = pageKnobs.map((knob) => t(PAGE_KNOB_KEY[knob]));
     setHostNotice(
       inapplicableKnobs.length > 0
         ? t('workbench.editors.websocket.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
@@ -207,20 +224,7 @@ export function useWsSessionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [
-    entity,
-    inFlight,
-    draft,
-    sslVerification,
-    pageSession,
-    executeWebSocket,
-    liveSession,
-    toast,
-    t,
-    collectionTrees,
-    collections,
-    folders,
-  ]);
+  }, [entity, inFlight, draft, pageKnobs, executeWebSocket, liveSession, toast, t]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean close 1000; the pending RPC above resolves with the
@@ -316,9 +320,11 @@ export function useWsSessionPlane({
   const reconnecting = inFlight && liveSession.live !== null && reconnectingAt(liveSession.live.lifecycle);
   const sessionOpen = inFlight && liveSession.live !== null && liveSession.live.open !== null && !reconnecting;
 
+  // Connect gate: the shared reader says whether THIS surface can run
+  // the session at all; only a runnable place checks the URL.
   const connectDisabledReason =
-    requestRuntimeKind !== 'node' && !pageSession
-      ? t('workbench.editors.websocket.connect.browserHost')
+    executionPlace.state !== 'ready'
+      ? executionPlaceCopy(executionPlace, t).reason
       : draft.url.trim() === ''
         ? t('workbench.editors.websocket.connect.needsUrl')
         : null;
@@ -332,6 +338,7 @@ export function useWsSessionPlane({
     live: liveSession.live,
     hostNotice,
     connectDisabledReason,
+    executionPlace,
     handleConnect,
     handleDisconnect,
     handleReconnectNow,

@@ -445,6 +445,34 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     '他のデバイスからの送信は、接続先のホストでオフになっています。そのマシンの バックアップと同期 › お使いのデバイス で「接続中の他のデバイスにリクエストの送信を許可」を有効にしてください。',
   'shared.peerExecute.enableCta': 'デスクトップアプリで有効にする',
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': 'このリクエストの実行場所',
+  'shared.executionPlace.chip.here': 'ここで実行',
+  'shared.executionPlace.chip.desktopApp': 'デスクトップアプリで実行',
+  'shared.executionPlace.chip.server': '{place}で実行',
+  'shared.executionPlace.chip.needsDesktopApp': 'デスクトップアプリが必要',
+  'shared.executionPlace.chip.notForwarded': '{place}ではまだ利用できません',
+  'shared.executionPlace.chip.unavailable': 'ここでは利用できません',
+  'shared.executionPlace.chip.cannotRunOn': '{place}ではまだ実行できません',
+  'shared.executionPlace.role.here': 'このデバイス',
+  'shared.executionPlace.role.desktopApp': 'デスクトップアプリ',
+  'shared.executionPlace.role.server': 'サーバー',
+  'shared.executionPlace.reason.runsHere': 'このコンピューター上の、このアプリで実行されます。',
+  'shared.executionPlace.reason.runsHereBrowser': 'このコンピューター上の拡張機能で実行されます。',
+  'shared.executionPlace.reason.runsHerePageRealm':
+    'このコンピューター上の拡張機能で、ブラウザーのソケットを通じて実行されます。',
+  'shared.executionPlace.reason.contextSend':
+    '接続中のバックエンドである{place}から送信され、そこで解決されます。送信先にはそのマシンのアドレスとネットワーク上の位置が見えます。',
+  'shared.executionPlace.reason.companionInvoke':
+    'gRPC 呼び出しはこのコンピューター上のデスクトップアプリに転送されます。ブラウザーにはトレーラーを扱える HTTP/2 スタックがありません。',
+  'shared.executionPlace.reason.companionRequired':
+    '呼び出すにはデスクトップアプリを接続してください。作成と保存はここでできます。',
+  'shared.executionPlace.reason.tcpScheme':
+    'mqtt:// と mqtts:// はブラウザーでは開けない生の TCP ソケットを開きます。このリクエストをデスクトップアプリで開くか、ws:// または wss:// に切り替えてここで接続してください。',
+  'shared.executionPlace.reason.sessionNotForwarded': 'セッションはまだ{place}に転送されません。',
+  'shared.executionPlace.reason.noRuntime': 'この種類のリクエストはデスクトップアプリまたはサーバーで実行されます。',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    'このリクエストは{place}で実行するように設定されていますが、ここからはまだ実行できません。',
   'shared.desktopTeaser.cta': 'デスクトップアプリをダウンロード',
   'shared.desktopTeaser.openApp': 'デスクトップアプリで開く',
   'shared.desktopTeaser.launchApp': 'デスクトップアプリを開く',

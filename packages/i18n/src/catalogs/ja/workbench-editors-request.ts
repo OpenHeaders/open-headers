@@ -53,7 +53,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.sending': '送信しています…',
   'workbench.editors.request.send.unresolvedTooltip':
     'リクエストに未解決の変数があります。送信する前に vault、環境、コレクション、ワークスペース、またはライブワークフローで定義してください。',
-  'workbench.editors.request.send.remoteDispatchHint': '{host}（接続中のバックエンド）で実行されます',
   'workbench.editors.request.send.stop': '停止',
   'workbench.editors.request.send.stopTooltip': 'リクエストを停止し、届いた分を保持します',
   'workbench.editors.request.menu.copyAsCurl': 'cURL としてコピー',

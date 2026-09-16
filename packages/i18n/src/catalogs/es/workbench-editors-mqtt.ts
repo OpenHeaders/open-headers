@@ -24,11 +24,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.reconnectNow': 'Reconectar ahora',
   'workbench.editors.mqtt.connect.reconnectNowHint':
     'Iniciar el siguiente intento de reconexión sin esperar el periodo',
-  'workbench.editors.mqtt.connect.browserHost':
-    'Las sesiones MQTT se ejecutan en la aplicación de escritorio o el servidor.',
   'workbench.editors.mqtt.connect.needsUrl': 'Introduce una URL de broker para conectar.',
-  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
-    'Las sesiones {scheme}:// se ejecutan en la aplicación de escritorio o el servidor — cambia a ws:// o wss:// para conectar aquí.',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': 'Mensaje',
   'workbench.editors.mqtt.tab.topics': 'Temas',

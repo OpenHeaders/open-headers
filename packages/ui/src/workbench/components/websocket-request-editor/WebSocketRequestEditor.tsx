@@ -52,6 +52,7 @@ import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine'
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import SessionLock from '../shared/SessionLock';
 import SpecTabLabel from '../shared/SpecTabLabel';
+import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
 import EditorHeader from '../shell/EditorHeader';
 import { CONNECT_SHORTCUT } from './compose';
 import {
@@ -399,7 +400,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     session.sessionOpen || session.reconnecting
       ? t('workbench.editors.websocket.connect.disconnect')
       : t('workbench.editors.websocket.connect.cancel');
-  const headerActions = session.inFlight ? (
+  const primaryAction = session.inFlight ? (
     <>
       {session.reconnecting ? (
         <Tooltip placement="bottom" title={t('workbench.editors.websocket.connect.reconnectNowHint')}>
@@ -463,6 +464,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         </Button>
       </span>
     </Tooltip>
+  );
+  const headerActions = (
+    <>
+      <ExecutionPlaceControl resolution={session.executionPlace} />
+      {primaryAction}
+    </>
   );
 
   return (

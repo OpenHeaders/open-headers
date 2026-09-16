@@ -27,10 +27,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.cancel': '取消',
   'workbench.editors.mqtt.connect.reconnectNow': '立即重连',
   'workbench.editors.mqtt.connect.reconnectNowHint': '不等待重连周期，立即发起下一次重连尝试',
-  'workbench.editors.mqtt.connect.browserHost': 'MQTT 会话在桌面应用或服务器上运行。',
   'workbench.editors.mqtt.connect.needsUrl': '输入代理 URL 以连接。',
-  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
-    '{scheme}:// 会话在桌面应用或服务器上运行——切换到 ws:// 或 wss:// 即可在此连接。',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': '消息',
   'workbench.editors.mqtt.tab.topics': '主题',

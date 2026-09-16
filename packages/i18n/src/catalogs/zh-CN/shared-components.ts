@@ -465,6 +465,31 @@ export const sharedComponents = {
   'shared.peerExecute.enableCta': '在桌面应用中启用',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': '此请求的运行位置',
+  'shared.executionPlace.chip.here': '在此运行',
+  'shared.executionPlace.chip.desktopApp': '在桌面应用上运行',
+  'shared.executionPlace.chip.server': '在 {place} 上运行',
+  'shared.executionPlace.chip.needsDesktopApp': '需要桌面应用',
+  'shared.executionPlace.chip.notForwarded': '在 {place} 上尚不可用',
+  'shared.executionPlace.chip.unavailable': '此处不可用',
+  'shared.executionPlace.chip.cannotRunOn': '尚无法在 {place} 上运行',
+  'shared.executionPlace.role.here': '此设备',
+  'shared.executionPlace.role.desktopApp': '桌面应用',
+  'shared.executionPlace.role.server': '服务器',
+  'shared.executionPlace.reason.runsHere': '在此应用中运行，位于这台电脑。',
+  'shared.executionPlace.reason.runsHereBrowser': '在扩展中运行，位于这台电脑。',
+  'shared.executionPlace.reason.runsHerePageRealm': '在扩展中通过浏览器 socket 运行，位于这台电脑。',
+  'shared.executionPlace.reason.contextSend':
+    '由 {place}（已连接的后端）发送并在那里解析。目标看到的是那台机器的地址和网络位置。',
+  'shared.executionPlace.reason.companionInvoke':
+    'gRPC 调用会转发到这台电脑上的桌面应用——浏览器没有能暴露 trailer 的 HTTP/2 栈。',
+  'shared.executionPlace.reason.companionRequired': '连接桌面应用以调用——编写和保存在这里可用。',
+  'shared.executionPlace.reason.tcpScheme':
+    'mqtt:// 和 mqtts:// 会打开浏览器无法打开的原始 TCP socket。请在桌面应用中打开此请求，或改用 ws:// 或 wss:// 在这里连接。',
+  'shared.executionPlace.reason.sessionNotForwarded': '会话尚未转发到 {place}。',
+  'shared.executionPlace.reason.noRuntime': '这类请求在桌面应用或服务器上运行。',
+  'shared.executionPlace.reason.preferenceUnavailable': '此请求被设置为在 {place} 上运行，从这里尚无法做到。',
   'shared.desktopTeaser.cta': '下载桌面应用',
   'shared.desktopTeaser.openApp': '在桌面应用中打开',
   'shared.desktopTeaser.launchApp': '打开桌面应用',

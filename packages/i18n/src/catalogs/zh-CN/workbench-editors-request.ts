@@ -47,7 +47,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.sending': '正在发送…',
   'workbench.editors.request.send.unresolvedTooltip':
     '请求含有未解析的变量。发送前请在 vault、环境、集合、工作区或 live 工作流中定义它们。',
-  'workbench.editors.request.send.remoteDispatchHint': '在 {host} 上运行——已连接的后端',
   'workbench.editors.request.send.stop': '停止',
   'workbench.editors.request.send.stopTooltip': '停止请求并保留已到达的内容',
   'workbench.editors.request.menu.copyAsCurl': '复制为 cURL',

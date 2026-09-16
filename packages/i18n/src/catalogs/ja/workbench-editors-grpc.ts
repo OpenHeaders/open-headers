@@ -32,8 +32,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': '.proto ファイルをインポート…',
   'workbench.editors.grpc.invoke.label': '呼び出し',
   'workbench.editors.grpc.invoke.stop': '停止',
-  'workbench.editors.grpc.invoke.browserHost':
-    '呼び出しはデスクトップアプリで実行されます。作成と保存はここでできます。',
   'workbench.editors.grpc.invoke.needsMethod':
     '呼び出すには、リンクされた仕様に対して解決できるメソッドを選んでください',
   'workbench.editors.grpc.invoke.needsUrl': '呼び出すには対象ホストを入力してください',
@@ -171,8 +169,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.helpOwn':
     '呼び出しごとに 1 回発行され、呼び出しの authorization（またはキー自身の名前）メタデータとして送られます。クエリ配置は gRPC の呼び出しには乗りません。同じ名前の明示的なメタデータ行が優先されます。',
   'workbench.editors.grpc.auth.ownUnsupported': '{type} は gRPC の呼び出しには適用できません。',
-  'workbench.editors.grpc.invoke.connectCompanion':
-    '呼び出すにはデスクトップアプリを接続してください。作成と保存はここでできます。',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': '停止',

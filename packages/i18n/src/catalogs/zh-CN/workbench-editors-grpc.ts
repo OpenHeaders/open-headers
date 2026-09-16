@@ -31,7 +31,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': '导入 .proto 文件…',
   'workbench.editors.grpc.invoke.label': '调用',
   'workbench.editors.grpc.invoke.stop': '停止',
-  'workbench.editors.grpc.invoke.browserHost': '调用在桌面端应用上运行——编写和保存在这里可用。',
   'workbench.editors.grpc.invoke.needsMethod': '挑选一个能在已关联规范中解析的方法以调用',
   'workbench.editors.grpc.invoke.needsUrl': '输入目标主机以调用',
   'workbench.editors.grpc.invoke.failed': '调用失败——主机没有应答此次调用',
@@ -160,7 +159,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.ownUnsupported': '{type}无法应用于 gRPC 调用。',
   'workbench.editors.grpc.auth.help':
     '作为 authorization: Bearer <token> metadata 随调用发送。显式的 authorization metadata 行优先。',
-  'workbench.editors.grpc.invoke.connectCompanion': '连接桌面端应用以调用——编写和保存在这里可用。',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': '已停止',

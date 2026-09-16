@@ -30,8 +30,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.label': 'Подключиться',
   'workbench.editors.websocket.connect.disconnect': 'Отключиться',
   'workbench.editors.websocket.connect.cancel': 'Отмена',
-  'workbench.editors.websocket.connect.browserHost':
-    'Сеансы WebSocket выполняются в настольном приложении или на сервере.',
   'workbench.editors.websocket.connect.needsUrl': 'Для подключения введите URL-адрес ws:// или wss://.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Сообщение',

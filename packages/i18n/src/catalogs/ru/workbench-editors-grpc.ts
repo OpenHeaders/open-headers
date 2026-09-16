@@ -38,8 +38,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': 'Импортировать файл .proto…',
   'workbench.editors.grpc.invoke.label': 'Вызвать',
   'workbench.editors.grpc.invoke.stop': 'Остановить',
-  'workbench.editors.grpc.invoke.browserHost':
-    'Вызов выполняется в настольном приложении — составлять и сохранять можно здесь.',
   'workbench.editors.grpc.invoke.needsMethod':
     'Для вызова выберите метод, который разрешается по привязанной спецификации',
   'workbench.editors.grpc.invoke.needsUrl': 'Для вызова введите целевой хост',
@@ -174,8 +172,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.helpOwn':
     'Выпускается один раз на вызов и отправляется как метаданные authorization (или под собственным именем ключа) в вызове — размещение в строке запроса никогда не участвует в вызове gRPC. Явная строка метаданных с тем же именем имеет приоритет.',
   'workbench.editors.grpc.auth.ownUnsupported': '{type} нельзя применить к вызову gRPC.',
-  'workbench.editors.grpc.invoke.connectCompanion':
-    'Для вызова подключите настольное приложение — составлять и сохранять можно здесь.',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': 'Остановлено',

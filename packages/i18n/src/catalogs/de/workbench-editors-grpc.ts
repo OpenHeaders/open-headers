@@ -32,8 +32,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': 'Eine .proto-Datei importieren…',
   'workbench.editors.grpc.invoke.label': 'Aufrufen',
   'workbench.editors.grpc.invoke.stop': 'Stoppen',
-  'workbench.editors.grpc.invoke.browserHost':
-    'Aufrufe laufen in der Desktop-App — Verfassen und Speichern funktioniert hier.',
   'workbench.editors.grpc.invoke.needsMethod':
     'Wähle eine Methode, die sich gegen die verknüpfte Spezifikation auflöst, um aufzurufen',
   'workbench.editors.grpc.invoke.needsUrl': 'Gib einen Ziel-Host ein, um aufzurufen',
@@ -205,8 +203,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.help':
     'Wird als Metadata authorization: Bearer <token> am Aufruf gesendet. Eine explizite ' +
     'authorization-Metadata-Zeile hat Vorrang.',
-  'workbench.editors.grpc.invoke.connectCompanion':
-    'Verbinde die Desktop-App zum Aufrufen — Verfassen und Speichern funktioniert hier.',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': 'Gestoppt',

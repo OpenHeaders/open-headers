@@ -44,7 +44,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.unresolvedTooltip':
     'La solicitud tiene variables sin resolver. Defínelas en el vault, el entorno, la colección, el espacio ' +
     'de trabajo o un workflow live antes de enviar.',
-  'workbench.editors.request.send.remoteDispatchHint': 'Se ejecuta en {host} — el back-end conectado',
   'workbench.editors.request.send.stop': 'Detener',
   'workbench.editors.request.send.stopTooltip': 'Detener la solicitud y conservar lo que haya llegado',
   'workbench.editors.request.menu.copyAsCurl': 'Copiar como cURL',

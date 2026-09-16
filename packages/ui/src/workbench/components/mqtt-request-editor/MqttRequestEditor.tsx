@@ -52,6 +52,7 @@ import ScriptsTab from '../request-editor/ScriptsTab';
 import { ancestorScriptLevels } from '../request-container/ancestry';
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
+import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
 import EditorHeader from '../shell/EditorHeader';
 import { composePublishWire } from './compose';
 import {
@@ -361,7 +362,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     session.sessionOpen || session.reconnecting
       ? t('workbench.editors.mqtt.connect.disconnect')
       : t('workbench.editors.mqtt.connect.cancel');
-  const headerActions = session.inFlight ? (
+  const primaryAction = session.inFlight ? (
     <>
       {session.reconnecting ? (
         <Tooltip placement="bottom" title={t('workbench.editors.mqtt.connect.reconnectNowHint')}>
@@ -423,6 +424,13 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
         </Button>
       </span>
     </Tooltip>
+  );
+
+  const headerActions = (
+    <>
+      <ExecutionPlaceControl resolution={session.executionPlace} />
+      {primaryAction}
+    </>
   );
 
   const willConfigured = draft.lastWill.topic.trim() !== '';

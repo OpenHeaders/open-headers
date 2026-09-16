@@ -487,6 +487,33 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     'Sending from other devices is turned off on the connected host. Enable "Allow other connected devices to send requests" in its Backup and Sync › Your devices on that machine.',
   'shared.peerExecute.enableCta': 'Enable in the desktop app',
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': 'Where this request runs',
+  'shared.executionPlace.chip.here': 'Runs here',
+  'shared.executionPlace.chip.desktopApp': 'Runs on the desktop app',
+  'shared.executionPlace.chip.server': 'Runs on {place}',
+  'shared.executionPlace.chip.needsDesktopApp': 'Needs the desktop app',
+  'shared.executionPlace.chip.notForwarded': 'Not available on {place} yet',
+  'shared.executionPlace.chip.unavailable': 'Not available here',
+  'shared.executionPlace.chip.cannotRunOn': 'Cannot run on {place} yet',
+  'shared.executionPlace.role.here': 'this device',
+  'shared.executionPlace.role.desktopApp': 'the desktop app',
+  'shared.executionPlace.role.server': 'the server',
+  'shared.executionPlace.reason.runsHere': 'Runs in this app, on this computer.',
+  'shared.executionPlace.reason.runsHereBrowser': 'Runs in the extension, on this computer.',
+  'shared.executionPlace.reason.runsHerePageRealm': 'Runs in the extension over the browser socket, on this computer.',
+  'shared.executionPlace.reason.contextSend':
+    'Sent by {place}, the connected back-end, and resolved there. The target sees that machine’s address and network location.',
+  'shared.executionPlace.reason.companionInvoke':
+    'gRPC calls are forwarded to the desktop app on this computer — the browser has no HTTP/2 stack that exposes trailers.',
+  'shared.executionPlace.reason.companionRequired':
+    'Connect the desktop app to invoke — composing and saving works here.',
+  'shared.executionPlace.reason.tcpScheme':
+    'mqtt:// and mqtts:// open a raw TCP socket the browser cannot. Open this request in the desktop app, or switch to ws:// or wss:// to connect here.',
+  'shared.executionPlace.reason.sessionNotForwarded': 'Sessions are not forwarded to {place} yet.',
+  'shared.executionPlace.reason.noRuntime': 'This request kind runs on the desktop app or a server.',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    'This request is set to run on {place}, which cannot run it from here yet.',
   'shared.desktopTeaser.cta': 'Download the desktop app',
   'shared.desktopTeaser.openApp': 'Open in the desktop app',
   'shared.desktopTeaser.launchApp': 'Open the desktop app',

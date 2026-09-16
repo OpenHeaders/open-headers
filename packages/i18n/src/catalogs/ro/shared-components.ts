@@ -502,6 +502,33 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     'Trimiterea de pe alte dispozitive este dezactivată pe gazda conectată. Activați „Permiteți altor dispozitive conectate să trimită cereri” în Copie de rezervă și sincronizare › Dispozitivele dvs. de pe acel computer.',
   'shared.peerExecute.enableCta': 'Activare în aplicația desktop',
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': 'Unde rulează această solicitare',
+  'shared.executionPlace.chip.here': 'Rulează aici',
+  'shared.executionPlace.chip.desktopApp': 'Rulează în aplicația desktop',
+  'shared.executionPlace.chip.server': 'Rulează pe {place}',
+  'shared.executionPlace.chip.needsDesktopApp': 'Necesită aplicația desktop',
+  'shared.executionPlace.chip.notForwarded': 'Indisponibil încă pe {place}',
+  'shared.executionPlace.chip.unavailable': 'Indisponibil aici',
+  'shared.executionPlace.chip.cannotRunOn': 'Indisponibil încă: {place}',
+  'shared.executionPlace.role.here': 'acest dispozitiv',
+  'shared.executionPlace.role.desktopApp': 'aplicația desktop',
+  'shared.executionPlace.role.server': 'server',
+  'shared.executionPlace.reason.runsHere': 'Rulează în această aplicație, pe acest computer.',
+  'shared.executionPlace.reason.runsHereBrowser': 'Rulează în extensie, pe acest computer.',
+  'shared.executionPlace.reason.runsHerePageRealm': 'Rulează în extensie prin socketul browserului, pe acest computer.',
+  'shared.executionPlace.reason.contextSend':
+    'Trimisă de backend-ul conectat {place} și rezolvată acolo. Destinația vede adresa și locația de rețea a acelei mașini.',
+  'shared.executionPlace.reason.companionInvoke':
+    'Apelurile gRPC sunt redirecționate către aplicația desktop de pe acest computer — browserul nu are o stivă HTTP/2 care să expună trailerele.',
+  'shared.executionPlace.reason.companionRequired':
+    'Conectați aplicația desktop pentru a invoca — compunerea și salvarea funcționează aici.',
+  'shared.executionPlace.reason.tcpScheme':
+    'Adresele mqtt:// și mqtts:// deschid un socket TCP brut, pe care browserul nu îl poate deschide. Deschideți această solicitare în aplicația desktop sau treceți la ws:// ori wss:// pentru a vă conecta aici.',
+  'shared.executionPlace.reason.sessionNotForwarded': 'Sesiunile nu sunt încă redirecționate către {place}.',
+  'shared.executionPlace.reason.noRuntime': 'Acest tip de solicitare rulează în aplicația desktop sau pe un server.',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    'Locul de rulare setat pentru această solicitare este {place}, indisponibil de aici deocamdată.',
   'shared.desktopTeaser.cta': 'Descărcare aplicație desktop',
   'shared.desktopTeaser.openApp': 'Deschidere în aplicația desktop',
   'shared.desktopTeaser.launchApp': 'Deschidere aplicație desktop',

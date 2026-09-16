@@ -116,7 +116,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.subscription.tooltip':
     '订阅 — 通过 WebSocket（graphql-transport-ws）打开 subscription 并流式接收其事件',
   'workbench.editors.graphql.subscription.stopTooltip': '停止 subscription — 发送 complete 并关闭会话',
-  'workbench.editors.graphql.subscription.browserHost': 'Subscription 在桌面应用或扩展中运行。',
   'workbench.editors.graphql.subscription.openFailed': '打开 subscription 失败',
   'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
   'workbench.editors.graphql.subscription.subscribing': '订阅中…',

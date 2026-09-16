@@ -38,10 +38,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.reconnectNow': 'Reconectare acum',
   'workbench.editors.mqtt.connect.reconnectNowHint':
     'Lansează următoarea încercare de reconectare fără a aștepta expirarea perioadei',
-  'workbench.editors.mqtt.connect.browserHost': 'Sesiunile MQTT rulează în aplicația desktop sau pe server.',
   'workbench.editors.mqtt.connect.needsUrl': 'Introduceți adresa URL a unui broker pentru a vă conecta.',
-  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
-    'Sesiunile {scheme}:// rulează în aplicația desktop sau pe server — treceți la ws:// sau wss:// pentru a vă conecta aici.',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': 'Mesaj',
   'workbench.editors.mqtt.tab.topics': 'Subiecte',

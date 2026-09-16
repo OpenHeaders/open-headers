@@ -81,7 +81,7 @@ import { WorkbenchPage } from './pages/workbench-page';
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
 const CONNECT_NEEDS_URL_COPY = 'Enter a broker URL to connect.';
-const CONNECT_TCP_SCHEME_COPY = 'mqtt:// sessions run on the desktop app or server';
+const CONNECT_TCP_SCHEME_COPY = 'mqtt:// and mqtts:// open a raw TCP socket the browser cannot';
 // Context-create persists immediately under the kind's default name
 // (the born-clean gRPC posture) and primes the breadcrumb rename —
 // committing this name proves the rename gate end to end.
@@ -328,8 +328,12 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
 
   // The filled mqtt:// URL does NOT enable Connect on this surface —
   // a browser page cannot open a raw TCP socket, and the honesty gate
-  // NAMES the scheme instead of silently downgrading to ws.
+  // NAMES the scheme instead of silently downgrading to ws; the place
+  // control beside Connect says what the session needs.
   await expectConnectGate(CONNECT_TCP_SCHEME_COPY);
+  const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
+  await expect(placeChip).toHaveText('Needs the desktop app');
+  await expect(placeChip).toHaveAttribute('data-state', 'needs-companion');
 
   await page.getByRole('button', { name: /Save$/ }).filter({ visible: true }).first().click();
   await page

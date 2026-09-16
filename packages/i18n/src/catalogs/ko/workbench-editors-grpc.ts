@@ -35,8 +35,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': '.proto 파일 가져오기…',
   'workbench.editors.grpc.invoke.label': '호출',
   'workbench.editors.grpc.invoke.stop': '중지',
-  'workbench.editors.grpc.invoke.browserHost':
-    '호출은 데스크톱 앱에서 실행됩니다. 작성과 저장은 여기서 할 수 있습니다.',
   'workbench.editors.grpc.invoke.needsMethod': '호출하려면 연결된 사양에서 해결되는 메서드를 고르세요',
   'workbench.editors.grpc.invoke.needsUrl': '호출하려면 대상 호스트를 입력하세요',
   'workbench.editors.grpc.invoke.failed': '호출 실패. 호스트가 호출에 응답하지 않았습니다',
@@ -169,8 +167,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.helpOwn':
     '호출마다 한 번 발급되어 authorization (또는 키 자체의 이름) 메타데이터로 호출에 전송됩니다. 쿼리 배치는 gRPC 호출에 실리지 않습니다. 같은 이름의 명시적 메타데이터 행이 우선합니다.',
   'workbench.editors.grpc.auth.ownUnsupported': '{type} 방식은 gRPC 호출에 적용할 수 없습니다.',
-  'workbench.editors.grpc.invoke.connectCompanion':
-    '호출하려면 데스크톱 앱을 연결하세요. 작성과 저장은 여기서 할 수 있습니다.',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': '중지됨',

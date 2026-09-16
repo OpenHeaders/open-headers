@@ -443,6 +443,33 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     '다른 기기에서 보내기가 연결된 호스트에서 꺼져 있습니다. 해당 컴퓨터의 백업 및 동기화 › 내 기기에서 “연결된 다른 기기가 요청을 보내도록 허용”을 활성화하세요.',
   'shared.peerExecute.enableCta': '데스크톱 앱에서 활성화',
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': '이 요청의 실행 위치',
+  'shared.executionPlace.chip.here': '여기에서 실행',
+  'shared.executionPlace.chip.desktopApp': '데스크톱 앱에서 실행',
+  'shared.executionPlace.chip.server': '{place}에서 실행',
+  'shared.executionPlace.chip.needsDesktopApp': '데스크톱 앱 필요',
+  'shared.executionPlace.chip.notForwarded': '{place}에서는 아직 사용할 수 없음',
+  'shared.executionPlace.chip.unavailable': '여기에서는 사용할 수 없음',
+  'shared.executionPlace.chip.cannotRunOn': '{place}에서는 아직 실행할 수 없음',
+  'shared.executionPlace.role.here': '이 기기',
+  'shared.executionPlace.role.desktopApp': '데스크톱 앱',
+  'shared.executionPlace.role.server': '서버',
+  'shared.executionPlace.reason.runsHere': '이 컴퓨터의 이 앱에서 실행됩니다.',
+  'shared.executionPlace.reason.runsHereBrowser': '이 컴퓨터의 확장 프로그램에서 실행됩니다.',
+  'shared.executionPlace.reason.runsHerePageRealm': '이 컴퓨터의 확장 프로그램에서 브라우저 소켓을 통해 실행됩니다.',
+  'shared.executionPlace.reason.contextSend':
+    '연결된 백엔드인 {place}에서 전송하고 그곳에서 해석합니다. 대상에는 그 머신의 주소와 네트워크 위치가 보입니다.',
+  'shared.executionPlace.reason.companionInvoke':
+    'gRPC 호출은 이 컴퓨터의 데스크톱 앱으로 전달됩니다. 브라우저에는 트레일러를 노출하는 HTTP/2 스택이 없습니다.',
+  'shared.executionPlace.reason.companionRequired':
+    '호출하려면 데스크톱 앱을 연결하세요. 작성과 저장은 여기에서 할 수 있습니다.',
+  'shared.executionPlace.reason.tcpScheme':
+    'mqtt:// 및 mqtts:// 주소는 브라우저가 열 수 없는 원시 TCP 소켓을 엽니다. 이 요청을 데스크톱 앱에서 열거나, ws:// 또는 wss:// 주소로 바꿔 여기에서 연결하세요.',
+  'shared.executionPlace.reason.sessionNotForwarded': '세션은 아직 {place}에 전달되지 않습니다.',
+  'shared.executionPlace.reason.noRuntime': '이 종류의 요청은 데스크톱 앱이나 서버에서 실행됩니다.',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    '이 요청은 {place}에서 실행하도록 설정되어 있지만, 여기에서는 아직 실행할 수 없습니다.',
   'shared.desktopTeaser.cta': '데스크톱 앱 다운로드',
   'shared.desktopTeaser.openApp': '데스크톱 앱에서 열기',
   'shared.desktopTeaser.launchApp': '데스크톱 앱 열기',

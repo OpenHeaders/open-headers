@@ -127,7 +127,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.subscription.tooltip':
     '구독합니다. WebSocket 연결 (graphql-transport-ws)로 구독을 열고 이벤트를 스트리밍합니다',
   'workbench.editors.graphql.subscription.stopTooltip': '구독을 중지합니다. complete 메시지를 보내고 세션을 닫습니다',
-  'workbench.editors.graphql.subscription.browserHost': '구독은 데스크톱 앱이나 확장 프로그램에서 실행됩니다.',
   'workbench.editors.graphql.subscription.openFailed': '구독을 열지 못했습니다',
   'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
   'workbench.editors.graphql.subscription.subscribing': '구독 중…',

@@ -92,7 +92,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.sending': 'Отправка…',
   'workbench.editors.request.send.unresolvedTooltip':
     'В запросе есть неразрешённые переменные. Перед отправкой определите их в vault, окружении, коллекции, рабочем пространстве или рабочем процессе Live.',
-  'workbench.editors.request.send.remoteDispatchHint': 'Выполняется на хосте {host} — подключённом бэкенде',
   'workbench.editors.request.send.stop': 'Остановить',
   'workbench.editors.request.send.stopTooltip': 'Остановить запрос и сохранить то, что уже пришло',
   'workbench.editors.request.menu.copyAsCurl': 'Копировать как cURL',

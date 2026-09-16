@@ -38,8 +38,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': 'Import fișier .proto…',
   'workbench.editors.grpc.invoke.label': 'Invocare',
   'workbench.editors.grpc.invoke.stop': 'Oprire',
-  'workbench.editors.grpc.invoke.browserHost':
-    'Invocarea rulează în aplicația desktop — compunerea și salvarea funcționează aici.',
   'workbench.editors.grpc.invoke.needsMethod':
     'Alegeți o metodă care se rezolvă față de specificația legată pentru a invoca',
   'workbench.editors.grpc.invoke.needsUrl': 'Introduceți o gazdă țintă pentru a invoca',
@@ -176,8 +174,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.helpOwn':
     'Emis o singură dată per invocare și trimis ca metadate authorization (sau cu numele propriu al cheii) pe apel — o plasare în interogare nu circulă niciodată pe un apel gRPC. Un rând de metadate explicit cu același nume are prioritate.',
   'workbench.editors.grpc.auth.ownUnsupported': '{type} nu poate fi aplicat unui apel gRPC.',
-  'workbench.editors.grpc.invoke.connectCompanion':
-    'Conectați aplicația desktop pentru a invoca — compunerea și salvarea funcționează aici.',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': 'Oprit',

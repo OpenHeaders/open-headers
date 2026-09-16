@@ -35,10 +35,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.reconnectNow': 'Переподключиться сейчас',
   'workbench.editors.mqtt.connect.reconnectNowHint':
     'Выполнить следующую попытку переподключения, не дожидаясь конца периода',
-  'workbench.editors.mqtt.connect.browserHost': 'Сеансы MQTT выполняются в настольном приложении или на сервере.',
   'workbench.editors.mqtt.connect.needsUrl': 'Для подключения введите URL-адрес брокера.',
-  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
-    'Сеансы {scheme}:// выполняются в настольном приложении или на сервере — переключитесь на ws:// или wss://, чтобы подключиться здесь.',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': 'Сообщение',
   'workbench.editors.mqtt.tab.topics': 'Топики',

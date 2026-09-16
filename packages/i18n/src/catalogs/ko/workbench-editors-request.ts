@@ -51,7 +51,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.sending': '전송 중…',
   'workbench.editors.request.send.unresolvedTooltip':
     '요청에 해석되지 않은 변수가 있습니다. 보내기 전에 vault 저장소, 환경, 컬렉션, 워크스페이스 또는 라이브 워크플로에서 정의하세요.',
-  'workbench.editors.request.send.remoteDispatchHint': '{host} 호스트 (연결된 백엔드)에서 실행됩니다',
   'workbench.editors.request.send.stop': '중지',
   'workbench.editors.request.send.stopTooltip': '요청을 중지하고 지금까지 도착한 내용을 유지합니다',
   'workbench.editors.request.menu.copyAsCurl': 'cURL 형식으로 복사',

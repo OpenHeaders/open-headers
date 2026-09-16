@@ -75,22 +75,28 @@ export function deriveDesktopCompanionState(
   return 'unknown';
 }
 
-/** Host-aware companion rows — mounted by `productStatusExtras`. */
-export const CompanionStatusRows: React.FC = () => {
-  const host = getCurrentHost();
-  if (host === 'extension') return <DesktopAppRow />;
-  return <ExtensionsRow />;
-};
+/** The desktop app on this device as one live read: the row's state
+ *  plus whether a launch can succeed. */
+export interface DesktopCompanion {
+  state: DesktopCompanionState;
+  /** `desktopLaunch` is registered and, where only the presence probe
+   *  answers, the NM host is anchored to a launchable install. */
+  launchable: boolean;
+}
 
-const DesktopAppRow: React.FC = () => {
-  const t = useT();
+/**
+ * The ONE derivation behind every "is the desktop app here" surface
+ * that needs the whole ladder (the status row, the execution-place
+ * control): the desktop app's record answers from its sync slot; a
+ * record-less registry consults the presence probe once per mount
+ * (the probe spawns a real process — never while a record can answer).
+ */
+export function useDesktopCompanion(): DesktopCompanion {
   const backends = useBackends();
   const { snapshot: syncSlots } = useBackendSyncStatus();
   const hasDesktopAppRecord = desktopAppRecord(getCurrentHost(), backends) !== undefined;
   const [presence, setPresence] = React.useState<NmHostPresenceVerdict | null>(null);
 
-  // The probe spawns a real process — consult it only when no record
-  // can answer, and only once per mount (the impl caches briefly too).
   React.useEffect(() => {
     if (hasDesktopAppRecord) return;
     const probe = getCapability('nmHostPresence');
@@ -108,6 +114,21 @@ const DesktopAppRow: React.FC = () => {
   }, [hasDesktopAppRecord]);
 
   const state = deriveDesktopCompanionState(backends, syncSlots, presence === null ? null : presence.present);
+  const launchable =
+    getCapability('desktopLaunch') !== undefined && (hasDesktopAppRecord || presence?.anchored === true);
+  return { state, launchable };
+}
+
+/** Host-aware companion rows — mounted by `productStatusExtras`. */
+export const CompanionStatusRows: React.FC = () => {
+  const host = getCurrentHost();
+  if (host === 'extension') return <DesktopAppRow />;
+  return <ExtensionsRow />;
+};
+
+const DesktopAppRow: React.FC = () => {
+  const t = useT();
+  const { state, launchable } = useDesktopCompanion();
   // Unresolved probe: render nothing rather than flash a wrong guess.
   if (state === 'unknown') return null;
 
@@ -132,7 +153,7 @@ const DesktopAppRow: React.FC = () => {
       {state === 'installed-not-connected' && (
         <span style={{ display: 'inline-flex', gap: 4 }}>
           <DesktopConnectAction />
-          {presence?.anchored === true && <DesktopOpenAppAction />}
+          {launchable && <DesktopOpenAppAction />}
         </span>
       )}
     </CompanionRow>
@@ -148,7 +169,7 @@ const DesktopAppRow: React.FC = () => {
  * the host is unanchored (a dev layout refuses every launch); a failed
  * launch leaves the row as it was.
  */
-const DesktopOpenAppAction: React.FC<{ primary?: boolean }> = ({ primary }) => {
+export const DesktopOpenAppAction: React.FC<{ primary?: boolean }> = ({ primary }) => {
   const t = useT();
   const [busy, setBusy] = React.useState(false);
   const launch = getCapability('desktopLaunch');
@@ -181,7 +202,7 @@ const DesktopOpenAppAction: React.FC<{ primary?: boolean }> = ({ primary }) => {
  * unverified browser) leaves the row as it was — the button stays for
  * another try.
  */
-const DesktopConnectAction: React.FC = () => {
+export const DesktopConnectAction: React.FC = () => {
   const t = useT();
   const [busy, setBusy] = React.useState(false);
   const autoPair = getCapability('nmAutoPair');
@@ -215,7 +236,7 @@ const DesktopConnectAction: React.FC = () => {
  * installer from the update feed so the browser starts the actual
  * download; an unreachable feed lands on the website install section.
  */
-const DesktopDownloadAction: React.FC = () => {
+export const DesktopDownloadAction: React.FC = () => {
   const t = useT();
   const [resolving, setResolving] = React.useState(false);
   const download = async (): Promise<void> => {

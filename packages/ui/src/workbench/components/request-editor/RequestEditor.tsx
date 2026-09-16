@@ -29,7 +29,6 @@
 
 import { CaretRightOutlined, CopyOutlined, LoadingOutlined, SwapOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
-import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
@@ -57,6 +56,8 @@ import { isConvertibleToGraphql } from '@openheaders/core/graphql';
 import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraphql';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
+import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import EditorHeader from '../shell/EditorHeader';
 import { useRequestWorkflowStepContext } from '../live/useRequestWorkflowStepContext';
 import { mergeRequestForSave } from './merge-request-for-save';
@@ -772,10 +773,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     />
   );
 
-  // Surfaces whose Sends execute on a remote host (the web tab's
-  // serving daemon) set the expectation at the button: the egress
-  // connection — the IP and locale the target sees — is that host's.
-  const remoteDispatchHost = getCapability('remoteRequestDispatch')?.();
+  // Where this Send runs — the shared reader; the control beside Send
+  // names the place (a remote-dispatch surface's serving place, or here).
+  const executionPlace = useExecutionPlace({ kind: 'http' });
 
   // ⋯ menu — snippet copies of the CURRENT draft (unsaved edits
   // included), resolved host-side exactly as a Send would resolve them.
@@ -813,7 +813,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       : []),
   ];
 
-  const headerActions = (
+  const primaryAction = (
     <Tooltip
       placement="bottom"
       // Pressing Send/Stop suppresses the tooltip so the hint never
@@ -831,14 +831,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         ) : hasUnresolvedRefs ? (
           t('workbench.editors.request.send.unresolvedTooltip')
         ) : (
-          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-            <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
-            {remoteDispatchHost !== undefined && (
-              <span style={{ fontSize: 11, opacity: 0.75 }}>
-                {t('workbench.editors.request.send.remoteDispatchHint', { host: remoteDispatchHost })}
-              </span>
-            )}
-          </span>
+          <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
         )
       }
     >
@@ -887,6 +880,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         )}
       </span>
     </Tooltip>
+  );
+  const headerActions = (
+    <>
+      <ExecutionPlaceControl resolution={executionPlace} />
+      {primaryAction}
+    </>
   );
 
   return (

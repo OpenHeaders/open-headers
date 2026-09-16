@@ -494,6 +494,34 @@ export const sharedComponents = {
   'shared.peerExecute.enableCta': 'Включить в настольном приложении',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': 'Где выполняется этот запрос',
+  'shared.executionPlace.chip.here': 'Выполняется здесь',
+  'shared.executionPlace.chip.desktopApp': 'Выполняется в настольном приложении',
+  'shared.executionPlace.chip.server': 'Выполняется: {place}',
+  'shared.executionPlace.chip.needsDesktopApp': 'Нужно настольное приложение',
+  'shared.executionPlace.chip.notForwarded': 'Пока недоступно: {place}',
+  'shared.executionPlace.chip.unavailable': 'Здесь недоступно',
+  'shared.executionPlace.chip.cannotRunOn': 'Пока нельзя выполнить: {place}',
+  'shared.executionPlace.role.here': 'это устройство',
+  'shared.executionPlace.role.desktopApp': 'настольное приложение',
+  'shared.executionPlace.role.server': 'сервер',
+  'shared.executionPlace.reason.runsHere': 'Выполняется в этом приложении, на этом компьютере.',
+  'shared.executionPlace.reason.runsHereBrowser': 'Выполняется в расширении, на этом компьютере.',
+  'shared.executionPlace.reason.runsHerePageRealm':
+    'Выполняется в расширении через сокет браузера, на этом компьютере.',
+  'shared.executionPlace.reason.contextSend':
+    'Отправлен подключённым бэкендом {place} и разрешён там. Целевой сервер видит адрес и сетевое расположение той машины.',
+  'shared.executionPlace.reason.companionInvoke':
+    'Вызовы gRPC перенаправляются в настольное приложение на этом компьютере — в браузере нет стека HTTP/2 с доступом к трейлерам.',
+  'shared.executionPlace.reason.companionRequired':
+    'Подключите настольное приложение, чтобы вызвать — составление и сохранение работают здесь.',
+  'shared.executionPlace.reason.tcpScheme':
+    'Адреса mqtt:// и mqtts:// открывают «сырой» сокет TCP, что браузеру недоступно. Откройте этот запрос в настольном приложении или перейдите на ws:// или wss://, чтобы подключиться здесь.',
+  'shared.executionPlace.reason.sessionNotForwarded': 'Сеансы пока не перенаправляются: {place}.',
+  'shared.executionPlace.reason.noRuntime': 'Запросы этого вида выполняются в настольном приложении или на сервере.',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    'Для этого запроса задано место выполнения: {place}. Отсюда оно пока недоступно.',
   'shared.desktopTeaser.cta': 'Скачать настольное приложение',
   'shared.desktopTeaser.openApp': 'Открыть в настольном приложении',
   'shared.desktopTeaser.launchApp': 'Открыть настольное приложение',

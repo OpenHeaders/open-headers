@@ -21,7 +21,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': 'Import a .proto file…',
   'workbench.editors.grpc.invoke.label': 'Invoke',
   'workbench.editors.grpc.invoke.stop': 'Stop',
-  'workbench.editors.grpc.invoke.browserHost': 'Invoking runs on the desktop app — composing and saving works here.',
   'workbench.editors.grpc.invoke.needsMethod': 'Pick a method that resolves against the linked spec to invoke',
   'workbench.editors.grpc.invoke.needsUrl': 'Enter a target host to invoke',
   'workbench.editors.grpc.invoke.failed': 'Invoke failed — the host did not answer the call',
@@ -155,8 +154,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.helpOwn':
     'Minted once per invoke and sent as authorization (or the key’s own name) metadata on the call — a query placement never rides a gRPC call. An explicit metadata row with the same name takes precedence.',
   'workbench.editors.grpc.auth.ownUnsupported': '{type} cannot be applied to a gRPC call.',
-  'workbench.editors.grpc.invoke.connectCompanion':
-    'Connect the desktop app to invoke — composing and saving works here.',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': 'Stopped',

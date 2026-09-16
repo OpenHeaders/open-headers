@@ -486,6 +486,34 @@ export const sharedComponents = {
   'shared.peerExecute.enableCta': 'In der Desktop-App aktivieren',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': 'Wo diese Anfrage läuft',
+  'shared.executionPlace.chip.here': 'Läuft hier',
+  'shared.executionPlace.chip.desktopApp': 'Läuft in der Desktop-App',
+  'shared.executionPlace.chip.server': 'Läuft auf {place}',
+  'shared.executionPlace.chip.needsDesktopApp': 'Benötigt die Desktop-App',
+  'shared.executionPlace.chip.notForwarded': 'Auf {place} noch nicht verfügbar',
+  'shared.executionPlace.chip.unavailable': 'Hier nicht verfügbar',
+  'shared.executionPlace.chip.cannotRunOn': 'Ausführung auf {place} noch nicht möglich',
+  'shared.executionPlace.role.here': 'diesem Gerät',
+  'shared.executionPlace.role.desktopApp': 'der Desktop-App',
+  'shared.executionPlace.role.server': 'dem Server',
+  'shared.executionPlace.reason.runsHere': 'Läuft in dieser App, auf diesem Computer.',
+  'shared.executionPlace.reason.runsHereBrowser': 'Läuft in der Erweiterung, auf diesem Computer.',
+  'shared.executionPlace.reason.runsHerePageRealm':
+    'Läuft in der Erweiterung über den Browser-Socket, auf diesem Computer.',
+  'shared.executionPlace.reason.contextSend':
+    'Gesendet von {place}, dem verbundenen Back-end, und dort aufgelöst. Das Ziel sieht die Adresse und den Netzwerkstandort dieser Maschine.',
+  'shared.executionPlace.reason.companionInvoke':
+    'gRPC-Aufrufe werden an die Desktop-App auf diesem Computer weitergeleitet — der Browser hat keinen HTTP/2-Stack, der Trailer freigibt.',
+  'shared.executionPlace.reason.companionRequired':
+    'Verbinde die Desktop-App zum Aufrufen — Verfassen und Speichern funktioniert hier.',
+  'shared.executionPlace.reason.tcpScheme':
+    'mqtt:// und mqtts:// öffnen einen rohen TCP-Socket, was der Browser nicht kann. Öffne diese Anfrage in der Desktop-App oder wechsle zu ws:// oder wss://, um dich hier zu verbinden.',
+  'shared.executionPlace.reason.sessionNotForwarded': 'Sitzungen werden noch nicht an {place} weitergeleitet.',
+  'shared.executionPlace.reason.noRuntime': 'Diese Art von Anfrage läuft in der Desktop-App oder auf einem Server.',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    'Diese Anfrage soll auf {place} laufen; von hier aus ist das noch nicht möglich.',
   'shared.desktopTeaser.cta': 'Desktop-App herunterladen',
   'shared.desktopTeaser.openApp': 'In der Desktop-App öffnen',
   'shared.desktopTeaser.launchApp': 'Desktop-App öffnen',

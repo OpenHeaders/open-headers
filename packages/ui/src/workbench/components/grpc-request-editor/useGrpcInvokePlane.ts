@@ -15,18 +15,19 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { getCapability } from '@openheaders/core/capabilities';
 import type { ExecutedGrpcSnapshot, GrpcRequest as GrpcRequestEntity } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getGrpcResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/grpc-response-example-sync-mirror';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import {
   applyGrpcResponseExampleCreate,
   nextGrpcExampleName,
 } from '@openheaders/ui/shared/sync/grpc-response-example-write-client';
 import { App } from 'antd';
 import { useCallback, useRef, useState } from 'react';
+import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
+import type { ExecutionPlaceResolution } from '../../execution-place/resolve-execution-place';
+import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   capturedGrpcRequestFromDraft,
   capturedGrpcResponseFromSnapshot,
@@ -64,6 +65,8 @@ export interface GrpcInvokePlane {
   live: LiveGrpcStream | null;
   /** Honest gate copy for a disabled Invoke; null = enabled. */
   invokeDisabledReason: string | null;
+  /** Where Invoke would run this call, by the shared reader. */
+  executionPlace: ExecutionPlaceResolution;
   handleInvoke: () => Promise<void>;
   handleCancelInvoke: () => void;
   handleClearResponse: () => void;
@@ -93,13 +96,9 @@ export function useGrpcInvokePlane({
   // else the chain's, else on (the rule the executor applies).
   const sslVerification = draft.sslVerification ?? inherited.settings.sslVerification ?? true;
   const { executeGrpc } = useRequests();
-  const { isConnected } = useRules();
-
-  const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
-  // Extension surfaces forward invokes to a connected companion (the
-  // desktop app) — the seam is static; whether a companion is actually
-  // connected is live state, so the gate reads both.
-  const companionSeam = requestRuntimeKind !== 'node' && (getCapability('grpcCompanionInvoke')?.() ?? false);
+  // Where the invoke runs — the shared reader over the companion seam
+  // (`grpcCompanionInvoke`) and the desktop app's live connection state.
+  const executionPlace = useExecutionPlace({ kind: 'grpc' });
 
   const [invoking, setInvoking] = useState(false);
   const [response, setResponse] = useState<ExecutedGrpcSnapshot | null>(null);
@@ -206,15 +205,13 @@ export function useGrpcInvokePlane({
   const canSaveResponse = workspaceId !== null && response !== null && response.error === null;
 
   const invokeDisabledReason =
-    requestRuntimeKind !== 'node' && !companionSeam
-      ? t('workbench.editors.grpc.invoke.browserHost')
-      : companionSeam && !isConnected
-        ? t('workbench.editors.grpc.invoke.connectCompanion')
-        : !selectedOption
-          ? t('workbench.editors.grpc.invoke.needsMethod')
-          : draft.url.trim() === ''
-            ? t('workbench.editors.grpc.invoke.needsUrl')
-            : null;
+    executionPlace.state !== 'ready'
+      ? executionPlaceCopy(executionPlace, t).reason
+      : !selectedOption
+        ? t('workbench.editors.grpc.invoke.needsMethod')
+        : draft.url.trim() === ''
+          ? t('workbench.editors.grpc.invoke.needsUrl')
+          : null;
 
   const clientStreamShape =
     selectedOption !== null &&
@@ -248,6 +245,7 @@ export function useGrpcInvokePlane({
     streamSession,
     live: liveStream.live,
     invokeDisabledReason,
+    executionPlace,
     handleInvoke,
     handleCancelInvoke,
     handleClearResponse,

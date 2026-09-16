@@ -465,6 +465,35 @@ export const sharedComponents = {
   'shared.peerExecute.enableCta': 'Activar en la aplicación de escritorio',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': 'Dónde se ejecuta esta solicitud',
+  'shared.executionPlace.chip.here': 'Se ejecuta aquí',
+  'shared.executionPlace.chip.desktopApp': 'Se ejecuta en la aplicación de escritorio',
+  'shared.executionPlace.chip.server': 'Se ejecuta en {place}',
+  'shared.executionPlace.chip.needsDesktopApp': 'Necesita la aplicación de escritorio',
+  'shared.executionPlace.chip.notForwarded': 'Aún no disponible en {place}',
+  'shared.executionPlace.chip.unavailable': 'No disponible aquí',
+  'shared.executionPlace.chip.cannotRunOn': 'Aún no se puede ejecutar en {place}',
+  'shared.executionPlace.role.here': 'este dispositivo',
+  'shared.executionPlace.role.desktopApp': 'la aplicación de escritorio',
+  'shared.executionPlace.role.server': 'el servidor',
+  'shared.executionPlace.reason.runsHere': 'Se ejecuta en esta aplicación, en este equipo.',
+  'shared.executionPlace.reason.runsHereBrowser': 'Se ejecuta en la extensión, en este equipo.',
+  'shared.executionPlace.reason.runsHerePageRealm':
+    'Se ejecuta en la extensión a través del socket del navegador, en este equipo.',
+  'shared.executionPlace.reason.contextSend':
+    'Enviada por {place}, el back-end conectado, y resuelta allí. El destino ve la dirección y la ubicación de red de esa máquina.',
+  'shared.executionPlace.reason.companionInvoke':
+    'Las llamadas gRPC se reenvían a la aplicación de escritorio en este equipo — el navegador no tiene una pila HTTP/2 que exponga los trailers.',
+  'shared.executionPlace.reason.companionRequired':
+    'Conecta la aplicación de escritorio para invocar — componer y guardar funciona aquí.',
+  'shared.executionPlace.reason.tcpScheme':
+    'mqtt:// y mqtts:// abren un socket TCP en bruto que el navegador no puede abrir. Abre esta solicitud en la aplicación de escritorio o cambia a ws:// o wss:// para conectarte aquí.',
+  'shared.executionPlace.reason.sessionNotForwarded': 'Las sesiones aún no se reenvían a {place}.',
+  'shared.executionPlace.reason.noRuntime':
+    'Este tipo de solicitud se ejecuta en la aplicación de escritorio o en un servidor.',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    'Esta solicitud está configurada para ejecutarse en {place}, lo que aún no es posible desde aquí.',
   'shared.desktopTeaser.cta': 'Descargar la aplicación de escritorio',
   'shared.desktopTeaser.openApp': 'Abrir en la aplicación de escritorio',
   'shared.desktopTeaser.launchApp': 'Abrir la aplicación de escritorio',

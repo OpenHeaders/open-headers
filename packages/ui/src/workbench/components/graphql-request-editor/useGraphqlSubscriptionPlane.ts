@@ -26,7 +26,10 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useScriptPackages } from '@openheaders/ui/shared/hooks/readers/useScriptPackages';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { App } from 'antd';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { executionPlaceCopy, PAGE_KNOB_KEY } from '../../execution-place/execution-place-copy';
+import type { ExecutionPlaceResolution, PageSessionKnob } from '../../execution-place/resolve-execution-place';
+import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   type LiveWsSession,
   useLiveWsSession,
@@ -59,10 +62,14 @@ export interface GraphqlSubscriptionPlane {
   hostNotice: string | null;
   /** Honest gate copy for a disabled Query; null = enabled. */
   disabledReason: string | null;
+  /** Where Query would open this subscription, by the shared reader. */
+  executionPlace: ExecutionPlaceResolution;
   handleSubscribe: () => Promise<void>;
   handleStop: () => void;
   handleClear: () => void;
 }
+
+const NO_KNOBS: readonly PageSessionKnob[] = [];
 
 export function useGraphqlSubscriptionPlane({
   entity,
@@ -77,6 +84,17 @@ export function useGraphqlSubscriptionPlane({
 
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const pageSession = requestRuntimeKind !== 'node' && (getCapability('wsPageSession')?.() ?? false);
+  // The node-only knobs a page-realm session cannot apply — derived
+  // from the draft BEFORE Query so the place control names them up
+  // front (the credential is NOT one — it rides `connection_init`).
+  const pageKnobs = useMemo<readonly PageSessionKnob[]>(() => {
+    if (!pageSession) return NO_KNOBS;
+    const knobs: PageSessionKnob[] = [];
+    if (draft.headers.some((h) => h.enabled !== false && h.key.trim() !== '')) knobs.push('headers');
+    if (!sslVerification) knobs.push('sslVerify');
+    return knobs.length > 0 ? knobs : NO_KNOBS;
+  }, [pageSession, draft.headers, sslVerification]);
+  const executionPlace = useExecutionPlace({ kind: 'graphql-subscription', inapplicableKnobs: pageKnobs });
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);
   const [timing, setTiming] = useState<WsSessionTiming | null>(null);
@@ -107,13 +125,7 @@ export function useGraphqlSubscriptionPlane({
     // Per-knob honesty on the page-session path: the platform socket
     // cannot carry custom handshake headers or skip TLS verification —
     // a CONFIGURED knob is named for the session's whole life.
-    const inapplicableKnobs: string[] = [];
-    if (pageSession) {
-      if (draft.headers.some((h) => h.enabled !== false && h.key.trim() !== '')) {
-        inapplicableKnobs.push(t('workbench.editors.websocket.session.knobHeaders'));
-      }
-      if (!sslVerification) inapplicableKnobs.push(t('workbench.editors.websocket.session.knobSslVerify'));
-    }
+    const inapplicableKnobs = pageKnobs.map((knob) => t(PAGE_KNOB_KEY[knob]));
     setHostNotice(
       inapplicableKnobs.length > 0
         ? t('workbench.editors.websocket.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
@@ -150,18 +162,7 @@ export function useGraphqlSubscriptionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [
-    entity,
-    inFlight,
-    draft,
-    operationName,
-    sslVerification,
-    pageSession,
-    executeGraphqlSubscription,
-    liveSession,
-    toast,
-    t,
-  ]);
+  }, [entity, inFlight, draft, operationName, pageKnobs, executeGraphqlSubscription, liveSession, toast, t]);
 
   // Stop morphs from Query while the session is in flight — the
   // client's complete then the clean close; the pending RPC above
@@ -179,8 +180,7 @@ export function useGraphqlSubscriptionPlane({
     setHostNotice(null);
   }, []);
 
-  const disabledReason =
-    requestRuntimeKind !== 'node' && !pageSession ? t('workbench.editors.graphql.subscription.browserHost') : null;
+  const disabledReason = executionPlace.state !== 'ready' ? executionPlaceCopy(executionPlace, t).reason : null;
 
   return {
     inFlight,
@@ -189,6 +189,7 @@ export function useGraphqlSubscriptionPlane({
     live: liveSession.live,
     hostNotice,
     disabledReason,
+    executionPlace,
     handleSubscribe,
     handleStop,
     handleClear,

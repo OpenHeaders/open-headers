@@ -37,13 +37,19 @@ import {
   nextMqttExampleName,
 } from '@openheaders/ui/shared/sync/mqtt-response-example-write-client';
 import { App } from 'antd';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
+import {
+  type ExecutionPlaceResolution,
+  mqttTransportOf,
+  type PageSessionKnob,
+} from '../../execution-place/resolve-execution-place';
+import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   capturedMqttRequestFromDraft,
   capturedMqttResponseFromSnapshot,
 } from '../mqtt-response-example/mqtt-example-draft';
 import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
-import { schemeOf } from './compose';
 import { buildMqttRequestUpdates, type MqttDraft, trimTopicRows } from './draft';
 import { makeMqttPageResolutionFactory, publishMqttPageResolutionFactory } from './mqtt-page-session';
 import { reconnectingAt } from './mqtt-timeline-model';
@@ -85,6 +91,8 @@ export interface MqttSessionPlane {
   hostNotice: string | null;
   /** Honest gate copy for a disabled Connect; null = enabled. */
   connectDisabledReason: string | null;
+  /** Where Connect would run this session, by the shared reader. */
+  executionPlace: ExecutionPlaceResolution;
   /** Live Subscribe-toggle truth by row uid while the session is open. */
   liveSubs: ReadonlyMap<string, LiveSubscriptionMark>;
   handleConnect: () => Promise<void>;
@@ -97,6 +105,8 @@ export interface MqttSessionPlane {
   handleSaveResponse: () => Promise<void>;
   canSaveResponse: boolean;
 }
+
+const NO_KNOBS: readonly PageSessionKnob[] = [];
 
 export function useMqttSessionPlane({
   entity,
@@ -116,6 +126,18 @@ export function useMqttSessionPlane({
   const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
   const nodeHost = requestRuntimeKind === 'node';
   const pageSession = !nodeHost && (getCapability('mqttPageSession')?.() ?? false);
+  // The node-only knobs a page-realm session cannot apply — derived
+  // from the draft BEFORE Connect so the place control names them up
+  // front; the same list stamps the session pane's notice at Connect.
+  const pageKnobs = useMemo<readonly PageSessionKnob[]>(
+    () => (pageSession && !sslVerification ? ['sslVerify'] : NO_KNOBS),
+    [pageSession, sslVerification],
+  );
+  const executionPlace = useExecutionPlace({
+    kind: 'mqtt',
+    mqttTransport: mqttTransportOf(draft.url),
+    inapplicableKnobs: pageKnobs,
+  });
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedMqttSnapshot | null>(null);
   const [timing, setTiming] = useState<MqttSessionTiming | null>(null);
@@ -236,10 +258,7 @@ export function useMqttSessionPlane({
     // cannot skip TLS verification — a CONFIGURED knob is named for
     // the session's whole life instead of silently dropping (the
     // connect deadline DOES apply here).
-    const inapplicableKnobs: string[] = [];
-    if (pageSession && !sslVerification) {
-      inapplicableKnobs.push(t('workbench.editors.mqtt.session.knobSslVerify'));
-    }
+    const inapplicableKnobs = pageKnobs.map(() => t('workbench.editors.mqtt.session.knobSslVerify'));
     setHostNotice(
       inapplicableKnobs.length > 0
         ? t('workbench.editors.mqtt.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
@@ -273,7 +292,7 @@ export function useMqttSessionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, sslVerification, v5, pageSession, executeMqtt, liveSession, toast, t]);
+  }, [entity, inFlight, draft, v5, pageKnobs, executeMqtt, liveSession, toast, t]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean DISCONNECT; the pending RPC above resolves with the
@@ -398,19 +417,15 @@ export function useMqttSessionPlane({
   const reconnecting = inFlight && live !== null && live.open !== null && reconnectingAt(live.items, live.count);
   const sessionOpen = inFlight && live !== null && live.open !== null && !reconnecting;
 
-  // Connect gate: node hosts run every scheme; a page-session surface
-  // runs ws(s):// natively and names the tcp-scheme limit honestly
-  // (mqtt/mqtts dial a raw TCP socket no browser page can open — the
-  // scheme is named, never silently downgraded to ws); a browser
-  // surface without the capability keeps the honest disabled posture.
+  // Connect gate: the shared reader says whether THIS surface can run
+  // the session at all (a tcp scheme is named, never silently
+  // downgraded to ws); only a runnable place checks the URL.
   const connectDisabledReason =
-    !nodeHost && !pageSession
-      ? t('workbench.editors.mqtt.connect.browserHost')
+    executionPlace.state !== 'ready'
+      ? executionPlaceCopy(executionPlace, t).reason
       : draft.url.trim() === ''
         ? t('workbench.editors.mqtt.connect.needsUrl')
-        : pageSession && /^mqtts?:\/\//i.test(draft.url.trim())
-          ? t('workbench.editors.mqtt.connect.tcpSchemeBrowser', { scheme: schemeOf(draft.url.trim()) })
-          : null;
+        : null;
 
   return {
     inFlight,
@@ -421,6 +436,7 @@ export function useMqttSessionPlane({
     live: liveSession.live,
     hostNotice,
     connectDisabledReason,
+    executionPlace,
     liveSubs,
     handleConnect,
     handleDisconnect,

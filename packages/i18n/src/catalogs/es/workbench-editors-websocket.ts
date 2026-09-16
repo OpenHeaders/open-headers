@@ -21,8 +21,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.label': 'Conectar',
   'workbench.editors.websocket.connect.disconnect': 'Desconectar',
   'workbench.editors.websocket.connect.cancel': 'Cancelar',
-  'workbench.editors.websocket.connect.browserHost':
-    'Las sesiones WebSocket se ejecutan en la aplicación de escritorio o el servidor.',
   'workbench.editors.websocket.connect.needsUrl': 'Introduce una URL ws:// o wss:// para conectarte.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Mensaje',

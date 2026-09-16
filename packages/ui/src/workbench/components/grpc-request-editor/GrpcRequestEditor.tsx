@@ -49,6 +49,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeGrpcPrefill } from './grpc-prefill-bus';
 import { useSetting } from '../../settings/hooks';
+import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
 import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
@@ -390,7 +391,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     },
   ];
 
-  const headerActions = invoke.invoking ? (
+  const primaryAction = invoke.invoking ? (
     <Tooltip
       placement="bottom"
       title={<ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.stop')}</ShortcutHintTitle>}
@@ -440,6 +441,12 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
         </Button>
       </span>
     </Tooltip>
+  );
+  const headerActions = (
+    <>
+      <ExecutionPlaceControl resolution={invoke.executionPlace} />
+      {primaryAction}
+    </>
   );
 
   return (

@@ -29,10 +29,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.cancel': 'キャンセル',
   'workbench.editors.mqtt.connect.reconnectNow': '今すぐ再接続',
   'workbench.editors.mqtt.connect.reconnectNowHint': '待機時間を待たずに次の再接続試行をダイヤルします',
-  'workbench.editors.mqtt.connect.browserHost': 'MQTT セッションはデスクトップアプリまたはサーバーで実行されます。',
   'workbench.editors.mqtt.connect.needsUrl': '接続するにはブローカーの URL を入力してください。',
-  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
-    '{scheme}:// のセッションはデスクトップアプリまたはサーバーで実行されます。ここで接続するには ws:// または wss:// に切り替えてください。',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': 'メッセージ',
   'workbench.editors.mqtt.tab.topics': 'トピック',

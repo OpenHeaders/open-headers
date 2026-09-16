@@ -30,7 +30,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.label': 'Conectare',
   'workbench.editors.websocket.connect.disconnect': 'Deconectare',
   'workbench.editors.websocket.connect.cancel': 'Anulare',
-  'workbench.editors.websocket.connect.browserHost': 'Sesiunile WebSocket rulează în aplicația desktop sau pe server.',
   'workbench.editors.websocket.connect.needsUrl': 'Introduceți o adresă URL ws:// sau wss:// pentru a vă conecta.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'Mesaj',

@@ -127,8 +127,6 @@ export const workbenchEditorsGraphql = {
     'サブスクライブ：WebSocket（graphql-transport-ws）でサブスクリプションを開き、そのイベントをストリーミングします',
   'workbench.editors.graphql.subscription.stopTooltip':
     'サブスクリプションを停止：complete を送ってセッションを閉じます',
-  'workbench.editors.graphql.subscription.browserHost':
-    'サブスクリプションはデスクトップアプリまたは拡張機能で実行されます。',
   'workbench.editors.graphql.subscription.openFailed': 'サブスクリプションを開けませんでした',
   'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
   'workbench.editors.graphql.subscription.subscribing': 'サブスクライブ中…',

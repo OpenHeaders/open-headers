@@ -28,7 +28,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.label': '연결',
   'workbench.editors.websocket.connect.disconnect': '연결 해제',
   'workbench.editors.websocket.connect.cancel': '취소',
-  'workbench.editors.websocket.connect.browserHost': 'WebSocket 세션은 데스크톱 앱이나 서버에서 실행됩니다.',
   'workbench.editors.websocket.connect.needsUrl': '연결하려면 ws:// 또는 wss:// URL 주소를 입력하세요.',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': '메시지',

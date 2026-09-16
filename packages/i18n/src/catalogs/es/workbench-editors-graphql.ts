@@ -125,8 +125,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.subscription.tooltip':
     'Suscribirse — abre la subscription por WebSocket (graphql-transport-ws) y transmite sus eventos',
   'workbench.editors.graphql.subscription.stopTooltip': 'Detener la subscription — envía complete y cierra la sesión',
-  'workbench.editors.graphql.subscription.browserHost':
-    'Las subscriptions se ejecutan en la aplicación de escritorio o en la extensión.',
   'workbench.editors.graphql.subscription.openFailed': 'No se pudo abrir la subscription',
   'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
   'workbench.editors.graphql.subscription.subscribing': 'Suscribiendo…',

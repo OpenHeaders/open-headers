@@ -434,7 +434,7 @@ test('flipping backend.allowLocalPeerExecute on lets the same Send return a real
 // A forwarded send's egress connection is the serving host's — the
 // target saw ITS IP and locale, not the tab device's. The answering
 // host stamps `executedOn` at run time; the tab's meta strip renders
-// the "Sent from" tag, and the Send button's tooltip sets the
+// the "Sent from" tag, and the place control beside Send sets the
 // expectation before the first send.
 
 test('the response meta strip attributes the run to the serving host', async () => {
@@ -446,12 +446,15 @@ test('the response meta strip attributes the run to the serving host', async () 
   await expect(tag).toContainText(`Sent from ${expectedLabel}`);
 });
 
-test('the Send tooltip names the connected back-end before the first send', async () => {
-  const sendButton = page.getByRole('button', { name: /Send$/ }).filter({ visible: true });
-  await sendButton.hover();
-  const tooltip = page.locator('.ant-tooltip').filter({ visible: true });
-  await expect(tooltip).toContainText(`Runs on 127.0.0.1:${DAEMON_PORT} — the connected back-end`);
-  // Park the pointer elsewhere so the tooltip never occludes later legs.
+test('the place control names the connected back-end before the first send', async () => {
+  const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
+  await expect(placeChip).toHaveText(`Runs on 127.0.0.1:${DAEMON_PORT}`);
+  await expect(placeChip).toHaveAttribute('data-place', 'workspace-server');
+  await placeChip.click();
+  const popover = page.getByTestId('execution-place-popover').filter({ visible: true });
+  await expect(popover).toContainText(`Sent by 127.0.0.1:${DAEMON_PORT}, the connected back-end`);
+  // Close the popover so it never occludes later legs.
+  await page.keyboard.press('Escape');
   await page.mouse.move(0, 0);
 });
 
@@ -475,7 +478,9 @@ test('the jar row shows the value-free count over the forwarded summary channel'
   await openSettingsTab();
   // The row hides itself when the forwarded summary fails — a miss
   // reports the channel's raw answer through the tab's own bridge.
-  const summary = await invokeTab<unknown>({ type: 'getCookieJarSummary' }).catch((err: Error) => `rejected: ${err.message}`);
+  const summary = await invokeTab<unknown>({ type: 'getCookieJarSummary' }).catch(
+    (err: Error) => `rejected: ${err.message}`,
+  );
   const row = jarRow();
   await row.waitFor({ state: 'visible', timeout: 5_000 }).catch((err: Error) => {
     throw new Error(`jar row absent; getCookieJarSummary answered ${JSON.stringify(summary)} — ${err.message}`);

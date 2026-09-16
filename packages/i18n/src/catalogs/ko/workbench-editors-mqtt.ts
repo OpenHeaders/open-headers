@@ -32,10 +32,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.connect.cancel': '취소',
   'workbench.editors.mqtt.connect.reconnectNow': '지금 재연결',
   'workbench.editors.mqtt.connect.reconnectNowHint': '주기를 기다리지 않고 다음 재연결 시도를 바로 다이얼합니다',
-  'workbench.editors.mqtt.connect.browserHost': 'MQTT 세션은 데스크톱 앱이나 서버에서 실행됩니다.',
   'workbench.editors.mqtt.connect.needsUrl': '연결하려면 브로커 URL 주소를 입력하세요.',
-  'workbench.editors.mqtt.connect.tcpSchemeBrowser':
-    '{scheme}:// 세션은 데스크톱 앱이나 서버에서 실행됩니다. 여기서 연결하려면 ws:// 또는 wss:// 스킴으로 전환하세요.',
   'workbench.editors.mqtt.tab.docs': 'Docs',
   'workbench.editors.mqtt.tab.message': '메시지',
   'workbench.editors.mqtt.tab.topics': '토픽',

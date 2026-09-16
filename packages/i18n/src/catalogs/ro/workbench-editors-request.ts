@@ -96,7 +96,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.send.sending': 'Se trimite…',
   'workbench.editors.request.send.unresolvedTooltip':
     'Cererea are variabile nerezolvate. Definiți-le în vault, mediu, colecție, spațiul de lucru sau într-un flux de lucru Live înainte de trimitere.',
-  'workbench.editors.request.send.remoteDispatchHint': 'Rulează pe gazda {host} — backend-ul conectat',
   'workbench.editors.request.send.stop': 'Oprire',
   'workbench.editors.request.send.stopTooltip': 'Oprește cererea și păstrează ce a sosit',
   'workbench.editors.request.menu.copyAsCurl': 'Copiere ca cURL',

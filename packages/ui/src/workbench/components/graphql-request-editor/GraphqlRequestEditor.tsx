@@ -37,7 +37,6 @@
 
 import { CaretRightOutlined, CopyOutlined } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
-import { getCapability } from '@openheaders/core/capabilities';
 import {
   censusDocument,
   compileGraphqlRequest,
@@ -85,6 +84,8 @@ import { useRequestEditorLayout } from '../request-editor/useRequestEditorLayout
 import { capturedResponseFromSnapshot } from '../response-example/example-draft';
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
+import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import EditorHeader from '../shell/EditorHeader';
 import {
   type InheritedSettingsView,
@@ -493,9 +494,11 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     </div>
   );
 
-  // Surfaces whose sends execute on a remote host (the web tab's
-  // serving daemon) set the expectation at the button.
-  const remoteDispatchHost = getCapability('remoteRequestDispatch')?.();
+  // Where the picked operation runs — a subscription by its session
+  // plane's reader, a query by the HTTP send's; the control beside
+  // Query names the place.
+  const queryPlace = useExecutionPlace({ kind: 'graphql-query' });
+  const executionPlace = isSubscription ? subscription.executionPlace : queryPlace;
 
   // ⋯ menu — snippet copies of the CURRENT draft through the compile
   // (one POST of the envelope, the operation pick applied), resolved
@@ -518,7 +521,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // A subscription that cannot open on this host names why on the
   // button — the honest disabled posture, never a silent no-op.
   const queryDisabledReason = isSubscription ? subscription.disabledReason : null;
-  const headerActions = (
+  const primaryAction = (
     <Tooltip
       placement="bottom"
       open={queryTooltipSuppressed ? false : undefined}
@@ -534,16 +537,9 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
             )}
           </ShortcutHintTitle>
         ) : (
-          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-            <ShortcutHintTitle label={QUERY_SHORTCUT}>
-              {t(isSubscription ? 'workbench.editors.graphql.subscription.tooltip' : 'workbench.editors.graphql.query.label')}
-            </ShortcutHintTitle>
-            {remoteDispatchHost !== undefined && (
-              <span style={{ fontSize: 11, opacity: 0.75 }}>
-                {t('workbench.editors.request.send.remoteDispatchHint', { host: remoteDispatchHost })}
-              </span>
-            )}
-          </span>
+          <ShortcutHintTitle label={QUERY_SHORTCUT}>
+            {t(isSubscription ? 'workbench.editors.graphql.subscription.tooltip' : 'workbench.editors.graphql.query.label')}
+          </ShortcutHintTitle>
         )
       }
     >
@@ -590,6 +586,12 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
         )}
       </span>
     </Tooltip>
+  );
+  const headerActions = (
+    <>
+      <ExecutionPlaceControl resolution={executionPlace} />
+      {primaryAction}
+    </>
   );
 
   return (

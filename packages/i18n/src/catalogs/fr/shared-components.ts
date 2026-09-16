@@ -462,6 +462,35 @@ export const sharedComponents = {
   'shared.peerExecute.enableCta': "Activer dans l'application de bureau",
 
   // ── Desktop teaser ─────────────────────────────────────────────────
+  // ── Execution place (the chip beside Send / Connect / Invoke) ───────
+  'shared.executionPlace.info': 'Où cette requête s’exécute',
+  'shared.executionPlace.chip.here': 'S’exécute ici',
+  'shared.executionPlace.chip.desktopApp': 'S’exécute sur l’application de bureau',
+  'shared.executionPlace.chip.server': 'S’exécute sur {place}',
+  'shared.executionPlace.chip.needsDesktopApp': 'Nécessite l’application de bureau',
+  'shared.executionPlace.chip.notForwarded': 'Pas encore disponible sur {place}',
+  'shared.executionPlace.chip.unavailable': 'Indisponible ici',
+  'shared.executionPlace.chip.cannotRunOn': 'Exécution impossible sur {place} pour le moment',
+  'shared.executionPlace.role.here': 'cet appareil',
+  'shared.executionPlace.role.desktopApp': 'l’application de bureau',
+  'shared.executionPlace.role.server': 'le serveur',
+  'shared.executionPlace.reason.runsHere': 'S’exécute dans cette application, sur cet ordinateur.',
+  'shared.executionPlace.reason.runsHereBrowser': 'S’exécute dans l’extension, sur cet ordinateur.',
+  'shared.executionPlace.reason.runsHerePageRealm':
+    'S’exécute dans l’extension via le socket du navigateur, sur cet ordinateur.',
+  'shared.executionPlace.reason.contextSend':
+    'Envoyée par {place}, le back-end connecté, et résolue là-bas. La cible voit l’adresse et la localisation réseau de cette machine.',
+  'shared.executionPlace.reason.companionInvoke':
+    'Les appels gRPC sont transmis à l’application de bureau sur cet ordinateur — le navigateur n’a pas de pile HTTP/2 exposant les trailers.',
+  'shared.executionPlace.reason.companionRequired':
+    'Connectez l’application de bureau pour invoquer — la composition et l’enregistrement fonctionnent ici.',
+  'shared.executionPlace.reason.tcpScheme':
+    'mqtt:// et mqtts:// ouvrent un socket TCP brut, ce que le navigateur ne peut pas faire. Ouvrez cette requête dans l’application de bureau, ou passez à ws:// ou wss:// pour vous connecter ici.',
+  'shared.executionPlace.reason.sessionNotForwarded': 'Les sessions ne sont pas encore transmises à {place}.',
+  'shared.executionPlace.reason.noRuntime':
+    'Ce type de requête s’exécute sur l’application de bureau ou sur un serveur.',
+  'shared.executionPlace.reason.preferenceUnavailable':
+    'Cette requête est configurée pour s’exécuter sur {place}, ce qui n’est pas encore possible d’ici.',
   'shared.desktopTeaser.cta': "Télécharger l'application de bureau",
   'shared.desktopTeaser.openApp': "Ouvrir dans l'application de bureau",
   'shared.desktopTeaser.launchApp': "Ouvrir l'application de bureau",

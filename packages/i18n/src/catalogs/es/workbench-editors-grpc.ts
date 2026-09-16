@@ -31,8 +31,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.method.importProto': 'Importar un archivo .proto…',
   'workbench.editors.grpc.invoke.label': 'Invocar',
   'workbench.editors.grpc.invoke.stop': 'Detener',
-  'workbench.editors.grpc.invoke.browserHost':
-    'La invocación se ejecuta en la aplicación de escritorio — componer y guardar funciona aquí.',
   'workbench.editors.grpc.invoke.needsMethod': 'Elige un método que se resuelva contra la spec vinculada para invocar',
   'workbench.editors.grpc.invoke.needsUrl': 'Introduce un host de destino para invocar',
   'workbench.editors.grpc.invoke.failed': 'Falló la invocación — el host no respondió a la llamada',
@@ -195,8 +193,6 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.auth.help':
     'Se envía como metadata authorization: Bearer <token> en la llamada. Una fila de metadata authorization ' +
     'explícita tiene prioridad.',
-  'workbench.editors.grpc.invoke.connectCompanion':
-    'Conecta la aplicación de escritorio para invocar — componer y guardar funciona aquí.',
   // ── gRPC streaming pane + message timeline ──────────────────────────
   'workbench.editors.grpc.stream.streamingBadge': 'Streaming',
   'workbench.editors.grpc.stream.stoppedBadge': 'Detenido',

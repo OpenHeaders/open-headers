@@ -137,7 +137,6 @@ export const workbenchEditorsGraphql = {
   'workbench.editors.graphql.subscription.tooltip':
     'Abonare — deschide abonamentul prin WebSocket (graphql-transport-ws) și îi transmite evenimentele în flux',
   'workbench.editors.graphql.subscription.stopTooltip': 'Oprește abonamentul — trimite complete și închide sesiunea',
-  'workbench.editors.graphql.subscription.browserHost': 'Abonamentele rulează în aplicația desktop sau în extensie.',
   'workbench.editors.graphql.subscription.openFailed': 'Deschiderea abonamentului a eșuat',
   'workbench.editors.graphql.subscription.paneTitle': 'Subscription',
   'workbench.editors.graphql.subscription.subscribing': 'Abonare în curs…',

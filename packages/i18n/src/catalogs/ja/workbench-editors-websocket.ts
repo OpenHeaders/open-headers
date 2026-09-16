@@ -25,8 +25,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.connect.label': '接続',
   'workbench.editors.websocket.connect.disconnect': '切断',
   'workbench.editors.websocket.connect.cancel': 'キャンセル',
-  'workbench.editors.websocket.connect.browserHost':
-    'WebSocket セッションはデスクトップアプリまたはサーバーで実行されます。',
   'workbench.editors.websocket.connect.needsUrl': '接続するには ws:// または wss:// の URL を入力してください。',
   'workbench.editors.websocket.tab.docs': 'Docs',
   'workbench.editors.websocket.tab.message': 'メッセージ',
