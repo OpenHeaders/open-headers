@@ -1,15 +1,18 @@
 /**
  * gRPC forwarding in the SW — the extension leg of the Phase F peer
  * posture:
- *   - `executeGrpcRequest` forwards over the backend wire with the
- *     SW's active workspace + tri-state environment stamps (the web
- *     tab's stamping law), honors the draft's timeout plus margin, and
- *     degrades every failure leg (no wire, companion refusal) to an
+ *   - `executeGrpcRequest` forwards over the backend wire to the
+ *     frame's EXPLICIT backend (the Execution Place plan: never the
+ *     default wire — without one it answers the honest snapshot), with
+ *     the SW's active workspace + tri-state environment stamps (the
+ *     web tab's stamping law), honors the draft's timeout plus margin,
+ *     and degrades every failure leg (no wire, companion refusal) to an
  *     error SNAPSHOT so the response pane states what happened;
  *   - the upstream riders `sendGrpcStreamMessage` / `endGrpcClientStream`
- *     forward by sendId and answer structured refusals;
+ *     forward by sendId on the invoke's backend and answer structured
+ *     refusals;
  *   - `abortRequestSend` stops a LOCAL send first and forwards the
- *     stop over the wire only on a local miss;
+ *     stop over the wire — the invoke's backend — only on a local miss;
  *   - the stream relay claims `grpcStreamEvent` frames off the backend
  *     wire and re-broadcasts the payload to every open surface.
  */
@@ -49,6 +52,8 @@ import type { HandlerArgs } from '@/background/modules/message-handler/types';
 
 void installGrpcStreamRelay;
 
+const PLACE = { executionPlace: { backendId: 'backend-desktop' } };
+
 function invoke(handlers: Record<string, unknown>, type: string, extra: Record<string, unknown> = {}) {
   const handler = (handlers as Record<string, (args: HandlerArgs) => boolean | undefined>)[type];
   const respond = vi.fn();
@@ -80,7 +85,7 @@ describe('executeGrpcRequest forwarding', () => {
     mockWsRequest.mockResolvedValue({ success: true, snapshot: { httpStatus: 200 } });
     mockActiveEnvId.mockReturnValue('env-7');
     const draft = { url: 'grpc.openheaders.io:443', timeoutMs: 30_000 };
-    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft, sendId: 'send-1' });
+    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft, sendId: 'send-1', ...PLACE });
     const result = await settled(respond);
     expect(result).toEqual({ success: true, snapshot: { httpStatus: 200 } });
     expect(mockWsRequest).toHaveBeenCalledWith(
@@ -91,20 +96,28 @@ describe('executeGrpcRequest forwarding', () => {
         workspaceId: 'ws-active',
         environmentId: 'env-7',
       },
-      { timeoutMs: 45_000 },
+      { timeoutMs: 45_000, backendId: 'backend-desktop' },
     );
   });
 
   it('forwards a draft without a timeout knob deadline-free — a streaming call may idle indefinitely', async () => {
     mockWsRequest.mockResolvedValue({ success: true });
-    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, sendId: 'send-2' });
+    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, sendId: 'send-2', ...PLACE });
     await settled(respond);
-    expect(mockWsRequest.mock.calls[0][1]).toEqual({ timeoutMs: 0 });
+    expect(mockWsRequest.mock.calls[0][1]).toEqual({ timeoutMs: 0, backendId: 'backend-desktop' });
+  });
+
+  it('answers the honest snapshot without touching the wire when the frame names no backend — never the default wire', () => {
+    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, sendId: 'send-3' });
+    expect(mockWsRequest).not.toHaveBeenCalled();
+    const result = respond.mock.calls[0][0] as { success: boolean; snapshot?: { error: string | null } };
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toMatch(/desktop app is not connected/);
   });
 
   it("stamps the explicit null environment — the caller's No-environment state rides verbatim", async () => {
     mockWsRequest.mockResolvedValue({ success: true });
-    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, environmentId: null });
+    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, environmentId: null, ...PLACE });
     await settled(respond);
     const frame = mockWsRequest.mock.calls[0][0] as Record<string, unknown>;
     expect(frame.environmentId).toBeNull();
@@ -112,7 +125,7 @@ describe('executeGrpcRequest forwarding', () => {
 
   it('degrades a dead wire to an error snapshot naming the companion', async () => {
     mockWsRequest.mockRejectedValue(new Error('not-connected'));
-    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {} });
+    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, ...PLACE });
     const result = (await settled(respond)) as { success: boolean; snapshot?: { error: string | null } };
     expect(result.success).toBe(true);
     expect(result.snapshot?.error).toMatch(/desktop app is not connected/);
@@ -122,7 +135,7 @@ describe('executeGrpcRequest forwarding', () => {
     mockWsRequest.mockRejectedValue(
       new Error("Sending requests from this device's browsers is disabled on this host."),
     );
-    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {} });
+    const respond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, ...PLACE });
     const result = (await settled(respond)) as { snapshot?: { error: string | null } };
     expect(result.snapshot?.error).toMatch(/disabled on this host/);
   });
@@ -133,12 +146,46 @@ describe('gRPC upstream riders', () => {
     mockWsRequest.mockResolvedValue({ success: true });
     const respond = invoke(grpcHandlers, 'sendGrpcStreamMessage', { sendId: 's-1', messageText: '{"x":1}' });
     await settled(respond);
-    expect(mockWsRequest).toHaveBeenCalledWith({
-      type: 'sendGrpcStreamMessage',
-      sendId: 's-1',
-      messageText: '{"x":1}',
-    });
+    expect(mockWsRequest).toHaveBeenCalledWith(
+      {
+        type: 'sendGrpcStreamMessage',
+        sendId: 's-1',
+        messageText: '{"x":1}',
+      },
+      {},
+    );
     expect(respond).toHaveBeenCalledWith({ success: true });
+  });
+
+  it("rides the in-flight invoke's backend — the rider and the Stop follow the same record", async () => {
+    const pendingInvoke: { settle?: (value: unknown) => void } = {};
+    mockWsRequest.mockImplementation((frame: unknown) => {
+      if ((frame as { type: string }).type === 'executeGrpcRequest') {
+        return new Promise((resolve) => {
+          pendingInvoke.settle = resolve;
+        });
+      }
+      return Promise.resolve({ success: true });
+    });
+    const invokeRespond = invoke(grpcHandlers, 'executeGrpcRequest', { draft: {}, sendId: 's-live', ...PLACE });
+    const riderRespond = invoke(grpcHandlers, 'sendGrpcStreamMessage', { sendId: 's-live', messageText: '{}' });
+    await settled(riderRespond);
+    expect(mockWsRequest).toHaveBeenLastCalledWith(
+      { type: 'sendGrpcStreamMessage', sendId: 's-live', messageText: '{}' },
+      { backendId: 'backend-desktop' },
+    );
+    const stopRespond = invoke(requestHandlers, 'abortRequestSend', { sendId: 's-live' });
+    await settled(stopRespond);
+    expect(mockWsRequest).toHaveBeenLastCalledWith(
+      { type: 'abortRequestSend', sendId: 's-live' },
+      { backendId: 'backend-desktop' },
+    );
+    pendingInvoke.settle?.({ success: true });
+    await settled(invokeRespond);
+    // Settled invokes forget their backend — a later rider rides nothing.
+    const lateRespond = invoke(grpcHandlers, 'endGrpcClientStream', { sendId: 's-live' });
+    await settled(lateRespond);
+    expect(mockWsRequest).toHaveBeenLastCalledWith({ type: 'endGrpcClientStream', sendId: 's-live' }, {});
   });
 
   it('answers a structured refusal without touching the wire for malformed frames', () => {
@@ -167,7 +214,7 @@ describe('abortRequestSend — local first, forward on miss', () => {
     mockWsRequest.mockResolvedValue({ success: true });
     const respond = invoke(requestHandlers, 'abortRequestSend', { sendId: 'send-remote' });
     await settled(respond);
-    expect(mockWsRequest).toHaveBeenCalledWith({ type: 'abortRequestSend', sendId: 'send-remote' });
+    expect(mockWsRequest).toHaveBeenCalledWith({ type: 'abortRequestSend', sendId: 'send-remote' }, {});
     expect(respond).toHaveBeenCalledWith({ success: true });
   });
 

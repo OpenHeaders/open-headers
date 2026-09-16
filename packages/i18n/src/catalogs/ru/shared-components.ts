@@ -520,6 +520,14 @@ export const sharedComponents = {
     'Адреса mqtt:// и mqtts:// открывают «сырой» сокет TCP, что браузеру недоступно. Откройте этот запрос в настольном приложении или перейдите на ws:// или wss://, чтобы подключиться здесь.',
   'shared.executionPlace.reason.sessionNotForwarded': 'Сеансы пока не перенаправляются: {place}.',
   'shared.executionPlace.reason.noRuntime': 'Запросы этого вида выполняются в настольном приложении или на сервере.',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    'Разрешается здесь; соединение от имени этого запроса открывает настольное приложение.',
+  'shared.executionPlace.reason.delegatedServer':
+    'Разрешается здесь; соединение от имени этого запроса открывает {place}. Разрешённые значения, включая секреты, передаются туда.',
+  'shared.executionPlace.picker.title': 'Выполнять на',
+  'shared.executionPlace.option.here': 'Это устройство',
+  'shared.executionPlace.option.desktopApp': 'Настольное приложение',
+  'shared.executionPlace.option.server': 'Сервер',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Для этого запроса задано место выполнения: {place}. Отсюда оно пока недоступно.',
   'shared.desktopTeaser.cta': 'Скачать настольное приложение',

@@ -57,6 +57,7 @@ import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraph
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import EditorHeader from '../shell/EditorHeader';
 import { useRequestWorkflowStepContext } from '../live/useRequestWorkflowStepContext';
@@ -673,6 +674,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     };
   }, [summary, draftName, draft, preferredCollectionId, preferredFolderPath, requestCollections]);
 
+  // Where this Send runs — the shared reader; the control beside Send
+  // names the place (a remote-dispatch surface's serving place, the
+  // picked delegated place, or here). The pick is this editor's own —
+  // the per-send layer; the settings layers fold in beneath it.
+  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  const executionPlace = useExecutionPlace({ kind: 'http', preference: placePick });
+
   const handleSend = useCallback(async () => {
     if (sending) return;
     setSending(true);
@@ -686,7 +694,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     activeSendIdRef.current = sendId;
     setSseSession(null);
     beginStream(sendId);
-    const snapshot = await execute({ draft: draftRequest, sendId });
+    const snapshot = await execute({
+      draft: draftRequest,
+      sendId,
+      ...(executionPlace.target !== null ? { executionPlace: executionPlace.target } : {}),
+    });
     activeSendIdRef.current = null;
     // Take the SSE session timing (null for non-SSE sends) before the
     // stream state drops — the materialized event list joins its
@@ -696,7 +708,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     setSending(false);
     setResponse(snapshot);
     setSseSession(session === null ? null : { ...session, endedAt: Date.now() });
-  }, [sending, buildDraftRequest, execute, beginStream, endStream, takeSseSession]);
+  }, [sending, buildDraftRequest, execute, beginStream, endStream, takeSseSession, executionPlace.target]);
 
   // Stop the in-flight send — the host aborts the exchange and the
   // pending `execute` above resolves with a snapshot materialized from
@@ -772,10 +784,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       onSend={() => void handleSend()}
     />
   );
-
-  // Where this Send runs — the shared reader; the control beside Send
-  // names the place (a remote-dispatch surface's serving place, or here).
-  const executionPlace = useExecutionPlace({ kind: 'http' });
 
   // ⋯ menu — snippet copies of the CURRENT draft (unsaved edits
   // included), resolved host-side exactly as a Send would resolve them.
@@ -883,7 +891,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
   const headerActions = (
     <>
-      <ExecutionPlaceControl resolution={executionPlace} />
+      <ExecutionPlaceControl resolution={executionPlace} onPick={setPlacePick} />
       {primaryAction}
     </>
   );

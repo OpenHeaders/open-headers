@@ -63,6 +63,10 @@ registerCapability('companionReveal', companionReveal);
 // state gates the editor's Invoke separately.
 registerCapability('grpcCompanionInvoke', () => true);
 
+// The HTTP / GraphQL-query Send honours an explicit execution place
+// (the SW's delegated leg) — the curated entry carries it too.
+registerCapability('delegatedRequestDispatch', () => true);
+
 // Debug mode (opt-in CDP path) is registered by `install-cdp-capability`
 // imported above — gated on the runtime exposing the debugging protocol.
 

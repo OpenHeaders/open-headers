@@ -468,6 +468,14 @@ export const sharedComponents = {
     'mqtt:// 및 mqtts:// 주소는 브라우저가 열 수 없는 원시 TCP 소켓을 엽니다. 이 요청을 데스크톱 앱에서 열거나, ws:// 또는 wss:// 주소로 바꿔 여기에서 연결하세요.',
   'shared.executionPlace.reason.sessionNotForwarded': '세션은 아직 {place}에 전달되지 않습니다.',
   'shared.executionPlace.reason.noRuntime': '이 종류의 요청은 데스크톱 앱이나 서버에서 실행됩니다.',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    '여기에서 확인한 뒤 데스크톱 앱에서 이 요청을 대신해 연결을 엽니다.',
+  'shared.executionPlace.reason.delegatedServer':
+    '여기에서 확인한 뒤 {place}에서 이 요청을 대신해 연결을 엽니다. 확인된 값(비밀 포함)이 그곳으로 전송됩니다.',
+  'shared.executionPlace.picker.title': '실행 위치',
+  'shared.executionPlace.option.here': '이 기기',
+  'shared.executionPlace.option.desktopApp': '데스크톱 앱',
+  'shared.executionPlace.option.server': '서버',
   'shared.executionPlace.reason.preferenceUnavailable':
     '이 요청은 {place}에서 실행하도록 설정되어 있지만, 여기에서는 아직 실행할 수 없습니다.',
   'shared.desktopTeaser.cta': '데스크톱 앱 다운로드',

@@ -492,6 +492,14 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': 'Las sesiones aún no se reenvían a {place}.',
   'shared.executionPlace.reason.noRuntime':
     'Este tipo de solicitud se ejecuta en la aplicación de escritorio o en un servidor.',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    'Resuelta aquí; la aplicación de escritorio abre la conexión en nombre de esta solicitud.',
+  'shared.executionPlace.reason.delegatedServer':
+    'Resuelta aquí; {place} abre la conexión en nombre de esta solicitud. Los valores resueltos, secretos incluidos, viajan hasta allí.',
+  'shared.executionPlace.picker.title': 'Ejecutar en',
+  'shared.executionPlace.option.here': 'Este dispositivo',
+  'shared.executionPlace.option.desktopApp': 'La aplicación de escritorio',
+  'shared.executionPlace.option.server': 'El servidor',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Esta solicitud está configurada para ejecutarse en {place}, lo que aún no es posible desde aquí.',
   'shared.desktopTeaser.cta': 'Descargar la aplicación de escritorio',

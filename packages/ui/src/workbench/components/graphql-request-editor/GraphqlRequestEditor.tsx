@@ -85,6 +85,7 @@ import { capturedResponseFromSnapshot } from '../response-example/example-draft'
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import EditorHeader from '../shell/EditorHeader';
 import {
@@ -354,6 +355,11 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const subscriptionPaneOpen = subscription.live !== null || subscription.snapshot !== null;
   const inFlight = sending || subscription.inFlight;
 
+  // Where a query runs — the HTTP send's reader with this editor's own
+  // per-send pick; a subscription reads its session plane's (below).
+  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  const queryPlace = useExecutionPlace({ kind: 'graphql-query', preference: placePick });
+
   const handleQuery = useCallback(async () => {
     if (!entity || inFlight) return;
     if (isSubscription) {
@@ -373,14 +379,29 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     activeSendIdRef.current = sendId;
     setSseSession(null);
     beginStream(sendId);
-    const snapshot = await executeGraphql({ draft: draftEntity(entity, draft), sendId });
+    const snapshot = await executeGraphql({
+      draft: draftEntity(entity, draft),
+      sendId,
+      ...(queryPlace.target !== null ? { executionPlace: queryPlace.target } : {}),
+    });
     activeSendIdRef.current = null;
     const session = takeSseSession();
     endStream();
     setSending(false);
     setResponse(snapshot);
     setSseSession(session === null ? null : { ...session, endedAt: Date.now() });
-  }, [entity, inFlight, isSubscription, subscription, draft, executeGraphql, beginStream, endStream, takeSseSession]);
+  }, [
+    entity,
+    inFlight,
+    isSubscription,
+    subscription,
+    draft,
+    executeGraphql,
+    beginStream,
+    endStream,
+    takeSseSession,
+    queryPlace.target,
+  ]);
 
   // Stop the in-flight query — the host aborts the exchange and the
   // pending `executeGraphql` resolves with a snapshot materialized from
@@ -494,10 +515,6 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     </div>
   );
 
-  // Where the picked operation runs — a subscription by its session
-  // plane's reader, a query by the HTTP send's; the control beside
-  // Query names the place.
-  const queryPlace = useExecutionPlace({ kind: 'graphql-query' });
   const executionPlace = isSubscription ? subscription.executionPlace : queryPlace;
 
   // ⋯ menu — snippet copies of the CURRENT draft through the compile
@@ -589,7 +606,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   );
   const headerActions = (
     <>
-      <ExecutionPlaceControl resolution={executionPlace} />
+      <ExecutionPlaceControl resolution={executionPlace} onPick={setPlacePick} />
       {primaryAction}
     </>
   );

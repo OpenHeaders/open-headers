@@ -512,6 +512,14 @@ export const sharedComponents = {
     'mqtt:// und mqtts:// öffnen einen rohen TCP-Socket, was der Browser nicht kann. Öffne diese Anfrage in der Desktop-App oder wechsle zu ws:// oder wss://, um dich hier zu verbinden.',
   'shared.executionPlace.reason.sessionNotForwarded': 'Sitzungen werden noch nicht an {place} weitergeleitet.',
   'shared.executionPlace.reason.noRuntime': 'Diese Art von Anfrage läuft in der Desktop-App oder auf einem Server.',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    'Hier aufgelöst; die Desktop-App öffnet die Verbindung für diese Anfrage.',
+  'shared.executionPlace.reason.delegatedServer':
+    'Hier aufgelöst; {place} öffnet die Verbindung für diese Anfrage. Die aufgelösten Werte, Geheimnisse eingeschlossen, werden dorthin übertragen.',
+  'shared.executionPlace.picker.title': 'Ausführen auf',
+  'shared.executionPlace.option.here': 'Dieses Gerät',
+  'shared.executionPlace.option.desktopApp': 'Die Desktop-App',
+  'shared.executionPlace.option.server': 'Der Server',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Diese Anfrage soll auf {place} laufen; von hier aus ist das noch nicht möglich.',
   'shared.desktopTeaser.cta': 'Desktop-App herunterladen',

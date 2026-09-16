@@ -39,8 +39,35 @@ function forwardedErrorMessage(err: Error): string {
   return err.message === 'not-connected' ? NO_COMPANION_MESSAGE : err.message;
 }
 
+/**
+ * The companion each in-flight invoke rides, by the caller's sendId —
+ * the frame named it by EXPLICIT backend id (the Execution Place plan:
+ * never the default wire), and the riders and Stop follow the same
+ * record. Entries live for the invoke's flight.
+ */
+const companionBySendId = new Map<string, string>();
+
+/** The backend an in-flight forwarded invoke rides; undefined once settled. */
+export function companionForSend(sendId: string): string | undefined {
+  return companionBySendId.get(sendId);
+}
+
+function backendIdOf(message: Record<string, unknown>): string | undefined {
+  const place = message.executionPlace;
+  if (!place || typeof place !== 'object') return undefined;
+  const backendId = (place as { backendId?: unknown }).backendId;
+  return typeof backendId === 'string' && backendId !== '' ? backendId : undefined;
+}
+
 export const grpcHandlers: HandlerMap = {
   executeGrpcRequest: ({ message, respond }) => {
+    // The target is the frame's explicit backend; without one there is
+    // no companion to ride — the honest snapshot, never the default wire.
+    const backendId = backendIdOf(message);
+    if (backendId === undefined) {
+      respond({ success: true, snapshot: errorGrpcSnapshot(NO_COMPANION_MESSAGE) });
+      return;
+    }
     const draft = message.draft as { timeoutMs?: number } | undefined;
     const frame: { type: string } & Record<string, unknown> = { type: 'executeGrpcRequest' };
     if (typeof message.grpcRequestUid === 'string') frame.grpcRequestUid = message.grpcRequestUid;
@@ -60,13 +87,18 @@ export const grpcHandlers: HandlerMap = {
     // the settled snapshot — the wsRequest close flush covers a dead
     // wire, Stop covers the user's own exit.
     const timeoutMs = typeof draft?.timeoutMs === 'number' ? draft.timeoutMs + EXECUTE_TIMEOUT_MARGIN_MS : 0;
-    wsRequest<{ success: boolean; snapshot?: unknown; error?: string }>(frame, { timeoutMs })
+    const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
+    if (sendId !== undefined) companionBySendId.set(sendId, backendId);
+    wsRequest<{ success: boolean; snapshot?: unknown; error?: string }>(frame, { timeoutMs, backendId })
       .then((result) => respond(result))
       .catch((err: Error) => {
         // Honest degrade on the Invoke surface: the companion's refusal
         // (opt-in off, permission denied) or a dead wire renders as the
         // response pane's error state, never a silent null.
         respond({ success: true, snapshot: errorGrpcSnapshot(forwardedErrorMessage(err)) });
+      })
+      .finally(() => {
+        if (sendId !== undefined) companionBySendId.delete(sendId);
       });
     return true;
   },
@@ -78,11 +110,15 @@ export const grpcHandlers: HandlerMap = {
       respond({ success: false, error: 'No stream id or message provided' });
       return;
     }
-    wsRequest<{ success: boolean; error?: string }>({
-      type: 'sendGrpcStreamMessage',
-      sendId: message.sendId,
-      messageText: message.messageText,
-    })
+    const backendId = companionBySendId.get(message.sendId);
+    wsRequest<{ success: boolean; error?: string }>(
+      {
+        type: 'sendGrpcStreamMessage',
+        sendId: message.sendId,
+        messageText: message.messageText,
+      },
+      backendId !== undefined ? { backendId } : {},
+    )
       .then((result) => respond(result))
       .catch((err: Error) => respond({ success: false, error: forwardedErrorMessage(err) }));
     return true;
@@ -93,7 +129,11 @@ export const grpcHandlers: HandlerMap = {
       respond({ success: false });
       return;
     }
-    wsRequest<{ success: boolean }>({ type: 'endGrpcClientStream', sendId: message.sendId })
+    const backendId = companionBySendId.get(message.sendId);
+    wsRequest<{ success: boolean }>(
+      { type: 'endGrpcClientStream', sendId: message.sendId },
+      backendId !== undefined ? { backendId } : {},
+    )
       .then((result) => respond(result))
       .catch(() => respond({ success: false }));
     return true;

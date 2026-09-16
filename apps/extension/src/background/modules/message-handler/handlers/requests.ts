@@ -30,6 +30,7 @@ import { executeRequest, executeRequestDraft } from '../../request-executor';
 import { stopActiveSend } from '../../request-executor/send-stream';
 import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
+import { companionForSend } from './grpc';
 
 /**
  * `executeGraphqlRequest` — the SW twin of the node host's route: the
@@ -261,7 +262,8 @@ export const requestHandlers: HandlerMap = {
       respond({ success: true });
       return;
     }
-    wsRequest<{ success: boolean }>({ type: 'abortRequestSend', sendId })
+    const backendId = companionForSend(sendId);
+    wsRequest<{ success: boolean }>({ type: 'abortRequestSend', sendId }, backendId !== undefined ? { backendId } : {})
       .then((result) => respond(result))
       .catch(() => respond({ success: false }));
     return true;

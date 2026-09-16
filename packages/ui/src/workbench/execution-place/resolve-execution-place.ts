@@ -12,12 +12,12 @@
  * workspace's own providing backend). Capabilities never name the
  * host — the reader branches off the markers alone.
  *
- * S1 renders TODAY'S truth, no new wire:
+ * The matrix (S1 rendered today's truth; S2 opened the HTTP legs):
  *   - a surface whose sends run on a remote place (`remoteRequestDispatch`
  *     — the web tab) resolves to that server: HTTP / GraphQL query as
  *     a CONTEXT send (resolved there — Phase W makes the tab a context
  *     of its own), the three session kinds as `unsupported` with the
- *     honest "not forwarded yet" reason (Phase B flips the row);
+ *     honest "not forwarded yet" reason (Phase W flips the row);
  *   - a node runtime runs everything here;
  *   - a browser runtime runs HTTP / GraphQL query here, sessions here
  *     in the page realm (`wsPageSession` / `mqttPageSession`) naming
@@ -25,10 +25,17 @@
  *     desktop app (`grpcCompanionInvoke`), and an mqtt(s):// session
  *     NOWHERE yet — `needs-companion` with the desktop-app CTA ladder
  *     (Phase D delegates it and flips the row to `ready`).
- * `alternatives` is empty in S1 — no leg exists to choose; Phase C
- * fills it. A `preference` other than Auto that names a role the
- * auto path did not resolve is `unsupported` until Phase C builds the
- * legs and the settings layers behind it.
+ *
+ * The legs (Phase C): on a surface whose send honours an explicit
+ * place (`delegatedRequestDispatch`), an HTTP / GraphQL query send can
+ * be DELEGATED — resolved here, the socket opened by the connected
+ * desktop app (a browser surface) or by the workspace's own server
+ * (any surface). Those are `alternatives` beside the auto place, and a
+ * `preference` naming one resolves to it (`reason: delegated`); a
+ * preference naming a role no leg can honour is `unsupported`, never
+ * silently overridden — with the companion ladder as its CTA when the
+ * role is the desktop app. Sessions and gRPC carry no alternatives yet
+ * (Phase D).
  *
  * Refusal (the daemon's two-tier opt-in) is a run-time answer on the
  * response surface (`PeerExecuteDisabledNotice`), not a pre-send
@@ -63,6 +70,16 @@ export interface ExecutionPlaceMarkers {
   grpcCompanionInvoke: boolean;
   wsPageSession: boolean;
   mqttPageSession: boolean;
+  /** The surface's HTTP send honours an explicit place — the delegated legs exist. */
+  delegatedRequestDispatch: boolean;
+}
+
+/** The workspace's own providing server, when it has one — the
+ *  `workspace-server` role's live state (the org binding's record). */
+export interface WorkspaceServerState {
+  /** The place's name (the label, the group, the host) — null when nameless. */
+  name: string | null;
+  connected: boolean;
 }
 
 export interface ExecutionPlaceInput {
@@ -74,7 +91,9 @@ export interface ExecutionPlaceInput {
   desktopApp: DesktopCompanionState;
   /** `desktopLaunch` registered AND the NM host anchored to a launchable install. */
   desktopAppLaunchable: boolean;
-  /** The resolved role from the settings layers; absent = Auto (S1 always). */
+  /** The workspace's server, by the place rule; absent = the workspace has none. */
+  workspaceServer?: WorkspaceServerState;
+  /** The resolved role from the settings layers or the per-send pick; absent = Auto. */
   preference?: ExecutionPlacePreference;
   /** Knobs a page-realm session would leave unapplied (the draft's, before Connect). */
   inapplicableKnobs?: readonly PageSessionKnob[];
@@ -99,6 +118,8 @@ export type ExecutionPlaceReason =
   | { kind: 'session-not-forwarded'; name: string | null }
   /** A browser surface with neither an engine nor a page-realm socket for this kind. */
   | { kind: 'no-runtime' }
+  /** Resolved here; the chosen place opens the socket on this send's behalf. */
+  | { kind: 'delegated'; role: Exclude<ExecutionPlaceRole, 'here'> }
   /** A preferred role no leg can honour yet. */
   | { kind: 'preference-unavailable'; preferred: ExecutionPlaceRole };
 
@@ -119,8 +140,10 @@ export interface ExecutionPlaceResolution {
   state: ExecutionPlaceState;
   reason: ExecutionPlaceReason;
   cta: ExecutionPlaceCta;
-  /** Other roles this surface could run the send on — none until Phase C. */
+  /** The other eligible places for this send — the picker's rows beside `place`. */
   alternatives: readonly ExecutionPlaceRole[];
+  /** The workspace server's name whenever the workspace has one — the picker's row label. */
+  serverName?: string | null;
 }
 
 const NO_ALTERNATIVES: readonly ExecutionPlaceRole[] = [];
@@ -137,17 +160,44 @@ export function isSessionKind(kind: ExecutionRequestKind): boolean {
 }
 
 export function resolveExecutionPlace(input: ExecutionPlaceInput): ExecutionPlaceResolution {
+  const resolution = resolvePreferred(input);
+  return input.workspaceServer !== undefined ? { ...resolution, serverName: input.workspaceServer.name } : resolution;
+}
+
+function resolvePreferred(input: ExecutionPlaceInput): ExecutionPlaceResolution {
   const auto = resolveAuto(input);
   const preference = input.preference ?? 'auto';
   if (preference === 'auto' || preference === auto.place) return auto;
+  if (preference !== 'here' && auto.alternatives.includes(preference)) {
+    return {
+      place: preference,
+      placeName: preference === 'workspace-server' ? (input.workspaceServer?.name ?? null) : null,
+      state: 'ready',
+      reason: { kind: 'delegated', role: preference },
+      cta: null,
+      alternatives: [auto.place, ...auto.alternatives.filter((role) => role !== preference)],
+    };
+  }
+  // The places that ARE possible stay on offer — the user picks back.
   return {
     place: preference,
     placeName: null,
     state: 'unsupported',
     reason: { kind: 'preference-unavailable', preferred: preference },
-    cta: null,
-    alternatives: NO_ALTERNATIVES,
+    cta: preference === 'desktop-app' ? companionCta(input) : null,
+    alternatives: auto.state === 'ready' ? [auto.place, ...auto.alternatives] : auto.alternatives,
   };
+}
+
+/** The places that could open an HTTP socket on this send's behalf,
+ *  beside the surface's own — a transport fact under the live
+ *  connection state, offered only where the send honours a place. */
+function delegatedLegs(input: ExecutionPlaceInput): readonly ExecutionPlaceRole[] {
+  if (!input.markers.delegatedRequestDispatch) return NO_ALTERNATIVES;
+  const legs: ExecutionPlaceRole[] = [];
+  if (input.markers.requestRuntime !== 'node' && input.desktopApp === 'connected') legs.push('desktop-app');
+  if (input.workspaceServer?.connected === true) legs.push('workspace-server');
+  return legs.length > 0 ? legs : NO_ALTERNATIVES;
 }
 
 function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
@@ -159,12 +209,13 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     }
     return remote(serving, 'ready', { kind: 'context-send', name: serving });
   }
-  if (markers.requestRuntime === 'node') return here({ kind: 'runs-here' });
+  const httpLegs = kind === 'http' || kind === 'graphql-query' ? delegatedLegs(input) : NO_ALTERNATIVES;
+  if (markers.requestRuntime === 'node') return here({ kind: 'runs-here' }, httpLegs);
   const knobs = input.inapplicableKnobs ?? [];
   switch (kind) {
     case 'http':
     case 'graphql-query':
-      return here({ kind: 'runs-here-browser' });
+      return here({ kind: 'runs-here-browser' }, httpLegs);
     case 'grpc': {
       if (!markers.grpcCompanionInvoke) return needsDesktopApp('unsupported', { kind: 'no-runtime' }, null);
       if (input.desktopApp === 'connected') {
@@ -192,8 +243,11 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
   }
 }
 
-function here(reason: ExecutionPlaceReason): ExecutionPlaceResolution {
-  return { place: 'here', placeName: null, state: 'ready', reason, cta: null, alternatives: NO_ALTERNATIVES };
+function here(
+  reason: ExecutionPlaceReason,
+  alternatives: readonly ExecutionPlaceRole[] = NO_ALTERNATIVES,
+): ExecutionPlaceResolution {
+  return { place: 'here', placeName: null, state: 'ready', reason, cta: null, alternatives };
 }
 
 function remote(name: string, state: ExecutionPlaceState, reason: ExecutionPlaceReason): ExecutionPlaceResolution {

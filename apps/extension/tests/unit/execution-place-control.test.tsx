@@ -126,6 +126,86 @@ describe('ExecutionPlaceControl', () => {
     expect(chip.getAttribute('data-state')).toBe('unsupported');
   });
 
+  it('a send that runs here with other places on offer renders outlined and opens the picker', async () => {
+    const onPick = vi.fn();
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          reason: { kind: 'runs-here-browser' },
+          alternatives: ['desktop-app', 'workspace-server'],
+          serverName: 'Acme',
+        })}
+        onPick={onPick}
+      />,
+    );
+    const chip = screen.getByTestId('execution-place-chip');
+    expect(chip.textContent).toBe('Runs here');
+    expect(chip.className).toContain('ant-tag-outlined');
+    fireEvent.click(chip);
+    expect(await screen.findByText('Run on')).toBeTruthy();
+    // The test id lands on the radio input; its label is the row's text.
+    const options = screen.getAllByTestId('execution-place-option');
+    expect(options.map((o) => o.getAttribute('data-role'))).toEqual(['here', 'desktop-app', 'workspace-server']);
+    expect(options.map((o) => o.closest('label')?.textContent)).toEqual(['This device', 'The desktop app', 'Acme']);
+    fireEvent.click(options[2]);
+    expect(onPick).toHaveBeenCalledWith('workspace-server');
+  });
+
+  it('a delegated send names the place, the transit for a server, and keeps the picker with the other places', async () => {
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          place: 'workspace-server',
+          placeName: 'Acme',
+          reason: { kind: 'delegated', role: 'workspace-server' },
+          alternatives: ['here', 'desktop-app'],
+          serverName: 'Acme',
+        })}
+        onPick={() => {}}
+      />,
+    );
+    const chip = screen.getByTestId('execution-place-chip');
+    expect(chip.textContent).toBe('Runs on Acme');
+    fireEvent.click(chip);
+    expect(
+      await screen.findByText(
+        /Acme opens the connection on this request's behalf\. The resolved values, secrets included, travel to it\./,
+      ),
+    ).toBeTruthy();
+    const options = screen.getAllByTestId('execution-place-option');
+    expect(options.map((o) => o.getAttribute('data-role'))).toEqual(['workspace-server', 'here', 'desktop-app']);
+  });
+
+  it('no picker without an onPick, nor with nothing else to choose', () => {
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({ reason: { kind: 'runs-here-browser' }, alternatives: ['desktop-app'] })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    expect(screen.queryByTestId('execution-place-option')).toBeNull();
+  });
+
+  it('an unsupported pick keeps the possible places on offer so the user can pick back', async () => {
+    const onPick = vi.fn();
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          place: 'workspace-server',
+          state: 'unsupported',
+          reason: { kind: 'preference-unavailable', preferred: 'workspace-server' },
+          alternatives: ['here'],
+        })}
+        onPick={onPick}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    const options = await screen.findAllByTestId('execution-place-option');
+    expect(options.map((o) => o.getAttribute('data-role'))).toEqual(['here']);
+    fireEvent.click(options[0]);
+    expect(onPick).toHaveBeenCalledWith('here');
+  });
+
   it('a context send names the serving place', () => {
     render(
       <ExecutionPlaceControl
@@ -165,6 +245,15 @@ describe('executionPlaceCopy', () => {
       t as never,
     );
     expect(copy.chip).toBe('shared.executionPlace.chip.server {"place":"shared.executionPlace.role.server"}');
+  });
+
+  it('a delegated send to the desktop app names no transit — loopback carries nothing new', () => {
+    const copy = executionPlaceCopy(
+      resolution({ place: 'desktop-app', reason: { kind: 'delegated', role: 'desktop-app' } }),
+      t as never,
+    );
+    expect(copy.chip).toBe('shared.executionPlace.chip.desktopApp');
+    expect(copy.reason).toBe('shared.executionPlace.reason.delegatedDesktopApp');
   });
 
   it('the companion invoke reads as running on the desktop app', () => {

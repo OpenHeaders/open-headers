@@ -75,6 +75,11 @@ registerCapability('companionReveal', companionReveal);
 // surface; LIVE connection state gates the editor's Invoke separately.
 registerCapability('grpcCompanionInvoke', () => true);
 
+// The HTTP / GraphQL-query Send honours an explicit execution place —
+// the SW's executor delegates the round-trip to the named backend
+// (the Execution Place plan, Phase C); the reader offers the legs.
+registerCapability('delegatedRequestDispatch', () => true);
+
 // In-app daemon pairing (WS-A2): exchange a typed 6-digit code for an
 // auth token over a direct localhost/LAN HTTP fetch. Unlike the caps
 // above it doesn't relay through the SW — a one-shot pairing fetch needs

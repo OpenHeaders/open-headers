@@ -471,6 +471,14 @@ export const sharedComponents = {
     'mqtt:// と mqtts:// はブラウザーでは開けない生の TCP ソケットを開きます。このリクエストをデスクトップアプリで開くか、ws:// または wss:// に切り替えてここで接続してください。',
   'shared.executionPlace.reason.sessionNotForwarded': 'セッションはまだ{place}に転送されません。',
   'shared.executionPlace.reason.noRuntime': 'この種類のリクエストはデスクトップアプリまたはサーバーで実行されます。',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    'ここで解決し、デスクトップアプリがこのリクエストに代わって接続を開きます。',
+  'shared.executionPlace.reason.delegatedServer':
+    'ここで解決し、{place} がこのリクエストに代わって接続を開きます。解決済みの値（シークレットを含む）はそこへ送られます。',
+  'shared.executionPlace.picker.title': '実行場所',
+  'shared.executionPlace.option.here': 'このデバイス',
+  'shared.executionPlace.option.desktopApp': 'デスクトップアプリ',
+  'shared.executionPlace.option.server': 'サーバー',
   'shared.executionPlace.reason.preferenceUnavailable':
     'このリクエストは{place}で実行するように設定されていますが、ここからはまだ実行できません。',
   'shared.desktopTeaser.cta': 'デスクトップアプリをダウンロード',

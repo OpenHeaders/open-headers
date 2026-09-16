@@ -489,6 +489,13 @@ export const sharedComponents = {
     'mqtt:// 和 mqtts:// 会打开浏览器无法打开的原始 TCP socket。请在桌面应用中打开此请求，或改用 ws:// 或 wss:// 在这里连接。',
   'shared.executionPlace.reason.sessionNotForwarded': '会话尚未转发到 {place}。',
   'shared.executionPlace.reason.noRuntime': '这类请求在桌面应用或服务器上运行。',
+  'shared.executionPlace.reason.delegatedDesktopApp': '在此处解析；由桌面应用代表此请求建立连接。',
+  'shared.executionPlace.reason.delegatedServer':
+    '在此处解析；由 {place} 代表此请求建立连接。已解析的值（包括密钥）会传送到该处。',
+  'shared.executionPlace.picker.title': '运行位置',
+  'shared.executionPlace.option.here': '此设备',
+  'shared.executionPlace.option.desktopApp': '桌面应用',
+  'shared.executionPlace.option.server': '服务器',
   'shared.executionPlace.reason.preferenceUnavailable': '此请求被设置为在 {place} 上运行，从这里尚无法做到。',
   'shared.desktopTeaser.cta': '下载桌面应用',
   'shared.desktopTeaser.openApp': '在桌面应用中打开',

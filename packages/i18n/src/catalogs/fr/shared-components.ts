@@ -489,6 +489,14 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': 'Les sessions ne sont pas encore transmises à {place}.',
   'shared.executionPlace.reason.noRuntime':
     'Ce type de requête s’exécute sur l’application de bureau ou sur un serveur.',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    "Résolue ici ; l'application de bureau ouvre la connexion pour cette requête.",
+  'shared.executionPlace.reason.delegatedServer':
+    'Résolue ici ; {place} ouvre la connexion pour cette requête. Les valeurs résolues, secrets compris, lui sont transmises.',
+  'shared.executionPlace.picker.title': 'Exécuter sur',
+  'shared.executionPlace.option.here': 'Cet appareil',
+  'shared.executionPlace.option.desktopApp': "L'application de bureau",
+  'shared.executionPlace.option.server': 'Le serveur',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Cette requête est configurée pour s’exécuter sur {place}, ce qui n’est pas encore possible d’ici.',
   'shared.desktopTeaser.cta': "Télécharger l'application de bureau",

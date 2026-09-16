@@ -565,6 +565,14 @@ export interface RequestRpc {
       environmentId?: string | null;
       workspaceId?: string;
       sendId?: string;
+      /**
+       * The companion the invoke forwards to, by EXPLICIT backend id
+       * (the Execution Place plan: never the default wire, which falls
+       * back to the first connected backend of any kind). A forwarding
+       * surface without one answers the honest "connect the desktop
+       * app" snapshot; in-process hosts ignore it.
+       */
+      executionPlace?: ExecutionPlaceTarget;
     };
     res: { success: boolean; snapshot?: ExecutedGrpcSnapshot; error?: string };
   };

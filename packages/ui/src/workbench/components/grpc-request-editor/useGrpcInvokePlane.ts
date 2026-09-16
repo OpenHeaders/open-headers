@@ -138,7 +138,12 @@ export function useGrpcInvokePlane({
     if (streaming && draft.method) {
       liveStream.beginStream(sendId);
     }
-    const snapshot = await executeGrpc({ draft: draftEntity, sendId });
+    // The companion by EXPLICIT backend id — never the default wire.
+    const snapshot = await executeGrpc({
+      draft: draftEntity,
+      sendId,
+      ...(executionPlace.target !== null ? { executionPlace: executionPlace.target } : {}),
+    });
     if (streaming) {
       const session = liveStream.takeSession();
       setStreamSession(session === null ? null : { ...session, endedAt: Date.now() });
@@ -151,7 +156,18 @@ export function useGrpcInvokePlane({
       return;
     }
     setResponse(snapshot);
-  }, [entity, invoking, draft, sendInvalidMessage, selectedOption, executeGrpc, liveStream, toast, t]);
+  }, [
+    entity,
+    invoking,
+    draft,
+    sendInvalidMessage,
+    selectedOption,
+    executeGrpc,
+    executionPlace.target,
+    liveStream,
+    toast,
+    t,
+  ]);
 
   // Cancel morphs from Invoke while in flight — the host aborts the
   // exchange and the pending RPC above resolves with what arrived.

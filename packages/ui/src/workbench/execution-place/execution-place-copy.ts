@@ -6,13 +6,26 @@
  */
 
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import type { ExecutionPlaceResolution, PageSessionKnob } from './resolve-execution-place';
+import type { ExecutionPlaceResolution, ExecutionPlaceRole, PageSessionKnob } from './resolve-execution-place';
 
 export interface ExecutionPlaceCopy {
   chip: string;
   reason: string;
   /** The knobs a page-realm session cannot apply, as one sentence; null when none. */
   knobs: string | null;
+}
+
+/** A picker row's label — the place as a thing to choose, never the
+ *  word "Auto" (the resolved place is what the user sees). */
+export function executionPlaceOptionLabel(role: ExecutionPlaceRole, placeName: string | null, t: Translate): string {
+  switch (role) {
+    case 'here':
+      return t('shared.executionPlace.option.here');
+    case 'desktop-app':
+      return t('shared.executionPlace.option.desktopApp');
+    case 'workspace-server':
+      return placeName ?? t('shared.executionPlace.option.server');
+  }
 }
 
 /** The knob names the page-realm planes and the control share. */
@@ -96,6 +109,21 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
         reason: t('shared.executionPlace.reason.noRuntime'),
         knobs: null,
       };
+    case 'delegated':
+      // Off-device transit is NAMED: a server receives the resolved
+      // values; the desktop app on this device receives nothing the
+      // vault does not already sync there.
+      return reason.role === 'desktop-app'
+        ? {
+            chip: t('shared.executionPlace.chip.desktopApp'),
+            reason: t('shared.executionPlace.reason.delegatedDesktopApp'),
+            knobs: null,
+          }
+        : {
+            chip: t('shared.executionPlace.chip.server', { place }),
+            reason: t('shared.executionPlace.reason.delegatedServer', { place }),
+            knobs: null,
+          };
     case 'preference-unavailable': {
       const preferred = roleName(reason.preferred, null, t);
       return {

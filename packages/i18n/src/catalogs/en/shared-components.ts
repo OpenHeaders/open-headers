@@ -512,6 +512,14 @@ export const sharedComponents = {
     'mqtt:// and mqtts:// open a raw TCP socket the browser cannot. Open this request in the desktop app, or switch to ws:// or wss:// to connect here.',
   'shared.executionPlace.reason.sessionNotForwarded': 'Sessions are not forwarded to {place} yet.',
   'shared.executionPlace.reason.noRuntime': 'This request kind runs on the desktop app or a server.',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    "Resolved here; the desktop app opens the connection on this request's behalf.",
+  'shared.executionPlace.reason.delegatedServer':
+    "Resolved here; {place} opens the connection on this request's behalf. The resolved values, secrets included, travel to it.",
+  'shared.executionPlace.picker.title': 'Run on',
+  'shared.executionPlace.option.here': 'This device',
+  'shared.executionPlace.option.desktopApp': 'The desktop app',
+  'shared.executionPlace.option.server': 'The server',
   'shared.executionPlace.reason.preferenceUnavailable':
     'This request is set to run on {place}, which cannot run it from here yet.',
   'shared.desktopTeaser.cta': 'Download the desktop app',

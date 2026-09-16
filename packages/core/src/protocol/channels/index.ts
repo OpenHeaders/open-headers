@@ -87,6 +87,7 @@ export type {
 export type { ProductTelemetryLogEntryWire, ProductTelemetrySnapshot } from './product-telemetry';
 export type {
   CookieJarEntryWire,
+  ExecutionPlaceTarget,
   GrpcStreamEventWire,
   GrpcStreamMessageWire,
   MqttPublishWire,

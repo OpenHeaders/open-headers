@@ -23,6 +23,7 @@ export type {
   DomStorageEntryWire,
   DomStorageRenameFailureWire,
   EnvironmentsSnapshot,
+  ExecutionPlaceTarget,
   FolderDescriptor,
   GrpcStreamEventWire,
   GrpcStreamMessageWire,

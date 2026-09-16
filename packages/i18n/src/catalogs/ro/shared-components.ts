@@ -527,6 +527,14 @@ export const sharedComponents = {
     'Adresele mqtt:// și mqtts:// deschid un socket TCP brut, pe care browserul nu îl poate deschide. Deschideți această solicitare în aplicația desktop sau treceți la ws:// ori wss:// pentru a vă conecta aici.',
   'shared.executionPlace.reason.sessionNotForwarded': 'Sesiunile nu sunt încă redirecționate către {place}.',
   'shared.executionPlace.reason.noRuntime': 'Acest tip de solicitare rulează în aplicația desktop sau pe un server.',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    'Rezolvată aici; aplicația desktop deschide conexiunea în numele acestei cereri.',
+  'shared.executionPlace.reason.delegatedServer':
+    'Rezolvată aici; {place} deschide conexiunea în numele acestei cereri. Valorile rezolvate, inclusiv secretele, ajung acolo.',
+  'shared.executionPlace.picker.title': 'Rulează pe',
+  'shared.executionPlace.option.here': 'Acest dispozitiv',
+  'shared.executionPlace.option.desktopApp': 'Aplicația desktop',
+  'shared.executionPlace.option.server': 'Serverul',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Locul de rulare setat pentru această solicitare este {place}, indisponibil de aici deocamdată.',
   'shared.desktopTeaser.cta': 'Descărcare aplicație desktop',

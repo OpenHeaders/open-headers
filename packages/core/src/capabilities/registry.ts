@@ -623,6 +623,21 @@ export interface Capabilities {
   remoteRequestDispatch?: () => string;
 
   /**
+   * Declares that this surface's HTTP / GraphQL-query Send HONOURS an
+   * explicit execution place (`executionPlace` on the channel): the
+   * surface still resolves, signs, runs scripts and builds the
+   * snapshot as the context, and only the round-trip rides the
+   * `delegateRequest` family to the named backend (the Execution
+   * Place plan, Phase C). The shared reader offers the delegated legs
+   * — the connected desktop app, the workspace's server — only where
+   * this is registered; a surface without it never shows a choice it
+   * could not honour. Registered by the extension; the desktop
+   * renderer joins once its main process carries the leg toward a
+   * server.
+   */
+  delegatedRequestDispatch?: () => boolean;
+
+  /**
    * Declares that FORWARDED sends run scripts on the answering
    * back-end, and names the mode they run under — always `'safe'`: a
    * peer-forwarded send never rides anything else, so this is a fact,
