@@ -75,6 +75,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionDesktopApp': 'デスクトップアプリ',
   'shared.chrome.status.companionExtensions': '拡張機能',
   'shared.chrome.status.companionConnected': '接続済み',
+  'shared.chrome.status.companionRunsRequests': 'リクエストを実行',
   'shared.chrome.status.companionNotConnected': '未接続',
   'shared.chrome.status.companionInstalledNotConnected': 'インストール済み · 未接続',
   'shared.chrome.status.companionNotInstalled': '未インストール',

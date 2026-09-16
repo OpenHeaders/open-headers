@@ -67,6 +67,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionDesktopApp': 'App de bureau',
   'shared.chrome.status.companionExtensions': 'Extensions',
   'shared.chrome.status.companionConnected': 'Connectée',
+  'shared.chrome.status.companionRunsRequests': 'exécute les requêtes',
   'shared.chrome.status.companionNotConnected': 'Non connectée',
   'shared.chrome.status.companionInstalledNotConnected': 'Installée · non connectée',
   'shared.chrome.status.companionNotInstalled': 'Non installée',

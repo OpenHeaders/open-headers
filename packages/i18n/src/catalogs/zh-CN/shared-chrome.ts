@@ -72,6 +72,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionDesktopApp': '桌面应用',
   'shared.chrome.status.companionExtensions': '扩展',
   'shared.chrome.status.companionConnected': '已连接',
+  'shared.chrome.status.companionRunsRequests': '运行请求',
   'shared.chrome.status.companionNotConnected': '未连接',
   'shared.chrome.status.companionInstalledNotConnected': '已安装 · 未连接',
   'shared.chrome.status.companionNotInstalled': '未安装',

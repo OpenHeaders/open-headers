@@ -77,6 +77,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionDesktopApp': '데스크톱 앱',
   'shared.chrome.status.companionExtensions': '확장 프로그램',
   'shared.chrome.status.companionConnected': '연결됨',
+  'shared.chrome.status.companionRunsRequests': '요청 실행',
   'shared.chrome.status.companionNotConnected': '연결되지 않음',
   'shared.chrome.status.companionInstalledNotConnected': '설치됨 · 연결되지 않음',
   'shared.chrome.status.companionNotInstalled': '설치되지 않음',

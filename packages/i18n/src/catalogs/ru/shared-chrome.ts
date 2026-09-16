@@ -85,6 +85,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionDesktopApp': 'Настольное приложение',
   'shared.chrome.status.companionExtensions': 'Расширения',
   'shared.chrome.status.companionConnected': 'Подключено',
+  'shared.chrome.status.companionRunsRequests': 'выполняет запросы',
   'shared.chrome.status.companionNotConnected': 'Не подключено',
   'shared.chrome.status.companionInstalledNotConnected': 'Установлено · не подключено',
   'shared.chrome.status.companionNotInstalled': 'Не установлено',

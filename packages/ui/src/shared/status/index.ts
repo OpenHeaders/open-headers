@@ -7,6 +7,7 @@ export {
   DesktopDownloadAction,
   DesktopOpenAppAction,
   deriveDesktopCompanionState,
+  desktopCompanionRunsRequests,
   useDesktopCompanion,
 } from './companion-rows';
 export { productStatusExtras, productStatusInlineActions } from './product-extras';

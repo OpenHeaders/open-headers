@@ -5,8 +5,10 @@
  */
 
 import '@openheaders/ui/workbench/settings/schema';
+// The companion row reads the global execution-place row — its settings-map entry.
+import '@openheaders/ui/workbench/settings/schema/requests';
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
-import { deriveDesktopCompanionState } from '@openheaders/ui/shared/status';
+import { deriveDesktopCompanionState, desktopCompanionRunsRequests } from '@openheaders/ui/shared/status';
 import { describe, expect, it } from 'vitest';
 
 function backend(overrides: Partial<BackendConnection> = {}): BackendConnection {
@@ -54,5 +56,15 @@ describe('deriveDesktopCompanionState', () => {
 
   it('an unresolved probe with no record reads unknown', () => {
     expect(deriveDesktopCompanionState([], {}, null)).toBe('unknown');
+  });
+});
+
+describe('desktopCompanionRunsRequests', () => {
+  it('reads true only for a connected desktop app the global preference points at', () => {
+    expect(desktopCompanionRunsRequests('connected', 'desktop-app')).toBe(true);
+    expect(desktopCompanionRunsRequests('connected', 'auto')).toBe(false);
+    expect(desktopCompanionRunsRequests('connected', 'workspace-server')).toBe(false);
+    expect(desktopCompanionRunsRequests('not-connected', 'desktop-app')).toBe(false);
+    expect(desktopCompanionRunsRequests('not-installed', 'desktop-app')).toBe(false);
   });
 });

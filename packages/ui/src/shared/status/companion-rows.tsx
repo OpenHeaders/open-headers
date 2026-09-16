@@ -25,11 +25,12 @@ import { DownloadOutlined } from '@ant-design/icons';
 import { createBackend, updateBackend } from '@openheaders/core/backends';
 import { getCapability, type NmHostPresenceVerdict } from '@openheaders/core/capabilities';
 import { WS_PORT } from '@openheaders/core/protocol';
-import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
+import type { BackendConnection, BackendSyncStatus, ExecutionPlaceRole } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { Button, Tag, Typography } from 'antd';
 import React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import {
   EXTENSION_STORE_URLS,
   INSTALL_BROWSER_LABELS,
@@ -119,6 +120,17 @@ export function useDesktopCompanion(): DesktopCompanion {
   return { state, launchable };
 }
 
+/** The desktop app is the place the global execution-place preference
+ *  points at, and it is here to run them — the row says so beside
+ *  Connected (the Execution Place plan's Phase E). A preference the
+ *  app cannot honour right now is the control's story, not the row's. */
+export function desktopCompanionRunsRequests(
+  state: DesktopCompanionState,
+  preference: 'auto' | ExecutionPlaceRole,
+): boolean {
+  return state === 'connected' && preference === 'desktop-app';
+}
+
 /** Host-aware companion rows — mounted by `productStatusExtras`. */
 export const CompanionStatusRows: React.FC = () => {
   const host = getCurrentHost();
@@ -129,6 +141,7 @@ export const CompanionStatusRows: React.FC = () => {
 const DesktopAppRow: React.FC = () => {
   const t = useT();
   const { state, launchable } = useDesktopCompanion();
+  const runsRequests = desktopCompanionRunsRequests(state, useSettingValue('requests.executionPlace'));
   // Unresolved probe: render nothing rather than flash a wrong guess.
   if (state === 'unknown') return null;
 
@@ -147,7 +160,9 @@ const DesktopAppRow: React.FC = () => {
       label={t('shared.chrome.status.companionDesktopApp')}
       testId="status-companion-desktop"
     >
-      <Typography.Text style={{ fontSize: 11 }}>{t(messageKey)}</Typography.Text>
+      <Typography.Text style={{ fontSize: 11 }} data-testid="status-companion-desktop-state">
+        {runsRequests ? `${t(messageKey)} · ${t('shared.chrome.status.companionRunsRequests')}` : t(messageKey)}
+      </Typography.Text>
       {state === 'not-installed' && <DesktopDownloadAction />}
       {state === 'not-connected' && <DesktopOpenAppAction primary />}
       {state === 'installed-not-connected' && (

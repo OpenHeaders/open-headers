@@ -89,6 +89,7 @@ export const sharedChrome = {
   'shared.chrome.status.companionDesktopApp': 'Aplicația desktop',
   'shared.chrome.status.companionExtensions': 'Extensii',
   'shared.chrome.status.companionConnected': 'Conectată',
+  'shared.chrome.status.companionRunsRequests': 'rulează solicitările',
   'shared.chrome.status.companionNotConnected': 'Neconectată',
   'shared.chrome.status.companionInstalledNotConnected': 'Instalată · neconectată',
   'shared.chrome.status.companionNotInstalled': 'Neinstalată',
