@@ -8,6 +8,7 @@
 
 import { connectionHandlers } from './handlers/connection';
 import { cookieJarHandlers } from './handlers/cookie-jar';
+import { delegatedSocketHandlers } from './handlers/delegated-sockets';
 import { environmentHandlers } from './handlers/environments';
 import { exportImportHandlers } from './handlers/export-import';
 import { fileHandlers } from './handlers/files';
@@ -36,6 +37,7 @@ export const registry: HandlerMap = {
   ...environmentHandlers,
   ...requestHandlers,
   ...grpcHandlers,
+  ...delegatedSocketHandlers,
   ...ruleHandlers,
   ...telemetryHandlers,
   ...templateHandlers,

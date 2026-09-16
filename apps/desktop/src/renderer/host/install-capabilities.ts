@@ -26,6 +26,10 @@ registerCapability('requestRuntime', () => 'node');
 // its backend client plane (the Execution Place plan, Phase C); the
 // shared reader offers the workspace's server as the leg.
 registerCapability('delegatedRequestDispatch', () => true);
+// The session Connect honours a place too — the main process opens
+// the socket on the named server over its backend client plane while
+// the session's executor stays here (Phase D).
+registerCapability('delegatedSessionDispatch', () => true);
 
 // Pre/post request scripts run on this host — Safe mode's hidden
 // sandboxed renderer by default, or the Developer-mode utilityProcess

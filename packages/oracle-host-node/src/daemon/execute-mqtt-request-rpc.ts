@@ -27,11 +27,14 @@
 import { hostBridge, type MqttStreamEventWire } from '@openheaders/core/bridge';
 import { MqttRequestSchema } from '@openheaders/core/schemas';
 import type { ExecutedMqttSnapshot, MqttRequest } from '@openheaders/core/types';
+import { createDelegatingMqttTransport } from '@openheaders/oracle/live/delegated-socket/delegating-mqtt-transport';
 import { errorMqttSnapshot, executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
 import type { MqttByteTransport } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { delegatedSocketWireFor } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeMqttTransport } from '../live/node-mqtt-transport';
+import { executionPlaceBackendIdOf } from './execute-request-rpc';
 import { resolveSessionScriptHost } from './script-capability';
 
 export interface ExecuteMqttRequestRpcResult {
@@ -101,15 +104,23 @@ export async function handleExecuteMqttRequestRpc(
     // carries a script.
     const forwarded = requestedWorkspaceId !== undefined && requestedWorkspaceId !== activeWorkspaceId;
     const scriptHost = await resolveSessionScriptHost({ workspaceId: workspaceId ?? activeWorkspaceId, forwarded });
+    // A frame naming a place opens the stream there over this host's
+    // backend client plane; the session's executor stays here.
+    const placeBackendId = executionPlaceBackendIdOf(message);
+    const delegating =
+      placeBackendId !== undefined
+        ? createDelegatingMqttTransport({ wire: delegatedSocketWireFor(placeBackendId), workspaceId: readWorkspaceId })
+        : null;
     const snapshot = await executeMqttSession(request, {
       workspaceId,
       environmentId,
-      transport,
+      transport: delegating ?? transport,
       sendId,
       emitStreamEvent,
       ...(scriptHost !== null ? { scriptHost } : {}),
     });
-    return { success: true, snapshot };
+    const executedOn = delegating?.executedOn() ?? null;
+    return { success: true, snapshot: executedOn !== null ? { ...snapshot, executedOn } : snapshot };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

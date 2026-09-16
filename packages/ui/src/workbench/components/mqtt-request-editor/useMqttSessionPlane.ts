@@ -40,6 +40,7 @@ import { App } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
 import {
+  type ExecutionPlacePreference,
   type ExecutionPlaceResolution,
   mqttTransportOf,
   type PageSessionKnob,
@@ -73,6 +74,9 @@ interface UseMqttSessionPlaneInput {
   v5: boolean;
   /** "Save Response" landed — open the minted example's viewer tab. */
   onOpenMqttResponseExample?: ((uid: string, name: string, mqttRequestUid: string) => void) | undefined;
+  /** The resolved execution place preference (the per-send pick over
+   *  the settings layers); absent = Auto. */
+  preference?: ExecutionPlacePreference;
 }
 
 export interface MqttSessionPlane {
@@ -115,6 +119,7 @@ export function useMqttSessionPlane({
   workspaceId,
   v5,
   onOpenMqttResponseExample,
+  preference,
 }: UseMqttSessionPlaneInput): MqttSessionPlane {
   const { message: toast } = App.useApp();
   const t = useT();
@@ -137,6 +142,7 @@ export function useMqttSessionPlane({
     kind: 'mqtt',
     mqttTransport: mqttTransportOf(draft.url),
     inapplicableKnobs: pageKnobs,
+    ...(preference !== undefined ? { preference } : {}),
   });
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedMqttSnapshot | null>(null);
@@ -258,7 +264,8 @@ export function useMqttSessionPlane({
     // cannot skip TLS verification — a CONFIGURED knob is named for
     // the session's whole life instead of silently dropping (the
     // connect deadline DOES apply here).
-    const inapplicableKnobs = pageKnobs.map(() => t('workbench.editors.mqtt.session.knobSslVerify'));
+    const inapplicableKnobs =
+      executionPlace.place === 'here' ? pageKnobs.map(() => t('workbench.editors.mqtt.session.knobSslVerify')) : [];
     setHostNotice(
       inapplicableKnobs.length > 0
         ? t('workbench.editors.mqtt.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
@@ -271,7 +278,11 @@ export function useMqttSessionPlane({
     setSnapshot(null);
     setTiming(null);
     liveSession.beginSession(sendId);
-    const settled = await executeMqtt({ draft: draftEntity, sendId });
+    const settled = await executeMqtt({
+      draft: draftEntity,
+      sendId,
+      ...(executionPlace.target !== null ? { executionPlace: executionPlace.target } : {}),
+    });
     const session = liveSession.takeSession();
     const closeRequestedAt = closeRequestedAtRef.current;
     setTiming(
@@ -292,7 +303,7 @@ export function useMqttSessionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, v5, pageKnobs, executeMqtt, liveSession, toast, t]);
+  }, [entity, inFlight, draft, v5, pageKnobs, executionPlace, executeMqtt, liveSession, toast, t]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean DISCONNECT; the pending RPC above resolves with the

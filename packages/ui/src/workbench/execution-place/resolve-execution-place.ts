@@ -72,6 +72,8 @@ export interface ExecutionPlaceMarkers {
   mqttPageSession: boolean;
   /** The surface's HTTP send honours an explicit place — the delegated legs exist. */
   delegatedRequestDispatch: boolean;
+  /** The surface's session Connect honours an explicit place — the socket legs exist. */
+  delegatedSessionDispatch: boolean;
 }
 
 /** The workspace's own providing server, when it has one — the
@@ -168,15 +170,12 @@ function resolvePreferred(input: ExecutionPlaceInput): ExecutionPlaceResolution 
   const auto = resolveAuto(input);
   const preference = input.preference ?? 'auto';
   if (preference === 'auto' || preference === auto.place) return auto;
-  if (preference !== 'here' && auto.alternatives.includes(preference)) {
-    return {
-      place: preference,
-      placeName: preference === 'workspace-server' ? (input.workspaceServer?.name ?? null) : null,
-      state: 'ready',
-      reason: { kind: 'delegated', role: preference },
-      cta: null,
-      alternatives: [auto.place, ...auto.alternatives.filter((role) => role !== preference)],
-    };
+  if (auto.alternatives.includes(preference)) {
+    const others = [auto.place, ...auto.alternatives.filter((role) => role !== preference)];
+    // Picking "here" back from a delegated auto (a tcp dial never
+    // resolves here, so this arm is the ws(s) kinds' and HTTP's).
+    if (preference === 'here') return { ...auto, place: 'here', placeName: null, alternatives: others };
+    return delegatedTo(preference, others, input);
   }
   // The places that ARE possible stay on offer — the user picks back.
   return {
@@ -189,11 +188,16 @@ function resolvePreferred(input: ExecutionPlaceInput): ExecutionPlaceResolution 
   };
 }
 
-/** The places that could open an HTTP socket on this send's behalf,
+/** The places that could open this send's socket on its behalf,
  *  beside the surface's own — a transport fact under the live
- *  connection state, offered only where the send honours a place. */
+ *  connection state, offered only where the send honours a place
+ *  (the HTTP send's marker for HTTP / GraphQL query, the session
+ *  Connect's for the three session kinds). */
 function delegatedLegs(input: ExecutionPlaceInput): readonly ExecutionPlaceRole[] {
-  if (!input.markers.delegatedRequestDispatch) return NO_ALTERNATIVES;
+  const honoured = isSessionKind(input.kind)
+    ? input.markers.delegatedSessionDispatch
+    : input.markers.delegatedRequestDispatch;
+  if (!honoured) return NO_ALTERNATIVES;
   const legs: ExecutionPlaceRole[] = [];
   if (input.markers.requestRuntime !== 'node' && input.desktopApp === 'connected') legs.push('desktop-app');
   if (input.workspaceServer?.connected === true) legs.push('workspace-server');
@@ -209,13 +213,13 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     }
     return remote(serving, 'ready', { kind: 'context-send', name: serving });
   }
-  const httpLegs = kind === 'http' || kind === 'graphql-query' ? delegatedLegs(input) : NO_ALTERNATIVES;
-  if (markers.requestRuntime === 'node') return here({ kind: 'runs-here' }, httpLegs);
+  const legs = kind === 'grpc' ? NO_ALTERNATIVES : delegatedLegs(input);
+  if (markers.requestRuntime === 'node') return here({ kind: 'runs-here' }, legs);
   const knobs = input.inapplicableKnobs ?? [];
   switch (kind) {
     case 'http':
     case 'graphql-query':
-      return here({ kind: 'runs-here-browser' }, httpLegs);
+      return here({ kind: 'runs-here-browser' }, legs);
     case 'grpc': {
       if (!markers.grpcCompanionInvoke) return needsDesktopApp('unsupported', { kind: 'no-runtime' }, null);
       if (input.desktopApp === 'connected') {
@@ -233,14 +237,36 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     case 'websocket':
     case 'graphql-subscription':
       if (!markers.wsPageSession) return needsDesktopApp('unsupported', { kind: 'no-runtime' }, null);
-      return here({ kind: 'runs-here-page-realm', knobs });
+      return here({ kind: 'runs-here-page-realm', knobs }, legs);
     case 'mqtt':
       if (!markers.mqttPageSession) return needsDesktopApp('unsupported', { kind: 'no-runtime' }, null);
       if (input.mqttTransport === 'tcp') {
+        // The raw TCP dial no page can make — Auto is the ONE eligible
+        // place when a leg exists (the reporter's case, runnable from
+        // the extension with the desktop app connected); else the
+        // honest companion state with the ladder rung.
+        const [first, ...rest] = legs;
+        if (first !== undefined) return delegatedTo(first, rest, input);
         return needsDesktopApp('needs-companion', { kind: 'tcp-scheme' }, companionCta(input));
       }
-      return here({ kind: 'runs-here-page-realm', knobs });
+      return here({ kind: 'runs-here-page-realm', knobs }, legs);
   }
+}
+
+function delegatedTo(
+  role: ExecutionPlaceRole,
+  alternatives: readonly ExecutionPlaceRole[],
+  input: ExecutionPlaceInput,
+): ExecutionPlaceResolution {
+  if (role === 'here') return here({ kind: 'runs-here' }, alternatives);
+  return {
+    place: role,
+    placeName: role === 'workspace-server' ? (input.workspaceServer?.name ?? null) : null,
+    state: 'ready',
+    reason: { kind: 'delegated', role },
+    cta: null,
+    alternatives,
+  };
 }
 
 function here(

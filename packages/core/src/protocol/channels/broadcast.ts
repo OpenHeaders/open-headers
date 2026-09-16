@@ -20,6 +20,7 @@ import type {
 } from '../../types';
 import type { WorkspaceIntent } from '../../workspace-intent';
 import type { AwarenessState } from '../awareness-bridge';
+import type { DelegatedSocketEvent } from '../delegated-sockets';
 import type { CompanionRevealTarget } from '../messages';
 import type {
   SyncCollectionPostState,
@@ -221,6 +222,13 @@ export interface BridgeBroadcastContract {
    * display-only hints superseded by the resolving RPC's snapshot.
    */
   mqttStreamEvent: MqttStreamEventWire;
+  /**
+   * One event of a delegated socket (the Execution Place plan's
+   * socket family) relayed off the backend wire to the page realm
+   * whose session executor opened it — tagged by the socket id that
+   * executor minted; other ids are not this realm's.
+   */
+  delegatedSocketEvent: DelegatedSocketEvent;
   /**
    * Host-shell navigation request: open the Settings surface, optionally
    * at a category or a specific setting. Emitted by the desktop main

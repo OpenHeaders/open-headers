@@ -53,6 +53,9 @@ import { ancestorScriptLevels } from '../request-container/ancestry';
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
+import { useSettingValue } from '../../settings/hooks';
 import EditorHeader from '../shell/EditorHeader';
 import { composePublishWire } from './compose';
 import {
@@ -251,7 +254,11 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   }, [entity]);
 
   // ── Session plane + compose aids ─────────────────────────────────
+  // The per-send place pick — fork 3's top layer (the HTTP editor's twin).
+  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  const globalPlace = useSettingValue('requests.executionPlace');
   const session = useMqttSessionPlane({
+    preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
     entity,
     draft,
     inherited: inheritedSettings,
@@ -429,7 +436,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const headerActions = (
     <>
-      <ExecutionPlaceControl resolution={session.executionPlace} />
+      <ExecutionPlaceControl resolution={session.executionPlace} onPick={setPlacePick} />
       {primaryAction}
     </>
   );

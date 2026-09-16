@@ -35,7 +35,11 @@ import {
 import { App } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { executionPlaceCopy, PAGE_KNOB_KEY } from '../../execution-place/execution-place-copy';
-import type { ExecutionPlaceResolution, PageSessionKnob } from '../../execution-place/resolve-execution-place';
+import type {
+  ExecutionPlacePreference,
+  ExecutionPlaceResolution,
+  PageSessionKnob,
+} from '../../execution-place/resolve-execution-place';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
@@ -55,6 +59,9 @@ interface UseWsSessionPlaneInput {
   workspaceId: string | null;
   /** "Save Response" landed — open the minted example's viewer tab. */
   onOpenWsResponseExample?: ((uid: string, name: string, websocketRequestUid: string) => void) | undefined;
+  /** The resolved execution place preference (the per-send pick over
+   *  the settings layers); absent = Auto. */
+  preference?: ExecutionPlacePreference;
 }
 
 export interface WsSessionPlane {
@@ -92,6 +99,7 @@ export function useWsSessionPlane({
   inherited,
   workspaceId,
   onOpenWsResponseExample,
+  preference,
 }: UseWsSessionPlaneInput): WsSessionPlane {
   const { message: toast } = App.useApp();
   const t = useT();
@@ -145,7 +153,11 @@ export function useWsSessionPlane({
     collections,
     folders,
   ]);
-  const executionPlace = useExecutionPlace({ kind: 'websocket', inapplicableKnobs: pageKnobs });
+  const executionPlace = useExecutionPlace({
+    kind: 'websocket',
+    inapplicableKnobs: pageKnobs,
+    ...(preference !== undefined ? { preference } : {}),
+  });
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);
   const [timing, setTiming] = useState<WsSessionTiming | null>(null);
@@ -191,7 +203,9 @@ export function useWsSessionPlane({
     // cannot carry custom handshake headers or skip TLS verification —
     // a CONFIGURED knob is named for the session's whole life instead
     // of silently dropping (the connect deadline DOES apply here).
-    const inapplicableKnobs = pageKnobs.map((knob) => t(PAGE_KNOB_KEY[knob]));
+    // A delegated socket applies every knob — the notice is the
+    // browser socket's alone.
+    const inapplicableKnobs = executionPlace.place === 'here' ? pageKnobs.map((knob) => t(PAGE_KNOB_KEY[knob])) : [];
     setHostNotice(
       inapplicableKnobs.length > 0
         ? t('workbench.editors.websocket.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
@@ -204,7 +218,11 @@ export function useWsSessionPlane({
     setSnapshot(null);
     setTiming(null);
     liveSession.beginSession(sendId);
-    const settled = await executeWebSocket({ draft: draftEntity, sendId });
+    const settled = await executeWebSocket({
+      draft: draftEntity,
+      sendId,
+      ...(executionPlace.target !== null ? { executionPlace: executionPlace.target } : {}),
+    });
     const session = liveSession.takeSession();
     const closeRequestedAt = closeRequestedAtRef.current;
     setTiming(
@@ -224,7 +242,7 @@ export function useWsSessionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, pageKnobs, executeWebSocket, liveSession, toast, t]);
+  }, [entity, inFlight, draft, pageKnobs, executionPlace, executeWebSocket, liveSession, toast, t]);
 
   // Disconnect morphs from Connect while the session is open — the
   // clean close 1000; the pending RPC above resolves with the

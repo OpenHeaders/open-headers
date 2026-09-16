@@ -29,6 +29,7 @@ import {
   type ExecuteWebSocketRequestRpcResult,
   runWsSessionRpc,
   wsSessionRpcScope,
+  wsTransportFor,
 } from './execute-websocket-request-rpc';
 
 /** Handle one `executeGraphqlSubscription` bridge message.
@@ -63,8 +64,20 @@ export async function handleExecuteGraphqlSubscriptionRpc(
     if (!entity) return { success: false, error: 'No GraphQL request or draft provided' };
     const compiled = compileGraphqlSubscription(entity, operationName !== undefined ? { operationName } : {});
     if (!compiled.ok) return { success: true, snapshot: errorWsSnapshot(compiled.error) };
-    const snapshot = await runWsSessionRpc(compiled.request, scope, sendId, transport, emitStreamEvent, compiled.plan);
-    return { success: true, snapshot };
+    const place =
+      transport !== undefined
+        ? wsTransportFor(message, transport, scope.requestedWorkspaceId ?? getActiveWorkspaceId())
+        : null;
+    const snapshot = await runWsSessionRpc(
+      compiled.request,
+      scope,
+      sendId,
+      place?.transport ?? transport,
+      emitStreamEvent,
+      compiled.plan,
+    );
+    const executedOn = place?.executedOn() ?? null;
+    return { success: true, snapshot: executedOn !== null ? { ...snapshot, executedOn } : snapshot };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

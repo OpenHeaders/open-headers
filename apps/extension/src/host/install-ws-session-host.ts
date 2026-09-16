@@ -41,6 +41,7 @@ import {
 import { registerCapability } from '@openheaders/core/capabilities';
 import { compileGraphqlSubscription, type GraphqlWsSubscriptionPlan } from '@openheaders/core/graphql';
 import type { WebSocketRequest } from '@openheaders/core/types';
+import { createDelegatingWsTransport } from '@openheaders/oracle/live/delegated-socket/delegating-ws-transport';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import { errorWsSnapshot, executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import {
@@ -48,8 +49,10 @@ import {
   reconnectActiveWsSessionNow,
   sendActiveWsSessionMessage,
 } from '@openheaders/oracle/live/ws-exec/session-plane';
+import type { WsTransport } from '@openheaders/oracle/live/ws-exec/transport';
 import { createBrowserWsTransport } from '@openheaders/oracle-host-browser/live/browser-ws-transport';
 import { getWsPageResolutionFactory } from '@openheaders/ui/workbench/components/websocket-request-editor/ws-page-session';
+import { pageDelegatedSocketWireFor } from '@/host/delegated-socket-wire';
 import { getPageScriptHost, setPageScriptScope } from '@/host/page-script-host';
 import { chromeBridge } from '@/utils/bridge';
 
@@ -75,6 +78,7 @@ const DRAFTS_ONLY = 'The page-realm session host executes drafts only';
 async function runPageWsSession(
   draft: WebSocketRequest,
   sendId: string,
+  place: { backendId: string } | undefined,
   graphql?: GraphqlWsSubscriptionPlan,
 ): Promise<BridgeRpcResponse<'executeWebSocketRequest'>> {
   const factory = getWsPageResolutionFactory();
@@ -92,13 +96,24 @@ async function runPageWsSession(
     // The session's hooks answer their `oh.*` calls against this
     // Connect's renderer scope.
     setPageScriptScope(scope.scripts);
+    // A named place opens the socket on this realm's behalf (the
+    // Execution Place plan): the executor stays here — resolution,
+    // scripts, timeline, snapshot — over the delegating transport.
+    const delegating =
+      place !== undefined && scope.workspaceId !== null
+        ? createDelegatingWsTransport({
+            wire: pageDelegatedSocketWireFor(place.backendId),
+            workspaceId: scope.workspaceId,
+          })
+        : null;
+    const transport: WsTransport = delegating ?? browserWsTransport;
     const snapshot = await executeWsSession(draft, {
       // The scope pin is moot here (resolution and the auth chain are
       // injected); the id names the token store an inherited OAuth 2.0
       // entry's bundle reads from.
       workspaceId: scope.workspaceId,
       environmentId: undefined,
-      transport: browserWsTransport,
+      transport,
       sendId,
       emitStreamEvent: deliverWsStreamEventLocally,
       resolution: scope.resolve,
@@ -108,7 +123,9 @@ async function runPageWsSession(
       ...(pageScriptHost !== null ? { scriptHost: pageScriptHost } : {}),
       ...(graphql !== undefined ? { graphql } : {}),
     });
-    return { success: true, snapshot };
+    // The answering host's stamp — where the socket opened.
+    const executedOn = delegating?.executedOn() ?? null;
+    return { success: true, snapshot: executedOn !== null ? { ...snapshot, executedOn } : snapshot };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -118,7 +135,7 @@ function handleExecuteWebSocketRequest(
   payload: BridgeRpcRequest<'executeWebSocketRequest'>,
 ): Promise<BridgeRpcResponse<'executeWebSocketRequest'>> {
   if (payload.draft === undefined) return Promise.resolve({ success: false, error: DRAFTS_ONLY });
-  return runPageWsSession(payload.draft, payload.sendId);
+  return runPageWsSession(payload.draft, payload.sendId, payload.executionPlace);
 }
 
 /** The subscription compiles here, in the page realm — a refusal (a
@@ -133,7 +150,7 @@ function handleExecuteGraphqlSubscription(
     payload.operationName !== undefined ? { operationName: payload.operationName } : {},
   );
   if (!compiled.ok) return Promise.resolve({ success: true, snapshot: errorWsSnapshot(compiled.error) });
-  return runPageWsSession(compiled.request, payload.sendId, compiled.plan);
+  return runPageWsSession(compiled.request, payload.sendId, payload.executionPlace, compiled.plan);
 }
 
 const wsSessionHostBridge: HostBridge = {
@@ -196,3 +213,8 @@ const wsSessionHostBridge: HostBridge = {
 setHostBridge(wsSessionHostBridge);
 
 registerCapability('wsPageSession', () => true);
+// The session Connect honours an explicit place — the socket opens on
+// the desktop app or the workspace's server while the executor stays
+// in this realm (the Execution Place plan, Phase D); the reader offers
+// the legs, and the mqtt(s):// dial becomes runnable through them.
+registerCapability('delegatedSessionDispatch', () => true);

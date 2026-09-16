@@ -185,6 +185,7 @@ import { createCliProvisionService } from './cli-provision';
 import { composePeerPush } from './compose-peer-push';
 import { composePeerRpc } from './compose-peer-rpc';
 import { createDelegatedRequestsRpc } from './delegated-requests-rpc';
+import { createDelegatedSocketsRpc } from './delegated-sockets-rpc';
 import { handleDeviceTrustRpc, isDeviceTrustRpc } from './device-trust-rpc';
 import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
 import { handleExecuteGraphqlSubscriptionRpc } from './execute-graphql-subscription-rpc';
@@ -1617,6 +1618,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         createPeerAdminRpc({ channels: adminChannels }),
         createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
         createDelegatedRequestsRpc(),
+        createDelegatedSocketsRpc(),
         createPeerWorkspaceLeaveRpc({ getWsServer: () => wsServer }),
         createPeerWorkspaceMembersRpc({ getWsServer: () => wsServer }),
         createPeerWorkspacePublicRpc({ store: publishedSnapshots, publicWorkspacesEnabled }),

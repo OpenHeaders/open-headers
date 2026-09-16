@@ -28,7 +28,11 @@ import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variable
 import { App } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { executionPlaceCopy, PAGE_KNOB_KEY } from '../../execution-place/execution-place-copy';
-import type { ExecutionPlaceResolution, PageSessionKnob } from '../../execution-place/resolve-execution-place';
+import type {
+  ExecutionPlacePreference,
+  ExecutionPlaceResolution,
+  PageSessionKnob,
+} from '../../execution-place/resolve-execution-place';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   type LiveWsSession,
@@ -50,6 +54,9 @@ interface UseGraphqlSubscriptionPlaneInput {
    *  on) — gates the page-session honesty notice. */
   sslVerification: boolean;
   workspaceId: string | null;
+  /** The resolved execution place preference (the per-send pick over
+   *  the settings layers); absent = Auto. */
+  preference?: ExecutionPlacePreference;
 }
 
 export interface GraphqlSubscriptionPlane {
@@ -77,6 +84,7 @@ export function useGraphqlSubscriptionPlane({
   operationName,
   sslVerification,
   workspaceId,
+  preference,
 }: UseGraphqlSubscriptionPlaneInput): GraphqlSubscriptionPlane {
   const { message: toast } = App.useApp();
   const t = useT();
@@ -94,7 +102,11 @@ export function useGraphqlSubscriptionPlane({
     if (!sslVerification) knobs.push('sslVerify');
     return knobs.length > 0 ? knobs : NO_KNOBS;
   }, [pageSession, draft.headers, sslVerification]);
-  const executionPlace = useExecutionPlace({ kind: 'graphql-subscription', inapplicableKnobs: pageKnobs });
+  const executionPlace = useExecutionPlace({
+    kind: 'graphql-subscription',
+    inapplicableKnobs: pageKnobs,
+    ...(preference !== undefined ? { preference } : {}),
+  });
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);
   const [timing, setTiming] = useState<WsSessionTiming | null>(null);
@@ -125,7 +137,7 @@ export function useGraphqlSubscriptionPlane({
     // Per-knob honesty on the page-session path: the platform socket
     // cannot carry custom handshake headers or skip TLS verification —
     // a CONFIGURED knob is named for the session's whole life.
-    const inapplicableKnobs = pageKnobs.map((knob) => t(PAGE_KNOB_KEY[knob]));
+    const inapplicableKnobs = executionPlace.place === 'here' ? pageKnobs.map((knob) => t(PAGE_KNOB_KEY[knob])) : [];
     setHostNotice(
       inapplicableKnobs.length > 0
         ? t('workbench.editors.websocket.session.hostNotice', { knobs: inapplicableKnobs.join(', ') })
@@ -142,6 +154,7 @@ export function useGraphqlSubscriptionPlane({
       draft: draftEntity(entity, draft),
       ...(operationName !== undefined ? { operationName } : {}),
       sendId,
+      ...(executionPlace.target !== null ? { executionPlace: executionPlace.target } : {}),
     });
     const session = liveSession.takeSession();
     const closeRequestedAt = closeRequestedAtRef.current;
@@ -162,7 +175,18 @@ export function useGraphqlSubscriptionPlane({
       return;
     }
     setSnapshot(settled);
-  }, [entity, inFlight, draft, operationName, pageKnobs, executeGraphqlSubscription, liveSession, toast, t]);
+  }, [
+    entity,
+    inFlight,
+    draft,
+    operationName,
+    pageKnobs,
+    executionPlace,
+    executeGraphqlSubscription,
+    liveSession,
+    toast,
+    t,
+  ]);
 
   // Stop morphs from Query while the session is in flight — the
   // client's complete then the clean close; the pending RPC above

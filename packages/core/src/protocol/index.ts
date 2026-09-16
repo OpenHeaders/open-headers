@@ -30,6 +30,24 @@ export {
 } from './constants';
 export { DELEGATE_REQUEST_CHANNEL, DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE } from './delegated-requests';
 export type {
+  DelegatedSocketEvent,
+  DelegatedSocketOpenResult,
+  DelegatedSocketProxyRoute,
+  DelegatedSocketRider,
+  DelegatedSocketTrustHint,
+} from './delegated-sockets';
+export {
+  DELEGATE_MQTT_END_CHANNEL,
+  DELEGATE_MQTT_OPEN_CHANNEL,
+  DELEGATE_MQTT_WRITE_CHANNEL,
+  DELEGATE_SOCKET_ABORT_CHANNEL,
+  DELEGATE_WS_CLOSE_CHANNEL,
+  DELEGATE_WS_OPEN_CHANNEL,
+  DELEGATE_WS_SEND_CHANNEL,
+  DELEGATED_SOCKET_EVENT_FRAME,
+  DELEGATED_SOCKET_RIDER_CHANNELS,
+} from './delegated-sockets';
+export type {
   BackendReach,
   HandshakeRejectReason,
   HandshakeRole,

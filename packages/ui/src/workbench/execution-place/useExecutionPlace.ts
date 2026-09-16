@@ -51,6 +51,7 @@ function readMarkers(): ExecutionPlaceMarkers {
     wsPageSession: getCapability('wsPageSession')?.() ?? false,
     mqttPageSession: getCapability('mqttPageSession')?.() ?? false,
     delegatedRequestDispatch: getCapability('delegatedRequestDispatch')?.() ?? false,
+    delegatedSessionDispatch: getCapability('delegatedSessionDispatch')?.() ?? false,
   };
 }
 
@@ -72,6 +73,7 @@ export function useExecutionPlace({
     wsPageSession,
     mqttPageSession,
     delegatedRequestDispatch,
+    delegatedSessionDispatch,
   } = markers;
   return useMemo(() => {
     const resolution = resolveExecutionPlace({
@@ -83,6 +85,7 @@ export function useExecutionPlace({
         wsPageSession,
         mqttPageSession,
         delegatedRequestDispatch,
+        delegatedSessionDispatch,
       },
       ...(mqttTransport !== undefined ? { mqttTransport } : {}),
       desktopApp,
@@ -100,6 +103,7 @@ export function useExecutionPlace({
     wsPageSession,
     mqttPageSession,
     delegatedRequestDispatch,
+    delegatedSessionDispatch,
     mqttTransport,
     desktopApp,
     launchable,

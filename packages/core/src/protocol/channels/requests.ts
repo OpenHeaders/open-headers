@@ -521,6 +521,18 @@ export interface RequestRpc {
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
   };
   /**
+   * A delegated socket's frame (an OPEN or a rider of the Execution
+   * Place plan's socket family) handed to the backend wire's holder —
+   * the page realm's session executor rides its service worker, which
+   * holds the wire, toward the named backend; the answer rides back
+   * verbatim. The place's `delegatedSocketEvent` frames come back the
+   * other way as the broadcast of the same name.
+   */
+  delegatedSocketCall: {
+    req: { backendId: string; frame: Record<string, unknown> };
+    res: Record<string, unknown>;
+  };
+  /**
    * Resolve a persisted request or draft to its concrete wire shape —
    * every `{{ref}}` substituted, auth folded into headers/query,
    * structured params folded into the URL — WITHOUT dispatching it.
@@ -626,6 +638,11 @@ export interface RequestRpc {
       environmentId?: string | null;
       workspaceId?: string;
       sendId: string;
+      /** The place the session's SOCKET opens on, by explicit backend
+       *  id (the Execution Place plan): the executor stays here — the
+       *  handshake resolved, the scripts run, the timeline kept — and
+       *  only the socket lives there. Omitted = the socket opens here. */
+      executionPlace?: ExecutionPlaceTarget;
     };
     res: { success: boolean; snapshot?: ExecutedWsSnapshot; error?: string };
   };
@@ -696,6 +713,9 @@ export interface RequestRpc {
       environmentId?: string | null;
       workspaceId?: string;
       sendId: string;
+      /** The place the stream opens on — `executeWebSocketRequest`'s
+       *  verbatim; the mqtt(s):// dial a browser cannot make. */
+      executionPlace?: ExecutionPlaceTarget;
     };
     res: { success: boolean; snapshot?: ExecutedMqttSnapshot; error?: string };
   };
@@ -749,6 +769,8 @@ export interface RequestRpc {
       environmentId?: string | null;
       workspaceId?: string;
       sendId: string;
+      /** The place the subscription's socket opens on — `executeWebSocketRequest`'s verbatim. */
+      executionPlace?: ExecutionPlaceTarget;
     };
     res: { success: boolean; snapshot?: ExecutedWsSnapshot; error?: string };
   };

@@ -17,33 +17,68 @@
  */
 
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
+import { DELEGATED_SOCKET_EVENT_FRAME, type DelegatedSocketEvent } from '@openheaders/core/protocol';
+import type { DelegatedSocketWire } from '../../live/delegated-socket/wire';
 import type { DelegatedRequestFrame, DelegatedRequestResult } from '../../live/request-exec/delegated-wire';
 import type { DelegatedWire } from '../../live/request-exec/delegating-transport';
 import { registerInboundFrameHandler } from './backend-connection-manager';
 import { wsRequest } from './wire-request';
 
-interface FrameClaim {
+interface FrameClaim<E> {
   backendId: string;
-  onFrame: (event: RequestStreamEventWire) => void;
+  onFrame: (event: E) => void;
 }
 
-const claimsBySendId = new Map<string, FrameClaim>();
+const claimsBySendId = new Map<string, FrameClaim<RequestStreamEventWire>>();
+const claimsBySocketId = new Map<string, FrameClaim<DelegatedSocketEvent>>();
 let claimHandlerInstalled = false;
+
+/** Claim one inbound frame for a subscribed id on the same wire —
+ *  `requestStreamEvent` by the send id, `delegatedSocketEvent` by the
+ *  socket id; anything unsubscribed is left for whoever else listens. */
+function claimFrame(frame: unknown, backendId: string): boolean {
+  if (!frame || typeof frame !== 'object') return false;
+  const { type, payload } = frame as { type?: unknown; payload?: unknown };
+  if (!payload || typeof payload !== 'object') return false;
+  if (type === 'requestStreamEvent') {
+    const event = payload as RequestStreamEventWire;
+    const claim = typeof event.sendId === 'string' ? claimsBySendId.get(event.sendId) : undefined;
+    if (claim === undefined || claim.backendId !== backendId) return false;
+    claim.onFrame(event);
+    return true;
+  }
+  if (type === DELEGATED_SOCKET_EVENT_FRAME) {
+    const event = payload as DelegatedSocketEvent;
+    const claim = typeof event.socketId === 'string' ? claimsBySocketId.get(event.socketId) : undefined;
+    if (claim === undefined || claim.backendId !== backendId) return false;
+    claim.onFrame(event);
+    return true;
+  }
+  return false;
+}
 
 function ensureClaimHandler(): void {
   if (claimHandlerInstalled) return;
   claimHandlerInstalled = true;
-  registerInboundFrameHandler((frame, wire) => {
-    if (!frame || typeof frame !== 'object') return false;
-    const { type, payload } = frame as { type?: unknown; payload?: unknown };
-    if (type !== 'requestStreamEvent' || !payload || typeof payload !== 'object') return false;
-    const event = payload as RequestStreamEventWire;
-    if (typeof event.sendId !== 'string') return false;
-    const claim = claimsBySendId.get(event.sendId);
-    if (claim === undefined || claim.backendId !== wire.backendId) return false;
-    claim.onFrame(event);
-    return true;
-  });
+  registerInboundFrameHandler((frame, wire) => claimFrame(frame, wire.backendId));
+}
+
+/** The riders' wait — a rider answers as soon as the place wrote. */
+const RIDER_TIMEOUT_MS = 15_000;
+
+/** The socket wire toward one place, by its backend id — the
+ *  delegating session transports' seam over the backend client plane. */
+export function delegatedSocketWireFor(backendId: string): DelegatedSocketWire {
+  ensureClaimHandler();
+  return {
+    call: (frame) => wsRequest<unknown>(frame, { backendId, timeoutMs: RIDER_TIMEOUT_MS }),
+    subscribe: (socketId, onEvent) => {
+      claimsBySocketId.set(socketId, { backendId, onFrame: onEvent });
+      return () => {
+        claimsBySocketId.delete(socketId);
+      };
+    },
+  };
 }
 
 /** The wire toward one place, by its backend id. */
@@ -66,5 +101,6 @@ export function delegatedWireFor(backendId: string): DelegatedWire {
 /** Test-only: drop every frame claim so unit tests start clean. */
 export function __resetDelegatedWireForTests(): void {
   claimsBySendId.clear();
+  claimsBySocketId.clear();
   claimHandlerInstalled = false;
 }

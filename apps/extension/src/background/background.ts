@@ -78,6 +78,7 @@ import { installStatusReporters } from './bootstrap/status-reporters';
 import { installStorageListeners } from './bootstrap/storage-listeners';
 import { installStoreBroadcasts } from './bootstrap/store-broadcasts';
 import { installWsFrameRouting } from './bootstrap/ws-frame-routing';
+import { installDelegatedSocketRelay } from './delegated-socket-relay';
 import { setRulesPaused } from './dnr-manager';
 import { installGrpcStreamRelay } from './grpc-stream-relay';
 import { setupInjectListener } from './inject-manager';
@@ -131,6 +132,9 @@ installActivityBroadcasts();
 // Forwarded gRPC invokes: the companion's live grpcStreamEvent frames
 // come back down the backend wire — relay them to the local broadcast.
 installGrpcStreamRelay();
+// Delegated sessions: the place's delegatedSocketEvent frames come back
+// down the backend wire — relay them to the page realm that opened them.
+installDelegatedSocketRelay();
 // Dev seams for the playground's probes/runners — inert unless the
 // driver sets the parity-hook flag (see the module docs).
 installParityRuleImport();

@@ -42,6 +42,7 @@ import {
   setHostBridge,
 } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
+import { createDelegatingMqttTransport } from '@openheaders/oracle/live/delegated-socket/delegating-mqtt-transport';
 import { errorMqttSnapshot, executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
 import {
   closeActiveMqttSession,
@@ -49,8 +50,10 @@ import {
   reconnectActiveMqttSessionNow,
   setActiveMqttSubscription,
 } from '@openheaders/oracle/live/mqtt-exec/session-plane';
+import type { MqttByteTransport } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { createBrowserMqttTransport } from '@openheaders/oracle-host-browser/live/browser-mqtt-transport';
 import { getMqttPageResolutionFactory } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-page-session';
+import { pageDelegatedSocketWireFor } from '@/host/delegated-socket-wire';
 import { getPageScriptHost, setPageScriptScope } from '@/host/page-script-host';
 
 // The ws session host's decorated bridge — installed by the import
@@ -100,10 +103,21 @@ async function handleExecuteMqttRequest(
     // The session's hooks answer their `oh.*` calls against this
     // Connect's renderer scope.
     setPageScriptScope(scope.scripts);
+    // A named place opens the stream on this realm's behalf (the
+    // Execution Place plan — the mqtt(s):// dial no page can make):
+    // the executor stays here over the delegating transport.
+    const delegating =
+      payload.executionPlace !== undefined && scope.workspaceId !== null
+        ? createDelegatingMqttTransport({
+            wire: pageDelegatedSocketWireFor(payload.executionPlace.backendId),
+            workspaceId: scope.workspaceId,
+          })
+        : null;
+    const transport: MqttByteTransport = delegating ?? browserMqttTransport;
     const snapshot = await executeMqttSession(draft, {
       workspaceId: null,
       environmentId: undefined,
-      transport: browserMqttTransport,
+      transport,
       sendId: payload.sendId,
       emitStreamEvent: deliverMqttStreamEventLocally,
       resolution: scope.resolve,
@@ -112,7 +126,8 @@ async function handleExecuteMqttRequest(
       settingsChain: scope.settingsChain,
       ...(pageScriptHost !== null ? { scriptHost: pageScriptHost } : {}),
     });
-    return { success: true, snapshot };
+    const executedOn = delegating?.executedOn() ?? null;
+    return { success: true, snapshot: executedOn !== null ? { ...snapshot, executedOn } : snapshot };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

@@ -53,6 +53,9 @@ import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slot
 import SessionLock from '../shared/SessionLock';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
+import { useSettingValue } from '../../settings/hooks';
 import EditorHeader from '../shell/EditorHeader';
 import { CONNECT_SHORTCUT } from './compose';
 import {
@@ -261,7 +264,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   }, [entity]);
 
   // ── Session plane, compose aids, Socket.IO args ──────────────────
+  // The per-send place pick — fork 3's top layer over the request's
+  // knob, the chain's and the global row (the HTTP editor's twin).
+  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  const globalPlace = useSettingValue('requests.executionPlace');
   const session = useWsSessionPlane({
+    preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
     entity,
     draft,
     inherited: inheritedSettings,
@@ -468,7 +476,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   );
   const headerActions = (
     <>
-      <ExecutionPlaceControl resolution={session.executionPlace} />
+      <ExecutionPlaceControl resolution={session.executionPlace} onPick={setPlacePick} />
       {primaryAction}
     </>
   );

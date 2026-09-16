@@ -22,6 +22,7 @@ const EXTENSION: ExecutionPlaceMarkers = {
   wsPageSession: true,
   mqttPageSession: true,
   delegatedRequestDispatch: true,
+  delegatedSessionDispatch: true,
 };
 /** The desktop renderer until its main process carries the leg toward a server. */
 const DESKTOP: ExecutionPlaceMarkers = {
@@ -31,6 +32,7 @@ const DESKTOP: ExecutionPlaceMarkers = {
   wsPageSession: false,
   mqttPageSession: false,
   delegatedRequestDispatch: false,
+  delegatedSessionDispatch: false,
 };
 const SERVER_UP = { workspaceServer: { name: 'Acme', connected: true } };
 const SERVER_DOWN = { workspaceServer: { name: 'Acme', connected: false } };
@@ -42,6 +44,7 @@ const BARE_BROWSER: ExecutionPlaceMarkers = {
   wsPageSession: false,
   mqttPageSession: false,
   delegatedRequestDispatch: false,
+  delegatedSessionDispatch: false,
 };
 
 const KINDS: readonly ExecutionRequestKind[] = [
@@ -177,7 +180,30 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
     }
   });
 
-  it('an mqtt(s):// session needs the desktop app on every companion state — flips to ready at Phase D', () => {
+  it("an mqtt(s):// session with the desktop app connected runs DELEGATED there — the reporter's case (Phase D)", () => {
+    expect(resolve('mqtt', EXTENSION, 'connected', { mqttTransport: 'tcp' })).toEqual({
+      place: 'desktop-app',
+      placeName: null,
+      state: 'ready',
+      reason: { kind: 'delegated', role: 'desktop-app' },
+      cta: null,
+      alternatives: [],
+    });
+    expect(resolve('mqtt', EXTENSION, 'not-connected', { ...SERVER_UP, mqttTransport: 'tcp' })).toEqual({
+      place: 'workspace-server',
+      placeName: 'Acme',
+      state: 'ready',
+      reason: { kind: 'delegated', role: 'workspace-server' },
+      cta: null,
+      alternatives: [],
+      serverName: 'Acme',
+    });
+    expect(resolve('mqtt', EXTENSION, 'connected', { ...SERVER_UP, mqttTransport: 'tcp' }).alternatives).toEqual([
+      'workspace-server',
+    ]);
+  });
+
+  it('an mqtt(s):// session with no eligible place needs the desktop app, with the ladder rung for its state', () => {
     const base = {
       place: 'desktop-app',
       placeName: null,
@@ -185,10 +211,6 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
       reason: { kind: 'tcp-scheme' },
       alternatives: [],
     };
-    expect(resolve('mqtt', EXTENSION, 'connected', { mqttTransport: 'tcp' })).toEqual({
-      ...base,
-      cta: 'reveal-desktop-app',
-    });
     expect(resolve('mqtt', EXTENSION, 'not-connected', { mqttTransport: 'tcp' })).toEqual({
       ...base,
       cta: 'launch-desktop-app',
@@ -205,10 +227,14 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
 
   it('the tcp scheme never rides the knobs — the session does not run here at all', () => {
     expect(
-      resolve('mqtt', EXTENSION, 'connected', { mqttTransport: 'tcp', inapplicableKnobs: ['sslVerify'] }).reason,
+      resolve('mqtt', EXTENSION, 'not-connected', { mqttTransport: 'tcp', inapplicableKnobs: ['sslVerify'] }).reason,
     ).toEqual({
       kind: 'tcp-scheme',
     });
+    // Delegated, the place applies every knob — none is named.
+    expect(
+      resolve('mqtt', EXTENSION, 'connected', { mqttTransport: 'tcp', inapplicableKnobs: ['sslVerify'] }).reason,
+    ).toEqual({ kind: 'delegated', role: 'desktop-app' });
   });
 });
 
@@ -267,12 +293,38 @@ describe('resolveExecutionPlace — the delegated legs (Phase C)', () => {
     });
   });
 
-  it('sessions and gRPC carry no alternatives yet — flips at Phase D', () => {
-    for (const kind of ['websocket', 'graphql-subscription', 'mqtt', 'grpc'] as const) {
-      expect(resolve(kind, EXTENSION, 'connected', { ...SERVER_UP, mqttTransport: 'websocket' }).alternatives).toEqual(
-        [],
-      );
+  it('the ws(s) session kinds offer the same legs as HTTP; gRPC offers none', () => {
+    for (const kind of ['websocket', 'graphql-subscription', 'mqtt'] as const) {
+      const resolved = resolve(kind, EXTENSION, 'connected', { ...SERVER_UP, mqttTransport: 'websocket' });
+      expect(resolved.place).toBe('here');
+      expect(resolved.alternatives).toEqual(['desktop-app', 'workspace-server']);
     }
+    expect(resolve('grpc', EXTENSION, 'connected', SERVER_UP).alternatives).toEqual([]);
+  });
+
+  it('a surface whose session Connect does not honour a place offers no session leg even when its HTTP send does', () => {
+    const markers = { ...EXTENSION, delegatedSessionDispatch: false };
+    expect(resolve('websocket', markers, 'connected', SERVER_UP).alternatives).toEqual([]);
+    expect(resolve('mqtt', markers, 'connected', { mqttTransport: 'tcp' }).state).toBe('needs-companion');
+    expect(resolve('http', markers, 'connected', SERVER_UP).alternatives).toEqual(['desktop-app', 'workspace-server']);
+  });
+
+  it('a delegated session picked back to here runs in the page realm with the knobs named', () => {
+    const resolved = resolve('websocket', EXTENSION, 'connected', {
+      inapplicableKnobs: ['headers'],
+      preference: 'desktop-app',
+    });
+    expect(resolved).toMatchObject({ place: 'desktop-app', state: 'ready', reason: { kind: 'delegated' } });
+    expect(
+      resolve('websocket', EXTENSION, 'connected', { inapplicableKnobs: ['headers'], preference: 'here' }),
+    ).toEqual({
+      place: 'here',
+      placeName: null,
+      state: 'ready',
+      reason: { kind: 'runs-here-page-realm', knobs: ['headers'] },
+      cta: null,
+      alternatives: ['desktop-app'],
+    });
   });
 
   it('the web tab keeps its one server — a context send names no alternatives', () => {

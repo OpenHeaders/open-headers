@@ -638,6 +638,19 @@ export interface Capabilities {
   delegatedRequestDispatch?: () => boolean;
 
   /**
+   * Declares that this surface's session Connect (WebSocket, MQTT,
+   * GraphQL subscription) HONOURS an explicit execution place: the
+   * session's executor stays on the surface — the handshake resolved
+   * here, the scripts run here, the timeline kept here — and only the
+   * SOCKET opens on the named backend through the delegated socket
+   * family (the Execution Place plan, Phase D). The shared reader
+   * offers the legs only where this is registered — and through them
+   * an mqtt(s):// dial no browser page can make becomes runnable from
+   * the extension with the desktop app connected.
+   */
+  delegatedSessionDispatch?: () => boolean;
+
+  /**
    * Declares that FORWARDED sends run scripts on the answering
    * back-end, and names the mode they run under — always `'safe'`: a
    * peer-forwarded send never rides anything else, so this is a fact,

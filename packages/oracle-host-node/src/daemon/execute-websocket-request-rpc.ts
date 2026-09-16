@@ -31,13 +31,16 @@ import { hostBridge, type WsStreamEventWire } from '@openheaders/core/bridge';
 import type { GraphqlWsSubscriptionPlan } from '@openheaders/core/graphql';
 import { WebSocketRequestSchema } from '@openheaders/core/schemas';
 import type { ExecutedWsSnapshot, WebSocketRequest } from '@openheaders/core/types';
+import { createDelegatingWsTransport } from '@openheaders/oracle/live/delegated-socket/delegating-ws-transport';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { errorWsSnapshot, executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import type { WsTransport } from '@openheaders/oracle/live/ws-exec/transport';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { delegatedSocketWireFor } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { createNodeWsTransport } from '../live/node-ws-transport';
+import { executionPlaceBackendIdOf } from './execute-request-rpc';
 import { resolveSessionScriptHost } from './script-capability';
 
 export interface ExecuteWebSocketRequestRpcResult {
@@ -77,6 +80,24 @@ export function wsSessionRpcScope(message: Record<string, unknown>): WsSessionRp
       typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined,
     requestedWorkspaceId: typeof message.workspaceId === 'string' ? message.workspaceId : undefined,
   };
+}
+
+/**
+ * The transport a WS-plane route runs on: a frame naming a place
+ * (the Execution Place plan) opens the socket there over this host's
+ * backend client plane while the session's executor stays here; else
+ * the host's own transport. Returns the delegating transport too so
+ * the route stamps who answered.
+ */
+export function wsTransportFor(
+  message: Record<string, unknown>,
+  ownTransport: WsTransport,
+  workspaceId: string,
+): { transport: WsTransport; executedOn: () => { kind: 'backend'; name: string } | null } {
+  const placeBackendId = executionPlaceBackendIdOf(message);
+  if (placeBackendId === undefined) return { transport: ownTransport, executedOn: () => null };
+  const delegating = createDelegatingWsTransport({ wire: delegatedSocketWireFor(placeBackendId), workspaceId });
+  return { transport: delegating, executedOn: () => delegating.executedOn() };
 }
 
 /**
@@ -156,8 +177,10 @@ export async function handleExecuteWebSocketRequestRpc(
     }
     if (!request) return { success: false, error: 'No WebSocket request or draft provided' };
 
-    const snapshot = await runWsSessionRpc(request, scope, sendId, transport, emitStreamEvent);
-    return { success: true, snapshot };
+    const place = wsTransportFor(message, transport, readWorkspaceId);
+    const snapshot = await runWsSessionRpc(request, scope, sendId, place.transport, emitStreamEvent);
+    const executedOn = place.executedOn();
+    return { success: true, snapshot: executedOn !== null ? { ...snapshot, executedOn } : snapshot };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
