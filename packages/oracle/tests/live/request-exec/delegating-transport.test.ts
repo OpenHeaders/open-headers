@@ -11,6 +11,7 @@
 
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import { describe, expect, it, vi } from 'vitest';
+import { CookieJar } from '../../../src/live/request-exec/cookie-jar';
 import type { DelegatedRequestFrame, DelegatedRequestResult } from '../../../src/live/request-exec/delegated-wire';
 import {
   createDelegatingRequestTransport,
@@ -160,5 +161,42 @@ describe('createDelegatingRequestTransport', () => {
     expect(failure.message).toBe('Sending requests from other connected devices is disabled on this host.');
     expect(failure.executedOn).toBeUndefined();
     expect(wire.frames.size).toBe(0);
+  });
+});
+
+describe("createDelegatingRequestTransport — the context's cookie jar", () => {
+  const JAR_REQUEST: TransportRequest = { ...REQUEST, cookieJarKey: 'ws-1' };
+
+  it('attaches the jar match before the frame leaves and captures the answered rows — the key never rides', async () => {
+    const jar = new CookieJar();
+    jar.store('https://api.openheaders.io/', [{ name: 'sid', value: 'abc' }]);
+    const wire = fakeWire(async () => ({
+      success: true,
+      response: { ...RESPONSE, headers: [...RESPONSE.headers, { key: 'set-cookie', value: 'theme=dark; Path=/' }] },
+      executedOn: EXECUTED_ON,
+    }));
+    const transport = createDelegatingRequestTransport({ wire, workspaceId: 'ws-1', jars: () => jar });
+    const response = await transport.send(JAR_REQUEST);
+    const sent = wire.calls[0]?.request;
+    expect(sent?.headers).toEqual([
+      { key: 'Authorization', value: 'Bearer resolved' },
+      { key: 'Cookie', value: 'sid=abc' },
+    ]);
+    expect(sent !== undefined && 'cookieJarKey' in sent).toBe(false);
+    expect(response.cookieHeaderAttached).toBe('sid=abc');
+    expect(response.cookiesCaptured).toEqual(['theme']);
+    expect(jar.cookieHeaderFor('https://api.openheaders.io/x')).toBe('sid=abc; theme=dark');
+  });
+
+  it('leaves a send without the jar opt-in, or a context without a jar registry, untouched', async () => {
+    const wire = fakeWire(async () => ({ success: true, response: RESPONSE, executedOn: EXECUTED_ON }));
+    const withRegistry = createDelegatingRequestTransport({ wire, workspaceId: 'ws-1', jars: () => new CookieJar() });
+    const plain = await withRegistry.send(REQUEST);
+    expect(plain.cookieHeaderAttached).toBeUndefined();
+    expect(plain.cookiesCaptured).toBeUndefined();
+    const browserContext = createDelegatingRequestTransport({ wire, workspaceId: 'ws-1' });
+    const browser = await browserContext.send(JAR_REQUEST);
+    expect(wire.calls[1]?.request.headers).toEqual(REQUEST.headers);
+    expect(browser.cookieHeaderAttached).toBeUndefined();
   });
 });

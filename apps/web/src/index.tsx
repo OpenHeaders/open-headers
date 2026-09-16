@@ -16,7 +16,6 @@ import { bootTranslator } from '@/boot-locale';
 import { bootPublicViewer } from '@/host/boot-public-viewer';
 import { bootWebHost } from '@/host/boot-web-host';
 import { installDaemonWire } from '@/host/daemon-wire';
-import { watchDaemonScriptPosture } from '@/host/install-script-posture';
 import { awaitPostJoinAdoption, decideGate, resolveGateMode, submitDaemonToken } from '@/host/join-gate';
 import { seedLocalWorkspaceIfNeverJoined } from '@/host/mount-decision';
 import { claimOidcToken, consumeOidcHash } from '@/host/oidc-login';
@@ -93,7 +92,6 @@ if (!window.isSecureContext) {
   eagerInitRendererMirrors();
 
   const wire = installDaemonWire();
-  watchDaemonScriptPosture(wire);
 
   const mountWorkbench = async (): Promise<void> => {
     // Latch the wire on (idempotent — the gate's accepted handshake is

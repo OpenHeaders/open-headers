@@ -14,6 +14,7 @@
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { dispatchTabRequestsRpc, isTabRequestsChannel } from './tab-requests-rpc';
 import { dispatchExportImportRpc, isExportImportChannel } from './web-export-import-rpc';
 import { fetchMigrationPullState, MIGRATION_GET_STATE_CHANNEL } from './wire-migration-mirror';
 import { forwardRequestsRpc, isForwardedRequestsChannel } from './wire-requests-rpc';
@@ -38,9 +39,15 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   if (typeof type === 'string' && type.startsWith('oh.daemon.')) {
     return callWireRpc(message);
   }
-  // Workbench request execution + cookie-jar channels — the transport
-  // and its jar live daemon-side, so these forward up the same wire to
-  // the gated peer requests plane, stamped with this tab's scope.
+  // The HTTP send, its Stop and the cookie-jar trio — answered IN the
+  // tab (Phase W: the tab is the context; the daemon only opens the
+  // socket through the delegating transport).
+  if (isTabRequestsChannel(type)) {
+    return dispatchTabRequestsRpc(type, message);
+  }
+  // The gRPC invoke + riders — the daemon's HTTP/2 stack answers as a
+  // context send, forwarded up the same wire to the gated peer
+  // requests plane, stamped with this tab's scope.
   if (isForwardedRequestsChannel(type)) {
     return forwardRequestsRpc(message);
   }

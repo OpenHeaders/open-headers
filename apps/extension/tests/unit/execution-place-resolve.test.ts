@@ -36,7 +36,8 @@ const DESKTOP: ExecutionPlaceMarkers = {
 };
 const SERVER_UP = { workspaceServer: { name: 'Acme', connected: true } };
 const SERVER_DOWN = { workspaceServer: { name: 'Acme', connected: false } };
-const WEB: ExecutionPlaceMarkers = { ...DESKTOP, remoteRequestDispatch: 'Acme' };
+/** The web tab since Phase W: its serving place, and the HTTP send delegated to it. */
+const WEB: ExecutionPlaceMarkers = { ...DESKTOP, remoteRequestDispatch: 'Acme', delegatedRequestDispatch: true };
 /** A browser surface without the workbench's page-realm sockets. */
 const BARE_BROWSER: ExecutionPlaceMarkers = {
   ...EXTENSION,
@@ -83,9 +84,28 @@ describe('resolveExecutionPlace — the desktop app (node runtime)', () => {
 });
 
 describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
-  it('HTTP and GraphQL query run on the serving place as context sends, resolved there', () => {
+  it('HTTP and GraphQL query run on the serving place as DELEGATED sends — the tab is the context (Phase W)', () => {
     for (const kind of ['http', 'graphql-query'] as const) {
       expect(resolve(kind, WEB)).toEqual({
+        place: 'workspace-server',
+        placeName: 'Acme',
+        state: 'ready',
+        reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+        cta: null,
+        alternatives: [],
+      });
+    }
+    // The tab's knobs the serving socket cannot honour ride the reason.
+    expect(resolve('http', WEB, 'connected', { delegationKnobs: ['cookieJar'] }).reason).toEqual({
+      kind: 'delegated',
+      role: 'workspace-server',
+      knobs: ['cookieJar'],
+    });
+  });
+
+  it('a serving surface whose send does not honour a place keeps the context send, resolved there', () => {
+    for (const kind of ['http', 'graphql-query'] as const) {
+      expect(resolve(kind, { ...WEB, delegatedRequestDispatch: false })).toEqual({
         place: 'workspace-server',
         placeName: 'Acme',
         state: 'ready',
@@ -96,12 +116,12 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
     }
   });
 
-  it('gRPC is a context send too (the web wire forwards executeGrpcRequest)', () => {
+  it('gRPC stays a context send (the web wire forwards executeGrpcRequest)', () => {
     expect(resolve('grpc', WEB).reason).toEqual({ kind: 'context-send', name: 'Acme' });
     expect(resolve('grpc', WEB).state).toBe('ready');
   });
 
-  it('the three session kinds are unsupported with the honest reason — flips at Phase B', () => {
+  it('the three session kinds are unsupported with the honest reason — flips with the sessions slice of W', () => {
     for (const kind of ['websocket', 'mqtt', 'graphql-subscription'] as const) {
       expect(resolve(kind, WEB, 'connected', { mqttTransport: 'websocket' })).toEqual({
         place: 'workspace-server',

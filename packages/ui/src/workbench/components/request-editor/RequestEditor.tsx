@@ -685,15 +685,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // the per-send layer; the settings layers fold in beneath it.
   const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
   const globalPlace = useSettingValue('requests.executionPlace');
-  // The context's cookie jar never reaches a delegated socket — the
-  // browser's store rides this surface's fetch alone (`credentialsMode`
-  // on a browser runtime), the app's jar its node transport alone
-  // (`cookieJar` on a node runtime; the jar key never rides the wire).
-  // Named at the control whenever the effective knob is on.
+  // The browser's cookie store never reaches a delegated socket — it
+  // rides this surface's own fetch alone (`credentialsMode` on a
+  // browser runtime). The app's jar is the context's and travels with
+  // the delegating transport (Phase W), so it is never named. Named at
+  // the control whenever the effective knob is on.
   const jarOn =
-    (getCapability('requestRuntime')?.() ?? 'browser') === 'node'
-      ? (draft.cookieJar ?? inheritedSettings.settings.cookieJar ?? false)
-      : (draft.credentialsMode ?? inheritedSettings.settings.credentialsMode) === 'include';
+    (getCapability('requestRuntime')?.() ?? 'browser') !== 'node' &&
+    (draft.credentialsMode ?? inheritedSettings.settings.credentialsMode) === 'include';
   const delegationKnobs = useMemo((): readonly PageSessionKnob[] => (jarOn ? ['cookieJar'] : []), [jarOn]);
   const executionPlace = useExecutionPlace({
     kind: 'http',

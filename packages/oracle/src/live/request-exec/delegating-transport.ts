@@ -19,11 +19,19 @@
  * The executor's abort signal (Stop / deadline) forwards as the
  * place's `abortRequestSend`; the place answers with the partial body
  * and `streamEndedEarly`, exactly as an in-process transport would.
+ *
+ * The cookie jar stays the CONTEXT's (Phase W): with a jar registry
+ * injected, a send that opted into the jar (`cookieJarKey`) gets the
+ * jar's `Cookie` attached before the frame leaves and its answered
+ * `Set-Cookie` rows captured — the key itself never rides, the place
+ * holds no jar. The seam's jar facts are stamped on the response as
+ * an in-process transport would stamp them.
  */
 
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import { DELEGATE_REQUEST_CHANNEL } from '@openheaders/core/protocol';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
+import { type CookieJar, captureSetCookieRows, withJarCookieHeader } from './cookie-jar';
 import { type DelegatedRequestFrame, type DelegatedRequestResult, encodeDelegatedRequest } from './delegated-wire';
 import {
   type RequestTransport,
@@ -50,6 +58,9 @@ export interface DelegatingTransportOptions {
   wire: DelegatedWire;
   /** The gate's subject on the place — the context's workspace. */
   workspaceId: string;
+  /** The context's jar registry by key — absent on a context whose
+   *  jar is its network stack's own (the browser's cookie store). */
+  jars?: (key: string) => CookieJar;
   /** Injectable for tests; defaults to a random UUID per exchange. */
   mintSendId?: () => string;
 }
@@ -60,11 +71,17 @@ export function createDelegatingRequestTransport(options: DelegatingTransportOpt
   const mintSendId = options.mintSendId ?? (() => crypto.randomUUID());
 
   async function exchange(
-    request: TransportRequest,
+    original: TransportRequest,
     observer: TransportStreamObserver,
     signal: AbortSignal | undefined,
   ): Promise<TransportResponse> {
     const sendId = mintSendId();
+    // The context's jar speaks before the frame leaves — the place
+    // never sees the key, only the header the jar contributed.
+    const jar =
+      options.jars !== undefined && original.cookieJarKey !== undefined ? options.jars(original.cookieJarKey) : null;
+    const outgoing = jar !== null ? withJarCookieHeader(jar, original.url, original.headers) : null;
+    const request = outgoing !== null ? { ...original, headers: outgoing.headers } : original;
     const unsubscribe = options.wire.subscribeFrames(sendId, (event) => {
       if (event.kind === 'head') {
         observer.onHead(event.head);
@@ -82,7 +99,18 @@ export function createDelegatingRequestTransport(options: DelegatingTransportOpt
         workspaceId: options.workspaceId,
         request: encodeDelegatedRequest(request),
       });
-      if (result.success) return { ...result.response, executedOn: result.executedOn };
+      if (result.success) {
+        const response: TransportResponse = { ...result.response, executedOn: result.executedOn };
+        if (jar === null) return response;
+        // The answered rows feed the context's jar; the facts ride the
+        // snapshot exactly as an in-process jar leg stamps them.
+        const captured = captureSetCookieRows(jar, response.url, response.headers);
+        return {
+          ...response,
+          ...(outgoing?.attached !== undefined ? { cookieHeaderAttached: outgoing.attached } : {}),
+          ...(captured.length > 0 ? { cookiesCaptured: captured } : {}),
+        };
+      }
       throw new TransportError(result.error, result.hint, result.executedOn);
     } catch (err) {
       if (err instanceof TransportError) throw err;

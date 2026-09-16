@@ -62,6 +62,7 @@ import { collectScriptChain } from '@openheaders/oracle/live/request-exec/script
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
 import { delegatedWireFor } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { cookieJarFor } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { resolveScriptRunner } from './script-capability';
 
@@ -145,13 +146,16 @@ export async function runRequestRpc(
         : null;
   // A named place opens the socket on this host's behalf — the
   // delegating transport over the backend client plane, by explicit
-  // backend id; the resolution, scripts, jar and snapshot stay here.
+  // backend id; the resolution, scripts, jar and snapshot stay here
+  // (the jar registry is the node transport's own, so a delegated
+  // send reads and writes the same per-workspace jar).
   const placeBackendId = executionPlaceBackendIdOf(message);
   const transport =
     placeBackendId !== undefined
       ? createDelegatingRequestTransport({
           wire: delegatedWireFor(placeBackendId),
           workspaceId: workspaceId ?? getActiveWorkspaceId(),
+          jars: cookieJarFor,
         })
       : ownTransport;
 

@@ -38,6 +38,7 @@ import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheade
 import { onWorkspaceStoreChange, peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { report } from '@openheaders/ui/shared/status';
 import { peekDaemonToken } from './daemon-token';
+import { handleIncomingDelegatedStreamFrame } from './delegated-wire';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { consumedWorkspaceIds, createWireAdoption } from './wire-adoption';
 import { handleIncomingGrpcStreamFrame } from './wire-grpc-stream';
@@ -212,6 +213,9 @@ export function installDaemonWire(): DaemonWire {
       // Migration pull broadcasts — synchronous claim into the in-tab
       // fan-out, same posture as the RPC responses.
       if (handleIncomingMigrationPullFrame(frame)) return;
+      // Live frames of a DELEGATED send this tab's transport minted —
+      // routed to that transport's observer before the generic mirror.
+      if (handleIncomingDelegatedStreamFrame(frame)) return;
       // Live send-stream frames for a forwarded Send — same posture.
       if (handleIncomingRequestStreamFrame(frame)) return;
       // Live gRPC stream frames for a forwarded Invoke — same posture.

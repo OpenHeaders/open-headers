@@ -611,12 +611,16 @@ export interface Capabilities {
   scriptRuntime?: () => ScriptExecutionMode;
 
   /**
-   * Declares that this surface's Sends FORWARD to a remote answering
-   * host instead of executing locally, and names that host as the user
-   * knows it (the tab's serving origin). The response's egress IP and
-   * network locale belong to that host, not this device — the Send
-   * button's hint and the response meta strip's "Sent from" attribution
-   * key off it. Registered only by the web app; desktop and extension
+   * Declares that this surface's Sends open their sockets on a remote
+   * answering host — its serving place — and names that host as the
+   * user knows it (the tab's serving origin). The response's egress IP
+   * and network locale belong to that host, not this device — the
+   * execution-place reader and the response meta strip's "Sent from"
+   * attribution key off it. With {@link Capabilities.delegatedRequestDispatch}
+   * beside it the HTTP send is DELEGATED (resolved on this surface, the
+   * serving place opens the socket — the web tab since Phase W);
+   * without it the send is a context send, resolved there (gRPC on the
+   * web tab). Registered only by the web app; desktop and extension
    * surfaces execute on their own machine and leave it absent, which
    * keeps those surfaces free of remote-execution copy.
    */
@@ -631,9 +635,10 @@ export interface Capabilities {
    * Place plan, Phase C). The shared reader offers the delegated legs
    * — the connected desktop app, the workspace's server — only where
    * this is registered; a surface without it never shows a choice it
-   * could not honour. Registered by the extension; the desktop
-   * renderer joins once its main process carries the leg toward a
-   * server.
+   * could not honour. Registered by the extension, the desktop
+   * renderer, and the web tab (whose one wire is its serving place:
+   * beside `remoteRequestDispatch` the reader reads a delegated send
+   * with no alternatives).
    */
   delegatedRequestDispatch?: () => boolean;
 

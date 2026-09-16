@@ -35,16 +35,27 @@ registerCapability('openExternalUrl', (url) => {
 // daemon session, wire verbs, remote dispatch) and stays unregistered
 // there so shared UI hides it wholesale.
 if (!isPublicView()) {
-  // API requests execute on the connected daemon's Node fetch stack, not
-  // in this tab — the request editor's Settings tab shows the Node fact
-  // sheet and hides browser-only knobs.
+  // API requests open their sockets on the connected daemon's Node
+  // stack, never in this tab — the request editor's Settings tab shows
+  // the Node fact sheet (every node knob applies at the place) and
+  // hides browser-only knobs.
   registerCapability('requestRuntime', () => 'node');
 
   // …and that stack is REMOTE: the serving host's machine makes the
   // egress connection, so the target sees ITS IP and network locale, not
   // this device's. Named by the origin the user typed to reach this tab —
-  // the Send hint and the response's "Sent from" attribution read it.
+  // the execution-place chip and the response's "Sent from" attribution
+  // read it.
   registerCapability('remoteRequestDispatch', () => window.location.host);
+
+  // The HTTP send is DELEGATED (the Execution Place plan's Phase W):
+  // this tab is the context — it resolves against its own mirrors and
+  // its own vault and jar — and the serving daemon only opens the
+  // socket (`tab-requests-rpc.ts` over `delegated-wire.ts`). The
+  // reader reads "Runs on <place>" as a delegated send with no
+  // alternatives; the session kinds and gRPC keep their rows until
+  // their slices.
+  registerCapability('delegatedRequestDispatch', () => true);
 
   // The web tab owns an origin-scoped daemon session it can drop on its
   // own — surfaced as the settings-menu "Sign out" item. The overlay

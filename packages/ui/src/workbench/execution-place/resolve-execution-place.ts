@@ -12,12 +12,16 @@
  * workspace's own providing backend). Capabilities never name the
  * host — the reader branches off the markers alone.
  *
- * The matrix (S1 rendered today's truth; S2 opened the HTTP legs):
- *   - a surface whose sends run on a remote place (`remoteRequestDispatch`
- *     — the web tab) resolves to that server: HTTP / GraphQL query as
- *     a CONTEXT send (resolved there — Phase W makes the tab a context
- *     of its own), the three session kinds as `unsupported` with the
- *     honest "not forwarded yet" reason (Phase W flips the row);
+ * The matrix (S1 rendered today's truth; S2 opened the HTTP legs; W
+ * made the web tab a context for HTTP):
+ *   - a surface whose sends open their sockets on a serving place
+ *     (`remoteRequestDispatch` — the web tab) resolves to that server:
+ *     HTTP / GraphQL query as a DELEGATED send once the surface honours
+ *     a place (`delegatedRequestDispatch` — resolved here, the one
+ *     server opens the socket) and as a CONTEXT send (resolved there)
+ *     before; gRPC as a context send; the three session kinds as
+ *     `unsupported` with the honest "not forwarded yet" reason (the
+ *     next W slice flips the row);
  *   - a node runtime runs everything here;
  *   - a browser runtime runs HTTP / GraphQL query here, sessions here
  *     in the page realm (`wsPageSession` / `mqttPageSession`) naming
@@ -219,6 +223,18 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
   if (serving !== null) {
     if (isSessionKind(kind)) {
       return remote(serving, 'unsupported', { kind: 'session-not-forwarded', name: serving });
+    }
+    // Phase W: a serving surface whose HTTP send honours a place is a
+    // CONTEXT of its own — resolved here, the serving place opens the
+    // socket (a delegated send with the one server, no alternatives);
+    // until then the send is a context send, resolved there. gRPC
+    // keeps the context-send row (its channel forwards by construction).
+    if (kind !== 'grpc' && markers.delegatedRequestDispatch) {
+      return remote(serving, 'ready', {
+        kind: 'delegated',
+        role: 'workspace-server',
+        knobs: input.delegationKnobs ?? NO_KNOBS,
+      });
     }
     return remote(serving, 'ready', { kind: 'context-send', name: serving });
   }
