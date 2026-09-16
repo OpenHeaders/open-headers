@@ -7,12 +7,14 @@
  * introspection plane: `introspect()` runs `INTROSPECTION_QUERY`
  * THROUGH THE COMPILE — the live draft with the introspection document
  * as its query rides the same `executeGraphqlRequest` route the Query
- * button uses, so the request's auth, headers, inherited settings,
- * proxy, CA and cookies all apply; never a bare fetch. The answer
- * persists on the local plane with its fetched-at stamp; Refresh
- * re-runs it.
+ * button uses — and the same PLACE (the query's resolved target, so a
+ * delegated query introspects through the place that opens its
+ * socket) — so the request's auth, headers, inherited settings, proxy,
+ * CA and cookies all apply; never a bare fetch. The answer persists on
+ * the local plane with its fetched-at stamp; Refresh re-runs it.
  */
 
+import type { ExecutionPlaceTarget } from '@openheaders/core/bridge';
 import {
   type GraphqlSchema,
   INTROSPECTION_QUERY,
@@ -63,7 +65,12 @@ interface UseGraphqlSchemaArgs {
   workspaceId: string | null;
   /** The spec binding — its linked spec is the schema source. */
   binding: GraphqlSpecBinding;
-  executeGraphql: (input: { draft: GraphqlRequest }) => Promise<ExecutedRequestSnapshot | null>;
+  /** The query's resolved place — the introspection rides it; null when the socket opens here. */
+  executionPlace: ExecutionPlaceTarget | null;
+  executeGraphql: (input: {
+    draft: GraphqlRequest;
+    executionPlace?: ExecutionPlaceTarget;
+  }) => Promise<ExecutedRequestSnapshot | null>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -113,6 +120,7 @@ export function useGraphqlSchema({
   draft,
   workspaceId,
   binding,
+  executionPlace,
   executeGraphql,
 }: UseGraphqlSchemaArgs): GraphqlSchemaState {
   const linkedSpec = binding.kind === 'linked' ? binding.spec : null;
@@ -142,7 +150,10 @@ export function useGraphqlSchema({
     }
     setStatus({ kind: 'loading' });
     const { variables: _variables, operationName: _operationName, ...rest } = draftEntity(entity, draft);
-    const snapshot = await executeGraphql({ draft: { ...rest, query: INTROSPECTION_QUERY } });
+    const snapshot = await executeGraphql({
+      draft: { ...rest, query: INTROSPECTION_QUERY },
+      ...(executionPlace !== null ? { executionPlace } : {}),
+    });
     const read = readIntrospectionSnapshot(snapshot);
     if (!read.ok) {
       setStatus({
@@ -160,7 +171,7 @@ export function useGraphqlSchema({
     setCache(entry);
     setStatus({ kind: 'ready', fetchedAt: entry.fetchedAt });
     return null;
-  }, [entity, draft, workspaceId, executeGraphql, cache]);
+  }, [entity, draft, workspaceId, executionPlace, executeGraphql, cache]);
 
   const resolved = useMemo<{ schema: GraphqlSchema | null; problems: readonly string[] }>(() => {
     if (choice === 'spec') {

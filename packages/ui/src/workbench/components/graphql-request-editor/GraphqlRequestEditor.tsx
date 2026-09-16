@@ -234,7 +234,27 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // feeds the explorer, the editor services and the variables
   // validation; introspection rides the compile.
   const specs = useGraphqlSpecBinding(workspaceId, ancestry?.collection, draft);
-  const schemaState = useGraphqlSchema({ entity, draft, workspaceId, binding: specs.binding, executeGraphql });
+  // The per-send place pick — one pick for both operation kinds; the
+  // query's reader and the subscription plane's read the same layers.
+  // Where a query runs is the HTTP send's reader with the same pick;
+  // the introspection rides the query's target.
+  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  const globalPlace = useSettingValue('requests.executionPlace');
+  const placePreference = resolveExecutionPlacePreference(
+    placePick,
+    draft.executionPlace,
+    inheritedSettings,
+    globalPlace,
+  );
+  const queryPlace = useExecutionPlace({ kind: 'graphql-query', preference: placePreference });
+  const schemaState = useGraphqlSchema({
+    entity,
+    draft,
+    workspaceId,
+    binding: specs.binding,
+    executionPlace: queryPlace.target,
+    executeGraphql,
+  });
   // The last introspection's failure — the explorer's card and the
   // Schema tab's dot read the same line.
   const introspectionError = schemaState.introspection.kind === 'error' ? schemaState.introspection.message : null;
@@ -346,16 +366,6 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   );
 
   // ── The subscription plane (a picked `subscription` operation) ──
-  // The per-send place pick — one pick for both operation kinds; the
-  // query's reader and the subscription plane's read the same layers.
-  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
-  const globalPlace = useSettingValue('requests.executionPlace');
-  const placePreference = resolveExecutionPlacePreference(
-    placePick,
-    draft.executionPlace,
-    inheritedSettings,
-    globalPlace,
-  );
   const subscription = useGraphqlSubscriptionPlane({
     preference: placePreference,
     entity,
@@ -367,9 +377,6 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const subscriptionState = useGraphqlSubscriptionState(subscription.live, subscription.snapshot);
   const subscriptionPaneOpen = subscription.live !== null || subscription.snapshot !== null;
   const inFlight = sending || subscription.inFlight;
-
-  // Where a query runs — the HTTP send's reader with the same pick.
-  const queryPlace = useExecutionPlace({ kind: 'graphql-query', preference: placePreference });
 
   const handleQuery = useCallback(async () => {
     if (!entity || inFlight) return;
