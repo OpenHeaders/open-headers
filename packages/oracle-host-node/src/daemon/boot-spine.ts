@@ -184,6 +184,7 @@ import { type DaemonBindState, type DaemonBindSupervisor, startDaemonBindSupervi
 import { createCliProvisionService } from './cli-provision';
 import { composePeerPush } from './compose-peer-push';
 import { composePeerRpc } from './compose-peer-rpc';
+import { createDelegatedRequestsRpc } from './delegated-requests-rpc';
 import { handleDeviceTrustRpc, isDeviceTrustRpc } from './device-trust-rpc';
 import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
 import { handleExecuteGraphqlSubscriptionRpc } from './execute-graphql-subscription-rpc';
@@ -1615,6 +1616,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       peerRpc: composePeerRpc(
         createPeerAdminRpc({ channels: adminChannels }),
         createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
+        createDelegatedRequestsRpc(),
         createPeerWorkspaceLeaveRpc({ getWsServer: () => wsServer }),
         createPeerWorkspaceMembersRpc({ getWsServer: () => wsServer }),
         createPeerWorkspacePublicRpc({ store: publishedSnapshots, publicWorkspacesEnabled }),

@@ -12,16 +12,11 @@
  *
  * Tiering mirrors the MCP execute precedent, in order:
  *
- *   1. `executeRequest` / `executeGrpcRequest`: the daemon-side opt-in,
- *      two-tiered by the peer's loopback fact and read fresh from the
- *      settings record per frame — same-device browsers ride
- *      `backend.allowLocalPeerExecute` (default ON: the user paired
- *      this browser to use this app as its engine, so pairing is the
- *      consent), other devices ride `backend.allowRemotePeerExecute`
- *      (default OFF: egress from this machine on another device's
- *      behalf is an operator decision, never implied by pairing). The
- *      refusal is honest (it names the tier), not the admin plane's
- *      uniform deny: this channel's existence is public contract.
+ *   1. `executeRequest` / `executeGrpcRequest`: the daemon-side egress
+ *      opt-in (`peer-execute-opt-in.ts` — two-tiered by the peer's
+ *      loopback fact, read fresh per frame, the refusal naming the
+ *      tier), shared with the DELEGATED family's plane
+ *      (`delegated-requests-rpc.ts`).
  *   2. Capability as the peer's user on the TARGET workspace —
  *      `workspace.write` for a send (the MCP execute mapping) and for
  *      the destructive jar clear and per-entry delete;
@@ -41,7 +36,6 @@ import {
   resolveDaemonPeerIdentitySnapshot,
 } from '@openheaders/core/identity';
 import { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
-import { hostStorage, OH } from '@openheaders/core/storage';
 import {
   endActiveGrpcClientStream,
   sendActiveGrpcStreamMessage,
@@ -55,8 +49,9 @@ import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
 import { type ExecuteGrpcRequestRpcResult, handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 import { hostDisplayLabel } from './host-os';
+import { assertPeerExecuteAllowed } from './peer-execute-opt-in';
+import { peerGrpcStreamFrameSink, peerStreamFrameSink } from './peer-stream-sinks';
 import { getHostScriptCapability } from './script-capability';
-import { getWsPeerServer } from './ws-peer-slot';
 
 /** Honest opt-in refusals — canonical strings live in the protocol
  *  vocabulary (browser surfaces match them to render host-aware
@@ -104,44 +99,6 @@ export interface PeerRequestsRpcOptions {
    * `{ state: null }` — unknown, never a fabricated state.
    */
   cliStatus?: () => Promise<CliProvisionStatus>;
-}
-
-/** Two-tier egress opt-in, read fresh per frame. Same-device browsers
- *  (`allowLocalPeerExecute`) default ON — pairing is the consent;
- *  other devices (`allowRemotePeerExecute`) default OFF — egress from
- *  this machine on another device's behalf is an operator decision. */
-async function peerExecuteAllowed(isLoopback: boolean): Promise<boolean> {
-  const values = ((await hostStorage.get(OH.settingsUser)) ?? {}) as Record<string, unknown>;
-  if (isLoopback) return values['backend.allowLocalPeerExecute'] !== false;
-  return values['backend.allowRemotePeerExecute'] === true;
-}
-
-/**
- * Live-frame sink for a peer-forwarded send: frames go back down the
- * backend wire to the CALLING user's connected peers (the same-user law
- * the awareness fan-out holds — the caller's surface filters by its
- * minted `sendId`; the user's other surfaces ignore unknown ids). The
- * server slot is re-read per frame so bind swaps flow through; frames
- * are display-only hints, so a dead slot just drops them.
- */
-function peerStreamFrameSink(userId: string): (event: RequestStreamEventWire) => void {
-  return (event) => {
-    getWsPeerServer()?.broadcastFrame(
-      { type: 'requestStreamEvent', payload: event },
-      { filterPeer: (peer) => peer.userId === userId },
-    );
-  };
-}
-
-/** The gRPC twin — `grpcStreamEvent` frames for a forwarded streaming
- *  invoke fan back under the same same-user law and drop-safety. */
-function peerGrpcStreamFrameSink(userId: string): (event: GrpcStreamEventWire) => void {
-  return (event) => {
-    getWsPeerServer()?.broadcastFrame(
-      { type: 'grpcStreamEvent', payload: event },
-      { filterPeer: (peer) => peer.userId === userId },
-    );
-  };
 }
 
 export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsPeerRpcHooks {
@@ -216,10 +173,7 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
       // loopback fact picks which opt-in governs and which refusal
       // names it.
       if (type === 'executeRequest' || type === 'executeGraphqlRequest' || type === 'executeGrpcRequest') {
-        const loopback = peer.isLoopback === true;
-        if (!(await peerExecuteAllowed(loopback))) {
-          throw new Error(loopback ? LOCAL_PEER_EXECUTE_DISABLED_MESSAGE : REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
-        }
+        await assertPeerExecuteAllowed(peer);
       }
 
       // Capability tier — the target workspace is the one the frame

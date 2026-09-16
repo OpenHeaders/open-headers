@@ -28,6 +28,7 @@ export {
   WS_PORT,
   WS_SERVER_URL,
 } from './constants';
+export { DELEGATE_REQUEST_CHANNEL, DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE } from './delegated-requests';
 export type {
   BackendReach,
   HandshakeRejectReason,
