@@ -239,6 +239,19 @@ describe('createPeerRequestsRpc — executeRequest', () => {
     expect(execute).toHaveBeenCalledWith(message, expect.any(Function));
   });
 
+  it("strips a place a peer's context frame names — this host answers, it never hops onward", async () => {
+    const execute = vi.fn(async () => ({ success: true }));
+    const rpc = createPeerRequestsRpc({ executeRequest: execute });
+    await rpc.dispatch(
+      { type: 'executeRequest', draft: {}, workspaceId: 'ws-tab', executionPlace: { backendId: 'elsewhere' } },
+      PEER,
+    );
+    expect(execute).toHaveBeenCalledWith(
+      { type: 'executeRequest', draft: {}, workspaceId: 'ws-tab' },
+      expect.any(Function),
+    );
+  });
+
   it("hands the handler a frame sink that fans requestStreamEvent frames to the calling user's peers", async () => {
     const frames: Array<{ frame: Record<string, unknown>; opts?: { filterPeer?: (peer: PeerSummary) => boolean } }> =
       [];

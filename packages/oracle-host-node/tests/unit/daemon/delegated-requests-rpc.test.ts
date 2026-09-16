@@ -38,7 +38,10 @@ import {
   LOCAL_PEER_EXECUTE_DISABLED_MESSAGE,
   REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
 } from '@openheaders/core/protocol';
-import { encodeDelegatedRequest } from '@openheaders/oracle/live/request-exec/delegated-wire';
+import {
+  type DelegatedRequestResult,
+  encodeDelegatedRequest,
+} from '@openheaders/oracle/live/request-exec/delegated-wire';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import {
   type RequestTransport,
@@ -201,7 +204,7 @@ describe('createDelegatedRequestsRpc — the gate', () => {
   it('answers a structured refusal for a malformed request, past the gate, stamped', async () => {
     const transport = fakeTransport(async () => RESPONSE);
     const rpc = createDelegatedRequestsRpc({ transport });
-    const result = await rpc.dispatch(frame({ request: { method: 'GET' } }), PEER);
+    const result = (await rpc.dispatch(frame({ request: { method: 'GET' } }), PEER)) as DelegatedRequestResult;
     expect(result).toMatchObject({ success: false, executedOn: { kind: 'backend' } });
     expect(result.success).toBe(false);
     if (result.success) return;
@@ -215,7 +218,7 @@ describe('createDelegatedRequestsRpc — the exchange', () => {
   it('hands the transport the seam request as sent — resolved headers verbatim, no jar key — and answers the response stamped', async () => {
     const transport = fakeTransport(async () => RESPONSE);
     const rpc = createDelegatedRequestsRpc({ transport });
-    const result = await rpc.dispatch(frame(), PEER);
+    const result = (await rpc.dispatch(frame(), PEER)) as DelegatedRequestResult;
     expect(transport.calls[0]).toMatchObject({
       method: 'GET',
       url: REQUEST.url,
@@ -270,7 +273,7 @@ describe('createDelegatedRequestsRpc — the exchange', () => {
     const pending = rpc.dispatch(frame({ sendId: 'send-stop' }), PEER);
     await vi.waitFor(() => expect(transport.calls).toHaveLength(1));
     expect(stopActiveSend('send-stop')).toBe(true);
-    const result = await pending;
+    const result = (await pending) as DelegatedRequestResult;
     expect(result.success && result.response.streamEndedEarly).toEqual({ reason: 'aborted' });
     // Settled sends leave the registry.
     expect(stopActiveSend('send-stop')).toBe(false);
@@ -286,7 +289,7 @@ describe('createDelegatedRequestsRpc — the exchange', () => {
       });
     });
     const rpc = createDelegatedRequestsRpc({ transport });
-    const result = await rpc.dispatch(frame(), PEER);
+    const result = (await rpc.dispatch(frame(), PEER)) as DelegatedRequestResult;
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error).toBe('self signed certificate');
@@ -304,7 +307,7 @@ describe('createDelegatedRequestsRpc — the exchange', () => {
       },
     };
     const rpc = createDelegatedRequestsRpc({ transport });
-    const result = await rpc.dispatch(frame(), PEER);
+    const result = (await rpc.dispatch(frame(), PEER)) as DelegatedRequestResult;
     expect(calls).toHaveLength(1);
     expect(result.success).toBe(true);
   });

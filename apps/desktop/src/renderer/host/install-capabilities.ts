@@ -21,6 +21,12 @@ registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorks
 // tab shows the Node fact sheet and hides browser-only knobs.
 registerCapability('requestRuntime', () => 'node');
 
+// The HTTP / GraphQL-query Send honours an explicit execution place —
+// the main process delegates the round-trip to the named server over
+// its backend client plane (the Execution Place plan, Phase C); the
+// shared reader offers the workspace's server as the leg.
+registerCapability('delegatedRequestDispatch', () => true);
+
 // Pre/post request scripts run on this host — Safe mode's hidden
 // sandboxed renderer by default, or the Developer-mode utilityProcess
 // worker where a workspace opted in. This registration is the

@@ -189,6 +189,11 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
         throw new Error(`permission denied: ${capability} on ${workspaceId} (${decision.reason ?? 'denied'})`);
       }
 
+      // A context send from a peer is answered HERE — a place the frame
+      // names would make this host hop onward, which no surface asks
+      // for (the delegated family is the other channel); dropped.
+      const { executionPlace: _peerNamedPlace, ...contextFrame } = message;
+
       switch (type) {
         case 'executeRequest': {
           // Egress attribution: THIS machine made (or attempted) the
@@ -196,14 +201,14 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           // network locale, not the calling surface's. Stamped at run
           // time on success and error snapshots alike; refusals throw
           // above and carry no snapshot to stamp.
-          const result = await executeRequest(message, peerStreamFrameSink(peer.userId));
+          const result = await executeRequest(contextFrame, peerStreamFrameSink(peer.userId));
           return result.snapshot
             ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
             : result;
         }
         case 'executeGraphqlRequest': {
           // The compiled HTTP send — the HTTP branch's stamp verbatim.
-          const result = await executeGraphqlRequest(message, peerStreamFrameSink(peer.userId));
+          const result = await executeGraphqlRequest(contextFrame, peerStreamFrameSink(peer.userId));
           return result.snapshot
             ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
             : result;

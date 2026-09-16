@@ -36,13 +36,13 @@ import {
   type TransportMultipartPart,
   type TransportRequest,
 } from '@openheaders/oracle/live/request-exec/transport';
+import { delegatedWireFor } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { ensureScheme } from '@openheaders/ui/shared/fetch';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { base64ToBytes } from '@/shared/wire-fetch/plan';
-import { delegatedWireFor } from '../net/delegated-wire';
 import { recordLog } from '../observability-log';
 import { graphqlWireText } from './body';
 import { classifyFetchFailure } from './failure-classify';

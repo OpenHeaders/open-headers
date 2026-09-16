@@ -75,6 +75,24 @@ vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   getActiveWorkspaceId: () => 'ws-active',
   peekActiveWorkspaceId: () => 'ws-active',
 }));
+const wire = vi.hoisted(() => ({
+  frames: [] as Array<Record<string, unknown>>,
+  backendIds: [] as string[],
+  answer: { success: true } as Record<string, unknown>,
+}));
+vi.mock('@openheaders/oracle/sync/client/delegated-wire-client', () => ({
+  delegatedWireFor: (backendId: string) => {
+    wire.backendIds.push(backendId);
+    return {
+      call: async (frame: Record<string, unknown>) => {
+        wire.frames.push(frame);
+        return wire.answer;
+      },
+      abort: () => {},
+      subscribeFrames: () => () => {},
+    };
+  },
+}));
 const devicePems = vi.hoisted(() => ({ value: [] as string[] }));
 vi.mock('@openheaders/oracle/entity/device-trust-store', () => ({
   getDeviceTrustPems: () => devicePems.value,
@@ -538,6 +556,72 @@ describe('handleExecuteRequestRpc — OAuth refresh-on-expired', () => {
     expect(h.getTokenBundle).toHaveBeenCalledWith('cred-e2e', 'ws-other');
     const putArgs = h.putTokenBundle.mock.calls[0] as unknown[];
     expect(putArgs[3]).toBe('ws-other');
+  });
+});
+
+describe('handleExecuteRequestRpc — a named execution place (the delegated leg)', () => {
+  beforeEach(() => {
+    wire.frames = [];
+    wire.backendIds = [];
+    wire.answer = {
+      success: true,
+      response: {
+        status: 201,
+        statusText: 'Created',
+        url: 'https://api.openheaders.io/ping',
+        headers: [],
+        body: '{"ok":true}',
+        bodyTruncated: false,
+        bodyBytes: 11,
+      },
+      executedOn: { kind: 'backend', name: 'acme-1' },
+    };
+  });
+
+  it("resolves here and rides the delegating transport to the named backend — this host's own transport never dials", async () => {
+    const { transport, calls } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      {
+        draft: makeRequest({ headers: [{ uid: 'h1', key: 'X-Token', value: 'resolved-here', enabled: true }] }),
+        executionPlace: { backendId: 'backend-acme' },
+      },
+      transport,
+    );
+    expect(calls()).toBe(0);
+    expect(wire.backendIds).toEqual(['backend-acme']);
+    expect(wire.frames).toHaveLength(1);
+    expect(wire.frames[0]).toMatchObject({ type: 'delegateRequest', workspaceId: 'ws-active' });
+    const request = wire.frames[0].request as { url: string; headers: Array<{ key: string; value: string }> };
+    expect(request.url).toBe('https://api.openheaders.io/ping');
+    expect(request.headers).toEqual([{ key: 'X-Token', value: 'resolved-here' }]);
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.status).toBe(201);
+    expect(result.snapshot?.executedOn).toEqual({ kind: 'backend', name: 'acme-1' });
+  });
+
+  it("lands the place's classified failure on the snapshot with its stamp", async () => {
+    wire.answer = {
+      success: false,
+      error: 'self signed certificate',
+      hint: { kind: 'trust-certificate', host: 'api.openheaders.io', port: 443, code: 'DEPTH_ZERO_SELF_SIGNED_CERT' },
+      executedOn: { kind: 'backend', name: 'acme-1' },
+    };
+    const { transport } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest(), executionPlace: { backendId: 'backend-acme' } },
+      transport,
+    );
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toBe('self signed certificate');
+    expect(result.snapshot?.errorHint).toMatchObject({ kind: 'trust-certificate' });
+    expect(result.snapshot?.executedOn).toEqual({ kind: 'backend', name: 'acme-1' });
+  });
+
+  it('a frame naming no backend keeps the own transport', async () => {
+    const { transport, calls } = captureTransport();
+    await handleExecuteRequestRpc({ draft: makeRequest(), executionPlace: { backendId: '' } }, transport);
+    expect(calls()).toBe(1);
+    expect(wire.frames).toHaveLength(0);
   });
 });
 

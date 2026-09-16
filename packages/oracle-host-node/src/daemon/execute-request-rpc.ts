@@ -40,17 +40,27 @@
  * (their live registry keys `{{live.*}}` rows on this host's active
  * env), while the pinned scope resolves env-free with the
  * `(workspace, null)` live mirror, exactly the caller's own view.
+ *
+ * `executionPlace` (the Execution Place plan, Phase C) names the
+ * backend this host DELEGATES the round-trip to — the workspace's
+ * server, by explicit id — while everything else stays here: this
+ * host is the context, the place only opens the socket (the
+ * delegating transport over this host's backend client plane). The
+ * peer plane strips the field off a peer's frame before it reaches
+ * here: a context send from a peer never hops onward.
  */
 
 import { hostBridge, type RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { getRequest } from '@openheaders/oracle/entity/request-store';
+import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
 import { type ExecuteStreamOptions, errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { runInteractiveSend } from '@openheaders/oracle/live/request-exec/run-interactive-send';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import { collectScriptChain } from '@openheaders/oracle/live/request-exec/script-chain';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
+import { delegatedWireFor } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { resolveScriptRunner } from './script-capability';
@@ -118,7 +128,7 @@ export async function handleExecuteRequestRpc(
 export async function runRequestRpc(
   request: Request,
   message: Record<string, unknown>,
-  transport: RequestTransport = nodeTransport,
+  ownTransport: RequestTransport = nodeTransport,
   emitStreamFrame: (event: RequestStreamEventWire) => void = broadcastStreamFrameLocally,
 ): Promise<ExecuteRequestRpcResult> {
   const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
@@ -133,6 +143,17 @@ export async function runRequestRpc(
       : environmentId === null
         ? getActiveWorkspaceId()
         : null;
+  // A named place opens the socket on this host's behalf — the
+  // delegating transport over the backend client plane, by explicit
+  // backend id; the resolution, scripts, jar and snapshot stay here.
+  const placeBackendId = executionPlaceBackendIdOf(message);
+  const transport =
+    placeBackendId !== undefined
+      ? createDelegatingRequestTransport({
+          wire: delegatedWireFor(placeBackendId),
+          workspaceId: workspaceId ?? getActiveWorkspaceId(),
+        })
+      : ownTransport;
 
   try {
     // A frame stamped with a foreign workspace is a peer-forwarded send
@@ -183,4 +204,12 @@ export async function runRequestRpc(
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
+}
+
+/** The frame's place, when it names one by an explicit backend id. */
+export function executionPlaceBackendIdOf(message: Record<string, unknown>): string | undefined {
+  const place = message.executionPlace;
+  if (!place || typeof place !== 'object') return undefined;
+  const backendId = (place as { backendId?: unknown }).backendId;
+  return typeof backendId === 'string' && backendId !== '' ? backendId : undefined;
 }

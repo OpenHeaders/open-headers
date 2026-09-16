@@ -28,7 +28,7 @@ vi.mock('@utils/bridge', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   broadcast: (...args: unknown[]) => h.broadcast(...args),
 }));
-vi.mock('@/background/ws-request', () => ({
+vi.mock('@openheaders/oracle/sync/client/wire-request', () => ({
   wsRequest: (...args: unknown[]) => h.wsRequest(...args),
 }));
 vi.mock('@openheaders/oracle/sync/client/backend-connection-manager', () => ({
@@ -68,7 +68,7 @@ vi.mock('@openheaders/oracle/entity/files-store', () => ({
   ),
 }));
 
-import { __resetDelegatedWireForTests } from '@/background/modules/net/delegated-wire';
+import { __resetDelegatedWireForTests } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { executeRequestDraft } from '@/background/modules/request-executor';
 import { stopActiveSend } from '@/background/modules/request-executor/send-stream';
 

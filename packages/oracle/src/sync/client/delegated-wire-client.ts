@@ -1,26 +1,26 @@
 /**
- * The extension's wire for a delegated send — the service worker's
- * implementation of the delegating transport's {@link DelegatedWire}
- * over its backend wire client. One wire per EXPLICIT backend id (the
- * place the reader resolved — never the default wire, which falls back
- * to the first connected backend of any kind): the `delegateRequest`
- * frame rides `wsRequest` deadline-free (the request's own ceiling
- * rides inside the frame and the place enforces it; the wire's close
- * flush rejects a dead connection), Stop rides `abortRequestSend` on
- * the same wire, and the place's live `requestStreamEvent` frames are
- * CLAIMED here by their transport-minted send id — consumed before
- * any relay could mistake them for a local send's — and handed to the
- * subscribed transport. Unknown ids are left for whoever else listens.
+ * The wire for a delegated send over the backend client plane — the
+ * delegating transport's {@link DelegatedWire} for every host that
+ * joins backends through the connection manager (the extension's
+ * service worker toward the desktop app or a server, the desktop
+ * app's main process toward a server). One wire per EXPLICIT backend
+ * id (the place the reader resolved — never the default wire, which
+ * falls back to the first connected backend of any kind): the
+ * `delegateRequest` frame rides `wsRequest` deadline-free (the
+ * request's own ceiling rides inside the frame and the place enforces
+ * it; the wire's close flush rejects a dead connection), Stop rides
+ * `abortRequestSend` on the same wire, and the place's live
+ * `requestStreamEvent` frames are CLAIMED here by their
+ * transport-minted send id — consumed before any relay could mistake
+ * them for a local send's — and handed to the subscribed transport.
+ * Unknown ids are left for whoever else listens.
  */
 
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
-import type {
-  DelegatedRequestFrame,
-  DelegatedRequestResult,
-} from '@openheaders/oracle/live/request-exec/delegated-wire';
-import type { DelegatedWire } from '@openheaders/oracle/live/request-exec/delegating-transport';
-import { registerInboundFrameHandler } from '@openheaders/oracle/sync/client/backend-connection-manager';
-import { wsRequest } from '../../ws-request';
+import type { DelegatedRequestFrame, DelegatedRequestResult } from '../../live/request-exec/delegated-wire';
+import type { DelegatedWire } from '../../live/request-exec/delegating-transport';
+import { registerInboundFrameHandler } from './backend-connection-manager';
+import { wsRequest } from './wire-request';
 
 interface FrameClaim {
   backendId: string;
