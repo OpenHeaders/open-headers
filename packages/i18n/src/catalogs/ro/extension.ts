@@ -20,4 +20,8 @@ export const extension = {
       few: '{count} reguli',
       other: '{count} de reguli',
     })} au corespuns cererilor de pe această pagină`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    'DevToolkit open source, într-o extensie de browser. Modificați cererile în timp real. Gestionați colecții API. Colaborare în echipă.',
+  'extension.manifest.actionDescription': 'Deschidere fereastră popup Open Headers',
 } as const satisfies Catalog;

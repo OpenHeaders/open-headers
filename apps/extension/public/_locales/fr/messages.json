@@ -4,5 +4,8 @@
   },
   "extDesc": {
     "message": "DevToolkit Web open source, en extension de navigateur. Modifiez les requêtes en direct. Collections d'API. Collaboration d'équipe."
+  },
+  "extActionDesc": {
+    "message": "Ouvrir le popup Open Headers"
   }
 }

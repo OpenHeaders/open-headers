@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "Open Headers"
+  },
+  "extDesc": {
+    "message": "DevToolkit с открытым кодом в расширении браузера. Правка запросов браузера на лету. Управление коллекциями API. Работа в команде."
+  },
+  "extActionDesc": {
+    "message": "Открыть всплывающее окно Open Headers"
+  }
+}

@@ -17,4 +17,8 @@ export const extension = {
     `Open Headers - 活动\n你的 ${plural(locale, Number(configured), {
       other: '{count} 条规则',
     })} 中有 ${matched} 条在此页面上匹配了请求`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    '开源 Web 开发工具包，就在浏览器扩展中。修改实时浏览器请求，管理 API 集合，支持团队协作。',
+  'extension.manifest.actionDescription': '打开 Open Headers 弹窗',
 } as const satisfies Catalog;

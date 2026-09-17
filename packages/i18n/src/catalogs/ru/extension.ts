@@ -22,4 +22,8 @@ export const extension = {
       many: '{count} правил',
       other: '{count} правил',
     })} совпали с запросами на этой странице`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    'DevToolkit с открытым кодом в расширении браузера. Правка запросов браузера на лету. Управление коллекциями API. Работа в команде.',
+  'extension.manifest.actionDescription': 'Открыть всплывающее окно Open Headers',
 } as const satisfies Catalog;

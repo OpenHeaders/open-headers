@@ -52,7 +52,7 @@
   },
   "devtools_page": "devtools.html",
   "sidebar_action": {
-    "default_title": "Open Headers",
+    "default_title": "__MSG_extName__",
     "default_panel": "sidepanel.html",
     "default_icon": {
       "16": "images/icon16.png",
@@ -92,7 +92,7 @@
         "default": "Ctrl+Shift+Comma",
         "mac": "Command+Shift+Comma"
       },
-      "description": "Open Open Headers popup"
+      "description": "__MSG_extActionDesc__"
     }
   },
   "content_security_policy": {

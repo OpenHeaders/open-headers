@@ -5,6 +5,10 @@
  * settings locale, not the browser UI locale. The 'Open Headers'
  * brand prefix rides raw inside the values — the brand never
  * translates.
+ * The `extension.manifest.*` family is the exception: it renders in
+ * browser chrome (store listing, toolbar, shortcuts page) through the
+ * build-generated `_locales` messages, so it follows the BROWSER UI
+ * locale. The description must stay within 132 characters (Chrome).
  */
 
 import { plural } from '../../runtime';
@@ -19,4 +23,8 @@ export const extension = {
       one: '{count} rule',
       other: '{count} rules',
     })} matched requests on this page`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    'Open Source DevToolkit, inside a browser extension. Modify live browser requests. Manage API Collections. Team Collaboration.',
+  'extension.manifest.actionDescription': 'Open Open Headers popup',
 } as const satisfies Catalog;

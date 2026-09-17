@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "Open Headers"
+  },
+  "extDesc": {
+    "message": "DevToolkit open source, într-o extensie de browser. Modificați cererile în timp real. Gestionați colecții API. Colaborare în echipă."
+  },
+  "extActionDesc": {
+    "message": "Deschidere fereastră popup Open Headers"
+  }
+}

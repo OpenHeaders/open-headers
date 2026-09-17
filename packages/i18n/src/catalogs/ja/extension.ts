@@ -16,4 +16,8 @@ export const extension = {
     `Open Headers - 有効\n${plural(locale, Number(configured), {
       other: '{count} 件のルール',
     })}のうち ${matched} 件がこのページのリクエストに一致しました`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    'ブラウザー拡張機能の中のオープンソース DevToolkit。ブラウザーのリクエストをリアルタイムで変更。API コレクションの管理。チームでの共同作業。',
+  'extension.manifest.actionDescription': 'Open Headers のポップアップを開く',
 } as const satisfies Catalog;

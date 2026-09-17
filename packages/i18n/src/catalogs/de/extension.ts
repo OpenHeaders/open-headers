@@ -18,4 +18,8 @@ export const extension = {
       one: '{count} Regel',
       other: '{count} Regeln',
     })} passten auf Anfragen dieser Seite`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    'Open-Source-DevToolkit als Browser-Erweiterung. Ändere Live-Browser-Anfragen. Verwalte API-Sammlungen. Team-Zusammenarbeit.',
+  'extension.manifest.actionDescription': 'Open Headers-Popup öffnen',
 } as const satisfies Catalog;

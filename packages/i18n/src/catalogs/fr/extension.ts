@@ -19,4 +19,8 @@ export const extension = {
       many: '{count} règles',
       other: '{count} règles',
     })} ont correspondu à des requêtes sur cette page`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    "DevToolkit Web open source, en extension de navigateur. Modifiez les requêtes en direct. Collections d'API. Collaboration d'équipe.",
+  'extension.manifest.actionDescription': 'Ouvrir le popup Open Headers',
 } as const satisfies Catalog;

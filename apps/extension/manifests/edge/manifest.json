@@ -96,7 +96,7 @@
         "default": "Ctrl+Shift+Comma",
         "mac": "Command+Shift+Comma"
       },
-      "description": "Open Open Headers popup"
+      "description": "__MSG_extActionDesc__"
     }
   },
   "content_security_policy": {

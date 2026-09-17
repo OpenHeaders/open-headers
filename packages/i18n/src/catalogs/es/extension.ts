@@ -19,4 +19,8 @@ export const extension = {
       many: '{count} reglas',
       other: '{count} reglas',
     })} coincidieron con solicitudes en esta página`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    'DevToolkit web open source, en una extensión de navegador. Modifica solicitudes en vivo. Colecciones de API. Colaboración en equipo.',
+  'extension.manifest.actionDescription': 'Abrir el popup de Open Headers',
 } as const satisfies Catalog;

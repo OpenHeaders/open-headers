@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "Open Headers"
+  },
+  "extDesc": {
+    "message": "브라우저 확장 프로그램 안의 오픈 소스 DevToolkit. 실시간 브라우저 요청 수정. API 컬렉션 관리. 팀 협업."
+  },
+  "extActionDesc": {
+    "message": "Open Headers 팝업 열기"
+  }
+}

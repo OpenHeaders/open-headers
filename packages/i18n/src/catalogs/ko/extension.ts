@@ -16,4 +16,8 @@ export const extension = {
     `Open Headers - 활성\n${plural(locale, Number(configured), {
       other: '규칙 {count}개',
     })} 중 ${matched}개가 이 페이지의 요청과 일치했습니다`,
+  'extension.manifest.name': 'Open Headers',
+  'extension.manifest.description':
+    '브라우저 확장 프로그램 안의 오픈 소스 DevToolkit. 실시간 브라우저 요청 수정. API 컬렉션 관리. 팀 협업.',
+  'extension.manifest.actionDescription': 'Open Headers 팝업 열기',
 } as const satisfies Catalog;
