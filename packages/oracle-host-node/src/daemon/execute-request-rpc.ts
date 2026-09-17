@@ -53,6 +53,7 @@
 import { hostBridge, type RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { getRequest } from '@openheaders/oracle/entity/request-store';
+import { executionPlaceBackendIdOf } from '@openheaders/oracle/live/execution-place-target';
 import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
 import { type ExecuteStreamOptions, errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
@@ -208,12 +209,4 @@ export async function runRequestRpc(
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
-}
-
-/** The frame's place, when it names one by an explicit backend id. */
-export function executionPlaceBackendIdOf(message: Record<string, unknown>): string | undefined {
-  const place = message.executionPlace;
-  if (!place || typeof place !== 'object') return undefined;
-  const backendId = (place as { backendId?: unknown }).backendId;
-  return typeof backendId === 'string' && backendId !== '' ? backendId : undefined;
 }

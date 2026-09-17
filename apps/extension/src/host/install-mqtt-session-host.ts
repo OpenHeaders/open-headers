@@ -44,13 +44,8 @@ import {
 import { registerCapability } from '@openheaders/core/capabilities';
 import { createDelegatingMqttTransport } from '@openheaders/oracle/live/delegated-socket/delegating-mqtt-transport';
 import { errorMqttSnapshot, executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
-import {
-  closeActiveMqttSession,
-  publishActiveMqttMessage,
-  reconnectActiveMqttSessionNow,
-  setActiveMqttSubscription,
-} from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import type { MqttByteTransport } from '@openheaders/oracle/live/mqtt-exec/transport';
+import { dispatchSessionRider, isMqttSessionRiderChannel } from '@openheaders/oracle/live/session-route/riders';
 import { createBrowserMqttTransport } from '@openheaders/oracle-host-browser/live/browser-mqtt-transport';
 import { getMqttPageResolutionFactory } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-page-session';
 import { pageDelegatedSocketWireFor } from '@/host/delegated-socket-wire';
@@ -142,24 +137,10 @@ const mqttSessionHostBridge: HostBridge = {
       const payload = args[0] as BridgeRpcRequest<'executeMqttRequest'>;
       return handleExecuteMqttRequest(payload) as Promise<BridgeRpcResponse<K>>;
     }
-    if (type === 'publishMqttMessage') {
-      const payload = args[0] as BridgeRpcRequest<'publishMqttMessage'>;
-      const result = publishActiveMqttMessage(payload.sendId, payload.message);
-      return Promise.resolve(result) as Promise<BridgeRpcResponse<K>>;
-    }
-    if (type === 'setMqttSubscription') {
-      const payload = args[0] as BridgeRpcRequest<'setMqttSubscription'>;
-      return setActiveMqttSubscription(payload.sendId, payload.subscription) as Promise<BridgeRpcResponse<K>>;
-    }
-    if (type === 'closeMqttSession') {
-      const payload = args[0] as BridgeRpcRequest<'closeMqttSession'>;
-      return Promise.resolve({ success: closeActiveMqttSession(payload.sendId) }) as Promise<BridgeRpcResponse<K>>;
-    }
-    if (type === 'reconnectMqttSessionNow') {
-      const payload = args[0] as BridgeRpcRequest<'reconnectMqttSessionNow'>;
-      return Promise.resolve({ success: reconnectActiveMqttSessionNow(payload.sendId) }) as Promise<
-        BridgeRpcResponse<K>
-      >;
+    if (isMqttSessionRiderChannel(type)) {
+      // The riders answer from the host-neutral active-session
+      // registry — the one dispatch every session host shares.
+      return dispatchSessionRider(type, (args[0] ?? {}) as Record<string, unknown>) as Promise<BridgeRpcResponse<K>>;
     }
     return base.call(type, ...args);
   },

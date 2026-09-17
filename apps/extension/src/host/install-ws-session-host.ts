@@ -43,12 +43,8 @@ import { compileGraphqlSubscription, type GraphqlWsSubscriptionPlan } from '@ope
 import type { WebSocketRequest } from '@openheaders/core/types';
 import { createDelegatingWsTransport } from '@openheaders/oracle/live/delegated-socket/delegating-ws-transport';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
+import { dispatchSessionRider, isWsSessionRiderChannel } from '@openheaders/oracle/live/session-route/riders';
 import { errorWsSnapshot, executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
-import {
-  closeActiveWsSession,
-  reconnectActiveWsSessionNow,
-  sendActiveWsSessionMessage,
-} from '@openheaders/oracle/live/ws-exec/session-plane';
 import type { WsTransport } from '@openheaders/oracle/live/ws-exec/transport';
 import { createBrowserWsTransport } from '@openheaders/oracle-host-browser/live/browser-ws-transport';
 import { getWsPageResolutionFactory } from '@openheaders/ui/workbench/components/websocket-request-editor/ws-page-session';
@@ -166,18 +162,10 @@ const wsSessionHostBridge: HostBridge = {
       const payload = args[0] as BridgeRpcRequest<'executeGraphqlSubscription'>;
       return handleExecuteGraphqlSubscription(payload) as Promise<BridgeRpcResponse<K>>;
     }
-    if (type === 'sendWsMessage') {
-      const payload = args[0] as BridgeRpcRequest<'sendWsMessage'>;
-      const result = sendActiveWsSessionMessage(payload.sendId, payload.messageText, payload.socketio, payload.binary);
-      return Promise.resolve(result) as Promise<BridgeRpcResponse<K>>;
-    }
-    if (type === 'closeWsSession') {
-      const payload = args[0] as BridgeRpcRequest<'closeWsSession'>;
-      return Promise.resolve({ success: closeActiveWsSession(payload.sendId) }) as Promise<BridgeRpcResponse<K>>;
-    }
-    if (type === 'reconnectWsSessionNow') {
-      const payload = args[0] as BridgeRpcRequest<'reconnectWsSessionNow'>;
-      return Promise.resolve({ success: reconnectActiveWsSessionNow(payload.sendId) }) as Promise<BridgeRpcResponse<K>>;
+    if (isWsSessionRiderChannel(type)) {
+      // The riders answer from the host-neutral active-session
+      // registry — the one dispatch every session host shares.
+      return dispatchSessionRider(type, (args[0] ?? {}) as Record<string, unknown>) as Promise<BridgeRpcResponse<K>>;
     }
     if (type === 'abortRequestSend') {
       const payload = args[0] as BridgeRpcRequest<'abortRequestSend'>;

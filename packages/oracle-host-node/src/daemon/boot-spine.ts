@@ -43,13 +43,7 @@
  */
 
 import * as path from 'node:path';
-import {
-  type MqttPublishWire,
-  type MqttSubscriptionWire,
-  setHostBridge,
-  type WsSendBinaryWire,
-  type WsSendSocketIoWire,
-} from '@openheaders/core/bridge';
+import { setHostBridge } from '@openheaders/core/bridge';
 import {
   createDaemonPairingService,
   emitAuditEntry,
@@ -98,21 +92,11 @@ import {
   endActiveGrpcClientStream,
   sendActiveGrpcStreamMessage,
 } from '@openheaders/oracle/live/grpc-exec/stream-plane';
-import {
-  closeActiveMqttSession,
-  publishActiveMqttMessage,
-  reconnectActiveMqttSessionNow,
-  setActiveMqttSubscription,
-} from '@openheaders/oracle/live/mqtt-exec/session-plane';
 import { onDeviceFlowChange } from '@openheaders/oracle/live/request-exec/oauth-device';
 import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
-import {
-  closeActiveWsSession,
-  reconnectActiveWsSessionNow,
-  sendActiveWsSessionMessage,
-} from '@openheaders/oracle/live/ws-exec/session-plane';
+import { dispatchSessionRider, isSessionRiderChannel } from '@openheaders/oracle/live/session-route/riders';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -1345,50 +1329,18 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     if (type === 'executeGraphqlSubscription') {
       return await handleExecuteGraphqlSubscriptionRpc(message);
     }
-    // Riders for an open WebSocket session — the executor's
-    // active-session registry resolves and writes / starts the clean
-    // close; a settled or unknown id answers `success: false`.
-    if (type === 'sendWsMessage') {
-      return typeof message.sendId === 'string' && typeof message.messageText === 'string'
-        ? sendActiveWsSessionMessage(
-            message.sendId,
-            message.messageText,
-            message.socketio as WsSendSocketIoWire | undefined,
-            message.binary as WsSendBinaryWire | undefined,
-          )
-        : { success: false, error: 'No session id or message provided' };
-    }
-    if (type === 'closeWsSession') {
-      return { success: typeof message.sendId === 'string' && closeActiveWsSession(message.sendId) };
-    }
-    if (type === 'reconnectWsSessionNow') {
-      return { success: typeof message.sendId === 'string' && reconnectActiveWsSessionNow(message.sendId) };
-    }
     // Workbench MQTT Connect — the MqttRequest entity's executor
     // plane, same in-process answer posture; the RPC resolves when the
     // session settles.
     if (type === 'executeMqttRequest') {
       return await handleExecuteMqttRequestRpc(message);
     }
-    // Riders for an open MQTT session — the executor's active-session
-    // registry resolves, decodes and writes; the subscription toggle
-    // resolves when the broker's ack arrives; a settled or unknown id
+    // Riders for an open WebSocket or MQTT session — the host-neutral
+    // active-session registries resolve and write, start the clean
+    // close, or dial the armed reconnect now; a settled or unknown id
     // answers `success: false`.
-    if (type === 'publishMqttMessage') {
-      return typeof message.sendId === 'string' && message.message !== undefined
-        ? await publishActiveMqttMessage(message.sendId, message.message as MqttPublishWire)
-        : { success: false, error: 'No session id or message provided' };
-    }
-    if (type === 'setMqttSubscription') {
-      return typeof message.sendId === 'string' && message.subscription !== undefined
-        ? await setActiveMqttSubscription(message.sendId, message.subscription as MqttSubscriptionWire)
-        : { success: false, error: 'No session id or subscription provided' };
-    }
-    if (type === 'closeMqttSession') {
-      return { success: typeof message.sendId === 'string' && closeActiveMqttSession(message.sendId) };
-    }
-    if (type === 'reconnectMqttSessionNow') {
-      return { success: typeof message.sendId === 'string' && reconnectActiveMqttSessionNow(message.sendId) };
+    if (isSessionRiderChannel(type)) {
+      return await dispatchSessionRider(type, message);
     }
     // Workspace-export import — the host-neutral orchestrator (the
     // extension SW answers the same channels). Local surface = the
