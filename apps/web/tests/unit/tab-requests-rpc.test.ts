@@ -4,8 +4,9 @@
  * the jar trio; every send rides the delegating transport toward the
  * serving daemon with the tab's jar and the read workspace as the
  * gate's subject, whatever place the frame names; the live frames fan
- * out on the in-tab broadcast; no script runner is resolved
- * (scriptless until the sandbox slice); a Send and a Query reach the
+ * out on the in-tab broadcast; the script chain resolves through the
+ * one host-neutral capability gate (the tab's Safe sandbox, registered
+ * at boot); a Send and a Query reach the
  * shared route with the tab's seam; the Stop hits the in-tab registry
  * first and forwards a miss up the wire; the jar trio answers from the
  * tab's own jars.
@@ -46,6 +47,7 @@ vi.mock('@openheaders/oracle/live/request-route/route', () => ({
 }));
 
 import { cookieJarFor, resetCookieJars } from '@openheaders/oracle/live/request-exec/cookie-jar';
+import { resolveInteractiveScriptRunner } from '@openheaders/oracle/live/script-host/capability';
 import { webDelegatedWire } from '@/host/delegated-wire';
 import { dispatchTabRequestsRpc, isTabRequestsChannel, webRequestRouteHost } from '@/host/tab-requests-rpc';
 import { subscribeLocal } from '@/host/web-broadcast';
@@ -104,14 +106,14 @@ describe('tab-requests-rpc', () => {
     ]);
   });
 
-  it('fans the live frames out on the in-tab broadcast, and resolves no script runner', () => {
+  it('fans the live frames out on the in-tab broadcast, and resolves the script chain through the shared capability gate', () => {
     const frames: unknown[] = [];
     const release = subscribeLocal('requestStreamEvent', (event) => frames.push(event));
     const frame: RequestStreamEventWire = { sendId: 's-1', seq: 0, kind: 'done' };
     webRequestRouteHost.emitStreamEvent(frame);
     expect(frames).toEqual([frame]);
     release();
-    expect(webRequestRouteHost.resolveScriptRunner).toBeUndefined();
+    expect(webRequestRouteHost.resolveScriptRunner).toBe(resolveInteractiveScriptRunner);
   });
 
   it('routes a Send and a Query to the shared route with the tab seam', async () => {

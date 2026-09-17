@@ -6,9 +6,10 @@
  * route's read workspace as the gate's subject, whatever place the
  * frame names; the OAuth renewal dials through the tab's delegating
  * HTTP leg with the tab's jar; the live frames fan out on the in-tab
- * broadcast; no script host is mounted (scriptless until the sandbox
- * slice); a Connect reaches the shared route with the tab's seam; a
- * rider on an unknown id answers honestly.
+ * broadcast; the session's hooks resolve through the one host-neutral
+ * capability gate (the tab's Safe sandbox, registered at boot); a
+ * Connect reaches the shared route with the tab's seam; a rider on an
+ * unknown id answers honestly.
  */
 
 import type { MqttStreamEventWire, WsStreamEventWire } from '@openheaders/core/bridge';
@@ -44,6 +45,7 @@ vi.mock('@openheaders/oracle/live/session-route/mqtt-route', () => ({
 }));
 
 import { cookieJarFor } from '@openheaders/oracle/live/request-exec/cookie-jar';
+import { resolveSessionScriptHost } from '@openheaders/oracle/live/script-host/capability';
 import { webDelegatedWire } from '@/host/delegated-wire';
 import { dispatchTabSessionsRpc, isTabSessionsChannel, webSessionRouteHost } from '@/host/tab-sessions-rpc';
 import { subscribeLocal } from '@/host/web-broadcast';
@@ -100,11 +102,11 @@ describe('tab-sessions-rpc', () => {
     expect(sent[1]).toMatchObject({ type: DELEGATE_MQTT_OPEN_CHANNEL, workspaceId: 'ws-tab', request: MQTT_REQUEST });
   });
 
-  it('renews OAuth through the tab delegating HTTP leg with the tab jar, and mounts no script host', () => {
+  it('renews OAuth through the tab delegating HTTP leg with the tab jar, and resolves the hooks through the shared capability gate', () => {
     expect(webSessionRouteHost.refreshTransportFor).toBeDefined();
     webSessionRouteHost.refreshTransportFor?.('ws-tab');
     expect(h.transports[0]).toEqual({ wire: webDelegatedWire, workspaceId: 'ws-tab', jars: cookieJarFor });
-    expect(webSessionRouteHost.resolveScriptHost).toBeUndefined();
+    expect(webSessionRouteHost.resolveScriptHost).toBe(resolveSessionScriptHost);
   });
 
   it('fans the live frames out on the in-tab broadcast', () => {

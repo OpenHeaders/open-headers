@@ -16,15 +16,18 @@
  * (the tab has exactly one place, so a frame naming one names this
  * one), the OAuth 2.0 renewal dials through the tab's delegating HTTP
  * leg with its jar, the live frames fan out on the in-tab broadcast
- * the session hooks read, and no script host is mounted — the tab's
- * sessions run scriptless until the sandbox slice lands (the Settings
- * tab's fact sheet says so). The riders answer from the host-neutral
+ * the session hooks read, and the session's hooks run through the
+ * tab's Safe script runtime — the sandbox iframe
+ * `install-script-sandbox.ts` registers, resolved through the one
+ * host-neutral capability gate every session host uses (a forwarded
+ * session runs Safe or not at all). The riders answer from the host-neutral
  * active-session registries; a Stop rides `abortRequestSend`, which
  * `tab-requests-rpc.ts` answers from the shared active-send registry.
  */
 
 import { cookieJarFor } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
+import { resolveSessionScriptHost } from '@openheaders/oracle/live/script-host/capability';
 import {
   delegatedMqttTransportLease,
   delegatedWsTransportLease,
@@ -56,6 +59,7 @@ export function isTabSessionsChannel(type: unknown): type is TabSessionsChannel 
 export const webSessionRouteHost: SessionRouteHost = {
   wsTransportFor: (_placeBackendId, workspaceId) => delegatedWsTransportLease(webDelegatedSocketWire, workspaceId),
   mqttTransportFor: (_placeBackendId, workspaceId) => delegatedMqttTransportLease(webDelegatedSocketWire, workspaceId),
+  resolveScriptHost: resolveSessionScriptHost,
   refreshTransportFor: (workspaceId) =>
     createDelegatingRequestTransport({ wire: webDelegatedWire, workspaceId, jars: cookieJarFor }),
   emitWsStreamEvent: (event) => broadcastLocal('wsStreamEvent', event),

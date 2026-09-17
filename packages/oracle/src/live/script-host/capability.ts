@@ -128,6 +128,22 @@ export async function resolveScriptRunner(options: {
 }
 
 /**
+ * The request route's `resolveScriptRunner` seam — a workbench Send is
+ * a LOCAL INTERACTIVE dispatch or a peer-forwarded one; every host
+ * that runs the route over this registry hands it this one adapter.
+ */
+export function resolveInteractiveScriptRunner(input: {
+  workspaceId: string;
+  forwarded: boolean;
+}): Promise<ResolvedScriptRunner | null> {
+  return resolveScriptRunner({
+    workspaceId: input.workspaceId,
+    hostContext: 'interactive',
+    forwarded: input.forwarded,
+  });
+}
+
+/**
  * Resolve the session script host for one live session, or `null`
  * when this host has no script runtime. A session is always a LOCAL
  * INTERACTIVE dispatch or a peer-forwarded one — the same mode gate as

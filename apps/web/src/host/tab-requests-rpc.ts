@@ -12,9 +12,10 @@
  * the tab's jar (in memory, per workspace, gone with the tab — the jar
  * key never rides), the daemon's live frames feed the runner's
  * observer and the tab's own emitter re-broadcasts them under the
- * caller's send id. Scripts do not run in the tab until the sandbox
- * slice lands — the seam resolves no runner and the Settings tab's
- * fact sheet says so.
+ * caller's send id. The pre-request / post-response chain runs
+ * through the tab's Safe script runtime — the sandbox iframe
+ * `install-script-sandbox.ts` registers, resolved through the one
+ * host-neutral capability gate every send host uses.
  *
  * The jar inspection trio answers here too, from the tab's own jars.
  * A Stop hits the in-tab registry first; a miss forwards up the wire
@@ -26,6 +27,7 @@ import { createDelegatingRequestTransport } from '@openheaders/oracle/live/reque
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import type { RequestRouteHost } from '@openheaders/oracle/live/request-route/host';
 import { executeGraphqlRequestRoute, executeRequestRoute } from '@openheaders/oracle/live/request-route/route';
+import { resolveInteractiveScriptRunner } from '@openheaders/oracle/live/script-host/capability';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { webDelegatedWire } from './delegated-wire';
 import { broadcastLocal } from './web-broadcast';
@@ -48,6 +50,7 @@ export function isTabRequestsChannel(type: unknown): type is (typeof TAB_CHANNEL
 export const webRequestRouteHost: RequestRouteHost = {
   transportFor: (_placeBackendId, workspaceId) =>
     createDelegatingRequestTransport({ wire: webDelegatedWire, workspaceId, jars: cookieJarFor }),
+  resolveScriptRunner: resolveInteractiveScriptRunner,
   // The tab's live-frame sink — the in-tab fan-out `useLiveSendStream` reads.
   emitStreamEvent: (event) => broadcastLocal('requestStreamEvent', event),
 };

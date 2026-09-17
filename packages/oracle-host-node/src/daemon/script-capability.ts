@@ -14,6 +14,7 @@ export {
   type HostScriptRunOptions,
   type ResolvedScriptRunner,
   readScriptExecutionModeSlot,
+  resolveInteractiveScriptRunner,
   resolveScriptRunner,
   resolveSessionScriptHost,
   setHostScriptCapabilities,

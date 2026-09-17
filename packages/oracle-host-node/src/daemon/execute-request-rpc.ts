@@ -24,7 +24,7 @@ import { type ExecuteRequestRouteResult, executeRequestRoute } from '@openheader
 import { delegatedWireFor } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { cookieJarFor } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
-import { resolveScriptRunner } from './script-capability';
+import { resolveInteractiveScriptRunner } from './script-capability';
 
 export type ExecuteRequestRpcResult = ExecuteRequestRouteResult;
 
@@ -50,8 +50,7 @@ export function createNodeRequestRouteHost(options: NodeRequestRouteHostOptions 
       placeBackendId !== undefined
         ? createDelegatingRequestTransport({ wire: delegatedWireFor(placeBackendId), workspaceId, jars: cookieJarFor })
         : ownTransport,
-    resolveScriptRunner: (input) =>
-      resolveScriptRunner({ workspaceId: input.workspaceId, hostContext: 'interactive', forwarded: input.forwarded }),
+    resolveScriptRunner: resolveInteractiveScriptRunner,
     emitStreamEvent: options.emitStreamEvent ?? broadcastStreamFrameLocally,
   };
 }

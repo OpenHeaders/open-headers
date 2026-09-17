@@ -7,6 +7,7 @@ import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import '@/host/install-capabilities';
+import '@/host/install-script-sandbox';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
