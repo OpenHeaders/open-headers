@@ -1,7 +1,8 @@
 /**
- * The frame's scope as every session route reads it, and the pin
- * rules every route applies — verbatim `executeRequest`'s: a session
- * runs UNPINNED (`workspaceId: null`, the Active-bound module mirrors
+ * The frame's scope as every execute route reads it — the HTTP send
+ * (`live/request-route/`) and the three session Connects
+ * (`live/session-route/`) — and the pin rules every route applies: a
+ * send or session runs UNPINNED (`workspaceId: null`, the Active-bound module mirrors
  * with their environment pointer) when the caller's workspace is this
  * host's runtime-Active one or unstated, PINNED to a foreign workspace
  * (a peer-forwarded frame — its scripts run Safe unconditionally),
@@ -11,20 +12,21 @@
  * active one.
  */
 
-import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
-import { executionPlaceBackendIdOf } from '../execution-place-target';
+import { peekActiveWorkspaceId } from '../workspace/extension-workspace-store';
+import { executionPlaceBackendIdOf } from './execution-place-target';
 
-export interface SessionRouteScope {
+export interface ExecuteRouteScope {
   /** Tri-state: string pins an env, `null` runs env-free, absent defers. */
   environmentId: string | null | undefined;
   requestedWorkspaceId: string | undefined;
-  /** Caller-minted — required, a session is interactive. */
+  /** Caller-minted — the live frames' tag and the Stop handle;
+   *  required for a session (interactive), optional for a send. */
   sendId: string | undefined;
   /** The frame's place by explicit backend id; absent = this host's own socket. */
   placeBackendId: string | undefined;
 }
 
-export function sessionRouteScope(message: Record<string, unknown>): SessionRouteScope {
+export function executeRouteScope(message: Record<string, unknown>): ExecuteRouteScope {
   return {
     environmentId:
       typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined,
@@ -37,7 +39,7 @@ export function sessionRouteScope(message: Record<string, unknown>): SessionRout
 /** The pinned run: the executor's `workspaceId` (null = unpinned),
  *  the workspace storage reads and the gate use, and whether the
  *  frame is a peer's (a foreign workspace). */
-export interface SessionRunScope {
+export interface ExecuteRunScope {
   workspaceId: string | null;
   readWorkspaceId: string;
   forwarded: boolean;
@@ -45,7 +47,7 @@ export interface SessionRunScope {
 
 /** The pin rules over the host's active workspace — null when the
  *  host has none and the frame names none (a tab before adoption). */
-export function pinSessionScope(scope: SessionRouteScope): SessionRunScope | null {
+export function pinExecuteScope(scope: ExecuteRouteScope): ExecuteRunScope | null {
   const activeWorkspaceId = peekActiveWorkspaceId();
   const { environmentId, requestedWorkspaceId } = scope;
   const readWorkspaceId = requestedWorkspaceId ?? activeWorkspaceId;

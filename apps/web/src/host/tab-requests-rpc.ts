@@ -2,38 +2,30 @@
  * The web tab's own HTTP send — the Execution Place plan's Phase W:
  * the tab is a CONTEXT. `executeRequest` / `executeGraphqlRequest`
  * resolve IN the tab against its synced mirrors (the workspace, its
- * environment pointer, its live values, its files, its own vault),
- * the request rides the host-neutral step runner exactly as the
- * daemon's Send does, and only the socket moves: the delegating
- * transport ships the resolved frame to the serving daemon — the
- * workspace's server place by construction — over the tab's one wire
- * (`delegated-wire.ts`), the daemon's live frames feed the runner's
+ * environment pointer, its live values, its files, its own vault) over
+ * the host-neutral request route every send host runs
+ * (`@openheaders/oracle/live/request-route`), and only the socket
+ * moves: this module is the tab's seam into that route — every send
+ * rides the delegating transport toward the serving daemon (the
+ * workspace's server place by construction; a frame naming a place
+ * names this one) over the tab's one wire (`delegated-wire.ts`) with
+ * the tab's jar (in memory, per workspace, gone with the tab — the jar
+ * key never rides), the daemon's live frames feed the runner's
  * observer and the tab's own emitter re-broadcasts them under the
- * caller's send id. The cookie jar is the tab's (in memory, per
- * workspace, gone with the tab — the jar key never rides), so the jar
- * inspection trio answers here too. Scripts do not run in the tab
- * until the sandbox slice lands — the Settings tab's fact sheet says
- * so; the step runner is scriptless by construction.
+ * caller's send id. Scripts do not run in the tab until the sandbox
+ * slice lands — the seam resolves no runner and the Settings tab's
+ * fact sheet says so.
  *
- * Result discipline is the daemon's: a run that fails before or on
- * the wire resolves `success: true` with an error SNAPSHOT (the
- * daemon's opt-in refusal rides the transport's classified failure
- * and lands there verbatim); `success: false` is reserved for missing
- * input and unexpected throws. A Stop hits the in-tab registry first;
- * a miss forwards up the wire for a forwarded gRPC invoke's exchange.
+ * The jar inspection trio answers here too, from the tab's own jars.
+ * A Stop hits the in-tab registry first; a miss forwards up the wire
+ * for a forwarded gRPC invoke's exchange.
  */
 
-import { GraphqlRequestSchema } from '@openheaders/core/schemas';
-import type { ExecutedRequestSnapshot, GraphqlRequest, Request } from '@openheaders/core/types';
-import { getRequest } from '@openheaders/oracle/entity/request-store';
-import { compileGraphqlRequest } from '@openheaders/oracle/live/graphql-exec/execute';
 import { cookieJarFor, peekCookieJar } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
-import { type ExecuteStreamOptions, errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
-import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
-import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
-import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import type { RequestRouteHost } from '@openheaders/oracle/live/request-route/host';
+import { executeGraphqlRequestRoute, executeRequestRoute } from '@openheaders/oracle/live/request-route/route';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { webDelegatedWire } from './delegated-wire';
 import { broadcastLocal } from './web-broadcast';
@@ -52,16 +44,13 @@ export function isTabRequestsChannel(type: unknown): type is (typeof TAB_CHANNEL
   return typeof type === 'string' && (TAB_CHANNELS as readonly string[]).includes(type);
 }
 
-export interface ExecuteRequestRpcResult {
-  success: boolean;
-  snapshot?: ExecutedRequestSnapshot;
-  error?: string;
-}
-
-/** The tab's live-frame sink — the in-tab fan-out `useLiveSendStream` reads. */
-function emitStreamFrameLocally(event: unknown): void {
-  broadcastLocal('requestStreamEvent', event);
-}
+/** The tab's seam into the shared request route — see the module doc. */
+export const webRequestRouteHost: RequestRouteHost = {
+  transportFor: (_placeBackendId, workspaceId) =>
+    createDelegatingRequestTransport({ wire: webDelegatedWire, workspaceId, jars: cookieJarFor }),
+  // The tab's live-frame sink — the in-tab fan-out `useLiveSendStream` reads.
+  emitStreamEvent: (event) => broadcastLocal('requestStreamEvent', event),
+};
 
 /**
  * Dispatch one tab-answered request channel. Only call for channels
@@ -73,9 +62,9 @@ export async function dispatchTabRequestsRpc(
 ): Promise<unknown> {
   switch (type) {
     case 'executeRequest':
-      return handleExecuteRequestRpc(message);
+      return executeRequestRoute(message, webRequestRouteHost);
     case 'executeGraphqlRequest':
-      return handleExecuteGraphqlRequestRpc(message);
+      return executeGraphqlRequestRoute(message, webRequestRouteHost);
     case 'abortRequestSend':
       return handleAbortRequestSendRpc(message);
     case 'getCookieJarSummary':
@@ -96,86 +85,6 @@ export async function dispatchTabRequestsRpc(
  *  active one (the key an unpinned send runs under). */
 function jarKeyOf(message: Record<string, unknown>): string {
   return typeof message.workspaceId === 'string' ? message.workspaceId : (peekActiveWorkspaceId() ?? 'default');
-}
-
-export async function handleExecuteRequestRpc(message: Record<string, unknown>): Promise<ExecuteRequestRpcResult> {
-  const requestUid = typeof message.requestUid === 'string' ? message.requestUid : undefined;
-  const draft = message.draft as Request | undefined;
-  let request: Request | undefined;
-  if (requestUid) {
-    const loaded = getRequest(requestUid);
-    if (!loaded) return { success: true, snapshot: errorSnapshot(`Request ${requestUid} not found`) };
-    request = loaded;
-  } else {
-    request = draft;
-  }
-  if (!request) return { success: false, error: 'No request or draft provided' };
-  return runTabRequest(request, message);
-}
-
-export async function handleExecuteGraphqlRequestRpc(
-  message: Record<string, unknown>,
-): Promise<ExecuteRequestRpcResult> {
-  const graphqlRequestUid = typeof message.graphqlRequestUid === 'string' ? message.graphqlRequestUid : undefined;
-  const draft = message.draft as GraphqlRequest | undefined;
-  const operationName = typeof message.operationName === 'string' ? message.operationName : undefined;
-  try {
-    let entity: GraphqlRequest | undefined;
-    if (graphqlRequestUid) {
-      const workspaceId = peekActiveWorkspaceId();
-      if (workspaceId === null) return { success: true, snapshot: errorSnapshot('No active workspace') };
-      const all = await hostStorage.getValidatedArray(wsKeys(workspaceId).graphqlRequests, GraphqlRequestSchema);
-      const loaded = all.find((r) => r.uid === graphqlRequestUid);
-      if (!loaded) {
-        return { success: true, snapshot: errorSnapshot(`GraphQL request ${graphqlRequestUid} not found`) };
-      }
-      entity = loaded;
-    } else {
-      entity = draft;
-    }
-    if (!entity) return { success: false, error: 'No GraphQL request or draft provided' };
-    const compiled = compileGraphqlRequest(entity, operationName !== undefined ? { operationName } : {});
-    return await runTabRequest(compiled, message);
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
-  }
-}
-
-/**
- * The run leg: unpinned against the tab's Active-bound mirrors (the
- * active environment pointer rides them; an explicit `null` on the
- * frame is the caller's "No environment" and pins the active
- * workspace env-free, the daemon's rule), the delegating transport
- * toward the serving daemon with the tab's jar, the refresh hook, the
- * live frames under the caller's send id.
- */
-async function runTabRequest(request: Request, message: Record<string, unknown>): Promise<ExecuteRequestRpcResult> {
-  const activeWorkspaceId = peekActiveWorkspaceId();
-  if (activeWorkspaceId === null) return { success: true, snapshot: errorSnapshot('No active workspace') };
-  const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
-  const stream: ExecuteStreamOptions | undefined =
-    sendId !== undefined ? { sendId, emitFrame: emitStreamFrameLocally } : undefined;
-  const environmentId =
-    typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
-  const workspaceId = environmentId === null ? activeWorkspaceId : null;
-  const transport = createDelegatingRequestTransport({
-    wire: webDelegatedWire,
-    workspaceId: activeWorkspaceId,
-    jars: cookieJarFor,
-  });
-  try {
-    const refreshOAuth = buildRefreshOAuthHook(workspaceId ?? undefined, transport);
-    const snapshot = await runStepRequest(request, {
-      workspaceId,
-      environmentId,
-      transport,
-      refreshOAuth,
-      ...(stream !== undefined ? { stream } : {}),
-    });
-    return { success: true, snapshot };
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
-  }
 }
 
 /** Stop — the in-tab send by its caller-minted id first; a miss is a

@@ -61,6 +61,7 @@ vi.mock('../../../src/live/request-exec/oauth-refresh', () => ({
   },
 }));
 
+import { executeRouteScope, pinExecuteScope } from '../../../src/live/execute-route-scope';
 import type { MqttByteTransport } from '../../../src/live/mqtt-exec/transport';
 import type { RequestTransport } from '../../../src/live/request-exec/transport';
 import {
@@ -75,7 +76,6 @@ import {
   isSessionRiderChannel,
   isWsSessionRiderChannel,
 } from '../../../src/live/session-route/riders';
-import { pinSessionScope, sessionRouteScope } from '../../../src/live/session-route/scope';
 import {
   executeGraphqlSubscriptionRoute,
   executeWebSocketRequestRoute,
@@ -239,29 +239,29 @@ describe('the session route — the host seam', () => {
 
 describe('the session route — the pin rules', () => {
   it('runs unpinned on the active workspace, pinned on a foreign one, and pinned env-free on an explicit No environment', () => {
-    expect(pinSessionScope(sessionRouteScope({}))).toEqual({
+    expect(pinExecuteScope(executeRouteScope({}))).toEqual({
       workspaceId: null,
       readWorkspaceId: 'ws-active',
       forwarded: false,
     });
-    expect(pinSessionScope(sessionRouteScope({ workspaceId: 'ws-active', environmentId: 'env-1' }))).toEqual({
+    expect(pinExecuteScope(executeRouteScope({ workspaceId: 'ws-active', environmentId: 'env-1' }))).toEqual({
       workspaceId: null,
       readWorkspaceId: 'ws-active',
       forwarded: false,
     });
-    expect(pinSessionScope(sessionRouteScope({ workspaceId: 'ws-peer' }))).toEqual({
+    expect(pinExecuteScope(executeRouteScope({ workspaceId: 'ws-peer' }))).toEqual({
       workspaceId: 'ws-peer',
       readWorkspaceId: 'ws-peer',
       forwarded: true,
     });
-    expect(pinSessionScope(sessionRouteScope({ environmentId: null }))).toEqual({
+    expect(pinExecuteScope(executeRouteScope({ environmentId: null }))).toEqual({
       workspaceId: 'ws-active',
       readWorkspaceId: 'ws-active',
       forwarded: false,
     });
     h.activeWorkspaceId = null;
-    expect(pinSessionScope(sessionRouteScope({}))).toBeNull();
-    expect(pinSessionScope(sessionRouteScope({ workspaceId: 'ws-peer' }))?.readWorkspaceId).toBe('ws-peer');
+    expect(pinExecuteScope(executeRouteScope({}))).toBeNull();
+    expect(pinExecuteScope(executeRouteScope({ workspaceId: 'ws-peer' }))?.readWorkspaceId).toBe('ws-peer');
   });
 
   it('the executor receives the pinned workspace and the environment tri-state verbatim', async () => {

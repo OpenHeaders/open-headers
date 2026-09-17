@@ -18,9 +18,14 @@
 import { MqttRequestSchema } from '@openheaders/core/schemas';
 import type { ExecutedMqttSnapshot, MqttRequest } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '../../storage';
+import {
+  executeRouteScope,
+  NO_ACTIVE_WORKSPACE_MESSAGE,
+  NO_SEND_ID_MESSAGE,
+  pinExecuteScope,
+} from '../execute-route-scope';
 import { errorMqttSnapshot, executeMqttSession } from '../mqtt-exec/execute';
 import type { SessionRouteHost } from './host';
-import { NO_ACTIVE_WORKSPACE_MESSAGE, NO_SEND_ID_MESSAGE, pinSessionScope, sessionRouteScope } from './scope';
 
 export interface ExecuteMqttSessionRouteResult {
   success: boolean;
@@ -37,10 +42,10 @@ export async function executeMqttRequestRoute(
 ): Promise<ExecuteMqttSessionRouteResult> {
   const mqttRequestUid = typeof message.mqttRequestUid === 'string' ? message.mqttRequestUid : undefined;
   const draft = message.draft as MqttRequest | undefined;
-  const scope = sessionRouteScope(message);
+  const scope = executeRouteScope(message);
   if (scope.sendId === undefined) return { success: false, error: NO_SEND_ID_MESSAGE };
   try {
-    const pinned = pinSessionScope(scope);
+    const pinned = pinExecuteScope(scope);
     if (pinned === null) return { success: true, snapshot: errorMqttSnapshot(NO_ACTIVE_WORKSPACE_MESSAGE) };
     const { workspaceId, readWorkspaceId, forwarded } = pinned;
 

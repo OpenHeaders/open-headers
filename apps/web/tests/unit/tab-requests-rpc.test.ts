@@ -1,44 +1,32 @@
 /**
- * The web tab's own HTTP send (Phase W) — the handlers' laws: the tab
- * owns exactly the send, its Stop and the jar trio; a Send resolves
- * IN the tab through the step runner over the delegating transport
- * toward the serving daemon with the tab's jar and the caller's send
- * id for the live frames; the daemon's rule for the environment
- * tri-state (an explicit null pins the active workspace env-free, an
- * absent pointer runs unpinned); a GraphQL Query compiles ONCE into
- * the same run; a tab with no active workspace, or a missing entity,
- * answers an error SNAPSHOT; the Stop hits the in-tab registry first
- * and forwards a miss up the wire; the jar trio answers from the
+ * The web tab's own HTTP send (Phase W) — the tab's seam into the
+ * shared request route: the tab owns exactly the send, its Stop and
+ * the jar trio; every send rides the delegating transport toward the
+ * serving daemon with the tab's jar and the read workspace as the
+ * gate's subject, whatever place the frame names; the live frames fan
+ * out on the in-tab broadcast; no script runner is resolved
+ * (scriptless until the sandbox slice); a Send and a Query reach the
+ * shared route with the tab's seam; the Stop hits the in-tab registry
+ * first and forwards a miss up the wire; the jar trio answers from the
  * tab's own jars.
  */
 
+import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import type { Request } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   activeWorkspaceId: 'ws-tab' as string | null,
-  request: null as Request | null,
-  graphqlRequests: [] as unknown[],
   stopped: false,
-  runs: [] as unknown[],
   transports: [] as unknown[],
+  routed: [] as { route: string; message: unknown; host: unknown }[],
 }));
 
 vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   peekActiveWorkspaceId: () => h.activeWorkspaceId,
 }));
-vi.mock('@openheaders/oracle/entity/request-store', () => ({
-  getRequest: (uid: string) => (h.request?.uid === uid ? h.request : undefined),
-}));
-vi.mock('@openheaders/oracle/storage', () => ({
-  hostStorage: { getValidatedArray: async () => h.graphqlRequests },
-  wsKeys: (workspaceId: string) => ({ graphqlRequests: `${workspaceId}:graphqlRequests` }),
-}));
 vi.mock('@openheaders/oracle/live/request-exec/send-stream', () => ({
   stopActiveSend: () => h.stopped,
-}));
-vi.mock('@openheaders/oracle/live/request-exec/oauth-refresh', () => ({
-  buildRefreshOAuthHook: () => async () => null,
 }));
 vi.mock('@openheaders/oracle/live/request-exec/delegating-transport', () => ({
   createDelegatingRequestTransport: (options: unknown) => {
@@ -46,19 +34,24 @@ vi.mock('@openheaders/oracle/live/request-exec/delegating-transport', () => ({
     return { send: async () => ({}) };
   },
 }));
-vi.mock('@openheaders/oracle/live/request-exec/run-step-request', () => ({
-  runStepRequest: async (request: Request, options: unknown) => {
-    h.runs.push({ request, options });
-    return { status: 200, error: null, url: request.url };
+vi.mock('@openheaders/oracle/live/request-route/route', () => ({
+  executeRequestRoute: async (message: unknown, host: unknown) => {
+    h.routed.push({ route: 'request', message, host });
+    return { success: true };
+  },
+  executeGraphqlRequestRoute: async (message: unknown, host: unknown) => {
+    h.routed.push({ route: 'graphql', message, host });
+    return { success: true };
   },
 }));
 
 import { cookieJarFor, resetCookieJars } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { webDelegatedWire } from '@/host/delegated-wire';
-import { dispatchTabRequestsRpc, isTabRequestsChannel } from '@/host/tab-requests-rpc';
+import { dispatchTabRequestsRpc, isTabRequestsChannel, webRequestRouteHost } from '@/host/tab-requests-rpc';
+import { subscribeLocal } from '@/host/web-broadcast';
 import { handleWireRpcResponseFrame, setWireRpcSender } from '@/host/wire-rpc';
 
-const REQUEST = {
+const REQUEST: Request = {
   schemaVersion: 5,
   uid: 'req0001',
   path: 'requests/items-req0001',
@@ -69,10 +62,7 @@ const REQUEST = {
   params: [],
   auth: { type: 'none' },
   body: { type: 'none' },
-} as unknown as Request;
-
-type Run = { request: Request; options: Record<string, unknown> };
-type TransportOptions = { wire: unknown; workspaceId: string; jars?: unknown };
+};
 
 describe('tab-requests-rpc', () => {
   let sent: Record<string, unknown>[];
@@ -80,11 +70,9 @@ describe('tab-requests-rpc', () => {
   beforeEach(() => {
     sent = [];
     h.activeWorkspaceId = 'ws-tab';
-    h.request = REQUEST;
-    h.graphqlRequests = [];
     h.stopped = false;
-    h.runs = [];
     h.transports = [];
+    h.routed = [];
     resetCookieJars();
     setWireRpcSender((message) => {
       sent.push(message);
@@ -107,84 +95,40 @@ describe('tab-requests-rpc', () => {
     expect(isTabRequestsChannel(undefined)).toBe(false);
   });
 
-  it('runs a Send in the tab over the delegating transport toward the daemon, with the tab jar and the caller send id', async () => {
-    const result = await dispatchTabRequestsRpc('executeRequest', {
+  it('hands every send the delegating transport toward the serving daemon with the tab jar, whatever place the frame names', () => {
+    webRequestRouteHost.transportFor(undefined, 'ws-tab');
+    webRequestRouteHost.transportFor('some-other-backend', 'ws-peer');
+    expect(h.transports).toEqual([
+      { wire: webDelegatedWire, workspaceId: 'ws-tab', jars: cookieJarFor },
+      { wire: webDelegatedWire, workspaceId: 'ws-peer', jars: cookieJarFor },
+    ]);
+  });
+
+  it('fans the live frames out on the in-tab broadcast, and resolves no script runner', () => {
+    const frames: unknown[] = [];
+    const release = subscribeLocal('requestStreamEvent', (event) => frames.push(event));
+    const frame: RequestStreamEventWire = { sendId: 's-1', seq: 0, kind: 'done' };
+    webRequestRouteHost.emitStreamEvent(frame);
+    expect(frames).toEqual([frame]);
+    release();
+    expect(webRequestRouteHost.resolveScriptRunner).toBeUndefined();
+  });
+
+  it('routes a Send and a Query to the shared route with the tab seam', async () => {
+    const send = await dispatchTabRequestsRpc('executeRequest', {
       type: 'executeRequest',
       draft: REQUEST,
-      sendId: 'send-1',
+      sendId: 's-1',
     });
-    expect(result).toEqual({ success: true, snapshot: { status: 200, error: null, url: REQUEST.url } });
-    const transport = h.transports[0] as TransportOptions;
-    expect(transport.wire).toBe(webDelegatedWire);
-    expect(transport.workspaceId).toBe('ws-tab');
-    expect(transport.jars).toBe(cookieJarFor);
-    const run = h.runs[0] as Run;
-    expect(run.request).toBe(REQUEST);
-    // Unpinned against the Active-bound mirrors; the pointer defers.
-    expect(run.options.workspaceId).toBeNull();
-    expect(run.options.environmentId).toBeUndefined();
-    expect((run.options.stream as { sendId: string }).sendId).toBe('send-1');
-  });
-
-  it('loads a saved request by uid, and answers an error snapshot for a missing one', async () => {
-    await dispatchTabRequestsRpc('executeRequest', { type: 'executeRequest', requestUid: 'req0001' });
-    expect((h.runs[0] as Run).request).toBe(REQUEST);
-    const missing = (await dispatchTabRequestsRpc('executeRequest', {
-      type: 'executeRequest',
-      requestUid: 'nope',
-    })) as {
-      success: boolean;
-      snapshot: { error: string | null };
-    };
-    expect(missing.success).toBe(true);
-    expect(missing.snapshot.error).toBe('Request nope not found');
-    expect(await dispatchTabRequestsRpc('executeRequest', { type: 'executeRequest' })).toEqual({
-      success: false,
-      error: 'No request or draft provided',
-    });
-  });
-
-  it('an explicit No-environment pins the active workspace env-free; a tab with no active workspace answers honestly', async () => {
-    await dispatchTabRequestsRpc('executeRequest', { type: 'executeRequest', draft: REQUEST, environmentId: null });
-    const pinned = h.runs[0] as Run;
-    expect(pinned.options.workspaceId).toBe('ws-tab');
-    expect(pinned.options.environmentId).toBeNull();
-    h.activeWorkspaceId = null;
-    const result = (await dispatchTabRequestsRpc('executeRequest', { type: 'executeRequest', draft: REQUEST })) as {
-      success: boolean;
-      snapshot: { error: string | null };
-    };
-    expect(result.success).toBe(true);
-    expect(result.snapshot.error).toBe('No active workspace');
-    expect(h.runs).toHaveLength(1);
-  });
-
-  it('compiles a GraphQL Query once into the same run, by draft or by uid', async () => {
-    const entity = {
-      schemaVersion: 5,
-      uid: 'gqrq0001',
-      path: 'requests/viewer-gqrq0001',
-      name: 'Viewer',
-      url: 'https://api.openheaders.io/graphql',
-      query: 'query Viewer { viewer { id } }',
-      headers: [],
-      auth: { type: 'inherit' },
-    };
-    await dispatchTabRequestsRpc('executeGraphqlRequest', { type: 'executeGraphqlRequest', draft: entity });
-    const compiled = (h.runs[0] as Run).request;
-    expect(compiled.method).toBe('POST');
-    expect(compiled.uid).toBe('gqrq0001');
-    h.graphqlRequests = [entity];
-    await dispatchTabRequestsRpc('executeGraphqlRequest', {
+    const query = await dispatchTabRequestsRpc('executeGraphqlRequest', {
       type: 'executeGraphqlRequest',
-      graphqlRequestUid: 'gqrq0001',
+      sendId: 's-2',
     });
-    expect((h.runs[1] as Run).request.uid).toBe('gqrq0001');
-    const missing = (await dispatchTabRequestsRpc('executeGraphqlRequest', {
-      type: 'executeGraphqlRequest',
-      graphqlRequestUid: 'nope',
-    })) as { snapshot: { error: string | null } };
-    expect(missing.snapshot.error).toBe('GraphQL request nope not found');
+    expect(send).toEqual({ success: true });
+    expect(query).toEqual({ success: true });
+    expect(h.routed.map((r) => r.route)).toEqual(['request', 'graphql']);
+    for (const r of h.routed) expect(r.host).toBe(webRequestRouteHost);
+    expect((h.routed[0].message as { draft: Request }).draft).toBe(REQUEST);
   });
 
   it('stops an in-tab send first, and forwards a miss up the wire for a forwarded invoke', async () => {

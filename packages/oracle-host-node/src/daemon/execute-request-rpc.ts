@@ -1,212 +1,69 @@
 /**
- * Workbench `executeRequest` route — the node host's user-facing Send.
- * Answers the same bridge channel the extension SW handles, over the
- * same host-neutral orchestration every node send rides
- * (`runStepRequest`: resolve → TOTP cooldown gate → wire → cooldown
- * record), so every per-request knob and the cookie jar behave
- * identically to a chain or MCP send.
- *
- * Scripts run when the host shell registered a script runtime (the
- * desktop's brokers via `setHostScriptCapabilities`):
- * the run rides the host-neutral `StepScriptRunner` port, the snapshot
- * carries `scripts` with the execution mode stamped, and the response
- * surface renders it exactly as the extension does. A host without the
- * capability (the headless daemon) stays scriptless — `snapshot
- * .scripts` stays null and the surface degrades cleanly. A
- * peer-forwarded send (frame stamped with a foreign workspace) still
- * runs scripts, but only ever Safe — it never consults this host's
- * mode slot. An expired OAuth bundle refreshes at the token endpoint
- * before attaching (the host-neutral refresh runner, the extension's
- * exact semantics): a recoverable refresh failure attaches the stale
- * bundle and lets the target's 401 speak, never failing the run. No
- * rate limiter on the SEND itself — a user-initiated Send is
- * deliberate, matching the extension's user-facing executor — while
- * the refresh POST inside pays the shared per-origin token bucket,
- * exactly as it does everywhere.
- *
- * Runs unpinned (`workspaceId: null`) when the caller's workspace is
- * this host's runtime-Active one (or unstated) — the run resolves
- * against the Active-bound module mirrors, which carry the active
- * environment pointer and the Active live registry for `{{live.*}}`.
- * A forwarded send stamped with a DIFFERENT workspace runs pinned, the
- * chain-dispatch path: explicit env, per-workspace scopes, and the
- * documented `{{live.*}}` degradation under a null env.
- *
- * `environmentId` is tri-state on the channel: absent defers to this
- * host's pointer (the unpinned run's mirrors carry it), a string pins
- * that env, and explicit `null` is the caller's "No environment" state.
- * An explicit none forces the PINNED dispatch even for the active
- * workspace — the Active mirrors ARE the state the caller turned off
- * (their live registry keys `{{live.*}}` rows on this host's active
- * env), while the pinned scope resolves env-free with the
- * `(workspace, null)` live mirror, exactly the caller's own view.
- *
- * `executionPlace` (the Execution Place plan, Phase C) names the
- * backend this host DELEGATES the round-trip to — the workspace's
- * server, by explicit id — while everything else stays here: this
- * host is the context, the place only opens the socket (the
- * delegating transport over this host's backend client plane). The
- * peer plane strips the field off a peer's frame before it reaches
- * here: a context send from a peer never hops onward.
+ * Workbench `executeRequest` route — the node host's seam into the
+ * host-neutral request route (`@openheaders/oracle/live/request-route`),
+ * the session routes' twin: the node request transport when the frame
+ * names no place, the delegating transport over the backend client
+ * plane toward an EXPLICIT backend id when it does (the Execution
+ * Place plan — this host is the context, the place only opens the
+ * socket; the jar registry is the node transport's own, so a delegated
+ * send reads and writes the same per-workspace jar), the host's script
+ * capability under the mode gate (`resolveScriptRunner`: a forwarded
+ * send runs Safe or not at all; a host without a runtime — the
+ * headless daemon — runs scriptless), and the host's local broadcast
+ * as the live-frame sink (desktop: `webContents.send` to every open
+ * renderer). A peer-forwarded send passes its own sink instead, so
+ * frames reach the CALLING surface across the backend wire (see
+ * `peer-requests-rpc.ts`).
  */
 
 import { hostBridge, type RequestStreamEventWire } from '@openheaders/core/bridge';
-import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
-import { getRequest } from '@openheaders/oracle/entity/request-store';
-import { executionPlaceBackendIdOf } from '@openheaders/oracle/live/execution-place-target';
 import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
-import { type ExecuteStreamOptions, errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
-import { buildRefreshOAuthHook } from '@openheaders/oracle/live/request-exec/oauth-refresh';
-import { runInteractiveSend } from '@openheaders/oracle/live/request-exec/run-interactive-send';
-import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
-import { collectScriptChain } from '@openheaders/oracle/live/request-exec/script-chain';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
+import type { RequestRouteHost } from '@openheaders/oracle/live/request-route/host';
+import { type ExecuteRequestRouteResult, executeRequestRoute } from '@openheaders/oracle/live/request-route/route';
 import { delegatedWireFor } from '@openheaders/oracle/sync/client/delegated-wire-client';
-import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { cookieJarFor } from '../live/cookie-jar';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { resolveScriptRunner } from './script-capability';
 
-export interface ExecuteRequestRpcResult {
-  success: boolean;
-  snapshot?: ExecutedRequestSnapshot;
-  error?: string;
-}
+export type ExecuteRequestRpcResult = ExecuteRequestRouteResult;
 
 // Stateless wrapper — the dispatcher cache and cookie-jar registry are
 // module-global in the transport layer, so this instance shares every
 // agent tuple and jar with the chain runner's and the MCP tools'.
 const nodeTransport = createNodeRequestTransport();
 
-/**
- * Default live-frame sink for an in-process caller — the host's local
- * broadcast (desktop: `webContents.send` to every open renderer). A
- * peer-forwarded send passes its own sink instead, so frames reach the
- * CALLING surface across the backend wire (see `peer-requests-rpc.ts`).
- */
 function broadcastStreamFrameLocally(event: RequestStreamEventWire): void {
   hostBridge.broadcast('requestStreamEvent', event);
 }
 
-/**
- * Handle one `executeRequest` bridge message. `requestUid` takes
- * precedence over `draft` (the channel contract); a run that fails
- * before or on the wire still resolves `success: true` with an error
- * snapshot — the response surface renders `snapshot.error` — and
- * `success: false` is reserved for missing input and unexpected throws,
- * mirroring the extension SW handler.
- *
- * A frame carrying a `sendId` runs in streaming capture mode: live
- * `requestStreamEvent` frames go to `emitStreamFrame` while the body
- * streams in, and `abortRequestSend` can stop the exchange (the
- * host-neutral registry in oracle's `send-stream`).
- */
-export async function handleExecuteRequestRpc(
+export interface NodeRequestRouteHostOptions {
+  /** Injectable for tests and the peer plane; default the node transport and the local broadcast. */
+  ownTransport?: RequestTransport;
+  emitStreamEvent?: (event: RequestStreamEventWire) => void;
+}
+
+export function createNodeRequestRouteHost(options: NodeRequestRouteHostOptions = {}): RequestRouteHost {
+  const ownTransport = options.ownTransport ?? nodeTransport;
+  return {
+    transportFor: (placeBackendId, workspaceId) =>
+      placeBackendId !== undefined
+        ? createDelegatingRequestTransport({ wire: delegatedWireFor(placeBackendId), workspaceId, jars: cookieJarFor })
+        : ownTransport,
+    resolveScriptRunner: (input) =>
+      resolveScriptRunner({ workspaceId: input.workspaceId, hostContext: 'interactive', forwarded: input.forwarded }),
+    emitStreamEvent: options.emitStreamEvent ?? broadcastStreamFrameLocally,
+  };
+}
+
+/** Handle one `executeRequest` bridge message through the shared route over this host's seam. */
+export function handleExecuteRequestRpc(
   message: Record<string, unknown>,
   transport: RequestTransport = nodeTransport,
   emitStreamFrame: (event: RequestStreamEventWire) => void = broadcastStreamFrameLocally,
 ): Promise<ExecuteRequestRpcResult> {
-  const requestUid = typeof message.requestUid === 'string' ? message.requestUid : undefined;
-  const draft = message.draft as Request | undefined;
-
-  let request: Request | undefined;
-  if (requestUid) {
-    const loaded = getRequest(requestUid);
-    if (!loaded) return { success: true, snapshot: errorSnapshot(`Request ${requestUid} not found`) };
-    request = loaded;
-  } else {
-    request = draft;
-  }
-  if (!request) return { success: false, error: 'No request or draft provided' };
-  return runRequestRpc(request, message, transport, emitStreamFrame);
-}
-
-/**
- * The run leg of `executeRequest` for an already-loaded request — the
- * pin rules, the script-capability gate, the interactive vs step
- * runner, the mode stamp. Shared with `executeGraphqlRequest`, whose
- * handler compiles its entity into exactly this shape first.
- */
-export async function runRequestRpc(
-  request: Request,
-  message: Record<string, unknown>,
-  ownTransport: RequestTransport = nodeTransport,
-  emitStreamFrame: (event: RequestStreamEventWire) => void = broadcastStreamFrameLocally,
-): Promise<ExecuteRequestRpcResult> {
-  const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
-  const stream: ExecuteStreamOptions | undefined =
-    sendId !== undefined ? { sendId, emitFrame: emitStreamFrame } : undefined;
-  const environmentId =
-    typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
-  const requestedWorkspaceId = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
-  const workspaceId =
-    requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId()
-      ? requestedWorkspaceId
-      : environmentId === null
-        ? getActiveWorkspaceId()
-        : null;
-  // A named place opens the socket on this host's behalf — the
-  // delegating transport over the backend client plane, by explicit
-  // backend id; the resolution, scripts, jar and snapshot stay here
-  // (the jar registry is the node transport's own, so a delegated
-  // send reads and writes the same per-workspace jar).
-  const placeBackendId = executionPlaceBackendIdOf(message);
-  const transport =
-    placeBackendId !== undefined
-      ? createDelegatingRequestTransport({
-          wire: delegatedWireFor(placeBackendId),
-          workspaceId: workspaceId ?? getActiveWorkspaceId(),
-          jars: cookieJarFor,
-        })
-      : ownTransport;
-
-  try {
-    // A frame stamped with a foreign workspace is a peer-forwarded send
-    // — its scripts run Safe unconditionally (never this host's slot).
-    const forwarded = requestedWorkspaceId !== undefined && requestedWorkspaceId !== getActiveWorkspaceId();
-    // The gate spans the full ancestor-first chain — a request with no
-    // own scripts still runs its collection's/folder's slots.
-    const chain = collectScriptChain(request, workspaceId);
-    const hasScripts = chain.pre.length > 0 || chain.post.length > 0;
-    const resolved = hasScripts
-      ? await resolveScriptRunner({
-          workspaceId: workspaceId ?? getActiveWorkspaceId(),
-          hostContext: 'interactive',
-          forwarded,
-        })
-      : null;
-    // With a script runtime, the send rides the interactive pipeline —
-    // LENIENT script semantics, the SW's `executeRequestDraft` twin: a
-    // script failure or failed assertion is recorded on the snapshot,
-    // never mapped onto the run's error. Scriptless sends (and hosts
-    // without the capability, the headless daemon) keep the step
-    // runner — behavior-identical when no script runs.
-    // Refresh-on-expired against the workspace the run resolves in —
-    // the unpinned (null) dispatch reads and persists through the
-    // runtime-Active workspace's store, same as the resolver.
-    const refreshOAuth = buildRefreshOAuthHook(workspaceId ?? undefined, transport);
-    const snapshot = resolved
-      ? await runInteractiveSend(request, {
-          workspaceId,
-          environmentId,
-          transport,
-          scriptRunner: resolved.runner,
-          refreshOAuth,
-          ...(stream !== undefined ? { stream } : {}),
-        })
-      : await runStepRequest(request, {
-          workspaceId,
-          environmentId,
-          transport,
-          refreshOAuth,
-          ...(stream !== undefined ? { stream } : {}),
-        });
-    // Stamp the mode the scripted portion actually ran under — snapshot
-    // attribution, never a live-settings read (the SSL-off precedent).
-    const stamped =
-      resolved && snapshot.scripts ? { ...snapshot, scripts: { ...snapshot.scripts, mode: resolved.mode } } : snapshot;
-    return { success: true, snapshot: stamped };
-  } catch (err) {
-    return { success: false, error: (err as Error).message };
-  }
+  return executeRequestRoute(
+    message,
+    createNodeRequestRouteHost({ ownTransport: transport, emitStreamEvent: emitStreamFrame }),
+  );
 }

@@ -28,17 +28,17 @@ import { compileGraphqlSubscription } from '@openheaders/core/graphql';
 import { GraphqlRequestSchema, WebSocketRequestSchema } from '@openheaders/core/schemas';
 import type { ExecutedWsSnapshot, GraphqlRequest, WebSocketRequest } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '../../storage';
+import {
+  type ExecuteRouteScope,
+  type ExecuteRunScope,
+  executeRouteScope,
+  NO_ACTIVE_WORKSPACE_MESSAGE,
+  NO_SEND_ID_MESSAGE,
+  pinExecuteScope,
+} from '../execute-route-scope';
 import { buildRefreshOAuthHook } from '../request-exec/oauth-refresh';
 import { errorWsSnapshot, executeWsSession } from '../ws-exec/execute';
 import type { SessionRouteHost } from './host';
-import {
-  NO_ACTIVE_WORKSPACE_MESSAGE,
-  NO_SEND_ID_MESSAGE,
-  pinSessionScope,
-  type SessionRouteScope,
-  type SessionRunScope,
-  sessionRouteScope,
-} from './scope';
 
 export interface ExecuteWsSessionRouteResult {
   success: boolean;
@@ -54,8 +54,8 @@ export interface ExecuteWsSessionRouteResult {
  */
 async function runWsSessionRoute(
   request: WebSocketRequest,
-  scope: SessionRouteScope,
-  pinned: SessionRunScope,
+  scope: ExecuteRouteScope,
+  pinned: ExecuteRunScope,
   sendId: string,
   host: SessionRouteHost,
   graphql?: GraphqlWsSubscriptionPlan,
@@ -92,10 +92,10 @@ export async function executeWebSocketRequestRoute(
 ): Promise<ExecuteWsSessionRouteResult> {
   const webSocketRequestUid = typeof message.webSocketRequestUid === 'string' ? message.webSocketRequestUid : undefined;
   const draft = message.draft as WebSocketRequest | undefined;
-  const scope = sessionRouteScope(message);
+  const scope = executeRouteScope(message);
   if (scope.sendId === undefined) return { success: false, error: NO_SEND_ID_MESSAGE };
   try {
-    const pinned = pinSessionScope(scope);
+    const pinned = pinExecuteScope(scope);
     if (pinned === null) return { success: true, snapshot: errorWsSnapshot(NO_ACTIVE_WORKSPACE_MESSAGE) };
     let request: WebSocketRequest | undefined;
     if (webSocketRequestUid) {
@@ -130,10 +130,10 @@ export async function executeGraphqlSubscriptionRoute(
   const graphqlRequestUid = typeof message.graphqlRequestUid === 'string' ? message.graphqlRequestUid : undefined;
   const draft = message.draft as GraphqlRequest | undefined;
   const operationName = typeof message.operationName === 'string' ? message.operationName : undefined;
-  const scope = sessionRouteScope(message);
+  const scope = executeRouteScope(message);
   if (scope.sendId === undefined) return { success: false, error: NO_SEND_ID_MESSAGE };
   try {
-    const pinned = pinSessionScope(scope);
+    const pinned = pinExecuteScope(scope);
     if (pinned === null) return { success: true, snapshot: errorWsSnapshot(NO_ACTIVE_WORKSPACE_MESSAGE) };
     let entity: GraphqlRequest | undefined;
     if (graphqlRequestUid) {
