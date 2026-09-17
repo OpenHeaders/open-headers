@@ -1,0 +1,186 @@
+/**
+ * Host script capability — the seam through which a host's shell hands
+ * the executors a script runtime for pre-request / post-response
+ * scripts and the live sessions' hooks. ONE registry for every host
+ * that runs scripts in its own context: the desktop app registers its
+ * two brokers at boot (Safe over the hidden sandboxed renderer,
+ * Developer over the full-Node worker), the standalone daemon its Safe
+ * fork, the served web tab its Safe sandbox iframe; a host that
+ * registers nothing (the SEA single binary) keeps every send and chain
+ * step scriptless — the honest "scripts don't run here" posture.
+ *
+ * The capability speaks the same contract as the extension's offscreen
+ * host: `runScript` never throws for the callers wired here (the
+ * runner builders below fold transport faults into a failed
+ * `ScriptExecutionResult`), and `hostContext` selects the host-API
+ * tier — `'interactive'` (a user's workbench Send) gets the full
+ * `oh.*` surface, `'chain'` (a workflow step with `runScripts: true`)
+ * gets the read-only tier enforced by the host's broker.
+ *
+ * Mode gate: the per-workspace script execution mode is HOST-LOCAL
+ * (`OH.scriptExecutionModes` — a synced workspace must never carry
+ * Developer mode onto another device). `resolveScriptRunner` consults
+ * the slot only for a LOCAL INTERACTIVE dispatch: a peer-forwarded
+ * send never rides anything but Safe (foreign scripts run Safe or not
+ * at all), and chain steps stay Safe regardless of the slot — the
+ * strict contract and read-only tier are about unattended scheduling,
+ * not just trust. A `'developer'` slot value without a registered
+ * Developer runtime falls back to Safe, and the recorded mode says so
+ * honestly.
+ */
+
+import type { ScriptExecutionMode, ScriptExecutionResult } from '@openheaders/core/scripts';
+import { DEFAULT_SCRIPT_EXECUTION_MODE, readScriptExecutionMode } from '@openheaders/core/scripts';
+import type { RunScriptOptions } from '@openheaders/core/scripts/broker';
+import { hostStorage, OH } from '../../storage';
+import type { SessionScriptHost, StepScriptRunner } from '../request-exec/script-hooks';
+
+/** One script execution the host's broker runs — the broker's own
+ *  option shape: an HTTP one-shot, or one hook call of a live session. */
+export type HostScriptRunOptions = RunScriptOptions;
+
+export interface HostScriptCapability {
+  /** The trust posture this runtime provides. The sandboxed-renderer
+   *  broker is `'safe'`; the full-runtime `utilityProcess` worker is
+   *  `'developer'`. */
+  mode: ScriptExecutionMode;
+  runScript(opts: HostScriptRunOptions): Promise<ScriptExecutionResult>;
+  /** A live session settled — release its runtime context (the
+   *  broker's `endSession`). */
+  endSession(sessionId: string): void;
+}
+
+/** The host's registered runtimes, keyed by the mode each provides. A
+ *  host may register Safe alone (every dispatch runs Safe) or both. A
+ *  Developer-only registration is rejected at install: Safe is the
+ *  fallback every non-interactive dispatch depends on. */
+export type HostScriptCapabilities = Partial<Record<ScriptExecutionMode, HostScriptCapability>>;
+
+let capabilities: HostScriptCapabilities = {};
+
+/** Install (or clear, with `null`) the host's script runtimes. Each
+ *  host's composition root calls this once at boot; tests swap fakes;
+ *  a runtime-less distribution never calls. */
+export function setHostScriptCapabilities(next: HostScriptCapabilities | null): void {
+  if (next?.developer && !next.safe) {
+    throw new Error('script capabilities: a Developer runtime requires a Safe runtime to fall back to');
+  }
+  capabilities = next ?? {};
+}
+
+export function getHostScriptCapability(
+  mode: ScriptExecutionMode = DEFAULT_SCRIPT_EXECUTION_MODE,
+): HostScriptCapability | null {
+  return capabilities[mode] ?? null;
+}
+
+/**
+ * Read the host-local per-workspace mode slot. Absent slot / entry /
+ * unknown value = `'safe'`. Shipped ahead of the chooser UI so it has
+ * somewhere to write; a storage fault reads as the safe default.
+ */
+export async function readScriptExecutionModeSlot(workspaceId: string | null): Promise<ScriptExecutionMode> {
+  try {
+    const modes = await hostStorage.get(OH.scriptExecutionModes);
+    return readScriptExecutionMode(modes, workspaceId);
+  } catch {
+    return DEFAULT_SCRIPT_EXECUTION_MODE;
+  }
+}
+
+export interface ResolvedScriptRunner {
+  runner: StepScriptRunner;
+  /** The mode the run will actually execute under — recorded on the
+   *  executed-run snapshot, never re-read from live settings. */
+  mode: ScriptExecutionMode;
+}
+
+/**
+ * Resolve the script runner for one dispatch, or `null` when this host
+ * has no script runtime. The mode slot is consulted
+ * only for a LOCAL INTERACTIVE dispatch: `forwarded` marks a
+ * peer-forwarded send (foreign scripts run Safe or not at all), and
+ * chain steps stay Safe regardless of the slot — unattended scheduled
+ * runs must not inherit a full-runtime opt-in made for hands-on work.
+ * A `'developer'` slot without a registered Developer runtime resolves
+ * the Safe capability, and the recorded mode says so honestly.
+ */
+export async function resolveScriptRunner(options: {
+  workspaceId: string | null;
+  hostContext: 'interactive' | 'chain';
+  forwarded?: boolean;
+}): Promise<ResolvedScriptRunner | null> {
+  const cap = await resolveCapability(options);
+  if (!cap) return null;
+  return {
+    mode: cap.mode,
+    runner: (input) =>
+      cap
+        .runScript({
+          kind: input.kind,
+          source: input.source,
+          request: input.request,
+          response: input.response,
+          hostContext: options.hostContext,
+        })
+        .catch(runtimeUnavailable),
+  };
+}
+
+/**
+ * Resolve the session script host for one live session, or `null`
+ * when this host has no script runtime. A session is always a LOCAL
+ * INTERACTIVE dispatch or a peer-forwarded one — the same mode gate as
+ * {@link resolveScriptRunner}: the slot is consulted locally, a
+ * forwarded session runs Safe or not at all.
+ */
+export async function resolveSessionScriptHost(options: {
+  workspaceId: string | null;
+  forwarded?: boolean;
+}): Promise<SessionScriptHost | null> {
+  const cap = await resolveCapability({ ...options, hostContext: 'interactive' });
+  if (!cap) return null;
+  return {
+    mode: cap.mode,
+    run: (input) =>
+      cap
+        .runScript({
+          kind: input.kind,
+          source: input.source,
+          sessionId: input.sessionId,
+          hook: input.hook,
+          hostContext: 'interactive',
+        })
+        .catch(runtimeUnavailable),
+    endSession: (sessionId) => cap.endSession(sessionId),
+  };
+}
+
+async function resolveCapability(options: {
+  workspaceId: string | null;
+  hostContext: 'interactive' | 'chain';
+  forwarded?: boolean;
+}): Promise<HostScriptCapability | null> {
+  const requestedMode =
+    options.forwarded === true || options.hostContext === 'chain'
+      ? DEFAULT_SCRIPT_EXECUTION_MODE
+      : await readScriptExecutionModeSlot(options.workspaceId);
+  return capabilities[requestedMode] ?? capabilities[DEFAULT_SCRIPT_EXECUTION_MODE] ?? null;
+}
+
+/** The port contract is "never throw" — a broker/transport fault
+ *  surfaces as a failed script result, which the step runner turns
+ *  into a run failure with the carrier message. */
+function runtimeUnavailable(err: unknown): ScriptExecutionResult {
+  return {
+    executionId: 'script-runtime-unavailable',
+    succeeded: false,
+    error: {
+      name: 'ScriptRuntimeError',
+      message: err instanceof Error ? err.message : String(err),
+    },
+    assertions: [],
+    consoleLog: [],
+    durationMs: 0,
+  };
+}
