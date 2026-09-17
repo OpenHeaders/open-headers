@@ -2,8 +2,9 @@
  * Web host RPC dispatch — the in-process "reactor" the host bridge
  * calls into. The tab oracle lives in the same JS context as the
  * Workbench, so dispatch is a function call: universal host RPCs
- * first, the daemon-answered channels forwarded up the single wire
- * (admin plane, workbench request channels, migration pull hydration),
+ * first, the tab-answered request and session channels (the tab is
+ * the context), the daemon-answered channels forwarded up the single
+ * wire (admin plane, the gRPC channels, migration pull hydration),
  * then the host-neutral sync + awareness channels via
  * {@link dispatchSyncRpc}, and a
  * recognizable rejection for anything only other hosts implement
@@ -15,6 +16,7 @@ import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { dispatchTabRequestsRpc, isTabRequestsChannel } from './tab-requests-rpc';
+import { dispatchTabSessionsRpc, isTabSessionsChannel } from './tab-sessions-rpc';
 import { dispatchExportImportRpc, isExportImportChannel } from './web-export-import-rpc';
 import { fetchMigrationPullState, MIGRATION_GET_STATE_CHANNEL } from './wire-migration-mirror';
 import { forwardRequestsRpc, isForwardedRequestsChannel } from './wire-requests-rpc';
@@ -44,6 +46,12 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   // socket through the delegating transport).
   if (isTabRequestsChannel(type)) {
     return dispatchTabRequestsRpc(type, message);
+  }
+  // The three session Connects and their riders — answered IN the tab
+  // the same way (the executor here over the delegating session
+  // transports; the daemon opens the socket).
+  if (isTabSessionsChannel(type)) {
+    return dispatchTabSessionsRpc(type, message);
   }
   // The gRPC invoke + riders — the daemon's HTTP/2 stack answers as a
   // context send, forwarded up the same wire to the gated peer

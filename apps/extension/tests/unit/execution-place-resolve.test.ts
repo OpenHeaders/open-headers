@@ -36,8 +36,13 @@ const DESKTOP: ExecutionPlaceMarkers = {
 };
 const SERVER_UP = { workspaceServer: { name: 'Acme', connected: true } };
 const SERVER_DOWN = { workspaceServer: { name: 'Acme', connected: false } };
-/** The web tab since Phase W: its serving place, and the HTTP send delegated to it. */
-const WEB: ExecutionPlaceMarkers = { ...DESKTOP, remoteRequestDispatch: 'Acme', delegatedRequestDispatch: true };
+/** The web tab since Phase W: its serving place, the HTTP send and the sessions delegated to it. */
+const WEB: ExecutionPlaceMarkers = {
+  ...DESKTOP,
+  remoteRequestDispatch: 'Acme',
+  delegatedRequestDispatch: true,
+  delegatedSessionDispatch: true,
+};
 /** A browser surface without the workbench's page-realm sockets. */
 const BARE_BROWSER: ExecutionPlaceMarkers = {
   ...EXTENSION,
@@ -121,16 +126,33 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
     expect(resolve('grpc', WEB).state).toBe('ready');
   });
 
-  it('the three session kinds are unsupported with the honest reason — flips with the sessions slice of W', () => {
+  it('the three session kinds run on the serving place as DELEGATED sessions — the executor in the tab, the tcp dial included (Phase W)', () => {
     for (const kind of ['websocket', 'mqtt', 'graphql-subscription'] as const) {
-      expect(resolve(kind, WEB, 'connected', { mqttTransport: 'websocket' })).toEqual({
-        place: 'workspace-server',
-        placeName: 'Acme',
-        state: 'unsupported',
-        reason: { kind: 'session-not-forwarded', name: 'Acme' },
-        cta: null,
-        alternatives: [],
-      });
+      for (const mqttTransport of ['websocket', 'tcp'] as const) {
+        expect(resolve(kind, WEB, 'connected', { mqttTransport })).toEqual({
+          place: 'workspace-server',
+          placeName: 'Acme',
+          state: 'ready',
+          reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+          cta: null,
+          alternatives: [],
+        });
+      }
+    }
+  });
+
+  it('a serving surface whose session Connect does not honour a place keeps the honest not-forwarded row', () => {
+    for (const kind of ['websocket', 'mqtt', 'graphql-subscription'] as const) {
+      expect(resolve(kind, { ...WEB, delegatedSessionDispatch: false }, 'connected', { mqttTransport: 'tcp' })).toEqual(
+        {
+          place: 'workspace-server',
+          placeName: 'Acme',
+          state: 'unsupported',
+          reason: { kind: 'session-not-forwarded', name: 'Acme' },
+          cta: null,
+          alternatives: [],
+        },
+      );
     }
   });
 });

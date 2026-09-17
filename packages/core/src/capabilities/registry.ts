@@ -651,7 +651,10 @@ export interface Capabilities {
    * family (the Execution Place plan, Phase D). The shared reader
    * offers the legs only where this is registered — and through them
    * an mqtt(s):// dial no browser page can make becomes runnable from
-   * the extension with the desktop app connected.
+   * the extension with the desktop app connected. On the web tab
+   * (Phase W) it turns the serving place's session rows from the
+   * honest "not forwarded" state into a delegated session: the tab
+   * runs the executor, the serving daemon opens the socket.
    */
   delegatedSessionDispatch?: () => boolean;
 

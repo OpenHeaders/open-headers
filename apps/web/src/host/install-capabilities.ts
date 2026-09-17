@@ -48,14 +48,16 @@ if (!isPublicView()) {
   // read it.
   registerCapability('remoteRequestDispatch', () => window.location.host);
 
-  // The HTTP send is DELEGATED (the Execution Place plan's Phase W):
-  // this tab is the context — it resolves against its own mirrors and
-  // its own vault and jar — and the serving daemon only opens the
-  // socket (`tab-requests-rpc.ts` over `delegated-wire.ts`). The
-  // reader reads "Runs on <place>" as a delegated send with no
-  // alternatives; the session kinds and gRPC keep their rows until
-  // their slices.
+  // The HTTP send and the three session Connects are DELEGATED (the
+  // Execution Place plan's Phase W): this tab is the context — it
+  // resolves against its own mirrors and its own vault and jar, runs
+  // the session's executor — and the serving daemon only opens the
+  // socket (`tab-requests-rpc.ts` and `tab-sessions-rpc.ts` over
+  // `delegated-wire.ts`). The reader reads "Runs on <place>" as a
+  // delegated send with no alternatives; gRPC keeps its context-send
+  // row until its slice.
   registerCapability('delegatedRequestDispatch', () => true);
+  registerCapability('delegatedSessionDispatch', () => true);
 
   // The web tab owns an origin-scoped daemon session it can drop on its
   // own — surfaced as the settings-menu "Sign out" item. The overlay

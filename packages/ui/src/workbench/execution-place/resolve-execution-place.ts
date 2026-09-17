@@ -13,15 +13,17 @@
  * host — the reader branches off the markers alone.
  *
  * The matrix (S1 rendered today's truth; S2 opened the HTTP legs; W
- * made the web tab a context for HTTP):
+ * made the web tab a context for HTTP and for the sessions):
  *   - a surface whose sends open their sockets on a serving place
  *     (`remoteRequestDispatch` — the web tab) resolves to that server:
  *     HTTP / GraphQL query as a DELEGATED send once the surface honours
  *     a place (`delegatedRequestDispatch` — resolved here, the one
  *     server opens the socket) and as a CONTEXT send (resolved there)
- *     before; gRPC as a context send; the three session kinds as
- *     `unsupported` with the honest "not forwarded yet" reason (the
- *     next W slice flips the row);
+ *     before; the three session kinds as a DELEGATED session once the
+ *     surface honours a place for them (`delegatedSessionDispatch` —
+ *     the executor here, the server opens the socket, a tcp dial
+ *     included) and as `unsupported` with the honest "not forwarded"
+ *     reason before; gRPC as a context send;
  *   - a node runtime runs everything here;
  *   - a browser runtime runs HTTP / GraphQL query here, sessions here
  *     in the page realm (`wsPageSession` / `mqttPageSession`) naming
@@ -127,7 +129,7 @@ export type ExecutionPlaceReason =
   | { kind: 'companion-required' }
   /** An mqtt(s):// session — raw TCP no page can open; needs the desktop app. */
   | { kind: 'tcp-scheme' }
-  /** A session kind on a remote-dispatch surface — the channel is not forwarded yet. */
+  /** A session kind on a remote-dispatch surface whose Connect honours no place. */
   | { kind: 'session-not-forwarded'; name: string | null }
   /** A browser surface with neither an engine nor a page-realm socket for this kind. */
   | { kind: 'no-runtime' }
@@ -221,15 +223,19 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
   const { kind, markers } = input;
   const serving = markers.remoteRequestDispatch;
   if (serving !== null) {
-    if (isSessionKind(kind)) {
+    // Phase W: a serving surface whose send or Connect honours a place
+    // is a CONTEXT of its own — resolved here, the serving place opens
+    // the socket (a delegated send with the one server, no
+    // alternatives; a session's tcp dial included, the place dials raw
+    // TCP). A surface that honours no place for the family keeps the
+    // honest row: the context send for HTTP (resolved there), the
+    // not-forwarded state for a session. gRPC keeps the context-send
+    // row (its channel forwards by construction).
+    const honoured = isSessionKind(kind) ? markers.delegatedSessionDispatch : markers.delegatedRequestDispatch;
+    if (isSessionKind(kind) && !honoured) {
       return remote(serving, 'unsupported', { kind: 'session-not-forwarded', name: serving });
     }
-    // Phase W: a serving surface whose HTTP send honours a place is a
-    // CONTEXT of its own — resolved here, the serving place opens the
-    // socket (a delegated send with the one server, no alternatives);
-    // until then the send is a context send, resolved there. gRPC
-    // keeps the context-send row (its channel forwards by construction).
-    if (kind !== 'grpc' && markers.delegatedRequestDispatch) {
+    if (kind !== 'grpc' && honoured) {
       return remote(serving, 'ready', {
         kind: 'delegated',
         role: 'workspace-server',
