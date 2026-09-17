@@ -7,16 +7,30 @@
  * `requestStreamEvent` frames to the transport's observer (the frame
  * is consumed, never passed to the generic mirror) and an unclaimed
  * id passes onward; the Stop rider forwards as `abortRequestSend`.
+ * The socket family's seam: an OPEN and a rider ride as wire RPCs on
+ * their own channels and answer the place's result verbatim; a
+ * claimed socket id's `delegatedSocketEvent` frames route to the
+ * transport that minted it (consumed), an unclaimed id passes onward,
+ * and a released claim stops routing.
  */
 
 import { setHostLogger } from '@openheaders/core/logger';
-import { DELEGATE_REQUEST_CHANNEL } from '@openheaders/core/protocol';
+import {
+  DELEGATE_MQTT_OPEN_CHANNEL,
+  DELEGATE_REQUEST_CHANNEL,
+  DELEGATE_SOCKET_ABORT_CHANNEL,
+  DELEGATE_WS_OPEN_CHANNEL,
+  DELEGATE_WS_SEND_CHANNEL,
+  DELEGATED_SOCKET_EVENT_FRAME,
+} from '@openheaders/core/protocol';
 import type { DelegatedRequestFrame } from '@openheaders/oracle/live/request-exec/delegated-wire';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   __resetDelegatedWireForTests,
+  handleIncomingDelegatedSocketFrame,
   handleIncomingDelegatedStreamFrame,
+  webDelegatedSocketWire,
   webDelegatedWire,
 } from '@/host/delegated-wire';
 import { handleWireRpcResponseFrame, setWireRpcSender } from '@/host/wire-rpc';
@@ -122,5 +136,101 @@ describe('delegated-wire', () => {
     await Promise.resolve();
     expect(sent[0]).toEqual({ type: 'abortRequestSend', sendId: 'wire-1' });
     handleWireRpcResponseFrame({ type: 'abortRequestSend:response', payload: { success: true } });
+  });
+});
+
+describe('delegated-wire — the socket family', () => {
+  let sent: Record<string, unknown>[];
+
+  beforeAll(() => {
+    setHostLogger({ error() {}, warn() {}, info() {}, debug() {} });
+  });
+
+  beforeEach(() => {
+    sent = [];
+    __resetDelegatedWireForTests();
+    setWireRpcSender((message) => {
+      sent.push(message);
+      return true;
+    });
+  });
+
+  it("rides the two OPEN frames up the wire and answers the place's result verbatim", async () => {
+    const ws = webDelegatedSocketWire.call({
+      type: DELEGATE_WS_OPEN_CHANNEL,
+      socketId: 'sock-1',
+      workspaceId: 'ws-tab',
+      request: { url: 'wss://echo.openheaders.io/ws', headers: [], subprotocols: [] },
+    });
+    await Promise.resolve();
+    expect(sent[0]).toMatchObject({ type: DELEGATE_WS_OPEN_CHANNEL, socketId: 'sock-1', workspaceId: 'ws-tab' });
+    handleWireRpcResponseFrame({
+      type: `${DELEGATE_WS_OPEN_CHANNEL}:response`,
+      payload: { success: true, executedOn: { kind: 'backend', name: 'workbox' } },
+    });
+    await expect(ws).resolves.toEqual({ success: true, executedOn: { kind: 'backend', name: 'workbox' } });
+
+    const mqtt = webDelegatedSocketWire.call({
+      type: DELEGATE_MQTT_OPEN_CHANNEL,
+      socketId: 'sock-2',
+      workspaceId: 'ws-tab',
+      request: { url: 'mqtts://broker.openheaders.io:8883' },
+    });
+    await Promise.resolve();
+    expect(sent[1]).toMatchObject({ type: DELEGATE_MQTT_OPEN_CHANNEL, socketId: 'sock-2' });
+    handleWireRpcResponseFrame({
+      type: `${DELEGATE_MQTT_OPEN_CHANNEL}:response`,
+      payload: {
+        success: false,
+        error: 'Malformed delegated MQTT open frame',
+        executedOn: { kind: 'backend', name: 'workbox' },
+      },
+    });
+    await expect(mqtt).resolves.toMatchObject({ success: false, error: 'Malformed delegated MQTT open frame' });
+  });
+
+  it("rides a rider and the abort on their own channels, and rejects on the daemon's refusal or a dead wire", async () => {
+    const send = webDelegatedSocketWire.call({ type: DELEGATE_WS_SEND_CHANNEL, socketId: 'sock-1', text: 'ping' });
+    await Promise.resolve();
+    expect(sent[0]).toEqual({ type: DELEGATE_WS_SEND_CHANNEL, socketId: 'sock-1', text: 'ping' });
+    handleWireRpcResponseFrame({ type: `${DELEGATE_WS_SEND_CHANNEL}:response`, payload: { success: true } });
+    await expect(send).resolves.toEqual({ success: true });
+
+    const abort = webDelegatedSocketWire.call({ type: DELEGATE_SOCKET_ABORT_CHANNEL, socketId: 'sock-1' });
+    await Promise.resolve();
+    expect(sent[1]).toEqual({ type: DELEGATE_SOCKET_ABORT_CHANNEL, socketId: 'sock-1' });
+    handleWireRpcResponseFrame({ type: `${DELEGATE_SOCKET_ABORT_CHANNEL}:response`, __error: 'permission denied' });
+    await expect(abort).rejects.toThrow('permission denied');
+
+    setWireRpcSender(() => false);
+    await expect(
+      webDelegatedSocketWire.call({ type: DELEGATE_SOCKET_ABORT_CHANNEL, socketId: 'sock-1' }),
+    ).rejects.toThrow('daemon wire is not connected');
+  });
+
+  it('routes a claimed socket id’s events to its transport, passes unclaimed ones onward, and stops on release', () => {
+    const received: unknown[] = [];
+    const release = webDelegatedSocketWire.subscribe('sock-1', (event) => {
+      received.push(event);
+    });
+    const open = {
+      type: DELEGATED_SOCKET_EVENT_FRAME,
+      payload: { socketId: 'sock-1', seq: 0, kind: 'open', protocol: '', extensions: '' },
+    };
+    expect(handleIncomingDelegatedSocketFrame(open)).toBe(true);
+    expect(received).toEqual([open.payload]);
+    expect(
+      handleIncomingDelegatedSocketFrame({
+        type: DELEGATED_SOCKET_EVENT_FRAME,
+        payload: { socketId: 'other-tab', seq: 0, kind: 'end' },
+      }),
+    ).toBe(false);
+    expect(handleIncomingDelegatedSocketFrame({ type: 'requestStreamEvent', payload: { socketId: 'sock-1' } })).toBe(
+      false,
+    );
+    expect(handleIncomingDelegatedSocketFrame({ type: DELEGATED_SOCKET_EVENT_FRAME })).toBe(false);
+    release();
+    expect(handleIncomingDelegatedSocketFrame(open)).toBe(false);
+    expect(received).toHaveLength(1);
   });
 });

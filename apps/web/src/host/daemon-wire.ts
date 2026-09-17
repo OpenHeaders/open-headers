@@ -19,7 +19,8 @@
  *   the initiator so the next socket re-runs the handshake.
  *
  * Inbound frames route: handshake-flow → the initiator; migration pull
- * broadcasts → `wire-migration-mirror.ts`; live send-stream frames →
+ * broadcasts → `wire-migration-mirror.ts`; a delegated send's or
+ * socket's frames → `delegated-wire.ts`; live send-stream frames →
  * `wire-request-stream.ts`; mutation + awareness → `wire-inbound.ts`;
  * `pong` and anything else drop.
  */
@@ -38,7 +39,7 @@ import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheade
 import { onWorkspaceStoreChange, peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { report } from '@openheaders/ui/shared/status';
 import { peekDaemonToken } from './daemon-token';
-import { handleIncomingDelegatedStreamFrame } from './delegated-wire';
+import { handleIncomingDelegatedSocketFrame, handleIncomingDelegatedStreamFrame } from './delegated-wire';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { consumedWorkspaceIds, createWireAdoption } from './wire-adoption';
 import { handleIncomingGrpcStreamFrame } from './wire-grpc-stream';
@@ -216,6 +217,9 @@ export function installDaemonWire(): DaemonWire {
       // Live frames of a DELEGATED send this tab's transport minted —
       // routed to that transport's observer before the generic mirror.
       if (handleIncomingDelegatedStreamFrame(frame)) return;
+      // Events of a DELEGATED socket this tab's session transport
+      // minted — the same posture; another tab's socket passes onward.
+      if (handleIncomingDelegatedSocketFrame(frame)) return;
       // Live send-stream frames for a forwarded Send — same posture.
       if (handleIncomingRequestStreamFrame(frame)) return;
       // Live gRPC stream frames for a forwarded Invoke — same posture.
