@@ -1067,7 +1067,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.responseSizeLimitInfo':
     '从线路上读取的响应体最大大小；超出部分被截断，响应会被标记为已截断。留空为默认限制 2,048 KB（2 MB）。可提高到 10,240 KB（10 MB）以容纳更大的负载，或降低它来测试截断的响应是什么样子。',
   'workbench.editors.request.settings.executionPlace': '运行位置',
-  'workbench.editors.request.settings.executionPlaceInfo': '此请求的连接在何处建立：此设备、桌面应用或工作区的服务器。请求仍在此处解析，只有连接会转移。“自动”会在此设备可行时在此运行，否则在唯一可行的位置运行。',
+  'workbench.editors.request.settings.executionPlaceInfo':
+    '此请求的连接在何处建立：此设备、桌面应用或工作区的服务器。请求仍在此处解析，只有连接会转移。“自动”会在此设备可行时在此运行，否则在唯一可行的位置运行。',
   'workbench.editors.request.settings.executionPlacePlaceholder': '自动',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
@@ -1151,6 +1152,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.scriptsNotRun': '不在此处运行',
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     '应答此界面发送的主机没有脚本运行时，因此请求前和响应后脚本被跳过，响应不携带任何脚本结果。',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    '请求前和响应后脚本在此处运行，即此标签页的沙箱化安全运行时中：只有 oh.* 脚本 API——没有文件系统、没有进程访问、没有模块加载器。浏览器标签页没有开发者模式，每次运行都会在响应上记录其执行模式。',
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': '安全模式',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     '此界面的发送在已连接的后端上执行，后端在其沙箱化的安全运行时中运行请求前和响应后脚本：只有 oh.* 脚本 API——没有文件系统、没有进程访问、没有模块加载器。转发的发送绝不在开发者模式下运行，每次运行都会在响应上记录其执行模式。',

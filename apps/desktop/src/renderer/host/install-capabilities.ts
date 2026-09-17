@@ -37,7 +37,7 @@ registerCapability('delegatedSessionDispatch', () => true);
 // availability gate (+ the secure default); the live per-workspace
 // mode rides the host-local `OH.scriptExecutionModes` slot behind the
 // Settings tab's Script execution chooser.
-registerCapability('scriptRuntime', () => 'safe');
+registerCapability('scriptRuntime', () => ['safe', 'developer']);
 
 // Desktop opens external URLs in the OS default browser via the
 // main-process `shell.openExternal` allowlist (http(s) + mailto). The

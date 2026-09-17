@@ -10,9 +10,11 @@
  * host-storage seam and subscribes for live updates, so every open
  * editor reflects a change immediately.
  *
- * `available` gates the whole affordance on the `scriptRuntime`
- * capability — only a surface whose answering host actually runs
- * scripts gets a chooser; everywhere else the fact sheet keeps the
+ * `available` gates the chooser on the `scriptRuntime` capability's
+ * roster — only a surface whose own context offers Developer mode
+ * beside Safe (the desktop) gets a choice; a Safe-only context (the
+ * served web tab's sandbox) reads `safeHere` and the fact sheet states
+ * the posture instead; everywhere else the fact sheet keeps the
  * honest "don't run here" row. Writing `'safe'` removes the workspace's
  * entry rather than storing it: absent already reads as the default,
  * and the slot then lists exactly the workspaces that opted out of it.
@@ -31,8 +33,10 @@ import { useCallback, useEffect, useState } from 'react';
 const SCOPE = 'useScriptExecutionMode';
 
 export interface ScriptExecutionModeControl {
-  /** The answering host runs scripts — render the chooser. */
+  /** The own context offers a choice of modes — render the chooser. */
   available: boolean;
+  /** The own context runs scripts in Safe mode alone — a fact, never a choice. */
+  safeHere: boolean;
   /** The target workspace's current mode (absent entry = safe). */
   mode: ScriptExecutionMode;
   /** Rewrite the target workspace's slot entry on this device. */
@@ -45,7 +49,9 @@ export interface ScriptExecutionModeControl {
  * uses for an unpinned send).
  */
 export function useScriptExecutionMode(workspaceId: string | null): ScriptExecutionModeControl {
-  const available = getCapability('scriptRuntime') !== undefined;
+  const roster = getCapability('scriptRuntime')?.() ?? [];
+  const available = roster.includes('developer');
+  const safeHere = !available && roster.includes('safe');
   const [modes, setModes] = useState<Record<string, ScriptExecutionMode> | undefined>(undefined);
   const [resolvedWorkspaceId, setResolvedWorkspaceId] = useState<string | null>(workspaceId);
 
@@ -111,6 +117,7 @@ export function useScriptExecutionMode(workspaceId: string | null): ScriptExecut
 
   return {
     available,
+    safeHere,
     mode: readScriptExecutionMode(modes, resolvedWorkspaceId),
     setMode,
   };

@@ -7,16 +7,19 @@
  * away instead of buried behind Settings. Chip clicks never bubble to
  * the tab node — opening the chooser doesn't switch tabs.
  *
- * Renders only where the answering host actually runs scripts:
- *   - `scriptRuntime` capability (the desktop): interactive — the two
- *     mode cards rewrite the same per-workspace, host-local
+ * Renders only where scripts actually run:
+ *   - `scriptRuntime` roster with Developer (the desktop): interactive
+ *     — the two mode cards rewrite the same per-workspace, host-local
  *     `OH.scriptExecutionModes` slot the Settings tab's chooser row
  *     drives; both surfaces stay in sync through the storage
  *     subscription inside `useScriptExecutionMode`.
- *   - `remoteScriptRuntime` reported Safe (a served web tab): the
- *     shield chip with an informational popover — forwarded sends only
- *     ever ride Safe, so there is nothing to choose.
- * Hosts with neither capability (the extension's browser runtime, a
+ *   - `scriptRuntime` roster of Safe alone (the served web tab's
+ *     sandbox): the shield chip with an informational popover — a
+ *     browser tab has no Developer mode, so there is nothing to choose.
+ *   - `remoteScriptRuntime` reported Safe (sends executing on a
+ *     connected back-end): the shield chip with an informational
+ *     popover — forwarded sends only ever ride Safe.
+ * Hosts with none of these (the extension's browser runtime, a
  * runtime-less daemon) render nothing.
  */
 
@@ -45,7 +48,7 @@ const ScriptModeTag: React.FC<ScriptModeTagProps> = ({ workspaceId }) => {
   const control = useScriptExecutionMode(workspaceId);
   const remoteSafe = getCapability('remoteScriptRuntime')?.() === 'safe';
 
-  if (!control.available && !remoteSafe) return null;
+  if (!control.available && !control.safeHere && !remoteSafe) return null;
 
   const mode: ScriptExecutionMode = control.available ? control.mode : 'safe';
   const modeLabel =
@@ -144,7 +147,9 @@ const ScriptModeTag: React.FC<ScriptModeTagProps> = ({ workspaceId }) => {
         {t('workbench.editors.request.settings.scriptMode')}
       </Text>
       <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.4 }}>
-        {t('workbench.editors.request.settings.managed.scriptsSafeForwardedDesc')}
+        {control.safeHere
+          ? t('workbench.editors.request.settings.managed.scriptsSafeHereDesc')
+          : t('workbench.editors.request.settings.managed.scriptsSafeForwardedDesc')}
       </Text>
     </div>
   );

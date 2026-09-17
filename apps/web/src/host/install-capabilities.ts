@@ -59,6 +59,12 @@ if (!isPublicView()) {
   registerCapability('delegatedRequestDispatch', () => true);
   registerCapability('delegatedSessionDispatch', () => true);
 
+  // …and the scripts around them run HERE, in the tab's Safe sandbox
+  // (`install-script-sandbox.ts`) — Safe alone: a browser tab has no
+  // full-Node runtime, so the fact sheet states the posture and never
+  // offers a chooser.
+  registerCapability('scriptRuntime', () => ['safe']);
+
   // The web tab owns an origin-scoped daemon session it can drop on its
   // own — surfaced as the settings-menu "Sign out" item. The overlay
   // paints before the storage clear + reload so the click has instant

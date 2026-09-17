@@ -1283,6 +1283,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.scriptsNotRun': 'Don’t run here',
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     'The host answering this surface’s sends has no script runtime, so pre-request and post-response scripts are skipped and the response carries no script results.',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    'Pre-request and post-response scripts run here, in this tab’s sandboxed Safe runtime: the oh.* script API only — no filesystem, no process access, no module loader. A browser tab has no Developer mode, and each run records the mode it executed under on the response.',
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': 'Safe mode',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     'This surface’s sends execute on the connected back-end, which runs pre-request and post-response scripts in its sandboxed Safe runtime: the oh.* script API only — no filesystem, no process access, no module loader. Forwarded sends never run in Developer mode, and each run records the mode it executed under on the response.',

@@ -1312,7 +1312,8 @@ export const workbenchEditorsRequest = {
     'es auf bis zu 10 240 KB (10 MB) für größere Payloads, oder senke es, um zu testen, wie eine gekürzte ' +
     'Antwort aussieht.',
   'workbench.editors.request.settings.executionPlace': 'Ausführung auf',
-  'workbench.editors.request.settings.executionPlaceInfo': 'Wo die Verbindung dieser Anfrage geöffnet wird: auf diesem Gerät, in der Desktop-App oder auf dem Server des Arbeitsbereichs. Die Anfrage wird weiterhin hier aufgelöst; nur die Verbindung wandert. Automatisch führt sie hier aus, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
+  'workbench.editors.request.settings.executionPlaceInfo':
+    'Wo die Verbindung dieser Anfrage geöffnet wird: auf diesem Gerät, in der Desktop-App oder auf dem Server des Arbeitsbereichs. Die Anfrage wird weiterhin hier aufgelöst; nur die Verbindung wandert. Automatisch führt sie hier aus, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automatisch',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
@@ -1413,6 +1414,8 @@ export const workbenchEditorsRequest = {
     'Der Host, der die Sendevorgänge dieser Oberfläche beantwortet, hat keine Script-Laufzeitumgebung, ' +
     'Pre-Request- und Post-Response-Scripts werden also übersprungen und die Antwort trägt keine ' +
     'Script-Ergebnisse.',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    'Pre-Request- und Post-Response-Scripts laufen hier, in der isolierten sicheren Laufzeitumgebung dieses Tabs: nur die oh.*-Script-API — kein Dateisystem, kein Prozesszugriff, kein Modul-Loader. Ein Browser-Tab hat keinen Entwicklermodus, und jeder Lauf vermerkt auf der Antwort den Modus, in dem er ausgeführt wurde.',
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': 'Sicherer Modus',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     'Die Sendevorgänge dieser Oberfläche werden auf dem verbundenen Back-end ausgeführt, das Pre-Request- ' +

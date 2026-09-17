@@ -595,20 +595,23 @@ export interface Capabilities {
   mqttPageSession?: () => boolean;
 
   /**
-   * Declares that the surface's answering host RUNS pre-request /
-   * post-response scripts, and names its default posture (`'safe'` —
-   * every host defaults secure). Registered only by node-runtime
-   * surfaces whose OWN host runs scripts (the desktop renderer) — it
-   * gates the Settings tab's chooser. The web app never registers it:
-   * its sends execute on the connected daemon, whose posture arrives
-   * as {@link Capabilities.remoteScriptRuntime} instead. The LIVE
-   * per-workspace mode is not this capability's answer — it rides the
-   * host-local `OH.scriptExecutionModes` slot, read and written by
-   * `useScriptExecutionMode` behind the Settings tab's chooser.
-   * Browser-runtime surfaces never register it — their offscreen
-   * sandbox story is not a node-sheet fact.
+   * Declares that the surface's OWN context RUNS pre-request /
+   * post-response scripts and the sessions' hooks, and names the
+   * runtime roster it offers — the modes the host registered. The
+   * desktop renderer declares Safe and Developer (its two brokers): the
+   * Settings tab renders the per-workspace chooser. The served web tab
+   * declares Safe alone (its sandbox iframe — a browser tab has no
+   * full-Node runtime): the fact sheet states the Safe posture and no
+   * chooser renders, so a pick that could only run Safe is never
+   * offered. The LIVE per-workspace mode is not this capability's
+   * answer — it rides the host-local `OH.scriptExecutionModes` slot,
+   * read and written by `useScriptExecutionMode` behind the chooser.
+   * A surface whose sends execute on a connected back-end reports that
+   * host's posture as {@link Capabilities.remoteScriptRuntime} instead.
+   * Browser-runtime surfaces (the extension) never register it — their
+   * offscreen sandbox story is not a node-sheet fact.
    */
-  scriptRuntime?: () => ScriptExecutionMode;
+  scriptRuntime?: () => readonly ScriptExecutionMode[];
 
   /**
    * Declares that this surface's Sends open their sockets on a remote

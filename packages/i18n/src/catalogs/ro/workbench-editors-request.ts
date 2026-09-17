@@ -1281,7 +1281,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.responseSizeLimitInfo':
     'Dimensiunea maximă a corpului răspunsului citită de pe fir; tot ce depășește este tăiat, iar răspunsul este marcat ca trunchiat. Lăsați gol pentru limita implicită de 2.048 KB (2 MB). Ridicați-o până la 10.240 KB (10 MB) pentru conținut util mai mare sau coborâți-o pentru a testa cum arată un răspuns trunchiat.',
   'workbench.editors.request.settings.executionPlace': 'Rulează pe',
-  'workbench.editors.request.settings.executionPlaceInfo': 'Unde se deschide conexiunea acestei cereri: pe acest dispozitiv, în aplicația desktop sau pe serverul spațiului de lucru. Cererea este rezolvată tot aici; doar conexiunea se mută. Automat o rulează aici când acest dispozitiv poate, altfel în singurul loc care poate.',
+  'workbench.editors.request.settings.executionPlaceInfo':
+    'Unde se deschide conexiunea acestei cereri: pe acest dispozitiv, în aplicația desktop sau pe serverul spațiului de lucru. Cererea este rezolvată tot aici; doar conexiunea se mută. Automat o rulează aici când acest dispozitiv poate, altfel în singurul loc care poate.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automat',
 
   'workbench.editors.request.settings.maxMessageSize': 'Dimensiune maximă mesaj',
@@ -1366,6 +1367,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.scriptsNotRun': 'Nu rulează aici',
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     'Gazda care răspunde la trimiterile acestei suprafețe nu are runtime de scripturi, deci scripturile pre-cerere și post-răspuns sunt omise, iar răspunsul nu poartă rezultate de script.',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    'Scripturile pre-cerere și post-răspuns rulează aici, în runtime-ul sigur al acestei file, izolat în sandbox: doar interfața API de script oh.* — fără sistem de fișiere, fără acces la procese, fără încărcător de module. O filă de browser nu are Mod dezvoltator, iar fiecare rulare înregistrează pe răspuns modul în care s-a executat.',
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': 'Mod sigur',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     'Trimiterile acestei suprafețe se execută pe backend-ul conectat, care rulează scripturile pre-cerere și post-răspuns în runtime-ul său sigur, izolat în sandbox: doar interfața API de script oh.* — fără sistem de fișiere, fără acces la procese, fără încărcător de module. Trimiterile redirecționate nu rulează niciodată în Mod dezvoltator, iar fiecare rulare înregistrează pe răspuns modul în care s-a executat.',

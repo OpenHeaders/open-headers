@@ -3,11 +3,13 @@
  * ScriptModeTag — the request editor tab-bar chip for the script
  * execution mode. Availability keys off the host's capabilities: no
  * `scriptRuntime` and no `remoteScriptRuntime` (the extension's browser
- * runtime) renders nothing; `scriptRuntime` (desktop) renders the
- * interactive chip whose popover cards rewrite the per-workspace
- * host-local `OH.scriptExecutionModes` slot; `remoteScriptRuntime`
- * reported Safe (served web tab) renders the shield with an
- * informational popover and no cards.
+ * runtime) renders nothing; a `scriptRuntime` roster with Developer
+ * (desktop) renders the interactive chip whose popover cards rewrite
+ * the per-workspace host-local `OH.scriptExecutionModes` slot; a
+ * roster of Safe alone (the served web tab's sandbox) and
+ * `remoteScriptRuntime` reported Safe (sends on a connected back-end)
+ * render the shield with an informational popover and no cards, each
+ * with its own description.
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
@@ -108,11 +110,23 @@ describe('ScriptModeTag availability', () => {
     expect(screen.queryByTestId('oh-script-mode-option-safe')).toBeNull();
     expect(screen.queryByTestId('oh-script-mode-option-developer')).toBeNull();
   });
+
+  it('renders a read-only Safe chip against a Safe-only own runtime', async () => {
+    registerCapability('scriptRuntime', () => ['safe']);
+    render(<ScriptModeTag workspaceId={WS} />);
+    const chip = await screen.findByTestId('oh-script-mode-tag');
+    expect(chip.getAttribute('aria-label')).toBe('Script execution: Safe mode');
+    fireEvent.click(chip);
+    // Informational popover — this tab's posture, never a chooser.
+    expect(await screen.findByText(/run here, in this tab/)).toBeTruthy();
+    expect(screen.queryByTestId('oh-script-mode-option-safe')).toBeNull();
+    expect(screen.queryByTestId('oh-script-mode-option-developer')).toBeNull();
+  });
 });
 
 describe('ScriptModeTag with a host script runtime', () => {
   beforeEach(() => {
-    registerCapability('scriptRuntime', () => 'safe');
+    registerCapability('scriptRuntime', () => ['safe', 'developer']);
   });
 
   it('defaults to Safe and opens the chooser with Safe selected', async () => {

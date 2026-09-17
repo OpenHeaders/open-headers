@@ -1299,7 +1299,8 @@ export const workbenchEditorsRequest = {
     'queda marcada como truncada. Déjalo vacío para el límite por defecto de 2 048 KB (2 MB). Súbelo hasta ' +
     '10 240 KB (10 MB) para cargas mayores, o bájalo para probar cómo se ve una respuesta truncada.',
   'workbench.editors.request.settings.executionPlace': 'Se ejecuta en',
-  'workbench.editors.request.settings.executionPlaceInfo': 'Dónde se abre la conexión de esta solicitud: en este dispositivo, en la aplicación de escritorio o en el servidor del espacio de trabajo. La solicitud sigue resolviéndose aquí; solo se desplaza la conexión. Automático la ejecuta aquí cuando este dispositivo puede, y si no, en el único lugar que puede.',
+  'workbench.editors.request.settings.executionPlaceInfo':
+    'Dónde se abre la conexión de esta solicitud: en este dispositivo, en la aplicación de escritorio o en el servidor del espacio de trabajo. La solicitud sigue resolviéndose aquí; solo se desplaza la conexión. Automático la ejecuta aquí cuando este dispositivo puede, y si no, en el único lugar que puede.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automático',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
@@ -1396,6 +1397,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     'El host que responde a los envíos de esta superficie no tiene runtime de scripts, así que los scripts ' +
     'de pre-solicitud y post-respuesta se omiten y la respuesta no lleva resultados de scripts.',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    'Los scripts de pre-solicitud y post-respuesta se ejecutan aquí, en el runtime seguro aislado de esta pestaña: solo la API de scripts oh.* — sin sistema de archivos, sin acceso a procesos, sin cargador de módulos. Una pestaña del navegador no tiene modo desarrollador, y cada ejecución registra en la respuesta el modo en el que se ejecutó.',
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': 'Modo seguro',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     'Los envíos de esta superficie se ejecutan en el back-end conectado, que ejecuta los scripts de ' +

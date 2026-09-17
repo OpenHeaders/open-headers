@@ -1220,7 +1220,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.responseSizeLimitInfo':
     'ワイヤーから読み取るレスポンスボディの最大サイズです。それを超える部分は切り捨てられ、レスポンスには切り詰めのマークが付きます。空にするとデフォルトの上限 2,048 KB（2 MB）になります。大きなペイロードには 10,240 KB（10 MB）まで上げられ、切り詰められたレスポンスの見え方をテストするには下げられます。',
   'workbench.editors.request.settings.executionPlace': '実行場所',
-  'workbench.editors.request.settings.executionPlaceInfo': 'このリクエストの接続をどこで開くか: このデバイス、デスクトップアプリ、またはワークスペースのサーバー。リクエストはここで解決され、接続だけが移動します。「自動」はこのデバイスで実行できるときはここで、できないときは実行できる唯一の場所で実行します。',
+  'workbench.editors.request.settings.executionPlaceInfo':
+    'このリクエストの接続をどこで開くか: このデバイス、デスクトップアプリ、またはワークスペースのサーバー。リクエストはここで解決され、接続だけが移動します。「自動」はこのデバイスで実行できるときはここで、できないときは実行できる唯一の場所で実行します。',
   'workbench.editors.request.settings.executionPlacePlaceholder': '自動',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
@@ -1306,6 +1307,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.scriptsNotRun': 'ここでは実行なし',
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     'この面の送信に応答するホストにはスクリプトランタイムがないため、プリリクエストとポストレスポンスのスクリプトは飛ばされ、レスポンスにスクリプトの結果は含まれません。',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    'プリリクエストとポストレスポンスのスクリプトはここ、このタブのサンドボックス化されたセーフランタイムで実行されます。oh.* スクリプト API のみで、ファイルシステム、プロセスへのアクセス、モジュールローダーはありません。ブラウザーのタブに開発者モードはなく、各実行は実行時のモードをレスポンスに記録します。',
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': 'セーフモード',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     'この面の送信は接続中のバックエンドで実行され、プリリクエストとポストレスポンスのスクリプトはそのサンドボックス化されたセーフランタイムで動きます。oh.* スクリプト API のみで、ファイルシステム、プロセスへのアクセス、モジュールローダーはありません。転送された送信は決して開発者モードでは実行されず、各実行は実行時のモードをレスポンスに記録します。',

@@ -439,19 +439,29 @@ const NODE_MANAGED: RuntimeManagedDef[] = [
 
 /**
  * The node sheet's Scripts row, on surfaces without a chooser: where
- * the OWN host has a script runtime (the `scriptRuntime` capability —
- * the desktop), the row graduates into the Script execution chooser
- * knob (the cookie-jar precedent) and neither fact renders. A surface
- * whose sends execute on a connected back-end states that back-end's
- * posture instead: "Safe mode" when it reported a script runtime
- * (`remoteScriptRuntime` — forwarded sends only ever ride Safe, so
- * this is a fact row, never a chooser), and the honest "don't run
- * here" against a runtime-less one.
+ * the OWN context offers a choice of runtimes (the `scriptRuntime`
+ * roster with Developer — the desktop), the row graduates into the
+ * Script execution chooser knob (the cookie-jar precedent) and no fact
+ * renders. A Safe-only context (the served web tab's sandbox) states
+ * "Safe mode · runs here" as a fact; a surface whose sends execute on
+ * a connected back-end states that back-end's posture instead: "Safe
+ * mode" when it reported a script runtime (`remoteScriptRuntime` —
+ * forwarded sends only ever ride Safe), and the honest "don't run
+ * here" against a runtime-less one. Facts, never choosers.
  */
 const SCRIPTS_NOT_RUN_ROW: RuntimeManagedDef = {
   labelKey: 'workbench.editors.request.settings.managed.scripts',
   valueKey: 'workbench.editors.request.settings.managed.scriptsNotRun',
   descriptionKey: 'workbench.editors.request.settings.managed.scriptsNotRunDesc',
+  group: 'execution',
+  tokens: ['scripts'],
+  testId: 'oh-managed-scripts-row',
+};
+
+const SCRIPTS_SAFE_HERE_ROW: RuntimeManagedDef = {
+  labelKey: 'workbench.editors.request.settings.managed.scripts',
+  valueKey: 'workbench.editors.request.settings.scriptModeSafe',
+  descriptionKey: 'workbench.editors.request.settings.managed.scriptsSafeHereDesc',
   group: 'execution',
   tokens: ['scripts'],
   testId: 'oh-managed-scripts-row',
@@ -523,10 +533,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   };
   const scriptMode = useScriptExecutionMode(workspaceId);
   const remoteScriptsSafe = getCapability('remoteScriptRuntime')?.() === 'safe';
+  const scriptsFactRow = scriptMode.safeHere
+    ? SCRIPTS_SAFE_HERE_ROW
+    : remoteScriptsSafe
+      ? SCRIPTS_SAFE_FORWARDED_ROW
+      : SCRIPTS_NOT_RUN_ROW;
   const managedRows =
-    runtime === 'node' && !scriptMode.available
-      ? [...MANAGED_ROWS[runtime], remoteScriptsSafe ? SCRIPTS_SAFE_FORWARDED_ROW : SCRIPTS_NOT_RUN_ROW]
-      : MANAGED_ROWS[runtime];
+    runtime === 'node' && !scriptMode.available ? [...MANAGED_ROWS[runtime], scriptsFactRow] : MANAGED_ROWS[runtime];
   // Every fact popover leads with the shared example card, its slice
   // lit — the same card the live knobs use.
   const sheetRows = managedRows.map(({ tokens, ...def }) => ({ ...def, diagram: settingsExampleCard(tokens ?? []) }));

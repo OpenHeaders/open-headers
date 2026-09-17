@@ -1317,7 +1317,8 @@ export const workbenchEditorsRequest = {
     "jusqu'à 10 240 KB (10 MB) pour des charges utiles plus grandes, ou abaissez-la pour tester l'apparence " +
     "d'une réponse tronquée.",
   'workbench.editors.request.settings.executionPlace': 'S’exécute sur',
-  'workbench.editors.request.settings.executionPlaceInfo': 'Où s’ouvre la connexion de cette requête : sur cet appareil, sur l’application de bureau ou sur le serveur de l’espace de travail. La requête est toujours résolue ici ; seule la connexion se déplace. Automatique l’exécute ici quand cet appareil le peut, sinon sur le seul endroit qui le peut.',
+  'workbench.editors.request.settings.executionPlaceInfo':
+    'Où s’ouvre la connexion de cette requête : sur cet appareil, sur l’application de bureau ou sur le serveur de l’espace de travail. La requête est toujours résolue ici ; seule la connexion se déplace. Automatique l’exécute ici quand cet appareil le peut, sinon sur le seul endroit qui le peut.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automatique',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
@@ -1417,6 +1418,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     "L'hôte qui répond aux envois de cette surface n'a pas de runtime de script, les scripts pré-requête et " +
     'post-réponse sont donc sautés et la réponse ne porte aucun résultat de script.',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    "Les scripts pré-requête et post-réponse s'exécutent ici, dans le runtime sûr sandboxé de cet onglet : l'API de script oh.* uniquement — pas de système de fichiers, pas d'accès aux processus, pas de chargeur de modules. Un onglet de navigateur n'a pas de Mode développeur, et chaque exécution enregistre sur la réponse le mode sous lequel elle s'est exécutée.",
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': 'Mode sûr',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     "Les envois de cette surface s'exécutent sur le back-end connecté, qui exécute les scripts pré-requête " +

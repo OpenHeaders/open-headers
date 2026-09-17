@@ -1200,7 +1200,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.responseSizeLimitInfo':
     '전송선에서 읽는 최대 응답 본문 크기입니다. 넘는 부분은 잘리고 응답에 잘림 표시가 붙습니다. 비우면 기본 제한인 2,048 KB (2 MB)입니다. 큰 페이로드에는 최대 10,240 KB (10 MB)까지 올리고, 잘린 응답이 어떻게 보이는지 시험하려면 낮추세요.',
   'workbench.editors.request.settings.executionPlace': '실행 위치',
-  'workbench.editors.request.settings.executionPlaceInfo': '이 요청의 연결을 여는 곳: 이 기기, 데스크톱 앱 또는 워크스페이스 서버입니다. 요청은 여전히 여기에서 확인되며 연결만 이동합니다. 자동은 이 기기에서 가능하면 여기에서, 아니면 가능한 유일한 곳에서 실행합니다.',
+  'workbench.editors.request.settings.executionPlaceInfo':
+    '이 요청의 연결을 여는 곳: 이 기기, 데스크톱 앱 또는 워크스페이스 서버입니다. 요청은 여전히 여기에서 확인되며 연결만 이동합니다. 자동은 이 기기에서 가능하면 여기에서, 아니면 가능한 유일한 곳에서 실행합니다.',
   'workbench.editors.request.settings.executionPlacePlaceholder': '자동',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
@@ -1286,6 +1287,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.settings.managed.scriptsNotRun': '여기서 실행 안 함',
   'workbench.editors.request.settings.managed.scriptsNotRunDesc':
     '이 화면의 전송을 처리하는 호스트에는 스크립트 런타임이 없으므로 요청 전 / 응답 후 스크립트를 건너뛰고 응답에 스크립트 결과가 없습니다.',
+  'workbench.editors.request.settings.managed.scriptsSafeHereDesc':
+    '요청 전 / 응답 후 스크립트는 여기, 이 탭의 샌드박스된 안전 런타임에서 실행됩니다. oh.* 스크립트 API 기능만 있고 파일 시스템, 프로세스 접근, 모듈 로더는 없습니다. 브라우저 탭에는 개발자 모드가 없으며, 각 실행은 자신이 실행된 모드를 응답에 기록합니다.',
   'workbench.editors.request.settings.managed.scriptsSafeForwarded': '안전 모드',
   'workbench.editors.request.settings.managed.scriptsSafeForwardedDesc':
     '이 화면의 전송은 연결된 백엔드에서 실행되며, 백엔드는 요청 전 / 응답 후 스크립트를 샌드박스된 안전 런타임에서 실행합니다. oh.* 스크립트 API 기능만 있고 파일 시스템, 프로세스 접근, 모듈 로더는 없습니다. 전달된 전송은 절대 개발자 모드로 실행되지 않으며, 각 실행은 자신이 실행된 모드를 응답에 기록합니다.',
