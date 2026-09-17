@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { sandboxPagePlugin } from './vite.sandbox-plugin';
 import { serviceWorkerPlugin } from './vite.sw-plugin';
 
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
@@ -26,7 +27,13 @@ const buildInfo = {
 };
 
 export default defineConfig({
-  plugins: [react(), serviceWorkerPlugin({ cacheKey: `oh-web-${buildInfo.version}-${buildInfo.commit}` })],
+  // The sandbox page plugin runs before the service-worker plugin so
+  // the emitted `sandbox.html` lands in the worker's precache list.
+  plugins: [
+    react(),
+    sandboxPagePlugin(),
+    serviceWorkerPlugin({ cacheKey: `oh-web-${buildInfo.version}-${buildInfo.commit}` }),
+  ],
 
   resolve: {
     alias: {

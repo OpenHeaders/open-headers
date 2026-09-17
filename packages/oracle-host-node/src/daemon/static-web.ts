@@ -17,6 +17,11 @@
  *     HTML body under a `.js` URL).
  *   - GET/HEAD only; dotfiles and traversal segments answer 404 without
  *     touching the filesystem.
+ *   - the bundle's script sandbox page (`WEB_SANDBOX_PAGE`) → served
+ *     under the sandbox CSP header (`WEB_SANDBOX_CSP`, one source with
+ *     the web build): a page that compiles whatever it is posted must
+ *     run under a unique opaque origin whoever embeds it, and the
+ *     `sandbox` directive cannot be set from inside the page.
  *
  * The handler never lists directories and serves only regular files
  * resolved strictly under the configured root.
@@ -25,6 +30,7 @@
 import * as fs from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as path from 'node:path';
+import { WEB_SANDBOX_CSP, WEB_SANDBOX_PAGE } from '@openheaders/core/scripts';
 
 /** Same composition contract as the healthz/pairing/MCP handlers: `true` = response owned. */
 export type StaticWebHttpHandler = (req: IncomingMessage, res: ServerResponse) => boolean;
@@ -92,7 +98,13 @@ export function createStaticWebHandler(options: StaticWebOptions): StaticWebHttp
   const rootDir = path.resolve(options.rootDir);
   const indexPath = path.join(rootDir, 'index.html');
 
-  function serveFile(req: IncomingMessage, res: ServerResponse, filePath: string, cacheControl: string): void {
+  function serveFile(
+    req: IncomingMessage,
+    res: ServerResponse,
+    filePath: string,
+    cacheControl: string,
+    extraHeaders: Record<string, string> = {},
+  ): void {
     let stat: fs.Stats;
     try {
       stat = fs.statSync(filePath);
@@ -110,6 +122,7 @@ export function createStaticWebHandler(options: StaticWebOptions): StaticWebHttp
       'content-length': stat.size,
       'cache-control': cacheControl,
       'x-content-type-options': 'nosniff',
+      ...extraHeaders,
     });
     if (req.method === 'HEAD') {
       res.end();
@@ -151,7 +164,8 @@ export function createStaticWebHandler(options: StaticWebOptions): StaticWebHttp
       return true;
     }
     const cache = segments[0] === 'assets' ? IMMUTABLE_CACHE : REVALIDATE_CACHE;
-    serveFile(req, res, filePath, cache);
+    const sandboxPage = segments.length === 1 && segments[0] === WEB_SANDBOX_PAGE;
+    serveFile(req, res, filePath, cache, sandboxPage ? { 'content-security-policy': WEB_SANDBOX_CSP } : {});
     return true;
   };
 }

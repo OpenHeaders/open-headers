@@ -27,6 +27,7 @@ import type { HttpScriptKind, SessionScriptKind } from './slots';
 // The vocabulary lives in `./slots` (kinds, storage paths, sibling
 // files); the execution envelope below carries the kind as data.
 
+export { WEB_SANDBOX_CSP, WEB_SANDBOX_PAGE } from './sandbox-page';
 export type {
   GrpcCallShape,
   GrpcFrameSnapshot,
