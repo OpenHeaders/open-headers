@@ -476,7 +476,7 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': '이 기기',
   'shared.executionPlace.option.desktopApp': '데스크톱 앱',
   'shared.executionPlace.option.server': '서버',
-  'shared.executionPlace.knob.cookieJar': 'Cookie 저장소',
+  'shared.executionPlace.knob.cookieJar': '쿠키 저장소',
   'shared.executionPlace.knobsNotApplied': '{place}에서는 적용되지 않습니다: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
     '이 요청은 {place}에서 실행하도록 설정되어 있지만, 여기에서는 아직 실행할 수 없습니다.',

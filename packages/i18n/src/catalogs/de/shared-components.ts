@@ -520,7 +520,7 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': 'Dieses Gerät',
   'shared.executionPlace.option.desktopApp': 'Die Desktop-App',
   'shared.executionPlace.option.server': 'Der Server',
-  'shared.executionPlace.knob.cookieJar': 'das Cookie jar',
+  'shared.executionPlace.knob.cookieJar': 'das Cookie-Glas',
   'shared.executionPlace.knobsNotApplied': 'Auf {place} nicht angewendet: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Diese Anfrage soll auf {place} laufen; von hier aus ist das noch nicht möglich.',

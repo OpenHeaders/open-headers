@@ -535,7 +535,7 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': 'Acest dispozitiv',
   'shared.executionPlace.option.desktopApp': 'Aplicația desktop',
   'shared.executionPlace.option.server': 'Serverul',
-  'shared.executionPlace.knob.cookieJar': 'depozitul Cookie',
+  'shared.executionPlace.knob.cookieJar': 'depozitul cookie',
   'shared.executionPlace.knobsNotApplied': 'Nu se aplică pe {place}: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Locul de rulare setat pentru această solicitare este {place}, indisponibil de aici deocamdată.',

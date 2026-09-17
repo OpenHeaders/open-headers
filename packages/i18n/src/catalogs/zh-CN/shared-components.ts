@@ -496,7 +496,7 @@ export const sharedComponents = {
   'shared.executionPlace.option.here': '此设备',
   'shared.executionPlace.option.desktopApp': '桌面应用',
   'shared.executionPlace.option.server': '服务器',
-  'shared.executionPlace.knob.cookieJar': 'Cookie jar',
+  'shared.executionPlace.knob.cookieJar': 'Cookie 罐',
   'shared.executionPlace.knobsNotApplied': '在 {place} 上不适用：{knobs}。',
   'shared.executionPlace.reason.preferenceUnavailable': '此请求被设置为在 {place} 上运行，从这里尚无法做到。',
   'shared.desktopTeaser.cta': '下载桌面应用',
