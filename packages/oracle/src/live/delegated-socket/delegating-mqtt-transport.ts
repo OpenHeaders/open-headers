@@ -95,7 +95,7 @@ export function createDelegatingMqttTransport(options: DelegatingMqttTransportOp
             settle(new MqttTransportError('The place gave no answer to the open.'));
             return;
           }
-          lastExecutedOn = answer.executedOn;
+          lastExecutedOn = answer.executedOn ?? null;
           if (!answer.success) settle(new MqttTransportError(answer.error));
         })
         .catch((err: unknown) => {

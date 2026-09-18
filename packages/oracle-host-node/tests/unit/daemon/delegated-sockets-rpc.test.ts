@@ -189,7 +189,8 @@ describe('createDelegatedSocketsRpc — ownership and the gate', () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error).toMatch(/^Malformed delegated WebSocket open frame at request\./);
-    expect(result.executedOn.kind).toBe('backend');
+    // The place answered — its stamp rides the refusal.
+    expect(result.executedOn?.kind).toBe('backend');
     expect(ws.sessions).toHaveLength(0);
   });
 });

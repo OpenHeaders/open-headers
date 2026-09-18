@@ -163,5 +163,17 @@ describe('createDelegatingWsTransport', () => {
     createDelegatingWsTransport({ wire: mute, workspaceId: 'ws-1' }).connect(REQUEST, c);
     await flush();
     expect(c.ends[0]?.message).toBe('The place gave no answer to the open.');
+
+    // A failure the WIRE answered (the place's gate refusal thrown on
+    // its RPC, relayed unstamped by a worker that cannot reject across
+    // its bridge) settles with that sentence — never "no answer" — and
+    // names no place: nothing opened anything.
+    const relayed = fakeWire(async () => ({ success: false, error: 'Sending from this device is turned off' }));
+    const d = callbacks();
+    const transport = createDelegatingWsTransport({ wire: relayed, workspaceId: 'ws-1' });
+    transport.connect(REQUEST, d);
+    await flush();
+    expect(d.ends[0]?.message).toBe('Sending from this device is turned off');
+    expect(transport.executedOn()).toBeNull();
   });
 });

@@ -145,9 +145,13 @@ export interface DelegatedSocketWire {
   subscribe(socketId: string, onEvent: (event: DelegatedSocketEvent) => void): () => void;
 }
 
-/** Narrow a place's OPEN answer — anything else reads as a refusal. */
+/** Narrow a place's OPEN answer — a stamped success, or a failure
+ *  with its sentence (stamped by the place, or unstamped when the wire
+ *  itself answered it); anything else reads as no answer. */
 export function isDelegatedSocketOpenResult(value: unknown): value is DelegatedSocketOpenResult {
   if (!value || typeof value !== 'object') return false;
-  const { success, executedOn } = value as { success?: unknown; executedOn?: unknown };
-  return typeof success === 'boolean' && !!executedOn && typeof executedOn === 'object';
+  const { success, error, executedOn } = value as { success?: unknown; error?: unknown; executedOn?: unknown };
+  const stamped = !!executedOn && typeof executedOn === 'object';
+  if (success === true) return stamped;
+  return success === false && typeof error === 'string';
 }

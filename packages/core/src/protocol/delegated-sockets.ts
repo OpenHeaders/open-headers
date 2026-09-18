@@ -53,10 +53,14 @@ export type DelegatedSocketRider =
   | { type: typeof DELEGATE_SOCKET_ABORT_CHANNEL; socketId: string };
 
 /** The answer to an OPEN frame — the socket is registered on the
- *  place (its events follow), or the place refused before dialing. */
+ *  place (its events follow), or the place refused before dialing. A
+ *  refusal the place answered carries its stamp; a failure the WIRE
+ *  itself answered (a dead wire, the place's gate refusal thrown on
+ *  its RPC and relayed as a structured failure by a worker that cannot
+ *  reject across its bridge) carries none — no place opened anything. */
 export type DelegatedSocketOpenResult =
   | { success: true; executedOn: { kind: 'backend'; name: string } }
-  | { success: false; error: string; executedOn: { kind: 'backend'; name: string } };
+  | { success: false; error: string; executedOn?: { kind: 'backend'; name: string } };
 
 /** A proxy route the place's transport decided — the seams' own shape. */
 export interface DelegatedSocketProxyRoute {
