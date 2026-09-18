@@ -11,8 +11,13 @@
  */
 
 import type { ScriptWireMessage } from '@openheaders/core/scripts';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createIframeSandboxTransport, SANDBOX_IFRAME_TEST_ID } from '../../src/live/iframe-sandbox-transport';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  createIframeSandboxTransport,
+  SANDBOX_IFRAME_TEST_ID,
+  SANDBOX_NOT_READY_MESSAGE,
+  SANDBOX_READY_GRACE_MS,
+} from '../../src/live/iframe-sandbox-transport';
 
 interface FakeIframe {
   tagName: string;
@@ -21,8 +26,12 @@ interface FakeIframe {
   attributes: Record<string, string>;
   contentWindow: { postMessage: (message: unknown, target: string) => void; posted: unknown[] };
   removed: boolean;
+  loadListeners: Array<() => void>;
   setAttribute(name: string, value: string): void;
+  addEventListener(type: string, listener: () => void): void;
   remove(): void;
+  /** The frame settled on a document — the browser's `load`. */
+  load(): void;
 }
 
 function makeIframe(): FakeIframe {
@@ -34,11 +43,18 @@ function makeIframe(): FakeIframe {
     attributes: {},
     contentWindow: { posted, postMessage: (message) => posted.push(message) },
     removed: false,
+    loadListeners: [],
     setAttribute(name, value) {
       this.attributes[name] = value;
     },
+    addEventListener(type, listener) {
+      if (type === 'load') this.loadListeners.push(listener);
+    },
     remove() {
       this.removed = true;
+    },
+    load() {
+      for (const listener of this.loadListeners) listener();
     },
   };
 }
@@ -129,6 +145,68 @@ describe('createIframeSandboxTransport', () => {
     const down: ScriptWireMessage = { type: 'script.session-end', sessionId: 's-1' };
     transport.post(down);
     expect(frame.contentWindow.posted).toEqual([down]);
+  });
+
+  it('a frame that loaded without announcing its runtime rejects after the grace and unmounts', async () => {
+    vi.useFakeTimers();
+    try {
+      const transport = createIframeSandboxTransport({ src: '/sandbox.html' })(() => {});
+      const ready = transport.ensureReady();
+      const frame = created[0];
+      let outcome: string | null = null;
+      ready.then(
+        () => {
+          outcome = 'ready';
+        },
+        (err: Error) => {
+          outcome = err.message;
+        },
+      );
+      // Silence before load is not a verdict — the document is still coming.
+      await vi.advanceTimersByTimeAsync(SANDBOX_READY_GRACE_MS * 2);
+      expect(outcome).toBeNull();
+      frame.load();
+      await vi.advanceTimersByTimeAsync(SANDBOX_READY_GRACE_MS - 1);
+      expect(outcome).toBeNull();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(outcome).toBe(SANDBOX_NOT_READY_MESSAGE);
+      expect(frame.removed).toBe(true);
+      expect(listeners.size).toBe(0);
+      // The next run mounts afresh — a later announcement from the dead
+      // frame's window is nobody's.
+      const next = transport.ensureReady();
+      expect(next).not.toBe(ready);
+      expect(created).toHaveLength(2);
+      dispatch(frame.contentWindow, { type: 'sandbox.ready' });
+      dispatch(created[1].contentWindow, { type: 'sandbox.ready' });
+      await next;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('the announcement clears the grace whether it comes before or after load', async () => {
+    vi.useFakeTimers();
+    try {
+      const early = createIframeSandboxTransport({ src: '/sandbox.html' })(() => {});
+      const earlyReady = early.ensureReady();
+      dispatch(created[0].contentWindow, { type: 'sandbox.ready' });
+      created[0].load();
+      await vi.advanceTimersByTimeAsync(SANDBOX_READY_GRACE_MS + 1);
+      await earlyReady;
+      expect(created[0].removed).toBe(false);
+
+      const late = createIframeSandboxTransport({ src: '/sandbox.html' })(() => {});
+      const lateReady = late.ensureReady();
+      created[1].load();
+      await vi.advanceTimersByTimeAsync(SANDBOX_READY_GRACE_MS - 1);
+      dispatch(created[1].contentWindow, { type: 'sandbox.ready' });
+      await vi.advanceTimersByTimeAsync(SANDBOX_READY_GRACE_MS);
+      await lateReady;
+      expect(created[1].removed).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('close removes the frame and the listener; the next ensureReady mounts afresh', async () => {
