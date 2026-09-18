@@ -465,15 +465,14 @@ test('the place control names the connected back-end before the first send', asy
 });
 
 // ── The jar loop over the wire, keyed by the tab's stamped workspace ─
-// RED since Phase W (measured 2026-09-18, the epic's F25): the jar is
-// the tab's own over the delegating transport, which attaches the
-// jar's Cookie on the FIRST hop and captures Set-Cookie from the FINAL
-// response, while the serving daemon follows the login's 302 itself —
-// the mid-chain Set-Cookie is consumed nowhere and `/me` carries no
-// cookie. The four legs stay as the contract; the ruling on where the
-// redirect follower lives for a jar-carrying delegated send is pending.
+// The jar is the TAB's own (Phase W), and so is the redirect chain:
+// the delegating transport follows the login's 302 itself, one manual
+// exchange at the serving daemon per hop, the jar speaking on every
+// hop — the cookie set mid-chain rides `/me` exactly as an in-process
+// jar leg carries it (the epic's F25, closed by the shared redirect
+// policy).
 
-test('a jar-enabled login send captures the cookie mid-chain daemon-side', async () => {
+test("a jar-enabled login send captures the cookie mid-chain into the tab's jar", async () => {
   await openRequest(loginUid);
   await send();
   const status = await responseStatusText();
@@ -481,7 +480,7 @@ test('a jar-enabled login send captures the cookie mid-chain daemon-side', async
   expect(await responseRawBody()).toBe('cookie=[session=live123]');
 });
 
-test('the next jar send attaches the stored cookie from the daemon jar', async () => {
+test("the next jar send attaches the stored cookie from the tab's jar", async () => {
   await openRequest(meUid);
   await send();
   expect(await responseRawBody()).toBe('cookie=[session=live123]');

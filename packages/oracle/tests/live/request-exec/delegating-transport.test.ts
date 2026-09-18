@@ -6,7 +6,10 @@
  * comes back as the seam response carrying the answering host's stamp;
  * the place's classified failure and a wire rejection both surface as
  * a TransportError; the executor's abort forwards as the place's Stop;
- * the frame claim is released on every path.
+ * the frame claim is released on every path. The redirect chain is
+ * the context's: every hop is its own manual exchange at the place,
+ * the shared policy derives the next hop, the jar speaks on every hop,
+ * the intermediate hops' frames never reach the observer.
  */
 
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
@@ -80,7 +83,8 @@ describe('createDelegatingRequestTransport', () => {
       type: 'delegateRequest',
       sendId: 'wire-1',
       workspaceId: 'ws-1',
-      request: { method: 'POST', url: REQUEST.url, timeoutMs: 3000 },
+      // The place never follows: every hop is the context's own exchange.
+      request: { method: 'POST', url: REQUEST.url, timeoutMs: 3000, redirect: 'manual' },
     });
     expect(wire.calls[0].request).not.toHaveProperty('cookieJarKey');
     expect(response).toEqual({ ...RESPONSE, executedOn: EXECUTED_ON });
@@ -198,5 +202,127 @@ describe("createDelegatingRequestTransport — the context's cookie jar", () => 
     const browser = await browserContext.send(JAR_REQUEST);
     expect(wire.calls[1]?.request.headers).toEqual(REQUEST.headers);
     expect(browser.cookieHeaderAttached).toBeUndefined();
+  });
+
+  it('follows a redirect chain itself — each hop a manual exchange at the place, the jar speaking on every hop', async () => {
+    const jar = new CookieJar();
+    const wire = fakeWire(async (frame) => {
+      if (frame.request.url.endsWith('/login')) {
+        return {
+          success: true,
+          response: {
+            ...RESPONSE,
+            status: 302,
+            statusText: 'Found',
+            url: frame.request.url,
+            headers: [
+              { key: 'location', value: '/me' },
+              { key: 'set-cookie', value: 'session=live123; Path=/' },
+            ],
+            body: '',
+            bodyBytes: 0,
+          },
+          executedOn: EXECUTED_ON,
+        };
+      }
+      return {
+        success: true,
+        response: { ...RESPONSE, status: 200, statusText: 'OK', url: frame.request.url, body: 'me', bodyBytes: 2 },
+        executedOn: EXECUTED_ON,
+      };
+    });
+    const transport = createDelegatingRequestTransport({ wire, workspaceId: 'ws-1', jars: () => jar });
+    const response = await transport.send({
+      ...JAR_REQUEST,
+      method: 'POST',
+      url: 'https://api.openheaders.io/login',
+    });
+    expect(wire.calls.map((c) => c.request.url)).toEqual([
+      'https://api.openheaders.io/login',
+      'https://api.openheaders.io/me',
+    ]);
+    expect(wire.calls.every((c) => c.request.redirect === 'manual')).toBe(true);
+    // The cookie the first hop set rides the second — the spec's 302
+    // POST→GET demotion applied, the body headers dropped with it.
+    expect(wire.calls[1]?.request.method).toBe('GET');
+    expect(wire.calls[1]?.request.headers).toEqual([
+      { key: 'Authorization', value: 'Bearer resolved' },
+      { key: 'Cookie', value: 'session=live123' },
+    ]);
+    expect(response.status).toBe(200);
+    expect(response.url).toBe('https://api.openheaders.io/me');
+    expect(response.cookiesCaptured).toEqual(['session']);
+    expect(response.cookieHeaderAttached).toBeUndefined();
+    expect(response.redirectChain).toEqual([
+      {
+        url: 'https://api.openheaders.io/login',
+        method: 'POST',
+        status: 302,
+        statusText: 'Found',
+        location: '/me',
+        methodChangedTo: 'GET',
+      },
+    ]);
+    expect(wire.frames.size).toBe(0);
+  });
+
+  it("feeds the observer the final hop alone — an intermediate hop's head and chunks are the loop's", async () => {
+    const wire = fakeWire(async (frame, w) => {
+      const onFrame = w.frames.get(frame.sendId);
+      const first = frame.request.url.endsWith('/items');
+      const head = first
+        ? {
+            status: 307,
+            statusText: 'Temporary Redirect',
+            url: frame.request.url,
+            headers: [{ key: 'location', value: '/items-v2' }],
+          }
+        : { status: 201, statusText: 'Created', url: frame.request.url, headers: [] };
+      onFrame?.({ sendId: frame.sendId, seq: 0, kind: 'head', head });
+      onFrame?.({ sendId: frame.sendId, seq: 1, kind: 'chunk', chunkBase64: first ? 'eA==' : 'aGk=', totalBytes: 2 });
+      return {
+        success: true,
+        response: { ...RESPONSE, ...head, body: first ? 'x' : 'hi', bodyBytes: first ? 1 : 2 },
+        executedOn: EXECUTED_ON,
+      };
+    });
+    const transport = createDelegatingRequestTransport({ wire, workspaceId: 'ws-1' });
+    if (transport.sendStreaming === undefined) throw new Error('the delegating transport streams');
+    const heads: number[] = [];
+    const chunks: string[] = [];
+    const response = await transport.sendStreaming(
+      REQUEST,
+      { onHead: (head) => heads.push(head.status), onChunk: (bytes) => chunks.push(new TextDecoder().decode(bytes)) },
+      undefined,
+    );
+    expect(heads).toEqual([201]);
+    expect(chunks).toEqual(['hi']);
+    // 307 keeps the method and the body.
+    expect(wire.calls[1]?.request.method).toBe('POST');
+    expect(response.redirectChain).toHaveLength(1);
+  });
+
+  it("stops at the request's redirect limit, and surfaces the first response verbatim under manual", async () => {
+    const redirecting = fakeWire(async (frame) => ({
+      success: true,
+      response: {
+        ...RESPONSE,
+        status: 302,
+        statusText: 'Found',
+        url: frame.request.url,
+        headers: [{ key: 'location', value: '/again' }],
+      },
+      executedOn: EXECUTED_ON,
+    }));
+    const transport = createDelegatingRequestTransport({ wire: redirecting, workspaceId: 'ws-1' });
+    await expect(transport.send({ ...REQUEST, maxRedirects: 1 })).rejects.toThrow(
+      "Stopped after 1 redirects — the request's redirect limit.",
+    );
+    expect(redirecting.calls).toHaveLength(2);
+
+    const manual = await transport.send({ ...REQUEST, redirect: 'manual' });
+    expect(manual.status).toBe(302);
+    expect(manual.redirectChain).toBeUndefined();
+    expect(redirecting.calls).toHaveLength(3);
   });
 });

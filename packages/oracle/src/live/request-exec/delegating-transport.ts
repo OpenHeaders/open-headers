@@ -20,12 +20,24 @@
  * place's `abortRequestSend`; the place answers with the partial body
  * and `streamEndedEarly`, exactly as an in-process transport would.
  *
+ * The redirect chain is the CONTEXT's too: every hop rides the wire as
+ * its own single-shot exchange (`redirect: 'manual'` on the frame —
+ * the place never follows), and this transport applies the shared
+ * redirect policy between hops (`redirect-policy.ts`, the node
+ * follower's one source): the method/body demotion, the cross-origin
+ * Authorization strip, the limit, the chain record on the response.
+ * The place's live frames of an intermediate hop never reach the
+ * executor's observer — only the final hop's head and body do, as an
+ * in-process follower feeds them.
+ *
  * The cookie jar stays the CONTEXT's (Phase W): with a jar registry
  * injected, a send that opted into the jar (`cookieJarKey`) gets the
- * jar's `Cookie` attached before the frame leaves and its answered
- * `Set-Cookie` rows captured — the key itself never rides, the place
- * holds no jar. The seam's jar facts are stamped on the response as
- * an in-process transport would stamp them.
+ * jar's `Cookie` attached on EVERY hop, computed against that hop's
+ * URL, and every hop's `Set-Cookie` rows captured — a cookie set
+ * mid-chain rides the next hop, exactly as an in-process jar leg
+ * works; the key itself never rides, the place holds no jar. The
+ * seam's jar facts are stamped on the response as an in-process
+ * transport would stamp them.
  */
 
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
@@ -34,8 +46,17 @@ import { decodeBase64Bytes } from '@openheaders/core/utils';
 import { type CookieJar, captureSetCookieRows, withJarCookieHeader } from './cookie-jar';
 import { type DelegatedRequestFrame, type DelegatedRequestResult, encodeDelegatedRequest } from './delegated-wire';
 import {
+  DEFAULT_MAX_REDIRECTS,
+  nextRedirectHop,
+  type RedirectHop,
+  redirectHopRecord,
+  redirectLimitError,
+  redirectLocation,
+} from './redirect-policy';
+import {
   type RequestTransport,
   TransportError,
+  type TransportRedirectHop,
   type TransportRequest,
   type TransportResponse,
   type TransportStreamObserver,
@@ -70,22 +91,23 @@ const NO_OBSERVER: TransportStreamObserver = { onHead: () => {}, onChunk: () => 
 export function createDelegatingRequestTransport(options: DelegatingTransportOptions): RequestTransport {
   const mintSendId = options.mintSendId ?? (() => crypto.randomUUID());
 
-  async function exchange(
-    original: TransportRequest,
+  /** One single-shot exchange at the place: the hop's request rides
+   *  `redirect: 'manual'`, its frames feed the observer only when the
+   *  answered head is final (an intermediate hop's are the loop's
+   *  business, never the executor's). */
+  async function placeExchange(
+    request: TransportRequest,
     observer: TransportStreamObserver,
     signal: AbortSignal | undefined,
+    chasing: boolean,
   ): Promise<TransportResponse> {
     const sendId = mintSendId();
-    // The context's jar speaks before the frame leaves — the place
-    // never sees the key, only the header the jar contributed.
-    const jar =
-      options.jars !== undefined && original.cookieJarKey !== undefined ? options.jars(original.cookieJarKey) : null;
-    const outgoing = jar !== null ? withJarCookieHeader(jar, original.url, original.headers) : null;
-    const request = outgoing !== null ? { ...original, headers: outgoing.headers } : original;
+    let forward = true;
     const unsubscribe = options.wire.subscribeFrames(sendId, (event) => {
       if (event.kind === 'head') {
-        observer.onHead(event.head);
-      } else if (event.kind === 'chunk') {
+        forward = !chasing || redirectLocation(event.head.status, event.head.headers) === null;
+        if (forward) observer.onHead(event.head);
+      } else if (event.kind === 'chunk' && forward) {
         const bytes = decodeBase64Bytes(event.chunkBase64);
         if (bytes !== null) observer.onChunk(bytes, event.totalBytes);
       }
@@ -97,20 +119,9 @@ export function createDelegatingRequestTransport(options: DelegatingTransportOpt
         type: DELEGATE_REQUEST_CHANNEL,
         sendId,
         workspaceId: options.workspaceId,
-        request: encodeDelegatedRequest(request),
+        request: encodeDelegatedRequest({ ...request, redirect: 'manual' }),
       });
-      if (result.success) {
-        const response: TransportResponse = { ...result.response, executedOn: result.executedOn };
-        if (jar === null) return response;
-        // The answered rows feed the context's jar; the facts ride the
-        // snapshot exactly as an in-process jar leg stamps them.
-        const captured = captureSetCookieRows(jar, response.url, response.headers);
-        return {
-          ...response,
-          ...(outgoing?.attached !== undefined ? { cookieHeaderAttached: outgoing.attached } : {}),
-          ...(captured.length > 0 ? { cookiesCaptured: captured } : {}),
-        };
-      }
+      if (result.success) return { ...result.response, executedOn: result.executedOn };
       throw new TransportError(result.error, result.hint, result.executedOn);
     } catch (err) {
       if (err instanceof TransportError) throw err;
@@ -120,6 +131,58 @@ export function createDelegatingRequestTransport(options: DelegatingTransportOpt
     } finally {
       signal?.removeEventListener('abort', onAbort);
       unsubscribe();
+    }
+  }
+
+  async function exchange(
+    original: TransportRequest,
+    observer: TransportStreamObserver,
+    signal: AbortSignal | undefined,
+  ): Promise<TransportResponse> {
+    const jar =
+      options.jars !== undefined && original.cookieJarKey !== undefined ? options.jars(original.cookieJarKey) : null;
+    const chasing = original.redirect === 'follow';
+    const maxRedirects = original.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+    let hop: RedirectHop = {
+      url: original.url,
+      method: original.method,
+      headers: original.headers,
+      body: original.body,
+    };
+    let redirects = 0;
+    let authorizationForwarded = false;
+    let cookieHeaderAttached: string | undefined;
+    const cookiesCaptured: string[] = [];
+    const redirectChain: TransportRedirectHop[] = [];
+    while (true) {
+      // The jar contributes per hop, computed fresh against the CURRENT
+      // hop's URL — the contribution never joins the hop state, so it
+      // can't masquerade as a user-set header on later hops.
+      const outgoing = jar !== null ? withJarCookieHeader(jar, hop.url, hop.headers) : null;
+      if (redirects === 0 && outgoing?.attached !== undefined) cookieHeaderAttached = outgoing.attached;
+      const response = await placeExchange(
+        { ...original, url: hop.url, method: hop.method, headers: outgoing?.headers ?? hop.headers, body: hop.body },
+        observer,
+        signal,
+        chasing,
+      );
+      if (jar !== null) cookiesCaptured.push(...captureSetCookieRows(jar, hop.url, response.headers));
+      const location = chasing ? redirectLocation(response.status, response.headers) : null;
+      if (location === null) {
+        return {
+          ...response,
+          ...(redirectChain.length > 0 ? { redirectChain } : {}),
+          ...(authorizationForwarded ? { authorizationForwarded: true } : {}),
+          ...(cookieHeaderAttached !== undefined ? { cookieHeaderAttached } : {}),
+          ...(cookiesCaptured.length > 0 ? { cookiesCaptured } : {}),
+        };
+      }
+      if (redirects >= maxRedirects) throw redirectLimitError(maxRedirects);
+      redirects++;
+      const next = nextRedirectHop(hop, response.status, location, original);
+      authorizationForwarded ||= next.authorization === 'forwarded';
+      redirectChain.push(redirectHopRecord(hop, response.status, response.statusText, location, next));
+      hop = next.hop;
     }
   }
 
