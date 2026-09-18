@@ -18,6 +18,16 @@
  *   5. The same law behind a reverse proxy: a proxy fronting the dead
  *      daemon resolves the navigation with 502 instead of a network
  *      error — the worker must still answer with the cached shell.
+ *   6. The script sandbox page (the Execution Place plan, Phase W): the
+ *      daemon serves it under the sandbox CSP header alone, the worker
+ *      precaches it, and a sandboxed iframe mounting it reaches the
+ *      realm's own `sandbox.ready` online (F21, the one platform claim
+ *      no unit pin proves). OFFLINE the same mount never reaches ready
+ *      while an UNSANDBOXED frame does (measured 2026-09-18): Chromium
+ *      routes no opaque-origin frame's navigation through the service
+ *      worker, so the precached page and the worker's shell-fallback
+ *      refinement never serve the real mount — recorded as the epic's
+ *      F23, the leg below is a fixme until the ruling.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`.
@@ -31,6 +41,7 @@ import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { WEB_SANDBOX_CSP, WEB_SANDBOX_PAGE } from '@openheaders/core/scripts';
 import { type Browser, type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -53,6 +64,42 @@ let browser: Browser;
 let context: BrowserContext;
 let page: Page;
 const daemonLog: string[] = [];
+
+/** Mount the served sandbox page in a sandboxed iframe of the tab and
+ *  wait for the realm's own `sandbox.ready` — what the shared iframe
+ *  transport waits for before its first script run. The shell answered
+ *  in the page's place never posts it. */
+async function sandboxReachesReady(): Promise<boolean> {
+  return page.evaluate(
+    (src: string) =>
+      new Promise<boolean>((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('sandbox', 'allow-scripts');
+        iframe.style.display = 'none';
+        const cleanup = (): void => {
+          clearTimeout(timer);
+          window.removeEventListener('message', onMessage);
+          iframe.remove();
+        };
+        const timer = setTimeout(() => {
+          cleanup();
+          resolve(false);
+        }, 4_000);
+        const onMessage = (event: MessageEvent): void => {
+          if (event.source !== iframe.contentWindow) return;
+          const data = event.data as { type?: unknown } | null;
+          if (data !== null && typeof data === 'object' && data.type === 'sandbox.ready') {
+            cleanup();
+            resolve(true);
+          }
+        };
+        window.addEventListener('message', onMessage);
+        iframe.src = src;
+        document.body.appendChild(iframe);
+      }),
+    `/${WEB_SANDBOX_PAGE}`,
+  );
+}
 
 test.describe.configure({ mode: 'serial' });
 
@@ -164,6 +211,25 @@ test('the tab registers the worker, precaches the build, and is controlled', asy
   expect(cachedShell).toEqual({ shellOk: true, hasHashedAsset: true, hasThemeInit: true });
 });
 
+test('the script sandbox page is served under its header, precached, and reaches ready', async () => {
+  // The header is the sandbox: a page that compiles whatever it is
+  // posted runs under a unique opaque origin whoever embeds it, and
+  // the `sandbox` directive cannot be set from inside the page.
+  const served = await fetch(`${ORIGIN}/${WEB_SANDBOX_PAGE}`);
+  expect(served.status).toBe(200);
+  expect(served.headers.get('content-security-policy')).toBe(WEB_SANDBOX_CSP);
+  // The shell itself carries no such header — the policy is that path's alone.
+  expect((await fetch(`${ORIGIN}/`)).headers.get('content-security-policy')).toBeNull();
+
+  const precached = await page.evaluate(async (pathname: string) => {
+    const cache = await caches.open((await caches.keys()).find((key) => key.startsWith('oh-web-')) ?? '');
+    return (await cache.keys()).some((req) => new URL(req.url).pathname === pathname);
+  }, `/${WEB_SANDBOX_PAGE}`);
+  expect(precached).toBe(true);
+
+  expect(await sandboxReachesReady()).toBe(true);
+});
+
 test('healthz is never answered from cache', async () => {
   // While the daemon lives the probe passes THROUGH the worker.
   const alive = await page.evaluate(async () => (await fetch('/healthz')).status);
@@ -193,6 +259,14 @@ test('a reload with the daemon gone serves the cached shell and mounts offline-f
     timeout: 5_000,
   });
   expect(await page.$('[data-testid=login-gate]')).toBeNull();
+});
+
+test('the offline tab mounts the sandbox from the precache', async () => {
+  // F23: a sandboxed (opaque-origin) frame's navigation bypasses the
+  // service worker in Chromium, so the cached sandbox document never
+  // answers the real mount — the tab cannot run a script offline.
+  test.fixme(true, 'Execution Place F23 — the ruling on the offline sandbox mount is pending');
+  expect(await sandboxReachesReady()).toBe(true);
 });
 
 test('a reload behind a proxy answering 502 for the dead daemon serves the cached shell too', async () => {
