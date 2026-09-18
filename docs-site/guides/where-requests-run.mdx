@@ -40,7 +40,7 @@ and on which places are connected right now.
 | WebSocket | Here, over the browser socket. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
 | MQTT over `ws://` / `wss://` | Here, over the browser socket. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
 | MQTT over `mqtt://` / `mqtts://` | **Needs the desktop app** or the server — a browser page cannot open a raw TCP socket. Automatic picks whichever is connected. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
-| gRPC | Forwarded to the connected desktop app — the browser has no HTTP/2 stack that exposes trailers. Without it: **Needs the desktop app**. | Here. | Sent by the server and resolved there. |
+| gRPC | Forwarded to the connected desktop app, else to the workspace's server — the browser has no HTTP/2 stack that exposes trailers. With both connected, the desktop app runs it and the server is offered beside it. Without either: **Needs the desktop app**. | Here. | Sent by the server and resolved there. |
 
 An alternative is offered only while that place is connected: the
 desktop app's row appears when the extension is paired with a running
@@ -138,9 +138,10 @@ the switch to turn on and where — never a silent failure.
 
 ## When the chip asks for the desktop app
 
-On the extension, a request that only the desktop app can open — an
-`mqtts://` session with no place connected, a gRPC call — reads
-**Needs the desktop app**. The chip's action follows what is installed:
+On the extension, a request that no connected place can open — an
+`mqtts://` session or a gRPC call with neither the desktop app nor the
+workspace's server connected — reads **Needs the desktop app**. The
+chip's action follows what is installed:
 
 | State | Action |
 | --- | --- |
