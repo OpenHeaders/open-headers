@@ -1,5 +1,12 @@
 /// <reference types="vite/client" />
 
+/** The script sandbox document the build bundles (`vite.sandbox-plugin.ts`)
+ *  — the tab mounts it as its hidden iframe's `srcdoc`. */
+declare module 'virtual:openheaders-script-sandbox' {
+  const document: string;
+  export default document;
+}
+
 /** Build-time constant injected by Vite from package.json version. */
 declare const __APP_VERSION__: string;
 

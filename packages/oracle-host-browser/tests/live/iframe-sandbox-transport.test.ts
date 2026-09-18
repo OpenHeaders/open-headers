@@ -22,6 +22,7 @@ import {
 interface FakeIframe {
   tagName: string;
   src: string;
+  srcdoc: string;
   hidden: boolean;
   attributes: Record<string, string>;
   contentWindow: { postMessage: (message: unknown, target: string) => void; posted: unknown[] };
@@ -39,6 +40,7 @@ function makeIframe(): FakeIframe {
   return {
     tagName: 'IFRAME',
     src: '',
+    srcdoc: '',
     hidden: false,
     attributes: {},
     contentWindow: { posted, postMessage: (message) => posted.push(message) },
@@ -128,6 +130,17 @@ describe('createIframeSandboxTransport', () => {
     dispatch(frame.contentWindow, { type: 'sandbox.ready' });
     await first;
     expect(up).toEqual([]);
+  });
+
+  it('mounts a self-contained document as srcdoc, no URL at all', async () => {
+    const transport = createIframeSandboxTransport({ srcdoc: '<!DOCTYPE html><script>1</script>' })(() => {});
+    const ready = transport.ensureReady();
+    const frame = created[0];
+    expect(frame.srcdoc).toBe('<!DOCTYPE html><script>1</script>');
+    expect(frame.src).toBe('');
+    expect(frame.attributes.sandbox).toBe('allow-scripts');
+    dispatch(frame.contentWindow, { type: 'sandbox.ready' });
+    await ready;
   });
 
   it('forwards up messages from the mounted frame alone and posts down into it', async () => {

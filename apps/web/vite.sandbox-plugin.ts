@@ -1,19 +1,17 @@
 /**
- * Script-sandbox page build plugin — the served tab's script realm
- * (the Execution Place plan, Phase W). The page cannot be an ordinary
- * Vite HTML entry: it is loaded inside an opaque-origin sandboxed
- * iframe, where a module script (Vite's only HTML output) is fetched
- * with CORS and fails against the daemon's static handler, and where
- * nothing else may load at all (the page ships under
- * `default-src 'none'`). So the plugin esbuild-bundles the realm entry
- * standalone as a classic script and emits `sandbox.html` with that
- * script INLINE — one self-contained document, un-hashed at the
- * bundle root so the tab mounts it by its fixed path
- * (`WEB_SANDBOX_PAGE`). The daemon serves the built page under the
- * sandbox CSP header (`static-web.ts`); the dev server serves the same
- * page under the same header from this plugin, so a dev tab runs
- * scripts too. Runs before the service-worker plugin so the emitted
- * page lands in the precache list.
+ * Script-sandbox document plugin — the served tab's script realm (the
+ * Execution Place plan, Phase W) as a virtual module. The realm cannot
+ * be an ordinary Vite HTML entry: it runs inside an opaque-origin
+ * sandboxed iframe where a module script is fetched with CORS and
+ * nothing else may load at all. And it cannot be a served page either:
+ * Chromium routes no opaque-origin frame's navigation through the
+ * service worker, so a served page is unreachable from an offline tab
+ * (the epic's F23). So the plugin esbuild-bundles the realm entry
+ * standalone as a classic script and answers
+ * `virtual:openheaders-script-sandbox` with core's self-contained
+ * document (the script inline, the policy as a meta tag) as a string;
+ * the tab mounts it as the iframe's `srcdoc`. Dev and build share the
+ * one `load`, so a dev tab runs scripts too.
  */
 
 import * as path from 'node:path';
@@ -22,8 +20,10 @@ import type { Plugin } from 'vite';
 // A relative path on purpose: Vite bundles the config's relative
 // imports with esbuild, while a bare workspace specifier would be left
 // to plain Node, which cannot load the package's TypeScript source.
-import { WEB_SANDBOX_CSP, WEB_SANDBOX_PAGE } from '../../packages/core/src/scripts/sandbox-page';
+import { scriptSandboxDocument } from '../../packages/core/src/scripts/sandbox-document';
 
+export const SCRIPT_SANDBOX_MODULE_ID = 'virtual:openheaders-script-sandbox';
+const RESOLVED_ID = `\0${SCRIPT_SANDBOX_MODULE_ID}`;
 const SANDBOX_ENTRY = 'src/sandbox/sandbox.ts';
 
 async function bundleRealm(rootDir: string): Promise<string> {
@@ -39,55 +39,20 @@ async function bundleRealm(rootDir: string): Promise<string> {
   return result.outputFiles[0].text;
 }
 
-/** The self-contained page: the realm script inline, nothing referenced. */
-function sandboxHtml(script: string): string {
-  // An inline script must never contain the closing tag; the realm's
-  // source carries none, but the escape costs nothing.
-  const inline = script.replace(/<\/script/gi, '<\\/script');
-  return [
-    '<!DOCTYPE html>',
-    '<html lang="en">',
-    '<head>',
-    '<meta charset="UTF-8">',
-    '<title>Open Headers — script sandbox</title>',
-    '</head>',
-    '<body>',
-    `<script>${inline}</script>`,
-    '</body>',
-    '</html>',
-    '',
-  ].join('\n');
-}
-
-export function sandboxPagePlugin(): Plugin {
+export function sandboxDocumentPlugin(): Plugin {
   let rootDir = '';
   return {
-    name: 'openheaders:sandbox-page',
+    name: 'openheaders:sandbox-document',
     configResolved(config) {
       rootDir = config.root;
     },
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const requestPath = (req.url ?? '').split('?', 1)[0];
-        if (requestPath !== `/${WEB_SANDBOX_PAGE}`) {
-          next();
-          return;
-        }
-        void bundleRealm(rootDir).then(
-          (script) => {
-            res.statusCode = 200;
-            res.setHeader('content-type', 'text/html; charset=utf-8');
-            res.setHeader('cache-control', 'no-cache');
-            res.setHeader('content-security-policy', WEB_SANDBOX_CSP);
-            res.end(sandboxHtml(script));
-          },
-          (err: unknown) => next(err),
-        );
-      });
+    resolveId(id) {
+      return id === SCRIPT_SANDBOX_MODULE_ID ? RESOLVED_ID : null;
     },
-    async generateBundle() {
+    async load(id) {
+      if (id !== RESOLVED_ID) return null;
       const script = await bundleRealm(rootDir);
-      this.emitFile({ type: 'asset', fileName: WEB_SANDBOX_PAGE, source: sandboxHtml(script) });
+      return `export default ${JSON.stringify(scriptSandboxDocument(script))};`;
     },
   };
 }

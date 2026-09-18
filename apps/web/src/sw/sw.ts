@@ -61,27 +61,20 @@ self.addEventListener('activate', (event) => {
  * serves the precached document. "Offline" is a thrown fetch on a
  * direct connection, or a gateway status from a reverse proxy whose
  * daemon upstream is gone — either way the cache answers, and with
- * nothing cached yet the network's own outcome stands. The navigated
- * document itself is matched first — the script sandbox page is a
- * precached navigation of its own (the tab's hidden iframe), and it
- * must never come back as the app shell, which would mount the app
- * inside its own sandbox; a client-side route has no cached document
- * and falls back to the shell.
+ * nothing cached yet the network's own outcome stands. Every
+ * navigation is a client-side route of the one shell (the script
+ * sandbox is an inline document, never a navigation of its own).
  */
 async function serveShell(request: Request): Promise<Response> {
   try {
     const response = await fetch(request);
     if (!isDaemonUnreachableStatus(response.status)) return response;
-    return (await cachedDocument(request)) ?? response;
+    return (await caches.match('/')) ?? response;
   } catch {
-    const cached = await cachedDocument(request);
+    const cached = await caches.match('/');
     if (cached) return cached;
     return Response.error();
   }
-}
-
-async function cachedDocument(request: Request): Promise<Response | undefined> {
-  return (await caches.match(request)) ?? (await caches.match('/'));
 }
 
 /** Cache-first asset: the full bundle is precached; a miss (stale hash mid-redeploy) goes to network. */

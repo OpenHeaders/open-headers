@@ -511,8 +511,9 @@ test('Clear empties the jar over the wire — the next send carries nothing', as
 // ── Scripts on the tab's Send: the tab's own Safe sandbox ───────────
 // A scripted draft dispatched from the tab runs its pre-request and
 // post-response scripts HERE, in the tab's sandboxed iframe (the
-// served sandbox page under the daemon's CSP header — the Execution
-// Place plan, Phase W), and only the socket opens on the serving host.
+// self-contained sandbox document the build bundled, mounted inline —
+// the Execution Place plan, Phase W), and only the socket opens on the
+// serving host.
 // The pre-request mutation must reach the real wire through the
 // delegated frame (the rig echoes the script-set header), the
 // post-response assertions must see the real response, the snapshot
@@ -572,11 +573,13 @@ test("a scripted Send runs in the tab's Safe sandbox, the socket opens on the se
   expect(snapshot?.executedOn?.name).toBe(hostname().split('.')[0]?.trim().toLowerCase());
 
   // The scripts ran in the tab: the shared iframe transport mounted the
-  // served sandbox page, header-sandboxed and belt-sandboxed alike.
+  // bundled sandbox document INLINE — sandboxed by the frame, reached
+  // by no URL, needing no network (an offline tab runs it the same).
   const sandbox = page.getByTestId('oh-page-script-sandbox');
   await expect(sandbox).toHaveCount(1);
   await expect(sandbox).toHaveAttribute('sandbox', 'allow-scripts');
-  expect(await sandbox.getAttribute('src')).toMatch(/\/sandbox\.html$/);
+  expect(await sandbox.getAttribute('src')).toBeNull();
+  expect(await sandbox.getAttribute('srcdoc')).toContain('<meta http-equiv="Content-Security-Policy"');
 });
 
 // ── A scripted session in the tab: the executor here, the socket there ─

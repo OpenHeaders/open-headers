@@ -3,8 +3,7 @@
  * over a staged mini-bundle: index at `/`, SPA fallback on
  * extension-less paths, immutable caching under `/assets/`, asset-miss
  * 404s (never HTML under a `.js` URL), traversal/dotfile refusal, the
- * GET/HEAD method gate, and the script sandbox page under its CSP
- * header — that page alone.
+ * GET/HEAD method gate.
  */
 
 import * as fs from 'node:fs';
@@ -12,7 +11,6 @@ import { createServer, request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { WEB_SANDBOX_CSP, WEB_SANDBOX_PAGE } from '@openheaders/core/scripts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createStaticWebHandler } from '../../../src/daemon/static-web';
 
@@ -26,7 +24,6 @@ beforeAll(async () => {
   fs.writeFileSync(path.join(rootDir, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   fs.writeFileSync(path.join(rootDir, 'manifest.webmanifest'), '{"name":"Open Headers"}');
   fs.writeFileSync(path.join(rootDir, 'sw.js'), 'self.addEventListener("fetch", function () {});');
-  fs.writeFileSync(path.join(rootDir, WEB_SANDBOX_PAGE), '<!doctype html><script>self.oh = 1;</script>');
   fs.mkdirSync(path.join(rootDir, 'assets'));
   fs.writeFileSync(path.join(rootDir, 'assets', 'index-abc123.js'), 'console.log("openheaders.io");');
   fs.writeFileSync(path.join(rootDir, '.secret'), 'never served');
@@ -87,19 +84,6 @@ describe('createStaticWebHandler', () => {
     expect(sw.status).toBe(200);
     expect(sw.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
     expect(sw.headers.get('cache-control')).toBe('no-cache');
-  });
-
-  it('serves the script sandbox page under the sandbox CSP header, and that page alone', async () => {
-    const page = await fetch(`${baseUrl}/${WEB_SANDBOX_PAGE}`);
-    expect(page.status).toBe(200);
-    expect(page.headers.get('content-type')).toBe('text/html; charset=utf-8');
-    expect(page.headers.get('content-security-policy')).toBe(WEB_SANDBOX_CSP);
-    expect(page.headers.get('cache-control')).toBe('no-cache');
-    expect(await page.text()).toContain('self.oh = 1');
-    const shell = await fetch(`${baseUrl}/`);
-    expect(shell.headers.get('content-security-policy')).toBeNull();
-    const asset = await fetch(`${baseUrl}/assets/index-abc123.js`);
-    expect(asset.headers.get('content-security-policy')).toBeNull();
   });
 
   it('404s an asset miss instead of falling back to HTML', async () => {

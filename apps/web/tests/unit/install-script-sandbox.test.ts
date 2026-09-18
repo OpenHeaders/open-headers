@@ -30,9 +30,10 @@ vi.mock('@/host/public-view', () => ({ isPublicView: () => h.publicView }));
 vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   peekActiveWorkspaceId: () => h.activeWorkspaceId,
 }));
+vi.mock('virtual:openheaders-script-sandbox', () => ({ default: '<!DOCTYPE html><script>/* realm */</script>' }));
 vi.mock('@openheaders/oracle-host-browser/live/iframe-sandbox-transport', () => ({
-  createIframeSandboxTransport: (options: { src: string }) => {
-    h.transportSrcs.push(options.src);
+  createIframeSandboxTransport: (options: { src?: string; srcdoc?: string }) => {
+    h.transportSrcs.push(options.srcdoc ?? options.src ?? '');
     return () => ({ ensureReady: async () => {}, post: () => {}, close: () => {} });
   },
 }));
@@ -117,10 +118,10 @@ describe('install-script-sandbox', () => {
     h.handlerSeams = [];
   });
 
-  it('registers Safe alone over the oracle broker mounting the served sandbox page', async () => {
+  it('registers Safe alone over the oracle broker mounting the bundled sandbox document inline', async () => {
     await import('@/host/install-script-sandbox');
     const { getHostScriptCapability } = await registry();
-    expect(h.transportSrcs).toEqual(['/sandbox.html']);
+    expect(h.transportSrcs).toEqual(['<!DOCTYPE html><script>/* realm */</script>']);
     expect(h.brokerDeps).toHaveLength(1);
     const safe = getHostScriptCapability('safe');
     expect(safe?.mode).toBe('safe');

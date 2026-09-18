@@ -5,10 +5,12 @@
  * registry every send and session host resolves through
  * (`@openheaders/oracle/live/script-host/capability`): the same oracle
  * broker the node hosts run, over the shared sandbox iframe transport
- * (`@openheaders/oracle-host-browser`) mounting the page the serving
- * daemon delivers under the sandbox CSP header (`WEB_SANDBOX_PAGE` —
- * a unique opaque origin, `'unsafe-eval'` for the user scripts it
- * compiles, no network of its own), with the `oh.*` servicing every
+ * (`@openheaders/oracle-host-browser`) mounting the self-contained
+ * sandbox document the build bundled (`virtual:openheaders-script-
+ * sandbox`, core's shape) as the frame's `srcdoc` — a unique opaque
+ * origin, `'unsafe-eval'` for the user scripts it compiles, no network
+ * of its own and none needed, so an offline tab runs its scripts as an
+ * online one does — with the `oh.*` servicing every
  * mirror-backed host shares (`host-rpc.ts`) over the tab's seam: the
  * vault-ref OAuth refresh leg rides the tab's delegating HTTP leg
  * toward the serving daemon, and an ad-hoc `oh.sendRequest` draft
@@ -25,7 +27,7 @@
  * script run, never at boot.
  */
 
-import { WEB_SANDBOX_PAGE } from '@openheaders/core/scripts';
+import scriptSandboxDocument from 'virtual:openheaders-script-sandbox';
 import type { RequestTransport } from '@openheaders/oracle/live/request-exec/transport';
 import { executeRequestRoute } from '@openheaders/oracle/live/request-route/route';
 import { createScriptBroker } from '@openheaders/oracle/live/script-host/broker';
@@ -48,7 +50,7 @@ const tabRefreshTransport: RequestTransport = {
 
 if (!isPublicView()) {
   const broker = createScriptBroker({
-    createTransport: createIframeSandboxTransport({ src: `/${WEB_SANDBOX_PAGE}` }),
+    createTransport: createIframeSandboxTransport({ srcdoc: scriptSandboxDocument }),
     handleHostRequest: createScriptHostRequestHandler({
       refreshTransport: tabRefreshTransport,
       sendRequest: (draft) => executeRequestRoute({ draft }, webRequestRouteHost),

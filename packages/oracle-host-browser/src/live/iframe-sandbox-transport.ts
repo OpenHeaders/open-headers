@@ -1,15 +1,15 @@
 /**
  * Sandbox iframe transport — the browser page's leg of the script
  * broker ⇄ runtime protocol (`@openheaders/core/scripts/broker`). A
- * page that runs scripts mounts ONE hidden iframe of its sandbox page
+ * page that runs scripts mounts ONE hidden iframe of its sandbox realm
  * and drives the runtime inside it over `postMessage`: the extension's
- * workbench page mounts the manifest-declared `sandbox.html` (a unique
- * opaque origin, `'unsafe-eval'` scoped to it by the manifest's
- * sandbox CSP), the served web tab mounts the page its daemon serves
- * under the `sandbox` CSP header. Either way the iframe carries
- * `sandbox="allow-scripts"` itself, so the opaque origin never depends
- * on the page's delivery alone — a proxy that drops the header still
- * gets a sandboxed realm.
+ * workbench page mounts the manifest-declared `sandbox.html` by URL (a
+ * unique opaque origin, `'unsafe-eval'` scoped to it by the manifest's
+ * sandbox CSP), the served web tab mounts core's self-contained
+ * sandbox document as `srcdoc` (no network, no served page — an
+ * offline tab runs its scripts too). Either way the iframe carries
+ * `sandbox="allow-scripts"` itself, so the opaque origin is the
+ * frame's own, never the document's delivery.
  *
  * The transport owns the iframe's lifecycle for the broker's seam:
  * `ensureReady` mounts it on the first run and resolves on the realm's
@@ -40,12 +40,19 @@ export const SANDBOX_READY_GRACE_MS = 2_000;
 
 export const SANDBOX_NOT_READY_MESSAGE = 'The script sandbox loaded without announcing its runtime.';
 
-export interface IframeSandboxTransportOptions {
-  /** The sandbox page's URL as this page reaches it. */
-  src: string;
-}
+/** What the frame mounts: a sandbox page by URL, or a self-contained
+ *  sandbox document inline. */
+export type IframeSandboxTransportOptions =
+  | {
+      /** The sandbox page's URL as this page reaches it. */
+      src: string;
+    }
+  | {
+      /** The sandbox document itself (core's `scriptSandboxDocument`). */
+      srcdoc: string;
+    };
 
-/** The broker's `createTransport` dependency over a sandbox iframe of `src`. */
+/** The broker's `createTransport` dependency over a sandbox iframe of the realm. */
 export function createIframeSandboxTransport(
   options: IframeSandboxTransportOptions,
 ): (onUp: (message: unknown) => void) => SandboxTransport {
@@ -105,7 +112,11 @@ export function createIframeSandboxTransport(
           window.addEventListener('message', listener);
           const element = document.createElement('iframe');
           element.setAttribute('sandbox', 'allow-scripts');
-          element.src = options.src;
+          if ('srcdoc' in options) {
+            element.srcdoc = options.srcdoc;
+          } else {
+            element.src = options.src;
+          }
           element.hidden = true;
           element.setAttribute('aria-hidden', 'true');
           element.setAttribute('data-testid', SANDBOX_IFRAME_TEST_ID);
