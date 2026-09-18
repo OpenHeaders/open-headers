@@ -1,0 +1,154 @@
+---
+title: "Where requests run"
+description: "Every API request names the place that opens its connection — this device, the desktop app, or the workspace's server — and lets you choose where more than one can."
+---
+
+Every request editor carries a chip beside its **Send**, **Connect** or
+**Invoke** button that says where the request runs: **Runs here**,
+**Runs on the desktop app**, or **Runs on** the workspace's server.
+Click the chip for the reason, the alternatives and, where this surface
+cannot run the request, the way to get it running. Nothing is forwarded
+silently, and nothing is downgraded silently: a request that cannot run
+where you are says so and names the place that can.
+
+## The three places
+
+A request opens its connection in one of three places. They are roles,
+not machines: the same setting means the same thing on every device.
+
+| Role | What it is |
+| --- | --- |
+| **This device** | The surface you are sending from opens the connection itself — the desktop app's own network stack, the extension's service worker for HTTP, the extension's browser socket for WebSocket and MQTT over `ws://` / `wss://`. |
+| **The desktop app** | The desktop app on this device opens the connection on the request's behalf. It is reachable from the extension when both run on the same machine; the app is always its own place. |
+| **The workspace's server** | The server that provides the workspace opens the connection. An Org workspace has one by construction; a personal workspace has none. |
+
+**Automatic** is the default everywhere: the request runs on this device
+when it can, otherwise on the one place that can. The chip shows the
+resolved place, never the word "Automatic".
+
+## The matrix
+
+Which places can open a request depends only on the transport the
+request needs — a raw TCP socket, HTTP/2 trailers, a node-only knob —
+and on which places are connected right now.
+
+| Kind | Extension | Desktop app | Web app (served by a server) |
+| --- | --- | --- | --- |
+| HTTP, SSE | Here. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
+| GraphQL query | Here. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
+| GraphQL subscription | Here, over the browser socket. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
+| WebSocket | Here, over the browser socket. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
+| MQTT over `ws://` / `wss://` | Here, over the browser socket. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
+| MQTT over `mqtt://` / `mqtts://` | **Needs the desktop app** or the server — a browser page cannot open a raw TCP socket. Automatic picks whichever is connected. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
+| gRPC | Forwarded to the connected desktop app — the browser has no HTTP/2 stack that exposes trailers. Without it: **Needs the desktop app**. | Here. | Sent by the server and resolved there. |
+
+An alternative is offered only while that place is connected: the
+desktop app's row appears when the extension is paired with a running
+app, the server's row when the workspace's server is reachable.
+
+A session over the browser socket cannot apply the node-only knobs —
+custom handshake headers, disabled SSL verification, the credential's
+handshake header. The chip names the ones the request has set, so you
+can move the session to a place that applies them.
+
+## Choosing a place
+
+The place comes from four layers. The most specific one wins, and an
+explicit value wins whatever it is:
+
+1. **This send.** Open the chip and pick a row under **Run on** — this
+   send only.
+2. **The request.** The **Runs on** row on the request's **Settings**
+   tab. Its placeholder reads **Automatic** and, when a parent sets the
+   value, the row notes which one ("Inherited from Collection …").
+3. **The folder, then the collection.** The same row in a folder's or a
+   collection's settings, inherited by everything inside, exactly like
+   the other inheritable settings.
+4. **Global.** **Settings › API Requests › HTTP › Execution place**,
+   applying to every kind: **Automatic**, **This device**, **The desktop
+   app**, or **The workspace's server**.
+
+The values are roles, so they sync with the workspace and resolve on
+each device through that device's own connections. A role the current
+surface cannot honour is never honoured silently: the chip reads
+**Cannot run on the desktop app yet** (or the server's name) and the
+popover offers the eligible places to pick back.
+
+## What a delegated send carries
+
+The surface you sit at is the request's context. It resolves everything
+it holds — variables, the environment, vault secrets, TOTP codes,
+client certificates, files, cookies, the pre-request script — and only
+then hands the fully resolved request to the chosen place, which opens
+the connection and streams the raw response or frames back. The
+context does everything after: the post-response script, cookie
+capture, publish-on-run, the saved response.
+
+Where the resolved values travel is stated at the chip:
+
+- **To the desktop app on this device** — nothing the vault does not
+  already sync there. The chip reads "Resolved here; the desktop app
+  opens the connection on this request's behalf."
+- **To the server** — the resolved values, secrets included, travel to
+  it, as they would through any agent or proxy. The chip reads
+  "Resolved here; *server* opens the connection on this request's
+  behalf. The resolved values, secrets included, travel to it."
+
+A knob the place cannot apply is named on the same popover, never
+dropped in silence. The one such knob today is the context's cookie
+jar: a delegated connection never sees this surface's jar, so the chip
+reads "Not applied on *place*: the cookie jar."
+
+A `{{vault.…}}` reference the context does not hold fails before the
+send leaves, with the message and the action to unlock it here — the
+requirement is always on the surface you send from, never on the
+place.
+
+## Scripts run where you are
+
+Pre-request and post-response scripts run in the context, never at the
+place, whatever the place's own script posture:
+
+- **The extension** runs them in its sandboxed Safe runtime.
+- **The desktop app** runs them under the mode you choose on the
+  request's **Settings** tab — **Safe mode** or **Developer mode**, per
+  workspace, on this device only.
+- **The web app** runs them in the tab's own sandboxed Safe runtime —
+  the `oh.*` script API only, no filesystem, no process access, no
+  module loader. A browser tab has no Developer mode, so the Settings
+  tab states **Safe mode** as a fact rather than offering a choice.
+
+Each run records the mode it executed under on the response.
+
+## Consent, attribution, refusal
+
+The place that opens a connection on another surface's behalf decides
+whether it does so. In the desktop app, under **Backup and Sync › Your
+devices**, two switches gate it: **Allow this device's browsers to send
+requests** (on by default — pairing is the consent) and **Allow other
+connected devices to send requests** (off by default). A server exposes
+the same two tiers. Sending also requires write access to the request's
+workspace at that place, and every delegated send is audited there.
+
+Every response and every session timeline says which place answered:
+**Sent from** *name* on the meta strip, with the details in its popover.
+
+A place that refuses shows the refusal on the response itself, naming
+the switch to turn on and where — never a silent failure.
+
+## When the chip asks for the desktop app
+
+On the extension, a request that only the desktop app can open — an
+`mqtts://` session with no place connected, a gRPC call — reads
+**Needs the desktop app**. The chip's action follows what is installed:
+
+| State | Action |
+| --- | --- |
+| The app is running and paired | **Open in the desktop app** |
+| The app is installed and paired, but not running | **Open app** |
+| The app is installed but never paired | **Connect** |
+| No app on this device | **Download** |
+
+Composing and saving the request works regardless; only the connection
+waits. For MQTT, switching the address to `ws://` or `wss://` runs the
+session here instead.

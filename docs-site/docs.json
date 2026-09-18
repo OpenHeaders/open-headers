@@ -36,7 +36,7 @@
       },
       {
         "tab": "Guides",
-        "pages": ["guides/index"]
+        "pages": ["guides/index", "guides/where-requests-run"]
       },
       {
         "tab": "Server",
