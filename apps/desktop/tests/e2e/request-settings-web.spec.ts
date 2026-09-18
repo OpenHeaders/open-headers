@@ -1,8 +1,10 @@
 /**
  * Request-settings web-host live E2E — the scope-C leg of the S14 live
- * pass: the three forwarded workbench request channels
- * (`executeRequest` + the cookie-jar pair) driven through a REAL wire
- * end to end. The built desktop app serves the web bundle
+ * pass, now the Execution Place epic's web gate: the served tab is a
+ * CONTEXT — `executeRequest` resolves in the tab, its scripts run in
+ * the tab's sandboxed iframe, the cookie jar is the tab's own — and
+ * the serving host only opens the socket (the delegated request and
+ * socket families), driven through a REAL wire end to end. The built desktop app serves the web bundle
  * (`backend.serveWebApp`) on an off-default port; a Playwright Chromium
  * tab signs in at the front door's password card as a directory user
  * admitted with an editor grant over the desktop's admin plane (the
@@ -192,12 +194,12 @@ function watchConsole(target: Page, label: string): void {
 // ── Served-workbench DOM helpers (the shared UI's selectors) ─────────
 
 /** Activate the API Requests tool window and expand the REQUESTS section. */
-async function showRequestsView(): Promise<void> {
-  const viewTab = page.locator('[data-tool-window="api-requests"]').first();
+async function showRequestsView(target: Page = page): Promise<void> {
+  const viewTab = target.locator('[data-tool-window="api-requests"]').first();
   if ((await viewTab.getAttribute('aria-selected')) !== 'true') {
     await viewTab.click();
   }
-  const sectionHeader = page
+  const sectionHeader = target
     .getByRole('button', { name: /REQUESTS/ })
     .filter({ visible: true })
     .first();
@@ -208,10 +210,10 @@ async function showRequestsView(): Promise<void> {
 }
 
 /** Click a synced request row, expanding its collection first if hidden. */
-async function openRequest(uid: string): Promise<void> {
-  const row = page.locator(`[data-item-id="request-${uid}"]`);
+async function openRequest(uid: string, target: Page = page): Promise<void> {
+  const row = target.locator(`[data-item-id="request-${uid}"]`);
   if (!(await row.isVisible().catch(() => false))) {
-    const collections = page.locator('[data-item-id^="req-col-"]').filter({ visible: true });
+    const collections = target.locator('[data-item-id^="req-col-"]').filter({ visible: true });
     const count = await collections.count();
     for (let i = 0; i < count; i += 1) {
       if (await row.isVisible().catch(() => false)) break;
@@ -255,8 +257,8 @@ function jarRow() {
 /** Open the active request editor's Settings tab and prove it took —
  *  a click that lands on the tab's box without selecting it names what
  *  covered the strip. */
-async function openSettingsTab(): Promise<void> {
-  const tab = page.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first();
+async function openSettingsTab(target: Page = page): Promise<void> {
+  const tab = target.getByRole('tab', { name: 'Settings', exact: true }).filter({ visible: true }).first();
   await tab.click();
   await expect
     .poll(
@@ -265,7 +267,7 @@ async function openSettingsTab(): Promise<void> {
         if (selected === 'true') return 'selected';
         const box = await tab.boundingBox();
         if (box === null) return 'no box';
-        return await page.evaluate(
+        return await target.evaluate(
           ([x, y]) => {
             const el = document.elementFromPoint(x, y);
             return `covered by <${el?.tagName.toLowerCase()} class="${el?.className}"> ${el?.textContent?.slice(0, 60)}`;
@@ -414,7 +416,7 @@ test('opt-in OFF: the forwarded Send renders the host-aware refusal notice', asy
   await notice.waitFor({ state: 'visible', timeout: 5_000 });
   const message = (await notice.textContent()) ?? '';
   expect(message).toContain('Sending from this device\u2019s browsers is turned off in the desktop app');
-  expect(message).toContain('Connectivity \u203a Backend \u203a Server');
+  expect(message).toContain('Backup and Sync \u203a Your devices');
 });
 
 // ── Gate outcome 2: flipped ON per frame, no restart ─────────────────
@@ -431,11 +433,13 @@ test('flipping backend.allowLocalPeerExecute on lets the same Send return a real
 });
 
 // ── Egress attribution: the run says WHERE it executed ───────────────
-// A forwarded send's egress connection is the serving host's — the
+// A delegated send's egress connection is the serving host's — the
 // target saw ITS IP and locale, not the tab device's. The answering
 // host stamps `executedOn` at run time; the tab's meta strip renders
 // the "Sent from" tag, and the place control beside Send sets the
-// expectation before the first send.
+// expectation before the first send: the tab is the CONTEXT (resolved
+// here), the serving daemon only opens the socket (the Execution Place
+// plan, Phase W).
 
 test('the response meta strip attributes the run to the serving host', async () => {
   // The serving desktop runs in this same test process's machine — its
@@ -452,13 +456,22 @@ test('the place control names the connected back-end before the first send', asy
   await expect(placeChip).toHaveAttribute('data-place', 'workspace-server');
   await placeChip.click();
   const popover = page.getByTestId('execution-place-popover').filter({ visible: true });
-  await expect(popover).toContainText(`Sent by 127.0.0.1:${DAEMON_PORT}, the connected back-end`);
+  await expect(popover).toContainText(
+    `Resolved here; 127.0.0.1:${DAEMON_PORT} opens the connection on this request's behalf.`,
+  );
   // Close the popover so it never occludes later legs.
   await page.keyboard.press('Escape');
   await page.mouse.move(0, 0);
 });
 
 // ── The jar loop over the wire, keyed by the tab's stamped workspace ─
+// RED since Phase W (measured 2026-09-18, the epic's F25): the jar is
+// the tab's own over the delegating transport, which attaches the
+// jar's Cookie on the FIRST hop and captures Set-Cookie from the FINAL
+// response, while the serving daemon follows the login's 302 itself —
+// the mid-chain Set-Cookie is consumed nowhere and `/me` carries no
+// cookie. The four legs stay as the contract; the ruling on where the
+// redirect follower lives for a jar-carrying delegated send is pending.
 
 test('a jar-enabled login send captures the cookie mid-chain daemon-side', async () => {
   await openRequest(loginUid);
@@ -495,16 +508,19 @@ test('Clear empties the jar over the wire — the next send carries nothing', as
   expect(await responseRawBody()).toBe('cookie=[]');
 });
 
-// ── Scripts on the forwarded Send: Safe mode, never anything else ────
-// A scripted draft dispatched from the tab rides the same forwarded
-// channel as the Send button and executes on the serving host's Safe
-// runtime — `resolveScriptRunner` never reads the mode slot for a
-// peer-forwarded send. The pre-request mutation must reach the real
-// wire (the rig echoes the script-set header), the post-response
-// assertions must see the real response, and the snapshot must stamp
-// the Safe mode it ran under.
+// ── Scripts on the tab's Send: the tab's own Safe sandbox ───────────
+// A scripted draft dispatched from the tab runs its pre-request and
+// post-response scripts HERE, in the tab's sandboxed iframe (the
+// served sandbox page under the daemon's CSP header — the Execution
+// Place plan, Phase W), and only the socket opens on the serving host.
+// The pre-request mutation must reach the real wire through the
+// delegated frame (the rig echoes the script-set header), the
+// post-response assertions must see the real response, the snapshot
+// must stamp the Safe mode it ran under, and the sandbox iframe must
+// have mounted and reached ready — the one platform claim no unit pin
+// proves.
 
-test('a scripted forwarded Send runs Safe on the serving host and stamps the mode', async () => {
+test("a scripted Send runs in the tab's Safe sandbox, the socket opens on the serving host, the mode is stamped", async () => {
   const result = await invokeTab<{
     success: boolean;
     error?: string;
@@ -554,13 +570,76 @@ test('a scripted forwarded Send runs Safe on the serving host and stamps the mod
   // Egress attribution rides the raw channel too, not only the UI path.
   expect(snapshot?.executedOn?.kind).toBe('backend');
   expect(snapshot?.executedOn?.name).toBe(hostname().split('.')[0]?.trim().toLowerCase());
+
+  // The scripts ran in the tab: the shared iframe transport mounted the
+  // served sandbox page, header-sandboxed and belt-sandboxed alike.
+  const sandbox = page.getByTestId('oh-page-script-sandbox');
+  await expect(sandbox).toHaveCount(1);
+  await expect(sandbox).toHaveAttribute('sandbox', 'allow-scripts');
+  expect(await sandbox.getAttribute('src')).toMatch(/\/sandbox\.html$/);
 });
 
-test('the Settings tab states the forwarded script posture as a fact row', async () => {
-  // The posture arrived over `getScriptRuntimeInfo` at handshake time;
-  // the node sheet's Scripts row reads "Safe mode" instead of "Don't
-  // run here", and no chooser renders (the mode slot belongs to the
-  // serving host).
+// ── A scripted session in the tab: the executor here, the socket there ─
+// The three session kinds ride the same model: the tab keeps the
+// session's executor (the handshake resolved here, every hook run in
+// the tab's sandbox), and the serving daemon opens the socket over the
+// delegated socket family. Before connect sets a handshake header the
+// probe's greeting mirrors back; On message answers the greeting with
+// the probe's close command so the session settles on its own.
+
+test('a scripted WebSocket session runs its hooks in the tab and opens its socket on the serving host', async () => {
+  const result = await invokeTab<{
+    success: boolean;
+    error?: string;
+    snapshot?: {
+      messages: Array<{ direction: 'up' | 'down'; dataBase64: string }>;
+      close: { code: number; reason: string } | null;
+      executedOn?: { kind: string; name: string };
+      scripts?: { mode?: string; beforeConnect?: { dials: number } };
+    };
+  }>({
+    type: 'executeWebSocketRequest',
+    sendId: 'settings-web-ws-scripted',
+    draft: {
+      schemaVersion: 5,
+      uid: 'wswscrp1',
+      path: 'requests/settings-web/ws-scripted',
+      name: 'web: scripted ws',
+      url: 'ws://127.0.0.1:3000/net/ws-probe',
+      flavor: 'raw',
+      subprotocols: [],
+      headers: [],
+      params: [],
+      message: '',
+      scripts: {
+        'ws-before-connect': "oh.setHeader('x-probe-client', 'tab-scripted');",
+        'ws-on-message': "await oh.send('close');",
+      },
+    },
+  });
+  expect(result.success, result.error).toBe(true);
+  const snapshot = result.snapshot;
+  const decoded = (snapshot?.messages ?? []).map((m) => ({
+    direction: m.direction,
+    text: Buffer.from(m.dataBase64, 'base64').toString('utf-8'),
+  }));
+  // The greeting mirrors the header the Before connect hook set here.
+  const greeting = decoded.find((m) => m.direction === 'down');
+  expect(greeting, JSON.stringify(decoded)).toBeTruthy();
+  expect(JSON.parse(greeting?.text ?? '{}').xProbeClient).toBe('tab-scripted');
+  // The On message hook's reply rode the write rider up the wire.
+  expect(decoded.some((m) => m.direction === 'up' && m.text === 'close')).toBe(true);
+  expect(snapshot?.close?.code).toBe(1000);
+  expect(snapshot?.scripts?.mode).toBe('safe');
+  expect(snapshot?.scripts?.beforeConnect?.dials).toBe(1);
+  expect(snapshot?.executedOn?.kind).toBe('backend');
+  expect(snapshot?.executedOn?.name).toBe(hostname().split('.')[0]?.trim().toLowerCase());
+});
+
+test("the Settings tab states the tab's Safe-only script posture as a fact row", async () => {
+  // The tab declares Safe alone (`scriptRuntime` names the mode
+  // roster): the node sheet's Scripts row reads "Safe mode" as a fact,
+  // and no chooser renders — a browser tab has no Developer mode.
   await openRequest(echoUid);
   await openSettingsTab();
   const reveal = page
@@ -573,6 +652,23 @@ test('the Settings tab states the forwarded script posture as a fact row', async
   await scriptsRow.waitFor({ state: 'visible', timeout: 5_000 });
   await expect(scriptsRow).toContainText('Safe mode');
   await expect(page.getByTestId('oh-script-mode-select')).toHaveCount(0);
+});
+
+// ── The desktop window, unchanged ────────────────────────────────────
+// The same request opened in the serving desktop app's own window:
+// its roster names both modes, so the Settings tab keeps the chooser,
+// and its send runs here with no other place (the home Org binds no
+// server) — the chip reads muted "Runs here".
+
+test('the desktop window keeps its script-mode chooser and runs the request here', async () => {
+  await showRequestsView(workbench);
+  await openRequest(echoUid, workbench);
+  await openSettingsTab(workbench);
+  const chip = workbench.getByTestId('execution-place-chip').filter({ visible: true }).first();
+  await expect(chip).toHaveText('Runs here');
+  await expect(chip).toHaveAttribute('data-place', 'here');
+  await expect(chip).toHaveAttribute('data-state', 'ready');
+  await expect(workbench.getByTestId('oh-script-mode-select').filter({ visible: true })).toHaveCount(1);
 });
 
 // ── In-tab workspace export/import over the tab oracle ──────────────
@@ -777,13 +873,13 @@ test('the cipher-less tab refuses a vault-inclusive export honestly', async () =
   expect(exported.error).toContain('no vault storage');
 });
 
-// ── The environment stamp: explicit "No environment" over the wire ──
+// ── The environment pointer: the tab's own, never the daemon's ──────
 // The tab's active-environment pointer is tab-local and null here (the
 // fresh tab never picked one) while the daemon's pointer names an env
-// that resolves {{PROBE_HOST}}. The forwarded Send must carry the tab's
-// null EXPLICITLY, so the daemon runs env-free and refuses the
-// unresolved reference — deferring to its own pointer would resolve a
-// variable the user's surface has turned off.
+// that resolves {{PROBE_HOST}}. The tab resolves its own send (Phase
+// W): an explicit environmentId on the message pins that env in the
+// tab, and no environmentId runs env-free and refuses the unresolved
+// reference — the daemon's pointer never reaches a tab's run.
 
 test('a No-environment tab forces an env-free run — the daemon pointer must not resolve it', async () => {
   // Seed the env through the TAB's `importWorkspace` (environment
@@ -881,9 +977,23 @@ test('a No-environment tab forces an env-free run — the daemon pointer must no
     method: 'GET',
     url: `http://{{PROBE_HOST}}:${httpRig.port}/echo`,
   });
+  // The tab resolves the request against its OWN mirrors — the seeded
+  // entity must have synced down before the run names it by uid.
+  await expect
+    .poll(
+      async () => {
+        await openRequest(probeUid).catch(() => {});
+        return page
+          .locator(`[data-item-id="request-${probeUid}"]`)
+          .isVisible()
+          .catch(() => false);
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
 
-  // Control leg first — an explicit env string on the same wire
-  // resolves and sends, proving the refusal below is the encoding's.
+  // Control leg first — an explicit env pin on the same seam resolves
+  // in the tab and sends, proving the refusal below is the pointer's.
   const pinned = await invokeTab<{ success: boolean; snapshot?: { error: string | null; status: number } }>({
     type: 'executeRequest',
     requestUid: probeUid,
@@ -893,12 +1003,12 @@ test('a No-environment tab forces an env-free run — the daemon pointer must no
   expect(pinned.snapshot?.error).toBeNull();
   expect(pinned.snapshot?.status).toBe(200);
 
-  // The tab's own send — no environmentId on the message, so the seam
-  // stamps the tab's null pointer as an explicit "No environment" and
-  // the daemon must refuse the unresolved reference instead of
-  // resolving it under its own pointer. (The workbench UI never fires
-  // this shape itself — Send disables on a tab-unresolvable draft —
-  // so the RPC seam is the surface under test.)
+  // The tab's own send — no environmentId on the message, so the run
+  // takes the tab's null pointer as "No environment" and refuses the
+  // unresolved reference; the daemon's pointer, set above, must not
+  // leak in. (The workbench UI never fires this shape itself — Send
+  // disables on a tab-unresolvable draft — so the RPC seam is the
+  // surface under test.)
   const none = await invokeTab<{ success: boolean; snapshot?: { error: string | null } }>({
     type: 'executeRequest',
     requestUid: probeUid,
