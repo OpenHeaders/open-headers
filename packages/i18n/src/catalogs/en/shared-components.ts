@@ -506,6 +506,8 @@ export const sharedComponents = {
     'Sent by {place}, the connected back-end, and resolved there. The target sees that machine’s address and network location.',
   'shared.executionPlace.reason.companionInvoke':
     'gRPC calls are forwarded to the desktop app on this computer — the browser has no HTTP/2 stack that exposes trailers.',
+  'shared.executionPlace.reason.serverInvoke':
+    'gRPC calls are forwarded to {place}, the workspace’s server, and resolved there — the browser has no HTTP/2 stack that exposes trailers.',
   'shared.executionPlace.reason.companionRequired':
     'Connect the desktop app to invoke — composing and saving works here.',
   'shared.executionPlace.reason.tcpScheme':

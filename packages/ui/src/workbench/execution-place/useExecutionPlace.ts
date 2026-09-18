@@ -121,8 +121,9 @@ export function useExecutionPlace({
 
 /** The explicit backend a READY send names when its socket opens on
  *  another record of this surface's — the delegated legs and the gRPC
- *  companion invoke; a context send on a remote-dispatch surface rides
- *  the surface's one wire and names nothing. */
+ *  invokes on the desktop app or the server; a context send on a
+ *  remote-dispatch surface rides the surface's one wire and names
+ *  nothing. */
 function targetOf(
   resolution: ExecutionPlaceResolution,
   desktopAppBackendId: string | null,
@@ -130,7 +131,7 @@ function targetOf(
 ): ExecutionPlaceTarget | null {
   if (resolution.state !== 'ready') return null;
   const { kind } = resolution.reason;
-  if (kind !== 'delegated' && kind !== 'companion-invoke') return null;
+  if (kind !== 'delegated' && kind !== 'companion-invoke' && kind !== 'server-invoke') return null;
   const backendId = resolution.place === 'desktop-app' ? desktopAppBackendId : serverBackendId;
   return backendId !== null ? { backendId } : null;
 }

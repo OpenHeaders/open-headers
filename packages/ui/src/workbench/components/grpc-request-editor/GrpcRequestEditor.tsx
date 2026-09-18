@@ -48,8 +48,10 @@ import { App, Button, ConfigProvider, type MenuProps, Tabs, Tooltip, Typography,
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeGrpcPrefill } from './grpc-prefill-bus';
-import { useSetting } from '../../settings/hooks';
+import { useSetting, useSettingValue } from '../../settings/hooks';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
@@ -273,6 +275,10 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   // an EMPTY message and the server answers. Default off — the
   // executor rejects before the wire with the exact parse error.
   const [sendInvalidMessage, setSendInvalidMessage] = useSetting('requests.grpcSendInvalidMessage');
+  // The per-send pick is this editor's own; the settings layers fold
+  // in beneath it (request > folder > collection > global > Auto).
+  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  const globalPlace = useSettingValue('requests.executionPlace');
   const invoke = useGrpcInvokePlane({
     entity,
     draft,
@@ -281,6 +287,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     selectedOption,
     sendInvalidMessage,
     onOpenGrpcResponseExample,
+    preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
   });
 
   // ⌘/Ctrl+Enter invokes from anywhere in the editor — same gate as
@@ -445,7 +452,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   );
   const headerActions = (
     <>
-      <ExecutionPlaceControl resolution={invoke.executionPlace} />
+      <ExecutionPlaceControl resolution={invoke.executionPlace} onPick={setPlacePick} />
       {primaryAction}
     </>
   );

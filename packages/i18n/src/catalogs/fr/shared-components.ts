@@ -482,6 +482,8 @@ export const sharedComponents = {
     'Envoyée par {place}, le back-end connecté, et résolue là-bas. La cible voit l’adresse et la localisation réseau de cette machine.',
   'shared.executionPlace.reason.companionInvoke':
     'Les appels gRPC sont transmis à l’application de bureau sur cet ordinateur — le navigateur n’a pas de pile HTTP/2 exposant les trailers.',
+  'shared.executionPlace.reason.serverInvoke':
+    'Les appels gRPC sont transmis à {place}, le serveur de l’espace de travail, et résolus là-bas — le navigateur n’a pas de pile HTTP/2 exposant les trailers.',
   'shared.executionPlace.reason.companionRequired':
     'Connectez l’application de bureau pour invoquer — la composition et l’enregistrement fonctionnent ici.',
   'shared.executionPlace.reason.tcpScheme':

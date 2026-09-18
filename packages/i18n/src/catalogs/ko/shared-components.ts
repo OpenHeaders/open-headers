@@ -462,6 +462,8 @@ export const sharedComponents = {
     '연결된 백엔드인 {place}에서 전송하고 그곳에서 해석합니다. 대상에는 그 머신의 주소와 네트워크 위치가 보입니다.',
   'shared.executionPlace.reason.companionInvoke':
     'gRPC 호출은 이 컴퓨터의 데스크톱 앱으로 전달됩니다. 브라우저에는 트레일러를 노출하는 HTTP/2 스택이 없습니다.',
+  'shared.executionPlace.reason.serverInvoke':
+    'gRPC 호출은 워크스페이스 서버인 {place}에 전달되어 그곳에서 해석됩니다. 브라우저에는 트레일러를 노출하는 HTTP/2 스택이 없습니다.',
   'shared.executionPlace.reason.companionRequired':
     '호출하려면 데스크톱 앱을 연결하세요. 작성과 저장은 여기에서 할 수 있습니다.',
   'shared.executionPlace.reason.tcpScheme':

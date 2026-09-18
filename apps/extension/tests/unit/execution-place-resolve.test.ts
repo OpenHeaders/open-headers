@@ -191,7 +191,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
     }
   });
 
-  it('gRPC runs on the connected desktop app', () => {
+  it('gRPC runs on the connected desktop app, the connected server beside it', () => {
     expect(resolve('grpc', EXTENSION, 'connected')).toEqual({
       place: 'desktop-app',
       placeName: null,
@@ -199,6 +199,44 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
       reason: { kind: 'companion-invoke' },
       cta: null,
       alternatives: [],
+    });
+    expect(resolve('grpc', EXTENSION, 'connected', SERVER_UP)).toMatchObject({
+      place: 'desktop-app',
+      reason: { kind: 'companion-invoke' },
+      alternatives: ['workspace-server'],
+    });
+    expect(resolve('grpc', EXTENSION, 'connected', SERVER_DOWN).alternatives).toEqual([]);
+  });
+
+  it("gRPC runs on the workspace's connected server when the desktop app is not connected — a context send there", () => {
+    for (const desktopApp of ['not-connected', 'installed-not-connected', 'not-installed', 'off'] as const) {
+      expect(resolve('grpc', EXTENSION, desktopApp, SERVER_UP)).toEqual({
+        place: 'workspace-server',
+        placeName: 'Acme',
+        state: 'ready',
+        reason: { kind: 'server-invoke' },
+        cta: null,
+        alternatives: [],
+        serverName: 'Acme',
+      });
+    }
+    expect(resolve('grpc', EXTENSION, 'not-connected', SERVER_DOWN).state).toBe('needs-companion');
+  });
+
+  it('picking the server for a gRPC invoke with the desktop app connected is the server invoke, the app beside it', () => {
+    expect(resolve('grpc', EXTENSION, 'connected', { ...SERVER_UP, preference: 'workspace-server' })).toMatchObject({
+      place: 'workspace-server',
+      placeName: 'Acme',
+      reason: { kind: 'server-invoke' },
+      alternatives: ['desktop-app'],
+    });
+    // The desktop app as a preference with only the server up: no leg
+    // honours it — the honest state, the server stays on offer.
+    expect(resolve('grpc', EXTENSION, 'not-connected', { ...SERVER_UP, preference: 'desktop-app' })).toMatchObject({
+      place: 'desktop-app',
+      state: 'unsupported',
+      reason: { kind: 'preference-unavailable', preferred: 'desktop-app' },
+      alternatives: ['workspace-server'],
     });
   });
 
@@ -335,13 +373,13 @@ describe('resolveExecutionPlace — the delegated legs (Phase C)', () => {
     });
   });
 
-  it('the ws(s) session kinds offer the same legs as HTTP; gRPC offers none', () => {
+  it('the ws(s) session kinds offer the same legs as HTTP; gRPC offers the server alone beside the desktop app', () => {
     for (const kind of ['websocket', 'graphql-subscription', 'mqtt'] as const) {
       const resolved = resolve(kind, EXTENSION, 'connected', { ...SERVER_UP, mqttTransport: 'websocket' });
       expect(resolved.place).toBe('here');
       expect(resolved.alternatives).toEqual(['desktop-app', 'workspace-server']);
     }
-    expect(resolve('grpc', EXTENSION, 'connected', SERVER_UP).alternatives).toEqual([]);
+    expect(resolve('grpc', EXTENSION, 'connected', SERVER_UP).alternatives).toEqual(['workspace-server']);
   });
 
   it('a surface whose session Connect does not honour a place offers no session leg even when its HTTP send does', () => {

@@ -521,6 +521,8 @@ export const sharedComponents = {
     'Trimisă de backend-ul conectat {place} și rezolvată acolo. Destinația vede adresa și locația de rețea a acelei mașini.',
   'shared.executionPlace.reason.companionInvoke':
     'Apelurile gRPC sunt redirecționate către aplicația desktop de pe acest computer — browserul nu are o stivă HTTP/2 care să expună trailerele.',
+  'shared.executionPlace.reason.serverInvoke':
+    'Apelurile gRPC sunt redirecționate către serverul spațiului de lucru {place} și rezolvate acolo — browserul nu are o stivă HTTP/2 care să expună trailerele.',
   'shared.executionPlace.reason.companionRequired':
     'Conectați aplicația desktop pentru a invoca — compunerea și salvarea funcționează aici.',
   'shared.executionPlace.reason.tcpScheme':

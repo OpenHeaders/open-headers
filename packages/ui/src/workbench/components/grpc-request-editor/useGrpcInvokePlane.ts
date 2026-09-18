@@ -2,9 +2,10 @@
  * useGrpcInvokePlane — the editor's whole invoke plane in one hook:
  * Invoke fires the CURRENT compose state (saved or not) through the
  * `executeGrpcRequest` channel — answered in-process on node hosts and
- * forwarded to a connected companion on extension surfaces (the
- * `grpcCompanionInvoke` capability + live connection state gate the
- * button) — every call shape; in flight it morphs to Stop
+ * forwarded on extension surfaces to the place the shared reader
+ * resolves (the connected desktop app, else the workspace's server;
+ * the settings layers and the per-send pick fold into `preference`)
+ * — every call shape; in flight it morphs to Stop
  * (`abortRequestSend` on the shared active-send registry). Streaming
  * invokes ride `useLiveGrpcStream` while open and settle into the
  * session the stream pane joins positionally. Client/bidi upstream
@@ -26,7 +27,7 @@ import {
 import { App } from 'antd';
 import { useCallback, useRef, useState } from 'react';
 import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
-import type { ExecutionPlaceResolution } from '../../execution-place/resolve-execution-place';
+import type { ExecutionPlacePreference, ExecutionPlaceResolution } from '../../execution-place/resolve-execution-place';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   capturedGrpcRequestFromDraft,
@@ -52,6 +53,8 @@ interface UseGrpcInvokePlaneInput {
   sendInvalidMessage: boolean;
   /** Open a saved example's viewer tab (after "Save Response"). */
   onOpenGrpcResponseExample?: ((uid: string, name: string, grpcRequestUid: string) => void) | undefined;
+  /** The resolved role from the settings layers or the per-send pick; absent = Auto. */
+  preference?: ExecutionPlacePreference;
 }
 
 export interface GrpcInvokePlane {
@@ -89,6 +92,7 @@ export function useGrpcInvokePlane({
   selectedOption,
   sendInvalidMessage,
   onOpenGrpcResponseExample,
+  preference,
 }: UseGrpcInvokePlaneInput): GrpcInvokePlane {
   const { message: toast } = App.useApp();
   const t = useT();
@@ -97,8 +101,9 @@ export function useGrpcInvokePlane({
   const sslVerification = draft.sslVerification ?? inherited.settings.sslVerification ?? true;
   const { executeGrpc } = useRequests();
   // Where the invoke runs — the shared reader over the companion seam
-  // (`grpcCompanionInvoke`) and the desktop app's live connection state.
-  const executionPlace = useExecutionPlace({ kind: 'grpc' });
+  // (`grpcCompanionInvoke`), the desktop app's live connection state
+  // and the workspace's server.
+  const executionPlace = useExecutionPlace({ kind: 'grpc', ...(preference !== undefined ? { preference } : {}) });
 
   const [invoking, setInvoking] = useState(false);
   const [response, setResponse] = useState<ExecutedGrpcSnapshot | null>(null);

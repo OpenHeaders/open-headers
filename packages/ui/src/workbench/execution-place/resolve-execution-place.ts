@@ -27,10 +27,13 @@
  *   - a node runtime runs everything here;
  *   - a browser runtime runs HTTP / GraphQL query here, sessions here
  *     in the page realm (`wsPageSession` / `mqttPageSession`) naming
- *     the node-only knobs it cannot apply, gRPC on the connected
- *     desktop app (`grpcCompanionInvoke`), and an mqtt(s):// session
- *     NOWHERE yet — `needs-companion` with the desktop-app CTA ladder
- *     (Phase D delegates it and flips the row to `ready`).
+ *     the node-only knobs it cannot apply, gRPC on a place that owns
+ *     an HTTP/2 stack with trailers — the connected desktop app
+ *     (`grpcCompanionInvoke`), else the workspace's connected server,
+ *     each a CONTEXT send there (the frame's workspace and environment
+ *     stamped, resolved at the place; Phase F, the server-only
+ *     surface's leg) — and an mqtt(s):// session on the one eligible
+ *     place (Phase D), else `needs-companion` with the CTA ladder.
  *
  * The legs (Phase C): on a surface whose send honours an explicit
  * place (`delegatedRequestDispatch`), an HTTP / GraphQL query send can
@@ -125,6 +128,9 @@ export type ExecutionPlaceReason =
   | { kind: 'context-send'; name: string | null }
   /** A gRPC invoke forwarded to the connected desktop app. */
   | { kind: 'companion-invoke' }
+  /** A gRPC invoke forwarded to the workspace's server, resolved there
+   *  (the surface's own stack has no HTTP/2 trailers). */
+  | { kind: 'server-invoke' }
   /** A gRPC invoke with no connected desktop app. */
   | { kind: 'companion-required' }
   /** An mqtt(s):// session — raw TCP no page can open; needs the desktop app. */
@@ -190,6 +196,9 @@ function resolvePreferred(input: ExecutionPlaceInput): ExecutionPlaceResolution 
     // Picking "here" back from a delegated auto (a tcp dial never
     // resolves here, so this arm is the ws(s) kinds' and HTTP's).
     if (preference === 'here') return { ...auto, place: 'here', placeName: null, alternatives: others };
+    // A gRPC invoke's only other place is the server — a context send
+    // there, never a delegated socket.
+    if (input.kind === 'grpc') return serverInvoke(input, others);
     return delegatedTo(preference, others, input);
   }
   // The places that ARE possible stay on offer — the user picks back.
@@ -253,6 +262,11 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
       return here({ kind: 'runs-here-browser' }, legs);
     case 'grpc': {
       if (!markers.grpcCompanionInvoke) return needsDesktopApp('unsupported', { kind: 'no-runtime' }, null);
+      // The places that own an HTTP/2 stack with trailers, by live
+      // connection: the desktop app on this device first, the
+      // workspace's server beside it — or alone, for a surface whose
+      // only place is a server.
+      const serverUp = input.workspaceServer?.connected === true;
       if (input.desktopApp === 'connected') {
         return {
           place: 'desktop-app',
@@ -260,9 +274,10 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
           state: 'ready',
           reason: { kind: 'companion-invoke' },
           cta: null,
-          alternatives: NO_ALTERNATIVES,
+          alternatives: serverUp ? ['workspace-server'] : NO_ALTERNATIVES,
         };
       }
+      if (serverUp) return serverInvoke(input, NO_ALTERNATIVES);
       return needsDesktopApp('needs-companion', { kind: 'companion-required' }, companionCta(input));
     }
     case 'websocket':
@@ -295,6 +310,22 @@ function delegatedTo(
     placeName: role === 'workspace-server' ? (input.workspaceServer?.name ?? null) : null,
     state: 'ready',
     reason: { kind: 'delegated', role, knobs: input.delegationKnobs ?? NO_KNOBS },
+    cta: null,
+    alternatives,
+  };
+}
+
+/** A gRPC invoke on the workspace's server — resolved there, the
+ *  place's own stamp on the answer. */
+function serverInvoke(
+  input: ExecutionPlaceInput,
+  alternatives: readonly ExecutionPlaceRole[],
+): ExecutionPlaceResolution {
+  return {
+    place: 'workspace-server',
+    placeName: input.workspaceServer?.name ?? null,
+    state: 'ready',
+    reason: { kind: 'server-invoke' },
     cta: null,
     alternatives,
   };

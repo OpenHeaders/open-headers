@@ -88,6 +88,12 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
         reason: t('shared.executionPlace.reason.companionInvoke'),
         knobs: null,
       };
+    case 'server-invoke':
+      return {
+        chip: t('shared.executionPlace.chip.server', { place }),
+        reason: t('shared.executionPlace.reason.serverInvoke', { place }),
+        knobs: null,
+      };
     case 'companion-required':
       return {
         chip: t('shared.executionPlace.chip.needsDesktopApp'),

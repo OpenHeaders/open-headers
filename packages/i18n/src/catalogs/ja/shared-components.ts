@@ -465,6 +465,8 @@ export const sharedComponents = {
     '接続中のバックエンドである{place}から送信され、そこで解決されます。送信先にはそのマシンのアドレスとネットワーク上の位置が見えます。',
   'shared.executionPlace.reason.companionInvoke':
     'gRPC 呼び出しはこのコンピューター上のデスクトップアプリに転送されます。ブラウザーにはトレーラーを扱える HTTP/2 スタックがありません。',
+  'shared.executionPlace.reason.serverInvoke':
+    'gRPC 呼び出しはワークスペースのサーバー {place} に転送され、そこで解決されます。ブラウザーにはトレーラーを扱える HTTP/2 スタックがありません。',
   'shared.executionPlace.reason.companionRequired':
     '呼び出すにはデスクトップアプリを接続してください。作成と保存はここでできます。',
   'shared.executionPlace.reason.tcpScheme':

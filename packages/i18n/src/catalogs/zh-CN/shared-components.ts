@@ -484,6 +484,8 @@ export const sharedComponents = {
     '由 {place}（已连接的后端）发送并在那里解析。目标看到的是那台机器的地址和网络位置。',
   'shared.executionPlace.reason.companionInvoke':
     'gRPC 调用会转发到这台电脑上的桌面应用——浏览器没有能暴露 trailer 的 HTTP/2 栈。',
+  'shared.executionPlace.reason.serverInvoke':
+    'gRPC 调用会转发到工作区服务器 {place} 并在那里解析——浏览器没有能暴露 trailer 的 HTTP/2 栈。',
   'shared.executionPlace.reason.companionRequired': '连接桌面应用以调用——编写和保存在这里可用。',
   'shared.executionPlace.reason.tcpScheme':
     'mqtt:// 和 mqtts:// 会打开浏览器无法打开的原始 TCP socket。请在桌面应用中打开此请求，或改用 ws:// 或 wss:// 在这里连接。',

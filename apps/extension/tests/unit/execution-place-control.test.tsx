@@ -270,6 +270,16 @@ describe('executionPlaceCopy', () => {
     expect(copy.reason).toBe('shared.executionPlace.reason.delegatedDesktopApp');
   });
 
+  it('the server invoke reads as running on the server, resolved there', () => {
+    const copy = executionPlaceCopy(
+      resolution({ place: 'workspace-server', placeName: 'Acme', reason: { kind: 'server-invoke' } }),
+      t as never,
+    );
+    expect(copy.chip).toBe('shared.executionPlace.chip.server {"place":"Acme"}');
+    expect(copy.reason).toBe('shared.executionPlace.reason.serverInvoke {"place":"Acme"}');
+    expect(copy.knobs).toBeNull();
+  });
+
   it('the companion invoke reads as running on the desktop app', () => {
     const copy = executionPlaceCopy(
       resolution({ place: 'desktop-app', reason: { kind: 'companion-invoke' } }),

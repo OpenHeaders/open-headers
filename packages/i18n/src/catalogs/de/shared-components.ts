@@ -506,6 +506,8 @@ export const sharedComponents = {
     'Gesendet von {place}, dem verbundenen Back-end, und dort aufgelöst. Das Ziel sieht die Adresse und den Netzwerkstandort dieser Maschine.',
   'shared.executionPlace.reason.companionInvoke':
     'gRPC-Aufrufe werden an die Desktop-App auf diesem Computer weitergeleitet — der Browser hat keinen HTTP/2-Stack, der Trailer freigibt.',
+  'shared.executionPlace.reason.serverInvoke':
+    'gRPC-Aufrufe werden an {place}, den Server des Arbeitsbereichs, weitergeleitet und dort aufgelöst — der Browser hat keinen HTTP/2-Stack, der Trailer freigibt.',
   'shared.executionPlace.reason.companionRequired':
     'Verbinde die Desktop-App zum Aufrufen — Verfassen und Speichern funktioniert hier.',
   'shared.executionPlace.reason.tcpScheme':

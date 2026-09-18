@@ -1,15 +1,19 @@
 /**
  * gRPC forwarded posture — the combined live-pass E-legs (E1–E8) as a
  * permanent gate, on the daemon-join harness: real Chromium with the
- * built extension, a spawned headless daemon as the real backend, and
- * the real playground gRPC probe (own tsx child on its own port, so a
- * stale reused playground can't skew the legs) plus a self-signed TLS
- * terminator for the verify-off leg.
+ * built extension, a spawned headless daemon joined as the workspace's
+ * SERVER (the Execution Place plan: with no desktop app connected the
+ * invoke runs on the workspace's server as a context send there — the
+ * chip beside Invoke names it), and the real playground gRPC probe
+ * (own tsx child on its own port, so a stale reused playground can't
+ * skew the legs) plus a self-signed TLS terminator for the verify-off
+ * leg.
  *
  *   E2  opt-in OFF → the forwarded Invoke renders the honest refusal
  *       naming the setting; the wire stays intact.
- *   E3  opt-in ON → forwarded unary round-trips 0 OK with the decoded
- *       message and the probe's metadata/trailers.
+ *   E3  opt-in ON → the chip reads "Runs on <server>" and the
+ *       forwarded unary round-trips 0 OK with the decoded message and
+ *       the probe's metadata/trailers.
  *   E7  bearer auth reaches the wire (the probe mirrors the received
  *       `authorization` back as `x-echo-authorization`); an explicit
  *       authorization metadata row wins over the auth tab.
@@ -467,6 +471,12 @@ test('flipping backend.allowLocalPeerExecute on lets the same Invoke round-trip 
 
   // The gate reads the live connection — wait for the reconnect.
   await waitInvokeEnabled(true);
+  // The place: the joined daemon is the workspace's server, named by
+  // its record's label; the invoke is a context send there.
+  const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
+  await expect(placeChip).toHaveText('Runs on grpc e2e daemon');
+  await expect(placeChip).toHaveAttribute('data-place', 'workspace-server');
+  await expect(placeChip).toHaveAttribute('data-state', 'ready');
   await expect
     .poll(
       async () => {

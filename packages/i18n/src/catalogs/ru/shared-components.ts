@@ -514,6 +514,8 @@ export const sharedComponents = {
     'Отправлен подключённым бэкендом {place} и разрешён там. Целевой сервер видит адрес и сетевое расположение той машины.',
   'shared.executionPlace.reason.companionInvoke':
     'Вызовы gRPC перенаправляются в настольное приложение на этом компьютере — в браузере нет стека HTTP/2 с доступом к трейлерам.',
+  'shared.executionPlace.reason.serverInvoke':
+    'Вызовы gRPC перенаправляются на сервер рабочего пространства {place} и разрешаются там — в браузере нет стека HTTP/2 с доступом к трейлерам.',
   'shared.executionPlace.reason.companionRequired':
     'Подключите настольное приложение, чтобы вызвать — составление и сохранение работают здесь.',
   'shared.executionPlace.reason.tcpScheme':
