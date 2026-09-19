@@ -8,8 +8,9 @@
  * the snapshot with the node-side facts and `executedOn`, the place's
  * classified failure and refusal land as error snapshots, Stop forwards
  * as the place's abort, a GET keeps its body (the browser's omission is
- * the browser's alone), and multipart file bytes ride base64. Nothing
- * here touches `fetch`.
+ * the browser's alone), multipart file bytes ride base64, and every
+ * frame rides `redirect: 'manual'` — the place never follows, the
+ * context walks the chain. Nothing here touches `fetch`.
  */
 
 import type { Collection, Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
@@ -161,7 +162,8 @@ describe('delegated send — the frame', () => {
     expect(sent[0].frame.request).toMatchObject({
       method: 'GET',
       url: 'https://api.openheaders.io/v1/items?q=1',
-      redirect: 'follow',
+      // The place never follows — the context walks the chain (F25).
+      redirect: 'manual',
       credentials: 'omit',
       timeoutMs: 4000,
       captureNetwork: true,
