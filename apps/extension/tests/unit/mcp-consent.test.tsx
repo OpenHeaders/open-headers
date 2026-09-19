@@ -17,10 +17,10 @@ import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { confirmEnableMcp, enableMcp, mcpEndpointInfo } from '@openheaders/ui/workbench/settings/mcp-consent';
 import { get, set } from '@openheaders/ui/workbench/settings/store';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import { useEffect } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const t: Translate = (key) => key;
 
@@ -37,6 +37,10 @@ beforeEach(() => {
   setCurrentHost('desktop');
   set('mcp.enabled', false);
 });
+
+// Unmount inside act so the dialog's close motion and React's queued
+// work settle before the file's window is torn down.
+afterEach(cleanup);
 
 describe('mcp-consent', () => {
   it('enableMcp flips the master switch on', () => {
@@ -70,10 +74,7 @@ describe('mcp-consent', () => {
         <OpenDialogOnce />
       </AntApp>,
     );
-    const cancels = await screen.findAllByRole('button', { name: 'Cancel' });
-    const cancel = cancels[cancels.length - 1];
-    if (!cancel) throw new Error('no Cancel button rendered');
-    fireEvent.click(cancel);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(get('mcp.enabled')).toBe(false));
   });
 });
