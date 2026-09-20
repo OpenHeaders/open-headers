@@ -52,6 +52,11 @@ export type PasswordLoginResult =
   | { readonly ok: true; readonly secret: string; readonly userId: string }
   | { readonly ok: false; readonly reason: PasswordLoginFailureReason };
 
+/** A verified credential: who it belongs to, and the email the mint labels. */
+export type PasswordVerifyResult =
+  | { readonly ok: true; readonly userId: string; readonly email: string }
+  | { readonly ok: false; readonly reason: PasswordLoginFailureReason };
+
 export interface PasswordLoginServiceDeps {
   now?: () => number;
   /** The server-wide session TTL policy (`session-ttl.ts`); the spine threads the resolved value. */
@@ -69,6 +74,15 @@ export interface DaemonPasswordLoginService {
    * render the form; the login route itself answers uniformly either way.
    */
   enabled(): Promise<boolean>;
+  /**
+   * Verify a credential WITHOUT minting — the device-authorization
+   * page's approve step (the client sign-in plan §6.2): the person
+   * proves who they are, the pending pair binds to them, and the
+   * device's poll mints its own credential. Same refusals, same
+   * per-account lockout, same decoy burn as `login`.
+   */
+  verify(email: string, password: string): Promise<PasswordVerifyResult>;
+  /** Verify and mint the browser session — `verify` followed by the session-kind mint. */
   login(email: string, password: string): Promise<PasswordLoginResult>;
 }
 
@@ -90,11 +104,36 @@ export function createDaemonPasswordLoginService(deps: PasswordLoginServiceDeps 
     password: string,
     reason: PasswordLoginFailureReason,
     verifierToBurn?: string,
-  ): Promise<PasswordLoginResult> {
+  ): Promise<PasswordVerifyResult> {
     await verify(password, verifierToBurn ?? (await decoyVerifier));
     accountLimiter.recordFailure(key);
     logger.warn(SCOPE, `password login refused: ${reason}`);
     return { ok: false, reason };
+  }
+
+  async function verifyCredential(email: string, password: string): Promise<PasswordVerifyResult> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !password) return { ok: false, reason: 'bad-password' };
+    if (accountLimiter.isBlocked(normalized)) {
+      logger.warn(SCOPE, 'password login refused: account-locked');
+      return { ok: false, reason: 'account-locked' };
+    }
+    const record = await findUserByEmail(normalized);
+    if (!record) return refuse(normalized, password, 'unknown-user');
+    if (record.deactivatedAt !== null) return refuse(normalized, password, 'user-deactivated');
+    // Only `user`-kind principals may log in (the access-foundation
+    // plan §8 F3). Structurally unreachable — a service account is
+    // email-less so the lookup above can never find one — but the
+    // login path allows `user` explicitly rather than excluding
+    // `service`, so any future kind degrades to no-login.
+    if (daemonUserPrincipalKind(record) !== 'user') return refuse(normalized, password, 'service-account');
+    if (record.passwordVerifier === undefined) return refuse(normalized, password, 'no-password');
+    if (!(await verify(password, record.passwordVerifier))) {
+      accountLimiter.recordFailure(normalized);
+      logger.warn(SCOPE, `password login refused: bad-password (user=${record.user.id})`);
+      return { ok: false, reason: 'bad-password' };
+    }
+    return { ok: true, userId: record.user.id, email: record.userIdentity.value ?? normalized };
   }
 
   return {
@@ -103,36 +142,19 @@ export function createDaemonPasswordLoginService(deps: PasswordLoginServiceDeps 
       return users.some((r) => r.deactivatedAt === null && r.passwordVerifier !== undefined);
     },
 
+    verify: verifyCredential,
+
     async login(email: string, password: string): Promise<PasswordLoginResult> {
-      const normalized = email.trim().toLowerCase();
-      if (!normalized || !password) return { ok: false, reason: 'bad-password' };
-      if (accountLimiter.isBlocked(normalized)) {
-        logger.warn(SCOPE, 'password login refused: account-locked');
-        return { ok: false, reason: 'account-locked' };
-      }
-      const record = await findUserByEmail(normalized);
-      if (!record) return refuse(normalized, password, 'unknown-user');
-      if (record.deactivatedAt !== null) return refuse(normalized, password, 'user-deactivated');
-      // Only `user`-kind principals may log in (the access-foundation
-      // plan §8 F3). Structurally unreachable — a service account is
-      // email-less so the lookup above can never find one — but the
-      // login path allows `user` explicitly rather than excluding
-      // `service`, so any future kind degrades to no-login.
-      if (daemonUserPrincipalKind(record) !== 'user') return refuse(normalized, password, 'service-account');
-      if (record.passwordVerifier === undefined) return refuse(normalized, password, 'no-password');
-      if (!(await verify(password, record.passwordVerifier))) {
-        accountLimiter.recordFailure(normalized);
-        logger.warn(SCOPE, `password login refused: bad-password (user=${record.user.id})`);
-        return { ok: false, reason: 'bad-password' };
-      }
+      const verified = await verifyCredential(email, password);
+      if (!verified.ok) return verified;
       const minted: MintDaemonAuthTokenResult = await mintToken({
-        label: `password:${record.userIdentity.value ?? normalized}`,
-        userId: record.user.id,
+        label: `password:${verified.email}`,
+        userId: verified.userId,
         kind: 'session',
         expiresAt: now() + sessionTtlMs,
       });
-      logger.info(SCOPE, `password login minted session token ${minted.record.id} for user=${record.user.id}`);
-      return { ok: true, secret: minted.secret, userId: record.user.id };
+      logger.info(SCOPE, `password login minted session token ${minted.record.id} for user=${verified.userId}`);
+      return { ok: true, secret: minted.secret, userId: verified.userId };
     },
   };
 }

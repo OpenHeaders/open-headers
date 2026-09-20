@@ -46,6 +46,7 @@ import {
   setDaemonUserPassword,
 } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { isServerUnclaimed } from '../gate-mode';
 import { hashPassword, PASSWORD_MIN_LENGTH } from '../password/password-verifier';
 import { revokeUnboundTokens } from '../revoke-unbound-tokens';
 import { DEFAULT_SESSION_TTL_MS } from '../session-ttl';
@@ -132,11 +133,9 @@ export function createDaemonSetupClaimService(options: DaemonSetupClaimServiceOp
     return { ok: false, kind: 'refused', reason };
   };
 
-  /** Unclaimed = an empty directory on a daemon with no IdP (O4). */
-  async function unclaimed(): Promise<boolean> {
-    if (options.oidcConfigured) return false;
-    return isDaemonDirectoryEmpty();
-  }
+  // The gate truth lives in `gate-mode.ts` so the device page and the
+  // meta routes read one answer (the client sign-in plan §6.3).
+  const unclaimed = (): Promise<boolean> => isServerUnclaimed(options.oidcConfigured);
 
   return {
     async ensureSetupCode(): Promise<string | null> {

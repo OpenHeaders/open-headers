@@ -1,6 +1,12 @@
 /**
  * HTTP request handler for the daemon device-flow pairing UX (U3.3,
- * the data-plane topologies design §11.4 hybrid improvement).
+ * the data-plane topologies design §11.4 hybrid improvement) — the
+ * ADMIN initiative's routes. The client initiative (a device asking to
+ * be signed in, the client sign-in plan §6) lives in the sibling
+ * `device-authorization-http.ts`, which shares this module's page
+ * shell; a client-initiated pair reaching `GET /pair/<code>` is handed
+ * to that module's page through the `clientPairView` seam, so the
+ * `/pair/` prefix keeps ONE owner and one `peek` per navigation.
  *
  * Rides on the same bound socket as the WebSocket upgrade handler — see
  * {@link startOracleWsServer}'s `pairingService` option. Two routes
@@ -69,7 +75,7 @@ function parseRoute(url: string | undefined): ParsedRoute | null {
   return { kind: 'view', code };
 }
 
-function escapeHtml(input: string): string {
+export function escapeHtml(input: string): string {
   return input
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -115,7 +121,8 @@ function wantsJson(req: IncomingMessage): boolean {
   return (req.headers.accept ?? '').includes('application/json');
 }
 
-const PAGE_CSS = `
+/** The pairing surface's one stylesheet — shared with the device-authorization page. */
+export const PAGE_CSS = `
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f7f7f8; color: #1d1d1f; }
   @media (prefers-color-scheme: dark) { body { background: #1d1d1f; color: #f5f5f7; } .card { background: #2c2c2e !important; border-color: #3a3a3c !important; } code, pre { background: #1d1d1f !important; border-color: #3a3a3c !important; color: #f5f5f7 !important; } }
@@ -131,9 +138,16 @@ const PAGE_CSS = `
   pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #f2f2f7; border: 1px solid #e6e6e8; border-radius: 6px; padding: 10px; white-space: pre-wrap; word-break: break-all; }
   .muted { color: #6e6e73; font-size: 12px; }
   .err { color: #c44; }
+  .field { display: block; margin-top: 12px; }
+  .field input { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #c7c7cc; font: inherit; box-sizing: border-box; margin-top: 4px; background: transparent; color: inherit; }
+  .row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .row form { margin: 0; }
+  .row button { margin-top: 16px; margin-left: 0; }
+  a.button { display: inline-block; font-weight: 500; padding: 10px 18px; border-radius: 8px; background: #0a84ff; color: #fff; text-decoration: none; margin-top: 16px; }
 `;
 
-function pageShell(title: string, body: string): string {
+/** The pairing surface's HTML shell — shared with the device-authorization page. */
+export function pageShell(title: string, body: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -181,7 +195,8 @@ function renderSuccess(secret: string): string {
   );
 }
 
-function renderState(headline: string, message: string, status: 'expired' | 'consumed' | 'unknown'): string {
+/** One state page — shared with the device-authorization page's settled states. */
+export function renderState(headline: string, message: string, status: 'expired' | 'consumed' | 'unknown'): string {
   // Identical body shell for unknown/expired/consumed so a casual probe
   // can't enumerate codes by response shape — only the visible headline
   // changes, and that mirrors what the user typed.
@@ -191,7 +206,8 @@ function renderState(headline: string, message: string, status: 'expired' | 'con
   );
 }
 
-function htmlResponse(res: ServerResponse, statusCode: number, body: string): void {
+/** The pairing surface's response headers — shared with the device-authorization page. */
+export function htmlResponse(res: ServerResponse, statusCode: number, body: string): void {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   // Pairing surface is per-request and time-sensitive; never cache.
@@ -222,6 +238,13 @@ function jsonResponse(res: ServerResponse, statusCode: number, payload: ConfirmJ
 
 export interface PairingHttpHandlerOptions {
   readonly pairing: DaemonPairingService;
+  /**
+   * The client initiative's page owner: a client-initiated pair reaching
+   * `GET /pair/<code>` is handed here already peeked (one lookup, one
+   * budget draw). Absent = a host that composes no device plane; such a
+   * pair answers the not-found page.
+   */
+  readonly clientPairView?: (pair: PendingPair, req: IncomingMessage, res: ServerResponse) => void;
 }
 
 /**
@@ -240,13 +263,17 @@ export type PairingHttpHandler = (req: IncomingMessage, res: ServerResponse) => 
  * `pairingService` option.
  */
 export function createPairingHttpHandler(options: PairingHttpHandlerOptions): PairingHttpHandler {
-  const { pairing } = options;
+  const { pairing, clientPairView } = options;
   return (req, res) => {
     const route = parseRoute(req.url);
     if (!route) return false;
     if (req.method === 'GET' && route.kind === 'view') {
       const pair = pairing.peek(route.code);
-      if (!pair) {
+      if (pair?.initiative === 'client' && clientPairView) {
+        clientPairView(pair, req, res);
+        return true;
+      }
+      if (!pair || pair.initiative === 'client') {
         htmlResponse(
           res,
           404,

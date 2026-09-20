@@ -32,6 +32,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { resolveExternalOrigin } from '../../host-runtime/external-origin';
 import { readRawBody } from '../../host-runtime/http-body';
 import { type DaemonOidcService, PENDING_LOGIN_TTL_MS } from './oidc-service';
 
@@ -127,19 +128,10 @@ function readBindingCookie(req: IncomingMessage, secure: boolean): string {
 export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttpHandler {
   const { service } = options;
 
-  function externalOrigin(req: IncomingMessage): string {
-    if (options.redirectOrigin) return options.redirectOrigin.replace(/\/$/, '');
-    // Host has already passed the admission matrix's `known` posture on
-    // this route, so it names an address the daemon legitimately answers
-    // as. Scheme: only a trusted proxy can vouch for TLS termination.
-    const host = req.headers.host ?? '127.0.0.1';
-    const forwardedProto = req.headers['x-forwarded-proto'];
-    const proto =
-      options.trustedProxy && typeof forwardedProto === 'string' && forwardedProto.split(',')[0].trim() === 'https'
-        ? 'https'
-        : 'http';
-    return `${proto}://${host}`;
-  }
+  // Host has already passed the admission matrix's `known` posture on
+  // this route, so it names an address the daemon legitimately answers as.
+  const externalOrigin = (req: IncomingMessage): string =>
+    resolveExternalOrigin(req, { override: options.redirectOrigin, trustedProxy: options.trustedProxy });
 
   return (req, res) => {
     const pathOnly = (req.url ?? '').split('?', 1)[0];

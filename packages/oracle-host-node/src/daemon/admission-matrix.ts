@@ -23,6 +23,13 @@
  *                      JSON confirm from its own page — the client
  *                      sign-in plan F0-a). Any other browser origin is
  *                      a forged confirm.
+ *   - `POST /pair`   — a client starting its own sign-in (the client
+ *                      sign-in plan §6.2): the extension's page, or a
+ *                      native process (desktop main, the CLI) carrying
+ *                      no Origin. A start is not a guess — the pairing
+ *                      service's caps bound it — so nothing counts.
+ *   - `/pair/poll`   — the same client's poll on its handle; an
+ *                      unknown handle answers 404 and counts.
  *   - `/nm/bootstrap` — native processes only (the shipped NM host);
  *                      any Origin ⇒ reject, and the handler itself
  *                      refuses non-loopback peers. A 403 (refused
@@ -97,6 +104,8 @@ export type AdmissionRoute =
   | 'metrics'
   | 'ws-upgrade'
   | 'pairing'
+  | 'pair-start'
+  | 'pair-poll'
   | 'nm'
   | 'mcp'
   | 'oidc'
@@ -144,6 +153,8 @@ export interface RoutePosture {
 }
 
 const PAIRING_PATH_PREFIX = '/pair/';
+const PAIR_START_PATH = '/pair';
+const PAIR_POLL_PATH = '/pair/poll';
 const OIDC_PATH_PREFIX = '/auth/oidc/';
 const PASSWORD_PATH_PREFIX = '/auth/password/';
 const SETUP_PATH_PREFIX = '/auth/setup/';
@@ -172,6 +183,24 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // is a page-side POST from the extension's own origin.
   pairing: {
     route: 'pairing',
+    origin: 'own-or-extension',
+    host: 'known',
+    rateLimited: true,
+    failureStatuses: [404],
+  },
+  // A client's own sign-in start (the client sign-in plan §6.2): the
+  // extension's page or a native process; bounded by the service's
+  // caps, never a guess.
+  'pair-start': {
+    route: 'pair-start',
+    origin: 'own-or-extension',
+    host: 'known',
+    rateLimited: true,
+    failureStatuses: [],
+  },
+  // The client's poll on its handle — 404 = an unknown handle.
+  'pair-poll': {
+    route: 'pair-poll',
     origin: 'own-or-extension',
     host: 'known',
     rateLimited: true,
@@ -218,6 +247,8 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (facts.upgrade) return ROUTE_POSTURES['ws-upgrade'];
   if (facts.path === HEALTHZ_PATH) return ROUTE_POSTURES.healthz;
   if (facts.path === METRICS_PATH) return ROUTE_POSTURES.metrics;
+  if (facts.path === PAIR_START_PATH) return ROUTE_POSTURES['pair-start'];
+  if (facts.path === PAIR_POLL_PATH) return ROUTE_POSTURES['pair-poll'];
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
   if (facts.path === NM_BOOTSTRAP_PATH) return ROUTE_POSTURES.nm;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;

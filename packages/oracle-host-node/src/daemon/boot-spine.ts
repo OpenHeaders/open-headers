@@ -126,6 +126,7 @@ import {
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
 import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-eviction';
 import { FileSystemBlobBackend } from '../files/fs-blob-backend';
+import { createDeviceAuthorizationHttp } from '../host-runtime/device-authorization-http';
 import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
@@ -177,6 +178,7 @@ import { handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { handleExecuteMqttRequestRpc } from './execute-mqtt-request-rpc';
 import { handleExecuteRequestRpc } from './execute-request-rpc';
 import { handleExecuteWebSocketRequestRpc } from './execute-websocket-request-rpc';
+import { createGateModeResolver } from './gate-mode';
 import { offerWorkspaceRowsToUserPeers } from './grant-workspace-offer';
 import { retractWorkspaceRowsFromUserPeers } from './grant-workspace-retract';
 import { createHealthzHandler } from './healthz';
@@ -836,9 +838,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   });
 
   // 4b. Daemon device-flow pairing surface (U3.3). One service instance
-  //     per process; the HTTP handler is rebuilt with that service and
-  //     handed to every bind the supervisor opens. Polling-only local
-  //     contract — see `BridgeRpcContract['oh.daemon.pairing.*']`.
+  //     per process for BOTH initiatives (the admin's and the client's,
+  //     the client sign-in plan §6.1); the HTTP handlers are composed
+  //     below, after the services the device page reads, and handed to
+  //     every bind the supervisor opens. Polling-only local contract —
+  //     see `BridgeRpcContract['oh.daemon.pairing.*']`.
   //     Under trustedProxy the service's global brute-force budget is
   //     raised (S30 finding d): admission's strict per-peer pairing
   //     tier caps each WAN address at 5 guesses per 30-minute block,
@@ -850,7 +854,6 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     sessionTtlMs,
     ...(config.admission?.trustedProxy ? { maxFailedLookups: TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET } : {}),
   });
-  const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
 
   // 4b'''. NM identity bootstrap (Phase 7) — `/nm/bootstrap`, composed
   //        only when the host ships the NM host binary. Verification is
@@ -1169,6 +1172,29 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const setupHttpHandler = createSetupHttpHandler({
     service: setupClaimService,
     resolvePeer: admission.resolvePeer,
+  });
+
+  // 4c''''''. The device flow's server side (the client sign-in plan §6):
+  //      ONE gate truth the page reads — the same four states the served
+  //      tab resolves from the meta routes — then the client initiative's
+  //      routes beside the admin initiative's, both under the `/pair/`
+  //      prefix the pairing handler owns (a client pair's page is reached
+  //      through its seam, one peek per navigation).
+  const gateMode = createGateModeResolver({
+    ssoProvider: oidcService === null ? null : () => oidcService.providerLabel(),
+    setupMeta: (peerIsLoopback) => setupClaimService.meta(peerIsLoopback),
+    passwordEnabled: () => passwordLoginService?.enabled() ?? Promise.resolve(false),
+  });
+  const deviceAuthorization = createDeviceAuthorizationHttp({
+    pairing: pairingService,
+    resolvePeer: admission.resolvePeer,
+    gateMode,
+    passwordLogin: passwordLoginService,
+    trustedProxy: config.admission?.trustedProxy,
+  });
+  const pairingHttpHandler = createPairingHttpHandler({
+    pairing: pairingService,
+    clientPairView: deviceAuthorization.renderPairView,
   });
 
   // 4c'''''. OAuth 2.0 plane — the ten `oauth*` channels the shared
@@ -1602,6 +1628,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         (req, res) =>
           healthzHandler(req, res) ||
           metricsHttpHandler(req, res) ||
+          deviceAuthorization.handler(req, res) ||
           pairingHttpHandler(req, res) ||
           (nmBootstrapHttpHandler !== null && nmBootstrapHttpHandler(req, res)) ||
           mcpInstall.handler(req, res) ||

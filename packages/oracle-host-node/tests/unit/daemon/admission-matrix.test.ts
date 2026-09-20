@@ -85,6 +85,25 @@ describe('routePostureFor', () => {
     );
   });
 
+  it('claims the client-initiative routes ahead of the pairing prefix (the client sign-in plan §6.2)', () => {
+    expect(routePostureFor(facts({ path: '/pair' })).route).toBe('pair-start');
+    expect(routePostureFor(facts({ path: '/pair/poll' })).route).toBe('pair-poll');
+    // The page, the forms and the admin confirm stay on the pairing row.
+    expect(routePostureFor(facts({ path: '/pair/123456' })).route).toBe('pairing');
+    expect(routePostureFor(facts({ path: '/pair/123456/approve' })).route).toBe('pairing');
+    expect(routePostureFor(facts({ path: '/pair/123456/deny' })).route).toBe('pairing');
+    expect(routePostureFor(facts({ path: '/pair/123456/approved' })).route).toBe('pairing');
+    expect(routePostureFor(facts({ path: '/pair/123456/confirm' })).route).toBe('pairing');
+    // A start is bounded by the service's caps, never counted; an
+    // unknown poll handle is a 404 that counts.
+    const start = routePostureFor(facts({ path: '/pair' }));
+    expect(start.rateLimited).toBe(true);
+    expect(start.failureStatuses).toEqual([]);
+    const poll = routePostureFor(facts({ path: '/pair/poll' }));
+    expect(poll.rateLimited).toBe(true);
+    expect(poll.failureStatuses).toEqual([404]);
+  });
+
   it('marks the brute-force routes and their failure statuses', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
@@ -133,6 +152,27 @@ describe('origin posture', () => {
       ok: false,
       reason: 'origin-forbidden',
     });
+  });
+
+  it('the client start and poll admit no Origin, the own origin and our extension origins, reject pages', () => {
+    for (const path of ['/pair', '/pair/poll']) {
+      expect(evaluateAdmission(facts({ path }), []).ok).toBe(true);
+      expect(evaluateAdmission(facts({ path, origin: 'http://192.168.1.20:8137' }), []).ok).toBe(true);
+      expect(evaluateAdmission(facts({ path, origin: `chrome-extension://${CHROME_EXTENSION_ID}` }), []).ok).toBe(true);
+      expect(evaluateAdmission(facts({ path, origin: 'moz-extension://uuid-here' }), []).ok).toBe(true);
+      expect(
+        evaluateAdmission(facts({ path, origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' }), []),
+      ).toMatchObject({ ok: false, reason: 'origin-forbidden' });
+      expect(evaluateAdmission(facts({ path, origin: 'https://evil.example.com' }), [])).toMatchObject({
+        ok: false,
+        reason: 'origin-forbidden',
+      });
+      // DNS-rebinding guard holds like every browser-facing route.
+      expect(evaluateAdmission(facts({ path, host: 'rebound.example.com' }), [])).toMatchObject({
+        ok: false,
+        reason: 'host-forbidden',
+      });
+    }
   });
 
   it('own-origin comparison elides default ports', () => {

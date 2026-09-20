@@ -157,6 +157,26 @@ describe('password login service', () => {
     expect((await service.login('alice@openheaders.io', 'alice-password-1')).ok).toBe(true);
   });
 
+  it("verify() proves the credential without minting — the device page's approve step", async () => {
+    const userId = await addUser('alice@openheaders.io');
+    await setPassword(userId, 'alice-password-1');
+    const service = createDaemonPasswordLoginService();
+    expect(await service.verify('Alice@OPENHEADERS.IO', 'alice-password-1')).toEqual({
+      ok: true,
+      userId,
+      email: 'alice@openheaders.io',
+    });
+    expect(await listDaemonAuthTokens()).toHaveLength(0);
+    // The same refusals, the same account lockout, shared with login.
+    expect(await service.verify('alice@openheaders.io', 'wrong')).toEqual({ ok: false, reason: 'bad-password' });
+    expect(await service.verify('nobody@openheaders.io', 'x')).toEqual({ ok: false, reason: 'unknown-user' });
+    for (let i = 0; i < 4; i++) await service.verify('alice@openheaders.io', `wrong-${i}`);
+    expect(await service.login('alice@openheaders.io', 'alice-password-1')).toEqual({
+      ok: false,
+      reason: 'account-locked',
+    });
+  });
+
   it('enabled() reflects whether any ACTIVE user holds a password', async () => {
     const service = createDaemonPasswordLoginService();
     expect(await service.enabled()).toBe(false);
