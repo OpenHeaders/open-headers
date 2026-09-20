@@ -166,6 +166,12 @@ export const DaemonAdminSchema = v.object({
  * from `public` cascades the stored snapshot away. Audit-vocabulary
  * only.
  *
+ * `daemon.device-login` is the device flow's stamp (the client sign-in
+ * plan §6.4): one allow row per device a person approves on the
+ * server's own page, with the approving person as the actor — the
+ * `daemon.sso-admin` idiom. A refused approval is the password
+ * service's own warn line, never a row. Audit-vocabulary only.
+ *
  * `daemon.seat-admit` is the seat gate's stamp (the licensing plan §4)
  * — a deny row per directory-user admission refused at the seat limit
  * (including the personal-seat refusal reasons), and an allow row when
@@ -199,6 +205,7 @@ export const CapabilitySchema = v.picklist([
   'daemon.workspace-visibility',
   'daemon.workspace-publish',
   'daemon.workspace-unpublish',
+  'daemon.device-login',
   'daemon.seat-admit',
   'daemon.service-admit',
   'daemon.license-install',
