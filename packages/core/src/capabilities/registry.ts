@@ -94,6 +94,71 @@ export type PairWithCodeResult =
     };
 
 /**
+ * The client side of a person's sign-in from a native client (the
+ * client sign-in plan D2/D4): the client starts its own pair, shows
+ * the person the short code, opens the server's own approval page in a
+ * browser, and polls on the long handle until the person approves the
+ * device there. `expiresAt` is epoch ms. `approveUrl` is the page to
+ * open — built by the server at the origin the client reached.
+ */
+export interface ServerSignInStartInput {
+  /** The configured back-end WebSocket URL, e.g. `ws://10.0.0.5:8137`. */
+  readonly url: string;
+  /** Optional label the server's page names the device by (≤ 64 chars). */
+  readonly deviceLabel?: string;
+}
+
+/**
+ * `too-many-pending` is the server's cap on waiting sign-ins (retry in
+ * a few minutes, not a throttle); `throttled` is the admission limiter
+ * refusing this peer for now; `forbidden` is the admission matrix
+ * refusing the caller (a foreign page); `offline` nothing answered;
+ * `error` a malformed answer or a non-`ws(s)` URL.
+ */
+export type ServerSignInStartResult =
+  | {
+      readonly ok: true;
+      readonly code: string;
+      readonly pollToken: string;
+      readonly expiresAt: number;
+      readonly approveUrl: string;
+    }
+  | { readonly ok: false; readonly reason: 'too-many-pending' | 'throttled' | 'forbidden' | 'offline' | 'error' };
+
+export interface ServerSignInPollInput {
+  readonly url: string;
+  /** The handle `start` answered — never the code. */
+  readonly pollToken: string;
+}
+
+/**
+ * `approved` carries the bound session secret exactly once — ride it
+ * through the same candidate → HELLO → persist path a pasted token
+ * rides. `unknown` is a handle the server does not hold (never poll one
+ * you did not receive); `offline` is a transport fault worth polling
+ * past until the pair's own expiry.
+ */
+export type ServerSignInPollResult =
+  | { readonly status: 'pending'; readonly expiresAt: number | null }
+  | { readonly status: 'approved'; readonly secret: string; readonly tokenId: string }
+  | { readonly status: 'denied' }
+  | { readonly status: 'expired' }
+  | { readonly status: 'unknown' }
+  | { readonly status: 'offline' };
+
+export interface ServerSignInApi {
+  start(input: ServerSignInStartInput): Promise<ServerSignInStartResult>;
+  poll(input: ServerSignInPollInput): Promise<ServerSignInPollResult>;
+  /**
+   * A JSON-only GET of `path` on the back-end's HTTP origin — the seam
+   * the shared gate resolver reads the three meta routes through. Null
+   * for anything that is not a JSON 2xx, which every parser fails
+   * towards the safe reading.
+   */
+  fetchMeta(input: { readonly url: string; readonly path: string }): Promise<unknown | null>;
+}
+
+/**
  * Result of one {@link Capabilities.nmAutoPair} attempt. `refused` is
  * the daemon's identity chain saying no (unsigned browser, unlisted
  * signer); `unreachable` means the host ran but no daemon answered;
@@ -387,6 +452,21 @@ export interface Capabilities {
    * the UI hides the in-app pairing affordance via `hasCapability`.
    */
   pairWithCode?: (input: PairWithCodeInput) => Promise<PairWithCodeResult>;
+
+  /**
+   * A person's sign-in from this client (the client sign-in plan D4):
+   * the wizard's primary "Sign in on <host>" — start a pair, open the
+   * server's own page, poll until the person approves the device
+   * there, and write the bound session credential the poll answers
+   * into `backend.authToken`. Host-specific because every call is an
+   * HTTP request the running shell must be able to make: the extension
+   * fetches page-side from its own origin; the desktop renderer is a
+   * file origin refused everywhere, so its shim relays to the MAIN
+   * process (F0-b), which also fronts the app when the poll lands. A
+   * host without it (or a server in its no-login state) leaves the
+   * admin-issued code / token path as the only way in.
+   */
+  serverSignIn?: () => ServerSignInApi;
 
   /**
    * Exchange OS-verified process identity for a daemon token over the

@@ -152,6 +152,12 @@ export {
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from './resolver';
 export {
+  createServerSignInClient,
+  fetchJsonDocument,
+  type ServerSignInClientOptions,
+  wsUrlToHttpOrigin,
+} from './server-sign-in-client';
+export {
   resolveInternalWorkspaceIds,
   setWorkspaceVisibilityProvider,
   type WorkspaceVisibilityProvider,
