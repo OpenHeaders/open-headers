@@ -7,6 +7,16 @@ export {
   usePrimaryBackend,
   usePrimaryBackendUrl,
 } from './backend-registry';
+export type { GateMode, MetaJsonFetch, OidcMeta, SetupMeta } from './gate-mode';
+export {
+  OIDC_META_PATH,
+  PASSWORD_META_PATH,
+  parseOidcMeta,
+  parsePasswordMeta,
+  parseSetupMeta,
+  resolveGateMode,
+  SETUP_META_PATH,
+} from './gate-mode';
 export type { OrgSyncAnnotation, OrgSyncAnnotationKind } from './org-sync-annotation';
 export {
   deriveOrgSyncAnnotation,

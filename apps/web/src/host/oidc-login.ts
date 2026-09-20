@@ -12,44 +12,27 @@
  * WELCOME accept.
  */
 
+import { fetchJsonDocument } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { MessageKey } from '@openheaders/i18n';
+import { OIDC_META_PATH, type OidcMeta, parseOidcMeta } from '@openheaders/ui/shared/backend';
 
 const SCOPE = 'OidcLogin';
 
-const META_PATH = '/auth/oidc/meta';
 const CLAIM_PATH = '/auth/oidc/claim';
 const CLAIM_HASH_PREFIX = '#oidc=';
 const ERROR_HASH_PREFIX = '#oidc-error=';
-const META_PROBE_TIMEOUT_MS = 1500;
 
-export interface OidcMeta {
-  readonly enabled: boolean;
-  readonly provider?: string;
-}
+export type { OidcMeta };
 
 /**
  * Is SSO configured on the serving daemon? A daemon without OIDC has no
  * `/auth/oidc/*` routes, so the SPA fallback answers this path with the
- * app HTML — only a JSON `{ enabled: true }` counts.
+ * app HTML — only a JSON `{ enabled: true }` counts. Same-origin: the
+ * tab is served by the daemon it asks.
  */
 export async function fetchOidcMeta(): Promise<OidcMeta> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), META_PROBE_TIMEOUT_MS);
-    const response = await fetch(META_PATH, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!response.ok || !(response.headers.get('content-type') ?? '').includes('application/json')) {
-      return { enabled: false };
-    }
-    const payload = (await response.json()) as { enabled?: unknown; provider?: unknown };
-    return {
-      enabled: payload.enabled === true,
-      ...(typeof payload.provider === 'string' ? { provider: payload.provider } : {}),
-    };
-  } catch {
-    return { enabled: false };
-  }
+  return parseOidcMeta(await fetchJsonDocument(OIDC_META_PATH));
 }
 
 export type OidcHashResult = { kind: 'claim'; code: string } | { kind: 'error'; reason: string };

@@ -9,34 +9,22 @@
  * memory, real HELLO, persist only on WELCOME accept.
  */
 
+import { fetchJsonDocument } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { PASSWORD_META_PATH, parsePasswordMeta } from '@openheaders/ui/shared/backend';
 
 const SCOPE = 'PasswordLogin';
 
-const META_PATH = '/auth/password/meta';
 const LOGIN_PATH = '/auth/password/login';
-const META_PROBE_TIMEOUT_MS = 1500;
 
 /**
  * Is password login usable on the serving daemon? A daemon with OIDC
  * configured (or none at all) has no `/auth/password/*` routes, so the
  * SPA fallback answers with the app HTML — only JSON `enabled: true`
- * counts.
+ * counts. Same-origin: the tab is served by the daemon it asks.
  */
 export async function fetchPasswordMeta(): Promise<{ enabled: boolean }> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), META_PROBE_TIMEOUT_MS);
-    const response = await fetch(META_PATH, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!response.ok || !(response.headers.get('content-type') ?? '').includes('application/json')) {
-      return { enabled: false };
-    }
-    const payload = (await response.json()) as { enabled?: unknown };
-    return { enabled: payload.enabled === true };
-  } catch {
-    return { enabled: false };
-  }
+  return parsePasswordMeta(await fetchJsonDocument(PASSWORD_META_PATH));
 }
 
 /**

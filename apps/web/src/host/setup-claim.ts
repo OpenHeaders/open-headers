@@ -27,14 +27,14 @@
  * stale setup code, an SSO server.
  */
 
+import { fetchJsonDocument } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { MessageKey } from '@openheaders/i18n';
+import { parseSetupMeta, SETUP_META_PATH, type SetupMeta } from '@openheaders/ui/shared/backend';
 
 const SCOPE = 'SetupClaim';
 
-const META_PATH = '/auth/setup/meta';
 const CLAIM_PATH = '/auth/setup/claim';
-const META_PROBE_TIMEOUT_MS = 1500;
 
 /**
  * Mirrors the daemon's own minimum. The server re-runs the check and
@@ -43,12 +43,7 @@ const META_PROBE_TIMEOUT_MS = 1500;
  */
 export const PASSWORD_MIN_LENGTH = 8;
 
-export interface SetupMeta {
-  /** No directory user has ever been admitted, and no IdP is configured. */
-  readonly unclaimed: boolean;
-  /** The claim is open and a setup code exists — non-loopback browsers must carry it. */
-  readonly requiresCode: boolean;
-}
+export type { SetupMeta };
 
 export interface SetupClaimInput {
   readonly displayName: string;
@@ -78,19 +73,7 @@ export type SetupClaimResult =
  * form on a server that already has one.
  */
 export async function fetchSetupMeta(): Promise<SetupMeta> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), META_PROBE_TIMEOUT_MS);
-    const response = await fetch(META_PATH, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!response.ok || !(response.headers.get('content-type') ?? '').includes('application/json')) {
-      return { unclaimed: false, requiresCode: false };
-    }
-    const payload = (await response.json()) as { unclaimed?: unknown; requiresCode?: unknown };
-    return { unclaimed: payload.unclaimed === true, requiresCode: payload.requiresCode === true };
-  } catch {
-    return { unclaimed: false, requiresCode: false };
-  }
+  return parseSetupMeta(await fetchJsonDocument(SETUP_META_PATH));
 }
 
 /** Create the first admin and take the session it mints. */

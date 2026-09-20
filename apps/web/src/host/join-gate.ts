@@ -11,17 +11,18 @@
  * unreachable daemon mounts the Workbench on local data alone.
  *
  * Once the gate IS showing, WHICH door it draws is a pure function of
- * the server's own state (the front door plan §4.1), resolved here
- * from the three meta probes.
+ * the server's own state (the front door plan §4.1) — the shared
+ * resolver in `@openheaders/ui/shared/backend`, bound here to the tab's
+ * same-origin meta reads (the client sign-in plan §7 lifted it so the
+ * wizard's sign-in step reads the same truth).
  */
 
+import { fetchJsonDocument } from '@openheaders/core/identity';
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { listWorkspaces, peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { type GateMode, resolveGateMode as resolveGateModeOver } from '@openheaders/ui/shared/backend';
 import { hasDaemonToken, persistDaemonToken, setCandidateDaemonToken } from './daemon-token';
 import type { DaemonWire } from './daemon-wire';
-import { fetchOidcMeta } from './oidc-login';
-import { fetchPasswordMeta } from './password-login';
-import { fetchSetupMeta } from './setup-claim';
 
 /** Budget for one join attempt to reach a terminal outcome. */
 const JOIN_OUTCOME_BUDGET_MS = 10_000;
@@ -52,30 +53,17 @@ export async function decideGate(): Promise<GateDecision> {
   }
 }
 
-/**
- * Which front door the server's state asks this browser to draw
- * (§4.1). `no-login` is the residual: a claimed server with no IdP and
- * no password holder left in its directory has nothing a browser can
- * sign in with, and saying so beats offering a way in that isn't one.
- */
-export type GateMode =
-  | { readonly kind: 'setup'; readonly requiresCode: boolean }
-  | { readonly kind: 'sso'; readonly provider: string }
-  | { readonly kind: 'password' }
-  | { readonly kind: 'no-login' };
+export type { GateMode };
 
 /**
- * Ask the three meta routes at once. Their answers are consistent by
- * contract — an IdP-fronted server is never unclaimed, an unclaimed
- * one holds no password — so a single round trip decides the card
- * instead of three serial ones, and the order below is precedence,
- * not dependence.
+ * Which front door the server's state asks this browser to draw
+ * (§4.1) — the shared resolver over the tab's same-origin meta reads.
+ * `no-login` is the residual: a claimed server with no IdP and no
+ * password holder left in its directory has nothing a browser can sign
+ * in with, and saying so beats offering a way in that isn't one.
  */
-export async function resolveGateMode(): Promise<GateMode> {
-  const [oidc, setup, password] = await Promise.all([fetchOidcMeta(), fetchSetupMeta(), fetchPasswordMeta()]);
-  if (oidc.enabled) return { kind: 'sso', provider: oidc.provider ?? 'SSO' };
-  if (setup.unclaimed) return { kind: 'setup', requiresCode: setup.requiresCode };
-  return password.enabled ? { kind: 'password' } : { kind: 'no-login' };
+export function resolveGateMode(): Promise<GateMode> {
+  return resolveGateModeOver((path) => fetchJsonDocument(path));
 }
 
 /**
