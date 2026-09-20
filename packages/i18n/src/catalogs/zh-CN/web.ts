@@ -25,8 +25,8 @@ export const web = {
   'web.gate.setupNamePlaceholder': '你的姓名',
   'web.gate.setupConfirmPlaceholder': '确认密码',
   'web.gate.setupPasswordHint': '至少 {min} 个字符。没有密码重置功能——请妥善保管。',
-  'web.gate.setupCodePlaceholder': '安装码（可选）',
-  'web.gate.setupCodeHint': '仅当此浏览器不在服务器本机上运行时才需要。服务器启动时会打印该码，每次重启都会换成新的。',
+  'web.gate.setupCodePlaceholder': '安装码',
+  'web.gate.setupCodeHint': '服务器启动时打印在日志中，每次重启都会打印新的安装码。',
   'web.gate.setupSubmit': '创建账户',
   'web.gate.setupDoneTitle': '此服务器已设置完成',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

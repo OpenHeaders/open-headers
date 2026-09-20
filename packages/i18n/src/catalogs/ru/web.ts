@@ -37,10 +37,8 @@ export const web = {
   'web.gate.setupNamePlaceholder': 'Ваше имя',
   'web.gate.setupConfirmPlaceholder': 'Повторите пароль',
   'web.gate.setupPasswordHint': 'Не менее {min} символов. Сброса пароля нет — сохраните его в надёжном месте.',
-  'web.gate.setupCodePlaceholder': 'Код настройки (необязательно)',
-  'web.gate.setupCodeHint':
-    'Нужен только когда этот браузер запущен не на самом сервере. Сервер печатает код при запуске, ' +
-    'и при каждом перезапуске его заменяет новый.',
+  'web.gate.setupCodePlaceholder': 'Код настройки',
+  'web.gate.setupCodeHint': 'Печатается в журнале сервера при запуске. Каждый перезапуск печатает новый.',
   'web.gate.setupSubmit': 'Создать учётную запись',
   'web.gate.setupDoneTitle': 'Сервер настроен',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

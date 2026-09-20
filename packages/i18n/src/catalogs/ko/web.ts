@@ -32,9 +32,8 @@ export const web = {
   'web.gate.setupNamePlaceholder': '이름',
   'web.gate.setupConfirmPlaceholder': '비밀번호 확인',
   'web.gate.setupPasswordHint': '{min}자 이상. 비밀번호 재설정은 없으니 안전한 곳에 보관하세요.',
-  'web.gate.setupCodePlaceholder': '설정 코드 (선택 사항)',
-  'web.gate.setupCodeHint':
-    '이 브라우저가 서버 자체에서 실행되고 있지 않을 때만 필요합니다. 서버는 시작할 때 코드를 출력하며, 다시 시작할 때마다 새 코드로 바뀝니다.',
+  'web.gate.setupCodePlaceholder': '설정 코드',
+  'web.gate.setupCodeHint': '서버가 시작할 때 로그에 출력됩니다. 다시 시작할 때마다 새 코드가 출력됩니다.',
   'web.gate.setupSubmit': '계정 만들기',
   'web.gate.setupDoneTitle': '이 서버가 설정되었습니다',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

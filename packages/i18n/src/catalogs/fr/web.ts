@@ -27,10 +27,9 @@ export const web = {
   'web.gate.setupConfirmPlaceholder': 'Confirmer le mot de passe',
   'web.gate.setupPasswordHint':
     'Au moins {min} caractères. Aucune réinitialisation de mot de passe n’existe — gardez-le en lieu sûr.',
-  'web.gate.setupCodePlaceholder': "Code d'installation (facultatif)",
+  'web.gate.setupCodePlaceholder': "Code d'installation",
   'web.gate.setupCodeHint':
-    "Nécessaire uniquement si ce navigateur ne s'exécute pas sur le serveur lui-même. Le serveur affiche le code " +
-    'au démarrage, et chaque redémarrage le remplace par un nouveau.',
+    'Affiché dans le journal du serveur à son démarrage. Chaque redémarrage en affiche un nouveau.',
   'web.gate.setupSubmit': 'Créer le compte',
   'web.gate.setupDoneTitle': 'Ce serveur est installé',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

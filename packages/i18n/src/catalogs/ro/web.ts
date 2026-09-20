@@ -41,10 +41,8 @@ export const web = {
   'web.gate.setupConfirmPlaceholder': 'Confirmați parola',
   'web.gate.setupPasswordHint':
     'Cel puțin {min} caractere. Nu există resetare a parolei — păstrați-o într-un loc sigur.',
-  'web.gate.setupCodePlaceholder': 'Cod de configurare (opțional)',
-  'web.gate.setupCodeHint':
-    'Necesar doar când acest browser nu rulează chiar pe server. Serverul afișează codul la pornire, iar unul nou îl ' +
-    'înlocuiește la fiecare repornire.',
+  'web.gate.setupCodePlaceholder': 'Cod de configurare',
+  'web.gate.setupCodeHint': 'Apare în jurnalul serverului la pornire. Fiecare repornire afișează unul nou.',
   'web.gate.setupSubmit': 'Creare cont',
   'web.gate.setupDoneTitle': 'Acest server este configurat',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

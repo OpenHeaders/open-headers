@@ -30,10 +30,8 @@ export const web = {
   'web.gate.setupConfirmPlaceholder': 'Passwort bestätigen',
   'web.gate.setupPasswordHint':
     'Mindestens {min} Zeichen. Es gibt kein Zurücksetzen des Passworts — bewahre es sicher auf.',
-  'web.gate.setupCodePlaceholder': 'Einrichtungscode (optional)',
-  'web.gate.setupCodeHint':
-    'Nur nötig, wenn dieser Browser nicht auf dem Server selbst läuft. Der Server gibt den Code beim Start aus, ' +
-    'und bei jedem Neustart ersetzt ihn ein neuer.',
+  'web.gate.setupCodePlaceholder': 'Einrichtungscode',
+  'web.gate.setupCodeHint': 'Steht beim Start im Protokoll des Servers. Jeder Neustart gibt einen neuen aus.',
   'web.gate.setupSubmit': 'Konto anlegen',
   'web.gate.setupDoneTitle': 'Dieser Server ist eingerichtet',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

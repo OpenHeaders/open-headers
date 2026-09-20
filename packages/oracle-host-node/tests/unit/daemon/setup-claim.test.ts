@@ -99,18 +99,20 @@ describe('setup claim service', () => {
     const minted = await service.ensureSetupCode();
     expect(minted).not.toBeNull();
     expect(codes).toEqual([minted]);
-    expect(await service.meta()).toEqual({ unclaimed: true, requiresCode: true });
+    // The field is drawn only where the claim will demand the code.
+    expect(await service.meta(true)).toEqual({ unclaimed: true, requiresCode: false });
+    expect(await service.meta(false)).toEqual({ unclaimed: true, requiresCode: true });
 
     await createDaemonUser({ displayName: 'John Doe', email: 'john@openheaders.io' });
     const second = makeService();
     expect(await second.service.ensureSetupCode()).toBeNull();
-    expect(await second.service.meta()).toEqual({ unclaimed: false, requiresCode: false });
+    expect(await second.service.meta(false)).toEqual({ unclaimed: false, requiresCode: false });
   });
 
   it('an SSO daemon is never unclaimed and refuses the claim outright (O4)', async () => {
     const { service } = makeService({ oidcConfigured: true });
     expect(await service.ensureSetupCode()).toBeNull();
-    expect(await service.meta()).toEqual({ unclaimed: false, requiresCode: false });
+    expect(await service.meta(false)).toEqual({ unclaimed: false, requiresCode: false });
     const result = await service.claim(
       { displayName: 'John Doe', email: 'john@openheaders.io', password: GOOD_PASSWORD },
       true,
@@ -167,7 +169,7 @@ describe('setup claim service', () => {
 
     // The claim closed the door behind it.
     expect(codes[codes.length - 1]).toBeNull();
-    expect(await service.meta()).toEqual({ unclaimed: false, requiresCode: false });
+    expect(await service.meta(false)).toEqual({ unclaimed: false, requiresCode: false });
     const again = await service.claim(
       { displayName: 'Jane Doe', email: 'jane@openheaders.io', password: GOOD_PASSWORD },
       true,
@@ -211,7 +213,7 @@ describe('setup claim service', () => {
       reason: 'password-too-short',
     });
     // Nothing was written on any of those paths.
-    expect(await service.meta()).toEqual({ unclaimed: true, requiresCode: true });
+    expect(await service.meta(false)).toEqual({ unclaimed: true, requiresCode: true });
   });
 
   it('lets exactly one of two concurrent claims win', async () => {
@@ -283,9 +285,10 @@ describe('setup HTTP surface over a real socket', () => {
     await service.ensureSetupCode();
     const origin = await startDaemonHttp({ service });
 
+    // A loopback socket: the claim is open and this peer needs no code.
     const meta = await fetch(`${origin}/auth/setup/meta`);
     expect(meta.status).toBe(200);
-    expect(await meta.json()).toEqual({ unclaimed: true, requiresCode: true });
+    expect(await meta.json()).toEqual({ unclaimed: true, requiresCode: false });
 
     const claimed = await post(origin, {
       displayName: 'John Doe',
@@ -318,6 +321,9 @@ describe('setup HTTP surface over a real socket', () => {
     const origin = await startDaemonHttp({ service, peer: '203.0.113.7' });
     const input = { displayName: 'John Doe', email: 'john@openheaders.io', password: GOOD_PASSWORD };
 
+    // The remote peer is told up front that its claim needs the code.
+    expect(await (await fetch(`${origin}/auth/setup/meta`)).json()).toEqual({ unclaimed: true, requiresCode: true });
+
     const bare = await post(origin, input);
     const wrong = await post(origin, { ...input, code: '4KFP-9QW2-XM32' });
     expect(bare.status).toBe(403);
@@ -346,7 +352,7 @@ describe('setup HTTP surface over a real socket', () => {
     expect(short.status).toBe(400);
     expect(await short.json()).toEqual({ ok: false, reason: 'password-too-short' });
     // The server is still there to be claimed properly.
-    expect(await (await fetch(`${origin}/auth/setup/meta`)).json()).toEqual({ unclaimed: true, requiresCode: true });
+    expect(await (await fetch(`${origin}/auth/setup/meta`)).json()).toEqual({ unclaimed: true, requiresCode: false });
   });
 
   it('holds the prefix: wrong methods and unknown subpaths never reach the SPA fallback', async () => {

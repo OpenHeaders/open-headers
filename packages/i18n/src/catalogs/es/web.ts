@@ -28,10 +28,8 @@ export const web = {
   'web.gate.setupConfirmPlaceholder': 'Confirmar contraseña',
   'web.gate.setupPasswordHint':
     'Al menos {min} caracteres. No hay forma de restablecer la contraseña: guárdala en un sitio seguro.',
-  'web.gate.setupCodePlaceholder': 'Código de configuración (opcional)',
-  'web.gate.setupCodeHint':
-    'Solo hace falta cuando este navegador no se ejecuta en el propio servidor. El servidor muestra el código al ' +
-    'arrancar, y cada reinicio lo sustituye por uno nuevo.',
+  'web.gate.setupCodePlaceholder': 'Código de configuración',
+  'web.gate.setupCodeHint': 'Aparece en el registro del servidor al arrancar. Cada reinicio muestra uno nuevo.',
   'web.gate.setupSubmit': 'Crear la cuenta',
   'web.gate.setupDoneTitle': 'Este servidor está configurado',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

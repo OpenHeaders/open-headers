@@ -444,10 +444,11 @@ test('an unclaimed server draws the setup card and asks a browser for no machine
   expect(await firstPage.$('[data-testid=login-gate-skip]')).toBeNull();
   expect(await firstPage.$('[data-testid=login-gate-token]')).toBeNull();
   await expect(gate).not.toContainText('ohd ');
-  // The setup code is offered with its reason, never demanded — this
-  // browser is on the box, and the dominant first run needs no code.
-  await expect(firstPage.locator('[data-testid=login-gate-setup-code]')).toBeVisible();
-  await expect(gate).toContainText('not running on the server itself');
+  // This browser is on the box, so the server asks it for no setup code
+  // and the form draws no field for one — the dominant first run never
+  // meets the code at all.
+  expect(await firstPage.$('[data-testid=login-gate-setup-code]')).toBeNull();
+  await expect(gate).not.toContainText('Setup code');
   // Chromium under Playwright resolves to the Chrome Web Store listing
   // and one desktop download named for this machine's OS.
   await expect(firstPage.locator('[data-testid=login-gate-client-extension]')).toHaveCount(1);
@@ -1119,12 +1120,13 @@ test('the first browser claims an unclaimed server, hears what that unpaired, an
       )
       .toBe(200);
 
-    // The probe the gate draws its card from.
+    // The probe the gate draws its card from — asked from this machine,
+    // so the claim is open and no code is demanded of this peer.
     const meta = (await (await fetch(`${claimOrigin}/auth/setup/meta`)).json()) as {
       unclaimed: boolean;
       requiresCode: boolean;
     };
-    expect(meta).toEqual({ unclaimed: true, requiresCode: true });
+    expect(meta).toEqual({ unclaimed: true, requiresCode: false });
 
     const claimContext = await browser.newContext();
     const claimPage = await claimContext.newPage();
@@ -1132,7 +1134,7 @@ test('the first browser claims an unclaimed server, hears what that unpaired, an
     await claimPage.goto(`${claimOrigin}/`);
     await claimPage.waitForSelector(setupInput('name'), { timeout: 5_000 });
 
-    // Loopback is the proof: the code field is offered and left empty.
+    // Loopback is the proof: the server asks this browser for no code.
     await claimPage.fill(setupInput('name'), 'John Doe');
     await claimPage.fill(setupInput('email'), 'john@openheaders.io');
     await claimPage.fill(setupInput('password'), 'claim-first-password');

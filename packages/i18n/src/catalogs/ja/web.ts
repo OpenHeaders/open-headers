@@ -27,9 +27,8 @@ export const web = {
   'web.gate.setupNamePlaceholder': 'あなたの名前',
   'web.gate.setupConfirmPlaceholder': 'パスワードを確認',
   'web.gate.setupPasswordHint': '{min} 文字以上。パスワードのリセットはないため、安全な場所に保管してください。',
-  'web.gate.setupCodePlaceholder': 'セットアップコード（省略可）',
-  'web.gate.setupCodeHint':
-    'このブラウザーがサーバー自身の上で動作していない場合にのみ必要です。サーバーは起動時にコードを出力し、再起動のたびに新しいものに置き換わります。',
+  'web.gate.setupCodePlaceholder': 'セットアップコード',
+  'web.gate.setupCodeHint': 'サーバーの起動時にログに出力されます。再起動のたびに新しいコードが出力されます。',
   'web.gate.setupSubmit': 'アカウントを作成',
   'web.gate.setupDoneTitle': 'このサーバーはセットアップされました',
   'web.gate.setupDoneRepair': ({ count }, locale) =>

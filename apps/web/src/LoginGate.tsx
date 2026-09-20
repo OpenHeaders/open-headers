@@ -182,11 +182,15 @@ export function LoginGate({ wire, onJoined, mode, initialErrorReason }: LoginGat
 
   const passwordTooShort = password.length > 0 && password.length < PASSWORD_MIN_LENGTH;
   const passwordMismatch = confirmPassword.length > 0 && confirmPassword !== password;
+  // The code field is drawn only where the server will demand the code
+  // (a browser off the server's own machine) — and there it is required.
+  const codeRequired = mode.kind === 'setup' && mode.requiresCode;
   const canSubmitSetup =
     displayName.trim().length > 0 &&
     email.trim().length > 0 &&
     password.length >= PASSWORD_MIN_LENGTH &&
-    confirmPassword === password;
+    confirmPassword === password &&
+    (!codeRequired || setupCode.trim().length > 0);
 
   const submitSetup = async (): Promise<void> => {
     if (pending || !canSubmitSetup) return;

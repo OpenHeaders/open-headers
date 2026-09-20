@@ -57,7 +57,7 @@ const SCOPE = 'SetupClaim';
 export interface DaemonSetupMeta {
   /** No directory user has ever been admitted, and no IdP is configured. */
   readonly unclaimed: boolean;
-  /** A claim from this deployment's non-loopback origins must carry the setup code. */
+  /** THIS peer's claim must carry the setup code — false on the server's own machine, where nothing is asked. */
   readonly requiresCode: boolean;
 }
 
@@ -113,7 +113,8 @@ export interface DaemonSetupClaimService {
    * returns what it reported so the caller can log it.
    */
   ensureSetupCode(): Promise<string | null>;
-  meta(): Promise<DaemonSetupMeta>;
+  /** `peerIsLoopback` is the asking browser's — the code field is drawn only where the claim will demand it. */
+  meta(peerIsLoopback: boolean): Promise<DaemonSetupMeta>;
   /** `peerIsLoopback` decides whether the setup code is required (§4.3). */
   claim(input: DaemonSetupClaimInput, peerIsLoopback: boolean): Promise<DaemonSetupClaimResult>;
 }
@@ -141,12 +142,13 @@ export function createDaemonSetupClaimService(options: DaemonSetupClaimServiceOp
       return setupCode;
     },
 
-    async meta(): Promise<DaemonSetupMeta> {
+    async meta(peerIsLoopback: boolean): Promise<DaemonSetupMeta> {
       const open = await unclaimed();
-      // `requiresCode` describes the remote path, so it stays true for
-      // as long as the claim is open — a loopback browser simply never
-      // reaches the check. A claimed server answers false to both.
-      return { unclaimed: open, requiresCode: open && setupCode !== null };
+      // `requiresCode` is answered for the peer that asks, by the same
+      // rule `claim` applies to it: a browser on the server's own machine
+      // is never asked for the code, so it is never shown the field. A
+      // claimed server answers false to both.
+      return { unclaimed: open, requiresCode: open && setupCode !== null && !peerIsLoopback };
     },
 
     async claim(input: DaemonSetupClaimInput, peerIsLoopback: boolean): Promise<DaemonSetupClaimResult> {

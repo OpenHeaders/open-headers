@@ -9,6 +9,9 @@
  *     loopback-or-code, and a loopback-only answer would leave the
  *     coded remote path — which exists precisely because there is no
  *     browser on the box — unable to tell which screen it is on.
+ *     `requiresCode` is the ASKING peer's answer, resolved the way the
+ *     claim will resolve it: a browser on the server's own machine is
+ *     told no code is needed and draws no field for one.
  *   - `POST /auth/setup/claim` — `{displayName, email, password, code?}`
  *     in, `{ok: true, secret, revokedTokens}` out. The two fields the
  *     SPA consumes are the same two `/auth/password/login` answers
@@ -104,9 +107,10 @@ export function createSetupHttpHandler(options: SetupHttpHandlerOptions): SetupH
         methodNotAllowed(res, 'GET');
         return true;
       }
+      const peerIsLoopback = isLoopbackRemote(resolvePeer(req));
       void (async () => {
         try {
-          jsonResponse(res, 200, await service.meta());
+          jsonResponse(res, 200, await service.meta(peerIsLoopback));
         } catch (err) {
           // A server whose directory cannot be read is not one to
           // offer a claim on — fail towards "claimed".

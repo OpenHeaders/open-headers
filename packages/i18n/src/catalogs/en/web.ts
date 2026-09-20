@@ -31,10 +31,8 @@ export const web = {
   'web.gate.setupNamePlaceholder': 'Your name',
   'web.gate.setupConfirmPlaceholder': 'Confirm password',
   'web.gate.setupPasswordHint': 'At least {min} characters. There is no password reset — keep it somewhere safe.',
-  'web.gate.setupCodePlaceholder': 'Setup code (optional)',
-  'web.gate.setupCodeHint':
-    'Needed only when this browser is not running on the server itself. The server prints the code as it starts, ' +
-    'and a new one replaces it every time it restarts.',
+  'web.gate.setupCodePlaceholder': 'Setup code',
+  'web.gate.setupCodeHint': "Printed in the server's log when it starts. Every restart prints a new one.",
   'web.gate.setupSubmit': 'Create the account',
   'web.gate.setupDoneTitle': 'This server is set up',
   'web.gate.setupDoneRepair': ({ count }, locale) =>
