@@ -349,8 +349,11 @@ async function addBackendViaWizard(join: WizardJoin): Promise<void> {
   await modal.getByRole('button', { name: 'Next' }).click();
 
   // Sign-in step — the probe's verdict without a credential is the
-  // daemon asking to pair; the pasted token re-probes into signed in.
-  await expect(modal.getByText(/asks this device to pair/)).toBeVisible();
+  // daemon asking this device to sign in; the admin-issued path sits
+  // behind the secondary link, and the pasted token re-probes into
+  // signed in.
+  await expect(modal.getByText(/asks this device to sign in/)).toBeVisible();
+  await modal.getByText('Have a pairing code or token from an administrator?').click();
   await modal.getByText('Use an auth token instead').click();
   const tokenField = modal.getByRole('textbox', { name: 'Auth token', exact: true });
   await tokenField.fill(join.token);

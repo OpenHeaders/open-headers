@@ -132,6 +132,7 @@ const BackendAuthTokenField: React.FC = () => {
               <BackendIcon kind={icon} size={24} />
             </span>
             <Input.OTP
+              data-testid="backend-pair-code"
               length={CODE_LENGTH}
               value={code}
               disabled={pairing || !url || locked}
