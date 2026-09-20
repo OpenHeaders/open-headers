@@ -47,6 +47,18 @@
  *                      POST carries the own served origin; no Origin is
  *                      a native caller (curl). A refused credential
  *                      (401) feeds the brute-force limiter.
+ *   - the three meta routes (`/auth/oidc/meta`, `/auth/setup/meta`,
+ *                      `/auth/password/meta`) — the server's public
+ *                      sign-in posture, the same truth its device page
+ *                      renders to any browser: the served tab reads
+ *                      them same-origin, and the extension's wizard
+ *                      step reads them page-side from its own origin
+ *                      (the client sign-in plan §7 — under the `own`
+ *                      posture the step would read every server as
+ *                      no-login); native clients carry no Origin. A
+ *                      meta read reveals no secret and guesses nothing,
+ *                      so nothing counts. Claimed ahead of the three
+ *                      prefixes, on every composition.
  *   - `/auth/setup/*` — the server claim, active on EVERY deployment
  *                      (an SSO daemon answers `unclaimed: false` rather
  *                      than falling through to the SPA). Same origin
@@ -108,6 +120,7 @@ export type AdmissionRoute =
   | 'pair-poll'
   | 'nm'
   | 'mcp'
+  | 'auth-meta'
   | 'oidc'
   | 'password'
   | 'setup'
@@ -155,6 +168,7 @@ export interface RoutePosture {
 const PAIRING_PATH_PREFIX = '/pair/';
 const PAIR_START_PATH = '/pair';
 const PAIR_POLL_PATH = '/pair/poll';
+const AUTH_META_PATHS: readonly string[] = ['/auth/oidc/meta', '/auth/setup/meta', '/auth/password/meta'];
 const OIDC_PATH_PREFIX = '/auth/oidc/';
 const PASSWORD_PATH_PREFIX = '/auth/password/';
 const SETUP_PATH_PREFIX = '/auth/setup/';
@@ -211,6 +225,15 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // refused identity chain: a local process probing for a token.
   nm: { route: 'nm', origin: 'non-browser', host: 'any', rateLimited: true, failureStatuses: [403] },
   mcp: { route: 'mcp', origin: 'non-browser', host: 'any', rateLimited: true, failureStatuses: [401] },
+  // The public sign-in posture the extension's wizard step reads from
+  // its own page (the client sign-in plan §7) — no secret, no guess.
+  'auth-meta': {
+    route: 'auth-meta',
+    origin: 'own-or-extension',
+    host: 'known',
+    rateLimited: true,
+    failureStatuses: [],
+  },
   // 404 = a claim-code guess (the one-shot code the callback redirect
   // hands the SPA). Redirect-shaped failures (bad state, refused login)
   // are 302s into the SPA's error fragment, not attack statuses.
@@ -252,6 +275,7 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
   if (facts.path === NM_BOOTSTRAP_PATH) return ROUTE_POSTURES.nm;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
+  if (AUTH_META_PATHS.includes(facts.path)) return ROUTE_POSTURES['auth-meta'];
   if (options.oidcEnabled && facts.path.startsWith(OIDC_PATH_PREFIX)) return ROUTE_POSTURES.oidc;
   if (options.passwordEnabled && facts.path.startsWith(PASSWORD_PATH_PREFIX)) return ROUTE_POSTURES.password;
   if (facts.path.startsWith(SETUP_PATH_PREFIX)) return ROUTE_POSTURES.setup;

@@ -63,14 +63,14 @@ describe('routePostureFor', () => {
   it('password-enabled composition claims /auth/password/* ahead of the web fallback', () => {
     const enabled = { webEnabled: true, passwordEnabled: true } as const;
     expect(routePostureFor(facts({ path: '/auth/password/login' }), enabled).route).toBe('password');
-    expect(routePostureFor(facts({ path: '/auth/password/meta' }), enabled).route).toBe('password');
+    expect(routePostureFor(facts({ path: '/auth/password/anything' }), enabled).route).toBe('password');
     // Without the password login composed the prefix is just an unclaimed path.
     expect(routePostureFor(facts({ path: '/auth/password/login' }), { webEnabled: true }).route).toBe('web');
     expect(routePostureFor(facts({ path: '/auth/password/login' })).route).toBe('default');
   });
 
   it('claims /auth/setup/* on every composition — an SSO daemon must not answer the probe with the SPA', () => {
-    expect(routePostureFor(facts({ path: '/auth/setup/meta' })).route).toBe('setup');
+    expect(routePostureFor(facts({ path: '/auth/setup/claim' })).route).toBe('setup');
     expect(routePostureFor(facts({ path: '/auth/setup/claim' }), { webEnabled: true }).route).toBe('setup');
     expect(routePostureFor(facts({ path: '/auth/setup/claim' }), { oidcEnabled: true, webEnabled: true }).route).toBe(
       'setup',
@@ -104,6 +104,22 @@ describe('routePostureFor', () => {
     expect(poll.failureStatuses).toEqual([404]);
   });
 
+  it('claims the three meta routes ahead of their prefixes on every composition (the client sign-in plan §7)', () => {
+    for (const path of ['/auth/oidc/meta', '/auth/setup/meta', '/auth/password/meta']) {
+      expect(routePostureFor(facts({ path })).route).toBe('auth-meta');
+      expect(routePostureFor(facts({ path }), { oidcEnabled: true, webEnabled: true }).route).toBe('auth-meta');
+      expect(routePostureFor(facts({ path }), { passwordEnabled: true }).route).toBe('auth-meta');
+    }
+    // The routes beside them keep their own postures.
+    expect(routePostureFor(facts({ path: '/auth/oidc/start' }), { oidcEnabled: true }).route).toBe('oidc');
+    expect(routePostureFor(facts({ path: '/auth/password/login' }), { passwordEnabled: true }).route).toBe('password');
+    expect(routePostureFor(facts({ path: '/auth/setup/claim' })).route).toBe('setup');
+    // A meta read guesses nothing.
+    const meta = routePostureFor(facts({ path: '/auth/setup/meta' }));
+    expect(meta.rateLimited).toBe(true);
+    expect(meta.failureStatuses).toEqual([]);
+  });
+
   it('marks the brute-force routes and their failure statuses', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
@@ -132,6 +148,22 @@ describe('origin posture', () => {
     expect(own).toMatchObject({ ok: false, reason: 'origin-forbidden' });
     const none = evaluateAdmission(facts({ path: MCP_HTTP_PATH, origin: undefined }), []);
     expect(none.ok).toBe(true);
+  });
+
+  it('the meta routes accept no Origin, the own served origin and our extension origins, reject a foreign page', () => {
+    const path = '/auth/password/meta';
+    expect(evaluateAdmission(facts({ path }), [], { passwordEnabled: true }).ok).toBe(true);
+    expect(
+      evaluateAdmission(facts({ path, origin: 'http://192.168.1.20:8137' }), [], { passwordEnabled: true }).ok,
+    ).toBe(true);
+    expect(
+      evaluateAdmission(facts({ path, origin: `chrome-extension://${CHROME_EXTENSION_ID}` }), [], {
+        passwordEnabled: true,
+      }).ok,
+    ).toBe(true);
+    expect(
+      evaluateAdmission(facts({ path, origin: 'https://evil.example.com' }), [], { passwordEnabled: true }),
+    ).toMatchObject({ ok: false, reason: 'origin-forbidden' });
   });
 
   it('pairing accepts no Origin, the own served origin and our extension origins, rejects cross-origin', () => {
