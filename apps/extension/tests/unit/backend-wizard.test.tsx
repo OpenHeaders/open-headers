@@ -9,7 +9,9 @@
  *   - an ENABLED record's wizard opens on the disable-first gate — no
  *     connection fields render for a live wire;
  *   - the sign-in step reads its verdict off the probe — auth-required
- *     asks to pair, an accepted WELCOME names the place;
+ *     asks to sign in, an accepted WELCOME names the place and, for a
+ *     bound credential, the person (the step's own states are pinned in
+ *     `backend-sign-in-step.test.tsx`);
  *   - the final step routes through the enable-switch handle (the
  *     probe-gated path), closing only when the flip committed.
  */
@@ -29,7 +31,6 @@ import { BackendWizard, type BackendWizardTarget } from '@openheaders/ui/workben
 import type { BackendEnableSwitchHandle } from '@openheaders/ui/workbench/settings/components/use-backend-enable-switch';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App as AntApp } from 'antd';
-import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The sign-in step probes the address on entry; no test opens a socket.
@@ -47,6 +48,7 @@ const ACCEPTED_BY_ACME: ProbeConnectionResult = {
   role: 'daemon',
   agent: 'test',
   orgName: 'Acme',
+  user: null,
 };
 
 // Ant's responsive observer (Steps/Modal) probes matchMedia, which jsdom lacks.
@@ -193,14 +195,14 @@ describe('BackendWizard', () => {
     expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('the sign-in step asks to pair when the server answers auth-required', async () => {
+  it('the sign-in step asks to sign in when the server answers auth-required', async () => {
     const record = await createBackend({ url: 'ws://10.0.0.5:8137' });
     renderWizard({ recordId: record.id, mode: 'add', kind: 'server' });
 
     next();
 
     await waitFor(() => {
-      expect(screen.getByText('10.0.0.5 asks this device to pair. Enter the code it shows, or paste a token.')).toBeTruthy();
+      expect(screen.getByText('10.0.0.5 asks this device to sign in.')).toBeTruthy();
     });
     expect(probe).toHaveBeenCalledWith('ws://10.0.0.5:8137');
     // The loading icon's leave motion never ends under jsdom, so its
@@ -217,6 +219,18 @@ describe('BackendWizard', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Signed in to Acme.')).toBeTruthy();
+    });
+  });
+
+  it('the sign-in step names the person and the place when the WELCOME carries both', async () => {
+    probe.mockResolvedValue({ ...ACCEPTED_BY_ACME, user: { displayName: 'Alice', email: 'alice@openheaders.io' } });
+    const record = await createBackend({ url: 'ws://10.0.0.5:8137', authToken: 'tok' });
+    renderWizard({ recordId: record.id, mode: 'edit' });
+
+    next();
+
+    await waitFor(() => {
+      expect(screen.getByText('Signed in as Alice · Acme.')).toBeTruthy();
     });
   });
 

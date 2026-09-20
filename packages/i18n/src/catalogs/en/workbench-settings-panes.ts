@@ -32,10 +32,35 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': 'Connect',
   'workbench.settings.backendPane.wizard.checkAgain': 'Check again',
   'workbench.settings.backendPane.wizard.checking': 'Checking {host}…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    '{host} asks this device to pair. Enter the code it shows, or paste a token.',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': '{host} asks this device to sign in.',
   'workbench.settings.backendPane.wizard.verdict.signedIn': 'Signed in to {name}.',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Signed in.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': 'Signed in as {person} · {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': 'Signed in as {person}.',
+  'workbench.settings.backendPane.wizard.signIn.primary': 'Sign in on {host}',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    'A page on {host} opens in your browser. Sign in there with your own account and approve this device — nothing is typed here.',
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Sign-in code',
+  'workbench.settings.backendPane.wizard.signIn.waiting': 'Waiting for you to approve this device in the browser…',
+  'workbench.settings.backendPane.wizard.signIn.openAgain': 'Open the page again',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Try again',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    'This server has no administrator yet — set it up at {url} first, then sign in from here.',
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    'Nobody can sign in to {host} from a browser, so a pairing code or token from its administrator is the only way in.',
+  'workbench.settings.backendPane.wizard.signIn.secondary': 'Have a pairing code or token from an administrator?',
+  'workbench.settings.backendPane.wizard.signIn.fail.denied': "The sign-in was denied on the server's page.",
+  'workbench.settings.backendPane.wizard.signIn.fail.expired': 'The sign-in request expired before it was approved.',
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    'The server no longer holds this sign-in request. Start it again.',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    '{host} has too many sign-ins waiting. Try again in a few minutes.',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    '{host} is refusing requests from this device for now. Try again later.',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden': '{host} refused the sign-in request from this device.',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline':
+    'Nothing answered at {host}. Is it running on that address?',
+  'workbench.settings.backendPane.wizard.signIn.fail.generic': 'The sign-in could not be started. Try again.',
   'workbench.settings.backendPane.wizard.back': 'Back',
   'workbench.settings.backendPane.wizard.next': 'Next',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Finish without connecting',

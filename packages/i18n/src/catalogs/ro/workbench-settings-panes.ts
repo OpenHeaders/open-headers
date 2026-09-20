@@ -76,10 +76,37 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': 'Conectare',
   'workbench.settings.backendPane.wizard.checkAgain': 'Verificare din nou',
   'workbench.settings.backendPane.wizard.checking': 'Se verifică gazda {host}…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    'Gazda {host} cere asocierea acestui dispozitiv. Introduceți codul afișat de ea sau lipiți un token.',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': 'Gazda {host} cere conectarea acestui dispozitiv.',
   'workbench.settings.backendPane.wizard.verdict.signedIn': 'Conectat la {name}.',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Conectat.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': 'Conectat ca {person} · {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': 'Conectat ca {person}.',
+  'workbench.settings.backendPane.wizard.signIn.primary': 'Conectare pe {host}',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    'O pagină de pe {host} se deschide în browserul dvs. Conectați-vă acolo cu propriul cont și aprobați acest dispozitiv — aici nu se tastează nimic.',
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Cod de conectare',
+  'workbench.settings.backendPane.wizard.signIn.waiting': 'Se așteaptă să aprobați acest dispozitiv în browser…',
+  'workbench.settings.backendPane.wizard.signIn.openAgain': 'Redeschidere pagină',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Reîncercare',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    'Acest server nu are încă un administrator. Configurați-l mai întâi la {url}, apoi conectați-vă de aici.',
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    'Nimeni nu se poate conecta la {host} dintr-un browser, așa că un cod de asociere sau un token de la administratorul său este singura cale.',
+  'workbench.settings.backendPane.wizard.signIn.secondary':
+    'Aveți un cod de asociere sau un token de la un administrator?',
+  'workbench.settings.backendPane.wizard.signIn.fail.denied': 'Conectarea a fost refuzată pe pagina serverului.',
+  'workbench.settings.backendPane.wizard.signIn.fail.expired':
+    'Cererea de conectare a expirat înainte de a fi aprobată.',
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    'Serverul nu mai păstrează această cerere de conectare. Porniți-o din nou.',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    'Gazda {host} are prea multe conectări în așteptare. Reîncercați peste câteva minute.',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    'Gazda {host} refuză deocamdată cererile de la acest dispozitiv. Reîncercați mai târziu.',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden':
+    'Gazda {host} a refuzat cererea de conectare a acestui dispozitiv.',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline': 'Nimic nu a răspuns la {host}. Rulează la acea adresă?',
+  'workbench.settings.backendPane.wizard.signIn.fail.generic': 'Conectarea nu a putut fi pornită. Reîncercați.',
   'workbench.settings.backendPane.wizard.back': 'Înapoi',
   'workbench.settings.backendPane.wizard.next': 'Înainte',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Finalizare fără conectare',

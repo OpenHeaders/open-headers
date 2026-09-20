@@ -48,10 +48,39 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': 'Conectar',
   'workbench.settings.backendPane.wizard.checkAgain': 'Comprobar de nuevo',
   'workbench.settings.backendPane.wizard.checking': 'Comprobando {host}…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    '{host} pide a este dispositivo que se empareje. Introduce el código que muestra o pega un token.',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': '{host} pide a este dispositivo que inicie sesión.',
   'workbench.settings.backendPane.wizard.verdict.signedIn': 'Sesión iniciada en {name}.',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Sesión iniciada.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': 'Sesión iniciada como {person} · {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': 'Sesión iniciada como {person}.',
+  'workbench.settings.backendPane.wizard.signIn.primary': 'Iniciar sesión en {host}',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    'Se abre una página de {host} en tu navegador. Inicia sesión allí con tu propia cuenta y aprueba este dispositivo; aquí no se escribe nada.',
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Código de inicio de sesión',
+  'workbench.settings.backendPane.wizard.signIn.waiting': 'Esperando a que apruebes este dispositivo en el navegador…',
+  'workbench.settings.backendPane.wizard.signIn.openAgain': 'Abrir la página de nuevo',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Reintentar',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    'Este servidor aún no tiene administrador. Configúralo primero en {url} y luego inicia sesión desde aquí.',
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    'Nadie puede iniciar sesión en {host} desde un navegador, así que la única vía es un código de emparejamiento o un token de su administrador.',
+  'workbench.settings.backendPane.wizard.signIn.secondary':
+    '¿Tienes un código de emparejamiento o un token de un administrador?',
+  'workbench.settings.backendPane.wizard.signIn.fail.denied':
+    'El inicio de sesión se denegó en la página del servidor.',
+  'workbench.settings.backendPane.wizard.signIn.fail.expired':
+    'La solicitud de inicio de sesión caducó antes de aprobarse.',
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    'El servidor ya no conserva esta solicitud de inicio de sesión. Inícala de nuevo.',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    '{host} tiene demasiados inicios de sesión en espera. Inténtalo de nuevo en unos minutos.',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    '{host} rechaza por ahora las solicitudes de este dispositivo. Inténtalo más tarde.',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden':
+    '{host} rechazó la solicitud de inicio de sesión de este dispositivo.',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline':
+    'Nada respondió en {host}. ¿Está en marcha en esa dirección?',
+  'workbench.settings.backendPane.wizard.signIn.fail.generic': 'No se pudo iniciar la sesión. Inténtalo de nuevo.',
   'workbench.settings.backendPane.wizard.back': 'Atrás',
   'workbench.settings.backendPane.wizard.next': 'Siguiente',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Terminar sin conectar',

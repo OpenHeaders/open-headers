@@ -13,10 +13,12 @@
  * the one activation path.
  *
  *   - The sign-in step reads its verdict off the same probe: the server
- *     asks this device to pair (`auth-required`), or the credential
- *     already signs in (the WELCOME names the place), or nothing
- *     answered. Entering the step probes; a pairing that lands a token
- *     probes again, so the line flips to "Signed in" on its own.
+ *     asks this device to sign in (`auth-required`), or the credential
+ *     already signs in (the WELCOME names the person and the place), or
+ *     nothing answered. Entering the step probes; a credential landing
+ *     there — the person's own sign-in on the server's page, a pairing
+ *     code, a pasted token — probes again, so the line flips to "Signed
+ *     in as …" on its own. The step's body is `BackendSignInStep`.
  *   - Editing an ENABLED record goes disable-first, explicitly: the
  *     wizard opens on a gate pane whose one action is the kill-switch
  *     disable; connection fields never render for a live wire.
@@ -40,13 +42,12 @@ import {
   type ProbeConnectionResult,
   type ProbeNotice,
   probeBackendConnection,
-  urlHost,
   useBackends,
 } from '../../../shared/backend';
 import { getCurrentHost, viewerHostKind } from '../../../shared/host-vocabulary';
-import BackendAuthTokenField from './backend-auth-token-field';
 import BackendLabelField from './backend-label-field';
 import { BackendRecordProvider, backendDisplayLabel } from './backend-record-context';
+import BackendSignInStep from './backend-sign-in-step';
 import BackendUrlField from './backend-url-field';
 import type { BackendEnableSwitchHandle } from './use-backend-enable-switch';
 
@@ -63,17 +64,18 @@ export interface BackendWizardTarget {
 
 /**
  * What the sign-in step says about the address, read off one probe:
- * the server asks this device to pair, the credential already signs in
- * (named by the WELCOME's Org when it carries one), or nothing usable
- * answered (the probe's own notice, reachable-but or unreachable).
+ * the server asks this device to sign in, the credential already signs
+ * in (the WELCOME names the person for a bound credential, the Org when
+ * it carries one), or nothing usable answered (the probe's own notice,
+ * reachable-but or unreachable).
  */
 export type SignInVerdict =
   | { kind: 'needs-pairing' }
-  | { kind: 'signed-in'; name: string | null }
+  | { kind: 'signed-in'; name: string | null; person: string | null }
   | { kind: 'unanswered'; notice: ProbeNotice };
 
 export function signInVerdict(result: ProbeConnectionResult, label: string, t: Translate): SignInVerdict {
-  if (result.ok) return { kind: 'signed-in', name: result.orgName };
+  if (result.ok) return { kind: 'signed-in', name: result.orgName, person: result.user?.displayName ?? null };
   if (result.reason === 'handshake-rejected' && result.rejectReason === 'auth-required') {
     return { kind: 'needs-pairing' };
   }
@@ -246,13 +248,7 @@ const WizardDialog: React.FC<{
       )}
       {step === SIGN_IN_STEP && (
         <BackendRecordProvider record={record}>
-          <SignInVerdictLine verdict={verdict} probing={probing} host={urlHost(record.url)} />
-          <BackendAuthTokenField />
-          <div style={{ padding: '8px 12px' }}>
-            <Button loading={probing} onClick={() => void probe()}>
-              {t('workbench.settings.backendPane.wizard.checkAgain')}
-            </Button>
-          </div>
+          <BackendSignInStep verdict={verdict} probing={probing} onProbe={() => void probe()} />
         </BackendRecordProvider>
       )}
       {step === CONNECT_STEP && (
@@ -284,50 +280,6 @@ function urlLooksComplete(raw: string): boolean {
 const StepIntro: React.FC<{ text: string }> = ({ text }) => {
   const { token } = theme.useToken();
   return <p style={{ fontSize: 12.5, color: token.colorTextSecondary, margin: '0 0 10px' }}>{text}</p>;
-};
-
-/**
- * The sign-in step's one line: what the address answered. A probe in
- * flight reads as checking; an unanswered probe carries the shared
- * probe notice (the same copy Connect would fire), so the step never
- * blocks — the credential field stays usable underneath either way.
- */
-const SignInVerdictLine: React.FC<{ verdict: SignInVerdict | null; probing: boolean; host: string }> = ({
-  verdict,
-  probing,
-  host,
-}) => {
-  const t = useT();
-  if (probing || !verdict) {
-    return <StepIntro text={t('workbench.settings.backendPane.wizard.checking', { host })} />;
-  }
-  switch (verdict.kind) {
-    case 'needs-pairing':
-      return <StepIntro text={t('workbench.settings.backendPane.wizard.verdict.needsPairing', { host })} />;
-    case 'signed-in':
-      return (
-        <Alert
-          type="success"
-          showIcon
-          title={
-            verdict.name
-              ? t('workbench.settings.backendPane.wizard.verdict.signedIn', { name: verdict.name })
-              : t('workbench.settings.backendPane.wizard.verdict.signedInUnnamed')
-          }
-          style={{ marginBottom: 10 }}
-        />
-      );
-    case 'unanswered':
-      return (
-        <Alert
-          type={verdict.notice.level}
-          showIcon
-          title={verdict.notice.message}
-          description={verdict.notice.description}
-          style={{ marginBottom: 10 }}
-        />
-      );
-  }
 };
 
 /**

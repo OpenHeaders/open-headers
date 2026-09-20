@@ -62,10 +62,36 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': 'Подключить',
   'workbench.settings.backendPane.wizard.checkAgain': 'Проверить снова',
   'workbench.settings.backendPane.wizard.checking': 'Проверяем {host}…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    'Хост {host} просит это устройство выполнить сопряжение. Введите код, который он показывает, или вставьте токен.',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': 'Хост {host} просит это устройство выполнить вход.',
   'workbench.settings.backendPane.wizard.verdict.signedIn': 'Выполнен вход: {name}.',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Вход выполнен.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': 'Выполнен вход как {person} · {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': 'Выполнен вход как {person}.',
+  'workbench.settings.backendPane.wizard.signIn.primary': 'Войти на {host}',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    'В браузере откроется страница хоста {host}. Войдите там со своей учётной записью и подтвердите это устройство — здесь ничего вводить не нужно.',
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Код входа',
+  'workbench.settings.backendPane.wizard.signIn.waiting': 'Ожидаем, пока вы подтвердите это устройство в браузере…',
+  'workbench.settings.backendPane.wizard.signIn.openAgain': 'Открыть страницу снова',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Повторить',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    'У этого сервера ещё нет администратора. Сначала настройте его по адресу {url}, затем войдите отсюда.',
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    'Никто не может войти на {host} из браузера, поэтому единственный путь — код сопряжения или токен от администратора.',
+  'workbench.settings.backendPane.wizard.signIn.secondary': 'Есть код сопряжения или токен от администратора?',
+  'workbench.settings.backendPane.wizard.signIn.fail.denied': 'Вход отклонён на странице сервера.',
+  'workbench.settings.backendPane.wizard.signIn.fail.expired': 'Запрос на вход истёк до подтверждения.',
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    'Сервер больше не хранит этот запрос на вход. Начните заново.',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    'На хосте {host} слишком много ожидающих входов. Повторите через несколько минут.',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    'Хост {host} пока отклоняет запросы с этого устройства. Повторите позже.',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden':
+    'Хост {host} отклонил запрос на вход с этого устройства.',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline':
+    'По адресу {host} ничего не ответило. Он запущен на этом адресе?',
+  'workbench.settings.backendPane.wizard.signIn.fail.generic': 'Не удалось начать вход. Повторите попытку.',
   'workbench.settings.backendPane.wizard.back': 'Назад',
   'workbench.settings.backendPane.wizard.next': 'Далее',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Завершить без подключения',

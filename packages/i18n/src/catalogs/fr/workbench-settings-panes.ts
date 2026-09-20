@@ -47,10 +47,39 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': 'Connecter',
   'workbench.settings.backendPane.wizard.checkAgain': 'Vérifier à nouveau',
   'workbench.settings.backendPane.wizard.checking': 'Vérification de {host}…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    "{host} demande à cet appareil de s'appairer. Saisissez le code qu'il affiche, ou collez un jeton.",
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': '{host} demande à cet appareil de se connecter.',
   'workbench.settings.backendPane.wizard.verdict.signedIn': 'Connecté à {name}.',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Connecté.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': 'Connecté en tant que {person} · {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': 'Connecté en tant que {person}.',
+  'workbench.settings.backendPane.wizard.signIn.primary': 'Se connecter sur {host}',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    "Une page de {host} s'ouvre dans votre navigateur. Connectez-vous là-bas avec votre propre compte et approuvez cet appareil ; rien n'est saisi ici.",
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Code de connexion',
+  'workbench.settings.backendPane.wizard.signIn.waiting':
+    "En attente de l'approbation de cet appareil dans le navigateur…",
+  'workbench.settings.backendPane.wizard.signIn.openAgain': 'Rouvrir la page',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Réessayer',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    "Ce serveur n'a pas encore d'administrateur. Configurez-le d'abord sur {url}, puis connectez-vous depuis ici.",
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    "Personne ne peut se connecter à {host} depuis un navigateur : un code d'appairage ou un jeton de son administrateur est la seule voie d'accès.",
+  'workbench.settings.backendPane.wizard.signIn.secondary':
+    "Vous avez un code d'appairage ou un jeton d'un administrateur ?",
+  'workbench.settings.backendPane.wizard.signIn.fail.denied': 'La connexion a été refusée sur la page du serveur.',
+  'workbench.settings.backendPane.wizard.signIn.fail.expired':
+    "La demande de connexion a expiré avant d'être approuvée.",
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    'Le serveur ne détient plus cette demande de connexion. Relancez-la.',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    '{host} a trop de connexions en attente. Réessayez dans quelques minutes.',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    '{host} refuse pour le moment les demandes de cet appareil. Réessayez plus tard.',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden':
+    '{host} a refusé la demande de connexion de cet appareil.',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline':
+    "Rien n'a répondu sur {host}. Est-il en cours d'exécution à cette adresse ?",
+  'workbench.settings.backendPane.wizard.signIn.fail.generic': "La connexion n'a pas pu démarrer. Réessayez.",
   'workbench.settings.backendPane.wizard.back': 'Retour',
   'workbench.settings.backendPane.wizard.next': 'Suivant',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Terminer sans connecter',

@@ -22,6 +22,7 @@ import {
   SYNC_WELCOME_TYPE,
   type SyncHelloMessage,
   SyncWelcomeMessageSchema,
+  type SyncWelcomeUser,
 } from '@openheaders/core/protocol';
 import * as v from 'valibot';
 
@@ -50,6 +51,8 @@ export type ProbeConnectionResult =
       agent: string;
       /** The responder's home Org name — what the place is called; null when the WELCOME carried none. */
       orgName: string | null;
+      /** The person a BOUND credential acts as (the client sign-in plan D3); null on an unbound token or an older responder. */
+      user: SyncWelcomeUser | null;
     }
   | ProbeFailure;
 
@@ -181,6 +184,7 @@ export async function probeBackendConnection(url: string, opts: ProbeOptions): P
         role: welcome.role,
         agent: welcome.agent,
         orgName: welcome.org?.name ?? null,
+        user: welcome.user ?? null,
       });
     });
 

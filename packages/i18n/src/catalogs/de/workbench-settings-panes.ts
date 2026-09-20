@@ -50,10 +50,40 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': 'Verbinden',
   'workbench.settings.backendPane.wizard.checkAgain': 'Erneut prüfen',
   'workbench.settings.backendPane.wizard.checking': '{host} wird geprüft…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    '{host} bittet dieses Gerät um eine Kopplung. Geben Sie den angezeigten Code ein oder fügen Sie ein Token ein.',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': '{host} bittet dieses Gerät, sich anzumelden.',
   'workbench.settings.backendPane.wizard.verdict.signedIn': 'Angemeldet bei {name}.',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'Angemeldet.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': 'Angemeldet als {person} · {name}.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': 'Angemeldet als {person}.',
+  'workbench.settings.backendPane.wizard.signIn.primary': 'Auf {host} anmelden',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    'Eine Seite von {host} öffnet sich in deinem Browser. Melde dich dort mit deinem eigenen Konto an und bestätige dieses Gerät. Hier wird nichts eingegeben.',
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Anmeldecode',
+  'workbench.settings.backendPane.wizard.signIn.waiting': 'Warten, bis du dieses Gerät im Browser bestätigst…',
+  'workbench.settings.backendPane.wizard.signIn.openAgain': 'Seite erneut öffnen',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Erneut versuchen',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    'Dieser Server hat noch keinen Administrator. Richte ihn zuerst unter {url} ein und melde dich dann hier an.',
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    'Niemand kann sich über einen Browser bei {host} anmelden. Der einzige Weg ist ein Kopplungscode oder ein Token vom Administrator.',
+  'workbench.settings.backendPane.wizard.signIn.secondary':
+    'Hast du einen Kopplungscode oder ein Token von einem Administrator?',
+  'workbench.settings.backendPane.wizard.signIn.fail.denied':
+    'Die Anmeldung wurde auf der Seite des Servers abgelehnt.',
+  'workbench.settings.backendPane.wizard.signIn.fail.expired':
+    'Die Anmeldeanfrage ist abgelaufen, bevor sie bestätigt wurde.',
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    'Der Server kennt diese Anmeldeanfrage nicht mehr. Starte sie erneut.',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    'Bei {host} warten zu viele Anmeldungen. Versuche es in ein paar Minuten erneut.',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    '{host} weist Anfragen von diesem Gerät derzeit ab. Versuche es später erneut.',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden':
+    '{host} hat die Anmeldeanfrage dieses Geräts abgelehnt.',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline':
+    'Unter {host} hat nichts geantwortet. Läuft dort etwas unter dieser Adresse?',
+  'workbench.settings.backendPane.wizard.signIn.fail.generic':
+    'Die Anmeldung konnte nicht gestartet werden. Versuche es erneut.',
   'workbench.settings.backendPane.wizard.back': 'Zurück',
   'workbench.settings.backendPane.wizard.next': 'Weiter',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Ohne Verbinden abschließen',

@@ -47,10 +47,37 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': '接続',
   'workbench.settings.backendPane.wizard.checkAgain': 'もう一度確認',
   'workbench.settings.backendPane.wizard.checking': '{host} を確認中…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    '{host} はこのデバイスにペアリングを求めています。表示されるコードを入力するか、token を貼り付けてください。',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': '{host} はこのデバイスにサインインを求めています。',
   'workbench.settings.backendPane.wizard.verdict.signedIn': '{name} にサインインしました。',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': 'サインインしました。',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': '{person} として {name} にサインインしました。',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': '{person} としてサインインしました。',
+  'workbench.settings.backendPane.wizard.signIn.primary': '{host} でサインイン',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    '{host} のページがブラウザーで開きます。そこでご自身のアカウントでサインインし、このデバイスを承認してください。ここでは何も入力しません。',
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': 'サインインコード',
+  'workbench.settings.backendPane.wizard.signIn.waiting': 'ブラウザーでこのデバイスが承認されるのを待っています…',
+  'workbench.settings.backendPane.wizard.signIn.openAgain': 'ページをもう一度開く',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': '再試行',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    'このサーバーにはまだ管理者がいません。まず {url} でセットアップしてから、ここでサインインしてください。',
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    'ブラウザーから {host} にサインインできる人はいません。管理者からのペアリングコードまたは token だけが唯一の方法です。',
+  'workbench.settings.backendPane.wizard.signIn.secondary': '管理者からのペアリングコードまたは token をお持ちですか？',
+  'workbench.settings.backendPane.wizard.signIn.fail.denied': 'サーバーのページでサインインが拒否されました。',
+  'workbench.settings.backendPane.wizard.signIn.fail.expired': 'サインイン要求は承認される前に期限切れになりました。',
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    'サーバーはこのサインイン要求を保持していません。もう一度開始してください。',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    '{host} では待機中のサインインが多すぎます。数分後にもう一度お試しください。',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    '{host} は現在このデバイスからの要求を拒否しています。しばらくしてからもう一度お試しください。',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden':
+    '{host} はこのデバイスからのサインイン要求を拒否しました。',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline':
+    '{host} からは何も応答がありませんでした。そのアドレスで動作していますか？',
+  'workbench.settings.backendPane.wizard.signIn.fail.generic':
+    'サインインを開始できませんでした。もう一度お試しください。',
   'workbench.settings.backendPane.wizard.back': '戻る',
   'workbench.settings.backendPane.wizard.next': '次へ',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': '接続せずに完了',

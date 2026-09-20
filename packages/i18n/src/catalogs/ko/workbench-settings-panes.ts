@@ -54,10 +54,36 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.connect': '연결',
   'workbench.settings.backendPane.wizard.checkAgain': '다시 확인',
   'workbench.settings.backendPane.wizard.checking': '{host} 확인 중…',
-  'workbench.settings.backendPane.wizard.verdict.needsPairing':
-    '{host} 호스트가 이 기기의 페어링을 요청합니다. 표시된 코드를 입력하거나 token 값을 붙여넣으세요.',
+  'workbench.settings.backendPane.wizard.verdict.needsPairing': '{host} 호스트가 이 기기의 로그인을 요청합니다.',
   'workbench.settings.backendPane.wizard.verdict.signedIn': '{name}에 로그인했습니다.',
   'workbench.settings.backendPane.wizard.verdict.signedInUnnamed': '로그인했습니다.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAs': '{person} 계정으로 {name}에 로그인했습니다.',
+  'workbench.settings.backendPane.wizard.verdict.signedInAsUnnamed': '{person} 계정으로 로그인했습니다.',
+  'workbench.settings.backendPane.wizard.signIn.primary': '{host}에서 로그인',
+  'workbench.settings.backendPane.wizard.signIn.intro':
+    '{host} 호스트의 페이지가 브라우저에서 열립니다. 그곳에서 본인 계정으로 로그인하고 이 기기를 승인하세요. 여기에는 아무것도 입력하지 않습니다.',
+  'workbench.settings.backendPane.wizard.signIn.codeLabel': '로그인 코드',
+  'workbench.settings.backendPane.wizard.signIn.waiting': '브라우저에서 이 기기를 승인할 때까지 기다리는 중…',
+  'workbench.settings.backendPane.wizard.signIn.openAgain': '페이지 다시 열기',
+  'workbench.settings.backendPane.wizard.signIn.tryAgain': '다시 시도',
+  'workbench.settings.backendPane.wizard.signIn.unclaimed':
+    '이 서버에는 아직 관리자가 없습니다. 먼저 {url}에서 설정한 다음 여기에서 로그인하세요.',
+  'workbench.settings.backendPane.wizard.signIn.noLogin':
+    '브라우저에서 {host} 호스트에 로그인할 수 있는 사람이 없으므로, 관리자가 발급한 페어링 코드나 token 값이 유일한 방법입니다.',
+  'workbench.settings.backendPane.wizard.signIn.secondary': '관리자에게 받은 페어링 코드나 token 값이 있나요?',
+  'workbench.settings.backendPane.wizard.signIn.fail.denied': '서버 페이지에서 로그인이 거부되었습니다.',
+  'workbench.settings.backendPane.wizard.signIn.fail.expired': '로그인 요청이 승인되기 전에 만료되었습니다.',
+  'workbench.settings.backendPane.wizard.signIn.fail.lost':
+    '서버가 이 로그인 요청을 더 이상 보유하지 않습니다. 다시 시작하세요.',
+  'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
+    '{host} 호스트에 대기 중인 로그인이 너무 많습니다. 몇 분 후에 다시 시도하세요.',
+  'workbench.settings.backendPane.wizard.signIn.fail.throttled':
+    '{host} 호스트가 현재 이 기기의 요청을 거부하고 있습니다. 나중에 다시 시도하세요.',
+  'workbench.settings.backendPane.wizard.signIn.fail.forbidden':
+    '{host} 호스트가 이 기기의 로그인 요청을 거부했습니다.',
+  'workbench.settings.backendPane.wizard.signIn.fail.offline':
+    '{host} 호스트에서 아무 응답이 없습니다. 해당 주소에서 실행 중인가요?',
+  'workbench.settings.backendPane.wizard.signIn.fail.generic': '로그인을 시작할 수 없습니다. 다시 시도하세요.',
   'workbench.settings.backendPane.wizard.back': '뒤로',
   'workbench.settings.backendPane.wizard.next': '다음',
   'workbench.settings.backendPane.wizard.finishWithoutConnecting': '연결하지 않고 마치기',
