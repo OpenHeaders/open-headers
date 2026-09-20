@@ -28,6 +28,14 @@ is required for a user because it is what every sign-in joins on — a
 user admitted without one cannot sign in by any route until **Set
 email** on their row repairs it. Service accounts never have one.
 
+That is the whole invite. The person signs in from their own client —
+the extension or the desktop app's **Sign in to a server…**, or
+`oh login` — on the server's page, with those credentials or with the
+identity provider, and their device is bound to them; nobody mints a
+code or a token for them. Each device they sign in is listed under
+**Paired devices** as a session of theirs. See
+[how a person signs in from a client](/server/tokens-and-pairing#how-a-person-signs-in-from-a-client).
+
 **From the CLI, with the daemon stopped.** `storage.json` is
 single-writer, so the offline verbs refuse while the daemon runs. They
 exist for scripting and for recovery — including the one case the
@@ -113,8 +121,9 @@ expiry only stops NEW growth beyond the free tier.
 
 ## SSO login (OIDC)
 
-Team deployments can let users sign in to the served web app through an
-OpenID Connect provider. Configure the provider in `daemon.json`:
+Team deployments can let users sign in through an OpenID Connect
+provider — in the served web app and on the page every native client
+sends a person to. Configure the provider in `daemon.json`:
 
 ```json
 {
@@ -162,5 +171,7 @@ grants — grant access from the console or with `ohd user grant`.
   Every administrator after that is a toggle in the console.
 </Note>
 
-Pairing and operator-minted tokens keep working unchanged; SSO is
-additive.
+A device sign-in from a client rides the same provider: the device page
+offers the provider's button, and the client is bound to the user the
+provider resolves. Pairing and operator-minted tokens keep working
+unchanged; SSO is additive.

@@ -1,34 +1,93 @@
 ---
 title: "Tokens & pairing"
-description: "Where client credentials come from on a claimed server, what the machine bootstrap is still for, and the admission and rate-limit rules every route enforces."
+description: "How a person signs in from the extension, the desktop app and the CLI; where machine tokens come from; and the admission and rate-limit rules every route enforces."
 ---
 
-By the end of this page your clients are joined with tokens and you
-know how the daemon decides which requests it accepts.
+By the end of this page your clients are signed in — people on their
+own credentials, machines on tokens — and you know how the daemon
+decides which requests it accepts.
 
-A token is a **device credential** — how a client that cannot hold a
-browser session (the extension, the desktop app, the CLI, an MCP agent)
-proves itself. It is not how a person signs in: a browser
-[claims the server](/server/first-run) or signs in with a password.
+Two kinds of principal reach a server, and they carry two kinds of
+credential. A **person** signs in on the server's own page with
+whatever the server's identity plane accepts — a password today, an
+identity provider where one is configured. A **machine** — an MCP
+agent, a CI job, a device an administrator sets up by hand — carries a
+**token**, a device credential minted for it. A native client never
+asks a person for their password.
 
-## Where client tokens come from
+## How a person signs in from a client
 
-On a claimed server, from the admin console: sign in at the server's
-URL, open **Settings → Backends → Open admin console**, and use
-**Paired devices** to either
+The extension, the desktop app and the CLI sign a person in the same
+way: the client asks the server for a short-lived sign-in code, opens
+the server's own page on it, and waits while the person signs in there.
+The page names the device that is asking — its label, the kind of
+client, the address it asked from — and asks the person to approve it.
+When they do, the client receives a device credential bound to that
+person and reads **Signed in as** them. Nothing is pasted into the
+client, and the password never leaves the browser.
+
+In the extension or the desktop app: **Settings → Backup and Sync →
+Sign in to a server…**, enter the server's address, and on the sign-in
+step click **Sign in on …**. A tab opens the server's page showing
+the same code the wizard shows; sign in there with your email and
+password (or the provider's button on an SSO server) and click
+**Approve**. Back in the wizard the line reads "Signed in as you", and
+**Connect** finishes the join.
+
+From the CLI:
+
+```sh
+oh login --daemon http://10.0.0.5:8137
+oh status
+```
+
+`oh login` prints the page to open and the code it will show, waits for
+the approval, and saves the credential to `cli.json` exactly as
+`oh connect --token` would. `--label <name>` names the device on the
+server's page.
+
+Each approved device is its own session: it appears under **Paired
+devices** in the admin console as a session bound to that person,
+expires after the server's `sessionTtlDays` (default 30 — the one policy
+every session on the server follows), and can be revoked on its own.
+Deactivating the person revokes all of theirs at once. When a session
+expires, the client asks to sign in again.
+
+What the page shows follows the server's state: an unclaimed server
+says it has no administrator yet and points at the
+[claim](/server/first-run); a server whose login is the password shows
+the email and password form; a server with an
+[identity provider](/server/users-sso#sso-login-oidc) shows the
+provider's button; a server where nobody can sign in from a browser
+(no password holder, no provider) says so and points at the
+admin-issued path below.
+
+<Note>
+  Only the client that asked ever receives the credential — approving
+  the code on the page binds that device, it never reveals a secret to
+  the browser. A code you did not ask for is somebody else's device:
+  click **Not me**.
+</Note>
+
+## Tokens for machines and admin-issued devices
+
+A token is the credential for a client with no person to sign in — an
+MCP agent, a CI job — and for a device an administrator sets up on
+someone's behalf. On a claimed server they come from the admin console:
+sign in at the server's URL, open **Settings → Backends → Open admin
+console**, and use **Paired devices** to either
 
 - **Generate token** — mint a secret to paste into a client, optionally
   bound to a directory user, or
-- **Pair a device** — show a short code the device enters under its own
-  **Settings → Backend → Pair with a code**, for when someone else sets
-  the device up.
+- **Pair a device** — show a short code the device enters under the
+  wizard's **Have a pairing code or token from an administrator?**
+  link, for when someone else sets the device up.
 
 Both add an entry to the same ledger, and both can be rotated or
 revoked from that list. Revoking disconnects whatever was using the
-token immediately.
+token immediately. A token bound to a user confers exactly that user's
+grants; an unbound one acts as the server operator.
 
-Then add the daemon as a backend in the client — extension or desktop
-app, under **Settings → Backends** — with a join URL and that token.
 For the CLI:
 
 ```sh
@@ -80,7 +139,11 @@ Every route on the bind enforces its own Origin/Host posture:
 - `/mcp` refuses any browser-originated request outright.
 - The WebSocket sync route accepts browser-extension origins and the
   daemon's own served origin.
-- The pairing pages accept only same-origin form posts.
+- The pairing and device sign-in pages accept top-level navigations and
+  same-origin form posts. The routes a client itself calls — starting a
+  sign-in, polling it, confirming a pairing code, and the three
+  `/auth/*/meta` reads — also accept the extension's own origin; the
+  desktop app and the CLI carry no Origin at all.
 - The web app pages accept top-level navigations and same-origin
   fetches; the sign-in and setup routes (`/auth/oidc/*`, active only
   when configured; `/auth/password/*`; `/auth/setup/*`) behave the same.
@@ -96,8 +159,9 @@ Refusals are logged as
 ## Rate limits
 
 Failed credential attempts — pairing-code guesses, WebSocket auth
-rejections, `/mcp` bearer failures, refused sign-ins and refused claims
-— feed one per-peer budget. A peer that crosses it is blocked for a
+rejections, `/mcp` bearer failures, refused sign-ins (on the web app and
+on the device page alike) and refused claims — feed one per-peer
+budget. A peer that crosses it is blocked for a
 cool-down: HTTP requests answer `429` with a `Retry-After` header and
 the body `{"error":"too many failed attempts"}`; upgrades are refused.
 The daemon logs a single line at the transition:

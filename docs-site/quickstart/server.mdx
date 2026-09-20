@@ -140,19 +140,25 @@ Pair them again from the admin console.
 
 ## Connect a client
 
-Sign in at the server's URL, then open **Settings → Backends → Open
-admin console** and mint a token under **Paired devices**. That is
-where client credentials come from on a claimed server.
-
-Add the server as a backend in the browser extension or the desktop app
-under **Settings → Backends**, using a join URL and that token. Those
-clients dial `ws://<server>:8137` from any machine on the network, with
-no TLS involved — the normal way to use a headless server. For the CLI:
+A person signs in from their client on the server's own page. In the
+browser extension or the desktop app, open **Settings → Backup and
+Sync → Sign in to a server…**, add the server's address, and click
+**Sign in on …**: the server's page opens, you sign in there with
+your email and password, approve the device, and the client is signed
+in as you. Those clients dial `ws://<server>:8137` from any machine on
+the network, with no TLS involved — the normal way to use a headless
+server. For the CLI:
 
 ```sh
-oh connect --daemon http://127.0.0.1:8137 --token <secret>
+oh login --daemon http://<server>:8137
 oh status
 ```
+
+Machines — an MCP agent, a CI job — and devices you set up for someone
+else take a **token** instead, minted in the admin console under
+**Settings → Backends → Open admin console → Paired devices** and saved
+with `oh connect --token <secret>`. See
+[Tokens & pairing](/server/tokens-and-pairing).
 
 The daemon serves the Workbench as a web app on its bind, but a
 browser only runs it from a **secure origin**: `http://127.0.0.1:8137/`

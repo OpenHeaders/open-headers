@@ -111,10 +111,16 @@ LAN bind and clients still cannot connect, they are being stopped before the
 daemon (which logs every connection it refuses): check that the host firewall
 (`ufw`/`firewalld`) admits port 8137.
 
-Tokens are required on every non-loopback connection. On a claimed server,
-client tokens are minted from the admin console (Settings → Backends → Open
-admin console → Paired devices) and pasted into the client's
-Settings → Backends, or handed over as a pairing code.
+Credentials are required on every non-loopback connection. A person signs in
+from their client on the server's own page: the extension or the desktop app's
+**Sign in to a server…**, or `oh login`, shows a short code and opens the
+page, the page names the device and asks the person to approve it with their
+password (or the identity provider), and the client receives a session
+credential bound to them — no password ever reaches a client. Tokens are for
+machines and for devices an admin sets up by hand: minted from the admin
+console (Settings → Backends → Open admin console → Paired devices) as a
+secret to paste or a pairing code to enter, or saved with
+`oh connect --token` for the CLI.
 
 `ohd show-token` stays for one case: the machine bootstrap for attaching a
 native client to a headless box before any browser is involved. A token
@@ -251,9 +257,12 @@ everyone after that is a toggle in the console.
 
 Every route on the bind enforces its own Origin/Host posture: `/mcp` refuses
 any browser-originated request outright; the WebSocket sync route accepts
-browser-extension origins and the daemon's own served origin; the pairing
-pages accept only same-origin form posts; the web app pages accept top-level
-navigations and same-origin fetches; the sign-in and setup routes
+browser-extension origins and the daemon's own served origin; the pairing and
+device sign-in pages accept top-level navigations and same-origin form posts,
+and the routes a client itself calls (starting and polling a sign-in,
+confirming a pairing code, the `/auth/*/meta` reads) also accept the
+extension's own origin; the web app pages accept top-level navigations and
+same-origin fetches; the sign-in and setup routes
 (`/auth/oidc/*`, active only when configured; `/auth/password/*`;
 `/auth/setup/*`, composed on every deployment) accept top-level navigations
 and same-origin fetches, and their state refusals feed the failure budget —
