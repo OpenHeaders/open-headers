@@ -19,23 +19,8 @@
  */
 
 import type { PairWithCodeInput, PairWithCodeResult } from '@openheaders/core/capabilities';
+import { wsUrlToHttpOrigin } from '@openheaders/core/identity';
 import { nmIdentityRequiredFor } from '@openheaders/ui/workbench/settings/schema/backend';
-
-/**
- * Derive the daemon's HTTP origin from its WebSocket URL. Returns null
- * for a non-`ws(s)` or unparseable URL so the caller can fail with a
- * clear `error` rather than dialing garbage.
- */
-function wsUrlToHttpOrigin(wsUrl: string): string | null {
-  try {
-    const u = new URL(wsUrl);
-    const protocol = u.protocol === 'wss:' ? 'https:' : u.protocol === 'ws:' ? 'http:' : null;
-    if (!protocol) return null;
-    return `${protocol}//${u.host}`;
-  } catch {
-    return null;
-  }
-}
 
 interface DaemonConfirmJson {
   ok: boolean;

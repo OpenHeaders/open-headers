@@ -26,6 +26,7 @@ import { desktopLaunch } from './desktop-launch';
 import { nmAutoPair } from './nm-auto-pair';
 import { nmHostPresence } from './nm-presence';
 import { pairWithCode } from './pair-with-code';
+import { createExtensionServerSignIn } from './server-sign-in';
 
 registerCapability('getActiveWorkspaceId', () =>
   hostBridge.call('popupOpen').then((resp) => ({
@@ -86,6 +87,13 @@ registerCapability('delegatedRequestDispatch', () => true);
 // none of the SW's privileged powers, and the caller writes the token to
 // `backend.authToken`, which the SW reacts to and connects.
 registerCapability('pairWithCode', pairWithCode);
+
+// A person's own sign-in from this client (the client sign-in plan D4):
+// the wizard's primary — start a pair page-side from the extension's
+// own origin, open the server's approval page, poll for the bound
+// session credential. Same posture as `pairWithCode`: no SW relay.
+const serverSignIn = createExtensionServerSignIn();
+registerCapability('serverSignIn', () => serverSignIn);
 
 // NM auto-pairing (Phase 7): the wizard's pair-without-a-code gesture.
 // Gated on the MANIFEST permission like `originDataClearing` — absent
