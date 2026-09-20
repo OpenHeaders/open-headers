@@ -25,6 +25,7 @@ import { companionReveal } from './companion-reveal';
 import { desktopLaunch } from './desktop-launch';
 import { nmAutoPair } from './nm-auto-pair';
 import { nmHostPresence } from './nm-presence';
+import { openExternalUrl } from './open-external-url';
 import { pairWithCode } from './pair-with-code';
 import { createExtensionServerSignIn } from './server-sign-in';
 
@@ -45,15 +46,9 @@ registerCapability('announceSurfaceReady', () => hostBridge.call('popupOpen').th
 registerCapability('notifyRulesChanged', () => hostBridge.call('rulesUpdated').then(() => undefined));
 
 // External links route through the SW's existing `openTab` handler so
-// the new tab inherits the user's session / cookies / extension trust.
-// Reshape the `{ success, tabId? }` response into the capability's
-// `{ ok, error? }` shape.
-registerCapability('openExternalUrl', (url) =>
-  hostBridge
-    .call('openTab', { url })
-    .then((resp) => ({ ok: resp.success, error: resp.error }))
-    .catch((err: Error) => ({ ok: false, error: err.message })),
-);
+// the new tab inherits the user's session / cookies / extension trust
+// (shared impl — the workbench's curated entry registers it too).
+registerCapability('openExternalUrl', openExternalUrl);
 
 // Debug mode (opt-in CDP path) is registered by `install-cdp-capability`
 // imported above — gated on the runtime exposing the debugging protocol.
