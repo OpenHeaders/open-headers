@@ -42,9 +42,21 @@ export interface DirectoryUser {
   grants: ReadonlyArray<{ workspaceId: string; role: string; origin?: string }>;
 }
 
+/**
+ * How a person signs in to this server (the client sign-in plan D5) —
+ * the composition facts the invite form shapes itself on. Null until
+ * answered, and null on a server that predates the probe: the form
+ * then offers no initial password rather than guessing.
+ */
+export interface ServerAuthMeta {
+  passwordLogin: boolean;
+  ssoProvider: string | null;
+}
+
 export interface UseServerDirectoryApi {
   users: readonly DirectoryUser[] | null;
   serverWorkspaces: ReadonlyArray<{ id: string; name: string }> | null;
+  authMeta: ServerAuthMeta | null;
   refresh: () => Promise<void>;
   workspaceName: (id: string) => string;
   workspaceOptions: ReadonlyArray<{ value: string; label: string }>;
@@ -55,15 +67,23 @@ export function useServerDirectory(enabled: boolean): UseServerDirectoryApi {
   const { message } = AntApp.useApp();
   const [serverWorkspaces, setServerWorkspaces] = useState<ReadonlyArray<{ id: string; name: string }> | null>(null);
   const [users, setUsers] = useState<readonly DirectoryUser[] | null>(null);
+  const [authMeta, setAuthMeta] = useState<ServerAuthMeta | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const [directory, projected] = await Promise.all([
+      const [directory, projected, auth] = await Promise.all([
         hostBridge.call('oh.daemon.users.list'),
         hostBridge.call('oh.daemon.workspaces.list'),
+        // An older server has no such channel — unknown, never an error.
+        hostBridge.call('oh.daemon.auth.meta').catch(() => null),
       ]);
       setUsers(directory.users);
       setServerWorkspaces(projected.workspaces);
+      setAuthMeta(
+        auth && typeof auth.passwordLogin === 'boolean'
+          ? { passwordLogin: auth.passwordLogin, ssoProvider: auth.ssoProvider ?? null }
+          : null,
+      );
     } catch (err) {
       message.error(t('workbench.serverAdmin.users.loadFailed', { message: (err as Error).message }));
       setUsers([]);
@@ -81,5 +101,5 @@ export function useServerDirectory(enabled: boolean): UseServerDirectoryApi {
   );
   const workspaceOptions = (serverWorkspaces ?? []).map((w) => ({ value: w.id, label: w.name }));
 
-  return { users, serverWorkspaces, refresh, workspaceName, workspaceOptions };
+  return { users, serverWorkspaces, authMeta, refresh, workspaceName, workspaceOptions };
 }

@@ -292,23 +292,31 @@ const PasswordModal: React.FC<{
 };
 
 /**
- * Set / change / remove a directory user's git commit-author email
- * override (the git-sync plan §11.5). Name is never editable here — commit
- * authorship always carries the directory displayName.
+ * One email-shaped value behind a modal — the shape the identity email
+ * (the client sign-in plan D5's repair) and the git-author override
+ * both take: a title naming the user, an explainer, the input, a save,
+ * and for a clearable value the remove action. The caller decides what
+ * the value means and which channel it rides.
  */
-const GitEmailModal: React.FC<{
-  user: DirectoryUser;
+const EmailFieldModal: React.FC<{
+  title: string;
+  explainer: string;
+  placeholder: string;
+  saveLabel: string;
+  removeLabel?: string;
+  initialValue: string;
+  testIdPrefix: string;
   onClose: () => void;
-  onSetGitEmail: (userId: string, gitEmail: string | null) => Promise<void>;
-}> = ({ user, onClose, onSetGitEmail }) => {
+  onApply: (next: string | null) => Promise<void>;
+}> = ({ title, explainer, placeholder, saveLabel, removeLabel, initialValue, testIdPrefix, onClose, onApply }) => {
   const t = useT();
-  const [gitEmail, setGitEmail] = useState(user.gitEmail ?? '');
+  const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
 
   async function apply(next: string | null): Promise<void> {
     setBusy(true);
     try {
-      await onSetGitEmail(user.userId, next);
+      await onApply(next);
       onClose();
     } finally {
       setBusy(false);
@@ -318,11 +326,7 @@ const GitEmailModal: React.FC<{
   return (
     <Modal
       open
-      title={
-        user.gitEmail !== null
-          ? t('workbench.serverAdmin.gitEmail.changeTitle', { name: user.displayName })
-          : t('workbench.serverAdmin.gitEmail.setTitle', { name: user.displayName })
-      }
+      title={title}
       onCancel={onClose}
       footer={[
         <Button key="cancel" onClick={onClose} disabled={busy}>
@@ -332,28 +336,36 @@ const GitEmailModal: React.FC<{
           key="save"
           type="primary"
           loading={busy}
-          disabled={gitEmail.trim() === ''}
-          onClick={() => void apply(gitEmail.trim())}
-          data-testid="server-admin-git-email-save"
+          disabled={value.trim() === ''}
+          onClick={() => void apply(value.trim())}
+          data-testid={`${testIdPrefix}-save`}
         >
-          {user.gitEmail !== null
-            ? t('workbench.serverAdmin.gitEmail.changeCta')
-            : t('workbench.serverAdmin.gitEmail.setCta')}
+          {saveLabel}
         </Button>,
       ]}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <span style={{ fontSize: 12 }}>{t('workbench.serverAdmin.gitEmail.explainer')}</span>
+        <span style={{ fontSize: 12 }}>{explainer}</span>
         <Input
-          value={gitEmail}
-          onChange={(e) => setGitEmail(e.target.value)}
-          placeholder={t('workbench.serverAdmin.gitEmail.placeholder')}
+          type="email"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onPressEnter={() => {
+            if (value.trim() !== '' && !busy) void apply(value.trim());
+          }}
+          placeholder={placeholder}
           maxLength={128}
-          data-testid="server-admin-git-email-input"
+          data-testid={`${testIdPrefix}-input`}
         />
-        {user.gitEmail !== null && (
-          <Button danger size="small" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={() => void apply(null)}>
-            {t('workbench.serverAdmin.gitEmail.removeCta')}
+        {removeLabel !== undefined && (
+          <Button
+            danger
+            size="small"
+            style={{ alignSelf: 'flex-start' }}
+            disabled={busy}
+            onClick={() => void apply(null)}
+          >
+            {removeLabel}
           </Button>
         )}
       </div>
@@ -365,10 +377,11 @@ const ServerAdminUsersSection: React.FC = () => {
   const { t, locale } = useLocale();
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
-  const { users, refresh, workspaceName, workspaceOptions } = useServerDirectory(true);
+  const { users, authMeta, refresh, workspaceName, workspaceOptions } = useServerDirectory(true);
   const [addForm] = Form.useForm<{
     displayName: string;
     email: string;
+    password: string;
     personalLicense: string;
     workspaceId: string;
     role: DirectoryRole;
@@ -381,6 +394,7 @@ const ServerAdminUsersSection: React.FC = () => {
   const [addKind, setAddKind] = useState<'user' | 'service'>('user');
   const [serviceBlocked, setServiceBlocked] = useState(false);
   const [passwordUser, setPasswordUser] = useState<DirectoryUser | null>(null);
+  const [emailUser, setEmailUser] = useState<DirectoryUser | null>(null);
   // Directory ordering — newest admission first by default; the
   // last-seen order puts never-seen users first, then stalest, so the
   // offboarding review is a glance (decision c).
@@ -396,9 +410,14 @@ const ServerAdminUsersSection: React.FC = () => {
     if (serviceBlocked) noteUpgradeCtaShown('service-gate');
   }, [serviceBlocked]);
 
+  // The initial password rides the invite only where a password is
+  // how the person will sign in (the client sign-in plan D5).
+  const offersInitialPassword = addKind === 'user' && authMeta?.passwordLogin === true;
+
   async function handleAddUser(values: {
     displayName: string;
     email: string;
+    password?: string;
     personalLicense?: string;
     workspaceId: string;
     role: DirectoryRole;
@@ -412,6 +431,7 @@ const ServerAdminUsersSection: React.FC = () => {
         // — the form hides both fields in service mode, and any value a
         // mode switch left behind in the form store is dropped here.
         email: service ? undefined : values.email?.trim() || undefined,
+        password: offersInitialPassword && values.password ? values.password : undefined,
         personalLicense: service ? undefined : values.personalLicense?.trim() || undefined,
         ...(service ? { kind: 'service' } : {}),
         // Admission confers access (the server-access plan A2): the
@@ -492,6 +512,21 @@ const ServerAdminUsersSection: React.FC = () => {
         await refresh();
       } catch (err) {
         message.error(t('workbench.serverAdmin.password.updateFailed', { message: (err as Error).message }));
+      }
+    },
+    [message, refresh, t],
+  );
+
+  const handleSetEmail = useCallback(
+    async (userId: string, email: string | null): Promise<void> => {
+      if (email === null) return;
+      try {
+        const resp = await hostBridge.call('oh.daemon.users.setEmail', { userId, email });
+        if (!resp.ok) throw new Error(resp.error);
+        message.success(t('workbench.serverAdmin.email.setDone'));
+        await refresh();
+      } catch (err) {
+        message.error(t('workbench.serverAdmin.email.updateFailed', { message: (err as Error).message }));
       }
     },
     [message, refresh, t],
@@ -626,12 +661,35 @@ const ServerAdminUsersSection: React.FC = () => {
               data-testid="server-admin-add-name"
             />
           </Form.Item>
+          {/* Every sign-in route joins on email (the client sign-in plan
+              D5): a User without one can sign in by no route, so the
+              form refuses to admit one. */}
           {addKind === 'user' && (
-            <Form.Item name="email" style={{ flex: 1 }}>
+            <Form.Item
+              name="email"
+              rules={[
+                { required: true, message: t('workbench.serverAdmin.users.emailRequired') },
+                { type: 'email', message: t('workbench.serverAdmin.users.emailInvalid') },
+              ]}
+              style={{ flex: 1 }}
+            >
               <Input
+                type="email"
                 placeholder={t('workbench.serverAdmin.users.emailPlaceholder')}
                 maxLength={128}
                 data-testid="server-admin-add-email"
+              />
+            </Form.Item>
+          )}
+          {offersInitialPassword && (
+            <Form.Item
+              name="password"
+              rules={[{ min: 8, message: t('workbench.serverAdmin.users.passwordTooShort') }]}
+              style={{ flex: 1 }}
+            >
+              <Input.Password
+                placeholder={t('workbench.serverAdmin.users.initialPasswordPlaceholder')}
+                data-testid="server-admin-add-password"
               />
             </Form.Item>
           )}
@@ -764,20 +822,43 @@ const ServerAdminUsersSection: React.FC = () => {
                                   </Popconfirm>,
                                 ]
                               : []),
-                            ...(isService
+                            // A User admitted without an email can sign
+                            // in by no route: the repair comes first, and
+                            // the password action says why it waits.
+                            ...(isService || u.email !== null
                               ? []
                               : [
                                   <Button
-                                    key="password"
+                                    key="email"
                                     type="link"
                                     size="small"
-                                    onClick={() => setPasswordUser(u)}
-                                    data-testid={`server-admin-password-${u.userId}`}
+                                    onClick={() => setEmailUser(u)}
+                                    data-testid={`server-admin-email-${u.userId}`}
                                   >
-                                    {u.hasPassword
-                                      ? t('workbench.serverAdmin.password.resetCta')
-                                      : t('workbench.serverAdmin.password.setCta')}
+                                    {t('workbench.serverAdmin.email.setCta')}
                                   </Button>,
+                                ]),
+                            ...(isService
+                              ? []
+                              : [
+                                  <Tooltip
+                                    key="password"
+                                    title={
+                                      u.email === null ? t('workbench.serverAdmin.password.needsEmail') : undefined
+                                    }
+                                  >
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      disabled={u.email === null}
+                                      onClick={() => setPasswordUser(u)}
+                                      data-testid={`server-admin-password-${u.userId}`}
+                                    >
+                                      {u.hasPassword
+                                        ? t('workbench.serverAdmin.password.resetCta')
+                                        : t('workbench.serverAdmin.password.setCta')}
+                                    </Button>
+                                  </Tooltip>,
                                 ]),
                             <Button
                               key="gitEmail"
@@ -870,8 +951,38 @@ const ServerAdminUsersSection: React.FC = () => {
       {passwordUser && (
         <PasswordModal user={passwordUser} onClose={() => setPasswordUser(null)} onSetPassword={handleSetPassword} />
       )}
+      {emailUser && (
+        <EmailFieldModal
+          title={t('workbench.serverAdmin.email.setTitle', { name: emailUser.displayName })}
+          explainer={t('workbench.serverAdmin.email.explainer')}
+          placeholder={t('workbench.serverAdmin.users.emailPlaceholder')}
+          saveLabel={t('workbench.serverAdmin.email.setCta')}
+          initialValue=""
+          testIdPrefix="server-admin-email"
+          onClose={() => setEmailUser(null)}
+          onApply={(next) => handleSetEmail(emailUser.userId, next)}
+        />
+      )}
       {gitEmailUser && (
-        <GitEmailModal user={gitEmailUser} onClose={() => setGitEmailUser(null)} onSetGitEmail={handleSetGitEmail} />
+        <EmailFieldModal
+          title={
+            gitEmailUser.gitEmail !== null
+              ? t('workbench.serverAdmin.gitEmail.changeTitle', { name: gitEmailUser.displayName })
+              : t('workbench.serverAdmin.gitEmail.setTitle', { name: gitEmailUser.displayName })
+          }
+          explainer={t('workbench.serverAdmin.gitEmail.explainer')}
+          placeholder={t('workbench.serverAdmin.gitEmail.placeholder')}
+          saveLabel={
+            gitEmailUser.gitEmail !== null
+              ? t('workbench.serverAdmin.gitEmail.changeCta')
+              : t('workbench.serverAdmin.gitEmail.setCta')
+          }
+          removeLabel={gitEmailUser.gitEmail !== null ? t('workbench.serverAdmin.gitEmail.removeCta') : undefined}
+          initialValue={gitEmailUser.gitEmail ?? ''}
+          testIdPrefix="server-admin-git-email"
+          onClose={() => setGitEmailUser(null)}
+          onApply={(next) => handleSetGitEmail(gitEmailUser.userId, next)}
+        />
       )}
     </section>
   );

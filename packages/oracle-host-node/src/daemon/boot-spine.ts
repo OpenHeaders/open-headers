@@ -1009,6 +1009,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     queryAudit: (filter) => queryAuditEntries(syncPersistence.db, filter),
     license: licenseSlot,
     cliProvision,
+    // How a person signs in here (the client sign-in plan D5) — the
+    // same composition facts the meta routes answer, for the console.
+    authMeta: () => ({
+      passwordLogin: config.oidc === undefined,
+      ssoProvider: oidcService?.providerLabel() ?? null,
+    }),
     // Proxy trust plane (the proxy-security design §6) — CA lifecycle only.
     // Elevation rides the per-command OS prompt seam, requested only
     // for System-keychain operations.

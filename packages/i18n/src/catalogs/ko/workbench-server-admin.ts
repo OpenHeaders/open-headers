@@ -58,7 +58,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.nameRequired': '이름은 필수입니다',
   'workbench.serverAdmin.users.workspaceRequired': '워크스페이스를 하나 이상 부여하세요',
   'workbench.serverAdmin.users.displayNamePlaceholder': '표시 이름',
-  'workbench.serverAdmin.users.emailPlaceholder': '이메일 (선택 사항, SSO 로그인에는 필수)',
+  'workbench.serverAdmin.users.emailPlaceholder': '이메일',
+  'workbench.serverAdmin.users.emailRequired': '이메일은 필수입니다. 사용자는 이메일로 로그인합니다.',
+  'workbench.serverAdmin.users.emailInvalid': '올바른 이메일 주소를 입력하세요',
+  'workbench.serverAdmin.users.initialPasswordPlaceholder': '초기 비밀번호 (선택 사항)',
+  'workbench.serverAdmin.users.passwordTooShort': '비밀번호는 8자 이상이어야 합니다',
   'workbench.serverAdmin.users.seatKeyPlaceholder': '개인 시트 키 (oh-license.…)',
   'workbench.serverAdmin.users.addUser': '사용자 추가',
   'workbench.serverAdmin.users.kindUser': '사용자',
@@ -133,6 +137,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.password.setDone': '비밀번호를 설정했습니다.',
   'workbench.serverAdmin.password.removedDone': '비밀번호를 제거했습니다.',
   'workbench.serverAdmin.password.updateFailed': '비밀번호를 업데이트하지 못했습니다: {message}',
+  'workbench.serverAdmin.password.needsEmail': '먼저 이메일을 설정하세요. 사용자는 이메일로 로그인합니다.',
+
+  // ── Email modal (the client sign-in plan D5) ────────────────────────
+  'workbench.serverAdmin.email.setTitle': '이메일 설정 — {name}',
+  'workbench.serverAdmin.email.explainer':
+    '사용자는 서버 페이지와 모든 클라이언트에서 이메일로 로그인합니다. 이메일이 없으면 이 사용자는 어떤 방법으로도 로그인할 수 없습니다.',
+  'workbench.serverAdmin.email.setCta': '이메일 설정',
+  'workbench.serverAdmin.email.setDone': '이메일을 설정했습니다.',
+  'workbench.serverAdmin.email.updateFailed': '이메일을 설정하지 못했습니다: {message}',
 
   // ── Git email modal ────────────────────────────────────────────────
   'workbench.serverAdmin.gitEmail.setTitle': 'Git 이메일 설정 — {name}',

@@ -713,12 +713,17 @@ test('admin console: the server projection feeds the invite, and users and devic
 
   // Admit Alice through the console UI — the whole write path runs
   // over the wire into the daemon's gated plane, and the invite
-  // carries the mandatory workspace + role (A2). The workspace select
-  // offers the SERVER's projection by name (A6), never the tab's own
-  // mirror.
+  // carries the mandatory workspace + role (A2) and the mandatory
+  // email (the client sign-in plan D5: every sign-in route joins on
+  // it). The workspace select offers the SERVER's projection by name
+  // (A6), never the tab's own mirror.
   await operatorPage.fill(
     'input[data-testid=server-admin-add-name], [data-testid=server-admin-add-name] input',
     'Alice',
+  );
+  await operatorPage.fill(
+    'input[data-testid=server-admin-add-email], [data-testid=server-admin-add-email] input',
+    'alice@openheaders.io',
   );
   await operatorPage.click('[data-testid=server-admin-add-workspace]');
   const workspaceOption = operatorPage.locator('.ant-select-item-option', { hasText: seededName }).first();

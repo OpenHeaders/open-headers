@@ -51,7 +51,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.nameRequired': '名称是必填项',
   'workbench.serverAdmin.users.workspaceRequired': '至少授予一个工作区',
   'workbench.serverAdmin.users.displayNamePlaceholder': '显示名称',
-  'workbench.serverAdmin.users.emailPlaceholder': '邮箱（可选——SSO 必填）',
+  'workbench.serverAdmin.users.emailPlaceholder': '邮箱',
+  'workbench.serverAdmin.users.emailRequired': '邮箱是必填项。用户使用邮箱登录。',
+  'workbench.serverAdmin.users.emailInvalid': '请输入有效的邮箱地址',
+  'workbench.serverAdmin.users.initialPasswordPlaceholder': '初始密码（可选）',
+  'workbench.serverAdmin.users.passwordTooShort': '密码至少需要 8 个字符',
   'workbench.serverAdmin.users.seatKeyPlaceholder': '个人席位密钥（oh-license.…）',
   'workbench.serverAdmin.users.addUser': '添加用户',
   'workbench.serverAdmin.users.kindUser': '用户',
@@ -122,6 +126,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.password.setDone': '密码已设置。',
   'workbench.serverAdmin.password.removedDone': '密码已移除。',
   'workbench.serverAdmin.password.updateFailed': '更新密码失败：{message}',
+  'workbench.serverAdmin.password.needsEmail': '请先设置邮箱——用户使用邮箱登录。',
+
+  // ── Email modal (the client sign-in plan D5) ────────────────────────
+  'workbench.serverAdmin.email.setTitle': '设置邮箱——{name}',
+  'workbench.serverAdmin.email.explainer':
+    '用户在服务器页面和每个客户端都使用邮箱登录。没有邮箱，该用户无法通过任何方式登录。',
+  'workbench.serverAdmin.email.setCta': '设置邮箱',
+  'workbench.serverAdmin.email.setDone': '邮箱已设置。',
+  'workbench.serverAdmin.email.updateFailed': '设置邮箱失败：{message}',
 
   // ── Git email modal ────────────────────────────────────────────────
   'workbench.serverAdmin.gitEmail.setTitle': '设置 Git 邮箱——{name}',

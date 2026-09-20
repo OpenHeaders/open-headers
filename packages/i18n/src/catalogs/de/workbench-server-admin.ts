@@ -53,7 +53,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.nameRequired': 'Ein Name ist erforderlich',
   'workbench.serverAdmin.users.workspaceRequired': 'Mindestens ein Arbeitsbereich muss gewährt werden',
   'workbench.serverAdmin.users.displayNamePlaceholder': 'Anzeigename',
-  'workbench.serverAdmin.users.emailPlaceholder': 'E-Mail (optional — erforderlich für SSO)',
+  'workbench.serverAdmin.users.emailPlaceholder': 'E-Mail',
+  'workbench.serverAdmin.users.emailRequired': 'E-Mail ist erforderlich. Nutzer melden sich damit an.',
+  'workbench.serverAdmin.users.emailInvalid': 'Gib eine gültige E-Mail-Adresse ein',
+  'workbench.serverAdmin.users.initialPasswordPlaceholder': 'Anfangspasswort (optional)',
+  'workbench.serverAdmin.users.passwordTooShort': 'Das Passwort muss mindestens 8 Zeichen lang sein',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Einzelplatz-Schlüssel (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Benutzer hinzufügen',
   'workbench.serverAdmin.users.kindUser': 'Benutzer',
@@ -138,6 +142,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.password.setDone': 'Passwort festgelegt.',
   'workbench.serverAdmin.password.removedDone': 'Passwort entfernt.',
   'workbench.serverAdmin.password.updateFailed': 'Passwort konnte nicht aktualisiert werden: {message}',
+  'workbench.serverAdmin.password.needsEmail': 'Lege zuerst eine E-Mail fest — Nutzer melden sich damit an.',
+
+  // ── Email modal (the client sign-in plan D5) ────────────────────────
+  'workbench.serverAdmin.email.setTitle': 'E-Mail festlegen — {name}',
+  'workbench.serverAdmin.email.explainer':
+    'Nutzer melden sich mit ihrer E-Mail an — auf der Seite des Servers und von jedem Client aus. Ohne E-Mail kann sich dieser Nutzer auf keinem Weg anmelden.',
+  'workbench.serverAdmin.email.setCta': 'E-Mail festlegen',
+  'workbench.serverAdmin.email.setDone': 'E-Mail festgelegt.',
+  'workbench.serverAdmin.email.updateFailed': 'E-Mail konnte nicht festgelegt werden: {message}',
 
   // ── Git email modal ────────────────────────────────────────────────
   'workbench.serverAdmin.gitEmail.setTitle': 'Git-E-Mail festlegen — {name}',

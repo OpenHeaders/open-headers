@@ -437,6 +437,65 @@ export async function setDaemonUserPassword(
   });
 }
 
+export type SetDaemonUserEmailResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly reason: 'unknown-user' | 'user-deactivated' | 'service-account' | 'empty-email' | 'duplicate-email';
+    };
+
+/**
+ * Set a directory user's email identity (the client sign-in plan D5).
+ * Every sign-in route joins the directory on email — the password
+ * login, the OIDC verified-email claim, the device approval — so a
+ * User admitted without one is unreachable by every route; this is the
+ * repair. The identity row flips from `local` to `email`, keeping its
+ * id and primacy; the same active-only, case-folded duplicate rule the
+ * admission applies holds here, so two active records never share an
+ * address. Refused on deactivated records and on service accounts —
+ * a service account is email-less by construction (no-login is
+ * structural), and this verb must not break that property.
+ */
+export async function setDaemonUserEmail(
+  userId: string,
+  email: string,
+  now: () => number = Date.now,
+): Promise<SetDaemonUserEmailResult> {
+  const trimmed = email.trim();
+  if (!trimmed) return { ok: false, reason: 'empty-email' };
+  const needle = trimmed.toLowerCase();
+  return withUserStoreLock(async () => {
+    const current = await readUsers();
+    const idx = current.findIndex((r) => r.user.id === userId);
+    if (idx === -1) return { ok: false, reason: 'unknown-user' };
+    if (current[idx].deactivatedAt !== null) return { ok: false, reason: 'user-deactivated' };
+    if (daemonUserPrincipalKind(current[idx]) !== 'user') return { ok: false, reason: 'service-account' };
+    if (
+      current.some(
+        (r, i) =>
+          i !== idx &&
+          r.deactivatedAt === null &&
+          r.userIdentity.kind === 'email' &&
+          r.userIdentity.value?.toLowerCase() === needle,
+      )
+    ) {
+      return { ok: false, reason: 'duplicate-email' };
+    }
+    const next = current.slice();
+    next[idx] = {
+      ...current[idx],
+      userIdentity: {
+        ...current[idx].userIdentity,
+        kind: 'email',
+        value: trimmed,
+        verifiedAt: new Date(now()).toISOString(),
+      },
+    };
+    await hostStorage.set(OH.daemonUsers, next);
+    return { ok: true };
+  });
+}
+
 export type SetDaemonUserGitEmailResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'unknown-user' | 'user-deactivated' };

@@ -6,9 +6,15 @@
  */
 
 import { createDaemonPairingService } from '@openheaders/core/identity';
-import { type AdminChannelHandler, createAdminChannelHandlers } from '../../../src/daemon/admin-channels';
+import {
+  type AdminChannelDeps,
+  type AdminChannelHandler,
+  createAdminChannelHandlers,
+} from '../../../src/daemon/admin-channels';
 
-export function buildAdminChannels(): ReadonlyMap<string, AdminChannelHandler> {
+export function buildAdminChannels(
+  overrides: Partial<AdminChannelDeps> = {},
+): ReadonlyMap<string, AdminChannelHandler> {
   return createAdminChannelHandlers({
     pairing: createDaemonPairingService(),
     getBoundPort: () => 0,
@@ -54,5 +60,6 @@ export function buildAdminChannels(): ReadonlyMap<string, AdminChannelHandler> {
       setScope: async () => ({ ok: false as const, error: 'not under test' }),
     },
     workspaceTreeDispatch: async () => ({ ok: false, error: 'not under test' }),
+    ...overrides,
   });
 }

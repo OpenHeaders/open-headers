@@ -67,7 +67,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.nameRequired': 'Имя обязательно',
   'workbench.serverAdmin.users.workspaceRequired': 'Выдайте доступ хотя бы к одному рабочему пространству',
   'workbench.serverAdmin.users.displayNamePlaceholder': 'Отображаемое имя',
-  'workbench.serverAdmin.users.emailPlaceholder': 'Email (необязательно — нужен для SSO)',
+  'workbench.serverAdmin.users.emailPlaceholder': 'Email',
+  'workbench.serverAdmin.users.emailRequired': 'Email обязателен. Пользователи входят по нему.',
+  'workbench.serverAdmin.users.emailInvalid': 'Введите корректный адрес email',
+  'workbench.serverAdmin.users.initialPasswordPlaceholder': 'Начальный пароль (необязательно)',
+  'workbench.serverAdmin.users.passwordTooShort': 'Пароль должен содержать не менее 8 символов',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Ключ личного места (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Добавить пользователя',
   'workbench.serverAdmin.users.kindUser': 'Пользователь',
@@ -142,6 +146,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.password.setDone': 'Пароль задан.',
   'workbench.serverAdmin.password.removedDone': 'Пароль удалён.',
   'workbench.serverAdmin.password.updateFailed': 'Не удалось обновить пароль: {message}',
+  'workbench.serverAdmin.password.needsEmail': 'Сначала задайте email — пользователи входят по нему.',
+
+  // ── Email modal (the client sign-in plan D5) ────────────────────────
+  'workbench.serverAdmin.email.setTitle': 'Задать email — {name}',
+  'workbench.serverAdmin.email.explainer':
+    'Пользователи входят по своему email — на странице сервера и из каждого клиента. Без email этот пользователь не сможет войти ни одним способом.',
+  'workbench.serverAdmin.email.setCta': 'Задать email',
+  'workbench.serverAdmin.email.setDone': 'Email задан.',
+  'workbench.serverAdmin.email.updateFailed': 'Не удалось задать email: {message}',
 
   // ── Git email modal ────────────────────────────────────────────────
   'workbench.serverAdmin.gitEmail.setTitle': 'Задать email для Git — {name}',

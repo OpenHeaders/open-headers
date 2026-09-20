@@ -71,7 +71,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.nameRequired': 'Numele este obligatoriu',
   'workbench.serverAdmin.users.workspaceRequired': 'Acordați cel puțin un spațiu de lucru',
   'workbench.serverAdmin.users.displayNamePlaceholder': 'Nume afișat',
-  'workbench.serverAdmin.users.emailPlaceholder': 'E-mail (opțional — necesar pentru SSO)',
+  'workbench.serverAdmin.users.emailPlaceholder': 'E-mail',
+  'workbench.serverAdmin.users.emailRequired': 'E-mailul este obligatoriu. Utilizatorii se autentifică cu el.',
+  'workbench.serverAdmin.users.emailInvalid': 'Introduceți o adresă de e-mail validă',
+  'workbench.serverAdmin.users.initialPasswordPlaceholder': 'Parolă inițială (opțional)',
+  'workbench.serverAdmin.users.passwordTooShort': 'Parola trebuie să aibă cel puțin 8 caractere',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Cheie de loc individual (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Adăugare utilizator',
   'workbench.serverAdmin.users.kindUser': 'Utilizator',
@@ -147,6 +151,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.password.setDone': 'Parolă setată.',
   'workbench.serverAdmin.password.removedDone': 'Parolă eliminată.',
   'workbench.serverAdmin.password.updateFailed': 'Actualizarea parolei a eșuat: {message}',
+  'workbench.serverAdmin.password.needsEmail': 'Setați mai întâi un e-mail — utilizatorii se autentifică cu el.',
+
+  // ── Email modal (the client sign-in plan D5) ────────────────────────
+  'workbench.serverAdmin.email.setTitle': 'Setare e-mail — {name}',
+  'workbench.serverAdmin.email.explainer':
+    'Utilizatorii se autentifică cu e-mailul lor — pe pagina serverului și din fiecare client. Fără e-mail, acest utilizator nu se poate autentifica pe nicio cale.',
+  'workbench.serverAdmin.email.setCta': 'Setare e-mail',
+  'workbench.serverAdmin.email.setDone': 'E-mail setat.',
+  'workbench.serverAdmin.email.updateFailed': 'Setarea e-mailului a eșuat: {message}',
 
   // ── Git email modal ────────────────────────────────────────────────
   'workbench.serverAdmin.gitEmail.setTitle': 'Setare e-mail Git — {name}',

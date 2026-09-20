@@ -53,7 +53,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.nameRequired': '名前は必須です',
   'workbench.serverAdmin.users.workspaceRequired': 'ワークスペースを少なくとも 1 つ付与してください',
   'workbench.serverAdmin.users.displayNamePlaceholder': '表示名',
-  'workbench.serverAdmin.users.emailPlaceholder': 'メール（省略可。SSO には必須）',
+  'workbench.serverAdmin.users.emailPlaceholder': 'メール',
+  'workbench.serverAdmin.users.emailRequired': 'メールは必須です。ユーザーはメールでサインインします。',
+  'workbench.serverAdmin.users.emailInvalid': '有効なメールアドレスを入力してください',
+  'workbench.serverAdmin.users.initialPasswordPlaceholder': '初期パスワード（省略可）',
+  'workbench.serverAdmin.users.passwordTooShort': 'パスワードは 8 文字以上にしてください',
   'workbench.serverAdmin.users.seatKeyPlaceholder': '個人シートキー（oh-license.…）',
   'workbench.serverAdmin.users.addUser': 'ユーザーを追加',
   'workbench.serverAdmin.users.kindUser': 'ユーザー',
@@ -129,6 +133,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.password.setDone': 'パスワードを設定しました。',
   'workbench.serverAdmin.password.removedDone': 'パスワードを削除しました。',
   'workbench.serverAdmin.password.updateFailed': 'パスワードの更新に失敗しました：{message}',
+  'workbench.serverAdmin.password.needsEmail': '先にメールを設定してください。ユーザーはメールでサインインします。',
+
+  // ── Email modal (the client sign-in plan D5) ────────────────────────
+  'workbench.serverAdmin.email.setTitle': 'メールを設定：{name}',
+  'workbench.serverAdmin.email.explainer':
+    'ユーザーはサーバーのページと各クライアントからメールでサインインします。メールがないと、このユーザーはどの方法でもサインインできません。',
+  'workbench.serverAdmin.email.setCta': 'メールを設定',
+  'workbench.serverAdmin.email.setDone': 'メールを設定しました。',
+  'workbench.serverAdmin.email.updateFailed': 'メールの設定に失敗しました：{message}',
 
   // ── Git email modal ────────────────────────────────────────────────
   'workbench.serverAdmin.gitEmail.setTitle': 'Git メールを設定：{name}',

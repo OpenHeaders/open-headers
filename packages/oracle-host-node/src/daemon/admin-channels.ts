@@ -28,12 +28,14 @@ import {
   revokeDaemonAuthToken,
   revokeWorkspaceRole,
   setDaemonUserDaemonAdmin,
+  setDaemonUserEmail,
   setDaemonUserGitEmail,
   setDaemonUserPassword,
   setDaemonUserWorkspaceCreate,
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from '@openheaders/core/identity';
 import { verifyLicense } from '@openheaders/core/licensing';
+import { hostLogger } from '@openheaders/core/logger';
 import type { TelemetryDebugCommand, TelemetryDebugState, TelemetryStorageMethod } from '@openheaders/core/protocol';
 import { isTelemetryStorageMethod } from '@openheaders/core/protocol';
 import type { AuditLogEntry } from '@openheaders/core/types';
@@ -53,6 +55,8 @@ import type { ProxyRoutingControl } from './proxy/routing-push';
 import type { BrowserTelemetryPeerTabs } from './telemetry/browser-live-relay';
 
 export { PASSWORD_MIN_LENGTH } from './password/password-verifier';
+
+const SCOPE = 'AdminChannels';
 
 /** The admin-visibility probe channel — see `peer-admin-rpc.ts`. */
 export const ADMIN_STATUS_CHANNEL = 'oh.daemon.admin.status';
@@ -132,6 +136,14 @@ export interface AdminChannelDeps {
    * construction.
    */
   trafficArchive?: TrafficSessionArchive;
+  /**
+   * The `oh.daemon.auth.meta` backing (the client sign-in plan D5):
+   * whether the password login is composed and which SSO provider, if
+   * any, fronts the server. Optional so dispatch tables composed
+   * without it (test rigs) answer neither rather than failing
+   * construction.
+   */
+  authMeta?(): { passwordLogin: boolean; ssoProvider: string | null };
   /**
    * The `oh.daemon.workspaceTree.dispatch` backing — the spine's
    * shared `oh.workspaceTree.*` verb table, so the admin console's
@@ -605,9 +617,17 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     });
   });
 
+  // How a person signs in here — shapes the console's invite form.
+  handlers.set('oh.daemon.auth.meta', () => deps.authMeta?.() ?? { passwordLogin: false, ssoProvider: null });
+
   handlers.set('oh.daemon.users.create', async (message) => {
     const displayName = typeof message.displayName === 'string' ? message.displayName : '';
     const email = typeof message.email === 'string' ? message.email.trim() || undefined : undefined;
+    // The initial password (the client sign-in plan D5) — a User's
+    // credential set in the same act as the admission, so an invite on
+    // a password server is one act. Validated up front like the email;
+    // a service account never holds one.
+    const password = typeof message.password === 'string' && message.password.length > 0 ? message.password : undefined;
     // Principal kind (the access-foundation plan §8 F3): absent = a
     // human admission; only the two known kinds are expressible over
     // the wire — anything else refuses rather than degrading to human.
@@ -623,6 +643,12 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     }
     if (kind === 'service' && typeof message.personalLicense === 'string' && message.personalLicense.trim() !== '') {
       return { ok: false, error: 'a service account holds no seat — an individual-seat key does not apply' };
+    }
+    if (kind === 'service' && password !== undefined) {
+      return { ok: false, error: 'a service account cannot have a password — it never logs in' };
+    }
+    if (password !== undefined && password.length < PASSWORD_MIN_LENGTH) {
+      return { ok: false, error: `password must be at least ${PASSWORD_MIN_LENGTH} characters` };
     }
     // Initial grants (the server-access plan A2): admission confers
     // access, so this channel requires at least one workspace + role —
@@ -658,6 +684,18 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
             workspaceId: grant.workspaceId,
             role: grant.role,
           });
+        }
+        if (password !== undefined) {
+          // The record was minted microseconds ago; a refusal here is
+          // unreachable, and loud rather than silent — a user invited
+          // with a password that never landed cannot sign in.
+          const set = await setDaemonUserPassword(created.record.user.id, await hashPassword(password));
+          if (!set.ok) {
+            hostLogger.error(
+              SCOPE,
+              `invited user ${created.record.user.id} could not be given a password: ${set.reason}`,
+            );
+          }
         }
         return { ok: true, userId: created.record.user.id };
       }
@@ -766,6 +804,26 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
   handlers.set('oh.daemon.workspaces.list', () => ({
     workspaces: listWorkspaces().map((w) => ({ id: w.id, name: w.name })),
   }));
+
+  handlers.set('oh.daemon.users.setEmail', async (message) => {
+    const userId = typeof message.userId === 'string' ? message.userId : '';
+    if (!userId) return { ok: false, error: 'missing userId' };
+    const email = typeof message.email === 'string' ? message.email : '';
+    const result = await setDaemonUserEmail(userId, email);
+    if (result.ok) return { ok: true };
+    switch (result.reason) {
+      case 'duplicate-email':
+        return { ok: false, reason: result.reason, error: 'another active user already has this email' };
+      case 'empty-email':
+        return { ok: false, error: 'email is required' };
+      case 'service-account':
+        return { ok: false, error: 'a service account cannot have an email — it never logs in' };
+      case 'user-deactivated':
+        return { ok: false, error: 'user is deactivated' };
+      default:
+        return { ok: false, error: 'unknown user' };
+    }
+  });
 
   handlers.set('oh.daemon.users.setGitEmail', async (message) => {
     const userId = typeof message.userId === 'string' ? message.userId : '';

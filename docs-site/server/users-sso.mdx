@@ -20,6 +20,14 @@ devices and audit reports are all there, and nothing has to be
 restarted. This is the normal path — adding a colleague costs no
 downtime.
 
+An invite is one act: a name, an **email**, a workspace with a role,
+and — on a server whose login is the password — an initial password.
+Then tell the person three things: the server address, the email, the
+password. No invite mail is sent; there is no email plane. The email
+is required for a user because it is what every sign-in joins on — a
+user admitted without one cannot sign in by any route until **Set
+email** on their row repairs it. Service accounts never have one.
+
 **From the CLI, with the daemon stopped.** `storage.json` is
 single-writer, so the offline verbs refuse while the daemon runs. They
 exist for scripting and for recovery — including the one case the

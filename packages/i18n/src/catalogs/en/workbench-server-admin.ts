@@ -51,7 +51,11 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.users.nameRequired': 'Name is required',
   'workbench.serverAdmin.users.workspaceRequired': 'Grant at least one workspace',
   'workbench.serverAdmin.users.displayNamePlaceholder': 'Display name',
-  'workbench.serverAdmin.users.emailPlaceholder': 'Email (optional — required for SSO)',
+  'workbench.serverAdmin.users.emailPlaceholder': 'Email',
+  'workbench.serverAdmin.users.emailRequired': 'Email is required. Users sign in with it.',
+  'workbench.serverAdmin.users.emailInvalid': 'Enter a valid email address',
+  'workbench.serverAdmin.users.initialPasswordPlaceholder': 'Initial password (optional)',
+  'workbench.serverAdmin.users.passwordTooShort': 'Password must be at least 8 characters',
   'workbench.serverAdmin.users.seatKeyPlaceholder': 'Individual seat key (oh-license.…)',
   'workbench.serverAdmin.users.addUser': 'Add user',
   'workbench.serverAdmin.users.kindUser': 'User',
@@ -126,6 +130,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.password.setDone': 'Password set.',
   'workbench.serverAdmin.password.removedDone': 'Password removed.',
   'workbench.serverAdmin.password.updateFailed': 'Failed to update password: {message}',
+  'workbench.serverAdmin.password.needsEmail': 'Set an email first — users sign in with it.',
+
+  // ── Email modal (the client sign-in plan D5) ────────────────────────
+  'workbench.serverAdmin.email.setTitle': 'Set email — {name}',
+  'workbench.serverAdmin.email.explainer':
+    "Users sign in with their email — at the server's page and from every client. Without one, this user cannot sign in by any route.",
+  'workbench.serverAdmin.email.setCta': 'Set email',
+  'workbench.serverAdmin.email.setDone': 'Email set.',
+  'workbench.serverAdmin.email.updateFailed': 'Failed to set email: {message}',
 
   // ── Git email modal ────────────────────────────────────────────────
   'workbench.serverAdmin.gitEmail.setTitle': 'Set Git email — {name}',

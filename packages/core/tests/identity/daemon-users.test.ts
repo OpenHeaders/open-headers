@@ -25,6 +25,7 @@ import {
   resolveDaemonUserGitAttribution,
   setAuditSink,
   setDaemonUserDaemonAdmin,
+  setDaemonUserEmail,
   setDaemonUserGitEmail,
   setDaemonUserPassword,
   setDaemonUserWorkspaceCreate,
@@ -269,6 +270,70 @@ describe('daemon users', () => {
         ok: false,
         reason: 'user-deactivated',
       });
+    });
+  });
+
+  describe('setDaemonUserEmail (the client sign-in plan D5)', () => {
+    it('flips a local identity to email, keeping the row id; the login join then finds the user', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      const identityId = created.record.userIdentity.id;
+      expect(await findDaemonUserByEmail('alice@openheaders.io')).toBeNull();
+      expect(await setDaemonUserEmail(userId, '  Alice@openheaders.io ', () => 5555)).toEqual({ ok: true });
+      const found = await findDaemonUserByEmail('alice@OPENHEADERS.IO');
+      expect(found?.user.id).toBe(userId);
+      expect(found?.userIdentity.id).toBe(identityId);
+      expect(found?.userIdentity.kind).toBe('email');
+      expect(found?.userIdentity.value).toBe('Alice@openheaders.io');
+      expect(found?.userIdentity.isPrimary).toBe(true);
+      expect(found?.userIdentity.verifiedAt).toBe(new Date(5555).toISOString());
+      expect(v.safeParse(DaemonUserRecordSchema, found).success).toBe(true);
+    });
+
+    it('replaces an existing email and refuses an empty one', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const userId = created.record.user.id;
+      expect(await setDaemonUserEmail(userId, 'alice.doe@openheaders.io')).toEqual({ ok: true });
+      expect((await findDaemonUserByEmail('alice.doe@openheaders.io'))?.user.id).toBe(userId);
+      expect(await findDaemonUserByEmail('alice@openheaders.io')).toBeNull();
+      expect(await setDaemonUserEmail(userId, '   ')).toEqual({ ok: false, reason: 'empty-email' });
+      expect((await findDaemonUserByEmail('alice.doe@openheaders.io'))?.user.id).toBe(userId);
+    });
+
+    it('refuses an address another ACTIVE record holds, case-insensitively; a deactivated holder does not block', async () => {
+      const alice = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const bob = await createDaemonUser({ displayName: 'Bob' });
+      if (!alice.ok || !bob.ok) throw new Error('setup failed');
+      expect(await setDaemonUserEmail(bob.record.user.id, 'ALICE@openheaders.io')).toEqual({
+        ok: false,
+        reason: 'duplicate-email',
+      });
+      // Setting a user's own address again is not a duplicate.
+      expect(await setDaemonUserEmail(alice.record.user.id, 'alice@openheaders.io')).toEqual({ ok: true });
+      await deactivateDaemonUser(alice.record.user.id);
+      expect(await setDaemonUserEmail(bob.record.user.id, 'alice@openheaders.io')).toEqual({ ok: true });
+      expect((await findDaemonUserByEmail('alice@openheaders.io'))?.user.id).toBe(bob.record.user.id);
+    });
+
+    it('refuses unknown, deactivated, and service-account records', async () => {
+      expect(await setDaemonUserEmail('nope', 'x@openheaders.io')).toEqual({ ok: false, reason: 'unknown-user' });
+      const gone = await createDaemonUser({ displayName: 'Gone' });
+      if (!gone.ok) throw new Error('setup failed');
+      await deactivateDaemonUser(gone.record.user.id);
+      expect(await setDaemonUserEmail(gone.record.user.id, 'x@openheaders.io')).toEqual({
+        ok: false,
+        reason: 'user-deactivated',
+      });
+      const bot = await createDaemonUser({ displayName: 'CI deployer', kind: 'service' });
+      if (!bot.ok) throw new Error('setup failed');
+      expect(await setDaemonUserEmail(bot.record.user.id, 'bot@openheaders.io')).toEqual({
+        ok: false,
+        reason: 'service-account',
+      });
+      // No-login stays structural: the join still cannot land on the bot.
+      expect(await findDaemonUserByEmail('bot@openheaders.io')).toBeNull();
     });
   });
 

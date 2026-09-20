@@ -272,9 +272,21 @@ export interface DaemonRpc {
   // main realm for the same mutex reasons as the token RPCs above.
 
   /**
-   * Admit a user to the directory. `email` optional (local identity).
-   * `personalLicense` = a personal-seat key redeemed at the seat limit
-   * (admits past the pool when it identity-matches `email`).
+   * Admit a user to the directory. `email` is what every sign-in route
+   * joins on — the password login, the OIDC verified-email claim, the
+   * device approval — so the console requires it for a User (the
+   * client sign-in plan D5); the wire keeps it optional for the
+   * offline-recovery shape and for service accounts, which are
+   * email-less by construction. `personalLicense` = a personal-seat
+   * key redeemed at the seat limit (admits past the pool when it
+   * identity-matches `email`).
+   *
+   * `password` sets the User's initial password in the same act as the
+   * admission (after the grants — the seat gate stays first), so an
+   * invite is one act on a server whose login is the password: no
+   * email plane exists, so the admin tells the person the address, the
+   * email and this password. Refused under the minimum length and on a
+   * service admission.
    *
    * `grants` carries the admission's initial workspace access (the
    * server-access plan A2): admission confers access, so at least one
@@ -295,6 +307,7 @@ export interface DaemonRpc {
       displayName: string;
       email?: string;
       personalLicense?: string;
+      password?: string;
       kind?: 'user' | 'service';
       grants: ReadonlyArray<{ workspaceId: string; role: 'owner' | 'editor' | 'viewer' }>;
     };
@@ -380,6 +393,34 @@ export interface DaemonRpc {
   'oh.daemon.users.setDaemonAdmin': {
     req: { userId: string; allowed: boolean };
     res: { ok: true; updated: boolean } | { ok: false; error: string; reason?: 'last-daemon-admin' };
+  };
+
+  /**
+   * Set a directory user's email identity (the client sign-in plan
+   * D5) — the repair for a User admitted without one, who can sign in
+   * by no route until it is set. The same active-only, case-folded
+   * duplicate rule the admission applies holds; the refusal carries
+   * its typed `reason` so the console can say so. Refused on
+   * deactivated users and on service accounts (email-less by
+   * construction).
+   */
+  'oh.daemon.users.setEmail': {
+    req: { userId: string; email: string };
+    res: { ok: true } | { ok: false; error: string; reason?: 'duplicate-email' };
+  };
+
+  /**
+   * How a person signs in to THIS server (the client sign-in plan D5):
+   * the password login is composed (no identity provider), or an SSO
+   * provider fronts it (named by its label), or neither. Admin
+   * surfaces shape their invite form on it — an initial password is
+   * offered only where a password is how the person will sign in.
+   * A fact about the composition, not a secret; an older server
+   * answers the probe with nothing and surfaces treat that as unknown.
+   */
+  'oh.daemon.auth.meta': {
+    req: Record<string, never>;
+    res: { passwordLogin: boolean; ssoProvider: string | null };
   };
 
   /**
