@@ -7,7 +7,11 @@
  *     render the SSO button. JSON, no secrets, no state.
  *   - `GET  /auth/oidc/start`    — top-level navigation entry: mints
  *     state/nonce/PKCE plus a login-binding nonce and 302s to the
- *     provider's authorization URL. The binding nonce rides back to the
+ *     provider's authorization URL. `?device=<code>` is the device arm
+ *     (the client sign-in plan §6.2): the code parks in the pending
+ *     login and the callback binds the pair instead of minting a
+ *     session, landing on `/pair/<code>/approved` — or back on the
+ *     device page with `?error=<reason>` when the sign-in is refused. The binding nonce rides back to the
  *     browser as an HttpOnly SameSite=Lax cookie (`__Host-`-prefixed
  *     with `Secure` when the effective scheme is https; a host-scoped
  *     fallback name on plain-http binds, where `Secure` cookies would
@@ -157,10 +161,18 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
       // start navigation as a query param. It is not a bearer secret —
       // possession admits nobody without also completing SSO as the
       // licensee — so URL exposure carries no privilege.
-      const personalLicense = new URL(req.url ?? '', 'http://placeholder').searchParams.get('individual_license') ?? '';
+      const query = new URL(req.url ?? '', 'http://placeholder').searchParams;
+      const personalLicense = query.get('individual_license') ?? '';
+      // The device arm's code — digits only, like every pairing code;
+      // anything else is not a code and starts an ordinary login.
+      const device = query.get('device') ?? '';
+      const deviceCode = /^\d+$/.test(device) ? device : '';
       void (async () => {
         try {
-          const begun = await service.beginLogin(origin, personalLicense ? { personalLicense } : undefined);
+          const begun = await service.beginLogin(origin, {
+            ...(personalLicense ? { personalLicense } : {}),
+            ...(deviceCode ? { deviceCode } : {}),
+          });
           if (begun.ok) {
             setBindingCookie(res, begun.bindingNonce, secure);
             redirectResponse(res, begun.authorizationUrl);
@@ -202,7 +214,20 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
         try {
           const completed = await service.completeLogin({ code, state, bindingNonce });
           if (completed.ok) {
+            if (completed.kind === 'device') {
+              redirectResponse(res, `/pair/${encodeURIComponent(completed.deviceCode)}/approved`);
+              return;
+            }
             redirectResponse(res, `/#oidc=${encodeURIComponent(completed.claimCode)}`);
+            return;
+          }
+          if (completed.deviceCode !== undefined) {
+            // The device arm's refusal lands on the device page, which
+            // renders it as a fixed sentence and offers the provider again.
+            redirectResponse(
+              res,
+              `/pair/${encodeURIComponent(completed.deviceCode)}?error=${encodeURIComponent(completed.reason)}`,
+            );
             return;
           }
           redirectResponse(res, `/#oidc-error=${encodeURIComponent(completed.reason)}`);

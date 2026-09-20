@@ -136,7 +136,7 @@ describe('daemon OIDC service', () => {
     const { state, bindingNonce } = await begin(rig);
     const completed = await rig.service.completeLogin({ code: 'authcode', state, bindingNonce });
     expect(completed).toMatchObject({ ok: true, userId: created.record.user.id, email: 'alice@openheaders.io' });
-    if (!completed.ok) return;
+    if (!completed.ok || completed.kind !== 'session') return;
     // The exchange carried PKCE + the flow's redirect_uri.
     expect(rig.exchanges).toHaveLength(1);
     expect(rig.exchanges[0].grant_type).toBe('authorization_code');
@@ -385,6 +385,107 @@ describe('daemon OIDC service', () => {
     expect(seen[1]).toMatch(/^Basic /);
   });
 
+  describe('the device arm (the client sign-in plan §6.2)', () => {
+    const W1 = '01900000-cccc-7000-8000-000000000001';
+
+    it('a start carrying a device code completes by binding the pair — no session, no claim code', async () => {
+      const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      if (!created.ok) throw new Error('setup failed');
+      const approvals: Array<[string, string]> = [];
+      const audited: AuditEntryInput[] = [];
+      const rig = buildRig({
+        config: { adminEmails: ['alice@openheaders.io'] },
+        deps: {
+          workspaceExists: () => true,
+          firstWorkspaceId: () => W1,
+          emitAudit: (entry) => audited.push(entry),
+          approveDevice: (code, userId) => {
+            approvals.push([code, userId]);
+            return { ok: true };
+          },
+        },
+      });
+      const begun = await rig.service.beginLogin('https://oh.openheaders.io', { deviceCode: ' 246810 ' });
+      if (!begun.ok) throw new Error('beginLogin refused');
+      const url = new URL(begun.authorizationUrl);
+      rig.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
+      const completed = await rig.service.completeLogin({
+        code: 'c',
+        state: url.searchParams.get('state') ?? '',
+        bindingNonce: begun.bindingNonce,
+      });
+      expect(completed).toEqual({
+        ok: true,
+        kind: 'device',
+        deviceCode: '246810',
+        userId: created.record.user.id,
+        email: 'alice@openheaders.io',
+      });
+      expect(approvals).toEqual([['246810', created.record.user.id]]);
+      // Nothing minted for the approving browser; nothing to claim.
+      expect(await listDaemonAuthTokens()).toHaveLength(0);
+      // The grant fold and the declared-admin promotion still ran first.
+      const rows = await listWorkspaceRolesForPrincipal(created.record.principal.id);
+      expect(rows).toEqual([expect.objectContaining({ workspaceId: W1, role: 'viewer', origin: 'idp' })]);
+      const users = await listDaemonUsers();
+      expect(users[0].membership.functionalRoles).toContain(DAEMON_ADMIN_FUNCTIONAL_ROLE);
+      expect(audited.map((entry) => entry.capability)).toEqual(['daemon.sso-grant', 'daemon.sso-admin']);
+    });
+
+    it('a refused device bind and an absent device plane both answer device-unavailable with the code', async () => {
+      await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+      const refusing = buildRig({ deps: { approveDevice: () => ({ ok: false, reason: 'expired' }) } });
+      const first = await refusing.service.beginLogin('https://oh.openheaders.io', { deviceCode: '246810' });
+      if (!first.ok) throw new Error('beginLogin refused');
+      let url = new URL(first.authorizationUrl);
+      refusing.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
+      expect(
+        await refusing.service.completeLogin({
+          code: 'c',
+          state: url.searchParams.get('state') ?? '',
+          bindingNonce: first.bindingNonce,
+        }),
+      ).toEqual({ ok: false, reason: 'device-unavailable', deviceCode: '246810' });
+
+      const noPlane = buildRig();
+      const second = await noPlane.service.beginLogin('https://oh.openheaders.io', { deviceCode: '246810' });
+      if (!second.ok) throw new Error('beginLogin refused');
+      url = new URL(second.authorizationUrl);
+      noPlane.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
+      expect(
+        await noPlane.service.completeLogin({
+          code: 'c',
+          state: url.searchParams.get('state') ?? '',
+          bindingNonce: second.bindingNonce,
+        }),
+      ).toEqual({ ok: false, reason: 'device-unavailable', deviceCode: '246810' });
+      expect(await listDaemonAuthTokens()).toHaveLength(0);
+    });
+
+    it('a sign-in refusal on the device arm carries the code; a plain login carries none', async () => {
+      const rig = buildRig({ deps: { approveDevice: () => ({ ok: true }) } });
+      const begun = await rig.service.beginLogin('https://oh.openheaders.io', { deviceCode: '246810' });
+      if (!begun.ok) throw new Error('beginLogin refused');
+      const url = new URL(begun.authorizationUrl);
+      rig.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
+      // No directory user: the join refuses, and the refusal names the pair.
+      expect(
+        await rig.service.completeLogin({
+          code: 'c',
+          state: url.searchParams.get('state') ?? '',
+          bindingNonce: begun.bindingNonce,
+        }),
+      ).toEqual({ ok: false, reason: 'unknown-user', deviceCode: '246810' });
+      const plain = await begin(rig);
+      const refused = await rig.service.completeLogin({
+        code: 'c',
+        state: plain.state,
+        bindingNonce: plain.bindingNonce,
+      });
+      expect(refused).toEqual({ ok: false, reason: 'unknown-user' });
+    });
+  });
+
   describe('claims→grant mapping', () => {
     const W1 = '01900000-cccc-7000-8000-000000000001';
     const W2 = '01900000-cccc-7000-8000-000000000002';
@@ -491,7 +592,7 @@ describe('daemon OIDC service', () => {
       });
       const completed = await login(rig);
       expect(completed.ok).toBe(true);
-      if (!completed.ok) return;
+      if (!completed.ok || completed.kind !== 'session') return;
       const claimed = rig.service.claimToken(completed.claimCode);
       expect((await validateDaemonAuthToken(claimed?.secret)).ok).toBe(true);
     });

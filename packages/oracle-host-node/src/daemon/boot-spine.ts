@@ -1134,6 +1134,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         // tokens' sockets — same persist-before-evict the claim uses.
         closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
         sessionTtlMs,
+        // The device arm binds a client pair through the device plane's
+        // audited verb (composed below; called only at a completion).
+        approveDevice: (code, userId) => deviceAuthorization.approveDeviceLogin(code, userId),
       })
     : null;
   const oidcHttpHandler =

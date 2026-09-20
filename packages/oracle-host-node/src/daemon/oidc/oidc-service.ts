@@ -42,10 +42,19 @@
  * `daemon.admin` (confer-only), and the promotion that flips the role
  * revokes every unbound operator token — the claim's O3 arc, run the
  * moment a real admin provably exists.
+ *
+ * The device arm (the client sign-in plan §6.2): a start that carries a
+ * device code parks it in the pending login; the completion, after the
+ * grant fold and the declared-admin promotion, binds that pair to the
+ * resolved user through the `approveDevice` seam and answers the code
+ * back — NO browser session is minted on this arm, and no claim code:
+ * the person came to approve a device, and the device's poll mints its
+ * own credential.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
+  type ApprovePairResult,
   type CreateDaemonUserResult,
   createDaemonUser,
   daemonUserPrincipalKind,
@@ -111,11 +120,36 @@ export type OidcLoginFailureReason =
   | 'personal-seats-disabled'
   | 'personal-license-invalid'
   | 'personal-license-identity-mismatch'
-  | 'personal-license-no-identity';
+  | 'personal-license-no-identity'
+  | 'device-unavailable';
 
 export type OidcCompleteResult =
-  | { readonly ok: true; readonly claimCode: string; readonly userId: string; readonly email: string }
-  | { readonly ok: false; readonly reason: OidcLoginFailureReason };
+  | {
+      readonly ok: true;
+      readonly kind: 'session';
+      readonly claimCode: string;
+      readonly userId: string;
+      readonly email: string;
+    }
+  | {
+      readonly ok: true;
+      readonly kind: 'device';
+      readonly deviceCode: string;
+      readonly userId: string;
+      readonly email: string;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: OidcLoginFailureReason;
+      /** The device arm's code when the pending login carried one — the callback lands the refusal on its page. */
+      readonly deviceCode?: string;
+    };
+
+export interface OidcBeginOptions {
+  readonly personalLicense?: string;
+  /** The device arm: the client-initiated pair this sign-in approves. */
+  readonly deviceCode?: string;
+}
 
 export type OidcBeginResult =
   | { readonly ok: true; readonly authorizationUrl: string; readonly bindingNonce: string }
@@ -166,6 +200,11 @@ export interface OidcServiceDeps {
    * substitute a claims decoder so they don't stand up a signing issuer.
    */
   verifyIdToken?: (idToken: string, metadata: OidcProviderMetadata, clientId: string) => Promise<OidcIdTokenClaims>;
+  /**
+   * The device arm's bind — the audited approval the device plane owns.
+   * Absent = no device plane composed; a device-arm completion refuses.
+   */
+  approveDevice?: (code: string, userId: string) => ApprovePairResult;
 }
 
 export interface DaemonOidcService {
@@ -178,7 +217,7 @@ export interface DaemonOidcService {
    * key pasted at the seat-limit refusal rides along in the pending
    * login and reaches the gate at auto-provision.
    */
-  beginLogin(externalOrigin: string, options?: { personalLicense?: string }): Promise<OidcBeginResult>;
+  beginLogin(externalOrigin: string, options?: OidcBeginOptions): Promise<OidcBeginResult>;
   /**
    * One-shot callback completion: binding check, exchange, verify,
    * join, mint. `bindingNonce` is the cookie the completing browser
@@ -199,6 +238,8 @@ interface PendingLogin {
   readonly bindingHash: Buffer;
   /** Personal-seat key pasted at the refusal; handed to the seat gate at auto-provision. */
   readonly personalLicense?: string;
+  /** The device arm's pair — bound on completion instead of a session mint. */
+  readonly deviceCode?: string;
   readonly createdAt: number;
 }
 
@@ -259,6 +300,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
   const closePeersByTokenId = deps.closePeersByTokenId ?? ((): void => undefined);
   const offerGrantedWorkspaces = deps.offerGrantedWorkspaces;
   const retractRevokedWorkspaces = deps.retractRevokedWorkspaces;
+  const approveDevice = deps.approveDevice;
 
   // The declared floor (A3/A11) is on whenever SSO is — absent config
   // means the sentinel workspace at viewer, never zero grants.
@@ -531,7 +573,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       }
     },
 
-    async beginLogin(externalOrigin: string, options?: { personalLicense?: string }): Promise<OidcBeginResult> {
+    async beginLogin(externalOrigin: string, options?: OidcBeginOptions): Promise<OidcBeginResult> {
       prune();
       if (pendingLogins.size >= PENDING_LOGIN_CAP) return { ok: false, reason: 'too-many-pending' };
       let metadata: OidcProviderMetadata;
@@ -547,12 +589,14 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       const bindingNonce = randomToken();
       const redirectUri = redirectUriFor(externalOrigin);
       const personalLicense = options?.personalLicense?.trim();
+      const deviceCode = options?.deviceCode?.trim();
       pendingLogins.set(state, {
         nonce,
         codeVerifier,
         redirectUri,
         bindingHash: bindingHashOf(bindingNonce),
         ...(personalLicense ? { personalLicense } : {}),
+        ...(deviceCode ? { deviceCode } : {}),
         createdAt: now(),
       });
       const url = new URL(metadata.authorizationEndpoint);
@@ -581,12 +625,20 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         logger.warn(SCOPE, 'callback refused: login-binding mismatch');
         return { ok: false, reason: 'state-mismatch' };
       }
+      // From here the pending login is known: a refusal on the device
+      // arm carries its code so the callback lands it on the device page.
+      const deviceCode = pending.deviceCode;
+      const refuse = (reason: OidcLoginFailureReason): OidcCompleteResult => ({
+        ok: false,
+        reason,
+        ...(deviceCode !== undefined ? { deviceCode } : {}),
+      });
       let metadata: OidcProviderMetadata;
       try {
         metadata = await discover();
       } catch (err) {
         logger.warn(SCOPE, 'provider discovery failed on callback', err);
-        return { ok: false, reason: 'provider-unavailable' };
+        return refuse('provider-unavailable');
       }
 
       // Code exchange. The redirect_uri MUST be the one the flow started
@@ -617,7 +669,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         idToken = payload.id_token;
       } catch (err) {
         logger.warn(SCOPE, 'code exchange failed', err);
-        return { ok: false, reason: 'exchange-failed' };
+        return refuse('exchange-failed');
       }
 
       let claims: OidcIdTokenClaims;
@@ -625,22 +677,38 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         claims = await verifyIdToken(idToken, metadata, config.clientId);
       } catch (err) {
         logger.warn(SCOPE, 'ID token verification failed', err);
-        return { ok: false, reason: 'invalid-id-token' };
+        return refuse('invalid-id-token');
       }
-      if (claims.nonce !== pending.nonce) return { ok: false, reason: 'nonce-mismatch' };
+      if (claims.nonce !== pending.nonce) return refuse('nonce-mismatch');
 
       const resolved = await resolveDirectoryUser(claims, pending.personalLicense);
       if (!resolved.ok) {
         logger.warn(SCOPE, `SSO login refused: ${resolved.reason} (email=${claims.email ?? 'none'})`);
-        return { ok: false, reason: resolved.reason };
+        return refuse(resolved.reason);
       }
 
       // Grants and the declared-admin promotion land before the mint so
-      // the session's first join already sees what the login confers.
+      // the session's first join already sees what the login confers —
+      // and before the device bind, so the device's first join does too.
       await applyLoginGrants(resolved.record, claims);
       await conferDeclaredAdmin(resolved.record);
 
       const email = resolved.record.userIdentity.value ?? claims.email ?? '';
+      if (deviceCode !== undefined) {
+        // The device arm: bind the pair, mint nothing — the device's
+        // poll mints its own credential, and this browser is not signed
+        // in by approving (the plan's §12).
+        const approved = approveDevice?.(deviceCode, resolved.record.user.id);
+        if (approved === undefined || !approved.ok) {
+          logger.warn(
+            SCOPE,
+            `SSO device sign-in could not bind pair ${deviceCode}: ${approved === undefined ? 'no device plane' : approved.reason}`,
+          );
+          return refuse('device-unavailable');
+        }
+        logger.info(SCOPE, `SSO device sign-in approved pair ${deviceCode} for user=${resolved.record.user.id}`);
+        return { ok: true, kind: 'device', deviceCode, userId: resolved.record.user.id, email };
+      }
       const minted: MintDaemonAuthTokenResult = await mintToken({
         label: `sso:${email}`,
         userId: resolved.record.user.id,
@@ -650,7 +718,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       const claimCode = randomToken();
       pendingClaims.set(claimCode, { secret: minted.secret, createdAt: now() });
       logger.info(SCOPE, `SSO login minted session token ${minted.record.id} for user=${resolved.record.user.id}`);
-      return { ok: true, claimCode, userId: resolved.record.user.id, email };
+      return { ok: true, kind: 'session', claimCode, userId: resolved.record.user.id, email };
     },
 
     claimToken(claimCode: string): { secret: string } | null {
