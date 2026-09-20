@@ -37,7 +37,7 @@ export const web = {
       other:
         'セットアップにより {count} 台のペアリング済みデバイスのペアリングが解除されたため、新しいアカウントを迂回してこのサーバーを管理し続けることはできません。設定からもう一度ペアリングしてください。',
     }),
-  'web.gate.setupDoneContinue': '続行',
+  'web.gate.setupDoneContinue': 'サーバー管理へ進む',
   'web.gate.setupDoneReload': '再読み込み',
   'web.gate.setupErrorDisplayName': 'アカウントに付ける名前を入力してください。',
   'web.gate.setupErrorEmail': 'サインインに使うメールを入力してください。',

@@ -42,7 +42,7 @@ export const web = {
       other:
         '설정 과정에서 페어링된 기기 {count}대의 페어링이 해제되어, 새 계정을 우회해 이 서버를 계속 관리할 수 없습니다. 설정에서 다시 페어링하세요.',
     }),
-  'web.gate.setupDoneContinue': '계속',
+  'web.gate.setupDoneContinue': '서버 관리로 계속',
   'web.gate.setupDoneReload': '다시 불러오기',
   'web.gate.setupErrorDisplayName': '계정에 넣을 이름을 입력하세요.',
   'web.gate.setupErrorEmail': '로그인에 쓸 이메일을 입력하세요.',

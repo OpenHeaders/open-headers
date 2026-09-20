@@ -58,7 +58,7 @@ export const web = {
         '{count} сопряжённых устройств были отвязаны настройкой, поэтому они не могут дальше администрировать этот сервер в обход ' +
         'вашей новой учётной записи. Сопрягите их заново в настройках.',
     }),
-  'web.gate.setupDoneContinue': 'Продолжить',
+  'web.gate.setupDoneContinue': 'Перейти к администрированию сервера',
   'web.gate.setupDoneReload': 'Перезагрузить',
   'web.gate.setupErrorDisplayName': 'Введите имя для учётной записи.',
   'web.gate.setupErrorEmail': 'Введите email для входа.',

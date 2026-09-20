@@ -43,6 +43,7 @@
 import { readHostProbe } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context';
+import { postServerAdminLanding } from '@openheaders/ui/workbench/data/server-admin-landing';
 import { Alert, Button, Divider, Input, Typography } from 'antd';
 import { useState } from 'react';
 import { type GateClientTarget, markUrl, resolveDesktopTarget, resolveExtensionTargets } from '@/gate-clients';
@@ -171,6 +172,14 @@ export function LoginGate({ wire, onJoined, mode, initialErrorReason }: LoginGat
     setError(t(secret === null ? 'web.gate.errorPasswordRefused' : 'web.gate.errorSessionRefused'));
   };
 
+  // The claim's way in lands on Server Admin › Users — the operator's
+  // next job is the directory, and the Users tab is the claim's receipt.
+  const continueToServerAdmin = (): void => {
+    postServerAdminLanding('users');
+    showTransitionOverlay(t('web.overlay.signingIn'));
+    onJoined();
+  };
+
   const passwordTooShort = password.length > 0 && password.length < PASSWORD_MIN_LENGTH;
   const passwordMismatch = confirmPassword.length > 0 && confirmPassword !== password;
   const canSubmitSetup =
@@ -205,8 +214,7 @@ export function LoginGate({ wire, onJoined, mode, initialErrorReason }: LoginGat
     // Committed either way: the directory is no longer empty, so the
     // form behind this can only meet the uniform refusal from here on.
     if (joined.ok && claim.revokedTokens === 0) {
-      showTransitionOverlay(t('web.overlay.signingIn'));
-      onJoined();
+      continueToServerAdmin();
       return;
     }
     setClaimed({ revokedTokens: claim.revokedTokens, joined: joined.ok });
@@ -248,8 +256,7 @@ export function LoginGate({ wire, onJoined, mode, initialErrorReason }: LoginGat
                 window.location.reload();
                 return;
               }
-              showTransitionOverlay(t('web.overlay.signingIn'));
-              onJoined();
+              continueToServerAdmin();
             }}
             data-testid="login-gate-setup-continue"
           >

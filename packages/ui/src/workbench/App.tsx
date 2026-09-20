@@ -123,6 +123,7 @@ import { useWorkbenchShortcutActions } from './hooks/useWorkbenchShortcutActions
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { subscribeGitPanelReveal } from './data/git-panel-reveal';
+import { takeServerAdminLanding } from './data/server-admin-landing';
 import { subscribeSpecsSectionReveal } from './data/specs-section-reveal';
 import { subscribeTrafficStorageReveal } from './data/traffic-storage-reveal';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -634,6 +635,20 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // Store-updated hosts (no in-app updater): the post-update timeline
   // entry, with "See what's new" landing on the What's New tab.
   useUpdatedNotification(openWhatsNew);
+
+  // The post-claim landing the host parked before this mount: once the
+  // admin probe has let the Server Admin window into the layout, open
+  // the parked section's tab and bring the nav window forward. Consumed
+  // once — a later sign-in parks nothing and lands on the workspace.
+  const serverAdminDock = tl.dockOf('server-admin');
+  useEffect(() => {
+    if (serverAdminDock === null) return;
+    const section = takeServerAdminLanding();
+    if (section === null) return;
+    openServerAdmin(section);
+    if (tl.state.hidden.includes('server-admin')) tl.restoreWindow('server-admin');
+    tl.activateWindow('server-admin');
+  }, [serverAdminDock, openServerAdmin, tl]);
 
   // Opening a request in the inspector clears any post-import "scripts
   // review pending" reminder for that request — the user has now seen

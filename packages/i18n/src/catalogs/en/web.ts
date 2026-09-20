@@ -46,7 +46,7 @@ export const web = {
         '{count} paired devices were unpaired by the setup, so they cannot keep administering this server ' +
         'around your new account. Pair them again from Settings.',
     }),
-  'web.gate.setupDoneContinue': 'Continue',
+  'web.gate.setupDoneContinue': 'Continue to Server Admin',
   'web.gate.setupDoneReload': 'Reload',
   'web.gate.setupErrorDisplayName': 'Enter the name to put on the account.',
   'web.gate.setupErrorEmail': 'Enter the email to sign in with.',

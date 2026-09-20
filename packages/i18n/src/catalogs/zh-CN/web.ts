@@ -33,7 +33,7 @@ export const web = {
     plural(locale, Number(count), {
       other: '设置过程解除了 {count} 台已配对设备，以免它们绕过你的新账户继续管理这台服务器。请在设置中重新配对。',
     }),
-  'web.gate.setupDoneContinue': '继续',
+  'web.gate.setupDoneContinue': '继续前往服务器管理',
   'web.gate.setupDoneReload': '重新加载',
   'web.gate.setupErrorDisplayName': '请输入账户使用的姓名。',
   'web.gate.setupErrorEmail': '请输入用于登录的邮箱。',

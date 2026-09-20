@@ -46,7 +46,7 @@ export const web = {
         'La configuración desemparejó {count} dispositivos, para que no sigan administrando este servidor al ' +
         'margen de tu nueva cuenta. Vuelve a emparejarlos desde Ajustes.',
     }),
-  'web.gate.setupDoneContinue': 'Continuar',
+  'web.gate.setupDoneContinue': 'Continuar a la administración del servidor',
   'web.gate.setupDoneReload': 'Recargar',
   'web.gate.setupErrorDisplayName': 'Escribe el nombre que llevará la cuenta.',
   'web.gate.setupErrorEmail': 'Escribe el email con el que iniciar sesión.',

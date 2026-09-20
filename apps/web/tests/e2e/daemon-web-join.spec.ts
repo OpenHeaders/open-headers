@@ -1143,9 +1143,18 @@ test('the first browser claims an unclaimed server, hears what that unpaired, an
     // devices that costs before handing the tab over.
     await claimPage.waitForSelector('[data-testid=login-gate-setup-done]', { timeout: 5_000 });
     await expect(claimPage.locator('[data-testid=login-gate-setup-done]')).toContainText('Pair it again');
+    // The button says where the claim lands.
+    await expect(claimPage.locator('[data-testid=login-gate-setup-continue]')).toHaveText('Continue to Server Admin');
     await claimPage.click('[data-testid=login-gate-setup-continue]');
     await claimPage.waitForSelector('[data-testid=login-gate]', { state: 'detached', timeout: 5_000 });
     await claimPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 5_000 });
+
+    // The post-claim landing: the operator arrives on Server Admin ›
+    // Users — the directory tab open with their own row, the Server
+    // Admin nav window brought forward beside it.
+    await expect(claimPage.locator('[data-testid=server-admin-tab]')).toBeVisible({ timeout: 5_000 });
+    await expect(claimPage.locator('[data-testid=server-admin-tab]')).toContainText('john@openheaders.io');
+    await expect(claimPage.locator('[data-testid=server-admin-panel]')).toBeVisible({ timeout: 5_000 });
 
     // The session is an ordinary password-login row, and the claim is
     // one-shot by state: the route answers its uniform refusal now.

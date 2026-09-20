@@ -45,7 +45,7 @@ export const web = {
         "L'installation a dissocié {count} appareils, pour qu'ils ne continuent pas à administrer ce serveur en " +
         'marge de votre nouveau compte. Réassociez-les depuis les Paramètres.',
     }),
-  'web.gate.setupDoneContinue': 'Continuer',
+  'web.gate.setupDoneContinue': "Continuer vers l'admin du serveur",
   'web.gate.setupDoneReload': 'Recharger',
   'web.gate.setupErrorDisplayName': 'Saisissez le nom à porter sur le compte.',
   'web.gate.setupErrorEmail': 'Saisissez l’email de connexion.',

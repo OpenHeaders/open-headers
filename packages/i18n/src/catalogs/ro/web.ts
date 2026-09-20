@@ -59,7 +59,7 @@ export const web = {
         '{count} de dispozitive asociate au fost dezasociate de configurare, așa că nu pot continua să administreze ' +
         'acest server pe lângă noul dvs. cont. Asociați-le din nou din Setări.',
     }),
-  'web.gate.setupDoneContinue': 'Continuare',
+  'web.gate.setupDoneContinue': 'Continuare la administrarea serverului',
   'web.gate.setupDoneReload': 'Reîncărcare',
   'web.gate.setupErrorDisplayName': 'Introduceți numele de pus pe cont.',
   'web.gate.setupErrorEmail': 'Introduceți adresa de e-mail cu care vă conectați.',
