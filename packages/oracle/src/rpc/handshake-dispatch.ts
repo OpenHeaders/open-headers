@@ -32,11 +32,13 @@
  */
 
 import {
+  type DaemonPeerDisplayIdentity,
   emitAuditEntry,
   getIdentitySnapshot,
   hasCapability,
   type IdentitySnapshot,
   type ResolveDaemonPeerUserResult,
+  resolveDaemonPeerDisplayIdentity,
   resolveDaemonPeerIdentitySnapshot,
   resolveDaemonPeerUser,
   type ValidateDaemonAuthTokenResult,
@@ -59,6 +61,7 @@ import {
   SyncStateVectorMessageSchema,
   type SyncSyncedMessage,
   type SyncWelcomeMessage,
+  type SyncWelcomeUser,
 } from '@openheaders/core/protocol';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
@@ -133,6 +136,8 @@ export interface EvaluateHelloOptions {
   readonly validate?: (token: string | undefined) => Promise<ValidateDaemonAuthTokenResult>;
   /** Test seam — mirrors `validate`; defaults to `resolveDaemonPeerUser`. */
   readonly resolveUser?: (tokenUserId: string | undefined) => Promise<ResolveDaemonPeerUserResult>;
+  /** Test seam — the WELCOME's `user` for a bound token; defaults to `resolveDaemonPeerDisplayIdentity`. */
+  readonly resolveDisplayIdentity?: (userId: string) => Promise<DaemonPeerDisplayIdentity | null>;
   /**
    * This backend's reach tier, derived by the host from its own listen
    * binding (loopback vs lan) or deployment (wan). Stamped onto the
@@ -189,6 +194,7 @@ export async function evaluateHello(
   }
   let tokenId: string | null = null;
   let claims: PeerClaims | null = null;
+  let user: SyncWelcomeUser | undefined;
   if (options.requireAuth) {
     const snapshot = getIdentitySnapshot();
     const validate = options.validate ?? validateDaemonAuthToken;
@@ -230,6 +236,15 @@ export async function evaluateHello(
     }
     tokenId = result.tokenId;
     claims = { userId: resolved.userId, deviceId: result.tokenId, capabilities: new Set() };
+    // The person a BOUND token acts as (the client sign-in plan F0-c) —
+    // display fields the joiner's "Signed in as …" line reads. An
+    // unbound token is the operator's machine credential and names
+    // nobody; a person the directory cannot describe names nobody too.
+    if (result.userId !== undefined) {
+      const resolveDisplayIdentity = options.resolveDisplayIdentity ?? resolveDaemonPeerDisplayIdentity;
+      const identity = await resolveDisplayIdentity(resolved.userId);
+      if (identity) user = { displayName: identity.displayName, email: identity.email };
+    }
   }
 
   // U5.2 — carry this backend's home `Org` so the joining peer folds it
@@ -256,6 +271,7 @@ export async function evaluateHello(
     ...(homeOrg ? { org: homeOrg } : {}),
     ...(backendActiveWorkspaceId ? { activeWorkspaceId: backendActiveWorkspaceId } : {}),
     ...(options.reach ? { reach: options.reach } : {}),
+    ...(user ? { user } : {}),
   };
   return { kind: 'accept', hello, welcome, tokenId, claims };
 }

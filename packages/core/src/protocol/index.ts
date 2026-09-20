@@ -59,6 +59,7 @@ export type {
   SyncWelcomeAccept,
   SyncWelcomeMessage,
   SyncWelcomeReject,
+  SyncWelcomeUser,
 } from './handshake';
 export {
   BACKEND_REACH,

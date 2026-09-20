@@ -267,7 +267,28 @@ export interface SyncWelcomeAccept {
    * field — the joiner then treats reach as unknown.
    */
   reach?: BackendReach;
+  /**
+   * The person this connection acts as (the client sign-in plan D3,
+   * F0-c): the directory user a BOUND token resolves to, so the joiner
+   * can say "Signed in as <person>" beside the Org. Absent on an
+   * unbound token (the daemon operator's machine credential) and on a
+   * responder that predates the field. `email` is the primary identity
+   * row's address, null when the person has none. Additive — the
+   * protocol integer stays.
+   */
+  user?: SyncWelcomeUser;
 }
+
+/** The person a WELCOME names — display fields only, never an id or a credential. */
+export interface SyncWelcomeUser {
+  displayName: string;
+  email: string | null;
+}
+
+const SyncWelcomeUserSchema = v.object({
+  displayName: v.pipe(v.string(), v.minLength(1)),
+  email: v.nullable(v.string()),
+}) satisfies v.GenericSchema<SyncWelcomeUser>;
 
 export interface SyncWelcomeReject {
   type: typeof SYNC_WELCOME_TYPE;
@@ -290,6 +311,7 @@ const SyncWelcomeAcceptSchema = v.object({
   org: v.optional(OrgSchema),
   activeWorkspaceId: v.optional(v.pipe(v.string(), v.minLength(1))),
   reach: v.optional(BackendReachSchema),
+  user: v.optional(SyncWelcomeUserSchema),
 }) satisfies v.GenericSchema<SyncWelcomeAccept>;
 
 const SyncWelcomeRejectSchema = v.object({

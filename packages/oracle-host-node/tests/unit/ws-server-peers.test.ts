@@ -73,15 +73,24 @@ function hello(overrides: Record<string, unknown> = {}): string {
   });
 }
 
-/** Connect a loopback client and resolve once its HELLO is accepted. */
-async function connectAccepted(port: number, helloFrame: string, options?: ClientOptions): Promise<WebSocket> {
+interface AcceptedWelcome {
+  readonly accepted: boolean;
+  readonly user?: { displayName: string; email: string | null };
+}
+
+/** Connect a loopback client and resolve with the accepting WELCOME. */
+async function connectWelcomed(
+  port: number,
+  helloFrame: string,
+  options?: ClientOptions,
+): Promise<{ client: WebSocket; welcome: AcceptedWelcome }> {
   const client = new WebSocket(`ws://127.0.0.1:${port}`, options);
   clients.push(client);
   await new Promise<void>((resolve, reject) => {
     client.once('open', () => resolve());
     client.once('error', reject);
   });
-  const welcome = new Promise<{ accepted: boolean }>((resolve) => {
+  const welcome = new Promise<AcceptedWelcome>((resolve) => {
     client.on('message', (raw) => {
       const msg = JSON.parse(raw.toString());
       if (msg.type === SYNC_WELCOME_TYPE) resolve(msg);
@@ -90,7 +99,12 @@ async function connectAccepted(port: number, helloFrame: string, options?: Clien
   client.send(helloFrame);
   const result = await welcome;
   expect(result.accepted).toBe(true);
-  return client;
+  return { client, welcome: result };
+}
+
+/** Connect a loopback client and resolve once its HELLO is accepted. */
+async function connectAccepted(port: number, helloFrame: string, options?: ClientOptions): Promise<WebSocket> {
+  return (await connectWelcomed(port, helloFrame, options)).client;
 }
 
 function waitForFrame(client: WebSocket, type: string): Promise<Record<string, unknown>> {
@@ -243,6 +257,23 @@ describe('OracleWsServer — peer registry', () => {
     expect(welcome.accepted).toBe(false);
     expect(welcome.reason).toBe('auth-required');
     expect(welcome.detail).toBe('user-deactivated');
+  });
+
+  it('the WELCOME names the person a BOUND token acts as, and nobody for an unbound one (the client sign-in plan F0-c)', async () => {
+    const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    if (!created.ok) throw new Error('directory create failed');
+    const bound = await mintDaemonAuthToken({ label: 'alice laptop', userId: created.record.user.id });
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const named = await connectWelcomed(port, hello({ nodeId: 'ext-bound', authToken: bound.secret }));
+    expect(named.welcome.user).toEqual({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    named.client.close();
+
+    // The operator's machine credential names no person.
+    const unbound = await connectWelcomed(port, hello({ nodeId: 'ext-unbound' }));
+    expect(unbound.welcome.user).toBeUndefined();
+    unbound.client.close();
   });
 
   it('rejects a loopback HELLO that presents no paired token (mandatory auth)', async () => {

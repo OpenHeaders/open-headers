@@ -103,6 +103,21 @@ describe('SyncWelcomeMessageSchema', () => {
     expect(() => v.parse(SyncWelcomeMessageSchema, { ...accept, reach: 'mesh' })).toThrow();
   });
 
+  it('round-trips an accept naming the person a bound token acts as, with or without an email', () => {
+    const named = { ...accept, user: { displayName: 'Alice', email: 'alice@openheaders.io' } };
+    expect(v.parse(SyncWelcomeMessageSchema, named)).toEqual(named);
+    const emailless = { ...accept, user: { displayName: 'Operator', email: null } };
+    expect(v.parse(SyncWelcomeMessageSchema, emailless)).toEqual(emailless);
+    // Additive: an accept without one is the unbound token's shape.
+    expect(v.parse(SyncWelcomeMessageSchema, accept)).not.toHaveProperty('user');
+  });
+
+  it('rejects a user without a display name or with a non-string email', () => {
+    expect(() => v.parse(SyncWelcomeMessageSchema, { ...accept, user: { displayName: '', email: null } })).toThrow();
+    expect(() => v.parse(SyncWelcomeMessageSchema, { ...accept, user: { displayName: 'Alice', email: 42 } })).toThrow();
+    expect(() => v.parse(SyncWelcomeMessageSchema, { ...accept, user: { email: null } })).toThrow();
+  });
+
   it('round-trips a reject', () => {
     expect(v.parse(SyncWelcomeMessageSchema, reject)).toEqual(reject);
   });
