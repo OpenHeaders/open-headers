@@ -7,10 +7,20 @@
  * in-memory `HostStorage` fake. The confirm path is wired through the
  * real `mintDaemonAuthToken` so we verify the resulting token row
  * actually lands in `OH.daemonAuthTokens` (no fork of the mint path).
+ *
+ * The client initiative (the client sign-in plan §6.1) rides the same
+ * table: the code alone never yields a secret, the poll handle answers
+ * it exactly once, approve/deny settle a pair, the two caps hold, and
+ * every unknown lookup — code or handle — draws the one global budget.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDaemonPairingService, defaultGenerateCode, listDaemonAuthTokens } from '../../src/identity';
+import {
+  createDaemonPairingService,
+  type DaemonPairingService,
+  defaultGenerateCode,
+  listDaemonAuthTokens,
+} from '../../src/identity';
 import { setHostStorage } from '../../src/storage/host-storage';
 import { createHostStorageFake } from './_host-storage-fake';
 
@@ -147,6 +157,230 @@ describe('daemon pairing service', () => {
     const svc = createDaemonPairingService();
     svc.dispose();
     expect(() => svc.startPair()).toThrow();
+  });
+
+  describe('client initiative', () => {
+    const CLIENT = { client: 'extension' as const, peer: '192.168.1.20' };
+
+    function clientService(overrides: Parameters<typeof createDaemonPairingService>[0] = {}): DaemonPairingService {
+      return createDaemonPairingService({ generateCode: () => '246810', ...overrides });
+    }
+
+    it('starts a pair with a code and a poll handle; the entry stores only the handle hash', async () => {
+      const svc = clientService();
+      const start = await svc.startClientPair({ ...CLIENT, deviceLabel: '  Work Chrome ' });
+      expect(start.code).toBe('246810');
+      expect(start.pollToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(start.expiresAt).toBeGreaterThan(Date.now());
+      const entry = svc.peek('246810');
+      expect(entry).toMatchObject({
+        initiative: 'client',
+        client: 'extension',
+        peer: '192.168.1.20',
+        deviceLabel: 'Work Chrome',
+        status: 'pending',
+      });
+      expect(entry?.pollTokenHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(entry?.pollTokenHash).not.toBe(start.pollToken);
+      expect(JSON.stringify(entry)).not.toContain(start.pollToken);
+    });
+
+    it('the code alone never yields a secret: confirm against a client pair reads as consumed and mints nothing', async () => {
+      const svc = clientService();
+      await svc.startClientPair(CLIENT);
+      expect(await svc.confirm('246810')).toEqual({ ok: false, reason: 'consumed' });
+      expect(await listDaemonAuthTokens()).toHaveLength(0);
+      // Still approvable — the confirm attempt touched nothing.
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: true });
+    });
+
+    it('poll waits, then mints ONCE after approval: a bound, expiring session token labelled for the device', async () => {
+      const now = 5_000_000;
+      const svc = clientService({ now: () => now, sessionTtlMs: 1000 });
+      const { pollToken, expiresAt } = await svc.startClientPair({ ...CLIENT, deviceLabel: 'Work Chrome' });
+      expect(await svc.poll(pollToken)).toEqual({ status: 'pending', expiresAt });
+      expect(await listDaemonAuthTokens()).toHaveLength(0);
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: true });
+      expect(svc.peek('246810')?.status).toBe('approved');
+      // Approval minted nothing — the poll does.
+      expect(await listDaemonAuthTokens()).toHaveLength(0);
+      const polled = await svc.poll(pollToken);
+      expect(polled.status).toBe('approved');
+      if (polled.status !== 'approved') return;
+      expect(polled.secret).toMatch(/^oh_/);
+      expect(polled.userId).toBe('user-1');
+      const [token] = await listDaemonAuthTokens();
+      expect(token.id).toBe(polled.tokenId);
+      expect(token).toMatchObject({
+        kind: 'session',
+        userId: 'user-1',
+        label: 'device:extension:Work Chrome',
+        expiresAt: now + 1000,
+      });
+      // One-shot: the same handle answers unknown from now on, and no
+      // second token is minted.
+      expect(await svc.poll(pollToken)).toEqual({ status: 'unknown' });
+      expect(await listDaemonAuthTokens()).toHaveLength(1);
+      expect(svc.peek('246810')?.status).toBe('consumed');
+    });
+
+    it('labels an unnamed device by its client kind alone', async () => {
+      const svc = clientService();
+      const { pollToken } = await svc.startClientPair({ client: 'cli', peer: '10.0.0.5' });
+      svc.approve('246810', 'user-1');
+      await svc.poll(pollToken);
+      expect((await listDaemonAuthTokens())[0].label).toBe('device:cli');
+    });
+
+    it('deny settles the pair: the poll reads denied and a later approve is refused', async () => {
+      const svc = clientService();
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      expect(svc.deny('246810')).toEqual({ ok: true });
+      expect(await svc.poll(pollToken)).toEqual({ status: 'denied' });
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: false, reason: 'denied' });
+      expect(await listDaemonAuthTokens()).toHaveLength(0);
+    });
+
+    it('a second decision on a decided pair is refused as consumed', async () => {
+      const svc = clientService();
+      await svc.startClientPair(CLIENT);
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: true });
+      expect(svc.approve('246810', 'user-2')).toEqual({ ok: false, reason: 'consumed' });
+      expect(svc.deny('246810')).toEqual({ ok: false, reason: 'consumed' });
+      expect(svc.peek('246810')?.approvedUserId).toBe('user-1');
+    });
+
+    it('an expired pair answers expired to the poll and refuses approval', async () => {
+      let now = 6_000_000;
+      const svc = clientService({ now: () => now, ttlMs: 1000 });
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      now += 2000;
+      expect(await svc.poll(pollToken)).toEqual({ status: 'expired' });
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: false, reason: 'expired' });
+    });
+
+    it('an approval nobody polled for expires with its code — nothing minted for a client that left', async () => {
+      let now = 7_000_000;
+      const svc = clientService({ now: () => now, ttlMs: 1000 });
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      svc.approve('246810', 'user-1');
+      now += 2000;
+      expect(await svc.poll(pollToken)).toEqual({ status: 'expired' });
+      expect(await listDaemonAuthTokens()).toHaveLength(0);
+    });
+
+    it('the client verbs refuse an admin-initiated pair, and the admin verb keeps it', async () => {
+      const svc = clientService();
+      svc.startPair({ deviceLabel: 'admin pair' });
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: false, reason: 'not-client' });
+      expect(svc.deny('246810')).toEqual({ ok: false, reason: 'not-client' });
+      expect(svc.peek('246810')?.status).toBe('pending');
+      expect((await svc.confirm('246810')).ok).toBe(true);
+    });
+
+    it('caps client pairs at 32 without touching the admin cap, and at 4 per peer', async () => {
+      let i = 0;
+      const svc = createDaemonPairingService({ generateCode: () => String(100000 + i++) });
+      // Eight peers × four pairs fill the client cap exactly.
+      for (let peer = 0; peer < 8; peer++) {
+        for (let k = 0; k < 4; k++) await svc.startClientPair({ client: 'desktop', peer: `10.0.0.${peer}` });
+      }
+      await expect(svc.startClientPair({ client: 'desktop', peer: '10.0.0.99' })).rejects.toThrow(/waiting/);
+      // The admin initiative still has its whole cap.
+      expect(svc.startPair().code).toBeTruthy();
+      // A settled pair frees its slot: deny one, and a fresh peer starts.
+      svc.deny('100000');
+      await expect(svc.startClientPair({ client: 'desktop', peer: '10.0.0.99' })).resolves.toBeTruthy();
+      // The per-peer cap: the freed peer already holds three, so a
+      // fourth fits and a fifth does not.
+      await expect(svc.startClientPair({ client: 'desktop', peer: '10.0.0.0' })).rejects.toThrow(/waiting/);
+    });
+
+    it('a per-peer flood cannot fill the client cap: the fifth start from one address is refused', async () => {
+      let i = 0;
+      const svc = createDaemonPairingService({ generateCode: () => String(200000 + i++) });
+      for (let k = 0; k < 4; k++) await svc.startClientPair({ client: 'cli', peer: '203.0.113.7' });
+      await expect(svc.startClientPair({ client: 'cli', peer: '203.0.113.7' })).rejects.toThrow(/this address/);
+      await expect(svc.startClientPair({ client: 'cli', peer: '203.0.113.8' })).resolves.toBeTruthy();
+    });
+
+    it('an unknown poll handle and an unknown code both draw the one global budget', async () => {
+      const now = 8_000_000;
+      const svc = clientService({ now: () => now, maxFailedLookups: 2 });
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      expect(await svc.poll('not-a-handle')).toEqual({ status: 'unknown' });
+      expect(svc.approve('000000', 'user-1')).toEqual({ ok: false, reason: 'unknown' });
+      // Locked: the real pair is hidden from every verb, uniformly.
+      expect(svc.peek('246810')).toBeNull();
+      expect(await svc.poll(pollToken)).toEqual({ status: 'unknown' });
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: false, reason: 'unknown' });
+    });
+
+    it('a live handle polling never draws the budget', async () => {
+      const svc = clientService({ maxFailedLookups: 1 });
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      for (let k = 0; k < 5; k++) expect((await svc.poll(pollToken)).status).toBe('pending');
+      expect(svc.approve('246810', 'user-1')).toEqual({ ok: true });
+      expect((await svc.poll(pollToken)).status).toBe('approved');
+    });
+
+    it('parallel polls on one approved handle mint exactly one token', async () => {
+      const svc = clientService();
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      svc.approve('246810', 'user-1');
+      const results = await Promise.all([svc.poll(pollToken), svc.poll(pollToken)]);
+      expect(results.filter((r) => r.status === 'approved')).toHaveLength(1);
+      expect(await listDaemonAuthTokens()).toHaveLength(1);
+    });
+
+    it('a failed mint releases the approval so the next poll retries without a second approval', async () => {
+      let fail = true;
+      const svc = clientService({
+        mintToken: async (input) => {
+          if (fail) throw new Error('storage exploded');
+          return {
+            secret: 'oh_retry',
+            record: {
+              id: 'token-retry',
+              tokenHash: 'h',
+              label: input?.label,
+              kind: 'session',
+              createdAt: 0,
+              lastUsedAt: null,
+              revokedAt: null,
+            },
+          };
+        },
+      });
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      svc.approve('246810', 'user-1');
+      await expect(svc.poll(pollToken)).rejects.toThrow('storage exploded');
+      expect(svc.peek('246810')?.status).toBe('approved');
+      fail = false;
+      expect(await svc.poll(pollToken)).toMatchObject({ status: 'approved', secret: 'oh_retry' });
+    });
+
+    it('cancel drops a client pair: its handle reads unknown afterwards', async () => {
+      const svc = clientService();
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      svc.cancel('246810');
+      expect(svc.peek('246810')).toBeNull();
+      expect(await svc.poll(pollToken)).toEqual({ status: 'unknown' });
+    });
+
+    it('a settled pair stays answerable through the retire grace, then leaves the table', async () => {
+      let now = 9_000_000;
+      const svc = clientService({ now: () => now, ttlMs: 1000 });
+      const { pollToken } = await svc.startClientPair(CLIENT);
+      svc.deny('246810');
+      // Past expiry but inside the grace: the verdict still reads.
+      now += 1500;
+      expect(await svc.poll(pollToken)).toEqual({ status: 'denied' });
+      // Past the grace: retired — and its code is free again.
+      now += 5 * 60_000;
+      expect(await svc.poll(pollToken)).toEqual({ status: 'unknown' });
+      expect(svc.peek('246810')).toBeNull();
+    });
   });
 
   describe('default code generator', () => {

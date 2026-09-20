@@ -42,13 +42,21 @@ export {
   validateDaemonAuthToken,
 } from './daemon-auth-tokens';
 export {
+  type ApprovePairFailureReason,
+  type ApprovePairResult,
   type ConfirmPairResult,
   createDaemonPairingService,
+  DAEMON_PAIRING_CLIENT_KINDS,
+  type DaemonPairingClientKind,
   type DaemonPairingService,
   type DaemonPairingServiceOptions,
   defaultGenerateCode,
   type PendingPair,
+  type PendingPairInitiative,
   type PendingPairStatus,
+  type PollPairResult,
+  type StartClientPairInput,
+  type StartClientPairResult,
   type StartPairInput,
   type StartPairResult,
 } from './daemon-pairing';

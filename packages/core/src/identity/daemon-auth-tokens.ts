@@ -106,7 +106,8 @@ async function writeTokens(tokens: DaemonAuthToken[]): Promise<void> {
  */
 const withTokenStoreLock = createMutex();
 
-function bytesToBase64Url(bytes: Uint8Array): string {
+/** The ledger's base64url rendering of secret bytes — shared with the pairing service's poll handle. */
+export function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
   // btoa is universally available on the targets we care about
@@ -120,7 +121,8 @@ function bytesToHex(bytes: Uint8Array): string {
   return out;
 }
 
-async function sha256Hex(input: string): Promise<string> {
+/** The ledger's hash-only law, shared with every handle stored beside it. */
+export async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest(HASH_ALGORITHM, data);
   return bytesToHex(new Uint8Array(digest));
