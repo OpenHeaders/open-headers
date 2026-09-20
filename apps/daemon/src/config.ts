@@ -47,6 +47,12 @@ import type {
  */
 export const AUDIT_RETENTION_DEFAULT_DAYS = 90;
 
+/**
+ * The session TTL policy's default (the client sign-in plan §6.5) —
+ * redeclared here for the same bundling reason as the retention default.
+ */
+export const SESSION_TTL_DEFAULT_DAYS = 30;
+
 export type BindAddress = '127.0.0.1' | '0.0.0.0';
 
 export interface DaemonConfig {
@@ -101,6 +107,14 @@ export interface DaemonConfig {
    * the config file.
    */
   oidc: DaemonOidcConfig | null;
+  /**
+   * The one session TTL policy (the client sign-in plan §6.5, D3): how
+   * many days a person's session lasts — a browser tab's login, the
+   * server claim, an SSO completion, and a device signed in through the
+   * server's page alike. Integer ≥ 1; default 30. `sessionTtlDays` in
+   * `daemon.json` or `OH_DAEMON_SESSION_TTL_DAYS`.
+   */
+  sessionTtlDays: number;
   /**
    * Vault cipher passphrase (enterprise Phase 6) — unlocks the
    * sensitive slots (vault/oauth) in `storage.json` through a
@@ -207,6 +221,7 @@ interface ConfigFile {
   webRoot?: string;
   serverName?: string;
   oidc?: DaemonOidcConfig;
+  sessionTtlDays?: number;
   auditRetentionDays?: number;
   auditForwarding?: DaemonAuditForwardingConfig;
   publicWorkspaces?: boolean;
@@ -356,15 +371,11 @@ function parseOidcConfig(raw: unknown, source: string): DaemonOidcConfig {
     if (typeof record.autoProvision !== 'boolean') throw new Error(`${source}: oidc.autoProvision must be a boolean`);
     out.autoProvision = record.autoProvision;
   }
-  if (record.sessionTtlDays !== undefined) {
-    if (
-      typeof record.sessionTtlDays !== 'number' ||
-      !Number.isFinite(record.sessionTtlDays) ||
-      record.sessionTtlDays <= 0
-    ) {
-      throw new Error(`${source}: oidc.sessionTtlDays must be a positive number`);
-    }
-    out.sessionTtlDays = record.sessionTtlDays;
+  if ('sessionTtlDays' in record) {
+    // One policy for every session, not an SSO-only knob — the field
+    // lives at the top level, and a stale placement refuses loudly
+    // rather than silently minting 30-day SSO sessions.
+    throw new Error(`${source}: oidc.sessionTtlDays has moved — set the top-level sessionTtlDays instead`);
   }
   if (record.redirectOrigin !== undefined) {
     out.redirectOrigin = parseHttpUrl(record.redirectOrigin, source, 'oidc.redirectOrigin');
@@ -639,6 +650,12 @@ function parseConfigRecord(record: Record<string, unknown>, configPath: string):
   if (record.oidc !== undefined) {
     out.oidc = parseOidcConfig(record.oidc, configPath);
   }
+  if (record.sessionTtlDays !== undefined) {
+    if (typeof record.sessionTtlDays !== 'number') {
+      throw new Error(`${configPath}: sessionTtlDays must be a number`);
+    }
+    out.sessionTtlDays = record.sessionTtlDays;
+  }
   if (record.auditRetentionDays !== undefined) {
     if (typeof record.auditRetentionDays !== 'number') {
       throw new Error(`${configPath}: auditRetentionDays must be a number`);
@@ -779,6 +796,14 @@ export function resolvePassphraseEnv(
   return passphrase;
 }
 
+/** Whole days, at least one — a session that lasts less than a day is a misconfiguration, not a policy. */
+function parseSessionTtlDays(raw: number, source: string): number {
+  if (!Number.isInteger(raw) || raw < 1) {
+    throw new Error(`${source}: session TTL days must be an integer of at least 1, got '${raw}'`);
+  }
+  return raw;
+}
+
 function parseAuditRetentionDays(raw: number, source: string): number {
   if (!Number.isFinite(raw) || raw <= 0) {
     throw new Error(`${source}: audit retention days must be a positive number, got '${raw}'`);
@@ -879,6 +904,11 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     'OH_DAEMON_VAULT_PASSPHRASE_FILE',
   );
 
+  const envSessionTtl = input.env.OH_DAEMON_SESSION_TTL_DAYS;
+  const rawSessionTtl = envSessionTtl !== undefined ? Number(envSessionTtl) : file.sessionTtlDays;
+  const sessionTtlDays =
+    rawSessionTtl === undefined ? SESSION_TTL_DEFAULT_DAYS : parseSessionTtlDays(rawSessionTtl, 'session TTL days');
+
   const envRetention = input.env.OH_DAEMON_AUDIT_RETENTION_DAYS;
   const rawRetention = envRetention !== undefined ? Number(envRetention) : file.auditRetentionDays;
   const auditRetentionDays =
@@ -932,6 +962,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     webRoot,
     serverName,
     oidc,
+    sessionTtlDays,
     vaultPassphrase,
     auditRetentionDays,
     auditForwarding: file.auditForwarding ?? null,

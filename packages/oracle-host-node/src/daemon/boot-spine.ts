@@ -208,6 +208,7 @@ import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { createProxyRoutingControl } from './proxy/routing-push';
 import { createPublicWorkspaceHttpHandler } from './public-workspace-http';
+import { DEFAULT_SESSION_TTL_DAYS, sessionTtlMsFromDays } from './session-ttl';
 import { createDaemonSetupClaimService } from './setup/setup-claim-service';
 import { createSetupHttpHandler } from './setup/setup-http';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
@@ -356,6 +357,13 @@ export interface DaemonSpineConfig {
    * additional way to mint a session credential.
    */
   oidc?: DaemonOidcConfig;
+  /**
+   * The one session TTL policy (the client sign-in plan §6.5): every
+   * `session`-kind mint — password login, the server claim, an SSO
+   * completion, a device sign-in — expires this many days after it is
+   * minted. Absent = 30.
+   */
+  sessionTtlDays?: number;
   /**
    * Audit-log retention window in days (the unified-oracle model §9.1).
    * Absent = 90. One knob for every entry regardless of actor type.
@@ -810,6 +818,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     into the host's `live` status pill (C5). Torn down in dispose.
   startLiveRunner({ reportStatus: status.report });
 
+  // The session TTL policy, resolved once and threaded into every
+  // session-kind mint below (the client sign-in plan §6.5).
+  const sessionTtlMs = sessionTtlMsFromDays(config.sessionTtlDays ?? DEFAULT_SESSION_TTL_DAYS);
+
   // 4a'. Phase-3 admission — one Origin/Host matrix + brute-force
   //      limiter for every plane on the composed bind. Wraps the HTTP
   //      chain below and gates WS upgrades through the supervisor.
@@ -834,9 +846,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     distributed sweep — where failing closed is the right answer —
   //     instead of a handful of rotating addresses denying pairing to
   //     everyone. Loopback/LAN keeps the service defaults.
-  const pairingService = createDaemonPairingService(
-    config.admission?.trustedProxy ? { maxFailedLookups: TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET } : {},
-  );
+  const pairingService = createDaemonPairingService({
+    sessionTtlMs,
+    ...(config.admission?.trustedProxy ? { maxFailedLookups: TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET } : {}),
+  });
   const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
 
   // 4b'''. NM identity bootstrap (Phase 7) — `/nm/bootstrap`, composed
@@ -1117,6 +1130,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         // The declared-admin promotion's O3 arc evicts revoked unbound
         // tokens' sockets — same persist-before-evict the claim uses.
         closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
+        sessionTtlMs,
       })
     : null;
   const oidcHttpHandler =
@@ -1132,8 +1146,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //         composed ONLY when no OIDC provider is configured: password
   //         is the no-IdP deployment's login story, never an SSO bypass.
   //         Same session-kind mint the SSO flow terminates in.
+  const passwordLoginService = config.oidc === undefined ? createDaemonPasswordLoginService({ sessionTtlMs }) : null;
   const passwordHttpHandler =
-    config.oidc === undefined ? createPasswordHttpHandler({ service: createDaemonPasswordLoginService() }) : null;
+    passwordLoginService !== null ? createPasswordHttpHandler({ service: passwordLoginService }) : null;
 
   // 4c'''''. Server claim (the front-door plan §4.2) — `/auth/setup/*`,
   //          composed on EVERY deployment including SSO, where it
@@ -1145,6 +1160,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     oidcConfigured: config.oidc !== undefined,
     listWorkspaceIds: () => listWorkspaces().map((ws) => ws.id),
     closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
+    sessionTtlMs,
     ...(config.onSetupCodeChange ? { onSetupCodeChange: config.onSetupCodeChange } : {}),
   });
   await setupClaimService.ensureSetupCode().catch((err: unknown) => {

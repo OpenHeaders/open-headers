@@ -93,13 +93,6 @@ export interface DaemonOidcConfig {
    */
   autoProvision?: boolean;
   /**
-   * Lifetime of the session token an SSO login mints, in days.
-   * Default 30. The minted token is a user-bound {@link DaemonAuthToken}
-   * with `expiresAt`; validation refuses it past this window and the
-   * user re-authenticates against the IdP.
-   */
-  sessionTtlDays?: number;
-  /**
    * The externally visible origin the IdP redirects back to
    * (e.g. `https://oh.example.com`) — its `/auth/oidc/callback` must be
    * registered with the provider. Absent = derived per request from the

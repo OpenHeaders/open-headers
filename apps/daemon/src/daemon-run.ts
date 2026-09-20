@@ -288,6 +288,7 @@ export async function runDaemon(argv: readonly string[]): Promise<void> {
         log.info(SCOPE, '  where to point that browser: ohd status');
       },
       ...(config.oidc ? { oidc: config.oidc } : {}),
+      sessionTtlDays: config.sessionTtlDays,
       auditRetentionDays: config.auditRetentionDays,
       ...(config.auditForwarding ? { auditForwarding: config.auditForwarding } : {}),
       ...(config.licenseFile !== null ? { licenseFilePath: config.licenseFile } : {}),

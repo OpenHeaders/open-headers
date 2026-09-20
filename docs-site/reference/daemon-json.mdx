@@ -40,6 +40,7 @@ being second-guessed; the exact messages are quoted in
 | `webRoot` | string | the `web/` dir beside the daemon | Directory holding the built web app the daemon serves at `/`. Headless-only when neither is present. |
 | `serverName` | string | the OS hostname | Human-readable name for this deployment — what the served tab's Org chip and the awaiting-access screen show. Set it in containers, where the hostname is just the container id. |
 | `oidc` | object | not set (SSO off) | OpenID Connect login provider — see the fields below and [Users, seats & SSO](/server/users-sso). The client secret can ride the environment variable so it stays out of the file. |
+| `sessionTtlDays` | number | `30` | How many days a person's session lasts — a browser login, the server claim, an SSO completion, and a device signed in through the server's page alike. One policy for every session; whole days, at least 1. |
 | `auditRetentionDays` | number | `90` | Audit-log retention window in days. One number for every entry; uncapped upward for compliance deployments. |
 | `auditForwarding` | object | not set (no outbound) | Audit→SIEM streaming destination — audit rows POST to this collector as JSON batches behind a durable cursor. See the fields below and [Observability](/server/observability). |
 | `publicWorkspaces` | boolean | `false` | Public snapshot plane master switch. On, owners of `public`-visibility workspaces can publish a read-only snapshot served anonymously at `/public/<workspaceId>`. Off gates both publishing and serving — standing publications go dark, nothing is deleted. |
@@ -47,6 +48,7 @@ being second-guessed; the exact messages are quoted in
 | `licenseRefresh` | boolean | `true` | Self-serve license renewal loop. `false` disables the refresh agent — the air-gapped/no-outbound posture; offline licenses stand it down on their own either way. |
 | `personalSeats` | boolean | `true` | Personal-seat redemption. `false` refuses user-held individual seat keys at the seat gate, keeping seat growth on the procurement path. |
 | `proxy` | object | not set (env mode applies) | How the daemon's **own outbound requests** reach the network (distinct from `trustedProxy`, the inbound posture). See the fields below. |
+| `useSystemCa` | boolean | not set (the device's stored answer stands) | Seeds this machine's opt-in to the operating system's certificate store at boot (additive — the OS roots ride beside the bundled ones). `true` / `false` writes the device posture; absent leaves the stored answer alone. |
 
 ### Flag and environment overrides
 
@@ -64,12 +66,14 @@ environment variable, where one exists.
 | `allowInsecureLan` | `--allow-insecure-lan` | `OH_DAEMON_ALLOW_INSECURE_LAN` |
 | `webRoot` | `--web-root` | `OH_DAEMON_WEB_ROOT` |
 | `oidc` | — | `OH_DAEMON_OIDC_CLIENT_SECRET` (secret only) |
+| `sessionTtlDays` | — | `OH_DAEMON_SESSION_TTL_DAYS` |
 | `auditRetentionDays` | — | `OH_DAEMON_AUDIT_RETENTION_DAYS` |
 | `publicWorkspaces` | — | `OH_PUBLIC_WORKSPACES` |
 | `licenseFile` | — | `OH_LICENSE_FILE` |
 | `licenseRefresh` | — | `OH_LICENSE_REFRESH` |
 | `personalSeats` | — | `OH_PERSONAL_SEATS` |
 | `proxy` | `--proxy-*` (see the ohd options) | `OH_DAEMON_PROXY_*` (see below) |
+| `useSystemCa` | `--use-system-ca` / `--no-use-system-ca` | `OH_DAEMON_USE_SYSTEM_CA` |
 
 ### The `oidc` object
 
@@ -80,7 +84,6 @@ environment variable, where one exists.
 | `oidc.clientSecret` | string | The client secret; prefer `OH_DAEMON_OIDC_CLIENT_SECRET` to keep it out of the file. |
 | `oidc.scopes` | string[] | Extra scopes to request beyond the defaults. |
 | `oidc.autoProvision` | boolean | Create a directory user on first successful SSO login. |
-| `oidc.sessionTtlDays` | number | Web session lifetime in days. |
 | `oidc.redirectOrigin` | string | Origin the provider redirects back to, when it differs from the request origin (e.g. behind a proxy). |
 | `oidc.providerLabel` | string | Label shown on the login button. |
 | `oidc.claimMappings` | object | Map an ID-token claim to workspace grants: `claimPath` plus `rules` of `{ value, workspaceId, role }` (role: `owner`, `editor`, or `viewer`). |
@@ -122,6 +125,7 @@ config file.
 | `OH_DAEMON_ALLOWED_HOSTS` | Comma-separated allowed hostnames. |
 | `OH_DAEMON_ALLOW_INSECURE_LAN` | `1`/`0` — cleartext-LAN acknowledgment override. |
 | `OH_DAEMON_WEB_ROOT` | Web bundle directory override. |
+| `OH_DAEMON_SESSION_TTL_DAYS` | Session lifetime override, in whole days. |
 | `OH_DAEMON_OIDC_CLIENT_SECRET` | OIDC client secret, layered onto the file's `oidc` block (refused without one). |
 | `OH_DAEMON_VAULT_PASSPHRASE` | Vault cipher passphrase (value directly). |
 | `OH_DAEMON_VAULT_PASSPHRASE_FILE` | Vault cipher passphrase from a secret file (systemd `LoadCredential=`, compose `secrets:`). Exactly one of the pair. |
@@ -132,6 +136,7 @@ config file.
 | `OH_LICENSE_REFRESH` | `1`/`0` — license renewal loop. |
 | `OH_PERSONAL_SEATS` | `1`/`0` — personal-seat redemption. |
 | `OH_PUBLIC_WORKSPACES` | `1`/`0` — public snapshot plane master switch. |
+| `OH_DAEMON_USE_SYSTEM_CA` | `1`/`0` — system certificate store opt-in seed. |
 | `OH_DAEMON_PROXY_MODE` | Egress proxy mode (`off`, `env`, `manual`). |
 | `OH_DAEMON_PROXY_URL` | Egress proxy URL (manual mode). |
 | `OH_DAEMON_PROXY_CREDENTIAL_REF` | Vault entry for the egress proxy credential (manual mode). |

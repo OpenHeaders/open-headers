@@ -220,7 +220,6 @@ OpenID Connect provider. Configure the provider in `daemon.json`:
     "clientId": "openheaders-daemon",
     "redirectOrigin": "https://oh.example.com",
     "autoProvision": false,
-    "sessionTtlDays": 30,
     "providerLabel": "Example SSO"
   }
 }
@@ -235,7 +234,8 @@ deployments; the daemon then derives it from the request.
 
 A successful login maps the provider's verified email onto a daemon user
 (`ohd user add <name> --email <email>`) and mints a session token bound
-to that user, expiring after `sessionTtlDays` (default 30). Unknown emails are
+to that user, expiring after the server-wide top-level `sessionTtlDays`
+(default 30 — one policy for every session). Unknown emails are
 refused unless `autoProvision` is `true`, which creates the user with zero
 workspace grants — grant access with `ohd user grant`. Daemon-local
 users, pairing, and operator-minted tokens keep working unchanged; SSO is

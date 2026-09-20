@@ -190,6 +190,8 @@ Options (install / status / show-token / config):
                            (host suffixes, host:port, IPv4 CIDR, *)
   --use-system-ca          also trust the operating system's certificate
                            store on this machine (additive; needs Node 22.15+)
+  --no-use-system-ca       install only: clear a --use-system-ca persisted by
+                           an earlier install
   --verbose                status only: read the token-gated /metrics route
   --token <secret>         status only: paired token for /metrics (or set
                            the OH_DAEMON_TOKEN environment variable)

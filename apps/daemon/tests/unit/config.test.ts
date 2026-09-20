@@ -164,7 +164,6 @@ describe('resolveDaemonConfig — precedence', () => {
         clientId: 'oh-daemon',
         scopes: ['openid', 'email', 'profile'],
         autoProvision: true,
-        sessionTtlDays: 7,
         redirectOrigin: 'https://oh.openheaders.io',
         providerLabel: 'ACME SSO',
       },
@@ -174,13 +173,31 @@ describe('resolveDaemonConfig — precedence', () => {
       issuer: 'https://sso.openheaders.io', // trailing slash trimmed
       clientId: 'oh-daemon',
       autoProvision: true,
-      sessionTtlDays: 7,
       redirectOrigin: 'https://oh.openheaders.io',
       providerLabel: 'ACME SSO',
     });
     expect(config.oidc?.clientSecret).toBeUndefined();
     const withEnv = resolve(['--config', file], { OH_DAEMON_OIDC_CLIENT_SECRET: 's3cret' });
     expect(withEnv.oidc?.clientSecret).toBe('s3cret');
+  });
+
+  it('reads the one sessionTtlDays policy: default 30, file, env on top, whole days of at least one', () => {
+    expect(resolve().sessionTtlDays).toBe(30);
+    const file = writeConfigFile({ sessionTtlDays: 7 });
+    expect(resolve(['--config', file]).sessionTtlDays).toBe(7);
+    expect(resolve(['--config', file], { OH_DAEMON_SESSION_TTL_DAYS: '90' }).sessionTtlDays).toBe(90);
+    expect(resolve([], { OH_DAEMON_SESSION_TTL_DAYS: '1' }).sessionTtlDays).toBe(1);
+    expect(() => resolve(['--config', writeConfigFile({ sessionTtlDays: '7' })])).toThrow(/sessionTtlDays must be/);
+    expect(() => resolve(['--config', writeConfigFile({ sessionTtlDays: 0 })])).toThrow(/at least 1/);
+    expect(() => resolve(['--config', writeConfigFile({ sessionTtlDays: 1.5 })])).toThrow(/at least 1/);
+    expect(() => resolve([], { OH_DAEMON_SESSION_TTL_DAYS: 'month' })).toThrow(/at least 1/);
+  });
+
+  it('refuses the retired oidc.sessionTtlDays placement by naming the top-level key', () => {
+    const file = writeConfigFile({
+      oidc: { issuer: 'https://sso.openheaders.io', clientId: 'oh-daemon', sessionTtlDays: 7 },
+    });
+    expect(() => resolve(['--config', file])).toThrow(/top-level sessionTtlDays/);
   });
 
   it('reads oidc.claimMappings, trimming values and validating roles', () => {

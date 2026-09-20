@@ -61,13 +61,13 @@ import type { DaemonUserRecord } from '@openheaders/core/types';
 import { getWorkspace, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { revokeUnboundTokens } from '../revoke-unbound-tokens';
+import { DEFAULT_SESSION_TTL_MS } from '../session-ttl';
 import { desiredGrantsFromClaims, extractClaimValues, mergeDesiredGrant } from './claims-mapping';
 import { type DaemonOidcConfig, OIDC_DEFAULT_WORKSPACE_SENTINEL, type OidcDefaultGrant } from './oidc-config';
 
 const SCOPE = 'OidcLogin';
 
 const DEFAULT_SCOPES: readonly string[] = ['openid', 'email', 'profile'];
-const DEFAULT_SESSION_TTL_DAYS = 30;
 export const PENDING_LOGIN_TTL_MS = 10 * 60_000;
 const PENDING_LOGIN_CAP = 200;
 const CLAIM_TTL_MS = 60_000;
@@ -125,6 +125,8 @@ export interface OidcServiceDeps {
   /** Outbound HTTP to the issuer (discovery + code exchange). Test seam. */
   fetchImpl?: typeof fetch;
   now?: () => number;
+  /** The server-wide session TTL policy (`session-ttl.ts`); the spine threads the resolved value. */
+  sessionTtlMs?: number;
   mintToken?: typeof mintDaemonAuthToken;
   findUserByEmail?: typeof findDaemonUserByEmail;
   createUser?: typeof createDaemonUser;
@@ -283,7 +285,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
     }
     return requested;
   })();
-  const sessionTtlMs = Math.max(1, config.sessionTtlDays ?? DEFAULT_SESSION_TTL_DAYS) * 24 * 60 * 60_000;
+  const sessionTtlMs = deps.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS;
 
   const pendingLogins = new Map<string, PendingLogin>();
   const pendingClaims = new Map<string, PendingClaim>();

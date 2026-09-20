@@ -132,7 +132,7 @@ describe('daemon OIDC service', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const nowMs = 1_000_000;
-    const rig = buildRig({ config: { sessionTtlDays: 1 }, now: () => nowMs });
+    const rig = buildRig({ deps: { sessionTtlMs: 24 * 60 * 60_000 }, now: () => nowMs });
     const { state, bindingNonce } = await begin(rig);
     const completed = await rig.service.completeLogin({ code: 'authcode', state, bindingNonce });
     expect(completed).toMatchObject({ ok: true, userId: created.record.user.id, email: 'alice@openheaders.io' });

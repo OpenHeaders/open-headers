@@ -49,6 +49,7 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     useSystemCa: null,
     serverName: null,
     oidc: null,
+    sessionTtlDays: 30,
     vaultPassphrase: null,
     auditRetentionDays: 90,
     auditForwarding: null,

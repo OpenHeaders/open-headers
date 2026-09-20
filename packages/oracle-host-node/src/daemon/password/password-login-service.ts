@@ -32,13 +32,10 @@ import {
 } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { createPeerRateLimiter, type PeerRateLimiter } from '../rate-limiter';
+import { DEFAULT_SESSION_TTL_MS } from '../session-ttl';
 import { hashPassword, verifyPassword } from './password-verifier';
 
 const SCOPE = 'PasswordLogin';
-
-const SESSION_TTL_DAYS = 30;
-/** Shared with the server claim, which terminates in the same session-kind mint. */
-export const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60_000;
 
 /** Per-account lockout: 5 failures in 10 minutes block the account for 15. */
 const ACCOUNT_LOCKOUT = { maxFailures: 5, windowMs: 10 * 60_000, blockMs: 15 * 60_000 } as const;
@@ -57,6 +54,8 @@ export type PasswordLoginResult =
 
 export interface PasswordLoginServiceDeps {
   now?: () => number;
+  /** The server-wide session TTL policy (`session-ttl.ts`); the spine threads the resolved value. */
+  sessionTtlMs?: number;
   mintToken?: typeof mintDaemonAuthToken;
   findUserByEmail?: typeof findDaemonUserByEmail;
   listUsers?: typeof listDaemonUsers;
@@ -79,6 +78,7 @@ export function createDaemonPasswordLoginService(deps: PasswordLoginServiceDeps 
   const findUserByEmail = deps.findUserByEmail ?? findDaemonUserByEmail;
   const listUsers = deps.listUsers ?? listDaemonUsers;
   const verify = deps.verify ?? verifyPassword;
+  const sessionTtlMs = deps.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS;
 
   const accountLimiter: PeerRateLimiter = createPeerRateLimiter({ ...ACCOUNT_LOCKOUT, now });
   // Decoy verifier for refusals with nothing real to check — keeps the
@@ -129,7 +129,7 @@ export function createDaemonPasswordLoginService(deps: PasswordLoginServiceDeps 
         label: `password:${record.userIdentity.value ?? normalized}`,
         userId: record.user.id,
         kind: 'session',
-        expiresAt: now() + SESSION_TTL_MS,
+        expiresAt: now() + sessionTtlMs,
       });
       logger.info(SCOPE, `password login minted session token ${minted.record.id} for user=${record.user.id}`);
       return { ok: true, secret: minted.secret, userId: record.user.id };

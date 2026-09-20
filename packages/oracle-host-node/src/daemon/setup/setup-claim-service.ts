@@ -46,9 +46,9 @@ import {
   setDaemonUserPassword,
 } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { SESSION_TTL_MS } from '../password/password-login-service';
 import { hashPassword, PASSWORD_MIN_LENGTH } from '../password/password-verifier';
 import { revokeUnboundTokens } from '../revoke-unbound-tokens';
+import { DEFAULT_SESSION_TTL_MS } from '../session-ttl';
 import { generateSetupCode, setupCodeMatches } from './setup-code';
 
 const SCOPE = 'SetupClaim';
@@ -102,6 +102,8 @@ export interface DaemonSetupClaimServiceOptions {
   readonly onSetupCodeChange?: (code: string | null) => void;
   /** Test seam — defaults to {@link generateSetupCode}. */
   readonly generateCode?: () => string;
+  /** The server-wide session TTL policy (`session-ttl.ts`); the spine threads the resolved value. */
+  readonly sessionTtlMs?: number;
   /** Test seam — defaults to `Date.now()`. */
   readonly now?: () => number;
 }
@@ -122,6 +124,7 @@ export interface DaemonSetupClaimService {
 export function createDaemonSetupClaimService(options: DaemonSetupClaimServiceOptions): DaemonSetupClaimService {
   const generateCode = options.generateCode ?? generateSetupCode;
   const now = options.now ?? Date.now;
+  const sessionTtlMs = options.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS;
   let setupCode: string | null = null;
 
   const refuse = (reason: DaemonSetupClaimRefusedReason): DaemonSetupClaimResult => {
@@ -202,7 +205,7 @@ export function createDaemonSetupClaimService(options: DaemonSetupClaimServiceOp
         label: `password:${email}`,
         userId: user.id,
         kind: 'session',
-        expiresAt: now() + SESSION_TTL_MS,
+        expiresAt: now() + sessionTtlMs,
       });
       // The claim is over: no further code is honoured, and the
       // manifest's unclaimed block goes with it.
