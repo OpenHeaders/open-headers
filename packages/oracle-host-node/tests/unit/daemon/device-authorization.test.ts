@@ -241,6 +241,9 @@ describe('the device-authorization page', () => {
     expect(page.status).toBe(200);
     expect(page.headers.get('content-type')).toContain('text/html');
     expect(page.headers.get('x-frame-options')).toBe('DENY');
+    // The approve and Not-me forms POST from this page: their Origin must
+    // stay the served one (`no-referrer` would serialize it as `null`).
+    expect(page.headers.get('referrer-policy')).toBe('same-origin');
     const html = await page.text();
     expect(html).toContain('Approve this device?');
     expect(html).toContain('Work Chrome');

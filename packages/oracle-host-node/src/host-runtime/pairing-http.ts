@@ -217,7 +217,12 @@ export function htmlResponse(res: ServerResponse, statusCode: number, body: stri
   // origin / referenced from a privileged context.
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Referrer-Policy', 'no-referrer');
+  // The page's URL carries the code: `same-origin` keeps it out of every
+  // cross-origin referrer (the provider hop's cross-origin leg drops it)
+  // while the page's own forms keep their real `Origin` — under
+  // `no-referrer` a browser serializes a form POST's Origin as `null`,
+  // which the admission matrix refuses as a foreign page.
+  res.setHeader('Referrer-Policy', 'same-origin');
   res.end(body);
 }
 

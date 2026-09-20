@@ -157,6 +157,9 @@ describe('pairing HTTP confirm — JSON content negotiation (A2)', () => {
     await cap.done;
     expect(cap.status()).toBe(200);
     expect(cap.header('content-type')).toContain('text/html');
+    // The page's own confirm form must POST with its real Origin — a
+    // `no-referrer` policy would serialize it as `null`, refused at admission.
+    expect(cap.header('referrer-policy')).toBe('same-origin');
     expect(cap.body()).toContain('Paired successfully');
   });
 });
