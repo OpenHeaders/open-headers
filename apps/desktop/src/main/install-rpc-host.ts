@@ -109,6 +109,7 @@ import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beaco
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { safeStorageCipher } from './safe-storage-cipher';
 import { installScriptSandbox } from './script-sandbox';
+import { createServerSignInRpc } from './server-sign-in';
 import { describeOsProxy } from './system-proxy-describe';
 import { installSystemProxyService } from './system-proxy-install';
 import { createUpdateService, readUpdatePreferences } from './update-service';
@@ -523,6 +524,8 @@ export async function installRpcHost(): Promise<void> {
   // Desktop-shell RPCs (`oh.updates.*`, `oh.migration.*`) answer ahead
   // of the engine dispatcher — they are host-shell concerns the spine
   // never learns.
+  const serverSignInRpc = createServerSignInRpc({ revealApp: () => revealAppSurface('workbench') });
+
   rpcDispatcher = async (raw) => {
     const message = (raw ?? {}) as Record<string, unknown>;
     const type = message.type;
@@ -701,6 +704,11 @@ export async function installRpcHost(): Promise<void> {
       const version = typeof message.version === 'string' ? message.version : '';
       return { body: await fetchWhatsNewEntryBody(version) };
     }
+    // A person's sign-in from this client (the client sign-in plan §7,
+    // F0-b): the renderer is a file origin every server refuses, so the
+    // device flow's HTTP runs here; an approved poll fronts the app.
+    const signIn = serverSignInRpc.dispatch(type, message);
+    if (signIn !== undefined) return signIn;
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };

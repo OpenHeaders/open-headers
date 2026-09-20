@@ -43,6 +43,7 @@ import type { ProductTelemetryRpc } from './product-telemetry';
 import type { RequestRpc } from './requests';
 import type { RuleRpc } from './rules';
 import type { SecretsRpc } from './secrets';
+import type { ServerSignInRpc } from './server-sign-in';
 import type { SyncEngineRpc } from './sync-engine';
 import type { SystemProxyRpc } from './system-proxy';
 import type { TemplateRpc } from './templates';
@@ -169,7 +170,8 @@ export interface BridgeRpcContract
     MigrationRpc,
     SystemProxyRpc,
     DeviceTrustRpc,
-    ProductTelemetryRpc {}
+    ProductTelemetryRpc,
+    ServerSignInRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages

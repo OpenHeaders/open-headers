@@ -12,7 +12,12 @@
 
 import whatsNewNotes from 'virtual:whats-new';
 import { hostBridge } from '@openheaders/core/bridge';
-import { registerCapability, type TerminalSession, type TerminalSpawnOptions } from '@openheaders/core/capabilities';
+import {
+  registerCapability,
+  type ServerSignInApi,
+  type TerminalSession,
+  type TerminalSpawnOptions,
+} from '@openheaders/core/capabilities';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -43,6 +48,19 @@ registerCapability('scriptRuntime', () => ['safe', 'developer']);
 // main-process `shell.openExternal` allowlist (http(s) + mailto). The
 // preload bridge takes care of marshalling.
 registerCapability('openExternalUrl', (url) => window.oh.openExternal(url));
+
+// A person's sign-in from this client (the client sign-in plan D4,
+// F0-b): this renderer is a file origin the server's admission matrix
+// refuses everywhere, so the device flow's HTTP — start, poll, the
+// gate's meta reads — runs in the main process over the bridge; the
+// approval page opens through `openExternalUrl` above, and main fronts
+// the app when the poll lands.
+const serverSignIn: ServerSignInApi = {
+  start: (input) => hostBridge.call('oh.serverSignIn.start', input),
+  poll: (input) => hostBridge.call('oh.serverSignIn.poll', input),
+  fetchMeta: (input) => hostBridge.call('oh.serverSignIn.meta', input).then((resp) => resp.payload),
+};
+registerCapability('serverSignIn', () => serverSignIn);
 
 // Named-browser opens for the extension-install CTAs — a store listing
 // must land in the browser that will install the extension. Main falls
