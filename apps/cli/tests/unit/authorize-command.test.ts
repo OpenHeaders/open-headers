@@ -9,7 +9,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type AuthorizeIo, commandRequestAuthorize } from '../../src/commands';
+import { commandRequestAuthorize, type WaitIo } from '../../src/commands';
 import { EXIT_OPERATION_FAILED, exitCodeFor, OperationFailedError } from '../../src/exit-codes';
 
 const ARGV = ['--daemon', 'http://127.0.0.1:8137', '--token', 'oh_secret'];
@@ -51,7 +51,7 @@ function stubDaemon(script: readonly unknown[]): void {
 function makeIo() {
   const progress: string[] = [];
   const sleeps: number[] = [];
-  const io: AuthorizeIo = {
+  const io: WaitIo = {
     progress: (line) => progress.push(line),
     sleep: async (ms) => {
       sleeps.push(ms);

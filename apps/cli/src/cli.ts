@@ -16,6 +16,7 @@ import {
   commandAutoUpdate,
   commandChannel,
   commandConnect,
+  commandLogin,
   commandRequestAuthorize,
   commandStatus,
   runReadCommand,
@@ -57,6 +58,7 @@ Usage: oh <command> [options]
 
 Commands:
   status                        Probe the daemon's /mcp surface (running / disabled / bad token)
+  login [--label <name>]        Sign in on the daemon's own page and save the device credential it grants
   connect --token <secret>      Validate and save the daemon URL + token for later runs
   channel [stable|beta]         Show or set the release line version checks follow
   upgrade [--channel <line>]    Download and install the newest release of this binary
@@ -72,7 +74,8 @@ ${runLines.join('\n')}
 
 Options:
   --daemon <url>            Daemon URL (default ${DEFAULT_DAEMON_URL}; env ${DAEMON_URL_ENV})
-  --token <secret>          Paired daemon token (env ${TOKEN_ENV}; oh connect persists one)
+  --token <secret>          Paired daemon token (env ${TOKEN_ENV}; oh login or oh connect persists one)
+  --label <name>            login only: how the server's page names this device (up to 64 characters)
   --workspace <id>          Target workspace (default: the daemon's active workspace)
   --json                    Emit the tool result's JSON payload verbatim
   --limit <n>               activity only: max entries (default 50)
@@ -153,6 +156,8 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
   let lines: string[];
   if (first === 'status') {
     lines = await commandStatus(argv.slice(1));
+  } else if (first === 'login') {
+    lines = await commandLogin(argv.slice(1));
   } else if (first === 'connect') {
     lines = await commandConnect(argv.slice(1));
   } else if (first === 'channel') {

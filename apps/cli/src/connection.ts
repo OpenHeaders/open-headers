@@ -27,11 +27,25 @@ function normalizeDaemonUrl(raw: string): string {
   return raw.endsWith('/') ? raw.slice(0, -1) : raw;
 }
 
-export function resolveConnection(
-  flags: ConnectionFlags,
-  env: NodeJS.ProcessEnv,
-  config: CliConfig,
-): Connection {
+/**
+ * The daemon's WebSocket URL for its HTTP origin — `http→ws`,
+ * `https→wss` — the address the shared sign-in client is handed (it
+ * addresses a back-end the way every other client does, by the
+ * configured socket URL). Null for anything that is not an `http(s)`
+ * URL, so a caller refuses with a clear reason.
+ */
+export function daemonWsUrl(daemonUrl: string): string | null {
+  try {
+    const u = new URL(daemonUrl);
+    const protocol = u.protocol === 'https:' ? 'wss:' : u.protocol === 'http:' ? 'ws:' : null;
+    if (!protocol) return null;
+    return `${protocol}//${u.host}`;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveConnection(flags: ConnectionFlags, env: NodeJS.ProcessEnv, config: CliConfig): Connection {
   const daemonUrl = flags.daemon ?? env[DAEMON_URL_ENV] ?? config.daemonUrl ?? DEFAULT_DAEMON_URL;
   const token = flags.token ?? env[TOKEN_ENV] ?? config.token;
   return {

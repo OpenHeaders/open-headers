@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, resolveConnection, TOKEN_ENV } from '../../src/connection';
+import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, daemonWsUrl, resolveConnection, TOKEN_ENV } from '../../src/connection';
 
 describe('resolveConnection', () => {
   it('defaults to loopback with no sources at all', () => {
@@ -25,11 +25,10 @@ describe('resolveConnection', () => {
 
   it('flags override env and config', () => {
     const env = { [DAEMON_URL_ENV]: 'https://env.openheaders.io', [TOKEN_ENV]: 'oh_env' };
-    const conn = resolveConnection(
-      { daemon: 'https://flag.openheaders.io', token: 'oh_flag' },
-      env,
-      { daemonUrl: 'https://config.openheaders.io', token: 'oh_config' },
-    );
+    const conn = resolveConnection({ daemon: 'https://flag.openheaders.io', token: 'oh_flag' }, env, {
+      daemonUrl: 'https://config.openheaders.io',
+      token: 'oh_config',
+    });
     expect(conn).toEqual({ daemonUrl: 'https://flag.openheaders.io', token: 'oh_flag' });
   });
 
@@ -46,5 +45,14 @@ describe('resolveConnection', () => {
   it('treats an empty token as absent', () => {
     const conn = resolveConnection({}, { [TOKEN_ENV]: '' }, {});
     expect(conn.token).toBeUndefined();
+  });
+});
+
+describe('daemonWsUrl', () => {
+  it('maps http→ws and https→wss on the same host, refusing anything else', () => {
+    expect(daemonWsUrl('http://127.0.0.1:8137')).toBe('ws://127.0.0.1:8137');
+    expect(daemonWsUrl('https://daemon.openheaders.io')).toBe('wss://daemon.openheaders.io');
+    expect(daemonWsUrl('ws://127.0.0.1:8137')).toBeNull();
+    expect(daemonWsUrl('not a url')).toBeNull();
   });
 });

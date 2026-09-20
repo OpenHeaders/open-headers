@@ -29,6 +29,8 @@ function buildTree(): CommandTree {
   const flags = new Map<string, string[]>();
 
   flags.set('status', CONNECTION_FLAGS);
+  // login takes no token — it signs a person in and receives one.
+  flags.set('login', ['--daemon', '--label']);
   flags.set('connect', CONNECTION_FLAGS);
   // Local command with value words instead of verbs — the channel names
   // complete at the second word, `--json` afterwards.
@@ -53,7 +55,11 @@ function buildTree(): CommandTree {
   }
 
   const groups = [...new Set([...verbs.keys(), ...READ_COMMANDS.filter((s) => s.verb === '').map((s) => s.group)])];
-  return { top: ['status', 'connect', 'upgrade', 'changelog', 'completion', 'tui', 'help', ...groups], verbs, flags };
+  return {
+    top: ['status', 'login', 'connect', 'upgrade', 'changelog', 'completion', 'tui', 'help', ...groups],
+    verbs,
+    flags,
+  };
 }
 
 /** case arms for the second word: verbs per group, or flags for verb-less commands. */

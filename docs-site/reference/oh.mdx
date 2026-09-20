@@ -17,6 +17,7 @@ the daemon's active workspace. The server-side control binary is
 | Command | What it does |
 | --- | --- |
 | `oh status` | Probe the daemon's /mcp surface (running / disabled / bad token) |
+| `oh login [--label <name>]` | Sign in on the daemon's own page and save the device credential it grants |
 | `oh connect --token <secret>` | Validate and save the daemon URL + token for later runs |
 | `oh channel [stable\|beta]` | Show or set the release line version checks follow |
 | `oh upgrade [--channel <line>]` | Download and install the newest release of this binary |
@@ -73,7 +74,8 @@ Sends and runs are real network egress, gated behind the daemon's
 | Option | What it does |
 | --- | --- |
 | `--daemon <url>` | Daemon URL (default http://127.0.0.1:8137; env OH_DAEMON_URL) |
-| `--token <secret>` | Paired daemon token (env OH_TOKEN; oh connect persists one) |
+| `--token <secret>` | Paired daemon token (env OH_TOKEN; oh login or oh connect persists one) |
+| `--label <name>` | login only: how the server's page names this device (up to 64 characters) |
 | `--workspace <id>` | Target workspace (default: the daemon's active workspace) |
 | `--json` | Emit the tool result's JSON payload verbatim |
 | `--limit <n>` | activity only: max entries (default 50) |
@@ -102,5 +104,5 @@ Sends and runs are real network egress, gated behind the daemon's
 
 | Variable | What it does |
 | --- | --- |
-| `OH_DAEMON_URL` | Daemon URL (default `http://127.0.0.1:8137`; `oh connect` persists one). |
-| `OH_TOKEN` | Paired daemon token. |
+| `OH_DAEMON_URL` | Daemon URL (default `http://127.0.0.1:8137`; `oh login` or `oh connect` persists one). |
+| `OH_TOKEN` | Paired daemon token (`oh login` receives one; `oh connect --token` saves one you hold). |

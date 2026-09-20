@@ -1,17 +1,19 @@
 /**
  * Command execution — the glue between argv, the config store, and the
- * RPC client. `runReadCommand` drives every table entry; `status` and
- * `connect` are the two local commands (probe + persist) that exist
- * outside the tool catalog; `request authorize` is the one two-call
- * command (start, then poll the status tool at the provider's cadence).
+ * RPC client. `runReadCommand` drives every table entry; `status`,
+ * `connect` and `login` are the local commands (probe + persist) that
+ * exist outside the tool catalog; `request authorize` and `login` are
+ * the two waiting commands (start, then poll until the person settles
+ * the flow in a browser).
  */
 
 import { parseArgs } from 'node:util';
-import { mergeCliConnection } from '@openheaders/core/cli-config';
+import { type CliConfig, mergeCliConnection } from '@openheaders/core/cli-config';
+import { createServerSignInClient } from '@openheaders/core/identity';
 import type { CommandOptionValues, CommandSpec } from './command-spec';
 import { cliConfigPath, readCliConfig, type UpdateChannel, writeCliConfig } from './config-store';
-import { type Connection, resolveConnection, TOKEN_ENV } from './connection';
-import { OperationFailedError, UsageError } from './exit-codes';
+import { type Connection, daemonWsUrl, resolveConnection, TOKEN_ENV } from './connection';
+import { AuthError, OperationFailedError, UnreachableError, UsageError } from './exit-codes';
 import { formatRequestAuthorize } from './format';
 import { commandTokenCount, type ReadCommandSpec } from './read-commands';
 import { resolveRequestTarget } from './resolvers';
@@ -190,6 +192,22 @@ export async function commandAutoUpdate(argv: readonly string[]): Promise<string
   return [`auto-update turned ${next}`, `saved to ${configPath}`];
 }
 
+/**
+ * The one persist path a credential rides into `cli.json`: probe the
+ * daemon with it (a rejected token never lands on disk), then merge over
+ * the existing file — the write owns only the connection pair, never
+ * the telemetry or channel keys. `connect` and `login` share it.
+ */
+async function probeAndSaveConnection(
+  existing: CliConfig,
+  conn: Connection & { token: string },
+): Promise<{ toolCount: number; configPath: string }> {
+  const tools = await listTools(conn);
+  const configPath = cliConfigPath();
+  await writeCliConfig(configPath, mergeCliConnection(existing, conn.daemonUrl, conn.token));
+  return { toolCount: tools.length, configPath };
+}
+
 export async function commandConnect(argv: readonly string[]): Promise<string[]> {
   const { values, positionals } = parseCommandArgs(argv, {});
   if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
@@ -199,12 +217,99 @@ export async function commandConnect(argv: readonly string[]): Promise<string[]>
   }
   const existing = await readCliConfig(cliConfigPath());
   const conn = resolveConnection({ daemon: values.daemon, token }, process.env, existing);
-  const tools = await listTools(conn);
-  const configPath = cliConfigPath();
-  // Merge over the existing file — connect owns only the connection pair,
-  // never the telemetry keys.
-  await writeCliConfig(configPath, mergeCliConnection(existing, conn.daemonUrl, token));
-  return [`connected — ${tools.length} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
+  const { toolCount, configPath } = await probeAndSaveConnection(existing, { ...conn, token });
+  return [`connected — ${toolCount} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
+}
+
+// ── oh login ─────────────────────────────────────────────────────────
+
+/** The waiting UX's seams — stderr for the progress lines (stdout stays
+ *  the result), the clock for the poll cadence. */
+export interface WaitIo {
+  progress: (line: string) => void;
+  sleep: (ms: number) => Promise<void>;
+}
+
+const DEFAULT_WAIT_IO: WaitIo = {
+  progress: (line) => process.stderr.write(`${line}\n`),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+};
+
+/** How often the sign-in handle is polled while the person is on the server's page. */
+export const LOGIN_POLL_INTERVAL_MS = 2_000;
+const DEVICE_LABEL_MAX_LENGTH = 64;
+
+const LOGIN_START_REFUSALS = {
+  'too-many-pending': (host: string) => `${host} has too many sign-ins waiting — try again in a few minutes`,
+  throttled: (host: string) => `${host} is refusing requests from this machine for now — try again later`,
+  forbidden: (host: string) => `${host} refused the sign-in request from this machine`,
+  offline: (host: string) => `nothing answered at ${host} — is the daemon running at that address?`,
+  error: () => 'the sign-in could not be started — the daemon answered something unexpected',
+} as const;
+
+/**
+ * `oh login [--daemon <url>] [--label <name>]` — sign a PERSON in from
+ * the command line the way the extension and the desktop app do (the
+ * client sign-in plan §7): this CLI never takes the password. It starts
+ * a device sign-in on the daemon, prints the server's own approval page
+ * and the short code that page will show, and polls its handle until
+ * the person approves the device there — with whatever the server's
+ * identity plane accepts. The bound session credential the poll answers
+ * then rides the SAME probe-and-save path `oh connect --token` rides,
+ * so `cli.json` ends up exactly as a pasted token would leave it.
+ * `oh connect --token` stays for machines and admin-issued credentials.
+ */
+export async function commandLogin(argv: readonly string[], io: WaitIo = DEFAULT_WAIT_IO): Promise<string[]> {
+  const { values, positionals } = parseCommandArgs(argv, { label: { type: 'string' } });
+  if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
+  if (values.token !== undefined) {
+    throw new UsageError(
+      "oh login signs a person in on the server's page — to save a token you already hold, run oh connect --token",
+    );
+  }
+  const label = typeof values.label === 'string' ? values.label.trim() : undefined;
+  if (label !== undefined && label.length > DEVICE_LABEL_MAX_LENGTH) {
+    throw new UsageError(`--label must be at most ${DEVICE_LABEL_MAX_LENGTH} characters`);
+  }
+  const existing = await readCliConfig(cliConfigPath());
+  const { daemonUrl } = resolveConnection({ daemon: values.daemon }, process.env, existing);
+  const wsUrl = daemonWsUrl(daemonUrl);
+  if (wsUrl === null) throw new UsageError(`--daemon must be an http:// or https:// URL, got ${daemonUrl}`);
+  const host = new URL(daemonUrl).host;
+
+  const client = createServerSignInClient({ client: 'cli' });
+  const started = await client.start({ url: wsUrl, ...(label ? { deviceLabel: label } : {}) });
+  if (!started.ok) {
+    const message = LOGIN_START_REFUSALS[started.reason](host);
+    if (started.reason === 'offline') throw new UnreachableError(message);
+    if (started.reason === 'forbidden') throw new AuthError(message);
+    throw new OperationFailedError(message);
+  }
+
+  io.progress(`! Open ${started.approveUrl} in a browser and sign in there`);
+  io.progress(`  The page will ask you to approve code ${started.code} for this command-line tool`);
+  io.progress('  Waiting for you to approve this device…');
+
+  for (;;) {
+    await io.sleep(LOGIN_POLL_INTERVAL_MS);
+    const polled = await client.poll({ url: wsUrl, pollToken: started.pollToken });
+    if (polled.status === 'approved') {
+      const conn = resolveConnection({ daemon: daemonUrl, token: polled.secret }, {}, {});
+      const { toolCount, configPath } = await probeAndSaveConnection(existing, { ...conn, token: polled.secret });
+      return [`signed in — ${toolCount} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
+    }
+    if (polled.status === 'denied') throw new OperationFailedError("the sign-in was denied on the server's page");
+    if (polled.status === 'expired')
+      throw new OperationFailedError('the sign-in request expired before it was approved');
+    if (polled.status === 'unknown') {
+      throw new OperationFailedError('the server no longer holds this sign-in request — run oh login again');
+    }
+    // pending, or a transport hiccup worth polling past — until the
+    // pair's own clock runs out.
+    if (Date.now() > started.expiresAt) {
+      throw new OperationFailedError('the sign-in request expired before it was approved');
+    }
+  }
 }
 
 // ── oh request authorize ─────────────────────────────────────────────
@@ -233,18 +338,6 @@ interface AuthorizeStatusPayload {
   state: AuthorizeState | null;
 }
 
-/** The waiting UX's seams — stderr for the progress lines (stdout stays
- *  the `--json` payload), the clock for the poll cadence. */
-export interface AuthorizeIo {
-  progress: (line: string) => void;
-  sleep: (ms: number) => Promise<void>;
-}
-
-const DEFAULT_AUTHORIZE_IO: AuthorizeIo = {
-  progress: (line) => process.stderr.write(`${line}\n`),
-  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-};
-
 /**
  * `oh request authorize <name-or-uid>` — acquire an OAuth 2.0 token for
  * a saved request without a browser on the daemon: the grants that
@@ -257,7 +350,7 @@ const DEFAULT_AUTHORIZE_IO: AuthorizeIo = {
  */
 export async function commandRequestAuthorize(
   argv: readonly string[],
-  io: AuthorizeIo = DEFAULT_AUTHORIZE_IO,
+  io: WaitIo = DEFAULT_WAIT_IO,
 ): Promise<string[]> {
   const { values, positionals } = parseCommandArgs(argv, {});
   const [target, extra] = positionals;

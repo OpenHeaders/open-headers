@@ -540,8 +540,8 @@ ${table(['Code', 'Meaning'], ohExitCodes.map((e) => [code(e.code), cell(e.meanin
 ## Environment
 
 ${table(['Variable', 'What it does'], [
-  [code(DAEMON_URL_ENV), `Daemon URL (default \`${DEFAULT_DAEMON_URL}\`; \`oh connect\` persists one).`],
-  [code(TOKEN_ENV), 'Paired daemon token.'],
+  [code(DAEMON_URL_ENV), `Daemon URL (default \`${DEFAULT_DAEMON_URL}\`; \`oh login\` or \`oh connect\` persists one).`],
+  [code(TOKEN_ENV), 'Paired daemon token (\`oh login\` receives one; \`oh connect --token\` saves one you hold).'],
 ])}
 `;
 
