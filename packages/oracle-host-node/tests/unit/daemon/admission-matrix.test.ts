@@ -1,8 +1,8 @@
 /**
  * Admission matrix (Phase 3) — pure posture evaluation: route
  * classification on the composed bind, per-route Origin rules
- * (non-browser for /mcp, own-served-origin for pairing, extension
- * origins on the WS upgrade), and the Host DNS-rebinding guard
+ * (non-browser for /mcp, own-served-origin or extension origins for
+ * pairing and the WS upgrade), and the Host DNS-rebinding guard
  * (IP literals / localhost / *.local always known; anything else
  * must be config-declared).
  */
@@ -115,9 +115,20 @@ describe('origin posture', () => {
     expect(none.ok).toBe(true);
   });
 
-  it('pairing accepts no Origin and the own served origin, rejects cross-origin', () => {
+  it('pairing accepts no Origin, the own served origin and our extension origins, rejects cross-origin', () => {
     expect(evaluateAdmission(facts({ path: '/pair/123456' }), []).ok).toBe(true);
     expect(evaluateAdmission(facts({ path: '/pair/123456', origin: 'http://192.168.1.20:8137' }), []).ok).toBe(true);
+    // The wizard's in-app code entry POSTs the JSON confirm from the
+    // extension's own page (the client sign-in plan F0-a).
+    const confirm = '/pair/123456/confirm';
+    expect(
+      evaluateAdmission(facts({ path: confirm, origin: `chrome-extension://${CHROME_EXTENSION_ID}` }), []).ok,
+    ).toBe(true);
+    expect(evaluateAdmission(facts({ path: confirm, origin: 'moz-extension://uuid-here' }), []).ok).toBe(true);
+    // A co-installed foreign extension is refused by the Chromium id pin.
+    expect(
+      evaluateAdmission(facts({ path: confirm, origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' }), []),
+    ).toMatchObject({ ok: false, reason: 'origin-forbidden' });
     expect(evaluateAdmission(facts({ path: '/pair/123456', origin: 'https://evil.example.com' }), [])).toMatchObject({
       ok: false,
       reason: 'origin-forbidden',

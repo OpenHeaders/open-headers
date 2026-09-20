@@ -16,10 +16,13 @@
  *                      pass on scheme), and the daemon's own served
  *                      origin (the Phase 4 web app's tabs). Any other
  *                      browser origin is a drive-by page.
- *   - `/pair/*`      — no Origin (top-level navigations, curl) or the
+ *   - `/pair/*`      — no Origin (top-level navigations, curl), the
  *                      own served origin (the confirm form's same-origin
- *                      POST carries one). Cross-origin browser POSTs are
- *                      forged confirms.
+ *                      POST carries one), or a browser-extension origin
+ *                      (the extension's in-app code entry POSTs the
+ *                      JSON confirm from its own page — the client
+ *                      sign-in plan F0-a). Any other browser origin is
+ *                      a forged confirm.
  *   - `/nm/bootstrap` — native processes only (the shipped NM host);
  *                      any Origin ⇒ reject, and the handler itself
  *                      refuses non-loopback peers. A 403 (refused
@@ -164,8 +167,16 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
     failureStatuses: [],
   },
   // 404 = a pairing-code guess. 410 (expired/consumed) is a legitimate
-  // user racing the 5-minute window, not an attack signal.
-  pairing: { route: 'pairing', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
+  // user racing the 5-minute window, not an attack signal. Extension
+  // origins are admitted like the WS upgrade: the wizard's code entry
+  // is a page-side POST from the extension's own origin.
+  pairing: {
+    route: 'pairing',
+    origin: 'own-or-extension',
+    host: 'known',
+    rateLimited: true,
+    failureStatuses: [404],
+  },
   // The NM host is a native process (no Origin, loopback by
   // construction — the handler re-checks the peer address). A 403 is a
   // refused identity chain: a local process probing for a token.
