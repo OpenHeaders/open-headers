@@ -8,16 +8,24 @@
  * act: when the poll lands the approval, the person is in their browser
  * on the server's page — front the app so the wizard's "Signed in as …"
  * is what they see next (the OAuth code leg's `revealApp` precedent).
+ * The start names this device by the machine name so the page reads
+ * "Daniels-MacBook-Pro (the desktop app) asked…"; a caller's label wins.
  */
 
 import type { ServerSignInApi } from '@openheaders/core/capabilities';
 import { createServerSignInClient } from '@openheaders/core/identity';
+import { safeOsHostname } from './os-hostname';
+
+/** The server refuses longer labels (400) — never let a hostname trip it. */
+const MAX_DEVICE_LABEL_LENGTH = 64;
 
 export interface ServerSignInRpcOptions {
   /** Front the workbench window — called once per approved poll. */
   readonly revealApp: () => void;
   /** Test seam; defaults to the core client over Node's fetch. */
   readonly client?: ServerSignInApi;
+  /** The device label sent on a start without one; defaults to the machine name. */
+  readonly deviceLabel?: () => string;
 }
 
 export interface ServerSignInRpc {
@@ -27,13 +35,17 @@ export interface ServerSignInRpc {
 
 export function createServerSignInRpc(options: ServerSignInRpcOptions): ServerSignInRpc {
   const client = options.client ?? createServerSignInClient({ client: 'desktop' });
+  const ownLabel = options.deviceLabel ?? safeOsHostname;
   return {
     dispatch(type, message) {
       switch (type) {
         case 'oh.serverSignIn.start': {
           const url = typeof message.url === 'string' ? message.url : '';
-          const deviceLabel = typeof message.deviceLabel === 'string' ? message.deviceLabel : undefined;
-          return client.start(deviceLabel === undefined ? { url } : { url, deviceLabel });
+          const deviceLabel = (typeof message.deviceLabel === 'string' ? message.deviceLabel : ownLabel()).slice(
+            0,
+            MAX_DEVICE_LABEL_LENGTH,
+          );
+          return client.start({ url, deviceLabel });
         }
         case 'oh.serverSignIn.poll': {
           const url = typeof message.url === 'string' ? message.url : '';

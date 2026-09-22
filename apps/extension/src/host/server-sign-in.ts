@@ -14,7 +14,20 @@
 
 import type { ServerSignInApi } from '@openheaders/core/capabilities';
 import { createServerSignInClient } from '@openheaders/core/identity';
+import { selfHostLabel } from '@/utils/self-host-label';
 
-export function createExtensionServerSignIn(fetchFn: typeof fetch = (...args) => fetch(...args)): ServerSignInApi {
-  return createServerSignInClient({ client: 'extension', fetch: fetchFn });
+/**
+ * The device label the server's page names this client by ("Chrome ·
+ * macOS") — the host supplies it so the shared step stays host-neutral;
+ * a caller's own label wins.
+ */
+export function createExtensionServerSignIn(
+  fetchFn: typeof fetch = (...args) => fetch(...args),
+  deviceLabel: () => string = selfHostLabel,
+): ServerSignInApi {
+  const client = createServerSignInClient({ client: 'extension', fetch: fetchFn });
+  return {
+    ...client,
+    start: (input) => client.start({ ...input, deviceLabel: input.deviceLabel ?? deviceLabel() }),
+  };
 }

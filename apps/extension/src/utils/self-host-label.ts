@@ -6,10 +6,12 @@
  * without a live peer (the list is read offline). This module owns the
  * extension's platform-specific half: "browser · platform" derived from
  * the user-agent, e.g. `"Chrome · macOS"`. Display-only — never an
- * identity key.
+ * identity key. Lives in `utils/` because a page surface reads it too:
+ * the server wizard's sign-in names this device to the server's
+ * approval page with it (the client sign-in plan).
  */
 
-import { isChrome, isEdge, isFirefox, isSafari } from '../utils/browser-api';
+import { isChrome, isEdge, isFirefox, isSafari } from './browser-api';
 
 export function browserName(): string {
   if (isFirefox) return 'Firefox';

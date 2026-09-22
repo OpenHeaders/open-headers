@@ -23,7 +23,11 @@ function makeRig(overrides: Partial<ServerSignInApi> = {}) {
     fetchMeta: vi.fn(async () => ({ enabled: true })),
     ...overrides,
   };
-  const plane = createServerSignInRpc({ client, revealApp: () => revealed.push(1) });
+  const plane = createServerSignInRpc({
+    client,
+    revealApp: () => revealed.push(1),
+    deviceLabel: () => 'Daniels-MacBook-Pro',
+  });
   return { plane, client, revealed };
 }
 
@@ -34,11 +38,11 @@ describe('desktop serverSignIn rpc', () => {
     expect(plane.dispatch('oauthDeviceStart', {})).toBeUndefined();
   });
 
-  it('starts a pair as the desktop client, with or without a label', async () => {
+  it('starts a pair as the desktop client, named by the machine unless the caller names it', async () => {
     const { plane, client } = makeRig();
     const result = await plane.dispatch('oh.serverSignIn.start', { url: 'ws://10.0.0.5:8137' });
     expect(result).toMatchObject({ ok: true, code: '424242' });
-    expect(client.start).toHaveBeenCalledWith({ url: 'ws://10.0.0.5:8137' });
+    expect(client.start).toHaveBeenCalledWith({ url: 'ws://10.0.0.5:8137', deviceLabel: 'Daniels-MacBook-Pro' });
     await plane.dispatch('oh.serverSignIn.start', { url: 'ws://10.0.0.5:8137', deviceLabel: 'Work Mac' });
     expect(client.start).toHaveBeenLastCalledWith({ url: 'ws://10.0.0.5:8137', deviceLabel: 'Work Mac' });
   });

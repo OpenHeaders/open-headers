@@ -109,6 +109,7 @@ import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beaco
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { safeStorageCipher } from './safe-storage-cipher';
 import { installScriptSandbox } from './script-sandbox';
+import { safeOsHostname } from './os-hostname';
 import { createServerSignInRpc } from './server-sign-in';
 import { describeOsProxy } from './system-proxy-describe';
 import { installSystemProxyService } from './system-proxy-install';
@@ -144,20 +145,6 @@ export function getOhRpcDispatcher(): OhRpcDispatcher | null {
 function safeOsUsername(): string {
   try {
     return os.userInfo().username || 'Local';
-  } catch {
-    return 'Local';
-  }
-}
-
-/**
- * Best-effort machine name for the private home Org's descriptive
- * name on first boot. The trailing `.local` macOS appends is stripped so
- * a joined peer reads `Daniels-MacBook-Pro`, not `Daniels-MacBook-Pro.local`.
- * Falls back to `'Local'` when `os.hostname` throws or is empty.
- */
-function safeOsHostname(): string {
-  try {
-    return os.hostname().replace(/\.local$/, '') || 'Local';
   } catch {
     return 'Local';
   }

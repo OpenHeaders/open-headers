@@ -10,7 +10,7 @@
  */
 
 import type { BrowserTabWire, TelemetryBrowserIdentity, TelemetryDebugState } from '@openheaders/core/protocol';
-import { browserName, platformName } from '../self-host-label';
+import { browserName, platformName } from '../../utils/self-host-label';
 
 /** Bounds for the favicon → `data:` URI resolution below. */
 const FAVICON_MAX_BYTES = 24 * 1024;

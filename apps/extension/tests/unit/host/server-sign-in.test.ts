@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('createExtensionServerSignIn', () => {
-  it('starts a pair as the extension over the page-side fetch', async () => {
+  it('starts a pair as the extension over the page-side fetch, named by this browser and platform', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         ok: true,
@@ -30,7 +30,9 @@ describe('createExtensionServerSignIn', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await createExtensionServerSignIn().start({ url: 'ws://10.0.0.5:8137' });
+    const result = await createExtensionServerSignIn(undefined, () => 'Chrome · macOS').start({
+      url: 'ws://10.0.0.5:8137',
+    });
 
     expect(result).toEqual({
       ok: true,
@@ -41,7 +43,20 @@ describe('createExtensionServerSignIn', () => {
     });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('http://10.0.0.5:8137/pair');
-    expect(JSON.parse(init.body as string)).toEqual({ client: 'extension' });
+    expect(JSON.parse(init.body as string)).toEqual({ client: 'extension', deviceLabel: 'Chrome · macOS' });
+  });
+
+  it("a caller's own label wins over the host's", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ ok: true, code: '1', pollToken: 'h', expiresAt: 1, approveUrl: 'http://10.0.0.5:8137/pair/1' }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await createExtensionServerSignIn(undefined, () => 'Chrome · macOS').start({
+      url: 'ws://10.0.0.5:8137',
+      deviceLabel: 'Work laptop',
+    });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ client: 'extension', deviceLabel: 'Work laptop' });
   });
 
   it('polls the handle as the bearer and hands the approved secret through', async () => {

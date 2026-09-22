@@ -460,7 +460,9 @@ test('the extension signs the person in on the device page over the LAN bind and
   await devicePage.waitForLoadState();
   expect(new URL(devicePage.url()).pathname).toBe(`/pair/${code}`);
   await expect(devicePage.getByRole('heading', { name: 'Approve this device?' })).toBeVisible();
-  await expect(devicePage.getByText('the browser extension')).toBeVisible();
+  await expect(devicePage.getByText('(the browser extension)')).toBeVisible();
+  // Same machine asked and approves: no address line.
+  await expect(devicePage.getByText('a different device')).toHaveCount(0);
   await expect(devicePage.getByText(code).first()).toBeVisible();
 
   // The person signs in on the SERVER'S page — the extension never sees
@@ -550,10 +552,10 @@ test("the persisted ledger carries the stamped bootstrap row and the person's de
   expect(ledger[0].lastUsedAt).toBeGreaterThan(0);
   expect(envelope.secrets['oh.daemonAuthTokens']).toBeUndefined();
   // The device sign-in minted a session-kind row bound to the person,
-  // labelled by the client that asked — the row Paired devices lists
-  // and deactivation revokes.
+  // labelled by the client that asked and the browser it named itself
+  // by — the row Paired devices lists and deactivation revokes.
   const session = ledger.find((row) => row.kind === 'session' && row.userId === personId);
-  expect(session?.label).toBe('device:extension');
+  expect(session?.label).toMatch(/^device:extension:.+/);
   expect(session?.lastUsedAt).toBeGreaterThan(0);
 });
 

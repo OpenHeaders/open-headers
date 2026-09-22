@@ -116,7 +116,7 @@ import { hydrateActiveWorkspaceStores } from './modules/workspace/workspace-orch
 import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace/workspace-tab-registry';
 import { startProxyRoutingHost } from './proxy-routing-host';
-import { selfHostLabel } from './self-host-label';
+import { selfHostLabel } from '../utils/self-host-label';
 import { startUpdateDeferral } from './update-deferral';
 
 // ── Eval-time wiring ──────────────────────────────────────────────
