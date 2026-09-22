@@ -13,6 +13,10 @@
  *   - `wsHooks` gives the WS gate the same admission: the upgrade is
  *     refused for blocked peers / forbidden Origins before HELLO runs,
  *     and `auth-required` HELLO rejects count as failures.
+ *   - `recordFailure` lets a handler report a guess a status cannot
+ *     carry — the token endpoint's `invalid_grant` on an unknown code
+ *     shares its 400 with malformed input — against the route's own
+ *     tiers, exactly as a counted status would.
  *
  * Peer identity: the socket's remote address — unless the config says a
  * trusted reverse proxy fronts the daemon, in which case the last
@@ -89,6 +93,8 @@ export interface AdmissionControl {
   wrapHttpHandler(next: ComposedHttpHandler): ComposedHttpHandler;
   readonly wsHooks: WsAdmissionHooks;
   resolvePeer(req: IncomingMessage): string;
+  /** Count one brute-force failure for this request's peer on its route — the handler-reported twin of a counted status. */
+  recordFailure(req: IncomingMessage): void;
 }
 
 function factsFromRequest(req: IncomingMessage, upgrade: boolean): AdmissionRequestFacts {
@@ -164,6 +170,11 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
 
   return {
     resolvePeer,
+    recordFailure(req) {
+      const posture = routePostureFor(factsFromRequest(req, false), matrixOptions());
+      const peer = resolvePeer(req);
+      for (const tier of limitersFor(posture.route)) recordFailure(tier, peer, posture.route);
+    },
     wrapHttpHandler(next) {
       return (req, res) => {
         const facts = factsFromRequest(req, false);

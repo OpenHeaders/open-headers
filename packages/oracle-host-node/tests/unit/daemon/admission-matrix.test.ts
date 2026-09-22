@@ -85,23 +85,38 @@ describe('routePostureFor', () => {
     );
   });
 
-  it('claims the client-initiative routes ahead of the pairing prefix (the client sign-in plan §6.2)', () => {
-    expect(routePostureFor(facts({ path: '/pair' })).route).toBe('pair-start');
-    expect(routePostureFor(facts({ path: '/pair/poll' })).route).toBe('pair-poll');
-    // The page, the forms and the admin confirm stay on the pairing row.
-    expect(routePostureFor(facts({ path: '/pair/123456' })).route).toBe('pairing');
-    expect(routePostureFor(facts({ path: '/pair/123456/approve' })).route).toBe('pairing');
-    expect(routePostureFor(facts({ path: '/pair/123456/deny' })).route).toBe('pairing');
-    expect(routePostureFor(facts({ path: '/pair/123456/approved' })).route).toBe('pairing');
-    expect(routePostureFor(facts({ path: '/pair/123456/confirm' })).route).toBe('pairing');
-    // A start is bounded by the service's caps, never counted; an
-    // unknown poll handle is a 404 that counts.
-    const start = routePostureFor(facts({ path: '/pair' }));
-    expect(start.rateLimited).toBe(true);
+  it('claims the OAuth plane by route (the client sign-in plan §14.2) on every composition', () => {
+    const metadata = routePostureFor(facts({ path: '/.well-known/oauth-authorization-server' }));
+    expect(metadata).toMatchObject({ route: 'oauth-metadata', origin: 'own-or-extension', host: 'any' });
+    expect(metadata.failureStatuses).toEqual([]);
+    for (const path of [
+      '/auth/oauth/authorize',
+      '/auth/oauth/device/verify',
+      '/auth/oauth/authorize/abc-123',
+      '/auth/oauth/unknown',
+    ]) {
+      const posture = routePostureFor(facts({ path }), { webEnabled: true, oidcEnabled: true });
+      expect(posture).toMatchObject({ route: 'oauth-authorize', origin: 'own', host: 'known', rateLimited: true });
+      expect(posture.failureStatuses).toEqual([]);
+    }
+    const start = routePostureFor(facts({ path: '/auth/oauth/device' }));
+    expect(start).toMatchObject({ route: 'oauth-device-start', origin: 'own-or-extension', host: 'known' });
     expect(start.failureStatuses).toEqual([]);
-    const poll = routePostureFor(facts({ path: '/pair/poll' }));
-    expect(poll.rateLimited).toBe(true);
-    expect(poll.failureStatuses).toEqual([404]);
+    for (const path of ['/auth/oauth/authorize/abc-123/approve', '/auth/oauth/authorize/abc-123/deny']) {
+      const decision = routePostureFor(facts({ path }));
+      expect(decision).toMatchObject({ route: 'oauth-decision', origin: 'own', host: 'known', rateLimited: true });
+      expect(decision.failureStatuses).toEqual([401]);
+    }
+    // The token endpoint's guesses are reported by the handler, never a status.
+    const token = routePostureFor(facts({ path: '/auth/oauth/token' }));
+    expect(token).toMatchObject({ route: 'oauth-token', origin: 'own-or-extension', host: 'known', rateLimited: true });
+    expect(token.failureStatuses).toEqual([]);
+    const revoke = routePostureFor(facts({ path: '/auth/oauth/revoke' }));
+    expect(revoke).toMatchObject({ route: 'oauth-revoke', origin: 'own-or-extension', host: 'known' });
+    expect(revoke.failureStatuses).toEqual([]);
+    // The retired client-initiative paths fall to the pairing row.
+    expect(routePostureFor(facts({ path: '/pair/poll' })).route).toBe('pairing');
+    expect(routePostureFor(facts({ path: '/pair' })).route).toBe('default');
   });
 
   it('claims the three meta routes ahead of their prefixes on every composition (the client sign-in plan §7)', () => {
@@ -186,8 +201,13 @@ describe('origin posture', () => {
     });
   });
 
-  it('the client start and poll admit no Origin, the own origin and our extension origins, reject pages', () => {
-    for (const path of ['/pair', '/pair/poll']) {
+  it('the OAuth metadata, device start, token and revoke routes admit no Origin, the own origin and our extension origins, reject pages', () => {
+    for (const path of [
+      '/.well-known/oauth-authorization-server',
+      '/auth/oauth/device',
+      '/auth/oauth/token',
+      '/auth/oauth/revoke',
+    ]) {
       expect(evaluateAdmission(facts({ path }), []).ok).toBe(true);
       expect(evaluateAdmission(facts({ path, origin: 'http://192.168.1.20:8137' }), []).ok).toBe(true);
       expect(evaluateAdmission(facts({ path, origin: `chrome-extension://${CHROME_EXTENSION_ID}` }), []).ok).toBe(true);
@@ -199,14 +219,30 @@ describe('origin posture', () => {
         ok: false,
         reason: 'origin-forbidden',
       });
-      // DNS-rebinding guard holds like every browser-facing route.
-      expect(evaluateAdmission(facts({ path, host: 'rebound.example.com' }), [])).toMatchObject({
+    }
+    // The metadata document answers under any Host; the rest need a known one.
+    expect(
+      evaluateAdmission(facts({ path: '/.well-known/oauth-authorization-server', host: 'oh.example' }), []).ok,
+    ).toBe(true);
+    expect(evaluateAdmission(facts({ path: '/auth/oauth/token', host: 'oh.example' }), [])).toMatchObject({
+      ok: false,
+      reason: 'host-forbidden',
+    });
+  });
+
+  it('the OAuth navigations and decisions admit no Origin and the own origin only — an extension page is a foreign page there', () => {
+    for (const path of ['/auth/oauth/authorize', '/auth/oauth/device/verify', '/auth/oauth/authorize/abc/approve']) {
+      expect(evaluateAdmission(facts({ path }), []).ok).toBe(true);
+      expect(evaluateAdmission(facts({ path, origin: 'http://192.168.1.20:8137' }), []).ok).toBe(true);
+      expect(evaluateAdmission(facts({ path, origin: `chrome-extension://${CHROME_EXTENSION_ID}` }), [])).toMatchObject(
+        { ok: false, reason: 'origin-forbidden' },
+      );
+      expect(evaluateAdmission(facts({ path, origin: 'https://evil.example.com' }), [])).toMatchObject({
         ok: false,
-        reason: 'host-forbidden',
+        reason: 'origin-forbidden',
       });
     }
   });
-
   it('own-origin comparison elides default ports', () => {
     const viaProxy = facts({ path: '/pair/123456', origin: 'https://oh.openheaders.io', host: 'oh.openheaders.io' });
     expect(evaluateAdmission(viaProxy, ['oh.openheaders.io']).ok).toBe(true);

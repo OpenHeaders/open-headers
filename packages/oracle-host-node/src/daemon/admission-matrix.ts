@@ -23,13 +23,21 @@
  *                      JSON confirm from its own page — the client
  *                      sign-in plan F0-a). Any other browser origin is
  *                      a forged confirm.
- *   - `POST /pair`   — a client starting its own sign-in (the client
- *                      sign-in plan §6.2): the extension's page, or a
- *                      native process (desktop main, the CLI) carrying
- *                      no Origin. A start is not a guess — the pairing
- *                      service's caps bound it — so nothing counts.
- *   - `/pair/poll`   — the same client's poll on its handle; an
- *                      unknown handle answers 404 and counts.
+ *   - the OAuth plane (the client sign-in plan §14.2) — the daemon's
+ *                      authorization server for its own person sign-in:
+ *                      the metadata document, the device start, the
+ *                      token endpoint and the revoke route admit the
+ *                      extension's page fetch and native processes with
+ *                      no Origin (`own-or-extension`); the authorize
+ *                      entry, the verify page and the consent page are
+ *                      navigations (`own`); the decision routes are the
+ *                      SPA's bearer POST or the page's own form (`own`),
+ *                      where a 401 is a refused credential like
+ *                      `/auth/password/login`. The token endpoint's
+ *                      guesses (`invalid_grant` on an unknown code or
+ *                      device code) share a 400 with malformed input,
+ *                      so the handler reports them through admission's
+ *                      `recordFailure` instead of a status.
  *   - `/nm/bootstrap` — native processes only (the shipped NM host);
  *                      any Origin ⇒ reject, and the handler itself
  *                      refuses non-loopback peers. A 403 (refused
@@ -116,8 +124,12 @@ export type AdmissionRoute =
   | 'metrics'
   | 'ws-upgrade'
   | 'pairing'
-  | 'pair-start'
-  | 'pair-poll'
+  | 'oauth-metadata'
+  | 'oauth-authorize'
+  | 'oauth-device-start'
+  | 'oauth-decision'
+  | 'oauth-token'
+  | 'oauth-revoke'
   | 'nm'
   | 'mcp'
   | 'auth-meta'
@@ -166,8 +178,12 @@ export interface RoutePosture {
 }
 
 const PAIRING_PATH_PREFIX = '/pair/';
-const PAIR_START_PATH = '/pair';
-const PAIR_POLL_PATH = '/pair/poll';
+const OAUTH_METADATA_PATH = '/.well-known/oauth-authorization-server';
+const OAUTH_PATH_PREFIX = '/auth/oauth/';
+const OAUTH_DEVICE_START_PATH = '/auth/oauth/device';
+const OAUTH_TOKEN_PATH = '/auth/oauth/token';
+const OAUTH_REVOKE_PATH = '/auth/oauth/revoke';
+const OAUTH_DECISION_ROUTE = /^\/auth\/oauth\/authorize\/[^/]+\/(approve|deny)$/;
 const AUTH_META_PATHS: readonly string[] = ['/auth/oidc/meta', '/auth/setup/meta', '/auth/password/meta'];
 const OIDC_PATH_PREFIX = '/auth/oidc/';
 const PASSWORD_PATH_PREFIX = '/auth/password/';
@@ -202,23 +218,60 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
     rateLimited: true,
     failureStatuses: [404],
   },
-  // A client's own sign-in start (the client sign-in plan §6.2): the
-  // extension's page or a native process; bounded by the service's
-  // caps, never a guess.
-  'pair-start': {
-    route: 'pair-start',
+  // RFC 8414 metadata — public facts every client reads first; no
+  // secret, no guess, served on every deployment.
+  'oauth-metadata': {
+    route: 'oauth-metadata',
+    origin: 'own-or-extension',
+    host: 'any',
+    rateLimited: true,
+    failureStatuses: [],
+  },
+  // The authorize entry, the verify page and the consent page are
+  // top-level navigations; a malformed request is a 400 page, not a
+  // guess; the user code's misses draw the service's global budget.
+  'oauth-authorize': {
+    route: 'oauth-authorize',
+    origin: 'own',
+    host: 'known',
+    rateLimited: true,
+    failureStatuses: [],
+  },
+  // The device grant's start: the extension's page or a native
+  // process; bounded by the service's caps, never a guess.
+  'oauth-device-start': {
+    route: 'oauth-device-start',
     origin: 'own-or-extension',
     host: 'known',
     rateLimited: true,
     failureStatuses: [],
   },
-  // The client's poll on its handle — 404 = an unknown handle.
-  'pair-poll': {
-    route: 'pair-poll',
+  // The decision: 401 = a refused credential on the page's form or a
+  // refused bearer from the SPA — uniform, so every guess counts.
+  'oauth-decision': {
+    route: 'oauth-decision',
+    origin: 'own',
+    host: 'known',
+    rateLimited: true,
+    failureStatuses: [401],
+  },
+  // The token endpoint: a guess at a code or a device code is an
+  // `invalid_grant` the handler reports through `recordFailure` — a
+  // 400 alone is also malformed input, which must not count.
+  'oauth-token': {
+    route: 'oauth-token',
     origin: 'own-or-extension',
     host: 'known',
     rateLimited: true,
-    failureStatuses: [404],
+    failureStatuses: [],
+  },
+  // RFC 7009: 200 whatever the outcome — nothing to count.
+  'oauth-revoke': {
+    route: 'oauth-revoke',
+    origin: 'own-or-extension',
+    host: 'known',
+    rateLimited: true,
+    failureStatuses: [],
   },
   // The NM host is a native process (no Origin, loopback by
   // construction — the handler re-checks the peer address). A 403 is a
@@ -270,9 +323,15 @@ export function routePostureFor(facts: AdmissionRequestFacts, options: Admission
   if (facts.upgrade) return ROUTE_POSTURES['ws-upgrade'];
   if (facts.path === HEALTHZ_PATH) return ROUTE_POSTURES.healthz;
   if (facts.path === METRICS_PATH) return ROUTE_POSTURES.metrics;
-  if (facts.path === PAIR_START_PATH) return ROUTE_POSTURES['pair-start'];
-  if (facts.path === PAIR_POLL_PATH) return ROUTE_POSTURES['pair-poll'];
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
+  if (facts.path === OAUTH_METADATA_PATH) return ROUTE_POSTURES['oauth-metadata'];
+  if (facts.path.startsWith(OAUTH_PATH_PREFIX)) {
+    if (facts.path === OAUTH_DEVICE_START_PATH) return ROUTE_POSTURES['oauth-device-start'];
+    if (facts.path === OAUTH_TOKEN_PATH) return ROUTE_POSTURES['oauth-token'];
+    if (facts.path === OAUTH_REVOKE_PATH) return ROUTE_POSTURES['oauth-revoke'];
+    if (OAUTH_DECISION_ROUTE.test(facts.path)) return ROUTE_POSTURES['oauth-decision'];
+    return ROUTE_POSTURES['oauth-authorize'];
+  }
   if (facts.path === NM_BOOTSTRAP_PATH) return ROUTE_POSTURES.nm;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
   if (AUTH_META_PATHS.includes(facts.path)) return ROUTE_POSTURES['auth-meta'];

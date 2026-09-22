@@ -101,6 +101,32 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((s) => new Promise<void>((resolve) => s.close(() => resolve()))));
 });
 
+describe('recordFailure — the handler-reported guess', () => {
+  it('counts against the request peer on its route like a counted status, and the block answers 429 there', async () => {
+    const admission = createAdmissionControl({ limiter: { maxFailures: 2, windowMs: 60_000, blockMs: 120_000 } });
+    const wrapped = admission.wrapHttpHandler((req, res) => {
+      const path = (req.url ?? '').split('?', 1)[0];
+      if (path === '/auth/oauth/token') {
+        // The token endpoint's shape: an unknown code is a 400 the
+        // status cannot distinguish from malformed input, so the
+        // handler reports it.
+        admission.recordFailure(req);
+        res.statusCode = 400;
+        res.end('{"error":"invalid_grant"}');
+        return true;
+      }
+      return false;
+    });
+    const { baseUrl } = await listenWrapped(wrapped);
+    const post = () => fetch(`${baseUrl}/auth/oauth/token`, { method: 'POST', body: 'grant_type=authorization_code' });
+    expect((await post()).status).toBe(400);
+    expect((await post()).status).toBe(400);
+    const blocked = await post();
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('retry-after')).toBe('120');
+  });
+});
+
 describe('wrapHttpHandler', () => {
   it('rejects a cross-origin pairing request with 403 and lets same-origin through', async () => {
     const { baseUrl } = await startHarness(createAdmissionControl());
