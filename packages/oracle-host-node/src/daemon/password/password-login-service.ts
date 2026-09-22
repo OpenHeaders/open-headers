@@ -75,11 +75,11 @@ export interface DaemonPasswordLoginService {
    */
   enabled(): Promise<boolean>;
   /**
-   * Verify a credential WITHOUT minting — the device-authorization
-   * page's approve step (the client sign-in plan §6.2): the person
-   * proves who they are, the pending pair binds to them, and the
-   * device's poll mints its own credential. Same refusals, same
-   * per-account lockout, same decoy burn as `login`.
+   * Verify a credential WITHOUT minting — the OAuth consent page's
+   * approve step (the client sign-in plan §14.4): the person proves who
+   * they are, the pending authorization binds to them, and the device
+   * redeems its own credential at the token endpoint. Same refusals,
+   * same per-account lockout, same decoy burn as `login`.
    */
   verify(email: string, password: string): Promise<PasswordVerifyResult>;
   /** Verify and mint the browser session — `verify` followed by the session-kind mint. */

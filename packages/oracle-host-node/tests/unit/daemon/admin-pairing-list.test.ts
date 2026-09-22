@@ -1,10 +1,8 @@
 /**
  * The admin console's pairing list (`oh.daemon.pairing.list`) — the
- * admin initiative's own projection. A person's device sign-in (the
- * client sign-in plan §6, the client initiative) rides the same pairing
- * table but is settled on the server's page and read by the client's
- * poll; its rows never appear in the Pair a device modal's list, whose
- * status vocabulary they do not share.
+ * admin initiative's projection of the pairing table. A person's own
+ * sign-in from a native client lives in the authorization service (the
+ * client sign-in plan §14), never in this list.
  */
 
 import { createDaemonPairingService } from '@openheaders/core/identity';
@@ -12,12 +10,11 @@ import { describe, expect, it } from 'vitest';
 import { buildAdminChannels } from './_admin-channels-rig';
 
 describe('oh.daemon.pairing.list', () => {
-  it('lists admin-initiated pairs only', async () => {
+  it('lists the pending admin pairs', async () => {
     let next = 100000;
     const pairing = createDaemonPairingService({ generateCode: () => String(++next) });
     const table = buildAdminChannels({ pairing });
     const admin = pairing.startPair({ deviceLabel: 'Work Chrome' });
-    await pairing.startClientPair({ client: 'extension', peer: '10.0.0.7', deviceLabel: 'Alice laptop' });
     const list = table.get('oh.daemon.pairing.list');
     if (!list) throw new Error('channel missing');
 
@@ -32,7 +29,6 @@ describe('oh.daemon.pairing.list', () => {
         status: 'pending',
       },
     ]);
-    // Both pairs live in the one table — the console's list is a view, not a second table.
-    expect(pairing.list()).toHaveLength(2);
+    expect(pairing.list()).toHaveLength(1);
   });
 });

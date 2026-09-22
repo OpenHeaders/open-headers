@@ -254,6 +254,26 @@ afterEach(async () => {
   server = null;
 });
 
+describe('gate mode — the one server-side truth', () => {
+  it('resolves SSO first, then the claim, then the password holder, else no-login', async () => {
+    const setupMeta = async (peerIsLoopback: boolean) => ({ unclaimed: true, requiresCode: !peerIsLoopback });
+    const sso = createGateModeResolver({ ssoProvider: () => 'Stub SSO', setupMeta, passwordEnabled: async () => true });
+    expect(await sso(true)).toEqual({ kind: 'sso', provider: 'Stub SSO' });
+    const unclaimed = createGateModeResolver({ ssoProvider: null, setupMeta, passwordEnabled: async () => true });
+    expect(await unclaimed(true)).toEqual({ kind: 'setup', requiresCode: false });
+    expect(await unclaimed(false)).toEqual({ kind: 'setup', requiresCode: true });
+    const claimed = async () => ({ unclaimed: false, requiresCode: false });
+    const password = createGateModeResolver({
+      ssoProvider: null,
+      setupMeta: claimed,
+      passwordEnabled: async () => true,
+    });
+    expect(await password(true)).toEqual({ kind: 'password' });
+    const none = createGateModeResolver({ ssoProvider: null, setupMeta: claimed, passwordEnabled: async () => false });
+    expect(await none(true)).toEqual({ kind: 'no-login' });
+  });
+});
+
 describe('the metadata document (RFC 8414)', () => {
   it('names the issuer as the origin the client reached and the endpoints under it; served no-store to any Host', async () => {
     const rig = await startRig();

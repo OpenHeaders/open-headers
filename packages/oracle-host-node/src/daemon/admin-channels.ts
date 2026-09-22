@@ -245,21 +245,17 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     }
   });
 
-  // The admin initiative's own view — the Pair a device modal polls it
-  // for the code it issued. A person's device sign-in (the client
-  // initiative) lives on the server's page and the client's poll; its
-  // verdicts are not this list's vocabulary and never appear here.
+  // The Pair a device modal polls this for the code it issued. A
+  // person's own sign-in from a native client is the authorization
+  // service's, never this list's.
   handlers.set('oh.daemon.pairing.list', () => ({
-    pairs: pairing
-      .list()
-      .filter((p) => p.initiative === 'admin')
-      .map((p) => ({
-        code: p.code,
-        deviceLabel: p.deviceLabel,
-        createdAt: p.createdAt,
-        expiresAt: p.expiresAt,
-        status: p.status,
-      })),
+    pairs: pairing.list().map((p) => ({
+      code: p.code,
+      deviceLabel: p.deviceLabel,
+      createdAt: p.createdAt,
+      expiresAt: p.expiresAt,
+      status: p.status,
+    })),
   }));
 
   handlers.set('oh.daemon.pairing.cancel', (message) => {

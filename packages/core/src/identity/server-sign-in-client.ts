@@ -26,7 +26,7 @@
  */
 
 import type { ServerSignInApi, ServerSignInPollResult, ServerSignInStartResult } from '../capabilities/registry';
-import type { DaemonPairingClientKind } from './daemon-pairing';
+import type { DaemonAuthorizationClientKind } from './daemon-authorization-clients';
 
 const START_PATH = '/pair';
 const POLL_PATH = '/pair/poll';
@@ -81,7 +81,7 @@ export async function fetchJsonDocument(
 
 export interface ServerSignInClientOptions {
   /** Which client asks — the page names it to the person. */
-  readonly client: DaemonPairingClientKind;
+  readonly client: DaemonAuthorizationClientKind;
   /** Test seam; defaults to the global `fetch`. */
   readonly fetch?: typeof fetch;
 }

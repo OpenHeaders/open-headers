@@ -2,8 +2,8 @@
  * The server's gate state — ONE server-side answer to "how does a
  * person sign in here?" (the client sign-in plan §6.3). The served web
  * tab resolves the same four states from the three meta routes
- * (`resolveGateMode` in the web host); the device-authorization page
- * renders them server-side. Both read this module's truth so the two
+ * (`resolveGateMode` in the web host); the OAuth consent page renders
+ * them server-side. Both read this module's truth so the two
  * front doors can never disagree:
  *
  *   - `setup`     — no directory user has ever been admitted and no IdP
