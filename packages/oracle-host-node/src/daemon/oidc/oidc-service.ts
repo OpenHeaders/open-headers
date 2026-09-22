@@ -43,18 +43,19 @@
  * revokes every unbound operator token — the claim's O3 arc, run the
  * moment a real admin provably exists.
  *
- * The device arm (the client sign-in plan §6.2): a start that carries a
- * device code parks it in the pending login; the completion, after the
- * grant fold and the declared-admin promotion, binds that pair to the
- * resolved user through the `approveDevice` seam and answers the code
- * back — NO browser session is minted on this arm, and no claim code:
- * the person came to approve a device, and the device's poll mints its
- * own credential.
+ * The authorization arm (the client sign-in plan §14.4): a start that
+ * carries a pending authorization's id parks it in the pending login;
+ * the completion, after the grant fold and the declared-admin
+ * promotion, approves that authorization for the resolved user through
+ * the `approveAuthorization` seam and answers the id back — NO browser
+ * session is minted on this arm, and no claim code: the person came to
+ * approve a device, and the device redeems its own credential at the
+ * token endpoint.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
-  type ApprovePairResult,
+  type ApproveAuthorizationResult,
   type CreateDaemonUserResult,
   createDaemonUser,
   daemonUserPrincipalKind,
@@ -121,7 +122,7 @@ export type OidcLoginFailureReason =
   | 'personal-license-invalid'
   | 'personal-license-identity-mismatch'
   | 'personal-license-no-identity'
-  | 'device-unavailable';
+  | 'authorization-unavailable';
 
 export type OidcCompleteResult =
   | {
@@ -133,22 +134,22 @@ export type OidcCompleteResult =
     }
   | {
       readonly ok: true;
-      readonly kind: 'device';
-      readonly deviceCode: string;
+      readonly kind: 'authorization';
+      readonly authorizationId: string;
       readonly userId: string;
       readonly email: string;
     }
   | {
       readonly ok: false;
       readonly reason: OidcLoginFailureReason;
-      /** The device arm's code when the pending login carried one — the callback lands the refusal on its page. */
-      readonly deviceCode?: string;
+      /** The authorization arm's id when the pending login carried one — the callback lands the refusal beside the record. */
+      readonly authorizationId?: string;
     };
 
 export interface OidcBeginOptions {
   readonly personalLicense?: string;
-  /** The device arm: the client-initiated pair this sign-in approves. */
-  readonly deviceCode?: string;
+  /** The authorization arm: the pending authorization this sign-in approves. */
+  readonly authorizationId?: string;
 }
 
 export type OidcBeginResult =
@@ -201,10 +202,11 @@ export interface OidcServiceDeps {
    */
   verifyIdToken?: (idToken: string, metadata: OidcProviderMetadata, clientId: string) => Promise<OidcIdTokenClaims>;
   /**
-   * The device arm's bind — the audited approval the device plane owns.
-   * Absent = no device plane composed; a device-arm completion refuses.
+   * The authorization arm's approval — the audited verb the OAuth plane
+   * owns. Absent = no OAuth plane composed; an authorization-arm
+   * completion refuses.
    */
-  approveDevice?: (code: string, userId: string) => ApprovePairResult;
+  approveAuthorization?: (id: string, userId: string) => Promise<ApproveAuthorizationResult>;
 }
 
 export interface DaemonOidcService {
@@ -238,8 +240,8 @@ interface PendingLogin {
   readonly bindingHash: Buffer;
   /** Personal-seat key pasted at the refusal; handed to the seat gate at auto-provision. */
   readonly personalLicense?: string;
-  /** The device arm's pair — bound on completion instead of a session mint. */
-  readonly deviceCode?: string;
+  /** The authorization arm's record — approved on completion instead of a session mint. */
+  readonly authorizationId?: string;
   readonly createdAt: number;
 }
 
@@ -300,7 +302,7 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
   const closePeersByTokenId = deps.closePeersByTokenId ?? ((): void => undefined);
   const offerGrantedWorkspaces = deps.offerGrantedWorkspaces;
   const retractRevokedWorkspaces = deps.retractRevokedWorkspaces;
-  const approveDevice = deps.approveDevice;
+  const approveAuthorization = deps.approveAuthorization;
 
   // The declared floor (A3/A11) is on whenever SSO is — absent config
   // means the sentinel workspace at viewer, never zero grants.
@@ -589,14 +591,14 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
       const bindingNonce = randomToken();
       const redirectUri = redirectUriFor(externalOrigin);
       const personalLicense = options?.personalLicense?.trim();
-      const deviceCode = options?.deviceCode?.trim();
+      const authorizationId = options?.authorizationId?.trim();
       pendingLogins.set(state, {
         nonce,
         codeVerifier,
         redirectUri,
         bindingHash: bindingHashOf(bindingNonce),
         ...(personalLicense ? { personalLicense } : {}),
-        ...(deviceCode ? { deviceCode } : {}),
+        ...(authorizationId ? { authorizationId } : {}),
         createdAt: now(),
       });
       const url = new URL(metadata.authorizationEndpoint);
@@ -625,13 +627,14 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
         logger.warn(SCOPE, 'callback refused: login-binding mismatch');
         return { ok: false, reason: 'state-mismatch' };
       }
-      // From here the pending login is known: a refusal on the device
-      // arm carries its code so the callback lands it on the device page.
-      const deviceCode = pending.deviceCode;
+      // From here the pending login is known: a refusal on the
+      // authorization arm carries its id so the callback lands it
+      // beside the record.
+      const authorizationId = pending.authorizationId;
       const refuse = (reason: OidcLoginFailureReason): OidcCompleteResult => ({
         ok: false,
         reason,
-        ...(deviceCode !== undefined ? { deviceCode } : {}),
+        ...(authorizationId !== undefined ? { authorizationId } : {}),
       });
       let metadata: OidcProviderMetadata;
       try {
@@ -689,25 +692,29 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
 
       // Grants and the declared-admin promotion land before the mint so
       // the session's first join already sees what the login confers —
-      // and before the device bind, so the device's first join does too.
+      // and before the authorization's approval, so the device's first
+      // join does too.
       await applyLoginGrants(resolved.record, claims);
       await conferDeclaredAdmin(resolved.record);
 
       const email = resolved.record.userIdentity.value ?? claims.email ?? '';
-      if (deviceCode !== undefined) {
-        // The device arm: bind the pair, mint nothing — the device's
-        // poll mints its own credential, and this browser is not signed
-        // in by approving (the plan's §12).
-        const approved = approveDevice?.(deviceCode, resolved.record.user.id);
+      if (authorizationId !== undefined) {
+        // The authorization arm: approve the record, mint nothing — the
+        // device redeems its own credential at the token endpoint, and
+        // this browser is not signed in by approving (the plan's §12).
+        const approved = await approveAuthorization?.(authorizationId, resolved.record.user.id);
         if (approved === undefined || !approved.ok) {
           logger.warn(
             SCOPE,
-            `SSO device sign-in could not bind pair ${deviceCode}: ${approved === undefined ? 'no device plane' : approved.reason}`,
+            `SSO device sign-in could not approve authorization ${authorizationId}: ${approved === undefined ? 'no OAuth plane' : approved.reason}`,
           );
-          return refuse('device-unavailable');
+          return refuse('authorization-unavailable');
         }
-        logger.info(SCOPE, `SSO device sign-in approved pair ${deviceCode} for user=${resolved.record.user.id}`);
-        return { ok: true, kind: 'device', deviceCode, userId: resolved.record.user.id, email };
+        logger.info(
+          SCOPE,
+          `SSO device sign-in approved authorization ${authorizationId} for user=${resolved.record.user.id}`,
+        );
+        return { ok: true, kind: 'authorization', authorizationId, userId: resolved.record.user.id, email };
       }
       const minted: MintDaemonAuthTokenResult = await mintToken({
         label: `sso:${email}`,

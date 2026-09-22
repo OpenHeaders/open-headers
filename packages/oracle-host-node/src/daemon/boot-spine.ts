@@ -45,6 +45,7 @@
 import * as path from 'node:path';
 import { setHostBridge } from '@openheaders/core/bridge';
 import {
+  createDaemonAuthorizationService,
   createDaemonPairingService,
   emitAuditEntry,
   ensureSyntheticIdentity,
@@ -126,7 +127,6 @@ import {
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
 import { evictConsumedWorkspace } from '@openheaders/oracle/workspace/workspace-eviction';
 import { FileSystemBlobBackend } from '../files/fs-blob-backend';
-import { createDeviceAuthorizationHttp } from '../host-runtime/device-authorization-http';
 import { createPairingHttpHandler } from '../host-runtime/pairing-http';
 import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-server';
 import { peekCookieJar } from '../live/cookie-jar';
@@ -192,6 +192,8 @@ import { createMetricsProvider } from './metrics';
 import { createMetricsHttpHandler } from './metrics-http';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { createNmBootstrapHttpHandler } from './nm/nm-bootstrap-http';
+import { createConsentRouter } from './oauth/consent-route';
+import { createOAuthHttp } from './oauth/oauth-http';
 import { createOAuthCallbackHandler, OAUTH_CALLBACK_PATH } from './oauth-callback-http';
 import { createOAuthRpc } from './oauth-rpc';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
@@ -837,10 +839,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     passwordEnabled: config.oidc === undefined,
   });
 
-  // 4b. Daemon device-flow pairing surface (U3.3). One service instance
-  //     per process for BOTH initiatives (the admin's and the client's,
-  //     the client sign-in plan §6.1); the HTTP handlers are composed
-  //     below, after the services the device page reads, and handed to
+  // 4b. Daemon device-flow pairing surface (U3.3) — the admin
+  //     initiative; the HTTP handler is composed below and handed to
   //     every bind the supervisor opens. Polling-only local contract —
   //     see `BridgeRpcContract['oh.daemon.pairing.*']`.
   //     Under trustedProxy the service's global brute-force budget is
@@ -851,6 +851,16 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     instead of a handful of rotating addresses denying pairing to
   //     everyone. Loopback/LAN keeps the service defaults.
   const pairingService = createDaemonPairingService({
+    ...(config.admission?.trustedProxy ? { maxFailedLookups: TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET } : {}),
+  });
+
+  // 4b'. The authorization service (the client sign-in plan §14.3) —
+  //      the pending table behind the daemon's OAuth authorization
+  //      server for its own person sign-in: both grants, mint at
+  //      redemption by the one session TTL policy, the same raised
+  //      budget under trustedProxy. The HTTP handler is composed below,
+  //      after the services the consent page reads.
+  const authorizationService = createDaemonAuthorizationService({
     sessionTtlMs,
     ...(config.admission?.trustedProxy ? { maxFailedLookups: TRUSTED_PROXY_PAIRING_GLOBAL_BUDGET } : {}),
   });
@@ -1134,17 +1144,27 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         // tokens' sockets — same persist-before-evict the claim uses.
         closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
         sessionTtlMs,
-        // The device arm binds a client pair through the device plane's
-        // audited verb (composed below; called only at a completion).
-        approveDevice: (code, userId) => deviceAuthorization.approveDeviceLogin(code, userId),
+        // The authorization arm approves a pending authorization through
+        // the OAuth plane's audited verb (composed below; called only at
+        // a completion).
+        approveAuthorization: (id, userId) => oauthHttp.approveAuthorization(id, userId),
       })
     : null;
+  // Where a browser decides on a pending authorization (the client
+  // sign-in plan §14.4): the web app's consent route where it can boot
+  // at the origin the browser reached, the server-rendered page
+  // elsewhere. Shared by the OAuth handler and the OIDC arm's landing.
+  const consentRouter = createConsentRouter({
+    spaServed: staticWebEnabled,
+    trustedProxy: config.admission?.trustedProxy,
+  });
   const oidcHttpHandler =
     oidcService && config.oidc
       ? createOidcHttpHandler({
           service: oidcService,
           redirectOrigin: config.oidc.redirectOrigin,
           trustedProxy: config.admission?.trustedProxy,
+          consent: consentRouter,
         })
       : null;
 
@@ -1177,28 +1197,28 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     resolvePeer: admission.resolvePeer,
   });
 
-  // 4c''''''. The device flow's server side (the client sign-in plan §6):
-  //      ONE gate truth the page reads — the same four states the served
-  //      tab resolves from the meta routes — then the client initiative's
-  //      routes beside the admin initiative's, both under the `/pair/`
-  //      prefix the pairing handler owns (a client pair's page is reached
-  //      through its seam, one peek per navigation).
+  // 4c''''''. The daemon's OAuth authorization server for its own person
+  //      sign-in (the client sign-in plan §14.2): ONE gate truth the
+  //      consent page reads — the same four states the served tab
+  //      resolves from the meta routes — then the metadata document, the
+  //      authorize entry, the device start and verify page, the decision
+  //      routes, the token endpoint and revoke. The token endpoint's
+  //      guesses are reported to admission through its hook.
   const gateMode = createGateModeResolver({
     ssoProvider: oidcService === null ? null : () => oidcService.providerLabel(),
     setupMeta: (peerIsLoopback) => setupClaimService.meta(peerIsLoopback),
     passwordEnabled: () => passwordLoginService?.enabled() ?? Promise.resolve(false),
   });
-  const deviceAuthorization = createDeviceAuthorizationHttp({
-    pairing: pairingService,
+  const oauthHttp = createOAuthHttp({
+    authorization: authorizationService,
     resolvePeer: admission.resolvePeer,
     gateMode,
     passwordLogin: passwordLoginService,
+    consent: consentRouter,
     trustedProxy: config.admission?.trustedProxy,
+    reportGuess: admission.recordFailure,
   });
-  const pairingHttpHandler = createPairingHttpHandler({
-    pairing: pairingService,
-    clientPairView: deviceAuthorization.renderPairView,
-  });
+  const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
 
   // 4c'''''. OAuth 2.0 plane — the ten `oauth*` channels the shared
   //      Authorization editor calls, over the spine's transport; the
@@ -1631,7 +1651,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         (req, res) =>
           healthzHandler(req, res) ||
           metricsHttpHandler(req, res) ||
-          deviceAuthorization.handler(req, res) ||
+          oauthHttp.handler(req, res) ||
           pairingHttpHandler(req, res) ||
           (nmBootstrapHttpHandler !== null && nmBootstrapHttpHandler(req, res)) ||
           mcpInstall.handler(req, res) ||
@@ -1704,6 +1724,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     licenseRefreshAgent?.dispose();
     licenseSlot.dispose();
     pairingService.dispose();
+    authorizationService.dispose();
     oidcService?.dispose();
     mcpInstall.dispose();
     syncStatusReporter.dispose();

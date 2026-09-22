@@ -385,10 +385,10 @@ describe('daemon OIDC service', () => {
     expect(seen[1]).toMatch(/^Basic /);
   });
 
-  describe('the device arm (the client sign-in plan §6.2)', () => {
+  describe('the authorization arm (the client sign-in plan §14.4)', () => {
     const W1 = '01900000-cccc-7000-8000-000000000001';
 
-    it('a start carrying a device code completes by binding the pair — no session, no claim code', async () => {
+    it('a start carrying an authorization id completes by approving the record — no session, no claim code', async () => {
       const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
       if (!created.ok) throw new Error('setup failed');
       const approvals: Array<[string, string]> = [];
@@ -399,13 +399,13 @@ describe('daemon OIDC service', () => {
           workspaceExists: () => true,
           firstWorkspaceId: () => W1,
           emitAudit: (entry) => audited.push(entry),
-          approveDevice: (code, userId) => {
-            approvals.push([code, userId]);
-            return { ok: true };
+          approveAuthorization: async (id, userId) => {
+            approvals.push([id, userId]);
+            return { ok: true, grant: 'device' };
           },
         },
       });
-      const begun = await rig.service.beginLogin('https://oh.openheaders.io', { deviceCode: ' 246810 ' });
+      const begun = await rig.service.beginLogin('https://oh.openheaders.io', { authorizationId: ' auth-1 ' });
       if (!begun.ok) throw new Error('beginLogin refused');
       const url = new URL(begun.authorizationUrl);
       rig.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
@@ -416,12 +416,12 @@ describe('daemon OIDC service', () => {
       });
       expect(completed).toEqual({
         ok: true,
-        kind: 'device',
-        deviceCode: '246810',
+        kind: 'authorization',
+        authorizationId: 'auth-1',
         userId: created.record.user.id,
         email: 'alice@openheaders.io',
       });
-      expect(approvals).toEqual([['246810', created.record.user.id]]);
+      expect(approvals).toEqual([['auth-1', created.record.user.id]]);
       // Nothing minted for the approving browser; nothing to claim.
       expect(await listDaemonAuthTokens()).toHaveLength(0);
       // The grant fold and the declared-admin promotion still ran first.
@@ -432,10 +432,12 @@ describe('daemon OIDC service', () => {
       expect(audited.map((entry) => entry.capability)).toEqual(['daemon.sso-grant', 'daemon.sso-admin']);
     });
 
-    it('a refused device bind and an absent device plane both answer device-unavailable with the code', async () => {
+    it('a refused approval and an absent OAuth plane both answer authorization-unavailable with the id', async () => {
       await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
-      const refusing = buildRig({ deps: { approveDevice: () => ({ ok: false, reason: 'expired' }) } });
-      const first = await refusing.service.beginLogin('https://oh.openheaders.io', { deviceCode: '246810' });
+      const refusing = buildRig({
+        deps: { approveAuthorization: async () => ({ ok: false, reason: 'expired' }) },
+      });
+      const first = await refusing.service.beginLogin('https://oh.openheaders.io', { authorizationId: 'auth-1' });
       if (!first.ok) throw new Error('beginLogin refused');
       let url = new URL(first.authorizationUrl);
       refusing.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
@@ -445,10 +447,10 @@ describe('daemon OIDC service', () => {
           state: url.searchParams.get('state') ?? '',
           bindingNonce: first.bindingNonce,
         }),
-      ).toEqual({ ok: false, reason: 'device-unavailable', deviceCode: '246810' });
+      ).toEqual({ ok: false, reason: 'authorization-unavailable', authorizationId: 'auth-1' });
 
       const noPlane = buildRig();
-      const second = await noPlane.service.beginLogin('https://oh.openheaders.io', { deviceCode: '246810' });
+      const second = await noPlane.service.beginLogin('https://oh.openheaders.io', { authorizationId: 'auth-1' });
       if (!second.ok) throw new Error('beginLogin refused');
       url = new URL(second.authorizationUrl);
       noPlane.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
@@ -458,24 +460,24 @@ describe('daemon OIDC service', () => {
           state: url.searchParams.get('state') ?? '',
           bindingNonce: second.bindingNonce,
         }),
-      ).toEqual({ ok: false, reason: 'device-unavailable', deviceCode: '246810' });
+      ).toEqual({ ok: false, reason: 'authorization-unavailable', authorizationId: 'auth-1' });
       expect(await listDaemonAuthTokens()).toHaveLength(0);
     });
 
-    it('a sign-in refusal on the device arm carries the code; a plain login carries none', async () => {
-      const rig = buildRig({ deps: { approveDevice: () => ({ ok: true }) } });
-      const begun = await rig.service.beginLogin('https://oh.openheaders.io', { deviceCode: '246810' });
+    it('a sign-in refusal on the authorization arm carries the id; a plain login carries none', async () => {
+      const rig = buildRig({ deps: { approveAuthorization: async () => ({ ok: true, grant: 'device' }) } });
+      const begun = await rig.service.beginLogin('https://oh.openheaders.io', { authorizationId: 'auth-1' });
       if (!begun.ok) throw new Error('beginLogin refused');
       const url = new URL(begun.authorizationUrl);
       rig.setFlowNonce(url.searchParams.get('nonce') ?? undefined);
-      // No directory user: the join refuses, and the refusal names the pair.
+      // No directory user: the join refuses, and the refusal names the record.
       expect(
         await rig.service.completeLogin({
           code: 'c',
           state: url.searchParams.get('state') ?? '',
           bindingNonce: begun.bindingNonce,
         }),
-      ).toEqual({ ok: false, reason: 'unknown-user', deviceCode: '246810' });
+      ).toEqual({ ok: false, reason: 'unknown-user', authorizationId: 'auth-1' });
       const plain = await begin(rig);
       const refused = await rig.service.completeLogin({
         code: 'c',

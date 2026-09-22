@@ -15,9 +15,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import {
   clearIdentitySnapshot,
-  createDaemonPairingService,
+  createDaemonAuthorizationService,
   createDaemonUser,
-  type DaemonPairingService,
+  DAEMON_CLI_CLIENT_ID,
+  type DaemonAuthorizationService,
   ensureSyntheticIdentity,
   listDaemonAuthTokens,
   type ResolvedAuditEntry,
@@ -26,6 +27,7 @@ import {
   validateDaemonAuthToken,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
+import { DEVICE_CODE_GRANT_TYPE } from '@openheaders/core/oauth';
 import { PROTOCOL_VERSION, SYNC_HELLO_TYPE, SYNC_WELCOME_TYPE } from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
@@ -34,6 +36,8 @@ import { WebSocket } from 'ws';
 import { createAdmissionControl } from '../../../src/daemon/admission-control';
 import { createGateModeResolver } from '../../../src/daemon/gate-mode';
 import { createHealthzHandler } from '../../../src/daemon/healthz';
+import { createConsentRouter } from '../../../src/daemon/oauth/consent-route';
+import { createOAuthHttp } from '../../../src/daemon/oauth/oauth-http';
 import type { DaemonOidcConfig } from '../../../src/daemon/oidc/oidc-config';
 import { createOidcHttpHandler } from '../../../src/daemon/oidc/oidc-http';
 import {
@@ -41,8 +45,6 @@ import {
   type DaemonOidcService,
   type OidcServiceDeps,
 } from '../../../src/daemon/oidc/oidc-service';
-import { createDeviceAuthorizationHttp } from '../../../src/host-runtime/device-authorization-http';
-import { createPairingHttpHandler } from '../../../src/host-runtime/pairing-http';
 import { type OracleWsServer, startOracleWsServer } from '../../../src/host-runtime/ws-server';
 import { createHostStorageFake } from '../_host-storage-fake';
 
@@ -180,21 +182,26 @@ interface DaemonRig {
 
 /**
  * The spine's HTTP composition for this plane: admission → healthz ‖
- * device ‖ pairing ‖ oidc. The device plane rides beside the OIDC
- * routes the way the spine composes it, so the device arm's redirect
- * lands on a real page.
+ * oauth ‖ oidc. The OAuth plane rides beside the OIDC routes the way
+ * the spine composes it, so the authorization arm's redirect lands on
+ * a real page.
  */
 async function startDaemonHttp(
   service: DaemonOidcService,
-  options: { trustedProxy?: boolean; pairing?: DaemonPairingService } = {},
+  options: { trustedProxy?: boolean; authorization?: DaemonAuthorizationService } = {},
 ): Promise<DaemonRig> {
   const admission = createAdmissionControl({ oidcEnabled: true });
   const healthz = createHealthzHandler();
   let origin = '';
-  const oidc = createOidcHttpHandler({ service, ...(options.trustedProxy ? { trustedProxy: true } : {}) });
-  const pairing = options.pairing ?? createDaemonPairingService();
-  const device = createDeviceAuthorizationHttp({
-    pairing,
+  const consent = createConsentRouter({ spaServed: () => false });
+  const oidc = createOidcHttpHandler({
+    service,
+    consent,
+    ...(options.trustedProxy ? { trustedProxy: true } : {}),
+  });
+  const authorization = options.authorization ?? createDaemonAuthorizationService();
+  const oauth = createOAuthHttp({
+    authorization,
     resolvePeer: admission.resolvePeer,
     gateMode: createGateModeResolver({
       ssoProvider: () => service.providerLabel(),
@@ -202,10 +209,10 @@ async function startDaemonHttp(
       passwordEnabled: async () => false,
     }),
     passwordLogin: null,
+    consent,
   });
-  const pairingHttp = createPairingHttpHandler({ pairing, clientPairView: device.renderPairView });
   const composed = admission.wrapHttpHandler(
-    (req, res) => healthz(req, res) || device.handler(req, res) || pairingHttp(req, res) || oidc(req, res),
+    (req, res) => healthz(req, res) || oauth.handler(req, res) || oidc(req, res),
   );
   const server = createServer((req, res) => {
     if (!composed(req, res)) {
@@ -463,70 +470,84 @@ describe('OIDC login e2e — stub issuer over real sockets', () => {
     expect(refused.setCookie.find((entry) => entry.startsWith('oh-oidc-bind='))).toContain('Max-Age=0');
   });
 
-  it('the device arm: start?device=<code> → provider → callback binds the pair, lands on the approved page, the poll mints', async () => {
+  it('the authorization arm: start?authorize=<id> → provider → callback approves the record, lands on the consent page, the token endpoint mints', async () => {
     const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
     if (!created.ok) throw new Error('directory create failed');
-    const pairing = createDaemonPairingService({ generateCode: () => '246810' });
-    // The device plane's audited verb is the seam the spine wires; here
-    // the same pairing service is bound directly.
-    const service = buildService({}, { approveDevice: (code, userId) => pairing.approve(code, userId) });
-    daemonRig = await startDaemonHttp(service, { pairing });
-    const started = await pairing.startClientPair({ client: 'cli', peer: '127.0.0.1', deviceLabel: 'laptop' });
+    const authorization = createDaemonAuthorizationService({ generateId: () => 'auth-1' });
+    // The OAuth plane's audited verb is the seam the spine wires; here
+    // the same authorization service is bound directly.
+    const service = buildService({}, { approveAuthorization: (id, userId) => authorization.approve(id, userId) });
+    daemonRig = await startDaemonHttp(service, { authorization });
+    const begun = await authorization.beginDevice({
+      clientId: DAEMON_CLI_CLIENT_ID,
+      peer: '127.0.0.1',
+      deviceLabel: 'laptop',
+    });
+    if (!begun.ok) throw new Error('device start failed');
 
-    // The device page offers the provider into the device arm.
-    const page = await (await fetch(`${daemonRig.origin}/pair/246810`)).text();
-    expect(page).toContain('href="/auth/oidc/start?device=246810"');
+    // The consent page offers the provider into the authorization arm.
+    const page = await (await fetch(`${daemonRig.origin}/auth/oauth/authorize/auth-1`)).text();
+    expect(page).toContain('href="/auth/oidc/start?authorize=auth-1"');
 
-    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start?device=246810`);
+    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start?authorize=auth-1`);
     expect(start.status).toBe(302);
     const cookie = bindingPair(start.setCookie);
     const authorize = await getRedirect(start.location);
     const callback = await getRedirect(authorize.location, { cookie });
     expect(callback.status).toBe(302);
-    expect(callback.location).toBe('/pair/246810/approved');
+    expect(callback.location).toBe('/auth/oauth/authorize/auth-1');
     // No browser session and no claim code: the callback minted nothing.
     expect(await listDaemonAuthTokens()).toHaveLength(0);
-    const approvedPage = await fetch(`${daemonRig.origin}/pair/246810/approved`);
+    const approvedPage = await fetch(`${daemonRig.origin}/auth/oauth/authorize/auth-1`);
     expect(approvedPage.status).toBe(200);
     expect(await approvedPage.text()).toContain('Device approved');
 
-    // The device's poll mints its credential, bound to Alice.
-    const polled = await fetch(`${daemonRig.origin}/pair/poll`, {
-      headers: { authorization: `Bearer ${started.pollToken}` },
+    // The device redeems its credential at the token endpoint, bound to Alice.
+    const minted = await fetch(`${daemonRig.origin}/auth/oauth/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: DEVICE_CODE_GRANT_TYPE,
+        device_code: begun.deviceCode,
+        client_id: DAEMON_CLI_CLIENT_ID,
+      }).toString(),
     });
-    expect(polled.status).toBe(200);
-    const payload = (await polled.json()) as { status: string; secret: string };
-    expect(payload.status).toBe('approved');
-    const validated = await validateDaemonAuthToken(payload.secret);
+    expect(minted.status).toBe(200);
+    const payload = (await minted.json()) as { access_token: string; token_type: string };
+    expect(payload.token_type).toBe('Bearer');
+    const validated = await validateDaemonAuthToken(payload.access_token);
     expect(validated.ok).toBe(true);
     if (validated.ok) expect(validated.userId).toBe(created.record.user.id);
     const [token] = await listDaemonAuthTokens();
     expect(token).toMatchObject({ kind: 'session', userId: created.record.user.id, label: 'device:cli:laptop' });
   });
 
-  it('the device arm lands a refused sign-in back on the device page with a fixed sentence', async () => {
+  it('the authorization arm lands a refused sign-in beside the record with a fixed sentence', async () => {
     issuerStub?.setUser({ email: 'mallory@openheaders.io' });
-    const pairing = createDaemonPairingService({ generateCode: () => '246810' });
-    const service = buildService({}, { approveDevice: (code, userId) => pairing.approve(code, userId) });
-    daemonRig = await startDaemonHttp(service, { pairing });
-    const started = await pairing.startClientPair({ client: 'extension', peer: '127.0.0.1' });
-    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start?device=246810`);
+    const authorization = createDaemonAuthorizationService({ generateId: () => 'auth-1' });
+    const service = buildService({}, { approveAuthorization: (id, userId) => authorization.approve(id, userId) });
+    daemonRig = await startDaemonHttp(service, { authorization });
+    const begun = await authorization.beginDevice({ clientId: DAEMON_CLI_CLIENT_ID, peer: '127.0.0.1' });
+    if (!begun.ok) throw new Error('device start failed');
+    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start?authorize=auth-1`);
     const cookie = bindingPair(start.setCookie);
     const authorize = await getRedirect(start.location);
     const callback = await getRedirect(authorize.location, { cookie });
-    expect(callback.location).toBe('/pair/246810?error=unknown-user');
+    expect(callback.location).toBe('/auth/oauth/authorize/auth-1?error=unknown-user');
     const page = await (await fetch(`${daemonRig.origin}${callback.location}`)).text();
     expect(page).toContain('That account is not a user on this server.');
-    expect(page).toContain('href="/auth/oidc/start?device=246810"');
-    // The pair is still pending; the device keeps waiting.
-    expect(pairing.peek('246810')?.status).toBe('pending');
-    expect(await pairing.poll(started.pollToken)).toMatchObject({ status: 'pending' });
+    expect(page).toContain('href="/auth/oidc/start?authorize=auth-1"');
+    // The record is still pending; the device keeps waiting.
+    expect(authorization.facts('auth-1')?.status).toBe('pending');
+    expect(
+      await authorization.pollDevice({ deviceCode: begun.deviceCode, clientId: DAEMON_CLI_CLIENT_ID }),
+    ).toMatchObject({ status: 'pending' });
   });
 
-  it('a non-numeric device parameter starts an ordinary login', async () => {
+  it('a malformed authorize parameter starts an ordinary login', async () => {
     await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
     daemonRig = await startDaemonHttp(buildService());
-    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start?device=not-a-code`);
+    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start?authorize=not%20an%20id`);
     const cookie = bindingPair(start.setCookie);
     const authorize = await getRedirect(start.location);
     const callback = await getRedirect(authorize.location, { cookie });

@@ -7,11 +7,14 @@
  *     render the SSO button. JSON, no secrets, no state.
  *   - `GET  /auth/oidc/start`    — top-level navigation entry: mints
  *     state/nonce/PKCE plus a login-binding nonce and 302s to the
- *     provider's authorization URL. `?device=<code>` is the device arm
- *     (the client sign-in plan §6.2): the code parks in the pending
- *     login and the callback binds the pair instead of minting a
- *     session, landing on `/pair/<code>/approved` — or back on the
- *     device page with `?error=<reason>` when the sign-in is refused. The binding nonce rides back to the
+ *     provider's authorization URL. `?authorize=<id>` is the
+ *     authorization arm (the client sign-in plan §14.4): the pending
+ *     authorization's id parks in the pending login and the callback
+ *     approves it instead of minting a session, landing where the
+ *     consent router sends a browser for that record — the SPA's
+ *     `/#authorize=<id>` or the server-rendered page — with the
+ *     refusal's reason appended when the sign-in is refused. The
+ *     binding nonce rides back to the
  *     browser as an HttpOnly SameSite=Lax cookie (`__Host-`-prefixed
  *     with `Secure` when the effective scheme is https; a host-scoped
  *     fallback name on plain-http binds, where `Secure` cookies would
@@ -38,6 +41,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { resolveExternalOrigin } from '../../host-runtime/external-origin';
 import { readRawBody } from '../../host-runtime/http-body';
+import { type ConsentRouter, fallbackConsentLocation } from '../oauth/consent-route';
 import { type DaemonOidcService, PENDING_LOGIN_TTL_MS } from './oidc-service';
 
 const SCOPE = 'OidcHttp';
@@ -64,6 +68,12 @@ export interface OidcHttpHandlerOptions {
   readonly redirectOrigin?: string;
   /** Same trust posture as the admission control's peer resolution. */
   readonly trustedProxy?: boolean;
+  /**
+   * Where the authorization arm lands after the provider round-trip.
+   * Absent = a host that composes no web app; the server-rendered
+   * consent page stands.
+   */
+  readonly consent?: ConsentRouter;
 }
 
 /** Composition contract shared with healthz/pairing/mcp: `true` = response owned. */
@@ -129,8 +139,13 @@ function readBindingCookie(req: IncomingMessage, secure: boolean): string {
   return '';
 }
 
+/** The authorization id's shape — base64url, never a path segment's worth of anything else. */
+const AUTHORIZATION_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
 export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttpHandler {
   const { service } = options;
+  const consentLocation = (req: IncomingMessage, id: string, error?: string): string =>
+    options.consent ? options.consent.location(req, id, error) : fallbackConsentLocation(id, error);
 
   // Host has already passed the admission matrix's `known` posture on
   // this route, so it names an address the daemon legitimately answers as.
@@ -163,15 +178,15 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
       // licensee — so URL exposure carries no privilege.
       const query = new URL(req.url ?? '', 'http://placeholder').searchParams;
       const personalLicense = query.get('individual_license') ?? '';
-      // The device arm's code — digits only, like every pairing code;
-      // anything else is not a code and starts an ordinary login.
-      const device = query.get('device') ?? '';
-      const deviceCode = /^\d+$/.test(device) ? device : '';
+      // The authorization arm's id — an opaque base64url handle;
+      // anything else is not an id and starts an ordinary login.
+      const authorize = query.get('authorize') ?? '';
+      const authorizationId = AUTHORIZATION_ID_PATTERN.test(authorize) ? authorize : '';
       void (async () => {
         try {
           const begun = await service.beginLogin(origin, {
             ...(personalLicense ? { personalLicense } : {}),
-            ...(deviceCode ? { deviceCode } : {}),
+            ...(authorizationId ? { authorizationId } : {}),
           });
           if (begun.ok) {
             setBindingCookie(res, begun.bindingNonce, secure);
@@ -214,20 +229,20 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
         try {
           const completed = await service.completeLogin({ code, state, bindingNonce });
           if (completed.ok) {
-            if (completed.kind === 'device') {
-              redirectResponse(res, `/pair/${encodeURIComponent(completed.deviceCode)}/approved`);
+            if (completed.kind === 'authorization') {
+              // The record is approved: the consent rendering shows the
+              // verdict, and on the code grant the SPA runs the redirect.
+              redirectResponse(res, consentLocation(req, completed.authorizationId));
               return;
             }
             redirectResponse(res, `/#oidc=${encodeURIComponent(completed.claimCode)}`);
             return;
           }
-          if (completed.deviceCode !== undefined) {
-            // The device arm's refusal lands on the device page, which
-            // renders it as a fixed sentence and offers the provider again.
-            redirectResponse(
-              res,
-              `/pair/${encodeURIComponent(completed.deviceCode)}?error=${encodeURIComponent(completed.reason)}`,
-            );
+          if (completed.authorizationId !== undefined) {
+            // The authorization arm's refusal lands beside the record,
+            // which renders it as a fixed sentence and offers the
+            // provider again.
+            redirectResponse(res, consentLocation(req, completed.authorizationId, completed.reason));
             return;
           }
           redirectResponse(res, `/#oidc-error=${encodeURIComponent(completed.reason)}`);
