@@ -1,91 +1,63 @@
 /**
- * Backend-URL field with a uniform connect affordance (WS-A3).
- *
- * Editor for one `OH.backends` record's URL, resolved through the
- * row-editor's record context. The persisted value stays the single
- * canonical `ws://host:port` string every dialer reads (websocket,
- * probe, backend-target, pair-with-code), but the user edits it as the
- * three parts they actually think in: scheme, Address, Port. This is
- * the `lan-peers-toggle` idiom — persist the literal, present the
- * friendlier affordance.
- *
- * Scheme stays editable because it carries the reach: `ws://` for local
- * / LAN hosts, `wss://` for a remote self-hosted back-end.
+ * Backend-URL field (WS-A3) — ONE string, the way an administrator
+ * hands an address to a person: a host, a `host:port`, or the URL of
+ * the server's web tab. `parseBackendAddress` normalizes whatever was
+ * typed into the canonical `ws://host:port` / `wss://host` string every
+ * dialer reads (websocket, probe, backend-target, pair-with-code,
+ * sign-in), and the field reads that canonical form back after a
+ * commit so the person sees exactly what will be dialed.
  *
  * Commits on blur/enter are safe here: the row editor only mounts the
  * connection fields while the record is DISABLED, so a half-typed
  * address can never move a live connection — the wire is only earned
- * through the probe-gated enable afterwards.
+ * through the probe-gated enable afterwards. An address that parses to
+ * nothing is held with an inline hint and never persisted. No port
+ * rule beyond the URL grammar applies here: this is a DIAL address, so
+ * 80 and 443 behind a proxy are as legitimate as 8137.
  */
 
-import { Input, Select, Space } from 'antd';
+import { Input } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { type PortValidation, validatePort } from '@openheaders/core/utils';
+import { parseBackendAddress } from '@openheaders/core/identity';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import FieldRow from '../fields/FieldRow';
 import { useBackendRecord } from './backend-record-context';
-import PortHint from './port-hint';
+import PortHint, { type PortHintVerdict } from './port-hint';
 
-type Scheme = 'ws' | 'wss';
-interface UrlParts {
-  scheme: Scheme;
-  address: string;
-  port: string;
-}
+const OK: PortHintVerdict = { level: 'ok' };
+const INVALID: PortHintVerdict = {
+  level: 'reject',
+  messageKey: 'workbench.settings.backendPane.field.url.invalid',
+};
 
-function parseUrl(raw: string): UrlParts {
-  try {
-    const u = new URL(raw);
-    return {
-      scheme: u.protocol === 'wss:' ? 'wss' : 'ws',
-      // URL keeps IPv6 literals bracketed in `hostname`; strip them so
-      // the Address field shows the bare address and buildUrl re-wraps.
-      address: u.hostname.replace(/^\[|\]$/g, ''),
-      port: u.port,
-    };
-  } catch {
-    return { scheme: 'ws', address: '', port: '' };
-  }
-}
-
-function buildUrl({ scheme, address, port }: UrlParts): string {
-  const host = address.includes(':') ? `[${address}]` : address;
-  return port ? `${scheme}://${host}:${port}` : `${scheme}://${host}`;
-}
-
-/**
- * An empty port is the "no explicit port" state (the dialer falls back to
- * the scheme default), so it's `ok` — only a typed port is range-checked.
- */
-function portVerdict(port: string): PortValidation {
-  if (port === '') return { level: 'ok' };
-  return validatePort(Number(port));
+/** The record's URL as the field shows it — an address-less record reads empty. */
+function displayed(url: string): string {
+  return parseBackendAddress(url) === null ? '' : url;
 }
 
 const BackendUrlField: React.FC = () => {
   const t = useT();
   const handle = useBackendRecord();
   const url = handle?.record.url ?? '';
-  const [parts, setParts] = useState<UrlParts>(() => parseUrl(url));
+  const [text, setText] = useState<string>(() => displayed(url));
+  const [verdict, setVerdict] = useState<PortHintVerdict>(OK);
 
   useEffect(() => {
-    setParts(parseUrl(url));
+    setText(displayed(url));
+    setVerdict(OK);
   }, [url]);
 
-  const verdict = portVerdict(parts.port);
-
-  const commit = useCallback(
-    (next: UrlParts) => {
-      // A rejected port (privileged / out-of-range) blocks the whole URL
-      // commit — the dialer reads one canonical string, so a bad port
-      // can't be persisted while the address change rides along.
-      if (portVerdict(next.port).level === 'reject') return;
-      const built = buildUrl(next);
-      if (handle && built !== url) void handle.patch({ url: built });
-    },
-    [url, handle],
-  );
+  const commit = useCallback((): void => {
+    const canonical = parseBackendAddress(text);
+    if (canonical === null) {
+      setVerdict(text.trim() === '' ? OK : INVALID);
+      return;
+    }
+    setVerdict(OK);
+    setText(canonical);
+    if (handle && canonical !== url) void handle.patch({ url: canonical });
+  }, [text, url, handle]);
 
   if (!handle) return null;
 
@@ -97,43 +69,15 @@ const BackendUrlField: React.FC = () => {
       block
     >
       <div style={{ width: '100%' }}>
-        <Space.Compact style={{ width: '100%' }}>
-          <Select
-            value={parts.scheme}
-            style={{ flex: '0 0 92px' }}
-            aria-label={t('workbench.settings.backendPane.field.url.schemeAria')}
-            onChange={(scheme: Scheme) => {
-              const next = { ...parts, scheme };
-              setParts(next);
-              commit(next);
-            }}
-            options={[
-              { value: 'ws', label: 'ws://' },
-              { value: 'wss', label: 'wss://' },
-            ]}
-          />
-          <Input
-            style={{ flex: 1 }}
-            value={parts.address}
-            placeholder="127.0.0.1"
-            aria-label={t('workbench.settings.backendPane.field.url.addressAria')}
-            onChange={(e) => setParts({ ...parts, address: e.target.value.trim() })}
-            onBlur={() => commit(parts)}
-            onPressEnter={() => commit(parts)}
-          />
-          <Input
-            style={{ flex: '0 0 110px' }}
-            addonBefore=":"
-            value={parts.port}
-            placeholder="8137"
-            inputMode="numeric"
-            aria-label={t('workbench.settings.backendPane.field.url.portAria')}
-            status={verdict.level === 'reject' ? 'error' : verdict.level === 'warn' ? 'warning' : undefined}
-            onChange={(e) => setParts({ ...parts, port: e.target.value.replace(/\D/g, '') })}
-            onBlur={() => commit(parts)}
-            onPressEnter={() => commit(parts)}
-          />
-        </Space.Compact>
+        <Input
+          value={text}
+          placeholder="192.168.1.20:8137"
+          aria-label={t('workbench.settings.backendPane.field.url.label')}
+          status={verdict.level === 'reject' ? 'error' : undefined}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={commit}
+          onPressEnter={commit}
+        />
         <PortHint verdict={verdict} />
       </div>
     </FieldRow>

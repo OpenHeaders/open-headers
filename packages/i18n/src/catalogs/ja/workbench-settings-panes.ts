@@ -208,12 +208,10 @@ export const workbenchSettingsPanes = {
     'アプリ全体でこの接続が呼ばれる名前です。デフォルトはそのアドレスです。',
   'workbench.settings.backendPane.field.label.placeholder': '仕事用 VM',
   'workbench.settings.backendPane.field.label.aria': '接続名',
-  'workbench.settings.backendPane.field.url.label': 'アドレス',
+  'workbench.settings.backendPane.field.url.label': 'サーバーのアドレス',
   'workbench.settings.backendPane.field.url.description':
-    'このコンピューターやネットワークには `ws://`、リモートのサーバーには `wss://`。',
-  'workbench.settings.backendPane.field.url.schemeAria': 'スキーム',
-  'workbench.settings.backendPane.field.url.addressAria': 'アドレス',
-  'workbench.settings.backendPane.field.url.portAria': 'ポート',
+    '管理者から伝えられたアドレスまたは URL です。このコンピューターやネットワークには `http` か `ws`、リモートのサーバーには `https` か `wss` を使います。',
+  'workbench.settings.backendPane.field.url.invalid': 'ホスト、ホスト:ポート、または URL を入力してください。',
   'workbench.settings.backendPane.field.auth.label': 'サインイン',
   'workbench.settings.backendPane.field.auth.description':
     'このデバイスのサインイン方法です。コードでペアリングするか、token を直接貼り付けます。',

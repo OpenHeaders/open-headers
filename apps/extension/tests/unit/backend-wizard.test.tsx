@@ -174,7 +174,7 @@ describe('BackendWizard', () => {
     renderWizard({ recordId: created.id, mode: 'edit' });
 
     expect(screen.getByRole('button', { name: 'Disconnect and edit' })).toBeTruthy();
-    expect(screen.queryByLabelText('Address')).toBeNull();
+    expect(screen.queryByLabelText('Server address')).toBeNull();
     expect(screen.queryByLabelText('Auth token')).toBeNull();
   });
 
@@ -192,6 +192,41 @@ describe('BackendWizard', () => {
   it('Next is held until the address is complete', async () => {
     const record = await createBackend({ url: 'ws://' });
     renderWizard({ recordId: record.id, mode: 'add', kind: 'server' });
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('the address is one string — a host:port persists the canonical socket URL and reads back as it', async () => {
+    const record = await createBackend({ url: 'ws://' });
+    renderWizard({ recordId: record.id, mode: 'add', kind: 'server' });
+    const field = screen.getByRole('textbox', { name: 'Server address' }) as HTMLInputElement;
+    expect(field.value).toBe('');
+    fireEvent.change(field, { target: { value: '10.0.0.5:19337' } });
+    fireEvent.keyDown(field, { key: 'Enter', code: 'Enter' });
+    await waitFor(() => expect(getBackend(record.id)?.url).toBe('ws://10.0.0.5:19337'));
+    expect(field.value).toBe('ws://10.0.0.5:19337');
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("the address takes the web tab's URL as the admin gave it — https becomes wss, the path goes", async () => {
+    const record = await createBackend({ url: 'ws://' });
+    renderWizard({ recordId: record.id, mode: 'add', kind: 'server' });
+    const field = screen.getByRole('textbox', { name: 'Server address' });
+    fireEvent.change(field, { target: { value: 'https://sync.openheaders.io/admin' } });
+    fireEvent.blur(field);
+    await waitFor(() => expect(getBackend(record.id)?.url).toBe('wss://sync.openheaders.io'));
+  });
+
+  it('an address that is not one is held with a hint and never persisted', async () => {
+    const record = await createBackend({ url: 'ws://' });
+    renderWizard({ recordId: record.id, mode: 'add', kind: 'server' });
+    const field = screen.getByRole('textbox', { name: 'Server address' });
+    fireEvent.change(field, { target: { value: 'nope host' } });
+    fireEvent.blur(field);
+    expect(screen.getByRole('alert').textContent).toBe('Enter a host, host:port or URL.');
+    fireEvent.change(field, { target: { value: '10.0.0.5:99999' } });
+    fireEvent.blur(field);
+    expect(screen.getByRole('alert').textContent).toBe('Enter a host, host:port or URL.');
+    expect(getBackend(record.id)?.url).toBe('ws://');
     expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true);
   });
 

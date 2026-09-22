@@ -239,12 +239,10 @@ export const workbenchSettingsPanes = {
     'Cum se numește această conexiune în aplicație. Implicit, adresa ei.',
   'workbench.settings.backendPane.field.label.placeholder': 'VM de lucru',
   'workbench.settings.backendPane.field.label.aria': 'Numele conexiunii',
-  'workbench.settings.backendPane.field.url.label': 'Adresă',
+  'workbench.settings.backendPane.field.url.label': 'Adresa serverului',
   'workbench.settings.backendPane.field.url.description':
-    '`ws://` pentru acest computer sau rețeaua dvs., `wss://` pentru un server la distanță.',
-  'workbench.settings.backendPane.field.url.schemeAria': 'Schemă',
-  'workbench.settings.backendPane.field.url.addressAria': 'Adresă',
-  'workbench.settings.backendPane.field.url.portAria': 'Port',
+    'Adresa sau adresa URL primită de la administrator. `http` sau `ws` pentru acest computer sau rețeaua dvs., `https` sau `wss` pentru un server la distanță.',
+  'workbench.settings.backendPane.field.url.invalid': 'Introduceți un host, host:port sau o adresă URL.',
   'workbench.settings.backendPane.field.auth.label': 'Autentificare',
   'workbench.settings.backendPane.field.auth.description':
     'Cum se autentifică acest dispozitiv. Asociați prin cod sau lipiți direct un token.',

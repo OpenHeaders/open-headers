@@ -231,12 +231,10 @@ async function openWizardAtSignInStep(label: string): Promise<Locator> {
   const nameField = modal.getByRole('textbox', { name: 'Connection name', exact: true });
   await nameField.fill(label);
   await nameField.press('Enter');
-  const addressField = modal.getByRole('textbox', { name: 'Address', exact: true });
-  await addressField.fill(lanIpv4());
+  // One string, as the admin would say it: host:port.
+  const addressField = modal.getByRole('textbox', { name: 'Server address', exact: true });
+  await addressField.fill(`${lanIpv4()}:${DAEMON_PORT}`);
   await addressField.press('Enter');
-  const portField = modal.getByRole('textbox', { name: 'Port', exact: true });
-  await portField.fill(String(DAEMON_PORT));
-  await portField.press('Enter');
   await modal.getByRole('button', { name: 'Next' }).click();
   // The probe's verdict without a credential: the daemon asks this
   // device to sign in.

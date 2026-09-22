@@ -332,20 +332,13 @@ async function addBackendViaWizard(join: WizardJoin): Promise<void> {
   const modal = workbench.getByRole('dialog', { name: 'Sign in to a server' });
   await expect(modal).toBeVisible();
 
-  // Address step — name + URL parts (commit on Enter).
+  // Address step — name + the one address string (commit on Enter).
   const nameField = modal.getByRole('textbox', { name: 'Connection name', exact: true });
   await nameField.fill(join.label);
   await nameField.press('Enter');
-  if (join.scheme === 'wss') {
-    await modal.getByLabel('Scheme', { exact: true }).click();
-    await workbench.locator('.ant-select-item-option:visible', { hasText: 'wss://' }).click();
-  }
-  const addressField = modal.getByRole('textbox', { name: 'Address', exact: true });
-  await addressField.fill(join.address);
+  const addressField = modal.getByRole('textbox', { name: 'Server address', exact: true });
+  await addressField.fill(`${join.scheme}://${join.address}:${join.port}`);
   await addressField.press('Enter');
-  const portField = modal.getByRole('textbox', { name: 'Port', exact: true });
-  await portField.fill(join.port);
-  await portField.press('Enter');
   await modal.getByRole('button', { name: 'Next' }).click();
 
   // Sign-in step — the probe's verdict without a credential is the

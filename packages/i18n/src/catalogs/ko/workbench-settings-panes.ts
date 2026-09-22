@@ -210,12 +210,10 @@ export const workbenchSettingsPanes = {
     '앱 전체에서 이 연결을 부르는 이름입니다. 기본값은 주소입니다.',
   'workbench.settings.backendPane.field.label.placeholder': '업무용 VM',
   'workbench.settings.backendPane.field.label.aria': '연결 이름',
-  'workbench.settings.backendPane.field.url.label': '주소',
+  'workbench.settings.backendPane.field.url.label': '서버 주소',
   'workbench.settings.backendPane.field.url.description':
-    '이 컴퓨터나 내 네트워크에는 `ws://`, 원격 서버에는 `wss://` 스킴입니다.',
-  'workbench.settings.backendPane.field.url.schemeAria': '스킴',
-  'workbench.settings.backendPane.field.url.addressAria': '주소',
-  'workbench.settings.backendPane.field.url.portAria': '포트',
+    '관리자가 알려 준 주소나 URL 값입니다. 이 컴퓨터나 내 네트워크에는 `http` 또는 `ws`, 원격 서버에는 `https` 또는 `wss` 스킴을 사용합니다.',
+  'workbench.settings.backendPane.field.url.invalid': '호스트, 호스트:포트 또는 URL 형식을 입력하세요.',
   'workbench.settings.backendPane.field.auth.label': '로그인',
   'workbench.settings.backendPane.field.auth.description':
     '이 기기가 로그인하는 방법입니다. 코드로 페어링하거나 token 값을 직접 붙여넣습니다.',

@@ -228,12 +228,10 @@ export const workbenchSettingsPanes = {
     'Cómo se llama esta conexión en toda la aplicación. Por defecto, su dirección.',
   'workbench.settings.backendPane.field.label.placeholder': 'VM del trabajo',
   'workbench.settings.backendPane.field.label.aria': 'Nombre de la conexión',
-  'workbench.settings.backendPane.field.url.label': 'Dirección',
+  'workbench.settings.backendPane.field.url.label': 'Dirección del servidor',
   'workbench.settings.backendPane.field.url.description':
-    '`ws://` para este equipo o tu red, `wss://` para un servidor remoto.',
-  'workbench.settings.backendPane.field.url.schemeAria': 'Esquema',
-  'workbench.settings.backendPane.field.url.addressAria': 'Dirección',
-  'workbench.settings.backendPane.field.url.portAria': 'Puerto',
+    'La dirección o URL que te dio el administrador. `http` o `ws` para este equipo o tu red, `https` o `wss` para un servidor remoto.',
+  'workbench.settings.backendPane.field.url.invalid': 'Introduce un host, host:puerto o una URL.',
   'workbench.settings.backendPane.field.auth.label': 'Inicio de sesión',
   'workbench.settings.backendPane.field.auth.description':
     'Cómo inicia sesión este dispositivo. Empareja con un código, o pega un token directamente.',

@@ -151,6 +151,7 @@ export {
   type IdentitySnapshot,
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from './resolver';
+export { DEFAULT_BACKEND_PORT, parseBackendAddress } from './backend-address';
 export {
   createServerSignInClient,
   fetchJsonDocument,

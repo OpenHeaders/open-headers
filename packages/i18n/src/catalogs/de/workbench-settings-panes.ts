@@ -227,12 +227,10 @@ export const workbenchSettingsPanes = {
     'So heißt diese Verbindung überall in der App. Standard ist ihre Adresse.',
   'workbench.settings.backendPane.field.label.placeholder': 'Arbeits-VM',
   'workbench.settings.backendPane.field.label.aria': 'Verbindungsname',
-  'workbench.settings.backendPane.field.url.label': 'Adresse',
+  'workbench.settings.backendPane.field.url.label': 'Serveradresse',
   'workbench.settings.backendPane.field.url.description':
-    '`ws://` für diesen Computer oder dein Netzwerk, `wss://` für einen entfernten Server.',
-  'workbench.settings.backendPane.field.url.schemeAria': 'Schema',
-  'workbench.settings.backendPane.field.url.addressAria': 'Adresse',
-  'workbench.settings.backendPane.field.url.portAria': 'Port',
+    'Die Adresse oder URL, die dir der Administrator gegeben hat. `http` oder `ws` für diesen Computer oder dein Netzwerk, `https` oder `wss` für einen entfernten Server.',
+  'workbench.settings.backendPane.field.url.invalid': 'Gib einen Host, Host:Port oder eine URL ein.',
   'workbench.settings.backendPane.field.auth.label': 'Anmeldung',
   'workbench.settings.backendPane.field.auth.description':
     'Wie sich dieses Gerät anmeldet. Kopple mit einem Code oder füge direkt einen Token ein.',

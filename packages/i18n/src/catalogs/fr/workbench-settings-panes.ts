@@ -227,12 +227,10 @@ export const workbenchSettingsPanes = {
     "Le nom de cette connexion dans toute l'application. Par défaut, son adresse.",
   'workbench.settings.backendPane.field.label.placeholder': 'VM du travail',
   'workbench.settings.backendPane.field.label.aria': 'Nom de la connexion',
-  'workbench.settings.backendPane.field.url.label': 'Adresse',
+  'workbench.settings.backendPane.field.url.label': 'Adresse du serveur',
   'workbench.settings.backendPane.field.url.description':
-    '`ws://` pour cet ordinateur ou votre réseau, `wss://` pour un serveur distant.',
-  'workbench.settings.backendPane.field.url.schemeAria': 'Schéma',
-  'workbench.settings.backendPane.field.url.addressAria': 'Adresse',
-  'workbench.settings.backendPane.field.url.portAria': 'Port',
+    "L'adresse ou l'URL que l'administrateur vous a donnée. `http` ou `ws` pour cet ordinateur ou votre réseau, `https` ou `wss` pour un serveur distant.",
+  'workbench.settings.backendPane.field.url.invalid': 'Saisissez un hôte, hôte:port ou une URL.',
   'workbench.settings.backendPane.field.auth.label': 'Connexion',
   'workbench.settings.backendPane.field.auth.description':
     'Comment cet appareil se connecte. Appairez avec un code, ou collez un jeton directement.',

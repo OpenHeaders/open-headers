@@ -187,12 +187,10 @@ export const workbenchSettingsPanes = {
     'What this connection is called across the app. Defaults to its address.',
   'workbench.settings.backendPane.field.label.placeholder': 'Work VM',
   'workbench.settings.backendPane.field.label.aria': 'Connection name',
-  'workbench.settings.backendPane.field.url.label': 'Address',
+  'workbench.settings.backendPane.field.url.label': 'Server address',
   'workbench.settings.backendPane.field.url.description':
-    '`ws://` for this computer or your network, `wss://` for a remote server.',
-  'workbench.settings.backendPane.field.url.schemeAria': 'Scheme',
-  'workbench.settings.backendPane.field.url.addressAria': 'Address',
-  'workbench.settings.backendPane.field.url.portAria': 'Port',
+    'The address or URL the administrator gave you. Plain `http` or `ws` for this computer or your network, `https` or `wss` for a remote server.',
+  'workbench.settings.backendPane.field.url.invalid': 'Enter a host, host:port or URL.',
   'workbench.settings.backendPane.field.auth.label': 'Sign in',
   'workbench.settings.backendPane.field.auth.description':
     'How this device signs in. Pair with a code, or paste a token directly.',

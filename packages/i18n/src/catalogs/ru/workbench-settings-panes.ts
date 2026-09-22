@@ -230,12 +230,10 @@ export const workbenchSettingsPanes = {
     'Как это соединение называется в приложении. По умолчанию — его адрес.',
   'workbench.settings.backendPane.field.label.placeholder': 'Рабочая ВМ',
   'workbench.settings.backendPane.field.label.aria': 'Имя соединения',
-  'workbench.settings.backendPane.field.url.label': 'Адрес',
+  'workbench.settings.backendPane.field.url.label': 'Адрес сервера',
   'workbench.settings.backendPane.field.url.description':
-    '`ws://` для этого компьютера или вашей сети, `wss://` для удалённого сервера.',
-  'workbench.settings.backendPane.field.url.schemeAria': 'Схема',
-  'workbench.settings.backendPane.field.url.addressAria': 'Адрес',
-  'workbench.settings.backendPane.field.url.portAria': 'Порт',
+    'Адрес или URL-адрес, который вам дал администратор. `http` или `ws` для этого компьютера или вашей сети, `https` или `wss` для удалённого сервера.',
+  'workbench.settings.backendPane.field.url.invalid': 'Введите хост, хост:порт или URL-адрес.',
   'workbench.settings.backendPane.field.auth.label': 'Вход',
   'workbench.settings.backendPane.field.auth.description':
     'Как это устройство выполняет вход. Сопряжение по коду или прямая вставка токена.',
