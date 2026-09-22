@@ -18,6 +18,7 @@ import {
   createDaemonAuthorizationService,
   createDaemonUser,
   DAEMON_CLI_CLIENT_ID,
+  DAEMON_DESKTOP_CLIENT_ID,
   type DaemonAuthorizationService,
   ensureSyntheticIdentity,
   listDaemonAuthTokens,
@@ -27,7 +28,7 @@ import {
   validateDaemonAuthToken,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
-import { DEVICE_CODE_GRANT_TYPE } from '@openheaders/core/oauth';
+import { computeCodeChallenge, DEVICE_CODE_GRANT_TYPE, generateCodeVerifier } from '@openheaders/core/oauth';
 import { PROTOCOL_VERSION, SYNC_HELLO_TYPE, SYNC_WELCOME_TYPE } from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
@@ -520,6 +521,57 @@ describe('OIDC login e2e — stub issuer over real sockets', () => {
     if (validated.ok) expect(validated.userId).toBe(created.record.user.id);
     const [token] = await listDaemonAuthTokens();
     expect(token).toMatchObject({ kind: 'session', userId: created.record.user.id, label: 'device:cli:laptop' });
+  });
+
+  it("the authorization arm on the code grant: the callback 302s straight to the client's redirect with code, state and iss; the verifier redeems", async () => {
+    const created = await createDaemonUser({ displayName: 'Alice', email: 'alice@openheaders.io' });
+    if (!created.ok) throw new Error('directory create failed');
+    const authorization = createDaemonAuthorizationService({ generateId: () => 'auth-1' });
+    const service = buildService({}, { approveAuthorization: (id, userId) => authorization.approve(id, userId) });
+    daemonRig = await startDaemonHttp(service, { authorization });
+    const verifier = generateCodeVerifier((n) => crypto.getRandomValues(new Uint8Array(n)));
+    const challenge = await computeCodeChallenge(verifier, async (bytes) => {
+      const buf = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(buf).set(bytes);
+      return new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
+    });
+    const begun = authorization.beginCode({
+      clientId: DAEMON_DESKTOP_CLIENT_ID,
+      redirectUri: 'http://127.0.0.1:8137/oauth/callback',
+      state: 'st-1',
+      codeChallenge: challenge,
+      codeChallengeMethod: 'S256',
+      peer: '127.0.0.1',
+    });
+    if (!begun.ok) throw new Error('code start failed');
+
+    const start = await getRedirect(`${daemonRig.origin}/auth/oidc/start?authorize=auth-1`);
+    const cookie = bindingPair(start.setCookie);
+    const authorize = await getRedirect(start.location);
+    const callback = await getRedirect(authorize.location, { cookie });
+    expect(callback.status).toBe(302);
+    const target = new URL(callback.location);
+    expect(`${target.origin}${target.pathname}`).toBe('http://127.0.0.1:8137/oauth/callback');
+    expect(target.searchParams.get('state')).toBe('st-1');
+    expect(target.searchParams.get('iss')).toBe(daemonRig.origin);
+    const code = target.searchParams.get('code') ?? '';
+    expect(code).not.toBe('');
+    // Approval minted nothing; the client's redemption does.
+    expect(await listDaemonAuthTokens()).toHaveLength(0);
+    const minted = await fetch(`${daemonRig.origin}/auth/oauth/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        redirect_uri: 'http://127.0.0.1:8137/oauth/callback',
+        client_id: DAEMON_DESKTOP_CLIENT_ID,
+      }).toString(),
+    });
+    expect(minted.status).toBe(200);
+    const [token] = await listDaemonAuthTokens();
+    expect(token).toMatchObject({ kind: 'session', userId: created.record.user.id, label: 'device:desktop' });
   });
 
   it('the authorization arm lands a refused sign-in beside the record with a fixed sentence', async () => {

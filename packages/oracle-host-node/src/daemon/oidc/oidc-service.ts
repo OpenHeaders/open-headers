@@ -136,6 +136,8 @@ export type OidcCompleteResult =
       readonly ok: true;
       readonly kind: 'authorization';
       readonly authorizationId: string;
+      /** The approval's answer — the code grant's redirect target rides it to the callback. */
+      readonly approval: Extract<ApproveAuthorizationResult, { ok: true }>;
       readonly userId: string;
       readonly email: string;
     }
@@ -714,7 +716,14 @@ export function createDaemonOidcService(config: DaemonOidcConfig, deps: OidcServ
           SCOPE,
           `SSO device sign-in approved authorization ${authorizationId} for user=${resolved.record.user.id}`,
         );
-        return { ok: true, kind: 'authorization', authorizationId, userId: resolved.record.user.id, email };
+        return {
+          ok: true,
+          kind: 'authorization',
+          authorizationId,
+          approval: approved,
+          userId: resolved.record.user.id,
+          email,
+        };
       }
       const minted: MintDaemonAuthTokenResult = await mintToken({
         label: `sso:${email}`,

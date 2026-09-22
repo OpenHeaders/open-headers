@@ -70,7 +70,12 @@ import { escapeHtml, htmlResponse, pageShell, renderState } from '../../host-run
 import { isLoopbackRemote } from '../../host-runtime/ws-server/classify';
 import type { DaemonGateMode, GateModeResolver } from '../gate-mode';
 import type { DaemonPasswordLoginService } from '../password/password-login-service';
-import { CONSENT_PAGE_PREFIX, type ConsentRouter, fallbackConsentLocation } from './consent-route';
+import {
+  authorizationRedirectTarget,
+  CONSENT_PAGE_PREFIX,
+  type ConsentRouter,
+  fallbackConsentLocation,
+} from './consent-route';
 
 const SCOPE = 'OAuthHttp';
 
@@ -217,12 +222,6 @@ function parseDeviceLabel(raw: string | null | undefined): { ok: true; label?: s
   const trimmed = raw.trim();
   if (trimmed.length > MAX_DEVICE_LABEL_LENGTH) return { ok: false };
   return trimmed ? { ok: true, label: trimmed } : { ok: true };
-}
-
-function appendRedirectParams(redirectUri: string, params: Record<string, string>): string {
-  const url = new URL(redirectUri);
-  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-  return url.toString();
 }
 
 /**
@@ -404,11 +403,7 @@ export function createOAuthHttp(options: OAuthHttpOptions): OAuthHttp {
 
   /** The redirect target of an approved code grant — `redirect_uri?code&state&iss` (RFC 9207). */
   function redirectTarget(req: IncomingMessage, approved: Extract<ApproveAuthorizationResult, { grant: 'code' }>) {
-    return appendRedirectParams(approved.redirectUri, {
-      code: approved.code,
-      state: approved.state,
-      iss: externalOrigin(req),
-    });
+    return authorizationRedirectTarget(approved, externalOrigin(req));
   }
 
   function handleMetadata(req: IncomingMessage, res: ServerResponse): void {

@@ -22,6 +22,7 @@
  */
 
 import type { IncomingMessage } from 'node:http';
+import type { ApproveAuthorizationResult } from '@openheaders/core/identity';
 import { resolveExternalOrigin } from '../../host-runtime/external-origin';
 
 /** The fragment key the SPA's consent entry reads (S9). */
@@ -65,6 +66,22 @@ export function fallbackConsentLocation(id: string, error?: string): string {
 export function spaConsentLocation(id: string, error?: string): string {
   const base = `/#${CONSENT_FRAGMENT_KEY}=${encodeURIComponent(id)}`;
   return error ? `${base}&error=${encodeURIComponent(error)}` : base;
+}
+
+/**
+ * The redirect target of an approved code grant — `redirect_uri?code&state&iss`
+ * (RFC 6749 §4.1.2, RFC 9207). Built wherever an approval lands in a
+ * browser: the decision routes and the OIDC callback.
+ */
+export function authorizationRedirectTarget(
+  approved: Extract<ApproveAuthorizationResult, { grant: 'code' }>,
+  issuer: string,
+): string {
+  const url = new URL(approved.redirectUri);
+  url.searchParams.set('code', approved.code);
+  url.searchParams.set('state', approved.state);
+  url.searchParams.set('iss', issuer);
+  return url.toString();
 }
 
 export function createConsentRouter(options: ConsentRouterOptions): ConsentRouter {

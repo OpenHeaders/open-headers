@@ -41,7 +41,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { resolveExternalOrigin } from '../../host-runtime/external-origin';
 import { readRawBody } from '../../host-runtime/http-body';
-import { type ConsentRouter, fallbackConsentLocation } from '../oauth/consent-route';
+import { authorizationRedirectTarget, type ConsentRouter, fallbackConsentLocation } from '../oauth/consent-route';
 import { type DaemonOidcService, PENDING_LOGIN_TTL_MS } from './oidc-service';
 
 const SCOPE = 'OidcHttp';
@@ -230,8 +230,15 @@ export function createOidcHttpHandler(options: OidcHttpHandlerOptions): OidcHttp
           const completed = await service.completeLogin({ code, state, bindingNonce });
           if (completed.ok) {
             if (completed.kind === 'authorization') {
-              // The record is approved: the consent rendering shows the
-              // verdict, and on the code grant the SPA runs the redirect.
+              // The record is approved. On the code grant the browser
+              // goes straight to the client's registered redirect with
+              // the one-shot code (RFC 6749 §4.1.2, `iss` per RFC 9207);
+              // on the device grant the consent rendering shows the
+              // verdict and the device's poll takes it from there.
+              if (completed.approval.grant === 'code') {
+                redirectResponse(res, authorizationRedirectTarget(completed.approval, externalOrigin(req)));
+                return;
+              }
               redirectResponse(res, consentLocation(req, completed.authorizationId));
               return;
             }

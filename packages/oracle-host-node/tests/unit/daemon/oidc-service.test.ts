@@ -418,6 +418,7 @@ describe('daemon OIDC service', () => {
         ok: true,
         kind: 'authorization',
         authorizationId: 'auth-1',
+        approval: { ok: true, grant: 'device' },
         userId: created.record.user.id,
         email: 'alice@openheaders.io',
       });
