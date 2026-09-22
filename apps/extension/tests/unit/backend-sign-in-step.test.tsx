@@ -170,6 +170,10 @@ describe('BackendSignInStep', () => {
     expect(fake.start).toHaveBeenCalledWith({ url: 'ws://10.0.0.5:8137' });
     expect(openExternal).toHaveBeenCalledWith('http://10.0.0.5:8137/pair/424242');
     expect(screen.getByText('Waiting for you to approve this device in the browser…')).toBeTruthy();
+    // The link is shown beside the code so the person can paste it into
+    // any browser — the open is a convenience, not the only path.
+    expect(screen.getByText("Browser didn't open? Open this link in any browser:")).toBeTruthy();
+    expect(screen.getByTestId('backend-sign-in-url').textContent).toContain('http://10.0.0.5:8137/pair/424242');
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
     // The secondary path stays one link away, never gone.
     expect(screen.getByText('Have a pairing code or token from an administrator?')).toBeTruthy();

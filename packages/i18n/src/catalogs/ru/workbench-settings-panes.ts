@@ -73,6 +73,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Код входа',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Ожидаем, пока вы подтвердите это устройство в браузере…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Открыть страницу снова',
+  'workbench.settings.backendPane.wizard.signIn.linkHint': 'Браузер не открылся? Откройте эту ссылку в любом браузере:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Повторить',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'У этого сервера ещё нет администратора. Сначала настройте его по адресу {url}, затем войдите отсюда.',

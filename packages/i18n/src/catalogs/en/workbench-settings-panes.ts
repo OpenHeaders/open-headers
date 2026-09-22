@@ -43,6 +43,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Sign-in code',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Waiting for you to approve this device in the browser…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Open the page again',
+  'workbench.settings.backendPane.wizard.signIn.linkHint': "Browser didn't open? Open this link in any browser:",
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Try again',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'This server has no administrator yet — set it up at {url} first, then sign in from here.',

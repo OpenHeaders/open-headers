@@ -59,6 +59,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Código de inicio de sesión',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Esperando a que apruebes este dispositivo en el navegador…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Abrir la página de nuevo',
+  'workbench.settings.backendPane.wizard.signIn.linkHint': '¿No se abrió el navegador? Abre este enlace en cualquier navegador:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Reintentar',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'Este servidor aún no tiene administrador. Configúralo primero en {url} y luego inicia sesión desde aquí.',

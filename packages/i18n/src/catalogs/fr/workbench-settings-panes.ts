@@ -59,6 +59,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.waiting':
     "En attente de l'approbation de cet appareil dans le navigateur…",
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Rouvrir la page',
+  'workbench.settings.backendPane.wizard.signIn.linkHint': "Le navigateur ne s'est pas ouvert ? Ouvrez ce lien dans le navigateur de votre choix :",
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Réessayer',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     "Ce serveur n'a pas encore d'administrateur. Configurez-le d'abord sur {url}, puis connectez-vous depuis ici.",

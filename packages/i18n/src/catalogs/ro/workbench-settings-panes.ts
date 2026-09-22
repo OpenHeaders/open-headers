@@ -87,6 +87,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Cod de conectare',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Se așteaptă să aprobați acest dispozitiv în browser…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Redeschidere pagină',
+  'workbench.settings.backendPane.wizard.signIn.linkHint': 'Browserul nu s-a deschis? Deschideți acest link în orice browser:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Reîncercare',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'Acest server nu are încă un administrator. Configurați-l mai întâi la {url}, apoi conectați-vă de aici.',

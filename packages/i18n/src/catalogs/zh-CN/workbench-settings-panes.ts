@@ -60,6 +60,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': '登录代码',
   'workbench.settings.backendPane.wizard.signIn.waiting': '正在等待你在浏览器中批准此设备…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': '再次打开页面',
+  'workbench.settings.backendPane.wizard.signIn.linkHint': '浏览器没有打开？在任意浏览器中打开此链接：',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': '重试',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     '此服务器还没有管理员。请先在 {url} 完成设置，然后从这里登录。',

@@ -10,7 +10,9 @@
  *     own page will show before it sends the person there.
  *
  * Primary: **"Sign in on <host>"** — start a pair, open the server's
- * approval page through `openExternalUrl`, show the short code, and
+ * approval page through `openExternalUrl`, show the short code AND the
+ * page's link with a copy affordance (the browser open is a convenience;
+ * the person may paste the link into any browser they choose), and
  * poll on the handle until the person approves the device there. The
  * secret the poll answers is written onto the record like a pasted
  * token; the wizard's probe re-runs on that write, so the line flips to
@@ -244,6 +246,23 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
                 </div>
               </div>
               <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.waiting')} />
+              <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.linkHint')} />
+              <Typography.Text
+                data-testid="backend-sign-in-url"
+                copyable={{
+                  text: flow.approveUrl,
+                  tooltips: [t('shared.action.copy'), t('shared.toast.copiedToClipboard')],
+                }}
+                style={{
+                  display: 'block',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 12,
+                  wordBreak: 'break-all',
+                  marginBottom: 10,
+                }}
+              >
+                {flow.approveUrl}
+              </Typography.Text>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Button onClick={cancel}>{t('shared.action.cancel')}</Button>
                 <Typography.Link style={{ fontSize: 12 }} onClick={() => openApproval(flow.approveUrl)}>

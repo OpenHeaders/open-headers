@@ -61,6 +61,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Anmeldecode',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Warten, bis du dieses Gerät im Browser bestätigst…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Seite erneut öffnen',
+  'workbench.settings.backendPane.wizard.signIn.linkHint': 'Browser nicht geöffnet? Öffne diesen Link in einem beliebigen Browser:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Erneut versuchen',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'Dieser Server hat noch keinen Administrator. Richte ihn zuerst unter {url} ein und melde dich dann hier an.',
