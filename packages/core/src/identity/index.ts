@@ -24,6 +24,7 @@ export {
   resetAuditSink,
   setAuditSink,
 } from './audit';
+export { DEFAULT_BACKEND_PORT, parseBackendAddress } from './backend-address';
 export {
   type BootstrapSyntheticIdentityInput,
   type BootstrapSyntheticIdentityResult,
@@ -41,6 +42,21 @@ export {
   type ValidateDaemonAuthTokenSuccess,
   validateDaemonAuthToken,
 } from './daemon-auth-tokens';
+export {
+  DAEMON_AUTHORIZATION_CLIENT_KINDS,
+  DAEMON_AUTHORIZATION_CLIENTS,
+  DAEMON_CLI_CLIENT_ID,
+  DAEMON_DESKTOP_CLIENT_ID,
+  DAEMON_DESKTOP_REDIRECT_PATH,
+  DAEMON_EXTENSION_CLIENT_ID,
+  DAEMON_EXTENSION_REDIRECT_PATH,
+  type DaemonAuthorizationClient,
+  type DaemonAuthorizationClientKind,
+  type DaemonAuthorizationGrant,
+  findDaemonAuthorizationClient,
+  GECKO_IDENTITY_REDIRECT_HOSTS,
+  isRegisteredRedirect,
+} from './daemon-authorization-clients';
 export {
   type ApprovePairFailureReason,
   type ApprovePairResult,
@@ -151,7 +167,6 @@ export {
   type IdentitySnapshot,
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from './resolver';
-export { DEFAULT_BACKEND_PORT, parseBackendAddress } from './backend-address';
 export {
   createServerSignInClient,
   fetchJsonDocument,
