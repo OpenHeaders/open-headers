@@ -16,11 +16,14 @@
  *     setup route's precedent — behind a trusted proxy every remote
  *     start would otherwise read as loopback).
  *   - `GET  /pair/<code>`           — the device-authorization page for a
- *     client pair (§6.3): "Approve this device?" naming the device, the
- *     client kind and the peer address — the phishing mitigation, the
- *     person sees WHAT they approve — then the server's gate state from
- *     ONE server-side resolver: the claim pointer, the password form,
- *     the provider link, or the no-login sentence.
+ *     client pair (§6.3): "Approve this device?" naming the device and
+ *     the client kind, then the server's gate state from ONE server-side
+ *     resolver: the claim pointer, the password form, the provider link,
+ *     or the no-login sentence. The phishing mitigation is a COMPARISON,
+ *     not a printed address: only when the client that asked sits at a
+ *     different peer than the browser now approving does the page say
+ *     so — a person approving their own device reads nothing about
+ *     addresses at all.
  *   - `POST /pair/<code>/approve`   — the password form: verifies through
  *     the password service (same lockout, same decoy burn) WITHOUT
  *     minting a browser session, binds the pair, and redirects to the
@@ -63,12 +66,16 @@ const POLL_PATH = '/pair/poll';
 const CODE_ROUTE = /^\/pair\/(\d+)\/(approve|deny|approved)$/;
 const MAX_DEVICE_LABEL_LENGTH = 64;
 
-/** How the page names each client kind. */
+/** How the page names each client kind — lowercase; capitalized when it leads the sentence. */
 const CLIENT_KIND_LABELS: Record<DaemonPairingClientKind, string> = {
   extension: 'the browser extension',
   desktop: 'the desktop app',
   cli: 'the command-line tool',
 };
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 /** The OIDC device arm's refusals, rendered as fixed sentences — never a URL's own words. */
 const SSO_ERROR_LINES: Readonly<Record<string, string>> = {
@@ -187,13 +194,24 @@ function readBearer(req: IncomingMessage): string | null {
   return match ? match[1] : null;
 }
 
-function deviceHeading(pair: PendingPair): string {
+/**
+ * The heading names WHAT asks; the address line appears only when the
+ * client that asked and the browser now approving sit at different
+ * peers — that is the one case an address tells the person anything.
+ */
+function deviceHeading(pair: PendingPair, viewerPeer: string): string {
   const label = pair.deviceLabel?.trim();
   const kind = CLIENT_KIND_LABELS[pair.client ?? 'cli'];
-  const who = label ? `<span class="device">${escapeHtml(label)}</span> (${escapeHtml(kind)})` : escapeHtml(kind);
-  const from = pair.peer ? ` from <code>${escapeHtml(pair.peer)}</code>` : '';
+  const who = label
+    ? `<span class="device">${escapeHtml(label)}</span> (${escapeHtml(kind)})`
+    : escapeHtml(capitalize(kind));
+  const elsewhere =
+    pair.peer && pair.peer !== viewerPeer
+      ? `
+<p class="warn">This request came from a different device at <code>${escapeHtml(pair.peer)}</code>. If that isn't you, click Not me.</p>`
+      : '';
   return `<h1>Approve this device?</h1>
-<p>${who} asked${from} to sign in to this server as you.</p>
+<p>${who} asked to sign in to this server as you.</p>${elsewhere}
 <p class="muted">Code <code>${escapeHtml(pair.code)}</code> · expires in about ${Math.max(0, Math.round((pair.expiresAt - Date.now()) / 60000))} min</p>`;
 }
 
@@ -201,15 +219,16 @@ function notMeForm(code: string): string {
   return `<form method="POST" action="/pair/${escapeHtml(code)}/deny"><button type="submit" class="secondary">Not me</button></form>`;
 }
 
-function renderGate(pair: PendingPair, gate: DaemonGateMode, notice: string | null): string {
+function renderGate(pair: PendingPair, gate: DaemonGateMode, notice: string | null, viewerPeer: string): string {
   const code = escapeHtml(pair.code);
   const noticeHtml = notice ? `<p class="err">${escapeHtml(notice)}</p>` : '';
+  const heading = deviceHeading(pair, viewerPeer);
   switch (gate.kind) {
     case 'setup':
-      return `${deviceHeading(pair)}
+      return `${heading}
 <p>This server has no administrator yet. <a href="/">Set it up first</a>, then start the sign-in again from the device.</p>`;
     case 'sso':
-      return `${deviceHeading(pair)}
+      return `${heading}
 ${noticeHtml}
 <p>Sign in with ${escapeHtml(gate.provider)} to approve it.</p>
 <div class="row">
@@ -217,7 +236,7 @@ ${noticeHtml}
   ${notMeForm(pair.code)}
 </div>`;
     case 'password':
-      return `${deviceHeading(pair)}
+      return `${heading}
 ${noticeHtml}
 <p>Sign in with the email and password the server admin set for you to approve it.</p>
 <form method="POST" action="/pair/${code}/approve" id="approve">
@@ -229,7 +248,7 @@ ${noticeHtml}
   ${notMeForm(pair.code)}
 </div>`;
     case 'no-login':
-      return `${deviceHeading(pair)}
+      return `${heading}
 <p>Nobody can sign in to this server from a browser. Ask its administrator for a pairing code.</p>`;
   }
 }
@@ -325,13 +344,14 @@ export function createDeviceAuthorizationHttp(options: DeviceAuthorizationHttpOp
       htmlResponse(res, settled.status, settled.body);
       return;
     }
-    const peerIsLoopback = isLoopbackRemote(resolvePeer(req));
+    const viewerPeer = resolvePeer(req);
+    const peerIsLoopback = isLoopbackRemote(viewerPeer);
     const errorParam = new URL(req.url ?? '', 'http://placeholder').searchParams.get('error');
     const notice = errorParam === null ? null : (SSO_ERROR_LINES[errorParam] ?? SSO_ERROR_FALLBACK);
     void (async () => {
       try {
         const gate = await gateMode(peerIsLoopback);
-        htmlResponse(res, 200, pageShell('Approve this device?', renderGate(pair, gate, notice)));
+        htmlResponse(res, 200, pageShell('Approve this device?', renderGate(pair, gate, notice, viewerPeer)));
       } catch (err) {
         logger.warn(SCOPE, 'gate resolution failed', err);
         htmlResponse(

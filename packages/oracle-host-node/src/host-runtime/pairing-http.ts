@@ -138,6 +138,7 @@ export const PAGE_CSS = `
   pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #f2f2f7; border: 1px solid #e6e6e8; border-radius: 6px; padding: 10px; white-space: pre-wrap; word-break: break-all; }
   .muted { color: #6e6e73; font-size: 12px; }
   .err { color: #c44; }
+  .warn { color: #b26a00; }
   .field { display: block; margin-top: 12px; }
   .field input { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #c7c7cc; font: inherit; box-sizing: border-box; margin-top: 4px; background: transparent; color: inherit; }
   .row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }

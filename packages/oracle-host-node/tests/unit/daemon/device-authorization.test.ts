@@ -233,7 +233,7 @@ describe('the client start', () => {
 });
 
 describe('the device-authorization page', () => {
-  it('password mode: names the device, the client kind and the peer, offers the form and Not me, never the secret', async () => {
+  it('password mode: names the device and the client kind, offers the form and Not me, never the secret', async () => {
     await addPasswordUser('alice@openheaders.io', 'alice-password-1');
     const rig = await startRig();
     const started = await startedDevice(rig);
@@ -248,7 +248,9 @@ describe('the device-authorization page', () => {
     expect(html).toContain('Approve this device?');
     expect(html).toContain('Work Chrome');
     expect(html).toContain('the browser extension');
-    expect(html).toContain('<code>127.0.0.1</code>');
+    // The client and the approving browser sit at the same peer: no
+    // address is printed — it would tell the person nothing.
+    expect(html).not.toContain('a different device');
     expect(html).toContain(`action="/pair/${CODE}/approve"`);
     expect(html).toContain('name="email"');
     expect(html).toContain('name="password"');
@@ -301,12 +303,20 @@ describe('the device-authorization page', () => {
     expect(unknown).not.toContain('call us');
   });
 
-  it('a cli pair without a label is named by its client kind alone', async () => {
+  it('a cli pair without a label is named by its client kind alone, leading the sentence', async () => {
     const rig = await startRig();
     const response = await startDevice(rig, { client: 'cli' });
     const started = (await response.json()) as Started;
     const html = await (await fetch(started.approveUrl)).text();
-    expect(html).toContain('the command-line tool');
+    expect(html).toContain('The command-line tool asked to sign in to this server as you.');
+  });
+
+  it('a request from a different peer than the approving browser is called out — the phishing check', async () => {
+    const rig = await startRig();
+    const started = await rig.pairing.startClientPair({ client: 'extension', peer: '10.0.0.7' });
+    const html = await (await fetch(`${rig.origin}/pair/${started.code}`)).text();
+    expect(html).toContain('This request came from a different device at <code>10.0.0.7</code>.');
+    expect(html).toContain('click Not me');
   });
 });
 
