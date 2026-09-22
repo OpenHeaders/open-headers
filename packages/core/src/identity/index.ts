@@ -43,6 +43,35 @@ export {
   validateDaemonAuthToken,
 } from './daemon-auth-tokens';
 export {
+  type ApproveAuthorizationResult,
+  type AuthorizationFacts,
+  type BeginCodeInput,
+  type BeginCodeRefusalReason,
+  type BeginCodeResult,
+  type BeginDeviceInput,
+  type BeginDeviceRefusalReason,
+  type BeginDeviceResult,
+  createDaemonAuthorizationService,
+  type DaemonAuthorizationService,
+  type DaemonAuthorizationServiceOptions,
+  DEVICE_POLL_INTERVAL_SECONDS,
+  type DecisionRefusalReason,
+  type DenyAuthorizationResult,
+  defaultGenerateUserCode,
+  type LookupByUserCodeResult,
+  type MintedAuthorization,
+  normalizeUserCode,
+  type PendingAuthorization,
+  type PendingAuthorizationStatus,
+  type PollDeviceInput,
+  type PollDeviceResult,
+  type RedeemCodeInput,
+  type RedeemCodeRefusalReason,
+  type RedeemCodeResult,
+  USER_CODE_ALPHABET,
+  USER_CODE_LENGTH,
+} from './daemon-authorization';
+export {
   DAEMON_AUTHORIZATION_CLIENT_KINDS,
   DAEMON_AUTHORIZATION_CLIENTS,
   DAEMON_CLI_CLIENT_ID,
@@ -122,6 +151,11 @@ export {
   withWorkspaceRoleAssignmentsLock,
 } from './ensure-workspace-role-assignments';
 export { mintHostInstallId } from './host-install-id';
+export {
+  createFailedLookupBudget,
+  type FailedLookupBudget,
+  type FailedLookupBudgetOptions,
+} from './lookup-budget';
 export {
   defaultNewWorkspaceOrgId,
   describeOrg,
