@@ -9,12 +9,13 @@
 
 import { parseArgs } from 'node:util';
 import { type CliConfig, mergeCliConnection } from '@openheaders/core/cli-config';
-import { createServerSignInClient } from '@openheaders/core/identity';
+import { createServerSignInClient, DAEMON_DEVICE_LABEL_MAX_LENGTH } from '@openheaders/core/identity';
 import type { CommandOptionValues, CommandSpec } from './command-spec';
 import { cliConfigPath, readCliConfig, type UpdateChannel, writeCliConfig } from './config-store';
 import { type Connection, daemonWsUrl, resolveConnection, TOKEN_ENV } from './connection';
 import { AuthError, OperationFailedError, UnreachableError, UsageError } from './exit-codes';
 import { formatRequestAuthorize } from './format';
+import { openBrowser } from './open-browser';
 import { commandTokenCount, type ReadCommandSpec } from './read-commands';
 import { resolveRequestTarget } from './resolvers';
 import { callTool, initialize, listTools } from './rpc';
@@ -235,9 +236,12 @@ const DEFAULT_WAIT_IO: WaitIo = {
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };
 
-/** How often the sign-in handle is polled while the person is on the server's page. */
-export const LOGIN_POLL_INTERVAL_MS = 2_000;
-const DEVICE_LABEL_MAX_LENGTH = 64;
+/** `oh login`'s seams: the waiting UX plus the browser open, a convenience that may honestly answer false. */
+export interface LoginIo extends WaitIo {
+  openBrowser: (url: string) => Promise<boolean>;
+}
+
+const DEFAULT_LOGIN_IO: LoginIo = { ...DEFAULT_WAIT_IO, openBrowser: (url) => openBrowser(url) };
 
 const LOGIN_START_REFUSALS = {
   'too-many-pending': (host: string) => `${host} has too many sign-ins waiting — try again in a few minutes`,
@@ -250,16 +254,21 @@ const LOGIN_START_REFUSALS = {
 /**
  * `oh login [--daemon <url>] [--label <name>]` — sign a PERSON in from
  * the command line the way the extension and the desktop app do (the
- * client sign-in plan §7): this CLI never takes the password. It starts
- * a device sign-in on the daemon, prints the server's own approval page
- * and the short code that page will show, and polls its handle until
- * the person approves the device there — with whatever the server's
- * identity plane accepts. The bound session credential the poll answers
- * then rides the SAME probe-and-save path `oh connect --token` rides,
- * so `cli.json` ends up exactly as a pasted token would leave it.
- * `oh connect --token` stays for machines and admin-issued credentials.
+ * client sign-in plan §14.5): this CLI never takes the password. It is
+ * the daemon's registered `openheaders-cli` client on the device
+ * authorization grant (RFC 8628): the core client reads the server's
+ * metadata and starts the grant; the CLI prints the verification link
+ * and the user code the consent page will show, opens the link when a
+ * browser can be reached from here (else the person pastes it on any
+ * device), and polls at the server's interval — `slow_down` honoured —
+ * until the person approves the device there with whatever the
+ * server's identity plane accepts. The session credential the token
+ * endpoint mints then rides the SAME probe-and-save path `oh connect
+ * --token` rides, so `cli.json` ends up exactly as a pasted token would
+ * leave it. `oh connect --token` stays for machines and admin-issued
+ * credentials.
  */
-export async function commandLogin(argv: readonly string[], io: WaitIo = DEFAULT_WAIT_IO): Promise<string[]> {
+export async function commandLogin(argv: readonly string[], io: LoginIo = DEFAULT_LOGIN_IO): Promise<string[]> {
   const { values, positionals } = parseCommandArgs(argv, { label: { type: 'string' } });
   if (positionals.length > 0) throw new UsageError(`unexpected argument: ${positionals[0]}`);
   if (values.token !== undefined) {
@@ -268,8 +277,8 @@ export async function commandLogin(argv: readonly string[], io: WaitIo = DEFAULT
     );
   }
   const label = typeof values.label === 'string' ? values.label.trim() : undefined;
-  if (label !== undefined && label.length > DEVICE_LABEL_MAX_LENGTH) {
-    throw new UsageError(`--label must be at most ${DEVICE_LABEL_MAX_LENGTH} characters`);
+  if (label !== undefined && label.length > DAEMON_DEVICE_LABEL_MAX_LENGTH) {
+    throw new UsageError(`--label must be at most ${DAEMON_DEVICE_LABEL_MAX_LENGTH} characters`);
   }
   const existing = await readCliConfig(cliConfigPath());
   const { daemonUrl } = resolveConnection({ daemon: values.daemon }, process.env, existing);
@@ -285,27 +294,46 @@ export async function commandLogin(argv: readonly string[], io: WaitIo = DEFAULT
     if (started.reason === 'forbidden') throw new AuthError(message);
     throw new OperationFailedError(message);
   }
+  // The CLI is registered for the device grant only; the type says so too.
+  if (started.kind !== 'device') {
+    throw new OperationFailedError(
+      'the sign-in could not be started — the daemon offered a grant this tool cannot run',
+    );
+  }
 
-  io.progress(`! Open ${started.approveUrl} in a browser and sign in there`);
-  io.progress(`  The page will ask you to approve code ${started.code} for this command-line tool`);
+  io.progress(`! Open ${started.verificationUriComplete} in a browser and sign in there`);
+  io.progress(`  The page will ask you to approve code ${started.userCode} for this command-line tool`);
+  if (await io.openBrowser(started.verificationUriComplete)) io.progress('  Opened it in your browser.');
   io.progress('  Waiting for you to approve this device…');
 
+  let waitMs = started.intervalSeconds * 1000;
   for (;;) {
-    await io.sleep(LOGIN_POLL_INTERVAL_MS);
-    const polled = await client.poll({ url: wsUrl, pollToken: started.pollToken });
-    if (polled.status === 'approved') {
-      const conn = resolveConnection({ daemon: daemonUrl, token: polled.secret }, {}, {});
-      const { toolCount, configPath } = await probeAndSaveConnection(existing, { ...conn, token: polled.secret });
-      return [`signed in — ${toolCount} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
+    await io.sleep(waitMs);
+    const polled = await client.poll({ handle: started.handle });
+    switch (polled.status) {
+      case 'approved': {
+        const conn = resolveConnection({ daemon: daemonUrl, token: polled.secret }, {}, {});
+        const { toolCount, configPath } = await probeAndSaveConnection(existing, { ...conn, token: polled.secret });
+        return [`signed in — ${toolCount} tool(s) at ${conn.daemonUrl}`, `saved to ${configPath}`];
+      }
+      case 'denied':
+        throw new OperationFailedError("the sign-in was denied on the server's page");
+      case 'expired':
+        throw new OperationFailedError('the sign-in request expired before it was approved');
+      case 'abandoned':
+        throw new OperationFailedError('the sign-in did not finish in the browser — run oh login again');
+      case 'unknown':
+        throw new OperationFailedError('the server no longer holds this sign-in request — run oh login again');
+      case 'pending':
+        // The server's cadence, grown by every slow_down.
+        waitMs = polled.retryAfterMs;
+        break;
+      case 'offline':
+        // A transport hiccup worth polling past — at the interval, until
+        // the grant's own clock runs out.
+        waitMs = started.intervalSeconds * 1000;
+        break;
     }
-    if (polled.status === 'denied') throw new OperationFailedError("the sign-in was denied on the server's page");
-    if (polled.status === 'expired')
-      throw new OperationFailedError('the sign-in request expired before it was approved');
-    if (polled.status === 'unknown') {
-      throw new OperationFailedError('the server no longer holds this sign-in request — run oh login again');
-    }
-    // pending, or a transport hiccup worth polling past — until the
-    // pair's own clock runs out.
     if (Date.now() > started.expiresAt) {
       throw new OperationFailedError('the sign-in request expired before it was approved');
     }
