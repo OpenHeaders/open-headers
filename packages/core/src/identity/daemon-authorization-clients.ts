@@ -75,8 +75,18 @@ export const GECKO_IDENTITY_REDIRECT_HOSTS: readonly string[] = [
   `ba29c5f27456be4209094b303d9a4a8f73691053.${GECKO_IDENTITY_REDIRECT_DOMAIN}`,
 ];
 
+/** The device label a client sends on a start is bounded — the server refuses a longer one as malformed. */
+export const DAEMON_DEVICE_LABEL_MAX_LENGTH = 64;
+
 export function findDaemonAuthorizationClient(clientId: string): DaemonAuthorizationClient | null {
   return DAEMON_AUTHORIZATION_CLIENTS.find((client) => client.id === clientId) ?? null;
+}
+
+/** The registered client a native host IS — the one place a client learns its `client_id` and grants. */
+export function daemonAuthorizationClientByKind(kind: DaemonAuthorizationClientKind): DaemonAuthorizationClient {
+  const client = DAEMON_AUTHORIZATION_CLIENTS.find((candidate) => candidate.kind === kind);
+  if (client === undefined) throw new Error(`no registered client of kind ${kind}`);
+  return client;
 }
 
 /** A redirect URI must be absolute, carry no query or fragment, and match the rule on host + path. */

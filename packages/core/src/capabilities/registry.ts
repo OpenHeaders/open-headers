@@ -95,16 +95,27 @@ export type PairWithCodeResult =
 
 /**
  * The client side of a person's sign-in from a native client (the
- * client sign-in plan D2/D4): the client starts its own pair, shows
- * the person the short code, opens the server's own approval page in a
- * browser, and polls on the long handle until the person approves the
- * device there. `expiresAt` is epoch ms. `approveUrl` is the page to
- * open — built by the server at the origin the client reached.
+ * client sign-in plan §14.9): the client is a registered PUBLIC OAuth
+ * 2.0 client of the server's own authorization server. `start` reads
+ * the server's metadata and answers which grant the host is running:
+ *
+ *   - `redirect` — the authorization code grant with PKCE: the host
+ *     has opened the authorize URL in a browser (the system browser,
+ *     or the identity API's window) and will collect the redirect
+ *     itself; the person sees nothing here but a waiting state.
+ *   - `device` — the device authorization grant (RFC 8628): the person
+ *     is shown the user code and the verification link (the browser
+ *     open is a convenience; the link may be pasted anywhere).
+ *
+ * Either way the step polls the `handle` until the flow settles; the
+ * `approved` answer carries the bound session credential ONCE, and it
+ * rides the same candidate → HELLO → persist path a pasted token rides.
+ * `expiresAt` is epoch ms.
  */
 export interface ServerSignInStartInput {
   /** The configured back-end WebSocket URL, e.g. `ws://10.0.0.5:8137`. */
   readonly url: string;
-  /** Optional label the server's page names the device by (≤ 64 chars). */
+  /** Optional label the server's consent page names the device by (≤ 64 chars). */
   readonly deviceLabel?: string;
 }
 
@@ -113,42 +124,62 @@ export interface ServerSignInStartInput {
  * a few minutes, not a throttle); `throttled` is the admission limiter
  * refusing this peer for now; `forbidden` is the admission matrix
  * refusing the caller (a foreign page); `offline` nothing answered;
- * `error` a malformed answer or a non-`ws(s)` URL.
+ * `error` a malformed answer, a non-`ws(s)` URL, or a server whose
+ * metadata names no grant this client can use.
  */
 export type ServerSignInStartResult =
+  | { readonly ok: true; readonly kind: 'redirect'; readonly handle: string; readonly expiresAt: number }
   | {
       readonly ok: true;
-      readonly code: string;
-      readonly pollToken: string;
+      readonly kind: 'device';
+      readonly handle: string;
+      readonly userCode: string;
+      readonly verificationUri: string;
+      /** `verification_uri_complete` — the link that carries the code. */
+      readonly verificationUriComplete: string;
       readonly expiresAt: number;
-      readonly approveUrl: string;
+      /** The server's poll cadence in seconds — a CLI sleeps this long before its first poll. */
+      readonly intervalSeconds: number;
     }
   | { readonly ok: false; readonly reason: 'too-many-pending' | 'throttled' | 'forbidden' | 'offline' | 'error' };
 
 export interface ServerSignInPollInput {
-  readonly url: string;
-  /** The handle `start` answered — never the code. */
-  readonly pollToken: string;
+  /** The handle `start` answered — never a code, never the verifier. */
+  readonly handle: string;
 }
 
 /**
- * `approved` carries the bound session secret exactly once — ride it
- * through the same candidate → HELLO → persist path a pasted token
- * rides. `unknown` is a handle the server does not hold (never poll one
- * you did not receive); `offline` is a transport fault worth polling
- * past until the pair's own expiry.
+ * `pending` carries how long to wait before the next poll (the device
+ * grant's `interval`, grown by every `slow_down`; a poll made early is
+ * answered without a dial). `approved` carries the bound session secret
+ * exactly once. `abandoned` is the browser leg ending without an
+ * approval (the window closed, the redirect malformed). `unknown` is a
+ * handle this host does not hold (a restarted host, or the server
+ * refusing the device code as unknown); `offline` is a transport fault
+ * worth polling past until the flow's own expiry.
  */
 export type ServerSignInPollResult =
-  | { readonly status: 'pending'; readonly expiresAt: number | null }
-  | { readonly status: 'approved'; readonly secret: string; readonly tokenId: string }
+  | { readonly status: 'pending'; readonly retryAfterMs: number }
+  | { readonly status: 'approved'; readonly secret: string }
   | { readonly status: 'denied' }
   | { readonly status: 'expired' }
+  | { readonly status: 'abandoned' }
   | { readonly status: 'unknown' }
   | { readonly status: 'offline' };
+
+export interface ServerSignInSignOutInput {
+  readonly url: string;
+  /** The session credential to revoke — the client's own sign-out. */
+  readonly token: string;
+}
 
 export interface ServerSignInApi {
   start(input: ServerSignInStartInput): Promise<ServerSignInStartResult>;
   poll(input: ServerSignInPollInput): Promise<ServerSignInPollResult>;
+  /** Forget an in-flight handle — the step's Cancel; the server's record expires on its own clock. */
+  cancel(input: ServerSignInPollInput): Promise<void>;
+  /** RFC 7009 revocation of the presented credential; `ok` false when the server did not take it. */
+  signOut(input: ServerSignInSignOutInput): Promise<{ readonly ok: boolean }>;
   /**
    * A JSON-only GET of `path` on the back-end's HTTP origin — the seam
    * the shared gate resolver reads the three meta routes through. Null

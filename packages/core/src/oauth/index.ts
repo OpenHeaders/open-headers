@@ -632,6 +632,8 @@ export function base64UrlEncode(bytes: Uint8Array): string {
 export interface ParsedAuthorizationRedirect {
   code: string | null;
   state: string | null;
+  /** RFC 9207 — the issuer the response came from, when the server names it. */
+  iss: string | null;
   error: string | null;
   errorDescription: string | null;
 }
@@ -651,11 +653,12 @@ export function parseAuthorizationRedirect(url: string): ParsedAuthorizationRedi
     return {
       code: pick('code'),
       state: pick('state'),
+      iss: pick('iss'),
       error: pick('error'),
       errorDescription: pick('error_description'),
     };
   } catch {
-    return { code: null, state: null, error: null, errorDescription: null };
+    return { code: null, state: null, iss: null, error: null, errorDescription: null };
   }
 }
 

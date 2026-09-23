@@ -11,6 +11,7 @@ export type {
   ServerSignInApi,
   ServerSignInPollInput,
   ServerSignInPollResult,
+  ServerSignInSignOutInput,
   ServerSignInStartInput,
   ServerSignInStartResult,
   TerminalHostApi,

@@ -54,6 +54,7 @@ import {
   type ApproveAuthorizationResult,
   type AuthorizationFacts,
   type BeginCodeRefusalReason,
+  DAEMON_DEVICE_LABEL_MAX_LENGTH,
   type DaemonAuthorizationService,
   emitAuditEntry,
   findDaemonAuthorizationClient,
@@ -88,7 +89,6 @@ export const OAUTH_TOKEN_PATH = '/auth/oauth/token';
 export const OAUTH_REVOKE_PATH = '/auth/oauth/revoke';
 const DECISION_ROUTE = /^\/auth\/oauth\/authorize\/([A-Za-z0-9_-]+)\/(approve|deny)$/;
 const RECORD_ROUTE = /^\/auth\/oauth\/authorize\/([A-Za-z0-9_-]+)$/;
-const MAX_DEVICE_LABEL_LENGTH = 64;
 const AUTHORIZATION_CODE_GRANT_TYPE = 'authorization_code';
 
 function capitalize(text: string): string {
@@ -220,7 +220,7 @@ function parseParams(req: IncomingMessage, raw: string): Map<string, string> | n
 function parseDeviceLabel(raw: string | null | undefined): { ok: true; label?: string } | { ok: false } {
   if (raw === null || raw === undefined) return { ok: true };
   const trimmed = raw.trim();
-  if (trimmed.length > MAX_DEVICE_LABEL_LENGTH) return { ok: false };
+  if (trimmed.length > DAEMON_DEVICE_LABEL_MAX_LENGTH) return { ok: false };
   return trimmed ? { ok: true, label: trimmed } : { ok: true };
 }
 

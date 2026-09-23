@@ -586,9 +586,18 @@ describe('parseAuthorizationRedirect', () => {
     expect(parseAuthorizationRedirect('http://127.0.0.1:8137/oauth/callback?code=c-1&state=s-1')).toEqual({
       code: 'c-1',
       state: 's-1',
+      iss: null,
       error: null,
       errorDescription: null,
     });
+  });
+
+  it('reads the RFC 9207 issuer beside the code when the server names it', () => {
+    expect(
+      parseAuthorizationRedirect(
+        'http://127.0.0.1:8137/oauth/callback?code=c-1&state=s-1&iss=http%3A%2F%2F10.0.0.5%3A8137',
+      ).iss,
+    ).toBe('http://10.0.0.5:8137');
   });
 
   it('reads the fragment convention too, the query winning when both carry a key', () => {
@@ -604,13 +613,14 @@ describe('parseAuthorizationRedirect', () => {
       parseAuthorizationRedirect(
         'http://127.0.0.1:8137/oauth/callback?error=access_denied&error_description=User%20refused&state=s',
       ),
-    ).toEqual({ code: null, state: 's', error: 'access_denied', errorDescription: 'User refused' });
+    ).toEqual({ code: null, state: 's', iss: null, error: 'access_denied', errorDescription: 'User refused' });
   });
 
   it('an unparseable URL yields all-null fields', () => {
     expect(parseAuthorizationRedirect('not a url')).toEqual({
       code: null,
       state: null,
+      iss: null,
       error: null,
       errorDescription: null,
     });

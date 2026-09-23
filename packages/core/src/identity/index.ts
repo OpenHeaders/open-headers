@@ -77,11 +77,13 @@ export {
   DAEMON_CLI_CLIENT_ID,
   DAEMON_DESKTOP_CLIENT_ID,
   DAEMON_DESKTOP_REDIRECT_PATH,
+  DAEMON_DEVICE_LABEL_MAX_LENGTH,
   DAEMON_EXTENSION_CLIENT_ID,
   DAEMON_EXTENSION_REDIRECT_PATH,
   type DaemonAuthorizationClient,
   type DaemonAuthorizationClientKind,
   type DaemonAuthorizationGrant,
+  daemonAuthorizationClientByKind,
   findDaemonAuthorizationClient,
   GECKO_IDENTITY_REDIRECT_HOSTS,
   isRegisteredRedirect,
@@ -193,7 +195,9 @@ export {
   type IdentitySnapshot,
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from './resolver';
+export { createBridgedServerSignIn } from './server-sign-in-bridge';
 export {
+  type AuthorizationUserAgent,
   createServerSignInClient,
   fetchJsonDocument,
   type ServerSignInClientOptions,
