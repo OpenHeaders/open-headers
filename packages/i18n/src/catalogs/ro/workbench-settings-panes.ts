@@ -87,7 +87,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Cod de conectare',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Se așteaptă să aprobați acest dispozitiv în browser…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Redeschidere pagină',
-  'workbench.settings.backendPane.wizard.signIn.linkHint': 'Browserul nu s-a deschis? Deschideți acest link în orice browser:',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser':
+    'Finalizați conectarea în browser, apoi reveniți aici…',
+  'workbench.settings.backendPane.wizard.signIn.linkHint':
+    'Browserul nu s-a deschis? Deschideți acest link în orice browser:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Reîncercare',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'Acest server nu are încă un administrator. Configurați-l mai întâi la {url}, apoi conectați-vă de aici.',
@@ -100,6 +103,8 @@ export const workbenchSettingsPanes = {
     'Cererea de conectare a expirat înainte de a fi aprobată.',
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     'Serverul nu mai păstrează această cerere de conectare. Porniți-o din nou.',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned':
+    'Conectarea nu s-a finalizat în browser. Încercați din nou.',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     'Gazda {host} are prea multe conectări în așteptare. Reîncercați peste câteva minute.',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

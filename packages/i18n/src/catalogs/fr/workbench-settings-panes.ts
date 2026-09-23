@@ -59,7 +59,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.waiting':
     "En attente de l'approbation de cet appareil dans le navigateur…",
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Rouvrir la page',
-  'workbench.settings.backendPane.wizard.signIn.linkHint': "Le navigateur ne s'est pas ouvert ? Ouvrez ce lien dans le navigateur de votre choix :",
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser':
+    'Terminez la connexion dans le navigateur, puis revenez ici…',
+  'workbench.settings.backendPane.wizard.signIn.linkHint':
+    "Le navigateur ne s'est pas ouvert ? Ouvrez ce lien dans le navigateur de votre choix :",
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Réessayer',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     "Ce serveur n'a pas encore d'administrateur. Configurez-le d'abord sur {url}, puis connectez-vous depuis ici.",
@@ -72,6 +75,8 @@ export const workbenchSettingsPanes = {
     "La demande de connexion a expiré avant d'être approuvée.",
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     'Le serveur ne détient plus cette demande de connexion. Relancez-la.',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned':
+    "La connexion ne s'est pas terminée dans le navigateur. Réessayez.",
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     '{host} a trop de connexions en attente. Réessayez dans quelques minutes.',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

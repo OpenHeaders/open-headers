@@ -65,7 +65,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': '로그인 코드',
   'workbench.settings.backendPane.wizard.signIn.waiting': '브라우저에서 이 기기를 승인할 때까지 기다리는 중…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': '페이지 다시 열기',
-  'workbench.settings.backendPane.wizard.signIn.linkHint': '브라우저가 열리지 않았나요? 이 링크를 원하는 브라우저에서 여세요:',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser': '브라우저에서 로그인을 마친 다음 여기로 돌아오세요…',
+  'workbench.settings.backendPane.wizard.signIn.linkHint':
+    '브라우저가 열리지 않았나요? 이 링크를 원하는 브라우저에서 여세요:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': '다시 시도',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     '이 서버에는 아직 관리자가 없습니다. 먼저 {url}에서 설정한 다음 여기에서 로그인하세요.',
@@ -76,6 +78,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.expired': '로그인 요청이 승인되기 전에 만료되었습니다.',
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     '서버가 이 로그인 요청을 더 이상 보유하지 않습니다. 다시 시작하세요.',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned':
+    '브라우저에서 로그인이 완료되지 않았습니다. 다시 시도하세요.',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     '{host} 호스트에 대기 중인 로그인이 너무 많습니다. 몇 분 후에 다시 시도하세요.',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

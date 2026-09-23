@@ -61,7 +61,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Anmeldecode',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Warten, bis du dieses Gerät im Browser bestätigst…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Seite erneut öffnen',
-  'workbench.settings.backendPane.wizard.signIn.linkHint': 'Browser nicht geöffnet? Öffne diesen Link in einem beliebigen Browser:',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser':
+    'Schließe die Anmeldung im Browser ab und komm dann hierher zurück…',
+  'workbench.settings.backendPane.wizard.signIn.linkHint':
+    'Browser nicht geöffnet? Öffne diesen Link in einem beliebigen Browser:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Erneut versuchen',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'Dieser Server hat noch keinen Administrator. Richte ihn zuerst unter {url} ein und melde dich dann hier an.',
@@ -75,6 +78,8 @@ export const workbenchSettingsPanes = {
     'Die Anmeldeanfrage ist abgelaufen, bevor sie bestätigt wurde.',
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     'Der Server kennt diese Anmeldeanfrage nicht mehr. Starte sie erneut.',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned':
+    'Die Anmeldung wurde im Browser nicht abgeschlossen. Versuche es erneut.',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     'Bei {host} warten zu viele Anmeldungen. Versuche es in ein paar Minuten erneut.',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

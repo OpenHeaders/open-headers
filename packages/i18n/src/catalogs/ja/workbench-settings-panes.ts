@@ -58,7 +58,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'サインインコード',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'ブラウザーでこのデバイスが承認されるのを待っています…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'ページをもう一度開く',
-  'workbench.settings.backendPane.wizard.signIn.linkHint': 'ブラウザーが開かない場合は、このリンクを任意のブラウザーで開いてください：',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser':
+    'ブラウザーでサインインを完了してから、ここに戻ってください…',
+  'workbench.settings.backendPane.wizard.signIn.linkHint':
+    'ブラウザーが開かない場合は、このリンクを任意のブラウザーで開いてください：',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': '再試行',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'このサーバーにはまだ管理者がいません。まず {url} でセットアップしてから、ここでサインインしてください。',
@@ -69,6 +72,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.expired': 'サインイン要求は承認される前に期限切れになりました。',
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     'サーバーはこのサインイン要求を保持していません。もう一度開始してください。',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned':
+    'ブラウザーでサインインが完了しませんでした。もう一度お試しください。',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     '{host} では待機中のサインインが多すぎます。数分後にもう一度お試しください。',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

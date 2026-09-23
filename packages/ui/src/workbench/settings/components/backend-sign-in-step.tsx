@@ -1,23 +1,28 @@
 /**
- * The wizard's sign-in step (the client sign-in plan D4) — ONE shared
- * component over two seams, with no host branches inside it:
+ * The wizard's sign-in step (the client sign-in plan D4, §14.9) — ONE
+ * shared component over two seams, with no host branches inside it:
  *
- *   - the `serverSignIn` capability (start / poll / a meta read) —
- *     the extension fetches page-side from its own origin, the desktop
- *     renderer relays to its MAIN process (F0-b), the CLI is its own
- *     client;
+ *   - the `serverSignIn` capability (start / poll / cancel / a meta
+ *     read) — answered by the host's long-lived process (the desktop's
+ *     MAIN, the extension's service worker) over the bridge; the CLI
+ *     is its own client;
  *   - the shared gate resolver, so the step knows what the server's
  *     own page will show before it sends the person there.
  *
- * Primary: **"Sign in on <host>"** — start a pair, open the server's
- * approval page through `openExternalUrl`, show the short code AND the
- * page's link with a copy affordance (the browser open is a convenience;
- * the person may paste the link into any browser they choose), and
- * poll on the handle until the person approves the device there. The
- * secret the poll answers is written onto the record like a pasted
- * token; the wizard's probe re-runs on that write, so the line flips to
- * "Signed in as <person> · <org>" off a REAL handshake (the one
- * activation path — the step itself connects nothing).
+ * Primary: **"Sign in on <host>"** — the host starts the grant its
+ * registration allows and answers which one it is running:
+ *   - `redirect` (the authorization code grant): the host has already
+ *     opened the browser and will collect the redirect itself — the
+ *     step shows a waiting line and Cancel, nothing else to do here;
+ *   - `device` (the device grant): the step shows the user code AND the
+ *     verification link with a copy affordance (the browser open is a
+ *     convenience; the person may paste the link into any browser they
+ *     choose).
+ * Either way it polls the handle until the flow settles. The secret an
+ * approval answers is written onto the record like a pasted token; the
+ * wizard's probe re-runs on that write, so the line flips to "Signed in
+ * as <person> · <org>" off a REAL handshake (the one activation path —
+ * the step itself connects nothing).
  *
  * Secondary: **"Have a pairing code or token from an administrator?"**
  * — the existing six-cell code + token paste, exactly as before, for
@@ -27,9 +32,9 @@
  * unclaimed server draws no sign-in at all: it says where the
  * administrator is created first.
  *
- * Cancel is client-side — the step stops polling; the server's pair
- * expires on its own five-minute clock, and a late verdict is never
- * read.
+ * Cancel is client-side — the step stops polling and the host forgets
+ * the handle; the server's record expires on its own clock, and a late
+ * verdict is never read.
  */
 
 import { getCapability, hasCapability, type ServerSignInApi } from '@openheaders/core/capabilities';
@@ -51,6 +56,7 @@ export const SIGN_IN_POLL_INTERVAL_MS = 2_000;
 type FailureReason =
   | 'denied'
   | 'expired'
+  | 'abandoned'
   | 'lost'
   | 'too-many-pending'
   | 'throttled'
@@ -58,15 +64,19 @@ type FailureReason =
   | 'offline'
   | 'error';
 
+/** What the person sees while the host runs the grant — nothing for the code grant, the code and the link for the device grant. */
+type WaitingGrant = { kind: 'redirect' } | { kind: 'device'; code: string; link: string };
+
 type Flow =
   | { phase: 'idle' }
   | { phase: 'starting' }
-  | { phase: 'waiting'; code: string; pollToken: string; approveUrl: string; expiresAt: number }
+  | { phase: 'waiting'; handle: string; expiresAt: number; grant: WaitingGrant }
   | { phase: 'failed'; reason: FailureReason };
 
 const FAILURE_KEYS: Record<FailureReason, MessageKey> = {
   denied: 'workbench.settings.backendPane.wizard.signIn.fail.denied',
   expired: 'workbench.settings.backendPane.wizard.signIn.fail.expired',
+  abandoned: 'workbench.settings.backendPane.wizard.signIn.fail.abandoned',
   lost: 'workbench.settings.backendPane.wizard.signIn.fail.lost',
   'too-many-pending': 'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending',
   throttled: 'workbench.settings.backendPane.wizard.signIn.fail.throttled',
@@ -84,7 +94,6 @@ export interface BackendSignInStepProps {
 
 const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing, onProbe }) => {
   const t = useT();
-  const { token: themeToken } = theme.useToken();
   const handle = useBackendRecord();
   const url = handle?.record.url ?? '';
   const host = urlHost(url);
@@ -130,20 +139,24 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
       setFlow({ phase: 'failed', reason: started.reason });
       return;
     }
+    if (started.kind === 'redirect') {
+      setFlow({ phase: 'waiting', handle: started.handle, expiresAt: started.expiresAt, grant: { kind: 'redirect' } });
+      return;
+    }
     setFlow({
       phase: 'waiting',
-      code: started.code,
-      pollToken: started.pollToken,
-      approveUrl: started.approveUrl,
+      handle: started.handle,
       expiresAt: started.expiresAt,
+      grant: { kind: 'device', code: started.userCode, link: started.verificationUriComplete },
     });
-    openApproval(started.approveUrl);
+    openApproval(started.verificationUriComplete);
   }, [url, openApproval]);
 
   const cancel = useCallback((): void => {
     pollSeq.current += 1;
+    if (flow.phase === 'waiting') void getCapability('serverSignIn')?.().cancel({ handle: flow.handle });
     setFlow({ phase: 'idle' });
-  }, []);
+  }, [flow]);
 
   // The poll loop — alive exactly while the person is on the page.
   useEffect(() => {
@@ -151,12 +164,12 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
     const api = getCapability('serverSignIn')?.();
     if (!api || !handle) return;
     const seq = ++pollSeq.current;
-    const { pollToken, expiresAt } = flow;
+    const { handle: flowHandle, expiresAt } = flow;
     let inFlight = false;
     const tick = async (): Promise<void> => {
       if (inFlight) return;
       inFlight = true;
-      const polled = await api.poll({ url, pollToken });
+      const polled = await api.poll({ handle: flowHandle });
       inFlight = false;
       if (seq !== pollSeq.current) return;
       switch (polled.status) {
@@ -173,12 +186,17 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
         case 'expired':
           setFlow({ phase: 'failed', reason: 'expired' });
           return;
+        case 'abandoned':
+          setFlow({ phase: 'failed', reason: 'abandoned' });
+          return;
         case 'unknown':
           setFlow({ phase: 'failed', reason: 'lost' });
           return;
         default:
           // pending, or a transport hiccup worth polling past — until
-          // the pair's own clock runs out.
+          // the flow's own clock runs out. The host squelches an early
+          // dial on the device grant, so this cadence never outruns the
+          // server's interval.
           if (Date.now() > expiresAt) setFlow({ phase: 'failed', reason: 'expired' });
       }
     };
@@ -212,64 +230,14 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
       {showPrimary && (
         <div style={{ padding: '4px 12px 10px' }}>
           {flow.phase === 'waiting' ? (
-            <div>
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '12px 16px',
-                  borderRadius: 10,
-                  border: `1px solid ${themeToken.colorBorderSecondary}`,
-                  marginBottom: 10,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 11,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.4,
-                    color: themeToken.colorTextTertiary,
-                  }}
-                >
-                  {t('workbench.settings.backendPane.wizard.signIn.codeLabel')}
-                </div>
-                <div
-                  data-testid="backend-sign-in-code"
-                  style={{
-                    fontSize: 32,
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                    fontWeight: 600,
-                    letterSpacing: 6,
-                    marginTop: 2,
-                  }}
-                >
-                  {flow.code}
-                </div>
-              </div>
-              <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.waiting')} />
-              <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.linkHint')} />
-              <Typography.Text
-                data-testid="backend-sign-in-url"
-                copyable={{
-                  text: flow.approveUrl,
-                  tooltips: [t('shared.action.copy'), t('shared.toast.copiedToClipboard')],
-                }}
-                style={{
-                  display: 'block',
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                  fontSize: 12,
-                  wordBreak: 'break-all',
-                  marginBottom: 10,
-                }}
-              >
-                {flow.approveUrl}
-              </Typography.Text>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            flow.grant.kind === 'redirect' ? (
+              <div>
+                <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.waitingBrowser')} />
                 <Button onClick={cancel}>{t('shared.action.cancel')}</Button>
-                <Typography.Link style={{ fontSize: 12 }} onClick={() => openApproval(flow.approveUrl)}>
-                  {t('workbench.settings.backendPane.wizard.signIn.openAgain')}
-                </Typography.Link>
               </div>
-            </div>
+            ) : (
+              <DeviceWaiting code={flow.grant.code} link={flow.grant.link} onCancel={cancel} onOpen={openApproval} />
+            )
           ) : (
             <div>
               {flow.phase === 'failed' && (
@@ -321,6 +289,72 @@ export default BackendSignInStep;
 const StepIntro: React.FC<{ text: string }> = ({ text }) => {
   const { token } = theme.useToken();
   return <p style={{ fontSize: 12.5, color: token.colorTextSecondary, margin: '0 0 10px' }}>{text}</p>;
+};
+
+/**
+ * The device grant's waiting state: the user code the consent page will
+ * show (RFC 8628 §5.4 — the person checks it matches), the waiting
+ * line, and the verification link with a copy affordance beside Cancel
+ * and an open-again link.
+ */
+const DeviceWaiting: React.FC<{
+  code: string;
+  link: string;
+  onCancel: () => void;
+  onOpen: (link: string) => void;
+}> = ({ code, link, onCancel, onOpen }) => {
+  const t = useT();
+  const { token: themeToken } = theme.useToken();
+  return (
+    <div>
+      <div
+        style={{
+          textAlign: 'center',
+          padding: '12px 16px',
+          borderRadius: 10,
+          border: `1px solid ${themeToken.colorBorderSecondary}`,
+          marginBottom: 10,
+        }}
+      >
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, color: themeToken.colorTextTertiary }}>
+          {t('workbench.settings.backendPane.wizard.signIn.codeLabel')}
+        </div>
+        <div
+          data-testid="backend-sign-in-code"
+          style={{
+            fontSize: 32,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontWeight: 600,
+            letterSpacing: 6,
+            marginTop: 2,
+          }}
+        >
+          {code}
+        </div>
+      </div>
+      <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.waiting')} />
+      <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.linkHint')} />
+      <Typography.Text
+        data-testid="backend-sign-in-url"
+        copyable={{ text: link, tooltips: [t('shared.action.copy'), t('shared.toast.copiedToClipboard')] }}
+        style={{
+          display: 'block',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: 12,
+          wordBreak: 'break-all',
+          marginBottom: 10,
+        }}
+      >
+        {link}
+      </Typography.Text>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Button onClick={onCancel}>{t('shared.action.cancel')}</Button>
+        <Typography.Link style={{ fontSize: 12 }} onClick={() => onOpen(link)}>
+          {t('workbench.settings.backendPane.wizard.signIn.openAgain')}
+        </Typography.Link>
+      </div>
+    </div>
+  );
 };
 
 /**

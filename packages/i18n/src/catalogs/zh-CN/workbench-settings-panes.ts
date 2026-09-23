@@ -60,6 +60,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': '登录代码',
   'workbench.settings.backendPane.wizard.signIn.waiting': '正在等待你在浏览器中批准此设备…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': '再次打开页面',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser': '在浏览器中完成登录，然后回到这里…',
   'workbench.settings.backendPane.wizard.signIn.linkHint': '浏览器没有打开？在任意浏览器中打开此链接：',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': '重试',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
@@ -70,6 +71,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.denied': '登录在服务器页面上被拒绝。',
   'workbench.settings.backendPane.wizard.signIn.fail.expired': '登录请求在获批准前已过期。',
   'workbench.settings.backendPane.wizard.signIn.fail.lost': '服务器已不再保留此登录请求。请重新开始。',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned': '浏览器中的登录未完成。请重试。',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending': '{host} 上等待中的登录过多。请几分钟后重试。',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled': '{host} 目前拒绝来自此设备的请求。请稍后重试。',
   'workbench.settings.backendPane.wizard.signIn.fail.forbidden': '{host} 拒绝了此设备的登录请求。',

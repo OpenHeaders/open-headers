@@ -59,7 +59,10 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Código de inicio de sesión',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Esperando a que apruebes este dispositivo en el navegador…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Abrir la página de nuevo',
-  'workbench.settings.backendPane.wizard.signIn.linkHint': '¿No se abrió el navegador? Abre este enlace en cualquier navegador:',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser':
+    'Termina el inicio de sesión en el navegador y luego vuelve aquí…',
+  'workbench.settings.backendPane.wizard.signIn.linkHint':
+    '¿No se abrió el navegador? Abre este enlace en cualquier navegador:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Reintentar',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'Este servidor aún no tiene administrador. Configúralo primero en {url} y luego inicia sesión desde aquí.',
@@ -73,6 +76,8 @@ export const workbenchSettingsPanes = {
     'La solicitud de inicio de sesión caducó antes de aprobarse.',
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     'El servidor ya no conserva esta solicitud de inicio de sesión. Inícala de nuevo.',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned':
+    'El inicio de sesión no se completó en el navegador. Inténtalo de nuevo.',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     '{host} tiene demasiados inicios de sesión en espera. Inténtalo de nuevo en unos minutos.',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

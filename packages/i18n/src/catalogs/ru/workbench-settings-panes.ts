@@ -73,6 +73,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Код входа',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Ожидаем, пока вы подтвердите это устройство в браузере…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Открыть страницу снова',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser': 'Завершите вход в браузере, затем вернитесь сюда…',
   'workbench.settings.backendPane.wizard.signIn.linkHint': 'Браузер не открылся? Откройте эту ссылку в любом браузере:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Повторить',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
@@ -84,6 +85,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.expired': 'Запрос на вход истёк до подтверждения.',
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     'Сервер больше не хранит этот запрос на вход. Начните заново.',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned': 'Вход в браузере не был завершён. Попробуйте ещё раз.',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     'На хосте {host} слишком много ожидающих входов. Повторите через несколько минут.',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

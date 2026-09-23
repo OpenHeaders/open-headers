@@ -43,6 +43,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.codeLabel': 'Sign-in code',
   'workbench.settings.backendPane.wizard.signIn.waiting': 'Waiting for you to approve this device in the browser…',
   'workbench.settings.backendPane.wizard.signIn.openAgain': 'Open the page again',
+  'workbench.settings.backendPane.wizard.signIn.waitingBrowser':
+    'Finish the sign-in in the browser, then come back here…',
   'workbench.settings.backendPane.wizard.signIn.linkHint': "Browser didn't open? Open this link in any browser:",
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Try again',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
@@ -54,6 +56,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.expired': 'The sign-in request expired before it was approved.',
   'workbench.settings.backendPane.wizard.signIn.fail.lost':
     'The server no longer holds this sign-in request. Start it again.',
+  'workbench.settings.backendPane.wizard.signIn.fail.abandoned':
+    'The sign-in did not finish in the browser. Try again.',
   'workbench.settings.backendPane.wizard.signIn.fail.tooManyPending':
     '{host} has too many sign-ins waiting. Try again in a few minutes.',
   'workbench.settings.backendPane.wizard.signIn.fail.throttled':

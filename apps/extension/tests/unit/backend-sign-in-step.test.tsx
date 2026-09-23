@@ -1,14 +1,16 @@
 /**
  * The wizard's sign-in step — `BackendSignInStep` (the client sign-in
- * plan D4). Pins the ONE shared component over its two seams, with the
- * `serverSignIn` capability and `openExternalUrl` faked:
+ * plan D4, §14.9). Pins the ONE shared component over its two seams,
+ * with the `serverSignIn` capability and `openExternalUrl` faked:
  *   - without the capability the admin-issued code / token entry is the
  *     only path, with no link to anything else;
- *   - on a password or SSO server the primary starts a pair, opens the
- *     approval page, shows the code and waits; the poll writes the
- *     approved secret onto the record like a pasted token; Cancel stops
- *     the loop; a denied verdict and a refused start each say one
- *     honest thing and offer Try again;
+ *   - on a password or SSO server the primary starts the host's grant:
+ *     a `device` answer shows the code and the link and opens the link;
+ *     a `redirect` answer shows only the waiting line (the host opened
+ *     the browser itself); either way the poll writes the approved
+ *     secret onto the record like a pasted token; Cancel stops the loop
+ *     and forgets the handle; a denied, an abandoned verdict and a
+ *     refused start each say one honest thing and offer Try again;
  *   - an unclaimed server draws no sign-in and says where the
  *     administrator is created; a no-login server makes the secondary
  *     path the only one and says why;
@@ -78,30 +80,44 @@ function createHostStorageFake(): HostStorage {
 }
 
 const NEEDS_SIGN_IN: SignInVerdict = { kind: 'needs-pairing' };
-const STARTED: ServerSignInStartResult = {
+const VERIFY_LINK = 'http://10.0.0.5:8137/auth/oauth/device/verify?user_code=BCDF-GHJK';
+const STARTED_DEVICE: ServerSignInStartResult = {
   ok: true,
-  code: '424242',
-  pollToken: 'handle-1',
+  kind: 'device',
+  handle: 'handle-1',
+  userCode: 'BCDF-GHJK',
+  verificationUri: 'http://10.0.0.5:8137/auth/oauth/device/verify',
+  verificationUriComplete: VERIFY_LINK,
   expiresAt: Date.now() + 5 * 60_000,
-  approveUrl: 'http://10.0.0.5:8137/pair/424242',
+  intervalSeconds: 5,
+};
+const STARTED_REDIRECT: ServerSignInStartResult = {
+  ok: true,
+  kind: 'redirect',
+  handle: 'handle-2',
+  expiresAt: Date.now() + 10 * 60_000,
 };
 
 interface FakeApi {
   api: ServerSignInApi;
   start: ReturnType<typeof vi.fn>;
   poll: ReturnType<typeof vi.fn>;
+  cancel: ReturnType<typeof vi.fn>;
 }
 
 /** A server in one gate state; `start` and `poll` answer what the test queues. */
 function fakeApi(meta: Record<string, unknown>): FakeApi {
-  const start = vi.fn(async (): Promise<ServerSignInStartResult> => STARTED);
-  const poll = vi.fn(async (): Promise<ServerSignInPollResult> => ({ status: 'pending', expiresAt: null }));
+  const start = vi.fn(async (): Promise<ServerSignInStartResult> => STARTED_DEVICE);
+  const poll = vi.fn(async (): Promise<ServerSignInPollResult> => ({ status: 'pending', retryAfterMs: 5_000 }));
+  const cancel = vi.fn(async (): Promise<void> => undefined);
   const api: ServerSignInApi = {
     start,
     poll,
+    cancel,
+    signOut: async () => ({ ok: true }),
     fetchMeta: async ({ path }) => meta[path] ?? null,
   };
-  return { api, start, poll };
+  return { api, start, poll, cancel };
 }
 
 const PASSWORD_SERVER = { '/auth/setup/meta': { unclaimed: false }, '/auth/password/meta': { enabled: true } };
@@ -158,7 +174,7 @@ describe('BackendSignInStep', () => {
     expect(screen.getByLabelText('Auth token')).toBeTruthy();
   });
 
-  it('starts a pair on a password server, opens the approval page and shows the code', async () => {
+  it('a device answer on a password server opens the verification link and shows the code beside it', async () => {
     const fake = fakeApi(PASSWORD_SERVER);
     registerCapability('serverSignIn', () => fake.api);
     const record = await createBackend({ url: 'ws://10.0.0.5:8137' });
@@ -166,24 +182,25 @@ describe('BackendSignInStep', () => {
 
     fireEvent.click(await findPrimary('10.0.0.5'));
 
-    expect((await screen.findByTestId('backend-sign-in-code')).textContent).toBe('424242');
+    expect((await screen.findByTestId('backend-sign-in-code')).textContent).toBe('BCDF-GHJK');
     expect(fake.start).toHaveBeenCalledWith({ url: 'ws://10.0.0.5:8137' });
-    expect(openExternal).toHaveBeenCalledWith('http://10.0.0.5:8137/pair/424242');
+    expect(openExternal).toHaveBeenCalledWith(VERIFY_LINK);
     expect(screen.getByText('Waiting for you to approve this device in the browser…')).toBeTruthy();
     // The link is shown beside the code so the person can paste it into
     // any browser — the open is a convenience, not the only path.
     expect(screen.getByText("Browser didn't open? Open this link in any browser:")).toBeTruthy();
-    expect(screen.getByTestId('backend-sign-in-url').textContent).toContain('http://10.0.0.5:8137/pair/424242');
+    expect(screen.getByTestId('backend-sign-in-url').textContent).toContain(VERIFY_LINK);
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
     // The secondary path stays one link away, never gone.
     expect(screen.getByText('Have a pairing code or token from an administrator?')).toBeTruthy();
   });
 
-  it('polls the handle and writes the approved secret onto the record like a pasted token', async () => {
+  it('a redirect answer shows only the waiting line — the host opened the browser itself', async () => {
     const fake = fakeApi(PASSWORD_SERVER);
+    fake.start.mockResolvedValue(STARTED_REDIRECT);
     fake.poll
-      .mockResolvedValueOnce({ status: 'pending', expiresAt: null })
-      .mockResolvedValueOnce({ status: 'approved', secret: 'oh_session', tokenId: 'tid' });
+      .mockResolvedValueOnce({ status: 'pending', retryAfterMs: 1_000 })
+      .mockResolvedValueOnce({ status: 'approved', secret: 'oh_session' });
     registerCapability('serverSignIn', () => fake.api);
     const record = await createBackend({ url: 'ws://10.0.0.5:8137' });
     renderStep(record);
@@ -192,11 +209,38 @@ describe('BackendSignInStep', () => {
     vi.useFakeTimers();
     fireEvent.click(primary);
     await flush();
-    expect(screen.getByTestId('backend-sign-in-code').textContent).toBe('424242');
+    expect(screen.getByText('Finish the sign-in in the browser, then come back here…')).toBeTruthy();
+    expect(screen.queryByTestId('backend-sign-in-code')).toBeNull();
+    expect(screen.queryByTestId('backend-sign-in-url')).toBeNull();
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+
+    await act(() => vi.advanceTimersByTimeAsync(SIGN_IN_POLL_INTERVAL_MS * 2));
+    vi.useRealTimers();
+    expect(fake.poll).toHaveBeenCalledWith({ handle: 'handle-2' });
+    await waitFor(() => {
+      expect(getBackend(record.id)?.authToken).toBe('oh_session');
+    });
+  });
+
+  it('polls the handle and writes the approved secret onto the record like a pasted token', async () => {
+    const fake = fakeApi(PASSWORD_SERVER);
+    fake.poll
+      .mockResolvedValueOnce({ status: 'pending', retryAfterMs: 3_000 })
+      .mockResolvedValueOnce({ status: 'approved', secret: 'oh_session' });
+    registerCapability('serverSignIn', () => fake.api);
+    const record = await createBackend({ url: 'ws://10.0.0.5:8137' });
+    renderStep(record);
+    const primary = await findPrimary('10.0.0.5');
+
+    vi.useFakeTimers();
+    fireEvent.click(primary);
+    await flush();
+    expect(screen.getByTestId('backend-sign-in-code').textContent).toBe('BCDF-GHJK');
 
     await act(() => vi.advanceTimersByTimeAsync(SIGN_IN_POLL_INTERVAL_MS));
     expect(fake.poll).toHaveBeenCalledTimes(1);
-    expect(fake.poll).toHaveBeenCalledWith({ url: 'ws://10.0.0.5:8137', pollToken: 'handle-1' });
+    expect(fake.poll).toHaveBeenCalledWith({ handle: 'handle-1' });
     expect(screen.getByTestId('backend-sign-in-code')).toBeTruthy();
 
     await act(() => vi.advanceTimersByTimeAsync(SIGN_IN_POLL_INTERVAL_MS));
@@ -210,7 +254,7 @@ describe('BackendSignInStep', () => {
     expect(screen.queryByTestId('backend-sign-in-code')).toBeNull();
   });
 
-  it('Cancel stops the poll and returns to the offer', async () => {
+  it('Cancel stops the poll, forgets the handle and returns to the offer', async () => {
     const fake = fakeApi(PASSWORD_SERVER);
     registerCapability('serverSignIn', () => fake.api);
     const record = await createBackend({ url: 'ws://10.0.0.5:8137' });
@@ -224,11 +268,12 @@ describe('BackendSignInStep', () => {
     await act(() => vi.advanceTimersByTimeAsync(SIGN_IN_POLL_INTERVAL_MS * 3));
 
     expect(fake.poll).not.toHaveBeenCalled();
+    expect(fake.cancel).toHaveBeenCalledWith({ handle: 'handle-1' });
     expect(screen.queryByTestId('backend-sign-in-code')).toBeNull();
     expect(screen.getByRole('button', { name: /Sign in on 10\.0\.0\.5/ })).toBeTruthy();
   });
 
-  it('a denied verdict says so and offers Try again', async () => {
+  it('a denied verdict and an abandoned browser leg each say so and offer Try again', async () => {
     const fake = fakeApi(PASSWORD_SERVER);
     fake.poll.mockResolvedValue({ status: 'denied' });
     registerCapability('serverSignIn', () => fake.api);
@@ -244,6 +289,17 @@ describe('BackendSignInStep', () => {
 
     expect(await screen.findByText("The sign-in was denied on the server's page.")).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(getBackend(record.id)?.authToken).toBe('');
+
+    fake.start.mockResolvedValue(STARTED_REDIRECT);
+    fake.poll.mockResolvedValue({ status: 'abandoned' });
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await flush();
+    await act(() => vi.advanceTimersByTimeAsync(SIGN_IN_POLL_INTERVAL_MS));
+    vi.useRealTimers();
+
+    expect(await screen.findByText('The sign-in did not finish in the browser. Try again.')).toBeTruthy();
     expect(getBackend(record.id)?.authToken).toBe('');
   });
 
