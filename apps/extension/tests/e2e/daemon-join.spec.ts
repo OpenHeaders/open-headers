@@ -16,13 +16,19 @@
  *      for their devices.
  *   4. Launch Chromium with the built extension and join the daemon
  *      through the REAL wizard on the machine's LAN address — the
- *      person's own sign-in (the client sign-in plan §9): "Sign in on …"
- *      opens the server's device page in a new tab, the person signs in
- *      there with the email + password and approves the device, the
- *      wizard reads "Signed in as <person>" off a real handshake,
+ *      person's own sign-in (the client sign-in plan §14): "Sign in on …"
+ *      runs the authorization code grant with PKCE in the service
+ *      worker, whose identity API opens the server's authorize URL in a
+ *      window of its own. This bind serves no web bundle and the window
+ *      reaches it at a plain-http LAN address, so the daemon renders the
+ *      consent page itself; the person signs in there with the email +
+ *      password and approves, the browser is sent to the extension's
+ *      registered redirect with the one-shot code, the identity API
+ *      closes the window, the worker redeems the code with its verifier,
+ *      the wizard reads "Signed in as <person>" off a real handshake,
  *      Connect, and the daemon's workspace + rule sync down
  *      (consume-only join, ADR-9). No credential is ever seeded into
- *      the extension: the secret rides the poll handle only.
+ *      the extension, and no page ever carries the secret.
  *   5. Mutate through MCP while the extension is connected — the
  *      rename must replicate live over the WS pipe.
  *   6. Assert nothing pollutes upward: the extension's own local
@@ -412,9 +418,9 @@ test('the administrator admits the person in one act — name, email, workspace 
   expect(meta.enabled).toBe(true);
 });
 
-// ── The extension signs the person in on the server's own page ──────
+// ── The extension signs the person in through the browser ───────────
 
-test('the extension signs the person in on the device page over the LAN bind and the rule syncs down', async () => {
+test('the extension signs the person in on the code grant over the LAN bind and the rule syncs down', async () => {
   extensionContext = await chromium.launchPersistentContext('', {
     headless: false,
     args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`, '--no-sandbox'],
@@ -450,34 +456,43 @@ test('the extension signs the person in on the device page over the LAN bind and
   // gate; a loading button ignores clicks.
   const primary = modal.getByRole('button', { name: /^Sign in on / });
   await expect(primary).not.toHaveClass(/ant-btn-loading/);
-  const [devicePage] = await Promise.all([extensionContext.waitForEvent('page'), primary.click()]);
+  // The service worker runs the code grant: the identity API opens the
+  // authorize URL in a window of its own, registered to come back at
+  // https://<id>.chromiumapp.org/callback. The step draws the waiting
+  // line and nothing else — no code, the PKCE verifier binds this
+  // client.
+  const [consentPage] = await Promise.all([extensionContext.waitForEvent('page'), primary.click()]);
+  await expect(modal.getByText('Finish the sign-in in the browser, then come back here…')).toBeVisible();
+  await expect(modal.getByTestId('backend-sign-in-code')).toHaveCount(0);
 
-  // The wizard shows the code; the page the SW opened is the server's
-  // own device page on that same code — it names the client kind and
-  // asks the person to approve it.
-  const code = (await modal.getByTestId('backend-sign-in-code').textContent())?.trim() ?? '';
-  expect(code).toMatch(/^\d{6}$/);
-  await devicePage.waitForLoadState();
-  expect(new URL(devicePage.url()).pathname).toBe(`/pair/${code}`);
-  await expect(devicePage.getByRole('heading', { name: 'Approve this device?' })).toBeVisible();
-  await expect(devicePage.getByText('(the browser extension)')).toBeVisible();
-  // Same machine asked and approves: no address line.
-  await expect(devicePage.getByText('a different device')).toHaveCount(0);
-  await expect(devicePage.getByText(code).first()).toBeVisible();
+  // The daemon parks the request and hands the window to the consent
+  // rendering — on this bind the server's own page (no web bundle, a
+  // plain-http LAN address): the same record, with the credential form.
+  await consentPage.waitForLoadState();
+  expect(new URL(consentPage.url()).pathname).toMatch(/^\/auth\/oauth\/authorize\/[A-Za-z0-9_-]+$/);
+  await expect(consentPage.getByRole('heading', { name: 'Approve this device?' })).toBeVisible();
+  await expect(consentPage.getByText('(the browser extension)')).toBeVisible();
+  // Same machine asked and approves: no address line. No user code
+  // either — the code grant shows none.
+  await expect(consentPage.getByText('a different device')).toHaveCount(0);
+  await expect(consentPage.getByText('check that it matches')).toHaveCount(0);
 
   // The person signs in on the SERVER'S page — the extension never sees
-  // the password. Approve lands on the approved page, which carries no
-  // secret.
-  await devicePage.fill('input[name=email]', PERSON.email);
-  await devicePage.fill('input[name=password]', PERSON.password);
-  await devicePage.getByRole('button', { name: 'Approve' }).click();
-  await expect(devicePage.getByRole('heading', { name: 'Device approved' })).toBeVisible();
-  expect(await devicePage.content()).not.toContain('oh_');
-  await devicePage.close();
+  // the password. Approve sends the browser to the client's registered
+  // redirect with the one-shot code; the identity API intercepts that
+  // navigation and closes the window. No approved page, no secret in
+  // any document.
+  await consentPage.fill('input[name=email]', PERSON.email);
+  await consentPage.fill('input[name=password]', PERSON.password);
+  await Promise.all([
+    consentPage.waitForEvent('close', { timeout: 5_000 }),
+    consentPage.getByRole('button', { name: 'Approve' }).click(),
+  ]);
 
-  // The poll (every 2 s) hands the bound secret to the extension, which
-  // writes it onto the record like a pasted token; the wizard's probe
-  // re-runs and the REAL handshake names the person.
+  // The worker redeems the code with its verifier at the token endpoint;
+  // the step writes the session credential onto the record like a pasted
+  // token; the wizard's probe re-runs and the REAL handshake names the
+  // person.
   await expect(modal.getByText(new RegExp(`^Signed in as ${PERSON.name}`))).toBeVisible({ timeout: 10_000 });
   await modal.getByRole('button', { name: 'Next' }).click();
   await modal.getByRole('button', { name: /^Connect$/ }).click();

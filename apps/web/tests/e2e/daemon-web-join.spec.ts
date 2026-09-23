@@ -52,14 +52,18 @@
  *      shows without a session; a code grant with no session gates
  *      first, the password sign-in hands back to the card, Allow lands
  *      the tab at the client's registered redirect and only the
- *      verifier redeems the code.
+ *      verifier redeems the code; the built `oh login` runs the device
+ *      grant end to end — a headless shell prints the link and the
+ *      code, the card approves, and `cli.json` lands as
+ *      `oh connect --token` leaves it.
  *  11. The claim itself, on a throwaway daemon of its own: the first
  *      browser creates the admin from loopback with no setup code,
  *      hears which paired devices that unpaired, and lands joined.
  *  12. Zero console errors across every leg; SIGTERM exits clean.
  *
- * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
- * and `pnpm turbo build --filter=@openheaders/web`. The daemon runs
+ * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`,
+ * `pnpm turbo build --filter=@openheaders/web` and
+ * `pnpm turbo build --filter=@openheaders/cli`. The daemon runs
  * under the repo's electron binary with ELECTRON_RUN_AS_NODE (the
  * monorepo's better-sqlite3 is compiled for Electron's ABI).
  */
@@ -77,6 +81,7 @@ import { type Browser, type BrowserContext, chromium, expect, type Page, test } 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const DAEMON_MAIN = path.join(REPO_ROOT, 'apps/daemon/dist/main.js');
 const WEB_DIST = path.join(REPO_ROOT, 'apps/web/dist');
+const CLI_BIN = path.join(REPO_ROOT, 'apps/cli/dist/cli.js');
 
 // The repo's electron binary doubles as the daemon's Node runtime
 // (better-sqlite3 ABI); resolve it from the package that declares it.
@@ -1256,6 +1261,75 @@ test('consent: a code-grant sign-in gates first, the password sign-in hands back
 
   await piaContext.close();
   await new Promise<void>((resolve) => callbackServer?.close(() => resolve()));
+});
+
+const USER_CODE_SHAPE = '[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}';
+
+test('oh login: a headless shell prints the link and the code, a signed-in tab approves on the card, and cli.json lands as oh connect --token leaves it', async () => {
+  // An isolated config home for the file the command persists. A remote
+  // shell never opens a browser (the opener answers false under SSH_*),
+  // so the link is printed for the person to open anywhere — here, the
+  // signed-in tab below.
+  const configHome = await mkdtemp(path.join(os.tmpdir(), 'oh-cli-login-'));
+  const env: NodeJS.ProcessEnv = { ...process.env, XDG_CONFIG_HOME: configHome, SSH_TTY: 'e2e' };
+  delete env.OH_DAEMON_URL;
+  delete env.OH_TOKEN;
+  const cli = spawn(process.execPath, [CLI_BIN, 'login', '--daemon', ORIGIN, '--label', 'e2e cli'], { env });
+  let stdout = '';
+  let stderr = '';
+  cli.stdout?.on('data', (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  cli.stderr?.on('data', (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  const exited = new Promise<number | null>((resolve) => cli.once('exit', (code) => resolve(code)));
+
+  // The device grant's two lines: the verification link complete with
+  // the user code, and the code the card will show for the person to
+  // compare (RFC 8628 §3.3.1).
+  await expect.poll(() => new RegExp(`approve code ${USER_CODE_SHAPE} `).test(stderr), { timeout: 5_000 }).toBe(true);
+  const link = /^! Open (\S+) in a browser and sign in there$/m.exec(stderr)?.[1] ?? '';
+  const code = new RegExp(`approve code (${USER_CODE_SHAPE}) `).exec(stderr)?.[1] ?? '';
+  expect(link).toBe(`${ORIGIN}/auth/oauth/device/verify?user_code=${encodeURIComponent(code)}`);
+  expect(stderr).not.toContain('Opened it in your browser.');
+  expect(stderr).toContain('Waiting for you to approve this device…');
+
+  // The signed-in person opens the printed link: the card names the
+  // tool by its --label and shows the same code.
+  const [cliContext, cliPage] = await openSignedIn('cli-login', ADMIN_EMAIL, ADMIN_PASSWORD);
+  await cliPage.goto(link);
+  await cliPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
+  await expect(cliPage.locator('[data-testid=consent-card-code]')).toContainText(`Code ${code} —`);
+  await expect(cliPage.locator('[data-testid=consent-card-asks]')).toContainText(
+    'e2e cli (the command-line tool) asked to sign in to this server as John Doe.',
+    { timeout: 5_000 },
+  );
+  await cliPage.click('[data-testid=consent-card-allow]');
+  await cliPage.waitForSelector('[data-testid=consent-card][data-state=approved]', { timeout: 5_000 });
+  await cliContext.close();
+
+  // The command's next poll, at the server's interval, mints the session
+  // credential; the probe-and-save path is oh connect --token's, so the
+  // file names this daemon and holds the minted secret. stdout carries
+  // the outcome and the path; the secret is printed nowhere.
+  expect(await exited, stderr).toBe(0);
+  const [outcome] = stdout.split('\n');
+  expect(outcome).toMatch(/^signed in — \d+ tool\(s\) at /);
+  expect(outcome.endsWith(` at ${ORIGIN}`)).toBe(true);
+  const configPath = /^saved to (.+)$/m.exec(stdout)?.[1] ?? '';
+  expect(configPath).toBe(path.join(configHome, 'openheaders', 'cli.json'));
+  const saved = JSON.parse(await readFile(configPath, 'utf-8')) as { daemonUrl?: string; token?: string };
+  expect(saved.daemonUrl).toBe(ORIGIN);
+  expect(saved.token?.startsWith('oh_')).toBe(true);
+  expect(stderr).not.toContain(saved.token ?? 'oh_');
+  // The credential IS the person's session, labelled by the client and
+  // the label the command sent — the row Paired devices lists.
+  const adminId = await findUserId(ADMIN_EMAIL);
+  const cliRow = await findSessionRow('device:cli:e2e cli');
+  expect(cliRow?.kind).toBe('session');
+  expect(cliRow?.userId).toBe(adminId);
+  await rm(configHome, { recursive: true, force: true });
 });
 
 // ── Non-loopback origins ────────────────────────────────────────────
