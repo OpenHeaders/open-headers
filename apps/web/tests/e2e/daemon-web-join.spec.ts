@@ -1096,7 +1096,7 @@ async function findSessionRow(label: string): Promise<{ userId?: string; kind?: 
   );
 }
 
-test('consent: a signed-in tab approves a device-grant sign-in on the card and the CLI redeems it; Not me denies; a settled verdict shows without a session', async () => {
+test('consent: a signed-in tab approves a device-grant sign-in on the card and the CLI redeems it; Switch account re-gates onto the same decision; Decline denies; a settled verdict shows without a session', async () => {
   const first = await startDeviceSignIn('e2e box');
   expect(first.user_code).toMatch(/^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
 
@@ -1143,6 +1143,21 @@ test('consent: a signed-in tab approves a device-grant sign-in on the card and t
   const deniedLocation = await consentLocationFor(second.verification_uri_complete);
   await adminPage.goto(second.verification_uri_complete);
   await adminPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
+  // Someone else's session on this browser: Switch account drops it as
+  // a sign-out does, the gate draws, and the next sign-in returns to
+  // the SAME decision — the id kept across the reload, the code unchanged.
+  await expect(adminPage.locator('[data-testid=consent-card-identity]')).toContainText('Signed in as John Doe', {
+    timeout: 5_000,
+  });
+  await adminPage.click('[data-testid=consent-card-switch-account]');
+  await adminPage.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
+  expect(await adminPage.$('[data-testid=consent-card]')).toBeNull();
+  await signInAtGate(adminPage, 'pia@openheaders.io', 'pia-first-password');
+  await adminPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
+  await expect(adminPage.locator('[data-testid=consent-card-code]')).toContainText(`Code ${second.user_code} —`);
+  await expect(adminPage.locator('[data-testid=consent-card-identity]')).toContainText('Signed in as Pia', {
+    timeout: 5_000,
+  });
   await adminPage.click('[data-testid=consent-card-deny]');
   await adminPage.waitForSelector('[data-testid=consent-card][data-state=denied]', { timeout: 5_000 });
   const refused = await redeemAtTokenEndpoint({
