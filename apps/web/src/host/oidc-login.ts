@@ -116,12 +116,18 @@ export function isSeatRefusalReason(reason: string | null | undefined): boolean 
  * Kick off the SSO round-trip — a full-page navigation, by design. A
  * personal-seat key pasted at the seat-limit refusal rides along and
  * is redeemed at auto-provision (it is not a bearer secret — it only
- * admits the identity it names).
+ * admits the identity it names). A pending authorization's id rides
+ * the same start (the client sign-in plan §14.4): the callback then
+ * approves that record as the signed-in person instead of minting a
+ * session, and lands where the server sends it.
  */
 export function startOidcLogin(
   navigate: (url: string) => void = (url) => window.location.assign(url),
-  options?: { personalLicense?: string },
+  options?: { personalLicense?: string; authorizationId?: string },
 ): void {
+  const params: string[] = [];
   const key = options?.personalLicense?.trim();
-  navigate(key ? `/auth/oidc/start?individual_license=${encodeURIComponent(key)}` : '/auth/oidc/start');
+  if (key) params.push(`individual_license=${encodeURIComponent(key)}`);
+  if (options?.authorizationId) params.push(`authorize=${encodeURIComponent(options.authorizationId)}`);
+  navigate(params.length > 0 ? `/auth/oidc/start?${params.join('&')}` : '/auth/oidc/start');
 }
