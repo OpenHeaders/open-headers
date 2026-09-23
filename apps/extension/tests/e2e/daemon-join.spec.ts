@@ -461,7 +461,7 @@ test('the extension signs the person in on the code grant over the LAN bind and 
   // https://<id>.chromiumapp.org/callback. The step draws the waiting
   // line and nothing else — no code, the PKCE verifier binds this
   // client.
-  const [consentPage] = await Promise.all([extensionContext.waitForEvent('page'), primary.click()]);
+  let [consentPage] = await Promise.all([extensionContext.waitForEvent('page'), primary.click()]);
   await expect(modal.getByText('Finish the sign-in in the browser, then come back here…')).toBeVisible();
   await expect(modal.getByTestId('backend-sign-in-code')).toHaveCount(0);
 
@@ -476,6 +476,23 @@ test('the extension signs the person in on the code grant over the LAN bind and 
   // either — the code grant shows none.
   await expect(consentPage.getByText('a different device')).toHaveCount(0);
   await expect(consentPage.getByText('check that it matches')).toHaveCount(0);
+
+  // Not me takes the same road with the refusal (RFC 6749 §4.1.2.1):
+  // the browser is sent to the registered redirect with
+  // error=access_denied, the identity API intercepts it and closes the
+  // window, and the step reads the denial off its poll. Try again
+  // starts a fresh grant in a fresh window.
+  await Promise.all([
+    consentPage.waitForEvent('close', { timeout: 5_000 }),
+    consentPage.getByRole('button', { name: 'Not me' }).click(),
+  ]);
+  await expect(modal.getByText("The sign-in was denied on the server's page.")).toBeVisible({ timeout: 10_000 });
+  [consentPage] = await Promise.all([
+    extensionContext.waitForEvent('page'),
+    modal.getByRole('button', { name: 'Try again' }).click(),
+  ]);
+  await consentPage.waitForLoadState();
+  await expect(consentPage.getByRole('heading', { name: 'Approve this device?' })).toBeVisible();
 
   // The person signs in on the SERVER'S page — the extension never sees
   // the password. Approve sends the browser to the client's registered

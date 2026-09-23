@@ -18,8 +18,11 @@
  * session bearer: on the code grant the tab leaves for the client's
  * registered redirect — opaque here, navigated and never parsed; on
  * the device grant the record settles and the device's poll takes it
- * from there. A refused bearer means the session is stale: the tab
- * drops it and re-gates with the id kept, the same path as the switch.
+ * from there. Decline settles the record and, on the code grant, takes
+ * the same road with the refusal (RFC 6749 §4.1.2.1), so the client's
+ * window closes on a no as it does on a yes. A refused bearer means the
+ * session is stale: the tab drops it and re-gates with the id kept, the
+ * same path as the switch.
  *
  * The request's address is not drawn. The server-rendered page
  * compares the asking peer with the approving browser's and draws the
@@ -162,16 +165,24 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
     setState(consentStateFromRefusal(outcome.reason));
   };
 
-  const decline = async (): Promise<void> => {
+  const decline = async (facts: AuthorizationFacts): Promise<void> => {
     if (deciding) return;
     setDeciding(true);
     setError(null);
     const outcome = await denyAuthorization(pending.id);
-    setDeciding(false);
     if (outcome.ok) {
+      if (outcome.redirectTo !== null) {
+        // The code grant: the refusal rides the client's registered
+        // redirect, and the browser leg closes the way an approval does.
+        showTransitionOverlay(t('web.overlay.takingYouBack', { client: t(CLIENT_KEY[facts.clientKind]) }));
+        window.location.assign(outcome.redirectTo);
+        return;
+      }
+      setDeciding(false);
       setState({ kind: 'denied' });
       return;
     }
+    setDeciding(false);
     if (outcome.reason === 'offline') {
       setError(t('web.gate.errorServerOffline'));
       return;
@@ -255,7 +266,13 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
         >
           {t('web.consent.allow')}
         </Button>
-        <Button type="text" block disabled={deciding} onClick={() => void decline()} data-testid="consent-card-deny">
+        <Button
+          type="text"
+          block
+          disabled={deciding}
+          onClick={() => void decline(facts)}
+          data-testid="consent-card-deny"
+        >
           {t('web.consent.decline')}
         </Button>
       </div>

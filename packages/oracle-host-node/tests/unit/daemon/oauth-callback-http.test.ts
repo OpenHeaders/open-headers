@@ -57,9 +57,11 @@ describe('OAuth callback HTTP handler', () => {
     expect(callback.pendingCount()).toBe(0);
   });
 
-  it('a provider error redirect still settles the waiter — the flow reads the error, not the route', async () => {
+  it('an error redirect still settles the waiter — the flow reads the error, not the route — and the page says so', async () => {
     const redirect = callback.awaitRedirect('st-2');
-    await fetch(`${baseUrl}${OAUTH_CALLBACK_PATH}?error=access_denied&state=st-2`);
+    const res = await fetch(`${baseUrl}${OAUTH_CALLBACK_PATH}?error=access_denied&state=st-2`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('Sign-in declined');
     expect(new URL(await redirect).searchParams.get('error')).toBe('access_denied');
   });
 

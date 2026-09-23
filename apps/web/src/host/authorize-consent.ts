@@ -156,9 +156,16 @@ export async function approveAuthorization(id: string, fetchFn: typeof fetch = f
   }
 }
 
-export type DenyOutcome = { readonly ok: true } | { readonly ok: false; readonly reason: DecisionRefusal | 'offline' };
+export type DenyOutcome =
+  | { readonly ok: true; readonly redirectTo: string | null }
+  | { readonly ok: false; readonly reason: DecisionRefusal | 'offline' };
 
-/** "Not me" — no credential needed; the record settles denied. */
+/**
+ * Decline — no credential needed; the record settles denied. The code
+ * grant answers where the browser goes next, the client's registered
+ * redirect carrying the refusal (RFC 6749 §4.1.2.1), opaque to this tab;
+ * the device grant answers nothing, the device's poll hears it.
+ */
 export async function denyAuthorization(id: string, fetchFn: typeof fetch = fetch): Promise<DenyOutcome> {
   try {
     const response = await fetchFn(`${RECORD_PATH_PREFIX}${encodeURIComponent(id)}/deny`, {
@@ -166,11 +173,15 @@ export async function denyAuthorization(id: string, fetchFn: typeof fetch = fetc
       headers: { Accept: 'application/json', 'content-type': 'application/json' },
       body: '{}',
     });
-    const payload = (await response.json().catch(() => ({}))) as { ok?: unknown; reason?: unknown };
+    const payload = (await response.json().catch(() => ({}))) as {
+      ok?: unknown;
+      redirectTo?: unknown;
+      reason?: unknown;
+    };
     if (response.status === 404 || response.status === 410)
       return { ok: false, reason: refusalFrom(response.status, payload) };
     if (!response.ok || payload.ok !== true) return { ok: false, reason: 'offline' };
-    return { ok: true };
+    return { ok: true, redirectTo: typeof payload.redirectTo === 'string' ? payload.redirectTo : null };
   } catch (err) {
     logger.warn(SCOPE, 'deny failed', err);
     return { ok: false, reason: 'offline' };

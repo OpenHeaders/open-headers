@@ -181,8 +181,10 @@ export type ApproveAuthorizationResult =
   | { readonly ok: true; readonly grant: 'device' }
   | { readonly ok: false; readonly reason: DecisionRefusalReason };
 
+/** The code grant hands the refusal to the client's redirect (RFC 6749 §4.1.2.1); the device grant's poll hears it. */
 export type DenyAuthorizationResult =
-  | { readonly ok: true }
+  | { readonly ok: true; readonly grant: 'code'; readonly redirectUri: string; readonly state: string }
+  | { readonly ok: true; readonly grant: 'device' }
   | { readonly ok: false; readonly reason: DecisionRefusalReason };
 
 export interface RedeemCodeInput {
@@ -581,7 +583,8 @@ export function createDaemonAuthorizationService(
       const refused = decisionRefusal(entry);
       if (refused !== null) return { ok: false, reason: refused };
       setEntry({ ...entry, status: 'denied' });
-      return { ok: true };
+      if (entry.grant === 'device') return { ok: true, grant: 'device' };
+      return { ok: true, grant: 'code', redirectUri: entry.redirectUri ?? '', state: entry.state ?? '' };
     },
 
     async redeemCode(input) {

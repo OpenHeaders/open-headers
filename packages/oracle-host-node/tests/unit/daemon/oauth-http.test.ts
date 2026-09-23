@@ -686,14 +686,16 @@ describe('the code grant end to end — the page approves, the token endpoint mi
     expect(approved.status).toBe(200);
   });
 
-  it('Not me settles the record: the denied page for the form, JSON for the SPA; a later approve is refused', async () => {
+  it('Not me on the code grant sends the browser to the client redirect with access_denied (form 303, JSON redirectTo); a later approve is refused', async () => {
     await addPasswordUser('alice@openheaders.io', 'alice-password-1');
     const rig = await startRig();
     const { challenge } = await pkce();
     const id = await parkedCode(rig, challenge);
     const denied = await postForm(`${rig.origin}/auth/oauth/authorize/${id}/deny`, {});
-    expect(denied.status).toBe(200);
-    expect(await denied.text()).toContain('Sign-in denied');
+    expect(denied.status).toBe(303);
+    expect(denied.headers.get('location')).toBe(
+      `${REDIRECT}?error=access_denied&state=st-1&iss=${encodeURIComponent(rig.origin)}`,
+    );
     const late = await postForm(`${rig.origin}/auth/oauth/authorize/${id}/approve`, {
       email: 'alice@openheaders.io',
       password: 'alice-password-1',
@@ -706,6 +708,15 @@ describe('the code grant end to end — the page approves, the token endpoint mi
     expect(asJson.status).toBe(410);
     expect(await asJson.json()).toEqual({ ok: false, reason: 'denied' });
     expect((await postJson(`${rig.origin}/auth/oauth/authorize/nope/deny`, {})).status).toBe(404);
+    // The SPA's arm on a fresh record answers the same target as JSON.
+    const second = await get(authorizeUrl(rig, challenge, { state: 'st-2' }));
+    expect(second.headers.get('location')).toBe('/auth/oauth/authorize/auth-2');
+    const spaDenied = await postJson(`${rig.origin}/auth/oauth/authorize/auth-2/deny`, {});
+    expect(spaDenied.status).toBe(200);
+    expect(await spaDenied.json()).toEqual({
+      ok: true,
+      redirectTo: `${REDIRECT}?error=access_denied&state=st-2&iss=${encodeURIComponent(rig.origin)}`,
+    });
     // Methods gate.
     expect((await get(`${rig.origin}/auth/oauth/authorize/${id}/approve`)).status).toBe(405);
     expect((await get(`${rig.origin}/auth/oauth/authorize/${id}/deny`)).status).toBe(405);
@@ -828,7 +839,11 @@ describe('the device grant end to end — the start, the verify page, the poll',
     expect(await (await pollToken(rig, started.device_code)).json()).toEqual({ error: 'slow_down' });
     rig.advance(10_000);
     expect(await (await pollToken(rig, started.device_code)).json()).toEqual({ error: 'authorization_pending' });
-    expect((await postJson(`${rig.origin}/auth/oauth/authorize/auth-1/deny`, {})).status).toBe(200);
+    // The device grant has no redirect: the JSON arm answers a bare ok,
+    // the form arm the denied page, and the device's poll hears it.
+    const deniedJson = await postJson(`${rig.origin}/auth/oauth/authorize/auth-1/deny`, {});
+    expect(deniedJson.status).toBe(200);
+    expect(await deniedJson.json()).toEqual({ ok: true });
     rig.advance(10_000);
     expect(await (await pollToken(rig, started.device_code)).json()).toEqual({ error: 'access_denied' });
 

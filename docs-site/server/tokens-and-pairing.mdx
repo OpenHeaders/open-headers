@@ -100,7 +100,10 @@ refresh token: a session that expires is signed in again.
   approval is bound to the device code the client holds. The page
   never shows a secret. A code you did not ask for is somebody else's
   device — check that the code matches the one your device shows, and
-  click **Not me** if it does not.
+  click **Decline** (**Not me** on the server's own page) if it does
+  not. A declined sign-in goes back to the client the way an approval
+  does, carrying the refusal instead of a code, so the browser window
+  the client opened closes on a no as it does on a yes.
 </Note>
 
 ## Tokens for machines and admin-issued devices

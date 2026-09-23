@@ -1183,22 +1183,21 @@ test('consent: a signed-in tab approves a device-grant sign-in on the card and t
   await anonContext.close();
 });
 
-test('consent: a code-grant sign-in gates first, the password sign-in hands back to the card, Allow lands at the client redirect and only the verifier redeems', async () => {
+test('consent: a code-grant sign-in gates first, the password sign-in hands back to the card, Allow lands at the client redirect and only the verifier redeems; Decline lands there with access_denied', async () => {
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   const state = randomBytes(8).toString('base64url');
   const redirectUri = `http://127.0.0.1:${CALLBACK_PORT}/oauth/callback`;
 
   // The desktop app's loopback callback, stood in for by a listener
-  // that records what the browser brought it.
+  // that records what the browser brought it, landing by landing.
   let callbackServer: Server | null = null;
-  const landed = new Promise<URL>((resolve) => {
-    callbackServer = createServer((req, res) => {
-      res.statusCode = 200;
-      res.setHeader('content-type', 'text/plain');
-      res.end('ok');
-      resolve(new URL(req.url ?? '/', redirectUri));
-    });
+  const arrivals: URL[] = [];
+  callbackServer = createServer((req, res) => {
+    res.statusCode = 200;
+    res.setHeader('content-type', 'text/plain');
+    res.end('ok');
+    arrivals.push(new URL(req.url ?? '/', redirectUri));
   });
   await new Promise<void>((resolve) => callbackServer?.listen(CALLBACK_PORT, '127.0.0.1', resolve));
 
@@ -1232,7 +1231,8 @@ test('consent: a code-grant sign-in gates first, the password sign-in hands back
   // Allow: the tab leaves for the client's registered redirect with the
   // one-shot code, the state echoed and the issuer named (RFC 9207).
   await piaPage.click('[data-testid=consent-card-allow]');
-  const arrived = await landed;
+  await expect.poll(() => arrivals.length, { timeout: 5_000 }).toBe(1);
+  const arrived = arrivals[0];
   expect(arrived.pathname).toBe('/oauth/callback');
   expect(arrived.searchParams.get('state')).toBe(state);
   expect(arrived.searchParams.get('iss')).toBe(ORIGIN);
@@ -1273,6 +1273,33 @@ test('consent: a code-grant sign-in gates first, the password sign-in hands back
   const desktopRow = await findSessionRow('device:desktop:e2e desktop');
   expect(desktopRow?.kind).toBe('session');
   expect(desktopRow?.userId).toBe(piaId);
+
+  // Decline takes the same road with the refusal (RFC 6749 §4.1.2.1):
+  // the browser lands at the client's redirect with error=access_denied,
+  // the state echoed and the issuer named, no code anywhere — the
+  // client's window closes on a no as it does on a yes.
+  const declinedState = randomBytes(8).toString('base64url');
+  await piaPage.goto(
+    `${ORIGIN}/auth/oauth/authorize?${new URLSearchParams({
+      response_type: 'code',
+      client_id: 'openheaders-desktop',
+      redirect_uri: redirectUri,
+      state: declinedState,
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      device_label: 'e2e desktop',
+    }).toString()}`,
+  );
+  await piaPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
+  await piaPage.click('[data-testid=consent-card-deny]');
+  await expect.poll(() => arrivals.length, { timeout: 5_000 }).toBe(2);
+  const refused = arrivals[1];
+  expect(refused.pathname).toBe('/oauth/callback');
+  expect(refused.searchParams.get('error')).toBe('access_denied');
+  expect(refused.searchParams.get('state')).toBe(declinedState);
+  expect(refused.searchParams.get('iss')).toBe(ORIGIN);
+  expect(refused.searchParams.get('code')).toBeNull();
+  await piaPage.waitForURL((url) => url.origin === `http://127.0.0.1:${CALLBACK_PORT}`, { timeout: 5_000 });
 
   await piaContext.close();
   await new Promise<void>((resolve) => callbackServer?.close(() => resolve()));

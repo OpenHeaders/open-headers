@@ -264,7 +264,9 @@ describe('the authorization code grant', () => {
     const svc = service({ generateAuthorizationCode: () => 'code-1' });
     const { verifier, challenge } = await pkce();
     svc.beginCode(codeRequest(challenge));
-    expect(svc.deny('auth-1')).toEqual({ ok: true });
+    // The refusal names the client's redirect and state — the route
+    // sends the browser there with error=access_denied.
+    expect(svc.deny('auth-1')).toEqual({ ok: true, grant: 'code', redirectUri: REDIRECT, state: 'st-1' });
     expect(svc.facts('auth-1')?.status).toBe('denied');
     expect(await svc.approve('auth-1', 'user-alice')).toEqual({ ok: false, reason: 'denied' });
     expect(svc.deny('auth-1')).toEqual({ ok: false, reason: 'denied' });
@@ -410,7 +412,7 @@ describe('the device authorization grant', () => {
     await svc.beginDevice({ clientId: DAEMON_CLI_CLIENT_ID, peer: PEER });
     const poll = { deviceCode: 'device-code-1', clientId: DAEMON_CLI_CLIENT_ID };
     expect(await svc.pollDevice({ ...poll, clientId: DAEMON_EXTENSION_CLIENT_ID })).toEqual({ status: 'unknown' });
-    expect(svc.deny('auth-1')).toEqual({ ok: true });
+    expect(svc.deny('auth-1')).toEqual({ ok: true, grant: 'device' });
     expect(await svc.pollDevice(poll)).toEqual({ status: 'denied' });
     now += 5 * 60_000 + 1;
     expect(await svc.pollDevice(poll)).toEqual({ status: 'denied' });

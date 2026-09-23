@@ -199,9 +199,18 @@ describe('approveAuthorization', () => {
 });
 
 describe('denyAuthorization', () => {
-  it('posts a JSON body with no credential and settles the record', async () => {
+  it('posts a JSON body with no credential and settles the record; the code grant answers the redirect', async () => {
     const calls: Call[] = [];
-    expect(await denyAuthorization('abc_123', stubFetch(200, { ok: true }, calls))).toEqual({ ok: true });
+    expect(await denyAuthorization('abc_123', stubFetch(200, { ok: true }, calls))).toEqual({
+      ok: true,
+      redirectTo: null,
+    });
+    expect(
+      await denyAuthorization(
+        'abc_123',
+        stubFetch(200, { ok: true, redirectTo: 'http://127.0.0.1:52111/oauth/callback?error=access_denied&state=s' }),
+      ),
+    ).toEqual({ ok: true, redirectTo: 'http://127.0.0.1:52111/oauth/callback?error=access_denied&state=s' });
     expect(calls[0].url).toBe('/auth/oauth/authorize/abc_123/deny');
     expect(calls[0].init.method).toBe('POST');
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBeUndefined();

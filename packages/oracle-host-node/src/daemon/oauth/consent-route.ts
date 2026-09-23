@@ -22,7 +22,7 @@
  */
 
 import type { IncomingMessage } from 'node:http';
-import type { ApproveAuthorizationResult } from '@openheaders/core/identity';
+import type { ApproveAuthorizationResult, DenyAuthorizationResult } from '@openheaders/core/identity';
 import { resolveExternalOrigin } from '../../host-runtime/external-origin';
 
 /** The fragment key the SPA's consent entry reads (S9). */
@@ -80,6 +80,22 @@ export function authorizationRedirectTarget(
   const url = new URL(approved.redirectUri);
   url.searchParams.set('code', approved.code);
   url.searchParams.set('state', approved.state);
+  url.searchParams.set('iss', issuer);
+  return url.toString();
+}
+
+/**
+ * The redirect target of a denied code grant — `redirect_uri?error=access_denied&state&iss`
+ * (RFC 6749 §4.1.2.1, RFC 9207): the client's user agent takes the
+ * refusal home, so the browser leg closes the way an approval does.
+ */
+export function authorizationDeniedRedirectTarget(
+  denied: Extract<DenyAuthorizationResult, { grant: 'code' }>,
+  issuer: string,
+): string {
+  const url = new URL(denied.redirectUri);
+  url.searchParams.set('error', 'access_denied');
+  url.searchParams.set('state', denied.state);
   url.searchParams.set('iss', issuer);
   return url.toString();
 }

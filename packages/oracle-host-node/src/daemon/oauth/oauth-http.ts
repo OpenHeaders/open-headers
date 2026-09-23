@@ -34,8 +34,12 @@
  *     verifies through the password service WITHOUT minting a browser
  *     session. Approve on the code grant answers the redirect target
  *     (`redirect_uri?code&state&iss`, RFC 9207) — JSON `{redirectTo}`
- *     for the SPA, a 303 for the page; on the device grant it settles
- *     the record. One `daemon.device-login` audit row per approval.
+ *     for the SPA, a 303 for the page; deny on the code grant answers
+ *     the same target with the refusal (`redirect_uri?error=access_denied&state&iss`,
+ *     RFC 6749 §4.1.2.1), so the client's browser leg closes on a no as
+ *     on a yes; on the device grant either settles the record and the
+ *     device's poll hears it. One `daemon.device-login` audit row per
+ *     approval.
  *   - `POST /auth/oauth/token` — RFC 6749 §4.1.3 + RFC 8628 §3.4: the
  *     two grants, `application/x-www-form-urlencoded` or JSON; the
  *     RFC error vocabulary as 400s; a 2xx carries `access_token`,
@@ -52,6 +56,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   type ApproveAuthorizationResult,
+  type DenyAuthorizationResult,
   type AuthorizationFacts,
   type BeginCodeRefusalReason,
   DAEMON_DEVICE_LABEL_MAX_LENGTH,
@@ -72,6 +77,7 @@ import { isLoopbackRemote } from '../../host-runtime/ws-server/classify';
 import type { DaemonGateMode, GateModeResolver } from '../gate-mode';
 import type { DaemonPasswordLoginService } from '../password/password-login-service';
 import {
+  authorizationDeniedRedirectTarget,
   authorizationRedirectTarget,
   CONSENT_PAGE_PREFIX,
   type ConsentRouter,
@@ -406,6 +412,11 @@ export function createOAuthHttp(options: OAuthHttpOptions): OAuthHttp {
     return authorizationRedirectTarget(approved, externalOrigin(req));
   }
 
+  /** The redirect target of a denied code grant — `redirect_uri?error=access_denied&state&iss`. */
+  function deniedRedirectTarget(req: IncomingMessage, denied: Extract<DenyAuthorizationResult, { grant: 'code' }>) {
+    return authorizationDeniedRedirectTarget(denied, externalOrigin(req));
+  }
+
   function handleMetadata(req: IncomingMessage, res: ServerResponse): void {
     if (req.method !== 'GET') {
       methodNotAllowed(res, 'GET');
@@ -656,9 +667,17 @@ export function createOAuthHttp(options: OAuthHttpOptions): OAuthHttp {
       return;
     }
     const denied = authorization.deny(id);
+    // The code grant carries the refusal to the client's redirect (RFC
+    // 6749 §4.1.2.1) — the browser leg ends the way an approval ends;
+    // the device grant settles here and the device's poll hears it.
+    const redirectTo = denied.ok && denied.grant === 'code' ? deniedRedirectTarget(req, denied) : null;
     if (wantsJson(req) || readBearer(req) !== null) {
-      if (denied.ok) jsonResponse(res, 200, { ok: true });
+      if (denied.ok) jsonResponse(res, 200, redirectTo === null ? { ok: true } : { ok: true, redirectTo });
       else jsonResponse(res, denied.reason === 'unknown' ? 404 : 410, { ok: false, reason: denied.reason });
+      return;
+    }
+    if (redirectTo !== null) {
+      redirectResponse(res, 303, redirectTo);
       return;
     }
     if (denied.ok) {

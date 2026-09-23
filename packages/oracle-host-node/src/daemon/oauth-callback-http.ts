@@ -61,6 +61,10 @@ function landingPage(title: string, detail: string): string {
 }
 
 const PAGE_DONE = landingPage('Authorization complete', 'You can close this tab and return to Open Headers.');
+const PAGE_DECLINED = landingPage(
+  'Sign-in declined',
+  'Nothing was signed in. You can close this tab and return to Open Headers.',
+);
 const PAGE_STALE = landingPage('No authorization in progress', 'Start the sign-in again from Open Headers.');
 
 function respondHtml(res: ServerResponse, statusCode: number, html: string, head: boolean): void {
@@ -110,7 +114,8 @@ export function createOAuthCallbackHandler(): OAuthCallbackHandler {
       respondHtml(res, 404, PAGE_STALE, req.method === 'HEAD');
       return true;
     }
-    respondHtml(res, 200, PAGE_DONE, req.method === 'HEAD');
+    // The page says what the redirect carried; the flow parses it itself.
+    respondHtml(res, 200, url.searchParams.has('error') ? PAGE_DECLINED : PAGE_DONE, req.method === 'HEAD');
     waiter.resolve(url.toString());
     return true;
   };
