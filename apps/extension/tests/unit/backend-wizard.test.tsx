@@ -12,8 +12,11 @@
  *     asks to sign in, an accepted WELCOME names the place and, for a
  *     bound credential, the person (the step's own states are pinned in
  *     `backend-sign-in-step.test.tsx`);
- *   - the final step routes through the enable-switch handle (the
- *     probe-gated path), closing only when the flip committed.
+ *   - the final step names the place the way its row will (the label,
+ *     else the WELCOME's group, else the host; the address alone for the
+ *     unlabelled desktop app), offers Connect alone, and routes through
+ *     the enable-switch handle (the probe-gated path), closing only when
+ *     the flip committed.
  */
 
 import {
@@ -288,6 +291,33 @@ describe('BackendWizard', () => {
       expect(enableSwitch.setEnabled).toHaveBeenCalledWith(record, true);
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  it('the Connect step names the place by the row rule — the WELCOME group for an unlabelled server — and offers Connect alone', async () => {
+    probe.mockResolvedValue(ACCEPTED_BY_ACME);
+    const record = await createBackend({ url: 'ws://10.0.0.5:8137', authToken: 'tok' });
+    renderWizard({ recordId: record.id, mode: 'add', kind: 'server' });
+
+    next();
+    await waitFor(() => {
+      expect(screen.getByText('Signed in to Acme.')).toBeTruthy();
+    });
+    next();
+
+    expect(screen.getByText(/^Ready: Acme at ws:\/\/10\.0\.0\.5:8137, signed in\./)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Finish without connecting/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Connect$/ })).toBeTruthy();
+  });
+
+  it('the Connect step reads the address alone for the unlabelled desktop app', async () => {
+    probe.mockResolvedValue(AUTH_REQUIRED);
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
+    renderWizard({ recordId: record.id, mode: 'add', kind: 'desktop-app' });
+
+    next();
+    next();
+
+    expect(screen.getByText(/^Ready: ws:\/\/127\.0\.0\.1:8137 — not signed in yet\./)).toBeTruthy();
   });
 
   it('adding a connection beyond the first explains what an additional one changes', async () => {

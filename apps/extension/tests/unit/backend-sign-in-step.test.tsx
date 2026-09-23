@@ -14,7 +14,8 @@
  *   - an unclaimed server draws no sign-in and says where the
  *     administrator is created; a no-login server makes the secondary
  *     path the only one and says why;
- *   - the verdict line names the person and the place off the WELCOME;
+ *   - the verdict line names the person and the place off the WELCOME,
+ *     and then stands alone — no offer, no secondary, no re-check;
  *   - the secondary link reveals the code + token entry on demand.
  */
 
@@ -361,9 +362,10 @@ describe('BackendSignInStep', () => {
     const record = await createBackend({ url: 'ws://10.0.0.5:8137', authToken: 'tok' });
     renderStep(record, { kind: 'signed-in', name: 'Acme', person: 'Alice' });
     expect(screen.getByText('Signed in as Alice · Acme.')).toBeTruthy();
-    // Signed in — no sign-in offered, the secondary stays one link away.
+    // Signed in — the line stands alone: nothing to start, paste or re-check.
     expect(screen.queryByRole('button', { name: /Sign in on/ })).toBeNull();
-    expect(screen.getByText('Have a pairing code or token from an administrator?')).toBeTruthy();
+    expect(screen.queryByText('Have a pairing code or token from an administrator?')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Check again/ })).toBeNull();
     cleanup();
 
     renderStep(record, { kind: 'signed-in', name: null, person: 'Alice' });

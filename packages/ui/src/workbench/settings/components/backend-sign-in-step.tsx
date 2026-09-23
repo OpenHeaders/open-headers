@@ -209,14 +209,24 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
 
   if (!handle) return null;
 
-  const showPrimary = canSignIn && !signedIn && gate?.kind !== 'setup' && gate?.kind !== 'no-login';
+  // A WELCOME that named the person answers the step: nothing left to
+  // start, paste or re-check — the line stands alone and Next takes over.
+  if (signedIn) {
+    return (
+      <div>
+        <SignInVerdictLine verdict={verdict} probing={probing} host={host} />
+      </div>
+    );
+  }
+
+  const showPrimary = canSignIn && gate?.kind !== 'setup' && gate?.kind !== 'no-login';
   const secondaryOnly = !canSignIn || gate?.kind === 'no-login';
   const showSecondary = secondaryOnly || secondaryOpen;
 
   return (
     <div>
       <SignInVerdictLine verdict={verdict} probing={probing} host={host} />
-      {canSignIn && gate?.kind === 'setup' && !signedIn && (
+      {canSignIn && gate?.kind === 'setup' && (
         <Alert
           type="info"
           showIcon
@@ -224,7 +234,7 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
           style={{ marginBottom: 10 }}
         />
       )}
-      {canSignIn && gate?.kind === 'no-login' && !signedIn && (
+      {canSignIn && gate?.kind === 'no-login' && (
         <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.noLogin', { host })} />
       )}
       {showPrimary && (

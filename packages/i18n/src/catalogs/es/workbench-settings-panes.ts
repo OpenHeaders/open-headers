@@ -89,7 +89,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.generic': 'No se pudo iniciar la sesión. Inténtalo de nuevo.',
   'workbench.settings.backendPane.wizard.back': 'Atrás',
   'workbench.settings.backendPane.wizard.next': 'Siguiente',
-  'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Terminar sin conectar',
   'workbench.settings.backendPane.wizard.connectIntro':
     'La dirección a la que se conecta este dispositivo. Nada se conecta hasta que el último paso la verifica.',
   'workbench.settings.backendPane.wizard.autoPairFallback':
@@ -101,6 +100,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
     'Listo: {label} en {url} — aún sin iniciar sesión. Conectar verifica primero la dirección y el inicio de ' +
     'sesión; sus espacios de trabajo se sincronizan después y quedan utilizables sin conexión.',
+  'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
+    'Listo: {url}, sesión iniciada. Conectar verifica primero la dirección y el inicio de sesión; sus espacios de ' +
+    'trabajo se sincronizan después y quedan utilizables sin conexión.',
+  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
+    'Listo: {url} — aún sin iniciar sesión. Conectar verifica primero la dirección y el inicio de sesión; sus ' +
+    'espacios de trabajo se sincronizan después y quedan utilizables sin conexión.',
   'workbench.settings.backendPane.wizard.additionalConnection':
     'Esta es una conexión adicional. Sus espacios de trabajo aparecen como un grupo nuevo en el selector, el ' +
     'popover de estado gana una fila para ella, y cada grupo se sincroniza desde exactamente un lugar — un ' +

@@ -44,6 +44,7 @@ import {
   probeBackendConnection,
   useBackends,
 } from '../../../shared/backend';
+import { backendPlace } from '../../../shared/backend/backend-place';
 import { getCurrentHost, viewerHostKind } from '../../../shared/host-vocabulary';
 import BackendLabelField from './backend-label-field';
 import { BackendRecordProvider, backendDisplayLabel } from './backend-record-context';
@@ -133,6 +134,9 @@ const WizardDialog: React.FC<{
 
   const label = backendDisplayLabel(record);
   const hasToken = record.authToken.trim().length > 0;
+  // The last step names the place the way its row will: the label,
+  // else the group the WELCOME named, else the host — the URL beside.
+  const place = backendPlace(host, record, verdict?.kind === 'signed-in' && verdict.name ? [verdict.name] : []);
 
   const probe = async (): Promise<void> => {
     const seq = ++probeSeq.current;
@@ -165,11 +169,7 @@ const WizardDialog: React.FC<{
     onClose();
   };
 
-  const finish = async (connect: boolean): Promise<void> => {
-    if (!connect) {
-      onClose();
-      return;
-    }
+  const finish = async (): Promise<void> => {
     setFinishing(true);
     const committed = await enableSwitch.setEnabled(record, true);
     setFinishing(false);
@@ -212,14 +212,9 @@ const WizardDialog: React.FC<{
                 {t('workbench.settings.backendPane.wizard.next')}
               </Button>
             ) : (
-              <>
-                <Button onClick={() => void finish(false)} disabled={finishing}>
-                  {t('workbench.settings.backendPane.wizard.finishWithoutConnecting')}
-                </Button>
-                <Button type="primary" loading={finishing} onClick={() => void finish(true)}>
-                  {t('workbench.settings.backendPane.wizard.connect')}
-                </Button>
-              </>
+              <Button type="primary" loading={finishing} onClick={() => void finish()}>
+                {t('workbench.settings.backendPane.wizard.connect')}
+              </Button>
             )}
           </div>
         </div>
@@ -253,20 +248,31 @@ const WizardDialog: React.FC<{
       )}
       {step === CONNECT_STEP && (
         <div style={{ padding: '4px 2px' }}>
-          <StepIntro
-            text={t(
-              hasToken
-                ? 'workbench.settings.backendPane.wizard.readyIntroPaired'
-                : 'workbench.settings.backendPane.wizard.readyIntroNotPaired',
-              { label, url: record.url },
-            )}
-          />
+          <StepIntro text={readyIntro(place.name, record.url, hasToken, t)} />
           {isAdditionalConnection && <StepIntro text={t('workbench.settings.backendPane.wizard.additionalConnection')} />}
         </div>
       )}
     </Modal>
   );
 };
+
+/** The last step's line: the place at its address, or the address alone for a place with no name. */
+function readyIntro(placeName: string | null, url: string, signedIn: boolean, t: Translate): string {
+  if (placeName === null) {
+    return t(
+      signedIn
+        ? 'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed'
+        : 'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed',
+      { url },
+    );
+  }
+  return t(
+    signedIn
+      ? 'workbench.settings.backendPane.wizard.readyIntroPaired'
+      : 'workbench.settings.backendPane.wizard.readyIntroNotPaired',
+    { label: placeName, url },
+  );
+}
 
 /** Rough completeness check for the staged URL — scheme plus a host. */
 function urlLooksComplete(raw: string): boolean {

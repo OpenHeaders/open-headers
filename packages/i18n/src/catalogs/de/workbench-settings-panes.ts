@@ -92,7 +92,6 @@ export const workbenchSettingsPanes = {
     'Die Anmeldung konnte nicht gestartet werden. Versuche es erneut.',
   'workbench.settings.backendPane.wizard.back': 'Zurück',
   'workbench.settings.backendPane.wizard.next': 'Weiter',
-  'workbench.settings.backendPane.wizard.finishWithoutConnecting': 'Ohne Verbinden abschließen',
   'workbench.settings.backendPane.wizard.connectIntro':
     'Die Adresse, mit der sich dieses Gerät verbindet. Nichts verbindet sich, bevor der letzte Schritt sie ' +
     'geprüft hat.',
@@ -105,6 +104,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
     'Bereit: {label} unter {url} — noch nicht angemeldet. Verbinden prüft zuerst Adresse und Anmeldung; seine ' +
     'Arbeitsbereiche synchronisieren danach herunter und bleiben offline nutzbar.',
+  'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
+    'Bereit: {url}, angemeldet. Verbinden prüft zuerst Adresse und Anmeldung; seine Arbeitsbereiche synchronisieren ' +
+    'danach herunter und bleiben offline nutzbar.',
+  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
+    'Bereit: {url} — noch nicht angemeldet. Verbinden prüft zuerst Adresse und Anmeldung; seine Arbeitsbereiche ' +
+    'synchronisieren danach herunter und bleiben offline nutzbar.',
   'workbench.settings.backendPane.wizard.additionalConnection':
     'Dies ist eine zusätzliche Verbindung. Ihre Arbeitsbereiche erscheinen als neue Gruppe im Umschalter, das ' +
     'Status-Popover bekommt eine Zeile für sie, und jede Gruppe synchronisiert von genau einem Ort — eine ' +

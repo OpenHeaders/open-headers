@@ -79,7 +79,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.generic': '无法开始登录。请重试。',
   'workbench.settings.backendPane.wizard.back': '返回',
   'workbench.settings.backendPane.wizard.next': '下一步',
-  'workbench.settings.backendPane.wizard.finishWithoutConnecting': '完成但不连接',
   'workbench.settings.backendPane.wizard.connectIntro': '此设备连接到的地址。在最后一步验证通过前不会建立任何连接。',
   'workbench.settings.backendPane.wizard.autoPairFallback':
     '未能自动与桌面应用配对——它可能未在运行，或无法验证此浏览器。请改用配对码或 token 配对。',
@@ -87,6 +86,10 @@ export const workbenchSettingsPanes = {
     '就绪：{label}，地址 {url}，已登录。连接会先验证地址和登录；随后其工作区同步下来，并可离线使用。',
   'workbench.settings.backendPane.wizard.readyIntroNotPaired':
     '就绪：{label}，地址 {url}——尚未登录。连接会先验证地址和登录；随后其工作区同步下来，并可离线使用。',
+  'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
+    '就绪：{url}，已登录。连接会先验证地址和登录；随后其工作区同步下来，并可离线使用。',
+  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
+    '就绪：{url}——尚未登录。连接会先验证地址和登录；随后其工作区同步下来，并可离线使用。',
   'workbench.settings.backendPane.wizard.additionalConnection':
     '这是一个额外的连接。它的工作区会作为新分组出现在工作区切换器中，状态弹出框为它增加一行，每个分组只从一个位置同步——已由其他连接提供的分组不会重复加入。',
   'workbench.settings.backendPane.wizard.disableFirst':
