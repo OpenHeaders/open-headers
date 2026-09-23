@@ -103,6 +103,14 @@ async function readCliConfig(): Promise<Record<string, unknown> | null> {
 async function openSettingsMcp(): Promise<void> {
   await workbench.getByRole('button', { name: 'Settings menu' }).click();
   await workbench.getByRole('button', { name: 'Settings…' }).click();
+  // The modal zooms in over 200 ms. A click dispatched into its paused
+  // first frame lands the mouseup on a moved node and selects nothing
+  // (the 2026-09-23 scheduled CI red) — let the open motion finish.
+  await workbench
+    .locator('.settings-modal')
+    .evaluate((modal) =>
+      Promise.all(modal.getAnimations({ subtree: true }).map((motion) => motion.finished.catch(() => undefined))),
+    );
   await workbench.locator('.settings-category-nav').getByRole('button', { name: 'Tools', exact: true }).click();
   await workbench.getByRole('button', { name: 'AI · MCP Server', exact: true }).filter({ visible: true }).click();
   await workbench.getByRole('button', { name: 'Clients', exact: true }).filter({ visible: true }).click();
