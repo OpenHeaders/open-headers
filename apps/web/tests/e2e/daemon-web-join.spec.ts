@@ -1112,7 +1112,7 @@ test('consent: a signed-in tab approves a device-grant sign-in on the card and t
     `Code ${first.user_code} — check that it matches the code your device shows.`,
   );
   await expect(adminPage.locator('[data-testid=consent-card-asks]')).toContainText(
-    'e2e box (the command-line tool) asked to sign in to this server as John Doe.',
+    'e2e box (the command-line tool) would like to sign in to this server',
     { timeout: 5_000 },
   );
 
@@ -1208,7 +1208,7 @@ test('consent: a code-grant sign-in gates first, the password sign-in hands back
   await signInAtGate(piaPage, 'pia@openheaders.io', 'pia-first-password');
   await piaPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
   await expect(piaPage.locator('[data-testid=consent-card-asks]')).toContainText(
-    'e2e desktop (the desktop app) asked to sign in to this server as Pia.',
+    'e2e desktop (the desktop app) would like to sign in to this server',
     { timeout: 5_000 },
   );
   // No user code on the code grant — the verifier binds the client.
@@ -1302,7 +1302,7 @@ test('oh login: a headless shell prints the link and the code, a signed-in tab a
   await cliPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
   await expect(cliPage.locator('[data-testid=consent-card-code]')).toContainText(`Code ${code} —`);
   await expect(cliPage.locator('[data-testid=consent-card-asks]')).toContainText(
-    'e2e cli (the command-line tool) asked to sign in to this server as John Doe.',
+    'e2e cli (the command-line tool) would like to sign in to this server',
     { timeout: 5_000 },
   );
   await cliPage.click('[data-testid=consent-card-allow]');

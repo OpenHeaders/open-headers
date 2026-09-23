@@ -46,6 +46,7 @@ import { useT } from '@openheaders/ui/context';
 import { postServerAdminLanding } from '@openheaders/ui/workbench/data/server-admin-landing';
 import { Alert, Button, Divider, Input, Typography } from 'antd';
 import { useState } from 'react';
+import { GateCard } from '@/GateCard';
 import { type GateClientTarget, markUrl, resolveDesktopTarget, resolveExtensionTargets } from '@/gate-clients';
 import type { DaemonWire } from '@/host/daemon-wire';
 import { type GateMode, submitDaemonToken } from '@/host/join-gate';
@@ -58,15 +59,6 @@ import {
   submitSetupClaim,
 } from '@/host/setup-claim';
 import { showTransitionOverlay } from '@/transition-overlay';
-
-const CARD_STYLE: React.CSSProperties = {
-  maxWidth: 400,
-  margin: '18vh auto 0',
-  padding: '32px 36px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 16,
-};
 
 const DOCS_QUICKSTART = 'docs.openheaders.com/quickstart/server';
 
@@ -253,7 +245,7 @@ export function LoginGate({
   else if (mode.kind === 'setup') introText = t('web.gate.introSetup');
 
   return (
-    <div style={CARD_STYLE} data-testid="login-gate">
+    <GateCard testId="login-gate">
       <Typography.Title level={4} style={{ margin: 0 }}>
         {t(titleKey)}
       </Typography.Title>
@@ -460,6 +452,6 @@ export function LoginGate({
           {DOCS_QUICKSTART}
         </Typography.Link>
       </div>
-    </div>
+    </GateCard>
   );
 }

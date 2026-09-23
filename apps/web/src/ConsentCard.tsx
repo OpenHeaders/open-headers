@@ -6,16 +6,20 @@
  * EXISTING session is the approver. The person never retypes a
  * credential the browser already holds.
  *
- * The card names WHAT asks (the registered client, the device label
- * the client sent), shows the user code on the device grant and asks
- * the person to check it against the device (RFC 8628 §5.4), names who
- * the approval would sign the device in as (the session's person, from
- * the same probe the awaiting-access screen reads), and offers Allow /
- * Not me. Allow carries the session bearer: on the code grant the tab
- * leaves for the client's registered redirect — opaque here, navigated
- * and never parsed; on the device grant the record settles and the
- * device's poll takes it from there. A refused bearer means the
- * session is stale: the tab drops it and re-gates with the id kept.
+ * The card reads the way an authorization page does everywhere else:
+ * the product mark, WHAT asks (the registered client, the device label
+ * the client sent) in the title, one line on what allowing means, the
+ * user code on the device grant to check against the device (RFC 8628
+ * §5.4), a primary Allow over a quiet Decline, and under them who the
+ * approval would sign the device in as (the session's person, from the
+ * same probe the awaiting-access screen reads) with the way to switch
+ * to someone else — the sign-out that keeps the decision pending, so
+ * the gate draws and hands back to this card. Allow carries the
+ * session bearer: on the code grant the tab leaves for the client's
+ * registered redirect — opaque here, navigated and never parsed; on
+ * the device grant the record settles and the device's poll takes it
+ * from there. A refused bearer means the session is stale: the tab
+ * drops it and re-gates with the id kept, the same path as the switch.
  *
  * The request's address is not drawn. The server-rendered page
  * compares the asking peer with the approving browser's and draws the
@@ -33,8 +37,9 @@ import {
   reprobeServerAdminStatus,
   useServerAdminIdentity,
 } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
-import { Alert, Button, Spin, Typography } from 'antd';
+import { Alert, Button, Divider, Spin, Typography } from 'antd';
 import { useEffect, useState } from 'react';
+import { GateCard } from '@/GateCard';
 import {
   type AuthorizationRead,
   approveAuthorization,
@@ -50,17 +55,16 @@ import type { DaemonWire } from '@/host/daemon-wire';
 import { oidcErrorKey } from '@/host/oidc-login';
 import { showTransitionOverlay } from '@/transition-overlay';
 
-const CARD_STYLE: React.CSSProperties = {
-  maxWidth: 400,
-  margin: '18vh auto 0',
-  padding: '32px 36px',
+const CENTERED: React.CSSProperties = { margin: 0, textAlign: 'center' };
+const HINT_STYLE: React.CSSProperties = { fontSize: 12, textAlign: 'center' };
+const DECISION_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 };
+const WHO_STYLE: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 16,
+  alignItems: 'center',
+  gap: 2,
+  fontSize: 12,
 };
-
-const ROW_STYLE: React.CSSProperties = { display: 'flex', gap: 8 };
-const HINT_STYLE: React.CSSProperties = { fontSize: 12 };
 
 const CLIENT_KEY: Readonly<Record<AuthorizationFacts['clientKind'], MessageKey>> = {
   desktop: 'web.consent.clientDesktop',
@@ -158,7 +162,7 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
     setState(consentStateFromRefusal(outcome.reason));
   };
 
-  const notMe = async (): Promise<void> => {
+  const decline = async (): Promise<void> => {
     if (deciding) return;
     setDeciding(true);
     setError(null);
@@ -175,29 +179,38 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
     setState(consentStateFromRefusal(outcome.reason));
   };
 
+  // Someone else's session: drop it and come back to this decision
+  // through the gate — the stale-bearer path, taken on purpose.
+  const switchAccount = (): void => {
+    if (deciding) return;
+    setDeciding(true);
+    showTransitionOverlay();
+    void reGateWithAuthorization(pending.id);
+  };
+
   if (state === null) {
     return (
-      <div style={CARD_STYLE} data-testid="consent-card">
+      <GateCard testId="consent-card">
         <Spin size="small" />
-      </div>
+      </GateCard>
     );
   }
 
   if (state.kind !== 'pending') {
     const copy = SETTLED_COPY[state.kind];
     return (
-      <div style={CARD_STYLE} data-testid="consent-card" data-state={state.kind}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
+      <GateCard testId="consent-card" state={state.kind}>
+        <Typography.Title level={4} style={CENTERED}>
           {t(copy.title)}
         </Typography.Title>
-        <Typography.Paragraph style={{ margin: 0 }} type="secondary" data-testid="consent-card-state">
+        <Typography.Paragraph style={CENTERED} type="secondary" data-testid="consent-card-state">
           {t(copy.body)}
         </Typography.Paragraph>
         {error && <Alert type="error" showIcon message={error} data-testid="consent-card-error" />}
         <Button block onClick={onContinue} data-testid="consent-card-continue">
           {t('web.consent.continue')}
         </Button>
-      </div>
+      </GateCard>
     );
   }
 
@@ -205,22 +218,25 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
   const client = t(CLIENT_KEY[facts.clientKind]);
   const label = facts.deviceLabel?.trim();
   const who = label ? t('web.consent.whoLabelled', { device: label, client }) : capitalize(client);
-  const asks =
-    identity === null
-      ? t('web.consent.asksAsYou', { who })
-      : t('web.consent.asksAs', { who, name: identity.displayName });
   const minutes = Math.max(0, Math.round((facts.expiresAt - Date.now()) / 60000));
+  let signedInAs: string | null = null;
+  if (identity !== null) {
+    signedInAs =
+      identity.email !== null
+        ? t('web.access.signedInAsWithEmail', { name: identity.displayName, email: identity.email })
+        : t('web.access.signedInAs', { name: identity.displayName });
+  }
 
   return (
-    <div style={CARD_STYLE} data-testid="consent-card" data-state="pending">
-      <Typography.Title level={4} style={{ margin: 0 }}>
-        {t('web.consent.title')}
+    <GateCard testId="consent-card" state="pending">
+      <Typography.Title level={4} style={CENTERED} data-testid="consent-card-asks">
+        {t('web.consent.wouldSignIn', { who })}
       </Typography.Title>
-      <Typography.Paragraph style={{ margin: 0 }} data-testid="consent-card-asks">
-        {asks}
+      <Typography.Paragraph style={CENTERED} type="secondary">
+        {t('web.consent.grantBody')}
       </Typography.Paragraph>
       {facts.userCode !== undefined && (
-        <Typography.Paragraph style={{ margin: 0 }} data-testid="consent-card-code">
+        <Typography.Paragraph style={CENTERED} data-testid="consent-card-code">
           {t('web.consent.code', { code: facts.userCode })}
         </Typography.Paragraph>
       )}
@@ -228,20 +244,39 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
         {t('web.consent.expires', { minutes })}
       </Typography.Text>
       {error && <Alert type="error" showIcon message={error} data-testid="consent-card-error" />}
-      <div style={ROW_STYLE}>
+      <div style={DECISION_STYLE}>
         <Button
           type="primary"
           block
+          size="large"
           loading={deciding}
           onClick={() => void allow(facts)}
           data-testid="consent-card-allow"
         >
           {t('web.consent.allow')}
         </Button>
-        <Button block disabled={deciding} onClick={() => void notMe()} data-testid="consent-card-deny">
-          {t('web.consent.notMe')}
+        <Button type="text" block disabled={deciding} onClick={() => void decline()} data-testid="consent-card-deny">
+          {t('web.consent.decline')}
         </Button>
       </div>
-    </div>
+      {signedInAs !== null && (
+        <>
+          <Divider style={{ margin: 0 }} />
+          <div style={WHO_STYLE}>
+            <Typography.Text type="secondary" style={HINT_STYLE} data-testid="consent-card-identity">
+              {signedInAs}
+            </Typography.Text>
+            <Typography.Link
+              style={HINT_STYLE}
+              disabled={deciding}
+              onClick={switchAccount}
+              data-testid="consent-card-switch-account"
+            >
+              {t('web.consent.switchAccount')}
+            </Typography.Link>
+          </div>
+        </>
+      )}
+    </GateCard>
   );
 }

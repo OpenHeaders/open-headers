@@ -20,19 +20,11 @@ import { getIdentitySnapshot, getOrgBackendBindings } from '@openheaders/core/id
 import { useT } from '@openheaders/ui/context';
 import { Button, Divider, Spin, Typography } from 'antd';
 import { useEffect, useState } from 'react';
+import { GateCard } from '@/GateCard';
 import type { DaemonWire } from '@/host/daemon-wire';
 import { signOutWeb } from '@/host/sign-out';
 import { WEB_DAEMON_BACKEND_ID } from '@/host/web-backend-id';
 import { showTransitionOverlay } from '@/transition-overlay';
-
-const CARD_STYLE: React.CSSProperties = {
-  maxWidth: 400,
-  margin: '18vh auto 0',
-  padding: '32px 36px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 16,
-};
 
 interface SignedInUser {
   readonly displayName: string;
@@ -102,7 +94,7 @@ export function AwaitingAccessScreen({ wire }: AwaitingAccessScreenProps): React
   }
 
   return (
-    <div style={CARD_STYLE} data-testid="awaiting-access-screen">
+    <GateCard testId="awaiting-access-screen">
       <Typography.Title level={4} style={{ margin: 0 }}>
         {t('web.access.title')}
       </Typography.Title>
@@ -133,6 +125,6 @@ export function AwaitingAccessScreen({ wire }: AwaitingAccessScreenProps): React
       >
         {t('web.access.signOut')}
       </Button>
-    </div>
+    </GateCard>
   );
 }
