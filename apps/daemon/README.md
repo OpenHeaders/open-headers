@@ -112,14 +112,18 @@ daemon (which logs every connection it refuses): check that the host firewall
 (`ufw`/`firewalld`) admits port 8137.
 
 Credentials are required on every non-loopback connection. A person signs in
-from their client on the server's own page: the extension or the desktop app's
-**Sign in to a server…**, or `oh login`, shows a short code and opens the
-page, the page names the device and asks the person to approve it with their
-password (or the identity provider), and the client receives a session
-credential bound to them — no password ever reaches a client. Tokens are for
-machines and for devices an admin sets up by hand: minted from the admin
-console (Settings → Backends → Open admin console → Paired devices) as a
-secret to paste or a pairing code to enter, or saved with
+from their client through the browser: the daemon is the OAuth 2.0
+authorization server for its own clients — the desktop app and the extension
+run the authorization code grant with PKCE, `oh login` the device grant (a
+short code and a link). The extension or the desktop app's **Sign in to a
+server…**, or `oh login`, opens the server's consent page — a card in the
+served web app where it can run (https or loopback), the server's own page
+with the password form elsewhere — the page names the device and asks the
+person to approve it with their password (or the identity provider), and the
+client receives a session credential bound to them — no password ever reaches
+a client. Tokens are for machines and for devices an admin sets up by hand:
+minted from the admin console (Settings → Backends → Open admin console →
+Paired devices) as a secret to paste or a pairing code to enter, or saved with
 `oh connect --token` for the CLI.
 
 `ohd show-token` stays for one case: the machine bootstrap for attaching a
@@ -257,12 +261,13 @@ everyone after that is a toggle in the console.
 
 Every route on the bind enforces its own Origin/Host posture: `/mcp` refuses
 any browser-originated request outright; the WebSocket sync route accepts
-browser-extension origins and the daemon's own served origin; the pairing and
-device sign-in pages accept top-level navigations and same-origin form posts,
-and the routes a client itself calls (starting and polling a sign-in,
-confirming a pairing code, the `/auth/*/meta` reads) also accept the
-extension's own origin; the web app pages accept top-level navigations and
-same-origin fetches; the sign-in and setup routes
+browser-extension origins and the daemon's own served origin; the pairing
+page and the consent pages accept top-level navigations and same-origin form
+posts, and the routes a client itself calls (the sign-in server's metadata at
+`/.well-known/oauth-authorization-server`, the device grant's start, the token
+and revocation endpoints, confirming a pairing code, the `/auth/*/meta` reads)
+also accept the extension's own origin; the web app pages accept top-level
+navigations and same-origin fetches; the sign-in and setup routes
 (`/auth/oidc/*`, active only when configured; `/auth/password/*`;
 `/auth/setup/*`, composed on every deployment) accept top-level navigations
 and same-origin fetches, and their state refusals feed the failure budget —
@@ -274,8 +279,9 @@ browser-facing routes — IP addresses, `localhost`, and mDNS `*.local` names
 always work; anything else (a reverse-proxy domain, an intranet name) must be
 declared with `--allowed-host`.
 
-Failed token attempts — pairing-code guesses, WebSocket auth rejections, and
-`/mcp` bearer failures — feed one per-peer budget. A peer that crosses it is
+Failed token attempts — pairing-code guesses, codes the token endpoint does
+not know, WebSocket auth rejections, and `/mcp` bearer failures — feed one
+per-peer budget. A peer that crosses it is
 blocked for a cool-down (HTTP 429 with `Retry-After`; upgrades refused), and
 the daemon logs a single `peer throttled: … (peer=<addr>)` line at the
 transition.

@@ -17,22 +17,46 @@ asks a person for their password.
 
 ## How a person signs in from a client
 
-The extension, the desktop app and the CLI sign a person in the same
-way: the client asks the server for a short-lived sign-in code, opens
-the server's own page on it, and waits while the person signs in there.
-The page names the device that is asking — its label, the kind of
-client, the address it asked from — and asks the person to approve it.
-When they do, the client receives a device credential bound to that
-person and reads **Signed in as** them. Nothing is pasted into the
-client, and the password never leaves the browser.
+The extension, the desktop app and the CLI sign a person in the way
+the standard names it: the server is the authorization server for its
+own clients (OAuth 2.0 — no third party involved), each client is a
+registered public client of it, the browser is the only place a
+credential is ever typed, and the client receives an access token
+bound to that person. Nothing is pasted into the client, and the
+password never leaves the browser.
+
+Two grants are served, and each client runs the one it can:
+
+- **The authorization code grant with PKCE** — the desktop app and the
+  extension. The client opens the server's consent page in the
+  browser; once the person approves, the browser is sent back to the
+  client's registered return address with a one-shot code that only
+  the client that asked can redeem. The desktop app returns on its own
+  loopback callback; the extension in the window its browser's
+  identity API opened, which closes by itself.
+- **The device authorization grant** — the CLI, and the extension on a
+  browser without an identity API. The client shows a short code
+  (`BCDF-GHJK`) and a link; the person opens the link on any device,
+  signs in, checks that the page shows the same code, and approves.
+  The client polls until then.
+
+Either way the browser shows one **consent page**: the device that is
+asking — its label (`Chrome · macOS`, the machine name, `--label`) and
+the kind of client — the code on the device grant, **Allow** and **Not
+me**. Where the web app is served and reached at a secure address
+(https, or loopback) the page is a card inside the web app: a browser
+already signed in there approves in one click, and one that is not
+sees the usual sign-in first — the password form, or the identity
+provider's button — and comes back to the card. Where the web app
+cannot run — a plain-http LAN address, or a server that serves no web
+bundle — the server renders the same page itself, with the email and
+password form on it.
 
 In the extension or the desktop app: **Settings → Backup and Sync →
 Sign in to a server…**, enter the server's address, and on the sign-in
-step click **Sign in on …**. A tab opens the server's page showing
-the same code the wizard shows; sign in there with your email and
-password (or the provider's button on an SSO server) and click
-**Approve**. Back in the wizard the line reads "Signed in as you", and
-**Connect** finishes the join.
+step click **Sign in on …**. Finish the sign-in in the browser; back
+in the wizard the line reads **Signed in as** you, and **Connect**
+finishes the join.
 
 From the CLI:
 
@@ -41,10 +65,12 @@ oh login --daemon http://10.0.0.5:8137
 oh status
 ```
 
-`oh login` prints the page to open and the code it will show, waits for
-the approval, and saves the credential to `cli.json` exactly as
+`oh login` prints the link to open and the code the page will show,
+opens the link when a browser is within reach (never over SSH or
+without a display — paste the link anywhere then), waits for the
+approval, and saves the credential to `cli.json` exactly as
 `oh connect --token` would. `--label <name>` names the device on the
-server's page.
+consent page.
 
 Each approved device is its own session: it appears under **Paired
 devices** in the admin console as a session bound to that person,
@@ -62,11 +88,19 @@ provider's button; a server where nobody can sign in from a browser
 (no password holder, no provider) says so and points at the
 admin-issued path below.
 
+The server publishes its metadata at
+`/.well-known/oauth-authorization-server`, and the three clients it
+knows are `openheaders-desktop`, `openheaders-extension` and
+`openheaders-cli` — there is no registration for others, and no
+refresh token: a session that expires is signed in again.
+
 <Note>
-  Only the client that asked ever receives the credential — approving
-  the code on the page binds that device, it never reveals a secret to
-  the browser. A code you did not ask for is somebody else's device:
-  click **Not me**.
+  Only the client that asked can ever redeem an approval: the code
+  grant's secret never leaves the client, and the device grant's
+  approval is bound to the device code the client holds. The page
+  never shows a secret. A code you did not ask for is somebody else's
+  device — check that the code matches the one your device shows, and
+  click **Not me** if it does not.
 </Note>
 
 ## Tokens for machines and admin-issued devices
@@ -139,11 +173,14 @@ Every route on the bind enforces its own Origin/Host posture:
 - `/mcp` refuses any browser-originated request outright.
 - The WebSocket sync route accepts browser-extension origins and the
   daemon's own served origin.
-- The pairing and device sign-in pages accept top-level navigations and
-  same-origin form posts. The routes a client itself calls — starting a
-  sign-in, polling it, confirming a pairing code, and the three
-  `/auth/*/meta` reads — also accept the extension's own origin; the
-  desktop app and the CLI carry no Origin at all.
+- The consent pages — the authorize entry, the verify page, the
+  server-rendered consent page — and the pairing page accept top-level
+  navigations and same-origin form posts; the decision routes take the
+  web app's session or the page's own form. The routes a client itself
+  calls — the sign-in server's metadata, the device grant's start, the
+  token and revocation endpoints, confirming a pairing code, and the
+  three `/auth/*/meta` reads — also accept the extension's own origin;
+  the desktop app and the CLI carry no Origin at all.
 - The web app pages accept top-level navigations and same-origin
   fetches; the sign-in and setup routes (`/auth/oidc/*`, active only
   when configured; `/auth/password/*`; `/auth/setup/*`) behave the same.
@@ -158,10 +195,10 @@ Refusals are logged as
 
 ## Rate limits
 
-Failed credential attempts — pairing-code guesses, WebSocket auth
-rejections, `/mcp` bearer failures, refused sign-ins (on the web app and
-on the device page alike) and refused claims — feed one per-peer
-budget. A peer that crosses it is blocked for a
+Failed credential attempts — pairing-code guesses, codes the token
+endpoint does not know, WebSocket auth rejections, `/mcp` bearer
+failures, refused sign-ins (on the web app and on the consent page
+alike) and refused claims — feed one per-peer budget. A peer that crosses it is blocked for a
 cool-down: HTTP requests answer `429` with a `Retry-After` header and
 the body `{"error":"too many failed attempts"}`; upgrades are refused.
 The daemon logs a single line at the transition:

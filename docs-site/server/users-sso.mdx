@@ -30,10 +30,10 @@ email** on their row repairs it. Service accounts never have one.
 
 That is the whole invite. The person signs in from their own client —
 the extension or the desktop app's **Sign in to a server…**, or
-`oh login` — on the server's page, with those credentials or with the
-identity provider, and their device is bound to them; nobody mints a
-code or a token for them. Each device they sign in is listed under
-**Paired devices** as a session of theirs. See
+`oh login` — in the browser, on the server's consent page, with those
+credentials or with the identity provider, and their device is bound to
+them; nobody mints a code or a token for them. Each device they sign in
+is listed under **Paired devices** as a session of theirs. See
 [how a person signs in from a client](/server/tokens-and-pairing#how-a-person-signs-in-from-a-client).
 
 **From the CLI, with the daemon stopped.** `storage.json` is
@@ -171,7 +171,9 @@ grants — grant access from the console or with `ohd user grant`.
   Every administrator after that is a toggle in the console.
 </Note>
 
-A device sign-in from a client rides the same provider: the device page
-offers the provider's button, and the client is bound to the user the
-provider resolves. Pairing and operator-minted tokens keep working
-unchanged; SSO is additive.
+A sign-in from a native client rides the same provider: the consent
+page offers the provider's button, the round-trip comes back to the
+consent card, and the approval lands where the client waits — its
+registered return address on the code grant, the device's poll on the
+device grant — bound to the user the provider resolves. Pairing and
+operator-minted tokens keep working unchanged; SSO is additive.
