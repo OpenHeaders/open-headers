@@ -17,6 +17,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
+import { createBridgedServerSignIn } from '@openheaders/core/identity';
 import './install-cdp-capability';
 import './install-csp-exempt-capability';
 import './install-whats-new-capability';
@@ -27,7 +28,6 @@ import { nmAutoPair } from './nm-auto-pair';
 import { nmHostPresence } from './nm-presence';
 import { openExternalUrl } from './open-external-url';
 import { pairWithCode } from './pair-with-code';
-import { createExtensionServerSignIn } from './server-sign-in';
 
 registerCapability('getActiveWorkspaceId', () =>
   hostBridge.call('popupOpen').then((resp) => ({
@@ -83,11 +83,11 @@ registerCapability('delegatedRequestDispatch', () => true);
 // `backend.authToken`, which the SW reacts to and connects.
 registerCapability('pairWithCode', pairWithCode);
 
-// A person's own sign-in from this client (the client sign-in plan D4):
-// the wizard's primary — start a pair page-side from the extension's
-// own origin, open the server's approval page, poll for the bound
-// session credential. Same posture as `pairWithCode`: no SW relay.
-const serverSignIn = createExtensionServerSignIn();
+// A person's own sign-in from this client (the client sign-in plan
+// §14.9): the wizard's primary — relayed to the SW, which holds the
+// grant (the identity API's window outlives a popup that closes when
+// the window takes focus) and answers the wizard's polls.
+const serverSignIn = createBridgedServerSignIn();
 registerCapability('serverSignIn', () => serverSignIn);
 
 // NM auto-pairing (Phase 7): the wizard's pair-without-a-code gesture.

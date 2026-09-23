@@ -17,6 +17,7 @@ import '@/host/install-cdp-capability';
 import '@/host/install-csp-exempt-capability';
 import '@/host/install-whats-new-capability';
 import { registerCapability } from '@openheaders/core/capabilities';
+import { createBridgedServerSignIn } from '@openheaders/core/identity';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
@@ -28,7 +29,6 @@ import { nmAutoPair } from '@/host/nm-auto-pair';
 import { nmHostPresence } from '@/host/nm-presence';
 import { openExternalUrl } from '@/host/open-external-url';
 import { pairWithCode } from '@/host/pair-with-code';
-import { createExtensionServerSignIn } from '@/host/server-sign-in';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { getBrowserAPI } from '@/types/browser';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
@@ -42,10 +42,11 @@ import '@openheaders/ui/workbench/styles/rules.less';
 registerCapability('pairWithCode', pairWithCode);
 
 // The person's own sign-in from this client (the client sign-in plan
-// D4) — the wizard's primary, page-side like the pairing one above. The
-// server's approval page opens through `openExternalUrl` (the SW's tab
-// open), which the curated entry must carry too.
-const serverSignIn = createExtensionServerSignIn();
+// §14.9) — the wizard's primary, relayed to the SW that holds the
+// grant. The device grant's verification link opens through
+// `openExternalUrl` (the SW's tab open), which the curated entry must
+// carry too.
+const serverSignIn = createBridgedServerSignIn();
 registerCapability('serverSignIn', () => serverSignIn);
 registerCapability('openExternalUrl', openExternalUrl);
 
