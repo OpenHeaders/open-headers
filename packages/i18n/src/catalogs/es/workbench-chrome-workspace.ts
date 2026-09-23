@@ -217,6 +217,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.grant.notifBodyActive': 'Un admin te concedió acceso — ya estás trabajando en él.',
   'workbench.workspace.grant.notifBody': 'Un admin te concedió acceso — aparece en el selector de espacios de trabajo.',
   'workbench.workspace.grant.orgFallback': 'tu organización',
+  'workbench.workspace.grant.openServer': 'Abrir {org}',
   'workbench.workspace.grant.zeroBanner':
     'Conectado a {orgs} — aún no se te ha concedido ningún espacio de trabajo. Estás trabajando en un espacio ' +
     'de trabajo local; los espacios concedidos aparecen aquí automáticamente en cuanto un admin te da acceso.',

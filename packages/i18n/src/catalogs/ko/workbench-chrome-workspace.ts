@@ -210,6 +210,7 @@ export const workbenchChromeWorkspace = {
     '관리자가 접근 권한을 부여했습니다. 지금 그 워크스페이스에서 작업 중입니다.',
   'workbench.workspace.grant.notifBody': '관리자가 접근 권한을 부여했습니다. 워크스페이스 전환기에 나타납니다.',
   'workbench.workspace.grant.orgFallback': '내 조직',
+  'workbench.workspace.grant.openServer': '{org} 열기',
   'workbench.workspace.grant.zeroBanner':
     '{orgs}에 연결되었지만 아직 부여된 워크스페이스가 없습니다. 지금은 로컬 워크스페이스에서 작업 중입니다. 관리자가 접근 권한을 주면 부여된 워크스페이스가 여기에 자동으로 나타납니다.',
 

@@ -217,6 +217,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.grant.notifBody':
     'Администратор выдал вам доступ — оно появилось в переключателе рабочих пространств.',
   'workbench.workspace.grant.orgFallback': 'вашей организации',
+  'workbench.workspace.grant.openServer': 'Открыть {org}',
   'workbench.workspace.grant.zeroBanner':
     'Подключено к {orgs} — доступ к рабочим пространствам вам ещё не выдан. Вы работаете в локальном рабочем пространстве; выданные рабочие пространства появятся здесь автоматически, как только администратор откроет вам доступ.',
 

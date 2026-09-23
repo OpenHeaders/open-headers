@@ -211,6 +211,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.grant.notifBodyActive': '管理者がアクセスを付与しました。今はその中で作業しています。',
   'workbench.workspace.grant.notifBody': '管理者がアクセスを付与しました。ワークスペース切り替えに表示されます。',
   'workbench.workspace.grant.orgFallback': 'あなたの組織',
+  'workbench.workspace.grant.openServer': '{org} を開く',
   'workbench.workspace.grant.zeroBanner':
     '{orgs} に接続していますが、まだワークスペースは付与されていません。今はローカルのワークスペースで作業しています。管理者がアクセスを付与すると、付与されたワークスペースが自動的にここに表示されます。',
 

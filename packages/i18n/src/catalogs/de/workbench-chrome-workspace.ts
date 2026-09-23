@@ -217,6 +217,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.grant.notifBody':
     'Ein Admin hat dir Zugriff gewährt — er erscheint im Arbeitsbereich-Umschalter.',
   'workbench.workspace.grant.orgFallback': 'deine Organisation',
+  'workbench.workspace.grant.openServer': '{org} öffnen',
   'workbench.workspace.grant.zeroBanner':
     'Verbunden mit {orgs} — dir wurde noch kein Arbeitsbereich gewährt. Du arbeitest in einem lokalen ' +
     'Arbeitsbereich; gewährte Arbeitsbereiche erscheinen hier automatisch, sobald ein Admin dir Zugriff gibt.',

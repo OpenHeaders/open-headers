@@ -10,7 +10,10 @@
  *   - While a joined Org has no synced-down workspace, a persistent
  *     non-blocking banner explains the state. It resolves in place the
  *     moment a workspace arrives (the condition derives from the
- *     workspace list, nothing is cached).
+ *     workspace list, nothing is cached). It offers the server's own
+ *     page — where the person sees what they hold and an admin grants —
+ *     and can be dismissed per Org; a dismissal is forgotten the moment
+ *     that Org grants something, so a later revoke-to-zero shows it again.
  *   - When a workspace of a joined Org arrives mid-session (the
  *     grant-time offer re-fanning the row down the live wire), it is
  *     announced — a toast with an open action plus a timeline entry —
@@ -23,12 +26,14 @@
  * every pre-hydration workspace as newly arrived.
  */
 
-import { getOrgBackendBindings } from '@openheaders/core/identity';
+import { getBackend } from '@openheaders/core/backends';
+import { getCapability } from '@openheaders/core/capabilities';
+import { getOrgBackendBindings, wsUrlToHttpOrigin } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { pushNotification } from '@openheaders/ui/shared/notifications';
 import { Alert, App, Button, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { renderWorkspacePrefix } from './workspace-prefix';
@@ -56,6 +61,33 @@ function markGrantAnnounced(id: string): void {
   } catch {
     // Storage unavailable — the grant simply re-announces next session.
   }
+}
+
+// Orgs whose zero-grant banner the person closed. Kept per browser so a
+// reload does not re-open it; dropped for an Org the moment it grants.
+const DISMISSED_BANNERS_KEY = 'oh.dismissedZeroGrantBanners';
+
+function readDismissedBanners(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_BANNERS_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissedBanners(set: Set<string>): void {
+  try {
+    window.localStorage.setItem(DISMISSED_BANNERS_KEY, JSON.stringify([...set]));
+  } catch {
+    // Storage unavailable — the banner simply returns next session.
+  }
+}
+
+/** The server's own page for a joined Org — null where the binding has no record (the web tab IS that page). */
+function serverPageFor(backendId: string | undefined): string | null {
+  const record = backendId === undefined ? null : getBackend(backendId);
+  return record === null ? null : wsUrlToHttpOrigin(record.url);
 }
 
 // Compact single-line toast text — small fonts, truncate long
@@ -93,6 +125,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
   const t = useT();
   const snapshot = useIdentitySnapshot();
   const bindings = getOrgBackendBindings();
+  const [dismissed, setDismissed] = useState<Set<string>>(readDismissedBanners);
 
   const consumed = workspaces.filter((ws) => bindings.has(ws.orgId));
   const consumedKey = consumed
@@ -174,20 +207,63 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
     }
   }, [hydrated, consumedKey, activeWorkspaceId, notification, onSwitchWorkspace, t]);
 
+  // An Org that grants forgets its dismissal, so a later revoke-to-zero
+  // is not silent.
+  useEffect(() => {
+    if (!hydrated) return;
+    const granted = new Set(consumed.map((ws) => ws.orgId));
+    setDismissed((current) => {
+      const next = new Set([...current].filter((orgId) => !granted.has(orgId)));
+      if (next.size === current.size) return current;
+      writeDismissedBanners(next);
+      return next;
+    });
+  }, [hydrated, consumedKey]);
+
   if (!hydrated) return null;
-  const zeroGrantOrgs = [...bindings.keys()].filter((orgId) => !consumed.some((ws) => ws.orgId === orgId));
+  const zeroGrantOrgs = [...bindings.keys()].filter(
+    (orgId) => !dismissed.has(orgId) && !consumed.some((ws) => ws.orgId === orgId),
+  );
   if (zeroGrantOrgs.length === 0) return null;
 
-  const orgNames = zeroGrantOrgs
-    .map((orgId) => snapshot.orgs.get(orgId)?.name ?? t('workbench.workspace.grant.orgFallback'))
-    .join(', ');
+  const orgName = (orgId: string): string =>
+    snapshot.orgs.get(orgId)?.name ?? t('workbench.workspace.grant.orgFallback');
+  const orgNames = zeroGrantOrgs.map(orgName).join(', ');
+  // The server's page, one button per Org that has one; the web tab,
+  // being that page already, offers none.
+  const servers = zeroGrantOrgs
+    .map((orgId) => ({ orgId, url: serverPageFor(bindings.get(orgId)) }))
+    .filter((entry): entry is { orgId: string; url: string } => entry.url !== null);
+  const dismiss = (): void => {
+    const next = new Set([...dismissed, ...zeroGrantOrgs]);
+    writeDismissedBanners(next);
+    setDismissed(next);
+  };
   return (
     <Alert
       banner
       type="info"
       showIcon
+      closable
+      onClose={dismiss}
       data-testid="org-zero-grant-notice"
       title={t('workbench.workspace.grant.zeroBanner', { orgs: orgNames })}
+      action={
+        servers.length === 0 ? undefined : (
+          <span style={{ display: 'inline-flex', gap: 6 }}>
+            {servers.map(({ orgId, url }) => (
+              <Button
+                key={orgId}
+                size="small"
+                data-testid={`org-zero-grant-open-${orgId}`}
+                onClick={() => void getCapability('openExternalUrl')?.(url)}
+              >
+                {t('workbench.workspace.grant.openServer', { org: orgName(orgId) })}
+              </Button>
+            ))}
+          </span>
+        )
+      }
     />
   );
 };

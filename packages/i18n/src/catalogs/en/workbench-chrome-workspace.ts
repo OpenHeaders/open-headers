@@ -206,6 +206,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.grant.notifBodyActive': "An admin granted you access — you're working in it now.",
   'workbench.workspace.grant.notifBody': 'An admin granted you access — it appears in the workspace switcher.',
   'workbench.workspace.grant.orgFallback': 'your organization',
+  'workbench.workspace.grant.openServer': 'Open {org}',
   'workbench.workspace.grant.zeroBanner':
     "Connected to {orgs} — no workspaces granted to you yet. You're working in a local workspace; granted " +
     'workspaces appear here automatically once an admin gives you access.',

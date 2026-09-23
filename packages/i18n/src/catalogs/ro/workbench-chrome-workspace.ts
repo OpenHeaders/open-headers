@@ -224,6 +224,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.grant.notifBody':
     'Un administrator v-a acordat acces — apare în comutatorul de spații de lucru.',
   'workbench.workspace.grant.orgFallback': 'organizația dvs.',
+  'workbench.workspace.grant.openServer': 'Deschidere {org}',
   'workbench.workspace.grant.zeroBanner':
     'Conectat la {orgs} — niciun spațiu de lucru nu v-a fost acordat încă. Lucrați într-un spațiu de lucru local; spațiile de lucru acordate apar aici automat odată ce un administrator vă dă acces.',
 

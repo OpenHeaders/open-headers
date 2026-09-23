@@ -199,6 +199,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.grant.notifBodyActive': '管理员已授予你访问权限——你现在正在其中工作。',
   'workbench.workspace.grant.notifBody': '管理员已授予你访问权限——它会出现在工作区切换器中。',
   'workbench.workspace.grant.orgFallback': '你的组织',
+  'workbench.workspace.grant.openServer': '打开 {org}',
   'workbench.workspace.grant.zeroBanner':
     '已连接到 {orgs}——尚未向你授予任何工作区。你正在本地工作区中工作；管理员授予访问权限后，被授予的工作区会自动出现在这里。',
 
