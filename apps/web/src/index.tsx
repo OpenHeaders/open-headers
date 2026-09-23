@@ -14,8 +14,16 @@ import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { bootTranslator } from '@/boot-locale';
+import { ConsentCard } from '@/ConsentCard';
+import {
+  consentStateFromRead,
+  consumeAuthorizeHash,
+  fetchAuthorizationFacts,
+  type PendingAuthorization,
+} from '@/host/authorize-consent';
 import { bootPublicViewer } from '@/host/boot-public-viewer';
 import { bootWebHost } from '@/host/boot-web-host';
+import { hasDaemonToken } from '@/host/daemon-token';
 import { installDaemonWire } from '@/host/daemon-wire';
 import { awaitPostJoinAdoption, decideGate, resolveGateMode, submitDaemonToken } from '@/host/join-gate';
 import { seedLocalWorkspaceIfNeverJoined } from '@/host/mount-decision';
@@ -109,6 +117,34 @@ if (!window.isSecureContext) {
     renderShell(<WorkbenchMount wire={wire} />);
   };
 
+  // A native client's sign-in waiting on this browser (the client
+  // sign-in plan §14.4): the opaque id comes out of the URL before the
+  // gate probe, and is held for the life of the decision — the gate,
+  // when there is no session, hands back to the consent card.
+  const pendingAuthorization = consumeAuthorizeHash();
+
+  /** The way on after a gate-flow sign-in: mount once join → adopt promoted the daemon's workspace. */
+  const mountAdopted = (): void => void awaitPostJoinAdoption(wire).then(mountWorkbench);
+
+  const renderGate = async (pending: PendingAuthorization | null, errorReason: string | null): Promise<void> => {
+    renderShell(
+      <LoginGate
+        wire={wire}
+        mode={await resolveGateMode()}
+        initialErrorReason={errorReason}
+        authorizationId={pending?.id ?? null}
+        onJoined={() => {
+          // The gate showed the signing-in overlay before calling in;
+          // it stays up across join → adopt → workspace promote. A
+          // decision the gate stood in front of comes first: the card
+          // approves with the session the sign-in just minted.
+          if (pending === null) mountAdopted();
+          else renderShell(<ConsentCard wire={wire} pending={pending} onContinue={mountAdopted} />);
+        }}
+      />,
+    );
+  };
+
   // SSO callback landing: pull the one-shot fragment result out of the
   // URL before anything else reads it. A claim code swaps for the
   // session token daemon-side, and the token then rides the exact
@@ -144,19 +180,32 @@ if (!window.isSecureContext) {
     // the first workbench tab pins to the adopted scope.
     await awaitPostJoinAdoption(wire);
     await mountWorkbench();
+  } else if (pendingAuthorization !== null && hasDaemonToken()) {
+    // A session in hand: the consent card at once, over the wire so
+    // the probe can name the person the approval signs the device in
+    // as. The Workbench follows the verdict.
+    wire.start();
+    renderShell(<ConsentCard wire={wire} pending={pendingAuthorization} onContinue={() => void mountWorkbench()} />);
+  } else if (pendingAuthorization !== null) {
+    // No session. The server page's rule: a settled record answers its
+    // verdict to anyone — the device-grant SSO round-trip lands here
+    // approved with no session minted — while a pending one needs a
+    // person, so the gate draws first and hands back to the card.
+    const read = await fetchAuthorizationFacts(pendingAuthorization.id);
+    if (consentStateFromRead(read).kind === 'pending') {
+      await renderGate(pendingAuthorization, pendingAuthorization.error ?? null);
+    } else {
+      renderShell(
+        <ConsentCard
+          wire={wire}
+          pending={pendingAuthorization}
+          read={read}
+          onContinue={() => void renderGate(null, null)}
+        />,
+      );
+    }
   } else if (ssoErrorReason !== null || (await decideGate()) === 'gate') {
-    renderShell(
-      <LoginGate
-        wire={wire}
-        mode={await resolveGateMode()}
-        initialErrorReason={ssoErrorReason}
-        onJoined={() => {
-          // The gate showed the signing-in overlay before calling in;
-          // it stays up across join → adopt → workspace promote.
-          void awaitPostJoinAdoption(wire).then(mountWorkbench);
-        }}
-      />,
-    );
+    await renderGate(null, ssoErrorReason);
   } else {
     await mountWorkbench();
   }

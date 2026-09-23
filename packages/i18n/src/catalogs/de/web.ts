@@ -72,6 +72,7 @@ export const web = {
   'web.gate.seatSignIn': 'Mit Einzelplatz anmelden',
   'web.overlay.signingIn': 'Du wirst angemeldet…',
   'web.overlay.takingYouTo': 'Weiter zu {provider}…',
+  'web.overlay.takingYouBack': 'Zurück zu {client}…',
   'web.oidcError.unknownUser':
     'Angemeldet, aber dieser Server hat keinen Benutzer für deine E-Mail-Adresse. Bitte den Server-Admin, dich ' +
     'hinzuzufügen.',
@@ -107,6 +108,28 @@ export const web = {
   'web.access.signedInAsWithEmail': 'Angemeldet als {name} ({email})',
   'web.access.waiting': 'Diese Ansicht aktualisiert sich, sobald der Zugriff erteilt wird — kein Neuladen nötig.',
   'web.access.signOut': 'Abmelden',
+  'web.consent.title': 'Dieses Gerät genehmigen?',
+  'web.consent.clientDesktop': 'die Desktop-App',
+  'web.consent.clientExtension': 'die Browser-Erweiterung',
+  'web.consent.clientCli': 'das Kommandozeilen-Tool',
+  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.asksAs': '{who} möchte sich auf diesem Server als {name} anmelden.',
+  'web.consent.asksAsYou': '{who} möchte sich auf diesem Server in deinem Namen anmelden.',
+  'web.consent.code': 'Code {code} — prüfe, ob er mit dem Code übereinstimmt, den dein Gerät anzeigt.',
+  'web.consent.expires': 'Läuft in etwa {minutes} min ab',
+  'web.consent.allow': 'Erlauben',
+  'web.consent.notMe': 'Das bin ich nicht',
+  'web.consent.approvedTitle': 'Gerät genehmigt',
+  'web.consent.approvedBody': 'Das Gerät ist in deinem Namen angemeldet. Du kannst diesen Tab schließen.',
+  'web.consent.deniedTitle': 'Anmeldung abgelehnt',
+  'web.consent.deniedBody': 'Dieses Gerät wird nicht angemeldet. Du kannst diesen Tab schließen.',
+  'web.consent.expiredTitle': 'Anmeldeanfrage abgelaufen',
+  'web.consent.expiredBody': 'Das Zeitfenster ist verstrichen. Starte die Anmeldung erneut vom Gerät aus.',
+  'web.consent.notFoundTitle': 'Anmeldeanfrage nicht gefunden',
+  'web.consent.notFoundBody':
+    'Diese Anfrage ist abgelaufen oder wurde nie gestellt. Starte die Anmeldung erneut vom Gerät aus.',
+  'web.consent.offlineTitle': 'Anmeldung nicht verfügbar',
+  'web.consent.continue': 'Weiter zur Workbench',
   'web.insecure.title': 'Diese Seite braucht eine sichere Verbindung',
   'web.insecure.intro':
     'Dieser Tab führt die gesamte Workbench aus, keine dünne Sicht auf den Server, und muss daher eine Identität ' +

@@ -120,6 +120,13 @@ export interface LoginGateProps {
   mode: GateMode;
   /** Refusal reason of a failed SSO round-trip carried into the gate — keyed to its message here. */
   initialErrorReason?: string | null;
+  /**
+   * A native client's sign-in waiting on this browser's decision (the
+   * client sign-in plan §14.4): the gate draws exactly as it would, and
+   * the SSO start carries the id so the provider round-trip approves
+   * that record as the person who signs in.
+   */
+  authorizationId?: string | null;
 }
 
 /** What the claim left behind, once it has committed and cannot be retried. */
@@ -130,7 +137,13 @@ interface ClaimOutcome {
   readonly joined: boolean;
 }
 
-export function LoginGate({ wire, onJoined, mode, initialErrorReason }: LoginGateProps): React.JSX.Element {
+export function LoginGate({
+  wire,
+  onJoined,
+  mode,
+  initialErrorReason,
+  authorizationId,
+}: LoginGateProps): React.JSX.Element {
   const t = useT();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -280,7 +293,7 @@ export function LoginGate({ wire, onJoined, mode, initialErrorReason }: LoginGat
                 // Full-page redirect to the IdP — cover the beat before
                 // the browser navigates so the click isn't a dead press.
                 showTransitionOverlay(t('web.overlay.takingYouTo', { provider: ssoProvider }));
-                startOidcLogin();
+                startOidcLogin(undefined, { authorizationId: authorizationId ?? undefined });
               }}
               disabled={pending}
               data-testid="login-gate-sso"
@@ -415,7 +428,10 @@ export function LoginGate({ wire, onJoined, mode, initialErrorReason }: LoginGat
                 disabled={pending || personalKey.trim().length === 0}
                 onClick={() => {
                   showTransitionOverlay(t('web.overlay.takingYouTo', { provider: ssoProvider ?? '' }));
-                  startOidcLogin(undefined, { personalLicense: personalKey });
+                  startOidcLogin(undefined, {
+                    personalLicense: personalKey,
+                    authorizationId: authorizationId ?? undefined,
+                  });
                 }}
                 data-testid="login-gate-personal-submit"
               >

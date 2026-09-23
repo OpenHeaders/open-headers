@@ -1,7 +1,8 @@
 /**
  * Web namespace — strings owned by the web tab's shell outside the
- * Workbench tree: the daemon login gate, the boot transition overlay,
- * and the insecure-context notice. The gate renders inside
+ * Workbench tree: the daemon login gate, the consent card a native
+ * client's sign-in waits on, the boot transition overlay, and the
+ * insecure-context notice. The gate renders inside
  * LocaleProvider and keys through `useT`; the pre-provider surfaces
  * (the SSO-landing overlay beat, the insecure notice) resolve a
  * translator from `navigator.languages` directly. Brand ('OpenHeaders'),
@@ -71,6 +72,7 @@ export const web = {
   'web.gate.seatSignIn': 'Sign in with individual seat',
   'web.overlay.signingIn': 'Signing you in…',
   'web.overlay.takingYouTo': 'Taking you to {provider}…',
+  'web.overlay.takingYouBack': 'Taking you back to {client}…',
   'web.oidcError.unknownUser':
     'Signed in, but this server has no user for your email. Ask the server admin to add you.',
   'web.oidcError.userDeactivated': 'Signed in, but your user on this server is deactivated. Ask the server admin.',
@@ -100,6 +102,27 @@ export const web = {
   'web.access.signedInAsWithEmail': 'Signed in as {name} ({email})',
   'web.access.waiting': 'This screen updates the moment access is granted — no reload needed.',
   'web.access.signOut': 'Sign out',
+  'web.consent.title': 'Approve this device?',
+  'web.consent.clientDesktop': 'the desktop app',
+  'web.consent.clientExtension': 'the browser extension',
+  'web.consent.clientCli': 'the command-line tool',
+  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.asksAs': '{who} asked to sign in to this server as {name}.',
+  'web.consent.asksAsYou': '{who} asked to sign in to this server as you.',
+  'web.consent.code': 'Code {code} — check that it matches the code your device shows.',
+  'web.consent.expires': 'Expires in about {minutes} min',
+  'web.consent.allow': 'Allow',
+  'web.consent.notMe': 'Not me',
+  'web.consent.approvedTitle': 'Device approved',
+  'web.consent.approvedBody': 'The device is signed in as you. You can close this tab.',
+  'web.consent.deniedTitle': 'Sign-in denied',
+  'web.consent.deniedBody': 'That device will not be signed in. You can close this tab.',
+  'web.consent.expiredTitle': 'Sign-in request expired',
+  'web.consent.expiredBody': 'The window has elapsed. Start the sign-in again from the device.',
+  'web.consent.notFoundTitle': 'Sign-in request not found',
+  'web.consent.notFoundBody': 'This request has expired or was never issued. Start the sign-in again from the device.',
+  'web.consent.offlineTitle': 'Sign-in unavailable',
+  'web.consent.continue': 'Continue to the Workbench',
   'web.insecure.title': 'This page needs a secure connection',
   'web.insecure.intro':
     'This tab runs the whole Workbench, not a thin view of the server, so it has to create an identity for this ' +

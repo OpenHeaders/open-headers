@@ -84,6 +84,7 @@ export const web = {
   'web.gate.seatSignIn': 'Conectare cu loc individual',
   'web.overlay.signingIn': 'Vă conectăm…',
   'web.overlay.takingYouTo': 'Vă ducem la {provider}…',
+  'web.overlay.takingYouBack': 'Vă ducem înapoi la {client}…',
   'web.oidcError.unknownUser':
     'Conectat, dar acest server nu are niciun utilizator pentru adresa dvs. de e-mail. Cereți-i administratorului serverului să vă adauge.',
   'web.oidcError.userDeactivated':
@@ -118,6 +119,28 @@ export const web = {
   'web.access.waiting':
     'Acest ecran se actualizează în clipa în care accesul este acordat — nu este nevoie de reîncărcare.',
   'web.access.signOut': 'Deconectare',
+  'web.consent.title': 'Aprobați acest dispozitiv?',
+  'web.consent.clientDesktop': 'aplicația desktop',
+  'web.consent.clientExtension': 'extensia de browser',
+  'web.consent.clientCli': 'instrumentul de linie de comandă',
+  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.asksAs': '{who} a cerut să se conecteze la acest server ca {name}.',
+  'web.consent.asksAsYou': '{who} a cerut să se conecteze la acest server în numele dvs.',
+  'web.consent.code': 'Cod {code} — verificați că se potrivește cu codul afișat de dispozitivul dvs.',
+  'web.consent.expires': 'Expiră în aproximativ {minutes} min',
+  'web.consent.allow': 'Autorizare',
+  'web.consent.notMe': 'Nu sunt eu',
+  'web.consent.approvedTitle': 'Dispozitiv aprobat',
+  'web.consent.approvedBody': 'Dispozitivul este conectat în numele dvs. Puteți închide această filă.',
+  'web.consent.deniedTitle': 'Conectare refuzată',
+  'web.consent.deniedBody': 'Acel dispozitiv nu va fi conectat. Puteți închide această filă.',
+  'web.consent.expiredTitle': 'Cerere de conectare expirată',
+  'web.consent.expiredBody': 'Intervalul a trecut. Reluați conectarea de pe dispozitiv.',
+  'web.consent.notFoundTitle': 'Cerere de conectare negăsită',
+  'web.consent.notFoundBody':
+    'Această cerere a expirat sau nu a fost emisă niciodată. Reluați conectarea de pe dispozitiv.',
+  'web.consent.offlineTitle': 'Conectare indisponibilă',
+  'web.consent.continue': 'Continuare la Workbench',
   'web.insecure.title': 'Această pagină are nevoie de o conexiune securizată',
   'web.insecure.intro':
     'Această filă rulează întregul Workbench, nu o vizualizare subțire a serverului, așa că trebuie să creeze o ' +

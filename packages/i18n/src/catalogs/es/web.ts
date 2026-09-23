@@ -73,6 +73,7 @@ export const web = {
   'web.gate.seatSignIn': 'Iniciar sesión con plaza individual',
   'web.overlay.signingIn': 'Iniciando tu sesión…',
   'web.overlay.takingYouTo': 'Llevándote a {provider}…',
+  'web.overlay.takingYouBack': 'Volviendo a {client}…',
   'web.oidcError.unknownUser':
     'Sesión iniciada, pero este servidor no tiene ningún usuario para tu email. Pide al admin del servidor que te ' +
     'añada.',
@@ -109,6 +110,28 @@ export const web = {
   'web.access.signedInAsWithEmail': 'Sesión iniciada como {name} ({email})',
   'web.access.waiting': 'Esta pantalla se actualiza en cuanto se concede el acceso — sin recargar.',
   'web.access.signOut': 'Cerrar sesión',
+  'web.consent.title': '¿Aprobar este dispositivo?',
+  'web.consent.clientDesktop': 'la aplicación de escritorio',
+  'web.consent.clientExtension': 'la extensión del navegador',
+  'web.consent.clientCli': 'la herramienta de línea de comandos',
+  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.asksAs': '{who} pide iniciar sesión en este servidor como {name}.',
+  'web.consent.asksAsYou': '{who} pide iniciar sesión en este servidor con tu identidad.',
+  'web.consent.code': 'Código {code} — comprueba que coincide con el código que muestra tu dispositivo.',
+  'web.consent.expires': 'Caduca en unos {minutes} min',
+  'web.consent.allow': 'Permitir',
+  'web.consent.notMe': 'No soy yo',
+  'web.consent.approvedTitle': 'Dispositivo aprobado',
+  'web.consent.approvedBody': 'El dispositivo ha iniciado sesión con tu identidad. Puedes cerrar esta pestaña.',
+  'web.consent.deniedTitle': 'Inicio de sesión denegado',
+  'web.consent.deniedBody': 'Ese dispositivo no iniciará sesión. Puedes cerrar esta pestaña.',
+  'web.consent.expiredTitle': 'Solicitud de inicio de sesión caducada',
+  'web.consent.expiredBody': 'El plazo ha vencido. Vuelve a iniciar sesión desde el dispositivo.',
+  'web.consent.notFoundTitle': 'Solicitud de inicio de sesión no encontrada',
+  'web.consent.notFoundBody':
+    'Esta solicitud ha caducado o nunca se emitió. Vuelve a iniciar sesión desde el dispositivo.',
+  'web.consent.offlineTitle': 'Inicio de sesión no disponible',
+  'web.consent.continue': 'Continuar al Workbench',
   'web.insecure.title': 'Esta página necesita una conexión segura',
   'web.insecure.intro':
     'Esta pestaña ejecuta todo el Workbench, no una vista ligera del servidor, así que tiene que generar una ' +

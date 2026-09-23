@@ -72,6 +72,7 @@ export const web = {
   'web.gate.seatSignIn': 'Se connecter avec un siège individuel',
   'web.overlay.signingIn': 'Connexion en cours…',
   'web.overlay.takingYouTo': 'Redirection vers {provider}…',
+  'web.overlay.takingYouBack': 'Retour vers {client}…',
   'web.oidcError.unknownUser':
     "Connecté, mais ce serveur n'a aucun utilisateur pour votre email. Demandez à l'admin du serveur de vous " +
     'ajouter.',
@@ -106,6 +107,28 @@ export const web = {
   'web.access.signedInAsWithEmail': 'Connecté en tant que {name} ({email})',
   'web.access.waiting': "Cet écran se met à jour dès que l'accès est accordé — sans recharger.",
   'web.access.signOut': 'Se déconnecter',
+  'web.consent.title': 'Approuver cet appareil ?',
+  'web.consent.clientDesktop': "l'application de bureau",
+  'web.consent.clientExtension': "l'extension de navigateur",
+  'web.consent.clientCli': "l'outil en ligne de commande",
+  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.asksAs': '{who} demande à se connecter à ce serveur en tant que {name}.',
+  'web.consent.asksAsYou': '{who} demande à se connecter à ce serveur sous votre identité.',
+  'web.consent.code': "Code {code} — vérifiez qu'il correspond au code affiché par votre appareil.",
+  'web.consent.expires': 'Expire dans environ {minutes} min',
+  'web.consent.allow': 'Autoriser',
+  'web.consent.notMe': "Ce n'est pas moi",
+  'web.consent.approvedTitle': 'Appareil approuvé',
+  'web.consent.approvedBody': "L'appareil est connecté sous votre identité. Vous pouvez fermer cet onglet.",
+  'web.consent.deniedTitle': 'Connexion refusée',
+  'web.consent.deniedBody': 'Cet appareil ne sera pas connecté. Vous pouvez fermer cet onglet.',
+  'web.consent.expiredTitle': 'Demande de connexion expirée',
+  'web.consent.expiredBody': "Le délai est écoulé. Relancez la connexion depuis l'appareil.",
+  'web.consent.notFoundTitle': 'Demande de connexion introuvable',
+  'web.consent.notFoundBody':
+    "Cette demande a expiré ou n'a jamais été émise. Relancez la connexion depuis l'appareil.",
+  'web.consent.offlineTitle': 'Connexion indisponible',
+  'web.consent.continue': 'Continuer vers le Workbench',
   'web.insecure.title': 'Cette page nécessite une connexion sécurisée',
   'web.insecure.intro':
     'Cet onglet exécute tout le Workbench, pas une vue légère du serveur : il doit donc générer une identité pour ' +
