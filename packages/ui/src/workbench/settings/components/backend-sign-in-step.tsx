@@ -53,6 +53,18 @@ import type { SignInVerdict } from './backend-wizard';
 /** How often the handle is polled while the person is on the server's page. */
 export const SIGN_IN_POLL_INTERVAL_MS = 2_000;
 
+/** The step reads as one centred column — the line, the offer, the way around it, the re-check. */
+const STEP_STYLE: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  textAlign: 'center',
+  gap: 4,
+};
+const BLOCK_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center' };
+/** A banner or a form spans the column. */
+const STRETCH_STYLE: React.CSSProperties = { alignSelf: 'stretch' };
+
 type FailureReason =
   | 'denied'
   | 'expired'
@@ -213,7 +225,7 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
   // start, paste or re-check — the line stands alone and Next takes over.
   if (signedIn) {
     return (
-      <div>
+      <div style={STEP_STYLE}>
         <SignInVerdictLine verdict={verdict} probing={probing} host={host} />
       </div>
     );
@@ -224,24 +236,24 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
   const showSecondary = secondaryOnly || secondaryOpen;
 
   return (
-    <div>
+    <div style={STEP_STYLE}>
       <SignInVerdictLine verdict={verdict} probing={probing} host={host} />
       {canSignIn && gate?.kind === 'setup' && (
         <Alert
           type="info"
           showIcon
           title={t('workbench.settings.backendPane.wizard.signIn.unclaimed', { url: wsUrlToHttpOrigin(url) ?? host })}
-          style={{ marginBottom: 10 }}
+          style={{ ...STRETCH_STYLE, marginBottom: 10 }}
         />
       )}
       {canSignIn && gate?.kind === 'no-login' && (
         <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.noLogin', { host })} />
       )}
       {showPrimary && (
-        <div style={{ padding: '4px 12px 10px' }}>
+        <div style={{ ...STRETCH_STYLE, padding: '4px 12px 6px' }}>
           {flow.phase === 'waiting' ? (
             flow.grant.kind === 'redirect' ? (
-              <div>
+              <div style={BLOCK_STYLE}>
                 <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.waitingBrowser')} />
                 <Button onClick={cancel}>{t('shared.action.cancel')}</Button>
               </div>
@@ -249,13 +261,13 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
               <DeviceWaiting code={flow.grant.code} link={flow.grant.link} onCancel={cancel} onOpen={openApproval} />
             )
           ) : (
-            <div>
+            <div style={BLOCK_STYLE}>
               {flow.phase === 'failed' && (
                 <Alert
                   type="warning"
                   showIcon
                   title={t(FAILURE_KEYS[flow.reason], { host })}
-                  style={{ marginBottom: 10 }}
+                  style={{ ...STRETCH_STYLE, marginBottom: 10 }}
                 />
               )}
               <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.intro', { host })} />
@@ -277,19 +289,17 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
         </div>
       )}
       {showSecondary ? (
-        <BackendAuthTokenField />
-      ) : (
-        <div style={{ padding: '2px 12px 8px' }}>
-          <Typography.Link style={{ fontSize: 12 }} onClick={() => setSecondaryOpen(true)}>
-            {t('workbench.settings.backendPane.wizard.signIn.secondary')}
-          </Typography.Link>
+        <div style={{ ...STRETCH_STYLE, textAlign: 'start' }}>
+          <BackendAuthTokenField />
         </div>
+      ) : (
+        <Typography.Link style={{ fontSize: 12 }} onClick={() => setSecondaryOpen(true)}>
+          {t('workbench.settings.backendPane.wizard.signIn.secondary')}
+        </Typography.Link>
       )}
-      <div style={{ padding: '8px 12px' }}>
-        <Button loading={probing} onClick={onProbe}>
-          {t('workbench.settings.backendPane.wizard.checkAgain')}
-        </Button>
-      </div>
+      <Button type="link" size="small" loading={probing} onClick={onProbe}>
+        {t('workbench.settings.backendPane.wizard.checkAgain')}
+      </Button>
     </div>
   );
 };
@@ -316,9 +326,10 @@ const DeviceWaiting: React.FC<{
   const t = useT();
   const { token: themeToken } = theme.useToken();
   return (
-    <div>
+    <div style={BLOCK_STYLE}>
       <div
         style={{
+          ...STRETCH_STYLE,
           textAlign: 'center',
           padding: '12px 16px',
           borderRadius: 10,
@@ -357,7 +368,7 @@ const DeviceWaiting: React.FC<{
       >
         {link}
       </Typography.Text>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         <Button onClick={onCancel}>{t('shared.action.cancel')}</Button>
         <Typography.Link style={{ fontSize: 12 }} onClick={() => onOpen(link)}>
           {t('workbench.settings.backendPane.wizard.signIn.openAgain')}
@@ -387,7 +398,14 @@ const SignInVerdictLine: React.FC<{ verdict: SignInVerdict | null; probing: bool
     case 'needs-pairing':
       return <StepIntro text={t('workbench.settings.backendPane.wizard.verdict.needsPairing', { host })} />;
     case 'signed-in':
-      return <Alert type="success" showIcon title={signedInTitle(verdict, t)} style={{ marginBottom: 10 }} />;
+      return (
+        <Alert
+          type="success"
+          showIcon
+          title={signedInTitle(verdict, t)}
+          style={{ ...STRETCH_STYLE, textAlign: 'start', marginBottom: 10 }}
+        />
+      );
     case 'unanswered':
       return (
         <Alert
@@ -395,7 +413,7 @@ const SignInVerdictLine: React.FC<{ verdict: SignInVerdict | null; probing: bool
           showIcon
           title={verdict.notice.message}
           description={verdict.notice.description}
-          style={{ marginBottom: 10 }}
+          style={{ ...STRETCH_STYLE, textAlign: 'start', marginBottom: 10 }}
         />
       );
   }

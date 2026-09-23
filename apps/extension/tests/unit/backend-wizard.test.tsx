@@ -246,6 +246,8 @@ describe('BackendWizard', () => {
     // The loading icon's leave motion never ends under jsdom, so its
     // label lingers in the accessible name.
     expect(screen.getByRole('button', { name: /Check again/ })).toBeTruthy();
+    // One primary per view: the step's own offer holds it, Next steps back.
+    expect(screen.getByRole('button', { name: 'Next' }).className).not.toContain('ant-btn-primary');
   });
 
   it('the sign-in step names the place when the credential already signs in', async () => {
@@ -258,6 +260,8 @@ describe('BackendWizard', () => {
     await waitFor(() => {
       expect(screen.getByText('Signed in to Acme.')).toBeTruthy();
     });
+    // Signed in, the step offers nothing of its own — Next is the one primary.
+    expect(screen.getByRole('button', { name: 'Next' }).className).toContain('ant-btn-primary');
   });
 
   it('the sign-in step names the person and the place when the WELCOME carries both', async () => {

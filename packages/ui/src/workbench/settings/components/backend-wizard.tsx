@@ -192,6 +192,7 @@ const WizardDialog: React.FC<{
   }
 
   const nextDisabled = step === ADDRESS_STEP && !urlLooksComplete(record.url);
+  const nextIsPrimary = step !== SIGN_IN_STEP || verdict?.kind === 'signed-in';
 
   return (
     <Modal
@@ -208,7 +209,13 @@ const WizardDialog: React.FC<{
               <Button onClick={() => setStep(step - 1)}>{t('workbench.settings.backendPane.wizard.back')}</Button>
             )}
             {step < CONNECT_STEP ? (
-              <Button type="primary" disabled={nextDisabled} onClick={() => setStep(step + 1)}>
+              // One primary per view: while the sign-in step still offers
+              // its own action, Next steps back to a plain button.
+              <Button
+                type={nextIsPrimary ? 'primary' : 'default'}
+                disabled={nextDisabled}
+                onClick={() => setStep(step + 1)}
+              >
                 {t('workbench.settings.backendPane.wizard.next')}
               </Button>
             ) : (
