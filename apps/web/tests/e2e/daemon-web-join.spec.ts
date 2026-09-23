@@ -44,10 +44,19 @@
  *   9. Zero grants gets the explained awaiting-access screen (A7) —
  *      identity line, server name, NO invented workspace — and a live
  *      grant resolves it in place through the ARMED wire adoption.
- *  10. The claim itself, on a throwaway daemon of its own: the first
+ *  10. The consent route (the client sign-in plan §14.4): a native
+ *      client's sign-in parks on the daemon's OAuth server and the
+ *      browser decides it on the SPA's consent card — a signed-in tab
+ *      approves a device grant at once and the CLI's poll mints the
+ *      session credential; "Not me" denies the next; a settled verdict
+ *      shows without a session; a code grant with no session gates
+ *      first, the password sign-in hands back to the card, Allow lands
+ *      the tab at the client's registered redirect and only the
+ *      verifier redeems the code.
+ *  11. The claim itself, on a throwaway daemon of its own: the first
  *      browser creates the admin from loopback with no setup code,
  *      hears which paired devices that unpaired, and lands joined.
- *  11. Zero console errors across every leg; SIGTERM exits clean.
+ *  12. Zero console errors across every leg; SIGTERM exits clean.
  *
  * Requires builds: `pnpm turbo build --filter=@openheaders/daemon`
  * and `pnpm turbo build --filter=@openheaders/web`. The daemon runs
@@ -58,6 +67,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { createServer, type Server } from 'node:http';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -80,6 +90,8 @@ const DAEMON_PORT = 19037;
 const PROXY_PORT = 19039;
 // The claim leg's throwaway daemon — a box it is allowed to take over.
 const CLAIM_PORT = 19041;
+// The consent leg's stand-in for the desktop app's loopback callback.
+const CALLBACK_PORT = 19043;
 const ORIGIN = `http://127.0.0.1:${DAEMON_PORT}`;
 const MCP_URL = `${ORIGIN}/mcp`;
 const DAEMON_RIG = path.join(REPO_ROOT, 'playground/daemon-rig');
@@ -1023,6 +1035,227 @@ test('password login: the operator sets a password in the console; a fresh gate 
   expect(sessionRow?.label).toBe('password:pia@openheaders.io');
 
   await piaContext.close();
+});
+
+// ── The consent route (the client sign-in plan §14.4) ───────────────
+
+const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
+
+/** RFC 8628 §3.1 — the CLI's start; no Origin, as a native process sends none. */
+async function startDeviceSignIn(
+  deviceLabel: string,
+): Promise<{ device_code: string; user_code: string; verification_uri_complete: string }> {
+  const response = await fetch(`${ORIGIN}/auth/oauth/device`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ client_id: 'openheaders-cli', device_label: deviceLabel }),
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as { device_code: string; user_code: string; verification_uri_complete: string };
+}
+
+/** One token-endpoint call, either grant — the RFC error vocabulary rides the JSON. */
+async function redeemAtTokenEndpoint(
+  params: Record<string, string>,
+): Promise<{ status: number; json: Record<string, unknown> }> {
+  const response = await fetch(`${ORIGIN}/auth/oauth/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return { status: response.status, json: (await response.json().catch(() => ({}))) as Record<string, unknown> };
+}
+
+/** The consent location the daemon sends a browser to for `url` — the SPA fragment on this loopback origin. */
+async function consentLocationFor(url: string): Promise<string> {
+  const response = await fetch(url, { redirect: 'manual' });
+  expect(response.status).toBe(302);
+  const location = response.headers.get('location') ?? '';
+  expect(location.startsWith('/#authorize=')).toBe(true);
+  return location;
+}
+
+async function findUserId(email: string): Promise<string> {
+  const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
+  const row = (listed.payload as { users: Array<{ userId: string; email?: string }> }).users.find(
+    (u) => u.email === email,
+  );
+  expect(row, email).toBeDefined();
+  return row?.userId ?? '';
+}
+
+async function findSessionRow(label: string): Promise<{ userId?: string; kind?: string } | undefined> {
+  const [tokens] = await adminOverWire([{ type: 'oh.daemon.tokens.list' }]);
+  return (tokens.payload as { tokens: Array<{ userId?: string; kind?: string; label?: string }> }).tokens.find(
+    (t) => t.label === label,
+  );
+}
+
+test('consent: a signed-in tab approves a device-grant sign-in on the card and the CLI redeems it; Not me denies; a settled verdict shows without a session', async () => {
+  const first = await startDeviceSignIn('e2e box');
+  expect(first.user_code).toMatch(/^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
+
+  // A tab with a session: the verify link lands on the SPA's consent
+  // card at once — no gate, the fragment stripped, the code shown with
+  // the check-it sentence, the person named once the probe lands.
+  const [adminContext, adminPage] = await openSignedIn('consent-device', ADMIN_EMAIL, ADMIN_PASSWORD);
+  await adminPage.goto(first.verification_uri_complete);
+  await adminPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
+  expect(new URL(adminPage.url()).hash).toBe('');
+  expect(await adminPage.$('[data-testid=login-gate]')).toBeNull();
+  await expect(adminPage.locator('[data-testid=consent-card-code]')).toContainText(
+    `Code ${first.user_code} — check that it matches the code your device shows.`,
+  );
+  await expect(adminPage.locator('[data-testid=consent-card-asks]')).toContainText(
+    'e2e box (the command-line tool) asked to sign in to this server as John Doe.',
+    { timeout: 5_000 },
+  );
+
+  // Allow settles the record; nothing is minted until the CLI polls.
+  await adminPage.click('[data-testid=consent-card-allow]');
+  await adminPage.waitForSelector('[data-testid=consent-card][data-state=approved]', { timeout: 5_000 });
+  const minted = await redeemAtTokenEndpoint({
+    grant_type: DEVICE_CODE_GRANT,
+    device_code: first.device_code,
+    client_id: 'openheaders-cli',
+  });
+  expect(minted.status, JSON.stringify(minted.json)).toBe(200);
+  expect(minted.json.token_type).toBe('Bearer');
+  expect(String(minted.json.access_token).startsWith('oh_')).toBe(true);
+  // The credential IS the session kind, bound to the approver, on the
+  // same revocation surface as every browser session.
+  const adminId = await findUserId(ADMIN_EMAIL);
+  const cliRow = await findSessionRow('device:cli:e2e box');
+  expect(cliRow?.kind).toBe('session');
+  expect(cliRow?.userId).toBe(adminId);
+  // The tab is the app: the verdict offers the way on.
+  await adminPage.click('[data-testid=consent-card-continue]');
+  await adminPage.waitForSelector('[aria-label="Settings menu"]', { timeout: 5_000 });
+
+  // A second sign-in the person does not recognise: Not me denies it
+  // and the device's poll hears so.
+  const second = await startDeviceSignIn('someone else');
+  const deniedLocation = await consentLocationFor(second.verification_uri_complete);
+  await adminPage.goto(second.verification_uri_complete);
+  await adminPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
+  await adminPage.click('[data-testid=consent-card-deny]');
+  await adminPage.waitForSelector('[data-testid=consent-card][data-state=denied]', { timeout: 5_000 });
+  const refused = await redeemAtTokenEndpoint({
+    grant_type: DEVICE_CODE_GRANT,
+    device_code: second.device_code,
+    client_id: 'openheaders-cli',
+  });
+  expect(refused.status).toBe(400);
+  expect(refused.json.error).toBe('access_denied');
+  await adminContext.close();
+
+  // A settled record answers its verdict to anyone — the server page's
+  // rule: no gate stands in front of a decision already made. The way
+  // on from here, with no session, is the gate.
+  const anonContext = await browser.newContext();
+  const anonPage = await anonContext.newPage();
+  watchConsole(anonPage, 'consent-anon');
+  await anonPage.goto(`${ORIGIN}${deniedLocation}`);
+  await anonPage.waitForSelector('[data-testid=consent-card][data-state=denied]', { timeout: 5_000 });
+  expect(await anonPage.$('[data-testid=login-gate]')).toBeNull();
+  await anonPage.click('[data-testid=consent-card-continue]');
+  await anonPage.waitForSelector('[data-testid=login-gate]', { timeout: 5_000 });
+  await anonContext.close();
+});
+
+test('consent: a code-grant sign-in gates first, the password sign-in hands back to the card, Allow lands at the client redirect and only the verifier redeems', async () => {
+  const verifier = randomBytes(32).toString('base64url');
+  const challenge = createHash('sha256').update(verifier).digest('base64url');
+  const state = randomBytes(8).toString('base64url');
+  const redirectUri = `http://127.0.0.1:${CALLBACK_PORT}/oauth/callback`;
+
+  // The desktop app's loopback callback, stood in for by a listener
+  // that records what the browser brought it.
+  let callbackServer: Server | null = null;
+  const landed = new Promise<URL>((resolve) => {
+    callbackServer = createServer((req, res) => {
+      res.statusCode = 200;
+      res.setHeader('content-type', 'text/plain');
+      res.end('ok');
+      resolve(new URL(req.url ?? '/', redirectUri));
+    });
+  });
+  await new Promise<void>((resolve) => callbackServer?.listen(CALLBACK_PORT, '127.0.0.1', resolve));
+
+  const authorizeUrl = `${ORIGIN}/auth/oauth/authorize?${new URLSearchParams({
+    response_type: 'code',
+    client_id: 'openheaders-desktop',
+    redirect_uri: redirectUri,
+    state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    device_label: 'e2e desktop',
+  }).toString()}`;
+
+  const piaContext = await browser.newContext();
+  const piaPage = await piaContext.newPage();
+  watchConsole(piaPage, 'consent-code');
+  await piaPage.goto(authorizeUrl);
+  // No session: the gate draws first, exactly as it would, and the
+  // pending decision survives it.
+  await piaPage.waitForSelector(EMAIL_INPUT, { timeout: 5_000 });
+  expect(await piaPage.$('[data-testid=consent-card]')).toBeNull();
+  await signInAtGate(piaPage, 'pia@openheaders.io', 'pia-first-password');
+  await piaPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
+  await expect(piaPage.locator('[data-testid=consent-card-asks]')).toContainText(
+    'e2e desktop (the desktop app) asked to sign in to this server as Pia.',
+    { timeout: 5_000 },
+  );
+  // No user code on the code grant — the verifier binds the client.
+  expect(await piaPage.$('[data-testid=consent-card-code]')).toBeNull();
+
+  // Allow: the tab leaves for the client's registered redirect with the
+  // one-shot code, the state echoed and the issuer named (RFC 9207).
+  await piaPage.click('[data-testid=consent-card-allow]');
+  const arrived = await landed;
+  expect(arrived.pathname).toBe('/oauth/callback');
+  expect(arrived.searchParams.get('state')).toBe(state);
+  expect(arrived.searchParams.get('iss')).toBe(ORIGIN);
+  const code = arrived.searchParams.get('code') ?? '';
+  expect(code.length).toBeGreaterThan(0);
+  await piaPage.waitForURL((url) => url.origin === `http://127.0.0.1:${CALLBACK_PORT}`, { timeout: 5_000 });
+
+  // The code alone yields nothing: a wrong verifier is refused and does
+  // not burn the code; the right one mints exactly once.
+  const wrong = await redeemAtTokenEndpoint({
+    grant_type: 'authorization_code',
+    code,
+    code_verifier: randomBytes(32).toString('base64url'),
+    redirect_uri: redirectUri,
+    client_id: 'openheaders-desktop',
+  });
+  expect(wrong.status).toBe(400);
+  expect(wrong.json.error).toBe('invalid_grant');
+  const minted = await redeemAtTokenEndpoint({
+    grant_type: 'authorization_code',
+    code,
+    code_verifier: verifier,
+    redirect_uri: redirectUri,
+    client_id: 'openheaders-desktop',
+  });
+  expect(minted.status, JSON.stringify(minted.json)).toBe(200);
+  expect(String(minted.json.access_token).startsWith('oh_')).toBe(true);
+  const replay = await redeemAtTokenEndpoint({
+    grant_type: 'authorization_code',
+    code,
+    code_verifier: verifier,
+    redirect_uri: redirectUri,
+    client_id: 'openheaders-desktop',
+  });
+  expect(replay.status).toBe(400);
+  expect(replay.json.error).toBe('invalid_grant');
+  const piaId = await findUserId('pia@openheaders.io');
+  const desktopRow = await findSessionRow('device:desktop:e2e desktop');
+  expect(desktopRow?.kind).toBe('session');
+  expect(desktopRow?.userId).toBe(piaId);
+
+  await piaContext.close();
+  await new Promise<void>((resolve) => callbackServer?.close(() => resolve()));
 });
 
 // ── Non-loopback origins ────────────────────────────────────────────
