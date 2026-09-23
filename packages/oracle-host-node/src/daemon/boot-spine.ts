@@ -45,6 +45,7 @@
 import * as path from 'node:path';
 import { setHostBridge } from '@openheaders/core/bridge';
 import {
+  type AuthorizationUserAgent,
   createDaemonAuthorizationService,
   createDaemonPairingService,
   emitAuditEntry,
@@ -459,6 +460,15 @@ export interface DaemonSpineHandle {
    * `dispatchSyncRpc` for the sync+awareness channels.
    */
   dispatchRpc(raw: unknown): Promise<unknown>;
+  /**
+   * The system-browser hop over the loopback callback route — the
+   * authorization code grant's user agent for every client-side OAuth
+   * flow this host runs (the API request leg, the person sign-in from
+   * this client): the redirect the route serves on the bound port, and
+   * the open → await the redirect → front the app act. Null on a host
+   * with no browser to open.
+   */
+  readonly authorizationUserAgent: AuthorizationUserAgent | null;
   /** Tear down everything the spine started. Idempotent. */
   dispose(): Promise<void>;
 }
@@ -1237,13 +1247,13 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   });
   const oauthCallback = createOAuthCallbackHandler();
   const openExternalUrl = config.openExternalUrl;
-  const oauthRpc = createOAuthRpc({
-    transport: nodeTransport,
-    redirectUri: () => `http://127.0.0.1:${boundPort}${OAUTH_CALLBACK_PATH}`,
-    launchAuthorization:
-      openExternalUrl === undefined
-        ? null
-        : async (authUrl, state) => {
+  const loopbackRedirectUri = (): string => `http://127.0.0.1:${boundPort}${OAUTH_CALLBACK_PATH}`;
+  const authorizationUserAgent: AuthorizationUserAgent | null =
+    openExternalUrl === undefined
+      ? null
+      : {
+          redirectUri: loopbackRedirectUri,
+          launch: async (authUrl, state) => {
             const protocol = new URL(authUrl).protocol;
             if (protocol !== 'https:' && protocol !== 'http:') {
               throw new Error(`refusing to open a ${protocol} authorization URL`);
@@ -1258,6 +1268,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
             config.revealApp?.();
             return responseUrl;
           },
+        };
+  const oauthRpc = createOAuthRpc({
+    transport: nodeTransport,
+    redirectUri: loopbackRedirectUri,
+    launchAuthorization: authorizationUserAgent === null ? null : authorizationUserAgent.launch,
   });
 
   // 4c''''''. Public snapshot plane (F5b) — `/public/*`, composed
@@ -1735,5 +1750,5 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     syncPersistence.close();
   };
 
-  return { dispatchRpc, dispose };
+  return { dispatchRpc, authorizationUserAgent, dispose };
 }

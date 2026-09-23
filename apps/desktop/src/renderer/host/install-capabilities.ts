@@ -12,12 +12,8 @@
 
 import whatsNewNotes from 'virtual:whats-new';
 import { hostBridge } from '@openheaders/core/bridge';
-import {
-  registerCapability,
-  type ServerSignInApi,
-  type TerminalSession,
-  type TerminalSpawnOptions,
-} from '@openheaders/core/capabilities';
+import { registerCapability, type TerminalSession, type TerminalSpawnOptions } from '@openheaders/core/capabilities';
+import { createBridgedServerSignIn } from '@openheaders/core/identity';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -49,17 +45,13 @@ registerCapability('scriptRuntime', () => ['safe', 'developer']);
 // preload bridge takes care of marshalling.
 registerCapability('openExternalUrl', (url) => window.oh.openExternal(url));
 
-// A person's sign-in from this client (the client sign-in plan D4,
+// A person's sign-in from this client (the client sign-in plan §14.9,
 // F0-b): this renderer is a file origin the server's admission matrix
-// refuses everywhere, so the device flow's HTTP — start, poll, the
-// gate's meta reads — runs in the main process over the bridge; the
-// approval page opens through `openExternalUrl` above, and main fronts
-// the app when the poll lands.
-const serverSignIn: ServerSignInApi = {
-  start: (input) => hostBridge.call('oh.serverSignIn.start', input),
-  poll: (input) => hostBridge.call('oh.serverSignIn.poll', input),
-  fetchMeta: (input) => hostBridge.call('oh.serverSignIn.meta', input).then((resp) => resp.payload),
-};
+// refuses everywhere, so the grant's HTTP — the metadata read, the
+// start, the poll, the redemption, the gate's meta reads — runs in the
+// main process over the bridge, which opens the system browser and
+// fronts the app when the redirect lands.
+const serverSignIn = createBridgedServerSignIn();
 registerCapability('serverSignIn', () => serverSignIn);
 
 // Named-browser opens for the extension-install CTAs — a store listing

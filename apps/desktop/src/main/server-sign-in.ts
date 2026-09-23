@@ -1,28 +1,27 @@
 /**
  * Main-process half of the desktop's `serverSignIn` capability (the
- * client sign-in plan §7, F0-b): the renderer is a file origin the
- * server's admission matrix refuses everywhere, so the device flow's
- * HTTP — start, poll, the meta reads — runs here over Node's fetch,
- * which carries no Origin, through the same core wire client every
- * native client uses (`client: 'desktop'`). The one desktop-specific
- * act: when the poll lands the approval, the person is in their browser
- * on the server's page — front the app so the wizard's "Signed in as …"
- * is what they see next (the OAuth code leg's `revealApp` precedent).
- * The start names this device by the machine name so the page reads
- * "Daniels-MacBook-Pro (the desktop app) asked…"; a caller's label wins.
+ * client sign-in plan §14.9, F0-b): the renderer is a file origin the
+ * server's admission matrix refuses everywhere, so both grants' HTTP —
+ * the metadata read, the start, the poll, the redemption, the meta
+ * reads — runs here over Node's fetch, which carries no Origin, through
+ * the same core client every native client uses (`client: 'desktop'`).
+ * The desktop is registered for the authorization code grant, and its
+ * user agent is the spine's system-browser hop over the loopback
+ * callback route the API OAuth leg already runs (`state`-keyed, one
+ * waiter per flow; the app fronted when the redirect lands) — the
+ * dispatcher only relays. The start names this device by the machine
+ * name so the consent card reads "Daniels-MacBook-Pro (the desktop app)
+ * asked…"; a caller's label wins.
  */
 
 import type { ServerSignInApi } from '@openheaders/core/capabilities';
-import { createServerSignInClient } from '@openheaders/core/identity';
+import { type AuthorizationUserAgent, createServerSignInClient } from '@openheaders/core/identity';
 import { safeOsHostname } from './os-hostname';
 
-/** The server refuses longer labels (400) — never let a hostname trip it. */
-const MAX_DEVICE_LABEL_LENGTH = 64;
-
 export interface ServerSignInRpcOptions {
-  /** Front the workbench window — called once per approved poll. */
-  readonly revealApp: () => void;
-  /** Test seam; defaults to the core client over Node's fetch. */
+  /** The spine's browser hop; null on a host with no browser, where the desktop's code-only registration leaves no grant to run. */
+  readonly userAgent: AuthorizationUserAgent | null;
+  /** Test seam; defaults to the core client over Node's fetch and the user agent above. */
   readonly client?: ServerSignInApi;
   /** The device label sent on a start without one; defaults to the machine name. */
   readonly deviceLabel?: () => string;
@@ -33,33 +32,28 @@ export interface ServerSignInRpc {
   dispatch(type: unknown, message: Record<string, unknown>): Promise<unknown> | undefined;
 }
 
+const str = (value: unknown): string => (typeof value === 'string' ? value : '');
+
 export function createServerSignInRpc(options: ServerSignInRpcOptions): ServerSignInRpc {
-  const client = options.client ?? createServerSignInClient({ client: 'desktop' });
   const ownLabel = options.deviceLabel ?? safeOsHostname;
+  const client =
+    options.client ??
+    createServerSignInClient({ client: 'desktop', userAgent: options.userAgent, deviceLabel: ownLabel });
   return {
     dispatch(type, message) {
       switch (type) {
         case 'oh.serverSignIn.start': {
-          const url = typeof message.url === 'string' ? message.url : '';
-          const deviceLabel = (typeof message.deviceLabel === 'string' ? message.deviceLabel : ownLabel()).slice(
-            0,
-            MAX_DEVICE_LABEL_LENGTH,
-          );
-          return client.start({ url, deviceLabel });
+          const deviceLabel = typeof message.deviceLabel === 'string' ? message.deviceLabel : ownLabel();
+          return client.start({ url: str(message.url), deviceLabel });
         }
-        case 'oh.serverSignIn.poll': {
-          const url = typeof message.url === 'string' ? message.url : '';
-          const pollToken = typeof message.pollToken === 'string' ? message.pollToken : '';
-          return client.poll({ url, pollToken }).then((polled) => {
-            if (polled.status === 'approved') options.revealApp();
-            return polled;
-          });
-        }
-        case 'oh.serverSignIn.meta': {
-          const url = typeof message.url === 'string' ? message.url : '';
-          const path = typeof message.path === 'string' ? message.path : '';
-          return client.fetchMeta({ url, path }).then((payload) => ({ payload }));
-        }
+        case 'oh.serverSignIn.poll':
+          return client.poll({ handle: str(message.handle) });
+        case 'oh.serverSignIn.cancel':
+          return client.cancel({ handle: str(message.handle) }).then(() => ({ ok: true }));
+        case 'oh.serverSignIn.signOut':
+          return client.signOut({ url: str(message.url), token: str(message.token) });
+        case 'oh.serverSignIn.meta':
+          return client.fetchMeta({ url: str(message.url), path: str(message.path) }).then((payload) => ({ payload }));
         default:
           return undefined;
       }
