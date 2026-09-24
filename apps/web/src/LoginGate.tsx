@@ -302,6 +302,7 @@ export function LoginGate({
                 placeholder={t('web.gate.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onPressEnter={() => void submitPassword()}
                 disabled={pending}
               />
               <Input.Password
@@ -336,6 +337,7 @@ export function LoginGate({
                     setDisplayName(e.target.value);
                     setInvalid(null);
                   }}
+                  onPressEnter={() => void submitSetup()}
                   disabled={pending}
                 />
               </Field>
@@ -349,6 +351,7 @@ export function LoginGate({
                     setEmail(e.target.value);
                     setInvalid(null);
                   }}
+                  onPressEnter={() => void submitSetup()}
                   disabled={pending}
                 />
               </Field>
@@ -361,6 +364,7 @@ export function LoginGate({
                     setPassword(e.target.value);
                     setInvalid(null);
                   }}
+                  onPressEnter={() => void submitSetup()}
                   disabled={pending}
                 />
               </Field>

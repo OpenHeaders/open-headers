@@ -229,11 +229,11 @@ function ruleInTabIdb(target: Page, name: string): Promise<boolean> {
   );
 }
 
-/** Drive the gate's sign-in form. */
+/** Drive the gate's sign-in form: the password first, then Enter from the email field. */
 async function signInAtGate(target: Page, email: string, password: string): Promise<void> {
-  await target.fill(EMAIL_INPUT, email);
   await target.fill(PASSWORD_INPUT, password);
-  await target.click('[data-testid=login-gate-password-submit]');
+  await target.fill(EMAIL_INPUT, email);
+  await target.press(EMAIL_INPUT, 'Enter');
 }
 
 /** Sign a fresh context in and wait for `readySelector` to land. */
