@@ -71,6 +71,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.checkActiveTooltip': 'Spațiu de lucru activ',
   'shared.workspaceDropdown.makeActiveAria': 'Setați „{name}” ca spațiu de lucru activ',
   'shared.workspaceDropdown.orphanedOrgHeader': 'Nu se mai sincronizează',
+  'shared.workspaceDropdown.noAccessRow': 'Niciun spațiu de lucru — acces neacordat',
+  'shared.workspaceDropdown.openPlace': 'Deschidere {place}',
   'shared.workspaceDropdown.activeFooterLabel': 'Activ:',
   'shared.workspaceDropdown.export': 'Export',
   'shared.workspaceDropdown.import': 'Import',

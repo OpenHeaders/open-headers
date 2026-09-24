@@ -26,9 +26,7 @@
  * every pre-hydration workspace as newly arrived.
  */
 
-import { getBackend } from '@openheaders/core/backends';
-import { getCapability } from '@openheaders/core/capabilities';
-import { getOrgBackendBindings, wsUrlToHttpOrigin } from '@openheaders/core/identity';
+import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { pushNotification } from '@openheaders/ui/shared/notifications';
 import { Alert, App, Button, theme } from 'antd';
@@ -36,6 +34,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
+import { openServerPage, serverPageForOrg } from '../../../shared/workspace-org/server-page';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
 // Grants announced at least once on this browser. A fresh login
@@ -82,12 +81,6 @@ function writeDismissedBanners(set: Set<string>): void {
   } catch {
     // Storage unavailable — the banner simply returns next session.
   }
-}
-
-/** The server's own page for a joined Org — null where the binding has no record (the web tab IS that page). */
-function serverPageFor(backendId: string | undefined): string | null {
-  const record = backendId === undefined ? null : getBackend(backendId);
-  return record === null ? null : wsUrlToHttpOrigin(record.url);
 }
 
 // Compact single-line toast text — small fonts, truncate long
@@ -232,7 +225,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
   // The server's page, one button per Org that has one; the web tab,
   // being that page already, offers none.
   const servers = zeroGrantOrgs
-    .map((orgId) => ({ orgId, url: serverPageFor(bindings.get(orgId)) }))
+    .map((orgId) => ({ orgId, url: serverPageForOrg(orgId) }))
     .filter((entry): entry is { orgId: string; url: string } => entry.url !== null);
   const dismiss = (): void => {
     const next = new Set([...dismissed, ...zeroGrantOrgs]);
@@ -256,7 +249,7 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
                 key={orgId}
                 size="small"
                 data-testid={`org-zero-grant-open-${orgId}`}
-                onClick={() => void getCapability('openExternalUrl')?.(url)}
+                onClick={() => openServerPage(url)}
               >
                 {t('workbench.workspace.grant.openServer', { org: orgName(orgId) })}
               </Button>

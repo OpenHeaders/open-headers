@@ -65,6 +65,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.checkActiveTooltip': 'Espace de travail actif',
   'shared.workspaceDropdown.makeActiveAria': "Faire de « {name} » l'espace de travail actif",
   'shared.workspaceDropdown.orphanedOrgHeader': 'Ne se synchronise plus',
+  'shared.workspaceDropdown.noAccessRow': 'Aucun espace de travail — accès non accordé',
+  'shared.workspaceDropdown.openPlace': 'Ouvrir {place}',
   'shared.workspaceDropdown.activeFooterLabel': 'Actif :',
   'shared.workspaceDropdown.export': 'Exporter',
   'shared.workspaceDropdown.import': 'Importer',

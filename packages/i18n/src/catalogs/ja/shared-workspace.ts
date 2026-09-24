@@ -68,6 +68,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.checkActiveTooltip': 'アクティブなワークスペース',
   'shared.workspaceDropdown.makeActiveAria': '「{name}」をアクティブなワークスペースにする',
   'shared.workspaceDropdown.orphanedOrgHeader': '同期停止',
+  'shared.workspaceDropdown.noAccessRow': 'ワークスペースなし。アクセスはまだ付与されていません',
+  'shared.workspaceDropdown.openPlace': '{place} を開く',
   'shared.workspaceDropdown.activeFooterLabel': 'アクティブ：',
   'shared.workspaceDropdown.export': 'エクスポート',
   'shared.workspaceDropdown.import': 'インポート',

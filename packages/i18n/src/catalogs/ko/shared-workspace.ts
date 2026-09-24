@@ -67,6 +67,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.checkActiveTooltip': '활성 워크스페이스',
   'shared.workspaceDropdown.makeActiveAria': '“{name}” 워크스페이스를 활성으로 설정',
   'shared.workspaceDropdown.orphanedOrgHeader': '더 이상 동기화하지 않음',
+  'shared.workspaceDropdown.noAccessRow': '워크스페이스 없음. 아직 접근 권한이 없습니다',
+  'shared.workspaceDropdown.openPlace': '{place} 열기',
   'shared.workspaceDropdown.activeFooterLabel': '활성:',
   'shared.workspaceDropdown.export': '내보내기',
   'shared.workspaceDropdown.import': '가져오기',

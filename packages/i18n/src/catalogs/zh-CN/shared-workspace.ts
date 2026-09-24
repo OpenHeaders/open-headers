@@ -66,6 +66,8 @@ export const sharedWorkspace = {
   'shared.workspaceDropdown.checkActiveTooltip': '活动工作区',
   'shared.workspaceDropdown.makeActiveAria': '将“{name}”设为活动工作区',
   'shared.workspaceDropdown.orphanedOrgHeader': '不再同步',
+  'shared.workspaceDropdown.noAccessRow': '没有工作区——尚未授予访问权限',
+  'shared.workspaceDropdown.openPlace': '打开 {place}',
   'shared.workspaceDropdown.activeFooterLabel': '活动：',
   'shared.workspaceDropdown.export': '导出',
   'shared.workspaceDropdown.import': '导入',

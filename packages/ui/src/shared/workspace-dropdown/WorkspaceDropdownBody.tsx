@@ -34,10 +34,11 @@ import { getHostStorage, OH } from '@openheaders/core/storage';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { InputRef } from 'antd';
-import { Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
+import { Button, Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace/workspace-prefix';
+import { openServerPage, serverPageForOrg } from '../workspace-org/server-page';
 import { orgStateText, orphanedOrgAnnotation, useOrgSyncAnnotations } from '../backend';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { useOrgPlace } from '../workspace-org/use-org-place';
@@ -209,8 +210,12 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   // list by Org, ordered by the catalogue. No filtering: every Org's
   // workspaces are reachable so a tab can switch to anything. The header
   // shows even with a single Org: it names where the workspaces live and
-  // signals that the binding can be extended. `null` (flat list) only
-  // when there is no catalogue at all (pre-bootstrap).
+  // signals that the binding can be extended. A joined Org that granted
+  // nothing yet keeps its group too — the switcher is where a person
+  // looks for the place — with the fact and the way to the server's own
+  // page under it; only a search hides the empty group. `null` (flat
+  // list) only when there is no catalogue at all (pre-bootstrap).
+  const searching = searchText.trim().length > 0;
   const groups = useMemo(() => {
     if (!orgGrouping || orgGrouping.catalogue.length < 1) return null;
     const byOrg = new Map<string, ExtensionWorkspace[]>();
@@ -221,15 +226,15 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     }
     const ordered: Array<{ orgId: string; descriptor: OrgDescriptor | null; items: ExtensionWorkspace[] }> = [];
     for (const descriptor of orgGrouping.catalogue) {
-      const items = byOrg.get(descriptor.id);
-      if (items && items.length > 0) ordered.push({ orgId: descriptor.id, descriptor, items });
+      const items = byOrg.get(descriptor.id) ?? [];
+      if (items.length > 0 || !searching) ordered.push({ orgId: descriptor.id, descriptor, items });
       byOrg.delete(descriptor.id);
     }
     // Workspaces whose Org isn't in the catalogue (e.g. the pre-bootstrap
     // sentinel) still get a group so they're never unreachable.
     for (const [orgId, items] of byOrg) ordered.push({ orgId, descriptor: null, items });
     return ordered;
-  }, [orgGrouping, filtered]);
+  }, [orgGrouping, filtered, searching]);
 
   const activeWorkspace = useMemo(
     () => (activeId ? (workspaces.find((w) => w.id === activeId) ?? null) : null),
@@ -396,7 +401,35 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     );
   };
 
-  const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
+  // Under an empty group: the fact, and the server's own page where the
+  // person sees what they hold and an admin grants.
+  const renderNoAccessRow = (orgId: string, descriptor: OrgDescriptor): React.ReactNode => {
+    const url = serverPageForOrg(orgId);
+    return (
+      <div
+        style={{ ...baseRowStyle, cursor: 'default', paddingLeft: 26, justifyContent: 'space-between' }}
+        data-testid={`workspace-dropdown-no-access-${orgId}`}
+      >
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {t('shared.workspaceDropdown.noAccessRow')}
+        </Text>
+        {url !== null && (
+          <Button
+            size="small"
+            data-testid={`workspace-dropdown-open-place-${orgId}`}
+            onClick={() => {
+              openServerPage(url);
+              onClose();
+            }}
+          >
+            {t('shared.workspaceDropdown.openPlace', { place: descriptor.name })}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null, empty = false): React.ReactNode => {
     // A null descriptor in grouped mode means the Org left the identity
     // snapshot — its backend record was removed with local copies kept.
     const label = descriptor ? placeOf(descriptor) : t('shared.workspaceDropdown.orphanedOrgHeader');
@@ -422,11 +455,13 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     const ariaLabel = targetWs
       ? t('shared.workspaceDropdown.orgSwitch.ariaWithTarget', { label, name: targetWs.name })
       : t('shared.workspaceDropdown.orgSwitch.aria', { label });
+    // An empty group's header names the place and nothing more — there
+    // is no workspace to switch to.
     return (
       <div
-        role="button"
-        aria-label={ariaLabel}
-        className="oh-env-row"
+        role={empty ? undefined : 'button'}
+        aria-label={empty ? undefined : ariaLabel}
+        className={empty ? undefined : 'oh-env-row'}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -434,9 +469,9 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           padding: '4px 8px',
           margin: '2px 0 0',
           borderRadius: 4,
-          cursor: 'pointer',
+          cursor: empty ? 'default' : 'pointer',
         }}
-        onClick={() => handleSwitchOrg(orgId)}
+        onClick={empty ? undefined : () => handleSwitchOrg(orgId)}
       >
         {descriptor && (
           <OrgIcon descriptor={descriptor} size={12} style={{ color: token.colorTextTertiary }} />
@@ -532,8 +567,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         {groups
           ? groups.map((group) => (
               <div key={group.orgId}>
-                {renderOrgHeader(group.orgId, group.descriptor)}
-                {group.items.map((w) => renderRow(w, true))}
+                {renderOrgHeader(group.orgId, group.descriptor, group.items.length === 0)}
+                {group.items.length === 0 && group.descriptor !== null
+                  ? renderNoAccessRow(group.orgId, group.descriptor)
+                  : group.items.map((w) => renderRow(w, true))}
               </div>
             ))
           : filtered.map((w) => renderRow(w, false))}
