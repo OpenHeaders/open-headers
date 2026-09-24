@@ -721,6 +721,9 @@ test('admin console: the server projection feeds the invite, and users and devic
   // Settings → Backup and Sync › Sync → the served row's ⋯ → the
   // probe-gated Administer item → the Users domain tab.
   await openBackendSettings(operatorPage);
+  // The row's state is the wire's own slot, the same fact the status
+  // popover reads — never a stale "connecting" over a synced wire.
+  await expect(operatorPage.locator('[data-testid=synced-row-status]')).toHaveText('Connected', { timeout: 5_000 });
   await operatorPage.click('[data-testid=synced-row-menu]');
   await operatorPage.click('[data-testid=open-daemon-admin]');
   await expect(operatorPage.locator('[data-testid=server-admin-tab]')).toBeVisible();

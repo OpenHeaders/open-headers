@@ -73,7 +73,10 @@ export const BackendServedRow: React.FC<{ administer: (() => void) | null }> = (
           >
             {place}
           </span>
-          <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}>
+          <span
+            style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'nowrap' }}
+            data-testid="synced-row-status"
+          >
             {t(BACKEND_ROW_STATUS_LABEL[status])}
           </span>
         </div>

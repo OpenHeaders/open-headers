@@ -40,6 +40,7 @@ import { onWorkspaceStoreChange, peekActiveWorkspaceId } from '@openheaders/orac
 import { report } from '@openheaders/ui/shared/status';
 import { peekDaemonToken } from './daemon-token';
 import { handleIncomingDelegatedSocketFrame, handleIncomingDelegatedStreamFrame } from './delegated-wire';
+import { reportServedBackendSlot } from './served-backend-slot';
 import { WEB_DAEMON_BACKEND_ID } from './web-backend-id';
 import { consumedWorkspaceIds, createWireAdoption } from './wire-adoption';
 import { handleIncomingGrpcStreamFrame } from './wire-grpc-stream';
@@ -88,26 +89,36 @@ async function probeDaemonReachable(): Promise<boolean> {
   }
 }
 
+// The aggregate `sync` subsystem for the status popover and the one
+// per-backend slot for the "Synced with" row — the same fact, filed twice.
 function reportWireStatus(state: InitiatorState, rejectReason: HandshakeRejectReason | null): void {
   switch (state) {
-    case 'synced':
-      report({ subsystem: 'sync', state: 'green', message: 'Synced with the serving daemon' });
+    case 'synced': {
+      const slot = { state: 'green', message: 'Synced with the serving daemon' } as const;
+      report({ subsystem: 'sync', ...slot });
+      reportServedBackendSlot(slot);
       return;
-    case 'rejected':
-      report({
-        subsystem: 'sync',
+    }
+    case 'rejected': {
+      const slot = {
         state: 'red',
         message:
           rejectReason === 'auth-required'
             ? 'The daemon requires a pairing token'
             : `Daemon refused the connection (${rejectReason ?? 'unknown'})`,
         context: { reason: rejectReason },
-      });
+      } as const;
+      report({ subsystem: 'sync', ...slot });
+      reportServedBackendSlot(slot);
       return;
+    }
     case 'failed':
-    case 'timed-out':
-      report({ subsystem: 'sync', state: 'yellow', message: 'Daemon sync interrupted — retrying' });
+    case 'timed-out': {
+      const slot = { state: 'yellow', message: 'Daemon sync interrupted — retrying' } as const;
+      report({ subsystem: 'sync', ...slot });
+      reportServedBackendSlot(slot);
       return;
+    }
     default:
       return;
   }

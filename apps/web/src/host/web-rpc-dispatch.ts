@@ -15,6 +15,7 @@
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { getServedBackendSnapshot } from './served-backend-slot';
 import { dispatchTabRequestsRpc, isTabRequestsChannel } from './tab-requests-rpc';
 import { dispatchTabSessionsRpc, isTabSessionsChannel } from './tab-sessions-rpc';
 import { dispatchExportImportRpc, isExportImportChannel } from './web-export-import-rpc';
@@ -34,6 +35,9 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   }
   if (type === 'getStatusSnapshot') {
     return { snapshot: getStatusSnapshot() };
+  }
+  if (type === 'getBackendSyncStatusSnapshot') {
+    return { snapshot: getServedBackendSnapshot() };
   }
   // Daemon-admin channels are not the tab oracle's — they administer
   // the SERVING daemon, so they forward up the wire to its gated peer
