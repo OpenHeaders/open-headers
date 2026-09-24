@@ -683,7 +683,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Esperando aprobación',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'No registrado',
   'workbench.settings.proxyTrustPane.helper.state.notFound':
-    'No encontrado — primero instala la aplicación en Aplicaciones',
+    'No encontrado — macOS no tiene registro de él; regístralo de nuevo',
   'workbench.settings.proxyTrustPane.helper.state.unknown': 'Desconocido',
   'workbench.settings.proxyTrustPane.helper.probe.ok': 'Responde',
   'workbench.settings.proxyTrustPane.helper.probe.down': 'No responde',

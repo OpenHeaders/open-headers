@@ -547,7 +547,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.enabled': '已注册',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '等待批准',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': '未注册',
-  'workbench.settings.proxyTrustPane.helper.state.notFound': '未找到 — 请先将应用安装到“应用程序”',
+  'workbench.settings.proxyTrustPane.helper.state.notFound': '未找到 — macOS 没有它的记录，请重新注册',
   'workbench.settings.proxyTrustPane.helper.state.unknown': '未知',
   'workbench.settings.proxyTrustPane.helper.probe.ok': '有响应',
   'workbench.settings.proxyTrustPane.helper.probe.down': '无响应',

@@ -600,8 +600,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.enabled': '登録済み',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '承認待ち',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': '未登録',
-  'workbench.settings.proxyTrustPane.helper.state.notFound':
-    '見つかりません。まずアプリを Applications にインストールしてください',
+  'workbench.settings.proxyTrustPane.helper.state.notFound': '見つかりません。macOS に記録がありません。もう一度登録してください',
   'workbench.settings.proxyTrustPane.helper.state.unknown': '不明',
   'workbench.settings.proxyTrustPane.helper.probe.ok': '応答あり',
   'workbench.settings.proxyTrustPane.helper.probe.down': '応答なし',

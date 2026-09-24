@@ -643,7 +643,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Ожидает одобрения',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Не зарегистрирован',
   'workbench.settings.proxyTrustPane.helper.state.notFound':
-    'Не найден — сначала установите приложение в папку «Программы»',
+    'Не найден — у macOS нет записи о нём; зарегистрируйте заново',
   'workbench.settings.proxyTrustPane.helper.state.unknown': 'Неизвестно',
   'workbench.settings.proxyTrustPane.helper.probe.ok': 'Отвечает',
   'workbench.settings.proxyTrustPane.helper.probe.down': 'Не отвечает',

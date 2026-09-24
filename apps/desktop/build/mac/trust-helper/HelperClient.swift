@@ -164,17 +164,24 @@ private func clientSmStatus() {
   printJson(["ok": true, "status": serviceStatusLabel(service.status), "bundle": Bundle.main.bundlePath])
 }
 
+/// Registration's verdict is the state it leaves behind, not the throw:
+/// macOS raises "Operation not permitted" from `register()` while it
+/// posts its own Background Activity approval prompt, and the item is
+/// then `requiresApproval` — the expected next step, not a failure.
 private func clientRegister() {
   let service = SMAppService.daemon(plistName: HelperConstants.plistName)
   var result: [String: Any] = ["bundle": Bundle.main.bundlePath]
+  var thrown: String?
   do {
     try service.register()
-    result["ok"] = true
   } catch {
-    result["ok"] = false
-    result["error"] = error.localizedDescription
+    thrown = error.localizedDescription
   }
-  result["status"] = serviceStatusLabel(service.status)
+  let status = service.status
+  let landed = status == .enabled || status == .requiresApproval
+  result["ok"] = landed
+  if !landed, let thrown { result["error"] = thrown }
+  result["status"] = serviceStatusLabel(status)
   printJson(result)
 }
 

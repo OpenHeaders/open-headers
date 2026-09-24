@@ -647,7 +647,8 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Înregistrat',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Așteaptă aprobarea',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Neînregistrat',
-  'workbench.settings.proxyTrustPane.helper.state.notFound': 'Negăsit — instalați mai întâi aplicația în Applications',
+  'workbench.settings.proxyTrustPane.helper.state.notFound':
+    'Negăsit — macOS nu are nicio înregistrare a lui; înregistrați-l din nou',
   'workbench.settings.proxyTrustPane.helper.state.unknown': 'Necunoscut',
   'workbench.settings.proxyTrustPane.helper.probe.ok': 'Răspunde',
   'workbench.settings.proxyTrustPane.helper.probe.down': 'Nu răspunde',

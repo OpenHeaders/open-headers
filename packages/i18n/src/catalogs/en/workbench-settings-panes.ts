@@ -585,7 +585,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.enabled': 'Registered',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': 'Waiting for approval',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': 'Not registered',
-  'workbench.settings.proxyTrustPane.helper.state.notFound': 'Not found — install the app in Applications first',
+  'workbench.settings.proxyTrustPane.helper.state.notFound': 'Not found — macOS has no record of it; register again',
   'workbench.settings.proxyTrustPane.helper.state.unknown': 'Unknown',
   'workbench.settings.proxyTrustPane.helper.probe.ok': 'Responding',
   'workbench.settings.proxyTrustPane.helper.probe.down': 'Not responding',

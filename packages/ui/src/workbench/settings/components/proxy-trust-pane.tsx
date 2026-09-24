@@ -59,7 +59,7 @@ const HELPER_STATE_COLOR: Record<HelperRegistration, string | undefined> = {
   enabled: 'green',
   requiresApproval: 'gold',
   notRegistered: undefined,
-  notFound: 'red',
+  notFound: 'gold',
   unknown: undefined,
 };
 

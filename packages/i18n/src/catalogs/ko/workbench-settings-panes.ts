@@ -595,7 +595,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.proxyTrustPane.helper.state.enabled': '등록됨',
   'workbench.settings.proxyTrustPane.helper.state.requiresApproval': '승인 대기 중',
   'workbench.settings.proxyTrustPane.helper.state.notRegistered': '등록 안 됨',
-  'workbench.settings.proxyTrustPane.helper.state.notFound': '찾을 수 없음. 먼저 앱을 Applications 폴더에 설치하세요',
+  'workbench.settings.proxyTrustPane.helper.state.notFound': '찾을 수 없음. macOS에 기록이 없습니다. 다시 등록하세요',
   'workbench.settings.proxyTrustPane.helper.state.unknown': '알 수 없음',
   'workbench.settings.proxyTrustPane.helper.probe.ok': '응답 중',
   'workbench.settings.proxyTrustPane.helper.probe.down': '응답 없음',
