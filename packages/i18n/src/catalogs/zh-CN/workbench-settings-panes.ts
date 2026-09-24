@@ -63,6 +63,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.waitingBrowser': '在浏览器中完成登录，然后回到这里…',
   'workbench.settings.backendPane.wizard.signIn.linkHint': '浏览器没有打开？在任意浏览器中打开此链接：',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': '重试',
+  'workbench.settings.backendPane.wizard.signIn.cancelSignIn': '取消登录',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     '此服务器还没有管理员。请先在 {url} 完成设置，然后从这里登录。',
   'workbench.settings.backendPane.wizard.signIn.noLogin':

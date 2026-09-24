@@ -255,7 +255,7 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
             flow.grant.kind === 'redirect' ? (
               <div style={BLOCK_STYLE}>
                 <StepIntro text={t('workbench.settings.backendPane.wizard.signIn.waitingBrowser')} />
-                <Button onClick={cancel}>{t('shared.action.cancel')}</Button>
+                <Button onClick={cancel}>{t('workbench.settings.backendPane.wizard.signIn.cancelSignIn')}</Button>
               </div>
             ) : (
               <DeviceWaiting code={flow.grant.code} link={flow.grant.link} onCancel={cancel} onOpen={openApproval} />
@@ -373,7 +373,7 @@ const DeviceWaiting: React.FC<{
         {link}
       </Typography.Text>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <Button onClick={onCancel}>{t('shared.action.cancel')}</Button>
+        <Button onClick={onCancel}>{t('workbench.settings.backendPane.wizard.signIn.cancelSignIn')}</Button>
         <Typography.Link style={{ fontSize: 12 }} onClick={() => onOpen(link)}>
           {t('workbench.settings.backendPane.wizard.signIn.openAgain')}
         </Typography.Link>

@@ -69,6 +69,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.linkHint':
     '브라우저가 열리지 않았나요? 이 링크를 원하는 브라우저에서 여세요:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': '다시 시도',
+  'workbench.settings.backendPane.wizard.signIn.cancelSignIn': '로그인 취소',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     '이 서버에는 아직 관리자가 없습니다. 먼저 {url}에서 설정한 다음 여기에서 로그인하세요.',
   'workbench.settings.backendPane.wizard.signIn.noLogin':

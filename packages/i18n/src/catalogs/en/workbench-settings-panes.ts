@@ -47,6 +47,7 @@ export const workbenchSettingsPanes = {
     'Finish the sign-in in the browser, then come back here…',
   'workbench.settings.backendPane.wizard.signIn.linkHint': "Browser didn't open? Open this link in any browser:",
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Try again',
+  'workbench.settings.backendPane.wizard.signIn.cancelSignIn': 'Cancel sign-in',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'This server has no administrator yet — set it up at {url} first, then sign in from here.',
   'workbench.settings.backendPane.wizard.signIn.noLogin':

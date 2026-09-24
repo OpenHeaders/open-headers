@@ -63,6 +63,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.linkHint':
     'ブラウザーが開かない場合は、このリンクを任意のブラウザーで開いてください：',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': '再試行',
+  'workbench.settings.backendPane.wizard.signIn.cancelSignIn': 'サインインをキャンセル',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'このサーバーにはまだ管理者がいません。まず {url} でセットアップしてから、ここでサインインしてください。',
   'workbench.settings.backendPane.wizard.signIn.noLogin':

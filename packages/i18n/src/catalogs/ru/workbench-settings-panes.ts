@@ -76,6 +76,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.waitingBrowser': 'Завершите вход в браузере, затем вернитесь сюда…',
   'workbench.settings.backendPane.wizard.signIn.linkHint': 'Браузер не открылся? Откройте эту ссылку в любом браузере:',
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Повторить',
+  'workbench.settings.backendPane.wizard.signIn.cancelSignIn': 'Отменить вход',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     'У этого сервера ещё нет администратора. Сначала настройте его по адресу {url}, затем войдите отсюда.',
   'workbench.settings.backendPane.wizard.signIn.noLogin':

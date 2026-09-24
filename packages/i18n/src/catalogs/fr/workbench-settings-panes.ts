@@ -64,6 +64,7 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.linkHint':
     "Le navigateur ne s'est pas ouvert ? Ouvrez ce lien dans le navigateur de votre choix :",
   'workbench.settings.backendPane.wizard.signIn.tryAgain': 'Réessayer',
+  'workbench.settings.backendPane.wizard.signIn.cancelSignIn': 'Annuler la connexion',
   'workbench.settings.backendPane.wizard.signIn.unclaimed':
     "Ce serveur n'a pas encore d'administrateur. Configurez-le d'abord sur {url}, puis connectez-vous depuis ici.",
   'workbench.settings.backendPane.wizard.signIn.noLogin':

@@ -192,7 +192,7 @@ describe('BackendSignInStep', () => {
     // any browser — the open is a convenience, not the only path.
     expect(screen.getByText("Browser didn't open? Open this link in any browser:")).toBeTruthy();
     expect(screen.getByTestId('backend-sign-in-url').textContent).toContain(VERIFY_LINK);
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeTruthy();
     // The secondary path stays one link away, never gone.
     expect(screen.getByText('Have a pairing code or token from an administrator?')).toBeTruthy();
   });
@@ -215,7 +215,7 @@ describe('BackendSignInStep', () => {
     expect(screen.queryByTestId('backend-sign-in-code')).toBeNull();
     expect(screen.queryByTestId('backend-sign-in-url')).toBeNull();
     expect(openExternal).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancel sign-in' })).toBeTruthy();
 
     await act(() => vi.advanceTimersByTimeAsync(SIGN_IN_POLL_INTERVAL_MS * 2));
     vi.useRealTimers();
@@ -266,7 +266,7 @@ describe('BackendSignInStep', () => {
     vi.useFakeTimers();
     fireEvent.click(primary);
     await flush();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }));
     await act(() => vi.advanceTimersByTimeAsync(SIGN_IN_POLL_INTERVAL_MS * 3));
 
     expect(fake.poll).not.toHaveBeenCalled();
