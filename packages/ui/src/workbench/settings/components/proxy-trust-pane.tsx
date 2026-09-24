@@ -63,16 +63,26 @@ const HELPER_STATE_COLOR: Record<HelperRegistration, string | undefined> = {
   unknown: undefined,
 };
 
+/** A derived Firefox row names the installed app bundle, not a profile. */
+function isFirefoxInstallRef(store: ProxyTrustStoreId, ref: string): boolean {
+  return store === 'nss-firefox' && ref.endsWith('.app');
+}
+
 /**
- * Firefox rows are per-profile — profile dirs are `<salt>.<name>`, so
- * the name part tells them apart ("default", "default-release"); the
- * full path stays in the row tooltip.
+ * Firefox profile rows are per-profile — profile dirs are
+ * `<salt>.<name>`, so the name part tells them apart ("default",
+ * "default-release"); the full path stays in the row tooltip. An
+ * install row shows its bundle path whole, like the keychain rows.
  */
 function storeRefName(store: ProxyTrustStoreId, ref: string): string {
-  if (store !== 'nss-firefox') return ref;
+  if (store !== 'nss-firefox' || isFirefoxInstallRef(store, ref)) return ref;
   const basename = ref.split('/').pop() ?? ref;
   const dot = basename.indexOf('.');
   return dot > 0 ? basename.slice(dot + 1) : basename;
+}
+
+function storeLabelKey(store: ProxyTrustStoreId, ref: string): MessageKey {
+  return isFirefoxInstallRef(store, ref) ? 'workbench.settings.proxyTrustPane.stores.firefox' : STORE_LABEL[store];
 }
 
 type WizardStep = { step: 'explain' } | { step: 'choose' } | { step: 'results'; results: ReadonlyArray<StoreResult> };
@@ -90,7 +100,6 @@ const STATE_TEXT: Record<ProxyTrustStoreState['state'], MessageKey> = {
   mismatch: 'workbench.settings.proxyTrustPane.stores.state.mismatch',
   unavailable: 'workbench.settings.proxyTrustPane.stores.state.unavailable',
   covered: 'workbench.settings.proxyTrustPane.stores.state.covered',
-  optedOut: 'workbench.settings.proxyTrustPane.stores.state.optedOut',
 };
 
 const STATE_COLOR: Record<ProxyTrustStoreState['state'], string | undefined> = {
@@ -100,7 +109,6 @@ const STATE_COLOR: Record<ProxyTrustStoreState['state'], string | undefined> = {
   mismatch: 'red',
   unavailable: 'orange',
   covered: 'green',
-  optedOut: 'gold',
 };
 
 function formatDay(iso: string): string {
@@ -294,7 +302,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
       {results.map((r) => (
         <div key={`${r.store}:${r.ref}`} style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '4px 0', fontSize: 12 }}>
           <Tag color={r.ok ? 'green' : 'red'} style={{ fontSize: 11 }}>
-            {t(STORE_LABEL[r.store])}
+            {t(storeLabelKey(r.store, r.ref))}
           </Tag>
           <span style={{ color: r.ok ? token.colorText : token.colorError, wordBreak: 'break-word' }}>
             {r.ok
@@ -423,7 +431,7 @@ const ProxyTrustPane: React.FC<CategoryPaneProps> = ({ category }) => {
             style={{ display: 'flex', columnGap: 6, alignItems: 'baseline', padding: '3px 0', fontSize: 12 }}
           >
             <span style={{ minWidth: 180, flex: 'none', fontSize: 13, color: token.colorText }}>
-              {`${t(STORE_LABEL[s.store])}:`}
+              {`${t(storeLabelKey(s.store, s.ref))}:`}
             </span>
             <Tag color={STATE_COLOR[s.state]} style={{ fontSize: 11, flex: 'none' }}>
               {t(STATE_TEXT[s.state])}

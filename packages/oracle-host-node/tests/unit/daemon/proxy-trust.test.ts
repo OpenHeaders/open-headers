@@ -221,9 +221,17 @@ describe('proxy-trust service', () => {
       exec: fake.exec,
       homedir: dir,
       platform: overrides.platform ?? 'darwin',
+      applicationsRoots: [path.join(dir, 'Applications')],
       tmpdir: dir,
       systemHelper: overrides.systemHelper ?? helper,
     });
+  }
+
+  /** Create a Firefox app bundle under the test Applications root. */
+  async function makeFirefoxInstall(bundle = 'Firefox.app'): Promise<string> {
+    const app = path.join(dir, 'Applications', bundle);
+    await mkdir(path.join(app, 'Contents'), { recursive: true });
+    return app;
   }
 
   /** Create an NSS profile dir (with cert9.db) under the platform's Firefox root. */
@@ -413,7 +421,7 @@ describe('proxy-trust service', () => {
   });
 
   it('where Firefox reads the OS store (macOS), nss-firefox installs are refused — no row, no certutil', async () => {
-    await makeProfile('darwin', 'abc.default');
+    await makeFirefoxInstall();
     const result = await service().install(['nss-firefox']);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -423,28 +431,30 @@ describe('proxy-trust service', () => {
     expect(await listTrustChanges()).toHaveLength(0);
   });
 
-  it('an unrecorded Firefox profile derives coverage from the keychain cells — no certutil probe', async () => {
+  it('an installed Firefox derives coverage from the keychain cells — one row per bundle, no certutil probe', async () => {
     const ca = await ensureProxyCa();
-    const profile = await makeProfile('darwin', 'abc.default');
+    const app = await makeFirefoxInstall();
+    const nightly = await makeFirefoxInstall('Firefox Nightly.app');
     probeAnswersTrusted(certFingerprints(ca.certPem).sha256);
     const status = await service().status();
-    const row = status.stores.find((s) => s.store === 'nss-firefox');
-    expect(row).toEqual({ store: 'nss-firefox', ref: profile, state: 'covered' });
+    const rows = status.stores.filter((s) => s.store === 'nss-firefox');
+    expect(rows).toEqual([
+      { store: 'nss-firefox', ref: app, state: 'covered' },
+      { store: 'nss-firefox', ref: nightly, state: 'covered' },
+    ]);
     expect(fake.calls.some((c) => c.cmd === 'certutil')).toBe(false);
   });
 
-  it('a profile that disabled enterprise roots reads optedOut, never covered', async () => {
+  it('the derived row keys off the app bundle — a profile folder alone yields no row (guarded app data)', async () => {
     const ca = await ensureProxyCa();
-    const profile = await makeProfile('darwin', 'abc.default');
-    await writeFile(path.join(profile, 'prefs.js'), 'user_pref("security.enterprise_roots.enabled", false);\n');
+    await makeProfile('darwin', 'abc.default');
     probeAnswersTrusted(certFingerprints(ca.certPem).sha256);
     const status = await service().status();
-    const row = status.stores.find((s) => s.store === 'nss-firefox');
-    expect(row?.state).toBe('optedOut');
+    expect(status.stores.some((s) => s.store === 'nss-firefox')).toBe(false);
   });
 
   it('without a trusted keychain cell a derived Firefox row reads absent — coverage arrives with the install', async () => {
-    await makeProfile('darwin', 'abc.default');
+    await makeFirefoxInstall();
     const status = await service().status();
     const row = status.stores.find((s) => s.store === 'nss-firefox');
     expect(row?.state).toBe('absent');

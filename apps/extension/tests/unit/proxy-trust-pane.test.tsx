@@ -137,6 +137,24 @@ describe('ProxyTrustPane', () => {
     expect(screen.queryByTestId('proxy-trust-delete-ca')).toBeNull();
   });
 
+  it('a derived Firefox row names the install, not a profile, and shows its bundle path whole', async () => {
+    installBridge(() => ({
+      ca: null,
+      stores: [
+        storeState({ state: 'trusted' }),
+        storeState({ store: 'nss-firefox', ref: '/Applications/Firefox.app', state: 'covered' }),
+      ],
+      changes: [],
+    }));
+    renderPane();
+
+    await waitFor(() => expect(screen.getByTestId('proxy-trust-store-nss-firefox')).toBeTruthy());
+    expect(screen.getByText('Firefox:')).toBeTruthy();
+    expect(screen.queryByText('Firefox profile:')).toBeNull();
+    expect(screen.getByText('Covered via OS store')).toBeTruthy();
+    expect(screen.getByText('/Applications/Firefox.app')).toBeTruthy();
+  });
+
   it('surfaces a fingerprint mismatch as tamper visibility', async () => {
     installBridge(() => ({
       ca: CA,

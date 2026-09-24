@@ -566,10 +566,10 @@ export interface DaemonRpc {
    * (never a remembered flag — the peek-don't-bump discipline). `ca`
    * is null until first trust mints one. `stores` covers every store
    * this machine exposes (login/System keychains, discovered Firefox
-   * profiles) unioned with the recorded changes; `changes` is the
-   * durable what-we-changed record teardown will undo. Where Firefox
-   * reads the OS store (macOS, Firefox 120+), unrecorded profiles
-   * carry a derived verdict (`covered`/`optedOut`) instead of a
+   * profiles or installs) unioned with the recorded changes; `changes`
+   * is the durable what-we-changed record teardown will undo. Where
+   * Firefox reads the OS store (macOS, Firefox 120+), each installed
+   * app bundle carries a derived verdict (`covered`) instead of a
    * probed one — only recorded legacy rows still probe via certutil.
    */
   'oh.daemon.proxy.trust.status': {

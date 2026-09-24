@@ -34,7 +34,12 @@ import {
   readProxyCa,
 } from './ca-store';
 import { defaultExec, type ExecFn } from './exec';
-import { firefoxFollowsOsStore, probeFirefoxOsCoverage } from './trust-firefox-os';
+import {
+  defaultApplicationsRoots,
+  discoverFirefoxInstalls,
+  firefoxFollowsOsStore,
+  probeFirefoxOsCoverage,
+} from './trust-firefox-os';
 import {
   createSystemTrustHelper,
   type SystemTrustHelper,
@@ -105,6 +110,8 @@ export interface ProxyTrustDeps {
   exec?: ExecFn;
   homedir?: string;
   platform?: string;
+  /** Where app bundles live — the derived Firefox row looks for one here. */
+  applicationsRoots?: string[];
   tmpdir?: string;
   now?: () => number;
   /**
@@ -120,6 +127,7 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
   const exec = deps.exec ?? defaultExec;
   const homedir = deps.homedir ?? os.homedir();
   const platform = deps.platform ?? process.platform;
+  const applicationsRoots = deps.applicationsRoots ?? defaultApplicationsRoots(homedir);
   const now = deps.now ?? Date.now;
   const systemHelper = deps.systemHelper ?? createSystemTrustHelper();
   const keychainDeps = { exec, ...(deps.tmpdir !== undefined ? { tmpdir: deps.tmpdir } : {}) };
@@ -152,13 +160,16 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
       }
     }
     const osStoreTrusted = stores.some((s) => s.state === 'trusted');
-    // Discovered profiles, then any recorded ref not already covered (a
+    // Discovered targets, then any recorded ref not already covered (a
     // profile deleted since install still gets probed so the record's
     // row can be reasoned about). A profile with a recorded certutil
     // row keeps the legacy NSS probe — the row must stay verifiable
-    // until teardown clears it; unrecorded profiles on a platform where
-    // Firefox reads the OS store get the derived verdict instead.
-    const firefoxTargets = await discoverFirefoxProfiles(homedir, platform);
+    // until teardown clears it. Where Firefox reads the OS store the
+    // targets are the installed app bundles, never the profile folder
+    // (guarded app data on macOS), and each gets the derived verdict.
+    const firefoxTargets = firefoxFollowsOsStore(platform)
+      ? await discoverFirefoxInstalls(applicationsRoots)
+      : await discoverFirefoxProfiles(homedir, platform);
     for (const change of changes) {
       const covered =
         (change.store === 'nss-firefox' && firefoxTargets.includes(change.ref)) ||
@@ -170,7 +181,7 @@ export function createProxyTrustService(deps: ProxyTrustDeps = {}): ProxyTrustSe
     for (const profile of firefoxTargets) {
       const recorded = changes.find((c) => c.store === 'nss-firefox' && c.ref === profile);
       if (recorded === undefined && firefoxFollowsOsStore(platform)) {
-        stores.push(await probeFirefoxOsCoverage(profile, osStoreTrusted));
+        stores.push(probeFirefoxOsCoverage(profile, osStoreTrusted));
         continue;
       }
       stores.push(await probeStore('nss-firefox', profile, caFingerprint ?? recorded?.fingerprintSha256 ?? null));
