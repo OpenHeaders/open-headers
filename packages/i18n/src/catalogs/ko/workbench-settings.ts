@@ -73,9 +73,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': '프리셋',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': '연결',
-  'workbench.settings.category.connectivity.description':
-    '이 기기의 요청이 네트워크에 도달하는 방식과 그 사이의 프록시입니다.',
   'workbench.settings.category.backend.label': '백업 및 동기화',
   'workbench.settings.category.backend.description':
     '워크스페이스를 백업하고 동기화하는 곳입니다. 이 컴퓨터의 데스크톱 앱이거나, 나 또는 팀이 운영하는 서버입니다.',

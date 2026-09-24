@@ -44,7 +44,7 @@ describe('application settings group', () => {
       'versionControl',
       'tools',
       'backend',
-      'connectivity',
+      'proxy',
       'application',
     ]);
   });

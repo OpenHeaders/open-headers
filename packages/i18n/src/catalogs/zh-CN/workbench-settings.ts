@@ -65,8 +65,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': '预设',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': '连接',
-  'workbench.settings.category.connectivity.description': '此设备的请求如何到达网络，以及中间的代理。',
   'workbench.settings.category.backend.label': '备份与同步',
   'workbench.settings.category.backend.description':
     '你的工作区在何处备份与同步——本机上的桌面应用，或你或你的团队运行的服务器。',

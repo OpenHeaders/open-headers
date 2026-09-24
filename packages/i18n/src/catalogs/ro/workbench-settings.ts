@@ -92,9 +92,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Presetări',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': 'Conectivitate',
-  'workbench.settings.category.connectivity.description':
-    'Cum ajung în rețea cererile de pe acest dispozitiv și proxy-urile intermediare.',
   'workbench.settings.category.backend.label': 'Copie de rezervă și sincronizare',
   'workbench.settings.category.backend.description':
     'Unde se păstrează copiile de rezervă ale spațiilor dvs. de lucru și unde se sincronizează — aplicația desktop de pe acest computer sau un server administrat de dvs. ori de echipa dvs.',

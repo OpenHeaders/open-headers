@@ -22,7 +22,7 @@ function expectDefsTagDeclaredSubcategories(categoryId: string): void {
 }
 
 describe('backend settings group', () => {
-  it('backend is an ungated root between tools and connectivity, with no defs of its own; sync is its first child', () => {
+  it('backend is an ungated root between tools and proxy, with no defs of its own; sync is its first child', () => {
     const backend = getCategory('backend');
     expect(backend?.parent).toBeUndefined();
     expect(backend?.when).toBeUndefined();
@@ -31,7 +31,7 @@ describe('backend settings group', () => {
       .filter((c) => c.parent === undefined)
       .map((c) => c.id);
     expect(roots.indexOf('backend')).toBe(roots.indexOf('tools') + 1);
-    expect(roots.indexOf('connectivity')).toBe(roots.indexOf('backend') + 1);
+    expect(roots.indexOf('proxy')).toBe(roots.indexOf('backend') + 1);
     expect(backend?.renderPane).toBeDefined();
     expect(backend?.subcategories).toBeUndefined();
     expect(byCategory('backend')).toHaveLength(0);

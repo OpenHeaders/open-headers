@@ -70,9 +70,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Préréglages',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': 'Connectivité',
-  'workbench.settings.category.connectivity.description':
-    'Comment les requêtes de cet appareil atteignent le réseau, et les proxys entre les deux.',
   'workbench.settings.category.backend.label': 'Sauvegarde et synchronisation',
   'workbench.settings.category.backend.description':
     "Où vos espaces de travail sont sauvegardés et synchronisés : l'application de bureau sur cet ordinateur, ou un serveur que vous ou votre équipe faites tourner.",

@@ -4,7 +4,7 @@
  * Each entry becomes one row in the left nav, in `order` among its
  * siblings. The tree has ten roots — Appearance & Behavior, Keyboard,
  * Editor, Browser Interceptor, API Requests, Version Control, Tools,
- * Backup and Sync, Connectivity, Application — each group root a
+ * Backup and Sync, Proxy, Application — each group root a
  * `GroupLandingPane` over its children (`parent`), nesting as deep as a
  * page needs. New categories declare their icon here and their
  * label/description as `workbench.settings.category.*` catalog keys;
@@ -58,18 +58,6 @@ const GitAutomationPane = lazy(() => import('./components/git/git-automation-pan
 const ProxyTrustPane = lazy(() => import('./components/proxy-trust-pane'));
 const SystemProxyPane = lazy(() => import('./components/system-proxy-pane'));
 const KeymapPane = lazy(() => import('./components/keymap/KeymapPane'));
-
-registerCategory({
-  id: 'connectivity',
-  labelKey: 'workbench.settings.category.connectivity.label',
-  icon: <GlobalOutlined />,
-  order: 80,
-  descriptionKey: 'workbench.settings.category.connectivity.description',
-  // Group node over how requests leave this device: the Proxy group
-  // (desktop / daemon admin, teasered elsewhere). The group itself stays
-  // ungated.
-  renderPane: GroupLandingPane,
-});
 
 registerCategory({
   id: 'backend',
@@ -575,12 +563,11 @@ registerCategory({
 registerCategory({
   id: 'proxy',
   labelKey: 'workbench.settings.category.proxy.label',
-  parent: 'connectivity',
   icon: <GlobalOutlined />,
-  order: 20,
+  order: 80,
   descriptionKey: 'workbench.settings.category.proxy.description',
   renderPane: GroupLandingPane,
-  // Group node over the two proxy planes — outbound egress and capture
+  // Root group over the two proxy planes — outbound egress and capture
   // trust share the word but nothing else, so each child carries its
   // own pane and its own host gate. Hosts where every child's gate
   // denies keep this nav entry and render the desktop teaser.

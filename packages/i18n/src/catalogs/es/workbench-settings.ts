@@ -75,9 +75,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Preajustes',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': 'Conectividad',
-  'workbench.settings.category.connectivity.description':
-    'Cómo las solicitudes de este dispositivo llegan a la red, y los proxies intermedios.',
   'workbench.settings.category.backend.label': 'Copia de seguridad y sincronización',
   'workbench.settings.category.backend.description':
     'Dónde se respaldan y sincronizan tus espacios de trabajo: la aplicación de escritorio en este equipo, o un servidor que gestionas tú o tu equipo.',

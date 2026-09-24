@@ -74,9 +74,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Voreinstellungen',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': 'Konnektivität',
-  'workbench.settings.category.connectivity.description':
-    'Wie Anfragen von diesem Gerät ins Netzwerk gelangen – und die Proxys dazwischen.',
   'workbench.settings.category.backend.label': 'Sicherung und Synchronisierung',
   'workbench.settings.category.backend.description':
     'Wo deine Arbeitsbereiche gesichert und synchronisiert werden – die Desktop-App auf diesem Computer oder ein Server, den du oder dein Team betreibt.',

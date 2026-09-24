@@ -61,9 +61,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Presets',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': 'Connectivity',
-  'workbench.settings.category.connectivity.description':
-    'How requests from this device reach the network, and the proxies in between.',
   'workbench.settings.category.backend.label': 'Backup and Sync',
   'workbench.settings.category.backend.description':
     'Where your workspaces are backed up and synced — the desktop app on this computer, or a server you or your team run.',

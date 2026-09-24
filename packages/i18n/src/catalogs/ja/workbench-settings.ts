@@ -69,9 +69,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'プリセット',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': '接続性',
-  'workbench.settings.category.connectivity.description':
-    'このデバイスからのリクエストがネットワークに到達する方法と、その間にあるプロキシ。',
   'workbench.settings.category.backend.label': 'バックアップと同期',
   'workbench.settings.category.backend.description':
     'ワークスペースのバックアップと同期の場所。このコンピューターのデスクトップアプリ、またはあなたやチームが運用するサーバー。',

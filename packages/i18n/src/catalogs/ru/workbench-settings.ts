@@ -90,9 +90,6 @@ export const workbenchSettings = {
   'workbench.settings.row.presetsHeading': 'Предустановки',
 
   // ── Categories ─────────────────────────────────────────────────────
-  'workbench.settings.category.connectivity.label': 'Подключение',
-  'workbench.settings.category.connectivity.description':
-    'Как запросы с этого устройства попадают в сеть и какие прокси стоят на пути.',
   'workbench.settings.category.backend.label': 'Резервное копирование и синхронизация',
   'workbench.settings.category.backend.description':
     'Где хранятся резервные копии ваших рабочих пространств и с чем они синхронизируются — настольное приложение на этом компьютере или сервер, который запускаете вы или ваша команда.',
