@@ -125,7 +125,7 @@ export const web = {
   'web.consent.clientDesktop': 'aplicația desktop',
   'web.consent.clientExtension': 'extensia de browser',
   'web.consent.clientCli': 'instrumentul de linie de comandă',
-  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.fromDevice': 'De pe {device}.',
   'web.consent.code': 'Cod {code} — verificați că se potrivește cu codul afișat de dispozitivul dvs.',
   'web.consent.expires': 'Expiră în aproximativ {minutes} min',
   'web.consent.allow': 'Autorizare',

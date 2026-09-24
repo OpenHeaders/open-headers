@@ -86,7 +86,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.offline':
     "Rien n'a répondu sur {host}. Est-il en cours d'exécution à cette adresse ?",
   'workbench.settings.backendPane.wizard.signIn.fail.generic': "La connexion n'a pas pu démarrer. Réessayez.",
-  'workbench.settings.backendPane.wizard.back': 'Retour',
   'workbench.settings.backendPane.wizard.next': 'Suivant',
   'workbench.settings.backendPane.wizard.connectIntro':
     "L'adresse à laquelle cet appareil se connecte. Rien ne se connecte avant que la dernière étape ne la vérifie.",
@@ -96,15 +95,9 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     "Prêt : {label} sur {url}, connecté. Connecter vérifie d'abord l'adresse et la connexion ; ses espaces de " +
     'travail se synchronisent ensuite et restent utilisables hors ligne.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    "Prêt : {label} sur {url} — pas encore connecté. Connecter vérifie d'abord l'adresse et la connexion ; ses " +
-    'espaces de travail se synchronisent ensuite et restent utilisables hors ligne.',
   'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
     "Prêt : {url}, connecté. Connecter vérifie d'abord l'adresse et la connexion ; ses espaces de travail se " +
     'synchronisent ensuite et restent utilisables hors ligne.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
-    "Prêt : {url} — pas encore connecté. Connecter vérifie d'abord l'adresse et la connexion ; ses espaces de " +
-    'travail se synchronisent ensuite et restent utilisables hors ligne.',
   'workbench.settings.backendPane.wizard.additionalConnection':
     "C'est une connexion supplémentaire. Ses espaces de travail apparaissent comme un nouveau groupe dans le " +
     'sélecteur, le popover de statut gagne une ligne pour elle, et chaque groupe se synchronise depuis un seul ' +

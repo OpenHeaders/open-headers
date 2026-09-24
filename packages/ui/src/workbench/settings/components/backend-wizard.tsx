@@ -133,7 +133,6 @@ const WizardDialog: React.FC<{
   const probeSeq = useRef(0);
 
   const label = backendDisplayLabel(record);
-  const hasToken = record.authToken.trim().length > 0;
   // The last step names the place the way its row will: the label,
   // else the group the WELCOME named, else the host — the URL beside.
   const place = backendPlace(host, record, verdict?.kind === 'signed-in' && verdict.name ? [verdict.name] : []);
@@ -192,7 +191,11 @@ const WizardDialog: React.FC<{
   }
 
   const nextDisabled = step === ADDRESS_STEP && !urlLooksComplete(record.url);
-  const nextIsPrimary = step !== SIGN_IN_STEP || verdict?.kind === 'signed-in';
+  // One action per view, and no way back: the address step offers Next
+  // once the address parses, the sign-in step only once the WELCOME
+  // named the person (until then its own offer is the one action), and
+  // the last step Connect. A wrong address is a Cancel and a fresh start.
+  const showNext = step === ADDRESS_STEP || (step === SIGN_IN_STEP && verdict?.kind === 'signed-in');
 
   return (
     <Modal
@@ -205,20 +208,12 @@ const WizardDialog: React.FC<{
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
           <Button onClick={() => void cancel()}>{t('shared.action.cancel')}</Button>
           <div style={{ display: 'flex', gap: 8 }}>
-            {step > ADDRESS_STEP && (
-              <Button onClick={() => setStep(step - 1)}>{t('workbench.settings.backendPane.wizard.back')}</Button>
-            )}
-            {step < CONNECT_STEP ? (
-              // One primary per view: while the sign-in step still offers
-              // its own action, Next steps back to a plain button.
-              <Button
-                type={nextIsPrimary ? 'primary' : 'default'}
-                disabled={nextDisabled}
-                onClick={() => setStep(step + 1)}
-              >
+            {showNext && (
+              <Button type="primary" disabled={nextDisabled} onClick={() => setStep(step + 1)}>
                 {t('workbench.settings.backendPane.wizard.next')}
               </Button>
-            ) : (
+            )}
+            {step === CONNECT_STEP && (
               <Button type="primary" loading={finishing} onClick={() => void finish()}>
                 {t('workbench.settings.backendPane.wizard.connect')}
               </Button>
@@ -255,7 +250,7 @@ const WizardDialog: React.FC<{
       )}
       {step === CONNECT_STEP && (
         <div style={{ padding: '4px 2px' }}>
-          <StepIntro text={readyIntro(place.name, record.url, hasToken, t)} />
+          <StepIntro text={readyIntro(place.name, record.url, t)} />
           {isAdditionalConnection && <StepIntro text={t('workbench.settings.backendPane.wizard.additionalConnection')} />}
         </div>
       )}
@@ -263,22 +258,10 @@ const WizardDialog: React.FC<{
   );
 };
 
-/** The last step's line: the place at its address, or the address alone for a place with no name. */
-function readyIntro(placeName: string | null, url: string, signedIn: boolean, t: Translate): string {
-  if (placeName === null) {
-    return t(
-      signedIn
-        ? 'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed'
-        : 'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed',
-      { url },
-    );
-  }
-  return t(
-    signedIn
-      ? 'workbench.settings.backendPane.wizard.readyIntroPaired'
-      : 'workbench.settings.backendPane.wizard.readyIntroNotPaired',
-    { label: placeName, url },
-  );
+/** The last step's line, reached signed in only: the place at its address, or the address alone when nameless. */
+function readyIntro(placeName: string | null, url: string, t: Translate): string {
+  if (placeName === null) return t('workbench.settings.backendPane.wizard.readyIntroPairedUnnamed', { url });
+  return t('workbench.settings.backendPane.wizard.readyIntroPaired', { label: placeName, url });
 }
 
 /** Rough completeness check for the staged URL — scheme plus a host. */

@@ -84,7 +84,6 @@ export const workbenchSettingsPanes = {
     '{host} からは何も応答がありませんでした。そのアドレスで動作していますか？',
   'workbench.settings.backendPane.wizard.signIn.fail.generic':
     'サインインを開始できませんでした。もう一度お試しください。',
-  'workbench.settings.backendPane.wizard.back': '戻る',
   'workbench.settings.backendPane.wizard.next': '次へ',
   'workbench.settings.backendPane.wizard.connectIntro':
     'このデバイスが接続するアドレスです。最後のステップで検証するまで何も接続されません。',
@@ -92,12 +91,8 @@ export const workbenchSettingsPanes = {
     'デスクトップアプリとの自動ペアリングが通りませんでした。アプリが動作していないか、このブラウザーを検証できなかった可能性があります。代わりにコードまたは token でペアリングしてください。',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     '準備完了：{url} の {label}、サインイン済み。接続はまずアドレスとサインインを検証し、その後ワークスペースが同期され、オフラインでも使えるようになります。',
-  'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    '準備完了：{url} の {label}、まだサインインしていません。接続はまずアドレスとサインインを検証し、その後ワークスペースが同期され、オフラインでも使えるようになります。',
   'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
     '準備完了：{url}、サインイン済み。接続はまずアドレスとサインインを検証し、その後ワークスペースが同期され、オフラインでも使えるようになります。',
-  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
-    '準備完了：{url}、まだサインインしていません。接続はまずアドレスとサインインを検証し、その後ワークスペースが同期され、オフラインでも使えるようになります。',
   'workbench.settings.backendPane.wizard.additionalConnection':
     'これは追加の接続です。そのワークスペースはワークスペース切り替えに新しいグループとして現れ、ステータスポップオーバーにその行が加わり、各グループは正確に 1 つの場所から同期します。別の接続が既に提供しているグループは二重には参加しません。',
   'workbench.settings.backendPane.wizard.disableFirst':

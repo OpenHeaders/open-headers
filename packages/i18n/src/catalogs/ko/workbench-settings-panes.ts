@@ -89,7 +89,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.offline':
     '{host} 호스트에서 아무 응답이 없습니다. 해당 주소에서 실행 중인가요?',
   'workbench.settings.backendPane.wizard.signIn.fail.generic': '로그인을 시작할 수 없습니다. 다시 시도하세요.',
-  'workbench.settings.backendPane.wizard.back': '뒤로',
   'workbench.settings.backendPane.wizard.next': '다음',
   'workbench.settings.backendPane.wizard.connectIntro':
     '이 기기가 연결하는 주소입니다. 마지막 단계에서 검증하기 전까지 아무것도 연결되지 않습니다.',
@@ -97,12 +96,8 @@ export const workbenchSettingsPanes = {
     '데스크톱 앱과의 자동 페어링이 진행되지 않았습니다. 실행 중이 아니거나 이 브라우저를 검증할 수 없었을 수 있습니다. 대신 코드나 token 값으로 페어링하세요.',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     '준비됨: {url}의 {label}, 로그인됨. 연결은 먼저 주소와 로그인을 검증합니다. 그다음 워크스페이스가 내려와 동기화되고 오프라인에서도 쓸 수 있습니다.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    '준비됨: {url}의 {label}. 아직 로그인하지 않았습니다. 연결은 먼저 주소와 로그인을 검증합니다. 그다음 워크스페이스가 내려와 동기화되고 오프라인에서도 쓸 수 있습니다.',
   'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
     '준비됨: {url}, 로그인됨. 연결은 먼저 주소와 로그인을 검증합니다. 그다음 워크스페이스가 내려와 동기화되고 오프라인에서도 쓸 수 있습니다.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
-    '준비됨: {url}. 아직 로그인하지 않았습니다. 연결은 먼저 주소와 로그인을 검증합니다. 그다음 워크스페이스가 내려와 동기화되고 오프라인에서도 쓸 수 있습니다.',
   'workbench.settings.backendPane.wizard.additionalConnection':
     '추가 연결입니다. 그 워크스페이스는 워크스페이스 전환기에 새 그룹으로 나타나고, 상태 팝오버에 행이 하나 늘며, 각 그룹은 정확히 한 곳에서만 동기화됩니다. 다른 연결이 이미 제공하는 그룹은 두 번 참여하지 않습니다.',
   'workbench.settings.backendPane.wizard.disableFirst':

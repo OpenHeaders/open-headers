@@ -98,7 +98,7 @@ export const web = {
   'web.consent.clientDesktop': 'デスクトップアプリ',
   'web.consent.clientExtension': 'ブラウザー拡張機能',
   'web.consent.clientCli': 'コマンドラインツール',
-  'web.consent.whoLabelled': '{device}（{client}）',
+  'web.consent.fromDevice': '{device} からのリクエストです。',
   'web.consent.code': 'コード {code}：デバイスに表示されているコードと一致することを確認してください。',
   'web.consent.expires': '約 {minutes} 分で期限切れ',
   'web.consent.allow': '許可',

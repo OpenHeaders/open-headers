@@ -12,6 +12,9 @@
  *     asks to sign in, an accepted WELCOME names the place and, for a
  *     bound credential, the person (the step's own states are pinned in
  *     `backend-sign-in-step.test.tsx`);
+ *   - one action per view and no way back: the sign-in step shows Next
+ *     only once the WELCOME named the person, Check again only for a
+ *     server that did not answer, and no step offers Back;
  *   - the final step names the place the way its row will (the label,
  *     else the WELCOME's group, else the host; the address alone for the
  *     unlabelled desktop app), offers Connect alone, and routes through
@@ -116,6 +119,11 @@ function renderWizard(
 
 const next = (): void => {
   fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+};
+
+/** The sign-in step's Next exists only once the probe's WELCOME landed. */
+const nextOnceSignedIn = async (): Promise<void> => {
+  fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
 };
 
 afterEach(() => {
@@ -243,11 +251,11 @@ describe('BackendWizard', () => {
       expect(screen.getByText('10.0.0.5 asks this device to sign in.')).toBeTruthy();
     });
     expect(probe).toHaveBeenCalledWith('ws://10.0.0.5:8137');
-    // The loading icon's leave motion never ends under jsdom, so its
-    // label lingers in the accessible name.
-    expect(screen.getByRole('button', { name: /Check again/ })).toBeTruthy();
-    // One primary per view: the step's own offer holds it, Next steps back.
-    expect(screen.getByRole('button', { name: 'Next' }).className).not.toContain('ant-btn-primary');
+    // One action per view: the step's own offer is the only one — no
+    // Next before the sign-in, no Back, no re-check for a server that answered.
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Check again/ })).toBeNull();
   });
 
   it('the sign-in step names the place when the credential already signs in', async () => {
@@ -260,8 +268,9 @@ describe('BackendWizard', () => {
     await waitFor(() => {
       expect(screen.getByText('Signed in to Acme.')).toBeTruthy();
     });
-    // Signed in, the step offers nothing of its own — Next is the one primary.
+    // Signed in, the step offers nothing of its own — Next is the one action.
     expect(screen.getByRole('button', { name: 'Next' }).className).toContain('ant-btn-primary');
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
   it('the sign-in step names the person and the place when the WELCOME carries both', async () => {
@@ -283,12 +292,13 @@ describe('BackendWizard', () => {
   });
 
   it('Connect routes through the enable switch and closes on commit', async () => {
+    probe.mockResolvedValue(ACCEPTED_BY_ACME);
     const record = await createBackend({ url: 'ws://127.0.0.1:8137', authToken: 'tok' });
     const enableSwitch = createEnableSwitchStub(true);
     const { onClose } = renderWizard({ recordId: record.id, mode: 'edit' }, enableSwitch);
 
     next();
-    next();
+    await nextOnceSignedIn();
     fireEvent.click(screen.getByRole('button', { name: /^Connect$/ }));
 
     await waitFor(() => {
@@ -314,44 +324,47 @@ describe('BackendWizard', () => {
   });
 
   it('the Connect step reads the address alone for the unlabelled desktop app', async () => {
-    probe.mockResolvedValue(AUTH_REQUIRED);
-    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
+    probe.mockResolvedValue({ ...ACCEPTED_BY_ACME, orgName: null });
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137', authToken: 'tok' });
     renderWizard({ recordId: record.id, mode: 'add', kind: 'desktop-app' });
 
     next();
-    next();
+    await nextOnceSignedIn();
 
-    expect(screen.getByText(/^Ready: ws:\/\/127\.0\.0\.1:8137 — not signed in yet\./)).toBeTruthy();
+    expect(screen.getByText(/^Ready: ws:\/\/127\.0\.0\.1:8137, signed in\./)).toBeTruthy();
   });
 
   it('adding a connection beyond the first explains what an additional one changes', async () => {
+    probe.mockResolvedValue(ACCEPTED_BY_ACME);
     await createBackend({ url: 'ws://127.0.0.1:8137', label: 'First desktop' });
     const second = await createBackend({ url: 'ws://127.0.0.1:8138', authToken: 'tok' });
     renderWizard({ recordId: second.id, mode: 'add', kind: 'server' });
 
     next();
-    next();
+    await nextOnceSignedIn();
 
     expect(screen.getByText(/This is an additional connection/)).toBeTruthy();
   });
 
   it('the first add carries no additional-connection note', async () => {
+    probe.mockResolvedValue(ACCEPTED_BY_ACME);
     const record = await createBackend({ url: 'ws://127.0.0.1:8137', authToken: 'tok' });
     renderWizard({ recordId: record.id, mode: 'add', kind: 'server' });
 
     next();
-    next();
+    await nextOnceSignedIn();
 
     expect(screen.queryByText(/This is an additional connection/)).toBeNull();
   });
 
   it('a probe abort keeps the wizard open', async () => {
+    probe.mockResolvedValue(ACCEPTED_BY_ACME);
     const record = await createBackend({ url: 'ws://127.0.0.1:8137', authToken: 'tok' });
     const enableSwitch = createEnableSwitchStub(false);
     const { onClose } = renderWizard({ recordId: record.id, mode: 'edit' }, enableSwitch);
 
     next();
-    next();
+    await nextOnceSignedIn();
     fireEvent.click(screen.getByRole('button', { name: /^Connect$/ }));
 
     await waitFor(() => {

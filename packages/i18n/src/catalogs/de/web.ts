@@ -114,7 +114,7 @@ export const web = {
   'web.consent.clientDesktop': 'die Desktop-App',
   'web.consent.clientExtension': 'die Browser-Erweiterung',
   'web.consent.clientCli': 'das Kommandozeilen-Tool',
-  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.fromDevice': 'Von {device}.',
   'web.consent.code': 'Code {code} — prüfe, ob er mit dem Code übereinstimmt, den dein Gerät anzeigt.',
   'web.consent.expires': 'Läuft in etwa {minutes} min ab',
   'web.consent.allow': 'Erlauben',

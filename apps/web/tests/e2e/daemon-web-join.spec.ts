@@ -1112,9 +1112,12 @@ test('consent: a signed-in tab approves a device-grant sign-in on the card and t
     `Code ${first.user_code} — check that it matches the code your device shows.`,
   );
   await expect(adminPage.locator('[data-testid=consent-card-asks]')).toContainText(
-    'e2e box (the command-line tool) would like to sign in to this server',
+    'The command-line tool would like to sign in to this server',
     { timeout: 5_000 },
   );
+  // The device grant names the device — the one grant a person may
+  // approve from another machine.
+  await expect(adminPage.locator('[data-testid=consent-card-device]')).toHaveText('From e2e box.');
 
   // Allow settles the record; nothing is minted until the CLI polls.
   await adminPage.click('[data-testid=consent-card-allow]');
@@ -1222,11 +1225,13 @@ test('consent: a code-grant sign-in gates first, the password sign-in hands back
   await signInAtGate(piaPage, 'pia@openheaders.io', 'pia-first-password');
   await piaPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
   await expect(piaPage.locator('[data-testid=consent-card-asks]')).toContainText(
-    'e2e desktop (the desktop app) would like to sign in to this server',
+    'The desktop app would like to sign in to this server',
     { timeout: 5_000 },
   );
-  // No user code on the code grant — the verifier binds the client.
+  // No user code on the code grant — the verifier binds the client —
+  // and no device line: the approving browser is the asking machine.
   expect(await piaPage.$('[data-testid=consent-card-code]')).toBeNull();
+  expect(await piaPage.$('[data-testid=consent-card-device]')).toBeNull();
 
   // Allow: the tab leaves for the client's registered redirect with the
   // one-shot code, the state echoed and the issuer named (RFC 9207).
@@ -1344,9 +1349,10 @@ test('oh login: a headless shell prints the link and the code, a signed-in tab a
   await cliPage.waitForSelector('[data-testid=consent-card][data-state=pending]', { timeout: 5_000 });
   await expect(cliPage.locator('[data-testid=consent-card-code]')).toContainText(`Code ${code} —`);
   await expect(cliPage.locator('[data-testid=consent-card-asks]')).toContainText(
-    'e2e cli (the command-line tool) would like to sign in to this server',
+    'The command-line tool would like to sign in to this server',
     { timeout: 5_000 },
   );
+  await expect(cliPage.locator('[data-testid=consent-card-device]')).toHaveText('From e2e cli.');
   await cliPage.click('[data-testid=consent-card-allow]');
   await cliPage.waitForSelector('[data-testid=consent-card][data-state=approved]', { timeout: 5_000 });
   await cliContext.close();

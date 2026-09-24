@@ -95,7 +95,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.offline':
     'По адресу {host} ничего не ответило. Он запущен на этом адресе?',
   'workbench.settings.backendPane.wizard.signIn.fail.generic': 'Не удалось начать вход. Повторите попытку.',
-  'workbench.settings.backendPane.wizard.back': 'Назад',
   'workbench.settings.backendPane.wizard.next': 'Далее',
   'workbench.settings.backendPane.wizard.connectIntro':
     'Адрес, к которому подключается это устройство. Ничего не подключается, пока последний шаг его не проверит.',
@@ -103,12 +102,8 @@ export const workbenchSettingsPanes = {
     'Автоматическое сопряжение с настольным приложением не прошло — возможно, оно не запущено или этот браузер не удалось проверить. Выполните сопряжение по коду или токену.',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     'Готово: {label} по адресу {url}, вход выполнен. Подключение сначала проверяет адрес и вход; затем его рабочие пространства синхронизируются сюда и остаются доступными офлайн.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    'Готово: {label} по адресу {url} — вход ещё не выполнен. Подключение сначала проверяет адрес и вход; затем его рабочие пространства синхронизируются сюда и остаются доступными офлайн.',
   'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
     'Готово: {url}, вход выполнен. Подключение сначала проверяет адрес и вход; затем его рабочие пространства синхронизируются сюда и остаются доступными офлайн.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
-    'Готово: {url} — вход ещё не выполнен. Подключение сначала проверяет адрес и вход; затем его рабочие пространства синхронизируются сюда и остаются доступными офлайн.',
   'workbench.settings.backendPane.wizard.additionalConnection':
     'Это дополнительное соединение. Его рабочие пространства появятся новой группой в переключателе рабочих пространств, поповер состояния получит строку для него, и каждая группа синхронизируется ровно из одного места — группа, которую уже предоставляет другое соединение, не присоединится дважды.',
   'workbench.settings.backendPane.wizard.disableFirst':

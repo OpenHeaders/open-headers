@@ -66,7 +66,6 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.wizard.signIn.fail.offline':
     'Nothing answered at {host}. Is it running on that address?',
   'workbench.settings.backendPane.wizard.signIn.fail.generic': 'The sign-in could not be started. Try again.',
-  'workbench.settings.backendPane.wizard.back': 'Back',
   'workbench.settings.backendPane.wizard.next': 'Next',
   'workbench.settings.backendPane.wizard.connectIntro':
     'The address this device connects to. Nothing connects until the last step verifies it.',
@@ -74,14 +73,9 @@ export const workbenchSettingsPanes = {
     "Automatic pairing with the desktop app didn't go through — it may not be running, or this browser could not be verified. Pair with the code or token instead.",
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     'Ready: {label} at {url}, signed in. Connect verifies the address and the sign-in first; its workspaces then sync down and stay usable offline.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    'Ready: {label} at {url} — not signed in yet. Connect verifies the address and the sign-in first; its workspaces then sync down and stay usable offline.',
   'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
     'Ready: {url}, signed in. Connect verifies the address and the sign-in first; its workspaces then sync down and ' +
     'stay usable offline.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
-    'Ready: {url} — not signed in yet. Connect verifies the address and the sign-in first; its workspaces then sync ' +
-    'down and stay usable offline.',
   'workbench.settings.backendPane.wizard.additionalConnection':
     "This is an additional connection. Its workspaces appear as a new group in the workspace switcher, the status popover gains a row for it, and each group syncs from exactly one place — a group another connection already provides won't join twice.",
   'workbench.settings.backendPane.wizard.disableFirst':

@@ -80,7 +80,7 @@ export const web = {
   'web.consent.clientDesktop': '桌面应用',
   'web.consent.clientExtension': '浏览器扩展程序',
   'web.consent.clientCli': '命令行工具',
-  'web.consent.whoLabelled': '{device}（{client}）',
+  'web.consent.fromDevice': '来自 {device}。',
   'web.consent.code': '代码 {code}——请检查它是否与你的设备显示的代码一致。',
   'web.consent.expires': '约 {minutes} 分钟后过期',
   'web.consent.allow': '允许',

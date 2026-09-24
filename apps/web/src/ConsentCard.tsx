@@ -7,10 +7,14 @@
  * credential the browser already holds.
  *
  * The card reads the way an authorization page does everywhere else:
- * the product mark, WHAT asks (the registered client, the device label
- * the client sent) in the title, one line on what allowing means, the
- * user code on the device grant to check against the device (RFC 8628
- * §5.4), a primary Allow over a quiet Decline, and under them who the
+ * the product mark, WHAT asks in the title (the registered client, with
+ * its browser's mark for the extension), one line on what allowing
+ * means, the device label the client sent on the device grant alone —
+ * the one grant a person may approve from another machine, so the name
+ * is worth recognising; on the code grant the approving browser is the
+ * asking machine by construction — the user code on the device grant
+ * to check against the device (RFC 8628 §5.4), a primary Allow over a
+ * quiet Decline, and under them who the
  * approval would sign the device in as (the session's person, from the
  * same probe the awaiting-access screen reads) with the way to switch
  * to someone else — the sign-out that keeps the decision pending, so
@@ -33,6 +37,7 @@
  * this tab IS the app, each also offers the way on to the Workbench.
  */
 
+import { hostAssets } from '@openheaders/core/assets';
 import type { AuthorizationFacts } from '@openheaders/core/identity';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context';
@@ -59,6 +64,12 @@ import { oidcErrorKey } from '@/host/oidc-login';
 import { showTransitionOverlay } from '@/transition-overlay';
 
 const CENTERED: React.CSSProperties = { margin: 0, textAlign: 'center' };
+const TITLE_ROW_STYLE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 10,
+};
 const HINT_STYLE: React.CSSProperties = { fontSize: 12, textAlign: 'center' };
 const DECISION_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 };
 const WHO_STYLE: React.CSSProperties = {
@@ -77,6 +88,16 @@ const CLIENT_KEY: Readonly<Record<AuthorizationFacts['clientKind'], MessageKey>>
 
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Browsers with a mark in the web bundle, by the first word of the extension's device label. */
+const BROWSER_MARKS: ReadonlySet<string> = new Set(['chrome', 'edge', 'firefox']);
+
+/** The asking client's mark — the extension's browser, read off its label; nothing for the others. */
+function clientMarkUrl(facts: AuthorizationFacts): string | null {
+  if (facts.clientKind !== 'extension') return null;
+  const browser = facts.deviceLabel?.trim().split(/[\s·]+/)[0]?.toLowerCase() ?? '';
+  return BROWSER_MARKS.has(browser) ? hostAssets.resolveUrl(`images/clients/${browser}.svg`) : null;
 }
 
 /** The verdict page of a settled record — its title and its one sentence. */
@@ -228,7 +249,7 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
   const { facts } = state;
   const client = t(CLIENT_KEY[facts.clientKind]);
   const label = facts.deviceLabel?.trim();
-  const who = label ? t('web.consent.whoLabelled', { device: label, client }) : capitalize(client);
+  const markUrl = clientMarkUrl(facts);
   const minutes = Math.max(0, Math.round((facts.expiresAt - Date.now()) / 60000));
   let signedInAs: string | null = null;
   if (identity !== null) {
@@ -240,12 +261,20 @@ export function ConsentCard({ wire, pending, read, onContinue }: ConsentCardProp
 
   return (
     <GateCard testId="consent-card" state="pending">
-      <Typography.Title level={4} style={CENTERED} data-testid="consent-card-asks">
-        {t('web.consent.wouldSignIn', { who })}
-      </Typography.Title>
+      <div style={TITLE_ROW_STYLE}>
+        {markUrl !== null && <img src={markUrl} alt="" width={24} height={24} data-testid="consent-card-mark" />}
+        <Typography.Title level={4} style={CENTERED} data-testid="consent-card-asks">
+          {t('web.consent.wouldSignIn', { who: capitalize(client) })}
+        </Typography.Title>
+      </div>
       <Typography.Paragraph style={CENTERED} type="secondary">
         {t('web.consent.grantBody')}
       </Typography.Paragraph>
+      {facts.grant === 'device' && label && (
+        <Typography.Text type="secondary" style={HINT_STYLE} data-testid="consent-card-device">
+          {t('web.consent.fromDevice', { device: label })}
+        </Typography.Text>
+      )}
       {facts.userCode !== undefined && (
         <Typography.Paragraph style={CENTERED} data-testid="consent-card-code">
           {t('web.consent.code', { code: facts.userCode })}

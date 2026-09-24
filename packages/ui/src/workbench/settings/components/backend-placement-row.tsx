@@ -4,10 +4,10 @@
  * here alone; Manage workspaces dropped its copy. The resolved value
  * falls back to the widest-reach place (`defaultNewWorkspaceOrgId`) when
  * the user has set no explicit preference, so the control always
- * reflects what creation will do; with one place to choose from it
- * renders disabled rather than vanishing, so the page keeps its shape
- * when a place connects. The choice catalogue is the clamped one —
- * server places only on the joined web tab.
+ * reflects what creation will do; with one place to choose from there
+ * is nothing to choose, so the row does not render. The choice
+ * catalogue is the clamped one — server places only on the joined web
+ * tab.
  */
 
 import { orgCatalogue } from '@openheaders/core/identity';
@@ -30,6 +30,7 @@ export const BackendPlacementRow: React.FC = () => {
   const catalogue = useMemo(() => orgChoiceCatalogue(orgCatalogue(snapshot)), [snapshot]);
   const { prefs, isReady, setDefaultNewWorkspaceOrgId } = useOrgBindingPrefs();
   const resolved = resolveNewWorkspaceOrgId(snapshot, prefs.defaultNewWorkspaceOrgId);
+  if (!isReady || catalogue.length <= 1) return null;
 
   return (
     <PaneSection title={t('workbench.settings.backendPane.placement.section')}>
@@ -42,7 +43,6 @@ export const BackendPlacementRow: React.FC = () => {
         <Select
           size="small"
           value={resolved ?? undefined}
-          disabled={!isReady || catalogue.length <= 1}
           onChange={(orgId) => void setDefaultNewWorkspaceOrgId(orgId)}
           style={{ minWidth: 220 }}
           options={catalogue.map((descriptor) => ({

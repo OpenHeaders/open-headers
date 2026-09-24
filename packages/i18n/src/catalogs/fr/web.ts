@@ -113,7 +113,7 @@ export const web = {
   'web.consent.clientDesktop': "l'application de bureau",
   'web.consent.clientExtension': "l'extension de navigateur",
   'web.consent.clientCli': "l'outil en ligne de commande",
-  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.fromDevice': 'Depuis {device}.',
   'web.consent.code': "Code {code} — vérifiez qu'il correspond au code affiché par votre appareil.",
   'web.consent.expires': 'Expire dans environ {minutes} min',
   'web.consent.allow': 'Autoriser',

@@ -100,7 +100,7 @@ export const web = {
   'web.consent.clientDesktop': '데스크톱 앱',
   'web.consent.clientExtension': '브라우저 확장 프로그램',
   'web.consent.clientCli': '명령줄 도구',
-  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.fromDevice': '{device}에서 요청했습니다.',
   'web.consent.code': '코드 {code}: 기기에 표시된 코드와 일치하는지 확인하세요.',
   'web.consent.expires': '약 {minutes}분 후 만료',
   'web.consent.allow': '허용',

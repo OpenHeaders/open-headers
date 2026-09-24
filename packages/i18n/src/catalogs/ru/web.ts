@@ -122,7 +122,7 @@ export const web = {
   'web.consent.clientDesktop': 'настольное приложение',
   'web.consent.clientExtension': 'расширение браузера',
   'web.consent.clientCli': 'инструмент командной строки',
-  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.fromDevice': 'Запрос с устройства {device}.',
   'web.consent.code': 'Код {code} — убедитесь, что он совпадает с кодом на вашем устройстве.',
   'web.consent.expires': 'Истекает примерно через {minutes} мин',
   'web.consent.allow': 'Разрешить',

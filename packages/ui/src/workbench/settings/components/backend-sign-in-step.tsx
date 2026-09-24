@@ -297,9 +297,13 @@ const BackendSignInStep: React.FC<BackendSignInStepProps> = ({ verdict, probing,
           {t('workbench.settings.backendPane.wizard.signIn.secondary')}
         </Typography.Link>
       )}
-      <Button type="link" size="small" loading={probing} onClick={onProbe}>
-        {t('workbench.settings.backendPane.wizard.checkAgain')}
-      </Button>
+      {verdict?.kind === 'unanswered' && (
+        // The probe re-runs on its own on entry and on every credential
+        // landing; a hand re-check is for a server that did not answer.
+        <Button type="link" size="small" loading={probing} onClick={onProbe}>
+          {t('workbench.settings.backendPane.wizard.checkAgain')}
+        </Button>
+      )}
     </div>
   );
 };

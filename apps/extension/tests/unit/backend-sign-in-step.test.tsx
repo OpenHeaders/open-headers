@@ -16,6 +16,7 @@
  *     path the only one and says why;
  *   - the verdict line names the person and the place off the WELCOME,
  *     and then stands alone — no offer, no secondary, no re-check;
+ *   - Check again exists only for a server that did not answer;
  *   - the secondary link reveals the code + token entry on demand.
  */
 
@@ -374,6 +375,21 @@ describe('BackendSignInStep', () => {
 
     renderStep(record, { kind: 'signed-in', name: 'Acme', person: null });
     expect(screen.getByText('Signed in to Acme.')).toBeTruthy();
+  });
+
+  it('Check again is offered only for a server that did not answer', async () => {
+    const fake = fakeApi(PASSWORD_SERVER);
+    registerCapability('serverSignIn', () => fake.api);
+    const record = await createBackend({ url: 'ws://10.0.0.5:8137' });
+    renderStep(record, {
+      kind: 'unanswered',
+      notice: { level: 'warning', message: 'Nothing answered at 10.0.0.5.', description: 'Is it running?' },
+    });
+    expect(screen.getByRole('button', { name: /Check again/ })).toBeTruthy();
+    cleanup();
+
+    renderStep(record, NEEDS_SIGN_IN);
+    expect(screen.queryByRole('button', { name: /Check again/ })).toBeNull();
   });
 
   it('the secondary link reveals the code and token entry', async () => {

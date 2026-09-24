@@ -113,7 +113,6 @@ export const workbenchSettingsPanes = {
     'Gazda {host} a refuzat cererea de conectare a acestui dispozitiv.',
   'workbench.settings.backendPane.wizard.signIn.fail.offline': 'Nimic nu a răspuns la {host}. Rulează la acea adresă?',
   'workbench.settings.backendPane.wizard.signIn.fail.generic': 'Conectarea nu a putut fi pornită. Reîncercați.',
-  'workbench.settings.backendPane.wizard.back': 'Înapoi',
   'workbench.settings.backendPane.wizard.next': 'Înainte',
   'workbench.settings.backendPane.wizard.connectIntro':
     'Adresa la care se conectează acest dispozitiv. Nimic nu se conectează până când ultimul pas nu o verifică.',
@@ -121,12 +120,8 @@ export const workbenchSettingsPanes = {
     'Asocierea automată cu aplicația desktop nu a reușit — este posibil să nu ruleze sau acest browser nu a putut fi verificat. Asociați în schimb cu codul sau cu tokenul.',
   'workbench.settings.backendPane.wizard.readyIntroPaired':
     'Pregătit: {label} la {url}, autentificat. Conectarea verifică mai întâi adresa și autentificarea; apoi spațiile ei de lucru se sincronizează local și rămân utilizabile offline.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPaired':
-    'Pregătit: {label} la {url} — încă neautentificat. Conectarea verifică mai întâi adresa și autentificarea; apoi spațiile ei de lucru se sincronizează local și rămân utilizabile offline.',
   'workbench.settings.backendPane.wizard.readyIntroPairedUnnamed':
     'Pregătit: {url}, autentificat. Conectarea verifică mai întâi adresa și autentificarea; apoi spațiile ei de lucru se sincronizează local și rămân utilizabile offline.',
-  'workbench.settings.backendPane.wizard.readyIntroNotPairedUnnamed':
-    'Pregătit: {url} — încă neautentificat. Conectarea verifică mai întâi adresa și autentificarea; apoi spațiile ei de lucru se sincronizează local și rămân utilizabile offline.',
   'workbench.settings.backendPane.wizard.additionalConnection':
     'Aceasta este o conexiune suplimentară. Spațiile ei de lucru apar ca un grup nou în comutatorul de spații de lucru, popover-ul de stare primește un rând pentru ea și fiecare grup se sincronizează dintr-un singur loc — un grup furnizat deja de altă conexiune nu se alătură de două ori.',
   'workbench.settings.backendPane.wizard.disableFirst':

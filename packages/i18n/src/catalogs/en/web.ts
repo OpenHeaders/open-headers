@@ -108,7 +108,7 @@ export const web = {
   'web.consent.clientDesktop': 'the desktop app',
   'web.consent.clientExtension': 'the browser extension',
   'web.consent.clientCli': 'the command-line tool',
-  'web.consent.whoLabelled': '{device} ({client})',
+  'web.consent.fromDevice': 'From {device}.',
   'web.consent.code': 'Code {code} — check that it matches the code your device shows.',
   'web.consent.expires': 'Expires in about {minutes} min',
   'web.consent.allow': 'Allow',
