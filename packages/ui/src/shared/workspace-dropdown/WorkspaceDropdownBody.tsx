@@ -414,8 +414,11 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           {t('shared.workspaceDropdown.noAccessRow')}
         </Text>
         {url !== null && (
+          // A long place name clips inside the button; the title carries it whole.
           <Button
             size="small"
+            title={t('shared.workspaceDropdown.openPlace', { place: descriptor.name })}
+            style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             data-testid={`workspace-dropdown-open-place-${orgId}`}
             onClick={() => {
               openServerPage(url);

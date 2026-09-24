@@ -248,6 +248,8 @@ const OrgWorkspaceAccessNotice: React.FC<OrgWorkspaceAccessNoticeProps> = ({
               <Button
                 key={orgId}
                 size="small"
+                title={t('workbench.workspace.grant.openServer', { org: orgName(orgId) })}
+                style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 data-testid={`org-zero-grant-open-${orgId}`}
                 onClick={() => openServerPage(url)}
               >
