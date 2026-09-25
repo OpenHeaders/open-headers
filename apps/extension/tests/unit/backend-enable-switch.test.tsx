@@ -21,7 +21,7 @@ import { type HostStorage, requireHostStorage, setHostStorage } from '@openheade
 import type { BackendSyncStatusSnapshot } from '@openheaders/core/types';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { SurfaceWorkspaceAdoptProvider } from '@openheaders/ui/workbench/hooks/SurfaceWorkspaceAdoptContext';
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { App as AntApp } from 'antd';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -109,7 +109,10 @@ beforeEach(async () => {
   await refreshBackendsFromHostStorage();
 });
 
+// Unmount inside act so React's queued work settles before the timers
+// are restored and the file's window is torn down.
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
 });
 
