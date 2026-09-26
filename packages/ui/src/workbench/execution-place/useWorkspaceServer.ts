@@ -1,13 +1,20 @@
 /**
  * useWorkspaceServer — the `workspace-server` role's live state for the
- * active workspace: the workspace's Org binding names its providing
- * backend record (`getOrgBackendBindings`), the record reads as a
- * place by the place law (`backendPlace` — the desktop app's loopback
- * port from a browser host is the desktop app, never a server), and
- * the record's sync slot says whether the wire is up. The home Org
- * has no binding and no server; a bound Org whose record is gone has
- * none either. The backend id rides along for the send's explicit
- * target (never the default wire).
+ * workspace this editing surface sits in: the workspace's Org binding
+ * names its providing backend record (`getOrgBackendBindings`), the
+ * record reads as a place by the place law (`backendPlace` — the
+ * desktop app's loopback port from a browser host is the desktop app,
+ * never a server), and the record's sync slot says whether the wire is
+ * up. The home Org has no binding and no server; a bound Org whose
+ * record is gone has none either. The backend id rides along for the
+ * send's explicit target (never the default wire).
+ *
+ * The workspace is the EDITING SCOPE's — a workbench tab is pinned to
+ * its own workspace by its URL, which need not be the host's
+ * runtime-Active one; reading the Active workspace here named the
+ * wrong Org (the home Org, on a tab opened on a joined server's
+ * workspace) and hid the server leg. Outside the workbench the scope
+ * hook falls back to the Active workspace on its own.
  */
 
 import { getOrgBackendBindings, type IdentitySnapshot } from '@openheaders/core/identity';
@@ -17,6 +24,7 @@ import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspace
 import { useBackendSyncStatus } from '@openheaders/ui/shared/hooks/useBackendSyncStatus';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { getCurrentHost, type Host } from '@openheaders/ui/shared/host-vocabulary';
+import { useWorkbenchEditingScopeWorkspaceId } from '@openheaders/ui/workbench/hooks/EditingScopeWorkspaceContext';
 import { useMemo } from 'react';
 
 export interface WorkspaceServer {
@@ -50,8 +58,9 @@ export function useWorkspaceServer(): WorkspaceServer | null {
   const snapshot = useIdentitySnapshot();
   const backends = useBackends();
   const { snapshot: slots } = useBackendSyncStatus();
-  const { activeWorkspace } = useWorkspaces();
-  const orgId = activeWorkspace?.orgId ?? null;
+  const { workspaces } = useWorkspaces();
+  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
+  const orgId = workspaces.find((w) => w.id === workspaceId)?.orgId ?? null;
   const host = getCurrentHost();
   return useMemo(
     () => deriveWorkspaceServer(host, orgId, snapshot, getOrgBackendBindings(), backends, slots),
