@@ -179,6 +179,7 @@ export const ZeroWorkspaceAdminEmptyState: React.FC<{ onOpenServerAdmin: () => v
         <ActionRow
           icon={<ToolOutlined />}
           label={t('workbench.shell.empty.adminOpenServerAdmin')}
+          data-testid="zero-workspace-admin-open-server-admin"
           description={t('workbench.shell.empty.adminOpenServerAdminDesc')}
           showDescription
           onClick={onOpenServerAdmin}

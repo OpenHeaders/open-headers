@@ -1448,7 +1448,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const renderEmpty = useCallback(
     () =>
       zeroWorkspaces ? (
-        <ZeroWorkspaceAdminEmptyState onOpenServerAdmin={openServerAdmin} />
+        <ZeroWorkspaceAdminEmptyState onOpenServerAdmin={() => openServerAdmin('users')} />
       ) : (
       <EmptyState
         // Empty-state creates carry their own rule_created origin — the

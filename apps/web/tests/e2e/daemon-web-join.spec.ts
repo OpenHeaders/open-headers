@@ -912,6 +912,40 @@ test('zero grants: the awaiting-access screen stands, then a live grant resolves
   await zoeContext.close();
 });
 
+test('zero grants as a server admin: the Workbench names the posture, and Open Server Admin lands on the Users tab', async () => {
+  // Zoe, granted viewer at the end of the last leg, becomes a server
+  // admin with NOTHING granted (the seat cap forbids a sixth user). An
+  // admin is not gated — admin ≠ data access — so the Workbench mounts
+  // over zero workspaces and names the one surface the role carries.
+  // The row hands the opener a click, never a section: the tab must
+  // still be the Users domain.
+  const [listed] = await adminOverWire([{ type: 'oh.daemon.users.list' }]);
+  const zoe = (listed.payload as { users: Array<{ userId: string; email: string | null }> }).users.find(
+    (u) => u.email === 'zoe@openheaders.io',
+  );
+  expect(zoe).toBeTruthy();
+  const zoeId = (zoe as { userId: string }).userId;
+  const [promoted] = await adminOverWire([{ type: 'oh.daemon.users.setDaemonAdmin', userId: zoeId, allowed: true }]);
+  expect((promoted.payload as { ok: boolean }).ok).toBe(true);
+  const [revoked] = await adminOverWire([
+    { type: 'oh.daemon.users.revokeGrant', userId: zoeId, workspaceId: daemonWorkspaceIds[0] },
+  ]);
+  expect((revoked.payload as { ok: boolean }).ok).toBe(true);
+
+  const [zoeContext, zoePage] = await openSignedInUntil(
+    'zero-grant-admin',
+    'zoe@openheaders.io',
+    'zoe-first-password',
+    '[data-testid=zero-workspace-admin-empty]',
+  );
+  await zoePage.click('[data-testid=zero-workspace-admin-open-server-admin]');
+  await expect(zoePage.locator('[data-testid=server-admin-tab]')).toBeVisible({ timeout: 5_000 });
+  await expect(zoePage.locator('[data-testid^=server-admin-user-]', { hasText: 'Zoe' })).toBeVisible({
+    timeout: 5_000,
+  });
+  await zoeContext.close();
+});
+
 // ── Adoption targets the user's access, not the operator's pointer ──
 
 test('a user granted only a non-active workspace is adopted onto it, never the daemon hint', async () => {
