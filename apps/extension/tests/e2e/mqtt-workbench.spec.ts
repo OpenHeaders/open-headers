@@ -332,7 +332,7 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
   // control beside Connect says what the session needs.
   await expectConnectGate(CONNECT_TCP_SCHEME_COPY);
   const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
-  await expect(placeChip).toHaveText('Needs the desktop app');
+  await expect(placeChip).toHaveAttribute('aria-label', 'Needs the desktop app');
   await expect(placeChip).toHaveAttribute('data-state', 'needs-companion');
 
   await page.getByRole('button', { name: /Save$/ }).filter({ visible: true }).first().click();

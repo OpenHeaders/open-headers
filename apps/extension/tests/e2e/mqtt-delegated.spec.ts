@@ -207,7 +207,9 @@ async function openMqttRequest(uid: string): Promise<void> {
  *  joined record's sync slot is green, so a boot or a restart settles
  *  on the delegated row after the reconnect. */
 async function waitChipRunsOnServer(): Promise<void> {
-  await expect.poll(async () => placeChip().textContent(), { timeout: 20_000 }).toBe(`Runs on ${BACKEND_LABEL}`);
+  await expect
+    .poll(async () => placeChip().getAttribute('aria-label'), { timeout: 20_000 })
+    .toBe(`Runs on ${BACKEND_LABEL}`);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -479,7 +481,9 @@ test('D3 — opt-in ON: the session runs over the delegated socket, scripted in 
 
 test('D4 — daemon gone: the chip falls back to the companion state and Connect disables with the tcp copy', async () => {
   await stopDaemon();
-  await expect.poll(async () => placeChip().textContent(), { timeout: 20_000 }).toBe('Needs the desktop app');
+  await expect
+    .poll(async () => placeChip().getAttribute('aria-label'), { timeout: 20_000 })
+    .toBe('Needs the desktop app');
   await expect(placeChip()).toHaveAttribute('data-state', 'needs-companion');
   await expect(connectButton()).toBeDisabled();
   await page.mouse.move(0, 0);

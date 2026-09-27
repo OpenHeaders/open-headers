@@ -434,12 +434,8 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     </Tooltip>
   );
 
-  const headerActions = (
-    <>
-      <ExecutionPlaceControl resolution={session.executionPlace} onPick={setPlacePick} />
-      {primaryAction}
-    </>
-  );
+  const headerActions = primaryAction;
+  const headerTrailing = <ExecutionPlaceControl resolution={session.executionPlace} onPick={setPlacePick} />;
 
   const willConfigured = draft.lastWill.topic.trim() !== '';
 
@@ -459,7 +455,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
           outline: 'none',
         }}
       >
-        <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
+        <EditorHeader title={headerTitle} actions={headerActions} trailing={headerTrailing} shell={shell.headerProps} />
 
         {/* Compose / session split — the WS editor's stacked Allotment
           discipline: the sash bounds the compose surface, and the

@@ -34,6 +34,15 @@ export interface WorkspaceServer {
   connected: boolean;
 }
 
+/** The Org of the editing scope's workspace — the one the place
+ *  reader and the place mark both key off; null before the mirror
+ *  lists the workspace. */
+export function useEditingScopeOrgId(): string | null {
+  const { workspaces } = useWorkspaces();
+  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
+  return workspaces.find((w) => w.id === workspaceId)?.orgId ?? null;
+}
+
 /** Pure derivation — the hook's whole rule, pinned on its own. */
 export function deriveWorkspaceServer(
   host: Host,
@@ -58,9 +67,7 @@ export function useWorkspaceServer(): WorkspaceServer | null {
   const snapshot = useIdentitySnapshot();
   const backends = useBackends();
   const { snapshot: slots } = useBackendSyncStatus();
-  const { workspaces } = useWorkspaces();
-  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
-  const orgId = workspaces.find((w) => w.id === workspaceId)?.orgId ?? null;
+  const orgId = useEditingScopeOrgId();
   const host = getCurrentHost();
   return useMemo(
     () => deriveWorkspaceServer(host, orgId, snapshot, getOrgBackendBindings(), backends, slots),

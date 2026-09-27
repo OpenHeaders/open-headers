@@ -474,12 +474,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
       </span>
     </Tooltip>
   );
-  const headerActions = (
-    <>
-      <ExecutionPlaceControl resolution={session.executionPlace} onPick={setPlacePick} />
-      {primaryAction}
-    </>
-  );
+  const headerActions = primaryAction;
+  const headerTrailing = <ExecutionPlaceControl resolution={session.executionPlace} onPick={setPlacePick} />;
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
@@ -497,7 +493,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
           outline: 'none',
         }}
       >
-        <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
+        <EditorHeader title={headerTitle} actions={headerActions} trailing={headerTrailing} shell={shell.headerProps} />
 
         {/* Compose / session split — the gRPC editor's stacked
           Allotment discipline: the sash bounds the message editor,

@@ -450,12 +450,8 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       </span>
     </Tooltip>
   );
-  const headerActions = (
-    <>
-      <ExecutionPlaceControl resolution={invoke.executionPlace} onPick={setPlacePick} />
-      {primaryAction}
-    </>
-  );
+  const headerActions = primaryAction;
+  const headerTrailing = <ExecutionPlaceControl resolution={invoke.executionPlace} onPick={setPlacePick} />;
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
@@ -475,7 +471,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       >
         <EditorHeader
           title={headerTitle}
-          actions={headerActions}
+          actions={headerActions} trailing={headerTrailing}
           overflowItems={overflowItems}
           shell={shell.headerProps}
         />

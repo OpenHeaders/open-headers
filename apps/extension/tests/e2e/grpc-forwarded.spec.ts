@@ -474,7 +474,7 @@ test('flipping backend.allowLocalPeerExecute on lets the same Invoke round-trip 
   // The place: the joined daemon is the workspace's server, named by
   // its record's label; the invoke is a context send there.
   const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
-  await expect(placeChip).toHaveText('Runs on grpc e2e daemon');
+  await expect(placeChip).toHaveAttribute('aria-label', 'Runs on grpc e2e daemon');
   await expect(placeChip).toHaveAttribute('data-place', 'workspace-server');
   await expect(placeChip).toHaveAttribute('data-state', 'ready');
   await expect

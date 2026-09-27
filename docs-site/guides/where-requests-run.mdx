@@ -3,13 +3,15 @@ title: "Where requests run"
 description: "Every API request names the place that opens its connection — this device, the desktop app, or the workspace's server — and lets you choose where more than one can."
 ---
 
-Every request editor carries a chip beside its **Send**, **Connect** or
-**Invoke** button that says where the request runs: **Runs here**,
-**Runs on the desktop app**, or **Runs on** the workspace's server.
-Click the chip for the reason, the alternatives and, where this surface
-cannot run the request, the way to get it running. Nothing is forwarded
-silently, and nothing is downgraded silently: a request that cannot run
-where you are says so and names the place that can.
+Every request editor carries a place button after **Save**: a run glyph
+beside the place's own mark — this browser's logo, this machine's
+operating-system mark, or the server's icon, the same one the workspace
+switcher shows for it. Hover it for the words (**Runs here**, **Runs on
+the desktop app**, **Runs on** the workspace's server) and click it for
+the reason, the alternatives and, where this surface cannot run the
+request, the way to get it running. Nothing is forwarded silently, and
+nothing is downgraded silently: a request that cannot run where you are
+says so and names the place that can.
 
 ## The three places
 
@@ -56,8 +58,8 @@ can move the session to a place that applies them.
 The place comes from four layers. The most specific one wins, and an
 explicit value wins whatever it is:
 
-1. **This send.** Open the chip and pick a row under **Run on** — this
-   send only.
+1. **This send.** Click the place button and pick a row under **Run
+   on** — this send only.
 2. **The request.** The **Runs on** row on the request's **Settings**
    tab. Its placeholder reads **Automatic** and, when a parent sets the
    value, the row notes which one ("Inherited from Collection …").
@@ -70,9 +72,9 @@ explicit value wins whatever it is:
 
 The values are roles, so they sync with the workspace and resolve on
 each device through that device's own connections. A role the current
-surface cannot honour is never honoured silently: the chip reads
-**Cannot run on the desktop app yet** (or the server's name) and the
-popover offers the eligible places to pick back.
+surface cannot honour is never honoured silently: the place button says
+**Cannot run on the desktop app yet** (or the server's name) on hover,
+and its popover offers the eligible places to pick back.
 
 ## What a delegated send carries
 
@@ -84,20 +86,21 @@ the connection and streams the raw response or frames back. The
 context does everything after: the post-response script, cookie
 capture, publish-on-run, the saved response.
 
-Where the resolved values travel is stated at the chip:
+Where the resolved values travel is stated in the place button's
+popover:
 
 - **To the desktop app on this device** — nothing the vault does not
-  already sync there. The chip reads "Resolved here; the desktop app
+  already sync there. The popover reads "Resolved here; the desktop app
   opens the connection on this request's behalf."
 - **To the server** — the resolved values, secrets included, travel to
-  it, as they would through any agent or proxy. The chip reads
+  it, as they would through any agent or proxy. The popover reads
   "Resolved here; *server* opens the connection on this request's
   behalf. The resolved values, secrets included, travel to it."
 
 A knob the place cannot apply is named on the same popover, never
 dropped in silence. The one such knob today is the context's cookie
-jar: a delegated connection never sees this surface's jar, so the chip
-reads "Not applied on *place*: the cookie jar."
+jar: a delegated connection never sees this surface's jar, so the
+popover reads "Not applied on *place*: the cookie jar."
 
 A `{{vault.…}}` reference the context does not hold fails before the
 send leaves, with the message and the action to unlock it here — the
@@ -136,12 +139,13 @@ Every response and every session timeline says which place answered:
 A place that refuses shows the refusal on the response itself, naming
 the switch to turn on and where — never a silent failure.
 
-## When the chip asks for the desktop app
+## When the place button asks for the desktop app
 
 On the extension, a request that no connected place can open — an
 `mqtts://` session or a gRPC call with neither the desktop app nor the
-workspace's server connected — reads **Needs the desktop app**. The
-chip's action follows what is installed:
+workspace's server connected — turns the place button the warning
+colour and says **Needs the desktop app** on hover. The popover's
+action follows what is installed:
 
 | State | Action |
 | --- | --- |

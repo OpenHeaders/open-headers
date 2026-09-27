@@ -4,7 +4,7 @@
  * `PanelHeader` pattern so editors and tool-windows share the same
  * visual language:
  *
- *   [title / subtitle slot] [flex filler] [actions slot] [Save] [⋯]
+ *   [title / subtitle slot] [flex filler] [actions slot] [Save] [trailing slot] [⋯]
  *
  * `title` carries the entity identity (icon chip + name + status tags).
  * `actions` is the panel-specific inline slot — e.g. EnvironmentEditor
@@ -46,6 +46,10 @@ export interface EditorHeaderProps {
   title: React.ReactNode;
   /** Panel-specific inline actions (e.g. Set active, Send, Run). */
   actions?: React.ReactNode;
+  /** The slot after Save and before the ⋯ menu — the request editors'
+   *  execution-place button lives here, a peer of the two standard
+   *  controls rather than of the primary action. */
+  trailing?: React.ReactNode;
   /** Overflow menu items. Rule editors pass Save-as-Template here. */
   overflowItems?: MenuProps['items'];
   /** Shell-produced wiring bundle. Save semantics:
@@ -61,7 +65,7 @@ export interface EditorHeaderProps {
   shell?: EditorShellHeaderWiring;
 }
 
-const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowItems, shell }) => {
+const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, trailing, overflowItems, shell }) => {
   const wiring = shell as unknown as
     | { isDirty: boolean; isPublished?: boolean; status: EditorLifecycleStatus; onSave: () => void }
     | undefined;
@@ -144,6 +148,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
             </Button>
           </Tooltip>
         )}
+        {trailing}
         {/* min-width keeps long labels ("Save as User Template",
             "Header at Bottom" + check) from cramping — the menu still
             grows beyond it for longer editor-specific items. */}

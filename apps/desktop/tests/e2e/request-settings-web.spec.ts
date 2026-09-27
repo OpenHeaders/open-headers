@@ -452,7 +452,7 @@ test('the response meta strip attributes the run to the serving host', async () 
 
 test('the place control names the connected back-end before the first send', async () => {
   const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
-  await expect(placeChip).toHaveText(`Runs on 127.0.0.1:${DAEMON_PORT}`);
+  await expect(placeChip).toHaveAttribute('aria-label', `Runs on 127.0.0.1:${DAEMON_PORT}`);
   await expect(placeChip).toHaveAttribute('data-place', 'workspace-server');
   await placeChip.click();
   const popover = page.getByTestId('execution-place-popover').filter({ visible: true });
@@ -667,7 +667,7 @@ test('the desktop window keeps its script-mode chooser and runs the request here
   await openRequest(echoUid, workbench);
   await openSettingsTab(workbench);
   const chip = workbench.getByTestId('execution-place-chip').filter({ visible: true }).first();
-  await expect(chip).toHaveText('Runs here');
+  await expect(chip).toHaveAttribute('aria-label', 'Runs here');
   await expect(chip).toHaveAttribute('data-place', 'here');
   await expect(chip).toHaveAttribute('data-state', 'ready');
   await expect(workbench.getByTestId('oh-script-mode-select').filter({ visible: true })).toHaveCount(1);

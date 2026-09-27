@@ -1,19 +1,39 @@
 // @vitest-environment jsdom
 /**
- * ExecutionPlaceControl + executionPlaceCopy — the chip beside the
- * primary button: muted "Runs here" when nothing else is possible, the
- * honest state otherwise, the reason in the click-popover, the
- * companion ladder rung as its call to action.
+ * ExecutionPlaceControl + executionPlaceCopy — the place button after
+ * Save: a run glyph beside the place's mark, the words on hover
+ * (the button's accessible name), muted when nothing else is possible,
+ * the warning tone when the desktop app is needed, the reason in the
+ * click-popover, the companion ladder rung as its call to action.
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
+import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import ExecutionPlaceControl from '@openheaders/ui/workbench/execution-place/ExecutionPlaceControl';
 import { executionPlaceCopy } from '@openheaders/ui/workbench/execution-place/execution-place-copy';
 import type { ExecutionPlaceResolution } from '@openheaders/ui/workbench/execution-place/resolve-execution-place';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+const mirror = {
+  liveActiveWorkspaceId: (): string | null => 'ws-1',
+  liveWorkspaces: (): { id: string; orgId: string }[] => [{ id: 'ws-1', orgId: 'org-home' }],
+  getMirror: (): unknown => ({}),
+  subscribeMirror: (): (() => void) => () => {},
+};
+
+vi.mock('@openheaders/ui/context', () => ({
+  getActiveExtensionWorkspaceSyncMirror: () => mirror,
+}));
+
+vi.mock('@openheaders/ui/context/mirrors/extension-workspace-sync-mirror', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@openheaders/ui/context/mirrors/extension-workspace-sync-mirror')>();
+  return { ...actual, getActiveExtensionWorkspaceSyncMirror: () => mirror };
+});
+
 beforeAll(() => {
+  setCurrentHost('extension');
   class ResizeObserverStub implements ResizeObserver {
     observe(): void {}
     unobserve(): void {}
@@ -43,17 +63,39 @@ function resolution(overrides: Partial<ExecutionPlaceResolution>): ExecutionPlac
   };
 }
 
+const chip = (): HTMLElement => screen.getByTestId('execution-place-chip');
+
 describe('ExecutionPlaceControl', () => {
-  it('a send that runs here with nothing else possible renders the muted chip and its reason on click', async () => {
+  it('a send that runs here with nothing else possible renders muted, worded on hover, its reason on click', async () => {
     render(<ExecutionPlaceControl resolution={resolution({ reason: { kind: 'runs-here-browser' } })} />);
-    const chip = screen.getByTestId('execution-place-chip');
-    expect(chip.textContent).toBe('Runs here');
-    expect(chip.getAttribute('data-place')).toBe('here');
-    expect(chip.getAttribute('data-state')).toBe('ready');
-    expect(chip.className).toContain('ant-tag-filled');
-    fireEvent.click(chip);
+    expect(chip().getAttribute('aria-label')).toBe('Runs here');
+    expect(chip().textContent).toBe('');
+    expect(chip().getAttribute('data-place')).toBe('here');
+    expect(chip().getAttribute('data-state')).toBe('ready');
+    expect(chip().getAttribute('data-muted')).toBe('true');
+    fireEvent.click(chip());
     expect(await screen.findByText('Runs in the extension, on this computer.')).toBeTruthy();
     expect(screen.queryByTestId('execution-place-cta')).toBeNull();
+  });
+
+  it('the mark names the place: a device mark here, the server mark for a nameless server', () => {
+    const { unmount } = render(
+      <ExecutionPlaceControl resolution={resolution({ reason: { kind: 'runs-here-browser' } })} />,
+    );
+    // jsdom's user agent is no browser with a distinct logo — the
+    // generic host-kind glyph stands in; a real browser draws its own.
+    expect(screen.getByTestId('execution-place-mark').getAttribute('data-mark')).toMatch(/^(browser|host-kind)$/);
+    unmount();
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          place: 'workspace-server',
+          placeName: 'Acme',
+          reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('execution-place-mark').getAttribute('data-mark')).toBe('host-kind');
   });
 
   it('a page-realm session names the knobs the browser socket cannot apply', async () => {
@@ -62,7 +104,7 @@ describe('ExecutionPlaceControl', () => {
         resolution={resolution({ reason: { kind: 'runs-here-page-realm', knobs: ['headers', 'sslVerify'] } })}
       />,
     );
-    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    fireEvent.click(chip());
     expect(
       await screen.findByText(
         'Running on the browser socket — custom handshake headers, disabled SSL verification do not apply on this host.',
@@ -83,11 +125,10 @@ describe('ExecutionPlaceControl', () => {
         })}
       />,
     );
-    const chip = screen.getByTestId('execution-place-chip');
-    expect(chip.textContent).toBe('Needs the desktop app');
-    expect(chip.getAttribute('data-state')).toBe('needs-companion');
-    expect(chip.className).toContain('ant-tag-outlined');
-    fireEvent.click(chip);
+    expect(chip().getAttribute('aria-label')).toBe('Needs the desktop app');
+    expect(chip().getAttribute('data-state')).toBe('needs-companion');
+    expect(chip().getAttribute('data-muted')).toBe('false');
+    fireEvent.click(chip());
     expect(await screen.findByText(/mqtt:\/\/ and mqtts:\/\/ open a raw TCP socket/)).toBeTruthy();
     const cta = await screen.findByTestId('execution-place-cta');
     fireEvent.click(cta.querySelector('button') as HTMLButtonElement);
@@ -105,7 +146,7 @@ describe('ExecutionPlaceControl', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    fireEvent.click(chip());
     const cta = await screen.findByTestId('execution-place-cta');
     expect(cta.textContent).toContain('Download');
   });
@@ -121,12 +162,11 @@ describe('ExecutionPlaceControl', () => {
         })}
       />,
     );
-    const chip = screen.getByTestId('execution-place-chip');
-    expect(chip.textContent).toBe('Not available on Acme yet');
-    expect(chip.getAttribute('data-state')).toBe('unsupported');
+    expect(chip().getAttribute('aria-label')).toBe('Not available on Acme yet');
+    expect(chip().getAttribute('data-state')).toBe('unsupported');
   });
 
-  it('a send that runs here with other places on offer renders outlined and opens the picker', async () => {
+  it('a send that runs here with other places on offer renders unmuted and opens the picker', async () => {
     const onPick = vi.fn();
     render(
       <ExecutionPlaceControl
@@ -138,10 +178,9 @@ describe('ExecutionPlaceControl', () => {
         onPick={onPick}
       />,
     );
-    const chip = screen.getByTestId('execution-place-chip');
-    expect(chip.textContent).toBe('Runs here');
-    expect(chip.className).toContain('ant-tag-outlined');
-    fireEvent.click(chip);
+    expect(chip().getAttribute('aria-label')).toBe('Runs here');
+    expect(chip().getAttribute('data-muted')).toBe('false');
+    fireEvent.click(chip());
     expect(await screen.findByText('Run on')).toBeTruthy();
     // The test id lands on the radio input; its label is the row's text.
     const options = screen.getAllByTestId('execution-place-option');
@@ -164,9 +203,8 @@ describe('ExecutionPlaceControl', () => {
         onPick={() => {}}
       />,
     );
-    const chip = screen.getByTestId('execution-place-chip');
-    expect(chip.textContent).toBe('Runs on Acme');
-    fireEvent.click(chip);
+    expect(chip().getAttribute('aria-label')).toBe('Runs on Acme');
+    fireEvent.click(chip());
     expect(
       await screen.findByText(
         /Acme opens the connection on this request's behalf\. The resolved values, secrets included, travel to it\./,
@@ -186,7 +224,7 @@ describe('ExecutionPlaceControl', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    fireEvent.click(chip());
     expect(await screen.findByText('Not applied on the desktop app: the cookie jar.')).toBeTruthy();
   });
 
@@ -196,7 +234,7 @@ describe('ExecutionPlaceControl', () => {
         resolution={resolution({ reason: { kind: 'runs-here-browser' }, alternatives: ['desktop-app'] })}
       />,
     );
-    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    fireEvent.click(chip());
     expect(screen.queryByTestId('execution-place-option')).toBeNull();
   });
 
@@ -213,7 +251,7 @@ describe('ExecutionPlaceControl', () => {
         onPick={onPick}
       />,
     );
-    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    fireEvent.click(chip());
     const options = await screen.findAllByTestId('execution-place-option');
     expect(options.map((o) => o.getAttribute('data-role'))).toEqual(['here']);
     fireEvent.click(options[0]);
@@ -230,7 +268,7 @@ describe('ExecutionPlaceControl', () => {
         })}
       />,
     );
-    expect(screen.getByTestId('execution-place-chip').textContent).toBe('Runs on 127.0.0.1:19337');
+    expect(chip().getAttribute('aria-label')).toBe('Runs on 127.0.0.1:19337');
   });
 });
 

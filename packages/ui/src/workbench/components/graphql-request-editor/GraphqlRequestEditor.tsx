@@ -622,12 +622,8 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
       </span>
     </Tooltip>
   );
-  const headerActions = (
-    <>
-      <ExecutionPlaceControl resolution={executionPlace} onPick={setPlacePick} />
-      {primaryAction}
-    </>
-  );
+  const headerActions = primaryAction;
+  const headerTrailing = <ExecutionPlaceControl resolution={executionPlace} onPick={setPlacePick} />;
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
@@ -648,7 +644,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
       >
         <EditorHeader
           title={headerTitle}
-          actions={headerActions}
+          actions={headerActions} trailing={headerTrailing}
           overflowItems={overflowItems}
           shell={shell.headerProps}
         />
