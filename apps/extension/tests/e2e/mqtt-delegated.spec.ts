@@ -393,8 +393,10 @@ test('D1 — the chip names the server place and Connect is enabled on the tcp s
 
   await placeChip().click();
   const popover = page.getByTestId('execution-place-popover').filter({ visible: true });
-  await expect(popover).toContainText(`Resolved here; ${BACKEND_LABEL} opens the connection on this request's behalf.`);
-  await expect(popover).toContainText('The resolved values, secrets included, travel to it.');
+  await expect(popover).toContainText(
+    `Runs on ${BACKEND_LABEL}. The request is filled in here first, variables and secrets included`,
+  );
+  await expect(popover).toContainText(`then sent to ${BACKEND_LABEL}, which opens the connection.`);
   await page.keyboard.press('Escape');
   await page.mouse.move(0, 0);
 });

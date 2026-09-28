@@ -507,7 +507,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'gRPC calls are forwarded to the desktop app on this computer — the browser has no HTTP/2 stack that exposes trailers.',
   'shared.executionPlace.reason.serverInvoke':
-    'gRPC calls are forwarded to {place}, the workspace’s server, and resolved there — the browser has no HTTP/2 stack that exposes trailers.',
+    'Runs on {place}. A browser cannot make gRPC calls, so the filled-in request is sent to {place}, which makes the call.',
   'shared.executionPlace.reason.companionRequired':
     'Connect the desktop app to invoke — composing and saving works here.',
   'shared.executionPlace.reason.tcpScheme':
@@ -515,9 +515,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': 'Sessions are not forwarded to {place} yet.',
   'shared.executionPlace.reason.noRuntime': 'This request kind runs on the desktop app or a server.',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    "Resolved here; the desktop app opens the connection on this request's behalf.",
+    'Runs on the desktop app. This browser fills in the request first, then hands it to the desktop app on this computer, which opens the connection.',
   'shared.executionPlace.reason.delegatedServer':
-    "Resolved here; {place} opens the connection on this request's behalf. The resolved values, secrets included, travel to it.",
+    'Runs on {place}. The request is filled in here first, variables and secrets included, then sent to {place}, which opens the connection.',
   'shared.executionPlace.picker.title': 'Run request on',
   'shared.executionPlace.roster.browser': 'Browser extension',
   'shared.executionPlace.roster.desktopApp': 'Desktop app',

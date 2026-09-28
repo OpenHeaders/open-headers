@@ -515,7 +515,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'Вызовы gRPC перенаправляются в настольное приложение на этом компьютере — в браузере нет стека HTTP/2 с доступом к трейлерам.',
   'shared.executionPlace.reason.serverInvoke':
-    'Вызовы gRPC перенаправляются на сервер рабочего пространства {place} и разрешаются там — в браузере нет стека HTTP/2 с доступом к трейлерам.',
+    'Выполняется на {place}. Браузер не может выполнять вызовы gRPC, поэтому заполненный запрос отправляется на {place}, где выполняется вызов.',
   'shared.executionPlace.reason.companionRequired':
     'Подключите настольное приложение, чтобы вызвать — составление и сохранение работают здесь.',
   'shared.executionPlace.reason.tcpScheme':
@@ -523,9 +523,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': 'Сеансы пока не перенаправляются: {place}.',
   'shared.executionPlace.reason.noRuntime': 'Запросы этого вида выполняются в настольном приложении или на сервере.',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    'Разрешается здесь; соединение от имени этого запроса открывает настольное приложение.',
+    'Выполняется в настольном приложении. Этот браузер сначала заполняет запрос, затем передаёт его настольному приложению на этом компьютере, которое открывает соединение.',
   'shared.executionPlace.reason.delegatedServer':
-    'Разрешается здесь; соединение от имени этого запроса открывает {place}. Разрешённые значения, включая секреты, передаются туда.',
+    'Выполняется на {place}. Запрос сначала заполняется здесь, включая переменные и секреты, затем отправляется на {place}, где открывается соединение.',
   'shared.executionPlace.picker.title': 'Выполнять запрос на',
   'shared.executionPlace.roster.browser': 'Расширение браузера',
   'shared.executionPlace.roster.desktopApp': 'Настольное приложение',

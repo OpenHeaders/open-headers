@@ -483,7 +483,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'Les appels gRPC sont transmis à l’application de bureau sur cet ordinateur — le navigateur n’a pas de pile HTTP/2 exposant les trailers.',
   'shared.executionPlace.reason.serverInvoke':
-    'Les appels gRPC sont transmis à {place}, le serveur de l’espace de travail, et résolus là-bas — le navigateur n’a pas de pile HTTP/2 exposant les trailers.',
+    'S’exécute sur {place}. Un navigateur ne peut pas effectuer d’appels gRPC : la requête complétée est envoyée à {place}, qui effectue l’appel.',
   'shared.executionPlace.reason.companionRequired':
     'Connectez l’application de bureau pour invoquer — la composition et l’enregistrement fonctionnent ici.',
   'shared.executionPlace.reason.tcpScheme':
@@ -492,9 +492,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.noRuntime':
     'Ce type de requête s’exécute sur l’application de bureau ou sur un serveur.',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    "Résolue ici ; l'application de bureau ouvre la connexion pour cette requête.",
+    'S’exécute dans l’application de bureau. Ce navigateur complète d’abord la requête, puis la transmet à l’application de bureau de cet ordinateur, qui ouvre la connexion.',
   'shared.executionPlace.reason.delegatedServer':
-    'Résolue ici ; {place} ouvre la connexion pour cette requête. Les valeurs résolues, secrets compris, lui sont transmises.',
+    'S’exécute sur {place}. La requête est d’abord complétée ici, variables et secrets compris, puis envoyée à {place}, qui ouvre la connexion.',
   'shared.executionPlace.picker.title': 'Exécuter la requête sur',
   'shared.executionPlace.roster.browser': 'Extension de navigateur',
   'shared.executionPlace.roster.desktopApp': 'Application de bureau',

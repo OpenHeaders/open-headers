@@ -463,7 +463,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'gRPC 호출은 이 컴퓨터의 데스크톱 앱으로 전달됩니다. 브라우저에는 트레일러를 노출하는 HTTP/2 스택이 없습니다.',
   'shared.executionPlace.reason.serverInvoke':
-    'gRPC 호출은 워크스페이스 서버인 {place}에 전달되어 그곳에서 해석됩니다. 브라우저에는 트레일러를 노출하는 HTTP/2 스택이 없습니다.',
+    '{place}에서 실행됩니다. 브라우저에서는 gRPC 호출을 할 수 없으므로 완성된 요청이 {place}로 전송되며, 그곳에서 호출이 이루어집니다.',
   'shared.executionPlace.reason.companionRequired':
     '호출하려면 데스크톱 앱을 연결하세요. 작성과 저장은 여기에서 할 수 있습니다.',
   'shared.executionPlace.reason.tcpScheme':
@@ -471,9 +471,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': '세션은 아직 {place}에 전달되지 않습니다.',
   'shared.executionPlace.reason.noRuntime': '이 종류의 요청은 데스크톱 앱이나 서버에서 실행됩니다.',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    '여기에서 확인한 뒤 데스크톱 앱에서 이 요청을 대신해 연결을 엽니다.',
+    '데스크톱 앱에서 실행됩니다. 이 브라우저가 먼저 요청을 완성한 뒤 이 컴퓨터의 데스크톱 앱에 전달하며, 그곳에서 연결이 열립니다.',
   'shared.executionPlace.reason.delegatedServer':
-    '여기에서 확인한 뒤 {place}에서 이 요청을 대신해 연결을 엽니다. 확인된 값(비밀 포함)이 그곳으로 전송됩니다.',
+    '{place}에서 실행됩니다. 요청은 먼저 여기에서 변수와 비밀을 포함해 완성된 뒤 {place}로 전송되며, 그곳에서 연결이 열립니다.',
   'shared.executionPlace.picker.title': '요청 실행 위치',
   'shared.executionPlace.roster.browser': '브라우저 확장 프로그램',
   'shared.executionPlace.roster.desktopApp': '데스크톱 앱',

@@ -457,7 +457,7 @@ test('the place control names the connected back-end before the first send', asy
   await placeChip.click();
   const popover = page.getByTestId('execution-place-popover').filter({ visible: true });
   await expect(popover).toContainText(
-    `Resolved here; 127.0.0.1:${DAEMON_PORT} opens the connection on this request's behalf.`,
+    `Runs on 127.0.0.1:${DAEMON_PORT}. The request is filled in here first, variables and secrets included`,
   );
   // Close the popover so it never occludes later legs.
   await page.keyboard.press('Escape');

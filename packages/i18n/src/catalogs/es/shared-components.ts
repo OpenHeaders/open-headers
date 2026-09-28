@@ -487,7 +487,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'Las llamadas gRPC se reenvían a la aplicación de escritorio en este equipo — el navegador no tiene una pila HTTP/2 que exponga los trailers.',
   'shared.executionPlace.reason.serverInvoke':
-    'Las llamadas gRPC se reenvían a {place}, el servidor del espacio de trabajo, y se resuelven allí — el navegador no tiene una pila HTTP/2 que exponga los trailers.',
+    'Se ejecuta en {place}. Un navegador no puede hacer llamadas gRPC, así que la solicitud completada se envía a {place}, que realiza la llamada.',
   'shared.executionPlace.reason.companionRequired':
     'Conecta la aplicación de escritorio para invocar — componer y guardar funciona aquí.',
   'shared.executionPlace.reason.tcpScheme':
@@ -496,9 +496,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.noRuntime':
     'Este tipo de solicitud se ejecuta en la aplicación de escritorio o en un servidor.',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    'Resuelta aquí; la aplicación de escritorio abre la conexión en nombre de esta solicitud.',
+    'Se ejecuta en la aplicación de escritorio. Este navegador completa primero la solicitud y luego la entrega a la aplicación de escritorio de este equipo, que abre la conexión.',
   'shared.executionPlace.reason.delegatedServer':
-    'Resuelta aquí; {place} abre la conexión en nombre de esta solicitud. Los valores resueltos, secretos incluidos, viajan hasta allí.',
+    'Se ejecuta en {place}. La solicitud se completa primero aquí, variables y secretos incluidos, y luego se envía a {place}, que abre la conexión.',
   'shared.executionPlace.picker.title': 'Ejecutar la solicitud en',
   'shared.executionPlace.roster.browser': 'Extensión del navegador',
   'shared.executionPlace.roster.desktopApp': 'Aplicación de escritorio',

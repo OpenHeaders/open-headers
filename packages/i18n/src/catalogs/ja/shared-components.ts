@@ -466,7 +466,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'gRPC 呼び出しはこのコンピューター上のデスクトップアプリに転送されます。ブラウザーにはトレーラーを扱える HTTP/2 スタックがありません。',
   'shared.executionPlace.reason.serverInvoke':
-    'gRPC 呼び出しはワークスペースのサーバー {place} に転送され、そこで解決されます。ブラウザーにはトレーラーを扱える HTTP/2 スタックがありません。',
+    '{place} で実行します。ブラウザーからは gRPC 呼び出しができないため、組み立てたリクエストを {place} に送り、そこで呼び出しを行います。',
   'shared.executionPlace.reason.companionRequired':
     '呼び出すにはデスクトップアプリを接続してください。作成と保存はここでできます。',
   'shared.executionPlace.reason.tcpScheme':
@@ -474,9 +474,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': 'セッションはまだ{place}に転送されません。',
   'shared.executionPlace.reason.noRuntime': 'この種類のリクエストはデスクトップアプリまたはサーバーで実行されます。',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    'ここで解決し、デスクトップアプリがこのリクエストに代わって接続を開きます。',
+    'デスクトップアプリで実行します。このブラウザーがまずリクエストを組み立て、このコンピューター上のデスクトップアプリに渡し、そこで接続が開かれます。',
   'shared.executionPlace.reason.delegatedServer':
-    'ここで解決し、{place} がこのリクエストに代わって接続を開きます。解決済みの値（シークレットを含む）はそこへ送られます。',
+    '{place} で実行します。リクエストはまずここで変数やシークレットを含めて組み立てられ、その後 {place} に送られ、そこで接続が開かれます。',
   'shared.executionPlace.picker.title': 'リクエストの実行場所',
   'shared.executionPlace.roster.browser': 'ブラウザー拡張機能',
   'shared.executionPlace.roster.desktopApp': 'デスクトップアプリ',

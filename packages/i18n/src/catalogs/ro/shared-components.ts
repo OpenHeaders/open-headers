@@ -522,7 +522,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'Apelurile gRPC sunt redirecționate către aplicația desktop de pe acest computer — browserul nu are o stivă HTTP/2 care să expună trailerele.',
   'shared.executionPlace.reason.serverInvoke':
-    'Apelurile gRPC sunt redirecționate către serverul spațiului de lucru {place} și rezolvate acolo — browserul nu are o stivă HTTP/2 care să expună trailerele.',
+    'Rulează pe {place}. Un browser nu poate efectua apeluri gRPC, așa că cererea completată este trimisă către {place}, care efectuează apelul.',
   'shared.executionPlace.reason.companionRequired':
     'Conectați aplicația desktop pentru a invoca — compunerea și salvarea funcționează aici.',
   'shared.executionPlace.reason.tcpScheme':
@@ -530,9 +530,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': 'Sesiunile nu sunt încă redirecționate către {place}.',
   'shared.executionPlace.reason.noRuntime': 'Acest tip de solicitare rulează în aplicația desktop sau pe un server.',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    'Rezolvată aici; aplicația desktop deschide conexiunea în numele acestei cereri.',
+    'Rulează în aplicația desktop. Acest browser completează mai întâi cererea, apoi o predă aplicației desktop de pe acest computer, care deschide conexiunea.',
   'shared.executionPlace.reason.delegatedServer':
-    'Rezolvată aici; {place} deschide conexiunea în numele acestei cereri. Valorile rezolvate, inclusiv secretele, ajung acolo.',
+    'Rulează pe {place}. Cererea este completată mai întâi aici, inclusiv variabilele și secretele, apoi trimisă către {place}, care deschide conexiunea.',
   'shared.executionPlace.picker.title': 'Rulează cererea pe',
   'shared.executionPlace.roster.browser': 'Extensie de browser',
   'shared.executionPlace.roster.desktopApp': 'Aplicația desktop',

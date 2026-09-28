@@ -183,7 +183,7 @@ describe('ExecutionPlaceControl', () => {
     fireEvent.click(chip());
     expect(
       await screen.findByText(
-        /Acme opens the connection on this request's behalf\. The resolved values, secrets included, travel to it\./,
+        /Runs on Acme\. The request is filled in here first, variables and secrets included, then sent to Acme, which opens the connection\./,
       ),
     ).toBeTruthy();
     const options = screen.getAllByTestId('execution-place-option');

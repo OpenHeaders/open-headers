@@ -507,7 +507,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'gRPC-Aufrufe werden an die Desktop-App auf diesem Computer weitergeleitet — der Browser hat keinen HTTP/2-Stack, der Trailer freigibt.',
   'shared.executionPlace.reason.serverInvoke':
-    'gRPC-Aufrufe werden an {place}, den Server des Arbeitsbereichs, weitergeleitet und dort aufgelöst — der Browser hat keinen HTTP/2-Stack, der Trailer freigibt.',
+    'Läuft auf {place}. Ein Browser kann keine gRPC-Aufrufe ausführen, daher wird die vervollständigte Anfrage an {place} gesendet, das den Aufruf ausführt.',
   'shared.executionPlace.reason.companionRequired':
     'Verbinde die Desktop-App zum Aufrufen — Verfassen und Speichern funktioniert hier.',
   'shared.executionPlace.reason.tcpScheme':
@@ -515,9 +515,9 @@ export const sharedComponents = {
   'shared.executionPlace.reason.sessionNotForwarded': 'Sitzungen werden noch nicht an {place} weitergeleitet.',
   'shared.executionPlace.reason.noRuntime': 'Diese Art von Anfrage läuft in der Desktop-App oder auf einem Server.',
   'shared.executionPlace.reason.delegatedDesktopApp':
-    'Hier aufgelöst; die Desktop-App öffnet die Verbindung für diese Anfrage.',
+    'Läuft in der Desktop-App. Dieser Browser vervollständigt die Anfrage zuerst und übergibt sie dann an die Desktop-App auf diesem Computer, die die Verbindung öffnet.',
   'shared.executionPlace.reason.delegatedServer':
-    'Hier aufgelöst; {place} öffnet die Verbindung für diese Anfrage. Die aufgelösten Werte, Geheimnisse eingeschlossen, werden dorthin übertragen.',
+    'Läuft auf {place}. Die Anfrage wird zuerst hier vervollständigt, Variablen und Geheimnisse eingeschlossen, und dann an {place} gesendet, das die Verbindung öffnet.',
   'shared.executionPlace.picker.title': 'Anfrage ausführen auf',
   'shared.executionPlace.roster.browser': 'Browser-Erweiterung',
   'shared.executionPlace.roster.desktopApp': 'Desktop-App',

@@ -485,15 +485,16 @@ export const sharedComponents = {
   'shared.executionPlace.reason.companionInvoke':
     'gRPC 调用会转发到这台电脑上的桌面应用——浏览器没有能暴露 trailer 的 HTTP/2 栈。',
   'shared.executionPlace.reason.serverInvoke':
-    'gRPC 调用会转发到工作区服务器 {place} 并在那里解析——浏览器没有能暴露 trailer 的 HTTP/2 栈。',
+    '在 {place} 上运行。浏览器无法发起 gRPC 调用，因此填充完整的请求会发送到 {place}，由其发起调用。',
   'shared.executionPlace.reason.companionRequired': '连接桌面应用以调用——编写和保存在这里可用。',
   'shared.executionPlace.reason.tcpScheme':
     'mqtt:// 和 mqtts:// 会打开浏览器无法打开的原始 TCP socket。请在桌面应用中打开此请求，或改用 ws:// 或 wss:// 在这里连接。',
   'shared.executionPlace.reason.sessionNotForwarded': '会话尚未转发到 {place}。',
   'shared.executionPlace.reason.noRuntime': '这类请求在桌面应用或服务器上运行。',
-  'shared.executionPlace.reason.delegatedDesktopApp': '在此处解析；由桌面应用代表此请求建立连接。',
+  'shared.executionPlace.reason.delegatedDesktopApp':
+    '在桌面应用中运行。此浏览器先填充完整请求，再交给本机上的桌面应用，由其建立连接。',
   'shared.executionPlace.reason.delegatedServer':
-    '在此处解析；由 {place} 代表此请求建立连接。已解析的值（包括密钥）会传送到该处。',
+    '在 {place} 上运行。请求先在此处填充完整（包括变量和密钥），再发送到 {place}，由其建立连接。',
   'shared.executionPlace.picker.title': '请求运行位置',
   'shared.executionPlace.roster.browser': '浏览器扩展',
   'shared.executionPlace.roster.desktopApp': '桌面应用',
