@@ -350,6 +350,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     onDirtyChange,
     registerSaveRef,
   });
+  const [placeOpen, setPlaceOpen] = useState(false);
 
   if (!entity) {
     return (
@@ -384,7 +385,6 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     session.sessionOpen || session.reconnecting
       ? t('workbench.editors.mqtt.connect.disconnect')
       : t('workbench.editors.mqtt.connect.cancel');
-  const [placeOpen, setPlaceOpen] = useState(false);
   const placeBlocked = session.executionPlace.state !== 'ready';
   const primaryAction = session.inFlight ? (
     <>

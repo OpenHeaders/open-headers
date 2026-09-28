@@ -354,6 +354,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     onDirtyChange,
     registerSaveRef,
   });
+  const [placeOpen, setPlaceOpen] = useState(false);
 
   // ── Query (the HTTP Send recipe) ─────────────────────────────────
   const [sending, setSending] = useState(false);
@@ -565,7 +566,6 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // A subscription that cannot open on this host names why on the
   // button — the honest disabled posture, never a silent no-op.
   const queryDisabledReason = isSubscription ? subscription.disabledReason : null;
-  const [placeOpen, setPlaceOpen] = useState(false);
   const placeBlocked = isSubscription && subscription.executionPlace.state !== 'ready';
   const primaryAction = (
     <PlaceRequiredHint

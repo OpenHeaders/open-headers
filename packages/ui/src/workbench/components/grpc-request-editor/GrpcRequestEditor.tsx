@@ -361,6 +361,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     onDirtyChange,
     registerSaveRef,
   });
+  const [placeOpen, setPlaceOpen] = useState(false);
 
   if (!entity) {
     return (
@@ -407,7 +408,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     },
   ];
 
-  const [placeOpen, setPlaceOpen] = useState(false);
   const placeBlocked = invoke.executionPlace.state !== 'ready';
   const primaryAction = invoke.invoking ? (
     <Tooltip

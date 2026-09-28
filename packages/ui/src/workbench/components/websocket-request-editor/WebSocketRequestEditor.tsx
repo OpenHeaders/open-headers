@@ -390,6 +390,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     onDirtyChange,
     registerSaveRef,
   });
+  const [placeOpen, setPlaceOpen] = useState(false);
 
   if (!entity) {
     return (
@@ -422,7 +423,6 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     session.sessionOpen || session.reconnecting
       ? t('workbench.editors.websocket.connect.disconnect')
       : t('workbench.editors.websocket.connect.cancel');
-  const [placeOpen, setPlaceOpen] = useState(false);
   const placeBlocked = session.executionPlace.state !== 'ready';
   const primaryAction = session.inFlight ? (
     <>
