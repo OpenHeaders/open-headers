@@ -182,7 +182,6 @@ import {
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
 } from '@openheaders/core/schemas';
-import { EXECUTION_PLACE_ROLES } from '@openheaders/core/schemas';
 import type { ExecutionPlaceRole, HttpVersion, ProxyMode, TlsVersion } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
@@ -201,7 +200,7 @@ import {
   SelectKnobRow,
   TextKnobRow,
 } from '@openheaders/ui/shared/settings-rows';
-import { executionPlaceOptionLabel } from '../../execution-place/execution-place-copy';
+import ExecutionPlaceKnobRow from '../../execution-place/ExecutionPlaceKnobRow';
 import DialRows from '../shared/dial/DialRows';
 import { type InheritedSettingsView, inheritedRowsFor } from '../shared/inherited-settings/inherited-settings';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
@@ -503,9 +502,6 @@ const SIZE_PRESETS = numericPresets(
 const REDIRECT_BOUNDS = { min: MIN_MAX_REDIRECTS, max: MAX_MAX_REDIRECTS };
 const REDIRECT_PRESET_VALUES = [5, 10, 20, 50];
 
-const isExecutionPlaceRole = (value: string | undefined): value is ExecutionPlaceRole =>
-  value !== undefined && (EXECUTION_PLACE_ROLES as readonly string[]).includes(value);
-
 const SettingsTab: React.FC<SettingsTabProps> = ({
   value,
   onChange,
@@ -629,7 +625,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   );
   const cookiesUnsaved = runtime === 'browser' ? hasUnsaved('credentialsMode') : hasUnsaved('cookieJar');
   const executionUnsaved = hasUnsaved('timeoutMs', 'maxResponseBytes', 'executionPlace');
-  const placeLabel = (role: ExecutionPlaceRole): string => executionPlaceOptionLabel(role, null, t);
 
   return (
     <ConfigProvider
@@ -866,13 +861,10 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           />
         )}
         {!container && (
-          <SelectKnobRow
-            label={t('workbench.editors.request.settings.executionPlace')}
+          <ExecutionPlaceKnobRow
             value={value.executionPlace}
-            onChange={(v) => onChange({ ...value, executionPlace: isExecutionPlaceRole(v) ? v : undefined })}
+            onChange={(executionPlace) => onChange({ ...value, executionPlace })}
             info={settingsRowInfo(t, 'executionPlace')}
-            options={EXECUTION_PLACE_ROLES.map((role) => ({ value: role, label: placeLabel(role) }))}
-            placeholder={t('workbench.editors.request.settings.executionPlacePlaceholder')}
             testId="oh-execution-place-select"
             unsaved={unsaved.has('executionPlace')}
           />

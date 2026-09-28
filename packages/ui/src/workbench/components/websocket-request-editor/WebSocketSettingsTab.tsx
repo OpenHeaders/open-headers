@@ -28,12 +28,13 @@ interface WebSocketSettingsTabProps {
 }
 
 /** The draft as the rows' value: the inheritable keys as they are, the
- *  empty request-only namespace as absent. */
+ *  empty request-only namespace as absent, this device's place as it is. */
 function valueOf(draft: WebSocketDraft): WebSocketSettingsValue {
   return {
     ...sliceOf(draft, WEBSOCKET_INHERITABLE_SETTING_KEYS),
     subprotocols: draft.subprotocols,
     namespace: draft.namespace === '' ? undefined : draft.namespace,
+    executionPlace: draft.executionPlace,
   };
 }
 

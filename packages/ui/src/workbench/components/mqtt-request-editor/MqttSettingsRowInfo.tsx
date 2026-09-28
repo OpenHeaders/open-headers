@@ -46,6 +46,7 @@ export type MqttResilienceInfoKey = 'autoReconnect' | 'reconnectPeriod' | 'recon
  *  headers included). */
 type MqttOwnInfoKey =
   | 'clientId'
+  | 'executionPlace'
   | 'cleanStart'
   | 'cleanSession'
   | 'sessionExpiry'
@@ -133,6 +134,7 @@ const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
  * sub-slice. */
 const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   clientId: ['clientId'],
+  executionPlace: ['route'],
   cleanStart: ['cleanStart'],
   cleanSession: ['cleanStart'],
   sessionExpiry: ['sessionExpiry'],
@@ -211,6 +213,7 @@ function MqttExampleCard({ lit, routeText }: { lit: ReadonlySet<TokenId>; routeT
 
 const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
   clientId: 'workbench.editors.mqtt.settings.clientIdLabel',
+  executionPlace: 'workbench.editors.request.settings.executionPlace',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartLabel',
   cleanSession: 'workbench.editors.mqtt.settings.cleanSessionLabel',
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryLabel',
@@ -239,6 +242,7 @@ const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
 
 const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey> = {
   clientId: 'workbench.editors.mqtt.settings.clientIdHelp',
+  executionPlace: 'workbench.editors.request.settings.executionPlaceInfo',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartHelp',
   cleanSession: 'workbench.editors.mqtt.settings.cleanStartHelp',
   sessionExpiry: 'workbench.editors.mqtt.settings.sessionExpiryHelp',
@@ -270,6 +274,7 @@ const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey>
  * Topics tab, the message-properties ones the trigger's own name. */
 const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   clientId: MQTT_GROUP_LABEL_KEY.connection,
+  executionPlace: MQTT_GROUP_LABEL_KEY.connection,
   cleanStart: MQTT_GROUP_LABEL_KEY.connection,
   cleanSession: MQTT_GROUP_LABEL_KEY.connection,
   sessionExpiry: MQTT_GROUP_LABEL_KEY.session,

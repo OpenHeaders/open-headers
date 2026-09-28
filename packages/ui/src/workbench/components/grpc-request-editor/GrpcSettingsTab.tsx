@@ -31,9 +31,13 @@ interface GrpcSettingsTabProps {
 }
 
 /** The draft as the rows' value: the inheritable keys as they are plus
- *  the request-only authority. */
+ *  the request-only authority and this device's place. */
 function valueOf(draft: GrpcDraft): GrpcSettingsValue {
-  return { ...sliceOf(draft, GRPC_INHERITABLE_SETTING_KEYS), authority: draft.authority };
+  return {
+    ...sliceOf(draft, GRPC_INHERITABLE_SETTING_KEYS),
+    authority: draft.authority,
+    executionPlace: draft.executionPlace,
+  };
 }
 
 const GrpcSettingsTab: React.FC<GrpcSettingsTabProps> = ({

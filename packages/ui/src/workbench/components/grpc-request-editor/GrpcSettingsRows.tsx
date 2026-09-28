@@ -27,6 +27,7 @@ import {
   MIN_RESPONSE_BYTES,
 } from '@openheaders/core/schemas';
 import type { KindSettings } from '@openheaders/core/settings-inheritance';
+import type { ExecutionPlaceRole } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   byteSizeInterpreter,
@@ -46,6 +47,7 @@ import {
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import ExecutionPlaceKnobRow from '../../execution-place/ExecutionPlaceKnobRow';
 import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import { type InheritedSettingsView, inheritedRowsFor } from '../shared/inherited-settings/inherited-settings';
 import TlsTrustGroup from '../shared/tls-trust/TlsTrustGroup';
@@ -59,9 +61,11 @@ import { GRPC_GROUP_LABEL_KEY, GRPC_GROUP_ORDER, type GrpcSettingsGroupKey } fro
 
 /** The rows' value: the kind's inheritable knobs (every key optional,
  *  `undefined` = inherit or the runtime default) plus the request-only
- *  authority a container never carries. */
+ *  keys a container never carries — the authority and this device's
+ *  place (undefined = Automatic). */
 export interface GrpcSettingsValue extends KindSettings<'grpc'> {
   authority?: string | undefined;
+  executionPlace?: ExecutionPlaceRole | undefined;
 }
 
 const CONNECTION_KEYS = [
@@ -174,7 +178,7 @@ const GrpcSettingsRows: React.FC<GrpcSettingsRowsProps> = ({
   // inherited one.
   const keepaliveIntervalEffective = value.keepaliveIntervalMs ?? inherited?.settings.keepaliveIntervalMs;
   const connectionModified =
-    (!container && value.authority !== undefined) ||
+    (!container && (value.authority !== undefined || value.executionPlace !== undefined)) ||
     (explicit
       ? CONNECTION_KEYS.some((key) => value[key] !== undefined)
       : isDialModified(value) ||
@@ -246,6 +250,14 @@ const GrpcSettingsRows: React.FC<GrpcSettingsRowsProps> = ({
               placeholder={t('workbench.editors.grpc.settings.authorityPlaceholder')}
               maxLength={MAX_GRPC_URL_LENGTH}
               testId="grpc-authority"
+            />
+          )}
+          {!container && (
+            <ExecutionPlaceKnobRow
+              value={value.executionPlace}
+              onChange={(executionPlace) => set({ executionPlace })}
+              info={grpcSettingsRowInfo(t, 'executionPlace')}
+              testId="grpc-execution-place"
             />
           )}
           <ComboKnobRow

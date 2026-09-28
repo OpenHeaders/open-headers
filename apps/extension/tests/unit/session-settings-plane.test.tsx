@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 /**
  * The three session Settings tabs (WebSocket · MQTT · gRPC) on the
- * ANCESTOR PLANE — the request rows of the settings-inheritance
+ * ANCESTOR PLANE — and their Runs on row, the request-only second door
+ * to this device's execution place (Automatic when unset, a pick a draft
+ * edit, never a container's row) — the request rows of the settings-inheritance
  * cascade: an inherited knob reads as the placeholder (a switch as its
  * effective state) with the "Inherited from …" line and the Edit in
  * parent opener; an own value shadows it (explicit wins — whatever
@@ -14,11 +16,14 @@
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { GrpcRequest, InheritedSettingSource, MqttRequest, WebSocketRequest } from '@openheaders/core/types';
 import { draftFromGrpcRequest } from '@openheaders/ui/workbench/components/grpc-request-editor/draft';
+import GrpcSettingsRows from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcSettingsRows';
 import GrpcSettingsTab from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcSettingsTab';
 import { draftFromMqttRequest } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
+import MqttSettingsRows from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttSettingsRows';
 import MqttSettingsTab from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttSettingsTab';
 import type { InheritedSettingsView } from '@openheaders/ui/workbench/components/shared/inherited-settings/inherited-settings';
 import { draftFromWebSocketRequest } from '@openheaders/ui/workbench/components/websocket-request-editor/draft';
+import WebSocketSettingsRows from '@openheaders/ui/workbench/components/websocket-request-editor/WebSocketSettingsRows';
 import WebSocketSettingsTab from '@openheaders/ui/workbench/components/websocket-request-editor/WebSocketSettingsTab';
 import { EditingScopeWorkspaceProvider } from '@openheaders/ui/workbench/hooks/EditingScopeWorkspaceContext';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -307,5 +312,65 @@ describe('gRPC Settings tab on the ancestor plane', () => {
     const cleared = nextDraft(setDraft, own);
     expect(cleared.timeoutMs).toBeUndefined();
     expect(cleared.sslVerification).toBeUndefined();
+  });
+});
+
+describe('the Runs on row on the three session Settings tabs', () => {
+  /** Open the antd select by its accessible name and pick the option. */
+  function pick(option: string): void {
+    const select = screen.getByRole('combobox', { name: 'Runs on' });
+    fireEvent.mouseDown(select);
+    fireEvent.click(select);
+    fireEvent.click(screen.getByText(option));
+  }
+
+  it('WebSocket: renders in Connection reading Automatic when unset; a pick writes the draft place', () => {
+    const setDraft = vi.fn();
+    const draft = draftFromWebSocketRequest(websocketRequest());
+    render(scoped(<WebSocketSettingsTab draft={draft} setDraft={setDraft} socketioFlavor={false} />));
+    const row = screen.getByTestId('websocket-execution-place');
+    expect(row.textContent).toContain('Automatic');
+    pick('The desktop app');
+    expect(nextDraft(setDraft, draft).executionPlace).toBe('desktop-app');
+  });
+
+  it('MQTT: renders reading Automatic when unset; a pick writes the draft place', () => {
+    const setDraft = vi.fn();
+    const draft = draftFromMqttRequest(mqttRequest());
+    render(scoped(<MqttSettingsTab draft={draft} setDraft={setDraft} v5 />));
+    expect(screen.getByTestId('mqtt-execution-place').textContent).toContain('Automatic');
+    pick('The server');
+    expect(nextDraft(setDraft, draft).executionPlace).toBe('workspace-server');
+  });
+
+  it('gRPC: renders the saved place and a pick writes the draft place', () => {
+    const setDraft = vi.fn();
+    const draft = draftFromGrpcRequest({ ...grpcRequest(), executionPlace: 'workspace-server' });
+    render(
+      scoped(
+        <GrpcSettingsTab
+          draft={draft}
+          setDraft={setDraft}
+          sendInvalidMessage={false}
+          onSendInvalidMessageChange={vi.fn()}
+        />,
+      ),
+    );
+    expect(screen.getByTestId('grpc-execution-place').textContent).toContain('The server');
+    pick('This device');
+    expect(nextDraft(setDraft, draft).executionPlace).toBe('here');
+  });
+
+  it("a container's section renders no Runs on row on any kind — the place is the request's, on this device", () => {
+    render(
+      scoped(
+        <>
+          <WebSocketSettingsRows scope="container" flavor="raw" value={{}} onChange={vi.fn()} />
+          <MqttSettingsRows scope="container" v5 value={{}} onChange={vi.fn()} />
+          <GrpcSettingsRows scope="container" value={{}} onChange={vi.fn()} />
+        </>,
+      ),
+    );
+    expect(screen.queryByRole('combobox', { name: 'Runs on' })).toBeNull();
   });
 });

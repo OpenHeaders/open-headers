@@ -29,6 +29,7 @@ import {
   MIN_RESPONSE_BYTES,
 } from '@openheaders/core/schemas';
 import type { KindSettings } from '@openheaders/core/settings-inheritance';
+import type { ExecutionPlaceRole } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   byteSizeInterpreter,
@@ -51,6 +52,7 @@ import {
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import ExecutionPlaceKnobRow from '../../execution-place/ExecutionPlaceKnobRow';
 import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import { type InheritedSettingsView, inheritedRowsFor } from '../shared/inherited-settings/inherited-settings';
 import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup';
@@ -68,10 +70,12 @@ export type WsFlavor = 'raw' | 'socketio';
 
 /** The rows' value: the kind's inheritable knobs (every key optional,
  *  `undefined` = inherit or the runtime default) plus the request-only
- *  pair a container never carries. */
+ *  keys a container never carries — the subprotocol offer, the
+ *  namespace and this device's place (undefined = Automatic). */
 export interface WebSocketSettingsValue extends KindSettings<'websocket'> {
   subprotocols?: string[] | undefined;
   namespace?: string | undefined;
+  executionPlace?: ExecutionPlaceRole | undefined;
 }
 
 const WS_KNOB_KEYS = [
@@ -198,6 +202,7 @@ const WebSocketSettingsRows: React.FC<WebSocketSettingsRowsProps> = ({
   const follow = rows.toggle('followRedirects', value.followRedirects, false);
   const connectionModified =
     (!socketio && !container && subprotocols.length > 0) ||
+    (!container && value.executionPlace !== undefined) ||
     (explicit
       ? WS_KNOB_KEYS.some((key) => value[key] !== undefined)
       : isDialModified(value) ||
@@ -286,6 +291,14 @@ const WebSocketSettingsRows: React.FC<WebSocketSettingsRowsProps> = ({
             unsaved={isUnsaved('unixSocketPath')}
             testId="websocket-unix-socket"
           />
+          {!container && (
+            <ExecutionPlaceKnobRow
+              value={value.executionPlace}
+              onChange={(executionPlace) => set({ executionPlace })}
+              info={rowInfo('executionPlace')}
+              testId="websocket-execution-place"
+            />
+          )}
           <ComboKnobRow
             label={t('workbench.editors.websocket.settings.timeoutLabel')}
             value={value.timeoutMs}

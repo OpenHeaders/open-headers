@@ -54,7 +54,8 @@ type WsOwnInfoKey =
   | 'handshakePath'
   | 'namespace'
   | 'socketioProtocol'
-  | 'ackTimeout';
+  | 'ackTimeout'
+  | 'executionPlace';
 
 /** One key per knob that opens a popover with the card. */
 export type WsInfoKey = WsOwnInfoKey | DialInfoKey | TlsTrustInfoKey | ResilienceInfoKey;
@@ -100,6 +101,7 @@ export type WsExampleToken = TokenId;
  * share the cadence token, the attempts and backoff the limit token. */
 const HIGHLIGHT: Record<WsInfoKey, TokenId> = {
   subprotocols: 'proto',
+  executionPlace: 'dial',
   resolveToAddress: 'dial',
   proxy: 'dial',
   proxyUrl: 'dial',
@@ -192,6 +194,7 @@ export function wsExampleCard(lit: readonly WsExampleToken[], flavor: WsFlavor):
 
 const TITLE_KEY: Record<WsOwnInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsLabel',
+  executionPlace: 'workbench.editors.request.settings.executionPlace',
   unixSocket: 'workbench.editors.websocket.settings.unixSocketLabel',
   timeout: 'workbench.editors.websocket.settings.timeoutLabel',
   maxMessageSize: 'workbench.editors.request.settings.maxMessageSize',
@@ -205,6 +208,7 @@ const TITLE_KEY: Record<WsOwnInfoKey, MessageKey> = {
 
 const SUMMARY_KEY: Record<WsOwnInfoKey, MessageKey> = {
   subprotocols: 'workbench.editors.websocket.settings.subprotocolsHelp',
+  executionPlace: 'workbench.editors.request.settings.executionPlaceInfo',
   unixSocket: 'workbench.editors.websocket.settings.unixSocketHelp',
   timeout: 'workbench.editors.websocket.settings.timeoutHelp',
   maxMessageSize: 'workbench.editors.request.settings.maxMessageSizeInfo',
@@ -218,6 +222,7 @@ const SUMMARY_KEY: Record<WsOwnInfoKey, MessageKey> = {
 
 const GROUP_OF: Record<WsInfoKey, WsSettingsGroupKey> = {
   subprotocols: 'connection',
+  executionPlace: 'connection',
   resolveToAddress: 'connection',
   proxy: 'connection',
   proxyUrl: 'connection',

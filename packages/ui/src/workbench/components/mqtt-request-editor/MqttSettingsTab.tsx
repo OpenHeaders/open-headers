@@ -28,11 +28,12 @@ interface MqttSettingsTabProps {
 }
 
 /** The draft as the rows' value: the inheritable keys as they are, the
- *  empty request-only client id as absent. */
+ *  empty request-only client id as absent, this device's place as it is. */
 function valueOf(draft: MqttDraft): MqttSettingsValue {
   return {
     ...sliceOf(draft, MQTT_INHERITABLE_SETTING_KEYS),
     clientId: draft.clientId === '' ? undefined : draft.clientId,
+    executionPlace: draft.executionPlace,
   };
 }
 

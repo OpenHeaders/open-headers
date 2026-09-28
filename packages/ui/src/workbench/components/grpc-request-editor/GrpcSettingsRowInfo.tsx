@@ -35,6 +35,7 @@ import { GRPC_GROUP_LABEL_KEY, type GrpcSettingsGroupKey } from './settings-grou
 /** The editor's own knobs. */
 type GrpcOwnInfoKey =
   | 'authority'
+  | 'executionPlace'
   | 'unixSocket'
   | 'timeout'
   | 'responseSizeLimit'
@@ -84,6 +85,7 @@ const HIGHLIGHT: Record<GrpcInfoKey, TokenId> = {
   proxyCredentials: 'dial',
   unixSocket: 'dial',
   authority: 'authority',
+  executionPlace: 'dial',
   timeout: 'deadline',
   responseSizeLimit: 'cap',
   keepaliveInterval: 'ping',
@@ -131,6 +133,7 @@ export function grpcExampleCard(lit: readonly GrpcExampleToken[]): React.ReactEl
 
 const TITLE_KEY: Record<GrpcOwnInfoKey, MessageKey> = {
   authority: 'workbench.editors.grpc.settings.authorityLabel',
+  executionPlace: 'workbench.editors.request.settings.executionPlace',
   unixSocket: 'workbench.editors.grpc.settings.unixSocketLabel',
   timeout: 'workbench.editors.grpc.settings.timeoutLabel',
   responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimit',
@@ -141,6 +144,7 @@ const TITLE_KEY: Record<GrpcOwnInfoKey, MessageKey> = {
 
 const SUMMARY_KEY: Record<GrpcOwnInfoKey, MessageKey> = {
   authority: 'workbench.editors.grpc.settings.authorityHelp',
+  executionPlace: 'workbench.editors.request.settings.executionPlaceInfo',
   unixSocket: 'workbench.editors.grpc.settings.unixSocketHelp',
   timeout: 'workbench.editors.grpc.settings.timeoutHelp',
   responseSizeLimit: 'workbench.editors.request.settings.responseSizeLimitInfo',
@@ -155,6 +159,7 @@ const GROUP_OF: Record<GrpcInfoKey, GrpcSettingsGroupKey> = {
   proxyUrl: 'connection',
   proxyCredentials: 'connection',
   authority: 'connection',
+  executionPlace: 'connection',
   unixSocket: 'connection',
   timeout: 'connection',
   responseSizeLimit: 'connection',

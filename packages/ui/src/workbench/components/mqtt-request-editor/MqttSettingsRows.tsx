@@ -20,6 +20,7 @@
 
 import { MAX_ALPN_PROTOCOL_LENGTH, MAX_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS } from '@openheaders/core/schemas';
 import type { KindSettings } from '@openheaders/core/settings-inheritance';
+import type { ExecutionPlaceRole } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   byteSizeInterpreter,
@@ -35,6 +36,7 @@ import { ComboKnobRow, GroupSection, KnobRow, TextKnobRow } from '@openheaders/u
 import { ConfigProvider, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import ExecutionPlaceKnobRow from '../../execution-place/ExecutionPlaceKnobRow';
 import DialRows, { isDialModified } from '../shared/dial/DialRows';
 import { type InheritedSettingsView, inheritedRowsFor } from '../shared/inherited-settings/inherited-settings';
 import SessionResilienceGroup from '../shared/resilience/SessionResilienceGroup';
@@ -47,9 +49,11 @@ const { Text } = Typography;
 
 /** The rows' value: the kind's inheritable knobs (every key optional,
  *  `undefined` = inherit or the runtime default) plus the request-only
- *  client id a container never carries. */
+ *  keys a container never carries — the client id and this device's
+ *  place (undefined = Automatic). */
 export interface MqttSettingsValue extends KindSettings<'mqtt'> {
   clientId?: string | undefined;
+  executionPlace?: ExecutionPlaceRole | undefined;
 }
 
 const CONNECTION_KEYS = ['cleanStart', 'keepAlive', 'resolveToAddress', 'proxyMode', 'proxyUrl', 'proxyCredentialRef', 'timeoutMs'] as const;
@@ -153,7 +157,7 @@ const MqttSettingsRows: React.FC<MqttSettingsRowsProps> = ({
   const responseInfo = rows.toggle('requestResponseInformation', value.requestResponseInformation, false);
   const problemInfo = rows.toggle('requestProblemInformation', value.requestProblemInformation, true);
   const connectionModified =
-    (!container && value.clientId !== undefined) ||
+    (!container && (value.clientId !== undefined || value.executionPlace !== undefined)) ||
     (explicit
       ? CONNECTION_KEYS.some((key) => value[key] !== undefined)
       : value.cleanStart === false || value.keepAlive !== undefined || isDialModified(value) || value.timeoutMs !== undefined);
@@ -241,6 +245,14 @@ const MqttSettingsRows: React.FC<MqttSettingsRowsProps> = ({
             inherited={inherited}
             testIdPrefix="mqtt"
           />
+          {!container && (
+            <ExecutionPlaceKnobRow
+              value={value.executionPlace}
+              onChange={(executionPlace) => set({ executionPlace })}
+              info={mqttSettingsRowInfo(t, 'executionPlace')}
+              testId="mqtt-execution-place"
+            />
+          )}
           <ComboKnobRow
             label={t('workbench.editors.mqtt.settings.timeoutLabel')}
             value={value.timeoutMs}
