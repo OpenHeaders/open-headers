@@ -80,6 +80,30 @@ describe('brand glyph maps', () => {
     }
   });
 
+  it("scopes each mounted logo's gradient ids to itself — two copies on one page paint independently", () => {
+    const Chrome = browserGlyph('chrome');
+    if (!Chrome) throw new Error('chrome glyph');
+    const { container } = render(
+      <>
+        <Chrome style={{ fontSize: 12 }} />
+        <Chrome style={{ fontSize: 12 }} />
+      </>,
+    );
+    const svgs = Array.from(container.querySelectorAll('svg'));
+    expect(svgs).toHaveLength(2);
+    const idsOf = (svg: Element): string[] => Array.from(svg.querySelectorAll('[id]')).map((el) => el.id);
+    const [first = [], second = []] = svgs.map(idsOf);
+    expect(first.length).toBeGreaterThan(0);
+    expect(first.some((id) => second.includes(id))).toBe(false);
+    for (const svg of svgs) {
+      const own = new Set(idsOf(svg));
+      for (const el of Array.from(svg.querySelectorAll('[fill^="url(#"]'))) {
+        const ref = el.getAttribute('fill')?.slice('url(#'.length, -1) ?? '';
+        expect(own.has(ref), ref).toBe(true);
+      }
+    }
+  });
+
   it('returns null for kinds without a distinct brand mark', () => {
     expect(browserGlyph('unknown')).toBeNull();
     expect(platformGlyph('unknown')).toBeNull();

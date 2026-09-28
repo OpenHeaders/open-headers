@@ -3,7 +3,12 @@
  * runtime fetches ever.
  *
  * Browsers render their full-colour logos (baked inline markup, see
- * `browser-logo-markup.ts`). OS marks are single-path glyphs (Simple
+ * `browser-logo-markup.ts`). Their gradients are referenced by id, and
+ * an id resolves document-wide to its FIRST occurrence — so every
+ * mounted logo rewrites the shared `ohbg-` prefix with its own React id.
+ * Without that, a copy inside a hidden subtree (a kept-alive editor tab's
+ * place button, a closed menu) claims the ids first and every visible
+ * copy loses its arcs, leaving the bare centre disc. OS marks are single-path glyphs (Simple
  * Icons, CC0) filled with the brand colour where one reads well at
  * icon size; the Apple and Tux marks stay `currentColor` so they
  * survive both themes.
@@ -18,6 +23,7 @@
 
 import type { BrowserKind, PlatformKind } from '@openheaders/core/utils';
 import type React from 'react';
+import { useId, useMemo } from 'react';
 import {
   BRAVE_LOGO,
   CHROME_LOGO,
@@ -38,18 +44,26 @@ const wrapperStyle: React.CSSProperties = {
   lineHeight: 0,
 };
 
-/** A full-colour logo from baked, namespaced, build-time-constant SVG markup. */
+/** The prefix every logo's ids and id references carry in the baked markup. */
+const ID_PREFIX = 'ohbg-';
+
+/** A full-colour logo from baked, build-time-constant SVG markup, its
+ *  gradient ids scoped to this mount. */
 function createLogoGlyph(markup: string): BrandIconComponent {
-  const Glyph: BrandIconComponent = ({ style, className }) => (
-    <span
-      role="img"
-      aria-hidden="true"
-      className={className}
-      style={{ ...wrapperStyle, ...style }}
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: static build-time brand SVG markup, no user input
-      dangerouslySetInnerHTML={{ __html: markup }}
-    />
-  );
+  const Glyph: BrandIconComponent = ({ style, className }) => {
+    const scope = useId().replace(/[^A-Za-z0-9]/g, '');
+    const html = useMemo(() => markup.replaceAll(ID_PREFIX, `${ID_PREFIX}${scope}-`), [scope]);
+    return (
+      <span
+        role="img"
+        aria-hidden="true"
+        className={className}
+        style={{ ...wrapperStyle, ...style }}
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: static build-time brand SVG markup, no user input
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  };
   return Glyph;
 }
 
