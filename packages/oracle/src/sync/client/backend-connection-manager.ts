@@ -12,7 +12,9 @@
  * tear down removed/disabled ones, re-dial shape changes), inbound
  * frame routing with the delivering connection attached, the open/close
  * subscriber fan-out, and per-wire status reporting into the aggregate.
- * No other module opens sockets.
+ * No other module opens sockets — and none dials before the host's
+ * `readyToDial` resolves: a wire that opens mid-boot runs its handshake
+ * against a sync engine that cannot serve the `__global__` catch-up.
  *
  * Every consumer that used to read "the" socket reads a routed or
  * aggregated view instead:
@@ -59,10 +61,22 @@ export interface BackendConnectionManagerDeps {
    * `wasOpen`. Hosts hang failure observability off this.
    */
   readonly onConnectFailed?: (backendId: string) => void;
+  /**
+   * Resolves once the host can serve a handshake — its sync engine has
+   * booted, so the `__global__` catch-up finds the global service's
+   * log. Until then the registry reconcile still creates every wanted
+   * wire (per-wire services attach at creation) but no wire dials; the
+   * held dials go out the moment it resolves. A host that installs the
+   * manager after its engine boots omits it.
+   */
+  readonly readyToDial?: Promise<void>;
 }
 
 let managerDeps: BackendConnectionManagerDeps | null = null;
 let unsubscribeRegistry: (() => void) | null = null;
+// False while the installed `readyToDial` is pending — every transport's
+// `shouldConnect` reads it, so an attempt begun early settles in `idle`.
+let dialReady = true;
 
 function deps(): BackendConnectionManagerDeps {
   if (!managerDeps) throw new Error('backend connection manager is not installed');
@@ -79,6 +93,15 @@ export function installBackendConnectionManager(next: BackendConnectionManagerDe
   managerDeps = next;
   if (!unsubscribeRegistry) {
     unsubscribeRegistry = subscribeBackends(scheduleReconcile);
+  }
+  dialReady = next.readyToDial === undefined;
+  if (next.readyToDial) {
+    void next.readyToDial.then(() => {
+      // A re-install (test harness) supersedes this gate.
+      if (managerDeps !== next) return;
+      dialReady = true;
+      for (const wire of wires.values()) wire.transport.ensureConnected();
+    });
   }
 }
 
@@ -262,7 +285,7 @@ function createWire(rec: BackendConnection): ManagedWire {
   };
   const transport = createTransportConnection({
     getUrl: () => managed.rec.url || null,
-    shouldConnect: () => !managed.defunct && managed.rec.enabled && managed.rec.autoConnect,
+    shouldConnect: () => dialReady && !managed.defunct && managed.rec.enabled && managed.rec.autoConnect,
     getReconnectDelayMs: () => deps().getReconnectDelayMs(),
     getMaxReconnectDelayMs: () => deps().getMaxReconnectDelayMs(),
     getPingIntervalMs: () => deps().getPingIntervalMs(),

@@ -1,5 +1,7 @@
 /**
- * Backend connection manager — inbound frame serialization.
+ * Backend connection manager — inbound frame serialization, and the
+ * dial gate (`readyToDial`): no wire opens before the host can serve a
+ * handshake, and every held dial goes out once it can.
  *
  * A catch-up replay streams one frame per logged mutation. Dispatching
  * them concurrently races every apply for the same entity onto one
@@ -155,5 +157,49 @@ describe('backend-connection-manager inbound serialization', () => {
     releaseFirst();
     await until(() => events.includes('end:3'));
     expect(events).toEqual(['start:1', 'end:1', 'start:2', 'end:2', 'start:3', 'end:3']);
+  });
+});
+
+describe('backend-connection-manager dial gate', () => {
+  const sockets: FakeSocket[] = [];
+  let releaseDial!: () => void;
+
+  beforeEach(async () => {
+    const fake = createHostStorageFake();
+    setHostStorage(fake);
+    // Production order: the manager installs at eval, the registry
+    // hydrates later and its notification reconciles the wires.
+    installBackendConnectionManager({
+      probeReachable: () => Promise.resolve(true),
+      createSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      getReconnectDelayMs: () => 60_000,
+      getMaxReconnectDelayMs: () => 60_000,
+      getPingIntervalMs: () => 60_000,
+      readyToDial: new Promise<void>((resolve) => {
+        releaseDial = resolve;
+      }),
+    });
+    await fake.set(OH.backends, [backendRecord()]);
+    await refreshBackendsFromHostStorage();
+  });
+
+  afterEach(async () => {
+    releaseDial();
+    __clearBackendsForTests();
+    await connectWebSocket();
+    sockets.length = 0;
+  });
+
+  it('holds every dial until the host is ready, then dials the wanted wires', async () => {
+    await connectWebSocket();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(sockets).toHaveLength(0);
+
+    releaseDial();
+    await until(() => sockets.length === 1);
   });
 });

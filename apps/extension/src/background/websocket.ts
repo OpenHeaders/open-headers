@@ -15,6 +15,7 @@ import {
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
 import { isSafari } from '@utils/browser-api';
+import { backgroundReady } from './bootstrap/background-ready';
 import { trackProductTelemetryEvent } from './modules/product-telemetry';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
@@ -45,6 +46,11 @@ installBackendConnectionManager({
   getPingIntervalMs: () => getSetting('backend.pingIntervalMs'),
   onConnectionStatusChanged: (connected) => broadcast('connectionStatus', { connected }),
   onConnectFailed: () => trackProductTelemetryEvent({ name: 'error_beacon', code: 'ws-connect-failed' }),
+  // The registry hydrates right after settings, long before the sync
+  // engine boots; a wire that opened in between ran its `__global__`
+  // catch-up against an uninitialized global service and stayed red for
+  // the socket's lifetime. No dial until the boot barrier lifts.
+  readyToDial: backgroundReady,
 });
 
 // Ping cadence changes take effect on the next tick without a reconnect.
