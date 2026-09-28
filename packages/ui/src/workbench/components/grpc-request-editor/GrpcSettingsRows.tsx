@@ -211,6 +211,14 @@ const GrpcSettingsRows: React.FC<GrpcSettingsRowsProps> = ({
           modified={connectionModified}
           unsaved={CONNECTION_KEYS.some(isUnsaved)}
         >
+          {!container && (
+            <ExecutionPlaceKnobRow
+              value={value.executionPlace}
+              onChange={(executionPlace) => set({ executionPlace })}
+              info={grpcSettingsRowInfo(t, 'executionPlace')}
+              testId="grpc-execution-place"
+            />
+          )}
           <DialRows
             groupLabel={t(GRPC_GROUP_LABEL_KEY.connection)}
             value={value}
@@ -250,14 +258,6 @@ const GrpcSettingsRows: React.FC<GrpcSettingsRowsProps> = ({
               placeholder={t('workbench.editors.grpc.settings.authorityPlaceholder')}
               maxLength={MAX_GRPC_URL_LENGTH}
               testId="grpc-authority"
-            />
-          )}
-          {!container && (
-            <ExecutionPlaceKnobRow
-              value={value.executionPlace}
-              onChange={(executionPlace) => set({ executionPlace })}
-              info={grpcSettingsRowInfo(t, 'executionPlace')}
-              testId="grpc-execution-place"
             />
           )}
           <ComboKnobRow

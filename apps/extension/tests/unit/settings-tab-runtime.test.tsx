@@ -1115,8 +1115,9 @@ describe('SettingsTab on the ancestor plane (settings inheritance, the request r
     expect(screen.getByText('30 s')).toBeTruthy();
     expect(screen.getByText('5 hops')).toBeTruthy();
     const notes = screen.getAllByTestId('oh-inherited-setting-note');
-    expect(notes.map((n) => n.getAttribute('data-key'))).toEqual(['maxRedirects', 'timeoutMs']);
-    expect(notes[1].textContent).toContain('Inherited from Collection ‘Payments’');
+    // DOM order — the groups' order (Execution first, then Redirects).
+    expect(notes.map((n) => n.getAttribute('data-key'))).toEqual(['timeoutMs', 'maxRedirects']);
+    expect(notes[0].textContent).toContain('Inherited from Collection ‘Payments’');
     fireEvent.click(within(notes[1]).getByTestId('oh-inherited-setting-edit-in-parent'));
     expect(onOpenSource).toHaveBeenCalledWith('collection', 'col00001', 'Payments');
     // Nothing is the request's own — no reset, no dot.
@@ -1150,11 +1151,11 @@ describe('SettingsTab on the ancestor plane (settings inheritance, the request r
     // Transparency: the shadowed level and its value stay on the row.
     const notes = screen.getAllByTestId('oh-inherited-setting-note');
     expect(notes.map((n) => `${n.getAttribute('data-key')}:${n.getAttribute('data-reading')}`)).toEqual([
-      'sslVerification:overrides',
       'timeoutMs:overrides',
+      'sslVerification:overrides',
     ]);
-    expect(notes[0].textContent).toContain('Overrides Collection ‘Payments’ (Disabled)');
-    expect(notes[1].textContent).toContain('Overrides Collection ‘Payments’ (30 s)');
+    expect(notes[0].textContent).toContain('Overrides Collection ‘Payments’ (30 s)');
+    expect(notes[1].textContent).toContain('Overrides Collection ‘Payments’ (Disabled)');
     expect(screen.queryByTestId('oh-inherited-setting-chain')).toBeNull();
     // Explicit wins: an own `true` under the collection's `false` is the
     // request's own value — checked, dotted, resettable.

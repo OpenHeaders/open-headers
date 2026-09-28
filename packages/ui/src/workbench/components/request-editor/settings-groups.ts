@@ -9,7 +9,7 @@ import type { MessageKey } from '@openheaders/i18n';
 
 export type SettingsGroupKey = 'connection' | 'tls' | 'redirects' | 'cookies' | 'execution';
 
-export const GROUP_ORDER: SettingsGroupKey[] = ['connection', 'tls', 'redirects', 'cookies', 'execution'];
+export const GROUP_ORDER: SettingsGroupKey[] = ['execution', 'connection', 'tls', 'redirects', 'cookies'];
 
 export const GROUP_LABEL_KEY: Record<SettingsGroupKey, MessageKey> = {
   connection: 'workbench.editors.request.settings.group.connection',

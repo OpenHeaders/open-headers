@@ -195,6 +195,14 @@ const MqttSettingsRows: React.FC<MqttSettingsRowsProps> = ({
           unsaved={CONNECTION_KEYS.some(isUnsaved)}
         >
           {!container && (
+            <ExecutionPlaceKnobRow
+              value={value.executionPlace}
+              onChange={(executionPlace) => set({ executionPlace })}
+              info={mqttSettingsRowInfo(t, 'executionPlace')}
+              testId="mqtt-execution-place"
+            />
+          )}
+          {!container && (
             <TextKnobRow
               label={t('workbench.editors.mqtt.settings.clientIdLabel')}
               value={value.clientId}
@@ -245,14 +253,6 @@ const MqttSettingsRows: React.FC<MqttSettingsRowsProps> = ({
             inherited={inherited}
             testIdPrefix="mqtt"
           />
-          {!container && (
-            <ExecutionPlaceKnobRow
-              value={value.executionPlace}
-              onChange={(executionPlace) => set({ executionPlace })}
-              info={mqttSettingsRowInfo(t, 'executionPlace')}
-              testId="mqtt-execution-place"
-            />
-          )}
           <ComboKnobRow
             label={t('workbench.editors.mqtt.settings.timeoutLabel')}
             value={value.timeoutMs}

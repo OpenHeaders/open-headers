@@ -642,6 +642,77 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 560 }}>
+        <GroupSection
+              label={t('workbench.editors.request.settings.group.execution')}
+              expanded={collapsed.execution !== true}
+              onToggle={() => toggleGroup('execution')}
+              info={settingsGroupInfo(t, 'execution')}
+              modified={executionModified}
+              unsaved={executionUnsaved}
+            >
+        {!container && (
+          <ExecutionPlaceKnobRow
+            value={value.executionPlace}
+            onChange={(executionPlace) => onChange({ ...value, executionPlace })}
+            info={settingsRowInfo(t, 'executionPlace')}
+            testId="oh-execution-place-select"
+            unsaved={unsaved.has('executionPlace')}
+          />
+        )}
+        {!container && runtime === 'node' && scriptMode.available && (
+          <SelectKnobRow
+            label={t('workbench.editors.request.settings.scriptMode')}
+            value={scriptMode.mode}
+            modified={scriptMode.mode === 'developer'}
+            onReset={() => scriptMode.setMode('safe')}
+            onChange={(v) => scriptMode.setMode(v === 'developer' ? 'developer' : 'safe')}
+            info={settingsRowInfo(t, 'scriptMode')}
+            options={[
+              { value: 'safe', label: t('workbench.editors.request.settings.scriptModeSafe') },
+              { value: 'developer', label: t('workbench.editors.request.settings.scriptModeDeveloper') },
+            ]}
+            allowClear={false}
+            testId="oh-script-mode-select"
+            warning={
+              scriptMode.mode === 'developer' ? t('workbench.editors.request.settings.scriptModeWarning') : undefined
+            }
+          />
+        )}
+        <ComboKnobRow
+          label={t('workbench.editors.request.settings.timeout')}
+          value={value.timeoutMs}
+          onChange={(timeoutMs) => onChange({ ...value, timeoutMs })}
+          info={settingsRowInfo(t, 'timeout')}
+          presets={TIMEOUT_PRESETS}
+          interpret={interpretTimeout}
+          format={formatDurationMs}
+          {...rows.field(
+            'timeoutMs',
+            value.timeoutMs,
+            t('workbench.editors.request.settings.timeoutPlaceholder'),
+            formatDurationMs,
+          )}
+          unsaved={unsaved.has('timeoutMs')}
+        />
+        {knobRuntime === 'node' && (
+          <ComboKnobRow
+            label={t('workbench.editors.request.settings.responseSizeLimit')}
+            value={value.maxResponseBytes}
+            onChange={(maxResponseBytes) => onChange({ ...value, maxResponseBytes })}
+            info={settingsRowInfo(t, 'responseSizeLimit')}
+            presets={SIZE_PRESETS}
+            interpret={interpretResponseSize}
+            format={formatByteSize}
+            {...rows.field(
+              'maxResponseBytes',
+              value.maxResponseBytes,
+              t('workbench.editors.request.settings.responseSizeLimitPlaceholder'),
+              formatByteSize,
+            )}
+            unsaved={unsaved.has('maxResponseBytes')}
+          />
+        )}
+        </GroupSection>
         {knobRuntime === 'node' && (
           <>
             <GroupSection
@@ -832,78 +903,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             {!container && <CookieJarRow />}
           </>
         )}
-        </GroupSection>
-        <GroupSection
-              label={t('workbench.editors.request.settings.group.execution')}
-              expanded={collapsed.execution !== true}
-              onToggle={() => toggleGroup('execution')}
-              info={settingsGroupInfo(t, 'execution')}
-              modified={executionModified}
-              unsaved={executionUnsaved}
-            >
-        {!container && runtime === 'node' && scriptMode.available && (
-          <SelectKnobRow
-            label={t('workbench.editors.request.settings.scriptMode')}
-            value={scriptMode.mode}
-            modified={scriptMode.mode === 'developer'}
-            onReset={() => scriptMode.setMode('safe')}
-            onChange={(v) => scriptMode.setMode(v === 'developer' ? 'developer' : 'safe')}
-            info={settingsRowInfo(t, 'scriptMode')}
-            options={[
-              { value: 'safe', label: t('workbench.editors.request.settings.scriptModeSafe') },
-              { value: 'developer', label: t('workbench.editors.request.settings.scriptModeDeveloper') },
-            ]}
-            allowClear={false}
-            testId="oh-script-mode-select"
-            warning={
-              scriptMode.mode === 'developer' ? t('workbench.editors.request.settings.scriptModeWarning') : undefined
-            }
-          />
-        )}
-        {!container && (
-          <ExecutionPlaceKnobRow
-            value={value.executionPlace}
-            onChange={(executionPlace) => onChange({ ...value, executionPlace })}
-            info={settingsRowInfo(t, 'executionPlace')}
-            testId="oh-execution-place-select"
-            unsaved={unsaved.has('executionPlace')}
-          />
-        )}
-        <ComboKnobRow
-          label={t('workbench.editors.request.settings.timeout')}
-          value={value.timeoutMs}
-          onChange={(timeoutMs) => onChange({ ...value, timeoutMs })}
-          info={settingsRowInfo(t, 'timeout')}
-          presets={TIMEOUT_PRESETS}
-          interpret={interpretTimeout}
-          format={formatDurationMs}
-          {...rows.field(
-            'timeoutMs',
-            value.timeoutMs,
-            t('workbench.editors.request.settings.timeoutPlaceholder'),
-            formatDurationMs,
-          )}
-          unsaved={unsaved.has('timeoutMs')}
-        />
-        {knobRuntime === 'node' && (
-          <ComboKnobRow
-            label={t('workbench.editors.request.settings.responseSizeLimit')}
-            value={value.maxResponseBytes}
-            onChange={(maxResponseBytes) => onChange({ ...value, maxResponseBytes })}
-            info={settingsRowInfo(t, 'responseSizeLimit')}
-            presets={SIZE_PRESETS}
-            interpret={interpretResponseSize}
-            format={formatByteSize}
-            {...rows.field(
-              'maxResponseBytes',
-              value.maxResponseBytes,
-              t('workbench.editors.request.settings.responseSizeLimitPlaceholder'),
-              formatByteSize,
-            )}
-            unsaved={unsaved.has('maxResponseBytes')}
-          />
-        )}
-
         </GroupSection>
         {!container && (
           <RuntimeManagedSheet

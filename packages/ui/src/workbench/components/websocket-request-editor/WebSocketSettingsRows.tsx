@@ -250,6 +250,14 @@ const WebSocketSettingsRows: React.FC<WebSocketSettingsRowsProps> = ({
           modified={connectionModified}
           unsaved={WS_KNOB_KEYS.some(isUnsaved)}
         >
+          {!container && (
+            <ExecutionPlaceKnobRow
+              value={value.executionPlace}
+              onChange={(executionPlace) => set({ executionPlace })}
+              info={rowInfo('executionPlace')}
+              testId="websocket-execution-place"
+            />
+          )}
           {!socketio && !container && (
             <TagsKnobRow
               label={t('workbench.editors.websocket.settings.subprotocolsLabel')}
@@ -291,14 +299,6 @@ const WebSocketSettingsRows: React.FC<WebSocketSettingsRowsProps> = ({
             unsaved={isUnsaved('unixSocketPath')}
             testId="websocket-unix-socket"
           />
-          {!container && (
-            <ExecutionPlaceKnobRow
-              value={value.executionPlace}
-              onChange={(executionPlace) => set({ executionPlace })}
-              info={rowInfo('executionPlace')}
-              testId="websocket-execution-place"
-            />
-          )}
           <ComboKnobRow
             label={t('workbench.editors.websocket.settings.timeoutLabel')}
             value={value.timeoutMs}
