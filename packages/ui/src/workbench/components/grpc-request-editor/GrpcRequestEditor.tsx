@@ -31,10 +31,15 @@
  * Dirty derives from form-vs-canonical equality via `useReprime`
  * (never setDirty); saves flow through the RequestsContext's
  * `updateGrpcRequest` (the gRPC write client under the hood).
+ *
+ * The editor takes the LIVE entity — `GrpcRequestEditorTab` resolves
+ * the tab's uid and renders the not-found panel in its place when the
+ * request is gone — so every hook here runs on every render.
  */
 
 import { CaretRightOutlined, CheckOutlined } from '@ant-design/icons';
 import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
+import type { GrpcRequest } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { isMac } from '@openheaders/ui/shared/platform';
@@ -94,8 +99,9 @@ import { findMethodOption, synthesizeExampleText } from './method-selector';
 
 const { Text } = Typography;
 
-interface GrpcRequestEditorProps {
-  grpcRequestUid: string;
+export interface GrpcRequestEditorProps {
+  /** The live request — resolved by the tab; the editor never renders without one. */
+  entity: GrpcRequest;
   workspaceId: string | null;
   /** Open a saved gRPC response example's viewer tab (after "Save Response"). */
   onOpenGrpcResponseExample?: (uid: string, name: string, grpcRequestUid: string) => void;
@@ -114,39 +120,10 @@ interface GrpcRequestEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-const emptyGrpcDraft = (): GrpcDraft => ({
-  description: '',
-  url: '',
-  tls: true,
-  method: undefined,
-  message: '',
-  metadata: [],
-  auth: { type: 'none' },
-  specLink: undefined,
-  scripts: {},
-  resolveToAddress: undefined,
-  proxyMode: undefined,
-  proxyUrl: undefined,
-  proxyCredentialRef: undefined,
-  authority: undefined,
-  unixSocketPath: undefined,
-  timeoutMs: undefined,
-  keepaliveIntervalMs: undefined,
-  keepaliveTimeoutMs: undefined,
-  sslVerification: undefined,
-  executionPlace: undefined,
-  clientCertificateRef: undefined,
-  tlsMinVersion: undefined,
-  maxResponseBytes: undefined,
-  tlsMaxVersion: undefined,
-  tlsCipherSuites: undefined,
-  sniServerName: undefined,
-});
-
 const INVOKE_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
 
 const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
-  grpcRequestUid,
+  entity,
   workspaceId,
   onOpenGrpcResponseExample,
   onOpenContainerAuth,
@@ -159,32 +136,24 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { collections, collectionTrees, folders, grpcRequests, updateGrpcRequest } = useRequests();
+  const { collections, collectionTrees, folders, updateGrpcRequest } = useRequests();
 
-  const entity = useMemo(
-    () => grpcRequests.find((r) => r.uid === grpcRequestUid) ?? null,
-    [grpcRequests, grpcRequestUid],
-  );
-
-  const [draft, setDraft] = useState<GrpcDraft>(() => (entity ? draftFromGrpcRequest(entity) : emptyGrpcDraft()));
+  const [draft, setDraft] = useState<GrpcDraft>(() => draftFromGrpcRequest(entity));
 
   // What Inherit resolves to, and from which level — read off the
   // trees (the containment projection), never a stored path. The
   // ancestry itself feeds the Auth tab's Inherited group.
   const ancestry = useMemo(
-    () => (entity ? findRequestAncestry(collectionTrees, collections, folders, entity.uid) : undefined),
-    [entity, collectionTrees, collections, folders],
+    () => findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+    [entity.uid, collectionTrees, collections, folders],
   );
   const inheritedAuth = useMemo(
-    () =>
-      ancestry === undefined
-        ? undefined
-        : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
+    () => resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
     [ancestry, draft.auth, draft.url],
   );
   // The ancestor levels whose slots run ahead of this request's, per
   // kind — the Scripts tab's "Runs after …" line.
-  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
+  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry), [ancestry]);
   // The Settings tab's ancestor plane — the chain's knobs as the rows'
   // placeholders (a switch's effective state) with their source line,
   // off the same tree-read ancestry; the invoke plane reads the
@@ -202,13 +171,13 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
-    () => (entity ? withLocalPlace(entity, places.placeOf(entity.uid)) : entity),
+    () => withLocalPlace(entity, places.placeOf(entity.uid)),
     [entity, places],
   );
   const reprime = useReprime({
     liveEntity: entityWithPlace,
-    scope: { entityType: GRPC_REQUEST_ENTITY_TYPE, entityId: entity?.uid ?? null },
-    enabled: entity !== null,
+    scope: { entityType: GRPC_REQUEST_ENTITY_TYPE, entityId: entity.uid },
+    enabled: true,
     formFingerprint,
     signature: (e) => stableStringify(canonicalGrpcRequestProjection(e)),
     populate: (e) => setDraft(draftFromGrpcRequest(e)),
@@ -221,7 +190,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   // them).
   useEffect(
     () =>
-      subscribeGrpcPrefill(grpcRequestUid, (captured) => {
+      subscribeGrpcPrefill(entity.uid, (captured) => {
         setDraft((d) => ({
           ...d,
           url: captured.url,
@@ -233,7 +202,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           timeoutMs: captured.timeoutMs,
         }));
       }),
-    [grpcRequestUid],
+    [entity.uid],
   );
 
   // ── Spec binding + method derivation ────────────────────────────
@@ -331,7 +300,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!entity || !isDirty) return;
+    if (!isDirty) return;
     const { executionPlace, entityUpdates } = splitLocalPlace(buildGrpcRequestUpdates(draft));
     const result = await updateGrpcRequest(entity.uid, entityUpdates);
     if (result.ok) {
@@ -355,21 +324,13 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   const shell = useEditorShell({
     entityType: GRPC_REQUEST_ENTITY_TYPE,
-    entityId: entity?.uid ?? null,
+    entityId: entity.uid,
     isDirty,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
   });
   const [placeOpen, setPlaceOpen] = useState(false);
-
-  if (!entity) {
-    return (
-      <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">{t('workbench.editors.grpc.notFound')}</Text>
-      </div>
-    );
-  }
 
   // Header consolidates the full target row (the HTTP editor's
   // discipline): TLS lock + authority + method selector in the title

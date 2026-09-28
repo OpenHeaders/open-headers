@@ -30,6 +30,10 @@
  * strict codec law surfaced at the editor). Dirty derives from
  * form-vs-canonical equality via `useReprime` (never setDirty); saves
  * flow through the RequestsContext's `updateMqttRequest`.
+ *
+ * The editor takes the LIVE entity — `MqttRequestEditorTab` resolves
+ * the tab's uid and renders the not-found panel in its place when the
+ * request is gone — so every hook here runs on every render.
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -68,8 +72,6 @@ import {
   buildMqttRequestUpdates,
   canonicalMqttRequestProjection,
   draftFromMqttRequest,
-  emptyLastWillDraft,
-  emptyMessagePropertiesDraft,
   type MqttDraft,
   payloadEncodingError,
   propertiesToDraft,
@@ -99,8 +101,9 @@ const { Text } = Typography;
 
 const CONNECT_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
 
-interface MqttRequestEditorProps {
-  mqttRequestUid: string;
+export interface MqttRequestEditorProps {
+  /** The live request — resolved by the tab; the editor never renders without one. */
+  entity: MqttRequestEntity;
   workspaceId: string | null;
   /** "Save Response" landed — open the minted example's viewer tab. */
   onOpenMqttResponseExample?: (uid: string, name: string, mqttRequestUid: string) => void;
@@ -119,53 +122,8 @@ interface MqttRequestEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-const emptyMqttDraft = (): MqttDraft => ({
-  description: '',
-  url: '',
-  protocolVersion: '5.0',
-  topic: '',
-  payload: '',
-  payloadFormat: 'text',
-  qos: 0,
-  retain: false,
-  publishProperties: emptyMessagePropertiesDraft(),
-  topics: [],
-  savedMessages: [],
-  userProperties: [],
-  auth: { type: 'none' },
-  lastWill: emptyLastWillDraft(),
-  specLink: undefined,
-  scripts: {},
-  clientId: '',
-  cleanStart: undefined,
-  sessionExpiryInterval: undefined,
-  keepAlive: undefined,
-  receiveMaximum: undefined,
-  maximumPacketSize: undefined,
-  topicAliasMaximum: undefined,
-  requestResponseInformation: undefined,
-  requestProblemInformation: undefined,
-  timeoutMs: undefined,
-  autoReconnect: undefined,
-  reconnectPeriodMs: undefined,
-  reconnectMaxAttempts: undefined,
-  reconnectBackoff: undefined,
-  resolveToAddress: undefined,
-  proxyMode: undefined,
-  proxyUrl: undefined,
-  proxyCredentialRef: undefined,
-  sslVerification: undefined,
-  executionPlace: undefined,
-  clientCertificateRef: undefined,
-  tlsMinVersion: undefined,
-  tlsMaxVersion: undefined,
-  tlsCipherSuites: undefined,
-  sniServerName: undefined,
-  alpnProtocol: undefined,
-});
-
 const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
-  mqttRequestUid,
+  entity,
   workspaceId,
   onOpenMqttResponseExample,
   onOpenContainerAuth,
@@ -178,29 +136,24 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { collections, collectionTrees, folders, mqttRequests, updateMqttRequest } = useRequests();
+  const { collections, collectionTrees, folders, updateMqttRequest } = useRequests();
 
-  const entity = useMemo(() => mqttRequests.find((r) => r.uid === mqttRequestUid) ?? null, [mqttRequests, mqttRequestUid]);
-
-  const [draft, rawSetDraft] = useState<MqttDraft>(() => (entity ? draftFromMqttRequest(entity) : emptyMqttDraft()));
+  const [draft, rawSetDraft] = useState<MqttDraft>(() => draftFromMqttRequest(entity));
 
   // What Inherit resolves to, and from which level — read off the
   // trees (the containment projection), never a stored path. The
   // ancestry itself feeds the Auth tab's Inherited group.
   const ancestry = useMemo(
-    () => (entity ? findRequestAncestry(collectionTrees, collections, folders, entity.uid) : undefined),
-    [entity, collectionTrees, collections, folders],
+    () => findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+    [entity.uid, collectionTrees, collections, folders],
   );
   const inheritedAuth = useMemo(
-    () =>
-      ancestry === undefined
-        ? undefined
-        : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
+    () => resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
     [ancestry, draft.auth, draft.url],
   );
   // The ancestor levels whose slots run ahead of this request's, per
   // kind — the Scripts tab's "Runs after …" line.
-  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
+  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry), [ancestry]);
   // The Settings tab's ancestor plane — the chain's knobs as the rows'
   // placeholders (a switch's effective state) with their source line,
   // off the same tree-read ancestry; the session plane reads the
@@ -225,13 +178,13 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
-    () => (entity ? withLocalPlace(entity, places.placeOf(entity.uid)) : entity),
+    () => withLocalPlace(entity, places.placeOf(entity.uid)),
     [entity, places],
   );
   const reprime = useReprime({
     liveEntity: entityWithPlace,
-    scope: { entityType: MQTT_REQUEST_ENTITY_TYPE, entityId: entity?.uid ?? null },
-    enabled: entity !== null,
+    scope: { entityType: MQTT_REQUEST_ENTITY_TYPE, entityId: entity.uid },
+    enabled: true,
     formFingerprint,
     signature: (e: WithLocalPlace<MqttRequestEntity>) => stableStringify(canonicalMqttRequestProjection(e)),
     populate: (e: WithLocalPlace<MqttRequestEntity>) => rawSetDraft(draftFromMqttRequest(e)),
@@ -244,7 +197,6 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // block lands as unsaved draft edits (the gRPC prefill flow; the
   // version knob rides along as the capture's fact).
   useEffect(() => {
-    if (!entity) return;
     return subscribeMqttPrefill(entity.uid, (captured) => {
       setDraft((d) => ({
         ...d,
@@ -262,7 +214,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
         timeoutMs: captured.timeoutMs,
       }));
     });
-  }, [entity]);
+  }, [entity.uid, setDraft]);
 
   // ── Session plane + compose aids ─────────────────────────────────
   // The request's own place is the draft's knob (the HTTP editor's twin).
@@ -320,7 +272,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!entity || !isDirty) return;
+    if (!isDirty) return;
     const { executionPlace, entityUpdates } = splitLocalPlace(buildMqttRequestUpdates(draft));
     const result = await updateMqttRequest(entity.uid, entityUpdates);
     if (result.ok) {
@@ -344,21 +296,13 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   const shell = useEditorShell({
     entityType: MQTT_REQUEST_ENTITY_TYPE,
-    entityId: entity?.uid ?? null,
+    entityId: entity.uid,
     isDirty,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
   });
   const [placeOpen, setPlaceOpen] = useState(false);
-
-  if (!entity) {
-    return (
-      <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">{t('workbench.editors.mqtt.notFound')}</Text>
-      </div>
-    );
-  }
 
   // Header consolidates the full target row (the WS editor's
   // discipline): version + scheme + URL in the title slot, Connect in

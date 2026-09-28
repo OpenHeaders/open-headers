@@ -26,10 +26,10 @@ import FolderOverview from '../overviews/FolderOverview';
 import LiveVariablesEditor from '../variables/LiveVariablesEditor';
 import LiveVariableEditor from '../live/LiveVariableEditor';
 import LiveWorkflowEditor from '../live/LiveWorkflowEditor';
-import GraphqlRequestEditor from '../graphql-request-editor/GraphqlRequestEditor';
-import GrpcRequestEditor from '../grpc-request-editor/GrpcRequestEditor';
-import MqttRequestEditor from '../mqtt-request-editor/MqttRequestEditor';
-import WebSocketRequestEditor from '../websocket-request-editor/WebSocketRequestEditor';
+import GraphqlRequestEditorTab from '../graphql-request-editor/GraphqlRequestEditorTab';
+import GrpcRequestEditorTab from '../grpc-request-editor/GrpcRequestEditorTab';
+import MqttRequestEditorTab from '../mqtt-request-editor/MqttRequestEditorTab';
+import WebSocketRequestEditorTab from '../websocket-request-editor/WebSocketRequestEditorTab';
 import RequestContainerEditor from '../request-container/RequestContainerEditor';
 import RequestEditor from '../request-editor/RequestEditor';
 import GrpcResponseExampleView from '../grpc-response-example/GrpcResponseExampleView';
@@ -510,7 +510,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   }
   if (tab.mode === 'grpc-edit' && tab.grpcRequestUid) {
     return (
-      <GrpcRequestEditor
+      <GrpcRequestEditorTab
         grpcRequestUid={tab.grpcRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenGrpcResponseExample={openGrpcResponseExampleTab}
@@ -525,7 +525,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   }
   if (tab.mode === 'websocket-edit' && tab.websocketRequestUid) {
     return (
-      <WebSocketRequestEditor
+      <WebSocketRequestEditorTab
         websocketRequestUid={tab.websocketRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenWsResponseExample={openWsResponseExampleTab}
@@ -540,7 +540,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   }
   if (tab.mode === 'mqtt-edit' && tab.mqttRequestUid) {
     return (
-      <MqttRequestEditor
+      <MqttRequestEditorTab
         mqttRequestUid={tab.mqttRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenMqttResponseExample={openMqttResponseExampleTab}
@@ -555,7 +555,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   }
   if (tab.mode === 'graphql-edit' && tab.graphqlRequestUid) {
     return (
-      <GraphqlRequestEditor
+      <GraphqlRequestEditorTab
         graphqlRequestUid={tab.graphqlRequestUid}
         workspaceId={editingScopeWorkspaceId}
         onOpenResponseExample={openResponseExampleTab}

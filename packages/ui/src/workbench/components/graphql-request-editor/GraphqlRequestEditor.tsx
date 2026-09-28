@@ -33,6 +33,10 @@
  * 'graphql'`, nested under this request. Dirty derives from
  * form-vs-canonical equality via `useReprime` (never setDirty); saves
  * flow through the RequestsContext's `updateGraphqlRequest`.
+ *
+ * The editor takes the LIVE entity — `GraphqlRequestEditorTab`
+ * resolves the tab's uid and renders the not-found panel in its place
+ * when the request is gone — so every hook here runs on every render.
  */
 
 import { CaretRightOutlined, CopyOutlined } from '@ant-design/icons';
@@ -61,7 +65,7 @@ import {
 } from '@openheaders/ui/shared/sync/response-example-write-client';
 import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { Allotment } from 'allotment';
-import { App, Button, ConfigProvider, Input, type MenuProps, Select, Tabs, Tooltip, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, Input, type MenuProps, Select, Tabs, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
@@ -109,7 +113,6 @@ import {
   canonicalGraphqlRequestProjection,
   draftEntity,
   draftFromGraphqlRequest,
-  emptyGraphqlDraft,
   type GraphqlDraft,
   graphqlSettingsSlice,
 } from './draft';
@@ -123,12 +126,11 @@ import { useGraphqlSchema } from './use-graphql-schema';
 import { useGraphqlSpecBinding } from './useGraphqlSpecBinding';
 import { useGraphqlSubscriptionPlane } from './useGraphqlSubscriptionPlane';
 
-const { Text } = Typography;
-
 const QUERY_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
 
-interface GraphqlRequestEditorProps {
-  graphqlRequestUid: string;
+export interface GraphqlRequestEditorProps {
+  /** The live request — resolved by the tab; the editor never renders without one. */
+  entity: GraphqlRequestEntity;
   workspaceId: string | null;
   /** Open a saved response example in its viewer tab — called right
    *  after "Save Response" mints one so the frozen exchange is
@@ -179,7 +181,7 @@ function withSettings(draft: GraphqlDraft, next: RequestSettingsDraft): GraphqlD
 }
 
 const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
-  graphqlRequestUid,
+  entity,
   workspaceId,
   onOpenResponseExample,
   onOpenContainerAuth,
@@ -192,35 +194,24 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { collections, collectionTrees, folders, graphqlRequests, updateGraphqlRequest, executeGraphql } =
-    useRequests();
+  const { collections, collectionTrees, folders, updateGraphqlRequest, executeGraphql } = useRequests();
   const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
   const copySnippet = useCopyRequestSnippet();
 
-  const entity = useMemo(
-    () => graphqlRequests.find((r) => r.uid === graphqlRequestUid) ?? null,
-    [graphqlRequests, graphqlRequestUid],
-  );
-
-  const [draft, setDraft] = useState<GraphqlDraft>(() =>
-    entity ? draftFromGraphqlRequest(entity) : emptyGraphqlDraft(),
-  );
+  const [draft, setDraft] = useState<GraphqlDraft>(() => draftFromGraphqlRequest(entity));
 
   // What Inherit resolves to, and from which level — read off the
   // trees (the containment projection), never a stored path. The
   // ancestry itself feeds the Auth tab's Inherited group.
   const ancestry = useMemo(
-    () => (entity ? findRequestAncestry(collectionTrees, collections, folders, entity.uid) : undefined),
-    [entity, collectionTrees, collections, folders],
+    () => findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+    [entity.uid, collectionTrees, collections, folders],
   );
   const inheritedAuth = useMemo(
-    () =>
-      ancestry === undefined
-        ? undefined
-        : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
+    () => resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
     [ancestry, draft.auth, draft.url],
   );
-  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
+  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry), [ancestry]);
   // The HTTP slice of the chain — a GraphQL request is an HTTP send
   // for the settings rule (the wire-family law).
   const inheritedSettings = useMemo<InheritedSettingsView>(
@@ -309,13 +300,13 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
-    () => (entity ? withLocalPlace(entity, places.placeOf(entity.uid)) : entity),
+    () => withLocalPlace(entity, places.placeOf(entity.uid)),
     [entity, places],
   );
   const reprime = useReprime({
     liveEntity: entityWithPlace,
-    scope: { entityType: GRAPHQL_REQUEST_ENTITY_TYPE, entityId: entity?.uid ?? null },
-    enabled: entity !== null,
+    scope: { entityType: GRAPHQL_REQUEST_ENTITY_TYPE, entityId: entity.uid },
+    enabled: true,
     formFingerprint,
     signature: (e: WithLocalPlace<GraphqlRequestEntity>) => stableStringify(canonicalGraphqlRequestProjection(e)),
     populate: (e: WithLocalPlace<GraphqlRequestEntity>) => setDraft(draftFromGraphqlRequest(e)),
@@ -324,7 +315,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!entity || !isDirty) return;
+    if (!isDirty) return;
     const { executionPlace, entityUpdates } = splitLocalPlace(buildGraphqlRequestUpdates(draft));
     const result = await updateGraphqlRequest(entity.uid, entityUpdates);
     if (result.ok) {
@@ -348,7 +339,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
 
   const shell = useEditorShell({
     entityType: GRAPHQL_REQUEST_ENTITY_TYPE,
-    entityId: entity?.uid ?? null,
+    entityId: entity.uid,
     isDirty,
     onSave: handleSaveSync,
     onDirtyChange,
@@ -389,7 +380,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const inFlight = sending || subscription.inFlight;
 
   const handleQuery = useCallback(async () => {
-    if (!entity || inFlight) return;
+    if (inFlight) return;
     if (isSubscription) {
       if (subscription.disabledReason !== null) return;
       // The session pane takes the response slot — a settled HTTP
@@ -470,7 +461,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // know the parent kind. Auth and scripts stay excluded (the
   // ResponseExample schema's law).
   const handleSaveResponse = useCallback(async () => {
-    if (!entity || !editingScopeWorkspaceId || !response || response.error !== null) return;
+    if (!editingScopeWorkspaceId || !response || response.error !== null) return;
     const mirror = getResponseExampleSyncMirrorForWorkspace(editingScopeWorkspaceId);
     await mirror.hydrated;
     const name = nextExampleName(mirror, entity.uid, entity.name);
@@ -506,14 +497,6 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
       );
     }
   }, [entity, editingScopeWorkspaceId, response, draft, toast, onOpenResponseExample, t]);
-
-  if (!entity) {
-    return (
-      <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">{t('workbench.editors.graphql.notFound')}</Text>
-      </div>
-    );
-  }
 
   // Header: the endpoint in the title slot beside the operation select
   // (no method select — every GraphQL operation is one POST), Query in

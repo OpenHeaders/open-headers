@@ -28,6 +28,10 @@
  * (never setDirty); saves flow through the RequestsContext's
  * `updateWebSocketRequest` (the WebSocket write client under the
  * hood).
+ *
+ * The editor takes the LIVE entity — `WebSocketRequestEditorTab`
+ * resolves the tab's uid and renders the not-found panel in its place
+ * when the request is gone — so every hook here runs on every render.
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -45,7 +49,6 @@ import { App, Button, ConfigProvider, Tabs, Tooltip, Typography, theme } from 'a
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DocsTab from '../request-editor/DocsTab';
-import KeyValueTable from '../request-editor/KeyValueTable';
 import ScriptsTab from '../request-editor/ScriptsTab';
 import { ancestorScriptLevels } from '../request-container/ancestry';
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
@@ -98,8 +101,9 @@ import WsTargetRow from './WsTargetRow';
 
 const { Text } = Typography;
 
-interface WebSocketRequestEditorProps {
-  websocketRequestUid: string;
+export interface WebSocketRequestEditorProps {
+  /** The live request — resolved by the tab; the editor never renders without one. */
+  entity: WebSocketRequestEntity;
   workspaceId: string | null;
   /** "Save Response" landed — open the minted example's viewer tab. */
   onOpenWsResponseExample?: (uid: string, name: string, websocketRequestUid: string) => void;
@@ -118,53 +122,8 @@ interface WebSocketRequestEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-const emptyWebSocketDraft = (): WebSocketDraft => ({
-  description: '',
-  url: '',
-  subprotocols: [],
-  headers: [],
-  params: [],
-  auth: { type: 'none' },
-  events: [],
-  savedMessages: [],
-  scripts: {},
-  message: '',
-  eventName: '',
-  namespace: '',
-  handshakePath: undefined,
-  socketioProtocol: undefined,
-  ackTimeoutMs: undefined,
-  ackEnabled: false,
-  messageFormat: 'text',
-  binaryEncoding: 'base64',
-  specLink: undefined,
-  resolveToAddress: undefined,
-  proxyMode: undefined,
-  proxyUrl: undefined,
-  proxyCredentialRef: undefined,
-  unixSocketPath: undefined,
-  timeoutMs: undefined,
-  autoReconnect: undefined,
-  reconnectPeriodMs: undefined,
-  reconnectMaxAttempts: undefined,
-  maxMessageBytes: undefined,
-  followRedirects: undefined,
-  maxRedirects: undefined,
-  reconnectBackoff: undefined,
-  idleTimeoutMs: undefined,
-  heartbeatMessage: undefined,
-  heartbeatIntervalMs: undefined,
-  sslVerification: undefined,
-  executionPlace: undefined,
-  clientCertificateRef: undefined,
-  tlsMinVersion: undefined,
-  tlsMaxVersion: undefined,
-  tlsCipherSuites: undefined,
-  sniServerName: undefined,
-});
-
 const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
-  websocketRequestUid,
+  entity,
   workspaceId,
   onOpenWsResponseExample,
   onOpenContainerAuth,
@@ -177,34 +136,24 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message: toast } = App.useApp();
   const t = useT();
-  const { collections, collectionTrees, folders, websocketRequests, updateWebSocketRequest } = useRequests();
+  const { collections, collectionTrees, folders, updateWebSocketRequest } = useRequests();
 
-  const entity = useMemo(
-    () => websocketRequests.find((r) => r.uid === websocketRequestUid) ?? null,
-    [websocketRequests, websocketRequestUid],
-  );
-
-  const [draft, rawSetDraft] = useState<WebSocketDraft>(() =>
-    entity ? draftFromWebSocketRequest(entity) : emptyWebSocketDraft(),
-  );
+  const [draft, rawSetDraft] = useState<WebSocketDraft>(() => draftFromWebSocketRequest(entity));
 
   // What Inherit resolves to, and from which level — read off the
   // trees (the containment projection), never a stored path. The
   // ancestry itself feeds the Auth tab's Inherited group.
   const ancestry = useMemo(
-    () => (entity ? findRequestAncestry(collectionTrees, collections, folders, entity.uid) : undefined),
-    [entity, collectionTrees, collections, folders],
+    () => findRequestAncestry(collectionTrees, collections, folders, entity.uid),
+    [entity.uid, collectionTrees, collections, folders],
   );
   const inheritedAuth = useMemo(
-    () =>
-      ancestry === undefined
-        ? undefined
-        : resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
+    () => resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
     [ancestry, draft.auth, draft.url],
   );
   // The ancestor levels whose slots run ahead of this request's, per
   // kind — the Scripts tab's "Runs after …" line.
-  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry ?? null), [ancestry]);
+  const ancestorScripts = useMemo(() => ancestorScriptLevels(ancestry), [ancestry]);
   // The Settings tab's ancestor plane — the chain's knobs as the rows'
   // placeholders (a switch's effective state) with their source line,
   // off the same tree-read ancestry; the session plane reads the
@@ -233,26 +182,25 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
-    () => (entity ? withLocalPlace(entity, places.placeOf(entity.uid)) : entity),
+    () => withLocalPlace(entity, places.placeOf(entity.uid)),
     [entity, places],
   );
   const reprime = useReprime({
     liveEntity: entityWithPlace,
-    scope: { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, entityId: entity?.uid ?? null },
-    enabled: entity !== null,
+    scope: { entityType: WEBSOCKET_REQUEST_ENTITY_TYPE, entityId: entity.uid },
+    enabled: true,
     formFingerprint,
     signature: (e: WithLocalPlace<WebSocketRequestEntity>) => stableStringify(canonicalWebSocketRequestProjection(e)),
     populate: (e: WithLocalPlace<WebSocketRequestEntity>) => rawSetDraft(draftFromWebSocketRequest(e)),
   });
   const isDirty = reprime.isDirty;
 
-  const socketioFlavor = entity?.flavor === 'socketio';
+  const socketioFlavor = entity.flavor === 'socketio';
 
   // "Open in Request" prefill — a saved example's captured request
   // block lands as unsaved draft edits (the gRPC prefill flow; flavor
   // is identity and stays the entity's own).
   useEffect(() => {
-    if (!entity) return;
     return subscribeWsPrefill(entity.uid, (captured) => {
       const target = splitSocketIoUrl(captured.url, captured.flavor, captured.namespace ?? '');
       setDraft((d) => ({
@@ -272,7 +220,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
         timeoutMs: captured.timeoutMs,
       }));
     });
-  }, [entity]);
+  }, [entity.uid, setDraft]);
 
   // ── Session plane, compose aids, Socket.IO args ──────────────────
   // The request's own place is the draft's knob (the HTTP editor's twin).
@@ -360,7 +308,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
-    if (!entity || !isDirty) return;
+    if (!isDirty) return;
     const { executionPlace, entityUpdates } = splitLocalPlace(buildWebSocketRequestUpdates(draft));
     const result = await updateWebSocketRequest(entity.uid, entityUpdates);
     if (result.ok) {
@@ -384,21 +332,13 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   const shell = useEditorShell({
     entityType: WEBSOCKET_REQUEST_ENTITY_TYPE,
-    entityId: entity?.uid ?? null,
+    entityId: entity.uid,
     isDirty,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
   });
   const [placeOpen, setPlaceOpen] = useState(false);
-
-  if (!entity) {
-    return (
-      <div style={{ padding: 24, background: token.colorBgContainer }}>
-        <Text type="secondary">{t('workbench.editors.websocket.notFound')}</Text>
-      </div>
-    );
-  }
 
   // Header consolidates the full target row (the gRPC editor's
   // discipline): scheme lock + URL in the title slot, Connect in the
