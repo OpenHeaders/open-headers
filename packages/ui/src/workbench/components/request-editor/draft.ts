@@ -26,6 +26,7 @@ import type {
   TlsVersion,
 } from '@openheaders/core/types';
 import { parseUrlQuery } from '@openheaders/core/utils';
+import type { WithLocalPlace } from '../../execution-place/local-place';
 import { type KeyValueRow, makeKvRow } from './KeyValueTable';
 
 export interface Draft {
@@ -194,7 +195,7 @@ function urlParamUid(index: number): string {
   return `q${index.toString(36).padStart(7, '0')}`;
 }
 
-export function draftFromRequest(req: Request): Draft {
+export function draftFromRequest(req: WithLocalPlace<Request>): Draft {
   // Split any legacy `?…` suffix off of `req.url` into structured
   // params so the editor's bidirectional URL↔Params sync has a clean
   // base URL to work with. Existing `req.params` entries keep their
@@ -258,7 +259,7 @@ export function emptyDraft(): Draft {
   };
 }
 
-export function buildRequestUpdates(draft: Draft): RequestUpdates {
+export function buildRequestUpdates(draft: Draft): WithLocalPlace<RequestUpdates> {
   return {
     description: draft.description.trim() ? draft.description : undefined,
     method: draft.method,
@@ -296,6 +297,6 @@ export function buildRequestUpdates(draft: Draft): RequestUpdates {
 
 /** Project a live `Request` into the same shape `buildRequestUpdates`
  *  emits — fingerprint comparison stays apples-to-apples. */
-export function canonicalRequestProjection(req: Request): RequestUpdates {
+export function canonicalRequestProjection(req: WithLocalPlace<Request>): WithLocalPlace<RequestUpdates> {
   return buildRequestUpdates(draftFromRequest(req));
 }

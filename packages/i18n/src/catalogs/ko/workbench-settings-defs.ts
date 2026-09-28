@@ -449,7 +449,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.description':
     '실행기가 표시용으로 유지하는 응답 본문의 양입니다. 더 큰 본문은 이 제한에서 잘리지만 전체 크기는 계속 측정되고 보고됩니다. 제한을 높이면 열린 요청 탭당 메모리 사용이 늘어납니다.',
   'workbench.settings.def.requests.executionPlace.label': '실행 위치',
-  'workbench.settings.def.requests.executionPlace.description': '컬렉션, 폴더 또는 요청이 직접 설정하지 않는 한 API 요청이 연결을 여는 곳: 이 기기, 데스크톱 앱 또는 워크스페이스 서버입니다.',
+  'workbench.settings.def.requests.executionPlace.description': '요청이 직접 설정하지 않는 한 이 기기에서 API 요청이 연결을 여는 곳: 여기, 데스크톱 앱 또는 워크스페이스 서버입니다.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': '자동',
   'workbench.settings.def.requests.executionPlace.option.auto.description': '이 기기에서 가능하면 여기에서, 아니면 가능한 유일한 곳에서 실행합니다.',
   'workbench.settings.def.requests.executionPlace.option.here.label': '이 기기',

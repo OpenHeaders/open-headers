@@ -67,7 +67,7 @@ import type {
   WorkspaceVariables,
   WsResponseExample,
 } from '../types';
-import type { PauseMarkersRecord } from '../utils';
+import type { ExecutionPlacesRecord, PauseMarkersRecord } from '../utils';
 
 // ── Core key type ────────────────────────────────────────────────────
 
@@ -603,6 +603,8 @@ export interface WorkspaceKeys {
   /** Child order of every container of the three trees — the sets' projection, read back at restart. */
   treeOrder: StorageKey<TreeOrderRecord>;
   pauseMarkers: StorageKey<PauseMarkersRecord>;
+  /** Request uid → the execution place saved on THIS device (the Execution Place plan); absent = Automatic. */
+  executionPlaces: StorageKey<ExecutionPlacesRecord>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
   /** R2a — taste-scoped workspace settings. Always reads from the global active workspace. */
@@ -802,6 +804,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     workspaceRoots: storageKey<WorkspaceRoots>(`${p}.workspaceRoots`),
     treeOrder: storageKey<TreeOrderRecord>(`${p}.treeOrder`),
     pauseMarkers: storageKey<PauseMarkersRecord>(`${p}.pauseMarkers`),
+    executionPlaces: storageKey<ExecutionPlacesRecord>(`${p}.executionPlaces`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),
     settingsWorkspaceTaste: storageKey<Record<string, unknown>>(`${p}.settings.workspaceTaste`),

@@ -36,6 +36,9 @@ interface UseSaveRequestFlowOptions {
     seed?: Partial<Request>;
   }) => Promise<Request | null>;
   replaceTab: (oldId: string, newTab: WorkbenchTab) => void;
+  /** Keep the created request's execution place on this device — the
+   *  draft's knob never rides the entity (the Execution Place plan). */
+  saveExecutionPlace?: (requestUid: string, role: ExecutionPlaceRole | undefined) => Promise<void>;
 }
 
 export interface SaveRequestFlowApi {
@@ -108,6 +111,7 @@ export function useSaveRequestFlow({
   allTabs,
   createRequest,
   replaceTab,
+  saveExecutionPlace,
 }: UseSaveRequestFlowOptions): SaveRequestFlowApi {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveModalTabId, setSaveModalTabId] = useState<string | null>(null);
@@ -154,12 +158,12 @@ export function useSaveRequestFlow({
             maxRedirects: draftData.maxRedirects,
             followOriginalHttpMethod: draftData.followOriginalHttpMethod,
             followAuthorizationHeader: draftData.followAuthorizationHeader,
-            executionPlace: draftData.executionPlace,
             preRequestScript: draftData.preRequestScript,
             postResponseScript: draftData.postResponseScript,
           },
         }).then((created) => {
           if (!created) return;
+          void saveExecutionPlace?.(created.uid, draftData.executionPlace);
           if (draftData.response) stashHandoffResponse(created.uid, draftData.response);
           buildEditTab(tabId, created, replaceTab);
         });
@@ -172,7 +176,7 @@ export function useSaveRequestFlow({
       setSaveModalEntityName(name);
       setSaveModalOpen(true);
     },
-    [allTabs, createRequest, replaceTab],
+    [allTabs, createRequest, replaceTab, saveExecutionPlace],
   );
 
   const handleSaveModalConfirm = useCallback(
@@ -210,12 +214,12 @@ export function useSaveRequestFlow({
           maxRedirects: saveModalDraftData.maxRedirects,
           followOriginalHttpMethod: saveModalDraftData.followOriginalHttpMethod,
           followAuthorizationHeader: saveModalDraftData.followAuthorizationHeader,
-          executionPlace: saveModalDraftData.executionPlace,
           preRequestScript: saveModalDraftData.preRequestScript,
           postResponseScript: saveModalDraftData.postResponseScript,
         },
       });
       if (created) {
+        void saveExecutionPlace?.(created.uid, saveModalDraftData.executionPlace);
         if (saveModalDraftData.response) stashHandoffResponse(created.uid, saveModalDraftData.response);
         buildEditTab(saveModalTabId, created, replaceTab);
       }
@@ -223,7 +227,7 @@ export function useSaveRequestFlow({
       setSaveModalTabId(null);
       setSaveModalDraftData(null);
     },
-    [saveModalTabId, saveModalDraftData, createRequest, replaceTab],
+    [saveModalTabId, saveModalDraftData, createRequest, replaceTab, saveExecutionPlace],
   );
 
   const closeSaveModal = useCallback(() => setSaveModalOpen(false), []);

@@ -2,37 +2,54 @@
  * ExecutionPlaceControl — the place button after Save on every editor
  * (the Execution Place plan, fork 4): a run glyph and the place's mark
  * (`PlaceMark`), no words — this browser's logo, this machine's OS
- * mark, or the server's own icon. The words live on hover (the chip
- * sentence: "Runs here", "Runs on <place>", "Needs the desktop app",
- * "Not available on <place> yet") and in the click-popover: the
- * reason, the page-realm knobs in play, the call to action — the
- * companion ladder rung (front the connected app · launch · connect ·
- * download, the status row's own actions) — and, where the reader
- * offers more than one place, the PICKER (fork 3's per-send layer:
- * this send only; the picked place is what the mark then shows). The
- * tone carries the state: muted when the send runs here with nothing
- * else possible, the warning colour when the desktop app is needed.
- * The primary button never changes its label by place.
+ * mark, or the server's own icon. The hover carries the standard line
+ * ("Runs locally: in this browser extension", "Runs remotely: on
+ * <server>", or the honest state); the click-popover carries the
+ * ROSTER — every place this host knows, in a fixed order, the
+ * available ones selectable, the others disabled with their reason
+ * and the rung that would make them available (the desktop ladder:
+ * open · connect · download; the Sync page for a server) — under the
+ * reason sentence and the knobs in play. A pick is a DRAFT edit of the
+ * request's own place (saved with the request, on this device only,
+ * by the editor's Save); *Reset to automatic* clears it back to the
+ * Settings default. The tone carries the state: muted when the send
+ * runs here with nothing else possible, the warning colour when the
+ * desktop app is needed. The primary button never changes its label
+ * by place. `open` / `onOpenChange` let a disabled primary's hint
+ * open the picker.
  */
 
 import { FunctionOutlined, SelectOutlined } from '@ant-design/icons';
+import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopConnectAction, DesktopDownloadAction, DesktopOpenAppAction } from '@openheaders/ui/shared/status';
 import { Button, Popover, Radio, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { executionPlaceCopy, executionPlaceOptionLabel } from './execution-place-copy';
+import { executionPlaceCopy, executionPlaceRosterLabel, executionPlaceRosterReason } from './execution-place-copy';
 import { PlaceMark } from './PlaceMark';
-import type { ExecutionPlaceCta, ExecutionPlaceResolution, ExecutionPlaceRole } from './resolve-execution-place';
+import type {
+  ExecutionPlaceCta,
+  ExecutionPlacePreference,
+  ExecutionPlaceResolution,
+  ExecutionPlaceRole,
+  ExecutionPlaceRosterRow,
+} from './resolve-execution-place';
 
 const { Text } = Typography;
 
 export interface ExecutionPlaceControlProps {
   resolution: ExecutionPlaceResolution;
-  /** The per-send pick — present where the editor honours one; the
-   *  picker renders only when the reader offers more than one place. */
-  onPick?: (role: ExecutionPlaceRole) => void;
+  /** Every place this host knows for this send — the picker's rows. */
+  roster: readonly ExecutionPlaceRosterRow[];
+  /** The request's own place (its draft, else its saved value); 'auto' = following Settings. */
+  preference: ExecutionPlacePreference;
+  /** A pick edits the draft; null resets it to Automatic. Absent = read-only (no picker). */
+  onPick?: (role: ExecutionPlaceRole | null) => void;
+  /** Controlled popover state — a disabled primary's hint opens the picker. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 /** Front the connected desktop app on its workbench — the S1 answer
@@ -61,6 +78,21 @@ const DesktopRevealAction: React.FC = () => {
   );
 };
 
+/** The Sync page, where a server is signed in to and connected. */
+const OpenSyncAction: React.FC = () => {
+  const t = useT();
+  return (
+    <Button
+      size="small"
+      onClick={() => hostBridge.broadcast('openSettings', { categoryId: 'backendConnections' })}
+      data-testid="execution-place-open-sync"
+      style={{ fontSize: 11, height: 20, padding: '0 6px' }}
+    >
+      {t('shared.executionPlace.roster.openSync')}
+    </Button>
+  );
+};
+
 function ctaAction(cta: ExecutionPlaceCta): React.ReactNode {
   switch (cta) {
     case 'reveal-desktop-app':
@@ -76,35 +108,51 @@ function ctaAction(cta: ExecutionPlaceCta): React.ReactNode {
   }
 }
 
-/** The picker's rows: the resolved place first when it runs, then the
- *  other eligible places; under an unsupported pick only the possible
- *  ones (the mark already names the impossible one). */
-function pickerRows(resolution: ExecutionPlaceResolution): readonly ExecutionPlaceRole[] {
-  return resolution.state === 'ready' ? [resolution.place, ...resolution.alternatives] : resolution.alternatives;
+/** A disabled row's rung: the desktop ladder, or the Sync page for a
+ *  server whose wire is down; nothing for a kind this surface cannot
+ *  run or a workspace with no server. */
+function rowAction(row: ExecutionPlaceRosterRow): React.ReactNode {
+  if (row.role === 'workspace-server' && row.reason === 'server-not-connected') return <OpenSyncAction />;
+  return ctaAction(row.cta);
 }
 
-const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({ resolution, onPick }) => {
+const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
+  resolution,
+  roster,
+  preference,
+  onPick,
+  open,
+  onOpenChange,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   const copy = executionPlaceCopy(resolution, t);
   const muted = resolution.state === 'ready' && resolution.place === 'here' && resolution.alternatives.length === 0;
   const warning = resolution.state === 'needs-companion';
-  const action = ctaAction(resolution.cta);
-  const rows = onPick !== undefined ? pickerRows(resolution) : [];
-  const picker = rows.length > 1 || (rows.length === 1 && resolution.state !== 'ready');
   // The hover words yield to the popover — a tooltip over an open
   // popover would sit on top of the very sentence it repeats.
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const popoverOpen = open ?? innerOpen;
+  const setOpen = (next: boolean): void => {
+    setInnerOpen(next);
+    onOpenChange?.(next);
+  };
+  // The selected row: the place the send resolved to, else the
+  // preferred role the surface cannot honour (its row stays disabled).
+  const selected: ExecutionPlaceRole | undefined =
+    resolution.state === 'ready' ? resolution.place : preference === 'auto' ? undefined : preference;
+  const explicit = preference !== 'auto';
 
   return (
     <Popover
       trigger="click"
       placement="bottomRight"
-      onOpenChange={setPopoverOpen}
+      open={popoverOpen}
+      onOpenChange={setOpen}
       content={
         <div
           data-testid="execution-place-popover"
-          style={{ maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 8 }}
+          style={{ maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 8 }}
         >
           <Text style={{ fontSize: 12 }}>{copy.reason}</Text>
           {copy.knobs !== null && (
@@ -112,34 +160,76 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({ resolutio
               {copy.knobs}
             </Text>
           )}
-          {picker && (
+          {onPick !== undefined && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Text type="secondary" style={{ fontSize: 11 }}>
                 {t('shared.executionPlace.picker.title')}
               </Text>
               <Radio.Group
-                value={resolution.state === 'ready' ? resolution.place : undefined}
+                value={selected}
                 onChange={(event) => {
-                  const picked = rows.find((role) => role === event.target.value);
-                  if (picked !== undefined) onPick?.(picked);
+                  const picked = roster.find((row) => row.role === event.target.value && row.available);
+                  if (picked !== undefined) onPick(picked.role);
                 }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
               >
-                {rows.map((role) => (
-                  <Radio
-                    key={role}
-                    value={role}
-                    data-testid="execution-place-option"
-                    data-role={role}
-                    style={{ fontSize: 12 }}
-                  >
-                    {executionPlaceOptionLabel(role, resolution.serverName ?? null, t)}
-                  </Radio>
+                {roster.map((row) => (
+                  <div key={row.role} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Radio
+                      value={row.role}
+                      disabled={!row.available}
+                      data-testid="execution-place-option"
+                      data-role={row.role}
+                      data-available={row.available ? 'true' : 'false'}
+                      style={{ fontSize: 12 }}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <PlaceMark role={row.role} size={13} />
+                        <span>{executionPlaceRosterLabel(row.role, t)}</span>
+                        {row.role === 'workspace-server' && resolution.serverName != null && (
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {resolution.serverName}
+                          </Text>
+                        )}
+                      </span>
+                    </Radio>
+                    {row.reason !== null && (
+                      <div
+                        data-testid="execution-place-option-reason"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, paddingInlineStart: 24 }}
+                      >
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {executionPlaceRosterReason(row.reason, t)}
+                        </Text>
+                        {rowAction(row)}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </Radio.Group>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {explicit
+                    ? t('shared.executionPlace.roster.savedNote')
+                    : t('shared.executionPlace.roster.automatic')}
+                </Text>
+                {explicit && (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => onPick(null)}
+                    data-testid="execution-place-reset"
+                    style={{ fontSize: 11, padding: 0, height: 'auto' }}
+                  >
+                    {t('shared.executionPlace.roster.reset')}
+                  </Button>
+                )}
+              </div>
             </div>
           )}
-          {action !== null && <span data-testid="execution-place-cta">{action}</span>}
+          {onPick === undefined && resolution.cta !== null && (
+            <span data-testid="execution-place-cta">{ctaAction(resolution.cta)}</span>
+          )}
         </div>
       }
     >

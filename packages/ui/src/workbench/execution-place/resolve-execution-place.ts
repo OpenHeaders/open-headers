@@ -368,3 +368,111 @@ function companionCta(input: Pick<ExecutionPlaceInput, 'desktopApp' | 'desktopAp
       return null;
   }
 }
+
+// ── The roster ──────────────────────────────────────────────────────
+//
+// The picker's model: EVERY place this host knows, in a fixed order,
+// each available or not with the reason and the rung — the hosted
+// clients' agent-picker shape. A browser surface lists its own
+// extension, the desktop app on this machine and the workspace's
+// server; the desktop app lists itself and the server; the served tab
+// lists its one server. Availability is the resolution's own rule
+// (the transport the kind needs under the live connections), so the
+// resolved place is always an available row.
+
+export type ExecutionPlaceRosterReason =
+  /** This surface cannot open this kind's socket (a raw TCP dial, an HTTP/2 stack with trailers). */
+  | 'kind-not-here'
+  /** The desktop app on this machine, by its live state. */
+  | 'desktop-not-running'
+  | 'desktop-not-paired'
+  | 'desktop-not-installed'
+  | 'desktop-connecting'
+  | 'desktop-unavailable'
+  /** The workspace has no providing server (a personal workspace). */
+  | 'no-server'
+  /** The workspace's server exists but its wire is down. */
+  | 'server-not-connected'
+  /** The surface's send does not honour a place for this kind. */
+  | 'not-forwarded';
+
+export interface ExecutionPlaceRosterRow {
+  role: ExecutionPlaceRole;
+  available: boolean;
+  /** Why the row is disabled; null when available. */
+  reason: ExecutionPlaceRosterReason | null;
+  /** The rung that could make the row available — the desktop ladder. */
+  cta: ExecutionPlaceCta;
+}
+
+function desktopReason(state: DesktopCompanionState): ExecutionPlaceRosterReason {
+  switch (state) {
+    case 'not-connected':
+      return 'desktop-not-running';
+    case 'installed-not-connected':
+      return 'desktop-not-paired';
+    case 'not-installed':
+      return 'desktop-not-installed';
+    case 'connecting':
+      return 'desktop-connecting';
+    default:
+      return 'desktop-unavailable';
+  }
+}
+
+/** Whether this surface's own engine can open the kind's socket. */
+function runsHere(input: ExecutionPlaceInput): boolean {
+  const { kind, markers } = input;
+  if (markers.requestRuntime === 'node') return true;
+  switch (kind) {
+    case 'http':
+    case 'graphql-query':
+      return true;
+    case 'websocket':
+    case 'graphql-subscription':
+      return markers.wsPageSession;
+    case 'mqtt':
+      return markers.mqttPageSession && input.mqttTransport !== 'tcp';
+    case 'grpc':
+      return false;
+  }
+}
+
+function serverRow(input: ExecutionPlaceInput, honoured: boolean): ExecutionPlaceRosterRow {
+  const server = input.workspaceServer;
+  if (server === undefined) return { role: 'workspace-server', available: false, reason: 'no-server', cta: null };
+  if (!honoured) return { role: 'workspace-server', available: false, reason: 'not-forwarded', cta: null };
+  if (!server.connected)
+    return { role: 'workspace-server', available: false, reason: 'server-not-connected', cta: null };
+  return { role: 'workspace-server', available: true, reason: null, cta: null };
+}
+
+export function resolveExecutionPlaceRoster(input: ExecutionPlaceInput): readonly ExecutionPlaceRosterRow[] {
+  const { kind, markers } = input;
+  const honoured = isSessionKind(kind) ? markers.delegatedSessionDispatch : markers.delegatedRequestDispatch;
+  if (markers.remoteRequestDispatch !== null) {
+    // The served tab: one place, its server — forwarded by construction
+    // for HTTP and gRPC, honoured or not for a session.
+    const available = kind === 'grpc' || !isSessionKind(kind) || honoured;
+    return [{ role: 'workspace-server', available, reason: available ? null : 'not-forwarded', cta: null }];
+  }
+  if (markers.requestRuntime === 'node') {
+    return [{ role: 'here', available: true, reason: null, cta: null }, serverRow(input, honoured)];
+  }
+  const here: ExecutionPlaceRosterRow = runsHere(input)
+    ? { role: 'here', available: true, reason: null, cta: null }
+    : { role: 'here', available: false, reason: 'kind-not-here', cta: null };
+  // gRPC forwards to the desktop app over its own seam, every other
+  // kind over the delegated legs — both need the app connected.
+  const desktopReach = kind === 'grpc' ? markers.grpcCompanionInvoke : honoured;
+  const desktop: ExecutionPlaceRosterRow =
+    desktopReach && input.desktopApp === 'connected'
+      ? { role: 'desktop-app', available: true, reason: null, cta: null }
+      : {
+          role: 'desktop-app',
+          available: false,
+          reason: desktopReach ? desktopReason(input.desktopApp) : 'not-forwarded',
+          cta: desktopReach ? companionCta(input) : null,
+        };
+  return [here, desktop, serverRow(input, kind === 'grpc' || honoured)];
+}

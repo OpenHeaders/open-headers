@@ -58,7 +58,13 @@ import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraph
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
-import type { ExecutionPlacePreference, PageSessionKnob } from '../../execution-place/resolve-execution-place';
+import {
+  splitLocalPlace,
+  useRequestExecutionPlaces,
+  withLocalPlace,
+  type WithLocalPlace,
+} from '../../execution-place/local-place';
+import type { PageSessionKnob } from '../../execution-place/resolve-execution-place';
 import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import { useSettingValue } from '../../settings/hooks';
@@ -293,6 +299,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // The reprime hook below replays into the draft when clean; conflicts
   // surface against the live snapshot when dirty.
   const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
+  // This device's saved place per request — composed onto the live
+  // entity so the draft primes from it and dirty covers it.
+  const places = useRequestExecutionPlaces(editingScopeWorkspaceId);
   useEffect(() => {
     if (isCreateMode || !requestUid || !editingScopeWorkspaceId) return;
     const mirror = getRequestSyncMirrorForWorkspace(editingScopeWorkspaceId);
@@ -359,8 +368,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // salmon tones clear the moment a save echoes back.
   const [savedRequest, setSavedRequest] = useState<Request | null>(null);
 
-  const reprime = useReprime<Request>({
-    liveEntity: liveRequest,
+  const liveRequestWithPlace = useMemo(
+    () => (liveRequest ? withLocalPlace(liveRequest, places.placeOf(liveRequest.uid)) : liveRequest),
+    [liveRequest, places],
+  );
+  const reprime = useReprime<WithLocalPlace<Request>>({
+    liveEntity: liveRequestWithPlace,
     scope: { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
     enabled: isInitialized && !isCreateMode,
     formFingerprint,
@@ -525,9 +538,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     // canonical so the batch only carries leaves the user actually
     // edited. Closes the race window where a peer commit broadcasts
     // between the auto-merge effect's previous tick and this save.
-    const updates = mergeRequestForSave(buildRequestUpdates(draft), baselineRequestRef.current, liveRequest);
+    const { executionPlace, entityUpdates } = splitLocalPlace(buildRequestUpdates(draft));
+    const updates = mergeRequestForSave(entityUpdates, baselineRequestRef.current, liveRequest);
     const result = await updateRequest(requestUid, updates);
     if (result.ok) {
+      // The place is this device's, saved beside the entity, never on it.
+      await places.setPlace(requestUid, executionPlace);
       conflicts.clearDismissed();
       // Dirty derives from form-vs-canonical equality; the broadcast
       // echo brings live in line with form, auto-rebase clears.
@@ -551,6 +567,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     updateRequest,
     onSaveDraft,
     conflicts,
+    places,
     message,
     t,
   ]);
@@ -660,7 +677,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       httpVersion: draft.httpVersion,
       resolveToAddress: draft.resolveToAddress,
       clientCertificateRef: draft.clientCertificateRef,
-      executionPlace: draft.executionPlace,
       proxyMode: draft.proxyMode,
       proxyUrl: draft.proxyUrl,
       proxyCredentialRef: draft.proxyCredentialRef,
@@ -679,11 +695,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     };
   }, [summary, draftName, draft, preferredCollectionId, preferredFolderPath, requestCollections]);
 
-  // Where this Send runs — the shared reader; the control beside Send
-  // names the place (a remote-dispatch surface's serving place, the
-  // picked delegated place, or here). The pick is this editor's own —
-  // the per-send layer; the settings layers fold in beneath it.
-  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  // Where this Send runs — the shared reader; the place button names
+  // the place. The request's own place is the draft's knob (a pick on
+  // the button edits it, Save keeps it on this device); the global row
+  // sits beneath it.
   const globalPlace = useSettingValue('requests.executionPlace');
   // The browser's cookie store never reaches a delegated socket — it
   // rides this surface's own fetch alone (`credentialsMode` on a
@@ -696,7 +711,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const delegationKnobs = useMemo((): readonly PageSessionKnob[] => (jarOn ? ['cookieJar'] : []), [jarOn]);
   const executionPlace = useExecutionPlace({
     kind: 'http',
-    preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
+    preference: resolveExecutionPlacePreference(draft.executionPlace, globalPlace),
     delegationKnobs,
   });
   // A delegated send's socket opens on a node place — its knobs are
@@ -912,7 +927,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     </Tooltip>
   );
   const headerActions = primaryAction;
-  const headerTrailing = <ExecutionPlaceControl resolution={executionPlace} onPick={setPlacePick} />;
+  const headerTrailing = (
+    <ExecutionPlaceControl
+      resolution={executionPlace}
+      roster={executionPlace.roster}
+      preference={draft.executionPlace ?? 'auto'}
+      onPick={(role) => setDraft((d) => ({ ...d, executionPlace: role ?? undefined }))}
+    />
+  );
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>

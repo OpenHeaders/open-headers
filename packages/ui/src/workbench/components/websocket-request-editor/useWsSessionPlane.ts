@@ -35,12 +35,8 @@ import {
 import { App } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { executionPlaceCopy, PAGE_KNOB_KEY } from '../../execution-place/execution-place-copy';
-import type {
-  ExecutionPlacePreference,
-  ExecutionPlaceResolution,
-  PageSessionKnob,
-} from '../../execution-place/resolve-execution-place';
-import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
+import type { ExecutionPlacePreference, PageSessionKnob } from '../../execution-place/resolve-execution-place';
+import { type UseExecutionPlaceResult, useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import { findRequestAncestry, resolveInheritedAuthFor } from '../request-container/ancestry';
 import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
 import { capturedWsRequestFromDraft, capturedWsResponseFromSnapshot } from '../ws-response-example/ws-example-draft';
@@ -80,7 +76,7 @@ export interface WsSessionPlane {
   /** Honest gate copy for a disabled Connect; null = enabled. */
   connectDisabledReason: string | null;
   /** Where Connect would run this session, by the shared reader. */
-  executionPlace: ExecutionPlaceResolution;
+  executionPlace: UseExecutionPlaceResult;
   handleConnect: () => Promise<void>;
   handleDisconnect: () => void;
   /** Dial the armed reconnect attempt now instead of after its wait. */

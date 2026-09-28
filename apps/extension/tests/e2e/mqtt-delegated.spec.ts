@@ -209,7 +209,7 @@ async function openMqttRequest(uid: string): Promise<void> {
 async function waitChipRunsOnServer(): Promise<void> {
   await expect
     .poll(async () => placeChip().getAttribute('aria-label'), { timeout: 20_000 })
-    .toBe(`Runs on ${BACKEND_LABEL}`);
+    .toBe(`Runs remotely: on ${BACKEND_LABEL}`);
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -483,7 +483,7 @@ test('D4 — daemon gone: the chip falls back to the companion state and Connect
   await stopDaemon();
   await expect
     .poll(async () => placeChip().getAttribute('aria-label'), { timeout: 20_000 })
-    .toBe('Needs the desktop app');
+    .toBe('Cannot run here: needs the desktop app or a server');
   await expect(placeChip()).toHaveAttribute('data-state', 'needs-companion');
   await expect(connectButton()).toBeDisabled();
   await page.mouse.move(0, 0);

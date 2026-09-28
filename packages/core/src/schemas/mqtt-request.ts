@@ -15,7 +15,6 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
-  ExecutionPlaceRoleSchema,
   ProxyCredentialRefSchema,
   ProxyModeSchema,
   ProxyUrlSchema,
@@ -360,7 +359,6 @@ const MqttRequestObjectSchema = v.object({
    * a role this surface cannot honour is named at the control, never
    * honoured silently.
    */
-  executionPlace: v.optional(ExecutionPlaceRoleSchema),
   /**
    * Vault `client-certificate` entry NAME presented in the TLS
    * handshake (mqtts/wss) — mutual-TLS brokers. The PEM pair never

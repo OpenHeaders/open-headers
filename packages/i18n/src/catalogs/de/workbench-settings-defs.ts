@@ -539,7 +539,7 @@ export const workbenchSettingsDefs = {
     'Grenze abgeschnitten — die volle Größe wird trotzdem gemessen und gemeldet. Eine höhere Grenze erhöht ' +
     'den Speicherverbrauch pro offenem Anfrage-Tab.',
   'workbench.settings.def.requests.executionPlace.label': 'Ausführungsort',
-  'workbench.settings.def.requests.executionPlace.description': 'Wo API-Anfragen ihre Verbindung öffnen, sofern keine Sammlung, kein Ordner und keine Anfrage einen eigenen Ort setzt: auf diesem Gerät, in der Desktop-App oder auf dem Server des Arbeitsbereichs.',
+  'workbench.settings.def.requests.executionPlace.description': 'Wo API-Anfragen auf diesem Gerät ihre Verbindung öffnen, sofern eine Anfrage keinen eigenen Ort setzt: hier, in der Desktop-App oder auf dem Server des Arbeitsbereichs.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatisch',
   'workbench.settings.def.requests.executionPlace.option.auto.description': 'Läuft hier, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'Dieses Gerät',

@@ -85,7 +85,13 @@ import { capturedResponseFromSnapshot } from '../response-example/example-draft'
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
-import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import {
+  splitLocalPlace,
+  useRequestExecutionPlaces,
+  withLocalPlace,
+  type WithLocalPlace,
+} from '../../execution-place/local-place';
+import { PlaceRequiredHint } from '../../execution-place/PlaceRequiredHint';
 import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import { useSettingValue } from '../../settings/hooks';
@@ -234,18 +240,12 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // feeds the explorer, the editor services and the variables
   // validation; introspection rides the compile.
   const specs = useGraphqlSpecBinding(workspaceId, ancestry?.collection, draft);
-  // The per-send place pick — one pick for both operation kinds; the
-  // query's reader and the subscription plane's read the same layers.
-  // Where a query runs is the HTTP send's reader with the same pick;
-  // the introspection rides the query's target.
-  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  // The request's own place is the draft's knob — one knob for both
+  // operation kinds; the query's reader and the subscription plane's
+  // read it over the global row. Where a query runs is the HTTP send's
+  // reader; the introspection rides the query's target.
   const globalPlace = useSettingValue('requests.executionPlace');
-  const placePreference = resolveExecutionPlacePreference(
-    placePick,
-    draft.executionPlace,
-    inheritedSettings,
-    globalPlace,
-  );
+  const placePreference = resolveExecutionPlacePreference(draft.executionPlace, globalPlace);
   const queryPlace = useExecutionPlace({ kind: 'graphql-query', preference: placePreference });
   const schemaState = useGraphqlSchema({
     entity,
@@ -307,21 +307,30 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
 
   const formFingerprint = useMemo(() => stableStringify(buildGraphqlRequestUpdates(draft)), [draft]);
 
+  const places = useRequestExecutionPlaces(workspaceId);
+  const entityWithPlace = useMemo(
+    () => (entity ? withLocalPlace(entity, places.placeOf(entity.uid)) : entity),
+    [entity, places],
+  );
   const reprime = useReprime({
-    liveEntity: entity,
+    liveEntity: entityWithPlace,
     scope: { entityType: GRAPHQL_REQUEST_ENTITY_TYPE, entityId: entity?.uid ?? null },
     enabled: entity !== null,
     formFingerprint,
-    signature: (e: GraphqlRequestEntity) => stableStringify(canonicalGraphqlRequestProjection(e)),
-    populate: (e: GraphqlRequestEntity) => setDraft(draftFromGraphqlRequest(e)),
+    signature: (e: WithLocalPlace<GraphqlRequestEntity>) => stableStringify(canonicalGraphqlRequestProjection(e)),
+    populate: (e: WithLocalPlace<GraphqlRequestEntity>) => setDraft(draftFromGraphqlRequest(e)),
   });
   const isDirty = reprime.isDirty;
 
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!entity || !isDirty) return;
-    const result = await updateGraphqlRequest(entity.uid, buildGraphqlRequestUpdates(draft));
-    if (result.ok) return;
+    const { executionPlace, entityUpdates } = splitLocalPlace(buildGraphqlRequestUpdates(draft));
+    const result = await updateGraphqlRequest(entity.uid, entityUpdates);
+    if (result.ok) {
+      await places.setPlace(entity.uid, executionPlace);
+      return;
+    }
     if (result.reason === 'not-found') {
       toast.error(t('workbench.editors.graphql.toast.deletedOtherTab'));
     } else {
@@ -331,7 +340,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
           : t('workbench.editors.graphql.toast.updateFailed'),
       );
     }
-  }, [entity, isDirty, draft, updateGraphqlRequest, toast, t]);
+  }, [entity, isDirty, draft, updateGraphqlRequest, places, toast, t]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -556,74 +565,101 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // A subscription that cannot open on this host names why on the
   // button — the honest disabled posture, never a silent no-op.
   const queryDisabledReason = isSubscription ? subscription.disabledReason : null;
+  const [placeOpen, setPlaceOpen] = useState(false);
+  const placeBlocked = isSubscription && subscription.executionPlace.state !== 'ready';
   const primaryAction = (
-    <Tooltip
-      placement="bottom"
-      open={queryTooltipSuppressed ? false : undefined}
-      title={
-        queryDisabledReason !== null ? (
-          queryDisabledReason
-        ) : inFlight ? (
-          <ShortcutHintTitle label={QUERY_SHORTCUT}>
-            {t(
-              isSubscription
-                ? 'workbench.editors.graphql.subscription.stopTooltip'
-                : 'workbench.editors.graphql.query.stopTooltip',
-            )}
-          </ShortcutHintTitle>
-        ) : (
-          <ShortcutHintTitle label={QUERY_SHORTCUT}>
-            {t(isSubscription ? 'workbench.editors.graphql.subscription.tooltip' : 'workbench.editors.graphql.query.label')}
-          </ShortcutHintTitle>
-        )
-      }
+    <PlaceRequiredHint
+      active={placeBlocked}
+      reason={queryDisabledReason ?? ''}
+      onChoose={() => setPlaceOpen(true)}
     >
-      <span style={{ display: 'inline-flex' }} onMouseLeave={() => setQueryTooltipSuppressed(false)}>
-        {inFlight ? (
-          // Query morphs into Stop for every in-flight send — the HTTP
-          // editor's recipe, error token darkened one notch.
-          <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+      <Tooltip
+        placement="bottom"
+        open={queryTooltipSuppressed ? false : undefined}
+        title={
+          placeBlocked ? null : queryDisabledReason !== null ? (
+            queryDisabledReason
+          ) : inFlight ? (
+            <ShortcutHintTitle label={QUERY_SHORTCUT}>
+              {t(
+                isSubscription
+                  ? 'workbench.editors.graphql.subscription.stopTooltip'
+                  : 'workbench.editors.graphql.query.stopTooltip',
+              )}
+            </ShortcutHintTitle>
+          ) : (
+            <ShortcutHintTitle label={QUERY_SHORTCUT}>
+              {t(
+                isSubscription
+                  ? 'workbench.editors.graphql.subscription.tooltip'
+                  : 'workbench.editors.graphql.query.label',
+              )}
+            </ShortcutHintTitle>
+          )
+        }
+      >
+        <span style={{ display: 'inline-flex' }} onMouseLeave={() => setQueryTooltipSuppressed(false)}>
+          {inFlight ? (
+            // Query morphs into Stop for every in-flight send — the HTTP
+            // editor's recipe, error token darkened one notch.
+            <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+              <Button
+                type="primary"
+                danger
+                icon={
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: 'inline-block',
+                      width: 9,
+                      height: 9,
+                      borderRadius: 2,
+                      background: 'currentcolor',
+                    }}
+                  />
+                }
+                size="small"
+                data-testid="graphql-stop-button"
+                onClick={() => {
+                  setQueryTooltipSuppressed(true);
+                  handleStop();
+                }}
+                style={{ fontSize: 11 }}
+              >
+                {t('workbench.editors.graphql.query.stop')}
+              </Button>
+            </ConfigProvider>
+          ) : (
             <Button
-              type="primary"
-              danger
-              icon={
-                <span
-                  aria-hidden="true"
-                  style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
-                />
-              }
               size="small"
-              data-testid="graphql-stop-button"
+              type="primary"
+              icon={<CaretRightOutlined />}
               onClick={() => {
                 setQueryTooltipSuppressed(true);
-                handleStop();
+                void handleQuery();
               }}
               style={{ fontSize: 11 }}
+              disabled={queryDisabledReason !== null}
+              data-testid="graphql-query-button"
             >
-              {t('workbench.editors.graphql.query.stop')}
+              {t('workbench.editors.graphql.query.label')}
             </Button>
-          </ConfigProvider>
-        ) : (
-          <Button
-            size="small"
-            type="primary"
-            icon={<CaretRightOutlined />}
-            onClick={() => {
-              setQueryTooltipSuppressed(true);
-              void handleQuery();
-            }}
-            style={{ fontSize: 11 }}
-            disabled={queryDisabledReason !== null}
-            data-testid="graphql-query-button"
-          >
-            {t('workbench.editors.graphql.query.label')}
-          </Button>
-        )}
-      </span>
-    </Tooltip>
+          )}
+        </span>
+      </Tooltip>
+    </PlaceRequiredHint>
   );
   const headerActions = primaryAction;
-  const headerTrailing = <ExecutionPlaceControl resolution={executionPlace} onPick={setPlacePick} />;
+  const headerTrailing = (
+    <ExecutionPlaceControl
+      resolution={executionPlace}
+      roster={executionPlace.roster}
+      preference={draft.executionPlace ?? 'auto'}
+      onPick={(role) => setDraft((d) => ({ ...d, executionPlace: role ?? undefined }))}
+      open={placeOpen}
+      onOpenChange={setPlaceOpen}
+    />
+  );
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>

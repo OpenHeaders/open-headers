@@ -572,7 +572,7 @@ export const workbenchSettingsDefs = {
     'truncan en este límite — el tamaño completo se sigue midiendo e informando. Subir el límite aumenta la ' +
     'memoria usada por cada pestaña de solicitud abierta.',
   'workbench.settings.def.requests.executionPlace.label': 'Lugar de ejecución',
-  'workbench.settings.def.requests.executionPlace.description': 'Dónde abren su conexión las solicitudes de API salvo que una colección, carpeta o solicitud defina el suyo: en este dispositivo, en la aplicación de escritorio o en el servidor del espacio de trabajo.',
+  'workbench.settings.def.requests.executionPlace.description': 'Dónde abren su conexión las solicitudes de API en este dispositivo salvo que una solicitud defina el suyo: aquí, en la aplicación de escritorio o en el servidor del espacio de trabajo.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automático',
   'workbench.settings.def.requests.executionPlace.option.auto.description': 'Se ejecuta aquí cuando este dispositivo puede, y si no, en el único lugar que puede.',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'Este dispositivo',

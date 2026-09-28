@@ -44,6 +44,7 @@ import type {
 } from '@openheaders/core/types';
 import { binaryEncodingError } from '@openheaders/core/utils';
 import { stableStringify } from '@openheaders/ui/shared/forms';
+import type { WithLocalPlace } from '../../execution-place/local-place';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 /** The MQTT request's slot record — its own kind's keys. */
@@ -327,7 +328,7 @@ export function draftToLastWill(draft: MqttLastWillDraft): MqttLastWill | undefi
   };
 }
 
-export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
+export function draftFromMqttRequest(req: WithLocalPlace<MqttRequest>): MqttDraft {
   return {
     description: req.description ?? '',
     url: req.url,
@@ -374,7 +375,7 @@ export function draftFromMqttRequest(req: MqttRequest): MqttDraft {
   };
 }
 
-export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
+export function buildMqttRequestUpdates(draft: MqttDraft): WithLocalPlace<MqttRequestUpdates> {
   return {
     description: draft.description,
     url: draft.url,
@@ -424,7 +425,7 @@ export function buildMqttRequestUpdates(draft: MqttDraft): MqttRequestUpdates {
 /** Project a live `MqttRequest` into the same shape
  *  `buildMqttRequestUpdates` emits — fingerprint comparison stays
  *  apples-to-apples. */
-export function canonicalMqttRequestProjection(req: MqttRequest): MqttRequestUpdates {
+export function canonicalMqttRequestProjection(req: WithLocalPlace<MqttRequest>): WithLocalPlace<MqttRequestUpdates> {
   return buildMqttRequestUpdates(draftFromMqttRequest(req));
 }
 

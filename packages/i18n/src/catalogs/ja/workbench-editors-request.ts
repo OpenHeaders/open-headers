@@ -1221,7 +1221,7 @@ export const workbenchEditorsRequest = {
     'ワイヤーから読み取るレスポンスボディの最大サイズです。それを超える部分は切り捨てられ、レスポンスには切り詰めのマークが付きます。空にするとデフォルトの上限 2,048 KB（2 MB）になります。大きなペイロードには 10,240 KB（10 MB）まで上げられ、切り詰められたレスポンスの見え方をテストするには下げられます。',
   'workbench.editors.request.settings.executionPlace': '実行場所',
   'workbench.editors.request.settings.executionPlaceInfo':
-    'このリクエストの接続をどこで開くか: このデバイス、デスクトップアプリ、またはワークスペースのサーバー。リクエストはここで解決され、接続だけが移動します。「自動」はこのデバイスで実行できるときはここで、できないときは実行できる唯一の場所で実行します。',
+    'このリクエストの接続をどこで開くか（このデバイスのみ）: ここ、デスクトップアプリ、またはワークスペースのサーバー。リクエストと一緒にこのデバイスに保存され、他の誰とも同期されません。「自動」はこのデバイスで実行できるときはここで、できないときは実行できる唯一の場所で実行します。',
   'workbench.editors.request.settings.executionPlacePlaceholder': '自動',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────

@@ -55,26 +55,37 @@ can move the session to a place that applies them.
 
 ## Choosing a place
 
-The place comes from four layers. The most specific one wins, and an
-explicit value wins whatever it is:
+A place names *this device's* topology — the desktop app on this
+machine, the server this device is signed in to — so it is kept on
+this device and never syncs to anyone else. Two layers, the more
+specific one winning:
 
-1. **This send.** Click the place button and pick a row under **Run
-   on** — this send only.
-2. **The request.** The **Runs on** row on the request's **Settings**
-   tab. Its placeholder reads **Automatic** and, when a parent sets the
-   value, the row notes which one ("Inherited from Collection …").
-3. **The folder, then the collection.** The same row in a folder's or a
-   collection's settings, inherited by everything inside, exactly like
-   the other inheritable settings.
-4. **Global.** **Settings › API Requests › HTTP › Execution place**,
+1. **The request.** Click the place button and pick a row under **Run
+   on**. The popover lists every place this surface knows — **Browser
+   extension**, **Desktop app**, **Server** — each with its mark; the
+   ones that cannot run the request stay visible but disabled, with
+   the reason and the way to fix it (open or download the desktop app,
+   open Backup and Sync for a server, or *Available in a server
+   workspace* for a personal one). A pick is a draft edit: the request
+   runs there at once, and **Save** keeps it — with the request, on
+   this device. The **Runs on** row on the request's **Settings** tab
+   is the same value; *Reset to automatic* in the popover clears it.
+2. **Global.** **Settings › API Requests › HTTP › Execution place**,
    applying to every kind: **Automatic**, **This device**, **The desktop
-   app**, or **The workspace's server**.
+   app**, or **The workspace's server**. A request with no place of its
+   own follows it, and the popover says so: *Automatic — following
+   Settings*.
 
-The values are roles, so they sync with the workspace and resolve on
-each device through that device's own connections. A role the current
-surface cannot honour is never honoured silently: the place button says
-**Cannot run on the desktop app yet** (or the server's name) on hover,
-and its popover offers the eligible places to pick back.
+A role the current surface cannot honour is never honoured silently:
+the place button says **Cannot run on the desktop app yet** (or the
+server's name) on hover, its row stays selected but disabled, and the
+eligible places are there to pick back.
+
+When a request cannot run on this surface at all — an `mqtts://`
+session or a gRPC call on the extension — the disabled **Send**,
+**Connect** or **Invoke** button says so on hover and offers **Choose
+where it runs**, which opens the same popover: the desktop app, or a
+server where no desktop app can be installed.
 
 ## What a delegated send carries
 

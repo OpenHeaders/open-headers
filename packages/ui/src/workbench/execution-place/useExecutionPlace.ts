@@ -19,13 +19,16 @@ import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { useDesktopCompanion } from '@openheaders/ui/shared/status';
 import { useMemo } from 'react';
 import {
+  type ExecutionPlaceInput,
   type ExecutionPlaceMarkers,
   type ExecutionPlacePreference,
   type ExecutionPlaceResolution,
+  type ExecutionPlaceRosterRow,
   type ExecutionRequestKind,
   type MqttTransport,
   type PageSessionKnob,
   resolveExecutionPlace,
+  resolveExecutionPlaceRoster,
 } from './resolve-execution-place';
 import { useWorkspaceServer } from './useWorkspaceServer';
 
@@ -43,6 +46,8 @@ export interface UseExecutionPlaceInput {
 export interface UseExecutionPlaceResult extends ExecutionPlaceResolution {
   /** The backend the send names when its socket opens elsewhere; null when here. */
   target: ExecutionPlaceTarget | null;
+  /** Every place this host knows for this send, available or not — the picker's rows. */
+  roster: readonly ExecutionPlaceRosterRow[];
 }
 
 function readMarkers(): ExecutionPlaceMarkers {
@@ -79,7 +84,7 @@ export function useExecutionPlace({
     delegatedSessionDispatch,
   } = markers;
   return useMemo(() => {
-    const resolution = resolveExecutionPlace({
+    const input: ExecutionPlaceInput = {
       kind,
       markers: {
         requestRuntime,
@@ -97,8 +102,13 @@ export function useExecutionPlace({
       ...(preference !== undefined ? { preference } : {}),
       ...(inapplicableKnobs !== undefined ? { inapplicableKnobs } : {}),
       ...(delegationKnobs !== undefined ? { delegationKnobs } : {}),
-    });
-    return { ...resolution, target: targetOf(resolution, desktopAppBackendId, server?.backendId ?? null) };
+    };
+    const resolution = resolveExecutionPlace(input);
+    return {
+      ...resolution,
+      target: targetOf(resolution, desktopAppBackendId, server?.backendId ?? null),
+      roster: resolveExecutionPlaceRoster(input),
+    };
   }, [
     kind,
     requestRuntime,

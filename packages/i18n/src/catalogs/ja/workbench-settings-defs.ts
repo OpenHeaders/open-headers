@@ -456,7 +456,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.description':
     '表示のためにエグゼキューターが保持するレスポンスボディの量です。これより大きいボディはこの上限で切り詰められますが、完全なサイズは引き続き計測され報告されます。上限を上げると、開いているリクエストタブごとのメモリ使用量が増えます。',
   'workbench.settings.def.requests.executionPlace.label': '実行場所',
-  'workbench.settings.def.requests.executionPlace.description': 'コレクション、フォルダー、リクエストが独自に設定しない限り、API リクエストが接続を開く場所: このデバイス、デスクトップアプリ、またはワークスペースのサーバー。',
+  'workbench.settings.def.requests.executionPlace.description': 'リクエストが独自に設定しない限り、このデバイスで API リクエストが接続を開く場所: ここ、デスクトップアプリ、またはワークスペースのサーバー。',
   'workbench.settings.def.requests.executionPlace.option.auto.label': '自動',
   'workbench.settings.def.requests.executionPlace.option.auto.description': 'このデバイスで実行できるときはここで、できないときは実行できる唯一の場所で実行します。',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'このデバイス',

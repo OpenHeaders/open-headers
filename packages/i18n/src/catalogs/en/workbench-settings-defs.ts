@@ -447,7 +447,7 @@ export const workbenchSettingsDefs = {
     'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',
   'workbench.settings.def.requests.executionPlace.label': 'Execution place',
   'workbench.settings.def.requests.executionPlace.description':
-    'Where API requests open their connection unless a collection, folder or request sets its own: on this device, on the desktop app, or on the workspace’s server.',
+    'Where API requests open their connection on this device unless a request sets its own: here, on the desktop app, or on the workspace’s server.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatic',
   'workbench.settings.def.requests.executionPlace.option.auto.description':
     'Runs here when this device can, else on the one place that can.',

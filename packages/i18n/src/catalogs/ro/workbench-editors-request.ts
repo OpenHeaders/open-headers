@@ -1282,7 +1282,7 @@ export const workbenchEditorsRequest = {
     'Dimensiunea maximă a corpului răspunsului citită de pe fir; tot ce depășește este tăiat, iar răspunsul este marcat ca trunchiat. Lăsați gol pentru limita implicită de 2.048 KB (2 MB). Ridicați-o până la 10.240 KB (10 MB) pentru conținut util mai mare sau coborâți-o pentru a testa cum arată un răspuns trunchiat.',
   'workbench.editors.request.settings.executionPlace': 'Rulează pe',
   'workbench.editors.request.settings.executionPlaceInfo':
-    'Unde se deschide conexiunea acestei cereri: pe acest dispozitiv, în aplicația desktop sau pe serverul spațiului de lucru. Cererea este rezolvată tot aici; doar conexiunea se mută. Automat o rulează aici când acest dispozitiv poate, altfel în singurul loc care poate.',
+    'Unde se deschide conexiunea acestei cereri, doar pe acest dispozitiv: aici, în aplicația desktop sau pe serverul spațiului de lucru. Salvat împreună cu cererea pe acest dispozitiv — nu se sincronizează niciodată cu alții. Automat o rulează aici când acest dispozitiv poate, altfel în singurul loc care poate.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automat',
 
   'workbench.editors.request.settings.maxMessageSize': 'Dimensiune maximă mesaj',

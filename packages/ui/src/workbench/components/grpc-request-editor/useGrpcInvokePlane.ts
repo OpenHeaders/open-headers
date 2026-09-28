@@ -27,8 +27,8 @@ import {
 import { App } from 'antd';
 import { useCallback, useRef, useState } from 'react';
 import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
-import type { ExecutionPlacePreference, ExecutionPlaceResolution } from '../../execution-place/resolve-execution-place';
-import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
+import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import { type UseExecutionPlaceResult, useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   capturedGrpcRequestFromDraft,
   capturedGrpcResponseFromSnapshot,
@@ -69,7 +69,7 @@ export interface GrpcInvokePlane {
   /** Honest gate copy for a disabled Invoke; null = enabled. */
   invokeDisabledReason: string | null;
   /** Where Invoke would run this call, by the shared reader. */
-  executionPlace: ExecutionPlaceResolution;
+  executionPlace: UseExecutionPlaceResult;
   handleInvoke: () => Promise<void>;
   handleCancelInvoke: () => void;
   handleClearResponse: () => void;

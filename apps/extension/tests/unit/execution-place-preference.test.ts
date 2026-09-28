@@ -1,46 +1,22 @@
 /**
- * resolveExecutionPlacePreference — fork 3's three layers folded into
- * the one role the reader takes: the per-send pick over the request's
- * own knob, over the nearest ancestor's, over the global row, else
- * Automatic.
+ * resolveExecutionPlacePreference — the two device-local layers folded
+ * into the one role the reader takes: the request's own place (its
+ * draft, else its saved value on this device) over the global row,
+ * else Automatic. No synced layer exists any more — a place names
+ * this device's topology.
  */
 
 import { resolveExecutionPlacePreference } from '@openheaders/ui/workbench/execution-place/resolve-preference';
 import { describe, expect, it } from 'vitest';
 
 describe('resolveExecutionPlacePreference', () => {
-  it('the per-send pick wins over every layer', () => {
-    expect(
-      resolveExecutionPlacePreference(
-        'here',
-        'workspace-server',
-        { settings: { executionPlace: 'desktop-app' } },
-        'desktop-app',
-      ),
-    ).toBe('here');
+  it("the request's own place wins over the global row", () => {
+    expect(resolveExecutionPlacePreference('workspace-server', 'desktop-app')).toBe('workspace-server');
+    expect(resolveExecutionPlacePreference('here', 'workspace-server')).toBe('here');
   });
 
-  it("the request's own knob wins over the chain and the global row", () => {
-    expect(
-      resolveExecutionPlacePreference(
-        'auto',
-        'workspace-server',
-        { settings: { executionPlace: 'desktop-app' } },
-        'here',
-      ),
-    ).toBe('workspace-server');
-  });
-
-  it("the nearest ancestor's knob wins over the global row", () => {
-    expect(
-      resolveExecutionPlacePreference('auto', undefined, { settings: { executionPlace: 'desktop-app' } }, 'here'),
-    ).toBe('desktop-app');
-  });
-
-  it('the global row applies when nothing above sets a role, and Automatic is the floor', () => {
-    expect(resolveExecutionPlacePreference('auto', undefined, { settings: {} }, 'workspace-server')).toBe(
-      'workspace-server',
-    );
-    expect(resolveExecutionPlacePreference('auto', undefined, { settings: {} }, 'auto')).toBe('auto');
+  it('the global row applies when the request sets none, and Automatic is the floor', () => {
+    expect(resolveExecutionPlacePreference(undefined, 'workspace-server')).toBe('workspace-server');
+    expect(resolveExecutionPlacePreference(undefined, 'auto')).toBe('auto');
   });
 });

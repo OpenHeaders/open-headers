@@ -105,6 +105,7 @@ import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useAdoptActiveWorkspaceIntoSurface } from './hooks/useAdoptActiveWorkspaceIntoSurface';
 import { SurfaceWorkspaceAdoptProvider } from './hooks/SurfaceWorkspaceAdoptContext';
+import { useRequestExecutionPlaces } from './execution-place/local-place';
 import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useSaveRuleFlow } from './hooks/useSaveRuleFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
@@ -900,10 +901,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // values to a save-flow hook that fast-paths to a preferred
   // destination or opens SaveToCollectionModal. Rule context-create
   // bypasses this entirely (immediate persist via `applyRuleCreate`).
+  // A created request's place lands in this device's slot for the
+  // editing scope's workspace, never on the synced entity.
+  const requestPlaces = useRequestExecutionPlaces(editingScopeWorkspaceId);
   const requestSaveFlow = useSaveRequestFlow({
     allTabs,
     createRequest: requestsApi.createRequest,
     replaceTab,
+    saveExecutionPlace: requestPlaces.setPlace,
   });
   const ruleSaveFlow = useSaveRuleFlow({
     allTabs,

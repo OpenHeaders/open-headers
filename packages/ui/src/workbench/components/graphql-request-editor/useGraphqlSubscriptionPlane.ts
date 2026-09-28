@@ -28,12 +28,8 @@ import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variable
 import { App } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { executionPlaceCopy, PAGE_KNOB_KEY } from '../../execution-place/execution-place-copy';
-import type {
-  ExecutionPlacePreference,
-  ExecutionPlaceResolution,
-  PageSessionKnob,
-} from '../../execution-place/resolve-execution-place';
-import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
+import type { ExecutionPlacePreference, PageSessionKnob } from '../../execution-place/resolve-execution-place';
+import { type UseExecutionPlaceResult, useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   type LiveWsSession,
   useLiveWsSession,
@@ -70,7 +66,7 @@ export interface GraphqlSubscriptionPlane {
   /** Honest gate copy for a disabled Query; null = enabled. */
   disabledReason: string | null;
   /** Where Query would open this subscription, by the shared reader. */
-  executionPlace: ExecutionPlaceResolution;
+  executionPlace: UseExecutionPlaceResult;
   handleSubscribe: () => Promise<void>;
   handleStop: () => void;
   handleClear: () => void;

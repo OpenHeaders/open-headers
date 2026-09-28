@@ -27,6 +27,7 @@ import type {
   ProxyMode,
   TlsVersion,
 } from '@openheaders/core/types';
+import type { WithLocalPlace } from '../../execution-place/local-place';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 /** The request's own script slots — its kind's keys alone. */
@@ -145,7 +146,7 @@ export function rowsToMetadata(rows: KeyValueRow[]): GrpcMetadataPair[] {
     }));
 }
 
-export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
+export function draftFromGrpcRequest(req: WithLocalPlace<GrpcRequest>): GrpcDraft {
   return {
     description: req.description ?? '',
     url: req.url,
@@ -176,7 +177,7 @@ export function draftFromGrpcRequest(req: GrpcRequest): GrpcDraft {
   };
 }
 
-export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
+export function buildGrpcRequestUpdates(draft: GrpcDraft): WithLocalPlace<GrpcRequestUpdates> {
   return {
     description: draft.description,
     url: draft.url,
@@ -210,6 +211,6 @@ export function buildGrpcRequestUpdates(draft: GrpcDraft): GrpcRequestUpdates {
 /** Project a live `GrpcRequest` into the same shape
  *  `buildGrpcRequestUpdates` emits — fingerprint comparison stays
  *  apples-to-apples. */
-export function canonicalGrpcRequestProjection(req: GrpcRequest): GrpcRequestUpdates {
+export function canonicalGrpcRequestProjection(req: WithLocalPlace<GrpcRequest>): WithLocalPlace<GrpcRequestUpdates> {
   return buildGrpcRequestUpdates(draftFromGrpcRequest(req));
 }

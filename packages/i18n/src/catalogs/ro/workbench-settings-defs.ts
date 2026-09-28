@@ -492,7 +492,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Cât din corpul unui răspuns păstrează executorul pentru afișare. Corpurile mai mari sunt trunchiate la această limită — dimensiunea completă este măsurată și raportată în continuare. Ridicarea limitei crește consumul de memorie per filă de cerere deschisă.',
   'workbench.settings.def.requests.executionPlace.label': 'Locul de execuție',
-  'workbench.settings.def.requests.executionPlace.description': 'Unde își deschid conexiunea cererile API dacă o colecție, un folder sau o cerere nu își setează propriul loc: pe acest dispozitiv, în aplicația desktop sau pe serverul spațiului de lucru.',
+  'workbench.settings.def.requests.executionPlace.description': 'Unde își deschid conexiunea cererile API pe acest dispozitiv dacă o cerere nu își setează propriul loc: aici, în aplicația desktop sau pe serverul spațiului de lucru.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automat',
   'workbench.settings.def.requests.executionPlace.option.auto.description': 'Rulează aici când acest dispozitiv poate, altfel în singurul loc care poate.',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'Acest dispozitiv',

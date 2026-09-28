@@ -19,6 +19,7 @@
 
 import { HTTP_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
 import type { GraphqlAuth, GraphqlRequest, RequestHeader, RequestSpecLink } from '@openheaders/core/types';
+import type { WithLocalPlace } from '../../execution-place/local-place';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 import type { RequestSettingsDraft } from '../request-editor/SettingsTab';
 
@@ -104,9 +105,10 @@ export function emptyGraphqlDraft(): GraphqlDraft {
   };
 }
 
-export function draftFromGraphqlRequest(req: GraphqlRequest): GraphqlDraft {
+export function draftFromGraphqlRequest(req: WithLocalPlace<GraphqlRequest>): GraphqlDraft {
   return {
     ...graphqlSettingsSlice(req),
+    executionPlace: req.executionPlace,
     description: req.description ?? '',
     url: req.url,
     query: req.query,
@@ -123,12 +125,13 @@ export function draftFromGraphqlRequest(req: GraphqlRequest): GraphqlDraft {
 /** A blank script slot is absent — no file, no slot (the HTTP editor's law). */
 const presentScript = (source: string): string | undefined => (source.trim() === '' ? undefined : source);
 
-export function buildGraphqlRequestUpdates(draft: GraphqlDraft): GraphqlRequestUpdates {
+export function buildGraphqlRequestUpdates(draft: GraphqlDraft): WithLocalPlace<GraphqlRequestUpdates> {
   const settings = graphqlSettingsSlice(draft);
   const explicit = (key: keyof RequestSettingsDraft): boolean => settings[key] !== undefined;
   return {
     // Every knob is present on the patch: an explicit value writes the
     // request's own, `undefined` clears a stored one (the tri-state).
+    executionPlace: draft.executionPlace,
     credentialsMode: settings.credentialsMode,
     followRedirects: settings.followRedirects,
     sslVerification: settings.sslVerification,
@@ -165,7 +168,9 @@ export function buildGraphqlRequestUpdates(draft: GraphqlDraft): GraphqlRequestU
 /** Project a live `GraphqlRequest` into the same shape
  *  `buildGraphqlRequestUpdates` emits — fingerprint comparison stays
  *  apples-to-apples. */
-export function canonicalGraphqlRequestProjection(req: GraphqlRequest): GraphqlRequestUpdates {
+export function canonicalGraphqlRequestProjection(
+  req: WithLocalPlace<GraphqlRequest>,
+): WithLocalPlace<GraphqlRequestUpdates> {
   return buildGraphqlRequestUpdates(draftFromGraphqlRequest(req));
 }
 

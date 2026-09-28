@@ -41,11 +41,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
 import {
   type ExecutionPlacePreference,
-  type ExecutionPlaceResolution,
   mqttTransportOf,
   type PageSessionKnob,
 } from '../../execution-place/resolve-execution-place';
-import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
+import { type UseExecutionPlaceResult, useExecutionPlace } from '../../execution-place/useExecutionPlace';
 import {
   capturedMqttRequestFromDraft,
   capturedMqttResponseFromSnapshot,
@@ -96,7 +95,7 @@ export interface MqttSessionPlane {
   /** Honest gate copy for a disabled Connect; null = enabled. */
   connectDisabledReason: string | null;
   /** Where Connect would run this session, by the shared reader. */
-  executionPlace: ExecutionPlaceResolution;
+  executionPlace: UseExecutionPlaceResult;
   /** Live Subscribe-toggle truth by row uid while the session is open. */
   liveSubs: ReadonlyMap<string, LiveSubscriptionMark>;
   handleConnect: () => Promise<void>;

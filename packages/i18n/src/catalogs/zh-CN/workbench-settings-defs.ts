@@ -420,7 +420,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.description':
     '执行器为显示保留的响应体大小。更大的响应体会在此上限处截断——完整大小仍会被测量并报告。提高上限会增加每个打开的请求标签页的内存占用。',
   'workbench.settings.def.requests.executionPlace.label': '执行位置',
-  'workbench.settings.def.requests.executionPlace.description': '除非集合、文件夹或请求自行设置，否则 API 请求在此处建立连接：此设备、桌面应用或工作区的服务器。',
+  'workbench.settings.def.requests.executionPlace.description': '除非请求自行设置，否则 API 请求在此设备上于此处建立连接：此处、桌面应用或工作区的服务器。',
   'workbench.settings.def.requests.executionPlace.option.auto.label': '自动',
   'workbench.settings.def.requests.executionPlace.option.auto.description': '此设备可行时在此运行，否则在唯一可行的位置运行。',
   'workbench.settings.def.requests.executionPlace.option.here.label': '此设备',

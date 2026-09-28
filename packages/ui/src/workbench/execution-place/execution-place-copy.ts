@@ -1,14 +1,24 @@
 /**
- * The reader's resolution, worded: the chip, the reason sentence and
- * the page-realm knob notice. One place for the copy so the five
- * editors' disabled tooltips and the control's popover say the same
- * thing (the five per-editor host strings retired here at S1).
+ * The reader's resolution, worded: the hover line (the place button's
+ * accessible name — the standard "Runs locally: in …" / "Runs
+ * remotely: on …", or the honest state), the reason sentence and the
+ * page-realm knob notice. One place for the copy so the five editors'
+ * disabled tooltips and the control's popover say the same thing (the
+ * five per-editor host strings retired here at S1). The roster's row
+ * labels and reasons live here too.
  */
 
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
-import type { ExecutionPlaceResolution, ExecutionPlaceRole, PageSessionKnob } from './resolve-execution-place';
+import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
+import type {
+  ExecutionPlaceResolution,
+  ExecutionPlaceRole,
+  ExecutionPlaceRosterReason,
+  PageSessionKnob,
+} from './resolve-execution-place';
 
 export interface ExecutionPlaceCopy {
+  /** The hover line — the button's accessible name. */
   chip: string;
   reason: string;
   /** The knobs the resolved place cannot apply (a page-realm session's
@@ -17,8 +27,8 @@ export interface ExecutionPlaceCopy {
   knobs: string | null;
 }
 
-/** A picker row's label — the place as a thing to choose, never the
- *  word "Auto" (the resolved place is what the user sees). */
+/** A Settings-row option's label — the role as a thing to choose,
+ *  never the word "Auto" (the resolved place is what the user sees). */
 export function executionPlaceOptionLabel(role: ExecutionPlaceRole, placeName: string | null, t: Translate): string {
   switch (role) {
     case 'here':
@@ -27,6 +37,46 @@ export function executionPlaceOptionLabel(role: ExecutionPlaceRole, placeName: s
       return t('shared.executionPlace.option.desktopApp');
     case 'workspace-server':
       return placeName ?? t('shared.executionPlace.option.server');
+  }
+}
+
+/** A roster row's label — the place as the product names it: the
+ *  browser extension where this surface is one, the desktop app, the
+ *  server. */
+export function executionPlaceRosterLabel(role: ExecutionPlaceRole, t: Translate): string {
+  switch (role) {
+    case 'here':
+      return getCurrentHost() === 'extension'
+        ? t('shared.executionPlace.roster.browser')
+        : t('shared.executionPlace.roster.desktopApp');
+    case 'desktop-app':
+      return t('shared.executionPlace.roster.desktopApp');
+    case 'workspace-server':
+      return t('shared.executionPlace.roster.server');
+  }
+}
+
+/** Why a roster row is disabled, in one short line. */
+export function executionPlaceRosterReason(reason: ExecutionPlaceRosterReason, t: Translate): string {
+  switch (reason) {
+    case 'kind-not-here':
+      return t('shared.executionPlace.roster.reason.kindNotHere');
+    case 'desktop-not-running':
+      return t('shared.executionPlace.roster.reason.desktopNotRunning');
+    case 'desktop-not-paired':
+      return t('shared.executionPlace.roster.reason.desktopNotPaired');
+    case 'desktop-not-installed':
+      return t('shared.executionPlace.roster.reason.desktopNotInstalled');
+    case 'desktop-connecting':
+      return t('shared.executionPlace.roster.reason.desktopConnecting');
+    case 'desktop-unavailable':
+      return t('shared.executionPlace.roster.reason.desktopUnavailable');
+    case 'no-server':
+      return t('shared.executionPlace.roster.reason.noServer');
+    case 'server-not-connected':
+      return t('shared.executionPlace.roster.reason.serverNotConnected');
+    case 'not-forwarded':
+      return t('shared.executionPlace.roster.reason.notForwarded');
   }
 }
 
@@ -49,25 +99,25 @@ function roleName(role: ExecutionPlaceResolution['place'], placeName: string | n
   }
 }
 
+/** The hover standard: a local place names where on this machine, a
+ *  remote one names the server. */
+function localHere(t: Translate): string {
+  return getCurrentHost() === 'extension'
+    ? t('shared.executionPlace.tip.localBrowser')
+    : t('shared.executionPlace.tip.localDesktop');
+}
+
 export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Translate): ExecutionPlaceCopy {
   const { reason } = resolution;
   const place = roleName(resolution.place, resolution.placeName, t);
   switch (reason.kind) {
     case 'runs-here':
-      return {
-        chip: t('shared.executionPlace.chip.here'),
-        reason: t('shared.executionPlace.reason.runsHere'),
-        knobs: null,
-      };
+      return { chip: localHere(t), reason: t('shared.executionPlace.reason.runsHere'), knobs: null };
     case 'runs-here-browser':
-      return {
-        chip: t('shared.executionPlace.chip.here'),
-        reason: t('shared.executionPlace.reason.runsHereBrowser'),
-        knobs: null,
-      };
+      return { chip: localHere(t), reason: t('shared.executionPlace.reason.runsHereBrowser'), knobs: null };
     case 'runs-here-page-realm':
       return {
-        chip: t('shared.executionPlace.chip.here'),
+        chip: localHere(t),
         reason: t('shared.executionPlace.reason.runsHerePageRealm'),
         knobs:
           reason.knobs.length > 0
@@ -78,43 +128,43 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
       };
     case 'context-send':
       return {
-        chip: t('shared.executionPlace.chip.server', { place }),
+        chip: t('shared.executionPlace.tip.remoteServer', { place }),
         reason: t('shared.executionPlace.reason.contextSend', { place }),
         knobs: null,
       };
     case 'companion-invoke':
       return {
-        chip: t('shared.executionPlace.chip.desktopApp'),
+        chip: t('shared.executionPlace.tip.localDesktop'),
         reason: t('shared.executionPlace.reason.companionInvoke'),
         knobs: null,
       };
     case 'server-invoke':
       return {
-        chip: t('shared.executionPlace.chip.server', { place }),
+        chip: t('shared.executionPlace.tip.remoteServer', { place }),
         reason: t('shared.executionPlace.reason.serverInvoke', { place }),
         knobs: null,
       };
     case 'companion-required':
       return {
-        chip: t('shared.executionPlace.chip.needsDesktopApp'),
+        chip: t('shared.executionPlace.tip.needsPlace'),
         reason: t('shared.executionPlace.reason.companionRequired'),
         knobs: null,
       };
     case 'tcp-scheme':
       return {
-        chip: t('shared.executionPlace.chip.needsDesktopApp'),
+        chip: t('shared.executionPlace.tip.needsPlace'),
         reason: t('shared.executionPlace.reason.tcpScheme'),
         knobs: null,
       };
     case 'session-not-forwarded':
       return {
-        chip: t('shared.executionPlace.chip.notForwarded', { place }),
+        chip: t('shared.executionPlace.tip.notForwarded', { place }),
         reason: t('shared.executionPlace.reason.sessionNotForwarded', { place }),
         knobs: null,
       };
     case 'no-runtime':
       return {
-        chip: t('shared.executionPlace.chip.unavailable'),
+        chip: t('shared.executionPlace.tip.unavailable'),
         reason: t('shared.executionPlace.reason.noRuntime'),
         knobs: null,
       };
@@ -132,12 +182,12 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
           : null;
       return reason.role === 'desktop-app'
         ? {
-            chip: t('shared.executionPlace.chip.desktopApp'),
+            chip: t('shared.executionPlace.tip.localDesktop'),
             reason: t('shared.executionPlace.reason.delegatedDesktopApp'),
             knobs,
           }
         : {
-            chip: t('shared.executionPlace.chip.server', { place }),
+            chip: t('shared.executionPlace.tip.remoteServer', { place }),
             reason: t('shared.executionPlace.reason.delegatedServer', { place }),
             knobs,
           };
@@ -145,7 +195,7 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
     case 'preference-unavailable': {
       const preferred = roleName(reason.preferred, null, t);
       return {
-        chip: t('shared.executionPlace.chip.cannotRunOn', { place: preferred }),
+        chip: t('shared.executionPlace.tip.cannotRunOn', { place: preferred }),
         reason: t('shared.executionPlace.reason.preferenceUnavailable', { place: preferred }),
         knobs: null,
       };

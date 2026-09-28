@@ -45,6 +45,7 @@ export {
   validateDomainValues,
 } from './condition-validation';
 export { ensureScheme, inferSchemeForBareHost, needsSchemeNormalization } from './ensure-scheme';
+export { type ExecutionPlacesRecord, readExecutionPlace, withExecutionPlace } from './execution-places';
 export type { BuildEmptyGraphqlRequestInput } from './graphql-request-defaults';
 export { buildEmptyGraphqlRequest } from './graphql-request-defaults';
 export type { BuildEmptyGrpcRequestInput } from './grpc-request-defaults';

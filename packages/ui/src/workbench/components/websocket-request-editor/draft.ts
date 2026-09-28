@@ -39,6 +39,7 @@ import type {
   WebSocketSpecLink,
 } from '@openheaders/core/types';
 import { decodeBase64Bytes, parseUrlQuery, splitUrlPath } from '@openheaders/core/utils';
+import type { WithLocalPlace } from '../../execution-place/local-place';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 
 /** The WebSocket request's slot record — its own kind's keys. */
@@ -273,7 +274,7 @@ export function splitSocketIoUrl(
   return { url: split.authority, namespace: namespace !== '' ? namespace : split.path };
 }
 
-export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft {
+export function draftFromWebSocketRequest(req: WithLocalPlace<WebSocketRequest>): WebSocketDraft {
   // Split any `?…` suffix off the stored URL into structured params so
   // the URL⇄params sync works from a clean base; stored rows keep their
   // metadata and follow the URL-derived ones (URL first, table after).
@@ -337,7 +338,7 @@ export function draftFromWebSocketRequest(req: WebSocketRequest): WebSocketDraft
   };
 }
 
-export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRequestUpdates {
+export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WithLocalPlace<WebSocketRequestUpdates> {
   return {
     description: draft.description,
     url: draft.url,
@@ -387,7 +388,9 @@ export function buildWebSocketRequestUpdates(draft: WebSocketDraft): WebSocketRe
 /** Project a live `WebSocketRequest` into the same shape
  *  `buildWebSocketRequestUpdates` emits — fingerprint comparison stays
  *  apples-to-apples. */
-export function canonicalWebSocketRequestProjection(req: WebSocketRequest): WebSocketRequestUpdates {
+export function canonicalWebSocketRequestProjection(
+  req: WithLocalPlace<WebSocketRequest>,
+): WithLocalPlace<WebSocketRequestUpdates> {
   return buildWebSocketRequestUpdates(draftFromWebSocketRequest(req));
 }
 

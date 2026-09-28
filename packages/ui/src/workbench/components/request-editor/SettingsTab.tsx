@@ -869,12 +869,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           onChange={(v) => onChange({ ...value, executionPlace: isExecutionPlaceRole(v) ? v : undefined })}
           info={settingsRowInfo(t, 'executionPlace')}
           options={EXECUTION_PLACE_ROLES.map((role) => ({ value: role, label: placeLabel(role) }))}
-          {...rows.field(
-            'executionPlace',
-            value.executionPlace,
-            t('workbench.editors.request.settings.executionPlacePlaceholder'),
-            placeLabel,
-          )}
+          placeholder={t('workbench.editors.request.settings.executionPlacePlaceholder')}
           testId="oh-execution-place-select"
           unsaved={unsaved.has('executionPlace')}
         />

@@ -1475,13 +1475,6 @@ const RequestObjectSchema = v.object({
    */
   maxResponseBytes: v.optional(MaxResponseBytesSchema),
   /**
-   * Where the send's socket opens — see {@link ExecutionPlaceRoleSchema}.
-   * Absent = Automatic. Inheritable (collection > folder > request);
-   * the global row under Settings › API requests sits beneath the
-   * chain and a per-send pick on the send control sits above it.
-   */
-  executionPlace: v.optional(ExecutionPlaceRoleSchema),
-  /**
    * Cap on the number of 3xx redirects followed before the send fails
    * with an error naming the limit. Only meaningful while
    * `followRedirects` is on. Absent = the runtime default (20); `0` =

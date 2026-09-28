@@ -50,7 +50,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeGrpcPrefill } from './grpc-prefill-bus';
 import { useSetting, useSettingValue } from '../../settings/hooks';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
-import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
+import { splitLocalPlace, useRequestExecutionPlaces, withLocalPlace } from '../../execution-place/local-place';
+import { PlaceRequiredHint } from '../../execution-place/PlaceRequiredHint';
 import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
@@ -199,8 +200,13 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   const formFingerprint = useMemo(() => stableStringify(buildGrpcRequestUpdates(draft)), [draft]);
 
+  const places = useRequestExecutionPlaces(workspaceId);
+  const entityWithPlace = useMemo(
+    () => (entity ? withLocalPlace(entity, places.placeOf(entity.uid)) : entity),
+    [entity, places],
+  );
   const reprime = useReprime({
-    liveEntity: entity,
+    liveEntity: entityWithPlace,
     scope: { entityType: GRPC_REQUEST_ENTITY_TYPE, entityId: entity?.uid ?? null },
     enabled: entity !== null,
     formFingerprint,
@@ -275,9 +281,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   // an EMPTY message and the server answers. Default off — the
   // executor rejects before the wire with the exact parse error.
   const [sendInvalidMessage, setSendInvalidMessage] = useSetting('requests.grpcSendInvalidMessage');
-  // The per-send pick is this editor's own; the settings layers fold
-  // in beneath it (request > folder > collection > global > Auto).
-  const [placePick, setPlacePick] = useState<ExecutionPlacePreference>('auto');
+  // The request's own place is the draft's knob; the global row sits beneath it.
   const globalPlace = useSettingValue('requests.executionPlace');
   const invoke = useGrpcInvokePlane({
     entity,
@@ -287,7 +291,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     selectedOption,
     sendInvalidMessage,
     onOpenGrpcResponseExample,
-    preference: resolveExecutionPlacePreference(placePick, draft.executionPlace, inheritedSettings, globalPlace),
+    preference: resolveExecutionPlacePreference(draft.executionPlace, globalPlace),
   });
 
   // ⌘/Ctrl+Enter invokes from anywhere in the editor — same gate as
@@ -328,8 +332,12 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   // ── Save ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!entity || !isDirty) return;
-    const result = await updateGrpcRequest(entity.uid, buildGrpcRequestUpdates(draft));
-    if (result.ok) return;
+    const { executionPlace, entityUpdates } = splitLocalPlace(buildGrpcRequestUpdates(draft));
+    const result = await updateGrpcRequest(entity.uid, entityUpdates);
+    if (result.ok) {
+      await places.setPlace(entity.uid, executionPlace);
+      return;
+    }
     if (result.reason === 'not-found') {
       toast.error(t('workbench.editors.grpc.toast.deletedOtherTab'));
     } else {
@@ -339,7 +347,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
           : t('workbench.editors.grpc.toast.updateFailed'),
       );
     }
-  }, [entity, isDirty, draft, updateGrpcRequest, toast, t]);
+  }, [entity, isDirty, draft, updateGrpcRequest, places, toast, t]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();
@@ -399,6 +407,8 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     },
   ];
 
+  const [placeOpen, setPlaceOpen] = useState(false);
+  const placeBlocked = invoke.executionPlace.state !== 'ready';
   const primaryAction = invoke.invoking ? (
     <Tooltip
       placement="bottom"
@@ -427,31 +437,46 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
       </ConfigProvider>
     </Tooltip>
   ) : (
-    <Tooltip
-      placement="bottom"
-      title={
-        invoke.invokeDisabledReason ?? (
-          <ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.label')}</ShortcutHintTitle>
-        )
-      }
+    <PlaceRequiredHint
+      active={placeBlocked}
+      reason={invoke.invokeDisabledReason ?? ''}
+      onChoose={() => setPlaceOpen(true)}
     >
-      <span style={{ display: 'inline-flex' }}>
-        <Button
-          size="small"
-          type="primary"
-          icon={<CaretRightOutlined />}
-          disabled={invoke.invokeDisabledReason !== null}
-          onClick={() => void invoke.handleInvoke()}
-          style={{ fontSize: 11 }}
-          data-testid="grpc-invoke-button"
-        >
-          {t('workbench.editors.grpc.invoke.label')}
-        </Button>
-      </span>
-    </Tooltip>
+      <Tooltip
+        placement="bottom"
+        title={
+          placeBlocked ? null : (invoke.invokeDisabledReason ?? (
+            <ShortcutHintTitle label={INVOKE_SHORTCUT}>{t('workbench.editors.grpc.invoke.label')}</ShortcutHintTitle>
+          ))
+        }
+      >
+        <span style={{ display: 'inline-flex' }}>
+          <Button
+            size="small"
+            type="primary"
+            icon={<CaretRightOutlined />}
+            disabled={invoke.invokeDisabledReason !== null}
+            onClick={() => void invoke.handleInvoke()}
+            style={{ fontSize: 11 }}
+            data-testid="grpc-invoke-button"
+          >
+            {t('workbench.editors.grpc.invoke.label')}
+          </Button>
+        </span>
+      </Tooltip>
+    </PlaceRequiredHint>
   );
   const headerActions = primaryAction;
-  const headerTrailing = <ExecutionPlaceControl resolution={invoke.executionPlace} onPick={setPlacePick} />;
+  const headerTrailing = (
+    <ExecutionPlaceControl
+      resolution={invoke.executionPlace}
+      roster={invoke.executionPlace.roster}
+      preference={draft.executionPlace ?? 'auto'}
+      onPick={(role) => setDraft((d) => ({ ...d, executionPlace: role ?? undefined }))}
+      open={placeOpen}
+      onOpenChange={setPlaceOpen}
+    />
+  );
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>

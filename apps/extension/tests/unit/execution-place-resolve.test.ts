@@ -12,6 +12,7 @@ import {
   isSessionKind,
   mqttTransportOf,
   resolveExecutionPlace,
+  resolveExecutionPlaceRoster,
 } from '@openheaders/ui/workbench/execution-place/resolve-execution-place';
 import { describe, expect, it } from 'vitest';
 
@@ -508,5 +509,71 @@ describe('resolveExecutionPlace — the knobs a delegated socket cannot honour (
     expect(resolve('http', EXTENSION, 'connected', { ...delegation, preference: 'here' }).reason).toEqual({
       kind: 'runs-here-browser',
     });
+  });
+});
+
+describe('resolveExecutionPlaceRoster — every place this host knows, available or not', () => {
+  const roster = (
+    kind: ExecutionRequestKind,
+    markers: ExecutionPlaceMarkers,
+    desktopApp: DesktopCompanionState = 'not-connected',
+    extra: Partial<Parameters<typeof resolveExecutionPlaceRoster>[0]> = {},
+  ) => resolveExecutionPlaceRoster({ kind, markers, desktopApp, desktopAppLaunchable: true, ...extra });
+
+  it('the extension lists its own extension, the desktop app and the server, in that order', () => {
+    expect(roster('http', EXTENSION, 'connected', SERVER_UP)).toEqual([
+      { role: 'here', available: true, reason: null, cta: null },
+      { role: 'desktop-app', available: true, reason: null, cta: null },
+      { role: 'workspace-server', available: true, reason: null, cta: null },
+    ]);
+  });
+
+  it('a kind the browser cannot open disables the extension row and names it', () => {
+    expect(roster('grpc', EXTENSION)[0]).toEqual({
+      role: 'here',
+      available: false,
+      reason: 'kind-not-here',
+      cta: null,
+    });
+    expect(roster('mqtt', EXTENSION, 'connected', { mqttTransport: 'tcp' })[0]?.reason).toBe('kind-not-here');
+    expect(roster('mqtt', EXTENSION, 'connected', { mqttTransport: 'websocket' })[0]?.available).toBe(true);
+  });
+
+  it('the desktop row carries the live state and the ladder rung', () => {
+    expect(roster('http', EXTENSION, 'not-installed')[1]).toEqual({
+      role: 'desktop-app',
+      available: false,
+      reason: 'desktop-not-installed',
+      cta: 'download-desktop-app',
+    });
+    expect(roster('http', EXTENSION, 'installed-not-connected')[1]?.reason).toBe('desktop-not-paired');
+    expect(roster('http', EXTENSION, 'not-connected')[1]?.cta).toBe('launch-desktop-app');
+    expect(roster('http', EXTENSION, 'connecting')[1]?.reason).toBe('desktop-connecting');
+  });
+
+  it('the server row reads no server, a down wire, or ready', () => {
+    expect(roster('http', EXTENSION)[2]).toEqual({
+      role: 'workspace-server',
+      available: false,
+      reason: 'no-server',
+      cta: null,
+    });
+    expect(roster('http', EXTENSION, 'connected', SERVER_DOWN)[2]?.reason).toBe('server-not-connected');
+    expect(roster('websocket', EXTENSION, 'connected', SERVER_UP)[2]?.available).toBe(true);
+  });
+
+  it('a surface whose send honours no place marks the delegated rows not forwarded', () => {
+    const rows = roster('http', BARE_BROWSER, 'connected', SERVER_UP);
+    expect(rows[1]?.reason).toBe('not-forwarded');
+    expect(rows[2]?.reason).toBe('not-forwarded');
+  });
+
+  it('the desktop app lists itself and the server; the web tab its one server', () => {
+    expect(roster('http', DESKTOP, 'connected', SERVER_UP).map((row) => row.role)).toEqual([
+      'here',
+      'workspace-server',
+    ]);
+    expect(roster('http', WEB)).toEqual([{ role: 'workspace-server', available: true, reason: null, cta: null }]);
+    expect(roster('websocket', { ...WEB, delegatedSessionDispatch: false })[0]?.reason).toBe('not-forwarded');
   });
 });

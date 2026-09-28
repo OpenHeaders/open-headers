@@ -16,7 +16,6 @@ import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 import {
   ClientCertificateRefSchema,
-  ExecutionPlaceRoleSchema,
   HeartbeatMessageSchema,
   MaxRedirectsSchema,
   MaxResponseBytesSchema,
@@ -383,7 +382,6 @@ const WebSocketRequestObjectSchema = v.object({
    * a role this surface cannot honour is named at the control, never
    * honoured silently.
    */
-  executionPlace: v.optional(ExecutionPlaceRoleSchema),
   /**
    * Vault `client-certificate` entry NAME presented in the TLS
    * handshake — mutual-TLS servers. The PEM pair never rides the

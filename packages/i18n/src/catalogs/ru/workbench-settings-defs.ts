@@ -474,7 +474,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Какую часть тела ответа исполнитель хранит для показа. Более крупные тела обрезаются на этом пределе — полный размер по-прежнему измеряется и сообщается. Повышение предела увеличивает расход памяти на каждую открытую вкладку запроса.',
   'workbench.settings.def.requests.executionPlace.label': 'Место выполнения',
-  'workbench.settings.def.requests.executionPlace.description': 'Где запросы API открывают соединение, если коллекция, папка или запрос не задают своё: на этом устройстве, в настольном приложении или на сервере рабочего пространства.',
+  'workbench.settings.def.requests.executionPlace.description': 'Где запросы API открывают соединение на этом устройстве, если запрос не задаёт своё: здесь, в настольном приложении или на сервере рабочего пространства.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Автоматически',
   'workbench.settings.def.requests.executionPlace.option.auto.description': 'Выполняется здесь, когда это устройство может, иначе — в единственном месте, которое может.',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'Это устройство',
