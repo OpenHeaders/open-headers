@@ -106,7 +106,7 @@ function settingsTabTone(knobs: KnobValues, unsaved: SettingsKnobKey[]): 'none' 
 }
 
 describe('SettingsTab on a browser runtime with the knobs of a delegated node place', () => {
-  it('unlocks the node knobs while the managed sheet and the cookie rows stay the context\'s', () => {
+  it("unlocks the node knobs while the managed sheet and the cookie rows stay the context's", () => {
     render(<SettingsTab value={{}} onChange={() => {}} knobsRuntime="node" />);
     expect(screen.getByTestId('oh-http-version-select')).toBeTruthy();
     expect(screen.getByText('Response size limit')).toBeTruthy();
@@ -120,6 +120,11 @@ describe('SettingsTab on a browser runtime with the knobs of a delegated node pl
     const select = screen.getByTestId('oh-execution-place-select');
     expect(select).toBeTruthy();
     expect(select.textContent).toContain('Automatic');
+  });
+
+  it("a container's section carries no execution place row — the place is the request's, on this device", () => {
+    render(<SettingsTab value={{}} onChange={() => {}} scope="container" />);
+    expect(screen.queryByTestId('oh-execution-place-select')).toBeNull();
   });
 });
 

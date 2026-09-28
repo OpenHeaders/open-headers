@@ -284,8 +284,10 @@ export interface RequestSettingsDraft {
    *  Defaults to false. Node runtimes only. */
   followAuthorizationHeader?: boolean;
   /** Where the send's socket opens — a ROLE (the Execution Place
-   *  plan); undefined = Automatic. Every runtime; a role this device
-   *  cannot honour is named at the send control, never silent. */
+   *  plan); undefined = Automatic. Request scope only: the place is
+   *  this device's, saved with the request, never a container's knob.
+   *  A role this device cannot honour is named at the send control,
+   *  never silent. */
   executionPlace?: ExecutionPlaceRole;
 }
 
@@ -604,7 +606,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   const executionModified =
     value.timeoutMs !== undefined ||
     value.maxResponseBytes !== undefined ||
-    value.executionPlace !== undefined ||
+    (!container && value.executionPlace !== undefined) ||
     (!container && scriptMode.mode === 'developer');
   // Per-group unsaved aggregation for the collapsed headers — same
   // membership as the *Modified predicates above. The script-mode knob
@@ -863,16 +865,18 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             }
           />
         )}
-        <SelectKnobRow
-          label={t('workbench.editors.request.settings.executionPlace')}
-          value={value.executionPlace}
-          onChange={(v) => onChange({ ...value, executionPlace: isExecutionPlaceRole(v) ? v : undefined })}
-          info={settingsRowInfo(t, 'executionPlace')}
-          options={EXECUTION_PLACE_ROLES.map((role) => ({ value: role, label: placeLabel(role) }))}
-          placeholder={t('workbench.editors.request.settings.executionPlacePlaceholder')}
-          testId="oh-execution-place-select"
-          unsaved={unsaved.has('executionPlace')}
-        />
+        {!container && (
+          <SelectKnobRow
+            label={t('workbench.editors.request.settings.executionPlace')}
+            value={value.executionPlace}
+            onChange={(v) => onChange({ ...value, executionPlace: isExecutionPlaceRole(v) ? v : undefined })}
+            info={settingsRowInfo(t, 'executionPlace')}
+            options={EXECUTION_PLACE_ROLES.map((role) => ({ value: role, label: placeLabel(role) }))}
+            placeholder={t('workbench.editors.request.settings.executionPlacePlaceholder')}
+            testId="oh-execution-place-select"
+            unsaved={unsaved.has('executionPlace')}
+          />
+        )}
         <ComboKnobRow
           label={t('workbench.editors.request.settings.timeout')}
           value={value.timeoutMs}
