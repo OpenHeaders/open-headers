@@ -152,7 +152,7 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
       content={
         <div
           data-testid="execution-place-popover"
-          style={{ maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 8 }}
+          style={{ width: 440, display: 'flex', flexDirection: 'column', gap: 8 }}
         >
           <Text style={{ fontSize: 12 }}>{copy.reason}</Text>
           {copy.knobs !== null && (
@@ -171,40 +171,41 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
                   const picked = roster.find((row) => row.role === event.target.value && row.available);
                   if (picked !== undefined) onPick(picked.role);
                 }}
-                style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
               >
                 {roster.map((row) => (
-                  <div key={row.role} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Radio
-                      value={row.role}
-                      disabled={!row.available}
-                      data-testid="execution-place-option"
-                      data-role={row.role}
-                      data-available={row.available ? 'true' : 'false'}
-                      style={{ fontSize: 12 }}
-                    >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <PlaceMark place={row.role} size={13} />
-                        <span>{executionPlaceRosterLabel(row.role, t)}</span>
-                        {row.role === 'workspace-server' && resolution.serverName != null && (
-                          <Text type="secondary" style={{ fontSize: 11 }}>
-                            {resolution.serverName}
-                          </Text>
-                        )}
-                      </span>
-                    </Radio>
+                  <Radio
+                    key={row.role}
+                    value={row.role}
+                    disabled={!row.available}
+                    className="rules-settings-row oh-place-row"
+                    data-testid="execution-place-option"
+                    data-role={row.role}
+                    data-available={row.available ? 'true' : 'false'}
+                    style={{ fontSize: 12 }}
+                  >
+                    <PlaceMark place={row.role} size={13} />
+                    <span data-testid="execution-place-option-label" style={{ whiteSpace: 'nowrap' }}>
+                      {executionPlaceRosterLabel(row.role, t)}
+                    </span>
+                    {row.role === 'workspace-server' && resolution.serverName != null && (
+                      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                        {resolution.serverName}
+                      </Text>
+                    )}
+                    <span style={{ flex: 1, height: 1, background: token.colorSplit }} />
                     {row.reason !== null && (
-                      <div
+                      <span
                         data-testid="execution-place-option-reason"
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, paddingInlineStart: 24 }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}
                       >
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           {executionPlaceRosterReason(row.reason, t)}
                         </Text>
                         {rowAction(row)}
-                      </div>
+                      </span>
                     )}
-                  </div>
+                  </Radio>
                 ))}
               </Radio.Group>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>

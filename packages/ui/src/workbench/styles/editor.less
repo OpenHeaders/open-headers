@@ -354,6 +354,26 @@
   .stated-default-hides-on-focus();
 }
 
+/* A place-picker row (the execution place popover): the radio, the
+ * mark and the label, a rule to the trailing reason and its action —
+ * one line, the settings group header's shape, over the settings row's
+ * hover. antd puts the radio's children in its last span; that span is
+ * the row's flex track. */
+.oh-place-row {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  margin-inline-end: 0;
+
+  > span:last-child {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+}
+
 /* Stated-default fields outside a settings row — compose bars and
  * option popovers. */
 .oh-stated-default {

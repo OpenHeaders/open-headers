@@ -125,7 +125,11 @@ describe('ExecutionPlaceControl', () => {
     const options = await screen.findAllByTestId('execution-place-option');
     expect(options.map((o) => o.getAttribute('data-role'))).toEqual(['here', 'desktop-app', 'workspace-server']);
     expect(options.map((o) => o.getAttribute('data-available'))).toEqual(['true', 'false', 'false']);
-    expect(options.map((o) => o.closest('label')?.textContent)).toEqual(['Browser extension', 'Desktop app', 'Server']);
+    expect(screen.getAllByTestId('execution-place-option-label').map((l) => l.textContent)).toEqual([
+      'Browser extension',
+      'Desktop app',
+      'Server',
+    ]);
     const reasons = screen.getAllByTestId('execution-place-option-reason');
     expect(reasons[0]?.textContent).toContain('Not installed');
     expect(reasons[0]?.querySelector('[data-testid="status-companion-download"]')).toBeTruthy();
