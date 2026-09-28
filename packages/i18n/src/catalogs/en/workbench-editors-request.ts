@@ -1197,7 +1197,7 @@ export const workbenchEditorsRequest = {
     'Maximum response body size read off the wire; anything past it is cut off and the response is marked as truncated. Leave empty for the default limit of 2,048 KB (2 MB). Raise it up to 10,240 KB (10 MB) for larger payloads, or lower it to test how a truncated response looks.',
   'workbench.editors.request.settings.executionPlace': 'Runs on',
   'workbench.editors.request.settings.executionPlaceInfo':
-    'Where this request’s connection opens, on this device only: here, on the desktop app, or on the workspace’s server. Saved with the request on this device — it never syncs to anyone else. Automatic runs it here when this device can, else on the one place that can.',
+    'Where this request’s connection opens: Automatic, or one of the places this device knows, named as the list shows them. Saved with the request on this device only — it never syncs to anyone else. Automatic runs it here when this device can, otherwise on the one place that can. The place button after Save edits the same choice.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automatic',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────

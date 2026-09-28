@@ -1313,7 +1313,7 @@ export const workbenchEditorsRequest = {
     'Antwort aussieht.',
   'workbench.editors.request.settings.executionPlace': 'Ausführung auf',
   'workbench.editors.request.settings.executionPlaceInfo':
-    'Wo die Verbindung dieser Anfrage geöffnet wird, nur auf diesem Gerät: hier, in der Desktop-App oder auf dem Server des Arbeitsbereichs. Wird mit der Anfrage auf diesem Gerät gespeichert — nie mit anderen synchronisiert. Automatisch führt sie hier aus, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
+    'Wo die Verbindung dieser Anfrage geöffnet wird: Automatisch oder einer der Orte, die dieses Gerät kennt, so wie die Liste sie nennt. Wird nur auf diesem Gerät mit der Anfrage gespeichert — nie mit anderen synchronisiert. Automatisch führt sie hier aus, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann. Die Ort-Schaltfläche neben Speichern bearbeitet dieselbe Wahl.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automatisch',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────

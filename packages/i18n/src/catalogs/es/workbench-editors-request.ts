@@ -1300,7 +1300,7 @@ export const workbenchEditorsRequest = {
     '10 240 KB (10 MB) para cargas mayores, o bájalo para probar cómo se ve una respuesta truncada.',
   'workbench.editors.request.settings.executionPlace': 'Se ejecuta en',
   'workbench.editors.request.settings.executionPlaceInfo':
-    'Dónde se abre la conexión de esta solicitud, solo en este dispositivo: aquí, en la aplicación de escritorio o en el servidor del espacio de trabajo. Se guarda con la solicitud en este dispositivo — nunca se sincroniza con nadie más. Automático la ejecuta aquí cuando este dispositivo puede, y si no, en el único lugar que puede.',
+    'Dónde se abre la conexión de esta solicitud: Automático, o uno de los lugares que este dispositivo conoce, tal como los nombra la lista. Se guarda con la solicitud solo en este dispositivo — nunca se sincroniza con nadie más. Automático la ejecuta aquí cuando este dispositivo puede y, si no, en el único lugar que puede. El botón de lugar junto a Guardar edita la misma elección.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automático',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────

@@ -1318,7 +1318,7 @@ export const workbenchEditorsRequest = {
     "d'une réponse tronquée.",
   'workbench.editors.request.settings.executionPlace': 'S’exécute sur',
   'workbench.editors.request.settings.executionPlaceInfo':
-    'Où s’ouvre la connexion de cette requête, sur cet appareil uniquement : ici, sur l’application de bureau ou sur le serveur de l’espace de travail. Enregistré avec la requête sur cet appareil — jamais synchronisé avec d’autres. Automatique l’exécute ici quand cet appareil le peut, sinon sur le seul endroit qui le peut.',
+    'Où s’ouvre la connexion de cette requête : Automatique, ou l’un des emplacements que cet appareil connaît, tels que la liste les nomme. Enregistré avec la requête sur cet appareil uniquement — jamais synchronisé avec d’autres. Automatique l’exécute ici quand cet appareil le peut, sinon au seul endroit qui le peut. Le bouton d’emplacement après Enregistrer modifie le même choix.',
   'workbench.editors.request.settings.executionPlacePlaceholder': 'Automatique',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────

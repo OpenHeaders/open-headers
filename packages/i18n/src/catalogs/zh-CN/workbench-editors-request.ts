@@ -1068,7 +1068,7 @@ export const workbenchEditorsRequest = {
     '从线路上读取的响应体最大大小；超出部分被截断，响应会被标记为已截断。留空为默认限制 2,048 KB（2 MB）。可提高到 10,240 KB（10 MB）以容纳更大的负载，或降低它来测试截断的响应是什么样子。',
   'workbench.editors.request.settings.executionPlace': '运行位置',
   'workbench.editors.request.settings.executionPlaceInfo':
-    '此请求的连接在何处建立，仅限此设备：此处、桌面应用或工作区的服务器。随请求保存在此设备上——从不与他人同步。“自动”会在此设备可行时在此运行，否则在唯一可行的位置运行。',
+    '此请求的连接在何处建立：“自动”，或此设备已知的某个位置（按列表所示命名）。仅随请求保存在此设备上，从不与他人同步。“自动”会在此设备可行时在此运行，否则在唯一可行的位置运行。“保存”旁的位置按钮编辑的是同一选择。',
   'workbench.editors.request.settings.executionPlacePlaceholder': '自动',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────

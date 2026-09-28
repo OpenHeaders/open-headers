@@ -1201,7 +1201,7 @@ export const workbenchEditorsRequest = {
     '전송선에서 읽는 최대 응답 본문 크기입니다. 넘는 부분은 잘리고 응답에 잘림 표시가 붙습니다. 비우면 기본 제한인 2,048 KB (2 MB)입니다. 큰 페이로드에는 최대 10,240 KB (10 MB)까지 올리고, 잘린 응답이 어떻게 보이는지 시험하려면 낮추세요.',
   'workbench.editors.request.settings.executionPlace': '실행 위치',
   'workbench.editors.request.settings.executionPlaceInfo':
-    '이 요청의 연결을 여는 곳(이 기기에서만): 여기, 데스크톱 앱 또는 워크스페이스 서버입니다. 요청과 함께 이 기기에 저장되며 다른 사람과는 동기화되지 않습니다. 자동은 이 기기에서 가능하면 여기에서, 아니면 가능한 유일한 곳에서 실행합니다.',
+    '이 요청의 연결을 여는 곳: 자동 또는 이 기기가 아는 위치 중 하나(목록에 표시된 이름 그대로). 요청과 함께 이 기기에만 저장되며 다른 사람과는 동기화되지 않습니다. 자동은 이 기기에서 가능하면 여기에서, 아니면 가능한 유일한 곳에서 실행합니다. 저장 옆의 위치 버튼도 같은 선택을 편집합니다.',
   'workbench.editors.request.settings.executionPlacePlaceholder': '자동',
 
   // ── Settings tab — runtime-managed fact sheets ─────────────────────
