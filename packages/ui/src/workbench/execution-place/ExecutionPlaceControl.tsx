@@ -184,7 +184,7 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
                       style={{ fontSize: 12 }}
                     >
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <PlaceMark role={row.role} size={13} />
+                        <PlaceMark place={row.role} size={13} />
                         <span>{executionPlaceRosterLabel(row.role, t)}</span>
                         {row.role === 'workspace-server' && resolution.serverName != null && (
                           <Text type="secondary" style={{ fontSize: 11 }}>
@@ -247,7 +247,7 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, lineHeight: 0 }}>
               <FunctionOutlined />
-              <PlaceMark role={resolution.place} size={13} />
+              <PlaceMark place={resolution.place} size={13} />
             </span>
           </Button>
         </Tooltip>

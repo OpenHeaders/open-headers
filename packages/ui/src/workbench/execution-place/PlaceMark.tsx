@@ -7,7 +7,10 @@
  *   - `here` on the desktop app, and the desktop app as a place from a
  *     browser (the same machine) = this machine's OS mark;
  *   - the workspace's server = its Org's icon — the OS the daemon
- *     stamped at boot, else its reach glyph, else the server mark.
+ *     stamped at boot, else its reach glyph, else the server mark;
+ *     a workspace with NO server (a personal one — its Org is the one
+ *     this host minted, whose icon is this host's own) wears the bare
+ *     server mark, never the home Org's.
  *
  * Every mark is statically bundled (`shared/host-glyph`); a kind with
  * no distinct brand mark falls back to the generic host-kind glyph.
@@ -21,7 +24,7 @@ import { hostKindIcon } from '@openheaders/ui/shared/workspace-org/org-scope-voc
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import type React from 'react';
 import type { ExecutionPlaceRole } from './resolve-execution-place';
-import { useEditingScopeOrgId } from './useWorkspaceServer';
+import { useEditingScopeOrgId, useWorkspaceServer } from './useWorkspaceServer';
 
 type IconComponent = React.ComponentType<{ style?: React.CSSProperties }>;
 
@@ -45,18 +48,21 @@ function deviceMark(role: 'here' | 'desktop-app'): DeviceMark {
 }
 
 export interface PlaceMarkProps {
-  role: ExecutionPlaceRole;
+  /** The place drawn — named `place`, not `role`: the ARIA word on a
+   *  JSX element reads as an ARIA role to every a11y tool. */
+  place: ExecutionPlaceRole;
   /** Glyph size in px. */
   size?: number;
 }
 
-export const PlaceMark: React.FC<PlaceMarkProps> = ({ role, size = 14 }) => {
+export const PlaceMark: React.FC<PlaceMarkProps> = ({ place, size = 14 }) => {
   const snapshot = useIdentitySnapshot();
   const orgId = useEditingScopeOrgId();
+  const server = useWorkspaceServer();
   let kind: PlaceMarkKind;
   let glyph: React.ReactNode;
-  if (role === 'workspace-server') {
-    const descriptor = orgId !== null ? describeOrg(snapshot, orgId) : null;
+  if (place === 'workspace-server') {
+    const descriptor = server !== null && orgId !== null ? describeOrg(snapshot, orgId) : null;
     if (descriptor !== null) {
       kind = 'org';
       glyph = <OrgIcon descriptor={descriptor} size={size} />;
@@ -66,7 +72,7 @@ export const PlaceMark: React.FC<PlaceMarkProps> = ({ role, size = 14 }) => {
       glyph = <Icon style={{ fontSize: size }} />;
     }
   } else {
-    const mark = deviceMark(role);
+    const mark = deviceMark(place);
     kind = mark.kind;
     glyph = <mark.Icon style={{ fontSize: size }} />;
   }
