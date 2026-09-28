@@ -343,7 +343,7 @@ describe('the Runs on row on the three session Settings tabs', () => {
     expect(nextDraft(setDraft, draft).executionPlace).toBe('workspace-server');
   });
 
-  it('gRPC: renders the saved place and a pick writes the draft place', () => {
+  it('gRPC: renders the saved place and a pick writes the draft place; Automatic, the first option, writes unset', () => {
     const setDraft = vi.fn();
     const draft = draftFromGrpcRequest({ ...grpcRequest(), executionPlace: 'workspace-server' });
     render(
@@ -359,6 +359,8 @@ describe('the Runs on row on the three session Settings tabs', () => {
     expect(screen.getByTestId('grpc-execution-place').textContent).toContain('The server');
     pick('This device');
     expect(nextDraft(setDraft, draft).executionPlace).toBe('here');
+    pick('Automatic');
+    expect(nextDraft(setDraft, draft).executionPlace).toBeUndefined();
   });
 
   it("a container's section renders no Runs on row on any kind — the place is the request's, on this device", () => {

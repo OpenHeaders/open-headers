@@ -18,11 +18,16 @@ import { SelectKnobRow } from '@openheaders/ui/shared/settings-rows';
 import type React from 'react';
 import { executionPlaceOptionLabel } from './execution-place-copy';
 
+/** The first option's value — never stored; picking it clears the knob. */
+const AUTOMATIC = 'automatic';
+
 const isExecutionPlaceRole = (value: string | undefined): value is ExecutionPlaceRole =>
   value !== undefined && (EXECUTION_PLACE_ROLES as readonly string[]).includes(value);
 
 interface ExecutionPlaceKnobRowProps {
-  /** The request's own place; undefined = Automatic. */
+  /** The request's own place; undefined = Automatic — listed as the
+   *  first option too (the HTTP version row's Auto idiom), since an
+   *  open list hides the placeholder that names the empty state. */
   value: ExecutionPlaceRole | undefined;
   onChange: (next: ExecutionPlaceRole | undefined) => void;
   /** The kind's own (i) content — its example card with the route lit. */
@@ -39,7 +44,10 @@ const ExecutionPlaceKnobRow: React.FC<ExecutionPlaceKnobRowProps> = ({ value, on
       value={value}
       onChange={(next) => onChange(isExecutionPlaceRole(next) ? next : undefined)}
       info={info}
-      options={EXECUTION_PLACE_ROLES.map((role) => ({ value: role, label: executionPlaceOptionLabel(role, null, t) }))}
+      options={[
+        { value: AUTOMATIC, label: t('workbench.editors.request.settings.executionPlacePlaceholder') },
+        ...EXECUTION_PLACE_ROLES.map((role) => ({ value: role, label: executionPlaceOptionLabel(role, null, t) })),
+      ]}
       placeholder={t('workbench.editors.request.settings.executionPlacePlaceholder')}
       testId={testId}
       unsaved={unsaved}
