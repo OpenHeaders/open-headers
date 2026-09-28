@@ -125,6 +125,7 @@ import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { subscribeGitPanelReveal } from './data/git-panel-reveal';
 import { takeServerAdminLanding } from './data/server-admin-landing';
+import { subscribeSettingsReveal } from './data/settings-reveal';
 import { subscribeSpecsSectionReveal } from './data/specs-section-reveal';
 import { subscribeTrafficStorageReveal } from './data/traffic-storage-reveal';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -819,6 +820,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // "Settings…", tray update actions). Hosts without native chrome
   // never emit it.
   useEffect(() => hostBridge.subscribe('openSettings', (target) => openSettings(target)), [openSettings]);
+  // In-page settings intents (the place picker's Open Backup and Sync)
+  // — the same opener, no bridge hop.
+  useEffect(() => subscribeSettingsReveal((target) => openSettings(target)), [openSettings]);
 
   // Host-shell navigation: the desktop Window menu's "Next Tab" /
   // "Previous Tab" items drive the same focused-leaf cycling as the

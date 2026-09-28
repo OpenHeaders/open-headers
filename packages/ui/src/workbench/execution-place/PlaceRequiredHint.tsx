@@ -3,13 +3,16 @@
  * Invoke) that this surface cannot run itself: the one sentence and a
  * button that opens the place picker, so the way around — the desktop
  * app, or a server where no desktop app can be installed — is one
- * click from the disabled button rather than a discovery. Inactive,
- * it renders its child alone.
+ * click from the disabled button rather than a discovery. Choosing
+ * closes the hint itself: the pointer is still over it when the picker
+ * opens, and two popovers must never stack. Inactive, it renders its
+ * child alone.
  */
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Popover, Typography } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 
 const { Text } = Typography;
 
@@ -25,11 +28,14 @@ export interface PlaceRequiredHintProps {
 
 export const PlaceRequiredHint: React.FC<PlaceRequiredHintProps> = ({ active, reason, onChoose, children }) => {
   const t = useT();
+  const [open, setOpen] = useState(false);
   if (!active) return <>{children}</>;
   return (
     <Popover
       trigger="hover"
       placement="bottom"
+      open={open}
+      onOpenChange={setOpen}
       content={
         <div
           data-testid="execution-place-hint"
@@ -39,7 +45,16 @@ export const PlaceRequiredHint: React.FC<PlaceRequiredHintProps> = ({ active, re
           <Text type="secondary" style={{ fontSize: 12 }}>
             {reason}
           </Text>
-          <Button size="small" type="primary" onClick={onChoose} style={{ fontSize: 11 }}>
+          <Button
+            size="small"
+            type="primary"
+            data-testid="execution-place-hint-choose"
+            onClick={() => {
+              setOpen(false);
+              onChoose();
+            }}
+            style={{ fontSize: 11 }}
+          >
             {t('shared.executionPlace.hint.choose')}
           </Button>
         </div>

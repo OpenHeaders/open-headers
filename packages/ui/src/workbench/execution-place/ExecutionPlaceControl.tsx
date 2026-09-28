@@ -20,7 +20,6 @@
  */
 
 import { FunctionOutlined, SelectOutlined } from '@ant-design/icons';
-import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopConnectAction, DesktopDownloadAction, DesktopOpenAppAction } from '@openheaders/ui/shared/status';
@@ -28,6 +27,7 @@ import { Button, Popover, Radio, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { executionPlaceCopy, executionPlaceRosterLabel, executionPlaceRosterReason } from './execution-place-copy';
+import { postSettingsReveal } from '../data/settings-reveal';
 import { PlaceMark } from './PlaceMark';
 import type {
   ExecutionPlaceCta,
@@ -84,7 +84,7 @@ const OpenSyncAction: React.FC = () => {
   return (
     <Button
       size="small"
-      onClick={() => hostBridge.broadcast('openSettings', { categoryId: 'backendConnections' })}
+      onClick={() => postSettingsReveal({ categoryId: 'backendConnections' })}
       data-testid="execution-place-open-sync"
       style={{ fontSize: 11, height: 20, padding: '0 6px' }}
     >

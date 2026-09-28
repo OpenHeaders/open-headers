@@ -10,6 +10,7 @@
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
+import { subscribeSettingsReveal } from '@openheaders/ui/workbench/data/settings-reveal';
 import ExecutionPlaceControl from '@openheaders/ui/workbench/execution-place/ExecutionPlaceControl';
 import { executionPlaceCopy } from '@openheaders/ui/workbench/execution-place/execution-place-copy';
 import type {
@@ -150,8 +151,13 @@ describe('ExecutionPlaceControl', () => {
     expect(onPick).toHaveBeenCalledWith('desktop-app');
     fireEvent.click(options[2] as HTMLElement);
     expect(onPick).toHaveBeenCalledTimes(1);
-    // A server whose wire is down offers the Sync page.
-    expect(screen.getByTestId('execution-place-open-sync')).toBeTruthy();
+    // A server whose wire is down offers the Sync page — an in-page
+    // reveal the shell opens Settings on.
+    const revealed = vi.fn();
+    const unsubscribe = subscribeSettingsReveal(revealed);
+    fireEvent.click(screen.getByTestId('execution-place-open-sync'));
+    unsubscribe();
+    expect(revealed).toHaveBeenCalledWith({ categoryId: 'backendConnections' });
   });
 
   it('an explicit place shows the saved note and Reset to automatic clears it', async () => {
