@@ -474,7 +474,7 @@ export const sharedComponents = {
     '여기에서 확인한 뒤 데스크톱 앱에서 이 요청을 대신해 연결을 엽니다.',
   'shared.executionPlace.reason.delegatedServer':
     '여기에서 확인한 뒤 {place}에서 이 요청을 대신해 연결을 엽니다. 확인된 값(비밀 포함)이 그곳으로 전송됩니다.',
-  'shared.executionPlace.picker.title': '실행 위치',
+  'shared.executionPlace.picker.title': '요청 실행 위치',
   'shared.executionPlace.roster.browser': '브라우저 확장 프로그램',
   'shared.executionPlace.roster.desktopApp': '데스크톱 앱',
   'shared.executionPlace.roster.server': '서버',
@@ -488,9 +488,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': '연결되지 않음',
   'shared.executionPlace.roster.reason.notForwarded': '여기에서는 아직 사용할 수 없음',
   'shared.executionPlace.roster.openSync': '백업 및 동기화 열기',
-  'shared.executionPlace.roster.automatic': '자동 — 설정을 따름',
   'shared.executionPlace.roster.reset': '자동으로 재설정',
-  'shared.executionPlace.roster.savedNote': '요청과 함께 이 기기에만 저장됩니다',
   'shared.executionPlace.hint.cannotRunHere':
     '이 요청은 브라우저에서 실행할 수 없습니다. 데스크톱 앱이나 서버에서 실행하세요.',
   'shared.executionPlace.hint.choose': '실행 위치 선택',

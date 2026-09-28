@@ -495,7 +495,7 @@ export const sharedComponents = {
     "Résolue ici ; l'application de bureau ouvre la connexion pour cette requête.",
   'shared.executionPlace.reason.delegatedServer':
     'Résolue ici ; {place} ouvre la connexion pour cette requête. Les valeurs résolues, secrets compris, lui sont transmises.',
-  'shared.executionPlace.picker.title': 'Exécuter sur',
+  'shared.executionPlace.picker.title': 'Exécuter la requête sur',
   'shared.executionPlace.roster.browser': 'Extension de navigateur',
   'shared.executionPlace.roster.desktopApp': 'Application de bureau',
   'shared.executionPlace.roster.server': 'Serveur',
@@ -509,9 +509,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': 'Non connecté',
   'shared.executionPlace.roster.reason.notForwarded': 'Pas encore disponible ici',
   'shared.executionPlace.roster.openSync': 'Ouvrir Sauvegarde et synchronisation',
-  'shared.executionPlace.roster.automatic': 'Automatique — suit les Réglages',
   'shared.executionPlace.roster.reset': 'Revenir à Automatique',
-  'shared.executionPlace.roster.savedNote': 'Enregistré avec la requête, sur cet appareil uniquement',
   'shared.executionPlace.hint.cannotRunHere':
     'Cette requête ne peut pas s’exécuter dans le navigateur. Exécutez-la dans l’application de bureau ou sur un serveur.',
   'shared.executionPlace.hint.choose': 'Choisir où elle s’exécute',

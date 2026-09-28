@@ -526,7 +526,7 @@ export const sharedComponents = {
     'Разрешается здесь; соединение от имени этого запроса открывает настольное приложение.',
   'shared.executionPlace.reason.delegatedServer':
     'Разрешается здесь; соединение от имени этого запроса открывает {place}. Разрешённые значения, включая секреты, передаются туда.',
-  'shared.executionPlace.picker.title': 'Выполнять на',
+  'shared.executionPlace.picker.title': 'Выполнять запрос на',
   'shared.executionPlace.roster.browser': 'Расширение браузера',
   'shared.executionPlace.roster.desktopApp': 'Настольное приложение',
   'shared.executionPlace.roster.server': 'Сервер',
@@ -540,9 +540,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': 'Не подключён',
   'shared.executionPlace.roster.reason.notForwarded': 'Здесь пока недоступно',
   'shared.executionPlace.roster.openSync': 'Открыть «Резервное копирование и синхронизация»',
-  'shared.executionPlace.roster.automatic': 'Автоматически — по настройкам',
   'shared.executionPlace.roster.reset': 'Сбросить на «Автоматически»',
-  'shared.executionPlace.roster.savedNote': 'Сохраняется вместе с запросом, только на этом устройстве',
   'shared.executionPlace.hint.cannotRunHere':
     'Этот запрос нельзя выполнить в браузере. Выполните его в настольном приложении или на сервере.',
   'shared.executionPlace.hint.choose': 'Выбрать место выполнения',

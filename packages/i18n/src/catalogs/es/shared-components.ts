@@ -499,7 +499,7 @@ export const sharedComponents = {
     'Resuelta aquí; la aplicación de escritorio abre la conexión en nombre de esta solicitud.',
   'shared.executionPlace.reason.delegatedServer':
     'Resuelta aquí; {place} abre la conexión en nombre de esta solicitud. Los valores resueltos, secretos incluidos, viajan hasta allí.',
-  'shared.executionPlace.picker.title': 'Ejecutar en',
+  'shared.executionPlace.picker.title': 'Ejecutar la solicitud en',
   'shared.executionPlace.roster.browser': 'Extensión del navegador',
   'shared.executionPlace.roster.desktopApp': 'Aplicación de escritorio',
   'shared.executionPlace.roster.server': 'Servidor',
@@ -513,9 +513,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': 'No conectado',
   'shared.executionPlace.roster.reason.notForwarded': 'Aún no disponible aquí',
   'shared.executionPlace.roster.openSync': 'Abrir Copia de seguridad y sincronización',
-  'shared.executionPlace.roster.automatic': 'Automático — sigue los Ajustes',
   'shared.executionPlace.roster.reset': 'Restablecer a Automático',
-  'shared.executionPlace.roster.savedNote': 'Se guarda con la solicitud, solo en este dispositivo',
   'shared.executionPlace.hint.cannotRunHere':
     'Esta solicitud no puede ejecutarse en el navegador. Ejecútala en la aplicación de escritorio o en un servidor.',
   'shared.executionPlace.hint.choose': 'Elegir dónde se ejecuta',

@@ -533,7 +533,7 @@ export const sharedComponents = {
     'Rezolvată aici; aplicația desktop deschide conexiunea în numele acestei cereri.',
   'shared.executionPlace.reason.delegatedServer':
     'Rezolvată aici; {place} deschide conexiunea în numele acestei cereri. Valorile rezolvate, inclusiv secretele, ajung acolo.',
-  'shared.executionPlace.picker.title': 'Rulează pe',
+  'shared.executionPlace.picker.title': 'Rulează cererea pe',
   'shared.executionPlace.roster.browser': 'Extensie de browser',
   'shared.executionPlace.roster.desktopApp': 'Aplicația desktop',
   'shared.executionPlace.roster.server': 'Server',
@@ -547,9 +547,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': 'Neconectat',
   'shared.executionPlace.roster.reason.notForwarded': 'Indisponibil încă aici',
   'shared.executionPlace.roster.openSync': 'Deschidere Copie de rezervă și sincronizare',
-  'shared.executionPlace.roster.automatic': 'Automat — urmează Setările',
   'shared.executionPlace.roster.reset': 'Revenire la Automat',
-  'shared.executionPlace.roster.savedNote': 'Salvat împreună cu solicitarea, doar pe acest dispozitiv',
   'shared.executionPlace.hint.cannotRunHere':
     'Această solicitare nu poate rula în browser. Rulați-o în aplicația desktop sau pe un server.',
   'shared.executionPlace.hint.choose': 'Alegere loc de rulare',

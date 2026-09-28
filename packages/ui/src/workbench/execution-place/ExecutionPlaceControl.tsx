@@ -152,14 +152,8 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
       content={
         <div
           data-testid="execution-place-popover"
-          style={{ width: 440, display: 'flex', flexDirection: 'column', gap: 8 }}
+          style={{ minWidth: 280, maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 8 }}
         >
-          <Text style={{ fontSize: 12 }}>{copy.reason}</Text>
-          {copy.knobs !== null && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {copy.knobs}
-            </Text>
-          )}
           {onPick !== undefined && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Text type="secondary" style={{ fontSize: 11 }}>
@@ -193,11 +187,17 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
                         {resolution.serverName}
                       </Text>
                     )}
-                    <span style={{ flex: 1, height: 1, background: token.colorSplit }} />
                     {row.reason !== null && (
                       <span
                         data-testid="execution-place-option-reason"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          whiteSpace: 'nowrap',
+                          marginInlineStart: 'auto',
+                          paddingInlineStart: 16,
+                        }}
                       >
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           {executionPlaceRosterReason(row.reason, t)}
@@ -208,19 +208,24 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
                   </Radio>
                 ))}
               </Radio.Group>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {explicit
-                    ? t('shared.executionPlace.roster.savedNote')
-                    : t('shared.executionPlace.roster.automatic')}
-                </Text>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginTop: 4 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {copy.reason}
+                  </Text>
+                  {copy.knobs !== null && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {copy.knobs}
+                    </Text>
+                  )}
+                </div>
                 {explicit && (
                   <Button
                     type="link"
                     size="small"
                     onClick={() => onPick(null)}
                     data-testid="execution-place-reset"
-                    style={{ fontSize: 11, padding: 0, height: 'auto' }}
+                    style={{ fontSize: 11, padding: 0, height: 'auto', whiteSpace: 'nowrap' }}
                   >
                     {t('shared.executionPlace.roster.reset')}
                   </Button>
@@ -228,8 +233,18 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
               </div>
             </div>
           )}
-          {onPick === undefined && resolution.cta !== null && (
-            <span data-testid="execution-place-cta">{ctaAction(resolution.cta)}</span>
+          {onPick === undefined && (
+            <>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {copy.reason}
+              </Text>
+              {copy.knobs !== null && (
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {copy.knobs}
+                </Text>
+              )}
+              {resolution.cta !== null && <span data-testid="execution-place-cta">{ctaAction(resolution.cta)}</span>}
+            </>
           )}
         </div>
       }

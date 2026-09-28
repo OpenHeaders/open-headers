@@ -134,7 +134,6 @@ describe('ExecutionPlaceControl', () => {
     expect(reasons[0]?.textContent).toContain('Not installed');
     expect(reasons[0]?.querySelector('[data-testid="status-companion-download"]')).toBeTruthy();
     expect(reasons[1]?.textContent).toBe('Available in a server workspace');
-    expect(screen.getByText('Automatic — following Settings')).toBeTruthy();
     expect(screen.queryByTestId('execution-place-reset')).toBeNull();
   });
 
@@ -190,7 +189,6 @@ describe('ExecutionPlaceControl', () => {
     const options = screen.getAllByTestId('execution-place-option');
     expect((options[2] as HTMLInputElement).checked).toBe(true);
     expect(options[2]?.closest('label')?.textContent).toContain('Acme');
-    expect(screen.getByText('Saved with the request, on this device only')).toBeTruthy();
     fireEvent.click(screen.getByTestId('execution-place-reset'));
     expect(onPick).toHaveBeenCalledWith(null);
   });

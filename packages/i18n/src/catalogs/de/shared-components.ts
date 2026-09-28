@@ -518,7 +518,7 @@ export const sharedComponents = {
     'Hier aufgelöst; die Desktop-App öffnet die Verbindung für diese Anfrage.',
   'shared.executionPlace.reason.delegatedServer':
     'Hier aufgelöst; {place} öffnet die Verbindung für diese Anfrage. Die aufgelösten Werte, Geheimnisse eingeschlossen, werden dorthin übertragen.',
-  'shared.executionPlace.picker.title': 'Ausführen auf',
+  'shared.executionPlace.picker.title': 'Anfrage ausführen auf',
   'shared.executionPlace.roster.browser': 'Browser-Erweiterung',
   'shared.executionPlace.roster.desktopApp': 'Desktop-App',
   'shared.executionPlace.roster.server': 'Server',
@@ -532,9 +532,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': 'Nicht verbunden',
   'shared.executionPlace.roster.reason.notForwarded': 'Hier noch nicht verfügbar',
   'shared.executionPlace.roster.openSync': 'Sicherung und Synchronisierung öffnen',
-  'shared.executionPlace.roster.automatic': 'Automatisch — folgt den Einstellungen',
   'shared.executionPlace.roster.reset': 'Auf Automatisch zurücksetzen',
-  'shared.executionPlace.roster.savedNote': 'Wird mit der Anfrage gespeichert, nur auf diesem Gerät',
   'shared.executionPlace.hint.cannotRunHere':
     'Diese Anfrage kann nicht im Browser laufen. Führe sie in der Desktop-App oder auf einem Server aus.',
   'shared.executionPlace.hint.choose': 'Ausführungsort wählen',

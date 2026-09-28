@@ -477,7 +477,7 @@ export const sharedComponents = {
     'ここで解決し、デスクトップアプリがこのリクエストに代わって接続を開きます。',
   'shared.executionPlace.reason.delegatedServer':
     'ここで解決し、{place} がこのリクエストに代わって接続を開きます。解決済みの値（シークレットを含む）はそこへ送られます。',
-  'shared.executionPlace.picker.title': '実行場所',
+  'shared.executionPlace.picker.title': 'リクエストの実行場所',
   'shared.executionPlace.roster.browser': 'ブラウザー拡張機能',
   'shared.executionPlace.roster.desktopApp': 'デスクトップアプリ',
   'shared.executionPlace.roster.server': 'サーバー',
@@ -491,9 +491,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': '未接続',
   'shared.executionPlace.roster.reason.notForwarded': 'ここではまだ利用できません',
   'shared.executionPlace.roster.openSync': 'バックアップと同期を開く',
-  'shared.executionPlace.roster.automatic': '自動 — 設定に従います',
   'shared.executionPlace.roster.reset': '自動に戻す',
-  'shared.executionPlace.roster.savedNote': 'リクエストと一緒に、このデバイスにのみ保存されます',
   'shared.executionPlace.hint.cannotRunHere':
     'このリクエストはブラウザーでは実行できません。デスクトップアプリまたはサーバーで実行してください。',
   'shared.executionPlace.hint.choose': '実行場所を選ぶ',

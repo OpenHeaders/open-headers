@@ -494,7 +494,7 @@ export const sharedComponents = {
   'shared.executionPlace.reason.delegatedDesktopApp': '在此处解析；由桌面应用代表此请求建立连接。',
   'shared.executionPlace.reason.delegatedServer':
     '在此处解析；由 {place} 代表此请求建立连接。已解析的值（包括密钥）会传送到该处。',
-  'shared.executionPlace.picker.title': '运行位置',
+  'shared.executionPlace.picker.title': '请求运行位置',
   'shared.executionPlace.roster.browser': '浏览器扩展',
   'shared.executionPlace.roster.desktopApp': '桌面应用',
   'shared.executionPlace.roster.server': '服务器',
@@ -508,9 +508,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': '未连接',
   'shared.executionPlace.roster.reason.notForwarded': '此处尚不可用',
   'shared.executionPlace.roster.openSync': '打开备份与同步',
-  'shared.executionPlace.roster.automatic': '自动——跟随设置',
   'shared.executionPlace.roster.reset': '重置为自动',
-  'shared.executionPlace.roster.savedNote': '随请求保存，仅限此设备',
   'shared.executionPlace.hint.cannotRunHere': '此请求无法在浏览器中运行。请在桌面应用或服务器上运行。',
   'shared.executionPlace.hint.choose': '选择运行位置',
   'shared.executionPlace.knob.cookieJar': 'Cookie 罐',

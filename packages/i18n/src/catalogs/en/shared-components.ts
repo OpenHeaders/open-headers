@@ -518,7 +518,7 @@ export const sharedComponents = {
     "Resolved here; the desktop app opens the connection on this request's behalf.",
   'shared.executionPlace.reason.delegatedServer':
     "Resolved here; {place} opens the connection on this request's behalf. The resolved values, secrets included, travel to it.",
-  'shared.executionPlace.picker.title': 'Run on',
+  'shared.executionPlace.picker.title': 'Run request on',
   'shared.executionPlace.roster.browser': 'Browser extension',
   'shared.executionPlace.roster.desktopApp': 'Desktop app',
   'shared.executionPlace.roster.server': 'Server',
@@ -532,9 +532,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.serverNotConnected': 'Not connected',
   'shared.executionPlace.roster.reason.notForwarded': 'Not available here yet',
   'shared.executionPlace.roster.openSync': 'Open Backup and Sync',
-  'shared.executionPlace.roster.automatic': 'Automatic — following Settings',
   'shared.executionPlace.roster.reset': 'Reset to automatic',
-  'shared.executionPlace.roster.savedNote': 'Saved with the request, on this device only',
   'shared.executionPlace.hint.cannotRunHere':
     'This request cannot run in the browser. Run it on the desktop app or a server.',
   'shared.executionPlace.hint.choose': 'Choose where it runs',
