@@ -553,9 +553,6 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'Această solicitare nu poate rula în browser. Rulați-o în aplicația desktop sau pe un server.',
   'shared.executionPlace.hint.choose': 'Alegere loc de rulare',
-  'shared.executionPlace.option.here': 'Acest dispozitiv',
-  'shared.executionPlace.option.desktopApp': 'Aplicația desktop',
-  'shared.executionPlace.option.server': 'Serverul',
   'shared.executionPlace.knob.cookieJar': 'depozitul cookie',
   'shared.executionPlace.knobsNotApplied': 'Nu se aplică pe {place}: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':

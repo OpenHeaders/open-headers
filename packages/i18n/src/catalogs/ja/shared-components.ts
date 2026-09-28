@@ -497,9 +497,6 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'このリクエストはブラウザーでは実行できません。デスクトップアプリまたはサーバーで実行してください。',
   'shared.executionPlace.hint.choose': '実行場所を選ぶ',
-  'shared.executionPlace.option.here': 'このデバイス',
-  'shared.executionPlace.option.desktopApp': 'デスクトップアプリ',
-  'shared.executionPlace.option.server': 'サーバー',
   'shared.executionPlace.knob.cookieJar': 'Cookie ジャー',
   'shared.executionPlace.knobsNotApplied': '{place}では適用されません：{knobs}。',
   'shared.executionPlace.reason.preferenceUnavailable':

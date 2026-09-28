@@ -324,13 +324,13 @@ describe('the Runs on row on the three session Settings tabs', () => {
     fireEvent.click(screen.getByText(option));
   }
 
-  it('WebSocket: renders in Connection reading Automatic when unset; a pick writes the draft place', () => {
+  it("WebSocket: renders in Connection reading Automatic when unset; a pick names the host's places and writes the draft", () => {
     const setDraft = vi.fn();
     const draft = draftFromWebSocketRequest(websocketRequest());
     render(scoped(<WebSocketSettingsTab draft={draft} setDraft={setDraft} socketioFlavor={false} />));
     const row = screen.getByTestId('websocket-execution-place');
     expect(row.textContent).toContain('Automatic');
-    pick('The desktop app');
+    pick('Desktop app');
     expect(nextDraft(setDraft, draft).executionPlace).toBe('desktop-app');
   });
 
@@ -339,7 +339,8 @@ describe('the Runs on row on the three session Settings tabs', () => {
     const draft = draftFromMqttRequest(mqttRequest());
     render(scoped(<MqttSettingsTab draft={draft} setDraft={setDraft} v5 />));
     expect(screen.getByTestId('mqtt-execution-place').textContent).toContain('Automatic');
-    pick('The server');
+    expect(screen.queryByRole('button', { name: 'Reset Runs on to default' })).toBeNull();
+    pick('Server');
     expect(nextDraft(setDraft, draft).executionPlace).toBe('workspace-server');
   });
 
@@ -356,8 +357,10 @@ describe('the Runs on row on the three session Settings tabs', () => {
         />,
       ),
     );
-    expect(screen.getByTestId('grpc-execution-place').textContent).toContain('The server');
-    pick('This device');
+    expect(screen.getByTestId('grpc-execution-place').textContent).toContain('Server');
+    // A role wears the reset arrow; Automatic (unset) does not — the always-set knob shape.
+    expect(screen.getByRole('button', { name: 'Reset Runs on to default' })).toBeTruthy();
+    pick('Browser extension');
     expect(nextDraft(setDraft, draft).executionPlace).toBe('here');
     pick('Automatic');
     expect(nextDraft(setDraft, draft).executionPlace).toBeUndefined();

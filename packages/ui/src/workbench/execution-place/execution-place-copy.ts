@@ -27,19 +27,6 @@ export interface ExecutionPlaceCopy {
   knobs: string | null;
 }
 
-/** A Settings-row option's label — the role as a thing to choose,
- *  never the word "Auto" (the resolved place is what the user sees). */
-export function executionPlaceOptionLabel(role: ExecutionPlaceRole, placeName: string | null, t: Translate): string {
-  switch (role) {
-    case 'here':
-      return t('shared.executionPlace.option.here');
-    case 'desktop-app':
-      return t('shared.executionPlace.option.desktopApp');
-    case 'workspace-server':
-      return placeName ?? t('shared.executionPlace.option.server');
-  }
-}
-
 /** A roster row's label — the place as the product names it: the
  *  browser extension where this surface is one, the desktop app, the
  *  server. */

@@ -515,9 +515,6 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'Cette requête ne peut pas s’exécuter dans le navigateur. Exécutez-la dans l’application de bureau ou sur un serveur.',
   'shared.executionPlace.hint.choose': 'Choisir où elle s’exécute',
-  'shared.executionPlace.option.here': 'Cet appareil',
-  'shared.executionPlace.option.desktopApp': "L'application de bureau",
-  'shared.executionPlace.option.server': 'Le serveur',
   'shared.executionPlace.knob.cookieJar': 'la jarre à cookies',
   'shared.executionPlace.knobsNotApplied': 'Sans effet sur {place} : {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':

@@ -52,6 +52,7 @@
  */
 
 import type { RequestRuntimeKind } from '@openheaders/core/capabilities';
+import type { Host } from '@openheaders/ui/shared/host-vocabulary';
 import type { DesktopCompanionState } from '@openheaders/ui/shared/status';
 
 export type ExecutionRequestKind = 'http' | 'graphql-query' | 'graphql-subscription' | 'grpc' | 'websocket' | 'mqtt';
@@ -379,6 +380,19 @@ function companionCta(input: Pick<ExecutionPlaceInput, 'desktopApp' | 'desktopAp
 // lists its one server. Availability is the resolution's own rule
 // (the transport the kind needs under the live connections), so the
 // resolved place is always an available row.
+
+/** The places a host knows, in the roster's order — the Runs on row's
+ *  choices (the popover adds availability from the live input). */
+export function executionPlaceRosterRoles(host: Host): readonly ExecutionPlaceRole[] {
+  switch (host) {
+    case 'extension':
+      return ['here', 'desktop-app', 'workspace-server'];
+    case 'desktop':
+      return ['here', 'workspace-server'];
+    case 'web':
+      return ['workspace-server'];
+  }
+}
 
 export type ExecutionPlaceRosterReason =
   /** This surface cannot open this kind's socket (a raw TCP dial, an HTTP/2 stack with trailers). */

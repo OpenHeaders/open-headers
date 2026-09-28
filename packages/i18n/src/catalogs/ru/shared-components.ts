@@ -546,9 +546,6 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'Этот запрос нельзя выполнить в браузере. Выполните его в настольном приложении или на сервере.',
   'shared.executionPlace.hint.choose': 'Выбрать место выполнения',
-  'shared.executionPlace.option.here': 'Это устройство',
-  'shared.executionPlace.option.desktopApp': 'Настольное приложение',
-  'shared.executionPlace.option.server': 'Сервер',
   'shared.executionPlace.knob.cookieJar': 'хранилище cookie',
   'shared.executionPlace.knobsNotApplied': '{place} не применяет: {knobs}.',
   'shared.executionPlace.reason.preferenceUnavailable':
