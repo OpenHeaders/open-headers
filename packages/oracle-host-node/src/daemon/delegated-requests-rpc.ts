@@ -45,7 +45,7 @@ import { createStreamEmitter, registerActiveSend } from '@openheaders/oracle/liv
 import { type RequestTransport, TransportError } from '@openheaders/oracle/live/request-exec/transport';
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { createNodeRequestTransport } from '../live/node-request-transport';
-import { hostDisplayLabel } from './host-os';
+import { daemonExecutedOn } from './executed-on';
 import { defaultPeerExecuteOptIn, type PeerExecuteOptIn } from './peer-execute-opt-in';
 import { peerStreamFrameSink } from './peer-stream-sinks';
 
@@ -79,7 +79,7 @@ export function createDelegatedRequestsRpc(options: DelegatedRequestsRpcOptions 
       }
       // Egress attribution: THIS machine opens (or fails to open) the
       // socket on the peer's behalf — the target sees its address.
-      const executedOn: DelegatedExecutedOn = { kind: 'backend', name: hostDisplayLabel() };
+      const executedOn: DelegatedExecutedOn = daemonExecutedOn();
       const parsed = parseDelegatedRequestFrame(message);
       if (!parsed.ok) return { success: false, error: parsed.error, executedOn };
       return runDelegatedSend(parsed.frame, transport, peerStreamFrameSink(peer.userId), executedOn);

@@ -48,7 +48,7 @@ import type { CliProvisionStatus } from './cli-provision';
 import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
 import { type ExecuteGrpcRequestRpcResult, handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
-import { hostDisplayLabel } from './host-os';
+import { daemonExecutedOn } from './executed-on';
 import { defaultPeerExecuteOptIn, type PeerExecuteOptIn } from './peer-execute-opt-in';
 import { peerGrpcStreamFrameSink, peerStreamFrameSink } from './peer-stream-sinks';
 import { getHostScriptCapability } from './script-capability';
@@ -207,14 +207,14 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           // above and carry no snapshot to stamp.
           const result = await executeRequest(contextFrame, peerStreamFrameSink(peer.userId));
           return result.snapshot
-            ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
+            ? { ...result, snapshot: { ...result.snapshot, executedOn: daemonExecutedOn() } }
             : result;
         }
         case 'executeGraphqlRequest': {
           // The compiled HTTP send — the HTTP branch's stamp verbatim.
           const result = await executeGraphqlRequest(contextFrame, peerStreamFrameSink(peer.userId));
           return result.snapshot
-            ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
+            ? { ...result, snapshot: { ...result.snapshot, executedOn: daemonExecutedOn() } }
             : result;
         }
         case 'executeGrpcRequest': {
@@ -222,7 +222,7 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
           // machine dialed the gRPC target on the peer's behalf.
           const result = await executeGrpcRequest(message, peerGrpcStreamFrameSink(peer.userId));
           return result.snapshot
-            ? { ...result, snapshot: { ...result.snapshot, executedOn: { kind: 'backend', name: hostDisplayLabel() } } }
+            ? { ...result, snapshot: { ...result.snapshot, executedOn: daemonExecutedOn() } }
             : result;
         }
         case 'getCookieJarSummary':

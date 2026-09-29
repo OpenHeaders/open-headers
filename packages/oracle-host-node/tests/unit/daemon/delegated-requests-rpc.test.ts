@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   settings: {} as Record<string, unknown>,
+  identity: null as unknown,
   decision: { allow: true } as { allow: boolean; reason?: string },
   resolveSnapshot: vi.fn(async (_userId: string) => ({ kind: 'fake-snapshot' })),
   hasCapability: vi.fn((_snapshot: unknown, _capability: string, _ctx?: unknown) => h.decision),
@@ -21,6 +22,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@openheaders/core/identity', () => ({
+  getIdentitySnapshot: () => h.identity,
   resolveDaemonPeerIdentitySnapshot: (userId: string) => h.resolveSnapshot(userId),
   hasCapability: (snapshot: unknown, capability: string, ctx?: unknown) => h.hasCapability(snapshot, capability, ctx),
   emitAuditEntry: (entry: Record<string, unknown>) => {

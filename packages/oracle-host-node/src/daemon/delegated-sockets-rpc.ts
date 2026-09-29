@@ -49,7 +49,7 @@ import type { WsSessionWriter, WsTransport } from '@openheaders/oracle/live/ws-e
 import type { OracleWsServer, WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { createNodeMqttTransport } from '../live/node-mqtt-transport';
 import { createNodeWsTransport } from '../live/node-ws-transport';
-import { hostDisplayLabel } from './host-os';
+import { daemonExecutedOn } from './executed-on';
 import { defaultPeerExecuteOptIn, type PeerExecuteOptIn } from './peer-execute-opt-in';
 import { getWsPeerServer } from './ws-peer-slot';
 
@@ -116,7 +116,7 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
   }
 
   function openWs(message: Record<string, unknown>, peer: WsPeerRpcContext): DelegatedSocketOpenResult {
-    const executedOn = { kind: 'backend' as const, name: hostDisplayLabel() };
+    const executedOn = daemonExecutedOn();
     const parsed = parseDelegatedWsOpenFrame(message);
     if (!parsed.ok) return { success: false, error: parsed.error, executedOn };
     const { socketId, request } = parsed.frame;
@@ -153,7 +153,7 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
   }
 
   function openMqtt(message: Record<string, unknown>, peer: WsPeerRpcContext): DelegatedSocketOpenResult {
-    const executedOn = { kind: 'backend' as const, name: hostDisplayLabel() };
+    const executedOn = daemonExecutedOn();
     const parsed = parseDelegatedMqttOpenFrame(message);
     if (!parsed.ok) return { success: false, error: parsed.error, executedOn };
     const { socketId, request } = parsed.frame;
