@@ -38,6 +38,7 @@
  * releases the call's runtime context.
  */
 
+import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { GrpcStreamEventWire } from '@openheaders/core/bridge';
 import {
   buildRegistry,
@@ -49,7 +50,8 @@ import {
   readGrpcFrames,
 } from '@openheaders/core/proto';
 import type { GrpcScriptKind } from '@openheaders/core/scripts';
-import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/types';
+import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
+import type { ExecutedGrpcSnapshot, GrpcRequest, Spec, Vault } from '@openheaders/core/types';
 import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
@@ -108,10 +110,56 @@ export interface ExecuteGrpcInvokeOptions {
    *  message / After response) run through it; absent = the call runs
    *  scriptless and records no script outcome. */
   scriptHost?: SessionScriptHost;
+  /**
+   * Host-injected template resolution — for surfaces whose variable
+   * scopes live OUTSIDE the oracle module mirrors (the extension
+   * workbench page executes in-page against the renderer mirrors, so
+   * the oracle entity stores are empty there — the session executors'
+   * seam). When present the executor builds NO resolver of its own:
+   * this function resolves every invoke-time template (target,
+   * metadata, message), adding every unresolved reference name to the
+   * caller's set. `workspaceId` / `environmentId` are then the
+   * injector's concern — the closure carries its own scope context.
+   */
+  resolution?: (template: string, unresolved: Set<string>) => string;
+  /** Host-injected ancestor auth chain (outer → inner) — for page
+   *  realms whose oracle mirrors are empty (the `resolution` twin);
+   *  absent = the executor walks the tree index. */
+  authChain?: readonly AuthCarrier[];
+  /** Host-injected ancestor settings carriers (outer → inner) — for
+   *  page realms whose oracle mirrors are empty (the `authChain` twin);
+   *  absent = the executor walks the tree index. */
+  settingsChain?: readonly SettingsCarrier[];
   /** Host-injected ancestor script carriers (outer → inner) — the
    *  session executors' seam for hosts whose oracle mirrors are empty;
    *  absent = the executor walks the tree index per slot kind. */
   scriptChain?: readonly SlotChainCarrier[];
+}
+
+/** The oracle-side resolution — the module mirrors' scopes for the
+ *  pinned (else the runtime-Active) workspace; the vault rides along
+ *  for the TLS and dial policies' entry reads. */
+async function buildOracleResolution(
+  request: GrpcRequest,
+  options: ExecuteGrpcInvokeOptions,
+): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
+  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
+  const context = {
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
+    environmentId: options.environmentId,
+  };
+  const resolve = (template: string, unresolved: Set<string>): string => {
+    const result = resolveTemplate(
+      template,
+      (name) => resolver.resolve(name, context),
+      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
+    );
+    for (const v of result.variables) {
+      if (!v.resolved) unresolved.add(v.name);
+    }
+    return result.result;
+  };
+  return { resolve, vault: scope.vault };
 }
 
 /** The three hooks' chains for the request — the ancestor levels'
@@ -174,42 +222,41 @@ export async function executeGrpcInvoke(
   }
 
   // ── Variable resolution (the HTTP sends' exact pipeline) ──
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
-  const context = {
-    collectionId: collectionUidForRequest(request, scope.workspaceId),
-    environmentId: options.environmentId,
-  };
+  // An injected resolution short-circuits the oracle-side resolver
+  // entirely — the host's closure carries its own scope context (and
+  // no vault: the client-certificate ref then passes through bare).
+  const oracleResolution = options.resolution === undefined ? await buildOracleResolution(request, options) : null;
+  const resolveWith = options.resolution ?? oracleResolution?.resolve;
+  if (resolveWith === undefined) return errorGrpcSnapshot('No template resolution available for this call.');
   // The workspace trust list rides the session dial — the pin the
   // scope resolved against, else the runtime-Active one.
-  const trustedRootsPem = getTrustAnchorsForSend(scope.workspaceId ?? peekActiveWorkspaceId())?.pems;
+  const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
   const unresolved = new Set<string>();
-  const resolveStr = (s: string): string => {
-    const result = resolveTemplate(
-      s,
-      (name) => resolver.resolve(name, context),
-      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
-    );
-    for (const v of result.variables) {
-      if (!v.resolved) unresolved.add(v.name);
-    }
-    return result.result;
-  };
+  const resolveStr = (s: string): string => resolveWith(s, unresolved);
 
   // The settings knobs cascade over the ancestor chain — the request's
   // own defined knob wins, an absent one reads the nearest ancestor
-  // that sets it (THE core rule). Every knob below reads the EFFECTIVE
-  // value; the ancestor-supplied ones stamp the snapshot.
-  const { settings, attribution: inheritedSettings } = resolveRequestSettings('grpc', request, scope.workspaceId);
+  // that sets it (THE core rule; the injected chain serves page realms
+  // whose oracle mirrors are empty). Every knob below reads the
+  // EFFECTIVE value; the ancestor-supplied ones stamp the snapshot.
+  const { settings, attribution: inheritedSettings } = resolveRequestSettings(
+    'grpc',
+    request,
+    options.workspaceId,
+    options.settingsChain,
+  );
 
   const url = resolveStr(request.url);
   // Session credential — the request's own subset config, or Inherit
-  // resolved over the ancestor pool chain (THE core rule). A resolved
-  // type outside the gRPC mask fails the invoke by NAME — never a
-  // silent none; every settled snapshot carries the attribution.
+  // resolved over the ancestor pool chain (THE core rule; the injected
+  // chain serves page realms whose oracle mirrors are empty). A
+  // resolved type outside the gRPC mask fails the invoke by NAME —
+  // never a silent none; every settled snapshot carries the attribution.
   const sessionAuth = resolveSessionAuth(
     'grpc',
     { uid: request.uid, path: request.path, url, auth: request.auth },
-    scope.workspaceId,
+    options.workspaceId,
+    options.authChain,
   );
   const authAttribution = sessionAuth.attribution;
   // Every settled snapshot stamps the resolve-time attributions — the
@@ -226,8 +273,13 @@ export async function executeGrpcInvoke(
     ...(settings.keepaliveIntervalMs !== undefined ? { keepaliveIntervalMs: settings.keepaliveIntervalMs } : {}),
     ...(settings.keepaliveTimeoutMs !== undefined ? { keepaliveTimeoutMs: settings.keepaliveTimeoutMs } : {}),
   };
-  const tlsPolicy = sessionTlsPolicy({ request: settings, trustedRootsPem, vault: scope.vault, resolve: resolveStr });
-  const dialPolicy = sessionDialPolicy(settings, scope.vault);
+  const tlsPolicy = sessionTlsPolicy({
+    request: settings,
+    trustedRootsPem,
+    vault: oracleResolution?.vault,
+    resolve: resolveStr,
+  });
+  const dialPolicy = sessionDialPolicy(settings, oracleResolution?.vault);
   let metadata: GrpcTransportHeader[] = [];
   for (const row of request.metadata) {
     if (row.enabled === false || !row.key.trim()) continue;
