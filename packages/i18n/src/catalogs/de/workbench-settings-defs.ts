@@ -539,15 +539,23 @@ export const workbenchSettingsDefs = {
     'Grenze abgeschnitten — die volle Größe wird trotzdem gemessen und gemeldet. Eine höhere Grenze erhöht ' +
     'den Speicherverbrauch pro offenem Anfrage-Tab.',
   'workbench.settings.def.requests.executionPlace.label': 'Ausführungsort',
-  'workbench.settings.def.requests.executionPlace.description': 'Wo API-Anfragen auf diesem Gerät ihre Verbindung öffnen, sofern eine Anfrage keinen eigenen Ort setzt: hier, in der Desktop-App oder auf dem Server des Arbeitsbereichs.',
+  'workbench.settings.def.requests.executionPlace.description':
+    'Wo API-Anfragen auf diesem Gerät ihre Verbindung öffnen, sofern eine Anfrage keinen eigenen Ort setzt: hier, in der Desktop-App oder auf dem Server des Arbeitsbereichs.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatisch',
-  'workbench.settings.def.requests.executionPlace.option.auto.description': 'Läuft hier, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
+  'workbench.settings.def.requests.executionPlace.option.auto.description':
+    'Läuft hier, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'Dieses Gerät',
-  'workbench.settings.def.requests.executionPlace.option.here.description': 'Die Oberfläche, von der aus Sie senden, öffnet die Verbindung.',
+  'workbench.settings.def.requests.executionPlace.option.here.description':
+    'Die Oberfläche, von der aus Sie senden, öffnet die Verbindung.',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'Die Desktop-App',
-  'workbench.settings.def.requests.executionPlace.option.desktop-app.description': 'Die Desktop-App auf diesem Gerät öffnet die Verbindung.',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
+    'Die Desktop-App auf diesem Gerät öffnet die Verbindung.',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'Der Server des Arbeitsbereichs',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.description': 'Der Server, der den Arbeitsbereich bereitstellt, öffnet die Verbindung; die aufgelösten Werte werden dorthin übertragen.',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
+    'Der Server, der den Arbeitsbereich bereitstellt, öffnet die Verbindung; die aufgelösten Werte werden dorthin übertragen.',
+  'workbench.settings.def.requests.allowServerExecution.label': 'Anfragen auf einem Server ausführen',
+  'workbench.settings.def.requests.allowServerExecution.description':
+    'Lässt eine Anfrage von diesem Gerät auf dem Server des Arbeitsbereichs laufen, wenn der Server gewählt ist oder nichts anderes sie ausführen kann — die Anfrage wird zuerst hier ausgefüllt, Variablen und Geheimnisse eingeschlossen, dann an den Server gesendet. Ausgeschaltet bleibt jede Anfrage von diesem Gerät jedem Server fern; der Ort Server liest dann „In den Einstellungen ausgeschaltet“.',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Neueste zuerst',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Reihenfolge der Server-Sent-Events-Liste — neueste Ereignisse oben. Ausschalten, um die ältesten zuerst ' +

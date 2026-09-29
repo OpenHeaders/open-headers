@@ -456,6 +456,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': '{place}에서는 아직 사용할 수 없음',
   'shared.executionPlace.tip.unavailable': '여기에서는 사용할 수 없음',
   'shared.executionPlace.tip.cannotRunOn': '{place}에서는 아직 실행할 수 없음',
+  'shared.executionPlace.tip.serverOff': '서버에서 실행하지 않음: 설정에서 꺼짐',
   'shared.executionPlace.role.here': '이 기기',
   'shared.executionPlace.role.desktopApp': '데스크톱 앱',
   'shared.executionPlace.role.server': '서버',
@@ -494,11 +495,14 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': '백업 및 동기화 열기',
   'shared.executionPlace.roster.reset': '자동으로 재설정',
   'shared.executionPlace.roster.seeDocs': '문서 보기',
+  'shared.executionPlace.roster.reason.serverOff': '설정에서 꺼짐',
+  'shared.executionPlace.roster.openSettings': '설정 열기',
   'shared.executionPlace.hint.cannotRunHere':
     '이 요청은 브라우저에서 실행할 수 없습니다. 데스크톱 앱이나 서버에서 실행하세요.',
   'shared.executionPlace.hint.choose': '실행 위치 선택',
   'shared.executionPlace.knob.cookieJar': '쿠키 저장소',
   'shared.executionPlace.knobsNotApplied': '{place}에서는 적용되지 않습니다: {knobs}.',
+  'shared.executionPlace.reason.serverOff': '서버에서 요청 실행이 이 기기의 설정에서 꺼져 있습니다.',
   'shared.executionPlace.reason.preferenceUnavailable':
     '이 요청은 {place}에서 실행하도록 설정되어 있지만, 여기에서는 아직 실행할 수 없습니다.',
   'shared.desktopTeaser.cta': '데스크톱 앱 다운로드',

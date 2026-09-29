@@ -16,6 +16,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'requests.responseBodyCapMB': number;
     'requests.executionPlace': 'auto' | ExecutionPlaceRole;
+    'requests.allowServerExecution': boolean;
     'requests.sseEventsNewestFirst': boolean;
     'requests.sseEventsGroupByName': boolean;
     'requests.sseEventsGroupRowLimit': number;
@@ -96,6 +97,26 @@ registerSetting({
       descriptionKey: 'workbench.settings.def.requests.executionPlace.option.workspace-server.description',
     },
   ],
+});
+
+// This device's own consent for a server place: off withholds the
+// workspace's server from every send made here — the place picker's
+// Server row says so and points back at this row — whatever a request
+// or the global row asked for. A device fact, never synced. The served
+// tab's one server is its serving place by construction, so the row
+// does not render there.
+registerSetting({
+  key: 'requests.allowServerExecution',
+  subcategory: 'http',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.allowServerExecution.label',
+  descriptionKey: 'workbench.settings.def.requests.allowServerExecution.description',
+  category: 'requests',
+  tags: ['place', 'run', 'execute', 'delegate', 'server', 'secrets', 'consent', 'device'],
+  scope: 'user',
+  when: () => getCurrentHost() !== 'web',
 });
 
 // gRPC invoke pre-flight: by default a message that isn't valid JSON

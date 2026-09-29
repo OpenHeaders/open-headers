@@ -108,6 +108,15 @@ export interface ExecutionPlaceInput {
   desktopAppLaunchable: boolean;
   /** The workspace's server, by the place rule; absent = the workspace has none. */
   workspaceServer?: WorkspaceServerState;
+  /**
+   * This device's own consent for a server place (Settings › API
+   * Requests › Run requests on a server) — false means no send from
+   * this device is offered to, or resolved to, the workspace's server:
+   * the leg is withheld, the roster row says why. Absent = allowed. A
+   * served tab's one server is its serving place by construction and
+   * never reads this.
+   */
+  serverAllowed?: boolean;
   /** The resolved role from the settings layers or the per-send pick; absent = Auto. */
   preference?: ExecutionPlacePreference;
   /** Knobs a page-realm session would leave unapplied (the draft's, before Connect). */
@@ -144,7 +153,9 @@ export type ExecutionPlaceReason =
    *  behalf — with the context's knobs that socket cannot honour. */
   | { kind: 'delegated'; role: Exclude<ExecutionPlaceRole, 'here'>; knobs: readonly PageSessionKnob[] }
   /** A preferred role no leg can honour yet. */
-  | { kind: 'preference-unavailable'; preferred: ExecutionPlaceRole };
+  | { kind: 'preference-unavailable'; preferred: ExecutionPlaceRole }
+  /** The server was preferred, and this device's own switch keeps every send off any server. */
+  | { kind: 'server-off' };
 
 /** The primary call to action for a missing companion — the status
  *  row's ladder (`companion-rows.tsx`), one rung at a time. */
@@ -192,6 +203,23 @@ function resolvePreferred(input: ExecutionPlaceInput): ExecutionPlaceResolution 
   const auto = resolveAuto(input);
   const preference = input.preference ?? 'auto';
   if (preference === 'auto' || preference === auto.place) return auto;
+  // The server was asked for by this request or the global row while
+  // this device's own switch keeps every send off any server: the
+  // switch wins, and the reason names it rather than a missing leg.
+  if (
+    preference === 'workspace-server' &&
+    input.serverAllowed === false &&
+    input.markers.remoteRequestDispatch === null
+  ) {
+    return {
+      place: 'workspace-server',
+      placeName: input.workspaceServer?.name ?? null,
+      state: 'unsupported',
+      reason: { kind: 'server-off' },
+      cta: null,
+      alternatives: auto.state === 'ready' ? [auto.place, ...auto.alternatives] : auto.alternatives,
+    };
+  }
   if (auto.alternatives.includes(preference)) {
     const others = [auto.place, ...auto.alternatives.filter((role) => role !== preference)];
     // Picking "here" back from a delegated auto (a tcp dial never
@@ -225,8 +253,14 @@ function delegatedLegs(input: ExecutionPlaceInput): readonly ExecutionPlaceRole[
   if (!honoured) return NO_ALTERNATIVES;
   const legs: ExecutionPlaceRole[] = [];
   if (input.markers.requestRuntime !== 'node' && input.desktopApp === 'connected') legs.push('desktop-app');
-  if (input.workspaceServer?.connected === true) legs.push('workspace-server');
+  if (serverReachable(input)) legs.push('workspace-server');
   return legs.length > 0 ? legs : NO_ALTERNATIVES;
+}
+
+/** The workspace's server as a place this device may send to: its
+ *  wire up AND this device's own switch not withholding it. */
+function serverReachable(input: ExecutionPlaceInput): boolean {
+  return input.workspaceServer?.connected === true && input.serverAllowed !== false;
 }
 
 function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
@@ -267,7 +301,7 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
       // connection: the desktop app on this device first, the
       // workspace's server beside it — or alone, for a surface whose
       // only place is a server.
-      const serverUp = input.workspaceServer?.connected === true;
+      const serverUp = serverReachable(input);
       if (input.desktopApp === 'connected') {
         return {
           place: 'desktop-app',
@@ -407,6 +441,8 @@ export type ExecutionPlaceRosterReason =
   | 'no-server'
   /** The workspace's server exists but its wire is down. */
   | 'server-not-connected'
+  /** This device's own switch keeps every send off any server (Settings › API Requests). */
+  | 'server-off'
   /** The surface's send does not honour a place for this kind. */
   | 'not-forwarded';
 
@@ -455,6 +491,10 @@ function runsHere(input: ExecutionPlaceInput): boolean {
 function serverRow(input: ExecutionPlaceInput, honoured: boolean): ExecutionPlaceRosterRow {
   const server = input.workspaceServer;
   if (server === undefined) return { role: 'workspace-server', available: false, reason: 'no-server', cta: null };
+  // The user's own switch comes before the wire: a server they turned
+  // off on this device is not offered, connected or not.
+  if (input.serverAllowed === false)
+    return { role: 'workspace-server', available: false, reason: 'server-off', cta: null };
   if (!honoured) return { role: 'workspace-server', available: false, reason: 'not-forwarded', cta: null };
   if (!server.connected)
     return { role: 'workspace-server', available: false, reason: 'server-not-connected', cta: null };

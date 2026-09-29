@@ -507,6 +507,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': 'Пока недоступно: {place}',
   'shared.executionPlace.tip.unavailable': 'Здесь недоступно',
   'shared.executionPlace.tip.cannotRunOn': 'Пока нельзя выполнить: {place}',
+  'shared.executionPlace.tip.serverOff': 'Не на сервере: выключено в настройках',
   'shared.executionPlace.role.here': 'это устройство',
   'shared.executionPlace.role.desktopApp': 'настольное приложение',
   'shared.executionPlace.role.server': 'сервер',
@@ -546,11 +547,14 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': 'Открыть «Резервное копирование и синхронизация»',
   'shared.executionPlace.roster.reset': 'Сбросить на «Автоматически»',
   'shared.executionPlace.roster.seeDocs': 'Открыть документацию',
+  'shared.executionPlace.roster.reason.serverOff': 'Выключено в настройках',
+  'shared.executionPlace.roster.openSettings': 'Открыть настройки',
   'shared.executionPlace.hint.cannotRunHere':
     'Этот запрос нельзя выполнить в браузере. Выполните его в настольном приложении или на сервере.',
   'shared.executionPlace.hint.choose': 'Выбрать место выполнения',
   'shared.executionPlace.knob.cookieJar': 'хранилище cookie',
   'shared.executionPlace.knobsNotApplied': '{place} не применяет: {knobs}.',
+  'shared.executionPlace.reason.serverOff': 'Выполнение запросов на сервере выключено в настройках этого устройства.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Для этого запроса задано место выполнения: {place}. Отсюда оно пока недоступно.',
   'shared.desktopTeaser.cta': 'Скачать настольное приложение',

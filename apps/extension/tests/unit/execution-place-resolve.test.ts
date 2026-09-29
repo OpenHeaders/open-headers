@@ -577,3 +577,79 @@ describe('resolveExecutionPlaceRoster — every place this host knows, available
     expect(roster('websocket', { ...WEB, delegatedSessionDispatch: false })[0]?.reason).toBe('not-forwarded');
   });
 });
+
+describe('resolveExecutionPlace — this device’s own server switch (serverAllowed: false)', () => {
+  const OFF = { ...SERVER_UP, serverAllowed: false };
+
+  it('withholds the server leg from the delegated kinds and the gRPC invoke on the extension', () => {
+    expect(resolve('http', EXTENSION, 'not-connected', OFF).alternatives).toEqual([]);
+    expect(resolve('http', EXTENSION, 'connected', OFF).alternatives).toEqual(['desktop-app']);
+    expect(resolve('websocket', EXTENSION, 'not-connected', OFF).alternatives).toEqual([]);
+    const grpc = resolve('grpc', EXTENSION, 'not-connected', OFF);
+    expect(grpc.state).toBe('needs-companion');
+    expect(grpc.reason).toEqual({ kind: 'companion-required' });
+    expect(resolve('grpc', EXTENSION, 'connected', OFF)).toMatchObject({
+      place: 'desktop-app',
+      alternatives: [],
+    });
+    const tcp = resolve('mqtt', EXTENSION, 'not-connected', { ...OFF, mqttTransport: 'tcp' });
+    expect(tcp).toMatchObject({ place: 'desktop-app', state: 'needs-companion', reason: { kind: 'tcp-scheme' } });
+  });
+
+  it('a preferred server reads as switched off — the reason names the switch, not a missing leg', () => {
+    const http = resolve('http', EXTENSION, 'connected', { ...OFF, preference: 'workspace-server' });
+    expect(http).toMatchObject({
+      place: 'workspace-server',
+      placeName: 'Acme',
+      state: 'unsupported',
+      reason: { kind: 'server-off' },
+      cta: null,
+      alternatives: ['here', 'desktop-app'],
+    });
+    expect(resolve('grpc', DESKTOP, 'connected', { ...OFF, preference: 'workspace-server' }).reason).toEqual({
+      kind: 'server-off',
+    });
+  });
+
+  it('the roster’s Server row says so ahead of the wire, and the served tab never reads the switch', () => {
+    const roster = resolveExecutionPlaceRoster({
+      kind: 'http',
+      markers: EXTENSION,
+      desktopApp: 'not-connected',
+      desktopAppLaunchable: true,
+      ...OFF,
+    });
+    expect(roster.find((row) => row.role === 'workspace-server')).toEqual({
+      role: 'workspace-server',
+      available: false,
+      reason: 'server-off',
+      cta: null,
+    });
+    const down = resolveExecutionPlaceRoster({
+      kind: 'http',
+      markers: EXTENSION,
+      desktopApp: 'not-connected',
+      desktopAppLaunchable: true,
+      ...SERVER_DOWN,
+      serverAllowed: false,
+    });
+    expect(down.find((row) => row.role === 'workspace-server')?.reason).toBe('server-off');
+    // No server at all: nothing to switch off — the row keeps its own reason.
+    const none = resolveExecutionPlaceRoster({
+      kind: 'http',
+      markers: EXTENSION,
+      desktopApp: 'not-connected',
+      desktopAppLaunchable: true,
+      serverAllowed: false,
+    });
+    expect(none.find((row) => row.role === 'workspace-server')?.reason).toBe('no-server');
+    expect(resolve('http', WEB, 'not-connected', { serverAllowed: false })).toMatchObject({
+      place: 'workspace-server',
+      state: 'ready',
+      reason: { kind: 'delegated', role: 'workspace-server' },
+    });
+    expect(resolve('http', WEB, 'not-connected', { serverAllowed: false, preference: 'workspace-server' }).state).toBe(
+      'ready',
+    );
+  });
+});

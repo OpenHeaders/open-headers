@@ -460,6 +460,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'The workspace’s server',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
     'The server providing the workspace opens the connection; the resolved values travel to it.',
+  'workbench.settings.def.requests.allowServerExecution.label': 'Run requests on a server',
+  'workbench.settings.def.requests.allowServerExecution.description':
+    'Let a request from this device run on the workspace’s server when the server is chosen or nothing else can run it — the request is filled in here first, variables and secrets included, then sent to the server. Off keeps every request from this device off any server; the Server place then reads Turned off in Settings.',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Order of the Server-Sent Events list — newest events at the top. Turn off to read oldest first. The list toolbar changes this same setting.',

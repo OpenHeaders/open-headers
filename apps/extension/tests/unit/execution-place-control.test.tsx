@@ -359,3 +359,53 @@ describe('executionPlaceCopy', () => {
     expect(copy.reason).toBe('shared.executionPlace.reason.companionInvoke');
   });
 });
+
+describe('ExecutionPlaceControl — the Server row this device switched off', () => {
+  const SERVER_OFF: ExecutionPlaceRosterRow = {
+    role: 'workspace-server',
+    available: false,
+    reason: 'server-off',
+    cta: null,
+  };
+
+  it('reads Turned off in Settings with Open Settings landing on the switch’s own row', async () => {
+    const onPick = vi.fn();
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({ alternatives: [], serverName: 'Acme' })}
+        roster={[HERE, DESKTOP_MISSING, SERVER_OFF]}
+        preference="auto"
+        onPick={onPick}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('execution-place-chip'));
+    const rows = await screen.findAllByTestId('execution-place-option');
+    const server = rows[2] as HTMLElement;
+    expect(server.getAttribute('data-available')).toBe('false');
+    const reasons = screen.getAllByTestId('execution-place-option-reason');
+    expect(reasons[1]?.textContent).toContain('Turned off in Settings');
+    const revealed = vi.fn();
+    const unsubscribe = subscribeSettingsReveal(revealed);
+    fireEvent.click(screen.getByTestId('execution-place-open-server-switch'));
+    unsubscribe();
+    expect(revealed).toHaveBeenCalledWith({ settingKey: 'requests.allowServerExecution' });
+    fireEvent.click(server);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it('a saved Server place under the switch wears the switched-off words on the button and in the foot', () => {
+    const copy = executionPlaceCopy(
+      resolution({
+        place: 'workspace-server',
+        placeName: 'Acme',
+        state: 'unsupported',
+        reason: { kind: 'server-off' },
+        alternatives: ['here'],
+      }),
+      ((key: string) => key) as never,
+    );
+    expect(copy.chip).toBe('shared.executionPlace.tip.serverOff');
+    expect(copy.reason).toBe('shared.executionPlace.reason.serverOff');
+    expect(copy.knobs).toBeNull();
+  });
+});

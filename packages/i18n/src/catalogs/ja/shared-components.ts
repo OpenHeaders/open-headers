@@ -458,6 +458,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': '{place}ではまだ利用できません',
   'shared.executionPlace.tip.unavailable': 'ここでは利用できません',
   'shared.executionPlace.tip.cannotRunOn': '{place}ではまだ実行できません',
+  'shared.executionPlace.tip.serverOff': 'サーバーでは実行しません：設定でオフ',
   'shared.executionPlace.role.here': 'このデバイス',
   'shared.executionPlace.role.desktopApp': 'デスクトップアプリ',
   'shared.executionPlace.role.server': 'サーバー',
@@ -497,11 +498,14 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': 'バックアップと同期を開く',
   'shared.executionPlace.roster.reset': '自動に戻す',
   'shared.executionPlace.roster.seeDocs': 'ドキュメントを見る',
+  'shared.executionPlace.roster.reason.serverOff': '設定でオフ',
+  'shared.executionPlace.roster.openSettings': '設定を開く',
   'shared.executionPlace.hint.cannotRunHere':
     'このリクエストはブラウザーでは実行できません。デスクトップアプリまたはサーバーで実行してください。',
   'shared.executionPlace.hint.choose': '実行場所を選ぶ',
   'shared.executionPlace.knob.cookieJar': 'Cookie ジャー',
   'shared.executionPlace.knobsNotApplied': '{place}では適用されません：{knobs}。',
+  'shared.executionPlace.reason.serverOff': 'サーバーでのリクエスト実行は、このデバイスの設定でオフになっています。',
   'shared.executionPlace.reason.preferenceUnavailable':
     'このリクエストは{place}で実行するように設定されていますが、ここからはまだ実行できません。',
   'shared.desktopTeaser.cta': 'デスクトップアプリをダウンロード',

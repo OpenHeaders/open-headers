@@ -17,6 +17,7 @@ import { getCapability } from '@openheaders/core/capabilities';
 import { desktopAppRecord, useBackends } from '@openheaders/ui/shared/backend';
 import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { useDesktopCompanion } from '@openheaders/ui/shared/status';
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { useMemo } from 'react';
 import {
   type ExecutionPlaceInput,
@@ -73,6 +74,10 @@ export function useExecutionPlace({
   const backends = useBackends();
   const desktopAppBackendId = desktopAppRecord(getCurrentHost(), backends)?.id ?? null;
   const server = useWorkspaceServer();
+  // This device's own consent for a server place — the one switch
+  // under Settings › API Requests; false withholds the server leg
+  // from every send on this device.
+  const serverAllowed = useSettingValue('requests.allowServerExecution');
   const markers = readMarkers();
   const {
     requestRuntime,
@@ -99,6 +104,7 @@ export function useExecutionPlace({
       desktopApp,
       desktopAppLaunchable: launchable,
       ...(server !== null ? { workspaceServer: { name: server.name, connected: server.connected } } : {}),
+      ...(serverAllowed ? {} : { serverAllowed: false }),
       ...(preference !== undefined ? { preference } : {}),
       ...(inapplicableKnobs !== undefined ? { inapplicableKnobs } : {}),
       ...(delegationKnobs !== undefined ? { delegationKnobs } : {}),
@@ -123,6 +129,7 @@ export function useExecutionPlace({
     launchable,
     desktopAppBackendId,
     server,
+    serverAllowed,
     preference,
     inapplicableKnobs,
     delegationKnobs,

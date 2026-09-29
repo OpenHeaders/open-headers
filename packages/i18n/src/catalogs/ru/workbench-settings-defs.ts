@@ -474,15 +474,23 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.description':
     'Какую часть тела ответа исполнитель хранит для показа. Более крупные тела обрезаются на этом пределе — полный размер по-прежнему измеряется и сообщается. Повышение предела увеличивает расход памяти на каждую открытую вкладку запроса.',
   'workbench.settings.def.requests.executionPlace.label': 'Место выполнения',
-  'workbench.settings.def.requests.executionPlace.description': 'Где запросы API открывают соединение на этом устройстве, если запрос не задаёт своё: здесь, в настольном приложении или на сервере рабочего пространства.',
+  'workbench.settings.def.requests.executionPlace.description':
+    'Где запросы API открывают соединение на этом устройстве, если запрос не задаёт своё: здесь, в настольном приложении или на сервере рабочего пространства.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Автоматически',
-  'workbench.settings.def.requests.executionPlace.option.auto.description': 'Выполняется здесь, когда это устройство может, иначе — в единственном месте, которое может.',
+  'workbench.settings.def.requests.executionPlace.option.auto.description':
+    'Выполняется здесь, когда это устройство может, иначе — в единственном месте, которое может.',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'Это устройство',
-  'workbench.settings.def.requests.executionPlace.option.here.description': 'Соединение открывает поверхность, с которой вы отправляете.',
+  'workbench.settings.def.requests.executionPlace.option.here.description':
+    'Соединение открывает поверхность, с которой вы отправляете.',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'Настольное приложение',
-  'workbench.settings.def.requests.executionPlace.option.desktop-app.description': 'Соединение открывает настольное приложение на этом устройстве.',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
+    'Соединение открывает настольное приложение на этом устройстве.',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'Сервер рабочего пространства',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.description': 'Соединение открывает сервер, предоставляющий рабочее пространство; разрешённые значения передаются на него.',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
+    'Соединение открывает сервер, предоставляющий рабочее пространство; разрешённые значения передаются на него.',
+  'workbench.settings.def.requests.allowServerExecution.label': 'Выполнять запросы на сервере',
+  'workbench.settings.def.requests.allowServerExecution.description':
+    'Разрешает запросу с этого устройства выполняться на сервере рабочего пространства, когда выбран сервер или больше ничто не может его выполнить: запрос сначала заполняется здесь, включая переменные и секреты, затем отправляется на сервер. В выключенном состоянии ни один запрос с этого устройства не уходит на сервер, а место «Сервер» читается как «Выключено в настройках».',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Сначала новые',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Порядок списка событий Server-Sent Events — новые события сверху. Выключите, чтобы читать сначала старые. Панель инструментов списка меняет тот же параметр.',

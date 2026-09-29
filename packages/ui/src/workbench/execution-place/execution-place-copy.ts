@@ -62,6 +62,8 @@ export function executionPlaceRosterReason(reason: ExecutionPlaceRosterReason, t
       return t('shared.executionPlace.roster.reason.noServer');
     case 'server-not-connected':
       return t('shared.executionPlace.roster.reason.serverNotConnected');
+    case 'server-off':
+      return t('shared.executionPlace.roster.reason.serverOff');
     case 'not-forwarded':
       return t('shared.executionPlace.roster.reason.notForwarded');
   }
@@ -187,5 +189,11 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
         knobs: null,
       };
     }
+    case 'server-off':
+      return {
+        chip: t('shared.executionPlace.tip.serverOff'),
+        reason: t('shared.executionPlace.reason.serverOff'),
+        knobs: null,
+      };
   }
 }

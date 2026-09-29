@@ -515,6 +515,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': 'Indisponibil încă pe {place}',
   'shared.executionPlace.tip.unavailable': 'Indisponibil aici',
   'shared.executionPlace.tip.cannotRunOn': 'Indisponibil încă: {place}',
+  'shared.executionPlace.tip.serverOff': 'Nu pe un server: dezactivat în Setări',
   'shared.executionPlace.role.here': 'acest dispozitiv',
   'shared.executionPlace.role.desktopApp': 'aplicația desktop',
   'shared.executionPlace.role.server': 'server',
@@ -553,11 +554,15 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': 'Deschidere Copie de rezervă și sincronizare',
   'shared.executionPlace.roster.reset': 'Revenire la Automat',
   'shared.executionPlace.roster.seeDocs': 'Vezi documentația',
+  'shared.executionPlace.roster.reason.serverOff': 'Dezactivat în Setări',
+  'shared.executionPlace.roster.openSettings': 'Deschidere Setări',
   'shared.executionPlace.hint.cannotRunHere':
     'Această solicitare nu poate rula în browser. Rulați-o în aplicația desktop sau pe un server.',
   'shared.executionPlace.hint.choose': 'Alegere loc de rulare',
   'shared.executionPlace.knob.cookieJar': 'depozitul cookie',
   'shared.executionPlace.knobsNotApplied': 'Nu se aplică pe {place}: {knobs}.',
+  'shared.executionPlace.reason.serverOff':
+    'Rularea cererilor pe un server este dezactivată în Setările acestui dispozitiv.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Locul de rulare setat pentru această solicitare este {place}, indisponibil de aici deocamdată.',
   'shared.desktopTeaser.cta': 'Descărcare aplicație desktop',

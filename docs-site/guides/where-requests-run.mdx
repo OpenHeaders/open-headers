@@ -142,9 +142,22 @@ The place that opens a connection on another surface's behalf decides
 whether it does so. In the desktop app, under **Backup and Sync › Your
 devices**, two switches gate it: **Allow this device's browsers to send
 requests** (on by default — pairing is the consent) and **Allow other
-connected devices to send requests** (off by default). A server exposes
-the same two tiers. Sending also requires write access to the request's
-workspace at that place, and every delegated send is audited there.
+connected devices to send requests** (off by default). A server has the
+same two tiers with the opposite default for other devices: it exists
+to serve the people it admitted, so **Let connected devices run requests
+on this server** starts on, and an admin turns it off or on under
+**Server Admin › Server** (headlessly, `ohd config set
+backend.allowRemotePeerExecute false` while the daemon is stopped).
+Sending also requires write access to the request's workspace at that
+place, and every delegated send is audited there.
+
+The device sending has a say too. A send to a server carries the
+request fully resolved, secrets included, so **Settings › API Requests
+› Run requests on a server** (on by default, never synced) lets you keep
+every request from this device off any server: the Server place then
+reads *Turned off in Settings* with a link back to the row, Automatic
+never resolves to it, and a request that asked for the server says so
+instead of running.
 
 Every response and every session timeline says which place answered:
 **Sent from** *name* on the meta strip, with the details in its popover.

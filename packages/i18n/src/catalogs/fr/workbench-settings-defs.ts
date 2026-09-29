@@ -550,15 +550,23 @@ export const workbenchSettingsDefs = {
     'à cette limite — la taille complète est toujours mesurée et rapportée. Monter la limite augmente la ' +
     'mémoire utilisée par onglet de requête ouvert.',
   'workbench.settings.def.requests.executionPlace.label': 'Lieu d’exécution',
-  'workbench.settings.def.requests.executionPlace.description': 'Où les requêtes API ouvrent leur connexion sur cet appareil, sauf si une requête définit le sien : ici, sur l’application de bureau ou sur le serveur de l’espace de travail.',
+  'workbench.settings.def.requests.executionPlace.description':
+    'Où les requêtes API ouvrent leur connexion sur cet appareil, sauf si une requête définit le sien : ici, sur l’application de bureau ou sur le serveur de l’espace de travail.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatique',
-  'workbench.settings.def.requests.executionPlace.option.auto.description': 'S’exécute ici quand cet appareil le peut, sinon sur le seul endroit qui le peut.',
+  'workbench.settings.def.requests.executionPlace.option.auto.description':
+    'S’exécute ici quand cet appareil le peut, sinon sur le seul endroit qui le peut.',
   'workbench.settings.def.requests.executionPlace.option.here.label': 'Cet appareil',
-  'workbench.settings.def.requests.executionPlace.option.here.description': 'La surface depuis laquelle vous envoyez ouvre la connexion.',
+  'workbench.settings.def.requests.executionPlace.option.here.description':
+    'La surface depuis laquelle vous envoyez ouvre la connexion.',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'L’application de bureau',
-  'workbench.settings.def.requests.executionPlace.option.desktop-app.description': 'L’application de bureau de cet appareil ouvre la connexion.',
+  'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
+    'L’application de bureau de cet appareil ouvre la connexion.',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'Le serveur de l’espace de travail',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.description': 'Le serveur qui fournit l’espace de travail ouvre la connexion ; les valeurs résolues lui sont transmises.',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
+    'Le serveur qui fournit l’espace de travail ouvre la connexion ; les valeurs résolues lui sont transmises.',
+  'workbench.settings.def.requests.allowServerExecution.label': 'Exécuter les requêtes sur un serveur',
+  'workbench.settings.def.requests.allowServerExecution.description':
+    "Laisse une requête de cet appareil s'exécuter sur le serveur de l'espace de travail lorsque le serveur est choisi ou que rien d'autre ne peut l'exécuter — la requête est d'abord préparée ici, variables et secrets compris, puis envoyée au serveur. Désactivé, aucune requête de cet appareil ne va sur un serveur ; l'emplacement Serveur indique alors « Désactivé dans les paramètres ».",
   'workbench.settings.def.requests.sseEventsNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     'Ordre de la liste des Server-Sent Events — les événements les plus récents en haut. Désactivez pour ' +

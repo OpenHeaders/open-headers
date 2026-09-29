@@ -499,6 +499,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': 'Auf {place} noch nicht verfügbar',
   'shared.executionPlace.tip.unavailable': 'Hier nicht verfügbar',
   'shared.executionPlace.tip.cannotRunOn': 'Ausführung auf {place} noch nicht möglich',
+  'shared.executionPlace.tip.serverOff': 'Nicht auf einem Server: in den Einstellungen ausgeschaltet',
   'shared.executionPlace.role.here': 'diesem Gerät',
   'shared.executionPlace.role.desktopApp': 'der Desktop-App',
   'shared.executionPlace.role.server': 'dem Server',
@@ -538,11 +539,15 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': 'Sicherung und Synchronisierung öffnen',
   'shared.executionPlace.roster.reset': 'Auf Automatisch zurücksetzen',
   'shared.executionPlace.roster.seeDocs': 'Dokumentation ansehen',
+  'shared.executionPlace.roster.reason.serverOff': 'In den Einstellungen ausgeschaltet',
+  'shared.executionPlace.roster.openSettings': 'Einstellungen öffnen',
   'shared.executionPlace.hint.cannotRunHere':
     'Diese Anfrage kann nicht im Browser laufen. Führe sie in der Desktop-App oder auf einem Server aus.',
   'shared.executionPlace.hint.choose': 'Ausführungsort wählen',
   'shared.executionPlace.knob.cookieJar': 'das Cookie-Glas',
   'shared.executionPlace.knobsNotApplied': 'Auf {place} nicht angewendet: {knobs}.',
+  'shared.executionPlace.reason.serverOff':
+    'Das Ausführen von Anfragen auf einem Server ist auf diesem Gerät in den Einstellungen ausgeschaltet.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Diese Anfrage soll auf {place} laufen; von hier aus ist das noch nicht möglich.',
   'shared.desktopTeaser.cta': 'Desktop-App herunterladen',

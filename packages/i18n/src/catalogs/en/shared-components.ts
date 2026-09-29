@@ -503,6 +503,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': 'Not available on {place} yet',
   'shared.executionPlace.tip.unavailable': 'Not available here',
   'shared.executionPlace.tip.cannotRunOn': 'Cannot run on {place} yet',
+  'shared.executionPlace.tip.serverOff': 'Not on a server: turned off in Settings',
   'shared.executionPlace.role.here': 'this device',
   'shared.executionPlace.role.desktopApp': 'the desktop app',
   'shared.executionPlace.role.server': 'the server',
@@ -541,11 +542,16 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': 'Open Backup and Sync',
   'shared.executionPlace.roster.reset': 'Reset to automatic',
   'shared.executionPlace.roster.seeDocs': 'See docs',
+  // The Server row when this device's own switch withholds it — the
+  // action opens that Settings row.
+  'shared.executionPlace.roster.reason.serverOff': 'Turned off in Settings',
+  'shared.executionPlace.roster.openSettings': 'Open Settings',
   'shared.executionPlace.hint.cannotRunHere':
     'This request cannot run in the browser. Run it on the desktop app or a server.',
   'shared.executionPlace.hint.choose': 'Choose where it runs',
   'shared.executionPlace.knob.cookieJar': 'the cookie jar',
   'shared.executionPlace.knobsNotApplied': 'Not applied on {place}: {knobs}.',
+  'shared.executionPlace.reason.serverOff': 'Running requests on a server is turned off in Settings on this device.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'This request is set to run on {place}, which cannot run it from here yet.',
   'shared.desktopTeaser.cta': 'Download the desktop app',

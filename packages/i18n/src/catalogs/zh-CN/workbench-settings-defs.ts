@@ -420,15 +420,21 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.responseBodyCapMB.description':
     '执行器为显示保留的响应体大小。更大的响应体会在此上限处截断——完整大小仍会被测量并报告。提高上限会增加每个打开的请求标签页的内存占用。',
   'workbench.settings.def.requests.executionPlace.label': '执行位置',
-  'workbench.settings.def.requests.executionPlace.description': '除非请求自行设置，否则 API 请求在此设备上于此处建立连接：此处、桌面应用或工作区的服务器。',
+  'workbench.settings.def.requests.executionPlace.description':
+    '除非请求自行设置，否则 API 请求在此设备上于此处建立连接：此处、桌面应用或工作区的服务器。',
   'workbench.settings.def.requests.executionPlace.option.auto.label': '自动',
-  'workbench.settings.def.requests.executionPlace.option.auto.description': '此设备可行时在此运行，否则在唯一可行的位置运行。',
+  'workbench.settings.def.requests.executionPlace.option.auto.description':
+    '此设备可行时在此运行，否则在唯一可行的位置运行。',
   'workbench.settings.def.requests.executionPlace.option.here.label': '此设备',
   'workbench.settings.def.requests.executionPlace.option.here.description': '发送请求的界面建立连接。',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.label': '桌面应用',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.description': '此设备上的桌面应用建立连接。',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.label': '工作区的服务器',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.description': '提供该工作区的服务器建立连接；已解析的值会传送到该处。',
+  'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
+    '提供该工作区的服务器建立连接；已解析的值会传送到该处。',
+  'workbench.settings.def.requests.allowServerExecution.label': '在服务器上运行请求',
+  'workbench.settings.def.requests.allowServerExecution.description':
+    '当选择了服务器或没有其他地方能运行时，允许此设备的请求在工作区的服务器上运行：请求先在此处填充（含变量与密钥），再发送到服务器。关闭后，此设备的任何请求都不会发往服务器，服务器这一运行位置会显示“已在设置中关闭”。',
   'workbench.settings.def.requests.sseEventsNewestFirst.label': '最新在前',
   'workbench.settings.def.requests.sseEventsNewestFirst.description':
     '服务器发送事件列表的顺序——最新事件在顶部。关闭则从最旧开始读。列表工具栏更改的是同一设置。',

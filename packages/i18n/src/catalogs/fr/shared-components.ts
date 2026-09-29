@@ -475,6 +475,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': 'Pas encore disponible sur {place}',
   'shared.executionPlace.tip.unavailable': 'Indisponible ici',
   'shared.executionPlace.tip.cannotRunOn': 'Exécution impossible sur {place} pour le moment',
+  'shared.executionPlace.tip.serverOff': 'Pas sur un serveur : désactivé dans les paramètres',
   'shared.executionPlace.role.here': 'cet appareil',
   'shared.executionPlace.role.desktopApp': 'l’application de bureau',
   'shared.executionPlace.role.server': 'le serveur',
@@ -515,11 +516,15 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': 'Ouvrir Sauvegarde et synchronisation',
   'shared.executionPlace.roster.reset': 'Revenir à Automatique',
   'shared.executionPlace.roster.seeDocs': 'Voir la documentation',
+  'shared.executionPlace.roster.reason.serverOff': 'Désactivé dans les paramètres',
+  'shared.executionPlace.roster.openSettings': 'Ouvrir les paramètres',
   'shared.executionPlace.hint.cannotRunHere':
     'Cette requête ne peut pas s’exécuter dans le navigateur. Exécutez-la dans l’application de bureau ou sur un serveur.',
   'shared.executionPlace.hint.choose': 'Choisir où elle s’exécute',
   'shared.executionPlace.knob.cookieJar': 'la jarre à cookies',
   'shared.executionPlace.knobsNotApplied': 'Sans effet sur {place} : {knobs}.',
+  'shared.executionPlace.reason.serverOff':
+    "L'exécution des requêtes sur un serveur est désactivée dans les paramètres de cet appareil.",
   'shared.executionPlace.reason.preferenceUnavailable':
     'Cette requête est configurée pour s’exécuter sur {place}, ce qui n’est pas encore possible d’ici.',
   'shared.desktopTeaser.cta': "Télécharger l'application de bureau",

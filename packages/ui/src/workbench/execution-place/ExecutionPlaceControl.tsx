@@ -93,6 +93,23 @@ const OpenSyncAction: React.FC = () => {
   );
 };
 
+/** The Settings row that withheld the server — this device's own
+ *  "Run requests on a server" switch, opened in place. */
+const OpenServerSwitchAction: React.FC = () => {
+  const t = useT();
+  return (
+    <Button
+      type="link"
+      size="small"
+      onClick={() => postSettingsReveal({ settingKey: 'requests.allowServerExecution' })}
+      data-testid="execution-place-open-server-switch"
+      style={{ fontSize: 11, padding: 0, height: 'auto', whiteSpace: 'nowrap' }}
+    >
+      {t('shared.executionPlace.roster.openSettings')}
+    </Button>
+  );
+};
+
 /** The Server tab of the docs site — setting a server up and joining it. */
 const SERVER_DOCS_URL = 'https://docs.openheaders.com/server';
 
@@ -135,10 +152,12 @@ function ctaAction(cta: ExecutionPlaceCta): React.ReactNode {
 
 /** A disabled row's rung: the desktop ladder, the Sync page for a
  *  server whose wire is down, the server docs for a workspace with no
- *  server; nothing for a kind this surface cannot run. */
+ *  server, the Settings row for a server this device switched off;
+ *  nothing for a kind this surface cannot run. */
 function rowAction(row: ExecutionPlaceRosterRow): React.ReactNode {
   if (row.role === 'workspace-server' && row.reason === 'server-not-connected') return <OpenSyncAction />;
   if (row.role === 'workspace-server' && row.reason === 'no-server') return <SeeDocsAction />;
+  if (row.role === 'workspace-server' && row.reason === 'server-off') return <OpenServerSwitchAction />;
   return ctaAction(row.cta);
 }
 

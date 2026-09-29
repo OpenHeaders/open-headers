@@ -479,6 +479,7 @@ export const sharedComponents = {
   'shared.executionPlace.tip.notForwarded': 'Aún no disponible en {place}',
   'shared.executionPlace.tip.unavailable': 'No disponible aquí',
   'shared.executionPlace.tip.cannotRunOn': 'Aún no se puede ejecutar en {place}',
+  'shared.executionPlace.tip.serverOff': 'No en un servidor: desactivado en Configuración',
   'shared.executionPlace.role.here': 'este dispositivo',
   'shared.executionPlace.role.desktopApp': 'la aplicación de escritorio',
   'shared.executionPlace.role.server': 'el servidor',
@@ -519,11 +520,15 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSync': 'Abrir Copia de seguridad y sincronización',
   'shared.executionPlace.roster.reset': 'Restablecer a Automático',
   'shared.executionPlace.roster.seeDocs': 'Ver la documentación',
+  'shared.executionPlace.roster.reason.serverOff': 'Desactivado en Configuración',
+  'shared.executionPlace.roster.openSettings': 'Abrir Configuración',
   'shared.executionPlace.hint.cannotRunHere':
     'Esta solicitud no puede ejecutarse en el navegador. Ejecútala en la aplicación de escritorio o en un servidor.',
   'shared.executionPlace.hint.choose': 'Elegir dónde se ejecuta',
   'shared.executionPlace.knob.cookieJar': 'el tarro de cookies',
   'shared.executionPlace.knobsNotApplied': 'Sin efecto en {place}: {knobs}.',
+  'shared.executionPlace.reason.serverOff':
+    'La ejecución de solicitudes en un servidor está desactivada en la Configuración de este dispositivo.',
   'shared.executionPlace.reason.preferenceUnavailable':
     'Esta solicitud está configurada para ejecutarse en {place}, lo que aún no es posible desde aquí.',
   'shared.desktopTeaser.cta': 'Descargar la aplicación de escritorio',
