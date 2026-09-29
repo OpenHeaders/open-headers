@@ -7,12 +7,14 @@
  * order, incremental unframing across chunk boundaries, incomplete-
  * tail honesty, byte-cap truncation aborts), the settle paths (normal
  * trailers, cancel mid-stream keeps what arrived with `stopped`, a
- * pre-head failure maps onto `error`), and the live `grpcStreamEvent`
+ * pre-head failure maps onto `error` and keeps the upstream frames
+ * already written), and the live `grpcStreamEvent`
  * feed (head → batched direction-tagged messages → end).
  */
 
 import type { GrpcStreamEventWire } from '@openheaders/core/bridge';
 import { buildRegistry, encodeMessage, parseProto, writeGrpcFrame } from '@openheaders/core/proto';
+import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { executeGrpcStream, type GrpcStreamExecuteParams } from '@openheaders/oracle/live/grpc-exec/execute-stream';
 import {
   endActiveGrpcClientStream,
@@ -368,6 +370,24 @@ describe('executeGrpcStream — settle paths', () => {
     const snapshot = await pending;
     expect(snapshot.error).toBe('Call stopped before a response arrived.');
     expect(snapshot.localStatus).toBe(1);
+  });
+
+  it('a stop before the head keeps the upstream frames a client stream already wrote', async () => {
+    const fake = streamTransport();
+    const pending = executeGrpcStream(
+      params(fake.transport, { shape: 'client-streaming', initialMessage: null, sendId: 'send-upstream' }),
+    );
+    expect(sendActiveGrpcStreamMessage('send-upstream', '{"text":"one"}')).toEqual({ success: true });
+    expect(sendActiveGrpcStreamMessage('send-upstream', '{"text":"two"}')).toEqual({ success: true });
+    expect(fake.sentUp).toHaveLength(2);
+    expect(stopActiveSend('send-upstream')).toBe(true);
+    fake.cb().onEnd(new GrpcTransportError('aborted'));
+    const snapshot = await pending;
+    expect(snapshot.error).toBe('Call stopped before a response arrived.');
+    expect(snapshot.localStatus).toBe(1);
+    expect(snapshot.headAtMessage).toBeUndefined();
+    expect(snapshot.messages.map((m) => m.direction)).toEqual(['up', 'up']);
+    expect(snapshot.messages[0].dataBase64).toBe(encodeBase64Bytes(encodedNote('one')));
   });
 
   it('aborts past the response byte cap and records the truncated truth', async () => {
