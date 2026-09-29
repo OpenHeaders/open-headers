@@ -6,10 +6,11 @@
  * The switch is the egress opt-in's remote tier (`oh.daemon.peerExecute.*`):
  * whether devices on other machines may run their requests on this
  * server — on by default on a standalone server, the operator's
- * kill-switch. It renders on every host but the desktop app, whose
- * own Settings rows (Backup and Sync › Your devices) are that door and
- * whose default is off; two rows over one record on one host would
- * disagree in their defaults' words.
+ * kill-switch. The answering host says what it is: the card renders
+ * for a standalone server alone. A desktop app — its own renderer, or
+ * a browser tab on the Workbench it serves — keeps its own Settings
+ * rows (Backup and Sync › Your devices) as the one door, with their
+ * default-off words; two rows over one record would disagree.
  *
  * Build and notes ride one call, `oh.daemon.changelog.get`: every host
  * answers its own running version, so the version line renders
@@ -23,11 +24,11 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import type { HostKind } from '@openheaders/core/types';
 import { App as AntApp, Empty, Spin, Switch, Typography, theme } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { demoteImagesToLinks } from '../../../shared/markdown/demote-images';
 import { MarkdownView } from '../../../shared/markdown/MarkdownView';
 import { SectionHeader } from './section-chrome';
@@ -46,22 +47,29 @@ const cardStyle = (token: ReturnType<typeof theme.useToken>['token']): React.CSS
   padding: 12,
 });
 
+interface PeerRequestsState {
+  readonly remote: boolean;
+  readonly hostKind: HostKind;
+}
+
 /** The requests-from-devices switch — reads the effective value on
  *  mount, writes the record on a flip, re-reads after either outcome
- *  so the row never shows a value the server did not confirm. */
+ *  so the row never shows a value the server did not confirm. Renders
+ *  nothing until the host has answered, and nothing at all for a host
+ *  that is not a standalone server. */
 const PeerRequestsCard: React.FC = () => {
   const t = useT();
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
-  const [remote, setRemote] = useState<boolean | null>(null);
+  const [state, setState] = useState<PeerRequestsState | null>(null);
   const [busy, setBusy] = useState(false);
 
   const read = useCallback(async (): Promise<void> => {
     try {
       const resp = await hostBridge.call('oh.daemon.peerExecute.get');
-      setRemote(resp.remote);
+      setState({ remote: resp.remote, hostKind: resp.hostKind });
     } catch {
-      setRemote(null);
+      setState(null);
     }
   }, []);
 
@@ -85,6 +93,8 @@ const PeerRequestsCard: React.FC = () => {
     }
   };
 
+  if (state === null || state.hostKind !== 'daemon') return null;
+
   return (
     <section style={{ marginBottom: 12 }} data-testid="server-admin-requests">
       <SectionHeader
@@ -103,8 +113,8 @@ const PeerRequestsCard: React.FC = () => {
           </div>
           <Switch
             size="small"
-            checked={remote === true}
-            disabled={remote === null || busy}
+            checked={state.remote}
+            disabled={busy}
             loading={busy}
             onChange={(next) => void flip(next)}
             aria-label={t('workbench.serverAdmin.requests.allowLabel')}
@@ -146,7 +156,7 @@ const ServerBuildSection: React.FC = () => {
 
   return (
     <>
-      {getCurrentHost() !== 'desktop' && <PeerRequestsCard />}
+      <PeerRequestsCard />
       <section style={{ marginBottom: 12 }} data-testid="server-admin-build">
         <SectionHeader
           title={t('workbench.serverAdmin.build.sectionTitle')}

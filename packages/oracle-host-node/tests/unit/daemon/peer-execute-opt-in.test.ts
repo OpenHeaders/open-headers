@@ -36,28 +36,28 @@ beforeEach(() => {
 
 describe('createPeerExecuteOptIn — the remote tier follows the host default until the record speaks', () => {
   it('a server posture allows a remote peer on an empty record; the desktop posture refuses it', async () => {
-    const server = createPeerExecuteOptIn({ remoteDefault: true });
-    const desktop = createPeerExecuteOptIn({ remoteDefault: false });
+    const server = createPeerExecuteOptIn({ hostKind: 'daemon' });
+    const desktop = createPeerExecuteOptIn({ hostKind: 'desktop' });
     await expect(server.assert(REMOTE_PEER)).resolves.toBeUndefined();
     await expect(desktop.assert(REMOTE_PEER)).rejects.toThrow(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
-    expect(await server.read()).toEqual({ remote: true });
-    expect(await desktop.read()).toEqual({ remote: false });
+    expect(await server.read()).toEqual({ remote: true, hostKind: 'daemon' });
+    expect(await desktop.read()).toEqual({ remote: false, hostKind: 'desktop' });
   });
 
   it('the record overrides either default, and junk in the slot reads as absent', async () => {
-    const server = createPeerExecuteOptIn({ remoteDefault: true });
-    const desktop = createPeerExecuteOptIn({ remoteDefault: false });
+    const server = createPeerExecuteOptIn({ hostKind: 'daemon' });
+    const desktop = createPeerExecuteOptIn({ hostKind: 'desktop' });
     h.settings = { 'backend.allowRemotePeerExecute': false };
     await expect(server.assert(REMOTE_PEER)).rejects.toThrow(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
     h.settings = { 'backend.allowRemotePeerExecute': true };
     await expect(desktop.assert(REMOTE_PEER)).resolves.toBeUndefined();
     h.settings = { 'backend.allowRemotePeerExecute': 'true' };
-    expect(await desktop.read()).toEqual({ remote: false });
-    expect(await server.read()).toEqual({ remote: true });
+    expect(await desktop.read()).toEqual({ remote: false, hostKind: 'desktop' });
+    expect(await server.read()).toEqual({ remote: true, hostKind: 'daemon' });
   });
 
   it('the local tier is on by default on every posture and off only when the record says so', async () => {
-    const server = createPeerExecuteOptIn({ remoteDefault: true });
+    const server = createPeerExecuteOptIn({ hostKind: 'daemon' });
     await expect(server.assert(LOOPBACK_PEER)).resolves.toBeUndefined();
     h.settings = { 'backend.allowLocalPeerExecute': false, 'backend.allowRemotePeerExecute': true };
     await expect(server.assert(LOOPBACK_PEER)).rejects.toThrow(LOCAL_PEER_EXECUTE_DISABLED_MESSAGE);
@@ -65,13 +65,13 @@ describe('createPeerExecuteOptIn — the remote tier follows the host default un
   });
 
   it('setRemote writes the key into the settings record and keeps every other slot', async () => {
-    const server = createPeerExecuteOptIn({ remoteDefault: true });
+    const server = createPeerExecuteOptIn({ hostKind: 'daemon' });
     h.settings = { 'mcp.enabled': true, 'backend.bindPort': 9137 };
     await server.setRemote(false);
     expect(h.writes).toEqual([
       { 'mcp.enabled': true, 'backend.bindPort': 9137, 'backend.allowRemotePeerExecute': false },
     ]);
-    expect(await server.read()).toEqual({ remote: false });
+    expect(await server.read()).toEqual({ remote: false, hostKind: 'daemon' });
     await expect(server.assert(REMOTE_PEER)).rejects.toThrow(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
   });
 

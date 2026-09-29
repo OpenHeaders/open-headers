@@ -28,6 +28,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
 
 /** The server's switch state the rig answers — flipped by the set channel like the daemon's record. */
 let remote = true;
+let hostKind: 'daemon' | 'desktop' = 'daemon';
 const setCalls: boolean[] = [];
 
 function answerChangelog(resp: { version: string | null; notes: string | null }): void {
@@ -38,7 +39,7 @@ function answerChangelog(resp: { version: string | null; notes: string | null })
       case 'oh.daemon.changelog.get':
         return Promise.resolve(resp);
       case 'oh.daemon.peerExecute.get':
-        return Promise.resolve({ remote });
+        return Promise.resolve({ remote, hostKind });
       case 'oh.daemon.peerExecute.set':
         setCalls.push(payload?.remote === true);
         remote = payload?.remote === true;
@@ -52,6 +53,7 @@ function answerChangelog(resp: { version: string | null; notes: string | null })
 beforeEach(() => {
   setCurrentHost('web');
   remote = true;
+  hostKind = 'daemon';
   setCalls.length = 0;
   __resetServerAdminStatusForTests();
   mockCall.mockReset();
@@ -115,8 +117,8 @@ describe('server-admin Server tab — requests from devices', () => {
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'));
   });
 
-  it('renders no requests section on the desktop app, whose own Settings rows are that door', async () => {
-    setCurrentHost('desktop');
+  it('renders no requests section when the answering host is a desktop app, whose own Settings rows are that door', async () => {
+    hostKind = 'desktop';
     answerChangelog({ version: '2026.9.3', notes: null });
     render(<ServerAdminTab section="server" />);
     await screen.findByTestId('server-admin-build');

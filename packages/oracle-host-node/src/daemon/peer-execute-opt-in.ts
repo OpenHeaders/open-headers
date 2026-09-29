@@ -14,26 +14,30 @@
  * frame still passes admission and `workspace.write`, audited — the
  * switch is the operator's kill-switch, not consent). The stored record
  * overrides either default; the admin console and `ohd config set`
- * write it through `setRemote`. The refusal is honest (it names the
- * tier), not the admin plane's uniform deny: the channels' existence
- * is public contract.
+ * write it through `setRemote`, and `read` names the host's kind so
+ * the console knows whose switch it shows. The refusal is honest (it
+ * names the tier), not the admin plane's uniform deny: the channels'
+ * existence is public contract.
  */
 
 import { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { hostStorage, OH } from '@openheaders/core/storage';
+import type { HostKind } from '@openheaders/core/types';
 import type { WsPeerRpcContext } from '../host-runtime/ws-server';
 
 export const REMOTE_PEER_EXECUTE_KEY = 'backend.allowRemotePeerExecute';
 const LOCAL_PEER_EXECUTE_KEY = 'backend.allowLocalPeerExecute';
 
 export interface PeerExecuteOptInOptions {
-  /** The remote tier's value while the record says nothing — the host's posture. */
-  remoteDefault: boolean;
+  /** The host this gate guards — its kind is the remote tier's default posture. */
+  hostKind: HostKind;
 }
 
 export interface PeerExecuteState {
   /** The remote tier's effective value — the record's, else the host default. */
   remote: boolean;
+  /** The answering host's kind — a standalone server or the desktop app. */
+  hostKind: HostKind;
 }
 
 export interface PeerExecuteOptIn {
@@ -50,9 +54,11 @@ async function readRecord(): Promise<Record<string, unknown>> {
 }
 
 export function createPeerExecuteOptIn(options: PeerExecuteOptInOptions): PeerExecuteOptIn {
+  const { hostKind } = options;
+  const remoteDefault = hostKind === 'daemon';
   const remoteOf = (values: Record<string, unknown>): boolean => {
     const stored = values[REMOTE_PEER_EXECUTE_KEY];
-    return typeof stored === 'boolean' ? stored : options.remoteDefault;
+    return typeof stored === 'boolean' ? stored : remoteDefault;
   };
   const allowed = async (isLoopback: boolean): Promise<boolean> => {
     const values = await readRecord();
@@ -68,7 +74,7 @@ export function createPeerExecuteOptIn(options: PeerExecuteOptInOptions): PeerEx
       }
     },
     async read() {
-      return { remote: remoteOf(await readRecord()) };
+      return { remote: remoteOf(await readRecord()), hostKind };
     },
     async setRemote(value) {
       // Read-then-write against the persisted record: the settings
@@ -82,5 +88,5 @@ export function createPeerExecuteOptIn(options: PeerExecuteOptInOptions): PeerEx
 /** The desktop app's posture — what a plane composed without an
  *  explicit gate (test rigs) reads: remote off until the record says on. */
 export function defaultPeerExecuteOptIn(): PeerExecuteOptIn {
-  return createPeerExecuteOptIn({ remoteDefault: false });
+  return createPeerExecuteOptIn({ hostKind: 'desktop' });
 }

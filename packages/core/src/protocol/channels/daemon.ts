@@ -20,6 +20,7 @@ import type {
   TrafficSourceProjection,
 } from '../../traffic';
 import type {
+  HostKind,
   ProxyCaPublicInfo,
   ProxyCaptureStatus,
   ProxyRoutingStatus,
@@ -79,7 +80,7 @@ export interface DaemonRpc {
    */
   'oh.daemon.peerExecute.get': {
     req: Record<string, never>;
-    res: { remote: boolean };
+    res: { remote: boolean; hostKind: HostKind };
   };
   'oh.daemon.peerExecute.set': {
     req: { remote: boolean };

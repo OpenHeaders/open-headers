@@ -1040,7 +1040,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // `workspace.write`) and OFF on the desktop app (egress from a
   // personal machine on another device's behalf is the operator's
   // call). The stored record overrides either.
-  const peerExecute = createPeerExecuteOptIn({ remoteDefault: config.identity.hostKind === 'daemon' });
+  const peerExecute = createPeerExecuteOptIn({ hostKind: config.identity.hostKind });
 
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,

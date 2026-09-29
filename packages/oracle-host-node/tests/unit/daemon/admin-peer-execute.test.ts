@@ -19,7 +19,7 @@ describe('oh.daemon.peerExecute.*', () => {
     const writes: boolean[] = [];
     const table = buildAdminChannels({
       peerExecute: {
-        read: async () => ({ remote }),
+        read: async () => ({ remote, hostKind: 'daemon' as const }),
         setRemote: async (value) => {
           writes.push(value);
           remote = value;
@@ -30,17 +30,17 @@ describe('oh.daemon.peerExecute.*', () => {
     const set = table.get('oh.daemon.peerExecute.set');
     if (!get || !set) throw new Error('channel missing');
 
-    expect(await get({})).toEqual({ remote: true });
+    expect(await get({})).toEqual({ remote: true, hostKind: 'daemon' });
     expect(await set({ remote: false })).toEqual({ ok: true });
     expect(writes).toEqual([false]);
-    expect(await get({})).toEqual({ remote: false });
+    expect(await get({})).toEqual({ remote: false, hostKind: 'daemon' });
   });
 
   it('set refuses a non-boolean without touching the record', async () => {
     const writes: boolean[] = [];
     const table = buildAdminChannels({
       peerExecute: {
-        read: async () => ({ remote: true }),
+        read: async () => ({ remote: true, hostKind: 'daemon' as const }),
         setRemote: async (value) => {
           writes.push(value);
         },

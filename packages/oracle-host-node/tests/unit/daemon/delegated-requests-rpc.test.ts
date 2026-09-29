@@ -168,7 +168,7 @@ describe('createDelegatedRequestsRpc — the gate', () => {
   it('a server-posture gate allows a remote peer on an empty record and refuses it once the record says off', async () => {
     h.settings = {};
     const transport = fakeTransport(async () => RESPONSE);
-    const rpc = createDelegatedRequestsRpc({ transport, peerExecute: createPeerExecuteOptIn({ remoteDefault: true }) });
+    const rpc = createDelegatedRequestsRpc({ transport, peerExecute: createPeerExecuteOptIn({ hostKind: 'daemon' }) });
     await expect(rpc.dispatch(frame(), PEER)).resolves.toMatchObject({ success: true });
     h.settings = { 'backend.allowRemotePeerExecute': false };
     await expect(rpc.dispatch(frame(), PEER)).rejects.toThrow(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);

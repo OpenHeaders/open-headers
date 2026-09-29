@@ -18,7 +18,7 @@ export function buildAdminChannels(
   return createAdminChannelHandlers({
     pairing: createDaemonPairingService(),
     peerExecute: {
-      read: async () => ({ remote: false }),
+      read: async () => ({ remote: false, hostKind: 'daemon' as const }),
       setRemote: async () => undefined,
     },
     getBoundPort: () => 0,

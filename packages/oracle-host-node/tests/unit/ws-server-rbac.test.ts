@@ -646,7 +646,10 @@ async function startServerWithAdminPlane(port: number): Promise<OracleWsServer> 
   const adminRpc = createPeerAdminRpc({
     channels: createAdminChannelHandlers({
       pairing: createDaemonPairingService(),
-      peerExecute: { read: async () => ({ remote: false }), setRemote: async () => undefined },
+      peerExecute: {
+        read: async () => ({ remote: false, hostKind: 'daemon' as const }),
+        setRemote: async () => undefined,
+      },
       getBoundPort: () => port,
       getWsServer: () => server,
       queryAudit: (filter) => queryAuditEntries(auditDb, filter),
