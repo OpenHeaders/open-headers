@@ -544,6 +544,7 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'Diese Anfrage kann nicht im Browser laufen. Führe sie in der Desktop-App oder auf einem Server aus.',
   'shared.executionPlace.hint.choose': 'Ausführungsort wählen',
+  'shared.executionPlace.hint.setTo': 'Diese Anfrage ist auf {place} eingestellt.',
   'shared.executionPlace.knob.cookieJar': 'das Cookie-Glas',
   'shared.executionPlace.knobsNotApplied': 'Auf {place} nicht angewendet: {knobs}.',
   'shared.executionPlace.reason.serverOff':

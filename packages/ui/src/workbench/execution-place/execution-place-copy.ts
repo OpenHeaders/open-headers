@@ -69,6 +69,18 @@ export function executionPlaceRosterReason(reason: ExecutionPlaceRosterReason, t
   }
 }
 
+/** The headline of the disabled primary's hint: a kind this surface
+ *  cannot run names the way around; a chosen place the surface cannot
+ *  honour names the choice — the request CAN run here, the user said
+ *  elsewhere. */
+export function executionPlaceHintTitle(resolution: ExecutionPlaceResolution, t: Translate): string {
+  const { reason } = resolution;
+  if (reason.kind === 'server-off' || reason.kind === 'preference-unavailable') {
+    return t('shared.executionPlace.hint.setTo', { place: roleName(resolution.place, resolution.placeName, t) });
+  }
+  return t('shared.executionPlace.hint.cannotRunHere');
+}
+
 /** The knob names the page-realm planes, the HTTP editor and the control share. */
 export const PAGE_KNOB_KEY = {
   headers: 'workbench.editors.websocket.session.knobHeaders',

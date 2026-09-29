@@ -57,7 +57,9 @@ import { isConvertibleToGraphql } from '@openheaders/core/graphql';
 import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraphql';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
+import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
+import { PlaceRequiredHint } from '../../execution-place/PlaceRequiredHint';
 import {
   splitLocalPlace,
   useRequestExecutionPlaces,
@@ -717,6 +719,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // A delegated send's socket opens on a node place — its knobs are
   // live on the Settings tab (the sheet and the cookie rows stay ours).
   const delegatedKnobs = executionPlace.state === 'ready' && executionPlace.reason.kind === 'delegated';
+  // A send that will not run as configured — a chosen place this
+  // surface cannot honour — is never sent here instead: Send goes
+  // disabled under the hint that opens the picker (the sessions'
+  // Connect posture), never a silent override of the choice.
+  const placeBlocked = executionPlace.state !== 'ready';
+  const [placeOpen, setPlaceOpen] = useState(false);
+  const placeCopy = executionPlaceCopy(executionPlace, t);
 
   const handleSend = useCallback(async () => {
     if (sending) return;
@@ -859,72 +868,86 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   ];
 
   const primaryAction = (
-    <Tooltip
-      placement="bottom"
-      // Pressing Send/Stop suppresses the tooltip so the hint never
-      // pops over the freshly morphed button; the wrapper's mouse-leave
-      // re-arms it (antd fires no onOpenChange for an already-closed
-      // tooltip, so leave is the one reliable reset signal).
-      open={sendTooltipSuppressed ? false : undefined}
-      title={
-        sending ? (
-          // The chord morphs with the button — ⌘/Ctrl+Enter stops an
-          // in-flight send, so the Stop hint carries the same keycaps.
-          <ShortcutHintTitle label={SEND_SHORTCUT}>
-            {t('workbench.editors.request.send.stopTooltip')}
-          </ShortcutHintTitle>
-        ) : hasUnresolvedRefs ? (
-          t('workbench.editors.request.send.unresolvedTooltip')
-        ) : (
-          <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
-        )
-      }
+    <PlaceRequiredHint
+      active={placeBlocked}
+      resolution={executionPlace}
+      reason={placeCopy.reason}
+      onChoose={() => setPlaceOpen(true)}
     >
-      <span style={{ display: 'inline-flex' }} onMouseLeave={() => setSendTooltipSuppressed(false)}>
-        {sending ? (
-          // Send morphs into Stop for EVERY in-flight send — streaming
-          // or not. Stopping materializes a snapshot from whatever
-          // arrived. The error token darkens one notch — a solid Stop
-          // at the base error red reads glaring next to the muted
-          // editor chrome.
-          <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+      <Tooltip
+        placement="bottom"
+        // Pressing Send/Stop suppresses the tooltip so the hint never
+        // pops over the freshly morphed button; the wrapper's mouse-leave
+        // re-arms it (antd fires no onOpenChange for an already-closed
+        // tooltip, so leave is the one reliable reset signal). A blocked
+        // place yields to the hint.
+        open={sendTooltipSuppressed || placeBlocked ? false : undefined}
+        title={
+          sending ? (
+            // The chord morphs with the button — ⌘/Ctrl+Enter stops an
+            // in-flight send, so the Stop hint carries the same keycaps.
+            <ShortcutHintTitle label={SEND_SHORTCUT}>
+              {t('workbench.editors.request.send.stopTooltip')}
+            </ShortcutHintTitle>
+          ) : hasUnresolvedRefs ? (
+            t('workbench.editors.request.send.unresolvedTooltip')
+          ) : (
+            <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
+          )
+        }
+      >
+        <span style={{ display: 'inline-flex' }} onMouseLeave={() => setSendTooltipSuppressed(false)}>
+          {sending ? (
+            // Send morphs into Stop for EVERY in-flight send — streaming
+            // or not. Stopping materializes a snapshot from whatever
+            // arrived. The error token darkens one notch — a solid Stop
+            // at the base error red reads glaring next to the muted
+            // editor chrome.
+            <ConfigProvider theme={{ token: { colorError: token.colorErrorActive } }}>
+              <Button
+                type="primary"
+                danger
+                icon={
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: 'inline-block',
+                      width: 9,
+                      height: 9,
+                      borderRadius: 2,
+                      background: 'currentcolor',
+                    }}
+                  />
+                }
+                size="small"
+                data-testid="oh-request-stop"
+                onClick={() => {
+                  setSendTooltipSuppressed(true);
+                  handleStop();
+                }}
+                style={{ fontSize: 11 }}
+              >
+                {t('workbench.editors.request.send.stop')}
+              </Button>
+            </ConfigProvider>
+          ) : (
             <Button
               type="primary"
-              danger
-              icon={
-                <span
-                  aria-hidden="true"
-                  style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'currentcolor' }}
-                />
-              }
+              icon={<CaretRightOutlined />}
               size="small"
-              data-testid="oh-request-stop"
               onClick={() => {
                 setSendTooltipSuppressed(true);
-                handleStop();
+                void handleSend();
               }}
+              disabled={hasUnresolvedRefs || placeBlocked}
               style={{ fontSize: 11 }}
             >
-              {t('workbench.editors.request.send.stop')}
+              {t('workbench.editors.request.send.label')}
             </Button>
-          </ConfigProvider>
-        ) : (
-          <Button
-            type="primary"
-            icon={<CaretRightOutlined />}
-            size="small"
-            onClick={() => {
-              setSendTooltipSuppressed(true);
-              void handleSend();
-            }}
-            disabled={hasUnresolvedRefs}
-            style={{ fontSize: 11 }}
-          >
-            {t('workbench.editors.request.send.label')}
-          </Button>
-        )}
-      </span>
-    </Tooltip>
+          )}
+        </span>
+      </Tooltip>
+    </PlaceRequiredHint>
   );
   const headerActions = primaryAction;
   const headerTrailing = (
@@ -933,6 +956,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       roster={executionPlace.roster}
       preference={draft.executionPlace ?? 'auto'}
       onPick={(role) => setDraft((d) => ({ ...d, executionPlace: role ?? undefined }))}
+      open={placeOpen}
+      onOpenChange={setPlaceOpen}
     />
   );
 

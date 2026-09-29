@@ -1,8 +1,10 @@
 /**
  * PlaceRequiredHint — the hover on a primary button (Send, Connect,
- * Invoke) that this surface cannot run itself: the one sentence and a
- * button that opens the place picker, so the way around — the desktop
- * app, or a server where no desktop app can be installed — is one
+ * Invoke, Query) that will not run as configured: the headline names
+ * the case — a kind this surface cannot run itself, or a place the
+ * user chose that the surface cannot honour (the request could run
+ * here; the user said elsewhere) — over the reader's reason sentence
+ * and a button that opens the place picker, so the way around is one
  * click from the disabled button rather than a discovery. Choosing
  * closes the hint itself: the pointer is still over it when the picker
  * opens, and two popovers must never stack. Inactive, it renders its
@@ -13,20 +15,30 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Popover, Typography } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { executionPlaceHintTitle } from './execution-place-copy';
+import type { ExecutionPlaceResolution } from './resolve-execution-place';
 
 const { Text } = Typography;
 
 export interface PlaceRequiredHintProps {
   /** Render the hint; false passes the child through untouched. */
   active: boolean;
-  /** The reader's reason sentence for the disabled primary. */
+  /** The reader's resolution — the headline follows its reason. */
+  resolution: ExecutionPlaceResolution;
+  /** The reason sentence for the disabled primary. */
   reason: string;
   /** Open the place picker. */
   onChoose: () => void;
   children: React.ReactNode;
 }
 
-export const PlaceRequiredHint: React.FC<PlaceRequiredHintProps> = ({ active, reason, onChoose, children }) => {
+export const PlaceRequiredHint: React.FC<PlaceRequiredHintProps> = ({
+  active,
+  resolution,
+  reason,
+  onChoose,
+  children,
+}) => {
   const t = useT();
   const [open, setOpen] = useState(false);
   if (!active) return <>{children}</>;
@@ -41,7 +53,7 @@ export const PlaceRequiredHint: React.FC<PlaceRequiredHintProps> = ({ active, re
           data-testid="execution-place-hint"
           style={{ maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}
         >
-          <Text style={{ fontSize: 12 }}>{t('shared.executionPlace.hint.cannotRunHere')}</Text>
+          <Text style={{ fontSize: 12 }}>{executionPlaceHintTitle(resolution, t)}</Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {reason}
           </Text>

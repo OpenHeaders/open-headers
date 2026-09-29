@@ -503,6 +503,7 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'このリクエストはブラウザーでは実行できません。デスクトップアプリまたはサーバーで実行してください。',
   'shared.executionPlace.hint.choose': '実行場所を選ぶ',
+  'shared.executionPlace.hint.setTo': 'このリクエストは {place} で実行するよう設定されています。',
   'shared.executionPlace.knob.cookieJar': 'Cookie ジャー',
   'shared.executionPlace.knobsNotApplied': '{place}では適用されません：{knobs}。',
   'shared.executionPlace.reason.serverOff': 'サーバーでのリクエスト実行は、このデバイスの設定でオフになっています。',

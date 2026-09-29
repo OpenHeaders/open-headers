@@ -500,6 +500,7 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     '이 요청은 브라우저에서 실행할 수 없습니다. 데스크톱 앱이나 서버에서 실행하세요.',
   'shared.executionPlace.hint.choose': '실행 위치 선택',
+  'shared.executionPlace.hint.setTo': '이 요청은 {place}에서 실행하도록 설정되어 있습니다.',
   'shared.executionPlace.knob.cookieJar': '쿠키 저장소',
   'shared.executionPlace.knobsNotApplied': '{place}에서는 적용되지 않습니다: {knobs}.',
   'shared.executionPlace.reason.serverOff': '서버에서 요청 실행이 이 기기의 설정에서 꺼져 있습니다.',

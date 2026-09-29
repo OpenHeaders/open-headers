@@ -372,6 +372,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   ) : (
     <PlaceRequiredHint
       active={placeBlocked}
+      resolution={session.executionPlace}
       reason={session.connectDisabledReason ?? ''}
       onChoose={() => setPlaceOpen(true)}
     >

@@ -406,6 +406,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   ) : (
     <PlaceRequiredHint
       active={placeBlocked}
+      resolution={session.executionPlace}
       reason={session.connectDisabledReason ?? ''}
       onChoose={() => setPlaceOpen(true)}
     >

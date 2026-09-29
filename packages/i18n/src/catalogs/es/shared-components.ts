@@ -525,6 +525,7 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'Esta solicitud no puede ejecutarse en el navegador. Ejecútala en la aplicación de escritorio o en un servidor.',
   'shared.executionPlace.hint.choose': 'Elegir dónde se ejecuta',
+  'shared.executionPlace.hint.setTo': 'Esta solicitud está configurada para ejecutarse en {place}.',
   'shared.executionPlace.knob.cookieJar': 'el tarro de cookies',
   'shared.executionPlace.knobsNotApplied': 'Sin efecto en {place}: {knobs}.',
   'shared.executionPlace.reason.serverOff':

@@ -520,6 +520,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.openSettings': '打开设置',
   'shared.executionPlace.hint.cannotRunHere': '此请求无法在浏览器中运行。请在桌面应用或服务器上运行。',
   'shared.executionPlace.hint.choose': '选择运行位置',
+  'shared.executionPlace.hint.setTo': '此请求已设置为在 {place} 上运行。',
   'shared.executionPlace.knob.cookieJar': 'Cookie 罐',
   'shared.executionPlace.knobsNotApplied': '在 {place} 上不适用：{knobs}。',
   'shared.executionPlace.reason.serverOff': '在服务器上运行请求已在此设备的设置中关闭。',

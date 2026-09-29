@@ -95,6 +95,7 @@ import {
   withLocalPlace,
   type WithLocalPlace,
 } from '../../execution-place/local-place';
+import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
 import { PlaceRequiredHint } from '../../execution-place/PlaceRequiredHint';
 import { resolveExecutionPlacePreference } from '../../execution-place/resolve-preference';
 import { useExecutionPlace } from '../../execution-place/useExecutionPlace';
@@ -289,7 +290,9 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   );
   const showOperationSelect = census !== null && census.operations.length > 1;
   const wireOperation =
-    census === null ? undefined : wireOperationName(census, draft.operationName === '' ? undefined : draft.operationName);
+    census === null
+      ? undefined
+      : wireOperationName(census, draft.operationName === '' ? undefined : draft.operationName);
   // The operation Query runs — a subscription leaves the POST for the
   // WebSocket plane (the census's pick rule, so the wire and the
   // button agree).
@@ -548,11 +551,18 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
 
   // A subscription that cannot open on this host names why on the
   // button — the honest disabled posture, never a silent no-op.
-  const queryDisabledReason = isSubscription ? subscription.disabledReason : null;
-  const placeBlocked = isSubscription && subscription.executionPlace.state !== 'ready';
+  // A query whose chosen place this surface cannot honour is never
+  // sent here instead — the same disabled posture under the hint.
+  const queryDisabledReason = isSubscription
+    ? subscription.disabledReason
+    : queryPlace.state !== 'ready'
+      ? executionPlaceCopy(queryPlace, t).reason
+      : null;
+  const placeBlocked = executionPlace.state !== 'ready';
   const primaryAction = (
     <PlaceRequiredHint
       active={placeBlocked}
+      resolution={executionPlace}
       reason={queryDisabledReason ?? ''}
       onChoose={() => setPlaceOpen(true)}
     >

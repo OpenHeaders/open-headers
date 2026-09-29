@@ -175,7 +175,10 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
   const t = useT();
   const copy = executionPlaceCopy(resolution, t);
   const muted = resolution.state === 'ready' && resolution.place === 'here' && resolution.alternatives.length === 0;
-  const warning = resolution.state === 'needs-companion';
+  // The warning tone whenever the send will not run as configured — a
+  // place this surface needs and lacks, or a chosen place it cannot
+  // honour (the user's own switch included).
+  const warning = resolution.state !== 'ready';
   // The hover words yield to the popover — a tooltip over an open
   // popover would sit on top of the very sentence it repeats.
   const [innerOpen, setInnerOpen] = useState(false);

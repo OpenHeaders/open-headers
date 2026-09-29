@@ -400,6 +400,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   ) : (
     <PlaceRequiredHint
       active={placeBlocked}
+      resolution={invoke.executionPlace}
       reason={invoke.invokeDisabledReason ?? ''}
       onChoose={() => setPlaceOpen(true)}
     >

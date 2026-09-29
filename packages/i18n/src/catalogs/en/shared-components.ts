@@ -549,6 +549,9 @@ export const sharedComponents = {
   'shared.executionPlace.hint.cannotRunHere':
     'This request cannot run in the browser. Run it on the desktop app or a server.',
   'shared.executionPlace.hint.choose': 'Choose where it runs',
+  // The hint's headline when the user chose a place the surface cannot
+  // honour — the request could run here; the choice says elsewhere.
+  'shared.executionPlace.hint.setTo': 'This request is set to run on {place}.',
   'shared.executionPlace.knob.cookieJar': 'the cookie jar',
   'shared.executionPlace.knobsNotApplied': 'Not applied on {place}: {knobs}.',
   'shared.executionPlace.reason.serverOff': 'Running requests on a server is turned off in Settings on this device.',
