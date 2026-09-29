@@ -22,7 +22,9 @@ import { FREE_SEAT_LIMIT } from '@openheaders/core/licensing';
 import { formatBuildStamp, getBuildInfo, resolveAppVersion } from './build-info';
 import { CONFIG_OPTIONS, configFileUpdateFromFlags, INSTALL_OPTIONS, resolveConfigFlags } from './cli/config-flags';
 import {
+  DAEMON_SETTING_DEFAULTS,
   DAEMON_SETTING_KEYS,
+  type DaemonSettingKey,
   parseDaemonSettingKey,
   parseDaemonSettingValue,
   readDaemonSettings,
@@ -344,8 +346,8 @@ async function commandShowToken(argv: readonly string[]): Promise<void> {
   }
 }
 
-function formatSettingValue(value: boolean | undefined): string {
-  return value === undefined ? 'false (default)' : String(value);
+function formatSettingValue(key: DaemonSettingKey, value: boolean | undefined): string {
+  return value === undefined ? `${DAEMON_SETTING_DEFAULTS[key]} (default)` : String(value);
 }
 
 const CONFIG_SET_USAGE =
@@ -380,13 +382,13 @@ async function commandConfig(argv: readonly string[]): Promise<void> {
     if (rawKey === undefined) throw new Error('usage: ohd config get <key>');
     const key = parseDaemonSettingKey(rawKey);
     const settings = await readDaemonSettings(resolveConfigFlags(values));
-    console.log(`${key} = ${formatSettingValue(settings[key])}`);
+    console.log(`${key} = ${formatSettingValue(key, settings[key])}`);
     return;
   }
   if (sub === 'list') {
     const settings = await readDaemonSettings(resolveConfigFlags(values));
     for (const key of DAEMON_SETTING_KEYS) {
-      console.log(`${key} = ${formatSettingValue(settings[key])}`);
+      console.log(`${key} = ${formatSettingValue(key, settings[key])}`);
     }
     return;
   }

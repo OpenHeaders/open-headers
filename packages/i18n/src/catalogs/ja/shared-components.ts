@@ -445,6 +445,10 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     '他のデバイスからの送信は、接続先のホストでオフになっています。そのマシンの バックアップと同期 › お使いのデバイス で「接続中の他のデバイスにリクエストの送信を許可」を有効にしてください。',
   'shared.peerExecute.enableCta': 'デスクトップアプリで有効にする',
+  'shared.peerExecute.serverDisabled':
+    '接続中のデバイスのリクエスト実行は、{place} でオフになっています。サーバー管理者は サーバー管理 › サーバー でオンにできます。',
+  'shared.peerExecute.openServerAdmin': 'サーバー管理を開く',
+  'shared.peerExecute.openPlace': '{place} を開く',
   // ── Execution place (the place button after Save) ───────────────────
   'shared.executionPlace.info': 'このリクエストの実行場所',
   'shared.executionPlace.tip.localBrowser': 'ローカルで実行：このブラウザー拡張機能内',

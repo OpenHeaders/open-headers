@@ -484,6 +484,10 @@ export const sharedComponents = {
     'verbundenen Geräten das Senden von Anfragen erlauben“ in dessen Sicherung und Synchronisierung › Deine Geräte auf jener ' +
     'Maschine.',
   'shared.peerExecute.enableCta': 'In der Desktop-App aktivieren',
+  'shared.peerExecute.serverDisabled':
+    'Das Ausführen von Anfragen für verbundene Geräte ist auf {place} ausgeschaltet. Ein Server-Admin kann es unter Server-Admin › Server einschalten.',
+  'shared.peerExecute.openServerAdmin': 'Server-Admin öffnen',
+  'shared.peerExecute.openPlace': '{place} öffnen',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
   // ── Execution place (the place button after Save) ───────────────────

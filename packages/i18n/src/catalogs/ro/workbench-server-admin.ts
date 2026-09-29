@@ -52,7 +52,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': 'Audit',
   'workbench.serverAdmin.panel.auditHint': 'Interogarea pistei de audit a serverului',
   'workbench.serverAdmin.panel.server': 'Server',
-  'workbench.serverAdmin.panel.serverHint': 'Build, versiune și note de lansare',
+  'workbench.serverAdmin.panel.serverHint': 'Cereri de la dispozitive, build, versiune și note de lansare',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
@@ -63,6 +63,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionHint':
     'Ce a fost livrat în build-ul de server pe care îl administrează această consolă.',
   'workbench.serverAdmin.notes.empty': 'Acest build nu include note de lansare.',
+  'workbench.serverAdmin.requests.sectionTitle': 'Cereri de la dispozitive',
+  'workbench.serverAdmin.requests.sectionHint':
+    'Dacă dispozitivele care s-au alăturat acestui server își pot rula cererile pe el.',
+  'workbench.serverAdmin.requests.allowLabel': 'Permiteți dispozitivelor conectate să ruleze cereri pe acest server',
+  'workbench.serverAdmin.requests.allowDescription':
+    'O cerere trimisă de pe un dispozitiv alăturat este completată mai întâi acolo, apoi acest server deschide conexiunea cu propriul acces la rețea și propria adresă. Activat implicit; fiecare trimitere are nevoie în continuare de acces de scriere la spațiul de lucru. Dezactivat, fiecare astfel de trimitere este refuzată până la reactivare.',
+  'workbench.serverAdmin.requests.enabledDone': 'Cererile de la dispozitive au fost activate.',
+  'workbench.serverAdmin.requests.disabledDone': 'Cererile de la dispozitive au fost dezactivate.',
+  'workbench.serverAdmin.requests.updateFailed': 'Schimbarea setării a eșuat: {message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Utilizatori',

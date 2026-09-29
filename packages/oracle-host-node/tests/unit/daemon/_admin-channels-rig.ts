@@ -17,6 +17,10 @@ export function buildAdminChannels(
 ): ReadonlyMap<string, AdminChannelHandler> {
   return createAdminChannelHandlers({
     pairing: createDaemonPairingService(),
+    peerExecute: {
+      read: async () => ({ remote: false }),
+      setRemote: async () => undefined,
+    },
     getBoundPort: () => 0,
     getWsServer: () => null,
     queryAudit: () => [],

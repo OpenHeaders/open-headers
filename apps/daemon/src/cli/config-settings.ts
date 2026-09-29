@@ -2,8 +2,11 @@
  * `ohd config set / get / list` — the headless settings surface.
  * A whitelisted window onto the `oh.settings.user` record inside the
  * daemon's `storage.json`, NOT a generic storage editor: only the MCP
- * switches and the unattended auto-update opt-in are exposed (all
- * default-off), and unknown keys refuse with the whitelist printed.
+ * switches, the unattended auto-update opt-in and the peer-execute
+ * remote switch are exposed (each with its engine default beside it —
+ * the peer-execute switch is the one default-ON key: a standalone
+ * server serves its admitted users until an operator says otherwise),
+ * and unknown keys refuse with the whitelist printed.
  * Bind/proxy/web-root live in `daemon.json` and stay with the config
  * chain.
  *
@@ -28,9 +31,21 @@ export const DAEMON_SETTING_KEYS = [
   'mcp.allowExecute',
   'mcp.allowSecrets',
   'updates.autoUpdate',
+  'backend.allowRemotePeerExecute',
 ] as const;
 
 export type DaemonSettingKey = (typeof DAEMON_SETTING_KEYS)[number];
+
+/** What the engine reads while the slot is absent — `list` / `get` print it beside "(default)". */
+export const DAEMON_SETTING_DEFAULTS: Record<DaemonSettingKey, boolean> = {
+  'mcp.enabled': false,
+  'mcp.allowObserve': false,
+  'mcp.allowWrite': false,
+  'mcp.allowExecute': false,
+  'mcp.allowSecrets': false,
+  'updates.autoUpdate': false,
+  'backend.allowRemotePeerExecute': true,
+};
 
 export function parseDaemonSettingKey(raw: string): DaemonSettingKey {
   if ((DAEMON_SETTING_KEYS as readonly string[]).includes(raw)) return raw as DaemonSettingKey;
@@ -59,7 +74,7 @@ export async function setDaemonSetting(config: DaemonConfig, key: DaemonSettingK
   await storage.set(OH.settingsUser, { ...settings, [key]: value });
 }
 
-/** Every whitelisted key with its stored value; absent = engine default (off). */
+/** Every whitelisted key with its stored value; absent = the engine default (`DAEMON_SETTING_DEFAULTS`). */
 export async function readDaemonSettings(config: DaemonConfig): Promise<Record<DaemonSettingKey, boolean | undefined>> {
   const settings = (await openStorage(config).get(OH.settingsUser)) ?? {};
   const out = {} as Record<DaemonSettingKey, boolean | undefined>;

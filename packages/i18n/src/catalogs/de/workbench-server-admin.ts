@@ -34,7 +34,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': 'Audit',
   'workbench.serverAdmin.panel.auditHint': 'Das Audit-Protokoll des Servers abfragen',
   'workbench.serverAdmin.panel.server': 'Server',
-  'workbench.serverAdmin.panel.serverHint': 'Build, Version und Release Notes',
+  'workbench.serverAdmin.panel.serverHint': 'Anfragen von Geräten, Build, Version und Release Notes',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
@@ -44,6 +44,16 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionTitle': 'Versionshinweise',
   'workbench.serverAdmin.notes.sectionHint': 'Was im Server-Build enthalten ist, das diese Konsole verwaltet.',
   'workbench.serverAdmin.notes.empty': 'Dieser Build enthält keine Versionshinweise.',
+  'workbench.serverAdmin.requests.sectionTitle': 'Anfragen von Geräten',
+  'workbench.serverAdmin.requests.sectionHint':
+    'Ob Geräte, die diesem Server beigetreten sind, ihre Anfragen darauf ausführen dürfen.',
+  'workbench.serverAdmin.requests.allowLabel':
+    'Verbundenen Geräten das Ausführen von Anfragen auf diesem Server erlauben',
+  'workbench.serverAdmin.requests.allowDescription':
+    'Eine von einem beigetretenen Gerät gesendete Anfrage wird zuerst dort ausgefüllt, dann öffnet dieser Server die Verbindung mit seinem eigenen Netzwerkzugang und seiner Adresse. Standardmäßig eingeschaltet; jedes Senden braucht weiterhin Schreibzugriff auf den Arbeitsbereich. Ausgeschaltet wird jedes solche Senden abgewiesen, bis es wieder eingeschaltet ist.',
+  'workbench.serverAdmin.requests.enabledDone': 'Anfragen von Geräten eingeschaltet.',
+  'workbench.serverAdmin.requests.disabledDone': 'Anfragen von Geräten ausgeschaltet.',
+  'workbench.serverAdmin.requests.updateFailed': 'Einstellung konnte nicht geändert werden: {message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Benutzer',

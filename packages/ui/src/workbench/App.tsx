@@ -125,6 +125,7 @@ import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { subscribeGitPanelReveal } from './data/git-panel-reveal';
 import { takeServerAdminLanding } from './data/server-admin-landing';
+import { subscribeServerAdminReveal } from './data/server-admin-reveal';
 import { subscribeSettingsReveal } from './data/settings-reveal';
 import { subscribeSpecsSectionReveal } from './data/specs-section-reveal';
 import { subscribeTrafficStorageReveal } from './data/traffic-storage-reveal';
@@ -263,7 +264,10 @@ const WorkbenchTabAware: React.FC<{
                     <LiveWorkflowsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
                       <RequestsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
                         <FilesProvider activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                          <OAuthBundlesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                          <OAuthBundlesProvider
+                            surfaceId="workbench"
+                            activeWorkspaceIdOverride={editingScopeWorkspaceId}
+                          >
                             <InspectorNavProvider>
                               <WorkbenchShell layout={layout} perTab={perTab} />
                             </InspectorNavProvider>
@@ -823,6 +827,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // In-page settings intents (the place picker's Open Backup and Sync)
   // — the same opener, no bridge hop.
   useEffect(() => subscribeSettingsReveal((target) => openSettings(target)), [openSettings]);
+
+  // A live reveal of an administration domain (the peer-execute
+  // refusal's Open Server Admin): the domain's tab plus the nav window
+  // fronted, the post-claim landing's own three steps.
+  useEffect(
+    () =>
+      subscribeServerAdminReveal((section) => {
+        openServerAdmin(section);
+        if (tl.state.hidden.includes('server-admin')) tl.restoreWindow('server-admin');
+        tl.activateWindow('server-admin');
+      }),
+    [openServerAdmin, tl],
+  );
 
   // Host-shell navigation: the desktop Window menu's "Next Tab" /
   // "Previous Tab" items drive the same focused-leaf cycling as the

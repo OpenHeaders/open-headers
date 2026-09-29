@@ -463,6 +463,10 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     '从其他设备发送请求已在所连接的主机上关闭。请在那台机器的 备份与同步 › 你的设备 中启用“允许其他已连接设备发送请求”。',
   'shared.peerExecute.enableCta': '在桌面应用中启用',
+  'shared.peerExecute.serverDisabled':
+    '为已连接设备运行请求已在 {place} 上关闭。服务器管理员可在 服务器管理 › 服务器 中开启。',
+  'shared.peerExecute.openServerAdmin': '打开服务器管理',
+  'shared.peerExecute.openPlace': '打开 {place}',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
   // ── Execution place (the place button after Save) ───────────────────

@@ -50,13 +50,16 @@ import type { OracleWsServer, WsPeerRpcContext, WsPeerRpcHooks } from '../host-r
 import { createNodeMqttTransport } from '../live/node-mqtt-transport';
 import { createNodeWsTransport } from '../live/node-ws-transport';
 import { hostDisplayLabel } from './host-os';
-import { assertPeerExecuteAllowed } from './peer-execute-opt-in';
+import { defaultPeerExecuteOptIn, type PeerExecuteOptIn } from './peer-execute-opt-in';
 import { getWsPeerServer } from './ws-peer-slot';
 
 export interface DelegatedSocketsRpcOptions {
   /** Injectable for tests; default the node transports. */
   wsTransport?: WsTransport;
   mqttTransport?: MqttByteTransport;
+  /** The egress opt-in gate — the spine composes one per host posture;
+   *  absent (test rigs) the desktop's remote-off default. */
+  peerExecute?: PeerExecuteOptIn;
 }
 
 type OpenSocket =
@@ -76,6 +79,7 @@ function socketEventSink(userId: string): (event: DelegatedSocketEvent) => void 
 export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = {}): WsPeerRpcHooks {
   const wsTransport = options.wsTransport ?? createNodeWsTransport();
   const mqttTransport = options.mqttTransport ?? createNodeMqttTransport();
+  const peerExecute = options.peerExecute ?? defaultPeerExecuteOptIn();
   const sockets = new Map<string, OpenSocket>();
   // A user's sockets die with their last peer — subscribed once per
   // server instance (a bind swap mints a new server).
@@ -98,7 +102,7 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
   }
 
   async function gate(message: Record<string, unknown>, peer: WsPeerRpcContext): Promise<string> {
-    await assertPeerExecuteAllowed(peer);
+    await peerExecute.assert(peer);
     const workspaceId =
       typeof message.workspaceId === 'string' && message.workspaceId !== '' ? message.workspaceId : null;
     if (workspaceId === null) throw new Error(DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE);

@@ -487,6 +487,13 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     'Sending from other devices is turned off on the connected host. Enable "Allow other connected devices to send requests" in its Backup and Sync › Your devices on that machine.',
   'shared.peerExecute.enableCta': 'Enable in the desktop app',
+  // The remote tier answered by a standalone server — its switch lives
+  // in the admin console; the served tab opens it in place, every
+  // other host offers the server's page.
+  'shared.peerExecute.serverDisabled':
+    'Running requests for connected devices is turned off on {place}. A server admin can turn it on under Server Admin › Server.',
+  'shared.peerExecute.openServerAdmin': 'Open Server Admin',
+  'shared.peerExecute.openPlace': 'Open {place}',
   // ── Execution place (the place button after Save) ───────────────────
   'shared.executionPlace.info': 'Where this request runs',
   'shared.executionPlace.tip.localBrowser': 'Runs locally: in this browser extension',

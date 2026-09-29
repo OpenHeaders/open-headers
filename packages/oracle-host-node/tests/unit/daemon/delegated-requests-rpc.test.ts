@@ -51,6 +51,7 @@ import {
   type TransportStreamObserver,
 } from '@openheaders/oracle/live/request-exec/transport';
 import { createDelegatedRequestsRpc } from '../../../src/daemon/delegated-requests-rpc';
+import { createPeerExecuteOptIn } from '../../../src/daemon/peer-execute-opt-in';
 import { setWsPeerServer } from '../../../src/daemon/ws-peer-slot';
 import type { OracleWsServer, PeerSummary } from '../../../src/host-runtime/ws-server';
 
@@ -159,6 +160,16 @@ describe('createDelegatedRequestsRpc — the gate', () => {
     await expect(rpc.dispatch(frame(), LOOPBACK_PEER)).resolves.toMatchObject({ success: true });
     h.settings = { 'backend.allowLocalPeerExecute': false };
     await expect(rpc.dispatch(frame(), LOOPBACK_PEER)).rejects.toThrow(LOCAL_PEER_EXECUTE_DISABLED_MESSAGE);
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it('a server-posture gate allows a remote peer on an empty record and refuses it once the record says off', async () => {
+    h.settings = {};
+    const transport = fakeTransport(async () => RESPONSE);
+    const rpc = createDelegatedRequestsRpc({ transport, peerExecute: createPeerExecuteOptIn({ remoteDefault: true }) });
+    await expect(rpc.dispatch(frame(), PEER)).resolves.toMatchObject({ success: true });
+    h.settings = { 'backend.allowRemotePeerExecute': false };
+    await expect(rpc.dispatch(frame(), PEER)).rejects.toThrow(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
     expect(transport.calls).toHaveLength(1);
   });
 

@@ -35,7 +35,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': '監査',
   'workbench.serverAdmin.panel.auditHint': 'サーバーの監査証跡を照会',
   'workbench.serverAdmin.panel.server': 'サーバー',
-  'workbench.serverAdmin.panel.serverHint': 'ビルド、バージョン、リリースノート',
+  'workbench.serverAdmin.panel.serverHint': 'デバイスからのリクエスト、ビルド、バージョン、リリースノート',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'ビルド',
@@ -45,6 +45,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionTitle': 'リリースノート',
   'workbench.serverAdmin.notes.sectionHint': 'このコンソールが管理するサーバービルドで出荷されたもの。',
   'workbench.serverAdmin.notes.empty': 'このビルドにはリリースノートが含まれていません。',
+  'workbench.serverAdmin.requests.sectionTitle': 'デバイスからのリクエスト',
+  'workbench.serverAdmin.requests.sectionHint':
+    'このサーバーに参加したデバイスが、リクエストをこのサーバーで実行できるかどうか。',
+  'workbench.serverAdmin.requests.allowLabel': '接続中のデバイスにこのサーバーでのリクエスト実行を許可',
+  'workbench.serverAdmin.requests.allowDescription':
+    '参加したデバイスから送信されたリクエストは、まずそのデバイスで組み立てられ、次にこのサーバーが自身のネットワークアクセスとアドレスで接続を開きます。既定でオン。各送信には引き続きワークスペースへの書き込みアクセスが必要です。オフにすると、再びオンにするまでこの種の送信はすべて拒否されます。',
+  'workbench.serverAdmin.requests.enabledDone': 'デバイスからのリクエストをオンにしました。',
+  'workbench.serverAdmin.requests.disabledDone': 'デバイスからのリクエストをオフにしました。',
+  'workbench.serverAdmin.requests.updateFailed': '設定の変更に失敗しました：{message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'ユーザー',

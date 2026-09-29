@@ -492,6 +492,10 @@ export const sharedComponents = {
     'устройствам отправлять запросы» в его разделе «Резервное копирование и синхронизация › Ваши устройства» на ' +
     'той машине.',
   'shared.peerExecute.enableCta': 'Включить в настольном приложении',
+  'shared.peerExecute.serverDisabled':
+    'Выполнение запросов для подключённых устройств выключено на {place}. Администратор сервера может включить его в разделе «Администрирование сервера › Сервер».',
+  'shared.peerExecute.openServerAdmin': 'Открыть администрирование сервера',
+  'shared.peerExecute.openPlace': 'Открыть {place}',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
   // ── Execution place (the place button after Save) ───────────────────

@@ -33,7 +33,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': 'Audit',
   'workbench.serverAdmin.panel.auditHint': "Query the server's audit trail",
   'workbench.serverAdmin.panel.server': 'Server',
-  'workbench.serverAdmin.panel.serverHint': 'Build, version, and release notes',
+  'workbench.serverAdmin.panel.serverHint': 'Requests from devices, build, version, and release notes',
 
   // ── Server build section ───────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
@@ -43,6 +43,16 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionTitle': 'Release notes',
   'workbench.serverAdmin.notes.sectionHint': 'What shipped in the server build this console administers.',
   'workbench.serverAdmin.notes.empty': 'This build ships no release notes.',
+  // The Server domain's switch — the egress opt-in's remote tier, on by
+  // default on a standalone server; the desktop app keeps its own rows.
+  'workbench.serverAdmin.requests.sectionTitle': 'Requests from devices',
+  'workbench.serverAdmin.requests.sectionHint': 'Whether devices that joined this server may run their requests on it.',
+  'workbench.serverAdmin.requests.allowLabel': 'Let connected devices run requests on this server',
+  'workbench.serverAdmin.requests.allowDescription':
+    'A request sent from a joined device is filled in there first, then this server opens the connection with its own network access and address. On by default; each send still needs write access to the workspace. Off refuses every such send until it is on again.',
+  'workbench.serverAdmin.requests.enabledDone': 'Requests from devices turned on.',
+  'workbench.serverAdmin.requests.disabledDone': 'Requests from devices turned off.',
+  'workbench.serverAdmin.requests.updateFailed': 'Failed to change the setting: {message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Users',

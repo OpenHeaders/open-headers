@@ -49,7 +49,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': 'Аудит',
   'workbench.serverAdmin.panel.auditHint': 'Запросы к журналу аудита сервера',
   'workbench.serverAdmin.panel.server': 'Сервер',
-  'workbench.serverAdmin.panel.serverHint': 'Сборка, версия и примечания к выпуску',
+  'workbench.serverAdmin.panel.serverHint': 'Запросы с устройств, сборка, версия и примечания к выпуску',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Сборка',
@@ -59,6 +59,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionTitle': 'Примечания к выпуску',
   'workbench.serverAdmin.notes.sectionHint': 'Что вошло в сборку сервера, которым управляет эта консоль.',
   'workbench.serverAdmin.notes.empty': 'В этой сборке нет примечаний к выпуску.',
+  'workbench.serverAdmin.requests.sectionTitle': 'Запросы с устройств',
+  'workbench.serverAdmin.requests.sectionHint':
+    'Могут ли устройства, присоединённые к этому серверу, выполнять на нём свои запросы.',
+  'workbench.serverAdmin.requests.allowLabel': 'Разрешить подключённым устройствам выполнять запросы на этом сервере',
+  'workbench.serverAdmin.requests.allowDescription':
+    'Запрос, отправленный с присоединённого устройства, сначала заполняется на нём, затем этот сервер открывает соединение со своим сетевым доступом и адресом. Включено по умолчанию; каждая отправка по-прежнему требует права записи в рабочее пространство. В выключенном состоянии каждая такая отправка отклоняется, пока параметр не включат снова.',
+  'workbench.serverAdmin.requests.enabledDone': 'Запросы с устройств включены.',
+  'workbench.serverAdmin.requests.disabledDone': 'Запросы с устройств выключены.',
+  'workbench.serverAdmin.requests.updateFailed': 'Не удалось изменить параметр: {message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Пользователи',

@@ -502,6 +502,10 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     'Trimiterea de pe alte dispozitive este dezactivată pe gazda conectată. Activați „Permiteți altor dispozitive conectate să trimită cereri” în Copie de rezervă și sincronizare › Dispozitivele dvs. de pe acel computer.',
   'shared.peerExecute.enableCta': 'Activare în aplicația desktop',
+  'shared.peerExecute.serverDisabled':
+    'Rularea cererilor pentru dispozitivele conectate este dezactivată pe {place}. Un administrator al serverului o poate activa în Administrare server › Server.',
+  'shared.peerExecute.openServerAdmin': 'Deschidere Administrare server',
+  'shared.peerExecute.openPlace': 'Deschidere {place}',
   // ── Execution place (the place button after Save) ───────────────────
   'shared.executionPlace.info': 'Unde rulează această solicitare',
   'shared.executionPlace.tip.localBrowser': 'Rulează local: în această extensie de browser',

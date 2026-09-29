@@ -460,6 +460,10 @@ export const sharedComponents = {
     "L'envoi depuis d'autres appareils est désactivé sur l'hôte connecté. Activez « Autoriser les autres " +
     'appareils connectés à envoyer des requêtes » dans Sauvegarde et synchronisation › Vos appareils sur cette machine.',
   'shared.peerExecute.enableCta': "Activer dans l'application de bureau",
+  'shared.peerExecute.serverDisabled':
+    "L'exécution des requêtes des appareils connectés est désactivée sur {place}. Un admin du serveur peut l'activer dans Admin du serveur › Serveur.",
+  'shared.peerExecute.openServerAdmin': "Ouvrir l'admin du serveur",
+  'shared.peerExecute.openPlace': 'Ouvrir {place}',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
   // ── Execution place (the place button after Save) ───────────────────

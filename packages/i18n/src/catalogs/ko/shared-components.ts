@@ -443,6 +443,10 @@ export const sharedComponents = {
   'shared.peerExecute.remoteDisabled':
     '다른 기기에서 보내기가 연결된 호스트에서 꺼져 있습니다. 해당 컴퓨터의 백업 및 동기화 › 내 기기에서 “연결된 다른 기기가 요청을 보내도록 허용”을 활성화하세요.',
   'shared.peerExecute.enableCta': '데스크톱 앱에서 활성화',
+  'shared.peerExecute.serverDisabled':
+    '연결된 기기의 요청 실행이 {place}에서 꺼져 있습니다. 서버 관리자는 서버 관리 › 서버에서 켤 수 있습니다.',
+  'shared.peerExecute.openServerAdmin': '서버 관리 열기',
+  'shared.peerExecute.openPlace': '{place} 열기',
   // ── Execution place (the place button after Save) ───────────────────
   'shared.executionPlace.info': '이 요청의 실행 위치',
   'shared.executionPlace.tip.localBrowser': '로컬에서 실행: 이 브라우저 확장 프로그램에서',

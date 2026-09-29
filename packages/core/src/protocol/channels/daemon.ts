@@ -69,6 +69,23 @@ export interface DaemonRpc {
     res: { version: string | null; notes: string | null };
   };
 
+  /**
+   * The egress opt-in's remote tier — whether devices on other machines
+   * may run their requests on this host (`backend.allowRemotePeerExecute`).
+   * `get` answers the effective value (the record's, else the host's
+   * default: on for a standalone server, off for the desktop app);
+   * `set` writes the record. The admin console's Server tab is the
+   * door; `ohd config set` is the headless one.
+   */
+  'oh.daemon.peerExecute.get': {
+    req: Record<string, never>;
+    res: { remote: boolean };
+  };
+  'oh.daemon.peerExecute.set': {
+    req: { remote: boolean };
+    res: { ok: true } | { ok: false; error: string };
+  };
+
   // ── Daemon device-flow pairing (U3.3) ──────────────────────────
   //
   // Admin-only surface for issuing a short-lived pairing code that a

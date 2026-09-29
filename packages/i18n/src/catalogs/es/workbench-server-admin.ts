@@ -34,7 +34,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': 'Auditoría',
   'workbench.serverAdmin.panel.auditHint': 'Consultar el registro de auditoría del servidor',
   'workbench.serverAdmin.panel.server': 'Servidor',
-  'workbench.serverAdmin.panel.serverHint': 'Build, versión y notas de la versión',
+  'workbench.serverAdmin.panel.serverHint': 'Solicitudes de dispositivos, build, versión y notas de la versión',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
@@ -44,6 +44,16 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionTitle': 'Notas de la versión',
   'workbench.serverAdmin.notes.sectionHint': 'Lo que incluye el build del servidor que administra esta consola.',
   'workbench.serverAdmin.notes.empty': 'Este build no incluye notas de la versión.',
+  'workbench.serverAdmin.requests.sectionTitle': 'Solicitudes de dispositivos',
+  'workbench.serverAdmin.requests.sectionHint':
+    'Si los dispositivos unidos a este servidor pueden ejecutar sus solicitudes en él.',
+  'workbench.serverAdmin.requests.allowLabel':
+    'Permitir que los dispositivos conectados ejecuten solicitudes en este servidor',
+  'workbench.serverAdmin.requests.allowDescription':
+    'Una solicitud enviada desde un dispositivo unido se prepara primero allí y luego este servidor abre la conexión con su propio acceso de red y su propia dirección. Activado de forma predeterminada; cada envío sigue necesitando acceso de escritura al espacio de trabajo. Desactivado, cada envío de este tipo se rechaza hasta volver a activarlo.',
+  'workbench.serverAdmin.requests.enabledDone': 'Solicitudes de dispositivos activadas.',
+  'workbench.serverAdmin.requests.disabledDone': 'Solicitudes de dispositivos desactivadas.',
+  'workbench.serverAdmin.requests.updateFailed': 'No se pudo cambiar el ajuste: {message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Usuarios',

@@ -463,6 +463,10 @@ export const sharedComponents = {
     'El envío desde otros dispositivos está desactivado en el host conectado. Activa «Permitir que otros ' +
     'dispositivos conectados envíen solicitudes» en su Copia de seguridad y sincronización › Tus dispositivos en esa máquina.',
   'shared.peerExecute.enableCta': 'Activar en la aplicación de escritorio',
+  'shared.peerExecute.serverDisabled':
+    'La ejecución de solicitudes de dispositivos conectados está desactivada en {place}. Un admin del servidor puede activarla en Admin del servidor › Servidor.',
+  'shared.peerExecute.openServerAdmin': 'Abrir Admin del servidor',
+  'shared.peerExecute.openPlace': 'Abrir {place}',
 
   // ── Desktop teaser ─────────────────────────────────────────────────
   // ── Execution place (the place button after Save) ───────────────────

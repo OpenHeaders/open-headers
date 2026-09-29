@@ -9,6 +9,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  DAEMON_SETTING_DEFAULTS,
   DAEMON_SETTING_KEYS,
   parseDaemonSettingKey,
   parseDaemonSettingValue,
@@ -118,6 +119,20 @@ describe('setDaemonSetting / readDaemonSettings', () => {
     for (const key of DAEMON_SETTING_KEYS) {
       expect(settings[key]).toBeUndefined();
     }
+  });
+
+  it('names every key’s engine default — the peer-execute remote switch is the one default-on key', () => {
+    expect(Object.keys(DAEMON_SETTING_DEFAULTS).sort()).toEqual([...DAEMON_SETTING_KEYS].sort());
+    for (const key of DAEMON_SETTING_KEYS) {
+      expect(DAEMON_SETTING_DEFAULTS[key]).toBe(key === 'backend.allowRemotePeerExecute');
+    }
+  });
+
+  it('writes the peer-execute remote switch like any whitelisted key', async () => {
+    const config = makeConfig();
+    await setDaemonSetting(config, parseDaemonSettingKey('backend.allowRemotePeerExecute'), false);
+    expect(readSettingsSlot(config.dataDir)['backend.allowRemotePeerExecute']).toBe(false);
+    expect((await readDaemonSettings(config))['backend.allowRemotePeerExecute']).toBe(false);
   });
 
   it('ignores non-boolean junk in a whitelisted slot', async () => {

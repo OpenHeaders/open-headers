@@ -132,7 +132,10 @@ ohd config list
 ```
 
 Settable keys: `mcp.enabled`, `mcp.allowObserve`, `mcp.allowWrite`,
-`mcp.allowExecute`, `mcp.allowSecrets`, `updates.autoUpdate`. Bind and
+`mcp.allowExecute`, `mcp.allowSecrets`, `updates.autoUpdate`, and
+`backend.allowRemotePeerExecute` — whether devices that joined the
+server may run their requests on it (on by default; the same switch
+sits under **Server Admin › Server**). Bind and
 network options are **not** settings — they persist through the
 `ohd install` flags above. `config set` refuses while the daemon runs
 (`storage.json` is single-writer); a running daemon takes settings

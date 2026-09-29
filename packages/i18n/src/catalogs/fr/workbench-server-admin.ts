@@ -32,7 +32,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': 'Audit',
   'workbench.serverAdmin.panel.auditHint': "Interroger le journal d'audit du serveur",
   'workbench.serverAdmin.panel.server': 'Serveur',
-  'workbench.serverAdmin.panel.serverHint': 'Build, version et notes de version',
+  'workbench.serverAdmin.panel.serverHint': 'Requêtes des appareils, build, version et notes de version',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': 'Build',
@@ -43,6 +43,16 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionHint':
     'Ce qui a été livré dans le build du serveur administré par cette console.',
   'workbench.serverAdmin.notes.empty': 'Ce build ne contient aucune note de version.',
+  'workbench.serverAdmin.requests.sectionTitle': 'Requêtes des appareils',
+  'workbench.serverAdmin.requests.sectionHint':
+    'Si les appareils ayant rejoint ce serveur peuvent y exécuter leurs requêtes.',
+  'workbench.serverAdmin.requests.allowLabel':
+    'Autoriser les appareils connectés à exécuter des requêtes sur ce serveur',
+  'workbench.serverAdmin.requests.allowDescription':
+    "Une requête envoyée depuis un appareil ayant rejoint le serveur y est d'abord préparée, puis ce serveur ouvre la connexion avec son propre accès réseau et sa propre adresse. Activé par défaut ; chaque envoi exige toujours l'accès en écriture à l'espace de travail. Désactivé, chaque envoi de ce type est refusé jusqu'à la réactivation.",
+  'workbench.serverAdmin.requests.enabledDone': 'Requêtes des appareils activées.',
+  'workbench.serverAdmin.requests.disabledDone': 'Requêtes des appareils désactivées.',
+  'workbench.serverAdmin.requests.updateFailed': 'Échec de la modification du réglage : {message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': 'Utilisateurs',

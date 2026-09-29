@@ -40,7 +40,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': '감사',
   'workbench.serverAdmin.panel.auditHint': '서버의 감사 추적 조회',
   'workbench.serverAdmin.panel.server': '서버',
-  'workbench.serverAdmin.panel.serverHint': '빌드, 버전, 릴리스 노트',
+  'workbench.serverAdmin.panel.serverHint': '기기의 요청, 빌드, 버전, 릴리스 노트',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': '빌드',
@@ -50,6 +50,15 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionTitle': '릴리스 노트',
   'workbench.serverAdmin.notes.sectionHint': '이 콘솔이 관리하는 서버 빌드에 무엇이 실렸는지.',
   'workbench.serverAdmin.notes.empty': '이 빌드에는 릴리스 노트가 없습니다.',
+  'workbench.serverAdmin.requests.sectionTitle': '기기의 요청',
+  'workbench.serverAdmin.requests.sectionHint':
+    '이 서버에 참여한 기기가 요청을 이 서버에서 실행할 수 있는지 여부입니다.',
+  'workbench.serverAdmin.requests.allowLabel': '연결된 기기가 이 서버에서 요청을 실행하도록 허용',
+  'workbench.serverAdmin.requests.allowDescription':
+    '참여한 기기에서 보낸 요청은 먼저 그 기기에서 채워진 뒤, 이 서버가 자체 네트워크 접근과 주소로 연결을 엽니다. 기본값은 켜짐입니다. 각 전송에는 여전히 워크스페이스 쓰기 권한이 필요합니다. 끄면 다시 켤 때까지 이런 전송을 모두 거부합니다.',
+  'workbench.serverAdmin.requests.enabledDone': '기기의 요청을 켰습니다.',
+  'workbench.serverAdmin.requests.disabledDone': '기기의 요청을 껐습니다.',
+  'workbench.serverAdmin.requests.updateFailed': '설정을 바꾸지 못했습니다: {message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': '사용자',

@@ -46,7 +46,7 @@ import { type RequestTransport, TransportError } from '@openheaders/oracle/live/
 import type { WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import { hostDisplayLabel } from './host-os';
-import { assertPeerExecuteAllowed } from './peer-execute-opt-in';
+import { defaultPeerExecuteOptIn, type PeerExecuteOptIn } from './peer-execute-opt-in';
 import { peerStreamFrameSink } from './peer-stream-sinks';
 
 export interface DelegatedRequestsRpcOptions {
@@ -54,16 +54,20 @@ export interface DelegatedRequestsRpcOptions {
    *  dispatcher cache is module-global, so this instance shares every
    *  agent tuple with the context family's). */
   transport?: RequestTransport;
+  /** The egress opt-in gate — the spine composes one per host posture;
+   *  absent (test rigs) the desktop's remote-off default. */
+  peerExecute?: PeerExecuteOptIn;
 }
 
 export function createDelegatedRequestsRpc(options: DelegatedRequestsRpcOptions = {}): WsPeerRpcHooks {
   const transport = options.transport ?? createNodeRequestTransport();
+  const peerExecute = options.peerExecute ?? defaultPeerExecuteOptIn();
   return {
     owns(type: string): boolean {
       return type === DELEGATE_REQUEST_CHANNEL;
     },
     async dispatch(message: Record<string, unknown>, peer: WsPeerRpcContext): Promise<DelegatedRequestResult> {
-      await assertPeerExecuteAllowed(peer);
+      await peerExecute.assert(peer);
       const workspaceId =
         typeof message.workspaceId === 'string' && message.workspaceId !== '' ? message.workspaceId : null;
       if (workspaceId === null) throw new Error(DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE);

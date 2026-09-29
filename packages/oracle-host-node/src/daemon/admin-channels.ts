@@ -49,6 +49,7 @@ import { retractWorkspaceRowsFromUserPeers } from './grant-workspace-retract';
 import { listLanIpv4Addresses } from './lan-addresses';
 import type { LicenseSlotHandle } from './license-slot';
 import { hashPassword, PASSWORD_MIN_LENGTH } from './password/password-verifier';
+import type { PeerExecuteOptIn } from './peer-execute-opt-in';
 import type { ProxyCaptureControl } from './proxy/proxy-capture-service';
 import type { ProxyTrustService } from './proxy/proxy-trust';
 import type { ProxyRoutingControl } from './proxy/routing-push';
@@ -79,6 +80,12 @@ export interface AdminChannelDeps {
    * answer an honest nothing instead of failing construction.
    */
   changelog?: { version: string; notes: string | null };
+  /**
+   * The `oh.daemon.peerExecute.*` backing — the egress opt-in's remote
+   * tier (sends other devices ask this host to make), read as its
+   * effective value and written to the settings record.
+   */
+  peerExecute: Pick<PeerExecuteOptIn, 'read' | 'setRemote'>;
   /** Live server slot — null until the supervisor's first bind resolves. */
   getWsServer(): OracleWsServer | null;
   /**
@@ -223,6 +230,18 @@ export function createAdminChannelHandlers(deps: AdminChannelDeps): ReadonlyMap<
     version: deps.changelog?.version ?? null,
     notes: deps.changelog?.notes ?? null,
   }));
+
+  // The egress opt-in's remote tier — the operator's switch for sends
+  // other devices ask this host to make. Read = the effective value
+  // (the record's, else the host's default); set = the record.
+  handlers.set('oh.daemon.peerExecute.get', async () => await deps.peerExecute.read());
+
+  handlers.set('oh.daemon.peerExecute.set', async (message) => {
+    if (typeof message.remote !== 'boolean') return { ok: false, error: 'remote must be a boolean' };
+    await deps.peerExecute.setRemote(message.remote);
+    hostLogger.info(`[PeerExecute] requests from other devices ${message.remote ? 'allowed' : 'refused'} by an admin`);
+    return { ok: true };
+  });
 
   handlers.set('oh.daemon.pairing.start', (message) => {
     try {

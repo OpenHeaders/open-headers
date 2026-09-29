@@ -49,7 +49,7 @@ import { handleExecuteGraphqlRequestRpc } from './execute-graphql-request-rpc';
 import { type ExecuteGrpcRequestRpcResult, handleExecuteGrpcRequestRpc } from './execute-grpc-request-rpc';
 import { type ExecuteRequestRpcResult, handleExecuteRequestRpc } from './execute-request-rpc';
 import { hostDisplayLabel } from './host-os';
-import { assertPeerExecuteAllowed } from './peer-execute-opt-in';
+import { defaultPeerExecuteOptIn, type PeerExecuteOptIn } from './peer-execute-opt-in';
 import { peerGrpcStreamFrameSink, peerStreamFrameSink } from './peer-stream-sinks';
 import { getHostScriptCapability } from './script-capability';
 
@@ -99,9 +99,13 @@ export interface PeerRequestsRpcOptions {
    * `{ state: null }` — unknown, never a fabricated state.
    */
   cliStatus?: () => Promise<CliProvisionStatus>;
+  /** The egress opt-in gate — the spine composes one per host posture;
+   *  absent (test rigs) the desktop's remote-off default. */
+  peerExecute?: PeerExecuteOptIn;
 }
 
 export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsPeerRpcHooks {
+  const peerExecute = options.peerExecute ?? defaultPeerExecuteOptIn();
   const executeRequest =
     options.executeRequest ??
     ((message: Record<string, unknown>, emitStreamFrame: (event: RequestStreamEventWire) => void) =>
@@ -173,7 +177,7 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
       // loopback fact picks which opt-in governs and which refusal
       // names it.
       if (type === 'executeRequest' || type === 'executeGraphqlRequest' || type === 'executeGrpcRequest') {
-        await assertPeerExecuteAllowed(peer);
+        await peerExecute.assert(peer);
       }
 
       // Capability tier — the target workspace is the one the frame

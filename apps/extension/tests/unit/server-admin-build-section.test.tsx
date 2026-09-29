@@ -6,9 +6,11 @@
  * release-notes card, never a blank surface.
  */
 
+import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import ServerAdminTab from '@openheaders/ui/workbench/components/server-admin/ServerAdminTab';
 import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { App as AntApp } from 'antd';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall, mockSubscribe } = vi.hoisted(() => ({
@@ -24,13 +26,23 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
   };
 });
 
+/** The server's switch state the rig answers — flipped by the set channel like the daemon's record. */
+let remote = true;
+const setCalls: boolean[] = [];
+
 function answerChangelog(resp: { version: string | null; notes: string | null }): void {
-  mockCall.mockImplementation((channel: string) => {
+  mockCall.mockImplementation((channel: string, payload?: { remote?: boolean }) => {
     switch (channel) {
       case 'oh.daemon.admin.status':
         return Promise.resolve({ admin: true });
       case 'oh.daemon.changelog.get':
         return Promise.resolve(resp);
+      case 'oh.daemon.peerExecute.get':
+        return Promise.resolve({ remote });
+      case 'oh.daemon.peerExecute.set':
+        setCalls.push(payload?.remote === true);
+        remote = payload?.remote === true;
+        return Promise.resolve({ ok: true });
       default:
         return Promise.resolve({});
     }
@@ -38,6 +50,9 @@ function answerChangelog(resp: { version: string | null; notes: string | null })
 }
 
 beforeEach(() => {
+  setCurrentHost('web');
+  remote = true;
+  setCalls.length = 0;
   __resetServerAdminStatusForTests();
   mockCall.mockReset();
   mockSubscribe.mockReset();
@@ -70,5 +85,41 @@ describe('server-admin Server tab', () => {
     answerChangelog({ version: null, notes: null });
     render(<ServerAdminTab section="server" />);
     expect((await screen.findByTestId('server-admin-build-version')).textContent).toBe('Unknown');
+  });
+});
+
+describe('server-admin Server tab — requests from devices', () => {
+  it('reads the server’s effective switch ahead of the build and flips it through the set channel', async () => {
+    answerChangelog({ version: '2026.9.3', notes: null });
+    render(
+      <AntApp>
+        <ServerAdminTab section="server" />
+      </AntApp>,
+    );
+    const section = await screen.findByTestId('server-admin-requests');
+    expect(section.textContent).toContain('Let connected devices run requests on this server');
+    const build = screen.getByTestId('server-admin-build');
+    expect(section.compareDocumentPosition(build) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const toggle = screen.getByTestId('server-admin-requests-switch');
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'));
+    fireEvent.click(toggle);
+    await waitFor(() => expect(setCalls).toEqual([false]));
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'));
+  });
+
+  it('shows the switch off when the server says so', async () => {
+    remote = false;
+    answerChangelog({ version: '2026.9.3', notes: null });
+    render(<ServerAdminTab section="server" />);
+    const toggle = await screen.findByTestId('server-admin-requests-switch');
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'));
+  });
+
+  it('renders no requests section on the desktop app, whose own Settings rows are that door', async () => {
+    setCurrentHost('desktop');
+    answerChangelog({ version: '2026.9.3', notes: null });
+    render(<ServerAdminTab section="server" />);
+    await screen.findByTestId('server-admin-build');
+    expect(screen.queryByTestId('server-admin-requests')).toBeNull();
   });
 });

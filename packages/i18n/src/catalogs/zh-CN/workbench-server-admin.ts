@@ -34,7 +34,7 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.panel.audit': '审计',
   'workbench.serverAdmin.panel.auditHint': '查询服务器的审计日志',
   'workbench.serverAdmin.panel.server': '服务器',
-  'workbench.serverAdmin.panel.serverHint': '构建、版本与更新日志',
+  'workbench.serverAdmin.panel.serverHint': '来自设备的请求、构建、版本与更新日志',
 
   // ── Release-notes card ─────────────────────────────────────────────
   'workbench.serverAdmin.build.sectionTitle': '构建',
@@ -44,6 +44,14 @@ export const workbenchServerAdmin = {
   'workbench.serverAdmin.notes.sectionTitle': '版本说明',
   'workbench.serverAdmin.notes.sectionHint': '此控制台所管理服务器构建版本的更新内容。',
   'workbench.serverAdmin.notes.empty': '此构建版本未附带版本说明。',
+  'workbench.serverAdmin.requests.sectionTitle': '来自设备的请求',
+  'workbench.serverAdmin.requests.sectionHint': '已加入此服务器的设备能否在此服务器上运行其请求。',
+  'workbench.serverAdmin.requests.allowLabel': '允许已连接设备在此服务器上运行请求',
+  'workbench.serverAdmin.requests.allowDescription':
+    '从已加入设备发送的请求先在该设备上填充，然后由此服务器以自身的网络访问和地址打开连接。默认开启；每次发送仍需要工作区的写入权限。关闭后，此类发送一律拒绝，直到再次开启。',
+  'workbench.serverAdmin.requests.enabledDone': '已开启来自设备的请求。',
+  'workbench.serverAdmin.requests.disabledDone': '已关闭来自设备的请求。',
+  'workbench.serverAdmin.requests.updateFailed': '更改设置失败：{message}',
 
   // ── Users section ──────────────────────────────────────────────────
   'workbench.serverAdmin.users.sectionTitle': '用户',

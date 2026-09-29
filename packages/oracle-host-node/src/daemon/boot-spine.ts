@@ -204,6 +204,7 @@ import { createDaemonOidcService, type DaemonOidcService } from './oidc/oidc-ser
 import { createPasswordHttpHandler } from './password/password-http';
 import { createDaemonPasswordLoginService } from './password/password-login-service';
 import { createPeerAdminRpc } from './peer-admin-rpc';
+import { createPeerExecuteOptIn } from './peer-execute-opt-in';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
 import { createPeerWorkspaceLeaveRpc } from './peer-workspace-leave';
 import { createPeerWorkspaceMembersRpc } from './peer-workspace-members';
@@ -1033,8 +1034,17 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     closePeersByTokenId: (tokenId) => wsServer?.closePeersByTokenId(tokenId),
   });
 
+  // The egress opt-in for sends peers ask this host to make — the
+  // remote tier defaults ON on a standalone server (it serves its
+  // admitted users; every frame still passes admission and
+  // `workspace.write`) and OFF on the desktop app (egress from a
+  // personal machine on another device's behalf is the operator's
+  // call). The stored record overrides either.
+  const peerExecute = createPeerExecuteOptIn({ remoteDefault: config.identity.hostKind === 'daemon' });
+
   const adminChannels = createAdminChannelHandlers({
     pairing: pairingService,
+    peerExecute,
     getBoundPort: () => boundPort,
     getWsServer: () => wsServer,
     // This build's own release notes (`oh.daemon.changelog.get`) —
@@ -1654,9 +1664,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
       handshakeIdentity: config.handshakeIdentity,
       peerRpc: composePeerRpc(
         createPeerAdminRpc({ channels: adminChannels }),
-        createPeerRequestsRpc({ cliStatus: () => cliProvision.status() }),
-        createDelegatedRequestsRpc(),
-        createDelegatedSocketsRpc(),
+        createPeerRequestsRpc({ cliStatus: () => cliProvision.status(), peerExecute }),
+        createDelegatedRequestsRpc({ peerExecute }),
+        createDelegatedSocketsRpc({ peerExecute }),
         createPeerWorkspaceLeaveRpc({ getWsServer: () => wsServer }),
         createPeerWorkspaceMembersRpc({ getWsServer: () => wsServer }),
         createPeerWorkspacePublicRpc({ store: publishedSnapshots, publicWorkspacesEnabled }),
