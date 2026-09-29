@@ -213,6 +213,7 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.label': 'Cereri API',
   'workbench.settings.category.requests.description':
     'Trimiterea cererilor și tratarea răspunsurilor pentru fiecare protocol.',
+  'workbench.settings.category.requests.sub.execution': 'Unde rulează cererile',
   'workbench.settings.category.requests.sub.tls': 'TLS',
   'workbench.settings.category.requests.sub.http': 'HTTP',
   'workbench.settings.category.requests.sub.sse': 'SSE',

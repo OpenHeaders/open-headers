@@ -175,6 +175,7 @@ export const workbenchSettings = {
   'workbench.settings.category.codeEditor.sub.editing': '编辑',
   'workbench.settings.category.requests.label': 'API 请求',
   'workbench.settings.category.requests.description': 'HTTP 请求发送与响应处理。',
+  'workbench.settings.category.requests.sub.execution': '请求的运行位置',
   'workbench.settings.category.requests.sub.tls': 'TLS',
   'workbench.settings.category.requests.sub.http': 'HTTP',
   'workbench.settings.category.requests.sub.sse': 'SSE',

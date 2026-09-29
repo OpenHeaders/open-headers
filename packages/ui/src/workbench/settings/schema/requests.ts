@@ -66,7 +66,7 @@ registerSetting({
 // device cannot honour instead of honouring anything silently.
 registerSetting({
   key: 'requests.executionPlace',
-  subcategory: 'http',
+  subcategory: 'execution',
   type: 'enum',
   default: 'auto',
   schema: v.picklist(['auto', ...EXECUTION_PLACE_ROLES]),
@@ -107,7 +107,7 @@ registerSetting({
 // does not render there.
 registerSetting({
   key: 'requests.allowServerExecution',
-  subcategory: 'http',
+  subcategory: 'execution',
   type: 'boolean',
   default: true,
   schema: v.boolean(),

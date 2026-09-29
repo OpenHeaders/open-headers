@@ -451,6 +451,10 @@ registerCategory({
   // One section per request type, so each protocol's knobs read as a
   // block instead of one interleaved list.
   subcategories: [
+    // Where requests run comes first — the place decides which knobs
+    // below it are live (the request Settings tab's own order), and it
+    // applies to every kind, so it sits above the per-protocol blocks.
+    { id: 'execution', labelKey: 'workbench.settings.category.requests.sub.execution', order: 1 },
     { id: 'tls', labelKey: 'workbench.settings.category.requests.sub.tls', order: 5 },
     { id: 'http', labelKey: 'workbench.settings.category.requests.sub.http', order: 10 },
     { id: 'sse', labelKey: 'workbench.settings.category.requests.sub.sse', order: 20 },

@@ -186,6 +186,7 @@ export const workbenchSettings = {
   'workbench.settings.category.codeEditor.sub.editing': '편집',
   'workbench.settings.category.requests.label': 'API 요청',
   'workbench.settings.category.requests.description': '프로토콜별 요청 전송과 응답 처리입니다.',
+  'workbench.settings.category.requests.sub.execution': '요청 실행 위치',
   'workbench.settings.category.requests.sub.tls': 'TLS',
   'workbench.settings.category.requests.sub.http': 'HTTP',
   'workbench.settings.category.requests.sub.sse': 'SSE',

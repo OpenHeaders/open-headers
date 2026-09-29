@@ -197,6 +197,7 @@ export const workbenchSettings = {
   'workbench.settings.category.codeEditor.sub.editing': 'Édition',
   'workbench.settings.category.requests.label': 'Requêtes API',
   'workbench.settings.category.requests.description': 'Envoi des requêtes HTTP et traitement des réponses.',
+  'workbench.settings.category.requests.sub.execution': 'Où s’exécutent les requêtes',
   'workbench.settings.category.requests.sub.tls': 'TLS',
   'workbench.settings.category.requests.sub.http': 'HTTP',
   'workbench.settings.category.requests.sub.sse': 'SSE',
