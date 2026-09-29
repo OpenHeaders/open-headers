@@ -489,10 +489,6 @@ export const sharedComponents = {
     'Se ejecuta en la extensión a través del socket del navegador, en este equipo.',
   'shared.executionPlace.reason.contextSend':
     'Enviada por {place}, el back-end conectado, y resuelta allí. El destino ve la dirección y la ubicación de red de esa máquina.',
-  'shared.executionPlace.reason.companionInvoke':
-    'Las llamadas gRPC se reenvían a la aplicación de escritorio en este equipo — el navegador no tiene una pila HTTP/2 que exponga los trailers.',
-  'shared.executionPlace.reason.serverInvoke':
-    'Se ejecuta en {place}. Un navegador no puede hacer llamadas gRPC, así que la solicitud completada se envía a {place}, que realiza la llamada.',
   'shared.executionPlace.reason.companionRequired':
     'Conecta la aplicación de escritorio para invocar — componer y guardar funciona aquí.',
   'shared.executionPlace.reason.tcpScheme':

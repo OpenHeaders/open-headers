@@ -1,10 +1,11 @@
 /**
- * gRPC forwarded posture — the combined live-pass E-legs (E1–E8) as a
+ * gRPC delegated posture — the combined live-pass E-legs (E1–E8) as a
  * permanent gate, on the daemon-join harness: real Chromium with the
  * built extension, a spawned headless daemon joined as the workspace's
  * SERVER (the Execution Place plan: with no desktop app connected the
- * invoke runs on the workspace's server as a context send there — the
- * chip beside Invoke names it), and the real playground gRPC probe
+ * invoke runs DELEGATED on the workspace's server — the call resolved
+ * and encoded in the extension, the server opening the HTTP/2 session
+ * — the chip beside Invoke names it), and the real playground gRPC probe
  * (own tsx child on its own port, so a stale reused playground can't
  * skew the legs) plus a self-signed TLS terminator for the verify-off
  * leg.
@@ -27,11 +28,11 @@
  *       seeded-live-state law), the corner Send/End controls drive the
  *       FORWARDED stream by sendId, a strict-encode mismatch fails the
  *       rider alone (stream intact), and the echo/summary settle 0 OK.
- *   E9  script hooks run on the ANSWERING companion: a Before invoke
- *       slot's metadata rewrite reaches the wire (the probe's echo),
- *       the On message console and the After response assertion land
- *       in the forwarded snapshot's Scripts tab, the strip's tag
- *       counts the runs — the extension runs no page host for gRPC.
+ *   E9  script hooks run IN THE EXTENSION (the context): a Before
+ *       invoke slot's metadata rewrite reaches the wire through the
+ *       place (the probe's echo), the On message console and the After
+ *       response assertion land in the snapshot's Scripts tab, the
+ *       strip's tag counts the runs.
  *   E1  daemon gone → Invoke disables with the connect-the-desktop-app
  *       copy while composing stays usable.
  *
@@ -472,7 +473,7 @@ test('flipping backend.allowLocalPeerExecute on lets the same Invoke round-trip 
   // The gate reads the live connection — wait for the reconnect.
   await waitInvokeEnabled(true);
   // The place: the joined daemon is the workspace's server, named by
-  // its record's label; the invoke is a context send there.
+  // its record's label; the invoke is delegated there.
   const placeChip = page.getByTestId('execution-place-chip').filter({ visible: true }).first();
   await expect(placeChip).toHaveAttribute('aria-label', 'Runs remotely: on grpc e2e daemon');
   await expect(placeChip).toHaveAttribute('data-place', 'workspace-server');
@@ -639,9 +640,9 @@ test('bidi: a sent message echoes back through the forwarded stream', async () =
 
 // ── E1: no-companion affordance ─────────────────────────────────────
 
-// ── E9: script hooks on the answering companion ─────────────────────
+// ── E9: script hooks in the extension, the wire through the place ───
 
-test('script hooks run on the companion: the rewrite echoes back, the console and the assertion land in the Scripts tab', async () => {
+test('script hooks run in the extension: the rewrite reaches the wire, the console and the assertion land in the Scripts tab', async () => {
   await openGrpcRequest('e2egrpc9');
   await invokeButton().click();
   await statusTag().filter({ hasText: '0 OK' }).waitFor({ state: 'visible', timeout: 5_000 });

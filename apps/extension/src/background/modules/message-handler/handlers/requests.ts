@@ -25,12 +25,10 @@ import { compileGraphqlRequest } from '@openheaders/oracle/live/graphql-exec/exe
 import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import { wsRequest } from '../../../ws-request';
 import { executeRequest, executeRequestDraft } from '../../request-executor';
 import { stopActiveSend } from '../../request-executor/send-stream';
 import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
-import { companionForSend } from './grpc';
 
 /**
  * `executeGraphqlRequest` — the SW twin of the node host's route: the
@@ -254,18 +252,9 @@ export const requestHandlers: HandlerMap = {
       respond({ success: false });
       return;
     }
-    // Local sends first (HTTP runs in this SW). A miss may be a
-    // forwarded gRPC invoke whose exchange lives on the companion —
-    // the sendId-authorized stop rides the backend wire; a dead wire
-    // or unknown id answers the same honest `false`.
-    if (stopActiveSend(sendId)) {
-      respond({ success: true });
-      return;
-    }
-    const backendId = companionForSend(sendId);
-    wsRequest<{ success: boolean }>({ type: 'abortRequestSend', sendId }, backendId !== undefined ? { backendId } : {})
-      .then((result) => respond(result))
-      .catch(() => respond({ success: false }));
-    return true;
+    // The sends that run in this SW (HTTP) — a page-realm call's Stop
+    // never reaches here (its host answers it first); an unknown id
+    // answers the honest `false`.
+    respond({ success: stopActiveSend(sendId) });
   },
 };

@@ -517,10 +517,6 @@ export const sharedComponents = {
     'Выполняется в расширении через сокет браузера, на этом компьютере.',
   'shared.executionPlace.reason.contextSend':
     'Отправлен подключённым бэкендом {place} и разрешён там. Целевой сервер видит адрес и сетевое расположение той машины.',
-  'shared.executionPlace.reason.companionInvoke':
-    'Вызовы gRPC перенаправляются в настольное приложение на этом компьютере — в браузере нет стека HTTP/2 с доступом к трейлерам.',
-  'shared.executionPlace.reason.serverInvoke':
-    'Выполняется на {place}. Браузер не может выполнять вызовы gRPC, поэтому заполненный запрос отправляется на {place}, где выполняется вызов.',
   'shared.executionPlace.reason.companionRequired':
     'Подключите настольное приложение, чтобы вызвать — составление и сохранение работают здесь.',
   'shared.executionPlace.reason.tcpScheme':

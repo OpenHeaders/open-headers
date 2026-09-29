@@ -468,10 +468,6 @@ export const sharedComponents = {
     'このコンピューター上の拡張機能で、ブラウザーのソケットを通じて実行されます。',
   'shared.executionPlace.reason.contextSend':
     '接続中のバックエンドである{place}から送信され、そこで解決されます。送信先にはそのマシンのアドレスとネットワーク上の位置が見えます。',
-  'shared.executionPlace.reason.companionInvoke':
-    'gRPC 呼び出しはこのコンピューター上のデスクトップアプリに転送されます。ブラウザーにはトレーラーを扱える HTTP/2 スタックがありません。',
-  'shared.executionPlace.reason.serverInvoke':
-    '{place} で実行します。ブラウザーからは gRPC 呼び出しができないため、組み立てたリクエストを {place} に送り、そこで呼び出しを行います。',
   'shared.executionPlace.reason.companionRequired':
     '呼び出すにはデスクトップアプリを接続してください。作成と保存はここでできます。',
   'shared.executionPlace.reason.tcpScheme':

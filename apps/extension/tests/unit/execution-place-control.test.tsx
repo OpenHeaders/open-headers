@@ -343,23 +343,18 @@ describe('executionPlaceCopy', () => {
     expect(copy.reason).toBe('shared.executionPlace.reason.delegatedDesktopApp');
   });
 
-  it('the server invoke reads remote, resolved there', () => {
+  it('a delegated send to the server reads remote and names the transit', () => {
     const copy = executionPlaceCopy(
-      resolution({ place: 'workspace-server', placeName: 'Acme', reason: { kind: 'server-invoke' } }),
+      resolution({
+        place: 'workspace-server',
+        placeName: 'Acme',
+        reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+      }),
       t as never,
     );
     expect(copy.chip).toBe('shared.executionPlace.tip.remoteServer {"place":"Acme"}');
-    expect(copy.reason).toBe('shared.executionPlace.reason.serverInvoke {"place":"Acme"}');
+    expect(copy.reason).toBe('shared.executionPlace.reason.delegatedServer {"place":"Acme"}');
     expect(copy.knobs).toBeNull();
-  });
-
-  it('the companion invoke reads as local, in the desktop app', () => {
-    const copy = executionPlaceCopy(
-      resolution({ place: 'desktop-app', reason: { kind: 'companion-invoke' } }),
-      t as never,
-    );
-    expect(copy.chip).toBe('shared.executionPlace.tip.localDesktop');
-    expect(copy.reason).toBe('shared.executionPlace.reason.companionInvoke');
   });
 });
 

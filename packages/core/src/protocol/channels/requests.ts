@@ -557,12 +557,13 @@ export interface RequestRpc {
    * a sibling of `executeRequest` keyed off the entity kind (session-
    * shaped protocols never ride the HTTP channel). Every call shape;
    * EXECUTED by hosts with a node HTTP/2 stack (the desktop main
-   * process, the daemon). Browser hosts FORWARD the channel to a
-   * connected companion over the backend wire (the extension SW's
-   * grpc handlers; the editor's Invoke gates off the
-   * `grpcCompanionInvoke` capability + live connection state), and
-   * the web tab forwards it to its serving daemon like
-   * `executeRequest`. `grpcRequestUid` takes precedence over `draft`;
+   * process, the daemon). The extension workbench answers it IN its
+   * page realm over the delegating gRPC transport — the call resolved
+   * and encoded there, the HTTP/2 session opened by the place the
+   * frame names (the `delegatedGrpcDispatch` capability; the editor's
+   * Invoke gates off the live connection state) — and the web tab
+   * forwards it to its serving daemon like a context send.
+   * `grpcRequestUid` takes precedence over `draft`;
    * the `workspaceId` / `environmentId` semantics are
    * `executeRequest`'s verbatim. `sendId` registers the exchange with
    * the SAME active-send registry, so `abortRequestSend` cancels a

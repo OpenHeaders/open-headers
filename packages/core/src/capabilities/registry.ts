@@ -660,18 +660,23 @@ export interface Capabilities {
   requestRuntime?: () => RequestRuntimeKind;
 
   /**
-   * Declares that this surface FORWARDS gRPC invokes to a connected
-   * companion (the desktop app / daemon) over the backend wire — the
-   * browser has no HTTP/2 stack that surfaces trailers, so the seam is
-   * the extension's only invoke path. Registered only by extension
-   * surfaces; node-runtime surfaces (desktop, web) answer through
-   * their own execution plane and leave it absent. The gRPC editor
-   * keys its Invoke gate off this together with LIVE connection state:
-   * capability present + companion connected → Invoke enabled;
-   * present + disconnected → an honest "connect the desktop app"
-   * affordance (compose/spec/examples stay fully usable either way).
+   * Declares that this surface's gRPC Invoke HONOURS an explicit
+   * execution place: the call's executor stays on the surface — the
+   * registry built from the linked spec it holds, the message encoded
+   * here, the scripts run here, the capture kept here — and only the
+   * HTTP/2 session opens on the named backend through the delegated
+   * gRPC leg (the Execution Place plan: the request half for a unary
+   * call, the socket half for the streaming shapes). The browser has
+   * no HTTP/2 stack that surfaces trailers, so on a browser runtime
+   * the shared reader offers the legs only where this is registered —
+   * the connected desktop app on this device, the workspace's server
+   * — and the editor's Invoke gates off the LIVE connection state:
+   * a leg up → Invoke enabled; none → an honest "connect the desktop
+   * app" affordance (compose/spec/examples stay fully usable either
+   * way). Registered by the extension workbench's page-realm invoke
+   * host.
    */
-  grpcCompanionInvoke?: () => boolean;
+  delegatedGrpcDispatch?: () => boolean;
 
   /**
    * Declares that this surface executes WebSocket sessions IN its own

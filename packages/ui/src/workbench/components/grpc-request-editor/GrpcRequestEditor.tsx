@@ -257,6 +257,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     draft,
     inherited: inheritedSettings,
     workspaceId,
+    protobufSpecs: spec.protobufSpecs,
     selectedOption,
     sendInvalidMessage,
     onOpenGrpcResponseExample,

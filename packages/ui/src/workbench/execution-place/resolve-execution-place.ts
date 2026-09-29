@@ -13,7 +13,8 @@
  * host — the reader branches off the markers alone.
  *
  * The matrix (S1 rendered today's truth; S2 opened the HTTP legs; W
- * made the web tab a context for HTTP and for the sessions):
+ * made the web tab a context for HTTP and for the sessions; S11
+ * brought gRPC under the delegated law):
  *   - a surface whose sends open their sockets on a serving place
  *     (`remoteRequestDispatch` — the web tab) resolves to that server:
  *     HTTP / GraphQL query as a DELEGATED send once the surface honours
@@ -23,28 +24,30 @@
  *     surface honours a place for them (`delegatedSessionDispatch` —
  *     the executor here, the server opens the socket, a tcp dial
  *     included) and as `unsupported` with the honest "not forwarded"
- *     reason before; gRPC as a context send;
+ *     reason before; gRPC as a context send until the tab's wire
+ *     converges;
  *   - a node runtime runs everything here;
  *   - a browser runtime runs HTTP / GraphQL query here, sessions here
  *     in the page realm (`wsPageSession` / `mqttPageSession`) naming
- *     the node-only knobs it cannot apply, gRPC on a place that owns
- *     an HTTP/2 stack with trailers — the connected desktop app
- *     (`grpcCompanionInvoke`), else the workspace's connected server,
- *     each a CONTEXT send there (the frame's workspace and environment
- *     stamped, resolved at the place; Phase F, the server-only
- *     surface's leg) — and an mqtt(s):// session on the one eligible
- *     place (Phase D), else `needs-companion` with the CTA ladder.
+ *     the node-only knobs it cannot apply, and gRPC NEVER here (no
+ *     HTTP/2 stack with trailers): a gRPC invoke and an mqtt(s)://
+ *     session resolve to the ONE eligible place by live connection —
+ *     the desktop app on this device first, the workspace's server
+ *     beside it or alone — as a DELEGATED call there (the executor
+ *     here, the place opens the socket), else `needs-companion` with
+ *     the CTA ladder.
  *
  * The legs (Phase C): on a surface whose send honours an explicit
- * place (`delegatedRequestDispatch`), an HTTP / GraphQL query send can
- * be DELEGATED — resolved here, the socket opened by the connected
- * desktop app (a browser surface) or by the workspace's own server
- * (any surface). Those are `alternatives` beside the auto place, and a
- * `preference` naming one resolves to it (`reason: delegated`); a
- * preference naming a role no leg can honour is `unsupported`, never
- * silently overridden — with the companion ladder as its CTA when the
- * role is the desktop app. Sessions and gRPC carry no alternatives yet
- * (Phase D).
+ * place, a send can be DELEGATED — resolved here, the socket opened by
+ * the connected desktop app (a browser surface) or by the workspace's
+ * own server (any surface). The marker is per family:
+ * `delegatedRequestDispatch` for HTTP / GraphQL query,
+ * `delegatedSessionDispatch` for the three session kinds,
+ * `delegatedGrpcDispatch` for gRPC. Those are `alternatives` beside
+ * the auto place, and a `preference` naming one resolves to it
+ * (`reason: delegated`); a preference naming a role no leg can honour
+ * is `unsupported`, never silently overridden — with the companion
+ * ladder as its CTA when the role is the desktop app.
  *
  * Refusal (the daemon's two-tier opt-in) is a run-time answer on the
  * response surface (`PeerExecuteDisabledNotice`), not a pre-send
@@ -80,13 +83,14 @@ export interface ExecutionPlaceMarkers {
   requestRuntime: RequestRuntimeKind;
   /** The serving place's name on a surface whose sends run remotely; null elsewhere. */
   remoteRequestDispatch: string | null;
-  grpcCompanionInvoke: boolean;
   wsPageSession: boolean;
   mqttPageSession: boolean;
   /** The surface's HTTP send honours an explicit place — the delegated legs exist. */
   delegatedRequestDispatch: boolean;
   /** The surface's session Connect honours an explicit place — the socket legs exist. */
   delegatedSessionDispatch: boolean;
+  /** The surface's gRPC Invoke honours an explicit place — the call's legs exist. */
+  delegatedGrpcDispatch: boolean;
 }
 
 /** The workspace's own providing server, when it has one — the
@@ -134,14 +138,9 @@ export type ExecutionPlaceReason =
   | { kind: 'runs-here-browser' }
   /** A session over the browser socket, with the knobs it cannot apply. */
   | { kind: 'runs-here-page-realm'; knobs: readonly PageSessionKnob[] }
-  /** Forwarded to the serving place and RESOLVED there (the web tab until Phase W). */
+  /** Forwarded to the serving place and RESOLVED there (the web tab's gRPC until its wire converges). */
   | { kind: 'context-send'; name: string | null }
-  /** A gRPC invoke forwarded to the connected desktop app. */
-  | { kind: 'companion-invoke' }
-  /** A gRPC invoke forwarded to the workspace's server, resolved there
-   *  (the surface's own stack has no HTTP/2 trailers). */
-  | { kind: 'server-invoke' }
-  /** A gRPC invoke with no connected desktop app. */
+  /** A kind no place this surface can reach opens — a gRPC invoke with no connected desktop app or server. */
   | { kind: 'companion-required' }
   /** An mqtt(s):// session — raw TCP no page can open; needs the desktop app. */
   | { kind: 'tcp-scheme' }
@@ -194,6 +193,14 @@ export function isSessionKind(kind: ExecutionRequestKind): boolean {
   return kind === 'websocket' || kind === 'mqtt' || kind === 'graphql-subscription';
 }
 
+/** Whether the surface honours an explicit place for this kind — the
+ *  family's marker: the HTTP send's, the session Connect's, the gRPC
+ *  Invoke's. */
+function placeHonoured(kind: ExecutionRequestKind, markers: ExecutionPlaceMarkers): boolean {
+  if (kind === 'grpc') return markers.delegatedGrpcDispatch;
+  return isSessionKind(kind) ? markers.delegatedSessionDispatch : markers.delegatedRequestDispatch;
+}
+
 export function resolveExecutionPlace(input: ExecutionPlaceInput): ExecutionPlaceResolution {
   const resolution = resolvePreferred(input);
   return input.workspaceServer !== undefined ? { ...resolution, serverName: input.workspaceServer.name } : resolution;
@@ -222,12 +229,10 @@ function resolvePreferred(input: ExecutionPlaceInput): ExecutionPlaceResolution 
   }
   if (auto.alternatives.includes(preference)) {
     const others = [auto.place, ...auto.alternatives.filter((role) => role !== preference)];
-    // Picking "here" back from a delegated auto (a tcp dial never
-    // resolves here, so this arm is the ws(s) kinds' and HTTP's).
+    // Picking "here" back from a delegated auto (a tcp dial and a gRPC
+    // invoke never resolve here, so this arm is the ws(s) kinds' and
+    // HTTP's).
     if (preference === 'here') return { ...auto, place: 'here', placeName: null, alternatives: others };
-    // A gRPC invoke's only other place is the server — a context send
-    // there, never a delegated socket.
-    if (input.kind === 'grpc') return serverInvoke(input, others);
     return delegatedTo(preference, others, input);
   }
   // The places that ARE possible stay on offer — the user picks back.
@@ -244,13 +249,9 @@ function resolvePreferred(input: ExecutionPlaceInput): ExecutionPlaceResolution 
 /** The places that could open this send's socket on its behalf,
  *  beside the surface's own — a transport fact under the live
  *  connection state, offered only where the send honours a place
- *  (the HTTP send's marker for HTTP / GraphQL query, the session
- *  Connect's for the three session kinds). */
+ *  (the family's marker). */
 function delegatedLegs(input: ExecutionPlaceInput): readonly ExecutionPlaceRole[] {
-  const honoured = isSessionKind(input.kind)
-    ? input.markers.delegatedSessionDispatch
-    : input.markers.delegatedRequestDispatch;
-  if (!honoured) return NO_ALTERNATIVES;
+  if (!placeHonoured(input.kind, input.markers)) return NO_ALTERNATIVES;
   const legs: ExecutionPlaceRole[] = [];
   if (input.markers.requestRuntime !== 'node' && input.desktopApp === 'connected') legs.push('desktop-app');
   if (serverReachable(input)) legs.push('workspace-server');
@@ -274,8 +275,9 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     // TCP). A surface that honours no place for the family keeps the
     // honest row: the context send for HTTP (resolved there), the
     // not-forwarded state for a session. gRPC keeps the context-send
-    // row (its channel forwards by construction).
-    const honoured = isSessionKind(kind) ? markers.delegatedSessionDispatch : markers.delegatedRequestDispatch;
+    // row (its channel forwards by construction) until the tab's
+    // wire converges.
+    const honoured = placeHonoured(kind, markers);
     if (isSessionKind(kind) && !honoured) {
       return remote(serving, 'unsupported', { kind: 'session-not-forwarded', name: serving });
     }
@@ -288,7 +290,7 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     }
     return remote(serving, 'ready', { kind: 'context-send', name: serving });
   }
-  const legs = kind === 'grpc' ? NO_ALTERNATIVES : delegatedLegs(input);
+  const legs = delegatedLegs(input);
   if (markers.requestRuntime === 'node') return here({ kind: 'runs-here' }, legs);
   const knobs = input.inapplicableKnobs ?? [];
   switch (kind) {
@@ -296,23 +298,13 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     case 'graphql-query':
       return here({ kind: 'runs-here-browser' }, legs);
     case 'grpc': {
-      if (!markers.grpcCompanionInvoke) return needsDesktopApp('unsupported', { kind: 'no-runtime' }, null);
-      // The places that own an HTTP/2 stack with trailers, by live
-      // connection: the desktop app on this device first, the
-      // workspace's server beside it — or alone, for a surface whose
-      // only place is a server.
-      const serverUp = serverReachable(input);
-      if (input.desktopApp === 'connected') {
-        return {
-          place: 'desktop-app',
-          placeName: null,
-          state: 'ready',
-          reason: { kind: 'companion-invoke' },
-          cta: null,
-          alternatives: serverUp ? ['workspace-server'] : NO_ALTERNATIVES,
-        };
-      }
-      if (serverUp) return serverInvoke(input, NO_ALTERNATIVES);
+      if (!markers.delegatedGrpcDispatch) return needsDesktopApp('unsupported', { kind: 'no-runtime' }, null);
+      // The HTTP/2 session with trailers no browser can open — Auto is
+      // the FIRST eligible place by live connection: the desktop app
+      // on this device, the workspace's server beside it or alone; else
+      // the honest companion state with the ladder rung.
+      const [first, ...rest] = legs;
+      if (first !== undefined) return delegatedTo(first, rest, input);
       return needsDesktopApp('needs-companion', { kind: 'companion-required' }, companionCta(input));
     }
     case 'websocket':
@@ -345,22 +337,6 @@ function delegatedTo(
     placeName: role === 'workspace-server' ? (input.workspaceServer?.name ?? null) : null,
     state: 'ready',
     reason: { kind: 'delegated', role, knobs: input.delegationKnobs ?? NO_KNOBS },
-    cta: null,
-    alternatives,
-  };
-}
-
-/** A gRPC invoke on the workspace's server — resolved there, the
- *  place's own stamp on the answer. */
-function serverInvoke(
-  input: ExecutionPlaceInput,
-  alternatives: readonly ExecutionPlaceRole[],
-): ExecutionPlaceResolution {
-  return {
-    place: 'workspace-server',
-    placeName: input.workspaceServer?.name ?? null,
-    state: 'ready',
-    reason: { kind: 'server-invoke' },
     cta: null,
     alternatives,
   };
@@ -503,7 +479,7 @@ function serverRow(input: ExecutionPlaceInput, honoured: boolean): ExecutionPlac
 
 export function resolveExecutionPlaceRoster(input: ExecutionPlaceInput): readonly ExecutionPlaceRosterRow[] {
   const { kind, markers } = input;
-  const honoured = isSessionKind(kind) ? markers.delegatedSessionDispatch : markers.delegatedRequestDispatch;
+  const honoured = placeHonoured(kind, markers);
   if (markers.remoteRequestDispatch !== null) {
     // The served tab: one place, its server — forwarded by construction
     // for HTTP and gRPC, honoured or not for a session.
@@ -516,17 +492,16 @@ export function resolveExecutionPlaceRoster(input: ExecutionPlaceInput): readonl
   const here: ExecutionPlaceRosterRow = runsHere(input)
     ? { role: 'here', available: true, reason: null, cta: null }
     : { role: 'here', available: false, reason: 'kind-not-here', cta: null };
-  // gRPC forwards to the desktop app over its own seam, every other
-  // kind over the delegated legs — both need the app connected.
-  const desktopReach = kind === 'grpc' ? markers.grpcCompanionInvoke : honoured;
+  // Every kind reaches the desktop app over its family's delegated leg
+  // — the app connected, the family honoured.
   const desktop: ExecutionPlaceRosterRow =
-    desktopReach && input.desktopApp === 'connected'
+    honoured && input.desktopApp === 'connected'
       ? { role: 'desktop-app', available: true, reason: null, cta: null }
       : {
           role: 'desktop-app',
           available: false,
-          reason: desktopReach ? desktopReason(input.desktopApp) : 'not-forwarded',
-          cta: desktopReach ? companionCta(input) : null,
+          reason: honoured ? desktopReason(input.desktopApp) : 'not-forwarded',
+          cta: honoured ? companionCta(input) : null,
         };
-  return [here, desktop, serverRow(input, kind === 'grpc' || honoured)];
+  return [here, desktop, serverRow(input, honoured)];
 }

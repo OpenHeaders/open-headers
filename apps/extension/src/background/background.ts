@@ -53,7 +53,7 @@ import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/setti
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-
+import { selfHostLabel } from '../utils/self-host-label';
 import { installActivityBroadcasts } from './bootstrap/activity-broadcasts';
 import { installAlarmDispatch } from './bootstrap/alarm-dispatch';
 import { resolveBackgroundReady } from './bootstrap/background-ready';
@@ -80,7 +80,6 @@ import { installStoreBroadcasts } from './bootstrap/store-broadcasts';
 import { installWsFrameRouting } from './bootstrap/ws-frame-routing';
 import { installDelegatedSocketRelay } from './delegated-socket-relay';
 import { setRulesPaused } from './dnr-manager';
-import { installGrpcStreamRelay } from './grpc-stream-relay';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import {
@@ -116,7 +115,6 @@ import { hydrateActiveWorkspaceStores } from './modules/workspace/workspace-orch
 import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace/workspace-tab-registry';
 import { startProxyRoutingHost } from './proxy-routing-host';
-import { selfHostLabel } from '../utils/self-host-label';
 import { startUpdateDeferral } from './update-deferral';
 
 // ── Eval-time wiring ──────────────────────────────────────────────
@@ -129,10 +127,7 @@ installProductTelemetrySyncBeacons(syncWiring);
 installProductTelemetryRuleMatchBeacon();
 installProductTelemetryStorageBeacon();
 installActivityBroadcasts();
-// Forwarded gRPC invokes: the companion's live grpcStreamEvent frames
-// come back down the backend wire — relay them to the local broadcast.
-installGrpcStreamRelay();
-// Delegated sessions: the place's delegatedSocketEvent frames come back
+// Delegated sessions and gRPC calls: the place's delegatedSocketEvent frames come back
 // down the backend wire — relay them to the page realm that opened them.
 installDelegatedSocketRelay();
 // Dev seams for the playground's probes/runners — inert unless the

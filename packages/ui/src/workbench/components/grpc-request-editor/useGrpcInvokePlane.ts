@@ -2,10 +2,12 @@
  * useGrpcInvokePlane — the editor's whole invoke plane in one hook:
  * Invoke fires the CURRENT compose state (saved or not) through the
  * `executeGrpcRequest` channel — answered in-process on node hosts and
- * forwarded on extension surfaces to the place the shared reader
- * resolves (the connected desktop app, else the workspace's server;
- * the settings layers and the per-send pick fold into `preference`)
- * — every call shape; in flight it morphs to Stop
+ * on a browser surface executed IN the page realm over a delegating
+ * transport to the place the shared reader resolves (the connected
+ * desktop app, else the workspace's server; the settings layers and
+ * the per-send pick fold into `preference`), the call resolved and
+ * encoded here against the renderer scopes this hook publishes
+ * (`grpc-page-invoke.ts`) — every call shape; in flight it morphs to Stop
  * (`abortRequestSend` on the shared active-send registry). Streaming
  * invokes ride `useLiveGrpcStream` while open and settle into the
  * session the stream pane joins positionally. Client/bidi upstream
@@ -16,16 +18,19 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import type { ExecutedGrpcSnapshot, GrpcRequest as GrpcRequestEntity } from '@openheaders/core/types';
+import { getCapability } from '@openheaders/core/capabilities';
+import type { ExecutedGrpcSnapshot, GrpcRequest as GrpcRequestEntity, Spec } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getGrpcResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/context/mirrors/grpc-response-example-sync-mirror';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useScriptPackages } from '@openheaders/ui/shared/hooks/readers/useScriptPackages';
+import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import {
   applyGrpcResponseExampleCreate,
   nextGrpcExampleName,
 } from '@openheaders/ui/shared/sync/grpc-response-example-write-client';
 import { App } from 'antd';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { executionPlaceCopy } from '../../execution-place/execution-place-copy';
 import type { ExecutionPlacePreference } from '../../execution-place/resolve-execution-place';
 import { type UseExecutionPlaceResult, useExecutionPlace } from '../../execution-place/useExecutionPlace';
@@ -35,6 +40,7 @@ import {
 } from '../grpc-response-example/grpc-example-draft';
 import type { InheritedSettingsView } from '../shared/inherited-settings/inherited-settings';
 import { buildGrpcRequestUpdates, type GrpcDraft } from './draft';
+import { makeGrpcPageInvokeFactory, publishGrpcPageInvokeFactory } from './grpc-page-invoke';
 import type { GrpcMethodOption } from './method-selector';
 import { type GrpcStreamSession, type LiveGrpcStream, useLiveGrpcStream } from './useLiveGrpcStream';
 
@@ -45,6 +51,9 @@ interface UseGrpcInvokePlaneInput {
    *  (own, else the chain's, else on) stamps the captured example. */
   inherited: InheritedSettingsView;
   workspaceId: string | null;
+  /** The workspace's Protobuf specs off the page's mirror — the
+   *  page-invoke factory hands the executor the draft's linked one. */
+  protobufSpecs: readonly Spec[];
   /** The method the compose targets — stamps the result pane's shape
    *  at invoke time. */
   selectedOption: GrpcMethodOption | null;
@@ -89,6 +98,7 @@ export function useGrpcInvokePlane({
   draft,
   inherited,
   workspaceId,
+  protobufSpecs,
   selectedOption,
   sendInvalidMessage,
   onOpenGrpcResponseExample,
@@ -99,11 +109,34 @@ export function useGrpcInvokePlane({
   // The verification switch the call runs under — the request's own,
   // else the chain's, else on (the rule the executor applies).
   const sslVerification = draft.sslVerification ?? inherited.settings.sslVerification ?? true;
-  const { executeGrpc } = useRequests();
-  // Where the invoke runs — the shared reader over the companion seam
-  // (`grpcCompanionInvoke`), the desktop app's live connection state
-  // and the workspace's server.
+  const { collections, collectionTrees, executeGrpc, folders } = useRequests();
+  // Where the invoke runs — the shared reader over the delegated gRPC
+  // leg (`delegatedGrpcDispatch`), the desktop app's live connection
+  // state and the workspace's server.
   const executionPlace = useExecutionPlace({ kind: 'grpc', ...(preference !== undefined ? { preference } : {}) });
+
+  // Page-invoke resolution publisher — a host executing gRPC calls IN
+  // this page realm injects the CURRENT factory into the executor at
+  // Invoke, so republish on every renderer-scope change while a gRPC
+  // editor is mounted (nothing can Invoke without one); the linked
+  // spec rides along off the page's mirror, the Package Library for
+  // the hooks' `oh.require` (the WebSocket plane's discipline).
+  const requestRuntimeKind = getCapability('requestRuntime')?.() ?? 'browser';
+  const pageInvoke = requestRuntimeKind !== 'node' && (getCapability('delegatedGrpcDispatch')?.() ?? false);
+  const resolverInputs = useVariableResolverInputs();
+  const scriptPackages = useScriptPackages(pageInvoke ? workspaceId : null);
+  useEffect(() => {
+    if (!pageInvoke) return;
+    publishGrpcPageInvokeFactory(
+      makeGrpcPageInvokeFactory(
+        resolverInputs,
+        { collectionTrees, collections, folders },
+        workspaceId,
+        scriptPackages.map((p) => ({ name: p.name, source: p.source })),
+        protobufSpecs,
+      ),
+    );
+  }, [pageInvoke, resolverInputs, collectionTrees, collections, folders, workspaceId, scriptPackages, protobufSpecs]);
 
   const [invoking, setInvoking] = useState(false);
   const [response, setResponse] = useState<ExecutedGrpcSnapshot | null>(null);

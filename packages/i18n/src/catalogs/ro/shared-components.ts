@@ -524,10 +524,6 @@ export const sharedComponents = {
   'shared.executionPlace.reason.runsHerePageRealm': 'Rulează în extensie prin socketul browserului, pe acest computer.',
   'shared.executionPlace.reason.contextSend':
     'Trimisă de backend-ul conectat {place} și rezolvată acolo. Destinația vede adresa și locația de rețea a acelei mașini.',
-  'shared.executionPlace.reason.companionInvoke':
-    'Apelurile gRPC sunt redirecționate către aplicația desktop de pe acest computer — browserul nu are o stivă HTTP/2 care să expună trailerele.',
-  'shared.executionPlace.reason.serverInvoke':
-    'Rulează pe {place}. Un browser nu poate efectua apeluri gRPC, așa că cererea completată este trimisă către {place}, care efectuează apelul.',
   'shared.executionPlace.reason.companionRequired':
     'Conectați aplicația desktop pentru a invoca — compunerea și salvarea funcționează aici.',
   'shared.executionPlace.reason.tcpScheme':

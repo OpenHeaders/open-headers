@@ -55,11 +55,11 @@ function readMarkers(): ExecutionPlaceMarkers {
   return {
     requestRuntime: getCapability('requestRuntime')?.() ?? 'browser',
     remoteRequestDispatch: getCapability('remoteRequestDispatch')?.() ?? null,
-    grpcCompanionInvoke: getCapability('grpcCompanionInvoke')?.() ?? false,
     wsPageSession: getCapability('wsPageSession')?.() ?? false,
     mqttPageSession: getCapability('mqttPageSession')?.() ?? false,
     delegatedRequestDispatch: getCapability('delegatedRequestDispatch')?.() ?? false,
     delegatedSessionDispatch: getCapability('delegatedSessionDispatch')?.() ?? false,
+    delegatedGrpcDispatch: getCapability('delegatedGrpcDispatch')?.() ?? false,
   };
 }
 
@@ -82,11 +82,11 @@ export function useExecutionPlace({
   const {
     requestRuntime,
     remoteRequestDispatch,
-    grpcCompanionInvoke,
     wsPageSession,
     mqttPageSession,
     delegatedRequestDispatch,
     delegatedSessionDispatch,
+    delegatedGrpcDispatch,
   } = markers;
   return useMemo(() => {
     const input: ExecutionPlaceInput = {
@@ -94,11 +94,11 @@ export function useExecutionPlace({
       markers: {
         requestRuntime,
         remoteRequestDispatch,
-        grpcCompanionInvoke,
         wsPageSession,
         mqttPageSession,
         delegatedRequestDispatch,
         delegatedSessionDispatch,
+        delegatedGrpcDispatch,
       },
       ...(mqttTransport !== undefined ? { mqttTransport } : {}),
       desktopApp,
@@ -119,11 +119,11 @@ export function useExecutionPlace({
     kind,
     requestRuntime,
     remoteRequestDispatch,
-    grpcCompanionInvoke,
     wsPageSession,
     mqttPageSession,
     delegatedRequestDispatch,
     delegatedSessionDispatch,
+    delegatedGrpcDispatch,
     mqttTransport,
     desktopApp,
     launchable,
@@ -136,19 +136,16 @@ export function useExecutionPlace({
   ]);
 }
 
-/** The explicit backend a READY send names when its socket opens on
- *  another record of this surface's — the delegated legs and the gRPC
- *  invokes on the desktop app or the server; a context send on a
- *  remote-dispatch surface rides the surface's one wire and names
- *  nothing. */
+/** The explicit backend a READY delegated send names — its socket
+ *  opens on another record of this surface's, the desktop app or the
+ *  server; a context send on a remote-dispatch surface rides the
+ *  surface's one wire and names nothing. */
 function targetOf(
   resolution: ExecutionPlaceResolution,
   desktopAppBackendId: string | null,
   serverBackendId: string | null,
 ): ExecutionPlaceTarget | null {
-  if (resolution.state !== 'ready') return null;
-  const { kind } = resolution.reason;
-  if (kind !== 'delegated' && kind !== 'companion-invoke' && kind !== 'server-invoke') return null;
+  if (resolution.state !== 'ready' || resolution.reason.kind !== 'delegated') return null;
   const backendId = resolution.place === 'desktop-app' ? desktopAppBackendId : serverBackendId;
   return backendId !== null ? { backendId } : null;
 }

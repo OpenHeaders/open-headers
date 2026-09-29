@@ -68,8 +68,10 @@ export interface WsPageSessionScope {
 }
 
 /** Built per Connect — TOTP codes have ~30s lifetime, so the registry
- *  computes fresh each time (the SW request executor's discipline). */
-export type WsPageResolutionFactory = (request: WebSocketRequest) => Promise<WsPageSessionScope>;
+ *  computes fresh each time (the SW request executor's discipline).
+ *  The request's uid is all the scope needs (its tree ancestry); the
+ *  gRPC page-invoke seam builds on the same factory. */
+export type WsPageResolutionFactory = (request: Pick<WebSocketRequest, 'uid'>) => Promise<WsPageSessionScope>;
 
 let currentFactory: WsPageResolutionFactory | null = null;
 

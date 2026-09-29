@@ -509,10 +509,6 @@ export const sharedComponents = {
     'Läuft in der Erweiterung über den Browser-Socket, auf diesem Computer.',
   'shared.executionPlace.reason.contextSend':
     'Gesendet von {place}, dem verbundenen Back-end, und dort aufgelöst. Das Ziel sieht die Adresse und den Netzwerkstandort dieser Maschine.',
-  'shared.executionPlace.reason.companionInvoke':
-    'gRPC-Aufrufe werden an die Desktop-App auf diesem Computer weitergeleitet — der Browser hat keinen HTTP/2-Stack, der Trailer freigibt.',
-  'shared.executionPlace.reason.serverInvoke':
-    'Läuft auf {place}. Ein Browser kann keine gRPC-Aufrufe ausführen, daher wird die vervollständigte Anfrage an {place} gesendet, das den Aufruf ausführt.',
   'shared.executionPlace.reason.companionRequired':
     'Verbinde die Desktop-App zum Aufrufen — Verfassen und Speichern funktioniert hier.',
   'shared.executionPlace.reason.tcpScheme':

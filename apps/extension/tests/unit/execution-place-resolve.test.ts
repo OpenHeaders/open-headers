@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 const EXTENSION: ExecutionPlaceMarkers = {
   requestRuntime: 'browser',
   remoteRequestDispatch: null,
-  grpcCompanionInvoke: true,
+  delegatedGrpcDispatch: true,
   wsPageSession: true,
   mqttPageSession: true,
   delegatedRequestDispatch: true,
@@ -29,7 +29,7 @@ const EXTENSION: ExecutionPlaceMarkers = {
 const DESKTOP: ExecutionPlaceMarkers = {
   requestRuntime: 'node',
   remoteRequestDispatch: null,
-  grpcCompanionInvoke: false,
+  delegatedGrpcDispatch: false,
   wsPageSession: false,
   mqttPageSession: false,
   delegatedRequestDispatch: false,
@@ -47,7 +47,7 @@ const WEB: ExecutionPlaceMarkers = {
 /** A browser surface without the workbench's page-realm sockets. */
 const BARE_BROWSER: ExecutionPlaceMarkers = {
   ...EXTENSION,
-  grpcCompanionInvoke: false,
+  delegatedGrpcDispatch: false,
   wsPageSession: false,
   mqttPageSession: false,
   delegatedRequestDispatch: false,
@@ -192,30 +192,30 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
     }
   });
 
-  it('gRPC runs on the connected desktop app, the connected server beside it', () => {
+  it('gRPC runs DELEGATED on the connected desktop app, the connected server beside it — never here', () => {
     expect(resolve('grpc', EXTENSION, 'connected')).toEqual({
       place: 'desktop-app',
       placeName: null,
       state: 'ready',
-      reason: { kind: 'companion-invoke' },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
       cta: null,
       alternatives: [],
     });
     expect(resolve('grpc', EXTENSION, 'connected', SERVER_UP)).toMatchObject({
       place: 'desktop-app',
-      reason: { kind: 'companion-invoke' },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
       alternatives: ['workspace-server'],
     });
     expect(resolve('grpc', EXTENSION, 'connected', SERVER_DOWN).alternatives).toEqual([]);
   });
 
-  it("gRPC runs on the workspace's connected server when the desktop app is not connected — a context send there", () => {
+  it("gRPC runs DELEGATED on the workspace's connected server when the desktop app is not connected", () => {
     for (const desktopApp of ['not-connected', 'installed-not-connected', 'not-installed', 'off'] as const) {
       expect(resolve('grpc', EXTENSION, desktopApp, SERVER_UP)).toEqual({
         place: 'workspace-server',
         placeName: 'Acme',
         state: 'ready',
-        reason: { kind: 'server-invoke' },
+        reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
         cta: null,
         alternatives: [],
         serverName: 'Acme',
@@ -224,11 +224,11 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
     expect(resolve('grpc', EXTENSION, 'not-connected', SERVER_DOWN).state).toBe('needs-companion');
   });
 
-  it('picking the server for a gRPC invoke with the desktop app connected is the server invoke, the app beside it', () => {
+  it('picking the server for a gRPC invoke with the desktop app connected delegates there, the app beside it', () => {
     expect(resolve('grpc', EXTENSION, 'connected', { ...SERVER_UP, preference: 'workspace-server' })).toMatchObject({
       place: 'workspace-server',
       placeName: 'Acme',
-      reason: { kind: 'server-invoke' },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
       alternatives: ['desktop-app'],
     });
     // The desktop app as a preference with only the server up: no leg

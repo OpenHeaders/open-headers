@@ -46,7 +46,7 @@ beforeEach(() => {
   h.serverAllowed = true;
   h.server = { backendId: 'backend-1', name: 'Acme', connected: true };
   registerCapability('requestRuntime', () => 'browser');
-  registerCapability('grpcCompanionInvoke', () => true);
+  registerCapability('delegatedGrpcDispatch', () => true);
   registerCapability('delegatedRequestDispatch', () => true);
   registerCapability('delegatedSessionDispatch', () => true);
   registerCapability('wsPageSession', () => true);
@@ -56,7 +56,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const name of [
     'requestRuntime',
-    'grpcCompanionInvoke',
+    'delegatedGrpcDispatch',
     'delegatedRequestDispatch',
     'delegatedSessionDispatch',
     'wsPageSession',
@@ -73,7 +73,7 @@ describe('useExecutionPlace — the server switch', () => {
       place: 'workspace-server',
       placeName: 'Acme',
       state: 'ready',
-      reason: { kind: 'server-invoke' },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
       target: { backendId: 'backend-1' },
     });
     expect(result.current.roster.find((row) => row.role === 'workspace-server')?.available).toBe(true);

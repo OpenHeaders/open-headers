@@ -8,6 +8,10 @@ import '@/host/install-ws-session-host';
 // session host (MQTT-over-WebSocket in this page realm) and registers
 // `mqttPageSession`.
 import '@/host/install-mqtt-session-host';
+// AFTER install-mqtt-session-host: decorates ITS bridge with the gRPC
+// invoke host (the call executed in this page realm, its HTTP/2
+// session opened by the place) and registers `delegatedGrpcDispatch`.
+import '@/host/install-grpc-invoke-host';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
 import '@/host/install-awareness-host';
@@ -68,11 +72,8 @@ if (getBrowserAPI().runtime.getManifest().permissions?.includes('nativeMessaging
 // registers — without it the teaser honestly falls back to download.
 registerCapability('companionReveal', companionReveal);
 
-// gRPC invokes forward to a connected companion over the backend wire —
-// the seam exists on every extension surface, and the gRPC editor is a
-// workbench tab, so the curated entry must carry it too; LIVE connection
-// state gates the editor's Invoke separately.
-registerCapability('grpcCompanionInvoke', () => true);
+// The gRPC Invoke's place (`delegatedGrpcDispatch`) is registered by
+// `install-grpc-invoke-host` above — the call executes in this page.
 
 // The HTTP / GraphQL-query Send honours an explicit execution place
 // (the SW's delegated leg) — the curated entry carries it too.

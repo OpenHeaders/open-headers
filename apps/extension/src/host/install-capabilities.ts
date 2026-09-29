@@ -66,11 +66,6 @@ if (getBrowserAPI().runtime.getManifest().permissions?.includes('browsingData'))
 // (shared impl — the workbench's curated entry registers it too).
 registerCapability('companionReveal', companionReveal);
 
-// gRPC invokes forward to a connected companion over the backend wire
-// (the SW's grpc handlers) — the seam exists on every extension
-// surface; LIVE connection state gates the editor's Invoke separately.
-registerCapability('grpcCompanionInvoke', () => true);
-
 // The HTTP / GraphQL-query Send honours an explicit execution place —
 // the SW's executor delegates the round-trip to the named backend
 // (the Execution Place plan, Phase C); the reader offers the legs.

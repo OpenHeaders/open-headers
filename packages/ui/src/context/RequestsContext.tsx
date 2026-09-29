@@ -298,9 +298,10 @@ export interface RequestsContextValue {
   }) => Promise<ExecutedRequestSnapshot | null>;
 
   /** gRPC Invoke — the GrpcRequest entity's executor channel; executed
-   *  on node-runtime hosts and forwarded to a connected companion on
-   *  extension surfaces (the editor gates the button off the
-   *  `requestRuntime` / `grpcCompanionInvoke` capabilities). `sendId`
+   *  on node-runtime hosts and, on the extension workbench, in the
+   *  page realm over the delegating transport to the place the frame
+   *  names (the editor gates the button off the `requestRuntime` /
+   *  `delegatedGrpcDispatch` capabilities). `sendId`
    *  joins the same active-send registry, so the in-flight call
    *  cancels via `abortRequestSend`. */
   executeGrpc: (input: {

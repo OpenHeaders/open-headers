@@ -465,10 +465,6 @@ export const sharedComponents = {
   'shared.executionPlace.reason.runsHerePageRealm': '이 컴퓨터의 확장 프로그램에서 브라우저 소켓을 통해 실행됩니다.',
   'shared.executionPlace.reason.contextSend':
     '연결된 백엔드인 {place}에서 전송하고 그곳에서 해석합니다. 대상에는 그 머신의 주소와 네트워크 위치가 보입니다.',
-  'shared.executionPlace.reason.companionInvoke':
-    'gRPC 호출은 이 컴퓨터의 데스크톱 앱으로 전달됩니다. 브라우저에는 트레일러를 노출하는 HTTP/2 스택이 없습니다.',
-  'shared.executionPlace.reason.serverInvoke':
-    '{place}에서 실행됩니다. 브라우저에서는 gRPC 호출을 할 수 없으므로 완성된 요청이 {place}로 전송되며, 그곳에서 호출이 이루어집니다.',
   'shared.executionPlace.reason.companionRequired':
     '호출하려면 데스크톱 앱을 연결하세요. 작성과 저장은 여기에서 할 수 있습니다.',
   'shared.executionPlace.reason.tcpScheme':

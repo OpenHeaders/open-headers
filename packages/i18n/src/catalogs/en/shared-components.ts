@@ -512,10 +512,6 @@ export const sharedComponents = {
   'shared.executionPlace.reason.runsHerePageRealm': 'Runs in the extension over the browser socket, on this computer.',
   'shared.executionPlace.reason.contextSend':
     'Sent by {place}, the connected back-end, and resolved there. The target sees that machine’s address and network location.',
-  'shared.executionPlace.reason.companionInvoke':
-    'gRPC calls are forwarded to the desktop app on this computer — the browser has no HTTP/2 stack that exposes trailers.',
-  'shared.executionPlace.reason.serverInvoke':
-    'Runs on {place}. A browser cannot make gRPC calls, so the filled-in request is sent to {place}, which makes the call.',
   'shared.executionPlace.reason.companionRequired':
     'Connect the desktop app to invoke — composing and saving works here.',
   'shared.executionPlace.reason.tcpScheme':
