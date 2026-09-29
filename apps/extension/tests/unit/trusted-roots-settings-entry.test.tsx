@@ -164,7 +164,7 @@ async function pasteAndAdd(addTestId: string, pem: string): Promise<void> {
 }
 
 describe('requests › tls — registry', () => {
-  it('registers both lists as info defs with custom editors under the leading tls section', () => {
+  it('registers both lists as info defs with custom editors under the tls section, second after Where requests run', () => {
     const workspace = requireDef('requests.trustedRoots');
     const device = requireDef('requests.deviceTrust');
     expect(workspace.type).toBe('info');
@@ -177,8 +177,10 @@ describe('requests › tls — registry', () => {
     expect(system.type).toBe('info');
     expect(system.subcategory).toBe('tls');
     expect(system.customEditor).toBe(SystemTrustRow);
+    // The Where requests run group leads (it governs every kind); the
+    // TLS section follows it.
     const subcategories = getCategory('requests')?.subcategories ?? [];
-    expect(subcategories[0]?.id).toBe('tls');
+    expect(subcategories.slice(0, 2).map((s) => s.id)).toEqual(['execution', 'tls']);
     const declared = new Set(subcategories.map((s) => s.id));
     for (const def of byCategory('requests')) expect(declared.has(def.subcategory ?? '')).toBe(true);
   });
