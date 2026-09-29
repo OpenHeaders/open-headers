@@ -113,6 +113,10 @@ async function loadManager() {
   // The adapter install wires the chrome-bound deps; the manager API
   // itself comes from the canonical oracle module.
   await import('@/background/websocket');
+  // The install holds every dial behind the background-ready barrier;
+  // the extension's boot lifts it once the sync engine is up.
+  const ready = await import('@/background/bootstrap/background-ready');
+  ready.resolveBackgroundReady();
   return import('@openheaders/oracle/sync/client/backend-connection-manager');
 }
 

@@ -72,6 +72,10 @@ async function loadWebsocket() {
   // The chrome-bound deps live in the websocket adapter's install; the
   // manager API itself is the canonical oracle module.
   await import('@/background/websocket');
+  // The install holds every dial behind the background-ready barrier;
+  // the extension's boot lifts it once the sync engine is up.
+  const ready = await import('@/background/bootstrap/background-ready');
+  ready.resolveBackgroundReady();
   const { connectWebSocket } = await import('@openheaders/oracle/sync/client/backend-connection-manager');
   // The roll-up sink lives in the aggregate's extension install — the
   // manager writes slots, this maps them onto the `sync` subsystem.
