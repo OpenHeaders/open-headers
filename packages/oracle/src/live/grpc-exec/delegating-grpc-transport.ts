@@ -11,9 +11,11 @@
  * the socket family — the resolved dial on `delegateGrpcOpen`, the
  * place's raw events (head, framed body chunks, trailers, end) feeding
  * the seam's callbacks, the writer's messages and half-close as riders
- * keyed by the socket id this transport mints, the executor's abort as
- * the place's `delegateSocketAbort`, which settles through `onEnd` like
- * an in-process teardown.
+ * keyed by the socket id this transport mints (held until the place
+ * answered the open — a rider ahead of its open finds no socket there;
+ * the node transport's own pending-write idiom), the executor's abort
+ * as the place's `delegateSocketAbort`, which settles through `onEnd`
+ * like an in-process teardown.
  *
  * Host-neutral: the wire is injected — the extension's page realm
  * rides its service worker (which rides the backend wire), the desktop
@@ -30,6 +32,7 @@ import {
   DELEGATE_SOCKET_ABORT_CHANNEL,
   type DelegatedSocketEndError,
   type DelegatedSocketEvent,
+  type DelegatedSocketRider,
 } from '@openheaders/core/protocol';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import { toBase64 } from '../request-exec/body-decode';
@@ -145,6 +148,23 @@ export function createDelegatingGrpcTransport(options: DelegatingGrpcTransportOp
         }
       });
       signal?.addEventListener('abort', onAbort, { once: true });
+      // Riders issued before the place answered the open — a
+      // server-stream call writes and half-closes the moment this
+      // returns — are held and ride in order once the socket exists
+      // there; a rider ahead of its open finds no socket on the place.
+      let opened = false;
+      const pending: DelegatedSocketRider[] = [];
+      const ride = (rider: DelegatedSocketRider): void => {
+        void options.wire.call(rider).catch(() => {});
+      };
+      const write = (rider: DelegatedSocketRider): void => {
+        if (ended) return;
+        if (!opened) {
+          pending.push(rider);
+          return;
+        }
+        ride(rider);
+      };
       void options.wire
         .call({
           type: DELEGATE_GRPC_OPEN_CHANNEL,
@@ -163,22 +183,23 @@ export function createDelegatingGrpcTransport(options: DelegatingGrpcTransportOp
             executedOn?: unknown;
           };
           if (executedOn && typeof executedOn === 'object') lastExecutedOn = executedOn as DelegatedGrpcExecutedOn;
-          if (success === true) return;
-          settle(new GrpcTransportError(typeof error === 'string' ? error : 'The place gave no answer to the open.'));
+          if (success !== true) {
+            settle(new GrpcTransportError(typeof error === 'string' ? error : 'The place gave no answer to the open.'));
+            return;
+          }
+          if (ended) return;
+          opened = true;
+          for (const rider of pending.splice(0)) ride(rider);
         })
         .catch((err: unknown) => {
           settle(new GrpcTransportError(err instanceof Error ? err.message : String(err)));
         });
       return {
         sendMessage(message: Uint8Array): void {
-          if (ended) return;
-          void options.wire
-            .call({ type: DELEGATE_GRPC_SEND_CHANNEL, socketId, messageBase64: toBase64(message) })
-            .catch(() => {});
+          write({ type: DELEGATE_GRPC_SEND_CHANNEL, socketId, messageBase64: toBase64(message) });
         },
         halfClose(): void {
-          if (ended) return;
-          void options.wire.call({ type: DELEGATE_GRPC_HALF_CLOSE_CHANNEL, socketId }).catch(() => {});
+          write({ type: DELEGATE_GRPC_HALF_CLOSE_CHANNEL, socketId });
         },
       };
     },

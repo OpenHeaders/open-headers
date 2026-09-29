@@ -8,9 +8,10 @@
  * abort forwards as the place's stop by the send id. A streaming call
  * rides the open frame; the place's head, data, trailers and end feed
  * the seam's callbacks (bytes decoded, `end` exactly once, the claim
- * released); the writer's messages and half-close ride riders; the
- * abort forwards as the place's abort; an open refusal settles through
- * `onEnd`.
+ * released); the writer's messages and half-close ride riders — held
+ * until the place answered the open, then in order; the abort forwards
+ * as the place's abort; an open refusal settles through `onEnd` and
+ * drops the held riders.
  */
 
 import type { DelegatedSocketEvent } from '@openheaders/core/protocol';
@@ -232,6 +233,59 @@ describe('createDelegatingGrpcTransport — a streaming call', () => {
     // Writes after the end are quiet no-ops.
     writer.sendMessage(new Uint8Array([1]));
     expect(wire.calls).toHaveLength(3);
+  });
+
+  it('holds riders issued before the open answered and rides them in order once the socket exists', async () => {
+    let answerOpen: (answer: unknown) => void = () => {};
+    const wire = fakeWire(
+      async () => null,
+      (frame) =>
+        frame.type === 'delegateGrpcOpen'
+          ? new Promise((resolve) => {
+              answerOpen = resolve;
+            })
+          : Promise.resolve({ success: true }),
+    );
+    const transport = createDelegatingGrpcTransport({ wire, workspaceId: 'ws-1', mintId: () => 'sock-4' });
+    const cb = callbacks();
+    const writer = transport.openStream?.(STREAM, cb);
+    expect(writer).toBeDefined();
+    if (writer === undefined) return;
+    // The server-stream ceremony: the message and the half-close the
+    // moment the open returns — the open's answer still in flight.
+    writer.sendMessage(new Uint8Array([8, 1]));
+    writer.halfClose();
+    await flush();
+    expect(wire.calls.map((call) => call.type)).toEqual(['delegateGrpcOpen']);
+    answerOpen({ success: true, executedOn: EXECUTED_ON });
+    await flush();
+    expect(wire.calls.slice(1)).toEqual([
+      { type: 'delegateGrpcSend', socketId: 'sock-4', messageBase64: 'CAE=' },
+      { type: 'delegateGrpcHalfClose', socketId: 'sock-4' },
+    ]);
+    // Past the answer a rider rides at once.
+    writer.sendMessage(new Uint8Array([1]));
+    expect(wire.calls).toHaveLength(4);
+    expect(cb.ends).toEqual([]);
+  });
+
+  it('drops the held riders when the place refuses the open', async () => {
+    const wire = fakeWire(
+      async () => null,
+      async (frame) =>
+        frame.type === 'delegateGrpcOpen'
+          ? { success: false, error: 'Requests from devices are turned off', executedOn: EXECUTED_ON }
+          : { success: true },
+    );
+    const transport = createDelegatingGrpcTransport({ wire, workspaceId: 'ws-1', mintId: () => 'sock-5' });
+    const cb = callbacks();
+    const writer = transport.openStream?.(STREAM, cb);
+    if (writer === undefined) return;
+    writer.sendMessage(new Uint8Array([8, 1]));
+    writer.halfClose();
+    await flush();
+    expect(wire.calls.map((call) => call.type)).toEqual(['delegateGrpcOpen']);
+    expect(cb.ends[0]).toMatchObject({ message: 'Requests from devices are turned off' });
   });
 
   it("carries the place's classified end as the seam error with its canonical status", async () => {
