@@ -23,7 +23,8 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Button, Typography } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 
 const { Text } = Typography;
 
@@ -42,6 +43,11 @@ function describeEntry(entry: CookieJarEntryWire, t: Translate): string {
 
 const CookieJarRow: React.FC = () => {
   const t = useT();
+  // The jar this tab's sends ride — keyed by the editing scope's
+  // workspace, the key the send mints; a host whose Active workspace
+  // is another one still answers for this tab's jar.
+  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
+  const jar = useMemo(() => (workspaceId !== null ? { workspaceId } : {}), [workspaceId]);
   // `null` = summary unavailable (host answered nothing yet, or the
   // channel is unsupported here) — the row renders nothing.
   const [cookies, setCookies] = useState<CookieJarEntryWire[] | null>(null);
@@ -50,10 +56,10 @@ const CookieJarRow: React.FC = () => {
     const bridge = getHostBridge();
     if (!bridge) return;
     bridge
-      .call('getCookieJarSummary', {})
+      .call('getCookieJarSummary', jar)
       .then((res) => setCookies(Array.isArray(res?.cookies) ? res.cookies : null))
       .catch(() => setCookies(null));
-  }, []);
+  }, [jar]);
 
   useEffect(() => {
     refresh();
@@ -63,21 +69,21 @@ const CookieJarRow: React.FC = () => {
     const bridge = getHostBridge();
     if (!bridge) return;
     bridge
-      .call('clearCookieJar', {})
+      .call('clearCookieJar', jar)
       .then(() => setCookies([]))
       .catch(() => refresh());
-  }, [refresh]);
+  }, [jar, refresh]);
 
   const deleteEntry = useCallback(
     (entry: CookieJarEntryWire) => {
       const bridge = getHostBridge();
       if (!bridge) return;
       bridge
-        .call('deleteCookieJarEntry', { name: entry.name, domain: entry.domain, path: entry.path })
+        .call('deleteCookieJarEntry', { ...jar, name: entry.name, domain: entry.domain, path: entry.path })
         .then(() => refresh())
         .catch(() => refresh());
     },
-    [refresh],
+    [jar, refresh],
   );
 
   if (cookies === null) return null;

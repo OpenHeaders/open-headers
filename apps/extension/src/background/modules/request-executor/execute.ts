@@ -27,6 +27,7 @@ import type { ExecutedRequestSnapshot, MultipartPart } from '@openheaders/core/t
 import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
 import { materializeBody } from '@openheaders/oracle/live/request-exec/body-decode';
+import { cookieJarFor } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
 import { dpopNonceFor, rememberDpopNonce } from '@openheaders/oracle/live/request-exec/dpop-nonces';
 import { streamedCaptureOf as streamedCaptureOfTransport } from '@openheaders/oracle/live/request-exec/execute';
@@ -962,9 +963,13 @@ async function executeDelegated(input: {
   silentStatus?: boolean;
 }): Promise<ExecutedRequestSnapshot> {
   const { req, place } = input;
+  // The jar is the context's: this worker's in-memory jar registry,
+  // the jar's Cookie attached on every hop and every hop's Set-Cookie
+  // captured here — the place holds no jar (Phase W's law).
   const transport = createDelegatingRequestTransport({
     wire: delegatedWireFor(place.backendId),
     workspaceId: place.workspaceId,
+    jars: cookieJarFor,
   });
   // The node-only knobs and the vault material the resolver carried
   // for this place (`ResolvedRequest.delegated`) ride the seam one for
@@ -977,6 +982,7 @@ async function executeDelegated(input: {
     body: input.body,
     redirect: req.followRedirects === false ? 'manual' : 'follow',
     credentials: req.credentialsMode,
+    ...(req.cookieJarKey !== undefined ? { cookieJarKey: req.cookieJarKey } : {}),
     ...knobs,
     maxBodyBytes: maxResponseBytes ?? maxBodyBytes(),
     ...(req.timeoutMs !== undefined ? { timeoutMs: req.timeoutMs } : {}),
@@ -1053,6 +1059,11 @@ async function executeDelegated(input: {
       bodyBytes: response.bodyBytes,
       durationMs,
       ...(response.authorizationForwarded ? { authorizationForwarded: true } : {}),
+      // The jar's activity is the transport's fact — per-hop attach
+      // and capture inside its redirect loop — stamped as the oracle
+      // route stamps it.
+      ...(response.cookieHeaderAttached !== undefined ? { cookieHeaderAttached: response.cookieHeaderAttached } : {}),
+      ...(response.cookiesCaptured !== undefined ? { cookiesCaptured: response.cookiesCaptured } : {}),
       ...(streamedCapture !== undefined ? { streamedCapture } : {}),
       ...(response.executedOn !== undefined ? { executedOn: response.executedOn } : {}),
       ...trustMarkers,

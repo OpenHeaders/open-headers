@@ -79,6 +79,7 @@ vi.mock('@openheaders/oracle/entity/files-store', () => ({
   ),
 }));
 
+import { peekCookieJar, resetCookieJars } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { __resetDelegatedWireForTests } from '@openheaders/oracle/sync/client/delegated-wire-client';
 import { executeRequestDraft } from '@/background/modules/request-executor';
 import { stopActiveSend } from '@/background/modules/request-executor/send-stream';
@@ -392,5 +393,61 @@ describe('delegated send — failures', () => {
     const snap = await executeRequestDraft(makeRequest(), PLACE);
     expect(snap.error).toBe('not-connected');
     expect(snap.executedOn).toBeUndefined();
+  });
+});
+
+describe("delegated send — the context's cookie jar", () => {
+  beforeEach(() => {
+    resetCookieJars();
+  });
+
+  it("a send with the jar knob on rides this worker's jar across the hops and stamps what it did", async () => {
+    // The login rig's chain: /login sets the session cookie and
+    // redirects, /me reads it — the jar speaks on the second hop.
+    h.wsRequest
+      .mockResolvedValueOnce({
+        success: true,
+        response: {
+          ...RESPONSE,
+          status: 302,
+          statusText: 'Found',
+          url: 'http://host.docker.internal:3140/login',
+          headers: [
+            { key: 'set-cookie', value: 'session=live123; Path=/; Max-Age=3600' },
+            { key: 'location', value: '/me' },
+          ],
+          body: '',
+          bodyBytes: 0,
+        },
+        executedOn: EXECUTED_ON,
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        response: { ...RESPONSE, url: 'http://host.docker.internal:3140/me', body: 'cookie=[session=live123]' },
+        executedOn: EXECUTED_ON,
+      });
+    const snap = await executeRequestDraft(
+      makeRequest({ url: 'http://host.docker.internal:3140/login', auth: { type: 'none' }, cookieJar: true }),
+      { ...PLACE, sendId: 'ctx-jar' },
+    );
+    const sent = sentFrames('delegateRequest');
+    expect(sent).toHaveLength(2);
+    // The key names the context's jar and never rides the wire.
+    expect(sent[0].frame.request?.cookieJarKey).toBeUndefined();
+    expect(sent[0].frame.request?.headers).toEqual([]);
+    expect(sent[1].frame.request?.url).toBe('http://host.docker.internal:3140/me');
+    expect(sent[1].frame.request?.headers).toEqual([{ key: 'Cookie', value: 'session=live123' }]);
+    expect(snap.error).toBeNull();
+    expect(snap.body).toBe('cookie=[session=live123]');
+    expect(snap.cookiesCaptured).toEqual(['session']);
+    expect(snap.cookieHeaderAttached).toBeUndefined();
+    expect(snap.redirectChain).toHaveLength(1);
+  });
+
+  it('a send with the jar knob off mints no key and the jar stays silent', async () => {
+    h.wsRequest.mockResolvedValue({ success: true, response: RESPONSE, executedOn: EXECUTED_ON });
+    await executeRequestDraft(makeRequest({ auth: { type: 'none' } }), PLACE);
+    expect(sentFrames('delegateRequest')[0].frame.request?.cookieJarKey).toBeUndefined();
+    expect(peekCookieJar('ws-1')).toBeUndefined();
   });
 });

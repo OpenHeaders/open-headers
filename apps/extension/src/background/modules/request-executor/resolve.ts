@@ -159,6 +159,16 @@ export interface ResolvedRequest {
    * otherwise. The oracle resolver's own carry, one for one.
    */
   delegated?: DelegatedKnobs;
+  /**
+   * The context's cookie jar a DELEGATED send rides — the workspace's
+   * in-memory jar this worker holds, keyed by the workspace the send
+   * runs under, minted when the request's `cookieJar` knob is on. The
+   * browser's own store never reaches a delegated socket (the place
+   * opens it), so the jar is this worker's like any context's; a send
+   * on this worker's own socket rides the browser store through
+   * `credentialsMode` and mints none.
+   */
+  cookieJarKey?: string;
   // auth folds into `url` + `headers`; params ride structured to the wire.
 }
 
@@ -522,6 +532,7 @@ export async function resolveRequest(
               options.workspaceId ?? getActiveWorkspaceId(),
               resolveStr,
             ),
+            ...(settings.cookieJar === true ? { cookieJarKey: options.workspaceId ?? getActiveWorkspaceId() } : {}),
           }
         : {}),
     },

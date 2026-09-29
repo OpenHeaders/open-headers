@@ -22,6 +22,7 @@ import {
   updateRequest,
 } from '@openheaders/oracle/entity/request-store';
 import { compileGraphqlRequest } from '@openheaders/oracle/live/graphql-exec/execute';
+import { peekCookieJar } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { errorSnapshot } from '@openheaders/oracle/live/request-exec/execute';
 import { handleResolveRequestWireRpc } from '@openheaders/oracle/live/request-exec/resolve-wire-rpc';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
@@ -68,6 +69,14 @@ async function executeGraphqlRequestRpc(
   return { success: true, snapshot };
 }
 
+/** The jar a channel means — the stated workspace, else this worker's
+ *  Active one (the key an unpinned send runs under); the web tab's rule. */
+function jarKeyOf(message: Record<string, unknown>): string {
+  return typeof message.workspaceId === 'string' && message.workspaceId !== ''
+    ? message.workspaceId
+    : getActiveWorkspaceId();
+}
+
 /** The workspace the send names — the tab's, which the executor pins
  *  its reads, its resolution and the delegated frame's gate on;
  *  absent, the executor reads this worker's Active one. */
@@ -86,6 +95,26 @@ function executionPlaceOf(message: Record<string, unknown>): { executionPlace?: 
 }
 
 export const requestHandlers: HandlerMap = {
+  // The context's cookie jar under delegation — this worker's in-memory
+  // jar per workspace, the one a delegated send rides (the browser's
+  // store never reaches a delegated socket). Value-free reads, quiet
+  // no-ops on an absent jar — the web tab's answers verbatim.
+  getCookieJarSummary: ({ message, respond }) => {
+    respond({ cookies: peekCookieJar(jarKeyOf(message))?.list() ?? [] });
+  },
+
+  clearCookieJar: ({ message, respond }) => {
+    peekCookieJar(jarKeyOf(message))?.clear();
+    respond({ success: true });
+  },
+
+  deleteCookieJarEntry: ({ message, respond }) => {
+    if (typeof message.name === 'string' && typeof message.domain === 'string' && typeof message.path === 'string') {
+      peekCookieJar(jarKeyOf(message))?.delete(message.name, message.domain, message.path);
+    }
+    respond({ success: true });
+  },
+
   getLocalRequests: ({ respond }) => {
     respond({ requests: getRequests() });
   },

@@ -22,6 +22,7 @@ vi.mock('@/background/modules/request-executor/send-stream', () => ({
   stopActiveSend: vi.fn(),
 }));
 
+import { captureSetCookieRows, cookieJarFor, resetCookieJars } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { requestHandlers } from '@/background/modules/message-handler/handlers/requests';
 import type { HandlerArgs } from '@/background/modules/message-handler/types';
 
@@ -123,5 +124,49 @@ describe('the worker send handlers — the workspace the send names', () => {
       workspaceId: WORKSPACE,
       executionPlace: PLACE,
     });
+  });
+});
+
+describe("the worker's cookie-jar channels — the context's jar under delegation, per workspace", () => {
+  beforeEach(() => {
+    resetCookieJars();
+  });
+
+  function call(
+    type: 'getCookieJarSummary' | 'clearCookieJar' | 'deleteCookieJarEntry',
+    message: Record<string, unknown>,
+  ) {
+    const respond = vi.fn();
+    requestHandlers[type]({
+      message: { type, ...message },
+      sender: {} as chrome.runtime.MessageSender,
+      respond,
+      ctx: {},
+    } as unknown as HandlerArgs);
+    return respond.mock.calls[0][0] as Record<string, unknown>;
+  }
+
+  it("lists, deletes and clears the named workspace's jar, value-free; an absent jar answers empty", () => {
+    expect(call('getCookieJarSummary', { workspaceId: WORKSPACE })).toEqual({ cookies: [] });
+    captureSetCookieRows(cookieJarFor(WORKSPACE), 'http://host.docker.internal:3140/login', [
+      { key: 'set-cookie', value: 'session=live123; Path=/' },
+      { key: 'set-cookie', value: 'theme=dark; Path=/' },
+    ]);
+    const listed = call('getCookieJarSummary', { workspaceId: WORKSPACE }).cookies as Array<Record<string, unknown>>;
+    expect(listed.map((c) => c.name).sort()).toEqual(['session', 'theme']);
+    expect(listed.some((c) => 'value' in c)).toBe(false);
+    expect(
+      call('deleteCookieJarEntry', {
+        workspaceId: WORKSPACE,
+        name: 'theme',
+        domain: 'host.docker.internal',
+        path: '/',
+      }),
+    ).toEqual({ success: true });
+    expect((call('getCookieJarSummary', { workspaceId: WORKSPACE }).cookies as unknown[]).length).toBe(1);
+    expect(call('clearCookieJar', { workspaceId: WORKSPACE })).toEqual({ success: true });
+    expect(call('getCookieJarSummary', { workspaceId: WORKSPACE })).toEqual({ cookies: [] });
+    // Another workspace's jar is another jar.
+    expect(call('getCookieJarSummary', { workspaceId: 'ws-other' })).toEqual({ cookies: [] });
   });
 });
