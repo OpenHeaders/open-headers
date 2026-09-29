@@ -67,7 +67,7 @@ function makeGrpcRequest(overrides: Partial<GrpcRequest> = {}): GrpcRequest {
     tls: true,
     method: { service: 'library.v1.Library', rpc: 'GetNote' },
     message: '{"text":"{{greeting}}"}',
-    metadata: [{ key: 'x-tenant', value: '{{tenant}}' }],
+    metadata: [{ uid: 'm1', key: 'x-tenant', value: '{{tenant}}' }],
     specLink: { specUid: SPEC.uid },
     ...overrides,
   };
