@@ -512,9 +512,9 @@ describe('RequestContainerEditor — the Settings section', () => {
     expect(sslSwitch('request').getAttribute('aria-checked')).toBe('false');
     expect(screen.queryByTestId('oh-setting-modified-dot')).toBeNull();
     const notes = screen.getAllByTestId('oh-inherited-setting-note');
-    expect(notes.map((note) => note.getAttribute('data-key'))).toEqual(['sslVerification', 'timeoutMs']);
-    expect(notes[1].textContent).toContain('Inherited from Collection ‘Payments’');
-    fireEvent.click(within(notes[1]).getByTestId('oh-inherited-setting-edit-in-parent'));
+    expect(notes.map((note) => note.getAttribute('data-key'))).toEqual(['timeoutMs', 'sslVerification']);
+    expect(notes[0].textContent).toContain('Inherited from Collection ‘Payments’');
+    fireEvent.click(within(notes[0]).getByTestId('oh-inherited-setting-edit-in-parent'));
     expect(onOpenContainerSettings).toHaveBeenCalledWith('collection', 'col00001', 'Payments');
     expect(headerButton('Saved').disabled).toBe(true);
 
@@ -531,12 +531,12 @@ describe('RequestContainerEditor — the Settings section', () => {
     expect(timeoutKnob().value).toBe('5 s');
     const after = screen.getAllByTestId('oh-inherited-setting-note');
     expect(after.map((n) => `${n.getAttribute('data-key')}:${n.getAttribute('data-reading')}`)).toEqual([
-      'sslVerification:inherited',
       'timeoutMs:overrides',
+      'sslVerification:inherited',
     ]);
-    expect(after[1].textContent).toContain('Overrides Collection ‘Payments’ (30 s)');
+    expect(after[0].textContent).toContain('Overrides Collection ‘Payments’ (30 s)');
     // One level above sets it — no chain to list.
-    expect(within(after[1]).queryByTestId('oh-inherited-setting-chain')).toBeNull();
+    expect(within(after[0]).queryByTestId('oh-inherited-setting-chain')).toBeNull();
     fireEvent.click(await findSaveButton());
     await waitFor(() => expect(applyRequestFolderSetSettings).toHaveBeenCalledTimes(1));
     expect(applyRequestFolderSetSettings).toHaveBeenCalledWith(
