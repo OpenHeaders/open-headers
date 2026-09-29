@@ -510,6 +510,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': 'Pas encore disponible ici',
   'shared.executionPlace.roster.openSync': 'Ouvrir Sauvegarde et synchronisation',
   'shared.executionPlace.roster.reset': 'Revenir à Automatique',
+  'shared.executionPlace.roster.seeDocs': 'Voir la documentation',
   'shared.executionPlace.hint.cannotRunHere':
     'Cette requête ne peut pas s’exécuter dans le navigateur. Exécutez-la dans l’application de bureau ou sur un serveur.',
   'shared.executionPlace.hint.choose': 'Choisir où elle s’exécute',

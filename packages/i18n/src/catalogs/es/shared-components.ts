@@ -514,6 +514,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': 'Aún no disponible aquí',
   'shared.executionPlace.roster.openSync': 'Abrir Copia de seguridad y sincronización',
   'shared.executionPlace.roster.reset': 'Restablecer a Automático',
+  'shared.executionPlace.roster.seeDocs': 'Ver la documentación',
   'shared.executionPlace.hint.cannotRunHere':
     'Esta solicitud no puede ejecutarse en el navegador. Ejecútala en la aplicación de escritorio o en un servidor.',
   'shared.executionPlace.hint.choose': 'Elegir dónde se ejecuta',

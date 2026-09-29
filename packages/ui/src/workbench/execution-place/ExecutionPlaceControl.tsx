@@ -93,6 +93,31 @@ const OpenSyncAction: React.FC = () => {
   );
 };
 
+/** The Server tab of the docs site — setting a server up and joining it. */
+const SERVER_DOCS_URL = 'https://docs.openheaders.com/server';
+
+/** The rung of a workspace with no server: the docs on setting one up,
+ *  opened outside (the host's external-open path, else a plain tab). */
+const SeeDocsAction: React.FC = () => {
+  const t = useT();
+  const open = (): void => {
+    const openUrl = getCapability('openExternalUrl');
+    if (openUrl) void openUrl(SERVER_DOCS_URL);
+    else window.open(SERVER_DOCS_URL, '_blank', 'noopener');
+  };
+  return (
+    <Button
+      type="link"
+      size="small"
+      onClick={open}
+      data-testid="execution-place-see-docs"
+      style={{ fontSize: 11, padding: 0, height: 'auto', whiteSpace: 'nowrap' }}
+    >
+      {t('shared.executionPlace.roster.seeDocs')}
+    </Button>
+  );
+};
+
 function ctaAction(cta: ExecutionPlaceCta): React.ReactNode {
   switch (cta) {
     case 'reveal-desktop-app':
@@ -108,11 +133,12 @@ function ctaAction(cta: ExecutionPlaceCta): React.ReactNode {
   }
 }
 
-/** A disabled row's rung: the desktop ladder, or the Sync page for a
- *  server whose wire is down; nothing for a kind this surface cannot
- *  run or a workspace with no server. */
+/** A disabled row's rung: the desktop ladder, the Sync page for a
+ *  server whose wire is down, the server docs for a workspace with no
+ *  server; nothing for a kind this surface cannot run. */
 function rowAction(row: ExecutionPlaceRosterRow): React.ReactNode {
   if (row.role === 'workspace-server' && row.reason === 'server-not-connected') return <OpenSyncAction />;
+  if (row.role === 'workspace-server' && row.reason === 'no-server') return <SeeDocsAction />;
   return ctaAction(row.cta);
 }
 

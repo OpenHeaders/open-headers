@@ -548,6 +548,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': 'Indisponibil încă aici',
   'shared.executionPlace.roster.openSync': 'Deschidere Copie de rezervă și sincronizare',
   'shared.executionPlace.roster.reset': 'Revenire la Automat',
+  'shared.executionPlace.roster.seeDocs': 'Vezi documentația',
   'shared.executionPlace.hint.cannotRunHere':
     'Această solicitare nu poate rula în browser. Rulați-o în aplicația desktop sau pe un server.',
   'shared.executionPlace.hint.choose': 'Alegere loc de rulare',

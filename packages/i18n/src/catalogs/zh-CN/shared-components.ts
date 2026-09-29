@@ -510,6 +510,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': '此处尚不可用',
   'shared.executionPlace.roster.openSync': '打开备份与同步',
   'shared.executionPlace.roster.reset': '重置为自动',
+  'shared.executionPlace.roster.seeDocs': '查看文档',
   'shared.executionPlace.hint.cannotRunHere': '此请求无法在浏览器中运行。请在桌面应用或服务器上运行。',
   'shared.executionPlace.hint.choose': '选择运行位置',
   'shared.executionPlace.knob.cookieJar': 'Cookie 罐',

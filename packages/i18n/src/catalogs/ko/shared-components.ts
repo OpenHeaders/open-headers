@@ -489,6 +489,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': '여기에서는 아직 사용할 수 없음',
   'shared.executionPlace.roster.openSync': '백업 및 동기화 열기',
   'shared.executionPlace.roster.reset': '자동으로 재설정',
+  'shared.executionPlace.roster.seeDocs': '문서 보기',
   'shared.executionPlace.hint.cannotRunHere':
     '이 요청은 브라우저에서 실행할 수 없습니다. 데스크톱 앱이나 서버에서 실행하세요.',
   'shared.executionPlace.hint.choose': '실행 위치 선택',

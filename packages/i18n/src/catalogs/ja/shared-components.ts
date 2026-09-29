@@ -492,6 +492,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': 'ここではまだ利用できません',
   'shared.executionPlace.roster.openSync': 'バックアップと同期を開く',
   'shared.executionPlace.roster.reset': '自動に戻す',
+  'shared.executionPlace.roster.seeDocs': 'ドキュメントを見る',
   'shared.executionPlace.hint.cannotRunHere':
     'このリクエストはブラウザーでは実行できません。デスクトップアプリまたはサーバーで実行してください。',
   'shared.executionPlace.hint.choose': '実行場所を選ぶ',

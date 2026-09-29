@@ -541,6 +541,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': 'Здесь пока недоступно',
   'shared.executionPlace.roster.openSync': 'Открыть «Резервное копирование и синхронизация»',
   'shared.executionPlace.roster.reset': 'Сбросить на «Автоматически»',
+  'shared.executionPlace.roster.seeDocs': 'Открыть документацию',
   'shared.executionPlace.hint.cannotRunHere':
     'Этот запрос нельзя выполнить в браузере. Выполните его в настольном приложении или на сервере.',
   'shared.executionPlace.hint.choose': 'Выбрать место выполнения',

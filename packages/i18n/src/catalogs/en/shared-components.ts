@@ -533,6 +533,7 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.notForwarded': 'Not available here yet',
   'shared.executionPlace.roster.openSync': 'Open Backup and Sync',
   'shared.executionPlace.roster.reset': 'Reset to automatic',
+  'shared.executionPlace.roster.seeDocs': 'See docs',
   'shared.executionPlace.hint.cannotRunHere':
     'This request cannot run in the browser. Run it on the desktop app or a server.',
   'shared.executionPlace.hint.choose': 'Choose where it runs',

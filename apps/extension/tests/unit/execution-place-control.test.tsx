@@ -133,7 +133,8 @@ describe('ExecutionPlaceControl', () => {
     const reasons = screen.getAllByTestId('execution-place-option-reason');
     expect(reasons[0]?.textContent).toContain('Not installed');
     expect(reasons[0]?.querySelector('[data-testid="status-companion-download"]')).toBeTruthy();
-    expect(reasons[1]?.textContent).toBe('Available in a server workspace');
+    expect(reasons[1]?.textContent).toContain('Available in a server workspace');
+    expect(reasons[1]?.querySelector('[data-testid="execution-place-see-docs"]')?.textContent).toBe('See docs');
     expect(screen.queryByTestId('execution-place-reset')).toBeNull();
   });
 
