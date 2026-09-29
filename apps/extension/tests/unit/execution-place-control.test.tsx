@@ -211,6 +211,9 @@ describe('ExecutionPlaceControl', () => {
     );
     expect(chip().getAttribute('aria-label')).toBe('Cannot run here: needs the desktop app or a server');
     expect(chip().getAttribute('data-state')).toBe('needs-companion');
+    // Automatic with no row this surface can honour: the mark is this
+    // surface's own, never the desktop app the resolution says it needs.
+    expect(chip().querySelector('[data-testid="execution-place-mark"]')?.getAttribute('data-place')).toBe('here');
     fireEvent.click(chip());
     expect(await screen.findByText(/mqtt:\/\/ and mqtts:\/\/ open a raw TCP socket/)).toBeTruthy();
     const cta = await screen.findByTestId('execution-place-cta');
@@ -407,5 +410,54 @@ describe('ExecutionPlaceControl — the Server row this device switched off', ()
     expect(copy.chip).toBe('shared.executionPlace.tip.serverOff');
     expect(copy.reason).toBe('shared.executionPlace.reason.serverOff');
     expect(copy.knobs).toBeNull();
+  });
+});
+
+describe('ExecutionPlaceControl — the mark mirrors the selection', () => {
+  it('a chosen Server the surface cannot honour keeps the server’s mark on the button, warning-toned', async () => {
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          place: 'workspace-server',
+          placeName: 'Acme',
+          state: 'unsupported',
+          reason: { kind: 'server-off' },
+          alternatives: ['here'],
+          serverName: 'Acme',
+        })}
+        roster={[
+          HERE,
+          DESKTOP_MISSING,
+          { role: 'workspace-server', available: false, reason: 'server-off', cta: null },
+        ]}
+        preference="workspace-server"
+        onPick={vi.fn()}
+      />,
+    );
+    const chip = screen.getByTestId('execution-place-chip');
+    expect(chip.querySelector('[data-testid="execution-place-mark"]')?.getAttribute('data-place')).toBe(
+      'workspace-server',
+    );
+    fireEvent.click(chip);
+    const rows = await screen.findAllByTestId('execution-place-option');
+    // The option test id rides the radio input itself.
+    expect((rows[2] as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('a ready send draws the resolved row’s mark', () => {
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          place: 'desktop-app',
+          reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
+          alternatives: ['here'],
+        })}
+        roster={[HERE, DESKTOP_UP, NO_SERVER]}
+        preference="desktop-app"
+        onPick={vi.fn()}
+      />,
+    );
+    const chip = screen.getByTestId('execution-place-chip');
+    expect(chip.querySelector('[data-testid="execution-place-mark"]')?.getAttribute('data-place')).toBe('desktop-app');
   });
 });

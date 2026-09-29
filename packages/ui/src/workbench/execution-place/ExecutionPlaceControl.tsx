@@ -12,11 +12,13 @@
  * reason sentence and the knobs in play. A pick is a DRAFT edit of the
  * request's own place (saved with the request, on this device only,
  * by the editor's Save); *Reset to automatic* clears it back to the
- * Settings default. The tone carries the state: muted when the send
- * runs here with nothing else possible, the warning colour when the
- * desktop app is needed. The primary button never changes its label
- * by place. `open` / `onOpenChange` let a disabled primary's hint
- * open the picker.
+ * Settings default. The mark mirrors the picker's selection — the
+ * resolved row, else the chosen row the surface cannot honour, else
+ * this surface itself. The tone carries the state: muted when the send
+ * runs here with nothing else possible, the warning colour when no row
+ * can run it. The primary button never changes its label by place.
+ * `open` / `onOpenChange` let a disabled primary's hint open the
+ * picker.
  */
 
 import { FunctionOutlined, SelectOutlined } from '@ant-design/icons';
@@ -187,6 +189,12 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
   const selected: ExecutionPlaceRole | undefined =
     resolution.state === 'ready' ? resolution.place : preference === 'auto' ? undefined : preference;
   const explicit = preference !== 'auto';
+  // The button's mark mirrors the picker's selection: the selected row's
+  // place, else — Automatic with no row this surface can honour — this
+  // surface itself, where the user is. Never the place the resolution
+  // says the send NEEDS: a desktop app that is not installed is a row's
+  // reason, not the button's face.
+  const markPlace: ExecutionPlaceRole = selected ?? 'here';
 
   return (
     <Popover
@@ -308,7 +316,7 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, lineHeight: 0 }}>
               <FunctionOutlined />
-              <PlaceMark place={resolution.place} size={13} />
+              <PlaceMark place={markPlace} size={13} />
             </span>
           </Button>
         </Tooltip>

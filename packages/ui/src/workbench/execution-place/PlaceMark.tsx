@@ -80,6 +80,7 @@ export const PlaceMark: React.FC<PlaceMarkProps> = ({ place, size = 14 }) => {
     <span
       data-testid="execution-place-mark"
       data-mark={kind}
+      data-place={place}
       style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}
     >
       {glyph}
