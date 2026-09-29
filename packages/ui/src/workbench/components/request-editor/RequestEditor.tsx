@@ -740,9 +740,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     activeSendIdRef.current = sendId;
     setSseSession(null);
     beginStream(sendId);
+    // The send names the tab's workspace — the host resolves and gates
+    // it there, never against its own Active one (the session kinds'
+    // page scope, for the two kinds a host executes itself).
     const snapshot = await execute({
       draft: draftRequest,
       sendId,
+      ...(editingScopeWorkspaceId !== null ? { workspaceId: editingScopeWorkspaceId } : {}),
       ...(executionPlace.target !== null ? { executionPlace: executionPlace.target } : {}),
     });
     activeSendIdRef.current = null;
@@ -754,7 +758,16 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     setSending(false);
     setResponse(snapshot);
     setSseSession(session === null ? null : { ...session, endedAt: Date.now() });
-  }, [sending, buildDraftRequest, execute, beginStream, endStream, takeSseSession, executionPlace.target]);
+  }, [
+    sending,
+    buildDraftRequest,
+    execute,
+    beginStream,
+    endStream,
+    takeSseSession,
+    editingScopeWorkspaceId,
+    executionPlace.target,
+  ]);
 
   // Stop the in-flight send — the host aborts the exchange and the
   // pending `execute` above resolves with a snapshot materialized from

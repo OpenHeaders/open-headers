@@ -48,11 +48,12 @@ async function executeGraphqlRequestRpc(
     typeof message.environmentId === 'string' || message.environmentId === null ? message.environmentId : undefined;
   const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
   const executionPlace = executionPlaceOf(message);
+  const workspace = workspaceOf(message);
 
   let entity: GraphqlRequest | undefined;
   if (graphqlRequestUid) {
     const all = await hostStorage.getValidatedArray(
-      wsKeys(getActiveWorkspaceId()).graphqlRequests,
+      wsKeys(workspace.workspaceId ?? getActiveWorkspaceId()).graphqlRequests,
       GraphqlRequestSchema,
     );
     const loaded = all.find((r) => r.uid === graphqlRequestUid);
@@ -63,8 +64,17 @@ async function executeGraphqlRequestRpc(
   }
   if (!entity) return { success: false, error: 'No GraphQL request or draft provided' };
   const compiled = compileGraphqlRequest(entity, operationName !== undefined ? { operationName } : {});
-  const snapshot = await executeRequestDraft(compiled, { environmentId, sendId, ...executionPlace });
+  const snapshot = await executeRequestDraft(compiled, { environmentId, sendId, ...workspace, ...executionPlace });
   return { success: true, snapshot };
+}
+
+/** The workspace the send names — the tab's, which the executor pins
+ *  its reads, its resolution and the delegated frame's gate on;
+ *  absent, the executor reads this worker's Active one. */
+function workspaceOf(message: Record<string, unknown>): { workspaceId?: string } {
+  return typeof message.workspaceId === 'string' && message.workspaceId !== ''
+    ? { workspaceId: message.workspaceId }
+    : {};
 }
 
 /** The frame's place, when it names one by an explicit backend id. */
@@ -214,11 +224,12 @@ export const requestHandlers: HandlerMap = {
     const draft = message.draft as Request | undefined;
     const environmentId = message.environmentId as string | null | undefined;
     const sendId = message.sendId as string | undefined;
+    const workspace = workspaceOf(message);
     const executionPlace = executionPlaceOf(message);
     const exec = requestUid
-      ? executeRequest(requestUid, { environmentId, sendId, ...executionPlace })
+      ? executeRequest(requestUid, { environmentId, sendId, ...workspace, ...executionPlace })
       : draft
-        ? executeRequestDraft(draft, { environmentId, sendId, ...executionPlace })
+        ? executeRequestDraft(draft, { environmentId, sendId, ...workspace, ...executionPlace })
         : Promise.resolve(null);
     exec
       .then((snapshot) => {

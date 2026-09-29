@@ -401,9 +401,11 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     activeSendIdRef.current = sendId;
     setSseSession(null);
     beginStream(sendId);
+    // The query names the tab's workspace — the HTTP send's rule.
     const snapshot = await executeGraphql({
       draft: draftEntity(entity, draft),
       sendId,
+      ...(editingScopeWorkspaceId !== null ? { workspaceId: editingScopeWorkspaceId } : {}),
       ...(queryPlace.target !== null ? { executionPlace: queryPlace.target } : {}),
     });
     activeSendIdRef.current = null;
@@ -422,6 +424,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     beginStream,
     endStream,
     takeSseSession,
+    editingScopeWorkspaceId,
     queryPlace.target,
   ]);
 
