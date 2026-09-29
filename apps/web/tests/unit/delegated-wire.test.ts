@@ -16,6 +16,8 @@
 
 import { setHostLogger } from '@openheaders/core/logger';
 import {
+  DELEGATE_GRPC_INVOKE_CHANNEL,
+  DELEGATE_GRPC_OPEN_CHANNEL,
   DELEGATE_MQTT_OPEN_CHANNEL,
   DELEGATE_REQUEST_CHANNEL,
   DELEGATE_SOCKET_ABORT_CHANNEL,
@@ -23,6 +25,7 @@ import {
   DELEGATE_WS_SEND_CHANNEL,
   DELEGATED_SOCKET_EVENT_FRAME,
 } from '@openheaders/core/protocol';
+import type { DelegatedGrpcInvokeFrame } from '@openheaders/oracle/live/grpc-exec/delegated-wire';
 import type { DelegatedRequestFrame } from '@openheaders/oracle/live/request-exec/delegated-wire';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -30,6 +33,7 @@ import {
   __resetDelegatedWireForTests,
   handleIncomingDelegatedSocketFrame,
   handleIncomingDelegatedStreamFrame,
+  webDelegatedGrpcWire,
   webDelegatedSocketWire,
   webDelegatedWire,
 } from '@/host/delegated-wire';
@@ -232,5 +236,89 @@ describe('delegated-wire — the socket family', () => {
     release();
     expect(handleIncomingDelegatedSocketFrame(open)).toBe(false);
     expect(received).toHaveLength(1);
+  });
+});
+
+describe('delegated-wire — the gRPC leg', () => {
+  let sent: Record<string, unknown>[];
+
+  beforeAll(() => {
+    setHostLogger({ error() {}, warn() {}, info() {}, debug() {} });
+  });
+
+  beforeEach(() => {
+    sent = [];
+    __resetDelegatedWireForTests();
+    setWireRpcSender((message) => {
+      sent.push(message);
+      return true;
+    });
+  });
+
+  const INVOKE: DelegatedGrpcInvokeFrame = {
+    type: DELEGATE_GRPC_INVOKE_CHANNEL,
+    sendId: 'grpc-1',
+    workspaceId: 'ws-tab',
+    request: {
+      authority: 'grpc.openheaders.io:443',
+      tls: true,
+      path: '/books.Books/GetBook',
+      metadata: [],
+      messageBase64: 'CAE=',
+      maxBodyBytes: 4096,
+    },
+  };
+
+  it("rides the unary invoke up the wire on the exchange's wait and answers the place's result verbatim", async () => {
+    const answer = { success: true, response: { httpStatus: 200 }, executedOn: { kind: 'backend', name: 'workbox' } };
+    const pending = webDelegatedGrpcWire.invoke(INVOKE);
+    await Promise.resolve();
+    expect(sent[0]).toMatchObject({ type: DELEGATE_GRPC_INVOKE_CHANNEL, sendId: 'grpc-1', workspaceId: 'ws-tab' });
+    handleWireRpcResponseFrame({ type: `${DELEGATE_GRPC_INVOKE_CHANNEL}:response`, payload: answer });
+    await expect(pending).resolves.toEqual(answer);
+  });
+
+  it("rides the open, a rider and the Stop on their own channels, and rejects on the daemon's refusal", async () => {
+    const open = webDelegatedGrpcWire.call({
+      type: DELEGATE_GRPC_OPEN_CHANNEL,
+      socketId: 'sock-g',
+      workspaceId: 'ws-tab',
+      request: { authority: 'grpc.openheaders.io:443', tls: true, path: '/books.Books/WatchBooks', metadata: [] },
+    });
+    await Promise.resolve();
+    expect(sent[0]).toMatchObject({ type: DELEGATE_GRPC_OPEN_CHANNEL, socketId: 'sock-g', workspaceId: 'ws-tab' });
+    handleWireRpcResponseFrame({
+      type: `${DELEGATE_GRPC_OPEN_CHANNEL}:response`,
+      payload: { success: true, executedOn: { kind: 'backend', name: 'workbox' } },
+    });
+    await expect(open).resolves.toEqual({ success: true, executedOn: { kind: 'backend', name: 'workbox' } });
+
+    const rider = webDelegatedGrpcWire.call({ type: 'delegateGrpcSend', socketId: 'sock-g', messageBase64: 'CAE=' });
+    await Promise.resolve();
+    expect(sent[1]).toEqual({ type: 'delegateGrpcSend', socketId: 'sock-g', messageBase64: 'CAE=' });
+    handleWireRpcResponseFrame({ type: 'delegateGrpcSend:response', __error: 'No such socket' });
+    await expect(rider).rejects.toThrow('No such socket');
+
+    webDelegatedGrpcWire.abort('grpc-1');
+    await Promise.resolve();
+    expect(sent[2]).toEqual({ type: 'abortRequestSend', sendId: 'grpc-1' });
+  });
+
+  it('routes a claimed socket id’s events to the gRPC transport and passes unclaimed ones onward', () => {
+    const received: unknown[] = [];
+    const release = webDelegatedGrpcWire.subscribe('sock-g', (event) => {
+      received.push(event);
+    });
+    const head = { socketId: 'sock-g', seq: 0, kind: 'head', httpStatus: 200, headers: [] };
+    expect(handleIncomingDelegatedSocketFrame({ type: DELEGATED_SOCKET_EVENT_FRAME, payload: head })).toBe(true);
+    expect(
+      handleIncomingDelegatedSocketFrame({
+        type: DELEGATED_SOCKET_EVENT_FRAME,
+        payload: { socketId: 'sock-other', seq: 0, kind: 'end' },
+      }),
+    ).toBe(false);
+    expect(received).toEqual([head]);
+    release();
+    expect(handleIncomingDelegatedSocketFrame({ type: DELEGATED_SOCKET_EVENT_FRAME, payload: head })).toBe(false);
   });
 });

@@ -220,7 +220,7 @@ export function createPeerRequestsRpc(options: PeerRequestsRpcOptions = {}): WsP
         case 'executeGrpcRequest': {
           // Same egress-attribution stamp as the HTTP branch — this
           // machine dialed the gRPC target on the peer's behalf.
-          const result = await executeGrpcRequest(message, peerGrpcStreamFrameSink(peer.userId));
+          const result = await executeGrpcRequest(contextFrame, peerGrpcStreamFrameSink(peer.userId));
           return result.snapshot
             ? { ...result, snapshot: { ...result.snapshot, executedOn: daemonExecutedOn() } }
             : result;

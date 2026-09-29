@@ -48,16 +48,19 @@ if (!isPublicView()) {
   // read it.
   registerCapability('remoteRequestDispatch', () => window.location.host);
 
-  // The HTTP send and the three session Connects are DELEGATED (the
+  // The HTTP send, the three session Connects and the gRPC Invoke are
+  // DELEGATED (the
   // Execution Place plan's Phase W): this tab is the context — it
   // resolves against its own mirrors and its own vault and jar, runs
   // the session's executor — and the serving daemon only opens the
   // socket (`tab-requests-rpc.ts` and `tab-sessions-rpc.ts` over
   // `delegated-wire.ts`). The reader reads "Runs on <place>" as a
-  // delegated send with no alternatives; gRPC keeps its context-send
-  // row until its slice.
+  // delegated send with no alternatives, the gRPC call included (the
+  // registry and the encode are the tab's; the daemon opens the
+  // HTTP/2 session).
   registerCapability('delegatedRequestDispatch', () => true);
   registerCapability('delegatedSessionDispatch', () => true);
+  registerCapability('delegatedGrpcDispatch', () => true);
 
   // …and the scripts around them run HERE, in the tab's Safe sandbox
   // (`install-script-sandbox.ts`) — Safe alone: a browser tab has no

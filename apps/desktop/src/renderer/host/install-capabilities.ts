@@ -31,6 +31,10 @@ registerCapability('delegatedRequestDispatch', () => true);
 // the socket on the named server over its backend client plane while
 // the session's executor stays here (Phase D).
 registerCapability('delegatedSessionDispatch', () => true);
+// The gRPC Invoke honours a place too: the main process opens the
+// HTTP/2 session on the named server over its backend client plane
+// while the call's executor stays here (the delegated gRPC leg).
+registerCapability('delegatedGrpcDispatch', () => true);
 
 // Pre/post request scripts run on this host — Safe mode's hidden
 // sandboxed renderer by default, or the Developer-mode utilityProcess

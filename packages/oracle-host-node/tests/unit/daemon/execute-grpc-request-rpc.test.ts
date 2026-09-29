@@ -548,3 +548,45 @@ describe('handleExecuteGrpcRequestRpc — TLS verification knob', () => {
     expect(unset.sent().sslVerification).toBeUndefined();
   });
 });
+
+// ── The desktop app's own call toward a server — the delegated lease ──
+
+const wireCalls = vi.hoisted(() => ({ wiresFor: [] as string[] }));
+vi.mock('@openheaders/oracle/sync/client/delegated-wire-client', () => ({
+  delegatedGrpcWireFor: (backendId: string) => {
+    wireCalls.wiresFor.push(backendId);
+    return {
+      invoke: async () => ({
+        success: true,
+        response: {
+          httpStatus: 200,
+          headers: [{ key: 'content-type', value: 'application/grpc+proto' }],
+          trailers: [{ key: 'grpc-status', value: '0' }],
+          bodyBase64: '',
+          bodyTruncated: false,
+        },
+        executedOn: { kind: 'backend', name: 'workbox' },
+      }),
+      abort: () => {},
+      call: async () => ({ success: true }),
+      subscribe: () => () => {},
+    };
+  },
+}));
+
+describe('handleExecuteGrpcRequestRpc — the frame names a place', () => {
+  it('leases the delegating transport toward the named backend, never the own stack, and stamps who answered', async () => {
+    seedStorage([makeGrpcRequest()], [makeSpec()]);
+    const own = captureTransport();
+    const result = await handleExecuteGrpcRequestRpc(
+      { grpcRequestUid: 'grpc0001', executionPlace: { backendId: 'srv-1' } },
+      own.transport,
+    );
+    expect(own.calls()).toBe(0);
+    expect(wireCalls.wiresFor).toEqual(['srv-1']);
+    expect(result.success).toBe(true);
+    expect(result.snapshot?.error).toBeNull();
+    expect(result.snapshot?.grpcStatus).toBe(0);
+    expect(result.snapshot?.executedOn).toEqual({ kind: 'backend', name: 'workbox' });
+  });
+});

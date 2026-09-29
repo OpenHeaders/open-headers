@@ -2,14 +2,13 @@
  * Web host RPC dispatch — the in-process "reactor" the host bridge
  * calls into. The tab oracle lives in the same JS context as the
  * Workbench, so dispatch is a function call: universal host RPCs
- * first, the tab-answered request and session channels (the tab is
- * the context), the daemon-answered channels forwarded up the single
- * wire (admin plane, the gRPC channels, migration pull hydration),
- * then the host-neutral sync + awareness channels via
- * {@link dispatchSyncRpc}, and a
- * recognizable rejection for anything only other hosts implement
- * (chrome.tabs, DNR, CDP, …) so fire-and-forget callers degrade
- * quietly through the rpc-fallback filter.
+ * first, the tab-answered request, gRPC and session channels (the tab
+ * is the context), the daemon-answered channels forwarded up the
+ * single wire (admin plane, migration pull hydration), then the
+ * host-neutral sync + awareness channels via {@link dispatchSyncRpc},
+ * and a recognizable rejection for anything only other hosts
+ * implement (chrome.tabs, DNR, CDP, …) so fire-and-forget callers
+ * degrade quietly through the rpc-fallback filter.
  */
 
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
@@ -20,7 +19,6 @@ import { dispatchTabRequestsRpc, isTabRequestsChannel } from './tab-requests-rpc
 import { dispatchTabSessionsRpc, isTabSessionsChannel } from './tab-sessions-rpc';
 import { dispatchExportImportRpc, isExportImportChannel } from './web-export-import-rpc';
 import { fetchMigrationPullState, MIGRATION_GET_STATE_CHANNEL } from './wire-migration-mirror';
-import { forwardRequestsRpc, isForwardedRequestsChannel } from './wire-requests-rpc';
 import { callWireRpc } from './wire-rpc';
 
 export const RPC_NOT_IMPLEMENTED_PREFIX = "web host: RPC '";
@@ -45,9 +43,10 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   if (typeof type === 'string' && type.startsWith('oh.daemon.')) {
     return callWireRpc(message);
   }
-  // The HTTP send, its Stop and the cookie-jar trio — answered IN the
-  // tab (Phase W: the tab is the context; the daemon only opens the
-  // socket through the delegating transport).
+  // The HTTP send, the gRPC call and its riders, the Stop and the
+  // cookie-jar trio — answered IN the tab (Phase W: the tab is the
+  // context; the daemon only opens the socket through the delegating
+  // transports).
   if (isTabRequestsChannel(type)) {
     return dispatchTabRequestsRpc(type, message);
   }
@@ -56,12 +55,6 @@ export async function dispatchWebRpc(raw: unknown): Promise<unknown> {
   // transports; the daemon opens the socket).
   if (isTabSessionsChannel(type)) {
     return dispatchTabSessionsRpc(type, message);
-  }
-  // The gRPC invoke + riders — the daemon's HTTP/2 stack answers as a
-  // context send, forwarded up the same wire to the gated peer
-  // requests plane, stamped with this tab's scope.
-  if (isForwardedRequestsChannel(type)) {
-    return forwardRequestsRpc(message);
   }
   // Migration pull hydration — the run lives on the serving daemon, so
   // the background-tasks tenant's mount-time getState forwards up the

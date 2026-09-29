@@ -43,6 +43,7 @@ const WEB: ExecutionPlaceMarkers = {
   remoteRequestDispatch: 'Acme',
   delegatedRequestDispatch: true,
   delegatedSessionDispatch: true,
+  delegatedGrpcDispatch: true,
 };
 /** A browser surface without the workbench's page-realm sockets. */
 const BARE_BROWSER: ExecutionPlaceMarkers = {
@@ -122,9 +123,18 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
     }
   });
 
-  it('gRPC stays a context send (the web wire forwards executeGrpcRequest)', () => {
-    expect(resolve('grpc', WEB).reason).toEqual({ kind: 'context-send', name: 'Acme' });
-    expect(resolve('grpc', WEB).state).toBe('ready');
+  it('gRPC is a delegated call on the served tab too, the one server opening the session', () => {
+    expect(resolve('grpc', WEB)).toMatchObject({
+      place: 'workspace-server',
+      placeName: 'Acme',
+      state: 'ready',
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+      alternatives: [],
+    });
+    expect(resolve('grpc', { ...WEB, delegatedGrpcDispatch: false }).reason).toEqual({
+      kind: 'context-send',
+      name: 'Acme',
+    });
   });
 
   it('the three session kinds run on the serving place as DELEGATED sessions — the executor in the tab, the tcp dial included (Phase W)', () => {

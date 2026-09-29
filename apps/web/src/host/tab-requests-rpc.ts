@@ -1,41 +1,56 @@
 /**
- * The web tab's own HTTP send — the Execution Place plan's Phase W:
- * the tab is a CONTEXT. `executeRequest` / `executeGraphqlRequest`
- * resolve IN the tab against its synced mirrors (the workspace, its
- * environment pointer, its live values, its files, its own vault) over
- * the host-neutral request route every send host runs
- * (`@openheaders/oracle/live/request-route`), and only the socket
- * moves: this module is the tab's seam into that route — every send
- * rides the delegating transport toward the serving daemon (the
- * workspace's server place by construction; a frame naming a place
- * names this one) over the tab's one wire (`delegated-wire.ts`) with
- * the tab's jar (in memory, per workspace, gone with the tab — the jar
- * key never rides), the daemon's live frames feed the runner's
- * observer and the tab's own emitter re-broadcasts them under the
- * caller's send id. The pre-request / post-response chain runs
- * through the tab's Safe script runtime — the sandbox iframe
- * `install-script-sandbox.ts` registers, resolved through the one
- * host-neutral capability gate every send host uses.
+ * The web tab's own HTTP send and gRPC call — the Execution Place
+ * plan's Phase W: the tab is a CONTEXT. `executeRequest` /
+ * `executeGraphqlRequest` resolve IN the tab against its synced
+ * mirrors (the workspace, its environment pointer, its live values,
+ * its files, its own vault) over the host-neutral request route every
+ * send host runs (`@openheaders/oracle/live/request-route`), and
+ * `executeGrpcRequest` resolves and ENCODES in the tab — the registry
+ * from the spec the tab holds — over the host-neutral gRPC route
+ * (`@openheaders/oracle/live/grpc-route`); only the socket moves. This
+ * module is the tab's seam into both routes: every send rides the
+ * delegating transport toward the serving daemon (the workspace's
+ * server place by construction; a frame naming a place names this
+ * one) over the tab's one wire (`delegated-wire.ts`) with the tab's
+ * jar (in memory, per workspace, gone with the tab — the jar key
+ * never rides), every call the delegating gRPC transport over the
+ * same wire, the daemon's live frames feed the executors' observers
+ * and the tab's own emitters re-broadcast them under the caller's send
+ * id. The scripts around them run through the tab's Safe script
+ * runtime — the sandbox iframe `install-script-sandbox.ts` registers,
+ * resolved through the one host-neutral capability gate every host
+ * uses.
  *
- * The jar inspection trio answers here too, from the tab's own jars.
- * A Stop hits the in-tab registry first; a miss forwards up the wire
- * for a forwarded gRPC invoke's exchange.
+ * The jar inspection trio answers here too, from the tab's own jars;
+ * the gRPC upstream riders from the host-neutral active-stream
+ * registry; a Stop from the in-tab active-send registry.
  */
 
+import {
+  endActiveGrpcClientStream,
+  sendActiveGrpcStreamMessage,
+} from '@openheaders/oracle/live/grpc-exec/stream-plane';
+import { delegatedGrpcTransportLease, type GrpcRouteHost } from '@openheaders/oracle/live/grpc-route/host';
+import { executeGrpcRequestRoute } from '@openheaders/oracle/live/grpc-route/route';
 import { cookieJarFor, peekCookieJar } from '@openheaders/oracle/live/request-exec/cookie-jar';
 import { createDelegatingRequestTransport } from '@openheaders/oracle/live/request-exec/delegating-transport';
 import { stopActiveSend } from '@openheaders/oracle/live/request-exec/send-stream';
 import type { RequestRouteHost } from '@openheaders/oracle/live/request-route/host';
 import { executeGraphqlRequestRoute, executeRequestRoute } from '@openheaders/oracle/live/request-route/route';
-import { resolveInteractiveScriptRunner } from '@openheaders/oracle/live/script-host/capability';
+import {
+  resolveInteractiveScriptRunner,
+  resolveSessionScriptHost,
+} from '@openheaders/oracle/live/script-host/capability';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
-import { webDelegatedWire } from './delegated-wire';
+import { webDelegatedGrpcWire, webDelegatedWire } from './delegated-wire';
 import { broadcastLocal } from './web-broadcast';
-import { callWireRpc } from './wire-rpc';
 
 const TAB_CHANNELS = [
   'executeRequest',
   'executeGraphqlRequest',
+  'executeGrpcRequest',
+  'sendGrpcStreamMessage',
+  'endGrpcClientStream',
   'abortRequestSend',
   'getCookieJarSummary',
   'clearCookieJar',
@@ -55,6 +70,18 @@ export const webRequestRouteHost: RequestRouteHost = {
   emitStreamEvent: (event) => broadcastLocal('requestStreamEvent', event),
 };
 
+/** The tab's seam into the shared gRPC route — the delegating gRPC
+ *  transport toward the serving daemon for every call, the OAuth
+ *  renewal through the tab's delegating HTTP leg with its jar. */
+export const webGrpcRouteHost: GrpcRouteHost = {
+  transportFor: (_placeBackendId, workspaceId) => delegatedGrpcTransportLease(webDelegatedGrpcWire, workspaceId),
+  resolveScriptHost: resolveSessionScriptHost,
+  refreshTransportFor: (workspaceId) =>
+    createDelegatingRequestTransport({ wire: webDelegatedWire, workspaceId, jars: cookieJarFor }),
+  // The tab's live-frame sink — the in-tab fan-out `useLiveGrpcStream` reads.
+  emitStreamEvent: (event) => broadcastLocal('grpcStreamEvent', event),
+};
+
 /**
  * Dispatch one tab-answered request channel. Only call for channels
  * {@link isTabRequestsChannel} owns.
@@ -68,8 +95,20 @@ export async function dispatchTabRequestsRpc(
       return executeRequestRoute(message, webRequestRouteHost);
     case 'executeGraphqlRequest':
       return executeGraphqlRequestRoute(message, webRequestRouteHost);
+    case 'executeGrpcRequest':
+      return executeGrpcRequestRoute(message, webGrpcRouteHost);
+    case 'sendGrpcStreamMessage':
+      // The riders answer from the host-neutral active-stream registry
+      // — the call's own handle, keyed by the invoke's sendId.
+      return typeof message.sendId === 'string' && typeof message.messageText === 'string'
+        ? sendActiveGrpcStreamMessage(message.sendId, message.messageText)
+        : { success: false, error: 'No stream id or message provided' };
+    case 'endGrpcClientStream':
+      return { success: typeof message.sendId === 'string' && endActiveGrpcClientStream(message.sendId) };
     case 'abortRequestSend':
-      return handleAbortRequestSendRpc(message);
+      // Every send and call this tab runs registers here — the shared
+      // registry; an unknown id answers the honest `false`.
+      return { success: typeof message.sendId === 'string' && stopActiveSend(message.sendId) };
     case 'getCookieJarSummary':
       return { cookies: peekCookieJar(jarKeyOf(message))?.list() ?? [] };
     case 'clearCookieJar':
@@ -88,20 +127,4 @@ export async function dispatchTabRequestsRpc(
  *  active one (the key an unpinned send runs under). */
 function jarKeyOf(message: Record<string, unknown>): string {
   return typeof message.workspaceId === 'string' ? message.workspaceId : (peekActiveWorkspaceId() ?? 'default');
-}
-
-/** Stop — the in-tab send by its caller-minted id first; a miss is a
- *  forwarded gRPC invoke whose exchange lives on the daemon. */
-async function handleAbortRequestSendRpc(message: Record<string, unknown>): Promise<{ success: boolean }> {
-  const sendId = typeof message.sendId === 'string' ? message.sendId : undefined;
-  if (sendId === undefined) return { success: false };
-  if (stopActiveSend(sendId)) return { success: true };
-  try {
-    const result = await callWireRpc({ type: 'abortRequestSend', sendId });
-    return result && typeof result === 'object' && (result as { success?: unknown }).success === true
-      ? { success: true }
-      : { success: false };
-  } catch {
-    return { success: false };
-  }
 }

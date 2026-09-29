@@ -7,8 +7,8 @@
  * ride here).
  *
  * Two planes share this correlation engine: the `oh.daemon.*` admin
- * channels (claimed by prefix) and the workbench request channels
- * `wire-requests-rpc.ts` registers explicitly. Sync/awareness RPC
+ * channels (claimed by prefix) and the delegated request channels
+ * `delegated-wire.ts` registers explicitly. Sync/awareness RPC
  * responses are NOT claimed — they have their own consumers.
  *
  * The wire has no request ids, so correlation is BY CHANNEL and calls

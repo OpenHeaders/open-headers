@@ -43,7 +43,7 @@ and on which places are connected right now.
 | WebSocket | Here, over the browser socket. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
 | MQTT over `ws://` / `wss://` | Here, over the browser socket. Alternatives: the desktop app, the server. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
 | MQTT over `mqtt://` / `mqtts://` | **Needs the desktop app** or the server — a browser page cannot open a raw TCP socket. Automatic picks whichever is connected. | Here. Alternative: the server. | Resolved in the tab; the server opens the connection. |
-| gRPC | Resolved here; the connected desktop app, else the workspace's server, opens the connection — the browser has no HTTP/2 stack that exposes trailers. With both connected, Automatic picks the desktop app and the server is offered beside it. Without either: **Needs the desktop app**. | Here. | Sent by the server and resolved there. |
+| gRPC | Resolved here; the connected desktop app, else the workspace's server, opens the connection — the browser has no HTTP/2 stack that exposes trailers. With both connected, Automatic picks the desktop app and the server is offered beside it. Without either: **Needs the desktop app**. | Here. | Resolved in the tab; the server opens the connection. |
 
 An alternative is offered only while that place is connected: the
 desktop app's row appears when the extension is paired with a running

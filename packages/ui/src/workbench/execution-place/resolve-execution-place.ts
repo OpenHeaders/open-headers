@@ -24,8 +24,8 @@
  *     surface honours a place for them (`delegatedSessionDispatch` —
  *     the executor here, the server opens the socket, a tcp dial
  *     included) and as `unsupported` with the honest "not forwarded"
- *     reason before; gRPC as a context send until the tab's wire
- *     converges;
+ *     reason before; gRPC as a DELEGATED call too (the registry and
+ *     the encode are the tab's, the server opens the HTTP/2 session);
  *   - a node runtime runs everything here;
  *   - a browser runtime runs HTTP / GraphQL query here, sessions here
  *     in the page realm (`wsPageSession` / `mqttPageSession`) naming
@@ -274,14 +274,13 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     // alternatives; a session's tcp dial included, the place dials raw
     // TCP). A surface that honours no place for the family keeps the
     // honest row: the context send for HTTP (resolved there), the
-    // not-forwarded state for a session. gRPC keeps the context-send
-    // row (its channel forwards by construction) until the tab's
-    // wire converges.
+    // not-forwarded state for a session; a gRPC invoke the tab honours
+    // is a delegated call too.
     const honoured = placeHonoured(kind, markers);
     if (isSessionKind(kind) && !honoured) {
       return remote(serving, 'unsupported', { kind: 'session-not-forwarded', name: serving });
     }
-    if (kind !== 'grpc' && honoured) {
+    if (honoured) {
       return remote(serving, 'ready', {
         kind: 'delegated',
         role: 'workspace-server',
@@ -482,8 +481,8 @@ export function resolveExecutionPlaceRoster(input: ExecutionPlaceInput): readonl
   const honoured = placeHonoured(kind, markers);
   if (markers.remoteRequestDispatch !== null) {
     // The served tab: one place, its server — forwarded by construction
-    // for HTTP and gRPC, honoured or not for a session.
-    const available = kind === 'grpc' || !isSessionKind(kind) || honoured;
+    // for HTTP, honoured or not for a session and a gRPC call.
+    const available = honoured || kind === 'http' || kind === 'graphql-query';
     return [{ role: 'workspace-server', available, reason: available ? null : 'not-forwarded', cta: null }];
   }
   if (markers.requestRuntime === 'node') {
