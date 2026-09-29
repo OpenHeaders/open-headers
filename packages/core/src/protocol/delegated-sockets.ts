@@ -6,15 +6,16 @@
  * rider's text, runs the session's scripts, keeps the timeline and
  * builds the snapshot); only the SOCKET lives on the place. The place
  * opens the transport seam's socket with the resolved dial — the
- * WebSocket handshake or the MQTT byte stream — and relays the raw
- * events back; the context writes into it through riders keyed by the
+ * WebSocket handshake, the MQTT byte stream, or a gRPC streaming call
+ * whose messages the context encoded — and relays the raw events
+ * back; the context writes into it through riders keyed by the
  * caller-minted socket id. Nothing is resolved at the place. Additive
  * to the wire — the protocol integer stays where it is.
  *
  * Names and the plain event / rider shapes live here (host-agnostic,
- * JSON-safe); the two OPEN frames embed the seams' own request shapes
+ * JSON-safe); the OPEN frames embed the seams' own request shapes
  * and live beside them in `@openheaders/oracle`
- * (`live/delegated-socket/wire`).
+ * (`live/delegated-socket/wire`, `live/grpc-exec/delegated-wire`).
  */
 
 /** Open a WebSocket on the place with the resolved handshake. */
@@ -29,6 +30,14 @@ export const DELEGATE_MQTT_OPEN_CHANNEL = 'delegateMqttOpen';
 export const DELEGATE_MQTT_WRITE_CHANNEL = 'delegateMqttWrite';
 /** End an open delegated MQTT stream after pending writes flush. */
 export const DELEGATE_MQTT_END_CHANNEL = 'delegateMqttEnd';
+/** Open a gRPC streaming call on the place with the resolved dial —
+ *  the HTTP/2 session with trailers no browser page can open. */
+export const DELEGATE_GRPC_OPEN_CHANNEL = 'delegateGrpcOpen';
+/** Write one message — encoded by the context, unframed — into an
+ *  open delegated gRPC stream; the place wraps the 5-byte frame. */
+export const DELEGATE_GRPC_SEND_CHANNEL = 'delegateGrpcSend';
+/** Half-close the client side of an open delegated gRPC stream. */
+export const DELEGATE_GRPC_HALF_CLOSE_CHANNEL = 'delegateGrpcHalfClose';
 /** Tear a delegated socket down at any point — the context's Stop. */
 export const DELEGATE_SOCKET_ABORT_CHANNEL = 'delegateSocketAbort';
 /** The frame type the place fans a delegated socket's events on. */
@@ -39,6 +48,8 @@ export const DELEGATED_SOCKET_RIDER_CHANNELS = [
   DELEGATE_WS_CLOSE_CHANNEL,
   DELEGATE_MQTT_WRITE_CHANNEL,
   DELEGATE_MQTT_END_CHANNEL,
+  DELEGATE_GRPC_SEND_CHANNEL,
+  DELEGATE_GRPC_HALF_CLOSE_CHANNEL,
   DELEGATE_SOCKET_ABORT_CHANNEL,
 ] as const;
 
@@ -50,6 +61,8 @@ export type DelegatedSocketRider =
   | { type: typeof DELEGATE_WS_CLOSE_CHANNEL; socketId: string; code: number; reason: string }
   | { type: typeof DELEGATE_MQTT_WRITE_CHANNEL; socketId: string; bytesBase64: string }
   | { type: typeof DELEGATE_MQTT_END_CHANNEL; socketId: string }
+  | { type: typeof DELEGATE_GRPC_SEND_CHANNEL; socketId: string; messageBase64: string }
+  | { type: typeof DELEGATE_GRPC_HALF_CLOSE_CHANNEL; socketId: string }
   | { type: typeof DELEGATE_SOCKET_ABORT_CHANNEL; socketId: string };
 
 /** The answer to an OPEN frame — the socket is registered on the
@@ -81,11 +94,24 @@ export interface DelegatedSocketTrustHint {
   netError?: string;
 }
 
+/** The classified failure a delegated socket ended with — the seams'
+ *  own error, plain: the sentence, the trust remedy when the transport
+ *  classified one, and for a gRPC call the canonical status the client
+ *  runtime assigns that failure kind (14 UNAVAILABLE, 4
+ *  DEADLINE_EXCEEDED), never wire truth. */
+export interface DelegatedSocketEndError {
+  message: string;
+  hint?: DelegatedSocketTrustHint;
+  canonicalStatus?: number;
+}
+
 /**
  * One event of a delegated socket, as the place fans it to the
  * opener's peers — the seams' callbacks, plain: a WebSocket's
  * `open` / `message` / `close`, an MQTT stream's `connect` / `data`,
- * and `end` EXACTLY once on every path (with the classified pre-open
+ * a gRPC call's `head` / `data` / `trailers` (raw framed body chunks
+ * ride `data`; unwrapping is the context's core-proto pass), and
+ * `end` EXACTLY once on every path (with the classified pre-open
  * failure when the socket never opened). `seq` is per-socket
  * monotonic.
  */
@@ -102,4 +128,13 @@ export type DelegatedSocketEvent =
   | { socketId: string; seq: number; kind: 'close'; code: number; reason: string; wasClean: boolean }
   | { socketId: string; seq: number; kind: 'connect'; proxyRoute?: DelegatedSocketProxyRoute }
   | { socketId: string; seq: number; kind: 'data'; dataBase64: string }
-  | { socketId: string; seq: number; kind: 'end'; error?: { message: string; hint?: DelegatedSocketTrustHint } };
+  | {
+      socketId: string;
+      seq: number;
+      kind: 'head';
+      httpStatus: number;
+      headers: Array<{ key: string; value: string }>;
+      proxyRoute?: DelegatedSocketProxyRoute;
+    }
+  | { socketId: string; seq: number; kind: 'trailers'; trailers: Array<{ key: string; value: string }> }
+  | { socketId: string; seq: number; kind: 'end'; error?: DelegatedSocketEndError };

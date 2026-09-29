@@ -41,6 +41,16 @@ import {
   REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
 } from '@openheaders/core/protocol';
 import {
+  type DelegatedGrpcInvokeResult,
+  encodeDelegatedGrpcRequest,
+} from '@openheaders/oracle/live/grpc-exec/delegated-wire';
+import {
+  type GrpcTransport,
+  GrpcTransportError,
+  type GrpcTransportRequest,
+  type GrpcTransportResponse,
+} from '@openheaders/oracle/live/grpc-exec/transport';
+import {
   type DelegatedRequestResult,
   encodeDelegatedRequest,
 } from '@openheaders/oracle/live/request-exec/delegated-wire';
@@ -136,9 +146,12 @@ beforeEach(() => {
 });
 
 describe('createDelegatedRequestsRpc — ownership', () => {
-  it('owns exactly the delegateRequest channel', () => {
+  it('owns the delegateRequest and delegateGrpcInvoke channels alone', () => {
     const rpc = createDelegatedRequestsRpc({ transport: fakeTransport(async () => RESPONSE) });
     expect(rpc.owns('delegateRequest')).toBe(true);
+    expect(rpc.owns('delegateGrpcInvoke')).toBe(true);
+    expect(rpc.owns('delegateGrpcOpen')).toBe(false);
+    expect(rpc.owns('executeGrpcRequest')).toBe(false);
     expect(rpc.owns('executeRequest')).toBe(false);
     expect(rpc.owns('abortRequestSend')).toBe(false);
   });
@@ -323,5 +336,146 @@ describe('createDelegatedRequestsRpc — the exchange', () => {
     const result = (await rpc.dispatch(frame(), PEER)) as DelegatedRequestResult;
     expect(calls).toHaveLength(1);
     expect(result.success).toBe(true);
+  });
+});
+
+// ── The unary gRPC call — the request half's second exchange ────────
+
+const GRPC_REQUEST: GrpcTransportRequest = {
+  authority: 'grpc.openheaders.io:443',
+  tls: true,
+  path: '/books.Books/GetBook',
+  metadata: [{ key: 'authorization', value: 'Bearer resolved' }],
+  message: new Uint8Array([10, 2, 104, 105]),
+  maxBodyBytes: 4096,
+};
+
+const GRPC_RESPONSE: GrpcTransportResponse = {
+  httpStatus: 200,
+  headers: [{ key: 'content-type', value: 'application/grpc+proto' }],
+  trailers: [{ key: 'grpc-status', value: '0' }],
+  body: new Uint8Array([0, 0, 0, 0, 2, 8, 1]),
+  bodyTruncated: false,
+};
+
+function grpcFrame(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    type: 'delegateGrpcInvoke',
+    sendId: 'grpc-1',
+    workspaceId: 'ws-1',
+    request: encodeDelegatedGrpcRequest(GRPC_REQUEST),
+    ...overrides,
+  };
+}
+
+interface FakeGrpcTransport extends GrpcTransport {
+  calls: Array<{ request: GrpcTransportRequest; signal: AbortSignal | undefined }>;
+}
+
+function fakeGrpcTransport(
+  run: (request: GrpcTransportRequest, signal?: AbortSignal) => Promise<GrpcTransportResponse>,
+): FakeGrpcTransport {
+  const calls: FakeGrpcTransport['calls'] = [];
+  return {
+    calls,
+    invoke: (request, signal) => {
+      calls.push({ request, signal });
+      return run(request, signal);
+    },
+  };
+}
+
+describe('createDelegatedRequestsRpc — a unary gRPC call', () => {
+  it('rides the same gate: refused off the opt-in, the workspace required, workspace.write audited', async () => {
+    const grpc = fakeGrpcTransport(async () => GRPC_RESPONSE);
+    const rpc = createDelegatedRequestsRpc({ transport: fakeTransport(async () => RESPONSE), grpcTransport: grpc });
+    h.settings = {};
+    await expect(rpc.dispatch(grpcFrame(), PEER)).rejects.toThrow(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
+    h.settings = { 'backend.allowRemotePeerExecute': true };
+    await expect(rpc.dispatch(grpcFrame({ workspaceId: '' }), PEER)).rejects.toThrow(
+      DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE,
+    );
+    h.decision = { allow: false, reason: 'no-workspace-role-assignment' };
+    await expect(rpc.dispatch(grpcFrame(), PEER)).rejects.toThrow(
+      'permission denied: workspace.write on ws-1 (no-workspace-role-assignment)',
+    );
+    expect(h.audits).toEqual([
+      { actorUserId: 'user-1', capability: 'workspace.write', workspaceId: 'ws-1', decision: h.decision },
+    ]);
+    expect(grpc.calls).toHaveLength(0);
+  });
+
+  it('hands the transport the seam request — the message decoded, the cap clamped — and answers the reply encoded, stamped', async () => {
+    const grpc = fakeGrpcTransport(async () => GRPC_RESPONSE);
+    const rpc = createDelegatedRequestsRpc({ transport: fakeTransport(async () => RESPONSE), grpcTransport: grpc });
+    const result = (await rpc.dispatch(
+      grpcFrame({ request: encodeDelegatedGrpcRequest({ ...GRPC_REQUEST, maxBodyBytes: 1 << 30 }) }),
+      PEER,
+    )) as DelegatedGrpcInvokeResult;
+    expect(grpc.calls[0].request).toMatchObject({
+      authority: GRPC_REQUEST.authority,
+      path: GRPC_REQUEST.path,
+      metadata: GRPC_REQUEST.metadata,
+      maxBodyBytes: 2 * 1024 * 1024,
+    });
+    expect(Array.from(grpc.calls[0].request.message)).toEqual([10, 2, 104, 105]);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.response).toEqual({
+      httpStatus: 200,
+      headers: GRPC_RESPONSE.headers,
+      trailers: GRPC_RESPONSE.trailers,
+      bodyBase64: 'AAAAAAIIAQ==',
+      bodyTruncated: false,
+    });
+    expect(result.executedOn.kind).toBe('backend');
+  });
+
+  it('answers a structured refusal for a malformed invoke, past the gate, stamped, without dialing', async () => {
+    const grpc = fakeGrpcTransport(async () => GRPC_RESPONSE);
+    const rpc = createDelegatedRequestsRpc({ transport: fakeTransport(async () => RESPONSE), grpcTransport: grpc });
+    const result = (await rpc.dispatch(grpcFrame({ request: { authority: 'x' } }), PEER)) as DelegatedGrpcInvokeResult;
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toMatch(/^Malformed delegated gRPC invoke frame at request\./);
+    expect(result.executedOn.kind).toBe('backend');
+    expect(h.audits).toHaveLength(1);
+    expect(grpc.calls).toHaveLength(0);
+  });
+
+  it('registers the call under its id so abortRequestSend stops it — the shared registry', async () => {
+    const grpc = fakeGrpcTransport(
+      (_request, signal) =>
+        new Promise<GrpcTransportResponse>((resolve) => {
+          signal?.addEventListener('abort', () =>
+            resolve({ ...GRPC_RESPONSE, body: new Uint8Array(), bodyTruncated: false }),
+          );
+        }),
+    );
+    const rpc = createDelegatedRequestsRpc({ transport: fakeTransport(async () => RESPONSE), grpcTransport: grpc });
+    const pending = rpc.dispatch(grpcFrame({ sendId: 'grpc-stop' }), PEER);
+    await vi.waitFor(() => expect(grpc.calls).toHaveLength(1));
+    expect(stopActiveSend('grpc-stop')).toBe(true);
+    const result = (await pending) as DelegatedGrpcInvokeResult;
+    expect(result.success && result.response.bodyBase64).toBe('');
+    expect(stopActiveSend('grpc-stop')).toBe(false);
+  });
+
+  it("answers the transport's classified pre-head failure with its canonical status and hint, stamped", async () => {
+    const hint = {
+      kind: 'trust-certificate' as const,
+      host: 'grpc.openheaders.io',
+      port: 443,
+      code: 'CERT_HAS_EXPIRED',
+    };
+    const grpc = fakeGrpcTransport(async () => {
+      throw new GrpcTransportError('TLS certificate error', 14, hint);
+    });
+    const rpc = createDelegatedRequestsRpc({ transport: fakeTransport(async () => RESPONSE), grpcTransport: grpc });
+    const result = (await rpc.dispatch(grpcFrame(), PEER)) as DelegatedGrpcInvokeResult;
+    expect(result).toMatchObject({ success: false, error: 'TLS certificate error', canonicalStatus: 14, hint });
+    if (result.success) return;
+    expect(result.executedOn.kind).toBe('backend');
+    expect(stopActiveSend('grpc-1')).toBe(false);
   });
 });

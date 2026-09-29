@@ -7,9 +7,13 @@
  * structurally (a peer's input — every field checked) and opens the
  * socket with it. Both shapes are JSON-safe as they are: strings,
  * lists, booleans, numbers, PEM text — nothing binary rides an OPEN.
+ * The gRPC open lives beside its own seam (`grpc-exec/delegated-wire`);
+ * its two riders parse here with the rest, the one rider table.
  */
 
 import {
+  DELEGATE_GRPC_HALF_CLOSE_CHANNEL,
+  DELEGATE_GRPC_SEND_CHANNEL,
   DELEGATE_MQTT_END_CHANNEL,
   DELEGATE_MQTT_OPEN_CHANNEL,
   DELEGATE_MQTT_WRITE_CHANNEL,
@@ -94,6 +98,8 @@ const DelegatedSocketRiderSchema = v.variant('type', [
   }),
   v.object({ type: v.literal(DELEGATE_MQTT_WRITE_CHANNEL), socketId, bytesBase64: v.string() }),
   v.object({ type: v.literal(DELEGATE_MQTT_END_CHANNEL), socketId }),
+  v.object({ type: v.literal(DELEGATE_GRPC_SEND_CHANNEL), socketId, messageBase64: v.string() }),
+  v.object({ type: v.literal(DELEGATE_GRPC_HALF_CLOSE_CHANNEL), socketId }),
   v.object({ type: v.literal(DELEGATE_SOCKET_ABORT_CHANNEL), socketId }),
 ]);
 

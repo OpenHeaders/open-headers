@@ -35,6 +35,12 @@ vi.mock('@openheaders/core/storage', () => ({
 
 import type { DelegatedSocketEvent, DelegatedSocketOpenResult } from '@openheaders/core/protocol';
 import { REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
+import {
+  type GrpcStreamCallbacks,
+  type GrpcTransport,
+  GrpcTransportError,
+  type GrpcTransportStreamRequest,
+} from '@openheaders/oracle/live/grpc-exec/transport';
 import type {
   MqttByteTransport,
   MqttStreamCallbacks,
@@ -152,20 +158,24 @@ beforeEach(() => {
 });
 
 describe('createDelegatedSocketsRpc — ownership and the gate', () => {
-  it('owns the two opens and the five riders', () => {
+  it('owns the three opens and the seven riders', () => {
     const rpc = createDelegatedSocketsRpc({ wsTransport: fakeWsTransport(), mqttTransport: fakeMqttTransport() });
     for (const type of [
       'delegateWsOpen',
       'delegateMqttOpen',
+      'delegateGrpcOpen',
       'delegateWsSend',
       'delegateWsClose',
       'delegateMqttWrite',
       'delegateMqttEnd',
+      'delegateGrpcSend',
+      'delegateGrpcHalfClose',
       'delegateSocketAbort',
     ]) {
       expect(rpc.owns(type)).toBe(true);
     }
     expect(rpc.owns('delegateRequest')).toBe(false);
+    expect(rpc.owns('delegateGrpcInvoke')).toBe(false);
     expect(rpc.owns('executeWebSocketRequest')).toBe(false);
   });
 
@@ -328,5 +338,160 @@ describe('createDelegatedSocketsRpc — an MQTT byte stream', () => {
       success: false,
       error: 'Not a WebSocket',
     });
+  });
+});
+
+// ── A gRPC streaming call — the socket half's third seam ────────────
+
+const GRPC_REQUEST: GrpcTransportStreamRequest = {
+  authority: 'grpc.openheaders.io:443',
+  tls: true,
+  path: '/books.Books/WatchBooks',
+  metadata: [{ key: 'authorization', value: 'Bearer resolved' }],
+};
+
+interface FakeGrpcTransport extends GrpcTransport {
+  streams: Array<{
+    request: GrpcTransportStreamRequest;
+    callbacks: GrpcStreamCallbacks;
+    signal: AbortSignal | undefined;
+  }>;
+  sent: Uint8Array[];
+  halfClosed: number;
+}
+
+function fakeGrpcTransport(): FakeGrpcTransport {
+  const t: FakeGrpcTransport = {
+    streams: [],
+    sent: [],
+    halfClosed: 0,
+    invoke: () => Promise.reject(new Error('unary never rides the socket plane')),
+    openStream: (request, callbacks, signal) => {
+      t.streams.push({ request, callbacks, signal });
+      signal?.addEventListener('abort', () => callbacks.onEnd());
+      return {
+        sendMessage: (message) => {
+          t.sent.push(message);
+        },
+        halfClose: () => {
+          t.halfClosed += 1;
+        },
+      };
+    },
+  };
+  return t;
+}
+
+function openGrpc(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return { type: 'delegateGrpcOpen', socketId: 'sock-g', workspaceId: 'ws-1', request: GRPC_REQUEST, ...overrides };
+}
+
+describe('createDelegatedSocketsRpc — a gRPC streaming call', () => {
+  it('rides the same gate and refuses a malformed open, stamped, without dialing', async () => {
+    const grpc = fakeGrpcTransport();
+    const rpc = createDelegatedSocketsRpc({
+      wsTransport: fakeWsTransport(),
+      mqttTransport: fakeMqttTransport(),
+      grpcTransport: grpc,
+    });
+    h.settings = {};
+    await expect(rpc.dispatch(openGrpc(), PEER)).rejects.toThrow(REMOTE_PEER_EXECUTE_DISABLED_MESSAGE);
+    h.settings = { 'backend.allowRemotePeerExecute': true };
+    h.decision = { allow: false, reason: 'no-workspace-role-assignment' };
+    await expect(rpc.dispatch(openGrpc(), PEER)).rejects.toThrow(
+      'permission denied: workspace.write on ws-1 (no-workspace-role-assignment)',
+    );
+    h.decision = { allow: true };
+    const result = (await rpc.dispatch(openGrpc({ request: { authority: 'x' } }), PEER)) as DelegatedSocketOpenResult;
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toMatch(/^Malformed delegated gRPC open frame at request\./);
+    expect(result.executedOn?.kind).toBe('backend');
+    expect(grpc.streams).toHaveLength(0);
+  });
+
+  it("opens the seam's stream and fans head, data, trailers and end, sequenced; the riders write and half-close", async () => {
+    const server = installFakeServer();
+    const grpc = fakeGrpcTransport();
+    const rpc = createDelegatedSocketsRpc({
+      wsTransport: fakeWsTransport(),
+      mqttTransport: fakeMqttTransport(),
+      grpcTransport: grpc,
+    });
+    const opened = (await rpc.dispatch(openGrpc(), PEER)) as DelegatedSocketOpenResult;
+    expect(opened.success).toBe(true);
+    expect(grpc.streams[0].request).toEqual(GRPC_REQUEST);
+    const { callbacks } = grpc.streams[0];
+    callbacks.onHead(200, [{ key: 'content-type', value: 'application/grpc+proto' }], { plane: 'system' });
+    callbacks.onData(new Uint8Array([0, 0, 0, 0, 2, 8, 1]));
+    await expect(
+      rpc.dispatch({ type: 'delegateGrpcSend', socketId: 'sock-g', messageBase64: 'CAE=' }, PEER),
+    ).resolves.toEqual({ success: true });
+    await expect(rpc.dispatch({ type: 'delegateGrpcHalfClose', socketId: 'sock-g' }, PEER)).resolves.toEqual({
+      success: true,
+    });
+    callbacks.onTrailers([{ key: 'grpc-status', value: '0' }]);
+    callbacks.onEnd();
+    expect(Array.from(grpc.sent[0])).toEqual([8, 1]);
+    expect(grpc.halfClosed).toBe(1);
+    expect(server.frames.map((f) => f.payload.kind)).toEqual(['head', 'data', 'trailers', 'end']);
+    expect(server.frames.map((f) => f.payload.seq)).toEqual([0, 1, 2, 3]);
+    expect(server.frames[0].payload).toMatchObject({
+      socketId: 'sock-g',
+      httpStatus: 200,
+      headers: [{ key: 'content-type', value: 'application/grpc+proto' }],
+      proxyRoute: { plane: 'system' },
+    });
+    expect(server.frames[1].payload).toMatchObject({ dataBase64: 'AAAAAAIIAQ==' });
+    expect(server.frames[2].payload).toMatchObject({ trailers: [{ key: 'grpc-status', value: '0' }] });
+    for (const frame of server.frames) {
+      expect(frame.filterPeer?.({ userId: 'user-1' } as PeerSummary)).toBe(true);
+      expect(frame.filterPeer?.({ userId: 'user-2' } as PeerSummary)).toBe(false);
+    }
+    await expect(
+      rpc.dispatch({ type: 'delegateGrpcSend', socketId: 'sock-g', messageBase64: 'CAE=' }, PEER),
+    ).resolves.toEqual({ success: false, error: 'No such socket' });
+  });
+
+  it("carries the seam's classified end with its canonical status; refuses a WebSocket rider by name; aborts", async () => {
+    const server = installFakeServer();
+    const grpc = fakeGrpcTransport();
+    const rpc = createDelegatedSocketsRpc({
+      wsTransport: fakeWsTransport(),
+      mqttTransport: fakeMqttTransport(),
+      grpcTransport: grpc,
+    });
+    await rpc.dispatch(openGrpc(), PEER);
+    await expect(rpc.dispatch({ type: 'delegateWsSend', socketId: 'sock-g', text: 'x' }, PEER)).resolves.toEqual({
+      success: false,
+      error: 'Not a WebSocket',
+    });
+    await expect(
+      rpc.dispatch({ type: 'delegateGrpcSend', socketId: 'sock-g', messageBase64: '!!' }, PEER),
+    ).resolves.toEqual({ success: false, error: 'Message is not base64' });
+    grpc.streams[0].callbacks.onEnd(new GrpcTransportError('Deadline exceeded', 4));
+    expect(server.frames.at(-1)?.payload).toMatchObject({
+      kind: 'end',
+      error: { message: 'Deadline exceeded', canonicalStatus: 4 },
+    });
+    await rpc.dispatch(openGrpc({ socketId: 'sock-g2' }), PEER);
+    await expect(rpc.dispatch({ type: 'delegateSocketAbort', socketId: 'sock-g2' }, PEER)).resolves.toEqual({
+      success: true,
+    });
+    expect(grpc.streams[1].signal?.aborted).toBe(true);
+    expect(server.frames.at(-1)?.payload).toMatchObject({ socketId: 'sock-g2', kind: 'end' });
+  });
+
+  it('refuses the open, stamped, on a place whose transport cannot open streams', async () => {
+    installFakeServer();
+    const rpc = createDelegatedSocketsRpc({
+      wsTransport: fakeWsTransport(),
+      mqttTransport: fakeMqttTransport(),
+      grpcTransport: { invoke: () => Promise.reject(new Error('unary only')) },
+    });
+    const result = (await rpc.dispatch(openGrpc(), PEER)) as DelegatedSocketOpenResult;
+    expect(result).toMatchObject({ success: false, error: 'This place cannot open gRPC streams.' });
+    if (result.success) return;
+    expect(result.executedOn?.kind).toBe('backend');
   });
 });

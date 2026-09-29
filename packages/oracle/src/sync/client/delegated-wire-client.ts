@@ -19,6 +19,11 @@
 import type { RequestStreamEventWire } from '@openheaders/core/bridge';
 import { DELEGATED_SOCKET_EVENT_FRAME, type DelegatedSocketEvent } from '@openheaders/core/protocol';
 import type { DelegatedSocketWire } from '../../live/delegated-socket/wire';
+import type {
+  DelegatedGrpcInvokeFrame,
+  DelegatedGrpcInvokeResult,
+  DelegatedGrpcWire,
+} from '../../live/grpc-exec/delegated-wire';
 import type { DelegatedRequestFrame, DelegatedRequestResult } from '../../live/request-exec/delegated-wire';
 import type { DelegatedWire } from '../../live/request-exec/delegating-transport';
 import { registerInboundFrameHandler } from './backend-connection-manager';
@@ -71,6 +76,28 @@ const RIDER_TIMEOUT_MS = 15_000;
 export function delegatedSocketWireFor(backendId: string): DelegatedSocketWire {
   ensureClaimHandler();
   return {
+    call: (frame) => wsRequest<unknown>(frame, { backendId, timeoutMs: RIDER_TIMEOUT_MS }),
+    subscribe: (socketId, onEvent) => {
+      claimsBySocketId.set(socketId, { backendId, onFrame: onEvent });
+      return () => {
+        claimsBySocketId.delete(socketId);
+      };
+    },
+  };
+}
+
+/** The gRPC wire toward one place, by its backend id — the unary
+ *  invoke deadline-free like the HTTP exchange (the call's own ceiling
+ *  rides inside the frame), the open and the riders on the socket
+ *  wire's wait, the events claimed by the socket id. */
+export function delegatedGrpcWireFor(backendId: string): DelegatedGrpcWire {
+  ensureClaimHandler();
+  return {
+    invoke: (frame: DelegatedGrpcInvokeFrame) =>
+      wsRequest<DelegatedGrpcInvokeResult>(frame, { backendId, timeoutMs: 0 }),
+    abort: (sendId) => {
+      wsRequest<{ success: boolean }>({ type: 'abortRequestSend', sendId }, { backendId }).catch(() => {});
+    },
     call: (frame) => wsRequest<unknown>(frame, { backendId, timeoutMs: RIDER_TIMEOUT_MS }),
     subscribe: (socketId, onEvent) => {
       claimsBySocketId.set(socketId, { backendId, onFrame: onEvent });

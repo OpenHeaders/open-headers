@@ -1,14 +1,17 @@
 /**
  * Peer-facing DELEGATED socket plane — the session kinds' half of the
  * Execution Place plan's second channel family (`delegated-requests-
- * rpc.ts` is the HTTP half). A context keeps its session's executor
+ * rpc.ts` is the request half). A context keeps its session's executor
  * — the handshake resolved there, the scripts run there, the timeline
  * and the snapshot built there — and asks this host only for the
- * SOCKET: a WebSocket opened with the resolved handshake, or an MQTT
+ * SOCKET: a WebSocket opened with the resolved handshake, an MQTT
  * byte stream opened with the resolved dial (the mqtt(s):// case no
- * browser page can dial itself). This host opens the seam's socket on
- * its own transport, fans the raw events to the opener's peers under
- * the same-user law, and writes what the riders carry. Nothing here
+ * browser page can dial itself), or a gRPC streaming call opened with
+ * the resolved dial (the HTTP/2 session with trailers no browser
+ * page can open — every message on it encoded by the context against
+ * the spec IT holds). This host opens the seam's socket on its own
+ * transport, fans the raw events to the opener's peers under the
+ * same-user law, and writes what the riders carry. Nothing here
  * reads the workspace: the OPEN frame's `workspaceId` is the gate's
  * subject alone.
  *
@@ -24,6 +27,9 @@
 
 import { emitAuditEntry, hasCapability, resolveDaemonPeerIdentitySnapshot } from '@openheaders/core/identity';
 import {
+  DELEGATE_GRPC_HALF_CLOSE_CHANNEL,
+  DELEGATE_GRPC_OPEN_CHANNEL,
+  DELEGATE_GRPC_SEND_CHANNEL,
   DELEGATE_MQTT_END_CHANNEL,
   DELEGATE_MQTT_OPEN_CHANNEL,
   DELEGATE_MQTT_WRITE_CHANNEL,
@@ -34,6 +40,7 @@ import {
   DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE,
   DELEGATED_SOCKET_EVENT_FRAME,
   DELEGATED_SOCKET_RIDER_CHANNELS,
+  type DelegatedSocketEndError,
   type DelegatedSocketEvent,
   type DelegatedSocketOpenResult,
 } from '@openheaders/core/protocol';
@@ -43,10 +50,13 @@ import {
   parseDelegatedSocketRider,
   parseDelegatedWsOpenFrame,
 } from '@openheaders/oracle/live/delegated-socket/wire';
+import { parseDelegatedGrpcOpenFrame } from '@openheaders/oracle/live/grpc-exec/delegated-wire';
+import type { GrpcStreamWriter, GrpcTransport, GrpcTransportError } from '@openheaders/oracle/live/grpc-exec/transport';
 import type { MqttByteTransport, MqttStreamWriter } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { toBase64 } from '@openheaders/oracle/live/request-exec/body-decode';
 import type { WsSessionWriter, WsTransport } from '@openheaders/oracle/live/ws-exec/transport';
 import type { OracleWsServer, WsPeerRpcContext, WsPeerRpcHooks } from '../host-runtime/ws-server';
+import { createNodeGrpcTransport } from '../live/node-grpc-transport';
 import { createNodeMqttTransport } from '../live/node-mqtt-transport';
 import { createNodeWsTransport } from '../live/node-ws-transport';
 import { daemonExecutedOn } from './executed-on';
@@ -57,6 +67,7 @@ export interface DelegatedSocketsRpcOptions {
   /** Injectable for tests; default the node transports. */
   wsTransport?: WsTransport;
   mqttTransport?: MqttByteTransport;
+  grpcTransport?: GrpcTransport;
   /** The egress opt-in gate — the spine composes one per host posture;
    *  absent (test rigs) the desktop's remote-off default. */
   peerExecute?: PeerExecuteOptIn;
@@ -64,7 +75,8 @@ export interface DelegatedSocketsRpcOptions {
 
 type OpenSocket =
   | { kind: 'ws'; userId: string; writer: WsSessionWriter; abort: () => void }
-  | { kind: 'mqtt'; userId: string; writer: MqttStreamWriter; abort: () => void };
+  | { kind: 'mqtt'; userId: string; writer: MqttStreamWriter; abort: () => void }
+  | { kind: 'grpc'; userId: string; writer: GrpcStreamWriter; abort: () => void };
 
 /** One delegated socket's events fan to the opener's peers alone. */
 function socketEventSink(userId: string): (event: DelegatedSocketEvent) => void {
@@ -76,9 +88,15 @@ function socketEventSink(userId: string): (event: DelegatedSocketEvent) => void 
   };
 }
 
+/** The seam's classified end onto the wire's plain error. */
+function endErrorOf(error: { message: string; hint?: DelegatedSocketEndError['hint'] }): DelegatedSocketEndError {
+  return { message: error.message, ...(error.hint !== undefined ? { hint: error.hint } : {}) };
+}
+
 export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = {}): WsPeerRpcHooks {
   const wsTransport = options.wsTransport ?? createNodeWsTransport();
   const mqttTransport = options.mqttTransport ?? createNodeMqttTransport();
+  const grpcTransport = options.grpcTransport ?? createNodeGrpcTransport();
   const peerExecute = options.peerExecute ?? defaultPeerExecuteOptIn();
   const sockets = new Map<string, OpenSocket>();
   // A user's sockets die with their last peer — subscribed once per
@@ -136,14 +154,7 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
         onClose: (close) => emit({ socketId, seq: seq++, kind: 'close', ...close }),
         onEnd: (error) => {
           sockets.delete(socketId);
-          emit({
-            socketId,
-            seq: seq++,
-            kind: 'end',
-            ...(error !== undefined
-              ? { error: { message: error.message, ...(error.hint !== undefined ? { hint: error.hint } : {}) } }
-              : {}),
-          });
+          emit({ socketId, seq: seq++, kind: 'end', ...(error !== undefined ? { error: endErrorOf(error) } : {}) });
         },
       },
       controller.signal,
@@ -171,19 +182,83 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
         onData: (chunk) => emit({ socketId, seq: seq++, kind: 'data', dataBase64: toBase64(chunk) }),
         onEnd: (error) => {
           sockets.delete(socketId);
-          emit({
-            socketId,
-            seq: seq++,
-            kind: 'end',
-            ...(error !== undefined
-              ? { error: { message: error.message, ...(error.hint !== undefined ? { hint: error.hint } : {}) } }
-              : {}),
-          });
+          emit({ socketId, seq: seq++, kind: 'end', ...(error !== undefined ? { error: endErrorOf(error) } : {}) });
         },
       },
       controller.signal,
     );
     sockets.set(socketId, { kind: 'mqtt', userId: peer.userId, writer, abort: () => controller.abort() });
+    return { success: true, executedOn };
+  }
+
+  /** A gRPC streaming call: the head, the raw framed body chunks and
+   *  the trailers fan as they arrive (unwrapping is the context's
+   *  core-proto pass); a pre-head failure ends with the canonical
+   *  status the transport assigned it beside the trust remedy. */
+  function openGrpc(message: Record<string, unknown>, peer: WsPeerRpcContext): DelegatedSocketOpenResult {
+    const executedOn = daemonExecutedOn();
+    const parsed = parseDelegatedGrpcOpenFrame(message);
+    if (!parsed.ok) return { success: false, error: parsed.error, executedOn };
+    const openStream = grpcTransport.openStream;
+    if (openStream === undefined) {
+      return { success: false, error: 'This place cannot open gRPC streams.', executedOn };
+    }
+    const { socketId, request } = parsed.frame;
+    if (sockets.has(socketId))
+      return { success: false, error: `A delegated socket ${socketId} is already open.`, executedOn };
+    ensureSweep();
+    const emit = socketEventSink(peer.userId);
+    const controller = new AbortController();
+    let seq = 0;
+    const onEnd = (error?: GrpcTransportError): void => {
+      sockets.delete(socketId);
+      emit({
+        socketId,
+        seq: seq++,
+        kind: 'end',
+        ...(error !== undefined
+          ? {
+              error: {
+                ...endErrorOf(error),
+                ...(error.canonicalStatus !== undefined ? { canonicalStatus: error.canonicalStatus } : {}),
+              },
+            }
+          : {}),
+      });
+    };
+    let writer: GrpcStreamWriter;
+    try {
+      writer = openStream.call(
+        grpcTransport,
+        request,
+        {
+          onHead: (httpStatus, headers, proxyRoute) =>
+            emit({
+              socketId,
+              seq: seq++,
+              kind: 'head',
+              httpStatus,
+              headers: headers.map((h) => ({ key: h.key, value: h.value })),
+              ...(proxyRoute ? { proxyRoute } : {}),
+            }),
+          onData: (chunk) => emit({ socketId, seq: seq++, kind: 'data', dataBase64: toBase64(chunk) }),
+          onTrailers: (trailers) =>
+            emit({
+              socketId,
+              seq: seq++,
+              kind: 'trailers',
+              trailers: trailers.map((h) => ({ key: h.key, value: h.value })),
+            }),
+          onEnd,
+        },
+        controller.signal,
+      );
+    } catch (err) {
+      // A transport that refuses synchronously (a malformed target)
+      // never registered a socket — the refusal is the open's answer.
+      return { success: false, error: err instanceof Error ? err.message : String(err), executedOn };
+    }
+    sockets.set(socketId, { kind: 'grpc', userId: peer.userId, writer, abort: () => controller.abort() });
     return { success: true, executedOn };
   }
 
@@ -226,6 +301,17 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
         if (socket.kind !== 'mqtt') return { success: false, error: 'Not an MQTT stream' };
         socket.writer.end();
         return { success: true };
+      case DELEGATE_GRPC_SEND_CHANNEL: {
+        if (socket.kind !== 'grpc') return { success: false, error: 'Not a gRPC stream' };
+        const bytes = decodeBase64Bytes(rider.messageBase64);
+        if (bytes === null) return { success: false, error: 'Message is not base64' };
+        socket.writer.sendMessage(new Uint8Array(bytes));
+        return { success: true };
+      }
+      case DELEGATE_GRPC_HALF_CLOSE_CHANNEL:
+        if (socket.kind !== 'grpc') return { success: false, error: 'Not a gRPC stream' };
+        socket.writer.halfClose();
+        return { success: true };
     }
   }
 
@@ -234,6 +320,7 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
       return (
         type === DELEGATE_WS_OPEN_CHANNEL ||
         type === DELEGATE_MQTT_OPEN_CHANNEL ||
+        type === DELEGATE_GRPC_OPEN_CHANNEL ||
         (DELEGATED_SOCKET_RIDER_CHANNELS as readonly string[]).includes(type)
       );
     },
@@ -246,6 +333,10 @@ export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = 
       if (type === DELEGATE_MQTT_OPEN_CHANNEL) {
         await gate(message, peer);
         return openMqtt(message, peer);
+      }
+      if (type === DELEGATE_GRPC_OPEN_CHANNEL) {
+        await gate(message, peer);
+        return openGrpc(message, peer);
       }
       // The riders ride ahead of the capability tier — the socket id
       // and its owner are the authorization (the Stop precedent); no

@@ -28,8 +28,13 @@ export {
   WS_PORT,
   WS_SERVER_URL,
 } from './constants';
-export { DELEGATE_REQUEST_CHANNEL, DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE } from './delegated-requests';
+export {
+  DELEGATE_GRPC_INVOKE_CHANNEL,
+  DELEGATE_REQUEST_CHANNEL,
+  DELEGATED_SEND_WORKSPACE_REQUIRED_MESSAGE,
+} from './delegated-requests';
 export type {
+  DelegatedSocketEndError,
   DelegatedSocketEvent,
   DelegatedSocketOpenResult,
   DelegatedSocketProxyRoute,
@@ -37,6 +42,9 @@ export type {
   DelegatedSocketTrustHint,
 } from './delegated-sockets';
 export {
+  DELEGATE_GRPC_HALF_CLOSE_CHANNEL,
+  DELEGATE_GRPC_OPEN_CHANNEL,
+  DELEGATE_GRPC_SEND_CHANNEL,
   DELEGATE_MQTT_END_CHANNEL,
   DELEGATE_MQTT_OPEN_CHANNEL,
   DELEGATE_MQTT_WRITE_CHANNEL,
