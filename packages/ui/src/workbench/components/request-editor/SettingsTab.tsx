@@ -7,10 +7,11 @@
  *     can surface intermediate 3xx responses (as `opaqueredirect`)
  *     instead of chasing them to the final target. Real on every host.
  *   • `credentialsMode` — "Send browser cookies" (`'include'`); off
- *     (`undefined`/`'omit'`) is the safe default. Browser-runtime only:
- *     a Node fetch stack has no ambient cookie jar for the flag to
- *     ride — there the app's own opt-in jar is the `cookieJar` knob
- *     below.
+ *     (`undefined`/`'omit'`) is the safe default. Browser KNOB runtime
+ *     only — a send on the browser's own socket: a Node fetch stack
+ *     has no ambient cookie jar for the flag to ride, and a delegated
+ *     send's socket is a node place's — there the context's own
+ *     opt-in jar is the `cookieJar` knob below.
  *   • `sslVerification` — node-runtime only: the node transport routes
  *     a verification-off send through a dedicated TLS dispatcher, the
  *     escape hatch for self-signed / private-CA targets. The browser
@@ -112,14 +113,15 @@
  *     the transport fails the send loudly. Not trust-relaxing, no
  *     response marker, no fact row on either sheet. The browser cannot
  *     dial local sockets, so there is no browser control.
- *   • `cookieJar` — node-runtime only: opts the send into the app's
- *     own in-memory cookie jar (one per workspace, never persisted,
- *     never synced, gone on quit). Jar-enabled sends store Set-Cookie
+ *   • `cookieJar` — node KNOB runtime only (a node host, or a browser
+ *     host's delegated send): opts the send into the context's own
+ *     in-memory cookie jar (one per workspace, never persisted, never
+ *     synced, gone on quit). Jar-enabled sends store Set-Cookie
  *     responses and attach matching cookies on every hop of a redirect
  *     chain; a user-set Cookie header always wins for its hop. Not
  *     trust-relaxing, no response marker — the attached header is
- *     recorded on the executed-run snapshot for reproducibility. The
- *     browser runtime rides the browser's own jar via
+ *     recorded on the executed-run snapshot for reproducibility. A
+ *     send on the browser's own socket rides the browser's own jar via
  *     `credentialsMode`, so there is no browser control; the node
  *     sheet's former 'Cookies · Not sent' fact row graduated into this
  *     knob. A quiet row under the knob (`CookieJarRow`) shows the
@@ -536,8 +538,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     : remoteScriptsSafe
       ? SCRIPTS_SAFE_FORWARDED_ROW
       : SCRIPTS_NOT_RUN_ROW;
+  // The sheet is the KNOB runtime's — under delegation the place's
+  // facts, not this host's; the scripts fact stays this host's (the
+  // context runs them).
   const managedRows =
-    runtime === 'node' && !scriptMode.available ? [...MANAGED_ROWS[runtime], scriptsFactRow] : MANAGED_ROWS[runtime];
+    runtime === 'node' && !scriptMode.available
+      ? [...MANAGED_ROWS[knobRuntime], scriptsFactRow]
+      : MANAGED_ROWS[knobRuntime];
   // Every fact popover leads with the shared example card, its slice
   // lit — the same card the live knobs use.
   const sheetRows = managedRows.map(({ tokens, ...def }) => ({ ...def, diagram: settingsExampleCard(tokens ?? []) }));
@@ -592,7 +599,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       value.followOriginalHttpMethod === true ||
       value.followAuthorizationHeader === true;
   const cookiesModified =
-    runtime === 'browser'
+    knobRuntime === 'browser'
       ? explicit
         ? own('credentialsMode')
         : value.credentialsMode === 'include'
@@ -874,7 +881,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
               modified={cookiesModified}
               unsaved={cookiesUnsaved}
             >
-        {runtime === 'browser' && (
+        {knobRuntime === 'browser' && (
           <KnobRow
             label={t('workbench.editors.request.settings.sendBrowserCookies')}
             checked={browserCookies.checked}
@@ -888,7 +895,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             note={browserCookies.note}
           />
         )}
-        {runtime === 'node' && (
+        {knobRuntime === 'node' && (
           <>
             <KnobRow
               label={t('workbench.editors.request.settings.cookieJar')}
@@ -906,7 +913,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         </GroupSection>
         {!container && (
           <RuntimeManagedSheet
-            runtime={runtime}
+            runtime={knobRuntime}
             rows={sheetRows}
             groupOrder={GROUP_ORDER}
             groupLabel={(group) => t(GROUP_LABEL_KEY[group])}

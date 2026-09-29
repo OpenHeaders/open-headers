@@ -106,13 +106,17 @@ function settingsTabTone(knobs: KnobValues, unsaved: SettingsKnobKey[]): 'none' 
 }
 
 describe('SettingsTab on a browser runtime with the knobs of a delegated node place', () => {
-  it("unlocks the node knobs while the managed sheet and the cookie rows stay the context's", () => {
+  it("unlocks the node knobs, and the managed sheet and the cookie rows follow the place's runtime too", () => {
     render(<SettingsTab value={{}} onChange={() => {}} knobsRuntime="node" />);
     expect(screen.getByTestId('oh-http-version-select')).toBeTruthy();
     expect(screen.getByText('Response size limit')).toBeTruthy();
-    expect(screen.getByText('Send browser cookies')).toBeTruthy();
-    expect(screen.queryByText('Cookie jar')).toBeNull();
-    expect(screen.getByText('11 browser-managed')).toBeTruthy();
+    // The browser's store never reaches a delegated socket — the
+    // context's jar is the one cookie control; the sheet is the place's.
+    expect(screen.queryByText('Send browser cookies')).toBeNull();
+    expect(screen.getByText('Use cookie jar')).toBeTruthy();
+    expect(screen.queryByText('11 browser-managed')).toBeNull();
+    // The place's sheet.
+    expect(screen.getByText(/^\d+ runtime-managed$/)).toBeTruthy();
   });
 
   it('the execution place knob renders on every runtime, cleared as Automatic', () => {

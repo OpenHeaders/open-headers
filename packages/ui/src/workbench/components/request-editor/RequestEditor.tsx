@@ -717,7 +717,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     delegationKnobs,
   });
   // A delegated send's socket opens on a node place — its knobs are
-  // live on the Settings tab (the sheet and the cookie rows stay ours).
+  // live on the Settings tab, its sheet and its cookie rows the place's.
   const delegatedKnobs = executionPlace.state === 'ready' && executionPlace.reason.kind === 'delegated';
   // A send that will not run as configured — a chosen place this
   // surface cannot honour — is never sent here instead: Send goes
