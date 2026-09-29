@@ -35,6 +35,7 @@
  */
 
 import type { CookieJarEntryWire } from '@openheaders/core/bridge';
+import { getOracleHostHooks } from '../../sync/host-hooks';
 import type { TransportHeader } from './transport';
 
 /** Parsed `Set-Cookie` fields the jar consumes — the transport maps
@@ -97,6 +98,15 @@ export class CookieJar {
    *  same-millisecond ordering. */
   private tick = 0;
 
+  /** Fired after a mutation that changed the jar — a store that wrote
+   *  or deleted, a clear, a delete that hit; never a read's lazy expiry
+   *  sweep. The registry wires it to the host's broadcast. */
+  private readonly onChange: (() => void) | undefined;
+
+  constructor(onChange?: () => void) {
+    this.onChange = onChange;
+  }
+
   /**
    * Store the parsed `Set-Cookie` records a response at `url` carried.
    * Returns the names actually stored (rejected and deleted-by-expiry
@@ -106,6 +116,7 @@ export class CookieJar {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
     const stored: string[] = [];
+    let changed = false;
     for (const cookie of incoming) {
       if (!cookie.name) continue;
       let domain = host;
@@ -126,14 +137,14 @@ export class CookieJar {
       let expiresAt: number | undefined;
       if (cookie.maxAge !== undefined) {
         if (cookie.maxAge <= 0) {
-          this.cookies.delete(key);
+          if (this.cookies.delete(key)) changed = true;
           continue;
         }
         expiresAt = Date.now() + cookie.maxAge * 1000;
       } else if (cookie.expires !== undefined) {
         expiresAt = cookie.expires.getTime();
         if (expiresAt <= Date.now()) {
-          this.cookies.delete(key);
+          if (this.cookies.delete(key)) changed = true;
           continue;
         }
       }
@@ -148,8 +159,10 @@ export class CookieJar {
         storedAt: this.tick++,
       });
       stored.push(cookie.name);
+      changed = true;
       this.enforceBound();
     }
+    if (changed) this.onChange?.();
     return stored;
   }
 
@@ -180,7 +193,9 @@ export class CookieJar {
   }
 
   clear(): void {
+    if (this.cookies.size === 0) return;
     this.cookies.clear();
+    this.onChange?.();
   }
 
   /**
@@ -193,7 +208,7 @@ export class CookieJar {
     for (const [key, cookie] of this.cookies) {
       if (cookie.expiresAt !== undefined && cookie.expiresAt <= now) this.cookies.delete(key);
     }
-    this.cookies.delete(`${name}|${domain}|${path}`);
+    if (this.cookies.delete(`${name}|${domain}|${path}`)) this.onChange?.();
   }
 
   /**
@@ -246,13 +261,15 @@ export class CookieJar {
 }
 
 /** Jars by key (the workspace id) — created on first use, retained for
- *  the process lifetime like the transport's dispatcher cache. */
+ *  the process lifetime like the transport's dispatcher cache. Every
+ *  jar's change reaches the surfaces through the host's
+ *  `broadcastCookieJarChanged` hook, named by its key. */
 const jars = new Map<string, CookieJar>();
 
 export function cookieJarFor(key: string): CookieJar {
   let jar = jars.get(key);
   if (!jar) {
-    jar = new CookieJar();
+    jar = new CookieJar(() => getOracleHostHooks().broadcastCookieJarChanged?.(key));
     jars.set(key, jar);
   }
   return jar;

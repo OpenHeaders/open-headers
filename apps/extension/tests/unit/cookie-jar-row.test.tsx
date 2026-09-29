@@ -38,8 +38,19 @@ afterEach(() => {
  *  `cookies` (clear empties it, delete drops by identity, the summary
  *  re-reads it); every other channel rejects like an unimplemented host
  *  RPC. */
+/** The jar the fake host holds and the `cookieJarChanged` listeners the
+ *  row installed — a pin mutates the jar and fires the change the host
+ *  would. */
+let current: CookieJarEntryWire[] = [];
+const changeListeners = new Set<(event: { workspaceId: string }) => void>();
+
+function emitJarChanged(workspaceId: string): void {
+  for (const listener of changeListeners) listener({ workspaceId });
+}
+
 function installBridge(cookies: CookieJarEntryWire[], options: { rejectSummary?: boolean } = {}) {
-  let current = [...cookies];
+  current = [...cookies];
+  changeListeners.clear();
   const call = vi.fn(async (type: string, payload?: Record<string, unknown>) => {
     if (type === 'getCookieJarSummary') {
       if (options.rejectSummary) throw new Error("host: RPC 'getCookieJarSummary' is not implemented");
@@ -60,7 +71,13 @@ function installBridge(cookies: CookieJarEntryWire[], options: { rejectSummary?:
   setHostBridge({
     call,
     broadcast: () => {},
-    subscribe: () => () => {},
+    subscribe: (type: string, listener: (event: { workspaceId: string }) => void) => {
+      if (type !== 'cookieJarChanged') return () => {};
+      changeListeners.add(listener);
+      return () => {
+        changeListeners.delete(listener);
+      };
+    },
     presence: () => () => {},
   } as unknown as HostBridge);
   return call;
@@ -88,6 +105,20 @@ describe('CookieJarRow', () => {
     installBridge([SESSION_COOKIE, TENANT_COOKIE]);
     render(<CookieJarRow />);
     await waitFor(() => expect(screen.getByText('2 cookies in this workspace’s jar')).toBeTruthy());
+  });
+
+  it("follows the jar — re-reads when the host broadcasts the jar's change, and lets go on unmount", async () => {
+    const call = installBridge([]);
+    const { unmount } = render(<CookieJarRow />);
+    await waitFor(() => expect(screen.getByText('0 cookies in this workspace’s jar')).toBeTruthy());
+    expect(changeListeners.size).toBe(1);
+    // A send stored a cookie on the host — the jar's own signal.
+    current = [SESSION_COOKIE];
+    emitJarChanged('ws-1');
+    await waitFor(() => expect(screen.getByText('1 cookie in this workspace’s jar')).toBeTruthy());
+    expect(call.mock.calls.filter(([type]) => type === 'getCookieJarSummary')).toHaveLength(2);
+    unmount();
+    expect(changeListeners.size).toBe(0);
   });
 
   it('uses the singular for one cookie and disables Clear on an empty jar', async () => {

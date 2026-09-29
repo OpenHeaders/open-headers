@@ -9,7 +9,7 @@
  * itself stays pinned in the node host's `cookie-jar.test.ts`.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CookieJar,
   captureSetCookieRows,
@@ -18,6 +18,7 @@ import {
   resetCookieJars,
   withJarCookieHeader,
 } from '../../../src/live/request-exec/cookie-jar';
+import { setOracleHostHooks } from '../../../src/sync/host-hooks';
 
 describe('parseSetCookie', () => {
   it('reads the pair and the attributes the jar models, ignoring the rest', () => {
@@ -69,5 +70,56 @@ describe('withJarCookieHeader / captureSetCookieRows', () => {
     expect(withJarCookieHeader(jar, 'https://api.openheaders.io/', own)).toEqual({ headers: own });
     expect(withJarCookieHeader(jar, 'https://other.openheaders.io/', [])).toEqual({ headers: [] });
     expect(captureSetCookieRows(jar, 'https://api.openheaders.io/', [])).toEqual([]);
+  });
+});
+
+describe("the jar's change signal — the host's broadcastCookieJarChanged hook, named by the jar's key", () => {
+  const changed = vi.fn<(workspaceId: string) => void>();
+
+  beforeEach(() => {
+    resetCookieJars();
+    changed.mockReset();
+    setOracleHostHooks({ broadcastCookieJarChanged: changed });
+  });
+
+  afterEach(() => {
+    setOracleHostHooks({});
+  });
+
+  it('fires on a store that wrote, a clear and a delete that hit — once each, with the key', () => {
+    const jar = cookieJarFor('ws-1');
+    jar.store('https://api.openheaders.io/', [
+      { name: 'sid', value: 'abc' },
+      { name: 'theme', value: 'dark' },
+    ]);
+    expect(changed.mock.calls).toEqual([['ws-1']]);
+    jar.delete('theme', 'api.openheaders.io', '/');
+    expect(changed).toHaveBeenCalledTimes(2);
+    jar.clear();
+    expect(changed).toHaveBeenCalledTimes(3);
+  });
+
+  it('stays quiet when nothing changed — an empty store, a delete that misses, a clear of an empty jar, a read', () => {
+    const jar = cookieJarFor('ws-2');
+    jar.store('https://api.openheaders.io/', []);
+    jar.store('https://api.openheaders.io/', [{ name: 'sid', value: 'abc', domain: 'elsewhere.io' }]);
+    jar.delete('nope', 'api.openheaders.io', '/');
+    jar.clear();
+    expect(changed).not.toHaveBeenCalled();
+    jar.store('https://api.openheaders.io/', [{ name: 'sid', value: 'abc', maxAge: 1 }]);
+    expect(changed).toHaveBeenCalledTimes(1);
+    // A read's lazy expiry sweep is not a change the surfaces are told of.
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(2_000);
+    expect(jar.list()).toEqual([]);
+    vi.useRealTimers();
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('a jar with no host hook and a bare CookieJar stay silent', () => {
+    setOracleHostHooks({});
+    cookieJarFor('ws-3').store('https://api.openheaders.io/', [{ name: 'sid', value: 'abc' }]);
+    new CookieJar().store('https://api.openheaders.io/', [{ name: 'sid', value: 'abc' }]);
+    expect(changed).not.toHaveBeenCalled();
   });
 });

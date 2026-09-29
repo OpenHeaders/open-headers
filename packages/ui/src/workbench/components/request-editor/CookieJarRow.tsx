@@ -61,9 +61,17 @@ const CookieJarRow: React.FC = () => {
       .catch(() => setCookies(null));
   }, [jar]);
 
+  // The row follows the jar: the host's `cookieJarChanged` names the
+  // jar a send, a clear or a delete touched, and this row re-reads
+  // when it is its own.
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    const bridge = getHostBridge();
+    if (!bridge) return;
+    return bridge.subscribe('cookieJarChanged', (event) => {
+      if (workspaceId === null || event.workspaceId === workspaceId) refresh();
+    });
+  }, [refresh, workspaceId]);
 
   const clear = useCallback(() => {
     const bridge = getHostBridge();

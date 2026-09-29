@@ -669,6 +669,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     broadcastWorkspaceEvicted: (workspaceId) => {
       broadcastLocal('workspaceEvicted', { workspaceId });
     },
+    // This host's jars (the desktop app's own sends, a forwarded
+    // send's) — their changes reach the desktop renderer's jar row.
+    broadcastCookieJarChanged: (workspaceId) => {
+      broadcastLocal('cookieJarChanged', { workspaceId });
+    },
     // F5: a visibility flip re-judges every connected directory user
     // through the retraction fan-out, which itself skips anyone who
     // still reads the workspace (a WRA row, or visibility that stayed

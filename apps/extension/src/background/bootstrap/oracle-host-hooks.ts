@@ -45,6 +45,11 @@ export function installOracleHostHooks(): void {
     broadcastWorkspaceEvicted: (workspaceId) => {
       broadcast('workspaceEvicted', { workspaceId });
     },
+    // The context's jar under delegation lives here — its changes
+    // reach the jar row in the workbench page.
+    broadcastCookieJarChanged: (workspaceId) => {
+      broadcast('cookieJarChanged', { workspaceId });
+    },
     reportStatus: (entry) =>
       reportStatus({
         subsystem: entry.subsystem as Parameters<typeof reportStatus>[0]['subsystem'],

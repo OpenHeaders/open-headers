@@ -230,6 +230,13 @@ export interface BridgeBroadcastContract {
    */
   delegatedSocketEvent: DelegatedSocketEvent;
   /**
+   * A workspace's in-memory cookie jar changed on the host that holds
+   * it — a send stored cookies, or the jar was cleared or an entry
+   * dropped. The jar inspection row re-reads its summary on it; the
+   * payload names the jar alone, never its contents.
+   */
+  cookieJarChanged: { workspaceId: string };
+  /**
    * Host-shell navigation request: open the Settings surface, optionally
    * at a category or a specific setting. Emitted by the desktop main
    * process for its native menu items (application menu "Settings…",

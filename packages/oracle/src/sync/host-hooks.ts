@@ -126,6 +126,15 @@ export interface OracleHostHooks {
    */
   broadcastAwareness?: (event: OracleAwarenessBroadcast) => void;
   /**
+   * Fan a change of a workspace's in-memory cookie jar out to surfaces
+   * — the jar's own signal after a store, a clear or a delete
+   * (`request-exec/cookie-jar.ts`), so the inspection row under the
+   * "Use cookie jar" knob follows the jar instead of its mount-time
+   * read. Host wires this to its bridge `broadcast` with the
+   * `cookieJarChanged` channel.
+   */
+  broadcastCookieJarChanged?: (workspaceId: string) => void;
+  /**
    * Fan a host-local workspace EVICTION out to surfaces. The eviction
    * (`workspace-eviction.ts`) is deliberate state surgery that mints
    * no mutation envelope, so `broadcastSyncEvent` never fires for it —

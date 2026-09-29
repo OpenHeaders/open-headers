@@ -140,6 +140,10 @@ export async function bootWebHost(): Promise<void> {
     broadcastWorkspaceEvicted: (workspaceId) => {
       broadcastLocal('workspaceEvicted', { workspaceId });
     },
+    // The tab's jar lives in the tab — its changes reach the jar row.
+    broadcastCookieJarChanged: (workspaceId) => {
+      broadcastLocal('cookieJarChanged', { workspaceId });
+    },
     reportStatus: (entry) =>
       report({
         subsystem: entry.subsystem as Parameters<typeof report>[0]['subsystem'],
