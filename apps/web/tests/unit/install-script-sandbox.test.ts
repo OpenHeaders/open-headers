@@ -77,6 +77,12 @@ vi.mock('@openheaders/oracle/live/request-exec/delegating-transport', () => ({
   },
 }));
 
+// Each case does `vi.resetModules()` + a cold re-import of the whole
+// install module graph (oracle, the host seams). That cold import can
+// exceed the 5s default when the full suite saturates the machine, so
+// give this file headroom.
+vi.setConfig({ testTimeout: 30_000 });
+
 // The registry is read through the SAME module instance the install
 // module registered into — a fresh one after every `resetModules`.
 async function registry() {
