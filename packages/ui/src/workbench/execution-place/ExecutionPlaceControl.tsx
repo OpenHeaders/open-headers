@@ -12,7 +12,10 @@
  * reason sentence and the knobs in play. A pick is a DRAFT edit of the
  * request's own place (saved with the request, on this device only,
  * by the editor's Save); *Reset to automatic* clears it back to the
- * Settings default. The mark mirrors the picker's selection — the
+ * Settings default. A door out of the picker that opens Settings in this
+ * window (the Sync page, the server switch's row) closes it first — the
+ * modal would open under an open popover, and two surfaces never stack
+ * (the hint's own rule). The mark mirrors the picker's selection — the
  * resolved row, else the chosen row the surface cannot honour, else
  * this surface itself. The tone carries the state: muted when the send
  * runs here with nothing else possible, the warning colour when no row
@@ -81,12 +84,15 @@ const DesktopRevealAction: React.FC = () => {
 };
 
 /** The Sync page, where a server is signed in to and connected. */
-const OpenSyncAction: React.FC = () => {
+const OpenSyncAction: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   const t = useT();
   return (
     <Button
       size="small"
-      onClick={() => postSettingsReveal({ categoryId: 'backendConnections' })}
+      onClick={() => {
+        onDone();
+        postSettingsReveal({ categoryId: 'backendConnections' });
+      }}
       data-testid="execution-place-open-sync"
       style={{ fontSize: 11, height: 20, padding: '0 6px' }}
     >
@@ -97,13 +103,16 @@ const OpenSyncAction: React.FC = () => {
 
 /** The Settings row that withheld the server — this device's own
  *  "Run requests on a server" switch, opened in place. */
-const OpenServerSwitchAction: React.FC = () => {
+const OpenServerSwitchAction: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   const t = useT();
   return (
     <Button
       type="link"
       size="small"
-      onClick={() => postSettingsReveal({ settingKey: 'requests.allowServerExecution' })}
+      onClick={() => {
+        onDone();
+        postSettingsReveal({ settingKey: 'requests.allowServerExecution' });
+      }}
       data-testid="execution-place-open-server-switch"
       style={{ fontSize: 11, padding: 0, height: 'auto', whiteSpace: 'nowrap' }}
     >
@@ -154,12 +163,15 @@ function ctaAction(cta: ExecutionPlaceCta): React.ReactNode {
 
 /** A disabled row's rung: the desktop ladder, the Sync page for a
  *  server whose wire is down, the server docs for a workspace with no
- *  server, the Settings row for a server this device switched off;
- *  nothing for a kind this surface cannot run. */
-function rowAction(row: ExecutionPlaceRosterRow): React.ReactNode {
-  if (row.role === 'workspace-server' && row.reason === 'server-not-connected') return <OpenSyncAction />;
+ *  server, the Settings row for a server this device switched off (both
+ *  Settings doors close the picker they leave); nothing for a kind this
+ *  surface cannot run. */
+function rowAction(row: ExecutionPlaceRosterRow, close: () => void): React.ReactNode {
+  if (row.role === 'workspace-server' && row.reason === 'server-not-connected') {
+    return <OpenSyncAction onDone={close} />;
+  }
   if (row.role === 'workspace-server' && row.reason === 'no-server') return <SeeDocsAction />;
-  if (row.role === 'workspace-server' && row.reason === 'server-off') return <OpenServerSwitchAction />;
+  if (row.role === 'workspace-server' && row.reason === 'server-off') return <OpenServerSwitchAction onDone={close} />;
   return ctaAction(row.cta);
 }
 
@@ -258,7 +270,7 @@ const ExecutionPlaceControl: React.FC<ExecutionPlaceControlProps> = ({
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           {executionPlaceRosterReason(row.reason, t)}
                         </Text>
-                        {rowAction(row)}
+                        {rowAction(row, () => setOpen(false))}
                       </span>
                     )}
                   </Radio>

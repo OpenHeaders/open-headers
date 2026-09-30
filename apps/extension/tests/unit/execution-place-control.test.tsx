@@ -140,12 +140,14 @@ describe('ExecutionPlaceControl', () => {
 
   it('a pick of an available row is a draft edit; a disabled row is not pickable', async () => {
     const onPick = vi.fn();
+    const onOpenChange = vi.fn();
     render(
       <ExecutionPlaceControl
         resolution={resolution({ reason: { kind: 'runs-here-browser' }, alternatives: ['desktop-app'] })}
         roster={[HERE, DESKTOP_UP, SERVER_DOWN]}
         preference="auto"
         onPick={onPick}
+        onOpenChange={onOpenChange}
       />,
     );
     expect(chip().getAttribute('data-muted')).toBe('false');
@@ -156,12 +158,14 @@ describe('ExecutionPlaceControl', () => {
     fireEvent.click(options[2] as HTMLElement);
     expect(onPick).toHaveBeenCalledTimes(1);
     // A server whose wire is down offers the Sync page — an in-page
-    // reveal the shell opens Settings on.
+    // reveal the shell opens Settings on; the door closes the picker it
+    // leaves, so the modal never opens under it.
     const revealed = vi.fn();
     const unsubscribe = subscribeSettingsReveal(revealed);
     fireEvent.click(screen.getByTestId('execution-place-open-sync'));
     unsubscribe();
     expect(revealed).toHaveBeenCalledWith({ categoryId: 'backendConnections' });
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
   });
 
   it('an explicit place shows the saved note and Reset to automatic clears it', async () => {
@@ -368,12 +372,14 @@ describe('ExecutionPlaceControl — the Server row this device switched off', ()
 
   it('reads Turned off in Settings with Open Settings landing on the switch’s own row', async () => {
     const onPick = vi.fn();
+    const onOpenChange = vi.fn();
     render(
       <ExecutionPlaceControl
         resolution={resolution({ alternatives: [], serverName: 'Acme' })}
         roster={[HERE, DESKTOP_MISSING, SERVER_OFF]}
         preference="auto"
         onPick={onPick}
+        onOpenChange={onOpenChange}
       />,
     );
     fireEvent.click(screen.getByTestId('execution-place-chip'));
@@ -387,6 +393,8 @@ describe('ExecutionPlaceControl — the Server row this device switched off', ()
     fireEvent.click(screen.getByTestId('execution-place-open-server-switch'));
     unsubscribe();
     expect(revealed).toHaveBeenCalledWith({ settingKey: 'requests.allowServerExecution' });
+    // The door closes the picker it leaves — Settings opens alone.
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
     fireEvent.click(server);
     expect(onPick).not.toHaveBeenCalled();
   });
