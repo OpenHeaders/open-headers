@@ -106,13 +106,13 @@ function resolveEnumOption<T>(option: EnumOption<T>, t: Translate): ResolvedEnum
  * consumers that only read behavior (schema, when, scope, …).
  */
 export function resolveSettingDef<K extends SettingKey>(def: SettingDef<K>, t: Translate): ResolvedSettingDef<K> {
-  const { enumOptions, action, ...rest } = def;
+  const { enumOptions, getEnumOptions, action, ...rest } = def;
   return {
     ...rest,
     label: resolveLabel(def, t),
     description: resolveDescription(def, t),
     capabilityUnavailableHint: capabilityUnavailableHint(def, t),
-    enumOptions: enumOptions?.map((opt) => resolveEnumOption(opt, t)),
+    enumOptions: (getEnumOptions?.() ?? enumOptions)?.map((opt) => resolveEnumOption(opt, t)),
     action: action ? resolveAction(action, t) : undefined,
   };
 }

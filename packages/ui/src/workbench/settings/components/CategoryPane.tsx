@@ -11,7 +11,8 @@ import { useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import SettingRow from '../fields/SettingRow';
 import { resolveLabel } from '../localize';
-import type { CategoryDef, SettingDef, SubcategoryDef } from '../types';
+import { get as storeGet } from '../store';
+import type { CategoryDef, SettingDef, SettingKey, SettingsMap, SubcategoryDef } from '../types';
 import { Pane, PaneHeader, PaneSection } from './pane-chrome';
 
 interface CategoryPaneProps {
@@ -50,6 +51,15 @@ function groupBySubcategory(category: CategoryDef, defs: readonly SettingDef[]):
   return groups;
 }
 
+// A row hidden by its `when` renders nothing (SettingRow's own read); a
+// group whose rows all hide must not leave its title standing over an
+// empty section, so the pane reads the same gate before it titles one.
+function rendersAnyRow(group: Group): boolean {
+  return group.defs.some(
+    (def) => !def.when || def.when(<K extends SettingKey>(k: K): SettingsMap[K] => storeGet(k)),
+  );
+}
+
 const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const t = useT();
   const groups = useMemo(() => groupBySubcategory(category, defs), [category, defs]);
@@ -57,7 +67,7 @@ const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   return (
     <Pane>
       <PaneHeader category={category} />
-      {groups.map((group, i) => (
+      {groups.filter(rendersAnyRow).map((group, i) => (
         <PaneSection key={group.sub?.id ?? `_orphans_${i}`} title={group.sub ? resolveLabel(group.sub, t) : undefined}>
           {group.defs.map((def) => (
             <SettingRow key={def.key} def={def} />

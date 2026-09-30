@@ -21,13 +21,13 @@ not machines: the same setting means the same thing on every device.
 
 | Role | What it is |
 | --- | --- |
-| **This device** | The surface you are sending from opens the connection itself — the desktop app's own network stack, the extension's service worker for HTTP, the extension's browser socket for WebSocket and MQTT over `ws://` / `wss://`. |
-| **The desktop app** | The desktop app on this device opens the connection on the request's behalf. It is reachable from the extension when both run on the same machine; the app is always its own place. |
-| **The workspace's server** | The server that provides the workspace opens the connection. An Org workspace has one by construction; a personal workspace has none. |
+| **The surface you send from** — *Browser extension* in the extension, *Desktop app* in the app | It opens the connection itself — the desktop app's own network stack, the extension's service worker for HTTP, the extension's browser socket for WebSocket and MQTT over `ws://` / `wss://`. |
+| **Desktop app**, picked from the extension | The desktop app on this device opens the connection on the request's behalf. It is reachable from the extension when both run on the same machine; the app is always its own place. |
+| **Server** | The server that provides the workspace opens the connection. An Org workspace has one by construction; a personal workspace has none. |
 
 **Automatic** is the default everywhere: the request runs on this device
-when it can, otherwise on the one place that can. The chip shows the
-resolved place, never the word "Automatic".
+when it can, otherwise on the one place that can. The place button shows
+the resolved place, never the word "Automatic".
 
 ## The matrix
 
@@ -51,7 +51,7 @@ app, the server's row when the workspace's server is reachable.
 
 A session over the browser socket cannot apply the node-only knobs —
 custom handshake headers, disabled SSL verification, the credential's
-handshake header. The chip names the ones the request has set, so you
+handshake header. The place button names the ones the request has set, so you
 can move the session to a place that applies them.
 
 ## Choosing a place
@@ -71,11 +71,12 @@ specific one winning:
    runs there at once, and **Save** keeps it — with the request, on
    this device. The **Runs on** row on the request's **Settings** tab
    is the same value; *Reset to automatic* in the popover clears it.
-2. **Global.** **Settings › API Requests › HTTP › Execution place**,
-   applying to every kind: **Automatic**, **This device**, **The desktop
-   app**, or **The workspace's server**. A request with no place of its
-   own follows it, and the popover says so: *Automatic — following
-   Settings*.
+2. **Global.** **Settings › API Requests › Where requests run ›
+   Execution place**, applying to every kind: **Automatic** and the same
+   places the picker lists on this surface, in the same words. A request
+   with no place of its own follows it; the picker selects the place it
+   resolved to and offers no *Reset to automatic*. The served tab has
+   one place, so it carries no global row.
 
 A role the current surface cannot honour is never honoured silently:
 the place button says **Cannot run on the desktop app yet** (or the

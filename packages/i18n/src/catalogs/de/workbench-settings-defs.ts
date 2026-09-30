@@ -540,17 +540,14 @@ export const workbenchSettingsDefs = {
     'den Speicherverbrauch pro offenem Anfrage-Tab.',
   'workbench.settings.def.requests.executionPlace.label': 'Ausführungsort',
   'workbench.settings.def.requests.executionPlace.description':
-    'Wo API-Anfragen auf diesem Gerät ihre Verbindung öffnen, sofern eine Anfrage keinen eigenen Ort setzt: hier, in der Desktop-App oder auf dem Server des Arbeitsbereichs.',
+    'Wo API-Anfragen auf diesem Gerät ihre Verbindung öffnen, sofern eine Anfrage keinen eigenen Ort setzt.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatisch',
   'workbench.settings.def.requests.executionPlace.option.auto.description':
     'Läuft hier, wenn dieses Gerät es kann, sonst am einzigen Ort, der es kann.',
-  'workbench.settings.def.requests.executionPlace.option.here.label': 'Dieses Gerät',
   'workbench.settings.def.requests.executionPlace.option.here.description':
     'Die Oberfläche, von der aus Sie senden, öffnet die Verbindung.',
-  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'Die Desktop-App',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
     'Die Desktop-App auf diesem Gerät öffnet die Verbindung.',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'Der Server des Arbeitsbereichs',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
     'Der Server, der den Arbeitsbereich bereitstellt, öffnet die Verbindung; die aufgelösten Werte werden dorthin übertragen.',
   'workbench.settings.def.requests.allowServerExecution.label': 'Anfragen auf einem Server ausführen',

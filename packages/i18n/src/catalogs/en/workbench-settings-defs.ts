@@ -447,17 +447,14 @@ export const workbenchSettingsDefs = {
     'How much of a response body the executor keeps for display. Larger bodies are truncated at this limit — the full size is still measured and reported. Raising the limit increases memory use per open request tab.',
   'workbench.settings.def.requests.executionPlace.label': 'Execution place',
   'workbench.settings.def.requests.executionPlace.description':
-    'Where API requests open their connection on this device unless a request sets its own: here, on the desktop app, or on the workspace’s server.',
+    'Where API requests open their connection on this device unless a request sets its own.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automatic',
   'workbench.settings.def.requests.executionPlace.option.auto.description':
     'Runs here when this device can, else on the one place that can.',
-  'workbench.settings.def.requests.executionPlace.option.here.label': 'This device',
   'workbench.settings.def.requests.executionPlace.option.here.description':
     'The surface you send from opens the connection.',
-  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'The desktop app',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
     'The desktop app on this device opens the connection.',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'The workspace’s server',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
     'The server providing the workspace opens the connection; the resolved values travel to it.',
   'workbench.settings.def.requests.allowServerExecution.label': 'Run requests on a server',

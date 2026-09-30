@@ -8,6 +8,7 @@
  * labels and reasons live here too.
  */
 
+import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import type {
@@ -27,20 +28,25 @@ export interface ExecutionPlaceCopy {
   knobs: string | null;
 }
 
-/** A roster row's label — the place as the product names it: the
+/** A roster row's label key — the place as the product names it: the
  *  browser extension where this surface is one, the desktop app, the
- *  server. */
-export function executionPlaceRosterLabel(role: ExecutionPlaceRole, t: Translate): string {
+ *  server. The global Settings row lists the same roster by these keys. */
+export function executionPlaceRosterLabelKey(role: ExecutionPlaceRole): MessageKey {
   switch (role) {
     case 'here':
       return getCurrentHost() === 'extension'
-        ? t('shared.executionPlace.roster.browser')
-        : t('shared.executionPlace.roster.desktopApp');
+        ? 'shared.executionPlace.roster.browser'
+        : 'shared.executionPlace.roster.desktopApp';
     case 'desktop-app':
-      return t('shared.executionPlace.roster.desktopApp');
+      return 'shared.executionPlace.roster.desktopApp';
     case 'workspace-server':
-      return t('shared.executionPlace.roster.server');
+      return 'shared.executionPlace.roster.server';
   }
+}
+
+/** A roster row's label, translated. */
+export function executionPlaceRosterLabel(role: ExecutionPlaceRole, t: Translate): string {
+  return t(executionPlaceRosterLabelKey(role));
 }
 
 /** Why a roster row is disabled, in one short line. */

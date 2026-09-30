@@ -493,17 +493,14 @@ export const workbenchSettingsDefs = {
     'Cât din corpul unui răspuns păstrează executorul pentru afișare. Corpurile mai mari sunt trunchiate la această limită — dimensiunea completă este măsurată și raportată în continuare. Ridicarea limitei crește consumul de memorie per filă de cerere deschisă.',
   'workbench.settings.def.requests.executionPlace.label': 'Locul de execuție',
   'workbench.settings.def.requests.executionPlace.description':
-    'Unde își deschid conexiunea cererile API pe acest dispozitiv dacă o cerere nu își setează propriul loc: aici, în aplicația desktop sau pe serverul spațiului de lucru.',
+    'Unde își deschid conexiunea cererile API pe acest dispozitiv dacă o cerere nu își setează propriul loc.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automat',
   'workbench.settings.def.requests.executionPlace.option.auto.description':
     'Rulează aici când acest dispozitiv poate, altfel în singurul loc care poate.',
-  'workbench.settings.def.requests.executionPlace.option.here.label': 'Acest dispozitiv',
   'workbench.settings.def.requests.executionPlace.option.here.description':
     'Suprafața din care trimiteți deschide conexiunea.',
-  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'Aplicația desktop',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
     'Aplicația desktop de pe acest dispozitiv deschide conexiunea.',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'Serverul spațiului de lucru',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
     'Serverul care furnizează spațiul de lucru deschide conexiunea; valorile rezolvate ajung la el.',
   'workbench.settings.def.requests.allowServerExecution.label': 'Rulare cereri pe un server',

@@ -5,8 +5,11 @@
 
 import { EXECUTION_PLACE_ROLES } from '@openheaders/core/schemas';
 import type { ExecutionPlaceRole } from '@openheaders/core/types';
+import type { MessageKey } from '@openheaders/i18n';
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
+import { executionPlaceRosterLabelKey } from '../../execution-place/execution-place-copy';
+import { executionPlaceRosterRoles } from '../../execution-place/resolve-execution-place';
 import DeviceTrustRow from '../components/device-trust-row';
 import SystemTrustRow from '../components/system-trust-row';
 import TrustedRootsRow from '../components/trusted-roots-row';
@@ -59,11 +62,20 @@ registerSetting({
   numberRange: { min: 1, max: getCurrentHost() === 'desktop' ? 100 : 10, step: 1 },
 });
 
-// The execution place — fork 3's GLOBAL layer (the Execution Place
-// plan): where API requests open their connection when no collection,
-// folder or request sets its own role. A ROLE, never a device fact:
-// the shared reader resolves it per device and names a role this
-// device cannot honour instead of honouring anything silently.
+const EXECUTION_PLACE_OPTION_DESCRIPTION: Record<ExecutionPlaceRole, MessageKey> = {
+  here: 'workbench.settings.def.requests.executionPlace.option.here.description',
+  'desktop-app': 'workbench.settings.def.requests.executionPlace.option.desktop-app.description',
+  'workspace-server': 'workbench.settings.def.requests.executionPlace.option.workspace-server.description',
+};
+
+// The execution place — the GLOBAL layer (the Execution Place plan):
+// where API requests open their connection when no request sets its
+// own. The options are this host's ROSTER in the place picker's own
+// words (the browser extension, the desktop app, the server — never a
+// role this host has no leg for), read at render time like the
+// request row reads it; a stored role this device cannot honour is
+// named by the reader, never honoured silently. The served tab has
+// one place by construction, so the row does not render there.
 registerSetting({
   key: 'requests.executionPlace',
   subcategory: 'execution',
@@ -75,28 +87,19 @@ registerSetting({
   category: 'requests',
   tags: ['place', 'run', 'execute', 'delegate', 'desktop', 'server', 'device'],
   scope: 'user',
-  enumOptions: [
+  getEnumOptions: () => [
     {
-      value: 'auto',
+      value: 'auto' as const,
       labelKey: 'workbench.settings.def.requests.executionPlace.option.auto.label',
       descriptionKey: 'workbench.settings.def.requests.executionPlace.option.auto.description',
     },
-    {
-      value: 'here',
-      labelKey: 'workbench.settings.def.requests.executionPlace.option.here.label',
-      descriptionKey: 'workbench.settings.def.requests.executionPlace.option.here.description',
-    },
-    {
-      value: 'desktop-app',
-      labelKey: 'workbench.settings.def.requests.executionPlace.option.desktop-app.label',
-      descriptionKey: 'workbench.settings.def.requests.executionPlace.option.desktop-app.description',
-    },
-    {
-      value: 'workspace-server',
-      labelKey: 'workbench.settings.def.requests.executionPlace.option.workspace-server.label',
-      descriptionKey: 'workbench.settings.def.requests.executionPlace.option.workspace-server.description',
-    },
+    ...executionPlaceRosterRoles(getCurrentHost()).map((role) => ({
+      value: role,
+      labelKey: executionPlaceRosterLabelKey(role),
+      descriptionKey: EXECUTION_PLACE_OPTION_DESCRIPTION[role],
+    })),
   ],
+  when: () => getCurrentHost() !== 'web',
 });
 
 // This device's own consent for a server place: off withholds the

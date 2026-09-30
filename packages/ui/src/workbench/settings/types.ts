@@ -196,6 +196,15 @@ export interface SettingDefBase<K extends SettingKey = SettingKey> {
    * the element type of the array, not the array itself.
    */
   enumOptions?: readonly EnumOption<EnumValue<K>>[];
+  /**
+   * Host-aware options (`getDefault`'s sibling). When set, the field
+   * layer renders these instead of `enumOptions`, resolved at render
+   * time — after the entry point declared the host — so a picker whose
+   * roster differs per host lists only the options this host has.
+   * `enumOptions` stays the static fallback for tests / non-runtime
+   * consumers.
+   */
+  getEnumOptions?: () => readonly EnumOption<EnumValue<K>>[];
   /** number only. */
   numberRange?: NumberRange;
   /** code only — syntax highlighting hint. */
@@ -244,7 +253,7 @@ export interface ResolvedActionSpec {
 
 export type ResolvedSettingDef<K extends SettingKey = SettingKey> = Omit<
   SettingDefBase<K>,
-  'enumOptions' | 'action'
+  'enumOptions' | 'getEnumOptions' | 'action'
 > & {
   label: string;
   description: string;

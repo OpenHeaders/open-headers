@@ -573,17 +573,14 @@ export const workbenchSettingsDefs = {
     'memoria usada por cada pestaña de solicitud abierta.',
   'workbench.settings.def.requests.executionPlace.label': 'Lugar de ejecución',
   'workbench.settings.def.requests.executionPlace.description':
-    'Dónde abren su conexión las solicitudes de API en este dispositivo salvo que una solicitud defina el suyo: aquí, en la aplicación de escritorio o en el servidor del espacio de trabajo.',
+    'Dónde abren su conexión las solicitudes de API en este dispositivo salvo que una solicitud defina el suyo.',
   'workbench.settings.def.requests.executionPlace.option.auto.label': 'Automático',
   'workbench.settings.def.requests.executionPlace.option.auto.description':
     'Se ejecuta aquí cuando este dispositivo puede, y si no, en el único lugar que puede.',
-  'workbench.settings.def.requests.executionPlace.option.here.label': 'Este dispositivo',
   'workbench.settings.def.requests.executionPlace.option.here.description':
     'La superficie desde la que envías abre la conexión.',
-  'workbench.settings.def.requests.executionPlace.option.desktop-app.label': 'La aplicación de escritorio',
   'workbench.settings.def.requests.executionPlace.option.desktop-app.description':
     'La aplicación de escritorio de este dispositivo abre la conexión.',
-  'workbench.settings.def.requests.executionPlace.option.workspace-server.label': 'El servidor del espacio de trabajo',
   'workbench.settings.def.requests.executionPlace.option.workspace-server.description':
     'El servidor que proporciona el espacio de trabajo abre la conexión; los valores resueltos viajan hasta él.',
   'workbench.settings.def.requests.allowServerExecution.label': 'Ejecutar solicitudes en un servidor',
