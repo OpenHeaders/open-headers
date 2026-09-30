@@ -103,7 +103,7 @@
     "@types/node": "^22.19.15",
     "@types/ws": "^8.18.1",
     "cross-env": "^7.0.3",
-    "electron": "^39.8.10",
+    "electron": "^44.4.5",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   }

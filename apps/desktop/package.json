@@ -348,7 +348,7 @@
     "@types/ws": "^8.18.1",
     "bufferutil": "^4.0.8",
     "cross-env": "^7.0.3",
-    "electron": "^39.8.10",
+    "electron": "^44.4.5",
     "electron-builder": "^26.15.7",
     "electron-builder-squirrel-windows": "^26.15.7",
     "electron-playwright-helpers": "^2.1.0",
