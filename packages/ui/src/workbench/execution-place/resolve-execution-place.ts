@@ -278,18 +278,22 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
     // honest row: the context send for HTTP (resolved there), the
     // not-forwarded state for a session; a gRPC invoke the tab honours
     // is a delegated call too.
+    // The place is named as the workspace's server names it (its Org's
+    // name, the row's and the stamp's), the surface's address only for
+    // a nameless one.
+    const name = input.workspaceServer?.name ?? serving;
     const honoured = placeHonoured(kind, markers);
     if (isSessionKind(kind) && !honoured) {
-      return remote(serving, 'unsupported', { kind: 'session-not-forwarded', name: serving });
+      return remote(name, 'unsupported', { kind: 'session-not-forwarded', name });
     }
     if (honoured) {
-      return remote(serving, 'ready', {
+      return remote(name, 'ready', {
         kind: 'delegated',
         role: 'workspace-server',
         knobs: input.delegationKnobs ?? NO_KNOBS,
       });
     }
-    return remote(serving, 'ready', { kind: 'context-send', name: serving });
+    return remote(name, 'ready', { kind: 'context-send', name });
   }
   const legs = delegatedLegs(input);
   if (markers.requestRuntime === 'node') return here({ kind: 'runs-here' }, legs);

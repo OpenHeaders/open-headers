@@ -110,9 +110,13 @@ export function useExecutionPlace({
       ...(delegationKnobs !== undefined ? { delegationKnobs } : {}),
     };
     const resolution = resolveExecutionPlace(input);
+    // The served tab has one place by construction and its seam leases
+    // that wire for every send, whatever the frame says: the frame
+    // names nothing there (the S4 rule), the server read only names it.
+    const serverBackendId = remoteRequestDispatch === null ? (server?.backendId ?? null) : null;
     return {
       ...resolution,
-      target: targetOf(resolution, desktopAppBackendId, server?.backendId ?? null),
+      target: targetOf(resolution, desktopAppBackendId, serverBackendId),
       roster: resolveExecutionPlaceRoster(input),
     };
   }, [

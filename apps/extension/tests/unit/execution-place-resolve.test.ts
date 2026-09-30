@@ -110,6 +110,20 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
     });
   });
 
+  it('the served tab names its place as its workspace server names it, the address only nameless', () => {
+    const named = { workspaceServer: { name: 'Access Rig', connected: true } };
+    const addressed = { ...WEB, remoteRequestDispatch: '127.0.0.1:19337' };
+    expect(resolve('http', addressed, 'connected', named)).toMatchObject({
+      placeName: 'Access Rig',
+      serverName: 'Access Rig',
+    });
+    expect(resolve('http', addressed).placeName).toBe('127.0.0.1:19337');
+    expect(resolve('websocket', { ...addressed, delegatedSessionDispatch: false }, 'connected', named).reason).toEqual({
+      kind: 'session-not-forwarded',
+      name: 'Access Rig',
+    });
+  });
+
   it('a serving surface whose send does not honour a place keeps the context send, resolved there', () => {
     for (const kind of ['http', 'graphql-query'] as const) {
       expect(resolve(kind, { ...WEB, delegatedRequestDispatch: false })).toEqual({

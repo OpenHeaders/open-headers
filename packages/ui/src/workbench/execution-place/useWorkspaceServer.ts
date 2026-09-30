@@ -6,8 +6,11 @@
  * desktop app's loopback port from a browser host is the desktop app,
  * never a server), and the record's sync slot says whether the wire is
  * up. The home Org has no binding and no server; a bound Org whose
- * record is gone has none either. The backend id rides along for the
- * send's explicit target (never the default wire).
+ * record is gone has none either — unless the id is one the host holds
+ * by construction (the served tab's serving daemon: no record by
+ * design, its slot the wire's), which reads as the server named by the
+ * Org it provides. The backend id rides along for the send's explicit
+ * target (never the default wire).
  *
  * The workspace is the EDITING SCOPE's — a workbench tab is pinned to
  * its own workspace by its URL, which need not be the host's
@@ -17,7 +20,7 @@
  * hook falls back to the Active workspace on its own.
  */
 
-import { getOrgBackendBindings, type IdentitySnapshot } from '@openheaders/core/identity';
+import { getOrgBackendBindings, type IdentitySnapshot, isPinnedBackendId } from '@openheaders/core/identity';
 import type { BackendConnection, BackendSyncStatusSnapshot } from '@openheaders/core/types';
 import { backendPlace, useBackends } from '@openheaders/ui/shared/backend';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
@@ -51,16 +54,18 @@ export function deriveWorkspaceServer(
   bindings: ReadonlyMap<string, string>,
   backends: readonly BackendConnection[],
   slots: BackendSyncStatusSnapshot,
+  pinned: (backendId: string) => boolean,
 ): WorkspaceServer | null {
   if (orgId === null) return null;
   const backendId = bindings.get(orgId);
   if (backendId === undefined) return null;
-  const record = backends.find((b) => b.id === backendId);
-  if (record === undefined) return null;
+  const record = backends.find((b) => b.id === backendId) ?? null;
+  if (record === null && !pinned(backendId)) return null;
   const orgName = snapshot?.orgs.get(orgId)?.name;
   const place = backendPlace(host, record, orgName !== undefined ? [orgName] : []);
   if (place.kind !== 'server') return null;
-  return { backendId, name: place.name, connected: record.enabled && slots[backendId]?.state === 'green' };
+  const enabled = record === null || record.enabled;
+  return { backendId, name: place.name, connected: enabled && slots[backendId]?.state === 'green' };
 }
 
 export function useWorkspaceServer(): WorkspaceServer | null {
@@ -70,7 +75,7 @@ export function useWorkspaceServer(): WorkspaceServer | null {
   const orgId = useEditingScopeOrgId();
   const host = getCurrentHost();
   return useMemo(
-    () => deriveWorkspaceServer(host, orgId, snapshot, getOrgBackendBindings(), backends, slots),
+    () => deriveWorkspaceServer(host, orgId, snapshot, getOrgBackendBindings(), backends, slots, isPinnedBackendId),
     [host, orgId, snapshot, backends, slots],
   );
 }
