@@ -443,6 +443,7 @@ const SETTING_ROWS = {
   'mcp.allowExecute': 'MCP execute tools: send requests, run workflows (real network egress).',
   'mcp.allowSecrets': 'Let MCP tools read secret variable values instead of masked names.',
   'updates.autoUpdate': 'Unattended `ohd upgrade` when a newer release ships.',
+  'backend.allowRemotePeerExecute': 'Devices that joined this server may run their requests on it — the same switch as **Server Admin › Server**. On by default; `false` withholds the server from every device\'s sends.',
 };
 censusNested(SETTING_KEYS, SETTING_ROWS, 'settings');
 
@@ -467,9 +468,10 @@ ${table(['Command', 'What it does'], ohdCommands.map((c) => [code(`ohd ${c.name}
 
 ## Settings keys
 
-\`ohd config set <key> <true|false>\` — booleans, default off. Bind and
-network options are not settings; they persist through \`ohd install\`
-flags instead.
+\`ohd config set <key> <true|false>\` — booleans, off by default unless the
+row says otherwise (\`ohd config list\` prints each key's default beside
+\`(default)\`). Bind and network options are not settings; they persist
+through \`ohd install\` flags instead.
 
 ${table(['Key', 'What it enables'], SETTING_KEYS.map((k) => [code(k), SETTING_ROWS[k]]))}
 

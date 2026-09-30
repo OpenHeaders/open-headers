@@ -45,9 +45,10 @@ The client command line is [`oh`](/reference/oh).
 
 ## Settings keys
 
-`ohd config set <key> <true|false>` — booleans, default off. Bind and
-network options are not settings; they persist through `ohd install`
-flags instead.
+`ohd config set <key> <true|false>` — booleans, off by default unless the
+row says otherwise (`ohd config list` prints each key's default beside
+`(default)`). Bind and network options are not settings; they persist
+through `ohd install` flags instead.
 
 | Key | What it enables |
 | --- | --- |
@@ -57,6 +58,7 @@ flags instead.
 | `mcp.allowExecute` | MCP execute tools: send requests, run workflows (real network egress). |
 | `mcp.allowSecrets` | Let MCP tools read secret variable values instead of masked names. |
 | `updates.autoUpdate` | Unattended `ohd upgrade` when a newer release ships. |
+| `backend.allowRemotePeerExecute` | Devices that joined this server may run their requests on it — the same switch as **Server Admin › Server**. On by default; `false` withholds the server from every device's sends. |
 
 ## Options
 
