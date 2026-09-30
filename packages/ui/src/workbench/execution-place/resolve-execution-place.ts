@@ -163,6 +163,8 @@ export type ExecutionPlaceCta =
   | 'launch-desktop-app'
   | 'connect-desktop-app'
   | 'download-desktop-app'
+  /** The served tab's discovery rung: this browser's store listing of the extension. */
+  | 'install-extension'
   | null;
 
 export interface ExecutionPlaceResolution {
@@ -386,7 +388,9 @@ function companionCta(input: Pick<ExecutionPlaceInput, 'desktopApp' | 'desktopAp
 // clients' agent-picker shape. A browser surface lists its own
 // extension, the desktop app on this machine and the workspace's
 // server; the desktop app lists itself and the server; the served tab
-// lists its one server. Availability is the resolution's own rule
+// lists the extension and the desktop app for DISCOVERY alone — a tab
+// reaches neither, installed or not, so both rows stay disabled under
+// the rung that installs them — and its one server. Availability is the resolution's own rule
 // (the transport the kind needs under the live connections), so the
 // resolved place is always an available row.
 
@@ -419,7 +423,10 @@ export type ExecutionPlaceRosterReason =
   /** This device's own switch keeps every send off any server (Settings › API Requests). */
   | 'server-off'
   /** The surface's send does not honour a place for this kind. */
-  | 'not-forwarded';
+  | 'not-forwarded'
+  /** A served tab's discovery rows: the place exists on another surface, never for this tab. */
+  | 'in-extension'
+  | 'in-desktop-app';
 
 export interface ExecutionPlaceRosterRow {
   role: ExecutionPlaceRole;
@@ -481,9 +488,14 @@ export function resolveExecutionPlaceRoster(input: ExecutionPlaceInput): readonl
   const honoured = placeHonoured(kind, markers);
   if (markers.remoteRequestDispatch !== null) {
     // The served tab: one place, its server — forwarded by construction
-    // for HTTP, honoured or not for a session and a gRPC call.
+    // for HTTP, honoured or not for a session and a gRPC call — under
+    // the two discovery rows.
     const available = honoured || kind === 'http' || kind === 'graphql-query';
-    return [{ role: 'workspace-server', available, reason: available ? null : 'not-forwarded', cta: null }];
+    return [
+      { role: 'here', available: false, reason: 'in-extension', cta: 'install-extension' },
+      { role: 'desktop-app', available: false, reason: 'in-desktop-app', cta: 'download-desktop-app' },
+      { role: 'workspace-server', available, reason: available ? null : 'not-forwarded', cta: null },
+    ];
   }
   if (markers.requestRuntime === 'node') {
     return [{ role: 'here', available: true, reason: null, cta: null }, serverRow(input, honoured)];

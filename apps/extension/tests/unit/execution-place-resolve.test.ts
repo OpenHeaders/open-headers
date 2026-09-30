@@ -583,8 +583,15 @@ describe('resolveExecutionPlaceRoster — every place this host knows, available
       'here',
       'workspace-server',
     ]);
-    expect(roster('http', WEB)).toEqual([{ role: 'workspace-server', available: true, reason: null, cta: null }]);
-    expect(roster('websocket', { ...WEB, delegatedSessionDispatch: false })[0]?.reason).toBe('not-forwarded');
+    // The served tab: the extension and the desktop app for discovery
+    // alone — never places for a tab — under their install rungs, then
+    // its one server.
+    expect(roster('http', WEB)).toEqual([
+      { role: 'here', available: false, reason: 'in-extension', cta: 'install-extension' },
+      { role: 'desktop-app', available: false, reason: 'in-desktop-app', cta: 'download-desktop-app' },
+      { role: 'workspace-server', available: true, reason: null, cta: null },
+    ]);
+    expect(roster('websocket', { ...WEB, delegatedSessionDispatch: false })[2]?.reason).toBe('not-forwarded');
   });
 });
 

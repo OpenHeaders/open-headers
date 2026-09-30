@@ -23,7 +23,7 @@
 
 import { DownloadOutlined } from '@ant-design/icons';
 import { createBackend, updateBackend } from '@openheaders/core/backends';
-import { getCapability, type NmHostPresenceVerdict } from '@openheaders/core/capabilities';
+import { getCapability, type InstallTargetBrowser, type NmHostPresenceVerdict } from '@openheaders/core/capabilities';
 import { WS_PORT } from '@openheaders/core/protocol';
 import type { BackendConnection, BackendSyncStatus, ExecutionPlaceRole } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
@@ -38,6 +38,7 @@ import {
 } from '../../workbench/data/extension-stores';
 import { desktopAppRecord, useBackends } from '../backend';
 import { DESKTOP_DOWNLOAD_URL, fetchLatestDesktopInstaller } from '../desktop-teaser/update-feed';
+import { detectedBrowser } from '../host-glyph';
 import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { useStatus } from '../hooks/useStatus';
@@ -150,7 +151,10 @@ const DesktopAppRow: React.FC = () => {
     connecting: { tagColor: 'warning', messageKey: 'shared.chrome.status.backendConnecting' },
     'not-connected': { tagColor: 'warning', messageKey: 'shared.chrome.status.companionNotConnected' },
     off: { tagColor: 'default', messageKey: 'shared.chrome.status.backendOff' },
-    'installed-not-connected': { tagColor: 'default', messageKey: 'shared.chrome.status.companionInstalledNotConnected' },
+    'installed-not-connected': {
+      tagColor: 'default',
+      messageKey: 'shared.chrome.status.companionInstalledNotConnected',
+    },
     'not-installed': { tagColor: 'default', messageKey: 'shared.chrome.status.companionNotInstalled' },
   };
   const { tagColor, messageKey } = visual[state];
@@ -283,6 +287,30 @@ export const DesktopDownloadAction: React.FC = () => {
   );
 };
 
+/**
+ * The store listing of THIS browser's extension — the served tab's
+ * discovery rung on its place picker: a tab reaches no extension,
+ * installed or not, so the row only points at the install. A browser
+ * without a listing renders no button; the reason line stands alone.
+ */
+export const ExtensionInstallAction: React.FC = () => {
+  const t = useT();
+  const browser = detectedBrowser();
+  const target = INSTALLABLE_BROWSERS.find((candidate) => candidate === browser);
+  if (target === undefined) return null;
+  return (
+    <Button
+      size="small"
+      type="primary"
+      onClick={() => openStoreListing(target)}
+      data-testid="status-extension-install"
+      style={{ fontSize: 11, height: 20, padding: '0 6px' }}
+    >
+      {t('shared.executionPlace.roster.install')}
+    </Button>
+  );
+};
+
 const ExtensionsRow: React.FC = () => {
   const t = useT();
   const { snapshot } = useStatus();
@@ -325,7 +353,7 @@ const ExtensionsRow: React.FC = () => {
   );
 };
 
-function openStoreListing(browser: (typeof INSTALLABLE_BROWSERS)[number]): void {
+function openStoreListing(browser: InstallTargetBrowser): void {
   const url = EXTENSION_STORE_URLS[browser];
   // A store listing must land in the browser that will install it —
   // hosts with an OS process plane register `openUrlInBrowser`; the
@@ -356,7 +384,10 @@ const CompanionRow: React.FC<{
   children: React.ReactNode;
 }> = ({ tagColor, label, testId, children }) => (
   <div data-testid={testId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-    <Tag color={tagColor} style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}>
+    <Tag
+      color={tagColor}
+      style={{ fontSize: 10, width: STATUS_TAG_WIDTH, textAlign: 'center', margin: 0, flex: 'none' }}
+    >
       {label}
     </Tag>
     <span

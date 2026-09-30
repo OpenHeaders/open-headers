@@ -535,6 +535,11 @@ export const sharedComponents = {
   'shared.executionPlace.roster.reason.noServer': 'Available in a server workspace',
   'shared.executionPlace.roster.reason.serverNotConnected': 'Not connected',
   'shared.executionPlace.roster.reason.notForwarded': 'Not available here yet',
+  // The served tab's discovery rows — the place exists on another
+  // surface, never for this tab; the rung installs it.
+  'shared.executionPlace.roster.reason.inExtension': 'Available in the browser extension',
+  'shared.executionPlace.roster.reason.inDesktopApp': 'Available in the desktop app',
+  'shared.executionPlace.roster.install': 'Install',
   'shared.executionPlace.roster.openSync': 'Open Backup and Sync',
   'shared.executionPlace.roster.reset': 'Reset to automatic',
   'shared.executionPlace.roster.seeDocs': 'See docs',

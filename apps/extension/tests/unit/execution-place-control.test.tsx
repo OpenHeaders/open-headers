@@ -31,6 +31,13 @@ vi.mock('@openheaders/ui/context', () => ({
   getActiveExtensionWorkspaceSyncMirror: () => mirror,
 }));
 
+// jsdom's user agent is no browser the store lists; the marks and the
+// install rung read this realm as Chrome.
+vi.mock('@openheaders/ui/shared/host-glyph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@openheaders/ui/shared/host-glyph')>()),
+  detectedBrowser: () => 'chrome',
+}));
+
 vi.mock('@openheaders/ui/context/mirrors/extension-workspace-sync-mirror', async (importOriginal) => {
   const actual =
     await importOriginal<typeof import('@openheaders/ui/context/mirrors/extension-workspace-sync-mirror')>();
@@ -413,6 +420,49 @@ describe('ExecutionPlaceControl — the Server row this device switched off', ()
     expect(copy.chip).toBe('shared.executionPlace.tip.serverOff');
     expect(copy.reason).toBe('shared.executionPlace.reason.serverOff');
     expect(copy.knobs).toBeNull();
+  });
+});
+
+describe('ExecutionPlaceControl — the served tab’s discovery rows', () => {
+  afterEach(() => setCurrentHost('extension'));
+
+  it('lists the extension and the desktop app disabled under their install rungs, the server selected', async () => {
+    setCurrentHost('web');
+    render(
+      <ExecutionPlaceControl
+        resolution={resolution({
+          place: 'workspace-server',
+          placeName: 'Acme',
+          reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+          serverName: 'Acme',
+        })}
+        roster={[
+          { role: 'here', available: false, reason: 'in-extension', cta: 'install-extension' },
+          { role: 'desktop-app', available: false, reason: 'in-desktop-app', cta: 'download-desktop-app' },
+          SERVER_UP,
+        ]}
+        preference="auto"
+        onPick={vi.fn()}
+      />,
+    );
+    fireEvent.click(chip());
+    const options = await screen.findAllByTestId('execution-place-option');
+    expect(options.map((o) => o.getAttribute('data-available'))).toEqual(['false', 'false', 'true']);
+    expect((options[2] as HTMLInputElement).checked).toBe(true);
+    expect(screen.getAllByTestId('execution-place-option-label').map((l) => l.textContent)).toEqual([
+      'Browser extension',
+      'Desktop app',
+      'Server',
+    ]);
+    const reasons = screen.getAllByTestId('execution-place-option-reason');
+    expect(reasons[0]?.textContent).toContain('Available in the browser extension');
+    expect(reasons[0]?.querySelector('[data-testid="status-extension-install"]')?.textContent).toBe('Install');
+    expect(reasons[1]?.textContent).toContain('Available in the desktop app');
+    expect(reasons[1]?.querySelector('[data-testid="status-companion-download"]')).toBeTruthy();
+    // The extension row wears the tab's own browser logo, not an OS mark.
+    const marks = screen.getAllByTestId('execution-place-mark');
+    const extensionMark = marks.find((mark) => mark.getAttribute('data-place') === 'here');
+    expect(extensionMark?.getAttribute('data-mark')).toBe('browser');
   });
 });
 

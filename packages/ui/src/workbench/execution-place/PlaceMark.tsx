@@ -3,7 +3,9 @@
  * the place-everywhere rule applied to the chip: a place looks the
  * same here as it does in the workspace switcher.
  *
- *   - `here` on the extension = this browser's own logo;
+ *   - `here` on the extension = this browser's own logo — and on the
+ *     served tab, whose extension row is a discovery row for the very
+ *     browser the tab runs in;
  *   - `here` on the desktop app, and the desktop app as a place from a
  *     browser (the same machine) = this machine's OS mark;
  *   - the workspace's server = its Org's icon — the OS the daemon
@@ -37,9 +39,10 @@ interface DeviceMark {
 }
 
 /** This device's mark: the browser's logo where the surface IS a
- *  browser page, else the machine's OS mark. */
+ *  browser page (the extension, the served tab), else the machine's
+ *  OS mark. */
 function deviceMark(role: 'here' | 'desktop-app'): DeviceMark {
-  if (role === 'here' && getCurrentHost() === 'extension') {
+  if (role === 'here' && getCurrentHost() !== 'desktop') {
     const Icon = browserGlyph(detectedBrowser());
     return Icon ? { kind: 'browser', Icon } : { kind: 'host-kind', Icon: hostKindIcon('browser') };
   }

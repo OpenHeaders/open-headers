@@ -8,7 +8,9 @@
  * ROSTER — every place this host knows, in a fixed order, the
  * available ones selectable, the others disabled with their reason
  * and the rung that would make them available (the desktop ladder:
- * open · connect · download; the Sync page for a server) — under the
+ * open · connect · download; the Sync page for a server; on the served
+ * tab the extension and the desktop app rows are discovery alone,
+ * under Install / Download) — under the
  * reason sentence and the knobs in play. A pick is a DRAFT edit of the
  * request's own place (saved with the request, on this device only,
  * by the editor's Save); *Reset to automatic* clears it back to the
@@ -27,7 +29,12 @@
 import { FunctionOutlined, SelectOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { DesktopConnectAction, DesktopDownloadAction, DesktopOpenAppAction } from '@openheaders/ui/shared/status';
+import {
+  DesktopConnectAction,
+  DesktopDownloadAction,
+  DesktopOpenAppAction,
+  ExtensionInstallAction,
+} from '@openheaders/ui/shared/status';
 import { Button, Popover, Radio, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -156,6 +163,8 @@ function ctaAction(cta: ExecutionPlaceCta): React.ReactNode {
       return <DesktopConnectAction />;
     case 'download-desktop-app':
       return <DesktopDownloadAction />;
+    case 'install-extension':
+      return <ExtensionInstallAction />;
     case null:
       return null;
   }

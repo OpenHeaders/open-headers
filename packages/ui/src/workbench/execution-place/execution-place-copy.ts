@@ -29,12 +29,14 @@ export interface ExecutionPlaceCopy {
 }
 
 /** A roster row's label key — the place as the product names it: the
- *  browser extension where this surface is one, the desktop app, the
- *  server. The global Settings row lists the same roster by these keys. */
+ *  browser extension where this surface is a browser page (the
+ *  extension itself; the served tab's discovery row), the desktop app,
+ *  the server. The global Settings row lists the same roster by these
+ *  keys. */
 export function executionPlaceRosterLabelKey(role: ExecutionPlaceRole): MessageKey {
   switch (role) {
     case 'here':
-      return getCurrentHost() === 'extension'
+      return getCurrentHost() !== 'desktop'
         ? 'shared.executionPlace.roster.browser'
         : 'shared.executionPlace.roster.desktopApp';
     case 'desktop-app':
@@ -72,6 +74,10 @@ export function executionPlaceRosterReason(reason: ExecutionPlaceRosterReason, t
       return t('shared.executionPlace.roster.reason.serverOff');
     case 'not-forwarded':
       return t('shared.executionPlace.roster.reason.notForwarded');
+    case 'in-extension':
+      return t('shared.executionPlace.roster.reason.inExtension');
+    case 'in-desktop-app':
+      return t('shared.executionPlace.roster.reason.inDesktopApp');
   }
 }
 
