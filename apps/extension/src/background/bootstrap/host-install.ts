@@ -16,6 +16,7 @@ import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-brows
 import { installActivityPruneScheduler } from '../activity-prune-scheduler';
 import { isOrgBackendOffDevice } from '../backend-target';
 import { recordLog } from '../modules/observability-log';
+import { installLoopbackSecretManagerBroker } from '../modules/secret-manager/loopback-broker';
 import { listWorkspaces } from '../modules/workspace/workspace-store';
 import { setActivityLog } from '../sync-activity-installer';
 
@@ -53,4 +54,8 @@ export function installHostAdapters(): void {
   // Lock observer is installed at module-load so any pre-init `withLock`
   // call still routes events to the (buffered) observability ring.
   setLockObserver(recordLog);
+
+  // Secret managers: this worker holds no provider — a send's referenced
+  // entries resolve through the desktop app on this device over loopback.
+  installLoopbackSecretManagerBroker();
 }

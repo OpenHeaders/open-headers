@@ -14,6 +14,7 @@ import type {
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
+import { collectRequestTemplateStrings } from '@openheaders/core/live';
 import type { OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
 import type { KindSettings } from '@openheaders/core/settings-inheritance';
 import type {
@@ -29,14 +30,15 @@ import type {
   Vault,
   VaultSecretTotp,
 } from '@openheaders/core/types';
-import { isRequestResolvable } from '@openheaders/core/utils';
-import { resolveTemplate } from '@openheaders/core/variables';
+import { collectRequestResolutionErrors, isRequestResolvable } from '@openheaders/core/utils';
+import { collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
 import { resolveProxyCredential } from '@openheaders/oracle/live/dial-policy';
 import {
   collectionUidForRequest,
   resolveRequestAuth,
   resolveRequestSettings,
 } from '@openheaders/oracle/live/request-exec/ancestor-chain';
+import { unresolvedRequestMessage } from '@openheaders/oracle/live/request-exec/resolve-request';
 import { resolveClientCertificate } from '@openheaders/oracle/live/tls-policy';
 import { getTrustAnchorsForSend } from '@openheaders/oracle/live/trust-anchors';
 import { getActiveWorkspaceId } from '../workspace/workspace-store';
@@ -276,14 +278,9 @@ export async function resolveRequest(
   request: Request,
   options: ExecuteRequestOptions,
 ): Promise<ResolvedRequestOutcome> {
-  const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures);
-  // The collection scope reads off the same ancestor chain the auth
-  // walk uses — the tree index, never the request's stored path.
-  const context = {
-    collectionId: collectionUidForRequest(request, scope.workspaceId),
-    environmentId: options.environmentId,
-  };
-
+  // The scope the chain walks below is the pinned workspace, else the
+  // runtime-Active one — the same value the resolver's context carries.
+  const scopeWorkspaceId = options.workspaceId ?? null;
   // `inherit` resolves against the ancestor chain BEFORE the
   // resolvability gate — the inherited config's own templates (a
   // collection-level `{{auth_token}}` bearer) must pass the same gate
@@ -291,14 +288,27 @@ export async function resolveRequest(
   // wire. A disabled inherit resolves too (the attribution names what
   // was suspended); `applyAuth` skips the disabled contribution whole.
   // Twin of the oracle resolver's leg (`resolve-request.ts`).
-  const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scope.workspaceId);
+  const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scopeWorkspaceId);
   // The settings knobs cascade over the same chain — the request's own
   // defined knob wins, an absent one reads the nearest ancestor that
   // sets it (THE core rule). The effective knobs compose the tail
   // below; the browser runtime honors the cookie policy, the redirect
   // switch and the round-trip ceiling — the rest is node-only.
-  const { settings, attribution: settingsAttribution } = resolveRequestSettings('http', request, scope.workspaceId);
+  const { settings, attribution: settingsAttribution } = resolveRequestSettings('http', request, scopeWorkspaceId);
   const gated: Request = { ...request, ...settings, auth: effectiveAuth };
+
+  // The secret-manager entries this send may resolve are exactly the
+  // names its templates reference — the effective request's, so an
+  // inherited bearer's `{{vault.X}}` counts and a disabled row's does
+  // not. Nothing else is ever asked of the desktop app.
+  const secretNames = collectTemplateVariableNames(collectRequestTemplateStrings(gated));
+  const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures, secretNames);
+  // The collection scope reads off the same ancestor chain the auth
+  // walk uses — the tree index, never the request's stored path.
+  const context = {
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
+    environmentId: options.environmentId,
+  };
 
   // Architectural gate: refuse to dispatch when any `{{ref}}` in the
   // draft can't be resolved. Mirrors the DNR compile pipeline's
@@ -313,9 +323,15 @@ export async function resolveRequest(
     (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
   );
   if (!resolvable) {
-    throw new UnresolvedRequestError(
-      'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.',
+    // Every unresolved reference with its reason — a secret manager's
+    // typed failure (authorize, fix the reference, connect the desktop
+    // app) reads apart from a plain miss; the oracle gate's wording.
+    const errors = collectRequestResolutionErrors(
+      gated,
+      (name) => resolver.resolve(name, context),
+      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
     );
+    throw new UnresolvedRequestError(unresolvedRequestMessage(errors));
   }
 
   // Track every kind:'totp' vault entry referenced during this resolve.

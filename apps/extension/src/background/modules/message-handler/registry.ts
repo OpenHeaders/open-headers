@@ -22,6 +22,7 @@ import { observabilityHandlers } from './handlers/observability';
 import { productTelemetryHandlers } from './handlers/product-telemetry';
 import { requestHandlers } from './handlers/requests';
 import { ruleHandlers } from './handlers/rules';
+import { secretManagerHandlers } from './handlers/secret-managers';
 import { serverSignInHandlers } from './handlers/server-sign-in';
 import { storageInspectorHandlers } from './handlers/storage-inspector';
 import { telemetryHandlers } from './handlers/telemetry';
@@ -38,6 +39,7 @@ export const registry: HandlerMap = {
   ...requestHandlers,
   ...delegatedSocketHandlers,
   ...ruleHandlers,
+  ...secretManagerHandlers,
   ...telemetryHandlers,
   ...templateHandlers,
   ...observabilityHandlers,

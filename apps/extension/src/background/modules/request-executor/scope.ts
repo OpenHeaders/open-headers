@@ -26,6 +26,7 @@ import {
   getCollectionsForWorkspace as getRuleCollectionsForWorkspace,
 } from '@openheaders/oracle/entity/rule-store';
 import { getTemplateCollections, getTemplateCollectionsForWorkspace } from '@openheaders/oracle/entity/template-store';
+import { buildSecretManagerRegistry, NO_SECRET_NAMES } from '@openheaders/oracle/live/request-exec/resolver-scope';
 import {
   getLiveRegistrySnapshot,
   getLiveRegistrySnapshotForWorkspace,
@@ -52,10 +53,16 @@ export interface ResolverContext {
  * Otherwise the resolver pulls from the Active-bound module mirrors,
  * the Send-from-workbench path the user-initiated executor has always
  * used.
+ *
+ * `secretNames` is the set of vault entry names the send's templates
+ * reference: only those `kind: 'secret-manager'` entries resolve
+ * through this worker's broker (the desktop app on this device over
+ * loopback), so an unreferenced entry never prompts. Absent = none.
  */
 export async function buildResolver(
   workspaceId: string | undefined,
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>,
+  secretNames: ReadonlySet<string> = NO_SECRET_NAMES,
 ): Promise<{ resolver: VariableResolver; context: ResolverContext }> {
   const resolver = new VariableResolver();
   const scope = workspaceId ? await readPerWorkspaceScope(workspaceId) : readActiveScope();
@@ -73,6 +80,11 @@ export async function buildResolver(
   // and the rule is dropped, which is the architectural gate keeping
   // 30s-codes out of static rule values.
   resolver.setTotpRegistry(await buildTotpRegistry(scope.vault));
+  // Secret-manager scope — the REFERENCED entries batch-resolved through
+  // the installed broker (the desktop app over loopback on this host);
+  // values live only in this per-send registry (L1).
+  const secretManager = await buildSecretManagerRegistry(scope.vault, secretNames);
+  resolver.setSecretManagerRegistry(secretManager.registry, secretManager.failures);
   // Live scope — for an Active-workspace dispatch we read the snapshot
   // that backs the DNR compile pipeline (same mirror the rule engine
   // uses). For a per-workspace dispatch we read the workspace's own
