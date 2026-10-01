@@ -57,7 +57,7 @@ const SystemTrustRow: React.FC<{ def: SettingDef }> = ({ def }) => {
       description={resolveDescription(def, t)}
       resettable={false}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
         <Switch
           checked={systemTrust.enabled}
           loading={pending || (nodeHost && !ready)}
