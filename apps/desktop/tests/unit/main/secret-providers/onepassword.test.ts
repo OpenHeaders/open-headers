@@ -157,6 +157,15 @@ describe('desktop onepassword provider', () => {
     expect(createClient).toHaveBeenCalledTimes(2);
   });
 
+  it("a resolve-time not-found is the row's failure, never the connection's standing state", async () => {
+    const { loadSdk } = fakeSdk(async () => {
+      throw new Error('error resolving secret reference: no vault matched the secret reference query');
+    });
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: false, reason: 'not-found' });
+    expect(await provider.probe(connection())).toEqual({ available: true });
+  });
+
   it('maps the vendor resolve errors onto the typed failures', async () => {
     const cases: Array<[Error, string]> = [
       [new AuthExpiredError('expired'), 'authorization-required'],
