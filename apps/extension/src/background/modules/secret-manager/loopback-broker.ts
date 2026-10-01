@@ -33,11 +33,20 @@ type SecretManagerVerb =
   | 'oh.secretManager.authorize'
   | 'oh.secretManager.resolveBatch';
 
+/** The verbs behind which the manager's own prompt may stand — a
+ *  human's approval outlasts any ordinary rider wait; the ceiling is
+ *  the vendor's approval window, so a desktop app that never answers
+ *  (one too old to own the plane) settles instead of hanging a send. */
+const PROMPTING_VERBS: ReadonlySet<SecretManagerVerb> = new Set([
+  'oh.secretManager.authorize',
+  'oh.secretManager.resolveBatch',
+]);
+export const PROMPT_CEILING_MS = 600_000;
+
 /**
- * One secret-manager verb toward the desktop app. A prompt can stand
- * for minutes, so the request rides deadline-free like a delegated
- * send; a dead wire rejects on its own. Null when the desktop app is
- * away — the caller answers its honest typed state.
+ * One secret-manager verb toward the desktop app. Null when the
+ * desktop app is away — the caller answers its honest typed state; a
+ * dead wire rejects on its own.
  */
 export async function askDesktopApp<T extends SecretManagerVerb>(
   type: T,
@@ -45,7 +54,8 @@ export async function askDesktopApp<T extends SecretManagerVerb>(
 ): Promise<BridgeRpcResponse<T> | null> {
   const backendId = desktopAppBackendId();
   if (backendId === null) return null;
-  return wsRequest<BridgeRpcResponse<T>>({ type, ...payload }, { backendId, timeoutMs: 0 });
+  const options = PROMPTING_VERBS.has(type) ? { backendId, timeoutMs: PROMPT_CEILING_MS } : { backendId };
+  return wsRequest<BridgeRpcResponse<T>>({ type, ...payload }, options);
 }
 
 function away(entries: readonly SecretBrokerEntry[]): Map<string, SecretResolution> {

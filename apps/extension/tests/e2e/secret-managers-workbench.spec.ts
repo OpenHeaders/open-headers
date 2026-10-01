@@ -3,15 +3,19 @@
  * the extension's READ-ONLY surfaces until P2 wires the loopback
  * channel to the desktop app's connections:
  *
- *   B1  the Vault row of kind Secret Manager: the connection select is
- *       disabled and reads "Set up in the desktop app", the chip reads
- *       "No connection selected", and no Manage… link is offered (the
- *       desktop-only affordance never renders here);
- *   B2  Settings › Secret Managers › Connections: the list renders
- *       read-only — Add disabled, the browser note naming the desktop
- *       app — and nothing in it prompts.
+ *   B1  the Vault row of kind Secret Manager with the desktop app away:
+ *       the connection select is disabled and reads "Connect the
+ *       desktop app", the chip reads "No connection selected", and no
+ *       Manage… link is offered (the desktop-only affordance never
+ *       renders here);
+ *   B2  Settings › Secret Managers › Connections with the desktop app
+ *       away: the list renders read-only — Add disabled, the browser
+ *       note naming the desktop app — and nothing in it prompts.
  *
- * Runs against the built `dist/chrome`; the user builds it.
+ * The desktop-connected readings (the desktop app's connections
+ * listed, Test live, a Send resolving over loopback) need the desktop
+ * app on its own port beside this extension — the live look, not this
+ * rig. Runs against the built `dist/chrome`; the user builds it.
  */
 
 import path from 'node:path';
@@ -65,7 +69,7 @@ test('B1 — the Vault row reads the desktop-only connection select and the hone
 
   const connection = visible(page.getByTestId('vault-sm-connection'));
   await expect(connection).toHaveClass(/ant-select-disabled/);
-  await expect(connection).toContainText('Set up in the desktop app');
+  await expect(connection).toContainText('Connect the desktop app');
   await expect(visible(page.getByTestId('vault-sm-status'))).toHaveText('No connection selected');
   expect(await page.getByTestId('vault-sm-manage').count()).toBe(0);
 

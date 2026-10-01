@@ -26,6 +26,7 @@ import {
   createLoopbackSecretManagerBroker,
   DESKTOP_APP_AWAY_DETAIL,
   desktopAppBackendId,
+  PROMPT_CEILING_MS,
 } from '@/background/modules/secret-manager/loopback-broker';
 
 const DESKTOP = { backendId: 'b-desktop', url: 'ws://127.0.0.1:8137' };
@@ -68,7 +69,7 @@ describe('the desktop app wire', () => {
 });
 
 describe('the loopback broker', () => {
-  it('asks the desktop app deadline-free and reads every entry typed by name', async () => {
+  it("asks the desktop app under the prompt's ceiling and reads every entry typed by name", async () => {
     wires.push(SERVER, DESKTOP);
     mockWsRequest.mockResolvedValueOnce({
       results: { ApiToken: { ok: true, value: 'v' }, Gone: { ok: false, reason: 'not-found' } },
@@ -81,7 +82,7 @@ describe('the loopback broker', () => {
     ]);
     expect(mockWsRequest).toHaveBeenCalledTimes(1);
     expect(mockWsRequest.mock.calls[0]?.[0]).toMatchObject({ type: 'oh.secretManager.resolveBatch' });
-    expect(mockWsRequest.mock.calls[0]?.[1]).toEqual({ backendId: 'b-desktop', timeoutMs: 0 });
+    expect(mockWsRequest.mock.calls[0]?.[1]).toEqual({ backendId: 'b-desktop', timeoutMs: PROMPT_CEILING_MS });
     expect(out.get('ApiToken')).toEqual({ ok: true, value: 'v' });
     expect(out.get('Gone')).toMatchObject({ ok: false, reason: 'not-found' });
     expect(out.get('Silent')).toMatchObject({ ok: false, reason: 'unavailable' });
@@ -129,6 +130,7 @@ describe('the forwarded routes', () => {
     mockWsRequest.mockResolvedValueOnce({ available: true });
     expect(await invoke('oh.secretManager.probe', { uid: 'c1' })).toEqual({ available: true });
     expect(mockWsRequest.mock.calls[0]?.[0]).toEqual({ type: 'oh.secretManager.probe', uid: 'c1' });
+    expect(mockWsRequest.mock.calls[0]?.[1]).toEqual({ backendId: 'b-desktop' });
     mockWsRequest.mockResolvedValueOnce({ ok: true });
     expect(await invoke('oh.secretManager.authorize', { uid: 'c1' })).toEqual({ ok: true });
   });
