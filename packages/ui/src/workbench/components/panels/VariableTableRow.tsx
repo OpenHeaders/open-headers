@@ -145,8 +145,9 @@ export function SortableRow({
   const t = useT();
   const openSettings = useOpenSettings();
   // The connections live on the device that resolves — read by every
-  // row, cheap (one list, one subscription per table).
-  const { connections } = useSecretManagerConnections();
+  // row, cheap (one list, one subscription per table); on a browser
+  // host they are the desktop app's over loopback, or none while it is away.
+  const { connections, broker } = useSecretManagerConnections();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: row.uid,
     disabled: row.isPlaceholder,
@@ -513,6 +514,14 @@ export function SortableRow({
             const locator = buildSecretLocator(row.smProvider, row.smConnectionId, row.smFields);
             const providerConnections = connections.filter((c) => c.config.provider === row.smProvider);
             const nodeHost = isNodeRequestRuntime();
+            // The select's empty reading names the fix: connect the desktop
+            // app when it is away, set one up in it when it has none.
+            const emptyPlaceholder =
+              broker === 'unreachable'
+                ? t('workbench.variables.table.smConnectionConnectDesktop')
+                : nodeHost
+                  ? t('workbench.variables.table.smConnectionPlaceholder')
+                  : t('workbench.variables.table.smConnectionDesktopOnly');
             // A stored id this device does not hold (a removed
             // connection, a browser host) stays selectable so the row
             // never silently drops it; it reads as its id.
@@ -543,11 +552,7 @@ export function SortableRow({
                     variant="borderless"
                     size="small"
                     value={row.smConnectionId === '' ? undefined : row.smConnectionId}
-                    placeholder={
-                      nodeHost
-                        ? t('workbench.variables.table.smConnectionPlaceholder')
-                        : t('workbench.variables.table.smConnectionDesktopOnly')
-                    }
+                    placeholder={emptyPlaceholder}
                     onChange={(v) => update(index, { smConnectionId: v })}
                     options={connectionOptions}
                     disabled={!nodeHost && connectionOptions.length === 0}

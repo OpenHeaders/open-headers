@@ -3,14 +3,15 @@
  * `oh.secretManager.*` routes (the Secret Providers plan): this
  * device's connections as a live hook, add / update / remove, the
  * side-effect-free probe behind every status chip, and the settings
- * list's authorization gesture. Every call is gated on the request
- * runtime — a browser host holds no provider, so the hook reads empty
- * there and the writes never fire (the extension reaches the desktop
- * app's connections over loopback in a later slice).
+ * list's authorization gesture. The reads and gestures answer on every
+ * host: a node host from its own store and providers, a browser host
+ * through its service worker, which forwards them to the desktop app
+ * on this device over loopback and names the desktop app's absence as
+ * `broker: 'unreachable'`. The writes are the desktop's alone.
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import type { SecretAuthorizeResult, SecretProviderProbe } from '@openheaders/core/secret-providers';
+import type { SecretAuthorizeResult, SecretBrokerKind, SecretProviderProbe } from '@openheaders/core/secret-providers';
 import type { SecretManagerConnection, SecretManagerConnectionConfig } from '@openheaders/core/types';
 import { useEffect, useState } from 'react';
 import { isNodeRequestRuntime } from '../device-trust';
@@ -20,21 +21,29 @@ const NONE: SecretManagerConnection[] = [];
 /** The settings key the Vault row's Manage link and the Vault note open. */
 export const SECRET_MANAGERS_SETTING_KEY = 'secretManagers.connections';
 
-export function useSecretManagerConnections(): { connections: SecretManagerConnection[]; ready: boolean } {
-  const [connections, setConnections] = useState<SecretManagerConnection[]>(NONE);
-  const [ready, setReady] = useState(false);
+export interface SecretManagerConnectionsState {
+  connections: SecretManagerConnection[];
+  ready: boolean;
+  /** Who answered: this host, the desktop app over loopback, or nobody while it is away. */
+  broker: SecretBrokerKind;
+}
+
+export function useSecretManagerConnections(): SecretManagerConnectionsState {
+  const [state, setState] = useState<SecretManagerConnectionsState>({
+    connections: NONE,
+    ready: false,
+    broker: isNodeRequestRuntime() ? 'local' : 'unreachable',
+  });
   useEffect(() => {
-    if (!isNodeRequestRuntime()) {
-      setConnections(NONE);
-      setReady(true);
-      return;
-    }
     let alive = true;
     const load = async () => {
       const resp = await hostBridge.call('oh.secretManager.list').catch(() => null);
       if (!alive) return;
-      setConnections(resp?.connections ?? NONE);
-      setReady(true);
+      setState({
+        connections: resp?.connections ?? NONE,
+        ready: true,
+        broker: resp?.broker ?? (isNodeRequestRuntime() ? 'local' : 'unreachable'),
+      });
     };
     void load();
     const unsubscribe = hostBridge.subscribe('secretManagerConnectionsChanged', () => void load());
@@ -43,7 +52,7 @@ export function useSecretManagerConnections(): { connections: SecretManagerConne
       unsubscribe();
     };
   }, []);
-  return { connections, ready };
+  return state;
 }
 
 export type SecretManagerWriteResult = { ok: true; connection: SecretManagerConnection } | { ok: false; error: string };
@@ -103,10 +112,6 @@ export function useSecretManagerProbe(uid: string | null): SecretProviderProbe |
   useEffect(() => {
     if (uid === null || uid === '') {
       setProbe(null);
-      return;
-    }
-    if (!isNodeRequestRuntime()) {
-      setProbe({ available: false, reason: 'not-installed' });
       return;
     }
     let alive = true;

@@ -6,8 +6,10 @@
  * credential value. Rows commit on the gesture like every other
  * settings row — add (provider → fields → Save), edit in place, Test
  * (the provider's own prompt, the one gesture that may prompt),
- * remove. On a browser host the block is read-only with the honest
- * note: the connections live on the desktop app.
+ * remove. On a browser host the block is read-only: the desktop app's
+ * connections over loopback with Test still live (the prompt appears
+ * on this machine) and the note naming where they are managed, or the
+ * empty list with the note to connect the desktop app while it is away.
  */
 
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
@@ -203,7 +205,7 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const nodeHost = isNodeRequestRuntime();
-  const { connections } = useSecretManagerConnections();
+  const { connections, broker } = useSecretManagerConnections();
   const [editing, setEditing] = useState<FormState | null>(null);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
@@ -351,7 +353,7 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
                     size="small"
                     type="text"
                     loading={testing === connection.uid}
-                    disabled={!nodeHost || testing !== null}
+                    disabled={broker === 'unreachable' || testing !== null}
                     onClick={() => void handleTest(connection)}
                     data-testid="secret-manager-test"
                   >
@@ -392,7 +394,9 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
         )}
         {!nodeHost && (
           <Text type="secondary" style={{ fontSize: 11, color: token.colorTextTertiary }}>
-            {t('workbench.variables.secretManagers.browserNote')}
+            {broker === 'desktop-app'
+              ? t('workbench.variables.secretManagers.browserNoteConnected')
+              : t('workbench.variables.secretManagers.browserNote')}
           </Text>
         )}
       </div>
