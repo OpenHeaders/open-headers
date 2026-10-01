@@ -93,6 +93,7 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.integrationDisabled': 'Integrare dezactivată',
   'workbench.variables.table.smStatus.noCredentials': 'Nicio acreditare configurată',
   'workbench.variables.table.smStatus.locked': 'Blocat',
+  'workbench.variables.table.smStatus.denied': 'Acces refuzat',
   'workbench.variables.table.smStatus.unreachable': 'Inaccesibil',
   'workbench.variables.table.smStatus.noConnection': 'Nicio conexiune selectată',
   'workbench.variables.table.smConnection': 'Conexiune',

@@ -226,10 +226,27 @@ describe('desktop onepassword provider', () => {
     }
   });
 
-  it('a denied prompt reads locked on the probe and authorization-required on resolve', async () => {
+  it('a denied prompt reads denied on the probe and authorization-required on resolve', async () => {
+    const text =
+      'An error occurred when processing SDK request: Error { msg: Denied authorization for SDK client, inner: None }';
     const { loadSdk } = fakeSdk(
       async () => 'v',
-      () => new Error('authorization request was denied by the user'),
+      () => new Error(text),
+    );
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    expect(await provider.resolve(connection(), LOCATOR)).toEqual({
+      ok: false,
+      reason: 'authorization-required',
+      detail: text,
+    });
+    expect(await provider.probe(connection())).toEqual({ available: false, reason: 'denied', detail: text });
+    expect(await provider.authorize?.(connection())).toEqual({ ok: false, detail: text });
+  });
+
+  it('a locked manager reads locked on the probe and authorization-required on resolve', async () => {
+    const { loadSdk } = fakeSdk(
+      async () => 'v',
+      () => new Error('the app is locked'),
     );
     const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
     expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({
@@ -237,6 +254,5 @@ describe('desktop onepassword provider', () => {
       reason: 'authorization-required',
     });
     expect(await provider.probe(connection())).toMatchObject({ available: false, reason: 'locked' });
-    expect(await provider.authorize?.(connection())).toMatchObject({ ok: false });
   });
 });

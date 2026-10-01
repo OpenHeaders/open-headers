@@ -79,7 +79,9 @@ function classifyClientFailure(message: string): SecretProviderUnavailableReason
   const text = message.toLowerCase();
   if (/integrat|not enabled|disabled/.test(text)) return 'integration-disabled';
   if (NOT_INSTALLED_MESSAGE.test(text)) return 'not-installed';
-  if (/lock|denied|reject|cancel/.test(text)) return 'locked';
+  // The live deny shape: "Denied authorization for SDK client".
+  if (/denied|reject|cancel|dismiss/.test(text)) return 'denied';
+  if (/lock/.test(text)) return 'locked';
   return 'unreachable';
 }
 
@@ -205,7 +207,7 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
         client = await clientFor(connection, config);
       } catch (err) {
         const standing = failures.get(connection.uid);
-        return standing?.reason === 'locked'
+        return standing?.reason === 'locked' || standing?.reason === 'denied'
           ? { ok: false, reason: 'authorization-required', detail: standing.detail }
           : { ok: false, reason: 'unavailable', detail: errorMessage(err) };
       }

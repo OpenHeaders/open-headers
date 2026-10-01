@@ -64,6 +64,7 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.integrationDisabled': 'Integración deshabilitada',
   'workbench.variables.table.smStatus.noCredentials': 'Sin credenciales configuradas',
   'workbench.variables.table.smStatus.locked': 'Bloqueado',
+  'workbench.variables.table.smStatus.denied': 'Acceso denegado',
   'workbench.variables.table.smStatus.unreachable': 'Inaccesible',
   'workbench.variables.table.smStatus.noConnection': 'Ninguna conexión seleccionada',
   'workbench.variables.table.smConnection': 'Conexión',

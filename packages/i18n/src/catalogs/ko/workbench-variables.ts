@@ -74,6 +74,7 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.integrationDisabled': '통합 비활성',
   'workbench.variables.table.smStatus.noCredentials': '구성된 자격 증명 없음',
   'workbench.variables.table.smStatus.locked': '잠김',
+  'workbench.variables.table.smStatus.denied': '접근 거부됨',
   'workbench.variables.table.smStatus.unreachable': '연결할 수 없음',
   'workbench.variables.table.smStatus.noConnection': '선택된 연결 없음',
   'workbench.variables.table.smConnection': '연결',

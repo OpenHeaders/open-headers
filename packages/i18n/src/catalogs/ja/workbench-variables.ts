@@ -68,6 +68,7 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.integrationDisabled': '統合が無効',
   'workbench.variables.table.smStatus.noCredentials': '資格情報が設定されていません',
   'workbench.variables.table.smStatus.locked': 'ロック中',
+  'workbench.variables.table.smStatus.denied': 'アクセス拒否',
   'workbench.variables.table.smStatus.unreachable': '到達できません',
   'workbench.variables.table.smStatus.noConnection': '接続が選択されていません',
   'workbench.variables.table.smConnection': '接続',
@@ -104,7 +105,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.test.ok': '接続しました — {label} はこのデバイスで承認されています。',
   'workbench.variables.secretManagers.test.failed': '接続できませんでした: {detail}',
   'workbench.variables.secretManagers.saveFailedDetail': '接続を保存できませんでした: {message}',
-  'workbench.variables.secretManagers.browserNote': 'シークレットマネージャーの接続はデスクトップアプリにあります。追加やテストはそちらで行ってください。',
+  'workbench.variables.secretManagers.browserNote':
+    'シークレットマネージャーの接続はデスクトップアプリにあります。追加やテストはそちらで行ってください。',
   'workbench.variables.table.certPlaceholder': '証明書（PEM）',
   'workbench.variables.table.certKeyPlaceholder': '秘密鍵（PEM）',
   'workbench.variables.table.passphrasePlaceholder': '鍵のパスフレーズ（省略可）',
@@ -164,7 +166,8 @@ export const workbenchVariables = {
   'workbench.variables.vault.trustedRootsNote':
     'CA 証明書をお探しですか？信頼された証明書はシークレットではなくワークスペースのデータで、専用のタブにあります。',
   'workbench.variables.vault.trustedRootsLink': '信頼された証明書を開く',
-  'workbench.variables.vault.secretManagersNote': 'シークレットマネージャーのアカウントやサーバーはデバイス設定であり、ボールトのエントリではありません。',
+  'workbench.variables.vault.secretManagersNote':
+    'シークレットマネージャーのアカウントやサーバーはデバイス設定であり、ボールトのエントリではありません。',
   'workbench.variables.vault.secretManagersLink': 'シークレットマネージャーを開く',
   'workbench.variables.vault.cipherLocked':
     'シークレットのストレージがロックされています。システムがキーチェーンへのアクセスを拒否したため、このセッションでは vault のシークレットを読み書きできません。',

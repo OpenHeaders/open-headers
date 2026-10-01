@@ -60,6 +60,7 @@ export const REASON_LABEL: Record<SecretProviderUnavailableReason, MessageKey> =
   'integration-disabled': 'workbench.variables.table.smStatus.integrationDisabled',
   'no-credentials': 'workbench.variables.table.smStatus.noCredentials',
   locked: 'workbench.variables.table.smStatus.locked',
+  denied: 'workbench.variables.table.smStatus.denied',
   unreachable: 'workbench.variables.table.smStatus.unreachable',
 };
 

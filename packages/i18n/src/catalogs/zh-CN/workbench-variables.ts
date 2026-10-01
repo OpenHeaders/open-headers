@@ -67,6 +67,7 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.integrationDisabled': '集成已禁用',
   'workbench.variables.table.smStatus.noCredentials': '未配置凭据',
   'workbench.variables.table.smStatus.locked': '已锁定',
+  'workbench.variables.table.smStatus.denied': '访问被拒绝',
   'workbench.variables.table.smStatus.unreachable': '无法访问',
   'workbench.variables.table.smStatus.noConnection': '未选择连接',
   'workbench.variables.table.smConnection': '连接',

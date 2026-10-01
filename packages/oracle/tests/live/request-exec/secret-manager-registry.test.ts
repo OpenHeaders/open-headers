@@ -144,7 +144,7 @@ describe('buildSecretManagerRegistry', () => {
       fakeProvider({
         probe: async () => {
           probes++;
-          return { available: false, reason: 'locked', detail: 'Denied authorization for SDK client' };
+          return { available: false, reason: 'denied', detail: 'Denied authorization for SDK client' };
         },
         resolve: async () => {
           resolves++;

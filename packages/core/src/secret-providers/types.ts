@@ -31,6 +31,9 @@ export type { SecretLocator, SecretManagerConnection, SecretProviderId } from '.
  *                              profile/env/token) was found.
  *   - `locked`               — the manager is present but locked and
  *                              can't be unlocked non-interactively.
+ *   - `denied`               — the user declined the manager's own
+ *                              authorization prompt; the next use asks
+ *                              again (a consent outcome, never a fault).
  *   - `unreachable`          — a remote endpoint didn't answer.
  */
 export type SecretProviderUnavailableReason =
@@ -38,6 +41,7 @@ export type SecretProviderUnavailableReason =
   | 'integration-disabled'
   | 'no-credentials'
   | 'locked'
+  | 'denied'
   | 'unreachable';
 
 export type SecretProviderProbe =
