@@ -1,0 +1,29 @@
+name: Trust the SSL.com 2022 root for eSigner
+description: >-
+  CodeSignTool runs on the JDK 11.0.2 it bundles, whose trust store
+  predates the SSL.com TLS RSA Root CA 2022 that login.ssl.com and
+  cs.ssl.com chain to; the token fetch dies on PKIX path building and
+  every signing step fails. A copy of the runner JDK's trust store
+  gains the pinned root and JAVA_TOOL_OPTIONS points every JVM in the
+  job at it. Remove once CodeSignTool ships a JDK that trusts the root
+  (SSLcom/esigner-codesign#42).
+
+runs:
+  using: composite
+  steps:
+    - name: Import the pinned root into a trust store copy
+      shell: bash
+      run: |
+        ROOT="$GITHUB_ACTION_PATH/SSLcom-TLS-Root-2022-RSA.pem"
+        PINNED="8F:AF:7D:2E:2C:B4:70:9B:B8:E0:B3:36:66:BF:75:A5:DD:45:B5:DE:48:0F:8E:A8:D4:BF:E6:BE:BC:17:F2:ED"
+        ACTUAL=$(openssl x509 -in "$ROOT" -noout -fingerprint -sha256 | cut -d= -f2)
+        if [ "$ACTUAL" != "$PINNED" ]; then
+          echo "::error::the SSL.com root's SHA-256 fingerprint is $ACTUAL, not the pinned $PINNED"
+          exit 1
+        fi
+        JDK=$(cygpath -u "$JAVA_HOME_17_X64")
+        STORE="$RUNNER_TEMP/esigner-cacerts"
+        cp "$JDK/lib/security/cacerts" "$STORE"
+        "$JDK/bin/keytool" -importcert -noprompt -alias sslcom-tls-rsa-root-2022 \
+          -file "$ROOT" -keystore "$STORE" -storepass changeit
+        echo "JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStore=$STORE -Djavax.net.ssl.trustStorePassword=changeit" >> "$GITHUB_ENV"

@@ -155,6 +155,10 @@ jobs:
           CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
           ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
 
+      - name: Trust the SSL.com root for eSigner
+        if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
+        uses: ./.github/actions/trust-sslcom-root
+
       - name: Sign oh CLI executable
         if: needs.parse.outputs.stream == 'cli' && matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
         uses: sslcom/esigner-codesign@a272724cb13abe0abc579c6c40f7899969b6942b # v1.3.1

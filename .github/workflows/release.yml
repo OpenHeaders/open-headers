@@ -313,6 +313,13 @@ jobs:
           CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
           ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
 
+      # CodeSignTool's bundled JDK predates the root SSL.com's hosts
+      # chain to; the pinned root goes into a trust store copy every
+      # JVM in the job reads (the action's description has the rest).
+      - name: Trust the SSL.com root for eSigner
+        if: matrix.os == 'windows-2022' && steps.detect_beta.outputs.is_beta != 'true' && steps.win_sign.outputs.enabled == 'true'
+        uses: ./.github/actions/trust-sslcom-root
+
       - name: Build Windows
         if: matrix.os == 'windows-2022' && (steps.detect_beta.outputs.is_beta == 'true' || steps.win_sign.outputs.enabled != 'true')
         working-directory: apps/desktop
@@ -708,6 +715,10 @@ jobs:
           ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
           CREDENTIAL_ID: ${{ secrets.CREDENTIAL_ID }}
           ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
+
+      - name: Trust the SSL.com root for eSigner
+        if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'
+        uses: ./.github/actions/trust-sslcom-root
 
       - name: Sign oh CLI executable
         if: matrix.os == 'windows-2022' && steps.win_sign.outputs.enabled == 'true'

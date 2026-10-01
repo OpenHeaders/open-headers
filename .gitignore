@@ -54,3 +54,5 @@ Thumbs.db
 # Chrome extension artifacts
 *.crx
 *.pem
+# A public root certificate the release workflow pins, not a key
+!.github/actions/trust-sslcom-root/SSLcom-TLS-Root-2022-RSA.pem
