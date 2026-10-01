@@ -221,3 +221,57 @@ describe('resolveRequest — inherited settings', () => {
     expect(resolved.inheritedSettings).toBeUndefined();
   });
 });
+
+describe('resolveRequest — the gate names every unresolved reference with its reason', () => {
+  const secretRequest = () =>
+    makeRequest({
+      headers: [{ uid: 'authhdr1', key: 'Authorization', value: 'Bearer {{vault.opToken}}', enabled: true }],
+    });
+
+  beforeEach(() => {
+    vault.mockReturnValue({
+      schemaVersion: 5,
+      secrets: [
+        {
+          uid: 'smrow001',
+          kind: 'secret-manager',
+          name: 'opToken',
+          locator: {
+            provider: 'onepassword',
+            connectionId: 'conn0001',
+            vault: 'Engineering',
+            item: 'api.openheaders.io',
+            field: 'token',
+          },
+        },
+      ],
+    });
+  });
+
+  it("a secret-manager entry's typed failure reads apart from a plain miss on a send", async () => {
+    const request = makeRequest({
+      url: 'https://{{env.HOST}}/ping',
+      headers: secretRequest().headers,
+    });
+    const failure = await resolveRequest(request, {}).catch((err: unknown) => err);
+    expect(failure).toBeInstanceOf(UnresolvedRequestError);
+    const error = failure as UnresolvedRequestError;
+    expect(error.message).toMatch(/^Request has unresolved variables\. /);
+    expect(error.message).toContain('{{env.HOST}}: No active environment is selected.');
+    expect(error.message).toContain(
+      '{{vault.opToken}}: The secret manager for this entry is not available on this device.',
+    );
+    expect(error.errors.map((e) => [e.reference, e.reason])).toEqual([
+      ['env.HOST', 'unset-in-scope'],
+      ['vault.opToken', 'secret-unavailable'],
+    ]);
+  });
+
+  it('the copy-as-command path names a secret-manager entry for what it is, never as a miss', async () => {
+    const failure = await resolveRequest(secretRequest(), { resolveSecretManager: false }).catch((err: unknown) => err);
+    expect(failure).toBeInstanceOf(UnresolvedRequestError);
+    expect((failure as Error).message).toBe(
+      "Request has unresolved variables. {{vault.opToken}}: a secret manager's value is resolved only when sending and never enters a copied command.",
+    );
+  });
+});

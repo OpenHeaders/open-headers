@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Request } from '../../src/types/request';
 import type { ResolvedVariable } from '../../src/types/variable';
-import { isRequestComplete, isRequestResolvable, requestIncompleteReason } from '../../src/utils/request-validation';
+import {
+  collectRequestResolutionErrors,
+  isRequestComplete,
+  isRequestResolvable,
+  requestIncompleteReason,
+} from '../../src/utils/request-validation';
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -397,5 +402,34 @@ describe('isRequestComplete — malformed entities', () => {
   it('a basic auth missing username answers false instead of throwing', () => {
     const req = makeRequest({ auth: { type: 'basic' } as unknown as Request['auth'] });
     expect(isRequestComplete(req)).toBe(false);
+  });
+});
+
+describe('collectRequestResolutionErrors', () => {
+  it('names every unresolved reference once, with the scoped lookup reason', () => {
+    const req = makeRequest({
+      url: 'https://{{HOST}}/{{HOST}}',
+      headers: [{ uid: 'authhdr1', key: 'Authorization', value: 'Bearer {{vault.opToken}}', enabled: true }],
+    });
+    const errors = collectRequestResolutionErrors(
+      req,
+      () => null,
+      (name, namespace) =>
+        namespace === 'vault' && name === 'opToken'
+          ? { resolved: null, failureReason: 'secret-not-found' }
+          : { resolved: null },
+    );
+    expect(errors.map((e) => [e.reference, e.reason])).toEqual([
+      ['HOST', 'unresolved'],
+      ['vault.opToken', 'secret-not-found'],
+    ]);
+    expect(errors[1]?.hint).toContain('could not find a secret at this reference');
+  });
+
+  it('answers empty when everything resolves and for a malformed request', () => {
+    expect(collectRequestResolutionErrors(makeRequest(), () => null)).toEqual([]);
+    const req = makeRequest();
+    delete (req as Partial<Request>).body;
+    expect(collectRequestResolutionErrors(req, () => null)).toEqual([]);
   });
 });

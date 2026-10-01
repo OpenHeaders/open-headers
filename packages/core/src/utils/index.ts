@@ -119,7 +119,12 @@ export { registrableDomain } from './registrable-domain';
 export type { BuildEmptyRequestInput } from './request-defaults';
 export { buildEmptyRequest } from './request-defaults';
 export type { RequestIncompleteReason } from './request-validation';
-export { isRequestComplete, isRequestResolvable, requestIncompleteReason } from './request-validation';
+export {
+  collectRequestResolutionErrors,
+  isRequestComplete,
+  isRequestResolvable,
+  requestIncompleteReason,
+} from './request-validation';
 export type { RuleSeed } from './rule-defaults';
 export { buildEmptyRule } from './rule-defaults';
 export type { ActionDetail } from './rule-display';

@@ -48,7 +48,7 @@
 import { collectRequestTemplateStrings } from '../live/request-scan';
 import type { Request } from '../types/request';
 import type { ResolvedVariable } from '../types/variable';
-import { type ResolutionEnvSnapshot, resolveTemplate, type ScopedLookupFn } from '../variables';
+import { type ResolutionEnvSnapshot, type ResolutionError, resolveTemplate, type ScopedLookupFn } from '../variables';
 import { logger } from './logger';
 
 /**
@@ -226,6 +226,35 @@ export function isRequestResolvable(
     logger.debug('RequestValidation', `malformed request treated as unresolvable: ${(err as Error).message}`);
     return false;
   }
+}
+
+/**
+ * Every `{{...}}` reference in the request that fails to resolve, one
+ * entry per distinct reference with the first reason seen — the
+ * executor's gate names them in its refusal so a secret manager's typed
+ * failure (authorize / fix the reference / make it available) reads
+ * apart from a plain miss. Same walk and trust boundary as
+ * {@link isRequestResolvable}; a malformed request answers an empty
+ * list, and the caller's gate keeps refusing it.
+ */
+export function collectRequestResolutionErrors(
+  request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+  lookup: (name: string) => ResolvedVariable | null,
+  scopedLookup?: ScopedLookupFn,
+  env?: ResolutionEnvSnapshot,
+): ResolutionError[] {
+  const byReference = new Map<string, ResolutionError>();
+  try {
+    for (const s of collectRequestTemplateStrings(request as Request)) {
+      if (!s) continue;
+      for (const error of resolveTemplate(s, lookup, scopedLookup, env).errors) {
+        if (!byReference.has(error.reference)) byReference.set(error.reference, error);
+      }
+    }
+  } catch (err) {
+    logger.debug('RequestValidation', `malformed request yields no resolution errors: ${(err as Error).message}`);
+  }
+  return [...byReference.values()];
 }
 
 export function requestIncompleteReason(

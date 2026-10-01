@@ -38,8 +38,13 @@ import type {
   Vault,
   VaultSecretTotp,
 } from '@openheaders/core/types';
-import { appendQueryParams, encodeBase64Bytes, isRequestResolvable } from '@openheaders/core/utils';
-import { collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
+import {
+  appendQueryParams,
+  collectRequestResolutionErrors,
+  encodeBase64Bytes,
+  isRequestResolvable,
+} from '@openheaders/core/utils';
+import { collectTemplateVariableNames, type ResolutionError, resolveTemplate } from '@openheaders/core/variables';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { resolveProxyCredential } from '../dial-policy';
 import { resolveClientCertificate } from '../tls-policy';
@@ -263,14 +268,49 @@ export interface ResolveRequestOptions {
   resolveSecretManager?: boolean;
 }
 
+const UNRESOLVED_LEAD = 'Request has unresolved variables.';
+
 /** Thrown when any `{{ref}}` in the request can't be resolved against
  *  the current scopes — refuses to ship a literal `{{env.var}}` on the
- *  wire, mirroring the DNR compile gate. */
+ *  wire, mirroring the DNR compile gate. The message names every
+ *  unresolved reference with its reason (the response pane renders the
+ *  message as-is), and `errors` carries them structurally. */
 export class UnresolvedRequestError extends Error {
-  constructor(message: string) {
+  readonly errors: readonly ResolutionError[];
+  constructor(message: string, errors: readonly ResolutionError[] = []) {
     super(message);
     this.name = 'UnresolvedRequestError';
+    this.errors = errors;
   }
+}
+
+/**
+ * The gate's refusal, one line per unresolved reference with its hint
+ * — a secret manager's typed failure (authorize, fix the reference,
+ * make it available here) reads apart from a plain miss. On the
+ * copy-as-command path a secret-manager entry is not a miss at all:
+ * its value is resolved only when sending and never enters a copied
+ * command, so those references say exactly that.
+ */
+export function unresolvedRequestMessage(
+  errors: readonly ResolutionError[],
+  secretManagerNamesKeptUnresolved: ReadonlySet<string> = new Set(),
+): string {
+  if (errors.length === 0) {
+    return `${UNRESOLVED_LEAD} Define them in vault, environment, collection, workspace, or a live workflow before sending.`;
+  }
+  const lines = errors.map((error) => {
+    const reference = `{{${error.reference}}}`;
+    // Explicit `vault.X` or the flat `X` the vault answers first.
+    if (
+      (error.namespace === 'vault' || error.namespace === null) &&
+      secretManagerNamesKeptUnresolved.has(error.variableName)
+    ) {
+      return `${reference}: a secret manager's value is resolved only when sending and never enters a copied command.`;
+    }
+    return `${reference}: ${error.hint}`;
+  });
+  return `${UNRESOLVED_LEAD} ${lines.join(' ')}`;
 }
 
 export async function resolveRequest(
@@ -319,9 +359,19 @@ export async function resolveRequest(
     (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
   );
   if (!resolvable) {
-    throw new UnresolvedRequestError(
-      'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.',
+    const errors = collectRequestResolutionErrors(
+      gated,
+      (name) => resolver.resolve(name, context),
+      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
     );
+    // The copy-as-command path never resolves a secret-manager entry —
+    // name those references for what they are, not as misses.
+    const keptUnresolved = new Set(
+      options.resolveSecretManager === false
+        ? scope.vault.secrets.filter((s) => s.kind === 'secret-manager').map((s) => s.name)
+        : [],
+    );
+    throw new UnresolvedRequestError(unresolvedRequestMessage(errors, keptUnresolved), errors);
   }
 
   // Track every kind:'totp' vault entry referenced during this resolve.
