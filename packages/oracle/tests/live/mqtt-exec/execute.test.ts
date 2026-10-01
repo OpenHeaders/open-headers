@@ -19,6 +19,7 @@ import {
   type MqttProtocolVersion,
 } from '@openheaders/core/mqtt';
 import type { MqttRequest, TrustCertificateErrorHint } from '@openheaders/core/types';
+import { buildPostResolveError, type ResolutionError } from '@openheaders/core/variables';
 import { executeMqttSession } from '@openheaders/oracle/live/mqtt-exec/execute';
 import {
   closeActiveMqttSession,
@@ -66,11 +67,11 @@ const SCOPE: Record<string, string> = {
   team: 'alpha',
 };
 
-function scopedResolution(template: string, unresolved: Set<string>): string {
+function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
     const value = SCOPE[name.trim()];
     if (value === undefined) {
-      unresolved.add(name.trim());
+      unresolved.set(name.trim(), buildPostResolveError(name, 'unresolved', undefined));
       return whole;
     }
     return value;
@@ -490,6 +491,37 @@ describe('executeMqttSession — subscriptions', () => {
     closeActiveMqttSession('send-mqtt-toggle');
     const snapshot = await settled;
     expect(snapshot.events.map((e) => e.kind)).toEqual(['subscribed', 'unsubscribed']);
+  });
+
+  it('the injected pre-pass runs before each rider with the strings it references; a rider waits only for an ask', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const prepared: string[][] = [];
+    const settled = executeMqttSession(makeMqttRequest({ url: 'mqtt://{{host}}:1883' }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-prepare',
+      resolution: scopedResolution,
+      prepareResolution: (templates) => {
+        prepared.push([...templates]);
+        return null;
+      },
+    });
+    await settleTick();
+    expect(prepared).toEqual([['mqtt://{{host}}:1883']]);
+    rig.establish();
+    rig.push(acceptedConnack);
+    // No ask: the publish writes synchronously, as it always did.
+    void publishActiveMqttMessage('send-mqtt-prepare', { topic: 'probe/{{team}}', payload: 'x' });
+    expect(rig.written.at(-1)?.type).toBe('publish');
+    const subscribing = setActiveMqttSubscription('send-mqtt-prepare', { topicFilter: 'probe/#', subscribe: true });
+    const subscribePacket = rig.written.at(-1);
+    if (subscribePacket?.type !== 'subscribe') throw new Error('expected SUBSCRIBE');
+    rig.push({ type: 'suback', packetId: subscribePacket.packetId, reasonCodes: [0] });
+    await subscribing;
+    expect(prepared.slice(1)).toEqual([['probe/{{team}}'], []]);
+    closeActiveMqttSession('send-mqtt-prepare');
+    await settled;
   });
 
   it('settles a rider still waiting on its ack when the session ends', async () => {

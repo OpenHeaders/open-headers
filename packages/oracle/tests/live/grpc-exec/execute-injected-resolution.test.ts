@@ -13,6 +13,7 @@
  */
 
 import type { GrpcRequest, Spec } from '@openheaders/core/types';
+import { buildPostResolveError, type ResolutionError } from '@openheaders/core/variables';
 import { executeGrpcInvoke } from '@openheaders/oracle/live/grpc-exec/execute';
 import type {
   GrpcTransport,
@@ -81,11 +82,11 @@ const SCOPE: Record<string, string> = {
   token: 'tok-123',
 };
 
-function scopedResolution(template: string, unresolved: Set<string>): string {
+function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
     const value = SCOPE[name.trim()];
     if (value === undefined) {
-      unresolved.add(name.trim());
+      unresolved.set(name.trim(), buildPostResolveError(name, 'unresolved', undefined));
       return whole;
     }
     return value;
@@ -149,8 +150,9 @@ describe('executeGrpcInvoke — injected resolution', () => {
       spec: SPEC,
       resolution: scopedResolution,
     });
+    // The HTTP gate's wording: every reference with its reason.
     expect(snapshot.error).toBe(
-      'Request has unresolved variables (missing). Define them in vault, environment, collection, or workspace before invoking.',
+      'Request has unresolved variables. {{missing}}: Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
     );
     expect(() => rig.wire()).toThrow();
   });

@@ -14,6 +14,7 @@ export {
   parseStepRefName,
   SCOPE_NAMESPACES,
 } from './namespaces';
+export { collectTemplateStringsDeep, collectTemplateVariableNames } from './referenced-names';
 export type {
   DeferredVaultMode,
   LiveRegistry,
@@ -26,12 +27,17 @@ export type {
   ScopedResolution,
   SecretManagerFailures,
   SecretManagerRegistry,
+  SecretManagerResolveBatch,
+  SecretManagerScope,
   StepCaptureContext,
   TemplateVariable,
   TotpRegistry,
+  UnresolvedReferences,
 } from './resolver';
 export {
   buildPostResolveError,
+  collectUnresolvedReferences,
+  createSecretManagerScope,
   EMPTY_LIVE_REGISTRY,
   EMPTY_SECRET_MANAGER_FAILURES,
   EMPTY_SECRET_MANAGER_REGISTRY,
@@ -42,7 +48,6 @@ export {
 } from './resolver';
 export type { RuleResolution } from './rule-resolver';
 export { resolveRule, resolveRuleConditions, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
-export { collectTemplateStringsDeep, collectTemplateVariableNames } from './referenced-names';
 export { collectRuleTemplateStrings } from './rule-templates';
 export type {
   CollectionEntry,

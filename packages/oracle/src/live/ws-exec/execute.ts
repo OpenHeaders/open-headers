@@ -85,21 +85,29 @@ import type {
   ExecutedWsScriptMark,
   ExecutedWsSnapshot,
   TrustCertificateErrorHint,
-  Vault,
   WebSocketRequest,
 } from '@openheaders/core/types';
 import { appendQueryParams, decodeBase64Bytes, decodeBinaryText, encodeBase64Bytes } from '@openheaders/core/utils';
-import { collectTemplateStringsDeep, collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
+import { collectTemplateStringsDeep, type UnresolvedReferences } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_HEARTBEAT_INTERVAL_MS, DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
-import { collectionUidForRequest, resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
+import { resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
-import { buildResolver } from '../request-exec/resolver-scope';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import { parseUrlParams, type SessionScriptHost } from '../request-exec/script-hooks';
 import { registerActiveSend } from '../request-exec/send-stream';
+import {
+  buildOracleSessionResolution,
+  type SessionPrepare,
+  type SessionResolve,
+} from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
+import {
+  UNRESOLVED_MESSAGE_LEAD,
+  UNRESOLVED_REQUEST_LEAD,
+  unresolvedReferencesMessage,
+} from '../request-exec/unresolved-references';
 import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
@@ -120,6 +128,9 @@ const MAX_CAPTURE_MESSAGES = 10_000;
  *  them are dropped rather than colliding with the upgrade ceremony
  *  (subprotocols ride the entity's own field, never a raw header). */
 const RESERVED_HEADER_KEYS = new Set(['host', 'upgrade', 'connection']);
+
+/** A host that injects a resolution but no pre-pass has nothing to prepare. */
+const NO_PREPARE: SessionPrepare = () => null;
 
 /** The platform's "no Close frame" marker — never sent on the wire by
  *  spec, so its arrival records the ABSENCE of a close handshake. */
@@ -155,11 +166,20 @@ export interface ExecuteWsSessionOptions {
    * the oracle entity stores are empty there). When present the
    * executor builds NO resolver of its own: this function resolves
    * every Connect-time template (url / headers / params) AND each
-   * per-send rider message, adding every unresolved reference name to
-   * the caller's set. `workspaceId` / `environmentId` are then the
-   * injector's concern — the closure carries its own scope context.
+   * per-send rider message, adding every unresolved reference to the
+   * caller's collector with its reason. `workspaceId` /
+   * `environmentId` are then the injector's concern — the closure
+   * carries its own scope context.
    */
-  resolution?: (template: string, unresolved: Set<string>) => string;
+  resolution?: SessionResolve;
+  /**
+   * Host-injected pre-pass before a batch of templates resolves (the
+   * `resolution` twin): the secret-manager entries they reference that
+   * the session has not resolved yet, asked of the host's broker — the
+   * entity's strings at Connect, the rider's at each rider. Absent =
+   * nothing to prepare.
+   */
+  prepareResolution?: SessionPrepare;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -215,14 +235,22 @@ export async function executeWsSession(
   // An injected resolution short-circuits the oracle-side resolver
   // entirely — the host's closure carries its own scope context (and
   // no vault: the client-certificate ref then passes through bare).
-  const oracleResolution = options.resolution === undefined ? await buildOracleResolution(request, options) : null;
+  const oracleResolution =
+    options.resolution === undefined ? await buildOracleSessionResolution(request, options) : null;
   const resolveWith = options.resolution ?? oracleResolution?.resolve;
   if (resolveWith === undefined) return errorWsSnapshot('No template resolution available for this session.');
+  const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
   // The workspace trust list rides every dial — the pin the scope
   // resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
 
-  const unresolved = new Set<string>();
+  // The Connect-time pre-pass: the entity's own strings (and the
+  // subscription envelope's) name the secret-manager entries this
+  // session resolves now — a provider may prompt; nothing the session
+  // never references is asked. A rider's own names are asked at the
+  // rider.
+  await prepare(collectTemplateStringsDeep([request, options.graphql]));
+  const unresolved: UnresolvedReferences = new Map();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
   // The settings knobs cascade over the ancestor chain — the request's
   // own defined knob wins, an absent one reads the nearest ancestor
@@ -324,11 +352,7 @@ export async function executeWsSession(
       : null;
   let namespace = '/';
   if (unresolved.size > 0) {
-    return withAttribution(
-      errorWsSnapshot(
-        `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
-      ),
-    );
+    return withAttribution(errorWsSnapshot(unresolvedReferencesMessage(UNRESOLVED_REQUEST_LEAD, unresolved)));
   }
   if (url === '') return withAttribution(errorWsSnapshot('URL is empty'));
   if (!/^wss?:\/\//i.test(url)) {
@@ -897,14 +921,20 @@ export async function executeWsSession(
         if (socketio !== undefined && socketioSession === null) {
           return { success: false, error: 'This session is not a Socket.IO session.' };
         }
-        const sendUnresolved = new Set<string>();
+        // The rider's pre-pass: a secret-manager entry it names that
+        // the session never resolved is asked now (a provider may
+        // prompt); a failed one is a new attempt. Only an ask makes the
+        // rider wait, and the session may end while the prompt stands.
+        const prepared = prepare(collectTemplateStringsDeep([messageText, socketio?.eventName]));
+        if (prepared !== null) {
+          await prepared;
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        }
+        const sendUnresolved: UnresolvedReferences = new Map();
         const resolved = resolveWith(messageText, sendUnresolved);
         const eventName = socketio !== undefined ? resolveWith(socketio.eventName, sendUnresolved) : undefined;
         if (sendUnresolved.size > 0) {
-          return {
-            success: false,
-            error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).`,
-          };
+          return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_MESSAGE_LEAD, sendUnresolved) };
         }
         // The message as the hook sees it: a binary compose decodes
         // first (the rider's spelling gates the send) and rides as
@@ -982,39 +1012,6 @@ export async function executeWsSession(
       },
     });
   });
-}
-
-/** The oracle-side resolution closure — the module-mirror resolver the
- *  node hosts ride (the HTTP sends' exact pipeline) — plus the vault
- *  the scope carries for the client-certificate ref. Hosts whose
- *  scopes live elsewhere inject `options.resolution` instead. */
-async function buildOracleResolution(
-  request: WebSocketRequest,
-  options: ExecuteWsSessionOptions,
-): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
-  // The secret-manager entries this session may resolve are the names
-  // the entity's own strings reference (the kind-agnostic walk — the
-  // session shapes have no field collector); a rider typed after the
-  // socket opens reads an unresolved entry honestly rather than
-  // prompting for every entry at Connect.
-  const secretNames = collectTemplateVariableNames(collectTemplateStringsDeep(request));
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined, undefined, secretNames);
-  const context = {
-    collectionId: collectionUidForRequest(request, scope.workspaceId),
-    environmentId: options.environmentId,
-  };
-  const resolve = (template: string, unresolved: Set<string>): string => {
-    const result = resolveTemplate(
-      template,
-      (name) => resolver.resolve(name, context),
-      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
-    );
-    for (const v of result.variables) {
-      if (!v.resolved) unresolved.add(v.name);
-    }
-    return result.result;
-  };
-  return { resolve, vault: scope.vault };
 }
 
 /** Decoded byte length of a base64 payload without re-decoding it. */

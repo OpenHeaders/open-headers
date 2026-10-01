@@ -18,7 +18,10 @@
  * The factory builds an EXECUTION-posture resolver: default `'reject'`
  * vault mode plus a freshly computed TOTP registry — never the display
  * surfaces' `'defer'` mode, which substitutes an empty placeholder
- * where a live code belongs.
+ * where a live code belongs. Its secret-manager scope (the Secret
+ * Providers plan's P2b) is the session's: the executor's pre-pass asks
+ * for the referenced entries through the host's broker at Connect and
+ * per rider, and the values stay in this scope for the session.
  */
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
@@ -26,11 +29,18 @@ import type { ScriptPackageModule } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import { generateTotp } from '@openheaders/core/totp';
 import type { Vault, VaultSecretTotp, WebSocketRequest } from '@openheaders/core/types';
-import type { TotpRegistry } from '@openheaders/core/variables';
+import {
+  collectTemplateVariableNames,
+  collectUnresolvedReferences,
+  createSecretManagerScope,
+  type ResolutionError,
+  type TotpRegistry,
+} from '@openheaders/core/variables';
 import {
   buildRendererResolver,
   type RendererResolverInputs,
 } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { resolveSecretManagerBatch } from '@openheaders/ui/shared/secret-manager';
 import {
   type AncestorScriptCarrier,
   authChainOf,
@@ -42,8 +52,15 @@ import {
 import { buildPageScriptScope, type PageScriptScope } from '../shared/page-script-scope';
 
 /** The executor's injected-resolution contract
- *  (`ExecuteWsSessionOptions.resolution`). */
-export type WsPageResolution = (template: string, unresolved: Set<string>) => string;
+ *  (`ExecuteWsSessionOptions.resolution`): every unresolved reference
+ *  lands in the collector with its reason. */
+export type WsPageResolution = (template: string, unresolved: Map<string, ResolutionError>) => string;
+
+/** The executor's injected pre-pass contract
+ *  (`ExecuteWsSessionOptions.prepareResolution`): the secret-manager
+ *  entries the templates reference that the session has not resolved
+ *  yet, asked of the host's broker; `null` when nothing needs asking. */
+export type WsPagePrepare = (templates: readonly string[]) => Promise<void> | null;
 
 /** The renderer scope a session's script hooks answer against — see
  *  `shared/page-script-scope.ts`. */
@@ -55,6 +72,7 @@ export type WsPageScriptScope = PageScriptScope;
  *  realm, and the scope the session's hooks answer against. */
 export interface WsPageSessionScope {
   resolve: WsPageResolution;
+  prepare: WsPagePrepare;
   authChain: AuthCarrier[];
   scriptChain: AncestorScriptCarrier[];
   /** The ancestor settings carriers (outer → inner) — the per-knob
@@ -137,13 +155,13 @@ export function makeWsPageResolutionFactory(
     const context = ancestry !== null ? { collectionId: ancestry.collection.uid } : {};
     const resolve: WsPageResolution = (template, unresolved) => {
       const result = resolver.resolveTemplate(template, context);
-      for (const v of result.variables) {
-        if (!v.resolved) unresolved.add(v.name);
-      }
+      collectUnresolvedReferences(result.errors, unresolved);
       return result.result;
     };
+    const secrets = createSecretManagerScope(resolver, inputs.vault, resolveSecretManagerBatch);
     return {
       resolve,
+      prepare: (templates) => secrets.ensure(collectTemplateVariableNames(templates)),
       authChain: ancestry !== null ? authChainOf(ancestry) : [],
       scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
       settingsChain: ancestry !== null ? settingsChainOf(ancestry) : [],

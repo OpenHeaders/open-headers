@@ -14,9 +14,11 @@
  *   L4  a WebSocket session whose handshake header carries
  *       `{{vault.opToken}}` resolves it at Connect (the value read on
  *       the spec's own socket rig, never printed); a rider naming a
- *       second secret-manager row the session never referenced reads
- *       the session kinds' name-only refusal, and a rider naming the
- *       Connect-time row rides the wire.
+ *       second secret-manager row the session never referenced
+ *       resolves it through the session's pre-pass and rides the wire
+ *       (P2b); a rider naming a row whose field the manager lacks
+ *       reads the gate's typed reason; a rider naming the Connect-time
+ *       row rides the wire.
  *
  * OH_LOOK_ACCOUNT names the companion app's account (as its sidebar
  * shows it); without it a bogus account exercises the refusal shapes.
@@ -459,16 +461,15 @@ async function fillComposeEditor(text: string): Promise<void> {
   await workbench.keyboard.press('Escape');
 }
 
-test('L4 — a WebSocket Connect resolves the header; riders read the session gate', async () => {
-  test.setTimeout(300_000);
-  // A second secret-manager row the session never references at
-  // Connect — the rider's target.
+/** Add a Vault row of kind Secret Manager on the Work connection,
+ *  pointing at the pass's item with the given field, and save. */
+async function addSecretManagerRow(name: string, field: string, shotName: string): Promise<void> {
   await selectToolWindow('variables');
   await workbench.locator('[data-item-id="vault-row"]').first().click();
   const nameInput = visible(workbench.getByPlaceholder('Add secret…'));
   await nameInput.waitFor({ state: 'visible', timeout: 15_000 });
   await nameInput.evaluate((el) => (el as HTMLInputElement).focus());
-  await workbench.keyboard.type('opOther');
+  await workbench.keyboard.type(name);
   const kindSelect = visible(workbench.locator('.ant-select:not(.ant-select-disabled)').filter({ hasText: 'Text' }));
   await pickOption(kindSelect, 'Secret Manager');
   const row = workbench.locator('[data-testid="vault-sm-provider"]').filter({ visible: true }).last();
@@ -476,11 +477,22 @@ test('L4 — a WebSocket Connect resolves the header; riders read the session ga
   await pickOption(workbench.getByTestId('vault-sm-connection').filter({ visible: true }).last(), /Work/);
   await workbench.getByTestId('vault-sm-field-vault').filter({ visible: true }).last().fill(VAULT_NAME);
   await workbench.getByTestId('vault-sm-field-item').filter({ visible: true }).last().fill('api.openheaders.io');
-  await workbench.getByTestId('vault-sm-field-field').filter({ visible: true }).last().fill('url');
+  await workbench.getByTestId('vault-sm-field-field').filter({ visible: true }).last().fill(field);
   const save = visible(workbench.locator('.rules-editor-header-actions button').filter({ hasText: /^Save/ }));
   await save.click();
   await expect(save).toHaveText(/Saved/, { timeout: 10_000 });
-  await shot('16-vault-second-row');
+  await shot(shotName);
+}
+
+test("L4 — a WebSocket Connect resolves the header; riders resolve through the session's pre-pass and read the gate's reason", async () => {
+  test.setTimeout(300_000);
+  // A second secret-manager row the session never references at
+  // Connect — the first rider's target, the same field the handshake
+  // resolved, so the pre-pass's answer is checked against the
+  // handshake's. A third row names a field the manager lacks — the
+  // refused rider's target.
+  await addSecretManagerRow('opOther', 'token', '16-vault-second-row');
+  await addSecretManagerRow('opMissing', 'no-such-field', '16b-vault-third-row');
 
   await selectToolWindow('api-requests');
   const socket = workbench.locator(`[data-item-id="websocket-request-${SOCKET_UID}"]`);
@@ -509,31 +521,47 @@ test('L4 — a WebSocket Connect resolves the header; riders read the session ga
   expect(authorization.length).toBeGreaterThan('Bearer '.length);
   expect(authorization).not.toContain('{{');
 
-  // The rider naming the unreferenced row: the session gate names the
-  // reference, not the reason (its resolve closure collects names only).
+  const token = authorization.slice('Bearer '.length);
+  const echoRows = () =>
+    workbench
+      .getByTestId('ws-timeline-message-row')
+      .filter({ visible: true })
+      .filter({ hasText: `echo:${token.length}` })
+      .count();
+
+  // The rider naming the unreferenced row: the session's pre-pass asks
+  // the manager for it now (its prompt may stand — the rig's message is
+  // the listener), and the rider rides the wire with the same value
+  // the handshake carried.
   const send = workbench.getByTestId('websocket-send-message').filter({ visible: true }).first();
   await expect(send).toBeEnabled();
   await send.click();
-  const riderToast = await lastToast();
+  await expect.poll(async () => socketRig.lastMessage() !== undefined, { timeout: 240_000 }).toBe(true);
+  const prepared = socketRig.lastMessage() ?? '';
+  console.log(`[look] rider through the pre-pass on the wire: <${prepared.length} chars>`);
+  expect(prepared).toBe(token);
+  await expect.poll(echoRows, { timeout: 10_000 }).toBe(1);
+  await shot('19-rider-prepass');
+
+  // The rider naming the row whose field the manager lacks: the gate
+  // names the reference with the manager's own reason.
+  await fillComposeEditor('{{vault.opMissing}}');
+  await send.click();
+  const riderToast = await lastToast(60_000);
   console.log(`[look] rider toast: ${riderToast}`);
-  expect(riderToast).toContain('Message has unresolved variables');
-  expect(riderToast).toContain('vault.opOther');
-  await shot('19-rider-refused');
+  expect(riderToast).toContain('Message has unresolved variables.');
+  expect(riderToast).toContain('{{vault.opMissing}}: The secret manager could not find a secret at this reference.');
+  await expect.poll(echoRows).toBe(1);
+  await shot('20-rider-refused');
 
   // The rider naming the Connect-time row rides the wire — the rig
   // receives the value the handshake carried.
   await fillComposeEditor('{{vault.opToken}}');
   await send.click();
-  await expect.poll(async () => socketRig.lastMessage() !== undefined, { timeout: 10_000 }).toBe(true);
+  await expect.poll(echoRows, { timeout: 10_000 }).toBe(2);
   const received = socketRig.lastMessage() ?? '';
   console.log(`[look] rider on the wire: <${received.length} chars>`);
-  expect(received).toBe(authorization.slice('Bearer '.length));
-  await workbench
-    .getByTestId('ws-timeline-message-row')
-    .filter({ visible: true })
-    .filter({ hasText: `echo:${received.length}` })
-    .first()
-    .waitFor({ state: 'visible', timeout: 10_000 });
-  await shot('20-rider-sent');
+  expect(received).toBe(token);
+  await shot('21-rider-sent');
   await connect.filter({ hasText: 'Disconnect' }).click();
 });

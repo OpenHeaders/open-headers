@@ -51,18 +51,23 @@ import {
 } from '@openheaders/core/proto';
 import type { GrpcScriptKind } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
-import type { ExecutedGrpcSnapshot, GrpcRequest, Spec, Vault } from '@openheaders/core/types';
+import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/types';
 import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
-import { collectTemplateStringsDeep, collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
+import { collectTemplateStringsDeep, type UnresolvedReferences } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
-import { collectionUidForRequest, resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
+import { resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
-import { buildResolver } from '../request-exec/resolver-scope';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import type { SessionScriptHost } from '../request-exec/script-hooks';
 import { registerActiveSend } from '../request-exec/send-stream';
+import {
+  buildOracleSessionResolution,
+  type SessionPrepare,
+  type SessionResolve,
+} from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
+import { UNRESOLVED_REQUEST_LEAD, unresolvedReferencesMessage } from '../request-exec/unresolved-references';
 import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
@@ -117,11 +122,16 @@ export interface ExecuteGrpcInvokeOptions {
    * the oracle entity stores are empty there — the session executors'
    * seam). When present the executor builds NO resolver of its own:
    * this function resolves every invoke-time template (target,
-   * metadata, message), adding every unresolved reference name to the
-   * caller's set. `workspaceId` / `environmentId` are then the
-   * injector's concern — the closure carries its own scope context.
+   * metadata, message), adding every unresolved reference to the
+   * caller's collector with its reason. `workspaceId` /
+   * `environmentId` are then the injector's concern — the closure
+   * carries its own scope context.
    */
-  resolution?: (template: string, unresolved: Set<string>) => string;
+  resolution?: SessionResolve;
+  /** Host-injected pre-pass before the invoke's templates resolve (the
+   *  `resolution` twin): the secret-manager entries they reference,
+   *  asked of the host's broker. Absent = nothing to prepare. */
+  prepareResolution?: SessionPrepare;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -134,38 +144,6 @@ export interface ExecuteGrpcInvokeOptions {
    *  session executors' seam for hosts whose oracle mirrors are empty;
    *  absent = the executor walks the tree index per slot kind. */
   scriptChain?: readonly SlotChainCarrier[];
-}
-
-/** The oracle-side resolution — the module mirrors' scopes for the
- *  pinned (else the runtime-Active) workspace; the vault rides along
- *  for the TLS and dial policies' entry reads. */
-async function buildOracleResolution(
-  request: GrpcRequest,
-  options: ExecuteGrpcInvokeOptions,
-): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
-  // The secret-manager entries this session may resolve are the names
-  // the entity's own strings reference (the kind-agnostic walk — the
-  // session shapes have no field collector); a rider typed after the
-  // socket opens reads an unresolved entry honestly rather than
-  // prompting for every entry at Connect.
-  const secretNames = collectTemplateVariableNames(collectTemplateStringsDeep(request));
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined, undefined, secretNames);
-  const context = {
-    collectionId: collectionUidForRequest(request, scope.workspaceId),
-    environmentId: options.environmentId,
-  };
-  const resolve = (template: string, unresolved: Set<string>): string => {
-    const result = resolveTemplate(
-      template,
-      (name) => resolver.resolve(name, context),
-      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
-    );
-    for (const v of result.variables) {
-      if (!v.resolved) unresolved.add(v.name);
-    }
-    return result.result;
-  };
-  return { resolve, vault: scope.vault };
 }
 
 /** The three hooks' chains for the request — the ancestor levels'
@@ -231,13 +209,18 @@ export async function executeGrpcInvoke(
   // An injected resolution short-circuits the oracle-side resolver
   // entirely — the host's closure carries its own scope context (and
   // no vault: the client-certificate ref then passes through bare).
-  const oracleResolution = options.resolution === undefined ? await buildOracleResolution(request, options) : null;
+  const oracleResolution =
+    options.resolution === undefined ? await buildOracleSessionResolution(request, options) : null;
   const resolveWith = options.resolution ?? oracleResolution?.resolve;
   if (resolveWith === undefined) return errorGrpcSnapshot('No template resolution available for this call.');
   // The workspace trust list rides the session dial — the pin the
   // scope resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
-  const unresolved = new Set<string>();
+  // The invoke-time pre-pass: the entity's own strings name the
+  // secret-manager entries this call resolves — a provider may prompt;
+  // nothing the call never references is asked.
+  await (oracleResolution?.prepare ?? options.prepareResolution)?.(collectTemplateStringsDeep(request));
+  const unresolved: UnresolvedReferences = new Map();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
 
   // The settings knobs cascade over the ancestor chain — the request's
@@ -303,11 +286,7 @@ export async function executeGrpcInvoke(
   const credential = resolveSessionCredential(sessionAuth.auth, resolveStr);
   let messageText = resolveStr(request.message);
   if (unresolved.size > 0) {
-    return withAttribution(
-      errorGrpcSnapshot(
-        `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before invoking.`,
-      ),
-    );
+    return withAttribution(errorGrpcSnapshot(unresolvedReferencesMessage(UNRESOLVED_REQUEST_LEAD, unresolved)));
   }
 
   const authority = stripAuthorityScheme(url.trim());

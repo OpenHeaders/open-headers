@@ -4,7 +4,9 @@
  * asked), reads every entry's typed answer by name, and reads
  * `broker-unreachable` for every entry while the desktop app is away
  * or the wire falls mid-ask; the forwarded routes answer the workbench
- * honestly in the same states; a mutation never rides the wire.
+ * honestly in the same states (the page realm's sessions resolve
+ * their entries through the forwarded batch resolve); a mutation
+ * never rides the wire.
  */
 
 import type { SecretLocator } from '@openheaders/core/secret-providers';
@@ -133,6 +135,21 @@ describe('the forwarded routes', () => {
     expect(mockWsRequest.mock.calls[0]?.[1]).toEqual({ backendId: 'b-desktop' });
     mockWsRequest.mockResolvedValueOnce({ ok: true });
     expect(await invoke('oh.secretManager.authorize', { uid: 'c1' })).toEqual({ ok: true });
+  });
+
+  it("the page realm's batch resolve rides the loopback broker — typed by name, broker-unreachable when away", async () => {
+    const entries = [{ name: 'ApiToken', locator: LOCATOR }];
+    expect(await invoke('oh.secretManager.resolveBatch', { entries })).toEqual({
+      results: { ApiToken: { ok: false, reason: 'broker-unreachable', detail: DESKTOP_APP_AWAY_DETAIL } },
+    });
+    expect(mockWsRequest).not.toHaveBeenCalled();
+    wires.push(DESKTOP);
+    mockWsRequest.mockResolvedValueOnce({ results: { ApiToken: { ok: true, value: 'v' } } });
+    expect(await invoke('oh.secretManager.resolveBatch', { entries })).toEqual({
+      results: { ApiToken: { ok: true, value: 'v' } },
+    });
+    expect(mockWsRequest.mock.calls[0]?.[0]).toMatchObject({ type: 'oh.secretManager.resolveBatch', entries });
+    expect(mockWsRequest.mock.calls[0]?.[1]).toEqual({ backendId: 'b-desktop', timeoutMs: PROMPT_CEILING_MS });
   });
 
   it('a mutation never rides the wire — the browser host says where it happens', async () => {

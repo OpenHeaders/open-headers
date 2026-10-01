@@ -52,6 +52,7 @@ import { getTrustAnchorsForSend } from '../trust-anchors';
 import { collectionUidForRequest, resolveRequestAuth, resolveRequestSettings } from './ancestor-chain';
 import { acquireOAuth2Bundle, type OAuthRefreshFn, oauth2AuthorizationValue } from './oauth2-bundle';
 import { buildResolver } from './resolver-scope';
+import { UNRESOLVED_REQUEST_LEAD, unresolvedReferenceLines } from './unresolved-references';
 
 /** Resolved, wire-ready request. Auth + params are folded into `url`
  *  + `headers`; the body is the resolved domain union. */
@@ -268,8 +269,6 @@ export interface ResolveRequestOptions {
   resolveSecretManager?: boolean;
 }
 
-const UNRESOLVED_LEAD = 'Request has unresolved variables.';
-
 /** Thrown when any `{{ref}}` in the request can't be resolved against
  *  the current scopes — refuses to ship a literal `{{env.var}}` on the
  *  wire, mirroring the DNR compile gate. The message names every
@@ -294,23 +293,12 @@ export class UnresolvedRequestError extends Error {
  */
 export function unresolvedRequestMessage(
   errors: readonly ResolutionError[],
-  secretManagerNamesKeptUnresolved: ReadonlySet<string> = new Set(),
+  secretManagerNamesKeptUnresolved?: ReadonlySet<string>,
 ): string {
   if (errors.length === 0) {
-    return `${UNRESOLVED_LEAD} Define them in vault, environment, collection, workspace, or a live workflow before sending.`;
+    return `${UNRESOLVED_REQUEST_LEAD} Define them in vault, environment, collection, workspace, or a live workflow before sending.`;
   }
-  const lines = errors.map((error) => {
-    const reference = `{{${error.reference}}}`;
-    // Explicit `vault.X` or the flat `X` the vault answers first.
-    if (
-      (error.namespace === 'vault' || error.namespace === null) &&
-      secretManagerNamesKeptUnresolved.has(error.variableName)
-    ) {
-      return `${reference}: a secret manager's value is resolved only when sending and never enters a copied command.`;
-    }
-    return `${reference}: ${error.hint}`;
-  });
-  return `${UNRESOLVED_LEAD} ${lines.join(' ')}`;
+  return `${UNRESOLVED_REQUEST_LEAD} ${unresolvedReferenceLines(errors, secretManagerNamesKeptUnresolved).join(' ')}`;
 }
 
 export async function resolveRequest(

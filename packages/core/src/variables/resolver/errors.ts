@@ -175,3 +175,19 @@ export function buildHint(
       return 'Variable resolved to a value Chrome rejects in this slot — check the variable definition and use bare hostnames (no scheme, no path, no wildcard).';
   }
 }
+
+/**
+ * The unresolved references one resolution pass collected, keyed by
+ * the raw reference text (`vault.X`, `X`) — the session executors'
+ * collector: every Connect-time template and every rider adds its
+ * misses here, each with its reason and hint, so the gate names the
+ * fix beside the name (the HTTP gate's parity).
+ */
+export type UnresolvedReferences = Map<string, ResolutionError>;
+
+/** Add one pass's errors to the collector — the first error per reference stands. */
+export function collectUnresolvedReferences(errors: readonly ResolutionError[], into: UnresolvedReferences): void {
+  for (const error of errors) {
+    if (!into.has(error.reference)) into.set(error.reference, error);
+  }
+}

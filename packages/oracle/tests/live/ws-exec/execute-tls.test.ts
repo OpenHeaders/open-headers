@@ -6,6 +6,7 @@
  */
 
 import type { WebSocketRequest } from '@openheaders/core/types';
+import { buildPostResolveError, type ResolutionError } from '@openheaders/core/variables';
 import { executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import type { WsSessionCallbacks, WsTransport, WsTransportRequest } from '@openheaders/oracle/live/ws-exec/transport';
 import { describe, expect, it } from 'vitest';
@@ -28,11 +29,11 @@ function makeWsRequest(overrides: Partial<WebSocketRequest> = {}): WebSocketRequ
 
 const SCOPE: Record<string, string> = { team: 'alpha' };
 
-function scopedResolution(template: string, unresolved: Set<string>): string {
+function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
     const value = SCOPE[name.trim()];
     if (value === undefined) {
-      unresolved.add(name.trim());
+      unresolved.set(name.trim(), buildPostResolveError(name, 'unresolved', undefined));
       return whole;
     }
     return value;

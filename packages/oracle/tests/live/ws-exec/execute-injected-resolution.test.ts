@@ -5,11 +5,16 @@
  * closure carries the whole scope. Pins that the injected function
  * resolves the Connect-time templates (url / headers / params), that
  * an unresolved reference gates the session as a structured error
- * snapshot naming it, and that per-send riders resolve through the
- * SAME closure — an unresolved rider ref failing the rider alone.
+ * snapshot naming it with its reason, that per-send riders resolve
+ * through the SAME closure — an unresolved rider ref failing the rider
+ * alone, with its reason — and that the injected pre-pass runs before
+ * the Connect-time templates and before each rider's resolve with the
+ * strings they reference, a rider waiting only when there is
+ * something to ask.
  */
 
 import type { WebSocketRequest } from '@openheaders/core/types';
+import { buildPostResolveError, type ResolutionError } from '@openheaders/core/variables';
 import { executeWsSession } from '@openheaders/oracle/live/ws-exec/execute';
 import { sendActiveWsSessionMessage } from '@openheaders/oracle/live/ws-exec/session-plane';
 import {
@@ -52,11 +57,11 @@ const SCOPE: Record<string, string> = {
   token: 'tok-123',
 };
 
-function scopedResolution(template: string, unresolved: Set<string>): string {
+function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
     const value = SCOPE[name.trim()];
     if (value === undefined) {
-      unresolved.add(name.trim());
+      unresolved.set(name.trim(), buildPostResolveError(name, 'unresolved', undefined));
       return whole;
     }
     return value;
@@ -242,7 +247,10 @@ describe('executeWsSession — injected resolution', () => {
       resolution: scopedResolution,
     });
     if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
-    expect(snapshot.outcome.error).toContain('missing_host');
+    // The HTTP gate's wording: every reference with its reason.
+    expect(snapshot.outcome.error).toBe(
+      'Request has unresolved variables. {{missing_host}}: Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+    );
   });
 
   it("stamps a transport-reported route as the system plane's wire truth", async () => {
@@ -284,7 +292,9 @@ describe('executeWsSession — injected resolution', () => {
 
     const bad = await sendActiveWsSessionMessage('send-inject-3', 'auth {{nope}}');
     expect(bad.success).toBe(false);
-    expect(bad.error).toContain('nope');
+    expect(bad.error).toBe(
+      'Message has unresolved variables. {{nope}}: Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+    );
     // The failed rider never reached the wire and the session is intact.
     expect(rig.sent).toEqual(['auth tok-123']);
 
@@ -293,6 +303,83 @@ describe('executeWsSession — injected resolution', () => {
     const snapshot = await settled;
     expect(snapshot.outcome).toEqual({ kind: 'connected' });
     expect(snapshot.messages.map((m) => m.direction)).toEqual(['up']);
+  });
+});
+
+describe('executeWsSession — the injected pre-pass', () => {
+  it('runs before the Connect-time templates and before each rider, with the strings they reference', async () => {
+    const rig = scriptedTransport();
+    const prepared: string[][] = [];
+    const settled = executeWsSession(
+      makeWsRequest({ headers: [{ uid: 'h1', key: 'Authorization', value: 'Bearer {{token}}' }] }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-prepare-1',
+        resolution: scopedResolution,
+        prepareResolution: (templates) => {
+          prepared.push([...templates]);
+          return null;
+        },
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The entity's own strings, templated ones only.
+    expect(prepared).toEqual([['wss://{{host}}/live', 'Bearer {{token}}']]);
+    rig.callbacks().onOpen('', '');
+    expect(await sendActiveWsSessionMessage('send-prepare-1', 'auth {{token}}')).toEqual({ success: true });
+    expect(await sendActiveWsSessionMessage('send-prepare-1', 'plain')).toEqual({ success: true });
+    expect(prepared.slice(1)).toEqual([['auth {{token}}'], []]);
+    expect(rig.sent).toEqual(['auth tok-123', 'plain']);
+    rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
+    rig.callbacks().onEnd();
+    await settled;
+  });
+
+  it('a rider waits for its ask and resolves against what the ask installed; a session ending meanwhile refuses it', async () => {
+    const rig = scriptedTransport();
+    let release: (() => void) | null = null;
+    const settled = executeWsSession(makeWsRequest(), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-prepare-2',
+      resolution: (template, unresolved) => scopedResolution(template, unresolved),
+      prepareResolution: (templates) =>
+        templates.some((t) => t.includes('{{late}}'))
+          ? new Promise<void>((resolve) => {
+              release = () => {
+                SCOPE.late = 'arrived';
+                resolve();
+              };
+            })
+          : null,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.callbacks().onOpen('', '');
+    const pending = sendActiveWsSessionMessage('send-prepare-2', 'value {{late}}');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Nothing is written while the ask stands.
+    expect(rig.sent).toEqual([]);
+    if (release === null) throw new Error('the pre-pass never ran');
+    (release as () => void)();
+    expect(await pending).toEqual({ success: true });
+    expect(rig.sent).toEqual(['value arrived']);
+    delete SCOPE.late;
+
+    // The same ask, with the session ending before it answers.
+    release = null;
+    const refused = sendActiveWsSessionMessage('send-prepare-2', 'again {{late}}');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
+    rig.callbacks().onEnd();
+    await settled;
+    if (release === null) throw new Error('the pre-pass never ran');
+    (release as () => void)();
+    expect(await refused).toEqual({ success: false, error: 'The session is not open.' });
+    expect(rig.sent).toEqual(['value arrived']);
+    delete SCOPE.late;
   });
 });
 

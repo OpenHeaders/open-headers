@@ -135,6 +135,7 @@ async function runPageGrpcInvoke(
       ...(sendId !== undefined ? { sendId } : {}),
       emitStreamEvent: deliverGrpcStreamEventLocally,
       resolution: scope.resolve,
+      prepareResolution: scope.prepare,
       authChain: scope.authChain,
       settingsChain: scope.settingsChain,
       scriptChain: scope.scriptChain,

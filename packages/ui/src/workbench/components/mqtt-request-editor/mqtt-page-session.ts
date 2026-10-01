@@ -20,7 +20,10 @@
  * The factory builds an EXECUTION-posture resolver: default `'reject'`
  * vault mode plus a freshly computed TOTP registry — never the display
  * surfaces' `'defer'` mode, which substitutes an empty placeholder
- * where a live code belongs.
+ * where a live code belongs. Its secret-manager scope is the session's
+ * (the ws-page-session sibling's law): the executor's pre-pass asks for
+ * the referenced entries through the host's broker at Connect and per
+ * rider, and the values stay in this scope for the session.
  */
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
@@ -28,11 +31,18 @@ import type { ScriptPackageModule } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import { generateTotp } from '@openheaders/core/totp';
 import type { MqttRequest, Vault, VaultSecretTotp } from '@openheaders/core/types';
-import type { TotpRegistry } from '@openheaders/core/variables';
+import {
+  collectTemplateVariableNames,
+  collectUnresolvedReferences,
+  createSecretManagerScope,
+  type ResolutionError,
+  type TotpRegistry,
+} from '@openheaders/core/variables';
 import {
   buildRendererResolver,
   type RendererResolverInputs,
 } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { resolveSecretManagerBatch } from '@openheaders/ui/shared/secret-manager';
 import {
   type AncestorScriptCarrier,
   authChainOf,
@@ -44,8 +54,14 @@ import {
 import { buildPageScriptScope, type PageScriptScope } from '../shared/page-script-scope';
 
 /** The executor's injected-resolution contract
- *  (`ExecuteMqttSessionOptions.resolution`). */
-export type MqttPageResolution = (template: string, unresolved: Set<string>) => string;
+ *  (`ExecuteMqttSessionOptions.resolution`): every unresolved reference
+ *  lands in the collector with its reason. */
+export type MqttPageResolution = (template: string, unresolved: Map<string, ResolutionError>) => string;
+
+/** The executor's injected pre-pass contract
+ *  (`ExecuteMqttSessionOptions.prepareResolution`) — the ws-page-session
+ *  sibling's exact contract. */
+export type MqttPagePrepare = (templates: readonly string[]) => Promise<void> | null;
 
 /** What the page host injects into the executor per Connect: the
  *  template resolution plus the ancestor auth, script and settings
@@ -53,6 +69,7 @@ export type MqttPageResolution = (template: string, unresolved: Set<string>) => 
  *  realm, and the scope the session's hooks answer against. */
 export interface MqttPageSessionScope {
   resolve: MqttPageResolution;
+  prepare: MqttPagePrepare;
   authChain: AuthCarrier[];
   scriptChain: AncestorScriptCarrier[];
   /** The ancestor settings carriers (outer → inner) — the per-knob
@@ -134,13 +151,13 @@ export function makeMqttPageResolutionFactory(
     const context = ancestry !== null ? { collectionId: ancestry.collection.uid } : {};
     const resolve: MqttPageResolution = (template, unresolved) => {
       const result = resolver.resolveTemplate(template, context);
-      for (const v of result.variables) {
-        if (!v.resolved) unresolved.add(v.name);
-      }
+      collectUnresolvedReferences(result.errors, unresolved);
       return result.result;
     };
+    const secrets = createSecretManagerScope(resolver, inputs.vault, resolveSecretManagerBatch);
     return {
       resolve,
+      prepare: (templates) => secrets.ensure(collectTemplateVariableNames(templates)),
       authChain: ancestry !== null ? authChainOf(ancestry) : [],
       scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
       settingsChain: ancestry !== null ? settingsChainOf(ancestry) : [],

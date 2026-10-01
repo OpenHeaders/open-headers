@@ -11,7 +11,13 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import type { SecretAuthorizeResult, SecretBrokerKind, SecretProviderProbe } from '@openheaders/core/secret-providers';
+import type {
+  SecretAuthorizeResult,
+  SecretBrokerEntry,
+  SecretBrokerKind,
+  SecretProviderProbe,
+  SecretResolution,
+} from '@openheaders/core/secret-providers';
 import type { SecretManagerConnection, SecretManagerConnectionConfig } from '@openheaders/core/types';
 import { useEffect, useState } from 'react';
 import { isNodeRequestRuntime } from '../device-trust';
@@ -100,6 +106,40 @@ export async function authorizeSecretManagerConnection(uid: string): Promise<Sec
     ok: false as const,
     detail: err instanceof Error ? err.message : String(err),
   }));
+}
+
+/**
+ * One session's referenced entries resolved through the host's broker
+ * — the page realm's resolve seam (a session executes in the workbench
+ * page on the browser host, so its secret-manager scope asks the
+ * service worker, which asks the desktop app on this device). A
+ * provider may prompt. Every entry answers typed by name; a host that
+ * cannot answer reads `unavailable` for each.
+ */
+export async function resolveSecretManagerBatch(
+  entries: readonly SecretBrokerEntry[],
+): Promise<ReadonlyMap<string, SecretResolution>> {
+  const results = new Map<string, SecretResolution>();
+  if (entries.length === 0) return results;
+  let answer: { results: Record<string, SecretResolution> };
+  try {
+    answer = await hostBridge.call('oh.secretManager.resolveBatch', { entries: [...entries] });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    for (const entry of entries) results.set(entry.name, { ok: false, reason: 'unavailable', detail });
+    return results;
+  }
+  for (const entry of entries) {
+    results.set(
+      entry.name,
+      answer.results[entry.name] ?? {
+        ok: false,
+        reason: 'unavailable',
+        detail: 'The host did not answer for this entry.',
+      },
+    );
+  }
+  return results;
 }
 
 /**

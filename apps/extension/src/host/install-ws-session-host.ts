@@ -113,6 +113,7 @@ async function runPageWsSession(
       sendId,
       emitStreamEvent: deliverWsStreamEventLocally,
       resolution: scope.resolve,
+      prepareResolution: scope.prepare,
       authChain: scope.authChain,
       scriptChain: scope.scriptChain,
       settingsChain: scope.settingsChain,

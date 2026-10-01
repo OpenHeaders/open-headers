@@ -14,11 +14,13 @@
 
 export {
   buildPostResolveError,
+  collectUnresolvedReferences,
   type ResolutionEnvSnapshot,
   type ResolutionError,
   type ResolutionErrorParams,
   type ResolutionErrorReason,
   type ScopedResolution,
+  type UnresolvedReferences,
 } from './errors';
 export {
   type DeferredVaultMode,
@@ -33,5 +35,10 @@ export {
   type StepCaptureContext,
   type TotpRegistry,
 } from './registries';
+export {
+  createSecretManagerScope,
+  type SecretManagerResolveBatch,
+  type SecretManagerScope,
+} from './secret-manager-scope';
 export { resolveTemplate, resolveVariable, type ScopedLookupFn, type TemplateVariable } from './template';
 export { VariableResolver } from './variable-resolver';

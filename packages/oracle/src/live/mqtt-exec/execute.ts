@@ -93,19 +93,28 @@ import type {
   MqttRequest,
   MqttUserPropertyRow,
   TrustCertificateErrorHint,
-  Vault,
 } from '@openheaders/core/types';
 import { decodeBase64Bytes, decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
-import { collectTemplateStringsDeep, collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
+import { collectTemplateStringsDeep, type UnresolvedReferences } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-policy';
-import { collectionUidForRequest, resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
-import { buildResolver } from '../request-exec/resolver-scope';
+import { resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import type { SessionScriptHost } from '../request-exec/script-hooks';
 import { registerActiveSend } from '../request-exec/send-stream';
+import {
+  buildOracleSessionResolution,
+  type SessionPrepare,
+  type SessionResolve,
+} from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
+import {
+  UNRESOLVED_MESSAGE_LEAD,
+  UNRESOLVED_REQUEST_LEAD,
+  UNRESOLVED_SUBSCRIPTION_LEAD,
+  unresolvedReferencesMessage,
+} from '../request-exec/unresolved-references';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
 import { createMqttScriptPlane, type MqttScriptChains } from './script-plane';
@@ -123,6 +132,9 @@ import { type MqttByteTransport, type MqttStreamWriter, MqttTransportError } fro
  *  `droppedMessages` records the truncation. */
 const MAX_CAPTURE_BYTES = 2 * 1024 * 1024;
 const MAX_CAPTURE_EVENTS = 10_000;
+
+/** A host that injects a resolution but no pre-pass has nothing to prepare. */
+const NO_PREPARE: SessionPrepare = () => null;
 
 /** Keep Alive when the entity leaves the knob empty — the reference
  *  default; 0 disables the contract. */
@@ -151,7 +163,10 @@ export interface ExecuteMqttSessionOptions {
   /** Host-injected template resolution — the WS executor's exact
    *  contract, for surfaces whose variable scopes live OUTSIDE the
    *  oracle module mirrors. */
-  resolution?: (template: string, unresolved: Set<string>) => string;
+  resolution?: SessionResolve;
+  /** Host-injected pre-pass before a batch of templates resolves — the
+   *  WS executor's exact contract (the `resolution` twin). */
+  prepareResolution?: SessionPrepare;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -413,14 +428,21 @@ export async function executeMqttSession(
   options: ExecuteMqttSessionOptions,
 ): Promise<ExecutedMqttSnapshot> {
   // ── Variable resolution (the HTTP sends' exact pipeline) ──
-  const oracleResolution = options.resolution === undefined ? await buildOracleResolution(request, options) : null;
+  const oracleResolution =
+    options.resolution === undefined ? await buildOracleSessionResolution(request, options) : null;
   const resolveWith = options.resolution ?? oracleResolution?.resolve;
   if (resolveWith === undefined) return errorMqttSnapshot('No template resolution available for this session.');
+  const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
   // The workspace trust list rides every dial and reconnect alike —
   // the pin the scope resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
 
-  const unresolved = new Set<string>();
+  // The Connect-time pre-pass: the entity's own strings name the
+  // secret-manager entries this session resolves now — a provider may
+  // prompt; nothing the session never references is asked. A rider's
+  // own names are asked at the rider.
+  await prepare(collectTemplateStringsDeep(request));
+  const unresolved: UnresolvedReferences = new Map();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
   // The settings knobs cascade over the ancestor chain — the request's
   // own defined knob wins, an absent one reads the nearest ancestor
@@ -538,11 +560,7 @@ export async function executeMqttSession(
   });
 
   if (unresolved.size > 0) {
-    return withAttribution(
-      errorMqttSnapshot(
-        `Request has unresolved variables (${[...unresolved].join(', ')}). Define them in vault, environment, collection, or workspace before connecting.`,
-      ),
-    );
+    return withAttribution(errorMqttSnapshot(unresolvedReferencesMessage(UNRESOLVED_REQUEST_LEAD, unresolved)));
   }
   if (url === '') return withAttribution(errorMqttSnapshot('URL is empty'));
   if (!/^(mqtts?|wss?):\/\//i.test(url)) {
@@ -1262,13 +1280,22 @@ export async function executeMqttSession(
     unregisterSession = registerActiveMqttSession(options.sendId, {
       publish: async (message: MqttPublishWire, origin: MqttPublishOrigin = 'rider'): Promise<MqttPublishResult> => {
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
-        const sendUnresolved = new Set<string>();
+        // The rider's pre-pass: a secret-manager entry it names that
+        // the session never resolved is asked now (a provider may
+        // prompt); a failed one is a new attempt. Only an ask makes the
+        // rider wait, and the session may end while the prompt stands.
+        const prepared = prepare(collectTemplateStringsDeep(message));
+        if (prepared !== null) {
+          await prepared;
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        }
+        const sendUnresolved: UnresolvedReferences = new Map();
         const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
         const topic = riderResolve(message.topic).trim();
         const payloadText = riderResolve(message.payload);
         const properties = scriptMessageProperties(message.properties, riderResolve);
         if (sendUnresolved.size > 0) {
-          return { success: false, error: `Message has unresolved variables (${[...sendUnresolved].join(', ')}).` };
+          return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_MESSAGE_LEAD, sendUnresolved) };
         }
         // The rider's spelling gates the publish (a malformed base64 /
         // hex compose fails here); the hook then sees ONE byte
@@ -1317,20 +1344,21 @@ export async function executeMqttSession(
         recordPublished(packet);
         return { success: true };
       },
-      setSubscription: (subscription: MqttSubscriptionWire) => {
-        if (settled || !attemptOpened) {
-          return Promise.resolve({ success: false, error: 'The session is not open.' });
+      setSubscription: async (subscription: MqttSubscriptionWire) => {
+        if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        // The rider's pre-pass — the publish rider's law.
+        const prepared = prepare(collectTemplateStringsDeep(subscription));
+        if (prepared !== null) {
+          await prepared;
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         }
-        const sendUnresolved = new Set<string>();
+        const sendUnresolved: UnresolvedReferences = new Map();
         const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
         const topicFilter = riderResolve(subscription.topicFilter).trim();
         const userProperties =
           v5 && subscription.subscribe ? wireSubscribeUserProps(subscription.userProperties, riderResolve) : undefined;
         if (sendUnresolved.size > 0) {
-          return Promise.resolve({
-            success: false,
-            error: `Subscription has unresolved variables (${[...sendUnresolved].join(', ')}).`,
-          });
+          return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_SUBSCRIPTION_LEAD, sendUnresolved) };
         }
         return new Promise((resolveRider) => {
           const resolveAck = (reasonCode: number | null, failure?: string): void => {
@@ -1403,36 +1431,4 @@ export async function executeMqttSession(
       },
     });
   });
-}
-
-/** The oracle-side resolution closure — the module-mirror resolver the
- *  node hosts ride (the WS executor's twin). Hosts whose scopes live
- *  elsewhere inject `options.resolution` instead. */
-async function buildOracleResolution(
-  request: MqttRequest,
-  options: ExecuteMqttSessionOptions,
-): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
-  // The secret-manager entries this session may resolve are the names
-  // the entity's own strings reference (the kind-agnostic walk — the
-  // session shapes have no field collector); a rider typed after the
-  // socket opens reads an unresolved entry honestly rather than
-  // prompting for every entry at Connect.
-  const secretNames = collectTemplateVariableNames(collectTemplateStringsDeep(request));
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined, undefined, secretNames);
-  const context = {
-    collectionId: collectionUidForRequest(request, scope.workspaceId),
-    environmentId: options.environmentId,
-  };
-  const resolve = (template: string, unresolved: Set<string>): string => {
-    const result = resolveTemplate(
-      template,
-      (name) => resolver.resolve(name, context),
-      (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
-    );
-    for (const v of result.variables) {
-      if (!v.resolved) unresolved.add(v.name);
-    }
-    return result.result;
-  };
-  return { resolve, vault: scope.vault };
 }
