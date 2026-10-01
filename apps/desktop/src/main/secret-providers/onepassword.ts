@@ -129,18 +129,22 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
       ? (env[SERVICE_ACCOUNT_TOKEN_ENV] ?? '').trim()
       : new sdk.DesktopAuth(config.account.trim());
 
-  /** The connection's client — created (prompting) on first use, reused after. */
-  const clientFor = async (connection: SecretManagerConnection, config: OnePasswordConfig): Promise<Client> => {
+  /** The connection's client — created (prompting) on first use, reused
+   *  after. The pending creation is cached before anything is awaited, so
+   *  a send resolving several entries of one connection creates one
+   *  client and prompts once. */
+  const clientFor = (connection: SecretManagerConnection, config: OnePasswordConfig): Promise<Client> => {
     const fingerprint = fingerprintOf(config);
     const cached = clients.get(connection.uid);
     if (cached && cached.fingerprint === fingerprint) return cached.client;
-    const sdk = await loadSdk();
-    const client = sdk
-      .createClient({
-        auth: authFor(sdk, config),
-        integrationName: INTEGRATION_NAME,
-        integrationVersion: options.integrationVersion,
-      })
+    const client = loadSdk()
+      .then((sdk) =>
+        sdk.createClient({
+          auth: authFor(sdk, config),
+          integrationName: INTEGRATION_NAME,
+          integrationVersion: options.integrationVersion,
+        }),
+      )
       .then(
         (created) => {
           failures.delete(connection.uid);

@@ -121,6 +121,18 @@ describe('desktop onepassword provider', () => {
     expect((created[0] as DesktopAuth).accountName).toBe('work');
   });
 
+  it('concurrent first uses of one connection create one client, so a send prompts once', async () => {
+    const { loadSdk, createClient } = fakeSdk(async () => 'v');
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    const results = await Promise.all([
+      provider.resolve(connection(), LOCATOR),
+      provider.resolve(connection(), { ...LOCATOR, field: 'url' }),
+      provider.resolve(connection(), { ...LOCATOR, field: 'username' }),
+    ]);
+    expect(results.every((r) => r.ok)).toBe(true);
+    expect(createClient).toHaveBeenCalledTimes(1);
+  });
+
   it('the service-account lane hands the SDK the environment token itself', async () => {
     const { loadSdk, created } = fakeSdk(async () => 'v');
     const provider = createOnePasswordProvider({
