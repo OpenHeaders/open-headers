@@ -25,6 +25,7 @@ export {
   setAuditSink,
 } from './audit';
 export { DEFAULT_BACKEND_PORT, parseBackendAddress } from './backend-address';
+export { createBridgedBackendProbe } from './backend-probe-bridge';
 export {
   type BootstrapSyntheticIdentityInput,
   type BootstrapSyntheticIdentityResult,
@@ -163,6 +164,14 @@ export {
   providingBackendKind,
 } from './org-catalogue';
 export { resolveOrgActiveWorkspace } from './org-workspace';
+export {
+  type ProbeConnectionResult,
+  type ProbeFailure,
+  type ProbeFailureReason,
+  type ProbeOptions,
+  type ProbeSocketFactory,
+  probeBackendConnection,
+} from './probe-connection';
 export {
   type ClaimJoinedOrgResult,
   claimJoinedOrg,

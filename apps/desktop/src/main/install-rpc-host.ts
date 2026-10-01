@@ -80,6 +80,7 @@ import {
 } from '@openheaders/oracle-host-node/traffic';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog, shell } from 'electron';
+import { createBackendProbeRpc } from './backend-probe';
 import { dataDir } from './bootstrap/app-paths';
 import { revealAppSurface } from './bootstrap/app-reveal';
 import { registerTeardown } from './bootstrap/lifecycle';
@@ -512,6 +513,7 @@ export async function installRpcHost(): Promise<void> {
   // of the engine dispatcher — they are host-shell concerns the spine
   // never learns.
   const serverSignInRpc = createServerSignInRpc({ userAgent: spine.authorizationUserAgent });
+  const backendProbeRpc = createBackendProbeRpc();
 
   rpcDispatcher = async (raw) => {
     const message = (raw ?? {}) as Record<string, unknown>;
@@ -697,6 +699,10 @@ export async function installRpcHost(): Promise<void> {
     // fronts the app when the redirect lands.
     const signIn = serverSignInRpc.dispatch(type, message);
     if (signIn !== undefined) return signIn;
+    // The backend wizard's probe (the same renderer-cannot-dial law): MAIN
+    // opens the one-shot socket over Node's WebSocket and relays the result.
+    const probed = backendProbeRpc.dispatch(type, message);
+    if (probed !== undefined) return probed;
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };

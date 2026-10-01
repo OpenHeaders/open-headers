@@ -13,7 +13,7 @@
 import whatsNewNotes from 'virtual:whats-new';
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability, type TerminalSession, type TerminalSpawnOptions } from '@openheaders/core/capabilities';
-import { createBridgedServerSignIn } from '@openheaders/core/identity';
+import { createBridgedBackendProbe, createBridgedServerSignIn } from '@openheaders/core/identity';
 
 registerCapability('getActiveWorkspaceId', () => hostBridge.call('getActiveWorkspaceId'));
 
@@ -57,6 +57,12 @@ registerCapability('openExternalUrl', (url) => window.oh.openExternal(url));
 // fronts the app when the redirect lands.
 const serverSignIn = createBridgedServerSignIn();
 registerCapability('serverSignIn', () => serverSignIn);
+
+// The backend wizard's probe (the sign-in step, Test connection, the
+// enable gate) under the same law: this document's CSP forbids a
+// WebSocket to any server, so MAIN opens the one-shot socket over its
+// Node WebSocket and relays the result over the bridge.
+registerCapability('backendProbe', createBridgedBackendProbe());
 
 // Named-browser opens for the extension-install CTAs — a store listing
 // must land in the browser that will install the extension. Main falls

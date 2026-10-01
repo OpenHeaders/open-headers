@@ -45,6 +45,7 @@
  */
 
 import type { ChangelogIndexRow } from '../changelog-feed';
+import type { ProbeConnectionResult, ProbeOptions } from '../identity/probe-connection';
 import type { CompanionRevealTarget } from '../protocol/messages';
 import type { PublicWorkspaceSnapshotSummary } from '../protocol/public-workspace-snapshot';
 import type { ScriptExecutionMode } from '../scripts';
@@ -498,6 +499,16 @@ export interface Capabilities {
    * admin-issued code / token path as the only way in.
    */
   serverSignIn?: () => ServerSignInApi;
+
+  /**
+   * A reachability + handshake probe of a back-end address — behind the
+   * wizard's sign-in step, Test connection and the enable gate — run by
+   * the host's long-lived process: the desktop renderer's CSP forbids a
+   * dial and its file Origin is refused, so MAIN opens the probe's socket
+   * over the bridge (`oh.backendProbe`), the sign-in grant's posture. A
+   * host that registers nothing probes over the surface's own socket.
+   */
+  backendProbe?: (url: string, opts: ProbeOptions) => Promise<ProbeConnectionResult>;
 
   /**
    * Exchange OS-verified process identity for a daemon token over the

@@ -28,6 +28,7 @@
 
 import type { ActivityRpc } from './activity';
 import type { AwarenessRpc } from './awareness';
+import type { BackendProbeRpc } from './backend-probe';
 import type { BridgeBroadcastContract } from './broadcast';
 import type { DaemonRpc } from './daemon';
 import type { DeviceTrustRpc } from './device-trust';
@@ -171,7 +172,8 @@ export interface BridgeRpcContract
     SystemProxyRpc,
     DeviceTrustRpc,
     ProductTelemetryRpc,
-    ServerSignInRpc {}
+    ServerSignInRpc,
+    BackendProbeRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages
