@@ -75,13 +75,20 @@ describe('desktop onepassword provider', () => {
       },
       env: {},
     });
-    expect(await provider.probe(connection())).toEqual({ available: false, reason: 'not-installed', detail: 'wasm missing' });
+    expect(await provider.probe(connection())).toEqual({
+      available: false,
+      reason: 'not-installed',
+      detail: 'wasm missing',
+    });
   });
 
   it('the app lane needs an account; the service-account lane needs the environment token', async () => {
     const { loadSdk } = fakeSdk(async () => 'v');
     const bare = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
-    expect(await bare.probe(connection({ account: ' ' }))).toMatchObject({ available: false, reason: 'no-credentials' });
+    expect(await bare.probe(connection({ account: ' ' }))).toMatchObject({
+      available: false,
+      reason: 'no-credentials',
+    });
     expect(await bare.probe(connection({ auth: 'service-account' }))).toMatchObject({
       available: false,
       reason: 'no-credentials',
@@ -155,6 +162,7 @@ describe('desktop onepassword provider', () => {
       [new AuthExpiredError('expired'), 'authorization-required'],
       [new RateLimitExceededError('slow down'), 'unavailable'],
       [new Error('error resolving secret reference: vault not found'), 'not-found'],
+      [new Error('error resolving secret reference: no vault matched the secret reference query'), 'not-found'],
       [new Error('invalid secret reference format'), 'not-found'],
       [new Error('network down'), 'unavailable'],
     ];
@@ -173,7 +181,10 @@ describe('desktop onepassword provider', () => {
       () => new Error('the integration is disabled in the app'),
     );
     const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
-    expect(await provider.authorize?.(connection())).toEqual({ ok: false, detail: 'the integration is disabled in the app' });
+    expect(await provider.authorize?.(connection())).toEqual({
+      ok: false,
+      detail: 'the integration is disabled in the app',
+    });
     expect(await provider.probe(connection())).toEqual({
       available: false,
       reason: 'integration-disabled',
@@ -182,13 +193,28 @@ describe('desktop onepassword provider', () => {
     expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: false, reason: 'unavailable' });
   });
 
+  it("the SDK's missing-app and unloadable-library texts read not-installed", async () => {
+    for (const text of ['1Password desktop application not found', 'Native library is not available.']) {
+      const { loadSdk } = fakeSdk(
+        async () => 'v',
+        () => new Error(text),
+      );
+      const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+      expect(await provider.authorize?.(connection())).toEqual({ ok: false, detail: text });
+      expect(await provider.probe(connection())).toEqual({ available: false, reason: 'not-installed', detail: text });
+    }
+  });
+
   it('a denied prompt reads locked on the probe and authorization-required on resolve', async () => {
     const { loadSdk } = fakeSdk(
       async () => 'v',
       () => new Error('authorization request was denied by the user'),
     );
     const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
-    expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: false, reason: 'authorization-required' });
+    expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({
+      ok: false,
+      reason: 'authorization-required',
+    });
     expect(await provider.probe(connection())).toMatchObject({ available: false, reason: 'locked' });
     expect(await provider.authorize?.(connection())).toMatchObject({ ok: false });
   });

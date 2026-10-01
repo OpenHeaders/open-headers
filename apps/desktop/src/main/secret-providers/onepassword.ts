@@ -69,18 +69,24 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+// The SDK's own texts when the companion app's library is absent on this
+// machine or failed to load into this process, beside the app-not-running shapes.
+const NOT_INSTALLED_MESSAGE =
+  /application not found|native library is not available|not running|unable to connect|could not connect|no desktop app|app is not/;
+
 /** The vendor's client-creation failures, read into a standing reason the chip can name. */
 function classifyClientFailure(message: string): SecretProviderUnavailableReason {
   const text = message.toLowerCase();
   if (/integrat|not enabled|disabled/.test(text)) return 'integration-disabled';
-  if (/not running|unable to connect|could not connect|no desktop app|app is not/.test(text)) return 'not-installed';
+  if (NOT_INSTALLED_MESSAGE.test(text)) return 'not-installed';
   if (/lock|denied|reject|cancel/.test(text)) return 'locked';
   return 'unreachable';
 }
 
-/** The vendor's resolve failures that mean "no such secret at this reference". */
+/** The vendor's resolve failures that mean "no such secret at this reference" —
+ *  the live text reads "no vault matched the secret reference query". */
 function isNotFoundMessage(message: string): boolean {
-  return /not found|no .*found|does not exist|invalid secret reference|parsing|unknown field|unknown item|unknown vault/i.test(
+  return /not found|no .*found|no .*matched|does not exist|invalid secret reference|parsing|unknown field|unknown item|unknown vault/i.test(
     message,
   );
 }
