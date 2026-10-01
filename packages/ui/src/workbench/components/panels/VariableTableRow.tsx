@@ -320,8 +320,11 @@ export function SortableRow({
         style={{
           padding: '2px 4px',
           display: 'flex',
-          flexDirection: isTotp ? 'column' : 'row',
-          alignItems: isTotp ? 'stretch' : 'center',
+          // TOTP and secret-manager rows stack their editor under the
+          // kind select — the connection and path block needs the
+          // column's full width (the kind select used to squeeze beside it).
+          flexDirection: isTotp || isSecretManager ? 'column' : 'row',
+          alignItems: isTotp || isSecretManager ? 'stretch' : 'center',
           gap: 4,
           borderLeft: `1px solid ${token.colorBorderSecondary}`,
           overflow: 'hidden',
@@ -342,114 +345,13 @@ export function SortableRow({
                 { value: 'client-certificate', label: t('workbench.variables.table.kindCertificate') },
                 { value: 'secret-manager', label: t('workbench.variables.table.kindSecretManager') },
               ]}
-              style={{ width: 112, flexShrink: 0 }}
+              // Wide enough for the longest kind label ("Secret Manager").
+              style={{ width: 156, flexShrink: 0 }}
               disabled={row.isPlaceholder}
               popupMatchSelectWidth={false}
             />
           )}
-          {isSecretManager ? (
-            (() => {
-              const locator = buildSecretLocator(row.smProvider, row.smConnectionId, row.smFields);
-              const providerConnections = connections.filter((c) => c.config.provider === row.smProvider);
-              const nodeHost = isNodeRequestRuntime();
-              // A stored id this device does not hold (a removed
-              // connection, a browser host) stays selectable so the row
-              // never silently drops it; it reads as its id.
-              const known = providerConnections.some((c) => c.uid === row.smConnectionId);
-              const connectionOptions = [
-                ...providerConnections.map((c) => {
-                  const description = describeSecretConnection(c);
-                  return { value: c.uid, label: description ? `${c.label} · ${description}` : c.label };
-                }),
-                ...(row.smConnectionId !== '' && !known ? [{ value: row.smConnectionId, label: row.smConnectionId }] : []),
-              ];
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <Select
-                      variant="borderless"
-                      size="small"
-                      value={row.smProvider}
-                      onChange={(v) =>
-                        update(index, { smProvider: v as SecretProviderId, smConnectionId: '', smFields: {} })
-                      }
-                      options={SECRET_PROVIDER_IDS.map((id) => ({ value: id, label: t(SM_PROVIDER_LABEL[id]) }))}
-                      style={{ minWidth: 140, flexShrink: 0 }}
-                      popupMatchSelectWidth={false}
-                      data-testid="vault-sm-provider"
-                    />
-                    <Select
-                      variant="borderless"
-                      size="small"
-                      value={row.smConnectionId === '' ? undefined : row.smConnectionId}
-                      placeholder={
-                        nodeHost
-                          ? t('workbench.variables.table.smConnectionPlaceholder')
-                          : t('workbench.variables.table.smConnectionDesktopOnly')
-                      }
-                      onChange={(v) => update(index, { smConnectionId: v })}
-                      options={connectionOptions}
-                      disabled={!nodeHost && connectionOptions.length === 0}
-                      notFoundContent={t('workbench.variables.table.smConnectionNone')}
-                      style={{ minWidth: 160, flexShrink: 0 }}
-                      popupMatchSelectWidth={false}
-                      data-testid="vault-sm-connection"
-                    />
-                    <SecretManagerStatusChip connectionId={row.smConnectionId} />
-                    {openSettings !== null && nodeHost && (
-                      <Button
-                        type="link"
-                        size="small"
-                        style={{ padding: 0, fontSize: 11, height: 'auto' }}
-                        onClick={() => openSettings({ settingKey: SECRET_MANAGERS_SETTING_KEY })}
-                        data-testid="vault-sm-manage"
-                      >
-                        {t('workbench.variables.table.smConnectionManage')}
-                      </Button>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {SECRET_LOCATOR_FIELDS[row.smProvider].map((spec) => (
-                      <Input
-                        key={spec.key}
-                        size="small"
-                        variant="borderless"
-                        value={row.smFields[spec.key] ?? ''}
-                        placeholder={
-                          spec.required
-                            ? t(SM_FIELD_LABEL[spec.key])
-                            : t('workbench.variables.table.smFieldOptional', { label: t(SM_FIELD_LABEL[spec.key]) })
-                        }
-                        onChange={(e) => update(index, { smFields: { ...row.smFields, [spec.key]: e.target.value } })}
-                        style={{
-                          fontFamily: "'SF Mono', 'Fira Code', monospace",
-                          fontSize: 12,
-                          padding: '4px 6px',
-                          flex: '1 1 140px',
-                          minWidth: 120,
-                        }}
-                        data-testid={`vault-sm-field-${spec.key}`}
-                      />
-                    ))}
-                  </div>
-                  {isSecretLocatorComplete(locator) && (
-                    <span
-                      style={{
-                        fontFamily: "'SF Mono', 'Fira Code', monospace",
-                        fontSize: 11,
-                        color: token.colorTextTertiary,
-                        padding: '0 6px 2px',
-                        overflowWrap: 'anywhere',
-                      }}
-                      data-testid="vault-sm-reference"
-                    >
-                      {formatSecretLocator(locator)}
-                    </span>
-                  )}
-                </div>
-              );
-            })()
-          ) : isCert ? (
+          {isSecretManager ? null : isCert ? (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
                 <ValueCell
@@ -606,6 +508,108 @@ export function SortableRow({
             </>
           )}
         </div>
+        {isSecretManager &&
+          (() => {
+            const locator = buildSecretLocator(row.smProvider, row.smConnectionId, row.smFields);
+            const providerConnections = connections.filter((c) => c.config.provider === row.smProvider);
+            const nodeHost = isNodeRequestRuntime();
+            // A stored id this device does not hold (a removed
+            // connection, a browser host) stays selectable so the row
+            // never silently drops it; it reads as its id.
+            const known = providerConnections.some((c) => c.uid === row.smConnectionId);
+            const connectionOptions = [
+              ...providerConnections.map((c) => {
+                const description = describeSecretConnection(c);
+                return { value: c.uid, label: description ? `${c.label} · ${description}` : c.label };
+              }),
+              ...(row.smConnectionId !== '' && !known ? [{ value: row.smConnectionId, label: row.smConnectionId }] : []),
+            ];
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <Select
+                    variant="borderless"
+                    size="small"
+                    value={row.smProvider}
+                    onChange={(v) =>
+                      update(index, { smProvider: v as SecretProviderId, smConnectionId: '', smFields: {} })
+                    }
+                    options={SECRET_PROVIDER_IDS.map((id) => ({ value: id, label: t(SM_PROVIDER_LABEL[id]) }))}
+                    style={{ minWidth: 140, flexShrink: 0 }}
+                    popupMatchSelectWidth={false}
+                    data-testid="vault-sm-provider"
+                  />
+                  <Select
+                    variant="borderless"
+                    size="small"
+                    value={row.smConnectionId === '' ? undefined : row.smConnectionId}
+                    placeholder={
+                      nodeHost
+                        ? t('workbench.variables.table.smConnectionPlaceholder')
+                        : t('workbench.variables.table.smConnectionDesktopOnly')
+                    }
+                    onChange={(v) => update(index, { smConnectionId: v })}
+                    options={connectionOptions}
+                    disabled={!nodeHost && connectionOptions.length === 0}
+                    notFoundContent={t('workbench.variables.table.smConnectionNone')}
+                    style={{ minWidth: 160, flexShrink: 0 }}
+                    popupMatchSelectWidth={false}
+                    data-testid="vault-sm-connection"
+                  />
+                  <SecretManagerStatusChip connectionId={row.smConnectionId} />
+                  {openSettings !== null && nodeHost && (
+                    <Button
+                      type="link"
+                      size="small"
+                      style={{ padding: 0, fontSize: 11, height: 'auto' }}
+                      onClick={() => openSettings({ settingKey: SECRET_MANAGERS_SETTING_KEY })}
+                      data-testid="vault-sm-manage"
+                    >
+                      {t('workbench.variables.table.smConnectionManage')}
+                    </Button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {SECRET_LOCATOR_FIELDS[row.smProvider].map((spec) => (
+                    <Input
+                      key={spec.key}
+                      size="small"
+                      variant="borderless"
+                      value={row.smFields[spec.key] ?? ''}
+                      placeholder={
+                        spec.required
+                          ? t(SM_FIELD_LABEL[spec.key])
+                          : t('workbench.variables.table.smFieldOptional', { label: t(SM_FIELD_LABEL[spec.key]) })
+                      }
+                      onChange={(e) => update(index, { smFields: { ...row.smFields, [spec.key]: e.target.value } })}
+                      style={{
+                        fontFamily: "'SF Mono', 'Fira Code', monospace",
+                        fontSize: 12,
+                        padding: '4px 6px',
+                        flex: '1 1 140px',
+                        minWidth: 120,
+                      }}
+                      data-testid={`vault-sm-field-${spec.key}`}
+                    />
+                  ))}
+                </div>
+                {isSecretLocatorComplete(locator) && (
+                  <span
+                    style={{
+                      fontFamily: "'SF Mono', 'Fira Code', monospace",
+                      fontSize: 11,
+                      color: token.colorTextTertiary,
+                      padding: '0 6px 2px',
+                      overflowWrap: 'anywhere',
+                    }}
+                    data-testid="vault-sm-reference"
+                  >
+                    {formatSecretLocator(locator)}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
         {isTotp && (
           <Collapse
             size="small"
