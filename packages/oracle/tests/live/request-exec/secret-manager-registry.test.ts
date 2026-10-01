@@ -5,7 +5,8 @@
  * installed in core's (default-null) registry and an injected
  * connection lookup: values land in the registry map, every failure
  * mode lands typed in the failures map, an unreferenced entry is never
- * touched, a connection is probed once per send, and nothing throws.
+ * touched, a connection is never probed (a send is a new attempt, the
+ * provider's resolve its authority), and nothing throws.
  */
 
 import {
@@ -67,7 +68,7 @@ describe('buildSecretManagerRegistry', () => {
     expect(out.failures.size).toBe(0);
   });
 
-  it('an unreferenced entry is never probed, resolved, or failed', async () => {
+  it('an unreferenced entry is never resolved or failed', async () => {
     let probes = 0;
     let resolves = 0;
     registerSecretProvider(
@@ -90,7 +91,7 @@ describe('buildSecretManagerRegistry', () => {
     expect(out.registry.get('Used')).toBe('v');
     expect(out.registry.has('Unused')).toBe(false);
     expect(out.failures.has('Unused')).toBe(false);
-    expect(probes).toBe(1);
+    expect(probes).toBe(0);
     expect(resolves).toBe(1);
   });
 
@@ -136,23 +137,28 @@ describe('buildSecretManagerRegistry', () => {
     expect(seen).toBe(WORK);
   });
 
-  it('probe unavailable degrades to typed `unavailable` without calling resolve', async () => {
-    let resolveCalled = false;
+  it('a connection whose probe reads a standing failure still resolves — the send is a new attempt', async () => {
+    let probes = 0;
+    let resolves = 0;
     registerSecretProvider(
       fakeProvider({
-        probe: async () => ({ available: false, reason: 'not-installed' }),
+        probe: async () => {
+          probes++;
+          return { available: false, reason: 'locked', detail: 'Denied authorization for SDK client' };
+        },
         resolve: async () => {
-          resolveCalled = true;
-          return { ok: true, value: 'never' };
+          resolves++;
+          return { ok: false, reason: 'authorization-required', detail: 'Denied authorization for SDK client' };
         },
       }),
     );
     const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), lookup);
-    expect(out.failures.get('ApiToken')).toBe('unavailable');
-    expect(resolveCalled).toBe(false);
+    expect(out.failures.get('ApiToken')).toBe('authorization-required');
+    expect(resolves).toBe(1);
+    expect(probes).toBe(0);
   });
 
-  it('one probe per connection for a send referencing several of its entries', async () => {
+  it('a send referencing several entries of one connection never probes it', async () => {
     let probes = 0;
     registerSecretProvider(
       fakeProvider({
@@ -168,7 +174,7 @@ describe('buildSecretManagerRegistry', () => {
       lookup,
     );
     expect(out.registry.size).toBe(3);
-    expect(probes).toBe(1);
+    expect(probes).toBe(0);
   });
 
   it("the provider's own typed resolve failures pass through verbatim", async () => {

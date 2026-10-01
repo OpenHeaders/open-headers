@@ -365,6 +365,9 @@ test('L3 — Send carrying the reference reads the gate; Copy as cURL never prom
     // reads the device's unavailability instead), never the bare line.
     const sendError = (await error.first().textContent()) ?? '';
     console.log(`[look] send error: ${sendError}`);
+    const after = await invoke<{ connections: Array<{ uid: string }> }>({ type: 'oh.secretManager.list' });
+    const uid = after.connections[0]?.uid;
+    console.log(`[look] probe after Send: ${JSON.stringify(await invoke({ type: 'oh.secretManager.probe', uid }))}`);
     expect(sendError).toContain('{{vault.opToken}}:');
     expect(sendError).not.toMatch(/variables\. Define them/);
   }
