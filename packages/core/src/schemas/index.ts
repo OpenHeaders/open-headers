@@ -5,6 +5,13 @@ export { MIN_SCHEMA_VERSION, RelativePathSchema, SchemaVersionSchema, UidSchema,
 export { DaemonConfigSchema } from './daemon-config';
 export { DaemonPrincipalKindSchema, DaemonUserRecordSchema } from './daemon-users';
 export { DeviceTrustedCertificateSchema, DeviceTrustSchema } from './device-trust';
+export {
+  HashicorpAuthMethodSchema,
+  OnePasswordAuthLaneSchema,
+  SecretManagerConnectionConfigSchema,
+  SecretManagerConnectionSchema,
+  SecretManagerConnectionsSchema,
+} from './secret-manager-connections';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
 export { GraphqlAuthSchema, GraphqlRequestSchema, GraphqlRequestSeedSchema } from './graphql-request';

@@ -42,6 +42,7 @@ export {
 } from './resolver';
 export type { RuleResolution } from './rule-resolver';
 export { resolveRule, resolveRuleConditions, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
+export { collectTemplateStringsDeep, collectTemplateVariableNames } from './referenced-names';
 export { collectRuleTemplateStrings } from './rule-templates';
 export type {
   CollectionEntry,

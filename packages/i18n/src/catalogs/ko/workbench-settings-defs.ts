@@ -442,6 +442,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': '기기 인증서',
   'workbench.settings.def.requests.deviceTrust.description':
     '워크스페이스 목록 옆에 이 컴퓨터가 고정하는 인증서입니다. 자체 서명한 localhost, 스테이징 서버 등. 동기화되거나 내보내지지 않으며, 이 기기에서 앱 런타임이 다이얼하는 모든 TLS 연결에 적용됩니다.',
+  'workbench.settings.def.secretManagers.connections.label': '연결',
+  'workbench.settings.def.secretManagers.connections.description':
+    '이 기기가 접근하는 시크릿 관리자 계정 또는 서버마다 한 행입니다. 시크릿 관리자 종류의 볼트 항목은 그중 하나와 그 안의 시크릿 경로를 지정하며, 시크릿 자체는 요청 실행 시 가져오고 저장되지 않습니다.',
   'workbench.settings.def.requests.systemTrust.label': '시스템 신뢰 저장소',
   'workbench.settings.def.requests.systemTrust.description':
     '이 컴퓨터의 운영 체제 저장소가 가진 인증서도 신뢰합니다. IT 프로필이 회사 프록시용으로 설치한 루트 등. 내장 루트, 워크스페이스 목록, 기기 고정 항목 옆에 추가되며, 동기화되거나 내보내지지 않습니다.',

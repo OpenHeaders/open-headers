@@ -19,17 +19,24 @@ const SM_SECRET: VaultSecret = {
   uid: 'abcd1234',
   kind: 'secret-manager',
   name: 'ApiToken',
-  locator: { provider: 'onepassword', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
+  locator: {
+    provider: 'onepassword',
+    connectionId: 'conn0001',
+    vault: 'Engineering',
+    item: 'api.openheaders.io',
+    field: 'token',
+  },
 };
 
 describe('secret-manager row codecs', () => {
-  it('secretsToLocal hydrates provider + flat locator fields', () => {
+  it('secretsToLocal hydrates provider + connection + flat path fields', () => {
     const rows = secretsToLocal([SM_SECRET]);
     expect(rows).toHaveLength(2); // + trailing placeholder
     const row = rows[0];
     expect(row.kind).toBe('secret-manager');
     expect(row.isSensitive).toBe(true);
     expect(row.smProvider).toBe('onepassword');
+    expect(row.smConnectionId).toBe('conn0001');
     expect(row.smFields).toEqual({ vault: 'Engineering', item: 'api.openheaders.io', field: 'token' });
   });
 
@@ -38,7 +45,7 @@ describe('secret-manager row codecs', () => {
     expect(secretsFromLocal(rows)).toEqual([SM_SECRET]);
   });
 
-  it('partial locator input survives serialization (forgiving persistence)', () => {
+  it('partial locator input survives serialization (forgiving persistence), a blank connection included', () => {
     const row = { ...emptyRow(false), kind: 'secret-manager' as const, name: 'Draft', smFields: { vault: 'Eng' } };
     const out = secretsFromLocal([row]);
     expect(out).toEqual([
@@ -46,9 +53,14 @@ describe('secret-manager row codecs', () => {
         uid: row.uid,
         kind: 'secret-manager',
         name: 'Draft',
-        locator: { provider: 'onepassword', vault: 'Eng', item: '', field: '' },
+        locator: { provider: 'onepassword', connectionId: '', vault: 'Eng', item: '', field: '' },
       },
     ]);
+  });
+
+  it('fingerprint changes when the connection changes', () => {
+    const other: VaultSecret = { ...SM_SECRET, locator: { ...SM_SECRET.locator, connectionId: 'conn0002' } };
+    expect(secretsFingerprint([other])).not.toBe(secretsFingerprint([SM_SECRET]));
   });
 
   it('fingerprint is insensitive to locator key order (chrome.storage alphabetizes)', () => {
@@ -58,7 +70,13 @@ describe('secret-manager row codecs', () => {
       uid: 'abcd1234',
       kind: 'secret-manager',
       name: 'ApiToken',
-      locator: { field: 'token', item: 'api.openheaders.io', provider: 'onepassword', vault: 'Engineering' },
+      locator: {
+        connectionId: 'conn0001',
+        field: 'token',
+        item: 'api.openheaders.io',
+        provider: 'onepassword',
+        vault: 'Engineering',
+      },
     };
     expect(secretsFingerprint([alphabetized])).toBe(secretsFingerprint([SM_SECRET]));
   });
@@ -68,6 +86,7 @@ describe('secret-manager row codecs', () => {
     expect(form['secrets.abcd1234.name']).toBe('ApiToken');
     expect(form['secrets.abcd1234.kind']).toBe('secret-manager');
     expect(form['secrets.abcd1234.locator.provider']).toBe('onepassword');
+    expect(form['secrets.abcd1234.locator.connectionId']).toBe('conn0001');
     expect(form['secrets.abcd1234.locator.vault']).toBe('Engineering');
     expect(form['secrets.abcd1234.locator.item']).toBe('api.openheaders.io');
     expect(form['secrets.abcd1234.locator.field']).toBe('token');

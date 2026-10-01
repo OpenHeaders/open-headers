@@ -193,6 +193,9 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
+  'workbench.settings.category.secretManagers.label': 'シークレットマネージャー',
+  'workbench.settings.category.secretManagers.description': 'このデバイスがボールト参照の解決に使う外部シークレットマネージャーへの接続。',
+  'workbench.settings.category.secretManagers.sub.connections': '接続',
   'workbench.settings.category.browserInterceptor.label': 'ブラウザーインターセプター',
   'workbench.settings.category.browserInterceptor.description':
     'ブラウザー側の面。トラフィックを書き換えるルールエンジン、デバッグプロトコルのアタッチ、DevTools パネル。',

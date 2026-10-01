@@ -51,8 +51,9 @@ export function projectSecretsToForm(secrets: readonly VaultSecret[]): Record<st
       if (s.passphrase !== undefined) out[`secrets.${s.uid}.passphrase`] = String(s.passphrase);
     } else if (s.kind === 'secret-manager') {
       out[`secrets.${s.uid}.locator.provider`] = s.locator.provider;
+      out[`secrets.${s.uid}.locator.connectionId`] = s.locator.connectionId;
       for (const [key, value] of Object.entries(s.locator)) {
-        if (key === 'provider' || typeof value !== 'string') continue;
+        if (key === 'provider' || key === 'connectionId' || typeof value !== 'string') continue;
         out[`secrets.${s.uid}.locator.${key}`] = value;
       }
     } else {

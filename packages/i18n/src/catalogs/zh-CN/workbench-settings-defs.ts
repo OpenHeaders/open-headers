@@ -413,6 +413,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': '设备证书',
   'workbench.settings.def.requests.deviceTrust.description':
     '本机在工作区列表之外固定的证书——自签名的 localhost、一台预发布服务器。绝不同步或导出；应用于从此设备建立的每个 TLS 连接。',
+  'workbench.settings.def.secretManagers.connections.label': '连接',
+  'workbench.settings.def.secretManagers.connections.description':
+    '此设备可达的每个机密管理器账户或服务器各占一行。类型为“机密管理器”的保险库条目指定其中一个连接以及其中某个机密的路径；机密本身在请求运行时获取，绝不存储。',
   'workbench.settings.def.requests.systemTrust.label': '系统信任库',
   'workbench.settings.def.requests.systemTrust.description':
     '同时信任本机操作系统信任库中的证书——例如 IT 配置为企业代理安装的根证书。与内置根证书、工作区列表和本设备的固定证书并列生效；从不同步或导出。',

@@ -485,6 +485,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Certificatele dispozitivului',
   'workbench.settings.def.requests.deviceTrust.description':
     'Certificatele pe care acest computer le fixează pe lângă lista spațiului de lucru — un localhost autosemnat, un server de staging. Niciodată sincronizate sau exportate; aplicate fiecărei conexiuni TLS stabilite de runtime-ul aplicației de pe acest dispozitiv.',
+  'workbench.settings.def.secretManagers.connections.label': 'Conexiuni',
+  'workbench.settings.def.secretManagers.connections.description':
+    'Un rând pentru fiecare cont sau server de manager de secrete pe care îl atinge acest dispozitiv. O intrare din seif de tip Manager de secrete numește unul dintre ele și calea către un secret din interior; secretul în sine este preluat când rulează o cerere și nu este stocat niciodată.',
   'workbench.settings.def.requests.systemTrust.label': 'Depozitul de încredere al sistemului',
   'workbench.settings.def.requests.systemTrust.description':
     'Acordă încredere și certificatelor din depozitul sistemului de operare al acestui computer — rădăcina instalată de un profil IT pentru un proxy corporativ. Adăugate pe lângă rădăcinile încorporate, lista spațiului de lucru și certificatele fixate ale dispozitivului; niciodată sincronizate sau exportate.',

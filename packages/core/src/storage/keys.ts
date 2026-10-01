@@ -53,6 +53,7 @@ import type {
   ResponseExample,
   Rule,
   ScriptPackage,
+  SecretManagerConnections,
   Spec,
   SyntheticIdentityRecord,
   SystemProxySettings,
@@ -522,6 +523,15 @@ export const OH = {
    * material, not sensitive.
    */
   deviceTrust: storageKey<DeviceTrust>('oh.deviceTrust'),
+  /**
+   * This device's secret-manager connections (the Secret Providers
+   * plan): where each external manager is and as whom it is reached —
+   * an account name, a profile and region, a vault URL, a server and
+   * auth method. Never a credential value. Host-local like the pins
+   * above: machine posture, never synced, never exported; the vault
+   * rows that reference a connection by id are the workspace side.
+   */
+  secretManagerConnections: storageKey<SecretManagerConnections>('oh.secretManagerConnections'),
   /**
    * The proxy plane's per-machine CA (the proxy-security design §2.1/§2.2) —
    * cert PEM + private key, minted on this machine at first trust and

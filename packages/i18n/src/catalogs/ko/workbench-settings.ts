@@ -193,6 +193,9 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
+  'workbench.settings.category.secretManagers.label': '시크릿 관리자',
+  'workbench.settings.category.secretManagers.description': '이 기기가 볼트 참조를 해석할 때 사용하는 외부 시크릿 관리자 연결입니다.',
+  'workbench.settings.category.secretManagers.sub.connections': '연결',
   'workbench.settings.category.browserInterceptor.label': '브라우저 인터셉터',
   'workbench.settings.category.browserInterceptor.description':
     '브라우저 측 계층입니다. 트래픽을 다시 쓰는 규칙 엔진, 디버깅 프로토콜 연결, DevTools 패널.',

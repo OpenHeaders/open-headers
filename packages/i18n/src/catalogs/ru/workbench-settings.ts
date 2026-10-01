@@ -216,6 +216,10 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
+  'workbench.settings.category.secretManagers.label': 'Менеджеры секретов',
+  'workbench.settings.category.secretManagers.description':
+    'Подключения к внешним менеджерам секретов, через которые это устройство разрешает ссылки хранилища.',
+  'workbench.settings.category.secretManagers.sub.connections': 'Подключения',
   'workbench.settings.category.browserInterceptor.label': 'Браузерный перехватчик',
   'workbench.settings.category.browserInterceptor.description':
     'Браузерная сторона — движок правил, переписывающий трафик, подключение протокола отладки и панель DevTools.',

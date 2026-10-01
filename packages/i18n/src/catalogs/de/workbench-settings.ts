@@ -205,6 +205,10 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
+  'workbench.settings.category.secretManagers.label': 'Secret-Manager',
+  'workbench.settings.category.secretManagers.description':
+    'Verbindungen zu den externen Secret-Managern, über die dieses Gerät Vault-Verweise auflöst.',
+  'workbench.settings.category.secretManagers.sub.connections': 'Verbindungen',
   'workbench.settings.category.browserInterceptor.label': 'Browser Interceptor',
   'workbench.settings.category.browserInterceptor.description':
     'Die Browser-Seite – die Regel-Engine, die den Verkehr umschreibt, das Anbinden des Debugging-Protokolls und das DevTools-Panel.',

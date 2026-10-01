@@ -23,6 +23,7 @@ import './inspection';
 import './traffic-monitor';
 import './editor';
 import './requests';
+import './secret-managers';
 import './rules-engine';
 import './backend';
 import './mcp';

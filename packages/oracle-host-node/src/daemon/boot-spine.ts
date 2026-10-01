@@ -88,6 +88,7 @@ import {
 } from '@openheaders/oracle/entity/request-scripts-review-store';
 import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
+import { loadSecretManagerConnections } from '@openheaders/oracle/entity/secret-manager-connections-store';
 import { setBlobBackend } from '@openheaders/oracle/files';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import {
@@ -214,6 +215,7 @@ import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { createProxyRoutingControl } from './proxy/routing-push';
 import { createPublicWorkspaceHttpHandler } from './public-workspace-http';
+import { handleSecretManagerRpc, isSecretManagerRpc } from './secret-manager-rpc';
 import { DEFAULT_SESSION_TTL_DAYS, sessionTtlMsFromDays } from './session-ttl';
 import { createDaemonSetupClaimService } from './setup/setup-claim-service';
 import { createSetupHttpHandler } from './setup/setup-http';
@@ -770,6 +772,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   // This device's pinned certificates — read synchronously by every TLS
   // dial after this one load (the Trusted Roots plan, device scope).
   await loadDeviceTrust();
+  // This device's secret-manager connections — read synchronously by
+  // every send's secret registry build after this one load (the Secret
+  // Providers plan).
+  await loadSecretManagerConnections();
 
   // Workspace-tree bindings (the git-sync plan Phase 2): reopen persisted
   // bindings now that services can materialize — each open runs the
@@ -1387,6 +1393,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     // presented-chain probe behind the response surface's trust gesture.
     if (isDeviceTrustRpc(type)) {
       return await handleDeviceTrustRpc(type, message);
+    }
+    // Secret managers — this device's connections, their probe and the
+    // settings list's authorization gesture.
+    if (isSecretManagerRpc(type)) {
+      return await handleSecretManagerRpc(type, message);
     }
     // Workbench "Copy as cURL / fetch" — resolve to the wire shape
     // without dispatching; same handler the extension SW answers with,

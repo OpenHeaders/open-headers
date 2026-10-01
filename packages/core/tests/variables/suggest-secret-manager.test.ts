@@ -20,7 +20,7 @@ describe('buildSuggestions — vault secret-manager entries', () => {
           {
             kind: 'secret-manager',
             name: 'ApiToken',
-            locator: { provider: 'onepassword', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
+            locator: { provider: 'onepassword', connectionId: 'conn0001', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
           },
         ],
       },
@@ -39,7 +39,7 @@ describe('buildSuggestions — vault secret-manager entries', () => {
     const out = buildSuggestions(
       {
         ...EMPTY_REGS,
-        vault: [{ kind: 'secret-manager', name: 'BwToken', locator: { provider: 'bitwarden', secretId: 'bw-id' } }],
+        vault: [{ kind: 'secret-manager', name: 'BwToken', locator: { provider: 'bitwarden', connectionId: 'conn0001', secretId: 'bw-id' } }],
       },
       {},
     );

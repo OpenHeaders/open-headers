@@ -563,6 +563,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Certificados del dispositivo',
   'workbench.settings.def.requests.deviceTrust.description':
     'Certificados que esta máquina fija además de la lista del espacio de trabajo — un localhost autofirmado, un servidor de staging. Nunca se sincronizan ni exportan; se aplican a cada conexión TLS establecida desde este dispositivo.',
+  'workbench.settings.def.secretManagers.connections.label': 'Conexiones',
+  'workbench.settings.def.secretManagers.connections.description':
+    'Una fila por cada cuenta o servidor de gestor de secretos al que llega este dispositivo. Una entrada del almacén de tipo Gestor de secretos nombra uno de ellos y la ruta a un secreto en su interior; el secreto en sí se obtiene al ejecutar una solicitud y nunca se almacena.',
   'workbench.settings.def.requests.systemTrust.label': 'Almacén de confianza del sistema',
   'workbench.settings.def.requests.systemTrust.description':
     'Confiar también en los certificados del almacén del sistema operativo de esta máquina — la raíz que un perfil de TI instaló para un proxy corporativo. Se añaden junto a las raíces integradas, la lista del espacio de trabajo y los certificados fijados del dispositivo; nunca se sincronizan ni exportan.',

@@ -53,7 +53,7 @@ import type { GrpcScriptKind } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
 import type { ExecutedGrpcSnapshot, GrpcRequest, Spec, Vault } from '@openheaders/core/types';
 import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
-import { resolveTemplate } from '@openheaders/core/variables';
+import { collectTemplateStringsDeep, collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
 import { peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { sessionDialPolicy } from '../dial-policy';
 import { collectionUidForRequest, resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
@@ -143,7 +143,13 @@ async function buildOracleResolution(
   request: GrpcRequest,
   options: ExecuteGrpcInvokeOptions,
 ): Promise<{ resolve: (template: string, unresolved: Set<string>) => string; vault: Vault }> {
-  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined);
+  // The secret-manager entries this session may resolve are the names
+  // the entity's own strings reference (the kind-agnostic walk — the
+  // session shapes have no field collector); a rider typed after the
+  // socket opens reads an unresolved entry honestly rather than
+  // prompting for every entry at Connect.
+  const secretNames = collectTemplateVariableNames(collectTemplateStringsDeep(request));
+  const { resolver, context: scope } = await buildResolver(options.workspaceId ?? undefined, undefined, secretNames);
   const context = {
     collectionId: collectionUidForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,

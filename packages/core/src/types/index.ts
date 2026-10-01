@@ -58,6 +58,14 @@ export type { DaemonConfig } from './daemon-config';
 // ── Daemon-local users (the daemon's directory; Phase 5 team tier) ──
 export type { DaemonPrincipalKind, DaemonUserRecord } from './daemon-users';
 export { type DeviceTrust, type DeviceTrustedCertificate, EMPTY_DEVICE_TRUST } from './device-trust';
+export {
+  EMPTY_SECRET_MANAGER_CONNECTIONS,
+  type HashicorpAuthMethod,
+  type OnePasswordAuthLane,
+  type SecretManagerConnection,
+  type SecretManagerConnectionConfig,
+  type SecretManagerConnections,
+} from './secret-manager-connections';
 // ── Editing-scope view state (per-tab snapshots + donor record) ──
 export type {
   DonorRecord,

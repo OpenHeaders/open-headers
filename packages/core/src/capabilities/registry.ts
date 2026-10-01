@@ -49,8 +49,6 @@ import type { ProbeConnectionResult, ProbeOptions } from '../identity/probe-conn
 import type { CompanionRevealTarget } from '../protocol/messages';
 import type { PublicWorkspaceSnapshotSummary } from '../protocol/public-workspace-snapshot';
 import type { ScriptExecutionMode } from '../scripts';
-import type { SecretProviderProbe } from '../secret-providers/types';
-import type { SecretProviderId } from '../types';
 
 /**
  * The online release-history reader behind
@@ -801,18 +799,6 @@ export interface Capabilities {
    * reach by design.
    */
   remoteScriptRuntime?: () => ScriptExecutionMode;
-
-  /**
-   * Probe a secret-manager provider's standing on the host that would
-   * resolve it — the Vault editor's status-chip source (L4 honest
-   * affordances: available, or unavailable with a typed why-not).
-   * Registered only by surfaces whose answering host installs secret
-   * providers (the desktop renderer, bridging to the main process once
-   * the first provider ships). Absent everywhere else — the chip then
-   * renders the honest "unavailable on this device" state, which is
-   * exactly what resolution would enforce.
-   */
-  secretProviderProbe?: (id: SecretProviderId) => Promise<SecretProviderProbe>;
 
   /**
    * The release notes bundled into this build, as markdown, or `null`

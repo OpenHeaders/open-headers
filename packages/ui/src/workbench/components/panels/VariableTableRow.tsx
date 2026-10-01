@@ -17,6 +17,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
   buildSecretLocator,
+  describeSecretConnection,
   formatSecretLocator,
   isSecretLocatorComplete,
   SECRET_LOCATOR_FIELDS,
@@ -25,12 +26,15 @@ import {
 import type { SecretProviderId } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { MessageKey } from '@openheaders/i18n';
-import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
+import { Button, Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 import { ConflictDiffChip, EntityField, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
+import { isNodeRequestRuntime } from '@openheaders/ui/shared/device-trust';
+import { SECRET_MANAGERS_SETTING_KEY, useSecretManagerConnections } from '@openheaders/ui/shared/secret-manager';
+import { useOpenSettings } from '../../hooks/OpenSettingsContext';
 import TotpPreview from '../totp/TotpPreview';
-import SecretProviderStatusChip from './SecretProviderStatusChip';
+import SecretManagerStatusChip, { SM_FIELD_LABEL, SM_PROVIDER_LABEL } from './SecretManagerStatusChip';
 import {
   gridColsFor,
   type LocalRow,
@@ -104,38 +108,6 @@ function ValueCell({ value, masked, onChange, onReveal, placeholder }: ValueCell
   );
 }
 
-// ── Secret-manager label catalogs ──────────────────────────────────
-// Explicit key maps (never computed template keys) so the message-key
-// union stays typecheckable — same idiom as the conflict adapters.
-
-const SM_PROVIDER_LABEL: Record<SecretProviderId, MessageKey> = {
-  onepassword: 'workbench.variables.table.smProvider.onepassword',
-  bitwarden: 'workbench.variables.table.smProvider.bitwarden',
-  oskeychain: 'workbench.variables.table.smProvider.oskeychain',
-  awssm: 'workbench.variables.table.smProvider.awssm',
-  azurekv: 'workbench.variables.table.smProvider.azurekv',
-  hashivault: 'workbench.variables.table.smProvider.hashivault',
-};
-
-const SM_FIELD_LABEL: Record<string, MessageKey> = {
-  vault: 'workbench.variables.table.smField.vault',
-  item: 'workbench.variables.table.smField.item',
-  field: 'workbench.variables.table.smField.field',
-  account: 'workbench.variables.table.smField.account',
-  secretId: 'workbench.variables.table.smField.secretId',
-  service: 'workbench.variables.table.smField.service',
-  name: 'workbench.variables.table.smField.name',
-  stage: 'workbench.variables.table.smField.stage',
-  region: 'workbench.variables.table.smField.region',
-  profile: 'workbench.variables.table.smField.profile',
-  vaultUrl: 'workbench.variables.table.smField.vaultUrl',
-  version: 'workbench.variables.table.smField.version',
-  mount: 'workbench.variables.table.smField.mount',
-  path: 'workbench.variables.table.smField.path',
-  key: 'workbench.variables.table.smField.key',
-  serverUrl: 'workbench.variables.table.smField.serverUrl',
-};
-
 // ── Sortable row ───────────────────────────────────────────────────
 
 interface SortableRowProps {
@@ -171,6 +143,10 @@ export function SortableRow({
 }: SortableRowProps) {
   const { token } = theme.useToken();
   const t = useT();
+  const openSettings = useOpenSettings();
+  // The connections live on the device that resolves — read by every
+  // row, cheap (one list, one subscription per table).
+  const { connections } = useSecretManagerConnections();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: row.uid,
     disabled: row.isPlaceholder,
@@ -373,21 +349,64 @@ export function SortableRow({
           )}
           {isSecretManager ? (
             (() => {
-              const locator = buildSecretLocator(row.smProvider, row.smFields);
+              const locator = buildSecretLocator(row.smProvider, row.smConnectionId, row.smFields);
+              const providerConnections = connections.filter((c) => c.config.provider === row.smProvider);
+              const nodeHost = isNodeRequestRuntime();
+              // A stored id this device does not hold (a removed
+              // connection, a browser host) stays selectable so the row
+              // never silently drops it; it reads as its id.
+              const known = providerConnections.some((c) => c.uid === row.smConnectionId);
+              const connectionOptions = [
+                ...providerConnections.map((c) => {
+                  const description = describeSecretConnection(c);
+                  return { value: c.uid, label: description ? `${c.label} · ${description}` : c.label };
+                }),
+                ...(row.smConnectionId !== '' && !known ? [{ value: row.smConnectionId, label: row.smConnectionId }] : []),
+              ];
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <Select
                       variant="borderless"
                       size="small"
                       value={row.smProvider}
-                      onChange={(v) => update(index, { smProvider: v as SecretProviderId, smFields: {} })}
+                      onChange={(v) =>
+                        update(index, { smProvider: v as SecretProviderId, smConnectionId: '', smFields: {} })
+                      }
                       options={SECRET_PROVIDER_IDS.map((id) => ({ value: id, label: t(SM_PROVIDER_LABEL[id]) }))}
                       style={{ minWidth: 140, flexShrink: 0 }}
                       popupMatchSelectWidth={false}
                       data-testid="vault-sm-provider"
                     />
-                    <SecretProviderStatusChip provider={row.smProvider} />
+                    <Select
+                      variant="borderless"
+                      size="small"
+                      value={row.smConnectionId === '' ? undefined : row.smConnectionId}
+                      placeholder={
+                        nodeHost
+                          ? t('workbench.variables.table.smConnectionPlaceholder')
+                          : t('workbench.variables.table.smConnectionDesktopOnly')
+                      }
+                      onChange={(v) => update(index, { smConnectionId: v })}
+                      options={connectionOptions}
+                      disabled={!nodeHost && connectionOptions.length === 0}
+                      notFoundContent={t('workbench.variables.table.smConnectionNone')}
+                      style={{ minWidth: 160, flexShrink: 0 }}
+                      popupMatchSelectWidth={false}
+                      data-testid="vault-sm-connection"
+                    />
+                    <SecretManagerStatusChip connectionId={row.smConnectionId} />
+                    {openSettings !== null && nodeHost && (
+                      <Button
+                        type="link"
+                        size="small"
+                        style={{ padding: 0, fontSize: 11, height: 'auto' }}
+                        onClick={() => openSettings({ settingKey: SECRET_MANAGERS_SETTING_KEY })}
+                        data-testid="vault-sm-manage"
+                      >
+                        {t('workbench.variables.table.smConnectionManage')}
+                      </Button>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     {SECRET_LOCATOR_FIELDS[row.smProvider].map((spec) => (

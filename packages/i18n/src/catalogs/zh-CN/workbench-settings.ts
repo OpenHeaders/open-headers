@@ -182,6 +182,9 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
+  'workbench.settings.category.secretManagers.label': '机密管理器',
+  'workbench.settings.category.secretManagers.description': '此设备解析保险库引用所经由的外部机密管理器连接。',
+  'workbench.settings.category.secretManagers.sub.connections': '连接',
   'workbench.settings.category.browserInterceptor.label': '浏览器拦截器',
   'workbench.settings.category.browserInterceptor.description':
     '浏览器侧平面：改写流量的规则引擎、调试协议的附加，以及 DevTools 面板。',

@@ -43,6 +43,7 @@ import type { ObservabilityRpc } from './observability';
 import type { ProductTelemetryRpc } from './product-telemetry';
 import type { RequestRpc } from './requests';
 import type { RuleRpc } from './rules';
+import type { SecretManagerRpc } from './secret-manager';
 import type { SecretsRpc } from './secrets';
 import type { ServerSignInRpc } from './server-sign-in';
 import type { SyncEngineRpc } from './sync-engine';
@@ -54,6 +55,7 @@ import type { WorkspaceRpc } from './workspace';
 export type { BridgeBroadcastContract, StorageInvalidationKind } from './broadcast';
 export type { FolderDescriptor, WorkspaceSnapshot } from './common';
 export type { DeviceTrustRpc, PresentedCertificateWire, SystemTrustWire } from './device-trust';
+export type { SecretManagerRpc } from './secret-manager';
 export type {
   CacheEntryDocumentWire,
   CacheEntryHeaderWire,
@@ -171,6 +173,7 @@ export interface BridgeRpcContract
     MigrationRpc,
     SystemProxyRpc,
     DeviceTrustRpc,
+    SecretManagerRpc,
     ProductTelemetryRpc,
     ServerSignInRpc,
     BackendProbeRpc {}

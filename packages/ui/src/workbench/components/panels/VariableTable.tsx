@@ -181,6 +181,7 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
               isPlaceholder: false,
               isSensitive: true,
               smProvider: 'onepassword',
+              smConnectionId: '',
               smFields: {},
             };
           } else {

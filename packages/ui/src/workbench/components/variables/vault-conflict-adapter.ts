@@ -32,6 +32,7 @@ const SECRET_PROVIDERS = ['onepassword', 'bitwarden', 'oskeychain', 'awssm', 'az
 // shareable by construction (the secret stays in the manager); masking
 // it would misrepresent its sensitivity. Provider transitions reshape
 // the record, so `locator.provider` is leaf-write-refused like `kind`.
+// The connection id is a device-local pointer, a plain leaf.
 const OPTIONAL = { coercion: 'optional-string' as const };
 const SECRET_LOCATOR_SCHEMA = union({
   discriminator: 'provider',
@@ -39,39 +40,40 @@ const SECRET_LOCATOR_SCHEMA = union({
   branches: {
     onepassword: obj({
       provider: enumLeaf(SECRET_PROVIDERS),
+      connectionId: leaf('string'),
       vault: leaf('string'),
       item: leaf('string'),
       field: leaf('string'),
-      account: leaf('string', OPTIONAL),
     }),
     bitwarden: obj({
       provider: enumLeaf(SECRET_PROVIDERS),
+      connectionId: leaf('string'),
       secretId: leaf('string'),
     }),
     oskeychain: obj({
       provider: enumLeaf(SECRET_PROVIDERS),
+      connectionId: leaf('string'),
       service: leaf('string'),
       account: leaf('string'),
     }),
     awssm: obj({
       provider: enumLeaf(SECRET_PROVIDERS),
+      connectionId: leaf('string'),
       name: leaf('string'),
       stage: leaf('string', OPTIONAL),
-      region: leaf('string', OPTIONAL),
-      profile: leaf('string', OPTIONAL),
     }),
     azurekv: obj({
       provider: enumLeaf(SECRET_PROVIDERS),
-      vaultUrl: leaf('string'),
+      connectionId: leaf('string'),
       name: leaf('string'),
       version: leaf('string', OPTIONAL),
     }),
     hashivault: obj({
       provider: enumLeaf(SECRET_PROVIDERS),
+      connectionId: leaf('string'),
       mount: leaf('string'),
       path: leaf('string'),
       key: leaf('string'),
-      serverUrl: leaf('string', OPTIONAL),
     }),
   },
 });
@@ -127,7 +129,7 @@ const VAULT_SCHEMA = obj({
 });
 
 const SECRET_PATH_RE =
-  /^secrets\.([a-z0-9]{8})\.(name|kind|value|seed|algorithm|digits|period|issuer|cert|key|passphrase|locator\.(?:provider|vault|item|field|account|secretId|service|name|stage|region|profile|vaultUrl|version|mount|path|key|serverUrl))$/;
+  /^secrets\.([a-z0-9]{8})\.(name|kind|value|seed|algorithm|digits|period|issuer|cert|key|passphrase|locator\.(?:provider|connectionId|vault|item|field|account|secretId|service|name|stage|version|mount|path|key))$/;
 
 // Locator leaf labels reuse the table's field vocabulary — one label
 // per field across the editor and the conflict surfaces.
@@ -144,6 +146,7 @@ const LEAF_LABEL: Record<string, MessageKey> = {
   key: 'shared.conflicts.label.vault.field.key',
   passphrase: 'shared.conflicts.label.vault.field.passphrase',
   'locator.provider': 'workbench.variables.table.smField.provider',
+  'locator.connectionId': 'workbench.variables.table.smConnection',
   'locator.vault': 'workbench.variables.table.smField.vault',
   'locator.item': 'workbench.variables.table.smField.item',
   'locator.field': 'workbench.variables.table.smField.field',
@@ -152,14 +155,10 @@ const LEAF_LABEL: Record<string, MessageKey> = {
   'locator.service': 'workbench.variables.table.smField.service',
   'locator.name': 'workbench.variables.table.smField.name',
   'locator.stage': 'workbench.variables.table.smField.stage',
-  'locator.region': 'workbench.variables.table.smField.region',
-  'locator.profile': 'workbench.variables.table.smField.profile',
-  'locator.vaultUrl': 'workbench.variables.table.smField.vaultUrl',
   'locator.version': 'workbench.variables.table.smField.version',
   'locator.mount': 'workbench.variables.table.smField.mount',
   'locator.path': 'workbench.variables.table.smField.path',
   'locator.key': 'workbench.variables.table.smField.key',
-  'locator.serverUrl': 'workbench.variables.table.smField.serverUrl',
 };
 
 type VaultEntity = Vault & { uid: string };

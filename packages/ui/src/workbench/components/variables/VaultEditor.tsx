@@ -47,6 +47,7 @@ import {
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { useOpenSettings } from '../../hooks/OpenSettingsContext';
 import { TRUSTED_ROOTS_SETTING_KEY } from '../trusted-roots/TrustedRootsPicker';
+import { SECRET_MANAGERS_SETTING_KEY } from '@openheaders/ui/shared/secret-manager';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import EditorHeader from '../shell/EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from '../panels/VariableTable';
@@ -323,6 +324,22 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
                   onClick={() => openSettings({ settingKey: TRUSTED_ROOTS_SETTING_KEY })}
                 >
                   {t('workbench.variables.vault.trustedRootsLink')}
+                </Button>
+              </div>
+            )}
+            {openSettings !== null && draft.some((s) => s.kind === 'secret-manager') && (
+              <div
+                style={{ marginBottom: 16, fontSize: 12, color: token.colorTextSecondary }}
+                data-testid="vault-secret-managers-note"
+              >
+                {t('workbench.variables.vault.secretManagersNote')}{' '}
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, fontSize: 12, height: 'auto' }}
+                  onClick={() => openSettings({ settingKey: SECRET_MANAGERS_SETTING_KEY })}
+                >
+                  {t('workbench.variables.vault.secretManagersLink')}
                 </Button>
               </div>
             )}

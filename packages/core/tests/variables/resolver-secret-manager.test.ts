@@ -11,7 +11,7 @@ function smEntry(name: string): VaultSecret {
     uid: 'sec-sm01',
     kind: 'secret-manager',
     name,
-    locator: { provider: 'onepassword', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
+    locator: { provider: 'onepassword', connectionId: 'conn0001', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
   };
 }
 

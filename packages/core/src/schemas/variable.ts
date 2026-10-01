@@ -100,11 +100,18 @@ export const VaultSecretClientCertificateSchema = v.object({
 
 // ── Secret-manager locators (discriminated on `provider`) ──────────
 // A `secret-manager` vault entry stores a structured REFERENCE into an
-// external secret manager — never the secret. Locator fields mirror
-// each provider's native addressing idiom; optional fields are
-// account/org disambiguation hints. References are not secret material:
-// they are team-shareable by construction, and resolution is gated by
-// the provider's own auth on each device.
+// external secret manager — never the secret. The reference names the
+// CONNECTION it resolves through (`connectionId` → a
+// `SecretManagerConnection` on the device that resolves) and carries
+// only the path into that manager, in the provider's native addressing
+// idiom; where the manager is and as whom it is reached belong to the
+// connection, never to the reference. References are not secret
+// material: they are team-shareable by construction, and resolution is
+// gated by the provider's own auth on each device.
+//
+// `connectionId` is forgiving (blank until the row picks one): a row
+// written before connections existed, or whose connection was removed,
+// still parses and stays inert with an honest status.
 
 export const SecretProviderIdSchema = v.picklist([
   'onepassword',
@@ -115,45 +122,45 @@ export const SecretProviderIdSchema = v.picklist([
   'hashivault',
 ]);
 
+const ConnectionIdSchema = v.optional(v.string(), '');
+
 export const SecretLocatorSchema = v.variant('provider', [
   v.object({
     provider: v.literal('onepassword'),
+    connectionId: ConnectionIdSchema,
     vault: v.string(),
     item: v.string(),
     field: v.string(),
-    /** Account hint for machines with more than one signed-in account. */
-    account: v.optional(v.string()),
   }),
   v.object({
     provider: v.literal('bitwarden'),
+    connectionId: ConnectionIdSchema,
     secretId: v.string(),
   }),
   v.object({
     provider: v.literal('oskeychain'),
+    connectionId: ConnectionIdSchema,
     service: v.string(),
     account: v.string(),
   }),
   v.object({
     provider: v.literal('awssm'),
+    connectionId: ConnectionIdSchema,
     name: v.string(),
     stage: v.optional(v.string()),
-    region: v.optional(v.string()),
-    /** Credential-chain profile hint. */
-    profile: v.optional(v.string()),
   }),
   v.object({
     provider: v.literal('azurekv'),
-    vaultUrl: v.string(),
+    connectionId: ConnectionIdSchema,
     name: v.string(),
     version: v.optional(v.string()),
   }),
   v.object({
     provider: v.literal('hashivault'),
+    connectionId: ConnectionIdSchema,
     mount: v.string(),
     path: v.string(),
     key: v.string(),
-    /** Server hint when more than one server is configured. */
-    serverUrl: v.optional(v.string()),
   }),
 ]);
 

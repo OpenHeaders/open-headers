@@ -69,10 +69,13 @@ export interface LocalRow {
   // ── Secret-manager-only fields ──
   /** Provider id driving the locator field set. */
   smProvider: SecretProviderId;
-  /** Flat locator field values, keyed by the provider's locator field
-   *  names (see `SECRET_LOCATOR_FIELDS`). Serialized back to the typed
-   *  `SecretLocator` via `buildSecretLocator` — forgiving, so partial
-   *  input survives a save; completeness is a status hint, not a gate. */
+  /** The connection the reference resolves through; blank until picked. */
+  smConnectionId: string;
+  /** Flat locator PATH field values, keyed by the provider's locator
+   *  field names (see `SECRET_LOCATOR_FIELDS`). Serialized back to the
+   *  typed `SecretLocator` via `buildSecretLocator` — forgiving, so
+   *  partial input survives a save; completeness is a status hint, not
+   *  a gate. */
   smFields: Record<string, string>;
 }
 
@@ -111,6 +114,7 @@ export function emptyRow(isPlaceholder: boolean): LocalRow {
     cert: '',
     certKey: '',
     smProvider: 'onepassword',
+    smConnectionId: '',
     smFields: {},
   };
 }
@@ -185,6 +189,7 @@ export function secretsToLocal(secrets: VaultSecret[]): LocalRow[] {
         name: s.name,
         isSensitive: true,
         smProvider: s.locator.provider,
+        smConnectionId: s.locator.connectionId,
         smFields: secretLocatorToFields(s.locator),
       };
     }
@@ -231,7 +236,7 @@ export function secretsFromLocal(rows: LocalRow[]): VaultSecret[] {
         uid: row.uid,
         kind: 'secret-manager',
         name,
-        locator: buildSecretLocator(row.smProvider, row.smFields),
+        locator: buildSecretLocator(row.smProvider, row.smConnectionId, row.smFields),
       });
     } else {
       out.push({ uid: row.uid, kind: 'string', name, value: row.value });
@@ -256,6 +261,7 @@ export function secretsFingerprint(secrets: VaultSecret[]): string {
           s.uid,
           s.name,
           s.locator.provider,
+          s.locator.connectionId,
           ...SECRET_LOCATOR_FIELDS[s.locator.provider].map((spec) => fields[spec.key] ?? ''),
         ];
       }

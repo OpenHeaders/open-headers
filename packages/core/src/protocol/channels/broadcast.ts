@@ -94,6 +94,12 @@ export interface BridgeBroadcastContract {
    */
   deviceTrustChanged: { count: number };
   /**
+   * This device's secret-manager connection list changed (a settings
+   * add, update or remove). Invalidation only — readers refetch through
+   * `oh.secretManager.list`.
+   */
+  secretManagerConnectionsChanged: { count: number };
+  /**
    * Fires on any workspace list mutation (create/rename/delete/reorder)
    * AND on active-workspace switch. UI surfaces re-read rules, templates,
    * environments, and pause markers on this event — one atomic refetch

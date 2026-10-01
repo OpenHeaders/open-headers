@@ -109,16 +109,28 @@ describe('VaultSchema', () => {
   it('accepts a secret-manager entry with a per-provider structured locator', () => {
     const base = { uid: 'abcd1234', kind: 'secret-manager', name: 'api-token' };
     const locators = [
-      { provider: 'onepassword', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
-      { provider: 'onepassword', vault: 'Engineering', item: 'api.openheaders.io', field: 'token', account: 'work' },
-      { provider: 'bitwarden', secretId: 'bw-secret-id' },
-      { provider: 'oskeychain', service: 'openheaders.io', account: 'daniel' },
-      { provider: 'awssm', name: 'db-password', stage: 'AWSCURRENT', region: 'eu-west-1' },
-      { provider: 'azurekv', vaultUrl: 'https://oh.vault.azure.net', name: 'token' },
-      { provider: 'hashivault', mount: 'kv', path: 'apps/openheaders', key: 'token' },
+      { provider: 'onepassword', connectionId: 'conn0001', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
+      { provider: 'bitwarden', connectionId: 'conn0001', secretId: 'bw-secret-id' },
+      { provider: 'oskeychain', connectionId: 'conn0001', service: 'openheaders.io', account: 'daniel' },
+      { provider: 'awssm', connectionId: 'conn0001', name: 'db-password', stage: 'AWSCURRENT' },
+      { provider: 'azurekv', connectionId: 'conn0001', name: 'token', version: 'v2' },
+      { provider: 'hashivault', connectionId: 'conn0001', mount: 'kv', path: 'apps/openheaders', key: 'token' },
     ];
     for (const locator of locators) {
       expect(v.safeParse(VaultSchema, { schemaVersion: 5, secrets: [{ ...base, locator }] }).success).toBe(true);
+    }
+  });
+
+  it('a secret-manager locator without a connection id parses with the blank default (forgiving)', () => {
+    const base = { uid: 'abcd1234', kind: 'secret-manager', name: 'api-token' };
+    const parsed = v.safeParse(VaultSchema, {
+      schemaVersion: 5,
+      secrets: [{ ...base, locator: { provider: 'onepassword', vault: 'Engineering', item: 'x', field: 'token' } }],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      const secret = parsed.output.secrets[0];
+      expect(secret?.kind === 'secret-manager' && secret.locator.connectionId).toBe('');
     }
   });
 

@@ -1,6 +1,15 @@
 export {
+  buildSecretConnectionConfig,
+  describeSecretConnection,
+  isSecretConnectionConfigComplete,
+  SECRET_CONNECTION_FIELDS,
+  type SecretConnectionFieldSpec,
+  secretConnectionConfigToFields,
+} from './connection';
+export {
   buildSecretLocator,
   formatSecretLocator,
+  hasSecretLocatorConnection,
   isSecretLocatorComplete,
   SECRET_LOCATOR_FIELDS,
   SECRET_PROVIDER_IDS,
@@ -16,6 +25,7 @@ export {
 export type {
   SecretAuthorizeResult,
   SecretLocator,
+  SecretManagerConnection,
   SecretProvider,
   SecretProviderId,
   SecretProviderProbe,

@@ -59,10 +59,14 @@ export async function handleResolveRequestWireRpc(
 
   try {
     const refreshOAuth = makeRefreshOAuth?.(workspaceId ?? undefined);
+    // A copied command never carries a provider-resolved secret (the
+    // Secret Providers plan's redaction law) and copying never prompts:
+    // the secret-manager entries stay unresolved here.
     const { resolved } = await resolveRequest(request, {
       ...(workspaceId !== null ? { workspaceId } : {}),
       ...(environmentId !== undefined ? { environmentId } : {}),
       ...(refreshOAuth ? { refreshOAuth } : {}),
+      resolveSecretManager: false,
     });
     return {
       success: true,

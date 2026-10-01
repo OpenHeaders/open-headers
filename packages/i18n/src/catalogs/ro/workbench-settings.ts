@@ -220,6 +220,10 @@ export const workbenchSettings = {
   'workbench.settings.category.requests.sub.grpc': 'gRPC',
   'workbench.settings.category.requests.sub.websocket': 'WebSocket',
   'workbench.settings.category.requests.sub.mqtt': 'MQTT',
+  'workbench.settings.category.secretManagers.label': 'Manageri de secrete',
+  'workbench.settings.category.secretManagers.description':
+    'Conexiunile la managerii de secrete externi prin care acest dispozitiv rezolvă referințele din seif.',
+  'workbench.settings.category.secretManagers.sub.connections': 'Conexiuni',
   'workbench.settings.category.browserInterceptor.label': 'Interceptor de browser',
   'workbench.settings.category.browserInterceptor.description':
     'Planul din browser — motorul de reguli care rescrie traficul, atașarea la protocolul de depanare și panoul DevTools.',

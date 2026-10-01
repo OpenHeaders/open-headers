@@ -22,6 +22,7 @@ import { generateTotp } from '@openheaders/core/totp';
 import type {
   Collection,
   Environment,
+  SecretManagerConnection,
   Vault,
   VaultSecretManager,
   VaultSecretTotp,
@@ -51,6 +52,7 @@ import {
   getCollections as getRuleCollections,
   getCollectionsForWorkspace as getRuleCollectionsForWorkspace,
 } from '../../entity/rule-store';
+import { getSecretManagerConnection } from '../../entity/secret-manager-connections-store';
 import { getTemplateCollections, getTemplateCollectionsForWorkspace } from '../../entity/template-store';
 import { getLiveRegistrySnapshot, getLiveRegistrySnapshotForWorkspace } from '../../rule-engine/variables-resolver';
 
@@ -111,15 +113,26 @@ async function readPerWorkspaceScope(workspaceId: string): Promise<ExecutionScop
   };
 }
 
+/** The empty referenced set — a resolver that resolves no secret-manager entry (the compile-safe default). */
+export const NO_SECRET_NAMES: ReadonlySet<string> = new Set();
+
 /**
  * Build the resolver and capture the per-execution scope used for
  * {{ref}} resolution. Returns the vault snapshot alongside so the caller
  * can index TOTP entries by name without re-reading a store that may
  * have rotated between calls.
+ *
+ * `secretNames` is the set of vault entry names the operation's
+ * templates reference (`collectTemplateVariableNames` over the
+ * operation's strings): only those `kind: 'secret-manager'` entries are
+ * resolved through their providers, so an unreferenced entry never
+ * triggers a provider's prompt. Absent = none — the copy-as-command and
+ * compile-adjacent paths stay prompt-free and value-free by default.
  */
 export async function buildResolver(
   workspaceId: string | undefined,
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>,
+  secretNames: ReadonlySet<string> = NO_SECRET_NAMES,
 ): Promise<{ resolver: VariableResolver; context: ResolverContext }> {
   const resolver = new VariableResolver();
   const scope = workspaceId ? await readPerWorkspaceScope(workspaceId) : readActiveScope();
@@ -131,10 +144,11 @@ export async function buildResolver(
   // TOTP scope — precompute the current code for every kind:'totp' vault
   // entry so the resolver's `vault` arm returns them synchronously.
   resolver.setTotpRegistry(await buildTotpRegistry(scope.vault));
-  // Secret-manager scope — batch-resolve every kind:'secret-manager'
-  // entry through the host's provider registry (empty on hosts without
-  // providers — every entry then carries a typed `unavailable` failure).
-  const secretManager = await buildSecretManagerRegistry(scope.vault);
+  // Secret-manager scope — batch-resolve the REFERENCED kind:'secret-
+  // manager' entries through their connections and the host's provider
+  // registry (empty on hosts without providers — every entry then
+  // carries a typed `unavailable` failure).
+  const secretManager = await buildSecretManagerRegistry(scope.vault, secretNames);
   resolver.setSecretManagerRegistry(secretManager.registry, secretManager.failures);
   // Live scope — for an Active-workspace dispatch read the snapshot that
   // backs the DNR compile pipeline; for a per-workspace dispatch read the
@@ -205,47 +219,85 @@ export interface SecretManagerSnapshot {
 }
 
 /**
- * Batch-resolve every `kind: 'secret-manager'` vault entry through the
- * host's provider registry — the per-execution counterpart of
- * {@link buildTotpRegistry}, awaited concurrently. Values live only in
- * the returned map for the duration of the execution (L1: never
- * persisted, re-resolved per send). Every failure is typed, keyed by
- * entry name:
- *   - provider not installed on this host, or probe says unavailable
- *     → `unavailable`
+ * Batch-resolve the referenced `kind: 'secret-manager'` vault entries
+ * through their connections and the host's provider registry — the
+ * per-execution counterpart of {@link buildTotpRegistry}. Values live
+ * only in the returned map for the duration of the execution (L1:
+ * never persisted, re-resolved per send). Entries not in
+ * `referencedNames` are left alone — never probed, never resolved, so
+ * they can never prompt (the plan's binding rule). Every failure is
+ * typed, keyed by entry name:
+ *   - the entry names no connection, or one this device no longer
+ *     holds, or no provider for its kind is installed here, or the
+ *     connection's probe says unavailable → `unavailable`
  *   - the provider's own resolve failure passes through verbatim
  *     (`authorization-required` / `not-found` / `unavailable`).
+ *
+ * Entries are grouped per connection: one probe per connection, then
+ * the entries resolve concurrently. `lookupConnection` is the store's
+ * read by default; tests inject their own.
  */
-export async function buildSecretManagerRegistry(vault: Vault): Promise<SecretManagerSnapshot> {
-  const entries = vault.secrets.filter((s): s is VaultSecretManager => s.kind === 'secret-manager');
+export async function buildSecretManagerRegistry(
+  vault: Vault,
+  referencedNames: ReadonlySet<string>,
+  lookupConnection: (uid: string) => SecretManagerConnection | undefined = getSecretManagerConnection,
+): Promise<SecretManagerSnapshot> {
   const registry = new Map<string, string>();
   const failures = new Map<string, SecretResolveFailureReason>();
+  const entries = vault.secrets.filter(
+    (s): s is VaultSecretManager => s.kind === 'secret-manager' && referencedNames.has(s.name),
+  );
   if (entries.length === 0) return { registry, failures };
+  const byConnection = new Map<string, VaultSecretManager[]>();
+  for (const entry of entries) {
+    const key = entry.locator.connectionId;
+    const group = byConnection.get(key);
+    if (group) group.push(entry);
+    else byConnection.set(key, [entry]);
+  }
+  const failGroup = (group: VaultSecretManager[], reason: SecretResolveFailureReason): void => {
+    for (const entry of group) failures.set(entry.name, reason);
+  };
   await Promise.all(
-    entries.map(async (entry) => {
-      const provider = getSecretProvider(entry.locator.provider);
+    [...byConnection].map(async ([connectionId, group]) => {
+      const connection = connectionId === '' ? undefined : lookupConnection(connectionId);
+      if (!connection) {
+        failGroup(group, 'unavailable');
+        return;
+      }
+      const provider = getSecretProvider(connection.config.provider);
       if (!provider) {
-        failures.set(entry.name, 'unavailable');
+        failGroup(group, 'unavailable');
         return;
       }
       try {
-        const probe = await provider.probe();
+        const probe = await provider.probe(connection);
         if (!probe.available) {
-          failures.set(entry.name, 'unavailable');
+          failGroup(group, 'unavailable');
           return;
         }
-        const result = await provider.resolve(entry.locator);
-        if (result.ok) {
-          registry.set(entry.name, result.value);
-        } else {
-          failures.set(entry.name, result.reason);
-        }
       } catch (err) {
-        // Providers are non-throwing by contract; a throw is a bug in
-        // the implementation — degrade to the honest typed failure.
-        logger.info('RequestExec', `Secret resolve failed for '${entry.name}': ${(err as Error).message}`);
-        failures.set(entry.name, 'unavailable');
+        logger.info('RequestExec', `Secret probe failed for '${connection.label}': ${(err as Error).message}`);
+        failGroup(group, 'unavailable');
+        return;
       }
+      await Promise.all(
+        group.map(async (entry) => {
+          try {
+            const result = await provider.resolve(connection, entry.locator);
+            if (result.ok) {
+              registry.set(entry.name, result.value);
+            } else {
+              failures.set(entry.name, result.reason);
+            }
+          } catch (err) {
+            // Providers are non-throwing by contract; a throw is a bug in
+            // the implementation — degrade to the honest typed failure.
+            logger.info('RequestExec', `Secret resolve failed for '${entry.name}': ${(err as Error).message}`);
+            failures.set(entry.name, 'unavailable');
+          }
+        }),
+      );
     }),
   );
   return { registry, failures };

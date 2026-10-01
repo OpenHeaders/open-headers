@@ -13,9 +13,9 @@
  * values over existing wires and never hold a provider instance.
  */
 
-import type { SecretLocator, SecretProviderId } from '../types';
+import type { SecretLocator, SecretManagerConnection, SecretProviderId } from '../types';
 
-export type { SecretLocator, SecretProviderId } from '../types';
+export type { SecretLocator, SecretManagerConnection, SecretProviderId } from '../types';
 
 /**
  * Why a registered provider can't serve resolves right now. Distinct
@@ -59,7 +59,11 @@ export type SecretResolution =
 export type SecretAuthorizeResult = { ok: true } | { ok: false; detail?: string };
 
 /**
- * One external secret manager behind the seam.
+ * One external secret manager behind the seam. Every call names the
+ * CONNECTION it acts through — the provider is the integration, the
+ * connection is one configured instance of it (an account, a server,
+ * a profile); a provider holds no instance state of its own beyond
+ * what it caches per connection.
  *
  * `yields` declares what `resolve` produces — `'concealed-string'` is
  * the only yield today (TOTP yield is deferred, demand-gated). The
@@ -73,14 +77,19 @@ export type SecretAuthorizeResult = { ok: true } | { ok: false; detail?: string 
 export interface SecretProvider {
   readonly id: SecretProviderId;
   readonly yields: 'concealed-string';
-  /** Is the provider usable right now, and if not, why not. */
-  probe(): Promise<SecretProviderProbe>;
   /**
-   * Kick off the provider's interactive authorization when it supports
-   * one (a broker prompt, a device flow). Absent on providers whose
+   * Is the connection usable right now, and if not, why not. Side-effect
+   * free by contract: a probe never prompts the user — the status chip
+   * and the settings list call it freely.
+   */
+  probe(connection: SecretManagerConnection): Promise<SecretProviderProbe>;
+  /**
+   * Kick off the connection's interactive authorization when the
+   * provider supports one (a broker prompt, a device flow) — the
+   * settings list's Test / Sign in gesture. Absent on providers whose
    * auth is entirely ambient (credential chains, OS ACL prompts).
    */
-  authorize?(): Promise<SecretAuthorizeResult>;
-  /** Resolve one locator to its current secret value. */
-  resolve(locator: SecretLocator): Promise<SecretResolution>;
+  authorize?(connection: SecretManagerConnection): Promise<SecretAuthorizeResult>;
+  /** Resolve one locator through the connection to its current secret value. */
+  resolve(connection: SecretManagerConnection, locator: SecretLocator): Promise<SecretResolution>;
 }

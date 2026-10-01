@@ -31,6 +31,7 @@ import {
   FundViewOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
+  KeyOutlined,
   LayoutOutlined,
   LinkOutlined,
   RobotOutlined,
@@ -461,6 +462,20 @@ registerCategory({
     { id: 'grpc', labelKey: 'workbench.settings.category.requests.sub.grpc', order: 30 },
     { id: 'websocket', labelKey: 'workbench.settings.category.requests.sub.websocket', order: 40 },
     { id: 'mqtt', labelKey: 'workbench.settings.category.requests.sub.mqtt', order: 50 },
+  ],
+});
+
+registerCategory({
+  id: 'secretManagers',
+  labelKey: 'workbench.settings.category.secretManagers.label',
+  icon: <KeyOutlined />,
+  order: 55,
+  descriptionKey: 'workbench.settings.category.secretManagers.description',
+  // The connections live on the device that resolves (the desktop
+  // app, a served daemon); a browser host shows the list read-only
+  // with the honest note until its loopback leg lands.
+  subcategories: [
+    { id: 'connections', labelKey: 'workbench.settings.category.secretManagers.sub.connections', order: 10 },
   ],
 });
 

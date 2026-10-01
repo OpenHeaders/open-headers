@@ -47,6 +47,7 @@ import type { BridgeRpcResponse } from '@openheaders/core/bridge';
 import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { CHROMIUM_EXTENSION_IDS, GECKO_EXTENSION_IDS } from '@openheaders/core/protocol';
+import { registerSecretProvider } from '@openheaders/core/secret-providers';
 import { OH } from '@openheaders/core/storage';
 import { activatedPlanFromLicenseSnapshot, type TelemetryEvent } from '@openheaders/core/telemetry';
 import {
@@ -114,6 +115,7 @@ import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beaco
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { safeStorageCipher } from './safe-storage-cipher';
 import { installScriptSandbox } from './script-sandbox';
+import { createOnePasswordProvider } from './secret-providers/onepassword';
 import { createServerSignInRpc } from './server-sign-in';
 import { describeOsProxy } from './system-proxy-describe';
 import { installSystemProxyService } from './system-proxy-install';
@@ -380,6 +382,12 @@ export async function installRpcHost(): Promise<void> {
         TRAFFIC_SEAL_KEY_FILE_DESKTOP,
       ),
     );
+
+  // Secret managers (the Secret Providers plan): the providers this
+  // process resolves vault references through. Registered before the
+  // spine boots so the first send already finds them; the vendor SDK
+  // itself loads on first use.
+  registerSecretProvider(createOnePasswordProvider({ integrationVersion: app.getVersion() }));
 
   const spine = await bootDaemonSpine({
     dataDir: dataDir(),

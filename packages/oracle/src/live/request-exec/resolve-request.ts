@@ -22,6 +22,7 @@ import type {
   JwtCredentials,
   OAuth1Credentials,
 } from '@openheaders/core/auth-signing';
+import { collectRequestTemplateStrings } from '@openheaders/core/live';
 import { boundDpopKeyOf, DPOP_TOKEN_TYPE, type OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
 import type {
   AuthConfig,
@@ -38,7 +39,7 @@ import type {
   VaultSecretTotp,
 } from '@openheaders/core/types';
 import { appendQueryParams, encodeBase64Bytes, isRequestResolvable } from '@openheaders/core/utils';
-import { resolveTemplate } from '@openheaders/core/variables';
+import { collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { resolveProxyCredential } from '../dial-policy';
 import { resolveClientCertificate } from '../tls-policy';
@@ -252,6 +253,14 @@ export interface ResolveRequestOptions {
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** Host hook to refresh an expired OAuth token before attaching it. */
   refreshOAuth?: OAuthRefreshFn;
+  /**
+   * Resolve the `kind: 'secret-manager'` vault entries the request
+   * references through their providers (a provider may prompt). The
+   * send paths do; the copy-as-command path passes `false` so a
+   * resolved secret never enters a copied command (L3) and copying
+   * never prompts — the entries then read unresolved.
+   */
+  resolveSecretManager?: boolean;
 }
 
 /** Thrown when any `{{ref}}` in the request can't be resolved against
@@ -268,28 +277,39 @@ export async function resolveRequest(
   request: Request,
   options: ResolveRequestOptions,
 ): Promise<ResolvedRequestOutcome> {
-  const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures);
-  // The collection scope reads off the same ancestor chain the auth
-  // walk uses — the tree index, never the request's stored path.
-  const context = {
-    collectionId: collectionUidForRequest(request, scope.workspaceId),
-    environmentId: options.environmentId,
-  };
-
+  // The scope the chain walks below is the pinned workspace, else the
+  // runtime-Active one — the same value the resolver's context carries.
+  const scopeWorkspaceId = options.workspaceId ?? null;
   // `inherit` resolves against the ancestor chain BEFORE the
   // resolvability gate — the inherited config's own templates (a
   // collection-level `{{auth_token}}` bearer) must pass the same gate
   // explicit request auth does, or a literal `{{ref}}` ships on the
   // wire. A disabled inherit resolves too (the attribution names what
   // was suspended); `applyAuth` skips the disabled contribution whole.
-  const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scope.workspaceId);
+  const { auth: effectiveAuth, attribution: authAttribution } = resolveRequestAuth(request, scopeWorkspaceId);
   // The settings knobs cascade over the same chain — the request's own
   // defined knob wins, an absent one reads the nearest ancestor that
   // sets it (THE core rule). The effective knobs compose the tail of
   // the resolved request below, and an inherited SNI template passes
   // the gate exactly like the request's own.
-  const { settings, attribution: settingsAttribution } = resolveRequestSettings('http', request, scope.workspaceId);
+  const { settings, attribution: settingsAttribution } = resolveRequestSettings('http', request, scopeWorkspaceId);
   const gated: Request = { ...request, ...settings, auth: effectiveAuth };
+
+  // The secret-manager entries this send may resolve are exactly the
+  // names its templates reference — the effective request's, so an
+  // inherited bearer's `{{vault.X}}` counts and a disabled row's does
+  // not. Nothing else is ever probed or prompted for.
+  const secretNames =
+    options.resolveSecretManager === false
+      ? undefined
+      : collectTemplateVariableNames(collectRequestTemplateStrings(gated));
+  const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures, secretNames);
+  // The collection scope reads off the same ancestor chain the auth
+  // walk uses — the tree index, never the request's stored path.
+  const context = {
+    collectionId: collectionUidForRequest(request, scope.workspaceId),
+    environmentId: options.environmentId,
+  };
 
   // Architectural gate: refuse to dispatch when any `{{ref}}` can't be
   // resolved.
