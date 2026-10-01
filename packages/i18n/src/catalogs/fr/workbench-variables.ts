@@ -65,6 +65,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': 'Accès refusé',
   'workbench.variables.table.smStatus.unreachable': 'Injoignable',
   'workbench.variables.table.smStatus.noConnection': 'Aucune connexion sélectionnée',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    'L’application 1Password n’a pas accepté la connexion. Vérifiez que le nom du compte correspond à sa barre latérale et que Réglages › Développeur › Intégrer avec les SDK 1Password est activé.',
   'workbench.variables.table.smConnection': 'Connexion',
   'workbench.variables.table.smConnectionPlaceholder': 'Connexion…',
   'workbench.variables.table.smConnectionDesktopOnly': 'À configurer dans l’application de bureau',
@@ -73,6 +75,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': 'Authentification',
   'workbench.variables.table.smField.auth.app': 'Application de bureau (biométrie)',
   'workbench.variables.table.smField.auth.serviceAccount': 'Jeton de compte de service (environnement)',
+  'workbench.variables.table.smField.auth.appHint':
+    'Nécessite l’application 1Password avec Réglages › Développeur › Intégrer avec les SDK 1Password activé ; le nom du compte est celui affiché dans sa barre latérale.',
   'workbench.variables.table.smField.namespace': 'Espace de noms',
   'workbench.variables.table.smField.authMethod': 'Méthode d’authentification',
   'workbench.variables.table.smField.authMethod.token': 'Jeton',

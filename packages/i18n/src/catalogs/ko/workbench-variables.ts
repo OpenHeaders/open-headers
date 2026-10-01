@@ -77,6 +77,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': '접근 거부됨',
   'workbench.variables.table.smStatus.unreachable': '연결할 수 없음',
   'workbench.variables.table.smStatus.noConnection': '선택된 연결 없음',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    '1Password 앱이 연결을 수락하지 않았습니다. 계정 이름이 앱 사이드바와 일치하는지, 설정 › 개발자 › 1Password SDK와 통합이 켜져 있는지 확인하세요.',
   'workbench.variables.table.smConnection': '연결',
   'workbench.variables.table.smConnectionPlaceholder': '연결…',
   'workbench.variables.table.smConnectionDesktopOnly': '데스크톱 앱에서 설정',
@@ -85,6 +87,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': '인증',
   'workbench.variables.table.smField.auth.app': '데스크톱 앱(생체 인증)',
   'workbench.variables.table.smField.auth.serviceAccount': '서비스 계정 토큰(환경 변수)',
+  'workbench.variables.table.smField.auth.appHint':
+    '1Password 앱에서 설정 › 개발자 › 1Password SDK와 통합을 켜야 합니다. 계정 이름은 앱 사이드바에 표시된 이름입니다.',
   'workbench.variables.table.smField.namespace': '네임스페이스',
   'workbench.variables.table.smField.authMethod': '인증 방식',
   'workbench.variables.table.smField.authMethod.token': '토큰',
@@ -111,7 +115,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.test.ok': '연결됨 — {label}이(가) 이 기기에서 승인되었습니다.',
   'workbench.variables.secretManagers.test.failed': '연결할 수 없습니다: {detail}',
   'workbench.variables.secretManagers.saveFailedDetail': '연결을 저장할 수 없습니다: {message}',
-  'workbench.variables.secretManagers.browserNote': '시크릿 관리자 연결은 데스크톱 앱에 있습니다. 추가하거나 테스트하려면 앱을 여세요.',
+  'workbench.variables.secretManagers.browserNote':
+    '시크릿 관리자 연결은 데스크톱 앱에 있습니다. 추가하거나 테스트하려면 앱을 여세요.',
   'workbench.variables.table.certPlaceholder': '인증서 (PEM)',
   'workbench.variables.table.certKeyPlaceholder': '개인 키 (PEM)',
   'workbench.variables.table.passphrasePlaceholder': '키 암호 구문 (선택 사항)',

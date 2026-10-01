@@ -9,9 +9,9 @@
  * resolve attempt would enforce; a row naming no connection says so.
  */
 
-import type { SecretProviderUnavailableReason } from '@openheaders/core/secret-providers';
+import type { SecretProviderProbe, SecretProviderUnavailableReason } from '@openheaders/core/secret-providers';
 import type { SecretProviderId } from '@openheaders/core/types';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useSecretManagerProbe } from '@openheaders/ui/shared/secret-manager';
 import type { MessageKey } from '@openheaders/i18n';
 import { Tag, Tooltip } from 'antd';
@@ -64,12 +64,50 @@ export const REASON_LABEL: Record<SecretProviderUnavailableReason, MessageKey> =
   unreachable: 'workbench.variables.table.smStatus.unreachable',
 };
 
+/**
+ * Provider-keyed guidance for a standing state the vendor reports
+ * opaquely — the fix named beside the raw detail (L4). The flagship
+ * app answers one bare code both when its integration toggle is off
+ * and when the account name is unknown to it, so the guidance names
+ * both checks rather than guessing one.
+ */
+const STATUS_GUIDANCE: Partial<Record<SecretProviderId, Partial<Record<SecretProviderUnavailableReason, MessageKey>>>> =
+  {
+    onepassword: { unreachable: 'workbench.variables.table.smStatus.guidance.onepassword.unreachable' },
+  };
+
+export function secretStatusGuidance(
+  provider: SecretProviderId,
+  reason: SecretProviderUnavailableReason | undefined,
+): MessageKey | null {
+  return reason === undefined ? null : (STATUS_GUIDANCE[provider]?.[reason] ?? null);
+}
+
+/** The tooltip behind an unavailable state: the vendor's detail, then
+ *  the guidance when one exists; `null` when neither is there. */
+export function secretStatusTooltip(
+  t: Translate,
+  provider: SecretProviderId,
+  probe: Extract<SecretProviderProbe, { available: false }>,
+): React.ReactNode {
+  const guidance = secretStatusGuidance(provider, probe.reason);
+  if (probe.detail === undefined && guidance === null) return null;
+  return (
+    <>
+      {probe.detail !== undefined && <div>{probe.detail}</div>}
+      {guidance !== null && <div>{t(guidance)}</div>}
+    </>
+  );
+}
+
 interface SecretManagerStatusChipProps {
   /** The row's connection; blank = none picked yet. */
   connectionId: string;
+  /** The row's provider — keys the guidance a standing state may carry. */
+  provider: SecretProviderId;
 }
 
-const SecretManagerStatusChip: React.FC<SecretManagerStatusChipProps> = ({ connectionId }) => {
+const SecretManagerStatusChip: React.FC<SecretManagerStatusChipProps> = ({ connectionId, provider }) => {
   const t = useT();
   const probe = useSecretManagerProbe(connectionId === '' ? null : connectionId);
 
@@ -98,7 +136,8 @@ const SecretManagerStatusChip: React.FC<SecretManagerStatusChipProps> = ({ conne
       {label}
     </Tag>
   );
-  return probe.detail ? <Tooltip title={probe.detail}>{chip}</Tooltip> : chip;
+  const tooltip = secretStatusTooltip(t, provider, probe);
+  return tooltip !== null ? <Tooltip title={tooltip}>{chip}</Tooltip> : chip;
 };
 
 export default SecretManagerStatusChip;

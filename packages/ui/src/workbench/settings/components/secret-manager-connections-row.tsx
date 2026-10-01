@@ -34,7 +34,13 @@ import type { MessageKey } from '@openheaders/i18n';
 import { App, Button, Input, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useCallback, useState } from 'react';
-import { REASON_LABEL, SM_FIELD_LABEL, SM_PROVIDER_LABEL } from '../../components/panels/SecretManagerStatusChip';
+import {
+  REASON_LABEL,
+  SM_FIELD_LABEL,
+  SM_PROVIDER_LABEL,
+  secretStatusGuidance,
+  secretStatusTooltip,
+} from '../../components/panels/SecretManagerStatusChip';
 import FieldRow from '../fields/FieldRow';
 import { resolveDescription, resolveLabel } from '../localize';
 import type { SettingDef } from '../types';
@@ -50,6 +56,12 @@ const OPTION_LABEL: Record<string, MessageKey> = {
   'authMethod.token': 'workbench.variables.table.smField.authMethod.token',
   'authMethod.approle': 'workbench.variables.table.smField.authMethod.approle',
   'authMethod.oidc': 'workbench.variables.table.smField.authMethod.oidc',
+};
+
+/** A prerequisite a picklist value carries, read under its row —
+ *  keyed `provider.field.value`, explicit for the same reason. */
+const OPTION_HINT: Record<string, MessageKey> = {
+  'onepassword.auth.app': 'workbench.variables.table.smField.auth.appHint',
 };
 
 interface FormState {
@@ -70,13 +82,14 @@ function formFor(connection: SecretManagerConnection | null): FormState {
     : { uid: null, provider: 'onepassword', label: '', fields: {} };
 }
 
-const StatusCell: React.FC<{ uid: string }> = ({ uid }) => {
+const StatusCell: React.FC<{ connection: SecretManagerConnection }> = ({ connection }) => {
   const t = useT();
-  const probe = useSecretManagerProbe(uid);
+  const probe = useSecretManagerProbe(connection.uid);
   if (probe === null) return <Text type="secondary">…</Text>;
   if (probe.available) return <Tag color="success">{t('workbench.variables.table.smStatus.available')}</Tag>;
   const chip = <Tag color="default">{t(REASON_LABEL[probe.reason])}</Tag>;
-  return probe.detail ? <Tooltip title={probe.detail}>{chip}</Tooltip> : chip;
+  const tooltip = secretStatusTooltip(t, connection.config.provider, probe);
+  return tooltip !== null ? <Tooltip title={tooltip}>{chip}</Tooltip> : chip;
 };
 
 const ConnectionForm: React.FC<{
@@ -120,35 +133,47 @@ const ConnectionForm: React.FC<{
           onChange={(e) => setForm({ ...form, label: e.target.value })}
           data-testid="secret-manager-form-label"
         />
-        {SECRET_CONNECTION_FIELDS[form.provider].map((spec) => (
-          <Fragment key={spec.key}>
-            <Text type="secondary">
-              {spec.required
-                ? t(SM_FIELD_LABEL[spec.key])
-                : t('workbench.variables.table.smFieldOptional', { label: t(SM_FIELD_LABEL[spec.key]) })}
-            </Text>
-            {spec.options ? (
-              <Select
-                size="small"
-                value={form.fields[spec.key] ?? spec.options[0]}
-                onChange={(value: string) => setForm({ ...form, fields: { ...form.fields, [spec.key]: value } })}
-                options={spec.options.map((option) => ({
-                  value: option,
-                  label: t(OPTION_LABEL[`${spec.key}.${option}`]),
-                }))}
-                data-testid={`secret-manager-form-${spec.key}`}
-              />
-            ) : (
-              <Input
-                size="small"
-                value={form.fields[spec.key] ?? ''}
-                onChange={(e) => setForm({ ...form, fields: { ...form.fields, [spec.key]: e.target.value } })}
-                style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}
-                data-testid={`secret-manager-form-${spec.key}`}
-              />
-            )}
-          </Fragment>
-        ))}
+        {SECRET_CONNECTION_FIELDS[form.provider].map((spec) => {
+          const value = form.fields[spec.key] ?? spec.options?.[0] ?? '';
+          const hint = spec.options !== undefined ? OPTION_HINT[`${form.provider}.${spec.key}.${value}`] : undefined;
+          return (
+            <Fragment key={spec.key}>
+              <Text type="secondary">
+                {spec.required
+                  ? t(SM_FIELD_LABEL[spec.key])
+                  : t('workbench.variables.table.smFieldOptional', { label: t(SM_FIELD_LABEL[spec.key]) })}
+              </Text>
+              {spec.options ? (
+                <Select
+                  size="small"
+                  value={value}
+                  onChange={(next: string) => setForm({ ...form, fields: { ...form.fields, [spec.key]: next } })}
+                  options={spec.options.map((option) => ({
+                    value: option,
+                    label: t(OPTION_LABEL[`${spec.key}.${option}`]),
+                  }))}
+                  data-testid={`secret-manager-form-${spec.key}`}
+                />
+              ) : (
+                <Input
+                  size="small"
+                  value={value}
+                  onChange={(e) => setForm({ ...form, fields: { ...form.fields, [spec.key]: e.target.value } })}
+                  style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}
+                  data-testid={`secret-manager-form-${spec.key}`}
+                />
+              )}
+              {hint !== undefined && (
+                <>
+                  <span />
+                  <Text type="secondary" style={{ fontSize: 11 }} data-testid={`secret-manager-form-${spec.key}-hint`}>
+                    {t(hint)}
+                  </Text>
+                </>
+              )}
+            </Fragment>
+          );
+        })}
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <Button
@@ -223,7 +248,9 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
       if (result.ok) {
         message.success(t('workbench.variables.secretManagers.test.ok', { label: connection.label }));
       } else {
-        message.error(t('workbench.variables.secretManagers.test.failed', { detail: result.detail ?? '' }));
+        const guidance = secretStatusGuidance(connection.config.provider, result.reason);
+        const failed = t('workbench.variables.secretManagers.test.failed', { detail: result.detail ?? '' });
+        message.error(guidance === null ? failed : `${failed} ${t(guidance)}`);
       }
     },
     [message, t],
@@ -318,7 +345,7 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
                 >
                   {describeSecretConnection(connection) || '—'}
                 </Text>
-                <StatusCell key={`${connection.uid}:${revision}`} uid={connection.uid} />
+                <StatusCell key={`${connection.uid}:${revision}`} connection={connection} />
                 <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                   <Button
                     size="small"

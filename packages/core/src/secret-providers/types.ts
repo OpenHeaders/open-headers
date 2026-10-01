@@ -60,7 +60,12 @@ export type SecretResolution =
   | { ok: true; value: string }
   | { ok: false; reason: SecretResolveFailureReason; detail?: string };
 
-export type SecretAuthorizeResult = { ok: true } | { ok: false; detail?: string };
+/** The authorization gesture's outcome; a refusal carries the standing
+ *  reason it left behind (the probe's vocabulary) so the surface that
+ *  asked can name the fix beside the vendor's detail. */
+export type SecretAuthorizeResult =
+  | { ok: true }
+  | { ok: false; reason?: SecretProviderUnavailableReason; detail?: string };
 
 /**
  * One external secret manager behind the seam. Every call names the

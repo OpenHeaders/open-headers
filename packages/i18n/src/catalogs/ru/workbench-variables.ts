@@ -90,6 +90,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': 'Доступ отклонён',
   'workbench.variables.table.smStatus.unreachable': 'Недоступен по сети',
   'workbench.variables.table.smStatus.noConnection': 'Подключение не выбрано',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    'Приложение 1Password не приняло подключение. Проверьте, что имя аккаунта совпадает с его боковой панелью и что включён параметр Настройки › Разработчик › Интеграция с SDK 1Password.',
   'workbench.variables.table.smConnection': 'Подключение',
   'workbench.variables.table.smConnectionPlaceholder': 'Подключение…',
   'workbench.variables.table.smConnectionDesktopOnly': 'Настраивается в настольном приложении',
@@ -98,6 +100,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': 'Аутентификация',
   'workbench.variables.table.smField.auth.app': 'Настольное приложение (биометрия)',
   'workbench.variables.table.smField.auth.serviceAccount': 'Токен сервисного аккаунта (окружение)',
+  'workbench.variables.table.smField.auth.appHint':
+    'Требуется приложение 1Password с включённым параметром Настройки › Разработчик › Интеграция с SDK 1Password; имя аккаунта — то, что показано в его боковой панели.',
   'workbench.variables.table.smField.namespace': 'Пространство имён',
   'workbench.variables.table.smField.authMethod': 'Метод аутентификации',
   'workbench.variables.table.smField.authMethod.token': 'Токен',

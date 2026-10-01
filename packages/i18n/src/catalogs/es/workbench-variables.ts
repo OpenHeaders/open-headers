@@ -67,6 +67,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': 'Acceso denegado',
   'workbench.variables.table.smStatus.unreachable': 'Inaccesible',
   'workbench.variables.table.smStatus.noConnection': 'Ninguna conexión seleccionada',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    'La aplicación de 1Password no aceptó la conexión. Comprueba que el nombre de la cuenta coincide con su barra lateral y que Ajustes › Desarrollador › Integrar con los SDK de 1Password está activado.',
   'workbench.variables.table.smConnection': 'Conexión',
   'workbench.variables.table.smConnectionPlaceholder': 'Conexión…',
   'workbench.variables.table.smConnectionDesktopOnly': 'Se configura en la aplicación de escritorio',
@@ -75,6 +77,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': 'Autenticación',
   'workbench.variables.table.smField.auth.app': 'Aplicación de escritorio (biometría)',
   'workbench.variables.table.smField.auth.serviceAccount': 'Token de cuenta de servicio (entorno)',
+  'workbench.variables.table.smField.auth.appHint':
+    'Requiere la aplicación de 1Password con Ajustes › Desarrollador › Integrar con los SDK de 1Password activado; el nombre de la cuenta es el que muestra su barra lateral.',
   'workbench.variables.table.smField.namespace': 'Espacio de nombres',
   'workbench.variables.table.smField.authMethod': 'Método de autenticación',
   'workbench.variables.table.smField.authMethod.token': 'Token',

@@ -204,6 +204,7 @@ describe('desktop onepassword provider', () => {
     const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
     expect(await provider.authorize?.(connection())).toEqual({
       ok: false,
+      reason: 'integration-disabled',
       detail: 'the integration is disabled in the app',
     });
     expect(await provider.probe(connection())).toEqual({
@@ -221,7 +222,7 @@ describe('desktop onepassword provider', () => {
         () => new Error(text),
       );
       const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
-      expect(await provider.authorize?.(connection())).toEqual({ ok: false, detail: text });
+      expect(await provider.authorize?.(connection())).toEqual({ ok: false, reason: 'not-installed', detail: text });
       expect(await provider.probe(connection())).toEqual({ available: false, reason: 'not-installed', detail: text });
     }
   });
@@ -240,7 +241,7 @@ describe('desktop onepassword provider', () => {
       detail: text,
     });
     expect(await provider.probe(connection())).toEqual({ available: false, reason: 'denied', detail: text });
-    expect(await provider.authorize?.(connection())).toEqual({ ok: false, detail: text });
+    expect(await provider.authorize?.(connection())).toEqual({ ok: false, reason: 'denied', detail: text });
   });
 
   it('a locked manager reads locked on the probe and authorization-required on resolve', async () => {

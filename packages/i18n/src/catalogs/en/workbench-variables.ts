@@ -76,6 +76,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': 'Access denied',
   'workbench.variables.table.smStatus.unreachable': 'Unreachable',
   'workbench.variables.table.smStatus.noConnection': 'No connection selected',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    'The 1Password app did not accept the connection. Check that the account name matches its sidebar and that Settings › Developer › Integrate with 1Password SDKs is turned on.',
   'workbench.variables.table.smConnection': 'Connection',
   'workbench.variables.table.smConnectionPlaceholder': 'Connection…',
   'workbench.variables.table.smConnectionDesktopOnly': 'Set up in the desktop app',
@@ -84,6 +86,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': 'Authentication',
   'workbench.variables.table.smField.auth.app': 'Desktop app (biometric)',
   'workbench.variables.table.smField.auth.serviceAccount': 'Service account token (environment)',
+  'workbench.variables.table.smField.auth.appHint':
+    'Needs the 1Password app with Settings › Developer › Integrate with 1Password SDKs turned on; the account name is the one its sidebar shows.',
   'workbench.variables.table.smField.namespace': 'Namespace',
   'workbench.variables.table.smField.authMethod': 'Auth method',
   'workbench.variables.table.smField.authMethod.token': 'Token',

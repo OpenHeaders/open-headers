@@ -71,6 +71,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': 'アクセス拒否',
   'workbench.variables.table.smStatus.unreachable': '到達できません',
   'workbench.variables.table.smStatus.noConnection': '接続が選択されていません',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    '1Password アプリが接続を受け付けませんでした。アカウント名がアプリのサイドバーと一致しているか、設定 › 開発者 › 1Password SDK との統合がオンになっているか確認してください。',
   'workbench.variables.table.smConnection': '接続',
   'workbench.variables.table.smConnectionPlaceholder': '接続…',
   'workbench.variables.table.smConnectionDesktopOnly': 'デスクトップアプリで設定します',
@@ -79,6 +81,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': '認証',
   'workbench.variables.table.smField.auth.app': 'デスクトップアプリ（生体認証）',
   'workbench.variables.table.smField.auth.serviceAccount': 'サービスアカウントトークン（環境変数）',
+  'workbench.variables.table.smField.auth.appHint':
+    '1Password アプリで設定 › 開発者 › 1Password SDK との統合をオンにする必要があります。アカウント名はサイドバーに表示されている名前です。',
   'workbench.variables.table.smField.namespace': '名前空間',
   'workbench.variables.table.smField.authMethod': '認証方式',
   'workbench.variables.table.smField.authMethod.token': 'トークン',

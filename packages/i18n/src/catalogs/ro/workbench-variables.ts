@@ -96,6 +96,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': 'Acces refuzat',
   'workbench.variables.table.smStatus.unreachable': 'Inaccesibil',
   'workbench.variables.table.smStatus.noConnection': 'Nicio conexiune selectată',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    'Aplicația 1Password nu a acceptat conexiunea. Verificați dacă numele contului corespunde cu bara sa laterală și dacă Setări › Dezvoltator › Integrare cu SDK-urile 1Password este activată.',
   'workbench.variables.table.smConnection': 'Conexiune',
   'workbench.variables.table.smConnectionPlaceholder': 'Conexiune…',
   'workbench.variables.table.smConnectionDesktopOnly': 'Se configurează în aplicația desktop',
@@ -104,6 +106,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': 'Autentificare',
   'workbench.variables.table.smField.auth.app': 'Aplicația desktop (biometrie)',
   'workbench.variables.table.smField.auth.serviceAccount': 'Token de cont de serviciu (mediu)',
+  'workbench.variables.table.smField.auth.appHint':
+    'Necesită aplicația 1Password cu Setări › Dezvoltator › Integrare cu SDK-urile 1Password activată; numele contului este cel afișat în bara sa laterală.',
   'workbench.variables.table.smField.namespace': 'Spațiu de nume',
   'workbench.variables.table.smField.authMethod': 'Metodă de autentificare',
   'workbench.variables.table.smField.authMethod.token': 'Token',

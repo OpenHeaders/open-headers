@@ -556,7 +556,7 @@ export function SortableRow({
                     popupMatchSelectWidth={false}
                     data-testid="vault-sm-connection"
                   />
-                  <SecretManagerStatusChip connectionId={row.smConnectionId} />
+                  <SecretManagerStatusChip connectionId={row.smConnectionId} provider={row.smProvider} />
                   {openSettings !== null && nodeHost && (
                     <Button
                       type="link"

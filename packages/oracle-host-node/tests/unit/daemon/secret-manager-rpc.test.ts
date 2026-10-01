@@ -93,15 +93,17 @@ describe('secret-manager rpc', () => {
     expect(updated.connection?.config.account).toBe('me');
     expect(broadcast).toHaveBeenCalledTimes(2);
 
-    expect(await handleSecretManagerRpc('oh.secretManager.remove', { uid: added.connection?.uid })).toEqual({ ok: true });
+    expect(await handleSecretManagerRpc('oh.secretManager.remove', { uid: added.connection?.uid })).toEqual({
+      ok: true,
+    });
     expect(broadcast).toHaveBeenLastCalledWith('secretManagerConnectionsChanged', { count: 0 });
     expect(await handleSecretManagerRpc('oh.secretManager.remove', { uid: 'nope' })).toMatchObject({ ok: false });
   });
 
   it('refuses a config the schema rejects, on add and on update', async () => {
-    expect(await handleSecretManagerRpc('oh.secretManager.add', { label: 'x', config: { provider: 'bogus' } })).toMatchObject(
-      { ok: false, error: expect.stringContaining('Not a valid') },
-    );
+    expect(
+      await handleSecretManagerRpc('oh.secretManager.add', { label: 'x', config: { provider: 'bogus' } }),
+    ).toMatchObject({ ok: false, error: expect.stringContaining('Not a valid') });
     const uid = await addWork();
     expect(
       await handleSecretManagerRpc('oh.secretManager.update', { uid, label: 'x', config: { provider: 'azurekv' } }),
@@ -140,8 +142,21 @@ describe('secret-manager rpc', () => {
     const uid = await addWork();
     expect(await handleSecretManagerRpc('oh.secretManager.authorize', { uid })).toMatchObject({ ok: false });
     registerSecretProvider(fakeProvider({ authorize: async () => ({ ok: false, detail: 'denied' }) }));
-    expect(await handleSecretManagerRpc('oh.secretManager.authorize', { uid })).toEqual({ ok: false, detail: 'denied' });
+    expect(await handleSecretManagerRpc('oh.secretManager.authorize', { uid })).toEqual({
+      ok: false,
+      detail: 'denied',
+    });
     registerSecretProvider(fakeProvider());
     expect(await handleSecretManagerRpc('oh.secretManager.authorize', { uid })).toEqual({ ok: true });
+    // An ambient provider's refusal carries the probe's reason, so the
+    // Test toast can name the fix beside the detail.
+    registerSecretProvider(
+      fakeProvider({ probe: async () => ({ available: false, reason: 'no-credentials', detail: 'no profile' }) }),
+    );
+    expect(await handleSecretManagerRpc('oh.secretManager.authorize', { uid })).toEqual({
+      ok: false,
+      reason: 'no-credentials',
+      detail: 'no profile',
+    });
   });
 });

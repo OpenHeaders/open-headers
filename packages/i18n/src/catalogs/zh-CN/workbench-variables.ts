@@ -70,6 +70,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': '访问被拒绝',
   'workbench.variables.table.smStatus.unreachable': '无法访问',
   'workbench.variables.table.smStatus.noConnection': '未选择连接',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    '1Password 应用未接受此连接。请检查账户名称是否与其侧边栏一致，并确认已开启设置 › 开发者 › 与 1Password SDK 集成。',
   'workbench.variables.table.smConnection': '连接',
   'workbench.variables.table.smConnectionPlaceholder': '连接…',
   'workbench.variables.table.smConnectionDesktopOnly': '在桌面应用中设置',
@@ -78,6 +80,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': '身份验证',
   'workbench.variables.table.smField.auth.app': '桌面应用（生物识别）',
   'workbench.variables.table.smField.auth.serviceAccount': '服务账户令牌（环境变量）',
+  'workbench.variables.table.smField.auth.appHint':
+    '需要 1Password 应用并开启设置 › 开发者 › 与 1Password SDK 集成；账户名称即其侧边栏显示的名称。',
   'workbench.variables.table.smField.namespace': '命名空间',
   'workbench.variables.table.smField.authMethod': '认证方式',
   'workbench.variables.table.smField.authMethod.token': '令牌',
@@ -86,7 +90,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.count': '连接（{count}）',
   'workbench.variables.secretManagers.add': '添加连接',
   'workbench.variables.secretManagers.empty': '尚无机密管理器连接',
-  'workbench.variables.secretManagers.emptyHint': '只需连接一次机密管理器；保险库条目随后通过它按路径引用机密，机密仅在请求运行时获取。',
+  'workbench.variables.secretManagers.emptyHint':
+    '只需连接一次机密管理器；保险库条目随后通过它按路径引用机密，机密仅在请求运行时获取。',
   'workbench.variables.secretManagers.header.label': '名称',
   'workbench.variables.secretManagers.header.provider': '提供方',
   'workbench.variables.secretManagers.header.target': '账户或服务器',
@@ -156,7 +161,8 @@ export const workbenchVariables = {
   // ── Vault page ──────────────────────────────────────────────────────
   'workbench.variables.vault.title': 'Vault',
   'workbench.variables.vault.infoBanner': 'Vault 机密在静态存储时加密、从不离开此设备，并优先于所有其他作用域。',
-  'workbench.variables.vault.trustedRootsNote': '在找 CA 证书？受信任的证书属于工作区数据而非机密——它们有自己的标签页。',
+  'workbench.variables.vault.trustedRootsNote':
+    '在找 CA 证书？受信任的证书属于工作区数据而非机密——它们有自己的标签页。',
   'workbench.variables.vault.trustedRootsLink': '打开受信任的证书',
   'workbench.variables.vault.secretManagersNote': '机密管理器的账户和服务器是设备设置，不是保险库条目。',
   'workbench.variables.vault.secretManagersLink': '打开机密管理器',

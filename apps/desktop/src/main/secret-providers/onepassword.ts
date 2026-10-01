@@ -186,12 +186,13 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
       const config = configOf(connection);
       if (!config) return { ok: false, detail: 'Not a 1Password connection.' };
       const gap = credentialGap(config);
-      if (gap) return { ok: false, detail: gap.detail };
+      if (gap) return { ok: false, reason: gap.reason, detail: gap.detail };
       try {
         await clientFor(connection, config);
         return { ok: true };
       } catch (err) {
-        return { ok: false, detail: errorMessage(err) };
+        const standing = failures.get(connection.uid);
+        return { ok: false, reason: standing?.reason ?? 'unreachable', detail: errorMessage(err) };
       }
     },
 

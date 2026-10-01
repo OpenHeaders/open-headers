@@ -70,6 +70,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.denied': 'Zugriff verweigert',
   'workbench.variables.table.smStatus.unreachable': 'Nicht erreichbar',
   'workbench.variables.table.smStatus.noConnection': 'Keine Verbindung ausgewählt',
+  'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
+    'Die 1Password-App hat die Verbindung nicht angenommen. Prüfe, ob der Kontoname mit ihrer Seitenleiste übereinstimmt und ob Einstellungen › Entwickler › Mit 1Password-SDKs integrieren eingeschaltet ist.',
   'workbench.variables.table.smConnection': 'Verbindung',
   'workbench.variables.table.smConnectionPlaceholder': 'Verbindung …',
   'workbench.variables.table.smConnectionDesktopOnly': 'In der Desktop-App einrichten',
@@ -78,6 +80,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.auth': 'Authentifizierung',
   'workbench.variables.table.smField.auth.app': 'Desktop-App (biometrisch)',
   'workbench.variables.table.smField.auth.serviceAccount': 'Dienstkonto-Token (Umgebung)',
+  'workbench.variables.table.smField.auth.appHint':
+    'Benötigt die 1Password-App mit eingeschaltetem Einstellungen › Entwickler › Mit 1Password-SDKs integrieren; der Kontoname ist der aus ihrer Seitenleiste.',
   'workbench.variables.table.smField.namespace': 'Namespace',
   'workbench.variables.table.smField.authMethod': 'Authentifizierungsmethode',
   'workbench.variables.table.smField.authMethod.token': 'Token',

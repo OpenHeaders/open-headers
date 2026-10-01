@@ -129,7 +129,7 @@ export async function handleSecretManagerAuthorize(
     const probe = await provider.probe(connection);
     return probe.available
       ? { ok: true }
-      : { ok: false, ...(probe.detail !== undefined ? { detail: probe.detail } : {}) };
+      : { ok: false, reason: probe.reason, ...(probe.detail !== undefined ? { detail: probe.detail } : {}) };
   }
   try {
     return await provider.authorize(connection);
