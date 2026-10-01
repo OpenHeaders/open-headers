@@ -10,7 +10,13 @@
  *   L3  a Send carrying `{{vault.opToken}}` against a reference the
  *       manager cannot find — the gate names the reference with its
  *       reason — and Copy as cURL, which never prompts and names the
- *       entry for what it is.
+ *       entry for what it is;
+ *   L4  a WebSocket session whose handshake header carries
+ *       `{{vault.opToken}}` resolves it at Connect (the value read on
+ *       the spec's own socket rig, never printed); a rider naming a
+ *       second secret-manager row the session never referenced reads
+ *       the session kinds' name-only refusal, and a rider naming the
+ *       Connect-time row rides the wire.
  *
  * OH_LOOK_ACCOUNT names the companion app's account (as its sidebar
  * shows it); without it a bogus account exercises the refusal shapes.
@@ -25,6 +31,7 @@ import type net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { _electron, type ElectronApplication, expect, type Locator, type Page, test } from '@playwright/test';
+import { WebSocketServer } from 'ws';
 
 /** An echo that remembers the Authorization header of its last request —
  *  the wire read, so the resolved value is checked and never printed. */
@@ -52,6 +59,38 @@ async function startEchoRig(): Promise<EchoRig> {
   };
 }
 
+/** A socket echo that remembers the upgrade's Authorization header and
+ *  the last text frame it received — the wire read for the session leg. */
+interface SocketRig {
+  port: number;
+  lastAuthorization: () => string | undefined;
+  lastMessage: () => string | undefined;
+  close: () => Promise<void>;
+}
+
+async function startSocketRig(): Promise<SocketRig> {
+  let lastAuthorization: string | undefined;
+  let lastMessage: string | undefined;
+  const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+  server.on('connection', (socket, req) => {
+    lastAuthorization = req.headers.authorization;
+    socket.on('message', (data) => {
+      lastMessage = data.toString();
+      socket.send(`echo:${lastMessage.length}`);
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('listening', () => resolve());
+    server.once('error', reject);
+  });
+  return {
+    port: (server.address() as net.AddressInfo).port,
+    lastAuthorization: () => lastAuthorization,
+    lastMessage: () => lastMessage,
+    close: () => new Promise((resolve) => server.close(() => resolve())),
+  };
+}
+
 const APP_ROOT = path.resolve(__dirname, '../..');
 const DAEMON_PORT = 20237;
 const LOOK_DIR = process.env.OH_LOOK_DIR ?? path.join(tmpdir(), 'oh-secret-managers-look');
@@ -60,6 +99,7 @@ const ACCOUNT = process.env.OH_LOOK_ACCOUNT ?? 'no-such-account-openheaders';
 // lacks exercises the not-found shape, one that holds it the wire.
 const VAULT_NAME = process.env.OH_LOOK_VAULT ?? 'Engineering';
 const REQUEST_UID = 'e2esmreq';
+const SOCKET_UID = 'e2esmws1';
 const COLLECTION_UID = 'e2esmcol';
 
 let electronApp: ElectronApplication;
@@ -67,6 +107,7 @@ let workbench: Page;
 let userData: string;
 let workspaceId: string;
 let httpRig: EchoRig;
+let socketRig: SocketRig;
 
 async function invoke<T>(message: Record<string, unknown>): Promise<T> {
   return (await workbench.evaluate(async (msg) => {
@@ -145,6 +186,7 @@ test.beforeAll(async () => {
   test.setTimeout(240_000);
   mkdirSync(LOOK_DIR, { recursive: true });
   httpRig = await startEchoRig();
+  socketRig = await startSocketRig();
   const root = await mkdtemp(path.join(tmpdir(), 'oh-secret-managers-look-'));
   userData = path.join(root, 'user-data');
   mkdirSync(userData);
@@ -188,6 +230,23 @@ test.beforeAll(async () => {
       body: { type: 'none' },
     },
   ];
+  envelope.values[`${p}.websocketRequests`] = [
+    {
+      schemaVersion: 5,
+      uid: SOCKET_UID,
+      path: `requests/api-${COLLECTION_UID}/echo-socket-${SOCKET_UID}`,
+      name: 'Echo Socket',
+      url: `ws://127.0.0.1:${socketRig.port}/echo`,
+      flavor: 'raw',
+      subprotocols: [],
+      headers: [{ uid: 'e2esmwsh', key: 'Authorization', value: 'Bearer {{vault.opToken}}', enabled: true }],
+      params: [],
+      // The rider names a second secret-manager row the session never
+      // referenced at Connect.
+      message: '{{vault.opOther}}',
+      messageFormat: 'text',
+    },
+  ];
   writeFileSync(storagePath, JSON.stringify(envelope));
   await launchApp();
 });
@@ -195,6 +254,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   if (electronApp) await quit();
   await httpRig?.close();
+  await socketRig?.close();
 });
 
 async function openSecretManagersSettings(): Promise<void> {
@@ -379,4 +439,95 @@ test('L3 — Send carrying the reference reads the gate; Copy as cURL never prom
   console.log(`[look] curl toast: ${toast}`);
   expect(toast).toContain("{{vault.opToken}}: a secret manager's value is resolved only when sending");
   await shot('15-curl-toast');
+});
+
+/** Replace the visible compose editor's buffer — one bulk insert so the
+ *  editor's auto-closing can't mangle the braces; Esc dismisses the
+ *  suggest widget. */
+async function fillComposeEditor(text: string): Promise<void> {
+  const editor = workbench.locator('.monaco-editor').filter({ visible: true }).first();
+  await editor.click();
+  await workbench.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await workbench.keyboard.press('Backspace');
+  await workbench.keyboard.insertText(text);
+  await workbench.keyboard.press('Escape');
+}
+
+test('L4 — a WebSocket Connect resolves the header; riders read the session gate', async () => {
+  test.setTimeout(300_000);
+  // A second secret-manager row the session never references at
+  // Connect — the rider's target.
+  await selectToolWindow('variables');
+  await workbench.locator('[data-item-id="vault-row"]').first().click();
+  const nameInput = visible(workbench.getByPlaceholder('Add secret…'));
+  await nameInput.waitFor({ state: 'visible', timeout: 15_000 });
+  await nameInput.evaluate((el) => (el as HTMLInputElement).focus());
+  await workbench.keyboard.type('opOther');
+  const kindSelect = visible(workbench.locator('.ant-select:not(.ant-select-disabled)').filter({ hasText: 'Text' }));
+  await pickOption(kindSelect, 'Secret Manager');
+  const row = workbench.locator('[data-testid="vault-sm-provider"]').filter({ visible: true }).last();
+  await row.waitFor({ state: 'visible' });
+  await pickOption(workbench.getByTestId('vault-sm-connection').filter({ visible: true }).last(), /Work/);
+  await workbench.getByTestId('vault-sm-field-vault').filter({ visible: true }).last().fill(VAULT_NAME);
+  await workbench.getByTestId('vault-sm-field-item').filter({ visible: true }).last().fill('api.openheaders.io');
+  await workbench.getByTestId('vault-sm-field-field').filter({ visible: true }).last().fill('url');
+  const save = visible(workbench.locator('.rules-editor-header-actions button').filter({ hasText: /^Save/ }));
+  await save.click();
+  await expect(save).toHaveText(/Saved/, { timeout: 10_000 });
+  await shot('16-vault-second-row');
+
+  await selectToolWindow('api-requests');
+  const socket = workbench.locator(`[data-item-id="websocket-request-${SOCKET_UID}"]`);
+  if ((await socket.count()) === 0) await workbench.locator(`[data-item-id="req-col-${COLLECTION_UID}"]`).click();
+  await socket.waitFor({ state: 'visible', timeout: 10_000 });
+  await socket.click();
+  const connect = workbench.getByTestId('websocket-connect-button').filter({ visible: true }).first();
+  await connect.waitFor({ state: 'visible', timeout: 15_000 });
+  await shot('17-socket-request');
+  await connect.click();
+  // The manager may prompt at Connect; the badge or the error row is the listener.
+  const badge = workbench
+    .getByTestId('ws-session-live-badge')
+    .filter({ visible: true })
+    .filter({ hasText: 'Connected' });
+  const errorDetail = workbench.getByTestId('ws-session-error-detail').filter({ visible: true });
+  await expect
+    .poll(async () => (await badge.count()) > 0 || (await errorDetail.count()) > 0, { timeout: 240_000 })
+    .toBe(true);
+  if ((await errorDetail.count()) > 0) console.log(`[look] connect error: ${await errorDetail.first().textContent()}`);
+  await shot('18-socket-connected');
+  expect(await badge.count()).toBeGreaterThan(0);
+  const authorization = socketRig.lastAuthorization() ?? '';
+  console.log(`[look] socket authorization: Bearer <${Math.max(0, authorization.length - 7)} chars>`);
+  expect(authorization.startsWith('Bearer ')).toBe(true);
+  expect(authorization.length).toBeGreaterThan('Bearer '.length);
+  expect(authorization).not.toContain('{{');
+
+  // The rider naming the unreferenced row: the session gate names the
+  // reference, not the reason (its resolve closure collects names only).
+  const send = workbench.getByTestId('websocket-send-message').filter({ visible: true }).first();
+  await expect(send).toBeEnabled();
+  await send.click();
+  const riderToast = await lastToast();
+  console.log(`[look] rider toast: ${riderToast}`);
+  expect(riderToast).toContain('Message has unresolved variables');
+  expect(riderToast).toContain('vault.opOther');
+  await shot('19-rider-refused');
+
+  // The rider naming the Connect-time row rides the wire — the rig
+  // receives the value the handshake carried.
+  await fillComposeEditor('{{vault.opToken}}');
+  await send.click();
+  await expect.poll(async () => socketRig.lastMessage() !== undefined, { timeout: 10_000 }).toBe(true);
+  const received = socketRig.lastMessage() ?? '';
+  console.log(`[look] rider on the wire: <${received.length} chars>`);
+  expect(received).toBe(authorization.slice('Bearer '.length));
+  await workbench
+    .getByTestId('ws-timeline-message-row')
+    .filter({ visible: true })
+    .filter({ hasText: `echo:${received.length}` })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10_000 });
+  await shot('20-rider-sent');
+  await connect.filter({ hasText: 'Disconnect' }).click();
 });
