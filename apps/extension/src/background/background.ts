@@ -105,6 +105,7 @@ import { installParityFireReadback } from './modules/rules/parity-fire-readback'
 import { installParityRuleImport } from './modules/rules/parity-rule-import';
 import { scheduleUpdate } from './modules/rules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rules/rule-state-observer';
+import { installCompileSecretManagerLifecycle } from './modules/secret-manager/compile-secret-scope';
 import { hydrateSyncInstallId } from './modules/sync-install-id';
 import { registerCdpTabPinControls } from './modules/tabs/cdp-tab-pin';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tabs/tab-listeners';
@@ -322,6 +323,9 @@ async function initializeExtension(): Promise<void> {
     // other close a no-op.
     attemptNmBootstrap();
   });
+  // The rules' secret-manager values ride the desktop app's wire: its
+  // close strips them from the session layer, its open asks again.
+  installCompileSecretManagerLifecycle({ rebuild: () => scheduleUpdate('secret-managers', { immediate: true }) });
   __setSyncWarmRunner(refreshLiveWorkflowSynchronously);
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);

@@ -29,6 +29,7 @@ export type {
   SecretManagerRegistry,
   SecretManagerResolveBatch,
   SecretManagerScope,
+  SecretManagerScopeInstaller,
   StepCaptureContext,
   TemplateVariable,
   TotpRegistry,

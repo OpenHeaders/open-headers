@@ -54,6 +54,7 @@ import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
 import { trackProductTelemetryEvent } from './modules/product-telemetry';
 import { observeRuleState } from './modules/rules/rule-state-observer';
+import { prepareCompileSecretManagerScope, secretBearingRuleUids } from './modules/secret-manager/compile-secret-scope';
 import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 
 // ── Paused state ─────────────────────────────────────────────────
@@ -239,12 +240,23 @@ export function isDelayRedelivery(tabId: number, url: string): boolean {
 
 // ── Entry points ─────────────────────────────────────────────────
 
-export function updateNetworkRules(rules: Rule[]): void {
-  void scheduleRebuild(rules);
+export interface RebuildOptions {
+  /**
+   * A person caused this rebuild (a rule, variable or workspace change)
+   * — a secret-manager entry whose last ask failed is asked again. A
+   * timer's rebuild (a TOTP tick, a live-cache refresh) and the tab
+   * events leave a failure as it stands, so a denied prompt never
+   * returns on its own.
+   */
+  retryFailedSecrets?: boolean;
+}
+
+export function updateNetworkRules(rules: Rule[], options: RebuildOptions = {}): void {
+  void scheduleRebuild(rules, options.retryFailedSecrets === true);
 }
 
 export function applyAllRules(): void {
-  void scheduleRebuild(getRules());
+  void scheduleRebuild(getRules(), false);
 }
 
 /**
@@ -253,7 +265,7 @@ export function applyAllRules(): void {
  * page's follow-up navigation only starts once the rule change is live.
  */
 export function applyAllRulesAsync(): Promise<void> {
-  return scheduleRebuild(getRules());
+  return scheduleRebuild(getRules(), false);
 }
 
 // ── Rebuild serializer ───────────────────────────────────────────
@@ -279,31 +291,36 @@ export function applyAllRulesAsync(): Promise<void> {
 let inflight: Promise<void> | null = null;
 interface PendingRebuild {
   rules: Rule[];
+  /** Any collapsed request a person caused makes the rebuild one a person caused. */
+  retryFailedSecrets: boolean;
   resolvers: Array<() => void>;
 }
 let pending: PendingRebuild | null = null;
 
-function scheduleRebuild(rules: Rule[]): Promise<void> {
+function scheduleRebuild(rules: Rule[], retryFailedSecrets: boolean): Promise<void> {
   if (!inflight) {
-    inflight = runRebuild(rules);
+    inflight = runRebuild(rules, retryFailedSecrets);
     return inflight;
   }
   // A rebuild is in flight — fold this request into the pending slot.
   // Intentionally overwrite `rules` with the latest snapshot so the
   // collapsed rebuild reflects the most recent intent.
-  if (!pending) pending = { rules, resolvers: [] };
-  else pending.rules = rules;
+  if (!pending) pending = { rules, retryFailedSecrets, resolvers: [] };
+  else {
+    pending.rules = rules;
+    pending.retryFailedSecrets ||= retryFailedSecrets;
+  }
   return new Promise<void>((resolve) => {
     pending!.resolvers.push(resolve);
   });
 }
 
-function runRebuild(rules: Rule[]): Promise<void> {
-  return rebuildAll(rules).finally(() => {
+function runRebuild(rules: Rule[], retryFailedSecrets: boolean): Promise<void> {
+  return rebuildAll(rules, retryFailedSecrets).finally(() => {
     if (pending) {
       const next = pending;
       pending = null;
-      inflight = runRebuild(next.rules).finally(() => {
+      inflight = runRebuild(next.rules, next.retryFailedSecrets).finally(() => {
         for (const r of next.resolvers) r();
       });
     } else {
@@ -314,7 +331,7 @@ function runRebuild(rules: Rule[]): Promise<void> {
 
 // ── Core compile/dispatch loop ───────────────────────────────────
 
-async function rebuildAll(rawRules: Rule[]): Promise<void> {
+async function rebuildAll(rawRules: Rule[], retryFailedSecrets: boolean): Promise<void> {
   dynamicDnrIdToUid.clear();
 
   // Sync-warm opt-in LVs drive a blocking refresh of their backing
@@ -331,6 +348,15 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   // codes to Chrome's static rule store. No-op when the vault holds
   // zero kind:'totp' entries.
   await refreshCachedTotpCodes();
+
+  // Secret-manager scope — the entries the rules reference are asked of
+  // the desktop app over loopback BEFORE resolve (the Secret Providers
+  // plan's P2c; a provider may prompt). A value retained from an earlier
+  // compile is not asked again; a failed one only on a compile a person
+  // caused. The referencing rules compile into the session layer below
+  // — never the dynamic layer Chrome writes to disk (L2).
+  await prepareCompileSecretManagerScope(rawRules, { retryFailed: retryFailedSecrets });
+  const sessionOnlyUids = secretBearingRuleUids(rawRules);
 
   // Live-bypass map: `ruleUid → Set<workflowUid>` so each emitted DnrRule
   // carries an `excludedRequestHeaders` clause matching the bypass tag its
@@ -412,7 +438,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     dynamic: globalDynamic,
     session: globalSessionUntagged,
     scriptables,
-  } = compileRuleSet(rules, getPausedUids(), 1, engineSettings);
+  } = compileRuleSet(rules, getPausedUids(), 1, engineSettings, sessionOnlyUids);
 
   // ── Capacity enforcement ───────────────────────────────────────
   //
@@ -472,8 +498,9 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   // Delay redirect rules — emitted by compileRuleSet as `session` rules,
   // stamped with excludedTabIds for any tabs currently in the delay-bypass
   // set (so the delay page's follow-up navigation passes through without
-  // re-triggering the delay). sessionRules from other rule types would
-  // flow through here the same way if any are added in the future.
+  // re-triggering the delay) — and every rule carrying a secret
+  // manager's value, routed here by `sessionOnlyUids` so it never
+  // reaches the disk-backed dynamic layer.
 
   const sessionToApply: DnrRule[] = [];
 

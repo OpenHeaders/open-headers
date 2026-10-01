@@ -61,6 +61,8 @@ export interface CompileResult {
   scriptables: Rule[];
 }
 
+const NO_SESSION_ONLY_UIDS: ReadonlySet<string> = new Set();
+
 /**
  * Compile every effective rule into DNR rules plus a scriptable passthrough
  * for inject-manager. Returns TAGGED rules (with their source uid) so
@@ -68,12 +70,18 @@ export interface CompileResult {
  *
  * Callers must pass already-resolved rules — `{{VAR}}` templates should be
  * substituted upstream so the engine sees concrete strings.
+ *
+ * `sessionOnlyUids` names the rules whose resolved strings carry a value
+ * that may never persist — a secret manager's (the Secret Providers
+ * plan's L2): their compiled rules land in the SESSION layer whatever
+ * the compiler planned, since the dynamic layer is written to disk.
  */
 export function compileRuleSet(
   rules: Rule[],
   pausedUids: PausedUids,
   startId: number,
   settings: EngineCompileSettings,
+  sessionOnlyUids: ReadonlySet<string> = NO_SESSION_ONLY_UIDS,
 ): CompileResult {
   const dynamic: TaggedDnrRule[] = [];
   const session: TaggedDnrRule[] = [];
@@ -97,7 +105,8 @@ export function compileRuleSet(
     const compiler = compilers[rule.type];
     if (!compiler) continue;
     const plan: CompilationPlan = compiler.compile(rule, ctx);
-    for (const dr of plan.dynamicRules ?? []) dynamic.push({ rule: dr, uid: rule.uid });
+    const planned = sessionOnlyUids.has(rule.uid) ? session : dynamic;
+    for (const dr of plan.dynamicRules ?? []) planned.push({ rule: dr, uid: rule.uid });
     for (const sr of plan.sessionRules ?? []) session.push({ rule: sr, uid: rule.uid });
   }
 

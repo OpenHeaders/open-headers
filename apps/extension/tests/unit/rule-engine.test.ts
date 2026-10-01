@@ -75,7 +75,17 @@ describe('RuleEngine', () => {
       scheduleUpdate('init', { immediate: true });
 
       expect(mockUpdateNetworkRules).toHaveBeenCalledTimes(1);
-      expect(mockUpdateNetworkRules).toHaveBeenCalledWith(rules);
+      // A person's reason retries a failed secret-manager entry.
+      expect(mockUpdateNetworkRules).toHaveBeenCalledWith(rules, { retryFailedSecrets: true });
+    });
+
+    it("a timer's reason never retries a failed secret-manager entry", () => {
+      const rules = [makeHeaderRule()];
+      mockGetRules.mockReturnValue(rules);
+
+      scheduleUpdate('totp', { immediate: true });
+
+      expect(mockUpdateNetworkRules).toHaveBeenCalledWith(rules, { retryFailedSecrets: false });
     });
 
     it('updates lastRulesHash', () => {

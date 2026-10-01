@@ -43,7 +43,20 @@ const FORCED_REASONS = new Set([
   // rules are visible to the engine and can be enabled live without
   // a workspace switch.
   'import',
+  // Secret managers — the desktop app's wire opened or closed: the
+  // rules' retained secret-manager values were reset, and the raw rule
+  // text is unchanged, so the hash guard must not skip the rebuild
+  // that re-asks or strips.
+  'secret-managers',
 ]);
+
+/**
+ * Rebuilds nobody caused — a timer's or a cache's. A secret-manager
+ * entry whose last ask failed is left as it stands on these; a denied
+ * prompt would return every TOTP tick otherwise. Every other reason is
+ * a person's change and retries it.
+ */
+const AUTOMATIC_REASONS = new Set(['totp', 'live-cache', 'live-vars']);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let forcedPending = false;
@@ -86,7 +99,7 @@ function flushUpdate(reason: string, forced?: boolean): void {
   }
 
   logger.debug('RuleEngine', `Updating network rules (${reason}), ${rules.length} rules`);
-  updateNetworkRules(rules);
+  updateNetworkRules(rules, { retryFailedSecrets: !AUTOMATIC_REASONS.has(reason) });
   lastRulesHash = currentHash;
 }
 

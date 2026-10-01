@@ -39,6 +39,7 @@ export {
   createSecretManagerScope,
   type SecretManagerResolveBatch,
   type SecretManagerScope,
+  type SecretManagerScopeInstaller,
 } from './secret-manager-scope';
 export { resolveTemplate, resolveVariable, type ScopedLookupFn, type TemplateVariable } from './template';
 export { VariableResolver } from './variable-resolver';

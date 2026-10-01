@@ -9,6 +9,7 @@ import { getRulesPaused } from '../dnr-manager';
 import { recordLog } from '../modules/observability-log';
 import { scheduleUpdate as scheduleRuleEngineUpdate } from '../modules/rules/rule-engine';
 import { seedFromWorkspaceSwitch } from '../modules/rules/rule-state-observer';
+import { getCompileSecretManagerSnapshot } from '../modules/secret-manager/compile-secret-scope';
 import { getCachedTotpCodes } from '../modules/totp-scheduler';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../modules/workspace/workspace-store';
 import { observeForActivityFeed } from '../sync-activity-installer';
@@ -61,6 +62,7 @@ export function installOracleHostHooks(): void {
     peekActiveWorkspaceId,
     isSnapshotPlaneReady: isBackgroundReady,
     getCachedTotpCodes,
+    getCompileSecretManagerSnapshot,
     onWorkspaceSwitched: (nextRules, pausedUids) => {
       seedFromWorkspaceSwitch(nextRules, pausedUids, getRulesPaused());
     },

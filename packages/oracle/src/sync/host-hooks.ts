@@ -41,7 +41,7 @@ import type {
 import type { FieldOrigin, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { LogEntry, Rule } from '@openheaders/core/types';
 import type { PausedUids } from '@openheaders/core/utils';
-import type { TotpRegistry } from '@openheaders/core/variables';
+import type { SecretManagerFailures, SecretManagerRegistry, TotpRegistry } from '@openheaders/core/variables';
 
 /**
  * Per-mutation broadcast emitted by the sync engine. Carries the
@@ -194,6 +194,16 @@ export interface OracleHostHooks {
    * host pre-warms the cache on its own cadence.
    */
   getCachedTotpCodes?: () => TotpRegistry;
+  /**
+   * Synchronous read of the host's secret-manager values for the rule
+   * compile — the Secret Providers plan's P2c: the browser host retains
+   * what its loopback broker answered (asked before each compile,
+   * never persisted, reset on the desktop app's wire events) and the
+   * compile resolves the referencing rules into the SESSION layer only.
+   * Absent = no secret-manager entry resolves at compile (the node
+   * hosts' proxy plane, every other host).
+   */
+  getCompileSecretManagerSnapshot?: () => { registry: SecretManagerRegistry; failures: SecretManagerFailures };
   /**
    * Notify the host that the active workspace just flipped to a new
    * rule + pause-marker set. Browser-side hosts use this to drive HTTP

@@ -1,7 +1,13 @@
 // ── Scope sync + compile-path resolution ────────────────────────────
 
 import type { Collection, Rule } from '@openheaders/core/types';
-import { type ResolutionError, resolveRuleWithDiagnostics, type VariableResolver } from '@openheaders/core/variables';
+import {
+  EMPTY_SECRET_MANAGER_FAILURES,
+  EMPTY_SECRET_MANAGER_REGISTRY,
+  type ResolutionError,
+  resolveRuleWithDiagnostics,
+  type VariableResolver,
+} from '@openheaders/core/variables';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -39,6 +45,17 @@ function syncResolverFromStores(state: ResolverState): void {
   if (totpCodes) {
     r.setTotpRegistry(totpCodes);
   }
+  // Secret-manager scope — the host that resolves them for the compile
+  // (the browser's retained loopback answers, asked before each
+  // rebuild) hands the snapshot in; every other host leaves the
+  // entries unresolved, so a rule referencing one never compiles there.
+  // Re-read on every sync: a host's reset (the desktop app's wire fell)
+  // must reach the next compile.
+  const secretManager = getOracleHostHooks().getCompileSecretManagerSnapshot?.();
+  r.setSecretManagerRegistry(
+    secretManager?.registry ?? EMPTY_SECRET_MANAGER_REGISTRY,
+    secretManager?.failures ?? EMPTY_SECRET_MANAGER_FAILURES,
+  );
 
   // Collection scope: reset then re-populate from rule-store. Using
   // set/remove on a Map inside VariableResolver means we don't need to

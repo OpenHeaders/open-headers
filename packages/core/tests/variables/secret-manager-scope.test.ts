@@ -75,6 +75,30 @@ describe('createSecretManagerScope', () => {
     expect(resolver.resolveScopedWithDiagnostics('ApiToken', 'vault').failureReason).toBeUndefined();
   });
 
+  it('a pass that may not retry leaves a failed entry as it stands and asks for new names only', async () => {
+    let attempt = 0;
+    const { resolver, resolveBatch, scope } = rig((entries) => {
+      attempt += 1;
+      return new Map(
+        entries.map((e) => [e.name, attempt === 1 ? { ok: false, reason: 'authorization-required' } : ok('v')]),
+      );
+    });
+    await scope.ensure(new Set(['ApiToken']));
+    // A timer's pass: the denial stands, nothing is asked again.
+    expect(scope.ensure(new Set(['ApiToken']), false)).toBeNull();
+    expect(resolveBatch).toHaveBeenCalledTimes(1);
+    expect(resolver.resolveScopedWithDiagnostics('ApiToken', 'vault').failureReason).toBe(
+      'secret-authorization-required',
+    );
+    // The same pass still asks for a name it never tried.
+    await scope.ensure(new Set(['ApiToken', 'Other']), false);
+    expect(resolveBatch).toHaveBeenCalledTimes(2);
+    expect(resolveBatch.mock.calls[1]?.[0].map((e) => e.name)).toEqual(['Other']);
+    // A person's pass retries the denial.
+    await scope.ensure(new Set(['ApiToken']));
+    expect(resolver.resolve('ApiToken')?.value).toBe('v');
+  });
+
   it('an entry the broker left unanswered reads unavailable', async () => {
     const { resolver, scope } = rig(() => new Map());
     await scope.ensure(new Set(['ApiToken']));

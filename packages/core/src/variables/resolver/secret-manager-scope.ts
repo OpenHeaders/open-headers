@@ -17,8 +17,10 @@
  *
  * Host-neutral: the host hands in the resolve seam — a node host's
  * local broker, the browser page realm's bridge call toward its
- * service worker, a test's fake — so the three session executors and
- * the page-realm factories share this one law.
+ * service worker, a test's fake — so the three session executors, the
+ * page-realm factories and the browser's rule compile share this one
+ * law. The installer is whatever reads the merged registry: a
+ * resolver, or a holder the compile path's resolver is synced from.
  */
 
 import type { SecretBrokerEntry, SecretResolution, SecretResolveFailureReason } from '../../secret-providers/types';
@@ -39,13 +41,18 @@ export interface SecretManagerScope {
    * a pass naming no such entry always did; only a real ask (a
    * provider may prompt) makes it wait. Asks run one after another, so
    * two riders naming the same unresolved entry at once ask for it
-   * once.
+   * once. `retryFailed: false` leaves a failed entry as it stands — a
+   * pass nobody asked for (a timer's rebuild) never re-prompts for a
+   * denial; the next pass a person caused does.
    */
-  ensure(names: ReadonlySet<string>): Promise<void> | null;
+  ensure(names: ReadonlySet<string>, retryFailed?: boolean): Promise<void> | null;
 }
 
+/** What reads the merged registry — a resolver, or the compile path's holder. */
+export type SecretManagerScopeInstaller = Pick<VariableResolver, 'setSecretManagerRegistry'>;
+
 export function createSecretManagerScope(
-  resolver: VariableResolver,
+  resolver: SecretManagerScopeInstaller,
   vault: Vault,
   resolveBatch: SecretManagerResolveBatch,
 ): SecretManagerScope {
@@ -57,18 +64,20 @@ export function createSecretManagerScope(
   const failures = new Map<string, SecretResolveFailureReason>();
   let tail: Promise<void> = Promise.resolve();
 
-  const missing = (names: ReadonlySet<string>): SecretBrokerEntry[] => {
+  const missing = (names: ReadonlySet<string>, retryFailed: boolean): SecretBrokerEntry[] => {
     const pending: SecretBrokerEntry[] = [];
     for (const name of names) {
       const entry = entries.get(name);
-      if (entry !== undefined && !registry.has(name)) pending.push({ name, locator: entry.locator });
+      if (entry === undefined || registry.has(name)) continue;
+      if (!retryFailed && failures.has(name)) continue;
+      pending.push({ name, locator: entry.locator });
     }
     return pending;
   };
 
-  const resolveMissing = async (names: ReadonlySet<string>): Promise<void> => {
+  const resolveMissing = async (names: ReadonlySet<string>, retryFailed: boolean): Promise<void> => {
     // Recomputed behind the chain — an earlier ask may have answered.
-    const pending = missing(names);
+    const pending = missing(names, retryFailed);
     if (pending.length === 0) return;
     const results = await resolveBatch(pending);
     for (const { name } of pending) {
@@ -84,9 +93,9 @@ export function createSecretManagerScope(
   };
 
   return {
-    ensure(names) {
-      if (missing(names).length === 0) return null;
-      const run = tail.then(() => resolveMissing(names));
+    ensure(names, retryFailed = true) {
+      if (missing(names, retryFailed).length === 0) return null;
+      const run = tail.then(() => resolveMissing(names, retryFailed));
       tail = run.catch(() => undefined);
       return run;
     },

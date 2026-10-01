@@ -16,13 +16,17 @@ import type { BridgeRpcRequest, BridgeRpcResponse } from '@openheaders/core/brid
 import { providingBackendKind } from '@openheaders/core/identity';
 import type { SecretBrokerEntry, SecretManagerBroker, SecretResolution } from '@openheaders/core/secret-providers';
 import { setSecretManagerBroker } from '@openheaders/oracle/live/request-exec/secret-manager-broker';
-import { listConnectedWires } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import { type BackendWireHandle, listConnectedWires } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { wsRequest } from '../../ws-request';
 
-/** The desktop app's connected wire on this device, by the place rule; null while it is away. */
+/** Is this wire the desktop app's on this device — by the place rule; any other backend is a server. */
+export function isDesktopAppWire(wire: BackendWireHandle): boolean {
+  return providingBackendKind('browser', wire.record().url) === 'desktop-app';
+}
+
+/** The desktop app's connected wire on this device; null while it is away. */
 export function desktopAppBackendId(): string | null {
-  const wire = listConnectedWires().find((w) => providingBackendKind('browser', w.record().url) === 'desktop-app');
-  return wire?.backendId ?? null;
+  return listConnectedWires().find(isDesktopAppWire)?.backendId ?? null;
 }
 
 export const DESKTOP_APP_AWAY_DETAIL = 'The desktop app on this computer is not connected.';
