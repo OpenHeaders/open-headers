@@ -13,6 +13,10 @@
  *   - reliability knobs: plain-values reads off `OH.settingsUser`
  *     (same idiom as `web-app-root.ts`), kept live by a storage
  *     subscription — no renderer settings store runs in main.
+ *   - per-backend feed: the handshake-phase reporter per wire and the
+ *     slot-change broadcast (`backendSyncStatusUpdated`) over the
+ *     renderer fan-out — the Sync page's row dots and the enable gate's
+ *     dwell read it over the bridge exactly as the extension's pages do.
  *   - status roll-up: the aggregate's roll-up is the `sync` subsystem's
  *     SOLE writer on desktop. The spine's server-side reporter (bind
  *     lifecycle + peers) feeds the aggregate's baseline slot (wired in
@@ -40,6 +44,7 @@ import {
   installBackendConnectionManager,
   restartAllPings,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import { installBackendStatusReporters } from '@openheaders/oracle/sync/client/backend-status-reporters';
 import { installBackendSyncPlane, type SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
 import { setPendingOutQueue } from '@openheaders/oracle/sync/client/mutation-forwarder';
 import { setSyncStatusRollupSink } from '@openheaders/oracle/sync/client/sync-status-aggregate';
@@ -89,6 +94,8 @@ export interface InstallBackendClientConfig {
   hostStorage: HostStorage;
   /** Desktop app version — the HELLO agent string. */
   appVersion: string;
+  /** The spine's renderer fan-out — the per-backend feed's broadcast. */
+  broadcastLocal: (type: string, payload: unknown) => void;
   /**
    * Product-telemetry sink for the `ws-connect-failed` beacon — a dial
    * that closes without ever opening (the telemetry plan §3). The
@@ -128,6 +135,10 @@ export async function installBackendClient(config: InstallBackendClientConfig): 
     onSyncedPresencePush: () => forwardCurrentAwarenessOnConnect('desktop'),
     extraInboundHandlers: [(frame) => handleIncomingAwarenessFrame(frame)],
   });
+
+  // The per-backend feed the Sync page's rows read: the handshake-phase
+  // reporter per wire and every slot change fanned out to the renderers.
+  installBackendStatusReporters({ syncWiring, broadcast: config.broadcastLocal });
 
   // Sole `sync` writer: the roll-up composes the spine reporter's
   // baseline slot with the per-backend client slots, worst-of. Null

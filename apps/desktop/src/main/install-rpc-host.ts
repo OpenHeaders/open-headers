@@ -57,7 +57,10 @@ import {
 } from '@openheaders/oracle/entity/import-reports-store';
 import { forwardAwarenessToBackend } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { forwardMutationToBackend } from '@openheaders/oracle/sync/client/mutation-forwarder';
-import { reportBaselineSyncStatus } from '@openheaders/oracle/sync/client/sync-status-aggregate';
+import {
+  getBackendSyncStatusSnapshot,
+  reportBaselineSyncStatus,
+} from '@openheaders/oracle/sync/client/sync-status-aggregate';
 import { bootDaemonSpine, registerPeerRpcPlane } from '@openheaders/oracle-host-node/daemon';
 import { registerH3HelperLocator } from '@openheaders/oracle-host-node/live/h3-helper/helper-binary';
 import {
@@ -466,6 +469,7 @@ export async function installRpcHost(): Promise<void> {
   // plane composes over are live. The client plane's observability seams
   // feed the product-telemetry beacons, same mapping as the extension SW.
   const syncWiring = await installBackendClient({
+    broadcastLocal: broadcastToAllRenderers,
     hostStorage,
     appVersion: app.getVersion(),
     trackProductTelemetry: (event) => productTelemetry.track(event),
@@ -686,6 +690,12 @@ export async function installRpcHost(): Promise<void> {
     // What's New online history (the changelog plan §4.3) — the
     // renderer's CSP can't dial the feed, so these two enhancement-only
     // static GETs run here. Null answers hide the section, never error.
+    // The per-backend sync slots the Sync page's rows mirror at mount: the
+    // aggregate lives in this process (the client plane's slots); the
+    // updates ride the backendSyncStatusUpdated broadcast.
+    if (type === 'getBackendSyncStatusSnapshot') {
+      return { snapshot: getBackendSyncStatusSnapshot() };
+    }
     if (type === 'oh.whatsNew.history') {
       return { rows: await fetchWhatsNewHistory() };
     }

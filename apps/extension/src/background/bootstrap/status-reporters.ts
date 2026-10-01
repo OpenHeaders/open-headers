@@ -1,8 +1,4 @@
-import {
-  reportBackendSyncStatus,
-  subscribeBackendSyncStatus,
-} from '@openheaders/oracle/sync/client/sync-status-aggregate';
-import { installHandshakeStatusReporter } from '@openheaders/oracle/sync/client/sync-status-reporter';
+import { installBackendStatusReporters } from '@openheaders/oracle/sync/client/backend-status-reporters';
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { broadcast } from '@utils/bridge';
 import { installActivityStatusReporter } from '../activity-status-reporter';
@@ -15,27 +11,11 @@ interface InstallStatusReportersOpts {
 }
 
 export function installStatusReporters({ syncWiring }: InstallStatusReportersOpts): void {
-  // Handshake phase overrides the wire-level "Connected to back-end" once
-  // HELLO is in flight — per connection, into the same per-backend slot
-  // the connection manager's wire-level reporter writes, so the two keep
-  // their temporal last-write semantics within one backend while the
-  // aggregate rolls worst-of across backends. Wire-level stays
-  // authoritative for disconnected / connecting / in-browser states.
-  const unsubscribers = new Map<string, () => void>();
-  syncWiring.subscribeHandshakeLifecycle((event) => {
-    if (event.kind === 'created') {
-      unsubscribers.set(
-        event.backendId,
-        installHandshakeStatusReporter({
-          initiator: event.handles.initiator,
-          report: (entry) => reportBackendSyncStatus(event.backendId, entry),
-        }),
-      );
-      return;
-    }
-    unsubscribers.get(event.backendId)?.();
-    unsubscribers.delete(event.backendId);
-  });
+  // The per-backend feed — the handshake-phase reporter per wire into
+  // the same slot the connection manager's wire-level reporter writes,
+  // and every slot change fanned out as `backendSyncStatusUpdated` —
+  // is the shared installer every client-plane host composes over.
+  installBackendStatusReporters({ syncWiring, broadcast });
 
   installActivityStatusReporter({
     report: (entry) =>
@@ -53,9 +33,5 @@ export function installStatusReporters({ syncWiring }: InstallStatusReportersOpt
 
   subscribeStatus((snapshot) => {
     broadcast('statusUpdated', snapshot);
-  });
-
-  subscribeBackendSyncStatus((snapshot) => {
-    broadcast('backendSyncStatusUpdated', snapshot);
   });
 }
