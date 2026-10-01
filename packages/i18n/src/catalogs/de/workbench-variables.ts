@@ -69,12 +69,14 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.locked': 'Gesperrt',
   'workbench.variables.table.smStatus.denied': 'Zugriff verweigert',
   'workbench.variables.table.smStatus.unreachable': 'Nicht erreichbar',
+  'workbench.variables.table.smStatus.brokerUnreachable': 'Desktop-App verbinden',
   'workbench.variables.table.smStatus.noConnection': 'Keine Verbindung ausgewählt',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'Die 1Password-App hat die Verbindung nicht angenommen. Prüfe, ob der Kontoname mit ihrer Seitenleiste übereinstimmt und ob Einstellungen › Entwickler › Mit 1Password-SDKs integrieren eingeschaltet ist.',
   'workbench.variables.table.smConnection': 'Verbindung',
   'workbench.variables.table.smConnectionPlaceholder': 'Verbindung …',
   'workbench.variables.table.smConnectionDesktopOnly': 'In der Desktop-App einrichten',
+  'workbench.variables.table.smConnectionConnectDesktop': 'Desktop-App verbinden',
   'workbench.variables.table.smConnectionNone': 'Noch keine Verbindung für diesen Anbieter',
   'workbench.variables.table.smConnectionManage': 'Verwalten …',
   'workbench.variables.table.smField.auth': 'Authentifizierung',
@@ -110,6 +112,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.saveFailedDetail': 'Verbindung konnte nicht gespeichert werden: {message}',
   'workbench.variables.secretManagers.browserNote':
     'Secret-Manager-Verbindungen liegen in der Desktop-App. Öffnen Sie sie, um eine hinzuzufügen oder zu testen.',
+  'workbench.variables.secretManagers.browserNoteConnected':
+    'Diese Verbindungen gehören der Desktop-App. Teste sie von hier aus; hinzufügen oder bearbeiten kannst du sie in der Desktop-App.',
   'workbench.variables.table.certPlaceholder': 'Zertifikat (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Privater Schlüssel (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Passphrase des Schlüssels (optional)',
@@ -302,6 +306,7 @@ export const workbenchVariables = {
   'workbench.variables.panel.errors.reason.secretAuthorizationRequired': 'Autorisierung erforderlich',
   'workbench.variables.panel.errors.reason.secretNotFound': 'Secret nicht gefunden',
   'workbench.variables.panel.errors.reason.secretUnavailable': 'Manager nicht verfügbar',
+  'workbench.variables.panel.errors.reason.secretBrokerUnreachable': 'Desktop-App nicht verbunden',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': 'Code kopieren',

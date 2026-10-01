@@ -24,6 +24,7 @@ const REASON_TAG_COLOR: Record<ResolutionError['reason'], string> = {
   'secret-authorization-required': 'warning',
   'secret-not-found': 'error',
   'secret-unavailable': 'warning',
+  'secret-broker-unreachable': 'warning',
 };
 
 const REASON_TAG_LABEL: Record<ResolutionError['reason'], MessageKey> = {
@@ -36,6 +37,7 @@ const REASON_TAG_LABEL: Record<ResolutionError['reason'], MessageKey> = {
   'secret-authorization-required': 'workbench.variables.panel.errors.reason.secretAuthorizationRequired',
   'secret-not-found': 'workbench.variables.panel.errors.reason.secretNotFound',
   'secret-unavailable': 'workbench.variables.panel.errors.reason.secretUnavailable',
+  'secret-broker-unreachable': 'workbench.variables.panel.errors.reason.secretBrokerUnreachable',
 };
 
 export function ResolutionErrorList({ errors }: { errors: ResolutionError[] }) {

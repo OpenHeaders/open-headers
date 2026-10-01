@@ -47,6 +47,8 @@ export const sharedResolutionHints = {
   'shared.resolutionHint.secretUnavailable':
     'El gestor de secretos de esta entrada no está disponible en este dispositivo. Instálalo o ' +
     'configúralo y vuelve a intentarlo.',
+  'shared.resolutionHint.secretBrokerUnreachable':
+    'Esta entrada se resuelve a través de la aplicación de escritorio de este equipo. Conecta la aplicación de escritorio y vuelve a intentarlo.',
   'shared.resolutionHint.invalidDomain.whitespace':
     'La variable se resuelve en un valor que Chrome rechaza en esta posición — contiene espacios en blanco ' +
     '(separa los nombres de host con comas). Usa nombres de host simples separados por comas.',

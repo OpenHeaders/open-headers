@@ -203,6 +203,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': '認可が必要',
   'workbench.editors.rule.resolution.reason.secretNotFound': 'シークレットが見つかりません',
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'マネージャーが利用不可',
+  'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'デスクトップアプリ未接続',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     '環境「{envName}」のキャッシュされた実行がありません。ワークフローを開き、この環境で「更新」をクリックして値を用意してください',
   'workbench.editors.rule.resolution.hint.disabledLv': 'ライブ変数が無効です。ライブ変数エディターで有効にしてください',

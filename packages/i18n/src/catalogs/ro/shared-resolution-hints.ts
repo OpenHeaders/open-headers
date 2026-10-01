@@ -43,6 +43,8 @@ export const sharedResolutionHints = {
     'Managerul de secrete nu a găsit niciun secret la această referință. Verificați câmpurile referinței în intrarea Vault.',
   'shared.resolutionHint.secretUnavailable':
     'Managerul de secrete pentru această intrare nu este disponibil pe acest dispozitiv. Instalați-l sau configurați-l, apoi reîncercați.',
+  'shared.resolutionHint.secretBrokerUnreachable':
+    'Această intrare se rezolvă prin aplicația desktop de pe acest computer. Conectați aplicația desktop, apoi reîncercați.',
   'shared.resolutionHint.invalidDomain.whitespace':
     'Variabila s-a rezolvat la o valoare pe care Chrome o respinge în acest câmp — conține spații (separați numele de gazdă prin virgule). Folosiți nume de gazdă simple, separate prin virgule.',
   'shared.resolutionHint.invalidDomain.scheme':

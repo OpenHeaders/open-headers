@@ -217,6 +217,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': 'требуется авторизация',
   'workbench.editors.rule.resolution.reason.secretNotFound': 'секрет не найден',
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'менеджер недоступен',
+  'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'настольное приложение не подключено',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     'нет кешированного запуска для окружения «{envName}» — откройте рабочий процесс и нажмите «Обновить» в этом окружении, чтобы заполнить',
   'workbench.editors.rule.resolution.hint.disabledLv':

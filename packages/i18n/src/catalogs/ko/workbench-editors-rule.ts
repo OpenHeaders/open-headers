@@ -203,6 +203,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': '인가 필요',
   'workbench.editors.rule.resolution.reason.secretNotFound': '시크릿을 찾을 수 없음',
   'workbench.editors.rule.resolution.reason.secretUnavailable': '관리자를 사용할 수 없음',
+  'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': '데스크톱 앱 미연결',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     '“{envName}” 환경의 캐시된 실행이 없습니다. 워크플로를 열고 이 환경 아래의 새로 고침을 눌러 채우세요',
   'workbench.editors.rule.resolution.hint.disabledLv':

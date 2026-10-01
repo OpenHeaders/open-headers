@@ -215,7 +215,7 @@ import { createProxyCaptureService } from './proxy/proxy-capture-service';
 import { createProxyTrustService } from './proxy/proxy-trust';
 import { createProxyRoutingControl } from './proxy/routing-push';
 import { createPublicWorkspaceHttpHandler } from './public-workspace-http';
-import { handleSecretManagerRpc, isSecretManagerRpc } from './secret-manager-rpc';
+import { createSecretManagerPeerRpc, handleSecretManagerRpc, isSecretManagerRpc } from './secret-manager-rpc';
 import { DEFAULT_SESSION_TTL_DAYS, sessionTtlMsFromDays } from './session-ttl';
 import { createDaemonSetupClaimService } from './setup/setup-claim-service';
 import { createSetupHttpHandler } from './setup/setup-http';
@@ -1683,6 +1683,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         createPeerRequestsRpc({ cliStatus: () => cliProvision.status(), peerExecute }),
         createDelegatedRequestsRpc({ peerExecute }),
         createDelegatedSocketsRpc({ peerExecute }),
+        createSecretManagerPeerRpc({ peerExecute }),
         createPeerWorkspaceLeaveRpc({ getWsServer: () => wsServer }),
         createPeerWorkspaceMembersRpc({ getWsServer: () => wsServer }),
         createPeerWorkspacePublicRpc({ store: publishedSnapshots, publicWorkspacesEnabled }),

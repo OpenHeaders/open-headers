@@ -40,6 +40,8 @@ export const sharedResolutionHints = {
     '시크릿 관리자가 이 참조에서 시크릿을 찾지 못했습니다. Vault 항목의 참조 필드를 확인하세요.',
   'shared.resolutionHint.secretUnavailable':
     '이 항목의 시크릿 관리자를 이 기기에서 사용할 수 없습니다. 설치하거나 구성한 다음 다시 시도하세요.',
+  'shared.resolutionHint.secretBrokerUnreachable':
+    '이 항목은 이 컴퓨터의 데스크톱 앱을 통해 확인됩니다. 데스크톱 앱을 연결한 뒤 다시 시도하세요.',
   'shared.resolutionHint.invalidDomain.whitespace':
     '변수가 이 슬롯에서 Chrome 브라우저가 거부하는 값으로 해결되었습니다. 공백이 포함되어 있습니다 (호스트 이름은 쉼표로 구분하세요). 쉼표로 구분한 순수 호스트 이름을 사용하세요.',
   'shared.resolutionHint.invalidDomain.scheme':

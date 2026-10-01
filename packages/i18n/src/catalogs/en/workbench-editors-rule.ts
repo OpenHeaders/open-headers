@@ -185,6 +185,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': 'authorization required',
   'workbench.editors.rule.resolution.reason.secretNotFound': 'secret not found',
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'manager unavailable',
+  'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'desktop app not connected',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     'no cached run for env "{envName}" — open the workflow and click Refresh under this env to populate',
   'workbench.editors.rule.resolution.hint.disabledLv':

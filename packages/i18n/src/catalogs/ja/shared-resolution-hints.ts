@@ -38,6 +38,8 @@ export const sharedResolutionHints = {
     'シークレットマネージャーはこの参照先にシークレットを見つけられませんでした。Vault エントリーの参照フィールドを確認してください。',
   'shared.resolutionHint.secretUnavailable':
     'このエントリーのシークレットマネージャーはこのデバイスで利用できません。インストールまたは設定してから再試行してください。',
+  'shared.resolutionHint.secretBrokerUnreachable':
+    'このエントリはこのコンピューターのデスクトップアプリを通じて解決されます。デスクトップアプリを接続してから再試行してください。',
   'shared.resolutionHint.invalidDomain.whitespace':
     '変数の解決結果はこのスロットで Chrome に拒否される値です。空白が含まれています（ホスト名はコンマで区切ってください）。コンマ区切りの素のホスト名を使ってください。',
   'shared.resolutionHint.invalidDomain.scheme':

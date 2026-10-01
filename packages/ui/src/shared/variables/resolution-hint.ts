@@ -68,6 +68,8 @@ export function resolutionHint(t: Translate, error: ResolutionError): string {
       return t('shared.resolutionHint.secretNotFound');
     case 'secret-unavailable':
       return t('shared.resolutionHint.secretUnavailable');
+    case 'secret-broker-unreachable':
+      return t('shared.resolutionHint.secretBrokerUnreachable');
     case 'invalid-resolved-value': {
       const kind = error.params?.domainIssueKind;
       return kind ? t(DOMAIN_ISSUE_HINT_KEY[kind]) : error.hint;

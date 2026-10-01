@@ -64,12 +64,14 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.locked': 'Verrouillé',
   'workbench.variables.table.smStatus.denied': 'Accès refusé',
   'workbench.variables.table.smStatus.unreachable': 'Injoignable',
+  'workbench.variables.table.smStatus.brokerUnreachable': 'Connectez l’application de bureau',
   'workbench.variables.table.smStatus.noConnection': 'Aucune connexion sélectionnée',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'L’application 1Password n’a pas accepté la connexion. Vérifiez que le nom du compte correspond à sa barre latérale et que Réglages › Développeur › Intégrer avec les SDK 1Password est activé.',
   'workbench.variables.table.smConnection': 'Connexion',
   'workbench.variables.table.smConnectionPlaceholder': 'Connexion…',
   'workbench.variables.table.smConnectionDesktopOnly': 'À configurer dans l’application de bureau',
+  'workbench.variables.table.smConnectionConnectDesktop': 'Connectez l’application de bureau',
   'workbench.variables.table.smConnectionNone': 'Aucune connexion pour ce fournisseur pour l’instant',
   'workbench.variables.table.smConnectionManage': 'Gérer…',
   'workbench.variables.table.smField.auth': 'Authentification',
@@ -105,6 +107,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.saveFailedDetail': 'Impossible d’enregistrer la connexion : {message}',
   'workbench.variables.secretManagers.browserNote':
     'Les connexions aux gestionnaires de secrets résident dans l’application de bureau. Ouvrez-la pour en ajouter ou en tester une.',
+  'workbench.variables.secretManagers.browserNoteConnected':
+    'Ces connexions sont celles de l’application de bureau. Testez-les d’ici ; ajoutez-les ou modifiez-les dans l’application de bureau.',
   'workbench.variables.table.certPlaceholder': 'Certificat (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Clé privée (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Phrase de passe de la clé (facultatif)',
@@ -298,6 +302,7 @@ export const workbenchVariables = {
   'workbench.variables.panel.errors.reason.secretAuthorizationRequired': 'autorisation requise',
   'workbench.variables.panel.errors.reason.secretNotFound': 'secret introuvable',
   'workbench.variables.panel.errors.reason.secretUnavailable': 'gestionnaire indisponible',
+  'workbench.variables.panel.errors.reason.secretBrokerUnreachable': 'application de bureau non connectée',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': 'Copier le code',

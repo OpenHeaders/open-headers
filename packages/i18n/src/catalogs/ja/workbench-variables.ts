@@ -70,12 +70,14 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.locked': 'ロック中',
   'workbench.variables.table.smStatus.denied': 'アクセス拒否',
   'workbench.variables.table.smStatus.unreachable': '到達できません',
+  'workbench.variables.table.smStatus.brokerUnreachable': 'デスクトップアプリを接続',
   'workbench.variables.table.smStatus.noConnection': '接続が選択されていません',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     '1Password アプリが接続を受け付けませんでした。アカウント名がアプリのサイドバーと一致しているか、設定 › 開発者 › 1Password SDK との統合がオンになっているか確認してください。',
   'workbench.variables.table.smConnection': '接続',
   'workbench.variables.table.smConnectionPlaceholder': '接続…',
   'workbench.variables.table.smConnectionDesktopOnly': 'デスクトップアプリで設定します',
+  'workbench.variables.table.smConnectionConnectDesktop': 'デスクトップアプリを接続',
   'workbench.variables.table.smConnectionNone': 'このプロバイダーの接続はまだありません',
   'workbench.variables.table.smConnectionManage': '管理…',
   'workbench.variables.table.smField.auth': '認証',
@@ -111,6 +113,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.saveFailedDetail': '接続を保存できませんでした: {message}',
   'workbench.variables.secretManagers.browserNote':
     'シークレットマネージャーの接続はデスクトップアプリにあります。追加やテストはそちらで行ってください。',
+  'workbench.variables.secretManagers.browserNoteConnected':
+    'これらの接続はデスクトップアプリのものです。ここからテストできます。追加や編集はデスクトップアプリで行ってください。',
   'workbench.variables.table.certPlaceholder': '証明書（PEM）',
   'workbench.variables.table.certKeyPlaceholder': '秘密鍵（PEM）',
   'workbench.variables.table.passphrasePlaceholder': '鍵のパスフレーズ（省略可）',
@@ -283,6 +287,7 @@ export const workbenchVariables = {
   'workbench.variables.panel.errors.reason.secretAuthorizationRequired': '認可が必要',
   'workbench.variables.panel.errors.reason.secretNotFound': 'シークレットが見つかりません',
   'workbench.variables.panel.errors.reason.secretUnavailable': 'マネージャーが利用不可',
+  'workbench.variables.panel.errors.reason.secretBrokerUnreachable': 'デスクトップアプリ未接続',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': 'コードをコピー',

@@ -7,6 +7,7 @@
  */
 
 import { type HostBridge, setHostBridge } from '@openheaders/core/bridge';
+import { SECRET_MANAGER_SAME_DEVICE_MESSAGE } from '@openheaders/core/protocol';
 import {
   registerSecretProvider,
   SECRET_PROVIDER_IDS,
@@ -19,7 +20,11 @@ import {
   loadSecretManagerConnections,
 } from '@openheaders/oracle/entity/secret-manager-connections-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { handleSecretManagerRpc, isSecretManagerRpc } from '../../../src/daemon/secret-manager-rpc';
+import {
+  createSecretManagerPeerRpc,
+  handleSecretManagerRpc,
+  isSecretManagerRpc,
+} from '../../../src/daemon/secret-manager-rpc';
 import { createHostStorageFake } from '../_host-storage-fake';
 
 const broadcast = vi.fn();
@@ -158,5 +163,100 @@ describe('secret-manager rpc', () => {
       reason: 'no-credentials',
       detail: 'no profile',
     });
+  });
+
+  it('list names its broker as this host', async () => {
+    await addWork();
+    expect(await handleSecretManagerRpc('oh.secretManager.list', {})).toMatchObject({ broker: 'local' });
+  });
+
+  it("resolveBatch answers every referenced entry typed through this host's broker; a malformed entry is dropped", async () => {
+    const uid = await addWork();
+    registerSecretProvider(
+      fakeProvider({
+        resolve: async (_connection, locator) =>
+          locator.provider === 'onepassword' && locator.item === 'missing.openheaders.io'
+            ? { ok: false, reason: 'not-found' }
+            : { ok: true, value: 'resolved' },
+      }),
+    );
+    const locator = (item: string) => ({
+      provider: 'onepassword',
+      connectionId: uid,
+      vault: 'Demo',
+      item,
+      field: 'token',
+    });
+    const out = (await handleSecretManagerRpc('oh.secretManager.resolveBatch', {
+      entries: [
+        { name: 'ApiToken', locator: locator('api.openheaders.io') },
+        { name: 'Gone', locator: locator('missing.openheaders.io') },
+        { name: 'Broken', locator: { provider: 'nope' } },
+        { name: 'Orphan', locator: { ...locator('x'), connectionId: 'conn9999' } },
+      ],
+    })) as { results: Record<string, { ok: boolean; reason?: string; value?: string }> };
+    expect(out.results.ApiToken).toEqual({ ok: true, value: 'resolved' });
+    expect(out.results.Gone).toMatchObject({ ok: false, reason: 'not-found' });
+    expect(out.results.Orphan).toMatchObject({ ok: false, reason: 'unavailable' });
+    expect(out.results.Broken).toBeUndefined();
+  });
+});
+
+describe('the secret-manager peer plane', () => {
+  const allowAll = {
+    allowed: async () => true,
+    assert: async () => undefined,
+    read: async () => ({ remote: false, hostKind: 'desktop' as const }),
+    setRemote: async () => undefined,
+  };
+
+  it('owns the reads and gestures, never a mutation', () => {
+    const plane = createSecretManagerPeerRpc({ peerExecute: allowAll });
+    for (const type of [
+      'oh.secretManager.list',
+      'oh.secretManager.probe',
+      'oh.secretManager.authorize',
+      'oh.secretManager.resolveBatch',
+    ]) {
+      expect(plane.owns(type)).toBe(true);
+    }
+    for (const type of ['oh.secretManager.add', 'oh.secretManager.update', 'oh.secretManager.remove']) {
+      expect(plane.owns(type)).toBe(false);
+    }
+  });
+
+  it('refuses an off-device peer by name before the opt-in, and answers a loopback peer', async () => {
+    let asserted = 0;
+    const plane = createSecretManagerPeerRpc({
+      peerExecute: {
+        ...allowAll,
+        assert: async () => {
+          asserted++;
+        },
+      },
+    });
+    await expect(
+      plane.dispatch({ type: 'oh.secretManager.list' }, { userId: 'u1', isLoopback: false }),
+    ).rejects.toThrow(SECRET_MANAGER_SAME_DEVICE_MESSAGE);
+    expect(asserted).toBe(0);
+    await addWork();
+    expect(await plane.dispatch({ type: 'oh.secretManager.list' }, { userId: 'u1', isLoopback: true })).toMatchObject({
+      broker: 'local',
+    });
+    expect(asserted).toBe(1);
+  });
+
+  it('a loopback peer the local opt-in refuses meets that refusal', async () => {
+    const plane = createSecretManagerPeerRpc({
+      peerExecute: {
+        ...allowAll,
+        assert: async () => {
+          throw new Error('local peer execute off');
+        },
+      },
+    });
+    await expect(
+      plane.dispatch({ type: 'oh.secretManager.probe', uid: 'x' }, { userId: 'u1', isLoopback: true }),
+    ).rejects.toThrow('local peer execute off');
   });
 });

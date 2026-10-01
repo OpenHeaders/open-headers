@@ -51,6 +51,7 @@ const REASON_LABEL_KEY: Record<ResolutionError['reason'], MessageKey> = {
   'secret-authorization-required': 'workbench.editors.rule.resolution.reason.secretAuthorizationRequired',
   'secret-not-found': 'workbench.editors.rule.resolution.reason.secretNotFound',
   'secret-unavailable': 'workbench.editors.rule.resolution.reason.secretUnavailable',
+  'secret-broker-unreachable': 'workbench.editors.rule.resolution.reason.secretBrokerUnreachable',
 };
 
 interface RuleResolutionBannerProps {

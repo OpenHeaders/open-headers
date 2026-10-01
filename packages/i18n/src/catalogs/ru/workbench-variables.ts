@@ -89,12 +89,14 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.locked': 'Заблокирован',
   'workbench.variables.table.smStatus.denied': 'Доступ отклонён',
   'workbench.variables.table.smStatus.unreachable': 'Недоступен по сети',
+  'workbench.variables.table.smStatus.brokerUnreachable': 'Подключите настольное приложение',
   'workbench.variables.table.smStatus.noConnection': 'Подключение не выбрано',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'Приложение 1Password не приняло подключение. Проверьте, что имя аккаунта совпадает с его боковой панелью и что включён параметр Настройки › Разработчик › Интеграция с SDK 1Password.',
   'workbench.variables.table.smConnection': 'Подключение',
   'workbench.variables.table.smConnectionPlaceholder': 'Подключение…',
   'workbench.variables.table.smConnectionDesktopOnly': 'Настраивается в настольном приложении',
+  'workbench.variables.table.smConnectionConnectDesktop': 'Подключите настольное приложение',
   'workbench.variables.table.smConnectionNone': 'Для этого поставщика пока нет подключений',
   'workbench.variables.table.smConnectionManage': 'Управлять…',
   'workbench.variables.table.smField.auth': 'Аутентификация',
@@ -130,6 +132,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.saveFailedDetail': 'Не удалось сохранить подключение: {message}',
   'workbench.variables.secretManagers.browserNote':
     'Подключения к менеджерам секретов находятся в настольном приложении. Откройте его, чтобы добавить или проверить подключение.',
+  'workbench.variables.secretManagers.browserNoteConnected':
+    'Эти подключения принадлежат настольному приложению. Проверяйте их отсюда; добавляйте и изменяйте их в настольном приложении.',
   'workbench.variables.table.certPlaceholder': 'Сертификат (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Закрытый ключ (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Парольная фраза ключа (необязательно)',
@@ -308,6 +312,7 @@ export const workbenchVariables = {
   'workbench.variables.panel.errors.reason.secretAuthorizationRequired': 'нужна авторизация',
   'workbench.variables.panel.errors.reason.secretNotFound': 'секрет не найден',
   'workbench.variables.panel.errors.reason.secretUnavailable': 'менеджер недоступен',
+  'workbench.variables.panel.errors.reason.secretBrokerUnreachable': 'настольное приложение не подключено',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': 'Копировать код',

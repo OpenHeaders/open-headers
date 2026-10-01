@@ -47,6 +47,8 @@ export const sharedResolutionHints = {
     'The secret manager could not find a secret at this reference. Check the reference fields in the Vault entry.',
   'shared.resolutionHint.secretUnavailable':
     'The secret manager for this entry is not available on this device. Install or configure it, then retry.',
+  'shared.resolutionHint.secretBrokerUnreachable':
+    'This entry resolves through the desktop app on this computer. Connect the desktop app, then retry.',
   'shared.resolutionHint.invalidDomain.whitespace':
     'Variable resolved to a value Chrome rejects in this slot — contains whitespace (separate hostnames with commas). Use bare hostnames separated by commas.',
   'shared.resolutionHint.invalidDomain.scheme':

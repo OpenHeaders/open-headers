@@ -51,6 +51,11 @@ export const COMPANION_REVEAL_TARGETS: readonly CompanionRevealTarget[] = [
  * recognize them to render the host-aware guidance (with the reveal
  * hand-off above) instead of the raw wire text.
  */
+/** The secret-manager peer plane's refusal of any off-device peer — the
+ *  same-device law: a secret resolves only for this device's own browsers. */
+export const SECRET_MANAGER_SAME_DEVICE_MESSAGE =
+  'Secret managers answer only browsers on this device. Connect to the desktop app on this computer.';
+
 export const LOCAL_PEER_EXECUTE_DISABLED_MESSAGE =
   "Sending requests from this device's browsers is disabled on this host. Enable it in Settings → Backend.";
 export const REMOTE_PEER_EXECUTE_DISABLED_MESSAGE =

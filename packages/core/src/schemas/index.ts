@@ -5,13 +5,6 @@ export { MIN_SCHEMA_VERSION, RelativePathSchema, SchemaVersionSchema, UidSchema,
 export { DaemonConfigSchema } from './daemon-config';
 export { DaemonPrincipalKindSchema, DaemonUserRecordSchema } from './daemon-users';
 export { DeviceTrustedCertificateSchema, DeviceTrustSchema } from './device-trust';
-export {
-  HashicorpAuthMethodSchema,
-  OnePasswordAuthLaneSchema,
-  SecretManagerConnectionConfigSchema,
-  SecretManagerConnectionSchema,
-  SecretManagerConnectionsSchema,
-} from './secret-manager-connections';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
 export { GraphqlAuthSchema, GraphqlRequestSchema, GraphqlRequestSeedSchema } from './graphql-request';
@@ -255,6 +248,13 @@ export {
   SessionScriptSlotsSchema,
   WsScriptSlotsSchema,
 } from './script-slots';
+export {
+  HashicorpAuthMethodSchema,
+  OnePasswordAuthLaneSchema,
+  SecretManagerConnectionConfigSchema,
+  SecretManagerConnectionSchema,
+  SecretManagerConnectionsSchema,
+} from './secret-manager-connections';
 export type { AuthConfigType } from './session-auth';
 export {
   GRPC_AUTH_TYPES,
@@ -288,6 +288,7 @@ export {
 export { TrustedRootSchema, TrustedRootsSchema } from './trusted-roots';
 export {
   EnvironmentSchema,
+  SecretLocatorSchema,
   TotpAlgorithmSchema,
   VariableSchema,
   VariableTypeSchema,

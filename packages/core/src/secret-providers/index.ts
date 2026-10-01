@@ -24,7 +24,10 @@ export {
 } from './registry';
 export type {
   SecretAuthorizeResult,
+  SecretBrokerEntry,
+  SecretBrokerKind,
   SecretLocator,
+  SecretManagerBroker,
   SecretManagerConnection,
   SecretProvider,
   SecretProviderId,

@@ -75,12 +75,14 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.locked': 'Locked',
   'workbench.variables.table.smStatus.denied': 'Access denied',
   'workbench.variables.table.smStatus.unreachable': 'Unreachable',
+  'workbench.variables.table.smStatus.brokerUnreachable': 'Connect the desktop app',
   'workbench.variables.table.smStatus.noConnection': 'No connection selected',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'The 1Password app did not accept the connection. Check that the account name matches its sidebar and that Settings › Developer › Integrate with 1Password SDKs is turned on.',
   'workbench.variables.table.smConnection': 'Connection',
   'workbench.variables.table.smConnectionPlaceholder': 'Connection…',
   'workbench.variables.table.smConnectionDesktopOnly': 'Set up in the desktop app',
+  'workbench.variables.table.smConnectionConnectDesktop': 'Connect the desktop app',
   'workbench.variables.table.smConnectionNone': 'No connection for this provider yet',
   'workbench.variables.table.smConnectionManage': 'Manage…',
   'workbench.variables.table.smField.auth': 'Authentication',
@@ -116,6 +118,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.saveFailedDetail': 'Could not save the connection: {message}',
   'workbench.variables.secretManagers.browserNote':
     'Secret manager connections live on the desktop app. Open it to add or test one.',
+  'workbench.variables.secretManagers.browserNoteConnected':
+    "These connections are the desktop app's. Test them from here; add or edit them in the desktop app.",
   'workbench.variables.table.certPlaceholder': 'Certificate (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Private key (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Key passphrase (optional)',
@@ -286,6 +290,7 @@ export const workbenchVariables = {
   'workbench.variables.panel.errors.reason.secretAuthorizationRequired': 'authorization required',
   'workbench.variables.panel.errors.reason.secretNotFound': 'secret not found',
   'workbench.variables.panel.errors.reason.secretUnavailable': 'manager unavailable',
+  'workbench.variables.panel.errors.reason.secretBrokerUnreachable': 'desktop app not connected',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': 'Copy code',

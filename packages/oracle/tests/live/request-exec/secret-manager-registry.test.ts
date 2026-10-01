@@ -3,10 +3,11 @@
  * REFERENCED secret-manager entries through their connections and the
  * host's provider registry. Exercised directly with fake providers
  * installed in core's (default-null) registry and an injected
- * connection lookup: values land in the registry map, every failure
- * mode lands typed in the failures map, an unreferenced entry is never
- * touched, a connection is never probed (a send is a new attempt, the
- * provider's resolve its authority), and nothing throws.
+ * connection lookup behind the LOCAL broker: values land in the
+ * registry map, every failure mode lands typed in the failures map, an
+ * unreferenced entry is never touched, a connection is never probed (a
+ * send is a new attempt, the provider's resolve its authority), and
+ * nothing throws.
  */
 
 import {
@@ -18,6 +19,7 @@ import {
 import type { SecretManagerConnection, Vault, VaultSecret } from '@openheaders/core/types';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildSecretManagerRegistry } from '../../../src/live/request-exec/resolver-scope';
+import { createLocalSecretManagerBroker } from '../../../src/live/request-exec/secret-manager-broker';
 
 const WORK: SecretManagerConnection = {
   uid: 'conn0001',
@@ -27,6 +29,7 @@ const WORK: SecretManagerConnection = {
 
 const CONNECTIONS = new Map<string, SecretManagerConnection>([[WORK.uid, WORK]]);
 const lookup = (uid: string) => CONNECTIONS.get(uid);
+const broker = createLocalSecretManagerBroker(lookup);
 
 function vaultWith(secrets: VaultSecret[]): Vault {
   return { schemaVersion: 5, secrets };
@@ -58,11 +61,26 @@ afterEach(() => {
 });
 
 describe('buildSecretManagerRegistry', () => {
+  it('an entry the broker leaves unanswered reads `unavailable`', async () => {
+    const silent = { resolveBatch: async () => new Map() };
+    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), silent);
+    expect(out.failures.get('ApiToken')).toBe('unavailable');
+  });
+
+  it("the broker's own typed failure rides into the failures map — the browser's desktop-away reading", async () => {
+    const away = {
+      resolveBatch: async (entries: ReadonlyArray<{ name: string }>) =>
+        new Map(entries.map((e) => [e.name, { ok: false as const, reason: 'broker-unreachable' as const }])),
+    };
+    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), away);
+    expect(out.failures.get('ApiToken')).toBe('broker-unreachable');
+  });
+
   it('returns empty maps for a vault with no secret-manager entries', async () => {
     const out = await buildSecretManagerRegistry(
       vaultWith([{ uid: 'aaaa1111', kind: 'string', name: 'X', value: 'v' }]),
       all('X'),
-      lookup,
+      broker,
     );
     expect(out.registry.size).toBe(0);
     expect(out.failures.size).toBe(0);
@@ -86,7 +104,7 @@ describe('buildSecretManagerRegistry', () => {
     const out = await buildSecretManagerRegistry(
       vaultWith([smEntry('aaaa1111', 'Used'), smEntry('bbbb2222', 'Unused')]),
       all('Used'),
-      lookup,
+      broker,
     );
     expect(out.registry.get('Used')).toBe('v');
     expect(out.registry.has('Unused')).toBe(false);
@@ -96,7 +114,7 @@ describe('buildSecretManagerRegistry', () => {
   });
 
   it('null registry (no provider installed) fails every referenced entry typed `unavailable`', async () => {
-    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), lookup);
+    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), broker);
     expect(out.registry.size).toBe(0);
     expect(out.failures.get('ApiToken')).toBe('unavailable');
   });
@@ -114,7 +132,7 @@ describe('buildSecretManagerRegistry', () => {
     const out = await buildSecretManagerRegistry(
       vaultWith([smEntry('aaaa1111', 'Blank', 'x', ''), smEntry('bbbb2222', 'Gone', 'x', 'conn9999')]),
       all('Blank', 'Gone'),
-      lookup,
+      broker,
     );
     expect(out.failures.get('Blank')).toBe('unavailable');
     expect(out.failures.get('Gone')).toBe('unavailable');
@@ -131,7 +149,7 @@ describe('buildSecretManagerRegistry', () => {
         },
       }),
     );
-    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), lookup);
+    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), broker);
     expect(out.registry.get('ApiToken')).toBe('resolved-secret');
     expect(out.failures.size).toBe(0);
     expect(seen).toBe(WORK);
@@ -152,7 +170,7 @@ describe('buildSecretManagerRegistry', () => {
         },
       }),
     );
-    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), lookup);
+    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), broker);
     expect(out.failures.get('ApiToken')).toBe('authorization-required');
     expect(resolves).toBe(1);
     expect(probes).toBe(0);
@@ -171,7 +189,7 @@ describe('buildSecretManagerRegistry', () => {
     const out = await buildSecretManagerRegistry(
       vaultWith([smEntry('aaaa1111', 'A'), smEntry('bbbb2222', 'B'), smEntry('cccc3333', 'C')]),
       all('A', 'B', 'C'),
-      lookup,
+      broker,
     );
     expect(out.registry.size).toBe(3);
     expect(probes).toBe(0);
@@ -191,7 +209,7 @@ describe('buildSecretManagerRegistry', () => {
     const out = await buildSecretManagerRegistry(
       vaultWith([smEntry('aaaa1111', 'Gone', 'missing.openheaders.io'), smEntry('bbbb2222', 'Locked')]),
       all('Gone', 'Locked'),
-      lookup,
+      broker,
     );
     expect(out.failures.get('Gone')).toBe('not-found');
     expect(out.failures.get('Locked')).toBe('authorization-required');
@@ -206,7 +224,7 @@ describe('buildSecretManagerRegistry', () => {
         },
       }),
     );
-    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), lookup);
+    const out = await buildSecretManagerRegistry(vaultWith([smEntry('aaaa1111', 'ApiToken')]), all('ApiToken'), broker);
     expect(out.failures.get('ApiToken')).toBe('unavailable');
   });
 
@@ -222,7 +240,7 @@ describe('buildSecretManagerRegistry', () => {
     const out = await buildSecretManagerRegistry(
       vaultWith([smEntry('aaaa1111', 'Gone', 'missing.openheaders.io'), smEntry('bbbb2222', 'Fine')]),
       all('Gone', 'Fine'),
-      lookup,
+      broker,
     );
     expect(out.registry.get('Fine')).toBe('sibling-ok');
     expect(out.failures.get('Gone')).toBe('not-found');

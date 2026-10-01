@@ -35,6 +35,9 @@ export type { SecretLocator, SecretManagerConnection, SecretProviderId } from '.
  *                              authorization prompt; the next use asks
  *                              again (a consent outcome, never a fault).
  *   - `unreachable`          — a remote endpoint didn't answer.
+ *   - `broker-unreachable`   — this surface resolves through the
+ *                              desktop app on this device, and the
+ *                              desktop app is not connected.
  */
 export type SecretProviderUnavailableReason =
   | 'not-installed'
@@ -42,7 +45,8 @@ export type SecretProviderUnavailableReason =
   | 'no-credentials'
   | 'locked'
   | 'denied'
-  | 'unreachable';
+  | 'unreachable'
+  | 'broker-unreachable';
 
 export type SecretProviderProbe =
   | { available: true }
@@ -53,12 +57,37 @@ export type SecretProviderProbe =
  * NORMAL outcome (the provider's own lock/approval policy said "ask
  * again") — consumers surface a retry affordance, never treat it as a
  * crash. We never manage provider sessions ourselves (L1).
+ * `broker-unreachable` is the browser host's own gap: its entries
+ * resolve through the desktop app on this device, and it is away.
  */
-export type SecretResolveFailureReason = 'authorization-required' | 'not-found' | 'unavailable';
+export type SecretResolveFailureReason = 'authorization-required' | 'not-found' | 'unavailable' | 'broker-unreachable';
 
 export type SecretResolution =
   | { ok: true; value: string }
   | { ok: false; reason: SecretResolveFailureReason; detail?: string };
+
+/** Who answers a surface's secret-manager calls: the host's own
+ *  providers, the desktop app on this device over loopback, or nobody
+ *  while the desktop app is away. */
+export type SecretBrokerKind = 'local' | 'desktop-app' | 'unreachable';
+
+/** One referenced entry of a send — its vault name and its locator. */
+export interface SecretBrokerEntry {
+  name: string;
+  locator: SecretLocator;
+}
+
+/**
+ * The seam between a resolving surface and the providers — one send's
+ * referenced secret-manager entries in, each one's typed result out,
+ * keyed by name. A node host's broker resolves through its own
+ * providers and connections; the browser's broker asks the desktop
+ * app on this device over loopback (the same-device law). Values live
+ * only in the returned map for the one send (L1).
+ */
+export interface SecretManagerBroker {
+  resolveBatch(entries: readonly SecretBrokerEntry[]): Promise<ReadonlyMap<string, SecretResolution>>;
+}
 
 /** The authorization gesture's outcome; a refusal carries the standing
  *  reason it left behind (the probe's vocabulary) so the surface that

@@ -187,6 +187,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': '需要授权',
   'workbench.editors.rule.resolution.reason.secretNotFound': '未找到机密',
   'workbench.editors.rule.resolution.reason.secretUnavailable': '管理器不可用',
+  'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': '桌面应用未连接',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     '环境“{envName}”还没有缓存的运行——打开工作流并在该环境下点击“刷新”来填充',
   'workbench.editors.rule.resolution.hint.disabledLv': 'Live 变量已被禁用——请在 Live 变量编辑器中启用它',

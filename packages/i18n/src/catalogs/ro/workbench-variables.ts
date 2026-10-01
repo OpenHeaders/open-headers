@@ -95,12 +95,14 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.locked': 'Blocat',
   'workbench.variables.table.smStatus.denied': 'Acces refuzat',
   'workbench.variables.table.smStatus.unreachable': 'Inaccesibil',
+  'workbench.variables.table.smStatus.brokerUnreachable': 'Conectați aplicația desktop',
   'workbench.variables.table.smStatus.noConnection': 'Nicio conexiune selectată',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'Aplicația 1Password nu a acceptat conexiunea. Verificați dacă numele contului corespunde cu bara sa laterală și dacă Setări › Dezvoltator › Integrare cu SDK-urile 1Password este activată.',
   'workbench.variables.table.smConnection': 'Conexiune',
   'workbench.variables.table.smConnectionPlaceholder': 'Conexiune…',
   'workbench.variables.table.smConnectionDesktopOnly': 'Se configurează în aplicația desktop',
+  'workbench.variables.table.smConnectionConnectDesktop': 'Conectați aplicația desktop',
   'workbench.variables.table.smConnectionNone': 'Nicio conexiune pentru acest furnizor deocamdată',
   'workbench.variables.table.smConnectionManage': 'Gestionare…',
   'workbench.variables.table.smField.auth': 'Autentificare',
@@ -136,6 +138,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.saveFailedDetail': 'Conexiunea nu a putut fi salvată: {message}',
   'workbench.variables.secretManagers.browserNote':
     'Conexiunile la managerii de secrete se află în aplicația desktop. Deschideți-o pentru a adăuga sau testa una.',
+  'workbench.variables.secretManagers.browserNoteConnected':
+    'Aceste conexiuni sunt ale aplicației desktop. Testați-le de aici; adăugați-le sau modificați-le în aplicația desktop.',
   'workbench.variables.table.certPlaceholder': 'Certificat (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Cheie privată (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Frază de acces a cheii (opțional)',
@@ -313,6 +317,7 @@ export const workbenchVariables = {
   'workbench.variables.panel.errors.reason.secretAuthorizationRequired': 'necesită autorizare',
   'workbench.variables.panel.errors.reason.secretNotFound': 'secret negăsit',
   'workbench.variables.panel.errors.reason.secretUnavailable': 'manager indisponibil',
+  'workbench.variables.panel.errors.reason.secretBrokerUnreachable': 'aplicația desktop nu este conectată',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': 'Copiere cod',

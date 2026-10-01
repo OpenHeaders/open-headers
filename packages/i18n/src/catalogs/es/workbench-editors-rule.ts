@@ -229,6 +229,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': 'autorización requerida',
   'workbench.editors.rule.resolution.reason.secretNotFound': 'secreto no encontrado',
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'gestor no disponible',
+  'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'aplicación de escritorio no conectada',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     'no hay ejecución en caché para el entorno «{envName}» — abre el workflow y haz clic en Actualizar bajo ' +
     'ese entorno para rellenarla',

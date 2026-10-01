@@ -62,6 +62,7 @@ export const REASON_LABEL: Record<SecretProviderUnavailableReason, MessageKey> =
   locked: 'workbench.variables.table.smStatus.locked',
   denied: 'workbench.variables.table.smStatus.denied',
   unreachable: 'workbench.variables.table.smStatus.unreachable',
+  'broker-unreachable': 'workbench.variables.table.smStatus.brokerUnreachable',
 };
 
 /**

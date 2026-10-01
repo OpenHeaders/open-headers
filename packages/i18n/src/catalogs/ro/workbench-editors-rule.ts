@@ -216,6 +216,7 @@ export const workbenchEditorsRule = {
   'workbench.editors.rule.resolution.reason.secretAuthorizationRequired': 'necesită autorizare',
   'workbench.editors.rule.resolution.reason.secretNotFound': 'secretul nu a fost găsit',
   'workbench.editors.rule.resolution.reason.secretUnavailable': 'managerul nu este disponibil',
+  'workbench.editors.rule.resolution.reason.secretBrokerUnreachable': 'aplicația desktop nu este conectată',
   'workbench.editors.rule.resolution.hint.noCacheForEnv':
     'nicio rulare în cache pentru mediul „{envName}” — deschideți fluxul de lucru și apăsați Reîmprospătare sub acest mediu pentru a-l popula',
   'workbench.editors.rule.resolution.hint.disabledLv':

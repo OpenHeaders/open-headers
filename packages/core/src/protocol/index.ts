@@ -92,6 +92,7 @@ export {
   isCompanionRevealTarget,
   LOCAL_PEER_EXECUTE_DISABLED_MESSAGE,
   REMOTE_PEER_EXECUTE_DISABLED_MESSAGE,
+  SECRET_MANAGER_SAME_DEVICE_MESSAGE,
 } from './messages';
 export type {
   SyncMutationBatchMessage,

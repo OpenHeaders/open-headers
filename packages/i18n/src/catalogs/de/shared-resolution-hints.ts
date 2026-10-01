@@ -49,6 +49,8 @@ export const sharedResolutionHints = {
   'shared.resolutionHint.secretUnavailable':
     'Der Secret-Manager für diesen Eintrag ist auf diesem Gerät nicht verfügbar. Installiere oder ' +
     'konfiguriere ihn, und versuche es dann erneut.',
+  'shared.resolutionHint.secretBrokerUnreachable':
+    'Dieser Eintrag wird über die Desktop-App auf diesem Computer aufgelöst. Verbinde die Desktop-App und versuche es erneut.',
   'shared.resolutionHint.invalidDomain.whitespace':
     'Die Variable ergibt einen Wert, den Chrome an dieser Stelle ablehnt — enthält Leerzeichen (trenne ' +
     'Hostnamen mit Kommas). Verwende einfache Hostnamen, durch Kommas getrennt.',

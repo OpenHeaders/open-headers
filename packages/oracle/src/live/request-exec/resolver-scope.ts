@@ -17,12 +17,11 @@
  * Send-from-workbench path.
  */
 
-import { getSecretProvider, type SecretResolveFailureReason } from '@openheaders/core/secret-providers';
+import type { SecretManagerBroker, SecretResolveFailureReason } from '@openheaders/core/secret-providers';
 import { generateTotp } from '@openheaders/core/totp';
 import type {
   Collection,
   Environment,
-  SecretManagerConnection,
   Vault,
   VaultSecretManager,
   VaultSecretTotp,
@@ -52,9 +51,9 @@ import {
   getCollections as getRuleCollections,
   getCollectionsForWorkspace as getRuleCollectionsForWorkspace,
 } from '../../entity/rule-store';
-import { getSecretManagerConnection } from '../../entity/secret-manager-connections-store';
 import { getTemplateCollections, getTemplateCollectionsForWorkspace } from '../../entity/template-store';
 import { getLiveRegistrySnapshot, getLiveRegistrySnapshotForWorkspace } from '../../rule-engine/variables-resolver';
+import { getSecretManagerBroker } from './secret-manager-broker';
 
 /** Per-execution scope captured alongside the resolver. */
 export interface ResolverContext {
@@ -220,32 +219,27 @@ export interface SecretManagerSnapshot {
 
 /**
  * Batch-resolve the referenced `kind: 'secret-manager'` vault entries
- * through their connections and the host's provider registry — the
- * per-execution counterpart of {@link buildTotpRegistry}. Values live
- * only in the returned map for the duration of the execution (L1:
- * never persisted, re-resolved per send). Entries not in
- * `referencedNames` are left alone — never resolved, so they can never
- * prompt (the plan's binding rule). Every failure is typed, keyed by
- * entry name:
- *   - the entry names no connection, or one this device no longer
- *     holds, or no provider for its kind is installed here →
- *     `unavailable`
- *   - the provider's own resolve failure passes through verbatim
- *     (`authorization-required` / `not-found` / `unavailable`).
+ * through the host's broker — the per-execution counterpart of
+ * {@link buildTotpRegistry}. Values live only in the returned map for
+ * the duration of the execution (L1: never persisted, re-resolved per
+ * send). Entries not in `referencedNames` are left alone — never
+ * resolved, so they can never prompt (the plan's binding rule). Every
+ * failure is the broker's typed answer, keyed by entry name; an entry
+ * the broker left unanswered reads `unavailable`.
  *
  * The registry never probes. A probe reports the connection's LAST
  * attempt — the standing state the chip reads — while a send is a new
  * attempt: a connection the user denied at Test prompts again on Send,
  * and the provider's resolve answers every structural gap (the SDK
- * unloadable, no credential) typed on its own. Entries are grouped per
- * connection and resolve concurrently behind the provider's one client
- * per connection. `lookupConnection` is the store's read by default;
- * tests inject their own.
+ * unloadable, no credential) typed on its own. The broker is the
+ * installed one — the local broker over this host's connections and
+ * providers on a node host, the loopback broker toward the desktop
+ * app on the browser; tests inject their own.
  */
 export async function buildSecretManagerRegistry(
   vault: Vault,
   referencedNames: ReadonlySet<string>,
-  lookupConnection: (uid: string) => SecretManagerConnection | undefined = getSecretManagerConnection,
+  broker: SecretManagerBroker = getSecretManagerBroker(),
 ): Promise<SecretManagerSnapshot> {
   const registry = new Map<string, string>();
   const failures = new Map<string, SecretResolveFailureReason>();
@@ -253,46 +247,12 @@ export async function buildSecretManagerRegistry(
     (s): s is VaultSecretManager => s.kind === 'secret-manager' && referencedNames.has(s.name),
   );
   if (entries.length === 0) return { registry, failures };
-  const byConnection = new Map<string, VaultSecretManager[]>();
+  const results = await broker.resolveBatch(entries.map((entry) => ({ name: entry.name, locator: entry.locator })));
   for (const entry of entries) {
-    const key = entry.locator.connectionId;
-    const group = byConnection.get(key);
-    if (group) group.push(entry);
-    else byConnection.set(key, [entry]);
+    const result = results.get(entry.name);
+    if (result === undefined) failures.set(entry.name, 'unavailable');
+    else if (result.ok) registry.set(entry.name, result.value);
+    else failures.set(entry.name, result.reason);
   }
-  const failGroup = (group: VaultSecretManager[], reason: SecretResolveFailureReason): void => {
-    for (const entry of group) failures.set(entry.name, reason);
-  };
-  await Promise.all(
-    [...byConnection].map(async ([connectionId, group]) => {
-      const connection = connectionId === '' ? undefined : lookupConnection(connectionId);
-      if (!connection) {
-        failGroup(group, 'unavailable');
-        return;
-      }
-      const provider = getSecretProvider(connection.config.provider);
-      if (!provider) {
-        failGroup(group, 'unavailable');
-        return;
-      }
-      await Promise.all(
-        group.map(async (entry) => {
-          try {
-            const result = await provider.resolve(connection, entry.locator);
-            if (result.ok) {
-              registry.set(entry.name, result.value);
-            } else {
-              failures.set(entry.name, result.reason);
-            }
-          } catch (err) {
-            // Providers are non-throwing by contract; a throw is a bug in
-            // the implementation — degrade to the honest typed failure.
-            logger.info('RequestExec', `Secret resolve failed for '${entry.name}': ${(err as Error).message}`);
-            failures.set(entry.name, 'unavailable');
-          }
-        }),
-      );
-    }),
-  );
   return { registry, failures };
 }

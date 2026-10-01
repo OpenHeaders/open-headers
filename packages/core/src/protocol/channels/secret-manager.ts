@@ -4,19 +4,28 @@
  * remove, the side-effect-free probe behind every status chip, and the
  * interactive authorization behind the settings list's Test gesture.
  * Node-host answered on the device that resolves (the desktop app's
- * main process; the daemon for its headless lanes); browser surfaces
- * reach the desktop's connections over loopback in a later slice and
- * self-gate on the request runtime until then.
+ * main process; the daemon for its headless lanes). A browser surface
+ * reaches the desktop app's connections over loopback: its service
+ * worker forwards list / probe / authorize / resolveBatch to the
+ * desktop app on this device and answers `broker: 'unreachable'`
+ * honestly while it is away; add / update / remove stay the desktop's.
  */
 
-import type { SecretAuthorizeResult, SecretProviderProbe } from '../../secret-providers/types';
+import type {
+  SecretAuthorizeResult,
+  SecretBrokerEntry,
+  SecretBrokerKind,
+  SecretProviderProbe,
+  SecretResolution,
+} from '../../secret-providers/types';
 import type { SecretManagerConnection, SecretManagerConnectionConfig } from '../../types';
 
 export interface SecretManagerRpc {
-  /** Every connection on this device, in creation order. */
+  /** Every connection on this device, in creation order, and who
+   *  answered — the host's own store, or the desktop app over loopback. */
   'oh.secretManager.list': {
     req: Record<string, never>;
-    res: { connections: SecretManagerConnection[] };
+    res: { connections: SecretManagerConnection[]; broker: SecretBrokerKind };
   };
   /** Add one connection; echoes the minted row. A blank label takes the config's own description. */
   'oh.secretManager.add': {
@@ -48,5 +57,15 @@ export interface SecretManagerRpc {
   'oh.secretManager.authorize': {
     req: { uid: string };
     res: SecretAuthorizeResult;
+  };
+  /**
+   * One send's referenced entries resolved through their connections —
+   * the browser host's resolve seam over loopback (a provider may
+   * prompt on this device). Every entry answers typed, by name; the
+   * values never persist anywhere (L1).
+   */
+  'oh.secretManager.resolveBatch': {
+    req: { entries: SecretBrokerEntry[] };
+    res: { results: Record<string, SecretResolution> };
   };
 }

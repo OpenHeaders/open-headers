@@ -69,12 +69,14 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.locked': '已锁定',
   'workbench.variables.table.smStatus.denied': '访问被拒绝',
   'workbench.variables.table.smStatus.unreachable': '无法访问',
+  'workbench.variables.table.smStatus.brokerUnreachable': '连接桌面应用',
   'workbench.variables.table.smStatus.noConnection': '未选择连接',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     '1Password 应用未接受此连接。请检查账户名称是否与其侧边栏一致，并确认已开启设置 › 开发者 › 与 1Password SDK 集成。',
   'workbench.variables.table.smConnection': '连接',
   'workbench.variables.table.smConnectionPlaceholder': '连接…',
   'workbench.variables.table.smConnectionDesktopOnly': '在桌面应用中设置',
+  'workbench.variables.table.smConnectionConnectDesktop': '连接桌面应用',
   'workbench.variables.table.smConnectionNone': '此提供方尚无连接',
   'workbench.variables.table.smConnectionManage': '管理…',
   'workbench.variables.table.smField.auth': '身份验证',
@@ -109,6 +111,8 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.test.failed': '无法连接：{detail}',
   'workbench.variables.secretManagers.saveFailedDetail': '无法保存连接：{message}',
   'workbench.variables.secretManagers.browserNote': '机密管理器连接位于桌面应用中。请打开它以添加或测试连接。',
+  'workbench.variables.secretManagers.browserNoteConnected':
+    '这些连接属于桌面应用。可在此处测试；添加或编辑请在桌面应用中进行。',
   'workbench.variables.table.certPlaceholder': '证书（PEM）',
   'workbench.variables.table.certKeyPlaceholder': '私钥（PEM）',
   'workbench.variables.table.passphrasePlaceholder': '密钥的密码短语（可选）',
@@ -274,6 +278,7 @@ export const workbenchVariables = {
   'workbench.variables.panel.errors.reason.secretAuthorizationRequired': '需要授权',
   'workbench.variables.panel.errors.reason.secretNotFound': '未找到机密',
   'workbench.variables.panel.errors.reason.secretUnavailable': '管理器不可用',
+  'workbench.variables.panel.errors.reason.secretBrokerUnreachable': '桌面应用未连接',
 
   // ── TOTP preview (workbench-pane-shared component) ─────────────────
   'workbench.totpPreview.copyCode': '复制验证码',

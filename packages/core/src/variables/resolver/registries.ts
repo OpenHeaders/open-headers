@@ -1,3 +1,5 @@
+import type { SecretResolveFailureReason } from '../../secret-providers/types';
+
 // ── Live / step scope helpers ──────────────────────────────────────
 
 /**
@@ -81,7 +83,7 @@ export const EMPTY_SECRET_MANAGER_REGISTRY: SecretManagerRegistry = new Map();
  * can answer "unset — and here's why" (`authorization-required` /
  * `not-found` / `unavailable`) instead of a generic miss.
  */
-export type SecretManagerFailures = ReadonlyMap<string, 'authorization-required' | 'not-found' | 'unavailable'>;
+export type SecretManagerFailures = ReadonlyMap<string, SecretResolveFailureReason>;
 
 /** An empty {@link SecretManagerFailures} map — the default. */
 export const EMPTY_SECRET_MANAGER_FAILURES: SecretManagerFailures = new Map();

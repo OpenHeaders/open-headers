@@ -28,12 +28,14 @@ export type ResolutionErrorReason =
   | 'step-out-of-context' // `{{step.X.Y}}` outside an active Live Workflow step
   | 'unresolved' // `{{X}}` — nowhere in the 4-scope chain
   // `{{vault.X}}` names a secret-manager entry whose provider resolution
-  // failed with a typed reason (see SecretManagerFailures). Three
+  // failed with a typed reason (see SecretManagerFailures). Four
   // distinct reasons because the fixes differ: authorize/unlock the
-  // manager, fix the reference, or make the provider available here.
+  // manager, fix the reference, make the provider available here, or
+  // connect the desktop app this surface resolves through.
   | 'secret-authorization-required'
   | 'secret-not-found'
   | 'secret-unavailable'
+  | 'secret-broker-unreachable'
   // The reference resolved cleanly, but the resolved value isn't a legal
   // hostname for `requestDomains` (scheme, path, wildcard, whitespace,
   // non-ASCII, …). We sanitize at compile time so the rule still ships,
@@ -165,6 +167,8 @@ export function buildHint(
       return 'The secret manager could not find a secret at this reference. Check the reference fields in the Vault entry.';
     case 'secret-unavailable':
       return 'The secret manager for this entry is not available on this device. Install or configure it, then retry.';
+    case 'secret-broker-unreachable':
+      return 'This entry resolves through the desktop app on this computer. Connect the desktop app, then retry.';
     case 'unresolved':
       return 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
     case 'invalid-resolved-value':
