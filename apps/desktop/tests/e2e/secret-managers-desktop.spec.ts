@@ -20,7 +20,8 @@
  *
  * OH_LOOK_ACCOUNT names the companion app's account (as its sidebar
  * shows it); without it a bogus account exercises the refusal shapes.
- * OH_LOOK_DIR receives a screenshot per step. Requires
+ * OH_LOOK_DIR receives a screenshot per step. OH_LOOK_APP points at a
+ * packaged app's executable for the packaged pass. Requires
  * `pnpm turbo build --filter=@openheaders/desktop` first.
  */
 
@@ -116,9 +117,14 @@ async function invoke<T>(message: Record<string, unknown>): Promise<T> {
   }, message)) as T;
 }
 
+// A PACKAGED app's executable (the Electron 44 packaged pass: the
+// prompt's attribution, the dylib under the hardened runtime, the wasm
+// from the asar); absent, the built source tree runs under electron.
+const PACKAGED_APP = process.env.OH_LOOK_APP;
+
 async function launchApp(): Promise<void> {
   electronApp = await _electron.launch({
-    args: [APP_ROOT],
+    ...(PACKAGED_APP !== undefined ? { executablePath: PACKAGED_APP } : { args: [APP_ROOT] }),
     env: { ...process.env, OPENHEADERS_USER_DATA_DIR: userData, OH_DISABLE_UPDATE_CHECKS: '1' },
   });
   const child = electronApp.process();
