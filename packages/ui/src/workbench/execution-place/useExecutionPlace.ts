@@ -42,6 +42,8 @@ export interface UseExecutionPlaceInput {
   preference?: ExecutionPlacePreference;
   /** Memoized by the caller — the context's knobs a delegated socket cannot honour. */
   delegationKnobs?: readonly PageSessionKnob[];
+  /** The draft's referenced secret-manager rows, counted (`useSecretManagerReferenceCount`). */
+  secretManagerReferences?: number;
 }
 
 export interface UseExecutionPlaceResult extends ExecutionPlaceResolution {
@@ -69,6 +71,7 @@ export function useExecutionPlace({
   inapplicableKnobs,
   preference,
   delegationKnobs,
+  secretManagerReferences,
 }: UseExecutionPlaceInput): UseExecutionPlaceResult {
   const { state: desktopApp, launchable } = useDesktopCompanion();
   const backends = useBackends();
@@ -108,6 +111,7 @@ export function useExecutionPlace({
       ...(preference !== undefined ? { preference } : {}),
       ...(inapplicableKnobs !== undefined ? { inapplicableKnobs } : {}),
       ...(delegationKnobs !== undefined ? { delegationKnobs } : {}),
+      ...(secretManagerReferences !== undefined ? { secretManagerReferences } : {}),
     };
     const resolution = resolveExecutionPlace(input);
     // The served tab has one place by construction and its seam leases
@@ -137,6 +141,7 @@ export function useExecutionPlace({
     preference,
     inapplicableKnobs,
     delegationKnobs,
+    secretManagerReferences,
   ]);
 }
 

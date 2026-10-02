@@ -15,6 +15,7 @@
  * dynamic-generator descriptions (core registry corpus — deferred).
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -522,6 +523,15 @@ export const sharedComponents = {
     'Runs on the desktop app. This browser fills in the request first, then hands it to the desktop app on this computer, which opens the connection.',
   'shared.executionPlace.reason.delegatedServer':
     'Runs on {place}. The request is filled in here first, variables and secrets included, then sent to {place}, which opens the connection.',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Runs on {place}. The request is filled in here first, variables and secrets included — {count} value from a secret manager among them — then sent to {place}, which opens the connection.',
+        other:
+          'Runs on {place}. The request is filled in here first, variables and secrets included — {count} values from secret managers among them — then sent to {place}, which opens the connection.',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': 'Run request on',
   'shared.executionPlace.roster.browser': 'Browser extension',
   'shared.executionPlace.roster.desktopApp': 'Desktop app',

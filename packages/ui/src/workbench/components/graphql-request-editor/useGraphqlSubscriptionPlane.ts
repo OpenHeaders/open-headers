@@ -25,6 +25,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useScriptPackages } from '@openheaders/ui/shared/hooks/readers/useScriptPackages';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager';
 import { App } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { executionPlaceCopy, PAGE_KNOB_KEY } from '../../execution-place/execution-place-copy';
@@ -102,6 +103,7 @@ export function useGraphqlSubscriptionPlane({
     kind: 'graphql-subscription',
     inapplicableKnobs: pageKnobs,
     ...(preference !== undefined ? { preference } : {}),
+    secretManagerReferences: useSecretManagerReferenceCount(draft),
   });
   const [inFlight, setInFlight] = useState(false);
   const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);

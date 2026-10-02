@@ -97,7 +97,7 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
         place: 'workspace-server',
         placeName: 'Acme',
         state: 'ready',
-        reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+        reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
         cta: null,
         alternatives: [],
       });
@@ -107,6 +107,7 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
       kind: 'delegated',
       role: 'workspace-server',
       knobs: ['cookieJar'],
+      secretManagers: 0,
     });
   });
 
@@ -142,7 +143,7 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
       place: 'workspace-server',
       placeName: 'Acme',
       state: 'ready',
-      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
       alternatives: [],
     });
     expect(resolve('grpc', { ...WEB, delegatedGrpcDispatch: false }).reason).toEqual({
@@ -158,7 +159,7 @@ describe('resolveExecutionPlace — the web tab (remote dispatch)', () => {
           place: 'workspace-server',
           placeName: 'Acme',
           state: 'ready',
-          reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+          reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
           cta: null,
           alternatives: [],
         });
@@ -221,13 +222,13 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
       place: 'desktop-app',
       placeName: null,
       state: 'ready',
-      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [], secretManagers: 0 },
       cta: null,
       alternatives: [],
     });
     expect(resolve('grpc', EXTENSION, 'connected', SERVER_UP)).toMatchObject({
       place: 'desktop-app',
-      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [], secretManagers: 0 },
       alternatives: ['workspace-server'],
     });
     expect(resolve('grpc', EXTENSION, 'connected', SERVER_DOWN).alternatives).toEqual([]);
@@ -239,7 +240,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
         place: 'workspace-server',
         placeName: 'Acme',
         state: 'ready',
-        reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+        reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
         cta: null,
         alternatives: [],
         serverName: 'Acme',
@@ -252,7 +253,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
     expect(resolve('grpc', EXTENSION, 'connected', { ...SERVER_UP, preference: 'workspace-server' })).toMatchObject({
       place: 'workspace-server',
       placeName: 'Acme',
-      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
       alternatives: ['desktop-app'],
     });
     // The desktop app as a preference with only the server up: no leg
@@ -290,7 +291,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
       place: 'desktop-app',
       placeName: null,
       state: 'ready',
-      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [], secretManagers: 0 },
       cta: null,
       alternatives: [],
     });
@@ -298,7 +299,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
       place: 'workspace-server',
       placeName: 'Acme',
       state: 'ready',
-      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
       cta: null,
       alternatives: [],
       serverName: 'Acme',
@@ -339,7 +340,7 @@ describe('resolveExecutionPlace — the extension (browser runtime)', () => {
     // Delegated, the place applies every knob — none is named.
     expect(
       resolve('mqtt', EXTENSION, 'connected', { mqttTransport: 'tcp', inapplicableKnobs: ['sslVerify'] }).reason,
-    ).toEqual({ kind: 'delegated', role: 'desktop-app', knobs: [] });
+    ).toEqual({ kind: 'delegated', role: 'desktop-app', knobs: [], secretManagers: 0 });
   });
 });
 
@@ -457,7 +458,7 @@ describe('resolveExecutionPlace — the preference', () => {
       place: 'desktop-app',
       placeName: null,
       state: 'ready',
-      reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
+      reason: { kind: 'delegated', role: 'desktop-app', knobs: [], secretManagers: 0 },
       cta: null,
       alternatives: ['here', 'workspace-server'],
       serverName: 'Acme',
@@ -468,7 +469,7 @@ describe('resolveExecutionPlace — the preference', () => {
       place: 'workspace-server',
       placeName: 'Acme',
       state: 'ready',
-      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
       cta: null,
       alternatives: ['here'],
       serverName: 'Acme',
@@ -524,12 +525,20 @@ describe('resolveExecutionPlace — the knobs a delegated socket cannot honour (
       kind: 'delegated',
       role: 'desktop-app',
       knobs: ['cookieJar'],
+      secretManagers: 0,
     });
     expect(
       resolve('http', EXTENSION, 'not-connected', { ...SERVER_UP, ...delegation, preference: 'workspace-server' })
         .reason,
-    ).toEqual({ kind: 'delegated', role: 'workspace-server', knobs: ['cookieJar'] });
+    ).toEqual({ kind: 'delegated', role: 'workspace-server', knobs: ['cookieJar'], secretManagers: 0 });
     expect(resolve('http', EXTENSION, 'connected', delegation).reason).toEqual({ kind: 'runs-here-browser' });
+    // The secret-manager rows the send references ride the reason, counted.
+    expect(resolve('http', WEB, 'connected', { secretManagerReferences: 2 }).reason).toEqual({
+      kind: 'delegated',
+      role: 'workspace-server',
+      knobs: [],
+      secretManagers: 2,
+    });
     expect(resolve('http', EXTENSION, 'connected', { ...delegation, preference: 'here' }).reason).toEqual({
       kind: 'runs-here-browser',
     });

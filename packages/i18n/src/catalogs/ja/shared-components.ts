@@ -11,6 +11,7 @@
  * raw — RFC vocabulary.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -478,6 +479,14 @@ export const sharedComponents = {
     'デスクトップアプリで実行します。このブラウザーがまずリクエストを組み立て、このコンピューター上のデスクトップアプリに渡し、そこで接続が開かれます。',
   'shared.executionPlace.reason.delegatedServer':
     '{place} で実行します。リクエストはまずここで変数やシークレットを含めて組み立てられ、その後 {place} に送られ、そこで接続が開かれます。',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        other:
+          '{place} で実行します。リクエストはまずここで変数やシークレット（シークレットマネージャーの値 {count} 件を含む）を含めて組み立てられ、その後 {place} に送られ、そこで接続が開かれます。',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': 'リクエストの実行場所',
   'shared.executionPlace.roster.browser': 'ブラウザー拡張機能',
   'shared.executionPlace.roster.desktopApp': 'デスクトップアプリ',

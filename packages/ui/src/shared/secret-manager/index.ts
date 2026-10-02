@@ -19,7 +19,13 @@ import type {
   SecretResolution,
 } from '@openheaders/core/secret-providers';
 import type { SecretManagerConnection, SecretManagerConnectionConfig, Vault } from '@openheaders/core/types';
-import { EMPTY_SECRET_MANAGER_FAILURES, type SecretManagerFailures } from '@openheaders/core/variables';
+import {
+  collectSentTemplateStrings,
+  EMPTY_SECRET_MANAGER_FAILURES,
+  type SecretManagerFailures,
+  secretManagerNamesOf,
+  secretManagerReferences,
+} from '@openheaders/core/variables';
 import { useEffect, useMemo, useState } from 'react';
 import { isNodeRequestRuntime } from '../device-trust';
 import { useEnvVarVault } from '../hooks/readers/useEnvVarVault';
@@ -245,4 +251,19 @@ export function useSecretManagerProbe(uid: string | null): SecretProviderProbe |
     };
   }, [uid]);
   return probe;
+}
+
+/**
+ * How many of the vault's secret-manager rows a draft's templates
+ * reference — the count the transit sentence states for a send an
+ * off-device place fills in. Read off the draft the send would fill
+ * (a row switched off is not counted), distinct by row, before the
+ * send: a pre-send read, never the executor's stamp.
+ */
+export function useSecretManagerReferenceCount(draft: unknown): number {
+  const { vault } = useEnvVarVault();
+  return useMemo(
+    () => secretManagerReferences(collectSentTemplateStrings(draft), secretManagerNamesOf(vault)).size,
+    [draft, vault],
+  );
 }

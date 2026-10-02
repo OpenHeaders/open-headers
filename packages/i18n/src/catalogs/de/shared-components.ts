@@ -9,6 +9,7 @@
  * (awareness mint).
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -519,6 +520,15 @@ export const sharedComponents = {
     'Läuft in der Desktop-App. Dieser Browser vervollständigt die Anfrage zuerst und übergibt sie dann an die Desktop-App auf diesem Computer, die die Verbindung öffnet.',
   'shared.executionPlace.reason.delegatedServer':
     'Läuft auf {place}. Die Anfrage wird zuerst hier vervollständigt, Variablen und Geheimnisse eingeschlossen, und dann an {place} gesendet, das die Verbindung öffnet.',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Läuft auf {place}. Die Anfrage wird zuerst hier vervollständigt, Variablen und Geheimnisse eingeschlossen – darunter {count} Wert aus einem Geheimnis-Manager –, und dann an {place} gesendet, das die Verbindung öffnet.',
+        other:
+          'Läuft auf {place}. Die Anfrage wird zuerst hier vervollständigt, Variablen und Geheimnisse eingeschlossen – darunter {count} Werte aus Geheimnis-Managern –, und dann an {place} gesendet, das die Verbindung öffnet.',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': 'Anfrage ausführen auf',
   'shared.executionPlace.roster.browser': 'Browser-Erweiterung',
   'shared.executionPlace.roster.desktopApp': 'Desktop-App',

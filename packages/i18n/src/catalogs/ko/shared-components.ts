@@ -14,6 +14,7 @@
  * values verbatim when it lands.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -475,6 +476,14 @@ export const sharedComponents = {
     '데스크톱 앱에서 실행됩니다. 이 브라우저가 먼저 요청을 완성한 뒤 이 컴퓨터의 데스크톱 앱에 전달하며, 그곳에서 연결이 열립니다.',
   'shared.executionPlace.reason.delegatedServer':
     '{place}에서 실행됩니다. 요청은 먼저 여기에서 변수와 비밀을 포함해 완성된 뒤 {place}로 전송되며, 그곳에서 연결이 열립니다.',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        other:
+          '{place}에서 실행됩니다. 요청은 먼저 여기에서 변수와 비밀(비밀 관리자의 값 {count}개 포함)을 포함해 완성된 뒤 {place}로 전송되며, 그곳에서 연결이 열립니다.',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': '요청 실행 위치',
   'shared.executionPlace.roster.browser': '브라우저 확장 프로그램',
   'shared.executionPlace.roster.desktopApp': '데스크톱 앱',

@@ -4,6 +4,7 @@
  * family rules and the raw-by-design technical plane.
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -496,6 +497,16 @@ export const sharedComponents = {
     'S’exécute dans l’application de bureau. Ce navigateur complète d’abord la requête, puis la transmet à l’application de bureau de cet ordinateur, qui ouvre la connexion.',
   'shared.executionPlace.reason.delegatedServer':
     'S’exécute sur {place}. La requête est d’abord complétée ici, variables et secrets compris, puis envoyée à {place}, qui ouvre la connexion.',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'S’exécute sur {place}. La requête est d’abord complétée ici, variables et secrets compris, dont {count} valeur issue d’un gestionnaire de secrets, puis envoyée à {place}, qui ouvre la connexion.',
+        other:
+          'S’exécute sur {place}. La requête est d’abord complétée ici, variables et secrets compris, dont {count} valeurs issues de gestionnaires de secrets, puis envoyée à {place}, qui ouvre la connexion.',
+        many: 'S’exécute sur {place}. La requête est d’abord complétée ici, variables et secrets compris, dont {count} valeurs issues de gestionnaires de secrets, puis envoyée à {place}, qui ouvre la connexion.',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': 'Exécuter la requête sur',
   'shared.executionPlace.roster.browser': 'Extension de navigateur',
   'shared.executionPlace.roster.desktopApp': 'Application de bureau',

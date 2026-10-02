@@ -20,6 +20,7 @@
  * Dispozitivele dvs.”).
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -534,6 +535,16 @@ export const sharedComponents = {
     'Rulează în aplicația desktop. Acest browser completează mai întâi cererea, apoi o predă aplicației desktop de pe acest computer, care deschide conexiunea.',
   'shared.executionPlace.reason.delegatedServer':
     'Rulează pe {place}. Cererea este completată mai întâi aici, inclusiv variabilele și secretele, apoi trimisă către {place}, care deschide conexiunea.',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Rulează pe {place}. Cererea este completată mai întâi aici, inclusiv variabilele și secretele – printre ele {count} valoare dintr-un manager de secrete –, apoi trimisă către {place}, care deschide conexiunea.',
+        few: 'Rulează pe {place}. Cererea este completată mai întâi aici, inclusiv variabilele și secretele – printre ele {count} valori din managerii de secrete –, apoi trimisă către {place}, care deschide conexiunea.',
+        other:
+          'Rulează pe {place}. Cererea este completată mai întâi aici, inclusiv variabilele și secretele – printre ele {count} de valori din managerii de secrete –, apoi trimisă către {place}, care deschide conexiunea.',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': 'Rulează cererea pe',
   'shared.executionPlace.roster.browser': 'Extensie de browser',
   'shared.executionPlace.roster.desktopApp': 'Aplicația desktop',

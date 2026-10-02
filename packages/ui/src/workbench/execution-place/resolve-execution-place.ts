@@ -129,6 +129,10 @@ export interface ExecutionPlaceInput {
    *  cannot honour (the HTTP send's cookie jar) — named only when the
    *  send resolves to another place. */
   delegationKnobs?: readonly PageSessionKnob[];
+  /** How many of the vault's secret-manager rows the send's templates
+   *  reference — the values an off-device place would receive filled
+   *  in, counted before the send. Absent = none. */
+  secretManagerReferences?: number;
 }
 
 export type ExecutionPlaceReason =
@@ -149,8 +153,14 @@ export type ExecutionPlaceReason =
   /** A browser surface with neither an engine nor a page-realm socket for this kind. */
   | { kind: 'no-runtime' }
   /** Resolved here; the chosen place opens the socket on this send's
-   *  behalf — with the context's knobs that socket cannot honour. */
-  | { kind: 'delegated'; role: Exclude<ExecutionPlaceRole, 'here'>; knobs: readonly PageSessionKnob[] }
+   *  behalf — with the context's knobs that socket cannot honour, and
+   *  the count of secret-manager values that place receives filled in. */
+  | {
+      kind: 'delegated';
+      role: Exclude<ExecutionPlaceRole, 'here'>;
+      knobs: readonly PageSessionKnob[];
+      secretManagers: number;
+    }
   /** A preferred role no leg can honour yet. */
   | { kind: 'preference-unavailable'; preferred: ExecutionPlaceRole }
   /** The server was preferred, and this device's own switch keeps every send off any server. */
@@ -291,6 +301,7 @@ function resolveAuto(input: ExecutionPlaceInput): ExecutionPlaceResolution {
         kind: 'delegated',
         role: 'workspace-server',
         knobs: input.delegationKnobs ?? NO_KNOBS,
+        secretManagers: input.secretManagerReferences ?? 0,
       });
     }
     return remote(name, 'ready', { kind: 'context-send', name });
@@ -341,7 +352,12 @@ function delegatedTo(
     place: role,
     placeName: role === 'workspace-server' ? (input.workspaceServer?.name ?? null) : null,
     state: 'ready',
-    reason: { kind: 'delegated', role, knobs: input.delegationKnobs ?? NO_KNOBS },
+    reason: {
+      kind: 'delegated',
+      role,
+      knobs: input.delegationKnobs ?? NO_KNOBS,
+      secretManagers: input.secretManagerReferences ?? 0,
+    },
     cta: null,
     alternatives,
   };

@@ -58,6 +58,7 @@ import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager';
 import { isMac } from '@openheaders/ui/shared/platform';
 import {
   applyResponseExampleCreate,
@@ -238,7 +239,11 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // reader; the introspection rides the query's target.
   const globalPlace = useSettingValue('requests.executionPlace');
   const placePreference = resolveExecutionPlacePreference(draft.executionPlace, globalPlace);
-  const queryPlace = useExecutionPlace({ kind: 'graphql-query', preference: placePreference });
+  const queryPlace = useExecutionPlace({
+    kind: 'graphql-query',
+    preference: placePreference,
+    secretManagerReferences: useSecretManagerReferenceCount(draft),
+  });
   const schemaState = useGraphqlSchema({
     entity,
     draft,

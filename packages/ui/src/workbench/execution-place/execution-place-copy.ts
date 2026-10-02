@@ -171,9 +171,11 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
       };
     case 'delegated': {
       // Off-device transit is NAMED: a server receives the resolved
-      // values; the desktop app on this device receives nothing the
-      // vault does not already sync there. The context's knobs the
-      // delegated socket cannot honour (the cookie jar) are named too.
+      // values — and when the send references secret-manager rows,
+      // how many of their values go with it; the desktop app on this
+      // device receives nothing the vault does not already sync there.
+      // The context's knobs the delegated socket cannot honour (the
+      // cookie jar) are named too.
       const knobs =
         reason.knobs.length > 0
           ? t('shared.executionPlace.knobsNotApplied', {
@@ -181,17 +183,21 @@ export function executionPlaceCopy(resolution: ExecutionPlaceResolution, t: Tran
               knobs: reason.knobs.map((knob) => t(PAGE_KNOB_KEY[knob])).join(', '),
             })
           : null;
-      return reason.role === 'desktop-app'
-        ? {
-            chip: t('shared.executionPlace.tip.localDesktop'),
-            reason: t('shared.executionPlace.reason.delegatedDesktopApp'),
-            knobs,
-          }
-        : {
-            chip: t('shared.executionPlace.tip.remoteServer', { place }),
-            reason: t('shared.executionPlace.reason.delegatedServer', { place }),
-            knobs,
-          };
+      if (reason.role === 'desktop-app') {
+        return {
+          chip: t('shared.executionPlace.tip.localDesktop'),
+          reason: t('shared.executionPlace.reason.delegatedDesktopApp'),
+          knobs,
+        };
+      }
+      return {
+        chip: t('shared.executionPlace.tip.remoteServer', { place }),
+        reason:
+          reason.secretManagers > 0
+            ? t('shared.executionPlace.reason.delegatedServerSecrets', { place, count: reason.secretManagers })
+            : t('shared.executionPlace.reason.delegatedServer', { place }),
+        knobs,
+      };
     }
     case 'preference-unavailable': {
       const preferred = roleName(reason.preferred, null, t);

@@ -73,7 +73,7 @@ describe('useExecutionPlace — the server switch', () => {
       place: 'workspace-server',
       placeName: 'Acme',
       state: 'ready',
-      reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+      reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
       target: { backendId: 'backend-1' },
     });
     expect(result.current.roster.find((row) => row.role === 'workspace-server')?.available).toBe(true);

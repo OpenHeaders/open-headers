@@ -182,7 +182,7 @@ describe('ExecutionPlaceControl', () => {
         resolution={resolution({
           place: 'workspace-server',
           placeName: 'Acme',
-          reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+          reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
           alternatives: ['here', 'desktop-app'],
           serverName: 'Acme',
         })}
@@ -347,7 +347,10 @@ describe('executionPlaceCopy', () => {
 
   it('a delegated send to the desktop app reads local and names no transit', () => {
     const copy = executionPlaceCopy(
-      resolution({ place: 'desktop-app', reason: { kind: 'delegated', role: 'desktop-app', knobs: [] } }),
+      resolution({
+        place: 'desktop-app',
+        reason: { kind: 'delegated', role: 'desktop-app', knobs: [], secretManagers: 2 },
+      }),
       t as never,
     );
     expect(copy.chip).toBe('shared.executionPlace.tip.localDesktop');
@@ -359,13 +362,25 @@ describe('executionPlaceCopy', () => {
       resolution({
         place: 'workspace-server',
         placeName: 'Acme',
-        reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+        reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
       }),
       t as never,
     );
     expect(copy.chip).toBe('shared.executionPlace.tip.remoteServer {"place":"Acme"}');
     expect(copy.reason).toBe('shared.executionPlace.reason.delegatedServer {"place":"Acme"}');
     expect(copy.knobs).toBeNull();
+  });
+
+  it('a delegated send to the server that references secret-manager rows counts the values in the transit', () => {
+    const copy = executionPlaceCopy(
+      resolution({
+        place: 'workspace-server',
+        placeName: 'Acme',
+        reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 2 },
+      }),
+      t as never,
+    );
+    expect(copy.reason).toBe('shared.executionPlace.reason.delegatedServerSecrets {"place":"Acme","count":2}');
   });
 });
 
@@ -433,7 +448,7 @@ describe('ExecutionPlaceControl — the served tab’s discovery rows', () => {
         resolution={resolution({
           place: 'workspace-server',
           placeName: 'Acme',
-          reason: { kind: 'delegated', role: 'workspace-server', knobs: [] },
+          reason: { kind: 'delegated', role: 'workspace-server', knobs: [], secretManagers: 0 },
           serverName: 'Acme',
         })}
         roster={[
@@ -502,7 +517,7 @@ describe('ExecutionPlaceControl — the mark mirrors the selection', () => {
       <ExecutionPlaceControl
         resolution={resolution({
           place: 'desktop-app',
-          reason: { kind: 'delegated', role: 'desktop-app', knobs: [] },
+          reason: { kind: 'delegated', role: 'desktop-app', knobs: [], secretManagers: 0 },
           alternatives: ['here'],
         })}
         roster={[HERE, DESKTOP_UP, NO_SERVER]}

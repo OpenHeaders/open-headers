@@ -13,6 +13,7 @@
  * raw; Workbench surface label = 工作区编辑器 (awareness mint).
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -496,6 +497,14 @@ export const sharedComponents = {
     '在桌面应用中运行。此浏览器先填充完整请求，再交给本机上的桌面应用，由其建立连接。',
   'shared.executionPlace.reason.delegatedServer':
     '在 {place} 上运行。请求先在此处填充完整（包括变量和密钥），再发送到 {place}，由其建立连接。',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        other:
+          '在 {place} 上运行。请求先在此处填充完整（包括变量和密钥，其中 {count} 个值来自密钥管理器），再发送到 {place}，由其建立连接。',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': '请求运行位置',
   'shared.executionPlace.roster.browser': '浏览器扩展',
   'shared.executionPlace.roster.desktopApp': '桌面应用',

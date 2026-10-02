@@ -7,6 +7,7 @@
  * structure vocabulary, fr precedent).
  */
 
+import { formatMessage, plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const sharedComponents = {
@@ -500,6 +501,16 @@ export const sharedComponents = {
     'Se ejecuta en la aplicación de escritorio. Este navegador completa primero la solicitud y luego la entrega a la aplicación de escritorio de este equipo, que abre la conexión.',
   'shared.executionPlace.reason.delegatedServer':
     'Se ejecuta en {place}. La solicitud se completa primero aquí, variables y secretos incluidos, y luego se envía a {place}, que abre la conexión.',
+  'shared.executionPlace.reason.delegatedServerSecrets': ({ place, count }, locale) =>
+    formatMessage(
+      plural(locale, Number(count), {
+        one: 'Se ejecuta en {place}. La solicitud se completa primero aquí, variables y secretos incluidos, entre ellos {count} valor de un gestor de secretos, y luego se envía a {place}, que abre la conexión.',
+        other:
+          'Se ejecuta en {place}. La solicitud se completa primero aquí, variables y secretos incluidos, entre ellos {count} valores de gestores de secretos, y luego se envía a {place}, que abre la conexión.',
+        many: 'Se ejecuta en {place}. La solicitud se completa primero aquí, variables y secretos incluidos, entre ellos {count} valores de gestores de secretos, y luego se envía a {place}, que abre la conexión.',
+      }),
+      { place },
+    ),
   'shared.executionPlace.picker.title': 'Ejecutar la solicitud en',
   'shared.executionPlace.roster.browser': 'Extensión del navegador',
   'shared.executionPlace.roster.desktopApp': 'Aplicación de escritorio',
