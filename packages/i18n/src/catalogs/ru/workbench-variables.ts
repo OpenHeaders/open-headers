@@ -113,7 +113,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.authMethod.token': 'Токен',
   'workbench.variables.table.smField.authMethod.approle': 'AppRole',
   'workbench.variables.table.smField.authMethod.oidc': 'OIDC',
-  'workbench.variables.secretManagers.count': 'ПОДКЛЮЧЕНИЯ ({count})',
+  'workbench.variables.secretManagers.addDesktopOnly': 'Добавляйте подключения в настольном приложении.',
+  'workbench.variables.secretManagers.editDesktopOnly': 'Изменяйте или удаляйте подключения в настольном приложении.',
   'workbench.variables.secretManagers.add': 'Добавить подключение',
   'workbench.variables.secretManagers.empty': 'Подключений к менеджерам секретов пока нет',
   'workbench.variables.secretManagers.emptyHint':

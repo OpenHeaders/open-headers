@@ -439,7 +439,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Device Certificates',
   'workbench.settings.def.requests.deviceTrust.description':
     'Certificates this machine pins beside the workspace list — a self-signed localhost, a staging box. Never synced or exported; applied to every TLS connection the app’s runtime dials from this device.',
-  'workbench.settings.def.secretManagers.connections.label': 'Connections',
+  'workbench.settings.def.secretManagers.connections.label': 'Configured managers',
   'workbench.settings.def.secretManagers.connections.description':
     'One row per secret manager account or server this device reaches. A Vault entry of kind Secret Manager names one of them and the path to a secret inside it; the secret itself is fetched when a request runs and never stored.',
   'workbench.settings.def.requests.systemTrust.label': 'System Trust Store',

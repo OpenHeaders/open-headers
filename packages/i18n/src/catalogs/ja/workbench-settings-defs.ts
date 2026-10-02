@@ -449,7 +449,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'デバイスの証明書',
   'workbench.settings.def.requests.deviceTrust.description':
     'ワークスペースの一覧の横にこのマシンがピン留めする証明書です。自己署名の localhost やステージング環境など。同期もエクスポートもされず、このデバイスからアプリのランタイムがダイヤルするすべての TLS 接続に適用されます。',
-  'workbench.settings.def.secretManagers.connections.label': '接続',
+  'workbench.settings.def.secretManagers.connections.label': '設定済みのマネージャー',
   'workbench.settings.def.secretManagers.connections.description':
     'このデバイスが到達するシークレットマネージャーのアカウントまたはサーバーごとに 1 行。種類がシークレットマネージャーのボールトエントリは、そのうちの 1 つとその中のシークレットへのパスを指定します。シークレット自体はリクエストの実行時に取得され、保存されることはありません。',
   'workbench.settings.def.requests.systemTrust.label': 'システムの信頼ストア',

@@ -93,7 +93,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.authMethod.token': '令牌',
   'workbench.variables.table.smField.authMethod.approle': 'AppRole',
   'workbench.variables.table.smField.authMethod.oidc': 'OIDC',
-  'workbench.variables.secretManagers.count': '连接（{count}）',
+  'workbench.variables.secretManagers.addDesktopOnly': '请在桌面应用中添加连接。',
+  'workbench.variables.secretManagers.editDesktopOnly': '请在桌面应用中编辑或移除连接。',
   'workbench.variables.secretManagers.add': '添加连接',
   'workbench.variables.secretManagers.empty': '尚无机密管理器连接',
   'workbench.variables.secretManagers.emptyHint':

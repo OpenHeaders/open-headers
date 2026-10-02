@@ -119,7 +119,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.authMethod.token': 'Token',
   'workbench.variables.table.smField.authMethod.approle': 'AppRole',
   'workbench.variables.table.smField.authMethod.oidc': 'OIDC',
-  'workbench.variables.secretManagers.count': 'CONEXIUNI ({count})',
+  'workbench.variables.secretManagers.addDesktopOnly': 'Adăugați conexiuni în aplicația desktop.',
+  'workbench.variables.secretManagers.editDesktopOnly': 'Editați sau eliminați conexiunile în aplicația desktop.',
   'workbench.variables.secretManagers.add': 'Adăugare conexiune',
   'workbench.variables.secretManagers.empty': 'Nicio conexiune la un manager de secrete deocamdată',
   'workbench.variables.secretManagers.emptyHint':

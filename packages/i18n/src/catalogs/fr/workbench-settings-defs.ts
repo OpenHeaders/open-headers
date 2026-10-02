@@ -541,7 +541,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Certificats de l’appareil',
   'workbench.settings.def.requests.deviceTrust.description':
     'Certificats que cette machine épingle en plus de la liste de l’espace de travail — un localhost auto-signé, un serveur de staging. Jamais synchronisés ni exportés ; appliqués à chaque connexion TLS établie depuis cet appareil.',
-  'workbench.settings.def.secretManagers.connections.label': 'Connexions',
+  'workbench.settings.def.secretManagers.connections.label': 'Gestionnaires configurés',
   'workbench.settings.def.secretManagers.connections.description':
     'Une ligne par compte ou serveur de gestionnaire de secrets que cet appareil atteint. Une entrée du coffre de type Gestionnaire de secrets désigne l’un d’eux et le chemin d’un secret en son sein ; le secret lui-même est récupéré à l’exécution d’une requête et jamais stocké.',
   'workbench.settings.def.requests.systemTrust.label': 'Magasin de confiance du système',

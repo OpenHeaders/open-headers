@@ -93,7 +93,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.authMethod.token': 'Token',
   'workbench.variables.table.smField.authMethod.approle': 'AppRole',
   'workbench.variables.table.smField.authMethod.oidc': 'OIDC',
-  'workbench.variables.secretManagers.count': 'VERBINDUNGEN ({count})',
+  'workbench.variables.secretManagers.addDesktopOnly': 'Verbindungen fügst du in der Desktop-App hinzu.',
+  'workbench.variables.secretManagers.editDesktopOnly':
+    'Verbindungen bearbeitest oder entfernst du in der Desktop-App.',
   'workbench.variables.secretManagers.add': 'Verbindung hinzufügen',
   'workbench.variables.secretManagers.empty': 'Noch keine Secret-Manager-Verbindungen',
   'workbench.variables.secretManagers.emptyHint':

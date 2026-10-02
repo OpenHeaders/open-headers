@@ -467,7 +467,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Сертификаты устройства',
   'workbench.settings.def.requests.deviceTrust.description':
     'Сертификаты, которые эта машина закрепляет рядом со списком рабочего пространства, — самоподписанный localhost, тестовый сервер. Никогда не синхронизируются и не экспортируются; применяются к каждому TLS-соединению, которое среда выполнения приложения устанавливает с этого устройства.',
-  'workbench.settings.def.secretManagers.connections.label': 'Подключения',
+  'workbench.settings.def.secretManagers.connections.label': 'Настроенные менеджеры',
   'workbench.settings.def.secretManagers.connections.description':
     'По одной строке на каждый аккаунт или сервер менеджера секретов, доступный с этого устройства. Запись хранилища типа «Менеджер секретов» указывает одно из них и путь к секрету внутри; сам секрет запрашивается при выполнении запроса и никогда не сохраняется.',
   'workbench.settings.def.requests.systemTrust.label': 'Системное хранилище доверия',

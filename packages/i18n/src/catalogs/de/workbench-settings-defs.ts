@@ -530,7 +530,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.deviceTrust.label': 'Geräte-Zertifikate',
   'workbench.settings.def.requests.deviceTrust.description':
     'Zertifikate, die diese Maschine zusätzlich zur Arbeitsbereichsliste anheftet — ein selbstsigniertes localhost, ein Staging-Server. Nie synchronisiert oder exportiert; angewendet auf jede TLS-Verbindung von diesem Gerät.',
-  'workbench.settings.def.secretManagers.connections.label': 'Verbindungen',
+  'workbench.settings.def.secretManagers.connections.label': 'Eingerichtete Manager',
   'workbench.settings.def.secretManagers.connections.description':
     'Eine Zeile je Secret-Manager-Konto oder -Server, das dieses Gerät erreicht. Ein Vault-Eintrag der Art Secret-Manager benennt eine davon und den Pfad zu einem Secret darin; das Secret selbst wird beim Ausführen einer Anfrage abgerufen und nie gespeichert.',
   'workbench.settings.def.requests.systemTrust.label': 'System-Vertrauensspeicher',

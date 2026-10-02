@@ -94,7 +94,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.authMethod.token': 'トークン',
   'workbench.variables.table.smField.authMethod.approle': 'AppRole',
   'workbench.variables.table.smField.authMethod.oidc': 'OIDC',
-  'workbench.variables.secretManagers.count': '接続（{count}）',
+  'workbench.variables.secretManagers.addDesktopOnly': '接続はデスクトップアプリで追加します。',
+  'workbench.variables.secretManagers.editDesktopOnly': '接続の編集や削除はデスクトップアプリで行います。',
   'workbench.variables.secretManagers.add': '接続を追加',
   'workbench.variables.secretManagers.empty': 'シークレットマネージャーの接続はまだありません',
   'workbench.variables.secretManagers.emptyHint':

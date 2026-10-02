@@ -304,19 +304,18 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
       block
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text type="secondary" style={{ fontSize: 11, fontWeight: 600 }}>
-            {t('workbench.variables.secretManagers.count', { count: connections.length })}
-          </Text>
-          <Button
-            size="small"
-            icon={<PlusOutlined />}
-            onClick={() => setEditing(formFor(null))}
-            disabled={editing !== null || !nodeHost}
-            data-testid="secret-manager-add"
-          >
-            {t('workbench.variables.secretManagers.add')}
-          </Button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <Tooltip title={nodeHost ? undefined : t('workbench.variables.secretManagers.addDesktopOnly')}>
+            <Button
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => setEditing(formFor(null))}
+              disabled={editing !== null || !nodeHost}
+              data-testid="secret-manager-add"
+            >
+              {t('workbench.variables.secretManagers.add')}
+            </Button>
+          </Tooltip>
         </div>
         <div
           data-testid="secret-manager-table"
@@ -390,25 +389,29 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
                   >
                     {t('workbench.variables.secretManagers.row.test')}
                   </Button>
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<EditOutlined />}
-                    aria-label={t('workbench.variables.secretManagers.row.edit')}
-                    disabled={!nodeHost || editing !== null}
-                    onClick={() => setEditing(formFor(connection))}
-                    data-testid="secret-manager-edit"
-                  />
-                  <Button
-                    size="small"
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    aria-label={t('workbench.variables.secretManagers.row.remove')}
-                    disabled={!nodeHost}
-                    onClick={() => void handleRemove(connection.uid)}
-                    data-testid="secret-manager-remove"
-                  />
+                  <Tooltip title={nodeHost ? undefined : t('workbench.variables.secretManagers.editDesktopOnly')}>
+                    <Button
+                      size="small"
+                      type="text"
+                      icon={<EditOutlined />}
+                      aria-label={t('workbench.variables.secretManagers.row.edit')}
+                      disabled={!nodeHost || editing !== null}
+                      onClick={() => setEditing(formFor(connection))}
+                      data-testid="secret-manager-edit"
+                    />
+                  </Tooltip>
+                  <Tooltip title={nodeHost ? undefined : t('workbench.variables.secretManagers.editDesktopOnly')}>
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      aria-label={t('workbench.variables.secretManagers.row.remove')}
+                      disabled={!nodeHost}
+                      onClick={() => void handleRemove(connection.uid)}
+                      data-testid="secret-manager-remove"
+                    />
+                  </Tooltip>
                 </div>
               </div>
             ))

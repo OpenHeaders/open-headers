@@ -141,7 +141,6 @@ describe('connections block', () => {
 
   it('renders the table with the empty line inside and Add at zero connections', () => {
     renderBlock(<SecretManagerConnectionsRow def={requireDef()} />);
-    expect(screen.getByText('CONNECTIONS (0)')).toBeTruthy();
     expect(screen.getByTestId('secret-manager-empty')).toBeTruthy();
     expect(screen.queryAllByTestId('secret-manager-row')).toHaveLength(0);
     expect(screen.getByTestId('secret-manager-add').hasAttribute('disabled')).toBe(false);

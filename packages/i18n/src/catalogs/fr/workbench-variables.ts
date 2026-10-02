@@ -88,7 +88,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.authMethod.token': 'Jeton',
   'workbench.variables.table.smField.authMethod.approle': 'AppRole',
   'workbench.variables.table.smField.authMethod.oidc': 'OIDC',
-  'workbench.variables.secretManagers.count': 'CONNEXIONS ({count})',
+  'workbench.variables.secretManagers.addDesktopOnly': 'Ajoutez des connexions dans l’application de bureau.',
+  'workbench.variables.secretManagers.editDesktopOnly':
+    'Modifiez ou retirez des connexions dans l’application de bureau.',
   'workbench.variables.secretManagers.add': 'Ajouter une connexion',
   'workbench.variables.secretManagers.empty': 'Aucune connexion à un gestionnaire de secrets pour l’instant',
   'workbench.variables.secretManagers.emptyHint':

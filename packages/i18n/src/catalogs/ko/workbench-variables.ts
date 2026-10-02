@@ -100,7 +100,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.authMethod.token': '토큰',
   'workbench.variables.table.smField.authMethod.approle': 'AppRole',
   'workbench.variables.table.smField.authMethod.oidc': 'OIDC',
-  'workbench.variables.secretManagers.count': '연결({count})',
+  'workbench.variables.secretManagers.addDesktopOnly': '연결은 데스크톱 앱에서 추가합니다.',
+  'workbench.variables.secretManagers.editDesktopOnly': '연결 편집과 제거는 데스크톱 앱에서 합니다.',
   'workbench.variables.secretManagers.add': '연결 추가',
   'workbench.variables.secretManagers.empty': '시크릿 관리자 연결이 아직 없습니다',
   'workbench.variables.secretManagers.emptyHint':
