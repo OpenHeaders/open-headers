@@ -1,4 +1,5 @@
 import { hasCapability } from '@openheaders/core/capabilities';
+import { scrubLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import type { CdpScopeMode, RequestRecord, Rule } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { ConsoleStreamHub } from '@openheaders/oracle/console-stream-hub';
@@ -49,6 +50,7 @@ import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/c
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
 import { registerExtensionTrafficSource } from '../modules/request-executor/wire-capture';
 import { setupOnRuleMatchedDebugBridge } from '../modules/rules/on-rule-matched-debug';
+import { knownSecretValues } from '../modules/secret-manager/secret-value-registry';
 import { registerStorageCdpAccess } from '../modules/storage-inspector';
 import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tabs/tab-overrides';
 import { startTabTelemetryFiresBridge } from '../modules/tabs/tab-telemetry-fires-bridge';
@@ -106,7 +108,12 @@ interface LifecyclePipelineHandles {
 
 export function startLifecyclePipeline(): LifecyclePipelineHandles {
   const tabLifecycleBus = new TabLifecycleBus();
-  const lifecycleHost = startLifecycleHost({ bus: tabLifecycleBus });
+  // Every plane's rows pass the secret scrub at the store's intake — a
+  // value a secret manager handed this worker never becomes a row.
+  const lifecycleHost = startLifecycleHost({
+    bus: tabLifecycleBus,
+    redact: (update) => scrubLifecycleUpdate(update, knownSecretValues()),
+  });
   // The executor's wire capture (Set-Cookie / remote IP) reads the
   // adapter's extension-traffic channel — the SW's own fetches, which
   // the lifecycle pipeline itself never consumes.
@@ -479,6 +486,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   const firesBridge = startTabTelemetryFiresBridge({
     hub: ruleFireHub,
     isCdpOwned: (tabId) => lifecycleHost.router.ownerOf(tabId) === 'cdp',
+    secretValues: knownSecretValues,
   });
   reportFire = (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record);
 

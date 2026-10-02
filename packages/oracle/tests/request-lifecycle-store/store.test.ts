@@ -91,6 +91,22 @@ describe('RequestLifecycleStore — subscribe (S5)', () => {
   });
 });
 
+describe('RequestLifecycleStore — redact (the intake transform)', () => {
+  it('reduces and broadcasts the redacted update, never the incoming one', () => {
+    const store = new RequestLifecycleStore({
+      redact: (update) =>
+        update.kind === 'started'
+          ? { ...update, lifecycle: { ...update.lifecycle, url: 'https://api.openheaders.io/redacted' } }
+          : update,
+    });
+    const seen: RequestLifecycleUpdate[] = [];
+    store.subscribe((update) => seen.push(update));
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ url: 'https://api.openheaders.io/users?key=s' }) });
+    expect(store.get(1, 'req-1')?.url).toBe('https://api.openheaders.io/redacted');
+    expect(seen[0]?.kind === 'started' && seen[0].lifecycle.url).toBe('https://api.openheaders.io/redacted');
+  });
+});
+
 describe('RequestLifecycleStore — rejection + eviction callbacks', () => {
   it('onReject is called with the offending update + reason', () => {
     const onReject = vi.fn();

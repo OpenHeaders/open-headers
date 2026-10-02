@@ -6,6 +6,7 @@
  * `RuleHoverPopover` and its snapshot block.
  */
 
+import { SECRET_VALUE_PLACEHOLDER } from '@openheaders/core/request-lifecycle';
 import type { HeaderModification, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { HeaderAttribution, RuleAttributionContext } from '../data/headers/header-attribution';
@@ -137,9 +138,13 @@ export function computeFutureKind(
  *   - Templates whose vars failed to resolve at fire time (broken ref,
  *     env not selected, etc.) — same shape: `valueResolved` ===
  *     `valueTemplate` AND template contains `{{`.
+ *   - A secret-manager value the worker scrubbed before the fire left
+ *     it: the snapshot reads the placeholder, and this surface holds no
+ *     secret-manager value to compare it against.
  */
 export function isSnapshotResolutionReliable(mod: RuleSnapshotHeaderMod): boolean {
   if (mod.valueTemplate === undefined) return true;
   if (!mod.valueTemplate.includes('{{')) return true;
+  if (mod.valueResolved?.includes(SECRET_VALUE_PLACEHOLDER)) return false;
   return mod.valueTemplate !== mod.valueResolved;
 }

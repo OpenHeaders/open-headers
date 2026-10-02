@@ -25,6 +25,7 @@ import { useOpenValueViewDocument } from '../../../data/value-view-intent';
 import { introspectWithAuthScheme } from '../../../data/auth-scheme';
 import { introspectionDetected, introspectionHasDepth } from '../../../data/value-introspect';
 import { ResolvedHeaderValue } from '../../ResolvedHeaderValue';
+import { isSnapshotResolutionReliable } from '../../rule-hover-format';
 import { useRulePopover } from '../../RulePopoverHost';
 import { ValueExpander } from '../ValueExpander';
 import { ValueChips } from './value-chips';
@@ -223,10 +224,7 @@ export function AttributedHeaderRow({
       collectionId: ruleCollectionId,
     });
   }, [liveRule, ruleCtx, requestUrl, resolver, ruleCollectionId]);
-  const snapshotResolutionReliable =
-    ruleCtx?.snapshotMod.valueTemplate === undefined ||
-    !ruleCtx.snapshotMod.valueTemplate.includes('{{') ||
-    ruleCtx.snapshotMod.valueTemplate !== ruleCtx.snapshotMod.valueResolved;
+  const snapshotResolutionReliable = !ruleCtx || isSnapshotResolutionReliable(ruleCtx.snapshotMod);
   const valueDrifted =
     !!ruleCtx &&
     !ruleEdited &&

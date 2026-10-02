@@ -29,6 +29,7 @@ import type { SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-pl
 import type { SyncHandshakeHandles } from '@openheaders/oracle/sync/client/backend-wire-handshake';
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { wsRequest } from '../../ws-request';
+import { noteSecretResolutions } from './secret-value-registry';
 
 /** Is this wire the desktop app's on this device — by the place rule; any other backend is a server. */
 export function isDesktopAppWire(wire: BackendWireHandle): boolean {
@@ -194,6 +195,9 @@ export function createLoopbackSecretManagerBroker(): SecretManagerBroker {
           result ?? { ok: false, reason: 'unavailable', detail: 'The desktop app did not answer for this entry.' },
         );
       }
+      // The one funnel every value enters this worker through — the
+      // capture planes scrub by what is noted here.
+      noteSecretResolutions(results);
       return results;
     },
   };

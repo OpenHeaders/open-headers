@@ -43,6 +43,10 @@ import {
   PROMPT_CEILING_MS,
   subscribeDesktopWireReady,
 } from '@/background/modules/secret-manager/loopback-broker';
+import {
+  __resetSecretValueRegistryForTests,
+  knownSecretValues,
+} from '@/background/modules/secret-manager/secret-value-registry';
 
 const DESKTOP = { backendId: 'b-desktop', url: 'ws://127.0.0.1:8137' };
 const SERVER = { backendId: 'b-server', url: 'wss://sync.openheaders.io' };
@@ -121,6 +125,7 @@ beforeEach(() => {
   mockWsRequest.mockReset();
   wires.length = 0;
   __resetDesktopWireReadinessForTests();
+  __resetSecretValueRegistryForTests();
   lifecycleSubscribers.clear();
   initiators.clear();
   states.clear();
@@ -224,6 +229,21 @@ describe('the loopback broker', () => {
     connect(DESKTOP);
     expect((await createLoopbackSecretManagerBroker().resolveBatch([])).size).toBe(0);
     expect(mockWsRequest).not.toHaveBeenCalled();
+  });
+
+  it('notes every value the desktop app answered with in the scrub registry — nothing while away', async () => {
+    const broker = createLoopbackSecretManagerBroker();
+    await broker.resolveBatch([{ name: 'ApiToken', locator: LOCATOR }]);
+    expect(knownSecretValues().size).toBe(0);
+    connect(DESKTOP);
+    mockWsRequest.mockResolvedValueOnce({
+      results: { ApiToken: { ok: true, value: 'tok_live' }, Gone: { ok: false, reason: 'not-found' } },
+    });
+    await broker.resolveBatch([
+      { name: 'ApiToken', locator: LOCATOR },
+      { name: 'Gone', locator: LOCATOR },
+    ]);
+    expect([...knownSecretValues()]).toEqual(['tok_live']);
   });
 });
 

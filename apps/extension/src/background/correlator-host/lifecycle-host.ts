@@ -27,6 +27,7 @@
  * the store to drop the partition.
  */
 
+import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import { CdpCorrelator } from '@openheaders/oracle/correlator-cdp';
 import { HAR_FAILURE_HOLD_MS, HeuristicCorrelator } from '@openheaders/oracle/correlator-heuristic';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
@@ -44,6 +45,8 @@ import { TabSourceRouter } from './tab-source-router';
 
 export interface LifecycleHostOptions {
   readonly bus: TabLifecycleBus;
+  /** The store's intake transform — the secret scrub every plane's rows pass through. */
+  readonly redact?: (update: RequestLifecycleUpdate) => RequestLifecycleUpdate;
 }
 
 export interface LifecycleHost {
@@ -92,6 +95,7 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
   );
   const cdpCorrelator = new CdpCorrelator(debuggerSource);
   const store = new RequestLifecycleStore({
+    redact: options.redact,
     onReject: (update, reason) => {
       logger.warn('LifecycleHost', 'store rejected update', { kind: update.kind, reason });
     },

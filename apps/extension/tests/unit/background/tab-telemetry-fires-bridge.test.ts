@@ -10,6 +10,7 @@
  *   - rule-snapshot enrichment rides both paths.
  */
 
+import { SECRET_VALUE_PLACEHOLDER } from '@openheaders/core/request-lifecycle';
 import type { RequestRecord } from '@openheaders/core/types';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -85,5 +86,35 @@ describe('startTabTelemetryFiresBridge — authoritative routing by tab ownershi
     bridge.notifyAuthoritativeFire(7, rec());
     expect(hub.notifyAuthoritativeFire).toHaveBeenCalledTimes(1);
     expect(hub.notifyAuthoritativeFireTranslated).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrubs a secret manager's value from the snapshot's resolved header values before the fire leaves", () => {
+    const hub = makeHub();
+    const bridge = startTabTelemetryFiresBridge({
+      hub: hub as unknown as RuleFireHub,
+      isCdpOwned: () => false,
+      secretValues: () => new Set(['tok_live']),
+    });
+    bridge.notifyAuthoritativeFire(7, {
+      ...rec(),
+      ruleSnapshot: {
+        ruleUid: 'rule-a',
+        name: 'Auth',
+        type: 'header',
+        enabled: true,
+        headerMods: [
+          {
+            direction: 'request',
+            operation: 'override',
+            headerName: 'Authorization',
+            valueTemplate: 'Bearer {{vault.ApiToken}}',
+            valueResolved: 'Bearer tok_live',
+          },
+        ],
+      },
+    });
+    const [, record] = hub.notifyAuthoritativeFire.mock.calls[0];
+    expect(record.ruleSnapshot.headerMods[0].valueResolved).toBe(`Bearer ${SECRET_VALUE_PLACEHOLDER}`);
+    expect(record.ruleSnapshot.headerMods[0].valueTemplate).toBe('Bearer {{vault.ApiToken}}');
   });
 });

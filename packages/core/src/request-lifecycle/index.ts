@@ -25,6 +25,12 @@ export {
   refinesField,
   urlChain,
 } from './invariants';
+export {
+  SECRET_VALUE_PLACEHOLDER,
+  scrubLifecycleUpdate,
+  scrubRuleSnapshot,
+  scrubSecretText,
+} from './secret-scrub';
 export { appendStreamMessage, appendStreamMessageCapture } from './stream-messages';
 export type {
   InspectorOverrideBody,

@@ -42,6 +42,13 @@ export interface RequestLifecycleStoreOptions {
    * signal, not a lifecycle termination. Defaults to a no-op.
    */
   readonly onEvict?: (evicted: RequestLifecycle) => void;
+  /**
+   * A pure transform applied to every update before it is reduced —
+   * the host's secret scrub: the store is the one intake every
+   * correlator feeds and every consumer reads, so what it never
+   * holds no port, snapshot or export can ship. Defaults to identity.
+   */
+  readonly redact?: (update: RequestLifecycleUpdate) => RequestLifecycleUpdate;
 }
 
 export class RequestLifecycleStore {
@@ -50,15 +57,18 @@ export class RequestLifecycleStore {
   private readonly maxLifecyclesPerTab: number;
   private readonly onReject: NonNullable<RequestLifecycleStoreOptions['onReject']>;
   private readonly onEvict: NonNullable<RequestLifecycleStoreOptions['onEvict']>;
+  private readonly redact: NonNullable<RequestLifecycleStoreOptions['redact']>;
 
   constructor(options: RequestLifecycleStoreOptions = {}) {
     this.maxLifecyclesPerTab = options.maxLifecyclesPerTab ?? DEFAULT_MAX_LIFECYCLES_PER_TAB;
     this.onReject = options.onReject ?? noop;
     this.onEvict = options.onEvict ?? noop;
+    this.redact = options.redact ?? identity;
   }
 
   /** Apply a correlator update. Rejections route to `onReject` and drop. */
-  apply(update: RequestLifecycleUpdate): void {
+  apply(incoming: RequestLifecycleUpdate): void {
+    const update = this.redact(incoming);
     const tabId = tabIdOf(update);
     const requestId = requestIdOf(update);
     const tab = this.tabs.get(tabId);
@@ -167,4 +177,8 @@ function requestIdOf(update: RequestLifecycleUpdate): string {
 
 function noop(): void {
   /* default option */
+}
+
+function identity(update: RequestLifecycleUpdate): RequestLifecycleUpdate {
+  return update;
 }
