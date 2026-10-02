@@ -21,6 +21,7 @@
 import type { Catalog } from '../../types';
 
 export const workbenchEditors = {
+  'workbench.editors.session.secretHidden': '<verborgen: Wert aus einem Secret-Manager>',
   'workbench.editors.sectionInfo.moreInformation': 'Weitere Informationen',
 
   // ── Session chrome (shared: WS/MQTT session panes) ─────────────────

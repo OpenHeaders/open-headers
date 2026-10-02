@@ -276,6 +276,24 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
     expect(screen.getByTestId('grpc-timeline-ended-row').textContent).toContain('Call stopped');
   });
 
+  it('masks a stamped secret-bearing metadata pair on the sent sheet', () => {
+    renderTimeline({
+      lifecycle: {
+        ...LIVE_LIFECYCLE,
+        requestMetadata: [
+          { key: 'authorization', value: 'Bearer tok' },
+          { key: 'x-plain', value: 'visible' },
+        ],
+        secretMetadataKeys: ['authorization'],
+      },
+    });
+    fireEvent.click(screen.getByTestId('grpc-timeline-sent-row'));
+    const details = screen.getByTestId('grpc-timeline-metadata-details').textContent ?? '';
+    expect(details).toContain('authorization: <hidden: a secret manager value>');
+    expect(details).not.toContain('Bearer tok');
+    expect(details).toContain('x-plain: visible');
+  });
+
   it('expands the sent row to the recorded request metadata and reads plain without any', () => {
     const { unmount } = renderTimeline({
       lifecycle: {

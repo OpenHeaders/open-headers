@@ -137,6 +137,9 @@ export interface GrpcTimelineItem {
   direction?: 'up' | 'down';
   dataBase64: string;
   compressed: boolean;
+  /** The ↑ frame carried a secret manager's value (the executor's
+   *  stamp) — the row and the viewer show a placeholder, never a decode. */
+  secret?: true;
 }
 
 /** How the call ended — drives the ended lifecycle row. */
@@ -155,6 +158,9 @@ export interface GrpcTimelineLifecycle {
    *  host that predates the record): the row reads plain, no chevron —
    *  never a fabricated empty state. */
   requestMetadata?: ReadonlyArray<{ key: string; value: string }>;
+  /** The keys among `requestMetadata` whose values came from a secret
+   *  manager — the sent row's sheet shows a placeholder for them (L3). */
+  secretMetadataKeys?: readonly string[];
   /** True once the response head arrived. */
   headArrived: boolean;
   /** Session-only head-arrival time. */
@@ -308,13 +314,18 @@ function makeFrameDerivations(
   registry: ProtoRegistry | null,
   inputType: string | null,
   outputType: string | null,
+  hiddenLabel: string,
 ): FrameDerivations {
   const viewCache = new WeakMap<GrpcTimelineItem, GrpcMessageView>();
   const previewCache = new WeakMap<GrpcTimelineItem, string>();
   const viewOf = (item: GrpcTimelineItem): GrpcMessageView => {
     const hit = viewCache.get(item);
     if (hit !== undefined) return hit;
-    const view = deriveGrpcFrameView(item, registry, item.direction === 'up' ? inputType : outputType);
+    // The capture keeps the bytes; a secret-bearing frame never decodes.
+    const view: GrpcMessageView =
+      item.secret === true
+        ? { kind: 'structural', text: hiddenLabel }
+        : deriveGrpcFrameView(item, registry, item.direction === 'up' ? inputType : outputType);
     viewCache.set(item, view);
     return view;
   };
@@ -336,7 +347,9 @@ function makeFrameDerivations(
   const hexOf = (item: GrpcTimelineItem): HexDump => {
     const hit = hexCache.get(item);
     if (hit !== undefined) return hit;
-    const dump = buildHexDump(decodeBase64Bytes(item.dataBase64) ?? new Uint8Array(0));
+    const dump = buildHexDump(
+      item.secret === true ? new Uint8Array(0) : (decodeBase64Bytes(item.dataBase64) ?? new Uint8Array(0)),
+    );
     hexCache.set(item, dump);
     return dump;
   };
@@ -412,7 +425,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const [stickyRightInset, setStickyRightInset] = useState(1);
 
   const derive = useMemo(
-    () => makeFrameDerivations(registry, inputType, outputType),
+    () => makeFrameDerivations(registry, inputType, outputType, t('workbench.editors.session.secretHidden')),
     [registry, inputType, outputType],
   );
 
@@ -549,6 +562,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const live = lifecycle.endedBy === undefined;
   const sentMetadata = lifecycle.requestMetadata ?? [];
   const sentRecorded = lifecycle.requestMetadata !== undefined;
+  const sentSecretKeys = new Set((lifecycle.secretMetadataKeys ?? []).map((key) => key.toLowerCase()));
   const sentDetailOpen = sentExpanded && sentRecorded;
   const errorExpandable =
     (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') && lifecycle.endedMessage !== undefined;
@@ -1027,7 +1041,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                   }}
                 >
                   <span style={{ color: token.colorTextSecondary }}>{pair.key}: </span>
-                  <span style={{ color: token.colorText }}>{pair.value}</span>
+                  <span style={{ color: token.colorText }}>
+                    {sentSecretKeys.has(pair.key.toLowerCase())
+                      ? t('workbench.editors.session.secretHidden')
+                      : pair.value}
+                  </span>
                 </div>
               ))
             )}

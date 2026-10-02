@@ -163,6 +163,40 @@ describe('WsMessageTimeline — rows and lifecycle order', () => {
     expect(screen.getByTestId('ws-timeline-ended-details').textContent).toContain('without a Close frame');
   });
 
+  it('masks a stamped secret-bearing header on the sheet and a secret-bearing ↑ message on its row', () => {
+    const secretItem = {
+      direction: 'up' as const,
+      dataBase64: btoa('Bearer tok'),
+      binary: false,
+      secret: true as const,
+    };
+    renderTimeline({
+      items: [secretItem],
+      count: 1,
+      lifecycle: {
+        ...LIVE_LIFECYCLE,
+        handshake: {
+          protocol: '',
+          extensions: '',
+          url: 'wss://echo.openheaders.io/live',
+          requestHeaders: [
+            { key: 'authorization', value: 'Bearer tok' },
+            { key: 'x-plain', value: 'visible' },
+          ],
+          secretHeaderKeys: ['Authorization'],
+        },
+      },
+    });
+    fireEvent.click(screen.getByTestId('ws-timeline-connected-row'));
+    const sheet = screen.getByTestId('ws-timeline-handshake-details').textContent ?? '';
+    expect(sheet).toContain('authorization: "<hidden: a secret manager value>"');
+    expect(sheet).not.toContain('Bearer tok');
+    expect(sheet).toContain('x-plain: "visible"');
+    // The ↑ row's preview is the placeholder, never the decoded text.
+    expect(screen.getByText('<hidden: a secret manager value>')).toBeTruthy();
+    expect(screen.queryByText('Bearer tok')).toBeNull();
+  });
+
   it('names the peer on both rows and lays the stamped request headers over the host set', () => {
     renderTimeline({
       lifecycle: {

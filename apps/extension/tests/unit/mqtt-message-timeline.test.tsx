@@ -87,6 +87,44 @@ describe('MqttMessageTimeline — aborted lifecycle instants', () => {
   });
 });
 
+describe('MqttMessageTimeline — secret-bearing messages', () => {
+  const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
+
+  it('shows the placeholder for a stamped ↑ PUBLISH and the text for a plain one', () => {
+    render(
+      <MqttMessageTimeline
+        items={[
+          {
+            kind: 'message',
+            direction: 'up',
+            topic: 'probe/a',
+            payloadBase64: btoa('s3cret'),
+            qos: 0,
+            retain: false,
+            dup: false,
+            secret: true,
+          },
+          {
+            kind: 'message',
+            direction: 'up',
+            topic: 'probe/b',
+            payloadBase64: btoa('plain'),
+            qos: 0,
+            retain: false,
+            dup: false,
+          },
+        ]}
+        count={2}
+        lifecycle={lifecycle}
+        v5
+      />,
+    );
+    expect(screen.getByText('<hidden: a secret manager value>')).toBeTruthy();
+    expect(screen.queryByText('s3cret')).toBeNull();
+    expect(screen.getByText('plain')).toBeTruthy();
+  });
+});
+
 describe('MqttMessageTimeline — reconnect attempt rows', () => {
   const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
 
@@ -294,7 +332,9 @@ describe('MqttMessageTimeline — the delegated open refused by the place', () =
     );
     expect(screen.getByTestId('peer-execute-disabled-notice').getAttribute('data-kind')).toBe('remote');
     remote.unmount();
-    render(<MqttMessageTimeline items={[]} count={0} lifecycle={refused('Could not reach broker.openheaders.io')} v5 />);
+    render(
+      <MqttMessageTimeline items={[]} count={0} lifecycle={refused('Could not reach broker.openheaders.io')} v5 />,
+    );
     expect(screen.queryByTestId('peer-execute-disabled-notice')).toBeNull();
   });
 });

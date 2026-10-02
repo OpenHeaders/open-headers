@@ -11,6 +11,7 @@
  * Disconnect.
  */
 
+import type { MqttStreamEventWire } from '@openheaders/core/bridge';
 import {
   decodeMqttPacket,
   encodeMqttPacket,
@@ -491,6 +492,31 @@ describe('executeMqttSession — subscriptions', () => {
     closeActiveMqttSession('send-mqtt-toggle');
     const snapshot = await settled;
     expect(snapshot.events.map((e) => e.kind)).toEqual(['subscribed', 'unsubscribed']);
+  });
+
+  it('a rider whose template names a secret-manager entry is stamped secret on the capture and the live item', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const emitted: MqttStreamEventWire[] = [];
+    const settled = executeMqttSession(makeMqttRequest({ url: 'mqtt://{{host}}:1883' }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: rig.transport,
+      sendId: 'send-mqtt-secret',
+      emitStreamEvent: (event) => emitted.push(event),
+      resolution: scopedResolution,
+      referencesSecret: (templates) => templates.some((template) => template.includes('{{team}}')),
+    });
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+    void publishActiveMqttMessage('send-mqtt-secret', { topic: 'probe/{{team}}', payload: 'x' });
+    void publishActiveMqttMessage('send-mqtt-secret', { topic: 'probe/plain', payload: 'y' });
+    closeActiveMqttSession('send-mqtt-secret');
+    const snapshot = await settled;
+    const messages = snapshot.events.filter((e) => e.kind === 'message');
+    expect(messages.map((m) => (m.kind === 'message' ? m.secret : undefined))).toEqual([true, undefined]);
+    const liveItems = emitted.flatMap((e) => (e.kind === 'items' ? e.items : []));
+    expect(liveItems.map((item) => (item.kind === 'message' ? item.secret : undefined))).toEqual([true, undefined]);
   });
 
   it('the injected pre-pass runs before each rider with the strings it references; a rider waits only for an ask', async () => {

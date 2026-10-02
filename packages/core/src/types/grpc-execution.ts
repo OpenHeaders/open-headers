@@ -35,6 +35,10 @@ export interface ExecutedGrpcMessageFrame {
   dataBase64: string;
   compressed: boolean;
   direction?: 'up' | 'down';
+  /** The outbound frame's message text named a secret-manager entry, so
+   *  its bytes carry that value — a surface shows a placeholder, the
+   *  capture keeps the bytes (the Secret Providers plan's L3 stamp). */
+  secret?: true;
 }
 
 /**
@@ -155,6 +159,9 @@ export interface ExecutedGrpcSnapshot {
    *  carries none. Session display truth — examples never persist it
    *  (resolved values are volatile). */
   requestMetadata?: Array<{ key: string; value: string }>;
+  /** The keys among `requestMetadata` whose values came from a secret
+   *  manager — names only, so a surface masks them (L3). Absent = none. */
+  secretMetadataKeys?: string[];
   /** The call's script hooks as they ran — see {@link ExecutedGrpcScripts};
    *  absent when no hook ran. */
   scripts?: ExecutedGrpcScripts;

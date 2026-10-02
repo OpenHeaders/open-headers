@@ -100,6 +100,9 @@ export interface GrpcStreamMessageWire {
   /** The frame's compression flag as received (↓); always false for ↑
    *  (v1 never compresses). Flag honesty — never a rewrite. */
   compressed: boolean;
+  /** The ↑ frame's message named a secret-manager entry — the
+   *  timeline shows a placeholder (the snapshot frame's stamp). */
+  secret?: true;
   /** Epoch ms on the executing host. */
   atMs: number;
 }
@@ -145,6 +148,9 @@ export type GrpcStreamEventWire =
        *  timeline's sent row expands to the truth WHILE the call is
        *  open. Session-only display data, never persisted. */
       metadata: Array<{ key: string; value: string }>;
+      /** The keys among `metadata` whose values came from a secret
+       *  manager — the sent row masks them (the snapshot's stamp). */
+      secretMetadataKeys?: string[];
     }
   | { sendId: string; seq: number; kind: 'messages'; items: GrpcStreamMessageWire[] }
   /** One script hook ran — the executor's mark (`atIndex` counts the
@@ -173,6 +179,9 @@ export interface WsStreamMessageWire {
   direction: 'up' | 'down';
   dataBase64: string;
   binary: boolean;
+  /** The ↑ message's template named a secret-manager entry — the
+   *  timeline shows a placeholder (the snapshot message's stamp). */
+  secret?: true;
   /** Epoch ms on the executing host. */
   atMs: number;
 }
@@ -235,6 +244,9 @@ export type WsStreamEventWire =
        *  the bearer credential, the subprotocol offer) — the platform
        *  socket adds its own on top. Same tolerance. */
       requestHeaders?: WsHandshakeHeaderWire[];
+      /** The keys among `requestHeaders` whose values came from a
+       *  secret manager — the Connected row masks them. */
+      secretHeaderKeys?: string[];
       /** The session's effective proxy route as the transport decided
        *  it — attribution from the record's live twin, so the session
        *  strip is honest WHILE the session is open. Absent = direct. */
@@ -280,6 +292,9 @@ export type MqttStreamItemWire =
       qos: 0 | 1 | 2;
       retain: boolean;
       dup: boolean;
+      /** The ↑ PUBLISH's template named a secret-manager entry — the
+       *  timeline shows a placeholder (the snapshot event's stamp). */
+      secret?: true;
       atMs: number;
     }
   | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }>; atMs: number }

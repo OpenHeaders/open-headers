@@ -64,6 +64,7 @@ import { registerActiveSend } from '../request-exec/send-stream';
 import {
   buildOracleSessionResolution,
   type SessionPrepare,
+  type SessionReferencesSecret,
   type SessionResolve,
 } from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
@@ -132,6 +133,11 @@ export interface ExecuteGrpcInvokeOptions {
    *  `resolution` twin): the secret-manager entries they reference,
    *  asked of the host's broker. Absent = nothing to prepare. */
   prepareResolution?: SessionPrepare;
+  /** Host-injected "names a secret-manager entry" check (the
+   *  `resolution` twin): a metadata pair or the composed message whose
+   *  template does is stamped secret-bearing so the timeline masks it
+   *  (the Secret Providers plan's L3). Absent = nothing is stamped. */
+  referencesSecret?: SessionReferencesSecret;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -220,6 +226,8 @@ export async function executeGrpcInvoke(
   // secret-manager entries this call resolves — a provider may prompt;
   // nothing the call never references is asked.
   await (oracleResolution?.prepare ?? options.prepareResolution)?.(collectTemplateStringsDeep(request));
+  const referencesSecret: SessionReferencesSecret =
+    oracleResolution?.referencesSecret ?? options.referencesSecret ?? (() => false);
   const unresolved: UnresolvedReferences = new Map();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
 
@@ -270,11 +278,15 @@ export async function executeGrpcInvoke(
   });
   const dialPolicy = sessionDialPolicy(settings, oracleResolution?.vault);
   let metadata: GrpcTransportHeader[] = [];
+  /** The keys among `metadata` whose templates named a secret-manager
+   *  entry — the names side of the redaction law (L3). */
+  const secretMetadataKeys: string[] = [];
   for (const row of request.metadata) {
     if (row.enabled === false || !row.key.trim()) continue;
     const key = resolveStr(row.key);
     if (key.startsWith(':') || RESERVED_METADATA_KEYS.has(key.toLowerCase())) continue;
     metadata.push({ key, value: resolveStr(row.value) });
+    if (referencesSecret([row.key, row.value])) secretMetadataKeys.push(key);
   }
   // Auth injection — the resolved credential becomes an `authorization`
   // metadata pair (an api-key rides its own key) at the SAME resolve
@@ -284,7 +296,12 @@ export async function executeGrpcInvoke(
   // JWT stamped with the invoke's clock). An explicit user row carrying
   // the same key wins: injecting beside it would send the field twice.
   const credential = resolveSessionCredential(sessionAuth.auth, resolveStr);
+  // The names side of the redaction law: a metadata row or the
+  // credential whose template names a secret-manager entry carries its
+  // value on the wire — the keys are stamped so the timeline masks them.
+  const credentialReferencesSecret = referencesSecret(collectTemplateStringsDeep(sessionAuth.auth));
   let messageText = resolveStr(request.message);
+  const initialMessageSecret = referencesSecret([request.message]);
   if (unresolved.size > 0) {
     return withAttribution(errorGrpcSnapshot(unresolvedReferencesMessage(UNRESOLVED_REQUEST_LEAD, unresolved)));
   }
@@ -347,7 +364,9 @@ export async function executeGrpcInvoke(
     // lowercased the way gRPC metadata keys ride.
     for (const pair of minted.headers) {
       const key = pair.key.toLowerCase();
-      if (!metadata.some((m) => m.key.toLowerCase() === key)) metadata.push({ key, value: pair.value });
+      if (metadata.some((m) => m.key.toLowerCase() === key)) continue;
+      metadata.push({ key, value: pair.value });
+      if (credentialReferencesSecret) secretMetadataKeys.push(key);
     }
   }
 
@@ -392,12 +411,14 @@ export async function executeGrpcInvoke(
       path: `/${method.service}/${method.rpc}`,
       ...(settings.unixSocketPath !== undefined ? { unixSocketPath: settings.unixSocketPath } : {}),
       metadata,
+      ...(secretMetadataKeys.length > 0 ? { secretMetadataKeys } : {}),
       ...(settings.timeoutMs !== undefined ? { timeoutMs: settings.timeoutMs } : {}),
       registry,
       inputType: rpc.inputType,
       outputType: rpc.outputType,
       shape: rpc.streaming,
       initialMessage: rpc.streaming === 'server-streaming' ? encoded : null,
+      ...(initialMessageSecret ? { initialMessageSecret: true } : {}),
       ...(options.sendId !== undefined ? { sendId: options.sendId } : {}),
       ...(options.emitStreamEvent !== undefined ? { emitEvent: options.emitStreamEvent } : {}),
       maxBodyBytes,
@@ -484,6 +505,7 @@ export async function executeGrpcInvoke(
         ...(response.proxyRoute !== undefined ? { proxyRoute: response.proxyRoute } : {}),
         ...(response.connectionError !== undefined ? { connectionError: response.connectionError } : {}),
         requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+        ...(secretMetadataKeys.length > 0 ? { secretMetadataKeys } : {}),
         error: null,
       }),
     );
@@ -508,6 +530,7 @@ export async function executeGrpcInvoke(
       finishScripts({
         ...errorGrpcSnapshot(message),
         requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+        ...(secretMetadataKeys.length > 0 ? { secretMetadataKeys } : {}),
         ...(localStatus !== undefined ? { localStatus } : {}),
         ...(hint !== undefined ? { hint } : {}),
         durationMs,

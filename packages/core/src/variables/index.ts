@@ -50,6 +50,7 @@ export {
 export type { RuleResolution } from './rule-resolver';
 export { resolveRule, resolveRuleConditions, resolveRules, resolveRuleWithDiagnostics } from './rule-resolver';
 export { collectRuleTemplateStrings } from './rule-templates';
+export { referencesSecretManager, secretManagerNamesOf } from './secret-references';
 export type {
   CollectionEntry,
   EnvironmentEntry,

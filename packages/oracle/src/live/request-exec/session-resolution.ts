@@ -26,7 +26,9 @@ import {
   collectTemplateVariableNames,
   collectUnresolvedReferences,
   createSecretManagerScope,
+  referencesSecretManager,
   resolveTemplate,
+  secretManagerNamesOf,
   type UnresolvedReferences,
 } from '@openheaders/core/variables';
 import { collectionUidForRequest } from './ancestor-chain';
@@ -38,10 +40,15 @@ export type SessionResolve = (template: string, unresolved: UnresolvedReferences
 /** The async pre-pass before a batch of templates resolves; `null` when
  *  nothing needs asking, so the batch resolves synchronously as before. */
 export type SessionPrepare = (templates: readonly string[]) => Promise<void> | null;
+/** Whether a batch of templates names a secret-manager entry — the
+ *  executor stamps what it recorded from them as secret-bearing (names
+ *  only; the Secret Providers plan's L3), never by reading values. */
+export type SessionReferencesSecret = (templates: readonly string[]) => boolean;
 
 export interface SessionResolution {
   resolve: SessionResolve;
   prepare: SessionPrepare;
+  referencesSecret: SessionReferencesSecret;
   /** The scope's vault — the TLS and dial policies' entry reads. */
   vault: Vault;
 }
@@ -74,6 +81,7 @@ export async function buildOracleSessionResolution(
   const secrets = createSecretManagerScope(resolver, scope.vault, (entries) =>
     getSecretManagerBroker().resolveBatch(entries),
   );
+  const secretNames = secretManagerNamesOf(scope.vault);
   return {
     resolve: (template, unresolved) => {
       const result = resolveTemplate(
@@ -85,6 +93,7 @@ export async function buildOracleSessionResolution(
       return result.result;
     },
     prepare: (templates) => secrets.ensure(collectTemplateVariableNames(templates)),
+    referencesSecret: (templates) => referencesSecretManager(templates, secretNames),
     vault: scope.vault,
   };
 }

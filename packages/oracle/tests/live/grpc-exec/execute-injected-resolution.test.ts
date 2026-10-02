@@ -141,6 +141,23 @@ describe('executeGrpcInvoke — injected resolution', () => {
     expect(Array.from(rig.wire().message)).toEqual([10, 2, 104, 105]);
   });
 
+  it('stamps the metadata keys whose templates name a secret-manager entry, and leaves the wire as it was', async () => {
+    const rig = unaryTransport();
+    const snapshot = await executeGrpcInvoke(makeGrpcRequest(), {
+      workspaceId: 'ws-1',
+      environmentId: undefined,
+      transport: rig.transport,
+      spec: SPEC,
+      resolution: scopedResolution,
+      referencesSecret: (templates) => templates.some((template) => template.includes('{{tenant}}')),
+      authChain: [],
+      settingsChain: [],
+    });
+    expect(snapshot.error).toBeNull();
+    expect(snapshot.secretMetadataKeys).toEqual(['x-tenant']);
+    expect(rig.wire()).toMatchObject({ metadata: [{ key: 'x-tenant', value: 'acme' }] });
+  });
+
   it('gates an unresolved reference as a structured error naming it, before the wire', async () => {
     const rig = unaryTransport();
     const snapshot = await executeGrpcInvoke(makeGrpcRequest({ message: '{"text":"{{missing}}"}' }), {

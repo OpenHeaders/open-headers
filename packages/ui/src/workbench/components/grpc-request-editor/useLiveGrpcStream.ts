@@ -61,6 +61,8 @@ export interface LiveGrpcStream {
    *  row's live expansion truth (the snapshot `requestMetadata`'s
    *  twin). Absent toward hosts that predate the frame. */
   sentMetadata?: Array<{ key: string; value: string }>;
+  /** The keys among `sentMetadata` whose values came from a secret manager. */
+  sentSecretMetadataKeys?: string[];
   /** Append-only message log; reference-stable, `count` committed. */
   items: GrpcStreamMessageWire[];
   count: number;
@@ -81,6 +83,8 @@ interface GrpcStreamAccumulator {
   connectedAt?: number;
   headAtMessage?: number;
   sentMetadata?: Array<{ key: string; value: string }>;
+  /** The keys among `sentMetadata` whose values came from a secret manager. */
+  sentSecretMetadataKeys?: string[];
   settledAt?: number;
   items: GrpcStreamMessageWire[];
   timestamps: number[];
@@ -116,6 +120,7 @@ export function useLiveGrpcStream(): {
       ...(acc.connectedAt !== undefined ? { connectedAt: acc.connectedAt } : {}),
       ...(acc.headAtMessage !== undefined ? { headAtMessage: acc.headAtMessage } : {}),
       ...(acc.sentMetadata !== undefined ? { sentMetadata: acc.sentMetadata } : {}),
+      ...(acc.sentSecretMetadataKeys !== undefined ? { sentSecretMetadataKeys: acc.sentSecretMetadataKeys } : {}),
       items: acc.items,
       count: acc.items.length,
       timestamps: acc.timestamps,
@@ -183,6 +188,7 @@ export function useLiveGrpcStream(): {
           acc.headAtMessage = event.afterMessages;
         } else if (event.kind === 'sent') {
           acc.sentMetadata = event.metadata;
+          acc.sentSecretMetadataKeys = event.secretMetadataKeys;
         } else if (event.kind === 'messages') {
           for (const item of event.items) {
             acc.items.push(item);

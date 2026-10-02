@@ -124,6 +124,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
                 extensions: live.open.extensions,
                 ...(live.open.url !== undefined ? { url: live.open.url } : {}),
                 ...(live.open.requestHeaders !== undefined ? { requestHeaders: live.open.requestHeaders } : {}),
+                ...(live.open.secretHeaderKeys !== undefined ? { secretHeaderKeys: live.open.secretHeaderKeys } : {}),
               },
             }
           : {}),
@@ -153,6 +154,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
                 extensions: '',
                 url: snapshot.url,
                 ...(snapshot.requestHeaders !== undefined ? { requestHeaders: snapshot.requestHeaders } : {}),
+                ...(snapshot.secretHeaderKeys !== undefined ? { secretHeaderKeys: snapshot.secretHeaderKeys } : {}),
               },
             }
           : {}),
@@ -171,6 +173,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         extensions: snapshot.extensions,
         ...(snapshot.url !== undefined ? { url: snapshot.url } : {}),
         ...(snapshot.requestHeaders !== undefined ? { requestHeaders: snapshot.requestHeaders } : {}),
+        ...(snapshot.secretHeaderKeys !== undefined ? { secretHeaderKeys: snapshot.secretHeaderKeys } : {}),
       },
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
       ...(teardownAt !== undefined ? { endedAt: teardownAt } : {}),

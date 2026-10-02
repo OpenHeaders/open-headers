@@ -106,6 +106,7 @@ import { registerActiveSend } from '../request-exec/send-stream';
 import {
   buildOracleSessionResolution,
   type SessionPrepare,
+  type SessionReferencesSecret,
   type SessionResolve,
 } from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
@@ -135,6 +136,8 @@ const MAX_CAPTURE_EVENTS = 10_000;
 
 /** A host that injects a resolution but no pre-pass has nothing to prepare. */
 const NO_PREPARE: SessionPrepare = () => null;
+/** A host that injects a resolution but no secret-manager names stamps nothing. */
+const NEVER_SECRET: SessionReferencesSecret = () => false;
 
 /** Keep Alive when the entity leaves the knob empty — the reference
  *  default; 0 disables the contract. */
@@ -167,6 +170,10 @@ export interface ExecuteMqttSessionOptions {
   /** Host-injected pre-pass before a batch of templates resolves — the
    *  WS executor's exact contract (the `resolution` twin). */
   prepareResolution?: SessionPrepare;
+  /** Host-injected "names a secret-manager entry" check — the WS
+   *  executor's exact contract: an outbound PUBLISH whose template
+   *  does is stamped secret-bearing so the timeline masks it (L3). */
+  referencesSecret?: SessionReferencesSecret;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -375,6 +382,9 @@ function wireSubscribeUserProps(
 interface PendingPublish {
   packet: Extract<MqttPacket, { type: 'publish' }>;
   pubrecd: boolean;
+  /** The PUBLISH's template named a secret-manager entry — every
+   *  record of it (the send, a DUP retransmit) carries the stamp. */
+  secret?: true;
 }
 
 /** One SUBSCRIBE unit: the per-row options plus the packet-level 5.0
@@ -433,6 +443,7 @@ export async function executeMqttSession(
   const resolveWith = options.resolution ?? oracleResolution?.resolve;
   if (resolveWith === undefined) return errorMqttSnapshot('No template resolution available for this session.');
   const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
+  const referencesSecret = oracleResolution?.referencesSecret ?? options.referencesSecret ?? NEVER_SECRET;
   // The workspace trust list rides every dial and reconnect alike —
   // the pin the scope resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
@@ -725,7 +736,7 @@ export async function executeMqttSession(
           })
         : null;
     /** Record an outbound PUBLISH that reached the wire and emit it live. */
-    const recordPublished = (packet: PendingPublish['packet']): void => {
+    const recordPublished = (packet: PendingPublish['packet'], secret = false): void => {
       published += 1;
       const payloadBase64 = encodeBase64Bytes(packet.payload);
       const fact = {
@@ -736,6 +747,7 @@ export async function executeMqttSession(
         qos: packet.qos,
         retain: packet.retain,
         dup: packet.dup,
+        ...(secret ? { secret: true as const } : {}),
       };
       record(fact, packet.payload.byteLength);
       emitter?.item({ ...fact, atMs: Date.now() });
@@ -754,7 +766,7 @@ export async function executeMqttSession(
         const packet = { ...pending.packet, dup: true };
         if (sendPacket(packet) !== null) continue;
         pending.packet = packet;
-        recordPublished(packet);
+        recordPublished(packet, pending.secret === true);
       }
     };
 
@@ -1289,6 +1301,9 @@ export async function executeMqttSession(
           await prepared;
           if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         }
+        // The names side of the redaction law — a rider naming a
+        // secret-manager entry publishes its value; the capture is stamped.
+        const riderSecret = referencesSecret(collectTemplateStringsDeep(message));
         const sendUnresolved: UnresolvedReferences = new Map();
         const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
         const topic = riderResolve(message.topic).trim();
@@ -1340,8 +1355,10 @@ export async function executeMqttSession(
         };
         const error = sendPacket(packet);
         if (error !== null) return { success: false, error };
-        if (packetId !== null && qos > 0) outboundQos.set(packetId, { packet, pubrecd: false });
-        recordPublished(packet);
+        if (packetId !== null && qos > 0) {
+          outboundQos.set(packetId, { packet, pubrecd: false, ...(riderSecret ? { secret: true as const } : {}) });
+        }
+        recordPublished(packet, riderSecret);
         return { success: true };
       },
       setSubscription: async (subscription: MqttSubscriptionWire) => {

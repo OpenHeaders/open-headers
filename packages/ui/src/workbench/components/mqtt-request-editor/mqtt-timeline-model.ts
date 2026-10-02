@@ -46,6 +46,9 @@ export type MqttTimelineItem =
       qos: 0 | 1 | 2;
       retain: boolean;
       dup: boolean;
+      /** The ↑ PUBLISH carried a secret manager's value (the executor's
+       *  stamp) — the row and the viewer show a placeholder. */
+      secret?: true;
     }
   | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }> }
   | { kind: 'unsubscribed'; topicFilters: string[] }
@@ -194,12 +197,18 @@ export interface MqttFrameDerivations {
 
 /** Per-item view/preview caches — item identity is append-only, so a
  *  WeakMap never serves a stale decode. */
-export function makeMqttFrameDerivations(): MqttFrameDerivations {
+export function makeMqttFrameDerivations(hiddenLabel: string): MqttFrameDerivations {
   const viewCache = new WeakMap<MqttTimelineItem, MqttMessageView>();
   const previewCache = new WeakMap<MqttTimelineItem, string>();
   const viewOf = (item: MqttTimelineItem & { kind: 'message' }): MqttMessageView => {
     const hit = viewCache.get(item);
     if (hit !== undefined) return hit;
+    if (item.secret === true) {
+      // The capture keeps the bytes; the display never decodes them.
+      const hidden: MqttMessageView = { kind: 'text', text: hiddenLabel, byteLength: 0 };
+      viewCache.set(item, hidden);
+      return hidden;
+    }
     // A malformed payload string decodes to nothing — the row still
     // renders (empty text / zero bytes) rather than throwing.
     const bytes = decodeBase64Bytes(item.payloadBase64) ?? new Uint8Array(0);
@@ -235,7 +244,9 @@ export function makeMqttFrameDerivations(): MqttFrameDerivations {
   const hexOf = (item: MqttTimelineItem & { kind: 'message' }): HexDump => {
     const hit = hexCache.get(item);
     if (hit !== undefined) return hit;
-    const dump = buildHexDump(decodeBase64Bytes(item.payloadBase64) ?? new Uint8Array(0));
+    const dump = buildHexDump(
+      item.secret === true ? new Uint8Array(0) : (decodeBase64Bytes(item.payloadBase64) ?? new Uint8Array(0)),
+    );
     hexCache.set(item, dump);
     return dump;
   };

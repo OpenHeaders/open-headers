@@ -45,7 +45,7 @@ export interface GrpcStreamEmitter {
    *  call start, so the timeline's sent row expands to the truth
    *  while the call is open (the snapshot `requestMetadata`'s live
    *  twin). */
-  sent(metadata: ReadonlyArray<{ key: string; value: string }>): void;
+  sent(metadata: ReadonlyArray<{ key: string; value: string }>, secretMetadataKeys?: readonly string[]): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: GrpcStreamMessageWire): void;
   /** Push one script mark — immediate, like the head: the pooled
@@ -92,9 +92,17 @@ export function createGrpcStreamEmitter(sendId: string, emit: (event: GrpcStream
         atMs: Date.now(),
       });
     },
-    sent(metadata) {
+    sent(metadata, secretMetadataKeys) {
       if (settled) return;
-      emit({ sendId, seq: seq++, kind: 'sent', metadata: metadata.map((m) => ({ ...m })) });
+      emit({
+        sendId,
+        seq: seq++,
+        kind: 'sent',
+        metadata: metadata.map((m) => ({ ...m })),
+        ...(secretMetadataKeys !== undefined && secretMetadataKeys.length > 0
+          ? { secretMetadataKeys: [...secretMetadataKeys] }
+          : {}),
+      });
     },
     message(message) {
       if (settled) return;

@@ -23,6 +23,7 @@
 import type { Catalog } from '../../types';
 
 export const workbenchEditors = {
+  'workbench.editors.session.secretHidden': '<숨김: 시크릿 관리자 값>',
   'workbench.editors.sectionInfo.moreInformation': '자세한 정보',
 
   // ── Session chrome (shared: WS/MQTT session panes) ─────────────────

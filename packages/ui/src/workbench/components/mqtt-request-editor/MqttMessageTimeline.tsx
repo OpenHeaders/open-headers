@@ -105,7 +105,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   // never resets it.
   const [newestFirst, setNewestFirst] = useSetting('requests.mqttMessagesNewestFirst');
 
-  const derive = useMemo(() => makeMqttFrameDerivations(), []);
+  const derive = useMemo(() => makeMqttFrameDerivations(t('workbench.editors.session.secretHidden')), [t]);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const awayFromNewEdgeRef = useRef(false);

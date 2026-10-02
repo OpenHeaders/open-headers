@@ -67,6 +67,9 @@ export interface LiveWsSession {
      *  hosts that predate the stamp. */
     url?: string;
     requestHeaders?: WsHandshakeHeaderWire[];
+    /** The keys among `requestHeaders` whose values came from a secret
+     *  manager — the Connected row masks them. */
+    secretHeaderKeys?: string[];
   } | null;
   /** When Connect left — the ticking lifecycle base. */
   startedAt: number;
@@ -187,6 +190,7 @@ export function useLiveWsSession(): {
             ...(event.proxyRoute !== undefined ? { proxyRoute: event.proxyRoute } : {}),
             ...(event.url !== undefined ? { url: event.url } : {}),
             ...(event.requestHeaders !== undefined ? { requestHeaders: event.requestHeaders } : {}),
+            ...(event.secretHeaderKeys !== undefined ? { secretHeaderKeys: event.secretHeaderKeys } : {}),
           };
           acc.connectedAt = event.atMs ?? Date.now();
         } else if (event.kind === 'messages') {

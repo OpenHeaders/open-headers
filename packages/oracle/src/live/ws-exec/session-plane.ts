@@ -43,7 +43,7 @@ export interface WsStreamEmitter {
     protocol: string,
     extensions: string,
     proxyRoute?: ExecutedProxyRoute,
-    handshake?: { url: string; requestHeaders: WsHandshakeHeaderWire[] },
+    handshake?: { url: string; requestHeaders: WsHandshakeHeaderWire[]; secretHeaderKeys?: string[] },
   ): void;
   /** Enqueue one direction-tagged message; flushes by the time window. */
   message(message: WsStreamMessageWire): void;
@@ -87,7 +87,15 @@ export function createWsStreamEmitter(sendId: string, emit: (event: WsStreamEven
         protocol,
         extensions,
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
-        ...(handshake !== undefined ? { url: handshake.url, requestHeaders: handshake.requestHeaders } : {}),
+        ...(handshake !== undefined
+          ? {
+              url: handshake.url,
+              requestHeaders: handshake.requestHeaders,
+              ...(handshake.secretHeaderKeys !== undefined && handshake.secretHeaderKeys.length > 0
+                ? { secretHeaderKeys: handshake.secretHeaderKeys }
+                : {}),
+            }
+          : {}),
         atMs: Date.now(),
       });
     },

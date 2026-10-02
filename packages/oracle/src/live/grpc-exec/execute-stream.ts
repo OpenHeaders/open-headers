@@ -92,6 +92,9 @@ export interface GrpcStreamExecuteParams {
   proxyCredentialRef?: string;
   proxyCredential?: string;
   metadata: ReadonlyArray<GrpcTransportHeader>;
+  /** The keys among `metadata` whose values came from a secret manager
+   *  — stamped on the sent frame and the snapshot (L3). */
+  secretMetadataKeys?: readonly string[];
   timeoutMs?: number;
   /** See {@link GrpcTransportRequest.keepaliveIntervalMs}. */
   keepaliveIntervalMs?: number;
@@ -107,6 +110,9 @@ export interface GrpcStreamExecuteParams {
    *  server-streaming; null for client/bidi (upstream rides the RPC
    *  riders). */
   initialMessage: Uint8Array | null;
+  /** The composed message's template named a secret-manager entry —
+   *  its ↑ frame is stamped (L3). */
+  initialMessageSecret?: true;
   /** Caller-minted id — Stop hook + upstream-rider registry key. */
   sendId?: string;
   /** Live-frame sink; frames only flow when both this and `sendId`
@@ -131,7 +137,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         : null;
     // The dispatched metadata truth, live — the sent row's expansion
     // needs no settle to be honest.
-    emitter?.sent(params.metadata);
+    emitter?.sent(params.metadata, params.secretMetadataKeys);
     const scripts = params.scripts ?? null;
     // The marks recorded before the wire (Before invoke's) replay onto
     // the live feed first; every later mark emits as it lands.
@@ -180,11 +186,12 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         : null;
     let unregisterStream: (() => void) | null = null;
 
-    const recordUpstream = (encoded: Uint8Array): void => {
+    const recordUpstream = (encoded: Uint8Array, secret = false): void => {
       const dataBase64 = encodeBase64Bytes(encoded);
-      messages.push({ dataBase64, compressed: false, direction: 'up' });
+      const stamp = secret ? { secret: true as const } : {};
+      messages.push({ dataBase64, compressed: false, direction: 'up', ...stamp });
       sentCount += 1;
-      emitter?.message({ direction: 'up', dataBase64, compressed: false, atMs: Date.now() });
+      emitter?.message({ direction: 'up', dataBase64, compressed: false, ...stamp, atMs: Date.now() });
       hookCaptured('up', dataBase64, false);
     };
 
@@ -228,6 +235,9 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
           bodyBytes: 0,
           durationMs,
           requestMetadata: params.metadata.map((m) => ({ key: m.key, value: m.value })),
+          ...(params.secretMetadataKeys !== undefined && params.secretMetadataKeys.length > 0
+            ? { secretMetadataKeys: [...params.secretMetadataKeys] }
+            : {}),
           error: message,
           ...(localStatus !== undefined ? { localStatus } : {}),
           ...(hint !== undefined ? { hint } : {}),
@@ -256,6 +266,9 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
         ...(!stopped && error !== undefined ? { connectionError: error.message } : {}),
         ...(proxyRoute !== undefined ? { proxyRoute } : {}),
         requestMetadata: params.metadata.map((m) => ({ key: m.key, value: m.value })),
+        ...(params.secretMetadataKeys !== undefined && params.secretMetadataKeys.length > 0
+          ? { secretMetadataKeys: [...params.secretMetadataKeys] }
+          : {}),
         error: null,
       };
       if (scripts === null) {
@@ -341,7 +354,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
       // The request stream is exactly the composed message.
       if (params.initialMessage !== null) {
         writer.sendMessage(params.initialMessage);
-        recordUpstream(params.initialMessage);
+        recordUpstream(params.initialMessage, params.initialMessageSecret === true);
       }
       writer.halfClose();
       return;

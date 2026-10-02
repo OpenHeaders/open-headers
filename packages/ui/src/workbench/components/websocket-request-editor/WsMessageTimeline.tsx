@@ -137,6 +137,9 @@ export interface WsTimelineItem {
   direction: 'up' | 'down';
   dataBase64: string;
   binary: boolean;
+  /** The ↑ message carried a secret manager's value (the executor's
+   *  stamp) — the row and the viewer show a placeholder, never the text. */
+  secret?: true;
 }
 
 /** How the session ended — drives the ended lifecycle row. */
@@ -159,6 +162,9 @@ export interface WsTimelineLifecycle {
     extensions: string;
     url?: string;
     requestHeaders?: readonly WsHandshakeHeaderWire[];
+    /** The keys among `requestHeaders` whose values came from a secret
+     *  manager — the sheet shows a placeholder for them (L3). */
+    secretHeaderKeys?: readonly string[];
   };
   /** Classified pre-open failure — the session never opened. Rendered
    *  as an error row at the timeline's new edge; never set beside
@@ -300,10 +306,16 @@ function handshakeRequestRows(
           ? t('workbench.editors.websocket.timeline.keyGenerated')
           : t('workbench.editors.request.headers.calculated')),
   }));
+  const secretKeys = new Set((handshake.secretHeaderKeys ?? []).map((key) => key.toLowerCase()));
   for (const stamped of handshake.requestHeaders ?? []) {
+    // A value that came from a secret manager never renders — the
+    // executor's names-only stamp decides, not the text (L3).
+    const value = secretKeys.has(stamped.key.toLowerCase())
+      ? t('workbench.editors.session.secretHidden')
+      : stamped.value;
     const index = rows.findIndex((r) => r.key.toLowerCase() === stamped.key.toLowerCase());
-    if (index === -1) rows.push({ key: stamped.key, value: stamped.value });
-    else rows[index] = { key: rows[index].key, value: stamped.value };
+    if (index === -1) rows.push({ key: stamped.key, value });
+    else rows[index] = { key: rows[index].key, value };
   }
   return rows;
 }
@@ -487,7 +499,7 @@ interface WsFrameDerivations {
   hexOf: (item: WsTimelineItem) => HexDump;
 }
 
-function makeWsFrameDerivations(decodeSio: boolean): WsFrameDerivations {
+function makeWsFrameDerivations(decodeSio: boolean, hiddenLabel: string): WsFrameDerivations {
   const viewCache = new WeakMap<WsTimelineItem, WsMessageView>();
   const previewCache = new WeakMap<WsTimelineItem, string>();
   const sioCache = new WeakMap<WsTimelineItem, WsSioView | null>();
@@ -495,13 +507,21 @@ function makeWsFrameDerivations(decodeSio: boolean): WsFrameDerivations {
   const hexOf = (item: WsTimelineItem): HexDump => {
     const hit = hexCache.get(item);
     if (hit !== undefined) return hit;
-    const dump = buildHexDump(decodeBase64Bytes(item.dataBase64) ?? new Uint8Array(0));
+    const dump = buildHexDump(
+      item.secret === true ? new Uint8Array(0) : (decodeBase64Bytes(item.dataBase64) ?? new Uint8Array(0)),
+    );
     hexCache.set(item, dump);
     return dump;
   };
   const viewOf = (item: WsTimelineItem): WsMessageView => {
     const hit = viewCache.get(item);
     if (hit !== undefined) return hit;
+    if (item.secret === true) {
+      // The capture keeps the bytes; the display never decodes them.
+      const hidden: WsMessageView = { kind: 'text', text: hiddenLabel, byteLength: 0 };
+      viewCache.set(item, hidden);
+      return hidden;
+    }
     let view: WsMessageView;
     // A malformed payload string decodes to nothing — the row still
     // renders (empty text / zero bytes) rather than throwing.
@@ -534,7 +554,7 @@ function makeWsFrameDerivations(decodeSio: boolean): WsFrameDerivations {
     return preview;
   };
   const sioOf = (item: WsTimelineItem): WsSioView | null => {
-    if (!decodeSio || item.binary) return null;
+    if (!decodeSio || item.binary || item.secret === true) return null;
     const hit = sioCache.get(item);
     if (hit !== undefined) return hit;
     const sio = sioViewOfText(viewOf(item).text, item.direction);
@@ -652,7 +672,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   // the scroller's border), so the overlay never covers the thumb.
   const [stickyRightInset, setStickyRightInset] = useState(1);
 
-  const derive = useMemo(() => makeWsFrameDerivations(flavor === 'socketio'), [flavor]);
+  const derive = useMemo(
+    () => makeWsFrameDerivations(flavor === 'socketio', t('workbench.editors.session.secretHidden')),
+    [flavor, t],
+  );
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const awayFromNewEdgeRef = useRef(false);

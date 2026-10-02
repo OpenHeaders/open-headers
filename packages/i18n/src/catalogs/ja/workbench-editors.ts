@@ -20,6 +20,7 @@
 import type { Catalog } from '../../types';
 
 export const workbenchEditors = {
+  'workbench.editors.session.secretHidden': '<非表示: シークレットマネージャーの値>',
   'workbench.editors.sectionInfo.moreInformation': '詳細情報',
 
   // ── Session chrome (shared: WS/MQTT session panes) ─────────────────

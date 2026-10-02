@@ -21,6 +21,7 @@
 import type { Catalog } from '../../types';
 
 export const workbenchEditors = {
+  'workbench.editors.session.secretHidden': '<已隐藏：机密管理器的值>',
   'workbench.editors.sectionInfo.moreInformation': '更多信息',
 
   // ── Session chrome (shared: WS/MQTT session panes) ─────────────────

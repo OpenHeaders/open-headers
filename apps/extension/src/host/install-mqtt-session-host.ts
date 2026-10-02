@@ -117,6 +117,7 @@ async function handleExecuteMqttRequest(
       emitStreamEvent: deliverMqttStreamEventLocally,
       resolution: scope.resolve,
       prepareResolution: scope.prepare,
+      referencesSecret: scope.referencesSecret,
       authChain: scope.authChain,
       scriptChain: scope.scriptChain,
       settingsChain: scope.settingsChain,

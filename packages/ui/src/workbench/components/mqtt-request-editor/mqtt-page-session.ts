@@ -36,6 +36,8 @@ import {
   collectUnresolvedReferences,
   createSecretManagerScope,
   type ResolutionError,
+  referencesSecretManager,
+  secretManagerNamesOf,
   type TotpRegistry,
 } from '@openheaders/core/variables';
 import {
@@ -70,6 +72,10 @@ export type MqttPagePrepare = (templates: readonly string[]) => Promise<void> | 
 export interface MqttPageSessionScope {
   resolve: MqttPageResolution;
   prepare: MqttPagePrepare;
+  /** The executor's injected "names a secret-manager entry" check
+   *  (`referencesSecret`): what it records from such a template is
+   *  stamped secret-bearing so the timelines mask it (L3). */
+  referencesSecret: (templates: readonly string[]) => boolean;
   authChain: AuthCarrier[];
   scriptChain: AncestorScriptCarrier[];
   /** The ancestor settings carriers (outer → inner) — the per-knob
@@ -155,9 +161,11 @@ export function makeMqttPageResolutionFactory(
       return result.result;
     };
     const secrets = createSecretManagerScope(resolver, inputs.vault, resolveSecretManagerBatch);
+    const secretNames = secretManagerNamesOf(inputs.vault);
     return {
       resolve,
       prepare: (templates) => secrets.ensure(collectTemplateVariableNames(templates)),
+      referencesSecret: (templates) => referencesSecretManager(templates, secretNames),
       authChain: ancestry !== null ? authChainOf(ancestry) : [],
       scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
       settingsChain: ancestry !== null ? settingsChainOf(ancestry) : [],

@@ -40,6 +40,10 @@ export interface ExecutedMqttMessage {
    *  this marks a retained delivery (a display tag, never a rewrite). */
   retain: boolean;
   dup: boolean;
+  /** The outbound PUBLISH's template named a secret-manager entry, so
+   *  its payload carries that value — a surface shows a placeholder,
+   *  the capture keeps the bytes (the Secret Providers plan's L3 stamp). */
+  secret?: true;
 }
 
 /** One SUBACK grant, positional over the SUBSCRIBE's filters: the

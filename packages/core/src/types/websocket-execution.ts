@@ -33,6 +33,10 @@ export interface ExecutedWsMessage {
   direction: 'up' | 'down';
   dataBase64: string;
   binary: boolean;
+  /** The outbound message's template named a secret-manager entry, so
+   *  its text carries that value — a surface shows a placeholder, the
+   *  capture keeps the bytes (the Secret Providers plan's L3 stamp). */
+  secret?: true;
 }
 
 /** The Close handshake as the wire answered it — code and reason
@@ -169,6 +173,9 @@ export interface ExecutedWsSnapshot {
    *  the bearer credential, the subprotocol offer; the platform socket
    *  adds its own on top. Absent on snapshots that predate the stamp. */
   requestHeaders?: Array<{ key: string; value: string }>;
+  /** The keys among `requestHeaders` whose values came from a secret
+   *  manager — names only, so a surface masks them (L3). Absent = none. */
+  secretHeaderKeys?: string[];
   /** The subprotocol the server selected; empty when none negotiated. */
   protocol: string;
   /** The extensions the handshake negotiated; empty when none. The

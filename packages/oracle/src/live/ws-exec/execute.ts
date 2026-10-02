@@ -100,6 +100,7 @@ import { registerActiveSend } from '../request-exec/send-stream';
 import {
   buildOracleSessionResolution,
   type SessionPrepare,
+  type SessionReferencesSecret,
   type SessionResolve,
 } from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
@@ -131,6 +132,8 @@ const RESERVED_HEADER_KEYS = new Set(['host', 'upgrade', 'connection']);
 
 /** A host that injects a resolution but no pre-pass has nothing to prepare. */
 const NO_PREPARE: SessionPrepare = () => null;
+/** A host that injects a resolution but no secret-manager names stamps nothing. */
+const NEVER_SECRET: SessionReferencesSecret = () => false;
 
 /** The platform's "no Close frame" marker — never sent on the wire by
  *  spec, so its arrival records the ABSENCE of a close handshake. */
@@ -180,6 +183,14 @@ export interface ExecuteWsSessionOptions {
    * nothing to prepare.
    */
   prepareResolution?: SessionPrepare;
+  /**
+   * Host-injected "names a secret-manager entry" check (the
+   * `resolution` twin): what the executor records from a template that
+   * does — a handshake header, an outbound message — is stamped as
+   * secret-bearing so the surfaces mask it (the Secret Providers plan's
+   * L3). Absent = nothing is stamped.
+   */
+  referencesSecret?: SessionReferencesSecret;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -240,6 +251,7 @@ export async function executeWsSession(
   const resolveWith = options.resolution ?? oracleResolution?.resolve;
   if (resolveWith === undefined) return errorWsSnapshot('No template resolution available for this session.');
   const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
+  const referencesSecret = oracleResolution?.referencesSecret ?? options.referencesSecret ?? NEVER_SECRET;
   // The workspace trust list rides every dial — the pin the scope
   // resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
@@ -304,12 +316,18 @@ export async function executeWsSession(
   // signature covers the dial URL — so an auto-reconnect never redials
   // on a stale credential.
   const credential = resolveSessionCredential(sessionAuth.auth, resolveStr);
+  // The names side of the redaction law: a user row or the credential
+  // whose template names a secret-manager entry carries its value on
+  // the wire — the keys are stamped so the timeline masks them.
+  const credentialReferencesSecret = referencesSecret(collectTemplateStringsDeep(sessionAuth.auth));
+  const userSecretHeaderKeys: string[] = [];
   const headers: WsTransportHeader[] = [];
   for (const row of request.headers) {
     if (row.enabled === false || !row.key.trim()) continue;
     const key = resolveStr(row.key);
     if (key.toLowerCase().startsWith('sec-websocket-') || RESERVED_HEADER_KEYS.has(key.toLowerCase())) continue;
     headers.push({ key, value: resolveStr(row.value) });
+    if (referencesSecret([row.key, row.value])) userSecretHeaderKeys.push(key);
   }
   // Socket.IO flavor: the namespace, handshake path and protocol
   // revision resolve with the other target fields; the framing
@@ -332,6 +350,7 @@ export async function executeWsSession(
   const subprotocolOffer =
     subprotocols.length > 0 ? [{ key: 'Sec-WebSocket-Protocol', value: subprotocols.join(', ') }] : [];
   let requestHeaders = [...headers, ...subprotocolOffer];
+  let secretHeaderKeys: string[] = [...userSecretHeaderKeys];
   const params = request.params
     .filter((p) => p.enabled !== false && p.key.trim() !== '')
     .map((p) => ({ ...p, key: resolveStr(p.key), value: resolveStr(p.value) }));
@@ -339,6 +358,7 @@ export async function executeWsSession(
   // own pings); resolved with the other Connect-time templates.
   const heartbeatMessage =
     !socketioFlavor && settings.heartbeatMessage !== undefined ? resolveStr(settings.heartbeatMessage) : '';
+  const heartbeatSecret = heartbeatMessage !== '' && referencesSecret([settings.heartbeatMessage ?? '']);
   // The subscription envelope resolves with the other Connect-time
   // templates — the document and the variables text (an unresolved
   // reference gates the session below, the HTTP send's law).
@@ -560,6 +580,7 @@ export async function executeWsSession(
               ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.', hint),
               url: dialUrl,
               requestHeaders,
+              ...(secretHeaderKeys.length > 0 ? { secretHeaderKeys } : {}),
               ...(stopped ? { outcome: { kind: 'aborted' as const } } : {}),
               ...(lifecycle.length > 0 ? { lifecycle } : {}),
               durationMs,
@@ -572,6 +593,7 @@ export async function executeWsSession(
             outcome: { kind: 'connected' },
             url: dialUrl,
             requestHeaders,
+            ...(secretHeaderKeys.length > 0 ? { secretHeaderKeys } : {}),
             protocol,
             extensions,
             messages,
@@ -605,30 +627,32 @@ export async function executeWsSession(
     // One write path for riders AND protocol frames — every ↑ frame is
     // captured and broadcast verbatim, socket.io control answers
     // (CONNECT, pong) and the heartbeat included.
-    const sendText = (text: string): void => {
+    const sendText = (text: string, secret = false): void => {
       if (writer === null || settled || !attemptOpened) return;
       writer.send(text);
       const data = new TextEncoder().encode(text);
       const dataBase64 = encodeBase64Bytes(data);
-      record({ direction: 'up', dataBase64, binary: false }, data.byteLength);
-      emitter?.message({ direction: 'up', dataBase64, binary: false, atMs: Date.now() });
+      const stamp = secret ? { secret: true as const } : {};
+      record({ direction: 'up', dataBase64, binary: false, ...stamp }, data.byteLength);
+      emitter?.message({ direction: 'up', dataBase64, binary: false, ...stamp, atMs: Date.now() });
     };
     // The binary twin — one frame of decoded bytes; a transport without
     // the optional writer cannot carry it and says so on the rider.
-    const sendBinary = (data: Uint8Array): { success: boolean; error?: string } => {
+    const sendBinary = (data: Uint8Array, secret = false): { success: boolean; error?: string } => {
       if (writer === null || settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
       if (writer.sendBinary === undefined) {
         return { success: false, error: 'This host cannot send binary frames.' };
       }
       writer.sendBinary(data);
       const dataBase64 = encodeBase64Bytes(data);
-      record({ direction: 'up', dataBase64, binary: true }, data.byteLength);
-      emitter?.message({ direction: 'up', dataBase64, binary: true, atMs: Date.now() });
+      const stamp = secret ? { secret: true as const } : {};
+      record({ direction: 'up', dataBase64, binary: true, ...stamp }, data.byteLength);
+      emitter?.message({ direction: 'up', dataBase64, binary: true, ...stamp, atMs: Date.now() });
       return { success: true };
     };
     const startHeartbeat = (): void => {
       if (heartbeatMessage === '') return;
-      heartbeatTimer = setInterval(() => sendText(heartbeatMessage), heartbeatIntervalMs);
+      heartbeatTimer = setInterval(() => sendText(heartbeatMessage, heartbeatSecret), heartbeatIntervalMs);
     };
     // The socketio flavor ALSO lands a bearer-shaped token (bearer,
     // OAuth 2.0, JWT) as the CONNECT packet's auth payload — in-band
@@ -820,6 +844,13 @@ export async function executeWsSession(
         const offer =
           dialSubprotocols.length > 0 ? [{ key: 'Sec-WebSocket-Protocol', value: dialSubprotocols.join(', ') }] : [];
         requestHeaders = [...dialHeaders, ...offer];
+        // Restamped per dial beside the headers: the credential's
+        // minted keys join the user rows' when the credential's
+        // templates named a secret-manager entry.
+        secretHeaderKeys = [
+          ...userSecretHeaderKeys,
+          ...(credentialReferencesSecret ? connectCredentialHeaders.map((h) => h.key) : []),
+        ];
         dialUrl = wireUrl;
         writer = options.transport.connect(
           {
@@ -853,7 +884,11 @@ export async function executeWsSession(
                 });
               } else {
                 opened = true;
-                emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, { url: dialUrl, requestHeaders });
+                emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, {
+                  url: dialUrl,
+                  requestHeaders,
+                  secretHeaderKeys,
+                });
               }
               armIdleTimer();
               startHeartbeat();
@@ -930,6 +965,9 @@ export async function executeWsSession(
           await prepared;
           if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         }
+        // The names side of the redaction law — a rider naming a
+        // secret-manager entry sends its value; the capture is stamped.
+        const riderSecret = referencesSecret(collectTemplateStringsDeep([messageText, socketio?.eventName]));
         const sendUnresolved: UnresolvedReferences = new Map();
         const resolved = resolveWith(messageText, sendUnresolved);
         const eventName = socketio !== undefined ? resolveWith(socketio.eventName, sendUnresolved) : undefined;
@@ -971,17 +1009,17 @@ export async function executeWsSession(
         if (message.binary) {
           const bytes = decodeBase64Bytes(message.text);
           if (bytes === null) return { success: false, error: 'The message is not valid Base64.' };
-          return sendBinary(bytes);
+          return sendBinary(bytes, riderSecret);
         }
         if (message.eventName !== undefined && socketioSession !== null) {
           const ackId = message.expectAck === true ? socketioSession.nextAckId() : null;
           const encoded = encodeEventPacket(namespace, ackId, message.eventName, message.text);
           if (!encoded.ok) return { success: false, error: encoded.error };
-          sendText(encoded.frame);
+          sendText(encoded.frame, riderSecret);
           if (ackId !== null) socketioSession.armAck(ackId);
           return { success: true };
         }
-        sendText(message.text);
+        sendText(message.text, riderSecret);
         return { success: true };
       },
       close: () => {

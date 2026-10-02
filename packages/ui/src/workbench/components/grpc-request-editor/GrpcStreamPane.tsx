@@ -113,6 +113,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
         ...(live?.connectedAt !== undefined ? { connectedAt: live.connectedAt } : {}),
         ...(live?.headAtMessage !== undefined ? { headAtMessage: live.headAtMessage } : {}),
         ...(live?.sentMetadata !== undefined ? { requestMetadata: live.sentMetadata } : {}),
+        ...(live?.sentSecretMetadataKeys !== undefined ? { secretMetadataKeys: live.sentSecretMetadataKeys } : {}),
       };
     }
     // Terminal instants prefer the observed truth — the end frame's
@@ -128,10 +129,12 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
     // too. Recorded-empty passes through: the row expands to the
     // honest "No metadata sent." line.
     const requestMetadata = snapshot.requestMetadata;
+    const secretMetadataKeys = snapshot.secretMetadataKeys;
     if (snapshot.error !== null) {
       return {
         ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
         ...(requestMetadata !== undefined ? { requestMetadata } : {}),
+        ...(secretMetadataKeys !== undefined ? { secretMetadataKeys } : {}),
         headArrived: false,
         endedBy: 'error',
         ...(settledAt !== undefined ? { endedAt: settledAt } : {}),
@@ -141,6 +144,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
     return {
       ...(session?.startedAt !== undefined ? { startedAt: session.startedAt } : {}),
       ...(requestMetadata !== undefined ? { requestMetadata } : {}),
+      ...(secretMetadataKeys !== undefined ? { secretMetadataKeys } : {}),
       headArrived: true,
       ...(session?.connectedAt !== undefined ? { connectedAt: session.connectedAt } : {}),
       ...(snapshot.headAtMessage !== undefined ? { headAtMessage: snapshot.headAtMessage } : {}),
