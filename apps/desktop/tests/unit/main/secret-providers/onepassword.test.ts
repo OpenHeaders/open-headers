@@ -281,6 +281,29 @@ describe('desktop onepassword provider', () => {
     expect(resolve).toHaveBeenCalledTimes(3);
   });
 
+  it('a prompt declined while the SDK rebuilt its session mid-resolve reads as authorization required, and the next send asks again', async () => {
+    let decline = false;
+    const resolve = vi.fn(async (reference: string) => {
+      if (decline) {
+        decline = false;
+        throw new Error('Denied authorization for SDK client');
+      }
+      return `value-of:${reference}`;
+    });
+    const { loadSdk, createClient } = fakeSdk(resolve);
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: true });
+    decline = true;
+    expect(await provider.resolve(connection(), LOCATOR)).toEqual({
+      ok: false,
+      reason: 'authorization-required',
+      detail: 'Denied authorization for SDK client',
+    });
+    expect(await provider.probe(connection())).toMatchObject({ available: false, reason: 'denied' });
+    expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: true });
+    expect(createClient).toHaveBeenCalledTimes(2);
+  });
+
   it('a probe carries the last successful contact while the client is held, and nothing once the session ends', async () => {
     let clock = 1_000;
     let expire = false;

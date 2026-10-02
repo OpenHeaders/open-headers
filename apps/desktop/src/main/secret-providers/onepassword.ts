@@ -282,6 +282,16 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
         }
         if (err instanceof sdk.RateLimitExceededError) return { ok: false, reason: 'unavailable', detail };
         if (isNotFoundMessage(detail)) return { ok: false, reason: 'not-found', detail };
+        const reason = classifyClientFailure(detail);
+        if (reason === 'denied' || reason === 'locked') {
+          // The SDK rebuilt its session underneath this call (a lock)
+          // and the person declined the prompt — a client-creation
+          // outcome that reached us through the resolve: the standing
+          // state it leaves, the next send a new attempt.
+          dropClient(connection.uid);
+          failures.set(connection.uid, { reason, detail });
+          return { ok: false, reason: 'authorization-required', detail };
+        }
         return { ok: false, reason: 'unavailable', detail };
       };
       const reference = formatSecretLocator(locator);
