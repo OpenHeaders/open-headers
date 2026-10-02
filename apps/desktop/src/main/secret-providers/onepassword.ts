@@ -201,12 +201,41 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
       if (!config) return { ok: false, detail: 'Not a 1Password connection.' };
       const gap = credentialGap(config);
       if (gap) return { ok: false, reason: gap.reason, detail: gap.detail };
-      try {
-        await clientFor(connection, config);
-        return { ok: true };
-      } catch (err) {
+      const creationFailed = (err: unknown): SecretAuthorizeResult => {
         const standing = failures.get(connection.uid);
         return { ok: false, reason: standing?.reason ?? 'unreachable', detail: errorMessage(err) };
+      };
+      let client: Client;
+      try {
+        client = await clientFor(connection, config);
+      } catch (err) {
+        return creationFailed(err);
+      }
+      // A held client answers without touching the manager, and a Test
+      // is a round trip: list the vaults. A live session answers; a
+      // lapsed one re-prompts through the SDK, or ends the session, in
+      // which case the client is re-created (prompting again); any
+      // other refusal becomes the standing state and drops the client,
+      // so nothing stays claimed that the manager just refused.
+      try {
+        await client.vaults.list();
+        verified.set(connection.uid, now());
+        return { ok: true };
+      } catch (err) {
+        dropClient(connection.uid);
+        const sdk = await loadSdk();
+        if (err instanceof sdk.DesktopSessionExpiredError || err instanceof sdk.AuthExpiredError) {
+          try {
+            await clientFor(connection, config);
+            return { ok: true };
+          } catch (again) {
+            return creationFailed(again);
+          }
+        }
+        const detail = errorMessage(err);
+        const reason = classifyClientFailure(detail);
+        failures.set(connection.uid, { reason, detail });
+        return { ok: false, reason, detail };
       }
     },
 

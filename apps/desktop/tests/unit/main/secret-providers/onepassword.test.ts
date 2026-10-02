@@ -39,12 +39,17 @@ const LOCATOR: SecretLocator = {
   field: 'token',
 };
 
-function fakeSdk(resolve: (reference: string) => Promise<string>, createFails?: () => Error) {
+function fakeSdk(
+  resolve: (reference: string) => Promise<string>,
+  createFails?: () => Error,
+  listVaults: () => Promise<unknown[]> = async () => [],
+) {
   const created: unknown[] = [];
+  const list = vi.fn(listVaults);
   const createClient = vi.fn(async (config: { auth?: unknown }) => {
     if (createFails) throw createFails();
     created.push(config.auth);
-    return { secrets: { resolve } } as unknown as Client;
+    return { secrets: { resolve }, vaults: { list } } as unknown as Client;
   });
   const sdk: OnePasswordSdk = {
     createClient,
@@ -54,7 +59,7 @@ function fakeSdk(resolve: (reference: string) => Promise<string>, createFails?: 
     RateLimitExceededError,
   };
   const loadSdk = vi.fn(async () => sdk);
-  return { sdk, loadSdk, createClient, created };
+  return { sdk, loadSdk, createClient, created, list };
 }
 
 describe('desktop onepassword provider', () => {
@@ -176,6 +181,62 @@ describe('desktop onepassword provider', () => {
     const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
     expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: false, reason: 'not-found' });
     expect(await provider.probe(connection())).toMatchObject({ available: true });
+  });
+
+  it('a Test with a held client is a round trip: it lists the vaults and refreshes the verified moment', async () => {
+    let clock = 1_000;
+    const { loadSdk, createClient, list } = fakeSdk(async () => 'v');
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {}, now: () => clock });
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    clock = 5_000;
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    expect(createClient).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(await provider.probe(connection())).toEqual({ available: true, verifiedAt: 5_000 });
+  });
+
+  it('a Test whose session lapsed re-creates the client, prompting again', async () => {
+    let lapsed = false;
+    const { loadSdk, createClient } = fakeSdk(
+      async () => 'v',
+      undefined,
+      async () => {
+        if (lapsed) {
+          lapsed = false;
+          throw new DesktopSessionExpiredError('session ended');
+        }
+        return [];
+      },
+    );
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    lapsed = true;
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    expect(createClient).toHaveBeenCalledTimes(2);
+  });
+
+  it("a Test the manager refuses becomes the connection's standing state and drops the client", async () => {
+    let refuse = false;
+    const { loadSdk, createClient } = fakeSdk(
+      async () => 'v',
+      undefined,
+      async () => {
+        if (refuse) throw new Error('Denied authorization for SDK client');
+        return [];
+      },
+    );
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    refuse = true;
+    expect(await provider.authorize?.(connection())).toEqual({
+      ok: false,
+      reason: 'denied',
+      detail: 'Denied authorization for SDK client',
+    });
+    expect(await provider.probe(connection())).toMatchObject({ available: false, reason: 'denied' });
+    refuse = false;
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    expect(createClient).toHaveBeenCalledTimes(2);
   });
 
   it('a probe carries the last successful contact while the client is held, and nothing once the session ends', async () => {
