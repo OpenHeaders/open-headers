@@ -10,13 +10,23 @@
  *
  * With the desktop app away every entry reads `broker-unreachable` —
  * the honest state the gate names before anything leaves.
+ *
+ * The desktop app is "there" once its wire's HELLO is accepted, not
+ * when the socket opens: the server closes a socket that speaks before
+ * HELLO (seen live — the compile's re-ask on the raw open was closed
+ * every six seconds for `pre-handshake message`), so every verb here
+ * rides a READY wire, and the readiness watch is what the compile's
+ * strip / re-ask and the pages' refetch key on.
  */
 
+import { getBackend } from '@openheaders/core/backends';
 import type { BridgeRpcRequest, BridgeRpcResponse } from '@openheaders/core/bridge';
 import { providingBackendKind } from '@openheaders/core/identity';
 import type { SecretBrokerEntry, SecretManagerBroker, SecretResolution } from '@openheaders/core/secret-providers';
 import { setSecretManagerBroker } from '@openheaders/oracle/live/request-exec/secret-manager-broker';
 import { type BackendWireHandle, listConnectedWires } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import type { SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
+import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { wsRequest } from '../../ws-request';
 
 /** Is this wire the desktop app's on this device — by the place rule; any other backend is a server. */
@@ -24,9 +34,87 @@ export function isDesktopAppWire(wire: BackendWireHandle): boolean {
   return providingBackendKind('browser', wire.record().url) === 'desktop-app';
 }
 
-/** The desktop app's connected wire on this device; null while it is away. */
+/** The same rule off a backend id — for the handshake events, which carry no wire. */
+export function isDesktopAppBackend(backendId: string): boolean {
+  const record = getBackend(backendId);
+  return record !== null && providingBackendKind('browser', record.url) === 'desktop-app';
+}
+
+// ── Readiness: the desktop wire past HELLO ─────────────────────────
+
+const readyDesktopWires = new Set<string>();
+const readySubscribers = new Set<(ready: boolean) => void>();
+
+/** HELLO accepted on the current socket — the composed states past WELCOME. */
+function entersReady(state: InitiatorState): boolean {
+  return state === 'welcomed' || state === 'catching-up' || state === 'synced';
+}
+
+/** The socket is gone or the peer refused — `failed` / `timed-out`
+ *  after WELCOME are catch-up outcomes on a wire the peer still answers. */
+function leavesReady(state: InitiatorState): boolean {
+  return state === 'idle' || state === 'hello-sent' || state === 'rejected' || state === 'aborted';
+}
+
+function setReady(backendId: string, ready: boolean): void {
+  if (readyDesktopWires.has(backendId) === ready) return;
+  if (ready) readyDesktopWires.add(backendId);
+  else readyDesktopWires.delete(backendId);
+  for (const cb of [...readySubscribers]) cb(ready);
+}
+
+/**
+ * Fires with `true` when the desktop app's wire completes its HELLO and
+ * with `false` when that wire closes or the peer refuses it; a server's
+ * wire never fires. The compile's re-ask / strip and the pages' broker
+ * broadcast ride this, never the raw socket open.
+ */
+export function subscribeDesktopWireReady(cb: (ready: boolean) => void): () => void {
+  readySubscribers.add(cb);
+  return () => readySubscribers.delete(cb);
+}
+
+/**
+ * Boot-time: watch every desktop wire's handshake through the sync
+ * wiring (one initiator per backend wire) and keep the ready set.
+ */
+export function installDesktopWireWatch(syncWiring: Pick<SyncWiring, 'subscribeHandshakeLifecycle'>): () => void {
+  const unsubscribers = new Map<string, () => void>();
+  const unsubscribeLifecycle = syncWiring.subscribeHandshakeLifecycle((event) => {
+    if (event.kind === 'created') {
+      if (!isDesktopAppBackend(event.backendId)) return;
+      unsubscribers.set(
+        event.backendId,
+        event.handles.initiator.subscribe((state) => {
+          if (entersReady(state)) setReady(event.backendId, true);
+          else if (leavesReady(state)) setReady(event.backendId, false);
+        }),
+      );
+      return;
+    }
+    unsubscribers.get(event.backendId)?.();
+    unsubscribers.delete(event.backendId);
+    setReady(event.backendId, false);
+  });
+  return () => {
+    unsubscribeLifecycle();
+    for (const unsubscribe of unsubscribers.values()) unsubscribe();
+    unsubscribers.clear();
+  };
+}
+
+/** Test seam — forget every ready wire. */
+export function __resetDesktopWireReadinessForTests(): void {
+  readyDesktopWires.clear();
+  readySubscribers.clear();
+}
+
+/** The desktop app's READY wire on this device (connected and past HELLO); null while it is away. */
 export function desktopAppBackendId(): string | null {
-  return listConnectedWires().find(isDesktopAppWire)?.backendId ?? null;
+  return (
+    listConnectedWires().find((wire) => isDesktopAppWire(wire) && readyDesktopWires.has(wire.backendId))?.backendId ??
+    null
+  );
 }
 
 export const DESKTOP_APP_AWAY_DETAIL = 'The desktop app on this computer is not connected.';

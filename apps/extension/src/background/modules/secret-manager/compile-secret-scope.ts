@@ -13,10 +13,12 @@
  * again only for what it lacks, retries a failed entry only on a
  * compile a person caused (never on a timer's — a denial would
  * re-prompt every half minute otherwise), and is reset by the desktop
- * app's wire events: a close is the fail-closed strip (the next
- * compile reads every entry as unreachable and drops the referencing
- * rules), an open the re-ask. A change to the vault's secret-manager
- * rows recreates it. Nothing here persists.
+ * app's wire readiness: the wire closing is the fail-closed strip (the
+ * next compile reads every entry as unreachable and drops the
+ * referencing rules), its HELLO completing the re-ask — never the raw
+ * socket open, which the server closes if spoken to before HELLO. A
+ * change to the vault's secret-manager rows recreates it. Nothing here
+ * persists.
  */
 
 import { formatSecretLocator } from '@openheaders/core/secret-providers';
@@ -32,12 +34,7 @@ import {
   type SecretManagerScope,
 } from '@openheaders/core/variables';
 import { getVault } from '@openheaders/oracle/entity/environment-store';
-import {
-  type BackendWireHandle,
-  subscribeOnWebSocketClose,
-  subscribeOnWebSocketOpen,
-} from '@openheaders/oracle/sync/client/backend-connection-manager';
-import { createLoopbackSecretManagerBroker, isDesktopAppWire } from './loopback-broker';
+import { createLoopbackSecretManagerBroker, subscribeDesktopWireReady } from './loopback-broker';
 
 export interface CompileSecretManagerSnapshot {
   registry: SecretManagerRegistry;
@@ -146,30 +143,19 @@ export interface CompileSecretManagerLifecycleDeps {
   /** Tell the pages who answers now — the desktop app over loopback,
    *  or nobody while it is away — so their lists and chips refetch. */
   onBrokerChange?: (broker: 'desktop-app' | 'unreachable') => void;
-  subscribeOpen?: typeof subscribeOnWebSocketOpen;
-  subscribeClose?: typeof subscribeOnWebSocketClose;
+  subscribeReady?: typeof subscribeDesktopWireReady;
 }
 
 /**
- * Boot-time: the desktop app's wire closing is the fail-closed strip
- * (the retained values go, the rebuild reads every entry as
+ * Boot-time: the desktop app's wire losing readiness is the fail-closed
+ * strip (the retained values go, the rebuild reads every entry as
  * unreachable and drops the referencing rules from the session layer),
- * its opening the re-ask. A server's wire is never the desktop app's
- * and changes nothing.
+ * its HELLO completing the re-ask. A server's wire never fires here.
  */
 export function installCompileSecretManagerLifecycle(deps: CompileSecretManagerLifecycleDeps): () => void {
-  const onDesktopWire =
-    (broker: 'desktop-app' | 'unreachable') =>
-    (wire: BackendWireHandle): void => {
-      if (!isDesktopAppWire(wire)) return;
-      resetCompileSecretManagerScope();
-      deps.rebuild();
-      deps.onBrokerChange?.(broker);
-    };
-  const unsubscribeOpen = (deps.subscribeOpen ?? subscribeOnWebSocketOpen)(onDesktopWire('desktop-app'));
-  const unsubscribeClose = (deps.subscribeClose ?? subscribeOnWebSocketClose)(onDesktopWire('unreachable'));
-  return () => {
-    unsubscribeOpen();
-    unsubscribeClose();
-  };
+  return (deps.subscribeReady ?? subscribeDesktopWireReady)((ready) => {
+    resetCompileSecretManagerScope();
+    deps.rebuild();
+    deps.onBrokerChange?.(ready ? 'desktop-app' : 'unreachable');
+  });
 }

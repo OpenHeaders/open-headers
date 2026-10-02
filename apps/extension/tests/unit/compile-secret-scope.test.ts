@@ -4,8 +4,8 @@
  * loopback broker once for what the rules reference and retains the
  * answer across compiles; a failed entry is asked again only on a
  * compile a person caused; a changed vault row recreates the scope;
- * the desktop app's wire closing or opening resets it and rebuilds,
- * a server's wire changes nothing.
+ * the desktop app's wire losing or gaining readiness resets it and
+ * rebuilds, and tells the pages who answers now.
  */
 
 import type { SecretBrokerEntry, SecretResolution } from '@openheaders/core/secret-providers';
@@ -21,7 +21,7 @@ const { mockResolveBatch, vaultRef } = vi.hoisted(() => ({
 
 vi.mock('@/background/modules/secret-manager/loopback-broker', () => ({
   createLoopbackSecretManagerBroker: () => ({ resolveBatch: mockResolveBatch }),
-  isDesktopAppWire: (wire: { backendId: string }) => wire.backendId === 'b-desktop',
+  subscribeDesktopWireReady: () => () => undefined,
 }));
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getVault: () => vaultRef.current,
@@ -138,40 +138,29 @@ describe('prepareCompileSecretManagerScope', () => {
 });
 
 describe('installCompileSecretManagerLifecycle', () => {
-  it("the desktop app's wire closing or opening resets the scope and rebuilds; a server's wire changes nothing", async () => {
+  it("the desktop app's wire losing readiness strips and gaining it re-asks, telling the pages who answers", async () => {
     const rules = [headerRule('r1', 'Bearer {{vault.ApiToken}}')];
-    let onOpen: ((wire: { backendId: string }) => void) | null = null;
-    let onClose: ((wire: { backendId: string }) => void) | null = null;
+    let onReady: ((ready: boolean) => void) | null = null;
     const rebuild = vi.fn();
     const onBrokerChange = vi.fn();
     const dispose = installCompileSecretManagerLifecycle({
       rebuild,
       onBrokerChange,
-      subscribeOpen: ((cb: (wire: { backendId: string }) => void) => {
-        onOpen = cb;
+      subscribeReady: (cb) => {
+        onReady = cb;
         return () => undefined;
-      }) as never,
-      subscribeClose: ((cb: (wire: { backendId: string }) => void) => {
-        onClose = cb;
-        return () => undefined;
-      }) as never,
+      },
     });
-    if (onOpen === null || onClose === null) throw new Error('the lifecycle never subscribed');
-    const open = onOpen as (wire: { backendId: string }) => void;
-    const close = onClose as (wire: { backendId: string }) => void;
+    if (onReady === null) throw new Error('the lifecycle never subscribed');
+    const ready = onReady as (ready: boolean) => void;
 
     mockResolveBatch.mockResolvedValueOnce(new Map([['ApiToken', ok('v1')]]));
     await prepareCompileSecretManagerScope(rules, { retryFailed: true });
     expect(getCompileSecretManagerSnapshot().registry.get('ApiToken')).toBe('v1');
 
-    close({ backendId: 'b-server' });
-    expect(rebuild).not.toHaveBeenCalled();
-    expect(onBrokerChange).not.toHaveBeenCalled();
-    expect(getCompileSecretManagerSnapshot().registry.get('ApiToken')).toBe('v1');
-
     // The strip: the retained value goes; the rebuild's ask reads the
     // broker's own away answer; the pages hear who answers now.
-    close({ backendId: 'b-desktop' });
+    ready(false);
     expect(rebuild).toHaveBeenCalledTimes(1);
     expect(onBrokerChange).toHaveBeenLastCalledWith('unreachable');
     expect(getCompileSecretManagerSnapshot().registry.size).toBe(0);
@@ -179,8 +168,8 @@ describe('installCompileSecretManagerLifecycle', () => {
     await prepareCompileSecretManagerScope(rules, { retryFailed: true });
     expect(getCompileSecretManagerSnapshot().failures.get('ApiToken')).toBe('broker-unreachable');
 
-    // The re-ask on open.
-    open({ backendId: 'b-desktop' });
+    // The re-ask once HELLO is accepted.
+    ready(true);
     expect(rebuild).toHaveBeenCalledTimes(2);
     expect(onBrokerChange).toHaveBeenLastCalledWith('desktop-app');
     mockResolveBatch.mockResolvedValueOnce(new Map([['ApiToken', ok('v3')]]));
