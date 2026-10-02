@@ -43,6 +43,18 @@ export function useCopyRequestSnippet(): CopyRequestSnippet {
         }
         const text = format === 'curl' ? formatCurlSnippet(resp.wire) : formatFetchSnippet(resp.wire);
         await navigator.clipboard.writeText(text);
+        const kept = resp.secretManagerReferencesKept ?? [];
+        if (kept.length > 0) {
+          // The command carries the reference, never a secret manager's
+          // value — said where the copy lands (the redaction law).
+          message.warning(
+            t('workbench.copySnippet.copiedWithReferences', {
+              format: FORMAT_LABEL[format],
+              references: kept.map((reference) => `{{${reference}}}`).join(', '),
+            }),
+          );
+          return;
+        }
         message.success(t('workbench.copySnippet.copied', { format: FORMAT_LABEL[format] }));
       } catch (err) {
         message.error(t('workbench.copySnippet.failedDetail', { message: (err as Error).message }));

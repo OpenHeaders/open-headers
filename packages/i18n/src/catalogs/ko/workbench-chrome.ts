@@ -969,4 +969,6 @@ export const workbenchChrome = {
   'workbench.copySnippet.copied': '{format} 형식으로 복사됨',
   'workbench.copySnippet.failed': '복사할 수 없습니다',
   'workbench.copySnippet.failedDetail': '복사할 수 없습니다: {message}',
+  'workbench.copySnippet.copiedWithReferences':
+    '{format} 형식으로 복사됨. {references}은(는) 참조로 기록됩니다. 시크릿 매니저의 값은 복사된 명령에 절대 포함되지 않습니다.',
 } as const satisfies Catalog;

@@ -980,4 +980,6 @@ export const workbenchChrome = {
   'workbench.copySnippet.copied': '{format} としてコピーしました',
   'workbench.copySnippet.failed': 'コピーできませんでした',
   'workbench.copySnippet.failedDetail': 'コピーできませんでした：{message}',
+  'workbench.copySnippet.copiedWithReferences':
+    '{format} としてコピーしました。{references} は参照として書き出されます。シークレットマネージャーの値がコピーしたコマンドに含まれることはありません。',
 } as const satisfies Catalog;

@@ -29,6 +29,9 @@ export interface ResolveRequestWireRpcResult {
   success: boolean;
   wire?: WireSnippetRequest;
   error?: string;
+  /** The secret-manager references written literally into the shape
+   *  (`vault.X`) — present when the command carries any. */
+  secretManagerReferencesKept?: string[];
 }
 
 export async function handleResolveRequestWireRpc(
@@ -61,8 +64,9 @@ export async function handleResolveRequestWireRpc(
     const refreshOAuth = makeRefreshOAuth?.(workspaceId ?? undefined);
     // A copied command never carries a provider-resolved secret (the
     // Secret Providers plan's redaction law) and copying never prompts:
-    // the secret-manager entries stay unresolved here.
-    const { resolved } = await resolveRequest(request, {
+    // the secret-manager references are written literally, and named
+    // so the surface can say so.
+    const { resolved, secretManagerReferencesKept } = await resolveRequest(request, {
       ...(workspaceId !== null ? { workspaceId } : {}),
       ...(environmentId !== undefined ? { environmentId } : {}),
       ...(refreshOAuth ? { refreshOAuth } : {}),
@@ -78,6 +82,9 @@ export async function handleResolveRequestWireRpc(
         ...(resolved.awsSigV4 ? { awsSigV4: resolved.awsSigV4 } : {}),
         ...(resolved.digest ? { digest: resolved.digest } : {}),
       },
+      ...(secretManagerReferencesKept.length > 0
+        ? { secretManagerReferencesKept: [...secretManagerReferencesKept] }
+        : {}),
     };
   } catch (err) {
     return { success: false, error: (err as Error).message };

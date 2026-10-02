@@ -941,4 +941,6 @@ export const workbenchChrome = {
   'workbench.copySnippet.copied': '已复制为 {format}',
   'workbench.copySnippet.failed': '无法复制',
   'workbench.copySnippet.failedDetail': '无法复制：{message}',
+  'workbench.copySnippet.copiedWithReferences':
+    '已复制为 {format}。{references} 以引用形式写出；密钥管理器的值绝不会进入复制的命令。',
 } as const satisfies Catalog;

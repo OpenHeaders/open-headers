@@ -1037,4 +1037,6 @@ export const workbenchChrome = {
   'workbench.copySnippet.copied': 'Copiado como {format}',
   'workbench.copySnippet.failed': 'No se pudo copiar',
   'workbench.copySnippet.failedDetail': 'No se pudo copiar: {message}',
+  'workbench.copySnippet.copiedWithReferences':
+    'Copiado como {format}: {references} escrito como referencia; el valor de un gestor de secretos nunca entra en un comando copiado.',
 } as const satisfies Catalog;

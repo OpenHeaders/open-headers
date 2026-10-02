@@ -1001,4 +1001,6 @@ export const workbenchChrome = {
   'workbench.copySnippet.copied': 'Скопировано как {format}',
   'workbench.copySnippet.failed': 'Не удалось скопировать',
   'workbench.copySnippet.failedDetail': 'Не удалось скопировать: {message}',
+  'workbench.copySnippet.copiedWithReferences':
+    'Скопировано как {format} — {references} записано как ссылка; значение менеджера секретов никогда не попадает в скопированную команду.',
 } as const satisfies Catalog;

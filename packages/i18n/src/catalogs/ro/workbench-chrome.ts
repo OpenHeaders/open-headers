@@ -1013,4 +1013,6 @@ export const workbenchChrome = {
   'workbench.copySnippet.copied': 'Copiat ca {format}',
   'workbench.copySnippet.failed': 'Copierea a eșuat',
   'workbench.copySnippet.failedDetail': 'Copierea a eșuat: {message}',
+  'workbench.copySnippet.copiedWithReferences':
+    'Copiat ca {format} – {references} scris ca referință; valoarea unui manager de secrete nu ajunge niciodată într-o comandă copiată.',
 } as const satisfies Catalog;

@@ -541,7 +541,9 @@ export interface RequestRpc {
    * `requestUid` / `draft` / `workspaceId` / `environmentId` carry
    * `executeRequest` semantics verbatim. The resolved shape contains
    * live secret values (the point of a runnable copy) — surfaces treat
-   * it as clipboard-bound output and never persist it.
+   * it as clipboard-bound output and never persist it. A secret
+   * manager's value is the one exception: its reference is written
+   * literally and named in `secretManagerReferencesKept`.
    */
   resolveRequestWire: {
     req: {
@@ -550,7 +552,7 @@ export interface RequestRpc {
       environmentId?: string | null;
       workspaceId?: string;
     };
-    res: { success: boolean; wire?: WireSnippetRequest; error?: string };
+    res: { success: boolean; wire?: WireSnippetRequest; error?: string; secretManagerReferencesKept?: string[] };
   };
   /**
    * Invoke a gRPC request — the GrpcRequest entity's executor plane,

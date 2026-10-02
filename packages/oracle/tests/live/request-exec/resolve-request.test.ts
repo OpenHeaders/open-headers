@@ -267,11 +267,23 @@ describe('resolveRequest — the gate names every unresolved reference with its 
     ]);
   });
 
-  it('the copy-as-command path names a secret-manager entry for what it is, never as a miss', async () => {
-    const failure = await resolveRequest(secretRequest(), { resolveSecretManager: false }).catch((err: unknown) => err);
+  it('the copy-as-command path writes a secret-manager reference literally and names it, gating nothing', async () => {
+    const outcome = await resolveRequest(secretRequest(), { resolveSecretManager: false });
+    expect(outcome.resolved.headers).toEqual([{ key: 'Authorization', value: 'Bearer {{vault.opToken}}' }]);
+    expect(outcome.secretManagerReferencesKept).toEqual(['vault.opToken']);
+  });
+
+  it('a send never keeps a reference — the names list is empty', async () => {
+    const outcome = await resolveRequest(makeRequest({ url: 'https://api.openheaders.io/ping' }), {});
+    expect(outcome.secretManagerReferencesKept).toEqual([]);
+  });
+
+  it('the copy path still gates on a real miss, naming the kept reference for what it is beside it', async () => {
+    const request = makeRequest({ url: 'https://{{env.HOST}}/ping', headers: secretRequest().headers });
+    const failure = await resolveRequest(request, { resolveSecretManager: false }).catch((err: unknown) => err);
     expect(failure).toBeInstanceOf(UnresolvedRequestError);
     expect((failure as Error).message).toBe(
-      "Request has unresolved variables. {{vault.opToken}}: a secret manager's value is resolved only when sending and never enters a copied command.",
+      "Request has unresolved variables. {{env.HOST}}: No active environment is selected. Select one in Environments, or set a default environment. {{vault.opToken}}: a secret manager's value is resolved only when sending and never enters a copied command.",
     );
   });
 });

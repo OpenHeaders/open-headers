@@ -9,8 +9,8 @@
  *       save, the Vault note's link and the row's Manage… link;
  *   L3  a Send carrying `{{vault.opToken}}` against a reference the
  *       manager cannot find — the gate names the reference with its
- *       reason — and Copy as cURL, which never prompts and names the
- *       entry for what it is;
+ *       reason — and Copy as cURL, which never prompts, writes the
+ *       reference literally and says so;
  *   L4  a WebSocket session whose handshake header carries
  *       `{{vault.opToken}}` resolves it at Connect (the value read on
  *       the spec's own socket rig, never printed); a rider naming a
@@ -445,7 +445,8 @@ test('L3 — Send carrying the reference reads the gate; Copy as cURL never prom
   await workbench.locator('.ant-dropdown:not(.ant-dropdown-hidden)').getByText('Copy as cURL').click();
   const toast = await lastToast();
   console.log(`[look] curl toast: ${toast}`);
-  expect(toast).toContain("{{vault.opToken}}: a secret manager's value is resolved only when sending");
+  expect(toast).toContain('Copied as cURL');
+  expect(toast).toContain("{{vault.opToken}} written as the reference; a secret manager's value never enters");
   await shot('15-curl-toast');
 });
 

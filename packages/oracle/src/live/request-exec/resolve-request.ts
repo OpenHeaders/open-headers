@@ -247,6 +247,10 @@ export interface ResolvedRequestOutcome {
   /** Every TOTP vault entry referenced by the resolved request. Empty
    *  when no template hit a kind:'totp' entry. */
   totpUsed: ReadonlyArray<TotpUsage>;
+  /** The secret-manager references the copy path left literal in the
+   *  resolved shape (`vault.X`) — a copied command carries the
+   *  reference, never the value. Empty on a send. */
+  secretManagerReferencesKept: ReadonlyArray<string>;
 }
 
 export type { OAuthRefreshFn } from './oauth2-bundle';
@@ -264,7 +268,9 @@ export interface ResolveRequestOptions {
    * references through their providers (a provider may prompt). The
    * send paths do; the copy-as-command path passes `false` so a
    * resolved secret never enters a copied command (L3) and copying
-   * never prompts — the entries then read unresolved.
+   * never prompts — those references stay LITERAL in the resolved
+   * shape (`{{vault.X}}`, named in `secretManagerReferencesKept`) and
+   * never gate the copy on their own.
    */
   resolveSecretManager?: boolean;
 }
@@ -346,20 +352,28 @@ export async function resolveRequest(
     (name) => resolver.resolve(name, context),
     (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
   );
+  const secretManagerReferencesKept: string[] = [];
   if (!resolvable) {
     const errors = collectRequestResolutionErrors(
       gated,
       (name) => resolver.resolve(name, context),
       (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
     );
-    // The copy-as-command path never resolves a secret-manager entry —
-    // name those references for what they are, not as misses.
+    // The copy-as-command path never resolves a secret-manager entry:
+    // its references stay literal and gate nothing on their own (the
+    // copied command carries the reference, never the value); beside a
+    // real miss they are named for what they are, not as misses.
     const keptUnresolved = new Set(
       options.resolveSecretManager === false
         ? scope.vault.secrets.filter((s) => s.kind === 'secret-manager').map((s) => s.name)
         : [],
     );
-    throw new UnresolvedRequestError(unresolvedRequestMessage(errors, keptUnresolved), errors);
+    const isKept = (error: ResolutionError): boolean =>
+      (error.namespace === 'vault' || error.namespace === null) && keptUnresolved.has(error.variableName);
+    if (errors.some((error) => !isKept(error))) {
+      throw new UnresolvedRequestError(unresolvedRequestMessage(errors, keptUnresolved), errors);
+    }
+    for (const error of errors) secretManagerReferencesKept.push(error.reference);
   }
 
   // Track every kind:'totp' vault entry referenced during this resolve.
@@ -611,6 +625,7 @@ export async function resolveRequest(
       ...(settingsAttribution !== undefined ? { inheritedSettings: settingsAttribution } : {}),
     },
     totpUsed: [...totpUsed.values()],
+    secretManagerReferencesKept,
   };
 }
 
