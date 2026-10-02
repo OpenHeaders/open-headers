@@ -68,7 +68,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': 'Key',
   'workbench.variables.table.smField.serverUrl': 'Server URL',
   'workbench.variables.table.smFieldOptional': '{label} (optional)',
-  'workbench.variables.table.smStatus.available': 'Available',
+  'workbench.variables.table.smStatus.notTested': 'Not tested',
+  'workbench.variables.table.smStatus.connected': 'Connected',
+  'workbench.variables.table.smStatus.connectedDetail': 'The last contact succeeded at {time}.',
   'workbench.variables.table.smStatus.notInstalled': 'Not available on this device',
   'workbench.variables.table.smStatus.integrationDisabled': 'Integration disabled',
   'workbench.variables.table.smStatus.noCredentials': 'No credentials configured',
@@ -77,6 +79,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': 'Unreachable',
   'workbench.variables.table.smStatus.brokerUnreachable': 'Connect the desktop app',
   'workbench.variables.table.smStatus.noConnection': 'No connection selected',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password asks for approval again after 10 minutes of inactivity; the next use prompts.',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'The 1Password app did not accept the connection. Check that the account name matches its sidebar and that Settings › Developer › Integrate with 1Password SDKs is turned on.',
   'workbench.variables.table.smConnection': 'Connection',

@@ -88,7 +88,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': 'Cheie',
   'workbench.variables.table.smField.serverUrl': 'Adresă URL server',
   'workbench.variables.table.smFieldOptional': '{label} (opțional)',
-  'workbench.variables.table.smStatus.available': 'Disponibil',
+  'workbench.variables.table.smStatus.notTested': 'Netestată',
+  'workbench.variables.table.smStatus.connected': 'Conectată',
+  'workbench.variables.table.smStatus.connectedDetail': 'Ultimul contact a reușit la {time}.',
   'workbench.variables.table.smStatus.notInstalled': 'Indisponibil pe acest dispozitiv',
   'workbench.variables.table.smStatus.integrationDisabled': 'Integrare dezactivată',
   'workbench.variables.table.smStatus.noCredentials': 'Nicio acreditare configurată',
@@ -97,6 +99,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': 'Inaccesibil',
   'workbench.variables.table.smStatus.brokerUnreachable': 'Conectați aplicația desktop',
   'workbench.variables.table.smStatus.noConnection': 'Nicio conexiune selectată',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password cere din nou aprobarea după 10 minute de inactivitate; următoarea utilizare afișează solicitarea.',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'Aplicația 1Password nu a acceptat conexiunea. Verificați dacă numele contului corespunde cu bara sa laterală și dacă Setări › Dezvoltator › Integrare cu SDK-urile 1Password este activată.',
   'workbench.variables.table.smConnection': 'Conexiune',

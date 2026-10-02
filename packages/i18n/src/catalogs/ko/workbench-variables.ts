@@ -69,7 +69,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': '키',
   'workbench.variables.table.smField.serverUrl': '서버 URL',
   'workbench.variables.table.smFieldOptional': '{label} (선택 사항)',
-  'workbench.variables.table.smStatus.available': '사용 가능',
+  'workbench.variables.table.smStatus.notTested': '테스트 안 함',
+  'workbench.variables.table.smStatus.connected': '연결됨',
+  'workbench.variables.table.smStatus.connectedDetail': '마지막 접속은 {time} 에 성공했습니다.',
   'workbench.variables.table.smStatus.notInstalled': '이 기기에서 사용할 수 없음',
   'workbench.variables.table.smStatus.integrationDisabled': '통합 비활성',
   'workbench.variables.table.smStatus.noCredentials': '구성된 자격 증명 없음',
@@ -78,6 +80,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': '연결할 수 없음',
   'workbench.variables.table.smStatus.brokerUnreachable': '데스크톱 앱 연결',
   'workbench.variables.table.smStatus.noConnection': '선택된 연결 없음',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password 는 10분 동안 활동이 없으면 다시 승인을 요청합니다. 다음 사용 시 프롬프트가 표시됩니다.',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     '1Password 앱이 연결을 수락하지 않았습니다. 계정 이름이 앱 사이드바와 일치하는지, 설정 › 개발자 › 1Password SDK와 통합이 켜져 있는지 확인하세요.',
   'workbench.variables.table.smConnection': '연결',

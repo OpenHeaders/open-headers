@@ -63,7 +63,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': 'キー',
   'workbench.variables.table.smField.serverUrl': 'サーバー URL',
   'workbench.variables.table.smFieldOptional': '{label}（省略可）',
-  'workbench.variables.table.smStatus.available': '利用可能',
+  'workbench.variables.table.smStatus.notTested': '未テスト',
+  'workbench.variables.table.smStatus.connected': '接続済み',
+  'workbench.variables.table.smStatus.connectedDetail': '最後の接続は {time} に成功しました。',
   'workbench.variables.table.smStatus.notInstalled': 'このデバイスでは利用できません',
   'workbench.variables.table.smStatus.integrationDisabled': '統合が無効',
   'workbench.variables.table.smStatus.noCredentials': '資格情報が設定されていません',
@@ -72,6 +74,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': '到達できません',
   'workbench.variables.table.smStatus.brokerUnreachable': 'デスクトップアプリを接続',
   'workbench.variables.table.smStatus.noConnection': '接続が選択されていません',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password は 10 分間操作がないと再び承認を求めます。次の使用時にプロンプトが表示されます。',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     '1Password アプリが接続を受け付けませんでした。アカウント名がアプリのサイドバーと一致しているか、設定 › 開発者 › 1Password SDK との統合がオンになっているか確認してください。',
   'workbench.variables.table.smConnection': '接続',

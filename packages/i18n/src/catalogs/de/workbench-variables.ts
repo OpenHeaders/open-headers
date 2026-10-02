@@ -62,7 +62,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': 'Schlüssel',
   'workbench.variables.table.smField.serverUrl': 'Server-URL',
   'workbench.variables.table.smFieldOptional': '{label} (optional)',
-  'workbench.variables.table.smStatus.available': 'Verfügbar',
+  'workbench.variables.table.smStatus.notTested': 'Nicht getestet',
+  'workbench.variables.table.smStatus.connected': 'Verbunden',
+  'workbench.variables.table.smStatus.connectedDetail': 'Der letzte Kontakt war um {time} erfolgreich.',
   'workbench.variables.table.smStatus.notInstalled': 'Auf diesem Gerät nicht verfügbar',
   'workbench.variables.table.smStatus.integrationDisabled': 'Integration deaktiviert',
   'workbench.variables.table.smStatus.noCredentials': 'Keine Anmeldedaten konfiguriert',
@@ -71,6 +73,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': 'Nicht erreichbar',
   'workbench.variables.table.smStatus.brokerUnreachable': 'Desktop-App verbinden',
   'workbench.variables.table.smStatus.noConnection': 'Keine Verbindung ausgewählt',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password fragt nach 10 Minuten Inaktivität erneut um Freigabe; die nächste Verwendung löst die Abfrage aus.',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'Die 1Password-App hat die Verbindung nicht angenommen. Prüfe, ob der Kontoname mit ihrer Seitenleiste übereinstimmt und ob Einstellungen › Entwickler › Mit 1Password-SDKs integrieren eingeschaltet ist.',
   'workbench.variables.table.smConnection': 'Verbindung',

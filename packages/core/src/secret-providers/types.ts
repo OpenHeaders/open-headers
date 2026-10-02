@@ -48,8 +48,16 @@ export type SecretProviderUnavailableReason =
   | 'unreachable'
   | 'broker-unreachable';
 
+/**
+ * A connection's standing. `verifiedAt` is the epoch-ms moment of the
+ * last contact that succeeded (a client created, a value resolved)
+ * while the provider still holds that session; absent, the connection
+ * has not been contacted since the provider started, or its session
+ * ended — the surfaces read "not tested" rather than claiming a
+ * session nobody has seen. A probe never contacts the manager itself.
+ */
 export type SecretProviderProbe =
-  | { available: true }
+  | { available: true; verifiedAt?: number }
   | { available: false; reason: SecretProviderUnavailableReason; detail?: string };
 
 /**

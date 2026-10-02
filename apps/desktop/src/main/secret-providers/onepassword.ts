@@ -14,7 +14,9 @@
  * session-expired errors so the next use prompts again — the vendor's
  * own session policy, never ours (L1). A probe never creates a client:
  * it reports the SDK's reachability, the lane's credential presence,
- * and the connection's last known failure.
+ * the connection's last known failure, and — while a client is held —
+ * the moment of its last successful contact, so a surface can read
+ * "connected, verified at 16:07" instead of a session it cannot see.
  */
 
 import type { Client, createClient, DesktopAuth } from '@1password/sdk';
@@ -48,6 +50,8 @@ export interface OnePasswordProviderOptions {
   loadSdk?: () => Promise<OnePasswordSdk>;
   /** Test seam; defaults to the process environment. */
   env?: NodeJS.ProcessEnv;
+  /** Test seam; the clock the verified moments read. */
+  now?: () => number;
 }
 
 export const SERVICE_ACCOUNT_TOKEN_ENV = 'OP_SERVICE_ACCOUNT_TOKEN';
@@ -96,9 +100,17 @@ function isNotFoundMessage(message: string): boolean {
 export function createOnePasswordProvider(options: OnePasswordProviderOptions): SecretProvider {
   const env = options.env ?? process.env;
   const loader = options.loadSdk ?? loadRealSdk;
+  const now = options.now ?? Date.now;
   let sdkPromise: Promise<OnePasswordSdk> | null = null;
   const clients = new Map<string, { fingerprint: string; client: Promise<Client> }>();
   const failures = new Map<string, StandingFailure>();
+  /** The last successful contact per connection, held with its client. */
+  const verified = new Map<string, number>();
+
+  const dropClient = (uid: string): void => {
+    clients.delete(uid);
+    verified.delete(uid);
+  };
 
   const loadSdk = (): Promise<OnePasswordSdk> => {
     if (sdkPromise === null) {
@@ -150,10 +162,11 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
       .then(
         (created) => {
           failures.delete(connection.uid);
+          verified.set(connection.uid, now());
           return created;
         },
         (err: unknown) => {
-          clients.delete(connection.uid);
+          dropClient(connection.uid);
           const detail = errorMessage(err);
           failures.set(connection.uid, { reason: classifyClientFailure(detail), detail });
           throw err;
@@ -179,7 +192,8 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
       if (gap) return { available: false, ...gap };
       const standing = failures.get(connection.uid);
       if (standing) return { available: false, ...standing };
-      return { available: true };
+      const verifiedAt = verified.get(connection.uid);
+      return verifiedAt === undefined ? { available: true } : { available: true, verifiedAt };
     },
 
     async authorize(connection): Promise<SecretAuthorizeResult> {
@@ -215,13 +229,14 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
       const sdk = await loadSdk();
       try {
         const value = await client.secrets.resolve(formatSecretLocator(locator));
+        verified.set(connection.uid, now());
         return { ok: true, value };
       } catch (err) {
         const detail = errorMessage(err);
         if (err instanceof sdk.DesktopSessionExpiredError || err instanceof sdk.AuthExpiredError) {
           // The vendor's session ended — the next use creates a fresh
-          // client and prompts again.
-          clients.delete(connection.uid);
+          // client and prompts again; nothing is verified until it does.
+          dropClient(connection.uid);
           return { ok: false, reason: 'authorization-required', detail };
         }
         if (err instanceof sdk.RateLimitExceededError) return { ok: false, reason: 'unavailable', detail };

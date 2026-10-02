@@ -59,7 +59,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': 'Clave',
   'workbench.variables.table.smField.serverUrl': 'URL del servidor',
   'workbench.variables.table.smFieldOptional': '{label} (opcional)',
-  'workbench.variables.table.smStatus.available': 'Disponible',
+  'workbench.variables.table.smStatus.notTested': 'Sin probar',
+  'workbench.variables.table.smStatus.connected': 'Conectado',
+  'workbench.variables.table.smStatus.connectedDetail': 'El último contacto se realizó correctamente a las {time}.',
   'workbench.variables.table.smStatus.notInstalled': 'No disponible en este dispositivo',
   'workbench.variables.table.smStatus.integrationDisabled': 'Integración deshabilitada',
   'workbench.variables.table.smStatus.noCredentials': 'Sin credenciales configuradas',
@@ -68,6 +70,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': 'Inaccesible',
   'workbench.variables.table.smStatus.brokerUnreachable': 'Conecta la aplicación de escritorio',
   'workbench.variables.table.smStatus.noConnection': 'Ninguna conexión seleccionada',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password vuelve a pedir aprobación tras 10 minutos de inactividad; el siguiente uso muestra la solicitud.',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'La aplicación de 1Password no aceptó la conexión. Comprueba que el nombre de la cuenta coincide con su barra lateral y que Ajustes › Desarrollador › Integrar con los SDK de 1Password está activado.',
   'workbench.variables.table.smConnection': 'Conexión',

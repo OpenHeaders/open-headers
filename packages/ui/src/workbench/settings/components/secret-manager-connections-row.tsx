@@ -22,7 +22,7 @@ import {
   secretConnectionConfigToFields,
 } from '@openheaders/core/secret-providers';
 import type { SecretManagerConnection, SecretProviderId } from '@openheaders/core/types';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import { isNodeRequestRuntime } from '@openheaders/ui/shared/device-trust';
 import {
@@ -47,6 +47,9 @@ import {
   REASON_LABEL,
   SM_FIELD_LABEL,
   SM_PROVIDER_LABEL,
+  secretAvailableLabel,
+  secretAvailableTone,
+  secretAvailableTooltip,
   secretStatusGuidance,
   secretStatusTooltip,
 } from '../../components/panels/SecretManagerStatusChip';
@@ -92,10 +95,14 @@ function formFor(connection: SecretManagerConnection | null): FormState {
 }
 
 const StatusCell: React.FC<{ connection: SecretManagerConnection }> = ({ connection }) => {
-  const t = useT();
+  const { t, locale } = useLocale();
   const probe = useSecretManagerProbe(connection.uid);
   if (probe === null) return <Text type="secondary">…</Text>;
-  if (probe.available) return <Tag color="success">{t('workbench.variables.table.smStatus.available')}</Tag>;
+  if (probe.available) {
+    const connected = <Tag color={secretAvailableTone(probe)}>{secretAvailableLabel(t, locale, probe)}</Tag>;
+    const detail = secretAvailableTooltip(t, locale, connection.config.provider, probe);
+    return detail !== null ? <Tooltip title={detail}>{connected}</Tooltip> : connected;
+  }
   const chip = <Tag color="default">{t(REASON_LABEL[probe.reason])}</Tag>;
   const tooltip = secretStatusTooltip(t, connection.config.provider, probe);
   return tooltip !== null ? <Tooltip title={tooltip}>{chip}</Tooltip> : chip;

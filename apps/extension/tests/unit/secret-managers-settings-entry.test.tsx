@@ -164,6 +164,20 @@ describe('connections block', () => {
     await waitFor(() => expect(screen.queryByTestId('secret-manager-form')).toBeNull());
   });
 
+  it('reads an untested connection as Not tested and a verified one as Connected with its age', () => {
+    live = [WORK];
+    const { rerender } = renderBlock(<SecretManagerConnectionsRow def={requireDef()} />);
+    expect(screen.getByText('Not tested')).toBeTruthy();
+    client.useSecretManagerProbe.mockImplementation(() => ({ available: true, verifiedAt: Date.now() - 120_000 }));
+    rerender(
+      <App>
+        <SecretManagerConnectionsRow def={requireDef()} />
+      </App>,
+    );
+    expect(screen.getByText(/^Connected · /)).toBeTruthy();
+    expect(screen.queryByText('Not tested')).toBeNull();
+  });
+
   it('lists a connection with its description and status, tests it through the client, removes it', async () => {
     live = [WORK];
     client.useSecretManagerProbe.mockImplementation(() => ({

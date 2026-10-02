@@ -62,7 +62,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': '键',
   'workbench.variables.table.smField.serverUrl': '服务器 URL',
   'workbench.variables.table.smFieldOptional': '{label}（可选）',
-  'workbench.variables.table.smStatus.available': '可用',
+  'workbench.variables.table.smStatus.notTested': '未测试',
+  'workbench.variables.table.smStatus.connected': '已连接',
+  'workbench.variables.table.smStatus.connectedDetail': '上次联系于 {time} 成功。',
   'workbench.variables.table.smStatus.notInstalled': '此设备上不可用',
   'workbench.variables.table.smStatus.integrationDisabled': '集成已禁用',
   'workbench.variables.table.smStatus.noCredentials': '未配置凭据',
@@ -71,6 +73,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': '无法访问',
   'workbench.variables.table.smStatus.brokerUnreachable': '连接桌面应用',
   'workbench.variables.table.smStatus.noConnection': '未选择连接',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password 在闲置 10 分钟后会再次请求批准；下次使用时会弹出提示。',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     '1Password 应用未接受此连接。请检查账户名称是否与其侧边栏一致，并确认已开启设置 › 开发者 › 与 1Password SDK 集成。',
   'workbench.variables.table.smConnection': '连接',

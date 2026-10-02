@@ -82,7 +82,9 @@ export const workbenchVariables = {
   'workbench.variables.table.smField.key': 'Ключ',
   'workbench.variables.table.smField.serverUrl': 'URL-адрес сервера',
   'workbench.variables.table.smFieldOptional': '{label} (необязательно)',
-  'workbench.variables.table.smStatus.available': 'Доступен',
+  'workbench.variables.table.smStatus.notTested': 'Не проверено',
+  'workbench.variables.table.smStatus.connected': 'Подключено',
+  'workbench.variables.table.smStatus.connectedDetail': 'Последнее обращение выполнено успешно в {time}.',
   'workbench.variables.table.smStatus.notInstalled': 'Недоступен на этом устройстве',
   'workbench.variables.table.smStatus.integrationDisabled': 'Интеграция выключена',
   'workbench.variables.table.smStatus.noCredentials': 'Учётные данные не настроены',
@@ -91,6 +93,8 @@ export const workbenchVariables = {
   'workbench.variables.table.smStatus.unreachable': 'Недоступен по сети',
   'workbench.variables.table.smStatus.brokerUnreachable': 'Подключите настольное приложение',
   'workbench.variables.table.smStatus.noConnection': 'Подключение не выбрано',
+  'workbench.variables.table.smStatus.guidance.onepassword.connected':
+    '1Password снова запрашивает подтверждение после 10 минут бездействия; следующее использование покажет запрос.',
   'workbench.variables.table.smStatus.guidance.onepassword.unreachable':
     'Приложение 1Password не приняло подключение. Проверьте, что имя аккаунта совпадает с его боковой панелью и что включён параметр Настройки › Разработчик › Интеграция с SDK 1Password.',
   'workbench.variables.table.smConnection': 'Подключение',

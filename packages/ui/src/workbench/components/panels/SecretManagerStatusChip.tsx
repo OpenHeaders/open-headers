@@ -11,7 +11,8 @@
 
 import type { SecretProviderProbe, SecretProviderUnavailableReason } from '@openheaders/core/secret-providers';
 import type { SecretProviderId } from '@openheaders/core/types';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useLocale } from '@openheaders/ui/context/LocaleContext';
+import { formatAgo } from '@openheaders/ui/shared/awareness';
 import { useSecretManagerProbe } from '@openheaders/ui/shared/secret-manager';
 import type { MessageKey } from '@openheaders/i18n';
 import { Tag, Tooltip } from 'antd';
@@ -77,6 +78,51 @@ const STATUS_GUIDANCE: Partial<Record<SecretProviderId, Partial<Record<SecretPro
     onepassword: { unreachable: 'workbench.variables.table.smStatus.guidance.onepassword.unreachable' },
   };
 
+/** What a connected reading means for the vendor's own session policy
+ *  — the window after which the next use prompts again. */
+const CONNECTED_GUIDANCE: Partial<Record<SecretProviderId, MessageKey>> = {
+  onepassword: 'workbench.variables.table.smStatus.guidance.onepassword.connected',
+};
+
+type AvailableProbe = Extract<SecretProviderProbe, { available: true }>;
+
+/**
+ * The positive probe's reading. A connection whose last contact
+ * succeeded and whose session the provider still holds reads
+ * "Connected · 2m ago" — a past fact with its age, never a live claim
+ * about a session the vendor owns; one never contacted since the
+ * provider started reads "Not tested", and the Test beside it is the
+ * next gesture.
+ */
+export function secretAvailableLabel(t: Translate, locale: string, probe: AvailableProbe): string {
+  if (probe.verifiedAt === undefined) return t('workbench.variables.table.smStatus.notTested');
+  return `${t('workbench.variables.table.smStatus.connected')} · ${formatAgo(Date.now() - probe.verifiedAt, locale)}`;
+}
+
+/** Green once a contact succeeded; the untested reading stays neutral. */
+export function secretAvailableTone(probe: AvailableProbe): 'success' | 'default' {
+  return probe.verifiedAt === undefined ? 'default' : 'success';
+}
+
+/** The tooltip behind a connected reading: the moment, then the
+ *  vendor's session policy when one is known; `null` while untested. */
+export function secretAvailableTooltip(
+  t: Translate,
+  locale: string,
+  provider: SecretProviderId,
+  probe: AvailableProbe,
+): React.ReactNode {
+  if (probe.verifiedAt === undefined) return null;
+  const time = new Date(probe.verifiedAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const guidance = CONNECTED_GUIDANCE[provider];
+  return (
+    <>
+      <div>{t('workbench.variables.table.smStatus.connectedDetail', { time })}</div>
+      {guidance !== undefined && <div>{t(guidance)}</div>}
+    </>
+  );
+}
+
 export function secretStatusGuidance(
   provider: SecretProviderId,
   reason: SecretProviderUnavailableReason | undefined,
@@ -109,7 +155,7 @@ interface SecretManagerStatusChipProps {
 }
 
 const SecretManagerStatusChip: React.FC<SecretManagerStatusChipProps> = ({ connectionId, provider }) => {
-  const t = useT();
+  const { t, locale } = useLocale();
   const probe = useSecretManagerProbe(connectionId === '' ? null : connectionId);
 
   if (connectionId === '') {
@@ -124,11 +170,17 @@ const SecretManagerStatusChip: React.FC<SecretManagerStatusChipProps> = ({ conne
   if (probe === null) return null;
 
   if (probe.available) {
-    return (
-      <Tag color="success" style={{ fontSize: 10, lineHeight: '16px', marginInlineEnd: 0 }} data-testid="vault-sm-status">
-        {t('workbench.variables.table.smStatus.available')}
+    const connected = (
+      <Tag
+        color={secretAvailableTone(probe)}
+        style={{ fontSize: 10, lineHeight: '16px', marginInlineEnd: 0 }}
+        data-testid="vault-sm-status"
+      >
+        {secretAvailableLabel(t, locale, probe)}
       </Tag>
     );
+    const detail = secretAvailableTooltip(t, locale, provider, probe);
+    return detail !== null ? <Tooltip title={detail}>{connected}</Tooltip> : connected;
   }
 
   const label = t(REASON_LABEL[probe.reason]);

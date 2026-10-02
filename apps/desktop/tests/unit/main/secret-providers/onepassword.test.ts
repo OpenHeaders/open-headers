@@ -175,6 +175,28 @@ describe('desktop onepassword provider', () => {
     });
     const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
     expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: false, reason: 'not-found' });
+    expect(await provider.probe(connection())).toMatchObject({ available: true });
+  });
+
+  it('a probe carries the last successful contact while the client is held, and nothing once the session ends', async () => {
+    let clock = 1_000;
+    let expire = false;
+    const { loadSdk } = fakeSdk(async () => {
+      if (expire) throw new DesktopSessionExpiredError('session ended');
+      return 'v';
+    });
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {}, now: () => clock });
+    expect(await provider.probe(connection())).toEqual({ available: true });
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    expect(await provider.probe(connection())).toEqual({ available: true, verifiedAt: 1_000 });
+    clock = 2_000;
+    expect(await provider.resolve(connection(), LOCATOR)).toEqual({ ok: true, value: 'v' });
+    expect(await provider.probe(connection())).toEqual({ available: true, verifiedAt: 2_000 });
+    expire = true;
+    expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({
+      ok: false,
+      reason: 'authorization-required',
+    });
     expect(await provider.probe(connection())).toEqual({ available: true });
   });
 
