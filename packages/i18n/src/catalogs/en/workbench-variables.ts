@@ -120,6 +120,60 @@ export const workbenchVariables = {
     'Secret manager connections live on the desktop app. Open it to add or test one.',
   'workbench.variables.secretManagers.browserNoteConnected':
     "These connections are the desktop app's. Test them from here; add or edit them in the desktop app.",
+  'workbench.variables.table.smInfo.exampleCaption': 'Example connection and reference',
+  'workbench.variables.table.smInfo.referenceTitle': 'Reference',
+  'workbench.variables.table.smInfo.fieldsHeading': 'Fields',
+  'workbench.variables.table.smInfo.reference':
+    'The path to one secret inside the manager. The value is fetched through the connection only when a request runs and is never stored here.',
+  'workbench.variables.table.smInfo.label':
+    "Your own name for this connection — what the Vault row's connection picker shows. It never reaches the manager.",
+  'workbench.variables.table.smInfo.provider.onepassword':
+    'Secrets stay in 1Password. A Vault entry names a vault, an item and a field; the value is fetched through the 1Password app on this device (it asks you to approve) or a service account token, only when a request runs.',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    'Secrets stay in Bitwarden Secrets Manager. A Vault entry names a secret by its ID; the value is fetched with the machine account access token this device holds, only when a request runs.',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    "Secrets stay in this computer's credential store — macOS Keychain, Windows Credential Manager or Secret Service on Linux. A Vault entry names a service and an account; the value is read only when a request runs.",
+  'workbench.variables.table.smInfo.provider.awssm':
+    'Secrets stay in AWS Secrets Manager. A Vault entry names a secret and optionally a stage; the value is fetched with the AWS credentials this device holds, only when a request runs.',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    'Secrets stay in Azure Key Vault. A Vault entry names a secret and optionally a version in one Key Vault; the value is fetched with the Azure identity this device holds, only when a request runs.',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    'Secrets stay in HashiCorp Vault. A Vault entry names a mount, a path and a key; the value is fetched from the server with the auth method you pick, only when a request runs.',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    'The account name exactly as the 1Password app lists it in its sidebar — the app matches on this name.',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    "How this device signs in: the 1Password desktop app, which asks you to approve each session (Touch ID where available), or a service account token read from OP_SERVICE_ACCOUNT_TOKEN in this app's environment for machines without the app.",
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    'Leave blank for bitwarden.com; set the address of a self-hosted or EU server.',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    'The named profile from the AWS credentials file on this device; blank uses the default credential chain.',
+  'workbench.variables.table.smInfo.connection.awssm.region':
+    "The region the secrets live in; blank uses the profile's or the environment's default region.",
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    "The Key Vault's own URL (https://<name>.vault.azure.net) — one connection per Key Vault.",
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl':
+    "The HashiCorp Vault server's address, including the port.",
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'The namespace on an Enterprise server; blank for the root namespace.',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    'How this device authenticates to the server: a token, an AppRole, or OIDC through your identity provider.',
+  'workbench.variables.table.smInfo.locator.onepassword.vault': 'The 1Password vault that holds the item, by name.',
+  'workbench.variables.table.smInfo.locator.onepassword.item': "The item's title, as 1Password shows it.",
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    "The field inside the item — password, credential or a custom field's label; write section/field when the field sits in a section.",
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    "The secret's ID in Bitwarden Secrets Manager — the UUID on its page.",
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    "The service the entry is stored under — the item's name in Keychain Access or the target in Credential Manager.",
+  'workbench.variables.table.smInfo.locator.oskeychain.account': 'The account name on that entry.',
+  'workbench.variables.table.smInfo.locator.awssm.name': "The secret's name or its full ARN.",
+  'workbench.variables.table.smInfo.locator.awssm.stage': 'The staging label to read; blank reads AWSCURRENT.',
+  'workbench.variables.table.smInfo.locator.azurekv.name': "The secret's name in the Key Vault.",
+  'workbench.variables.table.smInfo.locator.azurekv.version': 'A specific version to read; blank reads the latest.',
+  'workbench.variables.table.smInfo.locator.hashivault.mount':
+    'The secrets engine mount path — secret for the default KV engine.',
+  'workbench.variables.table.smInfo.locator.hashivault.path': 'The path to the secret under that mount.',
+  'workbench.variables.table.smInfo.locator.hashivault.key': 'The key inside the secret whose value is read.',
   'workbench.variables.table.certPlaceholder': 'Certificate (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Private key (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Key passphrase (optional)',

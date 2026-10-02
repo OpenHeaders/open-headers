@@ -15,6 +15,9 @@ import '@openheaders/ui/workbench/settings/schema/secret-managers';
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { SecretProviderProbe } from '@openheaders/core/secret-providers';
 import type { SecretManagerConnection } from '@openheaders/core/types';
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { secretReferenceInfo } from '@openheaders/ui/workbench/components/panels/SecretManagerRowInfo';
 import SecretManagerConnectionsRow from '@openheaders/ui/workbench/settings/components/secret-manager-connections-row';
 import { allCategories, byCategory, getCategory, getDef } from '@openheaders/ui/workbench/settings/registry';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
@@ -206,5 +209,78 @@ describe('connections block on a browser host', () => {
     expect(screen.getByTestId('secret-manager-add').hasAttribute('disabled')).toBe(true);
     expect(screen.getByTestId('secret-manager-remove').hasAttribute('disabled')).toBe(true);
     expect(screen.getByText(/live on the desktop app/)).toBeTruthy();
+  });
+});
+
+/** Highlighted example-card tokens of the currently open popover. */
+const litTokens = (): string[] =>
+  Array.from(document.querySelectorAll('.oh-info-eg-hl')).map((el) => el.textContent ?? '');
+
+describe('connection form info popovers', () => {
+  beforeEach(() => {
+    registerCapability('requestRuntime', () => 'node');
+  });
+
+  it('leads the Provider popover with the provider’s card, the connection and the resolved reference lit', async () => {
+    renderBlock(<SecretManagerConnectionsRow def={requireDef()} />);
+    fireEvent.click(screen.getByTestId('secret-manager-add'));
+    fireEvent.click(screen.getByRole('button', { name: 'About 1Password' }));
+    expect(await screen.findByText('Example connection and reference')).toBeTruthy();
+    expect(document.querySelector('.oh-info-popover-kicker')?.textContent).toBe('Secret Manager');
+    expect(litTokens()).toEqual([
+      'name: Work',
+      'account: Acme Team',
+      'auth: desktop app',
+      'op://Engineering/Payments API/credential',
+    ]);
+  });
+
+  it('lights the Name row’s token on the connect line', async () => {
+    renderBlock(<SecretManagerConnectionsRow def={requireDef()} />);
+    fireEvent.click(screen.getByTestId('secret-manager-add'));
+    fireEvent.click(screen.getByRole('button', { name: 'About Name' }));
+    expect(await screen.findByText('Example connection and reference')).toBeTruthy();
+    expect(litTokens()).toEqual(['name: Work']);
+  });
+
+  it('lights the Account row’s own slice and reads its copy', async () => {
+    renderBlock(<SecretManagerConnectionsRow def={requireDef()} />);
+    fireEvent.click(screen.getByTestId('secret-manager-add'));
+    fireEvent.click(screen.getByRole('button', { name: 'About Account' }));
+    expect(await screen.findByText('Example connection and reference')).toBeTruthy();
+    expect(document.querySelector('.oh-info-popover-kicker')?.textContent).toBe('1Password');
+    expect(document.querySelector('.oh-info-popover-title')?.textContent).toBe('Account');
+    expect(litTokens()).toEqual(['account: Acme Team']);
+    expect(screen.getByText(/exactly as the 1Password app lists it/)).toBeTruthy();
+  });
+
+  it('follows the auth picklist on the card', async () => {
+    renderBlock(<SecretManagerConnectionsRow def={requireDef()} />);
+    fireEvent.click(screen.getByTestId('secret-manager-add'));
+    fireEvent.click(screen.getByRole('button', { name: 'About Authentication' }));
+    expect(await screen.findByText('Example connection and reference')).toBeTruthy();
+    expect(litTokens()).toEqual(['auth: desktop app']);
+  });
+
+  it('keeps the provider’s text fields in the form’s own font', () => {
+    renderBlock(<SecretManagerConnectionsRow def={requireDef()} />);
+    fireEvent.click(screen.getByTestId('secret-manager-add'));
+    const account = screen.getByTestId('secret-manager-form-account') as HTMLInputElement;
+    expect(account.style.fontFamily).toBe('');
+  });
+});
+
+describe('the Vault row’s reference popover', () => {
+  it('lights the whole path and the resolved line, then lists every path field with its copy', async () => {
+    const t = getTranslator(DEFAULT_LOCALE);
+    renderBlock(<InfoTrigger content={secretReferenceInfo(t, 'hashivault')} />);
+    fireEvent.click(screen.getByRole('button', { name: 'About Reference' }));
+    expect(await screen.findByText('Example connection and reference')).toBeTruthy();
+    expect(document.querySelector('.oh-info-popover-kicker')?.textContent).toBe('HashiCorp Vault');
+    expect(litTokens()).toEqual(['mount: secret', 'path: payments/api', 'key: token', 'secret/payments/api#token']);
+    expect(screen.getByText('Mount')).toBeTruthy();
+    expect(screen.getByText('Path')).toBeTruthy();
+    expect(screen.getByText('Key')).toBeTruthy();
+    expect(screen.getByText(/secret for the default KV engine/)).toBeTruthy();
   });
 });

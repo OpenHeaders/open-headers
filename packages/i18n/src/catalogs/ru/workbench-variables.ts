@@ -134,6 +134,61 @@ export const workbenchVariables = {
     'Подключения к менеджерам секретов находятся в настольном приложении. Откройте его, чтобы добавить или проверить подключение.',
   'workbench.variables.secretManagers.browserNoteConnected':
     'Эти подключения принадлежат настольному приложению. Проверяйте их отсюда; добавляйте и изменяйте их в настольном приложении.',
+  'workbench.variables.table.smInfo.exampleCaption': 'Пример подключения и ссылки',
+  'workbench.variables.table.smInfo.referenceTitle': 'Ссылка',
+  'workbench.variables.table.smInfo.fieldsHeading': 'Поля',
+  'workbench.variables.table.smInfo.reference':
+    'Путь к одному секрету внутри менеджера. Значение запрашивается через подключение только при выполнении запроса и никогда здесь не хранится.',
+  'workbench.variables.table.smInfo.label':
+    'Ваше собственное имя для этого подключения — то, что показывает выбор подключения в строке хранилища. Оно никогда не передаётся менеджеру.',
+  'workbench.variables.table.smInfo.provider.onepassword':
+    'Секреты остаются в 1Password. Запись хранилища называет vault, элемент и поле; значение запрашивается через приложение 1Password на этом устройстве (оно просит подтверждение) или через токен сервисной учётной записи, только при выполнении запроса.',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    'Секреты остаются в Bitwarden Secrets Manager. Запись хранилища называет секрет по его ID; значение запрашивается с токеном доступа машинной учётной записи, который хранит это устройство, только при выполнении запроса.',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    'Секреты остаются в хранилище учётных данных этого компьютера — Keychain в macOS, Credential Manager в Windows или Secret Service в Linux. Запись хранилища называет сервис и учётную запись; значение читается только при выполнении запроса.',
+  'workbench.variables.table.smInfo.provider.awssm':
+    'Секреты остаются в AWS Secrets Manager. Запись хранилища называет секрет и, при необходимости, стадию; значение запрашивается с учётными данными AWS, которые хранит это устройство, только при выполнении запроса.',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    'Секреты остаются в Azure Key Vault. Запись хранилища называет секрет и, при необходимости, версию в одном Key Vault; значение запрашивается с удостоверением Azure, которое хранит это устройство, только при выполнении запроса.',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    'Секреты остаются в HashiCorp Vault. Запись хранилища называет точку монтирования, путь и ключ; значение запрашивается с сервера выбранным методом аутентификации, только при выполнении запроса.',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    'Имя учётной записи точно так, как приложение 1Password показывает его в боковой панели — приложение сопоставляет по этому имени.',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    'Как это устройство входит: через настольное приложение 1Password, которое просит подтвердить каждый сеанс (Touch ID, где доступно), или через токен сервисной учётной записи из переменной OP_SERVICE_ACCOUNT_TOKEN в окружении этого приложения — для машин без приложения.',
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    'Оставьте пустым для bitwarden.com; укажите адрес собственного сервера или сервера в ЕС.',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    'Именованный профиль из файла учётных данных AWS на этом устройстве; пустое поле использует цепочку учётных данных по умолчанию.',
+  'workbench.variables.table.smInfo.connection.awssm.region':
+    'Регион, в котором находятся секреты; пустое поле использует регион по умолчанию из профиля или окружения.',
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    'Собственный URL-адрес Key Vault (https://<name>.vault.azure.net) — одно подключение на каждый Key Vault.',
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl': 'Адрес сервера HashiCorp Vault, включая порт.',
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'Пространство имён на сервере Enterprise; пустое поле — корневое пространство имён.',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    'Как это устройство аутентифицируется на сервере: токен, AppRole или OIDC через вашего поставщика удостоверений.',
+  'workbench.variables.table.smInfo.locator.onepassword.vault':
+    'Тот vault в 1Password, который содержит элемент, по имени.',
+  'workbench.variables.table.smInfo.locator.onepassword.item': 'Заголовок элемента, как его показывает 1Password.',
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    'Поле внутри элемента — password, credential или подпись пользовательского поля; пишите раздел/поле, если поле находится в разделе.',
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    'ID секрета в Bitwarden Secrets Manager — UUID на его странице.',
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    'Сервис, под которым хранится запись — имя элемента в Keychain Access или цель в Credential Manager.',
+  'workbench.variables.table.smInfo.locator.oskeychain.account': 'Имя учётной записи в этой записи.',
+  'workbench.variables.table.smInfo.locator.awssm.name': 'Имя секрета или его полный ARN.',
+  'workbench.variables.table.smInfo.locator.awssm.stage': 'Метка стадии для чтения; пустое поле читает AWSCURRENT.',
+  'workbench.variables.table.smInfo.locator.azurekv.name': 'Имя секрета в Key Vault.',
+  'workbench.variables.table.smInfo.locator.azurekv.version':
+    'Конкретная версия для чтения; пустое поле читает последнюю.',
+  'workbench.variables.table.smInfo.locator.hashivault.mount':
+    'Путь точки монтирования движка секретов — secret для движка KV по умолчанию.',
+  'workbench.variables.table.smInfo.locator.hashivault.path': 'Путь к секрету под этой точкой монтирования.',
+  'workbench.variables.table.smInfo.locator.hashivault.key': 'Ключ внутри секрета, значение которого читается.',
   'workbench.variables.table.certPlaceholder': 'Сертификат (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Закрытый ключ (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Парольная фраза ключа (необязательно)',

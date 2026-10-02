@@ -113,6 +113,57 @@ export const workbenchVariables = {
   'workbench.variables.secretManagers.browserNote': '机密管理器连接位于桌面应用中。请打开它以添加或测试连接。',
   'workbench.variables.secretManagers.browserNoteConnected':
     '这些连接属于桌面应用。可在此处测试；添加或编辑请在桌面应用中进行。',
+  'workbench.variables.table.smInfo.exampleCaption': '连接与引用示例',
+  'workbench.variables.table.smInfo.referenceTitle': '引用',
+  'workbench.variables.table.smInfo.fieldsHeading': '字段',
+  'workbench.variables.table.smInfo.reference':
+    '指向管理器中某一个机密的路径。值仅在请求运行时通过连接获取，绝不保存在此处。',
+  'workbench.variables.table.smInfo.label':
+    '你为此连接起的名称——保险库行的连接选择器显示的就是它。它不会发送给管理器。',
+  'workbench.variables.table.smInfo.provider.onepassword':
+    '机密保留在 1Password 中。保险库条目指定一个 vault、一个项目和一个字段；值仅在请求运行时，通过此设备上的 1Password 应用（它会请求你批准）或服务账户令牌获取。',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    '机密保留在 Bitwarden Secrets Manager 中。保险库条目按 ID 指定机密；值仅在请求运行时，使用此设备保存的机器账户访问令牌获取。',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    '机密保留在这台电脑的凭据存储中——macOS 钥匙串、Windows 凭据管理器或 Linux 上的 Secret Service。保险库条目指定一个服务和一个账户；值仅在请求运行时读取。',
+  'workbench.variables.table.smInfo.provider.awssm':
+    '机密保留在 AWS Secrets Manager 中。保险库条目指定一个机密以及可选的阶段；值仅在请求运行时，使用此设备保存的 AWS 凭据获取。',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    '机密保留在 Azure Key Vault 中。保险库条目指定某个 Key Vault 中的一个机密以及可选的版本；值仅在请求运行时，使用此设备保存的 Azure 标识获取。',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    '机密保留在 HashiCorp Vault 中。保险库条目指定一个挂载点、一条路径和一个键；值仅在请求运行时，使用你选择的认证方式从服务器获取。',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    '账户名称，与 1Password 应用侧边栏中显示的完全一致——应用按此名称匹配。',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    '此设备的登录方式：通过 1Password 桌面应用（每个会话都会请求你批准，可用时使用 Touch ID），或者对于没有该应用的机器，从此应用环境中的 OP_SERVICE_ACCOUNT_TOKEN 读取的服务账户令牌。',
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    '使用 bitwarden.com 时留空；自托管或欧盟服务器请填写其地址。',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    '此设备上 AWS 凭据文件中的命名配置文件；留空则使用默认凭据链。',
+  'workbench.variables.table.smInfo.connection.awssm.region': '机密所在的区域；留空则使用配置文件或环境的默认区域。',
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    'Key Vault 自身的 URL（https://<name>.vault.azure.net）——每个 Key Vault 一个连接。',
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl': 'HashiCorp Vault 服务器的地址，包含端口。',
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'Enterprise 服务器上的命名空间；留空则为根命名空间。',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    '此设备向服务器认证的方式：令牌、AppRole，或通过你的身份提供方使用 OIDC。',
+  'workbench.variables.table.smInfo.locator.onepassword.vault': '包含该项目的 1Password vault，按名称指定。',
+  'workbench.variables.table.smInfo.locator.onepassword.item': '项目的标题，与 1Password 中显示的一致。',
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    '项目内的字段——password、credential 或自定义字段的标签；字段位于分区内时写成 分区/字段。',
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    'Bitwarden Secrets Manager 中该机密的 ID——其页面上的 UUID。',
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    '条目所存储的服务——钥匙串访问中的项目名称，或凭据管理器中的目标。',
+  'workbench.variables.table.smInfo.locator.oskeychain.account': '该条目上的账户名称。',
+  'workbench.variables.table.smInfo.locator.awssm.name': '机密的名称或完整 ARN。',
+  'workbench.variables.table.smInfo.locator.awssm.stage': '要读取的暂存标签；留空则读取 AWSCURRENT。',
+  'workbench.variables.table.smInfo.locator.azurekv.name': 'Key Vault 中机密的名称。',
+  'workbench.variables.table.smInfo.locator.azurekv.version': '要读取的特定版本；留空则读取最新版本。',
+  'workbench.variables.table.smInfo.locator.hashivault.mount': '机密引擎的挂载路径——默认 KV 引擎为 secret。',
+  'workbench.variables.table.smInfo.locator.hashivault.path': '该挂载点下指向机密的路径。',
+  'workbench.variables.table.smInfo.locator.hashivault.key': '机密中要读取其值的键。',
   'workbench.variables.table.certPlaceholder': '证书（PEM）',
   'workbench.variables.table.certKeyPlaceholder': '私钥（PEM）',
   'workbench.variables.table.passphrasePlaceholder': '密钥的密码短语（可选）',

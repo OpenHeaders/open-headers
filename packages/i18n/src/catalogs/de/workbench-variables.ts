@@ -114,6 +114,62 @@ export const workbenchVariables = {
     'Secret-Manager-Verbindungen liegen in der Desktop-App. Öffnen Sie sie, um eine hinzuzufügen oder zu testen.',
   'workbench.variables.secretManagers.browserNoteConnected':
     'Diese Verbindungen gehören der Desktop-App. Teste sie von hier aus; hinzufügen oder bearbeiten kannst du sie in der Desktop-App.',
+  'workbench.variables.table.smInfo.exampleCaption': 'Beispiel für Verbindung und Verweis',
+  'workbench.variables.table.smInfo.referenceTitle': 'Verweis',
+  'workbench.variables.table.smInfo.fieldsHeading': 'Felder',
+  'workbench.variables.table.smInfo.reference':
+    'Der Pfad zu einem Secret im Manager. Der Wert wird nur beim Ausführen einer Anfrage über die Verbindung abgerufen und nie hier gespeichert.',
+  'workbench.variables.table.smInfo.label':
+    'Dein eigener Name für diese Verbindung – das, was die Verbindungsauswahl der Vault-Zeile anzeigt. Er erreicht den Manager nie.',
+  'workbench.variables.table.smInfo.provider.onepassword':
+    'Secrets bleiben in 1Password. Ein Vault-Eintrag nennt einen vault, ein Element und ein Feld; der Wert wird nur beim Ausführen einer Anfrage über die 1Password-App auf diesem Gerät (sie bittet dich um Freigabe) oder ein Dienstkonto-Token abgerufen.',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    'Secrets bleiben im Bitwarden Secrets Manager. Ein Vault-Eintrag nennt ein Secret über seine ID; der Wert wird nur beim Ausführen einer Anfrage mit dem Zugriffstoken des Maschinenkontos auf diesem Gerät abgerufen.',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    'Secrets bleiben im Anmeldedatenspeicher dieses Computers – macOS-Schlüsselbund, Windows-Anmeldeinformationsverwaltung oder Secret Service unter Linux. Ein Vault-Eintrag nennt einen Dienst und ein Konto; der Wert wird nur beim Ausführen einer Anfrage gelesen.',
+  'workbench.variables.table.smInfo.provider.awssm':
+    'Secrets bleiben im AWS Secrets Manager. Ein Vault-Eintrag nennt ein Secret und optional eine Stufe; der Wert wird nur beim Ausführen einer Anfrage mit den AWS-Anmeldedaten dieses Geräts abgerufen.',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    'Secrets bleiben im Azure Key Vault. Ein Vault-Eintrag nennt ein Secret und optional eine Version in einem Key Vault; der Wert wird nur beim Ausführen einer Anfrage mit der Azure-Identität dieses Geräts abgerufen.',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    'Secrets bleiben im HashiCorp Vault. Ein Vault-Eintrag nennt einen Mount, einen Pfad und einen Schlüssel; der Wert wird nur beim Ausführen einer Anfrage mit der gewählten Authentifizierungsmethode vom Server abgerufen.',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    'Der Kontoname genau so, wie die 1Password-App ihn in ihrer Seitenleiste führt – die App gleicht über diesen Namen ab.',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    'Wie sich dieses Gerät anmeldet: über die 1Password-Desktop-App, die jede Sitzung von dir freigeben lässt (Touch ID, wo verfügbar), oder über ein Dienstkonto-Token aus OP_SERVICE_ACCOUNT_TOKEN in der Umgebung dieser App für Rechner ohne die App.',
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    'Leer lassen für bitwarden.com; trage die Adresse eines selbst gehosteten oder EU-Servers ein.',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    'Das benannte Profil aus der AWS-Anmeldedatendatei auf diesem Gerät; leer nutzt die Standard-Anmeldedatenkette.',
+  'workbench.variables.table.smInfo.connection.awssm.region':
+    'Die Region, in der die Secrets liegen; leer nutzt die Standardregion des Profils oder der Umgebung.',
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    'Die eigene URL des Key Vault (https://<name>.vault.azure.net) – eine Verbindung pro Key Vault.',
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl':
+    'Die Adresse des HashiCorp-Vault-Servers einschließlich Port.',
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'Der Namespace auf einem Enterprise-Server; leer für den Root-Namespace.',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    'Wie sich dieses Gerät beim Server authentifiziert: mit einem Token, einer AppRole oder per OIDC über deinen Identitätsanbieter.',
+  'workbench.variables.table.smInfo.locator.onepassword.vault':
+    'Der 1Password-vault, der das Element enthält, nach Namen.',
+  'workbench.variables.table.smInfo.locator.onepassword.item': 'Der Titel des Elements, wie 1Password ihn anzeigt.',
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    'Das Feld im Element – password, credential oder die Bezeichnung eines eigenen Felds; schreibe Abschnitt/Feld, wenn das Feld in einem Abschnitt liegt.',
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    'Die ID des Secrets im Bitwarden Secrets Manager – die UUID auf seiner Seite.',
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    'Der Dienst, unter dem der Eintrag gespeichert ist – der Name des Eintrags in der Schlüsselbundverwaltung oder das Ziel in der Anmeldeinformationsverwaltung.',
+  'workbench.variables.table.smInfo.locator.oskeychain.account': 'Der Kontoname dieses Eintrags.',
+  'workbench.variables.table.smInfo.locator.awssm.name': 'Der Name des Secrets oder sein vollständiger ARN.',
+  'workbench.variables.table.smInfo.locator.awssm.stage': 'Die zu lesende Staging-Bezeichnung; leer liest AWSCURRENT.',
+  'workbench.variables.table.smInfo.locator.azurekv.name': 'Der Name des Secrets im Key Vault.',
+  'workbench.variables.table.smInfo.locator.azurekv.version':
+    'Eine bestimmte zu lesende Version; leer liest die neueste.',
+  'workbench.variables.table.smInfo.locator.hashivault.mount':
+    'Der Mount-Pfad der Secrets-Engine – secret für die Standard-KV-Engine.',
+  'workbench.variables.table.smInfo.locator.hashivault.path': 'Der Pfad zum Secret unter diesem Mount.',
+  'workbench.variables.table.smInfo.locator.hashivault.key': 'Der Schlüssel im Secret, dessen Wert gelesen wird.',
   'workbench.variables.table.certPlaceholder': 'Zertifikat (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Privater Schlüssel (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Passphrase des Schlüssels (optional)',

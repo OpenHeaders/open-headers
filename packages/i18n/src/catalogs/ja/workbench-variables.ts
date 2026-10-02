@@ -115,6 +115,63 @@ export const workbenchVariables = {
     'シークレットマネージャーの接続はデスクトップアプリにあります。追加やテストはそちらで行ってください。',
   'workbench.variables.secretManagers.browserNoteConnected':
     'これらの接続はデスクトップアプリのものです。ここからテストできます。追加や編集はデスクトップアプリで行ってください。',
+  'workbench.variables.table.smInfo.exampleCaption': '接続と参照の例',
+  'workbench.variables.table.smInfo.referenceTitle': '参照',
+  'workbench.variables.table.smInfo.fieldsHeading': 'フィールド',
+  'workbench.variables.table.smInfo.reference':
+    'マネージャー内の 1 つのシークレットへのパスです。値はリクエストの実行時にのみ接続を通じて取得され、ここに保存されることはありません。',
+  'workbench.variables.table.smInfo.label':
+    'この接続に付けるあなた自身の名前です。ボールト行の接続セレクターに表示され、マネージャーに送られることはありません。',
+  'workbench.variables.table.smInfo.provider.onepassword':
+    'シークレットは 1Password に残ります。ボールトのエントリは vault、アイテム、フィールドを指定します。値はリクエストの実行時にのみ、このデバイスの 1Password アプリ（承認を求められます）またはサービスアカウントトークンを通じて取得されます。',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    'シークレットは Bitwarden Secrets Manager に残ります。ボールトのエントリはシークレットを ID で指定します。値はリクエストの実行時にのみ、このデバイスが保持するマシンアカウントのアクセストークンで取得されます。',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    'シークレットはこのコンピューターの資格情報ストア（macOS のキーチェーン、Windows の資格情報マネージャー、Linux の Secret Service）に残ります。ボールトのエントリはサービスとアカウントを指定します。値はリクエストの実行時にのみ読み取られます。',
+  'workbench.variables.table.smInfo.provider.awssm':
+    'シークレットは AWS Secrets Manager に残ります。ボールトのエントリはシークレットと、必要に応じてステージを指定します。値はリクエストの実行時にのみ、このデバイスが保持する AWS 認証情報で取得されます。',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    'シークレットは Azure Key Vault に残ります。ボールトのエントリは 1 つの Key Vault 内のシークレットと、必要に応じてバージョンを指定します。値はリクエストの実行時にのみ、このデバイスが保持する Azure の ID で取得されます。',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    'シークレットは HashiCorp Vault に残ります。ボールトのエントリはマウント、パス、キーを指定します。値はリクエストの実行時にのみ、選択した認証方式でサーバーから取得されます。',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    '1Password アプリのサイドバーに表示されているとおりのアカウント名です。アプリはこの名前で照合します。',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    'このデバイスのサインイン方法です。1Password デスクトップアプリ（セッションごとに承認を求められ、利用可能なら Touch ID を使います）か、アプリのないマシン向けにこのアプリの環境変数 OP_SERVICE_ACCOUNT_TOKEN から読み取るサービスアカウントトークンです。',
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    'bitwarden.com を使う場合は空のままにします。セルフホストまたは EU のサーバーならそのアドレスを指定します。',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    'このデバイスの AWS 認証情報ファイルにある名前付きプロファイルです。空ならデフォルトの認証情報チェーンを使います。',
+  'workbench.variables.table.smInfo.connection.awssm.region':
+    'シークレットがあるリージョンです。空ならプロファイルまたは環境のデフォルトリージョンを使います。',
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    'Key Vault 自体の URL（https://<name>.vault.azure.net）です。Key Vault ごとに 1 つの接続を作ります。',
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl':
+    'HashiCorp Vault サーバーのアドレス（ポートを含む）です。',
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'Enterprise サーバーの名前空間です。空ならルート名前空間を使います。',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    'このデバイスがサーバーに認証する方法です。トークン、AppRole、または ID プロバイダー経由の OIDC から選びます。',
+  'workbench.variables.table.smInfo.locator.onepassword.vault':
+    'アイテムを含む 1Password の vault を名前で指定します。',
+  'workbench.variables.table.smInfo.locator.onepassword.item': '1Password に表示されているアイテムのタイトルです。',
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    'アイテム内のフィールドです。password、credential、またはカスタムフィールドのラベルを指定し、フィールドがセクション内にある場合は セクション/フィールド と書きます。',
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    'Bitwarden Secrets Manager でのシークレットの ID（そのページに表示される UUID）です。',
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    'エントリが保存されているサービスです。キーチェーンアクセスでのアイテム名、または資格情報マネージャーでのターゲットにあたります。',
+  'workbench.variables.table.smInfo.locator.oskeychain.account': 'そのエントリのアカウント名です。',
+  'workbench.variables.table.smInfo.locator.awssm.name': 'シークレットの名前、または完全な ARN です。',
+  'workbench.variables.table.smInfo.locator.awssm.stage':
+    '読み取るステージングラベルです。空なら AWSCURRENT を読み取ります。',
+  'workbench.variables.table.smInfo.locator.azurekv.name': 'Key Vault 内のシークレットの名前です。',
+  'workbench.variables.table.smInfo.locator.azurekv.version':
+    '読み取る特定のバージョンです。空なら最新を読み取ります。',
+  'workbench.variables.table.smInfo.locator.hashivault.mount':
+    'シークレットエンジンのマウントパスです。デフォルトの KV エンジンなら secret です。',
+  'workbench.variables.table.smInfo.locator.hashivault.path': 'そのマウント配下のシークレットへのパスです。',
+  'workbench.variables.table.smInfo.locator.hashivault.key': '値を読み取るシークレット内のキーです。',
   'workbench.variables.table.certPlaceholder': '証明書（PEM）',
   'workbench.variables.table.certKeyPlaceholder': '秘密鍵（PEM）',
   'workbench.variables.table.passphrasePlaceholder': '鍵のパスフレーズ（省略可）',

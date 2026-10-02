@@ -31,9 +31,11 @@ import type React from 'react';
 import { useCallback } from 'react';
 import { ConflictDiffChip, EntityField, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
 import { isNodeRequestRuntime } from '@openheaders/ui/shared/device-trust';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { SECRET_MANAGERS_SETTING_KEY, useSecretManagerConnections } from '@openheaders/ui/shared/secret-manager';
 import { useOpenSettings } from '../../hooks/OpenSettingsContext';
 import TotpPreview from '../totp/TotpPreview';
+import { secretReferenceInfo } from './SecretManagerRowInfo';
 import SecretManagerStatusChip, { SM_FIELD_LABEL, SM_PROVIDER_LABEL } from './SecretManagerStatusChip';
 import {
   gridColsFor,
@@ -548,6 +550,7 @@ export function SortableRow({
                     popupMatchSelectWidth={false}
                     data-testid="vault-sm-provider"
                   />
+                  <InfoTrigger content={secretReferenceInfo(t, row.smProvider)} />
                   <Select
                     variant="borderless"
                     size="small"

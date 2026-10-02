@@ -109,6 +109,61 @@ export const workbenchVariables = {
     'Les connexions aux gestionnaires de secrets résident dans l’application de bureau. Ouvrez-la pour en ajouter ou en tester une.',
   'workbench.variables.secretManagers.browserNoteConnected':
     'Ces connexions sont celles de l’application de bureau. Testez-les d’ici ; ajoutez-les ou modifiez-les dans l’application de bureau.',
+  'workbench.variables.table.smInfo.exampleCaption': 'Exemple de connexion et de référence',
+  'workbench.variables.table.smInfo.referenceTitle': 'Référence',
+  'workbench.variables.table.smInfo.fieldsHeading': 'Champs',
+  'workbench.variables.table.smInfo.reference':
+    'Le chemin vers un secret dans le gestionnaire. La valeur est récupérée via la connexion uniquement lorsqu’une requête s’exécute et n’est jamais stockée ici.',
+  'workbench.variables.table.smInfo.label':
+    'Votre propre nom pour cette connexion — ce que montre le sélecteur de connexion de la ligne du coffre. Il n’atteint jamais le gestionnaire.',
+  'workbench.variables.table.smInfo.provider.onepassword':
+    'Les secrets restent dans 1Password. Une entrée du coffre nomme un vault, un élément et un champ ; la valeur est récupérée via l’app 1Password sur cet appareil (elle vous demande d’approuver) ou un token de compte de service, uniquement lorsqu’une requête s’exécute.',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    'Les secrets restent dans Bitwarden Secrets Manager. Une entrée du coffre nomme un secret par son ID ; la valeur est récupérée avec le token d’accès du compte machine détenu par cet appareil, uniquement lorsqu’une requête s’exécute.',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    'Les secrets restent dans le magasin d’identifiants de cet ordinateur — Trousseau d’accès macOS, Gestionnaire d’identifiants Windows ou Secret Service sous Linux. Une entrée du coffre nomme un service et un compte ; la valeur n’est lue que lorsqu’une requête s’exécute.',
+  'workbench.variables.table.smInfo.provider.awssm':
+    'Les secrets restent dans AWS Secrets Manager. Une entrée du coffre nomme un secret et, en option, une étape ; la valeur est récupérée avec les identifiants AWS détenus par cet appareil, uniquement lorsqu’une requête s’exécute.',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    'Les secrets restent dans Azure Key Vault. Une entrée du coffre nomme un secret et, en option, une version dans un Key Vault ; la valeur est récupérée avec l’identité Azure détenue par cet appareil, uniquement lorsqu’une requête s’exécute.',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    'Les secrets restent dans HashiCorp Vault. Une entrée du coffre nomme un point de montage, un chemin et une clé ; la valeur est récupérée depuis le serveur avec la méthode d’authentification choisie, uniquement lorsqu’une requête s’exécute.',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    'Le nom du compte exactement tel que l’app 1Password l’affiche dans sa barre latérale — l’app fait correspondre sur ce nom.',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    'Comment cet appareil se connecte : via l’app de bureau 1Password, qui vous demande d’approuver chaque session (Touch ID si disponible), ou via un token de compte de service lu dans OP_SERVICE_ACCOUNT_TOKEN dans l’environnement de cette app, pour les machines sans l’app.',
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    'Laissez vide pour bitwarden.com ; indiquez l’adresse d’un serveur auto-hébergé ou européen.',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    'Le profil nommé du fichier d’identifiants AWS sur cet appareil ; vide utilise la chaîne d’identifiants par défaut.',
+  'workbench.variables.table.smInfo.connection.awssm.region':
+    'La région où vivent les secrets ; vide utilise la région par défaut du profil ou de l’environnement.',
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    'L’URL propre du Key Vault (https://<name>.vault.azure.net) — une connexion par Key Vault.',
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl':
+    'L’adresse du serveur HashiCorp Vault, port compris.',
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'L’espace de noms sur un serveur Enterprise ; vide pour l’espace racine.',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    'Comment cet appareil s’authentifie auprès du serveur : un token, un AppRole ou OIDC via votre fournisseur d’identité.',
+  'workbench.variables.table.smInfo.locator.onepassword.vault':
+    'Le vault 1Password qui contient l’élément, par son nom.',
+  'workbench.variables.table.smInfo.locator.onepassword.item': 'Le titre de l’élément, tel que 1Password l’affiche.',
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    'Le champ dans l’élément — password, credential ou le libellé d’un champ personnalisé ; écrivez section/champ lorsque le champ se trouve dans une section.',
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    'L’ID du secret dans Bitwarden Secrets Manager — l’UUID sur sa page.',
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    'Le service sous lequel l’entrée est stockée — le nom de l’élément dans Trousseau d’accès ou la cible dans le Gestionnaire d’identifiants.',
+  'workbench.variables.table.smInfo.locator.oskeychain.account': 'Le nom de compte de cette entrée.',
+  'workbench.variables.table.smInfo.locator.awssm.name': 'Le nom du secret ou son ARN complet.',
+  'workbench.variables.table.smInfo.locator.awssm.stage': 'L’étiquette d’étape à lire ; vide lit AWSCURRENT.',
+  'workbench.variables.table.smInfo.locator.azurekv.name': 'Le nom du secret dans le Key Vault.',
+  'workbench.variables.table.smInfo.locator.azurekv.version': 'Une version précise à lire ; vide lit la plus récente.',
+  'workbench.variables.table.smInfo.locator.hashivault.mount':
+    'Le chemin du point de montage du moteur de secrets — secret pour le moteur KV par défaut.',
+  'workbench.variables.table.smInfo.locator.hashivault.path': 'Le chemin vers le secret sous ce point de montage.',
+  'workbench.variables.table.smInfo.locator.hashivault.key': 'La clé dans le secret dont la valeur est lue.',
   'workbench.variables.table.certPlaceholder': 'Certificat (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Clé privée (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Phrase de passe de la clé (facultatif)',

@@ -121,6 +121,60 @@ export const workbenchVariables = {
     '시크릿 관리자 연결은 데스크톱 앱에 있습니다. 추가하거나 테스트하려면 앱을 여세요.',
   'workbench.variables.secretManagers.browserNoteConnected':
     '이 연결은 데스크톱 앱의 연결입니다. 여기에서 테스트할 수 있으며, 추가와 편집은 데스크톱 앱에서 하세요.',
+  'workbench.variables.table.smInfo.exampleCaption': '연결과 참조 예시',
+  'workbench.variables.table.smInfo.referenceTitle': '참조',
+  'workbench.variables.table.smInfo.fieldsHeading': '필드',
+  'workbench.variables.table.smInfo.reference':
+    '관리자 안의 시크릿 하나로 가는 경로입니다. 값은 요청이 실행될 때만 연결을 통해 가져오며 여기에 저장되지 않습니다.',
+  'workbench.variables.table.smInfo.label':
+    '이 연결에 붙이는 사용자 지정 이름입니다. 볼트 행의 연결 선택기에 표시되며 관리자에는 전달되지 않습니다.',
+  'workbench.variables.table.smInfo.provider.onepassword':
+    '시크릿은 1Password 에 남습니다. 볼트 항목은 vault 이름, 항목, 필드를 지정합니다. 값은 요청이 실행될 때만 이 기기의 1Password 앱 (승인을 요청합니다) 또는 서비스 계정 토큰을 통해 가져옵니다.',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    '시크릿은 Bitwarden Secrets Manager 에 남습니다. 볼트 항목은 시크릿을 ID 로 지정합니다. 값은 요청이 실행될 때만 이 기기가 보관한 머신 계정 액세스 토큰으로 가져옵니다.',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    '시크릿은 이 컴퓨터의 자격 증명 저장소 (macOS 키체인, Windows 자격 증명 관리자, Linux 의 Secret Service) 에 남습니다. 볼트 항목은 서비스와 계정을 지정합니다. 값은 요청이 실행될 때만 읽습니다.',
+  'workbench.variables.table.smInfo.provider.awssm':
+    '시크릿은 AWS Secrets Manager 에 남습니다. 볼트 항목은 시크릿과 선택적으로 스테이지를 지정합니다. 값은 요청이 실행될 때만 이 기기가 보관한 AWS 자격 증명으로 가져옵니다.',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    '시크릿은 Azure Key Vault 에 남습니다. 볼트 항목은 하나의 Key Vault 안의 시크릿과 선택적으로 버전을 지정합니다. 값은 요청이 실행될 때만 이 기기가 보관한 Azure ID 로 가져옵니다.',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    '시크릿은 HashiCorp Vault 에 남습니다. 볼트 항목은 마운트, 경로, 키를 지정합니다. 값은 요청이 실행될 때만 선택한 인증 방식으로 서버에서 가져옵니다.',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    '1Password 앱의 사이드바에 표시된 그대로의 계정 이름입니다. 앱은 이 이름으로 대조합니다.',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    '이 기기가 로그인하는 방식입니다. 세션마다 승인을 요청하는 1Password 데스크톱 앱 (가능하면 Touch ID 사용) 또는 앱이 없는 머신을 위해 이 앱의 환경 변수 OP_SERVICE_ACCOUNT_TOKEN 에서 읽는 서비스 계정 토큰입니다.',
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    'bitwarden.com 을 쓰려면 비워 두세요. 자체 호스팅 또는 EU 서버라면 그 주소를 입력하세요.',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    '이 기기의 AWS 자격 증명 파일에 있는 명명된 프로필입니다. 비워 두면 기본 자격 증명 체인을 사용합니다.',
+  'workbench.variables.table.smInfo.connection.awssm.region':
+    '시크릿이 있는 리전입니다. 비워 두면 프로필 또는 환경의 기본 리전을 사용합니다.',
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    'Key Vault 자체의 URL 주소 (https://<name>.vault.azure.net) 입니다. Key Vault 하나당 연결 하나를 만듭니다.',
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl': 'HashiCorp Vault 서버의 주소입니다 (포트 포함).',
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'Enterprise 서버의 네임스페이스입니다. 비워 두면 루트 네임스페이스를 사용합니다.',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    '이 기기가 서버에 인증하는 방식입니다. 토큰, AppRole 방식, 또는 ID 공급자를 통한 OIDC 방식 중에서 고릅니다.',
+  'workbench.variables.table.smInfo.locator.onepassword.vault': '항목이 들어 있는 1Password 의 vault 이름입니다.',
+  'workbench.variables.table.smInfo.locator.onepassword.item': '1Password 에 표시된 항목의 제목입니다.',
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    '항목 안의 필드입니다. password, credential 또는 사용자 지정 필드의 레이블을 쓰고, 필드가 섹션 안에 있으면 섹션/필드 형태로 씁니다.',
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    'Bitwarden Secrets Manager 에서의 시크릿 ID (해당 페이지의 UUID 값) 입니다.',
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    '항목이 저장된 서비스입니다. 키체인 접근에서의 항목 이름 또는 자격 증명 관리자에서의 대상에 해당합니다.',
+  'workbench.variables.table.smInfo.locator.oskeychain.account': '그 항목의 계정 이름입니다.',
+  'workbench.variables.table.smInfo.locator.awssm.name': '시크릿의 이름 또는 전체 ARN 값입니다.',
+  'workbench.variables.table.smInfo.locator.awssm.stage':
+    '읽을 스테이징 레이블입니다. 비워 두면 AWSCURRENT 레이블을 읽습니다.',
+  'workbench.variables.table.smInfo.locator.azurekv.name': 'Key Vault 안의 시크릿 이름입니다.',
+  'workbench.variables.table.smInfo.locator.azurekv.version': '읽을 특정 버전입니다. 비워 두면 최신 버전을 읽습니다.',
+  'workbench.variables.table.smInfo.locator.hashivault.mount':
+    '시크릿 엔진의 마운트 경로입니다. 기본 KV 엔진이면 secret 입니다.',
+  'workbench.variables.table.smInfo.locator.hashivault.path': '그 마운트 아래 시크릿으로 가는 경로입니다.',
+  'workbench.variables.table.smInfo.locator.hashivault.key': '값을 읽을 시크릿 안의 키입니다.',
   'workbench.variables.table.certPlaceholder': '인증서 (PEM)',
   'workbench.variables.table.certKeyPlaceholder': '개인 키 (PEM)',
   'workbench.variables.table.passphrasePlaceholder': '키 암호 구문 (선택 사항)',

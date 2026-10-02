@@ -140,6 +140,61 @@ export const workbenchVariables = {
     'Conexiunile la managerii de secrete se află în aplicația desktop. Deschideți-o pentru a adăuga sau testa una.',
   'workbench.variables.secretManagers.browserNoteConnected':
     'Aceste conexiuni sunt ale aplicației desktop. Testați-le de aici; adăugați-le sau modificați-le în aplicația desktop.',
+  'workbench.variables.table.smInfo.exampleCaption': 'Exemplu de conexiune și referință',
+  'workbench.variables.table.smInfo.referenceTitle': 'Referință',
+  'workbench.variables.table.smInfo.fieldsHeading': 'Câmpuri',
+  'workbench.variables.table.smInfo.reference':
+    'Calea către un secret din manager. Valoarea este preluată prin conexiune doar când rulează o cerere și nu este stocată niciodată aici.',
+  'workbench.variables.table.smInfo.label':
+    'Numele dvs. pentru această conexiune — ceea ce afișează selectorul de conexiune al rândului din seif. Nu ajunge niciodată la manager.',
+  'workbench.variables.table.smInfo.provider.onepassword':
+    'Secretele rămân în 1Password. O intrare din seif numește un vault, un element și un câmp; valoarea este preluată prin aplicația 1Password de pe acest dispozitiv (vă cere aprobarea) sau printr-un token de cont de serviciu, doar când rulează o cerere.',
+  'workbench.variables.table.smInfo.provider.bitwarden':
+    'Secretele rămân în Bitwarden Secrets Manager. O intrare din seif numește un secret după ID; valoarea este preluată cu tokenul de acces al contului de mașină deținut de acest dispozitiv, doar când rulează o cerere.',
+  'workbench.variables.table.smInfo.provider.oskeychain':
+    'Secretele rămân în depozitul de acreditări al acestui computer — Keychain pe macOS, Credential Manager pe Windows sau Secret Service pe Linux. O intrare din seif numește un serviciu și un cont; valoarea este citită doar când rulează o cerere.',
+  'workbench.variables.table.smInfo.provider.awssm':
+    'Secretele rămân în AWS Secrets Manager. O intrare din seif numește un secret și, opțional, o etapă; valoarea este preluată cu acreditările AWS deținute de acest dispozitiv, doar când rulează o cerere.',
+  'workbench.variables.table.smInfo.provider.azurekv':
+    'Secretele rămân în Azure Key Vault. O intrare din seif numește un secret și, opțional, o versiune dintr-un Key Vault; valoarea este preluată cu identitatea Azure deținută de acest dispozitiv, doar când rulează o cerere.',
+  'workbench.variables.table.smInfo.provider.hashivault':
+    'Secretele rămân în HashiCorp Vault. O intrare din seif numește un punct de montare, o cale și o cheie; valoarea este preluată de pe server cu metoda de autentificare aleasă, doar când rulează o cerere.',
+  'workbench.variables.table.smInfo.connection.onepassword.account':
+    'Numele contului exact așa cum îl afișează aplicația 1Password în bara laterală — aplicația potrivește după acest nume.',
+  'workbench.variables.table.smInfo.connection.onepassword.auth':
+    'Cum se autentifică acest dispozitiv: prin aplicația desktop 1Password, care vă cere aprobarea la fiecare sesiune (Touch ID unde este disponibil), sau printr-un token de cont de serviciu citit din OP_SERVICE_ACCOUNT_TOKEN din mediul acestei aplicații, pentru mașinile fără aplicație.',
+  'workbench.variables.table.smInfo.connection.bitwarden.serverUrl':
+    'Lăsați gol pentru bitwarden.com; introduceți adresa unui server găzduit propriu sau din UE.',
+  'workbench.variables.table.smInfo.connection.awssm.profile':
+    'Profilul numit din fișierul de acreditări AWS de pe acest dispozitiv; gol folosește lanțul implicit de acreditări.',
+  'workbench.variables.table.smInfo.connection.awssm.region':
+    'Regiunea în care se află secretele; gol folosește regiunea implicită a profilului sau a mediului.',
+  'workbench.variables.table.smInfo.connection.azurekv.vaultUrl':
+    'Adresa URL proprie a Key Vault (https://<name>.vault.azure.net) — o conexiune per Key Vault.',
+  'workbench.variables.table.smInfo.connection.hashivault.serverUrl':
+    'Adresa serverului HashiCorp Vault, inclusiv portul.',
+  'workbench.variables.table.smInfo.connection.hashivault.namespace':
+    'Spațiul de nume de pe un server Enterprise; gol pentru spațiul rădăcină.',
+  'workbench.variables.table.smInfo.connection.hashivault.authMethod':
+    'Cum se autentifică acest dispozitiv la server: un token, un AppRole sau OIDC prin furnizorul dvs. de identitate.',
+  'workbench.variables.table.smInfo.locator.onepassword.vault':
+    'Acel vault din 1Password care conține elementul, după nume.',
+  'workbench.variables.table.smInfo.locator.onepassword.item': 'Titlul elementului, așa cum îl afișează 1Password.',
+  'workbench.variables.table.smInfo.locator.onepassword.field':
+    'Câmpul din element — password, credential sau eticheta unui câmp personalizat; scrieți secțiune/câmp când câmpul se află într-o secțiune.',
+  'workbench.variables.table.smInfo.locator.bitwarden.secretId':
+    'ID-ul secretului din Bitwarden Secrets Manager — UUID-ul de pe pagina lui.',
+  'workbench.variables.table.smInfo.locator.oskeychain.service':
+    'Serviciul sub care este stocată intrarea — numele elementului în Keychain Access sau ținta din Credential Manager.',
+  'workbench.variables.table.smInfo.locator.oskeychain.account': 'Numele contului de pe acea intrare.',
+  'workbench.variables.table.smInfo.locator.awssm.name': 'Numele secretului sau ARN-ul lui complet.',
+  'workbench.variables.table.smInfo.locator.awssm.stage': 'Eticheta de etapă de citit; gol citește AWSCURRENT.',
+  'workbench.variables.table.smInfo.locator.azurekv.name': 'Numele secretului din Key Vault.',
+  'workbench.variables.table.smInfo.locator.azurekv.version': 'O versiune anume de citit; gol citește cea mai recentă.',
+  'workbench.variables.table.smInfo.locator.hashivault.mount':
+    'Calea punctului de montare al motorului de secrete — secret pentru motorul KV implicit.',
+  'workbench.variables.table.smInfo.locator.hashivault.path': 'Calea către secret sub acel punct de montare.',
+  'workbench.variables.table.smInfo.locator.hashivault.key': 'Cheia din secret a cărei valoare este citită.',
   'workbench.variables.table.certPlaceholder': 'Certificat (PEM)',
   'workbench.variables.table.certKeyPlaceholder': 'Cheie privată (PEM)',
   'workbench.variables.table.passphrasePlaceholder': 'Frază de acces a cheii (opțional)',

@@ -33,10 +33,16 @@ import {
   useSecretManagerConnections,
   useSecretManagerProbe,
 } from '@openheaders/ui/shared/secret-manager';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import type { MessageKey } from '@openheaders/i18n';
 import { App, Button, Input, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useCallback, useState } from 'react';
+import {
+  secretConnectionFieldInfo,
+  secretConnectionLabelInfo,
+  secretProviderInfo,
+} from '../../components/panels/SecretManagerRowInfo';
 import {
   REASON_LABEL,
   SM_FIELD_LABEL,
@@ -95,6 +101,15 @@ const StatusCell: React.FC<{ connection: SecretManagerConnection }> = ({ connect
   return tooltip !== null ? <Tooltip title={tooltip}>{chip}</Tooltip> : chip;
 };
 
+/** `label · (i)` in the form's label column; the (i) opens the row's
+ *  slice of the provider's example (SecretManagerRowInfo). */
+const FormLabel: React.FC<{ label: string; info?: InfoPopoverContent }> = ({ label, info }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <Text style={{ fontSize: 13 }}>{label}</Text>
+    {info !== undefined && <InfoTrigger content={info} />}
+  </div>
+);
+
 const ConnectionForm: React.FC<{
   initial: FormState;
   busy: boolean;
@@ -119,7 +134,10 @@ const ConnectionForm: React.FC<{
       }}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, alignItems: 'center' }}>
-        <Text type="secondary">{t('workbench.variables.secretManagers.form.provider')}</Text>
+        <FormLabel
+          label={t('workbench.variables.secretManagers.form.provider')}
+          info={secretProviderInfo(t, form.provider, form.fields)}
+        />
         <Select
           size="small"
           value={form.provider}
@@ -128,7 +146,10 @@ const ConnectionForm: React.FC<{
           disabled={form.uid !== null}
           data-testid="secret-manager-form-provider"
         />
-        <Text type="secondary">{t('workbench.variables.secretManagers.form.label')}</Text>
+        <FormLabel
+          label={t('workbench.variables.secretManagers.form.label')}
+          info={secretConnectionLabelInfo(t, form.provider, form.fields)}
+        />
         <Input
           size="small"
           value={form.label}
@@ -141,11 +162,14 @@ const ConnectionForm: React.FC<{
           const hint = spec.options !== undefined ? OPTION_HINT[`${form.provider}.${spec.key}.${value}`] : undefined;
           return (
             <Fragment key={spec.key}>
-              <Text type="secondary">
-                {spec.required
-                  ? t(SM_FIELD_LABEL[spec.key])
-                  : t('workbench.variables.table.smFieldOptional', { label: t(SM_FIELD_LABEL[spec.key]) })}
-              </Text>
+              <FormLabel
+                label={
+                  spec.required
+                    ? t(SM_FIELD_LABEL[spec.key])
+                    : t('workbench.variables.table.smFieldOptional', { label: t(SM_FIELD_LABEL[spec.key]) })
+                }
+                info={secretConnectionFieldInfo(t, form.provider, spec.key, form.fields)}
+              />
               {spec.options ? (
                 <Select
                   size="small"
@@ -162,7 +186,6 @@ const ConnectionForm: React.FC<{
                   size="small"
                   value={value}
                   onChange={(e) => setForm({ ...form, fields: { ...form.fields, [spec.key]: e.target.value } })}
-                  style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}
                   data-testid={`secret-manager-form-${spec.key}`}
                 />
               )}
