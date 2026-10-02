@@ -18,9 +18,11 @@ import type {
   SecretProviderProbe,
   SecretResolution,
 } from '@openheaders/core/secret-providers';
-import type { SecretManagerConnection, SecretManagerConnectionConfig } from '@openheaders/core/types';
-import { useEffect, useState } from 'react';
+import type { SecretManagerConnection, SecretManagerConnectionConfig, Vault } from '@openheaders/core/types';
+import { EMPTY_SECRET_MANAGER_FAILURES, type SecretManagerFailures } from '@openheaders/core/variables';
+import { useEffect, useMemo, useState } from 'react';
 import { isNodeRequestRuntime } from '../device-trust';
+import { useEnvVarVault } from '../hooks/readers/useEnvVarVault';
 
 const NONE: SecretManagerConnection[] = [];
 
@@ -52,13 +54,92 @@ export function useSecretManagerConnections(): SecretManagerConnectionsState {
       });
     };
     void load();
-    const unsubscribe = hostBridge.subscribe('secretManagerConnectionsChanged', () => void load());
+    const unsubscribeChanged = hostBridge.subscribe('secretManagerConnectionsChanged', () => void load());
+    // The desktop app's wire opening or closing under a browser host
+    // changes who answers — re-list, so a page open across the change
+    // reads the connections (or their absence) without a reload.
+    const unsubscribeBroker = hostBridge.subscribe('secretManagerBrokerChanged', () => void load());
     return () => {
       alive = false;
-      unsubscribe();
+      unsubscribeChanged();
+      unsubscribeBroker();
     };
   }, []);
   return state;
+}
+
+/**
+ * The failures a renderer's resolver should name for the vault's
+ * secret-manager rows, read off their connections' probes: an entry
+ * whose connection cannot answer on this device — the desktop app
+ * away under a browser host, the manager absent, no credentials, no
+ * connection picked — reads its typed reason instead of deferring.
+ * A declined or locked manager is NOT a failure here: a send is the
+ * attempt, and it prompts again, so the row keeps deferring and the
+ * Send stays enabled. A probe still in flight names nothing yet.
+ */
+export function secretManagerFailuresFromProbes(
+  vault: Vault,
+  probes: ReadonlyMap<string, SecretProviderProbe>,
+): SecretManagerFailures {
+  const failures = new Map<string, SecretManagerFailures extends ReadonlyMap<string, infer R> ? R : never>();
+  for (const secret of vault.secrets) {
+    if (secret.kind !== 'secret-manager') continue;
+    const connectionId = secret.locator.connectionId.trim();
+    if (connectionId === '') {
+      failures.set(secret.name, 'unavailable');
+      continue;
+    }
+    const probe = probes.get(connectionId);
+    if (probe === undefined || probe.available) continue;
+    if (probe.reason === 'broker-unreachable') failures.set(secret.name, 'broker-unreachable');
+    else if (probe.reason !== 'denied' && probe.reason !== 'locked') failures.set(secret.name, 'unavailable');
+  }
+  return failures.size === 0 ? EMPTY_SECRET_MANAGER_FAILURES : failures;
+}
+
+/**
+ * The vault's secret-manager rows' standing as a hook — each distinct
+ * connection probed once (never prompts), re-probed when the
+ * connections or the broker change, folded into the failures a
+ * renderer resolver installs beside an empty registry.
+ */
+export function useSecretManagerStanding(): SecretManagerFailures {
+  const { vault } = useEnvVarVault();
+  const connectionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const secret of vault.secrets) {
+      if (secret.kind !== 'secret-manager') continue;
+      const id = secret.locator.connectionId.trim();
+      if (id !== '') ids.add(id);
+    }
+    return [...ids].sort();
+  }, [vault]);
+  const [probes, setProbes] = useState<ReadonlyMap<string, SecretProviderProbe>>(new Map());
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      if (connectionIds.length === 0) {
+        if (alive) setProbes(new Map());
+        return;
+      }
+      const entries = await Promise.all(
+        connectionIds.map(async (id) => [id, await probeSecretManagerConnection(id)] as const),
+      );
+      if (alive) setProbes(new Map(entries));
+    };
+    void load();
+    // A connection edited, or the desktop app's wire opening or closing
+    // under a browser host — the standing may have changed; ask again.
+    const unsubscribeChanged = hostBridge.subscribe('secretManagerConnectionsChanged', () => void load());
+    const unsubscribeBroker = hostBridge.subscribe('secretManagerBrokerChanged', () => void load());
+    return () => {
+      alive = false;
+      unsubscribeChanged();
+      unsubscribeBroker();
+    };
+  }, [connectionIds]);
+  return useMemo(() => secretManagerFailuresFromProbes(vault, probes), [vault, probes]);
 }
 
 export type SecretManagerWriteResult = { ok: true; connection: SecretManagerConnection } | { ok: false; error: string };

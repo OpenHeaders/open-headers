@@ -154,6 +154,22 @@ export interface InContextVariablesInput {
   activeCollectionId: string | null;
   resolver: VariableResolver;
   liveVariables: LiveVariable[];
+  /** The vault — a deferred TOTP or secret-manager reference reads as
+   *  the All view's row (the live preview, the reference), not a blank. */
+  vault: Vault;
+}
+
+const NO_VAULT_NAME_PREFIX = 'vault.';
+
+function deferredVaultRow(vault: Vault, name: string): Partial<DisplayVariable> | null {
+  const bare = name.startsWith(NO_VAULT_NAME_PREFIX) ? name.slice(NO_VAULT_NAME_PREFIX.length) : name;
+  const secret = vault.secrets.find((s) => s.name === bare);
+  if (secret === undefined) return null;
+  if (secret.kind === 'totp') {
+    return { totp: { seed: secret.seed, algorithm: secret.algorithm, digits: secret.digits, period: secret.period } };
+  }
+  if (secret.kind === 'secret-manager') return { value: formatSecretLocator(secret.locator), isSensitive: false };
+  return null;
 }
 
 export interface InContextVariablesResult {
@@ -162,7 +178,7 @@ export interface InContextVariablesResult {
 }
 
 export function buildInContextVariables(input: InContextVariablesInput): InContextVariablesResult {
-  const { contextEntity, activeCollectionId, resolver, liveVariables } = input;
+  const { contextEntity, activeCollectionId, resolver, liveVariables, vault } = input;
   if (!contextEntity) return { inContextVars: [], inContextErrors: [] };
 
   const templateStrings: string[] = [];
@@ -178,6 +194,9 @@ export function buildInContextVariables(input: InContextVariablesInput): InConte
       if (seenVars.has(v.name)) continue;
       if (v.resolved) {
         const scope = (v.scope ?? 'workspace') as DisplayScope;
+        // A vault row resolved without a value is a deferred one — the
+        // code or the secret lands at compile or send time.
+        const deferred = scope === 'vault' && (v.value ?? '') === '' ? deferredVaultRow(vault, v.name) : null;
         seenVars.set(v.name, {
           name: v.name,
           value: v.value ?? '',
@@ -185,6 +204,7 @@ export function buildInContextVariables(input: InContextVariablesInput): InConte
           isSensitive: v.isSensitive ?? false,
           resolved: true,
           ...(scope === 'live' ? { liveVariableUid: liveVariables.find((lv) => lv.name === v.name)?.uid } : {}),
+          ...(deferred ?? {}),
         });
       } else {
         seenVars.set(v.name, {

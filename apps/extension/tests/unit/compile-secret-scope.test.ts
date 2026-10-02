@@ -143,8 +143,10 @@ describe('installCompileSecretManagerLifecycle', () => {
     let onOpen: ((wire: { backendId: string }) => void) | null = null;
     let onClose: ((wire: { backendId: string }) => void) | null = null;
     const rebuild = vi.fn();
+    const onBrokerChange = vi.fn();
     const dispose = installCompileSecretManagerLifecycle({
       rebuild,
+      onBrokerChange,
       subscribeOpen: ((cb: (wire: { backendId: string }) => void) => {
         onOpen = cb;
         return () => undefined;
@@ -164,12 +166,14 @@ describe('installCompileSecretManagerLifecycle', () => {
 
     close({ backendId: 'b-server' });
     expect(rebuild).not.toHaveBeenCalled();
+    expect(onBrokerChange).not.toHaveBeenCalled();
     expect(getCompileSecretManagerSnapshot().registry.get('ApiToken')).toBe('v1');
 
     // The strip: the retained value goes; the rebuild's ask reads the
-    // broker's own away answer.
+    // broker's own away answer; the pages hear who answers now.
     close({ backendId: 'b-desktop' });
     expect(rebuild).toHaveBeenCalledTimes(1);
+    expect(onBrokerChange).toHaveBeenLastCalledWith('unreachable');
     expect(getCompileSecretManagerSnapshot().registry.size).toBe(0);
     mockResolveBatch.mockResolvedValueOnce(new Map([['ApiToken', { ok: false, reason: 'broker-unreachable' }]]));
     await prepareCompileSecretManagerScope(rules, { retryFailed: true });
@@ -178,6 +182,7 @@ describe('installCompileSecretManagerLifecycle', () => {
     // The re-ask on open.
     open({ backendId: 'b-desktop' });
     expect(rebuild).toHaveBeenCalledTimes(2);
+    expect(onBrokerChange).toHaveBeenLastCalledWith('desktop-app');
     mockResolveBatch.mockResolvedValueOnce(new Map([['ApiToken', ok('v3')]]));
     await prepareCompileSecretManagerScope(rules, { retryFailed: false });
     expect(getCompileSecretManagerSnapshot().registry.get('ApiToken')).toBe('v3');

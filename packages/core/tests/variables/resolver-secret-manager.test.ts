@@ -11,7 +11,13 @@ function smEntry(name: string): VaultSecret {
     uid: 'sec-sm01',
     kind: 'secret-manager',
     name,
-    locator: { provider: 'onepassword', connectionId: 'conn0001', vault: 'Engineering', item: 'api.openheaders.io', field: 'token' },
+    locator: {
+      provider: 'onepassword',
+      connectionId: 'conn0001',
+      vault: 'Engineering',
+      item: 'api.openheaders.io',
+      field: 'token',
+    },
   };
 }
 
@@ -51,6 +57,20 @@ describe('VariableResolver — secret-manager vault kind', () => {
     const out = r.resolve('ApiToken');
     expect(out?.deferred).toBe(true);
     expect(out?.value).toBe('');
+  });
+
+  it('a known failure beats deferral — a renderer that learned the standing names it instead of deferring', () => {
+    const r = new VariableResolver();
+    r.setVault(vaultWith([smEntry('ApiToken')]));
+    r.setDeferredVaultMode('defer');
+    r.setSecretManagerRegistry(new Map(), new Map([['ApiToken', 'broker-unreachable']]));
+    expect(r.resolve('ApiToken')).toBeNull();
+    const tpl = r.resolveTemplate('Bearer {{vault.ApiToken}}');
+    expect(tpl.errors).toHaveLength(1);
+    expect(tpl.errors[0]?.reason).toBe('secret-broker-unreachable');
+    // A row without a recorded failure still defers.
+    r.setSecretManagerRegistry(new Map(), new Map());
+    expect(r.resolve('ApiToken')?.deferred).toBe(true);
   });
 
   it('explicit `{{vault.X}}` resolves through the registry', () => {

@@ -218,7 +218,10 @@ export class VariableResolver {
    * per-execution {@link secretManagerRegistry}; on miss the
    * {@link deferredVaultMode} contract applies unchanged (reject →
    * unresolved, keeping compile paths safe; defer → renderer
-   * existence checks).
+   * existence checks) — except that a KNOWN failure for the entry
+   * beats deferral: deferral stands for "resolved later, elsewhere",
+   * and an entry whose standing says it cannot be (the desktop app
+   * away, the manager absent) is not resolved later; it is named.
    */
   private projectVaultValue(secret: VaultSecret, name: string): ResolvedVariable | null {
     if (secret.kind === 'string') {
@@ -230,6 +233,7 @@ export class VariableResolver {
     if (value !== undefined) {
       return { name, value, scope: 'vault', isSensitive: true };
     }
+    if (secret.kind === 'secret-manager' && this.secretManagerFailures.has(secret.name)) return null;
     if (this.deferredVaultMode === 'defer') {
       return { name, value: '', scope: 'vault', isSensitive: true, deferred: true };
     }

@@ -30,7 +30,8 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWo
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { isLiveVariableDraft, isLiveVariableEffective } from '@openheaders/core/live';
 import type { ResolutionError } from '@openheaders/core/variables';
-import { VariableResolver } from '@openheaders/core/variables';
+import { EMPTY_SECRET_MANAGER_REGISTRY, VariableResolver } from '@openheaders/core/variables';
+import { useSecretManagerStanding } from '@openheaders/ui/shared/secret-manager';
 import { Alert, Form, Space, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -76,6 +77,7 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
   const { workflows: liveWorkflows } = useLiveWorkflows();
   const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
   const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
+  const secretManagerFailures = useSecretManagerStanding();
 
   const liveRegistry = useMemo(() => {
     const nowMs = Date.now();
@@ -162,6 +164,12 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
     r.setWorkspaceVariables(workspaceVariables);
     for (const c of localCollections) r.setCollectionVariables(c.uid, c.variables ?? []);
     r.setLiveRegistry(liveRegistry);
+    // A TOTP or secret-manager row that exists resolves at compile
+    // time — never a draft error — unless the page learned a standing
+    // that says it cannot (the desktop app away, the manager absent):
+    // then the banner names the typed reason, the compile's own.
+    r.setDeferredVaultMode('defer');
+    r.setSecretManagerRegistry(EMPTY_SECRET_MANAGER_REGISTRY, secretManagerFailures);
     return r;
   }, [
     vault,
@@ -171,6 +179,7 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
     workspaceVariables,
     localCollections,
     liveRegistry,
+    secretManagerFailures,
   ]);
 
   const errors = useMemo<ResolutionError[]>(() => {

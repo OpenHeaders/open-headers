@@ -8,6 +8,7 @@ import type { FileRef } from '../../files';
 import type { PostmanPullEvent } from '../../import/api-pull/types';
 import type { LicenseSnapshot } from '../../licensing';
 import type { OAuth2DeviceState } from '../../oauth';
+import type { SecretBrokerKind } from '../../secret-providers/types';
 import type { ActivityEntry, MutationEnvelope, MutatorOutcome } from '../../sync';
 import type {
   BackendSyncStatusSnapshot,
@@ -99,6 +100,13 @@ export interface BridgeBroadcastContract {
    * `oh.secretManager.list`.
    */
   secretManagerConnectionsChanged: { count: number };
+  /**
+   * Who answers this surface's secret-manager calls changed — the
+   * desktop app's wire opened or closed under a browser host. The
+   * connections list and every standing chip refetch; the compile's
+   * strip and re-ask ride the same event service-worker side.
+   */
+  secretManagerBrokerChanged: { broker: SecretBrokerKind };
   /**
    * Fires on any workspace list mutation (create/rename/delete/reorder)
    * AND on active-workspace switch. UI surfaces re-read rules, templates,

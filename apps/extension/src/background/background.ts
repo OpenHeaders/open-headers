@@ -50,6 +50,7 @@ import {
   subscribeOnWebSocketOpen,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
+import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
@@ -325,7 +326,10 @@ async function initializeExtension(): Promise<void> {
   });
   // The rules' secret-manager values ride the desktop app's wire: its
   // close strips them from the session layer, its open asks again.
-  installCompileSecretManagerLifecycle({ rebuild: () => scheduleUpdate('secret-managers', { immediate: true }) });
+  installCompileSecretManagerLifecycle({
+    rebuild: () => scheduleUpdate('secret-managers', { immediate: true }),
+    onBrokerChange: (broker) => broadcast('secretManagerBrokerChanged', { broker }),
+  });
   __setSyncWarmRunner(refreshLiveWorkflowSynchronously);
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);

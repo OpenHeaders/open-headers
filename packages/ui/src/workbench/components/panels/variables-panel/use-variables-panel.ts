@@ -20,6 +20,7 @@ import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVa
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
+import { useSecretManagerStanding } from '@openheaders/ui/shared/secret-manager';
 import { type CollectionFamilies, findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
 import { useEnvSwitcher } from '../../../services/env-switcher';
@@ -135,6 +136,7 @@ export function useVariablesPanel(
     () => buildLiveRegistry({ liveVariables, liveCaches, activeEnvironmentId }),
     [liveVariables, liveCaches, activeEnvironmentId],
   );
+  const secretManagerFailures = useSecretManagerStanding();
 
   const resolver = useMemo(
     () =>
@@ -146,8 +148,18 @@ export function useVariablesPanel(
         workspaceVariables,
         families,
         liveRegistry,
+        secretManagerFailures,
       }),
-    [vault, environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, families, liveRegistry],
+    [
+      vault,
+      environments,
+      activeEnvironmentId,
+      defaultEnvironmentId,
+      workspaceVariables,
+      families,
+      liveRegistry,
+      secretManagerFailures,
+    ],
   );
 
   const activeEnvironmentName = activeEnvironmentId
@@ -225,8 +237,8 @@ export function useVariablesPanel(
   }, [activeEnvironmentId, environments.length, onCreateEnvironment, openScopeEditor, requestEnvSelectorOpen, t]);
 
   const { inContextVars, inContextErrors } = useMemo(
-    () => buildInContextVariables({ contextEntity, activeCollectionId, resolver, liveVariables }),
-    [contextEntity, activeCollectionId, resolver, liveVariables],
+    () => buildInContextVariables({ contextEntity, activeCollectionId, resolver, liveVariables, vault }),
+    [contextEntity, activeCollectionId, resolver, liveVariables, vault],
   );
 
   const allVars = useMemo(

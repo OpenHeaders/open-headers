@@ -143,6 +143,9 @@ export function resetCompileSecretManagerScope(): void {
 export interface CompileSecretManagerLifecycleDeps {
   /** Run a forced rebuild — the compile that strips or re-asks. */
   rebuild: () => void;
+  /** Tell the pages who answers now — the desktop app over loopback,
+   *  or nobody while it is away — so their lists and chips refetch. */
+  onBrokerChange?: (broker: 'desktop-app' | 'unreachable') => void;
   subscribeOpen?: typeof subscribeOnWebSocketOpen;
   subscribeClose?: typeof subscribeOnWebSocketClose;
 }
@@ -155,13 +158,16 @@ export interface CompileSecretManagerLifecycleDeps {
  * and changes nothing.
  */
 export function installCompileSecretManagerLifecycle(deps: CompileSecretManagerLifecycleDeps): () => void {
-  const onDesktopWire = (wire: BackendWireHandle): void => {
-    if (!isDesktopAppWire(wire)) return;
-    resetCompileSecretManagerScope();
-    deps.rebuild();
-  };
-  const unsubscribeOpen = (deps.subscribeOpen ?? subscribeOnWebSocketOpen)(onDesktopWire);
-  const unsubscribeClose = (deps.subscribeClose ?? subscribeOnWebSocketClose)(onDesktopWire);
+  const onDesktopWire =
+    (broker: 'desktop-app' | 'unreachable') =>
+    (wire: BackendWireHandle): void => {
+      if (!isDesktopAppWire(wire)) return;
+      resetCompileSecretManagerScope();
+      deps.rebuild();
+      deps.onBrokerChange?.(broker);
+    };
+  const unsubscribeOpen = (deps.subscribeOpen ?? subscribeOnWebSocketOpen)(onDesktopWire('desktop-app'));
+  const unsubscribeClose = (deps.subscribeClose ?? subscribeOnWebSocketClose)(onDesktopWire('unreachable'));
   return () => {
     unsubscribeOpen();
     unsubscribeClose();
