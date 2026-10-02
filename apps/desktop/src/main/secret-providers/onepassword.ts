@@ -89,6 +89,18 @@ function classifyClientFailure(message: string): SecretProviderUnavailableReason
   return 'unreachable';
 }
 
+/**
+ * The SDK's answer on a client handle whose session the vendor rebuilt
+ * underneath it — seen live after a 1Password lock: the list call
+ * re-prompted through the SDK's own re-initialization, the user
+ * approved, and the held handle answered "invalid client id". The
+ * handle is stale, the approval window is open: re-create the client
+ * (silently, inside the window) rather than read a refusal.
+ */
+function isStaleClientMessage(message: string): boolean {
+  return /invalid client id/i.test(message);
+}
+
 /** The vendor's resolve failures that mean "no such secret at this reference" —
  *  the live text reads "no vault matched the secret reference query". */
 function isNotFoundMessage(message: string): boolean {
@@ -224,7 +236,11 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
       } catch (err) {
         dropClient(connection.uid);
         const sdk = await loadSdk();
-        if (err instanceof sdk.DesktopSessionExpiredError || err instanceof sdk.AuthExpiredError) {
+        if (
+          err instanceof sdk.DesktopSessionExpiredError ||
+          err instanceof sdk.AuthExpiredError ||
+          isStaleClientMessage(errorMessage(err))
+        ) {
           try {
             await clientFor(connection, config);
             return { ok: true };
@@ -256,11 +272,7 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
           : { ok: false, reason: 'unavailable', detail: errorMessage(err) };
       }
       const sdk = await loadSdk();
-      try {
-        const value = await client.secrets.resolve(formatSecretLocator(locator));
-        verified.set(connection.uid, now());
-        return { ok: true, value };
-      } catch (err) {
+      const failed = (err: unknown): SecretResolution => {
         const detail = errorMessage(err);
         if (err instanceof sdk.DesktopSessionExpiredError || err instanceof sdk.AuthExpiredError) {
           // The vendor's session ended — the next use creates a fresh
@@ -271,6 +283,33 @@ export function createOnePasswordProvider(options: OnePasswordProviderOptions): 
         if (err instanceof sdk.RateLimitExceededError) return { ok: false, reason: 'unavailable', detail };
         if (isNotFoundMessage(detail)) return { ok: false, reason: 'not-found', detail };
         return { ok: false, reason: 'unavailable', detail };
+      };
+      const reference = formatSecretLocator(locator);
+      try {
+        const value = await client.secrets.resolve(reference);
+        verified.set(connection.uid, now());
+        return { ok: true, value };
+      } catch (err) {
+        if (!isStaleClientMessage(errorMessage(err))) return failed(err);
+      }
+      // A stale handle after a lock: the vendor already re-approved
+      // through the SDK, so one fresh client and one retry answer the
+      // same send — never a second send for the person.
+      dropClient(connection.uid);
+      try {
+        client = await clientFor(connection, config);
+      } catch (err) {
+        const standing = failures.get(connection.uid);
+        return standing?.reason === 'locked' || standing?.reason === 'denied'
+          ? { ok: false, reason: 'authorization-required', detail: standing.detail }
+          : { ok: false, reason: 'unavailable', detail: errorMessage(err) };
+      }
+      try {
+        const value = await client.secrets.resolve(reference);
+        verified.set(connection.uid, now());
+        return { ok: true, value };
+      } catch (err) {
+        return failed(err);
       }
     },
   };

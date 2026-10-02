@@ -239,6 +239,48 @@ describe('desktop onepassword provider', () => {
     expect(createClient).toHaveBeenCalledTimes(2);
   });
 
+  it('a stale handle after a lock re-creates the client on Test instead of reading a refusal', async () => {
+    let stale = false;
+    const { loadSdk, createClient } = fakeSdk(
+      async () => 'v',
+      undefined,
+      async () => {
+        if (stale) {
+          stale = false;
+          throw new Error('invalid client id');
+        }
+        return [];
+      },
+    );
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    stale = true;
+    expect(await provider.authorize?.(connection())).toEqual({ ok: true });
+    expect(createClient).toHaveBeenCalledTimes(2);
+    expect(await provider.probe(connection())).toMatchObject({ available: true });
+  });
+
+  it('a stale handle after a lock re-creates the client and retries the same send once', async () => {
+    let stale = false;
+    const resolve = vi.fn(async (reference: string) => {
+      if (stale) {
+        stale = false;
+        throw new Error('invalid client id');
+      }
+      return `value-of:${reference}`;
+    });
+    const { loadSdk, createClient } = fakeSdk(resolve);
+    const provider = createOnePasswordProvider({ integrationVersion: '2026.10.1', loadSdk, env: {} });
+    expect(await provider.resolve(connection(), LOCATOR)).toMatchObject({ ok: true });
+    stale = true;
+    expect(await provider.resolve(connection(), LOCATOR)).toEqual({
+      ok: true,
+      value: 'value-of:op://Engineering/api.openheaders.io/token',
+    });
+    expect(createClient).toHaveBeenCalledTimes(2);
+    expect(resolve).toHaveBeenCalledTimes(3);
+  });
+
   it('a probe carries the last successful contact while the client is held, and nothing once the session ends', async () => {
     let clock = 1_000;
     let expire = false;
