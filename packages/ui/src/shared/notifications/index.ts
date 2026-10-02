@@ -25,6 +25,7 @@ export {
   useSuggestions,
   useUnseenNotificationCount,
 } from './store';
+export { errorToastDuration } from './toast-duration';
 export { useAppUpdateNotification } from './use-app-update-notification';
 export { __resetDesktopAppSuggestionForTests, useDesktopAppSuggestion } from './use-desktop-app-suggestion';
 export { useSecretsStorageNotice } from './use-secrets-storage-notice';

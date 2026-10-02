@@ -24,6 +24,7 @@ import {
 import type { SecretManagerConnection, SecretProviderId } from '@openheaders/core/types';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
+import { errorToastDuration } from '@openheaders/ui/shared/notifications';
 import { isNodeRequestRuntime } from '@openheaders/ui/shared/device-trust';
 import {
   addSecretManagerConnection,
@@ -236,6 +237,14 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const nodeHost = isNodeRequestRuntime();
+  // An error stays long enough to be read and leaves on a click.
+  const showError = useCallback(
+    (content: string) => {
+      const key = `secret-manager-error-${Date.now()}`;
+      message.error({ key, content, duration: errorToastDuration(content), onClick: () => message.destroy(key) });
+    },
+    [message],
+  );
   const { connections, broker } = useSecretManagerConnections();
   const [editing, setEditing] = useState<FormState | null>(null);
   const [busy, setBusy] = useState(false);
@@ -253,23 +262,23 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
           : await updateSecretManagerConnection({ uid: form.uid, label: form.label, config });
       setBusy(false);
       if (!result.ok) {
-        message.error(t('workbench.variables.secretManagers.saveFailedDetail', { message: result.error }));
+        showError(t('workbench.variables.secretManagers.saveFailedDetail', { message: result.error }));
         return;
       }
       setEditing(null);
       setRevision((n) => n + 1);
     },
-    [message, t],
+    [showError, t],
   );
 
   const handleRemove = useCallback(
     async (uid: string) => {
       const result = await removeSecretManagerConnection(uid);
       if (!result.ok && result.error !== undefined) {
-        message.error(t('workbench.variables.secretManagers.saveFailedDetail', { message: result.error }));
+        showError(t('workbench.variables.secretManagers.saveFailedDetail', { message: result.error }));
       }
     },
-    [message, t],
+    [showError, t],
   );
 
   const handleTest = useCallback(
@@ -283,10 +292,10 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
       } else {
         const guidance = secretStatusGuidance(connection.config.provider, result.reason);
         const failed = t('workbench.variables.secretManagers.test.failed', { detail: result.detail ?? '' });
-        message.error(guidance === null ? failed : `${failed} ${t(guidance)}`);
+        showError(guidance === null ? failed : `${failed} ${t(guidance)}`);
       }
     },
-    [message, t],
+    [message, showError, t],
   );
 
   const headerCell = (label: string) => (
