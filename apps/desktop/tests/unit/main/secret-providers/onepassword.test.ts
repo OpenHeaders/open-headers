@@ -332,6 +332,31 @@ describe('desktop onepassword provider', () => {
       [new RateLimitExceededError('slow down'), 'unavailable'],
       [new Error('error resolving secret reference: vault not found'), 'not-found'],
       [new Error('error resolving secret reference: no vault matched the secret reference query'), 'not-found'],
+      // The core's own reference vocabulary, read out of its binary.
+      [new Error('error resolving secret reference: no item matched the secret reference query'), 'not-found'],
+      [new Error('error resolving secret reference: no section matched the secret reference'), 'not-found'],
+      [new Error('error resolving secret reference: the specified field cannot be found within the item'), 'not-found'],
+      [
+        new Error('error resolving secret reference: more than one item matched the secret reference query'),
+        'not-found',
+      ],
+      [new Error('error resolving secret reference: item is not in an active state'), 'not-found'],
+      [
+        new Error(
+          'the secret reference could not be parsed: secret reference has invalid format - must be "op://<vault>/<item>/[section/]field[?attribute=<attribute-value>]"',
+        ),
+        'not-found',
+      ],
+      [
+        new Error('the secret reference could not be parsed: secret reference is not prefixed with "op://"'),
+        'not-found',
+      ],
+      [
+        new Error(
+          'invalid character in secret reference: secret references must only contain alphanumeric, _, . or - characters',
+        ),
+        'not-found',
+      ],
       [new Error('invalid secret reference format'), 'not-found'],
       [new Error('network down'), 'unavailable'],
     ];

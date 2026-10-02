@@ -101,10 +101,18 @@ function isStaleClientMessage(message: string): boolean {
   return /invalid client id/i.test(message);
 }
 
-/** The vendor's resolve failures that mean "no such secret at this reference" —
- *  the live text reads "no vault matched the secret reference query". */
+/**
+ * The vendor's resolve failures that mean "fix the reference" — the
+ * core's own vocabulary, read out of its binary: a vault, item, section
+ * or field the query matched none of ("no vault matched the secret
+ * reference query", "the specified field cannot be found within the
+ * item") or more than one of, an archived item, and a reference that
+ * does not parse ("the secret reference could not be parsed", the
+ * format and character rules). Every one is the Vault row's to fix,
+ * never the connection's standing state.
+ */
 function isNotFoundMessage(message: string): boolean {
-  return /not found|no .*found|no .*matched|does not exist|invalid secret reference|parsing|unknown field|unknown item|unknown vault/i.test(
+  return /cannot be found|could not be parsed|not found|no [a-z ]*matched|more than one [a-z ]*matched|not in an active state|does not exist|secret reference (is not prefixed|has invalid)|invalid character in secret reference|invalid secret reference|parsing|unknown (field|item|vault)/i.test(
     message,
   );
 }
