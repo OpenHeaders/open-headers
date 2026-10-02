@@ -29,6 +29,7 @@ vi.mock('@openheaders/core/backends', () => ({
     const wire = wires.find((w) => w.backendId === id);
     return wire ? { id, url: wire.url } : null;
   },
+  getBackends: () => wires.map((w) => ({ id: w.backendId, url: w.url })),
 }));
 
 import { secretManagerHandlers } from '@/background/modules/message-handler/handlers/secret-managers';
@@ -73,27 +74,39 @@ function invoke(type: string, message: Record<string, unknown> = {}): Promise<un
 type LifecycleEvent = { kind: 'created' | 'removed'; backendId: string; handles: unknown };
 const lifecycleSubscribers = new Set<(event: LifecycleEvent) => void>();
 const initiators = new Map<string, (state: InitiatorState) => void>();
+/** Each fake wire's current handshake state — what a late watch seeds from. */
+const states = new Map<string, InitiatorState>();
+const existing = new Map<string, unknown>();
 const syncWiring = {
   subscribeHandshakeLifecycle: (cb: (event: LifecycleEvent) => void) => {
     lifecycleSubscribers.add(cb);
     return () => lifecycleSubscribers.delete(cb);
   },
+  get: (backendId: string) => existing.get(backendId) ?? null,
 };
 let disposeWatch: (() => void) | null = null;
 
-function emit(kind: 'created' | 'removed', backendId: string): void {
-  const handles = {
+function handlesFor(backendId: string): unknown {
+  return {
     initiator: {
+      state: () => states.get(backendId) ?? 'idle',
       subscribe: (fn: (state: InitiatorState) => void) => {
         initiators.set(backendId, fn);
         return () => initiators.delete(backendId);
       },
     },
   };
+}
+
+function emit(kind: 'created' | 'removed', backendId: string): void {
+  const handles = handlesFor(backendId);
+  if (kind === 'created') existing.set(backendId, handles);
+  else existing.delete(backendId);
   for (const cb of [...lifecycleSubscribers]) cb({ kind, backendId, handles });
 }
 
 function setState(backendId: string, state: InitiatorState): void {
+  states.set(backendId, state);
   initiators.get(backendId)?.(state);
 }
 
@@ -110,6 +123,8 @@ beforeEach(() => {
   __resetDesktopWireReadinessForTests();
   lifecycleSubscribers.clear();
   initiators.clear();
+  states.clear();
+  existing.clear();
   disposeWatch = installDesktopWireWatch(syncWiring as never);
 });
 
@@ -144,6 +159,27 @@ describe('the desktop app wire', () => {
     // A refused HELLO never readies it.
     setState('b-desktop', 'hello-sent');
     setState('b-desktop', 'rejected');
+    expect(desktopAppBackendId()).toBeNull();
+    expect(seen).toEqual([true, false]);
+  });
+
+  it('a wire created before the watch installed is seeded from its current handshake state', () => {
+    disposeWatch?.();
+    __resetDesktopWireReadinessForTests();
+    lifecycleSubscribers.clear();
+    // The registry made the wires and its HELLO was accepted while no watch existed.
+    wires.push(SERVER, DESKTOP);
+    existing.set('b-server', handlesFor('b-server'));
+    existing.set('b-desktop', handlesFor('b-desktop'));
+    states.set('b-desktop', 'synced');
+    expect(desktopAppBackendId()).toBeNull();
+    const seen: boolean[] = [];
+    subscribeDesktopWireReady((ready) => seen.push(ready));
+    disposeWatch = installDesktopWireWatch(syncWiring as never);
+    expect(desktopAppBackendId()).toBe('b-desktop');
+    expect(seen).toEqual([true]);
+    // And it keeps following that wire from here.
+    setState('b-desktop', 'idle');
     expect(desktopAppBackendId()).toBeNull();
     expect(seen).toEqual([true, false]);
   });

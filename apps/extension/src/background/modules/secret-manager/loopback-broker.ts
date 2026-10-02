@@ -19,13 +19,14 @@
  * strip / re-ask and the pages' refetch key on.
  */
 
-import { getBackend } from '@openheaders/core/backends';
+import { getBackend, getBackends } from '@openheaders/core/backends';
 import type { BridgeRpcRequest, BridgeRpcResponse } from '@openheaders/core/bridge';
 import { providingBackendKind } from '@openheaders/core/identity';
 import type { SecretBrokerEntry, SecretManagerBroker, SecretResolution } from '@openheaders/core/secret-providers';
 import { setSecretManagerBroker } from '@openheaders/oracle/live/request-exec/secret-manager-broker';
 import { type BackendWireHandle, listConnectedWires } from '@openheaders/oracle/sync/client/backend-connection-manager';
 import type { SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
+import type { SyncHandshakeHandles } from '@openheaders/oracle/sync/client/backend-wire-handshake';
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { wsRequest } from '../../ws-request';
 
@@ -76,20 +77,36 @@ export function subscribeDesktopWireReady(cb: (ready: boolean) => void): () => v
 
 /**
  * Boot-time: watch every desktop wire's handshake through the sync
- * wiring (one initiator per backend wire) and keep the ready set.
+ * wiring (one initiator per backend wire) and keep the ready set. The
+ * wires the registry created BEFORE this installed (the boot order —
+ * the sync plane and the backend records come first) are seeded from
+ * their initiator's current state; later wires arrive through the
+ * lifecycle.
  */
-export function installDesktopWireWatch(syncWiring: Pick<SyncWiring, 'subscribeHandshakeLifecycle'>): () => void {
+export function installDesktopWireWatch(
+  syncWiring: Pick<SyncWiring, 'subscribeHandshakeLifecycle' | 'get'>,
+): () => void {
   const unsubscribers = new Map<string, () => void>();
+  const apply = (backendId: string, state: InitiatorState): void => {
+    if (entersReady(state)) setReady(backendId, true);
+    else if (leavesReady(state)) setReady(backendId, false);
+  };
+  const watch = (backendId: string, handles: SyncHandshakeHandles): void => {
+    if (!isDesktopAppBackend(backendId)) return;
+    unsubscribers.get(backendId)?.();
+    unsubscribers.set(
+      backendId,
+      handles.initiator.subscribe((state) => apply(backendId, state)),
+    );
+    apply(backendId, handles.initiator.state());
+  };
+  for (const record of getBackends()) {
+    const handles = syncWiring.get(record.id);
+    if (handles) watch(record.id, handles);
+  }
   const unsubscribeLifecycle = syncWiring.subscribeHandshakeLifecycle((event) => {
     if (event.kind === 'created') {
-      if (!isDesktopAppBackend(event.backendId)) return;
-      unsubscribers.set(
-        event.backendId,
-        event.handles.initiator.subscribe((state) => {
-          if (entersReady(state)) setReady(event.backendId, true);
-          else if (leavesReady(state)) setReady(event.backendId, false);
-        }),
-      );
+      watch(event.backendId, event.handles);
       return;
     }
     unsubscribers.get(event.backendId)?.();
