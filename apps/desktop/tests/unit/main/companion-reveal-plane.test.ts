@@ -44,6 +44,7 @@ describe('companion-reveal peer plane', () => {
       'liveNetwork',
       'mcp',
       'peerExecuteSetting',
+      'secretManagers',
     ];
     for (const target of targets) {
       await plane.dispatch({ type: 'companionReveal', target }, LOOPBACK_PEER);

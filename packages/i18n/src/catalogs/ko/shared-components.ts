@@ -525,6 +525,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.title': '라이브 네트워크',
   'shared.desktopTeaser.liveNetwork.body':
     '확장 프로그램에서 스트리밍되는 브라우저 탭의 트래픽을 데스크톱 앱에서 실시간으로 확인합니다. DevTools 창은 필요 없습니다.',
+  'shared.desktopTeaser.secretManagers.title': '시크릿 매니저',
+  'shared.desktopTeaser.secretManagers.body':
+    '자격 증명을 시크릿 매니저에 보관하고 Vault에서 참조하세요. 데스크톱 앱이 연결을 보유하며 이 컴퓨터의 이 브라우저를 위해 값을 확인합니다.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '활성',

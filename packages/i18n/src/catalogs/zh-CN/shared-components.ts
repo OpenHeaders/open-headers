@@ -543,6 +543,9 @@ export const sharedComponents = {
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '已启用',
+  'shared.desktopTeaser.secretManagers.title': '密钥管理器',
+  'shared.desktopTeaser.secretManagers.body':
+    '将凭据保存在密钥管理器中，并从 Vault 引用它们。桌面应用保存连接，并为这台电脑上的此浏览器解析它们。',
   'shared.settingsRows.disabled': '已禁用',
   'shared.settingsRows.reset': '将{label}重置为默认值',
 } as const satisfies Catalog;

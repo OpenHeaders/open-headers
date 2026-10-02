@@ -550,6 +550,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.body':
     'Suivez en direct le trafic d’un onglet du navigateur dans l’application de bureau, diffusé par l’extension — ' +
     'sans DevTools.',
+  'shared.desktopTeaser.secretManagers.title': 'Gestionnaires de secrets',
+  'shared.desktopTeaser.secretManagers.body':
+    'Conservez vos identifiants dans votre gestionnaire de secrets et référencez-les depuis le Vault. L’application de bureau détient les connexions et les résout pour ce navigateur sur cet ordinateur.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Activé',

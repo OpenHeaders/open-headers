@@ -586,6 +586,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.title': 'Rețea Live',
   'shared.desktopTeaser.liveNetwork.body':
     'Urmăriți în timp real traficul unei file de browser în aplicația desktop, transmis din extensie — fără DevTools.',
+  'shared.desktopTeaser.secretManagers.title': 'Manageri de secrete',
+  'shared.desktopTeaser.secretManagers.body':
+    'Păstrați credențialele în managerul de secrete și referențiați-le din Vault. Aplicația desktop deține conexiunile și le rezolvă pentru acest browser pe acest computer.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Activat',

@@ -582,6 +582,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.body':
     'Наблюдайте за трафиком вкладки браузера в реальном времени в настольном приложении — поток идёт из ' +
     'расширения, DevTools не нужны.',
+  'shared.desktopTeaser.secretManagers.title': 'Менеджеры секретов',
+  'shared.desktopTeaser.secretManagers.body':
+    'Храните учётные данные в менеджере секретов и ссылайтесь на них из Vault. Настольное приложение хранит подключения и разрешает их для этого браузера на этом компьютере.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Включено',

@@ -889,6 +889,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           openSettings({ settingKey: 'backend.allowLocalPeerExecute' });
           return;
         }
+        // The secret-manager teaser's hand-off: the connections live on
+        // the desktop app — land on its Settings page.
+        if (target === 'secretManagers') {
+          openSettings({ settingKey: 'secretManagers.connections' });
+          return;
+        }
         const windowId = REVEAL_WINDOW_BY_TARGET[target];
         if (!windowId) return;
         if (tl.state.hidden.includes(windowId)) tl.restoreWindow(windowId);

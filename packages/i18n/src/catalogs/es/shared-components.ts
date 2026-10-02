@@ -554,6 +554,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.body':
     'Observa en vivo el tráfico de una pestaña del navegador en la aplicación de escritorio, transmitido desde la ' +
     'extensión, sin DevTools.',
+  'shared.desktopTeaser.secretManagers.title': 'Gestores de secretos',
+  'shared.desktopTeaser.secretManagers.body':
+    'Guarda tus credenciales en tu gestor de secretos y haz referencia a ellas desde el Vault. La aplicación de escritorio mantiene las conexiones y las resuelve para este navegador en este equipo.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Activado',

@@ -573,6 +573,20 @@ export function SortableRow({
                       {t('workbench.variables.table.smConnectionManage')}
                     </Button>
                   )}
+                  {openSettings !== null && !nodeHost && broker === 'unreachable' && (
+                    // The desktop app is away: the row's one affordance
+                    // leads to the Settings page whose teaser opens or
+                    // gets the desktop app (P2e).
+                    <Button
+                      type="link"
+                      size="small"
+                      style={{ padding: 0, fontSize: 11, height: 'auto' }}
+                      onClick={() => openSettings({ settingKey: SECRET_MANAGERS_SETTING_KEY })}
+                      data-testid="vault-sm-connect-desktop"
+                    >
+                      {t('workbench.variables.table.smConnectionConnectDesktop')}
+                    </Button>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {SECRET_LOCATOR_FIELDS[row.smProvider].map((spec) => (

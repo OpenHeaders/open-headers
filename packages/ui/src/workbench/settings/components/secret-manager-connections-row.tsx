@@ -23,6 +23,7 @@ import {
 } from '@openheaders/core/secret-providers';
 import type { SecretManagerConnection, SecretProviderId } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { DesktopTeaser } from '@openheaders/ui/shared/desktop-teaser';
 import { isNodeRequestRuntime } from '@openheaders/ui/shared/device-trust';
 import {
   addSecretManagerConnection,
@@ -398,6 +399,12 @@ const SecretManagerConnectionsRow: React.FC<{ def: SettingDef }> = ({ def }) => 
               ? t('workbench.variables.secretManagers.browserNoteConnected')
               : t('workbench.variables.secretManagers.browserNote')}
           </Text>
+        )}
+        {!nodeHost && broker === 'unreachable' && (
+          // The standalone teaser: the desktop app is away — open it
+          // when it is installed here, else get it (the teaser's own
+          // state-aware CTA; the Secret Providers plan's P2e).
+          <DesktopTeaser feature="secretManagers" compact />
         )}
       </div>
     </FieldRow>

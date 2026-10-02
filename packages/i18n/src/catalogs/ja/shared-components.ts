@@ -529,6 +529,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.title': 'ライブネットワーク',
   'shared.desktopTeaser.liveNetwork.body':
     '拡張機能からストリーミングされるブラウザータブのトラフィックを、デスクトップアプリでライブに観察できます。DevTools は不要です。',
+  'shared.desktopTeaser.secretManagers.title': 'シークレットマネージャー',
+  'shared.desktopTeaser.secretManagers.body':
+    '認証情報はシークレットマネージャーに保管し、Vault から参照できます。デスクトップアプリが接続を保持し、このコンピューター上のこのブラウザーのために解決します。',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '有効',

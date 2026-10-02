@@ -573,6 +573,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.body':
     'Beobachte den Verkehr eines Browser-Tabs live in der Desktop-App, gestreamt von der Erweiterung — ganz ohne ' +
     'DevTools.',
+  'shared.desktopTeaser.secretManagers.title': 'Secret Manager',
+  'shared.desktopTeaser.secretManagers.body':
+    'Bewahre Zugangsdaten in deinem Secret Manager auf und referenziere sie aus dem Vault. Die Desktop-App hält die Verbindungen und löst sie für diesen Browser auf diesem Computer auf.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Aktiviert',

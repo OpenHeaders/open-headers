@@ -38,6 +38,9 @@ export interface DesktopTeaserProps {
   feature: DesktopFeature;
   /** Feature glyph, typically the registry entry's own icon. */
   icon?: React.ReactNode;
+  /** Inline inside another surface (a settings row) — the same CTA
+   *  derivation at a row's scale instead of a pane's. */
+  compact?: boolean;
 }
 
 function openExternal(url: string): void {
@@ -52,7 +55,7 @@ function openDownload(url: string): void {
   openExternal(url);
 }
 
-const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
+const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon, compact = false }) => {
   const { token } = theme.useToken();
   const t = useT();
   const copy = DESKTOP_TEASER_COPY[feature];
@@ -131,13 +134,13 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon }) => {
       data-testid="desktop-teaser"
       data-teaser-feature={feature}
       style={{
-        height: '100%',
+        height: compact ? undefined : '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
-        padding: '32px 24px',
+        gap: compact ? 6 : 10,
+        padding: compact ? '12px 8px' : '32px 24px',
         textAlign: 'center',
         overflow: 'auto',
       }}

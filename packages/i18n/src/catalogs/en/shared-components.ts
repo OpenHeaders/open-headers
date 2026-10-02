@@ -578,6 +578,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.liveNetwork.title': 'Live Network',
   'shared.desktopTeaser.liveNetwork.body':
     'Watch a browser tab’s traffic live in the desktop app, streamed from the extension — no DevTools needed.',
+  'shared.desktopTeaser.secretManagers.title': 'Secret managers',
+  'shared.desktopTeaser.secretManagers.body':
+    'Keep credentials in your secret manager and reference them from the Vault. The desktop app holds the connections and resolves them for this browser on this computer.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Enabled',

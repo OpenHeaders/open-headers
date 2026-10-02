@@ -5,12 +5,14 @@
  *
  *   B1  the Vault row of kind Secret Manager with the desktop app away:
  *       the connection select is disabled and reads "Connect the
- *       desktop app", the chip reads "No connection selected", and no
+ *       desktop app", the chip reads "No connection selected", no
  *       Manage… link is offered (the desktop-only affordance never
- *       renders here);
+ *       renders here) and the row's one affordance leads to the
+ *       Settings page (P2e);
  *   B2  Settings › Secret Managers › Connections with the desktop app
  *       away: the list renders read-only — Add disabled, the browser
- *       note naming the desktop app — and nothing in it prompts.
+ *       note naming the desktop app, the standalone teaser offering to
+ *       open or get the desktop app — and nothing in it prompts.
  *
  * The desktop-connected readings (the desktop app's connections
  * listed, Test live, a Send resolving over loopback) need the desktop
@@ -72,6 +74,7 @@ test('B1 — the Vault row reads the desktop-only connection select and the hone
   await expect(connection).toContainText('Connect the desktop app');
   await expect(visible(page.getByTestId('vault-sm-status'))).toHaveText('No connection selected');
   expect(await page.getByTestId('vault-sm-manage').count()).toBe(0);
+  await expect(visible(page.getByTestId('vault-sm-connect-desktop'))).toHaveText('Connect the desktop app');
 
   // The path fields still take the reference — the row is editable,
   // only its device-side binding waits for the desktop app.
@@ -94,6 +97,14 @@ test('B2 — Settings › Secret Managers is read-only with the browser note', a
   await expect(page.locator('.settings-modal')).toContainText(
     'Secret manager connections live on the desktop app. Open it to add or test one.',
   );
+  // The standalone teaser: no desktop app on this rig, so the CTA is
+  // the one that gets it (or opens it where one is installed).
+  const teaser = page.locator('[data-testid="desktop-teaser"][data-teaser-feature="secretManagers"]');
+  await expect(teaser).toBeVisible();
+  await expect(teaser).toContainText('Secret managers');
+  await expect(
+    teaser.locator('[data-testid="desktop-teaser-cta"], [data-testid="desktop-teaser-launch"]'),
+  ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('.settings-modal')).toBeHidden({ timeout: 10_000 });
 });

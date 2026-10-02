@@ -25,7 +25,8 @@ export type CompanionRevealTarget =
   | 'proxy'
   | 'liveNetwork'
   | 'mcp'
-  | 'peerExecuteSetting';
+  | 'peerExecuteSetting'
+  | 'secretManagers';
 
 /** Every legal reveal target — the wire validator's single source. */
 export const COMPANION_REVEAL_TARGETS: readonly CompanionRevealTarget[] = [
@@ -37,6 +38,7 @@ export const COMPANION_REVEAL_TARGETS: readonly CompanionRevealTarget[] = [
   'liveNetwork',
   'mcp',
   'peerExecuteSetting',
+  'secretManagers',
 ];
 
 /**
