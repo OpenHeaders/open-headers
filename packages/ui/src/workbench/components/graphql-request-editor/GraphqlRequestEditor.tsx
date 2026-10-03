@@ -58,7 +58,7 @@ import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager';
+import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager-references';
 import { isMac } from '@openheaders/ui/shared/platform';
 import {
   applyResponseExampleCreate,

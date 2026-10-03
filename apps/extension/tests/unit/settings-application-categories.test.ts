@@ -1,8 +1,9 @@
 /**
  * Application settings group — pins the regroup of Data, Updates, License
- * and About under one ungated group node, and the settled nine-root nav:
- * Appearance & Behavior, Keyboard, Code Editor, Browser Interceptor, API
- * Requests, Version Control, Tools, Connectivity, Application.
+ * and About under one ungated group node, and the settled eleven-root nav:
+ * Appearance & Behavior, Keyboard, Editor, Browser Interceptor, API
+ * Requests, Secret Managers, Version Control, Tools, Backup and Sync,
+ * Proxy, Application.
  */
 
 import '@openheaders/ui/workbench/settings/categories';
@@ -31,7 +32,7 @@ describe('application settings group', () => {
     expect(getCategory('about')?.when).toBeUndefined();
   });
 
-  it('the nav has exactly ten roots in the settled order', () => {
+  it('the nav has exactly eleven roots in the settled order', () => {
     const roots = allCategories()
       .filter((c) => c.parent === undefined)
       .map((c) => c.id);
@@ -41,6 +42,7 @@ describe('application settings group', () => {
       'editor',
       'browserInterceptor',
       'requests',
+      'secretManagers',
       'versionControl',
       'tools',
       'backend',

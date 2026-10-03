@@ -28,7 +28,7 @@ import { getWsResponseExampleSyncMirrorForWorkspace } from '@openheaders/ui/cont
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useScriptPackages } from '@openheaders/ui/shared/hooks/readers/useScriptPackages';
 import { useVariableResolverInputs } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
-import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager';
+import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager-references';
 import {
   applyWsResponseExampleCreate,
   nextWsExampleName,

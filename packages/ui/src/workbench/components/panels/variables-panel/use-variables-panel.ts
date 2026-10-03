@@ -20,7 +20,7 @@ import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVa
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
-import { useSecretManagerStanding } from '@openheaders/ui/shared/secret-manager';
+import { useSecretManagerStanding } from '@openheaders/ui/shared/secret-manager-references';
 import { type CollectionFamilies, findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
 import { useEnvSwitcher } from '../../../services/env-switcher';

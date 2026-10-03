@@ -31,7 +31,7 @@ import { CaretRightOutlined, CopyOutlined, LoadingOutlined, SwapOutlined } from 
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
-import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager';
+import { useSecretManagerReferenceCount } from '@openheaders/ui/shared/secret-manager-references';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { isRequestComplete } from '@openheaders/core/utils';

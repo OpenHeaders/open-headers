@@ -31,7 +31,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { isLiveVariableDraft, isLiveVariableEffective } from '@openheaders/core/live';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { EMPTY_SECRET_MANAGER_REGISTRY, VariableResolver } from '@openheaders/core/variables';
-import { useSecretManagerStanding } from '@openheaders/ui/shared/secret-manager';
+import { useSecretManagerStanding } from '@openheaders/ui/shared/secret-manager-references';
 import { Alert, Form, Space, Tag, Typography } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';

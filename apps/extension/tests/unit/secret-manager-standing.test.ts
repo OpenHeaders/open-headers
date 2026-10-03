@@ -10,7 +10,7 @@
 import type { SecretProviderProbe } from '@openheaders/core/secret-providers';
 import type { HeaderRule, Vault, VaultSecret } from '@openheaders/core/types';
 import { EMPTY_SECRET_MANAGER_FAILURES } from '@openheaders/core/variables';
-import { secretManagerFailuresFromProbes } from '@openheaders/ui/shared/secret-manager';
+import { secretManagerFailuresFromProbes } from '@openheaders/ui/shared/secret-manager-references';
 import { buildScopeResolver } from '@openheaders/ui/workbench/components/panels/variables-panel/scope-resolver';
 import { buildInContextVariables } from '@openheaders/ui/workbench/components/panels/variables-panel/scope-variables';
 import { describe, expect, it } from 'vitest';
