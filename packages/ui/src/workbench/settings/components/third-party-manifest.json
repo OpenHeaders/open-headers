@@ -1045,14 +1045,6 @@
       ]
     },
     {
-      "name": "anymatch",
-      "version": "3.1.3",
-      "license": "ISC",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
       "name": "argparse",
       "version": "2.0.1",
       "license": "Python-2.0",
@@ -1105,14 +1097,6 @@
       ]
     },
     {
-      "name": "binary-extensions",
-      "version": "2.3.0",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
       "name": "bindings",
       "version": "1.5.0",
       "license": "MIT",
@@ -1139,14 +1123,6 @@
     {
       "name": "brace-expansion",
       "version": "5.0.12",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
-      "name": "braces",
-      "version": "3.0.3",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -1258,14 +1234,6 @@
         "desktop",
         "extension",
         "web"
-      ]
-    },
-    {
-      "name": "chokidar",
-      "version": "3.6.0",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
       ]
     },
     {
@@ -1466,7 +1434,7 @@
     },
     {
       "name": "dompurify",
-      "version": "3.4.13",
+      "version": "3.4.16",
       "license": "(MPL-2.0 OR Apache-2.0)",
       "hosts": [
         "desktop",
@@ -1685,14 +1653,6 @@
       ]
     },
     {
-      "name": "fill-range",
-      "version": "7.1.1",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
       "name": "finalhandler",
       "version": "2.1.1",
       "license": "MIT",
@@ -1741,14 +1701,6 @@
       ]
     },
     {
-      "name": "fsevents",
-      "version": "2.3.3",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
       "name": "function-bind",
       "version": "1.1.2",
       "license": "MIT",
@@ -1784,14 +1736,6 @@
       "name": "glob",
       "version": "13.0.6",
       "license": "BlueOak-1.0.0",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
-      "name": "glob-parent",
-      "version": "5.1.2",
-      "license": "ISC",
       "hosts": [
         "desktop"
       ]
@@ -1850,7 +1794,7 @@
     },
     {
       "name": "hono",
-      "version": "4.13.5",
+      "version": "4.13.9",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -1961,14 +1905,6 @@
       ]
     },
     {
-      "name": "is-binary-path",
-      "version": "2.1.0",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
       "name": "is-decimal",
       "version": "2.0.1",
       "license": "MIT",
@@ -1976,22 +1912,6 @@
         "desktop",
         "extension",
         "web"
-      ]
-    },
-    {
-      "name": "is-extglob",
-      "version": "2.1.1",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
-      "name": "is-glob",
-      "version": "4.0.3",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
       ]
     },
     {
@@ -2012,14 +1932,6 @@
         "desktop",
         "extension",
         "web"
-      ]
-    },
-    {
-      "name": "is-number",
-      "version": "7.0.0",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
       ]
     },
     {
@@ -2767,14 +2679,6 @@
       ]
     },
     {
-      "name": "normalize-path",
-      "version": "3.0.0",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
       "name": "object-assign",
       "version": "4.1.1",
       "license": "MIT",
@@ -2843,14 +2747,6 @@
     {
       "name": "path-to-regexp",
       "version": "8.4.2",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
-      "name": "picomatch",
-      "version": "2.3.2",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -3029,14 +2925,6 @@
     {
       "name": "readable-stream",
       "version": "3.6.2",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
-      "name": "readdirp",
-      "version": "3.6.0",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -3417,14 +3305,6 @@
     {
       "name": "tiny-typed-emitter",
       "version": "2.1.0",
-      "license": "MIT",
-      "hosts": [
-        "desktop"
-      ]
-    },
-    {
-      "name": "to-regex-range",
-      "version": "5.0.1",
       "license": "MIT",
       "hosts": [
         "desktop"

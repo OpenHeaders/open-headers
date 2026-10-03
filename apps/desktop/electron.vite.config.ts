@@ -218,7 +218,6 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
-        chokidar: resolve(__dirname, 'node_modules/chokidar'),
       },
     },
     define: {
