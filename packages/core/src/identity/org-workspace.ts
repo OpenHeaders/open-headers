@@ -28,6 +28,20 @@ function compareWorkspaces(a: ExtensionWorkspace, b: ExtensionWorkspace): number
  * `defaults` are the `orgId → workspaceId` maps from
  * `OH.orgActiveWorkspace` / `OH.preferencesDefaultWorkspace`.
  */
+/**
+ * True when `workspaceId` is the only workspace this host holds in its
+ * Org — the floor a delete must not cross. The floor is per Org, not per
+ * host: a browser that also holds the desktop app's workspaces still
+ * must not take the desktop app's last one, exactly as the desktop's
+ * own surface refuses it, and its own home Org keeps the same floor.
+ * An unknown id is not the last of anything.
+ */
+export function isLastWorkspaceInOrg(workspaces: readonly ExtensionWorkspace[], workspaceId: string): boolean {
+  const target = workspaces.find((w) => w.id === workspaceId);
+  if (!target) return false;
+  return !workspaces.some((w) => w.id !== workspaceId && w.orgId === target.orgId);
+}
+
 export function resolveOrgActiveWorkspace(
   orgId: string,
   workspaces: readonly ExtensionWorkspace[],

@@ -30,7 +30,7 @@ import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } f
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getCapability } from '@openheaders/core/capabilities';
-import { type OrgDescriptor, orgCatalogue } from '@openheaders/core/identity';
+import { isLastWorkspaceInOrg, type OrgDescriptor, orgCatalogue } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { usePublishTargets } from '@openheaders/ui/shared/backend';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
@@ -78,8 +78,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const [publishSource, setPublishSource] = useState<ExtensionWorkspace | null>(null);
   const [membersTarget, setMembersTarget] = useState<ExtensionWorkspace | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  const canDelete = api.workspaces.length > 1;
 
   const snapshot = useIdentitySnapshot();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
@@ -193,7 +191,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
       key={w.id}
       workspace={w}
       isActive={w.id === activeWorkspaceId}
-      canDelete={canDelete}
+      canDelete={!isLastWorkspaceInOrg(api.workspaces, w.id)}
       onEdit={() => setEditTarget(w)}
       onDelete={() => handleDelete(w)}
       onDuplicate={() => handleDuplicate(w)}

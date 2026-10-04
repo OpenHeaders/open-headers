@@ -163,7 +163,7 @@ export {
   type ProvidingBackendKind,
   providingBackendKind,
 } from './org-catalogue';
-export { resolveOrgActiveWorkspace } from './org-workspace';
+export { isLastWorkspaceInOrg, resolveOrgActiveWorkspace } from './org-workspace';
 export {
   type ProbeConnectionResult,
   type ProbeFailure,

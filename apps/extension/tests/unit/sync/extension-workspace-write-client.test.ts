@@ -266,6 +266,19 @@ describe('applyDeleteWorkspace', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
+  it('rejects deleting the last workspace of its Org even while other Orgs hold more', async () => {
+    // The browser's own workspace plus the desktop app's only one: the
+    // desktop app's own surface refuses this delete, so does its peer.
+    const mirror = makeMirror(
+      [makeWorkspace('ws-home', 0), makeWorkspace('ws-desktop', 1, { orgId: 'org-desktop' })],
+      'ws-home',
+    );
+    const opts = { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') };
+    expect(await applyDeleteWorkspace({ id: 'ws-desktop' }, opts)).toEqual({ ok: false, reason: 'last-workspace' });
+    expect(await applyDeleteWorkspace({ id: 'ws-home' }, opts)).toEqual({ ok: false, reason: 'last-workspace' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
   it('returns not-found when the id is absent from the live list', async () => {
     const mirror = makeMirror([makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1)], 'ws-a');
     const result = await applyDeleteWorkspace(

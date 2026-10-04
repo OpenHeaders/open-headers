@@ -18,7 +18,7 @@
  * and are the authoritative path used by `useWorkspaces.ts`.
  */
 
-import { getIdentitySnapshot } from '@openheaders/core/identity';
+import { getIdentitySnapshot, isLastWorkspaceInOrg } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import {
   type ExtensionWorkspaceSlot,
@@ -265,9 +265,11 @@ export type ApplyDeleteWorkspaceResult =
  * batch when the active workspace is the target — per-batch
  * all-or-nothing keeps the active pointer from dangling on a deleted id.
  *
- * `last-workspace` rejection mirrors the SW guard: the list cannot
- * shrink below 1 entry. UI should disable the delete button when the
- * mirror reports a single workspace.
+ * `last-workspace` is the floor: no Org this host sees shrinks to zero
+ * through a delete — not the host's own home Org, and not a joined
+ * place's, whose owning host refuses the same delete on its own
+ * surface. UI disables the delete button on the last workspace of its
+ * Org (`isLastWorkspaceInOrg`).
  */
 export async function applyDeleteWorkspace(
   input: ApplyDeleteWorkspaceInput,
@@ -275,10 +277,9 @@ export async function applyDeleteWorkspace(
 ): Promise<ApplyDeleteWorkspaceResult> {
   const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   const list = mirror.liveWorkspaces();
-  if (list.length <= 1) return { ok: false, reason: 'last-workspace' };
-
   const idx = list.findIndex((w) => w.id === input.id);
   if (idx === -1) return { ok: false, reason: 'not-found' };
+  if (isLastWorkspaceInOrg(list, input.id)) return { ok: false, reason: 'last-workspace' };
 
   const activeId = mirror.liveActiveWorkspaceId();
   const wasActive = activeId === input.id;

@@ -28,9 +28,11 @@
  *     (extension SW, the shared daemon spine) keep the classic
  *     "non-empty after bootstrap"; the web host declares `false`, so an
  *     empty list + null active is a representable boot state there
- *   - list cannot shrink below 1 entry (renderer's
- *     `applyDeleteWorkspace` rejects last-workspace deletes; UI gates
- *     the delete button when the mirror reports a single workspace)
+ *   - no Org this host sees shrinks to zero through a delete (the
+ *     renderer's `applyDeleteWorkspace` rejects the last workspace of
+ *     its Org; UI gates the delete button the same way), and a host
+ *     that declared `seedOnEmpty` keeps its home Org's floor at runtime
+ *     too (`home-org-floor.ts` re-seeds after a peer's delete)
  *   - activeWorkspaceId always matches a workspace in the list — when
  *     the active id is deleted, the renderer composes the batch with a
  *     neighbour-pointing setActive in the same all-or-nothing batch

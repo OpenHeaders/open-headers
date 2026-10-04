@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolveOrgActiveWorkspace } from '../../src/identity/org-workspace';
+import { isLastWorkspaceInOrg, resolveOrgActiveWorkspace } from '../../src/identity/org-workspace';
 import type { ExtensionWorkspace } from '../../src/types';
 
 const ORG_A = '01900000-aaaa-7000-8000-0000000000a1';
@@ -45,5 +45,25 @@ describe('resolveOrgActiveWorkspace', () => {
 
   it('returns null for an Org with no workspaces', () => {
     expect(resolveOrgActiveWorkspace('01900000-aaaa-7000-8000-0000000000ff', workspaces, {}, {})).toBeNull();
+  });
+});
+
+describe('isLastWorkspaceInOrg', () => {
+  it('is true for the only workspace of its Org, whatever the other Orgs hold', () => {
+    // b1 is ORG_B's only workspace while ORG_A holds two.
+    expect(isLastWorkspaceInOrg(workspaces, 'b1')).toBe(true);
+  });
+
+  it('is false while the Org holds another workspace', () => {
+    expect(isLastWorkspaceInOrg(workspaces, 'a1')).toBe(false);
+    expect(isLastWorkspaceInOrg(workspaces, 'a2')).toBe(false);
+  });
+
+  it('is true for a host holding a single workspace', () => {
+    expect(isLastWorkspaceInOrg([ws('only', ORG_A, 0)], 'only')).toBe(true);
+  });
+
+  it('is false for an id the list does not hold', () => {
+    expect(isLastWorkspaceInOrg(workspaces, 'missing')).toBe(false);
   });
 });

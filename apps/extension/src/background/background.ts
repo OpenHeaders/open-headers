@@ -49,6 +49,7 @@ import {
   subscribeOnWebSocketClose,
   subscribeOnWebSocketOpen,
 } from '@openheaders/oracle/sync/client/backend-connection-manager';
+import { installHomeOrgFloor } from '@openheaders/oracle/workspace/home-org-floor';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
@@ -340,6 +341,9 @@ async function initializeExtension(): Promise<void> {
   markBootPhase('hydration-done');
 
   await bootSyncEngine();
+  // The home Org keeps a workspace at runtime, not only at boot — a
+  // peer's delete of the last one is answered by a fresh seed.
+  installHomeOrgFloor();
   markBootPhase('sync-init-done');
   markBootPhase('bridge-done');
   // Release the alarm-dispatch barrier here rather than at end-of-init —

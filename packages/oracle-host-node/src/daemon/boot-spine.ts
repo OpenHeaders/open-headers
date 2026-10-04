@@ -120,6 +120,7 @@ import {
   onWorkspaceStoreChange,
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
+import { installHomeOrgFloor } from '@openheaders/oracle/workspace/home-org-floor';
 import { findExportImportMatches } from '@openheaders/oracle/workspace/import-dedup';
 import {
   type ImportWorkspaceArgs,
@@ -769,6 +770,9 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   });
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();
+  // The home Org keeps a workspace at runtime, not only at boot — a
+  // peer's delete of the last one is answered by a fresh seed.
+  const unsubscribeHomeOrgFloor = installHomeOrgFloor();
   // This device's pinned certificates — read synchronously by every TLS
   // dial after this one load (the Trusted Roots plan, device scope).
   await loadDeviceTrust();
@@ -1756,6 +1760,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     unsubscribeActivityEntries();
     unsubscribeMuteChanges();
     unsubscribeWorkspaceStore();
+    unsubscribeHomeOrgFloor();
     unsubscribeTrafficRetention();
     status.clear();
     setMutationForwarderWsServer(null);

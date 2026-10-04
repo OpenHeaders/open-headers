@@ -137,7 +137,8 @@ export function useWorkspaces(options: UseWorkspacesOptions = {}): UseWorkspaces
     async (id) => {
       const result = await applyDeleteWorkspace({ id }, { surfaceId });
       if (result.ok) return { success: true, activeWorkspaceId: result.activeWorkspaceId };
-      if (result.reason === 'last-workspace') return { success: false, error: 'Cannot delete the last workspace' };
+      if (result.reason === 'last-workspace')
+        return { success: false, error: 'Cannot delete the last workspace of its place' };
       if (result.reason === 'not-found') return { success: false, error: 'Workspace not found' };
       return { success: false, error: result.message ?? 'Workspace delete failed' };
     },
