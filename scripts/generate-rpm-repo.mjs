@@ -37,17 +37,13 @@ import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { channelForTag } from './lib/versions.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function fail(message) {
   console.error(`generate-rpm-repo: ${message}`);
   process.exit(1);
-}
-
-/** `stable` | `beta` from the tag shape — the only channel authority. */
-function channelForTag(tag) {
-  return /-beta[.0-9]*$/.test(tag) ? 'beta' : 'stable';
 }
 
 const [tag, inputDir, outputDir, keyringArg] = process.argv.slice(2);

@@ -88,7 +88,7 @@ beforeAll(() => {
 function stage(
   tag: string,
   debNames: string[],
-  options: { keyring?: 'match' | 'mismatch'; secrets?: boolean } = {},
+  options: { keyring?: 'match' | 'mismatch'; secrets?: boolean; channel?: 'stable' | 'beta' } = {},
 ): { out: string; run: () => string } {
   workDir = mkdtempSync(path.join(tmpdir(), 'oh-apt-repo-'));
   const input = path.join(workDir, 'processed_files');
@@ -113,7 +113,9 @@ function stage(
     delete env.APT_GPG_PRIVATE_KEY;
     delete env.APT_GPG_PASSPHRASE;
   }
-  const run = () => execFileSync(process.execPath, [SCRIPT, tag, input, out, keyring], { encoding: 'utf8', env });
+  const flags = options.channel ? [`--channel=${options.channel}`] : [];
+  const run = () =>
+    execFileSync(process.execPath, [SCRIPT, tag, input, out, keyring, ...flags], { encoding: 'utf8', env });
   return { out, run };
 }
 
@@ -122,6 +124,23 @@ afterEach(() => {
 });
 
 describe.skipIf(!hasGpg || process.platform === 'win32')('generate-apt-repo', () => {
+  it('re-indexes a stable tag under apt/beta when the feed overtake asks for that channel', () => {
+    const { out, run } = stage('v2026.10.0', ['open-headers_2026.10.0_amd64.deb'], { channel: 'beta' });
+    run();
+
+    expect(existsSync(path.join(out, 'apt/beta/pool/main/o/open-headers/open-headers_2026.10.0_amd64.deb'))).toBe(true);
+    const packages = readFileSync(path.join(out, 'apt/beta/dists/beta/main/binary-amd64/Packages'), 'utf8');
+    expect(packages).toContain('Version: 2026.10.0');
+    expect(existsSync(path.join(out, 'apt/stable'))).toBe(false);
+  });
+
+  it('refuses a channel override that names no channel', () => {
+    const { run } = stage('v2026.10.0', ['open-headers_2026.10.0_amd64.deb'], {
+      channel: 'nightly' as unknown as 'beta',
+    });
+    expect(run).toThrow(/--channel expects stable or beta/);
+  });
+
   it('stages a signed stable repository for both architectures', () => {
     const { out, run } = stage('v2026.8.3', ['open-headers_2026.8.3_amd64.deb', 'open-headers_2026.8.3_arm64.deb']);
     run();

@@ -76,7 +76,7 @@ jobs:
         # windows-2022 (not -latest): windows-latest ships Visual Studio 2026,
         # which the node-gyp bundled with electron-builder cannot detect, so
         # the native-module rebuild fails. VS 2022 stays detectable here.
-        include: ${{ github.event_name == 'workflow_dispatch' && fromJSON('[{"os":"windows-2022"}]') || contains(github.ref_name, '-beta') && fromJSON('[{"os":"macos-latest","arch":"arm64"},{"os":"windows-2022"},{"os":"ubuntu-latest","arch":"x64"}]') || fromJSON('[{"os":"macos-latest","arch":"arm64"},{"os":"macos-latest","arch":"x64"},{"os":"windows-2022"},{"os":"ubuntu-latest","arch":"x64"},{"os":"ubuntu-latest","arch":"arm64"}]') }}
+        include: ${{ github.event_name == 'workflow_dispatch' && fromJSON('[{"os":"windows-2022"}]') || fromJSON('[{"os":"macos-latest","arch":"arm64"},{"os":"macos-latest","arch":"x64"},{"os":"windows-2022"},{"os":"ubuntu-latest","arch":"x64"},{"os":"ubuntu-latest","arch":"arm64"}]') }}
 
     steps:
       - name: Checkout code
@@ -273,16 +273,18 @@ jobs:
           node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('apps/desktop/package.json'));p.version='$TAG';fs.writeFileSync('apps/desktop/package.json',JSON.stringify(p,null,2)+'\n')"
         shell: bash
 
-      # Betas skip the enterprise formats (pkg/msi) and mac-x64 — beta
-      # testers use dmg/zip/Setup.exe; stable tags ship everything. The
-      # mac-x64 beta leg never spawns (computed matrix), so the beta
-      # branch here is always the arm64 leg.
+      # Betas build every arch the stable builds — the beta channel is
+      # read by every platform, so a pointer a beta does not rewrite
+      # would strand that platform on an old beta (or offer one whose
+      # files it cannot use). The trim is on asset TYPES only: betas
+      # skip the enterprise formats (pkg/msi) and store-compress; beta
+      # testers use dmg/zip/Setup.exe.
       - name: Build macOS
         if: matrix.os == 'macos-latest'
         working-directory: apps/desktop
         run: |
           if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
-            pnpm dist:mac:beta
+            pnpm dist:mac:beta:${{ matrix.arch }}
           else
             pnpm dist:mac:${{ matrix.arch }}
           fi
@@ -533,16 +535,15 @@ jobs:
           }
         shell: pwsh
 
-      # Betas ship x64 AppImage + deb only, store-compressed — beta
-      # arm64/rpm users ride their previous pointer until stable; the
-      # linux arm64 beta leg never spawns (computed matrix). Stable
-      # legs build their arch's three targets.
+      # Betas ship AppImage + deb for both arches, store-compressed —
+      # rpm is the one Linux target betas skip (dnf users ride stable).
+      # Stable legs build their arch's three targets.
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
         working-directory: apps/desktop
         run: |
           if [ "${{ steps.detect_beta.outputs.is_beta }}" == "true" ]; then
-            pnpm dist:linux:beta
+            pnpm dist:linux:beta:${{ matrix.arch }}
           else
             pnpm dist:linux:${{ matrix.arch }}
 
@@ -1051,17 +1052,15 @@ jobs:
           done
 
           # Two mac legs write two one-arch update-info files; the feed
-          # serves ONE latest-mac.yml, so union their files lists. The
-          # arm64-only beta lane passes its single input through
-          # unchanged; a stable tag requires both arch files (one alone
-          # would strand the other arch's updater); a merge conflict
-          # fails the release before any pointer is published.
-          MIN_MAC_INPUTS=2
-          if [ "${{ steps.release_type.outputs.is_prerelease }}" = "true" ]; then MIN_MAC_INPUTS=1; fi
+          # serves ONE latest-mac.yml, so union their files lists. Every
+          # tag on either channel builds both arches, so both files are
+          # required (one alone would strand the other arch's updater);
+          # a merge conflict fails the release before any pointer is
+          # published.
           for NAME in latest-mac.yml beta-mac.yml; do
             MAC_YMLS=$(find dist -path "dist/desktop-macos-latest-*" -name "$NAME" | sort)
             if [ -n "$MAC_YMLS" ]; then
-              node scripts/merge-mac-update-yml.mjs "--min-inputs=$MIN_MAC_INPUTS" "processed_files/$NAME" $MAC_YMLS
+              node scripts/merge-mac-update-yml.mjs --min-inputs=2 "processed_files/$NAME" $MAC_YMLS
             fi
           done
 
@@ -1172,6 +1171,12 @@ jobs:
       # here publishes nothing and the release job can simply run again
       # once the feed answers. A manifest that lacks an entry is still
       # "nothing to carry" — that is a state, not a read failure.
+      #
+      # The live BETA manifest is read the same way for the stable
+      # overtake (feed staging below): a 404 is the state "no beta
+      # channel yet" (an empty manifest), any other failure is fatal
+      # for the same reason — a stable that cannot see the beta channel
+      # cannot know whether it overtakes it.
       - name: Carry forward live manifest entries
         run: |
           CHANNEL=stable
@@ -1181,6 +1186,15 @@ jobs:
             echo "::error::the live stable manifest (versions/stable.json) could not be read — nothing carried forward, nothing published"
             exit 1
           fi
+          BETA_STATUS=$(curl -sS --retry 3 --retry-all-errors --max-time 30 -w '%{http_code}' \
+            "https://updates.openheaders.com/versions/beta.json" -o live_beta.json || echo "000")
+          case "$BETA_STATUS" in
+            200) echo "Live beta manifest read" ;;
+            404) echo '{}' > live_beta.json; echo "No live beta manifest — the beta channel has none yet" ;;
+            *)
+              echo "::error::the live beta manifest (versions/beta.json) answered ${BETA_STATUS} — nothing published"
+              exit 1 ;;
+          esac
           # Stores carry on stable only — the beta manifest carries no
           # extension entry at all (stores are the extension's only
           # channel; no sideload zips exist on any channel).
@@ -1253,8 +1267,8 @@ jobs:
           # the STAGED files (like bin_row below): a cell renders only
           # when its file is in processed_files, so the table can never
           # name an asset that does not exist — betas' trimmed target
-          # set (mac arm64 dmg/zip; Linux x64 AppImage/deb; no rpm,
-          # pkg, msi) falls out of that. No section title carries a
+          # set (dmg/zip, Setup.exe, AppImage/deb on every arch; no
+          # rpm, pkg, msi) falls out of that. No section title carries a
           # version: the desktop version IS the release tag, and the
           # independently-versioned surfaces (extension, oh, ohd) show
           # theirs in asset filenames / store pages.
@@ -1427,12 +1441,17 @@ jobs:
       # a local tree — no network beyond two fail-open reads — and runs
       # BEFORE any byte is uploaded or the release exists, so a staging
       # failure leaves nothing half-published. A beta tag stages only
-      # beta/ paths — stable pointers can never move.
+      # beta/ paths — stable pointers can never move; a stable tag also
+      # overtakes the beta channel's entries and pointers it is newer
+      # than, so the beta channel never sits behind stable (the live
+      # manifests read above decide). A beta older than the live stable
+      # fails here.
       - name: Stage update feed pointers
         run: |
           node scripts/generate-update-feed.mjs "$GITHUB_REF_NAME" \
             "${{ steps.dl_base.outputs.url }}" \
-            processed_files feed
+            processed_files feed \
+            --live-stable=live_stable.json --live-beta=live_beta.json
 
       # The signed apt repository (the distribution plan §8, Phase 7):
       # pool + dists staged into the same tree the pointer upload
@@ -1441,9 +1460,17 @@ jobs:
       # artifacts degrade to "apt tree unchanged" instead of failing
       # the release; a key that does not match the committed keyring
       # fails hard (the deb postinst pins that keyring).
+      #
+      # When the stable overtook the beta desktop channel (the feed
+      # staged desktop/beta/), its debs are re-indexed under apt/beta/
+      # too, so beta-channel apt users receive the same stable; their
+      # deb's postinst then registers the channel its version names.
       - name: Stage apt repository
         run: |
           node scripts/generate-apt-repo.mjs "$GITHUB_REF_NAME" processed_files feed
+          if [ -d feed/desktop/beta ] && [ "${{ steps.release_type.outputs.is_prerelease }}" = "false" ]; then
+            node scripts/generate-apt-repo.mjs "$GITHUB_REF_NAME" processed_files feed --channel=beta
+          fi
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}

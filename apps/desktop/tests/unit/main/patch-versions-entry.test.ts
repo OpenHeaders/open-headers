@@ -24,11 +24,11 @@ const MANIFEST = {
 
 let workDir: string;
 
-function run(manifest: unknown, app: string, patch: string): Record<string, unknown> {
+function run(manifest: unknown, app: string, patch: string, flags: string[] = []): Record<string, unknown> {
   workDir = mkdtempSync(path.join(tmpdir(), 'oh-patch-versions-'));
   const file = path.join(workDir, 'versions.json');
   writeFileSync(file, JSON.stringify(manifest, null, 2));
-  return JSON.parse(execFileSync(process.execPath, [SCRIPT, file, app, patch], { encoding: 'utf8' }));
+  return JSON.parse(execFileSync(process.execPath, [SCRIPT, file, app, patch, ...flags], { encoding: 'utf8' }));
 }
 
 afterEach(() => {
@@ -61,5 +61,29 @@ describe('patch-versions-entry', () => {
   it('fails on invalid patch JSON and on a non-object manifest', () => {
     expect(() => run(MANIFEST, 'extension', 'not-json')).toThrow();
     expect(() => run([1, 2], 'extension', '{}')).toThrow();
+  });
+
+  describe('--if-newer', () => {
+    it('overtakes an older entry', () => {
+      const out = run(MANIFEST, 'desktop', '{"latest":"2026.7.16","tag":"v2026.7.16","severity":"normal"}', [
+        '--if-newer',
+      ]);
+      expect(out.desktop).toEqual({ latest: '2026.7.16', tag: 'v2026.7.16', severity: 'normal' });
+    });
+
+    it('leaves a newer or equal entry byte-exact', () => {
+      const newer = { desktop: { latest: '2026.7.17-beta.1', tag: 'v2026.7.17-beta.1', severity: 'normal' } };
+      expect(run(newer, 'desktop', '{"latest":"2026.7.16","tag":"v2026.7.16"}', ['--if-newer'])).toEqual(newer);
+      expect(run(MANIFEST, 'desktop', '{"latest":"2026.7.15","tag":"v2026.7.15"}', ['--if-newer'])).toEqual(MANIFEST);
+    });
+
+    it('creates a missing entry', () => {
+      const out = run({}, 'cli', '{"latest":"2026.7.1","tag":"v2026.7.1","severity":"normal"}', ['--if-newer']);
+      expect(out).toEqual({ cli: { latest: '2026.7.1', tag: 'v2026.7.1', severity: 'normal' } });
+    });
+
+    it('needs a latest version in the patch', () => {
+      expect(() => run(MANIFEST, 'desktop', '{"severity":"security"}', ['--if-newer'])).toThrow(/needs a `latest`/);
+    });
   });
 });

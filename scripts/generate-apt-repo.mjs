@@ -32,6 +32,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { channelForTag } from './lib/versions.mjs';
 import { gzipSync } from 'node:zlib';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,11 +40,6 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 function fail(message) {
   console.error(`generate-apt-repo: ${message}`);
   process.exit(1);
-}
-
-/** `stable` | `beta` from the tag shape — the only channel authority. */
-function channelForTag(tag) {
-  return /-beta[.0-9]*$/.test(tag) ? 'beta' : 'stable';
 }
 
 function sha256(buffer) {
@@ -54,9 +50,19 @@ function md5(buffer) {
   return createHash('md5').update(buffer).digest('hex');
 }
 
-const [tag, inputDir, outputDir, keyringArg] = process.argv.slice(2);
+// `--channel=beta` on a stable tag is the feed's overtake: the stable's
+// debs re-indexed under apt/beta/ so beta-channel apt users receive the
+// stable that overtook their beta (the deb's postinst then registers
+// the channel its version names — stable).
+const args = process.argv.slice(2);
+const channelArg = args.find((arg) => arg.startsWith('--channel='));
+const channelOverride = channelArg?.slice('--channel='.length);
+if (channelArg && channelOverride !== 'stable' && channelOverride !== 'beta') {
+  fail(`--channel expects stable or beta, got '${channelOverride}'`);
+}
+const [tag, inputDir, outputDir, keyringArg] = args.filter((arg) => arg !== channelArg);
 if (!tag?.startsWith('v')) fail(`expected the release tag as first argument, got '${tag}'`);
-if (!inputDir || !outputDir) fail('usage: generate-apt-repo.mjs <tag> <input-dir> <output-dir> [keyring-path]');
+if (!inputDir || !outputDir) fail('usage: generate-apt-repo.mjs <tag> <input-dir> <output-dir> [keyring-path] [--channel=stable|beta]');
 const keyringPath = keyringArg ?? path.join(repoRoot, 'apps/desktop/scripts/debian/openheaders-archive-keyring.asc');
 
 const privateKey = process.env.APT_GPG_PRIVATE_KEY;
@@ -74,7 +80,7 @@ if (debNames.length === 0) {
   process.exit(0);
 }
 
-const channel = channelForTag(tag);
+const channel = channelOverride ?? channelForTag(tag);
 
 // One Packages paragraph per architecture: the deb's own control
 // fields verbatim (dpkg-deb reads them from the archive — the deb is

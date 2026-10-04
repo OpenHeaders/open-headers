@@ -485,7 +485,10 @@ jobs:
 
       # Patch ONLY this stream's entry of the stable versions manifest
       # — every other app's contract rides through untouched (the
-      # extension-lane precedent).
+      # extension-lane precedent). The beta manifest's entry for the
+      # stream is overtaken the same way when it is older (lanes are
+      # stable-only, and the beta channel never sits behind stable);
+      # a newer beta entry stays.
       - name: Update stream entry on the update feed
         if: steps.r2.outputs.enabled == 'true'
         env:
@@ -513,6 +516,20 @@ jobs:
             --content-type "application/json" \
             --cache-control "public, max-age=300, must-revalidate" \
             --no-progress
+          if ! curl -fsS "https://updates.openheaders.com/versions/beta.json" -o current_beta.json; then
+            echo '{}' > current_beta.json
+          fi
+          node scripts/patch-versions-entry.mjs current_beta.json "$STREAM" "$PATCH" --if-newer > patched_beta.json
+          if cmp -s <(jq -S . current_beta.json) <(jq -S . patched_beta.json); then
+            echo "Beta manifest entry for ${STREAM} is not older — unchanged"
+          else
+            cat patched_beta.json
+            aws s3 cp patched_beta.json "s3://${R2_BUCKET}/versions/beta.json" \
+              --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --region auto \
+              --content-type "application/json" \
+              --cache-control "public, max-age=300, must-revalidate" \
+              --no-progress
+          fi
 
       # Changelog feed objects regenerate so the stream's entry (and
       # its index row) go live — the generator is lane-aware and cuts
