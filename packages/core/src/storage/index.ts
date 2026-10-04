@@ -8,6 +8,7 @@ export {
   setHostStorage,
 } from './host-storage';
 export {
+  type BackendIdentityChange,
   type BackendOrgConflict,
   type BackendReachMap,
   isSensitiveKey,

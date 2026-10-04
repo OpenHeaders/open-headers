@@ -228,6 +228,32 @@ export interface BackendOrgConflict {
 }
 
 /**
+ * One persisted row of `OH.backendIdentityChanges` — the host behind a
+ * connection record announced a different home Org than the one the
+ * record was bound to (one record, one Org). Keyed by `backendId`; the
+ * writers live in `@openheaders/core/backends` (`identity-changes.ts`).
+ * Both Org names are persisted: the previous Org leaves the identity
+ * snapshot with the replacement, and a refused Org never enters it.
+ */
+export interface BackendIdentityChange {
+  backendId: string;
+  previousOrgId: string;
+  previousOrgName: string;
+  nextOrgId: string;
+  nextOrgName: string;
+  /**
+   * `replaced` — the join went through and the previous binding was
+   * dropped (a trust-by-process wire); the row stays until dismissed.
+   * `pending` — the join was refused and waits for the person to accept
+   * the new identity (an authenticated wire); the row clears when the
+   * record's next join succeeds.
+   */
+  resolution: 'replaced' | 'pending';
+  /** ISO timestamp of the change. */
+  at: string;
+}
+
+/**
  * One persisted row of `OH.workspaceTreeBindings` — a workspace bound
  * to an on-disk working tree on this Node host (the git-sync plan §4: the
  * workspace is the repo-bindable grain; the binding is HOST-LOCAL
@@ -496,6 +522,16 @@ export const OH = {
    * by the connections list under the refused backend's row.
    */
   backendOrgConflicts: storageKey<BackendOrgConflict[]>('oh.backendOrgConflicts'),
+  /**
+   * Durable identity-change rows ({@link BackendIdentityChange}) — a
+   * record whose host announced a different home Org than the one it
+   * was bound to. One row per `backendId`; written by the handshake
+   * (replaced on a trust-by-process wire, pending on an authenticated
+   * one), a pending row cleared by the record's next successful join,
+   * a replaced row cleared by the person's dismissal, both pruned on
+   * record removal. Rendered by the connections list under the row.
+   */
+  backendIdentityChanges: storageKey<BackendIdentityChange[]>('oh.backendIdentityChanges'),
   /**
    * Per-workspace script execution mode — `workspaceId → 'safe' |
    * 'developer'`. Deliberately a HOST-LOCAL global slot (not a

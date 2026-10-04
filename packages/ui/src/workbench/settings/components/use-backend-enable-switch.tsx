@@ -53,29 +53,41 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Resolves the moment a WELCOME refusal lands for `backendId` (a fresh
- * `OH.backendOrgConflicts` row stamped at/after `sinceMs`). A refused
+ * Resolves the moment a WELCOME refusal lands for `backendId` — a fresh
+ * `OH.backendOrgConflicts` row (the Org is provided elsewhere) or a
+ * fresh pending `OH.backendIdentityChanges` row (a different host
+ * answers at the address), either stamped at/after `sinceMs`. A refused
  * join never adopts, so without this the enable overlay would sit out
  * the full adopt-settle timeout before closing. Never resolves when no
  * refusal arrives — always race it against the settle, and `cancel()`
  * in a finally.
  */
-function watchOrgConflictRefusal(backendId: string, sinceMs: number): { refused: Promise<void>; cancel: () => void } {
+function watchJoinRefusal(backendId: string, sinceMs: number): { refused: Promise<void>; cancel: () => void } {
   let cancel = (): void => {};
   const refused = new Promise<void>((resolve) => {
     const storage = getHostStorage();
     if (!storage) return;
-    let unsubscribe: (() => void) | undefined;
-    const check = (): void => {
-      void storage.get(OH.backendOrgConflicts).then((rows) => {
-        if ((rows ?? []).some((c) => c.backendId === backendId && Date.parse(c.at) >= sinceMs)) {
-          unsubscribe?.();
-          resolve();
-        }
-      });
+    const unsubscribers: Array<() => void> = [];
+    const stop = (): void => {
+      for (const unsubscribe of unsubscribers) unsubscribe();
     };
-    unsubscribe = storage.subscribe(OH.backendOrgConflicts, check);
-    cancel = () => unsubscribe?.();
+    const check = (): void => {
+      void Promise.all([storage.get(OH.backendOrgConflicts), storage.get(OH.backendIdentityChanges)]).then(
+        ([conflicts, changes]) => {
+          const conflicted = (conflicts ?? []).some((c) => c.backendId === backendId && Date.parse(c.at) >= sinceMs);
+          const held = (changes ?? []).some(
+            (c) => c.backendId === backendId && c.resolution === 'pending' && Date.parse(c.at) >= sinceMs,
+          );
+          if (conflicted || held) {
+            stop();
+            resolve();
+          }
+        },
+      );
+    };
+    unsubscribers.push(storage.subscribe(OH.backendOrgConflicts, check));
+    unsubscribers.push(storage.subscribe(OH.backendIdentityChanges, check));
+    cancel = stop;
     check();
   });
   return { refused, cancel };
@@ -181,9 +193,10 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     // First join promotes the backend's active workspace; hold the
     // overlay until this surface has followed onto it so the user never
     // sees the previous workspace flash through. A refused WELCOME
-    // (Org-uniqueness conflict) never adopts — end the dwell the moment
-    // the refusal row lands instead of sitting out the settle timeout.
-    const refusal = watchOrgConflictRefusal(record.id, flippedAtMs);
+    // (Org-uniqueness conflict, or a different host answering) never
+    // adopts — end the dwell the moment the refusal row lands instead of
+    // sitting out the settle timeout.
+    const refusal = watchJoinRefusal(record.id, flippedAtMs);
     const joinSettled = watchBackendSynced(record.id);
     let refusedEarly = false;
     try {

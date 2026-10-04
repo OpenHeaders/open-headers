@@ -21,17 +21,25 @@
  * dialog for bound records.
  */
 
-import { MoreOutlined } from '@ant-design/icons';
+import { CloseOutlined, MoreOutlined } from '@ant-design/icons';
 import { Button, Checkbox, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { type BackendConnectionPatch, createBackend, getBackend, updateBackend } from '@openheaders/core/backends';
+import {
+  type BackendConnectionPatch,
+  createBackend,
+  dismissBackendIdentityChange,
+  getBackend,
+  updateBackend,
+} from '@openheaders/core/backends';
+import { hostBridge } from '@openheaders/core/bridge';
 import { getOrgBackendBindings } from '@openheaders/core/identity';
-import type { BackendOrgConflict } from '@openheaders/core/storage';
+import type { BackendIdentityChange, BackendOrgConflict } from '@openheaders/core/storage';
 import type { BackendConnection, Org } from '@openheaders/core/types';
 import { backendPlace, useBackends } from '../../../shared/backend';
 import { getCurrentHost, type Host, viewerHostKind } from '../../../shared/host-vocabulary';
+import { useBackendIdentityChanges } from '../../../shared/hooks/useBackendIdentityChanges';
 import { useBackendOrgConflicts } from '../../../shared/hooks/useBackendOrgConflicts';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { deriveBackendMode } from '../schema/backend';
@@ -52,6 +60,7 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const t = useT();
   const backends = useBackends();
   const orgConflicts = useBackendOrgConflicts();
+  const identityChanges = useBackendIdentityChanges();
   const enableSwitch = useBackendEnableSwitch();
   const write = useBackendRegistryWrite();
   const [wizard, setWizard] = useState<BackendWizardTarget | null>(null);
@@ -83,6 +92,7 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
               key={record.id}
               record={record}
               orgConflicts={orgConflicts.filter((c) => c.backendId === record.id)}
+              identityChange={identityChanges.find((c) => c.backendId === record.id) ?? null}
               enableSwitch={enableSwitch}
               onEdit={(place) => setWizard({ recordId: record.id, mode: 'edit', place })}
               onRemoved={() => setWizard(null)}
@@ -115,10 +125,11 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
 const ConnectionRow: React.FC<{
   record: BackendConnection;
   orgConflicts: BackendOrgConflict[];
+  identityChange: BackendIdentityChange | null;
   enableSwitch: BackendEnableSwitchHandle;
   onEdit: (place: string) => void;
   onRemoved: () => void;
-}> = ({ record, orgConflicts, enableSwitch, onEdit, onRemoved }) => {
+}> = ({ record, orgConflicts, identityChange, enableSwitch, onEdit, onRemoved }) => {
   const { token } = theme.useToken();
   const t = useT();
   const host = getCurrentHost();
@@ -243,7 +254,74 @@ const ConnectionRow: React.FC<{
       {orgConflicts.map((conflict) => (
         <OrgConflictNotice key={conflict.orgId} conflict={conflict} />
       ))}
+      {identityChange && <IdentityChangeNotice change={identityChange} placeText={placeText} />}
       {removal.element}
+    </div>
+  );
+};
+
+/**
+ * The durable identity-change row under a backend's status line — the
+ * host behind this record announced a different Org than the one it
+ * was bound to (`OH.backendIdentityChanges`). Pending: the join is held
+ * and Accept forgets the previous identity and re-dials the wire;
+ * the row resolves on the join that follows. Replaced: the loopback
+ * join already went through and the row only says so until dismissed.
+ */
+const IdentityChangeNotice: React.FC<{ change: BackendIdentityChange; placeText: string }> = ({
+  change,
+  placeText,
+}) => {
+  const { token } = theme.useToken();
+  const t = useT();
+  const [accepting, setAccepting] = useState(false);
+  const pending = change.resolution === 'pending';
+
+  const accept = async (): Promise<void> => {
+    setAccepting(true);
+    try {
+      await hostBridge.call('oh.backendIdentity.accept', { backendId: change.backendId }).catch(() => null);
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  return (
+    <div
+      role={pending ? 'alert' : 'status'}
+      data-testid={`backend-identity-${change.resolution}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 8px 5px 30px',
+        fontSize: 11,
+        color: pending ? token.colorWarningText : token.colorTextSecondary,
+        background: pending ? token.colorWarningBg : token.colorFillQuaternary,
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
+      }}
+    >
+      <span style={{ flex: 1, minWidth: 0 }}>
+        {pending
+          ? t('workbench.settings.backendPane.connections.identityChanged.pending', {
+              next: change.nextOrgName,
+              previous: change.previousOrgName,
+            })
+          : t('workbench.settings.backendPane.connections.identityChanged.replaced', { place: placeText })}
+      </span>
+      {pending ? (
+        <Button size="small" type="primary" loading={accepting} onClick={() => void accept()}>
+          {t('workbench.settings.backendPane.connections.identityChanged.accept')}
+        </Button>
+      ) : (
+        <Button
+          size="small"
+          type="text"
+          icon={<CloseOutlined />}
+          aria-label={t('workbench.settings.backendPane.connections.identityChanged.dismiss')}
+          onClick={() => void dismissBackendIdentityChange(change.backendId)}
+        />
+      )}
     </div>
   );
 };

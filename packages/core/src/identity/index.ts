@@ -173,6 +173,7 @@ export {
   probeBackendConnection,
 } from './probe-connection';
 export {
+  type ClaimJoinedOrgOptions,
   type ClaimJoinedOrgResult,
   claimJoinedOrg,
   clearIdentitySnapshot,
@@ -181,6 +182,7 @@ export {
   type InstallIdentitySnapshotInput,
   installIdentitySnapshot,
   isPinnedBackendId,
+  type JoinedOrgIdentityChangePolicy,
   MAX_ORG_NAME_LENGTH,
   pruneJoinedOrgsForBackend,
   type RecordJoinedOrgResult,

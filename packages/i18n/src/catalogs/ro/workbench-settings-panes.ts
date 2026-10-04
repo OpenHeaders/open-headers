@@ -157,6 +157,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.orgConflict':
     'Org „{org}” este furnizată deja de {provider} — nu s-a alăturat',
   'workbench.settings.backendPane.connections.removedBackend': 'o conexiune eliminată',
+  'workbench.settings.backendPane.connections.identityChanged.pending':
+    'La această adresă răspunde alt server — acum „{next}”, înainte „{previous}”. Nu se alătură până nu acceptați.',
+  'workbench.settings.backendPane.connections.identityChanged.accept': 'Acceptare identitate nouă',
+  'workbench.settings.backendPane.connections.identityChanged.replaced':
+    'Locul {place} este o altă instalare decât înainte — spațiile de lucru anterioare sunt păstrate drept copii locale.',
+  'workbench.settings.backendPane.connections.identityChanged.dismiss': 'Închidere',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': 'Se conectează la {label}…',

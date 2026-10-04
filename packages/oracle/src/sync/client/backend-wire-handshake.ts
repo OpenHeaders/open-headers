@@ -1,7 +1,9 @@
 import {
   clearBackendOrgConflict,
   getBackend,
+  recordBackendIdentityChange,
   recordBackendOrgConflict,
+  resolvePendingBackendIdentityChange,
   setBackendReach,
 } from '@openheaders/core/backends';
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
@@ -178,8 +180,35 @@ export function createSyncHandshakeForWire(
       // registry record (the multi-backend plan §2). The claim enforces
       // Org uniqueness: an Org already bound to a different, still-
       // present backend is refused — never re-bound, never
-      // double-consumed.
-      const result = await claimJoinedOrg(org, wire.backendId);
+      // double-consumed. Its mirror, one record one Org, resolves by
+      // the wire's trust posture: on loopback whatever answers is this
+      // device's own installation and replaces the previous binding;
+      // over the network a different identity behind a still-valid
+      // credential is shown and accepted by the person, never absorbed.
+      const result = await claimJoinedOrg(org, wire.backendId, {
+        onIdentityChange: wire.isLoopback() ? 'replace' : 'refuse',
+      });
+      if (result.outcome === 'identity-changed') {
+        const [previous] = result.previousOrgs;
+        reportBackendSyncStatus(wire.backendId, {
+          state: 'yellow',
+          message: `A different server answers here — "${org.name}" now, "${previous.name}" before — not joined until you accept it`,
+          context: { reason: 'identity-changed', orgId: org.id, previousOrgId: previous.id },
+        });
+        await recordBackendIdentityChange({
+          backendId: wire.backendId,
+          previousOrgId: previous.id,
+          previousOrgName: previous.name,
+          nextOrgId: org.id,
+          nextOrgName: org.name,
+          resolution: 'pending',
+        });
+        logger.warn(
+          SCOPE,
+          `backend ${wire.backendId} answers as Org ${org.id}, bound to Org ${previous.id} — join held for the person's accept`,
+        );
+        return;
+      }
       if (result.outcome === 'refused') {
         // Surface the conflict on this backend's row (dot + tooltip).
         // Temporal like every slot write — a later synced report for the
@@ -210,6 +239,26 @@ export function createSyncHandshakeForWire(
       // Accepted — a durable conflict row for this (backend, Org) pair is
       // resolved (the old binding was stale, or the provider was removed).
       await clearBackendOrgConflict(wire.backendId, org.id);
+      const [replaced] = result.replaced;
+      if (replaced) {
+        // The loopback replacement: the row tells the person what
+        // happened under the connection and stays until dismissed.
+        await recordBackendIdentityChange({
+          backendId: wire.backendId,
+          previousOrgId: replaced.id,
+          previousOrgName: replaced.name,
+          nextOrgId: org.id,
+          nextOrgName: org.name,
+          resolution: 'replaced',
+        });
+        logger.info(
+          SCOPE,
+          `backend ${wire.backendId} answers as Org ${org.id} — Org ${replaced.id} answered before; the previous binding was replaced`,
+        );
+      } else {
+        // A join that follows the person's accept resolves the pending row.
+        await resolvePendingBackendIdentityChange(wire.backendId);
+      }
       if (result.firstJoin && backendActiveWorkspaceId) {
         pendingAdoptWorkspaceId = backendActiveWorkspaceId;
         tryAdoptPendingWorkspace();

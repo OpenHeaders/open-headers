@@ -128,6 +128,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.orgConflict':
     'Org「{org}」は既に {provider} が提供しています。参加しません',
   'workbench.settings.backendPane.connections.removedBackend': '削除された接続',
+  'workbench.settings.backendPane.connections.identityChanged.pending':
+    'このアドレスでは別のサーバーが応答しています。現在は「{next}」、以前は「{previous}」でした。承認するまで参加しません。',
+  'workbench.settings.backendPane.connections.identityChanged.accept': '新しい識別情報を承認',
+  'workbench.settings.backendPane.connections.identityChanged.replaced':
+    '{place} は以前とは別のインストールです。以前のワークスペースはローカルコピーとして保持されます。',
+  'workbench.settings.backendPane.connections.identityChanged.dismiss': '閉じる',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': '{label} に接続中…',

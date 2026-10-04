@@ -179,6 +179,44 @@ export interface RecordJoinedOrgResult {
   snapshot: IdentitySnapshot | null;
   /** True iff this Org was newly recorded — a first join, not a reconnect. */
   firstJoin: boolean;
+  /**
+   * The Orgs this record was bound to BEFORE this join and is no longer
+   * — the identity that used to answer at the record's address. Empty
+   * on every ordinary join and reconnect; non-empty exactly when the
+   * host behind the record changed identity and the join replaced it.
+   */
+  replaced: readonly Org[];
+}
+
+/**
+ * What a join does when the record it rides is already bound to a
+ * DIFFERENT Org — the host behind that address changed identity (a
+ * reinstalled or wiped store, a build with its own data dir, a record
+ * re-pointed at another machine). One record names one host, and one
+ * host announces one home Org, so the previous binding is dead on that
+ * wire either way; the policy decides who says so.
+ *
+ *   replace — the previous binding is dropped and the new Org joins
+ *             (trust-by-process wires: whatever answers on loopback is
+ *             this device's own installation).
+ *   refuse  — nothing is written; the caller surfaces the change and
+ *             the person accepts it deliberately (authenticated wires:
+ *             a replaced server behind a still-valid credential is a
+ *             fact to show, never to absorb silently).
+ */
+export type JoinedOrgIdentityChangePolicy = 'replace' | 'refuse';
+
+export interface ClaimJoinedOrgOptions {
+  onIdentityChange: JoinedOrgIdentityChangePolicy;
+}
+
+/**
+ * The rows bound to `backendId` that name an Org other than `orgId` —
+ * the record's previous identity. Pure; the registry's one reading of
+ * "one record, one Org".
+ */
+function previousIdentityRows(existing: readonly JoinedOrgRecord[], backendId: string, orgId: string): JoinedOrgRecord[] {
+  return existing.filter((row) => row?.org && row.backendId === backendId && row.org.id !== orgId);
 }
 
 /**
@@ -213,37 +251,55 @@ export interface RecordJoinedOrgResult {
  * enforce Org uniqueness — a differing stored `backendId` is
  * drift-updated in place. WELCOME processing goes through
  * {@link claimJoinedOrg}, which layers the uniqueness guard on top.
+ *
+ * One record, one Org: rows the same record held for a different Org
+ * are REPLACED by this join and reported in `replaced`. The host that
+ * dials a single fixed backend (the served tab) rides this writer, and
+ * there the only way its backend's identity changes is the server
+ * itself being reinstalled under the same origin — the tab IS that
+ * server's page, so the replacement is the truthful reading.
  */
 export async function recordJoinedOrg(org: Org, backendId: string): Promise<RecordJoinedOrgResult> {
   const record = await hostStorage.get(OH.syntheticIdentity);
   if (record && record.org.id === org.id) {
     // The joiner's own home-org — nothing to record, not a join. Reached
     // only if a host somehow handshakes against itself; harmless to ignore.
-    return { snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin: false };
+    return { snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin: false, replaced: [] };
   }
   // Normalize: joined Orgs are never private by definition.
   const normalized: Org = org.isPrivate ? { ...org, isPrivate: false } : org;
   const nextRow: JoinedOrgRecord = { org: normalized, backendId };
-  let firstJoin = false;
+  let upserted: UpsertJoinedOrgOutcome = { firstJoin: false, replaced: [] };
   await withJoinedOrgsLock(async () => {
-    firstJoin = await upsertJoinedOrgRowLocked(nextRow);
+    upserted = await upsertJoinedOrgRowLocked(nextRow);
   });
-  return { snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin };
+  return { snapshot: await refreshIdentitySnapshotFromHostStorage(), ...upserted };
+}
+
+interface UpsertJoinedOrgOutcome {
+  firstJoin: boolean;
+  replaced: readonly Org[];
 }
 
 /**
- * Upsert one `OH.joinedOrgs` row. Caller MUST hold
- * {@link withJoinedOrgsLock}. Returns true when the Org was newly
- * recorded (a first join, not a reconnect).
+ * Upsert one `OH.joinedOrgs` row and drop the rows its record held for
+ * any other Org (one record, one Org). Caller MUST hold
+ * {@link withJoinedOrgsLock}. `firstJoin` is true when the Org was newly
+ * recorded (a first join, not a reconnect); `replaced` names the Orgs
+ * the record was bound to before.
  */
-async function upsertJoinedOrgRowLocked(nextRow: JoinedOrgRecord): Promise<boolean> {
+async function upsertJoinedOrgRowLocked(nextRow: JoinedOrgRecord): Promise<UpsertJoinedOrgOutcome> {
   const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
-  const known = existing.find((row) => row?.org?.id === nextRow.org.id);
+  const previous = previousIdentityRows(existing, nextRow.backendId, nextRow.org.id);
+  const kept = previous.length === 0 ? existing : existing.filter((row) => !previous.includes(row));
+  const replaced = previous.map((row) => row.org);
+  const known = kept.find((row) => row?.org?.id === nextRow.org.id);
   if (!known) {
-    await hostStorage.set(OH.joinedOrgs, [...existing, nextRow]);
-    return true;
+    await hostStorage.set(OH.joinedOrgs, [...kept, nextRow]);
+    return { firstJoin: true, replaced };
   }
   if (
+    previous.length > 0 ||
     known.org.name !== nextRow.org.name ||
     known.org.isPrivate !== nextRow.org.isPrivate ||
     known.org.hostOs !== nextRow.org.hostOs ||
@@ -257,16 +313,17 @@ async function upsertJoinedOrgRowLocked(nextRow: JoinedOrgRecord): Promise<boole
     // delivering backend.
     await hostStorage.set(
       OH.joinedOrgs,
-      existing.map((row) => (row?.org?.id === nextRow.org.id ? nextRow : row)),
+      kept.map((row) => (row?.org?.id === nextRow.org.id ? nextRow : row)),
     );
   }
-  return false;
+  return { firstJoin: false, replaced };
 }
 
 /** Outcome of {@link claimJoinedOrg}. */
 export type ClaimJoinedOrgResult =
   | ({ outcome: 'joined' } & RecordJoinedOrgResult)
-  | { outcome: 'refused'; boundBackendId: string };
+  | { outcome: 'refused'; boundBackendId: string }
+  | { outcome: 'identity-changed'; previousOrgs: readonly [Org, ...Org[]] };
 
 /**
  * The Org-uniqueness-guarded join writer (the multi-backend plan §2): an
@@ -278,16 +335,33 @@ export type ClaimJoinedOrgResult =
  * {@link recordJoinedOrg} performs under the Phase-1 cap). The guard
  * and the upsert run under one lock so two concurrent WELCOMEs claiming
  * the same Org serialize — the loser observes the winner's binding.
+ *
+ * The mirror invariant, one record one Org: a claim over a record that
+ * is bound to a different Org is an identity change of the host behind
+ * that address, resolved by `options.onIdentityChange` — `replace`
+ * drops the old binding and joins (reported in `replaced`); `refuse`
+ * writes nothing and answers `identity-changed` with the Orgs the
+ * record held, for the caller to surface and the person to accept.
  */
-export async function claimJoinedOrg(org: Org, backendId: string): Promise<ClaimJoinedOrgResult> {
+export async function claimJoinedOrg(
+  org: Org,
+  backendId: string,
+  options: ClaimJoinedOrgOptions,
+): Promise<ClaimJoinedOrgResult> {
   const record = await hostStorage.get(OH.syntheticIdentity);
   if (record && record.org.id === org.id) {
     // The joiner's own home-org — nothing to record, not a join.
-    return { outcome: 'joined', snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin: false };
+    return {
+      outcome: 'joined',
+      snapshot: await refreshIdentitySnapshotFromHostStorage(),
+      firstJoin: false,
+      replaced: [],
+    };
   }
   const normalized: Org = org.isPrivate ? { ...org, isPrivate: false } : org;
   let boundBackendId: string | null = null;
-  let firstJoin = false;
+  let previousOrgs: readonly [Org, ...Org[]] | null = null;
+  let upserted: UpsertJoinedOrgOutcome = { firstJoin: false, replaced: [] };
   await withJoinedOrgsLock(async () => {
     const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
     const known = existing.find((row) => row?.org?.id === normalized.id);
@@ -298,12 +372,22 @@ export async function claimJoinedOrg(org: Org, backendId: string): Promise<Claim
         return;
       }
     }
-    firstJoin = await upsertJoinedOrgRowLocked({ org: normalized, backendId });
+    if (options.onIdentityChange === 'refuse') {
+      const [first, ...rest] = previousIdentityRows(existing, backendId, normalized.id);
+      if (first) {
+        previousOrgs = [first.org, ...rest.map((row) => row.org)];
+        return;
+      }
+    }
+    upserted = await upsertJoinedOrgRowLocked({ org: normalized, backendId });
   });
   if (boundBackendId !== null) {
     return { outcome: 'refused', boundBackendId };
   }
-  return { outcome: 'joined', snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin };
+  if (previousOrgs !== null) {
+    return { outcome: 'identity-changed', previousOrgs };
+  }
+  return { outcome: 'joined', snapshot: await refreshIdentitySnapshotFromHostStorage(), ...upserted };
 }
 
 /**

@@ -1,6 +1,7 @@
 /** Connection / presence RPCs. */
 
 import { getRules } from '@openheaders/oracle/entity/rule-store';
+import { acceptBackendIdentityChange } from '@openheaders/oracle/sync/client/backend-identity-accept';
 import { logger } from '@utils/logger';
 import { getActiveWorkspaceId, listWorkspaces } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
@@ -22,6 +23,16 @@ export const connectionHandlers: HandlerMap = {
 
   getRules: ({ respond, ctx }) => {
     respond({ rules: getRules(), isConnected: ctx.isWebSocketConnected() });
+  },
+
+  'oh.backendIdentity.accept': ({ message, respond }) => {
+    acceptBackendIdentityChange(message.backendId as string)
+      .then((result) => respond(result))
+      .catch((error: Error) => {
+        logger.warn('MessageHandler', 'accepting the backend identity change failed', error.message);
+        respond({ reconnected: false });
+      });
+    return true;
   },
 
   rulesUpdated: ({ respond, ctx }) => {

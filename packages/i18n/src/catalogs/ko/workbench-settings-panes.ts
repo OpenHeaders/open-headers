@@ -133,6 +133,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.orgConflict':
     'Org “{org}” 조직은 이미 {provider}에서 제공합니다. 참여하지 않음',
   'workbench.settings.backendPane.connections.removedBackend': '제거된 연결',
+  'workbench.settings.backendPane.connections.identityChanged.pending':
+    '이 주소에서 다른 서버가 응답합니다. 지금은 “{next}”, 이전에는 “{previous}”였습니다. 수락할 때까지 참여하지 않습니다.',
+  'workbench.settings.backendPane.connections.identityChanged.accept': '새 식별 정보 수락',
+  'workbench.settings.backendPane.connections.identityChanged.replaced':
+    '{place} 위치는 이전과 다른 설치입니다. 이전 워크스페이스는 로컬 사본으로 유지됩니다.',
+  'workbench.settings.backendPane.connections.identityChanged.dismiss': '닫기',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': '{label}에 연결하는 중…',

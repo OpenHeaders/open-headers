@@ -12,6 +12,7 @@ import {
   __clearBackendsForTests,
   createBackend,
   getBackend,
+  recordBackendIdentityChange,
   recordBackendOrgConflict,
   refreshBackendsFromHostStorage,
   updateBackend,
@@ -199,6 +200,37 @@ describe('useBackendEnableSwitch.setEnabled', () => {
         orgId: 'org-refused',
         orgName: 'Refused Org',
         boundBackendId: 'backend-original',
+      });
+      await vi.advanceTimersByTimeAsync(100);
+      await pending;
+    });
+
+    expect(getBackend(record.id)?.enabled).toBe(true);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('ends the overlay dwell as soon as a held identity change lands (a different host answers)', async () => {
+    const record = await createBackend({ url: 'ws://192.168.1.20:8137' });
+    mockProbe.mockResolvedValue({ ok: true, latencyMs: 5, protocolVersion: 1, role: 'extension', agent: 'x' });
+    const hangingAdopt = () => new Promise<void>(() => {});
+    const heldWrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <AntApp>
+        <SurfaceWorkspaceAdoptProvider adopt={hangingAdopt}>{children}</SurfaceWorkspaceAdoptProvider>
+      </AntApp>
+    );
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper: heldWrapper });
+
+    await act(async () => {
+      const pending = result.current.setEnabled(record, true);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await recordBackendIdentityChange({
+        backendId: record.id,
+        previousOrgId: 'org-before',
+        previousOrgName: 'Server Before',
+        nextOrgId: 'org-after',
+        nextOrgName: 'Server After',
+        resolution: 'pending',
       });
       await vi.advanceTimersByTimeAsync(100);
       await pending;

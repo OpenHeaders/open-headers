@@ -117,6 +117,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.autoConnect': '自动连接',
   'workbench.settings.backendPane.connections.orgConflict': 'Org“{org}”已由 {provider} 提供——未加入',
   'workbench.settings.backendPane.connections.removedBackend': '一个已移除的连接',
+  'workbench.settings.backendPane.connections.identityChanged.pending':
+    '此地址上应答的是另一台服务器——现在是“{next}”，之前是“{previous}”。在你接受之前不会加入。',
+  'workbench.settings.backendPane.connections.identityChanged.accept': '接受新身份',
+  'workbench.settings.backendPane.connections.identityChanged.replaced':
+    '{place} 与之前不是同一个安装——其先前的工作区保留为本地副本。',
+  'workbench.settings.backendPane.connections.identityChanged.dismiss': '关闭',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': '正在连接到 {label}…',

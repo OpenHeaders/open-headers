@@ -43,7 +43,12 @@ vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
   setActiveWorkspaceById: vi.fn(async () => {}),
 }));
 
-import { clearIdentitySnapshot, ensureSyntheticIdentity, getOrgBackendBindings } from '@openheaders/core/identity';
+import {
+  clearIdentitySnapshot,
+  ensureSyntheticIdentity,
+  getOrgBackendBindings,
+  pruneJoinedOrgsForBackend,
+} from '@openheaders/core/identity';
 import { HANDSHAKE_ROLES } from '@openheaders/core/protocol';
 import { hostStorage, OH, setHostStorage } from '@openheaders/core/storage';
 import type { BackendConnection, Org } from '@openheaders/core/types';
@@ -75,11 +80,11 @@ function makeRecord(id: string): BackendConnection {
   };
 }
 
-function makeWire(backendId: string): BackendWireHandle {
+function makeWire(backendId: string, loopback = true): BackendWireHandle {
   return {
     backendId,
     record: () => makeRecord(backendId),
-    isLoopback: () => true,
+    isLoopback: () => loopback,
     isConnected: () => true,
     send: () => true,
   };
@@ -182,5 +187,79 @@ describe('WELCOME Org-uniqueness guard (per-wire onJoinedOrg)', () => {
     await joinedOrgOf(0)(ORG);
     expect((await hostStorage.get(OH.joinedOrgs))?.length).toBe(1);
     expect(getOrgBackendBindings().get(ORG.id)).toBe(BACKEND_A);
+    expect((await hostStorage.get(OH.backendIdentityChanges)) ?? []).toHaveLength(0);
+  });
+});
+
+describe('WELCOME identity change (one record, one Org — per-wire onJoinedOrg)', () => {
+  it('loopback: a different Org over a bound wire replaces the binding and records the change', async () => {
+    createSyncHandshakeForWire(makeWire(BACKEND_A), WIRE_DEPS);
+    await joinedOrgOf(0)(ORG);
+    // The desktop app behind 8137 is a different installation now.
+    await joinedOrgOf(0)(OTHER_ORG);
+
+    expect(getOrgBackendBindings().has(ORG.id)).toBe(false);
+    expect(getOrgBackendBindings().get(OTHER_ORG.id)).toBe(BACKEND_A);
+    expect((await hostStorage.get(OH.joinedOrgs))?.map((r) => r.org.id)).toEqual([OTHER_ORG.id]);
+    const changes = (await hostStorage.get(OH.backendIdentityChanges)) ?? [];
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      backendId: BACKEND_A,
+      previousOrgId: ORG.id,
+      previousOrgName: ORG.name,
+      nextOrgId: OTHER_ORG.id,
+      nextOrgName: OTHER_ORG.name,
+      resolution: 'replaced',
+    });
+    // The replaced row outlives the reconnects that re-announce the same Org.
+    await joinedOrgOf(0)(OTHER_ORG);
+    expect((await hostStorage.get(OH.backendIdentityChanges)) ?? []).toHaveLength(1);
+  });
+
+  it('authenticated: a different Org over a bound wire is held for the person, the binding untouched', async () => {
+    createSyncHandshakeForWire(makeWire(BACKEND_A, false), WIRE_DEPS);
+    await joinedOrgOf(0)(ORG);
+    await joinedOrgOf(0)(OTHER_ORG);
+
+    expect(getOrgBackendBindings().get(ORG.id)).toBe(BACKEND_A);
+    expect(getOrgBackendBindings().has(OTHER_ORG.id)).toBe(false);
+    expect((await hostStorage.get(OH.joinedOrgs))?.map((r) => r.org.id)).toEqual([ORG.id]);
+    const changes = (await hostStorage.get(OH.backendIdentityChanges)) ?? [];
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      backendId: BACKEND_A,
+      previousOrgId: ORG.id,
+      nextOrgId: OTHER_ORG.id,
+      resolution: 'pending',
+    });
+  });
+
+  it('the join after the person accepts claims the new Org as a first join and resolves the row', async () => {
+    createSyncHandshakeForWire(makeWire(BACKEND_A, false), WIRE_DEPS);
+    await joinedOrgOf(0)(ORG);
+    await joinedOrgOf(0)(OTHER_ORG);
+    // The accept forgets the record's previous identity; the fresh
+    // WELCOME over the re-dialed wire then claims the new Org.
+    await pruneJoinedOrgsForBackend(BACKEND_A);
+    await joinedOrgOf(0)(OTHER_ORG);
+
+    expect(getOrgBackendBindings().get(OTHER_ORG.id)).toBe(BACKEND_A);
+    expect(getOrgBackendBindings().has(ORG.id)).toBe(false);
+    expect((await hostStorage.get(OH.backendIdentityChanges)) ?? []).toHaveLength(0);
+  });
+
+  it('a record that accumulated several identities heals on the next loopback WELCOME', async () => {
+    createSyncHandshakeForWire(makeWire(BACKEND_A), WIRE_DEPS);
+    // The pre-invariant store: every identity that ever answered on the
+    // record was kept — the dev-build case.
+    await hostStorage.set(OH.joinedOrgs, [
+      { org: ORG, backendId: BACKEND_A },
+      { org: OTHER_ORG, backendId: BACKEND_A },
+    ]);
+    const live: Org = { id: 'org-live', name: 'Live Install', hostKind: 'desktop', isPrivate: false };
+    await joinedOrgOf(0)(live);
+
+    expect((await hostStorage.get(OH.joinedOrgs))?.map((r) => r.org.id)).toEqual([live.id]);
+    expect([...getOrgBackendBindings().keys()]).toEqual([live.id]);
   });
 });

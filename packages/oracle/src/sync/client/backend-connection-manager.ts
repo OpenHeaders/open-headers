@@ -435,6 +435,18 @@ export function reconnectWebSocket(): void {
   for (const wire of wires.values()) wire.transport.reconnect();
 }
 
+/**
+ * Force-close one backend's connection and start it fresh — a new
+ * HELLO / WELCOME over the same record. False when the record has no
+ * wire (disabled, or not yet reconciled).
+ */
+export function reconnectBackend(backendId: string): boolean {
+  const wire = wires.get(backendId);
+  if (!wire) return false;
+  wire.transport.reconnect();
+  return true;
+}
+
 /** Restart every wire's keep-alive ping — the host calls this when its ping-cadence setting changes. */
 export function restartAllPings(): void {
   for (const wire of wires.values()) wire.transport.restartPing();

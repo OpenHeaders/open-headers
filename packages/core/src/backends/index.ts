@@ -5,6 +5,19 @@
  */
 
 export {
+  dismissBackendIdentityChange,
+  type RecordBackendIdentityChangeInput,
+  recordBackendIdentityChange,
+  resolvePendingBackendIdentityChange,
+} from './identity-changes';
+export {
+  clearBackendOrgConflict,
+  pruneBackendOrgConflictsForBackend,
+  type RecordBackendOrgConflictInput,
+  recordBackendOrgConflict,
+} from './org-conflicts';
+export { resetBackendReach, setBackendReach, widestBackendReach } from './reach';
+export {
   __clearBackendsForTests,
   type BackendConnectionPatch,
   type CreateBackendInput,
@@ -21,10 +34,3 @@ export {
   updatePrimaryBackend,
   watchBackendsInHostStorage,
 } from './registry';
-export { resetBackendReach, setBackendReach, widestBackendReach } from './reach';
-export {
-  clearBackendOrgConflict,
-  pruneBackendOrgConflictsForBackend,
-  type RecordBackendOrgConflictInput,
-  recordBackendOrgConflict,
-} from './org-conflicts';

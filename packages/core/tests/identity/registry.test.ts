@@ -87,6 +87,11 @@ function seedBackends(backends: BackendConnection[]): Promise<void> {
 const normalized = (org: Org): Org => ({ ...org, isPrivate: false });
 const joinedRow = (org: Org, backendId: string): JoinedOrgRecord => ({ org: normalized(org), backendId });
 
+/** The authenticated-wire policy: an identity change is surfaced, never absorbed. */
+const REFUSE = { onIdentityChange: 'refuse' } as const;
+/** The trust-by-process policy: whatever answers on loopback is this device's own installation. */
+const REPLACE = { onIdentityChange: 'replace' } as const;
+
 describe('identity registry — joined-Org folding (U5.2)', () => {
   let fake: HostStorageFake;
 
@@ -342,7 +347,7 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (the mul
   it('claims a fresh Org exactly like recordJoinedOrg (joined, firstJoin)', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await seedBackends([makeBackend(BACKEND_A)]);
-    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
     expect(result.outcome).toBe('joined');
     expect(result.outcome === 'joined' && result.firstJoin).toBe(true);
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_A)]);
@@ -352,9 +357,9 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (the mul
   it('refuses a claim for an Org bound to a different, still-present backend — never re-binds', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await seedBackends([makeBackend(BACKEND_A), makeBackend(BACKEND_B)]);
-    await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
 
-    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_B);
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_B, REFUSE);
     expect(result).toEqual({ outcome: 'refused', boundBackendId: BACKEND_A });
     // The binding and the persisted row are untouched.
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_A)]);
@@ -364,12 +369,12 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (the mul
   it('rebinds when the previously-bound record no longer exists (stale binding)', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await seedBackends([makeBackend(BACKEND_A)]);
-    await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
 
     // A's record is deleted; B claims the same Org — a legitimate
     // re-join through a re-minted connection, not a conflict.
     await seedBackends([makeBackend(BACKEND_B)]);
-    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_B);
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_B, REFUSE);
     expect(result.outcome).toBe('joined');
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_B)]);
   });
@@ -377,8 +382,8 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (the mul
   it('re-claiming from the same backend is an idempotent reconnect', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await seedBackends([makeBackend(BACKEND_A)]);
-    await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
-    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
     expect(result.outcome).toBe('joined');
     expect(result.outcome === 'joined' && result.firstJoin).toBe(false);
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_A)]);
@@ -386,7 +391,7 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (the mul
 
   it('treats the joiner own home-org as a no-op join, never a refusal', async () => {
     const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    const result = await claimJoinedOrg(record.org, BACKEND_A);
+    const result = await claimJoinedOrg(record.org, BACKEND_A, REFUSE);
     expect(result.outcome).toBe('joined');
     expect(result.outcome === 'joined' && result.firstJoin).toBe(false);
     expect(await hostStorage.get(OH.joinedOrgs)).toBeUndefined();
@@ -397,7 +402,7 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (the mul
     setPinnedBackendIds([BACKEND_A]);
     // No seedBackends — the slot stays absent, as on a host whose
     // sensitive OH.backends slot refuses reads.
-    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
     expect(result.outcome).toBe('joined');
     const snapshot = await refreshIdentitySnapshotFromHostStorage();
     expect(authorizedOrgIds(snapshot).has(BACKEND_ORG.id)).toBe(true);
@@ -407,21 +412,101 @@ describe('identity registry — Org→backend bindings + claimJoinedOrg (the mul
   it('never treats a binding to a pinned backend as stale — a claim from another id is refused', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     setPinnedBackendIds([BACKEND_A]);
-    await claimJoinedOrg(BACKEND_ORG, BACKEND_A);
-    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_B);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
+    const result = await claimJoinedOrg(BACKEND_ORG, BACKEND_B, REFUSE);
     expect(result).toEqual({ outcome: 'refused', boundBackendId: BACKEND_A });
   });
 
   it('serializes two concurrent claims of the same Org — exactly one wins', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await seedBackends([makeBackend(BACKEND_A), makeBackend(BACKEND_B)]);
-    const [a, b] = await Promise.all([claimJoinedOrg(BACKEND_ORG, BACKEND_A), claimJoinedOrg(BACKEND_ORG, BACKEND_B)]);
+    const [a, b] = await Promise.all([
+      claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE),
+      claimJoinedOrg(BACKEND_ORG, BACKEND_B, REFUSE),
+    ]);
     const outcomes = [a.outcome, b.outcome].sort();
     expect(outcomes).toEqual(['joined', 'refused']);
     const stored = (await hostStorage.get(OH.joinedOrgs)) ?? [];
     expect(stored).toHaveLength(1);
     const winner = a.outcome === 'joined' ? BACKEND_A : BACKEND_B;
     expect(stored[0].backendId).toBe(winner);
+  });
+
+  it('reports no replacement on an ordinary join and on a reconnect', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    const first = await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REPLACE);
+    const again = await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REPLACE);
+    expect(first.outcome === 'joined' && first.replaced).toEqual([]);
+    expect(again.outcome === 'joined' && again.replaced).toEqual([]);
+  });
+
+  it('refuse: a different Org over a bound record answers identity-changed and writes nothing', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REFUSE);
+
+    const result = await claimJoinedOrg(OTHER_ORG, BACKEND_A, REFUSE);
+    expect(result).toEqual({ outcome: 'identity-changed', previousOrgs: [normalized(BACKEND_ORG)] });
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_A)]);
+    expect(getOrgBackendBindings().get(BACKEND_ORG.id)).toBe(BACKEND_A);
+    expect(getOrgBackendBindings().has(OTHER_ORG.id)).toBe(false);
+  });
+
+  it('replace: a different Org over a bound record drops the previous binding and joins first', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REPLACE);
+
+    const result = await claimJoinedOrg(OTHER_ORG, BACKEND_A, REPLACE);
+    expect(result.outcome).toBe('joined');
+    expect(result.outcome === 'joined' && result.firstJoin).toBe(true);
+    expect(result.outcome === 'joined' && result.replaced).toEqual([normalized(BACKEND_ORG)]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(OTHER_ORG, BACKEND_A)]);
+    expect(getOrgBackendBindings().has(BACKEND_ORG.id)).toBe(false);
+    expect(getOrgBackendBindings().get(OTHER_ORG.id)).toBe(BACKEND_A);
+  });
+
+  it('replace: a record that accumulated several identities collapses to the one that answers', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    // The pre-invariant shape: every identity that ever answered on the
+    // record was kept. One join over it heals the slot.
+    await hostStorage.set(OH.joinedOrgs, [joinedRow(BACKEND_ORG, BACKEND_A), joinedRow(OTHER_ORG, BACKEND_A)]);
+    const THIRD: Org = {
+      id: '01900000-0000-7000-8000-0000000000dd',
+      name: 'Third',
+      hostKind: 'desktop',
+      isPrivate: false,
+    };
+
+    const result = await claimJoinedOrg(THIRD, BACKEND_A, REPLACE);
+    expect(result.outcome === 'joined' && result.replaced).toEqual([normalized(BACKEND_ORG), normalized(OTHER_ORG)]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(THIRD, BACKEND_A)]);
+  });
+
+  it('the uniqueness guard wins over the identity check — an Org bound elsewhere is refused, the record keeps its own', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A), makeBackend(BACKEND_B)]);
+    await claimJoinedOrg(BACKEND_ORG, BACKEND_A, REPLACE);
+    await claimJoinedOrg(OTHER_ORG, BACKEND_B, REPLACE);
+
+    const result = await claimJoinedOrg(OTHER_ORG, BACKEND_A, REPLACE);
+    expect(result).toEqual({ outcome: 'refused', boundBackendId: BACKEND_B });
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([
+      joinedRow(BACKEND_ORG, BACKEND_A),
+      joinedRow(OTHER_ORG, BACKEND_B),
+    ]);
+  });
+
+  it('recordJoinedOrg replaces a record previous identity too (the fixed single-backend host)', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    setPinnedBackendIds([BACKEND_A]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+    const result = await recordJoinedOrg(OTHER_ORG, BACKEND_A);
+    expect(result.firstJoin).toBe(true);
+    expect(result.replaced).toEqual([normalized(BACKEND_ORG)]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(OTHER_ORG, BACKEND_A)]);
   });
 });
 

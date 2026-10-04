@@ -110,6 +110,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.orgConflict':
     'Org “{org}” is already provided by {provider} — not joined',
   'workbench.settings.backendPane.connections.removedBackend': 'a removed connection',
+  'workbench.settings.backendPane.connections.identityChanged.pending':
+    'A different server answers at this address — “{next}” now, “{previous}” before. Not joined until you accept it.',
+  'workbench.settings.backendPane.connections.identityChanged.accept': 'Accept new identity',
+  'workbench.settings.backendPane.connections.identityChanged.replaced':
+    '{place} is a different installation than before — its earlier workspaces are kept as local copies.',
+  'workbench.settings.backendPane.connections.identityChanged.dismiss': 'Dismiss',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': 'Connecting to {label}…',

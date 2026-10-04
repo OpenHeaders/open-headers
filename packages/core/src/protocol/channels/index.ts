@@ -28,6 +28,7 @@
 
 import type { ActivityRpc } from './activity';
 import type { AwarenessRpc } from './awareness';
+import type { BackendIdentityRpc } from './backend-identity';
 import type { BackendProbeRpc } from './backend-probe';
 import type { BridgeBroadcastContract } from './broadcast';
 import type { DaemonRpc } from './daemon';
@@ -55,7 +56,6 @@ import type { WorkspaceRpc } from './workspace';
 export type { BridgeBroadcastContract, StorageInvalidationKind } from './broadcast';
 export type { FolderDescriptor, WorkspaceSnapshot } from './common';
 export type { DeviceTrustRpc, PresentedCertificateWire, SystemTrustWire } from './device-trust';
-export type { SecretManagerRpc } from './secret-manager';
 export type {
   CacheEntryDocumentWire,
   CacheEntryHeaderWire,
@@ -106,6 +106,7 @@ export type {
   WsStreamEventWire,
   WsStreamMessageWire,
 } from './requests';
+export type { SecretManagerRpc } from './secret-manager';
 export type { SecretsStorageState } from './secrets';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 export type {
@@ -176,7 +177,8 @@ export interface BridgeRpcContract
     SecretManagerRpc,
     ProductTelemetryRpc,
     ServerSignInRpc,
-    BackendProbeRpc {}
+    BackendProbeRpc,
+    BackendIdentityRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages

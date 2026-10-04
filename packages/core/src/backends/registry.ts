@@ -28,6 +28,7 @@ import { OH } from '../storage/keys';
 import type { BackendConnection } from '../types';
 import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
+import { dismissBackendIdentityChange } from './identity-changes';
 import { pruneBackendOrgConflictsForBackend } from './org-conflicts';
 
 let current: readonly BackendConnection[] = [];
@@ -172,6 +173,7 @@ export async function removeBackend(id: string): Promise<boolean> {
   if (!removed) return false;
   await pruneJoinedOrgsForBackend(id);
   await pruneBackendOrgConflictsForBackend(id);
+  await dismissBackendIdentityChange(id);
   return true;
 }
 

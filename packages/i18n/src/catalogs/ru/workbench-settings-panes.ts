@@ -139,6 +139,12 @@ export const workbenchSettingsPanes = {
   'workbench.settings.backendPane.connections.orgConflict':
     'Org «{org}» уже предоставляется через {provider} — не присоединена',
   'workbench.settings.backendPane.connections.removedBackend': 'удалённое соединение',
+  'workbench.settings.backendPane.connections.identityChanged.pending':
+    'По этому адресу отвечает другой сервер — теперь «{next}», раньше «{previous}». Не присоединён, пока вы не примете это.',
+  'workbench.settings.backendPane.connections.identityChanged.accept': 'Принять новую идентичность',
+  'workbench.settings.backendPane.connections.identityChanged.replaced':
+    'Место {place} — другая установка, чем раньше — его прежние рабочие пространства сохранены как локальные копии.',
+  'workbench.settings.backendPane.connections.identityChanged.dismiss': 'Скрыть',
 
   // ── Backend pane: probe-gated enable ───────────────────────────────
   'workbench.settings.backendPane.enable.connectingTo': 'Подключение к {label}…',

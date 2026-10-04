@@ -84,6 +84,7 @@ import {
 } from '@openheaders/oracle-host-node/traffic';
 import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow, dialog, shell } from 'electron';
+import { createBackendIdentityRpc } from './backend-identity';
 import { createBackendProbeRpc } from './backend-probe';
 import { dataDir } from './bootstrap/app-paths';
 import { revealAppSurface } from './bootstrap/app-reveal';
@@ -526,6 +527,7 @@ export async function installRpcHost(): Promise<void> {
   // never learns.
   const serverSignInRpc = createServerSignInRpc({ userAgent: spine.authorizationUserAgent });
   const backendProbeRpc = createBackendProbeRpc();
+  const backendIdentityRpc = createBackendIdentityRpc();
 
   rpcDispatcher = async (raw) => {
     const message = (raw ?? {}) as Record<string, unknown>;
@@ -721,6 +723,10 @@ export async function installRpcHost(): Promise<void> {
     // opens the one-shot socket over Node's WebSocket and relays the result.
     const probed = backendProbeRpc.dispatch(type, message);
     if (probed !== undefined) return probed;
+    // Accepting a record's new identity re-dials its wire — the client
+    // plane this process runs.
+    const accepted = backendIdentityRpc.dispatch(type, message);
+    if (accepted !== undefined) return accepted;
     const updateState = await updateService.dispatchRpc(type);
     return updateState !== undefined ? updateState : spine.dispatchRpc(raw);
   };
