@@ -14,8 +14,10 @@
  * The channel comes from the tag shape (`-beta.N` ⇒ beta), same as the
  * update feed — a beta tag stages only `rpm/beta/`, so it can never
  * move what stable clients read. The index is stateless: each release
- * lists exactly this tag's rpms (older versions stay downloadable from
- * `dl/<tag>/`). Trust matches the apt leg: dnf verifies the signed
+ * lists exactly this tag's rpms; the Packages copies of earlier tags
+ * are retired by the feed sweep (`prune-feed.mjs`) once the index
+ * stops naming them, and the GitHub release page keeps every version.
+ * Trust matches the apt leg: dnf verifies the signed
  * repomd.xml (`repo_gpgcheck=1`), package integrity flows through the
  * sha256 chain in that metadata (`gpgcheck=0` — rpms stay unsigned, the
  * pool file is the exact release artifact). Signing uses the DEDICATED

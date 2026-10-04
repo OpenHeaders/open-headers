@@ -100,6 +100,11 @@ their owning channel updates them.
   reaches exactly one first-party domain (`updates.openheaders.com`,
   served by Cloudflare, subject to its hosting logs); GitHub hosts a
   redundant human-browsable copy but is never contacted by the app.
+  The feed keeps a release's bytes while a pointer names it or for
+  sixty days after it shipped; a download link to an older release
+  redirects to that same copy on GitHub, blockmaps excepted — the
+  app's own requests answer from the feed or not at all, so the
+  pruning of old releases never adds a second domain to this path.
 - **Request body**: none. These are plain HTTP `GET`s; no identifier,
   license, or machine information is attached beyond what any HTTP
   client sends.

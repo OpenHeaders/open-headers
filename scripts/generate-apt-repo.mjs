@@ -13,8 +13,10 @@
  * The channel comes from the tag shape (`-beta.N` ⇒ beta), same as the
  * update feed — a beta tag stages only `apt/beta/`, so it can never
  * move what stable clients read. The index is stateless: each release
- * lists exactly this tag's debs (older versions stay downloadable from
- * `dl/<tag>/`). Signing uses the DEDICATED archive key (never the
+ * lists exactly this tag's debs; the pool copies of earlier tags are
+ * retired by the feed sweep (`prune-feed.mjs`) once the index stops
+ * naming them, and the GitHub release page keeps every version.
+ * Signing uses the DEDICATED archive key (never the
  * release GPG key) from `APT_GPG_PRIVATE_KEY`/`APT_GPG_PASSPHRASE`;
  * missing key or missing debs degrade to "apt tree unchanged" instead
  * of failing the release. A key that does not match the committed
