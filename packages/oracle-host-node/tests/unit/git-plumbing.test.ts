@@ -130,6 +130,15 @@ describe('probeGitAvailability', () => {
   });
 });
 
+describe('git-exec process discipline', () => {
+  it('pins auto-maintenance to the foreground at command scope', async () => {
+    const maintenance = await run(['config', '--get', 'maintenance.autoDetach'], { cwd: tmpDir });
+    const gc = await run(['config', '--get', 'gc.autoDetach'], { cwd: tmpDir });
+    expect(maintenance.stdout.trim()).toBe('false');
+    expect(gc.stdout.trim()).toBe('false');
+  });
+});
+
 describe('ensureWorkspaceRepo', () => {
   it('inits a fresh repo and adopts it on the second call', async () => {
     expect(await isWorkspaceRepo(run, tmpDir)).toBe(false);

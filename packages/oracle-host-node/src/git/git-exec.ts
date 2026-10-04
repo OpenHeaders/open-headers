@@ -6,6 +6,9 @@
  *   - arg-vector only (`execFile`, never a shell-interpolated string);
  *   - `GIT_TERMINAL_PROMPT=0` pinned so no invocation can hang on a
  *     credential prompt (fetch/push phases inherit the discipline);
+ *   - auto-maintenance pinned to the foreground (`maintenance.autoDetach`
+ *     and `gc.autoDetach` off at command scope) so no detached git child
+ *     of ours is still writing to the repo once the promise resolves;
  *   - explicit repo addressing: callers pass `cwd` (the work tree) and
  *     the wrapper pins `--git-dir`/`--work-tree` derivation to it —
  *     a stray `GIT_DIR` in the host environment can never retarget a
@@ -73,17 +76,38 @@ export interface CreateGitExecOptions {
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
+ * Config every invocation carries at command scope (`GIT_CONFIG_COUNT`,
+ * git 2.31+; older gits ignore the variables). A `commit` or `fetch`
+ * that triggers auto-maintenance waits for it instead of leaving a
+ * detached child writing to `.git/objects` after the runner's promise
+ * resolved — the caller may be about to remove the directory.
+ */
+const PINNED_CONFIG: ReadonlyArray<readonly [key: string, value: string]> = [
+  ['maintenance.autoDetach', 'false'],
+  ['gc.autoDetach', 'false'],
+];
+
+/**
  * Environment the wrapper pins on every invocation. `GIT_TERMINAL_PROMPT=0`
  * turns would-be credential prompts into fast failures; the `GIT_DIR` /
  * `GIT_WORK_TREE` / `GIT_INDEX_FILE` deletions ensure ambient state from
  * the launching shell can never retarget a command (callers re-supply
- * `GIT_INDEX_FILE` deliberately via `env` for temp-index commits).
+ * `GIT_INDEX_FILE` deliberately via `env` for temp-index commits); the
+ * pinned config entries follow any command-scope entries the launching
+ * shell already carries.
  */
 function baseEnv(extra: Record<string, string> | undefined): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
   delete env.GIT_DIR;
   delete env.GIT_WORK_TREE;
   delete env.GIT_INDEX_FILE;
+  const ambient = Number.parseInt(env.GIT_CONFIG_COUNT ?? '', 10);
+  const offset = Number.isInteger(ambient) && ambient > 0 ? ambient : 0;
+  for (const [index, [key, value]] of PINNED_CONFIG.entries()) {
+    env[`GIT_CONFIG_KEY_${offset + index}`] = key;
+    env[`GIT_CONFIG_VALUE_${offset + index}`] = value;
+  }
+  env.GIT_CONFIG_COUNT = String(offset + PINNED_CONFIG.length);
   return extra ? { ...env, ...extra } : env;
 }
 
