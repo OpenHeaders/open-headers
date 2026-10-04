@@ -131,6 +131,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateAria': '创建工作区副本',
   'workbench.workspace.publishAria': '将工作区复制到桌面应用或服务器',
   'workbench.workspace.deleteAria': '删除工作区',
+  'workbench.workspace.deleteLastInPlace': '无法删除一个位置中的最后一个工作区',
   'workbench.workspace.prefixLabel': '前缀',
   'workbench.workspace.nameLabel': '名称',
   'workbench.workspace.nameRequired': '必须填写名称',

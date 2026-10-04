@@ -143,6 +143,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateAria': 'Дублировать рабочее пространство',
   'workbench.workspace.publishAria': 'Скопировать рабочее пространство в настольное приложение или на сервер',
   'workbench.workspace.deleteAria': 'Удалить рабочее пространство',
+  'workbench.workspace.deleteLastInPlace': 'Последнее рабочее пространство места удалить нельзя',
   'workbench.workspace.prefixLabel': 'Префикс',
   'workbench.workspace.nameLabel': 'Имя',
   'workbench.workspace.nameRequired': 'Имя обязательно',

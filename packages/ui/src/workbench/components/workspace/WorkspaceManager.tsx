@@ -38,7 +38,7 @@ import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useW
 import { orgChoiceCatalogue } from '@openheaders/ui/shared/workspace-org/org-choice';
 import { useOrgPlace } from '@openheaders/ui/shared/workspace-org/use-org-place';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
-import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
+import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -500,47 +500,68 @@ const SortableRow: React.FC<SortableRowProps> = ({
             {t('workbench.workspace.switch')}
           </Button>
         )}
-        <Button size="small" icon={<EditOutlined />} onClick={onEdit} aria-label={t('workbench.workspace.renameAria')} />
-        <Button
-          size="small"
-          icon={<CopyOutlined />}
-          onClick={onDuplicate}
-          aria-label={t('workbench.workspace.duplicateAria')}
-        />
-        {onPublish && (
+        <Tooltip title={t('workbench.workspace.renameAria')}>
           <Button
             size="small"
-            icon={<CloudUploadOutlined />}
-            onClick={onPublish}
-            aria-label={t('workbench.workspace.publishAria')}
+            icon={<EditOutlined />}
+            onClick={onEdit}
+            aria-label={t('workbench.workspace.renameAria')}
           />
+        </Tooltip>
+        <Tooltip title={t('workbench.workspace.duplicateAria')}>
+          <Button
+            size="small"
+            icon={<CopyOutlined />}
+            onClick={onDuplicate}
+            aria-label={t('workbench.workspace.duplicateAria')}
+          />
+        </Tooltip>
+        {onPublish && (
+          <Tooltip title={t('workbench.workspace.publishAria')}>
+            <Button
+              size="small"
+              icon={<CloudUploadOutlined />}
+              onClick={onPublish}
+              aria-label={t('workbench.workspace.publishAria')}
+            />
+          </Tooltip>
         )}
         {onMembers && (
-          <Button
-            size="small"
-            icon={<TeamOutlined />}
-            onClick={onMembers}
-            data-testid={`workspace-members-open-${workspace.id}`}
-            aria-label={t('workbench.workspace.members.openAria')}
-          />
+          <Tooltip title={t('workbench.workspace.members.openAria')}>
+            <Button
+              size="small"
+              icon={<TeamOutlined />}
+              onClick={onMembers}
+              data-testid={`workspace-members-open-${workspace.id}`}
+              aria-label={t('workbench.workspace.members.openAria')}
+            />
+          </Tooltip>
         )}
         {onLeave && (
-          <Button
-            size="small"
-            icon={<LogoutOutlined />}
-            danger
-            onClick={onLeave}
-            aria-label={t('workbench.workspace.leaveAria')}
-          />
+          <Tooltip title={t('workbench.workspace.leaveAria')}>
+            <Button
+              size="small"
+              icon={<LogoutOutlined />}
+              danger
+              onClick={onLeave}
+              aria-label={t('workbench.workspace.leaveAria')}
+            />
+          </Tooltip>
         )}
-        <Button
-          size="small"
-          icon={<DeleteOutlined />}
-          danger
-          onClick={onDelete}
-          disabled={!canDelete}
-          aria-label={t('workbench.workspace.deleteAria')}
-        />
+        {/* A disabled button fires no pointer events, so the tooltip hangs
+            off a wrapper to still explain the grey state. */}
+        <Tooltip title={t(canDelete ? 'workbench.workspace.deleteAria' : 'workbench.workspace.deleteLastInPlace')}>
+          <span style={{ display: 'inline-flex' }}>
+            <Button
+              size="small"
+              icon={<DeleteOutlined />}
+              danger
+              onClick={onDelete}
+              disabled={!canDelete}
+              aria-label={t('workbench.workspace.deleteAria')}
+            />
+          </span>
+        </Tooltip>
       </Space>
     </div>
   );

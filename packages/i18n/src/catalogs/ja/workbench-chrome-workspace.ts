@@ -140,6 +140,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateAria': 'ワークスペースを複製',
   'workbench.workspace.publishAria': 'ワークスペースをデスクトップアプリまたはサーバーにコピー',
   'workbench.workspace.deleteAria': 'ワークスペースを削除',
+  'workbench.workspace.deleteLastInPlace': '場所に残る最後のワークスペースは削除できません',
   'workbench.workspace.prefixLabel': 'プレフィックス',
   'workbench.workspace.nameLabel': '名前',
   'workbench.workspace.nameRequired': '名前は必須です',

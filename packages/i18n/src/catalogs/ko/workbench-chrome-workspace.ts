@@ -138,6 +138,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateAria': '워크스페이스 복제',
   'workbench.workspace.publishAria': '워크스페이스를 데스크톱 앱이나 서버로 복사',
   'workbench.workspace.deleteAria': '워크스페이스 삭제',
+  'workbench.workspace.deleteLastInPlace': '위치에 남은 마지막 워크스페이스는 삭제할 수 없습니다',
   'workbench.workspace.prefixLabel': '접두사',
   'workbench.workspace.nameLabel': '이름',
   'workbench.workspace.nameRequired': '이름은 필수입니다',

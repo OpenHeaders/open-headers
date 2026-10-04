@@ -141,6 +141,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateAria': 'Duplicar el espacio de trabajo',
   'workbench.workspace.publishAria': 'Copiar el espacio de trabajo en una aplicación de escritorio o un servidor',
   'workbench.workspace.deleteAria': 'Eliminar el espacio de trabajo',
+  'workbench.workspace.deleteLastInPlace': 'El último espacio de trabajo de un lugar no se puede eliminar',
   'workbench.workspace.prefixLabel': 'Prefijo',
   'workbench.workspace.nameLabel': 'Nombre',
   'workbench.workspace.nameRequired': 'El nombre es obligatorio',

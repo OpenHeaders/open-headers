@@ -150,6 +150,7 @@ export const workbenchChromeWorkspace = {
   'workbench.workspace.duplicateAria': 'Duplicare spațiu de lucru',
   'workbench.workspace.publishAria': 'Copiere spațiu de lucru într-o aplicație desktop sau pe un server',
   'workbench.workspace.deleteAria': 'Ștergere spațiu de lucru',
+  'workbench.workspace.deleteLastInPlace': 'Ultimul spațiu de lucru al unui loc nu poate fi șters',
   'workbench.workspace.prefixLabel': 'Prefix',
   'workbench.workspace.nameLabel': 'Nume',
   'workbench.workspace.nameRequired': 'Numele este obligatoriu',
