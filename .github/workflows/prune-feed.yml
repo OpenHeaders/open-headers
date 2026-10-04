@@ -1,0 +1,176 @@
+name: Prune Feed
+
+# The update feed's retention sweep. Release bytes land on the feed
+# bucket under immutable `dl/<tag>/` paths and never leave on their
+# own; the GitHub release page keeps every byte for good, so the
+# bucket only needs what a live pointer can reach. After every
+# release train the sweep deletes the `dl/<tag>/` prefixes nothing
+# names any more (past a grace window), retires the apt pool and rpm
+# Packages copies the newest-only indexes no longer list, and first
+# points the zone's Redirect Rule at the GitHub release page for the
+# tags that are going — no link lands on a 404 in between. The
+# planner (`scripts/prune-feed.mjs`) is the single retention
+# authority; this file only fetches its inputs and applies its plan.
+#
+# A manual run plans by default and changes nothing — the plan is
+# the run's artifact. Flip `dry_run` off to apply it.
+
+on:
+  workflow_run:
+    workflows: [Release, Release Binaries]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Plan only — print and upload what would change, delete nothing
+        type: boolean
+        default: true
+      grace_days:
+        description: Days an unreferenced dl/<tag>/ stays before it is swept
+        type: string
+        default: '60'
+
+# Shares the release train's group: a sweep never interleaves with a
+# release's feed uploads, it queues behind them.
+concurrency:
+  group: release-feed
+  cancel-in-progress: false
+
+env:
+  RELEASE_REPO: OpenHeaders/open-headers
+  R2_BUCKET: oh-updates
+  DO_NOT_TRACK: 1
+
+jobs:
+  prune:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve mode
+        id: mode
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "dry_run=${INPUT_DRY_RUN}" >> "$GITHUB_OUTPUT"
+            echo "grace_days=${INPUT_GRACE_DAYS:-60}" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "grace_days=60" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_GRACE_DAYS: ${{ inputs.grace_days }}
+
+      # Secrets are not readable in step `if:` expressions. Without the
+      # bucket credentials there is nothing to sweep; the zone token is
+      # optional — the sweep still runs, the redirect stays as it is.
+      - name: Check credentials
+        id: creds
+        run: |
+          if [ -n "$R2_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
+            echo "r2=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "r2=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::R2 secrets not configured — nothing to sweep"
+          fi
+          if [ -n "$CF_ZONE_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+            echo "zone=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "zone=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CF_ZONE_ID / CF_API_TOKEN not configured — the Redirect Rule is not updated"
+          fi
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+
+      # The planner's two inputs: the whole bucket listing and a
+      # mirror of the pointer keys — the manifests, the desktop update
+      # files, the apt dists and the rpm repodata. Read from the
+      # bucket, never from the public domain: the edge serves pointers
+      # for up to five minutes after a release moved them.
+      - name: Fetch bucket listing and pointers
+        if: steps.creds.outputs.r2 == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3api list-objects-v2 --bucket "$R2_BUCKET" --output json \
+            --endpoint-url "$ENDPOINT" --region auto > listing.json
+          echo "listed $(node -p "(require('./listing.json').Contents || []).length") objects"
+          for prefix in versions desktop; do
+            aws s3 sync "s3://${R2_BUCKET}/${prefix}" "pointers/${prefix}" \
+              --endpoint-url "$ENDPOINT" --region auto --no-progress
+          done
+          aws s3 sync "s3://${R2_BUCKET}/apt" pointers/apt --exclude "*" --include "*/dists/*" \
+            --endpoint-url "$ENDPOINT" --region auto --no-progress
+          aws s3 sync "s3://${R2_BUCKET}/rpm" pointers/rpm --exclude "*" --include "*/repodata/*" \
+            --endpoint-url "$ENDPOINT" --region auto --no-progress
+          find pointers -type f | sort
+
+      - name: Plan the sweep
+        if: steps.creds.outputs.r2 == 'true'
+        env:
+          GRACE_DAYS: ${{ steps.mode.outputs.grace_days }}
+        run: |
+          node scripts/prune-feed.mjs --listing listing.json --pointers pointers --out plan \
+            --grace-days="$GRACE_DAYS" --release-repo="$RELEASE_REPO"
+
+      - name: Upload the plan
+        if: steps.creds.outputs.r2 == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: feed-prune-plan
+          path: plan/
+          retention-days: 30
+
+      # Before any delete: the pruned tags' links must already answer
+      # with the redirect when their bytes go.
+      - name: Point the Redirect Rule at the kept tags
+        if: steps.creds.outputs.r2 == 'true' && steps.creds.outputs.zone == 'true'
+        env:
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/update-feed-redirect.mjs --plan plan/plan.json --dry-run
+          else
+            node scripts/update-feed-redirect.mjs --plan plan/plan.json
+          fi
+
+      - name: Delete the swept objects
+        if: steps.creds.outputs.r2 == 'true' && steps.mode.outputs.dry_run != 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          shopt -s nullglob
+          batches=(plan/delete-*.json)
+          if [ "${#batches[@]}" -eq 0 ]; then
+            echo "nothing to delete"
+            exit 0
+          fi
+          for batch in "${batches[@]}"; do
+            aws s3api delete-objects --bucket "$R2_BUCKET" --delete "file://${batch}" \
+              --endpoint-url "$ENDPOINT" --region auto
+            echo "deleted $(node -p "require('./${batch}').Objects.length") objects from ${batch}"
+          done
