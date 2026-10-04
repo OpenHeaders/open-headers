@@ -45,6 +45,9 @@ export const BackendPlacementRow: React.FC = () => {
           value={resolved ?? undefined}
           onChange={(orgId) => void setDefaultNewWorkspaceOrgId(orgId)}
           style={{ minWidth: 220 }}
+          // The selected option renders bolder than the trigger, so a
+          // popup matched to the trigger's width clips the longest place.
+          popupMatchSelectWidth={false}
           options={catalogue.map((descriptor) => ({
             value: descriptor.id,
             label: (
