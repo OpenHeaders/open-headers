@@ -13,20 +13,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { genKey, hasGpg, PASSPHRASE, stopGpgDaemons, type TestKey } from './_gpg-test-keys';
 
 const SCRIPT = path.resolve(__dirname, '../../../../../scripts/generate-apt-repo.mjs');
 const DEBIAN_DIR = path.resolve(__dirname, '../../../scripts/debian');
-const PASSPHRASE = 'test-passphrase';
-
-const hasGpg = (() => {
-  try {
-    execFileSync('gpg', ['--version'], { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-})();
-
 const DPKG_DEB_SHIM = [
   '#!/bin/sh',
   '# Fake dpkg-deb: `-f <deb>` prints a control paragraph derived from',
@@ -48,41 +38,21 @@ const DPKG_DEB_SHIM = [
   '',
 ].join('\n');
 
-function genKey(home: string, name: string): { privateKey: string; publicKey: string } {
-  mkdirSync(home, { recursive: true, mode: 0o700 });
-  const env = { ...process.env, GNUPGHOME: home };
-  const params = [
-    'Key-Type: eddsa',
-    'Key-Curve: ed25519',
-    'Key-Usage: sign',
-    `Name-Real: ${name}`,
-    'Name-Email: test@openheaders.io',
-    'Expire-Date: 0',
-    `Passphrase: ${PASSPHRASE}`,
-    '%commit',
-    '',
-  ].join('\n');
-  execFileSync('gpg', ['--batch', '--gen-key'], { env, input: params, stdio: ['pipe', 'ignore', 'ignore'] });
-  const privateKey = execFileSync(
-    'gpg',
-    ['--batch', '--pinentry-mode', 'loopback', '--passphrase', PASSPHRASE, '--armor', '--export-secret-keys'],
-    { env, encoding: 'utf8' },
-  );
-  const publicKey = execFileSync('gpg', ['--batch', '--armor', '--export'], { env, encoding: 'utf8' });
-  return { privateKey, publicKey };
-}
-
 let keysDir: string;
-let signingKey: { privateKey: string; publicKey: string };
-let strangerKey: { privateKey: string; publicKey: string };
+let signingKey: TestKey;
+let strangerKey: TestKey;
 let workDir: string;
 
 beforeAll(() => {
   if (!hasGpg || process.platform === 'win32') return;
   keysDir = mkdtempSync(path.join(tmpdir(), 'oh-apt-keys-'));
-  signingKey = genKey(path.join(keysDir, 'signer'), 'OpenHeaders APT Archive Test');
-  strangerKey = genKey(path.join(keysDir, 'stranger'), 'Somebody Else');
-  return () => rmSync(keysDir, { recursive: true, force: true });
+  const homes = [path.join(keysDir, 'signer'), path.join(keysDir, 'stranger')];
+  signingKey = genKey(homes[0], 'OpenHeaders APT Archive Test');
+  strangerKey = genKey(homes[1], 'Somebody Else');
+  return () => {
+    for (const home of homes) stopGpgDaemons(home);
+    rmSync(keysDir, { recursive: true, force: true });
+  };
 });
 
 function stage(

@@ -28,10 +28,10 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withThrowawayGpgHome } from './lib/gpg-home.mjs';
 import { channelForTag } from './lib/versions.mjs';
 import { gzipSync } from 'node:zlib';
 
@@ -148,10 +148,7 @@ writeFileSync(releasePath, release);
 
 // Sign in a throwaway keyring so the runner's other imports (the
 // release key signs SHA256SUMS in the same job) can never be picked up.
-const gnupghome = mkdtempSync(path.join(tmpdir(), 'oh-apt-gpg-'));
-try {
-  const env = { ...process.env, GNUPGHOME: gnupghome };
-  const gpg = (args, options = {}) => execFileSync('gpg', ['--batch', ...args], { env, ...options });
+withThrowawayGpgHome('oh-apt-gpg-', (gpg) => {
   gpg(['--import'], { input: privateKey });
   const secretFpr = String(gpg(['--with-colons', '--list-secret-keys'])).match(/^fpr:+([0-9A-F]+):/m)?.[1];
   const keyringFpr = String(gpg(['--with-colons', '--show-keys', keyringPath])).match(/^fpr:+([0-9A-F]+):/m)?.[1];
@@ -166,9 +163,7 @@ try {
   });
   gpg(['--verify', path.join(distsDir, 'InRelease')], { stdio: 'ignore' });
   gpg(['--verify', path.join(distsDir, 'Release.gpg'), releasePath], { stdio: 'ignore' });
-} finally {
-  rmSync(gnupghome, { recursive: true, force: true });
-}
+});
 
 // The archive public key, channel-independent — served next to the
 // repos for the documented one-line download. Always the COMMITTED

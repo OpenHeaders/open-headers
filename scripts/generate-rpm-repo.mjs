@@ -33,10 +33,10 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withThrowawayGpgHome } from './lib/gpg-home.mjs';
 import { channelForTag } from './lib/versions.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -94,10 +94,7 @@ execFileSync('createrepo_c', ['--general-compress-type=gz', archiveRoot], { stdi
 // (the release key signs SHA256SUMS in the same job) can never be
 // picked up. dnf fetches repodata/repomd.xml.asc for repo_gpgcheck.
 const repomdPath = path.join(archiveRoot, 'repodata', 'repomd.xml');
-const gnupghome = mkdtempSync(path.join(tmpdir(), 'oh-rpm-gpg-'));
-try {
-  const env = { ...process.env, GNUPGHOME: gnupghome };
-  const gpg = (args, options = {}) => execFileSync('gpg', ['--batch', ...args], { env, ...options });
+withThrowawayGpgHome('oh-rpm-gpg-', (gpg) => {
   gpg(['--import'], { input: privateKey });
   const secretFpr = String(gpg(['--with-colons', '--list-secret-keys'])).match(/^fpr:+([0-9A-F]+):/m)?.[1];
   const keyringFpr = String(gpg(['--with-colons', '--show-keys', keyringPath])).match(/^fpr:+([0-9A-F]+):/m)?.[1];
@@ -108,9 +105,7 @@ try {
   const sign = ['--yes', '--pinentry-mode', 'loopback', '--passphrase-fd', '0', '--local-user', secretFpr];
   gpg([...sign, '--armor', '--detach-sign', '--output', `${repomdPath}.asc`, repomdPath], { input: passphrase });
   gpg(['--verify', `${repomdPath}.asc`, repomdPath], { stdio: 'ignore' });
-} finally {
-  rmSync(gnupghome, { recursive: true, force: true });
-}
+});
 
 // The archive public key, channel-independent — served next to the
 // repos for the documented one-line download. Always the COMMITTED
