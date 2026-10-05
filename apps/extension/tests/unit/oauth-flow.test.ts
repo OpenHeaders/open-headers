@@ -13,10 +13,14 @@ import { __resetDpopNoncesForTests } from '@openheaders/oracle/live/request-exec
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.fn();
-const launchMock = vi.fn();
-const getRedirectUrlMock = vi.fn(() => 'https://test-ext.chromiumapp.org/');
-const putTokenBundleMock = vi.fn();
-const getTokenBundleMock = vi.fn();
+// The factories below hand these fns over by value, and a factory runs
+// the moment any static import reaches its module — hoisted with it.
+const { launchMock, getRedirectUrlMock, putTokenBundleMock, getTokenBundleMock } = vi.hoisted(() => ({
+  launchMock: vi.fn(),
+  getRedirectUrlMock: vi.fn(() => 'https://test-ext.chromiumapp.org/'),
+  putTokenBundleMock: vi.fn(),
+  getTokenBundleMock: vi.fn(),
+}));
 
 vi.mock('@utils/browser-api', () => ({
   identity: {
@@ -43,10 +47,8 @@ vi.mock('@/shared/fetch/with-host-access', () => ({
 // The shared refresh rate limiter is module-state; without a reset it
 // leaks its minute-window across every test in this file and the 6th
 // refresh against auth.openheaders.io waits the full 60s for budget.
-// Import the limiter DIRECTLY from its submodule so we don't pull in
-// `scheduler.ts`'s `@utils/browser-api` import chain at test-file load
-// — that chain hits the hoisted mock factory before `launchMock` is
-// bound.
+// Import the limiter DIRECTLY from its submodule so the spec does not
+// pull in `scheduler.ts`'s whole import chain at test-file load.
 import { __resetRateLimiterForTests } from '@/background/modules/refresh-scheduler/rate-limiter';
 
 vi.stubGlobal('fetch', fetchMock);

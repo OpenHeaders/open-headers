@@ -166,17 +166,29 @@ const replaceRequestCollectionVariables = vi.fn(async () => ({ ok: true as const
 vi.mock('@openheaders/ui/shared/hooks/mutators/useVariableMutator', () => ({
   useVariableMutator: () => ({ replaceRequestCollectionVariables }),
 }));
-const applyRequestCollectionSetAuthPool = vi.fn(async () => ({ ok: true as const }));
-const applyRequestCollectionSetScripts = vi.fn(async () => ({ ok: true as const }));
-const applyRequestCollectionSetSettings = vi.fn(async () => ({ ok: true as const }));
+// The write clients are handed to the factories by value, and a mock
+// factory runs the moment any static import above reaches its module
+// — so the fns are hoisted with it, never plain top-level consts.
+const {
+  applyRequestCollectionSetAuthPool,
+  applyRequestCollectionSetScripts,
+  applyRequestCollectionSetSettings,
+  applyRequestFolderSetAuthPool,
+  applyRequestFolderSetScripts,
+  applyRequestFolderSetSettings,
+} = vi.hoisted(() => ({
+  applyRequestCollectionSetAuthPool: vi.fn(async () => ({ ok: true as const })),
+  applyRequestCollectionSetScripts: vi.fn(async () => ({ ok: true as const })),
+  applyRequestCollectionSetSettings: vi.fn(async () => ({ ok: true as const })),
+  applyRequestFolderSetAuthPool: vi.fn(async () => ({ ok: true as const })),
+  applyRequestFolderSetScripts: vi.fn(async () => ({ ok: true as const })),
+  applyRequestFolderSetSettings: vi.fn(async () => ({ ok: true as const })),
+}));
 vi.mock('@openheaders/ui/shared/sync/request-collection-write-client', () => ({
   applyRequestCollectionSetAuthPool,
   applyRequestCollectionSetScripts,
   applyRequestCollectionSetSettings,
 }));
-const applyRequestFolderSetAuthPool = vi.fn(async () => ({ ok: true as const }));
-const applyRequestFolderSetScripts = vi.fn(async () => ({ ok: true as const }));
-const applyRequestFolderSetSettings = vi.fn(async () => ({ ok: true as const }));
 vi.mock('@openheaders/ui/shared/sync/request-folder-write-client', () => ({
   applyRequestFolderSetAuthPool,
   applyRequestFolderSetScripts,
