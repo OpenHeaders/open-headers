@@ -3,11 +3,11 @@
  * over randomized multi-backend scenarios (the multi-backend plan §3):
  *
  *   1. **Outbound (no cross-send)** — an envelope is sent to exactly the
- *      backend whose Org set contains its `orgId`; home-Org envelopes go
- *      to no backend; no envelope ever reaches two backends.
+ *      backend its `orgId` is bound to; home-Org envelopes go to no
+ *      backend; no envelope ever reaches two backends.
  *   2. **Inbound (no cross-inject)** — a connection's receiver accepts
- *      only envelopes stamped with that backend's Orgs; another
- *      backend's Orgs and the home Org are dropped at the wire.
+ *      only envelopes stamped with that backend's Org; another
+ *      backend's Org and the home Org are dropped at the wire.
  *   3. **Pending-out (per-backend flush)** — one log, one cursor per
  *      backend: offline edits flush to their own backend on ITS
  *      reconnect, regardless of any other backend's state, and a flush
@@ -17,7 +17,10 @@
  * (`sendToBackend` / `isBackendConnected`) with a per-backend recording
  * fake; identity + Org bindings are real (seeded via the shared
  * host-storage fake), so the bindings mirror, the outbound gate, and
- * the receiver gate all run production code.
+ * the receiver gate all run production code. The scenarios bind one
+ * Org per backend — one record, one Org: a later join over the same
+ * record is the host behind it changing identity, which the registry
+ * resolves by replacing the previous binding, never by holding both.
  */
 
 import { SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
@@ -66,11 +69,11 @@ import { stressNumRuns } from './property-stress';
 const BACKEND_IDS = ['backend-a', 'backend-b', 'backend-c'] as const;
 const HOME = 'home' as const;
 
-/** One randomized scenario: which backends exist, which Orgs bind where. */
+/** One randomized scenario: which backends exist, which of them bind an Org. */
 interface Scenario {
   /** Backends in play (1–3). */
   readonly backendIds: readonly string[];
-  /** Org id → owning backend id. */
+  /** Org id → owning backend id; at most one Org per backend, at least one bound. */
   readonly orgToBackend: ReadonlyMap<string, string>;
   /** Envelope stamps: each is an Org key — a bound Org or 'home'. */
   readonly envelopeOrgs: readonly (string | typeof HOME)[];
@@ -79,15 +82,19 @@ interface Scenario {
 const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
     backendCount: fc.integer({ min: 1, max: 3 }),
-    orgAssignments: fc.array(fc.integer({ min: 0, max: 2 }), { minLength: 1, maxLength: 6 }),
+    orgPicks: fc.uniqueArray(fc.integer({ min: 0, max: 2 }), { minLength: 1, maxLength: 3 }),
     envelopePicks: fc.array(fc.integer({ min: 0, max: 6 }), { minLength: 1, maxLength: 12 }),
   })
-  .map(({ backendCount, orgAssignments, envelopePicks }) => {
+  .map(({ backendCount, orgPicks, envelopePicks }) => {
     const backendIds = BACKEND_IDS.slice(0, backendCount);
     const orgToBackend = new Map<string, string>();
-    orgAssignments.forEach((pick, i) => {
-      orgToBackend.set(`org-${i}`, backendIds[pick % backendIds.length]!);
-    });
+    const bound = new Set<string>();
+    for (const pick of orgPicks) {
+      const backendId = backendIds[pick % backendIds.length]!;
+      if (bound.has(backendId)) continue;
+      bound.add(backendId);
+      orgToBackend.set(`org-${orgToBackend.size}`, backendId);
+    }
     const orgKeys = [...orgToBackend.keys()];
     const envelopeOrgs = envelopePicks.map((pick) =>
       pick === orgKeys.length ? HOME : (orgKeys[pick % orgKeys.length] ?? HOME),
