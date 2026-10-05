@@ -23,7 +23,12 @@ const NOW = '2026-05-19T00:00:00.000Z';
 /** The `OH.backends` record test joins bind to (fold-by-presence). */
 export const TEST_BACKEND_ID = '01900000-0000-7000-8000-00000000feed';
 
-/** A join seeded against a specific backend record (multi-backend cases). */
+/**
+ * A join seeded against a specific backend record (multi-backend cases).
+ * One record, one Org: a second seed on the same `backendId` is refused
+ * at install, since the registry would replace the first binding as a
+ * host identity change rather than hold both.
+ */
 export interface JoinedOrgSeed {
   org: Org;
   backendId: string;
@@ -89,6 +94,10 @@ export async function installSyntheticIdentityForTests(
   );
   if (seeds.length > 0) {
     const backendIds = [...new Set(seeds.map((s) => s.backendId))];
+    if (backendIds.length < seeds.length) {
+      const doubled = backendIds.filter((id) => seeds.filter((s) => s.backendId === id).length > 1);
+      throw new Error(`one record, one Org: more than one Org seeded on backend ${doubled.join(', ')}`);
+    }
     await hostStorage.set(
       OH.backends,
       backendIds.map((id) => makeTestBackend({ id })),
