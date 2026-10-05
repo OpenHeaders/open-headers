@@ -95,8 +95,13 @@ function stage(version: string, assets: string[], ymls: string[], options: Stage
       JSON.stringify({ version: options.appVersions?.[app] ?? base }),
     );
   }
+  // stderr piped, never inherited: the failing cases' `::error::` lines
+  // would otherwise reach the CI job log and render as annotations.
   const run = () =>
-    execFileSync(process.execPath, [SCRIPT, `--repo-root=${root}`, `v${version}`, dir], { encoding: 'utf8' });
+    execFileSync(process.execPath, [SCRIPT, `--repo-root=${root}`, `v${version}`, dir], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
   return { run };
 }
 
