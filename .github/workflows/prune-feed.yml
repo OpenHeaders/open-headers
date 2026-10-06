@@ -5,7 +5,8 @@ name: Prune Feed
 # own; the GitHub release page keeps every byte for good, so the
 # bucket only needs what a live pointer can reach. After every
 # release train the sweep deletes the `dl/<tag>/` prefixes nothing
-# names any more (past a grace window), retires the apt pool and rpm
+# names any more (the previous stable and a days-long race guard
+# excepted), retires the apt pool and rpm
 # Packages copies the newest-only indexes no longer list, and first
 # points the zone's Redirect Rule at the GitHub release page for the
 # tags that are going — no link lands on a 404 in between. The
@@ -26,9 +27,9 @@ on:
         type: boolean
         default: true
       grace_days:
-        description: Days an unreferenced dl/<tag>/ stays before it is swept
+        description: Race guard — days a dl/<tag>/ that nothing names yet stays before it is swept
         type: string
-        default: '60'
+        default: '7'
 
 # Shares the release train's group: a sweep never interleaves with a
 # release's feed uploads, it queues behind them.
@@ -60,10 +61,10 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "dry_run=${INPUT_DRY_RUN}" >> "$GITHUB_OUTPUT"
-            echo "grace_days=${INPUT_GRACE_DAYS:-60}" >> "$GITHUB_OUTPUT"
+            echo "grace_days=${INPUT_GRACE_DAYS:-7}" >> "$GITHUB_OUTPUT"
           else
             echo "dry_run=false" >> "$GITHUB_OUTPUT"
-            echo "grace_days=60" >> "$GITHUB_OUTPUT"
+            echo "grace_days=7" >> "$GITHUB_OUTPUT"
           fi
         env:
           INPUT_DRY_RUN: ${{ inputs.dry_run }}

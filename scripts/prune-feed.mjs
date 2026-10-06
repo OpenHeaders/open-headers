@@ -4,14 +4,18 @@
  * and the redirect expression that sends the pruned tags' download
  * links to the GitHub release page that keeps every byte for good.
  *
- * Retention is by reference, never by age alone. A tag stays while
- * any live pointer names it — `versions/<channel>.json` (every app's
- * `tag`) and the electron-updater `desktop/<channel>/*.yml` files
- * (their absolute `dl/<tag>/` URLs) — or while its newest object is
- * younger than the grace window, so a release that nothing points at
- * yet (a lane still running, a tag cut and abandoned) is never swept
- * from under its own run. The current stable in a quiet quarter is
- * therefore safe: the manifest names it until the next one lands.
+ * Retention is by reference, never by age. A tag stays while any live
+ * pointer names it — `versions/<channel>.json` (every app's `tag`) and
+ * the electron-updater `desktop/<channel>/*.yml` files (their absolute
+ * `dl/<tag>/` URLs) — so the current stable in a quiet quarter is
+ * safe: the manifest names it until the next one lands. The PREVIOUS
+ * stable stays too, as operational slack: a broken stable is rolled
+ * back by re-pointing at it, and a fresh install's first update reads
+ * its blockmap for the differential path. Nothing older buys anything
+ * — a client further behind takes a full download, the fresh-install
+ * path. The grace window is only a race guard, days not months: a tag
+ * whose train is mid-publish or just failed is never swept from under
+ * its re-cut.
  *
  * The apt pool and rpm Packages directories hold bucket-internal
  * copies of the debs and rpms the newest-only indexes name; copies
@@ -35,12 +39,13 @@
  * `delete-NNN.json` batches in the DeleteObjects request shape.
  *
  * Usage: node scripts/prune-feed.mjs --listing <objects.json> --pointers <dir> --out <dir>
- *          [--grace-days=60] [--now=<iso>] [--keep=<tag>]... [--release-repo=<owner/name>]
+ *          [--grace-days=7] [--now=<iso>] [--keep=<tag>]... [--release-repo=<owner/name>]
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { compareVersions } from './lib/versions.mjs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DELETE_BATCH = 1000;
@@ -51,7 +56,7 @@ function fail(message) {
 }
 
 function parseArgs(argv) {
-  const options = { graceDays: 60, keep: [], releaseRepo: 'OpenHeaders/open-headers', now: new Date() };
+  const options = { graceDays: 7, keep: [], releaseRepo: 'OpenHeaders/open-headers', now: new Date() };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const eq = arg.indexOf('=');
@@ -153,7 +158,24 @@ function referencedTags(pointersDir) {
   return tags;
 }
 
-function planDownloads(objects, keptTags, graceMs, now) {
+/** The stable channel's desktop version, the anchor the previous stable is counted from. */
+function currentStableVersion(pointersDir) {
+  const file = path.join(pointersDir, 'versions', 'stable.json');
+  if (!existsSync(file)) return undefined;
+  try {
+    const latest = JSON.parse(readFileSync(file, 'utf8')).desktop?.latest;
+    return typeof latest === 'string' ? latest : undefined;
+  } catch (error) {
+    fail(`cannot parse ${file}: ${error.message}`);
+  }
+}
+
+/** A suite stable tag: `v<calver>` with no prerelease or lane suffix. */
+function isStableTag(tag) {
+  return /^v\d+\.\d+\.\d+$/.test(tag);
+}
+
+function planDownloads(objects, keptTags, graceMs, now, stableVersion) {
   const prefixes = new Map();
   for (const object of objects) {
     const match = object.key.match(/^dl\/([^/]+)\//);
@@ -164,13 +186,25 @@ function planDownloads(objects, keptTags, graceMs, now) {
     if (object.modified > entry.newest) entry.newest = object.modified;
     prefixes.set(match[1], entry);
   }
+  let previousStable;
+  if (stableVersion) {
+    for (const { tag } of prefixes.values()) {
+      if (!isStableTag(tag) || compareVersions(tag.slice(1), stableVersion) >= 0) continue;
+      if (!previousStable || compareVersions(tag.slice(1), previousStable.slice(1)) > 0) previousStable = tag;
+    }
+  }
   const kept = [];
   const dropped = [];
   for (const entry of [...prefixes.values()].sort((a, b) => a.tag.localeCompare(b.tag))) {
-    const referenced = keptTags.has(entry.tag);
-    const inGrace = now.getTime() - entry.newest.getTime() < graceMs;
-    if (referenced || inGrace) {
-      kept.push({ ...entry, reason: referenced ? 'referenced' : 'grace' });
+    const reason = keptTags.has(entry.tag)
+      ? 'referenced'
+      : entry.tag === previousStable
+        ? 'previous-stable'
+        : now.getTime() - entry.newest.getTime() < graceMs
+          ? 'grace'
+          : undefined;
+    if (reason) {
+      kept.push({ ...entry, reason });
     } else {
       dropped.push(entry);
     }
@@ -273,7 +307,7 @@ const keptTags = referencedTags(options.pointers);
 if (keptTags.size === 0) fail(`no release tag is referenced under ${options.pointers} — refusing to plan against empty pointers`);
 for (const tag of options.keep) keptTags.add(tag);
 
-const downloads = planDownloads(objects, keptTags, options.graceDays * DAY_MS, options.now);
+const downloads = planDownloads(objects, keptTags, options.graceDays * DAY_MS, options.now, currentStableVersion(options.pointers));
 for (const tag of keptTags) {
   if (!downloads.kept.some((entry) => entry.tag === tag)) warnings.add(`${tag} is referenced but has no dl/${tag}/ objects`);
 }

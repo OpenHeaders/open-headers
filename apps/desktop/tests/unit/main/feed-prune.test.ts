@@ -31,7 +31,8 @@ const LISTING: Listed[] = [
   object('dl/v2026.10.0/open-headers_2026.10.0_amd64.deb', RECENT, 500),
   object('dl/v2026.9.1-beta.1/OpenHeaders-2026.9.1-beta.1-mac-arm64.dmg', '2026-09-05T10:00:00+00:00', 900),
   object('dl/v2026.9.0/oh-2026.9.0-mac-arm64', '2026-09-04T10:00:00+00:00', 300),
-  object('dl/v2026.9.9/OpenHeaders-2026.9.9-mac-arm64.dmg', '2026-09-28T10:00:00+00:00', 950),
+  object('dl/v2026.10.1/OpenHeaders-2026.10.1-mac-arm64.dmg', '2026-09-30T10:00:00+00:00', 950),
+  object('dl/v2026.9.2/OpenHeaders-2026.9.2-mac-arm64.dmg', '2026-09-14T10:00:00+00:00', 600),
   object('dl/v2026.8.2/OpenHeaders-2026.8.2-mac-arm64.dmg', '2026-07-30T10:00:00+00:00', 800),
   object('dl/v2026.8.2/SHA256SUMS.txt', '2026-07-30T10:00:00+00:00', 1),
   object('dl/v2026.7.17/OpenHeaders-2026.7.17-mac-arm64.dmg', OLD, 700),
@@ -149,12 +150,14 @@ describe('prune-feed', () => {
 
     expect(plan.keptTags).toEqual([
       { tag: 'v2026.10.0', reason: 'referenced', objects: 3, bytes: 1510 },
+      { tag: 'v2026.10.1', reason: 'grace', objects: 1, bytes: 950 },
       { tag: 'v2026.9.0', reason: 'referenced', objects: 1, bytes: 300 },
       { tag: 'v2026.9.1-beta.1', reason: 'referenced', objects: 1, bytes: 900 },
-      { tag: 'v2026.9.9', reason: 'grace', objects: 1, bytes: 950 },
+      { tag: 'v2026.9.2', reason: 'previous-stable', objects: 1, bytes: 600 },
     ]);
+    // 8.2 is the stable BEFORE the previous one: nothing needs it.
     expect(plan.droppedTags.map((entry: { tag: string }) => entry.tag)).toEqual(['v2026.7.17', 'v2026.8.2']);
-    expect(report).toContain('v2026.9.9  grace');
+    expect(report).toContain('v2026.10.1  grace');
     expect(report).toContain('v2026.8.2  newest 2026-07-30');
   });
 
@@ -190,9 +193,10 @@ describe('prune-feed', () => {
         'starts_with(http.request.uri.path, "/dl/")',
         'not ends_with(http.request.uri.path, ".blockmap")',
         'not starts_with(http.request.uri.path, "/dl/v2026.10.0/")',
+        'not starts_with(http.request.uri.path, "/dl/v2026.10.1/")',
         'not starts_with(http.request.uri.path, "/dl/v2026.9.0/")',
         'not starts_with(http.request.uri.path, "/dl/v2026.9.1-beta.1/")',
-        'not starts_with(http.request.uri.path, "/dl/v2026.9.9/")',
+        'not starts_with(http.request.uri.path, "/dl/v2026.9.2/")',
       ].join(' and '),
     );
     expect(redirect.targetExpression).toBe(
@@ -210,16 +214,46 @@ describe('prune-feed', () => {
     expect(report).toContain('::warning::v2026.11.0 is referenced but has no dl/v2026.11.0/ objects');
   });
 
-  it('drops every unreferenced tag with a zero grace window', () => {
+  it('drops every unreferenced tag but the previous stable with a zero grace window', () => {
     const paths = setUp(LISTING, POINTERS);
     run(paths, ['--grace-days=0']);
     const plan = readPlan(paths.out);
 
     expect(plan.droppedTags.map((entry: { tag: string }) => entry.tag)).toEqual([
+      'v2026.10.1',
       'v2026.7.17',
       'v2026.8.2',
-      'v2026.9.9',
     ]);
+    expect(plan.keptTags.map((entry: { tag: string }) => entry.tag)).toContain('v2026.9.2');
+  });
+
+  it('counts the previous stable from the stable manifest, skipping betas and lane tags', () => {
+    const listing = [
+      ...LISTING,
+      object('dl/v2026.9.3-beta.2/OpenHeaders-2026.9.3-beta.2-mac-arm64.dmg', '2026-09-20T10:00:00+00:00', 10),
+      object('dl/v2026.9.4-cli/oh-2026.9.4-mac-arm64', '2026-09-21T10:00:00+00:00', 10),
+    ];
+    const paths = setUp(listing, POINTERS);
+    run(paths);
+    const plan = readPlan(paths.out);
+
+    expect(plan.keptTags.find((entry: { tag: string }) => entry.tag === 'v2026.9.2').reason).toBe('previous-stable');
+    expect(plan.droppedTags.map((entry: { tag: string }) => entry.tag)).toEqual([
+      'v2026.7.17',
+      'v2026.8.2',
+      'v2026.9.3-beta.2',
+      'v2026.9.4-cli',
+    ]);
+  });
+
+  it('keeps no previous stable when the stable manifest is absent', () => {
+    const pointers = { ...POINTERS };
+    delete pointers['versions/stable.json'];
+    const paths = setUp(LISTING, pointers);
+    run(paths);
+    const plan = readPlan(paths.out);
+
+    expect(plan.droppedTags.map((entry: { tag: string }) => entry.tag)).toContain('v2026.9.2');
   });
 
   it('refuses to plan when the pointers name no tag', () => {
