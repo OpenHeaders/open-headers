@@ -87,7 +87,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@openheaders/core": "workspace:*",
     "@openheaders/oracle": "workspace:*",
     "@peculiar/x509": "^2.0.0",
