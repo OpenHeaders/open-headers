@@ -16,6 +16,10 @@ import {
   type MqttTimelineLifecycle,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-timeline-model';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
+// The viewer's Find cluster reads the keyboard registry; its Viewer menu
+// the editor.* knobs.
+import '@openheaders/ui/workbench/settings/schema/editor';
+import '@openheaders/ui/workbench/settings/schema/keyboard';
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
@@ -377,9 +381,11 @@ describe('MqttMessageTimeline — message viewer', () => {
     fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
     expect(editorValue()).toBe('ping');
     expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('Text');
-    expect(screen.getByTestId('mqtt-timeline-viewer-wrap')).toBeTruthy();
-    expect(screen.getByTestId('mqtt-timeline-viewer-find')).toBeTruthy();
-    expect(screen.getByTestId('mqtt-timeline-viewer-copy')).toBeTruthy();
+    // The compose bar's cluster on a read-only host — icon + name.
+    const viewer = screen.getByTestId('mqtt-timeline-message-viewer');
+    expect(within(viewer).getByTestId('code-editor-find').textContent).toBe('Find');
+    expect(within(viewer).getByTestId('mqtt-timeline-viewer-menu').textContent).toBe('Viewer');
+    expect(within(viewer).queryByTestId('mqtt-timeline-viewer-copy')).toBeNull();
     expect(screen.queryByTestId('mqtt-timeline-viewer-hex')).toBeNull();
     await pick('Hex');
     expect(screen.getByTestId('mqtt-timeline-hex').textContent).toMatch(/70 69 6e 67/i);
@@ -390,14 +396,10 @@ describe('MqttMessageTimeline — message viewer', () => {
   });
 
   it('opens a JSON message pretty-printed; Raw is the wire text, a language pick returns to Pretty', async () => {
-    const writeText = vi.fn(() => Promise.resolve());
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     render(<MqttMessageTimeline items={[message('{"temp":21,"unit":"C"}')]} count={1} lifecycle={CONNECTED} v5 />);
     fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
     expect(editorValue()).toBe('{\n  "temp": 21,\n  "unit": "C"\n}');
     expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('JSON');
-    fireEvent.click(screen.getByTestId('mqtt-timeline-viewer-copy'));
-    expect(writeText).toHaveBeenCalledWith('{\n  "temp": 21,\n  "unit": "C"\n}');
     await pick('Raw');
     expect(editorValue()).toBe('{"temp":21,"unit":"C"}');
     expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('Raw');

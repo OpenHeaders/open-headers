@@ -24,14 +24,7 @@
  * line-number gutter; Hex numbers its rows.
  */
 
-import {
-  CheckOutlined,
-  CopyOutlined,
-  EyeOutlined,
-  FilterOutlined,
-  FontColorsOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, EyeOutlined, FilterOutlined, FontColorsOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Badge, Button, ConfigProvider, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -41,14 +34,14 @@ import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import type { LanguageId } from '../../../languages/registry';
 import BodyViewPicker, { ENCODING_VIEWS } from '../../shared/BodyViewPicker';
 import CodeEditor from '../../shared/CodeEditor';
-import type { CodeEditorActionsTarget } from '../../shared/CodeEditorActions';
+import CodeEditorActions, { type CodeEditorActionsTarget } from '../../shared/CodeEditorActions';
+import EditorViewMenu from '../../shared/EditorViewMenu';
 import HexDumpView, { HEX_PRE_STYLE } from '../../shared/HexDumpView';
 import ResponseFilterInput from './ResponseFilterInput';
 import ResponseImagePreview from './ResponseImagePreview';
 import ResponseJsonPreview from './ResponseJsonPreview';
 import ResponseMediaPreview from './ResponseMediaPreview';
 import ResponsePdfPreview from './ResponsePdfPreview';
-import { WrapLinesIcon } from './ViewPickerIcons';
 import {
   type LosslessParseResult,
   parseLosslessJson,
@@ -343,7 +336,12 @@ const ResponseBodyView: React.FC<{
     if (!filterKind && filterOpen) setFilterOpen(false);
   }, [filterKind, filterOpen]);
 
-  const filterApplied = filterOpen && filterKind !== null && filterQuery.trim() !== '';
+  // The filter acts on the Pretty text alone — under any other view the
+  // bar, the dot and the narrowed copy stand down (the query stays as
+  // typed and returns with Pretty); a click on Filter elsewhere jumps
+  // back to Pretty first.
+  const filterShown = mode === 'pretty' && filterOpen;
+  const filterApplied = filterShown && filterKind !== null && filterQuery.trim() !== '';
   const filterResult = useMemo(() => {
     if (!filterApplied || !filterKind) return null;
     // Metrics queries carry their own mid-edit forgiveness (a dangling
@@ -553,23 +551,21 @@ const ResponseBodyView: React.FC<{
             {t('workbench.editors.request.response.body.preview')}
           </Button>
         )}
-        <Tooltip
-          title={
-            wrapLines
-              ? t('workbench.editors.request.response.body.unwrapLines')
-              : t('workbench.editors.request.response.body.wrapLines')
-          }
-          placement="bottom"
-        >
-          <Button
-            size="small"
-            type="text"
-            icon={<WrapLinesIcon />}
-            onClick={() => setWrapLines((prev) => !prev)}
-            aria-label={t('workbench.editors.request.response.body.wrapLines')}
-            style={{ marginLeft: 'auto', ...(wrapLines ? { background: token.colorBgTextActive } : {}) }}
-          />
-        </Tooltip>
+        <span style={{ marginLeft: 'auto' }} />
+        {/* The compose bar's cluster on a read-only host: Find (rests
+            off Pretty — the editor is the only buffer it searches), then
+            the Viewer menu (wrap, every editor's display knobs — live
+            where a text view honors them: Pretty and the Raw grid; at
+            rest under Preview, Hex and the fixed-row Base64), icon +
+            name by construction. */}
+        <CodeEditorActions target={actionsRef} language={language} readOnly disabled={mode !== 'pretty'} />
+        <EditorViewMenu
+          host="viewer"
+          wrap={wrapLines}
+          onWrapChange={setWrapLines}
+          disabled={mode !== 'pretty' && mode !== 'raw'}
+          data-testid="oh-response-viewer-menu"
+        />
         {mode === 'raw' && rawHasAnsi && (
           <Tooltip
             title={
@@ -587,7 +583,9 @@ const ResponseBodyView: React.FC<{
               onClick={() => setAnsiPlain((prev) => !prev)}
               aria-label={t('workbench.editors.request.response.body.renderAnsi')}
               style={ansiPlain ? undefined : { background: token.colorBgTextActive }}
-            />
+            >
+              {t('workbench.editors.request.response.body.ansiLabel')}
+            </Button>
           </Tooltip>
         )}
         {filterKind && (
@@ -612,27 +610,18 @@ const ResponseBodyView: React.FC<{
                   type="text"
                   icon={<FilterOutlined />}
                   aria-label={t('workbench.editors.request.response.body.filterAria')}
-                  style={filterOpen ? { background: token.colorBgTextActive } : undefined}
+                  style={filterShown ? { background: token.colorBgTextActive } : undefined}
                   onClick={() => {
                     if (!filterOpen && mode !== 'pretty') setMode('pretty');
                     setFilterOpen((prev) => !prev);
                   }}
-                />
+                >
+                  {t('workbench.editors.request.response.body.filterLabel')}
+                </Button>
               </Badge>
             </ConfigProvider>
           </Tooltip>
         )}
-        <Tooltip title={t('shared.codeEditor.find')} placement="bottom">
-          <Button
-            size="small"
-            type="text"
-            icon={<SearchOutlined />}
-            disabled={mode !== 'pretty'}
-            onClick={() => actionsRef.current?.find()}
-            aria-label={t('shared.codeEditor.find')}
-            data-testid="oh-response-find"
-          />
-        </Tooltip>
         <span
           aria-hidden="true"
           style={{ width: 1, height: 16, background: token.colorBorderSecondary, margin: '0 2px' }}
@@ -651,10 +640,12 @@ const ResponseBodyView: React.FC<{
             icon={copied ? <CheckOutlined /> : <CopyOutlined />}
             onClick={copyBody}
             aria-label={t('workbench.editors.request.response.copyBody')}
-          />
+          >
+            {t('workbench.editors.request.response.copyBody')}
+          </Button>
         </Tooltip>
       </div>
-      {filterOpen && filterKind && (
+      {filterShown && filterKind && (
         <div style={{ paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <ResponseFilterInput
             value={filterQuery}

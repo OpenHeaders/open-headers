@@ -17,9 +17,13 @@
 import ResponseSseEventList from '@openheaders/ui/workbench/components/request-editor/response/ResponseSseEventList';
 import { parseSseEventItems } from '@openheaders/ui/workbench/components/request-editor/response/response-sse';
 // Registers the requests.* settings the list's toolbar reads/writes.
+// The viewer's Find cluster reads the keyboard registry; its Viewer menu
+// the editor.* knobs.
+import '@openheaders/ui/workbench/settings/schema/editor';
+import '@openheaders/ui/workbench/settings/schema/keyboard';
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
@@ -558,15 +562,31 @@ describe('ResponseSseEventList row expansion', () => {
     fireEvent.click(screen.getAllByTestId('oh-sse-event-row')[2]);
     const picker = screen.getByTestId('oh-sse-viewer-picker');
     expect(screen.getByTestId('oh-sse-viewer-picker-label').textContent).toBe('JSON');
-    expect(screen.getByTestId('oh-sse-viewer-wrap')).toBeTruthy();
-    expect(screen.getByTestId('oh-sse-viewer-find')).toBeTruthy();
-    expect(screen.getByTestId('oh-sse-viewer-copy')).toBeTruthy();
+    const viewer = screen.getByTestId('oh-sse-event-viewer');
+    expect(within(viewer).getByTestId('code-editor-find').textContent).toBe('Find');
+    expect(within(viewer).getByTestId('oh-sse-viewer-menu').textContent).toBe('Viewer');
+    expect(within(viewer).queryByTestId('oh-sse-viewer-copy')).toBeNull();
     fireEvent.click(picker);
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Raw' }));
     const editor = screen.getByTestId('oh-sse-event-viewer').querySelector('textarea');
     expect(editor?.value).toContain('event: tick');
     expect(editor?.value).toContain('data: {"seq":1,"resourceVersion":9007199254740993}');
     expect(screen.getByTestId('oh-sse-viewer-picker-label').textContent).toBe('Raw');
+  });
+
+  it('the event row’s hover cluster copies the payload as the viewer prints it; the (i) rides beside it', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    const row = screen.getAllByTestId('oh-sse-event-row')[1];
+    const copy = within(row).getByTestId('oh-sse-copy-event');
+    expect(copy.getAttribute('aria-label')).toBe('Copy event');
+    expect(within(row).getByTestId('oh-sse-event-info')).toBeTruthy();
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith('plain payload');
+    expect(screen.queryByTestId('oh-sse-event-viewer')).toBeNull();
+    expect(await within(row).findByRole('img', { name: 'check' })).toBeTruthy();
   });
 
   it('shows the payload text verbatim for non-JSON payloads', () => {

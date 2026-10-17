@@ -8,25 +8,30 @@
  * older" rows, the message rows (direction badge · opt-in type chip ·
  * preview · session time · expand slot) and the expanded payload
  * viewer. Purely presentational — expansion state and its toggles
- * belong to the orchestrator (`GrpcMessageTimeline.tsx`).
+ * belong to the orchestrator (`GrpcMessageTimeline.tsx`); only the
+ * message row's copy check is the row's own.
  */
 
 import {
   CheckCircleOutlined,
+  CheckOutlined,
   CloseCircleOutlined,
   CodeOutlined,
+  CopyOutlined,
   DisconnectOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { Button, theme } from 'antd';
+import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { formatBytes } from '../request-editor/response/response-format';
 import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import TimelineMessageViewer, { STREAM_HAIRLINE, type TimelineViewerModes } from '../shared/TimelineMessageViewer';
 import type { GrpcScriptMarkItem } from './grpc-scripts';
 import {
+  base64ByteLength,
   CONNECTED_DETAIL_PX,
   cellFont,
   type DirectionChips,
@@ -148,6 +153,17 @@ const GrpcTimelineEntryRow: React.FC<GrpcTimelineEntryRowProps> = ({
   const t = useT();
   const { singleRowStyle, lifecycleRowStyle, lifecycleTime, expandSlot, lifecycleGlyph, directionBadge, chipTag } =
     useGrpcRowParts();
+
+  // The copy button's one-second check — the row's own transient
+  // feedback (the WS anatomy), never the orchestrator's.
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
 
   const sentMetadata = lifecycle.requestMetadata ?? [];
   const sentRecorded = lifecycle.requestMetadata !== undefined;
@@ -491,6 +507,65 @@ const GrpcTimelineEntryRow: React.FC<GrpcTimelineEntryRowProps> = ({
             }}
           >
             {view.kind === 'compressed' ? t('workbench.editors.grpc.response.compressed') : derive.previewOf(item)}
+          </span>
+          {/* Hover cluster left of the time — copy the payload as the
+              viewer shows it, and the frame's size on hover; clicks
+              never reach the row toggle. */}
+          <span
+            className="oh-stream-row-actions"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <Tooltip title={t('workbench.editors.grpc.timeline.copyMessage')}>
+              <Button
+                size="small"
+                type="text"
+                icon={
+                  copied ? (
+                    <CheckOutlined style={{ fontSize: 12, color: token.colorSuccess }} />
+                  ) : (
+                    <CopyOutlined style={{ fontSize: 12 }} />
+                  )
+                }
+                aria-label={t('workbench.editors.grpc.timeline.copyMessage')}
+                data-testid="grpc-timeline-copy-message"
+                onClick={(event) => {
+                  // Drop the click focus so the cluster fades with the
+                  // pointer — the ring stays for keyboard users only.
+                  event.currentTarget.blur();
+                  const payload =
+                    view.kind === 'schema' || view.kind === 'structural'
+                      ? view.text
+                      : view.kind === 'raw'
+                        ? view.base64
+                        : '';
+                  void navigator.clipboard.writeText(payload).then(() => {
+                    setCopied(true);
+                    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+                    copiedTimerRef.current = setTimeout(() => setCopied(false), 1000);
+                  });
+                }}
+              />
+            </Tooltip>
+            <Tooltip
+              title={
+                <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 8, rowGap: 2 }}>
+                  <span>{t('workbench.editors.grpc.timeline.info.size')}:</span>
+                  <span data-testid="grpc-timeline-message-size">
+                    {formatBytes(item.secret === true ? 0 : base64ByteLength(item.dataBase64))}
+                  </span>
+                </div>
+              }
+            >
+              <Button
+                size="small"
+                type="text"
+                icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
+                aria-label={t('workbench.editors.grpc.timeline.info.label')}
+                data-testid="grpc-timeline-message-info"
+              />
+            </Tooltip>
           </span>
           {ts !== undefined && (
             <span

@@ -23,6 +23,10 @@ import WsMessageTimeline, {
 } from '@openheaders/ui/workbench/components/websocket-request-editor/WsMessageTimeline';
 import type { WsTimelineLifecycleItem as WsTimelineLifecycleItemForTest } from '@openheaders/ui/workbench/components/websocket-request-editor/ws-lifecycle';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
+// The viewer's Find cluster reads the keyboard registry; its Viewer menu
+// the editor.* knobs.
+import '@openheaders/ui/workbench/settings/schema/editor';
+import '@openheaders/ui/workbench/settings/schema/keyboard';
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -495,20 +499,20 @@ describe('WsMessageTimeline — payload views', () => {
     expect((viewer.querySelector('textarea') as HTMLTextAreaElement).value).toBe(item.dataBase64);
   });
 
-  it('a text frame goes to its hexdump and back through the picker; the toolbar carries wrap, find and copy', async () => {
+  it('a text frame goes to its hexdump and back through the picker; the toolbar carries Find and Viewer', async () => {
     renderTimeline();
     const pingRow = screen.getAllByTestId('ws-timeline-message-row').find((r) => r.textContent?.includes('ping'));
     if (!pingRow) throw new Error('no ping row');
     fireEvent.click(pingRow);
     expect(screen.getByTestId('ws-timeline-viewer-picker-label').textContent).toBe('Text');
-    expect(screen.getByTestId('ws-timeline-viewer-wrap')).toBeTruthy();
-    expect(screen.getByTestId('ws-timeline-viewer-find')).toBeTruthy();
-    expect(screen.getByTestId('ws-timeline-viewer-copy')).toBeTruthy();
+    const viewer = screen.getByTestId('ws-timeline-message-viewer');
+    expect(within(viewer).getByTestId('code-editor-find').textContent).toBe('Find');
+    expect(within(viewer).getByTestId('ws-timeline-viewer-menu').textContent).toBe('Viewer');
+    expect(within(viewer).queryByTestId('ws-timeline-viewer-copy')).toBeNull();
     await pick('Hex');
     expect(screen.getByTestId('ws-timeline-hex').textContent).toMatch(/70 69 6e 67/i);
     expect(screen.queryByTestId('code-editor')).toBeNull();
     await pick('Text');
-    const viewer = screen.getByTestId('ws-timeline-message-viewer');
     expect((viewer.querySelector('textarea') as HTMLTextAreaElement).value).toBe('ping');
   });
 

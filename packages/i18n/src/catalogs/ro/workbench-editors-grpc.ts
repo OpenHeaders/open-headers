@@ -225,6 +225,9 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.newMessages': 'Mesaje noi',
   'workbench.editors.grpc.timeline.sentAria': 'Mesaj trimis',
   'workbench.editors.grpc.timeline.receivedAria': 'Mesaj primit',
+  'workbench.editors.grpc.timeline.copyMessage': 'Copiere mesaj',
+  'workbench.editors.grpc.timeline.info.label': 'Detalii mesaj',
+  'workbench.editors.grpc.timeline.info.size': 'Dimensiune',
   'workbench.editors.grpc.timeline.script': '{hook} — {levels}',
   'workbench.editors.grpc.timeline.scriptFailed': '{hook} a eșuat — {error}',
   // ── The call's scripts — the result panes' Scripts tab and tag ──────

@@ -1,8 +1,10 @@
 /**
  * EditorViewMenu — the compose toolbars' "Editor" dropdown, right of
- * the Find / Replace / Beautify cluster. One button carrying the live
- * display knobs, grouped by SCOPE so a toggle never surprises another
- * tab: "This editor" holds the host's per-pane Wrap state; "All
+ * the Find / Replace / Beautify cluster, and — as "Viewer" — the
+ * read-only viewers' twin (`host="viewer"`: the same knobs, the
+ * host's words). One button carrying the live display knobs, grouped
+ * by SCOPE so a toggle never surprises another tab: "This editor" /
+ * "This viewer" holds the host's per-pane Wrap state; "All
  * editors" writes the global `editor.*` settings (line numbers,
  * whitespace rendering, the EOL ¬ glyph) — the same values the
  * Settings page edits, the timeline-toolbar precedent. Menu-item
@@ -45,12 +47,27 @@ interface EditorViewMenuProps {
   /** The host pane's Wrap state (per-pane, not a setting). */
   wrap: boolean;
   onWrapChange: (next: boolean) => void;
+  /** An editable buffer (the default) or a read-only viewer — the
+   *  trigger and the per-pane group take the host's name. */
+  host?: 'editor' | 'viewer';
+  /** The host shows no text buffer right now (a preview, a byte dump)
+   *  — none of the knobs would act, so the menu rests, disabled-honest. */
+  disabled?: boolean;
   style?: React.CSSProperties;
   'data-testid'?: string;
 }
 
-const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, style, 'data-testid': testid }) => {
+const EditorViewMenu: React.FC<EditorViewMenuProps> = ({
+  wrap,
+  onWrapChange,
+  host = 'editor',
+  disabled = false,
+  style,
+  'data-testid': testid,
+}) => {
   const t = useT();
+  const label = host === 'viewer' ? t('shared.editorMenu.viewerLabel') : t('shared.editorMenu.label');
+  const thisHost = host === 'viewer' ? t('shared.editorMenu.thisViewer') : t('shared.editorMenu.thisEditor');
   const [open, setOpen] = useState(false);
   const [lineNumbers, setLineNumbers] = useSetting('editor.lineNumbers');
   const [renderWhitespace, setRenderWhitespace] = useSetting('editor.renderWhitespace');
@@ -93,6 +110,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
     <Dropdown
       trigger={['click']}
       placement="bottomRight"
+      disabled={disabled}
       open={open}
       onOpenChange={(next, info) => {
         // Menu-item clicks keep the popover open; only the trigger and
@@ -108,7 +126,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
         items: [
           {
             type: 'group',
-            label: t('shared.editorMenu.thisEditor'),
+            label: thisHost,
             children: [
               {
                 key: 'wrap',
@@ -160,11 +178,12 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
           size="small"
           type="text"
           icon={<ControlOutlined />}
+          disabled={disabled}
           style={style}
           data-testid={testid}
-          aria-label={t('shared.editorMenu.label')}
+          aria-label={label}
         >
-          {t('shared.editorMenu.label')}
+          {label}
         </Button>
       </Tooltip>
     </Dropdown>

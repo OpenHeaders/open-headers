@@ -162,6 +162,16 @@ export function groupChip(chips: DirectionChips, name: string): DirectionChip {
   return chips.up.name === name ? chips.up : chips.down.name === name ? chips.down : { name, resolved: true };
 }
 
+/** The byte count a base64 string encodes — a closed form over its
+ *  length and padding, no decode (the row's details tooltip renders
+ *  per row). A malformed string reads as its nominal length. */
+export function base64ByteLength(value: string): number {
+  const clean = value.replace(/\s+/g, '');
+  if (clean.length === 0) return 0;
+  const padding = clean.endsWith('==') ? 2 : clean.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((clean.length * 3) / 4) - padding);
+}
+
 /** Session timestamps are wall-clock local times — HH:MM:SS.mmm. */
 export function formatMessageTime(ts: number): string {
   const d = new Date(ts);

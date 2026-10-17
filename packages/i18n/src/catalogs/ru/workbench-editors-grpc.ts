@@ -228,6 +228,9 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.newMessages': 'Новые сообщения',
   'workbench.editors.grpc.timeline.sentAria': 'Отправленное сообщение',
   'workbench.editors.grpc.timeline.receivedAria': 'Полученное сообщение',
+  'workbench.editors.grpc.timeline.copyMessage': 'Копировать сообщение',
+  'workbench.editors.grpc.timeline.info.label': 'Сведения о сообщении',
+  'workbench.editors.grpc.timeline.info.size': 'Размер',
   'workbench.editors.grpc.timeline.script': '{hook} — {levels}',
   'workbench.editors.grpc.timeline.scriptFailed': '{hook} — ошибка: {error}',
   // ── The call's scripts — the result panes' Scripts tab and tag ──────

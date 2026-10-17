@@ -47,6 +47,9 @@ interface CodeEditorActionsProps {
   /** Drop the visible action names and keep the icons — the hover
    *  corner overlay inside the buffer; a toolbar row never sets it. */
   iconsOnly?: boolean;
+  /** The host shows no buffer right now (a byte dump) — the cluster
+   *  rests, disabled-honest. */
+  disabled?: boolean;
   style?: React.CSSProperties;
 }
 
@@ -55,6 +58,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
   language,
   readOnly = false,
   iconsOnly = false,
+  disabled = false,
   style,
 }) => {
   // The cluster owns its three names — Find / Replace / Format on every
@@ -77,6 +81,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
           size="small"
           type="text"
           icon={<SearchOutlined />}
+          disabled={disabled}
           onClick={() => target.current?.find()}
           aria-label={findText}
           data-testid="code-editor-find"
@@ -93,6 +98,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
             size="small"
             type="text"
             icon={<SwapOutlined />}
+            disabled={disabled}
             onClick={() => target.current?.replace()}
             aria-label={replaceText}
             data-testid="code-editor-replace"
@@ -114,6 +120,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
             size="small"
             type="text"
             icon={<AlignLeftOutlined />}
+            disabled={disabled}
             onClick={() => target.current?.format()}
             aria-label={formatText}
             data-testid="code-editor-format"

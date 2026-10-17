@@ -1,30 +1,32 @@
 /**
  * TimelineMessageViewer — the expanded row's viewer shared by the
- * WebSocket, gRPC and MQTT timelines and the SSE event list: the HTTP
- * response body's toolbar over a read-only buffer — the one view
- * picker (a language = Pretty under that grammar; Raw / Hex / Base64
- * the byte views) and wrap on the left, Find and Copy on the right —
- * above the framed editor, or the message's bytes as the classic dump
- * in the same frame. Pretty is the HTTP body's law carried over: a
- * JSON or markup message re-indents for reading (the default — a
- * minified payload arrives as one line), Raw is the wire text
- * verbatim; a grammar without a formatter shows the text as it came.
- * Per-viewer choice (`ViewerMode`) and the editor's find target live
- * on the timeline through `useTimelineViewerModes`, keyed by item
- * index; the wrap flag is ONE state across every open viewer.
+ * WebSocket, gRPC and MQTT timelines and the SSE event list: the
+ * compose bar's toolbar over a read-only buffer — the one view picker
+ * on the left (a language = Pretty under that grammar; Raw / Hex /
+ * Base64 the byte views), the Find cluster and the Viewer menu (the
+ * Editor menu on a read-only host: this viewer's wrap, every editor's
+ * display knobs) on the right, icon + name by construction — above the
+ * framed editor, or the message's bytes as the classic dump in the
+ * same frame. Pretty is the HTTP body's law carried over: a JSON or
+ * markup message re-indents for reading (the default — a minified
+ * payload arrives as one line), Raw is the wire text verbatim; a
+ * grammar without a formatter shows the text as it came. Copy lives
+ * on the row's hover cluster, never here. Per-viewer choice
+ * (`ViewerMode`) and the editor's find target live on the timeline
+ * through `useTimelineViewerModes`, keyed by item index; the wrap flag
+ * is ONE state across every open viewer.
  */
 
-import { CheckOutlined, CopyOutlined, SearchOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Tooltip, theme } from 'antd';
+import { theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { LanguageId } from '../../languages/registry';
 import type { HexDump } from '../request-editor/response/response-encoding';
-import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
 import BodyViewPicker, { type EncodingView } from './BodyViewPicker';
 import CodeEditor from './CodeEditor';
-import type { CodeEditorActionsTarget } from './CodeEditorActions';
+import CodeEditorActions, { type CodeEditorActionsTarget } from './CodeEditorActions';
+import EditorViewMenu from './EditorViewMenu';
 import HexDumpView from './HexDumpView';
 import { usePrettyViewerText } from './use-pretty-viewer-text';
 
@@ -102,8 +104,10 @@ interface TimelineMessageViewerProps {
   wrapLines: boolean;
   onWrapLinesChange: (wrap: boolean) => void;
   actionsRef: React.MutableRefObject<CodeEditorActionsTarget | null>;
-  /** Pin prefix — `<prefix>-message-viewer` on the block, the toolbar
-   *  controls as `<prefix>-viewer-*`, the dump as `<prefix>-hex`. */
+  /** Pin prefix — `<prefix>-message-viewer` on the block, the picker
+   *  as `<prefix>-viewer-picker`, the Viewer menu as
+   *  `<prefix>-viewer-menu`, the dump as `<prefix>-hex`; the Find
+   *  cluster carries its own `code-editor-find`. */
   testIdPrefix: string;
 }
 
@@ -131,24 +135,6 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
   // under Base64; the dump renders its own frame.
   const shownText = pretty ? (prettyText ?? sharedPretty) : mode.view === 'base64' ? base64() : text;
 
-  // The copy button's one-and-a-half-second check — the HTTP body's
-  // feedback; copies what the frame shows.
-  const [copied, setCopied] = useState(false);
-  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
-    },
-    [],
-  );
-  const copyShown = () => {
-    void navigator.clipboard.writeText(hex ? hexDump().text : shownText).then(() => {
-      setCopied(true);
-      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
-      copiedTimerRef.current = setTimeout(() => setCopied(false), 1500);
-    });
-  };
-
   return (
     <div
       data-testid={`${testIdPrefix}-message-viewer`}
@@ -172,54 +158,15 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
           ariaLabel={t('workbench.editors.timelineViewer.format')}
           testId={`${testIdPrefix}-viewer-picker`}
         />
-        <Tooltip
-          title={
-            wrapLines
-              ? t('workbench.editors.request.response.body.unwrapLines')
-              : t('workbench.editors.request.response.body.wrapLines')
-          }
-          placement="bottom"
-        >
-          <Button
-            size="small"
-            type="text"
-            icon={<WrapLinesIcon />}
-            disabled={hex}
-            onClick={() => onWrapLinesChange(!wrapLines)}
-            aria-label={t('workbench.editors.request.response.body.wrapLines')}
-            style={wrapLines && !hex ? { background: token.colorBgTextActive } : undefined}
-            data-testid={`${testIdPrefix}-viewer-wrap`}
-          />
-        </Tooltip>
         <span style={{ flex: 1 }} />
-        <Tooltip title={t('shared.codeEditor.find')} placement="bottom">
-          <Button
-            size="small"
-            type="text"
-            icon={<SearchOutlined />}
-            disabled={hex}
-            onClick={() => actionsRef.current?.find()}
-            aria-label={t('shared.codeEditor.find')}
-            data-testid={`${testIdPrefix}-viewer-find`}
-          />
-        </Tooltip>
-        <Tooltip
-          title={
-            copied
-              ? t('workbench.editors.request.response.copied')
-              : t('workbench.editors.timelineViewer.copyMessage')
-          }
-          placement="bottom"
-        >
-          <Button
-            size="small"
-            type="text"
-            icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-            onClick={copyShown}
-            aria-label={t('workbench.editors.timelineViewer.copyMessage')}
-            data-testid={`${testIdPrefix}-viewer-copy`}
-          />
-        </Tooltip>
+        {/* The dump has no buffer to search — Find rests there. */}
+        <CodeEditorActions target={actionsRef} language={pretty ? format : 'text'} readOnly disabled={hex} />
+        <EditorViewMenu
+          host="viewer"
+          wrap={wrapLines}
+          onWrapChange={onWrapLinesChange}
+          data-testid={`${testIdPrefix}-viewer-menu`}
+        />
       </div>
       {hex ? (
         <div

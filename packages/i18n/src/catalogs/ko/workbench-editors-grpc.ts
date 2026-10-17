@@ -218,6 +218,9 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.newMessages': '새 메시지',
   'workbench.editors.grpc.timeline.sentAria': '보낸 메시지',
   'workbench.editors.grpc.timeline.receivedAria': '받은 메시지',
+  'workbench.editors.grpc.timeline.copyMessage': '메시지 복사',
+  'workbench.editors.grpc.timeline.info.label': '메시지 세부 정보',
+  'workbench.editors.grpc.timeline.info.size': '크기',
   'workbench.editors.grpc.timeline.script': '{hook} — {levels}',
   'workbench.editors.grpc.timeline.scriptFailed': '{hook} 실패 — {error}',
   // ── The call's scripts — the result panes' Scripts tab and tag ──────

@@ -29,6 +29,10 @@ import GrpcMessageTimeline, {
 } from '@openheaders/ui/workbench/components/grpc-request-editor/GrpcMessageTimeline';
 import type { GrpcScriptMarkItem } from '@openheaders/ui/workbench/components/grpc-request-editor/grpc-scripts';
 // Registers the requests.* settings the timeline's toolbar reads/writes.
+// The viewer's Find cluster reads the keyboard registry; its Viewer menu
+// the editor.* knobs.
+import '@openheaders/ui/workbench/settings/schema/editor';
+import '@openheaders/ui/workbench/settings/schema/keyboard';
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -197,19 +201,39 @@ describe('GrpcMessageTimeline rows', () => {
     expect((viewer.querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement).value).toBe('/w==');
   });
 
-  it('a decoded row goes to its hexdump and back through the picker; the toolbar carries wrap, find and copy', async () => {
+  it('a decoded row goes to its hexdump and back through the picker; the toolbar carries Find and Viewer', async () => {
     setSetting('requests.grpcMessagesNewestFirst', false);
     renderTimeline();
     fireEvent.click(screen.getAllByTestId('grpc-timeline-message-row')[0]);
     expect(screen.getByTestId('grpc-timeline-viewer-picker-label').textContent).toBe('JSON');
-    expect(screen.getByTestId('grpc-timeline-viewer-wrap')).toBeTruthy();
-    expect(screen.getByTestId('grpc-timeline-viewer-find')).toBeTruthy();
-    expect(screen.getByTestId('grpc-timeline-viewer-copy')).toBeTruthy();
+    const viewer = screen.getByTestId('grpc-timeline-message-viewer');
+    expect(within(viewer).getByTestId('code-editor-find').textContent).toBe('Find');
+    expect(within(viewer).getByTestId('grpc-timeline-viewer-menu').textContent).toBe('Viewer');
+    expect(within(viewer).queryByTestId('grpc-timeline-viewer-copy')).toBeNull();
     await pick('Hex');
     expect(screen.getByTestId('grpc-timeline-hex-offsets').textContent).toContain('00000000:');
     expect(screen.queryByTestId('code-editor')).toBeNull();
+    expect((within(viewer).getByTestId('code-editor-find') as HTMLButtonElement).disabled).toBe(true);
     await pick('JSON');
     expect(screen.getByTestId('code-editor')).toBeTruthy();
+  });
+
+  it('the message row’s hover cluster copies the decoded payload and reads the frame size on hover', async () => {
+    const writeText = vi.fn((_text: string) => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    setSetting('requests.grpcMessagesNewestFirst', false);
+    renderTimeline();
+    const row = screen.getAllByTestId('grpc-timeline-message-row')[0];
+    const copy = within(row).getByTestId('grpc-timeline-copy-message');
+    expect(copy.getAttribute('aria-label')).toBe('Copy message');
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain('"question": "ping"');
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    expect(await within(row).findByRole('img', { name: 'check' })).toBeTruthy();
+    fireEvent.mouseEnter(within(row).getByTestId('grpc-timeline-message-info'));
+    expect((await screen.findByTestId('grpc-timeline-message-size')).textContent).toMatch(/^\d+ B$/);
+    expect(screen.getByText('Size:')).toBeTruthy();
   });
 });
 

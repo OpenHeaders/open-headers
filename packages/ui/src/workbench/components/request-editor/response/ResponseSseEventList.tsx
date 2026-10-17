@@ -96,10 +96,12 @@ import {
   ArrowUpOutlined,
   CaretRightOutlined,
   CheckCircleOutlined,
+  CheckOutlined,
   ClearOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
   ControlOutlined,
+  CopyOutlined,
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
@@ -289,6 +291,66 @@ function searchTextOf(item: SseEventItem): string {
   searchCache.set(item, text);
   return text;
 }
+
+/** The event row's hover cluster left of the time — copy the payload
+ *  as the viewer shows it (the one-second check is the row's own),
+ *  and the event's facts behind the (i); clicks never reach the row
+ *  toggle. */
+const EventRowActions: React.FC<{ item: SseEventItem }> = ({ item }) => {
+  const { token } = theme.useToken();
+  const t = useT();
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
+  return (
+    <span
+      className="oh-stream-row-actions"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <Tooltip title={t('workbench.editors.request.response.sse.copyEvent')}>
+        <Button
+          size="small"
+          type="text"
+          icon={
+            copied ? (
+              <CheckOutlined style={{ fontSize: 12, color: token.colorSuccess }} />
+            ) : (
+              <CopyOutlined style={{ fontSize: 12 }} />
+            )
+          }
+          aria-label={t('workbench.editors.request.response.sse.copyEvent')}
+          data-testid="oh-sse-copy-event"
+          onClick={(event) => {
+            // Drop the click focus so the cluster fades with the
+            // pointer — the ring stays for keyboard users only.
+            event.currentTarget.blur();
+            void navigator.clipboard.writeText(viewerContentOf(item).value).then(() => {
+              setCopied(true);
+              if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+              copiedTimerRef.current = setTimeout(() => setCopied(false), 1000);
+            });
+          }}
+        />
+      </Tooltip>
+      <Popover content={<EventInfo item={item} />} placement="left">
+        <Button
+          size="small"
+          type="text"
+          icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
+          aria-label={t('workbench.editors.request.response.sse.eventInfoAria')}
+          data-testid="oh-sse-event-info"
+        />
+      </Popover>
+    </span>
+  );
+};
 
 /** The block's bytes as the classic dump — computed on first open. */
 const hexCache = new WeakMap<SseEventItem, HexDump>();
@@ -967,6 +1029,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             >
               {previewOf(item)}
             </span>
+            <EventRowActions item={item} />
             {ts !== undefined && (
               <span
                 data-testid="oh-sse-event-time"
@@ -975,14 +1038,6 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
                 {formatEventTime(ts)}
               </span>
             )}
-            <Popover content={<EventInfo item={item} />} placement="left">
-              <InfoCircleOutlined
-                data-testid="oh-sse-event-info"
-                aria-label={t('workbench.editors.request.response.sse.eventInfoAria')}
-                onClick={(event) => event.stopPropagation()}
-                style={{ fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
-              />
-            </Popover>
           </div>
         );
       }

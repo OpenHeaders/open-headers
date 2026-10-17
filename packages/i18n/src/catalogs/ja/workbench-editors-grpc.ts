@@ -220,6 +220,9 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.newMessages': '新しいメッセージ',
   'workbench.editors.grpc.timeline.sentAria': '送信メッセージ',
   'workbench.editors.grpc.timeline.receivedAria': '受信メッセージ',
+  'workbench.editors.grpc.timeline.copyMessage': 'メッセージをコピー',
+  'workbench.editors.grpc.timeline.info.label': 'メッセージの詳細',
+  'workbench.editors.grpc.timeline.info.size': 'サイズ',
   'workbench.editors.grpc.timeline.script': '{hook} — {levels}',
   'workbench.editors.grpc.timeline.scriptFailed': '{hook} が失敗 — {error}',
   // ── The call's scripts — the result panes' Scripts tab and tag ──────
