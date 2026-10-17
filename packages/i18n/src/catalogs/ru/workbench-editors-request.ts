@@ -1632,6 +1632,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.sse.infoSize': 'Размер',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',
   'workbench.editors.request.response.sse.eventInfoAria': 'Сведения о событии',
+  'workbench.editors.request.response.sse.filterAllEvents': 'Все события',
+  'workbench.editors.request.response.sse.filterLifecycle': 'Только жизненный цикл',
+  'workbench.editors.request.response.sse.eventFilter': 'Фильтр событий',
+  'workbench.editors.request.response.sse.eventCountFiltered': 'событий: {shown} из {total}',
+  'workbench.editors.request.response.sse.nameFilterAll': 'Все имена событий',
+  'workbench.editors.request.response.sse.sortBy': 'Сортировать по',
+  'workbench.editors.request.response.sse.view': 'Вид',
+  'workbench.editors.request.response.sse.viewTooltip': 'Параметры отображения',
+  'workbench.editors.request.response.sse.viewGroup': 'Группировка',
+  'workbench.editors.request.response.sse.clear': 'Очистить',
 
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': 'Ответ обрезан по {cap} (исходно {size}).',

@@ -1382,6 +1382,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.sse.infoSize': '大小',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',
   'workbench.editors.request.response.sse.eventInfoAria': '事件详情',
+  'workbench.editors.request.response.sse.filterAllEvents': '所有事件',
+  'workbench.editors.request.response.sse.filterLifecycle': '仅生命周期',
+  'workbench.editors.request.response.sse.eventFilter': '事件筛选',
+  'workbench.editors.request.response.sse.eventCountFiltered': '{total} 个事件中的 {shown} 个',
+  'workbench.editors.request.response.sse.nameFilterAll': '全部事件名',
+  'workbench.editors.request.response.sse.sortBy': '排序方式',
+  'workbench.editors.request.response.sse.view': '视图',
+  'workbench.editors.request.response.sse.viewTooltip': '显示选项',
+  'workbench.editors.request.response.sse.viewGroup': '分组',
+  'workbench.editors.request.response.sse.clear': '清除',
 
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': '响应在 {cap} 处被截断（原始大小 {size}）。',

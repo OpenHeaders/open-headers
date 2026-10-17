@@ -1626,6 +1626,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.sse.infoSize': 'Dimensiune',
   'workbench.editors.request.response.sse.infoRetry': 'Reîncercare',
   'workbench.editors.request.response.sse.eventInfoAria': 'Detalii eveniment',
+  'workbench.editors.request.response.sse.filterAllEvents': 'Toate evenimentele',
+  'workbench.editors.request.response.sse.filterLifecycle': 'Doar ciclul de viață',
+  'workbench.editors.request.response.sse.eventFilter': 'Filtru evenimente',
+  'workbench.editors.request.response.sse.eventCountFiltered': 'evenimente: {shown} din {total}',
+  'workbench.editors.request.response.sse.nameFilterAll': 'Toate numele de evenimente',
+  'workbench.editors.request.response.sse.sortBy': 'Sortare după',
+  'workbench.editors.request.response.sse.view': 'Vizualizare',
+  'workbench.editors.request.response.sse.viewTooltip': 'Opțiuni de afișare',
+  'workbench.editors.request.response.sse.viewGroup': 'Grupare',
+  'workbench.editors.request.response.sse.clear': 'Golire',
 
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': 'Răspuns trunchiat la {cap} (original {size}).',

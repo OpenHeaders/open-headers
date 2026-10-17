@@ -25,6 +25,17 @@
  * value the Settings page edits, so the choices survive Send/Stop
  * remounts and apply everywhere.
  *
+ * The strip is the MQTT / WS / gRPC timelines': search, the lens menu
+ * (all events / lifecycle only — a stream has one direction, so the
+ * lens is the direction menu's whole remainder) and the count on the
+ * left; the event-NAME filter (several names at once, over every name
+ * the log has seen), Sort by, View (grouping, the row limit, wrap) and
+ * Clear on the right. Every trigger is icon + label — the lens trigger
+ * reads the filter in force, Sort by and View stay names — and the
+ * menus ride antd's selection plane under `.oh-choice-menu` /
+ * `.oh-view-menu` (the Editor menu's row anatomy). The count reads
+ * `{shown} of {total}` while any filter is in force.
+ *
  * Rows expand into a mini viewer: the shared CodeEditor over the DATA
  * payload — lossless JSON print under the JSON grammar (int64 tokens
  * verbatim — the F3 law), per-line JSON documents printed in sequence,
@@ -59,21 +70,22 @@ import {
   ArrowDownOutlined,
   ArrowUpOutlined,
   CaretRightOutlined,
-  CheckOutlined,
   ClearOutlined,
+  ControlOutlined,
   DisconnectOutlined,
+  DownOutlined,
   InfoCircleOutlined,
   SearchOutlined,
   SortAscendingOutlined,
+  SortDescendingOutlined,
 } from '@ant-design/icons';
-import { Button, Dropdown, Input, Popover, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Dropdown, Input, Popover, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../../shared/CodeEditor';
-import { WrapLinesIcon } from './ViewPickerIcons';
 import { parseLosslessJson, stringifyLossless } from './lossless-json';
 import { formatBytes } from './response-format';
 import type { SseEventItem } from './response-sse';
@@ -123,6 +135,10 @@ interface ResponseSseEventListProps {
   timestamps?: readonly number[];
   lifecycle: SseListLifecycle;
 }
+
+/** The lens — `lifecycle` hides every event so the log reads as its
+ *  connection story alone. */
+type LensFilter = 'all' | 'lifecycle';
 
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. */
@@ -296,11 +312,16 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   const { token } = theme.useToken();
   const t = useT();
   const [search, setSearch] = useState('');
-  // Sort-menu visibility is controlled: selecting an option keeps the
-  // menu OPEN (the app's popover convention — only an outside click or
-  // a trigger re-click closes), and the trigger's tooltip suppresses
-  // while the menu shows.
+  const [lensFilter, setLensFilter] = useState<LensFilter>('all');
+  // Several names at once; empty = every name.
+  const [nameFilter, setNameFilter] = useState<string[]>([]);
+  // The menus are controlled: the single choices close on a pick, the
+  // View menu keeps open so several knobs flip in one visit; only the
+  // trigger and outside clicks change visibility otherwise, and a
+  // trigger's tooltip suppresses while its menu shows.
+  const [lensMenuOpen, setLensMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
@@ -352,6 +373,8 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   // biome-ignore lint/correctness/useExhaustiveDependencies: items identity IS the reset signal.
   useEffect(() => {
     setSearch('');
+    setLensFilter('all');
+    setNameFilter([]);
     setClearedCount(0);
     setExpanded(new Set<number>());
     setCollapsedGroups(new Set<string>());
@@ -374,18 +397,37 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     if (grew && awayFromNewEdgeRef.current) setHasNewEvents(true);
   }, [count]);
 
-  // Every event index matching the search, newest-first — one linear
-  // pass of primitive work per commit/keystroke (the haystack is the
-  // raw block text: name, data, comments and unknown fields).
+  // The NAME filter's option set — every distinct event name the log
+  // has seen, in first-appearance order (display-side; never stored).
+  const seenNames = useMemo(() => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < count; i++) {
+      const name = badgeNameOf(items[i]);
+      if (seen.has(name)) continue;
+      seen.add(name);
+      names.push(name);
+    }
+    return names;
+  }, [items, count]);
+
+  // Every event index passing the filters, newest-first — one linear
+  // pass of primitive work per commit/keystroke (the search haystack
+  // is the raw block text: name, data, comments and unknown fields).
+  // The lens and the name filter gate EVENT rows only — under them the
+  // lifecycle rows stay as the log's skeleton.
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const names = nameFilter.length > 0 ? new Set(nameFilter) : null;
     const rows: number[] = [];
+    if (lensFilter === 'lifecycle') return rows;
     for (let i = count - 1; i >= clearedCount; i--) {
+      if (names !== null && !names.has(badgeNameOf(items[i]))) continue;
       if (needle !== '' && !items[i].raw.toLowerCase().includes(needle)) continue;
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search]);
+  }, [items, count, clearedCount, search, lensFilter, nameFilter]);
 
   const displayRows = useMemo(
     () => (newestFirst ? visibleRows : [...visibleRows].reverse()),
@@ -416,7 +458,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     return newestFirst ? anchored.reverse() : anchored;
   }, [displayRows, groupByName, items, count, clearedCount, newestFirst]);
 
-  const searching = search.trim() !== '';
+  const filtering = search.trim() !== '' || lensFilter !== 'all' || nameFilter.length > 0;
   const live = lifecycle.endedBy === undefined;
 
   // The flat display list the virtual window runs over — lifecycle
@@ -439,7 +481,10 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
       out.push({ key: 'connected', kind: 'connected' });
     }
     if (live && count === 0) out.push({ key: 'waiting', kind: 'waiting' });
-    if (searching && displayRows.length === 0 && count > clearedCount) out.push({ key: 'none', kind: 'noMatches' });
+    // Under Lifecycle only the empty event set is the point, not a miss.
+    if (filtering && lensFilter !== 'lifecycle' && displayRows.length === 0 && count > clearedCount) {
+      out.push({ key: 'none', kind: 'noMatches' });
+    }
     if (groups !== null) {
       for (const [name, indexes] of groups) {
         const startEntry = out.length;
@@ -484,7 +529,8 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     live,
     count,
     clearedCount,
-    searching,
+    filtering,
+    lensFilter,
     displayRows,
     groups,
     expanded,
@@ -847,6 +893,31 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   // count and collapse state track the live list.
   const stickySource = stickyGroup !== null && groups !== null ? groups.find(([n]) => n === stickyGroup) : undefined;
 
+  // The lens options — the menu rows and the trigger's label are the
+  // same words, so the trigger reads the filter in force.
+  const lensOptions: ReadonlyArray<{ value: LensFilter; icon: React.ReactNode | null; label: string }> = [
+    { value: 'all', icon: null, label: t('workbench.editors.request.response.sse.filterAllEvents') },
+    {
+      value: 'lifecycle',
+      icon: <InfoCircleOutlined />,
+      label: t('workbench.editors.request.response.sse.filterLifecycle'),
+    },
+  ];
+  const activeLens = lensOptions.find((option) => option.value === lensFilter) ?? lensOptions[0];
+  const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {icon}
+      {label}
+    </span>
+  );
+  // The View menu's on-knobs ride antd's selection plane (several at
+  // once); the Rows per group submenu is the one single choice.
+  const viewSelectedKeys = [
+    ...(groupByName ? ['group'] : []),
+    `group-limit-${groupRowLimit}`,
+    ...(wrapLines ? ['wrap'] : []),
+  ];
+
   return (
     <div
       data-testid="oh-sse-event-list"
@@ -861,71 +932,101 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           data-testid="oh-sse-search"
-          style={{ maxWidth: 260 }}
+          style={{ maxWidth: 220 }}
         />
-        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-          {t('workbench.editors.request.response.sse.eventCount', { count: count - clearedCount })}
+        <Dropdown
+          trigger={['click']}
+          placement="bottomLeft"
+          open={lensMenuOpen}
+          onOpenChange={(open, info) => {
+            if (info.source === 'menu') return;
+            setLensMenuOpen(open);
+          }}
+          menu={{
+            rootClassName: 'oh-choice-menu',
+            selectable: true,
+            selectedKeys: [lensFilter],
+            items: lensOptions.map((option) => ({
+              key: option.value,
+              label: menuRow(option.icon, option.label),
+              onClick: () => {
+                setLensFilter(option.value);
+                setLensMenuOpen(false);
+              },
+            })),
+          }}
+        >
+          <Tooltip
+            title={t('workbench.editors.request.response.sse.eventFilter')}
+            placement="bottom"
+            open={lensMenuOpen ? false : undefined}
+          >
+            <Button
+              size="small"
+              type="text"
+              data-testid="oh-sse-lens-filter"
+              aria-label={t('workbench.editors.request.response.sse.eventFilter')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {activeLens.icon}
+              {activeLens.label}
+              <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
+            </Button>
+          </Tooltip>
+        </Dropdown>
+        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="oh-sse-count">
+          {filtering
+            ? t('workbench.editors.request.response.sse.eventCountFiltered', {
+                shown: visibleRows.length,
+                total: count - clearedCount,
+              })
+            : t('workbench.editors.request.response.sse.eventCount', { count: count - clearedCount })}
         </Text>
         <span style={{ marginLeft: 'auto' }} />
+        {seenNames.length > 0 && (
+          <Select
+            size="small"
+            mode="multiple"
+            allowClear
+            maxTagCount="responsive"
+            placeholder={t('workbench.editors.request.response.sse.nameFilterAll')}
+            value={nameFilter}
+            options={seenNames.map((name) => ({ value: name, label: name }))}
+            onChange={(next: string[]) => setNameFilter(next)}
+            // Sized by its tags — never a reserved band; the cap collapses
+            // the overflow into a count.
+            style={{ width: 'auto', minWidth: 180, maxWidth: 340 }}
+            data-testid="oh-sse-name-filter"
+          />
+        )}
         <Dropdown
           trigger={['click']}
           placement="bottomRight"
           open={sortMenuOpen}
           onOpenChange={(open, info) => {
-            // Menu-item clicks keep the popover open; only the trigger
-            // and outside clicks change visibility.
             if (info.source === 'menu') return;
             setSortMenuOpen(open);
           }}
           menu={{
+            rootClassName: 'oh-choice-menu',
+            selectable: true,
+            selectedKeys: [newestFirst ? 'newest' : 'oldest'],
             items: [
               {
                 key: 'newest',
-                label: (
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    {t('workbench.editors.request.response.sse.newestFirst')}
-                    {newestFirst && <CheckOutlined style={{ color: token.colorPrimary }} />}
-                  </span>
-                ),
-                onClick: () => setNewestFirst(true),
+                label: t('workbench.editors.request.response.sse.newestFirst'),
+                onClick: () => {
+                  setNewestFirst(true);
+                  setSortMenuOpen(false);
+                },
               },
               {
                 key: 'oldest',
-                label: (
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    {t('workbench.editors.request.response.sse.oldestFirst')}
-                    {!newestFirst && <CheckOutlined style={{ color: token.colorPrimary }} />}
-                  </span>
-                ),
-                onClick: () => setNewestFirst(false),
-              },
-              { type: 'divider' },
-              {
-                key: 'group',
-                label: (
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    {t('workbench.editors.request.response.sse.groupByName')}
-                    {groupByName && <CheckOutlined style={{ color: token.colorPrimary }} />}
-                  </span>
-                ),
-                onClick: () => setGroupByName(!groupByName),
-              },
-              {
-                key: 'group-limit',
-                label: t('workbench.editors.request.response.sse.rowsPerGroup'),
-                disabled: !groupByName,
-                children: [0, 1, 3, 5, 10].map((n) => ({
-                  key: `group-limit-${n}`,
-                  label: (
-                    <span
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
-                    >
-                      {n === 0 ? t('workbench.editors.request.response.sse.noLimit') : String(n)}
-                      {groupRowLimit === n && <CheckOutlined style={{ color: token.colorPrimary }} />}
-                    </span>
-                  ),
-                  onClick: () => setGroupRowLimit(n),
-                })),
+                label: t('workbench.editors.request.response.sse.oldestFirst'),
+                onClick: () => {
+                  setNewestFirst(false);
+                  setSortMenuOpen(false);
+                },
               },
             ],
           }}
@@ -938,29 +1039,77 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             <Button
               size="small"
               type="text"
-              icon={<SortAscendingOutlined />}
+              icon={newestFirst ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
               data-testid="oh-sse-sort"
               aria-label={t('workbench.editors.request.response.sse.sortOrder')}
-            />
+            >
+              {t('workbench.editors.request.response.sse.sortBy')}
+            </Button>
           </Tooltip>
         </Dropdown>
-        <Tooltip
-          title={
-            wrapLines
-              ? t('workbench.editors.request.response.body.unwrapLines')
-              : t('workbench.editors.request.response.body.wrapLines')
-          }
-          placement="bottom"
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          open={viewMenuOpen}
+          onOpenChange={(open, info) => {
+            // Menu-item clicks keep the popover open — several knobs
+            // flip in one visit; only the trigger and outside clicks
+            // change visibility.
+            if (info.source === 'menu') return;
+            setViewMenuOpen(open);
+          }}
+          menu={{
+            rootClassName: 'oh-view-menu',
+            selectable: true,
+            multiple: true,
+            selectedKeys: viewSelectedKeys,
+            items: [
+              {
+                type: 'group',
+                label: t('workbench.editors.request.response.sse.viewGroup'),
+                children: [
+                  {
+                    key: 'group',
+                    label: t('workbench.editors.request.response.sse.groupByName'),
+                    onClick: () => setGroupByName(!groupByName),
+                  },
+                  {
+                    key: 'group-limit',
+                    label: t('workbench.editors.request.response.sse.rowsPerGroup'),
+                    disabled: !groupByName,
+                    children: [0, 1, 3, 5, 10].map((n) => ({
+                      key: `group-limit-${n}`,
+                      label: n === 0 ? t('workbench.editors.request.response.sse.noLimit') : String(n),
+                      onClick: () => setGroupRowLimit(n),
+                    })),
+                  },
+                ],
+              },
+              { type: 'divider' },
+              {
+                key: 'wrap',
+                label: t('workbench.editors.request.response.body.wrapLines'),
+                onClick: () => setWrapLines((prev) => !prev),
+              },
+            ],
+          }}
         >
-          <Button
-            size="small"
-            type="text"
-            icon={<WrapLinesIcon />}
-            onClick={() => setWrapLines((prev) => !prev)}
-            aria-label={t('workbench.editors.request.response.body.wrapLines')}
-            style={wrapLines ? { background: token.colorBgTextActive } : undefined}
-          />
-        </Tooltip>
+          <Tooltip
+            title={t('workbench.editors.request.response.sse.viewTooltip')}
+            placement="bottom"
+            open={viewMenuOpen ? false : undefined}
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<ControlOutlined />}
+              data-testid="oh-sse-view"
+              aria-label={t('workbench.editors.request.response.sse.view')}
+            >
+              {t('workbench.editors.request.response.sse.view')}
+            </Button>
+          </Tooltip>
+        </Dropdown>
         <Tooltip title={t('workbench.editors.request.response.sse.clearEvents')} placement="bottom">
           <Button
             size="small"
@@ -969,7 +1118,9 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             data-testid="oh-sse-clear"
             onClick={() => setClearedCount(count)}
             aria-label={t('workbench.editors.request.response.sse.clearEvents')}
-          />
+          >
+            {t('workbench.editors.request.response.sse.clear')}
+          </Button>
         </Tooltip>
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>

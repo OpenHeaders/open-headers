@@ -197,9 +197,7 @@ describe('ResponseSseEventList new-events pill', () => {
 describe('ResponseSseEventList sort order', () => {
   it('flips to oldest-first: rows ascend and the lifecycle rows swap edges', async () => {
     const items = itemsOf(BODY);
-    render(
-      <ResponseSseEventList items={items} count={items.length} lifecycle={{ ...LIFECYCLE, endedBy: 'stop' }} />,
-    );
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={{ ...LIFECYCLE, endedBy: 'stop' }} />);
     fireEvent.click(screen.getByTestId('oh-sse-sort'));
     fireEvent.click(await screen.findByText('Oldest first'));
     const rows = screen.getAllByTestId('oh-sse-event-row');
@@ -210,10 +208,74 @@ describe('ResponseSseEventList sort order', () => {
     const ended = screen.getByTestId('oh-sse-lifecycle-row');
     expect(connected.compareDocumentPosition(rows[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(rows[2].compareDocumentPosition(ended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Selecting keeps the popover OPEN (the app's popover convention) —
-    // the next option is clickable directly, no trigger re-click.
-    fireEvent.click(screen.getByText('Newest first'));
+    // A single choice closes its menu on the pick (the strip law) —
+    // the trigger opens it again for the next choice.
+    fireEvent.click(screen.getByTestId('oh-sse-sort'));
+    fireEvent.click(await screen.findByText('Newest first'));
     expect(screen.getAllByTestId('oh-sse-event-row')[0].textContent).toContain('heartbeat');
+  });
+
+  it('the Sort by trigger is icon + label and the menu wears the single-choice anatomy', async () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    const trigger = screen.getByTestId('oh-sse-sort');
+    expect(trigger.textContent).toBe('Sort by');
+    fireEvent.click(trigger);
+    const newest = await screen.findByText('Newest first');
+    const menu = newest.closest('.ant-dropdown-menu');
+    expect(menu?.classList.contains('oh-choice-menu')).toBe(true);
+    // The choice in force is the selected row — the mark rides antd's
+    // selection plane, never a trailing check glyph.
+    expect(newest.closest('.ant-dropdown-menu-item')?.classList.contains('ant-dropdown-menu-item-selected')).toBe(true);
+    expect(menu?.querySelector('.anticon-check')).toBeNull();
+  });
+});
+
+describe('ResponseSseEventList strip filters', () => {
+  it('the lens trigger reads the filter in force; Lifecycle only keeps the skeleton and raises no notice', async () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={{ ...LIFECYCLE, endedBy: 'end' }} />);
+    const trigger = screen.getByTestId('oh-sse-lens-filter');
+    expect(trigger.textContent).toBe('All events');
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByText('Lifecycle only'));
+    expect(trigger.textContent).toBe('Lifecycle only');
+    expect(screen.queryAllByTestId('oh-sse-event-row')).toHaveLength(0);
+    expect(screen.getByTestId('oh-sse-connected-row')).toBeTruthy();
+    expect(screen.getByTestId('oh-sse-lifecycle-row')).toBeTruthy();
+    expect(screen.queryByText('No events match.')).toBeNull();
+    // The count reads shown of total while the lens is in force.
+    expect(screen.getByTestId('oh-sse-count').textContent).toBe('0 of 3 events');
+  });
+
+  it('the name filter narrows to the chosen event names and the count reads shown of total', () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    expect(screen.getByTestId('oh-sse-count').textContent).toBe('3 events');
+    // antd's Select puts the test id on the ROOT and opens on mousedown.
+    fireEvent.mouseDown(screen.getByTestId('oh-sse-name-filter'));
+    fireEvent.click(screen.getByTitle('tick'));
+    const rows = screen.getAllByTestId('oh-sse-event-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('tick');
+    expect(screen.getByTestId('oh-sse-count').textContent).toBe('1 of 3 events');
+  });
+
+  it('Clear carries its label; View holds the grouping knobs behind an icon + label trigger', async () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    expect(screen.getByTestId('oh-sse-clear').textContent).toBe('Clear');
+    const view = screen.getByTestId('oh-sse-view');
+    expect(view.textContent).toBe('View');
+    fireEvent.click(view);
+    const group = await screen.findByText('Group by event name');
+    expect(group.closest('.ant-dropdown-menu')?.classList.contains('oh-view-menu')).toBe(true);
+    expect(screen.getByText('Rows per group')).toBeTruthy();
+    expect(screen.getByText('Wrap lines')).toBeTruthy();
+    // A knob flip keeps the View menu open — several flip in one visit.
+    fireEvent.click(group);
+    expect(screen.getByText('Rows per group')).toBeTruthy();
+    expect(screen.getAllByTestId('oh-sse-group-header').length).toBeGreaterThan(0);
   });
 });
 
@@ -232,7 +294,7 @@ describe('ResponseSseEventList group by event name', () => {
   ].join('\n');
 
   async function enableGrouping() {
-    fireEvent.click(screen.getByTestId('oh-sse-sort'));
+    fireEvent.click(screen.getByTestId('oh-sse-view'));
     fireEvent.click(await screen.findByText('Group by event name'));
     // Selection keeps the menu open by design — close it via the
     // outside click so repeated helper calls start from closed.

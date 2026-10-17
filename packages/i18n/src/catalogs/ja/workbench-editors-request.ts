@@ -1555,6 +1555,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.sse.infoSize': 'サイズ',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',
   'workbench.editors.request.response.sse.eventInfoAria': 'イベントの詳細',
+  'workbench.editors.request.response.sse.filterAllEvents': 'すべてのイベント',
+  'workbench.editors.request.response.sse.filterLifecycle': 'ライフサイクルのみ',
+  'workbench.editors.request.response.sse.eventFilter': 'イベントフィルター',
+  'workbench.editors.request.response.sse.eventCountFiltered': '{total} 件中 {shown} 件のイベント',
+  'workbench.editors.request.response.sse.nameFilterAll': 'すべてのイベント名',
+  'workbench.editors.request.response.sse.sortBy': '並べ替え',
+  'workbench.editors.request.response.sse.view': '表示',
+  'workbench.editors.request.response.sse.viewTooltip': '表示オプション',
+  'workbench.editors.request.response.sse.viewGroup': 'グループ化',
+  'workbench.editors.request.response.sse.clear': 'クリア',
 
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': 'レスポンスは {cap} で切り詰められました（元は {size}）。',

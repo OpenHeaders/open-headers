@@ -1532,6 +1532,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.sse.infoSize': '크기',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',
   'workbench.editors.request.response.sse.eventInfoAria': '이벤트 세부 정보',
+  'workbench.editors.request.response.sse.filterAllEvents': '모든 이벤트',
+  'workbench.editors.request.response.sse.filterLifecycle': '수명 주기만',
+  'workbench.editors.request.response.sse.eventFilter': '이벤트 필터',
+  'workbench.editors.request.response.sse.eventCountFiltered': '이벤트 {total}건 중 {shown}건',
+  'workbench.editors.request.response.sse.nameFilterAll': '모든 이벤트 이름',
+  'workbench.editors.request.response.sse.sortBy': '정렬 기준',
+  'workbench.editors.request.response.sse.view': '보기',
+  'workbench.editors.request.response.sse.viewTooltip': '표시 옵션',
+  'workbench.editors.request.response.sse.viewGroup': '그룹화',
+  'workbench.editors.request.response.sse.clear': '지우기',
 
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': '응답이 {cap}에서 잘렸습니다 (원래 크기 {size}).',

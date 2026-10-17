@@ -1701,6 +1701,16 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.sse.infoSize': 'Größe',
   'workbench.editors.request.response.sse.infoRetry': 'Retry',
   'workbench.editors.request.response.sse.eventInfoAria': 'Ereignisdetails',
+  'workbench.editors.request.response.sse.filterAllEvents': 'Alle Ereignisse',
+  'workbench.editors.request.response.sse.filterLifecycle': 'Nur Lebenszyklus',
+  'workbench.editors.request.response.sse.eventFilter': 'Ereignisfilter',
+  'workbench.editors.request.response.sse.eventCountFiltered': '{shown} von {total} Ereignissen',
+  'workbench.editors.request.response.sse.nameFilterAll': 'Alle Ereignisnamen',
+  'workbench.editors.request.response.sse.sortBy': 'Sortieren nach',
+  'workbench.editors.request.response.sse.view': 'Ansicht',
+  'workbench.editors.request.response.sse.viewTooltip': 'Anzeigeoptionen',
+  'workbench.editors.request.response.sse.viewGroup': 'Gruppieren',
+  'workbench.editors.request.response.sse.clear': 'Leeren',
 
   // ── Response body view (filter syntax + format examples stay raw) ──
   'workbench.editors.request.response.body.truncatedNotice': 'Antwort bei {cap} abgeschnitten (ursprünglich {size}).',
