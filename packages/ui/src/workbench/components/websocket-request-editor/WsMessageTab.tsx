@@ -127,12 +127,13 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{exampleSelect}</div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {(socketioFlavor || draft.messageFormat === 'json') && (
-            <CodeEditorActions
-              target={messageActionsRef}
-              language="json"
-            />
-          )}
+          {/* Find / Replace ride every format (the MQTT compose law);
+            the cluster itself keeps Format to formattable languages —
+            json here, text and the binary encodings are plaintext. */}
+          <CodeEditorActions
+            target={messageActionsRef}
+            language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}
+          />
           <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="ws-editor-menu" />
         </div>
       </div>
