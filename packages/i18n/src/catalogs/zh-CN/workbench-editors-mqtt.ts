@@ -295,6 +295,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.filterAll': '全部',
   'workbench.editors.mqtt.timeline.filterSent': '已发送',
   'workbench.editors.mqtt.timeline.filterReceived': '已接收',
+  'workbench.editors.mqtt.timeline.filterLifecycle': '仅生命周期',
   'workbench.editors.mqtt.timeline.newestFirst': '最新在前',
   'workbench.editors.mqtt.timeline.oldestFirst': '最旧在前',
   'workbench.editors.mqtt.timeline.sortOrder': '排序',

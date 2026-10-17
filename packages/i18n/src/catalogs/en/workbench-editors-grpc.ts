@@ -180,6 +180,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.filterAll': 'All',
   'workbench.editors.grpc.timeline.filterSent': 'Sent',
   'workbench.editors.grpc.timeline.filterReceived': 'Received',
+  'workbench.editors.grpc.timeline.filterLifecycle': 'Lifecycle only',
   'workbench.editors.grpc.timeline.messageCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} message', other: '{count} messages' }),
   'workbench.editors.grpc.timeline.sortOrder': 'Sort order',

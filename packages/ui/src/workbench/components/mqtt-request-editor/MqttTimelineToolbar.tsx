@@ -19,6 +19,7 @@ import {
   ArrowUpOutlined,
   ClearOutlined,
   DownOutlined,
+  InfoCircleOutlined,
   SearchOutlined,
   SortAscendingOutlined,
   SortDescendingOutlined,
@@ -80,6 +81,7 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
     { value: 'all', icon: null, label: t('workbench.editors.mqtt.timeline.filterAllMessages') },
     { value: 'up', icon: <ArrowUpOutlined />, label: t('workbench.editors.mqtt.timeline.filterSent') },
     { value: 'down', icon: <ArrowDownOutlined />, label: t('workbench.editors.mqtt.timeline.filterReceived') },
+    { value: 'lifecycle', icon: <InfoCircleOutlined />, label: t('workbench.editors.mqtt.timeline.filterLifecycle') },
   ];
   const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
 

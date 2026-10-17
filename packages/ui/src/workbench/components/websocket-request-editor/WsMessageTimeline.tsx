@@ -253,7 +253,9 @@ type ListEntry =
   /** One reconnect-cycle fact — `index` into `lifecycleItems`. */
   | { key: string; kind: 'lifecycle'; index: number };
 
-type DirectionFilter = 'all' | 'up' | 'down';
+/** The direction lens — `lifecycle` hides every frame so the log reads
+ *  as its connection story alone. */
+type DirectionFilter = 'all' | 'up' | 'down' | 'lifecycle';
 
 /** Stable empty default so the entries memo never re-keys on it. */
 const NO_LIFECYCLE_ITEMS: readonly WsTimelineLifecycleItem[] = [];
@@ -739,6 +741,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     const rows: number[] = [];
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
+      if (directionFilter === 'lifecycle') continue;
       if (directionFilter !== 'all' && item.direction !== directionFilter) continue;
       if (heartbeatHidden || handshakeHidden) {
         const kind = derive.sioOf(item)?.kind;
@@ -885,8 +888,12 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     const pushFacts = (indexes: readonly number[]) => {
       for (const i of indexes) out.push({ key: `l${i}`, kind: 'lifecycle', index: i });
     };
+    // Under Lifecycle only the empty frame set is the point, not a
+    // miss — no notice.
     const notice: ListEntry | null =
-      filtering && visibleRows.length === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
+      filtering && directionFilter !== 'lifecycle' && visibleRows.length === 0 && count > clearedCount
+        ? { key: 'none', kind: 'noMatches' }
+        : null;
 
     // The error/aborted row sits at the ended row's chronological slot
     // — the two never coexist (a pre-open end has no opened-session
@@ -2050,6 +2057,11 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     { value: 'all', icon: null, label: t('workbench.editors.websocket.timeline.filterAllMessages') },
     { value: 'up', icon: <ArrowUpOutlined />, label: t('workbench.editors.websocket.timeline.filterSent') },
     { value: 'down', icon: <ArrowDownOutlined />, label: t('workbench.editors.websocket.timeline.filterReceived') },
+    {
+      value: 'lifecycle',
+      icon: <InfoCircleOutlined />,
+      label: t('workbench.editors.websocket.timeline.filterLifecycle'),
+    },
   ];
   const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
   const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (

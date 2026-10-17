@@ -299,6 +299,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.filterAll': 'すべて',
   'workbench.editors.websocket.timeline.filterSent': '送信',
   'workbench.editors.websocket.timeline.filterReceived': '受信',
+  'workbench.editors.websocket.timeline.filterLifecycle': 'ライフサイクルのみ',
   'workbench.editors.websocket.timeline.newestFirst': '新しい順',
   'workbench.editors.websocket.timeline.oldestFirst': '古い順',
   'workbench.editors.websocket.timeline.sortOrder': '並び順',

@@ -193,6 +193,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.filterAll': '모두',
   'workbench.editors.grpc.timeline.filterSent': '보냄',
   'workbench.editors.grpc.timeline.filterReceived': '받음',
+  'workbench.editors.grpc.timeline.filterLifecycle': '수명 주기만',
   'workbench.editors.grpc.timeline.messageCount': ({ count }, locale) =>
     plural(locale, Number(count), { other: '메시지 {count}개' }),
   'workbench.editors.grpc.timeline.sortOrder': '정렬 순서',

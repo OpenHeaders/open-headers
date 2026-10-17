@@ -489,6 +489,19 @@ describe('MqttMessageTimeline — the control strip', () => {
     expect(screen.getByText('one')).toBeTruthy();
   });
 
+  it('Lifecycle only hides every message row and keeps the skeleton rows, without a no-match notice', () => {
+    render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
+    const trigger = screen.getByTestId('mqtt-timeline-direction-filter');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText('Lifecycle only', { selector: '.ant-dropdown-menu-item *' }));
+    expect(trigger.textContent).toBe('Lifecycle only');
+    expect(screen.queryAllByTestId('mqtt-timeline-message-row')).toHaveLength(0);
+    expect(screen.getByTestId('mqtt-timeline-connected-row')).toBeTruthy();
+    expect(screen.getByTestId('mqtt-timeline-sent-row')).toBeTruthy();
+    expect(screen.getByTestId('mqtt-timeline-count').textContent).toBe('0 of 3 messages');
+    expect(screen.queryByText(/no messages match/i)).toBeNull();
+  });
+
   it('filters by several topics at once', () => {
     render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
     const select = screen.getByTestId('mqtt-timeline-topic-filter');

@@ -200,6 +200,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.filterAll': 'Toate',
   'workbench.editors.grpc.timeline.filterSent': 'Trimise',
   'workbench.editors.grpc.timeline.filterReceived': 'Primite',
+  'workbench.editors.grpc.timeline.filterLifecycle': 'Doar ciclul de viață',
   'workbench.editors.grpc.timeline.messageCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} mesaj', few: '{count} mesaje', other: '{count} de mesaje' }),
   'workbench.editors.grpc.timeline.sortOrder': 'Ordine de sortare',

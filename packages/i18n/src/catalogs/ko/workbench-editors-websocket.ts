@@ -297,6 +297,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.filterAll': '모두',
   'workbench.editors.websocket.timeline.filterSent': '보냄',
   'workbench.editors.websocket.timeline.filterReceived': '받음',
+  'workbench.editors.websocket.timeline.filterLifecycle': '수명 주기만',
   'workbench.editors.websocket.timeline.newestFirst': '최신순',
   'workbench.editors.websocket.timeline.oldestFirst': '오래된순',
   'workbench.editors.websocket.timeline.sortOrder': '정렬 순서',

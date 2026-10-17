@@ -237,7 +237,9 @@ type ListEntry =
   /** One script hook's run — `index` into `scriptMarks`. */
   | { key: string; kind: 'script'; index: number };
 
-type DirectionFilter = 'all' | 'up' | 'down';
+/** The direction lens — `lifecycle` hides every message so the log
+ *  reads as its stream story alone. */
+type DirectionFilter = 'all' | 'up' | 'down' | 'lifecycle';
 
 const NO_SCRIPT_MARKS: readonly GrpcScriptMarkItem[] = [];
 
@@ -504,6 +506,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
       const direction = item.direction ?? 'down';
+      if (directionFilter === 'lifecycle') continue;
       if (directionFilter !== 'all' && direction !== directionFilter) continue;
       if (
         needle !== '' &&
@@ -602,7 +605,9 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     };
     const headAt = lifecycle.headArrived ? (lifecycle.headAtMessage ?? 0) : null;
     const notice: ListEntry | null =
-      filtering && displayRows.length === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
+      filtering && directionFilter !== 'lifecycle' && displayRows.length === 0 && count > clearedCount
+        ? { key: 'none', kind: 'noMatches' }
+        : null;
 
     // Top chronological edge.
     if (newestFirst) {
@@ -1451,6 +1456,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     { value: 'all', icon: null, label: t('workbench.editors.grpc.timeline.filterAllMessages') },
     { value: 'up', icon: <ArrowUpOutlined />, label: t('workbench.editors.grpc.timeline.filterSent') },
     { value: 'down', icon: <ArrowDownOutlined />, label: t('workbench.editors.grpc.timeline.filterReceived') },
+    { value: 'lifecycle', icon: <InfoCircleOutlined />, label: t('workbench.editors.grpc.timeline.filterLifecycle') },
   ];
   const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
   const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (

@@ -312,6 +312,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.filterAll': 'Todos',
   'workbench.editors.mqtt.timeline.filterSent': 'Enviados',
   'workbench.editors.mqtt.timeline.filterReceived': 'Recibidos',
+  'workbench.editors.mqtt.timeline.filterLifecycle': 'Solo ciclo de vida',
   'workbench.editors.mqtt.timeline.newestFirst': 'Más recientes primero',
   'workbench.editors.mqtt.timeline.oldestFirst': 'Más antiguos primero',
   'workbench.editors.mqtt.timeline.sortOrder': 'Orden',

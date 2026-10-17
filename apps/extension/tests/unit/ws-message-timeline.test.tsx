@@ -395,6 +395,17 @@ describe('WsMessageTimeline — display-only controls', () => {
     ).toBe(true);
   });
 
+  it('Lifecycle only hides every frame and keeps the lifecycle rows, without a no-match notice', () => {
+    renderTimeline();
+    const trigger = screen.getByTestId('ws-timeline-direction-filter');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText('Lifecycle only', { selector: '.ant-dropdown-menu-item *' }));
+    expect(trigger.textContent).toBe('Lifecycle only');
+    expect(rowSequence()).toEqual(['connected', 'connecting']);
+    expect(screen.getByTestId('ws-timeline-count').textContent).toMatch(/^0 of \d+ messages$/);
+    expect(screen.queryByText(/no messages match/i)).toBeNull();
+  });
+
   it('Clear hides current rows; lifecycle rows stay', () => {
     renderTimeline();
     fireEvent.click(screen.getByTestId('ws-timeline-clear'));

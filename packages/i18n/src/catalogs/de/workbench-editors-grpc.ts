@@ -227,6 +227,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.filterAll': 'Alle',
   'workbench.editors.grpc.timeline.filterSent': 'Gesendet',
   'workbench.editors.grpc.timeline.filterReceived': 'Empfangen',
+  'workbench.editors.grpc.timeline.filterLifecycle': 'Nur Lebenszyklus',
   'workbench.editors.grpc.timeline.messageCount': ({ count }, locale) =>
     plural(locale, Number(count), { one: '{count} Nachricht', other: '{count} Nachrichten' }),
   'workbench.editors.grpc.timeline.sortOrder': 'Sortierung',

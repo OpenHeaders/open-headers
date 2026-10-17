@@ -285,6 +285,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.filterAll': 'Tous',
   'workbench.editors.websocket.timeline.filterSent': 'Envoyés',
   'workbench.editors.websocket.timeline.filterReceived': 'Reçus',
+  'workbench.editors.websocket.timeline.filterLifecycle': 'Cycle de vie uniquement',
   'workbench.editors.websocket.timeline.newestFirst': 'Plus récents en premier',
   'workbench.editors.websocket.timeline.oldestFirst': 'Plus anciens en premier',
   'workbench.editors.websocket.timeline.sortOrder': 'Ordre de tri',

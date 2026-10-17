@@ -183,6 +183,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.filterAll': '全部',
   'workbench.editors.grpc.timeline.filterSent': '已发送',
   'workbench.editors.grpc.timeline.filterReceived': '已接收',
+  'workbench.editors.grpc.timeline.filterLifecycle': '仅生命周期',
   'workbench.editors.grpc.timeline.messageCount': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 条消息' }),
   'workbench.editors.grpc.timeline.sortOrder': '排序',

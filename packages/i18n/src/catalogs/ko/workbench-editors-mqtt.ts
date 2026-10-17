@@ -311,6 +311,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.filterAll': '모두',
   'workbench.editors.mqtt.timeline.filterSent': '보냄',
   'workbench.editors.mqtt.timeline.filterReceived': '받음',
+  'workbench.editors.mqtt.timeline.filterLifecycle': '수명 주기만',
   'workbench.editors.mqtt.timeline.newestFirst': '최신순',
   'workbench.editors.mqtt.timeline.oldestFirst': '오래된순',
   'workbench.editors.mqtt.timeline.sortOrder': '정렬 순서',

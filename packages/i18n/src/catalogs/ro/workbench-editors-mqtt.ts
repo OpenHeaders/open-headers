@@ -325,6 +325,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.filterAll': 'Toate',
   'workbench.editors.mqtt.timeline.filterSent': 'Trimise',
   'workbench.editors.mqtt.timeline.filterReceived': 'Primite',
+  'workbench.editors.mqtt.timeline.filterLifecycle': 'Doar ciclul de viață',
   'workbench.editors.mqtt.timeline.newestFirst': 'Cele mai noi primele',
   'workbench.editors.mqtt.timeline.oldestFirst': 'Cele mai vechi primele',
   'workbench.editors.mqtt.timeline.sortOrder': 'Ordine de sortare',

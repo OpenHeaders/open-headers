@@ -144,7 +144,9 @@ export type MqttTimelineEntry =
   | { key: string; kind: 'viewer'; index: number }
   | { key: string; kind: 'connackDetail'; index: number };
 
-export type MqttDirectionFilter = 'all' | 'up' | 'down';
+/** The direction lens — `lifecycle` hides the message rows so the log
+ *  reads as its connection story alone. */
+export type MqttDirectionFilter = 'all' | 'up' | 'down' | 'lifecycle';
 
 /** Stable per-topic chip palette — the same topic always lands on the
  *  same color (DISPLAY-derived from the string, never stored). */

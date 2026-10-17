@@ -318,6 +318,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.filterAll': 'すべて',
   'workbench.editors.mqtt.timeline.filterSent': '送信',
   'workbench.editors.mqtt.timeline.filterReceived': '受信',
+  'workbench.editors.mqtt.timeline.filterLifecycle': 'ライフサイクルのみ',
   'workbench.editors.mqtt.timeline.newestFirst': '新しい順',
   'workbench.editors.mqtt.timeline.oldestFirst': '古い順',
   'workbench.editors.mqtt.timeline.sortOrder': '並び順',

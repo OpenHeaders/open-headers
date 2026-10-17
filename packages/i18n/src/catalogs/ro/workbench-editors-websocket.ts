@@ -310,6 +310,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.filterAll': 'Toate',
   'workbench.editors.websocket.timeline.filterSent': 'Trimise',
   'workbench.editors.websocket.timeline.filterReceived': 'Primite',
+  'workbench.editors.websocket.timeline.filterLifecycle': 'Doar ciclul de viață',
   'workbench.editors.websocket.timeline.newestFirst': 'Cele mai noi primele',
   'workbench.editors.websocket.timeline.oldestFirst': 'Cele mai vechi primele',
   'workbench.editors.websocket.timeline.sortOrder': 'Ordine de sortare',

@@ -426,6 +426,18 @@ describe('GrpcMessageTimeline toolbar', () => {
     ).toBe(true);
   });
 
+  it('Lifecycle only hides every message and keeps the lifecycle rows, without a no-match notice', () => {
+    renderTimeline();
+    const trigger = screen.getByTestId('grpc-timeline-direction-filter');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText('Lifecycle only', { selector: '.ant-dropdown-menu-item *' }));
+    expect(trigger.textContent).toBe('Lifecycle only');
+    expect(screen.queryAllByTestId('grpc-timeline-message-row')).toHaveLength(0);
+    expect(screen.getByTestId('grpc-timeline-sent-row')).toBeTruthy();
+    expect(screen.getByTestId('grpc-timeline-count').textContent).toBe('0 of 3 messages');
+    expect(screen.queryByText(/no messages match/i)).toBeNull();
+  });
+
   it('searches decoded previews and chip names, clears display-only, lifecycle intact', () => {
     renderTimeline();
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'pong' } });

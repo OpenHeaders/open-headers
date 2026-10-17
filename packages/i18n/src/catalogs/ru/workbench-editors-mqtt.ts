@@ -320,6 +320,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.filterAll': 'Все',
   'workbench.editors.mqtt.timeline.filterSent': 'Отправленные',
   'workbench.editors.mqtt.timeline.filterReceived': 'Полученные',
+  'workbench.editors.mqtt.timeline.filterLifecycle': 'Только жизненный цикл',
   'workbench.editors.mqtt.timeline.newestFirst': 'Сначала новые',
   'workbench.editors.mqtt.timeline.oldestFirst': 'Сначала старые',
   'workbench.editors.mqtt.timeline.sortOrder': 'Порядок сортировки',

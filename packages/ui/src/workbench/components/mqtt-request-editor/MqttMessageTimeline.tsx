@@ -178,6 +178,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
       if (item.kind === 'message') {
+        // Lifecycle only: no message row at all — the skeleton alone.
+        if (directionFilter === 'lifecycle') continue;
         if (directionFilter !== 'all' && item.direction !== directionFilter) continue;
         if (topics !== null && !topics.has(item.topic)) continue;
         if (
@@ -212,8 +214,12 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       else out.push({ key: `v${index}`, kind: 'viewer', index });
     };
     const messageCount = visibleRows.length;
+    // Under Lifecycle only the empty message set is the point, not a
+    // miss — no notice.
     const notice: MqttTimelineEntry | null =
-      filtering && messageCount === 0 && count > clearedCount ? { key: 'none', kind: 'noMatches' } : null;
+      filtering && directionFilter !== 'lifecycle' && messageCount === 0 && count > clearedCount
+        ? { key: 'none', kind: 'noMatches' }
+        : null;
 
     const tokens: Array<number | 'connected'> = [];
     if (lifecycle.connected) tokens.push('connected');

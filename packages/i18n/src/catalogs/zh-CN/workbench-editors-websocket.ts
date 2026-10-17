@@ -252,6 +252,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.filterAll': '全部',
   'workbench.editors.websocket.timeline.filterSent': '已发送',
   'workbench.editors.websocket.timeline.filterReceived': '已接收',
+  'workbench.editors.websocket.timeline.filterLifecycle': '仅生命周期',
   'workbench.editors.websocket.timeline.newestFirst': '最新在前',
   'workbench.editors.websocket.timeline.oldestFirst': '最早在前',
   'workbench.editors.websocket.timeline.sortOrder': '排序',

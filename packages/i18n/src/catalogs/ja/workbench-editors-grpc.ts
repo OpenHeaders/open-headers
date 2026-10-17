@@ -195,6 +195,7 @@ export const workbenchEditorsGrpc = {
   'workbench.editors.grpc.timeline.filterAll': 'すべて',
   'workbench.editors.grpc.timeline.filterSent': '送信',
   'workbench.editors.grpc.timeline.filterReceived': '受信',
+  'workbench.editors.grpc.timeline.filterLifecycle': 'ライフサイクルのみ',
   'workbench.editors.grpc.timeline.messageCount': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 件のメッセージ' }),
   'workbench.editors.grpc.timeline.sortOrder': '並び順',
