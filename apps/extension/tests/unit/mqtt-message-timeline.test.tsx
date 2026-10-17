@@ -523,6 +523,12 @@ describe('MqttMessageTimeline — the control strip', () => {
     expect(screen.queryByTestId('mqtt-timeline-sent-row')).toBeNull();
     expect(screen.queryByTestId('mqtt-timeline-subscribed-row')).toBeNull();
     expect(screen.queryAllByTestId('mqtt-timeline-message-row')).toHaveLength(0);
+    // Two rows matched — nothing says "no match".
+    expect(screen.queryByText('No messages match the filter.')).toBeNull();
+    // A needle no row carries — the notice, and nothing else.
+    fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: 'zzz-no-such-words' } });
+    expect(screen.queryByTestId('mqtt-timeline-connected-row')).toBeNull();
+    expect(screen.getByText('No messages match the filter.')).toBeTruthy();
     // The subscribed row's topic filter is part of its words.
     fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: 'echo/reply' } });
     expect(screen.getByTestId('mqtt-timeline-subscribed-row')).toBeTruthy();

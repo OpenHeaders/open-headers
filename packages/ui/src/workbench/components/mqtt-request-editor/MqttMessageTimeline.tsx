@@ -233,10 +233,21 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       else out.push({ key: `v${index}`, kind: 'viewer', index });
     };
     const messageCount = visibleRows.length;
-    // Under Lifecycle only the empty message set is the point, not a
-    // miss — no notice.
+    // A search that found a lifecycle row found something — the notice
+    // is for a filter that leaves NOTHING to read. Under Lifecycle only
+    // the empty message set is the point, not a miss.
+    const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
+    const abortedEnd = lifecycle.aborted === true && lifecycle.abortedDisconnected === true;
+    const lifecycleMatched =
+      needle !== '' &&
+      (visibleRows.length > 0 ||
+        fixedShown.sent ||
+        (lifecycle.connected && fixedShown.connected) ||
+        (lifecycle.endedBy !== undefined && fixedShown.ended) ||
+        (preOpenEnd && fixedShown.error) ||
+        (abortedEnd && fixedShown.abortedEnd));
     const notice: MqttTimelineEntry | null =
-      filtering && directionFilter !== 'lifecycle' && messageCount === 0 && count > clearedCount
+      filtering && directionFilter !== 'lifecycle' && messageCount === 0 && count > clearedCount && !lifecycleMatched
         ? { key: 'none', kind: 'noMatches' }
         : null;
 
@@ -253,8 +264,6 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     // with — the block directly under its row, both sort orders (the
     // Connected row's discipline; the two rows never coexist, so they
     // share the one expansion).
-    const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
-    const abortedEnd = lifecycle.aborted === true && lifecycle.abortedDisconnected === true;
     const refusalDetail = connackExpanded && lifecycle.errorMessage !== undefined && lifecycle.connack !== undefined;
     if (newestFirst) {
       if (lifecycle.endedBy !== undefined && fixedShown.ended) out.push({ key: 'ended', kind: 'ended' });
@@ -311,6 +320,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     connackExpanded,
     items,
     fixedShown,
+    needle,
+    visibleRows,
   ]);
 
   const heights = useMemo(

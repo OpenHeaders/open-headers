@@ -420,6 +420,11 @@ describe('WsMessageTimeline — display-only controls', () => {
     // the other lifecycle rows hide.
     fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'connecting' } });
     expect(rowSequence()).toEqual(['connecting']);
+    expect(screen.queryByText('No messages match the filter.')).toBeNull();
+    // A needle no row carries — the notice, and nothing else.
+    fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'zzz-no-such-words' } });
+    expect(rowSequence()).toEqual([]);
+    expect(screen.getByText('No messages match the filter.')).toBeTruthy();
     // "disconnected" is the ended row's word.
     fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'disconnected' } });
     expect(rowSequence()).toEqual(['ended']);

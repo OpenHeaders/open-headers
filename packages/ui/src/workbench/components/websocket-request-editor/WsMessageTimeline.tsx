@@ -901,17 +901,28 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     const pushFacts = (indexes: readonly number[]) => {
       for (const i of indexes) out.push({ key: `l${i}`, kind: 'lifecycle', index: i });
     };
-    // Under Lifecycle only the empty frame set is the point, not a
-    // miss — no notice.
-    const notice: ListEntry | null =
-      filtering && directionFilter !== 'lifecycle' && visibleRows.length === 0 && count > clearedCount
-        ? { key: 'none', kind: 'noMatches' }
-        : null;
-
     // The error/aborted row sits at the ended row's chronological slot
     // — the two never coexist (a pre-open end has no opened-session
     // end).
     const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
+    // A search that found a lifecycle row found something — the notice
+    // is for a filter that leaves NOTHING to read. Under Lifecycle only
+    // the empty frame set is the point, not a miss.
+    const lifecycleMatched =
+      needle !== '' &&
+      (facts.length > 0 ||
+        fixedShown.sent ||
+        (lifecycle.connected && fixedShown.connected) ||
+        (lifecycle.endedBy !== undefined && fixedShown.ended) ||
+        (preOpenEnd && fixedShown.error));
+    const notice: ListEntry | null =
+      filtering &&
+      directionFilter !== 'lifecycle' &&
+      visibleRows.length === 0 &&
+      count > clearedCount &&
+      !lifecycleMatched
+        ? { key: 'none', kind: 'noMatches' }
+        : null;
     const pushError = () => {
       if (!fixedShown.error) return;
       out.push({ key: 'error', kind: 'error' });
