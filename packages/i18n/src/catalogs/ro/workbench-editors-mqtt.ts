@@ -310,7 +310,7 @@ export const workbenchEditorsMqtt = {
   // ── Message timeline ────────────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': 'Se conectează',
   'workbench.editors.mqtt.timeline.connected': 'Conectat la broker',
-  'workbench.editors.mqtt.timeline.disconnected': 'Deconectat',
+  'workbench.editors.mqtt.timeline.disconnected': 'Deconectat de la broker',
   'workbench.editors.mqtt.timeline.stopped': 'Oprit',
   'workbench.editors.mqtt.timeline.subscribed': 'Abonat la',
   'workbench.editors.mqtt.timeline.unsubscribed': 'Dezabonat de la',

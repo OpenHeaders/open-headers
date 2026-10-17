@@ -296,7 +296,7 @@ export const workbenchEditorsMqtt = {
   // ── Message timeline ────────────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': '연결 중',
   'workbench.editors.mqtt.timeline.connected': '브로커에 연결됨',
-  'workbench.editors.mqtt.timeline.disconnected': '연결 해제됨',
+  'workbench.editors.mqtt.timeline.disconnected': '브로커에서 연결 해제됨',
   'workbench.editors.mqtt.timeline.stopped': '중지됨',
   'workbench.editors.mqtt.timeline.subscribed': '구독:',
   'workbench.editors.mqtt.timeline.unsubscribed': '구독 해제:',

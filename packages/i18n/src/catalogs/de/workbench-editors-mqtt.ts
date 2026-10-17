@@ -302,7 +302,7 @@ export const workbenchEditorsMqtt = {
   // ── Nachrichten-Zeitverlauf ─────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': 'Verbindet',
   'workbench.editors.mqtt.timeline.connected': 'Mit dem Broker verbunden',
-  'workbench.editors.mqtt.timeline.disconnected': 'Getrennt',
+  'workbench.editors.mqtt.timeline.disconnected': 'Vom Broker getrennt',
   'workbench.editors.mqtt.timeline.stopped': 'Gestoppt',
   'workbench.editors.mqtt.timeline.subscribed': 'Abonniert:',
   'workbench.editors.mqtt.timeline.unsubscribed': 'Abbestellt:',

@@ -301,7 +301,7 @@ export const workbenchEditorsMqtt = {
   // ── Chronologie des messages ────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': 'Connexion',
   'workbench.editors.mqtt.timeline.connected': 'Connecté au broker',
-  'workbench.editors.mqtt.timeline.disconnected': 'Déconnecté',
+  'workbench.editors.mqtt.timeline.disconnected': 'Déconnecté du broker',
   'workbench.editors.mqtt.timeline.stopped': 'Arrêté',
   'workbench.editors.mqtt.timeline.subscribed': 'Abonné à',
   'workbench.editors.mqtt.timeline.unsubscribed': 'Désabonné de',

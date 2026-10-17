@@ -280,7 +280,7 @@ export const workbenchEditorsMqtt = {
   // ── 消息时间线 ──────────────────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': '连接中',
   'workbench.editors.mqtt.timeline.connected': '已连接到代理',
-  'workbench.editors.mqtt.timeline.disconnected': '已断开',
+  'workbench.editors.mqtt.timeline.disconnected': '已与代理断开',
   'workbench.editors.mqtt.timeline.stopped': '已停止',
   'workbench.editors.mqtt.timeline.subscribed': '已订阅',
   'workbench.editors.mqtt.timeline.unsubscribed': '已退订',

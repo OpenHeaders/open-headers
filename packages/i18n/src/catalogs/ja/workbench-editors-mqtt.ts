@@ -303,7 +303,7 @@ export const workbenchEditorsMqtt = {
   // ── Message timeline ────────────────────────────────────────────────
   'workbench.editors.mqtt.timeline.connecting': '接続中',
   'workbench.editors.mqtt.timeline.connected': 'ブローカーに接続',
-  'workbench.editors.mqtt.timeline.disconnected': '切断',
+  'workbench.editors.mqtt.timeline.disconnected': 'ブローカーから切断',
   'workbench.editors.mqtt.timeline.stopped': '停止',
   'workbench.editors.mqtt.timeline.subscribed': 'サブスクライブ：',
   'workbench.editors.mqtt.timeline.unsubscribed': 'サブスクライブ解除：',
