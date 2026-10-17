@@ -447,6 +447,7 @@ export const sharedComponents = {
   'shared.codeEditor.format': 'Formater',
   'shared.codeEditor.formatError': 'Formatage impossible — erreur d’analyse',
   'shared.editorMenu.label': 'Éditeur',
+  'shared.editorMenu.settings': 'Paramètres',
   'shared.editorMenu.thisEditor': 'Cet éditeur',
   'shared.editorMenu.allEditors': 'Tous les éditeurs',
   'shared.editorMenu.lineNumbers': 'Numéros de ligne',

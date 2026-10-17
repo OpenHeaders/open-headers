@@ -433,6 +433,7 @@ export const sharedComponents = {
   'shared.codeEditor.format': '서식 지정',
   'shared.codeEditor.formatError': '서식을 지정할 수 없습니다: 구문 분석 오류',
   'shared.editorMenu.label': '편집기',
+  'shared.editorMenu.settings': '설정',
   'shared.editorMenu.thisEditor': '이 편집기',
   'shared.editorMenu.allEditors': '모든 편집기',
   'shared.editorMenu.lineNumbers': '줄 번호',

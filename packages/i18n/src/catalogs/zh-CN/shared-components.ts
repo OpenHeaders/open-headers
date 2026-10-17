@@ -452,6 +452,7 @@ export const sharedComponents = {
   'shared.codeEditor.format': '格式化',
   'shared.codeEditor.formatError': '无法格式化 — 解析错误',
   'shared.editorMenu.label': '编辑器',
+  'shared.editorMenu.settings': '设置',
   'shared.editorMenu.thisEditor': '此编辑器',
   'shared.editorMenu.allEditors': '所有编辑器',
   'shared.editorMenu.lineNumbers': '行号',

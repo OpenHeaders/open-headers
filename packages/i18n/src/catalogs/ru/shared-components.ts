@@ -478,6 +478,7 @@ export const sharedComponents = {
   'shared.codeEditor.format': 'Форматировать',
   'shared.codeEditor.formatError': 'Не удаётся отформатировать — ошибка разбора',
   'shared.editorMenu.label': 'Редактор',
+  'shared.editorMenu.settings': 'Настройки',
   'shared.editorMenu.thisEditor': 'Этот редактор',
   'shared.editorMenu.allEditors': 'Все редакторы',
   'shared.editorMenu.lineNumbers': 'Номера строк',

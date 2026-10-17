@@ -435,6 +435,7 @@ export const sharedComponents = {
   'shared.codeEditor.format': '整形',
   'shared.codeEditor.formatError': '整形できません：パースエラー',
   'shared.editorMenu.label': 'エディター',
+  'shared.editorMenu.settings': '設定',
   'shared.editorMenu.thisEditor': 'このエディター',
   'shared.editorMenu.allEditors': 'すべてのエディター',
   'shared.editorMenu.lineNumbers': '行番号',

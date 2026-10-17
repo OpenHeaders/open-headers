@@ -470,6 +470,7 @@ export const sharedComponents = {
   'shared.codeEditor.format': 'Formatieren',
   'shared.codeEditor.formatError': 'Formatieren nicht möglich — Parsefehler',
   'shared.editorMenu.label': 'Editor',
+  'shared.editorMenu.settings': 'Einstellungen',
   'shared.editorMenu.thisEditor': 'Dieser Editor',
   'shared.editorMenu.allEditors': 'Alle Editoren',
   'shared.editorMenu.lineNumbers': 'Zeilennummern',

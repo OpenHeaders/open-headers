@@ -450,6 +450,7 @@ export const sharedComponents = {
   'shared.codeEditor.format': 'Formatear',
   'shared.codeEditor.formatError': 'No se puede formatear — error de análisis',
   'shared.editorMenu.label': 'Editor',
+  'shared.editorMenu.settings': 'Configuración',
   'shared.editorMenu.thisEditor': 'Este editor',
   'shared.editorMenu.allEditors': 'Todos los editores',
   'shared.editorMenu.lineNumbers': 'Números de línea',

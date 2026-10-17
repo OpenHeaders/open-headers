@@ -8,16 +8,25 @@
  * Settings page edits, the timeline-toolbar precedent. Menu-item
  * clicks keep the popover OPEN (the app's popover convention — only an
  * outside click or a trigger re-click closes), so several knobs flip
- * in one visit.
+ * in one visit. The last row is the jump to the rest of the knobs —
+ * Settings › Editor › Code Editor, suffixed with the neutral boxed
+ * jump arrow the desktop teaser's "Open in the desktop app" wears —
+ * and it closes the popover, since the Settings surface takes over;
+ * it renders only under a shell that provides `openSettings`.
  */
 
-import { CheckOutlined, ControlOutlined } from '@ant-design/icons';
+import { CheckOutlined, ControlOutlined, SelectOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { Button, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useOpenSettings } from '../../hooks/OpenSettingsContext';
 import { useSetting } from '../../settings/hooks';
+
+/** The Settings category the jump lands on — the Code Editor page
+ *  under Editor, where every `editor.*` knob lives. */
+const CODE_EDITOR_CATEGORY_ID = 'codeEditor';
 
 /** The whitespace submenu reuses the Settings page's own option labels. */
 const WHITESPACE_OPTION_LABEL_KEYS: Record<'none' | 'boundary' | 'all', MessageKey> = {
@@ -41,6 +50,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
   const [lineNumbers, setLineNumbers] = useSetting('editor.lineNumbers');
   const [renderWhitespace, setRenderWhitespace] = useSetting('editor.renderWhitespace');
   const [renderLineEnds, setRenderLineEnds] = useSetting('editor.renderLineEnds');
+  const openSettings = useOpenSettings();
 
   const optionLabel = (label: string, checked: boolean): React.ReactNode => (
     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
@@ -48,6 +58,26 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
       {checked && <CheckOutlined style={{ color: token.colorPrimary }} />}
     </span>
   );
+
+  const settingsJump =
+    openSettings === null
+      ? []
+      : [
+          { type: 'divider' as const },
+          {
+            key: 'settings',
+            label: (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                {t('shared.editorMenu.settings')}
+                <SelectOutlined style={{ color: token.colorTextSecondary }} />
+              </span>
+            ),
+            onClick: () => {
+              setOpen(false);
+              openSettings({ categoryId: CODE_EDITOR_CATEGORY_ID });
+            },
+          },
+        ];
 
   return (
     <Dropdown
@@ -99,6 +129,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
               },
             ],
           },
+          ...settingsJump,
         ],
       }}
     >
