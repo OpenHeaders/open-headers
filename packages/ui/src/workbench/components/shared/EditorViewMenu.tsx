@@ -9,10 +9,11 @@
  * clicks keep the popover OPEN (the app's popover convention — only an
  * outside click or a trigger re-click closes), so several knobs flip
  * in one visit. The rows read like the auth-type popup's: every row
- * reserves a left check-gutter and the active ones carry the mark
- * (`selectedKeys` → `.oh-editor-view-menu` in editor.less), while the
- * right edge keeps the glyphs that mean "more" — the submenu caret,
- * the open-elsewhere arrow. The last row is the jump to the rest of the knobs —
+ * reserves a left check-gutter and the active ones carry the mark —
+ * the mark alone, no single-choice tint, since several knobs are on
+ * at once (`selectedKeys` → `.oh-editor-view-menu` in editor.less) —
+ * while the right edge keeps the glyphs that mean "more": the submenu
+ * caret, the open-elsewhere arrow. The last row is the jump to the rest of the knobs —
  * Settings › Editor › Code Editor, suffixed with the neutral boxed
  * jump arrow the desktop teaser's "Open in the desktop app" wears —
  * and it closes the popover, since the Settings surface takes over;
@@ -57,7 +58,8 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
   const openSettings = useOpenSettings();
 
   // The rows whose knob is ON carry the check — antd's selection
-  // plane, so the mark is the row's state, not a suffix glyph.
+  // plane (several at once), so the mark is the row's state, not a
+  // suffix glyph; the stylesheet paints the mark and nothing else.
   const selectedKeys = [
     ...(wrap ? ['wrap'] : []),
     ...(lineNumbers ? ['line-numbers'] : []),

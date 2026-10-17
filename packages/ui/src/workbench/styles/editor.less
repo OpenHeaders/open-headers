@@ -496,12 +496,16 @@
 }
 
 /* The editor view menu (the compose toolbars' Editor dropdown): the
- * auth-type popup's selection affordance over an antd menu — every row
- * reserves a left check-gutter at the label size, the rows whose knob
- * is on carry the mark and read bold on the active tint; the right
- * edge keeps the "more" glyphs (submenu caret, open-elsewhere arrow).
- * `rootClassName` reaches the submenu popups too. */
-.oh-editor-view-menu {
+ * auth-type popup's row anatomy over an antd menu — every row reserves
+ * a left check-gutter at the label size and the rows whose knob is on
+ * carry the mark. The mark is the WHOLE affordance: several knobs are
+ * on at once, so no row takes the single-choice tint or the primary
+ * text antd paints on a selected item. The right edge keeps the "more"
+ * glyphs (submenu caret, open-elsewhere arrow). The menu's
+ * `rootClassName` lands on the root list and on the submenu popups;
+ * the container anchor keeps these rules one class above antd's own
+ * three-deep item rules, which otherwise win. */
+:is(.ant-dropdown, .ant-dropdown-menu-submenu) .ant-dropdown-menu.oh-editor-view-menu {
   .ant-dropdown-menu-item,
   .ant-dropdown-menu-submenu-title {
     position: relative;
@@ -513,15 +517,18 @@
 
   .ant-dropdown-menu-item-selected {
     color: var(--ant-color-text);
-    font-weight: 600;
-    background: var(--ant-control-item-bg-active);
+    background: transparent;
+  }
+
+  .ant-dropdown-menu-item-selected:hover,
+  .ant-dropdown-menu-item-selected.ant-dropdown-menu-item-active {
+    background: var(--ant-control-item-bg-hover);
   }
 
   .ant-dropdown-menu-item-selected::before {
     content: '✓';
     position: absolute;
     left: 10px;
-    font-weight: 400;
     color: var(--ant-color-primary);
   }
 
