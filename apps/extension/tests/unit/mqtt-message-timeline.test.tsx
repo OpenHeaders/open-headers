@@ -123,6 +123,31 @@ describe('MqttMessageTimeline — secret-bearing messages', () => {
     expect(screen.queryByText('s3cret')).toBeNull();
     expect(screen.getByText('plain')).toBeTruthy();
   });
+
+  it('names an empty payload as the (empty) placeholder beside its zero byte count', () => {
+    render(
+      <MqttMessageTimeline
+        items={[
+          {
+            kind: 'message',
+            direction: 'down',
+            topic: 'probe/echo',
+            payloadBase64: '',
+            qos: 0,
+            retain: false,
+            dup: false,
+          },
+        ]}
+        count={1}
+        lifecycle={lifecycle}
+        v5
+      />,
+    );
+    const row = screen.getByTestId('mqtt-timeline-message-row');
+    const placeholder = within(row).getByText('(empty)');
+    expect(placeholder.style.fontStyle).toBe('italic');
+    expect(within(row).getByTestId('mqtt-timeline-byte-count').textContent).toBe('0 B');
+  });
 });
 
 describe('MqttMessageTimeline — reconnect attempt rows', () => {

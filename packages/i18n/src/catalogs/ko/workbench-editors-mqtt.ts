@@ -317,6 +317,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.trustCertificate': '인증서 신뢰',
   'workbench.editors.mqtt.timeline.newMessages': '새 메시지',
   'workbench.editors.mqtt.timeline.binaryMessage': '바이너리 페이로드 ({bytes}바이트)',
+  'workbench.editors.mqtt.timeline.emptyMessage': '(비어 있음)',
   'workbench.editors.mqtt.timeline.byteCount': '{bytes} B',
   'workbench.editors.mqtt.timeline.retainedTag': '보존됨',
   'workbench.editors.mqtt.timeline.sentAria': '보냄',

@@ -301,6 +301,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.trustCertificate': '信任证书',
   'workbench.editors.mqtt.timeline.newMessages': '新消息',
   'workbench.editors.mqtt.timeline.binaryMessage': '二进制载荷（{bytes} 字节）',
+  'workbench.editors.mqtt.timeline.emptyMessage': '（空）',
   'workbench.editors.mqtt.timeline.byteCount': '{bytes} B',
   'workbench.editors.mqtt.timeline.retainedTag': '保留',
   'workbench.editors.mqtt.timeline.sentAria': '已发送',

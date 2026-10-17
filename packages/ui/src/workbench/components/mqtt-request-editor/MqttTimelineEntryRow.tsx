@@ -582,6 +582,9 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       const up = item.direction === 'up';
       const isExpanded = expanded.has(entry.index);
       const view = derive.viewOf(item);
+      // Binary and empty payloads read as a placeholder, not as text —
+      // the italic tertiary tone names what the row has no preview of.
+      const placeholderPreview = view.kind === 'binary' || view.text === '';
       return (
         <div
           role="button"
@@ -612,15 +615,20 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              ...(view.kind === 'binary' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
+              ...(placeholderPreview ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
             }}
           >
             {view.kind === 'binary'
               ? t('workbench.editors.mqtt.timeline.binaryMessage', { bytes: view.byteLength })
-              : derive.previewOf(item)}
+              : view.text === ''
+                ? t('workbench.editors.mqtt.timeline.emptyMessage')
+                : derive.previewOf(item)}
           </span>
+          {/* The fact columns sit a clear step away from the preview's
+              ellipsis — the byte count is read as a fact, never as the
+              payload's tail. */}
           <span
-            style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
+            style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0, marginLeft: 16 }}
             data-testid="mqtt-timeline-byte-count"
           >
             {t('workbench.editors.mqtt.timeline.byteCount', { bytes: view.byteLength })}

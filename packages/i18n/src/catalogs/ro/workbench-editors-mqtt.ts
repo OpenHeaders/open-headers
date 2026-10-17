@@ -331,6 +331,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.trustCertificate': 'Acordare încredere certificatului',
   'workbench.editors.mqtt.timeline.newMessages': 'Mesaje noi',
   'workbench.editors.mqtt.timeline.binaryMessage': 'Conținut util binar ({bytes} octeți)',
+  'workbench.editors.mqtt.timeline.emptyMessage': '(gol)',
   'workbench.editors.mqtt.timeline.byteCount': '{bytes} B',
   'workbench.editors.mqtt.timeline.retainedTag': 'Reținut',
   'workbench.editors.mqtt.timeline.sentAria': 'Trimis',

@@ -324,6 +324,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.trustCertificate': '証明書を信頼',
   'workbench.editors.mqtt.timeline.newMessages': '新しいメッセージ',
   'workbench.editors.mqtt.timeline.binaryMessage': 'バイナリペイロード（{bytes} バイト）',
+  'workbench.editors.mqtt.timeline.emptyMessage': '（空）',
   'workbench.editors.mqtt.timeline.byteCount': '{bytes} B',
   'workbench.editors.mqtt.timeline.retainedTag': '保持',
   'workbench.editors.mqtt.timeline.sentAria': '送信',

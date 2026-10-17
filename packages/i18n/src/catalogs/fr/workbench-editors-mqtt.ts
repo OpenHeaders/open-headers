@@ -322,6 +322,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.trustCertificate': 'Faire confiance au certificat',
   'workbench.editors.mqtt.timeline.newMessages': 'Nouveaux messages',
   'workbench.editors.mqtt.timeline.binaryMessage': 'Charge utile binaire ({bytes} octets)',
+  'workbench.editors.mqtt.timeline.emptyMessage': '(vide)',
   'workbench.editors.mqtt.timeline.byteCount': '{bytes} o',
   'workbench.editors.mqtt.timeline.retainedTag': 'Retenu',
   'workbench.editors.mqtt.timeline.sentAria': 'Envoyé',
