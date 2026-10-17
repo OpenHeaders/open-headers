@@ -139,6 +139,25 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
     </span>
   );
 
+  // Lifecycle glyph — centered in the direction badge's 18px slot so
+  // every row's leading mark sits on ONE column, drawn at the size the
+  // badge reads at (the circle's footprint ≈ the tinted box).
+  const lifecycleGlyph = (icon: React.ReactNode): React.ReactNode => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        flexShrink: 0,
+        fontSize: 15,
+      }}
+    >
+      {icon}
+    </span>
+  );
+
   // Boxed direction badge — ↑ amber, ↓ blue on their tinted
   // backgrounds (the gRPC/WS anatomy).
   const directionBadge = (up: boolean): React.ReactNode => (
@@ -198,7 +217,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
     case 'sent':
       return (
         <div data-testid="mqtt-timeline-sent-row" style={lifecycleRowStyle}>
-          <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+          {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {t('workbench.editors.mqtt.timeline.connecting')}
           </span>
@@ -228,7 +247,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             : {})}
           style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
         >
-          <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
+          {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {t('workbench.editors.mqtt.timeline.connected')}
           </span>
@@ -303,7 +322,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       // (absent toward hosts that predate the lifecycle stamps).
       return (
         <div data-testid="mqtt-timeline-aborted-end-row" style={lifecycleRowStyle}>
-          <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+          {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {t('workbench.editors.mqtt.timeline.abortedDisconnected')}
           </span>
@@ -316,7 +335,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       if (lifecycle.aborted === true) {
         return (
           <div data-testid="mqtt-timeline-aborted-row" style={lifecycleRowStyle}>
-            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.mqtt.timeline.aborted')}
             </span>
@@ -351,7 +370,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             : {})}
           style={{ ...lifecycleRowStyle, ...(refusalExpandable ? { cursor: 'pointer' } : {}) }}
         >
-          <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+          {lifecycleGlyph(<CloseCircleOutlined aria-hidden style={{ color: token.colorError }} />)}
           <span
             title={lifecycle.errorMessage}
             data-testid="mqtt-session-error-detail"
@@ -388,10 +407,12 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       if (lifecycle.endedBy === undefined) return null;
       return (
         <div data-testid="mqtt-timeline-ended-row" style={lifecycleRowStyle}>
-          {lifecycle.endedBy === 'close' ? (
-            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-          ) : (
-            <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+          {lifecycleGlyph(
+            lifecycle.endedBy === 'close' ? (
+              <CheckCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
+            ) : (
+              <DisconnectOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
+            ),
           )}
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {lifecycle.endedBy === 'close'
@@ -420,7 +441,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
         // failure codes surface, on the error tint.
         return (
           <div data-testid="mqtt-timeline-subscribed-row" style={lifecycleRowStyle}>
-            <PlusCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<PlusCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ flexShrink: 0 }}>{t('workbench.editors.mqtt.timeline.subscribed')}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
               {item.grants.map((grant, grantIndex) => {
@@ -466,10 +487,12 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             : '';
         return (
           <div className="oh-info-hover-host" data-testid="mqtt-timeline-script-row" style={lifecycleRowStyle}>
-            <CodeOutlined
-              aria-hidden
-              style={{ fontSize: 11, color: item.succeeded ? token.colorTextTertiary : token.colorError }}
-            />
+            {lifecycleGlyph(
+              <CodeOutlined
+                aria-hidden
+                style={{ color: item.succeeded ? token.colorTextTertiary : token.colorError }}
+              />,
+            )}
             <span
               {...(item.error !== undefined ? { title: item.error.message } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -490,7 +513,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
         // ended, verbatim; auto-reconnect's rows follow.
         return (
           <div data-testid="mqtt-timeline-lost-row" style={lifecycleRowStyle}>
-            <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorWarning }} />
+            {lifecycleGlyph(<DisconnectOutlined aria-hidden style={{ color: token.colorWarning }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {`${t('workbench.editors.mqtt.timeline.lost')} — ${connectionEndMessage(item.end, t)}`}
             </span>
@@ -505,7 +528,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
         // failure rides beside it when there was one.
         return (
           <div data-testid="mqtt-timeline-reconnecting-row" style={lifecycleRowStyle}>
-            <ReloadOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<ReloadOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span
               {...(item.error !== undefined ? { title: item.error } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -545,7 +568,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             }}
             style={{ ...lifecycleRowStyle, cursor: 'pointer' }}
           >
-            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
+            {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.mqtt.timeline.reconnected')}
               {item.dropped !== undefined
@@ -565,7 +588,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       if (item.kind === 'unsubscribed') {
         return (
           <div data-testid="mqtt-timeline-unsubscribed-row" style={lifecycleRowStyle}>
-            <MinusCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<MinusCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ flexShrink: 0 }}>{t('workbench.editors.mqtt.timeline.unsubscribed')}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
               {item.topicFilters.map((topicFilter, filterIndex) => (
