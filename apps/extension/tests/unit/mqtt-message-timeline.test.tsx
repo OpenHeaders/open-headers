@@ -502,6 +502,37 @@ describe('MqttMessageTimeline — the control strip', () => {
     expect(screen.queryByText(/no messages match/i)).toBeNull();
   });
 
+  it('search is a lookup over every row — a lifecycle row hides unless its words carry the needle', () => {
+    const connected: MqttTimelineLifecycle = {
+      startedAt: STARTED_AT,
+      connected: true,
+      endedBy: 'close',
+      endedMessage: 'the broker said goodbye',
+    };
+    const log: MqttTimelineItem[] = [
+      { kind: 'subscribed', grants: [{ topicFilter: 'probe/echo/reply', reasonCode: 0 }] },
+      ...items,
+    ];
+    render(<MqttMessageTimeline items={log} count={4} lifecycle={connected} v5 />);
+    expect(screen.getByTestId('mqtt-timeline-subscribed-row')).toBeTruthy();
+    // "broker" lives in the Connected row's words and the ended detail
+    // — nowhere else: the other skeleton rows and every message hide.
+    fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: 'broker' } });
+    expect(screen.getByTestId('mqtt-timeline-connected-row')).toBeTruthy();
+    expect(screen.getByTestId('mqtt-timeline-ended-row')).toBeTruthy();
+    expect(screen.queryByTestId('mqtt-timeline-sent-row')).toBeNull();
+    expect(screen.queryByTestId('mqtt-timeline-subscribed-row')).toBeNull();
+    expect(screen.queryAllByTestId('mqtt-timeline-message-row')).toHaveLength(0);
+    // The subscribed row's topic filter is part of its words.
+    fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: 'echo/reply' } });
+    expect(screen.getByTestId('mqtt-timeline-subscribed-row')).toBeTruthy();
+    expect(screen.queryByTestId('mqtt-timeline-connected-row')).toBeNull();
+    // Cleared, the skeleton is whole again.
+    fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: '' } });
+    expect(screen.getByTestId('mqtt-timeline-sent-row')).toBeTruthy();
+    expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(3);
+  });
+
   it('filters by several topics at once', () => {
     render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
     const select = screen.getByTestId('mqtt-timeline-topic-filter');

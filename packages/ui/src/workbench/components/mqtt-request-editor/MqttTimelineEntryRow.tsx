@@ -29,12 +29,9 @@ import {
 import { Button, Tag, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import TimelineMessageViewer, { STREAM_HAIRLINE, type TimelineViewerModes } from '../shared/TimelineMessageViewer';
-import { MQTT_HOOK_LABEL_KEY } from './mqtt-scripts';
 import {
   CONNACK_DETAIL_PX,
   cellFont,
@@ -47,7 +44,15 @@ import {
   topicBadgeColor,
   VIEWER_PX,
 } from './mqtt-timeline-model';
-import { connackReasonName, connectionEndMessage, grantFailureLabel } from './session-display';
+import {
+  endedRowText,
+  errorRowText,
+  lostRowText,
+  reconnectedRowText,
+  reconnectingRowText,
+  scriptRowText,
+} from './mqtt-timeline-row-text';
+import { connackReasonName, grantFailureLabel } from './session-display';
 
 interface MqttTimelineEntryRowProps {
   entry: MqttTimelineEntry;
@@ -372,7 +377,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
         >
           {lifecycleGlyph(<CloseCircleOutlined aria-hidden style={{ color: token.colorError }} />)}
           <span
-            title={lifecycle.errorMessage}
+            title={errorRowText(lifecycle, t)}
             data-testid="mqtt-session-error-detail"
             style={{
               minWidth: 0,
@@ -382,7 +387,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
               color: token.colorError,
             }}
           >
-            {lifecycle.errorMessage}
+            {errorRowText(lifecycle, t)}
           </span>
           {onTrustCertificate !== undefined && (
             <Button
@@ -415,10 +420,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             ),
           )}
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {lifecycle.endedBy === 'close'
-              ? t('workbench.editors.mqtt.timeline.disconnected')
-              : t('workbench.editors.mqtt.timeline.stopped')}
-            {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
+            {endedRowText(lifecycle, t)}
           </span>
           {lifecycleTime(lifecycle.endedAt)}
           {expandSlot(null)}
@@ -467,24 +469,6 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       if (item.kind === 'script') {
         // One hook ran — the hook, the levels that contributed and
         // the verdict; a drop names the level, a failure its error.
-        const hook = t(MQTT_HOOK_LABEL_KEY[item.hook]);
-        const levels = item.chain
-          .map((step) =>
-            step.level === 'request'
-              ? t('workbench.editors.request.response.meta.scriptsLevelRequest')
-              : inheritSourceLabel(t, { kind: step.level, name: step.name }),
-          )
-          .join(' · ');
-        const text =
-          item.droppedBy !== undefined
-            ? t('workbench.editors.mqtt.timeline.scriptDropped', { hook, level: item.droppedBy })
-            : item.succeeded
-              ? t('workbench.editors.mqtt.timeline.script', { hook, levels })
-              : t('workbench.editors.mqtt.timeline.scriptFailed', { hook, error: item.error?.message ?? '' });
-        const attempt =
-          item.attempt !== undefined && item.attempt > 0
-            ? ` · ${t('workbench.editors.mqtt.timeline.scriptAttempt', { attempt: item.attempt })}`
-            : '';
         return (
           <div className="oh-info-hover-host" data-testid="mqtt-timeline-script-row" style={lifecycleRowStyle}>
             {lifecycleGlyph(
@@ -497,7 +481,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
               {...(item.error !== undefined ? { title: item.error.message } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {`${text}${attempt} · ${formatDurationMs(item.durationMs)}`}
+              {scriptRowText(item, t)}
             </span>
             {/* The hook's own (i) — the rail row's lifecycle card, the
               mark's hook line lit; revealed on hover so a chatty
@@ -515,7 +499,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
           <div data-testid="mqtt-timeline-lost-row" style={lifecycleRowStyle}>
             {lifecycleGlyph(<DisconnectOutlined aria-hidden style={{ color: token.colorWarning }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {`${t('workbench.editors.mqtt.timeline.lost')} — ${connectionEndMessage(item.end, t)}`}
+              {lostRowText(item, t)}
             </span>
             {lifecycleTime(ts)}
             {expandSlot(null)}
@@ -533,15 +517,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
               {...(item.error !== undefined ? { title: item.error } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {item.forced
-                ? t('workbench.editors.mqtt.timeline.reconnectingNow', { attempt: item.attempt })
-                : item.delayMs === undefined
-                  ? t('workbench.editors.mqtt.timeline.reconnecting', { attempt: item.attempt })
-                  : t('workbench.editors.mqtt.timeline.reconnectingAfter', {
-                      attempt: item.attempt,
-                      delay: formatDurationMs(item.delayMs),
-                    })}
-              {item.error !== undefined ? ` — ${item.error}` : ''}
+              {reconnectingRowText(item, t)}
             </span>
             {lifecycleTime(ts)}
             {expandSlot(null)}
@@ -570,15 +546,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
           >
             {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.mqtt.timeline.reconnected')}
-              {item.dropped !== undefined
-                ? ` — ${t(
-                    item.dropped === 1
-                      ? 'workbench.editors.mqtt.timeline.reconnectedDroppedOne'
-                      : 'workbench.editors.mqtt.timeline.reconnectedDroppedMany',
-                    { count: item.dropped },
-                  )}`
-                : ''}
+              {reconnectedRowText(item, t)}
             </span>
             {lifecycleTime(ts)}
             {expandSlot(isExpanded)}

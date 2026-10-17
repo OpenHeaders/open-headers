@@ -55,6 +55,7 @@ import {
   VIEWER_PX,
 } from './mqtt-timeline-model';
 import MqttTimelineEntryRow from './MqttTimelineEntryRow';
+import { fixedRowText, lifecycleItemText } from './mqtt-timeline-row-text';
 import MqttTimelineToolbar from './MqttTimelineToolbar';
 import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../shared/PeerExecuteDisabledNotice';
 import { StreamLastRow, useTimelineViewerModes } from '../shared/TimelineMessageViewer';
@@ -167,12 +168,14 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   }, [items, count]);
 
   // Every item index passing the filters, packet order ascending — one
-  // linear pass of primitive work per commit/keystroke. The search
-  // haystack is the decoded preview plus the topic — search matches
-  // what the user can see; the direction and topic filters gate
-  // MESSAGE rows only (the subscription lifecycle facts always show).
+  // linear pass of primitive work per commit/keystroke. Search is a
+  // LOOKUP: it matches the words every row shows (a message's decoded
+  // preview plus its topic, a lifecycle row's rendered line) and hides
+  // the rest whatever their kind. The direction and topic lenses gate
+  // MESSAGE rows only — under them the lifecycle facts stay as the
+  // log's skeleton.
+  const needle = search.trim().toLowerCase();
   const visibleRows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
     const topics = topicFilter.length > 0 ? new Set(topicFilter) : null;
     const rows: number[] = [];
     for (let i = clearedCount; i < count; i++) {
@@ -189,11 +192,27 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         ) {
           continue;
         }
+      } else if (needle !== '' && !lifecycleItemText(item, t).toLowerCase().includes(needle)) {
+        continue;
       }
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, directionFilter, topicFilter, derive]);
+  }, [items, count, clearedCount, needle, directionFilter, topicFilter, derive, t]);
+
+  // The fixed rows under a search — each shows only when its words
+  // carry the needle (the same words the row paints).
+  const fixedShown = useMemo(() => {
+    const shown = (kind: keyof typeof fixedRowText): boolean =>
+      needle === '' || fixedRowText[kind](lifecycle, t).toLowerCase().includes(needle);
+    return {
+      sent: shown('sent'),
+      connected: shown('connected'),
+      abortedEnd: shown('abortedEnd'),
+      error: shown('error'),
+      ended: shown('ended'),
+    };
+  }, [needle, lifecycle, t]);
 
   const filtering = search.trim() !== '' || directionFilter !== 'all' || topicFilter.length > 0;
 
@@ -222,7 +241,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         : null;
 
     const tokens: Array<number | 'connected'> = [];
-    if (lifecycle.connected) tokens.push('connected');
+    if (lifecycle.connected && fixedShown.connected) tokens.push('connected');
     for (const index of visibleRows) tokens.push(index);
     if (newestFirst) tokens.reverse();
 
@@ -238,14 +257,16 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     const abortedEnd = lifecycle.aborted === true && lifecycle.abortedDisconnected === true;
     const refusalDetail = connackExpanded && lifecycle.errorMessage !== undefined && lifecycle.connack !== undefined;
     if (newestFirst) {
-      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (lifecycle.endedBy !== undefined && fixedShown.ended) out.push({ key: 'ended', kind: 'ended' });
       if (preOpenEnd) {
-        if (abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
-        out.push({ key: 'error', kind: 'error' });
-        if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
+        if (abortedEnd && fixedShown.abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
+        if (fixedShown.error) {
+          out.push({ key: 'error', kind: 'error' });
+          if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
+        }
       }
       if (notice) out.push(notice);
-    } else {
+    } else if (fixedShown.sent) {
       out.push({ key: 'sent', kind: 'sent' });
     }
     for (const entry of tokens) {
@@ -261,15 +282,17 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       }
     }
     if (newestFirst) {
-      out.push({ key: 'sent', kind: 'sent' });
+      if (fixedShown.sent) out.push({ key: 'sent', kind: 'sent' });
     } else {
       if (notice) out.push(notice);
       if (preOpenEnd) {
-        out.push({ key: 'error', kind: 'error' });
-        if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
-        if (abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
+        if (fixedShown.error) {
+          out.push({ key: 'error', kind: 'error' });
+          if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
+        }
+        if (abortedEnd && fixedShown.abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
       }
-      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
+      if (lifecycle.endedBy !== undefined && fixedShown.ended) out.push({ key: 'ended', kind: 'ended' });
     }
     return out;
   }, [
@@ -287,6 +310,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     expanded,
     connackExpanded,
     items,
+    fixedShown,
   ]);
 
   const heights = useMemo(
