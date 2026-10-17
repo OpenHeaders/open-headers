@@ -29,6 +29,7 @@ import { useSettingValue } from '../../settings/hooks';
 // at module-load time so it wins the race against `<Editor>`'s own
 // `loader.init`.
 import '../monaco/bootstrap';
+import { ensureEditorFontReadiness } from '../monaco/editor-font-readiness';
 import { ensureEditorKeybindingSync } from '../monaco/editor-keybindings';
 import { useMonacoVariableCompletions } from '../template-input';
 import { useMonacoJwtEdit } from '../value-editors';
@@ -359,6 +360,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           editorRef.current = ed;
           monacoApiRef.current = monacoApi;
           setMountedEditor(ed);
+          // Await the preset's web font and re-read Monaco's glyph
+          // metrics — a buffer measured against the fallback face
+          // paints its caret off the click (page-global, once).
+          ensureEditorFontReadiness(monacoApi);
           // Bind the configured find / replace / format chords from
           // the `keyboard.*` settings as page-global Monaco keybinding
           // rules (and keep them synced on rebind) — so Settings →
