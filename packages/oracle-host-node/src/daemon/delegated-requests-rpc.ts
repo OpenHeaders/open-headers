@@ -163,9 +163,11 @@ async function runDelegatedSend(
     return { success: true, response, executedOn };
   } catch (err) {
     const hint = err instanceof TransportError ? err.hint : undefined;
+    const advice = err instanceof TransportError ? err.advice : undefined;
     return {
       success: false,
       error: err instanceof Error ? err.message : String(err),
+      ...(advice !== undefined ? { advice } : {}),
       ...(hint !== undefined ? { hint } : {}),
       executedOn,
     };

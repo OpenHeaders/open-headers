@@ -646,13 +646,13 @@ export async function executeResolved(
     } else {
       wireCapture.cancel();
     }
-    const { message, hint } = timedOut
-      ? { message: `Request timed out after ${req.timeoutMs} ms.`, hint: undefined }
+    const { message, advice, hint } = timedOut
+      ? { message: `Request timed out after ${req.timeoutMs} ms.`, advice: undefined, hint: undefined }
       : stoppedByUser
-        ? { message: 'Request stopped before a response arrived.', hint: undefined }
+        ? { message: 'Request stopped before a response arrived.', advice: undefined, hint: undefined }
         : isGenericFetchFail
           ? classifyFetchFailure(req.url, rawMessage, netError)
-          : { message: rawMessage, hint: undefined };
+          : { message: rawMessage, advice: undefined, hint: undefined };
     logger.info('RequestExecutor', `fetch failed for ${req.url}: ${netError ?? rawMessage}`);
     recordLog({
       subsystem: 'request-executor',
@@ -690,6 +690,7 @@ export async function executeResolved(
       durationMs,
       ...(requestBodyOmitted ? { requestBodyOmitted: true } : {}),
       error: message,
+      ...(advice !== undefined ? { errorAdvice: advice } : {}),
       ...(hint ? { errorHint: hint } : {}),
       scripts: null,
     };
@@ -1081,6 +1082,7 @@ async function executeDelegated(input: {
         ? err.message
         : String(err);
     const hint = err instanceof TransportError ? err.hint : undefined;
+    const advice = err instanceof TransportError ? err.advice : undefined;
     const executedOn = err instanceof TransportError ? err.executedOn : undefined;
     logger.info('RequestExecutor', `delegated send failed for ${req.url}: ${message}`);
     recordLog({
@@ -1110,6 +1112,7 @@ async function executeDelegated(input: {
       requestSize: input.requestSize,
       ...trustMarkers,
       error: message,
+      ...(advice !== undefined ? { errorAdvice: advice } : {}),
       ...(hint !== undefined ? { errorHint: hint } : {}),
       ...(executedOn !== undefined ? { executedOn } : {}),
       scripts: null,

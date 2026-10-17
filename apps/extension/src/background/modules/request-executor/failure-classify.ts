@@ -26,6 +26,9 @@ import type { ExecutedRequestErrorHint } from '@openheaders/core/types';
 
 export interface ClassifiedFailure {
   message: string;
+  /** What to check — beside the fact in `message`, so the response
+   *  pane paints it in its own tone. */
+  advice?: string;
   hint?: ExecutedRequestErrorHint;
 }
 
@@ -89,11 +92,15 @@ function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorH
   const local = looksLocalHostname(host);
 
   if (code.includes('NAME_NOT_RESOLVED') || code.includes('UNKNOWN_HOST')) {
-    return { message: `Could not resolve ${host} (${code}). The hostname does not exist in DNS — check the URL.` };
+    return {
+      message: `Could not resolve ${host} (${code}). The hostname does not exist in DNS.`,
+      advice: 'Check the URL.',
+    };
   }
   if (code.includes('CONNECTION_REFUSED')) {
     return {
-      message: `${host} refused the connection on port ${port} (${code}). Nothing is listening there — is the service running, and on this port?`,
+      message: `${host} refused the connection on port ${port} (${code}). Nothing is listening there.`,
+      advice: 'Is the service running, and on this port?',
     };
   }
   if (code.includes('TIMED_OUT')) {
@@ -103,7 +110,8 @@ function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorH
   }
   if (code.includes('SSL_PROTOCOL_ERROR')) {
     return {
-      message: `${host}:${port} did not answer with HTTPS (${code}). The port likely serves plain HTTP — try http://${host}:${port}.`,
+      message: `${host}:${port} did not answer with HTTPS (${code}). The port likely serves plain HTTP.`,
+      advice: `Try http://${host}:${port}.`,
     };
   }
   if (isCertFamilyCode(code)) {
@@ -115,9 +123,9 @@ function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorH
     // so the message stays factual; without one the guidance rides in
     // prose. The message still carries everything for non-UI consumers
     // (status pill, logs).
-    const guidance = hint ? '' : ' Open the URL in a new tab, accept the certificate warning, then retry.';
     return {
-      message: `${host} presented an untrusted or invalid certificate (${code}).${localNote}${guidance}`,
+      message: `${host} presented an untrusted or invalid certificate (${code}).${localNote}`,
+      ...(hint ? {} : { advice: 'Open the URL in a new tab, accept the certificate warning, then retry.' }),
       ...(hint ? { hint: { ...hint, certificate: true, netError: compactNetCode(code) } } : {}),
     };
   }
@@ -127,7 +135,7 @@ function describeNetError(code: string, parsed: URL, hint: ExecutedRequestErrorH
     };
   }
   if (code.includes('INTERNET_DISCONNECTED') || code.includes('ADDRESS_UNREACHABLE')) {
-    return { message: `Network unreachable — could not reach ${host} (${code}). Check your connection.` };
+    return { message: `Network unreachable — could not reach ${host} (${code}).`, advice: 'Check your connection.' };
   }
   if (code.includes('BLOCKED_BY_CLIENT')) {
     return {
@@ -182,20 +190,22 @@ export function classifyFetchFailure(url: string, rawMessage: string, netError?:
       message:
         `Could not reach ${hostname} over HTTPS. Local HTTPS endpoints usually fail here because the ` +
         'development certificate is self-signed — the browser rejects untrusted certificates before the ' +
-        'request is sent. If the URL loads cleanly in a tab, check that the service is running and serves ' +
-        'HTTPS on this port.',
+        'request is sent.',
+      advice: 'If the URL loads cleanly in a tab, check that the service is running and serves HTTPS on this port.',
       ...(hint ? { hint: { ...hint, certificate: true } } : {}),
     };
   }
   if (looksLocal) {
     return {
-      message: `Could not reach ${hostname} (http). Is the service running and listening on this port? If it only serves HTTPS, change the URL to https://.`,
+      message: `Could not reach ${hostname} (http).`,
+      advice: 'Is the service running and listening on this port? If it only serves HTTPS, change the URL to https://.',
     };
   }
   return {
     message:
       `Could not reach ${hostname}. Possible causes: host not found (DNS), connection refused, ` +
-      'TLS certificate error, or missing host permission. Check the URL and retry.',
+      'TLS certificate error, or missing host permission.',
+    advice: 'Check the URL and retry.',
     ...(hint ? { hint } : {}),
   };
 }

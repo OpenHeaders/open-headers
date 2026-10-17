@@ -116,12 +116,18 @@ export async function resolveProxyAttempts(
   if (attempts.length === 0) {
     if (sawPinBlockedSocks5 !== null) {
       throw new TransportError(
-        `This machine's proxy configuration resolves ${request.url} to a SOCKS5 proxy (${sawPinBlockedSocks5}), but the request pins HTTP/2, which rides an HTTP CONNECT tunnel the SOCKS5 dial can't carry. Set the HTTP version to Auto, set the request's proxy setting to Direct, or point the system plane at an HTTP(S) proxy.`,
+        `This machine's proxy configuration resolves ${request.url} to a SOCKS5 proxy (${sawPinBlockedSocks5}), but the request pins HTTP/2, which rides an HTTP CONNECT tunnel the SOCKS5 dial can't carry.`,
+        undefined,
+        undefined,
+        "Set the HTTP version to Auto, set the request's proxy setting to Direct, or point the system plane at an HTTP(S) proxy.",
       );
     }
     if (sawSocks4 !== null) {
       throw new TransportError(
-        `This machine's proxy configuration resolves ${request.url} to a SOCKS4 proxy (${sawSocks4}), which the engine doesn't dial — SOCKS5 and HTTP(S) proxies are supported. Set the request's proxy setting to Direct to bypass it, or point the system plane at a SOCKS5 or HTTP(S) proxy.`,
+        `This machine's proxy configuration resolves ${request.url} to a SOCKS4 proxy (${sawSocks4}), which the engine doesn't dial — SOCKS5 and HTTP(S) proxies are supported.`,
+        undefined,
+        undefined,
+        "Set the request's proxy setting to Direct to bypass it, or point the system plane at a SOCKS5 or HTTP(S) proxy.",
       );
     }
     return DIRECT_ATTEMPT;

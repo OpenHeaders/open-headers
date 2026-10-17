@@ -28,11 +28,14 @@ const { Text } = Typography;
 
 const ResponseErrorState: React.FC<{
   error: string;
+  /** The classified failure's advice — what to check — painted in the
+   *  secondary tone under the fact, never as part of it. */
+  advice?: string;
   hint?: ExecutedRequestErrorHint;
   layout: RequestEditorLayout;
   /** Resend after a trust gesture (the node remedy). */
   onResend?: () => void;
-}> = ({ error, hint, layout, onResend }) => {
+}> = ({ error, advice, hint, layout, onResend }) => {
   const { token } = theme.useToken();
   const t = useT();
   const refusalKind = peerExecuteRefusalKind(error);
@@ -82,9 +85,20 @@ const ResponseErrorState: React.FC<{
           {t('workbench.editors.request.response.error.certSteps.summary')}
         </Text>
       ) : (
-        <Text type="secondary" style={{ fontSize: 12, maxWidth: 460 }} data-testid="oh-response-error">
-          {error}
-        </Text>
+        // The fact in the text tone, the advice — what to check — under
+        // it in the secondary tone; one test id over both so a reader of
+        // the error state gets the whole line.
+        <div
+          data-testid="oh-response-error"
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, maxWidth: 460 }}
+        >
+          <Text style={{ fontSize: 12 }}>{error}</Text>
+          {advice !== undefined && (
+            <Text type="secondary" style={{ fontSize: 12 }} data-testid="oh-response-error-advice">
+              {advice}
+            </Text>
+          )}
+        </div>
       )}
       {hint?.kind === 'open-in-tab' && (
         // Split vocabulary: layout 'vertical' stacks the panes, so the

@@ -21,7 +21,8 @@ describe('classifyFetchFailure — recovered net code', () => {
     const r = classifyFetchFailure('http://localhost:8081/health', RAW, 'net::ERR_CONNECTION_REFUSED');
     expect(r.message).toContain('net::ERR_CONNECTION_REFUSED');
     expect(r.message).toContain('port 8081');
-    expect(r.message).toMatch(/is the service running/i);
+    // The advice — what to check — rides its own field beside the fact.
+    expect(r.advice).toMatch(/is the service running/i);
   });
 
   it('maps certificate codes to the self-signed guidance with the certificate open-in-tab hint (local host)', () => {
@@ -49,7 +50,7 @@ describe('classifyFetchFailure — recovered net code', () => {
   it('maps ERR_SSL_PROTOCOL_ERROR to the https-on-http-port explanation with no tab hint', () => {
     const r = classifyFetchFailure('https://localhost:8080/api', RAW, 'net::ERR_SSL_PROTOCOL_ERROR');
     expect(r.message).toContain('net::ERR_SSL_PROTOCOL_ERROR');
-    expect(r.message).toContain('http://localhost:8080');
+    expect(r.advice).toContain('http://localhost:8080');
     expect(r.hint).toBeUndefined();
   });
 
@@ -76,7 +77,7 @@ describe('classifyFetchFailure — heuristic fallback (no net code)', () => {
 
   it('asks "is the service running" for local http with no hint', () => {
     const r = classifyFetchFailure('http://localhost:3000/health', RAW);
-    expect(r.message).toMatch(/Is the service running/);
+    expect(r.advice).toMatch(/Is the service running/);
     expect(r.hint).toBeUndefined();
   });
 
@@ -84,6 +85,7 @@ describe('classifyFetchFailure — heuristic fallback (no net code)', () => {
     const url = 'https://api.openheaders.io/v1/ping';
     const r = classifyFetchFailure(url, RAW);
     expect(r.message).toMatch(/host not found|connection refused|TLS|permission/i);
+    expect(r.advice).toBe('Check the URL and retry.');
     expect(r.hint).toEqual({ kind: 'open-in-tab', url });
   });
 

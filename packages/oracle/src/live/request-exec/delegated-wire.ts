@@ -171,7 +171,14 @@ export interface DelegatedExecutedOn {
  */
 export type DelegatedRequestResult =
   | { success: true; response: TransportResponse; executedOn: DelegatedExecutedOn }
-  | { success: false; error: string; hint?: ExecutedRequestErrorHint; executedOn: DelegatedExecutedOn };
+  | {
+      success: false;
+      error: string;
+      /** The classified failure's advice — what to check — beside the fact. */
+      advice?: string;
+      hint?: ExecutedRequestErrorHint;
+      executedOn: DelegatedExecutedOn;
+    };
 
 export type DelegatedFrameParse = { ok: true; frame: ParsedDelegatedRequestFrame } | { ok: false; error: string };
 

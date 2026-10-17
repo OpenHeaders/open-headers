@@ -24,10 +24,17 @@ import { proxyConnectRejectedStatus } from './connect-tunnel';
  */
 export class WireExchangeError extends TransportError {
   readonly causeCode?: string;
-  constructor(message: string, causeCode?: string, hint?: ExecutedRequestErrorHint) {
-    super(message, hint);
+  constructor(message: string, causeCode?: string, hint?: ExecutedRequestErrorHint, advice?: string) {
+    super(message, hint, undefined, advice);
     if (causeCode !== undefined) this.causeCode = causeCode;
   }
+}
+
+/** A classified failure — the fact, and the advice (what to check) as
+ *  its own field so a surface paints it in its own tone. */
+export interface ClassifiedFailure {
+  message: string;
+  advice?: string;
 }
 
 /** Build the classified wire failure for one hop's raw error. A
@@ -37,7 +44,8 @@ export class WireExchangeError extends TransportError {
 export function classifiedWireError(url: string, err: unknown, request: TransportRequest): WireExchangeError {
   const code = causeChain(err).find((link) => link.code !== undefined && link.code !== '')?.code;
   const hint = isTlsVerificationCode(code) ? trustCertificateHintFor(url, code, request.resolveToAddress) : undefined;
-  return new WireExchangeError(classifyFetchFailure(url, err, request), code, hint);
+  const failure = classifyFetchFailure(url, err, request);
+  return new WireExchangeError(failure.message, code, hint, failure.advice);
 }
 
 /** Whether this request carries any TLS version / cipher tuning — the
@@ -115,52 +123,78 @@ function proxyHostOf(proxyUrl: string): string {
  * pinned `'3'` send almost always means the target speaks no HTTP/3
  * (or UDP is blocked), so the message names the setting.
  */
-function classifyH3Failure(host: string, err: H3HelperFailure, request: TransportRequest): string {
+function classifyH3Failure(host: string, err: H3HelperFailure, request: TransportRequest): ClassifiedFailure {
   const certRef = request.clientCertificateRef;
   const pinned = request.resolveToAddress;
   switch (err.code) {
     case 'dns':
-      return `Could not resolve host ${host}.`;
+      return { message: `Could not resolve host ${host}.` };
     case 'connect-timeout':
       return pinned !== undefined
-        ? `${pinned} did not answer the QUIC handshake — the request's resolve-to-address setting points ${host} there, and its "HTTP version" setting pins this send to HTTP/3. The target may not speak HTTP/3 on that address, or UDP may be blocked; set the HTTP version to Auto to negotiate over TCP instead.`
-        : `${host} did not answer the QUIC handshake — it may not speak HTTP/3 on this port, or UDP may be blocked on the path. The request's "HTTP version" setting pins this send to HTTP/3; set it to Auto to negotiate over TCP instead.`;
+        ? {
+            message: `${pinned} did not answer the QUIC handshake — the request's resolve-to-address setting points ${host} there, and its "HTTP version" setting pins this send to HTTP/3.`,
+            advice:
+              'The target may not speak HTTP/3 on that address, or UDP may be blocked; set the HTTP version to Auto to negotiate over TCP instead.',
+          }
+        : {
+            message: `${host} did not answer the QUIC handshake — it may not speak HTTP/3 on this port, or UDP may be blocked on the path.`,
+            advice:
+              'The request\'s "HTTP version" setting pins this send to HTTP/3; set it to Auto to negotiate over TCP instead.',
+          };
     case 'connect-refused':
-      return `No route to ${host} for the QUIC dial. The request's "HTTP version" setting pins this send to HTTP/3.`;
+      return {
+        message: `No route to ${host} for the QUIC dial.`,
+        advice: 'The request\'s "HTTP version" setting pins this send to HTTP/3.',
+      };
     case 'tls-verify':
-      return `TLS certificate verification failed reaching ${host} over HTTP/3: ${err.message}. The HTTP/3 pipeline verifies against the bundled Mozilla roots — for a self-signed or private-CA target, turn off the request's SSL-verification setting.`;
+      return {
+        message: `TLS certificate verification failed reaching ${host} over HTTP/3: ${err.message}.`,
+        advice:
+          "The HTTP/3 pipeline verifies against the bundled Mozilla roots — for a self-signed or private-CA target, turn off the request's SSL-verification setting.",
+      };
     case 'tls-handshake': {
       const base = `TLS handshake with ${host} failed over HTTP/3: ${err.message}`;
       if (certRef !== undefined) {
-        return `${base}. The request presents the client certificate from vault entry "${certRef}" — the server may not accept it.`;
+        return {
+          message: `${base}.`,
+          advice: `The request presents the client certificate from vault entry "${certRef}" — the server may not accept it.`,
+        };
       }
       // A restricted offer the server shares no suite with dies as a
       // handshake alert — name the setting that narrowed the offer.
       if (request.tlsCipherSuites !== undefined) {
-        return `${base}. The request's "TLS cipher suites" setting restricts the offer to the listed TLS 1.3 suites — the server may not accept any of them.`;
+        return {
+          message: `${base}.`,
+          advice:
+            'The request\'s "TLS cipher suites" setting restricts the offer to the listed TLS 1.3 suites — the server may not accept any of them.',
+        };
       }
-      return base;
+      return { message: base };
     }
     case 'reset':
-      return `${host} reset the HTTP/3 exchange: ${err.message}`;
+      return { message: `${host} reset the HTTP/3 exchange: ${err.message}` };
     case 'idle-timeout':
-      return `The HTTP/3 connection to ${host} went idle past its ceiling: ${err.message}`;
+      return { message: `The HTTP/3 connection to ${host} went idle past its ceiling: ${err.message}` };
     case 'quic-transport':
     case 'h3-protocol':
-      return `HTTP/3 exchange with ${host} failed: ${err.message}. The request's "HTTP version" setting pins this send to HTTP/3; set it to Auto to negotiate the version instead.`;
+      return {
+        message: `HTTP/3 exchange with ${host} failed: ${err.message}.`,
+        advice:
+          'The request\'s "HTTP version" setting pins this send to HTTP/3; set it to Auto to negotiate the version instead.',
+      };
     case 'helper-crashed':
     case 'helper-no-hello':
     case 'helper-spawn-failed':
     case 'helper-corrupt-stream':
     case 'helper-protocol-mismatch':
     case 'helper-disposed':
-      return `The HTTP/3 helper failed before ${host} answered: ${err.message}`;
+      return { message: `The HTTP/3 helper failed before ${host} answered: ${err.message}` };
     default:
-      return `HTTP/3 exchange with ${host} failed (${err.code}): ${err.message}`;
+      return { message: `HTTP/3 exchange with ${host} failed (${err.code}): ${err.message}` };
   }
 }
 
-export function classifyFetchFailure(url: string, err: unknown, request: TransportRequest): string {
+export function classifyFetchFailure(url: string, err: unknown, request: TransportRequest): ClassifiedFailure {
   const tuned = tlsTuned(request);
   const pinned = request.resolveToAddress;
   const certRef = request.clientCertificateRef;
@@ -188,10 +222,19 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
       const status = rejectedStatus;
       if (status === 407) {
         return request.proxyCredentialRef !== undefined
-          ? `The proxy at ${proxyHostOf(proxied)} rejected the credentials (407). Check the request's proxy-credentials setting — the vault entry "${request.proxyCredentialRef}" may hold the wrong user:password.`
-          : `The proxy at ${proxyHostOf(proxied)} requires authentication (407). Set the request's proxy-credentials setting to a vault string entry holding user:password.`;
+          ? {
+              message: `The proxy at ${proxyHostOf(proxied)} rejected the credentials (407).`,
+              advice: `Check the request's proxy-credentials setting — the vault entry "${request.proxyCredentialRef}" may hold the wrong user:password.`,
+            }
+          : {
+              message: `The proxy at ${proxyHostOf(proxied)} requires authentication (407).`,
+              advice: "Set the request's proxy-credentials setting to a vault string entry holding user:password.",
+            };
       }
-      return `The proxy at ${proxyHostOf(proxied)} could not open a tunnel to ${host} (HTTP ${status}). The proxy is reachable — the failure is between the proxy and the target.`;
+      return {
+        message: `The proxy at ${proxyHostOf(proxied)} could not open a tunnel to ${host} (HTTP ${status}).`,
+        advice: 'The proxy is reachable — the failure is between the proxy and the target.',
+      };
     }
   }
   // A socket-pinned send never dials TCP, so every dial-level failure
@@ -208,55 +251,87 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
           socketPath.length > 100
             ? ' Paths longer than the OS limit on socket paths (~104 characters) also fail this way.'
             : '';
-        return `No socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service running and the path right?${lengthHint}`;
+        return {
+          message: `No socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+          advice: `Is the service running and the path right?${lengthHint}`,
+        };
       }
       case 'ENOTSOCK':
-        return `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`;
+        return {
+          message: `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`,
+        };
       case 'EACCES':
-        return `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`;
+        return {
+          message: `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+        };
       case 'ECONNREFUSED':
-        return `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service still listening on that socket?`;
+        return {
+          message: `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+          advice: 'Is the service still listening on that socket?',
+        };
       case 'ETIMEDOUT':
       case 'UND_ERR_CONNECT_TIMEOUT':
-        return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
+        return {
+          message: `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`,
+        };
     }
   }
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
       return proxied !== undefined
-        ? `Could not resolve the proxy host ${proxyHostOf(proxied)}. Check the request's proxy URL.`
-        : `Could not resolve host ${host}.`;
+        ? {
+            message: `Could not resolve the proxy host ${proxyHostOf(proxied)}.`,
+            advice: "Check the request's proxy URL.",
+          }
+        : { message: `Could not resolve host ${host}.` };
     case 'ECONNREFUSED':
       if (proxied !== undefined) {
-        return `Connection refused by the proxy at ${proxyHostOf(proxied)} — the request routes this send through it. Is the proxy running?`;
+        return {
+          message: `Connection refused by the proxy at ${proxyHostOf(proxied)} — the request routes this send through it.`,
+          advice: 'Is the proxy running?',
+        };
       }
       return pinned !== undefined
-        ? `Connection refused at ${pinned} — the request's resolve-to-address setting points ${host} there. Is the service listening on that address and the URL's port?`
-        : `Connection refused by ${host}. Is the service running on that host/port?`;
+        ? {
+            message: `Connection refused at ${pinned} — the request's resolve-to-address setting points ${host} there.`,
+            advice: "Is the service listening on that address and the URL's port?",
+          }
+        : { message: `Connection refused by ${host}.`, advice: 'Is the service running on that host/port?' };
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
       if (proxied !== undefined) {
-        return `No route to the proxy at ${proxyHostOf(proxied)} (${code}) — the request routes this send through it.`;
+        return {
+          message: `No route to the proxy at ${proxyHostOf(proxied)} (${code}) — the request routes this send through it.`,
+        };
       }
       return pinned !== undefined
-        ? `No route to ${pinned} (${code}) — the request's resolve-to-address setting points ${host} there.`
-        : `No route to host ${host} (${code}).`;
+        ? {
+            message: `No route to ${pinned} (${code}) — the request's resolve-to-address setting points ${host} there.`,
+          }
+        : { message: `No route to host ${host} (${code}).` };
     case 'ETIMEDOUT':
     case 'UND_ERR_CONNECT_TIMEOUT':
       if (proxied !== undefined) {
-        return `Connection to the proxy at ${proxyHostOf(proxied)} timed out — the request routes this send through it.`;
+        return {
+          message: `Connection to the proxy at ${proxyHostOf(proxied)} timed out — the request routes this send through it.`,
+        };
       }
       return pinned !== undefined
-        ? `Connection to ${host} timed out — the request's resolve-to-address setting points it at ${pinned}.`
-        : `Connection to ${host} timed out.`;
+        ? {
+            message: `Connection to ${host} timed out — the request's resolve-to-address setting points it at ${pinned}.`,
+          }
+        : { message: `Connection to ${host} timed out.` };
     case 'ECONNRESET':
       // A prior-knowledge send opens with the h2 preface — servers
       // that don't speak HTTP/2 directly often just drop the
       // connection, so the reset points at the setting.
       return request.httpVersion === '2-prior-knowledge'
-        ? `Connection to ${host} was reset. The request's "HTTP version" setting sends HTTP/2 with prior knowledge — servers that don't speak HTTP/2 directly often drop the connection. Set it to Auto to negotiate the version instead.`
-        : `Connection to ${host} was reset.`;
+        ? {
+            message: `Connection to ${host} was reset. The request's "HTTP version" setting sends HTTP/2 with prior knowledge — servers that don't speak HTTP/2 directly often drop the connection.`,
+            advice: 'Set it to Auto to negotiate the version instead.',
+          }
+        : { message: `Connection to ${host} was reset.` };
     // ── Client-certificate handshake alerts (verified live on Node
     // 22.18 / undici 7.24.6 against a certificate-demanding server).
     // TLS 1.3 gateways send certificate_required; TLS 1.2 stacks send
@@ -264,13 +339,22 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
     // surfaces as bad_certificate on either.
     case 'ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED':
       return certRef !== undefined
-        ? `${host} requires a client certificate and rejected the handshake (${code}). The request presents the vault entry "${certRef}" — check that its certificate is one this server accepts.`
-        : `${host} requires a client certificate (${code}). Pick one in the request's "Client certificate (mTLS)" setting.`;
+        ? {
+            message: `${host} requires a client certificate and rejected the handshake (${code}).`,
+            advice: `The request presents the vault entry "${certRef}" — check that its certificate is one this server accepts.`,
+          }
+        : {
+            message: `${host} requires a client certificate (${code}).`,
+            advice: 'Pick one in the request\'s "Client certificate (mTLS)" setting.',
+          };
     case 'ERR_SSL_SSLV3_ALERT_BAD_CERTIFICATE':
     case 'ERR_SSL_SSLV3_ALERT_CERTIFICATE_UNKNOWN':
       return certRef !== undefined
-        ? `${host} rejected the presented client certificate (${code}). Check the request's client-certificate setting — the vault entry "${certRef}" may be expired, revoked, or signed by a CA this server doesn't trust.`
-        : `${host} rejected a certificate during the TLS handshake (${code}).`;
+        ? {
+            message: `${host} rejected the presented client certificate (${code}).`,
+            advice: `Check the request's client-certificate setting — the vault entry "${certRef}" may be expired, revoked, or signed by a CA this server doesn't trust.`,
+          }
+        : { message: `${host} rejected a certificate during the TLS handshake (${code}).` };
     case 'CERT_HAS_EXPIRED':
     case 'CERT_NOT_YET_VALID':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
@@ -279,9 +363,13 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
     case 'UNABLE_TO_GET_ISSUER_CERT':
     case 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY':
     case 'CERT_UNTRUSTED':
-      return `TLS certificate error reaching ${host} (${code}).`;
+      return { message: `TLS certificate error reaching ${host} (${code}).` };
     case 'ERR_SSL_NO_CIPHER_MATCH':
-      return `No usable cipher suite for ${host} (${code}). Check the request's "TLS cipher suites" setting — none of the listed suites could be used for this connection.`;
+      return {
+        message: `No usable cipher suite for ${host} (${code}).`,
+        advice:
+          'Check the request\'s "TLS cipher suites" setting — none of the listed suites could be used for this connection.',
+      };
     // ── Pinned-HTTP/2 honest failures. The dial's own guard fails a
     // hop that negotiated something else (or a cleartext hop, which
     // has no ALPN seat at all); a server that refuses the h2-only
@@ -289,19 +377,31 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
     // protocol alert instead.
     case H2_NOT_NEGOTIATED_CODE: {
       const detail = chain.find((link) => link.code === H2_NOT_NEGOTIATED_CODE)?.message;
-      return `${detail ?? `${host} did not negotiate HTTP/2.`} The request's "HTTP version" setting pins this send to HTTP/2 — set it to Auto to let the server choose.`;
+      return {
+        message: detail ?? `${host} did not negotiate HTTP/2.`,
+        advice:
+          'The request\'s "HTTP version" setting pins this send to HTTP/2 — set it to Auto to let the server choose.',
+      };
     }
     case 'ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL':
       if (request.httpVersion === '2') {
-        return `${host} rejected the HTTP/2-only offer (${code}) — the server doesn't speak HTTP/2. The request's "HTTP version" setting pins this send to HTTP/2; set it to Auto to let the server choose.`;
+        return {
+          message: `${host} rejected the HTTP/2-only offer (${code}) — the server doesn't speak HTTP/2.`,
+          advice:
+            'The request\'s "HTTP version" setting pins this send to HTTP/2; set it to Auto to let the server choose.',
+        };
       }
       // The prior-knowledge TLS dial still offers h2 via ALPN (Node's
       // http2 client always does) — a server alerting here doesn't
       // speak HTTP/2 at all.
       if (request.httpVersion === '2-prior-knowledge') {
-        return `${host} rejected the HTTP/2 offer (${code}) — the server doesn't speak HTTP/2. The request's "HTTP version" setting sends HTTP/2 with prior knowledge; set it to Auto to let the server choose.`;
+        return {
+          message: `${host} rejected the HTTP/2 offer (${code}) — the server doesn't speak HTTP/2.`,
+          advice:
+            'The request\'s "HTTP version" setting sends HTTP/2 with prior knowledge; set it to Auto to let the server choose.',
+        };
       }
-      return `${host} rejected the offered application protocols (${code}).`;
+      return { message: `${host} rejected the offered application protocols (${code}).` };
     default: {
       // A mutual-TLS server that dislikes the presented client
       // certificate may simply sever the connection instead of sending
@@ -310,21 +410,32 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
       // Named only when a certificate IS configured; an unrelated
       // socket close keeps the generic message below.
       if (code === 'UND_ERR_SOCKET' && certRef !== undefined) {
-        return `${host} closed the connection during the exchange. Servers requiring a client certificate close like this when they reject one — check the request's client-certificate setting (vault entry "${certRef}").`;
+        return {
+          message: `${host} closed the connection during the exchange.`,
+          advice: `Servers requiring a client certificate close like this when they reject one — check the request's client-certificate setting (vault entry "${certRef}").`,
+        };
       }
       // Malformed vault material fails at connect time, before any
       // bytes go out (verified: bad PEM → ERR_OSSL_PEM_NO_START_LINE,
       // mismatched pair → ERR_OSSL_X509_KEY_VALUES_MISMATCH; a wrong
       // key passphrase is an ERR_OSSL_* decrypt error too).
       if (certRef !== undefined && code?.startsWith('ERR_OSSL_')) {
-        return `The client certificate from vault entry "${certRef}" could not be loaded (${code}). Check that the entry's certificate and key are valid PEM, belong together, and that the passphrase is right.`;
+        return {
+          message: `The client certificate from vault entry "${certRef}" could not be loaded (${code}).`,
+          advice:
+            "Check that the entry's certificate and key are valid PEM, belong together, and that the passphrase is right.",
+        };
       }
       // A prior-knowledge send speaks h2 framing from its first byte —
       // a server that answers the preface with anything else surfaces
       // as an HTTP/2 protocol error. Name the setting: the fix is
       // negotiating the version instead of assuming it.
       if (request.httpVersion === '2-prior-knowledge' && code?.startsWith('ERR_HTTP2_')) {
-        return `${host} did not answer the HTTP/2 preface (${code}) — it doesn't appear to speak HTTP/2 directly. The request's "HTTP version" setting sends HTTP/2 with prior knowledge; set it to Auto to negotiate the version instead.`;
+        return {
+          message: `${host} did not answer the HTTP/2 preface (${code}) — it doesn't appear to speak HTTP/2 directly.`,
+          advice:
+            'The request\'s "HTTP version" setting sends HTTP/2 with prior knowledge; set it to Auto to negotiate the version instead.',
+        };
       }
       // Handshake-level failures (protocol version alerts, unsupported
       // protocol) surface as ERR_SSL_* / EPROTO. A TLS 1.2 server
@@ -335,15 +446,21 @@ export function classifyFetchFailure(url: string, err: unknown, request: Transpo
       // configured version window and what the server accepts.
       if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
         if (certRef !== undefined) {
-          return `TLS handshake with ${host} failed (${code}). The request presents the client certificate from vault entry "${certRef}" — the server may not accept it${tuned ? ', or the TLS version and cipher suite settings may not match what the server accepts' : ''}.`;
+          return {
+            message: `TLS handshake with ${host} failed (${code}).`,
+            advice: `The request presents the client certificate from vault entry "${certRef}" — the server may not accept it${tuned ? ', or the TLS version and cipher suite settings may not match what the server accepts' : ''}.`,
+          };
         }
         return tuned
-          ? `TLS handshake with ${host} failed (${code}). Check the request's TLS version and cipher suite settings against what the server accepts.`
-          : `TLS handshake with ${host} failed (${code}).`;
+          ? {
+              message: `TLS handshake with ${host} failed (${code}).`,
+              advice: "Check the request's TLS version and cipher suite settings against what the server accepts.",
+            }
+          : { message: `TLS handshake with ${host} failed (${code}).` };
       }
       const causeMsg = cause instanceof Error ? cause.message : undefined;
-      if (causeMsg) return `Could not reach ${host}: ${causeMsg}`;
-      return err instanceof Error ? err.message : String(err);
+      if (causeMsg) return { message: `Could not reach ${host}: ${causeMsg}` };
+      return { message: err instanceof Error ? err.message : String(err) };
     }
   }
 }

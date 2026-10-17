@@ -473,11 +473,13 @@ export async function executeOverTransport(
     // A transport that classified a remedy hands it over verbatim — the
     // response surface turns it into the action (trust the certificate).
     const errorHint = err instanceof TransportError ? err.hint : undefined;
+    const errorAdvice = err instanceof TransportError ? err.advice : undefined;
     // Where the send failed is still the answering host, when one
     // answered through a delegating transport.
     const executedOn = err instanceof TransportError ? err.executedOn : undefined;
     return {
       ...errorSnapshot(message),
+      ...(errorAdvice !== undefined ? { errorAdvice } : {}),
       ...(errorHint !== undefined ? { errorHint } : {}),
       ...(executedOn !== undefined ? { executedOn } : {}),
       durationMs,

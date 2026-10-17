@@ -573,6 +573,10 @@ export interface ExecutedRequestSnapshot {
   };
   /** Non-null when the request failed before producing a response. */
   error: string | null;
+  /** The classified failure's advice — what to check — beside the fact
+   *  in `error`, so a surface can paint it in its own tone. Present
+   *  only alongside `error`. */
+  errorAdvice?: string;
   /** Actionable remedy for the failure — present only alongside
    *  `error`, when the executor could classify one. */
   errorHint?: ExecutedRequestErrorHint;

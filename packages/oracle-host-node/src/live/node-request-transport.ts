@@ -223,7 +223,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     // problem.
     if (request.clientCertificateRef !== undefined && request.clientCertificatePem === undefined) {
       throw new TransportError(
-        `The request's client-certificate setting references the vault entry "${request.clientCertificateRef}", which doesn't exist on this device. Add a client-certificate entry with that name to the vault, or clear the setting.`,
+        `The request's client-certificate setting references the vault entry "${request.clientCertificateRef}", which doesn't exist on this device.`,
+        undefined,
+        undefined,
+        'Add a client-certificate entry with that name to the vault, or clear the setting.',
       );
     }
     if (request.unixSocketPath !== undefined) {
@@ -232,14 +235,20 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       // the two would downgrade the other.
       if (request.proxyUrl !== undefined) {
         throw new TransportError(
-          "The request sets both a proxy and a Unix socket target, but a proxy tunnel can't dial a local socket. Clear one of the two settings.",
+          "The request sets both a proxy and a Unix socket target, but a proxy tunnel can't dial a local socket.",
+          undefined,
+          undefined,
+          'Clear one of the two settings.',
         );
       }
       // Likewise nothing is resolved on a socket dial — the address
       // pin can't apply.
       if (request.resolveToAddress !== undefined) {
         throw new TransportError(
-          "The request sets both a Unix socket target and resolve-to-address, but a socket dial resolves no hostname — the address pin can't apply. Clear one of the two settings.",
+          "The request sets both a Unix socket target and resolve-to-address, but a socket dial resolves no hostname — the address pin can't apply.",
+          undefined,
+          undefined,
+          'Clear one of the two settings.',
         );
       }
     }
@@ -253,22 +262,34 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
     if (request.httpVersion === '3') {
       if (new URL(request.url).protocol !== 'https:') {
         throw new TransportError(
-          'The request pins HTTP/3, but the URL is plain http:// — QUIC has TLS 1.3 built in, so HTTP/3 exists only for https:// targets. Set the HTTP version to Auto, or use https://.',
+          'The request pins HTTP/3, but the URL is plain http:// — QUIC has TLS 1.3 built in, so HTTP/3 exists only for https:// targets.',
+          undefined,
+          undefined,
+          'Set the HTTP version to Auto, or use https://.',
         );
       }
       if (request.proxyUrl !== undefined) {
         throw new TransportError(
-          "The request pins HTTP/3 and routes through a proxy, but a proxy tunnel can't carry QUIC (UDP). Set the HTTP version to Auto, or clear the proxy.",
+          "The request pins HTTP/3 and routes through a proxy, but a proxy tunnel can't carry QUIC (UDP).",
+          undefined,
+          undefined,
+          'Set the HTTP version to Auto, or clear the proxy.',
         );
       }
       if (request.unixSocketPath !== undefined) {
         throw new TransportError(
-          'The request pins HTTP/3 and targets a Unix socket, but QUIC runs over UDP — there is no socket-path dial. Set the HTTP version to Auto, or clear the Unix-socket setting.',
+          'The request pins HTTP/3 and targets a Unix socket, but QUIC runs over UDP — there is no socket-path dial.',
+          undefined,
+          undefined,
+          'Set the HTTP version to Auto, or clear the Unix-socket setting.',
         );
       }
       if (request.tlsMaxVersion !== undefined && request.tlsMaxVersion !== '1.3') {
         throw new TransportError(
-          `The request pins HTTP/3 with a TLS ceiling of ${request.tlsMaxVersion}, but QUIC is TLS 1.3-only — the ceiling can't hold. Raise the "TLS max version" setting to 1.3 (or clear it), or pick another HTTP version.`,
+          `The request pins HTTP/3 with a TLS ceiling of ${request.tlsMaxVersion}, but QUIC is TLS 1.3-only — the ceiling can't hold.`,
+          undefined,
+          undefined,
+          'Raise the "TLS max version" setting to 1.3 (or clear it), or pick another HTTP version.',
         );
       }
       // The cipher knob crosses to the helper only as exact TLS 1.3
@@ -284,13 +305,19 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           .filter((name) => name !== '');
         if (names.length === 0) {
           throw new TransportError(
-            'The request pins HTTP/3 with an empty "TLS cipher suites" setting. List exact TLS 1.3 IANA suite names, clear the setting, or pick another HTTP version.',
+            'The request pins HTTP/3 with an empty "TLS cipher suites" setting.',
+            undefined,
+            undefined,
+            'List exact TLS 1.3 IANA suite names, clear the setting, or pick another HTTP version.',
           );
         }
         const outsider = names.find((name) => !(H3_TLS13_CIPHER_SUITES as readonly string[]).includes(name));
         if (outsider !== undefined) {
           throw new TransportError(
-            `The request pins HTTP/3, but "${outsider}" in the "TLS cipher suites" setting isn't a TLS 1.3 suite the HTTP/3 pipeline carries — it accepts exact IANA names only: ${H3_TLS13_CIPHER_SUITES.join(', ')} (QUIC is TLS 1.3-only, so OpenSSL-format lists and pre-1.3 suites can't apply). Fix the setting, or pick another HTTP version.`,
+            `The request pins HTTP/3, but "${outsider}" in the "TLS cipher suites" setting isn't a TLS 1.3 suite the HTTP/3 pipeline carries — it accepts exact IANA names only: ${H3_TLS13_CIPHER_SUITES.join(', ')} (QUIC is TLS 1.3-only, so OpenSSL-format lists and pre-1.3 suites can't apply).`,
+            undefined,
+            undefined,
+            'Fix the setting, or pick another HTTP version.',
           );
         }
         h3CipherSuites = names;
@@ -306,7 +333,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
           };
         } catch (err) {
           throw new TransportError(
-            `The client certificate from vault entry "${request.clientCertificateRef ?? ''}" could not be loaded for the HTTP/3 send: ${err instanceof Error ? err.message : String(err)}. Check that the entry's key is valid PEM and the passphrase is right.`,
+            `The client certificate from vault entry "${request.clientCertificateRef ?? ''}" could not be loaded for the HTTP/3 send: ${err instanceof Error ? err.message : String(err)}.`,
+            undefined,
+            undefined,
+            "Check that the entry's key is valid PEM and the passphrase is right.",
           );
         }
       }
@@ -315,7 +345,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         const binary = resolveH3HelperBinary();
         if (binary === null) {
           throw new TransportError(
-            "This install can't send HTTP/3 — the helper that speaks it isn't available on this platform yet. Pick another HTTP version.",
+            "This install can't send HTTP/3 — the helper that speaks it isn't available on this platform yet.",
+            undefined,
+            undefined,
+            'Pick another HTTP version.',
           );
         }
         h3Client = sharedH3HelperClient(binary);
@@ -328,7 +361,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       // letting the proxy win would downgrade the pin.
       if (request.resolveToAddress !== undefined) {
         throw new TransportError(
-          "The request sets both a proxy and resolve-to-address, but a proxy resolves the hostname itself — the address pin can't apply. Clear one of the two settings.",
+          "The request sets both a proxy and resolve-to-address, but a proxy resolves the hostname itself — the address pin can't apply.",
+          undefined,
+          undefined,
+          'Clear one of the two settings.',
         );
       }
       // A pinned h2 send tunnels through the hand-rolled HTTP CONNECT
@@ -340,7 +376,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
         (request.httpVersion === '2' || request.httpVersion === '2-prior-knowledge')
       ) {
         throw new TransportError(
-          'The request pins HTTP/2 and routes through a SOCKS5 proxy, but the pinned HTTP/2 pipeline tunnels through HTTP CONNECT only. Set the HTTP version to Auto, or use an http:// or https:// proxy.',
+          'The request pins HTTP/2 and routes through a SOCKS5 proxy, but the pinned HTTP/2 pipeline tunnels through HTTP CONNECT only.',
+          undefined,
+          undefined,
+          'Set the HTTP version to Auto, or use an http:// or https:// proxy.',
         );
       }
       // Configured proxy credentials whose vault entry didn't resolve
@@ -349,7 +388,10 @@ export function createNodeRequestTransport(options: NodeRequestTransportOptions 
       // of the real problem.
       if (request.proxyCredentialRef !== undefined && request.proxyCredential === undefined) {
         throw new TransportError(
-          `The request's proxy-credentials setting references the vault entry "${request.proxyCredentialRef}", which doesn't exist on this device. Add a string entry with that name (holding user:password) to the vault, or clear the setting.`,
+          `The request's proxy-credentials setting references the vault entry "${request.proxyCredentialRef}", which doesn't exist on this device.`,
+          undefined,
+          undefined,
+          'Add a string entry with that name (holding user:password) to the vault, or clear the setting.',
         );
       }
     }

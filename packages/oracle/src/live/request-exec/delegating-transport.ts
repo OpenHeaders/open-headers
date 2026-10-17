@@ -122,7 +122,7 @@ export function createDelegatingRequestTransport(options: DelegatingTransportOpt
         request: encodeDelegatedRequest({ ...request, redirect: 'manual' }),
       });
       if (result.success) return { ...result.response, executedOn: result.executedOn };
-      throw new TransportError(result.error, result.hint, result.executedOn);
+      throw new TransportError(result.error, result.hint, result.executedOn, result.advice);
     } catch (err) {
       if (err instanceof TransportError) throw err;
       // A dead wire or the place's refusal — already a user-facing

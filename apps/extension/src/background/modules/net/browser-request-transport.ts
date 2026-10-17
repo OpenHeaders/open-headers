@@ -48,7 +48,12 @@ export const browserRequestTransport: RequestTransport = {
     // Offline gate — produce a clean message before the opaque
     // `Failed to fetch` the browser would otherwise return.
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      throw new TransportError("Can't reach network — device reports offline. Check your connection and try again.");
+      throw new TransportError(
+        "Can't reach network — device reports offline.",
+        undefined,
+        undefined,
+        'Check your connection and try again.',
+      );
     }
 
     const headers = new Headers();
@@ -102,7 +107,8 @@ export const browserRequestTransport: RequestTransport = {
         }
       } catch (err) {
         if (deadline?.expired()) throw timeoutError(request.timeoutMs);
-        throw new TransportError(classifyFetchFailure(request.url, err));
+        const failure = classifyFetchFailure(request.url, err);
+        throw new TransportError(failure.message, undefined, undefined, failure.advice);
       }
 
       const outHeaders: TransportHeader[] = [];
@@ -249,7 +255,7 @@ function buildBody(body: TransportBody): BodyInit | undefined {
  * network failure. The browser withholds the underlying OS error, so we
  * replace the content-free default with the likely causes.
  */
-function classifyFetchFailure(url: string, err: unknown): string {
+function classifyFetchFailure(url: string, err: unknown): { message: string; advice?: string } {
   const rawMessage = err instanceof Error ? err.message : String(err);
   let hostname = '';
   let protocol = '';
@@ -258,10 +264,10 @@ function classifyFetchFailure(url: string, err: unknown): string {
     hostname = parsed.hostname;
     protocol = parsed.protocol;
   } catch {
-    return `${rawMessage} — invalid URL "${url}"`;
+    return { message: `${rawMessage} — invalid URL "${url}"` };
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return `Network offline — could not reach ${hostname}.`;
+    return { message: `Network offline — could not reach ${hostname}.` };
   }
   const looksLocal =
     /^(localhost|127\.)/.test(hostname) ||
@@ -270,7 +276,13 @@ function classifyFetchFailure(url: string, err: unknown): string {
     hostname.endsWith('.localhost') ||
     (!hostname.includes('.') && !hostname.includes(':'));
   if (looksLocal) {
-    return `Could not reach ${hostname} (${protocol.replace(':', '')}). Is the service running? If it requires HTTPS, enter the full URL with https:// prefix.`;
+    return {
+      message: `Could not reach ${hostname} (${protocol.replace(':', '')}).`,
+      advice: 'Is the service running? If it requires HTTPS, enter the full URL with https:// prefix.',
+    };
   }
-  return `Could not reach ${hostname}. Possible causes: host not found (DNS), connection refused, TLS certificate error, or missing host permission. Check the URL and retry.`;
+  return {
+    message: `Could not reach ${hostname}. Possible causes: host not found (DNS), connection refused, TLS certificate error, or missing host permission.`,
+    advice: 'Check the URL and retry.',
+  };
 }

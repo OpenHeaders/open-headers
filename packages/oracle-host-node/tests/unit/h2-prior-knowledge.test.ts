@@ -321,7 +321,12 @@ describe('createNodeRequestTransport — prior-knowledge HTTP/2 pipeline', () =>
     try {
       const attempt = createNodeRequestTransport().send(makeRequest({ url: `http://127.0.0.1:${port}/legacy` }));
       await expect(attempt).rejects.toBeInstanceOf(TransportError);
-      await expect(attempt).rejects.toThrow(/prior knowledge.*set it to Auto/s);
+      // The fact names the collapse; the advice — what to check — rides
+      // its own field and names the setting.
+      await expect(attempt).rejects.toThrow(/did not answer the HTTP\/2 preface|was reset/);
+      await expect(attempt).rejects.toMatchObject({
+        advice: expect.stringMatching(/prior knowledge.*set it to Auto/s),
+      });
     } finally {
       server.close();
     }

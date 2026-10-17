@@ -560,11 +560,15 @@ export class TransportError extends Error {
   /** Where the send failed when a delegating transport carried the
    *  answering host's refusal — see {@link TransportResponse.executedOn}. */
   readonly executedOn?: TransportExecutedOn;
-  constructor(message: string, hint?: ExecutedRequestErrorHint, executedOn?: TransportExecutedOn) {
+  /** The classified failure's advice — what to check — beside the fact
+   *  in `message`; the executor stamps it on the snapshot. */
+  readonly advice?: string;
+  constructor(message: string, hint?: ExecutedRequestErrorHint, executedOn?: TransportExecutedOn, advice?: string) {
     super(message);
     this.name = 'TransportError';
     if (hint !== undefined) this.hint = hint;
     if (executedOn !== undefined) this.executedOn = executedOn;
+    if (advice !== undefined) this.advice = advice;
   }
 }
 

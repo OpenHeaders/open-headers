@@ -207,7 +207,8 @@ test.describe('Net-stack failures carry the recovered net code', () => {
     const snapshot = await send('https://127.0.0.1:3000/api/echo');
     expect(snapshot.status).toBe(0);
     expect(snapshot.error).toContain('net::ERR_SSL_PROTOCOL_ERROR');
-    expect(snapshot.error).toContain('try http://127.0.0.1:3000');
+    // The advice — what to check — rides its own field beside the fact.
+    expect(snapshot.errorAdvice).toContain('http://127.0.0.1:3000');
   });
 
   test('socket destroyed mid-body delivers the partial read', async () => {

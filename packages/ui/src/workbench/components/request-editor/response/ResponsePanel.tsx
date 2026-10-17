@@ -317,6 +317,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           {response && !sending ? (
             <ResponseErrorState
               error={response.error ?? ''}
+              advice={response.errorAdvice}
               hint={response.errorHint}
               layout={layout}
               onResend={onResend}
