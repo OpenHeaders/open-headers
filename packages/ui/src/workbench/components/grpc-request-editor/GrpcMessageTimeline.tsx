@@ -3,184 +3,74 @@
  * calls, ONE list across both phases: live (fed from `grpcStreamEvent`
  * frames while the invoke is in flight) and materialized (fed from the
  * snapshot's direction-tagged frames, session timestamps joined
- * positionally). A SIBLING of the SSE event list on the same shared
- * recipes — `useVirtualRowWindow`, pinned row heights, append-only
- * item identity, jump pill — and the SSE list's row/toolbar anatomy:
- * search box + message count on the left, controls on the right; rows
- * read glyph · name chip · preview · right-aligned session time. The
- * gRPC-specific parts stay: direction glyphs (↑ sent / ↓ received), a
- * direction filter, and lifecycle rows. The name chip is the frame's
- * DECLARED type — the rpc's request type for ↑, response type for ↓ —
- * on the stable badge palette; the wire-grammar `message` fallback
- * (untranslated, the SSE precedent) covers an unresolved method.
- * Per-row chips are OPT-IN via the sort menu ("Show message types",
- * off by default — the Postman posture: types are fixed per direction,
- * so the direction badge already tells rows apart); group headers
- * always carry the tag. Chip names join the search haystack only while
- * shown — search matches what the user can see.
+ * positionally). A SIBLING of the MQTT / WS timelines and the SSE
+ * event list on the same shared recipes — `useVirtualRowWindow`,
+ * pinned row heights, append-only item identity, jump pill, the strip
+ * and row anatomy. The gRPC-specific parts stay: the name chip is the
+ * frame's DECLARED type (the rpc's request type for ↑, response type
+ * for ↓) on the stable badge palette, opt-in per row ("Show message
+ * types", off by default — the Postman posture), always on group
+ * headers; chip names join the search haystack only while shown.
  *
  * The timeline is ONE event log in true call order: "Request sent" and
  * "Call completed / stopped / failed" sit at the chronological edges,
  * and "Response received" INTERLEAVES at `lifecycle.headAtMessage` —
  * the executor's recorded count of messages that preceded the response
- * head in call order (a server stream's ↑ request message renders
- * BEFORE the head; a bidi call's later ↑ messages after it). The
- * position is recorded truth riding the head event and the capture,
- * never inferred display-side. The call's script marks interleave the
- * same way at their own `atIndex` — each lands before the first
- * visible message at or past its position, the rest trail the last
- * message (the WebSocket timeline's law); grouped mode is clustering,
- * so they join the head row at the chronological edge.
+ * head in call order, never inferred display-side. The call's script
+ * marks interleave the same way at their own `atIndex`. Sort and
+ * grouping are the shared anatomy on gRPC's own `requests.grpcMessages*`
+ * SETTINGS (global, toolbar-written — the choices survive
+ * Invoke/Cancel remounts): "Group by message type" and "Group by
+ * direction" are CLUSTERING, not sorting — both on = the COMPOUND
+ * (type, direction) pair, still one header level; group order anchors
+ * to first appearance, an optional per-group row limit keeps each
+ * group's N newest rows watchable, and the group spanning the viewport
+ * top pins its header as a clickable sticky overlay. Grouped mode is
+ * not a timeline, so the head row joins "Request sent" at the edge.
  *
- * Sort and grouping are the SSE list's anatomy on gRPC's own
- * `requests.grpcMessages*` SETTINGS (global, toolbar-written — the
- * choices survive Invoke/Cancel remounts): newest-first by default
- * with an arrival-order flip; "Group by message type" and "Group by
- * direction" are CLUSTERING, not sorting — rows partition under
- * collapsible headers whose identity composes from the enabled axes
- * (both on = the COMPOUND (type, direction) pair, still one header
- * level: an rpc's types are fixed per direction, so nesting would be
- * degenerate almost everywhere; direction earns its keep on bidi
- * calls whose request and response share one type). Arrival order
- * stays intact within each group, group order ANCHORS to first
- * appearance, an optional per-group row limit keeps each
- * group's N newest rows watchable (headers keep real totals), and the
- * group spanning the viewport top pins its header as a clickable
- * sticky overlay. Grouped mode is not a timeline, so the head row
- * joins "Request sent" at the chronological edge instead of
- * interleaving.
- *
- * Rows expand into a mini viewer over the frame's decoded payload —
- * schema-driven canonical JSON against the rpc's request type (↑) or
- * response type (↓), the structural decode when the type doesn't
- * resolve, raw base64 otherwise (`deriveGrpcFrameView`, the F5.2
- * display-only posture). Search, filter and Clear are display-only —
- * the capture is never touched. Per-item derivations cache on item
- * identity and reset when the registry or the resolved types change;
- * group identity is a closed function of the row's direction (two chip
- * identities), so the grouping pass is one linear walk of primitive
- * work. Timestamps are session-only (the ratified Phase E law):
- * absent — on a re-opened saved exchange — rows simply render no time.
+ * This file is the orchestrator: state, the settings, the memoized
+ * passes and the scroll plane (the new-edge anchor, the jump pill, the
+ * sticky header). The vocabulary and the per-item derivations live in
+ * `grpc-timeline-model.ts`, the pure list passes in
+ * `grpc-timeline-entries.ts`, the strip in `GrpcTimelineToolbar.tsx`,
+ * the rows in `GrpcTimelineEntryRow.tsx` (the group header, shared
+ * with the sticky overlay, in `GrpcTimelineGroupHeader.tsx`).
+ * Timestamps are session-only (the ratified Phase E law): absent — on
+ * a re-opened saved exchange — rows simply render no time.
  */
 
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  CaretRightOutlined,
-  CheckCircleOutlined,
-  ClearOutlined,
-  CloseCircleOutlined,
-  CodeOutlined,
-  ControlOutlined,
-  DisconnectOutlined,
-  DownOutlined,
-  InfoCircleOutlined,
-  SearchOutlined,
-  SortAscendingOutlined,
-  SortDescendingOutlined,
-  UpOutlined,
-} from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
-import { Button, Dropdown, Input, Tag, Tooltip, Typography, theme } from 'antd';
-import { decodeBase64Bytes } from '@openheaders/core/utils';
+import { Button, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
-import { scriptSlotInfo } from '../script-editor/script-slot-info';
-import TimelineMessageViewer, {
-  STREAM_HAIRLINE,
-  StreamLastRow,
-  useTimelineViewerModes,
-  VIEWER_PX,
-} from '../shared/TimelineMessageViewer';
+import { StreamLastRow, useTimelineViewerModes } from '../shared/TimelineMessageViewer';
 import type { GrpcScriptMarkItem } from './grpc-scripts';
-import { endedRowText, fixedRowDetailText, fixedRowText, scriptRowText } from './grpc-timeline-row-text';
-import { deriveGrpcFrameView, type GrpcMessageView } from './response-decode';
+import {
+  buildTimelineEntries,
+  entryHeights,
+  filterVisibleRows,
+  fixedRowsShown,
+  partitionGroups,
+} from './grpc-timeline-entries';
+import {
+  type DirectionChips,
+  entryIndexAt,
+  type GrpcDirectionFilter,
+  type GrpcTimelineItem,
+  type GrpcTimelineLifecycle,
+  makeGrpcFrameDerivations,
+  mintChip,
+  NO_SCRIPT_MARKS,
+} from './grpc-timeline-model';
+import GrpcTimelineEntryRow from './GrpcTimelineEntryRow';
+import GrpcTimelineGroupHeader from './GrpcTimelineGroupHeader';
+import GrpcTimelineToolbar from './GrpcTimelineToolbar';
 
-const { Text } = Typography;
-
-/** Inline preview cap — plenty for a row; the expanded viewer has the
- *  full payload. */
-const PREVIEW_MAX_CHARS = 400;
-
-/** Pinned border-box height of every single-line row (message, group
- *  header, lifecycle) — the virtual window's arithmetic depends on
- *  heights being exact by construction. */
-const SINGLE_ROW_PX = 28;
-/** Pinned height of the sent row's expanded metadata block — heading
- *  (18px) + one 20px line per pair (the recorded-empty state's "No
- *  metadata sent." line counts as one) + 6px paddings + 1px divider
- *  (the MQTT CONNACK details' metrics); a closed function of the line
- *  count, so the virtual window's arithmetic stays exact. */
-const sentDetailPx = (pairs: number): number => 18 + Math.max(1, pairs) * 20 + 13;
-/** Pinned height of the error row's expanded explanation — the
- *  guidance line + the classified message line (20px each) + 6px
- *  paddings + 1px divider. */
-const ERROR_DETAIL_PX = 53;
-/** Pinned height of the connected row's expanded received-metadata
- *  line — one 20px line + 6px paddings + 1px divider. */
-const CONNECTED_DETAIL_PX = 33;
-
-const cellFont: React.CSSProperties = {
-  fontFamily: "'SF Mono', 'Fira Code', monospace",
-  fontSize: 12,
-};
-
-/** One timeline message — the live wire item and the snapshot frame
- *  share this shape (atMs rides only the live one; materialized times
- *  join via `timestamps`). */
-export interface GrpcTimelineItem {
-  direction?: 'up' | 'down';
-  dataBase64: string;
-  compressed: boolean;
-  /** The ↑ frame carried a secret manager's value (the executor's
-   *  stamp) — the row and the viewer show a placeholder, never a decode. */
-  secret?: true;
-}
-
-/** How the call ended — drives the ended lifecycle row. */
-/** How the call ended: completed, the user's stop, a pre-head
- *  failure, or a connection lost after the head (`lost` — the
- *  reason rides `endedMessage` behind the chevron like `error`). */
-export type GrpcTimelineEndedBy = 'complete' | 'stop' | 'error' | 'lost';
-
-export interface GrpcTimelineLifecycle {
-  /** Session-only invoke-departure time. */
-  startedAt?: number;
-  /** The metadata pairs the call actually carried (the snapshot's
-   *  `requestMetadata`) — the "Request sent" row expands to them.
-   *  Empty = recorded as none: the row still expands, to the honest
-   *  "No metadata sent." line. Absent = UNKNOWN (the live phase, a
-   *  host that predates the record): the row reads plain, no chevron —
-   *  never a fabricated empty state. */
-  requestMetadata?: ReadonlyArray<{ key: string; value: string }>;
-  /** The keys among `requestMetadata` whose values came from a secret
-   *  manager — the sent row's sheet shows a placeholder for them (L3). */
-  secretMetadataKeys?: readonly string[];
-  /** True once the response head arrived. */
-  headArrived: boolean;
-  /** Session-only head-arrival time. */
-  connectedAt?: number;
-  /** Messages preceding the response head in CALL order — where the
-   *  "Response received" row interleaves. Recorded by the executor
-   *  (head event / snapshot / capture); absent reads as 0. */
-  headAtMessage?: number;
-  /** Absent while frames are still arriving — the live phase. */
-  endedBy?: GrpcTimelineEndedBy;
-  endedAt?: number;
-  /** Failure text riding `endedBy: 'error'` / `'lost'`. The status code itself
-   *  deliberately does NOT ride the ended row — the meta strip's pill
-   *  owns it (no duplicate info, the Postman posture). */
-  endedMessage?: string;
-  /** The classified failure's advice — what to check — painted in the
-   *  secondary tone after the failure text behind the chevron, never on
-   *  the error tint. Rides only beside `endedMessage`. */
-  endedAdvice?: string;
-}
+export type { GrpcTimelineEndedBy, GrpcTimelineItem, GrpcTimelineLifecycle } from './grpc-timeline-model';
 
 interface GrpcMessageTimelineProps {
   /** Message log — append-only during the live phase (the array
@@ -214,149 +104,12 @@ interface GrpcMessageTimelineProps {
   trustOfferOpen?: boolean;
 }
 
-/** One display slot of the virtual list — heights are a closed
- *  function of `kind`, so windowing never measures. */
-/** One group's identity — composed from the ENABLED grouping axes:
- *  the marks a header renders are exactly the non-null fields, and
- *  `key` (also the collapse / un-window / sticky handle) is unique per
- *  axis combination. */
-interface GrpcGroupIdentity {
-  key: string;
-  direction: 'up' | 'down' | null;
-  name: string | null;
-}
-
-type ListEntry =
-  | {
-      key: string;
-      kind: 'sent' | 'sentDetail' | 'connected' | 'connectedDetail' | 'ended' | 'errorDetail' | 'noMatches';
-    }
-  | { key: string; kind: 'header'; group: GrpcGroupIdentity; count: number; collapsed: boolean }
-  /** "Show N older" at a windowed group's older edge; the un-windowed
-   *  state's re-window action lives on the group header. */
-  | { key: string; kind: 'groupMore'; group: GrpcGroupIdentity; hidden: number }
-  | { key: string; kind: 'row'; index: number }
-  | { key: string; kind: 'viewer'; index: number }
-  /** One script hook's run — `index` into `scriptMarks`. */
-  | { key: string; kind: 'script'; index: number };
-
-/** The direction lens — `lifecycle` hides every message so the log
- *  reads as its stream story alone. */
-type DirectionFilter = 'all' | 'up' | 'down' | 'lifecycle';
-
-const NO_SCRIPT_MARKS: readonly GrpcScriptMarkItem[] = [];
-
-/** Stable chip palette — the same type name always lands on the same
- *  color within and across calls (the SSE badge recipe). */
-const CHIP_COLORS = ['blue', 'green', 'purple', 'magenta', 'cyan', 'volcano', 'geekblue', 'orange'] as const;
-
-function chipColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return CHIP_COLORS[hash % CHIP_COLORS.length];
-}
-
-/** One direction's name chip — the declared type's short name when the
- *  method resolves, the wire-grammar `message` fallback otherwise. */
-interface DirectionChip {
-  name: string;
-  resolved: boolean;
-}
-
-function mintChip(qualifiedType: string | null): DirectionChip {
-  if (qualifiedType === null || qualifiedType === '') return { name: 'message', resolved: false };
-  const lastDot = qualifiedType.lastIndexOf('.');
-  return { name: lastDot >= 0 ? qualifiedType.slice(lastDot + 1) : qualifiedType, resolved: true };
-}
-
-/** Session timestamps are wall-clock local times — HH:MM:SS.mmm. */
-function formatMessageTime(ts: number): string {
-  const d = new Date(ts);
-  const pad = (n: number, width = 2) => String(n).padStart(width, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
-}
-
-/** Lifecycle label for how the call ended. */
-/** Last entry index whose top offset is at or above `scrollTop`. */
-function entryIndexAt(prefix: readonly number[], scrollTop: number): number {
-  let lo = 0;
-  let hi = prefix.length - 2;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (prefix[mid] <= scrollTop) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
-}
-
-/** Per-item view/preview caches, minted per (registry, types) tuple so
- *  a spec rebuild re-derives instead of serving stale decodes. */
-interface FrameDerivations {
-  viewOf: (item: GrpcTimelineItem) => GrpcMessageView;
-  previewOf: (item: GrpcTimelineItem) => string;
-  /** The frame's bytes as the classic dump — the viewer's Hexdump. */
-  hexOf: (item: GrpcTimelineItem) => HexDump;
-  /** The search haystack — the FULL decoded text (the preview is
-   *  capped; a match deep in a long message still counts), lowercased
-   *  once per item; a raw frame searches by its base64. */
-  searchTextOf: (item: GrpcTimelineItem) => string;
-}
-
-function makeFrameDerivations(
-  registry: ProtoRegistry | null,
-  inputType: string | null,
-  outputType: string | null,
-  hiddenLabel: string,
-): FrameDerivations {
-  const viewCache = new WeakMap<GrpcTimelineItem, GrpcMessageView>();
-  const previewCache = new WeakMap<GrpcTimelineItem, string>();
-  const viewOf = (item: GrpcTimelineItem): GrpcMessageView => {
-    const hit = viewCache.get(item);
-    if (hit !== undefined) return hit;
-    // The capture keeps the bytes; a secret-bearing frame never decodes.
-    const view: GrpcMessageView =
-      item.secret === true
-        ? { kind: 'structural', text: hiddenLabel }
-        : deriveGrpcFrameView(item, registry, item.direction === 'up' ? inputType : outputType);
-    viewCache.set(item, view);
-    return view;
-  };
-  const previewOf = (item: GrpcTimelineItem): string => {
-    const hit = previewCache.get(item);
-    if (hit !== undefined) return hit;
-    const view = viewOf(item);
-    const text =
-      view.kind === 'schema' || view.kind === 'structural'
-        ? view.text.replace(/\n\s*/g, ' ')
-        : view.kind === 'raw'
-          ? view.base64
-          : '';
-    const preview = text.slice(0, PREVIEW_MAX_CHARS);
-    previewCache.set(item, preview);
-    return preview;
-  };
-  const hexCache = new WeakMap<GrpcTimelineItem, HexDump>();
-  const hexOf = (item: GrpcTimelineItem): HexDump => {
-    const hit = hexCache.get(item);
-    if (hit !== undefined) return hit;
-    const dump = buildHexDump(
-      item.secret === true ? new Uint8Array(0) : (decodeBase64Bytes(item.dataBase64) ?? new Uint8Array(0)),
-    );
-    hexCache.set(item, dump);
-    return dump;
-  };
-  const searchCache = new WeakMap<GrpcTimelineItem, string>();
-  const searchTextOf = (item: GrpcTimelineItem): string => {
-    const hit = searchCache.get(item);
-    if (hit !== undefined) return hit;
-    const view = viewOf(item);
-    const text = (
-      view.kind === 'schema' || view.kind === 'structural' ? view.text : view.kind === 'raw' ? view.base64 : ''
-    ).toLowerCase();
-    searchCache.set(item, text);
-    return text;
-  };
-  return { viewOf, previewOf, hexOf, searchTextOf };
+/** A set toggle — the collapse / un-window / expand sets share it. */
+function toggled<T>(prev: ReadonlySet<T>, value: T): ReadonlySet<T> {
+  const next = new Set(prev);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
 }
 
 const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
@@ -376,14 +129,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const [search, setSearch] = useState('');
-  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
-  // Sort-menu visibility is controlled: selecting an option keeps the
-  // menu OPEN (the app's popover convention — only an outside click or
-  // a trigger re-click closes), and the trigger's tooltip suppresses
-  // while the menu shows.
-  const [directionMenuOpen, setDirectionMenuOpen] = useState(false);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [directionFilter, setDirectionFilter] = useState<GrpcDirectionFilter>('all');
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
@@ -392,8 +138,6 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const [sentExpanded, setSentExpanded] = useState(false);
   /** The "Response received" row's metadata line is open. */
   const [connectedExpanded, setConnectedExpanded] = useState(false);
-  /** The received-metadata link word is hovered — the blue tint. */
-  const [metadataLinkHovered, setMetadataLinkHovered] = useState(false);
   /** The error row's explanation details are open. */
   const [errorExpanded, setErrorExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
@@ -402,19 +146,9 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   // written by this toolbar and the Settings page alike; an Invoke/
   // Cancel remount never resets them.
   const [newestFirst, setNewestFirst] = useSetting('requests.grpcMessagesNewestFirst');
-  // Per-row type chips are opt-in (the Postman posture): an rpc's types
-  // are fixed per direction, so the direction badge already tells rows
-  // apart. Group headers always keep the tag — it names the cluster.
   const [showTypes, setShowTypes] = useSetting('requests.grpcMessagesShowTypes');
-  // Two independent grouping axes; both on = COMPOUND (type, direction)
-  // group identity, still ONE header level — an rpc's types are fixed
-  // per direction, so nesting would be degenerate almost everywhere;
-  // direction earns its keep on bidi calls whose request and response
-  // share one type.
   const [groupByType, setGroupByType] = useSetting('requests.grpcMessagesGroupByType');
   const [groupByDirection, setGroupByDirection] = useSetting('requests.grpcMessagesGroupByDirection');
-  // Watch-several-groups-at-once: each group shows only its N newest
-  // rows (the window slides as messages arrive); 0 = no limit.
   const [groupRowLimit, setGroupRowLimit] = useSetting('requests.grpcMessagesGroupRowLimit');
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
   // Per-group escape hatch from the row-limit window — display-local
@@ -430,19 +164,17 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const [stickyRightInset, setStickyRightInset] = useState(1);
 
   const derive = useMemo(
-    () => makeFrameDerivations(registry, inputType, outputType, t('workbench.editors.session.secretHidden')),
+    () => makeGrpcFrameDerivations(registry, inputType, outputType, t('workbench.editors.session.secretHidden')),
     [registry, inputType, outputType],
   );
 
   // Per-direction name chips — a closed function of the resolved rpc
   // types, so every ↑ row shares one chip identity and every ↓ row the
   // other. Group identity rides the same two chips.
-  const chips = useMemo(
+  const chips = useMemo<DirectionChips>(
     () => ({ up: mintChip(inputType), down: mintChip(outputType) }),
     [inputType, outputType],
   );
-
-  const chipOf = (item: GrpcTimelineItem): DirectionChip => (item.direction === 'up' ? chips.up : chips.down);
 
   // When the user has scrolled away from the edge where new rows land
   // and more messages commit, a jump pill floats over the list instead
@@ -492,289 +224,79 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     if (grew && awayFromNewEdgeRef.current) setHasNewMessages(true);
   }, [count]);
 
-  // Every message index passing the search + direction filter, arrival
-  // (call) order ascending — one linear pass of primitive work per
-  // commit/keystroke. The haystack is the decoded preview, plus the
-  // chip name while type chips are SHOWN — search matches what the
-  // user can see.
-  // Search is a LOOKUP: it matches the words every row shows — a
-  // message's decoded preview (and its type chip while shown), a
-  // lifecycle row's rendered line — and hides the rest whatever their
-  // kind. The direction lens gates MESSAGES only; under it the
-  // lifecycle rows stay as the skeleton.
   const needle = search.trim().toLowerCase();
-  const visibleRows = useMemo(() => {
-    const chipNeedles = showTypes
-      ? { up: chips.up.name.toLowerCase(), down: chips.down.name.toLowerCase() }
-      : null;
-    const rows: number[] = [];
-    for (let i = clearedCount; i < count; i++) {
-      const item = items[i];
-      const direction = item.direction ?? 'down';
-      if (directionFilter === 'lifecycle') continue;
-      if (directionFilter !== 'all' && direction !== directionFilter) continue;
-      if (
-        needle !== '' &&
-        !(chipNeedles !== null && chipNeedles[direction].includes(needle)) &&
-        !derive.searchTextOf(item).includes(needle)
-      ) {
-        continue;
-      }
-      rows.push(i);
-    }
-    return rows;
-  }, [items, count, clearedCount, needle, directionFilter, derive, chips, showTypes]);
-
-  // The fixed rows under a search — each shows only when its words
-  // carry the needle (the same words the row paints).
-  const fixedShown = useMemo(() => {
-    const shown = (kind: keyof typeof fixedRowText): boolean =>
-      needle === '' ||
-      `${fixedRowText[kind](lifecycle, t)}\n${fixedRowDetailText(kind, lifecycle, t)}`.toLowerCase().includes(needle);
-    return { sent: shown('sent'), connected: shown('connected'), ended: shown('ended') };
-  }, [needle, lifecycle, t]);
-
+  const visibleRows = useMemo(
+    () => filterVisibleRows({ items, count, clearedCount, needle, directionFilter, derive, chips, showTypes }),
+    [items, count, clearedCount, needle, directionFilter, derive, chips, showTypes],
+  );
+  const fixedShown = useMemo(() => fixedRowsShown(needle, lifecycle, t), [needle, lifecycle, t]);
   const displayRows = useMemo(
     () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
     [visibleRows, newestFirst],
   );
-
-  // Partition the display rows under group headers — identity composed
-  // from the ENABLED axes (type name, direction, or the compound pair).
-  // Group order ANCHORS to each identity's first appearance in the log
-  // — a group never trades places once minted (new messages only
-  // change its contents); only a brand-new identity mints a group, at
-  // the new edge. The sort direction flips the reading of that fixed
-  // order, and rows within a group keep the arrival order.
-  const groups = useMemo(() => {
-    if (!groupByType && !groupByDirection) return null;
-    const identityOf = (item: GrpcTimelineItem): GrpcGroupIdentity => {
-      const direction: 'up' | 'down' = item.direction === 'up' ? 'up' : 'down';
-      const name = chipOf(item).name;
-      const key =
-        groupByType && groupByDirection ? `${direction}:${name}` : groupByType ? `t:${name}` : direction;
-      return {
-        key,
-        direction: groupByDirection ? direction : null,
-        name: groupByType ? name : null,
-      };
-    };
-    const firstSeen = new Map<string, number>();
-    for (let i = clearedCount; i < count; i++) {
-      const key = identityOf(items[i]).key;
-      if (!firstSeen.has(key)) firstSeen.set(key, i);
-    }
-    const byKey = new Map<string, { identity: GrpcGroupIdentity; indexes: number[] }>();
-    for (const index of displayRows) {
-      const identity = identityOf(items[index]);
-      const bucket = byKey.get(identity.key);
-      if (bucket) bucket.indexes.push(index);
-      else byKey.set(identity.key, { identity, indexes: [index] });
-    }
-    const anchored = [...byKey.values()].sort(
-      (a, b) => (firstSeen.get(a.identity.key) ?? 0) - (firstSeen.get(b.identity.key) ?? 0),
-    );
-    return newestFirst ? anchored.reverse() : anchored;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: chipOf derives from chips, which IS a dep.
-  }, [displayRows, groupByType, groupByDirection, items, count, clearedCount, newestFirst, chips]);
+  const groups = useMemo(
+    () =>
+      partitionGroups({ items, count, clearedCount, displayRows, chips, groupByType, groupByDirection, newestFirst }),
+    [items, count, clearedCount, displayRows, chips, groupByType, groupByDirection, newestFirst],
+  );
 
   const filtering = search.trim() !== '' || directionFilter !== 'all';
-  const live = lifecycle.endedBy === undefined;
-  const sentMetadata = lifecycle.requestMetadata ?? [];
-  const sentRecorded = lifecycle.requestMetadata !== undefined;
-  const sentSecretKeys = new Set((lifecycle.secretMetadataKeys ?? []).map((key) => key.toLowerCase()));
-  const sentDetailOpen = sentExpanded && sentRecorded;
+  const sentMetadataCount = lifecycle.requestMetadata?.length ?? 0;
+  const sentDetailOpen = sentExpanded && lifecycle.requestMetadata !== undefined;
   const errorExpandable =
     (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') && lifecycle.endedMessage !== undefined;
   const errorDetailOpen = errorExpanded && errorExpandable;
-  const connectedExpandable = responseMetadataCount !== undefined;
-  const connectedDetailOpen = connectedExpanded && connectedExpandable;
+  const connectedDetailOpen = connectedExpanded && responseMetadataCount !== undefined;
 
-  // The flat display list the virtual window runs over. The timeline
-  // is ONE event log: ungrouped, "Response received" interleaves at
-  // the recorded head position among the rows (flipping with the
-  // sort); grouped mode is clustering, so the head row joins "Request
-  // sent" at the chronological edge instead. Waiting/no-match notices
-  // sit at the edge new rows land on. O(display rows) pushes per
-  // commit; each group's entry-index range feeds the sticky header.
-  const { entries, groupRanges } = useMemo(() => {
-    const out: ListEntry[] = [];
-    const ranges: Array<{ key: string; startEntry: number; endEntry: number }> = [];
-    const pushRow = (index: number) => {
-      out.push({ key: `r${index}`, kind: 'row', index });
-      if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
-    };
-    const pushSent = () => {
-      if (!fixedShown.sent) return;
-      out.push({ key: 'sent', kind: 'sent' });
-      if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
-    };
-    const pushConnected = () => {
-      if (!fixedShown.connected) return;
-      out.push({ key: 'connected', kind: 'connected' });
-      if (connectedDetailOpen) out.push({ key: 'connectedDetail', kind: 'connectedDetail' });
-    };
-    const pushEnded = () => {
-      if (lifecycle.endedBy === undefined || !fixedShown.ended) return;
-      out.push({ key: 'ended', kind: 'ended' });
-      if (errorDetailOpen) out.push({ key: 'errorDetail', kind: 'errorDetail' });
-    };
-    // The script marks — a cleared log drops the marks that landed
-    // before the clear along with the messages; a search keeps only
-    // the marks whose words carry the needle.
-    const marks: number[] = [];
-    scriptMarks.forEach((mark, i) => {
-      if (mark.atIndex < clearedCount) return;
-      if (needle !== '' && !scriptRowText(mark, t).toLowerCase().includes(needle)) return;
-      marks.push(i);
-    });
-    const pushMarks = (indexes: readonly number[]) => {
-      for (const i of indexes) out.push({ key: `s${i}`, kind: 'script', index: i });
-    };
-    const headAt = lifecycle.headArrived ? (lifecycle.headAtMessage ?? 0) : null;
-    // A search that found a lifecycle row found something — the notice
-    // is for a filter that leaves NOTHING to read. Under Lifecycle only
-    // the empty message set is the point, not a miss.
-    const lifecycleMatched =
-      needle !== '' &&
-      (marks.length > 0 ||
-        fixedShown.sent ||
-        (headAt !== null && fixedShown.connected) ||
-        (lifecycle.endedBy !== undefined && fixedShown.ended));
-    const notice: ListEntry | null =
-      filtering &&
-      directionFilter !== 'lifecycle' &&
-      displayRows.length === 0 &&
-      count > clearedCount &&
-      !lifecycleMatched
-        ? { key: 'none', kind: 'noMatches' }
-        : null;
-
-    // Top chronological edge.
-    if (newestFirst) {
-      pushEnded();
-      if (notice) out.push(notice);
-    } else {
-      pushSent();
-      if (groups !== null) {
-        // Grouped mode clusters; the marks join the head row at the edge.
-        if (headAt !== null) pushConnected();
-        pushMarks(marks);
-      }
-    }
-
-    if (groups !== null) {
-      for (const { identity, indexes } of groups) {
-        const startEntry = out.length;
-        const collapsed = collapsedGroups.has(identity.key);
-        out.push({ key: `h${identity.key}`, kind: 'header', group: identity, count: indexes.length, collapsed });
-        if (!collapsed) {
-          // displayRows order puts a group's newest member first in
-          // newest-first and last in oldest-first — the limit window
-          // slices the newest end either way. A group the user
-          // un-windowed shows everything, with a re-window toggle in
-          // the same slot the "show older" affordance occupies.
-          const windowed = groupRowLimit > 0 && !unwindowedGroups.has(identity.key) && indexes.length > groupRowLimit;
-          const shown = windowed
-            ? newestFirst
-              ? indexes.slice(0, groupRowLimit)
-              : indexes.slice(-groupRowLimit)
-            : indexes;
-          const more: ListEntry | null = windowed
-            ? { key: `m${identity.key}`, kind: 'groupMore', group: identity, hidden: indexes.length - shown.length }
-            : null;
-          // The toggle sits at the group's OLDER edge — where the
-          // hidden rows would continue: below the shown tail in
-          // newest-first, right under the header in oldest-first.
-          if (!newestFirst && more) out.push(more);
-          for (const index of shown) pushRow(index);
-          if (newestFirst && more) out.push(more);
-        }
-        ranges.push({ key: identity.key, startEntry, endEntry: out.length });
-      }
-    } else {
-      // One event log in call order: walk ascending, drop the head row
-      // where the executor recorded it and each mark before the first
-      // visible message at or past its position (a filtered-out
-      // message never hides a mark), the rest trailing the last
-      // message, then read the whole sequence in the sort direction.
-      const tokens: Array<number | 'connected' | { mark: number }> = [];
-      let connectedPushed = false;
-      let nextMark = 0;
-      for (const index of visibleRows) {
-        if (headAt !== null && !connectedPushed && index >= headAt) {
-          tokens.push('connected');
-          connectedPushed = true;
-        }
-        while (nextMark < marks.length && scriptMarks[marks[nextMark]].atIndex <= index) {
-          tokens.push({ mark: marks[nextMark] });
-          nextMark += 1;
-        }
-        tokens.push(index);
-      }
-      if (headAt !== null && !connectedPushed) tokens.push('connected');
-      for (; nextMark < marks.length; nextMark++) tokens.push({ mark: marks[nextMark] });
-      if (newestFirst) tokens.reverse();
-      for (const token of tokens) {
-        if (token === 'connected') pushConnected();
-        else if (typeof token === 'number') pushRow(token);
-        else pushMarks([token.mark]);
-      }
-    }
-
-    // Bottom chronological edge.
-    if (newestFirst) {
-      if (groups !== null) {
-        pushMarks([...marks].reverse());
-        if (headAt !== null) pushConnected();
-      }
-      pushSent();
-    } else {
-      if (notice) out.push(notice);
-      pushEnded();
-    }
-    return { entries: out, groupRanges: ranges };
-  }, [
-    fixedShown,
-    needle,
-    lifecycle,
-    t,
-    newestFirst,
-    lifecycle.headArrived,
-    lifecycle.headAtMessage,
-    lifecycle.endedBy,
-    live,
-    count,
-    clearedCount,
-    filtering,
-    visibleRows,
-    displayRows,
-    groups,
-    scriptMarks,
-    expanded,
-    sentDetailOpen,
-    connectedDetailOpen,
-    errorDetailOpen,
-    collapsedGroups,
-    groupRowLimit,
-    unwindowedGroups,
-  ]);
-
-  const heights = useMemo(
+  const { entries, groupRanges } = useMemo(
     () =>
-      entries.map((e) =>
-        e.kind === 'viewer'
-          ? VIEWER_PX
-          : e.kind === 'sentDetail'
-            ? sentDetailPx(sentMetadata.length)
-            : e.kind === 'errorDetail'
-              ? ERROR_DETAIL_PX
-              : e.kind === 'connectedDetail'
-                ? CONNECTED_DETAIL_PX
-                : SINGLE_ROW_PX,
-      ),
-    [entries, sentMetadata.length],
+      buildTimelineEntries({
+        lifecycle,
+        t,
+        needle,
+        newestFirst,
+        count,
+        clearedCount,
+        filtering,
+        directionFilter,
+        visibleRows,
+        displayRows,
+        groups,
+        scriptMarks,
+        fixedShown,
+        expanded,
+        sentDetailOpen,
+        connectedDetailOpen,
+        errorDetailOpen,
+        collapsedGroups,
+        groupRowLimit,
+        unwindowedGroups,
+      }),
+    [
+      lifecycle,
+      t,
+      needle,
+      newestFirst,
+      count,
+      clearedCount,
+      filtering,
+      directionFilter,
+      visibleRows,
+      displayRows,
+      groups,
+      scriptMarks,
+      fixedShown,
+      expanded,
+      sentDetailOpen,
+      connectedDetailOpen,
+      errorDetailOpen,
+      collapsedGroups,
+      groupRowLimit,
+      unwindowedGroups,
+    ],
   );
+
+  const heights = useMemo(() => entryHeights(entries, sentMetadataCount), [entries, sentMetadataCount]);
 
   const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, prefix } = useVirtualRowWindow(
     scrollerRef,
@@ -831,892 +353,40 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
     if (el) updateStickyGroup(el);
   }, [entries, prefix]);
 
-  const toggleGroup = (name: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
-  const toggleGroupWindow = (name: string) => {
-    setUnwindowedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
-  const toggleRow = (index: number) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-  };
-
-  const singleRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    height: SINGLE_ROW_PX,
-    boxSizing: 'border-box',
-    padding: '0 10px',
-    borderBottom: STREAM_HAIRLINE,
-    overflow: 'hidden',
-  };
-
-  const lifecycleRowStyle: React.CSSProperties = {
-    ...singleRowStyle,
-    color: token.colorTextSecondary,
-    fontSize: 12,
-  };
-
-  const lifecycleTime = (ts: number | undefined): React.ReactNode =>
-    ts !== undefined ? (
-      <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
-        {formatMessageTime(ts)}
-      </span>
-    ) : null;
-
-  // Trailing expand slot — fixed width on the timestamped rows so the
-  // right-aligned times line up in one column; expandable rows render
-  // their chevron in it, the rest leave it empty (the WS/MQTT
-  // timelines' anatomy).
-  const expandSlot = (isExpanded: boolean | null): React.ReactNode => (
-    <span
-      aria-hidden
-      style={{ width: 12, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-    >
-      {isExpanded !== null &&
-        (isExpanded ? (
-          <UpOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-        ) : (
-          <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-        ))}
-    </span>
-  );
-
-  const chipTag = (chip: DirectionChip, testid: string): React.ReactNode => (
-    <Tag
-      data-testid={testid}
-      color={chip.resolved ? chipColor(chip.name) : undefined}
-      style={{
-        marginInlineEnd: 0,
-        fontSize: 11,
-        lineHeight: '18px',
-        flexShrink: 0,
-        ...(chip.resolved ? {} : { fontStyle: 'italic', color: token.colorTextTertiary }),
-      }}
-    >
-      {chip.name}
-    </Tag>
-  );
-
-  /** A group's chip identity — resolved styling follows the direction
-   *  chip carrying that name. */
-  const groupChip = (name: string): DirectionChip =>
-    chips.up.name === name ? chips.up : chips.down.name === name ? chips.down : { name, resolved: true };
-
-  // Lifecycle glyph — centered in the direction badge's 18px slot so
-  // every row's leading mark sits on ONE column, drawn at the size the
-  // badge reads at (the circle's footprint ≈ the tinted box).
-  const lifecycleGlyph = (icon: React.ReactNode): React.ReactNode => (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 18,
-        height: 18,
-        flexShrink: 0,
-        fontSize: 15,
-      }}
-    >
-      {icon}
-    </span>
-  );
-
-  // Boxed direction badge — ↑ amber, ↓ blue on their tinted
-  // backgrounds (the Postman anatomy; the tint tokens adapt per
-  // theme), shared by message rows and direction-grouped headers.
-  const directionBadge = (up: boolean): React.ReactNode => (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        flexShrink: 0,
-        background: up ? token.colorWarningBgHover : token.colorPrimaryBg,
-      }}
-    >
-      {up ? (
-        <ArrowUpOutlined
-          aria-label={t('workbench.editors.grpc.timeline.sentAria')}
-          style={{ fontSize: 11, color: token.colorTextSecondary }}
-        />
-      ) : (
-        <ArrowDownOutlined
-          aria-label={t('workbench.editors.grpc.timeline.receivedAria')}
-          style={{ fontSize: 11, color: token.colorTextSecondary }}
-        />
-      )}
-    </span>
-  );
-
-  /** One group-header row — shared by the in-list entry and the sticky
-   *  overlay (same anatomy, same collapse action, distinct testid).
-   *  The marks are the identity's enabled axes: direction badge,
-   *  type chip, or both (the compound grouping). */
-  const renderGroupHeaderRow = (
-    group: GrpcGroupIdentity,
-    memberCount: number,
-    collapsed: boolean,
-    testid: string,
-    key?: string,
-  ): React.ReactNode => (
-    <div
-      key={key}
-      role="button"
-      tabIndex={0}
-      aria-expanded={!collapsed}
-      data-testid={testid}
-      onClick={() => toggleGroup(group.key)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          toggleGroup(group.key);
-        }
-      }}
-      style={{ ...singleRowStyle, background: token.colorFillQuaternary, cursor: 'pointer' }}
-    >
-      <CaretRightOutlined
-        aria-hidden
-        rotate={collapsed ? 0 : 90}
-        style={{ fontSize: 10, color: token.colorTextTertiary }}
-      />
-      {group.direction !== null && directionBadge(group.direction === 'up')}
-      {group.name !== null && chipTag(groupChip(group.name), 'grpc-timeline-group-badge')}
-      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-        {t('workbench.editors.grpc.timeline.messageCount', { count: memberCount })}
-      </Text>
-      {/* Re-window action for an un-windowed group — a group-level
-          mode switch, so it rides the header (beside the total, past a
-          divider) rather than a positional row. Clicks stay off the
-          header's collapse action. */}
-      {!collapsed && groupRowLimit > 0 && unwindowedGroups.has(group.key) && memberCount > groupRowLimit && (
-        <>
-          <span aria-hidden style={{ width: 1, height: 14, background: token.colorBorderSecondary }} />
-          <span
-            role="button"
-            tabIndex={0}
-            data-testid="grpc-timeline-group-rewindow"
-            onClick={(event) => {
-              event.stopPropagation();
-              toggleGroupWindow(group.key);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                event.stopPropagation();
-                toggleGroupWindow(group.key);
-              }
-            }}
-            style={{ fontSize: 11, color: token.colorPrimary, whiteSpace: 'nowrap', cursor: 'pointer' }}
-          >
-            {t('shared.timelineGroup.showNewestOnly', { count: groupRowLimit })}
-          </span>
-        </>
-      )}
-    </div>
-  );
-
-  const renderEntry = (entry: ListEntry): React.ReactNode => {
-    switch (entry.kind) {
-      case 'sent': {
-        // With a recorded metadata truth the row expands to the pairs
-        // the call actually carried — or to the honest "No metadata
-        // sent." line (the MQTT Connected row's anatomy). Unrecorded
-        // (live phase, older hosts) reads plain.
-        const expandable = sentRecorded;
-        return (
-          <div
-            key={entry.key}
-            data-testid="grpc-timeline-sent-row"
-            {...(expandable
-              ? {
-                  role: 'button',
-                  tabIndex: 0,
-                  'aria-expanded': sentExpanded,
-                  className: 'oh-stream-row',
-                  onClick: () => setSentExpanded((open) => !open),
-                  onKeyDown: (event: React.KeyboardEvent) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setSentExpanded((open) => !open);
-                    }
-                  },
-                }
-              : {})}
-            style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
-          >
-            {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.grpc.timeline.requestSent')}
-            </span>
-            {lifecycleTime(lifecycle.startedAt)}
-            {expandSlot(expandable ? sentExpanded : null)}
-          </div>
-        );
-      }
-      case 'sentDetail':
-        return (
-          <div
-            key={entry.key}
-            data-testid="grpc-timeline-metadata-details"
-            style={{
-              height: sentDetailPx(sentMetadata.length),
-              boxSizing: 'border-box',
-              padding: '6px 10px 6px 37px',
-              borderBottom: STREAM_HAIRLINE,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ ...cellFont, fontSize: 11, lineHeight: '18px', height: 18, color: token.colorTextTertiary }}>
-              {t('workbench.editors.grpc.response.tab.metadata')}
-            </div>
-            {sentMetadata.length === 0 ? (
-              <div style={{ ...cellFont, lineHeight: '20px', height: 20, color: token.colorTextSecondary }}>
-                {t('workbench.editors.grpc.timeline.noMetadataSent')}
-              </div>
-            ) : (
-              sentMetadata.map((pair, index) => (
-                <div
-                  key={`${String(index)}:${pair.key}`}
-                  style={{
-                    ...cellFont,
-                    lineHeight: '20px',
-                    height: 20,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  <span style={{ color: token.colorTextSecondary }}>{pair.key}: </span>
-                  <span style={{ color: token.colorText }}>
-                    {sentSecretKeys.has(pair.key.toLowerCase())
-                      ? t('workbench.editors.session.secretHidden')
-                      : pair.value}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        );
-      case 'errorDetail':
-        if (lifecycle.endedMessage === undefined) return null;
-        // The failure explained — the shared guidance line, then the
-        // classified message verbatim on the error tint (full text on
-        // hover).
-        return (
-          <div
-            key={entry.key}
-            data-testid="grpc-timeline-error-details"
-            style={{
-              height: ERROR_DETAIL_PX,
-              boxSizing: 'border-box',
-              padding: '6px 10px 6px 37px',
-              borderBottom: STREAM_HAIRLINE,
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                fontSize: 12,
-                lineHeight: '20px',
-                height: 20,
-                color: token.colorTextSecondary,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {t('workbench.editors.grpc.response.error.localGuidance')}
-            </div>
-            <div
-              title={
-                lifecycle.endedAdvice !== undefined
-                  ? `${lifecycle.endedMessage} ${lifecycle.endedAdvice}`
-                  : lifecycle.endedMessage
-              }
-              data-testid="grpc-session-error-detail"
-              style={{
-                fontSize: 12,
-                lineHeight: '20px',
-                height: 20,
-                color: token.colorError,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {lifecycle.endedMessage}
-              {lifecycle.endedAdvice !== undefined && (
-                <span data-testid="grpc-session-error-advice" style={{ color: token.colorTextSecondary }}>
-                  {` ${lifecycle.endedAdvice}`}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      case 'connected':
-        // Expands to the received-metadata line — a jump to the
-        // Metadata tab, or the honest "No metadata received." one.
-        return (
-          <div
-            key={entry.key}
-            data-testid="grpc-timeline-connected-row"
-            {...(connectedExpandable
-              ? {
-                  role: 'button',
-                  tabIndex: 0,
-                  'aria-expanded': connectedExpanded,
-                  className: 'oh-stream-row',
-                  onClick: () => setConnectedExpanded((open) => !open),
-                  onKeyDown: (event: React.KeyboardEvent) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setConnectedExpanded((open) => !open);
-                    }
-                  },
-                }
-              : {})}
-            style={{ ...lifecycleRowStyle, ...(connectedExpandable ? { cursor: 'pointer' } : {}) }}
-          >
-            {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.grpc.timeline.responseReceived')}
-            </span>
-            {lifecycleTime(lifecycle.connectedAt)}
-            {expandSlot(connectedExpandable ? connectedExpanded : null)}
-          </div>
-        );
-      case 'connectedDetail':
-        return (
-          <div
-            key={entry.key}
-            data-testid="grpc-timeline-connected-details"
-            style={{
-              height: CONNECTED_DETAIL_PX,
-              boxSizing: 'border-box',
-              padding: '6px 10px 6px 37px',
-              borderBottom: STREAM_HAIRLINE,
-              overflow: 'hidden',
-            }}
-          >
-            {(responseMetadataCount ?? 0) > 0 ? (
-              (() => {
-                // The sentence splits on the {metadata} marker so only
-                // the linked WORD carries the affordance — word order
-                // stays each locale's own.
-                const [before = '', after = ''] = t('workbench.editors.grpc.timeline.receivedMetadata').split(
-                  '{metadata}',
-                );
-                return (
-                  <div style={{ fontSize: 12, lineHeight: '20px', height: 20, color: token.colorTextSecondary }}>
-                    {before}
-                    <button
-                      type="button"
-                      data-testid="grpc-timeline-received-metadata-link"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onShowMetadata?.();
-                      }}
-                      onMouseEnter={() => setMetadataLinkHovered(true)}
-                      onMouseLeave={() => setMetadataLinkHovered(false)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        fontSize: 12,
-                        lineHeight: '20px',
-                        color: metadataLinkHovered ? token.colorPrimary : token.colorText,
-                        textDecoration: 'underline',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {t('workbench.editors.grpc.timeline.receivedMetadataLink')}
-                    </button>
-                    {after}
-                  </div>
-                );
-              })()
-            ) : (
-              <div style={{ fontSize: 12, lineHeight: '20px', height: 20, color: token.colorTextSecondary }}>
-                {t('workbench.editors.grpc.timeline.noMetadataReceived')}
-              </div>
-            )}
-          </div>
-        );
-      case 'ended': {
-        if (lifecycle.endedBy === undefined) return null;
-        // A pre-head failure — and a connection lost after the head —
-        // reads as the red-iconed row with the PLAIN label; the
-        // explanation lives behind the chevron (the sent row's
-        // expansion anatomy).
-        if (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') {
-          return (
-            <div
-              key={entry.key}
-              data-testid="grpc-timeline-ended-row"
-              {...(errorExpandable
-                ? {
-                    role: 'button',
-                    tabIndex: 0,
-                    'aria-expanded': errorExpanded,
-                    className: 'oh-stream-row',
-                    onClick: () => setErrorExpanded((open) => !open),
-                    onKeyDown: (event: React.KeyboardEvent) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setErrorExpanded((open) => !open);
-                      }
-                    },
-                  }
-                : {})}
-              style={{ ...lifecycleRowStyle, ...(errorExpandable ? { cursor: 'pointer' } : {}) }}
-            >
-              {lifecycleGlyph(
-                lifecycle.endedBy === 'lost' ? (
-                  <DisconnectOutlined aria-hidden style={{ color: token.colorError }} />
-                ) : (
-                  <CloseCircleOutlined aria-hidden style={{ color: token.colorError }} />
-                ),
-              )}
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {endedRowText(lifecycle, t)}
-              </span>
-              {onTrustCertificate !== undefined && (
-                <Button
-                  size="small"
-                  aria-pressed={trustOfferOpen}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onTrustCertificate();
-                  }}
-                  onKeyDown={(event) => event.stopPropagation()}
-                  style={{ flexShrink: 0 }}
-                  data-testid="grpc-timeline-trust-certificate"
-                >
-                  {t('workbench.editors.grpc.timeline.trustCertificate')}
-                </Button>
-              )}
-              {lifecycleTime(lifecycle.endedAt)}
-              {expandSlot(errorExpandable ? errorExpanded : null)}
-            </div>
-          );
-        }
-        return (
-          <div key={entry.key} data-testid="grpc-timeline-ended-row" style={lifecycleRowStyle}>
-            {lifecycleGlyph(
-              lifecycle.endedBy === 'complete' ? (
-                <CheckCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
-              ) : (
-                <DisconnectOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
-              ),
-            )}
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {endedRowText(lifecycle, t)}
-            </span>
-            {lifecycleTime(lifecycle.endedAt)}
-            {expandSlot(null)}
-          </div>
-        );
-      }
-      case 'noMatches':
-        return (
-          <div key={entry.key} style={lifecycleRowStyle}>
-            <span>{t('workbench.editors.grpc.timeline.noMatches')}</span>
-          </div>
-        );
-      case 'script': {
-        // One hook ran — the hook, the levels that contributed and
-        // the verdict; a failure names its error.
-        const mark = scriptMarks[entry.index];
-        if (mark === undefined) return null;
-        return (
-          <div
-            key={entry.key}
-            className="oh-info-hover-host"
-            data-testid="grpc-timeline-script-row"
-            style={lifecycleRowStyle}
-          >
-            {lifecycleGlyph(
-              <CodeOutlined
-                aria-hidden
-                style={{ color: mark.succeeded ? token.colorTextTertiary : token.colorError }}
-              />,
-            )}
-            <span
-              {...(mark.error !== undefined ? { title: mark.error.message } : {})}
-              style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
-              {scriptRowText(mark, t)}
-            </span>
-            {/* The hook's own (i) — the rail row's lifecycle card, the
-              mark's hook line lit; revealed on hover so a chatty
-              stream's marks stay a quiet column. */}
-            <InfoTrigger className="oh-info-trigger--hover" content={scriptSlotInfo(mark.hook, t)} />
-            {lifecycleTime(mark.atMs)}
-            {expandSlot(null)}
-          </div>
-        );
-      }
-      case 'header':
-        return renderGroupHeaderRow(entry.group, entry.count, entry.collapsed, 'grpc-timeline-group-header', entry.key);
-      case 'groupMore':
-        return (
-          <div
-            key={entry.key}
-            role="button"
-            tabIndex={0}
-            className="oh-stream-row"
-            data-testid="grpc-timeline-group-more"
-            onClick={() => toggleGroupWindow(entry.group.key)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggleGroupWindow(entry.group.key);
-              }
-            }}
-            style={{ ...singleRowStyle, cursor: 'pointer', fontSize: 12, color: token.colorPrimary }}
-          >
-            {t('shared.timelineGroup.showOlder', { count: entry.hidden })}
-          </div>
-        );
-      case 'row': {
-        const item = items[entry.index];
-        const up = item.direction === 'up';
-        const chip = up ? chips.up : chips.down;
-        const isExpanded = expanded.has(entry.index);
-        const ts = timestamps?.[entry.index];
-        const view = derive.viewOf(item);
-        return (
-          <div
-            key={entry.key}
-            role="button"
-            tabIndex={0}
-            aria-expanded={isExpanded}
-            className="oh-stream-row"
-            data-testid="grpc-timeline-message-row"
-            onClick={() => toggleRow(entry.index)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggleRow(entry.index);
-              }
-            }}
-            style={{ ...singleRowStyle, cursor: 'pointer' }}
-          >
-            {directionBadge(up)}
-            {showTypes && chipTag(chip, 'grpc-timeline-message-badge')}
-            <span
-              style={{
-                ...cellFont,
-                color: token.colorTextSecondary,
-                flex: 1,
-                minWidth: 0,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                ...(view.kind === 'compressed' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-              }}
-            >
-              {view.kind === 'compressed' ? t('workbench.editors.grpc.response.compressed') : derive.previewOf(item)}
-            </span>
-            {ts !== undefined && (
-              <span
-                data-testid="grpc-timeline-message-time"
-                style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0 }}
-              >
-                {formatMessageTime(ts)}
-              </span>
-            )}
-            {expandSlot(isExpanded)}
-          </div>
-        );
-      }
-      case 'viewer': {
-        const item = items[entry.index];
-        const view = derive.viewOf(item);
-        // A decoded frame reads as JSON; the raw and compressed frames
-        // have only their bytes — they open on the Hexdump, the text
-        // views read the base64.
-        const decoded = view.kind === 'schema' || view.kind === 'structural';
-        const text = decoded ? view.text : view.kind === 'raw' ? view.base64 : '';
-        return (
-          <TimelineMessageViewer
-            key={entry.key}
-            text={text}
-            defaultFormat={decoded ? 'json' : 'text'}
-            hexDump={() => derive.hexOf(item)}
-            base64={() => (item.secret === true ? text : item.dataBase64)}
-            mode={viewerModes.modeOf(entry.index, !decoded)}
-            onModeChange={(mode) => viewerModes.setMode(entry.index, mode)}
-            wrapLines={wrapLines}
-            onWrapLinesChange={setWrapLines}
-            actionsRef={viewerModes.actionsOf(entry.index)}
-            testIdPrefix="grpc-timeline"
-          />
-        );
-      }
-      default: {
-        const _exhaustive: never = entry;
-        void _exhaustive;
-        return null;
-      }
-    }
-  };
+  const toggleGroup = (key: string) => setCollapsedGroups((prev) => toggled(prev, key));
+  const toggleGroupWindow = (key: string) => setUnwindowedGroups((prev) => toggled(prev, key));
+  const toggleRow = (index: number) => setExpanded((prev) => toggled(prev, index));
 
   // The pinned header overlay's source group — resolved fresh so the
   // count and collapse state track the live list.
   const stickySource =
     stickyGroup !== null && groups !== null ? groups.find((g) => g.identity.key === stickyGroup) : undefined;
 
-  // The direction options — the menu rows and the trigger's label are
-  // the same words, so the trigger reads the filter in force.
-  const directionOptions: ReadonlyArray<{ value: DirectionFilter; icon: React.ReactNode | null; label: string }> = [
-    { value: 'all', icon: null, label: t('workbench.editors.grpc.timeline.filterAllMessages') },
-    { value: 'up', icon: <ArrowUpOutlined />, label: t('workbench.editors.grpc.timeline.filterSent') },
-    { value: 'down', icon: <ArrowDownOutlined />, label: t('workbench.editors.grpc.timeline.filterReceived') },
-    { value: 'lifecycle', icon: <InfoCircleOutlined />, label: t('workbench.editors.grpc.timeline.filterLifecycle') },
-  ];
-  const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
-  const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      {icon}
-      {label}
-    </span>
-  );
-  // The View menu's on-knobs ride antd's selection plane (several at
-  // once); the Rows per group submenu is the one single choice.
-  const viewSelectedKeys = [
-    ...(showTypes ? ['show-types'] : []),
-    ...(groupByType ? ['group'] : []),
-    ...(groupByDirection ? ['group-direction'] : []),
-    `group-limit-${groupRowLimit}`,
-  ];
-
   return (
     <div
       data-testid="grpc-message-timeline"
       style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
     >
-      {/* The strip — the MQTT timeline's: search, the direction menu and
-          the count on the left; Sort by, View and Clear on the right,
-          every trigger icon + label; the single-choice menus and the
-          View menu paint the Editor menu's row anatomy. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Input
-          size="small"
-          allowClear
-          prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-          placeholder={t('workbench.editors.grpc.timeline.searchMessages')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          data-testid="grpc-timeline-search"
-          style={{ maxWidth: 220 }}
-        />
-        <Dropdown
-          trigger={['click']}
-          placement="bottomLeft"
-          open={directionMenuOpen}
-          onOpenChange={(open, info) => {
-            if (info.source === 'menu') return;
-            setDirectionMenuOpen(open);
-          }}
-          menu={{
-            rootClassName: 'oh-choice-menu',
-            selectable: true,
-            selectedKeys: [directionFilter],
-            items: directionOptions.map((option) => ({
-              key: option.value,
-              label: menuRow(option.icon, option.label),
-              onClick: () => {
-                setDirectionFilter(option.value);
-                setDirectionMenuOpen(false);
-              },
-            })),
-          }}
-        >
-          <Tooltip
-            title={t('workbench.editors.grpc.timeline.directionFilter')}
-            placement="bottom"
-            open={directionMenuOpen ? false : undefined}
-          >
-            <Button
-              size="small"
-              type="text"
-              data-testid="grpc-timeline-direction-filter"
-              aria-label={t('workbench.editors.grpc.timeline.directionFilter')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              {activeDirection.icon}
-              {activeDirection.label}
-              <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
-            </Button>
-          </Tooltip>
-        </Dropdown>
-        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="grpc-timeline-count">
-          {filtering
-            ? t('workbench.editors.grpc.timeline.messageCountFiltered', {
-                shown: visibleRows.length,
-                total: count - clearedCount,
-              })
-            : t('workbench.editors.grpc.timeline.messageCount', { count: count - clearedCount })}
-        </Text>
-        <span style={{ marginLeft: 'auto' }} />
-        <Dropdown
-          trigger={['click']}
-          placement="bottomRight"
-          open={sortMenuOpen}
-          onOpenChange={(open, info) => {
-            if (info.source === 'menu') return;
-            setSortMenuOpen(open);
-          }}
-          menu={{
-            rootClassName: 'oh-choice-menu',
-            selectable: true,
-            selectedKeys: [newestFirst ? 'newest' : 'oldest'],
-            items: [
-              {
-                key: 'newest',
-                label: t('workbench.editors.grpc.timeline.newestFirst'),
-                onClick: () => {
-                  setNewestFirst(true);
-                  setSortMenuOpen(false);
-                },
-              },
-              {
-                key: 'oldest',
-                label: t('workbench.editors.grpc.timeline.oldestFirst'),
-                onClick: () => {
-                  setNewestFirst(false);
-                  setSortMenuOpen(false);
-                },
-              },
-            ],
-          }}
-        >
-          <Tooltip
-            title={t('workbench.editors.grpc.timeline.sortOrder')}
-            placement="bottom"
-            open={sortMenuOpen ? false : undefined}
-          >
-            <Button
-              size="small"
-              type="text"
-              icon={newestFirst ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
-              data-testid="grpc-timeline-sort"
-              aria-label={t('workbench.editors.grpc.timeline.sortOrder')}
-            >
-              {t('workbench.editors.grpc.timeline.sortBy')}
-            </Button>
-          </Tooltip>
-        </Dropdown>
-        <Dropdown
-          trigger={['click']}
-          placement="bottomRight"
-          open={viewMenuOpen}
-          onOpenChange={(open, info) => {
-            // Menu-item clicks keep the popover open — several knobs
-            // flip in one visit; only the trigger and outside clicks
-            // change visibility.
-            if (info.source === 'menu') return;
-            setViewMenuOpen(open);
-          }}
-          menu={{
-            rootClassName: 'oh-view-menu',
-            selectable: true,
-            multiple: true,
-            selectedKeys: viewSelectedKeys,
-            items: [
-              {
-                type: 'group',
-                label: t('workbench.editors.grpc.timeline.viewShow'),
-                children: [
-                  {
-                    key: 'show-types',
-                    label: t('workbench.editors.grpc.timeline.showTypes'),
-                    onClick: () => setShowTypes(!showTypes),
-                  },
-                ],
-              },
-              { type: 'divider' },
-              {
-                type: 'group',
-                label: t('workbench.editors.grpc.timeline.viewGroup'),
-                children: [
-                  {
-                    key: 'group',
-                    label: t('workbench.editors.grpc.timeline.groupByType'),
-                    onClick: () => setGroupByType(!groupByType),
-                  },
-                  {
-                    key: 'group-direction',
-                    label: t('workbench.editors.grpc.timeline.groupByDirection'),
-                    onClick: () => setGroupByDirection(!groupByDirection),
-                  },
-                  {
-                    key: 'group-limit',
-                    label: t('workbench.editors.grpc.timeline.rowsPerGroup'),
-                    disabled: !groupByType && !groupByDirection,
-                    children: [0, 1, 3, 5, 10].map((n) => ({
-                      key: `group-limit-${n}`,
-                      label: n === 0 ? t('workbench.editors.grpc.timeline.noLimit') : String(n),
-                      onClick: () => setGroupRowLimit(n),
-                    })),
-                  },
-                ],
-              },
-            ],
-          }}
-        >
-          <Tooltip
-            title={t('workbench.editors.grpc.timeline.viewTooltip')}
-            placement="bottom"
-            open={viewMenuOpen ? false : undefined}
-          >
-            <Button
-              size="small"
-              type="text"
-              icon={<ControlOutlined />}
-              data-testid="grpc-timeline-view"
-              aria-label={t('workbench.editors.grpc.timeline.view')}
-            >
-              {t('workbench.editors.grpc.timeline.view')}
-            </Button>
-          </Tooltip>
-        </Dropdown>
-        <Tooltip title={t('workbench.editors.grpc.timeline.clearMessages')} placement="bottom">
-          <Button
-            size="small"
-            type="text"
-            icon={<ClearOutlined />}
-            data-testid="grpc-timeline-clear"
-            onClick={() => setClearedCount(count)}
-            aria-label={t('workbench.editors.grpc.timeline.clearMessages')}
-          >
-            {t('workbench.editors.grpc.timeline.clear')}
-          </Button>
-        </Tooltip>
-      </div>
+      <GrpcTimelineToolbar
+        search={search}
+        onSearchChange={setSearch}
+        directionFilter={directionFilter}
+        onDirectionFilterChange={setDirectionFilter}
+        messageTotal={count - clearedCount}
+        messageShown={visibleRows.length}
+        filtering={filtering}
+        newestFirst={newestFirst}
+        onNewestFirstChange={setNewestFirst}
+        showTypes={showTypes}
+        onShowTypesChange={setShowTypes}
+        groupByType={groupByType}
+        onGroupByTypeChange={setGroupByType}
+        groupByDirection={groupByDirection}
+        onGroupByDirectionChange={setGroupByDirection}
+        groupRowLimit={groupRowLimit}
+        onGroupRowLimitChange={setGroupRowLimit}
+        onClear={() => setClearedCount(count)}
+      />
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {stickySource !== undefined && (
           <div
@@ -1731,12 +401,17 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               overflow: 'hidden',
             }}
           >
-            {renderGroupHeaderRow(
-              stickySource.identity,
-              stickySource.indexes.length,
-              collapsedGroups.has(stickySource.identity.key),
-              'grpc-timeline-sticky-header',
-            )}
+            <GrpcTimelineGroupHeader
+              group={stickySource.identity}
+              memberCount={stickySource.indexes.length}
+              collapsed={collapsedGroups.has(stickySource.identity.key)}
+              chips={chips}
+              groupRowLimit={groupRowLimit}
+              unwindowed={unwindowedGroups.has(stickySource.identity.key)}
+              onToggle={toggleGroup}
+              onToggleWindow={toggleGroupWindow}
+              testId="grpc-timeline-sticky-header"
+            />
           </div>
         )}
         {hasNewMessages && (
@@ -1790,7 +465,35 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           <div aria-hidden style={{ height: topPadPx }} />
           {entries.slice(start, end).map((entry, i) => (
             <StreamLastRow key={entry.key} last={start + i === entries.length - 1}>
-              {renderEntry(entry)}
+              <GrpcTimelineEntryRow
+                entry={entry}
+                items={items}
+                timestamps={timestamps}
+                lifecycle={lifecycle}
+                scriptMarks={scriptMarks}
+                chips={chips}
+                showTypes={showTypes}
+                derive={derive}
+                expanded={expanded}
+                sentExpanded={sentExpanded}
+                connectedExpanded={connectedExpanded}
+                errorExpanded={errorExpanded}
+                responseMetadataCount={responseMetadataCount}
+                groupRowLimit={groupRowLimit}
+                unwindowedGroups={unwindowedGroups}
+                onToggleRow={toggleRow}
+                onToggleSent={() => setSentExpanded((open) => !open)}
+                onToggleConnected={() => setConnectedExpanded((open) => !open)}
+                onToggleError={() => setErrorExpanded((open) => !open)}
+                onToggleGroup={toggleGroup}
+                onToggleGroupWindow={toggleGroupWindow}
+                onShowMetadata={onShowMetadata}
+                onTrustCertificate={onTrustCertificate}
+                trustOfferOpen={trustOfferOpen}
+                wrapLines={wrapLines}
+                onWrapLinesChange={setWrapLines}
+                viewerModes={viewerModes}
+              />
             </StreamLastRow>
           ))}
           <div aria-hidden style={{ height: bottomPadPx }} />
