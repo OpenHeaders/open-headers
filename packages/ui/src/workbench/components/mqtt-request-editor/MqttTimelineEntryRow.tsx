@@ -418,9 +418,9 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
     case 'ended': {
       if (lifecycle.endedBy === undefined) return null;
       // The glyph follows the end as the pill does: the check for the
-      // client's own clean DISCONNECT, the disconnect mark for a Stop or
-      // the broker's DISCONNECT, and that mark in the warning tint for a
-      // severed socket — the Connection lost row's mark.
+      // client's own clean DISCONNECT, the disconnect mark for a Stop,
+      // the broker's DISCONNECT or a severed socket — all in the neutral
+      // tone; the pill carries the alarm.
       const cleanClose =
         lifecycle.endedBy === 'close' && lifecycle.endedKind !== 'broker' && lifecycle.endedKind !== 'severed';
       return (
@@ -429,10 +429,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             cleanClose ? (
               <CheckCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
             ) : (
-              <DisconnectOutlined
-                aria-hidden
-                style={{ color: lifecycle.endedKind === 'severed' ? token.colorWarning : token.colorTextTertiary }}
-              />
+              <DisconnectOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
             ),
           )}
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
