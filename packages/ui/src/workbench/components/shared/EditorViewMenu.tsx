@@ -8,14 +8,18 @@
  * Settings page edits, the timeline-toolbar precedent. Menu-item
  * clicks keep the popover OPEN (the app's popover convention — only an
  * outside click or a trigger re-click closes), so several knobs flip
- * in one visit. The last row is the jump to the rest of the knobs —
+ * in one visit. The rows read like the auth-type popup's: every row
+ * reserves a left check-gutter and the active ones carry the mark
+ * (`selectedKeys` → `.oh-editor-view-menu` in editor.less), while the
+ * right edge keeps the glyphs that mean "more" — the submenu caret,
+ * the open-elsewhere arrow. The last row is the jump to the rest of the knobs —
  * Settings › Editor › Code Editor, suffixed with the neutral boxed
  * jump arrow the desktop teaser's "Open in the desktop app" wears —
  * and it closes the popover, since the Settings surface takes over;
  * it renders only under a shell that provides `openSettings`.
  */
 
-import { CheckOutlined, ControlOutlined, SelectOutlined } from '@ant-design/icons';
+import { ControlOutlined, SelectOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { Button, Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
@@ -52,12 +56,14 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
   const [renderLineEnds, setRenderLineEnds] = useSetting('editor.renderLineEnds');
   const openSettings = useOpenSettings();
 
-  const optionLabel = (label: string, checked: boolean): React.ReactNode => (
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-      {label}
-      {checked && <CheckOutlined style={{ color: token.colorPrimary }} />}
-    </span>
-  );
+  // The rows whose knob is ON carry the check — antd's selection
+  // plane, so the mark is the row's state, not a suffix glyph.
+  const selectedKeys = [
+    ...(wrap ? ['wrap'] : []),
+    ...(lineNumbers ? ['line-numbers'] : []),
+    `whitespace-${renderWhitespace}`,
+    ...(renderLineEnds ? ['line-ends'] : []),
+  ];
 
   const settingsJump =
     openSettings === null
@@ -91,6 +97,10 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
         setOpen(next);
       }}
       menu={{
+        rootClassName: 'oh-editor-view-menu',
+        selectable: true,
+        multiple: true,
+        selectedKeys,
         items: [
           {
             type: 'group',
@@ -98,7 +108,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
             children: [
               {
                 key: 'wrap',
-                label: optionLabel(t('shared.codeEditor.wrap'), wrap),
+                label: t('shared.codeEditor.wrap'),
                 onClick: () => onWrapChange(!wrap),
               },
             ],
@@ -110,7 +120,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
             children: [
               {
                 key: 'line-numbers',
-                label: optionLabel(t('shared.editorMenu.lineNumbers'), lineNumbers),
+                label: t('shared.editorMenu.lineNumbers'),
                 onClick: () => setLineNumbers(!lineNumbers),
               },
               {
@@ -118,13 +128,13 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
                 label: t('shared.editorMenu.whitespace'),
                 children: (['none', 'boundary', 'all'] as const).map((value) => ({
                   key: `whitespace-${value}`,
-                  label: optionLabel(t(WHITESPACE_OPTION_LABEL_KEYS[value]), renderWhitespace === value),
+                  label: t(WHITESPACE_OPTION_LABEL_KEYS[value]),
                   onClick: () => setRenderWhitespace(value),
                 })),
               },
               {
                 key: 'line-ends',
-                label: optionLabel(t('shared.editorMenu.lineEnds'), renderLineEnds),
+                label: t('shared.editorMenu.lineEnds'),
                 onClick: () => setRenderLineEnds(!renderLineEnds),
               },
             ],

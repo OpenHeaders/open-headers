@@ -495,6 +495,50 @@
   }
 }
 
+/* The editor view menu (the compose toolbars' Editor dropdown): the
+ * auth-type popup's selection affordance over an antd menu — every row
+ * reserves a left check-gutter at the label size, the rows whose knob
+ * is on carry the mark and read bold on the active tint; the right
+ * edge keeps the "more" glyphs (submenu caret, open-elsewhere arrow).
+ * `rootClassName` reaches the submenu popups too. */
+.oh-editor-view-menu {
+  .ant-dropdown-menu-item,
+  .ant-dropdown-menu-submenu-title {
+    position: relative;
+    min-height: 26px;
+    padding: 3px 10px 3px 28px;
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .ant-dropdown-menu-item-selected {
+    color: var(--ant-color-text);
+    font-weight: 600;
+    background: var(--ant-control-item-bg-active);
+  }
+
+  .ant-dropdown-menu-item-selected::before {
+    content: '✓';
+    position: absolute;
+    left: 10px;
+    font-weight: 400;
+    color: var(--ant-color-primary);
+  }
+
+  // A selected whitespace mode marks its row inside the submenu; the
+  // submenu title itself stays a plain row.
+  .ant-dropdown-menu-submenu-selected > .ant-dropdown-menu-submenu-title {
+    color: var(--ant-color-text);
+  }
+
+  .ant-dropdown-menu-item-group-title {
+    padding: 6px 10px 2px;
+    font-size: 11px;
+    line-height: 16px;
+    color: var(--ant-color-text-tertiary);
+  }
+}
+
 .oh-auth-readonly {
   opacity: 0.7;
 

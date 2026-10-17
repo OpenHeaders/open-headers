@@ -59,4 +59,17 @@ describe('EditorViewMenu — Settings jump', () => {
     expect(menuItem('Line numbers')).toBeTruthy();
     expect(menuItem('Settings')).toBeUndefined();
   });
+
+  it('marks the rows whose knob is on through the menu selection plane', () => {
+    const onWrapChange = vi.fn();
+    render(<EditorViewMenu wrap onWrapChange={onWrapChange} data-testid="editor-menu" />);
+    fireEvent.click(screen.getByTestId('editor-menu'));
+    const wrapRow = menuItem('Wrap')?.closest('.ant-dropdown-menu-item');
+    expect(wrapRow?.classList.contains('ant-dropdown-menu-item-selected')).toBe(true);
+    // Line endings ship off — its row carries no mark.
+    const lineEndsRow = menuItem('Line endings')?.closest('.ant-dropdown-menu-item');
+    expect(lineEndsRow?.classList.contains('ant-dropdown-menu-item-selected')).toBe(false);
+    fireEvent.click(menuItem('Wrap') as HTMLElement);
+    expect(onWrapChange).toHaveBeenCalledWith(false);
+  });
 });
