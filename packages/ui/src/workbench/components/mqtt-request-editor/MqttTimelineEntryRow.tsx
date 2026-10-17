@@ -2,7 +2,8 @@
  * MqttTimelineEntryRow — one display entry of the MQTT timeline,
  * rendered from the model plane's `MqttTimelineEntry` vocabulary: the
  * lifecycle rows (Connecting / Connected with its expandable CONNACK
- * facts / error / aborted / ended), the subscription and reconnect-
+ * facts / error — expandable to the refused CONNACK when the broker
+ * answered one / aborted / ended), the subscription and reconnect-
  * cycle facts (lost / reconnect attempt / reconnected with its own
  * CONNACK block) at their true chronological positions, the message
  * rows (direction glyph · topic chip · QoS / Retained / DUP tags ·
@@ -61,7 +62,8 @@ interface MqttTimelineEntryRowProps {
   /** Expanded row indexes — a message row's viewer / a reconnected
    *  row's CONNACK block follows each. */
   expanded: ReadonlySet<number>;
-  /** The Connected row's CONNACK details are open. */
+  /** The Connected row's CONNACK details are open — or the error row's
+   *  refused CONNACK (the two rows never coexist). */
   connackExpanded: boolean;
   onToggleRow: (index: number) => void;
   onToggleConnack: () => void;
@@ -324,8 +326,31 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
         );
       }
       if (lifecycle.errorMessage === undefined) return null;
+      // A refusal the broker answered with a CONNACK expands to that
+      // packet's facts — the Connected row's anatomy on the error tint
+      // (the 3.1.1-form answer to a 5.0 CONNECT reads off the block:
+      // two bytes, no properties).
+      const refusalExpandable = lifecycle.connack !== undefined;
       return (
-        <div data-testid="mqtt-timeline-error-row" style={lifecycleRowStyle}>
+        <div
+          data-testid="mqtt-timeline-error-row"
+          {...(refusalExpandable
+            ? {
+                role: 'button',
+                tabIndex: 0,
+                'aria-expanded': connackExpanded,
+                className: 'oh-stream-row',
+                onClick: onToggleConnack,
+                onKeyDown: (event: React.KeyboardEvent) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onToggleConnack();
+                  }
+                },
+              }
+            : {})}
+          style={{ ...lifecycleRowStyle, ...(refusalExpandable ? { cursor: 'pointer' } : {}) }}
+        >
           <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
           <span
             title={lifecycle.errorMessage}
@@ -355,7 +380,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
             </Button>
           )}
           {lifecycleTime(lifecycle.endedAt)}
-          {expandSlot(null)}
+          {expandSlot(refusalExpandable ? connackExpanded : null)}
         </div>
       );
     }

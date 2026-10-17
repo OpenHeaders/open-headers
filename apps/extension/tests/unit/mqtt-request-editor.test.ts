@@ -36,7 +36,10 @@ import {
   savedRowMatchesCompose,
   userPropertiesToRows,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
-import { grantFailureLabel } from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
+import {
+  connackReasonName,
+  grantFailureLabel,
+} from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
 import { topicOptionsConfigured } from '@openheaders/ui/workbench/components/mqtt-request-editor/TopicOptionsPopover';
 import { describe, expect, it } from 'vitest';
 
@@ -311,6 +314,18 @@ describe('SUBACK grant labels', () => {
     expect(grantFailureLabel(0x87, t)).toBe('workbench.editors.mqtt.timeline.grantFailedNamed:Not authorized,135');
     // A code the spec does not name renders bare.
     expect(grantFailureLabel(0xee, t)).toBe('workbench.editors.mqtt.timeline.grantFailed:238');
+  });
+
+  it('names a CONNACK code in the numeric space the broker answered in', () => {
+    expect(connackReasonName(0, true)).toBe('Success');
+    expect(connackReasonName(0x84, true)).toBe('Unsupported Protocol Version');
+    // A non-zero code below 0x80 on a 5.0 session is a 3.1.1-only
+    // broker's own-form refusal — the executor's rule, mirrored.
+    expect(connackReasonName(1, true)).toBe('Unacceptable protocol version');
+    expect(connackReasonName(4, true)).toBe('Bad user name or password');
+    expect(connackReasonName(0, false)).toBe('Connection Accepted');
+    expect(connackReasonName(5, false)).toBe('Not authorized');
+    expect(connackReasonName(0x84, false)).toBeUndefined();
   });
 });
 

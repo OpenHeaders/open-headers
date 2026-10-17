@@ -19,8 +19,8 @@ import {
 import '@openheaders/ui/workbench/settings/schema/requests';
 import { LOCAL_PEER_EXECUTE_DISABLED_MESSAGE, REMOTE_PEER_EXECUTE_DISABLED_MESSAGE } from '@openheaders/core/protocol';
 import { encodeBase64Bytes } from '@openheaders/core/utils';
-import { reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { reset as resetSetting, set as setSetting } from '@openheaders/ui/workbench/settings/store';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // The notice's own contract (the tier copy, the reveal hand-off) is pinned
@@ -363,5 +363,66 @@ describe('MqttMessageTimeline — the delegated open refused by the place', () =
       <MqttMessageTimeline items={[]} count={0} lifecycle={refused('Could not reach broker.openheaders.io')} v5 />,
     );
     expect(screen.queryByTestId('peer-execute-disabled-notice')).toBeNull();
+  });
+});
+
+describe('MqttMessageTimeline — the refused CONNACK', () => {
+  // A 3.1.1-only broker answering a 5.0 CONNECT in its own form: two
+  // bytes, return code 1, no properties — the executor names it from
+  // the 3.1.1 table and the pane carries the packet beside the error.
+  const refusedByBroker: MqttTimelineLifecycle = {
+    startedAt: STARTED_AT,
+    connected: false,
+    connack: { reasonCode: 1, reasonName: 'Unacceptable protocol version', sessionPresent: false, remainingLength: 2 },
+    errorMessage: 'The broker refused the connection: Unacceptable protocol version (code 1).',
+    endedAt: STARTED_AT + 3,
+  };
+
+  it('expands the error row to the refused CONNACK facts, the block directly under it in both orders', () => {
+    render(<MqttMessageTimeline items={[]} count={0} lifecycle={refusedByBroker} v5 />);
+    const errorRow = screen.getByTestId('mqtt-timeline-error-row');
+    expect(errorRow.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('mqtt-timeline-connack-details')).toBeNull();
+    fireEvent.click(errorRow);
+    expect(errorRow.getAttribute('aria-expanded')).toBe('true');
+    const details = screen.getByTestId('mqtt-timeline-connack-details');
+    expect(details.textContent).toContain('reasonCode: 1 (Unacceptable protocol version)');
+    expect(details.textContent).toContain('length: 2');
+    expect(details.textContent).toContain('sessionPresent: false');
+    // Newest first (the default): the block follows its row, before
+    // Connecting; flipped, the row keeps its block directly under it.
+    const rowOrder = () =>
+      Array.from(
+        screen
+          .getByTestId('mqtt-message-timeline')
+          .querySelectorAll('[data-testid$="-row"], [data-testid="mqtt-timeline-connack-details"]'),
+      ).map((el) => el.getAttribute('data-testid'));
+    expect(rowOrder()).toEqual(['mqtt-timeline-error-row', 'mqtt-timeline-connack-details', 'mqtt-timeline-sent-row']);
+    act(() => setSetting('requests.mqttMessagesNewestFirst', false));
+    expect(rowOrder()).toEqual(['mqtt-timeline-sent-row', 'mqtt-timeline-error-row', 'mqtt-timeline-connack-details']);
+    // No Connected row ever renders for a refusal — the session never opened.
+    expect(screen.queryByTestId('mqtt-timeline-connected-row')).toBeNull();
+    fireEvent.keyDown(screen.getByTestId('mqtt-timeline-error-row'), { key: 'Enter' });
+    expect(screen.queryByTestId('mqtt-timeline-connack-details')).toBeNull();
+  });
+
+  it('keeps a failure without a CONNACK (the transport never answered) a plain row', () => {
+    render(
+      <MqttMessageTimeline
+        items={[]}
+        count={0}
+        lifecycle={{
+          startedAt: STARTED_AT,
+          connected: false,
+          errorMessage: 'Could not reach broker.openheaders.io',
+          endedAt: STARTED_AT + 200,
+        }}
+        v5
+      />,
+    );
+    const errorRow = screen.getByTestId('mqtt-timeline-error-row');
+    expect(errorRow.getAttribute('aria-expanded')).toBeNull();
+    fireEvent.click(errorRow);
+    expect(screen.queryByTestId('mqtt-timeline-connack-details')).toBeNull();
   });
 });

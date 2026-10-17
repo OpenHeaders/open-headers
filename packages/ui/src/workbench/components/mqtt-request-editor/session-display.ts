@@ -10,9 +10,13 @@ import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 
 /** CONNACK reason name — the version scopes which numeric space names
- *  the verbatim code. */
+ *  the verbatim code. On a 5.0 session a non-zero code BELOW 0x80 is a
+ *  3.1.1-form answer (a 3.1.1-only broker refusing the protocol level
+ *  in its own numeric space — the executor's refusal rule), named from
+ *  the 3.1.1 table. */
 export function connackReasonName(reasonCode: number, v5: boolean): string | undefined {
-  return v5 ? mqttReasonCodeName(reasonCode, 'connack') : MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
+  if (!v5 || (reasonCode !== 0 && reasonCode < 0x80)) return MQTT_CONNACK_RETURN_CODE_NAMES[reasonCode];
+  return mqttReasonCodeName(reasonCode, 'connack');
 }
 
 /** CONNACK reason display: the spec name beside the verbatim code. */

@@ -97,16 +97,19 @@ export interface MqttTimelineLifecycle {
   /** Session-only CONNACK-accepted time. */
   connectedAt?: number;
   /** The CONNACK facts behind the Connected row's expandable details —
-   *  assembled by the pane (the version knob scopes which numeric
-   *  space names the code); rendered verbatim as key: value rows.
+   *  or, beside `errorMessage`, the refusal the broker answered with,
+   *  behind the error row's — assembled by the pane (the version knob
+   *  scopes which numeric space names the code); rendered verbatim as
+   *  key: value rows.
    *  `remainingLength` is the frame's Remaining Length as observed on
    *  the wire — absent on captures that predate the fact, rendered as
    *  the absence it is. */
   connack?: { reasonCode: number; reasonName?: string; sessionPresent: boolean; remainingLength?: number };
   /** Classified pre-open failure — the session never opened (a CONNACK
    *  refusal included, its reason verbatim). Rendered as an error row
-   *  at the timeline's new edge; never set beside `endedBy` or
-   *  `aborted`. */
+   *  at the timeline's new edge — expandable to the refused CONNACK's
+   *  facts when `connack` rides beside it; never set beside `endedBy`
+   *  or `aborted`. */
   errorMessage?: string;
   /** The pre-open end was USER-initiated (Cancel / Stop) — the neutral
    *  "Connection aborted" info row renders at the error row's slot

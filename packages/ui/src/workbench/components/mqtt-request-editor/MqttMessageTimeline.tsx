@@ -11,7 +11,8 @@
  * The timeline is ONE event log in packet order: "Connecting" and
  * "Disconnected / Stopped" sit at the chronological edges (a settled
  * pre-open failure renders its classified error row at the new edge
- * instead), "Connected"
+ * instead — expandable to the refused CONNACK's facts when the broker
+ * answered one), "Connected"
  * (expandable to the CONNACK facts as key: value rows) sits before the
  * first item, and the
  * subscription lifecycle facts — Subscribed-with-grant /
@@ -220,14 +221,20 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     // The error/aborted row sits at the ended row's chronological slot
     // — the two never coexist (a pre-open end has no opened-session
     // end). An abort that closed an established broker socket logs the
-    // disconnect as its own row — chronologically AFTER the abort.
+    // disconnect as its own row — chronologically AFTER the abort. A
+    // refusal's error row expands to the CONNACK the broker answered
+    // with — the block directly under its row, both sort orders (the
+    // Connected row's discipline; the two rows never coexist, so they
+    // share the one expansion).
     const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
     const abortedEnd = lifecycle.aborted === true && lifecycle.abortedDisconnected === true;
+    const refusalDetail = connackExpanded && lifecycle.errorMessage !== undefined && lifecycle.connack !== undefined;
     if (newestFirst) {
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
       if (preOpenEnd) {
         if (abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
         out.push({ key: 'error', kind: 'error' });
+        if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
       }
       if (notice) out.push(notice);
     } else {
@@ -251,6 +258,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
       if (notice) out.push(notice);
       if (preOpenEnd) {
         out.push({ key: 'error', kind: 'error' });
+        if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
         if (abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
       }
       if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
