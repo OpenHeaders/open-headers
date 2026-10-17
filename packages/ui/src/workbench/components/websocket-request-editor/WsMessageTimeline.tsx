@@ -72,7 +72,6 @@ import { Button, Dropdown, Input, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
@@ -87,9 +86,19 @@ import { formatBytes } from '../request-editor/response/response-format';
 import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../shared/PeerExecuteDisabledNotice';
 import { wsAutoHeaderDefs } from './ws-auto-headers';
-import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { reconnectExhaustedMessage, type WsTimelineLifecycleItem } from './ws-lifecycle';
-import { WS_HOOK_LABEL_KEY } from './ws-scripts';
+import {
+  ackTimeoutRowText,
+  connectedRowText,
+  endedRowText,
+  errorRowText,
+  fixedRowText,
+  lifecycleItemText,
+  lostRowText,
+  reconnectedRowText,
+  reconnectingRowText,
+  scriptRowText,
+} from './ws-timeline-row-text';
 
 const { Text } = Typography;
 
@@ -363,22 +372,6 @@ function errorDetailPx(requestRows: number | null, open: HeaderSectionsOpen): nu
 
 /** Lifecycle label for how the session ended — naming the peer when
  *  the session stamped its URL. */
-function endedLabel(endedBy: WsTimelineEndedBy, url: string | undefined, t: Translate): string {
-  switch (endedBy) {
-    case 'close':
-      return url !== undefined
-        ? t('workbench.editors.websocket.timeline.disconnectedFrom', { url })
-        : t('workbench.editors.websocket.timeline.disconnected');
-    case 'stop':
-      return t('workbench.editors.websocket.timeline.stopped');
-    default: {
-      const _exhaustive: never = endedBy;
-      void _exhaustive;
-      return '';
-    }
-  }
-}
-
 /** Last entry index whose top offset is at or above `scrollTop`. */
 function entryIndexAt(prefix: readonly number[], scrollTop: number): number {
   let lo = 0;
@@ -736,8 +729,12 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     [listenedEvents],
   );
 
+  // Search is a LOOKUP: it matches the words every row shows — a
+  // frame's decoded preview, a lifecycle row's rendered line — and
+  // hides the rest whatever their kind. The direction lens gates
+  // FRAMES only; under it the lifecycle facts stay as the skeleton.
+  const needle = search.trim().toLowerCase();
   const visibleRows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
     const rows: number[] = [];
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
@@ -763,7 +760,15 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, directionFilter, heartbeatHidden, handshakeHidden, listenedSet, derive]);
+  }, [items, count, clearedCount, needle, directionFilter, heartbeatHidden, handshakeHidden, listenedSet, derive]);
+
+  // The fixed rows under a search — each shows only when its words
+  // carry the needle (the same words the row paints).
+  const fixedShown = useMemo(() => {
+    const shown = (kind: keyof typeof fixedRowText): boolean =>
+      needle === '' || fixedRowText[kind](lifecycle, t).toLowerCase().includes(needle);
+    return { sent: shown('sent'), connected: shown('connected'), error: shown('error'), ended: shown('ended') };
+  }, [needle, lifecycle, t]);
 
   const displayRows = useMemo(
     () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
@@ -867,7 +872,11 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
     };
+    const pushSent = () => {
+      if (fixedShown.sent) out.push({ key: 'sent', kind: 'sent' });
+    };
     const pushConnected = () => {
+      if (!fixedShown.connected) return;
       out.push({ key: 'connected', kind: 'connected' });
       // The details block always sits directly under its row — the
       // expanded message-viewer discipline, both sort orders.
@@ -876,14 +885,18 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       }
     };
     const pushEnded = () => {
+      if (!fixedShown.ended) return;
       out.push({ key: 'ended', kind: 'ended' });
       if (endedExpanded) out.push({ key: 'endedDetail', kind: 'endedDetail' });
     };
     // The reconnect-cycle facts — a cleared log drops the facts that
-    // happened before the clear along with the messages.
+    // happened before the clear along with the messages; a search keeps
+    // only the facts whose words carry the needle.
     const facts: number[] = [];
     lifecycleItems.forEach((item, i) => {
-      if (item.atIndex >= clearedCount) facts.push(i);
+      if (item.atIndex < clearedCount) return;
+      if (needle !== '' && !lifecycleItemText(item, lifecycle, t).toLowerCase().includes(needle)) return;
+      facts.push(i);
     });
     const pushFacts = (indexes: readonly number[]) => {
       for (const i of indexes) out.push({ key: `l${i}`, kind: 'lifecycle', index: i });
@@ -900,6 +913,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     // end).
     const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
     const pushError = () => {
+      if (!fixedShown.error) return;
       out.push({ key: 'error', kind: 'error' });
       if (errorExpanded && lifecycle.errorMessage !== undefined) out.push({ key: 'errorDetail', kind: 'errorDetail' });
     };
@@ -910,7 +924,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       if (preOpenEnd) pushError();
       if (notice) out.push(notice);
     } else {
-      out.push({ key: 'sent', kind: 'sent' });
+      pushSent();
       if (groups !== null && lifecycle.connected) {
         // Grouped mode clusters; the facts join Connected at the edge.
         pushConnected();
@@ -976,7 +990,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         pushFacts([...facts].reverse());
         pushConnected();
       }
-      out.push({ key: 'sent', kind: 'sent' });
+      pushSent();
     } else {
       if (notice) out.push(notice);
       if (preOpenEnd) pushError();
@@ -990,6 +1004,10 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     lifecycle.errorMessage,
     lifecycle.aborted,
     lifecycle.endedBy,
+    lifecycle,
+    fixedShown,
+    needle,
+    t,
     lifecycleItems,
     live,
     count,
@@ -1336,9 +1354,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           >
             {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lifecycle.handshake?.url !== undefined
-                ? t('workbench.editors.websocket.timeline.connectedTo', { url: lifecycle.handshake.url })
-                : t('workbench.editors.websocket.timeline.connected')}
+              {connectedRowText(lifecycle, t)}
             </span>
             {lifecycleTime(lifecycle.connectedAt)}
             {expandSlot(expandable ? handshakeExpanded : null)}
@@ -1477,9 +1493,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 color: token.colorError,
               }}
             >
-              {url !== undefined
-                ? t('workbench.editors.websocket.timeline.couldNotConnect', { url })
-                : lifecycle.errorMessage}
+              {errorRowText(lifecycle, t)}
             </span>
             {onTrustCertificate !== undefined && (
               <Button
@@ -1592,24 +1606,6 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         if (item.kind === 'script') {
           // One hook ran — the hook, the levels that contributed and
           // the verdict; a drop names the level, a failure its error.
-          const hook = t(WS_HOOK_LABEL_KEY[item.hook]);
-          const levels = item.chain
-            .map((step) =>
-              step.level === 'request'
-                ? t('workbench.editors.request.response.meta.scriptsLevelRequest')
-                : inheritSourceLabel(t, { kind: step.level, name: step.name }),
-            )
-            .join(' · ');
-          const text =
-            item.droppedBy !== undefined
-              ? t('workbench.editors.websocket.timeline.scriptDropped', { hook, level: item.droppedBy })
-              : item.succeeded
-                ? t('workbench.editors.websocket.timeline.script', { hook, levels })
-                : t('workbench.editors.websocket.timeline.scriptFailed', { hook, error: item.error?.message ?? '' });
-          const attempt =
-            item.attempt !== undefined && item.attempt > 0
-              ? ` · ${t('workbench.editors.websocket.timeline.scriptAttempt', { attempt: item.attempt })}`
-              : '';
           return (
             <div
               key={entry.key}
@@ -1627,7 +1623,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 {...(item.error !== undefined ? { title: item.error.message } : {})}
                 style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {`${text}${attempt} · ${formatDurationMs(item.durationMs)}`}
+                {scriptRowText(item, t)}
               </span>
               {/* The hook's own (i) — the rail row's lifecycle card, the
                 mark's hook line lit; revealed on hover so a chatty
@@ -1641,21 +1637,11 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         if (item.kind === 'lost') {
           // The connection dropped under the open session — how it
           // ended, verbatim; auto-reconnect's rows follow.
-          const phrase = item.close !== null ? wsCloseCodePhrase(item.close.code) : null;
-          const detail = item.idle
-            ? t('workbench.editors.websocket.timeline.lostIdle')
-            : item.close === null
-              ? t('workbench.editors.websocket.session.noCloseFrame')
-              : item.close.reason !== ''
-                ? `${item.close.code} — ${item.close.reason}`
-                : phrase !== null
-                  ? `${item.close.code} ${phrase}`
-                  : String(item.close.code);
           return (
             <div key={entry.key} data-testid="ws-timeline-lost-row" style={lifecycleRowStyle}>
               {lifecycleGlyph(<DisconnectOutlined aria-hidden style={{ color: token.colorWarning }} />)}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {`${t('workbench.editors.websocket.timeline.lost')} — ${detail}`}
+                {lostRowText(item, t)}
               </span>
               {lifecycleTime(item.atMs)}
               {expandSlot(null)}
@@ -1668,10 +1654,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             <div key={entry.key} data-testid="ws-timeline-ack-timeout-row" style={lifecycleRowStyle}>
               {lifecycleGlyph(<ClockCircleOutlined aria-hidden style={{ color: token.colorWarning }} />)}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {t('workbench.editors.websocket.timeline.ackTimeout', {
-                  ackId: item.ackId,
-                  timeout: formatDurationMs(item.timeoutMs),
-                })}
+                {ackTimeoutRowText(item, t)}
               </span>
               {lifecycleTime(item.atMs)}
               {expandSlot(null)}
@@ -1688,13 +1671,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 {...(item.error !== undefined ? { title: item.error } : {})}
                 style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                {item.forced
-                  ? t('workbench.editors.websocket.timeline.reconnectingNow', { attempt: item.attempt })
-                  : t('workbench.editors.websocket.timeline.reconnectingAfter', {
-                      attempt: item.attempt,
-                      delay: formatDurationMs(item.delayMs),
-                    })}
-                {item.error !== undefined ? ` — ${item.error}` : ''}
+                {reconnectingRowText(item, t)}
               </span>
               {lifecycleTime(item.atMs)}
               {expandSlot(null)}
@@ -1706,9 +1683,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           <div key={entry.key} data-testid="ws-timeline-reconnected-row" style={lifecycleRowStyle}>
             {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lifecycle.handshake?.url !== undefined
-                ? t('workbench.editors.websocket.timeline.reconnectedTo', { url: lifecycle.handshake.url })
-                : t('workbench.editors.websocket.timeline.reconnected')}
+              {reconnectedRowText(lifecycle, t)}
             </span>
             {lifecycleTime(item.atMs)}
             {expandSlot(null)}
@@ -1736,7 +1711,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           >
             {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {endedLabel(lifecycle.endedBy, lifecycle.handshake?.url, t)}
+              {endedRowText(lifecycle, t)}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
             {expandSlot(endedExpanded)}

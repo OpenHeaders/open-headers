@@ -406,6 +406,30 @@ describe('WsMessageTimeline — display-only controls', () => {
     expect(screen.queryByText(/no messages match/i)).toBeNull();
   });
 
+  it('search is a lookup over every row — a lifecycle row hides unless its words carry the needle', () => {
+    renderTimeline({
+      lifecycle: {
+        ...LIVE_LIFECYCLE,
+        endedBy: 'close',
+        endedAt: 1_700_000_001_000,
+        close: { code: 1000, reason: '' },
+      },
+    });
+    expect(rowSequence()).toEqual(['ended', 'done', 'pong', 'ping', 'connected', 'connecting']);
+    // "connecting" is the Connecting row's word alone: every frame and
+    // the other lifecycle rows hide.
+    fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'connecting' } });
+    expect(rowSequence()).toEqual(['connecting']);
+    // "disconnected" is the ended row's word.
+    fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'disconnected' } });
+    expect(rowSequence()).toEqual(['ended']);
+    // A frame's preview still matches as before — the lifecycle rows hide.
+    fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'pong' } });
+    expect(rowSequence()).toEqual(['pong']);
+    fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: '' } });
+    expect(rowSequence()).toEqual(['ended', 'done', 'pong', 'ping', 'connected', 'connecting']);
+  });
+
   it('Clear hides current rows; lifecycle rows stay', () => {
     renderTimeline();
     fireEvent.click(screen.getByTestId('ws-timeline-clear'));
