@@ -1582,6 +1582,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.timelineViewer.format': 'メッセージ形式',
   'workbench.editors.timelineViewer.showMessage': 'メッセージを表示',
   'workbench.editors.timelineViewer.showHexdump': 'Hexdump を表示',
+  'workbench.editors.timelineViewer.showPretty': '整形して表示',
+  'workbench.editors.timelineViewer.showRaw': 'Raw を表示',
   'workbench.editors.request.response.body.previewIframeTitle': 'レスポンスのプレビュー',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'PDF プレビュー',
   'workbench.editors.request.response.body.imagePreviewAlt': 'レスポンスの画像',

@@ -1659,6 +1659,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.timelineViewer.format': 'Формат сообщения',
   'workbench.editors.timelineViewer.showMessage': 'Показать сообщение',
   'workbench.editors.timelineViewer.showHexdump': 'Показать hexdump',
+  'workbench.editors.timelineViewer.showPretty': 'Показать форматированный',
+  'workbench.editors.timelineViewer.showRaw': 'Показать исходный',
   'workbench.editors.request.response.body.previewIframeTitle': 'Предпросмотр ответа',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'Предпросмотр PDF',
   'workbench.editors.request.response.body.imagePreviewAlt': 'Изображение ответа',

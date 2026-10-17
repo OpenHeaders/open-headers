@@ -1,11 +1,15 @@
 /**
  * TimelineMessageViewer — the expanded message row's viewer shared by
  * the WebSocket, gRPC and MQTT timelines: a toolbar row (format
- * dropdown and wrap left, the Hexdump toggle and find right — the
- * compose bar's anatomy over a read-only buffer) above the framed
- * editor, or the frame's bytes as the classic dump in the same frame.
- * Per-viewer choice (`ViewerMode`) and the editor's find target live
- * on the timeline through `useTimelineViewerModes`, keyed by item
+ * dropdown and wrap left, the Pretty and Hexdump toggles and find
+ * right — the compose bar's anatomy over a read-only buffer) above the
+ * framed editor, or the frame's bytes as the classic dump in the same
+ * frame. Pretty is the HTTP response body's law carried over: a
+ * decoded JSON or markup message re-indents for reading (ON by
+ * default — a minified payload arrives as one line), Raw shows the
+ * wire text verbatim; plain text has nothing to pretty, so the toggle
+ * rests. Per-viewer choice (`ViewerMode`) and the editor's find target
+ * live on the timeline through `useTimelineViewerModes`, keyed by item
  * index; the wrap flag is ONE state across every open viewer.
  */
 
@@ -20,6 +24,7 @@ import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
 import CodeEditor from './CodeEditor';
 import type { CodeEditorActionsTarget } from './CodeEditorActions';
 import HexDumpView from './HexDumpView';
+import { usePrettyViewerText } from './use-pretty-viewer-text';
 
 /** The timelines' row hairline — a CSS variable with the theme's
  *  secondary border as its fallback, so the LAST rendered row can drop
@@ -48,9 +53,11 @@ export type ViewerFormat = 'text' | 'json' | 'xml' | 'html';
 const VIEWER_FORMATS: readonly ViewerFormat[] = ['text', 'json', 'xml', 'html'];
 
 /** Per-viewer display choice — `format` null follows the decode;
- *  `hex` shows the frame's bytes. */
+ *  `pretty` re-indents a formattable message for reading (Raw is the
+ *  wire text); `hex` shows the frame's bytes. */
 export interface ViewerMode {
   format: ViewerFormat | null;
+  pretty: boolean;
   hex: boolean;
 }
 
@@ -67,7 +74,7 @@ export function useTimelineViewerModes(): TimelineViewerModes {
   const [modes, setModes] = useState<ReadonlyMap<number, ViewerMode>>(new Map());
   const refs = useRef(new Map<number, React.MutableRefObject<CodeEditorActionsTarget | null>>());
   return {
-    modeOf: (index, binary) => modes.get(index) ?? { format: null, hex: binary },
+    modeOf: (index, binary) => modes.get(index) ?? { format: null, pretty: true, hex: binary },
     setMode: (index, mode) => setModes((prev) => new Map(prev).set(index, mode)),
     actionsOf: (index) => {
       let ref = refs.current.get(index);
@@ -112,6 +119,10 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const format = mode.format ?? defaultFormat;
+  // Plain text has no structure to re-indent — the toggle rests there
+  // and the buffer shows the wire text whatever the choice says.
+  const prettyAvailable = format !== 'text';
+  const shownText = usePrettyViewerText(text, format, prettyAvailable && mode.pretty && !mode.hex);
   return (
     <div
       data-testid={`${testIdPrefix}-message-viewer`}
@@ -160,6 +171,16 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
         <Button
           size="small"
           type="text"
+          disabled={mode.hex || !prettyAvailable}
+          onClick={() => onModeChange({ ...mode, pretty: !mode.pretty })}
+          aria-pressed={mode.pretty}
+          data-testid={`${testIdPrefix}-viewer-pretty`}
+        >
+          {mode.pretty ? t('workbench.editors.timelineViewer.showRaw') : t('workbench.editors.timelineViewer.showPretty')}
+        </Button>
+        <Button
+          size="small"
+          type="text"
           onClick={() => onModeChange({ ...mode, hex: !mode.hex })}
           aria-pressed={mode.hex}
           data-testid={`${testIdPrefix}-viewer-hex`}
@@ -197,7 +218,7 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <CodeEditor
-            value={text}
+            value={shownText}
             language={format}
             readOnly
             fill

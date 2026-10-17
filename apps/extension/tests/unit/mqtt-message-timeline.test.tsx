@@ -277,6 +277,33 @@ describe('MqttMessageTimeline — message viewer', () => {
     fireEvent.click(screen.getByTestId('mqtt-timeline-viewer-hex'));
     expect(screen.getByTestId('code-editor')).toBeTruthy();
   });
+
+  it('opens a JSON message pretty-printed and Show Raw returns the wire text', () => {
+    render(<MqttMessageTimeline items={[message('{"temp":21,"unit":"C"}')]} count={1} lifecycle={CONNECTED} v5 />);
+    fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
+    const editorValue = () =>
+      (
+        screen
+          .getByTestId('mqtt-timeline-message-viewer')
+          .querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement
+      ).value;
+    expect(editorValue()).toBe('{\n  "temp": 21,\n  "unit": "C"\n}');
+    const toggle = screen.getByTestId('mqtt-timeline-viewer-pretty');
+    expect(toggle.textContent).toBe('Show Raw');
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(toggle);
+    expect(editorValue()).toBe('{"temp":21,"unit":"C"}');
+    expect(screen.getByTestId('mqtt-timeline-viewer-pretty').textContent).toBe('Show Pretty');
+  });
+
+  it('rests the Pretty toggle on a plain-text message', () => {
+    render(<MqttMessageTimeline items={[message('ping')]} count={1} lifecycle={CONNECTED} v5 />);
+    fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
+    const toggle = screen.getByTestId('mqtt-timeline-viewer-pretty') as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    const viewer = screen.getByTestId('mqtt-timeline-message-viewer');
+    expect((viewer.querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement).value).toBe('ping');
+  });
 });
 
 describe('MqttMessageTimeline — trust certificate gesture', () => {

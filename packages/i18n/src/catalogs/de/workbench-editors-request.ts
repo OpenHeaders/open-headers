@@ -1730,6 +1730,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.timelineViewer.format': 'Nachrichtenformat',
   'workbench.editors.timelineViewer.showMessage': 'Nachricht anzeigen',
   'workbench.editors.timelineViewer.showHexdump': 'Hexdump anzeigen',
+  'workbench.editors.timelineViewer.showPretty': 'Formatiert anzeigen',
+  'workbench.editors.timelineViewer.showRaw': 'Roh anzeigen',
   'workbench.editors.request.response.body.previewIframeTitle': 'Antwortvorschau',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'PDF-Vorschau',
   'workbench.editors.request.response.body.imagePreviewAlt': 'Antwortbild',

@@ -1409,6 +1409,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.timelineViewer.format': '消息格式',
   'workbench.editors.timelineViewer.showMessage': '显示消息',
   'workbench.editors.timelineViewer.showHexdump': '显示十六进制转储',
+  'workbench.editors.timelineViewer.showPretty': '显示格式化',
+  'workbench.editors.timelineViewer.showRaw': '显示原始',
   'workbench.editors.request.response.body.previewIframeTitle': '响应预览',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'PDF 预览',
   'workbench.editors.request.response.body.imagePreviewAlt': '响应图像',

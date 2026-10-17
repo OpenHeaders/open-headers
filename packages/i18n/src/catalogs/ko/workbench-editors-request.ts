@@ -1559,6 +1559,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.timelineViewer.format': '메시지 형식',
   'workbench.editors.timelineViewer.showMessage': '메시지 표시',
   'workbench.editors.timelineViewer.showHexdump': 'Hexdump 표시',
+  'workbench.editors.timelineViewer.showPretty': '정리된 형식 표시',
+  'workbench.editors.timelineViewer.showRaw': 'Raw 표시',
   'workbench.editors.request.response.body.previewIframeTitle': '응답 미리 보기',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'PDF 미리 보기',
   'workbench.editors.request.response.body.imagePreviewAlt': '응답 이미지',

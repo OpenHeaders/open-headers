@@ -1741,6 +1741,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.timelineViewer.format': 'Format du message',
   'workbench.editors.timelineViewer.showMessage': 'Afficher le message',
   'workbench.editors.timelineViewer.showHexdump': 'Afficher le hexdump',
+  'workbench.editors.timelineViewer.showPretty': 'Afficher formaté',
+  'workbench.editors.timelineViewer.showRaw': 'Afficher brut',
   'workbench.editors.request.response.body.previewIframeTitle': 'Aperçu de la réponse',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'Aperçu PDF',
   'workbench.editors.request.response.body.imagePreviewAlt': 'Image de la réponse',

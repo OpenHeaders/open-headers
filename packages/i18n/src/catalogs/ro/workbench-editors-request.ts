@@ -1654,6 +1654,8 @@ export const workbenchEditorsRequest = {
   'workbench.editors.timelineViewer.format': 'Format mesaj',
   'workbench.editors.timelineViewer.showMessage': 'Afișare mesaj',
   'workbench.editors.timelineViewer.showHexdump': 'Afișare hexdump',
+  'workbench.editors.timelineViewer.showPretty': 'Afișare formatat',
+  'workbench.editors.timelineViewer.showRaw': 'Afișare brut',
   'workbench.editors.request.response.body.previewIframeTitle': 'Previzualizare răspuns',
   'workbench.editors.request.response.body.pdfPreviewIframeTitle': 'Previzualizare PDF',
   'workbench.editors.request.response.body.imagePreviewAlt': 'Imaginea răspunsului',
