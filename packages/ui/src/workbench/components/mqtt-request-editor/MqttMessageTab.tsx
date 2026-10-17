@@ -1,8 +1,8 @@
 /**
  * MqttMessageTab — the publish compose surface: payload editor with
- * the spec's example picker and the Find / Replace / Beautify cluster
- * in the toolbar row above it (Find/Replace ride every encoding; the
- * cluster keeps Beautify to formattable languages), the compose bar
+ * the spec's example picker and the Find / Replace / Format cluster
+ * in the toolbar row above it (the whole row rides every encoding;
+ * Format rests disabled where the language has no formatter), the compose bar
  * BELOW the editor (ENCODING dropdown left; properties, Retain, the
  * compact QoS — integer, the menu explains the levels only when
  * opened — the narrow topic input and Send on the right; base64/hex
@@ -89,14 +89,14 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
       {/* Toolbar row ABOVE the editor (the ScriptsTab discipline): the
-        spec's example picker on the left; Find / Replace / Beautify
+        spec's example picker on the left; Find / Replace / Format
         cluster on the right. The ENCODING choice lives on the compose
         bar BELOW the editor. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{exampleSelect}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Find/Replace ride every encoding; the cluster itself keeps
-            Beautify to formattable languages (json here —
+          {/* The whole cluster rides every encoding; Format rests
+            disabled where the language has no formatter (json here —
             text/base64/hex are plaintext). */}
           <CodeEditorActions
             target={payloadActionsRef}

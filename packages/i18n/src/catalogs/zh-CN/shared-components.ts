@@ -450,6 +450,7 @@ export const sharedComponents = {
   'shared.codeEditor.find': '查找',
   'shared.codeEditor.replace': '替换',
   'shared.codeEditor.format': '格式化',
+  'shared.codeEditor.formatUnavailable': '此格式没有格式化工具 — 请选择结构化格式，例如 JSON',
   'shared.codeEditor.formatError': '无法格式化 — 解析错误',
   'shared.editorMenu.label': '编辑器',
   'shared.editorMenu.settings': '设置',

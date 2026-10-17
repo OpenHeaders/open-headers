@@ -431,6 +431,7 @@ export const sharedComponents = {
   'shared.codeEditor.find': '찾기',
   'shared.codeEditor.replace': '바꾸기',
   'shared.codeEditor.format': '서식 지정',
+  'shared.codeEditor.formatUnavailable': '이 형식에는 서식 지정 도구가 없습니다 — JSON 같은 구조화된 형식을 선택하세요',
   'shared.codeEditor.formatError': '서식을 지정할 수 없습니다: 구문 분석 오류',
   'shared.editorMenu.label': '편집기',
   'shared.editorMenu.settings': '설정',

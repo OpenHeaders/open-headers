@@ -445,6 +445,7 @@ export const sharedComponents = {
   'shared.codeEditor.find': 'Rechercher',
   'shared.codeEditor.replace': 'Remplacer',
   'shared.codeEditor.format': 'Formater',
+  'shared.codeEditor.formatUnavailable': 'Aucun formateur pour ce format — choisissez un format structuré, comme JSON',
   'shared.codeEditor.formatError': 'Formatage impossible — erreur d’analyse',
   'shared.editorMenu.label': 'Éditeur',
   'shared.editorMenu.settings': 'Paramètres',

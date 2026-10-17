@@ -2,8 +2,8 @@
  * WsMessageTab — the compose surface, the MQTT Message tab's anatomy.
  * Toolbar row ABOVE the editor (the ScriptsTab discipline): the
  * Socket.IO event name + ack opt-in that compose the EVENT frame; the
- * "Use example message" picker off the specLink census; Find /
- * Replace / Beautify for JSON. The fill editor — the Socket.IO
+ * "Use example message" picker off the specLink census; the Find /
+ * Replace / Format cluster on every format. The fill editor — the Socket.IO
  * argument rail beside it when the stored text parses as an array.
  * The compose bar BELOW the editor: the raw flavor's format dropdown
  * left — Binary adds the Base64 / Hexadecimal spelling beside it and
@@ -127,9 +127,10 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{exampleSelect}</div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Find / Replace ride every format (the MQTT compose law);
-            the cluster itself keeps Format to formattable languages —
-            json here, text and the binary encodings are plaintext. */}
+          {/* The whole cluster rides every format (the MQTT compose
+            law); Format rests disabled where the language has no
+            formatter — json here, text and the binary encodings are
+            plaintext. */}
           <CodeEditorActions
             target={messageActionsRef}
             language={socketioFlavor ? 'json' : MESSAGE_FORMAT_LANGUAGE[draft.messageFormat]}

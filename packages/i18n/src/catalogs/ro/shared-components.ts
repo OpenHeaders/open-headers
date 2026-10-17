@@ -482,6 +482,7 @@ export const sharedComponents = {
   'shared.codeEditor.find': 'Căutare',
   'shared.codeEditor.replace': 'Înlocuire',
   'shared.codeEditor.format': 'Formatare',
+  'shared.codeEditor.formatUnavailable': 'Niciun formator pentru acest format — alege unul structurat, precum JSON',
   // The Format action's refusal alert title — the parse error's
   // own text rides the description verbatim.
   'shared.codeEditor.formatError': 'Nu se poate formata — eroare de parsare',

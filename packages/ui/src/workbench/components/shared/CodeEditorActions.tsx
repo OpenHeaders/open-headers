@@ -102,21 +102,34 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
           </Button>
         </Tooltip>
       )}
-      {!readOnly && formattable && (
+      {/* Format stays in the row whatever the language — a buffer with
+          no formatter (text, the binary encodings) shows it DISABLED
+          with the reason, never a gap where the other editors have a
+          button (the disabled-honest affordance law). */}
+      {!readOnly && (
         <Tooltip
-          title={<ShortcutHintTitle label={formatShortcutLabel}>{formatText}</ShortcutHintTitle>}
+          title={
+            formattable ? (
+              <ShortcutHintTitle label={formatShortcutLabel}>{formatText}</ShortcutHintTitle>
+            ) : (
+              t('shared.codeEditor.formatUnavailable')
+            )
+          }
           placement="top"
         >
-          <Button
-            size="small"
-            type="text"
-            icon={<AlignLeftOutlined />}
-            onClick={() => target.current?.format()}
-            aria-label={formatText}
-            data-testid="code-editor-format"
-          >
-            {iconsOnly ? null : formatText}
-          </Button>
+          <span style={{ display: 'inline-flex' }}>
+            <Button
+              size="small"
+              type="text"
+              icon={<AlignLeftOutlined />}
+              disabled={!formattable}
+              onClick={() => target.current?.format()}
+              aria-label={formatText}
+              data-testid="code-editor-format"
+            >
+              {iconsOnly ? null : formatText}
+            </Button>
+          </span>
         </Tooltip>
       )}
     </div>

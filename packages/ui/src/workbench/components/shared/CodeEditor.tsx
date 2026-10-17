@@ -237,7 +237,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // formattable?". JSON / CSS / HTML have Monaco's built-ins; JS / XML
   // are registered by `registerPrettierFormatters`, graphql by
   // `registerGraphqlFormatter`. Unregistered languages (text) return
-  // false → button stays hidden.
+  // false → the button rests disabled with the reason.
   const formattable = isFormattableLanguage(language);
 
   const runFormat = useCallback(async () => {
