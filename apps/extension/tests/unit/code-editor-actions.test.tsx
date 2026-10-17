@@ -2,8 +2,8 @@
 /**
  * CodeEditorActions — the Find / Replace / Format cluster: names ride
  * every toolbar row by default and only the corner overlay drops them;
- * Format stays in the row for a language without a formatter, disabled
- * with the reason, and the read-only cluster carries Find alone.
+ * Format stays live for a language without a formatter (the editor
+ * resolves the click), and the read-only cluster carries Find alone.
  */
 
 import CodeEditorActions, {
@@ -34,13 +34,13 @@ describe('CodeEditorActions', () => {
     expect(actions.format).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps Format in the row, disabled, for a language without a formatter', () => {
+  it('keeps Format live for a language without a formatter — the editor resolves the click', () => {
     const { ref, actions } = target();
     render(<CodeEditorActions target={ref} language="text" />);
     const format = screen.getByTestId('code-editor-format') as HTMLButtonElement;
-    expect(format.disabled).toBe(true);
+    expect(format.disabled).toBe(false);
     fireEvent.click(format);
-    expect(actions.format).not.toHaveBeenCalled();
+    expect(actions.format).toHaveBeenCalledTimes(1);
   });
 
   it('drops the names only in the icons-only corner form', () => {

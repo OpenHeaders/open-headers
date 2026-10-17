@@ -467,7 +467,10 @@ export const sharedComponents = {
   'shared.codeEditor.find': 'Find',
   'shared.codeEditor.replace': 'Replace',
   'shared.codeEditor.format': 'Format',
-  'shared.codeEditor.formatUnavailable': 'No formatter for this format — pick a structured one, like JSON',
+  'shared.codeEditor.formatUnavailableTitle': 'No formatter for this format',
+  'shared.codeEditor.formatUnavailableHint': 'Pick a structured format, like JSON, then format again.',
+  'shared.codeEditor.formatNotDetectedHint':
+    'The message is not JSON. Pick a structured format, like JSON, to format it.',
   // The Format action's refusal alert title — the parse error's
   // own text rides the description verbatim.
   'shared.codeEditor.formatError': 'Cannot format — parse error',

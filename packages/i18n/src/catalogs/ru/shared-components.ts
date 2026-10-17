@@ -476,7 +476,11 @@ export const sharedComponents = {
   'shared.codeEditor.find': 'Найти',
   'shared.codeEditor.replace': 'Заменить',
   'shared.codeEditor.format': 'Форматировать',
-  'shared.codeEditor.formatUnavailable': 'Для этого формата нет форматировщика — выберите структурированный, например JSON',
+  'shared.codeEditor.formatUnavailableTitle': 'Для этого формата нет форматировщика',
+  'shared.codeEditor.formatUnavailableHint':
+    'Выберите структурированный формат, например JSON, и отформатируйте снова.',
+  'shared.codeEditor.formatNotDetectedHint':
+    'Сообщение не является JSON. Выберите структурированный формат, например JSON, чтобы отформатировать его.',
   'shared.codeEditor.formatError': 'Не удаётся отформатировать — ошибка разбора',
   'shared.editorMenu.label': 'Редактор',
   'shared.editorMenu.settings': 'Настройки',

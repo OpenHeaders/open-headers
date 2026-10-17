@@ -23,7 +23,7 @@ import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
-import { MESSAGE_FORMAT_LANGUAGE, SEND_MESSAGE_SHORTCUT } from './compose';
+import { MESSAGE_FORMAT_LANGUAGE, messageFormatForLanguage, SEND_MESSAGE_SHORTCUT } from './compose';
 import type { WebSocketDraft } from './draft';
 import type { SocketIoArgs } from './useSocketIoArgs';
 import type { WsComposeAids } from './useWsComposeAids';
@@ -184,6 +184,13 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
                         placeholder={
                           socketioFlavor ? t('workbench.editors.websocket.event.argsPlaceholder') : rawPlaceholder
                         }
+                        // Format on a Text message that reads as a
+                        // structured language adopts that compose mode
+                        // (display-only here) and formats.
+                        onLanguageDetected={(language) => {
+                          const messageFormat = messageFormatForLanguage(language);
+                          if (messageFormat !== null) setDraft((d) => ({ ...d, messageFormat }));
+                        }}
                       />
                     )}
                   </div>

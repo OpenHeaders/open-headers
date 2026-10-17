@@ -151,11 +151,18 @@ describe('ensureEditorKeybindingSync', () => {
       command: '-editor.action.startFindReplaceAction',
     });
 
-    // Format keeps its editor-focus gate.
-    const formatBind = host.liveRuleFor('editor.action.formatDocument');
+    // Format keeps its editor-focus gate and runs the page-global
+    // format command (the toolbar button's routine), with Monaco's
+    // stock formatDocument chords removed so the two never diverge.
+    const formatRules = host.applied[2]?.rules ?? [];
+    expect(formatRules).toContainEqual({
+      keybinding: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyF,
+      command: '-editor.action.formatDocument',
+    });
+    const formatBind = host.liveRuleFor('oh.editor.format');
     expect(formatBind).toEqual({
       keybinding: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyF,
-      command: 'editor.action.formatDocument',
+      command: 'oh.editor.format',
       when: 'editorTextFocus',
     });
   });

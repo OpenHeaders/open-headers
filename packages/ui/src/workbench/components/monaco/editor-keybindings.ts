@@ -12,11 +12,13 @@
  * Mechanics per binding, applied through Monaco's dynamic keybinding
  * rules (`monaco.editor.addKeybindingRules`, page-global across every
  * mounted editor):
- *   - one `-commandId` removal rule per built-in default chord, so the
- *     stock binding stops dispatching (removals that match no default
- *     rule are no-ops, so the per-platform variants are all listed);
+ *   - one removal rule per built-in default chord of the stock
+ *     command, so the stock binding stops dispatching (removals that
+ *     match no default rule are no-ops, so the per-platform variants
+ *     are all listed);
  *   - one rule binding the configured chord to the command (skipped
- *     when unbound).
+ *     when unbound) — Monaco's own action for find / replace, the
+ *     page-global `oh.editor.format` command for format.
  * Each apply disposes the previous rules first — Monaco's disposable
  * genuinely splices dynamic rules out — so re-binds never stack.
  */
@@ -24,6 +26,7 @@
 import { get as getSetting, subscribeKey } from '../../settings/store';
 import type { SettingKey } from '../../settings/types';
 import { chordToMonacoKeybinding, type MonacoKeyCodeValues, type MonacoKeyModValues } from './chord-keybinding';
+import { EDITOR_FORMAT_COMMAND_ID } from './format-command';
 
 export interface EditorKeybindingRule {
   keybinding: number;
@@ -48,6 +51,10 @@ export interface MonacoKeybindingHost {
 interface EditorShortcutBinding {
   settingKey: SettingKey;
   commandId: string;
+  /** The stock Monaco command whose default chords the removal rules
+   *  target — only when the configured chord runs a command of ours
+   *  in its place; omitted, the removals target `commandId` itself. */
+  stockCommandId?: string;
   /**
    * Monaco's own default chords for the command, in our chord
    * vocabulary, across every platform variant Monaco ships (`mod` = ⌘
@@ -72,8 +79,12 @@ const EDITOR_SHORTCUT_BINDINGS: readonly EditorShortcutBinding[] = [
     builtinChords: ['mod+alt+f', 'mod+h'],
   },
   {
+    // The chord runs the host editor's own Format routine (the same
+    // one the toolbar button runs), not Monaco's built-in action —
+    // the built-in's chords are removed so the two never diverge.
     settingKey: 'keyboard.formatCode',
-    commandId: 'editor.action.formatDocument',
+    commandId: EDITOR_FORMAT_COMMAND_ID,
+    stockCommandId: 'editor.action.formatDocument',
     builtinChords: ['shift+alt+f', 'mod+shift+i'],
     when: 'editorTextFocus',
   },
@@ -99,7 +110,7 @@ function applyBinding(
   const rules: EditorKeybindingRule[] = [];
   for (const builtin of binding.builtinChords) {
     const keybinding = chordToMonacoKeybinding(builtin, host.KeyMod, host.KeyCode);
-    if (keybinding !== null) rules.push({ keybinding, command: `-${binding.commandId}` });
+    if (keybinding !== null) rules.push({ keybinding, command: `-${binding.stockCommandId ?? binding.commandId}` });
   }
   const keybinding = chordToMonacoKeybinding(chord, host.KeyMod, host.KeyCode);
   if (keybinding !== null) {

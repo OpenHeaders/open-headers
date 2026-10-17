@@ -2,13 +2,24 @@
  * CodeEditor — Monaco-backed editor host, driven by the `editor.*`
  * settings and the language registry.
  *
- * Formatting architecture: the Format button + Shift+Alt+F BOTH invoke
- * Monaco's `editor.action.formatDocument` action. Monaco dispatches to
+ * Formatting architecture: the Format button + the configured chord
+ * BOTH run `runFormat` here (the chord through the page-global
+ * `oh.editor.format` command, see `monaco/format-command.ts`), which
+ * invokes Monaco's `editor.action.formatDocument`. Monaco dispatches to
  * whichever `DocumentFormattingEditProvider` owns the active model's
  * language — JSON / CSS / HTML are handled by Monaco's built-in LSP
  * workers (zero extra bundle), JS / XML are handled by the Prettier
  * provider we register in `monaco/formatters.ts`. The UI never
  * hard-codes "which formatter" — that decision is Monaco's.
+ *
+ * Format is always offered on an editable buffer, and it resolves on
+ * the click (the VS Code posture: the command is always there, the
+ * answer comes when you ask). A buffer whose language has no
+ * formatter is inspected ONCE, right then — never while typing — and
+ * when it holds a structured language a host that opts in through
+ * `onLanguageDetected` adopts it (its format control follows, the
+ * buffer formats once the prop lands); otherwise the inline notice
+ * names the reason and the fix.
  *
  * Host callers stay unchanged: `language` is still a string prop, same
  * `value` / `onChange` / `readOnly` / `placeholder` / `minHeight`.
@@ -32,6 +43,8 @@ import '../monaco/bootstrap';
 import { ensureEditorFontReadiness } from '../monaco/editor-font-readiness';
 import { ensureEditorKeybindingSync } from '../monaco/editor-keybindings';
 import { applyExternalValue } from '../monaco/external-value-sync';
+import { ensureEditorFormatCommand, registerEditorFormatHandler } from '../monaco/format-command';
+import { detectStructuredLanguage } from '../monaco/structured-text-detection';
 import { useMonacoVariableCompletions } from '../template-input';
 import { useMonacoJwtEdit } from '../value-editors';
 import CodeEditorActions, { type CodeEditorActionsTarget, isFormattableLanguage } from './CodeEditorActions';
@@ -80,6 +93,22 @@ interface CodeEditorProps {
   /** Populated with the editor's imperative action surface — hand it
    *  to an externally-rendered `CodeEditorActions`. */
   actionsRef?: React.MutableRefObject<CodeEditorActionsTarget | null>;
+  /** Opt the host into format-time language detection: when Format
+   *  runs on a buffer whose language has no formatter and the text
+   *  reads as a structured language, the host receives it to adopt
+   *  (flip its format control so `language` follows); the buffer then
+   *  formats as that language. Hosts whose format choice reaches the
+   *  wire (a Content-Type) leave this unset and get the notice. */
+  onLanguageDetected?: (language: LanguageId) => void;
+}
+
+/** The inline notice under the buffer after a Format that could not
+ *  run — a parse failure (the formatter's own message) or a language
+ *  without a formatter (the reason and the fix). */
+interface FormatNotice {
+  kind: 'error' | 'warning';
+  title: string;
+  detail: string | null;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -97,6 +126,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   linkDetection = false,
   actions = 'corner',
   actionsRef,
+  onLanguageDetected,
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
   // Read-only buffers get the viewer wiring: "View JWT" hover link and a
@@ -135,10 +165,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [mountedEditor, value, readOnly]);
 
-  // Inline formatter error banner — populated when a Format call fails
-  // with a parse error, cleared the moment the user edits the buffer
-  // or runs Format successfully.
-  const [formatError, setFormatError] = useState<string | null>(null);
+  // Inline Format notice — a parse failure or a language without a
+  // formatter; cleared the moment the user edits the buffer or a
+  // Format succeeds.
+  const [formatNotice, setFormatNotice] = useState<FormatNotice | null>(null);
 
   // Manual height from the corner resize grip (same affordance as
   // TemplateInput's). Overrides `minHeight` once dragged; double-click
@@ -237,35 +267,75 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // formattable?". JSON / CSS / HTML have Monaco's built-ins; JS / XML
   // are registered by `registerPrettierFormatters`, graphql by
   // `registerGraphqlFormatter`. Unregistered languages (text) return
-  // false → the button rests disabled with the reason.
+  // false → Format resolves on the click (detection or the notice).
   const formattable = isFormattableLanguage(language);
+
+  // The language a Format click detected and handed to the host —
+  // the format runs once the `language` prop comes back as it.
+  const pendingFormatLanguageRef = useRef<LanguageId | null>(null);
 
   const runFormat = useCallback(async () => {
     const editor = editorRef.current;
-    if (!editor || readOnly || !formattable) return;
+    if (!editor || readOnly) return;
     const current = valueRef.current;
     // Empty/whitespace buffer — there's nothing to format. Clear any
-    // prior error and no-op so a JSON.parse('') or Prettier invocation
+    // prior notice and no-op so a JSON.parse('') or Prettier invocation
     // doesn't throw "Unexpected end of input" in the user's face.
     if (current.trim().length === 0) {
-      setFormatError(null);
+      setFormatNotice(null);
+      return;
+    }
+    if (!formattable) {
+      const detected = onLanguageDetected ? detectStructuredLanguage(current) : null;
+      if (detected !== null && onLanguageDetected) {
+        pendingFormatLanguageRef.current = detected;
+        onLanguageDetected(detected);
+        return;
+      }
+      setFormatNotice({
+        kind: 'warning',
+        title: t('shared.codeEditor.formatUnavailableTitle'),
+        detail: t(
+          onLanguageDetected ? 'shared.codeEditor.formatNotDetectedHint' : 'shared.codeEditor.formatUnavailableHint',
+        ),
+      });
       return;
     }
     try {
       const action = editor.getAction('editor.action.formatDocument');
       if (!action) {
-        setFormatError(null);
+        setFormatNotice(null);
         return;
       }
       await action.run();
-      setFormatError(null);
+      setFormatNotice(null);
     } catch (err) {
-      setFormatError(err instanceof Error ? err.message : 'Format failed');
+      setFormatNotice({
+        kind: 'error',
+        title: t('shared.codeEditor.formatError'),
+        detail: err instanceof Error ? err.message : 'Format failed',
+      });
     }
-  }, [readOnly, formattable]);
+  }, [readOnly, formattable, onLanguageDetected, t]);
 
   const runFormatRef = useRef(runFormat);
   runFormatRef.current = runFormat;
+
+  // The detected language landed as the prop (the wrapper has set the
+  // model's language in its own effect, which runs first) — now the
+  // format the click asked for runs as that language.
+  useEffect(() => {
+    if (pendingFormatLanguageRef.current !== language) return;
+    pendingFormatLanguageRef.current = null;
+    void runFormatRef.current();
+  }, [language]);
+
+  // The chord's path: the page-global format command hands off to the
+  // focused editor's registered routine — this one.
+  useEffect(() => {
+    if (!mountedEditor) return;
+    return registerEditorFormatHandler(mountedEditor, () => void runFormatRef.current());
+  }, [mountedEditor]);
 
   // Focus first so the widget seeds from the current selection and Esc
   // returns focus to the buffer — same as invoking the keybinding.
@@ -389,39 +459,44 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           // rules (and keep them synced on rebind) — so Settings →
           // Keyboard rebinds change the actual key, not just the hint.
           ensureEditorKeybindingSync(monacoApi);
+          ensureEditorFormatCommand(monacoApi);
           if (variableAutoComplete) registerCompletions(monacoApi);
           if (valueDetection) attachJwtDetection(ed, monacoApi);
           onEditorMount?.(ed, monacoApi);
         }}
         onChange={(next) => {
           if (syncingRef.current) return;
-          if (formatError) setFormatError(null);
+          if (formatNotice) setFormatNotice(null);
           onChange?.(next ?? '');
         }}
         options={options}
       />
-      {formatError && (
+      {formatNotice && (
         <Alert
-          type="error"
+          type={formatNotice.kind}
           showIcon
           closable
-          onClose={() => setFormatError(null)}
-          title={t('shared.codeEditor.formatError')}
+          onClose={() => setFormatNotice(null)}
+          title={formatNotice.title}
+          data-testid="code-editor-format-notice"
           description={
-            <pre
-              style={{
-                margin: 0,
-                fontFamily,
-                fontSize: Math.max(11, fontSize - 1),
-                lineHeight: 1.45,
-                whiteSpace: 'pre',
-                overflowX: 'auto', overscrollBehavior: 'none',
-                color: 'inherit',
-                background: 'transparent',
-              }}
-            >
-              {formatError}
-            </pre>
+            formatNotice.detail === null ? undefined : (
+              <pre
+                style={{
+                  margin: 0,
+                  fontFamily: formatNotice.kind === 'error' ? fontFamily : undefined,
+                  fontSize: Math.max(11, fontSize - 1),
+                  lineHeight: 1.45,
+                  whiteSpace: formatNotice.kind === 'error' ? 'pre' : 'pre-wrap',
+                  overflowX: 'auto',
+                  overscrollBehavior: 'none',
+                  color: 'inherit',
+                  background: 'transparent',
+                }}
+              >
+                {formatNotice.detail}
+              </pre>
+            )
           }
           style={{
             borderRadius: 0,

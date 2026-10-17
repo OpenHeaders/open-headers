@@ -69,7 +69,6 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
   const findShortcutLabel = useShortcutLabel('find');
   const replaceShortcutLabel = useShortcutLabel('replace');
   const formatShortcutLabel = useShortcutLabel('format-code');
-  const formattable = isFormattableLanguage(language);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2, ...style }}>
@@ -102,34 +101,25 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
           </Button>
         </Tooltip>
       )}
-      {/* Format stays in the row whatever the language — a buffer with
-          no formatter (text, the binary encodings) shows it DISABLED
-          with the reason, never a gap where the other editors have a
-          button (the disabled-honest affordance law). */}
+      {/* Format stays in the row whatever the language, always live —
+          it resolves on the click (the editor detects a structured
+          language or shows the reason inline), so the row never has a
+          gap or a dead button. */}
       {!readOnly && (
         <Tooltip
-          title={
-            formattable ? (
-              <ShortcutHintTitle label={formatShortcutLabel}>{formatText}</ShortcutHintTitle>
-            ) : (
-              t('shared.codeEditor.formatUnavailable')
-            )
-          }
+          title={<ShortcutHintTitle label={formatShortcutLabel}>{formatText}</ShortcutHintTitle>}
           placement="top"
         >
-          <span style={{ display: 'inline-flex' }}>
-            <Button
-              size="small"
-              type="text"
-              icon={<AlignLeftOutlined />}
-              disabled={!formattable}
-              onClick={() => target.current?.format()}
-              aria-label={formatText}
-              data-testid="code-editor-format"
-            >
-              {iconsOnly ? null : formatText}
-            </Button>
-          </span>
+          <Button
+            size="small"
+            type="text"
+            icon={<AlignLeftOutlined />}
+            onClick={() => target.current?.format()}
+            aria-label={formatText}
+            data-testid="code-editor-format"
+          >
+            {iconsOnly ? null : formatText}
+          </Button>
         </Tooltip>
       )}
     </div>

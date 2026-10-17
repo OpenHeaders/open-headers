@@ -21,3 +21,19 @@ export const MESSAGE_FORMAT_LANGUAGE = {
   html: 'html',
   binary: 'text',
 } as const satisfies Record<WebSocketMessageFormat, LanguageId>;
+
+/** The compose mode to adopt when Format finds a plain-text message
+ *  written in a structured language — the inverse of the map above
+ *  for the modes that ARE a language, `null` for the rest. Safe to
+ *  adopt: the mode is a display choice here, the frame travels
+ *  verbatim. */
+export function messageFormatForLanguage(language: LanguageId): WebSocketMessageFormat | null {
+  switch (language) {
+    case 'json':
+    case 'xml':
+    case 'html':
+      return language;
+    default:
+      return null;
+  }
+}

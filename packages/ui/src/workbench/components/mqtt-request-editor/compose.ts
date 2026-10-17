@@ -20,6 +20,15 @@ export const PAYLOAD_FORMAT_LANGUAGE = {
   hex: 'text',
 } as const satisfies Record<MqttPayloadFormat, LanguageId>;
 
+/** The ENCODING to adopt when Format finds a plain-text payload
+ *  written in a structured language — the inverse of the map above
+ *  for the encodings that ARE a language (json), `null` for the rest.
+ *  Safe to adopt: the encoding is a display choice here, the payload
+ *  travels verbatim. */
+export function payloadFormatForLanguage(language: LanguageId): MqttPayloadFormat | null {
+  return language === 'json' ? 'json' : null;
+}
+
 export const MQTT_SCHEMES = ['mqtt', 'mqtts', 'ws', 'wss'] as const;
 export type MqttScheme = (typeof MQTT_SCHEMES)[number];
 

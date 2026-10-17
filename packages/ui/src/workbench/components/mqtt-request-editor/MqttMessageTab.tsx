@@ -22,7 +22,7 @@ import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
-import { composePublishWire, PAYLOAD_FORMAT_LANGUAGE } from './compose';
+import { composePublishWire, PAYLOAD_FORMAT_LANGUAGE, payloadFormatForLanguage } from './compose';
 import { CompactQosSelect, EncodingErrorLine, EncodingSelect, payloadPlaceholder, TopicField } from './compose-parts';
 import type { MqttDraft } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
@@ -131,6 +131,12 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
                     actionsRef={payloadActionsRef}
                     wordWrapOverride={wrapPayload ? 'on' : 'off'}
                     placeholder={editorPlaceholder}
+                    // Format on a Text payload that reads as JSON adopts
+                    // the JSON encoding (display-only here) and formats.
+                    onLanguageDetected={(language) => {
+                      const payloadFormat = payloadFormatForLanguage(language);
+                      if (payloadFormat !== null) setDraft((d) => ({ ...d, payloadFormat }));
+                    }}
                   />
                 </div>
               </div>

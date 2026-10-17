@@ -433,7 +433,10 @@ export const sharedComponents = {
   'shared.codeEditor.find': '検索',
   'shared.codeEditor.replace': '置換',
   'shared.codeEditor.format': '整形',
-  'shared.codeEditor.formatUnavailable': 'この形式には整形ツールがありません — JSON などの構造化された形式を選択してください',
+  'shared.codeEditor.formatUnavailableTitle': 'この形式には整形ツールがありません',
+  'shared.codeEditor.formatUnavailableHint': 'JSON などの構造化された形式を選択してから、もう一度整形してください。',
+  'shared.codeEditor.formatNotDetectedHint':
+    'メッセージは JSON ではありません。整形するには JSON などの構造化された形式を選択してください。',
   'shared.codeEditor.formatError': '整形できません：パースエラー',
   'shared.editorMenu.label': 'エディター',
   'shared.editorMenu.settings': '設定',

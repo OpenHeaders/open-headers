@@ -22,7 +22,7 @@ import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
-import { PAYLOAD_FORMAT_LANGUAGE } from './compose';
+import { PAYLOAD_FORMAT_LANGUAGE, payloadFormatForLanguage } from './compose';
 import { CompactQosSelect, EncodingErrorLine, EncodingSelect, payloadPlaceholder, TopicField } from './compose-parts';
 import { type MqttDraft, payloadEncodingError } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
@@ -77,6 +77,10 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
             actionsRef={payloadActionsRef}
             wordWrapOverride={wrapPayload ? 'on' : 'off'}
             placeholder={editorPlaceholder}
+            onLanguageDetected={(language) => {
+              const format = payloadFormatForLanguage(language);
+              if (format !== null) setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, format } }));
+            }}
           />
         </div>
       </div>

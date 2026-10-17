@@ -448,7 +448,10 @@ export const sharedComponents = {
   'shared.codeEditor.find': 'Buscar',
   'shared.codeEditor.replace': 'Reemplazar',
   'shared.codeEditor.format': 'Formatear',
-  'shared.codeEditor.formatUnavailable': 'No hay formateador para este formato: elige uno estructurado, como JSON',
+  'shared.codeEditor.formatUnavailableTitle': 'No hay formateador para este formato',
+  'shared.codeEditor.formatUnavailableHint': 'Elige un formato estructurado, como JSON, y vuelve a formatear.',
+  'shared.codeEditor.formatNotDetectedHint':
+    'El mensaje no es JSON. Elige un formato estructurado, como JSON, para formatearlo.',
   'shared.codeEditor.formatError': 'No se puede formatear — error de análisis',
   'shared.editorMenu.label': 'Editor',
   'shared.editorMenu.settings': 'Configuración',
