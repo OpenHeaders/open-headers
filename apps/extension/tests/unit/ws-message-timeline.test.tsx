@@ -58,6 +58,7 @@ afterEach(() => {
   cleanup();
   // The sort choice is a GLOBAL setting — reset between tests.
   resetSetting('requests.wsMessagesNewestFirst');
+  resetSetting('requests.wsMessagesGroupByDirection');
   resetSetting('requests.wsMessagesHideHeartbeat');
   resetSetting('requests.wsMessagesHideHandshake');
 });
@@ -357,10 +358,41 @@ describe('WsMessageTimeline — display-only controls', () => {
     expect(rowSequence().filter((r) => !['connecting', 'connected'].includes(r))).toEqual(['pong']);
   });
 
-  it('direction filter keeps only the picked direction', () => {
+  it('direction filter keeps only the picked direction — the menu row, the trigger reads it, the count follows', () => {
     renderTimeline();
-    fireEvent.click(screen.getByText('↑ Sent'));
+    const trigger = screen.getByTestId('ws-timeline-direction-filter');
+    expect(trigger.textContent).toBe('All messages');
+    fireEvent.click(trigger);
+    // A single choice on the selection plane: the row in force carries
+    // antd's selected class under the choice-menu anatomy.
+    const allRow = screen.getByText('All messages', { selector: '.ant-dropdown-menu-item *' });
+    expect(allRow.closest('.ant-dropdown-menu-item')?.classList.contains('ant-dropdown-menu-item-selected')).toBe(true);
+    expect(allRow.closest('.ant-dropdown-menu')?.classList.contains('oh-choice-menu')).toBe(true);
+    fireEvent.click(screen.getByText('Sent', { selector: '.ant-dropdown-menu-item *' }));
+    expect(trigger.textContent).toBe('Sent');
     expect(rowSequence().filter((r) => !['connecting', 'connected'].includes(r))).toEqual(['ping']);
+    expect(screen.getByTestId('ws-timeline-count').textContent).toMatch(/^1 of \d+ messages$/);
+  });
+
+  it('Sort by and View are labeled triggers; the View menu is the Editor menu anatomy with the group knobs', () => {
+    renderTimeline();
+    expect(screen.getByTestId('ws-timeline-sort').textContent).toBe('Sort by');
+    expect(screen.getByTestId('ws-timeline-clear').textContent).toBe('Clear');
+    const view = screen.getByTestId('ws-timeline-view');
+    expect(view.textContent).toBe('View');
+    fireEvent.click(view);
+    const groupRow = screen.getByText('Group by direction', { selector: '.ant-dropdown-menu-item *' });
+    expect(groupRow.closest('.ant-dropdown-menu')?.classList.contains('oh-view-menu')).toBe(true);
+    expect(groupRow.closest('.ant-dropdown-menu-item')?.classList.contains('ant-dropdown-menu-item-selected')).toBe(
+      false,
+    );
+    fireEvent.click(groupRow);
+    expect(
+      screen
+        .getByText('Group by direction', { selector: '.ant-dropdown-menu-item *' })
+        .closest('.ant-dropdown-menu-item')
+        ?.classList.contains('ant-dropdown-menu-item-selected'),
+    ).toBe(true);
   });
 
   it('Clear hides current rows; lifecycle rows stay', () => {

@@ -512,8 +512,17 @@
 // `.oh-choice-menu` is the same anatomy for a ROOT list that is one
 // single choice (a timeline strip's direction / sort menus): the mark
 // in the gutter plus the active tint, as the Whitespace submenu.
+// `.oh-view-menu` is the Editor menu's own shape on another host (a
+// timeline strip's View menu): mark-only toggles at the root, the
+// single-choice submenu with the tint.
 :is(.ant-dropdown, .ant-dropdown-menu-submenu)
-  .ant-dropdown-menu:is(.oh-editor-view-menu, .oh-editor-view-menu *, .oh-choice-menu) {
+  .ant-dropdown-menu:is(
+    .oh-editor-view-menu,
+    .oh-editor-view-menu *,
+    .oh-choice-menu,
+    .oh-view-menu,
+    .oh-view-menu *
+  ) {
   .ant-dropdown-menu-item,
   .ant-dropdown-menu-submenu-title {
     position: relative;
@@ -563,7 +572,7 @@
 }
 
 // The multi-toggle root list: the mark alone, the ordinary hover.
-.ant-dropdown .ant-dropdown-menu.oh-editor-view-menu {
+.ant-dropdown .ant-dropdown-menu:is(.oh-editor-view-menu, .oh-view-menu) {
   .ant-dropdown-menu-item-selected {
     background: transparent;
   }
@@ -576,7 +585,7 @@
 
 // The single-choice submenu — and the single-choice root list — the
 // auth popup's chosen row.
-.ant-dropdown-menu-submenu.oh-editor-view-menu .ant-dropdown-menu,
+.ant-dropdown-menu-submenu:is(.oh-editor-view-menu, .oh-view-menu) .ant-dropdown-menu,
 .ant-dropdown .ant-dropdown-menu.oh-choice-menu {
   .ant-dropdown-menu-item-selected {
     font-weight: 600;

@@ -51,14 +51,16 @@ import {
   ClockCircleOutlined,
   CloseCircleOutlined,
   CodeOutlined,
+  ControlOutlined,
+  CopyOutlined,
   DisconnectOutlined,
   DownOutlined,
-  CopyOutlined,
   SaveOutlined,
   InfoCircleOutlined,
   ReloadOutlined,
   SearchOutlined,
   SortAscendingOutlined,
+  SortDescendingOutlined,
   UpOutlined,
 } from '@ant-design/icons';
 import type { WsHandshakeHeaderWire } from '@openheaders/core/bridge';
@@ -66,7 +68,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { parseEngineIoFrame, SOCKET_IO_PACKET_TYPES } from '@openheaders/core/socketio';
 import type { WebSocketFlavor } from '@openheaders/core/types';
 import { decodeBase64Bytes, wsCloseCodePhrase } from '@openheaders/core/utils';
-import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Dropdown, Input, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
@@ -614,7 +616,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
   const t = useT();
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
+  const [directionMenuOpen, setDirectionMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
@@ -2019,18 +2023,39 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
 
   const refusalKind = peerExecuteRefusalKind(lifecycle.errorMessage);
 
-  const menuOptionLabel = (label: string, checked: boolean): React.ReactNode => (
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+  // The direction options — the menu rows and the trigger's label are
+  // the same words, so the trigger reads the filter in force.
+  const directionOptions: ReadonlyArray<{ value: DirectionFilter; icon: React.ReactNode | null; label: string }> = [
+    { value: 'all', icon: null, label: t('workbench.editors.websocket.timeline.filterAllMessages') },
+    { value: 'up', icon: <ArrowUpOutlined />, label: t('workbench.editors.websocket.timeline.filterSent') },
+    { value: 'down', icon: <ArrowDownOutlined />, label: t('workbench.editors.websocket.timeline.filterReceived') },
+  ];
+  const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
+  const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {icon}
       {label}
-      {checked && <CheckOutlined style={{ color: token.colorPrimary }} />}
     </span>
   );
+  // The View menu's on-knobs ride antd's selection plane (several at
+  // once); the Rows per group submenu is the one single choice.
+  const viewSelectedKeys = [
+    ...(groupByDirection ? ['group'] : []),
+    ...(groupByEvent ? ['group-event'] : []),
+    ...(hideHeartbeat ? ['hide-heartbeat'] : []),
+    ...(hideHandshake ? ['hide-handshake'] : []),
+    `group-limit-${groupRowLimit}`,
+  ];
 
   return (
     <div
       data-testid="ws-message-timeline"
       style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
     >
+      {/* The strip — the MQTT timeline's: search, the direction menu and
+          the count on the left; Sort by, View and Clear on the right,
+          every trigger icon + label; the single-choice menus and the
+          View menu paint the Editor menu's row anatomy. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Input
           size="small"
@@ -2040,10 +2065,55 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           data-testid="ws-timeline-search"
-          style={{ maxWidth: 260 }}
+          style={{ maxWidth: 220 }}
         />
-        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-          {t('workbench.editors.websocket.timeline.messageCount', { count: count - clearedCount })}
+        <Dropdown
+          trigger={['click']}
+          placement="bottomLeft"
+          open={directionMenuOpen}
+          onOpenChange={(open, info) => {
+            if (info.source === 'menu') return;
+            setDirectionMenuOpen(open);
+          }}
+          menu={{
+            rootClassName: 'oh-choice-menu',
+            selectable: true,
+            selectedKeys: [directionFilter],
+            items: directionOptions.map((option) => ({
+              key: option.value,
+              label: menuRow(option.icon, option.label),
+              onClick: () => {
+                setDirectionFilter(option.value);
+                setDirectionMenuOpen(false);
+              },
+            })),
+          }}
+        >
+          <Tooltip
+            title={t('workbench.editors.websocket.timeline.directionFilter')}
+            placement="bottom"
+            open={directionMenuOpen ? false : undefined}
+          >
+            <Button
+              size="small"
+              type="text"
+              data-testid="ws-timeline-direction-filter"
+              aria-label={t('workbench.editors.websocket.timeline.directionFilter')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {activeDirection.icon}
+              {activeDirection.label}
+              <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
+            </Button>
+          </Tooltip>
+        </Dropdown>
+        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="ws-timeline-count">
+          {filtering
+            ? t('workbench.editors.websocket.timeline.messageCountFiltered', {
+                shown: visibleRows.length,
+                total: count - clearedCount,
+              })
+            : t('workbench.editors.websocket.timeline.messageCount', { count: count - clearedCount })}
         </Text>
         {droppedMessages > 0 && (
           <Text type="warning" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="ws-timeline-dropped">
@@ -2051,19 +2121,6 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           </Text>
         )}
         <span style={{ marginLeft: 'auto' }} />
-        <ConfigProvider theme={{ token: { motion: false } }}>
-          <Segmented
-            size="small"
-            value={directionFilter}
-            onChange={(value) => setDirectionFilter(value as DirectionFilter)}
-            data-testid="ws-timeline-direction-filter"
-            options={[
-              { value: 'all', label: t('workbench.editors.websocket.timeline.filterAll') },
-              { value: 'up', label: `↑ ${t('workbench.editors.websocket.timeline.filterSent')}` },
-              { value: 'down', label: `↓ ${t('workbench.editors.websocket.timeline.filterReceived')}` },
-            ]}
-          />
-        </ConfigProvider>
         <Dropdown
           trigger={['click']}
           placement="bottomRight"
@@ -2073,55 +2130,25 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             setSortMenuOpen(open);
           }}
           menu={{
+            rootClassName: 'oh-choice-menu',
+            selectable: true,
+            selectedKeys: [newestFirst ? 'newest' : 'oldest'],
             items: [
               {
                 key: 'newest',
-                label: menuOptionLabel(t('workbench.editors.websocket.timeline.newestFirst'), newestFirst),
-                onClick: () => setNewestFirst(true),
+                label: t('workbench.editors.websocket.timeline.newestFirst'),
+                onClick: () => {
+                  setNewestFirst(true);
+                  setSortMenuOpen(false);
+                },
               },
               {
                 key: 'oldest',
-                label: menuOptionLabel(t('workbench.editors.websocket.timeline.oldestFirst'), !newestFirst),
-                onClick: () => setNewestFirst(false),
-              },
-              { type: 'divider' },
-              {
-                key: 'group',
-                label: menuOptionLabel(t('workbench.editors.websocket.timeline.groupByDirection'), groupByDirection),
-                onClick: () => setGroupByDirection(!groupByDirection),
-              },
-              ...(flavor === 'socketio'
-                ? [
-                    {
-                      key: 'group-event',
-                      label: menuOptionLabel(t('workbench.editors.websocket.timeline.groupByEvent'), groupByEvent),
-                      onClick: () => setGroupByEvent(!groupByEvent),
-                    },
-                    { type: 'divider' as const },
-                    {
-                      key: 'hide-heartbeat',
-                      label: menuOptionLabel(t('workbench.editors.websocket.timeline.hideHeartbeat'), hideHeartbeat),
-                      onClick: () => setHideHeartbeat(!hideHeartbeat),
-                    },
-                    {
-                      key: 'hide-handshake',
-                      label: menuOptionLabel(t('workbench.editors.websocket.timeline.hideHandshake'), hideHandshake),
-                      onClick: () => setHideHandshake(!hideHandshake),
-                    },
-                  ]
-                : []),
-              {
-                key: 'group-limit',
-                label: t('workbench.editors.websocket.timeline.rowsPerGroup'),
-                disabled: !groupByDirection && !groupByEventActive,
-                children: [0, 1, 3, 5, 10].map((n) => ({
-                  key: `group-limit-${n}`,
-                  label: menuOptionLabel(
-                    n === 0 ? t('workbench.editors.websocket.timeline.noLimit') : String(n),
-                    groupRowLimit === n,
-                  ),
-                  onClick: () => setGroupRowLimit(n),
-                })),
+                label: t('workbench.editors.websocket.timeline.oldestFirst'),
+                onClick: () => {
+                  setNewestFirst(false);
+                  setSortMenuOpen(false);
+                },
               },
             ],
           }}
@@ -2134,10 +2161,99 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             <Button
               size="small"
               type="text"
-              icon={<SortAscendingOutlined />}
+              icon={newestFirst ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
               data-testid="ws-timeline-sort"
               aria-label={t('workbench.editors.websocket.timeline.sortOrder')}
-            />
+            >
+              {t('workbench.editors.websocket.timeline.sortBy')}
+            </Button>
+          </Tooltip>
+        </Dropdown>
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          open={viewMenuOpen}
+          onOpenChange={(open, info) => {
+            // Menu-item clicks keep the popover open — several knobs
+            // flip in one visit; only the trigger and outside clicks
+            // change visibility.
+            if (info.source === 'menu') return;
+            setViewMenuOpen(open);
+          }}
+          menu={{
+            rootClassName: 'oh-view-menu',
+            selectable: true,
+            multiple: true,
+            selectedKeys: viewSelectedKeys,
+            items: [
+              {
+                type: 'group',
+                label: t('workbench.editors.websocket.timeline.viewGroup'),
+                children: [
+                  {
+                    key: 'group',
+                    label: t('workbench.editors.websocket.timeline.groupByDirection'),
+                    onClick: () => setGroupByDirection(!groupByDirection),
+                  },
+                  ...(flavor === 'socketio'
+                    ? [
+                        {
+                          key: 'group-event',
+                          label: t('workbench.editors.websocket.timeline.groupByEvent'),
+                          onClick: () => setGroupByEvent(!groupByEvent),
+                        },
+                      ]
+                    : []),
+                  {
+                    key: 'group-limit',
+                    label: t('workbench.editors.websocket.timeline.rowsPerGroup'),
+                    disabled: !groupByDirection && !groupByEventActive,
+                    children: [0, 1, 3, 5, 10].map((n) => ({
+                      key: `group-limit-${n}`,
+                      label: n === 0 ? t('workbench.editors.websocket.timeline.noLimit') : String(n),
+                      onClick: () => setGroupRowLimit(n),
+                    })),
+                  },
+                ],
+              },
+              ...(flavor === 'socketio'
+                ? [
+                    { type: 'divider' as const },
+                    {
+                      type: 'group' as const,
+                      label: t('workbench.editors.websocket.timeline.viewShow'),
+                      children: [
+                        {
+                          key: 'hide-heartbeat',
+                          label: t('workbench.editors.websocket.timeline.hideHeartbeat'),
+                          onClick: () => setHideHeartbeat(!hideHeartbeat),
+                        },
+                        {
+                          key: 'hide-handshake',
+                          label: t('workbench.editors.websocket.timeline.hideHandshake'),
+                          onClick: () => setHideHandshake(!hideHandshake),
+                        },
+                      ],
+                    },
+                  ]
+                : []),
+            ],
+          }}
+        >
+          <Tooltip
+            title={t('workbench.editors.websocket.timeline.viewTooltip')}
+            placement="bottom"
+            open={viewMenuOpen ? false : undefined}
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<ControlOutlined />}
+              data-testid="ws-timeline-view"
+              aria-label={t('workbench.editors.websocket.timeline.view')}
+            >
+              {t('workbench.editors.websocket.timeline.view')}
+            </Button>
           </Tooltip>
         </Dropdown>
         <Tooltip title={t('workbench.editors.websocket.timeline.clearMessages')} placement="bottom">
@@ -2148,7 +2264,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             data-testid="ws-timeline-clear"
             onClick={() => setClearedCount(count)}
             aria-label={t('workbench.editors.websocket.timeline.clearMessages')}
-          />
+          >
+            {t('workbench.editors.websocket.timeline.clear')}
+          </Button>
         </Tooltip>
       </div>
       {/* A delegated open the place refused under its two-tier opt-in:
