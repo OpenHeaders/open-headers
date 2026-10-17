@@ -85,12 +85,10 @@ import { Button, Dropdown, Input, Tag, Tooltip, Typography, theme } from 'antd';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
 import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import TimelineMessageViewer, {
@@ -99,7 +97,8 @@ import TimelineMessageViewer, {
   useTimelineViewerModes,
   VIEWER_PX,
 } from '../shared/TimelineMessageViewer';
-import { GRPC_HOOK_LABEL_KEY, type GrpcScriptMarkItem } from './grpc-scripts';
+import type { GrpcScriptMarkItem } from './grpc-scripts';
+import { endedRowText, fixedRowText, scriptRowText } from './grpc-timeline-row-text';
 import { deriveGrpcFrameView, type GrpcMessageView } from './response-decode';
 
 const { Text } = Typography;
@@ -274,24 +273,6 @@ function formatMessageTime(ts: number): string {
 }
 
 /** Lifecycle label for how the call ended. */
-function endedLabel(endedBy: GrpcTimelineEndedBy, t: Translate): string {
-  switch (endedBy) {
-    case 'complete':
-      return t('workbench.editors.grpc.timeline.completed');
-    case 'stop':
-      return t('workbench.editors.grpc.timeline.stopped');
-    case 'error':
-      return t('workbench.editors.grpc.timeline.failed');
-    case 'lost':
-      return t('workbench.editors.grpc.timeline.lost');
-    default: {
-      const _exhaustive: never = endedBy;
-      void _exhaustive;
-      return '';
-    }
-  }
-}
-
 /** Last entry index whose top offset is at or above `scrollTop`. */
 function entryIndexAt(prefix: readonly number[], scrollTop: number): number {
   let lo = 0;
@@ -497,8 +478,13 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   // commit/keystroke. The haystack is the decoded preview, plus the
   // chip name while type chips are SHOWN — search matches what the
   // user can see.
+  // Search is a LOOKUP: it matches the words every row shows — a
+  // message's decoded preview (and its type chip while shown), a
+  // lifecycle row's rendered line — and hides the rest whatever their
+  // kind. The direction lens gates MESSAGES only; under it the
+  // lifecycle rows stay as the skeleton.
+  const needle = search.trim().toLowerCase();
   const visibleRows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
     const chipNeedles = showTypes
       ? { up: chips.up.name.toLowerCase(), down: chips.down.name.toLowerCase() }
       : null;
@@ -518,7 +504,15 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, directionFilter, derive, chips, showTypes]);
+  }, [items, count, clearedCount, needle, directionFilter, derive, chips, showTypes]);
+
+  // The fixed rows under a search — each shows only when its words
+  // carry the needle (the same words the row paints).
+  const fixedShown = useMemo(() => {
+    const shown = (kind: keyof typeof fixedRowText): boolean =>
+      needle === '' || fixedRowText[kind](lifecycle, t).toLowerCase().includes(needle);
+    return { sent: shown('sent'), connected: shown('connected'), ended: shown('ended') };
+  }, [needle, lifecycle, t]);
 
   const displayRows = useMemo(
     () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
@@ -590,33 +584,58 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
     };
+    const pushSent = () => {
+      if (!fixedShown.sent) return;
+      out.push({ key: 'sent', kind: 'sent' });
+      if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
+    };
     const pushConnected = () => {
+      if (!fixedShown.connected) return;
       out.push({ key: 'connected', kind: 'connected' });
       if (connectedDetailOpen) out.push({ key: 'connectedDetail', kind: 'connectedDetail' });
     };
+    const pushEnded = () => {
+      if (lifecycle.endedBy === undefined || !fixedShown.ended) return;
+      out.push({ key: 'ended', kind: 'ended' });
+      if (errorDetailOpen) out.push({ key: 'errorDetail', kind: 'errorDetail' });
+    };
     // The script marks — a cleared log drops the marks that landed
-    // before the clear along with the messages.
+    // before the clear along with the messages; a search keeps only
+    // the marks whose words carry the needle.
     const marks: number[] = [];
     scriptMarks.forEach((mark, i) => {
-      if (mark.atIndex >= clearedCount) marks.push(i);
+      if (mark.atIndex < clearedCount) return;
+      if (needle !== '' && !scriptRowText(mark, t).toLowerCase().includes(needle)) return;
+      marks.push(i);
     });
     const pushMarks = (indexes: readonly number[]) => {
       for (const i of indexes) out.push({ key: `s${i}`, kind: 'script', index: i });
     };
     const headAt = lifecycle.headArrived ? (lifecycle.headAtMessage ?? 0) : null;
+    // A search that found a lifecycle row found something — the notice
+    // is for a filter that leaves NOTHING to read. Under Lifecycle only
+    // the empty message set is the point, not a miss.
+    const lifecycleMatched =
+      needle !== '' &&
+      (marks.length > 0 ||
+        fixedShown.sent ||
+        (headAt !== null && fixedShown.connected) ||
+        (lifecycle.endedBy !== undefined && fixedShown.ended));
     const notice: ListEntry | null =
-      filtering && directionFilter !== 'lifecycle' && displayRows.length === 0 && count > clearedCount
+      filtering &&
+      directionFilter !== 'lifecycle' &&
+      displayRows.length === 0 &&
+      count > clearedCount &&
+      !lifecycleMatched
         ? { key: 'none', kind: 'noMatches' }
         : null;
 
     // Top chronological edge.
     if (newestFirst) {
-      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
-      if (errorDetailOpen) out.push({ key: 'errorDetail', kind: 'errorDetail' });
+      pushEnded();
       if (notice) out.push(notice);
     } else {
-      out.push({ key: 'sent', kind: 'sent' });
-      if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
+      pushSent();
       if (groups !== null) {
         // Grouped mode clusters; the marks join the head row at the edge.
         if (headAt !== null) pushConnected();
@@ -689,15 +708,17 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         pushMarks([...marks].reverse());
         if (headAt !== null) pushConnected();
       }
-      out.push({ key: 'sent', kind: 'sent' });
-      if (sentDetailOpen) out.push({ key: 'sentDetail', kind: 'sentDetail' });
+      pushSent();
     } else {
       if (notice) out.push(notice);
-      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
-      if (errorDetailOpen) out.push({ key: 'errorDetail', kind: 'errorDetail' });
+      pushEnded();
     }
     return { entries: out, groupRanges: ranges };
   }, [
+    fixedShown,
+    needle,
+    lifecycle,
+    t,
     newestFirst,
     lifecycle.headArrived,
     lifecycle.headAtMessage,
@@ -1250,7 +1271,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 ),
               )}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {endedLabel(lifecycle.endedBy, t)}
+                {endedRowText(lifecycle, t)}
               </span>
               {onTrustCertificate !== undefined && (
                 <Button
@@ -1282,8 +1303,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               ),
             )}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {endedLabel(lifecycle.endedBy, t)}
-              {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
+              {endedRowText(lifecycle, t)}
             </span>
             {lifecycleTime(lifecycle.endedAt)}
             {expandSlot(null)}
@@ -1301,17 +1321,6 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         // the verdict; a failure names its error.
         const mark = scriptMarks[entry.index];
         if (mark === undefined) return null;
-        const hook = t(GRPC_HOOK_LABEL_KEY[mark.hook]);
-        const levels = mark.chain
-          .map((step) =>
-            step.level === 'request'
-              ? t('workbench.editors.request.response.meta.scriptsLevelRequest')
-              : inheritSourceLabel(t, { kind: step.level, name: step.name }),
-          )
-          .join(' · ');
-        const text = mark.succeeded
-          ? t('workbench.editors.grpc.timeline.script', { hook, levels })
-          : t('workbench.editors.grpc.timeline.scriptFailed', { hook, error: mark.error?.message ?? '' });
         return (
           <div
             key={entry.key}
@@ -1329,7 +1338,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               {...(mark.error !== undefined ? { title: mark.error.message } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {`${text} · ${formatDurationMs(mark.durationMs)}`}
+              {scriptRowText(mark, t)}
             </span>
             {/* The hook's own (i) — the rail row's lifecycle card, the
               mark's hook line lit; revealed on hover so a chatty

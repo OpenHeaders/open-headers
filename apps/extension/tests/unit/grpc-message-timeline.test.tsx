@@ -438,6 +438,26 @@ describe('GrpcMessageTimeline toolbar', () => {
     expect(screen.queryByText(/no messages match/i)).toBeNull();
   });
 
+  it('search is a lookup over every row — a lifecycle row hides unless its words carry the needle', () => {
+    renderTimeline();
+    expect(screen.getByTestId('grpc-timeline-sent-row')).toBeTruthy();
+    expect(screen.getByTestId('grpc-timeline-connected-row')).toBeTruthy();
+    // "request sent" is the sent row's line alone: every message and
+    // the other lifecycle rows hide, and nothing says "no match".
+    fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'request sent' } });
+    expect(screen.getByTestId('grpc-timeline-sent-row')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-timeline-connected-row')).toBeNull();
+    expect(screen.queryAllByTestId('grpc-timeline-message-row')).toHaveLength(0);
+    expect(screen.queryByText('No messages match.')).toBeNull();
+    // A needle no row carries — the notice, and nothing else.
+    fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'zzz-no-such-words' } });
+    expect(screen.queryByTestId('grpc-timeline-sent-row')).toBeNull();
+    expect(screen.getByText('No messages match.')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: '' } });
+    expect(screen.getByTestId('grpc-timeline-connected-row')).toBeTruthy();
+    expect(screen.getAllByTestId('grpc-timeline-message-row')).toHaveLength(3);
+  });
+
   it('searches decoded previews and chip names, clears display-only, lifecycle intact', () => {
     renderTimeline();
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'pong' } });
