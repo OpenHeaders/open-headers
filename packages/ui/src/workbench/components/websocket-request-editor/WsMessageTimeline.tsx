@@ -1153,6 +1153,25 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
     </span>
   );
 
+  // Lifecycle glyph — centered in the direction badge's 18px slot so
+  // every row's leading mark sits on ONE column, drawn at the size the
+  // badge reads at (the circle's footprint ≈ the tinted box).
+  const lifecycleGlyph = (icon: React.ReactNode): React.ReactNode => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        flexShrink: 0,
+        fontSize: 15,
+      }}
+    >
+      {icon}
+    </span>
+  );
+
   // Boxed direction badge — ↑ amber, ↓ blue on their tinted
   // backgrounds (the gRPC list's anatomy), shared by message rows and
   // group headers so the two directions read apart at a glance.
@@ -1273,7 +1292,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
       case 'sent':
         return (
           <div key={entry.key} data-testid="ws-timeline-sent-row" style={lifecycleRowStyle}>
-            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.websocket.timeline.connecting')}
             </span>
@@ -1308,7 +1327,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               ...opened(expandable && handshakeExpanded),
             }}
           >
-            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
+            {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {lifecycle.handshake?.url !== undefined
                 ? t('workbench.editors.websocket.timeline.connectedTo', { url: lifecycle.handshake.url })
@@ -1412,7 +1431,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         if (lifecycle.aborted === true) {
           return (
             <div key={entry.key} data-testid="ws-timeline-aborted-row" style={lifecycleRowStyle}>
-              <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+              {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {t('workbench.editors.websocket.timeline.aborted')}
               </span>
@@ -1440,7 +1459,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             }}
             style={{ ...lifecycleRowStyle, cursor: 'pointer', ...opened(errorExpanded) }}
           >
-            <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+            {lifecycleGlyph(<CloseCircleOutlined aria-hidden style={{ color: token.colorError }} />)}
             <span
               title={url !== undefined ? undefined : lifecycle.errorMessage}
               style={{
@@ -1591,10 +1610,12 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               data-testid="ws-timeline-script-row"
               style={lifecycleRowStyle}
             >
-              <CodeOutlined
-                aria-hidden
-                style={{ fontSize: 11, color: item.succeeded ? token.colorTextTertiary : token.colorError }}
-              />
+              {lifecycleGlyph(
+                <CodeOutlined
+                  aria-hidden
+                  style={{ color: item.succeeded ? token.colorTextTertiary : token.colorError }}
+                />,
+              )}
               <span
                 {...(item.error !== undefined ? { title: item.error.message } : {})}
                 style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -1625,7 +1646,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   : String(item.close.code);
           return (
             <div key={entry.key} data-testid="ws-timeline-lost-row" style={lifecycleRowStyle}>
-              <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorWarning }} />
+              {lifecycleGlyph(<DisconnectOutlined aria-hidden style={{ color: token.colorWarning }} />)}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {`${t('workbench.editors.websocket.timeline.lost')} — ${detail}`}
               </span>
@@ -1638,7 +1659,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           // A Socket.IO ack wait ran out — the id names the ↑ event.
           return (
             <div key={entry.key} data-testid="ws-timeline-ack-timeout-row" style={lifecycleRowStyle}>
-              <ClockCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorWarning }} />
+              {lifecycleGlyph(<ClockCircleOutlined aria-hidden style={{ color: token.colorWarning }} />)}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {t('workbench.editors.websocket.timeline.ackTimeout', {
                   ackId: item.ackId,
@@ -1655,7 +1676,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           // attempt's classified failure rides beside it.
           return (
             <div key={entry.key} data-testid="ws-timeline-reconnecting-row" style={lifecycleRowStyle}>
-              <ReloadOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+              {lifecycleGlyph(<ReloadOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
               <span
                 {...(item.error !== undefined ? { title: item.error } : {})}
                 style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -1676,7 +1697,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         // The Connected row's twin for a reconnect attempt that took.
         return (
           <div key={entry.key} data-testid="ws-timeline-reconnected-row" style={lifecycleRowStyle}>
-            <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorSuccess }} />
+            {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {lifecycle.handshake?.url !== undefined
                 ? t('workbench.editors.websocket.timeline.reconnectedTo', { url: lifecycle.handshake.url })
@@ -1706,7 +1727,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             }}
             style={{ ...lifecycleRowStyle, cursor: 'pointer', ...opened(endedExpanded) }}
           >
-            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {endedLabel(lifecycle.endedBy, lifecycle.handshake?.url, t)}
             </span>
