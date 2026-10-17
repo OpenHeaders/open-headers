@@ -7,17 +7,21 @@
  * cycle facts (lost / reconnect attempt / reconnected with its own
  * CONNACK block) at their true chronological positions, the message
  * rows (direction glyph · topic chip · QoS / Retained / DUP tags ·
- * payload preview · byte count · session time · expand slot), and the
- * expanded payload viewer. Purely presentational — expansion state and its toggles
- * belong to the orchestrator (`MqttMessageTimeline.tsx`).
+ * payload preview · the hover cluster (copy / details) · session time ·
+ * expand slot), and the expanded payload viewer. Purely presentational —
+ * expansion state and its toggles belong to the orchestrator
+ * (`MqttMessageTimeline.tsx`); only the copy button's one-second check
+ * is the row's own.
  */
 
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
   CheckCircleOutlined,
+  CheckOutlined,
   CloseCircleOutlined,
   CodeOutlined,
+  CopyOutlined,
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
@@ -26,10 +30,12 @@ import {
   ReloadOutlined,
   UpOutlined,
 } from '@ant-design/icons';
-import { Button, Tag, theme } from 'antd';
+import { Button, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { formatBytes } from '../request-editor/response/response-format';
 import { scriptSlotInfo } from '../script-editor/script-slot-info';
 import TimelineMessageViewer, { STREAM_HAIRLINE, type TimelineViewerModes } from '../shared/TimelineMessageViewer';
 import {
@@ -102,6 +108,17 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+
+  // The copy button's one-second check — the row's own transient
+  // feedback (the WS anatomy), never the orchestrator's.
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
 
   const singleRowStyle: React.CSSProperties = {
     display: 'flex',
@@ -628,14 +645,58 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
                 ? t('workbench.editors.mqtt.timeline.emptyMessage')
                 : derive.previewOf(item)}
           </span>
-          {/* The fact columns sit a clear step away from the preview's
-              ellipsis — the byte count is read as a fact, never as the
-              payload's tail. */}
+          {/* Hover cluster left of the time — copy the payload as the
+              viewer shows it, and the payload's size on hover; clicks
+              never reach the row toggle. */}
           <span
-            style={{ ...cellFont, fontSize: 11, color: token.colorTextTertiary, flexShrink: 0, marginLeft: 16 }}
-            data-testid="mqtt-timeline-byte-count"
+            className="oh-stream-row-actions"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
           >
-            {t('workbench.editors.mqtt.timeline.byteCount', { bytes: view.byteLength })}
+            <Tooltip title={t('workbench.editors.mqtt.timeline.copyMessage')}>
+              <Button
+                size="small"
+                type="text"
+                icon={
+                  copied ? (
+                    <CheckOutlined style={{ fontSize: 12, color: token.colorSuccess }} />
+                  ) : (
+                    <CopyOutlined style={{ fontSize: 12 }} />
+                  )
+                }
+                aria-label={t('workbench.editors.mqtt.timeline.copyMessage')}
+                data-testid="mqtt-timeline-copy-message"
+                onClick={(event) => {
+                  // Drop the click focus so the cluster fades with the
+                  // pointer — the ring stays for keyboard users only.
+                  event.currentTarget.blur();
+                  void navigator.clipboard.writeText(view.text).then(() => {
+                    setCopied(true);
+                    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+                    copiedTimerRef.current = setTimeout(() => setCopied(false), 1000);
+                  });
+                }}
+              />
+            </Tooltip>
+            {/* The one fact the row does not show — the payload's size, on
+                the WS grid; the time is the row's own column. */}
+            <Tooltip
+              title={
+                <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 8, rowGap: 2 }}>
+                  <span>{t('workbench.editors.mqtt.timeline.info.size')}:</span>
+                  <span data-testid="mqtt-timeline-message-size">{formatBytes(view.byteLength)}</span>
+                </div>
+              }
+            >
+              <Button
+                size="small"
+                type="text"
+                icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
+                aria-label={t('workbench.editors.mqtt.timeline.info.label')}
+                data-testid="mqtt-timeline-message-info"
+              />
+            </Tooltip>
           </span>
           {ts !== undefined && (
             <span

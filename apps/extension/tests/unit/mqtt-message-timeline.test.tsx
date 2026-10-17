@@ -147,7 +147,7 @@ describe('MqttMessageTimeline — secret-bearing messages', () => {
     expect(screen.getByText('plain')).toBeTruthy();
   });
 
-  it('names an empty payload as the (empty) placeholder beside its zero byte count', () => {
+  it('names an empty payload as the (empty) placeholder; the zero byte count lives behind the details trigger', async () => {
     render(
       <MqttMessageTimeline
         items={[
@@ -169,7 +169,59 @@ describe('MqttMessageTimeline — secret-bearing messages', () => {
     const row = screen.getByTestId('mqtt-timeline-message-row');
     const placeholder = within(row).getByText('(empty)');
     expect(placeholder.style.fontStyle).toBe('italic');
-    expect(within(row).getByTestId('mqtt-timeline-byte-count').textContent).toBe('0 B');
+    expect(within(row).queryByTestId('mqtt-timeline-byte-count')).toBeNull();
+    fireEvent.mouseEnter(within(row).getByTestId('mqtt-timeline-message-info'));
+    expect((await screen.findByTestId('mqtt-timeline-message-size')).textContent).toBe('0 B');
+  });
+});
+
+describe('MqttMessageTimeline — the message row’s hover cluster', () => {
+  const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
+  const message = (payload: string): MqttTimelineItem => ({
+    kind: 'message',
+    direction: 'down',
+    topic: 'probe/echo',
+    payloadBase64: btoa(payload),
+    qos: 0,
+    retain: false,
+    dup: false,
+  });
+
+  it('copies the payload as the viewer shows it, turns the icon into a check, and never toggles the row', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    render(<MqttMessageTimeline items={[message('{"a":1}')]} count={1} lifecycle={lifecycle} v5 />);
+    const row = screen.getByTestId('mqtt-timeline-message-row');
+    const copy = within(row).getByTestId('mqtt-timeline-copy-message');
+    expect(copy.getAttribute('aria-label')).toBe('Copy message');
+    expect(copy.querySelector('.anticon-copy')).toBeTruthy();
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith('{"a":1}');
+    expect(screen.queryByTestId('code-editor')).toBeNull();
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    expect(await within(row).findByRole('img', { name: 'check' })).toBeTruthy();
+    expect(copy.querySelector('.anticon-copy')).toBeNull();
+  });
+
+  it('the details trigger reads the size alone on hover — the time is the row’s column; no byte column', async () => {
+    render(
+      <MqttMessageTimeline
+        items={[message('x'.repeat(2048))]}
+        count={1}
+        timestamps={[STARTED_AT + 1_500]}
+        lifecycle={lifecycle}
+        v5
+      />,
+    );
+    const row = screen.getByTestId('mqtt-timeline-message-row');
+    expect(row.textContent).not.toContain('2.0 KB');
+    const info = within(row).getByTestId('mqtt-timeline-message-info');
+    expect(info.getAttribute('aria-label')).toBe('Message details');
+    fireEvent.mouseEnter(info);
+    expect((await screen.findByTestId('mqtt-timeline-message-size')).textContent).toBe('2.0 KB');
+    expect(screen.getByText('Size:')).toBeTruthy();
+    expect(screen.queryByText('Time:')).toBeNull();
+    expect(screen.getAllByText(formatMessageTime(STARTED_AT + 1_500))).toHaveLength(1);
   });
 });
 
