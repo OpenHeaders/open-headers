@@ -437,7 +437,7 @@ export const sharedComponents = {
     '메시지가 JSON이 아닙니다. 서식을 지정하려면 JSON 같은 구조화된 형식을 선택하세요.',
   'shared.codeEditor.formatError': '서식을 지정할 수 없습니다: 구문 분석 오류',
   'shared.editorMenu.label': '편집기',
-  'shared.editorMenu.tooltip': '표시 옵션 — 이 편집기와 모든 편집기',
+  'shared.editorMenu.tooltip': '표시 옵션',
   'shared.editorMenu.settings': '설정',
   'shared.editorMenu.thisEditor': '이 편집기',
   'shared.editorMenu.allEditors': '모든 편집기',

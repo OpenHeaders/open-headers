@@ -483,7 +483,7 @@ export const sharedComponents = {
     'Сообщение не является JSON. Выберите структурированный формат, например JSON, чтобы отформатировать его.',
   'shared.codeEditor.formatError': 'Не удаётся отформатировать — ошибка разбора',
   'shared.editorMenu.label': 'Редактор',
-  'shared.editorMenu.tooltip': 'Параметры отображения — этот редактор и все редакторы',
+  'shared.editorMenu.tooltip': 'Параметры отображения',
   'shared.editorMenu.settings': 'Настройки',
   'shared.editorMenu.thisEditor': 'Этот редактор',
   'shared.editorMenu.allEditors': 'Все редакторы',

@@ -493,7 +493,7 @@ export const sharedComponents = {
   // grouped by scope (the pane-local Wrap vs the global editor.*
   // settings the Settings page also edits).
   'shared.editorMenu.label': 'Editor',
-  'shared.editorMenu.tooltip': 'Opțiuni de afișare — acest editor și toți editorii',
+  'shared.editorMenu.tooltip': 'Opțiuni de afișare',
   'shared.editorMenu.settings': 'Setări',
   'shared.editorMenu.thisEditor': 'Acest editor',
   'shared.editorMenu.allEditors': 'Toate editoarele',
