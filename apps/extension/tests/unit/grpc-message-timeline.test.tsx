@@ -384,14 +384,46 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
 });
 
 describe('GrpcMessageTimeline toolbar', () => {
-  it('filters by direction, display-only', () => {
+  it('filters by direction from the menu, display-only — the trigger reads the filter, the count follows', () => {
     renderTimeline();
-    fireEvent.click(screen.getByText('↑ Sent'));
+    const trigger = screen.getByTestId('grpc-timeline-direction-filter');
+    expect(trigger.textContent).toBe('All messages');
+    expect(screen.getByTestId('grpc-timeline-count').textContent).toBe('3 messages');
+    fireEvent.click(trigger);
+    // A single choice on the selection plane under the choice-menu anatomy.
+    const allRow = screen.getByText('All messages', { selector: '.ant-dropdown-menu-item *' });
+    expect(allRow.closest('.ant-dropdown-menu-item')?.classList.contains('ant-dropdown-menu-item-selected')).toBe(true);
+    expect(allRow.closest('.ant-dropdown-menu')?.classList.contains('oh-choice-menu')).toBe(true);
+    fireEvent.click(screen.getByText('Sent', { selector: '.ant-dropdown-menu-item *' }));
     const rows = screen.getAllByTestId('grpc-timeline-message-row');
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain('ping');
-    fireEvent.click(screen.getByText('All'));
+    expect(trigger.textContent).toBe('Sent');
+    expect(screen.getByTestId('grpc-timeline-count').textContent).toBe('1 of 3 messages');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText('All messages', { selector: '.ant-dropdown-menu-item *' }));
     expect(screen.getAllByTestId('grpc-timeline-message-row')).toHaveLength(3);
+  });
+
+  it('Sort by and View are labeled triggers; the View menu is the Editor menu anatomy with the show and group knobs', () => {
+    renderTimeline();
+    expect(screen.getByTestId('grpc-timeline-sort').textContent).toBe('Sort by');
+    expect(screen.getByTestId('grpc-timeline-clear').textContent).toBe('Clear');
+    const view = screen.getByTestId('grpc-timeline-view');
+    expect(view.textContent).toBe('View');
+    fireEvent.click(view);
+    const typesRow = screen.getByText('Show message types', { selector: '.ant-dropdown-menu-item *' });
+    expect(typesRow.closest('.ant-dropdown-menu')?.classList.contains('oh-view-menu')).toBe(true);
+    expect(typesRow.closest('.ant-dropdown-menu-item')?.classList.contains('ant-dropdown-menu-item-selected')).toBe(
+      false,
+    );
+    fireEvent.click(typesRow);
+    expect(
+      screen
+        .getByText('Show message types', { selector: '.ant-dropdown-menu-item *' })
+        .closest('.ant-dropdown-menu-item')
+        ?.classList.contains('ant-dropdown-menu-item-selected'),
+    ).toBe(true);
   });
 
   it('searches decoded previews and chip names, clears display-only, lifecycle intact', () => {

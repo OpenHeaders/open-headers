@@ -68,19 +68,20 @@ import {
   ArrowUpOutlined,
   CaretRightOutlined,
   CheckCircleOutlined,
-  CheckOutlined,
   ClearOutlined,
   CloseCircleOutlined,
   CodeOutlined,
+  ControlOutlined,
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
   SearchOutlined,
   SortAscendingOutlined,
+  SortDescendingOutlined,
   UpOutlined,
 } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
-import { Button, ConfigProvider, Dropdown, Input, Segmented, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Dropdown, Input, Tag, Tooltip, Typography, theme } from 'antd';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -378,7 +379,9 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   // menu OPEN (the app's popover convention — only an outside click or
   // a trigger re-click closes), and the trigger's tooltip suppresses
   // while the menu shows.
+  const [directionMenuOpen, setDirectionMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
@@ -1417,18 +1420,38 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const stickySource =
     stickyGroup !== null && groups !== null ? groups.find((g) => g.identity.key === stickyGroup) : undefined;
 
-  const menuOptionLabel = (label: string, checked: boolean): React.ReactNode => (
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+  // The direction options — the menu rows and the trigger's label are
+  // the same words, so the trigger reads the filter in force.
+  const directionOptions: ReadonlyArray<{ value: DirectionFilter; icon: React.ReactNode | null; label: string }> = [
+    { value: 'all', icon: null, label: t('workbench.editors.grpc.timeline.filterAllMessages') },
+    { value: 'up', icon: <ArrowUpOutlined />, label: t('workbench.editors.grpc.timeline.filterSent') },
+    { value: 'down', icon: <ArrowDownOutlined />, label: t('workbench.editors.grpc.timeline.filterReceived') },
+  ];
+  const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
+  const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {icon}
       {label}
-      {checked && <CheckOutlined style={{ color: token.colorPrimary }} />}
     </span>
   );
+  // The View menu's on-knobs ride antd's selection plane (several at
+  // once); the Rows per group submenu is the one single choice.
+  const viewSelectedKeys = [
+    ...(showTypes ? ['show-types'] : []),
+    ...(groupByType ? ['group'] : []),
+    ...(groupByDirection ? ['group-direction'] : []),
+    `group-limit-${groupRowLimit}`,
+  ];
 
   return (
     <div
       data-testid="grpc-message-timeline"
       style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
     >
+      {/* The strip — the MQTT timeline's: search, the direction menu and
+          the count on the left; Sort by, View and Clear on the right,
+          every trigger icon + label; the single-choice menus and the
+          View menu paint the Editor menu's row anatomy. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Input
           size="small"
@@ -1438,78 +1461,85 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           data-testid="grpc-timeline-search"
-          style={{ maxWidth: 260 }}
+          style={{ maxWidth: 220 }}
         />
-        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-          {t('workbench.editors.grpc.timeline.messageCount', { count: count - clearedCount })}
+        <Dropdown
+          trigger={['click']}
+          placement="bottomLeft"
+          open={directionMenuOpen}
+          onOpenChange={(open, info) => {
+            if (info.source === 'menu') return;
+            setDirectionMenuOpen(open);
+          }}
+          menu={{
+            rootClassName: 'oh-choice-menu',
+            selectable: true,
+            selectedKeys: [directionFilter],
+            items: directionOptions.map((option) => ({
+              key: option.value,
+              label: menuRow(option.icon, option.label),
+              onClick: () => {
+                setDirectionFilter(option.value);
+                setDirectionMenuOpen(false);
+              },
+            })),
+          }}
+        >
+          <Tooltip
+            title={t('workbench.editors.grpc.timeline.directionFilter')}
+            placement="bottom"
+            open={directionMenuOpen ? false : undefined}
+          >
+            <Button
+              size="small"
+              type="text"
+              data-testid="grpc-timeline-direction-filter"
+              aria-label={t('workbench.editors.grpc.timeline.directionFilter')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {activeDirection.icon}
+              {activeDirection.label}
+              <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
+            </Button>
+          </Tooltip>
+        </Dropdown>
+        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="grpc-timeline-count">
+          {filtering
+            ? t('workbench.editors.grpc.timeline.messageCountFiltered', {
+                shown: visibleRows.length,
+                total: count - clearedCount,
+              })
+            : t('workbench.editors.grpc.timeline.messageCount', { count: count - clearedCount })}
         </Text>
         <span style={{ marginLeft: 'auto' }} />
-        {/* Switching the filter is a data change, not a spatial move —
-            the thumb slide only delays the row swap, so motion is off
-            for this control (the antd motion token, scoped). */}
-        <ConfigProvider theme={{ token: { motion: false } }}>
-          <Segmented
-            size="small"
-            value={directionFilter}
-            onChange={(value) => setDirectionFilter(value as DirectionFilter)}
-            data-testid="grpc-timeline-direction-filter"
-            options={[
-              { value: 'all', label: t('workbench.editors.grpc.timeline.filterAll') },
-              { value: 'up', label: `↑ ${t('workbench.editors.grpc.timeline.filterSent')}` },
-              { value: 'down', label: `↓ ${t('workbench.editors.grpc.timeline.filterReceived')}` },
-            ]}
-          />
-        </ConfigProvider>
         <Dropdown
           trigger={['click']}
           placement="bottomRight"
           open={sortMenuOpen}
           onOpenChange={(open, info) => {
-            // Menu-item clicks keep the popover open; only the trigger
-            // and outside clicks change visibility.
             if (info.source === 'menu') return;
             setSortMenuOpen(open);
           }}
           menu={{
+            rootClassName: 'oh-choice-menu',
+            selectable: true,
+            selectedKeys: [newestFirst ? 'newest' : 'oldest'],
             items: [
               {
                 key: 'newest',
-                label: menuOptionLabel(t('workbench.editors.grpc.timeline.newestFirst'), newestFirst),
-                onClick: () => setNewestFirst(true),
+                label: t('workbench.editors.grpc.timeline.newestFirst'),
+                onClick: () => {
+                  setNewestFirst(true);
+                  setSortMenuOpen(false);
+                },
               },
               {
                 key: 'oldest',
-                label: menuOptionLabel(t('workbench.editors.grpc.timeline.oldestFirst'), !newestFirst),
-                onClick: () => setNewestFirst(false),
-              },
-              { type: 'divider' },
-              {
-                key: 'show-types',
-                label: menuOptionLabel(t('workbench.editors.grpc.timeline.showTypes'), showTypes),
-                onClick: () => setShowTypes(!showTypes),
-              },
-              {
-                key: 'group',
-                label: menuOptionLabel(t('workbench.editors.grpc.timeline.groupByType'), groupByType),
-                onClick: () => setGroupByType(!groupByType),
-              },
-              {
-                key: 'group-direction',
-                label: menuOptionLabel(t('workbench.editors.grpc.timeline.groupByDirection'), groupByDirection),
-                onClick: () => setGroupByDirection(!groupByDirection),
-              },
-              {
-                key: 'group-limit',
-                label: t('workbench.editors.grpc.timeline.rowsPerGroup'),
-                disabled: !groupByType && !groupByDirection,
-                children: [0, 1, 3, 5, 10].map((n) => ({
-                  key: `group-limit-${n}`,
-                  label: menuOptionLabel(
-                    n === 0 ? t('workbench.editors.grpc.timeline.noLimit') : String(n),
-                    groupRowLimit === n,
-                  ),
-                  onClick: () => setGroupRowLimit(n),
-                })),
+                label: t('workbench.editors.grpc.timeline.oldestFirst'),
+                onClick: () => {
+                  setNewestFirst(false);
+                  setSortMenuOpen(false);
+                },
               },
             ],
           }}
@@ -1522,10 +1552,86 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             <Button
               size="small"
               type="text"
-              icon={<SortAscendingOutlined />}
+              icon={newestFirst ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
               data-testid="grpc-timeline-sort"
               aria-label={t('workbench.editors.grpc.timeline.sortOrder')}
-            />
+            >
+              {t('workbench.editors.grpc.timeline.sortBy')}
+            </Button>
+          </Tooltip>
+        </Dropdown>
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          open={viewMenuOpen}
+          onOpenChange={(open, info) => {
+            // Menu-item clicks keep the popover open — several knobs
+            // flip in one visit; only the trigger and outside clicks
+            // change visibility.
+            if (info.source === 'menu') return;
+            setViewMenuOpen(open);
+          }}
+          menu={{
+            rootClassName: 'oh-view-menu',
+            selectable: true,
+            multiple: true,
+            selectedKeys: viewSelectedKeys,
+            items: [
+              {
+                type: 'group',
+                label: t('workbench.editors.grpc.timeline.viewShow'),
+                children: [
+                  {
+                    key: 'show-types',
+                    label: t('workbench.editors.grpc.timeline.showTypes'),
+                    onClick: () => setShowTypes(!showTypes),
+                  },
+                ],
+              },
+              { type: 'divider' },
+              {
+                type: 'group',
+                label: t('workbench.editors.grpc.timeline.viewGroup'),
+                children: [
+                  {
+                    key: 'group',
+                    label: t('workbench.editors.grpc.timeline.groupByType'),
+                    onClick: () => setGroupByType(!groupByType),
+                  },
+                  {
+                    key: 'group-direction',
+                    label: t('workbench.editors.grpc.timeline.groupByDirection'),
+                    onClick: () => setGroupByDirection(!groupByDirection),
+                  },
+                  {
+                    key: 'group-limit',
+                    label: t('workbench.editors.grpc.timeline.rowsPerGroup'),
+                    disabled: !groupByType && !groupByDirection,
+                    children: [0, 1, 3, 5, 10].map((n) => ({
+                      key: `group-limit-${n}`,
+                      label: n === 0 ? t('workbench.editors.grpc.timeline.noLimit') : String(n),
+                      onClick: () => setGroupRowLimit(n),
+                    })),
+                  },
+                ],
+              },
+            ],
+          }}
+        >
+          <Tooltip
+            title={t('workbench.editors.grpc.timeline.viewTooltip')}
+            placement="bottom"
+            open={viewMenuOpen ? false : undefined}
+          >
+            <Button
+              size="small"
+              type="text"
+              icon={<ControlOutlined />}
+              data-testid="grpc-timeline-view"
+              aria-label={t('workbench.editors.grpc.timeline.view')}
+            >
+              {t('workbench.editors.grpc.timeline.view')}
+            </Button>
           </Tooltip>
         </Dropdown>
         <Tooltip title={t('workbench.editors.grpc.timeline.clearMessages')} placement="bottom">
@@ -1536,7 +1642,9 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             data-testid="grpc-timeline-clear"
             onClick={() => setClearedCount(count)}
             aria-label={t('workbench.editors.grpc.timeline.clearMessages')}
-          />
+          >
+            {t('workbench.editors.grpc.timeline.clear')}
+          </Button>
         </Tooltip>
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
