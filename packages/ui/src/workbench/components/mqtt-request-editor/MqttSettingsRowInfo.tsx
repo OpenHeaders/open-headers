@@ -41,10 +41,14 @@ import { MQTT_GROUP_LABEL_KEY, type MqttSettingsGroupKey } from './settings-grou
  *  own CONNECT knob). */
 export type MqttResilienceInfoKey = 'autoReconnect' | 'reconnectPeriod' | 'reconnectMaxAttempts' | 'reconnectBackoff';
 
-/** The editor's own knobs — the Settings-tab rows, the topic-row
- *  subscription options and the message-properties rows (section
- *  headers included). */
+/** The editor's own knobs — the Settings-tab rows, the Topics table's
+ *  column headers, the topic-row subscription options and the
+ *  message-properties rows (section headers included). */
 type MqttOwnInfoKey =
+  | 'topicFilter'
+  | 'subscribeQos'
+  | 'subscribeOptions'
+  | 'subscribe'
   | 'clientId'
   | 'executionPlace'
   | 'cleanStart'
@@ -100,6 +104,7 @@ const EX = {
   clientCert: 'client cert: reporter-1',
   sni: 'sni: broker.openheaders.com',
   alpn: 'alpn: mqtt',
+  subscribe: 'SUBSCRIBE',
   filter: 'sensors/+/temp',
   qos: 'QoS 1',
   noLocal: 'no local ✓',
@@ -131,8 +136,13 @@ const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
 /** Which slice of the example each knob lights. Rows light their
  * single token (the TLS window is one token — min and max both light
  * it); the two options-popover section headers light their whole
- * sub-slice. */
+ * sub-slice; the Topics table's column headers partition the SUBSCRIBE
+ * leg — the Subscribe column lights the opener itself. */
 const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
+  topicFilter: ['filter'],
+  subscribeQos: ['qos'],
+  subscribeOptions: ['noLocal', 'rap', 'retained', 'subId', 'props'],
+  subscribe: ['subscribe'],
   clientId: ['clientId'],
   executionPlace: ['route'],
   cleanStart: ['cleanStart'],
@@ -201,7 +211,7 @@ function MqttExampleCard({ lit, routeText }: { lit: ReadonlySet<TokenId>; routeT
       ],
     },
     { tokens: [tok('tlsWindow'), tok('verify'), tok('suite'), tok('clientCert'), tok('sni'), tok('alpn')] },
-    { opener: 'SUBSCRIBE', tokens: [tok('filter'), tok('qos')] },
+    { opener: tok('subscribe'), tokens: [tok('filter'), tok('qos')] },
     { tokens: [tok('noLocal'), tok('rap'), tok('retained'), tok('subId'), tok('props')] },
     { opener: 'PUBLISH', tokens: [tok('pubTopic')] },
     {
@@ -212,6 +222,10 @@ function MqttExampleCard({ lit, routeText }: { lit: ReadonlySet<TokenId>; routeT
 }
 
 const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
+  topicFilter: 'workbench.editors.mqtt.topics.filterLabel',
+  subscribeQos: 'workbench.editors.mqtt.topics.qosColLabel',
+  subscribeOptions: 'workbench.editors.mqtt.topics.optionsColLabel',
+  subscribe: 'workbench.editors.mqtt.topics.subscribeColLabel',
   clientId: 'workbench.editors.mqtt.settings.clientIdLabel',
   executionPlace: 'workbench.editors.request.settings.executionPlace',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartLabel',
@@ -241,6 +255,10 @@ const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
 };
 
 const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey> = {
+  topicFilter: 'workbench.editors.mqtt.topics.colInfo.filter',
+  subscribeQos: 'workbench.editors.mqtt.topics.colInfo.qos',
+  subscribeOptions: 'workbench.editors.mqtt.topics.colInfo.options',
+  subscribe: 'workbench.editors.mqtt.topics.colInfo.subscribe',
   clientId: 'workbench.editors.mqtt.settings.clientIdHelp',
   executionPlace: 'workbench.editors.request.settings.executionPlaceInfo',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartHelp',
@@ -270,9 +288,14 @@ const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey>
 
 /** The Settings-tab rows carry their group's label (the group headers
  * carry the tab name); the option and message-properties rows carry
- * their section's header; the topic-options section headers carry the
- * Topics tab, the message-properties ones the trigger's own name. */
+ * their section's header; the Topics table's column headers and the
+ * topic-options section headers carry the Topics tab, the
+ * message-properties ones the trigger's own name. */
 const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
+  topicFilter: 'workbench.editors.mqtt.tab.topics',
+  subscribeQos: 'workbench.editors.mqtt.tab.topics',
+  subscribeOptions: 'workbench.editors.mqtt.tab.topics',
+  subscribe: 'workbench.editors.mqtt.tab.topics',
   clientId: MQTT_GROUP_LABEL_KEY.connection,
   executionPlace: MQTT_GROUP_LABEL_KEY.connection,
   cleanStart: MQTT_GROUP_LABEL_KEY.connection,
@@ -345,6 +368,22 @@ export function mqttSettingsRowInfo(t: Translate, infoKey: MqttInfoKey): InfoPop
   if (isTlsTrustInfoKey(infoKey)) return { ...tlsTrustRowInfo(t, infoKey, kicker), ...card };
   if (isResilienceInfoKey(infoKey)) return { ...resilienceRowInfo(t, infoKey, kicker, 'none'), ...card };
   const base = { title: t(TITLE_KEY[infoKey]), kicker, ...card };
+  if (infoKey === 'subscribeQos') {
+    return {
+      ...base,
+      summary: t(SUMMARY_KEY[infoKey]),
+      sections: [
+        {
+          heading: t('workbench.editors.mqtt.topics.qosLevelsHeading'),
+          items: [
+            { label: '0', desc: t('workbench.editors.mqtt.qos.meaning0') },
+            { label: '1', desc: t('workbench.editors.mqtt.qos.meaning1') },
+            { label: '2', desc: t('workbench.editors.mqtt.qos.meaning2') },
+          ],
+        },
+      ],
+    };
+  }
   if (infoKey === 'retainHandling') {
     return {
       ...base,

@@ -5,6 +5,7 @@
  */
 
 import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type React from 'react';
 import type { GripResizeXHandler } from '../template-input';
 
@@ -83,6 +84,8 @@ export interface BulkEditConfig<Row> {
 export interface AuxColumn<Row> {
   /** Header label — omit for a blank header cell (icon-only tracks). */
   label?: string;
+  /** The header's `(i)` popover — see `EditableGridTableProps.headerInfo`. */
+  info?: InfoPopoverContent;
   /** Fixed CSS track width, e.g. `'92px'`. */
   width: string;
   /** Track placement relative to the shared Key / Value columns. */
@@ -144,6 +147,17 @@ export interface EditableGridTableProps<Row> {
   headerLabels?: {
     key?: string;
     value?: string;
+  };
+  /** A column header's `(i)` popover — what the column puts on the
+   *  wire (the MQTT Topics table lights its slice of the shared example
+   *  session). Hover-revealed after the label with its slot reserved,
+   *  so the sticky header never shifts, opened on click; a header
+   *  without content stays bare. Aux tracks carry theirs on
+   *  `AuxColumn.info` — size a fixed track for the slot. */
+  headerInfo?: {
+    key?: InfoPopoverContent;
+    value?: InfoPopoverContent;
+    description?: InfoPopoverContent;
   };
   hideEnabled?: boolean;
   suggestionRows?: SuggestionRow[];

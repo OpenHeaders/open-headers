@@ -138,6 +138,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLabel': 'Suscribirse al abrir la sesión',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Suscribirse / cancelar la suscripción en la sesión abierta — la fila guardada no se modifica',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    'El filtro de tema al que se suscribe esta fila; un SUBSCRIBE por fila. + cubre un nivel, # todo lo que sigue; las variables se resuelven al conectar.',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    'El QoS máximo que el bróker puede entregar en esta suscripción; un mensaje publicado con un nivel inferior llega con el suyo.',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': 'Niveles',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    'Las opciones de suscripción MQTT 5.0 y las propiedades de usuario enviadas con el SUBSCRIBE de esta fila; una sesión 3.1.1 envía solo el filtro y el QoS.',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    'Si la fila se suscribe al abrir la sesión; desactivada, queda guardada y en silencio. Conectado, el interruptor es el conmutador en vivo, y una concesión rechazada marca la fila.',
   'workbench.editors.mqtt.topics.optionsHint': 'Opciones de suscripción MQTT 5.0 para esta fila.',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc': 'El broker no devuelve a este cliente sus propias publicaciones.',

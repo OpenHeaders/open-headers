@@ -147,6 +147,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLabel': 'Подписываться при открытии сеанса',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Подписаться / отписаться в открытом сеансе — сохранённая строка не меняется',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    'Фильтр топика, на который подписывается эта строка; один SUBSCRIBE на строку. + покрывает один уровень, # — всё ниже; переменные разрешаются при подключении.',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    'Наивысший QoS, с которым брокер может доставлять по этой подписке; сообщение, опубликованное с меньшим уровнем, приходит со своим.',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': 'Уровни',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    'Параметры подписки MQTT 5.0 и пользовательские свойства, отправляемые с SUBSCRIBE этой строки; сеанс 3.1.1 отправляет только фильтр и QoS.',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    'Подписывается ли строка при открытии сеанса; выключенная остаётся сохранённой и молчит. В открытом сеансе переключатель работает вживую, а отклонённое разрешение помечает строку.',
   'workbench.editors.mqtt.topics.optionsHint': 'Параметры подписки MQTT 5.0 для этой строки.',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc': 'Брокер не возвращает этому клиенту его собственные публикации.',

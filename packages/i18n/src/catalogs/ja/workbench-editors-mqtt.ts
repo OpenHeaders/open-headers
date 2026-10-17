@@ -144,6 +144,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLabel': 'セッション開始時にサブスクライブ',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     '開いているセッションでサブスクライブ / 解除します。保存済みの行は編集されません',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    'この行がサブスクライブするトピックフィルターです。1 行につき 1 つの SUBSCRIBE。+ は 1 階層、# はそれ以下すべてに一致します。変数は接続時に解決されます。',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    'このサブスクリプションでブローカーが配信してよい最大の QoS です。より低いレベルでパブリッシュされたメッセージはそのレベルのまま届きます。',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': 'レベル',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    'この行の SUBSCRIBE と一緒に送られる MQTT 5.0 のサブスクリプションオプションとユーザープロパティです。3.1.1 のセッションはフィルターと QoS だけを送ります。',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    'セッション開始時にこの行をサブスクライブするかどうかです。オフの行は保存されたまま沈黙します。接続中はスイッチがライブの切り替えになり、拒否された許可は行に印を付けます。',
   'workbench.editors.mqtt.topics.optionsHint': 'この行の MQTT 5.0 サブスクリプションオプションです。',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc':

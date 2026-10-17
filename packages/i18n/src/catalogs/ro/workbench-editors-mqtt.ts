@@ -152,6 +152,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLabel': 'Abonare la deschiderea sesiunii',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Abonare / dezabonare pe sesiunea deschisă — rândul salvat nu se editează',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    'Filtrul de subiect la care se abonează acest rând; un SUBSCRIBE pe rând. + acoperă un nivel, # tot ce urmează; variabilele se rezolvă la conectare.',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    'Cel mai înalt QoS pe care brokerul îl poate livra pe acest abonament; un mesaj publicat la un nivel mai mic sosește cu al său.',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': 'Niveluri',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    'Opțiunile de abonare MQTT 5.0 și proprietățile de utilizator trimise cu SUBSCRIBE-ul acestui rând; o sesiune 3.1.1 trimite doar filtrul și QoS.',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    'Dacă rândul se abonează la deschiderea sesiunii; dezactivat, rămâne salvat și tăcut. Conectat, comutatorul este comutarea live, iar o acordare refuzată marchează rândul.',
   'workbench.editors.mqtt.topics.optionsHint': 'Opțiuni de abonare MQTT 5.0 pentru acest rând.',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc': 'Brokerul nu returnează acestui client propriile publicări.',

@@ -133,6 +133,17 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLabel': 'Subscribe when the session opens',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'Subscribe / unsubscribe on the open session — the saved row is not edited',
+  // The Topics table's column-header (i) cards — each lights its slice
+  // of the shared example session's SUBSCRIBE leg.
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    'The topic filter this row subscribes to; one SUBSCRIBE per row. + matches one level, # everything below it; variables resolve at Connect.',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    'The highest QoS the broker may deliver on this subscription; a message published at a lower level arrives at its own.',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': 'Levels',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    'The MQTT 5.0 subscription options and user properties sent with this row’s SUBSCRIBE; a 3.1.1 session sends the filter and QoS alone.',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    'Whether the row subscribes when the session opens; off keeps it saved and silent. While connected the switch is the live toggle, and a refused grant marks the row.',
   'workbench.editors.mqtt.topics.optionsHint': 'MQTT 5.0 subscription options for this row.',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc': 'The broker does not echo this client’s own publishes back to it.',

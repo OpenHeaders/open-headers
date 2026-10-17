@@ -49,6 +49,7 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GoToIcon } from '@openheaders/ui/shared/icons';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import type { GripResizeXEvent } from '../template-input';
 import {
   cellFont,
@@ -70,6 +71,20 @@ export type {
   SuggestionRow,
 } from './editable-grid-types';
 
+/** A header's words, closed by its `(i)` when the column has one — the
+ *  editor tabs' anatomy: the glyph hover-revealed, its slot laid out
+ *  at rest, the popover on its click. The cell is the hover host; a
+ *  host sizes its fixed tracks for the slot so no header ellipsizes. */
+function headerText(label: string, info: InfoPopoverContent | undefined): React.ReactNode {
+  if (!info) return label;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: '100%' }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <InfoTrigger className="oh-info-trigger--hover oh-info-trigger--trailing" content={info} />
+    </span>
+  );
+}
+
 export function EditableGridTable<Row>({
   rows,
   onChange,
@@ -80,6 +95,7 @@ export function EditableGridTable<Row>({
   auxColumns,
   keyPlaceholder,
   headerLabels,
+  headerInfo,
   hideEnabled = false,
   suggestionRows = [],
   bulkEdit,
@@ -332,6 +348,7 @@ export function EditableGridTable<Row>({
   const renderHeaderLabel = (col: ResizableColumn, label: string, withBorder: boolean) => (
     <span
       ref={resize.registerHeaderRef(col)}
+      className={headerInfo?.[col] ? 'oh-info-hover-host' : undefined}
       style={{
         ...headerLabelStyle,
         // Bordered cells stretch to the header strip so the divider
@@ -345,11 +362,13 @@ export function EditableGridTable<Row>({
     >
       {col === lastVisibleColumn && bulkToggleButton ? (
         <>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {headerText(label, headerInfo?.[col])}
+          </span>
           {bulkToggleButton}
         </>
       ) : (
-        label
+        headerText(label, headerInfo?.[col])
       )}
     </span>
   );
@@ -426,12 +445,13 @@ export function EditableGridTable<Row>({
         {auxAfterKey.map((aux, i) => (
           <span
             key={`aux-key-${String(i)}`}
+            className={aux.info ? 'oh-info-hover-host' : undefined}
             style={{
               ...headerLabelStyle,
               ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
             }}
           >
-            {aux.label ?? ''}
+            {headerText(aux.label ?? '', aux.info)}
           </span>
         ))}
         {showValueColumn && renderHeaderLabel('value', headerLabels?.value ?? t('workbench.editors.grid.value'), true)}
@@ -439,12 +459,13 @@ export function EditableGridTable<Row>({
           auxAfterValue.map((aux, i) => (
             <span
               key={`aux-value-${String(i)}`}
+              className={aux.info ? 'oh-info-hover-host' : undefined}
               style={{
                 ...headerLabelStyle,
                 ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
               }}
             >
-              {aux.label ?? ''}
+              {headerText(aux.label ?? '', aux.info)}
             </span>
           ))}
         {showDescriptionColumn && renderHeaderLabel('description', t('workbench.editors.grid.description'), true)}

@@ -143,6 +143,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeColLabel': '구독',
   'workbench.editors.mqtt.topics.subscribeLabel': '세션이 열릴 때 구독',
   'workbench.editors.mqtt.topics.subscribeLiveLabel': '열린 세션에서 구독 / 구독 해제. 저장된 행은 편집되지 않습니다',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    '이 행이 구독하는 토픽 필터입니다. 행마다 SUBSCRIBE 하나. + 는 한 단계, # 은 그 아래 전부와 일치합니다. 변수는 연결 시 해결됩니다.',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    '이 구독에서 브로커가 전달할 수 있는 최대 QoS입니다. 더 낮은 수준으로 게시된 메시지는 그 수준 그대로 도착합니다.',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': '수준',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    '이 행의 SUBSCRIBE와 함께 보내는 MQTT 5.0 구독 옵션과 사용자 속성입니다. 3.1.1 세션은 필터와 QoS만 보냅니다.',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    '세션이 열릴 때 이 행을 구독할지 여부입니다. 끄면 저장된 채 조용히 남습니다. 연결 중에는 스위치가 실시간 토글이 되며, 거부된 허가는 행에 표시됩니다.',
   'workbench.editors.mqtt.topics.optionsHint': '이 행의 MQTT 5.0 구독 옵션입니다.',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc': '브로커가 이 클라이언트 자신의 게시를 다시 돌려보내지 않습니다.',

@@ -21,6 +21,7 @@ import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
+import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { grantFailureLabel } from './session-display';
 import TopicOptionsPopover from './TopicOptionsPopover';
 import type { LiveSubscriptionMark } from './useMqttSessionPlane';
@@ -80,8 +81,17 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
           key: t('workbench.editors.mqtt.topics.filterLabel'),
           value: t('workbench.editors.mqtt.topics.qosColLabel'),
         }}
+        // The column headers partition the SUBSCRIBE leg of the shared
+        // example session (the Settings groups' idiom); Description
+        // puts nothing on the wire and stays bare.
+        headerInfo={{
+          key: mqttSettingsRowInfo(t, 'topicFilter'),
+          value: mqttSettingsRowInfo(t, 'subscribeQos'),
+        }}
         hideEnabled
-        columnWidths={{ value: '64px' }}
+        // The fixed tracks carry their header's (i) slot (glyph + gap,
+        // ~20px) on top of the widest label, so none ellipsizes.
+        columnWidths={{ value: '84px' }}
         renderKeyCell={(row, update, ctx) => {
           const filterError = !ctx.isPlaceholder && row.topicFilter.trim() ? topicFilterError(row.topicFilter) : null;
           const grantCode = sessionOpen ? liveSubs.get(row.uid)?.grantCode : undefined;
@@ -166,8 +176,9 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
             // edge. The ghost row keeps the dimmed disabled gear so
             // the column reads as a column before any row is minted.
             label: t('workbench.editors.mqtt.topics.optionsColLabel'),
+            info: mqttSettingsRowInfo(t, 'subscribeOptions'),
             position: 'after-key',
-            width: '76px',
+            width: '96px',
             divider: true,
             render: (row, update, ctx) =>
               ctx.isPlaceholder ? (
@@ -185,8 +196,9 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
           },
           {
             label: t('workbench.editors.mqtt.topics.subscribeColLabel'),
+            info: mqttSettingsRowInfo(t, 'subscribe'),
             position: 'after-value',
-            width: '96px',
+            width: '116px',
             divider: true,
             render: (row, update, ctx) =>
               ctx.isPlaceholder ? (

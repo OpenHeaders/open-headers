@@ -140,6 +140,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLabel': 'Beim Öffnen der Sitzung abonnieren',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'In der offenen Sitzung abonnieren / abbestellen — die gespeicherte Zeile bleibt unverändert',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    'Der Themenfilter, den diese Zeile abonniert; ein SUBSCRIBE je Zeile. + trifft eine Ebene, # alles darunter; Variablen werden beim Verbinden aufgelöst.',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    'Die höchste QoS, die der Broker auf diesem Abonnement zustellen darf; eine mit niedrigerer Stufe veröffentlichte Nachricht kommt mit ihrer eigenen an.',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': 'Stufen',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    'Die MQTT-5.0-Abonnementoptionen und Benutzereigenschaften, die mit dem SUBSCRIBE dieser Zeile gesendet werden; eine 3.1.1-Sitzung sendet nur Filter und QoS.',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    'Ob die Zeile beim Öffnen der Sitzung abonniert; aus hält sie gespeichert und still. Bei bestehender Verbindung ist der Schalter der Live-Umschalter, und eine abgelehnte Gewährung markiert die Zeile.',
   'workbench.editors.mqtt.topics.optionsHint': 'MQTT-5.0-Abonnementoptionen für diese Zeile.',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc':

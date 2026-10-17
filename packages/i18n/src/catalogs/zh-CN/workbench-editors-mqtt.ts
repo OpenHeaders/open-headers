@@ -125,6 +125,14 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeColLabel': '订阅',
   'workbench.editors.mqtt.topics.subscribeLabel': '会话打开时订阅',
   'workbench.editors.mqtt.topics.subscribeLiveLabel': '在打开的会话上订阅/退订——已保存的行不会被修改',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    '此行订阅的主题过滤器；每行一个 SUBSCRIBE。+ 匹配一级，# 匹配其下全部；变量在连接时解析。',
+  'workbench.editors.mqtt.topics.colInfo.qos': '代理在此订阅上可投递的最高 QoS；以更低等级发布的消息按其自身等级送达。',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': '等级',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    '随此行的 SUBSCRIBE 发送的 MQTT 5.0 订阅选项与用户属性；3.1.1 会话只发送过滤器和 QoS。',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    '会话打开时此行是否订阅；关闭则保持保存且静默。连接期间该开关为实时切换，被拒绝的授权会标记此行。',
   'workbench.editors.mqtt.topics.optionsHint': '此行的 MQTT 5.0 订阅选项。',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc': '代理不会把此客户端自己的发布回传给它。',

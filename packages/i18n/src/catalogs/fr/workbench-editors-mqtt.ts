@@ -140,6 +140,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscribeLabel': 'S’abonner à l’ouverture de la session',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
     'S’abonner / se désabonner sur la session ouverte — la ligne enregistrée n’est pas modifiée',
+  'workbench.editors.mqtt.topics.colInfo.filter':
+    'Le filtre de sujet auquel cette ligne s’abonne ; un SUBSCRIBE par ligne. + couvre un niveau, # tout ce qui suit ; les variables se résolvent à la connexion.',
+  'workbench.editors.mqtt.topics.colInfo.qos':
+    'Le QoS le plus élevé que le courtier peut livrer sur cet abonnement ; un message publié à un niveau inférieur arrive au sien.',
+  'workbench.editors.mqtt.topics.qosLevelsHeading': 'Niveaux',
+  'workbench.editors.mqtt.topics.colInfo.options':
+    'Les options d’abonnement MQTT 5.0 et les propriétés utilisateur envoyées avec le SUBSCRIBE de cette ligne ; une session 3.1.1 n’envoie que le filtre et le QoS.',
+  'workbench.editors.mqtt.topics.colInfo.subscribe':
+    'Si la ligne s’abonne à l’ouverture de la session ; désactivée, elle reste enregistrée et silencieuse. Connecté, l’interrupteur est la bascule en direct, et un octroi refusé marque la ligne.',
   'workbench.editors.mqtt.topics.optionsHint': 'Options d’abonnement MQTT 5.0 pour cette ligne.',
   'workbench.editors.mqtt.topics.noLocal': 'No Local',
   'workbench.editors.mqtt.topics.noLocalDesc': 'Le broker ne renvoie pas à ce client ses propres publications.',
