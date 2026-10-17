@@ -169,10 +169,14 @@ export class WsTransportError extends Error {
   /** A certificate-verification failure's remedy — the endpoint the
    *  surface probes for the presented chain and offers to trust. */
   readonly hint: TrustCertificateErrorHint | undefined;
-  constructor(message: string, hint?: TrustCertificateErrorHint) {
+  /** The classified failure's advice — what to check — beside the fact
+   *  in `message`; the executor stamps it on the failed outcome. */
+  readonly advice: string | undefined;
+  constructor(message: string, hint?: TrustCertificateErrorHint, advice?: string) {
     super(message);
     this.name = 'WsTransportError';
     this.hint = hint;
+    this.advice = advice;
   }
 }
 

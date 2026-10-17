@@ -59,25 +59,29 @@ describe('classifyProxyLegFailure', () => {
   });
 
   it("names the request's proxy setting on the request plane and the machine's configuration on the system plane", () => {
-    expect(classifyProxyLegFailure('ws.openheaders.io', coded('ECONNREFUSED'), requestAttempt, 'session')).toBe(
-      "Connection refused by the proxy at corp.openheaders.io:8080 — the request's proxy setting routes this session through it. Is the proxy running?",
-    );
-    expect(classifyProxyLegFailure('grpc.openheaders.io', coded('ETIMEDOUT'), systemAttempt, 'call')).toBe(
-      "Connection to the proxy at corp.openheaders.io:8080 timed out — this machine's proxy configuration routes this call through it.",
-    );
+    // The fact and the advice (what to check) ride their own fields.
+    expect(classifyProxyLegFailure('ws.openheaders.io', coded('ECONNREFUSED'), requestAttempt, 'session')).toEqual({
+      message:
+        "Connection refused by the proxy at corp.openheaders.io:8080 — the request's proxy setting routes this session through it.",
+      advice: 'Is the proxy running?',
+    });
+    expect(classifyProxyLegFailure('grpc.openheaders.io', coded('ETIMEDOUT'), systemAttempt, 'call')).toEqual({
+      message:
+        "Connection to the proxy at corp.openheaders.io:8080 timed out — this machine's proxy configuration routes this call through it.",
+    });
   });
 
   it('a 407 names the proxy-credentials setting (and the vault entry) on the request plane, the app settings on the system plane', () => {
     expect(
-      classifyProxyLegFailure('ws.openheaders.io', rejected(407), requestAttempt, 'session', 'corp-proxy'),
+      classifyProxyLegFailure('ws.openheaders.io', rejected(407), requestAttempt, 'session', 'corp-proxy')?.advice,
     ).toContain('the vault entry "corp-proxy" may hold the wrong user:password');
-    expect(classifyProxyLegFailure('ws.openheaders.io', rejected(407), requestAttempt, 'session')).toContain(
+    expect(classifyProxyLegFailure('ws.openheaders.io', rejected(407), requestAttempt, 'session')?.advice).toContain(
       "Set the request's proxy-credentials setting",
     );
-    expect(classifyProxyLegFailure('ws.openheaders.io', rejected(407), systemAttempt, 'session')).toContain(
+    expect(classifyProxyLegFailure('ws.openheaders.io', rejected(407), systemAttempt, 'session')?.advice).toContain(
       "system plane's proxy credentials",
     );
-    expect(classifyProxyLegFailure('ws.openheaders.io', rejected(502), systemAttempt, 'session')).toContain(
+    expect(classifyProxyLegFailure('ws.openheaders.io', rejected(502), systemAttempt, 'session')?.message).toContain(
       'could not open a tunnel to ws.openheaders.io (HTTP 502)',
     );
   });
@@ -87,13 +91,15 @@ describe('classifyPinnedDialFailure', () => {
   it('names the resolve-to-address setting for dial-level codes, nothing without a pin or for other codes', () => {
     expect(classifyPinnedDialFailure('ws.openheaders.io', undefined, coded('ECONNREFUSED'))).toBeUndefined();
     expect(classifyPinnedDialFailure('ws.openheaders.io', '10.0.0.12', coded('ECONNRESET'))).toBeUndefined();
-    expect(classifyPinnedDialFailure('ws.openheaders.io', '10.0.0.12', coded('ECONNREFUSED'))).toBe(
-      "Connection refused at 10.0.0.12 — the request's resolve-to-address setting points ws.openheaders.io there. Is the service listening on that address and the URL's port?",
-    );
-    expect(classifyPinnedDialFailure('ws.openheaders.io', '10.0.0.12', coded('EHOSTUNREACH'))).toContain(
+    expect(classifyPinnedDialFailure('ws.openheaders.io', '10.0.0.12', coded('ECONNREFUSED'))).toEqual({
+      message:
+        "Connection refused at 10.0.0.12 — the request's resolve-to-address setting points ws.openheaders.io there.",
+      advice: "Is the service listening on that address and the URL's port?",
+    });
+    expect(classifyPinnedDialFailure('ws.openheaders.io', '10.0.0.12', coded('EHOSTUNREACH'))?.message).toContain(
       'No route to 10.0.0.12 (EHOSTUNREACH)',
     );
-    expect(classifyPinnedDialFailure('ws.openheaders.io', '10.0.0.12', coded('ETIMEDOUT'))).toContain(
+    expect(classifyPinnedDialFailure('ws.openheaders.io', '10.0.0.12', coded('ETIMEDOUT'))?.message).toContain(
       'points it at 10.0.0.12',
     );
   });

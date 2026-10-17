@@ -156,6 +156,9 @@ export type ExecutedWsOutcome =
   | {
       kind: 'failed';
       error: string;
+      /** The classified failure's advice — what to check — beside the
+       *  fact in `error`, so a surface can paint it in its own tone. */
+      advice?: string;
       /** The remedy a node runtime attaches to a certificate-verification
        *  failure — the endpoint to probe for the presented chain and the
        *  trust gesture (the HTTP snapshot's `trust-certificate` hint). */

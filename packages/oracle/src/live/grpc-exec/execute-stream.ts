@@ -220,6 +220,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
             ? error.canonicalStatus
             : undefined;
         const hint = !stopped && error instanceof GrpcTransportError ? error.hint : undefined;
+        const advice = !stopped && error instanceof GrpcTransportError ? error.advice : undefined;
         // What the call sent before it ended stands — a client or bidi
         // stream writes before any head exists, and a stop or a lost
         // dial there is no reason to forget the upstream frames the
@@ -239,6 +240,7 @@ export function executeGrpcStream(params: GrpcStreamExecuteParams): Promise<Exec
             ? { secretMetadataKeys: [...params.secretMetadataKeys] }
             : {}),
           error: message,
+          ...(advice !== undefined ? { advice } : {}),
           ...(localStatus !== undefined ? { localStatus } : {}),
           ...(hint !== undefined ? { hint } : {}),
         });

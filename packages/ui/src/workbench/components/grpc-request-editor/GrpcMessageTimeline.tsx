@@ -176,6 +176,10 @@ export interface GrpcTimelineLifecycle {
    *  deliberately does NOT ride the ended row — the meta strip's pill
    *  owns it (no duplicate info, the Postman posture). */
   endedMessage?: string;
+  /** The classified failure's advice — what to check — painted in the
+   *  secondary tone after the failure text behind the chevron, never on
+   *  the error tint. Rides only beside `endedMessage`. */
+  endedAdvice?: string;
 }
 
 interface GrpcMessageTimelineProps {
@@ -1146,7 +1150,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               {t('workbench.editors.grpc.response.error.localGuidance')}
             </div>
             <div
-              title={lifecycle.endedMessage}
+              title={
+                lifecycle.endedAdvice !== undefined
+                  ? `${lifecycle.endedMessage} ${lifecycle.endedAdvice}`
+                  : lifecycle.endedMessage
+              }
               data-testid="grpc-session-error-detail"
               style={{
                 fontSize: 12,
@@ -1159,6 +1167,11 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               }}
             >
               {lifecycle.endedMessage}
+              {lifecycle.endedAdvice !== undefined && (
+                <span data-testid="grpc-session-error-advice" style={{ color: token.colorTextSecondary }}>
+                  {` ${lifecycle.endedAdvice}`}
+                </span>
+              )}
             </div>
           </div>
         );

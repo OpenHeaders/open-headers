@@ -159,7 +159,10 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
             }
           : {}),
         ...(snapshot.outcome.kind === 'failed'
-          ? { errorMessage: snapshot.outcome.error }
+          ? {
+              errorMessage: snapshot.outcome.error,
+              ...(snapshot.outcome.advice !== undefined ? { errorAdvice: snapshot.outcome.advice } : {}),
+            }
           : { aborted: true as const }),
         ...(terminalAt !== undefined ? { endedAt: terminalAt } : {}),
       };

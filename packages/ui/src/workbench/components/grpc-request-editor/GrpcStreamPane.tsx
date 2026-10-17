@@ -139,6 +139,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
         endedBy: 'error',
         ...(settledAt !== undefined ? { endedAt: settledAt } : {}),
         endedMessage: snapshot.error,
+        ...(snapshot.advice !== undefined ? { endedAdvice: snapshot.advice } : {}),
       };
     }
     return {

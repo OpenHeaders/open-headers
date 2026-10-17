@@ -445,6 +445,29 @@ describe('WsMessageTimeline — display-only controls', () => {
     expect(screen.queryByText('No messages match the filter.')).toBeNull();
   });
 
+  it('a classified failure paints its advice in the secondary tone after the fact, one searchable line', () => {
+    renderTimeline({
+      items: [],
+      count: 0,
+      lifecycle: {
+        startedAt: 1_700_000_000_000,
+        connected: false,
+        errorMessage: 'Connection refused by 127.0.0.1:9.',
+        errorAdvice: 'Is the WebSocket server running on that host/port?',
+        endedAt: 1_700_000_000_200,
+      },
+    });
+    const row = screen.getByTestId('ws-timeline-error-row');
+    expect(row.textContent).toContain(
+      'Connection refused by 127.0.0.1:9. Is the WebSocket server running on that host/port?',
+    );
+    expect(screen.getByTestId('ws-session-error-advice').textContent).toBe(
+      ' Is the WebSocket server running on that host/port?',
+    );
+    fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'server running' } });
+    expect(screen.getByTestId('ws-timeline-error-row')).toBeTruthy();
+  });
+
   it('Clear hides current rows; lifecycle rows stay', () => {
     renderTimeline();
     fireEvent.click(screen.getByTestId('ws-timeline-clear'));

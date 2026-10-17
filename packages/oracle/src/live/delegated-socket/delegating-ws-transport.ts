@@ -80,7 +80,11 @@ export function createDelegatingWsTransport(options: DelegatingWsTransportOption
             callbacks.onClose({ code: event.code, reason: event.reason, wasClean: event.wasClean });
             return;
           case 'end':
-            settle(event.error !== undefined ? new WsTransportError(event.error.message, event.error.hint) : undefined);
+            settle(
+              event.error !== undefined
+                ? new WsTransportError(event.error.message, event.error.hint, event.error.advice)
+                : undefined,
+            );
             return;
           default:
             // The MQTT stream's events never address a WebSocket socket.

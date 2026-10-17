@@ -51,15 +51,18 @@ function hostLabelOf(url: string): string {
 
 /** Classify a pre-open failure. The platform exposes no reason, so the
  *  honest message says so instead of guessing a cause. */
-function classifyBrowserWsFailure(url: string, err: unknown): string {
+function classifyBrowserWsFailure(url: string, err: unknown): { message: string; advice?: string } {
   const message = err instanceof Error ? err.message : '';
   if (message !== '' && message !== 'aborted') {
     // A constructor throw (invalid URL, malformed subprotocol) carries
     // a real platform message — surface it verbatim.
-    return message;
+    return { message };
   }
   const host = hostLabelOf(url);
-  return `Could not open a WebSocket session to ${host}. The browser reports no failure detail — check that a WebSocket server is listening there (and its certificate, for wss:).`;
+  return {
+    message: `Could not open a WebSocket session to ${host}. The browser reports no failure detail.`,
+    advice: 'Check that a WebSocket server is listening there (and its certificate, for wss:).',
+  };
 }
 
 export function createBrowserWsTransport(): WsTransport {
@@ -90,7 +93,8 @@ export function createBrowserWsTransport(): WsTransport {
           callbacks.onEnd(new WsTransportError('Session stopped before it connected.'));
           return;
         }
-        callbacks.onEnd(new WsTransportError(classifyBrowserWsFailure(request.url, err)));
+        const failure = classifyBrowserWsFailure(request.url, err);
+        callbacks.onEnd(new WsTransportError(failure.message, undefined, failure.advice));
       };
       const endComplete = (): void => {
         if (ended) return;

@@ -358,7 +358,8 @@ describe('GrpcMessageTimeline lifecycle rows', () => {
         headArrived: false,
         endedBy: 'error',
         endedAt: 1_700_000_000_120,
-        endedMessage: 'Connection refused by 127.0.0.1:3130. Is the gRPC server running on that host/port?',
+        endedMessage: 'Connection refused by 127.0.0.1:3130.',
+        endedAdvice: 'Is the gRPC server running on that host/port?',
       },
     });
     expect(screen.queryByTestId('grpc-timeline-connected-row')).toBeNull();
@@ -480,6 +481,22 @@ describe('GrpcMessageTimeline toolbar', () => {
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'bearer tok' } });
     expect(screen.queryByTestId('grpc-timeline-sent-row')).toBeNull();
     expect(screen.getByText('No messages match.')).toBeTruthy();
+  });
+
+  it('a classified failure paints its advice in the secondary tone behind the chevron, one searchable line', () => {
+    renderTimeline({
+      lifecycle: {
+        headArrived: false,
+        endedBy: 'error',
+        endedMessage: 'Connection refused by 127.0.0.1:3130.',
+        endedAdvice: 'Is the gRPC server running on that host/port?',
+      },
+    });
+    fireEvent.click(screen.getByTestId('grpc-timeline-ended-row'));
+    const advice = screen.getByTestId('grpc-session-error-advice');
+    expect(advice.textContent).toBe(' Is the gRPC server running on that host/port?');
+    fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'server running' } });
+    expect(screen.getByTestId('grpc-timeline-ended-row')).toBeTruthy();
   });
 
   it('searches decoded previews and chip names, clears display-only, lifecycle intact', () => {

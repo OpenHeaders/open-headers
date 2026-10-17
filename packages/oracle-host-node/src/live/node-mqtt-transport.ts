@@ -46,7 +46,12 @@ import type {
   MqttTransportRequest,
 } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { MqttTransportError } from '@openheaders/oracle/live/mqtt-exec/transport';
-import { classifyPinnedDialFailure, classifyProxyLegFailure, pinnedLookupOptionsFor } from './dial-policy';
+import {
+  type ClassifiedDialFailure,
+  classifyPinnedDialFailure,
+  classifyProxyLegFailure,
+  pinnedLookupOptionsFor,
+} from './dial-policy';
 import { createNodeWsTransport } from './node-ws-transport';
 import { dialConnectTunnel } from './request-transport/connect-tunnel';
 import { systemProxyResolver } from './system-proxy/registry';
@@ -89,18 +94,11 @@ function mqttFailureCode(err: unknown): string | undefined {
     : undefined;
 }
 
-/** A classified dial failure — the fact, and the advice (what to
- *  check) as its own field so a surface paints it in its own tone. */
-interface ClassifiedMqttDialFailure {
-  message: string;
-  advice?: string;
-}
-
 function classifyMqttDialFailure(
   request: MqttTransportRequest,
   err: unknown,
   attempt: SessionProxyAttempt | undefined,
-): ClassifiedMqttDialFailure {
+): ClassifiedDialFailure {
   const host = hostLabelOf(request.url);
   const certRef = request.clientCertificateRef;
   const code = mqttFailureCode(err);
@@ -109,9 +107,9 @@ function classifyMqttDialFailure(
   // resolve-to-address setting. Target-leg failures past the tunnel
   // fall through to the shared classification.
   const proxied = classifyProxyLegFailure(host, err, attempt, 'session', request.proxyCredentialRef);
-  if (proxied !== undefined) return { message: proxied };
+  if (proxied !== undefined) return proxied;
   const pinned = classifyPinnedDialFailure(host, request.resolveToAddress, err);
-  if (pinned !== undefined) return { message: pinned };
+  if (pinned !== undefined) return pinned;
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
@@ -424,7 +422,9 @@ function connectWs(
       // end is the fact the executor consumes.
       onClose: () => {},
       onEnd: (error) =>
-        callbacks.onEnd(error !== undefined ? new MqttTransportError(error.message, error.hint) : undefined),
+        callbacks.onEnd(
+          error !== undefined ? new MqttTransportError(error.message, error.hint, error.advice) : undefined,
+        ),
     },
     signal,
   );

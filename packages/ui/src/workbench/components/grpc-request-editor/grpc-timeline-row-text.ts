@@ -16,6 +16,7 @@ import { GRPC_HOOK_LABEL_KEY, type GrpcScriptMarkItem } from './grpc-scripts';
 export interface GrpcRowTextLifecycle {
   endedBy?: 'complete' | 'stop' | 'error' | 'lost';
   endedMessage?: string;
+  endedAdvice?: string;
   requestMetadata?: ReadonlyArray<{ key: string; value: string }>;
   secretMetadataKeys?: readonly string[];
 }
@@ -92,10 +93,16 @@ export function fixedRowDetailText(
         '{metadata}',
         t('workbench.editors.grpc.timeline.receivedMetadataLink'),
       );
-    case 'ended':
-      return (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') && lifecycle.endedMessage !== undefined
-        ? `${t('workbench.editors.grpc.response.error.localGuidance')}\n${lifecycle.endedMessage}`
-        : '';
+    case 'ended': {
+      if (!(lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') || lifecycle.endedMessage === undefined) {
+        return '';
+      }
+      const failure =
+        lifecycle.endedAdvice !== undefined
+          ? `${lifecycle.endedMessage} ${lifecycle.endedAdvice}`
+          : lifecycle.endedMessage;
+      return `${t('workbench.editors.grpc.response.error.localGuidance')}\n${failure}`;
+    }
     default: {
       const _exhaustive: never = kind;
       void _exhaustive;

@@ -73,13 +73,20 @@ export type SessionDialNoun = 'session' | 'call';
  * then the proxy is a transparent pipe and the target-leg prose
  * applies.
  */
+/** A classified dial failure — the fact, and the advice (what to
+ *  check) as its own field so a surface paints it in its own tone. */
+export interface ClassifiedDialFailure {
+  message: string;
+  advice?: string;
+}
+
 export function classifyProxyLegFailure(
   target: string,
   err: unknown,
   attempt: SessionProxyAttempt | undefined,
   noun: SessionDialNoun,
   credentialRef?: string,
-): string | undefined {
+): ClassifiedDialFailure | undefined {
   if (attempt?.proxy === undefined) return undefined;
   const proxyHost = proxyHostOf(attempt.proxy.url);
   const requestPlane = attempt.route?.plane === 'request';
@@ -89,27 +96,39 @@ export function classifyProxyLegFailure(
   const rejected = proxyConnectRejectedStatus(err);
   if (rejected === 407) {
     if (!requestPlane) {
-      return `The proxy at ${proxyHost} requires authentication (407) — ${via}. Check the system plane's proxy credentials in the app settings.`;
+      return {
+        message: `The proxy at ${proxyHost} requires authentication (407) — ${via}.`,
+        advice: "Check the system plane's proxy credentials in the app settings.",
+      };
     }
     return credentialRef !== undefined
-      ? `The proxy at ${proxyHost} rejected the credentials (407). Check the request's proxy-credentials setting — the vault entry "${credentialRef}" may hold the wrong user:password.`
-      : `The proxy at ${proxyHost} requires authentication (407). Set the request's proxy-credentials setting to a vault string entry holding user:password.`;
+      ? {
+          message: `The proxy at ${proxyHost} rejected the credentials (407).`,
+          advice: `Check the request's proxy-credentials setting — the vault entry "${credentialRef}" may hold the wrong user:password.`,
+        }
+      : {
+          message: `The proxy at ${proxyHost} requires authentication (407).`,
+          advice: "Set the request's proxy-credentials setting to a vault string entry holding user:password.",
+        };
   }
   if (rejected !== undefined) {
-    return `The proxy at ${proxyHost} could not open a tunnel to ${target} (HTTP ${rejected}). The proxy is reachable — the failure is between the proxy and the target.`;
+    return {
+      message: `The proxy at ${proxyHost} could not open a tunnel to ${target} (HTTP ${rejected}).`,
+      advice: 'The proxy is reachable — the failure is between the proxy and the target.',
+    };
   }
   switch (failureCode(err)) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve the proxy host ${proxyHost} — ${via}.`;
+      return { message: `Could not resolve the proxy host ${proxyHost} — ${via}.` };
     case 'ECONNREFUSED':
-      return `Connection refused by the proxy at ${proxyHost} — ${via}. Is the proxy running?`;
+      return { message: `Connection refused by the proxy at ${proxyHost} — ${via}.`, advice: 'Is the proxy running?' };
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
-      return `No route to the proxy at ${proxyHost} (${failureCode(err)}) — ${via}.`;
+      return { message: `No route to the proxy at ${proxyHost} (${failureCode(err)}) — ${via}.` };
     case 'ETIMEDOUT':
     case 'UND_ERR_CONNECT_TIMEOUT':
-      return `Connection to the proxy at ${proxyHost} timed out — ${via}.`;
+      return { message: `Connection to the proxy at ${proxyHost} timed out — ${via}.` };
     default:
       return undefined;
   }
@@ -122,18 +141,29 @@ export function classifyProxyLegFailure(
  * it there (the HTTP classifier's pinned prose). `undefined` without a
  * pin or for codes outside the dial set.
  */
-export function classifyPinnedDialFailure(host: string, pinned: string | undefined, err: unknown): string | undefined {
+export function classifyPinnedDialFailure(
+  host: string,
+  pinned: string | undefined,
+  err: unknown,
+): ClassifiedDialFailure | undefined {
   if (pinned === undefined) return undefined;
   const code = failureCode(err);
   switch (code) {
     case 'ECONNREFUSED':
-      return `Connection refused at ${pinned} — the request's resolve-to-address setting points ${host} there. Is the service listening on that address and the URL's port?`;
+      return {
+        message: `Connection refused at ${pinned} — the request's resolve-to-address setting points ${host} there.`,
+        advice: "Is the service listening on that address and the URL's port?",
+      };
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
-      return `No route to ${pinned} (${code}) — the request's resolve-to-address setting points ${host} there.`;
+      return {
+        message: `No route to ${pinned} (${code}) — the request's resolve-to-address setting points ${host} there.`,
+      };
     case 'ETIMEDOUT':
     case 'UND_ERR_CONNECT_TIMEOUT':
-      return `Connection to ${host} timed out — the request's resolve-to-address setting points it at ${pinned}.`;
+      return {
+        message: `Connection to ${host} timed out — the request's resolve-to-address setting points it at ${pinned}.`,
+      };
     default:
       return undefined;
   }

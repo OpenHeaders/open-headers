@@ -69,7 +69,7 @@ export interface DelegatingGrpcTransport extends GrpcTransport {
 
 /** The place's classified end onto the seam's error. */
 function endError(error: DelegatedSocketEndError): GrpcTransportError {
-  return new GrpcTransportError(error.message, error.canonicalStatus, error.hint);
+  return new GrpcTransportError(error.message, error.canonicalStatus, error.hint, error.advice);
 }
 
 export function createDelegatingGrpcTransport(options: DelegatingGrpcTransportOptions): DelegatingGrpcTransport {
@@ -92,7 +92,9 @@ export function createDelegatingGrpcTransport(options: DelegatingGrpcTransportOp
         });
         if (!isDelegatedGrpcInvokeResult(answer)) throw new GrpcTransportError('The place gave no answer to the call.');
         lastExecutedOn = answer.executedOn;
-        if (!answer.success) throw new GrpcTransportError(answer.error, answer.canonicalStatus, answer.hint);
+        if (!answer.success) {
+          throw new GrpcTransportError(answer.error, answer.canonicalStatus, answer.hint, answer.advice);
+        }
         const response = decodeDelegatedGrpcResponse(answer.response);
         if (response === null) throw new GrpcTransportError('The place answered a reply that does not decode.');
         return response;

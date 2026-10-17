@@ -20,6 +20,7 @@ import { WS_HOOK_LABEL_KEY } from './ws-scripts';
 export interface WsRowTextLifecycle {
   handshake?: { url?: string };
   errorMessage?: string;
+  errorAdvice?: string;
   aborted?: true;
   endedBy?: 'close' | 'stop';
   close?: { code: number; reason: string } | null;
@@ -135,15 +136,21 @@ export function endedRowText(lifecycle: WsRowTextLifecycle, t: Translate): strin
   }
 }
 
-/** The error-slot row's line — the neutral aborted row, or the
+/** The error-slot row's fact — the neutral aborted row, or the
  *  classified failure (named by its URL once the handshake had one). */
-export function errorRowText(lifecycle: WsRowTextLifecycle, t: Translate): string {
+export function errorRowFact(lifecycle: WsRowTextLifecycle, t: Translate): string {
   if (lifecycle.aborted === true) return t('workbench.editors.websocket.timeline.aborted');
   if (lifecycle.errorMessage === undefined) return '';
   const url = lifecycle.handshake?.url;
   return url !== undefined
     ? t('workbench.editors.websocket.timeline.couldNotConnect', { url })
     : lifecycle.errorMessage;
+}
+
+/** The error-slot row's line — the fact, and the advice after it. */
+export function errorRowText(lifecycle: WsRowTextLifecycle, t: Translate): string {
+  const fact = errorRowFact(lifecycle, t);
+  return lifecycle.aborted !== true && lifecycle.errorAdvice !== undefined ? `${fact} ${lifecycle.errorAdvice}` : fact;
 }
 
 /** The ended row's words behind its chevron — the close verdict: the
@@ -173,7 +180,8 @@ export function endedDetailText(lifecycle: WsRowTextLifecycle, t: Translate): st
  *  there) and joins the haystack in the timeline. */
 export function errorDetailText(lifecycle: WsRowTextLifecycle, t: Translate): string {
   if (lifecycle.errorMessage === undefined) return '';
-  return `${t('workbench.editors.websocket.timeline.errorLabel')}: ${lifecycle.errorMessage}`;
+  const line = `${t('workbench.editors.websocket.timeline.errorLabel')}: ${lifecycle.errorMessage}`;
+  return lifecycle.errorAdvice !== undefined ? `${line} ${lifecycle.errorAdvice}` : line;
 }
 
 /** The fixed rows' words by entry kind — one signature, so the search

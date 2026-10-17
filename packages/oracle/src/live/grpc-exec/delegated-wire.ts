@@ -165,6 +165,8 @@ export type DelegatedGrpcInvokeResult =
   | {
       success: false;
       error: string;
+      /** The classified failure's advice — what to check — beside the fact. */
+      advice?: string;
       canonicalStatus?: number;
       hint?: DelegatedSocketTrustHint;
       executedOn: DelegatedGrpcExecutedOn;

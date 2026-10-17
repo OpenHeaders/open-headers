@@ -172,6 +172,9 @@ export interface ExecutedGrpcSnapshot {
   scriptMarks?: ExecutedGrpcScriptMark[];
   /** Non-null when the call failed before producing a response. */
   error: string | null;
+  /** The classified failure's advice — what to check — beside the fact
+   *  in `error`, so a surface can paint it in its own tone. */
+  advice?: string;
   /** The canonical gRPC status the CLIENT runtime assigned a LOCAL
    *  failure — 14 UNAVAILABLE for an unreachable target, 4
    *  DEADLINE_EXCEEDED for an elapsed deadline, 1 CANCELLED for a

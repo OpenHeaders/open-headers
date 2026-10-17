@@ -552,7 +552,7 @@ export async function executeWsSession(
     });
     let unregisterSession: (() => void) | null = null;
 
-    const settle = (errorMessage?: string, hint?: TrustCertificateErrorHint): void => {
+    const settle = (errorMessage?: string, hint?: TrustCertificateErrorHint, advice?: string): void => {
       if (settled) return;
       settled = true;
       clearConnectionTimers();
@@ -577,7 +577,7 @@ export async function executeWsSession(
           // row names the peer and the handshake it attempted.
           resolve(
             withScripts({
-              ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.', hint),
+              ...errorWsSnapshot(errorMessage ?? 'The session ended before it opened.', hint, advice),
               url: dialUrl,
               requestHeaders,
               ...(secretHeaderKeys.length > 0 ? { secretHeaderKeys } : {}),
@@ -752,7 +752,7 @@ export async function executeWsSession(
       const wasOpen = attemptOpened;
       const dialingAgain = reconnectAttempt > 0;
       if (stopped) {
-        settle(error?.message, error?.hint);
+        settle(error?.message, error?.hint, error?.advice);
         return;
       }
       if (wasOpen && !closeRequested && !serverGoodbye && (autoReconnect || idleTripped)) {
@@ -776,7 +776,7 @@ export async function executeWsSession(
         scheduleReconnect(reconnectAttempt + 1, error?.message ?? 'The connection closed before the session opened.');
         return;
       }
-      settle(error?.message, error?.hint);
+      settle(error?.message, error?.hint, error?.advice);
     };
 
     /** One dial: mint the credential for THIS attempt, then hand the
@@ -1060,9 +1060,18 @@ function byteLengthOfBase64(base64: string): number {
   return (base64.length / 4) * 3 - padding;
 }
 
-export function errorWsSnapshot(message: string, hint?: TrustCertificateErrorHint): ExecutedWsSnapshot {
+export function errorWsSnapshot(
+  message: string,
+  hint?: TrustCertificateErrorHint,
+  advice?: string,
+): ExecutedWsSnapshot {
   return {
-    outcome: { kind: 'failed', error: message, ...(hint !== undefined ? { hint } : {}) },
+    outcome: {
+      kind: 'failed',
+      error: message,
+      ...(advice !== undefined ? { advice } : {}),
+      ...(hint !== undefined ? { hint } : {}),
+    },
     protocol: '',
     extensions: '',
     messages: [],

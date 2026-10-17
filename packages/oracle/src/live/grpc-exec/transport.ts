@@ -210,11 +210,15 @@ export class GrpcTransportError extends Error {
   /** A TLS verification failure's trust remedy — the executor stamps
    *  it on the failed snapshot. */
   readonly hint: TrustCertificateErrorHint | undefined;
-  constructor(message: string, canonicalStatus?: number, hint?: TrustCertificateErrorHint) {
+  /** The classified failure's advice — what to check — beside the fact
+   *  in `message`; the executors stamp it on the failed snapshot. */
+  readonly advice: string | undefined;
+  constructor(message: string, canonicalStatus?: number, hint?: TrustCertificateErrorHint, advice?: string) {
     super(message);
     this.name = 'GrpcTransportError';
     this.canonicalStatus = canonicalStatus;
     this.hint = hint;
+    this.advice = advice;
   }
 }
 

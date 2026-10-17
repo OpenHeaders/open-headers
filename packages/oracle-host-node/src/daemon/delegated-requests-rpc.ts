@@ -198,6 +198,7 @@ async function runDelegatedGrpcInvoke(
     return {
       success: false,
       error: err instanceof Error ? err.message : String(err),
+      ...(classified?.advice !== undefined ? { advice: classified.advice } : {}),
       ...(classified?.canonicalStatus !== undefined ? { canonicalStatus: classified.canonicalStatus } : {}),
       ...(classified?.hint !== undefined ? { hint: classified.hint } : {}),
       executedOn,

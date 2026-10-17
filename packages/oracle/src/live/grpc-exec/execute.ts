@@ -526,11 +526,13 @@ export async function executeGrpcInvoke(
         ? err.canonicalStatus
         : undefined;
     const hint = !stopped && err instanceof GrpcTransportError ? err.hint : undefined;
+    const advice = !stopped && err instanceof GrpcTransportError ? err.advice : undefined;
     return withAttribution(
       finishScripts({
         ...errorGrpcSnapshot(message),
         requestMetadata: metadata.map((m) => ({ key: m.key, value: m.value })),
         ...(secretMetadataKeys.length > 0 ? { secretMetadataKeys } : {}),
+        ...(advice !== undefined ? { advice } : {}),
         ...(localStatus !== undefined ? { localStatus } : {}),
         ...(hint !== undefined ? { hint } : {}),
         durationMs,

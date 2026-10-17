@@ -93,6 +93,7 @@ import {
   endedDetailText,
   endedRowText,
   errorDetailText,
+  errorRowFact,
   errorRowText,
   fixedRowText,
   lifecycleItemText,
@@ -183,6 +184,10 @@ export interface WsTimelineLifecycle {
    *  as an error row at the timeline's new edge; never set beside
    *  `endedBy` or `aborted`. */
   errorMessage?: string;
+  /** The classified failure's advice — what to check — painted in the
+   *  secondary tone after the fact, never on the error tint. Rides
+   *  only beside `errorMessage`. */
+  errorAdvice?: string;
   /** The pre-open end was USER-initiated (Cancel / Stop) — the neutral
    *  "Connection aborted" info row renders at the error row's slot
    *  instead of the error tint. Never set beside `errorMessage` (an
@@ -1546,7 +1551,12 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                 color: token.colorError,
               }}
             >
-              {errorRowText(lifecycle, t)}
+              {errorRowFact(lifecycle, t)}
+              {lifecycle.errorAdvice !== undefined && (
+                <span data-testid="ws-session-error-advice" style={{ color: token.colorTextSecondary }}>
+                  {` ${lifecycle.errorAdvice}`}
+                </span>
+              )}
             </span>
             {onTrustCertificate !== undefined && (
               <Button
@@ -1606,6 +1616,9 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               <span data-testid="ws-session-error-detail" style={{ color: token.colorText }}>
                 {lifecycle.errorMessage}
               </span>
+              {lifecycle.errorAdvice !== undefined && (
+                <span style={{ color: token.colorTextSecondary }}>{` ${lifecycle.errorAdvice}`}</span>
+              )}
             </div>
             {handshake !== undefined && handshakeSheet !== null && (
               <>

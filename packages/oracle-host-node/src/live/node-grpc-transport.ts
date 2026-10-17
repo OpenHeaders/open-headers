@@ -93,7 +93,12 @@ import {
   type GrpcTransportResponse,
   type GrpcTransportStreamRequest,
 } from '@openheaders/oracle/live/grpc-exec/transport';
-import { classifyPinnedDialFailure, classifyProxyLegFailure, pinnedLookupOptionsFor } from './dial-policy';
+import {
+  type ClassifiedDialFailure,
+  classifyPinnedDialFailure,
+  classifyProxyLegFailure,
+  pinnedLookupOptionsFor,
+} from './dial-policy';
 import { servernameFor } from './instrumented-connector';
 import { dialConnectTunnel } from './request-transport/connect-tunnel';
 import { systemProxyResolver } from './system-proxy/registry';
@@ -415,7 +420,7 @@ function classifyGrpcFailure(
   >,
   err: unknown,
   attempt: SessionProxyAttempt | undefined,
-): string {
+): ClassifiedDialFailure {
   const { authority, unixSocketPath: socketPath, tls: tlsChannel } = request;
   const code = grpcFailureCode(err);
   // A socket-pinned call never dials TCP, so every dial-level failure
@@ -432,16 +437,28 @@ function classifyGrpcFailure(
           socketPath.length > 100
             ? ' Paths longer than the OS limit on socket paths (~104 characters) also fail this way.'
             : '';
-        return `No socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service running and the path right?${lengthHint}`;
+        return {
+          message: `No socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+          advice: `Is the service running and the path right?${lengthHint}`,
+        };
       }
       case 'ENOTSOCK':
-        return `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`;
+        return {
+          message: `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`,
+        };
       case 'EACCES':
-        return `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`;
+        return {
+          message: `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+        };
       case 'ECONNREFUSED':
-        return `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service still listening on that socket?`;
+        return {
+          message: `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+          advice: 'Is the service still listening on that socket?',
+        };
       case 'ETIMEDOUT':
-        return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
+        return {
+          message: `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`,
+        };
     }
   }
   // A proxied dial classifies against the PROXY leg (the shared prose
@@ -455,32 +472,44 @@ function classifyGrpcFailure(
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve host ${authority}.`;
+      return { message: `Could not resolve host ${authority}.` };
     case 'ECONNREFUSED':
-      return `Connection refused by ${authority}. Is the gRPC server running on that host/port?`;
+      return {
+        message: `Connection refused by ${authority}.`,
+        advice: 'Is the gRPC server running on that host/port?',
+      };
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
-      return `No route to ${authority} (${code}).`;
+      return { message: `No route to ${authority} (${code}).` };
     case 'ETIMEDOUT':
-      return `Connection to ${authority} timed out.`;
+      return { message: `Connection to ${authority} timed out.` };
     case 'ECONNRESET':
-      return tlsChannel
-        ? `Connection to ${authority} was reset. If the server is plaintext (no TLS), turn the channel's TLS lock off.`
-        : `Connection to ${authority} was reset. If the server expects TLS, turn the channel's TLS lock on.`;
+      return {
+        message: `Connection to ${authority} was reset.`,
+        advice: tlsChannel
+          ? "If the server is plaintext (no TLS), turn the channel's TLS lock off."
+          : "If the server expects TLS, turn the channel's TLS lock on.",
+      };
     case 'CERT_HAS_EXPIRED':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
     case 'SELF_SIGNED_CERT_IN_CHAIN':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
-      return `TLS certificate error reaching ${authority} (${code}).`;
+      return { message: `TLS certificate error reaching ${authority} (${code}).` };
     default: {
       if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
-        return `TLS handshake with ${authority} failed (${code}). If the server is plaintext (no TLS), turn the channel's TLS lock off.`;
+        return {
+          message: `TLS handshake with ${authority} failed (${code}).`,
+          advice: "If the server is plaintext (no TLS), turn the channel's TLS lock off.",
+        };
       }
       if (code?.startsWith('ERR_HTTP2_')) {
-        return `${authority} did not speak HTTP/2 for this call (${code}). Is it a gRPC endpoint?`;
+        return {
+          message: `${authority} did not speak HTTP/2 for this call (${code}).`,
+          advice: 'Is it a gRPC endpoint?',
+        };
       }
       const message = err instanceof Error ? err.message : String(err);
-      return `Could not reach ${authority}: ${message}`;
+      return { message: `Could not reach ${authority}: ${message}` };
     }
   }
 }
@@ -579,11 +608,13 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
               reject(new GrpcTransportError('Call aborted before a response arrived.', GRPC_CANONICAL_CANCELLED));
               return;
             }
+            const failure = classifyGrpcFailure(request, err, attempt);
             reject(
               new GrpcTransportError(
-                classifyGrpcFailure(request, err, attempt),
+                failure.message,
                 GRPC_CANONICAL_UNAVAILABLE,
                 grpcTrustHintFor(request, err),
+                failure.advice,
               ),
             );
           };
@@ -729,10 +760,12 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
                 if (signal?.aborted) {
                   throw new GrpcTransportError('Call aborted before a response arrived.', GRPC_CANONICAL_CANCELLED);
                 }
+                const failure = classifyGrpcFailure(request, err, attempt);
                 throw new GrpcTransportError(
-                  classifyGrpcFailure(request, err, attempt),
+                  failure.message,
                   GRPC_CANONICAL_UNAVAILABLE,
                   grpcTrustHintFor(request, err),
+                  failure.advice,
                 );
               }
             }
@@ -822,11 +855,13 @@ export function createNodeGrpcTransport(options: NodeGrpcTransportOptions = {}):
           callbacks.onEnd(new GrpcTransportError('Call aborted before a response arrived.', GRPC_CANONICAL_CANCELLED));
           return;
         }
+        const failure = classifyGrpcFailure(request, err, activeAttempt);
         callbacks.onEnd(
           new GrpcTransportError(
-            classifyGrpcFailure(request, err, activeAttempt),
+            failure.message,
             GRPC_CANONICAL_UNAVAILABLE,
             grpcTrustHintFor(request, err),
+            failure.advice,
           ),
         );
       };

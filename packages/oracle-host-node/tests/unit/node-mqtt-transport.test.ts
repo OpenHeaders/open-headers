@@ -101,7 +101,7 @@ function dialOnce(
   trustedRootsPem?: string[],
   request: Partial<MqttTransportRequest> = {},
   options: NodeMqttTransportOptions = { systemProxy: null },
-): Promise<{ connected: boolean; error?: string; route?: WsProxyRoute }> {
+): Promise<{ connected: boolean; error?: string; advice?: string; route?: WsProxyRoute }> {
   return new Promise((resolve) => {
     let connected = false;
     let route: WsProxyRoute | undefined;
@@ -118,6 +118,7 @@ function dialOnce(
           resolve({
             connected,
             ...(error !== undefined ? { error: error.message } : {}),
+            ...(error?.advice !== undefined ? { advice: error.advice } : {}),
             ...(route !== undefined ? { route } : {}),
           }),
       },
@@ -383,7 +384,8 @@ describe('createNodeMqttTransport — the dial policy on the raw socket', () => 
     });
     expect(rejected.connected).toBe(false);
     expect(rejected.error).toContain('requires authentication (407)');
-    expect(rejected.error).toContain("request's proxy-credentials setting");
+    // The advice — what to check — rides its own field beside the fact.
+    expect(rejected.advice).toContain("request's proxy-credentials setting");
     const socks = await dialOnce(`mqtt://127.0.0.1:${port}`, undefined, {
       proxyMode: 'url',
       proxyUrl: 'socks5://socks.openheaders.io:1080',

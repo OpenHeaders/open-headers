@@ -76,7 +76,12 @@ import {
   type WsTransportRequest,
 } from '@openheaders/oracle/live/ws-exec/transport';
 import { Agent, buildConnector, type Dispatcher, interceptors, WebSocket as UndiciWebSocket } from 'undici';
-import { classifyPinnedDialFailure, classifyProxyLegFailure, pinnedLookupOptionsFor } from './dial-policy';
+import {
+  type ClassifiedDialFailure,
+  classifyPinnedDialFailure,
+  classifyProxyLegFailure,
+  pinnedLookupOptionsFor,
+} from './dial-policy';
 import { createDialConnector } from './instrumented-connector';
 import { buildSocks5Agent } from './request-transport/dispatcher';
 import type { ConnectOptions } from './request-transport/seam';
@@ -118,7 +123,7 @@ function classifyWsFailure(
   request: WsTransportRequest,
   err: unknown,
   attempt: SessionProxyAttempt | undefined,
-): string {
+): ClassifiedDialFailure {
   const url = request.url;
   const socketPath = request.unixSocketPath;
   const host = hostLabelOf(url);
@@ -137,16 +142,28 @@ function classifyWsFailure(
           socketPath.length > 100
             ? ' Paths longer than the OS limit on socket paths (~104 characters) also fail this way.'
             : '';
-        return `No socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service running and the path right?${lengthHint}`;
+        return {
+          message: `No socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+          advice: `Is the service running and the path right?${lengthHint}`,
+        };
       }
       case 'ENOTSOCK':
-        return `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`;
+        return {
+          message: `The path ${socketPath} exists but is not a socket — the request's Unix-socket setting dials it.`,
+        };
       case 'EACCES':
-        return `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`;
+        return {
+          message: `Permission denied opening the socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+        };
       case 'ECONNREFUSED':
-        return `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it. Is the service still listening on that socket?`;
+        return {
+          message: `Connection refused on the socket at ${socketPath} — the request's Unix-socket setting dials it.`,
+          advice: 'Is the service still listening on that socket?',
+        };
       case 'ETIMEDOUT':
-        return `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`;
+        return {
+          message: `Connection on the socket at ${socketPath} timed out — the request's Unix-socket setting dials it.`,
+        };
     }
   }
   // A proxied dial classifies against the PROXY leg (the shared prose
@@ -161,33 +178,39 @@ function classifyWsFailure(
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve host ${host}.`;
+      return { message: `Could not resolve host ${host}.` };
     case 'ECONNREFUSED':
-      return `Connection refused by ${host}. Is the WebSocket server running on that host/port?`;
+      return {
+        message: `Connection refused by ${host}.`,
+        advice: 'Is the WebSocket server running on that host/port?',
+      };
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
-      return `No route to ${host} (${code}).`;
+      return { message: `No route to ${host} (${code}).` };
     case 'ETIMEDOUT':
-      return `Connection to ${host} timed out.`;
+      return { message: `Connection to ${host} timed out.` };
     case 'ECONNRESET':
-      return `Connection to ${host} was reset during the handshake.`;
+      return { message: `Connection to ${host} was reset during the handshake.` };
     case 'CERT_HAS_EXPIRED':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
     case 'SELF_SIGNED_CERT_IN_CHAIN':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
-      return `TLS certificate error reaching ${host} (${code}).`;
+      return { message: `TLS certificate error reaching ${host} (${code}).` };
     default: {
       if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
-        return `TLS handshake with ${host} failed (${code}). If the server is plaintext, use ws:// instead of wss://.`;
+        return {
+          message: `TLS handshake with ${host} failed (${code}).`,
+          advice: 'If the server is plaintext, use ws:// instead of wss://.',
+        };
       }
       const message = err instanceof Error ? err.message : String(err);
       if (message.trim() === '' || message === 'WebSocket error') {
         // Undici reports a rejected upgrade (non-101 answer) as a bare
         // error — with the dial itself captured separately, this is
         // the handshake refusal it is.
-        return `${host} did not accept the WebSocket handshake. Is it a WebSocket endpoint?`;
+        return { message: `${host} did not accept the WebSocket handshake.`, advice: 'Is it a WebSocket endpoint?' };
       }
-      return `Could not open a WebSocket session to ${host}: ${message}`;
+      return { message: `Could not open a WebSocket session to ${host}: ${message}` };
     }
   }
 }
@@ -258,14 +281,19 @@ function composeHandshakeDispatcher(
 }
 
 /** The refusal prose for a 3xx that reached the handshake. */
-function classifyHandshakeRedirect(request: WsTransportRequest, fact: HandshakeRedirect): string {
+function classifyHandshakeRedirect(request: WsTransportRequest, fact: HandshakeRedirect): ClassifiedDialFailure {
   const host = hostLabelOf(request.url);
   const target = fact.location !== undefined ? ` to ${fact.location}` : '';
   if (request.followRedirects === true) {
     const cap = request.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
-    return `${host} kept redirecting the WebSocket handshake past the Max redirects setting (${cap}) — the last answer was a ${fact.status}${target}.`;
+    return {
+      message: `${host} kept redirecting the WebSocket handshake past the Max redirects setting (${cap}) — the last answer was a ${fact.status}${target}.`,
+    };
   }
-  return `${host} answered the WebSocket handshake with a ${fact.status} redirect${target}. Turn on Follow redirects to dial it.`;
+  return {
+    message: `${host} answered the WebSocket handshake with a ${fact.status} redirect${target}.`,
+    advice: 'Turn on Follow redirects to dial it.',
+  };
 }
 
 /** One dial attempt's outcome: the session opened (or the connect
@@ -294,11 +322,11 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
         void dispatcher?.close();
         dispatcher = null;
       };
-      const settleError = (message: string, hint?: TrustCertificateErrorHint): void => {
+      const settleError = (message: string, hint?: TrustCertificateErrorHint, advice?: string): void => {
         if (ended) return;
         ended = true;
         cleanup();
-        callbacks.onEnd(new WsTransportError(message, hint));
+        callbacks.onEnd(new WsTransportError(message, hint, advice));
       };
       const endWithError = (err: unknown): void => {
         if (ended) return;
@@ -311,16 +339,19 @@ export function createNodeWsTransport(options: NodeWsTransportOptions = {}): WsT
           return;
         }
         if (handshakeRedirect !== null) {
-          settleError(classifyHandshakeRedirect(request, handshakeRedirect));
+          const redirect = classifyHandshakeRedirect(request, handshakeRedirect);
+          settleError(redirect.message, undefined, redirect.advice);
           return;
         }
         // A verification failure carries the trust remedy — the same
         // hint the HTTP transport attaches, so the session pane can
         // offer the presented chain for pinning.
         const code = wsFailureCode(err);
+        const failure = classifyWsFailure(request, err, activeAttempt);
         settleError(
-          classifyWsFailure(request, err, activeAttempt),
+          failure.message,
           isTlsVerificationCode(code) ? trustCertificateHintFor(request.url, code) : undefined,
+          failure.advice,
         );
       };
       const endComplete = (): void => {

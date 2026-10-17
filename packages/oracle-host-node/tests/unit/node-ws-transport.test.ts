@@ -388,8 +388,10 @@ describe('createNodeWsTransport — handshake redirects', () => {
     const gateway = await startRedirectServer(server.url);
     const seen = await runSession(gateway.urlFor(1), {}, echoOnce);
     expect(seen.error?.message).toMatch(
-      /^127\.0\.0\.1:\d+ answered the WebSocket handshake with a 302 redirect to http:\/\/127\.0\.0\.1:\d+\/session\. Turn on Follow redirects to dial it\.$/,
+      /^127\.0\.0\.1:\d+ answered the WebSocket handshake with a 302 redirect to http:\/\/127\.0\.0\.1:\d+\/session\.$/,
     );
+    // The advice — what to check — rides its own field beside the fact.
+    expect(seen.error?.advice).toBe('Turn on Follow redirects to dial it.');
   });
 
   it('names the spent Max redirects setting when the chain outruns it', async () => {
