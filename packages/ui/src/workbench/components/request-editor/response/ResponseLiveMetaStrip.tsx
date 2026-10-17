@@ -4,11 +4,18 @@
  * as it arrives, the elapsed time ticking live, and the bytes received
  * so far. Same anatomy and alignment as the settled ResponseMetaStrip
  * so the strip doesn't jump when the materialized snapshot takes over.
+ * The status pill carries the settled strip's hover popover (the
+ * code's meaning) from the moment the head lands; the elapsed and
+ * bytes facts stay bare — their settled popovers read timing and size
+ * breakdowns that do not exist mid-flight.
  */
 
 import { Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from '@openheaders/ui/context/LocaleContext';
+import { InfoPopover } from '@openheaders/ui/shared/info-popover';
+import { getStatusCodeInfoContent } from '@openheaders/ui/shared/info-popover/data/http-status';
 import type { LiveSendStream } from '../useLiveSendStream';
 import { MetaDot } from './ResponseMetaStrip';
 import { formatBytes } from './response-format';
@@ -19,6 +26,7 @@ const { Text } = Typography;
 
 const ResponseLiveMetaStrip: React.FC<{ live: LiveSendStream }> = ({ live }) => {
   const { token } = theme.useToken();
+  const t = useT();
   const [now, setNow] = useState(() => Date.now());
 
   // Tick the elapsed fact while mounted — the strip exists only for
@@ -44,13 +52,11 @@ const ResponseLiveMetaStrip: React.FC<{ live: LiveSendStream }> = ({ live }) => 
       />
       {live.head !== null && (
         <>
-          <Tag
-            color="default"
-            data-testid="oh-response-live-status"
-            style={statusPill}
-          >
-            {statusDisplayLabel(live.head.status, live.head.statusText)}
-          </Tag>
+          <InfoPopover content={getStatusCodeInfoContent(t, live.head.status, live.head.statusText)} trigger="hover">
+            <Tag color="default" data-testid="oh-response-live-status" style={{ ...statusPill, cursor: 'help' }}>
+              {statusDisplayLabel(live.head.status, live.head.statusText)}
+            </Tag>
+          </InfoPopover>
           <MetaDot />
         </>
       )}

@@ -11,6 +11,7 @@
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
+import ResponseLiveMetaStrip from '@openheaders/ui/workbench/components/request-editor/response/ResponseLiveMetaStrip';
 import ResponseMetaStrip from '@openheaders/ui/workbench/components/request-editor/response/ResponseMetaStrip';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -546,5 +547,32 @@ describe('ResponseMetaStrip script chain', () => {
     fireEvent.mouseEnter(tag);
     expect(await screen.findByText(/A level of the chain failed/)).toBeTruthy();
     expect(screen.getByText('boom')).toBeTruthy();
+  });
+});
+
+describe('ResponseLiveMetaStrip status chip', () => {
+  it('carries the status popover from the moment the head lands, as the settled strip does', async () => {
+    render(
+      <ResponseLiveMetaStrip
+        live={{
+          head: { status: 200, statusText: 'OK', url: 'https://api.openheaders.io/stream', headers: [] },
+          startedAt: Date.now(),
+          tailText: '',
+          totalBytes: 0,
+          sse: null,
+        }}
+      />,
+    );
+    const tag = screen.getByTestId('oh-response-live-status');
+    expect(tag.textContent).toBe('200 OK');
+    fireEvent.mouseEnter(tag);
+    expect(await screen.findByText(/The request succeeded/)).toBeTruthy();
+  });
+
+  it('shows no status chip before the head arrives', () => {
+    render(
+      <ResponseLiveMetaStrip live={{ head: null, startedAt: Date.now(), tailText: '', totalBytes: 0, sse: null }} />,
+    );
+    expect(screen.queryByTestId('oh-response-live-status')).toBeNull();
   });
 });
