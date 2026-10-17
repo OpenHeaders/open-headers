@@ -31,6 +31,7 @@ import { useSettingValue } from '../../settings/hooks';
 import '../monaco/bootstrap';
 import { ensureEditorFontReadiness } from '../monaco/editor-font-readiness';
 import { ensureEditorKeybindingSync } from '../monaco/editor-keybindings';
+import { applyExternalValue } from '../monaco/external-value-sync';
 import { useMonacoVariableCompletions } from '../template-input';
 import { useMonacoJwtEdit } from '../value-editors';
 import CodeEditorActions, { type CodeEditorActionsTarget, isFormattableLanguage } from './CodeEditorActions';
@@ -114,6 +115,25 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const monacoApiRef = useRef<Monaco | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
+
+  // The buffer is created from `value` once; every later `value` the
+  // host hands down lands through `applyExternalValue` — the one span
+  // that changed, the user's selections carried across — never the
+  // wrapper's full-buffer replace that parks the caret at the end.
+  // The edit's own content event is the host's echo, not a user edit,
+  // so `onChange` stays quiet for it.
+  const syncingRef = useRef(false);
+  useEffect(() => {
+    const editor = mountedEditor;
+    const monacoApi = monacoApiRef.current;
+    if (!editor || !monacoApi) return;
+    syncingRef.current = true;
+    try {
+      applyExternalValue(editor, monacoApi, value, readOnly);
+    } finally {
+      syncingRef.current = false;
+    }
+  }, [mountedEditor, value, readOnly]);
 
   // Inline formatter error banner — populated when a Format call fails
   // with a parse error, cleared the moment the user edits the buffer
@@ -355,7 +375,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         defaultLanguage={toMonacoLanguage(language)}
         language={toMonacoLanguage(language)}
         theme={monacoTheme}
-        value={value}
+        defaultValue={value}
         onMount={(ed, monacoApi) => {
           editorRef.current = ed;
           monacoApiRef.current = monacoApi;
@@ -374,6 +394,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           onEditorMount?.(ed, monacoApi);
         }}
         onChange={(next) => {
+          if (syncingRef.current) return;
           if (formatError) setFormatError(null);
           onChange?.(next ?? '');
         }}
