@@ -126,6 +126,35 @@ describe('ResponseSseEventList rows', () => {
     );
     expect(screen.getByTestId('oh-sse-lifecycle-row').textContent).toContain('Connection failed — socket hang up');
   });
+
+  it('every row leads with the glyph column: the ↓ badge on events, the check on Connected', () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    for (const row of screen.getAllByTestId('oh-sse-event-row')) {
+      expect(row.querySelector('.anticon-arrow-down')).toBeTruthy();
+    }
+    expect(screen.getByTestId('oh-sse-connected-row').querySelector('.anticon-check-circle')).toBeTruthy();
+  });
+
+  it("the ended row's glyph follows the end kind — neutral marks, the close-circle only on a failure", () => {
+    const items = itemsOf(BODY);
+    const glyphOf = (endedBy: 'end' | 'stop' | 'cap' | 'timeout' | 'error'): string => {
+      const view = render(
+        <ResponseSseEventList items={items} count={items.length} lifecycle={{ ...LIFECYCLE, endedBy }} />,
+      );
+      const row = screen.getByTestId('oh-sse-lifecycle-row');
+      expect(row.getAttribute('data-ended-by')).toBe(endedBy);
+      const glyph = row.querySelector('.anticon');
+      const name = [...(glyph?.classList ?? [])].find((cls) => cls.startsWith('anticon-') && cls !== 'anticon') ?? '';
+      view.unmount();
+      return name;
+    };
+    expect(glyphOf('end')).toBe('anticon-disconnect');
+    expect(glyphOf('stop')).toBe('anticon-disconnect');
+    expect(glyphOf('cap')).toBe('anticon-info-circle');
+    expect(glyphOf('timeout')).toBe('anticon-clock-circle');
+    expect(glyphOf('error')).toBe('anticon-close-circle');
+  });
 });
 
 describe('ResponseSseEventList search + clear (display-only)', () => {

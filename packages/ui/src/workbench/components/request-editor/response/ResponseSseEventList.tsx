@@ -36,6 +36,15 @@
  * `.oh-view-menu` (the Editor menu's row anatomy). The count reads
  * `{shown} of {total}` while any filter is in force.
  *
+ * Rows share the siblings' anatomy: every row's leading mark sits on
+ * ONE 18px column — the boxed ↓ badge on an event row, the lifecycle
+ * glyph centered in the same slot (the check for Connected; the ended
+ * row's glyph follows the end kind — the disconnect mark for a close or
+ * a Stop, the info mark for the byte cap, the clock for the deadline,
+ * all neutral; the close-circle on the error tint for a failure, the
+ * row carrying the alarm). Rows separate by the shared hairline, the
+ * last row bare — no frame around the list.
+ *
  * Rows expand into a mini viewer: the shared CodeEditor over the DATA
  * payload — lossless JSON print under the JSON grammar (int64 tokens
  * verbatim — the F3 law), per-line JSON documents printed in sequence,
@@ -66,11 +75,13 @@
  */
 
 import {
-  ApiOutlined,
   ArrowDownOutlined,
   ArrowUpOutlined,
   CaretRightOutlined,
+  CheckCircleOutlined,
   ClearOutlined,
+  ClockCircleOutlined,
+  CloseCircleOutlined,
   ControlOutlined,
   DisconnectOutlined,
   DownOutlined,
@@ -86,6 +97,7 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../../shared/CodeEditor';
+import { STREAM_HAIRLINE, StreamLastRow } from '../../shared/TimelineMessageViewer';
 import { parseLosslessJson, stringifyLossless } from './lossless-json';
 import { formatBytes } from './response-format';
 import type { SseEventItem } from './response-sse';
@@ -629,7 +641,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     height: SINGLE_ROW_PX,
     boxSizing: 'border-box',
     padding: '0 10px',
-    borderBottom: `1px solid ${token.colorBorderSecondary}`,
+    borderBottom: STREAM_HAIRLINE,
     overflow: 'hidden',
   };
 
@@ -637,6 +649,67 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     ...singleRowStyle,
     color: token.colorTextSecondary,
     fontSize: 12,
+  };
+
+  // Lifecycle glyph — centered in the event badge's 18px slot so every
+  // row's leading mark sits on ONE column, drawn at the size the badge
+  // reads at (the circle's footprint ≈ the tinted box).
+  const lifecycleGlyph = (icon: React.ReactNode): React.ReactNode => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        flexShrink: 0,
+        fontSize: 15,
+      }}
+    >
+      {icon}
+    </span>
+  );
+
+  // Boxed event badge — ↓ blue on its tinted background (the WS / gRPC
+  // received anatomy); a stream has one direction, so every event row
+  // wears it.
+  const eventBadge: React.ReactNode = (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        flexShrink: 0,
+        background: token.colorPrimaryBg,
+      }}
+    >
+      <ArrowDownOutlined style={{ fontSize: 11, color: token.colorTextSecondary }} />
+    </span>
+  );
+
+  // The ended row's glyph by end kind — neutral for every end the
+  // stream or the user chose; the failure alone wears the error tint.
+  const endedGlyph = (endedBy: SseStreamEndedBy): React.ReactNode => {
+    switch (endedBy) {
+      case 'end':
+      case 'stop':
+        return <DisconnectOutlined aria-hidden style={{ color: token.colorTextTertiary }} />;
+      case 'cap':
+        return <InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />;
+      case 'timeout':
+        return <ClockCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />;
+      case 'error':
+        return <CloseCircleOutlined aria-hidden style={{ color: token.colorError }} />;
+      default: {
+        const _exhaustive: never = endedBy;
+        void _exhaustive;
+        return null;
+      }
+    }
   };
 
   /** First display index of a group — the badge KIND for its header
@@ -730,8 +803,16 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
       case 'ended': {
         if (lifecycle.endedBy === undefined) return null;
         return (
-          <div key={entry.key} data-testid="oh-sse-lifecycle-row" style={lifecycleRowStyle}>
-            <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+          <div
+            key={entry.key}
+            data-testid="oh-sse-lifecycle-row"
+            data-ended-by={lifecycle.endedBy}
+            style={{
+              ...lifecycleRowStyle,
+              ...(lifecycle.endedBy === 'error' ? { color: token.colorError } : {}),
+            }}
+          >
+            {lifecycleGlyph(endedGlyph(lifecycle.endedBy))}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {endedLabel(lifecycle.endedBy, t)}
               {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
@@ -747,7 +828,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
       case 'connected':
         return (
           <div key={entry.key} data-testid="oh-sse-connected-row" style={lifecycleRowStyle}>
-            <ApiOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.request.response.sse.connected', { url: lifecycle.url })}
             </span>
@@ -814,7 +895,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             }}
             style={{ ...singleRowStyle, cursor: 'pointer' }}
           >
-            <ArrowDownOutlined aria-hidden style={{ fontSize: 10, color: token.colorTextTertiary }} />
+            {eventBadge}
             <Tag
               data-testid="oh-sse-event-badge"
               color={badge.kind === 'named' ? badgeColor(badge.name) : undefined}
@@ -868,7 +949,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             data-testid="oh-sse-event-viewer"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
-            style={{ height: VIEWER_PX - 1, borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+            style={{ height: VIEWER_PX - 1, borderBottom: STREAM_HAIRLINE }}
           >
             <CodeEditor
               value={viewer.value}
@@ -1189,12 +1270,16 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             minHeight: 0,
             overflow: 'auto',
             overscrollBehavior: 'contain',
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 4,
+            // Rows separate by their own hairlines — no frame around the
+            // list.
           }}
         >
           <div aria-hidden style={{ height: topPadPx }} />
-          {entries.slice(start, end).map(renderEntry)}
+          {entries.slice(start, end).map((entry, i) => (
+            <StreamLastRow key={entry.key} last={start + i === entries.length - 1}>
+              {renderEntry(entry)}
+            </StreamLastRow>
+          ))}
           <div aria-hidden style={{ height: bottomPadPx }} />
         </div>
       </div>
