@@ -75,6 +75,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': 'Genau einmal',
   'workbench.editors.mqtt.retainLabel': 'Retain',
   'workbench.editors.mqtt.sendLabel': 'Senden',
+  'workbench.editors.mqtt.composeInfo.topic':
+    'Das Thema, an das Senden veröffentlicht; ein konkreter Name, keine Wildcards. Variablen werden beim Senden aufgelöst.',
+  'workbench.editors.mqtt.composeInfo.qos':
+    'Die Zustellstufe, die der Broker dieser Nachricht schuldet; ein Abonnent erhält sie mit der niedrigeren von dieser und der QoS seines eigenen Abonnements.',
+  'workbench.editors.mqtt.composeInfo.retain':
+    'Bittet den Broker, diese Nachricht als jüngste des Themas zu behalten und jedem neuen Abonnenten zu übergeben; eine leere Retain-Nutzlast löscht sie.',
   'workbench.editors.mqtt.topicPlaceholder': 'Zielthema',
   'workbench.editors.mqtt.topicExample': 'z. B. sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': 'Text',
@@ -194,6 +200,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'z. B. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, in Sekunden — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Testament-Verzögerung',
+  'workbench.editors.mqtt.will.info.topic':
+    'Das Thema, an das der Broker das Testament veröffentlicht; ein konkreter Name, keine Wildcards. Ohne Thema wird kein Testament hinterlegt.',
+  'workbench.editors.mqtt.will.info.qos': 'Die Zustellstufe, mit der der Broker das Testament veröffentlicht.',
+  'workbench.editors.mqtt.will.info.retain':
+    'Behält das Testament nach der Veröffentlichung als jüngste Nachricht des Themas — so liest ein Statusthema nach dem Abbruch weiter „offline“.',
+  'workbench.editors.mqtt.will.info.delay':
+    'Sekunden, die der Broker nach dem Abbruch der Sitzung wartet, bevor er das Testament veröffentlicht; eine Wiederverbindung innerhalb des Fensters hebt es auf. MQTT 5.0.',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s (Standard)',
   'workbench.editors.mqtt.will.payloadPlaceholder': 'Testament-Nutzlast verfassen…',
   'workbench.editors.mqtt.spec.selectLabel': 'AsyncAPI-Spezifikation',

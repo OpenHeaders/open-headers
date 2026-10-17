@@ -23,7 +23,15 @@ import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import { composePublishWire, PAYLOAD_FORMAT_LANGUAGE, payloadFormatForLanguage } from './compose';
-import { CompactQosSelect, EncodingErrorLine, EncodingSelect, payloadPlaceholder, TopicField } from './compose-parts';
+import {
+  CompactQosSelect,
+  ComposeLabel,
+  EncodingErrorLine,
+  EncodingSelect,
+  payloadPlaceholder,
+  TopicField,
+} from './compose-parts';
+import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import type { MqttDraft } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
 import MqttSavedMessagesRail, { MqttSavedMessagesStrip } from './MqttSavedMessagesRail';
@@ -180,11 +188,12 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           onChange={(e) => setDraft((d) => ({ ...d, retain: e.target.checked }))}
           data-testid="mqtt-retain"
         >
-          {t('workbench.editors.mqtt.retainLabel')}
+          <ComposeLabel text={t('workbench.editors.mqtt.retainLabel')} info={mqttSettingsRowInfo(t, 'publishRetain')} />
         </Checkbox>
         <CompactQosSelect
           value={draft.qos}
           onChange={(qos) => setDraft((d) => ({ ...d, qos }))}
+          info={mqttSettingsRowInfo(t, 'publishQos')}
           testId="mqtt-qos-select"
         />
         <TopicField
@@ -192,6 +201,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           onChange={(topic) => setDraft((d) => ({ ...d, topic }))}
           placeholder={t('workbench.editors.mqtt.topicPlaceholder')}
           example={t('workbench.editors.mqtt.topicExample')}
+          info={mqttSettingsRowInfo(t, 'publishTopic')}
           testId="mqtt-topic-input"
         />
         <Tooltip

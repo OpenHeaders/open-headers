@@ -88,6 +88,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': 'Exact o dată',
   'workbench.editors.mqtt.retainLabel': 'Reținere',
   'workbench.editors.mqtt.sendLabel': 'Trimitere',
+  'workbench.editors.mqtt.composeInfo.topic':
+    'Subiectul pe care Trimitere publică; un nume concret, fără metacaractere. Variabilele se rezolvă la trimitere.',
+  'workbench.editors.mqtt.composeInfo.qos':
+    'Nivelul de livrare pe care brokerul îl datorează acestui mesaj; un abonat îl primește la cel mai mic dintre acesta și QoS-ul propriului abonament.',
+  'workbench.editors.mqtt.composeInfo.retain':
+    'Cere brokerului să păstreze acest mesaj ca cel mai recent al subiectului și să-l predea fiecărui abonat nou; un conținut reținut gol îl șterge.',
   'workbench.editors.mqtt.topicPlaceholder': 'Subiectul pe care se publică',
   'workbench.editors.mqtt.topicExample': 'de ex. sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': 'Text',
@@ -204,6 +210,14 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'de ex. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, în secunde — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Întârziere ultima dorință',
+  'workbench.editors.mqtt.will.info.topic':
+    'Subiectul pe care brokerul publică ultima dorință; un nume concret, fără metacaractere. Fără subiect nu se înregistrează nicio ultimă dorință.',
+  'workbench.editors.mqtt.will.info.qos':
+    'Nivelul de livrare pe care brokerul îl folosește când publică ultima dorință.',
+  'workbench.editors.mqtt.will.info.retain':
+    'Păstrează ultima dorință ca cel mai recent mesaj al subiectului după publicare — așa un subiect de stare se citește în continuare „offline” după cădere.',
+  'workbench.editors.mqtt.will.info.delay':
+    'Secundele pe care brokerul le așteaptă după căderea sesiunii înainte de a publica ultima dorință; o reconectare în acest interval o anulează. MQTT 5.0.',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s (implicit)',
   'workbench.editors.mqtt.will.payloadPlaceholder': 'Compuneți conținutul util al ultimei dorințe…',
   'workbench.editors.mqtt.spec.selectLabel': 'Specificație AsyncAPI',

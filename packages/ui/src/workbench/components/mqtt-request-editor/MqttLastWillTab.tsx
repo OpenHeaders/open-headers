@@ -25,7 +25,15 @@ import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
 import { PAYLOAD_FORMAT_LANGUAGE, payloadFormatForLanguage } from './compose';
-import { CompactQosSelect, EncodingErrorLine, EncodingSelect, payloadPlaceholder, TopicField } from './compose-parts';
+import {
+  CompactQosSelect,
+  ComposeLabel,
+  EncodingErrorLine,
+  EncodingSelect,
+  payloadPlaceholder,
+  TopicField,
+} from './compose-parts';
+import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { type MqttDraft, payloadEncodingError } from './draft';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
 
@@ -100,7 +108,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           testId="mqtt-will-props"
         />
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
-          {t('workbench.editors.mqtt.will.delayLabel')}
+          <ComposeLabel text={t('workbench.editors.mqtt.will.delayLabel')} info={mqttSettingsRowInfo(t, 'willDelay')} />
         </Text>
         {/* The empty knob means the default in effect — its stated
           default reads at full text contrast, the Settings-tab
@@ -130,11 +138,12 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           onChange={(e) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, retain: e.target.checked } }))}
           data-testid="mqtt-will-retain"
         >
-          {t('workbench.editors.mqtt.retainLabel')}
+          <ComposeLabel text={t('workbench.editors.mqtt.retainLabel')} info={mqttSettingsRowInfo(t, 'willRetain')} />
         </Checkbox>
         <CompactQosSelect
           value={draft.lastWill.qos}
           onChange={(qos) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, qos } }))}
+          info={mqttSettingsRowInfo(t, 'willQos')}
           testId="mqtt-will-qos"
         />
         <TopicField
@@ -142,6 +151,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           onChange={(topic) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, topic } }))}
           placeholder={t('workbench.editors.mqtt.will.topicPlaceholder')}
           example={t('workbench.editors.mqtt.will.topicExample')}
+          info={mqttSettingsRowInfo(t, 'willTopic')}
           testId="mqtt-will-topic"
         />
       </div>

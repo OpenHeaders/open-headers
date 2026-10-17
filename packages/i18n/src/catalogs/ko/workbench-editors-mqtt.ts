@@ -81,6 +81,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': '정확히 한 번',
   'workbench.editors.mqtt.retainLabel': '보존',
   'workbench.editors.mqtt.sendLabel': '전송',
+  'workbench.editors.mqtt.composeInfo.topic':
+    '전송이 게시하는 토픽입니다. 구체적인 이름이며 와일드카드는 쓸 수 없습니다. 변수는 전송 시 해결됩니다.',
+  'workbench.editors.mqtt.composeInfo.qos':
+    '브로커가 이 메시지에 보장하는 전달 수준입니다. 구독자는 이 수준과 자기 구독의 QoS 중 낮은 쪽으로 받습니다.',
+  'workbench.editors.mqtt.composeInfo.retain':
+    '이 메시지를 토픽의 최신 메시지로 보관해 새 구독자마다 전달하도록 브로커에 요청합니다. 빈 보존 페이로드는 이를 지웁니다.',
   'workbench.editors.mqtt.topicPlaceholder': '게시할 토픽',
   'workbench.editors.mqtt.topicExample': '예: sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': '텍스트',
@@ -190,6 +196,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': '예: clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval (초)입니다. MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': '유언 지연',
+  'workbench.editors.mqtt.will.info.topic':
+    '브로커가 유언을 게시하는 토픽입니다. 구체적인 이름이며 와일드카드는 쓸 수 없습니다. 토픽이 없으면 유언은 등록되지 않습니다.',
+  'workbench.editors.mqtt.will.info.qos': '브로커가 유언을 게시할 때 쓰는 전달 수준입니다.',
+  'workbench.editors.mqtt.will.info.retain':
+    '게시된 뒤에도 유언을 토픽의 최신 메시지로 보관합니다. 끊긴 뒤에도 상태 토픽이 "오프라인"으로 읽히는 이유입니다.',
+  'workbench.editors.mqtt.will.info.delay':
+    '세션이 끊긴 뒤 브로커가 유언을 게시하기까지 기다리는 초입니다. 그 안에 다시 연결하면 취소됩니다. MQTT 5.0.',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s (기본값)',
   'workbench.editors.mqtt.will.payloadPlaceholder': '유언 페이로드를 작성하세요…',
   'workbench.editors.mqtt.spec.selectLabel': 'AsyncAPI 사양',

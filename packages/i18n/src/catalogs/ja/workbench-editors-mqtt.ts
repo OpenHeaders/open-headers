@@ -79,6 +79,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': '正確に 1 回',
   'workbench.editors.mqtt.retainLabel': '保持',
   'workbench.editors.mqtt.sendLabel': '送信',
+  'workbench.editors.mqtt.composeInfo.topic':
+    '送信がパブリッシュする先のトピックです。具体的な名前で、ワイルドカードは使えません。変数は送信時に解決されます。',
+  'workbench.editors.mqtt.composeInfo.qos':
+    'ブローカーがこのメッセージに保証する配信レベルです。サブスクライバーは、このレベルと自身のサブスクリプションの QoS の低い方で受け取ります。',
+  'workbench.editors.mqtt.composeInfo.retain':
+    'このメッセージをトピックの最新として保持し、新しいサブスクライバーごとに渡すようブローカーに求めます。空の保持ペイロードはそれを消します。',
   'workbench.editors.mqtt.topicPlaceholder': 'パブリッシュ先のトピック',
   'workbench.editors.mqtt.topicExample': '例：sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': 'Text',
@@ -197,6 +203,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': '例：clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval（秒）。MQTT 5.0。',
   'workbench.editors.mqtt.will.delayLabel': '遺言の遅延',
+  'workbench.editors.mqtt.will.info.topic':
+    'ブローカーが遺言をパブリッシュする先のトピックです。具体的な名前で、ワイルドカードは使えません。トピックがなければ遺言は登録されません。',
+  'workbench.editors.mqtt.will.info.qos': 'ブローカーが遺言をパブリッシュするときに使う配信レベルです。',
+  'workbench.editors.mqtt.will.info.retain':
+    'パブリッシュ後も遺言をトピックの最新として保持します。切断後もステータストピックが「オフライン」と読めるのはこのためです。',
+  'workbench.editors.mqtt.will.info.delay':
+    'セッションが落ちてからブローカーが遺言をパブリッシュするまで待つ秒数です。その間に再接続すれば取り消されます。MQTT 5.0。',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s（デフォルト）',
   'workbench.editors.mqtt.will.payloadPlaceholder': '遺言のペイロードを作成…',
   'workbench.editors.mqtt.spec.selectLabel': 'AsyncAPI 仕様',

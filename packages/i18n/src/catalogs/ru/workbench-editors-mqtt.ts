@@ -84,6 +84,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': 'Ровно один раз',
   'workbench.editors.mqtt.retainLabel': 'Удерживать',
   'workbench.editors.mqtt.sendLabel': 'Отправить',
+  'workbench.editors.mqtt.composeInfo.topic':
+    'Топик, в который публикует «Отправить»; конкретное имя, без подстановочных знаков. Переменные разрешаются при отправке.',
+  'workbench.editors.mqtt.composeInfo.qos':
+    'Уровень доставки, который брокер гарантирует этому сообщению; подписчик получает его с меньшим из этого уровня и QoS собственной подписки.',
+  'workbench.editors.mqtt.composeInfo.retain':
+    'Просит брокера хранить это сообщение как последнее в топике и выдавать его каждому новому подписчику; пустая удерживаемая нагрузка стирает его.',
   'workbench.editors.mqtt.topicPlaceholder': 'Топик для публикации',
   'workbench.editors.mqtt.topicExample': 'например, sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': 'Текст',
@@ -198,6 +204,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'например, clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, в секундах — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Задержка воли',
+  'workbench.editors.mqtt.will.info.topic':
+    'Топик, в который брокер публикует последнюю волю; конкретное имя, без подстановочных знаков. Без топика воля не регистрируется.',
+  'workbench.editors.mqtt.will.info.qos': 'Уровень доставки, с которым брокер публикует последнюю волю.',
+  'workbench.editors.mqtt.will.info.retain':
+    'Хранит последнюю волю как последнее сообщение топика после публикации — так топик состояния и после обрыва читается как «не в сети».',
+  'workbench.editors.mqtt.will.info.delay':
+    'Секунды, которые брокер ждёт после обрыва сеанса перед публикацией последней воли; переподключение в этот срок отменяет её. MQTT 5.0.',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 с (по умолчанию)',
   'workbench.editors.mqtt.will.payloadPlaceholder': 'Составьте полезную нагрузку последней воли…',
   'workbench.editors.mqtt.spec.selectLabel': 'Спецификация AsyncAPI',

@@ -67,6 +67,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': '恰好一次',
   'workbench.editors.mqtt.retainLabel': '保留',
   'workbench.editors.mqtt.sendLabel': '发送',
+  'workbench.editors.mqtt.composeInfo.topic': '“发送”发布到的主题；具体名称，不含通配符。变量在发送时解析。',
+  'workbench.editors.mqtt.composeInfo.qos':
+    '代理对这条消息承诺的投递等级；订阅者按此等级与其自身订阅 QoS 中较低者接收。',
+  'workbench.editors.mqtt.composeInfo.retain':
+    '请求代理将这条消息保留为该主题的最新消息并交给每个新订阅者；空的保留载荷会将其清除。',
   'workbench.editors.mqtt.topicPlaceholder': '要发布到的主题',
   'workbench.editors.mqtt.topicExample': '例如 sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': 'Text',
@@ -168,6 +173,10 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': '例如 clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval，秒——MQTT 5.0。',
   'workbench.editors.mqtt.will.delayLabel': '遗嘱延迟',
+  'workbench.editors.mqtt.will.info.topic': '代理发布遗嘱的主题；具体名称，不含通配符。没有主题就不会注册遗嘱。',
+  'workbench.editors.mqtt.will.info.qos': '代理发布遗嘱时使用的投递等级。',
+  'workbench.editors.mqtt.will.info.retain': '发布后将遗嘱保留为该主题的最新消息——这样状态主题在断开后仍读作“离线”。',
+  'workbench.editors.mqtt.will.info.delay': '会话中断后代理等待多少秒再发布遗嘱；在此期间重新连接会取消它。MQTT 5.0。',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s（默认）',
   'workbench.editors.mqtt.will.payloadPlaceholder': '编写遗嘱载荷…',
   'workbench.editors.mqtt.spec.selectLabel': 'AsyncAPI 规范',

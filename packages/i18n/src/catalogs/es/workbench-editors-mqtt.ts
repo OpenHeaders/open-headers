@@ -74,6 +74,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': 'Exactamente una vez',
   'workbench.editors.mqtt.retainLabel': 'Retain',
   'workbench.editors.mqtt.sendLabel': 'Enviar',
+  'workbench.editors.mqtt.composeInfo.topic':
+    'El tema en el que Enviar publica; un nombre concreto, sin comodines. Las variables se resuelven al enviar.',
+  'workbench.editors.mqtt.composeInfo.qos':
+    'El nivel de entrega que el bróker debe a este mensaje; un suscriptor lo recibe al menor entre este y el QoS de su propia suscripción.',
+  'workbench.editors.mqtt.composeInfo.retain':
+    'Pide al bróker que conserve este mensaje como el último del tema y lo entregue a cada nuevo suscriptor; una carga retenida vacía lo borra.',
   'workbench.editors.mqtt.topicPlaceholder': 'Tema donde publicar',
   'workbench.editors.mqtt.topicExample': 'p. ej. sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': 'Texto',
@@ -189,6 +195,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'p. ej. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, en segundos — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Retraso del testamento',
+  'workbench.editors.mqtt.will.info.topic':
+    'El tema en el que el bróker publica el testamento; un nombre concreto, sin comodines. Sin tema no se registra ningún testamento.',
+  'workbench.editors.mqtt.will.info.qos': 'El nivel de entrega que el bróker usa al publicar el testamento.',
+  'workbench.editors.mqtt.will.info.retain':
+    'Conserva el testamento como el último mensaje del tema una vez publicado — así un tema de estado sigue leyéndose «sin conexión» tras la caída.',
+  'workbench.editors.mqtt.will.info.delay':
+    'Segundos que el bróker espera tras la caída de la sesión antes de publicar el testamento; una reconexión dentro de ese plazo lo cancela. MQTT 5.0.',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s (por defecto)',
   'workbench.editors.mqtt.will.payloadPlaceholder': 'Compón la carga útil del testamento…',
   'workbench.editors.mqtt.spec.selectLabel': 'Especificación AsyncAPI',

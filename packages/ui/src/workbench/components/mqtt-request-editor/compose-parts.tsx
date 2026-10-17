@@ -9,6 +9,7 @@
 
 import type { MqttPayloadFormat, MqttRequestQos } from '@openheaders/core/types';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Input, Select, Typography } from 'antd';
 import type React from 'react';
 
@@ -46,18 +47,23 @@ export const EncodingSelect: React.FC<{
   );
 };
 
-/** `QoS` label + the 46px integer knob — the meanings ride the menu. */
+/** `QoS` label (+ its (i) card) + the 46px integer knob — the meanings
+ *  ride the menu. */
 export const CompactQosSelect: React.FC<{
   value: MqttRequestQos;
   onChange: (qos: MqttRequestQos) => void;
+  info?: InfoPopoverContent;
   testId: string;
-}> = ({ value, onChange, testId }) => {
+}> = ({ value, onChange, info, testId }) => {
   const t = useT();
   return (
     <>
-      <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
-        {t('workbench.editors.mqtt.qos.compactLabel')}
-      </Text>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, lineHeight: '24px' }}>
+        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+          {t('workbench.editors.mqtt.qos.compactLabel')}
+        </Text>
+        {info && <InfoTrigger content={info} />}
+      </span>
       <Select
         size="small"
         style={{ width: 46 }}
@@ -85,14 +91,16 @@ export const CompactQosSelect: React.FC<{
 };
 
 /** Statement placeholder + the muted example below — the settings-row
- *  TextKnob discipline, 200px. */
+ *  TextKnob discipline, 200px. The field has no label, so its (i)
+ *  card closes the example line. */
 export const TopicField: React.FC<{
   value: string;
   onChange: (topic: string) => void;
   placeholder: string;
   example: string;
+  info?: InfoPopoverContent;
   testId: string;
-}> = ({ value, onChange, placeholder, example, testId }) => (
+}> = ({ value, onChange, placeholder, example, info, testId }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 200 }}>
     <Input
       size="small"
@@ -102,10 +110,22 @@ export const TopicField: React.FC<{
       onChange={(e) => onChange(e.target.value)}
       data-testid={testId}
     />
-    <Text type="secondary" style={{ fontSize: 11 }}>
-      {example}
-    </Text>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        {example}
+      </Text>
+      {info && <InfoTrigger content={info} />}
+    </span>
   </div>
+);
+
+/** A compose-bar label (Retain, Will delay) closed by its (i) card —
+ *  the options popovers' `OptionLabel` shape at the bar's 12px. */
+export const ComposeLabel: React.FC<{ text: string; info: InfoPopoverContent }> = ({ text, info }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    {text}
+    <InfoTrigger content={info} />
+  </span>
 );
 
 /** Renders nothing while the payload decodes under its ENCODING. */

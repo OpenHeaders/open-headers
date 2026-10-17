@@ -71,6 +71,14 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.qos.meaning2': 'Exactly once',
   'workbench.editors.mqtt.retainLabel': 'Retain',
   'workbench.editors.mqtt.sendLabel': 'Send',
+  // The Message bar's (i) cards — each lights its slice of the shared
+  // example session's PUBLISH line.
+  'workbench.editors.mqtt.composeInfo.topic':
+    'The topic Send publishes to; a concrete name, no wildcards. Variables resolve at Send.',
+  'workbench.editors.mqtt.composeInfo.qos':
+    'The delivery level the broker owes this message; a subscriber receives it at the lower of this and its own subscription’s QoS.',
+  'workbench.editors.mqtt.composeInfo.retain':
+    'Asks the broker to keep this message as the topic’s latest and hand it to every new subscriber; an empty retained payload clears it.',
   'workbench.editors.mqtt.topicPlaceholder': 'Topic to publish to',
   'workbench.editors.mqtt.topicExample': 'e.g. sensors/1/temperature',
   'workbench.editors.mqtt.payload.formatText': 'Text',
@@ -187,6 +195,15 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, seconds — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Will delay',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s (default)',
+  // The Last Will bar's (i) cards — each lights its slice of the will
+  // line on the shared example session's CONNECT leg.
+  'workbench.editors.mqtt.will.info.topic':
+    'The topic the broker publishes the will to; a concrete name, no wildcards. Without one no will is registered.',
+  'workbench.editors.mqtt.will.info.qos': 'The delivery level the broker uses when it publishes the will.',
+  'workbench.editors.mqtt.will.info.retain':
+    'Keeps the will as the topic’s latest once published — how a status topic still reads offline after the drop.',
+  'workbench.editors.mqtt.will.info.delay':
+    'Seconds the broker waits after the session drops before publishing the will; a reconnect within the window cancels it. MQTT 5.0.',
   'workbench.editors.mqtt.will.payloadPlaceholder': 'Compose the will payload…',
   'workbench.editors.mqtt.spec.selectLabel': 'AsyncAPI spec',
   'workbench.editors.mqtt.spec.selectPlaceholder': 'Link an AsyncAPI spec',

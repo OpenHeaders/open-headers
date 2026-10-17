@@ -49,6 +49,13 @@ type MqttOwnInfoKey =
   | 'subscribeQos'
   | 'subscribeOptions'
   | 'subscribe'
+  | 'publishTopic'
+  | 'publishQos'
+  | 'publishRetain'
+  | 'willTopic'
+  | 'willQos'
+  | 'willRetain'
+  | 'willDelay'
   | 'clientId'
   | 'executionPlace'
   | 'cleanStart'
@@ -104,6 +111,10 @@ const EX = {
   clientCert: 'client cert: reporter-1',
   sni: 'sni: broker.openheaders.com',
   alpn: 'alpn: mqtt',
+  willTopic: 'will: clients/reporter-1/status',
+  willQos: 'QoS 1',
+  willRetain: 'retain ✓',
+  willDelay: 'will delay: 10 s',
   subscribe: 'SUBSCRIBE',
   filter: 'sensors/+/temp',
   qos: 'QoS 1',
@@ -113,6 +124,8 @@ const EX = {
   subId: 'sub id: 7',
   props: 'props: trace=on',
   pubTopic: 'sensors/1/temp',
+  pubQos: 'QoS 1',
+  pubRetain: 'retain ✓',
   respTopic: 'reply to: sensors/1/ack',
   corr: 'corr: 42',
   msgExpiry: 'expires: 60 s',
@@ -137,12 +150,21 @@ const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
  * single token (the TLS window is one token — min and max both light
  * it); the two options-popover section headers light their whole
  * sub-slice; the Topics table's column headers partition the SUBSCRIBE
- * leg — the Subscribe column lights the opener itself. */
+ * leg — the Subscribe column lights the opener itself; the Message
+ * bar's knobs light the PUBLISH line, the Last Will bar's the will line
+ * of the CONNECT leg. */
 const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   topicFilter: ['filter'],
   subscribeQos: ['qos'],
   subscribeOptions: ['noLocal', 'rap', 'retained', 'subId', 'props'],
   subscribe: ['subscribe'],
+  publishTopic: ['pubTopic'],
+  publishQos: ['pubQos'],
+  publishRetain: ['pubRetain'],
+  willTopic: ['willTopic'],
+  willQos: ['willQos'],
+  willRetain: ['willRetain'],
+  willDelay: ['willDelay'],
   clientId: ['clientId'],
   executionPlace: ['route'],
   cleanStart: ['cleanStart'],
@@ -211,9 +233,10 @@ function MqttExampleCard({ lit, routeText }: { lit: ReadonlySet<TokenId>; routeT
       ],
     },
     { tokens: [tok('tlsWindow'), tok('verify'), tok('suite'), tok('clientCert'), tok('sni'), tok('alpn')] },
+    { tokens: [tok('willTopic'), tok('willQos'), tok('willRetain'), tok('willDelay')] },
     { opener: tok('subscribe'), tokens: [tok('filter'), tok('qos')] },
     { tokens: [tok('noLocal'), tok('rap'), tok('retained'), tok('subId'), tok('props')] },
-    { opener: 'PUBLISH', tokens: [tok('pubTopic')] },
+    { opener: 'PUBLISH', tokens: [tok('pubTopic'), tok('pubQos'), tok('pubRetain')] },
     {
       tokens: [tok('respTopic'), tok('corr'), tok('msgExpiry'), tok('contentType'), tok('pfi'), tok('pubProps')],
     },
@@ -226,6 +249,13 @@ const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
   subscribeQos: 'workbench.editors.mqtt.topics.qosColLabel',
   subscribeOptions: 'workbench.editors.mqtt.topics.optionsColLabel',
   subscribe: 'workbench.editors.mqtt.topics.subscribeColLabel',
+  publishTopic: 'workbench.editors.mqtt.topics.filterLabel',
+  publishQos: 'workbench.editors.mqtt.topics.qosColLabel',
+  publishRetain: 'workbench.editors.mqtt.retainLabel',
+  willTopic: 'workbench.editors.mqtt.topics.filterLabel',
+  willQos: 'workbench.editors.mqtt.topics.qosColLabel',
+  willRetain: 'workbench.editors.mqtt.retainLabel',
+  willDelay: 'workbench.editors.mqtt.will.delayLabel',
   clientId: 'workbench.editors.mqtt.settings.clientIdLabel',
   executionPlace: 'workbench.editors.request.settings.executionPlace',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartLabel',
@@ -259,6 +289,13 @@ const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey>
   subscribeQos: 'workbench.editors.mqtt.topics.colInfo.qos',
   subscribeOptions: 'workbench.editors.mqtt.topics.colInfo.options',
   subscribe: 'workbench.editors.mqtt.topics.colInfo.subscribe',
+  publishTopic: 'workbench.editors.mqtt.composeInfo.topic',
+  publishQos: 'workbench.editors.mqtt.composeInfo.qos',
+  publishRetain: 'workbench.editors.mqtt.composeInfo.retain',
+  willTopic: 'workbench.editors.mqtt.will.info.topic',
+  willQos: 'workbench.editors.mqtt.will.info.qos',
+  willRetain: 'workbench.editors.mqtt.will.info.retain',
+  willDelay: 'workbench.editors.mqtt.will.info.delay',
   clientId: 'workbench.editors.mqtt.settings.clientIdHelp',
   executionPlace: 'workbench.editors.request.settings.executionPlaceInfo',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartHelp',
@@ -290,12 +327,20 @@ const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey>
  * carry the tab name); the option and message-properties rows carry
  * their section's header; the Topics table's column headers and the
  * topic-options section headers carry the Topics tab, the
- * message-properties ones the trigger's own name. */
+ * message-properties ones the trigger's own name; the two compose bars'
+ * knobs carry their tab. */
 const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   topicFilter: 'workbench.editors.mqtt.tab.topics',
   subscribeQos: 'workbench.editors.mqtt.tab.topics',
   subscribeOptions: 'workbench.editors.mqtt.tab.topics',
   subscribe: 'workbench.editors.mqtt.tab.topics',
+  publishTopic: 'workbench.editors.mqtt.tab.message',
+  publishQos: 'workbench.editors.mqtt.tab.message',
+  publishRetain: 'workbench.editors.mqtt.tab.message',
+  willTopic: 'workbench.editors.mqtt.tab.lastWill',
+  willQos: 'workbench.editors.mqtt.tab.lastWill',
+  willRetain: 'workbench.editors.mqtt.tab.lastWill',
+  willDelay: 'workbench.editors.mqtt.tab.lastWill',
   clientId: MQTT_GROUP_LABEL_KEY.connection,
   executionPlace: MQTT_GROUP_LABEL_KEY.connection,
   cleanStart: MQTT_GROUP_LABEL_KEY.connection,
@@ -368,7 +413,7 @@ export function mqttSettingsRowInfo(t: Translate, infoKey: MqttInfoKey): InfoPop
   if (isTlsTrustInfoKey(infoKey)) return { ...tlsTrustRowInfo(t, infoKey, kicker), ...card };
   if (isResilienceInfoKey(infoKey)) return { ...resilienceRowInfo(t, infoKey, kicker, 'none'), ...card };
   const base = { title: t(TITLE_KEY[infoKey]), kicker, ...card };
-  if (infoKey === 'subscribeQos') {
+  if (infoKey === 'subscribeQos' || infoKey === 'publishQos' || infoKey === 'willQos') {
     return {
       ...base,
       summary: t(SUMMARY_KEY[infoKey]),
