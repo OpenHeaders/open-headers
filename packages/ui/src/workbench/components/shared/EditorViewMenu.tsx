@@ -9,11 +9,12 @@
  * clicks keep the popover OPEN (the app's popover convention — only an
  * outside click or a trigger re-click closes), so several knobs flip
  * in one visit. The rows read like the auth-type popup's: every row
- * reserves a left check-gutter and the active ones carry the mark —
- * the mark alone, no single-choice tint, since several knobs are on
- * at once (`selectedKeys` → `.oh-editor-view-menu` in editor.less) —
- * while the right edge keeps the glyphs that mean "more": the submenu
- * caret, the open-elsewhere arrow. The last row is the jump to the rest of the knobs —
+ * reserves a left check-gutter and a right suffix column, and the
+ * active ones carry the mark — the mark alone on this multi-toggle
+ * list, the mark plus the active tint inside the single-choice
+ * Whitespace submenu (`selectedKeys` → `.oh-editor-view-menu` in
+ * editor.less) — while the suffix column holds the glyphs that mean
+ * "more": the submenu caret, the open-elsewhere arrow. The last row is the jump to the rest of the knobs —
  * Settings › Editor › Code Editor, suffixed with the neutral boxed
  * jump arrow the desktop teaser's "Open in the desktop app" wears —
  * and it closes the popover, since the Settings surface takes over;
@@ -22,7 +23,7 @@
 
 import { ControlOutlined, SelectOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Dropdown, theme, Tooltip } from 'antd';
+import { Button, Dropdown, Tooltip } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -49,7 +50,6 @@ interface EditorViewMenuProps {
 }
 
 const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, style, 'data-testid': testid }) => {
-  const { token } = theme.useToken();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [lineNumbers, setLineNumbers] = useSetting('editor.lineNumbers');
@@ -75,10 +75,10 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
           {
             key: 'settings',
             label: (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <>
                 {t('shared.editorMenu.settings')}
-                <SelectOutlined style={{ color: token.colorTextSecondary }} />
-              </span>
+                <SelectOutlined className="oh-editor-view-menu-suffix" />
+              </>
             ),
             onClick: () => {
               setOpen(false);
