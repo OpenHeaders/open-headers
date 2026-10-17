@@ -45,7 +45,13 @@ import {
   type MqttTimelineLifecycle,
   reconnectingAt,
 } from './mqtt-timeline-model';
-import { connackReasonLabel, connackReasonName, reconnectLoopEndTagKey, sessionEndedMessage } from './session-display';
+import {
+  connackReasonLabel,
+  connackReasonName,
+  reconnectLoopEndTagKey,
+  sessionEndedKind,
+  sessionEndedMessage,
+} from './session-display';
 import type { LiveMqttSession, MqttSessionTiming } from './useLiveMqttSession';
 
 const { Text } = Typography;
@@ -207,6 +213,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
       ...(timing?.connectedAt !== undefined ? { connectedAt: timing.connectedAt } : {}),
       ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
       endedBy: snapshot.stopped === true ? 'stop' : 'close',
+      ...(snapshot.stopped === true ? {} : { endedKind: sessionEndedKind(snapshot) }),
       ...(teardownAt !== undefined ? { endedAt: teardownAt } : {}),
       ...(endedMessage !== undefined ? { endedMessage } : {}),
     };

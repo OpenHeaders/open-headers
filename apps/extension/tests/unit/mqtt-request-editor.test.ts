@@ -39,6 +39,7 @@ import {
 import {
   connackReasonName,
   grantFailureLabel,
+  sessionEndedKind,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/session-display';
 import { topicOptionsConfigured } from '@openheaders/ui/workbench/components/mqtt-request-editor/TopicOptionsPopover';
 import { describe, expect, it } from 'vitest';
@@ -314,6 +315,17 @@ describe('SUBACK grant labels', () => {
     expect(grantFailureLabel(0x87, t)).toBe('workbench.editors.mqtt.timeline.grantFailedNamed:Not authorized,135');
     // A code the spec does not name renders bare.
     expect(grantFailureLabel(0xee, t)).toBe('workbench.editors.mqtt.timeline.grantFailed:238');
+  });
+
+  it('classifies how a closed session ended — the ended row’s glyph and the pill read the same fact', () => {
+    expect(sessionEndedKind({ end: { by: 'client' } })).toBe('clean');
+    expect(sessionEndedKind({ end: { by: 'broker', reasonCode: 0 } })).toBe('broker');
+    expect(sessionEndedKind({ end: { by: 'broker', reasonCode: null } })).toBe('broker');
+    // No DISCONNECT from either side — the severed socket.
+    expect(sessionEndedKind({ end: null })).toBe('severed');
+    // A reconnect loop the broker refused, or that never got it back.
+    expect(sessionEndedKind({ end: null, reconnectRefused: { attempt: 2, error: 'refused' } })).toBe('broker');
+    expect(sessionEndedKind({ end: null, reconnectExhausted: { attempts: 5 } })).toBe('severed');
   });
 
   it('names a CONNACK code in the numeric space the broker answered in', () => {

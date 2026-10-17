@@ -89,6 +89,13 @@ export function reconnectingAt(items: readonly MqttTimelineItem[], count: number
 /** How the session ended — drives the ended lifecycle row. */
 export type MqttTimelineEndedBy = 'close' | 'stop';
 
+/** How a closed session's connection ended — the ended row's glyph
+ *  follows it as the end pill does: the client's own DISCONNECT, the
+ *  broker's DISCONNECT (or a reconnect the broker refused), or a
+ *  socket that ended with no DISCONNECT from either side (or a
+ *  reconnect loop that never got the broker back). */
+export type MqttTimelineEndedKind = 'clean' | 'broker' | 'severed';
+
 export interface MqttTimelineLifecycle {
   /** Session-only Connect-departure time. */
   startedAt?: number;
@@ -127,6 +134,8 @@ export interface MqttTimelineLifecycle {
   abortedDisconnectedAt?: number;
   /** Absent while the session is open — the live phase. */
   endedBy?: MqttTimelineEndedBy;
+  /** Rides beside `endedBy: 'close'` — the end the pill classifies. */
+  endedKind?: MqttTimelineEndedKind;
   endedAt?: number;
   /** The end detail riding the ended row — the clean Disconnect, the
    *  broker's verbatim reason, or the severed-connection note.

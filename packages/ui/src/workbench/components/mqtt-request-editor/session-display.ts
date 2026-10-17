@@ -79,6 +79,19 @@ export function sessionEndedMessage(
   return connectionEndMessage(session.end, t);
 }
 
+/** How a closed session's connection ended, for the ended row's glyph
+ *  — the same reading the end pill and `sessionEndedMessage` give. */
+export function sessionEndedKind(session: {
+  end: { by: 'client' } | { by: 'broker'; reasonCode: number | null } | null;
+  reconnectRefused?: { attempt: number; error: string };
+  reconnectExhausted?: { attempts: number; error?: string };
+}): 'clean' | 'broker' | 'severed' {
+  if (session.reconnectRefused !== undefined) return 'broker';
+  if (session.reconnectExhausted !== undefined) return 'severed';
+  if (session.end === null) return 'severed';
+  return session.end.by === 'client' ? 'clean' : 'broker';
+}
+
 /** A FAILED grant's display label — the failure code with its spec
  *  name beside the verbatim number. Success grants (0–2) return null:
  *  the subscribed state itself is the answer, so success renders as

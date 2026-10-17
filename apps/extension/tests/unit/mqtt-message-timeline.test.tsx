@@ -87,6 +87,29 @@ describe('MqttMessageTimeline — aborted lifecycle instants', () => {
   });
 });
 
+describe('MqttMessageTimeline — the ended row follows the end', () => {
+  const ended = (endedKind: 'clean' | 'broker' | 'severed'): MqttTimelineLifecycle => ({
+    startedAt: STARTED_AT,
+    connected: true,
+    endedBy: 'close',
+    endedKind,
+    endedAt: STARTED_AT + 900,
+  });
+  const glyphOf = () => screen.getByTestId('mqtt-timeline-ended-row').querySelector('.anticon');
+
+  it('a clean DISCONNECT keeps the check, the broker’s DISCONNECT and a severed socket take the disconnect mark', () => {
+    const { unmount } = render(<MqttMessageTimeline items={[]} count={0} lifecycle={ended('clean')} v5 />);
+    expect(glyphOf()?.classList.contains('anticon-check-circle')).toBe(true);
+    unmount();
+    const broker = render(<MqttMessageTimeline items={[]} count={0} lifecycle={ended('broker')} v5 />);
+    expect(glyphOf()?.classList.contains('anticon-disconnect')).toBe(true);
+    broker.unmount();
+    render(<MqttMessageTimeline items={[]} count={0} lifecycle={ended('severed')} v5 />);
+    expect(glyphOf()?.classList.contains('anticon-disconnect')).toBe(true);
+    expect(screen.getByTestId('mqtt-timeline-ended-row').getAttribute('data-ended-kind')).toBe('severed');
+  });
+});
+
 describe('MqttMessageTimeline — secret-bearing messages', () => {
   const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
 
