@@ -16,7 +16,7 @@ import type React from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { TabCount, TabDot } from '../request-editor/request-tab-items';
 import SpecTabLabel from '../shared/SpecTabLabel';
-import type { MqttDraft } from './draft';
+import { draftToLastWill, type MqttDraft } from './draft';
 import { anyMqttScriptUnsaved, type MqttUnsavedSections, NO_UNSAVED_MQTT_SECTIONS } from './mqtt-section-unsaved';
 import { type MqttSettingsKnobKey, NO_UNSAVED_MQTT_SETTINGS } from './mqtt-settings-unsaved';
 
@@ -69,7 +69,10 @@ export function buildMqttTabItems({
   // property that is enabled and keyed (the HTTP header rule).
   const topicCount = draft.topics.filter((row) => row.topicFilter.trim() !== '').length;
   const propertyCount = draft.userProperties.filter((row) => row.enabled && row.key.trim() !== '').length;
-  const willConfigured = draft.lastWill.topic.trim() !== '';
+  // The will has content once its block persists — any field off its
+  // default, the save projection's own reading; the wire's topic gate
+  // is the executor's, not the label's.
+  const willConfigured = draftToLastWill(draft.lastWill) !== undefined;
   const anyScript = Object.values(draft.scripts).some((source) => source !== undefined && source.trim() !== '');
   // Docs has content once a description is written; Auth once the
   // request holds its OWN auth — here None is the default and Inherit

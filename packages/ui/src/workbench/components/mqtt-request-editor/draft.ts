@@ -60,7 +60,8 @@ export interface MqttMessagePropertiesDraft {
   payloadFormatIndicator: boolean;
 }
 
-/** Concrete form shape for the last-will block ('' topic + payload = no will). */
+/** Concrete form shape for the last-will block (every field at its
+ *  default = no will). */
 export interface MqttLastWillDraft {
   topic: string;
   payload: string;
@@ -312,11 +313,22 @@ export function lastWillToDraft(will: MqttLastWill | undefined): MqttLastWillDra
   };
 }
 
-/** A will exists once it has a topic — the wire requires one; an
- *  empty-topic draft saves as "no will". */
+/** The will block persists once ANY of its fields leaves its default —
+ *  what the user typed is what the request saves, topic or not. The
+ *  wire needs a topic to register a will, and that is the executor's
+ *  gate at CONNECT (an empty-topic block is held, never sent); an
+ *  all-default block collapses to `undefined` (no will). */
 export function draftToLastWill(draft: MqttLastWillDraft): MqttLastWill | undefined {
-  if (draft.topic.trim() === '') return undefined;
   const properties = draftToProperties(draft.properties);
+  const untouched =
+    draft.topic === '' &&
+    draft.payload === '' &&
+    draft.format === 'text' &&
+    draft.qos === 0 &&
+    !draft.retain &&
+    draft.willDelayInterval === undefined &&
+    properties === undefined;
+  if (untouched) return undefined;
   return {
     topic: draft.topic,
     payload: draft.payload,

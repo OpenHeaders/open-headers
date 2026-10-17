@@ -4,8 +4,10 @@
  * Mirrors the Message-tab anatomy (toolbar cluster above the editor,
  * the compose bar below it) minus what a will has no use for: no
  * saved-messages rail, no Send — the will travels with CONNECT — plus
- * the one 5.0 extra, Will Delay. An empty topic means no will (the
- * entity law); the 5.0-only knobs (delay interval, properties) render
+ * the one 5.0 extra, Will Delay. The block persists once any field
+ * leaves its default — what is typed is saved; the wire's topic gate
+ * is the executor's at CONNECT, so an empty topic means no will is
+ * registered. The 5.0-only knobs (delay interval, properties) render
  * disabled-honest on 3.1.1.
  */
 

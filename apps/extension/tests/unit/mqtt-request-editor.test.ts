@@ -191,12 +191,18 @@ describe('mqtt draft projections', () => {
     expect(updates.lastWill).toBeUndefined();
   });
 
-  it('gates the will on its topic — payload alone saves as no will', () => {
+  it('persists the will block once any field leaves its default — a payload without a topic saves as typed', () => {
     const draft = draftFromMqttRequest(mqttRequest());
     draft.lastWill.payload = 'orphaned';
-    expect(buildMqttRequestUpdates(draft).lastWill).toBeUndefined();
+    expect(buildMqttRequestUpdates(draft).lastWill).toEqual({ topic: '', payload: 'orphaned' });
     draft.lastWill.topic = 'status/reporter';
     expect(buildMqttRequestUpdates(draft).lastWill).toEqual({ topic: 'status/reporter', payload: 'orphaned' });
+    // Any single non-default field is enough; the all-default block is no will.
+    const retainOnly = draftFromMqttRequest(mqttRequest());
+    retainOnly.lastWill.retain = true;
+    expect(buildMqttRequestUpdates(retainOnly).lastWill).toEqual({ topic: '', payload: '', retain: true });
+    const roundTrip = draftFromMqttRequest(mqttRequest({ lastWill: { topic: '', payload: 'orphaned' } }));
+    expect(buildMqttRequestUpdates(roundTrip).lastWill).toEqual({ topic: '', payload: 'orphaned' });
   });
 
   it('trims unfilled topic rows and drops row fields left at absence', () => {

@@ -110,10 +110,14 @@ describe('mqtt tab items — tones', () => {
     expect(has(unsaved, 'oh-section-content')).toBe(false);
   });
 
-  it('Last Will dots blue once a will topic is set', () => {
-    const draft = draftOf();
-    draft.lastWill.topic = 'status/offline';
-    expect(has(label('lastwill', { draft }), 'oh-section-content')).toBe(true);
+  it('Last Will dots once its block persists — a topic, or a payload typed before one', () => {
+    const topic = draftOf();
+    topic.lastWill.topic = 'status/offline';
+    expect(has(label('lastwill', { draft: topic }), 'oh-section-content')).toBe(true);
+    cleanup();
+    const payload = draftOf();
+    payload.lastWill.payload = 'offline';
+    expect(has(label('lastwill', { draft: payload }), 'oh-section-content')).toBe(true);
   });
 
   it('Scripts dots blue while any slot has text, salmon while any slot is unsaved', () => {

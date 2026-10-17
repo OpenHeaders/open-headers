@@ -530,8 +530,10 @@ export async function executeMqttSession(
     ...(v5 && settings.requestProblemInformation === false ? { requestProblemInformation: 0 } : {}),
   };
 
-  // The will registers on CONNECT — a topic makes it exist (the entity
-  // law); its payload decodes per its authored ENCODING pre-wire.
+  // The will registers on CONNECT — a topic makes it exist on the wire
+  // (the entity may hold a block without one: what the user typed is
+  // saved, and it is sent once a topic names it); its payload decodes
+  // per its authored ENCODING pre-wire.
   let will: MqttWill | undefined;
   if (request.lastWill !== undefined && request.lastWill.topic.trim() !== '') {
     const willTopic = resolveStr(request.lastWill.topic).trim();
