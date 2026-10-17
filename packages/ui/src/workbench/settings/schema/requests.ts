@@ -37,6 +37,9 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'requests.wsMessagesHideHandshake': boolean;
     'requests.wsMessagesGroupRowLimit': number;
     'requests.mqttMessagesNewestFirst': boolean;
+    'requests.mqttMessagesGroupByTopic': boolean;
+    'requests.mqttMessagesGroupByDirection': boolean;
+    'requests.mqttMessagesGroupRowLimit': number;
     'requests.trustedRoots': string;
     'requests.deviceTrust': string;
     'requests.systemTrust': string;
@@ -376,6 +379,50 @@ registerSetting({
   category: 'requests',
   tags: ['mqtt', 'session', 'messages', 'timeline', 'sort', 'order', 'newest', 'oldest'],
   scope: 'user',
+});
+
+// The MQTT timeline's grouping axes — the gRPC keys' siblings (own
+// keys: the lists are independent surfaces), written by the timeline's
+// own View menu too. Topic is MQTT's cluster axis (every message
+// carries one); both on = the compound (direction, topic) pair.
+registerSetting({
+  key: 'requests.mqttMessagesGroupByTopic',
+  subcategory: 'mqtt',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.mqttMessagesGroupByTopic.label',
+  descriptionKey: 'workbench.settings.def.requests.mqttMessagesGroupByTopic.description',
+  category: 'requests',
+  tags: ['mqtt', 'session', 'messages', 'timeline', 'group', 'cluster', 'topic'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'requests.mqttMessagesGroupByDirection',
+  subcategory: 'mqtt',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.requests.mqttMessagesGroupByDirection.label',
+  descriptionKey: 'workbench.settings.def.requests.mqttMessagesGroupByDirection.description',
+  category: 'requests',
+  tags: ['mqtt', 'session', 'messages', 'timeline', 'group', 'cluster', 'direction'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'requests.mqttMessagesGroupRowLimit',
+  subcategory: 'mqtt',
+  type: 'number',
+  default: 0,
+  schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100)),
+  labelKey: 'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label',
+  descriptionKey: 'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description',
+  category: 'requests',
+  tags: ['mqtt', 'session', 'messages', 'timeline', 'group', 'limit', 'rows', 'watch'],
+  scope: 'user',
+  numberRange: { min: 0, max: 100, step: 1 },
 });
 
 // Watch-several-groups-at-once mode: each group shows only its N

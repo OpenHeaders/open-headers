@@ -4,20 +4,25 @@
  * rolling-retention drop notice on the left; the TOPIC filter (several
  * topics at once, over every topic the log has seen), the sort menu
  * (writing the `requests.mqttMessagesNewestFirst` SETTING through the
- * orchestrator) and the display-only Clear on the right. Every trigger
- * carries icon + label (the direction trigger reads the filter in
- * force, Sort by stays a name) — one pattern across the strip; the two
- * menus are single choices on
- * antd's selection plane, painted by `.oh-choice-menu` (the Editor
- * menu's row anatomy: the mark in the gutter plus the active tint).
- * All controls are display-only over the capture — the orchestrator
- * owns the state; this strip just renders and reports it.
+ * orchestrator), View (the grouping axes and rows per group — the
+ * `requests.mqttMessages*` settings) and the display-only Clear on the
+ * right. Every trigger carries icon + label (the direction trigger
+ * reads the filter in force, Sort by and View stay names) — one
+ * pattern across the strip; the single-choice menus and the View menu
+ * ride antd's selection plane under `.oh-choice-menu` / `.oh-view-menu`
+ * (the Editor menu's row anatomy: the mark in the gutter plus the
+ * active tint). Menu visibility is the strip's own: a single choice
+ * closes on its pick, the View menu keeps open so several knobs flip
+ * in one visit, and a trigger's tooltip suppresses while its menu
+ * shows. All controls are display-only over the capture — the
+ * orchestrator owns the state; this strip just renders and reports it.
  */
 
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
   ClearOutlined,
+  ControlOutlined,
   DownOutlined,
   InfoCircleOutlined,
   SearchOutlined,
@@ -51,6 +56,12 @@ interface MqttTimelineToolbarProps {
   onDirectionFilterChange: (filter: MqttDirectionFilter) => void;
   newestFirst: boolean;
   onNewestFirstChange: (newestFirst: boolean) => void;
+  groupByTopic: boolean;
+  onGroupByTopicChange: (group: boolean) => void;
+  groupByDirection: boolean;
+  onGroupByDirectionChange: (group: boolean) => void;
+  groupRowLimit: number;
+  onGroupRowLimitChange: (limit: number) => void;
   onClear: () => void;
 }
 
@@ -68,12 +79,19 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
   onDirectionFilterChange,
   newestFirst,
   onNewestFirstChange,
+  groupByTopic,
+  onGroupByTopicChange,
+  groupByDirection,
+  onGroupByDirectionChange,
+  groupRowLimit,
+  onGroupRowLimitChange,
   onClear,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [directionMenuOpen, setDirectionMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
 
   // The direction options — the menu rows and the trigger's label are
   // the same words, so the trigger reads the filter in force.
@@ -84,6 +102,13 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
     { value: 'lifecycle', icon: <InfoCircleOutlined />, label: t('workbench.editors.mqtt.timeline.filterLifecycle') },
   ];
   const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
+  // The View menu's on-knobs ride antd's selection plane (several at
+  // once); the Rows per group submenu is the one single choice.
+  const viewSelectedKeys = [
+    ...(groupByTopic ? ['group-topic'] : []),
+    ...(groupByDirection ? ['group-direction'] : []),
+    `group-limit-${groupRowLimit}`,
+  ];
 
   const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -216,6 +241,68 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
             aria-label={t('workbench.editors.mqtt.timeline.sortOrder')}
           >
             {t('workbench.editors.mqtt.timeline.sortBy')}
+          </Button>
+        </Tooltip>
+      </Dropdown>
+      <Dropdown
+        trigger={['click']}
+        placement="bottomRight"
+        open={viewMenuOpen}
+        onOpenChange={(open, info) => {
+          // Menu-item clicks keep the popover open — several knobs
+          // flip in one visit; only the trigger and outside clicks
+          // change visibility.
+          if (info.source === 'menu') return;
+          setViewMenuOpen(open);
+        }}
+        menu={{
+          rootClassName: 'oh-view-menu',
+          selectable: true,
+          multiple: true,
+          selectedKeys: viewSelectedKeys,
+          items: [
+            {
+              type: 'group',
+              label: t('workbench.editors.mqtt.timeline.viewGroup'),
+              children: [
+                {
+                  key: 'group-topic',
+                  label: t('workbench.editors.mqtt.timeline.groupByTopic'),
+                  onClick: () => onGroupByTopicChange(!groupByTopic),
+                },
+                {
+                  key: 'group-direction',
+                  label: t('workbench.editors.mqtt.timeline.groupByDirection'),
+                  onClick: () => onGroupByDirectionChange(!groupByDirection),
+                },
+                {
+                  key: 'group-limit',
+                  label: t('workbench.editors.mqtt.timeline.rowsPerGroup'),
+                  disabled: !groupByTopic && !groupByDirection,
+                  children: [0, 1, 3, 5, 10].map((n) => ({
+                    key: `group-limit-${n}`,
+                    label: n === 0 ? t('workbench.editors.mqtt.timeline.noLimit') : String(n),
+                    onClick: () => onGroupRowLimitChange(n),
+                  })),
+                },
+              ],
+            },
+          ],
+        }}
+      >
+        <Tooltip
+          title={t('workbench.editors.mqtt.timeline.viewTooltip')}
+          placement="bottom"
+          open={viewMenuOpen ? false : undefined}
+        >
+          <Button
+            size="small"
+            type="text"
+            icon={<ControlOutlined />}
+            data-testid="mqtt-timeline-view"
+            aria-label={t('workbench.editors.mqtt.timeline.view')}
+          >
+            {t('workbench.editors.mqtt.timeline.view')}
           </Button>
         </Tooltip>
       </Dropdown>

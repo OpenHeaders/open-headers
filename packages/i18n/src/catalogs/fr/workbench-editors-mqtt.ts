@@ -7,6 +7,7 @@
  * payload; « testament » = last will; « courtier » = broker.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -309,7 +310,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': 'Aucun message ne correspond au filtre.',
   'workbench.editors.mqtt.timeline.searchMessages': 'Rechercher des messages',
-  'workbench.editors.mqtt.timeline.messageCount': '{count} messages',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} message',
+      many: '{count} messages',
+      other: '{count} messages',
+    }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': '{shown} sur {total} messages',
   'workbench.editors.mqtt.timeline.dropped': '{count} messages plus anciens sortis de la capture',
   'workbench.editors.mqtt.timeline.topicFilterAll': 'Tous les topics',
@@ -321,6 +327,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.oldestFirst': 'Plus anciens en premier',
   'workbench.editors.mqtt.timeline.sortOrder': 'Ordre de tri',
   'workbench.editors.mqtt.timeline.sortBy': 'Trier par',
+  'workbench.editors.mqtt.timeline.view': 'Affichage',
+  'workbench.editors.mqtt.timeline.viewTooltip': 'Options d’affichage',
+  'workbench.editors.mqtt.timeline.viewGroup': 'Grouper',
+  'workbench.editors.mqtt.timeline.groupByTopic': 'Grouper par topic',
+  'workbench.editors.mqtt.timeline.groupByDirection': 'Grouper par direction',
+  'workbench.editors.mqtt.timeline.rowsPerGroup': 'Lignes par groupe',
+  'workbench.editors.mqtt.timeline.noLimit': 'Sans limite',
   'workbench.editors.mqtt.timeline.clearMessages': 'Effacer les messages',
   'workbench.editors.mqtt.timeline.clear': 'Effacer',
   'workbench.editors.mqtt.timeline.filterAllMessages': 'Tous les messages',

@@ -615,6 +615,20 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Ordre de la chronologie des messages MQTT — les messages les plus récents en haut. Désactivez pour lire du plus ancien au plus récent. La barre d’outils de la chronologie modifie ce même réglage.',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': 'Grouper par topic',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    "Regroupe la chronologie des messages MQTT sous des en-têtes repliables par topic, l'ordre d'arrivée " +
+    "conservé dans chaque groupe. La barre d'outils de la chronologie change ce même réglage.",
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': 'Grouper par direction',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'Regroupe la chronologie des messages MQTT sous des en-têtes repliables envoyés / reçus. Combiné au ' +
+    'regroupement par topic, chaque paire (direction, topic) obtient son propre groupe — utile quand vous ' +
+    "publiez et recevez sur le même topic. La barre d'outils de la chronologie change ce même réglage.",
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': 'Lignes par groupe',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    "En groupant, n'affiche que ce nombre des messages les plus récents de chaque groupe — la fenêtre glisse " +
+    'à mesure que de nouveaux messages arrivent, si bien que plusieurs topics restent observables à la fois. ' +
+    "0 affiche tous les messages. La barre d'outils de la chronologie change ce même réglage.",
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Plus récents en premier',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Ordre de la chronologie des messages WebSocket — les messages les plus récents en haut. Désactivez pour ' +

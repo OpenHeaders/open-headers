@@ -4,6 +4,7 @@
  * topic filters, AsyncAPI) rides raw inside keyed values.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -296,7 +297,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': 'No messages match the filter.',
   'workbench.editors.mqtt.timeline.searchMessages': 'Search messages',
-  'workbench.editors.mqtt.timeline.messageCount': '{count} messages',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} message', other: '{count} messages' }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': '{shown} of {total} messages',
   'workbench.editors.mqtt.timeline.dropped': '{count} older messages rolled off the capture',
   'workbench.editors.mqtt.timeline.topicFilterAll': 'All topics',
@@ -308,6 +310,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.oldestFirst': 'Oldest first',
   'workbench.editors.mqtt.timeline.sortOrder': 'Sort order',
   'workbench.editors.mqtt.timeline.sortBy': 'Sort by',
+  'workbench.editors.mqtt.timeline.view': 'View',
+  'workbench.editors.mqtt.timeline.viewTooltip': 'Display options',
+  'workbench.editors.mqtt.timeline.viewGroup': 'Group',
+  'workbench.editors.mqtt.timeline.groupByTopic': 'Group by topic',
+  'workbench.editors.mqtt.timeline.groupByDirection': 'Group by direction',
+  'workbench.editors.mqtt.timeline.rowsPerGroup': 'Rows per group',
+  'workbench.editors.mqtt.timeline.noLimit': 'No limit',
   'workbench.editors.mqtt.timeline.clearMessages': 'Clear messages',
   'workbench.editors.mqtt.timeline.clear': 'Clear',
   'workbench.editors.mqtt.timeline.filterAllMessages': 'All messages',

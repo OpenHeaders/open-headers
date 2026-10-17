@@ -7,6 +7,7 @@
  * «testamento» = last will; «bróker» = broker.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -305,7 +306,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': 'Ningún mensaje coincide con el filtro.',
   'workbench.editors.mqtt.timeline.searchMessages': 'Buscar mensajes',
-  'workbench.editors.mqtt.timeline.messageCount': '{count} mensajes',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} mensaje',
+      many: '{count} mensajes',
+      other: '{count} mensajes',
+    }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': '{shown} de {total} mensajes',
   'workbench.editors.mqtt.timeline.dropped': '{count} mensajes más antiguos salieron de la captura',
   'workbench.editors.mqtt.timeline.topicFilterAll': 'Todos los topics',
@@ -317,6 +323,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.oldestFirst': 'Más antiguos primero',
   'workbench.editors.mqtt.timeline.sortOrder': 'Orden',
   'workbench.editors.mqtt.timeline.sortBy': 'Ordenar por',
+  'workbench.editors.mqtt.timeline.view': 'Vista',
+  'workbench.editors.mqtt.timeline.viewTooltip': 'Opciones de visualización',
+  'workbench.editors.mqtt.timeline.viewGroup': 'Agrupar',
+  'workbench.editors.mqtt.timeline.groupByTopic': 'Agrupar por topic',
+  'workbench.editors.mqtt.timeline.groupByDirection': 'Agrupar por dirección',
+  'workbench.editors.mqtt.timeline.rowsPerGroup': 'Filas por grupo',
+  'workbench.editors.mqtt.timeline.noLimit': 'Sin límite',
   'workbench.editors.mqtt.timeline.clearMessages': 'Borrar mensajes',
   'workbench.editors.mqtt.timeline.clear': 'Borrar',
   'workbench.editors.mqtt.timeline.filterAllMessages': 'Todos los mensajes',

@@ -7,6 +7,7 @@
  * „Testament" = last will; „Broker" stays the loanword.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -310,7 +311,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': 'Keine Nachrichten entsprechen dem Filter.',
   'workbench.editors.mqtt.timeline.searchMessages': 'Nachrichten durchsuchen',
-  'workbench.editors.mqtt.timeline.messageCount': '{count} Nachrichten',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} Nachricht', other: '{count} Nachrichten' }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': '{shown} von {total} Nachrichten',
   'workbench.editors.mqtt.timeline.dropped': '{count} ältere Nachrichten aus der Aufzeichnung entfernt',
   'workbench.editors.mqtt.timeline.topicFilterAll': 'Alle Topics',
@@ -322,6 +324,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.oldestFirst': 'Älteste zuerst',
   'workbench.editors.mqtt.timeline.sortOrder': 'Sortierung',
   'workbench.editors.mqtt.timeline.sortBy': 'Sortieren nach',
+  'workbench.editors.mqtt.timeline.view': 'Ansicht',
+  'workbench.editors.mqtt.timeline.viewTooltip': 'Anzeigeoptionen',
+  'workbench.editors.mqtt.timeline.viewGroup': 'Gruppieren',
+  'workbench.editors.mqtt.timeline.groupByTopic': 'Nach Topic gruppieren',
+  'workbench.editors.mqtt.timeline.groupByDirection': 'Nach Richtung gruppieren',
+  'workbench.editors.mqtt.timeline.rowsPerGroup': 'Zeilen pro Gruppe',
+  'workbench.editors.mqtt.timeline.noLimit': 'Kein Limit',
   'workbench.editors.mqtt.timeline.clearMessages': 'Nachrichten leeren',
   'workbench.editors.mqtt.timeline.clear': 'Leeren',
   'workbench.editors.mqtt.timeline.filterAllMessages': 'Alle Nachrichten',

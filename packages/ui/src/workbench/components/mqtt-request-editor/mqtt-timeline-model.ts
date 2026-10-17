@@ -147,12 +147,26 @@ export interface MqttTimelineLifecycle {
   endedMessage?: string;
 }
 
+/** One group's identity — composed from the ENABLED grouping axes:
+ *  the marks a header renders are exactly the non-null fields, and
+ *  `key` (also the collapse / un-window / sticky handle) is unique per
+ *  axis combination. */
+export interface MqttGroupIdentity {
+  key: string;
+  direction: 'up' | 'down' | null;
+  topic: string | null;
+}
+
 /** One display slot of the virtual list — heights are a closed
  *  function of `kind`, so windowing never measures. A `connackDetail`
  *  with an `index` is a reconnected row's own CONNACK block; without
  *  one it is the first connection's. */
 export type MqttTimelineEntry =
   | { key: string; kind: 'sent' | 'connected' | 'connackDetail' | 'error' | 'abortedEnd' | 'ended' | 'noMatches' }
+  | { key: string; kind: 'header'; group: MqttGroupIdentity; count: number; collapsed: boolean }
+  /** "Show N older" at a windowed group's older edge; the un-windowed
+   *  state's re-window action lives on the group header. */
+  | { key: string; kind: 'groupMore'; group: MqttGroupIdentity; hidden: number }
   | { key: string; kind: 'row'; index: number }
   | { key: string; kind: 'viewer'; index: number }
   | { key: string; kind: 'connackDetail'; index: number };

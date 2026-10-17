@@ -22,18 +22,27 @@
  * item log as the messages (live Subscribe toggles and auto-reconnect
  * land mid-session).
  *
- * DECOMPOSED orchestrator: the model plane (item/lifecycle/entry
- * shapes, pinned heights, display derivations) lives in
- * `mqtt-timeline-model.ts`, each entry renders through
- * `MqttTimelineEntryRow`, and the control strip is
- * `MqttTimelineToolbar` — this file owns the display state, the
- * filter/entry assembly, and the virtual-window scroll plumbing.
- *
- * Sort rides the `requests.mqttMessagesNewestFirst` SETTING (global,
- * toolbar-written — the choice survives Connect/Disconnect remounts).
+ * Sort and grouping ride the `requests.mqttMessages*` SETTINGS (global,
+ * toolbar-written — the choices survive Connect/Disconnect remounts):
+ * "Group by topic" and "Group by direction" are CLUSTERING, not
+ * sorting — both on = the COMPOUND (direction, topic) pair, still one
+ * header level; group order anchors to first appearance, an optional
+ * per-group row limit keeps each group's N newest rows watchable, and
+ * the group spanning the viewport top pins its header as a clickable
+ * sticky overlay. Grouped mode is not a timeline, so every lifecycle
+ * fact that rides the log joins Connected at the chronological edge.
  * Search, the direction filter, the TOPIC filter and Clear are
  * display-only — the capture is never touched. Timestamps are
  * session-only (the ratified law): absent rows simply render no time.
+ *
+ * This file is the orchestrator: state, the settings, the memoized
+ * passes and the scroll plane (the new-edge anchor, the jump pill, the
+ * sticky header). The vocabulary and the per-item derivations live in
+ * `mqtt-timeline-model.ts`, the pure list passes in
+ * `mqtt-timeline-entries.ts`, the strip in `MqttTimelineToolbar.tsx`,
+ * the rows in `MqttTimelineEntryRow.tsx` (the row anatomy in
+ * `mqtt-timeline-row-parts.tsx`; the group header, shared with the
+ * sticky overlay, in `MqttTimelineGroupHeader.tsx`).
  */
 
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
@@ -44,18 +53,21 @@ import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
-  CONNACK_DETAIL_PX,
+  buildTimelineEntries,
+  entryHeights,
+  filterVisibleRows,
+  fixedRowsShown,
+  partitionGroups,
+} from './mqtt-timeline-entries';
+import {
   entryIndexAt,
   makeMqttFrameDerivations,
   type MqttDirectionFilter,
-  type MqttTimelineEntry,
   type MqttTimelineItem,
   type MqttTimelineLifecycle,
-  SINGLE_ROW_PX,
-  VIEWER_PX,
 } from './mqtt-timeline-model';
 import MqttTimelineEntryRow from './MqttTimelineEntryRow';
-import { fixedRowDetailText, fixedRowText, lifecycleItemDetailText, lifecycleItemText } from './mqtt-timeline-row-text';
+import MqttTimelineGroupHeader from './MqttTimelineGroupHeader';
 import MqttTimelineToolbar from './MqttTimelineToolbar';
 import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../shared/PeerExecuteDisabledNotice';
 import { StreamLastRow, useTimelineViewerModes } from '../shared/TimelineMessageViewer';
@@ -78,6 +90,14 @@ interface MqttMessageTimelineProps {
   /** A verification failure's remedy — see the entry row. */
   onTrustCertificate?: () => void;
   trustOfferOpen?: boolean;
+}
+
+/** A set toggle — the collapse / un-window / expand sets share it. */
+function toggled<T>(prev: ReadonlySet<T>, value: T): ReadonlySet<T> {
+  const next = new Set(prev);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
 }
 
 const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
@@ -103,10 +123,25 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   const [connackExpanded, setConnackExpanded] = useState(false);
   const [wrapLines, setWrapLines] = useState(true);
   const viewerModes = useTimelineViewerModes();
-  // Sort direction is a SETTING — global, user-owned, written by this
-  // toolbar and the Settings page alike; a Connect/Disconnect remount
-  // never resets it.
+  // Sort direction and grouping are SETTINGS — global, user-owned,
+  // written by this toolbar and the Settings page alike; a Connect/
+  // Disconnect remount never resets them.
   const [newestFirst, setNewestFirst] = useSetting('requests.mqttMessagesNewestFirst');
+  const [groupByTopic, setGroupByTopic] = useSetting('requests.mqttMessagesGroupByTopic');
+  const [groupByDirection, setGroupByDirection] = useSetting('requests.mqttMessagesGroupByDirection');
+  const [groupRowLimit, setGroupRowLimit] = useSetting('requests.mqttMessagesGroupRowLimit');
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // Per-group escape hatch from the row-limit window — display-local
+  // (like collapse), so lifting one group's window never touches the
+  // global setting or the other groups.
+  const [unwindowedGroups, setUnwindowedGroups] = useState<ReadonlySet<string>>(new Set<string>());
+  // The group whose rows span the viewport top — its header pins as an
+  // overlay (a CSS-sticky header would virtualize out of the DOM), so
+  // the group identity + total stay visible and collapsible mid-scroll.
+  const [stickyGroup, setStickyGroup] = useState<string | null>(null);
+  // Right inset for the sticky overlay — measured scrollbar width (+
+  // the scroller's border), so the overlay never covers the thumb.
+  const [stickyRightInset, setStickyRightInset] = useState(1);
 
   const derive = useMemo(() => makeMqttFrameDerivations(t('workbench.editors.session.secretHidden')), [t]);
 
@@ -135,6 +170,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     setClearedCount(0);
     setExpanded(new Set<number>());
     setConnackExpanded(false);
+    setCollapsedGroups(new Set<string>());
+    setUnwindowedGroups(new Set<string>());
     setHasNewMessages(false);
     awayFromNewEdgeRef.current = false;
     anchorRef.current = null;
@@ -167,168 +204,64 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     return topics;
   }, [items, count]);
 
-  // Every item index passing the filters, packet order ascending — one
-  // linear pass of primitive work per commit/keystroke. Search is a
-  // LOOKUP: it matches the words every row shows — a message's topic
-  // and FULL decoded text, a lifecycle row's rendered line plus the
-  // words behind its chevron — and hides the rest whatever their kind.
-  // The direction and topic lenses gate MESSAGE rows only — under them
-  // the lifecycle facts stay as the log's skeleton.
   const needle = search.trim().toLowerCase();
-  const visibleRows = useMemo(() => {
-    const topics = topicFilter.length > 0 ? new Set(topicFilter) : null;
-    const rows: number[] = [];
-    for (let i = clearedCount; i < count; i++) {
-      const item = items[i];
-      if (item.kind === 'message') {
-        // Lifecycle only: no message row at all — the skeleton alone.
-        if (directionFilter === 'lifecycle') continue;
-        if (directionFilter !== 'all' && item.direction !== directionFilter) continue;
-        if (topics !== null && !topics.has(item.topic)) continue;
-        if (needle !== '' && !derive.searchTextOf(item).includes(needle)) continue;
-      } else if (
-        needle !== '' &&
-        !`${lifecycleItemText(item, t)}\n${lifecycleItemDetailText(item, v5)}`.toLowerCase().includes(needle)
-      ) {
-        continue;
-      }
-      rows.push(i);
-    }
-    return rows;
-  }, [items, count, clearedCount, needle, directionFilter, topicFilter, derive, t, v5]);
-
-  // The fixed rows under a search — each shows only when its words
-  // carry the needle (the same words the row paints).
-  const fixedShown = useMemo(() => {
-    const shown = (kind: keyof typeof fixedRowText): boolean =>
-      needle === '' ||
-      `${fixedRowText[kind](lifecycle, t)}\n${fixedRowDetailText(kind, lifecycle)}`.toLowerCase().includes(needle);
-    return {
-      sent: shown('sent'),
-      connected: shown('connected'),
-      abortedEnd: shown('abortedEnd'),
-      error: shown('error'),
-      ended: shown('ended'),
-    };
-  }, [needle, lifecycle, t]);
+  const visibleRows = useMemo(
+    () => filterVisibleRows({ items, count, clearedCount, needle, directionFilter, topicFilter, derive, t, v5 }),
+    [items, count, clearedCount, needle, directionFilter, topicFilter, derive, t, v5],
+  );
+  const fixedShown = useMemo(() => fixedRowsShown(needle, lifecycle, t), [needle, lifecycle, t]);
+  const displayRows = useMemo(
+    () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
+    [visibleRows, newestFirst],
+  );
+  const groups = useMemo(
+    () => partitionGroups({ items, count, clearedCount, displayRows, groupByTopic, groupByDirection, newestFirst }),
+    [items, count, clearedCount, displayRows, groupByTopic, groupByDirection, newestFirst],
+  );
 
   const filtering = search.trim() !== '' || directionFilter !== 'all' || topicFilter.length > 0;
 
-  // The flat display list the virtual window runs over — ONE event
-  // log: Connecting at one chronological edge, Connected (with the
-  // CONNACK detail) before the first item, the ended row at the other
-  // edge; subscription facts sit wherever the log recorded them. An
-  // idle open session shows no placeholder — the lifecycle rows are
-  // the whole honest story.
-  const entries = useMemo(() => {
-    const out: MqttTimelineEntry[] = [];
-    // An expanded message row trails its viewer; an expanded
-    // reconnected row trails its attempt's own CONNACK block.
-    const pushRow = (index: number) => {
-      out.push({ key: `r${index}`, kind: 'row', index });
-      if (!expanded.has(index)) return;
-      if (items[index].kind === 'reconnected') out.push({ key: `c${index}`, kind: 'connackDetail', index });
-      else out.push({ key: `v${index}`, kind: 'viewer', index });
-    };
-    const messageCount = visibleRows.length;
-    // A search that found a lifecycle row found something — the notice
-    // is for a filter that leaves NOTHING to read. Under Lifecycle only
-    // the empty message set is the point, not a miss.
-    const preOpenEnd = lifecycle.errorMessage !== undefined || lifecycle.aborted === true;
-    const abortedEnd = lifecycle.aborted === true && lifecycle.abortedDisconnected === true;
-    const lifecycleMatched =
-      needle !== '' &&
-      (visibleRows.length > 0 ||
-        fixedShown.sent ||
-        (lifecycle.connected && fixedShown.connected) ||
-        (lifecycle.endedBy !== undefined && fixedShown.ended) ||
-        (preOpenEnd && fixedShown.error) ||
-        (abortedEnd && fixedShown.abortedEnd));
-    const notice: MqttTimelineEntry | null =
-      filtering && directionFilter !== 'lifecycle' && messageCount === 0 && count > clearedCount && !lifecycleMatched
-        ? { key: 'none', kind: 'noMatches' }
-        : null;
-
-    const tokens: Array<number | 'connected'> = [];
-    if (lifecycle.connected && fixedShown.connected) tokens.push('connected');
-    for (const index of visibleRows) tokens.push(index);
-    if (newestFirst) tokens.reverse();
-
-    // The error/aborted row sits at the ended row's chronological slot
-    // — the two never coexist (a pre-open end has no opened-session
-    // end). An abort that closed an established broker socket logs the
-    // disconnect as its own row — chronologically AFTER the abort. A
-    // refusal's error row expands to the CONNACK the broker answered
-    // with — the block directly under its row, both sort orders (the
-    // Connected row's discipline; the two rows never coexist, so they
-    // share the one expansion).
-    const refusalDetail = connackExpanded && lifecycle.errorMessage !== undefined && lifecycle.connack !== undefined;
-    if (newestFirst) {
-      if (lifecycle.endedBy !== undefined && fixedShown.ended) out.push({ key: 'ended', kind: 'ended' });
-      if (preOpenEnd) {
-        if (abortedEnd && fixedShown.abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
-        if (fixedShown.error) {
-          out.push({ key: 'error', kind: 'error' });
-          if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
-        }
-      }
-      if (notice) out.push(notice);
-    } else if (fixedShown.sent) {
-      out.push({ key: 'sent', kind: 'sent' });
-    }
-    for (const entry of tokens) {
-      if (entry === 'connected') {
-        out.push({ key: 'connected', kind: 'connected' });
-        // The details block always sits directly under its row — the
-        // expanded message-viewer discipline, both sort orders.
-        if (connackExpanded && lifecycle.connack !== undefined) {
-          out.push({ key: 'connackDetail', kind: 'connackDetail' });
-        }
-      } else {
-        pushRow(entry);
-      }
-    }
-    if (newestFirst) {
-      if (fixedShown.sent) out.push({ key: 'sent', kind: 'sent' });
-    } else {
-      if (notice) out.push(notice);
-      if (preOpenEnd) {
-        if (fixedShown.error) {
-          out.push({ key: 'error', kind: 'error' });
-          if (refusalDetail) out.push({ key: 'connackDetail', kind: 'connackDetail' });
-        }
-        if (abortedEnd && fixedShown.abortedEnd) out.push({ key: 'abortedEnd', kind: 'abortedEnd' });
-      }
-      if (lifecycle.endedBy !== undefined && fixedShown.ended) out.push({ key: 'ended', kind: 'ended' });
-    }
-    return out;
-  }, [
-    newestFirst,
-    lifecycle.connected,
-    lifecycle.connack,
-    lifecycle.errorMessage,
-    lifecycle.aborted,
-    lifecycle.abortedDisconnected,
-    lifecycle.endedBy,
-    count,
-    clearedCount,
-    filtering,
-    visibleRows,
-    expanded,
-    connackExpanded,
-    items,
-    fixedShown,
-    needle,
-    visibleRows,
-  ]);
-
-  const heights = useMemo(
+  const { entries, groupRanges } = useMemo(
     () =>
-      entries.map((e) =>
-        e.kind === 'viewer' ? VIEWER_PX : e.kind === 'connackDetail' ? CONNACK_DETAIL_PX : SINGLE_ROW_PX,
-      ),
-    [entries],
+      buildTimelineEntries({
+        items,
+        lifecycle,
+        needle,
+        newestFirst,
+        count,
+        clearedCount,
+        filtering,
+        directionFilter,
+        visibleRows,
+        groups,
+        fixedShown,
+        expanded,
+        connackExpanded,
+        collapsedGroups,
+        groupRowLimit,
+        unwindowedGroups,
+      }),
+    [
+      items,
+      lifecycle,
+      needle,
+      newestFirst,
+      count,
+      clearedCount,
+      filtering,
+      directionFilter,
+      visibleRows,
+      groups,
+      fixedShown,
+      expanded,
+      connackExpanded,
+      collapsedGroups,
+      groupRowLimit,
+      unwindowedGroups,
+    ],
   );
+
+  const heights = useMemo(() => entryHeights(entries), [entries]);
 
   const { onScroll: onWindowScroll, start, end, topPadPx, bottomPadPx, prefix } = useVirtualRowWindow(
     scrollerRef,
@@ -361,18 +294,37 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     }
   }, [entries, prefix, newestFirst, onWindowScroll]);
 
-  const toggleRow = useCallback((index: number) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-  }, []);
+  // Which group's rows span the viewport top — its header pins as the
+  // sticky overlay. Recomputed on scroll and after list mutations;
+  // meaningless (null) on an unlaid-out viewport.
+  const updateStickyGroup = (el: HTMLElement) => {
+    if (el.clientHeight === 0 || groupRanges.length === 0) {
+      setStickyGroup(null);
+      return;
+    }
+    // offsetWidth − clientWidth = both borders + the vertical
+    // scrollbar; the overlay already sits 1px in for the left border.
+    setStickyRightInset(Math.max(1, el.offsetWidth - el.clientWidth - 1));
+    const idx = entryIndexAt(prefix, el.scrollTop);
+    const range = groupRanges.find((r) => idx >= r.startEntry && idx < r.endEntry);
+    setStickyGroup(range ? range.key : null);
+  };
 
-  const toggleConnack = useCallback(() => {
-    setConnackExpanded((prev) => !prev);
-  }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: updateStickyGroup reads entries/prefix — the deps.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (el) updateStickyGroup(el);
+  }, [entries, prefix]);
+
+  const toggleRow = useCallback((index: number) => setExpanded((prev) => toggled(prev, index)), []);
+  const toggleConnack = useCallback(() => setConnackExpanded((prev) => !prev), []);
+  const toggleGroup = useCallback((key: string) => setCollapsedGroups((prev) => toggled(prev, key)), []);
+  const toggleGroupWindow = useCallback((key: string) => setUnwindowedGroups((prev) => toggled(prev, key)), []);
+
+  // The pinned header overlay's source group — resolved fresh so the
+  // count and collapse state track the live list.
+  const stickySource =
+    stickyGroup !== null && groups !== null ? groups.find((g) => g.identity.key === stickyGroup) : undefined;
 
   // The strip's count — the whole window's message rows, and the rows
   // the filters let through, so the number beside the filters reads
@@ -409,6 +361,12 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         onDirectionFilterChange={setDirectionFilter}
         newestFirst={newestFirst}
         onNewestFirstChange={setNewestFirst}
+        groupByTopic={groupByTopic}
+        onGroupByTopicChange={setGroupByTopic}
+        groupByDirection={groupByDirection}
+        onGroupByDirectionChange={setGroupByDirection}
+        groupRowLimit={groupRowLimit}
+        onGroupRowLimitChange={setGroupRowLimit}
         onClear={() => setClearedCount(count)}
       />
       {/* A delegated open the place refused under its two-tier opt-in:
@@ -421,6 +379,31 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         </div>
       )}
       <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        {stickySource !== undefined && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 1,
+              right: stickyRightInset,
+              zIndex: 1,
+              background: token.colorBgContainer,
+              borderTopLeftRadius: 4,
+              overflow: 'hidden',
+            }}
+          >
+            <MqttTimelineGroupHeader
+              group={stickySource.identity}
+              memberCount={stickySource.indexes.length}
+              collapsed={collapsedGroups.has(stickySource.identity.key)}
+              groupRowLimit={groupRowLimit}
+              unwindowed={unwindowedGroups.has(stickySource.identity.key)}
+              onToggle={toggleGroup}
+              onToggleWindow={toggleGroupWindow}
+              testId="mqtt-timeline-sticky-header"
+            />
+          </div>
+        )}
         {hasNewMessages && (
           <Button
             size="small"
@@ -456,6 +439,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
               anchorRef.current = null;
               setHasNewMessages(false);
             }
+            updateStickyGroup(el);
             onWindowScroll();
           }}
           className="rules-thin-scrollbar"
@@ -480,8 +464,12 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
                 derive={derive}
                 expanded={expanded}
                 connackExpanded={connackExpanded}
+                groupRowLimit={groupRowLimit}
+                unwindowedGroups={unwindowedGroups}
                 onToggleRow={toggleRow}
                 onToggleConnack={toggleConnack}
+                onToggleGroup={toggleGroup}
+                onToggleGroupWindow={toggleGroupWindow}
                 wrapLines={wrapLines}
                 onWrapLinesChange={setWrapLines}
                 viewerModes={viewerModes}

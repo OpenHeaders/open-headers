@@ -542,6 +542,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Cele mai noi primele',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Ordinea cronologiei mesajelor MQTT — cele mai noi mesaje sus. Dezactivați pentru a citi de la cele mai vechi. Bara de instrumente a cronologiei modifică aceeași setare.',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': 'Grupare după subiect',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    'Grupează cronologia mesajelor MQTT sub antete restrângibile cu subiectul, cu ordinea sosirii păstrată în fiecare grup. Bara de instrumente a cronologiei modifică aceeași setare.',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': 'Grupare după direcție',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'Grupează cronologia mesajelor MQTT sub antete restrângibile trimise / primite. Combinată cu gruparea după subiect, fiecare pereche (direcție, subiect) primește propriul grup — utilă când publicați și primiți pe același subiect. Bara de instrumente a cronologiei modifică aceeași setare.',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': 'Rânduri per grup',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    'La grupare, afișează doar atâtea dintre cele mai noi mesaje ale fiecărui grup — fereastra alunecă pe măsură ce sosesc mesaje noi, astfel încât mai multe subiecte rămân urmăribile deodată. 0 afișează fiecare mesaj. Bara de instrumente a cronologiei modifică aceeași setare.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Cele mai noi primele',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Ordinea cronologiei mesajelor WebSocket — cele mai noi mesaje sus. Dezactivați pentru a citi de la cele mai vechi. Bara de instrumente a cronologiei modifică aceeași setare.',

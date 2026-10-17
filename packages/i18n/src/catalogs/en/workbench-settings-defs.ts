@@ -496,6 +496,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Order of the MQTT message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': 'Group by Topic',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    'Cluster the MQTT message timeline under collapsible topic headers, arrival order kept within each group. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': 'Group by Direction',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'Cluster the MQTT message timeline under collapsible sent / received headers. Combined with grouping by topic, each (direction, topic) pair gets its own group — useful when you publish and receive on the same topic. The timeline toolbar changes this same setting.',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': 'Rows per Group',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    'When grouping, show only this many of each group’s newest messages — the window slides as new messages arrive, so several topics stay watchable at once. 0 shows every message. The timeline toolbar changes this same setting.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Newest First',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Order of the WebSocket message timeline — newest messages at the top. Turn off to read oldest first. The timeline toolbar changes this same setting.',

@@ -637,6 +637,20 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Más recientes primero',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Orden de la cronología de mensajes MQTT — los mensajes más recientes arriba. Desactívalo para leer del más antiguo al más reciente. La barra de herramientas de la cronología cambia este mismo ajuste.',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': 'Agrupar por topic',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    'Agrupa la cronología de mensajes MQTT bajo cabeceras plegables por topic, conservando el orden de ' +
+    'llegada dentro de cada grupo. La barra de herramientas de la cronología cambia este mismo ajuste.',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': 'Agrupar por dirección',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'Agrupa la cronología de mensajes MQTT bajo cabeceras plegables de enviados / recibidos. Combinado con ' +
+    'la agrupación por topic, cada par (dirección, topic) obtiene su propio grupo — útil cuando publicas y ' +
+    'recibes en el mismo topic. La barra de herramientas de la cronología cambia este mismo ajuste.',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': 'Filas por grupo',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    'Al agrupar, muestra solo este número de los mensajes más recientes de cada grupo — la ventana se ' +
+    'desplaza a medida que llegan mensajes nuevos, de modo que varios topics siguen siendo observables a la ' +
+    'vez. 0 muestra todos los mensajes. La barra de herramientas de la cronología cambia este mismo ajuste.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Más recientes primero',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Orden de la cronología de mensajes WebSocket — los mensajes más recientes arriba. Desactívalo para leer ' +

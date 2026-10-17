@@ -524,6 +524,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Сначала новые',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Порядок хронологии сообщений MQTT — новые сообщения сверху. Выключите, чтобы читать сначала старые. Панель инструментов хронологии меняет тот же параметр.',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': 'Группировать по топику',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    'Собирать хронологию сообщений MQTT под сворачиваемыми заголовками по топику, сохраняя порядок поступления внутри каждой группы. Панель инструментов хронологии меняет тот же параметр.',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': 'Группировать по направлению',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'Собирать хронологию сообщений MQTT под сворачиваемыми заголовками «отправлено / получено». Вместе с группировкой по топику каждая пара (направление, топик) получает свою группу — полезно, когда вы публикуете и получаете в одном топике. Панель инструментов хронологии меняет тот же параметр.',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': 'Строк на группу',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    'При группировке показывать только столько новейших сообщений каждой группы — окно сдвигается по мере поступления новых сообщений, так что за несколькими топиками можно следить одновременно. 0 показывает все сообщения. Панель инструментов хронологии меняет тот же параметр.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Сначала новые',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Порядок хронологии сообщений WebSocket — новые сообщения сверху. Выключите, чтобы читать сначала старые. Панель инструментов хронологии меняет тот же параметр.',

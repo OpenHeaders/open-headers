@@ -505,6 +505,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': '新しい順',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'MQTT メッセージのタイムラインの順序です。新しいメッセージを上に置きます。古い順に読むにはオフにしてください。タイムラインのツールバーでも同じ設定を変更できます。',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': 'トピックでグループ化',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    'MQTT メッセージのタイムラインを折りたためるトピックの見出しの下にまとめ、各グループ内は到着順を保ちます。タイムラインのツールバーでも同じ設定を変更できます。',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': '方向でグループ化',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'MQTT メッセージのタイムラインを折りたためる送信 / 受信の見出しの下にまとめます。トピックでのグループ化と組み合わせると、（方向、トピック）の組ごとに独自のグループになります。同じトピックで発行と受信の両方を行うときに便利です。タイムラインのツールバーでも同じ設定を変更できます。',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': 'グループごとの行数',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    'グループ化するとき、各グループの最新のメッセージをこの数だけ表示します。新しいメッセージが届くと窓がスライドするため、複数のトピックを同時に監視し続けられます。0 はすべてのメッセージを表示します。タイムラインのツールバーでも同じ設定を変更できます。',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': '新しい順',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'WebSocket メッセージのタイムラインの順序です。新しいメッセージを上に置きます。古い順に読むにはオフにしてください。タイムラインのツールバーでも同じ設定を変更できます。',

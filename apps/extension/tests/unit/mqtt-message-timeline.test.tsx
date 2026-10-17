@@ -55,8 +55,11 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
-  // The sort choice is a GLOBAL setting — reset between tests.
+  // The sort / group choices are GLOBAL settings — reset between tests.
   resetSetting('requests.mqttMessagesNewestFirst');
+  resetSetting('requests.mqttMessagesGroupByTopic');
+  resetSetting('requests.mqttMessagesGroupByDirection');
+  resetSetting('requests.mqttMessagesGroupRowLimit');
 });
 
 const STARTED_AT = 1_700_000_000_000;
@@ -697,5 +700,166 @@ describe('MqttMessageTimeline — the control strip', () => {
     expect(screen.getByTestId('mqtt-timeline-clear').textContent).toBe('Clear');
     act(() => setSetting('requests.mqttMessagesNewestFirst', false));
     expect(screen.getByTestId('mqtt-timeline-sort').textContent).toBe('Sort by');
+  });
+});
+
+describe('MqttMessageTimeline — grouping', () => {
+  const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
+  const message = (direction: 'up' | 'down', topic: string, text: string): MqttTimelineItem => ({
+    kind: 'message',
+    direction,
+    topic,
+    payloadBase64: btoa(text),
+    qos: 0,
+    retain: false,
+    dup: false,
+  });
+  // A subscription lands mid-log between the messages.
+  const log: MqttTimelineItem[] = [
+    message('up', 'probe/a', 'one'),
+    { kind: 'subscribed', grants: [{ topicFilter: 'probe/b', reasonCode: 0 }] },
+    message('down', 'probe/b', 'two'),
+    message('down', 'probe/a', 'three'),
+  ];
+  const ROW_KINDS = new Set([
+    'sent-row',
+    'connected-row',
+    'subscribed-row',
+    'group-header',
+    'message-row',
+    'ended-row',
+  ]);
+  /** The rows in DOM order — a message by its text, every other row by its kind. */
+  const rowSequence = () =>
+    [...document.querySelectorAll('[data-testid^="mqtt-timeline-"]')]
+      .map((el) => ({ el, kind: (el.getAttribute('data-testid') ?? '').slice('mqtt-timeline-'.length) }))
+      .filter(({ kind }) => ROW_KINDS.has(kind))
+      .map(({ el, kind }) =>
+        kind === 'message-row'
+          ? ['one', 'two', 'three'].find((word) => el.textContent?.includes(word))
+          : kind === 'group-header'
+            ? `header:${el.querySelector('[data-testid="mqtt-timeline-group-badge"]')?.textContent ?? ''}`
+            : kind,
+      );
+
+  it('clusters messages under topic headers in first-appearance order with real totals; the lifecycle facts join the edge', () => {
+    setSetting('requests.mqttMessagesNewestFirst', false);
+    render(<MqttMessageTimeline items={log} count={4} lifecycle={lifecycle} v5 />);
+    // Ungrouped: one event log — the subscription sits where the log
+    // recorded it.
+    expect(rowSequence()).toEqual(['sent-row', 'connected-row', 'one', 'subscribed-row', 'two', 'three']);
+    act(() => setSetting('requests.mqttMessagesGroupByTopic', true));
+    const headers = screen.getAllByTestId('mqtt-timeline-group-header');
+    expect(headers.map((h) => h.textContent)).toEqual(['probe/a2 messages', 'probe/b1 message']);
+    // Grouped mode is clustering, not a timeline — the subscription
+    // joins Connected at the chronological edge.
+    expect(rowSequence()).toEqual([
+      'sent-row',
+      'connected-row',
+      'subscribed-row',
+      'header:probe/a',
+      'one',
+      'three',
+      'header:probe/b',
+      'two',
+    ]);
+    // Newest-first flips the reading: the clusters above the facts.
+    act(() => setSetting('requests.mqttMessagesNewestFirst', true));
+    expect(rowSequence()).toEqual([
+      'header:probe/b',
+      'two',
+      'header:probe/a',
+      'three',
+      'one',
+      'subscribed-row',
+      'connected-row',
+      'sent-row',
+    ]);
+  });
+
+  it('both axes on is the compound (direction, topic) identity — one header level, badge plus chip', () => {
+    setSetting('requests.mqttMessagesNewestFirst', false);
+    setSetting('requests.mqttMessagesGroupByTopic', true);
+    setSetting('requests.mqttMessagesGroupByDirection', true);
+    render(<MqttMessageTimeline items={log} count={4} lifecycle={lifecycle} v5 />);
+    const headers = screen.getAllByTestId('mqtt-timeline-group-header');
+    expect(headers.map((h) => h.textContent)).toEqual(['probe/a1 message', 'probe/b1 message', 'probe/a1 message']);
+    expect(headers[0].querySelector('.anticon-arrow-up')).toBeTruthy();
+    expect(headers[2].querySelector('.anticon-arrow-down')).toBeTruthy();
+    // The topic lens still gates the rows under grouping.
+    fireEvent.mouseDown(screen.getByTestId('mqtt-timeline-topic-filter'));
+    fireEvent.click(screen.getByTitle('probe/b'));
+    expect(screen.getAllByTestId('mqtt-timeline-group-header').map((h) => h.textContent)).toEqual(['probe/b1 message']);
+  });
+
+  it('windows each group to the row limit with show-older at the older edge and the re-window action on the header; collapse hides the rows', () => {
+    setSetting('requests.mqttMessagesNewestFirst', false);
+    setSetting('requests.mqttMessagesGroupByTopic', true);
+    setSetting('requests.mqttMessagesGroupRowLimit', 1);
+    render(<MqttMessageTimeline items={log} count={4} lifecycle={lifecycle} v5 />);
+    // Limit 1: probe/a shows only its newest row; the header keeps 2.
+    expect(rowSequence()).toEqual([
+      'sent-row',
+      'connected-row',
+      'subscribed-row',
+      'header:probe/a',
+      'three',
+      'header:probe/b',
+      'two',
+    ]);
+    const more = screen.getByTestId('mqtt-timeline-group-more');
+    expect(more.textContent).toBe('Show 1 older');
+    // Oldest-first: the toggle sits right under the header (each entry
+    // rides its own last-row wrapper).
+    expect(
+      more.parentElement?.previousElementSibling?.querySelector('[data-testid="mqtt-timeline-group-header"]'),
+    ).toBeTruthy();
+    fireEvent.click(more);
+    expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(3);
+    const rewindow = screen.getByTestId('mqtt-timeline-group-rewindow');
+    expect(rewindow.textContent).toBe('Show only the newest 1');
+    fireEvent.click(rewindow);
+    expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(2);
+    expect(screen.queryByTestId('mqtt-timeline-group-rewindow')).toBeNull();
+    // Collapse: the header stays with its total, the rows go.
+    fireEvent.click(screen.getAllByTestId('mqtt-timeline-group-header')[0]);
+    expect(screen.getAllByTestId('mqtt-timeline-group-header')[0].textContent).toBe('probe/a2 messages');
+    expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(1);
+    expect(screen.queryByTestId('mqtt-timeline-group-more')).toBeNull();
+  });
+
+  it('View is a labeled trigger between Sort by and Clear; the menu is the Editor menu anatomy with the group knobs', () => {
+    render(<MqttMessageTimeline items={log} count={4} lifecycle={lifecycle} v5 />);
+    const view = screen.getByTestId('mqtt-timeline-view');
+    expect(view.textContent).toBe('View');
+    expect(
+      view.compareDocumentPosition(screen.getByTestId('mqtt-timeline-sort')) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
+    expect(
+      view.compareDocumentPosition(screen.getByTestId('mqtt-timeline-clear')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(view);
+    const topicRow = screen.getByText('Group by topic', { selector: '.ant-dropdown-menu-item *' });
+    expect(topicRow.closest('.ant-dropdown-menu')?.classList.contains('oh-view-menu')).toBe(true);
+    expect(topicRow.closest('.ant-dropdown-menu-item')?.classList.contains('ant-dropdown-menu-item-selected')).toBe(
+      false,
+    );
+    // Rows per group rests while neither axis is on.
+    const limitRow = screen.getByText('Rows per group').closest('.ant-dropdown-menu-submenu');
+    expect(limitRow?.classList.contains('ant-dropdown-menu-submenu-disabled')).toBe(true);
+    fireEvent.click(topicRow);
+    expect(
+      screen
+        .getByText('Group by topic', { selector: '.ant-dropdown-menu-item *' })
+        .closest('.ant-dropdown-menu-item')
+        ?.classList.contains('ant-dropdown-menu-item-selected'),
+    ).toBe(true);
+    expect(screen.getAllByTestId('mqtt-timeline-group-header')).toHaveLength(2);
+    expect(
+      screen
+        .getByText('Rows per group')
+        .closest('.ant-dropdown-menu-submenu')
+        ?.classList.contains('ant-dropdown-menu-submenu-disabled'),
+    ).toBe(false);
   });
 });

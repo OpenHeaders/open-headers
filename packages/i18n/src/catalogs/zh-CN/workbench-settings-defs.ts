@@ -468,6 +468,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': '最新在前',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'MQTT 消息时间线的顺序——最新消息在顶部。关闭则从最旧开始读。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': '按主题分组',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    '把 MQTT 消息时间线聚在可折叠的主题标题下，每组内保持到达顺序。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': '按方向分组',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    '把 MQTT 消息时间线聚在可折叠的已发送 / 已接收标题下。与按主题分组组合时，每个（方向，主题）对得到自己的分组——在同一主题上既发布又接收时很有用。时间线工具栏更改的是同一设置。',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': '每组行数',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    '分组时，每组只显示这么多条最新消息——窗口随新消息滑动，多个主题可同时观察。0 显示所有消息。时间线工具栏更改的是同一设置。',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': '最新在前',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'WebSocket 消息时间线的顺序——最新消息在顶部。关闭则从最旧开始读。时间线工具栏更改的是同一设置。',

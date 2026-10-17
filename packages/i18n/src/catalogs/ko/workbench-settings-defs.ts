@@ -498,6 +498,15 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': '최신순',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'MQTT 메시지 타임라인의 순서입니다. 최신 메시지가 위에 옵니다. 오래된 것부터 읽으려면 끄세요. 타임라인 도구 모음이 이 설정을 바꿉니다.',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': '토픽별 그룹화',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    'MQTT 메시지 타임라인을 접을 수 있는 토픽 헤더 아래로 묶고, 각 그룹 안에서는 도착 순서를 유지합니다. 타임라인 도구 모음이 이 설정을 바꿉니다.',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': '방향별 그룹화',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'MQTT 메시지 타임라인을 접을 수 있는 보냄 / 받음 헤더 아래로 묶습니다. 토픽별 그룹화와 함께 쓰면 (방향, 토픽) 쌍마다 그룹이 생깁니다. 같은 토픽으로 발행하고 받을 때 유용합니다. 타임라인 도구 모음이 이 설정을 바꿉니다.',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': '그룹당 행 수',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    '그룹화할 때 각 그룹의 최신 메시지를 이 개수만 표시합니다. 새 메시지가 도착하면 창이 밀리므로 여러 토픽을 한 번에 지켜볼 수 있습니다. 0이면 모든 메시지를 표시합니다. 타임라인 도구 모음이 이 설정을 바꿉니다.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': '최신순',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'WebSocket 메시지 타임라인의 순서입니다. 최신 메시지가 위에 옵니다. 오래된 것부터 읽으려면 끄세요. 타임라인 도구 모음이 이 설정을 바꿉니다.',

@@ -5,32 +5,29 @@
  * facts / error — expandable to the refused CONNACK when the broker
  * answered one / aborted / ended), the subscription and reconnect-
  * cycle facts (lost / reconnect attempt / reconnected with its own
- * CONNACK block) at their true chronological positions, the message
- * rows (direction glyph · topic chip · QoS / Retained / DUP tags ·
- * payload preview · the hover cluster (copy / details) · session time ·
- * expand slot), and the expanded payload viewer. Purely presentational —
- * expansion state and its toggles belong to the orchestrator
- * (`MqttMessageTimeline.tsx`); only the copy button's one-second check
- * is the row's own.
+ * CONNACK block) at their true chronological positions, the group
+ * headers and their "show older" rows, the message rows (direction
+ * glyph · topic chip · QoS / Retained / DUP tags · payload preview ·
+ * the hover cluster (copy / details) · session time · expand slot), and
+ * the expanded payload viewer. Purely presentational — expansion state
+ * and its toggles belong to the orchestrator (`MqttMessageTimeline.tsx`);
+ * the row anatomy comes from `mqtt-timeline-row-parts.tsx`; only the
+ * copy button's one-second check is the row's own.
  */
 
 import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
   CheckCircleOutlined,
   CheckOutlined,
   CloseCircleOutlined,
   CodeOutlined,
   CopyOutlined,
   DisconnectOutlined,
-  DownOutlined,
   InfoCircleOutlined,
   MinusCircleOutlined,
   PlusCircleOutlined,
   ReloadOutlined,
-  UpOutlined,
 } from '@ant-design/icons';
-import { Button, Tag, Tooltip, theme } from 'antd';
+import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -46,10 +43,8 @@ import {
   type MqttTimelineEntry,
   type MqttTimelineItem,
   type MqttTimelineLifecycle,
-  SINGLE_ROW_PX,
-  topicBadgeColor,
-  VIEWER_PX,
 } from './mqtt-timeline-model';
+import { useMqttRowParts } from './mqtt-timeline-row-parts';
 import {
   endedRowText,
   errorRowText,
@@ -58,6 +53,7 @@ import {
   reconnectingRowText,
   scriptRowText,
 } from './mqtt-timeline-row-text';
+import MqttTimelineGroupHeader from './MqttTimelineGroupHeader';
 import { connackReasonName, grantFailureLabel } from './session-display';
 
 interface MqttTimelineEntryRowProps {
@@ -76,8 +72,12 @@ interface MqttTimelineEntryRowProps {
   /** The Connected row's CONNACK details are open — or the error row's
    *  refused CONNACK (the two rows never coexist). */
   connackExpanded: boolean;
+  groupRowLimit: number;
+  unwindowedGroups: ReadonlySet<string>;
   onToggleRow: (index: number) => void;
   onToggleConnack: () => void;
+  onToggleGroup: (key: string) => void;
+  onToggleGroupWindow: (key: string) => void;
   wrapLines: boolean;
   onWrapLinesChange: (wrap: boolean) => void;
   viewerModes: TimelineViewerModes;
@@ -98,8 +98,12 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
   derive,
   expanded,
   connackExpanded,
+  groupRowLimit,
+  unwindowedGroups,
   onToggleRow,
   onToggleConnack,
+  onToggleGroup,
+  onToggleGroupWindow,
   wrapLines,
   onWrapLinesChange,
   viewerModes,
@@ -108,6 +112,16 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const {
+    singleRowStyle,
+    lifecycleRowStyle,
+    lifecycleTime,
+    expandSlot,
+    lifecycleGlyph,
+    directionBadge,
+    topicChip,
+    factTag,
+  } = useMqttRowParts();
 
   // The copy button's one-second check — the row's own transient
   // feedback (the WS anatomy), never the orchestrator's.
@@ -118,121 +132,6 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
     },
     [],
-  );
-
-  const singleRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    height: SINGLE_ROW_PX,
-    boxSizing: 'border-box',
-    padding: '0 10px',
-    borderBottom: STREAM_HAIRLINE,
-    overflow: 'hidden',
-  };
-
-  const lifecycleRowStyle: React.CSSProperties = {
-    ...singleRowStyle,
-    color: token.colorTextSecondary,
-    fontSize: 12,
-  };
-
-  const lifecycleTime = (ts: number | undefined): React.ReactNode =>
-    ts !== undefined ? (
-      <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
-        {formatMessageTime(ts)}
-      </span>
-    ) : null;
-
-  // Trailing expand slot — fixed width on EVERY row so the
-  // right-aligned timestamps line up in one column; expandable rows
-  // render their chevron in it, the rest leave it empty.
-  const expandSlot = (isExpanded: boolean | null): React.ReactNode => (
-    <span
-      aria-hidden
-      style={{ width: 12, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-    >
-      {isExpanded !== null &&
-        (isExpanded ? (
-          <UpOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-        ) : (
-          <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
-        ))}
-    </span>
-  );
-
-  // Lifecycle glyph — centered in the direction badge's 18px slot so
-  // every row's leading mark sits on ONE column, drawn at the size the
-  // badge reads at (the circle's footprint ≈ the tinted box).
-  const lifecycleGlyph = (icon: React.ReactNode): React.ReactNode => (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 18,
-        height: 18,
-        flexShrink: 0,
-        fontSize: 15,
-      }}
-    >
-      {icon}
-    </span>
-  );
-
-  // Boxed direction badge — ↑ amber, ↓ blue on their tinted
-  // backgrounds (the gRPC/WS anatomy).
-  const directionBadge = (up: boolean): React.ReactNode => (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        flexShrink: 0,
-        background: up ? token.colorWarningBgHover : token.colorPrimaryBg,
-      }}
-    >
-      {up ? (
-        <ArrowUpOutlined
-          aria-label={t('workbench.editors.mqtt.timeline.sentAria')}
-          style={{ fontSize: 11, color: token.colorTextSecondary }}
-        />
-      ) : (
-        <ArrowDownOutlined
-          aria-label={t('workbench.editors.mqtt.timeline.receivedAria')}
-          style={{ fontSize: 11, color: token.colorTextSecondary }}
-        />
-      )}
-    </span>
-  );
-
-  const topicChip = (topic: string): React.ReactNode => (
-    <Tag
-      data-testid="mqtt-timeline-topic-chip"
-      color={topicBadgeColor(topic)}
-      style={{
-        marginInlineEnd: 0,
-        fontSize: 11,
-        lineHeight: '18px',
-        flexShrink: 1,
-        minWidth: 0,
-        maxWidth: 220,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {topic}
-    </Tag>
-  );
-
-  const factTag = (label: string, testid: string): React.ReactNode => (
-    <Tag style={{ marginInlineEnd: 0, fontSize: 10, lineHeight: '16px', flexShrink: 0 }} data-testid={testid}>
-      {label}
-    </Tag>
   );
 
   switch (entry.kind) {
@@ -461,6 +360,38 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
       return (
         <div style={lifecycleRowStyle}>
           <span>{t('workbench.editors.mqtt.timeline.noMatches')}</span>
+        </div>
+      );
+    case 'header':
+      return (
+        <MqttTimelineGroupHeader
+          group={entry.group}
+          memberCount={entry.count}
+          collapsed={entry.collapsed}
+          groupRowLimit={groupRowLimit}
+          unwindowed={unwindowedGroups.has(entry.group.key)}
+          onToggle={onToggleGroup}
+          onToggleWindow={onToggleGroupWindow}
+          testId="mqtt-timeline-group-header"
+        />
+      );
+    case 'groupMore':
+      return (
+        <div
+          role="button"
+          tabIndex={0}
+          className="oh-stream-row"
+          data-testid="mqtt-timeline-group-more"
+          onClick={() => onToggleGroupWindow(entry.group.key)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onToggleGroupWindow(entry.group.key);
+            }
+          }}
+          style={{ ...singleRowStyle, cursor: 'pointer', fontSize: 12, color: token.colorPrimary }}
+        >
+          {t('shared.timelineGroup.showOlder', { count: entry.hidden })}
         </div>
       );
     case 'row': {

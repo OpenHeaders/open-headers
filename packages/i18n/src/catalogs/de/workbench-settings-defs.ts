@@ -602,6 +602,21 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.requests.mqttMessagesNewestFirst.label': 'Neueste zuerst',
   'workbench.settings.def.requests.mqttMessagesNewestFirst.description':
     'Reihenfolge des MQTT-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ältesten zuerst zu lesen. Die Zeitverlaufs-Symbolleiste ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.label': 'Nach Topic gruppieren',
+  'workbench.settings.def.requests.mqttMessagesGroupByTopic.description':
+    'Bündelt den MQTT-Nachrichten-Zeitverlauf unter einklappbaren Topic-Überschriften, Ankunftsreihenfolge ' +
+    'innerhalb jeder Gruppe. Die Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.label': 'Nach Richtung gruppieren',
+  'workbench.settings.def.requests.mqttMessagesGroupByDirection.description':
+    'Bündelt den MQTT-Nachrichten-Zeitverlauf unter einklappbaren Gesendet-/Empfangen-Überschriften. ' +
+    'Kombiniert mit der Gruppierung nach Topic erhält jedes Paar (Richtung, Topic) eine eigene Gruppe — ' +
+    'nützlich, wenn Sie auf demselben Topic veröffentlichen und empfangen. Die Zeitverlaufs-Toolbar ändert ' +
+    'dieselbe Einstellung.',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.label': 'Zeilen pro Gruppe',
+  'workbench.settings.def.requests.mqttMessagesGroupRowLimit.description':
+    'Zeigt beim Gruppieren nur so viele der neuesten Nachrichten jeder Gruppe — das Fenster wandert mit ' +
+    'neuen Nachrichten mit, sodass mehrere Topics zugleich beobachtbar bleiben. 0 zeigt jede Nachricht. Die ' +
+    'Zeitverlaufs-Toolbar ändert dieselbe Einstellung.',
   'workbench.settings.def.requests.wsMessagesNewestFirst.label': 'Neueste zuerst',
   'workbench.settings.def.requests.wsMessagesNewestFirst.description':
     'Reihenfolge des WebSocket-Nachrichten-Zeitverlaufs — neueste Nachrichten oben. Ausschalten, um die ' +
