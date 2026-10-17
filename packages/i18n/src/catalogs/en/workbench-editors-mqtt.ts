@@ -130,8 +130,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': 'Rename',
   'workbench.editors.mqtt.saved.duplicate': 'Duplicate',
   'workbench.editors.mqtt.saved.delete': 'Delete',
-  'workbench.editors.mqtt.topics.hint':
-    'Subscriptions the session opens with. Wildcards + and # are welcome; toggled-off rows stay saved but do not subscribe.',
   'workbench.editors.mqtt.topics.filterLabel': 'Topic',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Topic, e.g. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -182,14 +180,8 @@ export const workbenchEditorsMqtt = {
     'Sent as the CONNECT packet’s User Name and Password on every host — both MQTT versions carry them. Variables resolve at Connect; saved examples never capture the credential.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — from {source} — cannot be applied to an MQTT session.',
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} cannot be applied to an MQTT session.',
-  'workbench.editors.mqtt.userProps.hint':
-    'User properties sent on CONNECT — free-form metadata the broker and other tooling can read.',
-  'workbench.editors.mqtt.userProps.v311':
-    'CONNECT user properties are an MQTT 5.0 feature — this request targets 3.1.1.',
   'workbench.editors.mqtt.userProps.keyPlaceholder': 'Property',
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Value',
-  'workbench.editors.mqtt.will.hint':
-    'Registered with the broker on CONNECT and published for you if the session drops without a clean disconnect. An empty topic means no will.',
   'workbench.editors.mqtt.will.topicPlaceholder': 'Topic for the will',
   'workbench.editors.mqtt.will.topicExample': 'e.g. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, seconds — MQTT 5.0.',

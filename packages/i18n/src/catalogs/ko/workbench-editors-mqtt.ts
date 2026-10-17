@@ -139,8 +139,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': '이름 바꾸기',
   'workbench.editors.mqtt.saved.duplicate': '복제',
   'workbench.editors.mqtt.saved.delete': '삭제',
-  'workbench.editors.mqtt.topics.hint':
-    '세션을 열 때 함께 여는 구독입니다. 와일드카드 + 와 # 을 쓸 수 있습니다. 토글을 끈 행은 저장은 되지만 구독하지 않습니다.',
   'workbench.editors.mqtt.topics.filterLabel': '토픽',
   'workbench.editors.mqtt.topics.filterPlaceholder': '토픽 (예: sensors/+/temperature)',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -184,14 +182,8 @@ export const workbenchEditorsMqtt = {
     '모든 호스트에서 CONNECT 패킷의 User Name과 Password 값으로 전송됩니다. 두 MQTT 버전 모두 이를 실어 보냅니다. 변수는 연결 시 해결되며, 저장된 예시는 자격 증명을 캡처하지 않습니다.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} ({source}에서 상속)은 MQTT 세션에 적용할 수 없습니다.',
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} 방식은 MQTT 세션에 적용할 수 없습니다.',
-  'workbench.editors.mqtt.userProps.hint':
-    'CONNECT 패킷에 보내는 사용자 속성입니다. 브로커와 다른 도구가 읽을 수 있는 자유 형식 메타데이터입니다.',
-  'workbench.editors.mqtt.userProps.v311':
-    'CONNECT 사용자 속성은 MQTT 5.0 기능입니다. 이 요청은 3.1.1을 대상으로 합니다.',
   'workbench.editors.mqtt.userProps.keyPlaceholder': '속성',
   'workbench.editors.mqtt.userProps.valuePlaceholder': '값',
-  'workbench.editors.mqtt.will.hint':
-    'CONNECT 시 브로커에 등록되며, 세션이 정상 연결 해제 없이 끊기면 대신 게시됩니다. 토픽을 비우면 유언이 없습니다.',
   'workbench.editors.mqtt.will.topicPlaceholder': '유언 토픽',
   'workbench.editors.mqtt.will.topicExample': '예: clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval (초)입니다. MQTT 5.0.',

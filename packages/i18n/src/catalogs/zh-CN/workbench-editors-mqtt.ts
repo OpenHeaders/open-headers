@@ -121,7 +121,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': '重命名',
   'workbench.editors.mqtt.saved.duplicate': '复制',
   'workbench.editors.mqtt.saved.delete': '删除',
-  'workbench.editors.mqtt.topics.hint': '会话打开时建立的订阅。欢迎使用通配符 + 和 #；关闭的行仍会保存，但不会订阅。',
   'workbench.editors.mqtt.topics.filterLabel': '主题',
   'workbench.editors.mqtt.topics.filterPlaceholder': '主题，例如 sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -163,12 +162,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.auth.ownUnsupported': '{type}无法应用于 MQTT 会话。',
   'workbench.editors.mqtt.auth.help':
     '作为 CONNECT 报文的 User Name 与 Password 在所有主机上发送——两个 MQTT 版本均支持。变量在连接时解析；保存的示例绝不捕获凭据。',
-  'workbench.editors.mqtt.userProps.hint': '随 CONNECT 发送的用户属性——代理与其他工具可读取的自由元数据。',
-  'workbench.editors.mqtt.userProps.v311': 'CONNECT 用户属性是 MQTT 5.0 特性——此请求面向 3.1.1。',
   'workbench.editors.mqtt.userProps.keyPlaceholder': '属性',
   'workbench.editors.mqtt.userProps.valuePlaceholder': '值',
-  'workbench.editors.mqtt.will.hint':
-    '随 CONNECT 向代理注册；若会话在没有干净断开的情况下中断，代理会代为发布。主题为空表示没有遗嘱。',
   'workbench.editors.mqtt.will.topicPlaceholder': '遗嘱发布主题',
   'workbench.editors.mqtt.will.topicExample': '例如 clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval，秒——MQTT 5.0。',

@@ -135,8 +135,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': 'Umbenennen',
   'workbench.editors.mqtt.saved.duplicate': 'Duplizieren',
   'workbench.editors.mqtt.saved.delete': 'Löschen',
-  'workbench.editors.mqtt.topics.hint':
-    'Abonnements, mit denen die Sitzung öffnet. Wildcards + und # sind willkommen; abgeschaltete Zeilen bleiben gespeichert, abonnieren aber nicht.',
   'workbench.editors.mqtt.topics.filterLabel': 'Thema',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Thema, z. B. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -188,14 +186,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} kann nicht auf eine MQTT-Sitzung angewendet werden.',
   'workbench.editors.mqtt.auth.help':
     'Werden als User Name und Password des CONNECT-Pakets auf jedem Host gesendet — beide MQTT-Versionen tragen sie. Variablen werden beim Verbinden aufgelöst; gespeicherte Beispiele erfassen die Zugangsdaten nie.',
-  'workbench.editors.mqtt.userProps.hint':
-    'Benutzereigenschaften auf CONNECT — freie Metadaten, die Broker und andere Werkzeuge lesen können.',
-  'workbench.editors.mqtt.userProps.v311':
-    'CONNECT-Benutzereigenschaften sind ein MQTT-5.0-Feature — diese Anfrage zielt auf 3.1.1.',
   'workbench.editors.mqtt.userProps.keyPlaceholder': 'Eigenschaft',
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Wert',
-  'workbench.editors.mqtt.will.hint':
-    'Wird mit CONNECT beim Broker hinterlegt und von ihm veröffentlicht, falls die Sitzung ohne sauberes Trennen abbricht. Ein leeres Thema bedeutet kein Testament.',
   'workbench.editors.mqtt.will.topicPlaceholder': 'Thema für das Testament',
   'workbench.editors.mqtt.will.topicExample': 'z. B. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, in Sekunden — MQTT 5.0.',

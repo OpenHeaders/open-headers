@@ -147,8 +147,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': 'Redenumire',
   'workbench.editors.mqtt.saved.duplicate': 'Duplicare',
   'workbench.editors.mqtt.saved.delete': 'Ștergere',
-  'workbench.editors.mqtt.topics.hint':
-    'Abonamentele cu care se deschide sesiunea. Metacaracterele + și # sunt binevenite; rândurile dezactivate rămân salvate, dar nu se abonează.',
   'workbench.editors.mqtt.topics.filterLabel': 'Subiect',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Subiect, de ex. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -198,14 +196,8 @@ export const workbenchEditorsMqtt = {
     'Trimise ca User Name și Password ale pachetului CONNECT pe fiecare gazdă — ambele versiuni MQTT le poartă. Variabilele se rezolvă la Conectare; exemplele salvate nu capturează niciodată acreditarea.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — de la {source} — nu poate fi aplicat unei sesiuni MQTT.',
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} nu poate fi aplicat unei sesiuni MQTT.',
-  'workbench.editors.mqtt.userProps.hint':
-    'Proprietăți de utilizator trimise la CONNECT — metadate libere pe care brokerul și alte instrumente le pot citi.',
-  'workbench.editors.mqtt.userProps.v311':
-    'Proprietățile de utilizator CONNECT sunt o funcție MQTT 5.0 — această cerere țintește 3.1.1.',
   'workbench.editors.mqtt.userProps.keyPlaceholder': 'Proprietate',
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Valoare',
-  'workbench.editors.mqtt.will.hint':
-    'Înregistrată la broker la CONNECT și publicată în numele dvs. dacă sesiunea cade fără o deconectare curată. Un subiect gol înseamnă fără ultimă dorință.',
   'workbench.editors.mqtt.will.topicPlaceholder': 'Subiectul pentru ultima dorință',
   'workbench.editors.mqtt.will.topicExample': 'de ex. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, în secunde — MQTT 5.0.',

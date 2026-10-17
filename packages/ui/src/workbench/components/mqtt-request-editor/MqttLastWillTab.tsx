@@ -66,9 +66,6 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
   );
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {t('workbench.editors.mqtt.will.hint')}
-      </Text>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
         <CodeEditorActions
           target={payloadActionsRef}

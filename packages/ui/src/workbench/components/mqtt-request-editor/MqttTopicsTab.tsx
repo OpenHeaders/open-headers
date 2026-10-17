@@ -68,10 +68,8 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="mqtt-topics-table">
       {/* The stored table is the DRAFT the session subscribes from at
         open — live Subscribe toggles will ride session riders, never
-        edit these rows. */}
-      <Text type="secondary" style={{ fontSize: 11 }}>
-        {t('workbench.editors.mqtt.topics.hint')}
-      </Text>
+        edit these rows. What the table is lives in the tab's and the
+        headers' (i) cards, not in a line above it. */}
       <EditableGridTable<MqttTopicRow>
         rows={rows}
         onChange={onChange}

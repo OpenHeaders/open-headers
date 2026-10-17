@@ -142,8 +142,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': 'Переименовать',
   'workbench.editors.mqtt.saved.duplicate': 'Дублировать',
   'workbench.editors.mqtt.saved.delete': 'Удалить',
-  'workbench.editors.mqtt.topics.hint':
-    'Подписки, с которыми открывается сеанс. Подстановочные знаки + и # приветствуются; выключенные строки сохраняются, но не подписываются.',
   'workbench.editors.mqtt.topics.filterLabel': 'Топик',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Топик, например sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -192,14 +190,8 @@ export const workbenchEditorsMqtt = {
     'Отправляется как User Name и Password пакета CONNECT на любом хосте — их несут обе версии MQTT. Переменные разрешаются при подключении; сохранённые примеры никогда не захватывают учётные данные.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — из {source} — нельзя применить к сеансу MQTT.',
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} нельзя применить к сеансу MQTT.',
-  'workbench.editors.mqtt.userProps.hint':
-    'Пользовательские свойства, отправляемые в CONNECT — произвольные метаданные, которые могут читать брокер и другие инструменты.',
-  'workbench.editors.mqtt.userProps.v311':
-    'Пользовательские свойства CONNECT — возможность MQTT 5.0, а этот запрос нацелен на 3.1.1.',
   'workbench.editors.mqtt.userProps.keyPlaceholder': 'Свойство',
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Значение',
-  'workbench.editors.mqtt.will.hint':
-    'Регистрируется у брокера в CONNECT и публикуется за вас, если сеанс оборвётся без корректного отключения. Пустой топик — воли нет.',
   'workbench.editors.mqtt.will.topicPlaceholder': 'Топик для последней воли',
   'workbench.editors.mqtt.will.topicExample': 'например, clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, в секундах — MQTT 5.0.',

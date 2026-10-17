@@ -139,8 +139,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': '名前を変更',
   'workbench.editors.mqtt.saved.duplicate': '複製',
   'workbench.editors.mqtt.saved.delete': '削除',
-  'workbench.editors.mqtt.topics.hint':
-    'セッション開始時に開くサブスクリプションです。ワイルドカード + と # を使えます。オフにした行は保存されたままですが、サブスクライブしません。',
   'workbench.editors.mqtt.topics.filterLabel': 'トピック',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'トピック（例：sensors/+/temperature）',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -191,14 +189,8 @@ export const workbenchEditorsMqtt = {
     'すべてのホストで CONNECT パケットの User Name と Password として送られます。どちらの MQTT バージョンも運びます。変数は接続時に解決され、保存済みの例は資格情報をキャプチャしません。',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type}（{source} から）は MQTT セッションには適用できません。',
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} は MQTT セッションには適用できません。',
-  'workbench.editors.mqtt.userProps.hint':
-    'CONNECT で送られるユーザープロパティです。ブローカーや他のツールが読める自由形式のメタデータです。',
-  'workbench.editors.mqtt.userProps.v311':
-    'CONNECT のユーザープロパティは MQTT 5.0 の機能です。このリクエストは 3.1.1 を対象にしています。',
   'workbench.editors.mqtt.userProps.keyPlaceholder': 'プロパティ',
   'workbench.editors.mqtt.userProps.valuePlaceholder': '値',
-  'workbench.editors.mqtt.will.hint':
-    'CONNECT でブローカーに登録され、セッションが正常な切断なしに落ちた場合に代わりにパブリッシュされます。トピックが空の場合、遺言はありません。',
   'workbench.editors.mqtt.will.topicPlaceholder': '遺言のトピック',
   'workbench.editors.mqtt.will.topicExample': '例：clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval（秒）。MQTT 5.0。',

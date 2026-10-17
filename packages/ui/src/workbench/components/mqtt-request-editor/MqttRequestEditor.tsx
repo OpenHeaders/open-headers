@@ -545,9 +545,9 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     )}
                     {activeTab === 'properties' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="mqtt-user-props">
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {v5 ? t('workbench.editors.mqtt.userProps.hint') : t('workbench.editors.mqtt.userProps.v311')}
-                        </Text>
+                        {/* The tab's (i) card says what the rows are and that a
+                          3.1.1 session keeps them unsent; the dimmed grid shows
+                          that state — no line above it. */}
                         <div style={v5 ? undefined : { opacity: 0.55, pointerEvents: 'none' }} aria-disabled={!v5}>
                           <KeyValueTable
                             rows={draft.userProperties}

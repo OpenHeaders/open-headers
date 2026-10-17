@@ -135,8 +135,6 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.saved.rename': 'Renommer',
   'workbench.editors.mqtt.saved.duplicate': 'Dupliquer',
   'workbench.editors.mqtt.saved.delete': 'Supprimer',
-  'workbench.editors.mqtt.topics.hint':
-    'Abonnements ouverts avec la session. Les jokers + et # sont bienvenus ; les lignes désactivées restent enregistrées mais ne s’abonnent pas.',
   'workbench.editors.mqtt.topics.filterLabel': 'Sujet',
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Sujet, p. ex. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
@@ -186,14 +184,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} ne peut pas s’appliquer à une session MQTT.',
   'workbench.editors.mqtt.auth.help':
     'Envoyés comme User Name et Password du paquet CONNECT sur chaque hôte — les deux versions MQTT les transportent. Les variables se résolvent à la connexion ; les exemples enregistrés ne capturent jamais l’identifiant.',
-  'workbench.editors.mqtt.userProps.hint':
-    'Propriétés utilisateur envoyées sur CONNECT — métadonnées libres lisibles par le courtier et d’autres outils.',
-  'workbench.editors.mqtt.userProps.v311':
-    'Les propriétés utilisateur CONNECT sont une fonctionnalité MQTT 5.0 — cette requête cible 3.1.1.',
   'workbench.editors.mqtt.userProps.keyPlaceholder': 'Propriété',
   'workbench.editors.mqtt.userProps.valuePlaceholder': 'Valeur',
-  'workbench.editors.mqtt.will.hint':
-    'Déposé auprès du courtier sur CONNECT et publié à votre place si la session tombe sans déconnexion propre. Un sujet vide signifie pas de testament.',
   'workbench.editors.mqtt.will.topicPlaceholder': 'Sujet du testament',
   'workbench.editors.mqtt.will.topicExample': 'p. ex. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, en secondes — MQTT 5.0.',
