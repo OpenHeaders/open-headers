@@ -9,10 +9,11 @@
  */
 
 import { wsCloseCodePhrase } from '@openheaders/core/utils';
+import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
 import { inheritSourceLabel } from '../request-editor/inherited-auth';
-import type { WsTimelineLifecycleItem } from './ws-lifecycle';
+import { reconnectExhaustedMessage, type WsTimelineLifecycleItem } from './ws-lifecycle';
 import { WS_HOOK_LABEL_KEY } from './ws-scripts';
 
 /** The slice of the timeline's lifecycle the fixed rows' words read. */
@@ -21,6 +22,8 @@ export interface WsRowTextLifecycle {
   errorMessage?: string;
   aborted?: true;
   endedBy?: 'close' | 'stop';
+  close?: { code: number; reason: string } | null;
+  reconnectExhausted?: Parameters<typeof reconnectExhaustedMessage>[0];
 }
 
 /** The script mark's line — the hook, the levels that contributed and
@@ -141,6 +144,36 @@ export function errorRowText(lifecycle: WsRowTextLifecycle, t: Translate): strin
   return url !== undefined
     ? t('workbench.editors.websocket.timeline.couldNotConnect', { url })
     : lifecycle.errorMessage;
+}
+
+/** The ended row's words behind its chevron — the close verdict: the
+ *  code with its registry phrase, then the server's reason verbatim or
+ *  the code's meaning; a severed connection and a Stop say what they
+ *  are. */
+export function endedDetailText(lifecycle: WsRowTextLifecycle, t: Translate): string {
+  if (lifecycle.endedBy === undefined) return '';
+  if (lifecycle.reconnectExhausted !== undefined) return reconnectExhaustedMessage(lifecycle.reconnectExhausted, t);
+  if (lifecycle.endedBy === 'stop') return t('workbench.editors.websocket.timeline.stoppedDetail');
+  if (lifecycle.close === null || lifecycle.close === undefined) {
+    return t('workbench.editors.websocket.session.noCloseFrame');
+  }
+  const phrase = wsCloseCodePhrase(lifecycle.close.code);
+  const lead = phrase !== null ? `${lifecycle.close.code} ${phrase}:` : `${lifecycle.close.code}:`;
+  const detail =
+    lifecycle.close.reason !== ''
+      ? lifecycle.close.reason
+      : phrase !== null
+        ? t(`workbench.editors.websocket.timeline.closeCode.${lifecycle.close.code}` as MessageKey)
+        : t('workbench.editors.websocket.timeline.closeCode.unknown');
+  return `${lead} ${detail}`;
+}
+
+/** The error row's words behind its chevron — the labeled failure;
+ *  the handshake sheet beneath it is the host's (its rows are built
+ *  there) and joins the haystack in the timeline. */
+export function errorDetailText(lifecycle: WsRowTextLifecycle, t: Translate): string {
+  if (lifecycle.errorMessage === undefined) return '';
+  return `${t('workbench.editors.websocket.timeline.errorLabel')}: ${lifecycle.errorMessage}`;
 }
 
 /** The fixed rows' words by entry kind — one signature, so the search

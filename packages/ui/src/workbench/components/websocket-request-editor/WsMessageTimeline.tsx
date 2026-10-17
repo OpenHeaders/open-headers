@@ -90,7 +90,9 @@ import { reconnectExhaustedMessage, type WsTimelineLifecycleItem } from './ws-li
 import {
   ackTimeoutRowText,
   connectedRowText,
+  endedDetailText,
   endedRowText,
+  errorDetailText,
   errorRowText,
   fixedRowText,
   lifecycleItemText,
@@ -494,6 +496,10 @@ interface WsFrameDerivations {
   sioOf: (item: WsTimelineItem) => WsSioView | null;
   /** The frame's bytes as the classic dump — the viewer's Hexdump. */
   hexOf: (item: WsTimelineItem) => HexDump;
+  /** The search haystack — the FULL decoded text (the preview is
+   *  capped; a match deep in a long frame still counts), lowercased
+   *  once per item. A binary frame has none. */
+  searchTextOf: (item: WsTimelineItem) => string;
 }
 
 function makeWsFrameDerivations(decodeSio: boolean, hiddenLabel: string): WsFrameDerivations {
@@ -558,7 +564,16 @@ function makeWsFrameDerivations(decodeSio: boolean, hiddenLabel: string): WsFram
     sioCache.set(item, sio);
     return sio;
   };
-  return { viewOf, previewOf, sioOf, hexOf };
+  const searchCache = new WeakMap<WsTimelineItem, string>();
+  const searchTextOf = (item: WsTimelineItem): string => {
+    const hit = searchCache.get(item);
+    if (hit !== undefined) return hit;
+    const view = viewOf(item);
+    const text = view.kind === 'binary' ? '' : view.text.toLowerCase();
+    searchCache.set(item, text);
+    return text;
+  };
+  return { viewOf, previewOf, sioOf, hexOf, searchTextOf };
 }
 
 /** Row label for the socket.io CONTROL frames — `null` for the event
@@ -756,19 +771,58 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
         const sio = derive.sioOf(item);
         if (sio?.kind === 'event' && sio.name !== null && !listenedSet.has(sio.name)) continue;
       }
-      if (needle !== '' && !derive.previewOf(item).toLowerCase().includes(needle)) continue;
+      if (needle !== '' && !derive.searchTextOf(item).includes(needle)) continue;
       rows.push(i);
     }
     return rows;
   }, [items, count, clearedCount, needle, directionFilter, heartbeatHidden, handshakeHidden, listenedSet, derive]);
 
+  const handshakeSheet = useMemo(() => {
+    const handshake = lifecycle.handshake;
+    if (handshake === undefined) return null;
+    const requestRows = handshakeRequestRows(handshake, t);
+    const responseRows = handshakeResponseRows(handshake);
+    return {
+      requestRows,
+      responseRows,
+      heightPx: handshakeDetailPx(requestRows.length, responseRows.length, sectionsOpen),
+    };
+  }, [lifecycle.handshake, t, sectionsOpen]);
+
   // The fixed rows under a search — each shows only when its words
-  // carry the needle (the same words the row paints).
+  // carry the needle: the line the row paints plus the words behind
+  // its chevron (the handshake sheet, the error's labeled failure and
+  // sheet, the close verdict).
   const fixedShown = useMemo(() => {
+    if (needle === '') return { sent: true, connected: true, error: true, ended: true };
+    const url = lifecycle.handshake?.url;
+    const sheetWords =
+      handshakeSheet === null
+        ? []
+        : [
+            t('workbench.editors.websocket.timeline.handshakeDetails'),
+            `${t('workbench.editors.websocket.timeline.requestUrl')}: ${
+              url !== undefined ? upgradeRequestUrl(url) : ''
+            }`,
+            `${t('workbench.editors.websocket.timeline.requestMethod')}: GET`,
+            t('workbench.editors.websocket.timeline.requestHeaders'),
+            ...handshakeSheet.requestRows.map((row) => `${row.key}: ${row.value}`),
+          ];
+    const detail: Record<keyof typeof fixedRowText, string> = {
+      sent: '',
+      connected: [
+        ...sheetWords,
+        `${t('workbench.editors.websocket.timeline.statusCode')}: 101 Switching Protocols`,
+        t('workbench.editors.websocket.timeline.responseHeaders'),
+        ...(handshakeSheet?.responseRows.map((row) => `${row.key}: ${row.value}`) ?? []),
+      ].join('\n'),
+      error: [errorDetailText(lifecycle, t), ...sheetWords].join('\n'),
+      ended: endedDetailText(lifecycle, t),
+    };
     const shown = (kind: keyof typeof fixedRowText): boolean =>
-      needle === '' || fixedRowText[kind](lifecycle, t).toLowerCase().includes(needle);
+      `${fixedRowText[kind](lifecycle, t)}\n${detail[kind]}`.toLowerCase().includes(needle);
     return { sent: shown('sent'), connected: shown('connected'), error: shown('error'), ended: shown('ended') };
-  }, [needle, lifecycle, t]);
+  }, [needle, lifecycle, t, handshakeSheet]);
 
   const displayRows = useMemo(
     () => (newestFirst ? [...visibleRows].reverse() : visibleRows),
@@ -1037,18 +1091,6 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
 
   // The handshake sheet's rows — computed once per handshake so the
   // block's height and its render agree by construction.
-  const handshakeSheet = useMemo(() => {
-    const handshake = lifecycle.handshake;
-    if (handshake === undefined) return null;
-    const requestRows = handshakeRequestRows(handshake, t);
-    const responseRows = handshakeResponseRows(handshake);
-    return {
-      requestRows,
-      responseRows,
-      heightPx: handshakeDetailPx(requestRows.length, responseRows.length, sectionsOpen),
-    };
-  }, [lifecycle.handshake, t, sectionsOpen]);
-
   const heights = useMemo(
     () =>
       entries.map((e) =>

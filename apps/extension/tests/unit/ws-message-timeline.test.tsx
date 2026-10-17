@@ -435,6 +435,16 @@ describe('WsMessageTimeline — display-only controls', () => {
     expect(rowSequence()).toEqual(['ended', 'done', 'pong', 'ping', 'connected', 'connecting']);
   });
 
+  it('search reads the words behind the Connected chevron — the handshake sheet', () => {
+    renderTimeline();
+    // "chat.v2" is the negotiated subprotocol, a response-header row of
+    // the handshake sheet: the Connected row stays, collapsed; the rest hide.
+    fireEvent.change(screen.getByTestId('ws-timeline-search'), { target: { value: 'chat.v2' } });
+    expect(rowSequence()).toEqual(['connected']);
+    expect(screen.queryByTestId('ws-timeline-handshake-details')).toBeNull();
+    expect(screen.queryByText('No messages match the filter.')).toBeNull();
+  });
+
   it('Clear hides current rows; lifecycle rows stay', () => {
     renderTimeline();
     fireEvent.click(screen.getByTestId('ws-timeline-clear'));
