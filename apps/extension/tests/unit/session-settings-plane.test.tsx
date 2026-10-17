@@ -10,7 +10,9 @@
  * the value); the reset arrow clears back to inherit; the tab's draft
  * seam passes the tri-state knobs straight through (a toggle writes the
  * explicit boolean, a reset writes `undefined`, the request-only
- * strings keep their '' ↔ absent mapping).
+ * strings keep their '' ↔ absent mapping). The MQTT tab's saved-baseline
+ * plane rides the same rows: the knobs the editor names as unsaved dot
+ * salmon, the request-only rows included.
  */
 
 import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
@@ -377,5 +379,36 @@ describe('the Runs on row on the three session Settings tabs', () => {
       ),
     );
     expect(screen.queryByRole('combobox', { name: 'Runs on' })).toBeNull();
+  });
+});
+
+describe('MQTT Settings tab on the saved-baseline plane', () => {
+  /** The knob row around a control's test id — the dot sits beside the label. */
+  function rowOf(testId: string): HTMLElement {
+    const row = screen.getByTestId(testId).closest<HTMLElement>('.rules-settings-row');
+    if (row === null) throw new Error(`no knob row around ${testId}`);
+    return row;
+  }
+
+  it('the request-only rows dot salmon with the knobs; an own value that is saved keeps its blue dot', () => {
+    const draft = {
+      ...draftFromMqttRequest(mqttRequest({ clientId: 'lamp-1', keepAlive: 30 })),
+      executionPlace: 'here' as const,
+    };
+    render(
+      scoped(<MqttSettingsTab draft={draft} setDraft={vi.fn()} v5 unsaved={new Set(['clientId', 'executionPlace'])} />),
+    );
+    expect(within(rowOf('mqtt-client-id')).getByTestId('oh-setting-unsaved-dot')).toBeTruthy();
+    expect(within(rowOf('mqtt-execution-place')).getByTestId('oh-setting-unsaved-dot')).toBeTruthy();
+    const keepAlive = rowOf('mqtt-keep-alive');
+    expect(within(keepAlive).getByTestId('oh-setting-modified-dot')).toBeTruthy();
+    expect(within(keepAlive).queryByTestId('oh-setting-unsaved-dot')).toBeNull();
+  });
+
+  it('without the plane the same rows read as their blue own-value dots alone', () => {
+    const draft = { ...draftFromMqttRequest(mqttRequest({ clientId: 'lamp-1' })), executionPlace: 'here' as const };
+    render(scoped(<MqttSettingsTab draft={draft} setDraft={vi.fn()} v5 />));
+    expect(screen.queryAllByTestId('oh-setting-unsaved-dot')).toHaveLength(0);
+    expect(within(rowOf('mqtt-client-id')).getByTestId('oh-setting-modified-dot')).toBeTruthy();
   });
 });

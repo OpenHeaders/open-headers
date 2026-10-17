@@ -148,3 +148,34 @@ describe('request editor tab order', () => {
     expect(label?.textContent).toBe('Spec');
   });
 });
+
+describe('request editor tab has-content (blue) tones', () => {
+  it('Docs dots blue once a description is written, salmon outranking it', () => {
+    expect(labelWithUnsaved('docs', {}).querySelector('[data-testid="oh-section-content"]')).toBeNull();
+    cleanup();
+    const draft = { ...emptyDraft(), description: 'Lists the lamps.' };
+    expect(labelWithUnsaved('docs', {}, draft).querySelector('[data-testid="oh-section-content"]')).toBeTruthy();
+    cleanup();
+    const unsaved = labelWithUnsaved('docs', { docs: true }, draft);
+    expect(unsaved.querySelector('[data-testid="oh-section-unsaved"]')).toBeTruthy();
+    expect(unsaved.querySelector('[data-testid="oh-section-content"]')).toBeNull();
+  });
+
+  it('Authorization dots blue while the request holds its own auth — any type but Inherit, an explicit None included', () => {
+    expect(labelWithUnsaved('authorization', {}).querySelector('[data-testid="oh-section-content"]')).toBeNull();
+    cleanup();
+    const bearer = { ...emptyDraft(), auth: { type: 'bearer', token: 't' } as AuthConfig };
+    expect(
+      labelWithUnsaved('authorization', {}, bearer).querySelector('[data-testid="oh-section-content"]'),
+    ).toBeTruthy();
+    cleanup();
+    const none = { ...emptyDraft(), auth: { type: 'none' } as AuthConfig };
+    expect(
+      labelWithUnsaved('authorization', {}, none).querySelector('[data-testid="oh-section-content"]'),
+    ).toBeTruthy();
+    cleanup();
+    const unsaved = labelWithUnsaved('authorization', { auth: true }, bearer);
+    expect(unsaved.querySelector('[data-testid="oh-section-unsaved"]')).toBeTruthy();
+    expect(unsaved.querySelector('[data-testid="oh-section-content"]')).toBeNull();
+  });
+});

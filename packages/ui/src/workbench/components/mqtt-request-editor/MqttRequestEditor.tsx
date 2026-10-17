@@ -13,6 +13,10 @@
  *     through to it (the bound draft setter every tab rides).
  *   - `MqttTargetRow` — version + scheme + URL header title (the
  *     version knob locks while a session is in flight).
+ *   - `mqtt-tab-items.tsx` — the tab catalog with its live labels off
+ *     the two unsaved readings (`mqtt-section-unsaved.ts` per tab,
+ *     `mqtt-settings-unsaved.ts` per knob), both slices of the same
+ *     projection the dirty fingerprint reads.
  *   - `MqttMessageTab` (compose bar + collapsible Saved-messages
  *     rail) / `MqttTopicsTab` / `MqttAuthTab` / `MqttLastWillTab` /
  *     `MqttSpecTab` / `MqttSettingsTab` — the compose tabs (Docs and
@@ -47,7 +51,7 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { isMac } from '@openheaders/ui/shared/platform';
 import { Allotment } from 'allotment';
-import { App, Badge, Button, ConfigProvider, Tabs, Tooltip, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, Tabs, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DocsTab from '../request-editor/DocsTab';
@@ -77,6 +81,9 @@ import {
   propertiesToDraft,
 } from './draft';
 import { subscribeMqttPrefill } from './mqtt-prefill-bus';
+import { unsavedMqttSections } from './mqtt-section-unsaved';
+import { anyOwnMqttSetting, unsavedMqttSettingKeys } from './mqtt-settings-unsaved';
+import { buildMqttTabItems } from './mqtt-tab-items';
 import { findRequestAncestry, resolveInheritedAuthFor, settingsChainOf } from '../request-container/ancestry';
 import {
   type InheritedSettingsView,
@@ -90,7 +97,6 @@ import MqttSessionPane from './MqttSessionPane';
 import MqttSettingsTab from './MqttSettingsTab';
 import MqttSpecTab from './MqttSpecTab';
 import SessionLock from '../shared/SessionLock';
-import SpecTabLabel from '../shared/SpecTabLabel';
 import MqttTargetRow from './MqttTargetRow';
 import MqttTopicsTab from './MqttTopicsTab';
 import { useMqttComposeAids } from './useMqttComposeAids';
@@ -174,7 +180,17 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   const savedSelection = useMqttSavedSelection(draft, rawSetDraft);
   const setDraft = savedSelection.setBoundDraft;
 
-  const formFingerprint = useMemo(() => stableStringify(buildMqttRequestUpdates(draft)), [draft]);
+  // Structural projection of the draft — ONE projection feeds the
+  // dirty fingerprint AND every per-knob / per-section unsaved
+  // comparison below, so they can never disagree.
+  const draftUpdates = useMemo(() => buildMqttRequestUpdates(draft), [draft]);
+  const formFingerprint = useMemo(() => stableStringify(draftUpdates), [draftUpdates]);
+
+  // Last-primed entity — the saved side of every unsaved comparison
+  // (per-knob settings dots, per-section tab tones). Advances on every
+  // prime, so the salmon tones clear the moment a save echoes back;
+  // null before the first prime reads all-clean.
+  const [savedEntity, setSavedEntity] = useState<WithLocalPlace<MqttRequestEntity> | null>(null);
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
@@ -188,8 +204,36 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     formFingerprint,
     signature: (e: WithLocalPlace<MqttRequestEntity>) => stableStringify(canonicalMqttRequestProjection(e)),
     populate: (e: WithLocalPlace<MqttRequestEntity>) => rawSetDraft(draftFromMqttRequest(e)),
+    onPrimed: setSavedEntity,
   });
   const isDirty = reprime.isDirty;
+
+  // Saved side of the unsaved comparisons, in the same projection as
+  // `draftUpdates`; the two readings the tab labels and the Settings
+  // rows wear.
+  const savedUpdates = useMemo(
+    () => (savedEntity ? canonicalMqttRequestProjection(savedEntity) : null),
+    [savedEntity],
+  );
+  const unsavedSettings = useMemo(
+    () => (savedUpdates ? unsavedMqttSettingKeys(draftUpdates, savedUpdates) : undefined),
+    [draftUpdates, savedUpdates],
+  );
+  const unsavedSections = useMemo(
+    () => (savedUpdates ? unsavedMqttSections(draftUpdates, savedUpdates) : undefined),
+    [draftUpdates, savedUpdates],
+  );
+  const tabItems = useMemo(
+    () =>
+      buildMqttTabItems({
+        draft,
+        t,
+        unsaved: unsavedSections,
+        unsavedSettings,
+        ownSettings: anyOwnMqttSetting(draftUpdates),
+      }),
+    [draft, t, unsavedSections, unsavedSettings, draftUpdates],
+  );
 
   const v5 = draft.protocolVersion === '5.0';
 
@@ -413,8 +457,6 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     />
   );
 
-  const willConfigured = draft.lastWill.topic.trim() !== '';
-
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
       {/* tabIndex -1: clicks on non-focusable space inside the editor
@@ -447,26 +489,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     onChange={setActiveTab}
                     size="small"
                     tabBarStyle={{ marginBottom: 0 }}
-                    items={[
-                      { key: 'docs', label: t('workbench.editors.mqtt.tab.docs') },
-                      { key: 'message', label: t('workbench.editors.mqtt.tab.message') },
-                      { key: 'topics', label: t('workbench.editors.mqtt.tab.topics') },
-                      { key: 'auth', label: t('workbench.editors.mqtt.tab.auth') },
-                      { key: 'properties', label: t('workbench.editors.mqtt.tab.properties') },
-                      {
-                        key: 'lastwill',
-                        label: willConfigured ? (
-                          <Badge dot offset={[4, 0]}>
-                            {t('workbench.editors.mqtt.tab.lastWill')}
-                          </Badge>
-                        ) : (
-                          t('workbench.editors.mqtt.tab.lastWill')
-                        ),
-                      },
-                      { key: 'scripts', label: t('workbench.editors.mqtt.tab.scripts') },
-                      { key: 'settings', label: t('workbench.editors.mqtt.tab.settings') },
-                      { key: 'spec', label: <SpecTabLabel /> },
-                    ]}
+                    items={tabItems}
                   />
                 </div>
                 <div
@@ -556,11 +579,18 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         onOpenPackageLibrary={onOpenPackageLibrary}
                         ancestorScripts={ancestorScripts}
                         onOpenContainerScripts={onOpenContainerScripts}
+                        unsaved={unsavedSections?.scripts}
                       />
                     )}
                     {activeTab === 'settings' && (
                       <SessionLock locked={session.inFlight}>
-                        <MqttSettingsTab draft={draft} setDraft={setDraft} v5={v5} inherited={inheritedSettings} />
+                        <MqttSettingsTab
+                          draft={draft}
+                          setDraft={setDraft}
+                          v5={v5}
+                          inherited={inheritedSettings}
+                          unsaved={unsavedSettings}
+                        />
                       </SessionLock>
                     )}
                   </div>

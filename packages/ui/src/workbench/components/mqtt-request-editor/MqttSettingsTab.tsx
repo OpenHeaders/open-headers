@@ -8,8 +8,9 @@
  * client id keeps its '' ↔ absent mapping. The rows read their
  * placeholders, a switch's effective state and the "Inherited from …"
  * line off the view the editor derives from the request's ancestry.
- * There is no saved-baseline (unsaved) plane here; the editor's own
- * dirty fingerprint covers "not saved yet".
+ * The saved-baseline plane (`unsaved`, see mqtt-settings-unsaved.ts)
+ * passes straight through: the knobs whose draft value differs from
+ * the saved request dot salmon, the same keys the rows read.
  */
 
 import { MQTT_INHERITABLE_SETTING_KEYS } from '@openheaders/core/schemas';
@@ -25,6 +26,8 @@ interface MqttSettingsTabProps {
   v5: boolean;
   /** The ancestor plane — see the rows. */
   inherited?: InheritedSettingsView;
+  /** Knobs that differ from the saved request — see the rows. */
+  unsaved?: ReadonlySet<string>;
 }
 
 /** The draft as the rows' value: the inheritable keys as they are, the
@@ -37,12 +40,13 @@ function valueOf(draft: MqttDraft): MqttSettingsValue {
   };
 }
 
-const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5, inherited }) => (
+const MqttSettingsTab: React.FC<MqttSettingsTabProps> = ({ draft, setDraft, v5, inherited, unsaved }) => (
   <MqttSettingsRows
     value={valueOf(draft)}
     onChange={(next) => setDraft((d) => ({ ...d, ...next, clientId: next.clientId ?? '' }))}
     v5={v5}
     inherited={inherited}
+    unsaved={unsaved}
   />
 );
 

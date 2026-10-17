@@ -192,7 +192,9 @@ const MqttSettingsRows: React.FC<MqttSettingsRowsProps> = ({
           onToggle={() => toggleGroup('connection')}
           info={mqttSettingsGroupInfo(t, 'connection')}
           modified={connectionModified}
-          unsaved={CONNECTION_KEYS.some(isUnsaved)}
+          unsaved={
+            CONNECTION_KEYS.some(isUnsaved) || (!container && (isUnsaved('clientId') || isUnsaved('executionPlace')))
+          }
         >
           {!container && (
             <ExecutionPlaceKnobRow
@@ -200,6 +202,7 @@ const MqttSettingsRows: React.FC<MqttSettingsRowsProps> = ({
               onChange={(executionPlace) => set({ executionPlace })}
               info={mqttSettingsRowInfo(t, 'executionPlace')}
               testId="mqtt-execution-place"
+              unsaved={isUnsaved('executionPlace')}
             />
           )}
           {!container && (
@@ -211,6 +214,7 @@ const MqttSettingsRows: React.FC<MqttSettingsRowsProps> = ({
               placeholder={t('workbench.editors.mqtt.settings.clientIdPlaceholder')}
               maxLength={MAX_CLIENT_ID_LENGTH}
               example={t('workbench.editors.mqtt.settings.clientIdExample')}
+              unsaved={isUnsaved('clientId')}
               testId="mqtt-client-id"
             />
           )}

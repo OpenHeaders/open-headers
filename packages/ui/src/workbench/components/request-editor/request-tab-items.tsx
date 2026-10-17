@@ -75,7 +75,9 @@ export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ t
   const { token } = theme.useToken();
   return (
     <span
-      data-testid={tone === 'error' ? 'oh-section-unresolved' : tone === 'unsaved' ? 'oh-section-unsaved' : undefined}
+      data-testid={
+        tone === 'error' ? 'oh-section-unresolved' : tone === 'unsaved' ? 'oh-section-unsaved' : 'oh-section-content'
+      }
       style={{
         display: 'inline-block',
         width: 6,
@@ -146,13 +148,19 @@ export function buildRequestTabItems(
   // blue has-content. On the badge tabs (Params / Headers) the count
   // badge itself carries the unsaved tone; a section whose rows were
   // all removed but not yet saved has no badge, so a bare unsaved dot
-  // stands in.
+  // stands in. Docs has content once a description is written;
+  // Authorization once the request holds its OWN auth — any type but
+  // Inherit (an explicit None overrides the chain on purpose), the
+  // Settings rows' explicit-wins reading.
+  const hasDocs = draft.description.trim() !== '';
+  const ownAuth = draft.auth.type !== 'inherit';
   return [
     {
       key: 'docs',
       label: (
         <span>
-          {t('workbench.editors.request.tab.docs')} {unsaved.docs && <TabDot tone="unsaved" />}
+          {t('workbench.editors.request.tab.docs')}{' '}
+          {unsaved.docs ? <TabDot tone="unsaved" /> : hasDocs ? <TabDot /> : null}
         </span>
       ),
     },
@@ -175,7 +183,13 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.authorization')}
-          {sectionUnresolved.auth ? <TabDot tone="error" /> : unsaved.auth ? <TabDot tone="unsaved" /> : null}
+          {sectionUnresolved.auth ? (
+            <TabDot tone="error" />
+          ) : unsaved.auth ? (
+            <TabDot tone="unsaved" />
+          ) : ownAuth ? (
+            <TabDot />
+          ) : null}
         </span>
       ),
     },
