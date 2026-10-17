@@ -5,6 +5,11 @@
  * (e.g. the Body tab's encoding picker) render it there instead via
  * `actions="external"` + `actionsRef`, which keeps the buttons out of
  * the buffer so they never cover long first lines.
+ *
+ * One look across the API client: every toolbar row shows icon + name
+ * for each action, by construction — the compact icon-only form is the
+ * corner overlay's alone (`iconsOnly`), where text would cover the
+ * buffer it floats over.
  */
 
 import { AlignLeftOutlined, SearchOutlined, SwapOutlined } from '@ant-design/icons';
@@ -39,9 +44,9 @@ interface CodeEditorActionsProps {
   target: React.RefObject<CodeEditorActionsTarget | null>;
   language: LanguageId;
   readOnly?: boolean;
-  /** Show the action names as visible button text next to the icons
-   *  (e.g. the Scripts tab's toolbar row) — icon-only when omitted. */
-  labels?: boolean;
+  /** Drop the visible action names and keep the icons — the hover
+   *  corner overlay inside the buffer; a toolbar row never sets it. */
+  iconsOnly?: boolean;
   style?: React.CSSProperties;
 }
 
@@ -49,7 +54,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
   target,
   language,
   readOnly = false,
-  labels = false,
+  iconsOnly = false,
   style,
 }) => {
   // The cluster owns its three names — Find / Replace / Format on every
@@ -77,7 +82,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
           aria-label={findText}
           data-testid="code-editor-find"
         >
-          {labels ? findText : null}
+          {iconsOnly ? null : findText}
         </Button>
       </Tooltip>
       {!readOnly && (
@@ -93,7 +98,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
             aria-label={replaceText}
             data-testid="code-editor-replace"
           >
-            {labels ? replaceText : null}
+            {iconsOnly ? null : replaceText}
           </Button>
         </Tooltip>
       )}
@@ -110,7 +115,7 @@ const CodeEditorActions: React.FC<CodeEditorActionsProps> = ({
             aria-label={formatText}
             data-testid="code-editor-format"
           >
-            {labels ? formatText : null}
+            {iconsOnly ? null : formatText}
           </Button>
         </Tooltip>
       )}

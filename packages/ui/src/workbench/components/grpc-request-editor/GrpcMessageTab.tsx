@@ -67,7 +67,6 @@ const GrpcMessageTab: React.FC<GrpcMessageTabProps> = ({
         <CodeEditorActions
           target={messageActionsRef}
           language="json"
-          labels
         />
         <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="grpc-editor-menu" />
       </div>

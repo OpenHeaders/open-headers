@@ -101,7 +101,6 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           <CodeEditorActions
             target={payloadActionsRef}
             language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
-            labels
           />
           <EditorViewMenu wrap={wrapPayload} onWrapChange={setWrapPayload} data-testid="mqtt-editor-menu" />
         </div>

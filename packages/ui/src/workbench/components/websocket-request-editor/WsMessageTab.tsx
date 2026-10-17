@@ -131,7 +131,6 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
             <CodeEditorActions
               target={messageActionsRef}
               language="json"
-              labels
             />
           )}
           <EditorViewMenu wrap={wrapMessage} onWrapChange={setWrapMessage} data-testid="ws-editor-menu" />

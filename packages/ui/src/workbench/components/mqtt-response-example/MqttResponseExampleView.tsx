@@ -268,7 +268,6 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
                           <CodeEditorActions
                             target={payloadActionsRef}
                             language={PAYLOAD_FORMAT_LANGUAGE[draft.payloadFormat]}
-                            labels
                           />
                           <EditorViewMenu
                             wrap={wrapPayload}

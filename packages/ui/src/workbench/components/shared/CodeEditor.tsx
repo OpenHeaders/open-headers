@@ -452,7 +452,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             boxShadow: token.boxShadowTertiary,
           }}
         >
-          <CodeEditorActions target={actionsTargetRef} language={language} readOnly={readOnly} />
+          <CodeEditorActions target={actionsTargetRef} language={language} readOnly={readOnly} iconsOnly />
         </div>
       )}
       {/* Grip strip — reserved row below the editor so Monaco's vertical

@@ -181,7 +181,6 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           <CodeEditorActions
             target={editorActionsRef}
             language="javascript"
-            labels
           />
           <EditorViewMenu wrap={wrapScript} onWrapChange={setWrapScript} data-testid="oh-script-editor-menu" />
         </div>
