@@ -451,3 +451,59 @@ describe('MqttMessageTimeline — the refused CONNACK', () => {
     expect(screen.queryByTestId('mqtt-timeline-connack-details')).toBeNull();
   });
 });
+
+describe('MqttMessageTimeline — the control strip', () => {
+  const lifecycle: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true };
+  const message = (direction: 'up' | 'down', topic: string, text: string): MqttTimelineItem => ({
+    kind: 'message',
+    direction,
+    topic,
+    payloadBase64: btoa(text),
+    qos: 0,
+    retain: false,
+    dup: false,
+  });
+  const items = [
+    message('up', 'probe/a', 'one'),
+    message('down', 'probe/b', 'two'),
+    message('down', 'probe/c', 'three'),
+  ];
+
+  it('reads the direction in force on its trigger and filters the rows from the menu', () => {
+    render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
+    const trigger = screen.getByTestId('mqtt-timeline-direction-filter');
+    expect(trigger.textContent).toBe('All messages');
+    expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(3);
+    fireEvent.click(trigger);
+    // The menu is a single choice on the selection plane — the row in
+    // force carries antd's selected class (the Editor menu's anatomy).
+    const allRow = screen.getByText('All messages', { selector: '.ant-dropdown-menu-item *' });
+    expect(allRow.closest('.ant-dropdown-menu-item')?.classList.contains('ant-dropdown-menu-item-selected')).toBe(true);
+    expect(allRow.closest('.ant-dropdown-menu')?.classList.contains('oh-choice-menu')).toBe(true);
+    fireEvent.click(screen.getByText('Sent', { selector: '.ant-dropdown-menu-item *' }));
+    expect(trigger.textContent).toBe('Sent');
+    expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(1);
+    expect(screen.getByText('one')).toBeTruthy();
+  });
+
+  it('filters by several topics at once', () => {
+    render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
+    const select = screen.getByTestId('mqtt-timeline-topic-filter');
+    // The root carries the test id; antd 6 opens on the root's mousedown.
+    fireEvent.mouseDown(select);
+    fireEvent.click(screen.getByTitle('probe/a'));
+    fireEvent.click(screen.getByTitle('probe/c'));
+    const texts = screen.getAllByTestId('mqtt-timeline-message-row').map((row) => row.textContent);
+    expect(texts.some((text) => text?.includes('one'))).toBe(true);
+    expect(texts.some((text) => text?.includes('three'))).toBe(true);
+    expect(texts.some((text) => text?.includes('two'))).toBe(false);
+  });
+
+  it('labels the sort and clear triggers — the sort label reads the order in force', () => {
+    render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
+    expect(screen.getByTestId('mqtt-timeline-sort').textContent).toBe('Newest first');
+    expect(screen.getByTestId('mqtt-timeline-clear').textContent).toBe('Clear');
+    act(() => setSetting('requests.mqttMessagesNewestFirst', false));
+    expect(screen.getByTestId('mqtt-timeline-sort').textContent).toBe('Oldest first');
+  });
+});

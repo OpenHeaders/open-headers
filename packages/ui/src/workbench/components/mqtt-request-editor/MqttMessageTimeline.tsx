@@ -93,7 +93,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   const t = useT();
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState<MqttDirectionFilter>('all');
-  const [topicFilter, setTopicFilter] = useState<string | null>(null);
+  // Several topics at once; empty = every topic.
+  const [topicFilter, setTopicFilter] = useState<string[]>([]);
   // Display-only clear: rows below this index hide; the capture (and
   // the lifecycle rows) stay untouched.
   const [clearedCount, setClearedCount] = useState(0);
@@ -129,7 +130,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   useEffect(() => {
     setSearch('');
     setDirectionFilter('all');
-    setTopicFilter(null);
+    setTopicFilter([]);
     setClearedCount(0);
     setExpanded(new Set<number>());
     setConnackExpanded(false);
@@ -172,12 +173,13 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
   // MESSAGE rows only (the subscription lifecycle facts always show).
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const topics = topicFilter.length > 0 ? new Set(topicFilter) : null;
     const rows: number[] = [];
     for (let i = clearedCount; i < count; i++) {
       const item = items[i];
       if (item.kind === 'message') {
         if (directionFilter !== 'all' && item.direction !== directionFilter) continue;
-        if (topicFilter !== null && item.topic !== topicFilter) continue;
+        if (topics !== null && !topics.has(item.topic)) continue;
         if (
           needle !== '' &&
           !derive.previewOf(item).toLowerCase().includes(needle) &&
@@ -191,7 +193,7 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     return rows;
   }, [items, count, clearedCount, search, directionFilter, topicFilter, derive]);
 
-  const filtering = search.trim() !== '' || directionFilter !== 'all' || topicFilter !== null;
+  const filtering = search.trim() !== '' || directionFilter !== 'all' || topicFilter.length > 0;
 
   // The flat display list the virtual window runs over — ONE event
   // log: Connecting at one chronological edge, Connected (with the

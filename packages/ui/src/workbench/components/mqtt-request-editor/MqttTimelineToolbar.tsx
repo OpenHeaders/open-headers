@@ -1,15 +1,28 @@
 /**
- * MqttTimelineToolbar — the MQTT timeline's control strip: search,
- * message count, the rolling-retention drop notice, the TOPIC filter
- * over every topic the log has seen, the direction Segmented, the
- * sort menu (writing the `requests.mqttMessagesNewestFirst` SETTING
- * through the orchestrator), wrap, and the display-only Clear. All
- * controls are display-only over the capture — the orchestrator owns
- * the state; this strip just renders and reports it.
+ * MqttTimelineToolbar — the MQTT timeline's control strip: search, the
+ * direction menu (all / sent / received), the message count and the
+ * rolling-retention drop notice on the left; the TOPIC filter (several
+ * topics at once, over every topic the log has seen), the sort menu
+ * (writing the `requests.mqttMessagesNewestFirst` SETTING through the
+ * orchestrator) and the display-only Clear on the right. Every trigger
+ * carries icon + label and the menus read their state as the label —
+ * one pattern across the strip; the two menus are single choices on
+ * antd's selection plane, painted by `.oh-choice-menu` (the Editor
+ * menu's row anatomy: the mark in the gutter plus the active tint).
+ * All controls are display-only over the capture — the orchestrator
+ * owns the state; this strip just renders and reports it.
  */
 
-import { CheckOutlined, ClearOutlined, SearchOutlined, SortAscendingOutlined } from '@ant-design/icons';
-import { Button, ConfigProvider, Dropdown, Input, Segmented, Select, Tooltip, Typography, theme } from 'antd';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  ClearOutlined,
+  DownOutlined,
+  SearchOutlined,
+  SortAscendingOutlined,
+  SortDescendingOutlined,
+} from '@ant-design/icons';
+import { Button, Dropdown, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -25,8 +38,9 @@ interface MqttTimelineToolbarProps {
   droppedMessages: number;
   /** Every distinct topic the log has seen, first-appearance order. */
   seenTopics: readonly string[];
-  topicFilter: string | null;
-  onTopicFilterChange: (topic: string | null) => void;
+  /** The topics shown — empty means every topic. */
+  topicFilter: string[];
+  onTopicFilterChange: (topics: string[]) => void;
   directionFilter: MqttDirectionFilter;
   onDirectionFilterChange: (filter: MqttDirectionFilter) => void;
   newestFirst: boolean;
@@ -50,12 +64,22 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
 }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const [directionMenuOpen, setDirectionMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
-  const menuOptionLabel = (label: string, checked: boolean): React.ReactNode => (
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+  // The direction options — the menu rows and the trigger's label are
+  // the same words, so the trigger reads the filter in force.
+  const directionOptions: ReadonlyArray<{ value: MqttDirectionFilter; icon: React.ReactNode | null; label: string }> = [
+    { value: 'all', icon: null, label: t('workbench.editors.mqtt.timeline.filterAllMessages') },
+    { value: 'up', icon: <ArrowUpOutlined />, label: t('workbench.editors.mqtt.timeline.filterSent') },
+    { value: 'down', icon: <ArrowDownOutlined />, label: t('workbench.editors.mqtt.timeline.filterReceived') },
+  ];
+  const activeDirection = directionOptions.find((option) => option.value === directionFilter) ?? directionOptions[0];
+
+  const menuRow = (icon: React.ReactNode | null, label: string): React.ReactNode => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {icon}
       {label}
-      {checked && <CheckOutlined style={{ color: token.colorPrimary }} />}
     </span>
   );
 
@@ -71,6 +95,46 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
         data-testid="mqtt-timeline-search"
         style={{ maxWidth: 220 }}
       />
+      <Dropdown
+        trigger={['click']}
+        placement="bottomLeft"
+        open={directionMenuOpen}
+        onOpenChange={(open, info) => {
+          if (info.source === 'menu') return;
+          setDirectionMenuOpen(open);
+        }}
+        menu={{
+          rootClassName: 'oh-choice-menu',
+          selectable: true,
+          selectedKeys: [directionFilter],
+          items: directionOptions.map((option) => ({
+            key: option.value,
+            label: menuRow(option.icon, option.label),
+            onClick: () => {
+              onDirectionFilterChange(option.value);
+              setDirectionMenuOpen(false);
+            },
+          })),
+        }}
+      >
+        <Tooltip
+          title={t('workbench.editors.mqtt.timeline.directionFilter')}
+          placement="bottom"
+          open={directionMenuOpen ? false : undefined}
+        >
+          <Button
+            size="small"
+            type="text"
+            data-testid="mqtt-timeline-direction-filter"
+            aria-label={t('workbench.editors.mqtt.timeline.directionFilter')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            {activeDirection.icon}
+            {activeDirection.label}
+            <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
+          </Button>
+        </Tooltip>
+      </Dropdown>
       <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
         {t('workbench.editors.mqtt.timeline.messageCount', { count: messageTotal })}
       </Text>
@@ -83,28 +147,19 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
       {seenTopics.length > 0 && (
         <Select
           size="small"
+          mode="multiple"
           allowClear
+          maxTagCount="responsive"
           placeholder={t('workbench.editors.mqtt.timeline.topicFilterAll')}
           value={topicFilter}
           options={seenTopics.map((topic) => ({ value: topic, label: topic }))}
-          onChange={(next: string | undefined) => onTopicFilterChange(next ?? null)}
-          style={{ minWidth: 140, maxWidth: 220 }}
+          onChange={(next: string[]) => onTopicFilterChange(next)}
+          // Sized by its tags — never a reserved band; the cap collapses
+          // the overflow into a count.
+          style={{ width: 'auto', minWidth: 140, maxWidth: 320 }}
           data-testid="mqtt-timeline-topic-filter"
         />
       )}
-      <ConfigProvider theme={{ token: { motion: false } }}>
-        <Segmented
-          size="small"
-          value={directionFilter}
-          onChange={(value) => onDirectionFilterChange(value as MqttDirectionFilter)}
-          data-testid="mqtt-timeline-direction-filter"
-          options={[
-            { value: 'all', label: t('workbench.editors.mqtt.timeline.filterAll') },
-            { value: 'up', label: `↑ ${t('workbench.editors.mqtt.timeline.filterSent')}` },
-            { value: 'down', label: `↓ ${t('workbench.editors.mqtt.timeline.filterReceived')}` },
-          ]}
-        />
-      </ConfigProvider>
       <Dropdown
         trigger={['click']}
         placement="bottomRight"
@@ -114,16 +169,25 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
           setSortMenuOpen(open);
         }}
         menu={{
+          rootClassName: 'oh-choice-menu',
+          selectable: true,
+          selectedKeys: [newestFirst ? 'newest' : 'oldest'],
           items: [
             {
               key: 'newest',
-              label: menuOptionLabel(t('workbench.editors.mqtt.timeline.newestFirst'), newestFirst),
-              onClick: () => onNewestFirstChange(true),
+              label: t('workbench.editors.mqtt.timeline.newestFirst'),
+              onClick: () => {
+                onNewestFirstChange(true);
+                setSortMenuOpen(false);
+              },
             },
             {
               key: 'oldest',
-              label: menuOptionLabel(t('workbench.editors.mqtt.timeline.oldestFirst'), !newestFirst),
-              onClick: () => onNewestFirstChange(false),
+              label: t('workbench.editors.mqtt.timeline.oldestFirst'),
+              onClick: () => {
+                onNewestFirstChange(false);
+                setSortMenuOpen(false);
+              },
             },
           ],
         }}
@@ -136,10 +200,14 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
           <Button
             size="small"
             type="text"
-            icon={<SortAscendingOutlined />}
+            icon={newestFirst ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
             data-testid="mqtt-timeline-sort"
             aria-label={t('workbench.editors.mqtt.timeline.sortOrder')}
-          />
+          >
+            {newestFirst
+              ? t('workbench.editors.mqtt.timeline.newestFirst')
+              : t('workbench.editors.mqtt.timeline.oldestFirst')}
+          </Button>
         </Tooltip>
       </Dropdown>
       <Tooltip title={t('workbench.editors.mqtt.timeline.clearMessages')} placement="bottom">
@@ -150,7 +218,9 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
           data-testid="mqtt-timeline-clear"
           onClick={onClear}
           aria-label={t('workbench.editors.mqtt.timeline.clearMessages')}
-        />
+        >
+          {t('workbench.editors.mqtt.timeline.clear')}
+        </Button>
       </Tooltip>
     </div>
   );

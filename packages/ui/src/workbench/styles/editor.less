@@ -509,7 +509,11 @@
  * submenu popup's WRAPPER (its list sits inside), which is what tells
  * the two apart; the container anchors keep every rule one class above
  * antd's own three-deep item rules, which otherwise win. */
-:is(.ant-dropdown, .ant-dropdown-menu-submenu) .ant-dropdown-menu:is(.oh-editor-view-menu, .oh-editor-view-menu *) {
+// `.oh-choice-menu` is the same anatomy for a ROOT list that is one
+// single choice (a timeline strip's direction / sort menus): the mark
+// in the gutter plus the active tint, as the Whitespace submenu.
+:is(.ant-dropdown, .ant-dropdown-menu-submenu)
+  .ant-dropdown-menu:is(.oh-editor-view-menu, .oh-editor-view-menu *, .oh-choice-menu) {
   .ant-dropdown-menu-item,
   .ant-dropdown-menu-submenu-title {
     position: relative;
@@ -570,8 +574,10 @@
   }
 }
 
-// The single-choice submenu: the auth popup's chosen row.
-.ant-dropdown-menu-submenu.oh-editor-view-menu .ant-dropdown-menu {
+// The single-choice submenu — and the single-choice root list — the
+// auth popup's chosen row.
+.ant-dropdown-menu-submenu.oh-editor-view-menu .ant-dropdown-menu,
+.ant-dropdown .ant-dropdown-menu.oh-choice-menu {
   .ant-dropdown-menu-item-selected {
     font-weight: 600;
     background: var(--ant-control-item-bg-active);
