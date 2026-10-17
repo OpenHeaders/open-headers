@@ -12,6 +12,7 @@
  * session; 代理 = broker.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -288,7 +289,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name}（{code}）',
   'workbench.editors.mqtt.timeline.noMatches': '没有消息与过滤条件匹配。',
   'workbench.editors.mqtt.timeline.searchMessages': '搜索消息',
-  'workbench.editors.mqtt.timeline.messageCount': '{count} 条消息',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 条消息' }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': '{total} 条消息中的 {shown} 条',
   'workbench.editors.mqtt.timeline.dropped': '{count} 条较早的消息已滚出捕获范围',
   'workbench.editors.mqtt.timeline.topicFilterAll': '全部主题',

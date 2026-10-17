@@ -18,6 +18,7 @@
  * сообщения QoS 1/2).
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -313,7 +314,13 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': 'Нет сообщений, соответствующих фильтру.',
   'workbench.editors.mqtt.timeline.searchMessages': 'Поиск сообщений',
-  'workbench.editors.mqtt.timeline.messageCount': 'сообщений: {count}',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} сообщение',
+      few: '{count} сообщения',
+      many: '{count} сообщений',
+      other: '{count} сообщения',
+    }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': 'сообщений: {shown} из {total}',
   'workbench.editors.mqtt.timeline.dropped': 'старых сообщений выпало из захвата: {count}',
   'workbench.editors.mqtt.timeline.topicFilterAll': 'Все топики',

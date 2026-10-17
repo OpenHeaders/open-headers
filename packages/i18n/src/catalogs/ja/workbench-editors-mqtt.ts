@@ -13,6 +13,7 @@
  * 回復力 = resilience; 再ダイヤル = redial.
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -311,7 +312,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name}（{code}）',
   'workbench.editors.mqtt.timeline.noMatches': 'フィルターに一致するメッセージはありません。',
   'workbench.editors.mqtt.timeline.searchMessages': 'メッセージを検索',
-  'workbench.editors.mqtt.timeline.messageCount': '{count} 件のメッセージ',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '{count} 件のメッセージ' }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': '{total} 件中 {shown} 件のメッセージ',
   'workbench.editors.mqtt.timeline.dropped': '古いメッセージ {count} 件がキャプチャから押し出されました',
   'workbench.editors.mqtt.timeline.topicFilterAll': 'すべてのトピック',

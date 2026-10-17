@@ -16,6 +16,7 @@
  * 메시지가).
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -304,7 +305,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': '필터와 일치하는 메시지가 없습니다.',
   'workbench.editors.mqtt.timeline.searchMessages': '메시지 검색',
-  'workbench.editors.mqtt.timeline.messageCount': '메시지 {count}개',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), { other: '메시지 {count}개' }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': '메시지 {total}개 중 {shown}개',
   'workbench.editors.mqtt.timeline.dropped': '오래된 메시지 {count}개가 캡처에서 밀려났습니다',
   'workbench.editors.mqtt.timeline.topicFilterAll': '모든 토픽',

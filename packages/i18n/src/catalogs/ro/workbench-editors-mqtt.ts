@@ -21,6 +21,7 @@
  * thousands take a period (65.535).
  */
 
+import { plural } from '../../runtime';
 import type { Catalog } from '../../types';
 
 export const workbenchEditorsMqtt = {
@@ -318,7 +319,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.grantFailedNamed': '{name} ({code})',
   'workbench.editors.mqtt.timeline.noMatches': 'Niciun mesaj nu corespunde filtrului.',
   'workbench.editors.mqtt.timeline.searchMessages': 'Căutare mesaje',
-  'workbench.editors.mqtt.timeline.messageCount': 'mesaje: {count}',
+  'workbench.editors.mqtt.timeline.messageCount': ({ count }, locale) =>
+    plural(locale, Number(count), { one: '{count} mesaj', few: '{count} mesaje', other: '{count} de mesaje' }),
   'workbench.editors.mqtt.timeline.messageCountFiltered': 'mesaje: {shown} din {total}',
   'workbench.editors.mqtt.timeline.dropped': 'mesaje mai vechi ieșite din captură: {count}',
   'workbench.editors.mqtt.timeline.topicFilterAll': 'Toate subiectele',
