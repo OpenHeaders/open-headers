@@ -782,7 +782,7 @@ export async function executeMqttSession(
     });
     let unregisterSession: (() => void) | null = null;
 
-    const settle = (errorMessage?: string, hint?: TrustCertificateErrorHint): void => {
+    const settle = (errorMessage?: string, hint?: TrustCertificateErrorHint, advice?: string): void => {
       if (settled) return;
       settled = true;
       clearConnectionTimers();
@@ -815,6 +815,7 @@ export async function executeMqttSession(
                 : {
                     kind: 'failed',
                     error: refusalMessage ?? errorMessage ?? 'The session ended before it opened.',
+                    ...(refusalMessage === null && advice !== undefined ? { advice } : {}),
                     ...(refusalMessage === null && hint !== undefined ? { hint } : {}),
                   },
               connack,
@@ -1140,7 +1141,11 @@ export async function executeMqttSession(
       const wasOpen = attemptOpened;
       const dialingAgain = reconnectAttempt > 0;
       if (stopped) {
-        settle(error?.message, error instanceof MqttTransportError ? error.hint : undefined);
+        settle(
+          error?.message,
+          error instanceof MqttTransportError ? error.hint : undefined,
+          error instanceof MqttTransportError ? error.advice : undefined,
+        );
         return;
       }
       if (wasOpen && autoReconnect && reconnectable(end)) {
@@ -1160,7 +1165,11 @@ export async function executeMqttSession(
         scheduleReconnect(reconnectAttempt + 1, error?.message ?? 'The connection closed before the session opened.');
         return;
       }
-      settle(error?.message, error instanceof MqttTransportError ? error.hint : undefined);
+      settle(
+        error?.message,
+        error instanceof MqttTransportError ? error.hint : undefined,
+        error instanceof MqttTransportError ? error.advice : undefined,
+      );
     };
 
     /** The CONNECT fields the LAST dial composed — the entity's values

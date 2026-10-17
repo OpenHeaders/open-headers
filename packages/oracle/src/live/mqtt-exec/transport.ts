@@ -102,10 +102,14 @@ export class MqttTransportError extends Error {
   /** A TLS verification failure's trust remedy — the executor stamps
    *  it on the failed outcome. */
   readonly hint: TrustCertificateErrorHint | undefined;
-  constructor(message: string, hint?: TrustCertificateErrorHint) {
+  /** The classified failure's advice — what to check — beside the fact
+   *  in `message`; the executor stamps it on the failed outcome. */
+  readonly advice: string | undefined;
+  constructor(message: string, hint?: TrustCertificateErrorHint, advice?: string) {
     super(message);
     this.name = 'MqttTransportError';
     this.hint = hint;
+    this.advice = advice;
   }
 }
 

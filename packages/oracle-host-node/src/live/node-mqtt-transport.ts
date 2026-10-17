@@ -89,11 +89,18 @@ function mqttFailureCode(err: unknown): string | undefined {
     : undefined;
 }
 
+/** A classified dial failure — the fact, and the advice (what to
+ *  check) as its own field so a surface paints it in its own tone. */
+interface ClassifiedMqttDialFailure {
+  message: string;
+  advice?: string;
+}
+
 function classifyMqttDialFailure(
   request: MqttTransportRequest,
   err: unknown,
   attempt: SessionProxyAttempt | undefined,
-): string {
+): ClassifiedMqttDialFailure {
   const host = hostLabelOf(request.url);
   const certRef = request.clientCertificateRef;
   const code = mqttFailureCode(err);
@@ -102,36 +109,46 @@ function classifyMqttDialFailure(
   // resolve-to-address setting. Target-leg failures past the tunnel
   // fall through to the shared classification.
   const proxied = classifyProxyLegFailure(host, err, attempt, 'session', request.proxyCredentialRef);
-  if (proxied !== undefined) return proxied;
+  if (proxied !== undefined) return { message: proxied };
   const pinned = classifyPinnedDialFailure(host, request.resolveToAddress, err);
-  if (pinned !== undefined) return pinned;
+  if (pinned !== undefined) return { message: pinned };
   switch (code) {
     case 'ENOTFOUND':
     case 'EAI_AGAIN':
-      return `Could not resolve host ${host}.`;
+      return { message: `Could not resolve host ${host}.` };
     case 'ECONNREFUSED':
-      return `Connection refused by ${host}. Is the MQTT broker running on that host/port?`;
+      return {
+        message: `Connection refused by ${host}.`,
+        advice: 'Is the MQTT broker running on that host/port?',
+      };
     case 'EHOSTUNREACH':
     case 'ENETUNREACH':
-      return `No route to ${host} (${code}).`;
+      return { message: `No route to ${host} (${code}).` };
     case 'ETIMEDOUT':
-      return `Connection to ${host} timed out.`;
+      return { message: `Connection to ${host} timed out.` };
     case 'ECONNRESET':
-      return `Connection to ${host} was reset before the session opened.`;
+      return { message: `Connection to ${host} was reset before the session opened.` };
     case 'CERT_HAS_EXPIRED':
     case 'DEPTH_ZERO_SELF_SIGNED_CERT':
     case 'SELF_SIGNED_CERT_IN_CHAIN':
     case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
-      return `TLS certificate error reaching ${host} (${code}).`;
+      return { message: `TLS certificate error reaching ${host} (${code}).` };
     default: {
       if (certRef !== undefined && code?.startsWith('ERR_OSSL_')) {
-        return `The client certificate from vault entry "${certRef}" could not be loaded (${code}). Check that the entry's certificate and key are valid PEM, belong together, and that the passphrase is right.`;
+        return {
+          message: `The client certificate from vault entry "${certRef}" could not be loaded (${code}).`,
+          advice:
+            "Check that the entry's certificate and key are valid PEM, belong together, and that the passphrase is right.",
+        };
       }
       if (code !== undefined && (code.startsWith('ERR_SSL_') || code === 'EPROTO')) {
-        return `TLS handshake with ${host} failed (${code}). If the broker is plaintext, use mqtt:// instead of mqtts://.`;
+        return {
+          message: `TLS handshake with ${host} failed (${code}).`,
+          advice: 'If the broker is plaintext, use mqtt:// instead of mqtts://.',
+        };
       }
       const message = err instanceof Error ? err.message : String(err);
-      return `Could not open an MQTT connection to ${host}: ${message}`;
+      return { message: `Could not open an MQTT connection to ${host}: ${message}` };
     }
   }
 }
@@ -170,11 +187,11 @@ function connectTcp(
     timer = null;
     signal?.removeEventListener('abort', onAbort);
   };
-  const settleError = (message: string, hint?: TrustCertificateErrorHint): void => {
+  const settleError = (message: string, hint?: TrustCertificateErrorHint, advice?: string): void => {
     if (ended) return;
     ended = true;
     cleanup();
-    callbacks.onEnd(new MqttTransportError(message, hint));
+    callbacks.onEnd(new MqttTransportError(message, hint, advice));
   };
   const settleComplete = (): void => {
     if (ended) return;
@@ -196,9 +213,11 @@ function connectTcp(
     // HTTP and WS transports attach, so the pane can offer the
     // presented chain for pinning.
     const code = mqttFailureCode(err);
+    const failure = classifyMqttDialFailure(request, err, activeAttempt);
     settleError(
-      classifyMqttDialFailure(request, err, activeAttempt),
+      failure.message,
       isTlsVerificationCode(code) ? trustCertificateHintFor(request.url, code) : undefined,
+      failure.advice,
     );
   };
   const onAbort = (): void => {

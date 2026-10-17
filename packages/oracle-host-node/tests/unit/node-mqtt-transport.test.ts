@@ -278,7 +278,9 @@ describe('createNodeMqttTransport', () => {
       resolution: passthroughResolution,
     });
     if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
-    expect(snapshot.outcome.error).toContain(`Connection refused by 127.0.0.1:${deadPort}`);
+    expect(snapshot.outcome.error).toBe(`Connection refused by 127.0.0.1:${deadPort}.`);
+    // The advice — what to check — rides its own field beside the fact.
+    expect(snapshot.outcome.advice).toBe('Is the MQTT broker running on that host/port?');
   });
 
   it('rides MQTT-over-WebSocket: the mqtt subprotocol offered, packets on binary frames both ways', async () => {

@@ -414,6 +414,34 @@ describe('MqttMessageTimeline — the delegated open refused by the place', () =
   });
 });
 
+describe('MqttMessageTimeline — a classified failure with advice', () => {
+  it('paints the fact on the error tint and the advice after it in the secondary tone, one searchable line', () => {
+    render(
+      <MqttMessageTimeline
+        items={[]}
+        count={0}
+        lifecycle={{
+          startedAt: STARTED_AT,
+          connected: false,
+          errorMessage: 'Connection refused by 127.0.0.1:3131.',
+          errorAdvice: 'Is the MQTT broker running on that host/port?',
+          endedAt: STARTED_AT + 3,
+        }}
+        v5
+      />,
+    );
+    const detail = screen.getByTestId('mqtt-session-error-detail');
+    expect(detail.textContent).toBe(
+      'Connection refused by 127.0.0.1:3131. Is the MQTT broker running on that host/port?',
+    );
+    const advice = screen.getByTestId('mqtt-session-error-advice');
+    expect(advice.textContent).toBe(' Is the MQTT broker running on that host/port?');
+    expect(advice.style.color).not.toBe(detail.style.color);
+    fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: 'broker running' } });
+    expect(screen.getByTestId('mqtt-timeline-error-row')).toBeTruthy();
+  });
+});
+
 describe('MqttMessageTimeline — the refused CONNACK', () => {
   // A 3.1.1-only broker answering a 5.0 CONNECT in its own form: two
   // bytes, return code 1, no properties — the executor names it from

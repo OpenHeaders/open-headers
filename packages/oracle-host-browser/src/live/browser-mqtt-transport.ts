@@ -33,14 +33,14 @@ import type {
 import { MqttTransportError } from '@openheaders/oracle/live/mqtt-exec/transport';
 import { createBrowserWsTransport } from './browser-ws-transport';
 
-const TCP_SCHEME_MESSAGE =
-  'mqtt:// and mqtts:// dial a raw TCP socket, which a browser page cannot open. Use ws:// or wss:// here, or run the session on the desktop app or server.';
+const TCP_SCHEME_MESSAGE = 'mqtt:// and mqtts:// dial a raw TCP socket, which a browser page cannot open.';
+const TCP_SCHEME_ADVICE = 'Use ws:// or wss:// here, or run the session on the desktop app or server.';
 
 export function createBrowserMqttTransport(): MqttByteTransport {
   return {
     connect(request: MqttTransportRequest, callbacks: MqttStreamCallbacks, signal?: AbortSignal): MqttStreamWriter {
       if (!/^wss?:\/\//i.test(request.url)) {
-        queueMicrotask(() => callbacks.onEnd(new MqttTransportError(TCP_SCHEME_MESSAGE)));
+        queueMicrotask(() => callbacks.onEnd(new MqttTransportError(TCP_SCHEME_MESSAGE, undefined, TCP_SCHEME_ADVICE)));
         return { write: () => {}, end: () => {} };
       }
       const wsTransport = createBrowserWsTransport();

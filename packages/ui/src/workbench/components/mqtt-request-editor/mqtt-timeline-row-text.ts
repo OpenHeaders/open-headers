@@ -115,10 +115,11 @@ export function endedRowText(lifecycle: MqttTimelineLifecycle, t: Translate): st
 }
 
 /** The error-slot row's line — the neutral aborted row, or the
- *  classified failure verbatim. */
+ *  classified failure verbatim: the fact, and the advice after it. */
 export function errorRowText(lifecycle: MqttTimelineLifecycle, t: Translate): string {
   if (lifecycle.aborted === true) return t('workbench.editors.mqtt.timeline.aborted');
-  return lifecycle.errorMessage ?? '';
+  const fact = lifecycle.errorMessage ?? '';
+  return lifecycle.errorAdvice !== undefined ? `${fact} ${lifecycle.errorAdvice}` : fact;
 }
 
 /** The CONNACK block's words — the facts a Connected / Reconnected /

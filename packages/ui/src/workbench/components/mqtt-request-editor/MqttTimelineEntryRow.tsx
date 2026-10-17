@@ -376,6 +376,8 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
           style={{ ...lifecycleRowStyle, ...(refusalExpandable ? { cursor: 'pointer' } : {}) }}
         >
           {lifecycleGlyph(<CloseCircleOutlined aria-hidden style={{ color: token.colorError }} />)}
+          {/* The fact on the error tint; the advice — what to check —
+              after it in the secondary tone, one line. */}
           <span
             title={errorRowText(lifecycle, t)}
             data-testid="mqtt-session-error-detail"
@@ -387,7 +389,12 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
               color: token.colorError,
             }}
           >
-            {errorRowText(lifecycle, t)}
+            {lifecycle.errorMessage}
+            {lifecycle.errorAdvice !== undefined && (
+              <span data-testid="mqtt-session-error-advice" style={{ color: token.colorTextSecondary }}>
+                {` ${lifecycle.errorAdvice}`}
+              </span>
+            )}
           </span>
           {onTrustCertificate !== undefined && (
             <Button

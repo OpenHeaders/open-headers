@@ -188,7 +188,14 @@ export type ExecutedMqttOutcome =
   | { kind: 'connected' }
   /** `hint` rides a TLS verification failure — the presented chain the
    *  pane can offer for pinning (the HTTP snapshot's hint). */
-  | { kind: 'failed'; error: string; hint?: TrustCertificateErrorHint }
+  | {
+      kind: 'failed';
+      error: string;
+      /** The classified failure's advice — what to check — beside the
+       *  fact in `error`, so a surface can paint it in its own tone. */
+      advice?: string;
+      hint?: TrustCertificateErrorHint;
+    }
   | { kind: 'aborted' };
 
 export interface ExecutedMqttSnapshot {

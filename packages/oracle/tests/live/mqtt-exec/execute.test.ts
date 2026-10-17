@@ -946,10 +946,10 @@ function reconnectRig(version: MqttProtocolVersion) {
       dial.callbacks.onEnd();
     },
     /** The dial failed before it established. */
-    fail: (n: number, message: string, hint?: TrustCertificateErrorHint) => {
+    fail: (n: number, message: string, hint?: TrustCertificateErrorHint, advice?: string) => {
       const dial = dialAt(n);
       dial.ended = true;
-      dial.callbacks.onEnd(new MqttTransportError(message, hint));
+      dial.callbacks.onEnd(new MqttTransportError(message, hint, advice));
     },
   };
 }
@@ -1071,7 +1071,14 @@ describe('executeMqttSession — auto-reconnect', () => {
     // The empty knob waits the 5 s reference default.
     await vi.advanceTimersByTimeAsync(5_000);
     expect(rig.dialCount()).toBe(2);
-    rig.fail(1, 'Connection refused by broker.openheaders.io:1883. Is the MQTT broker running on that host/port?');
+    // The classified failure's advice rides its own field — a redial's
+    // row carries the fact alone.
+    rig.fail(
+      1,
+      'Connection refused by broker.openheaders.io:1883.',
+      undefined,
+      'Is the MQTT broker running on that host/port?',
+    );
     await tick();
     await vi.advanceTimersByTimeAsync(5_000);
     expect(rig.dialCount()).toBe(3);
@@ -1093,7 +1100,7 @@ describe('executeMqttSession — auto-reconnect', () => {
       kind: 'reconnecting',
       attempt: 2,
       delayMs: 5_000,
-      error: 'Connection refused by broker.openheaders.io:1883. Is the MQTT broker running on that host/port?',
+      error: 'Connection refused by broker.openheaders.io:1883.',
     });
     expect(snapshot.end).toEqual({ by: 'client' });
   });

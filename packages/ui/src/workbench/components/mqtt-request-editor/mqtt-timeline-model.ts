@@ -118,6 +118,10 @@ export interface MqttTimelineLifecycle {
    *  facts when `connack` rides beside it; never set beside `endedBy`
    *  or `aborted`. */
   errorMessage?: string;
+  /** The classified failure's advice — what to check — painted in the
+   *  secondary tone after the fact, never on the error tint. Rides
+   *  only beside `errorMessage`. */
+  errorAdvice?: string;
   /** The pre-open end was USER-initiated (Cancel / Stop) — the neutral
    *  "Connection aborted" info row renders at the error row's slot
    *  instead of the error tint. Never set beside `errorMessage` (an

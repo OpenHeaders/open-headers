@@ -194,7 +194,10 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
         connected: false,
         ...(connackFacts !== undefined ? { connack: connackFacts } : {}),
         ...(snapshot.outcome.kind === 'failed'
-          ? { errorMessage: snapshot.outcome.error }
+          ? {
+              errorMessage: snapshot.outcome.error,
+              ...(snapshot.outcome.advice !== undefined ? { errorAdvice: snapshot.outcome.advice } : {}),
+            }
           : { aborted: true as const }),
         // The abort tore down an established broker socket — the
         // disconnect logs as its own row with its observed instant.

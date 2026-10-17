@@ -79,7 +79,9 @@ export function createDelegatingMqttTransport(options: DelegatingMqttTransportOp
           }
           case 'end':
             settle(
-              event.error !== undefined ? new MqttTransportError(event.error.message, event.error.hint) : undefined,
+              event.error !== undefined
+                ? new MqttTransportError(event.error.message, event.error.hint, event.error.advice)
+                : undefined,
             );
             return;
           default:

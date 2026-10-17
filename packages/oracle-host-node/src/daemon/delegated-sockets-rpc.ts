@@ -89,8 +89,16 @@ function socketEventSink(userId: string): (event: DelegatedSocketEvent) => void 
 }
 
 /** The seam's classified end onto the wire's plain error. */
-function endErrorOf(error: { message: string; hint?: DelegatedSocketEndError['hint'] }): DelegatedSocketEndError {
-  return { message: error.message, ...(error.hint !== undefined ? { hint: error.hint } : {}) };
+function endErrorOf(error: {
+  message: string;
+  hint?: DelegatedSocketEndError['hint'];
+  advice?: string;
+}): DelegatedSocketEndError {
+  return {
+    message: error.message,
+    ...(error.advice !== undefined ? { advice: error.advice } : {}),
+    ...(error.hint !== undefined ? { hint: error.hint } : {}),
+  };
 }
 
 export function createDelegatedSocketsRpc(options: DelegatedSocketsRpcOptions = {}): WsPeerRpcHooks {

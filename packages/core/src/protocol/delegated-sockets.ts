@@ -101,6 +101,8 @@ export interface DelegatedSocketTrustHint {
  *  DEADLINE_EXCEEDED), never wire truth. */
 export interface DelegatedSocketEndError {
   message: string;
+  /** The classified failure's advice — what to check — beside the fact. */
+  advice?: string;
   hint?: DelegatedSocketTrustHint;
   canonicalStatus?: number;
 }
