@@ -81,7 +81,35 @@ describe('ResponseSseEventList rows', () => {
     expect(rows[1].textContent).toContain('plain payload');
     // Named events carry their wire name and the collapsed JSON preview.
     expect(rows[2].textContent).toContain('tick');
-    expect(rows[2].textContent).toContain('"seq": 1');
+    expect(rows[2].textContent).toContain('{"seq":1,"resourceVersion":9007199254740993}');
+  });
+
+  it('previews the data verbatim from the wire — a multi-line payload reads as its lines side by side', () => {
+    const items = itemsOf('event: tick\ndata: {"seq":5}\ndata: {"named":true}\n\ndata\ndata: tail\n\n');
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    const rows = screen.getAllByTestId('oh-sse-event-row');
+    expect(rows[1].textContent).toContain('{"seq":5} {"named":true}');
+    // A bare `data` line is an empty value — it joins as such.
+    expect(rows[0].textContent).toContain(' tail');
+  });
+
+  it('colors only a name the wire carried — the default message and the comment wear the quiet tone', () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    const badges = screen.getAllByTestId('oh-sse-event-badge');
+    // antd's preset palette lands as `ant-tag-<color>`; the quiet badges
+    // carry none of them.
+    const palette = ['blue', 'green', 'purple', 'magenta', 'cyan', 'volcano', 'geekblue', 'orange'];
+    const colored = (badge: HTMLElement): boolean =>
+      palette.some((color) => badge.classList.contains(`ant-tag-${color}`));
+    expect(badges[2].getAttribute('data-badge-kind')).toBe('named');
+    expect(colored(badges[2])).toBe(true);
+    expect(badges[1].getAttribute('data-badge-kind')).toBe('message');
+    expect(colored(badges[1])).toBe(false);
+    expect(badges[1].style.fontStyle).toBe('');
+    expect(badges[0].getAttribute('data-badge-kind')).toBe('comment');
+    expect(colored(badges[0])).toBe(false);
+    expect(badges[0].style.fontStyle).toBe('italic');
   });
 
   it('shows session timestamps when provided and none otherwise', () => {
@@ -372,8 +400,8 @@ describe('ResponseSseEventList group by event name', () => {
     const rows = screen.getAllByTestId('oh-sse-event-row');
     expect(rows).toHaveLength(4);
     // Within the tick group, arrival order (newest-first) holds.
-    expect(rows[2].textContent).toContain('"seq": 3');
-    expect(rows[3].textContent).toContain('"seq": 1');
+    expect(rows[2].textContent).toContain('{"seq":3}');
+    expect(rows[3].textContent).toContain('{"seq":1}');
   });
 
   it('anchored group order holds as new events commit to an old group', async () => {
@@ -421,8 +449,8 @@ describe('ResponseSseEventList group by event name', () => {
     // Oldest-first reading: first-seen name leads.
     expect(headers[0].textContent).toContain('tick');
     const rows = screen.getAllByTestId('oh-sse-event-row');
-    expect(rows[0].textContent).toContain('"seq": 1');
-    expect(rows[1].textContent).toContain('"seq": 3');
+    expect(rows[0].textContent).toContain('{"seq":1}');
+    expect(rows[1].textContent).toContain('{"seq":3}');
     fireEvent.change(screen.getByTestId('oh-sse-search'), { target: { value: 'seq' } });
     expect(screen.getAllByTestId('oh-sse-group-header')).toHaveLength(2);
     expect(screen.getAllByTestId('oh-sse-event-row')).toHaveLength(3);
@@ -439,8 +467,8 @@ describe('ResponseSseEventList group by event name', () => {
     expect(headers[2].textContent).toContain('2 events');
     const rows = screen.getAllByTestId('oh-sse-event-row');
     expect(rows).toHaveLength(3);
-    expect(rows[2].textContent).toContain('"seq": 3');
-    expect(screen.queryByText(/"seq": 1/)).toBeNull();
+    expect(rows[2].textContent).toContain('{"seq":3}');
+    expect(screen.queryByText(/\{"seq":1\}/)).toBeNull();
   });
 
   it('the sticky overlay pins the group spanning the viewport top, still collapsible', () => {
@@ -484,8 +512,8 @@ describe('ResponseSseEventList virtualization', () => {
     // render-everything fallback — the full list, no pager row.
     const rows = screen.getAllByTestId('oh-sse-event-row');
     expect(rows).toHaveLength(250);
-    expect(rows[0].textContent).toContain('"seq": 249');
-    expect(rows[249].textContent).toContain('"seq": 0');
+    expect(rows[0].textContent).toContain('{"seq":249}');
+    expect(rows[249].textContent).toContain('{"seq":0}');
     expect(screen.queryByTestId('oh-sse-show-older')).toBeNull();
   });
 
@@ -504,7 +532,7 @@ describe('ResponseSseEventList virtualization', () => {
     expect(mounted).toBeLessThan(100);
     // Scrolled to the far end, the tail rows mount instead.
     fireEvent.scroll(scroller, { target: { scrollTop: 27000 } });
-    expect(screen.getAllByTestId('oh-sse-event-row')[0].textContent).not.toContain('"seq": 999');
+    expect(screen.getAllByTestId('oh-sse-event-row')[0].textContent).not.toContain('{"seq":999}');
   });
 });
 

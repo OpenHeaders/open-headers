@@ -4,9 +4,15 @@
  * frames while the send is in flight) and materialized (fed from the
  * parsed snapshot). One row per wire event, newest-first by default
  * with an arrival-order sort toggle (a stream is a timeline — time is
- * its one meaningful order): direction glyph, colored event-name
- * badge, inline data preview, session-only timestamp, and an info
- * popover (id / size / retry). Comment blocks are their own rows.
+ * its one meaningful order): direction glyph, event-name badge, the
+ * data VERBATIM as the wire carried it (the lines joined by a space —
+ * the browsers', Postman's and Bruno's row reading; formatting belongs
+ * to the expanded viewer), session-only timestamp, and an info popover
+ * (id / size / retry). Comment blocks are their own rows. The badge
+ * colors only a name the wire carried; the spec's default `message`
+ * (every unnamed data event — what an EventSource dispatches) and the
+ * `comment` rows wear the quiet tone, so the server's own names stand
+ * out while grouping and the name filter still see every row.
  * Lifecycle rows — Connected at the oldest edge, closed/stopped/capped
  * at the newest, flipping with the sort — derive from the head state +
  * `streamedCapture`, never invented; at Stop/close the ended row
@@ -208,20 +214,24 @@ function badgeNameOf(item: SseEventItem): string {
 
 const previewCache = new WeakMap<SseEventItem, string>();
 
+/** The row's preview — the block's `data:` line values VERBATIM from
+ *  the wire text, joined by a space (a multi-line payload reads as its
+ *  lines side by side); a comment-only row shows its comment. Never a
+ *  re-print: the formatted payload is the expanded viewer's. */
 function previewOf(item: SseEventItem): string {
   const hit = previewCache.get(item);
   if (hit !== undefined) return hit;
-  const data = item.record.data;
+  const dataLines: string[] = [];
+  for (const line of item.raw.split('\n')) {
+    if (line === 'data') dataLines.push('');
+    else if (line.startsWith('data:')) dataLines.push(line.slice(5).startsWith(' ') ? line.slice(6) : line.slice(5));
+  }
   let text: string;
-  if (data === undefined) {
+  if (dataLines.length > 0) {
+    text = dataLines.join(' ');
+  } else {
     const comment = item.record.comment;
     text = typeof comment === 'string' ? comment : item.raw;
-  } else if (typeof data === 'string') {
-    text = data;
-  } else {
-    // Lossless print collapsed to one line — the stripped newlines are
-    // indentation only (string content stays JSON-escaped).
-    text = stringifyLossless(data).replace(/\n\s*/g, ' ');
   }
   const preview = text.replace(/\n/g, ' ').slice(0, PREVIEW_MAX_CHARS);
   previewCache.set(item, preview);
@@ -675,6 +685,14 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     fontSize: 12,
   };
 
+  // The quiet badge tone — the spec's default `message` in the tertiary
+  // text, a `comment` the same and italic (not an event at all); a
+  // name the wire carried keeps its color.
+  const quietBadge = (kind: ReturnType<typeof badgeOf>['kind']): React.CSSProperties =>
+    kind === 'named'
+      ? {}
+      : { color: token.colorTextTertiary, ...(kind === 'comment' ? { fontStyle: 'italic' } : {}) };
+
   // Lifecycle glyph — centered in the event badge's 18px slot so every
   // row's leading mark sits on ONE column, drawn at the size the badge
   // reads at (the circle's footprint ≈ the tinted box).
@@ -777,13 +795,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         />
         <Tag
           color={headBadge.kind === 'named' ? badgeColor(name) : undefined}
-          style={{
-            marginInlineEnd: 0,
-            fontSize: 11,
-            lineHeight: '18px',
-            flexShrink: 0,
-            ...(headBadge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-          }}
+          style={{ marginInlineEnd: 0, fontSize: 11, lineHeight: '18px', flexShrink: 0, ...quietBadge(headBadge.kind) }}
         >
           {name}
         </Tag>
@@ -921,14 +933,9 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
             {eventBadge}
             <Tag
               data-testid="oh-sse-event-badge"
+              data-badge-kind={badge.kind}
               color={badge.kind === 'named' ? badgeColor(badge.name) : undefined}
-              style={{
-                marginInlineEnd: 0,
-                fontSize: 11,
-                lineHeight: '18px',
-                flexShrink: 0,
-                ...(badge.kind === 'comment' ? { fontStyle: 'italic', color: token.colorTextTertiary } : {}),
-              }}
+              style={{ marginInlineEnd: 0, fontSize: 11, lineHeight: '18px', flexShrink: 0, ...quietBadge(badge.kind) }}
             >
               {badge.name}
             </Tag>
