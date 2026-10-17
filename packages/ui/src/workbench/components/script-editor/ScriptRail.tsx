@@ -7,9 +7,9 @@
  * request's tab, whose kind the header would only repeat.
  *
  * A row carries the slot's label, its `(i)` card and a dot: the
- * has-script primary dot, or the unsaved salmon dot when the slot
- * differs from the saved entity (shown even on an emptied-but-unsaved
- * script), matching the tab-label tones. The selected row and the
+ * has-script dot in the neutral secondary tone, or the unsaved salmon
+ * dot when the slot differs from the saved entity (shown even on an
+ * emptied-but-unsaved script), matching the tab-label tones. The selected row and the
  * hover fill are the stylesheet's (`.oh-script-rail-row` in
  * editor.less, off `aria-pressed`) — an inline background would sit
  * above the hover rule. A kind header's badge carries the kind's own
@@ -106,7 +106,7 @@ const ScriptRailRow: React.FC<{
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: unsaved ? '#ff7875' : token.colorPrimary,
+            background: unsaved ? '#ff7875' : token.colorTextSecondary,
             flexShrink: 0,
           }}
         />

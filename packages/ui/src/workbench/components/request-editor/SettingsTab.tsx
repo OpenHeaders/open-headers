@@ -300,8 +300,8 @@ interface SettingsTabProps {
   workspaceId?: string | null;
   /** Knobs whose draft value differs from the SAVED request (see
    *  settings-unsaved.ts) — their dots render in the sidebar/tab-bar
-   *  dirty salmon, outranking the blue non-default tone. Omitted = no
-   *  baseline, every dot keeps its blue non-default meaning. */
+   *  dirty salmon, outranking the neutral non-default tone. Omitted = no
+   *  baseline, every dot keeps its neutral non-default meaning. */
   unsaved?: ReadonlySet<string>;
   /** The runtime whose KNOBS this tab unlocks — `node` when the send is
    *  delegated to a place that applies them (the Execution Place plan:

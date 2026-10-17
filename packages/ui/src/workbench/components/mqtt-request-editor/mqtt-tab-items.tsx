@@ -6,7 +6,7 @@
  * (per section, per settings knob) and renders the result.
  *
  * Tone precedence on every label (the HTTP rule minus its red tier —
- * MQTT has no unresolved plane): salmon unsaved > blue has-content >
+ * MQTT has no unresolved plane): salmon unsaved > neutral has-content >
  * nothing. On the grid tabs (Topics / Properties) the count badge
  * itself carries the unsaved tone; a grid whose rows were all removed
  * but not yet saved has no badge, so a bare salmon dot stands in.
@@ -40,7 +40,7 @@ export interface MqttTabItemsInput {
    *  mqtt-settings-unsaved.ts) — the Settings label's salmon dot. */
   unsavedSettings?: ReadonlySet<MqttSettingsKnobKey>;
   /** Does the request hold an own value on any knob — the Settings
-   *  label's blue dot. */
+   *  label's neutral has-content dot. */
   ownSettings: boolean;
 }
 
@@ -51,7 +51,7 @@ function gridMark(count: number, unsaved: boolean): React.ReactNode {
   return unsaved ? <TabDot tone="unsaved" /> : null;
 }
 
-/** Salmon over blue over nothing. */
+/** Salmon over neutral over nothing. */
 function toneMark(unsaved: boolean, hasContent: boolean): React.ReactNode {
   if (unsaved) return <TabDot tone="unsaved" />;
   return hasContent ? <TabDot /> : null;

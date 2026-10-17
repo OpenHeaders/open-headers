@@ -1,12 +1,12 @@
 /**
  * Per-knob unsaved-vs-saved comparison behind the Settings tab's
  * orange dots. Two orthogonal facts color a knob's accent dot:
- *   • blue — the knob differs from its RUNTIME DEFAULT (the existing
+ *   • neutral — the knob differs from its RUNTIME DEFAULT (the existing
  *     "what did I change here" affordance);
  *   • orange — the knob differs from the SAVED request (this knob's
  *     slice of why Save is orange), and orange wins while both hold.
  * A knob reverted to its default but not yet saved therefore still
- * dots orange, and on save every orange dot either turns blue
+ * dots orange, and on save every orange dot either turns neutral
  * (non-default) or disappears (back at default).
  *
  * Comparison runs on the RAW values — explicit wins on the ancestor

@@ -399,7 +399,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     [savedRequest],
   );
   // Per-knob unsaved settings — feeds the Settings tab label and the
-  // tab's row/group dots (the salmon tone outranks blue).
+  // tab's row/group dots (the salmon tone outranks the neutral dot).
   const unsavedSettings = useMemo(
     () => unsavedSettingKeys(settingsSlice(draftUpdates), settingsSlice(savedUpdates)),
     [draftUpdates, savedUpdates],

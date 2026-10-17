@@ -67,10 +67,12 @@ export const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsave
 };
 
 /** Small colored dot shown on a tab label to flag that the section
- *  has content OR an unresolved `{{ref}}`. `tone='error'` renders in
- *  red to match the inline mirror + sidebar badge; `tone='unsaved'`
- *  renders in the sidebar/tab-bar dirty salmon — the section holds
- *  knobs that differ from the saved request (see settings-unsaved.ts). */
+ *  has content OR an unresolved `{{ref}}`. The default tone is the
+ *  neutral secondary — a fact, never the active tab's primary color;
+ *  `tone='error'` renders in red to match the inline mirror + sidebar
+ *  badge; `tone='unsaved'` renders in the sidebar/tab-bar dirty salmon
+ *  — the section holds knobs that differ from the saved request (see
+ *  settings-unsaved.ts). */
 export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ tone = 'default' }) => {
   const { token } = theme.useToken();
   return (
@@ -83,7 +85,7 @@ export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ t
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: tone === 'error' ? token.colorError : tone === 'unsaved' ? '#ff7875' : token.colorPrimary,
+        background: tone === 'error' ? token.colorError : tone === 'unsaved' ? '#ff7875' : token.colorTextSecondary,
         marginLeft: 4,
         verticalAlign: 'middle',
       }}
@@ -132,7 +134,7 @@ export function buildRequestTabItems(
     own('timeoutMs') ||
     (!browserRuntime && NODE_SETTINGS_KNOBS.some(own));
   // Settings holds a knob that differs from the SAVED request — the
-  // orange (unsaved) tone outranks the blue own-value dot. Same
+  // orange (unsaved) tone outranks the neutral own-value dot. Same
   // per-runtime visibility gates as `settingsDirty`: a synced delta on
   // a knob with no row here must not dot the tab; the proxy URL and
   // credential rows are live under an own Custom mode, so their edits
@@ -145,7 +147,7 @@ export function buildRequestTabItems(
     (!browserRuntime && (NODE_SETTINGS_KNOBS.some(has) || has('proxyUrl') || has('proxyCredentialRef')));
 
   // Tone precedence on every label: red unresolved > salmon unsaved >
-  // blue has-content. On the badge tabs (Params / Headers) the count
+  // neutral has-content. On the badge tabs (Params / Headers) the count
   // badge itself carries the unsaved tone; a section whose rows were
   // all removed but not yet saved has no badge, so a bare unsaved dot
   // stands in. Docs has content once a description is written;
