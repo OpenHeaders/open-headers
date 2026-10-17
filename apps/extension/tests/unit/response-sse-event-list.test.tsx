@@ -344,7 +344,7 @@ describe('ResponseSseEventList strip filters', () => {
     expect(screen.getByTestId('oh-sse-count').textContent).toBe('1 of 3 events');
   });
 
-  it('Clear carries its label; View holds the grouping knobs behind an icon + label trigger', async () => {
+  it('Clear carries its label; View holds the grouping knobs alone behind an icon + label trigger', async () => {
     const items = itemsOf(BODY);
     render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
     expect(screen.getByTestId('oh-sse-clear').textContent).toBe('Clear');
@@ -354,7 +354,8 @@ describe('ResponseSseEventList strip filters', () => {
     const group = await screen.findByText('Group by event name');
     expect(group.closest('.ant-dropdown-menu')?.classList.contains('oh-view-menu')).toBe(true);
     expect(screen.getByText('Rows per group')).toBeTruthy();
-    expect(screen.getByText('Wrap lines')).toBeTruthy();
+    // Wrap is the viewer toolbar's icon, as on every read-only viewer.
+    expect(screen.queryByText('Wrap lines')).toBeNull();
     // A knob flip keeps the View menu open — several flip in one visit.
     fireEvent.click(group);
     expect(screen.getByText('Rows per group')).toBeTruthy();
@@ -549,6 +550,23 @@ describe('ResponseSseEventList row expansion', () => {
     expect(rows[2].getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(rows[2]);
     expect(screen.queryByTestId('oh-sse-event-viewer')).toBeNull();
+  });
+
+  it('wears the shared viewer toolbar — the picker reads the grammar, Raw shows the wire block', async () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    fireEvent.click(screen.getAllByTestId('oh-sse-event-row')[2]);
+    const picker = screen.getByTestId('oh-sse-viewer-picker');
+    expect(screen.getByTestId('oh-sse-viewer-picker-label').textContent).toBe('JSON');
+    expect(screen.getByTestId('oh-sse-viewer-wrap')).toBeTruthy();
+    expect(screen.getByTestId('oh-sse-viewer-find')).toBeTruthy();
+    expect(screen.getByTestId('oh-sse-viewer-copy')).toBeTruthy();
+    fireEvent.click(picker);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Raw' }));
+    const editor = screen.getByTestId('oh-sse-event-viewer').querySelector('textarea');
+    expect(editor?.value).toContain('event: tick');
+    expect(editor?.value).toContain('data: {"seq":1,"resourceVersion":9007199254740993}');
+    expect(screen.getByTestId('oh-sse-viewer-picker-label').textContent).toBe('Raw');
   });
 
   it('shows the payload text verbatim for non-JSON payloads', () => {

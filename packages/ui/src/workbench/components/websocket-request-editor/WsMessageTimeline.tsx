@@ -2067,6 +2067,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
             text={view.text}
             defaultFormat={view.kind === 'json' ? 'json' : 'text'}
             hexDump={() => derive.hexOf(item)}
+            base64={() => (item.secret === true ? view.text : item.dataBase64)}
             mode={viewerModes.modeOf(entry.index, item.binary)}
             onModeChange={(mode) => viewerModes.setMode(entry.index, mode)}
             wrapLines={wrapLines}

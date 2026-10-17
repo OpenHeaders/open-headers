@@ -719,6 +719,7 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
           text={view.text}
           defaultFormat={view.kind === 'json' ? 'json' : 'text'}
           hexDump={() => derive.hexOf(item)}
+          base64={() => (item.secret === true ? view.text : item.payloadBase64)}
           mode={viewerModes.modeOf(entry.index, view.kind === 'binary')}
           onModeChange={(mode) => viewerModes.setMode(entry.index, mode)}
           wrapLines={wrapLines}

@@ -35,7 +35,7 @@
  * (all events / lifecycle only — a stream has one direction, so the
  * lens is the direction menu's whole remainder) and the count on the
  * left; the event-NAME filter (several names at once, over every name
- * the log has seen), Sort by, View (grouping, the row limit, wrap) and
+ * the log has seen), Sort by, View (grouping, the row limit) and
  * Clear on the right. Every trigger is icon + label — the lens trigger
  * reads the filter in force, Sort by and View stay names — and the
  * menus ride antd's selection plane under `.oh-choice-menu` /
@@ -51,13 +51,14 @@
  * row carrying the alarm). Rows separate by the shared hairline, the
  * last row bare — no frame around the list.
  *
- * Rows expand into a mini viewer: the shared CodeEditor over the DATA
- * payload — lossless JSON print under the JSON grammar (int64 tokens
- * verbatim — the F3 law), per-line JSON documents printed in sequence,
- * the payload text otherwise (raw wire block for comment-only rows);
- * wrap toggles from the toolbar and Monaco's own Find covers in-viewer
- * search. Search and Clear are display-only — the capture is never
- * touched, and Copy/Raw elsewhere still see the wire body.
+ * Rows expand into the shared timeline viewer: Pretty is this list's
+ * own print over the DATA payload — lossless JSON under the JSON
+ * grammar (int64 tokens verbatim — the F3 law), per-line JSON
+ * documents printed in sequence, the payload text otherwise (the raw
+ * wire block for comment-only rows); Raw / Hex / Base64 read the
+ * block as it came; wrap, Find and Copy ride the viewer's toolbar.
+ * Search and Clear are display-only — the capture is never touched,
+ * and Copy/Raw elsewhere still see the wire body.
  *
  * Search is a LOOKUP over every row: an event's badge name plus its
  * FULL printed payload (what the expanded viewer shows — lowercased
@@ -106,15 +107,21 @@ import {
   SortAscendingOutlined,
   SortDescendingOutlined,
 } from '@ant-design/icons';
+import { encodeBase64Bytes } from '@openheaders/core/utils';
 import { Button, Dropdown, Input, Popover, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import CodeEditor from '../../shared/CodeEditor';
-import { STREAM_HAIRLINE, StreamLastRow } from '../../shared/TimelineMessageViewer';
+import TimelineMessageViewer, {
+  STREAM_HAIRLINE,
+  StreamLastRow,
+  useTimelineViewerModes,
+  VIEWER_PX,
+} from '../../shared/TimelineMessageViewer';
 import { parseLosslessJson, stringifyLossless } from './lossless-json';
+import { buildHexDump, type HexDump } from './response-encoding';
 import { formatBytes } from './response-format';
 import type { SseEventItem } from './response-sse';
 import {
@@ -137,9 +144,6 @@ const PREVIEW_MAX_CHARS = 400;
  *  header, lifecycle) — the virtual window's arithmetic depends on
  *  heights being exact by construction. */
 const SINGLE_ROW_PX = 28;
-/** Pinned height of an expanded row's mini viewer (180px editor +
- *  1px divider). */
-const VIEWER_PX = 181;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -286,6 +290,16 @@ function searchTextOf(item: SseEventItem): string {
   return text;
 }
 
+/** The block's bytes as the classic dump — computed on first open. */
+const hexCache = new WeakMap<SseEventItem, HexDump>();
+function hexDumpOf(item: SseEventItem): HexDump {
+  const hit = hexCache.get(item);
+  if (hit !== undefined) return hit;
+  const dump = buildHexDump(new TextEncoder().encode(item.raw));
+  hexCache.set(item, dump);
+  return dump;
+}
+
 /** Session timestamps are wall-clock local times — HH:MM:SS.mmm. */
 function formatEventTime(ts: number): string {
   const d = new Date(ts);
@@ -351,6 +365,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   const [clearedCount, setClearedCount] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set<number>());
   const [wrapLines, setWrapLines] = useState(true);
+  const viewerModes = useTimelineViewerModes();
   // Sort direction and grouping are SETTINGS — global, user-owned,
   // written by this toolbar and the Settings page alike; a Send/Stop
   // remount never resets them.
@@ -972,22 +987,22 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
         );
       }
       case 'viewer': {
-        const viewer = viewerContentOf(items[entry.index]);
+        const item = items[entry.index];
+        const viewer = viewerContentOf(item);
         return (
-          <div
-            key={entry.key}
-            data-testid="oh-sse-event-viewer"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            style={{ height: VIEWER_PX - 1, borderBottom: STREAM_HAIRLINE }}
-          >
-            <CodeEditor
-              value={viewer.value}
-              language={viewer.language}
-              readOnly
-              fill
-              variableAutoComplete={false}
-              wordWrapOverride={wrapLines ? 'on' : 'off'}
+          <div key={entry.key} data-testid="oh-sse-event-viewer">
+            <TimelineMessageViewer
+              text={item.raw}
+              prettyText={viewer.value}
+              defaultFormat={viewer.language}
+              hexDump={() => hexDumpOf(item)}
+              base64={() => encodeBase64Bytes(new TextEncoder().encode(item.raw))}
+              mode={viewerModes.modeOf(entry.index, false)}
+              onModeChange={(mode) => viewerModes.setMode(entry.index, mode)}
+              wrapLines={wrapLines}
+              onWrapLinesChange={setWrapLines}
+              actionsRef={viewerModes.actionsOf(entry.index)}
+              testIdPrefix="oh-sse"
             />
           </div>
         );
@@ -1023,11 +1038,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   );
   // The View menu's on-knobs ride antd's selection plane (several at
   // once); the Rows per group submenu is the one single choice.
-  const viewSelectedKeys = [
-    ...(groupByName ? ['group'] : []),
-    `group-limit-${groupRowLimit}`,
-    ...(wrapLines ? ['wrap'] : []),
-  ];
+  const viewSelectedKeys = [...(groupByName ? ['group'] : []), `group-limit-${groupRowLimit}`];
 
   return (
     <div
@@ -1195,12 +1206,6 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
                     })),
                   },
                 ],
-              },
-              { type: 'divider' },
-              {
-                key: 'wrap',
-                label: t('workbench.editors.request.response.body.wrapLines'),
-                onClick: () => setWrapLines((prev) => !prev),
               },
             ],
           }}

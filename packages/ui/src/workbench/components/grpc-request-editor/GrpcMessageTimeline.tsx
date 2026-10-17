@@ -1456,8 +1456,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         const item = items[entry.index];
         const view = derive.viewOf(item);
         // A decoded frame reads as JSON; the raw and compressed frames
-        // have only their bytes — they open on the Hexdump, Show Message
-        // reads the base64.
+        // have only their bytes — they open on the Hexdump, the text
+        // views read the base64.
         const decoded = view.kind === 'schema' || view.kind === 'structural';
         const text = decoded ? view.text : view.kind === 'raw' ? view.base64 : '';
         return (
@@ -1466,6 +1466,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             text={text}
             defaultFormat={decoded ? 'json' : 'text'}
             hexDump={() => derive.hexOf(item)}
+            base64={() => (item.secret === true ? text : item.dataBase64)}
             mode={viewerModes.modeOf(entry.index, !decoded)}
             onModeChange={(mode) => viewerModes.setMode(entry.index, mode)}
             wrapLines={wrapLines}

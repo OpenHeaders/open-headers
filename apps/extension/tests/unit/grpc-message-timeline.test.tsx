@@ -179,32 +179,36 @@ describe('GrpcMessageTimeline rows', () => {
     expect((editor as HTMLTextAreaElement).value).toContain('"question": "ping"');
   });
 
-  it('falls back to the hexdump when the frame decodes as neither type, Show Message reads base64', () => {
+  const pick = async (label: string) => {
+    fireEvent.click(screen.getByTestId('grpc-timeline-viewer-picker'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: label }));
+  };
+
+  it('falls back to the hexdump when the frame decodes as neither type; Base64 reads the stored bytes', async () => {
     // 0xff alone is no valid protobuf field — schema and structural
     // decode both refuse, so the row opens on the raw bytes.
     const raw: GrpcTimelineItem = { direction: 'down', dataBase64: '/w==', compressed: false };
     renderTimeline({ items: [raw], count: 1 });
     fireEvent.click(screen.getByTestId('grpc-timeline-message-row'));
     expect(screen.getByTestId('grpc-timeline-hex').textContent).toMatch(/\bFF\b/i);
-    expect(screen.getByTestId('grpc-timeline-viewer-hex').textContent).toBe('Show Message');
-    fireEvent.click(screen.getByTestId('grpc-timeline-viewer-hex'));
+    expect(screen.getByTestId('grpc-timeline-viewer-picker-label').textContent).toBe('Hex');
+    await pick('Base64');
     const viewer = screen.getByTestId('grpc-timeline-message-viewer');
     expect((viewer.querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement).value).toBe('/w==');
   });
 
-  it('toggles a decoded row to its hexdump and back through the viewer toolbar', () => {
+  it('a decoded row goes to its hexdump and back through the picker; the toolbar carries wrap, find and copy', async () => {
     setSetting('requests.grpcMessagesNewestFirst', false);
     renderTimeline();
     fireEvent.click(screen.getAllByTestId('grpc-timeline-message-row')[0]);
-    expect(screen.getByTestId('grpc-timeline-viewer-format')).toBeTruthy();
+    expect(screen.getByTestId('grpc-timeline-viewer-picker-label').textContent).toBe('JSON');
     expect(screen.getByTestId('grpc-timeline-viewer-wrap')).toBeTruthy();
     expect(screen.getByTestId('grpc-timeline-viewer-find')).toBeTruthy();
-    const toggle = screen.getByTestId('grpc-timeline-viewer-hex');
-    expect(toggle.textContent).toBe('Show Hexdump');
-    fireEvent.click(toggle);
+    expect(screen.getByTestId('grpc-timeline-viewer-copy')).toBeTruthy();
+    await pick('Hex');
     expect(screen.getByTestId('grpc-timeline-hex-offsets').textContent).toContain('00000000:');
     expect(screen.queryByTestId('code-editor')).toBeNull();
-    fireEvent.click(screen.getByTestId('grpc-timeline-viewer-hex'));
+    await pick('JSON');
     expect(screen.getByTestId('code-editor')).toBeTruthy();
   });
 });

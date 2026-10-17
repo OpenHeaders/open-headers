@@ -27,26 +27,28 @@
 import {
   CheckOutlined,
   CopyOutlined,
-  DownOutlined,
   EyeOutlined,
   FilterOutlined,
   FontColorsOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Badge, Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { Badge, Button, ConfigProvider, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
-import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
+import type { LanguageId } from '../../../languages/registry';
+import BodyViewPicker, { ENCODING_VIEWS } from '../../shared/BodyViewPicker';
 import CodeEditor from '../../shared/CodeEditor';
+import type { CodeEditorActionsTarget } from '../../shared/CodeEditorActions';
 import HexDumpView, { HEX_PRE_STYLE } from '../../shared/HexDumpView';
 import ResponseFilterInput from './ResponseFilterInput';
 import ResponseImagePreview from './ResponseImagePreview';
 import ResponseJsonPreview from './ResponseJsonPreview';
 import ResponseMediaPreview from './ResponseMediaPreview';
 import ResponsePdfPreview from './ResponsePdfPreview';
-import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
+import { WrapLinesIcon } from './ViewPickerIcons';
 import {
   type LosslessParseResult,
   parseLosslessJson,
@@ -104,36 +106,9 @@ const BODY_CAP_BYTES = 2 * 1024 * 1024;
 
 type ViewMode = 'pretty' | 'raw' | 'hex' | 'base64' | 'preview';
 
-/** Language half of the picker — every registry language a response
- *  body can plausibly be, i.e. all but graphql (no response media type
- *  and no Monaco grammar). */
-const LANGUAGE_OPTIONS = LANGUAGE_LIST.filter((l) => l.id !== 'graphql').map((l) => ({
-  value: l.id,
-  label: l.label,
-}));
-
-const LANGUAGE_BY_KEY = new Map(LANGUAGE_OPTIONS.map((l) => [`lang:${l.value}`, l.value]));
-
-const ENCODING_VIEWS: ReadonlyArray<{ mode: 'raw' | 'hex' | 'base64'; label: string }> = [
-  { mode: 'raw', label: 'Raw' },
-  { mode: 'hex', label: 'Hex' },
-  { mode: 'base64', label: 'Base64' },
-];
-
 /** Line cap for the Raw view's numbered grid — beyond this the per-line
  *  rows would jank the panel, so Raw falls back to one plain `<pre>`. */
 const RAW_GUTTER_MAX_LINES = 5000;
-
-/** Shared column style for the Hex view's three `<pre>`s — the gutter,
- *  the offsets, and the dump must line up row for row. */
-function PickerLabel({ icon, text }: { icon: string; text: string }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-      <ViewPickerIcon id={icon} size={16} />
-      {text}
-    </span>
-  );
-}
 
 /** The view a fresh response opens on: media families (PDF, images,
  *  audio/video) go straight to Preview — the rendered document is the
@@ -167,6 +142,8 @@ const ResponseBodyView: React.FC<{
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // The Pretty editor's find target — the toolbar's Find button runs it.
+  const actionsRef = useRef<CodeEditorActionsTarget | null>(null);
   // Wrap survives across sends (a viewing preference); the filter does
   // not (a path typed against the previous body).
   const [wrapLines, setWrapLines] = useState(true);
@@ -468,41 +445,12 @@ const ResponseBodyView: React.FC<{
 
   // Binary-like bodies have no meaningful language: the language half
   // of the picker stands down, leaving Postman's Raw / Hex / Base64.
-  const pickerItems: MenuProps['items'] = [
-    ...(binaryView
-      ? []
-      : [
-          ...LANGUAGE_OPTIONS.map((opt) => ({
-            key: `lang:${opt.value}`,
-            label: <PickerLabel icon={opt.value} text={opt.label} />,
-          })),
-          { type: 'divider' as const },
-        ]),
-    ...ENCODING_VIEWS.map((view) => ({
-      key: `view:${view.mode}`,
-      label: <PickerLabel icon={view.mode} text={view.label} />,
-    })),
-  ];
-
-  const onPickView: MenuProps['onClick'] = ({ key }) => {
-    const lang = LANGUAGE_BY_KEY.get(key);
-    if (lang) {
-      setLangOverride(lang);
-      setMode('pretty');
-      return;
-    }
-    const view = ENCODING_VIEWS.find((v) => key === `view:${v.mode}`);
-    if (view) setMode(view.mode);
-  };
-
   // The picker reads as "how the body is rendered": the language while
   // in Pretty (or Preview, which sits on top of it), the encoding view
   // otherwise. Binary in Preview shows its base view (Hex) — the one a
   // picker click falls back to.
   const activeEncoding = ENCODING_VIEWS.find((v) => v.mode === mode);
-  const pickerKey = activeEncoding ? `view:${activeEncoding.mode}` : binaryView ? 'view:hex' : `lang:${language}`;
-  const pickerIcon = activeEncoding ? activeEncoding.mode : binaryView ? 'hex' : language;
-  const pickerLabel = activeEncoding ? activeEncoding.label : binaryView ? 'Hex' : getLanguage(language).label;
+  const pickerView = activeEncoding ? activeEncoding.mode : binaryView ? 'hex' : null;
 
   // Picker and Preview act as a two-way toggle: the active side carries
   // a quiet selected fill, the other renders as plain text. While
@@ -576,28 +524,21 @@ const ResponseBodyView: React.FC<{
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-        <ConfigProvider theme={{ token: { fontSize: 12 }, components: { Dropdown: { paddingBlock: 3 } } }}>
-          <Dropdown
-            menu={{ items: pickerItems, onClick: onPickView, selectable: true, selectedKeys: [pickerKey] }}
-            trigger={['click']}
-            open={pickerOpen}
-            onOpenChange={onPickerOpenChange}
-          >
-            <Button
-              size="small"
-              type="text"
-              data-testid="oh-response-view-picker"
-              aria-label={t('workbench.editors.request.response.body.viewPickerAria')}
-              style={pickerSelected ? { background: token.colorBgTextActive } : undefined}
-            >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <ViewPickerIcon id={pickerIcon} size={14} />
-                {pickerLabel}
-                {pickerSelected && <DownOutlined style={{ fontSize: 9, opacity: 0.65 }} />}
-              </span>
-            </Button>
-          </Dropdown>
-        </ConfigProvider>
+        <BodyViewPicker
+          language={language}
+          view={pickerView}
+          languagesHidden={binaryView}
+          onPickLanguage={(lang) => {
+            setLangOverride(lang);
+            setMode('pretty');
+          }}
+          onPickView={setMode}
+          selected={pickerSelected}
+          open={pickerOpen}
+          onOpenChange={onPickerOpenChange}
+          ariaLabel={t('workbench.editors.request.response.body.viewPickerAria')}
+          testId="oh-response-view-picker"
+        />
         {previewKind && (
           <Button
             size="small"
@@ -681,6 +622,17 @@ const ResponseBodyView: React.FC<{
             </ConfigProvider>
           </Tooltip>
         )}
+        <Tooltip title={t('shared.codeEditor.find')} placement="bottom">
+          <Button
+            size="small"
+            type="text"
+            icon={<SearchOutlined />}
+            disabled={mode !== 'pretty'}
+            onClick={() => actionsRef.current?.find()}
+            aria-label={t('shared.codeEditor.find')}
+            data-testid="oh-response-find"
+          />
+        </Tooltip>
         <span
           aria-hidden="true"
           style={{ width: 1, height: 16, background: token.colorBorderSecondary, margin: '0 2px' }}
@@ -753,6 +705,8 @@ const ResponseBodyView: React.FC<{
             fill
             variableAutoComplete={false}
             wordWrapOverride={wrapLines ? 'on' : 'off'}
+            actions="external"
+            actionsRef={actionsRef}
           />
         </div>
       )}

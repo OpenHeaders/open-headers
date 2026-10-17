@@ -476,7 +476,12 @@ describe('WsMessageTimeline — display-only controls', () => {
 });
 
 describe('WsMessageTimeline — payload views', () => {
-  it('labels a binary frame with its byte count and opens it on the hexdump, Show Message reads base64', () => {
+  const pick = async (label: string) => {
+    fireEvent.click(screen.getByTestId('ws-timeline-viewer-picker'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: label }));
+  };
+
+  it('labels a binary frame with its byte count and opens it on the hexdump; Base64 reads the stored bytes', async () => {
     const item = binary([1, 2, 3, 4]);
     renderTimeline({ items: [item], count: 1 });
     const row = screen.getByTestId('ws-timeline-message-row');
@@ -484,26 +489,25 @@ describe('WsMessageTimeline — payload views', () => {
     fireEvent.click(row);
     expect(screen.getByTestId('ws-timeline-hex-offsets').textContent).toBe('00000000:');
     expect(screen.getByTestId('ws-timeline-hex').textContent).toMatch(/01 02 03 04/i);
-    expect(screen.getByTestId('ws-timeline-viewer-hex').textContent).toBe('Show Message');
-    fireEvent.click(screen.getByTestId('ws-timeline-viewer-hex'));
+    expect(screen.getByTestId('ws-timeline-viewer-picker-label').textContent).toBe('Hex');
+    await pick('Base64');
     const viewer = screen.getByTestId('ws-timeline-message-viewer');
     expect((viewer.querySelector('textarea') as HTMLTextAreaElement).value).toBe(item.dataBase64);
   });
 
-  it('toggles a text frame to its hexdump and back, the viewer toolbar carries format wrap and find', () => {
+  it('a text frame goes to its hexdump and back through the picker; the toolbar carries wrap, find and copy', async () => {
     renderTimeline();
     const pingRow = screen.getAllByTestId('ws-timeline-message-row').find((r) => r.textContent?.includes('ping'));
     if (!pingRow) throw new Error('no ping row');
     fireEvent.click(pingRow);
-    expect(screen.getByTestId('ws-timeline-viewer-format')).toBeTruthy();
+    expect(screen.getByTestId('ws-timeline-viewer-picker-label').textContent).toBe('Text');
     expect(screen.getByTestId('ws-timeline-viewer-wrap')).toBeTruthy();
     expect(screen.getByTestId('ws-timeline-viewer-find')).toBeTruthy();
-    const toggle = screen.getByTestId('ws-timeline-viewer-hex');
-    expect(toggle.textContent).toBe('Show Hexdump');
-    fireEvent.click(toggle);
+    expect(screen.getByTestId('ws-timeline-viewer-copy')).toBeTruthy();
+    await pick('Hex');
     expect(screen.getByTestId('ws-timeline-hex').textContent).toMatch(/70 69 6e 67/i);
     expect(screen.queryByTestId('code-editor')).toBeNull();
-    fireEvent.click(screen.getByTestId('ws-timeline-viewer-hex'));
+    await pick('Text');
     const viewer = screen.getByTestId('ws-timeline-message-viewer');
     expect((viewer.querySelector('textarea') as HTMLTextAreaElement).value).toBe('ping');
   });

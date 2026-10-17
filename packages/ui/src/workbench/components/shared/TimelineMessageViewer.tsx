@@ -1,26 +1,28 @@
 /**
- * TimelineMessageViewer — the expanded message row's viewer shared by
- * the WebSocket, gRPC and MQTT timelines: a toolbar row (format
- * dropdown and wrap left, the Pretty and Hexdump toggles and find
- * right — the compose bar's anatomy over a read-only buffer) above the
- * framed editor, or the frame's bytes as the classic dump in the same
- * frame. Pretty is the HTTP response body's law carried over: a
- * decoded JSON or markup message re-indents for reading (ON by
- * default — a minified payload arrives as one line), Raw shows the
- * wire text verbatim; plain text has nothing to pretty, so the toggle
- * rests. Per-viewer choice (`ViewerMode`) and the editor's find target
- * live on the timeline through `useTimelineViewerModes`, keyed by item
+ * TimelineMessageViewer — the expanded row's viewer shared by the
+ * WebSocket, gRPC and MQTT timelines and the SSE event list: the HTTP
+ * response body's toolbar over a read-only buffer — the one view
+ * picker (a language = Pretty under that grammar; Raw / Hex / Base64
+ * the byte views) and wrap on the left, Find and Copy on the right —
+ * above the framed editor, or the message's bytes as the classic dump
+ * in the same frame. Pretty is the HTTP body's law carried over: a
+ * JSON or markup message re-indents for reading (the default — a
+ * minified payload arrives as one line), Raw is the wire text
+ * verbatim; a grammar without a formatter shows the text as it came.
+ * Per-viewer choice (`ViewerMode`) and the editor's find target live
+ * on the timeline through `useTimelineViewerModes`, keyed by item
  * index; the wrap flag is ONE state across every open viewer.
  */
 
-import { SearchOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, SearchOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Select, Tooltip, theme } from 'antd';
+import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useRef, useState } from 'react';
-import { getLanguage } from '../../languages/registry';
+import { useEffect, useRef, useState } from 'react';
+import type { LanguageId } from '../../languages/registry';
 import type { HexDump } from '../request-editor/response/response-encoding';
 import { WrapLinesIcon } from '../request-editor/response/ViewPickerIcons';
+import BodyViewPicker, { type EncodingView } from './BodyViewPicker';
 import CodeEditor from './CodeEditor';
 import type { CodeEditorActionsTarget } from './CodeEditorActions';
 import HexDumpView from './HexDumpView';
@@ -47,18 +49,11 @@ export const VIEWER_TOOLBAR_PX = 24;
 export const VIEWER_EDITOR_PX = 180;
 export const VIEWER_PX = VIEWER_TOOLBAR_PX + 4 + VIEWER_EDITOR_PX + 4 + 1;
 
-/** The viewer's text formats — a frame's bytes are the Hexdump
- *  toggle, not a format. */
-export type ViewerFormat = 'text' | 'json' | 'xml' | 'html';
-const VIEWER_FORMATS: readonly ViewerFormat[] = ['text', 'json', 'xml', 'html'];
-
 /** Per-viewer display choice — `format` null follows the decode;
- *  `pretty` re-indents a formattable message for reading (Raw is the
- *  wire text); `hex` shows the frame's bytes. */
+ *  `view` is Pretty under the format, or one of the byte views. */
 export interface ViewerMode {
-  format: ViewerFormat | null;
-  pretty: boolean;
-  hex: boolean;
+  format: LanguageId | null;
+  view: 'pretty' | EncodingView;
 }
 
 export interface TimelineViewerModes {
@@ -74,7 +69,7 @@ export function useTimelineViewerModes(): TimelineViewerModes {
   const [modes, setModes] = useState<ReadonlyMap<number, ViewerMode>>(new Map());
   const refs = useRef(new Map<number, React.MutableRefObject<CodeEditorActionsTarget | null>>());
   return {
-    modeOf: (index, binary) => modes.get(index) ?? { format: null, pretty: true, hex: binary },
+    modeOf: (index, binary) => modes.get(index) ?? { format: null, view: binary ? 'hex' : 'pretty' },
     setMode: (index, mode) => setModes((prev) => new Map(prev).set(index, mode)),
     actionsOf: (index) => {
       let ref = refs.current.get(index);
@@ -88,13 +83,20 @@ export function useTimelineViewerModes(): TimelineViewerModes {
 }
 
 interface TimelineMessageViewerProps {
-  /** The decoded message as the editor shows it. */
+  /** The wire text as decoded — Raw shows it verbatim, Pretty
+   *  re-indents it under the format. */
   text: string;
+  /** A host-printed Pretty text where the host's print is the law
+   *  (the SSE list's lossless per-document print); absent, Pretty is
+   *  the shared re-indent over `text`. */
+  prettyText?: string;
   /** The format the decode suggests, taken while the row has no choice. */
-  defaultFormat: ViewerFormat;
-  /** The frame's bytes as a dump — computed on demand, cached by the
+  defaultFormat: LanguageId;
+  /** The message's bytes as a dump — computed on demand, cached by the
    *  timeline's derivations. */
   hexDump: () => HexDump;
+  /** The same bytes base64-encoded — the host's stored form. */
+  base64: () => string;
   mode: ViewerMode;
   onModeChange: (mode: ViewerMode) => void;
   wrapLines: boolean;
@@ -107,8 +109,10 @@ interface TimelineMessageViewerProps {
 
 const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
   text,
+  prettyText,
   defaultFormat,
   hexDump,
+  base64,
   mode,
   onModeChange,
   wrapLines,
@@ -119,10 +123,32 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const format = mode.format ?? defaultFormat;
-  // Plain text has no structure to re-indent — the toggle rests there
-  // and the buffer shows the wire text whatever the choice says.
-  const prettyAvailable = format !== 'text';
-  const shownText = usePrettyViewerText(text, format, prettyAvailable && mode.pretty && !mode.hex);
+  const hex = mode.view === 'hex';
+  const pretty = mode.view === 'pretty';
+  const sharedPretty = usePrettyViewerText(text, format, pretty && prettyText === undefined);
+  // The buffer's text by view: the host's print or the shared
+  // re-indent under Pretty, the wire text under Raw, the stored bytes
+  // under Base64; the dump renders its own frame.
+  const shownText = pretty ? (prettyText ?? sharedPretty) : mode.view === 'base64' ? base64() : text;
+
+  // The copy button's one-and-a-half-second check — the HTTP body's
+  // feedback; copies what the frame shows.
+  const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+    },
+    [],
+  );
+  const copyShown = () => {
+    void navigator.clipboard.writeText(hex ? hexDump().text : shownText).then(() => {
+      setCopied(true);
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
   return (
     <div
       data-testid={`${testIdPrefix}-message-viewer`}
@@ -138,15 +164,13 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: VIEWER_TOOLBAR_PX }}>
-        <Select
-          size="small"
-          value={format}
-          disabled={mode.hex}
-          options={VIEWER_FORMATS.map((value) => ({ value, label: getLanguage(value).label }))}
-          onChange={(next: ViewerFormat) => onModeChange({ ...mode, format: next })}
-          style={{ width: 96 }}
-          aria-label={t('workbench.editors.timelineViewer.format')}
-          data-testid={`${testIdPrefix}-viewer-format`}
+        <BodyViewPicker
+          language={format}
+          view={mode.view === 'pretty' ? null : mode.view}
+          onPickLanguage={(language) => onModeChange({ format: language, view: 'pretty' })}
+          onPickView={(view) => onModeChange({ ...mode, view })}
+          ariaLabel={t('workbench.editors.timelineViewer.format')}
+          testId={`${testIdPrefix}-viewer-picker`}
         />
         <Tooltip
           title={
@@ -160,48 +184,44 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
             size="small"
             type="text"
             icon={<WrapLinesIcon />}
-            disabled={mode.hex}
+            disabled={hex}
             onClick={() => onWrapLinesChange(!wrapLines)}
             aria-label={t('workbench.editors.request.response.body.wrapLines')}
-            style={wrapLines && !mode.hex ? { background: token.colorBgTextActive } : undefined}
+            style={wrapLines && !hex ? { background: token.colorBgTextActive } : undefined}
             data-testid={`${testIdPrefix}-viewer-wrap`}
           />
         </Tooltip>
         <span style={{ flex: 1 }} />
-        <Button
-          size="small"
-          type="text"
-          disabled={mode.hex || !prettyAvailable}
-          onClick={() => onModeChange({ ...mode, pretty: !mode.pretty })}
-          aria-pressed={mode.pretty}
-          data-testid={`${testIdPrefix}-viewer-pretty`}
-        >
-          {mode.pretty ? t('workbench.editors.timelineViewer.showRaw') : t('workbench.editors.timelineViewer.showPretty')}
-        </Button>
-        <Button
-          size="small"
-          type="text"
-          onClick={() => onModeChange({ ...mode, hex: !mode.hex })}
-          aria-pressed={mode.hex}
-          data-testid={`${testIdPrefix}-viewer-hex`}
-        >
-          {mode.hex
-            ? t('workbench.editors.timelineViewer.showMessage')
-            : t('workbench.editors.timelineViewer.showHexdump')}
-        </Button>
         <Tooltip title={t('shared.codeEditor.find')} placement="bottom">
           <Button
             size="small"
             type="text"
             icon={<SearchOutlined />}
-            disabled={mode.hex}
+            disabled={hex}
             onClick={() => actionsRef.current?.find()}
             aria-label={t('shared.codeEditor.find')}
             data-testid={`${testIdPrefix}-viewer-find`}
           />
         </Tooltip>
+        <Tooltip
+          title={
+            copied
+              ? t('workbench.editors.request.response.copied')
+              : t('workbench.editors.timelineViewer.copyMessage')
+          }
+          placement="bottom"
+        >
+          <Button
+            size="small"
+            type="text"
+            icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+            onClick={copyShown}
+            aria-label={t('workbench.editors.timelineViewer.copyMessage')}
+            data-testid={`${testIdPrefix}-viewer-copy`}
+          />
+        </Tooltip>
       </div>
-      {mode.hex ? (
+      {hex ? (
         <div
           style={{
             flex: 1,
@@ -219,7 +239,7 @@ const TimelineMessageViewer: React.FC<TimelineMessageViewerProps> = ({
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <CodeEditor
             value={shownText}
-            language={format}
+            language={pretty ? format : 'text'}
             readOnly
             fill
             variableAutoComplete={false}

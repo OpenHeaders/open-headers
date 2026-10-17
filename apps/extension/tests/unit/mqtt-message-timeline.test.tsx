@@ -361,48 +361,57 @@ describe('MqttMessageTimeline — message viewer', () => {
   });
   const CONNECTED: MqttTimelineLifecycle = { startedAt: STARTED_AT, connected: true, connectedAt: STARTED_AT + 40 };
 
-  it('expands a row into the viewer with the toolbar and toggles the hexdump', () => {
+  const editorValue = () =>
+    (
+      screen
+        .getByTestId('mqtt-timeline-message-viewer')
+        .querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement
+    ).value;
+  const pick = async (label: string) => {
+    fireEvent.click(screen.getByTestId('mqtt-timeline-viewer-picker'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: label }));
+  };
+
+  it('expands a row into the viewer with the body toolbar; Hex is a view on the picker', async () => {
     render(<MqttMessageTimeline items={[message('ping')]} count={1} lifecycle={CONNECTED} v5 />);
     fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
-    const viewer = screen.getByTestId('mqtt-timeline-message-viewer');
-    expect((viewer.querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement).value).toBe('ping');
-    expect(screen.getByTestId('mqtt-timeline-viewer-format')).toBeTruthy();
+    expect(editorValue()).toBe('ping');
+    expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('Text');
     expect(screen.getByTestId('mqtt-timeline-viewer-wrap')).toBeTruthy();
     expect(screen.getByTestId('mqtt-timeline-viewer-find')).toBeTruthy();
-    const toggle = screen.getByTestId('mqtt-timeline-viewer-hex');
-    expect(toggle.textContent).toBe('Show Hexdump');
-    fireEvent.click(toggle);
+    expect(screen.getByTestId('mqtt-timeline-viewer-copy')).toBeTruthy();
+    expect(screen.queryByTestId('mqtt-timeline-viewer-hex')).toBeNull();
+    await pick('Hex');
     expect(screen.getByTestId('mqtt-timeline-hex').textContent).toMatch(/70 69 6e 67/i);
     expect(screen.queryByTestId('code-editor')).toBeNull();
-    fireEvent.click(screen.getByTestId('mqtt-timeline-viewer-hex'));
-    expect(screen.getByTestId('code-editor')).toBeTruthy();
+    expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('Hex');
+    await pick('Text');
+    expect(editorValue()).toBe('ping');
   });
 
-  it('opens a JSON message pretty-printed and Show Raw returns the wire text', () => {
+  it('opens a JSON message pretty-printed; Raw is the wire text, a language pick returns to Pretty', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     render(<MqttMessageTimeline items={[message('{"temp":21,"unit":"C"}')]} count={1} lifecycle={CONNECTED} v5 />);
     fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
-    const editorValue = () =>
-      (
-        screen
-          .getByTestId('mqtt-timeline-message-viewer')
-          .querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement
-      ).value;
     expect(editorValue()).toBe('{\n  "temp": 21,\n  "unit": "C"\n}');
-    const toggle = screen.getByTestId('mqtt-timeline-viewer-pretty');
-    expect(toggle.textContent).toBe('Show Raw');
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(toggle);
+    expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('JSON');
+    fireEvent.click(screen.getByTestId('mqtt-timeline-viewer-copy'));
+    expect(writeText).toHaveBeenCalledWith('{\n  "temp": 21,\n  "unit": "C"\n}');
+    await pick('Raw');
     expect(editorValue()).toBe('{"temp":21,"unit":"C"}');
-    expect(screen.getByTestId('mqtt-timeline-viewer-pretty').textContent).toBe('Show Pretty');
+    expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('Raw');
+    await pick('Base64');
+    expect(editorValue()).toBe(btoa('{"temp":21,"unit":"C"}'));
+    await pick('JSON');
+    expect(editorValue()).toBe('{\n  "temp": 21,\n  "unit": "C"\n}');
   });
 
-  it('rests the Pretty toggle on a plain-text message', () => {
+  it('a plain-text message reads as it came under Pretty — Text has nothing to re-indent', () => {
     render(<MqttMessageTimeline items={[message('ping')]} count={1} lifecycle={CONNECTED} v5 />);
     fireEvent.click(screen.getByTestId('mqtt-timeline-message-row'));
-    const toggle = screen.getByTestId('mqtt-timeline-viewer-pretty') as HTMLButtonElement;
-    expect(toggle.disabled).toBe(true);
-    const viewer = screen.getByTestId('mqtt-timeline-message-viewer');
-    expect((viewer.querySelector('[data-testid="code-editor"]') as HTMLTextAreaElement).value).toBe('ping');
+    expect(screen.getByTestId('mqtt-timeline-viewer-picker-label').textContent).toBe('Text');
+    expect(editorValue()).toBe('ping');
   });
 });
 
