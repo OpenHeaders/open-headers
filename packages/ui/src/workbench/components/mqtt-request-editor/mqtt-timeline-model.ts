@@ -198,6 +198,10 @@ export interface MqttFrameDerivations {
   previewOf: (item: MqttTimelineItem & { kind: 'message' }) => string;
   /** The payload's bytes as the classic dump — the viewer's Hexdump. */
   hexOf: (item: MqttTimelineItem & { kind: 'message' }) => HexDump;
+  /** The search haystack — the topic and the FULL decoded text (the
+   *  preview is capped; a match deep in a long body still counts),
+   *  lowercased once per item. A binary payload searches by topic. */
+  searchTextOf: (item: MqttTimelineItem & { kind: 'message' }) => string;
 }
 
 /** Per-item view/preview caches — item identity is append-only, so a
@@ -255,5 +259,14 @@ export function makeMqttFrameDerivations(hiddenLabel: string): MqttFrameDerivati
     hexCache.set(item, dump);
     return dump;
   };
-  return { viewOf, previewOf, hexOf };
+  const searchCache = new WeakMap<MqttTimelineItem, string>();
+  const searchTextOf = (item: MqttTimelineItem & { kind: 'message' }): string => {
+    const hit = searchCache.get(item);
+    if (hit !== undefined) return hit;
+    const view = viewOf(item);
+    const text = (view.kind === 'binary' ? item.topic : `${item.topic}\n${view.text}`).toLowerCase();
+    searchCache.set(item, text);
+    return text;
+  };
+  return { viewOf, previewOf, hexOf, searchTextOf };
 }

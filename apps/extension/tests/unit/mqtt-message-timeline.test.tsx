@@ -539,6 +539,31 @@ describe('MqttMessageTimeline — the control strip', () => {
     expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(3);
   });
 
+  it('search reads the words behind a chevron and the full message text, not the capped preview', () => {
+    const connected: MqttTimelineLifecycle = {
+      startedAt: STARTED_AT,
+      connected: true,
+      connack: { reasonCode: 0, reasonName: 'Connection Accepted', sessionPresent: false, remainingLength: 2 },
+    };
+    // A body whose only unique word sits past the 400-char preview cap.
+    const longBody = `{"pad":"${'x'.repeat(450)}","needle":"deep-in-the-body"}`;
+    const log: MqttTimelineItem[] = [...items, message('down', 'probe/long', longBody)];
+    render(<MqttMessageTimeline items={log} count={4} lifecycle={connected} v5 />);
+    // "accepted" lives in the Connected row's CONNACK block alone — the
+    // row stays (collapsed, chevron intact); everything else hides.
+    fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: 'accepted' } });
+    expect(screen.getByTestId('mqtt-timeline-connected-row')).toBeTruthy();
+    expect(screen.queryByTestId('mqtt-timeline-connack-details')).toBeNull();
+    expect(screen.queryByTestId('mqtt-timeline-sent-row')).toBeNull();
+    expect(screen.queryAllByTestId('mqtt-timeline-message-row')).toHaveLength(0);
+    expect(screen.queryByText('No messages match the filter.')).toBeNull();
+    // A word past the preview cap still finds its message.
+    fireEvent.change(screen.getByTestId('mqtt-timeline-search'), { target: { value: 'deep-in-the-body' } });
+    const rows = screen.getAllByTestId('mqtt-timeline-message-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('probe/long');
+  });
+
   it('filters by several topics at once', () => {
     render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
     const select = screen.getByTestId('mqtt-timeline-topic-filter');

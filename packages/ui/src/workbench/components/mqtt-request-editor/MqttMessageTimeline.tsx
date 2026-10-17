@@ -55,7 +55,7 @@ import {
   VIEWER_PX,
 } from './mqtt-timeline-model';
 import MqttTimelineEntryRow from './MqttTimelineEntryRow';
-import { fixedRowText, lifecycleItemText } from './mqtt-timeline-row-text';
+import { fixedRowDetailText, fixedRowText, lifecycleItemDetailText, lifecycleItemText } from './mqtt-timeline-row-text';
 import MqttTimelineToolbar from './MqttTimelineToolbar';
 import PeerExecuteDisabledNotice, { peerExecuteRefusalKind } from '../shared/PeerExecuteDisabledNotice';
 import { StreamLastRow, useTimelineViewerModes } from '../shared/TimelineMessageViewer';
@@ -169,11 +169,11 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
 
   // Every item index passing the filters, packet order ascending — one
   // linear pass of primitive work per commit/keystroke. Search is a
-  // LOOKUP: it matches the words every row shows (a message's decoded
-  // preview plus its topic, a lifecycle row's rendered line) and hides
-  // the rest whatever their kind. The direction and topic lenses gate
-  // MESSAGE rows only — under them the lifecycle facts stay as the
-  // log's skeleton.
+  // LOOKUP: it matches the words every row shows — a message's topic
+  // and FULL decoded text, a lifecycle row's rendered line plus the
+  // words behind its chevron — and hides the rest whatever their kind.
+  // The direction and topic lenses gate MESSAGE rows only — under them
+  // the lifecycle facts stay as the log's skeleton.
   const needle = search.trim().toLowerCase();
   const visibleRows = useMemo(() => {
     const topics = topicFilter.length > 0 ? new Set(topicFilter) : null;
@@ -185,26 +185,24 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         if (directionFilter === 'lifecycle') continue;
         if (directionFilter !== 'all' && item.direction !== directionFilter) continue;
         if (topics !== null && !topics.has(item.topic)) continue;
-        if (
-          needle !== '' &&
-          !derive.previewOf(item).toLowerCase().includes(needle) &&
-          !item.topic.toLowerCase().includes(needle)
-        ) {
-          continue;
-        }
-      } else if (needle !== '' && !lifecycleItemText(item, t).toLowerCase().includes(needle)) {
+        if (needle !== '' && !derive.searchTextOf(item).includes(needle)) continue;
+      } else if (
+        needle !== '' &&
+        !`${lifecycleItemText(item, t)}\n${lifecycleItemDetailText(item, v5)}`.toLowerCase().includes(needle)
+      ) {
         continue;
       }
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, needle, directionFilter, topicFilter, derive, t]);
+  }, [items, count, clearedCount, needle, directionFilter, topicFilter, derive, t, v5]);
 
   // The fixed rows under a search — each shows only when its words
   // carry the needle (the same words the row paints).
   const fixedShown = useMemo(() => {
     const shown = (kind: keyof typeof fixedRowText): boolean =>
-      needle === '' || fixedRowText[kind](lifecycle, t).toLowerCase().includes(needle);
+      needle === '' ||
+      `${fixedRowText[kind](lifecycle, t)}\n${fixedRowDetailText(kind, lifecycle)}`.toLowerCase().includes(needle);
     return {
       sent: shown('sent'),
       connected: shown('connected'),

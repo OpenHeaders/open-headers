@@ -14,7 +14,7 @@ import { formatDurationMs } from '@openheaders/ui/shared/combo-knob';
 import { inheritSourceLabel } from '../request-editor/inherited-auth';
 import { MQTT_HOOK_LABEL_KEY } from './mqtt-scripts';
 import type { MqttTimelineItem, MqttTimelineLifecycle } from './mqtt-timeline-model';
-import { connectionEndMessage, grantFailureLabel } from './session-display';
+import { connackReasonName, connectionEndMessage, grantFailureLabel } from './session-display';
 
 type LifecycleItem = Exclude<MqttTimelineItem, { kind: 'message' }>;
 
@@ -119,6 +119,41 @@ export function endedRowText(lifecycle: MqttTimelineLifecycle, t: Translate): st
 export function errorRowText(lifecycle: MqttTimelineLifecycle, t: Translate): string {
   if (lifecycle.aborted === true) return t('workbench.editors.mqtt.timeline.aborted');
   return lifecycle.errorMessage ?? '';
+}
+
+/** The CONNACK block's words — the facts a Connected / Reconnected /
+ *  refused row shows behind its chevron, as the block paints them. */
+export function connackDetailText(connack: NonNullable<MqttTimelineLifecycle['connack']>): string {
+  return [
+    'CONNACK',
+    'cmd: connack',
+    `length: ${connack.remainingLength !== undefined ? String(connack.remainingLength) : '—'}`,
+    `reasonCode: ${connack.reasonCode}${connack.reasonName !== undefined ? ` (${connack.reasonName})` : ''}`,
+    `sessionPresent: ${connack.sessionPresent ? 'true' : 'false'}`,
+  ].join('\n');
+}
+
+/** The words behind a lifecycle item's chevron — a reconnected row's
+ *  own CONNACK block (the version lens names its code); the rest have
+ *  no detail. */
+export function lifecycleItemDetailText(item: LifecycleItem, v5: boolean): string {
+  if (item.kind !== 'reconnected') return '';
+  const reasonName = connackReasonName(item.reasonCode, v5);
+  return connackDetailText({
+    reasonCode: item.reasonCode,
+    ...(reasonName !== undefined ? { reasonName } : {}),
+    sessionPresent: item.sessionPresent,
+    remainingLength: item.remainingLength,
+  });
+}
+
+/** The words behind a fixed row's chevron — the Connected row's and a
+ *  refusal's CONNACK block; the rest have no detail. */
+export function fixedRowDetailText(kind: keyof typeof fixedRowText, lifecycle: MqttTimelineLifecycle): string {
+  if ((kind === 'connected' || kind === 'error') && lifecycle.connack !== undefined) {
+    return connackDetailText(lifecycle.connack);
+  }
+  return '';
 }
 
 /** The fixed rows' words by entry kind — one signature, so the search
