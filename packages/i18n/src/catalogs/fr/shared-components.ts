@@ -458,6 +458,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': 'Numéros de ligne',
   'shared.editorMenu.whitespace': 'Espaces',
   'shared.editorMenu.lineEnds': 'Fins de ligne',
+  'shared.editorMenu.stickyScroll': 'Défilement collant',
   // Peer-execute refusal notice (the quoted phrases are the settings
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':

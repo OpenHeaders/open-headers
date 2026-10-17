@@ -431,6 +431,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.bracketPairColorization.label': 'Bracket Pair Colorization',
   'workbench.settings.def.editor.bracketPairColorization.description':
     'Highlight matching brackets in different colors.',
+  'workbench.settings.def.editor.stickyScroll.label': 'Sticky Scroll',
+  'workbench.settings.def.editor.stickyScroll.description':
+    'Pin the enclosing lines of nested structure at the top of the editor while you scroll, so the path to the current line stays in view.',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': 'Workspace Certificates',

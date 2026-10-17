@@ -9,6 +9,7 @@ import EditorViewMenu from '@openheaders/ui/workbench/components/shared/EditorVi
 import { OpenSettingsProvider } from '@openheaders/ui/workbench/hooks/OpenSettingsContext';
 // Registers the editor.* settings the menu's toggles read.
 import '@openheaders/ui/workbench/settings/schema/editor';
+import { get as getSetting, reset as resetSetting } from '@openheaders/ui/workbench/settings/store';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -25,7 +26,11 @@ beforeAll(() => {
   }
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // The menu's knobs are GLOBAL settings — reset between tests.
+  resetSetting('editor.stickyScroll');
+});
 
 function menuItem(label: string): HTMLElement | undefined {
   return screen
@@ -71,5 +76,19 @@ describe('EditorViewMenu — Settings jump', () => {
     expect(lineEndsRow?.classList.contains('ant-dropdown-menu-item-selected')).toBe(false);
     fireEvent.click(menuItem('Wrap') as HTMLElement);
     expect(onWrapChange).toHaveBeenCalledWith(false);
+  });
+
+  it('sticky scroll ships on and toggles the shared setting from its row', () => {
+    render(<EditorViewMenu wrap onWrapChange={vi.fn()} data-testid="editor-menu" />);
+    fireEvent.click(screen.getByTestId('editor-menu'));
+    const row = menuItem('Sticky scroll')?.closest('.ant-dropdown-menu-item');
+    expect(row?.classList.contains('ant-dropdown-menu-item-selected')).toBe(true);
+    fireEvent.click(menuItem('Sticky scroll') as HTMLElement);
+    expect(getSetting('editor.stickyScroll')).toBe(false);
+    expect(
+      menuItem('Sticky scroll')
+        ?.closest('.ant-dropdown-menu-item')
+        ?.classList.contains('ant-dropdown-menu-item-selected'),
+    ).toBe(false);
   });
 });

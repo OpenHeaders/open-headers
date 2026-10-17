@@ -462,6 +462,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': '行号',
   'shared.editorMenu.whitespace': '空白字符',
   'shared.editorMenu.lineEnds': '行尾符',
+  'shared.editorMenu.stickyScroll': '粘性滚动',
   // Peer-execute refusal notice (the quoted phrases are the settings
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':

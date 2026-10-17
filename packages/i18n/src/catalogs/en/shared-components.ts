@@ -485,6 +485,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': 'Line numbers',
   'shared.editorMenu.whitespace': 'Whitespace',
   'shared.editorMenu.lineEnds': 'Line endings',
+  'shared.editorMenu.stickyScroll': 'Sticky scroll',
   'shared.timelineGroup.showNewestOnly': 'Show only the newest {count}',
   // Peer-execute refusal notice — the host-aware reading of the wire's
   // two-tier opt-in refusal (the quoted phrases are the settings rows'

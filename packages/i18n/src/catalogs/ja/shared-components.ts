@@ -446,6 +446,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': '行番号',
   'shared.editorMenu.whitespace': '空白文字',
   'shared.editorMenu.lineEnds': '改行コード',
+  'shared.editorMenu.stickyScroll': 'スティッキースクロール',
   'shared.timelineGroup.showNewestOnly': '最新の {count} 件のみ表示',
   'shared.peerExecute.localDisabled':
     'このデバイスのブラウザーからの送信は、デスクトップアプリでオフになっています。バックアップと同期 › お使いのデバイス で「このデバイスのブラウザーにリクエストの送信を許可」を有効にしてください。',

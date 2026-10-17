@@ -434,6 +434,9 @@ export const workbenchSettingsDefs = {
     '규칙이나 템플릿을 저장할 때 편집기 내용을 자동으로 정리합니다.',
   'workbench.settings.def.editor.bracketPairColorization.label': '괄호 쌍 색 구분',
   'workbench.settings.def.editor.bracketPairColorization.description': '짝이 맞는 괄호를 서로 다른 색으로 강조합니다.',
+  'workbench.settings.def.editor.stickyScroll.label': '고정 스크롤',
+  'workbench.settings.def.editor.stickyScroll.description':
+    '스크롤하는 동안 중첩 구조를 감싸는 줄을 편집기 상단에 고정해 현재 줄까지의 경로가 계속 보이게 합니다.',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': '워크스페이스 인증서',

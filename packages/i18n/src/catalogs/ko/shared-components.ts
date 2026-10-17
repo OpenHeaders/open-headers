@@ -444,6 +444,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': '줄 번호',
   'shared.editorMenu.whitespace': '공백 문자',
   'shared.editorMenu.lineEnds': '줄 끝 문자',
+  'shared.editorMenu.stickyScroll': '고정 스크롤',
   'shared.timelineGroup.showNewestOnly': '최신 {count}개만 표시',
   'shared.peerExecute.localDisabled':
     '이 기기의 브라우저에서 보내기가 데스크톱 앱에서 꺼져 있습니다. 백업 및 동기화 › 내 기기에서 “이 기기의 브라우저가 요청을 보내도록 허용”을 활성화하세요.',

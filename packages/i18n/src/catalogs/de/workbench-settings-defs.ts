@@ -522,6 +522,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.bracketPairColorization.label': 'Klammernpaar-Einfärbung',
   'workbench.settings.def.editor.bracketPairColorization.description':
     'Hebt zusammengehörige Klammern in unterschiedlichen Farben hervor.',
+  'workbench.settings.def.editor.stickyScroll.label': 'Fixierter Bildlauf',
+  'workbench.settings.def.editor.stickyScroll.description':
+    'Hält beim Scrollen die umschließenden Zeilen verschachtelter Strukturen am oberen Rand des Editors fest, damit der Pfad zur aktuellen Zeile sichtbar bleibt.',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': 'Arbeitsbereichs-Zertifikate',

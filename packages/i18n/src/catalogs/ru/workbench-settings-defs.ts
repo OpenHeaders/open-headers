@@ -459,6 +459,9 @@ export const workbenchSettingsDefs = {
     'Автоматически форматировать содержимое редактора при сохранении правила или шаблона.',
   'workbench.settings.def.editor.bracketPairColorization.label': 'Раскраска парных скобок',
   'workbench.settings.def.editor.bracketPairColorization.description': 'Подсвечивать парные скобки разными цветами.',
+  'workbench.settings.def.editor.stickyScroll.label': 'Закреплённая прокрутка',
+  'workbench.settings.def.editor.stickyScroll.description':
+    'Закреплять строки, охватывающие вложенную структуру, вверху редактора при прокрутке, чтобы путь к текущей строке оставался на виду.',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': 'Сертификаты рабочего пространства',

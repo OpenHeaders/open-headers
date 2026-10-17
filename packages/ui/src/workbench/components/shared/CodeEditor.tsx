@@ -205,6 +205,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const renderWhitespace = useSettingValue('editor.renderWhitespace');
   const renderLineEnds = useSettingValue('editor.renderLineEnds');
   const bracketPairColorization = useSettingValue('editor.bracketPairColorization');
+  const stickyScroll = useSettingValue('editor.stickyScroll');
 
   // EOL glyphs — a paint-only ¬ after each real line ending (Vim's
   // `listchars eol` convention; Monaco has no native equivalent). The
@@ -400,6 +401,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // row marker.
     renderLineHighlightOnlyWhenFocus: true,
     bracketPairColorization: { enabled: bracketPairColorization },
+    // The pinned header's model comes from the INDENTATION, computed
+    // in-thread — Monaco's default asks the language worker for the
+    // outline (a debounced round trip that left a stale header over an
+    // emptied buffer for most of a second). For the buffers these
+    // editors hold the nesting IS the indentation, so the lines match.
+    stickyScroll: { enabled: stickyScroll, defaultModel: 'indentationModel' },
     // Keep the buffer still when the find widget opens — the default
     // inserts a view zone above line 1 (shifting all rows down) so the
     // widget doesn't cover the first lines; in these compact editors

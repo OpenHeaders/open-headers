@@ -481,6 +481,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': 'Zeilennummern',
   'shared.editorMenu.whitespace': 'Leerzeichen',
   'shared.editorMenu.lineEnds': 'Zeilenenden',
+  'shared.editorMenu.stickyScroll': 'Fixierter Bildlauf',
   // Peer-execute refusal notice (the quoted phrases are the settings
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':

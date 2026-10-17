@@ -555,6 +555,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.bracketPairColorization.label': 'Coloreado de pares de corchetes',
   'workbench.settings.def.editor.bracketPairColorization.description':
     'Resalta los corchetes emparejados en colores distintos.',
+  'workbench.settings.def.editor.stickyScroll.label': 'Desplazamiento fijo',
+  'workbench.settings.def.editor.stickyScroll.description':
+    'Fija las líneas que envuelven la estructura anidada en la parte superior del editor durante el desplazamiento, para que la ruta hasta la línea actual siga a la vista.',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': 'Certificados del espacio de trabajo',

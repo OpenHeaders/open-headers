@@ -500,6 +500,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': 'Numere de linie',
   'shared.editorMenu.whitespace': 'Spații albe',
   'shared.editorMenu.lineEnds': 'Terminații de linie',
+  'shared.editorMenu.stickyScroll': 'Derulare fixă',
   'shared.timelineGroup.showNewestOnly': 'Afișare doar a celor mai noi {count}',
   // Peer-execute refusal notice — the host-aware reading of the wire's
   // two-tier opt-in refusal (the quoted phrases are the settings rows'

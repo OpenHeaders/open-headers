@@ -477,6 +477,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.bracketPairColorization.label': 'Colorarea perechilor de paranteze',
   'workbench.settings.def.editor.bracketPairColorization.description':
     'Evidențiază parantezele pereche în culori diferite.',
+  'workbench.settings.def.editor.stickyScroll.label': 'Derulare fixă',
+  'workbench.settings.def.editor.stickyScroll.description':
+    'Fixează liniile care închid structura imbricată în partea de sus a editorului în timpul derulării, astfel încât calea către linia curentă rămâne vizibilă.',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': 'Certificatele spațiului de lucru',

@@ -490,6 +490,7 @@ export const sharedComponents = {
   'shared.editorMenu.lineNumbers': 'Номера строк',
   'shared.editorMenu.whitespace': 'Пробелы',
   'shared.editorMenu.lineEnds': 'Концы строк',
+  'shared.editorMenu.stickyScroll': 'Закреплённая прокрутка',
   // Peer-execute refusal notice (the quoted phrases are the settings
   // rows' own labels, verbatim).
   'shared.peerExecute.localDisabled':

@@ -441,6 +441,9 @@ export const workbenchSettingsDefs = {
     'ルールやテンプレートを保存するときにエディターの内容を自動的に整形します。',
   'workbench.settings.def.editor.bracketPairColorization.label': '括弧のペアの色分け',
   'workbench.settings.def.editor.bracketPairColorization.description': '対応する括弧を異なる色で強調します。',
+  'workbench.settings.def.editor.stickyScroll.label': 'スティッキースクロール',
+  'workbench.settings.def.editor.stickyScroll.description':
+    'スクロール中、入れ子構造を囲む行をエディターの上部に固定し、現在の行までのパスを常に表示します。',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': 'ワークスペースの証明書',

@@ -100,6 +100,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'editor.renderLineEnds': boolean;
     'editor.formatOnSave': boolean;
     'editor.bracketPairColorization': boolean;
+    'editor.stickyScroll': boolean;
   }
 }
 
@@ -294,5 +295,21 @@ registerSetting({
   descriptionKey: 'workbench.settings.def.editor.bracketPairColorization.description',
   category: 'codeEditor',
   tags: ['brackets', 'colors', 'highlight'],
+  scope: 'user',
+});
+
+// Monaco's sticky scroll — the enclosing lines of nested structure
+// pinned at the top while scrolling. On by default (Monaco's own);
+// the Editor menu and this def share the one knob.
+registerSetting({
+  key: 'editor.stickyScroll',
+  subcategory: 'display',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  labelKey: 'workbench.settings.def.editor.stickyScroll.label',
+  descriptionKey: 'workbench.settings.def.editor.stickyScroll.description',
+  category: 'codeEditor',
+  tags: ['sticky', 'scroll', 'header', 'outline', 'nested', 'pin'],
   scope: 'user',
 });

@@ -533,6 +533,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.bracketPairColorization.label': 'Coloration des paires de crochets',
   'workbench.settings.def.editor.bracketPairColorization.description':
     'Met en évidence les crochets correspondants dans des couleurs différentes.',
+  'workbench.settings.def.editor.stickyScroll.label': 'Défilement collant',
+  'workbench.settings.def.editor.stickyScroll.description':
+    'Épingle les lignes englobantes de la structure imbriquée en haut de l’éditeur pendant le défilement, pour garder en vue le chemin jusqu’à la ligne courante.',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': 'Certificats de l’espace de travail',

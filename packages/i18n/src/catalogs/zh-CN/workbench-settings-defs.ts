@@ -405,6 +405,9 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.editor.formatOnSave.description': '保存规则或模板时自动格式化编辑器内容。',
   'workbench.settings.def.editor.bracketPairColorization.label': '括号对着色',
   'workbench.settings.def.editor.bracketPairColorization.description': '用不同颜色高亮匹配的括号。',
+  'workbench.settings.def.editor.stickyScroll.label': '粘性滚动',
+  'workbench.settings.def.editor.stickyScroll.description':
+    '滚动时将嵌套结构的外层行固定在编辑器顶部，使当前行的路径始终可见。',
 
   // ── API Requests category defs ─────────────────────────────────────
   'workbench.settings.def.requests.trustedRoots.label': '工作区证书',

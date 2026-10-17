@@ -55,6 +55,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
   const [lineNumbers, setLineNumbers] = useSetting('editor.lineNumbers');
   const [renderWhitespace, setRenderWhitespace] = useSetting('editor.renderWhitespace');
   const [renderLineEnds, setRenderLineEnds] = useSetting('editor.renderLineEnds');
+  const [stickyScroll, setStickyScroll] = useSetting('editor.stickyScroll');
   const openSettings = useOpenSettings();
 
   // The rows whose knob is ON carry the check — antd's selection
@@ -63,6 +64,7 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
   const selectedKeys = [
     ...(wrap ? ['wrap'] : []),
     ...(lineNumbers ? ['line-numbers'] : []),
+    ...(stickyScroll ? ['sticky-scroll'] : []),
     `whitespace-${renderWhitespace}`,
     ...(renderLineEnds ? ['line-ends'] : []),
   ];
@@ -124,6 +126,11 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
                 key: 'line-numbers',
                 label: t('shared.editorMenu.lineNumbers'),
                 onClick: () => setLineNumbers(!lineNumbers),
+              },
+              {
+                key: 'sticky-scroll',
+                label: t('shared.editorMenu.stickyScroll'),
+                onClick: () => setStickyScroll(!stickyScroll),
               },
               {
                 key: 'whitespace',
