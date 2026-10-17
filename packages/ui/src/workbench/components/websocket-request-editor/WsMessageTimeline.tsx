@@ -1968,8 +1968,8 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
               </span>
             )}
             {/* Hover cluster left of the time — copy the payload as the
-              viewer shows it, and the frame's facts on hover; clicks
-              never reach the row toggle. */}
+              viewer shows it, and the facts the row does not show (size,
+              frame kind) on hover; clicks never reach the row toggle. */}
             <span
               className="oh-stream-row-actions"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}
@@ -2022,12 +2022,6 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                   <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 8, rowGap: 2 }}>
                     <span>{t('workbench.editors.websocket.timeline.info.size')}:</span>
                     <span>{formatBytes(view.byteLength)}</span>
-                    {ts !== undefined && (
-                      <>
-                        <span>{t('workbench.editors.websocket.timeline.info.time')}:</span>
-                        <span>{formatMessageTime(ts)}</span>
-                      </>
-                    )}
                     <span>{t('workbench.editors.websocket.timeline.info.frame')}:</span>
                     <span>
                       {item.binary

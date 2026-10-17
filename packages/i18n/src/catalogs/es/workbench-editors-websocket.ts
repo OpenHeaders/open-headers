@@ -245,7 +245,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.saveMessage': 'Guardar mensaje',
   'workbench.editors.websocket.timeline.info.label': 'Detalles del mensaje',
   'workbench.editors.websocket.timeline.info.size': 'Tamaño',
-  'workbench.editors.websocket.timeline.info.time': 'Hora',
   'workbench.editors.websocket.timeline.info.frame': 'Trama',
   'workbench.editors.websocket.timeline.info.frameText': 'Texto',
   'workbench.editors.websocket.timeline.info.frameBinary': 'Binario',

@@ -240,7 +240,6 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.saveMessage': 'Salvare mesaj',
   'workbench.editors.websocket.timeline.info.label': 'Detalii mesaj',
   'workbench.editors.websocket.timeline.info.size': 'Dimensiune',
-  'workbench.editors.websocket.timeline.info.time': 'Timp',
   'workbench.editors.websocket.timeline.info.frame': 'Cadru',
   'workbench.editors.websocket.timeline.info.frameText': 'Text',
   'workbench.editors.websocket.timeline.info.frameBinary': 'Binar',
