@@ -41,6 +41,40 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': '속성',
   'workbench.editors.mqtt.tab.lastWill': 'Last Will',
   'workbench.editors.mqtt.tab.settings': '설정',
+  'workbench.editors.mqtt.tabInfo.docs.summary':
+    '이 요청과 함께 저장되고 요청을 여는 모든 사람에게 보이는 Markdown 메모입니다.',
+  'workbench.editors.mqtt.tabInfo.docs.detail': '사람을 위한 메모입니다. 여기 내용은 브로커에 전달되지 않습니다.',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    '전송이 게시하는 토픽, 페이로드, QoS, retain 플래그와 재사용을 위해 저장한 메시지입니다.',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    '게시 속성(5.0)은 메시지의 속성 팝오버에 있습니다. 변수는 전송 시 해결됩니다.',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    '브로커가 연결을 수락한 직후 세션이 여는 구독입니다. 한 행에 필터 하나입니다.',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    '와일드카드 + 와 # 을 쓸 수 있습니다. 토글을 끈 행은 저장은 되지만 구독하지 않습니다. 5.0 옵션은 각 행의 설정에 있습니다.',
+  'workbench.editors.mqtt.tabInfo.auth.summary':
+    'CONNECT 패킷의 User Name과 Password입니다. 두 MQTT 버전 모두 이를 실어 보냅니다.',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    '없음은 자격 증명을 보내지 않고, 상속은 컬렉션 또는 워크스페이스의 인증을 사용합니다. 변수는 연결 시 해결됩니다.',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'CONNECT에 한 번 보내는 사용자 속성입니다. 브로커와 다른 도구가 읽을 수 있는 자유 형식 메타데이터입니다.',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'MQTT 5.0 기능입니다. 3.1.1 세션에서는 행이 저장은 되지만 전송되지 않습니다.',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'CONNECT 시 브로커에 등록되며, 세션이 정상 연결 해제 없이 끊기면 대신 게시됩니다.',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    '유언은 토픽이 있어야 등록됩니다. 토픽 없는 블록은 보관되지만 전송되지 않습니다. 지연과 속성은 5.0입니다.',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    '세션을 둘러싼 네 가지 훅: 연결 전, 게시 전, 메시지 수신 시, 종료 후.',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    '컬렉션과 워크스페이스의 스크립트가 이 요청 자체의 스크립트를 둘러싸고 실행됩니다. 실행과 실패는 세션의 스크립트 탭에 표시됩니다.',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    '세션의 CONNECT 설정: 클라이언트 ID, clean start, keep-alive, 세션 한도, 재연결, TLS.',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    '비워 둔 행은 컬렉션 또는 워크스페이스의 값을 상속합니다. 요청 자체의 값은 해당 행에 점을 표시합니다.',
+  'workbench.editors.mqtt.tabInfo.spec.summary': 'AsyncAPI 사양을 연결해 그 채널과 예시 메시지로부터 작성합니다.',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    '바인딩은 요청에 대한 메타데이터이지 세션의 일부가 아닙니다. 아무것도 전송되지 않습니다.',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': '최대 한 번',
   'workbench.editors.mqtt.qos.meaning1': '최소 한 번',

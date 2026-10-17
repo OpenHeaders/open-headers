@@ -47,6 +47,41 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': 'Proprietăți',
   'workbench.editors.mqtt.tab.lastWill': 'Last Will',
   'workbench.editors.mqtt.tab.settings': 'Setări',
+  'workbench.editors.mqtt.tabInfo.docs.summary':
+    'Note Markdown păstrate cu această cerere și arătate oricui o deschide.',
+  'workbench.editors.mqtt.tabInfo.docs.detail': 'Note pentru oameni; nimic de aici nu ajunge la broker.',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    'Subiectul, conținutul util, QoS și indicatorul retain pe care Trimitere le publică, împreună cu mesajele salvate pentru reutilizare.',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    'Proprietățile de publicare (5.0) stau în fereastra Proprietăți a mesajului; variabilele se rezolvă la trimitere.',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    'Abonamentele pe care sesiunea le deschide imediat ce brokerul acceptă conexiunea, un filtru pe rând.',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    'Metacaracterele + și # sunt binevenite; rândurile dezactivate rămân salvate și nu se abonează; opțiunile 5.0 stau în Setările fiecărui rând.',
+  'workbench.editors.mqtt.tabInfo.auth.summary':
+    'User Name și Password în pachetul CONNECT; ambele versiuni MQTT le poartă.',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    'Niciuna nu trimite acreditări, Moștenire preia autorizarea colecției sau a spațiului de lucru; variabilele se rezolvă la conectare.',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'Proprietăți de utilizator trimise o dată la CONNECT; metadate libere pe care brokerul și alte instrumente le pot citi.',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'O funcție MQTT 5.0; într-o sesiune 3.1.1 rândurile rămân salvate și nu sunt trimise.',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'Înregistrată la broker la CONNECT și publicată în numele dvs. dacă sesiunea cade fără o deconectare curată.',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    'O ultimă dorință se înregistrează doar cu subiect; un bloc fără subiect este păstrat, nu trimis. Întârzierea și proprietățile sunt 5.0.',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    'Patru cârlige în jurul sesiunii: Înainte de conectare, Înainte de publicare, La mesaj, După închidere.',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    'Scripturile colecției și ale spațiului de lucru rulează în jurul celor proprii acestei cereri; rulările și eșecurile apar în fila Scripturi a sesiunii.',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    'Reglajele CONNECT ale sesiunii: id-ul clientului, clean start, keep-alive, limitele sesiunii, reconectarea, TLS.',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    'Un rând lăsat gol moștenește valoarea colecției sau a spațiului de lucru; valorile proprii cererii își marchează rândul cu un punct.',
+  'workbench.editors.mqtt.tabInfo.spec.summary':
+    'Legați o specificație AsyncAPI pentru a compune din canalele și mesajele ei de exemplu.',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    'O legătură este metadată a cererii, nu parte a sesiunii; nimic nu se trimite.',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': 'Cel mult o dată',
   'workbench.editors.mqtt.qos.meaning1': 'Cel puțin o dată',

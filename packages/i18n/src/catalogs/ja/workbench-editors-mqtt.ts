@@ -38,6 +38,41 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': 'プロパティ',
   'workbench.editors.mqtt.tab.lastWill': 'Last Will',
   'workbench.editors.mqtt.tab.settings': '設定',
+  'workbench.editors.mqtt.tabInfo.docs.summary':
+    'このリクエストと一緒に保存され、開いた人に表示される Markdown のメモです。',
+  'workbench.editors.mqtt.tabInfo.docs.detail': '人のためのメモです。ここの内容はブローカーに届きません。',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    '送信がパブリッシュするトピック、ペイロード、QoS、retain フラグと、再利用のために保存したメッセージです。',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    'パブリッシュのプロパティ (5.0) はメッセージのプロパティのポップオーバーにあります。変数は送信時に解決されます。',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    'ブローカーが接続を受け入れた直後にセッションが開くサブスクリプションです。1 行に 1 つのフィルターです。',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    'ワイルドカード + と # を使えます。オフにした行は保存されたままでサブスクライブしません。5.0 のオプションは各行の設定にあります。',
+  'workbench.editors.mqtt.tabInfo.auth.summary':
+    'CONNECT パケットの User Name と Password です。どちらの MQTT バージョンも運びます。',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    'なしは資格情報を送らず、継承はコレクションまたはワークスペースの認可を使います。変数は接続時に解決されます。',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'CONNECT で一度だけ送られるユーザープロパティです。ブローカーや他のツールが読める自由形式のメタデータです。',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'MQTT 5.0 の機能です。3.1.1 のセッションでは行は保存されたままで、送られません。',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'CONNECT でブローカーに登録され、セッションが正常な切断なしに落ちた場合に代わりにパブリッシュされます。',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    '遺言はトピックがあるときだけ登録されます。トピックのないブロックは保持されますが送られません。遅延とプロパティは 5.0 です。',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    'セッションを囲む 4 つのフック: 接続前、パブリッシュ前、メッセージ受信時、クローズ後。',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    'コレクションとワークスペースのスクリプトがこのリクエスト自身のスクリプトを囲んで実行されます。実行と失敗はセッションのスクリプトタブに表示されます。',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    'セッションの CONNECT の設定項目: クライアント ID、clean start、keep-alive、セッションの上限、再接続、TLS。',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    '空のままの行はコレクションまたはワークスペースの値を継承します。リクエスト自身の値はその行に点を付けます。',
+  'workbench.editors.mqtt.tabInfo.spec.summary':
+    'AsyncAPI 仕様をリンクして、そのチャネルと例のメッセージから作成します。',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    'バインディングはリクエストについてのメタデータで、セッションの一部ではありません。何も送られません。',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': '最大 1 回',
   'workbench.editors.mqtt.qos.meaning1': '最低 1 回',

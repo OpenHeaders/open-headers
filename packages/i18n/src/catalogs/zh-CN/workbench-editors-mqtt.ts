@@ -36,6 +36,31 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': '属性',
   'workbench.editors.mqtt.tab.lastWill': '遗嘱',
   'workbench.editors.mqtt.tab.settings': '设置',
+  'workbench.editors.mqtt.tabInfo.docs.summary': '随此请求保存、向打开它的人展示的 Markdown 笔记。',
+  'workbench.editors.mqtt.tabInfo.docs.detail': '写给人看的笔记；这里的内容不会到达代理。',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    '“发送”所发布的主题、载荷、QoS 与 retain 标志，以及你为复用而保存的消息。',
+  'workbench.editors.mqtt.tabInfo.message.detail': '发布属性（5.0）位于消息的属性弹出层中；变量在发送时解析。',
+  'workbench.editors.mqtt.tabInfo.topics.summary': '代理接受连接后会话立即建立的订阅，每行一个过滤器。',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    '欢迎使用通配符 + 和 #；关闭的行仍会保存但不会订阅；5.0 选项位于每行的设置中。',
+  'workbench.editors.mqtt.tabInfo.auth.summary': 'CONNECT 报文中的 User Name 与 Password；两个 MQTT 版本均支持。',
+  'workbench.editors.mqtt.tabInfo.auth.detail': '“无”不发送凭据，“继承”采用集合或工作区的授权；变量在连接时解析。',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    '随 CONNECT 发送一次的用户属性；代理与其他工具可读取的自由元数据。',
+  'workbench.editors.mqtt.tabInfo.properties.detail': 'MQTT 5.0 特性；在 3.1.1 会话中这些行仍会保存，但不会发送。',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    '随 CONNECT 向代理注册；若会话在没有干净断开的情况下中断，代理会代为发布。',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    '遗嘱只有带主题才会注册；没有主题的块会保留但不发送。延迟与属性是 5.0 特性。',
+  'workbench.editors.mqtt.tabInfo.scripts.summary': '围绕会话的四个钩子：连接前、发布前、收到消息时、关闭后。',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    '集合与工作区的脚本围绕此请求自身的脚本运行；运行与失败显示在会话的“脚本”标签页中。',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    '会话的 CONNECT 设置项：客户端 ID、clean start、keep-alive、会话上限、重连、TLS。',
+  'workbench.editors.mqtt.tabInfo.settings.detail': '留空的行继承集合或工作区的值；请求自身的值会在其行上标一个点。',
+  'workbench.editors.mqtt.tabInfo.spec.summary': '链接一份 AsyncAPI 规范，从其频道与示例消息进行编写。',
+  'workbench.editors.mqtt.tabInfo.spec.detail': '绑定是关于请求的元数据，不是会话的一部分；不会发送任何内容。',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': '至多一次',
   'workbench.editors.mqtt.qos.meaning1': '至少一次',

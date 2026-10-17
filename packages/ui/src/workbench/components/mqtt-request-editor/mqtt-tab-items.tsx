@@ -10,15 +10,22 @@
  * nothing. On the grid tabs (Topics / Properties) the count badge
  * itself carries the unsaved tone; a grid whose rows were all removed
  * but not yet saved has no badge, so a bare salmon dot stands in.
+ *
+ * Every label closes with the tab's `(i)` — hover-revealed, its slot
+ * reserved at rest so the bar never shifts; the popover opens on the
+ * glyph's click (the Body tab's mode radios' idiom), which never
+ * reaches the tab.
  */
 
 import type React from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { TabCount, TabDot } from '../request-editor/request-tab-items';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import { draftToLastWill, type MqttDraft } from './draft';
 import { anyMqttScriptUnsaved, type MqttUnsavedSections, NO_UNSAVED_MQTT_SECTIONS } from './mqtt-section-unsaved';
 import { type MqttSettingsKnobKey, NO_UNSAVED_MQTT_SETTINGS } from './mqtt-settings-unsaved';
+import { mqttTabInfo } from './mqtt-tab-info';
 
 export type MqttTabKey =
   | 'docs'
@@ -57,6 +64,20 @@ function toneMark(unsaved: boolean, hasContent: boolean): React.ReactNode {
   return hasContent ? <TabDot /> : null;
 }
 
+/** The label is a flex row so the glyph's slot is laid out whether or
+ *  not it is visible; the marks keep their own 4px lead. */
+const LABEL_STYLE: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4 };
+
+/** `title · mark · (i)` — the mark may be nothing; the glyph always is. */
+function tabLabel(tab: MqttTabKey, title: React.ReactNode, mark: React.ReactNode, t: Translate): React.ReactNode {
+  return (
+    <span className="oh-info-hover-host" style={LABEL_STYLE}>
+      {title} {mark}
+      <InfoTrigger className="oh-info-trigger--hover oh-info-trigger--trailing" content={mqttTabInfo(t, tab)} />
+    </span>
+  );
+}
+
 export function buildMqttTabItems({
   draft,
   t,
@@ -81,70 +102,52 @@ export function buildMqttTabItems({
   const hasDocs = draft.description.trim() !== '';
   const ownAuth = draft.auth.type !== 'none' && draft.auth.type !== 'inherit';
   return [
-    {
-      key: 'docs',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.docs')} {toneMark(unsaved.docs, hasDocs)}
-        </span>
-      ),
-    },
+    { key: 'docs', label: tabLabel('docs', t('workbench.editors.mqtt.tab.docs'), toneMark(unsaved.docs, hasDocs), t) },
     {
       key: 'message',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.message')} {toneMark(unsaved.message, false)}
-        </span>
-      ),
+      label: tabLabel('message', t('workbench.editors.mqtt.tab.message'), toneMark(unsaved.message, false), t),
     },
     {
       key: 'topics',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.topics')} {gridMark(topicCount, unsaved.topics)}
-        </span>
-      ),
+      label: tabLabel('topics', t('workbench.editors.mqtt.tab.topics'), gridMark(topicCount, unsaved.topics), t),
     },
-    {
-      key: 'auth',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.auth')} {toneMark(unsaved.auth, ownAuth)}
-        </span>
-      ),
-    },
+    { key: 'auth', label: tabLabel('auth', t('workbench.editors.mqtt.tab.auth'), toneMark(unsaved.auth, ownAuth), t) },
     {
       key: 'properties',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.properties')} {gridMark(propertyCount, unsaved.properties)}
-        </span>
+      label: tabLabel(
+        'properties',
+        t('workbench.editors.mqtt.tab.properties'),
+        gridMark(propertyCount, unsaved.properties),
+        t,
       ),
     },
     {
       key: 'lastwill',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.lastWill')} {toneMark(unsaved.lastWill, willConfigured)}
-        </span>
+      label: tabLabel(
+        'lastwill',
+        t('workbench.editors.mqtt.tab.lastWill'),
+        toneMark(unsaved.lastWill, willConfigured),
+        t,
       ),
     },
     {
       key: 'scripts',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.scripts')} {toneMark(anyMqttScriptUnsaved(unsaved.scripts), anyScript)}
-        </span>
+      label: tabLabel(
+        'scripts',
+        t('workbench.editors.mqtt.tab.scripts'),
+        toneMark(anyMqttScriptUnsaved(unsaved.scripts), anyScript),
+        t,
       ),
     },
     {
       key: 'settings',
-      label: (
-        <span>
-          {t('workbench.editors.mqtt.tab.settings')} {toneMark(unsavedSettings.size > 0, ownSettings)}
-        </span>
+      label: tabLabel(
+        'settings',
+        t('workbench.editors.mqtt.tab.settings'),
+        toneMark(unsavedSettings.size > 0, ownSettings),
+        t,
       ),
     },
-    { key: 'spec', label: <SpecTabLabel /> },
+    { key: 'spec', label: tabLabel('spec', <SpecTabLabel />, null, t) },
   ];
 }

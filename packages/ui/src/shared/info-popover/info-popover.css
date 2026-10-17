@@ -263,6 +263,11 @@
 .oh-info-trigger--hover:focus-visible {
   opacity: 1;
 }
+/* Trailing variant — the glyph closes a label (an editor tab's title
+ * and mark) instead of leading a control, so its gap sits before it. */
+.oh-info-trigger--trailing {
+  margin: 0 0 0 2px;
+}
 
 /* ── Shared example card ──────────────────────────────────
  * A canonical concrete example rendered inside the popover's diagram

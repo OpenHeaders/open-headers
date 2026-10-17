@@ -29,6 +29,42 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': 'Properties',
   'workbench.editors.mqtt.tab.lastWill': 'Last Will',
   'workbench.editors.mqtt.tab.settings': 'Settings',
+  // The tabs' (i) popovers — one card per tab: what it holds, when it
+  // applies, where its values come from. The packet kicker rides raw.
+  'workbench.editors.mqtt.tabInfo.docs.summary': 'Markdown notes kept with this request and shown to whoever opens it.',
+  'workbench.editors.mqtt.tabInfo.docs.detail': 'Notes for people; nothing here reaches the broker.',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    'The topic, payload, QoS and retain flag that Send publishes, with the messages you saved for reuse.',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    'Publish properties (5.0) ride the message’s Properties popover; variables resolve at Send.',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    'The subscriptions the session opens right after the broker accepts the connection, one filter per row.',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    'Wildcards + and # are welcome; toggled-off rows stay saved and do not subscribe; 5.0 options sit in each row’s Settings.',
+  'workbench.editors.mqtt.tabInfo.auth.summary':
+    'User Name and Password in the CONNECT packet; both MQTT versions carry them.',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    'None sends no credential, Inherit takes the collection or workspace auth; variables resolve at Connect.',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'User properties sent once on CONNECT; free-form metadata the broker and other tooling can read.',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'An MQTT 5.0 feature; on a 3.1.1 session the rows stay saved and are not sent.',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'Registered with the broker on CONNECT and published for you if the session drops without a clean disconnect.',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    'A will registers only with a topic; a block without one is kept, not sent. The delay and the properties are 5.0.',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    'Four hooks around the session: Before connect, Before publish, On message, After close.',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    'Collection and workspace scripts run around this request’s own; runs and failures show in the session’s Scripts tab.',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    'The session’s CONNECT knobs: client id, clean start, keep-alive, session limits, reconnect policy, TLS.',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    'A row left blank inherits the collection or workspace value; the request’s own values dot their rows.',
+  'workbench.editors.mqtt.tabInfo.spec.summary':
+    'Link an AsyncAPI spec to compose from its channels and example messages.',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    'A binding is metadata about the request, not part of the session; nothing is sent.',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': 'At most once',
   'workbench.editors.mqtt.qos.meaning1': 'At least once',

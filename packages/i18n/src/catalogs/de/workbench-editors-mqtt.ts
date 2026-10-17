@@ -34,6 +34,41 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': 'Eigenschaften',
   'workbench.editors.mqtt.tab.lastWill': 'Testament',
   'workbench.editors.mqtt.tab.settings': 'Einstellungen',
+  'workbench.editors.mqtt.tabInfo.docs.summary':
+    'Markdown-Notizen, die bei dieser Anfrage bleiben und jedem gezeigt werden, der sie öffnet.',
+  'workbench.editors.mqtt.tabInfo.docs.detail': 'Notizen für Menschen; nichts davon erreicht den Broker.',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    'Thema, Nutzlast, QoS und Retain-Flag, die Senden veröffentlicht, samt den Nachrichten, die du zur Wiederverwendung gespeichert hast.',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    'Publish-Eigenschaften (5.0) sitzen im Eigenschaften-Popover der Nachricht; Variablen werden beim Senden aufgelöst.',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    'Die Abonnements, die die Sitzung öffnet, sobald der Broker die Verbindung annimmt — ein Filter je Zeile.',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    'Wildcards + und # sind willkommen; abgeschaltete Zeilen bleiben gespeichert und abonnieren nicht; 5.0-Optionen sitzen in den Einstellungen jeder Zeile.',
+  'workbench.editors.mqtt.tabInfo.auth.summary':
+    'User Name und Password im CONNECT-Paket; beide MQTT-Versionen tragen sie.',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    'Keine sendet keine Zugangsdaten, Erben übernimmt die Authentifizierung der Sammlung oder des Arbeitsbereichs; Variablen werden beim Verbinden aufgelöst.',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'Benutzereigenschaften, einmal auf CONNECT gesendet — freie Metadaten, die Broker und andere Werkzeuge lesen können.',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'Eine Funktion von MQTT 5.0; in einer 3.1.1-Sitzung bleiben die Zeilen gespeichert und werden nicht gesendet.',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'Wird mit CONNECT beim Broker hinterlegt und von ihm veröffentlicht, falls die Sitzung ohne sauberes Trennen abbricht.',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    'Ein Testament wird nur mit Thema hinterlegt; ein Block ohne Thema bleibt gespeichert, wird aber nicht gesendet. Verzögerung und Eigenschaften sind 5.0.',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    'Vier Hooks rund um die Sitzung: Vor dem Verbinden, Vor dem Veröffentlichen, Bei Nachricht, Nach dem Schließen.',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    'Skripte der Sammlung und des Arbeitsbereichs laufen um die eigenen dieser Anfrage herum; Läufe und Fehlschläge zeigt der Skripte-Tab der Sitzung.',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    'Die CONNECT-Regler der Sitzung: Client-ID, Clean Start, Keep-Alive, Sitzungsgrenzen, Wiederverbindung, TLS.',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    'Eine leer gelassene Zeile erbt den Wert der Sammlung oder des Arbeitsbereichs; eigene Werte der Anfrage markieren ihre Zeile mit einem Punkt.',
+  'workbench.editors.mqtt.tabInfo.spec.summary':
+    'Verknüpfe eine AsyncAPI-Spezifikation, um aus ihren Kanälen und Beispielnachrichten zu verfassen.',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    'Eine Bindung ist Metadaten zur Anfrage, kein Teil der Sitzung; nichts wird gesendet.',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': 'Höchstens einmal',
   'workbench.editors.mqtt.qos.meaning1': 'Mindestens einmal',

@@ -34,6 +34,41 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': 'Propriétés',
   'workbench.editors.mqtt.tab.lastWill': 'Testament',
   'workbench.editors.mqtt.tab.settings': 'Paramètres',
+  'workbench.editors.mqtt.tabInfo.docs.summary':
+    'Notes Markdown conservées avec cette requête et montrées à quiconque l’ouvre.',
+  'workbench.editors.mqtt.tabInfo.docs.detail': 'Des notes pour les humains ; rien d’ici n’atteint le courtier.',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    'Le sujet, la charge utile, le QoS et le drapeau retain qu’Envoyer publie, avec les messages enregistrés pour réutilisation.',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    'Les propriétés de publication (5.0) vivent dans le popover Propriétés du message ; les variables se résolvent à l’envoi.',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    'Les abonnements que la session ouvre dès que le courtier accepte la connexion, un filtre par ligne.',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    'Les jokers + et # sont bienvenus ; les lignes désactivées restent enregistrées et ne s’abonnent pas ; les options 5.0 sont dans les Paramètres de chaque ligne.',
+  'workbench.editors.mqtt.tabInfo.auth.summary':
+    'User Name et Password dans le paquet CONNECT ; les deux versions MQTT les transportent.',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    'Aucune n’envoie pas d’identifiant, Hériter reprend l’auth de la collection ou de l’espace de travail ; les variables se résolvent à la connexion.',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'Propriétés utilisateur envoyées une fois sur CONNECT ; métadonnées libres lisibles par le courtier et d’autres outils.',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'Une fonction MQTT 5.0 ; dans une session 3.1.1 les lignes restent enregistrées et ne sont pas envoyées.',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'Déposé auprès du courtier sur CONNECT et publié à votre place si la session tombe sans déconnexion propre.',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    'Un testament ne se dépose qu’avec un sujet ; un bloc sans sujet est conservé, pas envoyé. Le délai et les propriétés sont 5.0.',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    'Quatre crochets autour de la session : Avant la connexion, Avant la publication, À la réception, Après la fermeture.',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    'Les scripts de la collection et de l’espace de travail s’exécutent autour de ceux de cette requête ; les exécutions et les échecs s’affichent dans l’onglet Scripts de la session.',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    'Les réglages CONNECT de la session : identifiant client, clean start, keep-alive, limites de session, reconnexion, TLS.',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    'Une ligne laissée vide hérite de la valeur de la collection ou de l’espace de travail ; les valeurs propres à la requête marquent leur ligne d’un point.',
+  'workbench.editors.mqtt.tabInfo.spec.summary':
+    'Liez une spécification AsyncAPI pour composer à partir de ses canaux et de ses messages d’exemple.',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    'Une liaison est une métadonnée de la requête, pas une partie de la session ; rien n’est envoyé.',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS :',
   'workbench.editors.mqtt.qos.meaning0': 'Au plus une fois',
   'workbench.editors.mqtt.qos.meaning1': 'Au moins une fois',

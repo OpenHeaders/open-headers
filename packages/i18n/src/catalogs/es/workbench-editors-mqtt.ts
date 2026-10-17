@@ -33,6 +33,41 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': 'Propiedades',
   'workbench.editors.mqtt.tab.lastWill': 'Testamento',
   'workbench.editors.mqtt.tab.settings': 'Ajustes',
+  'workbench.editors.mqtt.tabInfo.docs.summary':
+    'Notas en Markdown que acompañan a esta solicitud y se muestran a quien la abra.',
+  'workbench.editors.mqtt.tabInfo.docs.detail': 'Notas para personas; nada de aquí llega al bróker.',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    'El tema, la carga útil, el QoS y el indicador retain que Enviar publica, junto con los mensajes guardados para reutilizar.',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    'Las propiedades de publicación (5.0) viven en el popover Propiedades del mensaje; las variables se resuelven al enviar.',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    'Las suscripciones que la sesión abre en cuanto el bróker acepta la conexión, un filtro por fila.',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    'Los comodines + y # son bienvenidos; las filas desactivadas se guardan y no se suscriben; las opciones 5.0 están en los Ajustes de cada fila.',
+  'workbench.editors.mqtt.tabInfo.auth.summary':
+    'User Name y Password en el paquete CONNECT; ambas versiones de MQTT los transportan.',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    'Ninguna no envía credencial, Heredar toma la autenticación de la colección o del espacio de trabajo; las variables se resuelven al conectar.',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'Propiedades de usuario enviadas una vez en CONNECT; metadatos libres que el bróker y otras herramientas pueden leer.',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'Una función de MQTT 5.0; en una sesión 3.1.1 las filas se guardan y no se envían.',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'Se registra en el bróker con CONNECT y se publica por ti si la sesión cae sin una desconexión limpia.',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    'Un testamento solo se registra con tema; un bloque sin tema se conserva, no se envía. El retardo y las propiedades son 5.0.',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    'Cuatro ganchos alrededor de la sesión: Antes de conectar, Antes de publicar, Al recibir mensaje, Tras cerrar.',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    'Los scripts de la colección y del espacio de trabajo corren alrededor de los propios de esta solicitud; las ejecuciones y fallos se ven en la pestaña Scripts de la sesión.',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    'Los mandos CONNECT de la sesión: id de cliente, clean start, keep-alive, límites de sesión, reconexión, TLS.',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    'Una fila en blanco hereda el valor de la colección o del espacio de trabajo; los valores propios de la solicitud marcan su fila con un punto.',
+  'workbench.editors.mqtt.tabInfo.spec.summary':
+    'Vincula una especificación AsyncAPI para componer desde sus canales y mensajes de ejemplo.',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    'Una vinculación son metadatos de la solicitud, no parte de la sesión; nada se envía.',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': 'Como máximo una vez',
   'workbench.editors.mqtt.qos.meaning1': 'Al menos una vez',

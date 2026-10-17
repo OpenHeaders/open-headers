@@ -44,6 +44,40 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tab.properties': 'Свойства',
   'workbench.editors.mqtt.tab.lastWill': 'Last Will',
   'workbench.editors.mqtt.tab.settings': 'Настройки',
+  'workbench.editors.mqtt.tabInfo.docs.summary':
+    'Заметки в Markdown, хранящиеся вместе с этим запросом и видимые каждому, кто его откроет.',
+  'workbench.editors.mqtt.tabInfo.docs.detail': 'Заметки для людей; ничего отсюда не доходит до брокера.',
+  'workbench.editors.mqtt.tabInfo.message.summary':
+    'Топик, полезная нагрузка, QoS и флаг retain, которые публикует «Отправить», вместе с сообщениями, сохранёнными для повторного использования.',
+  'workbench.editors.mqtt.tabInfo.message.detail':
+    'Свойства публикации (5.0) живут во всплывающем окне «Свойства» сообщения; переменные разрешаются при отправке.',
+  'workbench.editors.mqtt.tabInfo.topics.summary':
+    'Подписки, которые сеанс открывает сразу после того, как брокер примет соединение, — один фильтр на строку.',
+  'workbench.editors.mqtt.tabInfo.topics.detail':
+    'Подстановочные знаки + и # приветствуются; выключенные строки сохраняются и не подписываются; параметры 5.0 находятся в настройках каждой строки.',
+  'workbench.editors.mqtt.tabInfo.auth.summary': 'User Name и Password в пакете CONNECT; их несут обе версии MQTT.',
+  'workbench.editors.mqtt.tabInfo.auth.detail':
+    '«Нет» не отправляет учётных данных, «Наследовать» берёт авторизацию коллекции или рабочего пространства; переменные разрешаются при подключении.',
+  'workbench.editors.mqtt.tabInfo.properties.summary':
+    'Пользовательские свойства, отправляемые один раз в CONNECT; произвольные метаданные, которые могут читать брокер и другие инструменты.',
+  'workbench.editors.mqtt.tabInfo.properties.detail':
+    'Возможность MQTT 5.0; в сеансе 3.1.1 строки сохраняются, но не отправляются.',
+  'workbench.editors.mqtt.tabInfo.lastWill.summary':
+    'Регистрируется у брокера в CONNECT и публикуется за вас, если сеанс оборвётся без корректного отключения.',
+  'workbench.editors.mqtt.tabInfo.lastWill.detail':
+    'Последняя воля регистрируется только с топиком; блок без топика сохраняется, но не отправляется. Задержка и свойства — это 5.0.',
+  'workbench.editors.mqtt.tabInfo.scripts.summary':
+    'Четыре хука вокруг сеанса: до подключения, до публикации, при сообщении, после закрытия.',
+  'workbench.editors.mqtt.tabInfo.scripts.detail':
+    'Скрипты коллекции и рабочего пространства выполняются вокруг собственных скриптов этого запроса; запуски и сбои видны на вкладке «Скрипты» сеанса.',
+  'workbench.editors.mqtt.tabInfo.settings.summary':
+    'Параметры CONNECT сеанса: идентификатор клиента, clean start, keep-alive, пределы сеанса, переподключение, TLS.',
+  'workbench.editors.mqtt.tabInfo.settings.detail':
+    'Пустая строка наследует значение коллекции или рабочего пространства; собственные значения запроса отмечают свою строку точкой.',
+  'workbench.editors.mqtt.tabInfo.spec.summary':
+    'Привяжите спецификацию AsyncAPI, чтобы составлять сообщения из её каналов и примеров.',
+  'workbench.editors.mqtt.tabInfo.spec.detail':
+    'Привязка — это метаданные запроса, а не часть сеанса; ничего не отправляется.',
   'workbench.editors.mqtt.qos.compactLabel': 'QoS:',
   'workbench.editors.mqtt.qos.meaning0': 'Не более одного раза',
   'workbench.editors.mqtt.qos.meaning1': 'Не менее одного раза',
