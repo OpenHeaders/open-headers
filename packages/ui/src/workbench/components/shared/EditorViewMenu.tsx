@@ -17,7 +17,7 @@
 
 import { CheckOutlined, ControlOutlined, SelectOutlined } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
-import { Button, Dropdown, theme } from 'antd';
+import { Button, Dropdown, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -133,16 +133,21 @@ const EditorViewMenu: React.FC<EditorViewMenuProps> = ({ wrap, onWrapChange, sty
         ],
       }}
     >
-      <Button
-        size="small"
-        type="text"
-        icon={<ControlOutlined />}
-        style={style}
-        data-testid={testid}
-        aria-label={t('shared.editorMenu.label')}
-      >
-        {t('shared.editorMenu.label')}
-      </Button>
+      {/* The hint names what the menu holds, like Find / Replace /
+        Format's hints beside it; it yields while the menu is open (the
+        sidebar header's dropdown-trigger idiom). */}
+      <Tooltip title={t('shared.editorMenu.tooltip')} placement="top" open={open ? false : undefined}>
+        <Button
+          size="small"
+          type="text"
+          icon={<ControlOutlined />}
+          style={style}
+          data-testid={testid}
+          aria-label={t('shared.editorMenu.label')}
+        >
+          {t('shared.editorMenu.label')}
+        </Button>
+      </Tooltip>
     </Dropdown>
   );
 };

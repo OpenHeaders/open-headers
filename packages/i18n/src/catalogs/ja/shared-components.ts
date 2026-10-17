@@ -439,6 +439,7 @@ export const sharedComponents = {
     'メッセージは JSON ではありません。整形するには JSON などの構造化された形式を選択してください。',
   'shared.codeEditor.formatError': '整形できません：パースエラー',
   'shared.editorMenu.label': 'エディター',
+  'shared.editorMenu.tooltip': '表示オプション — このエディターとすべてのエディター',
   'shared.editorMenu.settings': '設定',
   'shared.editorMenu.thisEditor': 'このエディター',
   'shared.editorMenu.allEditors': 'すべてのエディター',

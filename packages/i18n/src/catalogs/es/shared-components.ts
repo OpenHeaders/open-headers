@@ -454,6 +454,7 @@ export const sharedComponents = {
     'El mensaje no es JSON. Elige un formato estructurado, como JSON, para formatearlo.',
   'shared.codeEditor.formatError': 'No se puede formatear — error de análisis',
   'shared.editorMenu.label': 'Editor',
+  'shared.editorMenu.tooltip': 'Opciones de visualización: este editor y todos los editores',
   'shared.editorMenu.settings': 'Configuración',
   'shared.editorMenu.thisEditor': 'Este editor',
   'shared.editorMenu.allEditors': 'Todos los editores',

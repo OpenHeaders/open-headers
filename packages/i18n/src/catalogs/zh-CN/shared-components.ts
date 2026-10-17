@@ -455,6 +455,7 @@ export const sharedComponents = {
   'shared.codeEditor.formatNotDetectedHint': '消息不是 JSON。请选择结构化格式（例如 JSON）以进行格式化。',
   'shared.codeEditor.formatError': '无法格式化 — 解析错误',
   'shared.editorMenu.label': '编辑器',
+  'shared.editorMenu.tooltip': '显示选项 — 此编辑器和所有编辑器',
   'shared.editorMenu.settings': '设置',
   'shared.editorMenu.thisEditor': '此编辑器',
   'shared.editorMenu.allEditors': '所有编辑器',
