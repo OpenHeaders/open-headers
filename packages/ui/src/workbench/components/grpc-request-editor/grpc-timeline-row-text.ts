@@ -16,6 +16,8 @@ import { GRPC_HOOK_LABEL_KEY, type GrpcScriptMarkItem } from './grpc-scripts';
 export interface GrpcRowTextLifecycle {
   endedBy?: 'complete' | 'stop' | 'error' | 'lost';
   endedMessage?: string;
+  requestMetadata?: ReadonlyArray<{ key: string; value: string }>;
+  secretMetadataKeys?: readonly string[];
 }
 
 /** The script mark's line — the hook, the levels that contributed and
@@ -62,6 +64,44 @@ export function endedRowText(lifecycle: GrpcRowTextLifecycle, t: Translate): str
   const label = endedLabel(lifecycle.endedBy, t);
   if (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') return label;
   return lifecycle.endedMessage ? `${label} — ${lifecycle.endedMessage}` : label;
+}
+
+/** The words behind a fixed row's chevron — the sent metadata sheet
+ *  (a secret key's value stays hidden, as the sheet paints it), the
+ *  received-metadata sentence, the failure's guidance and message. */
+export function fixedRowDetailText(
+  kind: keyof typeof fixedRowText,
+  lifecycle: GrpcRowTextLifecycle,
+  t: Translate,
+): string {
+  switch (kind) {
+    case 'sent': {
+      if (lifecycle.requestMetadata === undefined) return '';
+      const secret = new Set((lifecycle.secretMetadataKeys ?? []).map((key) => key.toLowerCase()));
+      const rows =
+        lifecycle.requestMetadata.length === 0
+          ? [t('workbench.editors.grpc.timeline.noMetadataSent')]
+          : lifecycle.requestMetadata.map(
+              (pair) =>
+                `${pair.key}: ${secret.has(pair.key.toLowerCase()) ? t('workbench.editors.session.secretHidden') : pair.value}`,
+            );
+      return [t('workbench.editors.grpc.response.tab.metadata'), ...rows].join('\n');
+    }
+    case 'connected':
+      return t('workbench.editors.grpc.timeline.receivedMetadata').replace(
+        '{metadata}',
+        t('workbench.editors.grpc.timeline.receivedMetadataLink'),
+      );
+    case 'ended':
+      return (lifecycle.endedBy === 'error' || lifecycle.endedBy === 'lost') && lifecycle.endedMessage !== undefined
+        ? `${t('workbench.editors.grpc.response.error.localGuidance')}\n${lifecycle.endedMessage}`
+        : '';
+    default: {
+      const _exhaustive: never = kind;
+      void _exhaustive;
+      return '';
+    }
+  }
 }
 
 /** The fixed rows' words by entry kind — one signature, so the search

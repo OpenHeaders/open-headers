@@ -458,6 +458,30 @@ describe('GrpcMessageTimeline toolbar', () => {
     expect(screen.getAllByTestId('grpc-timeline-message-row')).toHaveLength(3);
   });
 
+  it('search reads the words behind the sent chevron — the metadata sheet, a secret value kept hidden', () => {
+    renderTimeline({
+      lifecycle: {
+        ...LIVE_LIFECYCLE,
+        requestMetadata: [
+          { key: 'authorization', value: 'Bearer tok' },
+          { key: 'x-plain', value: 'visible' },
+        ],
+        secretMetadataKeys: ['authorization'],
+      },
+    });
+    // "x-plain" is a row of the sent sheet alone: the sent row stays,
+    // collapsed; every message and the other lifecycle rows hide.
+    fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'x-plain' } });
+    expect(screen.getByTestId('grpc-timeline-sent-row')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-timeline-metadata-details')).toBeNull();
+    expect(screen.queryByTestId('grpc-timeline-connected-row')).toBeNull();
+    expect(screen.queryAllByTestId('grpc-timeline-message-row')).toHaveLength(0);
+    // The secret's value is hidden on the sheet — and so from the search.
+    fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'bearer tok' } });
+    expect(screen.queryByTestId('grpc-timeline-sent-row')).toBeNull();
+    expect(screen.getByText('No messages match.')).toBeTruthy();
+  });
+
   it('searches decoded previews and chip names, clears display-only, lifecycle intact', () => {
     renderTimeline();
     fireEvent.change(screen.getByTestId('grpc-timeline-search'), { target: { value: 'pong' } });

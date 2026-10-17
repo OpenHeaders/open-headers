@@ -98,7 +98,7 @@ import TimelineMessageViewer, {
   VIEWER_PX,
 } from '../shared/TimelineMessageViewer';
 import type { GrpcScriptMarkItem } from './grpc-scripts';
-import { endedRowText, fixedRowText, scriptRowText } from './grpc-timeline-row-text';
+import { endedRowText, fixedRowDetailText, fixedRowText, scriptRowText } from './grpc-timeline-row-text';
 import { deriveGrpcFrameView, type GrpcMessageView } from './response-decode';
 
 const { Text } = Typography;
@@ -292,6 +292,10 @@ interface FrameDerivations {
   previewOf: (item: GrpcTimelineItem) => string;
   /** The frame's bytes as the classic dump — the viewer's Hexdump. */
   hexOf: (item: GrpcTimelineItem) => HexDump;
+  /** The search haystack — the FULL decoded text (the preview is
+   *  capped; a match deep in a long message still counts), lowercased
+   *  once per item; a raw frame searches by its base64. */
+  searchTextOf: (item: GrpcTimelineItem) => string;
 }
 
 function makeFrameDerivations(
@@ -337,7 +341,18 @@ function makeFrameDerivations(
     hexCache.set(item, dump);
     return dump;
   };
-  return { viewOf, previewOf, hexOf };
+  const searchCache = new WeakMap<GrpcTimelineItem, string>();
+  const searchTextOf = (item: GrpcTimelineItem): string => {
+    const hit = searchCache.get(item);
+    if (hit !== undefined) return hit;
+    const view = viewOf(item);
+    const text = (
+      view.kind === 'schema' || view.kind === 'structural' ? view.text : view.kind === 'raw' ? view.base64 : ''
+    ).toLowerCase();
+    searchCache.set(item, text);
+    return text;
+  };
+  return { viewOf, previewOf, hexOf, searchTextOf };
 }
 
 const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
@@ -497,7 +512,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
       if (
         needle !== '' &&
         !(chipNeedles !== null && chipNeedles[direction].includes(needle)) &&
-        !derive.previewOf(item).toLowerCase().includes(needle)
+        !derive.searchTextOf(item).includes(needle)
       ) {
         continue;
       }
@@ -510,7 +525,8 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   // carry the needle (the same words the row paints).
   const fixedShown = useMemo(() => {
     const shown = (kind: keyof typeof fixedRowText): boolean =>
-      needle === '' || fixedRowText[kind](lifecycle, t).toLowerCase().includes(needle);
+      needle === '' ||
+      `${fixedRowText[kind](lifecycle, t)}\n${fixedRowDetailText(kind, lifecycle, t)}`.toLowerCase().includes(needle);
     return { sent: shown('sent'), connected: shown('connected'), ended: shown('ended') };
   }, [needle, lifecycle, t]);
 
