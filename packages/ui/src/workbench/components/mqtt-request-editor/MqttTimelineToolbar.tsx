@@ -5,8 +5,9 @@
  * topics at once, over every topic the log has seen), the sort menu
  * (writing the `requests.mqttMessagesNewestFirst` SETTING through the
  * orchestrator) and the display-only Clear on the right. Every trigger
- * carries icon + label and the menus read their state as the label —
- * one pattern across the strip; the two menus are single choices on
+ * carries icon + label (the direction trigger reads the filter in
+ * force, Sort by stays a name) — one pattern across the strip; the two
+ * menus are single choices on
  * antd's selection plane, painted by `.oh-choice-menu` (the Editor
  * menu's row anatomy: the mark in the gutter plus the active tint).
  * All controls are display-only over the capture — the orchestrator
@@ -35,6 +36,10 @@ interface MqttTimelineToolbarProps {
   onSearchChange: (search: string) => void;
   /** Message rows currently in the display window (cleared excluded). */
   messageTotal: number;
+  /** Of those, the rows the filters let through. */
+  messageShown: number;
+  /** Any filter in force — the count reads "{shown} of {total}". */
+  filtering: boolean;
   droppedMessages: number;
   /** Every distinct topic the log has seen, first-appearance order. */
   seenTopics: readonly string[];
@@ -52,6 +57,8 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
   search,
   onSearchChange,
   messageTotal,
+  messageShown,
+  filtering,
   droppedMessages,
   seenTopics,
   topicFilter,
@@ -135,8 +142,10 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
           </Button>
         </Tooltip>
       </Dropdown>
-      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-        {t('workbench.editors.mqtt.timeline.messageCount', { count: messageTotal })}
+      <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="mqtt-timeline-count">
+        {filtering
+          ? t('workbench.editors.mqtt.timeline.messageCountFiltered', { shown: messageShown, total: messageTotal })
+          : t('workbench.editors.mqtt.timeline.messageCount', { count: messageTotal })}
       </Text>
       {droppedMessages > 0 && (
         <Text type="warning" style={{ fontSize: 11, whiteSpace: 'nowrap' }} data-testid="mqtt-timeline-dropped">
@@ -156,7 +165,7 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
           onChange={(next: string[]) => onTopicFilterChange(next)}
           // Sized by its tags — never a reserved band; the cap collapses
           // the overflow into a count.
-          style={{ width: 'auto', minWidth: 140, maxWidth: 320 }}
+          style={{ width: 'auto', minWidth: 180, maxWidth: 340 }}
           data-testid="mqtt-timeline-topic-filter"
         />
       )}
@@ -204,9 +213,7 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
             data-testid="mqtt-timeline-sort"
             aria-label={t('workbench.editors.mqtt.timeline.sortOrder')}
           >
-            {newestFirst
-              ? t('workbench.editors.mqtt.timeline.newestFirst')
-              : t('workbench.editors.mqtt.timeline.oldestFirst')}
+            {t('workbench.editors.mqtt.timeline.sortBy')}
           </Button>
         </Tooltip>
       </Dropdown>

@@ -474,6 +474,7 @@ describe('MqttMessageTimeline — the control strip', () => {
     const trigger = screen.getByTestId('mqtt-timeline-direction-filter');
     expect(trigger.textContent).toBe('All messages');
     expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(3);
+    expect(screen.getByTestId('mqtt-timeline-count').textContent).toBe('3 messages');
     fireEvent.click(trigger);
     // The menu is a single choice on the selection plane — the row in
     // force carries antd's selected class (the Editor menu's anatomy).
@@ -483,6 +484,8 @@ describe('MqttMessageTimeline — the control strip', () => {
     fireEvent.click(screen.getByText('Sent', { selector: '.ant-dropdown-menu-item *' }));
     expect(trigger.textContent).toBe('Sent');
     expect(screen.getAllByTestId('mqtt-timeline-message-row')).toHaveLength(1);
+    // The count beside the filters reads what the filters let through.
+    expect(screen.getByTestId('mqtt-timeline-count').textContent).toBe('1 of 3 messages');
     expect(screen.getByText('one')).toBeTruthy();
   });
 
@@ -499,11 +502,11 @@ describe('MqttMessageTimeline — the control strip', () => {
     expect(texts.some((text) => text?.includes('two'))).toBe(false);
   });
 
-  it('labels the sort and clear triggers — the sort label reads the order in force', () => {
+  it('labels the sort and clear triggers — Sort by stays a name whatever the order', () => {
     render(<MqttMessageTimeline items={items} count={3} lifecycle={lifecycle} v5 />);
-    expect(screen.getByTestId('mqtt-timeline-sort').textContent).toBe('Newest first');
+    expect(screen.getByTestId('mqtt-timeline-sort').textContent).toBe('Sort by');
     expect(screen.getByTestId('mqtt-timeline-clear').textContent).toBe('Clear');
     act(() => setSetting('requests.mqttMessagesNewestFirst', false));
-    expect(screen.getByTestId('mqtt-timeline-sort').textContent).toBe('Oldest first');
+    expect(screen.getByTestId('mqtt-timeline-sort').textContent).toBe('Sort by');
   });
 });

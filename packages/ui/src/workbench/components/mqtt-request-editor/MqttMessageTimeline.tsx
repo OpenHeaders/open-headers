@@ -335,11 +335,19 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
     setConnackExpanded((prev) => !prev);
   }, []);
 
+  // The strip's count — the whole window's message rows, and the rows
+  // the filters let through, so the number beside the filters reads
+  // "{shown} of {total}" while any filter is in force.
   const messageTotal = useMemo(() => {
     let total = 0;
     for (let i = clearedCount; i < count; i++) if (items[i].kind === 'message') total++;
     return total;
   }, [items, count, clearedCount]);
+  const messageShown = useMemo(() => {
+    let shown = 0;
+    for (const index of visibleRows) if (items[index].kind === 'message') shown++;
+    return shown;
+  }, [items, visibleRows]);
 
   const refusalKind = peerExecuteRefusalKind(lifecycle.errorMessage);
 
@@ -352,6 +360,8 @@ const MqttMessageTimeline: React.FC<MqttMessageTimelineProps> = ({
         search={search}
         onSearchChange={setSearch}
         messageTotal={messageTotal}
+        messageShown={messageShown}
+        filtering={filtering}
         droppedMessages={droppedMessages}
         seenTopics={seenTopics}
         topicFilter={topicFilter}
