@@ -53,6 +53,16 @@
  * search. Search and Clear are display-only — the capture is never
  * touched, and Copy/Raw elsewhere still see the wire body.
  *
+ * Search is a LOOKUP over every row: an event's badge name plus its
+ * FULL printed payload (what the expanded viewer shows — lowercased
+ * once per item, cached beside the viewer content), a lifecycle row's
+ * rendered line. The lens and the name filter gate EVENT rows only;
+ * under a search the lifecycle rows show only when their words carry
+ * the needle, and the no-match notice shows only when nothing at all
+ * matches. The row words live in `sse-timeline-row-text.ts`, read by
+ * the row renderer AND the search — search can only find what the row
+ * shows.
+ *
  * Perf shape (enterprise streams — tens of thousands of events):
  *   • The live feed is an append-only array + committed count, so
  *     existing rows never re-mint and per-item derivations (badge
@@ -93,7 +103,7 @@ import {
 import { Button, Dropdown, Input, Popover, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import CodeEditor from '../../shared/CodeEditor';
@@ -101,6 +111,15 @@ import { STREAM_HAIRLINE, StreamLastRow } from '../../shared/TimelineMessageView
 import { parseLosslessJson, stringifyLossless } from './lossless-json';
 import { formatBytes } from './response-format';
 import type { SseEventItem } from './response-sse';
+import {
+  connectedRowText,
+  endedRowText,
+  fixedRowText,
+  type SseRowTextLifecycle,
+  type SseStreamEndedBy,
+} from './sse-timeline-row-text';
+
+export type { SseStreamEndedBy } from './sse-timeline-row-text';
 
 const { Text } = Typography;
 
@@ -121,19 +140,10 @@ const cellFont: React.CSSProperties = {
   fontSize: 12,
 };
 
-/** How the stream ended — drives the topmost lifecycle row. */
-export type SseStreamEndedBy = 'end' | 'stop' | 'cap' | 'timeout' | 'error';
-
-export interface SseListLifecycle {
-  /** Connection target — the send's (final) URL. */
-  url: string;
+export interface SseListLifecycle extends SseRowTextLifecycle {
   /** Session-only head-arrival time; absent for re-opened saved bodies. */
   connectedAt?: number;
-  /** Absent while frames are still arriving — the live phase. */
-  endedBy?: SseStreamEndedBy;
   endedAt?: number;
-  /** Failure text riding `endedBy: 'error'`. */
-  endedMessage?: string;
 }
 
 interface ResponseSseEventListProps {
@@ -253,32 +263,24 @@ function viewerContentOf(item: SseEventItem): { value: string; language: 'json' 
   return content;
 }
 
+const searchCache = new WeakMap<SseEventItem, string>();
+
+/** The search haystack — the words the row and its viewer show: the
+ *  badge name plus the FULL printed payload (the preview is capped; a
+ *  match deep in a long event still counts), lowercased once per item. */
+function searchTextOf(item: SseEventItem): string {
+  const hit = searchCache.get(item);
+  if (hit !== undefined) return hit;
+  const text = `${badgeNameOf(item)}\n${viewerContentOf(item).value}`.toLowerCase();
+  searchCache.set(item, text);
+  return text;
+}
+
 /** Session timestamps are wall-clock local times — HH:MM:SS.mmm. */
 function formatEventTime(ts: number): string {
   const d = new Date(ts);
   const pad = (n: number, width = 2) => String(n).padStart(width, '0');
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
-}
-
-/** Lifecycle label for how the stream ended. */
-function endedLabel(endedBy: SseStreamEndedBy, t: Translate): string {
-  switch (endedBy) {
-    case 'end':
-      return t('workbench.editors.request.response.sse.closed');
-    case 'stop':
-      return t('workbench.editors.request.response.sse.stopped');
-    case 'cap':
-      return t('workbench.editors.request.response.sse.capped');
-    case 'timeout':
-      return t('workbench.editors.request.response.sse.timedOut');
-    case 'error':
-      return t('workbench.editors.request.response.sse.failed');
-    default: {
-      const _exhaustive: never = endedBy;
-      void _exhaustive;
-      return '';
-    }
-  }
 }
 
 /** Last entry index whose top offset is at or above `scrollTop`. */
@@ -424,22 +426,32 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
   }, [items, count]);
 
   // Every event index passing the filters, newest-first — one linear
-  // pass of primitive work per commit/keystroke (the search haystack
-  // is the raw block text: name, data, comments and unknown fields).
-  // The lens and the name filter gate EVENT rows only — under them the
-  // lifecycle rows stay as the log's skeleton.
+  // pass of primitive work per commit/keystroke. Search is a LOOKUP: it
+  // matches the words every row shows — an event's badge name and FULL
+  // printed payload, a lifecycle row's rendered line — and hides the
+  // rest whatever their kind. The lens and the name filter gate EVENT
+  // rows only — under them the lifecycle rows stay as the log's
+  // skeleton.
+  const needle = search.trim().toLowerCase();
   const visibleRows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
     const names = nameFilter.length > 0 ? new Set(nameFilter) : null;
     const rows: number[] = [];
     if (lensFilter === 'lifecycle') return rows;
     for (let i = count - 1; i >= clearedCount; i--) {
       if (names !== null && !names.has(badgeNameOf(items[i]))) continue;
-      if (needle !== '' && !items[i].raw.toLowerCase().includes(needle)) continue;
+      if (needle !== '' && !searchTextOf(items[i]).includes(needle)) continue;
       rows.push(i);
     }
     return rows;
-  }, [items, count, clearedCount, search, lensFilter, nameFilter]);
+  }, [items, count, clearedCount, needle, lensFilter, nameFilter]);
+
+  // The fixed rows under a search — each shows only when its words
+  // carry the needle (the same words the row paints).
+  const fixedShown = useMemo(() => {
+    const shown = (kind: keyof typeof fixedRowText): boolean =>
+      needle === '' || fixedRowText[kind](lifecycle, t).toLowerCase().includes(needle);
+    return { connected: shown('connected'), ended: shown('ended') };
+  }, [needle, lifecycle, t]);
 
   const displayRows = useMemo(
     () => (newestFirst ? visibleRows : [...visibleRows].reverse()),
@@ -487,14 +499,27 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
       out.push({ key: `r${index}`, kind: 'row', index });
       if (expanded.has(index)) out.push({ key: `v${index}`, kind: 'viewer', index });
     };
-    if (newestFirst) {
-      if (lifecycle.endedBy !== undefined) out.push({ key: 'ended', kind: 'ended' });
-    } else {
-      out.push({ key: 'connected', kind: 'connected' });
-    }
+    const pushConnected = () => {
+      if (fixedShown.connected) out.push({ key: 'connected', kind: 'connected' });
+    };
+    const pushEnded = () => {
+      if (lifecycle.endedBy !== undefined && fixedShown.ended) out.push({ key: 'ended', kind: 'ended' });
+    };
+    if (newestFirst) pushEnded();
+    else pushConnected();
     if (live && count === 0) out.push({ key: 'waiting', kind: 'waiting' });
-    // Under Lifecycle only the empty event set is the point, not a miss.
-    if (filtering && lensFilter !== 'lifecycle' && displayRows.length === 0 && count > clearedCount) {
+    // A search that found a lifecycle row found something — the notice
+    // is for a filter that leaves NOTHING to read. Under Lifecycle only
+    // the empty event set is the point, not a miss.
+    const lifecycleMatched =
+      needle !== '' && (fixedShown.connected || (lifecycle.endedBy !== undefined && fixedShown.ended));
+    if (
+      filtering &&
+      lensFilter !== 'lifecycle' &&
+      displayRows.length === 0 &&
+      count > clearedCount &&
+      !lifecycleMatched
+    ) {
       out.push({ key: 'none', kind: 'noMatches' });
     }
     if (groups !== null) {
@@ -529,15 +554,14 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
     } else {
       for (const index of displayRows) pushRow(index);
     }
-    if (newestFirst) {
-      out.push({ key: 'connected', kind: 'connected' });
-    } else if (lifecycle.endedBy !== undefined) {
-      out.push({ key: 'ended', kind: 'ended' });
-    }
+    if (newestFirst) pushConnected();
+    else pushEnded();
     return { entries: out, groupRanges: ranges };
   }, [
     newestFirst,
     lifecycle.endedBy,
+    fixedShown,
+    needle,
     live,
     count,
     clearedCount,
@@ -814,8 +838,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
           >
             {lifecycleGlyph(endedGlyph(lifecycle.endedBy))}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {endedLabel(lifecycle.endedBy, t)}
-              {lifecycle.endedMessage ? ` — ${lifecycle.endedMessage}` : ''}
+              {endedRowText(lifecycle, t)}
             </span>
             {lifecycle.endedAt !== undefined && (
               <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>
@@ -830,7 +853,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
           <div key={entry.key} data-testid="oh-sse-connected-row" style={lifecycleRowStyle}>
             {lifecycleGlyph(<CheckCircleOutlined aria-hidden style={{ color: token.colorSuccess }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('workbench.editors.request.response.sse.connected', { url: lifecycle.url })}
+              {connectedRowText(lifecycle, t)}
             </span>
             {lifecycle.connectedAt !== undefined && (
               <span style={{ ...cellFont, fontSize: 11, marginLeft: 'auto', color: token.colorTextTertiary }}>

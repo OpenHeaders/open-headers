@@ -158,20 +158,46 @@ describe('ResponseSseEventList rows', () => {
 });
 
 describe('ResponseSseEventList search + clear (display-only)', () => {
-  it('search narrows rows over the raw block text', () => {
+  it('search is a lookup over the badge name and the full payload — never the wire field names', () => {
     const items = itemsOf(BODY);
     render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
-    fireEvent.change(screen.getByTestId('oh-sse-search'), { target: { value: 'resourceVersion' } });
-    const rows = screen.getAllByTestId('oh-sse-event-row');
+    const search = screen.getByTestId('oh-sse-search');
+    // A word deep in the payload finds its event.
+    fireEvent.change(search, { target: { value: 'resourceVersion' } });
+    let rows = screen.getAllByTestId('oh-sse-event-row');
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain('tick');
+    // The badge name is a word the row shows.
+    fireEvent.change(search, { target: { value: 'comment' } });
+    rows = screen.getAllByTestId('oh-sse-event-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('heartbeat');
+    // The wire grammar's field names are not — no row paints them.
+    fireEvent.change(search, { target: { value: 'data:' } });
+    expect(screen.queryAllByTestId('oh-sse-event-row')).toHaveLength(0);
   });
 
-  it('says so when nothing matches', () => {
+  it('search reads the lifecycle rows too — a match there is no miss, and the rows hide otherwise', () => {
     const items = itemsOf(BODY);
-    render(<ResponseSseEventList items={items} count={items.length} lifecycle={LIFECYCLE} />);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={{ ...LIFECYCLE, endedBy: 'stop' }} />);
+    const search = screen.getByTestId('oh-sse-search');
+    fireEvent.change(search, { target: { value: 'stopped' } });
+    expect(screen.queryAllByTestId('oh-sse-event-row')).toHaveLength(0);
+    expect(screen.queryByTestId('oh-sse-connected-row')).toBeNull();
+    expect(screen.getByTestId('oh-sse-lifecycle-row').textContent).toContain('Connection stopped');
+    expect(screen.queryByText('No events match.')).toBeNull();
+    fireEvent.change(search, { target: { value: 'openheaders.io' } });
+    expect(screen.getByTestId('oh-sse-connected-row')).toBeTruthy();
+    expect(screen.queryByTestId('oh-sse-lifecycle-row')).toBeNull();
+  });
+
+  it('says so when nothing at all matches', () => {
+    const items = itemsOf(BODY);
+    render(<ResponseSseEventList items={items} count={items.length} lifecycle={{ ...LIFECYCLE, endedBy: 'end' }} />);
     fireEvent.change(screen.getByTestId('oh-sse-search'), { target: { value: 'nope-nothing' } });
     expect(screen.queryAllByTestId('oh-sse-event-row')).toHaveLength(0);
+    expect(screen.queryByTestId('oh-sse-connected-row')).toBeNull();
+    expect(screen.queryByTestId('oh-sse-lifecycle-row')).toBeNull();
     expect(screen.getByText('No events match.')).toBeTruthy();
   });
 
