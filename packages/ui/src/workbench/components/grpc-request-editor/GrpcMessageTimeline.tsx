@@ -875,6 +875,25 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
   const groupChip = (name: string): DirectionChip =>
     chips.up.name === name ? chips.up : chips.down.name === name ? chips.down : { name, resolved: true };
 
+  // Lifecycle glyph — centered in the direction badge's 18px slot so
+  // every row's leading mark sits on ONE column, drawn at the size the
+  // badge reads at (the circle's footprint ≈ the tinted box).
+  const lifecycleGlyph = (icon: React.ReactNode): React.ReactNode => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        flexShrink: 0,
+        fontSize: 15,
+      }}
+    >
+      {icon}
+    </span>
+  );
+
   // Boxed direction badge — ↑ amber, ↓ blue on their tinted
   // backgrounds (the Postman anatomy; the tint tokens adapt per
   // theme), shared by message rows and direction-grouped headers.
@@ -1001,7 +1020,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               : {})}
             style={{ ...lifecycleRowStyle, ...(expandable ? { cursor: 'pointer' } : {}) }}
           >
-            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.grpc.timeline.requestSent')}
             </span>
@@ -1125,7 +1144,7 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
               : {})}
             style={{ ...lifecycleRowStyle, ...(connectedExpandable ? { cursor: 'pointer' } : {}) }}
           >
-            <InfoCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(<InfoCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />)}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('workbench.editors.grpc.timeline.responseReceived')}
             </span>
@@ -1218,10 +1237,12 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
                 : {})}
               style={{ ...lifecycleRowStyle, ...(errorExpandable ? { cursor: 'pointer' } : {}) }}
             >
-              {lifecycle.endedBy === 'lost' ? (
-                <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
-              ) : (
-                <CloseCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorError }} />
+              {lifecycleGlyph(
+                lifecycle.endedBy === 'lost' ? (
+                  <DisconnectOutlined aria-hidden style={{ color: token.colorError }} />
+                ) : (
+                  <CloseCircleOutlined aria-hidden style={{ color: token.colorError }} />
+                ),
               )}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {endedLabel(lifecycle.endedBy, t)}
@@ -1248,10 +1269,12 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
         }
         return (
           <div key={entry.key} data-testid="grpc-timeline-ended-row" style={lifecycleRowStyle}>
-            {lifecycle.endedBy === 'complete' ? (
-              <CheckCircleOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
-            ) : (
-              <DisconnectOutlined aria-hidden style={{ fontSize: 11, color: token.colorTextTertiary }} />
+            {lifecycleGlyph(
+              lifecycle.endedBy === 'complete' ? (
+                <CheckCircleOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
+              ) : (
+                <DisconnectOutlined aria-hidden style={{ color: token.colorTextTertiary }} />
+              ),
             )}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {endedLabel(lifecycle.endedBy, t)}
@@ -1291,10 +1314,12 @@ const GrpcMessageTimeline: React.FC<GrpcMessageTimelineProps> = ({
             data-testid="grpc-timeline-script-row"
             style={lifecycleRowStyle}
           >
-            <CodeOutlined
-              aria-hidden
-              style={{ fontSize: 11, color: mark.succeeded ? token.colorTextTertiary : token.colorError }}
-            />
+            {lifecycleGlyph(
+              <CodeOutlined
+                aria-hidden
+                style={{ color: mark.succeeded ? token.colorTextTertiary : token.colorError }}
+              />,
+            )}
             <span
               {...(mark.error !== undefined ? { title: mark.error.message } : {})}
               style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
