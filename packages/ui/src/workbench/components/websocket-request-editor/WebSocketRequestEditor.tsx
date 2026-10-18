@@ -54,6 +54,7 @@ import { ancestorScriptLevels } from '../request-container/ancestry';
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import SessionLock from '../shared/SessionLock';
+import { type AutoSuggestionContextValue, SuggestionContextProvider } from '../template-input';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
 import {
@@ -146,6 +147,14 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const ancestry = useMemo(
     () => findRequestAncestry(collectionTrees, collections, folders, entity.uid),
     [entity.uid, collectionTrees, collections, folders],
+  );
+  // The variable plane's scope — every TemplateInput and Monaco buffer
+  // below classifies `{{collection.X}}` against the owning collection
+  // (the executor resolves it through the same tree index); without
+  // the provider the fields paint a resolvable reference red.
+  const suggestionContext = useMemo<AutoSuggestionContextValue>(
+    () => ({ collectionId: ancestry?.collection.uid }),
+    [ancestry],
   );
   const inheritedAuth = useMemo(
     () => resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
@@ -450,212 +459,219 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-      {/* tabIndex -1: clicks on non-focusable space inside the editor
-        keep focus within so the ⌘/Ctrl+Enter chord always reaches the
-        capture handler. */}
-      <div
-        tabIndex={-1}
-        onKeyDownCapture={handleEditorKeyDown}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          background: token.colorBgContainer,
-          height: '100%',
-          outline: 'none',
-        }}
-      >
-        <EditorHeader title={headerTitle} actions={headerActions} trailing={headerTrailing} shell={shell.headerProps} />
+      <SuggestionContextProvider value={suggestionContext}>
+        {/* tabIndex -1: clicks on non-focusable space inside the editor
+          keep focus within so the ⌘/Ctrl+Enter chord always reaches the
+          capture handler. */}
+        <div
+          tabIndex={-1}
+          onKeyDownCapture={handleEditorKeyDown}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            background: token.colorBgContainer,
+            height: '100%',
+            outline: 'none',
+          }}
+        >
+          <EditorHeader
+            title={headerTitle}
+            actions={headerActions}
+            trailing={headerTrailing}
+            shell={shell.headerProps}
+          />
 
-        {/* Compose / session split — the gRPC editor's stacked
-          Allotment discipline: the sash bounds the message editor,
-          and the session pane is always attached (empty-state hint
-          before the first connect). */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <Allotment vertical proportionalLayout separator>
-            <Allotment.Pane minSize={220} preferredSize="55%">
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
-                <div style={{ padding: '0 12px' }}>
-                  <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
-                    size="small"
-                    tabBarStyle={{ marginBottom: 0 }}
-                    items={[
-                      { key: 'docs', label: t('workbench.editors.websocket.tab.docs') },
-                      { key: 'message', label: t('workbench.editors.websocket.tab.message') },
-                      { key: 'params', label: t('workbench.editors.websocket.tab.params') },
-                      ...(socketioFlavor
-                        ? [{ key: 'events', label: t('workbench.editors.websocket.tab.events') }]
-                        : []),
-                      { key: 'auth', label: t('workbench.editors.websocket.tab.auth') },
-                      { key: 'headers', label: t('workbench.editors.websocket.tab.headers') },
-                      { key: 'scripts', label: t('workbench.editors.websocket.tab.scripts') },
-                      { key: 'settings', label: t('workbench.editors.websocket.tab.settings') },
-                      { key: 'spec', label: <SpecTabLabel /> },
-                    ]}
-                  />
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    overflow: 'auto',
-                    overscrollBehavior: 'none',
-                    padding: '0 12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
-                    {activeTab === 'docs' && (
-                      <DocsTab
-                        value={draft.description}
-                        onChange={(description) => setDraft((d) => ({ ...d, description }))}
-                      />
-                    )}
-                    {activeTab === 'message' && (
-                      <WsMessageTab
-                        draft={draft}
-                        setDraft={setDraft}
-                        socketioFlavor={socketioFlavor}
-                        sessionOpen={session.sessionOpen}
-                        args={args}
-                        aids={aids}
-                        encodingError={encodingError}
-                        onSend={() => void session.handleSendMessage()}
-                        selectedSavedUid={savedSelection.selectedSavedUid}
-                        onSelectSavedMessage={savedSelection.selectSavedMessage}
-                        railCollapsed={railCollapsed}
-                        onRailCollapsedChange={setRailCollapsed}
-                      />
-                    )}
-                    {activeTab === 'events' && socketioFlavor && (
-                      <WsEventsTab rows={draft.events} onChange={(events) => setDraft((d) => ({ ...d, events }))} />
-                    )}
-                    {/* Connect-time surfaces — what the handshake carries —
-                      freeze while a session is in flight; compose, events,
-                      docs and spec stay live. */}
-                    <SessionLock locked={session.inFlight}>
-                      {activeTab === 'auth' && (
-                        <WebSocketAuthTab
-                          auth={draft.auth}
-                          socketioFlavor={socketioFlavor}
-                          inheritedFrom={inheritedAuth}
-                          ancestry={ancestry}
-                          url={draft.url}
-                          onOpenContainerAuth={onOpenContainerAuth}
-                          onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
-                        />
-                      )}
-                      {activeTab === 'headers' && (
-                        <WsHeadersTab
-                          rows={draft.headers}
-                          onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
-                        />
-                      )}
-                      {activeTab === 'params' && (
-                        <WsParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />
-                      )}
-                    </SessionLock>
-                    {activeTab === 'spec' && (
-                      <WsSpecTab
-                        aids={aids}
-                        onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
-                      />
-                    )}
-                    {/* The session's hooks — edited live: a saved slot
-                      takes effect on the NEXT Connect (the chain composes
-                      at the dial), so the tab never locks. */}
-                    {activeTab === 'scripts' && (
-                      <ScriptsTab
-                        scope="request"
-                        requestKind={socketioFlavor ? 'socketio' : 'websocket'}
-                        scripts={scriptSlotValuesOf(draft)}
-                        onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
-                        workspaceId={workspaceId}
-                        onOpenPackageLibrary={onOpenPackageLibrary}
-                        ancestorScripts={ancestorScripts}
-                        onOpenContainerScripts={onOpenContainerScripts}
-                      />
-                    )}
-                    {activeTab === 'settings' && (
-                      <SessionLock locked={session.inFlight}>
-                        <WebSocketSettingsTab
-                          draft={draft}
-                          setDraft={setDraft}
-                          socketioFlavor={socketioFlavor}
-                          inherited={inheritedSettings}
-                        />
-                      </SessionLock>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Allotment.Pane>
-            <Allotment.Pane minSize={120}>
-              {session.live !== null || session.snapshot !== null ? (
-                <WsSessionPane
-                  live={session.live}
-                  snapshot={session.snapshot}
-                  timing={session.timing}
-                  hostNotice={session.hostNotice}
-                  flavor={entity.flavor}
-                  {...(listenedEvents !== null ? { listenedEvents } : {})}
-                  onClear={session.handleClearSession}
-                  onReconnect={() => void session.handleConnect()}
-                  onSaveMessage={saveTimelineMessage}
-                  {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
-                />
-              ) : (
-                // Always-attached session pane (the gRPC editor's
-                // posture): a stable target with the plain title row
-                // and a connect hint before the first session.
-                <div
-                  style={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minHeight: 0,
-                    background: token.colorBgContainer,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '6px 12px',
-                    }}
-                  >
-                    <Text strong style={{ fontSize: 12 }}>
-                      {t('workbench.editors.websocket.session.paneTitle')}
-                    </Text>
+          {/* Compose / session split — the gRPC editor's stacked
+            Allotment discipline: the sash bounds the message editor,
+            and the session pane is always attached (empty-state hint
+            before the first connect). */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <Allotment vertical proportionalLayout separator>
+              <Allotment.Pane minSize={220} preferredSize="55%">
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+                  <div style={{ padding: '0 12px' }}>
+                    <Tabs
+                      activeKey={activeTab}
+                      onChange={setActiveTab}
+                      size="small"
+                      tabBarStyle={{ marginBottom: 0 }}
+                      items={[
+                        { key: 'docs', label: t('workbench.editors.websocket.tab.docs') },
+                        { key: 'message', label: t('workbench.editors.websocket.tab.message') },
+                        { key: 'params', label: t('workbench.editors.websocket.tab.params') },
+                        ...(socketioFlavor
+                          ? [{ key: 'events', label: t('workbench.editors.websocket.tab.events') }]
+                          : []),
+                        { key: 'auth', label: t('workbench.editors.websocket.tab.auth') },
+                        { key: 'headers', label: t('workbench.editors.websocket.tab.headers') },
+                        { key: 'scripts', label: t('workbench.editors.websocket.tab.scripts') },
+                        { key: 'settings', label: t('workbench.editors.websocket.tab.settings') },
+                        { key: 'spec', label: <SpecTabLabel /> },
+                      ]}
+                    />
                   </div>
                   <div
                     style={{
                       flex: 1,
+                      overflow: 'auto',
+                      overscrollBehavior: 'none',
+                      padding: '0 12px',
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      minHeight: 0,
-                      padding: 24,
-                      textAlign: 'center',
                     }}
-                    data-testid="ws-session-empty"
                   >
-                    <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {t('workbench.editors.websocket.session.emptyHint')}
-                    </Text>
-                    <ShortcutKbd label={CONNECT_SHORTCUT} surface="page" size={22} />
+                    <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
+                      {activeTab === 'docs' && (
+                        <DocsTab
+                          value={draft.description}
+                          onChange={(description) => setDraft((d) => ({ ...d, description }))}
+                        />
+                      )}
+                      {activeTab === 'message' && (
+                        <WsMessageTab
+                          draft={draft}
+                          setDraft={setDraft}
+                          socketioFlavor={socketioFlavor}
+                          sessionOpen={session.sessionOpen}
+                          args={args}
+                          aids={aids}
+                          encodingError={encodingError}
+                          onSend={() => void session.handleSendMessage()}
+                          selectedSavedUid={savedSelection.selectedSavedUid}
+                          onSelectSavedMessage={savedSelection.selectSavedMessage}
+                          railCollapsed={railCollapsed}
+                          onRailCollapsedChange={setRailCollapsed}
+                        />
+                      )}
+                      {activeTab === 'events' && socketioFlavor && (
+                        <WsEventsTab rows={draft.events} onChange={(events) => setDraft((d) => ({ ...d, events }))} />
+                      )}
+                      {/* Connect-time surfaces — what the handshake carries —
+                        freeze while a session is in flight; compose, events,
+                        docs and spec stay live. */}
+                      <SessionLock locked={session.inFlight}>
+                        {activeTab === 'auth' && (
+                          <WebSocketAuthTab
+                            auth={draft.auth}
+                            socketioFlavor={socketioFlavor}
+                            inheritedFrom={inheritedAuth}
+                            ancestry={ancestry}
+                            url={draft.url}
+                            onOpenContainerAuth={onOpenContainerAuth}
+                            onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                          />
+                        )}
+                        {activeTab === 'headers' && (
+                          <WsHeadersTab
+                            rows={draft.headers}
+                            onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
+                          />
+                        )}
+                        {activeTab === 'params' && (
+                          <WsParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />
+                        )}
+                      </SessionLock>
+                      {activeTab === 'spec' && (
+                        <WsSpecTab
+                          aids={aids}
+                          onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
+                        />
+                      )}
+                      {/* The session's hooks — edited live: a saved slot
+                        takes effect on the NEXT Connect (the chain composes
+                        at the dial), so the tab never locks. */}
+                      {activeTab === 'scripts' && (
+                        <ScriptsTab
+                          scope="request"
+                          requestKind={socketioFlavor ? 'socketio' : 'websocket'}
+                          scripts={scriptSlotValuesOf(draft)}
+                          onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+                          workspaceId={workspaceId}
+                          onOpenPackageLibrary={onOpenPackageLibrary}
+                          ancestorScripts={ancestorScripts}
+                          onOpenContainerScripts={onOpenContainerScripts}
+                        />
+                      )}
+                      {activeTab === 'settings' && (
+                        <SessionLock locked={session.inFlight}>
+                          <WebSocketSettingsTab
+                            draft={draft}
+                            setDraft={setDraft}
+                            socketioFlavor={socketioFlavor}
+                            inherited={inheritedSettings}
+                          />
+                        </SessionLock>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
-            </Allotment.Pane>
-          </Allotment>
-        </div>
+              </Allotment.Pane>
+              <Allotment.Pane minSize={120}>
+                {session.live !== null || session.snapshot !== null ? (
+                  <WsSessionPane
+                    live={session.live}
+                    snapshot={session.snapshot}
+                    timing={session.timing}
+                    hostNotice={session.hostNotice}
+                    flavor={entity.flavor}
+                    {...(listenedEvents !== null ? { listenedEvents } : {})}
+                    onClear={session.handleClearSession}
+                    onReconnect={() => void session.handleConnect()}
+                    onSaveMessage={saveTimelineMessage}
+                    {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
+                  />
+                ) : (
+                  // Always-attached session pane (the gRPC editor's
+                  // posture): a stable target with the plain title row
+                  // and a connect hint before the first session.
+                  <div
+                    style={{
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      background: token.colorBgContainer,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '6px 12px',
+                      }}
+                    >
+                      <Text strong style={{ fontSize: 12 }}>
+                        {t('workbench.editors.websocket.session.paneTitle')}
+                      </Text>
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        minHeight: 0,
+                        padding: 24,
+                        textAlign: 'center',
+                      }}
+                      data-testid="ws-session-empty"
+                    >
+                      <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {t('workbench.editors.websocket.session.emptyHint')}
+                      </Text>
+                      <ShortcutKbd label={CONNECT_SHORTCUT} surface="page" size={22} />
+                    </div>
+                  </div>
+                )}
+              </Allotment.Pane>
+            </Allotment>
+          </div>
 
-      </div>
+        </div>
+      </SuggestionContextProvider>
     </EntityScopeProvider>
   );
 };

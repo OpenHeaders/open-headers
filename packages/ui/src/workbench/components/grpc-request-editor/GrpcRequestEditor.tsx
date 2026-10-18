@@ -84,6 +84,7 @@ import GrpcServiceDefinitionTab from './GrpcServiceDefinitionTab';
 import GrpcSettingsTab from './GrpcSettingsTab';
 import GrpcStreamPane from './GrpcStreamPane';
 import SessionLock from '../shared/SessionLock';
+import { type AutoSuggestionContextValue, SuggestionContextProvider } from '../template-input';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import GrpcTargetRow from './GrpcTargetRow';
 import { useGrpcInvokePlane } from './useGrpcInvokePlane';
@@ -146,6 +147,14 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   const ancestry = useMemo(
     () => findRequestAncestry(collectionTrees, collections, folders, entity.uid),
     [entity.uid, collectionTrees, collections, folders],
+  );
+  // The variable plane's scope — every TemplateInput and Monaco buffer
+  // below classifies `{{collection.X}}` against the owning collection
+  // (the executor resolves it through the same tree index); without
+  // the provider the fields paint a resolvable reference red.
+  const suggestionContext = useMemo<AutoSuggestionContextValue>(
+    () => ({ collectionId: ancestry?.collection.uid }),
+    [ancestry],
   );
   const inheritedAuth = useMemo(
     () => resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
@@ -443,206 +452,208 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-      {/* tabIndex -1: clicks on non-focusable space inside the editor
-        keep focus within so the ⌘/Ctrl+Enter chord always reaches the
-        capture handler. */}
-      <div
-        tabIndex={-1}
-        onKeyDownCapture={handleEditorKeyDown}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          background: token.colorBgContainer,
-          height: '100%',
-          outline: 'none',
-        }}
-      >
-        <EditorHeader
-          title={headerTitle}
-          actions={headerActions} trailing={headerTrailing}
-          overflowItems={overflowItems}
-          shell={shell.headerProps}
-        />
-        <input
-          ref={protoFileInputRef}
-          type="file"
-          accept=".proto"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const file = e.currentTarget.files?.[0];
-            e.currentTarget.value = '';
-            if (file) void handleProtoFilePicked(file);
+      <SuggestionContextProvider value={suggestionContext}>
+        {/* tabIndex -1: clicks on non-focusable space inside the editor
+          keep focus within so the ⌘/Ctrl+Enter chord always reaches the
+          capture handler. */}
+        <div
+          tabIndex={-1}
+          onKeyDownCapture={handleEditorKeyDown}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            background: token.colorBgContainer,
+            height: '100%',
+            outline: 'none',
           }}
-          data-testid="grpc-import-proto-input"
-        />
+        >
+          <EditorHeader
+            title={headerTitle}
+            actions={headerActions} trailing={headerTrailing}
+            overflowItems={overflowItems}
+            shell={shell.headerProps}
+          />
+          <input
+            ref={protoFileInputRef}
+            type="file"
+            accept=".proto"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              e.currentTarget.value = '';
+              if (file) void handleProtoFilePicked(file);
+            }}
+            data-testid="grpc-import-proto-input"
+          />
 
-        {/* Compose / response split — the HTTP editor's stacked
-          Allotment discipline: the sash bounds the message editor so it
-          can never overflow the response region. The response pane is
-          always attached (empty-state hint before the first invoke).
-          The tab bar renders OUTSIDE the scroll container (bar-only
-          items; content switches below) so it never participates in
-          scrolling. */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <Allotment vertical proportionalLayout separator>
-            <Allotment.Pane minSize={220} preferredSize="55%">
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
-                <div style={{ padding: '0 12px' }}>
-                  <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
-                    size="small"
-                    tabBarStyle={{ marginBottom: 0 }}
-                    items={[
-                      { key: 'docs', label: t('workbench.editors.grpc.tab.docs') },
-                      { key: 'message', label: t('workbench.editors.grpc.tab.message') },
-                      { key: 'metadata', label: t('workbench.editors.grpc.tab.metadata') },
-                      { key: 'auth', label: t('workbench.editors.grpc.tab.auth') },
-                      { key: 'scripts', label: t('workbench.editors.grpc.tab.scripts') },
-                      { key: 'settings', label: t('workbench.editors.grpc.tab.settings') },
-                      { key: 'spec', label: <SpecTabLabel /> },
-                    ]}
-                  />
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    overflow: 'auto',
-                    overscrollBehavior: 'none',
-                    padding: '0 12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
-                    {activeTab === 'docs' && (
-                      <DocsTab
-                        value={draft.description}
-                        onChange={(description) => setDraft((d) => ({ ...d, description }))}
-                      />
-                    )}
-                    {activeTab === 'message' && (
-                      <GrpcMessageTab
-                        message={draft.message}
-                        onMessageChange={(message) => setDraft((d) => ({ ...d, message }))}
-                        exampleText={exampleText}
-                        onUseExample={handleUseExample}
-                        clientStreamShape={invoke.clientStreamShape}
-                        clientStreamActive={invoke.clientStreamActive}
-                        onSendStreamMessage={() => void invoke.handleSendStreamMessage()}
-                        onEndStreaming={invoke.handleEndStreaming}
-                      />
-                    )}
-                    {/* The call's hooks — edited live: a saved slot
-                      takes effect on the NEXT Invoke (the chain composes
-                      at the invoke), so the tab never locks. */}
-                    {activeTab === 'scripts' && (
-                      <ScriptsTab
-                        scope="request"
-                        requestKind="grpc"
-                        scripts={scriptSlotValuesOf(draft)}
-                        onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
-                        workspaceId={workspaceId}
-                        onOpenPackageLibrary={onOpenPackageLibrary}
-                        ancestorScripts={ancestorScripts}
-                        onOpenContainerScripts={onOpenContainerScripts}
-                      />
-                    )}
-                    <SessionLock locked={invoke.invoking}>
-                    {activeTab === 'metadata' && (
-                      <KeyValueTable
-                        rows={draft.metadata}
-                        onChange={(metadata) => setDraft((d) => ({ ...d, metadata }))}
-                        keyPlaceholder={t('workbench.editors.grpc.metadata.keyPlaceholder')}
-                        valuePlaceholder={t('workbench.editors.grpc.metadata.valuePlaceholder')}
-                      />
-                    )}
-                    {activeTab === 'auth' && (
-                      <GrpcAuthTab
-                        auth={draft.auth}
-                        inheritedFrom={inheritedAuth}
-                        ancestry={ancestry}
-                        url={draft.url}
-                        onOpenContainerAuth={onOpenContainerAuth}
-                        onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
-                      />
-                    )}
-                    {activeTab === 'spec' && (
-                      <GrpcServiceDefinitionTab
-                        spec={spec}
-                        workspaceId={workspaceId}
-                        onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
-                        onImportProto={handleImportProto}
-                      />
-                    )}
-                    {activeTab === 'settings' && (
-                      <GrpcSettingsTab
-                        draft={draft}
-                        setDraft={setDraft}
-                        sendInvalidMessage={sendInvalidMessage}
-                        onSendInvalidMessageChange={setSendInvalidMessage}
-                        inherited={inheritedSettings}
-                      />
-                    )}
-                    </SessionLock>
+          {/* Compose / response split — the HTTP editor's stacked
+            Allotment discipline: the sash bounds the message editor so it
+            can never overflow the response region. The response pane is
+            always attached (empty-state hint before the first invoke).
+            The tab bar renders OUTSIDE the scroll container (bar-only
+            items; content switches below) so it never participates in
+            scrolling. */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <Allotment vertical proportionalLayout separator>
+              <Allotment.Pane minSize={220} preferredSize="55%">
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+                  <div style={{ padding: '0 12px' }}>
+                    <Tabs
+                      activeKey={activeTab}
+                      onChange={setActiveTab}
+                      size="small"
+                      tabBarStyle={{ marginBottom: 0 }}
+                      items={[
+                        { key: 'docs', label: t('workbench.editors.grpc.tab.docs') },
+                        { key: 'message', label: t('workbench.editors.grpc.tab.message') },
+                        { key: 'metadata', label: t('workbench.editors.grpc.tab.metadata') },
+                        { key: 'auth', label: t('workbench.editors.grpc.tab.auth') },
+                        { key: 'scripts', label: t('workbench.editors.grpc.tab.scripts') },
+                        { key: 'settings', label: t('workbench.editors.grpc.tab.settings') },
+                        { key: 'spec', label: <SpecTabLabel /> },
+                      ]}
+                    />
                   </div>
-                </div>
-              </div>
-            </Allotment.Pane>
-            <Allotment.Pane minSize={120}>
-              {invoke.responseShape === 'stream' && (invoke.response !== null || invoke.live !== null) ? (
-                <GrpcStreamPane
-                  live={invoke.live}
-                  snapshot={invoke.response}
-                  session={invoke.streamSession}
-                  registry={spec.derivation?.registry ?? null}
-                  method={draft.method}
-                  onClear={invoke.handleClearResponse}
-                  onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
-                  onReinvoke={() => void invoke.handleInvoke()}
-                />
-              ) : invoke.response !== null ? (
-                <GrpcResponsePane
-                  snapshot={invoke.response}
-                  registry={spec.derivation?.registry ?? null}
-                  method={draft.method}
-                  onClear={invoke.handleClearResponse}
-                  onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
-                  onReinvoke={() => void invoke.handleInvoke()}
-                />
-              ) : (
-                // Always-attached result pane (the HTTP ResponsePanel
-                // posture): a stable target with the plain title row and
-                // an invoke hint before the first result.
-                <div
-                  style={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minHeight: 0,
-                    background: token.colorBgContainer,
-                  }}
-                >
                   <div
                     style={{
+                      flex: 1,
+                      overflow: 'auto',
+                      overscrollBehavior: 'none',
+                      padding: '0 12px',
                       display: 'flex',
-                      alignItems: 'center',
-                      padding: '6px 12px',
-                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                      flexDirection: 'column',
                     }}
                   >
-                    <Text strong style={{ fontSize: 12 }}>
-                      {t('workbench.editors.grpc.response.title')}
-                    </Text>
+                    <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
+                      {activeTab === 'docs' && (
+                        <DocsTab
+                          value={draft.description}
+                          onChange={(description) => setDraft((d) => ({ ...d, description }))}
+                        />
+                      )}
+                      {activeTab === 'message' && (
+                        <GrpcMessageTab
+                          message={draft.message}
+                          onMessageChange={(message) => setDraft((d) => ({ ...d, message }))}
+                          exampleText={exampleText}
+                          onUseExample={handleUseExample}
+                          clientStreamShape={invoke.clientStreamShape}
+                          clientStreamActive={invoke.clientStreamActive}
+                          onSendStreamMessage={() => void invoke.handleSendStreamMessage()}
+                          onEndStreaming={invoke.handleEndStreaming}
+                        />
+                      )}
+                      {/* The call's hooks — edited live: a saved slot
+                        takes effect on the NEXT Invoke (the chain composes
+                        at the invoke), so the tab never locks. */}
+                      {activeTab === 'scripts' && (
+                        <ScriptsTab
+                          scope="request"
+                          requestKind="grpc"
+                          scripts={scriptSlotValuesOf(draft)}
+                          onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+                          workspaceId={workspaceId}
+                          onOpenPackageLibrary={onOpenPackageLibrary}
+                          ancestorScripts={ancestorScripts}
+                          onOpenContainerScripts={onOpenContainerScripts}
+                        />
+                      )}
+                      <SessionLock locked={invoke.invoking}>
+                      {activeTab === 'metadata' && (
+                        <KeyValueTable
+                          rows={draft.metadata}
+                          onChange={(metadata) => setDraft((d) => ({ ...d, metadata }))}
+                          keyPlaceholder={t('workbench.editors.grpc.metadata.keyPlaceholder')}
+                          valuePlaceholder={t('workbench.editors.grpc.metadata.valuePlaceholder')}
+                        />
+                      )}
+                      {activeTab === 'auth' && (
+                        <GrpcAuthTab
+                          auth={draft.auth}
+                          inheritedFrom={inheritedAuth}
+                          ancestry={ancestry}
+                          url={draft.url}
+                          onOpenContainerAuth={onOpenContainerAuth}
+                          onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                        />
+                      )}
+                      {activeTab === 'spec' && (
+                        <GrpcServiceDefinitionTab
+                          spec={spec}
+                          workspaceId={workspaceId}
+                          onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
+                          onImportProto={handleImportProto}
+                        />
+                      )}
+                      {activeTab === 'settings' && (
+                        <GrpcSettingsTab
+                          draft={draft}
+                          setDraft={setDraft}
+                          sendInvalidMessage={sendInvalidMessage}
+                          onSendInvalidMessageChange={setSendInvalidMessage}
+                          inherited={inheritedSettings}
+                        />
+                      )}
+                      </SessionLock>
+                    </div>
                   </div>
-                  <GrpcResponseEmptyState invoking={invoke.invoking} />
                 </div>
-              )}
-            </Allotment.Pane>
-          </Allotment>
-        </div>
+              </Allotment.Pane>
+              <Allotment.Pane minSize={120}>
+                {invoke.responseShape === 'stream' && (invoke.response !== null || invoke.live !== null) ? (
+                  <GrpcStreamPane
+                    live={invoke.live}
+                    snapshot={invoke.response}
+                    session={invoke.streamSession}
+                    registry={spec.derivation?.registry ?? null}
+                    method={draft.method}
+                    onClear={invoke.handleClearResponse}
+                    onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
+                    onReinvoke={() => void invoke.handleInvoke()}
+                  />
+                ) : invoke.response !== null ? (
+                  <GrpcResponsePane
+                    snapshot={invoke.response}
+                    registry={spec.derivation?.registry ?? null}
+                    method={draft.method}
+                    onClear={invoke.handleClearResponse}
+                    onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
+                    onReinvoke={() => void invoke.handleInvoke()}
+                  />
+                ) : (
+                  // Always-attached result pane (the HTTP ResponsePanel
+                  // posture): a stable target with the plain title row and
+                  // an invoke hint before the first result.
+                  <div
+                    style={{
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      background: token.colorBgContainer,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '6px 12px',
+                        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                      }}
+                    >
+                      <Text strong style={{ fontSize: 12 }}>
+                        {t('workbench.editors.grpc.response.title')}
+                      </Text>
+                    </div>
+                    <GrpcResponseEmptyState invoking={invoke.invoking} />
+                  </div>
+                )}
+              </Allotment.Pane>
+            </Allotment>
+          </div>
 
-      </div>
+        </div>
+      </SuggestionContextProvider>
     </EntityScopeProvider>
   );
 };
