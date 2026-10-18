@@ -16,6 +16,9 @@ import {
   TopicField,
 } from '@openheaders/ui/workbench/components/mqtt-request-editor/compose-parts';
 import { mqttSettingsRowInfo } from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttSettingsRowInfo';
+// Side-effect import — the topic field is a TemplateInput, which reads
+// workbench settings via useSyncExternalStore.
+import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 

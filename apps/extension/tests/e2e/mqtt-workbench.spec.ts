@@ -358,7 +358,7 @@ test('E2 — url, version knob, payload, a Topics row and a saved message surviv
   // rides out that relayout, while a truly squished editor never
   // settles to the full text.
   await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain(MQTT_PAYLOAD);
-  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue(MQTT_TOPIC);
+  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveText(MQTT_TOPIC);
   // The reload remounts the editor, so the rail is back to its
   // collapsed default — expand it to see the persisted row.
   await page.getByTestId('mqtt-saved-rail-strip').filter({ visible: true }).first().click();
@@ -629,7 +629,7 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
   const composed = await workbench.monacoText(0);
   expect(composed).toContain('"orders"');
   expect(composed).toContain('"format": "full"');
-  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue('/ws/events');
+  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveText('/ws/events');
 
   // The Spec tab's channel browser: picking the `ping` message row
   // composes its example (const op), prefills the topic with its own
@@ -645,7 +645,7 @@ test('E9 — "Use example message" synthesizes the scaffold payload and prefills
     .waitFor({ state: 'visible' });
   // Poll: Monaco repaints a beat after the tab switch lands the text.
   await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('"op": "ping"');
-  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveValue('/ws/control');
+  await expect(page.getByTestId('mqtt-topic-input').filter({ visible: true }).first()).toHaveText('/ws/control');
 });
 
 // ── E10: Save Response — the settled session freezes into an example ─

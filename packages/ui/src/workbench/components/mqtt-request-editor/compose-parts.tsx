@@ -10,9 +10,10 @@
 import type { MqttPayloadFormat, MqttRequestQos } from '@openheaders/core/types';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { Input, Select, Typography } from 'antd';
+import { Select, Typography } from 'antd';
 import type React from 'react';
 import { EncodingPicker } from '../shared/EncodingPicker';
+import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
@@ -96,7 +97,8 @@ export const CompactQosSelect: React.FC<{
 
 /** Statement placeholder + the muted example below — the settings-row
  *  TextKnob discipline, 200px. The field has no label, so its (i)
- *  card closes the example line. */
+ *  card closes the example line. The topic rides the variable plane:
+ *  the executor resolves it at publish (and the will's at CONNECT). */
 export const TopicField: React.FC<{
   value: string;
   onChange: (topic: string) => void;
@@ -106,12 +108,13 @@ export const TopicField: React.FC<{
   testId: string;
 }> = ({ value, onChange, placeholder, example, info, testId }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 200 }}>
-    <Input
+    <TemplateInput
       size="small"
+      flagUnresolved
       style={{ fontFamily: "'SF Mono', monospace", fontSize: 12 }}
       placeholder={placeholder}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={onChange}
       data-testid={testId}
     />
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
