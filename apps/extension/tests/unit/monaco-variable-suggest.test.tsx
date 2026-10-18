@@ -24,18 +24,18 @@ import type * as monaco from 'monaco-editor';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const popoverOpen = vi.fn();
+const popoverCloseNow = vi.fn();
+const popoverHost = { open: popoverOpen, scheduleClose: vi.fn(), cancelClose: vi.fn(), closeNow: popoverCloseNow };
 
 vi.mock('@openheaders/ui/workbench/components/template-input/VariablePopoverHost', () => ({
-  useVariablePopover: () => ({
-    open: popoverOpen,
-    scheduleClose: vi.fn(),
-    cancelClose: vi.fn(),
-    closeNow: vi.fn(),
-  }),
+  useVariablePopover: () => popoverHost,
   VariablePopoverProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-beforeEach(() => popoverOpen.mockClear());
+beforeEach(() => {
+  popoverOpen.mockClear();
+  popoverCloseNow.mockClear();
+});
 afterEach(cleanup);
 
 type Listener<T> = (e: T) => void;
@@ -161,6 +161,15 @@ describe('useMonacoVariableSuggest', () => {
     expect(screen.getByRole('listbox')).not.toBeNull();
     expect(options()[0].textContent).toContain('dynamic.');
     expect(fake.trigger).toHaveBeenCalledWith('oh.variableSuggest', 'hideSuggestWidget', null);
+  });
+
+  it('closes a hover readout the moment the list opens, once per open', () => {
+    const fake = mount();
+    expect(popoverCloseNow).not.toHaveBeenCalled();
+    act(() => fake.type('{{'));
+    expect(popoverCloseNow).toHaveBeenCalledTimes(1);
+    act(() => fake.type('e'));
+    expect(popoverCloseNow).toHaveBeenCalledTimes(1);
   });
 
   it("pauses Monaco's own completions while the run is open and restores them on close", () => {

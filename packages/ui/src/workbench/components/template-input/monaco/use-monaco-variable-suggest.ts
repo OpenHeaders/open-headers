@@ -192,6 +192,16 @@ export function useMonacoVariableSuggest(
     };
   }, [measure, reanchor]);
 
+  // The list takes over from a hover readout the way the line input's
+  // does: a click into a reference lands the caret inside it, the run
+  // opens, and the popover under it closes at once — a hover open is
+  // not click-out dismissed until the first click inside it, so the
+  // click in the buffer would otherwise leave it standing.
+  useEffect(() => {
+    if (!isOpen) return;
+    popoverHost.closeNow();
+  }, [isOpen, popoverHost]);
+
   // Monaco's own completions pause while the run is composed: the
   // language's quick suggestions and trigger characters are off until
   // the list closes, then restored to what the host configured. A hide
