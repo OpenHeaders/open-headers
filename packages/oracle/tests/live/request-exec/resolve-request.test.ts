@@ -202,9 +202,21 @@ describe('resolveRequest — inherited settings', () => {
     ]);
   });
 
-  it('an inherited SNI template nobody defines fails the resolvability gate — nothing literal ships', async () => {
+  it('an inherited SNI template nobody defines rides as written and the resolved shape names it', async () => {
     seed(makeCollection({ settings: { http: { sniServerName: '{{EDGE}}.openheaders.io' } } }), makeFolder());
-    await expect(resolveRequest(makeRequest(), {})).rejects.toBeInstanceOf(UnresolvedRequestError);
+    const { resolved } = await resolveRequest(makeRequest(), {});
+    expect(resolved.sniServerName).toBe('{{EDGE}}.openheaders.io');
+    expect(resolved.sentAsWritten).toEqual([
+      {
+        reference: 'EDGE',
+        hint: 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+      },
+    ]);
+  });
+
+  it('a request whose every reference resolves carries no sent-as-written list', async () => {
+    const { resolved } = await resolveRequest(makeRequest({ url: 'https://api.openheaders.io/ping' }), {});
+    expect(resolved.sentAsWritten).toBeUndefined();
   });
 
   it('an inherited cookie jar keys on the workspace the run resolved against', async () => {

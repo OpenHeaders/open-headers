@@ -26,6 +26,7 @@ import type {
   ProxyMode,
   Request,
   RequestBody,
+  SentAsWrittenReference,
   TlsVersion,
   Vault,
   VaultSecretTotp,
@@ -39,6 +40,7 @@ import {
   resolveRequestSettings,
 } from '@openheaders/oracle/live/request-exec/ancestor-chain';
 import { unresolvedRequestMessage } from '@openheaders/oracle/live/request-exec/resolve-request';
+import { batchRefusesSend, sentAsWrittenOf } from '@openheaders/oracle/live/request-exec/unresolved-references';
 import { resolveClientCertificate } from '@openheaders/oracle/live/tls-policy';
 import { getTrustAnchorsForSend } from '@openheaders/oracle/live/trust-anchors';
 import { getActiveWorkspaceId } from '../workspace/workspace-store';
@@ -152,6 +154,10 @@ export interface ResolvedRequest {
    *  every knob was the request's own or the runtime default. Twin of
    *  the oracle's carry. */
   inheritedSettings?: InheritedSettingSource[];
+  /** The references this send carries AS WRITTEN — every `{{ref}}` no
+   *  scope answered, riding the wire verbatim; absent when every
+   *  reference resolved. Twin of the oracle's carry. */
+  sentAsWritten?: SentAsWrittenReference[];
   /**
    * The node-only knobs and the vault material a DELEGATED send
    * carries to the place that opens its socket (the Execution Place
@@ -241,12 +247,12 @@ function delegatedKnobsOf(
   };
 }
 
-/** Tagged error thrown from {@link resolveRequest} when any `{{ref}}`
- *  in the draft can't be resolved against the current scopes. Caught
- *  by {@link executeRequestDraft} and turned into an `errorSnapshot`
- *  with a stable `error` message the UI matches on. Same architectural
- *  discipline as the DNR compile gate — we refuse to ship literal
- *  `{{env.var}}` strings on the wire. */
+/** Tagged error thrown from {@link resolveRequest} when a `{{ref}}` in
+ *  the draft REFUSES the send — a secret manager's typed failure (the
+ *  core resolver's `refusesSend`). Caught by {@link executeRequestDraft}
+ *  and turned into an `errorSnapshot` with a stable `error` message the
+ *  UI matches on. A plain miss never throws: the reference rides as
+ *  written and the resolved shape names it. */
 export class UnresolvedRequestError extends Error {
   constructor(message: string) {
     super(message);
@@ -310,18 +316,19 @@ export async function resolveRequest(
     environmentId: options.environmentId,
   };
 
-  // Architectural gate: refuse to dispatch when any `{{ref}}` in the
-  // draft can't be resolved. Mirrors the DNR compile pipeline's
-  // `getUnresolvableRuleUids` filter — shipping literal `{{env.var}}`
-  // on the wire is almost never the user's intent. `isRequestResolvable`
-  // excludes reserved-namespace errors (`{{dynamic.X}}`) so they don't
-  // block until that feature ships; `{{file.X}}` resolves here (the file
-  // registry is fed above) and only blocks when the file is missing.
+  // The gate: a `{{ref}}` no scope answers rides AS WRITTEN (the
+  // resolver leaves it literal; the send names it in `sentAsWritten`),
+  // while a secret manager's typed failure refuses the send — one rule
+  // by reason, the oracle gate's twin. `isRequestResolvable` excludes
+  // reserved-namespace errors (`{{dynamic.X}}`); `{{file.X}}` resolves
+  // here (the file registry is fed above) and misses only when the
+  // file is missing.
   const resolvable = isRequestResolvable(
     gated,
     (name) => resolver.resolve(name, context),
     (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
   );
+  let sentAsWritten: SentAsWrittenReference[] | undefined;
   if (!resolvable) {
     // Every unresolved reference with its reason — a secret manager's
     // typed failure (authorize, fix the reference, connect the desktop
@@ -331,7 +338,8 @@ export async function resolveRequest(
       (name) => resolver.resolve(name, context),
       (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
     );
-    throw new UnresolvedRequestError(unresolvedRequestMessage(errors));
+    if (batchRefusesSend(errors)) throw new UnresolvedRequestError(unresolvedRequestMessage(errors));
+    sentAsWritten = sentAsWrittenOf(errors);
   }
 
   // Track every kind:'totp' vault entry referenced during this resolve.
@@ -540,6 +548,7 @@ export async function resolveRequest(
       ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
       ...(settingsAttribution !== undefined ? { inheritedSettings: settingsAttribution } : {}),
+      ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
       ...(options.executionPlace !== undefined
         ? {
             delegated: delegatedKnobsOf(

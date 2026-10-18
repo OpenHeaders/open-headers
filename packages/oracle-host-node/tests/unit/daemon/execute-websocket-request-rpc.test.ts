@@ -331,18 +331,24 @@ describe('handleExecuteWebSocketRequestRpc — rider plane', () => {
     });
   });
 
-  it('fails a rider with unresolved refs alone — the session stays open', async () => {
+  it('a rider with a plain miss rides as written — the answer names it and the session stays open', async () => {
     seedStorage([]);
     const { transport, writes } = scriptedTransport();
     const result = await runSession({ draft: makeWsRequest(), sendId: 's-7' }, transport, async (sendId) => {
-      const bad = await sendActiveWsSessionMessage(sendId, 'x {{vault.missing}}');
-      expect(bad.success).toBe(false);
-      expect(bad.error).toContain('vault.missing');
+      const literal = await sendActiveWsSessionMessage(sendId, 'x {{vault.missing}}');
+      expect(literal.success).toBe(true);
+      expect(literal.sentAsWritten?.map((r) => r.reference)).toEqual(['vault.missing']);
       await expect(sendActiveWsSessionMessage(sendId, 'still-open')).resolves.toEqual({ success: true });
       closeActiveWsSession(sendId);
     });
-    expect(writes).toEqual(['still-open']);
+    expect(writes).toEqual(['x {{vault.missing}}', 'still-open']);
     expect(result.snapshot?.outcome).toEqual({ kind: 'connected' });
+    // The greeting (↓), the literal rider (↑, named), the plain rider (↑).
+    expect(result.snapshot?.messages.map((m) => m.sentAsWritten?.map((r) => r.reference))).toEqual([
+      undefined,
+      ['vault.missing'],
+      undefined,
+    ]);
   });
 
   it('unregisters the session once settled', async () => {
@@ -357,18 +363,39 @@ describe('handleExecuteWebSocketRequestRpc — rider plane', () => {
 });
 
 describe('handleExecuteWebSocketRequestRpc — pre-wire gates', () => {
-  it('refuses unresolved variables naming the refs, before the wire', async () => {
+  it('a plain miss at Connect rides as written — the dial goes with the literal and the snapshot names it', async () => {
     seedStorage([]);
-    const { transport, calls } = scriptedTransport();
-    const result = await handleExecuteWebSocketRequestRpc(
-      { draft: makeWsRequest({ url: 'wss://{{env.missing_host}}/live' }), sendId: 's-9' },
+    const { transport, calls, sent } = scriptedTransport();
+    const result = await runSession(
+      {
+        draft: makeWsRequest({ headers: [{ uid: 'h1', key: 'x-room', value: '{{env.missing_room}}' }] }),
+        sendId: 's-9',
+      },
       transport,
+      (sendId) => {
+        closeActiveWsSession(sendId);
+      },
     );
     expect(result.success).toBe(true);
-    const outcome = result.snapshot?.outcome;
-    if (outcome?.kind !== 'failed') throw new Error('expected a failed outcome');
-    expect(outcome.error).toContain('env.missing_host');
-    expect(calls()).toBe(0);
+    expect(calls()).toBe(1);
+    expect(sent().headers).toEqual([{ key: 'x-room', value: '{{env.missing_room}}' }]);
+    expect(result.snapshot?.sentAsWritten?.map((r) => r.reference)).toEqual(['env.missing_room']);
+  });
+
+  it('a literal in the host rides to the dial as written — the resolver never reaches for a value', async () => {
+    seedStorage([]);
+    const { transport, calls, sent } = scriptedTransport();
+    const result = await runSession(
+      { draft: makeWsRequest({ url: 'wss://{{env.missing_host}}/live' }), sendId: 's-9b' },
+      transport,
+      (sendId) => {
+        closeActiveWsSession(sendId);
+      },
+    );
+    expect(result.success).toBe(true);
+    expect(calls()).toBe(1);
+    expect(sent().url).toBe('wss://{{env.missing_host}}/live');
+    expect(result.snapshot?.sentAsWritten?.map((r) => r.reference)).toEqual(['env.missing_host']);
   });
 
   it('refuses an empty url and a non-ws(s) scheme distinctly', async () => {

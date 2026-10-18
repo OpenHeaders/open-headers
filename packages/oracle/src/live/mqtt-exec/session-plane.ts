@@ -24,7 +24,7 @@ import type {
   MqttSubscriptionWire,
 } from '@openheaders/core/bridge';
 import type { SessionPublishMessage } from '@openheaders/core/scripts';
-import type { ExecutedProxyRoute } from '@openheaders/core/types';
+import type { ExecutedProxyRoute, SentAsWrittenReference } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 
 /** Flush the pending item batch on this cadence — the WS emitter's
@@ -124,6 +124,19 @@ export type MqttPublishOrigin = 'rider' | 'script';
 export interface MqttPublishResult {
   success: boolean;
   error?: string;
+  /** The references the published message carried as written — the
+   *  row wears the same list; absent when every reference resolved. */
+  sentAsWritten?: SentAsWrittenReference[];
+}
+
+/** A SUBSCRIBE / UNSUBSCRIBE rider's answer — see `setSubscription`. */
+export interface MqttSubscriptionResult {
+  success: boolean;
+  grantCode?: number;
+  error?: string;
+  /** The references the filter carried as written; absent when every
+   *  reference resolved. */
+  sentAsWritten?: SentAsWrittenReference[];
 }
 
 /** The executor's handle for one open session — what the
@@ -141,9 +154,7 @@ export interface ActiveMqttSessionHandle {
    *  ack arrives — `grantCode` is the SUBACK grant / UNSUBACK reason
    *  verbatim (absent on a 3.1.1 UNSUBACK). A session ending before
    *  the ack resolves `success: false`, never hangs. */
-  setSubscription(
-    subscription: MqttSubscriptionWire,
-  ): Promise<{ success: boolean; grantCode?: number; error?: string }>;
+  setSubscription(subscription: MqttSubscriptionWire): Promise<MqttSubscriptionResult>;
   /** Start the clean close — DISCONNECT then the socket close. */
   close(): void;
   /** Dial the armed reconnect attempt now instead of after its wait.

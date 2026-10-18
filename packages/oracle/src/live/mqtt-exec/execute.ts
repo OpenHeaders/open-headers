@@ -92,6 +92,7 @@ import type {
   MqttPayloadFormat,
   MqttRequest,
   MqttUserPropertyRow,
+  SentAsWrittenReference,
   TrustCertificateErrorHint,
 } from '@openheaders/core/types';
 import { decodeBase64Bytes, decodeBinaryText, encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
@@ -111,6 +112,8 @@ import {
 } from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
 import {
+  batchRefusesSend,
+  sentAsWrittenAttribution,
   UNRESOLVED_MESSAGE_LEAD,
   UNRESOLVED_REQUEST_LEAD,
   UNRESOLVED_SUBSCRIPTION_LEAD,
@@ -123,6 +126,7 @@ import {
   createMqttStreamEmitter,
   type MqttPublishOrigin,
   type MqttPublishResult,
+  type MqttSubscriptionResult,
   registerActiveMqttSession,
 } from './session-plane';
 import { type MqttByteTransport, type MqttStreamWriter, MqttTransportError } from './transport';
@@ -497,12 +501,17 @@ export async function executeMqttSession(
   );
   const authAttribution = sessionAuth.attribution;
   // Every settle path stamps the resolve-time attributions — the auth
-  // the session applied and the settings an ancestor supplied.
-  const withAttribution = (snapshot: ExecutedMqttSnapshot): ExecutedMqttSnapshot => ({
-    ...snapshot,
-    ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
-    ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
-  });
+  // the session applied, the settings an ancestor supplied, and the
+  // Connect-time references the session carried as written.
+  const withAttribution = (snapshot: ExecutedMqttSnapshot): ExecutedMqttSnapshot => {
+    const sentAsWritten = sentAsWrittenAttribution(unresolved);
+    return {
+      ...snapshot,
+      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+      ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
+      ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
+    };
+  };
   if (sessionAuth.refusal !== null) return withAttribution(errorMqttSnapshot(sessionAuth.refusal));
   const appliedAuth = sessionAuth.auth.disabled === true ? null : sessionAuth.auth;
   const basicAuth = appliedAuth?.type === 'basic' ? appliedAuth : null;
@@ -572,7 +581,10 @@ export async function executeMqttSession(
     };
   });
 
-  if (unresolved.size > 0) {
+  // The gate — one rule by reason, the HTTP send's: a secret manager's
+  // typed failure refuses the dial; every other miss rides as written
+  // and the snapshot names it.
+  if (batchRefusesSend(unresolved.values())) {
     return withAttribution(errorMqttSnapshot(unresolvedReferencesMessage(UNRESOLVED_REQUEST_LEAD, unresolved)));
   }
   if (url === '') return withAttribution(errorMqttSnapshot('URL is empty'));
@@ -738,7 +750,11 @@ export async function executeMqttSession(
           })
         : null;
     /** Record an outbound PUBLISH that reached the wire and emit it live. */
-    const recordPublished = (packet: PendingPublish['packet'], secret = false): void => {
+    const recordPublished = (
+      packet: PendingPublish['packet'],
+      secret = false,
+      sentAsWritten?: SentAsWrittenReference[],
+    ): void => {
       published += 1;
       const payloadBase64 = encodeBase64Bytes(packet.payload);
       const fact = {
@@ -750,6 +766,7 @@ export async function executeMqttSession(
         retain: packet.retain,
         dup: packet.dup,
         ...(secret ? { secret: true as const } : {}),
+        ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
       };
       record(fact, packet.payload.byteLength);
       emitter?.item({ ...fact, atMs: Date.now() });
@@ -1320,9 +1337,13 @@ export async function executeMqttSession(
         const topic = riderResolve(message.topic).trim();
         const payloadText = riderResolve(message.payload);
         const properties = scriptMessageProperties(message.properties, riderResolve);
-        if (sendUnresolved.size > 0) {
+        // The rider's gate — the Connect gate's rule: a secret manager's
+        // failure refuses the publish; a plain miss rides as written and
+        // the answer names it.
+        if (batchRefusesSend(sendUnresolved.values())) {
           return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_MESSAGE_LEAD, sendUnresolved) };
         }
+        const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
         // The rider's spelling gates the publish (a malformed base64 /
         // hex compose fails here); the hook then sees ONE byte
         // spelling — text stays text, bytes ride as base64.
@@ -1369,10 +1390,10 @@ export async function executeMqttSession(
         if (packetId !== null && qos > 0) {
           outboundQos.set(packetId, { packet, pubrecd: false, ...(riderSecret ? { secret: true as const } : {}) });
         }
-        recordPublished(packet, riderSecret);
-        return { success: true };
+        recordPublished(packet, riderSecret, sentAsWritten);
+        return { success: true, ...(sentAsWritten !== undefined ? { sentAsWritten } : {}) };
       },
-      setSubscription: async (subscription: MqttSubscriptionWire) => {
+      setSubscription: async (subscription: MqttSubscriptionWire): Promise<MqttSubscriptionResult> => {
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         // The rider's pre-pass — the publish rider's law.
         const prepared = prepare(collectTemplateStringsDeep(subscription));
@@ -1385,16 +1406,21 @@ export async function executeMqttSession(
         const topicFilter = riderResolve(subscription.topicFilter).trim();
         const userProperties =
           v5 && subscription.subscribe ? wireSubscribeUserProps(subscription.userProperties, riderResolve) : undefined;
-        if (sendUnresolved.size > 0) {
+        if (batchRefusesSend(sendUnresolved.values())) {
           return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_SUBSCRIPTION_LEAD, sendUnresolved) };
         }
+        const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
         return new Promise((resolveRider) => {
           const resolveAck = (reasonCode: number | null, failure?: string): void => {
             if (settled || failure !== undefined) {
               resolveRider({ success: false, error: failure ?? 'The session ended before the broker answered.' });
               return;
             }
-            resolveRider({ success: true, ...(reasonCode !== null ? { grantCode: reasonCode } : {}) });
+            resolveRider({
+              success: true,
+              ...(reasonCode !== null ? { grantCode: reasonCode } : {}),
+              ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
+            });
           };
           if (subscription.subscribe) {
             const entry: SubscribeEntry = {

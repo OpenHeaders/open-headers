@@ -206,11 +206,18 @@ describe('runStepRequest (integration over the real resolver + executor)', () =>
     expect(auth?.value).toBe(`Basic ${Buffer.from('user:pä55', 'utf-8').toString('base64')}`);
   });
 
-  it('returns a structured error (no wire call) when a variable is unresolved', async () => {
-    const { transport, calls } = captureTransport();
-    const snap = await runStepRequest(makeRequest({ url: 'https://{{MISSING}}/x' }), opts(transport));
-    expect(snap.error).toMatch(/unresolved variables/i);
-    expect(calls()).toBe(0);
+  it('a plain miss rides as written — the send goes with the literal and the snapshot names the reference', async () => {
+    const { transport, calls, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ url: 'https://api.openheaders.io/{{MISSING}}' }), opts(transport));
+    expect(snap.error).toBeNull();
+    expect(calls()).toBe(1);
+    expect(sent().url).toBe('https://api.openheaders.io/{{MISSING}}');
+    expect(snap.sentAsWritten).toEqual([
+      {
+        reference: 'MISSING',
+        hint: 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+      },
+    ]);
   });
 
   it('does not record TOTP usage when the request uses no TOTP code', async () => {
@@ -408,14 +415,16 @@ describe('runStepRequest — unpinned (runtime-Active) run', () => {
       },
     ]);
     activeEnvironmentId.mockReturnValue('env-active');
-    const { transport, calls } = captureTransport();
+    const { transport, sent } = captureTransport();
     const snap = await runStepRequest(makeRequest({ url: 'https://{{HOST}}/ping' }), {
       workspaceId: null,
       environmentId: null,
       transport,
     });
-    expect(snap.error).toMatch(/unresolved variables/i);
-    expect(calls()).toBe(0);
+    // The pointer's value never reached the send: the reference rode
+    // as written, with the no-environment hint.
+    expect(sent().url).toBe('https://{{HOST}}/ping');
+    expect(snap.sentAsWritten?.map((r) => r.reference)).toEqual(['HOST']);
   });
 
   it('an explicit environment string overrides the pointer on the unpinned run', async () => {
@@ -870,11 +879,12 @@ describe('runStepRequest — ancestor auth inheritance', () => {
     expect(authHeader(sent())).toEqual({ key: 'Authorization', value: 'Bearer tok-var' });
   });
 
-  it('an unresolvable template inside the inherited config trips the resolvability gate', async () => {
+  it('an unresolvable template inside the inherited config rides as written and is named on the snapshot', async () => {
     requestCollections.mockReturnValue([chainCollection({ auth: { type: 'bearer', token: '{{auth_token}}' } })]);
-    const { transport, calls } = captureTransport();
+    const { transport, sent } = captureTransport();
     const snap = await runStepRequest(nestedRequest(), opts(transport));
-    expect(snap.error).toMatch(/unresolved variables/);
-    expect(calls()).toBe(0);
+    expect(snap.error).toBeNull();
+    expect(authHeader(sent())).toEqual({ key: 'Authorization', value: 'Bearer {{auth_token}}' });
+    expect(snap.sentAsWritten?.map((r) => r.reference)).toEqual(['auth_token']);
   });
 });

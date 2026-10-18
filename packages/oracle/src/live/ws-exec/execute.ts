@@ -84,6 +84,7 @@ import type {
   ExecutedWsReconnecting,
   ExecutedWsScriptMark,
   ExecutedWsSnapshot,
+  SentAsWrittenReference,
   TrustCertificateErrorHint,
   WebSocketRequest,
 } from '@openheaders/core/types';
@@ -105,6 +106,8 @@ import {
 } from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
 import {
+  batchRefusesSend,
+  sentAsWrittenAttribution,
   UNRESOLVED_MESSAGE_LEAD,
   UNRESOLVED_REQUEST_LEAD,
   unresolvedReferencesMessage,
@@ -302,12 +305,17 @@ export async function executeWsSession(
   );
   const authAttribution = sessionAuth.attribution;
   // Every settle path stamps the resolve-time attributions — the auth
-  // the session applied and the settings an ancestor supplied.
-  const withAttribution = (snapshot: ExecutedWsSnapshot): ExecutedWsSnapshot => ({
-    ...snapshot,
-    ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
-    ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
-  });
+  // the session applied, the settings an ancestor supplied, and the
+  // Connect-time references the session carried as written.
+  const withAttribution = (snapshot: ExecutedWsSnapshot): ExecutedWsSnapshot => {
+    const sentAsWritten = sentAsWrittenAttribution(unresolved);
+    return {
+      ...snapshot,
+      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+      ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
+      ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
+    };
+  };
   if (sessionAuth.refusal !== null) return withAttribution(errorWsSnapshot(sessionAuth.refusal));
   // The credential resolves HERE with the other Connect-time templates
   // (an unresolved reference gates the session below) and MINTS at
@@ -360,8 +368,9 @@ export async function executeWsSession(
     !socketioFlavor && settings.heartbeatMessage !== undefined ? resolveStr(settings.heartbeatMessage) : '';
   const heartbeatSecret = heartbeatMessage !== '' && referencesSecret([settings.heartbeatMessage ?? '']);
   // The subscription envelope resolves with the other Connect-time
-  // templates — the document and the variables text (an unresolved
-  // reference gates the session below, the HTTP send's law).
+  // templates — the document and the variables text (a secret
+  // manager's failure gates the session below, the HTTP send's law; a
+  // plain miss rides as written).
   const graphqlPlan =
     options.graphql !== undefined
       ? {
@@ -371,7 +380,10 @@ export async function executeWsSession(
         }
       : null;
   let namespace = '/';
-  if (unresolved.size > 0) {
+  // The gate — one rule by reason, the HTTP send's: a secret manager's
+  // typed failure refuses the dial; every other miss rides as written
+  // and the snapshot names it.
+  if (batchRefusesSend(unresolved.values())) {
     return withAttribution(errorWsSnapshot(unresolvedReferencesMessage(UNRESOLVED_REQUEST_LEAD, unresolved)));
   }
   if (url === '') return withAttribution(errorWsSnapshot('URL is empty'));
@@ -627,28 +639,39 @@ export async function executeWsSession(
     // One write path for riders AND protocol frames — every ↑ frame is
     // captured and broadcast verbatim, socket.io control answers
     // (CONNECT, pong) and the heartbeat included.
-    const sendText = (text: string, secret = false): void => {
+    // The ↑ row's stamps: the secret-manager mark (the timeline shows a
+    // placeholder) and the references the message carried as written
+    // (the row names them).
+    const upStamp = (secret: boolean, sentAsWritten: SentAsWrittenReference[] | undefined) => ({
+      ...(secret ? { secret: true as const } : {}),
+      ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
+    });
+    const sendText = (text: string, secret = false, sentAsWritten?: SentAsWrittenReference[]): void => {
       if (writer === null || settled || !attemptOpened) return;
       writer.send(text);
       const data = new TextEncoder().encode(text);
       const dataBase64 = encodeBase64Bytes(data);
-      const stamp = secret ? { secret: true as const } : {};
+      const stamp = upStamp(secret, sentAsWritten);
       record({ direction: 'up', dataBase64, binary: false, ...stamp }, data.byteLength);
       emitter?.message({ direction: 'up', dataBase64, binary: false, ...stamp, atMs: Date.now() });
     };
     // The binary twin — one frame of decoded bytes; a transport without
     // the optional writer cannot carry it and says so on the rider.
-    const sendBinary = (data: Uint8Array, secret = false): { success: boolean; error?: string } => {
+    const sendBinary = (
+      data: Uint8Array,
+      secret = false,
+      sentAsWritten?: SentAsWrittenReference[],
+    ): { success: boolean; error?: string } => {
       if (writer === null || settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
       if (writer.sendBinary === undefined) {
         return { success: false, error: 'This host cannot send binary frames.' };
       }
       writer.sendBinary(data);
       const dataBase64 = encodeBase64Bytes(data);
-      const stamp = secret ? { secret: true as const } : {};
+      const stamp = upStamp(secret, sentAsWritten);
       record({ direction: 'up', dataBase64, binary: true, ...stamp }, data.byteLength);
       emitter?.message({ direction: 'up', dataBase64, binary: true, ...stamp, atMs: Date.now() });
-      return { success: true };
+      return { success: true, ...(sentAsWritten !== undefined ? { sentAsWritten } : {}) };
     };
     const startHeartbeat = (): void => {
       if (heartbeatMessage === '') return;
@@ -971,9 +994,13 @@ export async function executeWsSession(
         const sendUnresolved: UnresolvedReferences = new Map();
         const resolved = resolveWith(messageText, sendUnresolved);
         const eventName = socketio !== undefined ? resolveWith(socketio.eventName, sendUnresolved) : undefined;
-        if (sendUnresolved.size > 0) {
+        // The rider's gate — the Connect gate's rule: a secret manager's
+        // failure refuses the send; a plain miss rides as written and
+        // the answer names it.
+        if (batchRefusesSend(sendUnresolved.values())) {
           return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_MESSAGE_LEAD, sendUnresolved) };
         }
+        const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
         // The message as the hook sees it: a binary compose decodes
         // first (the rider's spelling gates the send) and rides as
         // base64 — one spelling for the script to read or replace.
@@ -1006,21 +1033,22 @@ export async function executeWsSession(
           message = outcome.message;
           if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         }
+        const answer: WsSendResult = { success: true, ...(sentAsWritten !== undefined ? { sentAsWritten } : {}) };
         if (message.binary) {
           const bytes = decodeBase64Bytes(message.text);
           if (bytes === null) return { success: false, error: 'The message is not valid Base64.' };
-          return sendBinary(bytes, riderSecret);
+          return sendBinary(bytes, riderSecret, sentAsWritten);
         }
         if (message.eventName !== undefined && socketioSession !== null) {
           const ackId = message.expectAck === true ? socketioSession.nextAckId() : null;
           const encoded = encodeEventPacket(namespace, ackId, message.eventName, message.text);
           if (!encoded.ok) return { success: false, error: encoded.error };
-          sendText(encoded.frame, riderSecret);
+          sendText(encoded.frame, riderSecret, sentAsWritten);
           if (ackId !== null) socketioSession.armAck(ackId);
-          return { success: true };
+          return answer;
         }
-        sendText(message.text, riderSecret);
-        return { success: true };
+        sendText(message.text, riderSecret, sentAsWritten);
+        return answer;
       },
       close: () => {
         if (settled) return;

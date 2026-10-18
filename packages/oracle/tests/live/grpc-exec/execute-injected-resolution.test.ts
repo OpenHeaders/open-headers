@@ -82,16 +82,24 @@ const SCOPE: Record<string, string> = {
   token: 'tok-123',
 };
 
+/** A `vault.` name is a secret-manager entry the desktop app would
+ *  resolve — the closure reports the typed failure; any other miss is
+ *  a plain one. */
 function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
     const value = SCOPE[name.trim()];
     if (value === undefined) {
-      unresolved.set(name.trim(), buildPostResolveError(name, 'unresolved', undefined));
+      const reason = name.trim().startsWith('vault.') ? 'secret-broker-unreachable' : 'unresolved';
+      unresolved.set(name.trim(), buildPostResolveError(name, reason, undefined));
       return whole;
     }
     return value;
   });
 }
+
+const MISS_HINT = 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
+const BROKER_HINT =
+  'This entry resolves through the desktop app on this computer. Connect the desktop app, then retry.';
 
 const OK_REPLY: GrpcTransportResponse = {
   httpStatus: 200,
@@ -158,19 +166,51 @@ describe('executeGrpcInvoke — injected resolution', () => {
     expect(rig.wire()).toMatchObject({ metadata: [{ key: 'x-tenant', value: 'acme' }] });
   });
 
-  it('gates an unresolved reference as a structured error naming it, before the wire', async () => {
+  it('a plain miss rides as written — the invoke goes with the literal and the snapshot names the reference', async () => {
     const rig = unaryTransport();
-    const snapshot = await executeGrpcInvoke(makeGrpcRequest({ message: '{"text":"{{missing}}"}' }), {
-      workspaceId: null,
-      environmentId: undefined,
-      transport: rig.transport,
-      spec: SPEC,
-      resolution: scopedResolution,
-    });
-    // The HTTP gate's wording: every reference with its reason.
-    expect(snapshot.error).toBe(
-      'Request has unresolved variables. {{missing}}: Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+    const snapshot = await executeGrpcInvoke(
+      makeGrpcRequest({
+        message: '{"text":"{{missing}}"}',
+        metadata: [{ uid: 'm1', key: 'x-tenant', value: '{{nope}}' }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        spec: SPEC,
+        resolution: scopedResolution,
+      },
     );
+    expect(snapshot.error).toBeNull();
+    expect(rig.wire()).toMatchObject({ metadata: [{ key: 'x-tenant', value: '{{nope}}' }] });
+    // Field 1, the literal "{{missing}}" — 11 bytes.
+    expect(Array.from(rig.wire().message)).toEqual([10, 11, ...Array.from(new TextEncoder().encode('{{missing}}'))]);
+    expect(snapshot.sentAsWritten).toEqual([
+      { reference: 'nope', hint: MISS_HINT },
+      { reference: 'missing', hint: MISS_HINT },
+    ]);
+  });
+
+  it("a secret manager's typed failure refuses the invoke in the HTTP gate's wording, before the wire", async () => {
+    const rig = unaryTransport();
+    const snapshot = await executeGrpcInvoke(
+      makeGrpcRequest({
+        message: '{"text":"{{missing}}"}',
+        metadata: [{ uid: 'm1', key: 'authorization', value: 'Bearer {{vault.token}}' }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        spec: SPEC,
+        resolution: scopedResolution,
+      },
+    );
+    // Every reference with its reason — the plain miss beside the refusing one.
+    expect(snapshot.error).toBe(
+      `Request has unresolved variables. {{vault.token}}: ${BROKER_HINT} {{missing}}: ${MISS_HINT}`,
+    );
+    expect(snapshot.sentAsWritten).toBeUndefined();
     expect(() => rig.wire()).toThrow();
   });
 

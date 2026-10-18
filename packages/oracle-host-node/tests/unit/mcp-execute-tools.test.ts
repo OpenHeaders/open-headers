@@ -218,7 +218,7 @@ describe('requests_send', () => {
     await expect(call('requests_send', { uid, environmentId: 'ghost' })).rejects.toThrow(/environments_list/);
   });
 
-  it('refuses to send a request with unresolved variables', async () => {
+  it('sends a request with a plain miss as written and names the reference on the result', async () => {
     const uid = await saveRequest({
       name: 'Echo',
       url: `http://127.0.0.1:${port}/echo`,
@@ -227,9 +227,14 @@ describe('requests_send', () => {
 
     const result = await call('requests_send', { uid });
 
-    expect(result.sent).toBe(false);
-    expect(result.error).toMatch(/unresolved variables/);
-    expect(captured).toBeNull();
+    expect(result.sent).toBe(true);
+    expect(captured?.headers['x-region']).toBe('{{missing}}');
+    expect(result.sentAsWritten).toEqual([
+      {
+        reference: 'missing',
+        hint: 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+      },
+    ]);
   });
 
   it('truncates oversized bodies explicitly, never silently', async () => {

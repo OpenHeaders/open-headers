@@ -13,7 +13,8 @@
  * surfaces the Node-side `req.headers` (lowercased names), so a green
  * run means the executor put each header on the actual wire. Positive
  * `{{var}}` resolution is proven in `request-scripts.spec.ts`; here we
- * assert only that the resolvability gate rejects an unresolved ref.
+ * assert only that an unresolved ref rides the wire AS WRITTEN and the
+ * snapshot names it.
  */
 
 import path from 'node:path';
@@ -73,6 +74,7 @@ interface ExecSnapshot {
   status: number;
   body: string;
   error?: string | null;
+  sentAsWritten?: Array<{ reference: string; hint: string }>;
 }
 
 let nextUid = 0;
@@ -169,12 +171,17 @@ test.describe('Request executor — request headers on the wire', () => {
     expect(echo.body.kind).toBe('json');
   });
 
-  test('an unresolved {{ref}} in a header value is rejected before the wire', async () => {
+  test('an unresolved {{ref}} in a header value rides as written and the snapshot names it', async () => {
     const exec = await rpc<{ success: boolean; snapshot?: ExecSnapshot; error?: string }>('executeRequest', {
       draft: draft([header('X-Token', '{{undefined_header_var}}')]),
     });
+    // A plain miss never blocks the send: the literal `{{…}}` goes on
+    // the wire and the snapshot's attribution names the reference.
     expect(exec.success).toBe(true);
-    expect(exec.snapshot!.status).toBe(0);
-    expect(exec.snapshot!.error ?? '').toMatch(/unresolved variables/i);
+    expect(exec.snapshot!.error ?? null).toBeNull();
+    expect(exec.snapshot!.status).toBe(200);
+    const echo = JSON.parse(exec.snapshot!.body) as EchoResponse;
+    expect(echo.headers['x-token']).toBe('{{undefined_header_var}}');
+    expect(exec.snapshot!.sentAsWritten?.map((r) => r.reference)).toEqual(['undefined_header_var']);
   });
 });

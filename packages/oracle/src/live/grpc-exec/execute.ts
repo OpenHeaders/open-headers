@@ -68,7 +68,12 @@ import {
   type SessionResolve,
 } from '../request-exec/session-resolution';
 import { hasSessionScriptChains } from '../request-exec/session-script-plane';
-import { UNRESOLVED_REQUEST_LEAD, unresolvedReferencesMessage } from '../request-exec/unresolved-references';
+import {
+  batchRefusesSend,
+  sentAsWrittenAttribution,
+  UNRESOLVED_REQUEST_LEAD,
+  unresolvedReferencesMessage,
+} from '../request-exec/unresolved-references';
 import { mintSessionCredential, resolveSessionCredential } from '../session-credential';
 import { sessionTlsPolicy } from '../tls-policy';
 import { getTrustAnchorsForSend } from '../trust-anchors';
@@ -257,12 +262,17 @@ export async function executeGrpcInvoke(
   );
   const authAttribution = sessionAuth.attribution;
   // Every settled snapshot stamps the resolve-time attributions — the
-  // auth the call applied and the settings an ancestor supplied.
-  const withAttribution = (snapshot: ExecutedGrpcSnapshot): ExecutedGrpcSnapshot => ({
-    ...snapshot,
-    ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
-    ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
-  });
+  // auth the call applied, the settings an ancestor supplied, and the
+  // references the call carried as written.
+  const withAttribution = (snapshot: ExecutedGrpcSnapshot): ExecutedGrpcSnapshot => {
+    const sentAsWritten = sentAsWrittenAttribution(unresolved);
+    return {
+      ...snapshot,
+      ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
+      ...(inheritedSettings !== undefined ? { inheritedSettings } : {}),
+      ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
+    };
+  };
   if (sessionAuth.refusal !== null) return withAttribution(errorGrpcSnapshot(sessionAuth.refusal));
   const authorityOverride = request.authority !== undefined ? resolveStr(request.authority).trim() : '';
   const channelKnobs = {
@@ -302,7 +312,10 @@ export async function executeGrpcInvoke(
   const credentialReferencesSecret = referencesSecret(collectTemplateStringsDeep(sessionAuth.auth));
   let messageText = resolveStr(request.message);
   const initialMessageSecret = referencesSecret([request.message]);
-  if (unresolved.size > 0) {
+  // The gate — one rule by reason, the HTTP send's: a secret manager's
+  // typed failure refuses the call; every other miss rides as written
+  // and the snapshot names it.
+  if (batchRefusesSend(unresolved.values())) {
     return withAttribution(errorGrpcSnapshot(unresolvedReferencesMessage(UNRESOLVED_REQUEST_LEAD, unresolved)));
   }
 

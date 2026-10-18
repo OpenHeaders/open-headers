@@ -57,16 +57,24 @@ const SCOPE: Record<string, string> = {
   token: 'tok-123',
 };
 
+/** A `vault.` name is a secret-manager entry the desktop app would
+ *  resolve — the closure reports the typed failure, as a session whose
+ *  broker is unreachable would; any other miss is a plain one. */
 function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
     const value = SCOPE[name.trim()];
     if (value === undefined) {
-      unresolved.set(name.trim(), buildPostResolveError(name, 'unresolved', undefined));
+      const reason = name.trim().startsWith('vault.') ? 'secret-broker-unreachable' : 'unresolved';
+      unresolved.set(name.trim(), buildPostResolveError(name, reason, undefined));
       return whole;
     }
     return value;
   });
 }
+
+const MISS_HINT = 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
+const BROKER_HINT =
+  'This entry resolves through the desktop app on this computer. Connect the desktop app, then retry.';
 
 /** Scripted transport capturing the wire request and exposing the
  *  callbacks so the test drives the session. */
@@ -237,20 +245,57 @@ describe('executeWsSession — injected resolution', () => {
     expect(snapshot.requestHeaders).toEqual([{ key: 'Sec-WebSocket-Protocol', value: 'chat.v2' }]);
   });
 
-  it('gates an unresolved Connect-time reference as a structured error snapshot', async () => {
+  it('a plain miss at Connect rides as written — the dial goes and the snapshot names the reference', async () => {
     const rig = scriptedTransport();
-    const snapshot = await executeWsSession(makeWsRequest({ url: 'wss://{{missing_host}}/live' }), {
-      workspaceId: null,
-      environmentId: undefined,
-      transport: rig.transport,
-      sendId: 'send-inject-2',
-      resolution: scopedResolution,
-    });
-    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
-    // The HTTP gate's wording: every reference with its reason.
-    expect(snapshot.outcome.error).toBe(
-      'Request has unresolved variables. {{missing_host}}: Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
+    const settled = executeWsSession(
+      makeWsRequest({
+        url: 'wss://{{host}}/{{missing_room}}',
+        headers: [{ uid: 'h1', key: 'X-Team', value: '{{missing_team}}' }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-inject-2',
+        resolution: scopedResolution,
+      },
     );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The literal text went on the wire, verbatim.
+    expect(rig.wire().url).toBe('wss://echo.openheaders.io/{{missing_room}}');
+    expect(rig.wire().headers).toEqual([{ key: 'X-Team', value: '{{missing_team}}' }]);
+    rig.callbacks().onOpen('', '');
+    rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
+    rig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.outcome).toEqual({ kind: 'connected' });
+    expect(snapshot.sentAsWritten).toEqual([
+      { reference: 'missing_room', hint: MISS_HINT },
+      { reference: 'missing_team', hint: MISS_HINT },
+    ]);
+  });
+
+  it("a secret manager's typed failure at Connect refuses the dial in the HTTP gate's wording", async () => {
+    const rig = scriptedTransport();
+    const snapshot = await executeWsSession(
+      makeWsRequest({
+        url: 'wss://{{host}}/{{missing_room}}',
+        headers: [{ uid: 'h1', key: 'Authorization', value: 'Bearer {{vault.token}}' }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-inject-2b',
+        resolution: scopedResolution,
+      },
+    );
+    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
+    // Every reference with its reason — the plain miss beside the refusing one.
+    expect(snapshot.outcome.error).toBe(
+      `Request has unresolved variables. {{missing_room}}: ${MISS_HINT} {{vault.token}}: ${BROKER_HINT}`,
+    );
+    expect(() => rig.wire()).toThrow();
   });
 
   it("stamps a transport-reported route as the system plane's wire truth", async () => {
@@ -274,7 +319,7 @@ describe('executeWsSession — injected resolution', () => {
     });
   });
 
-  it('resolves per-send riders through the same closure and fails an unresolved rider alone', async () => {
+  it('resolves per-send riders through the same closure — a plain miss rides as written, a secret failure refuses the rider alone', async () => {
     const rig = scriptedTransport();
     const settled = executeWsSession(makeWsRequest(), {
       workspaceId: null,
@@ -290,19 +335,25 @@ describe('executeWsSession — injected resolution', () => {
     expect(ok).toEqual({ success: true });
     expect(rig.sent).toEqual(['auth tok-123']);
 
-    const bad = await sendActiveWsSessionMessage('send-inject-3', 'auth {{nope}}');
+    // The plain miss goes as written; the answer and the row name it.
+    const literal = await sendActiveWsSessionMessage('send-inject-3', 'auth {{nope}}');
+    expect(literal).toEqual({ success: true, sentAsWritten: [{ reference: 'nope', hint: MISS_HINT }] });
+    expect(rig.sent).toEqual(['auth tok-123', 'auth {{nope}}']);
+
+    const bad = await sendActiveWsSessionMessage('send-inject-3', 'auth {{vault.secret}}');
     expect(bad.success).toBe(false);
-    expect(bad.error).toBe(
-      'Message has unresolved variables. {{nope}}: Not found in vault, environment, collection, or workspace. Define it in one of those scopes.',
-    );
-    // The failed rider never reached the wire and the session is intact.
-    expect(rig.sent).toEqual(['auth tok-123']);
+    expect(bad.error).toBe(`Message has unresolved variables. {{vault.secret}}: ${BROKER_HINT}`);
+    // The refused rider never reached the wire and the session is intact.
+    expect(rig.sent).toEqual(['auth tok-123', 'auth {{nope}}']);
 
     rig.callbacks().onClose({ code: 1000, reason: '', wasClean: true });
     rig.callbacks().onEnd();
     const snapshot = await settled;
     expect(snapshot.outcome).toEqual({ kind: 'connected' });
-    expect(snapshot.messages.map((m) => m.direction)).toEqual(['up']);
+    expect(snapshot.messages.map((m) => m.direction)).toEqual(['up', 'up']);
+    expect(snapshot.messages[0].sentAsWritten).toBeUndefined();
+    expect(snapshot.messages[1].sentAsWritten).toEqual([{ reference: 'nope', hint: MISS_HINT }]);
+    expect(snapshot.sentAsWritten).toBeUndefined();
   });
 });
 

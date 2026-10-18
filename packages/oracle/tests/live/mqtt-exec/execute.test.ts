@@ -68,16 +68,24 @@ const SCOPE: Record<string, string> = {
   team: 'alpha',
 };
 
+/** A `vault.` name is a secret-manager entry the desktop app would
+ *  resolve — the closure reports the typed failure; any other miss is
+ *  a plain one. */
 function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
     const value = SCOPE[name.trim()];
     if (value === undefined) {
-      unresolved.set(name.trim(), buildPostResolveError(name, 'unresolved', undefined));
+      const reason = name.trim().startsWith('vault.') ? 'secret-broker-unreachable' : 'unresolved';
+      unresolved.set(name.trim(), buildPostResolveError(name, reason, undefined));
       return whole;
     }
     return value;
   });
 }
+
+const MISS_HINT = 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
+const BROKER_HINT =
+  'This entry resolves through the desktop app on this computer. Connect the desktop app, then retry.';
 
 /** Scripted byte transport — the broker side of the rig. `written`
  *  holds every client packet DECODED through the real codec (each
@@ -256,10 +264,10 @@ describe('executeMqttSession — connect gate', () => {
     await bareSettled;
   });
 
-  it('gates unresolved auth references as the structured pre-wire error', async () => {
+  it("a secret manager's typed failure on the CONNECT credential refuses the dial in the HTTP gate's wording", async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
     const snapshot = await executeMqttSession(
-      makeMqttRequest({ auth: { type: 'basic', username: 'probe', password: '{{vault.brokerSecret}}' } }),
+      makeMqttRequest({ auth: { type: 'basic', username: 'probe-{{missing}}', password: '{{vault.brokerSecret}}' } }),
       {
         workspaceId: null,
         environmentId: undefined,
@@ -269,7 +277,42 @@ describe('executeMqttSession — connect gate', () => {
       },
     );
     if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
-    expect(snapshot.outcome.error).toContain('vault.brokerSecret');
+    // Every reference with its reason — the plain miss beside the refusing one.
+    expect(snapshot.outcome.error).toBe(
+      `Request has unresolved variables. {{missing}}: ${MISS_HINT} {{vault.brokerSecret}}: ${BROKER_HINT}`,
+    );
+    expect(() => rig.wire()).toThrow();
+  });
+
+  it('a plain miss at CONNECT rides as written — the dial goes and the snapshot names the reference', async () => {
+    const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        auth: { type: 'basic', username: 'probe-{{missing}}', password: 'pw' },
+        userProperties: [{ uid: 'up000001', key: 'team', value: '{{nope}}' }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-connect-literal',
+        resolution: scopedResolution,
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    rig.establish();
+    const connect = rig.written[0];
+    if (connect.type !== 'connect') throw new Error('expected CONNECT first');
+    expect(connect.username).toBe('probe-{{missing}}');
+    expect(connect.properties?.userProperties).toEqual([{ key: 'team', value: '{{nope}}' }]);
+    rig.push(acceptedConnack);
+    closeActiveMqttSession('send-mqtt-connect-literal');
+    const snapshot = await settled;
+    expect(snapshot.outcome.kind).toBe('connected');
+    expect(snapshot.sentAsWritten).toEqual([
+      { reference: 'missing', hint: MISS_HINT },
+      { reference: 'nope', hint: MISS_HINT },
+    ]);
   });
 
   it('resolves Inherit over the injected chain onto the CONNECT pair and stamps the attribution', async () => {
@@ -377,23 +420,17 @@ describe('executeMqttSession — connect gate', () => {
     expect(snapshot.connack).toEqual({ sessionPresent: false, reasonCode: 1, remainingLength: 2 });
   });
 
-  it('gates a foreign scheme and unresolved variables as structured pre-wire errors', async () => {
+  it('gates a foreign scheme as a structured pre-wire error', async () => {
     const rig = scriptedTransport(MQTT_PROTOCOL_VERSIONS.v5);
-    const base = {
+    const scheme = await executeMqttSession(makeMqttRequest({ url: 'https://openheaders.io' }), {
       workspaceId: null,
       environmentId: undefined,
       transport: rig.transport,
       resolution: scopedResolution,
-    };
-    const scheme = await executeMqttSession(makeMqttRequest({ url: 'https://openheaders.io' }), {
-      ...base,
       sendId: 's1',
     });
     if (scheme.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
     expect(scheme.outcome.error).toContain('mqtt://');
-    const vars = await executeMqttSession(makeMqttRequest({ url: 'mqtt://{{missing}}' }), { ...base, sendId: 's2' });
-    if (vars.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
-    expect(vars.outcome.error).toContain('missing');
   });
 });
 
@@ -647,17 +684,32 @@ describe('executeMqttSession — messages and QoS flows', () => {
     expect(rig.written.at(-1)?.type).toBe('pubrel');
     rig.push({ type: 'pubcomp', packetId: publish.packetId, reasonCode: 0 });
 
-    const unresolvedSend = await publishActiveMqttMessage('send-mqtt-publish', {
+    // A plain miss rides as written — the PUBLISH goes with the literal
+    // topic, the answer and the row name the reference.
+    const literalSend = await publishActiveMqttMessage('send-mqtt-publish', {
       topic: 'probe/{{nope}}',
       payload: 'x',
     });
-    expect(unresolvedSend.success).toBe(false);
-    expect(unresolvedSend.error).toContain('nope');
+    expect(literalSend).toEqual({ success: true, sentAsWritten: [{ reference: 'nope', hint: MISS_HINT }] });
+    const literalPublish = rig.written.at(-1);
+    if (literalPublish?.type !== 'publish') throw new Error('expected PUBLISH');
+    expect(literalPublish.topic).toBe('probe/{{nope}}');
+
+    // A secret manager's typed failure refuses the rider alone.
+    const refusedSend = await publishActiveMqttMessage('send-mqtt-publish', {
+      topic: 'probe/out',
+      payload: '{{vault.secret}}',
+    });
+    expect(refusedSend.success).toBe(false);
+    expect(refusedSend.error).toBe(`Message has unresolved variables. {{vault.secret}}: ${BROKER_HINT}`);
+    expect(rig.written.at(-1)).toBe(literalPublish);
 
     closeActiveMqttSession('send-mqtt-publish');
     const snapshot = await settled;
     const up = snapshot.events.filter((e) => e.kind === 'message' && e.direction === 'up');
-    expect(up).toHaveLength(1);
+    expect(up).toHaveLength(2);
+    expect(up[0].kind === 'message' ? up[0].sentAsWritten : null).toBeUndefined();
+    expect(up[1].kind === 'message' ? up[1].sentAsWritten : null).toEqual([{ reference: 'nope', hint: MISS_HINT }]);
   });
 });
 

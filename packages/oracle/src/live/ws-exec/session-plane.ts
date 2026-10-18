@@ -21,7 +21,7 @@ import type {
   WsStreamEventWire,
   WsStreamMessageWire,
 } from '@openheaders/core/bridge';
-import type { ExecutedProxyRoute, ExecutedWsLifecycle } from '@openheaders/core/types';
+import type { ExecutedProxyRoute, ExecutedWsLifecycle, SentAsWrittenReference } from '@openheaders/core/types';
 
 /** Flush the pending message batch on this cadence — the gRPC
  *  emitter's window; per-message `atMs` stamps keep arrival fidelity
@@ -133,6 +133,9 @@ export type WsSendOrigin = 'rider' | 'script';
 export interface WsSendResult {
   success: boolean;
   error?: string;
+  /** The references the sent message carried as written — the row
+   *  wears the same list; absent when every reference resolved. */
+  sentAsWritten?: SentAsWrittenReference[];
 }
 
 /** The executor's handle for one open session — what the

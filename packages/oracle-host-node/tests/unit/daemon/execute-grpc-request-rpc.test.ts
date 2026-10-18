@@ -390,15 +390,17 @@ describe('handleExecuteGrpcRequestRpc — pre-wire gates', () => {
     expect(result.snapshot?.error).toContain('server-streaming');
   });
 
-  it('refuses unresolved variables naming the refs', async () => {
+  it('a plain miss rides as written — the invoke goes with the literal and the snapshot names the reference', async () => {
     seedStorage([], [makeSpec()]);
-    const { transport, calls } = captureTransport();
+    const { transport, calls, sent } = captureTransport();
     const result = await handleExecuteGrpcRequestRpc(
-      { draft: makeGrpcRequest({ url: '{{env.missing_host}}' }) },
+      { draft: makeGrpcRequest({ metadata: [{ uid: 'm1', key: 'x-tenant', value: '{{env.missing_tenant}}' }] }) },
       transport,
     );
-    expect(result.snapshot?.error).toContain('env.missing_host');
-    expect(calls()).toBe(0);
+    expect(result.snapshot?.error).toBeNull();
+    expect(calls()).toBe(1);
+    expect(sent().metadata).toEqual([{ key: 'x-tenant', value: '{{env.missing_tenant}}' }]);
+    expect(result.snapshot?.sentAsWritten?.map((r) => r.reference)).toEqual(['env.missing_tenant']);
   });
 
   it('names malformed message JSON and an encode mismatch distinctly', async () => {

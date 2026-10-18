@@ -1,17 +1,24 @@
 /**
- * The gates' refusal wording — one line per unresolved reference with
- * its hint, shared by the HTTP send gate and the session kinds' Connect
+ * The gates' wording — one line per unresolved reference with its
+ * hint, shared by the HTTP send gate and the session kinds' Connect
  * gates and riders (the Secret Providers plan's reason parity): a
  * secret manager's typed failure (authorize, fix the reference, make
  * it available here, connect the desktop app) reads apart from a plain
  * miss on every surface, in the same words.
+ *
+ * The rule the gates apply is the core resolver's `refusesSend`: a
+ * secret manager's typed failure refuses the send; every other miss
+ * rides AS WRITTEN and the send carries the list beside its other
+ * resolve-time attributions (`sentAsWritten` on the snapshot), the
+ * response surface rendering each line as advice.
  *
  * Operational-plane English — the response pane and the rider toast
  * render the message as-is; the keyed hints the editors render live in
  * the UI package off the structured errors.
  */
 
-import type { ResolutionError, UnresolvedReferences } from '@openheaders/core/variables';
+import type { SentAsWrittenReference } from '@openheaders/core/types';
+import { type ResolutionError, refusesSend, type UnresolvedReferences } from '@openheaders/core/variables';
 
 const NO_SECRET_MANAGER_NAMES: ReadonlySet<string> = new Set();
 
@@ -53,4 +60,36 @@ export const UNRESOLVED_SUBSCRIPTION_LEAD = 'Subscription has unresolved variabl
 /** The lead, then every collected reference's line. */
 export function unresolvedReferencesMessage(lead: string, unresolved: UnresolvedReferences): string {
   return `${lead} ${unresolvedReferenceLines(unresolved.values()).join(' ')}`;
+}
+
+/** The references a send carries as written — the snapshot's attribution shape. */
+export function sentAsWrittenOf(errors: Iterable<ResolutionError>): SentAsWrittenReference[] {
+  const notes: SentAsWrittenReference[] = [];
+  for (const error of errors) notes.push({ reference: error.reference, hint: error.hint });
+  return notes;
+}
+
+/**
+ * Whether a batch of unresolved references refuses the send — any one
+ * of them a secret manager's typed failure. A batch that refuses
+ * reads as the gate's message (every reference, the refusing ones
+ * beside the plain misses, in the one wording); a batch that does not
+ * rides as written, `sentAsWrittenOf` its attribution.
+ */
+export function batchRefusesSend(unresolved: Iterable<ResolutionError>): boolean {
+  for (const error of unresolved) if (refusesSend(error)) return true;
+  return false;
+}
+
+/**
+ * The attribution a send stamps for a batch — the notes when the batch
+ * rode as written, nothing when every reference resolved or the batch
+ * refused (a refused send carried nothing). The session executors'
+ * settle paths read the Connect-time collector through this.
+ */
+export function sentAsWrittenAttribution(
+  unresolved: ReadonlyMap<string, ResolutionError>,
+): SentAsWrittenReference[] | undefined {
+  if (unresolved.size === 0 || batchRefusesSend(unresolved.values())) return undefined;
+  return sentAsWrittenOf(unresolved.values());
 }

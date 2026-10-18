@@ -153,8 +153,9 @@ export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolD
         "Execute a saved API request from the user's machine. Every {{variable}} is resolved through the " +
         'full scope chain (vault > environment > collection > workspace, plus {{live.*}}), auth is applied, ' +
         'and the request goes out over the network. Returns status, headers, body, and timing; bodies over ' +
-        '100,000 characters are truncated with bodyTruncated: true. A request with unresolvable variables ' +
-        'is refused before it reaches the wire (the error names the fix).',
+        '100,000 characters are truncated with bodyTruncated: true. A variable no scope defines is sent as ' +
+        'written (the literal {{name}}) and listed in sentAsWritten with the fix; a secret manager that ' +
+        'cannot answer refuses the send before the wire (the error names the fix).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -188,6 +189,7 @@ export function createExecuteToolDefinitions(deps: McpExecuteToolDeps): McpToolD
           request: requestRow,
           environmentId,
           sent: true,
+          ...(snapshot.sentAsWritten !== undefined ? { sentAsWritten: snapshot.sentAsWritten } : {}),
           response: {
             status: snapshot.status,
             statusText: snapshot.statusText,

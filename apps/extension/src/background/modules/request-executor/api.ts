@@ -208,6 +208,7 @@ export async function executeRequestDraft(
     ...(outcome.resolved.inheritedSettings !== undefined
       ? { inheritedSettings: outcome.resolved.inheritedSettings }
       : {}),
+    ...(outcome.resolved.sentAsWritten !== undefined ? { sentAsWritten: outcome.resolved.sentAsWritten } : {}),
   };
   return scriptOutcome ? { ...attributed, scripts: scriptOutcome } : attributed;
 }

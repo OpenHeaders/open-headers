@@ -34,6 +34,7 @@ import type {
   MultipartPart,
   Request,
   RequestBody,
+  SentAsWrittenReference,
   TlsVersion,
   Vault,
   VaultSecretTotp,
@@ -52,7 +53,12 @@ import { getTrustAnchorsForSend } from '../trust-anchors';
 import { collectionUidForRequest, resolveRequestAuth, resolveRequestSettings } from './ancestor-chain';
 import { acquireOAuth2Bundle, type OAuthRefreshFn, oauth2AuthorizationValue } from './oauth2-bundle';
 import { buildResolver } from './resolver-scope';
-import { UNRESOLVED_REQUEST_LEAD, unresolvedReferenceLines } from './unresolved-references';
+import {
+  batchRefusesSend,
+  sentAsWrittenOf,
+  UNRESOLVED_REQUEST_LEAD,
+  unresolvedReferenceLines,
+} from './unresolved-references';
 
 /** Resolved, wire-ready request. Auth + params are folded into `url`
  *  + `headers`; the body is the resolved domain union. */
@@ -231,6 +237,15 @@ export interface ResolvedRequest {
    * the request's own or the runtime default.
    */
   inheritedSettings?: InheritedSettingSource[];
+  /**
+   * The references this send carries AS WRITTEN — every `{{ref}}` no
+   * scope answered, riding the wire verbatim (the resolver leaves them
+   * literal). Resolve-time attribution the executor stamps on the
+   * snapshot (success and error alike); absent when every reference
+   * resolved. A secret manager's typed failure never rides: it refuses
+   * the send instead.
+   */
+  sentAsWritten?: SentAsWrittenReference[];
 }
 
 /** One TOTP vault entry the resolved request used. Carries the code (so
@@ -275,11 +290,13 @@ export interface ResolveRequestOptions {
   resolveSecretManager?: boolean;
 }
 
-/** Thrown when any `{{ref}}` in the request can't be resolved against
- *  the current scopes — refuses to ship a literal `{{env.var}}` on the
- *  wire, mirroring the DNR compile gate. The message names every
- *  unresolved reference with its reason (the response pane renders the
- *  message as-is), and `errors` carries them structurally. */
+/** Thrown when a `{{ref}}` in the request REFUSES the send — a secret
+ *  manager's typed failure (the core resolver's `refusesSend`), or any
+ *  miss on the copy-as-command path, which never writes a literal it
+ *  cannot name. A plain miss on a send never throws: the reference
+ *  rides as written and the resolved shape names it. The message names
+ *  every unresolved reference with its reason (the response pane
+ *  renders the message as-is), and `errors` carries them structurally. */
 export class UnresolvedRequestError extends Error {
   readonly errors: readonly ResolutionError[];
   constructor(message: string, errors: readonly ResolutionError[] = []) {
@@ -345,14 +362,18 @@ export async function resolveRequest(
     environmentId: options.environmentId,
   };
 
-  // Architectural gate: refuse to dispatch when any `{{ref}}` can't be
-  // resolved.
+  // The gate: a `{{ref}}` no scope answers rides AS WRITTEN (the
+  // resolver leaves it literal; the send names it in `sentAsWritten`
+  // and the response says what the server made of it), while a secret
+  // manager's typed failure refuses the send — one rule by reason, the
+  // core resolver's `refusesSend`, the session kinds' too.
   const resolvable = isRequestResolvable(
     gated,
     (name) => resolver.resolve(name, context),
     (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
   );
   const secretManagerReferencesKept: string[] = [];
+  let sentAsWritten: SentAsWrittenReference[] | undefined;
   if (!resolvable) {
     const errors = collectRequestResolutionErrors(
       gated,
@@ -362,18 +383,24 @@ export async function resolveRequest(
     // The copy-as-command path never resolves a secret-manager entry:
     // its references stay literal and gate nothing on their own (the
     // copied command carries the reference, never the value); beside a
-    // real miss they are named for what they are, not as misses.
+    // real miss they are named for what they are, not as misses — and
+    // a copied command never carries a miss it cannot name, so any
+    // other miss still refuses the copy.
+    const copying = options.resolveSecretManager === false;
     const keptUnresolved = new Set(
-      options.resolveSecretManager === false
-        ? scope.vault.secrets.filter((s) => s.kind === 'secret-manager').map((s) => s.name)
-        : [],
+      copying ? scope.vault.secrets.filter((s) => s.kind === 'secret-manager').map((s) => s.name) : [],
     );
     const isKept = (error: ResolutionError): boolean =>
       (error.namespace === 'vault' || error.namespace === null) && keptUnresolved.has(error.variableName);
-    if (errors.some((error) => !isKept(error))) {
+    const refuses = copying ? errors.some((error) => !isKept(error)) : batchRefusesSend(errors);
+    if (refuses) {
       throw new UnresolvedRequestError(unresolvedRequestMessage(errors, keptUnresolved), errors);
     }
-    for (const error of errors) secretManagerReferencesKept.push(error.reference);
+    if (copying) {
+      for (const error of errors) secretManagerReferencesKept.push(error.reference);
+    } else {
+      sentAsWritten = sentAsWrittenOf(errors);
+    }
   }
 
   // Track every kind:'totp' vault entry referenced during this resolve.
@@ -623,6 +650,7 @@ export async function resolveRequest(
       ...(applied.dpop ? { dpop: applied.dpop } : {}),
       ...(authAttribution !== undefined ? { auth: authAttribution } : {}),
       ...(settingsAttribution !== undefined ? { inheritedSettings: settingsAttribution } : {}),
+      ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
     },
     totpUsed: [...totpUsed.values()],
     secretManagerReferencesKept,

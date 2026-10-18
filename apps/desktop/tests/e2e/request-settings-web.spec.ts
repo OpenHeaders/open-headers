@@ -880,8 +880,8 @@ test('the cipher-less tab refuses a vault-inclusive export honestly', async () =
 // fresh tab never picked one) while the daemon's pointer names an env
 // that resolves {{PROBE_HOST}}. The tab resolves its own send (Phase
 // W): an explicit environmentId on the message pins that env in the
-// tab, and no environmentId runs env-free and refuses the unresolved
-// reference — the daemon's pointer never reaches a tab's run.
+// tab, and no environmentId runs env-free with the reference sent as
+// written — the daemon's pointer never reaches a tab's run.
 
 test('a No-environment tab forces an env-free run — the daemon pointer must not resolve it', async () => {
   // Seed the env through the TAB's `importWorkspace` (environment
@@ -1006,17 +1006,20 @@ test('a No-environment tab forces an env-free run — the daemon pointer must no
   expect(pinned.snapshot?.status).toBe(200);
 
   // The tab's own send — no environmentId on the message, so the run
-  // takes the tab's null pointer as "No environment" and refuses the
-  // unresolved reference; the daemon's pointer, set above, must not
-  // leak in. (The workbench UI never fires this shape itself — Send
-  // disables on a tab-unresolvable draft — so the RPC seam is the
-  // surface under test.)
-  const none = await invokeTab<{ success: boolean; snapshot?: { error: string | null } }>({
+  // takes the tab's null pointer as "No environment" and the reference
+  // rides as written (a literal host, which no dial can reach); the
+  // daemon's pointer, set above, must not leak in. The snapshot names
+  // the reference it carried as written.
+  const none = await invokeTab<{
+    success: boolean;
+    snapshot?: { error: string | null; status: number; sentAsWritten?: Array<{ reference: string }> };
+  }>({
     type: 'executeRequest',
     requestUid: probeUid,
   });
   expect(none.success).toBe(true);
-  expect(none.snapshot?.error).toContain('unresolved variables');
+  expect(none.snapshot?.status).not.toBe(200);
+  expect(none.snapshot?.sentAsWritten?.map((r) => r.reference)).toEqual(['PROBE_HOST']);
 });
 
 // ── Hygiene ─────────────────────────────────────────────────────────

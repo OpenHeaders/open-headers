@@ -13,7 +13,8 @@
  * param shape on the wire as a real URL query — not that a parser
  * round-tripped it. Positive `{{var}}` template resolution is proven in
  * `request-scripts.spec.ts` (which seeds a workspace variable first);
- * here we only assert the resolvability GATE rejects an unresolved ref.
+ * here we only assert an unresolved ref rides the wire AS WRITTEN and
+ * the snapshot names it.
  */
 
 import path from 'node:path';
@@ -73,6 +74,7 @@ interface ExecSnapshot {
   status: number;
   body: string;
   error?: string | null;
+  sentAsWritten?: Array<{ reference: string; hint: string }>;
 }
 
 interface ParamRow {
@@ -169,14 +171,17 @@ test.describe('Request executor — query params on the wire', () => {
     expect(echo.query.dup).toEqual(['url', 'param']);
   });
 
-  test('an unresolved {{ref}} in a param is rejected before the wire', async () => {
+  test('an unresolved {{ref}} in a param rides as written and the snapshot names it', async () => {
     const exec = await rpc<{ success: boolean; snapshot?: ExecSnapshot; error?: string }>('executeRequest', {
       draft: draft([param('p', '{{undefined_param_var}}')]),
     });
-    // The resolvability gate turns the unresolved ref into a structured
-    // error snapshot (status 0) rather than shipping a literal `{{…}}`.
+    // A plain miss never blocks the send: the literal `{{…}}` goes on
+    // the wire and the snapshot's attribution names the reference.
     expect(exec.success).toBe(true);
-    expect(exec.snapshot!.status).toBe(0);
-    expect(exec.snapshot!.error ?? '').toMatch(/unresolved variables/i);
+    expect(exec.snapshot!.error ?? null).toBeNull();
+    expect(exec.snapshot!.status).toBe(200);
+    const echo = JSON.parse(exec.snapshot!.body) as EchoResponse;
+    expect(echo.query.p).toBe('{{undefined_param_var}}');
+    expect(exec.snapshot!.sentAsWritten?.map((r) => r.reference)).toEqual(['undefined_param_var']);
   });
 });

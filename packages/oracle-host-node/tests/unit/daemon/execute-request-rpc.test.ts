@@ -190,12 +190,17 @@ describe('handleExecuteRequestRpc — draft path', () => {
     expect(sent().cookieJarKey).toBe('ws-active');
   });
 
-  it('returns an unresolved-variable error snapshot without touching the wire', async () => {
-    const { transport, calls } = captureTransport();
-    const result = await handleExecuteRequestRpc({ draft: makeRequest({ url: 'https://{{MISSING}}/x' }) }, transport);
+  it('a plain miss rides as written — the send goes with the literal and the snapshot names the reference', async () => {
+    const { transport, calls, sent } = captureTransport();
+    const result = await handleExecuteRequestRpc(
+      { draft: makeRequest({ url: 'https://api.openheaders.io/{{MISSING}}' }) },
+      transport,
+    );
     expect(result.success).toBe(true);
-    expect(result.snapshot?.error).toMatch(/unresolved variables/i);
-    expect(calls()).toBe(0);
+    expect(result.snapshot?.error).toBeNull();
+    expect(calls()).toBe(1);
+    expect(sent().url).toBe('https://api.openheaders.io/{{MISSING}}');
+    expect(result.snapshot?.sentAsWritten?.map((r) => r.reference)).toEqual(['MISSING']);
   });
 
   it('returns a TOTP cooldown error snapshot without touching the wire', async () => {
@@ -302,14 +307,15 @@ describe('handleExecuteRequestRpc — environment scoping (tri-state)', () => {
     h.environments.mockReturnValue([activeEnv, otherEnv]);
     h.environmentsForWorkspace.mockReturnValue([activeEnv, otherEnv]);
     h.activeEnvironmentId.mockReturnValue('env-active');
-    const { transport, calls } = captureTransport();
+    const { transport, sent } = captureTransport();
     const result = await handleExecuteRequestRpc(
       { draft: makeRequest({ url: 'https://{{HOST}}/ping' }), workspaceId: 'ws-active', environmentId: null },
       transport,
     );
     expect(result.success).toBe(true);
-    expect(result.snapshot?.error).toMatch(/unresolved variables/i);
-    expect(calls()).toBe(0);
+    // The pointer's value never reached the send: the reference rode as written.
+    expect(sent().url).toBe('https://{{HOST}}/ping');
+    expect(result.snapshot?.sentAsWritten?.map((r) => r.reference)).toEqual(['HOST']);
   });
 
   it('explicit null forces the pinned dispatch — per-workspace scopes, same jar key', async () => {

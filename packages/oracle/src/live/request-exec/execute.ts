@@ -435,6 +435,7 @@ export async function executeOverTransport(
       // success and error alike.
       ...(resolved.auth !== undefined ? { auth: resolved.auth } : {}),
       ...(resolved.inheritedSettings !== undefined ? { inheritedSettings: resolved.inheritedSettings } : {}),
+      ...(resolved.sentAsWritten !== undefined ? { sentAsWritten: resolved.sentAsWritten } : {}),
       // The transport reports an actual cross-origin Authorization
       // re-send (only the redirect loop can know); stamp it so the
       // response surface marks the run.
@@ -489,6 +490,7 @@ export async function executeOverTransport(
       ...(deviceTrustApplied !== undefined ? { deviceTrustApplied } : {}),
       ...(resolved.auth !== undefined ? { auth: resolved.auth } : {}),
       ...(resolved.inheritedSettings !== undefined ? { inheritedSettings: resolved.inheritedSettings } : {}),
+      ...(resolved.sentAsWritten !== undefined ? { sentAsWritten: resolved.sentAsWritten } : {}),
     };
   } finally {
     unregister?.();
