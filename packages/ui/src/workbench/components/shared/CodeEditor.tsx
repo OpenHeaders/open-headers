@@ -47,6 +47,7 @@ import { ensureEditorFormatCommand, registerEditorFormatHandler } from '../monac
 import { detectStructuredLanguage } from '../monaco/structured-text-detection';
 import {
   MonacoSuggestOverlay,
+  useMonacoJsonShadow,
   useMonacoRefDecorations,
   useMonacoRefHover,
   useMonacoVariableSuggest,
@@ -143,13 +144,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // Mounted-instance signal for effects that must attach editor
   // listeners — the ref alone can't re-run an effect at mount time.
   const [mountedEditor, setMountedEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+  // The namespace the instance mounted with — the shadow creates its
+  // model through it.
+  const [mountedMonaco, setMountedMonaco] = useState<Monaco | null>(null);
   // The variable plane rides the mounted instance: every `{{ref}}` in
   // view wears the line inputs' dress and opens their popover under the
-  // pointer, and the picker reads the caret for the `{{query` run and
-  // paints their list over it.
+  // pointer, the picker reads the caret for the `{{query` run and
+  // paints their list over it, and a JSON buffer validates through its
+  // shadow, every reference a value.
   useMonacoRefDecorations(mountedEditor, { enabled: variableAutoComplete });
   useMonacoRefHover(mountedEditor, { enabled: variableAutoComplete });
   const suggest = useMonacoVariableSuggest(mountedEditor, { enabled: variableAutoComplete && !readOnly });
+  useMonacoJsonShadow(mountedEditor, mountedMonaco, { enabled: variableAutoComplete && !readOnly });
   // Runtime monaco namespace, captured at mount — the module import is
   // type-only (the loader owns the runtime), but the EOL decorations
   // need its enums.
@@ -468,6 +474,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           editorRef.current = ed;
           monacoApiRef.current = monacoApi;
           setMountedEditor(ed);
+          setMountedMonaco(monacoApi);
           // Await the preset's web font and re-read Monaco's glyph
           // metrics — a buffer measured against the fallback face
           // paints its caret off the click (page-global, once).
