@@ -148,6 +148,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Топик, например sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Параметры',
+  'workbench.editors.mqtt.topics.optionsGearLabel': 'Подписка',
   'workbench.editors.mqtt.topics.optionsTitle': 'Параметры подписки',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'Подписка',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Подписываться при открытии сеанса',

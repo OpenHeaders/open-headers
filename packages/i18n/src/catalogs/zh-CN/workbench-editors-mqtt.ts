@@ -126,6 +126,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': '主题，例如 sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': '选项',
+  'workbench.editors.mqtt.topics.optionsGearLabel': '订阅',
   'workbench.editors.mqtt.topics.optionsTitle': '订阅选项',
   'workbench.editors.mqtt.topics.subscribeColLabel': '订阅',
   'workbench.editors.mqtt.topics.subscribeLabel': '会话打开时订阅',

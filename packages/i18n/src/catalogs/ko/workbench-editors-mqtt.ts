@@ -144,6 +144,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': '토픽 (예: sensors/+/temperature)',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': '옵션',
+  'workbench.editors.mqtt.topics.optionsGearLabel': '구독',
   'workbench.editors.mqtt.topics.optionsTitle': '구독 옵션',
   'workbench.editors.mqtt.topics.subscribeColLabel': '구독',
   'workbench.editors.mqtt.topics.subscribeLabel': '세션이 열릴 때 구독',

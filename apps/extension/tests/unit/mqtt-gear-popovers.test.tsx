@@ -93,9 +93,9 @@ describe('mqtt gear popovers — the anatomy', () => {
     expect(marks(popover)).toEqual(['CONNECT', 'CONNECT']);
   });
 
-  it('the Topics gear stays an icon under its header; the popover splits options from properties the way SUBSCRIBE does', async () => {
+  it('the Topics gear is icon + word; the popover splits options from properties the way SUBSCRIBE does', async () => {
     render(<TopicOptionsPopover row={{ uid: 'r1', topicFilter: 'sensors/+/temp' }} onChange={() => {}} v5 />);
-    expect(screen.getByTestId('mqtt-topic-options').textContent).toBe('');
+    expect(screen.getByTestId('mqtt-topic-options').textContent).toBe('Subscription');
     const popover = await openGear('mqtt-topic-options', 'mqtt-topic-options-popover');
     expect(headings(popover)).toEqual(['Subscription options', 'Subscription properties', 'User properties']);
     expect(marks(popover)).toEqual(['SUBSCRIBE', 'SUBSCRIBE', 'SUBSCRIBE']);

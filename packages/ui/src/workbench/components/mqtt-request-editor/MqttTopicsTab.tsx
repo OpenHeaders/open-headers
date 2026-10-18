@@ -191,7 +191,9 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
             label: t('workbench.editors.mqtt.topics.optionsColLabel'),
             info: mqttSettingsRowInfo(t, 'subscribeOptions'),
             position: 'after-key',
-            width: '96px',
+            // The track pays for the gear's word (icon + the widest
+            // locale's label at 12px) on top of the header's slot.
+            width: '136px',
             divider: true,
             render: (row, update, ctx) =>
               ctx.isPlaceholder ? (
@@ -200,9 +202,11 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
                   type="text"
                   icon={<SettingOutlined />}
                   disabled
-                  style={{ marginLeft: 4 }}
+                  style={{ marginLeft: 4, fontSize: 12 }}
                   data-testid="mqtt-topic-options"
-                />
+                >
+                  {t('workbench.editors.mqtt.topics.optionsGearLabel')}
+                </Button>
               ) : (
                 <TopicOptionsPopover
                   row={row}

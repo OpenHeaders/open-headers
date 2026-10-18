@@ -144,6 +144,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'トピック（例：sensors/+/temperature）',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'オプション',
+  'workbench.editors.mqtt.topics.optionsGearLabel': 'サブスクリプション',
   'workbench.editors.mqtt.topics.optionsTitle': 'サブスクリプションオプション',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'サブスクライブ',
   'workbench.editors.mqtt.topics.subscribeLabel': 'セッション開始時にサブスクライブ',

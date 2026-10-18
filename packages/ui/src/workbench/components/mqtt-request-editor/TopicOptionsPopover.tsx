@@ -12,8 +12,8 @@
  * is the spec's word; "Settings" never appears inside a gear. 3.1.1
  * renders the controls disabled under a first line that says why and
  * offers the switch to 5.0. The gear wears a dot once any value leaves its default, and
- * its hover tooltip yields the instant the popover opens. The column
- * header names the gear, so the cell stays an icon.
+ * its hover tooltip yields the instant the popover opens. The gear is
+ * icon + word (the user's call, S8), as the bars' gears.
  */
 
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
@@ -308,13 +308,17 @@ const TopicOptionsPopover: React.FC<{
           color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
           offset={[-2, 2]}
         >
+          {/* Icon + word, as the bars' gears — the user's call; the
+            Options track pays for the word. */}
           <Button
             size="small"
             type="text"
             icon={<SettingOutlined />}
-            style={{ marginLeft: 4 }}
+            style={{ marginLeft: 4, fontSize: 12 }}
             data-testid="mqtt-topic-options"
-          />
+          >
+            {t('workbench.editors.mqtt.topics.optionsGearLabel')}
+          </Button>
         </Badge>
       </Tooltip>
     </Popover>
