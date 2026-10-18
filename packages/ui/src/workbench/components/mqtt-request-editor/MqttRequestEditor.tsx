@@ -98,6 +98,7 @@ import MqttSessionPane from './MqttSessionPane';
 import MqttSettingsTab from './MqttSettingsTab';
 import MqttSpecTab from './MqttSpecTab';
 import SessionLock from '../shared/SessionLock';
+import { type AutoSuggestionContextValue, SuggestionContextProvider } from '../template-input';
 import MqttTargetRow from './MqttTargetRow';
 import VersionGateLine from './VersionGateLine';
 import MqttTopicsTab from './MqttTopicsTab';
@@ -172,6 +173,14 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
         ? inheritedSettingsViewFor('mqtt', settingsChainOf(ancestry), 'request', onOpenContainerSettings)
         : { ...NO_INHERITED_SETTINGS, onOpenSource: onOpenContainerSettings },
     [ancestry, onOpenContainerSettings],
+  );
+  // The variable plane's scope — every TemplateInput and Monaco buffer
+  // below classifies `{{collection.X}}` against the owning collection
+  // (the executor resolves it through the same tree index); without
+  // the provider the fields paint a resolvable reference red.
+  const suggestionContext = useMemo<AutoSuggestionContextValue>(
+    () => ({ collectionId: ancestry?.collection.uid }),
+    [ancestry],
   );
   const [activeTab, setActiveTab] = useState('message');
 
@@ -478,228 +487,235 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-      {/* tabIndex -1: clicks on non-focusable space inside the editor
-        keep focus within so the ⌘/Ctrl+Enter chord always reaches the
-        capture handler. */}
-      <div
-        tabIndex={-1}
-        onKeyDownCapture={handleEditorKeyDown}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          background: token.colorBgContainer,
-          height: '100%',
-          outline: 'none',
-        }}
-      >
-        <EditorHeader title={headerTitle} actions={headerActions} trailing={headerTrailing} shell={shell.headerProps} />
+      <SuggestionContextProvider value={suggestionContext}>
+        {/* tabIndex -1: clicks on non-focusable space inside the editor
+          keep focus within so the ⌘/Ctrl+Enter chord always reaches the
+          capture handler. */}
+        <div
+          tabIndex={-1}
+          onKeyDownCapture={handleEditorKeyDown}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            background: token.colorBgContainer,
+            height: '100%',
+            outline: 'none',
+          }}
+        >
+          <EditorHeader
+            title={headerTitle}
+            actions={headerActions}
+            trailing={headerTrailing}
+            shell={shell.headerProps}
+          />
 
-        {/* Compose / session split — the WS editor's stacked Allotment
-          discipline: the sash bounds the compose surface, and the
-          session pane is always attached (empty-state hint before the
-          first connect). */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <Allotment vertical proportionalLayout separator>
-            <Allotment.Pane minSize={220} preferredSize="55%">
-              <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '0 12px' }}>
-                  <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
-                    size="small"
-                    tabBarStyle={{ marginBottom: 0 }}
-                    items={tabItems}
-                  />
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    overflow: 'auto',
-                    overscrollBehavior: 'none',
-                    padding: '0 12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
-                    {activeTab === 'docs' && (
-                      <DocsTab
-                        value={draft.description}
-                        onChange={(description) => setDraft((d) => ({ ...d, description }))}
-                      />
-                    )}
-                    {activeTab === 'message' && (
-                      <MqttMessageTab
-                        draft={draft}
-                        setDraft={setDraft}
-                        v5={v5}
-                        sessionOpen={session.sessionOpen}
-                        encodingError={encodingError}
-                        selectedSavedUid={savedSelection.selectedSavedUid}
-                        onSelectSavedMessage={savedSelection.selectSavedMessage}
-                        aids={aids}
-                        onPublish={(message) => void session.handlePublish(message)}
-                        unsavedProperties={unsavedGears?.publish}
-                        onSwitchToV5={switchToV5}
-                      />
-                    )}
-                    {activeTab === 'topics' && (
-                      <MqttTopicsTab
-                        rows={draft.topics}
-                        onChange={(topics) => setDraft((d) => ({ ...d, topics }))}
-                        v5={v5}
-                        sessionOpen={session.sessionOpen}
-                        liveSubs={session.liveSubs}
-                        onLiveToggle={(row, subscribe) => void session.handleLiveSubscriptionToggle(row, subscribe)}
-                        unsavedOptions={unsavedGears?.topics}
-                        onSwitchToV5={switchToV5}
-                      />
-                    )}
-                    <SessionLock locked={session.inFlight}>
-                    {activeTab === 'auth' && (
-                      <MqttAuthTab
-                        auth={draft.auth}
-                        inheritedFrom={inheritedAuth}
-                        ancestry={ancestry}
-                        url={draft.url}
-                        onOpenContainerAuth={onOpenContainerAuth}
-                        onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
-                      />
-                    )}
-                    {activeTab === 'properties' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="mqtt-user-props">
-                        {/* On 3.1.1 the gears' gate line leads the tab too —
-                          why the grid is inert and the switch out — and the
-                          dimmed grid wears the not-allowed cursor (the inner
-                          box drops pointer events, so the cursor lives on the
-                          outer one). */}
-                        {!v5 && <VersionGateLine onSwitchToV5={switchToV5} testId="mqtt-user-props-v5-gate" />}
-                        <div style={v5 ? undefined : { cursor: 'not-allowed' }}>
-                          <div style={v5 ? undefined : { opacity: 0.55, pointerEvents: 'none' }} aria-disabled={!v5}>
-                          <KeyValueTable
-                            rows={draft.userProperties}
-                            onChange={(userProperties) => setDraft((d) => ({ ...d, userProperties }))}
-                            keyPlaceholder={t('workbench.editors.mqtt.userProps.keyPlaceholder')}
-                            valuePlaceholder={t('workbench.editors.mqtt.userProps.valuePlaceholder')}
-                          />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {activeTab === 'lastwill' && (
-                      <MqttLastWillTab
-                        draft={draft}
-                        setDraft={setDraft}
-                        v5={v5}
-                        unsavedProperties={unsavedGears?.will}
-                        onSwitchToV5={switchToV5}
-                      />
-                    )}
-                    </SessionLock>
-                    {activeTab === 'spec' && (
-                      <MqttSpecTab
-                        aids={aids}
-                        onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
-                      />
-                    )}
-                    {/* The session's hooks — edited live: a saved slot
-                      takes effect on the NEXT Connect (the chain composes
-                      at the dial), so the tab never locks. */}
-                    {activeTab === 'scripts' && (
-                      <ScriptsTab
-                        scope="request"
-                        requestKind="mqtt"
-                        scripts={scriptSlotValuesOf(draft)}
-                        onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
-                        workspaceId={workspaceId}
-                        onOpenPackageLibrary={onOpenPackageLibrary}
-                        ancestorScripts={ancestorScripts}
-                        onOpenContainerScripts={onOpenContainerScripts}
-                        unsaved={unsavedSections?.scripts}
-                      />
-                    )}
-                    {activeTab === 'settings' && (
-                      <SessionLock locked={session.inFlight}>
-                        <MqttSettingsTab
-                          draft={draft}
-                          setDraft={setDraft}
-                          v5={v5}
-                          inherited={inheritedSettings}
-                          unsaved={unsavedSettings}
-                        />
-                      </SessionLock>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Allotment.Pane>
-            <Allotment.Pane minSize={120}>
-              {session.live !== null || session.snapshot !== null ? (
-                <MqttSessionPane
-                  live={session.live}
-                  snapshot={session.snapshot}
-                  timing={session.timing}
-                  protocolVersion={draft.protocolVersion}
-                  hostNotice={session.hostNotice}
-                  onClear={session.handleClearSession}
-                  subscribedTopicsCount={subscribedTopicsCount}
-                  onShowTopics={handleShowTopics}
-                  onReconnect={() => void session.handleConnect()}
-                  {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
-                />
-              ) : (
-                // Always-attached response pane before the first
-                // session — the gRPC empty-state posture verbatim:
-                // Response title row, centered caret + hint + the
-                // Connect chord.
-                <div
-                  style={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minHeight: 0,
-                    background: token.colorBgContainer,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '6px 12px',
-                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                    }}
-                  >
-                    <Text strong style={{ fontSize: 12 }}>
-                      {t('workbench.editors.mqtt.session.emptyTitle')}
-                    </Text>
+          {/* Compose / session split — the WS editor's stacked Allotment
+            discipline: the sash bounds the compose surface, and the
+            session pane is always attached (empty-state hint before the
+            first connect). */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <Allotment vertical proportionalLayout separator>
+              <Allotment.Pane minSize={220} preferredSize="55%">
+                <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '0 12px' }}>
+                    <Tabs
+                      activeKey={activeTab}
+                      onChange={setActiveTab}
+                      size="small"
+                      tabBarStyle={{ marginBottom: 0 }}
+                      items={tabItems}
+                    />
                   </div>
                   <div
                     style={{
                       flex: 1,
+                      overflow: 'auto',
+                      overscrollBehavior: 'none',
+                      padding: '0 12px',
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      minHeight: 0,
-                      padding: 24,
-                      textAlign: 'center',
                     }}
-                    data-testid="mqtt-session-empty"
                   >
-                    <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {t('workbench.editors.mqtt.session.emptyHint')}
-                    </Text>
-                    <ShortcutKbd label={CONNECT_SHORTCUT} surface="page" size={22} />
+                    <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
+                      {activeTab === 'docs' && (
+                        <DocsTab
+                          value={draft.description}
+                          onChange={(description) => setDraft((d) => ({ ...d, description }))}
+                        />
+                      )}
+                      {activeTab === 'message' && (
+                        <MqttMessageTab
+                          draft={draft}
+                          setDraft={setDraft}
+                          v5={v5}
+                          sessionOpen={session.sessionOpen}
+                          encodingError={encodingError}
+                          selectedSavedUid={savedSelection.selectedSavedUid}
+                          onSelectSavedMessage={savedSelection.selectSavedMessage}
+                          aids={aids}
+                          onPublish={(message) => void session.handlePublish(message)}
+                          unsavedProperties={unsavedGears?.publish}
+                          onSwitchToV5={switchToV5}
+                        />
+                      )}
+                      {activeTab === 'topics' && (
+                        <MqttTopicsTab
+                          rows={draft.topics}
+                          onChange={(topics) => setDraft((d) => ({ ...d, topics }))}
+                          v5={v5}
+                          sessionOpen={session.sessionOpen}
+                          liveSubs={session.liveSubs}
+                          onLiveToggle={(row, subscribe) => void session.handleLiveSubscriptionToggle(row, subscribe)}
+                          unsavedOptions={unsavedGears?.topics}
+                          onSwitchToV5={switchToV5}
+                        />
+                      )}
+                      <SessionLock locked={session.inFlight}>
+                      {activeTab === 'auth' && (
+                        <MqttAuthTab
+                          auth={draft.auth}
+                          inheritedFrom={inheritedAuth}
+                          ancestry={ancestry}
+                          url={draft.url}
+                          onOpenContainerAuth={onOpenContainerAuth}
+                          onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                        />
+                      )}
+                      {activeTab === 'properties' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="mqtt-user-props">
+                          {/* On 3.1.1 the gears' gate line leads the tab too —
+                            why the grid is inert and the switch out — and the
+                            dimmed grid wears the not-allowed cursor (the inner
+                            box drops pointer events, so the cursor lives on the
+                            outer one). */}
+                          {!v5 && <VersionGateLine onSwitchToV5={switchToV5} testId="mqtt-user-props-v5-gate" />}
+                          <div style={v5 ? undefined : { cursor: 'not-allowed' }}>
+                            <div style={v5 ? undefined : { opacity: 0.55, pointerEvents: 'none' }} aria-disabled={!v5}>
+                            <KeyValueTable
+                              rows={draft.userProperties}
+                              onChange={(userProperties) => setDraft((d) => ({ ...d, userProperties }))}
+                              keyPlaceholder={t('workbench.editors.mqtt.userProps.keyPlaceholder')}
+                              valuePlaceholder={t('workbench.editors.mqtt.userProps.valuePlaceholder')}
+                            />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {activeTab === 'lastwill' && (
+                        <MqttLastWillTab
+                          draft={draft}
+                          setDraft={setDraft}
+                          v5={v5}
+                          unsavedProperties={unsavedGears?.will}
+                          onSwitchToV5={switchToV5}
+                        />
+                      )}
+                      </SessionLock>
+                      {activeTab === 'spec' && (
+                        <MqttSpecTab
+                          aids={aids}
+                          onLinkSpec={(specUid) => setDraft((d) => ({ ...d, specLink: { specUid } }))}
+                        />
+                      )}
+                      {/* The session's hooks — edited live: a saved slot
+                        takes effect on the NEXT Connect (the chain composes
+                        at the dial), so the tab never locks. */}
+                      {activeTab === 'scripts' && (
+                        <ScriptsTab
+                          scope="request"
+                          requestKind="mqtt"
+                          scripts={scriptSlotValuesOf(draft)}
+                          onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+                          workspaceId={workspaceId}
+                          onOpenPackageLibrary={onOpenPackageLibrary}
+                          ancestorScripts={ancestorScripts}
+                          onOpenContainerScripts={onOpenContainerScripts}
+                          unsaved={unsavedSections?.scripts}
+                        />
+                      )}
+                      {activeTab === 'settings' && (
+                        <SessionLock locked={session.inFlight}>
+                          <MqttSettingsTab
+                            draft={draft}
+                            setDraft={setDraft}
+                            v5={v5}
+                            inherited={inheritedSettings}
+                            unsaved={unsavedSettings}
+                          />
+                        </SessionLock>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
-            </Allotment.Pane>
-          </Allotment>
-        </div>
+              </Allotment.Pane>
+              <Allotment.Pane minSize={120}>
+                {session.live !== null || session.snapshot !== null ? (
+                  <MqttSessionPane
+                    live={session.live}
+                    snapshot={session.snapshot}
+                    timing={session.timing}
+                    protocolVersion={draft.protocolVersion}
+                    hostNotice={session.hostNotice}
+                    onClear={session.handleClearSession}
+                    subscribedTopicsCount={subscribedTopicsCount}
+                    onShowTopics={handleShowTopics}
+                    onReconnect={() => void session.handleConnect()}
+                    {...(session.canSaveResponse ? { onSaveResponse: () => void session.handleSaveResponse() } : {})}
+                  />
+                ) : (
+                  // Always-attached response pane before the first
+                  // session — the gRPC empty-state posture verbatim:
+                  // Response title row, centered caret + hint + the
+                  // Connect chord.
+                  <div
+                    style={{
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      background: token.colorBgContainer,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '6px 12px',
+                        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                      }}
+                    >
+                      <Text strong style={{ fontSize: 12 }}>
+                        {t('workbench.editors.mqtt.session.emptyTitle')}
+                      </Text>
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        minHeight: 0,
+                        padding: 24,
+                        textAlign: 'center',
+                      }}
+                      data-testid="mqtt-session-empty"
+                    >
+                      <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {t('workbench.editors.mqtt.session.emptyHint')}
+                      </Text>
+                      <ShortcutKbd label={CONNECT_SHORTCUT} surface="page" size={22} />
+                    </div>
+                  </div>
+                )}
+              </Allotment.Pane>
+            </Allotment>
+          </div>
 
-      </div>
+        </div>
+      </SuggestionContextProvider>
     </EntityScopeProvider>
   );
 };
