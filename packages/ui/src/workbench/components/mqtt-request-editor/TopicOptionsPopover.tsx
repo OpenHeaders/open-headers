@@ -23,10 +23,11 @@ import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Select, Switch, Tooltip, theme } from 'antd';
+import { Badge, Button, ConfigProvider, InputNumber, Popover, Select, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import { ModifiedDot } from '@openheaders/ui/shared/settings-rows';
+import { TemplateInput } from '../template-input';
 import {
   modifiedTopicOptionKeys,
   type TopicOptionKnobKey,
@@ -242,26 +243,30 @@ const TopicOptionsPopover: React.FC<{
                     <ModifiedDot unsaved={unsaved?.rows.has(prop.uid) === true} />
                   )}
                 </span>
-                <Input
+                {/* Key and value ride the variable plane — the executor
+                  resolves both on the SUBSCRIBE packet. */}
+                <TemplateInput
                   size="small"
+                  flagUnresolved
                   placeholder={t('workbench.editors.mqtt.props.userPropKey')}
                   value={prop.key}
                   disabled={!v5}
-                  onChange={(e) => {
+                  onChange={(key) => {
                     const next = [...userProperties];
-                    next[index] = { ...prop, key: e.target.value };
+                    next[index] = { ...prop, key };
                     onChange({ ...row, userProperties: next });
                   }}
                   data-testid="mqtt-topic-userprop-key"
                 />
-                <Input
+                <TemplateInput
                   size="small"
+                  flagUnresolved
                   placeholder={t('workbench.editors.mqtt.props.userPropValue')}
                   value={prop.value}
                   disabled={!v5}
-                  onChange={(e) => {
+                  onChange={(value) => {
                     const next = [...userProperties];
-                    next[index] = { ...prop, value: e.target.value };
+                    next[index] = { ...prop, value };
                     onChange({ ...row, userProperties: next });
                   }}
                   data-testid="mqtt-topic-userprop-value"

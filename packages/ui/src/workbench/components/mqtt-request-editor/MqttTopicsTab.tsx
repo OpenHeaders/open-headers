@@ -118,6 +118,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
                   variant="borderless"
                   expandOnFocus
                   expanded={ctx.expanded}
+                  flagUnresolved
                   value={row.topicFilter}
                   placeholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
                   status={filterError ? 'error' : undefined}

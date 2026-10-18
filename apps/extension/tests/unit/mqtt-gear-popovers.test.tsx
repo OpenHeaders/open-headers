@@ -20,6 +20,9 @@ import MessagePropertiesPopover from '@openheaders/ui/workbench/components/mqtt-
 import { mqttSettingsRowInfo } from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttSettingsRowInfo';
 import { mqttTabInfo } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-tab-info';
 import TopicOptionsPopover from '@openheaders/ui/workbench/components/mqtt-request-editor/TopicOptionsPopover';
+// Side-effect import — the gears' text knobs are TemplateInputs, which
+// read workbench settings via useSyncExternalStore.
+import '@openheaders/ui/workbench/settings/schema';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -189,9 +192,11 @@ describe('mqtt gear popovers — the row dots and the gear badge', () => {
     expect(rowDot(popover, 'User properties', 'unsaved')).toBe(true);
     // The list rows: the saved one neutral, the changed one salmon, the
     // blank one bare.
-    const listRows = within(popover)
-      .getAllByPlaceholderText('Property')
-      .map((input) => input.closest('div') as HTMLElement);
+    // The list's key cells are TemplateInputs — the placeholder rides
+    // data-placeholder, and the row is the wrapper's parent.
+    const listRows = Array.from(popover.querySelectorAll('[data-placeholder="Property"]')).map(
+      (input) => input.closest('.oh-template-input-wrapper')?.parentElement as HTMLElement,
+    );
     expect(listRows.map((r) => r.querySelector('[data-testid="oh-setting-modified-dot"]') !== null)).toEqual([
       true,
       false,
@@ -326,7 +331,11 @@ describe('mqtt gear popovers — the 3.1.1 gate line', () => {
     expect(gate.textContent).toContain('V3.1.1: values saved, not sent. V5 only');
     fireEvent.click(within(gate).getByRole('button', { name: 'Switch request to V5' }));
     expect(onSwitchToV5).toHaveBeenCalledTimes(1);
-    expect((within(popover).getByTestId('mqtt-publish-props-response-topic') as HTMLInputElement).disabled).toBe(true);
+    // The text knobs are TemplateInputs — a disabled one drops its
+    // contentEditable and states the fact through aria-disabled.
+    const responseTopic = within(popover).getByTestId('mqtt-publish-props-response-topic');
+    expect(responseTopic.getAttribute('aria-disabled')).toBe('true');
+    expect(responseTopic.getAttribute('contenteditable')).toBe('false');
     cleanup();
     renderMessageGear('publish', 'mqtt-publish-props');
     const open = await openGear('mqtt-publish-props');

@@ -27,11 +27,12 @@ import {
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
 import { InfoPopoverContainerProvider, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { Badge, Button, ConfigProvider, Input, Popover, Switch, Tooltip, theme } from 'antd';
+import { Badge, Button, ConfigProvider, Popover, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
 import { ModifiedDot } from '@openheaders/ui/shared/settings-rows';
+import { TemplateInput } from '../template-input';
 import {
   type MessagePropertiesUnsaved,
   type MessagePropertyKnobKey,
@@ -149,6 +150,10 @@ const MessagePropertiesPopover: React.FC<{
           popovers, never inline in the labels. An empty knob means the
           default in effect — its stated default reads at full text
           contrast, the Settings-tab discipline. */}
+        {/* The three text properties and the user properties ride the
+          variable plane — the executor resolves each on the PUBLISH
+          packet (the will's inside CONNECT). The stated-default
+          placeholder reads at full contrast through the surface class. */}
         <ConfigProvider
           theme={{
             components: {
@@ -175,13 +180,14 @@ const MessagePropertiesPopover: React.FC<{
             <OptionControl
               {...reset('responseTopic', 'workbench.editors.mqtt.props.responseTopic', { responseTopic: '' })}
             >
-              <Input
+              <TemplateInput
                 size="small"
+                flagUnresolved
                 style={{ width: 200 }}
                 placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
                 value={value.responseTopic}
                 disabled={!v5}
-                onChange={(e) => set({ responseTopic: e.target.value })}
+                onChange={(responseTopic) => set({ responseTopic })}
                 data-testid={`${testId}-response-topic`}
               />
             </OptionControl>
@@ -193,13 +199,14 @@ const MessagePropertiesPopover: React.FC<{
             <OptionControl
               {...reset('correlationData', 'workbench.editors.mqtt.props.correlationData', { correlationData: '' })}
             >
-              <Input
+              <TemplateInput
                 size="small"
+                flagUnresolved
                 style={{ width: 200 }}
                 placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
                 value={value.correlationData}
                 disabled={!v5}
-                onChange={(e) => set({ correlationData: e.target.value })}
+                onChange={(correlationData) => set({ correlationData })}
               />
             </OptionControl>
             <OptionLabel
@@ -230,13 +237,14 @@ const MessagePropertiesPopover: React.FC<{
               {...dot('contentType')}
             />
             <OptionControl {...reset('contentType', 'workbench.editors.mqtt.props.contentType', { contentType: '' })}>
-              <Input
+              <TemplateInput
                 size="small"
+                flagUnresolved
                 style={{ width: 200 }}
                 placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
                 value={value.contentType}
                 disabled={!v5}
-                onChange={(e) => set({ contentType: e.target.value })}
+                onChange={(contentType) => set({ contentType })}
               />
             </OptionControl>
             <OptionLabel
@@ -299,25 +307,27 @@ const MessagePropertiesPopover: React.FC<{
                     <ModifiedDot unsaved={unsaved?.rows.has(row.uid) === true} />
                   )}
                 </span>
-                <Input
+                <TemplateInput
                   size="small"
+                  flagUnresolved
                   placeholder={t('workbench.editors.mqtt.props.userPropKey')}
                   value={row.key}
                   disabled={!v5}
-                  onChange={(e) => {
+                  onChange={(key) => {
                     const next = [...value.userProperties];
-                    next[index] = { ...row, key: e.target.value };
+                    next[index] = { ...row, key };
                     set({ userProperties: next });
                   }}
                 />
-                <Input
+                <TemplateInput
                   size="small"
+                  flagUnresolved
                   placeholder={t('workbench.editors.mqtt.props.userPropValue')}
                   value={row.value}
                   disabled={!v5}
-                  onChange={(e) => {
+                  onChange={(propValue) => {
                     const next = [...value.userProperties];
-                    next[index] = { ...row, value: e.target.value };
+                    next[index] = { ...row, value: propValue };
                     set({ userProperties: next });
                   }}
                 />
