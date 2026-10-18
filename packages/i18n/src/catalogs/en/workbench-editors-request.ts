@@ -25,7 +25,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Failed to save example: {message}',
   'workbench.editors.request.send.label': 'Send',
   'workbench.editors.request.send.sending': 'Sending…',
-  'workbench.editors.request.send.sentAsWrittenTooltip': 'Sends unresolved variables as written',
   'workbench.editors.request.send.stop': 'Stop',
   'workbench.editors.request.send.stopTooltip': 'Stop the request and keep what has arrived',
   'workbench.editors.request.menu.copyAsCurl': 'Copy as cURL',

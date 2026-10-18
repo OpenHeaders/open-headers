@@ -94,7 +94,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Exemplul nu a putut fi salvat: {message}',
   'workbench.editors.request.send.label': 'Trimitere',
   'workbench.editors.request.send.sending': 'Se trimite…',
-  'workbench.editors.request.send.sentAsWrittenTooltip': 'Trimite variabilele nerezolvate așa cum sunt scrise',
   'workbench.editors.request.send.stop': 'Oprire',
   'workbench.editors.request.send.stopTooltip': 'Oprește cererea și păstrează ce a sosit',
   'workbench.editors.request.menu.copyAsCurl': 'Copiere ca cURL',

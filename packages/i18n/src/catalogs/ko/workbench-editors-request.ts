@@ -49,7 +49,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': '예시를 저장하지 못했습니다: {message}',
   'workbench.editors.request.send.label': '전송',
   'workbench.editors.request.send.sending': '전송 중…',
-  'workbench.editors.request.send.sentAsWrittenTooltip': '해결되지 않은 변수를 입력한 그대로 보냅니다',
   'workbench.editors.request.send.stop': '중지',
   'workbench.editors.request.send.stopTooltip': '요청을 중지하고 지금까지 도착한 내용을 유지합니다',
   'workbench.editors.request.menu.copyAsCurl': 'cURL 형식으로 복사',

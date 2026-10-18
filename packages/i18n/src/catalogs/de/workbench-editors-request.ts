@@ -52,7 +52,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Beispiel konnte nicht gespeichert werden: {message}',
   'workbench.editors.request.send.label': 'Senden',
   'workbench.editors.request.send.sending': 'Wird gesendet…',
-  'workbench.editors.request.send.sentAsWrittenTooltip': 'Sendet unaufgelöste Variablen unverändert',
   'workbench.editors.request.send.stop': 'Stoppen',
   'workbench.editors.request.send.stopTooltip': 'Die Anfrage stoppen und behalten, was bereits angekommen ist',
   'workbench.editors.request.menu.copyAsCurl': 'Als cURL kopieren',

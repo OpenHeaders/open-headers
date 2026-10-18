@@ -45,7 +45,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': '保存示例失败：{message}',
   'workbench.editors.request.send.label': '发送',
   'workbench.editors.request.send.sending': '正在发送…',
-  'workbench.editors.request.send.sentAsWrittenTooltip': '未解析的变量将按原样发送',
   'workbench.editors.request.send.stop': '停止',
   'workbench.editors.request.send.stopTooltip': '停止请求并保留已到达的内容',
   'workbench.editors.request.menu.copyAsCurl': '复制为 cURL',

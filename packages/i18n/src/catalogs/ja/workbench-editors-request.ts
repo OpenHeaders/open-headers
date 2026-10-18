@@ -51,7 +51,6 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': '例を保存できませんでした：{message}',
   'workbench.editors.request.send.label': '送信',
   'workbench.editors.request.send.sending': '送信しています…',
-  'workbench.editors.request.send.sentAsWrittenTooltip': '未解決の変数はそのまま送信されます',
   'workbench.editors.request.send.stop': '停止',
   'workbench.editors.request.send.stopTooltip': 'リクエストを停止し、届いた分を保持します',
   'workbench.editors.request.menu.copyAsCurl': 'cURL としてコピー',

@@ -903,15 +903,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             <ShortcutHintTitle label={SEND_SHORTCUT}>
               {t('workbench.editors.request.send.stopTooltip')}
             </ShortcutHintTitle>
-          ) : hasUnresolvedRefs ? (
-            // An unresolved reference never blocks Send — the draft's
-            // dots and the red dress already say it; the request goes
-            // with the text as written and the response's meta strip
-            // names each reference. A secret manager's typed failure
-            // is the executor's refusal, read in the response pane.
-            <ShortcutHintTitle label={SEND_SHORTCUT}>
-              {t('workbench.editors.request.send.sentAsWrittenTooltip')}
-            </ShortcutHintTitle>
           ) : (
             <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
           )
