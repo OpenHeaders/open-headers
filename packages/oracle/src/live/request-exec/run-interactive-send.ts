@@ -22,12 +22,12 @@
  */
 
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
-import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { type ExecuteStreamOptions, errorSnapshot, executeOverTransport } from './execute';
 import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
 import { collectScriptChain, runPostResponseChain, runPreRequestChain } from './script-chain';
 import { applyScriptMutation, resolvedToScriptSnapshot, type StepScriptRunner } from './script-hooks';
+import { recordTotpUsages, totpCooldownRefusal } from './totp-usage';
 import type { RequestTransport } from './transport';
 
 export interface RunInteractiveSendOptions {
@@ -65,14 +65,8 @@ export async function runInteractiveSend(
   }
 
   // ── TOTP cooldown gate ── (same contract as `runStepRequest`)
-  for (const usage of outcome.totpUsed) {
-    const status = checkCooldown(cooldownWorkspaceId, usage.name, usage.code);
-    if (status.inCooldown) {
-      return errorSnapshot(
-        `TOTP '${usage.name}' code can't be reused — wait ${status.remainingSeconds}s for the next window.`,
-      );
-    }
-  }
+  const refusal = totpCooldownRefusal(cooldownWorkspaceId, outcome.totpUsed);
+  if (refusal !== null) return errorSnapshot(refusal);
 
   // ── Pre-request scripts (lenient, ancestor-first) ──
   // Collection pre → folder pre → request pre, each level its own
@@ -95,6 +89,11 @@ export async function runInteractiveSend(
     { strict: false, scope: outcome.scope },
   );
   if (preRun.outcome) scripts = { preRequest: preRun.outcome };
+  // A code a level read through the scope is this send's usage — the
+  // gate runs once more over what the chain added.
+  const scriptedRefusal = totpCooldownRefusal(cooldownWorkspaceId, outcome.totpUsed);
+  if (scriptedRefusal !== null)
+    return scripts ? { ...errorSnapshot(scriptedRefusal), scripts } : errorSnapshot(scriptedRefusal);
 
   const wireResult = await executeOverTransport(
     finalResolved,
@@ -103,11 +102,7 @@ export async function runInteractiveSend(
   );
 
   // ── TOTP cooldown record ── (only on a successful round-trip)
-  if (wireResult.error == null) {
-    for (const usage of outcome.totpUsed) {
-      recordUsage(cooldownWorkspaceId, usage.name, usage.code, usage.period);
-    }
-  }
+  if (wireResult.error == null) recordTotpUsages(cooldownWorkspaceId, outcome.totpUsed);
 
   // ── Post-response scripts (lenient, ancestor-first) ──
   // Assertions and script errors are recorded, never mapped onto the

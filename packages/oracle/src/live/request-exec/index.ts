@@ -28,7 +28,6 @@ export {
   type ResolvedRequestOutcome,
   type ResolveRequestOptions,
   resolveRequest,
-  type TotpUsage,
   UnresolvedRequestError,
 } from './resolve-request';
 export { buildResolver, type ResolverContext } from './resolver-scope';
@@ -79,6 +78,13 @@ export {
   type SessionScriptPlaneCore,
   type SessionScriptPlaneDeps,
 } from './session-script-plane';
+export {
+  createTotpUsageTracker,
+  recordTotpUsages,
+  type TotpUsage,
+  type TotpUsageTracker,
+  totpCooldownRefusal,
+} from './totp-usage';
 export {
   type RequestTransport,
   type TransportBody,

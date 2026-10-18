@@ -546,6 +546,60 @@ describe('runStepRequest — step script hooks', () => {
     expect(await inputs[1].scope?.readVariable('missing')).toBeNull();
   });
 
+  const otpVault = {
+    schemaVersion: 5 as const,
+    secrets: [
+      {
+        uid: 'totp0001',
+        kind: 'totp' as const,
+        name: 'otp',
+        seed: 'JBSWY3DPEHPK3PXP',
+        algorithm: 'SHA1' as const,
+        digits: 6,
+        period: 30,
+      },
+    ],
+  };
+
+  /** A pre-request level that reads the TOTP code through its scope. */
+  function otpReadingRunner(): { runner: StepScriptRunner; codes: Array<string | null> } {
+    const codes: Array<string | null> = [];
+    const runner: StepScriptRunner = async (input) => {
+      if (input.kind === 'pre-request') codes.push((await input.scope?.readVariable('vault.otp')) ?? null);
+      return scriptResult();
+    };
+    return { runner, codes };
+  }
+
+  it("a TOTP code a pre-request level reads is this send's usage — recorded after the wire like a template's", async () => {
+    vault.mockReturnValue(otpVault);
+    const { runner, codes } = otpReadingRunner();
+    const { transport } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ preRequestScript: 'pre();' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(snap.error).toBeNull();
+    expect(codes).toEqual([expect.stringMatching(/^\d{6}$/)]);
+    expect(recordUsageMock).toHaveBeenCalledWith('ws-1', 'otp', codes[0], 30);
+  });
+
+  it('a script-read code still inside its window refuses the send before the wire, the level recorded', async () => {
+    vault.mockReturnValue(otpVault);
+    checkCooldownMock.mockReturnValue({ inCooldown: true, remainingSeconds: 12 });
+    const { runner, codes } = otpReadingRunner();
+    const { transport, calls } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ preRequestScript: 'pre();' }), {
+      ...opts(transport),
+      scriptRunner: runner,
+    });
+    expect(snap.error).toBe("TOTP 'otp' code can't be reused — wait 12s for the next window.");
+    expect(calls()).toBe(0);
+    expect(checkCooldownMock).toHaveBeenCalledWith('ws-1', 'otp', codes[0]);
+    expect(snap.scripts?.preRequest?.succeeded).toBe(true);
+    expect(recordUsageMock).not.toHaveBeenCalled();
+  });
+
   it('records the chain beside each folded outcome — the request level, its uid and name', async () => {
     const { runner } = captureRunner({});
     const { transport } = captureTransport();

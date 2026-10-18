@@ -30,7 +30,6 @@ import type {
   SentAsWrittenReference,
   TlsVersion,
   Vault,
-  VaultSecretTotp,
 } from '@openheaders/core/types';
 import { collectRequestResolutionErrors, isRequestResolvable } from '@openheaders/core/utils';
 import { collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
@@ -42,6 +41,7 @@ import {
 } from '@openheaders/oracle/live/request-exec/ancestor-chain';
 import { unresolvedRequestMessage } from '@openheaders/oracle/live/request-exec/resolve-request';
 import { scriptScopeOverResolver } from '@openheaders/oracle/live/request-exec/script-scope';
+import { createTotpUsageTracker, type TotpUsage } from '@openheaders/oracle/live/request-exec/totp-usage';
 import { batchRefusesSend, sentAsWrittenOf } from '@openheaders/oracle/live/request-exec/unresolved-references';
 import { resolveClientCertificate } from '@openheaders/oracle/live/tls-policy';
 import { getTrustAnchorsForSend } from '@openheaders/oracle/live/trust-anchors';
@@ -262,23 +262,14 @@ export class UnresolvedRequestError extends Error {
   }
 }
 
-/**
- * One TOTP vault entry the resolved request used. Carries the code
- * (so the cooldown gate can match against the recently-used code) and
- * the entry's `period` (so {@link recordTotpUsage} can compute the
- * window-end deadline). `name` doubles as the cooldown-store key
- * partition.
- */
-export interface TotpUsage {
-  name: string;
-  code: string;
-  period: number;
-}
+export type { TotpUsage } from '@openheaders/oracle/live/request-exec/totp-usage';
 
 export interface ResolvedRequestOutcome {
   resolved: ResolvedRequest;
-  /** Every TOTP vault entry referenced by the resolved request. Empty
-   *  when no `{{vault.X}}` template hit a kind:'totp' entry. */
+  /** Every TOTP vault entry the send used — the templates' at resolve,
+   *  then LIVE: a code a script reads through `scope` joins the list,
+   *  so the executor gates again after the pre-request chain and
+   *  records after the wire (the oracle's `totp-usage.ts`). */
   totpUsed: ReadonlyArray<TotpUsage>;
   /** What this send's scripts read through `oh.variables.get` /
    *  `oh.vault.get` — the resolver and context above, so a script sees
@@ -348,16 +339,11 @@ export async function resolveRequest(
     sentAsWritten = sentAsWrittenOf(errors);
   }
 
-  // Track every kind:'totp' vault entry referenced during this resolve.
-  // Index TOTP entries by name once so the per-template scan is O(1).
-  // `scope.vault` is the per-workspace snapshot when `options.workspaceId`
-  // is set — guards against a vault rotation between buildResolver and
-  // here, and keeps cross-workspace dispatches honest.
-  const totpEntries = new Map<string, VaultSecretTotp>();
-  for (const s of scope.vault.secrets) {
-    if (s.kind === 'totp') totpEntries.set(s.name, s);
-  }
-  const totpUsed = new Map<string, TotpUsage>();
+  // Every kind:'totp' entry this send consumes — the templates' now,
+  // the scripts' reads later through the same tracker. `scope.vault` is
+  // the per-workspace snapshot when `options.workspaceId` is set —
+  // guards against a vault rotation between buildResolver and here.
+  const totp = createTotpUsageTracker(scope.vault);
 
   const resolveStr = (s: string): string => {
     const result = resolveTemplate(
@@ -365,18 +351,7 @@ export async function resolveRequest(
       (name) => resolver.resolve(name, context),
       (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
     );
-    if (totpEntries.size > 0) {
-      for (const v of result.variables) {
-        if (!v.resolved || v.scope !== 'vault' || !v.value) continue;
-        // Template-variable names carry the namespace prefix when the
-        // user wrote `{{vault.X}}`; strip it before matching the bare
-        // entry name. Flat `{{X}}` resolves the same way but the name
-        // arrives unprefixed.
-        const bareName = v.name.startsWith('vault.') ? v.name.slice('vault.'.length) : v.name;
-        const entry = totpEntries.get(bareName);
-        if (entry) totpUsed.set(bareName, { name: bareName, code: v.value, period: entry.period });
-      }
-    }
+    totp.observe(result.variables);
     return result.result;
   };
 
@@ -567,7 +542,7 @@ export async function resolveRequest(
           }
         : {}),
     },
-    totpUsed: [...totpUsed.values()],
-    scope: scriptScopeOverResolver(resolver, context, scope.vault),
+    totpUsed: totp.used,
+    scope: scriptScopeOverResolver(resolver, context, scope.vault, totp),
   };
 }

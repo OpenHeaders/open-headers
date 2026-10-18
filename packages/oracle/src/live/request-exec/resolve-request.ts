@@ -37,8 +37,6 @@ import type {
   RequestBody,
   SentAsWrittenReference,
   TlsVersion,
-  Vault,
-  VaultSecretTotp,
 } from '@openheaders/core/types';
 import {
   appendQueryParams,
@@ -55,6 +53,7 @@ import { collectionUidForRequest, resolveRequestAuth, resolveRequestSettings } f
 import { acquireOAuth2Bundle, type OAuthRefreshFn, oauth2AuthorizationValue } from './oauth2-bundle';
 import { buildResolver } from './resolver-scope';
 import { scriptScopeOverResolver } from './script-scope';
+import { createTotpUsageTracker, type TotpUsage } from './totp-usage';
 import {
   batchRefusesSend,
   sentAsWrittenOf,
@@ -250,19 +249,14 @@ export interface ResolvedRequest {
   sentAsWritten?: SentAsWrittenReference[];
 }
 
-/** One TOTP vault entry the resolved request used. Carries the code (so
- *  the cooldown gate can match the recently-used code) and the entry's
- *  `period` (so usage recording can compute the window-end deadline). */
-export interface TotpUsage {
-  name: string;
-  code: string;
-  period: number;
-}
+export type { TotpUsage } from './totp-usage';
 
 export interface ResolvedRequestOutcome {
   resolved: ResolvedRequest;
-  /** Every TOTP vault entry referenced by the resolved request. Empty
-   *  when no template hit a kind:'totp' entry. */
+  /** Every TOTP vault entry the send used — the templates' at resolve,
+   *  then LIVE: a code a script reads through `scope` joins the list,
+   *  so a runner gates again after the pre-request chain and records
+   *  after the wire (`totp-usage.ts`). */
   totpUsed: ReadonlyArray<TotpUsage>;
   /** The secret-manager references the copy path left literal in the
    *  resolved shape (`vault.X`) — a copied command carries the
@@ -409,9 +403,9 @@ export async function resolveRequest(
     }
   }
 
-  // Track every kind:'totp' vault entry referenced during this resolve.
-  const totpEntries = indexTotpEntries(scope.vault);
-  const totpUsed = new Map<string, TotpUsage>();
+  // Every kind:'totp' entry this send consumes — the templates' now,
+  // the scripts' reads later through the same tracker.
+  const totp = createTotpUsageTracker(scope.vault);
 
   const resolveStr = (s: string): string => {
     const result = resolveTemplate(
@@ -419,16 +413,7 @@ export async function resolveRequest(
       (name) => resolver.resolve(name, context),
       (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
     );
-    if (totpEntries.size > 0) {
-      for (const v of result.variables) {
-        if (!v.resolved || v.scope !== 'vault' || !v.value) continue;
-        // Names carry the `vault.` prefix when the user wrote
-        // `{{vault.X}}`; strip it before matching the bare entry name.
-        const bareName = v.name.startsWith('vault.') ? v.name.slice('vault.'.length) : v.name;
-        const entry = totpEntries.get(bareName);
-        if (entry) totpUsed.set(bareName, { name: bareName, code: v.value, period: entry.period });
-      }
-    }
+    totp.observe(result.variables);
     return result.result;
   };
 
@@ -658,18 +643,10 @@ export async function resolveRequest(
       ...(settingsAttribution !== undefined ? { inheritedSettings: settingsAttribution } : {}),
       ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
     },
-    totpUsed: [...totpUsed.values()],
+    totpUsed: totp.used,
     secretManagerReferencesKept,
-    scope: scriptScopeOverResolver(resolver, context, scope.vault),
+    scope: scriptScopeOverResolver(resolver, context, scope.vault, totp),
   };
-}
-
-function indexTotpEntries(vault: Vault): Map<string, VaultSecretTotp> {
-  const out = new Map<string, VaultSecretTotp>();
-  for (const s of vault.secrets) {
-    if (s.kind === 'totp') out.set(s.name, s);
-  }
-  return out;
 }
 
 interface ApplyAuthOptions {

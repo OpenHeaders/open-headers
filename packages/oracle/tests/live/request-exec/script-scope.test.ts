@@ -23,6 +23,7 @@ vi.mock('../../../src/live/request-exec/secret-manager-broker', () => ({
 }));
 
 import { createScriptVariableScope, scriptScopeOverResolver } from '../../../src/live/request-exec/script-scope';
+import { createTotpUsageTracker } from '../../../src/live/request-exec/totp-usage';
 
 const vault: Vault = {
   schemaVersion: 5,
@@ -125,6 +126,33 @@ describe('scriptScopeOverResolver', () => {
     expect(await scope.readVariable('collection.BASE')).toBeNull();
     expect(await scope.readVariable('env.HOST')).toBeNull();
     expect(await scope.readVariable('workspace.region')).toBe('eu');
+  });
+
+  it("reports every read's resolved variables to the send's TOTP tracker", async () => {
+    const withTotp: Vault = {
+      schemaVersion: 5,
+      secrets: [
+        ...vault.secrets,
+        {
+          uid: 'totp0001',
+          kind: 'totp',
+          name: 'otp',
+          seed: 'JBSWY3DPEHPK3PXP',
+          algorithm: 'SHA1',
+          digits: 6,
+          period: 30,
+        },
+      ],
+    };
+    const resolver = resolverUnderTest();
+    resolver.setVault(withTotp);
+    resolver.setTotpRegistry(new Map([['otp', '492817']]));
+    const tracker = createTotpUsageTracker(withTotp);
+    const scope = scriptScopeOverResolver(resolver, {}, withTotp, tracker);
+    expect(await scope.readVariable('api_key')).toBe('k-1');
+    expect(tracker.used).toEqual([]);
+    expect(await scope.readVariable('vault.otp')).toBe('492817');
+    expect(tracker.used).toEqual([{ name: 'otp', code: '492817', period: 30 }]);
   });
 
   it('asks the broker for a secret-manager entry on first read and keeps the value for the next', async () => {

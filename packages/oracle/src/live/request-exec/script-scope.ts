@@ -10,7 +10,9 @@
  * secret-manager entry the request's own templates never named is
  * asked of the host's broker on first read — the script named it, so
  * the ask is the author's, exactly as a `{{vault.X}}` in a header
- * would be.
+ * would be; a TOTP code a script reads is the send's usage, noted on
+ * the send's tracker (`totp-usage.ts`) for the cooldown gate and the
+ * record like a template's.
  *
  * One builder over the two halves every resolution has — the async
  * pre-pass (`prepare`) and the synchronous template resolve into an
@@ -31,6 +33,7 @@ import {
 } from '@openheaders/core/variables';
 import { buildResolver } from './resolver-scope';
 import { getSecretManagerBroker } from './secret-manager-broker';
+import type { TotpUsageTracker } from './totp-usage';
 
 /** The two halves a scope reads through — the session resolution's shape. */
 export interface ScriptScopeResolution {
@@ -59,12 +62,15 @@ export function createScriptVariableScope(resolution: ScriptScopeResolution): Sc
  * The scope over a built resolver and the context one send resolves
  * with — the HTTP pipeline's. The secret-manager pre-pass rides the
  * host's installed broker (the values live in the resolver's registry
- * for this send alone, the Secret Providers plan's L1).
+ * for this send alone, the Secret Providers plan's L1); every read
+ * reports its resolved variables to the send's TOTP tracker when the
+ * send keeps one.
  */
 export function scriptScopeOverResolver(
   resolver: VariableResolver,
   context: ResolutionContext,
   vault: Vault,
+  totp?: TotpUsageTracker,
 ): ScriptVariableScope {
   const secrets = createSecretManagerScope(resolver, vault, (entries) =>
     getSecretManagerBroker().resolveBatch(entries),
@@ -77,6 +83,7 @@ export function scriptScopeOverResolver(
         (name) => resolver.resolve(name, context),
         (name, ns) => resolver.resolveScopedWithDiagnostics(name, ns, context),
       );
+      totp?.observe(result.variables);
       collectUnresolvedReferences(result.errors, unresolved);
       return result.result;
     },

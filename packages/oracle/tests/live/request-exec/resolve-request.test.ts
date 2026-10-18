@@ -225,6 +225,28 @@ describe('resolveRequest — inherited settings', () => {
     expect(await scope.readVariable('step.s1.id')).toBeNull();
   });
 
+  it("a TOTP code the scope hands a script joins the outcome's live usage list", async () => {
+    vault.mockReturnValue({
+      schemaVersion: 5,
+      secrets: [
+        {
+          uid: 'totp0001',
+          kind: 'totp',
+          name: 'otp',
+          seed: 'JBSWY3DPEHPK3PXP',
+          algorithm: 'SHA1',
+          digits: 6,
+          period: 30,
+        },
+      ],
+    });
+    const { scope, totpUsed } = await resolveRequest(makeRequest(), {});
+    expect(totpUsed).toEqual([]);
+    const code = await scope.readVariable('vault.otp');
+    expect(code).toMatch(/^\d{6}$/);
+    expect(totpUsed).toEqual([{ name: 'otp', code, period: 30 }]);
+  });
+
   it('an inherited SNI template nobody defines rides as written and the resolved shape names it', async () => {
     seed(makeCollection({ settings: { http: { sniServerName: '{{EDGE}}.openheaders.io' } } }), makeFolder());
     const { resolved } = await resolveRequest(makeRequest(), {});

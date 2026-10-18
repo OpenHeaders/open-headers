@@ -10,14 +10,11 @@ import type { RequestMutation, RequestSnapshot, ResponseSnapshot } from '@openhe
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { getRequest, getRequestInWorkspace } from '@openheaders/oracle/entity/request-store';
 import {
-  checkCooldown as checkTotpCooldown,
-  recordUsage as recordTotpUsage,
-} from '@openheaders/oracle/entity/totp-cooldown-store';
-import {
   collectScriptChain,
   runPostResponseChain,
   runPreRequestChain,
 } from '@openheaders/oracle/live/request-exec/script-chain';
+import { recordTotpUsages, totpCooldownRefusal } from '@openheaders/oracle/live/request-exec/totp-usage';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from '../offscreen-host';
 import { getActiveWorkspaceId } from '../workspace/workspace-store';
 import { defaultContentType } from './body';
@@ -118,17 +115,13 @@ export async function executeRequestDraft(
   // reuse with a 401 anyway; surfacing this here gives the user an
   // actionable message ("wait Ns") instead of a confusing provider
   // error after a wasted round-trip.
-  if (outcome.totpUsed.length > 0) {
-    const workspaceId = options.workspaceId ?? getActiveWorkspaceId();
-    for (const usage of outcome.totpUsed) {
-      const status = checkTotpCooldown(workspaceId, usage.name, usage.code);
-      if (status.inCooldown) {
-        return errorSnapshot(
-          `TOTP '${usage.name}' code can't be reused — wait ${status.remainingSeconds}s for the next window.`,
-        );
-      }
-    }
-  }
+  // The partition key is read only when a code is in play — an unpinned
+  // send with no TOTP usage never asks the workspace store.
+  const cooldownWorkspaceId = (): string => options.workspaceId ?? getActiveWorkspaceId();
+  const totpRefusal = (): string | null =>
+    outcome.totpUsed.length === 0 ? null : totpCooldownRefusal(cooldownWorkspaceId(), outcome.totpUsed);
+  const refusal = totpRefusal();
+  if (refusal !== null) return errorSnapshot(refusal);
 
   // ── Pre-request script hook (ancestor-first chain) ─────────────
   // Collection pre → folder pre → request pre, each level its own
@@ -151,6 +144,14 @@ export async function executeRequestDraft(
       { strict: false, scope: outcome.scope },
     );
     if (preRun.outcome) scriptOutcome = { preRequest: preRun.outcome };
+    // A code a level read through the scope is this send's usage —
+    // the gate runs once more over what the chain added.
+    const scriptedRefusal = totpRefusal();
+    if (scriptedRefusal !== null) {
+      return scriptOutcome
+        ? { ...errorSnapshot(scriptedRefusal), scripts: scriptOutcome }
+        : errorSnapshot(scriptedRefusal);
+    }
   }
 
   const wireResult = await executeResolved(finalResolved, {
@@ -172,10 +173,7 @@ export async function executeRequestDraft(
   // burn the code with the provider. Recording too eagerly would
   // turn a transient network blip into an avoidable Ns wait.
   if (wireResult.error == null && outcome.totpUsed.length > 0) {
-    const workspaceId = options.workspaceId ?? getActiveWorkspaceId();
-    for (const usage of outcome.totpUsed) {
-      recordTotpUsage(workspaceId, usage.name, usage.code, usage.period);
-    }
+    recordTotpUsages(cooldownWorkspaceId(), outcome.totpUsed);
   }
 
   // ── Post-response script hook (ancestor-first chain) ───────────

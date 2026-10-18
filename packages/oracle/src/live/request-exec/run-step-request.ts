@@ -15,7 +15,6 @@
  */
 
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
-import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 import { getActiveWorkspaceId } from '../../workspace/extension-workspace-store';
 import { type ExecuteStreamOptions, errorSnapshot, executeOverTransport } from './execute';
 import { type OAuthRefreshFn, type ResolvedRequest, resolveRequest, UnresolvedRequestError } from './resolve-request';
@@ -26,6 +25,7 @@ import {
   resolvedToScriptSnapshot,
   type StepScriptRunner,
 } from './script-hooks';
+import { recordTotpUsages, totpCooldownRefusal } from './totp-usage';
 import type { RequestTransport } from './transport';
 
 export interface RunStepRequestOptions {
@@ -95,14 +95,8 @@ export async function runStepRequest(
   // Refuse to send a code already used inside its window. Most providers
   // reject the reuse with a 401 anyway; surfacing it here gives an
   // actionable "wait Ns" instead of a wasted round-trip + confusing error.
-  for (const usage of outcome.totpUsed) {
-    const status = checkCooldown(cooldownWorkspaceId, usage.name, usage.code);
-    if (status.inCooldown) {
-      return errorSnapshot(
-        `TOTP '${usage.name}' code can't be reused — wait ${status.remainingSeconds}s for the next window.`,
-      );
-    }
-  }
+  const refusal = totpCooldownRefusal(cooldownWorkspaceId, outcome.totpUsed);
+  if (refusal !== null) return errorSnapshot(refusal);
 
   // ── Pre-request script hook (ancestor-first chain) ──
   // Collection pre → folder pre → request pre, each level its own
@@ -133,6 +127,10 @@ export async function runStepRequest(
         scripts,
       };
     }
+    // A code a level read through the scope is this send's usage —
+    // the gate runs once more over what the chain added.
+    const scriptedRefusal = totpCooldownRefusal(cooldownWorkspaceId, outcome.totpUsed);
+    if (scriptedRefusal !== null) return { ...errorSnapshot(scriptedRefusal), scripts };
   }
 
   const wireResult = await executeOverTransport(finalResolved, options.transport, {
@@ -144,11 +142,7 @@ export async function runStepRequest(
   // Only on a successful round-trip — a fetch that never reached the wire
   // didn't actually burn the code, and recording too eagerly would turn a
   // transient blip into an avoidable wait.
-  if (wireResult.error == null) {
-    for (const usage of outcome.totpUsed) {
-      recordUsage(cooldownWorkspaceId, usage.name, usage.code, usage.period);
-    }
-  }
+  if (wireResult.error == null) recordTotpUsages(cooldownWorkspaceId, outcome.totpUsed);
 
   // ── Post-response script hook (ancestor-first chain) ──
   // A script error or a failed `oh.test` assertion fails the run — for
