@@ -1,29 +1,23 @@
 /**
  * Suggestion/measure state machine for {@link TemplateInput} — popover
- * open/query/measure state, the filtered+recents-ordered option list,
- * caret-driven re-measure, insert/create actions, and the editable's
- * input/keyboard/paste/hover handlers. The shell keeps `classify`,
- * focus state, and the render; it consumes the machine only through
- * the returned state + handlers.
+ * open/query/measure state, caret-driven re-measure, insert/create
+ * actions, and the editable's input/keyboard/paste/hover handlers.
+ * The option list itself (ranking, recents, the create offer) is the
+ * shared `useSuggestionList`, which the Monaco host drives too. The
+ * shell keeps `classify`, focus state, and the render; it consumes the
+ * machine only through the returned state + handlers.
  */
 
-import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';
-import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
-import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/variables/useVariableSuggestions';
-import { claimEscape } from '@openheaders/ui/shared/popover';
+import type { SuggestionContext, VariableSuggestion } from '@openheaders/core/variables';
 import type React from 'react';
-import { type ClipboardEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ClipboardEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { getCaretOffset, setCaretOffset } from './caret';
-import { type CreateTarget, detectCreateTarget } from './create-target';
 import { createEditableHistory, type EditableHistory, type EditableHistoryEntry } from './editable-history';
 import { type RefState, renderHighlightedHtml } from './highlight';
 import { detectMeasure, findExistingCloseEnd, PREFIX, SPLIT } from './measure';
 import { computePopoverCoords, type PopoverCoords } from './popover-coords';
-import { addRecent, listRecents, pruneRecents, type VariableRecents } from './recents';
+import { useSuggestionList } from './use-suggestion-list';
 import { useVariablePopover } from './VariablePopoverHost';
-
-const MAX_POPOVER_ROWS = 60;
 
 interface TemplateSuggestionsInputs {
   editableRef: React.RefObject<HTMLDivElement | null>;
@@ -46,10 +40,6 @@ export function useTemplateSuggestions({
   effectiveDisable,
   classify,
 }: TemplateSuggestionsInputs) {
-  const { suggestions: allSuggestions } = useVariableSuggestions(effectiveContext);
-  const { activeWorkspaceId } = useWorkspaces();
-  const t = useT();
-
   // One-shot: set when a keyboard action opens the create popover, so
   // the Enter/Tab key's own keyup doesn't immediately re-open the
   // suggestion list (a mouse click has no such keyup, hence it works).
@@ -76,8 +66,12 @@ export function useTemplateSuggestions({
   // we can hide an empty list (probably a literal brace) while still
   // showing it the moment a match exists.
   const [measureDouble, setMeasureDouble] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [recents, setRecents] = useState<VariableRecents | null>(null);
+  const { suggestions, activeIndex, setActiveIndex, createTarget, recordRecent } = useSuggestionList({
+    context: effectiveContext,
+    isOpen,
+    query,
+    measureDouble,
+  });
   // Suggestion popover coords. Portal-rendered to `document.body` so the
   // popover floats above whatever container the editable lives in
   // (clipped panels, hover popovers, modals). Recomputed on open + on
@@ -86,61 +80,6 @@ export function useTemplateSuggestions({
   // Shared hover-popover host — single instance per app root, owns
   // open-state + close-grace timer. We just emit hover events.
   const popoverHost = useVariablePopover();
-
-  // While the list is open it owns Escape: the claim makes every
-  // `useDismiss` surface beneath (the quick-editor popover, a variable
-  // popover) stand down, so Esc closes the LIST first and the popover
-  // only on the next press. The list's own Escape handling stays in the
-  // editable's keydown below.
-  useEffect(() => {
-    if (!isOpen) return;
-    const claim = claimEscape();
-    return () => claim.release();
-  }, [isOpen]);
-
-  // Hydrate recents on workspace switch; prune against current suggestions.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const refs = new Set(allSuggestions.map((s) => s.reference));
-      const next = await (refs.size > 0 ? pruneRecents(activeWorkspaceId, refs) : listRecents(activeWorkspaceId));
-      if (!cancelled) setRecents(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeWorkspaceId, allSuggestions]);
-
-  // Compute filtered+ordered options. Empty query → recents pinned.
-  const suggestions = useMemo<VariableSuggestion[]>(() => {
-    if (!isOpen) return [];
-    const ranked = filterSuggestions(allSuggestions, query);
-    if (query === '' && recents && recents.entries.length > 0) {
-      const recencyIndex = new Map<string, number>();
-      for (let i = 0; i < recents.entries.length; i++) {
-        recencyIndex.set(recents.entries[i].reference, i);
-      }
-      const pinned: VariableSuggestion[] = [];
-      const recent: VariableSuggestion[] = [];
-      const rest: VariableSuggestion[] = [];
-      for (const s of ranked) {
-        // Pinned rows (the `dynamic.` scaffold) stay on top — recents
-        // must not push the sticky entry point off the first row.
-        if (s.pinned) pinned.push(s);
-        else if (recencyIndex.has(s.reference)) recent.push(s);
-        else rest.push(s);
-      }
-      recent.sort((a, b) => (recencyIndex.get(a.reference) ?? 0) - (recencyIndex.get(b.reference) ?? 0));
-      return [...pinned, ...recent, ...rest].slice(0, MAX_POPOVER_ROWS);
-    }
-    return ranked.slice(0, MAX_POPOVER_ROWS);
-  }, [isOpen, allSuggestions, query, recents]);
-
-  // Clamp activeIndex when the suggestion list shrinks.
-  useEffect(() => {
-    if (suggestions.length === 0) return;
-    setActiveIndex((prev) => (prev >= suggestions.length ? 0 : prev));
-  }, [suggestions.length]);
 
   // Re-rendering innerHTML on every keystroke replaces span nodes —
   // a tracked anchor would point to a detached element. Tell the host
@@ -207,7 +146,7 @@ export function useTemplateSuggestions({
       setMeasureDouble(measure.double);
       setIsOpen(true);
     },
-    [effectiveDisable],
+    [effectiveDisable, setActiveIndex],
   );
 
   const handleInput = useCallback(() => {
@@ -328,20 +267,10 @@ export function useTemplateSuggestions({
         return;
       }
       setIsOpen(false);
-      void addRecent(activeWorkspaceId, suggestion.reference)
-        .then(() => listRecents(activeWorkspaceId))
-        .then((updated) => setRecents(updated));
+      recordRecent(suggestion.reference);
     },
-    [editableRef, activeWorkspaceId, measureStart, onChange, classify, updateMeasure, history],
+    [editableRef, recordRecent, measureStart, onChange, classify, updateMeasure, history],
   );
-
-  // When the caret sits in a scoped reference whose variable doesn't
-  // exist yet (`{{vault.okay}}` with no `vault.okay` defined), offer
-  // to create it in that scope instead of a dead-end "No matches".
-  const createTarget = useMemo<CreateTarget | null>(() => {
-    if (!measureDouble || suggestions.length > 0) return null;
-    return detectCreateTarget(query, effectiveContext.collectionId, t);
-  }, [measureDouble, suggestions.length, query, effectiveContext.collectionId, t]);
 
   // Called when the create popover closes (Escape / save / outside-click).
   // Drop the user back into the field exactly where they left off — focus,
@@ -492,6 +421,7 @@ export function useTemplateSuggestions({
       history,
       applyHistoryEntry,
       insertPlainText,
+      setActiveIndex,
     ],
   );
 
