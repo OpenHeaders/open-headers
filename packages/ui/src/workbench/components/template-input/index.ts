@@ -1,8 +1,11 @@
+export { TEMPLATE_INPUT_LINE_HEIGHT } from './editable-style';
+export { default as MonacoSuggestOverlay, type MonacoSuggestOverlayProps } from './monaco/MonacoSuggestOverlay';
 export {
-  COMPLETION_LANGUAGES,
-  type RegisterOptions as MonacoCompletionOptions,
-  registerVariableCompletionProvider,
-} from './monaco-completion';
+  type MonacoVariableSuggestApi,
+  type MonacoVariableSuggestOptions,
+  type SuggestAnchor,
+  useMonacoVariableSuggest,
+} from './monaco/use-monaco-variable-suggest';
 export { addRecent, listRecents, pruneRecents, RECENTS_CAP, type VariableRecents } from './recents';
 export {
   type AutoSuggestionContextValue,
@@ -10,8 +13,6 @@ export {
   type SuggestionContextProviderProps,
   useAutoSuggestionContext,
 } from './SuggestionContextProvider';
-export { TEMPLATE_INPUT_LINE_HEIGHT } from './editable-style';
 export { default as SuggestionRow } from './SuggestionRow';
 export { default as TemplateInput } from './TemplateInput';
 export type { GripResizeXEvent, GripResizeXHandler, TemplateInputProps } from './types';
-export { useMonacoVariableCompletions } from './useMonacoVariableCompletions';

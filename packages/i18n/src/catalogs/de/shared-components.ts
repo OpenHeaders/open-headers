@@ -114,32 +114,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': 'Ausschneiden',
   'shared.templateInput.menu.paste': 'Einfügen',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Vault-Secret',
-  'shared.templateInput.completion.scope.env': 'Umgebung',
-  'shared.templateInput.completion.scope.collection': 'Sammlung',
-  'shared.templateInput.completion.scope.workspace': 'Arbeitsbereich',
-  'shared.templateInput.completion.scope.live': 'Quelle',
-  'shared.templateInput.completion.scope.step': 'Capture eines Quell-Flow-Schritts',
-  'shared.templateInput.completion.scope.file': 'Dateireferenz',
-  'shared.templateInput.completion.scope.dynamic': 'Dynamischer Generator',
-  'shared.templateInput.completion.staleSuffix': '(veraltet)',
-  'shared.templateInput.completion.comingSoon': 'kommt bald',
-  'shared.templateInput.completion.capturedAtRuntime': 'zur Laufzeit erfasst',
-  'shared.templateInput.completion.totpDetail': 'TOTP-Code ({digits} Stellen, {period}s)',
-  'shared.templateInput.completion.valueHiddenSensitive': 'Wert verborgen (sensibler Geltungsbereich).',
-  'shared.templateInput.completion.valueHiddenStale': 'Wert verborgen (veraltete Live-Variable).',
-  'shared.templateInput.completion.valueDoc': '**Wert:** `{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**Veralteter Wert:** `{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': 'Wird erfasst, wenn der Workflow läuft.',
-  'shared.templateInput.completion.totpDoc':
-    '**TOTP-Code** — {algorithm}, {digits} Stellen, erneuert sich alle {period}s.',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**TOTP-Code** für **{issuer}** — {algorithm}, {digits} Stellen, erneuert sich alle {period}s.',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**Secret-Manager-Referenz** — `{reference}`. Wird beim Senden aus dem Manager aufgelöst; der Wert ' +
-    'wird nie gespeichert.',
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Dekodiert',
   'shared.valueEditors.encodedPreview': 'Kodierte Vorschau',

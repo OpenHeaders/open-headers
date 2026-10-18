@@ -105,32 +105,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': 'Couper',
   'shared.templateInput.menu.paste': 'Coller',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Secret du Vault',
-  'shared.templateInput.completion.scope.env': 'Environnement',
-  'shared.templateInput.completion.scope.collection': 'Collection',
-  'shared.templateInput.completion.scope.workspace': 'Espace de travail',
-  'shared.templateInput.completion.scope.live': 'Source',
-  'shared.templateInput.completion.scope.step': "Capture d'étape du flux de la source",
-  'shared.templateInput.completion.scope.file': 'Référence de fichier',
-  'shared.templateInput.completion.scope.dynamic': 'Générateur dynamique',
-  'shared.templateInput.completion.staleSuffix': '(périmée)',
-  'shared.templateInput.completion.comingSoon': 'bientôt disponible',
-  'shared.templateInput.completion.capturedAtRuntime': "capturée à l'exécution",
-  'shared.templateInput.completion.totpDetail': 'Code TOTP ({digits} chiffres, {period}s)',
-  'shared.templateInput.completion.valueHiddenSensitive': 'Valeur masquée (portée sensible).',
-  'shared.templateInput.completion.valueHiddenStale': 'Valeur masquée (variable Live périmée).',
-  'shared.templateInput.completion.valueDoc': '**Valeur :** `{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**Valeur périmée :** `{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': "Capturée à l'exécution du workflow.",
-  'shared.templateInput.completion.totpDoc':
-    '**Code TOTP** — {algorithm}, {digits} chiffres, se renouvelle toutes les {period}s.',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**Code TOTP** pour **{issuer}** — {algorithm}, {digits} chiffres, se renouvelle toutes les {period}s.',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**Référence de gestionnaire de secrets** — `{reference}`. Résolue depuis le gestionnaire au moment ' +
-    "de l'envoi ; la valeur n'est jamais stockée.",
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Décodé',
   'shared.valueEditors.encodedPreview': 'Aperçu encodé',

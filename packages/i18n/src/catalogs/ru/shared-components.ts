@@ -123,31 +123,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': 'Вырезать',
   'shared.templateInput.menu.paste': 'Вставить',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Секрет Vault',
-  'shared.templateInput.completion.scope.env': 'Окружение',
-  'shared.templateInput.completion.scope.collection': 'Коллекция',
-  'shared.templateInput.completion.scope.workspace': 'Рабочее пространство',
-  'shared.templateInput.completion.scope.live': 'Источник',
-  'shared.templateInput.completion.scope.step': 'Захват шага потока источника',
-  'shared.templateInput.completion.scope.file': 'Ссылка на файл',
-  'shared.templateInput.completion.scope.dynamic': 'Динамический генератор',
-  'shared.templateInput.completion.staleSuffix': '(устарело)',
-  'shared.templateInput.completion.comingSoon': 'скоро',
-  'shared.templateInput.completion.capturedAtRuntime': 'захватывается во время выполнения',
-  'shared.templateInput.completion.totpDetail': 'Код TOTP ({digits} цифр, {period}s)',
-  'shared.templateInput.completion.valueHiddenSensitive': 'Значение скрыто (конфиденциальная область).',
-  'shared.templateInput.completion.valueHiddenStale': 'Значение скрыто (устаревшая переменная Live).',
-  'shared.templateInput.completion.valueDoc': '**Значение:** `{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**Устаревшее значение:** `{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': 'Захватывается при запуске рабочего процесса.',
-  'shared.templateInput.completion.totpDoc': '**Код TOTP** — {algorithm}, {digits} цифр, обновляется каждые {period}s.',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**Код TOTP** для **{issuer}** — {algorithm}, {digits} цифр, обновляется каждые {period}s.',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**Ссылка на менеджер секретов** — `{reference}`. Разрешается из менеджера при отправке; значение никогда ' +
-    'не сохраняется.',
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Декодировано',
   'shared.valueEditors.encodedPreview': 'Предпросмотр в закодированном виде',

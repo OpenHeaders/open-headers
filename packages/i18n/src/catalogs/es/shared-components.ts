@@ -108,32 +108,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': 'Cortar',
   'shared.templateInput.menu.paste': 'Pegar',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Secreto del Vault',
-  'shared.templateInput.completion.scope.env': 'Entorno',
-  'shared.templateInput.completion.scope.collection': 'Colección',
-  'shared.templateInput.completion.scope.workspace': 'Espacio de trabajo',
-  'shared.templateInput.completion.scope.live': 'Fuente',
-  'shared.templateInput.completion.scope.step': 'Captura de paso del flujo de la fuente',
-  'shared.templateInput.completion.scope.file': 'Referencia de archivo',
-  'shared.templateInput.completion.scope.dynamic': 'Generador dinámico',
-  'shared.templateInput.completion.staleSuffix': '(obsoleta)',
-  'shared.templateInput.completion.comingSoon': 'próximamente',
-  'shared.templateInput.completion.capturedAtRuntime': 'capturada en tiempo de ejecución',
-  'shared.templateInput.completion.totpDetail': 'Código TOTP ({digits} dígitos, {period}s)',
-  'shared.templateInput.completion.valueHiddenSensitive': 'Valor oculto (ámbito sensible).',
-  'shared.templateInput.completion.valueHiddenStale': 'Valor oculto (variable Live obsoleta).',
-  'shared.templateInput.completion.valueDoc': '**Valor:** `{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**Valor obsoleto:** `{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': 'Se captura cuando se ejecuta el workflow.',
-  'shared.templateInput.completion.totpDoc':
-    '**Código TOTP** — {algorithm}, {digits} dígitos, se renueva cada {period}s.',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**Código TOTP** para **{issuer}** — {algorithm}, {digits} dígitos, se renueva cada {period}s.',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**Referencia de gestor de secretos** — `{reference}`. Se resuelve desde el gestor al enviar; el ' +
-    'valor nunca se almacena.',
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Decodificado',
   'shared.valueEditors.encodedPreview': 'Vista previa codificada',

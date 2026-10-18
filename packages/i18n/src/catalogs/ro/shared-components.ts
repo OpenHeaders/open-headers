@@ -124,31 +124,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': 'Decupare',
   'shared.templateInput.menu.paste': 'Lipire',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Secret Vault',
-  'shared.templateInput.completion.scope.env': 'Mediu',
-  'shared.templateInput.completion.scope.collection': 'Colecție',
-  'shared.templateInput.completion.scope.workspace': 'Spațiu de lucru',
-  'shared.templateInput.completion.scope.live': 'Sursă',
-  'shared.templateInput.completion.scope.step': 'Captură de pas din fluxul sursei',
-  'shared.templateInput.completion.scope.file': 'Referință la fișier',
-  'shared.templateInput.completion.scope.dynamic': 'Generator dinamic',
-  'shared.templateInput.completion.staleSuffix': '(învechită)',
-  'shared.templateInput.completion.comingSoon': 'în curând',
-  'shared.templateInput.completion.capturedAtRuntime': 'capturată la rulare',
-  'shared.templateInput.completion.totpDetail': 'Cod TOTP ({digits} cifre, {period}s)',
-  'shared.templateInput.completion.valueHiddenSensitive': 'Valoare ascunsă (sferă sensibilă).',
-  'shared.templateInput.completion.valueHiddenStale': 'Valoare ascunsă (variabilă Live învechită).',
-  'shared.templateInput.completion.valueDoc': '**Valoare:** `{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**Valoare învechită:** `{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': 'Capturată când rulează fluxul de lucru.',
-  'shared.templateInput.completion.totpDoc':
-    '**Cod TOTP** — {algorithm}, {digits} cifre, se reîmprospătează la fiecare {period}s.',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**Cod TOTP** pentru **{issuer}** — {algorithm}, {digits} cifre, se reîmprospătează la fiecare {period}s.',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**Referință la managerul de secrete** — `{reference}`. Rezolvată din manager la trimitere; valoarea nu este stocată niciodată.',
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Decodat',
   'shared.valueEditors.encodedPreview': 'Previzualizare codată',

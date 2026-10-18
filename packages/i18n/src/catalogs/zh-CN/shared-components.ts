@@ -112,30 +112,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': '剪切',
   'shared.templateInput.menu.paste': '粘贴',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Vault 机密',
-  'shared.templateInput.completion.scope.env': '环境',
-  'shared.templateInput.completion.scope.collection': '集合',
-  'shared.templateInput.completion.scope.workspace': '工作区',
-  'shared.templateInput.completion.scope.live': '来源',
-  'shared.templateInput.completion.scope.step': '来源流程步骤捕获',
-  'shared.templateInput.completion.scope.file': '文件引用',
-  'shared.templateInput.completion.scope.dynamic': '动态生成器',
-  'shared.templateInput.completion.staleSuffix': '（陈旧）',
-  'shared.templateInput.completion.comingSoon': '即将推出',
-  'shared.templateInput.completion.capturedAtRuntime': '在运行时捕获',
-  'shared.templateInput.completion.totpDetail': 'TOTP 代码（{digits} 位，{period}s）',
-  'shared.templateInput.completion.valueHiddenSensitive': '值已隐藏（敏感作用域）。',
-  'shared.templateInput.completion.valueHiddenStale': '值已隐藏（陈旧的 Live 变量）。',
-  'shared.templateInput.completion.valueDoc': '**值：**`{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**陈旧值：**`{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': '在工作流运行时捕获。',
-  'shared.templateInput.completion.totpDoc': '**TOTP 代码**——{algorithm}，{digits} 位，每 {period}s 刷新。',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**{issuer}** 的 **TOTP 代码**——{algorithm}，{digits} 位，每 {period}s 刷新。',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**机密管理器引用**——`{reference}`。发送时从管理器解析；值永不存储。',
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': '已解码',
   'shared.valueEditors.encodedPreview': '编码预览',

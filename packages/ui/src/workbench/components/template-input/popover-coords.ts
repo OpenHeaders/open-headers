@@ -24,7 +24,15 @@ export interface PopoverCoords {
   maxListHeight: number;
 }
 
-export function computePopoverCoords(rect: DOMRect, suggestionsLen: number, viewportHeight: number): PopoverCoords {
+/** The anchor's viewport edges — a field's `DOMRect`, or the rect a
+ *  Monaco host derives for the opening brace. */
+export interface AnchorRect {
+  left: number;
+  top: number;
+  bottom: number;
+}
+
+export function computePopoverCoords(rect: AnchorRect, suggestionsLen: number, viewportHeight: number): PopoverCoords {
   const wantHeight = Math.min(Math.max(suggestionsLen, 1) * POPOVER_ROW_H, POPOVER_LIST_MAX) + POPOVER_FOOTER_H;
   const roomBelow = viewportHeight - rect.bottom - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;
   const roomAbove = rect.top - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;

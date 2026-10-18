@@ -3,7 +3,7 @@
  * one surface (workbench editors, panel quick-editors/value documents,
  * popup): the template-input family (`shared.templateInput.*` — the
  * `{{ref}}` field, suggestion popover, variable hover/create popovers,
- * selection menu, Monaco variable completions) and the value-editors
+ * selection menu) and the value-editors
  * family (`shared.valueEditors.*` — JWT/encoded-value modals, compact
  * editor, pair grid, detected-value titles + edit tooltips).
  *
@@ -115,30 +115,6 @@ export const sharedComponents = {
   'shared.templateInput.valuePlaceholder': 'Value',
   'shared.templateInput.menu.cut': 'Cut',
   'shared.templateInput.menu.paste': 'Paste',
-
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Vault secret',
-  'shared.templateInput.completion.scope.env': 'Environment',
-  'shared.templateInput.completion.scope.collection': 'Collection',
-  'shared.templateInput.completion.scope.workspace': 'Workspace',
-  'shared.templateInput.completion.scope.live': 'Source',
-  'shared.templateInput.completion.scope.step': 'Source flow step capture',
-  'shared.templateInput.completion.scope.file': 'File reference',
-  'shared.templateInput.completion.scope.dynamic': 'Dynamic generator',
-  'shared.templateInput.completion.staleSuffix': '(stale)',
-  'shared.templateInput.completion.comingSoon': 'coming soon',
-  'shared.templateInput.completion.capturedAtRuntime': 'captured at runtime',
-  'shared.templateInput.completion.totpDetail': 'TOTP code ({digits} digits, {period}s)',
-  'shared.templateInput.completion.valueHiddenSensitive': 'Value hidden (sensitive scope).',
-  'shared.templateInput.completion.valueHiddenStale': 'Value hidden (stale live variable).',
-  'shared.templateInput.completion.valueDoc': '**Value:** `{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**Stale value:** `{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': 'Captured when the workflow runs.',
-  'shared.templateInput.completion.totpDoc': '**TOTP code** — {algorithm}, {digits} digits, refreshes every {period}s.',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**TOTP code** for **{issuer}** — {algorithm}, {digits} digits, refreshes every {period}s.',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**Secret manager reference** — `{reference}`. Resolved from the manager at send time; the value is never stored.',
 
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'Decoded',

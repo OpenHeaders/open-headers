@@ -45,7 +45,7 @@ import { ensureEditorKeybindingSync } from '../monaco/editor-keybindings';
 import { applyExternalValue } from '../monaco/external-value-sync';
 import { ensureEditorFormatCommand, registerEditorFormatHandler } from '../monaco/format-command';
 import { detectStructuredLanguage } from '../monaco/structured-text-detection';
-import { useMonacoVariableCompletions } from '../template-input';
+import { MonacoSuggestOverlay, useMonacoVariableSuggest } from '../template-input';
 import { useMonacoJwtEdit } from '../value-editors';
 import CodeEditorActions, { type CodeEditorActionsTarget, isFormattableLanguage } from './CodeEditorActions';
 
@@ -60,8 +60,8 @@ interface CodeEditorProps {
    *  resize grip — for panes that own their vertical space (e.g. the
    *  response body viewer). The parent must be a sized flex column. */
   fill?: boolean;
-  /** When true, register the cross-scope `{{VAR}}` completion
-   *  provider on mount.
+  /** When true, the buffer carries the cross-scope `{{VAR}}` picker
+   *  (the line inputs' list, opened on `{{`).
    *  Defaults to true for every host that doesn't opt out — callers
    *  that embed user scripts or SQL editors where `{{VAR}}` shouldn't
    *  expand can pass `variableAutoComplete={false}`. */
@@ -128,7 +128,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   actionsRef,
   onLanguageDetected,
 }) => {
-  const registerCompletions = useMonacoVariableCompletions();
   // Read-only buffers get the viewer wiring: "View JWT" hover link and a
   // no-write-back modal — same split as the panel's CodeViewer.
   const { attachJwtDetection, jwtModal } = useMonacoJwtEdit({ readOnly });
@@ -139,6 +138,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // Mounted-instance signal for effects that must attach editor
   // listeners — the ref alone can't re-run an effect at mount time.
   const [mountedEditor, setMountedEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+  // The variable picker rides the mounted instance: it reads the caret
+  // for the `{{query` run and paints the line inputs' list over it.
+  const suggest = useMonacoVariableSuggest(mountedEditor, { enabled: variableAutoComplete && !readOnly });
   // Runtime monaco namespace, captured at mount — the module import is
   // type-only (the loader owns the runtime), but the EOL decorations
   // need its enums.
@@ -467,7 +469,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           // Keyboard rebinds change the actual key, not just the hint.
           ensureEditorKeybindingSync(monacoApi);
           ensureEditorFormatCommand(monacoApi);
-          if (variableAutoComplete) registerCompletions(monacoApi);
           if (valueDetection) attachJwtDetection(ed, monacoApi);
           onEditorMount?.(ed, monacoApi);
         }}
@@ -553,6 +554,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       )}
       {jwtModal}
+      <MonacoSuggestOverlay
+        anchor={suggest.anchor}
+        suggestions={suggest.suggestions}
+        activeIndex={suggest.activeIndex}
+        onActiveIndexChange={suggest.setActiveIndex}
+        onSelect={suggest.select}
+      />
     </div>
   );
 };

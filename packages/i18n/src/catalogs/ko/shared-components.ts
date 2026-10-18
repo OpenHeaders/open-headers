@@ -112,30 +112,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': '잘라내기',
   'shared.templateInput.menu.paste': '붙여넣기',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Vault 시크릿',
-  'shared.templateInput.completion.scope.env': '환경',
-  'shared.templateInput.completion.scope.collection': '컬렉션',
-  'shared.templateInput.completion.scope.workspace': '워크스페이스',
-  'shared.templateInput.completion.scope.live': '소스',
-  'shared.templateInput.completion.scope.step': '소스 플로 단계 캡처',
-  'shared.templateInput.completion.scope.file': '파일 참조',
-  'shared.templateInput.completion.scope.dynamic': '동적 생성기',
-  'shared.templateInput.completion.staleSuffix': '(오래됨)',
-  'shared.templateInput.completion.comingSoon': '곧 지원',
-  'shared.templateInput.completion.capturedAtRuntime': '실행 시 캡처',
-  'shared.templateInput.completion.totpDetail': 'TOTP 코드 ({digits}자리, {period}s)',
-  'shared.templateInput.completion.valueHiddenSensitive': '값이 숨겨져 있습니다 (민감한 범위).',
-  'shared.templateInput.completion.valueHiddenStale': '값이 숨겨져 있습니다 (오래된 라이브 변수).',
-  'shared.templateInput.completion.valueDoc': '**값:** `{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**오래된 값:** `{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': '워크플로가 실행될 때 캡처됩니다.',
-  'shared.templateInput.completion.totpDoc': '**TOTP 코드**: {algorithm}, {digits}자리, {period}s마다 갱신.',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**{issuer}**의 **TOTP 코드**: {algorithm}, {digits}자리, {period}s마다 갱신.',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**시크릿 관리자 참조**: `{reference}`. 전송 시점에 관리자에서 해결되며 값은 저장되지 않습니다.',
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': '디코딩됨',
   'shared.valueEditors.encodedPreview': '인코딩 미리보기',

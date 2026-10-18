@@ -112,30 +112,6 @@ export const sharedComponents = {
   'shared.templateInput.menu.cut': '切り取り',
   'shared.templateInput.menu.paste': '貼り付け',
 
-  // ── Monaco variable completions (detail + hover documentation) ─────
-  'shared.templateInput.completion.scope.vault': 'Vault シークレット',
-  'shared.templateInput.completion.scope.env': '環境',
-  'shared.templateInput.completion.scope.collection': 'コレクション',
-  'shared.templateInput.completion.scope.workspace': 'ワークスペース',
-  'shared.templateInput.completion.scope.live': 'ソース',
-  'shared.templateInput.completion.scope.step': 'ソースフローのステップキャプチャ',
-  'shared.templateInput.completion.scope.file': 'ファイル参照',
-  'shared.templateInput.completion.scope.dynamic': '動的生成器',
-  'shared.templateInput.completion.staleSuffix': '（古い）',
-  'shared.templateInput.completion.comingSoon': '近日対応予定',
-  'shared.templateInput.completion.capturedAtRuntime': '実行時にキャプチャ',
-  'shared.templateInput.completion.totpDetail': 'TOTP コード（{digits} 桁、{period}s）',
-  'shared.templateInput.completion.valueHiddenSensitive': '値は非表示です（機密スコープ）。',
-  'shared.templateInput.completion.valueHiddenStale': '値は非表示です（古いライブ変数）。',
-  'shared.templateInput.completion.valueDoc': '**値：**`{value}`',
-  'shared.templateInput.completion.staleValueDoc': '**古い値：**`{value}`',
-  'shared.templateInput.completion.capturedWhenRuns': 'ワークフローの実行時にキャプチャされます。',
-  'shared.templateInput.completion.totpDoc': '**TOTP コード**：{algorithm}、{digits} 桁、{period}s ごとに更新。',
-  'shared.templateInput.completion.totpDocIssuer':
-    '**{issuer}** の **TOTP コード**：{algorithm}、{digits} 桁、{period}s ごとに更新。',
-  'shared.templateInput.completion.secretManagerDoc':
-    '**シークレットマネージャー参照**：`{reference}`。送信時にマネージャーから解決され、値は保存されません。',
-
   // ── Value editors: shared chrome ───────────────────────────────────
   'shared.valueEditors.decoded': 'デコード済み',
   'shared.valueEditors.encodedPreview': 'エンコードのプレビュー',
