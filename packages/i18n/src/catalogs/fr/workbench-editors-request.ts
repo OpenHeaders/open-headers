@@ -40,9 +40,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': "Échec de l'enregistrement de l'exemple : {message}",
   'workbench.editors.request.send.label': 'Envoyer',
   'workbench.editors.request.send.sending': 'Envoi…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    "La requête comporte des variables non résolues. Définissez-les dans le vault, l'environnement, la " +
-    "collection, l'espace de travail ou un workflow Live avant l'envoi.",
+  'workbench.editors.request.send.sentAsWrittenTooltip': 'Envoie les variables non résolues telles quelles',
   'workbench.editors.request.send.stop': 'Arrêter',
   'workbench.editors.request.send.stopTooltip': 'Arrêter la requête et conserver ce qui est arrivé',
   'workbench.editors.request.menu.copyAsCurl': 'Copier en cURL',
@@ -1603,6 +1601,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     "Paramètres que l'exécution a pris de la collection ou du dossier au-dessus de la requête — résolus comme l'onglet Paramètres les affiche, les valeurs propres à la requête l'emportant sur la chaîne.",
   'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Paramètre · source',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': 'Envoyé tel quel · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Envoyé tel quel',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    'Aucune portée n’a résolu ces références : elles sont parties exactement comme saisies, le serveur a vu le texte entre accolades. Définissez chacune là où l’indication le dit, puis renvoyez.',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Référence · comment la résoudre',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Chaîne de scripts',
   'workbench.editors.request.response.meta.scriptsSummary':

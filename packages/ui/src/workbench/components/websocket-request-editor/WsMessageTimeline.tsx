@@ -66,11 +66,11 @@ import {
 import type { WsHandshakeHeaderWire } from '@openheaders/core/bridge';
 import type { MessageKey } from '@openheaders/i18n';
 import { parseEngineIoFrame, SOCKET_IO_PACKET_TYPES } from '@openheaders/core/socketio';
-import type { WebSocketFlavor } from '@openheaders/core/types';
+import type { SentAsWrittenReference, WebSocketFlavor } from '@openheaders/core/types';
 import { decodeBase64Bytes, wsCloseCodePhrase } from '@openheaders/core/utils';
 import { Button, Dropdown, Input, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useVirtualRowWindow } from '@openheaders/ui/shared/virtual-window';
@@ -154,6 +154,9 @@ export interface WsTimelineItem {
   /** The ↑ message carried a secret manager's value (the executor's
    *  stamp) — the row and the viewer show a placeholder, never the text. */
   secret?: true;
+  /** The ↑ message carried these references as written (the executor's
+   *  stamp) — the row's details name each with its fix. */
+  sentAsWritten?: readonly SentAsWrittenReference[];
 }
 
 /** How the session ended — drives the ended lifecycle row. */
@@ -2028,6 +2031,17 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
                         ? t('workbench.editors.websocket.timeline.info.frameBinary')
                         : t('workbench.editors.websocket.timeline.info.frameText')}
                     </span>
+                    {/* The references the ↑ message carried as written — each
+                        with the resolver's fix, the meta strip's wording. */}
+                    {item.sentAsWritten !== undefined &&
+                      item.sentAsWritten.map((reference) => (
+                        <Fragment key={reference.reference}>
+                          <span>{t('workbench.editors.websocket.timeline.info.sentAsWritten')}:</span>
+                          <span data-testid="ws-timeline-message-sent-as-written">
+                            {`{{${reference.reference}}} — ${reference.hint}`}
+                          </span>
+                        </Fragment>
+                      ))}
                   </div>
                 }
               >

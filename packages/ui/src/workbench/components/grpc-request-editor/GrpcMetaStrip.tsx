@@ -7,7 +7,12 @@
  */
 
 import { GRPC_STATUS_NAMES, grpcStatusLabel } from '@openheaders/core/proto';
-import type { ExecutedAuthAttribution, ExecutedProxyRoute, InheritedSettingSource } from '@openheaders/core/types';
+import type {
+  ExecutedAuthAttribution,
+  ExecutedProxyRoute,
+  InheritedSettingSource,
+  SentAsWrittenReference,
+} from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -17,6 +22,7 @@ import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/r
 import ExecutedOnTag, { type ExecutedOnStamp } from '../request-editor/response/ExecutedOnTag';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-editor/response/InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import SentAsWrittenTag, { sentAsWrittenHasBadge } from '../request-editor/response/SentAsWrittenTag';
 
 /** Canonical description key per protocol status name — a literal map
  *  so the catalog keys stay statically checked (no dynamic key
@@ -84,11 +90,26 @@ const GrpcMetaStrip: React.FC<{
    *  `ExecutedGrpcSnapshot.inheritedSettings`) — the shared attribution
    *  tag; examples omit it like the route. */
   inheritedSettings?: readonly InheritedSettingSource[];
+  /** The references the call carried as written (see
+   *  `ExecutedGrpcSnapshot.sentAsWritten`) — the shared attribution
+   *  tag; examples omit it like the route. */
+  sentAsWritten?: readonly SentAsWrittenReference[];
   /** The host that answered the invoke on this surface's behalf (see
    *  `ExecutedGrpcSnapshot.executedOn`) — the shared "Sent from" tag;
    *  absent when the invoke ran on this surface's own host. */
   executedOn?: ExecutedOnStamp;
-}> = ({ status, stopped, error, localStatus, connectionError, proxyRoute, auth, inheritedSettings, executedOn }) => {
+}> = ({
+  status,
+  stopped,
+  error,
+  localStatus,
+  connectionError,
+  proxyRoute,
+  auth,
+  inheritedSettings,
+  sentAsWritten,
+  executedOn,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   // A caller-stopped call whose reply carried no status reads as
@@ -135,6 +156,7 @@ const GrpcMetaStrip: React.FC<{
       {proxyRouteHasBadge(proxyRoute) && <ProxyRouteTag route={proxyRoute} />}
       {authAttributionHasBadge(auth) && <AuthAttributionTag auth={auth} />}
       {inheritedSettingsHasBadge(inheritedSettings) && <InheritedSettingsTag kind="grpc" sources={inheritedSettings} />}
+      {sentAsWrittenHasBadge(sentAsWritten) && <SentAsWrittenTag references={sentAsWritten} />}
       {executedOn !== undefined && <ExecutedOnTag executedOn={executedOn} />}
     </span>
   );

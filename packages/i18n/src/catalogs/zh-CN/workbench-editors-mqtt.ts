@@ -363,6 +363,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.copyMessage': '复制消息',
   'workbench.editors.mqtt.timeline.info.label': '消息详情',
   'workbench.editors.mqtt.timeline.info.size': '大小',
+  'workbench.editors.mqtt.timeline.info.sentAsWritten': '按原样发送',
   'workbench.editors.mqtt.timeline.retainedTag': '保留',
   'workbench.editors.mqtt.timeline.sentAria': '已发送',
   'workbench.editors.mqtt.timeline.receivedAria': '已接收',

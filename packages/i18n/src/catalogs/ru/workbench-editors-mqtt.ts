@@ -406,6 +406,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.copyMessage': 'Копировать сообщение',
   'workbench.editors.mqtt.timeline.info.label': 'Сведения о сообщении',
   'workbench.editors.mqtt.timeline.info.size': 'Размер',
+  'workbench.editors.mqtt.timeline.info.sentAsWritten': 'Отправлено как есть',
   'workbench.editors.mqtt.timeline.retainedTag': 'Удержано',
   'workbench.editors.mqtt.timeline.sentAria': 'Отправлено',
   'workbench.editors.mqtt.timeline.receivedAria': 'Получено',

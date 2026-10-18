@@ -29,7 +29,7 @@ import {
 } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { formatBytes } from '../request-editor/response/response-format';
@@ -617,6 +617,17 @@ const MqttTimelineEntryRow: React.FC<MqttTimelineEntryRowProps> = ({
                 <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: 8, rowGap: 2 }}>
                   <span>{t('workbench.editors.mqtt.timeline.info.size')}:</span>
                   <span data-testid="mqtt-timeline-message-size">{formatBytes(view.byteLength)}</span>
+                  {/* The references the ↑ PUBLISH carried as written — each
+                      with the resolver's fix, the meta strip's wording. */}
+                  {item.sentAsWritten !== undefined &&
+                    item.sentAsWritten.map((reference) => (
+                      <Fragment key={reference.reference}>
+                        <span>{t('workbench.editors.mqtt.timeline.info.sentAsWritten')}:</span>
+                        <span data-testid="mqtt-timeline-message-sent-as-written">
+                          {`{{${reference.reference}}} — ${reference.hint}`}
+                        </span>
+                      </Fragment>
+                    ))}
                 </div>
               }
             >

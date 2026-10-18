@@ -251,6 +251,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.saveMessage': 'Nachricht speichern',
   'workbench.editors.websocket.timeline.info.label': 'Nachrichtendetails',
   'workbench.editors.websocket.timeline.info.size': 'Größe',
+  'workbench.editors.websocket.timeline.info.sentAsWritten': 'Unverändert gesendet',
   'workbench.editors.websocket.timeline.info.frame': 'Frame',
   'workbench.editors.websocket.timeline.info.frameText': 'Text',
   'workbench.editors.websocket.timeline.info.frameBinary': 'Binär',

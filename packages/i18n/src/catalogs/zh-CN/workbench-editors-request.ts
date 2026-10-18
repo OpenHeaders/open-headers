@@ -45,8 +45,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': '保存示例失败：{message}',
   'workbench.editors.request.send.label': '发送',
   'workbench.editors.request.send.sending': '正在发送…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    '请求含有未解析的变量。发送前请在 vault、环境、集合、工作区或 live 工作流中定义它们。',
+  'workbench.editors.request.send.sentAsWrittenTooltip': '未解析的变量将按原样发送',
   'workbench.editors.request.send.stop': '停止',
   'workbench.editors.request.send.stopTooltip': '停止请求并保留已到达的内容',
   'workbench.editors.request.menu.copyAsCurl': '复制为 cURL',
@@ -1295,6 +1294,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     '本次运行从请求上方的集合或文件夹继承的设置——按“设置”标签页的显示方式解析，请求自身的值优先于继承链。',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': '设置 · 来源',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': '按原样发送 · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': '按原样发送',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    '没有任何作用域解析这些引用，因此它们按输入原样发出——服务器看到的是花括号之间的文本。请按提示所指的位置逐一定义，然后重新发送。',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': '引用 · 如何解析',
   'workbench.editors.request.response.meta.scriptsTag': '脚本 · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': '脚本链',
   'workbench.editors.request.response.meta.scriptsSummary':

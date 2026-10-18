@@ -391,6 +391,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.copyMessage': '메시지 복사',
   'workbench.editors.mqtt.timeline.info.label': '메시지 세부 정보',
   'workbench.editors.mqtt.timeline.info.size': '크기',
+  'workbench.editors.mqtt.timeline.info.sentAsWritten': '입력한 그대로 전송',
   'workbench.editors.mqtt.timeline.retainedTag': '보존됨',
   'workbench.editors.mqtt.timeline.sentAria': '보냄',
   'workbench.editors.mqtt.timeline.receivedAria': '받음',

@@ -401,6 +401,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.copyMessage': 'Copier le message',
   'workbench.editors.mqtt.timeline.info.label': 'Détails du message',
   'workbench.editors.mqtt.timeline.info.size': 'Taille',
+  'workbench.editors.mqtt.timeline.info.sentAsWritten': 'Envoyé tel quel',
   'workbench.editors.mqtt.timeline.retainedTag': 'Retenu',
   'workbench.editors.mqtt.timeline.sentAria': 'Envoyé',
   'workbench.editors.mqtt.timeline.receivedAria': 'Reçu',

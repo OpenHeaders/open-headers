@@ -407,6 +407,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.copyMessage': 'Copiere mesaj',
   'workbench.editors.mqtt.timeline.info.label': 'Detalii mesaj',
   'workbench.editors.mqtt.timeline.info.size': 'Dimensiune',
+  'workbench.editors.mqtt.timeline.info.sentAsWritten': 'Trimis așa cum e scris',
   'workbench.editors.mqtt.timeline.retainedTag': 'Reținut',
   'workbench.editors.mqtt.timeline.sentAria': 'Trimis',
   'workbench.editors.mqtt.timeline.receivedAria': 'Primit',

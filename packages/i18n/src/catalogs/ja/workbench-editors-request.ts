@@ -51,8 +51,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': '例を保存できませんでした：{message}',
   'workbench.editors.request.send.label': '送信',
   'workbench.editors.request.send.sending': '送信しています…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    'リクエストに未解決の変数があります。送信する前に vault、環境、コレクション、ワークスペース、またはライブワークフローで定義してください。',
+  'workbench.editors.request.send.sentAsWrittenTooltip': '未解決の変数はそのまま送信されます',
   'workbench.editors.request.send.stop': '停止',
   'workbench.editors.request.send.stopTooltip': 'リクエストを停止し、届いた分を保持します',
   'workbench.editors.request.menu.copyAsCurl': 'cURL としてコピー',
@@ -1466,6 +1465,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     '実行がリクエストの上位のコレクションまたはフォルダーから取った設定です。設定タブに表示されるのと同じ方法で解決され、リクエスト自身の値がチェーンより優先されます。',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': '設定 · 設定元',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': 'そのまま送信 · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': 'そのまま送信',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    'どのスコープもこれらの参照を解決しなかったため、入力したままの文字列が送信されました。サーバーは波括弧の中のテキストをそのまま受け取っています。ヒントの示す場所で定義してから、もう一度送信してください。',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': '参照 · 解決方法',
   'workbench.editors.request.response.meta.scriptsTag': 'スクリプト · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'スクリプトチェーン',
   'workbench.editors.request.response.meta.scriptsSummary':

@@ -190,6 +190,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
             {...(snapshot.proxyRoute !== undefined ? { proxyRoute: snapshot.proxyRoute } : {})}
             {...(snapshot.auth !== undefined ? { auth: snapshot.auth } : {})}
             {...(snapshot.inheritedSettings !== undefined ? { inheritedSettings: snapshot.inheritedSettings } : {})}
+            {...(snapshot.sentAsWritten !== undefined ? { sentAsWritten: snapshot.sentAsWritten } : {})}
             {...(snapshot.executedOn !== undefined ? { executedOn: snapshot.executedOn } : {})}
           />
           <GrpcScriptsTag digest={scriptsDigest} />

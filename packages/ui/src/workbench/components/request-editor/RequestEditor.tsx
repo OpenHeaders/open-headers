@@ -797,10 +797,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         handleStop();
         return;
       }
-      if (hasUnresolvedRefs) return;
       void handleSend();
     },
-    [sending, hasUnresolvedRefs, handleSend, handleStop],
+    [sending, handleSend, handleStop],
   );
 
   if (!isCreateMode && !summary) {
@@ -905,7 +904,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
               {t('workbench.editors.request.send.stopTooltip')}
             </ShortcutHintTitle>
           ) : hasUnresolvedRefs ? (
-            t('workbench.editors.request.send.unresolvedTooltip')
+            // An unresolved reference never blocks Send — the draft's
+            // dots and the red dress already say it; the request goes
+            // with the text as written and the response's meta strip
+            // names each reference. A secret manager's typed failure
+            // is the executor's refusal, read in the response pane.
+            <ShortcutHintTitle label={SEND_SHORTCUT}>
+              {t('workbench.editors.request.send.sentAsWrittenTooltip')}
+            </ShortcutHintTitle>
           ) : (
             <ShortcutHintTitle label={SEND_SHORTCUT}>{t('workbench.editors.request.send.label')}</ShortcutHintTitle>
           )
@@ -954,7 +960,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                 setSendTooltipSuppressed(true);
                 void handleSend();
               }}
-              disabled={hasUnresolvedRefs || placeBlocked}
+              disabled={placeBlocked}
               style={{ fontSize: 11 }}
             >
               {t('workbench.editors.request.send.label')}

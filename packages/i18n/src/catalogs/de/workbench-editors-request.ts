@@ -52,9 +52,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Beispiel konnte nicht gespeichert werden: {message}',
   'workbench.editors.request.send.label': 'Senden',
   'workbench.editors.request.send.sending': 'Wird gesendet…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    'Die Anfrage hat unaufgelöste Variablen. Definiere sie im vault, in der Umgebung, der Sammlung, dem ' +
-    'Arbeitsbereich oder einem Live-Workflow, bevor du sendest.',
+  'workbench.editors.request.send.sentAsWrittenTooltip': 'Sendet unaufgelöste Variablen unverändert',
   'workbench.editors.request.send.stop': 'Stoppen',
   'workbench.editors.request.send.stopTooltip': 'Die Anfrage stoppen und behalten, was bereits angekommen ist',
   'workbench.editors.request.menu.copyAsCurl': 'Als cURL kopieren',
@@ -1598,6 +1596,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     'Einstellungen, die der Lauf aus der Sammlung oder dem Ordner über der Anfrage übernommen hat — aufgelöst, wie der Tab Einstellungen sie zeigt; eigene Werte der Anfrage gehen der Kette vor.',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Einstellung · Quelle',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': 'Unverändert gesendet · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Unverändert gesendet',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    'Kein Bereich hat diese Referenzen aufgelöst, daher gingen sie genau so über die Leitung, wie sie eingegeben wurden – der Server sah den Text zwischen den Klammern. Definiere jede dort, wo der Hinweis es sagt, und sende erneut.',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Referenz · so wird sie aufgelöst',
   'workbench.editors.request.response.meta.scriptsTag': 'Skripte · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Skriptkette',
   'workbench.editors.request.response.meta.scriptsSummary':

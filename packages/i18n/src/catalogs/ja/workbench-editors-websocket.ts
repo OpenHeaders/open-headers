@@ -233,6 +233,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.saveMessage': 'メッセージを保存',
   'workbench.editors.websocket.timeline.info.label': 'メッセージの詳細',
   'workbench.editors.websocket.timeline.info.size': 'サイズ',
+  'workbench.editors.websocket.timeline.info.sentAsWritten': 'そのまま送信',
   'workbench.editors.websocket.timeline.info.frame': 'フレーム',
   'workbench.editors.websocket.timeline.info.frameText': 'テキスト',
   'workbench.editors.websocket.timeline.info.frameBinary': 'バイナリ',

@@ -41,9 +41,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'No se pudo guardar el ejemplo: {message}',
   'workbench.editors.request.send.label': 'Enviar',
   'workbench.editors.request.send.sending': 'Enviando…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    'La solicitud tiene variables sin resolver. Defínelas en el vault, el entorno, la colección, el espacio ' +
-    'de trabajo o un workflow live antes de enviar.',
+  'workbench.editors.request.send.sentAsWrittenTooltip': 'Envía las variables sin resolver tal cual',
   'workbench.editors.request.send.stop': 'Detener',
   'workbench.editors.request.send.stopTooltip': 'Detener la solicitud y conservar lo que haya llegado',
   'workbench.editors.request.menu.copyAsCurl': 'Copiar como cURL',
@@ -1581,6 +1579,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     'Ajustes que la ejecución tomó de la colección o carpeta por encima de la solicitud — resueltos tal como los muestra su pestaña Configuración, con los valores propios de la solicitud por encima de la cadena.',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Ajuste · origen',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': 'Enviado tal cual · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Enviado tal cual',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    'Ningún ámbito resolvió estas referencias, así que viajaron exactamente como se escribieron: el servidor vio el texto entre llaves. Define cada una donde indica la pista y vuelve a enviar.',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Referencia · cómo resolverla',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Cadena de scripts',
   'workbench.editors.request.response.meta.scriptsSummary':

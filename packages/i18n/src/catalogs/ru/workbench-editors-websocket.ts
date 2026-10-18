@@ -240,6 +240,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.saveMessage': 'Сохранить сообщение',
   'workbench.editors.websocket.timeline.info.label': 'Сведения о сообщении',
   'workbench.editors.websocket.timeline.info.size': 'Размер',
+  'workbench.editors.websocket.timeline.info.sentAsWritten': 'Отправлено как есть',
   'workbench.editors.websocket.timeline.info.frame': 'Фрейм',
   'workbench.editors.websocket.timeline.info.frameText': 'Текстовый',
   'workbench.editors.websocket.timeline.info.frameBinary': 'Двоичный',

@@ -31,6 +31,7 @@ import AuthAttributionTag, { authAttributionHasBadge } from '../request-editor/r
 import ExecutedOnTag from '../request-editor/response/ExecutedOnTag';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-editor/response/InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
+import SentAsWrittenTag, { sentAsWrittenHasBadge } from '../request-editor/response/SentAsWrittenTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
@@ -420,6 +421,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
           {inheritedSettingsHasBadge(snapshot.inheritedSettings) && (
             <InheritedSettingsTag kind="mqtt" sources={snapshot.inheritedSettings} />
           )}
+          {sentAsWrittenHasBadge(snapshot.sentAsWritten) && <SentAsWrittenTag references={snapshot.sentAsWritten} />}
           {snapshot.executedOn !== undefined && <ExecutedOnTag executedOn={snapshot.executedOn} />}
           <MqttScriptsTag digest={scriptsDigest} />
           <Dropdown

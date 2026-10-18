@@ -8,7 +8,7 @@
  * this module names.
  */
 
-import type { ExecutedMqttScriptMark } from '@openheaders/core/types';
+import type { ExecutedMqttScriptMark, SentAsWrittenReference } from '@openheaders/core/types';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import type React from 'react';
 import { buildHexDump, type HexDump } from '../request-editor/response/response-encoding';
@@ -49,6 +49,9 @@ export type MqttTimelineItem =
       /** The ↑ PUBLISH carried a secret manager's value (the executor's
        *  stamp) — the row and the viewer show a placeholder. */
       secret?: true;
+      /** The ↑ PUBLISH carried these references as written (the
+       *  executor's stamp) — the row's details name each with its fix. */
+      sentAsWritten?: readonly SentAsWrittenReference[];
     }
   | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }> }
   | { kind: 'unsubscribed'; topicFilters: string[] }

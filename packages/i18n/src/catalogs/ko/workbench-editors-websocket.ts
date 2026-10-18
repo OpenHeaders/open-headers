@@ -233,6 +233,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.saveMessage': '메시지 저장',
   'workbench.editors.websocket.timeline.info.label': '메시지 세부 정보',
   'workbench.editors.websocket.timeline.info.size': '크기',
+  'workbench.editors.websocket.timeline.info.sentAsWritten': '입력한 그대로 전송',
   'workbench.editors.websocket.timeline.info.frame': '프레임',
   'workbench.editors.websocket.timeline.info.frameText': '텍스트',
   'workbench.editors.websocket.timeline.info.frameBinary': '바이너리',

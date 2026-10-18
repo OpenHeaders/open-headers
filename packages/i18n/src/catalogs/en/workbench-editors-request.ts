@@ -25,8 +25,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Failed to save example: {message}',
   'workbench.editors.request.send.label': 'Send',
   'workbench.editors.request.send.sending': 'Sending…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.',
+  'workbench.editors.request.send.sentAsWrittenTooltip': 'Sends unresolved variables as written',
   'workbench.editors.request.send.stop': 'Stop',
   'workbench.editors.request.send.stopTooltip': 'Stop the request and keep what has arrived',
   'workbench.editors.request.menu.copyAsCurl': 'Copy as cURL',
@@ -1440,6 +1439,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     'Settings the run took from the collection or folder above the request — resolved the way its Settings tab shows them, the request’s own values winning over the chain.',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Setting · source',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': 'Sent as written · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Sent as written',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    'No scope answered these references, so they went on the wire exactly as typed — the server saw the text between the braces. Define each one where the hint says, then send again.',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Reference · how to resolve it',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Script chain',
   'workbench.editors.request.response.meta.scriptsSummary':

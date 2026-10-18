@@ -215,6 +215,7 @@ export const workbenchEditorsWebsocket = {
   'workbench.editors.websocket.timeline.saveMessage': '保存消息',
   'workbench.editors.websocket.timeline.info.label': '消息详情',
   'workbench.editors.websocket.timeline.info.size': '大小',
+  'workbench.editors.websocket.timeline.info.sentAsWritten': '按原样发送',
   'workbench.editors.websocket.timeline.info.frame': '帧',
   'workbench.editors.websocket.timeline.info.frameText': '文本',
   'workbench.editors.websocket.timeline.info.frameBinary': '二进制',

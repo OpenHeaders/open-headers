@@ -49,8 +49,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': '예시를 저장하지 못했습니다: {message}',
   'workbench.editors.request.send.label': '전송',
   'workbench.editors.request.send.sending': '전송 중…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    '요청에 해석되지 않은 변수가 있습니다. 보내기 전에 vault 저장소, 환경, 컬렉션, 워크스페이스 또는 라이브 워크플로에서 정의하세요.',
+  'workbench.editors.request.send.sentAsWrittenTooltip': '해결되지 않은 변수를 입력한 그대로 보냅니다',
   'workbench.editors.request.send.stop': '중지',
   'workbench.editors.request.send.stopTooltip': '요청을 중지하고 지금까지 도착한 내용을 유지합니다',
   'workbench.editors.request.menu.copyAsCurl': 'cURL 형식으로 복사',
@@ -1443,6 +1442,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     '실행이 요청 위의 컬렉션이나 폴더에서 가져온 설정입니다. 설정 탭이 보여 주는 방식대로 해석되며, 요청 자체의 값이 체인보다 우선합니다.',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': '설정 · 출처',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': '입력한 그대로 전송 · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': '입력한 그대로 전송',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    '어떤 범위에서도 이 참조를 해결하지 못해 입력한 그대로 전송되었습니다. 서버는 중괄호 안의 텍스트를 그대로 받았습니다. 힌트가 가리키는 곳에 각각 정의한 뒤 다시 보내세요.',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': '참조 · 해결 방법',
   'workbench.editors.request.response.meta.scriptsTag': '스크립트 · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': '스크립트 체인',
   'workbench.editors.request.response.meta.scriptsSummary':

@@ -90,8 +90,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Не удалось сохранить пример: {message}',
   'workbench.editors.request.send.label': 'Отправить',
   'workbench.editors.request.send.sending': 'Отправка…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    'В запросе есть неразрешённые переменные. Перед отправкой определите их в vault, окружении, коллекции, рабочем пространстве или рабочем процессе Live.',
+  'workbench.editors.request.send.sentAsWrittenTooltip': 'Отправляет неразрешённые переменные как есть',
   'workbench.editors.request.send.stop': 'Остановить',
   'workbench.editors.request.send.stopTooltip': 'Остановить запрос и сохранить то, что уже пришло',
   'workbench.editors.request.menu.copyAsCurl': 'Копировать как cURL',
@@ -1533,6 +1532,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     'Настройки, которые запуск взял из коллекции или папки над запросом — разрешённые так, как их показывает вкладка «Настройки»: собственные значения запроса побеждают цепочку.',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Настройка · источник',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': 'Отправлено как есть · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Отправлено как есть',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    'Ни одна область не разрешила эти ссылки, поэтому они ушли ровно так, как были набраны, — сервер увидел текст между фигурными скобками. Определите каждую там, где указывает подсказка, и отправьте снова.',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Ссылка · как разрешить',
   'workbench.editors.request.response.meta.scriptsTag': 'Скрипты · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Цепочка скриптов',
   'workbench.editors.request.response.meta.scriptsSummary':

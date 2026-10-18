@@ -94,8 +94,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.toast.saveExampleFailedDetail': 'Exemplul nu a putut fi salvat: {message}',
   'workbench.editors.request.send.label': 'Trimitere',
   'workbench.editors.request.send.sending': 'Se trimite…',
-  'workbench.editors.request.send.unresolvedTooltip':
-    'Cererea are variabile nerezolvate. Definiți-le în vault, mediu, colecție, spațiul de lucru sau într-un flux de lucru Live înainte de trimitere.',
+  'workbench.editors.request.send.sentAsWrittenTooltip': 'Trimite variabilele nerezolvate așa cum sunt scrise',
   'workbench.editors.request.send.stop': 'Oprire',
   'workbench.editors.request.send.stopTooltip': 'Oprește cererea și păstrează ce a sosit',
   'workbench.editors.request.menu.copyAsCurl': 'Copiere ca cURL',
@@ -1528,6 +1527,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.inheritedSettingsSummary':
     'Setările pe care rularea le-a luat din colecția sau folderul de deasupra cererii — rezolvate așa cum le arată fila sa Setări, valorile proprii ale cererii având prioritate față de lanț.',
   'workbench.editors.request.response.meta.inheritedSettingsHeading': 'Setare · sursă',
+  'workbench.editors.request.response.meta.sentAsWrittenTag': 'Trimis așa cum e scris · {count}',
+  'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Trimis așa cum e scris',
+  'workbench.editors.request.response.meta.sentAsWrittenSummary':
+    'Niciun domeniu nu a rezolvat aceste referințe, așa că au plecat exact cum au fost scrise – serverul a văzut textul dintre acolade. Definește fiecare acolo unde indică sugestia, apoi trimite din nou.',
+  'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Referință · cum se rezolvă',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripturi · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Lanț de scripturi',
   'workbench.editors.request.response.meta.scriptsSummary':

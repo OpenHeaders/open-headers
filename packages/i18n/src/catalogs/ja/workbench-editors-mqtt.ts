@@ -399,6 +399,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.timeline.copyMessage': 'メッセージをコピー',
   'workbench.editors.mqtt.timeline.info.label': 'メッセージの詳細',
   'workbench.editors.mqtt.timeline.info.size': 'サイズ',
+  'workbench.editors.mqtt.timeline.info.sentAsWritten': 'そのまま送信',
   'workbench.editors.mqtt.timeline.retainedTag': '保持',
   'workbench.editors.mqtt.timeline.sentAria': '送信',
   'workbench.editors.mqtt.timeline.receivedAria': '受信',

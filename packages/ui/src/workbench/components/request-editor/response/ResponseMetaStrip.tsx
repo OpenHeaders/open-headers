@@ -30,6 +30,7 @@ import type { GraphqlResponseFacts } from './graphql-response';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from './InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from './ProxyRouteTag';
 import ScriptChainTag, { scriptChainHasBadge } from './ScriptChainTag';
+import SentAsWrittenTag, { sentAsWrittenHasBadge } from './SentAsWrittenTag';
 import { formatBytes } from './response-format';
 import { statusDisplayLabel, useStatusPillStyle } from './response-status';
 import {
@@ -895,6 +896,12 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, graphql
         <>
           <MetaDot />
           <InheritedSettingsTag kind="http" sources={response.inheritedSettings} />
+        </>
+      )}
+      {sentAsWrittenHasBadge(response.sentAsWritten) && (
+        <>
+          <MetaDot />
+          <SentAsWrittenTag references={response.sentAsWritten} />
         </>
       )}
       {scriptChainHasBadge(response.scripts) && (
