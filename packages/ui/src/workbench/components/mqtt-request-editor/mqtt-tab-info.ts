@@ -11,6 +11,7 @@
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { type MqttVersionScope, mqttVersionTags } from './MqttSettingsRowInfo';
 import type { MqttTabKey } from './mqtt-tab-items';
 
 const TITLE_KEY: Record<MqttTabKey, MessageKey> = {
@@ -58,11 +59,24 @@ const DETAIL_KEY: Record<MqttTabKey, MessageKey> = {
   spec: 'workbench.editors.mqtt.tabInfo.spec.detail',
 };
 
+/** The versions a tab's surface applies to — its header tags; the
+ *  packet-less tabs (Docs, Scripts, Spec) wear none. */
+const SCOPE: Partial<Record<MqttTabKey, MqttVersionScope>> = {
+  message: 'both',
+  topics: 'both',
+  auth: 'both',
+  properties: 'v5',
+  lastwill: 'both',
+  settings: 'both',
+};
+
 /** Popover content for one editor tab. */
 export function mqttTabInfo(t: Translate, tab: MqttTabKey): InfoPopoverContent {
+  const scope = SCOPE[tab];
   return {
     title: t(TITLE_KEY[tab]),
     kicker: PACKET[tab],
+    ...(scope !== undefined ? { tags: mqttVersionTags(t, scope) } : {}),
     summary: t(SUMMARY_KEY[tab]),
     description: t(DETAIL_KEY[tab]),
   };

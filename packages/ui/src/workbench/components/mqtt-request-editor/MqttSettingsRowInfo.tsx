@@ -479,10 +479,68 @@ const GROUP_SUMMARY_KEY: Record<MqttSettingsGroupKey, MessageKey> = {
 
 /** Popover content for a Settings-tab group header: the group's whole
  * sub-slice of the shared example lit at once. */
+/** The protocol versions a card applies to — the header's top-right
+ *  tags, in the target row's own words (the user's call, S8). 5.0 added
+ *  the properties, the subscription options and the session limits;
+ *  Clean Session is the 3.1.1 name of Clean Start; everything else both
+ *  versions carry. */
+export type MqttVersionScope = 'both' | 'v5' | 'v311';
+
+const V5_ONLY: ReadonlySet<MqttInfoKey> = new Set<MqttInfoKey>([
+  'sessionExpiry',
+  'receiveMaximum',
+  'maxPacketSize',
+  'topicAliasMaximum',
+  'requestResponseInformation',
+  'requestProblemInformation',
+  'willDelay',
+  'subscribeOptions',
+  'subscriptionOptions',
+  'noLocal',
+  'retainAsPublished',
+  'retainHandling',
+  'subscriptionId',
+  'subscribeProperties',
+  'subscribeUserProperties',
+  'publishProperties',
+  'publishUserProperties',
+  'responseTopic',
+  'correlationData',
+  'messageExpiry',
+  'contentType',
+  'payloadFormatIndicator',
+  'willProperties',
+  'willUserProperties',
+  'willResponseTopic',
+  'willCorrelationData',
+  'willMessageExpiry',
+  'willContentType',
+  'willPayloadFormatIndicator',
+]);
+
+const versionScopeOf = (infoKey: MqttInfoKey): MqttVersionScope =>
+  V5_ONLY.has(infoKey) ? 'v5' : infoKey === 'cleanSession' ? 'v311' : 'both';
+
+/** The tags for a scope — both versions in the dropdown's order, or
+ *  the one. */
+export function mqttVersionTags(t: Translate, scope: MqttVersionScope): string[] {
+  const v311 = t('workbench.editors.mqtt.version.v311');
+  const v5 = t('workbench.editors.mqtt.version.v5');
+  return scope === 'both' ? [v311, v5] : scope === 'v5' ? [v5] : [v311];
+}
+
+const GROUP_SCOPE: Record<MqttSettingsGroupKey, MqttVersionScope> = {
+  connection: 'both',
+  resilience: 'both',
+  session: 'v5',
+  tls: 'both',
+};
+
 export function mqttSettingsGroupInfo(t: Translate, group: MqttSettingsGroupKey): InfoPopoverContent {
   return {
     title: t(MQTT_GROUP_LABEL_KEY[group]),
     kicker: t('workbench.editors.mqtt.tab.settings'),
+    tags: mqttVersionTags(t, GROUP_SCOPE[group]),
     diagram: <MqttExampleCard lit={new Set(GROUP_TOKENS[group])} />,
     maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
     summary: t(GROUP_SUMMARY_KEY[group]),
@@ -493,6 +551,7 @@ export function mqttSettingsGroupInfo(t: Translate, group: MqttSettingsGroupKey)
 export function mqttSettingsRowInfo(t: Translate, infoKey: MqttInfoKey): InfoPopoverContent {
   const kicker = isGearInfoKey(infoKey) ? GEAR_PACKET[infoKey] : t(KICKER_KEY[infoKey]);
   const card = {
+    tags: mqttVersionTags(t, versionScopeOf(infoKey)),
     diagram: <MqttExampleCard lit={new Set(HIGHLIGHT[infoKey])} routeText={DIAL_VARIANT[infoKey]} />,
     maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
   };

@@ -13,8 +13,12 @@
  * under its column header.
  */
 
+import { DEFAULT_LOCALE, getTranslator } from '@openheaders/i18n';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { emptyMessagePropertiesDraft } from '@openheaders/ui/workbench/components/mqtt-request-editor/draft';
 import MessagePropertiesPopover from '@openheaders/ui/workbench/components/mqtt-request-editor/MessagePropertiesPopover';
+import { mqttSettingsRowInfo } from '@openheaders/ui/workbench/components/mqtt-request-editor/MqttSettingsRowInfo';
+import { mqttTabInfo } from '@openheaders/ui/workbench/components/mqtt-request-editor/mqtt-tab-info';
 import TopicOptionsPopover from '@openheaders/ui/workbench/components/mqtt-request-editor/TopicOptionsPopover';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -271,6 +275,35 @@ describe('mqtt gear popovers — the row dots and the gear badge', () => {
     expect(rowDot(popover, 'No Local', 'modified')).toBe(true);
     expect(rowDot(popover, 'Subscription Identifier', 'unsaved')).toBe(true);
     expect(rowDot(popover, 'Retain Handling', 'modified')).toBe(false);
+  });
+});
+
+describe('mqtt (i) cards — the version tags in the header’s corner', () => {
+  const tags = (): string[] =>
+    Array.from(document.querySelectorAll('[data-testid="oh-info-popover-tag"]')).map((el) => el.textContent ?? '');
+
+  it('a 5.0-only knob wears V5; a knob both versions carry wears V3.1.1 and V5; a packet-less tab wears none', async () => {
+    const t = getTranslator(DEFAULT_LOCALE);
+    renderMessageGear('publish', 'mqtt-publish-props');
+    await openGear('mqtt-publish-props');
+    await openCard('About Response Topic');
+    expect(tags()).toEqual(['V5']);
+    cleanup();
+    render(<InfoTrigger content={mqttSettingsRowInfo(t, 'publishRetain')} />);
+    await openCard('About Retain');
+    expect(tags()).toEqual(['V3.1.1', 'V5']);
+    cleanup();
+    render(<InfoTrigger content={mqttSettingsRowInfo(t, 'cleanSession')} />);
+    await openCard('About Clean Session');
+    expect(tags()).toEqual(['V3.1.1']);
+    cleanup();
+    render(<InfoTrigger content={mqttTabInfo(t, 'properties')} />);
+    await openCard('About Properties');
+    expect(tags()).toEqual(['V5']);
+    cleanup();
+    render(<InfoTrigger content={mqttTabInfo(t, 'docs')} />);
+    await openCard('About Docs');
+    expect(tags()).toEqual([]);
   });
 });
 

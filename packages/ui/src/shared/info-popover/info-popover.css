@@ -38,6 +38,25 @@
 .oh-info-popover-header-text {
   min-width: 0;
 }
+/* The header's top-right corner: the scope tags, then the link. */
+.oh-info-popover-header-side {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* A scope tag — the packet mark's dress: small, bordered, quiet. */
+.oh-info-popover-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 14px;
+  padding: 0 4px;
+  border-radius: 3px;
+  border: 1px solid var(--ant-color-border-secondary);
+  color: var(--ant-color-text-tertiary);
+  white-space: nowrap;
+}
 /* Top-right pinned link (the header never scrolls) — a quiet jump into
  * the full docs surface for topics too big for a popover. */
 .oh-info-popover-header-link {

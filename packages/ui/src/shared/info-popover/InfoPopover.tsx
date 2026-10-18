@@ -101,10 +101,19 @@ function InfoPopoverBody({
           {content.kicker && <div className="oh-info-popover-kicker">{content.kicker}</div>}
           <div className="oh-info-popover-title">{content.title}</div>
         </div>
-        {content.headerLink && (
-          <button type="button" className="oh-info-popover-header-link" onClick={content.headerLink.onClick}>
-            {content.headerLink.label}
-          </button>
+        {(content.tags !== undefined || content.headerLink !== undefined) && (
+          <div className="oh-info-popover-header-side">
+            {content.tags?.map((tag) => (
+              <span className="oh-info-popover-tag" key={tag} data-testid="oh-info-popover-tag">
+                {tag}
+              </span>
+            ))}
+            {content.headerLink && (
+              <button type="button" className="oh-info-popover-header-link" onClick={content.headerLink.onClick}>
+                {content.headerLink.label}
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div className="oh-info-popover-scroll">

@@ -69,6 +69,11 @@ export interface InfoPopoverContent {
    *  never scrolls, so it stays visible over long bodies). Used for
    *  "More information" jumps into the full docs surface. */
   headerLink?: InfoPopoverAction;
+  /** Optional small tags pinned to the header's top-right corner,
+   *  before the link — the scope the card applies to, in the host's
+   *  own words (the MQTT cards: the protocol versions, `V3.1.1` /
+   *  `V5`), so a reader sees at once whether the knob is theirs. */
+  tags?: ReadonlyArray<string>;
   /** Required. One-sentence orientation, body-weight, above any longer
    *  description. A node so inline `{{token}}` references can render
    *  as code chips instead of plain text. */
