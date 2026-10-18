@@ -44,11 +44,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tabInfo.message.summary':
     '送信がパブリッシュするトピック、ペイロード、QoS、retain フラグと、再利用のために保存したメッセージです。',
   'workbench.editors.mqtt.tabInfo.message.detail':
-    'パブリッシュのプロパティ (5.0) はメッセージのプロパティのポップオーバーにあります。変数は送信時に解決されます。',
+    'パブリッシュのプロパティ (5.0) は作成バーのプロパティの歯車の中にあります。変数は送信時に解決されます。',
   'workbench.editors.mqtt.tabInfo.topics.summary':
     'ブローカーが接続を受け入れた直後にセッションが開くサブスクリプションです。1 行に 1 つのフィルターです。',
   'workbench.editors.mqtt.tabInfo.topics.detail':
-    'ワイルドカード + と # を使えます。オフにした行は保存されたままでサブスクライブしません。5.0 のオプションは各行の設定にあります。',
+    'ワイルドカード + と # を使えます。オフにした行は保存されたままでサブスクライブしません。5.0 のオプションは各行の歯車の中にあります。',
   'workbench.editors.mqtt.tabInfo.auth.summary':
     'CONNECT パケットの User Name と Password です。どちらの MQTT バージョンも運びます。',
   'workbench.editors.mqtt.tabInfo.auth.detail':
@@ -99,10 +99,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'パブリッシュするペイロードを作成…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'バイナリペイロードの Base64（例：aGVsbG8=）…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'バイナリペイロードの 16 進（例：48656c6c6f）…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'メッセージのオプション',
   'workbench.editors.mqtt.props.hint': '各メッセージとともに送られる MQTT 5.0 のメタデータです。',
-  'workbench.editors.mqtt.props.v311':
-    'メッセージプロパティは MQTT 5.0 の機能です。このリクエストは 3.1.1 を対象にしています。',
+  'workbench.editors.mqtt.props.title': 'メッセージプロパティ',
+  'workbench.editors.mqtt.props.gearLabel': 'プロパティ',
+  'workbench.editors.mqtt.props.userProperties': 'ユーザープロパティ',
+  'workbench.editors.mqtt.props.v5Note':
+    'MQTT 5.0 の機能です。3.1.1 のセッションでは値は保存されたままで、送られません。',
   'workbench.editors.mqtt.props.userPropKey': 'プロパティ',
   'workbench.editors.mqtt.props.userPropValue': '値',
   'workbench.editors.mqtt.props.addUserProp': 'ユーザープロパティ',
@@ -124,10 +126,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     'ペイロードを不特定のバイト列ではなく UTF-8 テキストとして示します。ブローカーと受信側が検証することがあります。',
   'workbench.editors.mqtt.props.nonePlaceholder': 'なし（デフォルト）',
-  'workbench.editors.mqtt.props.sectionProperties': 'プロパティ',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     'メッセージとともに運ばれる自由形式のキーと値のペアです。ブローカーがそのまま通すアプリケーションのメタデータです。',
-  'workbench.editors.mqtt.props.sectionSettings': '設定',
   'workbench.editors.mqtt.saved.title': '保存済みメッセージ',
   'workbench.editors.mqtt.saved.addTooltip': '現在の作成内容を再利用できるメッセージとして保存',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'トピック',
@@ -143,7 +143,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'トピック（例：sensors/+/temperature）',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'オプション',
-  'workbench.editors.mqtt.topics.optionsTooltip': 'サブスクリプションオプション',
+  'workbench.editors.mqtt.topics.optionsTitle': 'サブスクリプションオプション',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'サブスクライブ',
   'workbench.editors.mqtt.topics.subscribeLabel': 'セッション開始時にサブスクライブ',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
@@ -181,10 +181,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'このサブスクリプションを通じて配信されるメッセージにブローカーが付ける数値 ID です。',
   'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'なし（デフォルト）',
-  'workbench.editors.mqtt.topics.subscribeProperties': 'プロパティ',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'サブスクリプションプロパティ',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'SUBSCRIBE パケットがプロパティとして運ぶ Subscription Identifier です。ブローカーはこのサブスクリプションで配信する各メッセージにそれを付けて返します。',
+  'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc':
     'この行の SUBSCRIBE パケットで一度だけ送られる User Properties です。意味はブローカーが定め、配信されるメッセージには付きません。',
-  'workbench.editors.mqtt.topics.subscribeSettings': '設定',
   'workbench.editors.mqtt.auth.help':
     'すべてのホストで CONNECT パケットの User Name と Password として送られます。どちらの MQTT バージョンも運びます。変数は接続時に解決され、保存済みの例は資格情報をキャプチャしません。',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type}（{source} から）は MQTT セッションには適用できません。',
@@ -195,6 +196,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': '例：clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval（秒）。MQTT 5.0。',
   'workbench.editors.mqtt.will.delayLabel': '遺言の遅延',
+  'workbench.editors.mqtt.will.propsTitle': '遺言のプロパティ',
+  'workbench.editors.mqtt.will.propsSummary':
+    '遺言メッセージの MQTT 5.0 プロパティです。CONNECT の中で登録され、ブローカーが遺言をパブリッシュするときに付けます。',
   'workbench.editors.mqtt.will.info.topic':
     'ブローカーが遺言をパブリッシュする先のトピックです。具体的な名前で、ワイルドカードは使えません。トピックがなければ遺言は登録されません。',
   'workbench.editors.mqtt.will.info.qos': 'ブローカーが遺言をパブリッシュするときに使う配信レベルです。',

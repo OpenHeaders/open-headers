@@ -47,11 +47,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tabInfo.message.summary':
     '전송이 게시하는 토픽, 페이로드, QoS, retain 플래그와 재사용을 위해 저장한 메시지입니다.',
   'workbench.editors.mqtt.tabInfo.message.detail':
-    '게시 속성(5.0)은 메시지의 속성 팝오버에 있습니다. 변수는 전송 시 해결됩니다.',
+    '게시 속성(5.0)은 작성 막대의 속성 톱니바퀴 안에 있습니다. 변수는 전송 시 해결됩니다.',
   'workbench.editors.mqtt.tabInfo.topics.summary':
     '브로커가 연결을 수락한 직후 세션이 여는 구독입니다. 한 행에 필터 하나입니다.',
   'workbench.editors.mqtt.tabInfo.topics.detail':
-    '와일드카드 + 와 # 을 쓸 수 있습니다. 토글을 끈 행은 저장은 되지만 구독하지 않습니다. 5.0 옵션은 각 행의 설정에 있습니다.',
+    '와일드카드 + 와 # 을 쓸 수 있습니다. 토글을 끈 행은 저장은 되지만 구독하지 않습니다. 5.0 옵션은 각 행의 톱니바퀴 안에 있습니다.',
   'workbench.editors.mqtt.tabInfo.auth.summary':
     'CONNECT 패킷의 User Name과 Password입니다. 두 MQTT 버전 모두 이를 실어 보냅니다.',
   'workbench.editors.mqtt.tabInfo.auth.detail':
@@ -100,9 +100,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': '게시할 페이로드를 작성하세요…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': '바이너리 페이로드의 Base64 값 (예: aGVsbG8=)…',
   'workbench.editors.mqtt.payloadPlaceholderHex': '바이너리 페이로드의 16진수 값 (예: 48656c6c6f)…',
-  'workbench.editors.mqtt.props.buttonTooltip': '메시지 옵션',
   'workbench.editors.mqtt.props.hint': '각 메시지와 함께 보내는 MQTT 5.0 메타데이터입니다.',
-  'workbench.editors.mqtt.props.v311': '메시지 속성은 MQTT 5.0 기능입니다. 이 요청은 3.1.1을 대상으로 합니다.',
+  'workbench.editors.mqtt.props.title': '메시지 속성',
+  'workbench.editors.mqtt.props.gearLabel': '속성',
+  'workbench.editors.mqtt.props.userProperties': '사용자 속성',
+  'workbench.editors.mqtt.props.v5Note': 'MQTT 5.0 기능입니다. 3.1.1 세션에서는 값이 저장은 되지만 전송되지 않습니다.',
   'workbench.editors.mqtt.props.userPropKey': '속성',
   'workbench.editors.mqtt.props.userPropValue': '값',
   'workbench.editors.mqtt.props.addUserProp': '사용자 속성',
@@ -124,10 +126,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     '페이로드를 불특정 바이트가 아닌 UTF-8 텍스트로 표시합니다. 브로커와 수신자가 검증할 수 있습니다.',
   'workbench.editors.mqtt.props.nonePlaceholder': '없음 (기본값)',
-  'workbench.editors.mqtt.props.sectionProperties': '속성',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     '메시지와 함께 실리는 자유 형식의 키–값 쌍입니다. 브로커가 그대로 통과시키는 애플리케이션 메타데이터입니다.',
-  'workbench.editors.mqtt.props.sectionSettings': '설정',
   'workbench.editors.mqtt.saved.title': '저장된 메시지',
   'workbench.editors.mqtt.saved.addTooltip': '현재 작성 내용을 재사용 가능한 메시지로 저장',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': '토픽',
@@ -143,7 +143,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': '토픽 (예: sensors/+/temperature)',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': '옵션',
-  'workbench.editors.mqtt.topics.optionsTooltip': '구독 옵션',
+  'workbench.editors.mqtt.topics.optionsTitle': '구독 옵션',
   'workbench.editors.mqtt.topics.subscribeColLabel': '구독',
   'workbench.editors.mqtt.topics.subscribeLabel': '세션이 열릴 때 구독',
   'workbench.editors.mqtt.topics.subscribeLiveLabel': '열린 세션에서 구독 / 구독 해제. 저장된 행은 편집되지 않습니다',
@@ -174,10 +174,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc': '이 구독을 통해 전달되는 메시지에 브로커가 붙이는 숫자 id입니다.',
   'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': '없음 (기본값)',
-  'workbench.editors.mqtt.topics.subscribeProperties': '속성',
+  'workbench.editors.mqtt.topics.subscribeProperties': '구독 속성',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'SUBSCRIBE 패킷이 속성으로 싣는 Subscription Identifier 값입니다. 브로커는 이 구독으로 전달하는 모든 메시지에 그 값을 붙여 돌려줍니다.',
+  'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc':
     '이 행의 SUBSCRIBE 패킷과 함께 한 번 보내는 User Properties 값입니다. 의미는 브로커가 정하며, 전달되는 메시지에는 붙지 않습니다.',
-  'workbench.editors.mqtt.topics.subscribeSettings': '설정',
   'workbench.editors.mqtt.auth.help':
     '모든 호스트에서 CONNECT 패킷의 User Name과 Password 값으로 전송됩니다. 두 MQTT 버전 모두 이를 실어 보냅니다. 변수는 연결 시 해결되며, 저장된 예시는 자격 증명을 캡처하지 않습니다.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} ({source}에서 상속)은 MQTT 세션에 적용할 수 없습니다.',
@@ -188,6 +189,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': '예: clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval (초)입니다. MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': '유언 지연',
+  'workbench.editors.mqtt.will.propsTitle': '유언 속성',
+  'workbench.editors.mqtt.will.propsSummary':
+    '유언 메시지의 MQTT 5.0 속성입니다. CONNECT 안에 등록되며, 브로커가 유언을 게시할 때 함께 붙입니다.',
   'workbench.editors.mqtt.will.info.topic':
     '브로커가 유언을 게시하는 토픽입니다. 구체적인 이름이며 와일드카드는 쓸 수 없습니다. 토픽이 없으면 유언은 등록되지 않습니다.',
   'workbench.editors.mqtt.will.info.qos': '브로커가 유언을 게시할 때 쓰는 전달 수준입니다.',

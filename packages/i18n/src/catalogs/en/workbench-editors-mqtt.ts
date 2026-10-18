@@ -36,11 +36,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tabInfo.message.summary':
     'The topic, payload, QoS and retain flag that Send publishes, with the messages you saved for reuse.',
   'workbench.editors.mqtt.tabInfo.message.detail':
-    'Publish properties (5.0) ride the message’s Properties popover; variables resolve at Send.',
+    'Publish properties (5.0) ride the Properties gear on the compose bar; variables resolve at Send.',
   'workbench.editors.mqtt.tabInfo.topics.summary':
     'The subscriptions the session opens right after the broker accepts the connection, one filter per row.',
   'workbench.editors.mqtt.tabInfo.topics.detail':
-    'Wildcards + and # are welcome; toggled-off rows stay saved and do not subscribe; 5.0 options sit in each row’s Settings.',
+    'Wildcards + and # are welcome; toggled-off rows stay saved and do not subscribe; 5.0 options sit behind each row’s gear.',
   'workbench.editors.mqtt.tabInfo.auth.summary':
     'User Name and Password in the CONNECT packet; both MQTT versions carry them.',
   'workbench.editors.mqtt.tabInfo.auth.detail':
@@ -91,9 +91,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Compose the payload to publish…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 of the binary payload, e.g. aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hex of the binary payload, e.g. 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Message options',
   'workbench.editors.mqtt.props.hint': 'MQTT 5.0 metadata sent with each message.',
-  'workbench.editors.mqtt.props.v311': 'Message properties are an MQTT 5.0 feature — this request targets 3.1.1.',
+  'workbench.editors.mqtt.props.title': 'Message properties',
+  'workbench.editors.mqtt.props.gearLabel': 'Properties',
+  'workbench.editors.mqtt.props.userProperties': 'User properties',
+  'workbench.editors.mqtt.props.v5Note':
+    'An MQTT 5.0 feature; on a 3.1.1 session the values stay saved and are not sent.',
   'workbench.editors.mqtt.props.userPropKey': 'Property',
   'workbench.editors.mqtt.props.userPropValue': 'Value',
   'workbench.editors.mqtt.props.addUserProp': 'User property',
@@ -115,10 +118,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     'Marks the payload as UTF-8 text rather than unspecified bytes; the broker and receivers may validate it.',
   'workbench.editors.mqtt.props.nonePlaceholder': 'None (default)',
-  'workbench.editors.mqtt.props.sectionProperties': 'Properties',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     'Free-form key–value pairs carried with the message — application metadata the broker passes through verbatim.',
-  'workbench.editors.mqtt.props.sectionSettings': 'Settings',
   'workbench.editors.mqtt.saved.title': 'Saved messages',
   'workbench.editors.mqtt.saved.addTooltip': 'Save the current compose as a reusable message',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'topic',
@@ -134,7 +135,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Topic, e.g. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Options',
-  'workbench.editors.mqtt.topics.optionsTooltip': 'Subscription options',
+  'workbench.editors.mqtt.topics.optionsTitle': 'Subscription options',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'Subscribe',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Subscribe when the session opens',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
@@ -172,10 +173,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'A numeric id the broker attaches to messages delivered through this subscription.',
   'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'None (default)',
-  'workbench.editors.mqtt.topics.subscribeProperties': 'Properties',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'Subscription properties',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'The Subscription Identifier the SUBSCRIBE packet carries as a property; the broker returns it on every message delivered through this subscription.',
+  'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc':
     'User Properties sent once with this row’s SUBSCRIBE packet. The broker defines their meaning; they are not attached to delivered messages.',
-  'workbench.editors.mqtt.topics.subscribeSettings': 'Settings',
   'workbench.editors.mqtt.auth.help':
     'Sent as the CONNECT packet’s User Name and Password on every host — both MQTT versions carry them. Variables resolve at Connect; saved examples never capture the credential.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — from {source} — cannot be applied to an MQTT session.',
@@ -186,6 +188,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'e.g. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, seconds — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Will delay',
+  'workbench.editors.mqtt.will.propsTitle': 'Will properties',
+  'workbench.editors.mqtt.will.propsSummary':
+    'MQTT 5.0 properties of the will message, registered inside CONNECT; the broker attaches them when it publishes the will.',
   'workbench.editors.mqtt.will.delayPlaceholder': '0 s (default)',
   // The Last Will bar's (i) cards — each lights its slice of the will
   // line on the shared example session's CONNECT leg.

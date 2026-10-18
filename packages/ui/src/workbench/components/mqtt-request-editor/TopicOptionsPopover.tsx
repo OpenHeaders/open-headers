@@ -1,12 +1,19 @@
 /**
  * Per-row 5.0 subscription options popover — the gear on the topics
- * grid, the message-options popover's sibling on the one anatomy: hint
- * line, the Properties section (user properties riding the SUBSCRIBE
- * packet), a hairline, then the Settings section as labeled (i) rows
- * lighting the shared example's SUBSCRIBE leg. 3.1.1 renders the
- * controls disabled with the honest version line. The gear wears a
- * dot once any option leaves its default, and its hover tooltip
- * yields the instant the popover opens.
+ * grid, the message-properties popover's sibling on the gear anatomy,
+ * split the way the SUBSCRIBE packet is (the user's call, S8: the spec
+ * over a shared shape): a title row "Subscription options" with its
+ * (i) card over the options byte's three knobs (No Local, Retain As
+ * Published, Retain Handling — the row's QoS is the fourth bit, on the
+ * grid); a hairline; "Subscription properties" over the Subscription
+ * Identifier; a hairline; "User properties" over the list — the two
+ * things the spec files as properties of the packet, each under its
+ * own row. Every section row wears the packet as a mark. Every label
+ * is the spec's word; "Settings" never appears inside a gear. 3.1.1
+ * renders the controls disabled — the title card carries the version
+ * rule. The gear wears a dot once any value leaves its default, and
+ * its hover tooltip yields the instant the popover opens. The column
+ * header names the gear, so the cell stays an icon.
  */
 
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
@@ -14,39 +21,33 @@ import type { MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import {
-  Badge,
-  Button,
-  ConfigProvider,
-  Input,
-  InputNumber,
-  Popover,
-  Select,
-  Switch,
-  Tooltip,
-  Typography,
-  theme,
-} from 'antd';
+import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Select, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
-import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
+import { mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionLabel from './OptionLabel';
-
-const { Text } = Typography;
 
 /** The (i) popovers portal INSIDE this popover — portaled to body
  *  they would count as an outside click and close it. */
 const resolveOptionsPopover = (node: HTMLElement): HTMLElement | null =>
   node.closest<HTMLElement>('.oh-mqtt-topic-options');
 
-/** True once any subscription option leaves its default — the gear's
- *  dot. A user property counts only with a key written. */
+/** True once any subscription option or property leaves its default —
+ *  the gear's dot. A user property counts only with a key written. */
 export const topicOptionsConfigured = (row: MqttTopicRow): boolean =>
   (row.userProperties ?? []).some((prop) => prop.key.trim() !== '') ||
   row.noLocal === true ||
   row.retainAsPublished === true ||
   (row.retainHandling !== undefined && row.retainHandling !== 0) ||
   row.subscriptionId !== undefined;
+
+const GRID_STYLE: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'auto 1fr',
+  columnGap: 12,
+  rowGap: 8,
+  alignItems: 'center',
+};
 
 const TopicOptionsPopover: React.FC<{
   row: MqttTopicRow;
@@ -58,6 +59,7 @@ const TopicOptionsPopover: React.FC<{
   const [open, setOpen] = useState(false);
   const userPropsRef = useRef<HTMLDivElement | null>(null);
   const userProperties = row.userProperties ?? [];
+  const hairline = <div style={{ height: 1, background: token.colorSplit }} />;
   const content = (
     <InfoPopoverContainerProvider resolver={resolveOptionsPopover}>
       <div
@@ -72,20 +74,100 @@ const TopicOptionsPopover: React.FC<{
         }}
         data-testid="mqtt-topic-options-popover"
       >
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          {v5 ? t('workbench.editors.mqtt.topics.optionsHint') : t('workbench.editors.mqtt.props.v311')}
-        </Text>
-        {/* User Properties ride ONCE on this row's SUBSCRIBE packet —
-          broker-defined metadata, never echoed on delivered messages
-          (the (i) carries that honestly). */}
+        {/* Every section row wears the PACKET the popover rides — the
+          user's call: each home of user properties says its packet
+          where the list is, not only at the top. */}
         <OptionLabel
           strong
-          text={t('workbench.editors.mqtt.topics.subscribeProperties')}
-          info={mqttSettingsRowInfo(t, 'subscribeProperties')}
+          text={t('workbench.editors.mqtt.topics.optionsTitle')}
+          mark={mqttGearPacket('subscriptionOptions')}
+          info={mqttSettingsRowInfo(t, 'subscriptionOptions')}
         />
-        {/* The list shows four rows and scrolls instead of growing the
-          popover row by row; the right gutter keeps the scrollbar off
-          the remove buttons. */}
+        {/* One anatomy for every row: the label column left, the
+          control column right — explanations live behind the (i)
+          popovers, never inline in the labels. An empty knob means the
+          default in effect — its stated default reads at full text
+          contrast, the Settings-tab discipline. */}
+        <ConfigProvider theme={{ components: { InputNumber: { colorTextPlaceholder: token.colorText } } }}>
+          <div className="oh-stated-default" style={GRID_STYLE}>
+            <OptionLabel text={t('workbench.editors.mqtt.topics.noLocal')} info={mqttSettingsRowInfo(t, 'noLocal')} />
+            <Switch
+              size="small"
+              style={{ justifySelf: 'start' }}
+              disabled={!v5}
+              checked={row.noLocal === true}
+              onChange={(noLocal) => onChange({ ...row, noLocal })}
+              data-testid="mqtt-topic-nolocal"
+            />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.topics.retainAsPublished')}
+              info={mqttSettingsRowInfo(t, 'retainAsPublished')}
+            />
+            <Switch
+              size="small"
+              style={{ justifySelf: 'start' }}
+              disabled={!v5}
+              checked={row.retainAsPublished === true}
+              onChange={(retainAsPublished) => onChange({ ...row, retainAsPublished })}
+            />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.topics.retainHandling')}
+              info={mqttSettingsRowInfo(t, 'retainHandling')}
+            />
+            <Select
+              size="small"
+              style={{ width: 200 }}
+              disabled={!v5}
+              popupMatchSelectWidth={false}
+              value={row.retainHandling ?? 0}
+              options={[
+                // title stays empty — the label's (i) popover carries
+                // the values; the native label-title would double the
+                // hover.
+                { value: 0, title: '', label: t('workbench.editors.mqtt.topics.retainHandling0') },
+                { value: 1, title: '', label: t('workbench.editors.mqtt.topics.retainHandling1') },
+                { value: 2, title: '', label: t('workbench.editors.mqtt.topics.retainHandling2') },
+              ]}
+              onChange={(retainHandling: MqttRetainHandling) => onChange({ ...row, retainHandling })}
+            />
+          </div>
+          {hairline}
+          <OptionLabel
+            strong
+            text={t('workbench.editors.mqtt.topics.subscribeProperties')}
+            mark={mqttGearPacket('subscribeProperties')}
+            info={mqttSettingsRowInfo(t, 'subscribeProperties')}
+          />
+          <div className="oh-stated-default" style={GRID_STYLE}>
+            <OptionLabel
+              text={t('workbench.editors.mqtt.topics.subscriptionId')}
+              info={mqttSettingsRowInfo(t, 'subscriptionId')}
+            />
+            <InputNumber
+              size="small"
+              min={1}
+              max={268_435_455}
+              disabled={!v5}
+              value={row.subscriptionId}
+              onChange={(next) => onChange({ ...row, subscriptionId: next ?? undefined })}
+              placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
+              style={{ width: 200 }}
+            />
+          </div>
+        </ConfigProvider>
+        {hairline}
+        <OptionLabel
+          strong
+          text={t('workbench.editors.mqtt.props.userProperties')}
+          mark={mqttGearPacket('subscribeUserProperties')}
+          info={mqttSettingsRowInfo(t, 'subscribeUserProperties')}
+        />
+        {/* User Properties ride ONCE on this row's SUBSCRIBE packet —
+          broker-defined metadata, never echoed on delivered messages
+          (the section's (i) carries that honestly). The list shows
+          four rows and scrolls instead of growing the popover row by
+          row; the right gutter keeps the scrollbar off the remove
+          buttons. */}
         {userProperties.length > 0 && (
           <div
             ref={userPropsRef}
@@ -156,92 +238,14 @@ const TopicOptionsPopover: React.FC<{
         >
           {t('workbench.editors.mqtt.props.addUserProp')}
         </Button>
-        <div style={{ height: 1, background: token.colorSplit }} />
-        <OptionLabel
-          strong
-          text={t('workbench.editors.mqtt.topics.subscribeSettings')}
-          info={mqttSettingsRowInfo(t, 'subscribeSettings')}
-        />
-        {/* One anatomy for every row: the label column left, the
-          control column right — explanations live behind the (i)
-          popovers, never inline in the labels. An empty knob means the
-          default in effect — its stated default reads at full text
-          contrast, the Settings-tab discipline. */}
-        <ConfigProvider theme={{ components: { InputNumber: { colorTextPlaceholder: token.colorText } } }}>
-          <div
-            className="oh-stated-default"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'auto 1fr',
-              columnGap: 12,
-              rowGap: 8,
-              alignItems: 'center',
-            }}
-          >
-            <OptionLabel text={t('workbench.editors.mqtt.topics.noLocal')} info={mqttSettingsRowInfo(t, 'noLocal')} />
-            <Switch
-              size="small"
-              style={{ justifySelf: 'start' }}
-              disabled={!v5}
-              checked={row.noLocal === true}
-              onChange={(noLocal) => onChange({ ...row, noLocal })}
-              data-testid="mqtt-topic-nolocal"
-            />
-            <OptionLabel
-              text={t('workbench.editors.mqtt.topics.retainAsPublished')}
-              info={mqttSettingsRowInfo(t, 'retainAsPublished')}
-            />
-            <Switch
-              size="small"
-              style={{ justifySelf: 'start' }}
-              disabled={!v5}
-              checked={row.retainAsPublished === true}
-              onChange={(retainAsPublished) => onChange({ ...row, retainAsPublished })}
-            />
-            <OptionLabel
-              text={t('workbench.editors.mqtt.topics.retainHandling')}
-              info={mqttSettingsRowInfo(t, 'retainHandling')}
-            />
-            <Select
-              size="small"
-              style={{ width: 200 }}
-              disabled={!v5}
-              popupMatchSelectWidth={false}
-              value={row.retainHandling ?? 0}
-              options={[
-                // title stays empty — the label's (i) popover carries
-                // the values; the native label-title would double the
-                // hover.
-                { value: 0, title: '', label: t('workbench.editors.mqtt.topics.retainHandling0') },
-                { value: 1, title: '', label: t('workbench.editors.mqtt.topics.retainHandling1') },
-                { value: 2, title: '', label: t('workbench.editors.mqtt.topics.retainHandling2') },
-              ]}
-              onChange={(retainHandling: MqttRetainHandling) => onChange({ ...row, retainHandling })}
-            />
-            <OptionLabel
-              text={t('workbench.editors.mqtt.topics.subscriptionId')}
-              info={mqttSettingsRowInfo(t, 'subscriptionId')}
-            />
-            <InputNumber
-              size="small"
-              min={1}
-              max={268_435_455}
-              disabled={!v5}
-              value={row.subscriptionId}
-              onChange={(next) => onChange({ ...row, subscriptionId: next ?? undefined })}
-              placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
-              style={{ width: 200 }}
-            />
-          </div>
-        </ConfigProvider>
       </div>
     </InfoPopoverContainerProvider>
   );
   return (
     <Popover content={content} trigger="click" placement="bottom" open={open} onOpenChange={setOpen}>
       {/* The hover tooltip yields INSTANTLY once the popover opens —
-        open suppresses it (the message-options discipline). */}
-      <Tooltip title={t('workbench.editors.mqtt.topics.optionsTooltip')} open={open ? false : undefined}>
+        open suppresses it (the message-properties discipline). */}
+      <Tooltip title={t('workbench.editors.mqtt.topics.optionsTitle')} open={open ? false : undefined}>
         <Badge dot={topicOptionsConfigured(row)} offset={[-2, 2]}>
           <Button
             size="small"

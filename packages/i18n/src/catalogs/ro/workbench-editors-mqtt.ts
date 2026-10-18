@@ -53,11 +53,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tabInfo.message.summary':
     'Subiectul, conținutul util, QoS și indicatorul retain pe care Trimitere le publică, împreună cu mesajele salvate pentru reutilizare.',
   'workbench.editors.mqtt.tabInfo.message.detail':
-    'Proprietățile de publicare (5.0) stau în fereastra Proprietăți a mesajului; variabilele se rezolvă la trimitere.',
+    'Proprietățile de publicare (5.0) stau în spatele rotiței Proprietăți din bara de compunere; variabilele se rezolvă la trimitere.',
   'workbench.editors.mqtt.tabInfo.topics.summary':
     'Abonamentele pe care sesiunea le deschide imediat ce brokerul acceptă conexiunea, un filtru pe rând.',
   'workbench.editors.mqtt.tabInfo.topics.detail':
-    'Metacaracterele + și # sunt binevenite; rândurile dezactivate rămân salvate și nu se abonează; opțiunile 5.0 stau în Setările fiecărui rând.',
+    'Metacaracterele + și # sunt binevenite; rândurile dezactivate rămân salvate și nu se abonează; opțiunile 5.0 stau în spatele rotiței fiecărui rând.',
   'workbench.editors.mqtt.tabInfo.auth.summary':
     'User Name și Password în pachetul CONNECT; ambele versiuni MQTT le poartă.',
   'workbench.editors.mqtt.tabInfo.auth.detail':
@@ -107,10 +107,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Compuneți conținutul util de publicat…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 al conținutului util binar, de ex. aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hexazecimalul conținutului util binar, de ex. 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Opțiuni mesaj',
   'workbench.editors.mqtt.props.hint': 'Metadate MQTT 5.0 trimise cu fiecare mesaj.',
-  'workbench.editors.mqtt.props.v311':
-    'Proprietățile mesajului sunt o funcție MQTT 5.0 — această cerere țintește 3.1.1.',
+  'workbench.editors.mqtt.props.title': 'Proprietăți mesaj',
+  'workbench.editors.mqtt.props.gearLabel': 'Proprietăți',
+  'workbench.editors.mqtt.props.userProperties': 'Proprietăți de utilizator',
+  'workbench.editors.mqtt.props.v5Note':
+    'O funcție MQTT 5.0; într-o sesiune 3.1.1 valorile rămân salvate și nu sunt trimise.',
   'workbench.editors.mqtt.props.userPropKey': 'Proprietate',
   'workbench.editors.mqtt.props.userPropValue': 'Valoare',
   'workbench.editors.mqtt.props.addUserProp': 'Proprietate de utilizator',
@@ -132,10 +134,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     'Marchează conținutul util ca text UTF-8, nu ca octeți nespecificați; brokerul și destinatarii îl pot valida.',
   'workbench.editors.mqtt.props.nonePlaceholder': 'Niciunul (implicit)',
-  'workbench.editors.mqtt.props.sectionProperties': 'Proprietăți',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     'Perechi cheie–valoare libere purtate cu mesajul — metadate de aplicație pe care brokerul le transmite ca atare.',
-  'workbench.editors.mqtt.props.sectionSettings': 'Setări',
   'workbench.editors.mqtt.saved.title': 'Mesaje salvate',
   'workbench.editors.mqtt.saved.addTooltip': 'Salvați compunerea curentă ca mesaj reutilizabil',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'subiect',
@@ -151,7 +151,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Subiect, de ex. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Opțiuni',
-  'workbench.editors.mqtt.topics.optionsTooltip': 'Opțiuni de abonare',
+  'workbench.editors.mqtt.topics.optionsTitle': 'Opțiuni de abonare',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'Abonare',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Abonare la deschiderea sesiunii',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
@@ -188,10 +188,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Un id numeric pe care brokerul îl atașează mesajelor livrate prin acest abonament.',
   'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Niciunul (implicit)',
-  'workbench.editors.mqtt.topics.subscribeProperties': 'Proprietăți',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'Proprietăți de abonare',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'Identificatorul de abonare pe care pachetul SUBSCRIBE îl poartă ca proprietate; brokerul îl returnează cu fiecare mesaj livrat prin acest abonament.',
+  'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc':
     'Proprietăți de utilizator trimise o singură dată cu pachetul SUBSCRIBE al acestui rând. Brokerul le definește semnificația; nu sunt atașate mesajelor livrate.',
-  'workbench.editors.mqtt.topics.subscribeSettings': 'Setări',
   'workbench.editors.mqtt.auth.help':
     'Trimise ca User Name și Password ale pachetului CONNECT pe fiecare gazdă — ambele versiuni MQTT le poartă. Variabilele se rezolvă la Conectare; exemplele salvate nu capturează niciodată acreditarea.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — de la {source} — nu poate fi aplicat unei sesiuni MQTT.',
@@ -202,6 +203,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'de ex. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, în secunde — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Întârziere ultima dorință',
+  'workbench.editors.mqtt.will.propsTitle': 'Proprietăți ultima dorință',
+  'workbench.editors.mqtt.will.propsSummary':
+    'Proprietățile MQTT 5.0 ale mesajului de ultimă dorință, înregistrate în CONNECT; brokerul le atașează când publică ultima dorință.',
   'workbench.editors.mqtt.will.info.topic':
     'Subiectul pe care brokerul publică ultima dorință; un nume concret, fără metacaractere. Fără subiect nu se înregistrează nicio ultimă dorință.',
   'workbench.editors.mqtt.will.info.qos':

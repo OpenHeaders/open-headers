@@ -50,11 +50,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tabInfo.message.summary':
     'Топик, полезная нагрузка, QoS и флаг retain, которые публикует «Отправить», вместе с сообщениями, сохранёнными для повторного использования.',
   'workbench.editors.mqtt.tabInfo.message.detail':
-    'Свойства публикации (5.0) живут во всплывающем окне «Свойства» сообщения; переменные разрешаются при отправке.',
+    'Свойства публикации (5.0) живут за шестерёнкой «Свойства» на панели ввода; переменные разрешаются при отправке.',
   'workbench.editors.mqtt.tabInfo.topics.summary':
     'Подписки, которые сеанс открывает сразу после того, как брокер примет соединение, — один фильтр на строку.',
   'workbench.editors.mqtt.tabInfo.topics.detail':
-    'Подстановочные знаки + и # приветствуются; выключенные строки сохраняются и не подписываются; параметры 5.0 находятся в настройках каждой строки.',
+    'Подстановочные знаки + и # приветствуются; выключенные строки сохраняются и не подписываются; параметры 5.0 находятся за шестерёнкой каждой строки.',
   'workbench.editors.mqtt.tabInfo.auth.summary': 'User Name и Password в пакете CONNECT; их несут обе версии MQTT.',
   'workbench.editors.mqtt.tabInfo.auth.detail':
     '«Нет» не отправляет учётных данных, «Наследовать» берёт авторизацию коллекции или рабочего пространства; переменные разрешаются при подключении.',
@@ -102,9 +102,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Составьте полезную нагрузку для публикации…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 двоичной полезной нагрузки, например aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hex двоичной полезной нагрузки, например 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Параметры сообщения',
   'workbench.editors.mqtt.props.hint': 'Метаданные MQTT 5.0, отправляемые с каждым сообщением.',
-  'workbench.editors.mqtt.props.v311': 'Свойства сообщения — возможность MQTT 5.0, а этот запрос нацелен на 3.1.1.',
+  'workbench.editors.mqtt.props.title': 'Свойства сообщения',
+  'workbench.editors.mqtt.props.gearLabel': 'Свойства',
+  'workbench.editors.mqtt.props.userProperties': 'Пользовательские свойства',
+  'workbench.editors.mqtt.props.v5Note':
+    'Возможность MQTT 5.0; в сеансе 3.1.1 значения сохраняются, но не отправляются.',
   'workbench.editors.mqtt.props.userPropKey': 'Свойство',
   'workbench.editors.mqtt.props.userPropValue': 'Значение',
   'workbench.editors.mqtt.props.addUserProp': 'Пользовательское свойство',
@@ -126,10 +129,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     'Помечает полезную нагрузку как текст UTF-8, а не как байты без указанного формата; брокер и получатели могут её проверять.',
   'workbench.editors.mqtt.props.nonePlaceholder': 'Нет (по умолчанию)',
-  'workbench.editors.mqtt.props.sectionProperties': 'Свойства',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     'Произвольные пары ключ–значение, передаваемые с сообщением — метаданные приложения, которые брокер пропускает как есть.',
-  'workbench.editors.mqtt.props.sectionSettings': 'Настройки',
   'workbench.editors.mqtt.saved.title': 'Сохранённые сообщения',
   'workbench.editors.mqtt.saved.addTooltip': 'Сохранить текущий черновик как повторно используемое сообщение',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'топик',
@@ -146,7 +147,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Топик, например sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Параметры',
-  'workbench.editors.mqtt.topics.optionsTooltip': 'Параметры подписки',
+  'workbench.editors.mqtt.topics.optionsTitle': 'Параметры подписки',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'Подписка',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Подписываться при открытии сеанса',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
@@ -182,10 +183,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Числовой идентификатор, который брокер прикрепляет к сообщениям, доставленным через эту подписку.',
   'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Нет (по умолчанию)',
-  'workbench.editors.mqtt.topics.subscribeProperties': 'Свойства',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'Свойства подписки',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'Идентификатор подписки, который пакет SUBSCRIBE несёт как свойство; брокер возвращает его с каждым сообщением, доставленным по этой подписке.',
+  'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc':
     'Пользовательские свойства, отправляемые один раз с пакетом SUBSCRIBE этой строки. Их смысл определяет брокер; к доставляемым сообщениям они не прикрепляются.',
-  'workbench.editors.mqtt.topics.subscribeSettings': 'Настройки',
   'workbench.editors.mqtt.auth.help':
     'Отправляется как User Name и Password пакета CONNECT на любом хосте — их несут обе версии MQTT. Переменные разрешаются при подключении; сохранённые примеры никогда не захватывают учётные данные.',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — из {source} — нельзя применить к сеансу MQTT.',
@@ -196,6 +198,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'например, clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, в секундах — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Задержка воли',
+  'workbench.editors.mqtt.will.propsTitle': 'Свойства воли',
+  'workbench.editors.mqtt.will.propsSummary':
+    'Свойства MQTT 5.0 сообщения последней воли, регистрируемые внутри CONNECT; брокер прикрепляет их, когда публикует волю.',
   'workbench.editors.mqtt.will.info.topic':
     'Топик, в который брокер публикует последнюю волю; конкретное имя, без подстановочных знаков. Без топика воля не регистрируется.',
   'workbench.editors.mqtt.will.info.qos': 'Уровень доставки, с которым брокер публикует последнюю волю.',

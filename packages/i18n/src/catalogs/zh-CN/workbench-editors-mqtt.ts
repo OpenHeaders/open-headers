@@ -40,10 +40,10 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tabInfo.docs.detail': '写给人看的笔记；这里的内容不会到达代理。',
   'workbench.editors.mqtt.tabInfo.message.summary':
     '“发送”所发布的主题、载荷、QoS 与 retain 标志，以及你为复用而保存的消息。',
-  'workbench.editors.mqtt.tabInfo.message.detail': '发布属性（5.0）位于消息的属性弹出层中；变量在发送时解析。',
+  'workbench.editors.mqtt.tabInfo.message.detail': '发布属性（5.0）位于撰写栏的属性齿轮后面；变量在发送时解析。',
   'workbench.editors.mqtt.tabInfo.topics.summary': '代理接受连接后会话立即建立的订阅，每行一个过滤器。',
   'workbench.editors.mqtt.tabInfo.topics.detail':
-    '欢迎使用通配符 + 和 #；关闭的行仍会保存但不会订阅；5.0 选项位于每行的设置中。',
+    '欢迎使用通配符 + 和 #；关闭的行仍会保存但不会订阅；5.0 选项位于每行的齿轮后面。',
   'workbench.editors.mqtt.tabInfo.auth.summary': 'CONNECT 报文中的 User Name 与 Password；两个 MQTT 版本均支持。',
   'workbench.editors.mqtt.tabInfo.auth.detail': '“无”不发送凭据，“继承”采用集合或工作区的授权；变量在连接时解析。',
   'workbench.editors.mqtt.tabInfo.properties.summary':
@@ -84,9 +84,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': '编写要发布的载荷…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': '二进制载荷的 Base64，例如 aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': '二进制载荷的十六进制，例如 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': '消息选项',
   'workbench.editors.mqtt.props.hint': '随每条消息发送的 MQTT 5.0 元数据。',
-  'workbench.editors.mqtt.props.v311': '消息属性是 MQTT 5.0 特性——此请求面向 3.1.1。',
+  'workbench.editors.mqtt.props.title': '消息属性',
+  'workbench.editors.mqtt.props.gearLabel': '属性',
+  'workbench.editors.mqtt.props.userProperties': '用户属性',
+  'workbench.editors.mqtt.props.v5Note': 'MQTT 5.0 特性；在 3.1.1 会话中这些值仍会保存，但不会发送。',
   'workbench.editors.mqtt.props.userPropKey': '属性',
   'workbench.editors.mqtt.props.userPropValue': '值',
   'workbench.editors.mqtt.props.addUserProp': '用户属性',
@@ -107,9 +109,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     '将载荷标记为 UTF-8 文本而非未指定的字节；代理和接收方可以据此校验。',
   'workbench.editors.mqtt.props.nonePlaceholder': '无（默认）',
-  'workbench.editors.mqtt.props.sectionProperties': '属性',
   'workbench.editors.mqtt.props.sectionPropertiesDesc': '随消息传递的自由键值对——代理原样透传的应用元数据。',
-  'workbench.editors.mqtt.props.sectionSettings': '设置',
   'workbench.editors.mqtt.saved.title': '已保存消息',
   'workbench.editors.mqtt.saved.addTooltip': '将当前编写内容保存为可复用消息',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': '主题',
@@ -125,7 +125,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': '主题，例如 sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': '选项',
-  'workbench.editors.mqtt.topics.optionsTooltip': '订阅选项',
+  'workbench.editors.mqtt.topics.optionsTitle': '订阅选项',
   'workbench.editors.mqtt.topics.subscribeColLabel': '订阅',
   'workbench.editors.mqtt.topics.subscribeLabel': '会话打开时订阅',
   'workbench.editors.mqtt.topics.subscribeLiveLabel': '在打开的会话上订阅/退订——已保存的行不会被修改',
@@ -154,10 +154,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionId': 'Subscription Identifier',
   'workbench.editors.mqtt.topics.subscriptionIdDesc': '代理会将该数字标识附加到经此订阅投递的消息上。',
   'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': '无（默认）',
-  'workbench.editors.mqtt.topics.subscribeProperties': '属性',
+  'workbench.editors.mqtt.topics.subscribeProperties': '订阅属性',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'SUBSCRIBE 报文作为属性携带的 Subscription Identifier；代理会随通过此订阅投递的每条消息返回它。',
+  'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc':
     '随此行的 SUBSCRIBE 报文一次性发送的 User Properties。其含义由代理定义；不会附加到投递的消息上。',
-  'workbench.editors.mqtt.topics.subscribeSettings': '设置',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type}——来自 {source}——无法应用于 MQTT 会话。',
   'workbench.editors.mqtt.auth.ownUnsupported': '{type}无法应用于 MQTT 会话。',
   'workbench.editors.mqtt.auth.help':
@@ -168,6 +169,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': '例如 clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval，秒——MQTT 5.0。',
   'workbench.editors.mqtt.will.delayLabel': '遗嘱延迟',
+  'workbench.editors.mqtt.will.propsTitle': '遗嘱属性',
+  'workbench.editors.mqtt.will.propsSummary': '遗嘱消息的 MQTT 5.0 属性，随 CONNECT 注册；代理发布遗嘱时附带它们。',
   'workbench.editors.mqtt.will.info.topic': '代理发布遗嘱的主题；具体名称，不含通配符。没有主题就不会注册遗嘱。',
   'workbench.editors.mqtt.will.info.qos': '代理发布遗嘱时使用的投递等级。',
   'workbench.editors.mqtt.will.info.retain': '发布后将遗嘱保留为该主题的最新消息——这样状态主题在断开后仍读作“离线”。',

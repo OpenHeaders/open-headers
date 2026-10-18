@@ -11,8 +11,8 @@
  * single session seen knob by knob. The Settings-tab rows partition
  * the CONNECT tokens; the topic-row options partition the SUBSCRIBE
  * tokens; the message-properties rows partition the PUBLISH tokens;
- * each popover's section headers light their whole sub-slice (the
- * group-header idiom), so the headers partition the leg the rows
+ * each gear popover's title card lights its whole sub-slice (the
+ * group-header idiom), so the titles partition the leg the rows
  * itemize.
  *
  * The rows of the shared blocks (dial, session resilience, TLS &
@@ -80,18 +80,76 @@ type MqttOwnInfoKey =
   | 'retainAsPublished'
   | 'retainHandling'
   | 'subscriptionId'
+  | 'subscriptionOptions'
   | 'subscribeProperties'
-  | 'subscribeSettings'
+  | 'subscribeUserProperties'
   | 'responseTopic'
   | 'correlationData'
   | 'messageExpiry'
   | 'contentType'
   | 'payloadFormatIndicator'
   | 'publishProperties'
-  | 'publishSettings';
+  | 'publishUserProperties';
 
 /** One key per knob that opens a popover with the card. */
 export type MqttInfoKey = MqttOwnInfoKey | DialInfoKey | TlsTrustInfoKey | MqttResilienceInfoKey;
+
+/** The three gear popovers' cards — the Message bar's and the Last
+ *  Will bar's properties gear, the Topics row's options gear. Their
+ *  kicker is the PACKET the gear's values ride, raw (the tab cards'
+ *  rule): the one word that tells the four user-property homes apart. */
+export type GearInfoKey =
+  | 'publishProperties'
+  | 'publishUserProperties'
+  | 'responseTopic'
+  | 'correlationData'
+  | 'messageExpiry'
+  | 'contentType'
+  | 'payloadFormatIndicator'
+  | 'willProperties'
+  | 'willUserProperties'
+  | 'willResponseTopic'
+  | 'willCorrelationData'
+  | 'willMessageExpiry'
+  | 'willContentType'
+  | 'willPayloadFormatIndicator'
+  | 'subscriptionOptions'
+  | 'noLocal'
+  | 'retainAsPublished'
+  | 'retainHandling'
+  | 'subscribeProperties'
+  | 'subscribeUserProperties'
+  | 'subscriptionId';
+
+const GEAR_PACKET: Record<GearInfoKey, 'CONNECT' | 'SUBSCRIBE' | 'PUBLISH'> = {
+  publishProperties: 'PUBLISH',
+  publishUserProperties: 'PUBLISH',
+  responseTopic: 'PUBLISH',
+  correlationData: 'PUBLISH',
+  messageExpiry: 'PUBLISH',
+  contentType: 'PUBLISH',
+  payloadFormatIndicator: 'PUBLISH',
+  willProperties: 'CONNECT',
+  willUserProperties: 'CONNECT',
+  willResponseTopic: 'CONNECT',
+  willCorrelationData: 'CONNECT',
+  willMessageExpiry: 'CONNECT',
+  willContentType: 'CONNECT',
+  willPayloadFormatIndicator: 'CONNECT',
+  subscriptionOptions: 'SUBSCRIBE',
+  noLocal: 'SUBSCRIBE',
+  retainAsPublished: 'SUBSCRIBE',
+  retainHandling: 'SUBSCRIBE',
+  subscribeProperties: 'SUBSCRIBE',
+  subscribeUserProperties: 'SUBSCRIBE',
+  subscriptionId: 'SUBSCRIBE',
+};
+
+const isGearInfoKey = (key: MqttInfoKey): key is GearInfoKey => key in GEAR_PACKET;
+
+/** The packet a gear card's knob rides — the gear popovers' title row
+ *  wears it as a mark, the same word their cards carry as the kicker. */
+export const mqttGearPacket = (key: GearInfoKey): 'CONNECT' | 'SUBSCRIBE' | 'PUBLISH' => GEAR_PACKET[key];
 
 /** The single session every popover illustrates. Holding one example
  * fixed across all popovers lets the user map each knob onto the same
@@ -156,7 +214,7 @@ const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
 
 /** Which slice of the example each knob lights. Rows light their
  * single token (the TLS window is one token — min and max both light
- * it); the two options-popover section headers light their whole
+ * it); the gear popovers' title and section cards light their whole
  * sub-slice; the Topics table's column headers partition the SUBSCRIBE
  * leg — the Subscribe column lights the opener itself; the Message
  * bar's knobs light the PUBLISH line, the Last Will bar's the will line
@@ -214,15 +272,16 @@ const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   retainAsPublished: ['rap'],
   retainHandling: ['retained'],
   subscriptionId: ['subId'],
-  subscribeProperties: ['props'],
-  subscribeSettings: ['noLocal', 'rap', 'retained', 'subId'],
+  subscriptionOptions: ['noLocal', 'rap', 'retained'],
+  subscribeProperties: ['subId'],
+  subscribeUserProperties: ['props'],
   responseTopic: ['respTopic'],
   correlationData: ['corr'],
   messageExpiry: ['msgExpiry'],
   contentType: ['contentType'],
   payloadFormatIndicator: ['pfi'],
-  publishProperties: ['pubProps'],
-  publishSettings: ['respTopic', 'corr', 'msgExpiry', 'contentType', 'pfi'],
+  publishProperties: ['respTopic', 'corr', 'msgExpiry', 'contentType', 'pfi', 'pubProps'],
+  publishUserProperties: ['pubProps'],
 };
 
 /** Rows that swap the route slot to their own dial leg. */
@@ -274,8 +333,8 @@ const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
   willQos: 'workbench.editors.mqtt.topics.qosColLabel',
   willRetain: 'workbench.editors.mqtt.retainLabel',
   willDelay: 'workbench.editors.mqtt.will.delayLabel',
-  willProperties: 'workbench.editors.mqtt.props.sectionSettings',
-  willUserProperties: 'workbench.editors.mqtt.props.sectionProperties',
+  willProperties: 'workbench.editors.mqtt.will.propsTitle',
+  willUserProperties: 'workbench.editors.mqtt.props.userProperties',
   willResponseTopic: 'workbench.editors.mqtt.props.responseTopic',
   willCorrelationData: 'workbench.editors.mqtt.props.correlationData',
   willMessageExpiry: 'workbench.editors.mqtt.props.messageExpiry',
@@ -298,15 +357,16 @@ const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublished',
   retainHandling: 'workbench.editors.mqtt.topics.retainHandling',
   subscriptionId: 'workbench.editors.mqtt.topics.subscriptionId',
+  subscriptionOptions: 'workbench.editors.mqtt.topics.optionsTitle',
   subscribeProperties: 'workbench.editors.mqtt.topics.subscribeProperties',
-  subscribeSettings: 'workbench.editors.mqtt.topics.subscribeSettings',
+  subscribeUserProperties: 'workbench.editors.mqtt.props.userProperties',
   responseTopic: 'workbench.editors.mqtt.props.responseTopic',
   correlationData: 'workbench.editors.mqtt.props.correlationData',
   messageExpiry: 'workbench.editors.mqtt.props.messageExpiry',
   contentType: 'workbench.editors.mqtt.props.contentType',
   payloadFormatIndicator: 'workbench.editors.mqtt.props.payloadFormatIndicator',
-  publishProperties: 'workbench.editors.mqtt.props.sectionProperties',
-  publishSettings: 'workbench.editors.mqtt.props.sectionSettings',
+  publishProperties: 'workbench.editors.mqtt.props.title',
+  publishUserProperties: 'workbench.editors.mqtt.props.userProperties',
 };
 
 const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey> = {
@@ -321,7 +381,7 @@ const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey>
   willQos: 'workbench.editors.mqtt.will.info.qos',
   willRetain: 'workbench.editors.mqtt.will.info.retain',
   willDelay: 'workbench.editors.mqtt.will.info.delay',
-  willProperties: 'workbench.editors.mqtt.props.hint',
+  willProperties: 'workbench.editors.mqtt.will.propsSummary',
   willUserProperties: 'workbench.editors.mqtt.props.sectionPropertiesDesc',
   willResponseTopic: 'workbench.editors.mqtt.props.responseTopicDesc',
   willCorrelationData: 'workbench.editors.mqtt.props.correlationDataDesc',
@@ -344,24 +404,32 @@ const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey>
   noLocal: 'workbench.editors.mqtt.topics.noLocalDesc',
   retainAsPublished: 'workbench.editors.mqtt.topics.retainAsPublishedDesc',
   subscriptionId: 'workbench.editors.mqtt.topics.subscriptionIdDesc',
+  subscriptionOptions: 'workbench.editors.mqtt.topics.optionsHint',
   subscribeProperties: 'workbench.editors.mqtt.topics.subscribePropertiesDesc',
-  subscribeSettings: 'workbench.editors.mqtt.topics.optionsHint',
+  subscribeUserProperties: 'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc',
   responseTopic: 'workbench.editors.mqtt.props.responseTopicDesc',
   correlationData: 'workbench.editors.mqtt.props.correlationDataDesc',
   messageExpiry: 'workbench.editors.mqtt.props.messageExpiryDesc',
   contentType: 'workbench.editors.mqtt.props.contentTypeDesc',
   payloadFormatIndicator: 'workbench.editors.mqtt.props.payloadFormatIndicatorDesc',
-  publishProperties: 'workbench.editors.mqtt.props.sectionPropertiesDesc',
-  publishSettings: 'workbench.editors.mqtt.props.hint',
+  publishProperties: 'workbench.editors.mqtt.props.hint',
+  publishUserProperties: 'workbench.editors.mqtt.props.sectionPropertiesDesc',
+};
+
+/** The three gear popovers' title cards carry the 5.0 rule as their
+ *  description — the one line the retired version hint used to say,
+ *  now read where the disabled controls are explained. */
+const DESCRIPTION_KEY: Partial<Record<MqttOwnInfoKey, MessageKey>> = {
+  publishProperties: 'workbench.editors.mqtt.props.v5Note',
+  willProperties: 'workbench.editors.mqtt.props.v5Note',
+  subscriptionOptions: 'workbench.editors.mqtt.props.v5Note',
 };
 
 /** The Settings-tab rows carry their group's label (the group headers
- * carry the tab name); the option and message-properties rows carry
- * their section's header; the Topics table's column headers and the
- * topic-options section headers carry the Topics tab, the
- * message-properties ones the trigger's own name; the two compose bars'
- * knobs carry their tab. */
-const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
+ * carry the tab name); the Topics table's column headers carry the
+ * Topics tab; the two compose bars' knobs carry their tab; the gear
+ * popovers' cards carry their packet (`GEAR_PACKET`, not here). */
+const KICKER_KEY: Record<Exclude<MqttInfoKey, GearInfoKey>, MessageKey> = {
   topicFilter: 'workbench.editors.mqtt.tab.topics',
   subscribeQos: 'workbench.editors.mqtt.tab.topics',
   subscribeOptions: 'workbench.editors.mqtt.tab.topics',
@@ -373,13 +441,6 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   willQos: 'workbench.editors.mqtt.tab.lastWill',
   willRetain: 'workbench.editors.mqtt.tab.lastWill',
   willDelay: 'workbench.editors.mqtt.tab.lastWill',
-  willProperties: 'workbench.editors.mqtt.props.buttonTooltip',
-  willUserProperties: 'workbench.editors.mqtt.props.buttonTooltip',
-  willResponseTopic: 'workbench.editors.mqtt.props.sectionSettings',
-  willCorrelationData: 'workbench.editors.mqtt.props.sectionSettings',
-  willMessageExpiry: 'workbench.editors.mqtt.props.sectionSettings',
-  willContentType: 'workbench.editors.mqtt.props.sectionSettings',
-  willPayloadFormatIndicator: 'workbench.editors.mqtt.props.sectionSettings',
   clientId: MQTT_GROUP_LABEL_KEY.connection,
   executionPlace: MQTT_GROUP_LABEL_KEY.connection,
   cleanStart: MQTT_GROUP_LABEL_KEY.connection,
@@ -407,19 +468,6 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   tlsCipherSuites: MQTT_GROUP_LABEL_KEY.tls,
   sni: MQTT_GROUP_LABEL_KEY.tls,
   alpn: MQTT_GROUP_LABEL_KEY.tls,
-  noLocal: 'workbench.editors.mqtt.topics.subscribeSettings',
-  retainAsPublished: 'workbench.editors.mqtt.topics.subscribeSettings',
-  retainHandling: 'workbench.editors.mqtt.topics.subscribeSettings',
-  subscriptionId: 'workbench.editors.mqtt.topics.subscribeSettings',
-  subscribeProperties: 'workbench.editors.mqtt.tab.topics',
-  subscribeSettings: 'workbench.editors.mqtt.tab.topics',
-  responseTopic: 'workbench.editors.mqtt.props.sectionSettings',
-  correlationData: 'workbench.editors.mqtt.props.sectionSettings',
-  messageExpiry: 'workbench.editors.mqtt.props.sectionSettings',
-  contentType: 'workbench.editors.mqtt.props.sectionSettings',
-  payloadFormatIndicator: 'workbench.editors.mqtt.props.sectionSettings',
-  publishProperties: 'workbench.editors.mqtt.props.buttonTooltip',
-  publishSettings: 'workbench.editors.mqtt.props.buttonTooltip',
 };
 
 const GROUP_SUMMARY_KEY: Record<MqttSettingsGroupKey, MessageKey> = {
@@ -443,7 +491,7 @@ export function mqttSettingsGroupInfo(t: Translate, group: MqttSettingsGroupKey)
 
 /** Popover content for one MQTT knob. */
 export function mqttSettingsRowInfo(t: Translate, infoKey: MqttInfoKey): InfoPopoverContent {
-  const kicker = t(KICKER_KEY[infoKey]);
+  const kicker = isGearInfoKey(infoKey) ? GEAR_PACKET[infoKey] : t(KICKER_KEY[infoKey]);
   const card = {
     diagram: <MqttExampleCard lit={new Set(HIGHLIGHT[infoKey])} routeText={DIAL_VARIANT[infoKey]} />,
     maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
@@ -494,5 +542,10 @@ export function mqttSettingsRowInfo(t: Translate, infoKey: MqttInfoKey): InfoPop
       ],
     };
   }
-  return { ...base, summary: t(SUMMARY_KEY[infoKey]) };
+  const descriptionKey = DESCRIPTION_KEY[infoKey];
+  return {
+    ...base,
+    summary: t(SUMMARY_KEY[infoKey]),
+    ...(descriptionKey !== undefined ? { description: t(descriptionKey) } : {}),
+  };
 }

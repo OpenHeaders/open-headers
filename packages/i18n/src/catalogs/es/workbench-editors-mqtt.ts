@@ -39,11 +39,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.tabInfo.message.summary':
     'El tema, la carga útil, el QoS y el indicador retain que Enviar publica, junto con los mensajes guardados para reutilizar.',
   'workbench.editors.mqtt.tabInfo.message.detail':
-    'Las propiedades de publicación (5.0) viven en el popover Propiedades del mensaje; las variables se resuelven al enviar.',
+    'Las propiedades de publicación (5.0) viven tras el engranaje Propiedades de la barra de redacción; las variables se resuelven al enviar.',
   'workbench.editors.mqtt.tabInfo.topics.summary':
     'Las suscripciones que la sesión abre en cuanto el bróker acepta la conexión, un filtro por fila.',
   'workbench.editors.mqtt.tabInfo.topics.detail':
-    'Los comodines + y # son bienvenidos; las filas desactivadas se guardan y no se suscriben; las opciones 5.0 están en los Ajustes de cada fila.',
+    'Los comodines + y # son bienvenidos; las filas desactivadas se guardan y no se suscriben; las opciones 5.0 están tras el engranaje de cada fila.',
   'workbench.editors.mqtt.tabInfo.auth.summary':
     'User Name y Password en el paquete CONNECT; ambas versiones de MQTT los transportan.',
   'workbench.editors.mqtt.tabInfo.auth.detail':
@@ -93,10 +93,12 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.payloadPlaceholder': 'Compón la carga útil a publicar…',
   'workbench.editors.mqtt.payloadPlaceholderBase64': 'Base64 de la carga útil binaria, p. ej. aGVsbG8=…',
   'workbench.editors.mqtt.payloadPlaceholderHex': 'Hexadecimal de la carga útil binaria, p. ej. 48656c6c6f…',
-  'workbench.editors.mqtt.props.buttonTooltip': 'Opciones del mensaje',
   'workbench.editors.mqtt.props.hint': 'Metadatos MQTT 5.0 enviados con cada mensaje.',
-  'workbench.editors.mqtt.props.v311':
-    'Las propiedades de mensaje son una función de MQTT 5.0; esta solicitud apunta a 3.1.1.',
+  'workbench.editors.mqtt.props.title': 'Propiedades del mensaje',
+  'workbench.editors.mqtt.props.gearLabel': 'Propiedades',
+  'workbench.editors.mqtt.props.userProperties': 'Propiedades de usuario',
+  'workbench.editors.mqtt.props.v5Note':
+    'Una función de MQTT 5.0; en una sesión 3.1.1 los valores se guardan y no se envían.',
   'workbench.editors.mqtt.props.userPropKey': 'Propiedad',
   'workbench.editors.mqtt.props.userPropValue': 'Valor',
   'workbench.editors.mqtt.props.addUserProp': 'Propiedad de usuario',
@@ -118,10 +120,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.payloadFormatIndicatorDesc':
     'Marca la carga útil como texto UTF-8 en lugar de bytes sin especificar; el bróker y los receptores pueden validarla.',
   'workbench.editors.mqtt.props.nonePlaceholder': 'Ninguno (por defecto)',
-  'workbench.editors.mqtt.props.sectionProperties': 'Propiedades',
   'workbench.editors.mqtt.props.sectionPropertiesDesc':
     'Pares clave-valor libres que viajan con el mensaje: metadatos de aplicación que el bróker transmite tal cual.',
-  'workbench.editors.mqtt.props.sectionSettings': 'Ajustes',
   'workbench.editors.mqtt.saved.title': 'Mensajes guardados',
   'workbench.editors.mqtt.saved.addTooltip': 'Guardar la composición actual como mensaje reutilizable',
   'workbench.editors.mqtt.saved.topicTagPlaceholder': 'tema',
@@ -137,7 +137,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.filterPlaceholder': 'Tema, p. ej. sensors/+/temperature',
   'workbench.editors.mqtt.topics.qosColLabel': 'QoS',
   'workbench.editors.mqtt.topics.optionsColLabel': 'Opciones',
-  'workbench.editors.mqtt.topics.optionsTooltip': 'Opciones de suscripción',
+  'workbench.editors.mqtt.topics.optionsTitle': 'Opciones de suscripción',
   'workbench.editors.mqtt.topics.subscribeColLabel': 'Suscripción',
   'workbench.editors.mqtt.topics.subscribeLabel': 'Suscribirse al abrir la sesión',
   'workbench.editors.mqtt.topics.subscribeLiveLabel':
@@ -173,10 +173,11 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.topics.subscriptionIdDesc':
     'Identificador numérico que el broker adjunta a los mensajes entregados por esta suscripción.',
   'workbench.editors.mqtt.topics.subscriptionIdPlaceholder': 'Ninguno (por defecto)',
-  'workbench.editors.mqtt.topics.subscribeProperties': 'Propiedades',
+  'workbench.editors.mqtt.topics.subscribeProperties': 'Propiedades de la suscripción',
   'workbench.editors.mqtt.topics.subscribePropertiesDesc':
+    'El Subscription Identifier que el paquete SUBSCRIBE lleva como propiedad; el broker lo devuelve con cada mensaje entregado por esta suscripción.',
+  'workbench.editors.mqtt.topics.subscribeUserPropertiesDesc':
     'User Properties enviadas una vez con el paquete SUBSCRIBE de esta fila. El broker define su significado; no se adjuntan a los mensajes entregados.',
-  'workbench.editors.mqtt.topics.subscribeSettings': 'Ajustes',
   'workbench.editors.mqtt.auth.inheritUnsupported': '{type} — de {source} — no puede aplicarse a una sesión MQTT.',
   'workbench.editors.mqtt.auth.ownUnsupported': '{type} no puede aplicarse a una sesión MQTT.',
   'workbench.editors.mqtt.auth.help':
@@ -187,6 +188,9 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.will.topicExample': 'p. ej. clients/reporter/status',
   'workbench.editors.mqtt.will.delayHelp': 'Will Delay Interval, en segundos — MQTT 5.0.',
   'workbench.editors.mqtt.will.delayLabel': 'Retraso del testamento',
+  'workbench.editors.mqtt.will.propsTitle': 'Propiedades del testamento',
+  'workbench.editors.mqtt.will.propsSummary':
+    'Propiedades MQTT 5.0 del mensaje de testamento, registradas dentro de CONNECT; el broker las adjunta al publicar el testamento.',
   'workbench.editors.mqtt.will.info.topic':
     'El tema en el que el bróker publica el testamento; un nombre concreto, sin comodines. Sin tema no se registra ningún testamento.',
   'workbench.editors.mqtt.will.info.qos': 'El nivel de entrega que el bróker usa al publicar el testamento.',

@@ -1,12 +1,18 @@
 /**
  * Per-message 5.0 properties popover — the gear on the publish compose
- * and the Last Will tab, in the topic-options anatomy: hint line, the
- * Properties section (user properties), a hairline, then the Settings
- * section as labeled (i) rows lighting the shared example's PUBLISH
- * leg — or, on the will leg, the will line of the CONNECT leg (the Will
+ * and the Last Will tab, the gear anatomy shared with the topic-options
+ * popover: a title row naming the packet's properties with its (i)
+ * card (the whole slice lit), the named properties as labeled (i)
+ * rows, a hairline, then the User Properties section (scrolling list +
+ * dashed Add) — user properties last, where every packet's property
+ * table and every CLI puts them. Every label is the spec's word for the
+ * thing on the wire; "Settings" never appears inside a gear. The cards
+ * light the PUBLISH leg of the shared example on the publish leg and
+ * the will line of the CONNECT leg on the will leg (the Will
  * Properties travel inside CONNECT). 3.1.1 renders the controls
- * disabled with the honest version line (never a silent drop — the
- * codec is encode-strict either way).
+ * disabled — the title card carries the version rule (never a silent
+ * drop — the codec is encode-strict either way). The gear is icon +
+ * word on the bar, where no column header names it.
  */
 
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
@@ -19,32 +25,30 @@ import {
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import { Badge, Button, ConfigProvider, Input, Popover, Switch, Tooltip, Typography, theme } from 'antd';
+import { Badge, Button, ConfigProvider, Input, Popover, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
-import { type MqttInfoKey, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
+import { type GearInfoKey, mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionLabel from './OptionLabel';
-
-const { Text } = Typography;
 
 /** The packet the block rides — the Message bar's PUBLISH or the Last
  *  Will bar's CONNECT will line; each leg's cards light their own. */
 export type MessagePropertiesLeg = 'publish' | 'will';
 
 type MessagePropertiesSlot =
+  | 'title'
   | 'userProperties'
-  | 'properties'
   | 'responseTopic'
   | 'correlationData'
   | 'messageExpiry'
   | 'contentType'
   | 'payloadFormatIndicator';
 
-const LEG_INFO: Record<MessagePropertiesLeg, Record<MessagePropertiesSlot, MqttInfoKey>> = {
+const LEG_INFO: Record<MessagePropertiesLeg, Record<MessagePropertiesSlot, GearInfoKey>> = {
   publish: {
-    userProperties: 'publishProperties',
-    properties: 'publishSettings',
+    title: 'publishProperties',
+    userProperties: 'publishUserProperties',
     responseTopic: 'responseTopic',
     correlationData: 'correlationData',
     messageExpiry: 'messageExpiry',
@@ -52,8 +56,8 @@ const LEG_INFO: Record<MessagePropertiesLeg, Record<MessagePropertiesSlot, MqttI
     payloadFormatIndicator: 'payloadFormatIndicator',
   },
   will: {
+    title: 'willProperties',
     userProperties: 'willUserProperties',
-    properties: 'willProperties',
     responseTopic: 'willResponseTopic',
     correlationData: 'willCorrelationData',
     messageExpiry: 'willMessageExpiry',
@@ -81,6 +85,8 @@ const MessagePropertiesPopover: React.FC<{
   const { token } = theme.useToken();
   const t = useT();
   const info = (slot: MessagePropertiesSlot) => mqttSettingsRowInfo(t, LEG_INFO[leg][slot]);
+  const title = t(leg === 'publish' ? 'workbench.editors.mqtt.props.title' : 'workbench.editors.mqtt.will.propsTitle');
+  const packet = mqttGearPacket(LEG_INFO[leg].title);
   const [open, setOpen] = useState(false);
   const userPropsRef = useRef<HTMLDivElement | null>(null);
   const configured =
@@ -105,12 +111,91 @@ const MessagePropertiesPopover: React.FC<{
         }}
         data-testid={`${testId}-popover`}
       >
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          {v5 ? t('workbench.editors.mqtt.props.hint') : t('workbench.editors.mqtt.props.v311')}
-        </Text>
+        {/* Both section rows wear the PACKET the popover rides — the
+          user's call: each home of user properties says its packet
+          where the list is, not only at the top. */}
+        <OptionLabel strong text={title} mark={packet} info={info('title')} />
+        {/* One anatomy for every row: the label column left, the
+          control column right — explanations live behind the (i)
+          popovers, never inline in the labels. An empty knob means the
+          default in effect — its stated default reads at full text
+          contrast, the Settings-tab discipline. */}
+        <ConfigProvider
+          theme={{
+            components: {
+              Input: { colorTextPlaceholder: token.colorText },
+              Select: { colorTextPlaceholder: token.colorText },
+            },
+          }}
+        >
+          <div
+            className="oh-stated-default"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr',
+              columnGap: 12,
+              rowGap: 8,
+              alignItems: 'center',
+            }}
+          >
+            <OptionLabel text={t('workbench.editors.mqtt.props.responseTopic')} info={info('responseTopic')} />
+            <Input
+              size="small"
+              style={{ width: 200 }}
+              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+              value={value.responseTopic}
+              disabled={!v5}
+              onChange={(e) => set({ responseTopic: e.target.value })}
+              data-testid={`${testId}-response-topic`}
+            />
+            <OptionLabel text={t('workbench.editors.mqtt.props.correlationData')} info={info('correlationData')} />
+            <Input
+              size="small"
+              style={{ width: 200 }}
+              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+              value={value.correlationData}
+              disabled={!v5}
+              onChange={(e) => set({ correlationData: e.target.value })}
+            />
+            <OptionLabel text={t('workbench.editors.mqtt.props.messageExpiry')} info={info('messageExpiry')} />
+            <ComboKnob
+              value={value.messageExpiryInterval}
+              onChange={(messageExpiryInterval) => set({ messageExpiryInterval })}
+              presets={MESSAGE_EXPIRY_PRESETS}
+              interpret={interpretMessageExpiry}
+              format={formatDurationSeconds}
+              placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
+              disabled={!v5}
+              ariaLabel={t('workbench.editors.mqtt.props.messageExpiry')}
+              style={{ width: 200 }}
+            />
+            <OptionLabel text={t('workbench.editors.mqtt.props.contentType')} info={info('contentType')} />
+            <Input
+              size="small"
+              style={{ width: 200 }}
+              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+              value={value.contentType}
+              disabled={!v5}
+              onChange={(e) => set({ contentType: e.target.value })}
+            />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.payloadFormatIndicator')}
+              info={info('payloadFormatIndicator')}
+            />
+            <Switch
+              size="small"
+              style={{ justifySelf: 'start' }}
+              checked={value.payloadFormatIndicator}
+              disabled={!v5}
+              onChange={(payloadFormatIndicator) => set({ payloadFormatIndicator })}
+            />
+          </div>
+        </ConfigProvider>
+        <div style={{ height: 1, background: token.colorSplit }} />
         <OptionLabel
           strong
-          text={t('workbench.editors.mqtt.props.sectionProperties')}
+          text={t('workbench.editors.mqtt.props.userProperties')}
+          mark={packet}
           info={info('userProperties')}
         />
         {/* The list shows four rows and scrolls instead of growing the
@@ -181,100 +266,6 @@ const MessagePropertiesPopover: React.FC<{
         >
           {t('workbench.editors.mqtt.props.addUserProp')}
         </Button>
-        <div style={{ height: 1, background: token.colorSplit }} />
-        <OptionLabel
-          strong
-          text={t('workbench.editors.mqtt.props.sectionSettings')}
-          info={info('properties')}
-        />
-        {/* One anatomy for every row: the label column left, the
-          control column right — explanations live behind the (i)
-          popovers, never inline in the labels. An empty knob means the
-          default in effect — its stated default reads at full text
-          contrast, the Settings-tab discipline. */}
-        <ConfigProvider
-          theme={{
-            components: {
-              Input: { colorTextPlaceholder: token.colorText },
-              Select: { colorTextPlaceholder: token.colorText },
-            },
-          }}
-        >
-          <div
-            className="oh-stated-default"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'auto 1fr',
-              columnGap: 12,
-              rowGap: 8,
-              alignItems: 'center',
-            }}
-          >
-            <OptionLabel
-              text={t('workbench.editors.mqtt.props.responseTopic')}
-              info={info('responseTopic')}
-            />
-            <Input
-              size="small"
-              style={{ width: 200 }}
-              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-              value={value.responseTopic}
-              disabled={!v5}
-              onChange={(e) => set({ responseTopic: e.target.value })}
-              data-testid={`${testId}-response-topic`}
-            />
-            <OptionLabel
-              text={t('workbench.editors.mqtt.props.correlationData')}
-              info={info('correlationData')}
-            />
-            <Input
-              size="small"
-              style={{ width: 200 }}
-              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-              value={value.correlationData}
-              disabled={!v5}
-              onChange={(e) => set({ correlationData: e.target.value })}
-            />
-            <OptionLabel
-              text={t('workbench.editors.mqtt.props.messageExpiry')}
-              info={info('messageExpiry')}
-            />
-            <ComboKnob
-              value={value.messageExpiryInterval}
-              onChange={(messageExpiryInterval) => set({ messageExpiryInterval })}
-              presets={MESSAGE_EXPIRY_PRESETS}
-              interpret={interpretMessageExpiry}
-              format={formatDurationSeconds}
-              placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
-              disabled={!v5}
-              ariaLabel={t('workbench.editors.mqtt.props.messageExpiry')}
-              style={{ width: 200 }}
-            />
-            <OptionLabel
-              text={t('workbench.editors.mqtt.props.contentType')}
-              info={info('contentType')}
-            />
-            <Input
-              size="small"
-              style={{ width: 200 }}
-              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-              value={value.contentType}
-              disabled={!v5}
-              onChange={(e) => set({ contentType: e.target.value })}
-            />
-            <OptionLabel
-              text={t('workbench.editors.mqtt.props.payloadFormatIndicator')}
-              info={info('payloadFormatIndicator')}
-            />
-            <Switch
-              size="small"
-              style={{ justifySelf: 'start' }}
-              checked={value.payloadFormatIndicator}
-              disabled={!v5}
-              onChange={(payloadFormatIndicator) => set({ payloadFormatIndicator })}
-            />
-          </div>
-        </ConfigProvider>
       </div>
     </InfoPopoverContainerProvider>
   );
@@ -282,9 +273,11 @@ const MessagePropertiesPopover: React.FC<{
     <Popover content={content} trigger="click" placement="bottom" open={open} onOpenChange={setOpen}>
       {/* The hover tooltip yields INSTANTLY once the popover opens —
         open suppresses it (the timeline sort-menu discipline). */}
-      <Tooltip title={t('workbench.editors.mqtt.props.buttonTooltip')} open={open ? false : undefined}>
+      <Tooltip title={title} open={open ? false : undefined}>
         <Badge dot={configured} offset={[-2, 2]}>
-          <Button size="small" icon={<SettingOutlined />} data-testid={testId} />
+          <Button size="small" icon={<SettingOutlined />} data-testid={testId}>
+            {t('workbench.editors.mqtt.props.gearLabel')}
+          </Button>
         </Badge>
       </Tooltip>
     </Popover>
