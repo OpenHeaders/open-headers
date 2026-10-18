@@ -21,7 +21,7 @@ import type { MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
+import { InfoPopoverContainerProvider, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Select, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -300,29 +300,35 @@ const TopicOptionsPopover: React.FC<{
     </InfoPopoverContainerProvider>
   );
   return (
-    <Popover content={content} trigger="click" placement="bottom" open={open} onOpenChange={setOpen}>
-      {/* The hover tooltip yields INSTANTLY once the popover opens —
-        open suppresses it (the message-properties discipline). */}
-      <Tooltip title={t('workbench.editors.mqtt.topics.optionsTitle')} open={open ? false : undefined}>
-        <Badge
-          dot={badgeTone !== null}
-          color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
-          offset={[-2, 2]}
-        >
-          {/* Icon + word, as the bars' gears — the user's call; the
-            Options track pays for the word. */}
-          <Button
-            size="small"
-            type="text"
-            icon={<SettingOutlined />}
-            style={{ marginLeft: 4, fontSize: 12 }}
-            data-testid="mqtt-topic-options"
+    // The gear closes with its (i) like the bars' gears (the user's
+    // call): the title card, the options slice lit, outside the
+    // popover's trigger so its click never opens the gear.
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <Popover content={content} trigger="click" placement="bottom" open={open} onOpenChange={setOpen}>
+        {/* The hover tooltip yields INSTANTLY once the popover opens —
+          open suppresses it (the message-properties discipline). */}
+        <Tooltip title={t('workbench.editors.mqtt.topics.optionsTitle')} open={open ? false : undefined}>
+          <Badge
+            dot={badgeTone !== null}
+            color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
+            offset={[-2, 2]}
           >
-            {t('workbench.editors.mqtt.topics.optionsGearLabel')}
-          </Button>
-        </Badge>
-      </Tooltip>
-    </Popover>
+            {/* Icon + word, as the bars' gears — the user's call; the
+              Options track pays for the word. */}
+            <Button
+              size="small"
+              type="text"
+              icon={<SettingOutlined />}
+              style={{ marginLeft: 4, fontSize: 12 }}
+              data-testid="mqtt-topic-options"
+            >
+              {t('workbench.editors.mqtt.topics.optionsGearLabel')}
+            </Button>
+          </Badge>
+        </Tooltip>
+      </Popover>
+      <InfoTrigger content={mqttSettingsRowInfo(t, 'subscriptionOptions')} />
+    </span>
   );
 };
 

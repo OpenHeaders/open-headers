@@ -25,7 +25,7 @@ import {
   formatDurationSeconds,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
+import { InfoPopoverContainerProvider, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Badge, Button, ConfigProvider, Input, Popover, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
@@ -352,21 +352,27 @@ const MessagePropertiesPopover: React.FC<{
     </InfoPopoverContainerProvider>
   );
   return (
-    <Popover content={content} trigger="click" placement="bottom" open={open} onOpenChange={setOpen}>
-      {/* The hover tooltip yields INSTANTLY once the popover opens —
-        open suppresses it (the timeline sort-menu discipline). */}
-      <Tooltip title={title} open={open ? false : undefined}>
-        <Badge
-          dot={badgeTone !== null}
-          color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
-          offset={[-2, 2]}
-        >
-          <Button size="small" icon={<SettingOutlined />} data-testid={testId}>
-            {t('workbench.editors.mqtt.props.gearLabel')}
-          </Button>
-        </Badge>
-      </Tooltip>
-    </Popover>
+    // The gear closes with the bar's (i) like every other knob on it
+    // (the user's call): the title card, the whole slice lit, outside
+    // the popover's trigger so its click never opens the gear.
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <Popover content={content} trigger="click" placement="bottom" open={open} onOpenChange={setOpen}>
+        {/* The hover tooltip yields INSTANTLY once the popover opens —
+          open suppresses it (the timeline sort-menu discipline). */}
+        <Tooltip title={title} open={open ? false : undefined}>
+          <Badge
+            dot={badgeTone !== null}
+            color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
+            offset={[-2, 2]}
+          >
+            <Button size="small" icon={<SettingOutlined />} data-testid={testId}>
+              {t('workbench.editors.mqtt.props.gearLabel')}
+            </Button>
+          </Badge>
+        </Tooltip>
+      </Popover>
+      <InfoTrigger content={info('title')} />
+    </span>
   );
 };
 

@@ -61,8 +61,11 @@ async function openGear(testId: string, popoverTestId = `${testId}-popover`): Pr
   return screen.getByTestId(popoverTestId);
 }
 
-async function openCard(name: string): Promise<void> {
-  fireEvent.click(screen.getByRole('button', { name }));
+/** Opens an (i) card by its name; `scope` narrows the search to a
+ *  popover when the bar outside carries a trigger of the same name
+ *  (the gear's own (i), the title card). */
+async function openCard(name: string, scope: HTMLElement = document.body): Promise<void> {
+  fireEvent.click(within(scope).getByRole('button', { name }));
   await waitFor(() => expect(document.querySelector('.oh-info-popover')).not.toBeNull());
 }
 
@@ -83,6 +86,22 @@ describe('mqtt gear popovers — the anatomy', () => {
     const text = popover.textContent ?? '';
     expect(text.indexOf('Response Topic')).toBeLessThan(text.indexOf('User properties'));
     expect(within(popover).getByTestId('mqtt-publish-props-add-user-prop')).toBeTruthy();
+  });
+
+  it('every gear closes with its title card’s (i) on the bar, outside the popover', async () => {
+    renderMessageGear('publish', 'mqtt-publish-props');
+    const gear = screen.getByTestId('mqtt-publish-props');
+    const info = screen.getByRole('button', { name: 'About Message properties' });
+    expect(gear.parentElement?.parentElement?.parentElement?.contains(info)).toBe(true);
+    await openCard('About Message properties');
+    expect(kicker()).toBe('PUBLISH');
+    expect(screen.queryByTestId('mqtt-publish-props-popover')).toBeNull();
+    cleanup();
+    renderMessageGear('will', 'mqtt-will-props');
+    expect(screen.getByRole('button', { name: 'About Will properties' })).toBeTruthy();
+    cleanup();
+    render(<TopicOptionsPopover row={{ uid: 'r1', topicFilter: 'sensors/+/temp' }} onChange={() => {}} v5 />);
+    expect(screen.getByRole('button', { name: 'About Subscription options' })).toBeTruthy();
   });
 
   it('the Last Will gear names the will', async () => {
@@ -327,8 +346,8 @@ describe('mqtt gear popovers — the example card folds the packets the card doe
 describe('mqtt gear popovers — the cards light their own packet', () => {
   it('the Message gear’s cards carry PUBLISH; the title lights the whole slice, a row its token', async () => {
     renderMessageGear('publish', 'mqtt-publish-props');
-    await openGear('mqtt-publish-props');
-    await openCard('About Message properties');
+    const popover = await openGear('mqtt-publish-props');
+    await openCard('About Message properties', popover);
     expect(kicker()).toBe('PUBLISH');
     expect(litTokens()).toEqual([
       'reply to: sensors/1/ack',
@@ -360,8 +379,8 @@ describe('mqtt gear popovers — the cards light their own packet', () => {
 
   it('the Topics gear’s cards carry SUBSCRIBE; options, properties and user properties light their own slice', async () => {
     render(<TopicOptionsPopover row={{ uid: 'r1', topicFilter: 'sensors/+/temp' }} onChange={() => {}} v5 />);
-    await openGear('mqtt-topic-options', 'mqtt-topic-options-popover');
-    await openCard('About Subscription options');
+    const popover = await openGear('mqtt-topic-options', 'mqtt-topic-options-popover');
+    await openCard('About Subscription options', popover);
     expect(kicker()).toBe('SUBSCRIBE');
     expect(litTokens()).toEqual(['no local ✓', 'retain as published ✓', 'retained: on subscribe']);
     cleanup();
