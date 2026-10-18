@@ -12,6 +12,7 @@
  * caret (editing) opens nothing; an edit closes the popover at once.
  */
 
+import { OH_API_REF_GRAMMAR } from '@openheaders/ui/workbench/components/script-editor/script-ref-grammar';
 import { findRefAt } from '@openheaders/ui/workbench/components/template-input/monaco/monaco-ref-decorations';
 import { useMonacoRefHover } from '@openheaders/ui/workbench/components/template-input/monaco/use-monaco-ref-hover';
 import { act, cleanup, render } from '@testing-library/react';
@@ -63,6 +64,12 @@ describe('findRefAt', () => {
     expect(findRefAt(line, 3)).toBeNull();
     expect(findRefAt(line, 40)).toBeNull();
     expect(findRefAt('plain', 2)).toBeNull();
+  });
+
+  it('reads the script grammar when handed it — the lookup string, under its namespace', () => {
+    const script = "await oh.vault.get('token'); const x = '{{env.A}}';";
+    expect(findRefAt(script, 21, OH_API_REF_GRAMMAR)).toEqual({ inner: 'vault.token', startColumn: 20, endColumn: 27 });
+    expect(findRefAt(script, 43, OH_API_REF_GRAMMAR)).toBeNull();
   });
 });
 

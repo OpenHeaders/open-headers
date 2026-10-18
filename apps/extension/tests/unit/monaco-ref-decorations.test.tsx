@@ -11,6 +11,7 @@
  * unmount.
  */
 
+import { OH_API_REF_GRAMMAR } from '@openheaders/ui/workbench/components/script-editor/script-ref-grammar';
 import {
   collectRefDecorations,
   refDecorationClass,
@@ -195,5 +196,35 @@ describe('useMonacoRefDecorations', () => {
     }
     render(<Off editor={fake.editor} />);
     expect(fake.set).not.toHaveBeenCalled();
+  });
+});
+
+describe('collectRefDecorations under the script grammar', () => {
+  it('dresses the lookup strings alone and leaves a bare {{ref}} in code unpainted', () => {
+    const line = "const a = await oh.variables.get('env.A'); const b = '{{env.B}}'; await oh.vault.get('T');";
+    const out = collectRefDecorations([{ lineNumber: 1, text: line }], null, classify, OH_API_REF_GRAMMAR);
+    expect(out.map((d) => d.state)).toEqual(['resolved', 'unresolved']);
+    expect(out[0].range.startColumn).toBe(line.indexOf("'") + 1);
+  });
+
+  it('the open string the caret composes wears editing from its quote', () => {
+    const line = "oh.variables.get('')";
+    const out = collectRefDecorations(
+      [{ lineNumber: 1, text: line }],
+      { lineNumber: 1, column: line.indexOf("'") + 2 },
+      classify,
+      OH_API_REF_GRAMMAR,
+    );
+    expect(out).toEqual([
+      {
+        range: {
+          startLineNumber: 1,
+          startColumn: line.indexOf("'") + 1,
+          endLineNumber: 1,
+          endColumn: line.indexOf("'") + 2,
+        },
+        state: 'editing',
+      },
+    ]);
   });
 });

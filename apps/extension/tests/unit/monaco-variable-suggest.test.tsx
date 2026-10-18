@@ -14,7 +14,9 @@
  * and Enter hands it to the shared create popover pinned.
  */
 
+import { OH_API_REF_GRAMMAR } from '@openheaders/ui/workbench/components/script-editor/script-ref-grammar';
 import MonacoSuggestOverlay from '@openheaders/ui/workbench/components/template-input/monaco/MonacoSuggestOverlay';
+import type { MonacoRefGrammar } from '@openheaders/ui/workbench/components/template-input/monaco/ref-grammar';
 import { useMonacoVariableSuggest } from '@openheaders/ui/workbench/components/template-input/monaco/use-monaco-variable-suggest';
 // Side-effect import — the hook reads workbench settings via
 // useSyncExternalStore.
@@ -151,8 +153,8 @@ function fakeEditor(initialLine: string) {
   };
 }
 
-function Harness({ editor }: { editor: monaco.editor.IStandaloneCodeEditor }) {
-  const suggest = useMonacoVariableSuggest(editor, { enabled: true });
+function Harness({ editor, grammar }: { editor: monaco.editor.IStandaloneCodeEditor; grammar?: MonacoRefGrammar }) {
+  const suggest = useMonacoVariableSuggest(editor, { enabled: true, grammar });
   return (
     <MonacoSuggestOverlay
       anchor={suggest.anchor}
@@ -166,9 +168,9 @@ function Harness({ editor }: { editor: monaco.editor.IStandaloneCodeEditor }) {
   );
 }
 
-function mount(initialLine = '{"id": ') {
+function mount(initialLine = '{"id": ', grammar?: MonacoRefGrammar) {
   const fake = fakeEditor(initialLine);
-  render(<Harness editor={fake.editor} />);
+  render(<Harness editor={fake.editor} grammar={grammar} />);
   return fake;
 }
 
@@ -314,5 +316,33 @@ describe('useMonacoVariableSuggest', () => {
     });
     expect(e?.preventDefault).not.toHaveBeenCalled();
     expect(e?.stopPropagation).not.toHaveBeenCalled();
+  });
+});
+
+describe('useMonacoVariableSuggest under the script grammar', () => {
+  it('opens inside the lookup string, never on braces, and a pick writes the bare name', () => {
+    const fake = mount('const host = await ', OH_API_REF_GRAMMAR);
+    act(() => fake.type('{{'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    act(() => fake.type("}}; oh.variables.get('"));
+    expect(screen.getByRole('listbox')).not.toBeNull();
+    expect(options()[0].textContent).toContain('dynamic.');
+    act(() => {
+      fake.key('Tab');
+    });
+    expect(fake.line()).toBe("const host = await {{}}; oh.variables.get('dynamic.");
+    expect(screen.getByRole('listbox')).not.toBeNull();
+    for (const row of options()) expect(row.textContent).toContain('dynamic.');
+  });
+
+  it('a vault lookup offers the vault alone and creates under it', () => {
+    const fake = mount('', OH_API_REF_GRAMMAR);
+    act(() => fake.type("oh.vault.get('okay"));
+    expect(screen.getByText('No matches')).not.toBeNull();
+    expect(screen.getByText('Create “okay” variable in Vault')).not.toBeNull();
+    act(() => {
+      fake.key('Enter');
+    });
+    expect(popoverOpen.mock.calls[0][0]).toMatchObject({ reference: 'vault.okay' });
   });
 });

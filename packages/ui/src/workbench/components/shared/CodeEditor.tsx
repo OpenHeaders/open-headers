@@ -46,7 +46,9 @@ import { applyExternalValue } from '../monaco/external-value-sync';
 import { ensureEditorFormatCommand, registerEditorFormatHandler } from '../monaco/format-command';
 import { detectStructuredLanguage } from '../monaco/structured-text-detection';
 import {
+  type MonacoRefGrammar,
   MonacoSuggestOverlay,
+  TEMPLATE_REF_GRAMMAR,
   useMonacoJsonShadow,
   useMonacoRefDecorations,
   useMonacoRefHover,
@@ -66,12 +68,17 @@ interface CodeEditorProps {
    *  resize grip — for panes that own their vertical space (e.g. the
    *  response body viewer). The parent must be a sized flex column. */
   fill?: boolean;
-  /** When true, the buffer carries the cross-scope `{{VAR}}` picker
-   *  (the line inputs' list, opened on `{{`).
-   *  Defaults to true for every host that doesn't opt out — callers
-   *  that embed user scripts or SQL editors where `{{VAR}}` shouldn't
-   *  expand can pass `variableAutoComplete={false}`. */
+  /** When true, the buffer carries the variable plane: the dress on
+   *  every reference in view, the hover readout, the cross-scope
+   *  picker. Defaults to true for every host that doesn't opt out —
+   *  a buffer the executor never resolves (a spec, a viewer, a
+   *  package's source) passes `variableAutoComplete={false}`. */
   variableAutoComplete?: boolean;
+  /** Where a reference stands in this buffer — the body editors'
+   *  `{{ref}}` by default; a script buffer hands the `oh` API's
+   *  lookup grammar, so the plane dresses only what the runtime
+   *  resolves. */
+  refGrammar?: MonacoRefGrammar;
   /** Hands the mounted Monaco instance to the host — for surfaces that
    *  add their own actions (e.g. the Docs tab's markdown toolbar +
    *  formatting shortcuts). */
@@ -126,6 +133,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   readOnly = false,
   fill = false,
   variableAutoComplete = true,
+  refGrammar = TEMPLATE_REF_GRAMMAR,
   onEditorMount,
   wordWrapOverride,
   valueDetection = false,
@@ -152,9 +160,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // pointer, the picker reads the caret for the `{{query` run and
   // paints their list over it, and a JSON buffer validates through its
   // shadow, every reference a value.
-  useMonacoRefDecorations(mountedEditor, { enabled: variableAutoComplete });
-  useMonacoRefHover(mountedEditor, { enabled: variableAutoComplete });
-  const suggest = useMonacoVariableSuggest(mountedEditor, { enabled: variableAutoComplete && !readOnly });
+  useMonacoRefDecorations(mountedEditor, { enabled: variableAutoComplete, grammar: refGrammar });
+  useMonacoRefHover(mountedEditor, { enabled: variableAutoComplete, grammar: refGrammar });
+  const suggest = useMonacoVariableSuggest(mountedEditor, {
+    enabled: variableAutoComplete && !readOnly,
+    grammar: refGrammar,
+  });
   useMonacoJsonShadow(mountedEditor, mountedMonaco, { enabled: variableAutoComplete && !readOnly });
   // Runtime monaco namespace, captured at mount — the module import is
   // type-only (the loader owns the runtime), but the EOL decorations

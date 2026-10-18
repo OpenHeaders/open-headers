@@ -28,16 +28,19 @@ import { useEffect, useRef } from 'react';
 import { useAutoSuggestionContext } from '../SuggestionContextProvider';
 import { useVariablePopover } from '../VariablePopoverHost';
 import { findRefAt, MONACO_REF_CLASS, MONACO_REF_EDITING_CLASS } from './monaco-ref-decorations';
+import { type MonacoRefGrammar, TEMPLATE_REF_GRAMMAR } from './ref-grammar';
 
 export interface MonacoRefHoverOptions {
   enabled: boolean;
   /** Scope override; the nearest `SuggestionContextProvider` otherwise. */
   context?: SuggestionContext;
+  /** Where a reference stands; the body editors' `{{ref}}` otherwise. */
+  grammar?: MonacoRefGrammar;
 }
 
 export function useMonacoRefHover(
   editor: monaco.editor.IStandaloneCodeEditor | null,
-  { enabled, context: contextOverride }: MonacoRefHoverOptions,
+  { enabled, context: contextOverride, grammar = TEMPLATE_REF_GRAMMAR }: MonacoRefHoverOptions,
 ): void {
   const autoContext = useAutoSuggestionContext();
   const context = contextOverride ?? autoContext;
@@ -77,7 +80,7 @@ export function useMonacoRefHover(
           leave();
           return;
         }
-        const ref = findRefAt(model.getLineContent(position.lineNumber), position.column);
+        const ref = findRefAt(model.getLineContent(position.lineNumber), position.column, grammar);
         if (!ref) {
           leave();
           return;
@@ -101,5 +104,5 @@ export function useMonacoRefHover(
       resumeNativeHover();
       hoveredRef.current = null;
     };
-  }, [editor, enabled, collectionId]);
+  }, [editor, enabled, collectionId, grammar]);
 }

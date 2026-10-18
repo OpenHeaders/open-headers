@@ -20,21 +20,19 @@
 import type { SuggestionContext, VariableSuggestion } from '@openheaders/core/variables';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSettingValue } from '../../../settings/hooks';
 import type { CreateTarget } from '../create-target';
 import { useAutoSuggestionContext } from '../SuggestionContextProvider';
 import { useSuggestionList } from '../use-suggestion-list';
 import { useVariablePopover } from '../VariablePopoverHost';
 import { MONACO_REF_EDITING_CLASS } from './monaco-ref-decorations';
-import { buildInsertEdit, measureLine } from './monaco-suggest-measure';
+import { type MonacoRefGrammar, type OpenRun, TEMPLATE_REF_GRAMMAR } from './ref-grammar';
 
 const EDIT_SOURCE = 'oh.variableSuggest';
 
-interface Measure {
+interface Measure extends OpenRun {
   lineNumber: number;
-  startColumn: number;
-  query: string;
 }
 
 /** Viewport rect of the opening `{{` — the popover hangs below it. */
@@ -50,6 +48,9 @@ export interface MonacoVariableSuggestOptions {
   enabled: boolean;
   /** Scope override; the nearest `SuggestionContextProvider` otherwise. */
   context?: SuggestionContext;
+  /** The run the list opens on and the edit a pick writes; the body
+   *  editors' `{{ref}}` otherwise. */
+  grammar?: MonacoRefGrammar;
 }
 
 export interface MonacoVariableSuggestApi {
@@ -75,7 +76,7 @@ function sameMeasure(a: Measure | null, b: Measure): boolean {
 
 export function useMonacoVariableSuggest(
   editor: monaco.editor.IStandaloneCodeEditor | null,
-  { enabled, context: contextOverride }: MonacoVariableSuggestOptions,
+  { enabled, context: contextOverride, grammar = TEMPLATE_REF_GRAMMAR }: MonacoVariableSuggestOptions,
 ): MonacoVariableSuggestApi {
   const autoContext = useAutoSuggestionContext();
   const context = contextOverride ?? autoContext;
@@ -93,8 +94,14 @@ export function useMonacoVariableSuggest(
   const dismissedRef = useRef<Measure | null>(null);
   const isOpen = measure !== null;
 
+  // A run may narrow the scopes it names (a vault lookup offers vault
+  // entries alone); the grammar hands those as a constant, so the
+  // list's context changes identity only when the run kind does.
+  const allowed = measure?.allowed;
+  const runContext = useMemo(() => (allowed ? { ...context, allowed } : context), [context, allowed]);
+
   const { suggestions, activeIndex, setActiveIndex, createTarget, recordRecent } = useSuggestionList({
-    context,
+    context: runContext,
     isOpen,
     query: measure?.query ?? '',
     measureDouble: true,
@@ -120,7 +127,7 @@ export function useMonacoVariableSuggest(
       commit(null);
       return;
     }
-    const line = measureLine(model.getLineContent(position.lineNumber), position.column);
+    const line = grammar.openRun(model.getLineContent(position.lineNumber), position.column);
     if (!line) {
       dismissedRef.current = null;
       commit(null);
@@ -138,7 +145,7 @@ export function useMonacoVariableSuggest(
     // the same run keeps the user's place.
     if (!sameRun(previous, next)) setActiveIndex(0);
     commit(next);
-  }, [editor, active, commit, setActiveIndex]);
+  }, [editor, active, commit, setActiveIndex, grammar]);
 
   const reanchor = useCallback(
     (current: Measure | null) => {
@@ -232,7 +239,7 @@ export function useMonacoVariableSuggest(
       const model = editor.getModel();
       const position = editor.getPosition();
       if (!model || !position || position.lineNumber !== current.lineNumber) return;
-      const edit = buildInsertEdit(
+      const edit = grammar.insert(
         model.getLineContent(current.lineNumber),
         current.lineNumber,
         current.startColumn,
@@ -242,11 +249,11 @@ export function useMonacoVariableSuggest(
       editor.executeEdits(EDIT_SOURCE, [{ range: edit.range, text: edit.text }]);
       editor.setPosition({ lineNumber: current.lineNumber, column: edit.caretColumn });
       editor.focus();
-      // A scaffold leaves the caret inside the braces and the cursor
+      // A scaffold leaves the caret inside the run and the cursor
       // event reopens the list narrowed; a reference is a real pick.
       if (!edit.scaffold) recordRecent(suggestion.reference);
     },
-    [editor, recordRecent],
+    [editor, recordRecent, grammar],
   );
 
   // When the create popover closes, drop the user back where they

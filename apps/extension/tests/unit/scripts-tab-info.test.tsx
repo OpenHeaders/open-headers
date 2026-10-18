@@ -40,15 +40,18 @@ vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
     onChange,
     placeholder,
     variableAutoComplete,
+    refGrammar,
   }: {
     value?: string;
     onChange?: (next: string) => void;
     placeholder?: string;
     variableAutoComplete?: boolean;
+    refGrammar?: { id: string };
   }) => (
     <textarea
       data-testid="code-editor"
       data-variable-autocomplete={variableAutoComplete === undefined ? 'default' : String(variableAutoComplete)}
+      data-ref-grammar={refGrammar?.id ?? 'default'}
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange?.(e.target.value)}
@@ -453,8 +456,9 @@ describe('ScriptsTab snippets menu', () => {
 });
 
 describe('ScriptsTab editor', () => {
-  it('mounts the editor without the brace plane — a script resolves no `{{ref}}`', () => {
+  it('mounts the editor on the `oh` API grammar — the plane reads the lookups, never a `{{ref}}`', () => {
     renderTab();
-    expect(editor().getAttribute('data-variable-autocomplete')).toBe('false');
+    expect(editor().getAttribute('data-variable-autocomplete')).toBe('default');
+    expect(editor().getAttribute('data-ref-grammar')).toBe('oh-api');
   });
 });

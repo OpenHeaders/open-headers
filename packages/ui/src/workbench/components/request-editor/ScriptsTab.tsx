@@ -38,6 +38,7 @@ import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
 import ScriptRail from '../script-editor/ScriptRail';
+import { OH_API_REF_GRAMMAR } from '../script-editor/script-ref-grammar';
 import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
 import {
   DEFAULT_SCRIPT_SLOT,
@@ -199,11 +200,11 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
               onChange={onChange}
               fill
               // A script is raw to the runtime: its source compiles as
-              // written and a `{{ref}}` inside it never resolves — a
-              // script reads variables through `oh.variables.get` /
-              // `oh.vault.get`. The body editors' brace plane would
-              // promise a resolution the wire never performs.
-              variableAutoComplete={false}
+              // written and a `{{ref}}` inside it never resolves. The
+              // plane reads the `oh` API's lookups instead — the string
+              // a script hands `oh.variables.get` / `oh.vault.get` is
+              // what the runtime resolves.
+              refGrammar={OH_API_REF_GRAMMAR}
               actions="external"
               actionsRef={editorActionsRef}
               wordWrapOverride={wrapScript ? 'on' : 'off'}
