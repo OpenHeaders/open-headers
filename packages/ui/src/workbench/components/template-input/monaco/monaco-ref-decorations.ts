@@ -14,7 +14,7 @@ import { measureLine } from './monaco-suggest-measure';
 
 export type RefDecorationState = RefState | 'editing';
 
-const MONACO_REF_CLASS = 'oh-monaco-ref';
+export const MONACO_REF_CLASS = 'oh-monaco-ref';
 /** The composing run's span — the create popover's anchor. */
 export const MONACO_REF_EDITING_CLASS = `${MONACO_REF_CLASS}-editing`;
 
@@ -66,4 +66,25 @@ export function collectRefDecorations(
     });
   }
   return out;
+}
+
+export interface RefAtColumn {
+  /** The text between the braces. */
+  inner: string;
+  startColumn: number;
+  endColumn: number;
+}
+
+/** The closed `{{ref}}` on `lineText` that covers `column` (1-based),
+ *  or null — the hover plane's lookup for the span under the pointer. */
+export function findRefAt(lineText: string, column: number): RefAtColumn | null {
+  const offset = column - 1;
+  const regex = new RegExp(TEMPLATE_REGEX.source, TEMPLATE_REGEX.flags);
+  for (const match of lineText.matchAll(regex)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (offset < start) return null;
+    if (offset < end) return { inner: match[1], startColumn: start + 1, endColumn: end + 1 };
+  }
+  return null;
 }
