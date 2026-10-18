@@ -35,6 +35,7 @@ import {
 } from './compose-parts';
 import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { type MqttDraft, payloadEncodingError } from './draft';
+import type { MessagePropertiesUnsaved } from './mqtt-gear-unsaved';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
 
 const { Text } = Typography;
@@ -48,9 +49,12 @@ interface MqttLastWillTabProps {
   draft: MqttDraft;
   setDraft: Dispatch<SetStateAction<MqttDraft>>;
   v5: boolean;
+  /** The will-properties knobs differing from the saved request — the
+   *  gear's row dots. */
+  unsavedProperties?: MessagePropertiesUnsaved;
 }
 
-const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }) => {
+const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5, unsavedProperties }) => {
   const { token } = theme.useToken();
   const t = useT();
   // Will-editor wrap — the compose-editor default carries over (ON;
@@ -103,6 +107,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           onChange={(properties) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, properties } }))}
           v5={v5}
           leg="will"
+          unsaved={unsavedProperties}
           testId="mqtt-will-props"
         />
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>

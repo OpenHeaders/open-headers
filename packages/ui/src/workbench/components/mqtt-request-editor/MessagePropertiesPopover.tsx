@@ -29,6 +29,13 @@ import { Badge, Button, ConfigProvider, Input, Popover, Switch, Tooltip, theme }
 import type React from 'react';
 import { useRef, useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
+import { ModifiedDot } from '@openheaders/ui/shared/settings-rows';
+import {
+  type MessagePropertiesUnsaved,
+  type MessagePropertyKnobKey,
+  modifiedMessagePropertyKeys,
+  userPropertyRowModified,
+} from './mqtt-gear-unsaved';
 import { type GearInfoKey, mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionLabel from './OptionLabel';
 
@@ -80,8 +87,11 @@ const MessagePropertiesPopover: React.FC<{
   onChange: (next: MqttMessagePropertiesDraft) => void;
   v5: boolean;
   leg: MessagePropertiesLeg;
+  /** The knobs differing from the saved request — the rows' salmon
+   *  dots and the gear's; absent (no baseline) reads all-clean. */
+  unsaved?: MessagePropertiesUnsaved;
   testId: string;
-}> = ({ value, onChange, v5, leg, testId }) => {
+}> = ({ value, onChange, v5, leg, unsaved, testId }) => {
   const { token } = theme.useToken();
   const t = useT();
   const info = (slot: MessagePropertiesSlot) => mqttSettingsRowInfo(t, LEG_INFO[leg][slot]);
@@ -89,13 +99,16 @@ const MessagePropertiesPopover: React.FC<{
   const packet = mqttGearPacket(LEG_INFO[leg].title);
   const [open, setOpen] = useState(false);
   const userPropsRef = useRef<HTMLDivElement | null>(null);
-  const configured =
-    value.userProperties.some((row) => row.key.trim() !== '') ||
-    value.responseTopic !== '' ||
-    value.correlationData !== '' ||
-    value.messageExpiryInterval !== undefined ||
-    value.contentType !== '' ||
-    value.payloadFormatIndicator;
+  // The rows' dots: neutral while a knob is off its default, salmon
+  // while it differs from the saved request; the gear's badge wears
+  // the stronger of them (never red — MQTT has no unresolved tier).
+  const modified = modifiedMessagePropertyKeys(value);
+  const dot = (key: MessagePropertyKnobKey) => ({
+    modified: modified.has(key),
+    unsaved: unsaved?.knobs.has(key) === true,
+  });
+  const anyUnsaved = unsaved !== undefined && (unsaved.knobs.size > 0 || unsaved.rows.size > 0);
+  const badgeTone = anyUnsaved ? 'unsaved' : modified.size > 0 ? 'modified' : null;
   const set = (patch: Partial<MqttMessagePropertiesDraft>) => onChange({ ...value, ...patch });
   const content = (
     <InfoPopoverContainerProvider resolver={resolvePropsPopover}>
@@ -138,7 +151,11 @@ const MessagePropertiesPopover: React.FC<{
               alignItems: 'center',
             }}
           >
-            <OptionLabel text={t('workbench.editors.mqtt.props.responseTopic')} info={info('responseTopic')} />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.responseTopic')}
+              info={info('responseTopic')}
+              {...dot('responseTopic')}
+            />
             <Input
               size="small"
               style={{ width: 200 }}
@@ -148,7 +165,11 @@ const MessagePropertiesPopover: React.FC<{
               onChange={(e) => set({ responseTopic: e.target.value })}
               data-testid={`${testId}-response-topic`}
             />
-            <OptionLabel text={t('workbench.editors.mqtt.props.correlationData')} info={info('correlationData')} />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.correlationData')}
+              info={info('correlationData')}
+              {...dot('correlationData')}
+            />
             <Input
               size="small"
               style={{ width: 200 }}
@@ -157,7 +178,11 @@ const MessagePropertiesPopover: React.FC<{
               disabled={!v5}
               onChange={(e) => set({ correlationData: e.target.value })}
             />
-            <OptionLabel text={t('workbench.editors.mqtt.props.messageExpiry')} info={info('messageExpiry')} />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.messageExpiry')}
+              info={info('messageExpiry')}
+              {...dot('messageExpiryInterval')}
+            />
             <ComboKnob
               value={value.messageExpiryInterval}
               onChange={(messageExpiryInterval) => set({ messageExpiryInterval })}
@@ -169,7 +194,11 @@ const MessagePropertiesPopover: React.FC<{
               ariaLabel={t('workbench.editors.mqtt.props.messageExpiry')}
               style={{ width: 200 }}
             />
-            <OptionLabel text={t('workbench.editors.mqtt.props.contentType')} info={info('contentType')} />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.props.contentType')}
+              info={info('contentType')}
+              {...dot('contentType')}
+            />
             <Input
               size="small"
               style={{ width: 200 }}
@@ -181,6 +210,7 @@ const MessagePropertiesPopover: React.FC<{
             <OptionLabel
               text={t('workbench.editors.mqtt.props.payloadFormatIndicator')}
               info={info('payloadFormatIndicator')}
+              {...dot('payloadFormatIndicator')}
             />
             <Switch
               size="small"
@@ -197,6 +227,7 @@ const MessagePropertiesPopover: React.FC<{
           text={t('workbench.editors.mqtt.props.userProperties')}
           mark={packet}
           info={info('userProperties')}
+          {...dot('userProperties')}
         />
         {/* The list shows four rows and scrolls instead of growing the
           popover row by row; the right gutter keeps the scrollbar off
@@ -215,6 +246,22 @@ const MessagePropertiesPopover: React.FC<{
           >
             {value.userProperties.map((row, index) => (
               <div key={row.uid} style={{ display: 'flex', gap: 4 }}>
+                {/* The row's dot in the knob rows' gutter: neutral
+                  once its key is written, salmon while the saved
+                  request lacks the row or holds it differently. */}
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 16,
+                    flexShrink: 0,
+                  }}
+                >
+                  {(unsaved?.rows.has(row.uid) === true || userPropertyRowModified(row)) && (
+                    <ModifiedDot unsaved={unsaved?.rows.has(row.uid) === true} />
+                  )}
+                </span>
                 <Input
                   size="small"
                   placeholder={t('workbench.editors.mqtt.props.userPropKey')}
@@ -255,7 +302,7 @@ const MessagePropertiesPopover: React.FC<{
           type="dashed"
           icon={<PlusOutlined style={{ fontSize: 10 }} />}
           disabled={!v5}
-          style={{ fontSize: 11, alignSelf: 'flex-start' }}
+          style={{ fontSize: 11, alignSelf: 'flex-start', marginLeft: 20 }}
           onClick={() => {
             set({ userProperties: [...value.userProperties, { uid: generateUid(), key: '', value: '' }] });
             requestAnimationFrame(() => {
@@ -274,7 +321,11 @@ const MessagePropertiesPopover: React.FC<{
       {/* The hover tooltip yields INSTANTLY once the popover opens —
         open suppresses it (the timeline sort-menu discipline). */}
       <Tooltip title={title} open={open ? false : undefined}>
-        <Badge dot={configured} offset={[-2, 2]}>
+        <Badge
+          dot={badgeTone !== null}
+          color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
+          offset={[-2, 2]}
+        >
           <Button size="small" icon={<SettingOutlined />} data-testid={testId}>
             {t('workbench.editors.mqtt.props.gearLabel')}
           </Button>

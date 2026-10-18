@@ -21,6 +21,7 @@ import { cellFont } from '../request-editor/editable-grid-styles';
 import { EditableGridTable } from '../request-editor/EditableGridTable';
 import type { EditableRowAdapter } from '../request-editor/editable-grid-types';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
+import type { TopicOptionsUnsaved } from './mqtt-gear-unsaved';
 import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { grantFailureLabel } from './session-display';
 import TopicOptionsPopover from './TopicOptionsPopover';
@@ -59,9 +60,20 @@ interface MqttTopicsTabProps {
   sessionOpen: boolean;
   liveSubs: ReadonlyMap<string, LiveSubscriptionMark>;
   onLiveToggle: (row: MqttTopicRow, subscribe: boolean) => void;
+  /** Per row (by uid), the option knobs differing from the saved
+   *  request — each gear's row dots. */
+  unsavedOptions?: ReadonlyMap<string, TopicOptionsUnsaved>;
 }
 
-const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessionOpen, liveSubs, onLiveToggle }) => {
+const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
+  rows,
+  onChange,
+  v5,
+  sessionOpen,
+  liveSubs,
+  onLiveToggle,
+  unsavedOptions,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   return (
@@ -189,7 +201,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({ rows, onChange, v5, sessi
                   data-testid="mqtt-topic-options"
                 />
               ) : (
-                <TopicOptionsPopover row={row} onChange={update} v5={v5} />
+                <TopicOptionsPopover row={row} onChange={update} v5={v5} unsaved={unsavedOptions?.get(row.uid)} />
               ),
           },
           {

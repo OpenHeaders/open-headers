@@ -33,6 +33,7 @@ import {
 } from './compose-parts';
 import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import type { MqttDraft } from './draft';
+import type { MessagePropertiesUnsaved } from './mqtt-gear-unsaved';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
 import MqttSavedMessagesRail, { MqttSavedMessagesStrip } from './MqttSavedMessagesRail';
 import type { MqttComposeAids } from './useMqttComposeAids';
@@ -51,6 +52,9 @@ interface MqttMessageTabProps {
   onSelectSavedMessage: (uid: string | null) => void;
   aids: MqttComposeAids;
   onPublish: (message: MqttPublishWire) => void;
+  /** The publish-properties knobs differing from the saved request —
+   *  the gear's row dots. */
+  unsavedProperties?: MessagePropertiesUnsaved;
 }
 
 const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
@@ -63,6 +67,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   onSelectSavedMessage,
   aids,
   onPublish,
+  unsavedProperties,
 }) => {
   const t = useT();
   // Compose-editor wrap — a per-pane override of the global setting,
@@ -182,6 +187,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           onChange={(publishProperties) => setDraft((d) => ({ ...d, publishProperties }))}
           v5={v5}
           leg="publish"
+          unsaved={unsavedProperties}
           testId="mqtt-publish-props"
         />
         <Checkbox

@@ -107,6 +107,114 @@ describe('mqtt gear popovers — the anatomy', () => {
   });
 });
 
+describe('mqtt gear popovers — the row dots and the gear badge', () => {
+  const badgeColor = (): string =>
+    (document.querySelector('.ant-badge-dot') as HTMLElement | null)?.style.backgroundColor ?? '';
+  const SALMON = 'rgb(255, 120, 117)';
+  const rowDot = (popover: HTMLElement, label: string, kind: 'modified' | 'unsaved'): boolean =>
+    within(popover)
+      .getByText(label)
+      .closest('[data-testid="oh-option-label"]')
+      ?.querySelector(`[data-testid="oh-setting-${kind}-dot"]`) !== null;
+
+  it('a knob off its default dots neutral on its row and on the gear; no baseline, no salmon', async () => {
+    render(
+      <MessagePropertiesPopover
+        value={{ ...emptyMessagePropertiesDraft(), correlationData: 'ok' }}
+        onChange={() => {}}
+        v5
+        leg="publish"
+        testId="mqtt-publish-props"
+      />,
+    );
+    expect(badgeColor()).not.toBe('');
+    expect(badgeColor()).not.toBe(SALMON);
+    const popover = await openGear('mqtt-publish-props');
+    expect(rowDot(popover, 'Correlation Data', 'modified')).toBe(true);
+    expect(rowDot(popover, 'Correlation Data', 'unsaved')).toBe(false);
+    expect(rowDot(popover, 'Response Topic', 'modified')).toBe(false);
+    expect(within(popover).queryAllByTestId('oh-setting-modified-dot')).toHaveLength(1);
+  });
+
+  it('a knob differing from the saved request dots salmon, winning over neutral, and recolors the gear', async () => {
+    render(
+      <MessagePropertiesPopover
+        value={{
+          ...emptyMessagePropertiesDraft(),
+          correlationData: 'ok',
+          contentType: 'text/plain',
+          userProperties: [
+            { uid: 'u1', key: 'trace', value: 'on' },
+            { uid: 'u2', key: 'env', value: 'prod' },
+            { uid: 'u3', key: '', value: '' },
+          ],
+        }}
+        onChange={() => {}}
+        v5
+        leg="publish"
+        unsaved={{ knobs: new Set(['contentType', 'userProperties']), rows: new Set(['u2']) }}
+        testId="mqtt-publish-props"
+      />,
+    );
+    expect(badgeColor()).toBe(SALMON);
+    const popover = await openGear('mqtt-publish-props');
+    expect(rowDot(popover, 'Correlation Data', 'modified')).toBe(true);
+    expect(rowDot(popover, 'Content Type', 'unsaved')).toBe(true);
+    expect(rowDot(popover, 'Content Type', 'modified')).toBe(false);
+    expect(rowDot(popover, 'User properties', 'unsaved')).toBe(true);
+    // The list rows: the saved one neutral, the changed one salmon, the
+    // blank one bare.
+    const listRows = within(popover)
+      .getAllByPlaceholderText('Property')
+      .map((input) => input.closest('div') as HTMLElement);
+    expect(listRows.map((r) => r.querySelector('[data-testid="oh-setting-modified-dot"]') !== null)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    expect(listRows.map((r) => r.querySelector('[data-testid="oh-setting-unsaved-dot"]') !== null)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+  });
+
+  it('an unsaved user-property row alone recolors the gear', () => {
+    render(
+      <MessagePropertiesPopover
+        value={{ ...emptyMessagePropertiesDraft(), userProperties: [{ uid: 'u1', key: 'trace', value: 'on' }] }}
+        onChange={() => {}}
+        v5
+        leg="publish"
+        unsaved={{ knobs: new Set(), rows: new Set(['u1']) }}
+        testId="mqtt-publish-props"
+      />,
+    );
+    expect(badgeColor()).toBe(SALMON);
+  });
+
+  it('an all-default gear wears no badge', () => {
+    renderMessageGear('publish', 'mqtt-publish-props');
+    expect(document.querySelector('.ant-badge-dot')).toBeNull();
+  });
+
+  it('the Topics gear dots its rows the same way', async () => {
+    render(
+      <TopicOptionsPopover
+        row={{ uid: 'r1', topicFilter: 'sensors/+/temp', noLocal: true, subscriptionId: 7 }}
+        onChange={() => {}}
+        v5
+        unsaved={{ knobs: new Set(['subscriptionId']), rows: new Set() }}
+      />,
+    );
+    expect(badgeColor()).toBe(SALMON);
+    const popover = await openGear('mqtt-topic-options', 'mqtt-topic-options-popover');
+    expect(rowDot(popover, 'No Local', 'modified')).toBe(true);
+    expect(rowDot(popover, 'Subscription Identifier', 'unsaved')).toBe(true);
+    expect(rowDot(popover, 'Retain Handling', 'modified')).toBe(false);
+  });
+});
+
 describe('mqtt gear popovers — the cards light their own packet', () => {
   it('the Message gear’s cards carry PUBLISH; the title lights the whole slice, a row its token', async () => {
     renderMessageGear('publish', 'mqtt-publish-props');

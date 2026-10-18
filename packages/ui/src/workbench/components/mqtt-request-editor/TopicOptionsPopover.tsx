@@ -24,6 +24,13 @@ import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popove
 import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Select, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useRef, useState } from 'react';
+import { ModifiedDot } from '@openheaders/ui/shared/settings-rows';
+import {
+  modifiedTopicOptionKeys,
+  type TopicOptionKnobKey,
+  type TopicOptionsUnsaved,
+  userPropertyRowModified,
+} from './mqtt-gear-unsaved';
 import { mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionLabel from './OptionLabel';
 
@@ -33,13 +40,9 @@ const resolveOptionsPopover = (node: HTMLElement): HTMLElement | null =>
   node.closest<HTMLElement>('.oh-mqtt-topic-options');
 
 /** True once any subscription option or property leaves its default —
- *  the gear's dot. A user property counts only with a key written. */
-export const topicOptionsConfigured = (row: MqttTopicRow): boolean =>
-  (row.userProperties ?? []).some((prop) => prop.key.trim() !== '') ||
-  row.noLocal === true ||
-  row.retainAsPublished === true ||
-  (row.retainHandling !== undefined && row.retainHandling !== 0) ||
-  row.subscriptionId !== undefined;
+ *  the gear's neutral dot. A user property counts only with a key
+ *  written. */
+export const topicOptionsConfigured = (row: MqttTopicRow): boolean => modifiedTopicOptionKeys(row).size > 0;
 
 const GRID_STYLE: React.CSSProperties = {
   display: 'grid',
@@ -53,12 +56,22 @@ const TopicOptionsPopover: React.FC<{
   row: MqttTopicRow;
   onChange: (next: MqttTopicRow) => void;
   v5: boolean;
-}> = ({ row, onChange, v5 }) => {
+  /** The row's knobs differing from the saved request — the rows'
+   *  salmon dots and the gear's; absent (no baseline) reads all-clean. */
+  unsaved?: TopicOptionsUnsaved;
+}> = ({ row, onChange, v5, unsaved }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [open, setOpen] = useState(false);
   const userPropsRef = useRef<HTMLDivElement | null>(null);
   const userProperties = row.userProperties ?? [];
+  // The rows' dots: neutral while a knob is off its default, salmon
+  // while it differs from the saved request; the gear's badge wears
+  // the stronger of them (never red — MQTT has no unresolved tier).
+  const modified = modifiedTopicOptionKeys(row);
+  const dot = (key: TopicOptionKnobKey) => ({ modified: modified.has(key), unsaved: unsaved?.knobs.has(key) === true });
+  const anyUnsaved = unsaved !== undefined && (unsaved.knobs.size > 0 || unsaved.rows.size > 0);
+  const badgeTone = anyUnsaved ? 'unsaved' : modified.size > 0 ? 'modified' : null;
   const hairline = <div style={{ height: 1, background: token.colorSplit }} />;
   const content = (
     <InfoPopoverContainerProvider resolver={resolveOptionsPopover}>
@@ -90,7 +103,11 @@ const TopicOptionsPopover: React.FC<{
           contrast, the Settings-tab discipline. */}
         <ConfigProvider theme={{ components: { InputNumber: { colorTextPlaceholder: token.colorText } } }}>
           <div className="oh-stated-default" style={GRID_STYLE}>
-            <OptionLabel text={t('workbench.editors.mqtt.topics.noLocal')} info={mqttSettingsRowInfo(t, 'noLocal')} />
+            <OptionLabel
+              text={t('workbench.editors.mqtt.topics.noLocal')}
+              info={mqttSettingsRowInfo(t, 'noLocal')}
+              {...dot('noLocal')}
+            />
             <Switch
               size="small"
               style={{ justifySelf: 'start' }}
@@ -102,6 +119,7 @@ const TopicOptionsPopover: React.FC<{
             <OptionLabel
               text={t('workbench.editors.mqtt.topics.retainAsPublished')}
               info={mqttSettingsRowInfo(t, 'retainAsPublished')}
+              {...dot('retainAsPublished')}
             />
             <Switch
               size="small"
@@ -113,6 +131,7 @@ const TopicOptionsPopover: React.FC<{
             <OptionLabel
               text={t('workbench.editors.mqtt.topics.retainHandling')}
               info={mqttSettingsRowInfo(t, 'retainHandling')}
+              {...dot('retainHandling')}
             />
             <Select
               size="small"
@@ -142,6 +161,7 @@ const TopicOptionsPopover: React.FC<{
             <OptionLabel
               text={t('workbench.editors.mqtt.topics.subscriptionId')}
               info={mqttSettingsRowInfo(t, 'subscriptionId')}
+              {...dot('subscriptionId')}
             />
             <InputNumber
               size="small"
@@ -161,6 +181,7 @@ const TopicOptionsPopover: React.FC<{
           text={t('workbench.editors.mqtt.props.userProperties')}
           mark={mqttGearPacket('subscribeUserProperties')}
           info={mqttSettingsRowInfo(t, 'subscribeUserProperties')}
+          {...dot('userProperties')}
         />
         {/* User Properties ride ONCE on this row's SUBSCRIBE packet —
           broker-defined metadata, never echoed on delivered messages
@@ -182,6 +203,22 @@ const TopicOptionsPopover: React.FC<{
           >
             {userProperties.map((prop, index) => (
               <div key={prop.uid} style={{ display: 'flex', gap: 4 }}>
+                {/* The row's dot in the knob rows' gutter: neutral
+                  once its key is written, salmon while the saved
+                  request lacks the row or holds it differently. */}
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 16,
+                    flexShrink: 0,
+                  }}
+                >
+                  {(unsaved?.rows.has(prop.uid) === true || userPropertyRowModified(prop)) && (
+                    <ModifiedDot unsaved={unsaved?.rows.has(prop.uid) === true} />
+                  )}
+                </span>
                 <Input
                   size="small"
                   placeholder={t('workbench.editors.mqtt.props.userPropKey')}
@@ -227,7 +264,7 @@ const TopicOptionsPopover: React.FC<{
           type="dashed"
           icon={<PlusOutlined style={{ fontSize: 10 }} />}
           disabled={!v5}
-          style={{ fontSize: 11, alignSelf: 'flex-start' }}
+          style={{ fontSize: 11, alignSelf: 'flex-start', marginLeft: 20 }}
           onClick={() => {
             onChange({ ...row, userProperties: [...userProperties, { uid: generateUid(), key: '', value: '' }] });
             requestAnimationFrame(() => {
@@ -246,7 +283,11 @@ const TopicOptionsPopover: React.FC<{
       {/* The hover tooltip yields INSTANTLY once the popover opens —
         open suppresses it (the message-properties discipline). */}
       <Tooltip title={t('workbench.editors.mqtt.topics.optionsTitle')} open={open ? false : undefined}>
-        <Badge dot={topicOptionsConfigured(row)} offset={[-2, 2]}>
+        <Badge
+          dot={badgeTone !== null}
+          color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
+          offset={[-2, 2]}
+        >
           <Button
             size="small"
             type="text"

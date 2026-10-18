@@ -80,6 +80,7 @@ import {
   payloadEncodingError,
   propertiesToDraft,
 } from './draft';
+import { unsavedMessageProperties, unsavedTopicOptionsByRow } from './mqtt-gear-unsaved';
 import { subscribeMqttPrefill } from './mqtt-prefill-bus';
 import { unsavedMqttSections } from './mqtt-section-unsaved';
 import { anyOwnMqttSetting, unsavedMqttSettingKeys } from './mqtt-settings-unsaved';
@@ -221,6 +222,20 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   );
   const unsavedSections = useMemo(
     () => (savedUpdates ? unsavedMqttSections(draftUpdates, savedUpdates) : undefined),
+    [draftUpdates, savedUpdates],
+  );
+  // The three gear popovers' per-knob readings (the Message bar's and
+  // the Last Will bar's properties, the Topics rows' options), on the
+  // same projection as the two readings above.
+  const unsavedGears = useMemo(
+    () =>
+      savedUpdates
+        ? {
+            publish: unsavedMessageProperties(draftUpdates.publishProperties, savedUpdates.publishProperties),
+            will: unsavedMessageProperties(draftUpdates.lastWill?.properties, savedUpdates.lastWill?.properties),
+            topics: unsavedTopicOptionsByRow(draftUpdates.topics, savedUpdates.topics),
+          }
+        : undefined,
     [draftUpdates, savedUpdates],
   );
   const tabItems = useMemo(
@@ -520,6 +535,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         onSelectSavedMessage={savedSelection.selectSavedMessage}
                         aids={aids}
                         onPublish={(message) => void session.handlePublish(message)}
+                        unsavedProperties={unsavedGears?.publish}
                       />
                     )}
                     {activeTab === 'topics' && (
@@ -530,6 +546,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         sessionOpen={session.sessionOpen}
                         liveSubs={session.liveSubs}
                         onLiveToggle={(row, subscribe) => void session.handleLiveSubscriptionToggle(row, subscribe)}
+                        unsavedOptions={unsavedGears?.topics}
                       />
                     )}
                     <SessionLock locked={session.inFlight}>
@@ -558,7 +575,14 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         </div>
                       </div>
                     )}
-                    {activeTab === 'lastwill' && <MqttLastWillTab draft={draft} setDraft={setDraft} v5={v5} />}
+                    {activeTab === 'lastwill' && (
+                      <MqttLastWillTab
+                        draft={draft}
+                        setDraft={setDraft}
+                        v5={v5}
+                        unsavedProperties={unsavedGears?.will}
+                      />
+                    )}
                     </SessionLock>
                     {activeTab === 'spec' && (
                       <MqttSpecTab
