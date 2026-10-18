@@ -198,6 +198,12 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
               value={value}
               onChange={onChange}
               fill
+              // A script is raw to the runtime: its source compiles as
+              // written and a `{{ref}}` inside it never resolves — a
+              // script reads variables through `oh.variables.get` /
+              // `oh.vault.get`. The body editors' brace plane would
+              // promise a resolution the wire never performs.
+              variableAutoComplete={false}
               actions="external"
               actionsRef={editorActionsRef}
               wordWrapOverride={wrapScript ? 'on' : 'off'}

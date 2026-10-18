@@ -39,13 +39,16 @@ vi.mock('@openheaders/ui/workbench/components/shared/CodeEditor', () => ({
     value,
     onChange,
     placeholder,
+    variableAutoComplete,
   }: {
     value?: string;
     onChange?: (next: string) => void;
     placeholder?: string;
+    variableAutoComplete?: boolean;
   }) => (
     <textarea
       data-testid="code-editor"
+      data-variable-autocomplete={variableAutoComplete === undefined ? 'default' : String(variableAutoComplete)}
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange?.(e.target.value)}
@@ -446,5 +449,12 @@ describe('ScriptsTab snippets menu', () => {
     fireEvent.click(screen.getByTestId('oh-script-snippets'));
     expect(await screen.findByRole('button', { name: 'Set the URL' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Set a JSON body' })).toBeTruthy();
+  });
+});
+
+describe('ScriptsTab editor', () => {
+  it('mounts the editor without the brace plane — a script resolves no `{{ref}}`', () => {
+    renderTab();
+    expect(editor().getAttribute('data-variable-autocomplete')).toBe('false');
   });
 });
