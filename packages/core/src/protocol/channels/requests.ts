@@ -26,6 +26,7 @@ import type {
   MqttUserPropertyRow,
   Request,
   RequestSeed,
+  SentAsWrittenReference,
   WebSocketRequest,
 } from '../../types';
 import type { FolderDescriptor } from './common';
@@ -182,6 +183,9 @@ export interface WsStreamMessageWire {
   /** The ↑ message's template named a secret-manager entry — the
    *  timeline shows a placeholder (the snapshot message's stamp). */
   secret?: true;
+  /** The ↑ message carried these references as written (the snapshot
+   *  message's stamp). */
+  sentAsWritten?: SentAsWrittenReference[];
   /** Epoch ms on the executing host. */
   atMs: number;
 }
@@ -295,6 +299,9 @@ export type MqttStreamItemWire =
       /** The ↑ PUBLISH's template named a secret-manager entry — the
        *  timeline shows a placeholder (the snapshot event's stamp). */
       secret?: true;
+      /** The ↑ PUBLISH carried these references as written (the
+       *  snapshot event's stamp). */
+      sentAsWritten?: SentAsWrittenReference[];
       atMs: number;
     }
   | { kind: 'subscribed'; grants: Array<{ topicFilter: string; reasonCode: number }>; atMs: number }
@@ -681,7 +688,7 @@ export interface RequestRpc {
    */
   sendWsMessage: {
     req: { sendId: string; messageText: string; socketio?: WsSendSocketIoWire; binary?: WsSendBinaryWire };
-    res: { success: boolean; error?: string };
+    res: { success: boolean; error?: string; sentAsWritten?: SentAsWrittenReference[] };
   };
   /**
    * Disconnect an open WebSocket session — the clean close (code
@@ -803,7 +810,7 @@ export interface RequestRpc {
    */
   publishMqttMessage: {
     req: { sendId: string; message: MqttPublishWire };
-    res: { success: boolean; error?: string };
+    res: { success: boolean; error?: string; sentAsWritten?: SentAsWrittenReference[] };
   };
   /**
    * Toggle one live subscription on an open MQTT session — SUBSCRIBE
@@ -818,7 +825,7 @@ export interface RequestRpc {
    */
   setMqttSubscription: {
     req: { sendId: string; subscription: MqttSubscriptionWire };
-    res: { success: boolean; grantCode?: number; error?: string };
+    res: { success: boolean; grantCode?: number; error?: string; sentAsWritten?: SentAsWrittenReference[] };
   };
   /**
    * Disconnect an open MQTT session — the clean DISCONNECT then close.

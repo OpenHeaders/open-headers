@@ -20,6 +20,7 @@ import type {
   ExecutedSessionScriptMark,
   InheritedSettingSource,
   ScriptEventSummary,
+  SentAsWrittenReference,
   TrustCertificateErrorHint,
 } from './request-execution';
 
@@ -37,6 +38,9 @@ export interface ExecutedWsMessage {
    *  its text carries that value — a surface shows a placeholder, the
    *  capture keeps the bytes (the Secret Providers plan's L3 stamp). */
   secret?: true;
+  /** The outbound message carried these references as written — no
+   *  scope answered them, the text rode verbatim; the row names them. */
+  sentAsWritten?: SentAsWrittenReference[];
 }
 
 /** The Close handshake as the wire answered it — code and reason
@@ -220,6 +224,9 @@ export interface ExecutedWsSnapshot {
   /** The settings knobs the session read from an ancestor's
    *  `settings` (the HTTP snapshot's twin); absent when none. */
   inheritedSettings?: InheritedSettingSource[];
+  /** The Connect-time references the session carried as written (the
+   *  HTTP snapshot's twin); absent when every reference resolved. */
+  sentAsWritten?: SentAsWrittenReference[];
   /** The session's script hooks as they ran — see {@link ExecutedWsScripts};
    *  absent when no hook ran. */
   scripts?: ExecutedWsScripts;

@@ -43,6 +43,7 @@ export {
   EMPTY_SECRET_MANAGER_FAILURES,
   EMPTY_SECRET_MANAGER_REGISTRY,
   EMPTY_TOTP_REGISTRY,
+  refusesSend,
   resolveTemplate,
   resolveVariable,
   VariableResolver,

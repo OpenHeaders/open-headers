@@ -19,6 +19,7 @@ export {
   type ResolutionError,
   type ResolutionErrorParams,
   type ResolutionErrorReason,
+  refusesSend,
   type ScopedResolution,
   type UnresolvedReferences,
 } from './errors';

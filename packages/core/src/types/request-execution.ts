@@ -239,6 +239,22 @@ export interface InheritedSettingSource {
 }
 
 /**
+ * One `{{reference}}` a send carried AS WRITTEN — no scope answered
+ * it, so the text between the braces rode the wire verbatim and the
+ * server made of it what it did. `reference` is the raw text between
+ * the braces (`env.HOST`, `X`); `hint` the resolver's fix in
+ * operational-plane English, the same line the gates speak. A send
+ * carries the list beside its other resolve-time attributions, on
+ * success and error alike; absent when every reference resolved. A
+ * secret manager's typed failure never lands here — that reference
+ * refuses the send instead.
+ */
+export interface SentAsWrittenReference {
+  reference: string;
+  hint: string;
+}
+
+/**
  * One level of the ancestor-first script chain as it RAN on a send —
  * the collection, then each folder outer→inner, then the request, per
  * phase. Stamped by the chain runner in execution order; a strict run
@@ -463,6 +479,12 @@ export interface ExecutedRequestSnapshot {
    * send used was the request's own or the runtime default.
    */
   inheritedSettings?: InheritedSettingSource[];
+  /**
+   * The references this send carried as written — see
+   * {@link SentAsWrittenReference}; absent when every reference
+   * resolved. Stamped at resolve time on success and error alike.
+   */
+  sentAsWritten?: SentAsWrittenReference[];
   /**
    * The `Cookie` header value the runtime's cookie jar attached to the
    * FIRST hop of this send (the per-request `cookieJar` opt-in, honored

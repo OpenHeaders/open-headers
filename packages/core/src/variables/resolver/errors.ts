@@ -191,3 +191,26 @@ export function collectUnresolvedReferences(errors: readonly ResolutionError[], 
     if (!into.has(error.reference)) into.set(error.reference, error);
   }
 }
+
+/**
+ * Whether an unresolved reference REFUSES a send, or rides as written.
+ * A plain miss (no scope answers, an unknown namespace, a step
+ * reference outside a run) is an authoring state the editor already
+ * shows — the send goes with the literal and the response says what
+ * the server made of it. A secret manager's typed failure is a defined
+ * credential that could not be fetched on this send (authorize, fix
+ * the reference, make the manager available, connect the desktop app):
+ * its slot is never meant to carry a placeholder, so the send waits
+ * for the fix. One rule by reason, on every host.
+ */
+export function refusesSend(error: ResolutionError): boolean {
+  switch (error.reason) {
+    case 'secret-authorization-required':
+    case 'secret-not-found':
+    case 'secret-unavailable':
+    case 'secret-broker-unreachable':
+      return true;
+    default:
+      return false;
+  }
+}

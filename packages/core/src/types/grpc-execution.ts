@@ -20,6 +20,7 @@ import type {
   ExecutedSessionScriptMark,
   InheritedSettingSource,
   ScriptEventSummary,
+  SentAsWrittenReference,
   TrustCertificateErrorHint,
 } from './request-execution';
 
@@ -118,6 +119,9 @@ export interface ExecutedGrpcSnapshot {
   /** The settings knobs the call read from an ancestor's `settings`
    *  (the HTTP snapshot's twin); absent when none. */
   inheritedSettings?: InheritedSettingSource[];
+  /** The references the call carried as written (the HTTP snapshot's
+   *  twin); absent when every reference resolved. */
+  sentAsWritten?: SentAsWrittenReference[];
   /**
    * Wire truth for the call's proxy routing — the effective route as
    * the dial ran it. gRPC editors carry no request-plane proxy knobs
