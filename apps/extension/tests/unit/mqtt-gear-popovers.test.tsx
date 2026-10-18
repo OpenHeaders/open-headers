@@ -88,7 +88,7 @@ describe('mqtt gear popovers — the anatomy', () => {
     expect(within(popover).getByTestId('mqtt-publish-props-add-user-prop')).toBeTruthy();
   });
 
-  it('every gear closes with its title card’s (i) on the bar, outside the popover', async () => {
+  it('the bar gears close with their title card’s (i) outside the popover; the grid gear leaves it to its header', async () => {
     renderMessageGear('publish', 'mqtt-publish-props');
     const gear = screen.getByTestId('mqtt-publish-props');
     const info = screen.getByRole('button', { name: 'About Message properties' });
@@ -100,8 +100,10 @@ describe('mqtt gear popovers — the anatomy', () => {
     renderMessageGear('will', 'mqtt-will-props');
     expect(screen.getByRole('button', { name: 'About Will properties' })).toBeTruthy();
     cleanup();
+    // The grid gear carries none: the Options column header holds the
+    // card for every row.
     render(<TopicOptionsPopover row={{ uid: 'r1', topicFilter: 'sensors/+/temp' }} onChange={() => {}} v5 />);
-    expect(screen.getByRole('button', { name: 'About Subscription options' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'About Subscription options' })).toBeNull();
   });
 
   it('the Last Will gear names the will', async () => {

@@ -192,9 +192,8 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
             info: mqttSettingsRowInfo(t, 'subscribeOptions'),
             position: 'after-key',
             // The track pays for the gear's word (icon + the widest
-            // locale's label at 12px) and its (i) on top of the
-            // header's slot.
-            width: '156px',
+            // locale's label at 12px) on top of the header's slot.
+            width: '136px',
             divider: true,
             render: (row, update, ctx) =>
               ctx.isPlaceholder ? (
