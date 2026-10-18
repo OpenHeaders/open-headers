@@ -63,6 +63,8 @@ interface MqttTopicsTabProps {
   /** Per row (by uid), the option knobs differing from the saved
    *  request — each gear's row dots. */
   unsavedOptions?: ReadonlyMap<string, TopicOptionsUnsaved>;
+  /** Flips the request to 5.0 — each gear's first line on 3.1.1. */
+  onSwitchToV5?: () => void;
 }
 
 const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
@@ -73,6 +75,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
   liveSubs,
   onLiveToggle,
   unsavedOptions,
+  onSwitchToV5,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -201,7 +204,13 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
                   data-testid="mqtt-topic-options"
                 />
               ) : (
-                <TopicOptionsPopover row={row} onChange={update} v5={v5} unsaved={unsavedOptions?.get(row.uid)} />
+                <TopicOptionsPopover
+                  row={row}
+                  onChange={update}
+                  v5={v5}
+                  unsaved={unsavedOptions?.get(row.uid)}
+                  onSwitchToV5={onSwitchToV5}
+                />
               ),
           },
           {

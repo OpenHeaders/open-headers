@@ -89,6 +89,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.gearLabel': '属性',
   'workbench.editors.mqtt.props.userProperties': '用户属性',
   'workbench.editors.mqtt.props.v5Note': 'MQTT 5.0 特性；在 3.1.1 会话中这些值仍会保存，但不会发送。',
+  'workbench.editors.mqtt.props.v5Switch': '将请求切换到 MQTT 5.0',
   'workbench.editors.mqtt.props.userPropKey': '属性',
   'workbench.editors.mqtt.props.userPropValue': '值',
   'workbench.editors.mqtt.props.addUserProp': '用户属性',

@@ -108,6 +108,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.userProperties': 'Пользовательские свойства',
   'workbench.editors.mqtt.props.v5Note':
     'Возможность MQTT 5.0; в сеансе 3.1.1 значения сохраняются, но не отправляются.',
+  'workbench.editors.mqtt.props.v5Switch': 'Переключить запрос на MQTT 5.0',
   'workbench.editors.mqtt.props.userPropKey': 'Свойство',
   'workbench.editors.mqtt.props.userPropValue': 'Значение',
   'workbench.editors.mqtt.props.addUserProp': 'Пользовательское свойство',

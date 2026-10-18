@@ -251,6 +251,9 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   );
 
   const v5 = draft.protocolVersion === '5.0';
+  // The gear popovers' way out on 3.1.1 — flips the target row's
+  // version, so every 5.0 surface wakes at once.
+  const switchToV5 = useCallback(() => setDraft((d) => ({ ...d, protocolVersion: '5.0' })), [setDraft]);
 
   // "Open in Request" prefill — a saved example's captured request
   // block lands as unsaved draft edits (the gRPC prefill flow; the
@@ -536,6 +539,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         aids={aids}
                         onPublish={(message) => void session.handlePublish(message)}
                         unsavedProperties={unsavedGears?.publish}
+                        onSwitchToV5={switchToV5}
                       />
                     )}
                     {activeTab === 'topics' && (
@@ -547,6 +551,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         liveSubs={session.liveSubs}
                         onLiveToggle={(row, subscribe) => void session.handleLiveSubscriptionToggle(row, subscribe)}
                         unsavedOptions={unsavedGears?.topics}
+                        onSwitchToV5={switchToV5}
                       />
                     )}
                     <SessionLock locked={session.inFlight}>
@@ -581,6 +586,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                         setDraft={setDraft}
                         v5={v5}
                         unsavedProperties={unsavedGears?.will}
+                        onSwitchToV5={switchToV5}
                       />
                     )}
                     </SessionLock>

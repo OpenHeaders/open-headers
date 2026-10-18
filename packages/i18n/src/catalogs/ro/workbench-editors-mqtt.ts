@@ -113,6 +113,7 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.userProperties': 'Proprietăți de utilizator',
   'workbench.editors.mqtt.props.v5Note':
     'O funcție MQTT 5.0; într-o sesiune 3.1.1 valorile rămân salvate și nu sunt trimise.',
+  'workbench.editors.mqtt.props.v5Switch': 'Comutare cerere la MQTT 5.0',
   'workbench.editors.mqtt.props.userPropKey': 'Proprietate',
   'workbench.editors.mqtt.props.userPropValue': 'Valoare',
   'workbench.editors.mqtt.props.addUserProp': 'Proprietate de utilizator',

@@ -55,6 +55,8 @@ interface MqttMessageTabProps {
   /** The publish-properties knobs differing from the saved request —
    *  the gear's row dots. */
   unsavedProperties?: MessagePropertiesUnsaved;
+  /** Flips the request to 5.0 — the gear's first line on 3.1.1. */
+  onSwitchToV5?: () => void;
 }
 
 const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
@@ -68,6 +70,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
   aids,
   onPublish,
   unsavedProperties,
+  onSwitchToV5,
 }) => {
   const t = useT();
   // Compose-editor wrap — a per-pane override of the global setting,
@@ -188,6 +191,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           v5={v5}
           leg="publish"
           unsaved={unsavedProperties}
+          onSwitchToV5={onSwitchToV5}
           testId="mqtt-publish-props"
         />
         <Checkbox

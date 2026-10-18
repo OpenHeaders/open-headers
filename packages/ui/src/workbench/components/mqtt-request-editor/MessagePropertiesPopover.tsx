@@ -10,8 +10,8 @@
  * light the PUBLISH leg of the shared example on the publish leg and
  * the will line of the CONNECT leg on the will leg (the Will
  * Properties travel inside CONNECT). 3.1.1 renders the controls
- * disabled — the title card carries the version rule (never a silent
- * drop — the codec is encode-strict either way). The gear is icon +
+ * disabled under a first line that says why and offers the switch to
+ * 5.0 (never a silent drop — the codec is encode-strict either way). The gear is icon +
  * word on the bar, where no column header names it.
  */
 
@@ -40,6 +40,7 @@ import {
 import { type GearInfoKey, mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionControl from './OptionControl';
 import OptionLabel from './OptionLabel';
+import VersionGateLine from './VersionGateLine';
 
 /** The packet the block rides — the Message bar's PUBLISH or the Last
  *  Will bar's CONNECT will line; each leg's cards light their own. */
@@ -92,8 +93,10 @@ const MessagePropertiesPopover: React.FC<{
   /** The knobs differing from the saved request — the rows' salmon
    *  dots and the gear's; absent (no baseline) reads all-clean. */
   unsaved?: MessagePropertiesUnsaved;
+  /** Flips the REQUEST to 5.0 — the first line's button on 3.1.1. */
+  onSwitchToV5?: () => void;
   testId: string;
-}> = ({ value, onChange, v5, leg, unsaved, testId }) => {
+}> = ({ value, onChange, v5, leg, unsaved, onSwitchToV5, testId }) => {
   const { token } = theme.useToken();
   const t = useT();
   const info = (slot: MessagePropertiesSlot) => mqttSettingsRowInfo(t, LEG_INFO[leg][slot]);
@@ -133,6 +136,7 @@ const MessagePropertiesPopover: React.FC<{
         }}
         data-testid={`${testId}-popover`}
       >
+        {!v5 && <VersionGateLine onSwitchToV5={onSwitchToV5} testId={`${testId}-v5-gate`} />}
         {/* Both section rows wear the PACKET the popover rides — the
           user's call: each home of user properties says its packet
           where the list is, not only at the top. */}

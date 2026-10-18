@@ -10,8 +10,8 @@
  * things the spec files as properties of the packet, each under its
  * own row. Every section row wears the packet as a mark. Every label
  * is the spec's word; "Settings" never appears inside a gear. 3.1.1
- * renders the controls disabled — the title card carries the version
- * rule. The gear wears a dot once any value leaves its default, and
+ * renders the controls disabled under a first line that says why and
+ * offers the switch to 5.0. The gear wears a dot once any value leaves its default, and
  * its hover tooltip yields the instant the popover opens. The column
  * header names the gear, so the cell stays an icon.
  */
@@ -35,6 +35,7 @@ import {
 import { mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionControl from './OptionControl';
 import OptionLabel from './OptionLabel';
+import VersionGateLine from './VersionGateLine';
 
 /** The (i) popovers portal INSIDE this popover — portaled to body
  *  they would count as an outside click and close it. */
@@ -61,7 +62,9 @@ const TopicOptionsPopover: React.FC<{
   /** The row's knobs differing from the saved request — the rows'
    *  salmon dots and the gear's; absent (no baseline) reads all-clean. */
   unsaved?: TopicOptionsUnsaved;
-}> = ({ row, onChange, v5, unsaved }) => {
+  /** Flips the REQUEST to 5.0 — the first line's button on 3.1.1. */
+  onSwitchToV5?: () => void;
+}> = ({ row, onChange, v5, unsaved, onSwitchToV5 }) => {
   const { token } = theme.useToken();
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -97,6 +100,7 @@ const TopicOptionsPopover: React.FC<{
         }}
         data-testid="mqtt-topic-options-popover"
       >
+        {!v5 && <VersionGateLine onSwitchToV5={onSwitchToV5} testId="mqtt-topic-options-v5-gate" />}
         {/* Every section row wears the PACKET the popover rides — the
           user's call: each home of user properties says its packet
           where the list is, not only at the top. */}

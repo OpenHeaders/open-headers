@@ -50,9 +50,17 @@ interface MqttLastWillTabProps {
   /** The will-properties knobs differing from the saved request — the
    *  gear's row dots. */
   unsavedProperties?: MessagePropertiesUnsaved;
+  /** Flips the request to 5.0 — the gear's first line on 3.1.1. */
+  onSwitchToV5?: () => void;
 }
 
-const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5, unsavedProperties }) => {
+const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({
+  draft,
+  setDraft,
+  v5,
+  unsavedProperties,
+  onSwitchToV5,
+}) => {
   const { token } = theme.useToken();
   const t = useT();
   // Will-editor wrap — the compose-editor default carries over (ON;
@@ -106,6 +114,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5, 
           v5={v5}
           leg="will"
           unsaved={unsavedProperties}
+          onSwitchToV5={onSwitchToV5}
           testId="mqtt-will-props"
         />
         {/* The bar's own text color and size, as the Retain label and

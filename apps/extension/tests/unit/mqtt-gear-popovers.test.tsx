@@ -253,6 +253,44 @@ describe('mqtt gear popovers — the row dots and the gear badge', () => {
   });
 });
 
+describe('mqtt gear popovers — the 3.1.1 gate line', () => {
+  it('on 3.1.1 the first line says why the controls are inert and offers the switch; on 5.0 there is none', async () => {
+    const onSwitchToV5 = vi.fn();
+    render(
+      <MessagePropertiesPopover
+        value={emptyMessagePropertiesDraft()}
+        onChange={() => {}}
+        v5={false}
+        leg="publish"
+        onSwitchToV5={onSwitchToV5}
+        testId="mqtt-publish-props"
+      />,
+    );
+    const popover = await openGear('mqtt-publish-props');
+    const gate = within(popover).getByTestId('mqtt-publish-props-v5-gate');
+    expect(popover.firstElementChild).toBe(gate);
+    expect(gate.textContent).toContain('MQTT 5.0 feature');
+    fireEvent.click(within(gate).getByRole('button', { name: 'Switch request to MQTT 5.0' }));
+    expect(onSwitchToV5).toHaveBeenCalledTimes(1);
+    expect((within(popover).getByTestId('mqtt-publish-props-response-topic') as HTMLInputElement).disabled).toBe(true);
+    cleanup();
+    renderMessageGear('publish', 'mqtt-publish-props');
+    const open = await openGear('mqtt-publish-props');
+    expect(within(open).queryByTestId('mqtt-publish-props-v5-gate')).toBeNull();
+    cleanup();
+    render(
+      <TopicOptionsPopover
+        row={{ uid: 'r1', topicFilter: 'sensors/+/temp' }}
+        onChange={() => {}}
+        v5={false}
+        onSwitchToV5={onSwitchToV5}
+      />,
+    );
+    const options = await openGear('mqtt-topic-options', 'mqtt-topic-options-popover');
+    expect(options.firstElementChild).toBe(within(options).getByTestId('mqtt-topic-options-v5-gate'));
+  });
+});
+
 describe('mqtt gear popovers — the example card folds the packets the card does not light', () => {
   const lineCount = (): number => document.querySelectorAll('.oh-info-eg-line').length;
   const fold = (opener: string): HTMLElement =>
