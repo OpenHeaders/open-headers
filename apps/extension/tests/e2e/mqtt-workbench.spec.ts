@@ -440,9 +440,9 @@ test('E5 — invalid Base64 shows the inline error and the Send gate names the f
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('mqtt-payload-format').filter({ visible: true }).first().click();
   await page
-    .locator('.ant-select-dropdown')
+    .locator('.ant-dropdown')
     .filter({ visible: true })
-    .locator('.ant-select-item-option')
+    .locator('.ant-dropdown-menu-item')
     .filter({ hasText: 'Base64' })
     .first()
     .click();
@@ -480,9 +480,9 @@ test('E6 — Connect runs the session in-page: CONNACK row, SUBACK grants, retai
   await page.getByRole('tab', { name: 'Message', exact: true }).filter({ visible: true }).first().click();
   await page.getByTestId('mqtt-payload-format').filter({ visible: true }).first().click();
   await page
-    .locator('.ant-select-dropdown')
+    .locator('.ant-dropdown')
     .filter({ visible: true })
-    .locator('.ant-select-item-option')
+    .locator('.ant-dropdown-menu-item')
     .filter({ hasText: 'Text' })
     .first()
     .click();

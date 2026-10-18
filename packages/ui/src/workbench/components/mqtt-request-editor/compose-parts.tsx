@@ -12,6 +12,7 @@ import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Input, Select, Typography } from 'antd';
 import type React from 'react';
+import { EncodingPicker } from '../shared/EncodingPicker';
 
 const { Text } = Typography;
 
@@ -24,6 +25,9 @@ export const payloadPlaceholder = (t: Translate, format: MqttPayloadFormat, text
       ? t('workbench.editors.mqtt.payloadPlaceholderHex')
       : textPlaceholder;
 
+/** The ENCODING picker — the body viewers' picker dress (glyph + label
+ *  + chevron, a menu of glyph + label rows): the grammars (Text, JSON)
+ *  above the divider, the byte spellings (Base64, Hex) below it. */
 export const EncodingSelect: React.FC<{
   value: MqttPayloadFormat;
   onChange: (format: MqttPayloadFormat) => void;
@@ -31,18 +35,17 @@ export const EncodingSelect: React.FC<{
 }> = ({ value, onChange, testId }) => {
   const t = useT();
   return (
-    <Select
-      size="small"
-      style={{ width: 120 }}
+    <EncodingPicker<MqttPayloadFormat>
       value={value}
       onChange={onChange}
+      divideAfter={2}
       options={[
-        { value: 'text', label: t('workbench.editors.mqtt.payload.formatText') },
-        { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson') },
-        { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64') },
-        { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex') },
+        { value: 'text', label: t('workbench.editors.mqtt.payload.formatText'), icon: 'text' },
+        { value: 'json', label: t('workbench.editors.mqtt.payload.formatJson'), icon: 'json' },
+        { value: 'base64', label: t('workbench.editors.mqtt.payload.formatBase64'), icon: 'base64' },
+        { value: 'hex', label: t('workbench.editors.mqtt.payload.formatHex'), icon: 'hex' },
       ]}
-      data-testid={testId}
+      testId={testId}
     />
   );
 };

@@ -1,15 +1,17 @@
 /**
  * Compose-bar leaves shared by every raw-flavor WebSocket compose
  * surface — the Message tab and the response example's message tab:
- * the format dropdown (Text / JSON / XML / HTML / Binary), the byte
- * spelling dropdown a binary compose adds beside it, and the editor's
- * empty-state line per mode. One anatomy, testids by prop.
+ * the format picker (Text / JSON / XML / HTML over the divider, Binary
+ * under it), the byte-spelling picker a binary compose adds beside it
+ * (Base64 / Hex), and the editor's empty-state line per mode. Both
+ * pickers wear the body viewers' picker dress (`EncodingPicker`). One
+ * anatomy, testids by prop.
  */
 
 import type { WebSocketBinaryEncoding, WebSocketMessageFormat } from '@openheaders/core/types';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
-import { Select } from 'antd';
 import type React from 'react';
+import { EncodingPicker } from '../shared/EncodingPicker';
 
 /** The editor's empty-state line — base64 / hex state the byte
  *  contract, the text modes read the compose prompt. */
@@ -31,19 +33,18 @@ export const MessageFormatSelect: React.FC<{
 }> = ({ value, onChange, testId }) => {
   const t = useT();
   return (
-    <Select
-      size="small"
-      style={{ width: 120 }}
+    <EncodingPicker<WebSocketMessageFormat>
       value={value}
       onChange={onChange}
+      divideAfter={4}
       options={[
-        { value: 'text', label: t('workbench.editors.websocket.message.formatText') },
-        { value: 'json', label: t('workbench.editors.websocket.message.formatJson') },
-        { value: 'xml', label: t('workbench.editors.websocket.message.formatXml') },
-        { value: 'html', label: t('workbench.editors.websocket.message.formatHtml') },
-        { value: 'binary', label: t('workbench.editors.websocket.message.formatBinary') },
+        { value: 'text', label: t('workbench.editors.websocket.message.formatText'), icon: 'text' },
+        { value: 'json', label: t('workbench.editors.websocket.message.formatJson'), icon: 'json' },
+        { value: 'xml', label: t('workbench.editors.websocket.message.formatXml'), icon: 'xml' },
+        { value: 'html', label: t('workbench.editors.websocket.message.formatHtml'), icon: 'html' },
+        { value: 'binary', label: t('workbench.editors.websocket.message.formatBinary'), icon: 'binary' },
       ]}
-      data-testid={testId}
+      testId={testId}
     />
   );
 };
@@ -55,16 +56,14 @@ export const BinaryEncodingSelect: React.FC<{
 }> = ({ value, onChange, testId }) => {
   const t = useT();
   return (
-    <Select
-      size="small"
-      style={{ width: 120 }}
+    <EncodingPicker<WebSocketBinaryEncoding>
       value={value}
       onChange={onChange}
       options={[
-        { value: 'base64', label: t('workbench.editors.websocket.message.encodingBase64') },
-        { value: 'hex', label: t('workbench.editors.websocket.message.encodingHex') },
+        { value: 'base64', label: t('workbench.editors.websocket.message.encodingBase64'), icon: 'base64' },
+        { value: 'hex', label: t('workbench.editors.websocket.message.encodingHex'), icon: 'hex' },
       ]}
-      data-testid={testId}
+      testId={testId}
     />
   );
 };

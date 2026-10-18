@@ -99,6 +99,14 @@ const ICON_MARKS: Record<string, React.ReactNode> = {
       <Letters text="64" size={7.5} />
     </>
   ),
+  // The compose bars' binary payload — bytes, spelled by the picker
+  // beside it (base64 / hex).
+  binary: (
+    <>
+      <Badge />
+      <Letters text="01" size={7.5} />
+    </>
+  ),
 };
 
 export function ViewPickerIcon({ id, size = 16 }: { id: string; size?: number }) {
