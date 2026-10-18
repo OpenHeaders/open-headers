@@ -8,6 +8,7 @@ export const darkArctic: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.arctic.description',
   honorsAccentColor: false,
   dirtyTone: '#b8432f',
+  saveAccent: '#c2410c',
   antdTokens: {
     ...DARK_SHADOW_TOKENS,
     borderRadius: 6,

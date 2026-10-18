@@ -8,6 +8,7 @@ export const darkDefault: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.default.description',
   honorsAccentColor: true,
   dirtyTone: '#b8432f',
+  saveAccent: '#c2410c',
   antdTokens: {
     ...DARK_SHADOW_TOKENS,
     borderRadius: 6,

@@ -7,6 +7,7 @@ export const lightRose: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.rose.description',
   honorsAccentColor: false,
   dirtyTone: '#ff7875',
+  saveAccent: '#f5722d',
   antdTokens: {
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

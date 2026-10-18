@@ -30,6 +30,7 @@ import type { MessageKey } from '@openheaders/i18n';
 import { Button, Tag, Typography } from 'antd';
 import React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import {
   EXTENSION_STORE_URLS,
@@ -257,6 +258,7 @@ export const DesktopConnectAction: React.FC = () => {
  */
 export const DesktopDownloadAction: React.FC = () => {
   const t = useT();
+  const { saveAccent } = useUiTheme();
   const [resolving, setResolving] = React.useState(false);
   const download = async (): Promise<void> => {
     setResolving(true);
@@ -272,13 +274,13 @@ export const DesktopDownloadAction: React.FC = () => {
       loading={resolving}
       onClick={() => void download()}
       data-testid="status-companion-download"
-      // Same Save-button orange + eased-off label as the teaser CTA.
+      // The variant's save accent + eased-off label, as the teaser CTA.
       style={{
         fontSize: 11,
         height: 20,
         padding: '0 6px',
-        background: '#f5722d',
-        borderColor: '#f5722d',
+        background: saveAccent,
+        borderColor: saveAccent,
         color: 'rgba(255,255,255,0.85)',
       }}
     >

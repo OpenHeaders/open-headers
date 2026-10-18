@@ -23,6 +23,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import {
   PresenceBadge,
   useEditorDirty,
@@ -114,6 +115,7 @@ export function QuickEditorShell({
   visible = true,
 }: QuickEditorShellProps) {
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const { message } = App.useApp();
   const t = useT();
   const localInstanceId = useLocalInstanceId();
@@ -434,7 +436,7 @@ export function QuickEditorShell({
               onClick={save.onSave}
               style={{
                 fontSize: 11,
-                ...(save.canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+                ...(save.canSave ? { background: saveAccent, borderColor: saveAccent } : {}),
               }}
             >
               {t('panel.quickEditor.saveButton')}

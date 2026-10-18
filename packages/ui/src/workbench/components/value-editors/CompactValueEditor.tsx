@@ -13,11 +13,12 @@
 import { ExportOutlined, SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { claimEscape } from '@openheaders/ui/shared/popover';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SAVE_ACCENT, SAVE_SHORTCUT } from './EditorModalFooter';
+import { SAVE_SHORTCUT } from './EditorModalFooter';
 
 const { Text } = Typography;
 
@@ -49,6 +50,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
   onOpenDocument,
 }) => {
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const t = useT();
   const [text, setText] = useState(decoded);
 
@@ -194,7 +196,7 @@ export const CompactValueEditor: React.FC<CompactValueEditorProps> = ({
             onClick={handleSave}
             style={{
               fontSize: 11,
-              ...(saveDisabled ? {} : { background: SAVE_ACCENT, borderColor: SAVE_ACCENT }),
+              ...(saveDisabled ? {} : { background: saveAccent, borderColor: saveAccent }),
             }}
           >
             {t('shared.action.save')}

@@ -14,6 +14,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { uniqueName } from '@openheaders/ui/shared/naming';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { renderCollectionRows, renderNodeRows } from './save-browser-rows';
 import { useSaveBrowser } from './use-save-browser';
@@ -56,6 +57,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   defaultNewCollectionName,
 }) => {
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const t = useT();
   const effectiveDefaultCollectionName = defaultNewCollectionName ?? t('shared.defaults.newRulesCollection');
   const saveLabel = useShortcutLabel('save');
@@ -261,7 +263,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                     icon={<SaveOutlined />}
                     disabled={!canSave}
                     onClick={handleSave}
-                    style={canSave ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
+                    style={canSave ? { background: saveAccent, borderColor: saveAccent } : undefined}
                   >
                     {t('workbench.save.save')}
                   </Button>

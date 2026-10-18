@@ -30,6 +30,14 @@ export interface ThemeVariant {
    *  number) — see `themes/dirty-tone.ts`. A dark variant pins a deep
    *  red so white reads on it; the light variants keep the salmon. */
   dirtyTone: string;
+  /** The commit action's accent — the fill under the white label of
+   *  the editor shell's Save while the form is dirty and of every
+   *  "do it" button cut from it (the value editors' Save, the variable
+   *  popover's, the cookie editor's, the quick editor's, the HAR
+   *  import, the companion download). A dark variant pins a deeper
+   *  orange so white reads on it; the light variants keep the brand
+   *  orange. */
+  saveAccent: string;
   /** Tokens merged into Ant Design's ConfigProvider on top of the
    *  algorithm-derived defaults. */
   antdTokens: NonNullable<ThemeConfig['token']>;

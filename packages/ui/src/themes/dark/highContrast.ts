@@ -8,6 +8,7 @@ export const darkHighContrast: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.highContrast.description',
   honorsAccentColor: false,
   dirtyTone: '#c5512a',
+  saveAccent: '#c2410c',
   antdTokens: {
     ...DARK_SHADOW_TOKENS,
     borderRadius: 4,

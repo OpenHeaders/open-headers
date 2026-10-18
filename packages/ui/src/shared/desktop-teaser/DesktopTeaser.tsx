@@ -27,6 +27,7 @@ import { Button, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { desktopAppRecord, useBackends } from '../backend';
 import { getCurrentHost } from '../host-vocabulary';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
@@ -57,6 +58,7 @@ function openDownload(url: string): void {
 
 const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon, compact = false }) => {
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const t = useT();
   const copy = DESKTOP_TEASER_COPY[feature];
   const [installer, setInstaller] = useState<DesktopInstaller | null>(null);
@@ -179,10 +181,10 @@ const DesktopTeaser: React.FC<DesktopTeaserProps> = ({ feature, icon, compact = 
             icon={<DownloadOutlined />}
             onClick={() => openDownload(installer?.url ?? DESKTOP_DOWNLOAD_URL)}
             data-testid="desktop-teaser-cta"
-            // The Save button's orange (EditorHeader), with the label
-            // eased off pure white — full-brightness text on this fill
-            // glares on dark themes.
-            style={{ marginTop: 6, background: '#f5722d', borderColor: '#f5722d', color: 'rgba(255,255,255,0.85)' }}
+            // The variant's save accent (the editor shell's Save), with
+            // the label eased off pure white — full-brightness text on
+            // this fill glares on dark themes.
+            style={{ marginTop: 6, background: saveAccent, borderColor: saveAccent, color: 'rgba(255,255,255,0.85)' }}
           >
             {t('shared.desktopTeaser.cta')}
           </Button>

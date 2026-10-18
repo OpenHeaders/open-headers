@@ -28,6 +28,7 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
@@ -97,6 +98,7 @@ function CookieEditFormBody({
   onSave,
 }: FormBodyProps) {
   const t = useT();
+  const { saveAccent } = useUiTheme();
   const [values, setValues] = useState<CookieEditFormValues>(openCanonical);
   // Live canonical — advances while the popover is open (jar sync);
   // dirty always compares against the CURRENT jar truth, so a form the
@@ -242,7 +244,7 @@ function CookieEditFormBody({
             onClick={() => onSave(formToEdit(resolvedForm))}
             disabled={!canSave}
             loading={busy}
-            style={{ fontSize: 11, ...(canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}) }}
+            style={{ fontSize: 11, ...(canSave ? { background: saveAccent, borderColor: saveAccent } : {}) }}
           >
             {t('panel.inspector.cookies.edit.save')}
           </Button>

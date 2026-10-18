@@ -40,3 +40,20 @@ describe('theme variants — the dirty tone', () => {
     for (const id of LIGHT_VARIANT_IDS) expect(getLightVariant(id).dirtyTone).toBe('#ff7875');
   });
 });
+
+describe('theme variants — the save accent', () => {
+  it('every variant pins a hex color', () => {
+    for (const id of LIGHT_VARIANT_IDS) expect(getLightVariant(id).saveAccent).toMatch(/^#[0-9a-f]{6}$/);
+    for (const id of DARK_VARIANT_IDS) expect(getDarkVariant(id).saveAccent).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it('a dark variant carries the white label at the readable ratio (4.5:1)', () => {
+    for (const id of DARK_VARIANT_IDS) {
+      expect(contrastUnderWhite(getDarkVariant(id).saveAccent), id).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('the light variants keep the brand orange', () => {
+    for (const id of LIGHT_VARIANT_IDS) expect(getLightVariant(id).saveAccent).toBe('#f5722d');
+  });
+});

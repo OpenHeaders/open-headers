@@ -38,6 +38,7 @@ import { Alert, App as AntApp, Button, Divider, Input, type InputRef, Modal, Spa
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import ImportReportPanel from './ImportReportPanel';
 import ReimportDiffPanel from './ReimportDiffPanel';
 import { useImportShortcut } from './use-import-shortcut';
@@ -137,6 +138,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
   findPreviousReport,
 }) => {
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const { message } = AntApp.useApp();
   const t = useT();
   const [stage, setStage] = useState<Stage>({ kind: 'empty' });
@@ -433,7 +435,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
                   onClick={confirmImport}
                   disabled={!canImport}
                   loading={busy}
-                  style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
+                  style={canImport ? { background: saveAccent, borderColor: saveAccent } : undefined}
                 >
                   {t('workbench.importExport.import.importCta')}
                 </Button>

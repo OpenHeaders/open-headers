@@ -34,6 +34,7 @@ import { Alert, App as AntApp, Button, Checkbox, Input, Modal, Space, Tag, Toolt
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { type CollectionPickerHandle, CollectionPickerPanel, NEW_COLLECTION_VALUE } from '../collection-picker';
 import ReimportDiffPanel from './ReimportDiffPanel';
 import { useImportShortcut } from './use-import-shortcut';
@@ -125,6 +126,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
   findPreviousReport,
 }) => {
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const { message } = AntApp.useApp();
   const t = useT();
   const [stage, setStage] = useState<Stage>({ kind: 'empty' });
@@ -377,7 +379,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
                     onClick={confirmImport}
                     disabled={!canImport}
                     loading={busy}
-                    style={canImport ? { background: '#f5722d', borderColor: '#f5722d' } : undefined}
+                    style={canImport ? { background: saveAccent, borderColor: saveAccent } : undefined}
                   >
                     {selectedCount > 0
                       ? t('workbench.importExport.import.importCtaCount', { count: selectedCount })

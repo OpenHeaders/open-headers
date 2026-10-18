@@ -23,6 +23,7 @@ import type { VariableScope } from '@openheaders/core/types';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import { useEnvSwitcher } from '../../services/env-switcher';
@@ -80,6 +81,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   autoFocus = false,
 }) => {
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const { message } = App.useApp();
   const t = useT();
   const lookup = useVariableLookup(reference, collectionId);
@@ -515,7 +517,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
               onClick={handleSave}
               style={{
                 fontSize: 11,
-                ...(canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+                ...(canSave ? { background: saveAccent, borderColor: saveAccent } : {}),
               }}
             >
               {t('shared.action.save')}

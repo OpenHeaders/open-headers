@@ -21,6 +21,7 @@ import { CheckOutlined, MoreOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Divider, Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@openheaders/ui/shared/editor-shell';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
@@ -58,7 +59,7 @@ export interface EditorHeaderProps {
    *     unpublished rule with no form edits has nothing to save; the
    *     publication gate is communicated through the sidebar "draft"
    *     pill + italic tab label, not by lighting Save orange.
-   *   - `isDirty` → enabled "Save" (orange).
+   *   - `isDirty` → enabled "Save" in the variant's save accent.
    *  When undefined the Save button is hidden — used for non-editor
    *  surfaces (entity list pages) that mount the header for layout
    *  parity but have nothing to save. */
@@ -73,6 +74,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, trailing, o
   const isDirty = !!wiring?.isDirty;
   const onSave = wiring?.onSave;
   const { token } = theme.useToken();
+  const { saveAccent } = useUiTheme();
   const saveLabel = useShortcutLabel('save');
 
   // Every editor mounts this header as the first child of its flex
@@ -114,7 +116,6 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, trailing, o
   ];
 
   const saveDisabled = !isDirty;
-  const saveAccent = isDirty;
   const saveLabelText = isDirty ? t('shared.action.save') : t('workbench.editors.header.saved');
 
   return (
@@ -141,7 +142,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, trailing, o
               disabled={saveDisabled}
               style={{
                 fontSize: 11,
-                ...(saveAccent ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+                ...(isDirty ? { background: saveAccent, borderColor: saveAccent } : {}),
               }}
             >
               {saveLabelText}

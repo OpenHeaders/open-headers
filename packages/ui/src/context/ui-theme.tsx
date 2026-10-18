@@ -28,12 +28,24 @@ export interface UiTheme {
    *  the marks were born with, the dark variants a deep red white reads
    *  on (white on the salmon read at ~2.4:1). */
   dirtyTone: string;
+  /** The commit action's accent — the fill under the white label of
+   *  the editor shell's Save while dirty and of every "do it" button
+   *  cut from it. The variant pins it (`ThemeVariant.saveAccent`): the
+   *  light variants the brand orange, the dark variants a deeper
+   *  orange white reads on (white on the brand orange read at ~2.9:1). */
+  saveAccent: string;
 }
 
 // Sentinel default — a host that hasn't mounted `UiThemeProvider` still
 // renders sensible light-mode editor surfaces. `'vs'` is Monaco's
-// built-in light theme id; the salmon is the light variants' dirty tone.
-const DEFAULT_UI_THEME: UiTheme = { isDarkMode: false, monacoTheme: 'vs', dirtyTone: '#ff7875' };
+// built-in light theme id; the salmon and the brand orange are the
+// light variants' dirty tone and save accent.
+const DEFAULT_UI_THEME: UiTheme = {
+  isDarkMode: false,
+  monacoTheme: 'vs',
+  dirtyTone: '#ff7875',
+  saveAccent: '#f5722d',
+};
 
 const UiThemeContext = createContext<UiTheme>(DEFAULT_UI_THEME);
 
