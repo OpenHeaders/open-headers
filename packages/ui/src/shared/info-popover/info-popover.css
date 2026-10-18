@@ -324,6 +324,33 @@
   font-weight: 600;
   color: var(--ant-color-text);
 }
+/* A foldable group's opener cell IS the fold toggle: the verb and a
+ * muted chevron in one button, the opener its accessible name; hover
+ * lifts both. The lit group starts open, the rest folded to their
+ * opener line. */
+.oh-info-eg-fold {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0 -3px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.oh-info-eg-fold:hover {
+  background: var(--ant-color-fill-tertiary);
+}
+.oh-info-eg-fold-glyph {
+  color: var(--ant-color-text-tertiary);
+  line-height: 1;
+}
+.oh-info-eg-fold:hover .oh-info-eg-fold-glyph {
+  color: var(--ant-color-text);
+}
 /* Default token: readable but quiet, so the highlighted one pops. */
 .oh-info-eg-tok {
   border-radius: 3px;

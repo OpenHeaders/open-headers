@@ -253,6 +253,39 @@ describe('mqtt gear popovers — the row dots and the gear badge', () => {
   });
 });
 
+describe('mqtt gear popovers — the example card folds the packets the card does not light', () => {
+  const lineCount = (): number => document.querySelectorAll('.oh-info-eg-line').length;
+  const fold = (opener: string): HTMLElement =>
+    document.querySelector(`.oh-info-eg-fold[aria-label="${opener}"]`) as HTMLElement;
+
+  it('a PUBLISH knob’s card opens PUBLISH in full and folds CONNECT and SUBSCRIBE to their opener rows', async () => {
+    renderMessageGear('publish', 'mqtt-publish-props');
+    await openGear('mqtt-publish-props');
+    await openCard('About Response Topic');
+    // CONNECT (1 of 4), SUBSCRIBE (1 of 2), PUBLISH (2 of 2).
+    expect(lineCount()).toBe(4);
+    expect(fold('CONNECT').getAttribute('aria-expanded')).toBe('false');
+    expect(fold('SUBSCRIBE').getAttribute('aria-expanded')).toBe('false');
+    expect(fold('PUBLISH').getAttribute('aria-expanded')).toBe('true');
+    expect(litTokens()).toEqual(['reply to: sensors/1/ack']);
+    fireEvent.click(fold('CONNECT'));
+    expect(lineCount()).toBe(7);
+    expect(fold('CONNECT').getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(fold('PUBLISH'));
+    expect(lineCount()).toBe(6);
+    expect(litTokens()).toEqual([]);
+  });
+
+  it('a will knob’s card opens CONNECT, whose will line it lights', async () => {
+    renderMessageGear('will', 'mqtt-will-props');
+    await openGear('mqtt-will-props');
+    await openCard('About Content Type');
+    expect(fold('CONNECT').getAttribute('aria-expanded')).toBe('true');
+    expect(fold('PUBLISH').getAttribute('aria-expanded')).toBe('false');
+    expect(lineCount()).toBe(6);
+  });
+});
+
 describe('mqtt gear popovers — the cards light their own packet', () => {
   it('the Message gear’s cards carry PUBLISH; the title lights the whole slice, a row its token', async () => {
     renderMessageGear('publish', 'mqtt-publish-props');
