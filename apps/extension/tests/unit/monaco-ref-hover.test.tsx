@@ -94,14 +94,18 @@ function fakeEditor(line: string) {
   const move = new Emitter<FakeMouseEvent>();
   const leave = new Emitter<FakeMouseEvent>();
   const content = new Emitter<void>();
+  const updateOptions = vi.fn();
   const api = {
     getModel: () => ({ getLineContent: () => line }),
+    getRawOptions: () => ({ hover: { above: false } }),
+    updateOptions,
     onMouseMove: move.on,
     onMouseLeave: leave.on,
     onDidChangeModelContent: content.on,
   };
   return {
     editor: api as unknown as monaco.editor.IStandaloneCodeEditor,
+    updateOptions,
     moveOver(element: HTMLElement | null, column: number) {
       move.fire({
         target: { element, position: { lineNumber: 1, column } },
@@ -159,6 +163,29 @@ describe('useMonacoRefHover', () => {
     const popover = document.createElement('div');
     act(() => fake.leaveTo(popover));
     expect(host.scheduleClose).toHaveBeenCalledWith(popover);
+  });
+
+  it("pauses Monaco's own hover over a reference and restores the host's setting on leaving", () => {
+    const fake = fakeEditor(LINE);
+    render(<Harness editor={fake.editor} />);
+    expect(fake.updateOptions).not.toHaveBeenCalled();
+    act(() => fake.moveOver(span(), 12));
+    act(() => fake.moveOver(span(), 14));
+    expect(fake.updateOptions).toHaveBeenCalledTimes(1);
+    expect(fake.updateOptions).toHaveBeenLastCalledWith({ hover: { enabled: false } });
+    act(() => fake.moveOver(document.createElement('span'), 3));
+    expect(fake.updateOptions).toHaveBeenCalledTimes(2);
+    expect(fake.updateOptions).toHaveBeenLastCalledWith({ hover: { above: false } });
+    act(() => fake.moveOver(document.createElement('span'), 4));
+    expect(fake.updateOptions).toHaveBeenCalledTimes(2);
+  });
+
+  it('an edit while over a reference restores the native hover too', () => {
+    const fake = fakeEditor(LINE);
+    render(<Harness editor={fake.editor} />);
+    act(() => fake.moveOver(span(), 12));
+    act(() => fake.edit());
+    expect(fake.updateOptions).toHaveBeenLastCalledWith({ hover: { above: false } });
   });
 
   it('the reference under the caret opens nothing', () => {

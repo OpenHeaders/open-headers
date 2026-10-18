@@ -9,6 +9,13 @@
  * Monaco re-renders the line's spans, which would leave the popover
  * anchored on a detached element.
  *
+ * Monaco's own hover pauses while a reference is under the pointer —
+ * the language's diagnostics widget (a JSON service reads an unquoted
+ * `{{ref}}` as an error) would otherwise surface under ours — and
+ * resumes with the host's setting on leaving. Flipping the option
+ * makes the hover controller re-hook, which cancels a scheduled show
+ * and hides the widget.
+ *
  * The host is read through a ref: its api identity follows its open
  * state (its `open` closes over the state), so an effect keyed on it
  * would re-subscribe on every open and lose the hovered reference
@@ -44,7 +51,19 @@ export function useMonacoRefHover(
 
   useEffect(() => {
     if (!editor || !enabled) return;
+    let nativeHover: { previous: monaco.editor.IEditorHoverOptions | undefined } | null = null;
+    const pauseNativeHover = () => {
+      if (nativeHover) return;
+      nativeHover = { previous: editor.getRawOptions().hover };
+      editor.updateOptions({ hover: { enabled: false } });
+    };
+    const resumeNativeHover = () => {
+      if (!nativeHover) return;
+      editor.updateOptions({ hover: nativeHover.previous });
+      nativeHover = null;
+    };
     const leave = (relatedTarget?: EventTarget | null) => {
+      resumeNativeHover();
       if (hoveredRef.current === null) return;
       hoveredRef.current = null;
       hostRef.current.scheduleClose(relatedTarget);
@@ -63,6 +82,7 @@ export function useMonacoRefHover(
           leave();
           return;
         }
+        pauseNativeHover();
         const key = `${position.lineNumber}:${ref.startColumn}`;
         if (key === hoveredRef.current) return;
         hoveredRef.current = key;
@@ -70,6 +90,7 @@ export function useMonacoRefHover(
       }),
       editor.onMouseLeave((e) => leave(e.event.browserEvent.relatedTarget)),
       editor.onDidChangeModelContent(() => {
+        resumeNativeHover();
         if (hoveredRef.current === null) return;
         hoveredRef.current = null;
         hostRef.current.closeNow();
@@ -77,6 +98,7 @@ export function useMonacoRefHover(
     ];
     return () => {
       for (const subscription of subscriptions) subscription.dispose();
+      resumeNativeHover();
       hoveredRef.current = null;
     };
   }, [editor, enabled, collectionId]);
