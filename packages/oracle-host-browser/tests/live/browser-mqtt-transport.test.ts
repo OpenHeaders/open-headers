@@ -168,7 +168,8 @@ describe('createBrowserMqttTransport', () => {
     });
     if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
     expect(snapshot.outcome.error).toContain('raw TCP socket, which a browser page cannot open');
-    expect(snapshot.outcome.error).toContain('ws:// or wss://');
+    // The advice — what to check — rides its own field beside the fact.
+    expect(snapshot.outcome.advice).toContain('ws:// or wss://');
   });
 
   it('classifies a refused dial with the platform-honest no-detail message', async () => {
