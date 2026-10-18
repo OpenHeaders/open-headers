@@ -1,6 +1,8 @@
 /**
- * VersionGateLine — the first line of a gear popover on a 3.1.1
- * request: the 5.0 rule (the values stay saved and are not sent) and
+ * VersionGateLine — the first line of a gear popover (and the
+ * Properties tab) on a 3.1.1 request, ONE line: the short 5.0 rule
+ * (the values stay saved and are not sent; the full sentence is the
+ * title card's description) and
  * the one-click way out, a link button that flips the REQUEST to 5.0
  * (the version lives on the target row, so every 5.0 surface wakes at
  * once). Disabled controls show that nothing works; this line says why
@@ -21,9 +23,11 @@ const VersionGateLine: React.FC<{ onSwitchToV5?: () => void; testId: string }> =
   const t = useT();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid={testId}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, maxWidth: 400 }}>
+      {/* ONE line (the user's call): the short note, the full sentence
+        living in the title card; nothing here wraps. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          {t('workbench.editors.mqtt.props.v5Note')}
+          {t('workbench.editors.mqtt.props.v5GateLine')}
         </Text>
         {onSwitchToV5 !== undefined && (
           <Button

@@ -100,7 +100,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.userProperties': 'Propriétés utilisateur',
   'workbench.editors.mqtt.props.v5Note':
     'Une fonctionnalité MQTT 5.0 ; dans une session 3.1.1 les valeurs restent enregistrées et ne sont pas envoyées.',
-  'workbench.editors.mqtt.props.v5Switch': 'Passer la requête en MQTT 5.0',
+  'workbench.editors.mqtt.props.v5GateLine': 'V3.1.1 : valeurs enregistrées, non envoyées. V5 uniquement',
+  'workbench.editors.mqtt.props.v5Switch': 'Passer la requête en V5',
   'workbench.editors.mqtt.props.userPropKey': 'Propriété',
   'workbench.editors.mqtt.props.userPropValue': 'Valeur',
   'workbench.editors.mqtt.props.addUserProp': 'Propriété utilisateur',

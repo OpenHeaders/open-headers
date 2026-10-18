@@ -97,7 +97,8 @@ export const workbenchEditorsMqtt = {
   'workbench.editors.mqtt.props.userProperties': 'User properties',
   'workbench.editors.mqtt.props.v5Note':
     'An MQTT 5.0 feature; on a 3.1.1 session the values stay saved and are not sent.',
-  'workbench.editors.mqtt.props.v5Switch': 'Switch request to MQTT 5.0',
+  'workbench.editors.mqtt.props.v5GateLine': 'V3.1.1: values saved, not sent. V5 only',
+  'workbench.editors.mqtt.props.v5Switch': 'Switch request to V5',
   'workbench.editors.mqtt.props.userPropKey': 'Property',
   'workbench.editors.mqtt.props.userPropValue': 'Value',
   'workbench.editors.mqtt.props.addUserProp': 'User property',

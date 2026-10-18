@@ -269,8 +269,8 @@ describe('mqtt gear popovers — the 3.1.1 gate line', () => {
     const popover = await openGear('mqtt-publish-props');
     const gate = within(popover).getByTestId('mqtt-publish-props-v5-gate');
     expect(popover.firstElementChild).toBe(gate);
-    expect(gate.textContent).toContain('MQTT 5.0 feature');
-    fireEvent.click(within(gate).getByRole('button', { name: 'Switch request to MQTT 5.0' }));
+    expect(gate.textContent).toContain('V3.1.1: values saved, not sent. V5 only');
+    fireEvent.click(within(gate).getByRole('button', { name: 'Switch request to V5' }));
     expect(onSwitchToV5).toHaveBeenCalledTimes(1);
     expect((within(popover).getByTestId('mqtt-publish-props-response-topic') as HTMLInputElement).disabled).toBe(true);
     cleanup();

@@ -96,7 +96,8 @@ const TopicOptionsPopover: React.FC<{
           flexDirection: 'column',
           gap: 8,
           width: 'max-content',
-          maxWidth: 420,
+          // Room for the 3.1.1 gate line on one line in every locale.
+          maxWidth: 520,
         }}
         data-testid="mqtt-topic-options-popover"
       >
