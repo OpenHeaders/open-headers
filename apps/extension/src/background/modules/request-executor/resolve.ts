@@ -16,6 +16,7 @@ import type {
 } from '@openheaders/core/auth-signing';
 import { collectRequestTemplateStrings } from '@openheaders/core/live';
 import type { OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
+import type { ScriptVariableScope } from '@openheaders/core/scripts';
 import type { KindSettings } from '@openheaders/core/settings-inheritance';
 import type {
   CredentialsMode,
@@ -40,6 +41,7 @@ import {
   resolveRequestSettings,
 } from '@openheaders/oracle/live/request-exec/ancestor-chain';
 import { unresolvedRequestMessage } from '@openheaders/oracle/live/request-exec/resolve-request';
+import { scriptScopeOverResolver } from '@openheaders/oracle/live/request-exec/script-scope';
 import { batchRefusesSend, sentAsWrittenOf } from '@openheaders/oracle/live/request-exec/unresolved-references';
 import { resolveClientCertificate } from '@openheaders/oracle/live/tls-policy';
 import { getTrustAnchorsForSend } from '@openheaders/oracle/live/trust-anchors';
@@ -278,6 +280,10 @@ export interface ResolvedRequestOutcome {
   /** Every TOTP vault entry referenced by the resolved request. Empty
    *  when no `{{vault.X}}` template hit a kind:'totp' entry. */
   totpUsed: ReadonlyArray<TotpUsage>;
+  /** What this send's scripts read through `oh.variables.get` /
+   *  `oh.vault.get` — the resolver and context above, so a script sees
+   *  exactly what a `{{ref}}` in the request would. */
+  scope: ScriptVariableScope;
 }
 
 export async function resolveRequest(
@@ -562,5 +568,6 @@ export async function resolveRequest(
         : {}),
     },
     totpUsed: [...totpUsed.values()],
+    scope: scriptScopeOverResolver(resolver, context, scope.vault),
   };
 }

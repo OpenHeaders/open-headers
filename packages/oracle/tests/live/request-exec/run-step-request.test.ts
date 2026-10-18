@@ -528,6 +528,24 @@ describe('runStepRequest — step script hooks', () => {
     expect(snap.scripts?.postResponse?.succeeded).toBe(true);
   });
 
+  it("every level's input carries the run's scope — a step capture and a vault entry read as the templates would", async () => {
+    vault.mockReturnValue({
+      schemaVersion: 5,
+      secrets: [{ uid: 'sec00001', kind: 'string', name: 'api_key', value: 'k-1' }],
+    });
+    const { runner, inputs } = captureRunner({});
+    const { transport } = captureTransport();
+    await runStepRequest(scripted(), {
+      ...opts(transport),
+      stepCaptures: new Map([['s1', new Map([['id', '42']])]]),
+      scriptRunner: runner,
+    });
+    expect(inputs).toHaveLength(2);
+    expect(await inputs[0].scope?.readVariable('step.s1.id')).toBe('42');
+    expect(await inputs[1].scope?.readVariable('vault.api_key')).toBe('k-1');
+    expect(await inputs[1].scope?.readVariable('missing')).toBeNull();
+  });
+
   it('records the chain beside each folded outcome — the request level, its uid and name', async () => {
     const { runner } = captureRunner({});
     const { transport } = captureTransport();

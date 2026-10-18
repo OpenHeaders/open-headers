@@ -4,20 +4,25 @@
  * the desktop app and the standalone daemon (their node runtimes) and
  * the served web tab (its sandbox iframe). The extension's workbench
  * page is the one host that answers off a renderer scope instead
- * (its page has empty mirrors — `page-script-host.ts` there). Every
- * op resolves against the ACTIVE workspace's stores at the moment the
- * RPC arrives, exactly the extension's posture:
+ * (its page has empty mirrors — `page-script-host.ts` there). A read
+ * answers off the EXECUTION's variable scope the broker hands in with
+ * the RPC — the resolution the send itself rode (`script-scope.ts`);
+ * a write resolves against the ACTIVE workspace's stores at the moment
+ * the RPC arrives, exactly the extension's posture:
  *
- *   • `variables.get(name)`  — full resolver walk (vault > env >
- *     collection > workspace, `{{live.*}}`, `{{step.*}}` excluded —
- *     no step context on an ad-hoc resolve).
+ *   • `variables.get(name)`  — the name as `{{name}}` resolves on this
+ *     send: the request's collection, its environment, the step
+ *     captures, the TOTP codes, the live registry, the files, a secret
+ *     manager's value (asked of the broker on first read). A run
+ *     dispatched without a scope reads the active workspace's mirrors.
  *   • `variables.set(name, value)` — writes the `workspace` scope
  *     through the canonical apply path (`applySyncRequest`), so the
  *     mutation is HLC-stamped, persisted, broadcast to renderers and
  *     WS peers, and classified into the Activity Feed with a working
  *     Revert — same discipline as MCP writes.
- *   • `vault.get(ref)`       — named string secret, else an OAuth
- *     bundle's access token.
+ *   • `vault.get(ref)`       — the entry as `{{vault.ref}}` resolves
+ *     on this send (a string's literal, a TOTP entry's current code, a
+ *     secret manager's value), else an OAuth bundle's access token.
  *   • `sendRequest(request)` — an ad-hoc draft through the host's own
  *     workbench-Send pipeline (the seam's `sendRequest`), sharing its
  *     transport, dispatcher cache and cookie jars. The draft carries no
@@ -45,29 +50,22 @@ import type {
   ResponseSnapshot,
   ScriptHostRequest,
   ScriptHostResponse,
+  ScriptVariableScope,
 } from '@openheaders/core/scripts';
 import { computeInverseSpec } from '@openheaders/core/sync';
 import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
-import {
-  getActiveEnvironmentId,
-  getDefaultEnvironmentId,
-  getEnvironments,
-  getVault,
-  getWorkspaceVariables,
-} from '../../entity/environment-store';
+import { getWorkspaceVariables } from '../../entity/environment-store';
 import {
   getRefreshConfig as getOAuthRefreshConfig,
   getTokenBundle as getOAuthTokenBundle,
 } from '../../entity/oauth-token-store';
-import { getRequestCollections } from '../../entity/request-store';
-import { getCollections as getRuleCollections } from '../../entity/rule-store';
 import { makeOracleInverseAccess, rememberPriorForMutation } from '../../sync';
 import { applySyncRequest, getOracleForWorkspace, nextSwMutatorContext } from '../../sync/service';
 import { publishActiveMqttMessage, scriptPublishToWire } from '../mqtt-exec/session-plane';
 import { buildRefreshOAuthHook } from '../request-exec/oauth-refresh';
+import { activeWorkspaceScriptScope } from '../request-exec/script-scope';
 import type { RequestTransport } from '../request-exec/transport';
 import { sendActiveWsSessionMessage } from '../ws-exec/session-plane';
 
@@ -93,20 +91,24 @@ export interface ScriptHostSeam {
 /** The `oh.*` handler over one host's seam — the broker's `handleHostRequest`. */
 export function createScriptHostRequestHandler(
   seam: ScriptHostSeam,
-): (request: ScriptHostRequest) => Promise<ScriptHostResponse> {
-  return (request) => handleScriptHostRequest(request, seam);
+): (request: ScriptHostRequest, scope?: ScriptVariableScope | null) => Promise<ScriptHostResponse> {
+  return (request, scope = null) => handleScriptHostRequest(request, scope, seam);
 }
 
-async function handleScriptHostRequest(request: ScriptHostRequest, seam: ScriptHostSeam): Promise<ScriptHostResponse> {
+async function handleScriptHostRequest(
+  request: ScriptHostRequest,
+  scope: ScriptVariableScope | null,
+  seam: ScriptHostSeam,
+): Promise<ScriptHostResponse> {
   try {
     switch (request.op) {
       case 'variables.get':
-        return okReply(request, resolveVariableByName(request.name));
+        return okReply(request, await readScopedVariable(scope, request.name));
       case 'variables.set':
         await writeWorkspaceVariable(request.name, request.value);
         return okReply(request, null);
       case 'vault.get':
-        return okReply(request, await resolveVaultRef(request.ref, seam.refreshTransport));
+        return okReply(request, await resolveVaultRef(request.ref, scope, seam.refreshTransport));
       case 'sendRequest':
         return okReply(request, await dispatchAdHocRequest(request.request, seam));
       case 'session.send':
@@ -153,23 +155,9 @@ function errorReply(executionId: string, rpcId: string, error: string): ScriptHo
   return { executionId, rpcId, ok: false, error };
 }
 
-function resolveVariableByName(name: string): string | null {
-  const resolver = buildHostResolver();
-  const { result, errors } = resolveTemplate(`{{${name}}}`, (n) => resolver.resolve(n, {}));
-  if (errors.length > 0 || result === `{{${name}}}`) return null;
-  return result;
-}
-
-function buildHostResolver(): VariableResolver {
-  const resolver = new VariableResolver();
-  resolver.setVault(getVault());
-  resolver.setEnvironments(getEnvironments());
-  resolver.setActiveEnvironmentId(getActiveEnvironmentId());
-  resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
-  resolver.setWorkspaceVariables(getWorkspaceVariables());
-  for (const c of getRuleCollections()) resolver.setCollectionVariables(c.uid, c.variables ?? []);
-  for (const c of getRequestCollections()) resolver.setCollectionVariables(c.uid, c.variables ?? []);
-  return resolver;
+/** The execution's scope reads the name; a scope-less run reads the active workspace's mirrors. */
+async function readScopedVariable(scope: ScriptVariableScope | null, name: string): Promise<string | null> {
+  return (scope ?? (await activeWorkspaceScriptScope())).readVariable(name);
 }
 
 async function writeWorkspaceVariable(name: string, value: string): Promise<void> {
@@ -210,17 +198,19 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
   }
 }
 
-async function resolveVaultRef(ref: string, refreshTransport: RequestTransport): Promise<string | null> {
-  // The runtime can request either a named vault secret or an OAuth
-  // credentialRef. Named secrets are the common case; OAuth bundles
-  // surface their access token as the value (the common need — signing
-  // an outbound ad-hoc request).
-  const vault = getVault();
-  const named = vault.secrets?.find((s) => s.name === ref);
-  // String-kind only — `oh.vault(name)` returns a literal credential.
-  // TOTP-kind entries are request-time, not script-time; surface as
-  // null so script authors fall back to OAuth bundle resolution.
-  if (named && named.kind === 'string') return named.value;
+async function resolveVaultRef(
+  ref: string,
+  scope: ScriptVariableScope | null,
+  refreshTransport: RequestTransport,
+): Promise<string | null> {
+  // The runtime can request either a vault entry or an OAuth
+  // credentialRef. An entry answers as `{{vault.ref}}` would on this
+  // send (a string's literal, a TOTP entry's current code, a secret
+  // manager's value); anything else reads as a credentialRef whose
+  // bundle surfaces its access token (the common need — signing an
+  // outbound ad-hoc request).
+  const entry = await readScopedVariable(scope, `vault.${ref}`);
+  if (entry !== null) return entry;
   let bundle = await getOAuthTokenBundle(ref);
   // Same staleness discipline as the executor's attach: an expired
   // bundle refreshes at the token endpoint first, rebuilt from the

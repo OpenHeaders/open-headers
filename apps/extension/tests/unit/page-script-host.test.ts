@@ -2,16 +2,18 @@
 /**
  * The workbench page's script host — the session hooks' `oh.*`
  * servicing off the renderer scope the editor publishes: variables
- * through the scope's resolver, `variables.set` through the workspace
- * write client under the page host's surface id, `vault.get` off the
- * scope's vault (string secrets) or the workspace's OAuth token store
- * (a credentialRef's access token), `sendRequest` through the
+ * and vault entries through the execution's variable scope the broker
+ * hands in (the published scope's resolver for a hook without one),
+ * `variables.set` through the workspace write client under the page
+ * host's surface id, a `vault.get` ref no entry answers off the
+ * workspace's OAuth token store (a credentialRef's access token),
+ * `sendRequest` through the
  * bridge's `executeRequest`, `session.send` into the page-local
  * active-session registry as a SCRIPT-origin write; the host answers
  * `null` where the manifest declares no sandbox page (Firefox).
  */
 
-import type { ScriptHostRequest } from '@openheaders/core/scripts';
+import type { ScriptVariableScope } from '@openheaders/core/scripts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
@@ -62,7 +64,10 @@ beforeEach(() => {
   h.manifest = { sandbox: { pages: ['sandbox.html'] } };
   setPageScriptScope({
     workspaceId: 'ws1',
-    resolveVariable: (name) => (name === 'base' ? 'https://api.openheaders.io' : null),
+    // The renderer resolver's walk — a string vault entry answers under
+    // its namespace, as `{{vault.api_key}}` would.
+    resolveVariable: (name) =>
+      name === 'base' ? 'https://api.openheaders.io' : name === 'vault.api_key' ? 'k-1' : null,
     workspaceVariables: {
       schemaVersion: 5,
       variables: [{ uid: 'var00001', name: 'token', value: 'old', type: 'default' }],
@@ -121,12 +126,38 @@ describe('the oh.* host RPCs', () => {
       value: 'at-1',
     });
     expect(h.tokenBundle).toHaveBeenCalledWith('github-oauth', 'ws1');
-    // A TOTP entry is request-time, not script-time — and no bundle
-    // sits under its name either.
+    // The published scope answers no code for the TOTP entry here, and
+    // no bundle sits under its name either.
     expect(await handlePageScriptHostRequest({ ...envelope, op: 'vault.get', ref: 'otp' })).toMatchObject({
       value: null,
     });
     expect(h.tokenBundle).toHaveBeenLastCalledWith('otp', 'ws1');
+  });
+
+  it("an execution's scope answers variables.get and vault.get ahead of the published scope — a TOTP code included", async () => {
+    const reads: string[] = [];
+    const scope: ScriptVariableScope = {
+      readVariable: async (reference) => {
+        reads.push(reference);
+        return reference === 'live.token' ? 'lt-9' : reference === 'vault.otp' ? '492817' : null;
+      },
+    };
+    expect(
+      await handlePageScriptHostRequest({ ...envelope, op: 'variables.get', name: 'live.token' }, scope),
+    ).toMatchObject({ value: 'lt-9' });
+    // The published scope would answer `base`; the execution's scope rules.
+    expect(await handlePageScriptHostRequest({ ...envelope, op: 'variables.get', name: 'base' }, scope)).toMatchObject({
+      value: null,
+    });
+    expect(await handlePageScriptHostRequest({ ...envelope, op: 'vault.get', ref: 'otp' }, scope)).toMatchObject({
+      value: '492817',
+    });
+    expect(h.tokenBundle).not.toHaveBeenCalled();
+    h.tokenBundle.mockResolvedValueOnce({ accessToken: 'at-2', tokenType: 'Bearer', obtainedAt: 1 });
+    expect(
+      await handlePageScriptHostRequest({ ...envelope, op: 'vault.get', ref: 'github-oauth' }, scope),
+    ).toMatchObject({ value: 'at-2' });
+    expect(reads).toEqual(['live.token', 'base', 'vault.otp', 'vault.github-oauth']);
   });
 
   it('vault.get answers null for an OAuth ref when the scope names no workspace — nothing to read', async () => {

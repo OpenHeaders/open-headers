@@ -124,7 +124,7 @@ export async function runStepRequest(
       (mutation) => {
         finalResolved = applyScriptMutation(finalResolved, mutation);
       },
-      { strict: true },
+      { strict: true, scope: outcome.scope },
     );
     scripts = { preRequest: preRun.outcome };
     if (preRun.outcome && !preRun.outcome.succeeded) {
@@ -169,7 +169,7 @@ export async function runStepRequest(
         ...(wireResult.bodyEncoding ? { bodyEncoding: wireResult.bodyEncoding } : {}),
         durationMs: wireResult.durationMs,
       },
-      { strict: true },
+      { strict: true, scope: outcome.scope },
     );
     scripts = { ...(scripts ?? {}), postResponse: postRun.outcome };
     if (postRun.outcome && !postRun.outcome.succeeded) {

@@ -20,9 +20,14 @@
  *   • Scripts never touch storage / engine state directly — every
  *     side-effecting `oh.*` call crosses this process as a typed host
  *     RPC, answered by the injected {@link ScriptHostRequestHandler}.
- *   • Host RPCs are scoped to the ACTIVE workspace at the moment the
- *     RPC arrives — scripts can't reach into another workspace's vault
- *     or variables.
+ *   • `oh.variables.get` / `oh.vault.get` answer off the EXECUTION's
+ *     variable scope — the resolution the send itself rode (its
+ *     collection, environment, step captures, TOTP codes, live
+ *     registry, files, secret-manager entries), kept host-side under
+ *     the execution id and handed to the handler with each RPC; a run
+ *     dispatched without one answers off the host's active-workspace
+ *     mirrors. Scripts can't reach into another workspace's vault or
+ *     variables either way.
  *   • Executions dispatched with `hostContext: 'chain'` (a workflow
  *     step with `runScripts: true`) get a READ-ONLY tier:
  *     `oh.sendRequest` and `oh.variables.set` are rejected — a
@@ -41,6 +46,7 @@ import type {
   ScriptHostRequest,
   ScriptHostResponse,
   ScriptPackageModule,
+  ScriptVariableScope,
   ScriptWireMessage,
   SessionHookInput,
   SessionScriptKind,
@@ -67,6 +73,9 @@ interface RunScriptBase {
   timeoutMs?: number;
   /** Host-API tier — see the module doc. Default `'interactive'`. */
   hostContext?: 'interactive' | 'chain';
+  /** The execution's variable scope — what `oh.variables.get` and
+   *  `oh.vault.get` read; see the module doc. */
+  scope?: ScriptVariableScope;
 }
 
 /** An HTTP send's one-shot script run. */
@@ -87,9 +96,14 @@ export interface RunSessionScriptOptions extends RunScriptBase {
 
 export type RunScriptOptions = RunHttpScriptOptions | RunSessionScriptOptions;
 
-/** Answers one `oh.*` host request. Must resolve (never throw) — the
- *  broker forwards whatever comes back straight into the runtime. */
-export type ScriptHostRequestHandler = (request: ScriptHostRequest) => Promise<ScriptHostResponse>;
+/** Answers one `oh.*` host request under the execution's variable
+ *  scope (`null` for a run dispatched without one). Must resolve
+ *  (never throw) — the broker forwards whatever comes back straight
+ *  into the runtime. */
+export type ScriptHostRequestHandler = (
+  request: ScriptHostRequest,
+  scope: ScriptVariableScope | null,
+) => Promise<ScriptHostResponse>;
 
 /** Host ops rejected for chain-context executions. */
 const CHAIN_BLOCKED_OPS = new Set<ScriptHostRequest['op']>(['sendRequest', 'variables.set']);
@@ -117,6 +131,8 @@ export interface ScriptBrokerDeps {
 export function createScriptBroker(deps: ScriptBrokerDeps): ScriptBroker {
   const pendingExecs = new Map<string, (result: ScriptExecutionResult) => void>();
   const chainExecutionIds = new Set<string>();
+  /** The variable scope of every execution in flight that carries one. */
+  const executionScopes = new Map<string, ScriptVariableScope>();
   /** Sessions that ran at least one hook — each pins the runtime open. */
   const openSessions = new Set<string>();
   let inFlight = 0;
@@ -158,7 +174,7 @@ export function createScriptBroker(deps: ScriptBrokerDeps): ScriptBroker {
       };
     }
     try {
-      return await deps.handleHostRequest(request);
+      return await deps.handleHostRequest(request, executionScopes.get(request.executionId) ?? null);
     } catch (err) {
       return {
         executionId: request.executionId,
@@ -240,6 +256,7 @@ export function createScriptBroker(deps: ScriptBrokerDeps): ScriptBroker {
         : { ...base, kind: opts.kind, request: opts.request, response: opts.response };
 
       if (opts.hostContext === 'chain') chainExecutionIds.add(executionId);
+      if (opts.scope !== undefined) executionScopes.set(executionId, opts.scope);
       try {
         return await sendExecute(request);
       } catch (err) {
@@ -255,6 +272,7 @@ export function createScriptBroker(deps: ScriptBrokerDeps): ScriptBroker {
         };
       } finally {
         chainExecutionIds.delete(executionId);
+        executionScopes.delete(executionId);
         inFlight -= 1;
         settleIdle();
       }

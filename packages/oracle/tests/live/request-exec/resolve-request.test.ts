@@ -202,6 +202,29 @@ describe('resolveRequest — inherited settings', () => {
     ]);
   });
 
+  it("the outcome's script scope reads a reference as the request's own templates do — collection, environment, a miss", async () => {
+    environments.mockReturnValue([
+      {
+        schemaVersion: 5,
+        uid: 'env00001',
+        name: 'Staging',
+        variables: [{ uid: 'var00002', name: 'HOST', value: 'staging.openheaders.io', type: 'default' }],
+      },
+    ]);
+    seed(
+      makeCollection({
+        variables: [{ uid: 'var00001', name: 'BASE', value: 'https://api.openheaders.io/v2', type: 'default' }],
+      }),
+      makeFolder(),
+    );
+    const { scope } = await resolveRequest(makeRequest(), { environmentId: 'env00001' });
+    expect(await scope.readVariable('collection.BASE')).toBe('https://api.openheaders.io/v2');
+    expect(await scope.readVariable('BASE')).toBe('https://api.openheaders.io/v2');
+    expect(await scope.readVariable('env.HOST')).toBe('staging.openheaders.io');
+    expect(await scope.readVariable('nope')).toBeNull();
+    expect(await scope.readVariable('step.s1.id')).toBeNull();
+  });
+
   it('an inherited SNI template nobody defines rides as written and the resolved shape names it', async () => {
     seed(makeCollection({ settings: { http: { sniServerName: '{{EDGE}}.openheaders.io' } } }), makeFolder());
     const { resolved } = await resolveRequest(makeRequest(), {});

@@ -148,7 +148,7 @@ export async function executeRequestDraft(
       (input) => runScript(input),
       () => resolvedToSnapshot(finalResolved),
       (mutation) => applyMutation(finalResolved, mutation),
-      { strict: false },
+      { strict: false, scope: outcome.scope },
     );
     if (preRun.outcome) scriptOutcome = { preRequest: preRun.outcome };
   }
@@ -194,7 +194,7 @@ export async function executeRequestDraft(
       (input) => runScript(input),
       resolvedToSnapshot(finalResolved),
       responseSnap,
-      { strict: false },
+      { strict: false, scope: outcome.scope },
     );
     if (postRun.outcome) scriptOutcome = { ...(scriptOutcome ?? {}), postResponse: postRun.outcome };
   }

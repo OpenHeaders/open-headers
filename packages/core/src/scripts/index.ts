@@ -198,6 +198,21 @@ export interface ScriptPackageModule {
 }
 
 /**
+ * The scope one execution's `oh.variables.get` / `oh.vault.get` read —
+ * the resolution the send itself rode: its collection, its environment,
+ * the step captures, the TOTP codes, the live registry, the files and
+ * the secret-manager entries it may ask for. The executor builds it
+ * beside its resolver, the runner hands it to the host with the script,
+ * and the host's `oh.*` servicing reads it under the execution's id;
+ * it never crosses into the sandbox.
+ */
+export interface ScriptVariableScope {
+  /** One reference as the request's own `{{ref}}` resolves it; `null`
+   *  when no scope answers. */
+  readVariable(reference: string): Promise<string | null>;
+}
+
+/**
  * Host → sandbox: run this script — the envelope's shared half. The
  * family (HTTP or session) decides what the script sees; the union
  * below discriminates on `kind`.

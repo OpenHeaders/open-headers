@@ -122,6 +122,7 @@ export async function resolveScriptRunner(options: {
           request: input.request,
           response: input.response,
           hostContext: options.hostContext,
+          scope: input.scope,
         })
         .catch(runtimeUnavailable),
   };
@@ -166,6 +167,7 @@ export async function resolveSessionScriptHost(options: {
           sessionId: input.sessionId,
           hook: input.hook,
           hostContext: 'interactive',
+          scope: input.scope,
         })
         .catch(runtimeUnavailable),
     endSession: (sessionId) => cap.endSession(sessionId),

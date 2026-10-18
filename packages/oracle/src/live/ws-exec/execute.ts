@@ -97,6 +97,7 @@ import { resolveRequestSettings, resolveSessionAuth } from '../request-exec/ance
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import { parseUrlParams, type SessionScriptHost } from '../request-exec/script-hooks';
+import { createScriptVariableScope } from '../request-exec/script-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import {
   buildOracleSessionResolution,
@@ -255,6 +256,8 @@ export async function executeWsSession(
   if (resolveWith === undefined) return errorWsSnapshot('No template resolution available for this session.');
   const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
   const referencesSecret = oracleResolution?.referencesSecret ?? options.referencesSecret ?? NEVER_SECRET;
+  // The hooks' `oh.variables.get` / `oh.vault.get` read this same resolution.
+  const scriptScope = createScriptVariableScope({ prepare, resolve: resolveWith });
   // The workspace trust list rides every dial — the pin the scope
   // resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
@@ -508,6 +511,7 @@ export async function executeWsSession(
             sessionId: options.sendId,
             host: scriptHost,
             chains: scriptChains,
+            scope: scriptScope,
             recordMark: recordLifecycle,
           })
         : null;

@@ -193,6 +193,49 @@ describe('executeWsSession — Before connect', () => {
     expect(host.ended).toEqual(['send-scr-1']);
   });
 
+  it("a hook's input carries the session's scope — the injected resolution answers a reference, a miss is null", async () => {
+    const t = rig();
+    const prepared: string[][] = [];
+    const host = scriptedHost({});
+    const settled = executeWsSession(makeWsRequest({ scripts: { 'ws-before-connect': 'connect();' } }), {
+      workspaceId: null,
+      environmentId: undefined,
+      transport: t.transport,
+      sendId: 'send-scr-scope',
+      resolution: (template, unresolved) => {
+        if (template === '{{env.HOST}}') return 'events.openheaders.io';
+        if (template.startsWith('{{')) {
+          unresolved.set(template.slice(2, -2), {
+            reference: template.slice(2, -2),
+            reason: 'unset-in-scope',
+            namespace: null,
+            variableName: template.slice(2, -2),
+            activeEnvironmentId: null,
+            defaultEnvironmentId: null,
+            hint: '',
+          });
+        }
+        return template;
+      },
+      prepareResolution: (templates) => {
+        prepared.push([...templates]);
+        return null;
+      },
+      scriptChain: [],
+      scriptHost: host.host,
+    });
+    await settleTick();
+    t.open(0);
+    t.closeClean(0);
+    await settled;
+    const scope = host.ran[0]?.scope;
+    expect(scope).toBeDefined();
+    expect(await scope?.readVariable('env.HOST')).toBe('events.openheaders.io');
+    expect(await scope?.readVariable('nope')).toBeNull();
+    // Each read runs the pre-pass over its own template first.
+    expect(prepared.at(-1)).toEqual(['{{nope}}']);
+  });
+
   it('a Before connect failure is recorded and the dial proceeds unmutated', async () => {
     const t = rig();
     const host = scriptedHost({

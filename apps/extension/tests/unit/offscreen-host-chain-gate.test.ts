@@ -3,10 +3,17 @@
  * (`hostContext: 'chain'`) gets a READ-ONLY `oh.*` surface: the host
  * refuses `sendRequest` + `variables.set` while that execution is in
  * flight, and the gate is scoped to the execution id (interactive runs
- * are untouched; the id is unregistered after the run settles).
+ * are untouched; the id is unregistered after the run settles). The
+ * read ops answer off the execution's variable scope when the run
+ * carries one, else off the active workspace's mirrors.
  */
 
-import type { ScriptExecutionResult, ScriptHostRequest, ScriptHostResponse } from '@openheaders/core/scripts';
+import type {
+  ScriptExecutionResult,
+  ScriptHostRequest,
+  ScriptHostResponse,
+  ScriptVariableScope,
+} from '@openheaders/core/scripts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
@@ -24,6 +31,15 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
 }));
 vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: () => [],
+}));
+vi.mock('@openheaders/oracle/entity/template-store', () => ({
+  getTemplateCollections: () => [],
+}));
+vi.mock('@openheaders/oracle/entity/files-store', () => ({
+  listFiles: async () => [],
+}));
+vi.mock('@openheaders/oracle/rule-engine/variables-resolver', () => ({
+  getLiveRegistrySnapshot: () => new Map(),
 }));
 vi.mock('@openheaders/oracle/sync/service', () => ({
   getActiveCacheForRegistration: () => null,
@@ -150,6 +166,18 @@ describe('chain-context host-RPC gate', () => {
     // this harness) — asserting the message proves the chain gate did
     // NOT fire for an interactive run.
     if (!reply.ok) expect(reply.error).toMatch(/request executor not wired/);
+  });
+
+  it("serves the read ops off the run's variable scope while it is in flight, and forgets it after", async () => {
+    midRunOps = ['variables.get', 'vault.get'];
+    const scope: ScriptVariableScope = {
+      readVariable: async (reference) =>
+        reference === 'X' ? 'scoped-x' : reference === 'vault.X' ? 'scoped-vault' : null,
+    };
+    await runScript({ ...scriptInput, hostContext: 'chain', scope });
+    expect(midRunReplies.map((reply) => (reply.ok ? reply.value : reply.error))).toEqual(['scoped-x', 'scoped-vault']);
+    const after = await handleScriptHostRequest(hostRequest(lastExecutionId, 'variables.get'));
+    expect(after).toMatchObject({ ok: true, value: null });
   });
 
   it('unregisters the execution id after the chain run settles', async () => {

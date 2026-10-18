@@ -24,6 +24,7 @@ import type {
 } from '@openheaders/core/auth-signing';
 import { collectRequestTemplateStrings } from '@openheaders/core/live';
 import { boundDpopKeyOf, DPOP_TOKEN_TYPE, type OAuth2DpopProofMaterial } from '@openheaders/core/oauth';
+import type { ScriptVariableScope } from '@openheaders/core/scripts';
 import type {
   AuthConfig,
   ExecutedAuthAttribution,
@@ -53,6 +54,7 @@ import { getTrustAnchorsForSend } from '../trust-anchors';
 import { collectionUidForRequest, resolveRequestAuth, resolveRequestSettings } from './ancestor-chain';
 import { acquireOAuth2Bundle, type OAuthRefreshFn, oauth2AuthorizationValue } from './oauth2-bundle';
 import { buildResolver } from './resolver-scope';
+import { scriptScopeOverResolver } from './script-scope';
 import {
   batchRefusesSend,
   sentAsWrittenOf,
@@ -266,6 +268,10 @@ export interface ResolvedRequestOutcome {
    *  resolved shape (`vault.X`) — a copied command carries the
    *  reference, never the value. Empty on a send. */
   secretManagerReferencesKept: ReadonlyArray<string>;
+  /** What this send's scripts read through `oh.variables.get` /
+   *  `oh.vault.get` — the resolver and context above, so a script sees
+   *  exactly what a `{{ref}}` in the request would. */
+  scope: ScriptVariableScope;
 }
 
 export type { OAuthRefreshFn } from './oauth2-bundle';
@@ -654,6 +660,7 @@ export async function resolveRequest(
     },
     totpUsed: [...totpUsed.values()],
     secretManagerReferencesKept,
+    scope: scriptScopeOverResolver(resolver, context, scope.vault),
   };
 }
 

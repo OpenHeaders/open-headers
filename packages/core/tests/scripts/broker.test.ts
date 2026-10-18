@@ -5,8 +5,9 @@
  * broker contract every host shares: no-op source skips the spawn, idle
  * close after the last in-flight run, an open session holds the
  * runtime until `endSession`, transport faults fold into failed results
- * (never throws), and chain-context executions get the read-only
- * `oh.*` tier.
+ * (never throws), chain-context executions get the read-only `oh.*`
+ * tier, and the execution's variable scope reaches the handler with
+ * each RPC for as long as the run is in flight.
  */
 
 import { setHostLogger } from '@openheaders/core/logger';
@@ -14,6 +15,7 @@ import type {
   ScriptExecutionRequest,
   ScriptExecutionResult,
   ScriptHostRequest,
+  ScriptVariableScope,
   SessionHookInput,
 } from '@openheaders/core/scripts';
 import { createScriptBroker, type SandboxTransport, type ScriptBroker } from '@openheaders/core/scripts/broker';
@@ -229,7 +231,7 @@ describe('host-request tiering', () => {
   it('interactive executions get the full oh.* surface', async () => {
     const rig = makeRig({ hostRequestOp: 'variables.set' });
     await run(rig, 'interactive');
-    expect(rig.handleHostRequest).toHaveBeenCalledWith(expect.objectContaining({ op: 'variables.set' }));
+    expect(rig.handleHostRequest).toHaveBeenCalledWith(expect.objectContaining({ op: 'variables.set' }), null);
     expect(rig.hostResponses()[0]?.ok).toBe(true);
   });
 
@@ -252,7 +254,7 @@ describe('host-request tiering', () => {
   it('chain executions keep the read tier — oh.variables.get passes through', async () => {
     const rig = makeRig({ hostRequestOp: 'variables.get' });
     await run(rig, 'chain');
-    expect(rig.handleHostRequest).toHaveBeenCalledWith(expect.objectContaining({ op: 'variables.get' }));
+    expect(rig.handleHostRequest).toHaveBeenCalledWith(expect.objectContaining({ op: 'variables.get' }), null);
     expect(rig.hostResponses()[0]?.ok).toBe(true);
   });
 
@@ -263,5 +265,27 @@ describe('host-request tiering', () => {
     const reply = rig.hostResponses()[0];
     expect(reply?.ok).toBe(false);
     expect(reply?.error).toBe('store not hydrated');
+  });
+});
+
+describe('host-request scope', () => {
+  it("hands the handler the execution's variable scope with each RPC, and drops it once the run settles", async () => {
+    const rig = makeRig({ hostRequestOp: 'variables.get' });
+    const scope: ScriptVariableScope = { readVariable: async () => 'scoped' };
+    await rig.broker.runScript({ kind: 'pre-request', source: 'x;', request: snapshot, scope });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rig.handleHostRequest).toHaveBeenCalledWith(expect.objectContaining({ op: 'variables.get' }), scope);
+    // The settled run's id answers no scope any more.
+    await rig.broker.runScript({ kind: 'pre-request', source: 'x;', request: snapshot });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rig.handleHostRequest).toHaveBeenLastCalledWith(expect.objectContaining({ op: 'variables.get' }), null);
+  });
+
+  it('a session hook carries its scope too', async () => {
+    const rig = makeRig({ hostRequestOp: 'vault.get' });
+    const scope: ScriptVariableScope = { readVariable: async () => null };
+    await rig.broker.runScript({ kind: 'ws-on-message', source: 'x;', sessionId: 's1', hook: INBOUND, scope });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rig.handleHostRequest).toHaveBeenCalledWith(expect.objectContaining({ op: 'vault.get' }), scope);
   });
 });

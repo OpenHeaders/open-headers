@@ -41,6 +41,7 @@ export {
   collectScriptChain,
   collectSlotChain,
   composeSlotChain,
+  type HttpChainRunOptions,
   type PostChainRunResult,
   type PreChainRunResult,
   type RequestScriptChain,
@@ -62,6 +63,12 @@ export {
   type StepScriptInput,
   type StepScriptRunner,
 } from './script-hooks';
+export {
+  activeWorkspaceScriptScope,
+  createScriptVariableScope,
+  type ScriptScopeResolution,
+  scriptScopeOverResolver,
+} from './script-scope';
 export {
   createSessionScriptPlaneCore,
   hasSessionScriptChains,

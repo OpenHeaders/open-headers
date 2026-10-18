@@ -33,6 +33,7 @@ import type {
   ResponseSnapshot,
   ScriptExecutionMode,
   ScriptExecutionResult,
+  ScriptVariableScope,
   SessionHookInput,
   SessionScriptKind,
   TestAssertion,
@@ -46,6 +47,9 @@ export interface StepScriptInput {
   source: string;
   request: RequestSnapshot;
   response?: ResponseSnapshot;
+  /** What the script's `oh.variables.get` / `oh.vault.get` read — the
+   *  send's own resolution (`script-scope.ts`). */
+  scope?: ScriptVariableScope;
 }
 
 /**
@@ -62,6 +66,9 @@ export interface SessionScriptInput {
   source: string;
   sessionId: string;
   hook: SessionHookInput;
+  /** What the hook's `oh.variables.get` / `oh.vault.get` read — the
+   *  session's retained resolution (`script-scope.ts`). */
+  scope?: ScriptVariableScope;
 }
 
 /**

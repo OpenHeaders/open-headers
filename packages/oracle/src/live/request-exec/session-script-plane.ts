@@ -21,6 +21,7 @@
 import type {
   ScriptExecutionMode,
   ScriptExecutionResult,
+  ScriptVariableScope,
   SessionHookInput,
   SessionScriptKind,
 } from '@openheaders/core/scripts';
@@ -54,6 +55,9 @@ export interface SessionScriptPlaneDeps<K extends SessionScriptKind> {
   sessionId: string;
   host: SessionScriptHost;
   chains: SessionScriptChains<K>;
+  /** What every hook's `oh.variables.get` / `oh.vault.get` read — the
+   *  session's retained resolution (`script-scope.ts`). */
+  scope?: ScriptVariableScope;
   /** Record one mark on the timeline at the capture's current index —
    *  the executor stamps its position and emits it live. */
   recordMark(mark: SessionScriptMarkOf<K>): void;
@@ -92,7 +96,7 @@ export interface SessionScriptPlaneCore<K extends SessionScriptKind> {
 export function createSessionScriptPlaneCore<K extends SessionScriptKind>(
   deps: SessionScriptPlaneDeps<K>,
 ): SessionScriptPlaneCore<K> {
-  const { sessionId, host, chains } = deps;
+  const { sessionId, host, chains, scope } = deps;
 
   // ── The per-session queue — hooks never interleave ──
   let queue: Promise<unknown> = Promise.resolve();
@@ -117,7 +121,7 @@ export function createSessionScriptPlaneCore<K extends SessionScriptKind>(
     run(kind, hook, onLevel) {
       return runScriptChain(
         chains[kind],
-        (script) => host.run({ kind, source: script.source, sessionId, hook: hook() }),
+        (script) => host.run({ kind, source: script.source, sessionId, hook: hook(), scope }),
         {
           strict: false,
           ...(onLevel !== undefined ? { onLevelSucceeded: onLevel } : {}),

@@ -103,6 +103,7 @@ import { DEFAULT_RECONNECT_PERIOD_MS, reconnectDelayMs } from '../reconnect-poli
 import { resolveRequestSettings, resolveSessionAuth } from '../request-exec/ancestor-chain';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import type { SessionScriptHost } from '../request-exec/script-hooks';
+import { createScriptVariableScope } from '../request-exec/script-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import {
   buildOracleSessionResolution,
@@ -448,6 +449,8 @@ export async function executeMqttSession(
   if (resolveWith === undefined) return errorMqttSnapshot('No template resolution available for this session.');
   const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
   const referencesSecret = oracleResolution?.referencesSecret ?? options.referencesSecret ?? NEVER_SECRET;
+  // The hooks' `oh.variables.get` / `oh.vault.get` read this same resolution.
+  const scriptScope = createScriptVariableScope({ prepare, resolve: resolveWith });
   // The workspace trust list rides every dial and reconnect alike —
   // the pin the scope resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
@@ -746,6 +749,7 @@ export async function executeMqttSession(
             sessionId: options.sendId,
             host: scriptHost,
             chains: scriptChains,
+            scope: scriptScope,
             recordMark: recordFact,
           })
         : null;

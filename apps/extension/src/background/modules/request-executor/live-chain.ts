@@ -157,6 +157,7 @@ function buildChainScriptRunner(options: LiveChainExecuteOptions): StepScriptRun
       request: input.request,
       response: input.response,
       hostContext: 'chain',
+      scope: input.scope,
     }).catch((err: unknown) => ({
       // The port contract is "never throw" — an offscreen spawn failure
       // surfaces as a failed script result, which the step runner turns

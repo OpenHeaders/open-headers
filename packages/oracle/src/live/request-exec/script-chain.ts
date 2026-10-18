@@ -31,6 +31,7 @@ import type {
   ScriptExecutionResult,
   ScriptKind,
   ScriptSlotCarrier,
+  ScriptVariableScope,
 } from '@openheaders/core/scripts';
 import { readScriptSlot } from '@openheaders/core/scripts';
 import type { ExecutedRequestSnapshot, ExecutedScriptChainStep, Request } from '@openheaders/core/types';
@@ -243,6 +244,15 @@ export interface PreChainRunResult {
   failedLabel: string | null;
 }
 
+/** The HTTP pair's run options — `scope` is what every level's
+ *  `oh.variables.get` / `oh.vault.get` read (the send's resolution). */
+export interface HttpChainRunOptions {
+  /** Stop at the first failing level (chain-step semantics); lenient
+   *  runs every level and merely skips what a failing level produced. */
+  strict: boolean;
+  scope?: ScriptVariableScope;
+}
+
 /**
  * Run the pre-request chain ancestor-first, one sandbox invocation per
  * level. `getSnapshot` re-projects the (possibly mutated) resolved
@@ -256,12 +266,12 @@ export async function runPreRequestChain(
   runner: StepScriptRunner,
   getSnapshot: () => RequestSnapshot,
   applyMutation: (mutation: RequestMutation) => void,
-  opts: { strict: boolean },
+  opts: HttpChainRunOptions,
 ): Promise<PreChainRunResult> {
   let mutation: RequestMutation | undefined;
   const fold = await runScriptChain(
     scripts,
-    (script) => runner({ kind: 'pre-request', source: script.source, request: getSnapshot() }),
+    (script) => runner({ kind: 'pre-request', source: script.source, request: getSnapshot(), scope: opts.scope }),
     {
       strict: opts.strict,
       onLevelSucceeded: (result) => {
@@ -299,11 +309,11 @@ export async function runPostResponseChain(
   runner: StepScriptRunner,
   request: RequestSnapshot,
   response: ResponseSnapshot,
-  opts: { strict: boolean },
+  opts: HttpChainRunOptions,
 ): Promise<PostChainRunResult> {
   const fold = await runScriptChain(
     scripts,
-    (script) => runner({ kind: 'post-response', source: script.source, request, response }),
+    (script) => runner({ kind: 'post-response', source: script.source, request, response, scope: opts.scope }),
     { strict: opts.strict },
   );
   if (fold === null) return { outcome: undefined, failedLabel: null };

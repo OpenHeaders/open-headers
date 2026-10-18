@@ -15,9 +15,12 @@
  * Security posture:
  *   • Scripts never touch storage or chrome.* directly — every
  *     side-effecting `oh.*` call crosses the SW via a typed host RPC.
- *   • Host RPCs are scoped to the ACTIVE workspace at the moment the
- *     RPC arrives — scripts can't reach into another workspace's
- *     vault or variables.
+ *   • `oh.variables.get` / `oh.vault.get` answer off the EXECUTION's
+ *     variable scope — the resolution the send itself rode (the
+ *     oracle's `script-scope.ts`), kept here under the execution id;
+ *     a run dispatched without one answers off the ACTIVE workspace's
+ *     mirrors. Scripts can't reach into another workspace's vault or
+ *     variables either way; a write lands on the active workspace.
  *   • The sandbox iframe runs under a manifest-declared sandboxed
  *     origin (see `manifests/chrome/manifest.json` > `sandbox.pages`)
  *     so the CSP relaxation to allow `new Function(...)` is scoped to
@@ -37,10 +40,10 @@ import type {
   ScriptHostRequest,
   ScriptHostResponse,
   ScriptPackageModule,
+  ScriptVariableScope,
 } from '@openheaders/core/scripts';
 import type { Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
 import type { WireFetchResult, WirePlan } from '@/shared/wire-fetch/plan';
 import { recordLog } from './observability-log';
@@ -59,16 +62,9 @@ export function __setExecuteRequestDraft(fn: typeof executeRequestDraftRef): voi
 }
 
 import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
-import {
-  getActiveEnvironmentId,
-  getDefaultEnvironmentId,
-  getEnvironments,
-  getVault,
-  getWorkspaceVariables,
-} from '@openheaders/oracle/entity/environment-store';
+import { getWorkspaceVariables } from '@openheaders/oracle/entity/environment-store';
 import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
-import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
-import { getCollections as getRuleCollections } from '@openheaders/oracle/entity/rule-store';
+import { activeWorkspaceScriptScope } from '@openheaders/oracle/live/request-exec/script-scope';
 import type { ScriptPackageCache } from '@openheaders/oracle/sync/caches/script-package-cache';
 import { SCRIPT_PACKAGE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import {
@@ -190,11 +186,17 @@ export interface RunScriptOptions {
    * live variables. Default `'interactive'` = full `oh.*` surface.
    */
   hostContext?: 'interactive' | 'chain';
+  /** The execution's variable scope — what `oh.variables.get` and
+   *  `oh.vault.get` read; see the module doc. */
+  scope?: ScriptVariableScope;
 }
 
 /** Execution ids currently running under `hostContext: 'chain'` —
  *  consulted by the host-RPC gate below. */
 const chainExecutionIds = new Set<string>();
+
+/** The variable scope of every execution in flight that carries one. */
+const executionScopes = new Map<string, ScriptVariableScope>();
 
 /** Host ops rejected for chain-context executions. */
 const CHAIN_BLOCKED_OPS = new Set<ScriptHostRequest['op']>(['sendRequest', 'variables.set']);
@@ -242,11 +244,13 @@ export async function runScript(opts: RunScriptOptions): Promise<ScriptExecution
   };
 
   if (opts.hostContext === 'chain') chainExecutionIds.add(executionId);
+  if (opts.scope !== undefined) executionScopes.set(executionId, opts.scope);
   try {
     const result = await sendExecuteToOffscreen(request);
     return result;
   } finally {
     chainExecutionIds.delete(executionId);
+    executionScopes.delete(executionId);
     inFlight -= 1;
     if (inFlight <= 0) scheduleIdleClose();
   }
@@ -384,14 +388,15 @@ export async function handleScriptHostRequest(request: ScriptHostRequest): Promi
         `${api} is not available in workflow runs — step scripts are read-only (captures publish values; requests belong to steps)`,
       );
     }
+    const scope = executionScopes.get(request.executionId) ?? null;
     switch (request.op) {
       case 'variables.get':
-        return okReply(request, await resolveVariableByName(request.name));
+        return okReply(request, await readScopedVariable(scope, request.name));
       case 'variables.set':
         await writeWorkspaceVariable(request.name, request.value);
         return okReply(request, null);
       case 'vault.get':
-        return okReply(request, await resolveVaultRef(request.ref));
+        return okReply(request, await resolveVaultRef(request.ref, scope));
       case 'sendRequest':
         return okReply(request, await dispatchAdHocRequest(request.request));
       case 'session.send':
@@ -428,23 +433,9 @@ function errorReply(executionId: string, rpcId: string, error: string): ScriptHo
   return { executionId, rpcId, ok: false, error };
 }
 
-async function resolveVariableByName(name: string): Promise<string | null> {
-  const resolver = buildHostResolver();
-  const { result, errors } = resolveTemplate(`{{${name}}}`, (n) => resolver.resolve(n, {}));
-  if (errors.length > 0 || result === `{{${name}}}`) return null;
-  return result;
-}
-
-function buildHostResolver(): VariableResolver {
-  const resolver = new VariableResolver();
-  resolver.setVault(getVault());
-  resolver.setEnvironments(getEnvironments());
-  resolver.setActiveEnvironmentId(getActiveEnvironmentId());
-  resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
-  resolver.setWorkspaceVariables(getWorkspaceVariables());
-  for (const c of getRuleCollections()) resolver.setCollectionVariables(c.uid, c.variables ?? []);
-  for (const c of getRequestCollections()) resolver.setCollectionVariables(c.uid, c.variables ?? []);
-  return resolver;
+/** The execution's scope reads the name; a scope-less run reads the active workspace's mirrors. */
+async function readScopedVariable(scope: ScriptVariableScope | null, name: string): Promise<string | null> {
+  return (scope ?? (await activeWorkspaceScriptScope())).readVariable(name);
 }
 
 async function writeWorkspaceVariable(name: string, value: string): Promise<void> {
@@ -475,17 +466,15 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
   }
 }
 
-async function resolveVaultRef(ref: string): Promise<string | null> {
-  // The sandbox can request either a named vault secret or an OAuth
-  // credentialRef. Named secrets are the common case; OAuth bundles
-  // surface their access token as the value (the common need — signing
-  // an outbound ad-hoc request).
-  const vault = getVault();
-  const named = vault.secrets?.find((s) => s.name === ref);
-  // String-kind only — `oh.vault(name)` returns a literal credential.
-  // TOTP-kind entries are request-time, not script-time; surface as
-  // null so script authors fall back to OAuth bundle resolution.
-  if (named && named.kind === 'string') return named.value;
+async function resolveVaultRef(ref: string, scope: ScriptVariableScope | null): Promise<string | null> {
+  // The sandbox can request either a vault entry or an OAuth
+  // credentialRef. An entry answers as `{{vault.ref}}` would on this
+  // send (a string's literal, a TOTP entry's current code, a secret
+  // manager's value); anything else reads as a credentialRef whose
+  // bundle surfaces its access token (the common need — signing an
+  // outbound ad-hoc request).
+  const entry = await readScopedVariable(scope, `vault.${ref}`);
+  if (entry !== null) return entry;
   const bundle = await getOAuthTokenBundle(ref);
   return bundle?.accessToken ?? null;
 }

@@ -60,6 +60,7 @@ import { resolveRequestSettings, resolveSessionAuth } from '../request-exec/ance
 import type { OAuthRefreshFn } from '../request-exec/oauth2-bundle';
 import { collectSlotChain, composeSlotChain, type SlotChainCarrier } from '../request-exec/script-chain';
 import type { SessionScriptHost } from '../request-exec/script-hooks';
+import { createScriptVariableScope } from '../request-exec/script-scope';
 import { registerActiveSend } from '../request-exec/send-stream';
 import {
   buildOracleSessionResolution,
@@ -230,9 +231,12 @@ export async function executeGrpcInvoke(
   // The invoke-time pre-pass: the entity's own strings name the
   // secret-manager entries this call resolves — a provider may prompt;
   // nothing the call never references is asked.
-  await (oracleResolution?.prepare ?? options.prepareResolution)?.(collectTemplateStringsDeep(request));
+  const prepare: SessionPrepare = oracleResolution?.prepare ?? options.prepareResolution ?? (() => null);
+  await prepare(collectTemplateStringsDeep(request));
   const referencesSecret: SessionReferencesSecret =
     oracleResolution?.referencesSecret ?? options.referencesSecret ?? (() => false);
+  // The hooks' `oh.variables.get` / `oh.vault.get` read this same resolution.
+  const scriptScope = createScriptVariableScope({ prepare, resolve: resolveWith });
   const unresolved: UnresolvedReferences = new Map();
   const resolveStr = (s: string): string => resolveWith(s, unresolved);
 
@@ -331,6 +335,7 @@ export async function executeGrpcInvoke(
           sessionId: options.sendId ?? `grpc-${generateUid()}`,
           host: options.scriptHost,
           chains: scriptChains,
+          scope: scriptScope,
         })
       : null;
   /** Every exit past the mount: the record and the marks onto the

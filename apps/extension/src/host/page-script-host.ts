@@ -13,13 +13,16 @@
  *
  * The `oh.*` host RPCs answer off the RENDERER, the scope the editor
  * publishes at Connect ({@link setPageScriptScope} — the resolution
- * factory's twin): `variables.get` through the renderer resolver's
- * full scope walk, `variables.set` through the workspace-variables
- * write client (HLC-stamped, synced, in the Activity Feed like any
- * renderer write), `vault.get` off the renderer's vault mirror (string
- * secrets) or, for an OAuth 2.0 credentialRef, the workspace's token
- * store the page's auth chain reads (the bundle's access token — the
- * SW host's rule), `sendRequest` through the bridge to the SW's own
+ * factory's twin): `variables.get` and `vault.get` through the
+ * EXECUTION's variable scope the broker hands in — the session's
+ * retained resolution, the renderer closure the executor rides, with
+ * its secret-manager pre-pass (a hook dispatched without one reads the
+ * published scope's resolver); `variables.set` through the
+ * workspace-variables write client (HLC-stamped, synced, in the
+ * Activity Feed like any renderer write); a `vault.get` ref no entry
+ * answers reads as an OAuth 2.0 credentialRef off the workspace's
+ * token store the page's auth chain reads (the bundle's access token —
+ * the SW host's rule); `sendRequest` through the bridge to the SW's own
  * Send pipeline, and
  * `session.send` / `session.publish` into the page-local active-session
  * registries as SCRIPT-origin writes (captured like any ↑ frame, never
@@ -38,6 +41,7 @@ import type {
   ScriptHostRequest,
   ScriptHostResponse,
   ScriptPackageModule,
+  ScriptVariableScope,
 } from '@openheaders/core/scripts';
 import { createScriptBroker, type ScriptBroker } from '@openheaders/core/scripts/broker';
 import type { Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
@@ -124,15 +128,21 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
   }
 }
 
-async function resolveVaultRef(ref: string): Promise<string | null> {
+/** The execution's scope reads the name; a hook dispatched without one reads the published renderer scope. */
+async function readScopedVariable(scope: ScriptVariableScope | null, name: string): Promise<string | null> {
+  return scope !== null ? scope.readVariable(name) : requireScope().resolveVariable(name);
+}
+
+async function resolveVaultRef(ref: string, scope: ScriptVariableScope | null): Promise<string | null> {
+  // A vault entry answers as `{{vault.ref}}` would on this session (a
+  // string's literal, a TOTP entry's current code, a secret manager's
+  // value); anything else is read as an OAuth 2.0 credentialRef whose
+  // bundle surfaces its access token (the SW host's rule), off the
+  // workspace's token store the page's own auth chain reads — no
+  // workspace, no store.
+  const entry = await readScopedVariable(scope, `vault.${ref}`);
+  if (entry !== null) return entry;
   const current = requireScope();
-  const named = current.vault.secrets.find((s) => s.name === ref);
-  // A named secret answers its literal (string-kind only — TOTP
-  // entries are request-time, not script-time); anything else is read
-  // as an OAuth 2.0 credentialRef whose bundle surfaces its access
-  // token (the SW host's rule), off the workspace's token store the
-  // page's own auth chain reads — no workspace, no store.
-  if (named !== undefined && named.kind === 'string') return named.value;
   if (current.workspaceId === null) return null;
   const bundle = await getTokenBundle(ref, current.workspaceId);
   return bundle?.accessToken ?? null;
@@ -165,16 +175,19 @@ async function dispatchAdHocRequest(snapshot: RequestSnapshot): Promise<Response
   };
 }
 
-export async function handlePageScriptHostRequest(request: ScriptHostRequest): Promise<ScriptHostResponse> {
+export async function handlePageScriptHostRequest(
+  request: ScriptHostRequest,
+  scope: ScriptVariableScope | null = null,
+): Promise<ScriptHostResponse> {
   try {
     switch (request.op) {
       case 'variables.get':
-        return okReply(request, requireScope().resolveVariable(request.name));
+        return okReply(request, await readScopedVariable(scope, request.name));
       case 'variables.set':
         await writeWorkspaceVariable(request.name, request.value);
         return okReply(request, null);
       case 'vault.get':
-        return okReply(request, await resolveVaultRef(request.ref));
+        return okReply(request, await resolveVaultRef(request.ref, scope));
       case 'sendRequest':
         return okReply(request, await dispatchAdHocRequest(request.request));
       case 'session.send':

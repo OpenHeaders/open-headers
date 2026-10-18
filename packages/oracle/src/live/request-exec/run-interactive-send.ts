@@ -92,7 +92,7 @@ export async function runInteractiveSend(
     (mutation) => {
       finalResolved = applyScriptMutation(finalResolved, mutation);
     },
-    { strict: false },
+    { strict: false, scope: outcome.scope },
   );
   if (preRun.outcome) scripts = { preRequest: preRun.outcome };
 
@@ -126,7 +126,7 @@ export async function runInteractiveSend(
         ...(wireResult.bodyEncoding ? { bodyEncoding: wireResult.bodyEncoding } : {}),
         durationMs: wireResult.durationMs,
       },
-      { strict: false },
+      { strict: false, scope: outcome.scope },
     );
     if (postRun.outcome) scripts = { ...(scripts ?? {}), postResponse: postRun.outcome };
   }
