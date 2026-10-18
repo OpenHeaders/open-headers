@@ -21,14 +21,35 @@ import { useMonacoVariableSuggest } from '@openheaders/ui/workbench/components/t
 import '@openheaders/ui/workbench/settings/schema';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import type * as monaco from 'monaco-editor';
+import { useMemo, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const popoverOpen = vi.fn();
 const popoverCloseNow = vi.fn();
-const popoverHost = { open: popoverOpen, scheduleClose: vi.fn(), cancelClose: vi.fn(), closeNow: popoverCloseNow };
 
+// The real host's api changes identity whenever its open state does
+// (its `open` closes over the state) — the fake does the same on open
+// and close, so an effect keyed on the api would re-fire on each.
 vi.mock('@openheaders/ui/workbench/components/template-input/VariablePopoverHost', () => ({
-  useVariablePopover: () => popoverHost,
+  useVariablePopover: () => {
+    const [version, setVersion] = useState(0);
+    return useMemo(
+      () => ({
+        open: (...args: unknown[]) => {
+          popoverOpen(...args);
+          setVersion((v) => v + 1);
+        },
+        scheduleClose: vi.fn(),
+        cancelClose: vi.fn(),
+        closeNow: () => {
+          popoverCloseNow();
+          setVersion((v) => v + 1);
+        },
+        version,
+      }),
+      [version],
+    );
+  },
   VariablePopoverProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 

@@ -99,8 +99,12 @@ export function useMonacoVariableSuggest(
     query: measure?.query ?? '',
     measureDouble: true,
   });
-  // The shared create popover — one instance per app root.
+  // The shared create popover — one instance per app root. Read through
+  // a ref where an effect needs it: its api identity follows its open
+  // state, so an effect keyed on it would re-fire on every open and close.
   const popoverHost = useVariablePopover();
+  const popoverHostRef = useRef(popoverHost);
+  popoverHostRef.current = popoverHost;
 
   const commit = useCallback((next: Measure | null) => {
     measureRef.current = next;
@@ -199,8 +203,8 @@ export function useMonacoVariableSuggest(
   // click in the buffer would otherwise leave it standing.
   useEffect(() => {
     if (!isOpen) return;
-    popoverHost.closeNow();
-  }, [isOpen, popoverHost]);
+    popoverHostRef.current.closeNow();
+  }, [isOpen]);
 
   // Monaco's own completions pause while the run is composed: the
   // language's quick suggestions and trigger characters are off until

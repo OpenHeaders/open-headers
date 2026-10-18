@@ -16,12 +16,31 @@ import { findRefAt } from '@openheaders/ui/workbench/components/template-input/m
 import { useMonacoRefHover } from '@openheaders/ui/workbench/components/template-input/monaco/use-monaco-ref-hover';
 import { act, cleanup, render } from '@testing-library/react';
 import type * as monaco from 'monaco-editor';
+import { useMemo, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const host = { open: vi.fn(), scheduleClose: vi.fn(), cancelClose: vi.fn(), closeNow: vi.fn() };
 
+// The real host's api changes identity whenever its open state does
+// (its `open` closes over the state) — the fake does the same, so a
+// hook that keys an effect on the api loses its session on open.
 vi.mock('@openheaders/ui/workbench/components/template-input/VariablePopoverHost', () => ({
-  useVariablePopover: () => host,
+  useVariablePopover: () => {
+    const [version, setVersion] = useState(0);
+    return useMemo(
+      () => ({
+        open: (...args: unknown[]) => {
+          host.open(...args);
+          setVersion((v) => v + 1);
+        },
+        scheduleClose: host.scheduleClose,
+        cancelClose: host.cancelClose,
+        closeNow: host.closeNow,
+        version,
+      }),
+      [version],
+    );
+  },
   VariablePopoverProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
