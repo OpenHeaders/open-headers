@@ -425,7 +425,7 @@ test('G8 — the sidebar verb converts the HTTP request with a GraphQL body into
   await converted.waitFor({ state: 'visible', timeout: 10_000 });
   await expect(workbench.locator('[data-item-id="request-e2ehttp1"]')).toHaveCount(0, { timeout: 5_000 });
   await queryButton().waitFor({ state: 'visible', timeout: 10_000 });
-  await expect(workbench.getByTestId('graphql-url-input').filter({ visible: true }).first()).toHaveValue(
+  await expect(workbench.getByTestId('graphql-url-input').filter({ visible: true }).first()).toHaveText(
     `${PROBE_URL}?trace=convert`,
   );
   expect(await queryAndAwaitStatus()).toBe('200 OK');

@@ -645,7 +645,7 @@ test('"Open in Request" hands the EDITED example draft to the parent editor', as
 
   // The parent gRPC editor activates with the prefilled draft.
   const parentUrl = page.getByTestId('grpc-url-input').filter({ visible: true }).first();
-  await expect(parentUrl).toHaveValue('127.0.0.1:65530');
+  await expect(parentUrl).toHaveText('127.0.0.1:65530');
 
   // Restore the probe target — the draft returns to canonical.
   await parentUrl.fill(PROBE_URL);

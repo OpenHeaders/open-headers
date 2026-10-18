@@ -66,7 +66,7 @@ import {
 } from '@openheaders/ui/shared/sync/response-example-write-client';
 import { applySpecCreate } from '@openheaders/ui/shared/sync/spec-write-client';
 import { Allotment } from 'allotment';
-import { App, Button, ConfigProvider, Input, type MenuProps, Select, Tabs, Tooltip, theme } from 'antd';
+import { App, Button, ConfigProvider, type MenuProps, Select, Tabs, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
@@ -119,6 +119,7 @@ import {
   graphqlSettingsSlice,
 } from './draft';
 import GraphqlHeadersTab from './GraphqlHeadersTab';
+import { type AutoSuggestionContextValue, SuggestionContextProvider, TemplateInput } from '../template-input';
 import GraphqlQueryTab from './GraphqlQueryTab';
 import GraphqlSchemaTab from './GraphqlSchemaTab';
 import GraphqlSpecTab from './GraphqlSpecTab';
@@ -208,6 +209,14 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const ancestry = useMemo(
     () => findRequestAncestry(collectionTrees, collections, folders, entity.uid),
     [entity.uid, collectionTrees, collections, folders],
+  );
+  // The variable plane's scope — every TemplateInput and Monaco buffer
+  // below classifies `{{collection.X}}` against the owning collection
+  // (the executor resolves it through the same tree index); without
+  // the provider the fields paint a resolvable reference red.
+  const suggestionContext = useMemo<AutoSuggestionContextValue>(
+    () => ({ collectionId: ancestry?.collection.uid }),
+    [ancestry],
   );
   const inheritedAuth = useMemo(
     () => resolveInheritedAuthFor(ancestry, draft.auth.type === 'inherit' ? draft.auth : {}, draft.url),
@@ -514,11 +523,17 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   // the actions slot next to the standardized Save.
   const headerTitle = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      <Input
-        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-        placeholder={t('workbench.editors.graphql.urlPlaceholder')}
+      {/* The endpoint rides the variable plane (the WS target row's
+        dress): `{{refs}}` paint, suggest and flag — the compiled POST
+        resolves the URL through the HTTP pipeline. */}
+      <TemplateInput
         value={draft.url}
-        onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
+        onChange={(url) => setDraft((d) => ({ ...d, url }))}
+        placeholder={t('workbench.editors.graphql.urlPlaceholder')}
+        size="small"
+        flagUnresolved
+        expandOnFocus
+        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
         data-testid="graphql-url-input"
       />
       {showOperationSelect && (
@@ -664,217 +679,221 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
 
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
-      {/* tabIndex -1: clicks on non-focusable space land focus on this
-          root instead of <body>, so the ⌘/Ctrl+Enter chord keeps
-          working anywhere within the editor — and only within it. */}
-      <div
-        tabIndex={-1}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          background: token.colorBgContainer,
-          height: '100%',
-          overflow: 'hidden',
-          outline: 'none',
-        }}
-        onKeyDownCapture={handleEditorKeyDown}
-      >
-        <EditorHeader
-          title={headerTitle}
-          actions={headerActions} trailing={headerTrailing}
-          overflowItems={overflowItems}
-          shell={shell.headerProps}
-        />
-        <input
-          ref={schemaFileInputRef}
-          type="file"
-          accept=".graphql,.gql,.graphqls,.json"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (file) void handleSchemaFilePicked(file);
+      <SuggestionContextProvider value={suggestionContext}>
+        {/* tabIndex -1: clicks on non-focusable space land focus on this
+            root instead of <body>, so the ⌘/Ctrl+Enter chord keeps
+            working anywhere within the editor — and only within it. */}
+        <div
+          tabIndex={-1}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            background: token.colorBgContainer,
+            height: '100%',
+            overflow: 'hidden',
+            outline: 'none',
           }}
-          data-testid="graphql-schema-file-input"
-        />
-        {/* Editor / response split — the HTTP editor's layout: the
-            response pane is always attached below (or beside), the
-            orientation is the shared persisted preference, and
-            Allotment remounts on `layout` (it captures its orientation
-            at mount). */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
-            <Allotment.Pane minSize={layout === 'vertical' ? 220 : 320} preferredSize="55%">
-              <div
-                className="rules-thin-scrollbar"
-                style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
-              >
-                <div style={{ padding: '0 12px' }}>
-                  <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
-                    size="small"
-                    tabBarStyle={{ marginBottom: 0 }}
-                    items={[
-                      { key: 'docs', label: t('workbench.editors.graphql.tab.docs') },
-                      { key: 'query', label: t('workbench.editors.graphql.tab.query') },
-                      { key: 'authorization', label: t('workbench.editors.graphql.tab.authorization') },
-                      { key: 'headers', label: t('workbench.editors.graphql.tab.headers') },
-                      {
-                        key: 'schema',
-                        label: (
-                          <>
-                            {t('workbench.editors.graphql.tab.schema')}
-                            {introspectionError !== null && <TabDot tone="error" />}
-                          </>
-                        ),
-                      },
-                      { key: 'scripts', label: t('workbench.editors.graphql.tab.scripts') },
-                      { key: 'settings', label: t('workbench.editors.graphql.tab.settings') },
-                      { key: 'spec', label: <SpecTabLabel /> },
-                    ]}
-                  />
-                </div>
+          onKeyDownCapture={handleEditorKeyDown}
+        >
+          <EditorHeader
+            title={headerTitle}
+            actions={headerActions} trailing={headerTrailing}
+            overflowItems={overflowItems}
+            shell={shell.headerProps}
+          />
+          <input
+            ref={schemaFileInputRef}
+            type="file"
+            accept=".graphql,.gql,.graphqls,.json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) void handleSchemaFilePicked(file);
+            }}
+            data-testid="graphql-schema-file-input"
+          />
+          {/* Editor / response split — the HTTP editor's layout: the
+              response pane is always attached below (or beside), the
+              orientation is the shared persisted preference, and
+              Allotment remounts on `layout` (it captures its orientation
+              at mount). */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
+              <Allotment.Pane minSize={layout === 'vertical' ? 220 : 320} preferredSize="55%">
                 <div
-                  style={{
-                    flex: 1,
-                    overflow: 'auto',
-                    overscrollBehavior: 'none',
-                    padding: '0 12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
+                  className="rules-thin-scrollbar"
+                  style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
                 >
-                  <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
-                    {activeTab === 'docs' && (
-                      <DocsTab
-                        value={draft.description}
-                        onChange={(description) => setDraft((d) => ({ ...d, description }))}
-                      />
-                    )}
-                    {activeTab === 'query' && (
-                      <GraphqlQueryTab
-                        draft={draft}
-                        setDraft={setDraft}
-                        parsed={parsed}
-                        schema={schemaState.schema}
-                        explorerCollapsed={explorerCollapsed}
-                        onExplorerCollapsedChange={setExplorerCollapsed}
-                        sources={{
-                          canIntrospect: draft.url.trim() !== '',
-                          introspecting: schemaState.introspection.kind === 'loading',
-                          onIntrospect: () => void schemaState.introspect(),
-                          refreshable: schemaState.choice === 'introspection',
-                          error: introspectionError,
-                          onUseSpec: () => setActiveTab('spec'),
-                          onImportSchema: handleImportSchema,
-                        }}
-                      />
-                    )}
-                    {activeTab === 'authorization' && (
-                      <AuthorizationTab
-                        auth={draft.auth}
-                        onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
-                        inheritedFrom={inheritedAuth}
-                        ancestry={ancestry}
-                        url={draft.url}
-                        onOpenContainerAuth={onOpenContainerAuth}
-                      />
-                    )}
-                    {activeTab === 'headers' && (
-                      <GraphqlHeadersTab
-                        rows={draft.headers}
-                        onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
-                        auth={draft.auth}
-                        inheritedFrom={inheritedAuth}
-                      />
-                    )}
-                    {activeTab === 'schema' && (
-                      <GraphqlSchemaTab
-                        state={schemaState}
-                        specs={specs}
-                        hasUrl={draft.url.trim() !== ''}
-                        onUnlinkSpec={() => setDraft((d) => ({ ...d, specLink: undefined }))}
-                        onImportSchema={handleImportSchema}
-                        onOpenSpecTab={() => setActiveTab('spec')}
-                      />
-                    )}
-                    {activeTab === 'scripts' && (
-                      <ScriptsTab
-                        scope="request"
-                        requestKind="graphql"
-                        scripts={scriptSlotValuesOf(draft)}
-                        onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
-                        slotLabels={{
-                          'pre-request': 'workbench.editors.graphql.scripts.beforeQuery',
-                          'post-response': 'workbench.editors.graphql.scripts.afterResponse',
-                        }}
-                        workspaceId={workspaceId}
-                        onOpenPackageLibrary={onOpenPackageLibrary}
-                        ancestorScripts={ancestorScripts}
-                        onOpenContainerScripts={onOpenContainerScripts}
-                      />
-                    )}
-                    {activeTab === 'settings' && (
-                      <SettingsTab
-                        scope="request"
-                        workspaceId={workspaceId}
-                        inherited={inheritedSettings}
-                        {...(queryPlace.state === 'ready' && queryPlace.reason.kind === 'delegated'
-                          ? { knobsRuntime: 'node' as const }
-                          : {})}
-                        value={graphqlSettingsSlice(draft)}
-                        onChange={(next) => setDraft((d) => withSettings(d, next))}
-                      />
-                    )}
-                    {activeTab === 'spec' && (
-                      <GraphqlSpecTab
-                        specs={specs}
-                        specLink={draft.specLink}
-                        onSpecLinkChange={(specUid) =>
-                          setDraft((d) => ({ ...d, specLink: specUid === undefined ? undefined : { specUid } }))
-                        }
-                      />
-                    )}
+                  <div style={{ padding: '0 12px' }}>
+                    <Tabs
+                      activeKey={activeTab}
+                      onChange={setActiveTab}
+                      size="small"
+                      tabBarStyle={{ marginBottom: 0 }}
+                      items={[
+                        { key: 'docs', label: t('workbench.editors.graphql.tab.docs') },
+                        { key: 'query', label: t('workbench.editors.graphql.tab.query') },
+                        { key: 'authorization', label: t('workbench.editors.graphql.tab.authorization') },
+                        { key: 'headers', label: t('workbench.editors.graphql.tab.headers') },
+                        {
+                          key: 'schema',
+                          label: (
+                            <>
+                              {t('workbench.editors.graphql.tab.schema')}
+                              {introspectionError !== null && <TabDot tone="error" />}
+                            </>
+                          ),
+                        },
+                        { key: 'scripts', label: t('workbench.editors.graphql.tab.scripts') },
+                        { key: 'settings', label: t('workbench.editors.graphql.tab.settings') },
+                        { key: 'spec', label: <SpecTabLabel /> },
+                      ]}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      overflow: 'auto',
+                      overscrollBehavior: 'none',
+                      padding: '0 12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    <div style={{ padding: '10px 0', flex: '1 0 auto', display: 'flex', flexDirection: 'column' }}>
+                      {activeTab === 'docs' && (
+                        <DocsTab
+                          value={draft.description}
+                          onChange={(description) => setDraft((d) => ({ ...d, description }))}
+                        />
+                      )}
+                      {activeTab === 'query' && (
+                        <GraphqlQueryTab
+                          draft={draft}
+                          setDraft={setDraft}
+                          parsed={parsed}
+                          schema={schemaState.schema}
+                          explorerCollapsed={explorerCollapsed}
+                          onExplorerCollapsedChange={setExplorerCollapsed}
+                          sources={{
+                            canIntrospect: draft.url.trim() !== '',
+                            introspecting: schemaState.introspection.kind === 'loading',
+                            onIntrospect: () => void schemaState.introspect(),
+                            refreshable: schemaState.choice === 'introspection',
+                            error: introspectionError,
+                            onUseSpec: () => setActiveTab('spec'),
+                            onImportSchema: handleImportSchema,
+                          }}
+                        />
+                      )}
+                      {activeTab === 'authorization' && (
+                        <AuthorizationTab
+                          auth={draft.auth}
+                          onChange={(auth) => setDraft((d) => ({ ...d, auth }))}
+                          inheritedFrom={inheritedAuth}
+                          ancestry={ancestry}
+                          url={draft.url}
+                          onOpenContainerAuth={onOpenContainerAuth}
+                        />
+                      )}
+                      {activeTab === 'headers' && (
+                        <GraphqlHeadersTab
+                          rows={draft.headers}
+                          onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
+                          auth={draft.auth}
+                          inheritedFrom={inheritedAuth}
+                        />
+                      )}
+                      {activeTab === 'schema' && (
+                        <GraphqlSchemaTab
+                          state={schemaState}
+                          specs={specs}
+                          hasUrl={draft.url.trim() !== ''}
+                          onUnlinkSpec={() => setDraft((d) => ({ ...d, specLink: undefined }))}
+                          onImportSchema={handleImportSchema}
+                          onOpenSpecTab={() => setActiveTab('spec')}
+                        />
+                      )}
+                      {activeTab === 'scripts' && (
+                        <ScriptsTab
+                          scope="request"
+                          requestKind="graphql"
+                          scripts={scriptSlotValuesOf(draft)}
+                          onScriptChange={(kind, value) => setDraft((d) => withScriptSlot(d, kind, value))}
+                          slotLabels={{
+                            'pre-request': 'workbench.editors.graphql.scripts.beforeQuery',
+                            'post-response': 'workbench.editors.graphql.scripts.afterResponse',
+                          }}
+                          workspaceId={workspaceId}
+                          onOpenPackageLibrary={onOpenPackageLibrary}
+                          ancestorScripts={ancestorScripts}
+                          onOpenContainerScripts={onOpenContainerScripts}
+                        />
+                      )}
+                      {activeTab === 'settings' && (
+                        <SettingsTab
+                          scope="request"
+                          workspaceId={workspaceId}
+                          inherited={inheritedSettings}
+                          {...(queryPlace.state === 'ready' && queryPlace.reason.kind === 'delegated'
+                            ? { knobsRuntime: 'node' as const }
+                            : {})}
+                          value={graphqlSettingsSlice(draft)}
+                          onChange={(next) => setDraft((d) => withSettings(d, next))}
+                        />
+                      )}
+                      {activeTab === 'spec' && (
+                        <GraphqlSpecTab
+                          specs={specs}
+                          specLink={draft.specLink}
+                          onSpecLinkChange={(specUid) =>
+                            setDraft((d) => ({ ...d, specLink: specUid === undefined ? undefined : { specUid } }))
+                          }
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Allotment.Pane>
-            <Allotment.Pane minSize={layout === 'vertical' ? 120 : 280}>
-              {subscriptionPaneOpen ? (
-                // The subscription's session pane — the WebSocket
-                // editor's, the protocol's facts leading its strip. No
-                // Save Response: an HTTP example carries a status the
-                // session never had.
-                <WsSessionPane
-                  live={subscription.live}
-                  snapshot={subscription.snapshot}
-                  timing={subscription.timing}
-                  hostNotice={subscription.hostNotice}
-                  flavor="raw"
-                  title={t('workbench.editors.graphql.subscription.paneTitle')}
-                  leadingTags={<GraphqlSubscriptionTags state={subscriptionState} live={subscription.live !== null} />}
-                  onClear={subscription.handleClear}
-                  onReconnect={() => void handleQuery()}
-                />
-              ) : (
-                <ResponsePanel
-                  response={response}
-                  sending={sending}
-                  live={live}
-                  sseSession={sseSession}
-                  layout={layout}
-                  onLayoutChange={setLayout}
-                  onClear={() => setResponse(null)}
-                  onSaveResponse={() => void handleSaveResponse()}
-                  onResend={() => void handleQuery()}
-                  graphql={graphqlFacts}
-                />
-              )}
-            </Allotment.Pane>
-          </Allotment>
+              </Allotment.Pane>
+              <Allotment.Pane minSize={layout === 'vertical' ? 120 : 280}>
+                {subscriptionPaneOpen ? (
+                  // The subscription's session pane — the WebSocket
+                  // editor's, the protocol's facts leading its strip. No
+                  // Save Response: an HTTP example carries a status the
+                  // session never had.
+                  <WsSessionPane
+                    live={subscription.live}
+                    snapshot={subscription.snapshot}
+                    timing={subscription.timing}
+                    hostNotice={subscription.hostNotice}
+                    flavor="raw"
+                    title={t('workbench.editors.graphql.subscription.paneTitle')}
+                    leadingTags={
+                      <GraphqlSubscriptionTags state={subscriptionState} live={subscription.live !== null} />
+                    }
+                    onClear={subscription.handleClear}
+                    onReconnect={() => void handleQuery()}
+                  />
+                ) : (
+                  <ResponsePanel
+                    response={response}
+                    sending={sending}
+                    live={live}
+                    sseSession={sseSession}
+                    layout={layout}
+                    onLayoutChange={setLayout}
+                    onClear={() => setResponse(null)}
+                    onSaveResponse={() => void handleSaveResponse()}
+                    onResend={() => void handleQuery()}
+                    graphql={graphqlFacts}
+                  />
+                )}
+              </Allotment.Pane>
+            </Allotment>
+          </div>
         </div>
-      </div>
+      </SuggestionContextProvider>
     </EntityScopeProvider>
   );
 };

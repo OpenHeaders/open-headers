@@ -325,7 +325,7 @@ test('E2 — the endpoint, the document and the variables survive Save + reload 
   await workbench.collapseRightSidebar();
   await openGraphqlRequest(GRAPHQL_NAME);
 
-  await expect(urlInput()).toHaveValue(GRAPHQL_URL);
+  await expect(urlInput()).toHaveText(GRAPHQL_URL);
   // Polled: a just-reopened Monaco lays out at collapsed width first
   // (the MQTT spec's sliver-regression note).
   await expect.poll(async () => workbench.monacoText(0), { timeout: 5_000 }).toContain('query Viewer');
@@ -600,7 +600,7 @@ test('E11 — Generate Collection lands one GraphQL request per root field, fold
   ).toHaveCount(1);
   await deleteNote.click();
   await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(urlInput()).toHaveValue(PROBE_URL);
+  await expect(urlInput()).toHaveText(PROBE_URL);
   // The generated document + example variables run as generated.
   await queryButton().click();
   expect(await workbench.responseStatusText()).toBe('200 OK');
@@ -646,7 +646,7 @@ test('E12 — the sidebar verb converts an HTTP request with a GraphQL body into
   // The new editor opened on the converted entity: the carried
   // document + variables run against the probe.
   await urlInput().waitFor({ state: 'visible', timeout: 5_000 });
-  await expect(urlInput()).toHaveValue(PROBE_URL);
+  await expect(urlInput()).toHaveText(PROBE_URL);
   await queryButton().click();
   expect(await workbench.responseStatusText()).toBe('200 OK');
   await expect.poll(() => workbench.responsePrettyText(), { timeout: 5_000 }).toContain('hi-from-the-workbench');

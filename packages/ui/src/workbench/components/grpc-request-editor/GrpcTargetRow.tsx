@@ -12,9 +12,10 @@ import { LockOutlined, ReloadOutlined, UnlockOutlined } from '@ant-design/icons'
 import type { GrpcMethodRef } from '@openheaders/core/types';
 import type { ProtoStreamingShape } from '@openheaders/core/proto';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Button, Input, Select, type SelectProps, Tooltip, Typography, theme } from 'antd';
+import { Button, Select, type SelectProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useCallback, useMemo } from 'react';
+import { TemplateInput } from '../template-input';
 import type { GrpcDraft } from './draft';
 import type { GrpcSpecBinding } from './useGrpcSpecBinding';
 import {
@@ -163,11 +164,17 @@ const GrpcTargetRow: React.FC<GrpcTargetRowProps> = ({ draft, setDraft, spec, wo
           aria-label={draft.tls ? t('workbench.editors.grpc.tls.on') : t('workbench.editors.grpc.tls.off')}
         />
       </Tooltip>
-      <Input
-        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-        placeholder={t('workbench.editors.grpc.urlPlaceholder')}
+      {/* The target rides the variable plane (the WS target row's dress):
+        `{{refs}}` paint, suggest and flag — the executor resolves the
+        authority at Invoke. */}
+      <TemplateInput
         value={draft.url}
-        onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
+        onChange={(url) => setDraft((d) => ({ ...d, url }))}
+        placeholder={t('workbench.editors.grpc.urlPlaceholder')}
+        size="small"
+        flagUnresolved
+        expandOnFocus
+        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
         data-testid="grpc-url-input"
       />
       <Select
