@@ -9,7 +9,9 @@
  * arrows move the row and Enter / Tab write one edit that replaces
  * the run; a scaffold pick reopens the list narrowed; Escape closes
  * the run until the query changes; blur closes; a key outside an open
- * list passes through to Monaco; Monaco's own widget is told to hide.
+ * list passes through to Monaco; Monaco's own widget is told to hide;
+ * a run naming a variable that does not exist offers to create it,
+ * and Enter hands it to the shared create popover pinned.
  */
 
 import MonacoSuggestOverlay from '@openheaders/ui/workbench/components/template-input/monaco/MonacoSuggestOverlay';
@@ -19,8 +21,21 @@ import { useMonacoVariableSuggest } from '@openheaders/ui/workbench/components/t
 import '@openheaders/ui/workbench/settings/schema';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import type * as monaco from 'monaco-editor';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const popoverOpen = vi.fn();
+
+vi.mock('@openheaders/ui/workbench/components/template-input/VariablePopoverHost', () => ({
+  useVariablePopover: () => ({
+    open: popoverOpen,
+    scheduleClose: vi.fn(),
+    cancelClose: vi.fn(),
+    closeNow: vi.fn(),
+  }),
+  VariablePopoverProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+beforeEach(() => popoverOpen.mockClear());
 afterEach(cleanup);
 
 type Listener<T> = (e: T) => void;
@@ -120,6 +135,8 @@ function Harness({ editor }: { editor: monaco.editor.IStandaloneCodeEditor }) {
       activeIndex={suggest.activeIndex}
       onActiveIndexChange={suggest.setActiveIndex}
       onSelect={suggest.select}
+      createTarget={suggest.createTarget}
+      onCreate={suggest.triggerCreate}
     />
   );
 }
@@ -217,6 +234,24 @@ describe('useMonacoVariableSuggest', () => {
     const fake = mount();
     act(() => fake.type('{{'));
     act(() => fake.blur());
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('offers to create a scoped reference nothing matches, and Enter opens the create popover pinned', () => {
+    const fake = mount();
+    act(() => fake.type('{{vault.okay'));
+    expect(screen.getByText('No matches')).not.toBeNull();
+    expect(screen.getByText('Create “okay” variable in Vault')).not.toBeNull();
+    let e: FakeKeyEvent | undefined;
+    act(() => {
+      e = fake.key('Enter');
+    });
+    expect(e?.preventDefault).toHaveBeenCalled();
+    expect(popoverOpen).toHaveBeenCalledTimes(1);
+    const [state, opts] = popoverOpen.mock.calls[0];
+    expect(state).toMatchObject({ reference: 'vault.okay', autoFocus: true });
+    expect(state.anchorEl).toBeInstanceOf(HTMLElement);
+    expect(opts).toMatchObject({ pinned: true });
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 

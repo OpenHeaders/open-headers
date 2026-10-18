@@ -22,8 +22,11 @@ import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSettingValue } from '../../../settings/hooks';
+import type { CreateTarget } from '../create-target';
 import { useAutoSuggestionContext } from '../SuggestionContextProvider';
 import { useSuggestionList } from '../use-suggestion-list';
+import { useVariablePopover } from '../VariablePopoverHost';
+import { MONACO_REF_EDITING_CLASS } from './monaco-ref-decorations';
 import { buildInsertEdit, measureLine } from './monaco-suggest-measure';
 
 const EDIT_SOURCE = 'oh.variableSuggest';
@@ -56,6 +59,10 @@ export interface MonacoVariableSuggestApi {
   activeIndex: number;
   setActiveIndex: React.Dispatch<React.SetStateAction<number>>;
   select: (suggestion: VariableSuggestion) => void;
+  /** The reference the empty list offers to create, if any. */
+  createTarget: CreateTarget | null;
+  /** Hand that reference to the shared create popover. */
+  triggerCreate: () => void;
 }
 
 function sameRun(a: Measure | null, b: Measure): boolean {
@@ -85,12 +92,14 @@ export function useMonacoVariableSuggest(
   // the caret leaves it, so the key does not reopen the list it closed.
   const dismissedRef = useRef<Measure | null>(null);
 
-  const { suggestions, activeIndex, setActiveIndex, recordRecent } = useSuggestionList({
+  const { suggestions, activeIndex, setActiveIndex, createTarget, recordRecent } = useSuggestionList({
     context,
     isOpen: measure !== null,
     query: measure?.query ?? '',
     measureDouble: true,
   });
+  // The shared create popover — one instance per app root.
+  const popoverHost = useVariablePopover();
 
   const commit = useCallback((next: Measure | null) => {
     measureRef.current = next;
@@ -214,17 +223,63 @@ export function useMonacoVariableSuggest(
     [editor, recordRecent],
   );
 
+  // When the create popover closes, drop the user back where they
+  // were: focus, the caret inside the run, the list re-measured so it
+  // reopens on the just-created match. Skipped when focus moved to an
+  // outside target (dismissed by clicking elsewhere).
+  const restoreAfterCreate = useCallback(
+    (caret: monaco.IPosition) => {
+      if (!editor) return;
+      const activeEl = document.activeElement;
+      const focusMovedOutside =
+        !!activeEl &&
+        activeEl !== document.body &&
+        !editor.getDomNode()?.contains(activeEl) &&
+        !activeEl.closest('[data-variable-popover-root]');
+      if (focusMovedOutside) return;
+      editor.focus();
+      editor.setPosition(caret);
+      remeasure();
+    },
+    [editor, remeasure],
+  );
+
+  // Hand the reference to the shared create popover (the "Add to"
+  // flow), anchored on the composing run's painted span — the
+  // decoration plane marks it `editing` — like the line input anchors
+  // on its `{{ref}}` span; the editor itself before that span paints.
+  const triggerCreate = useCallback(() => {
+    const target = createTarget;
+    const current = measureRef.current;
+    if (!editor || !target || !current) return;
+    const node = editor.getDomNode();
+    const caret = editor.getPosition();
+    if (!node || !caret) return;
+    const anchorEl = node.querySelector<HTMLElement>(`.${MONACO_REF_EDITING_CLASS}`) ?? node;
+    commit(null);
+    popoverHost.open(
+      { anchorEl, reference: target.reference, collectionId: context.collectionId, autoFocus: true },
+      { pinned: true, onClose: () => restoreAfterCreate(caret) },
+    );
+  }, [editor, createTarget, commit, popoverHost, context.collectionId, restoreAfterCreate]);
+
   // The key handler is bound once per editor; it reads the live list
-  // and pick through refs so a re-render never re-subscribes.
-  const keyStateRef = useRef({ suggestions, activeIndex, select });
-  keyStateRef.current = { suggestions, activeIndex, select };
+  // and actions through refs so a re-render never re-subscribes.
+  const keyStateRef = useRef({ suggestions, activeIndex, select, createTarget, triggerCreate });
+  keyStateRef.current = { suggestions, activeIndex, select, createTarget, triggerCreate };
 
   useEffect(() => {
     if (!editor) return;
     const subscription = editor.onKeyDown((e) => {
       const current = measureRef.current;
       if (!current) return;
-      const { suggestions: rows, activeIndex: index, select: pick } = keyStateRef.current;
+      const {
+        suggestions: rows,
+        activeIndex: index,
+        select: pick,
+        createTarget: creatable,
+        triggerCreate: create,
+      } = keyStateRef.current;
       const key = e.browserEvent.key;
       const consume = () => {
         e.preventDefault();
@@ -236,7 +291,15 @@ export function useMonacoVariableSuggest(
         commit(null);
         return;
       }
-      if (rows.length === 0) return;
+      if (rows.length === 0) {
+        // An empty list with a creatable reference: Enter / Tab open
+        // the create flow instead of a dead end.
+        if ((key === 'Enter' || key === 'Tab') && creatable) {
+          consume();
+          create();
+        }
+        return;
+      }
       if (key === 'ArrowDown') {
         consume();
         setActiveIndex((prev) => (prev + 1) % rows.length);
@@ -257,5 +320,13 @@ export function useMonacoVariableSuggest(
     return () => subscription.dispose();
   }, [editor, commit, setActiveIndex]);
 
-  return { anchor: measure ? anchor : null, suggestions, activeIndex, setActiveIndex, select };
+  return {
+    anchor: measure ? anchor : null,
+    suggestions,
+    activeIndex,
+    setActiveIndex,
+    select,
+    createTarget,
+    triggerCreate,
+  };
 }

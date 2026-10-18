@@ -45,7 +45,7 @@ import { ensureEditorKeybindingSync } from '../monaco/editor-keybindings';
 import { applyExternalValue } from '../monaco/external-value-sync';
 import { ensureEditorFormatCommand, registerEditorFormatHandler } from '../monaco/format-command';
 import { detectStructuredLanguage } from '../monaco/structured-text-detection';
-import { MonacoSuggestOverlay, useMonacoVariableSuggest } from '../template-input';
+import { MonacoSuggestOverlay, useMonacoRefDecorations, useMonacoVariableSuggest } from '../template-input';
 import { useMonacoJwtEdit } from '../value-editors';
 import CodeEditorActions, { type CodeEditorActionsTarget, isFormattableLanguage } from './CodeEditorActions';
 
@@ -138,8 +138,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // Mounted-instance signal for effects that must attach editor
   // listeners — the ref alone can't re-run an effect at mount time.
   const [mountedEditor, setMountedEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
-  // The variable picker rides the mounted instance: it reads the caret
-  // for the `{{query` run and paints the line inputs' list over it.
+  // The variable plane rides the mounted instance: every `{{ref}}` in
+  // view wears the line inputs' dress, and the picker reads the caret
+  // for the `{{query` run and paints their list over it.
+  useMonacoRefDecorations(mountedEditor, { enabled: variableAutoComplete });
   const suggest = useMonacoVariableSuggest(mountedEditor, { enabled: variableAutoComplete && !readOnly });
   // Runtime monaco namespace, captured at mount — the module import is
   // type-only (the loader owns the runtime), but the EOL decorations
@@ -560,6 +562,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         activeIndex={suggest.activeIndex}
         onActiveIndexChange={suggest.setActiveIndex}
         onSelect={suggest.select}
+        createTarget={suggest.createTarget}
+        onCreate={suggest.triggerCreate}
       />
     </div>
   );

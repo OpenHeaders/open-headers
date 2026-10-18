@@ -1,5 +1,6 @@
 export { TEMPLATE_INPUT_LINE_HEIGHT } from './editable-style';
 export { default as MonacoSuggestOverlay, type MonacoSuggestOverlayProps } from './monaco/MonacoSuggestOverlay';
+export { type MonacoRefDecorationsOptions, useMonacoRefDecorations } from './monaco/use-monaco-ref-decorations';
 export {
   type MonacoVariableSuggestApi,
   type MonacoVariableSuggestOptions,

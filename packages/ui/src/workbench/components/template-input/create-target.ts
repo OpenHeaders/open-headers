@@ -44,3 +44,12 @@ export function detectCreateTarget(query: string, collectionId: string | undefin
   if (namespace === 'collection' && !collectionId) return null;
   return { reference: query, name, scopeLabel: t(scopeLabelKey) };
 }
+
+/** The create row's label: the scope named when the reference is
+ *  scoped; a bare reference leaves the destination to the create
+ *  popover's "Add to" picker. */
+export function createActionLabel(target: CreateTarget, t: Translate): string {
+  return target.scopeLabel
+    ? t('shared.templateInput.createNamedInScope', { name: target.name, scope: target.scopeLabel })
+    : t('shared.templateInput.createNamed', { name: target.name });
+}

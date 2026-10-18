@@ -23,7 +23,6 @@
 
 import { CloseCircleFilled, EditOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -34,13 +33,15 @@ import { createPortal } from 'react-dom';
 import './template-input.css';
 import { useSettingValue } from '../../settings/hooks';
 import { getCaretOffset, setCaretOffset } from './caret';
+import { createActionLabel } from './create-target';
 import { buildEditableStyle, splitLayoutSurfaceStyle } from './editable-style';
-import { type RefState, renderHighlightedHtml, TEMPLATE_REGEX } from './highlight';
+import { renderHighlightedHtml, TEMPLATE_REGEX } from './highlight';
 import { useAutoSuggestionContext } from './SuggestionContextProvider';
 import SuggestionPopover from './SuggestionPopover';
 import type { TemplateInputProps } from './types';
 import { useSessionLocked } from '../shared/SessionLock';
 import { useGripResize } from './use-grip-resize';
+import { useRefClassifier } from './use-ref-classifier';
 import { useSelectionContextMenu } from './use-selection-context-menu';
 import { useTemplateSuggestions } from './use-template-suggestions';
 
@@ -97,24 +98,15 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const t = useT();
     const autoContext = useAutoSuggestionContext();
     const effectiveContext = suggestionContext ?? autoContext;
-    const resolver = useVariableResolver();
     const autocompleteEnabled = useSettingValue('rulesEngine.variableAutocomplete');
     const effectiveDisable = disableSuggestions || !autocompleteEnabled;
     const { token } = theme.useToken();
 
     const [isFocused, setIsFocused] = useState(false);
 
-    // Classifier: delegates to the live resolver. Memoised by (resolver,
-    // collectionId) so the `renderHighlightedHtml` recompute doesn't
-    // build a new closure every render.
-    const classify = useCallback(
-      (inner: string): RefState => {
-        const context = effectiveContext.collectionId ? { collectionId: effectiveContext.collectionId } : undefined;
-        const { errors } = resolver.resolveTemplate(`{{${inner}}}`, context);
-        return errors.length === 0 ? 'resolved' : 'unresolved';
-      },
-      [resolver, effectiveContext.collectionId],
-    );
+    // The shared `{{ref}}` reading — the Monaco buffers paint from the
+    // same classifier, so a field and a body never disagree on a ref.
+    const classify = useRefClassifier(effectiveContext.collectionId);
 
     // Whether the value holds an UNRESOLVED ref — drives the optional
     // right-end dot. Reuses the highlighter's classifier so the dot stays
@@ -413,19 +405,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
                 onActiveIndexChange={setActiveIndex}
                 onSelect={insertReference}
                 createAction={
-                  createTarget
-                    ? {
-                        label: createTarget.scopeLabel
-                          ? t('shared.templateInput.createNamedInScope', {
-                              name: createTarget.name,
-                              scope: createTarget.scopeLabel,
-                            })
-                          : // Bare reference — the create popover's "Add to"
-                            // picker chooses the destination scope.
-                            t('shared.templateInput.createNamed', { name: createTarget.name }),
-                        onSelect: triggerCreate,
-                      }
-                    : undefined
+                  createTarget ? { label: createActionLabel(createTarget, t), onSelect: triggerCreate } : undefined
                 }
               />
             </div>,
