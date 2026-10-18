@@ -64,7 +64,7 @@ import 'monaco-editor/esm/vs/basic-languages/protobuf/protobuf.contribution';
 // TS/JS language service lives in `./ts-language-service` so the Firefox
 // build can alias it to a no-op stub: its `ts.worker` (the bundled TS
 // compiler, ~8 MB) exceeds Firefox add-on validation's 5 MB per-file limit.
-import 'monaco-editor/esm/vs/language/json/monaco.contribution';
+import { getWorker as getJsonWorker, jsonDefaults } from 'monaco-editor/esm/vs/language/json/monaco.contribution';
 import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import { allVariants } from '@openheaders/ui/themes';
@@ -72,6 +72,7 @@ import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/plat
 import { registerGraphqlLanguage } from '../../languages/graphql';
 import { registerPrometheusLanguage } from '../../languages/prometheus';
 import { registerGraphqlFormatter, registerPrettierFormatters } from './formatters';
+import { registerJsonDiagnostics } from './json-diagnostics';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
 
 // ── Phase 1: synchronous monaco-singleton configuration ──────────
@@ -94,6 +95,16 @@ for (const variant of allVariants()) {
 // ambient `oh.*` lib) for every JS-flavored editor. No-op on Firefox,
 // where `./ts-language-service` resolves to the stub.
 configureTsLanguageService();
+
+// JSON diagnostics are ours: the contribution's provider off, one plane
+// publishing the worker's markers for every JSON model — a body editor
+// validates through its `{{ref}}`-masked shadow. Before any JSON model
+// exists, so the provider never attaches.
+registerJsonDiagnostics({
+  editor: monacoEdCore.editor,
+  MarkerSeverity: monacoEdCore.MarkerSeverity,
+  json: { jsonDefaults, getWorker: getJsonWorker },
+});
 
 // Prometheus/OpenMetrics exposition grammar — our own Monarch tokenizer
 // (Monaco ships no built-in for it), registered under the registry id

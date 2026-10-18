@@ -26,6 +26,12 @@ declare module 'monaco-editor/esm/vs/language/typescript/monaco.contribution' {
   export const ScriptTarget: typeof Monaco.typescript.ScriptTarget;
 }
 
+declare module 'monaco-editor/esm/vs/language/json/monaco.contribution' {
+  import type * as Monaco from 'monaco-editor';
+  export const jsonDefaults: typeof Monaco.json.jsonDefaults;
+  export const getWorker: typeof Monaco.json.getWorker;
+}
+
 declare module 'monaco-editor/esm/vs/platform/hover/browser/hoverService' {
   // Minimal surface of the chrome-tooltip hover service (find-widget
   // buttons, input toggles). Only the members the bootstrap's position
