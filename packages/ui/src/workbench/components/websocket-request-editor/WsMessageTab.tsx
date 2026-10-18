@@ -17,12 +17,13 @@ import { SendOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Allotment } from 'allotment';
-import { Button, Input, Select, Switch, Tooltip, Typography } from 'antd';
+import { Button, Select, Switch, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
 import CodeEditorActions, { type CodeEditorActionsTarget } from '../shared/CodeEditorActions';
 import EditorViewMenu from '../shared/EditorViewMenu';
+import { TemplateInput } from '../template-input';
 import { MESSAGE_FORMAT_LANGUAGE, messageFormatForLanguage, SEND_MESSAGE_SHORTCUT } from './compose';
 import type { WebSocketDraft } from './draft';
 import type { SocketIoArgs } from './useSocketIoArgs';
@@ -100,12 +101,15 @@ const WsMessageTab: React.FC<WsMessageTabProps> = ({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         {socketioFlavor ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-            <Input
+            {/* The event name rides the variable plane — the send rider
+              resolves it beside the message. */}
+            <TemplateInput
               size="small"
+              flagUnresolved
               style={{ maxWidth: 260, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
               placeholder={t('workbench.editors.websocket.event.namePlaceholder')}
               value={draft.eventName}
-              onChange={(e) => setDraft((d) => ({ ...d, eventName: e.target.value }))}
+              onChange={(eventName) => setDraft((d) => ({ ...d, eventName }))}
               data-testid="websocket-event-name"
             />
             <Tooltip title={t('workbench.editors.websocket.event.ackHelp')}>
