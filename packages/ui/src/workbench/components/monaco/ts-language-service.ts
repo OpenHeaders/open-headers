@@ -20,15 +20,19 @@ import {
   typescriptDefaults,
 } from 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import { OH_AMBIENT_DTS, ohAmbientDts } from '../script-editor/oh-types';
+import { SANDBOX_GLOBALS_DTS } from '../script-editor/sandbox-globals';
 import { installScriptAmbientApplier } from './script-ambient';
 
 // `allowNonTsExtensions: true` + `allowJs: true` let inmemory JS models
-// participate in the TS program alongside the ambient lib.
+// participate in the TS program alongside the ambient lib. The lib is
+// the ECMAScript builtins alone — a script's host globals are declared
+// by `sandbox-globals.ts` (the runtimes' shared surface), never the
+// browser lib, whose `window` members no runtime of ours offers.
 const JS_COMPILER_OPTIONS = {
   target: ScriptTarget.ESNext,
   allowNonTsExtensions: true,
   allowJs: true,
-  lib: ['esnext', 'dom'],
+  lib: ['esnext'],
   strict: false,
   noEmit: true,
 };
@@ -62,6 +66,8 @@ export function configureTsLanguageService(): void {
   // JS / TS model.
   javascriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
   typescriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
+  javascriptDefaults.addExtraLib(SANDBOX_GLOBALS_DTS, 'file:///oh-globals.d.ts');
+  typescriptDefaults.addExtraLib(SANDBOX_GLOBALS_DTS, 'file:///oh-globals.d.ts');
   // The Scripts tab swaps the declaration for the slot kind under edit
   // — the HTTP pair's surface, or a session hook's own (`oh.connect`,
   // `oh.message`, `oh.close`). Re-adding under the SAME lib path
