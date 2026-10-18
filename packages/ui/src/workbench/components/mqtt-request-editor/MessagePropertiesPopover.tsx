@@ -19,6 +19,7 @@ import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import {
   ComboKnob,
   durationSecondsInterpreter,
@@ -98,6 +99,7 @@ const MessagePropertiesPopover: React.FC<{
   testId: string;
 }> = ({ value, onChange, v5, leg, unsaved, onSwitchToV5, testId }) => {
   const { token } = theme.useToken();
+  const { dirtyTone } = useUiTheme();
   const t = useT();
   const info = (slot: MessagePropertiesSlot) => mqttSettingsRowInfo(t, LEG_INFO[leg][slot]);
   const title = t(leg === 'publish' ? 'workbench.editors.mqtt.props.title' : 'workbench.editors.mqtt.will.propsTitle');
@@ -362,7 +364,7 @@ const MessagePropertiesPopover: React.FC<{
         <Tooltip title={title} open={open ? false : undefined}>
           <Badge
             dot={badgeTone !== null}
-            color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
+            color={badgeTone === 'unsaved' ? dirtyTone : token.colorTextSecondary}
             offset={[-2, 2]}
           >
             <Button size="small" icon={<SettingOutlined />} data-testid={testId}>

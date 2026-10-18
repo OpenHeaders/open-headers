@@ -25,6 +25,7 @@ import { Divider, theme } from 'antd';
 import type { MessageKey } from '@openheaders/i18n';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { requestKindMeta } from '../../request-kind-menu';
 import { REQUEST_KIND_COLORS } from '../sidebar/icons';
@@ -70,6 +71,7 @@ const ScriptRailRow: React.FC<{
   onSelect: (kind: ScriptKind) => void;
 }> = ({ slot, inset, selected, hasScript, unsaved, labelKey, onSelect }) => {
   const { token } = theme.useToken();
+  const { dirtyTone } = useUiTheme();
   const t = useT();
   return (
     <div
@@ -106,7 +108,7 @@ const ScriptRailRow: React.FC<{
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: unsaved ? '#ff7875' : token.colorTextSecondary,
+            background: unsaved ? dirtyTone : token.colorTextSecondary,
             flexShrink: 0,
           }}
         />

@@ -13,6 +13,7 @@ import { Input, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import type { ClosedTab, WorkbenchTab } from '../../types';
 import { type TabEntityLookups, isCreateDraftMode, tabIcon } from './tab-format';
 
@@ -53,6 +54,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   onReopen,
 }) => {
   const { token } = theme.useToken();
+  const { dirtyTone } = useUiTheme();
   const t = useT();
   const [search, setSearch] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -212,7 +214,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                       width: 6,
                       height: 6,
                       borderRadius: '50%',
-                      background: isCreateDraftMode(tab) ? '#999' : '#ff7875',
+                      background: isCreateDraftMode(tab) ? '#999' : dirtyTone,
                       flexShrink: 0,
                     }}
                   />

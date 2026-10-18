@@ -40,7 +40,7 @@ export function useSpecNodes(p: UseSpecNodesParams): TreeNode[] {
                 label: t('workbench.sidebar.badge.specDrift'),
                 color: 'var(--ant-color-warning, #faad14)',
               },
-              false,
+              null,
               undefined,
               t,
             )

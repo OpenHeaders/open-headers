@@ -45,7 +45,7 @@ export function useDraftOverlay({ allTabs: _allTabs, onSwitchTab, onCloseDraftTa
       // Scratch (never persisted) — no dirty dot; the "scratch" badge
       // itself communicates "unsaved", same vocabulary as the editor's
       // lifecycle chip + tab strip's gray dot.
-      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, false, undefined, t),
+      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, null, undefined, t),
       canRename: false,
       canDelete: true,
       canAddChild: false,
@@ -67,7 +67,7 @@ export function useDraftOverlay({ allTabs: _allTabs, onSwitchTab, onCloseDraftTa
       // Scratch (never persisted) — no dirty dot; the "scratch" badge
       // itself communicates "unsaved", same vocabulary as the editor's
       // lifecycle chip + tab strip's gray dot.
-      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, false, undefined, t),
+      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, null, undefined, t),
       canRename: false,
       canDelete: true,
       canAddChild: false,
@@ -100,7 +100,7 @@ export function useDraftOverlay({ allTabs: _allTabs, onSwitchTab, onCloseDraftTa
       // Scratch (never persisted) — no dirty dot; the "scratch" badge
       // itself communicates "unsaved", same vocabulary as the editor's
       // lifecycle chip + tab strip's gray dot.
-      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, false, undefined, t),
+      badge: composeBadge({ label: t('workbench.sidebar.badge.scratch'), color: 'var(--ant-color-text-tertiary, #999)' }, null, undefined, t),
       canRename: false,
       canDelete: true,
       canAddChild: false,

@@ -20,12 +20,20 @@ export interface UiTheme {
   /** Monaco theme id matching the active variant — the single source of
    *  truth for editor pane theming. */
   monacoTheme: string;
+  /** The color every "differs from the saved entity" mark wears — the
+   *  tab bar's and sidebar's unsaved dots, the request editor's section
+   *  dots and count badges (a white number sits on it), the Settings
+   *  rows' and script rail's dots, the MQTT gears' badge. The variant
+   *  pins it (`ThemeVariant.dirtyTone`): the light variants the salmon
+   *  the marks were born with, the dark variants a deep red white reads
+   *  on (white on the salmon read at ~2.4:1). */
+  dirtyTone: string;
 }
 
 // Sentinel default — a host that hasn't mounted `UiThemeProvider` still
 // renders sensible light-mode editor surfaces. `'vs'` is Monaco's
-// built-in light theme id.
-const DEFAULT_UI_THEME: UiTheme = { isDarkMode: false, monacoTheme: 'vs' };
+// built-in light theme id; the salmon is the light variants' dirty tone.
+const DEFAULT_UI_THEME: UiTheme = { isDarkMode: false, monacoTheme: 'vs', dirtyTone: '#ff7875' };
 
 const UiThemeContext = createContext<UiTheme>(DEFAULT_UI_THEME);
 

@@ -25,6 +25,11 @@ export interface ThemeVariant {
   /** When false, the variant pins its own primary and ignores
    *  `appearance.accentColor` (high-contrast and tinted variants). */
   honorsAccentColor: boolean;
+  /** The color every "differs from the saved entity" mark wears (the
+   *  unsaved dots, the section count badge's fill under a white
+   *  number) — see `themes/dirty-tone.ts`. A dark variant pins a deep
+   *  red so white reads on it; the light variants keep the salmon. */
+  dirtyTone: string;
   /** Tokens merged into Ant Design's ConfigProvider on top of the
    *  algorithm-derived defaults. */
   antdTokens: NonNullable<ThemeConfig['token']>;

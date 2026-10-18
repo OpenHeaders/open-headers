@@ -3,6 +3,7 @@ import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { createElement, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
 import { composeBadge } from './icons';
@@ -59,6 +60,7 @@ interface UseWorkflowNodesParams {
  */
 export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
   const t = useT();
+  const { dirtyTone } = useUiTheme();
   const lowerFilter = p.filterText.toLowerCase();
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
@@ -115,7 +117,7 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
       } else if (!wf.enabled) {
         textBadge = { label: t('workbench.sidebar.badge.off'), color: 'var(--ant-color-text-tertiary, #999)' };
       }
-      const stateBadge = composeBadge(textBadge, p.dirtyWorkflowUids?.has(wf.uid) ?? false, undefined, t);
+      const stateBadge = composeBadge(textBadge, p.dirtyWorkflowUids?.has(wf.uid) ? dirtyTone : null, undefined, t);
 
       // Bindings count — a secondary, quieter badge that sits after the
       // state badge when both render, so the state signal wins visually.

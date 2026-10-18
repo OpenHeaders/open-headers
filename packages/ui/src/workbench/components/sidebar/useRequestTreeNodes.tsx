@@ -28,6 +28,7 @@ import type {
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { compileGraphqlRequest, isConvertibleToGraphql } from '@openheaders/core/graphql';
 import { useConvertRequestToGraphql } from '../../hooks/useConvertRequestToGraphql';
 import { useCopyRequestSnippet } from '../../hooks/useCopyRequestSnippet';
@@ -175,6 +176,7 @@ function subtreeHasRequestMatch(nodes: CoreTreeNode[], lowerFilter: string): boo
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   const t = useT();
+  const { dirtyTone } = useUiTheme();
   const copySnippet = useCopyRequestSnippet();
   const convertToGraphql = useConvertRequestToGraphql();
   const lowerFilter = p.filterText.toLowerCase();
@@ -290,7 +292,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               ? {
                   badge: composeBadge(
                     null,
-                    false,
+                    null,
                     [
                       {
                         label: t('workbench.sidebar.badge.scripts'),
@@ -419,7 +421,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           const grpcComplete = !fullGrpc || (fullGrpc.url.trim().length > 0 && fullGrpc.method !== undefined);
           const grpcBadge = composeBadge(
             grpcComplete ? null : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
-            p.dirtyRequestUids?.has(node.uid) ?? false,
+            p.dirtyRequestUids?.has(node.uid) ? dirtyTone : null,
             undefined,
             t,
           );
@@ -492,7 +494,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           const wsComplete = !fullWs || fullWs.url.trim().length > 0;
           const wsBadge = composeBadge(
             wsComplete ? null : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
-            p.dirtyRequestUids?.has(node.uid) ?? false,
+            p.dirtyRequestUids?.has(node.uid) ? dirtyTone : null,
             undefined,
             t,
           );
@@ -565,7 +567,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           const mqttComplete = !fullMqtt || fullMqtt.url.trim().length > 0;
           const mqttBadge = composeBadge(
             mqttComplete ? null : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
-            p.dirtyRequestUids?.has(node.uid) ?? false,
+            p.dirtyRequestUids?.has(node.uid) ? dirtyTone : null,
             undefined,
             t,
           );
@@ -640,7 +642,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             graphqlComplete
               ? null
               : { label: t('workbench.sidebar.badge.draft'), color: 'var(--ant-color-text-tertiary, #999)' },
-            p.dirtyRequestUids?.has(node.uid) ?? false,
+            p.dirtyRequestUids?.has(node.uid) ? dirtyTone : null,
             undefined,
             t,
           );
@@ -722,7 +724,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                 },
               ]
             : undefined;
-          const badge = composeBadge(textBadge, p.dirtyRequestUids?.has(node.uid) ?? false, extras, t);
+          const badge = composeBadge(textBadge, p.dirtyRequestUids?.has(node.uid) ? dirtyTone : null, extras, t);
           const examples = p.responseExamplesByRequest.get(node.uid) ?? [];
           const hasExamples = examples.length > 0;
           items.push({
@@ -915,7 +917,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           ? {
               badge: composeBadge(
                 null,
-                false,
+                null,
                 [
                   {
                     label: t('workbench.sidebar.badge.scripts'),

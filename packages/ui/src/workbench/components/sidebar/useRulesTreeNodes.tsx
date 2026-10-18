@@ -5,6 +5,7 @@ import { hasNestedPauseMarkers, isRuleComplete, type PauseMarkers } from '@openh
 import { useCallback, useMemo } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import type { PauseTarget } from '@openheaders/ui/context/PauseMarkersContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
 import { exportNodeFields } from './export-fields';
@@ -76,6 +77,7 @@ function subtreeHasRuleMatch(nodes: CoreTreeNode[], lowerFilter: string): boolea
 
 export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   const t = useT();
+  const { dirtyTone } = useUiTheme();
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkV5Tree = useCallback(
@@ -224,7 +226,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
           } else if (!node.enabled) {
             textBadge = { label: t('workbench.sidebar.badge.off'), color: 'var(--ant-color-text-tertiary, #999)' };
           }
-          const badge = composeBadge(textBadge, p.dirtyRuleUids?.has(node.uid) ?? false, undefined, t);
+          const badge = composeBadge(textBadge, p.dirtyRuleUids?.has(node.uid) ? dirtyTone : null, undefined, t);
 
           items.push({
             id: rid,

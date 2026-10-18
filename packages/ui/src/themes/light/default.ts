@@ -6,6 +6,7 @@ export const lightDefault: ThemeVariant = {
   labelKey: 'workbench.settings.def.appearance.lightVariant.option.default.label',
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.default.description',
   honorsAccentColor: true,
+  dirtyTone: '#ff7875',
   antdTokens: {
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

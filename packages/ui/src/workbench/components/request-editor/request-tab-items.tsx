@@ -9,6 +9,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import { previewAuthContributions } from './auth-preview';
 import type { Draft } from './draft';
@@ -46,6 +47,7 @@ const NODE_SETTINGS_KNOBS: readonly SettingsKnobKey[] = [
  *  saved request, and the badge doubles as the dirty dot. */
 export const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsaved }) => {
   const { token } = theme.useToken();
+  const { dirtyTone } = useUiTheme();
   return (
     <span
       data-testid={unsaved === true ? 'oh-section-count-unsaved' : undefined}
@@ -56,7 +58,7 @@ export const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsave
         fontSize: 10,
         fontWeight: 500,
         color: unsaved === true ? '#fff' : token.colorTextSecondary,
-        background: unsaved === true ? '#ff7875' : token.colorFillSecondary,
+        background: unsaved === true ? dirtyTone : token.colorFillSecondary,
         borderRadius: 8,
         lineHeight: '16px',
       }}
@@ -75,6 +77,7 @@ export const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsave
  *  settings-unsaved.ts). */
 export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ tone = 'default' }) => {
   const { token } = theme.useToken();
+  const { dirtyTone } = useUiTheme();
   return (
     <span
       data-testid={
@@ -85,7 +88,7 @@ export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ t
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: tone === 'error' ? token.colorError : tone === 'unsaved' ? '#ff7875' : token.colorTextSecondary,
+        background: tone === 'error' ? token.colorError : tone === 'unsaved' ? dirtyTone : token.colorTextSecondary,
         marginLeft: 4,
         verticalAlign: 'middle',
       }}

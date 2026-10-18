@@ -14,6 +14,7 @@
 import { CloseOutlined, PushpinFilled } from '@ant-design/icons';
 import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import type { WorkbenchTab } from '../../types';
 import { type TabEntityLookups, isCreateDraftMode, isRuleDraftTab, renderTabLabel, tabIcon } from './tab-format';
 
@@ -44,6 +45,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
   hidden,
 }) => {
   const t = useT();
+  const { dirtyTone } = useUiTheme();
   const inner = (
     <>
       <span className="rules-type-badge">
@@ -68,11 +70,11 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
         <PushpinFilled className="rules-tab-env-pin" style={{ fontSize: 9, opacity: 0.65 }} aria-label={t('workbench.tabbar.envPinnedAria')} />
       )}
       {/* Gray dot signals a not-yet-persisted scratch tab (always wins
-          over orange so the "scratch vs real entity" distinction reads
-          regardless of dirty edits). Orange dot only fires on a
+          over the dirty tone so the "scratch vs real entity" distinction
+          reads regardless of dirty edits). The dirty dot only fires on a
           persisted entity whose form has uncommitted edits. */}
       {(isCreateDraftMode(tab) || tab.dirty) && (
-        <span className="rules-tab-unsaved" style={{ background: isCreateDraftMode(tab) ? '#999' : '#ff7875' }} />
+        <span className="rules-tab-unsaved" style={{ background: isCreateDraftMode(tab) ? '#999' : dirtyTone }} />
       )}
       {onClose && (
         <CloseOutlined

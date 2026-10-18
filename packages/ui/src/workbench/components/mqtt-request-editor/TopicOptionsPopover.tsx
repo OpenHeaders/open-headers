@@ -21,6 +21,7 @@ import type { MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Select, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -66,6 +67,7 @@ const TopicOptionsPopover: React.FC<{
   onSwitchToV5?: () => void;
 }> = ({ row, onChange, v5, unsaved, onSwitchToV5 }) => {
   const { token } = theme.useToken();
+  const { dirtyTone } = useUiTheme();
   const t = useT();
   const [open, setOpen] = useState(false);
   const userPropsRef = useRef<HTMLDivElement | null>(null);
@@ -309,7 +311,7 @@ const TopicOptionsPopover: React.FC<{
         <Tooltip title={t('workbench.editors.mqtt.topics.optionsTitle')} open={open ? false : undefined}>
           <Badge
             dot={badgeTone !== null}
-            color={badgeTone === 'unsaved' ? '#ff7875' : token.colorTextSecondary}
+            color={badgeTone === 'unsaved' ? dirtyTone : token.colorTextSecondary}
             offset={[-2, 2]}
           >
             {/* Icon + word, as the bars' gears — the user's call; the

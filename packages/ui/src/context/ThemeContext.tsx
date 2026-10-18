@@ -204,7 +204,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       }}
     >
       <ConfigProvider theme={antTheme}>
-        <UiThemeProvider value={{ isDarkMode, monacoTheme: variant.monacoTheme }}>{children}</UiThemeProvider>
+        <UiThemeProvider value={{ isDarkMode, monacoTheme: variant.monacoTheme, dirtyTone: variant.dirtyTone }}>
+          {children}
+        </UiThemeProvider>
       </ConfigProvider>
     </ThemeContext.Provider>
   );

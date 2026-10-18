@@ -6,6 +6,7 @@ export const lightHighContrast: ThemeVariant = {
   labelKey: 'workbench.settings.def.appearance.lightVariant.option.highContrast.label',
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.highContrast.description',
   honorsAccentColor: false,
+  dirtyTone: '#ff7875',
   antdTokens: {
     borderRadius: 4,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

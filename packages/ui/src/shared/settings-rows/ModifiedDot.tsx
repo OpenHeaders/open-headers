@@ -8,11 +8,13 @@
  * wins while both hold.
  */
 
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { theme } from 'antd';
 import type React from 'react';
 
 const ModifiedDot: React.FC<{ unsaved?: boolean }> = ({ unsaved }) => {
   const { token } = theme.useToken();
+  const { dirtyTone } = useUiTheme();
   return (
     <span
       data-testid={unsaved === true ? 'oh-setting-unsaved-dot' : 'oh-setting-modified-dot'}
@@ -21,7 +23,7 @@ const ModifiedDot: React.FC<{ unsaved?: boolean }> = ({ unsaved }) => {
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: unsaved === true ? '#ff7875' : token.colorTextSecondary,
+        background: unsaved === true ? dirtyTone : token.colorTextSecondary,
         flexShrink: 0,
       }}
     />

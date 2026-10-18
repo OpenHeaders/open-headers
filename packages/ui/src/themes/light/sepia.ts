@@ -6,6 +6,7 @@ export const lightSepia: ThemeVariant = {
   labelKey: 'workbench.settings.def.appearance.lightVariant.option.sepia.label',
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.sepia.description',
   honorsAccentColor: false,
+  dirtyTone: '#ff7875',
   antdTokens: {
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

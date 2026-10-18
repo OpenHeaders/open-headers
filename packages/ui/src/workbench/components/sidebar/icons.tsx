@@ -253,27 +253,31 @@ export function folderTag(Icon: typeof StopOutlined): React.ReactNode {
   );
 }
 
-/** Small orange dot — visual twin of the tab-bar dirty indicator. */
-export function dirtyDot(t: Translate): React.ReactNode {
+/** Small dot in the variant's dirty tone (`useUiTheme().dirtyTone`,
+ *  read by the node-builder hook) — visual twin of the tab-bar dirty
+ *  indicator. */
+export function dirtyDot(t: Translate, tone: string): React.ReactNode {
   return createElement('span', {
     key: 'dirty-dot',
-    style: { width: 6, height: 6, borderRadius: '50%', background: '#ff7875', flexShrink: 0 },
+    style: { width: 6, height: 6, borderRadius: '50%', background: tone, flexShrink: 0 },
     'aria-label': t('workbench.sidebar.badge.dirtyAria'),
   });
 }
 
 /** Build a sidebar row badge that combines an optional text label
- *  (paused / draft / unresolved / off) with an optional dirty dot.
+ *  (paused / draft / unresolved / off) with an optional dirty dot —
+ *  `dirty` is the tone the dot paints (the variant's, read by the
+ *  calling hook) or `null` when the entity matches its saved state.
  *  `extras` appends additional small text labels (e.g. post-import
  *  "scripts" review reminder) before the dirty dot. */
 export function composeBadge(
   text: { label: string; color: string } | null,
-  isDirty: boolean,
+  dirty: string | null,
   extras: ReadonlyArray<{ label: string; color: string; title?: string }> | undefined,
   t: Translate,
 ): React.ReactNode {
   const hasExtras = !!extras && extras.length > 0;
-  if (!text && !isDirty && !hasExtras) return undefined;
+  if (!text && dirty === null && !hasExtras) return undefined;
   const children: React.ReactNode[] = [];
   if (text) {
     children.push(createElement('span', { key: 'text', style: { fontSize: 9, color: text.color } }, text.label));
@@ -289,7 +293,7 @@ export function composeBadge(
       );
     }
   }
-  if (isDirty) children.push(dirtyDot(t));
+  if (dirty !== null) children.push(dirtyDot(t, dirty));
   // The class lets the compact hover-chrome CSS collapse the badge
   // while the row's `+`/`⋯` cluster is up (sidebar.less).
   return createElement(
