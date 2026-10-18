@@ -58,10 +58,11 @@ export const CompactQosSelect: React.FC<{
   const t = useT();
   return (
     <>
+      {/* The bar's own text color and size — the Retain checkbox's
+        label is the reference; a smaller secondary caption read high
+        beside it. */}
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, lineHeight: '24px' }}>
-        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-          {t('workbench.editors.mqtt.qos.compactLabel')}
-        </Text>
+        <span style={{ whiteSpace: 'nowrap' }}>{t('workbench.editors.mqtt.qos.compactLabel')}</span>
         {info && <InfoTrigger content={info} />}
       </span>
       <Select

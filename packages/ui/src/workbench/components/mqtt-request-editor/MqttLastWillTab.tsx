@@ -18,7 +18,7 @@ import {
   formatDurationSeconds,
   numericPresets,
 } from '@openheaders/ui/shared/combo-knob';
-import { Checkbox, ConfigProvider, Tooltip, Typography, theme } from 'antd';
+import { Checkbox, ConfigProvider, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useRef, useState } from 'react';
 import CodeEditor from '../shared/CodeEditor';
@@ -37,8 +37,6 @@ import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import { type MqttDraft, payloadEncodingError } from './draft';
 import type { MessagePropertiesUnsaved } from './mqtt-gear-unsaved';
 import MessagePropertiesPopover from './MessagePropertiesPopover';
-
-const { Text } = Typography;
 
 // Wire = whole seconds (§3.1.3.2.2); the spec default 0 publishes the
 // will as soon as the session ends.
@@ -110,9 +108,11 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5, 
           unsaved={unsavedProperties}
           testId="mqtt-will-props"
         />
-        <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>
+        {/* The bar's own text color and size, as the Retain label and
+          the Message bar's QoS. */}
+        <span style={{ whiteSpace: 'nowrap', lineHeight: '24px' }}>
           <ComposeLabel text={t('workbench.editors.mqtt.will.delayLabel')} info={mqttSettingsRowInfo(t, 'willDelay')} />
-        </Text>
+        </span>
         {/* The empty knob means the default in effect — its stated
           default reads at full text contrast, the Settings-tab
           discipline. */}
