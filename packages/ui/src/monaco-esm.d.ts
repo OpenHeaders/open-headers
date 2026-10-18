@@ -29,7 +29,26 @@ declare module 'monaco-editor/esm/vs/language/typescript/monaco.contribution' {
 declare module 'monaco-editor/esm/vs/language/json/monaco.contribution' {
   import type * as Monaco from 'monaco-editor';
   export const jsonDefaults: typeof Monaco.json.jsonDefaults;
-  export const getWorker: typeof Monaco.json.getWorker;
+  /** An LSP diagnostic as the JSON worker answers it. */
+  export interface JsonWorkerDiagnostic {
+    range: {
+      start: { line: number; character: number };
+      end: { line: number; character: number };
+    };
+    message: string;
+    severity?: number;
+    code?: number | string;
+    source?: string;
+  }
+  /** The worker behind the accessor. The published `IJSONWorker`
+   *  narrows it to the document queries; the proxy forwards every
+   *  method of the worker class (it is a `Proxy` with a `get` trap
+   *  only, so no `in` check can see them), and the contribution's own
+   *  diagnostics provider calls `doValidation` over this accessor. */
+  export interface JsonWorker extends Monaco.json.IJSONWorker {
+    doValidation(uri: string): Promise<JsonWorkerDiagnostic[]>;
+  }
+  export const getWorker: () => Promise<(...uris: Monaco.Uri[]) => Promise<JsonWorker>>;
 }
 
 declare module 'monaco-editor/esm/vs/platform/hover/browser/hoverService' {

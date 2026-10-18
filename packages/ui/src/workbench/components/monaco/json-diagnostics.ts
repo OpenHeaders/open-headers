@@ -58,7 +58,7 @@ export interface JsonDiagnosticsHost {
       setModeConfiguration(modeConfiguration: monaco.json.ModeConfiguration): void;
       onDidChange(listener: () => void): monaco.IDisposable;
     };
-    getWorker(): Promise<(...uris: monaco.Uri[]) => Promise<object>>;
+    getWorker(): Promise<(...uris: monaco.Uri[]) => Promise<JsonValidationWorker>>;
   };
   MarkerSeverity: typeof monaco.MarkerSeverity;
 }
@@ -76,14 +76,10 @@ export interface LspDiagnostic {
 }
 
 /** The worker method the contribution's own provider calls over the
- *  same accessor; the published worker type lists only the document
- *  queries, so the proxy is narrowed structurally. */
-interface JsonValidationWorker {
+ *  same accessor (the contribution module's shim types the proxy with
+ *  it — the published worker type lists only the document queries). */
+export interface JsonValidationWorker {
   doValidation(uri: string): Promise<readonly LspDiagnostic[]>;
-}
-
-function hasValidation(worker: object): worker is JsonValidationWorker {
-  return 'doValidation' in worker && typeof worker.doValidation === 'function';
 }
 
 const LSP_SEVERITY_ERROR = 1;
@@ -135,7 +131,6 @@ interface Entry {
 let host: JsonDiagnosticsHost | null = null;
 let hostSubscriptions: monaco.IDisposable[] = [];
 const entries = new Map<string, Entry>();
-let missingValidationReported = false;
 
 function keyOf(model: JsonDiagnosticsModel): string {
   return model.uri.toString();
@@ -149,14 +144,7 @@ function validate(entry: Entry): void {
   api.json
     .getWorker()
     .then((accessor) => accessor(source.uri))
-    .then((worker) => {
-      if (hasValidation(worker)) return worker.doValidation(source.uri.toString());
-      if (!missingValidationReported) {
-        missingValidationReported = true;
-        console.error('json-diagnostics: the JSON worker exposes no doValidation; buffers stay unvalidated');
-      }
-      return [];
-    })
+    .then((worker) => worker.doValidation(source.uri.toString()))
     .then((diagnostics) => {
       if (entry.generation !== generation || entries.get(keyOf(entry.model)) !== entry) return;
       if (entry.model.isDisposed()) return;

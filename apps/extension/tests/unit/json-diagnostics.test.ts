@@ -9,8 +9,7 @@
  * language change clears and re-enters; a dispose clears; a stand-in
  * is what the worker reads while its markers land on the model, and
  * its lease returns the model to its own text; a late answer from a
- * replaced source never lands; a worker without validation publishes
- * nothing and says so once.
+ * replaced source never lands.
  */
 
 import {
@@ -20,6 +19,7 @@ import {
   JSON_VALIDATE_DELAY_MS,
   type JsonDiagnosticsHost,
   type JsonDiagnosticsModel,
+  type JsonValidationWorker,
   type LspDiagnostic,
   registerJsonDiagnostics,
   toMarkerData,
@@ -72,7 +72,7 @@ function fakeHost() {
         else resolve(answers.get(uri) ?? []);
       }),
   );
-  let worker: object = { doValidation };
+  const worker: JsonValidationWorker = { doValidation };
   const getWorker = vi.fn(async () => async () => worker);
   let modeConfiguration: monaco.json.ModeConfiguration = { diagnostics: true, tokens: true };
   const setModeConfiguration = vi.fn((next: monaco.json.ModeConfiguration) => {
@@ -139,9 +139,6 @@ function fakeHost() {
         pending.delete(uri);
         for (const resolve of waiting) resolve(diagnostics);
       };
-    },
-    setWorker(next: object) {
-      worker = next;
     },
   };
 }
@@ -229,20 +226,6 @@ describe('registerJsonDiagnostics', () => {
     h.defaultsChanged.fire();
     await flush();
     expect(h.asked).toHaveLength(4);
-  });
-
-  it('publishes nothing and reports once when the worker has no validation', async () => {
-    const h = fakeHost();
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    h.setWorker({});
-    registerJsonDiagnostics(h.host);
-    h.model('/1', 'json');
-    h.model('/2', 'json');
-    await flush();
-    expect(h.setModelMarkers).toHaveBeenCalledTimes(2);
-    expect(h.setModelMarkers.mock.calls.every(([, , markers]) => markers.length === 0)).toBe(true);
-    expect(error).toHaveBeenCalledTimes(1);
-    error.mockRestore();
   });
 });
 
