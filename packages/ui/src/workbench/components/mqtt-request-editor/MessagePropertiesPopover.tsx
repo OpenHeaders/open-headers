@@ -3,8 +3,10 @@
  * and the Last Will tab, in the topic-options anatomy: hint line, the
  * Properties section (user properties), a hairline, then the Settings
  * section as labeled (i) rows lighting the shared example's PUBLISH
- * leg. 3.1.1 renders the controls disabled with the honest version
- * line (never a silent drop — the codec is encode-strict either way).
+ * leg — or, on the will leg, the will line of the CONNECT leg (the Will
+ * Properties travel inside CONNECT). 3.1.1 renders the controls
+ * disabled with the honest version line (never a silent drop — the
+ * codec is encode-strict either way).
  */
 
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
@@ -21,10 +23,44 @@ import { Badge, Button, ConfigProvider, Input, Popover, Switch, Tooltip, Typogra
 import type React from 'react';
 import { useRef, useState } from 'react';
 import type { MqttMessagePropertiesDraft } from './draft';
-import { mqttSettingsRowInfo } from './MqttSettingsRowInfo';
+import { type MqttInfoKey, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
 import OptionLabel from './OptionLabel';
 
 const { Text } = Typography;
+
+/** The packet the block rides — the Message bar's PUBLISH or the Last
+ *  Will bar's CONNECT will line; each leg's cards light their own. */
+export type MessagePropertiesLeg = 'publish' | 'will';
+
+type MessagePropertiesSlot =
+  | 'userProperties'
+  | 'properties'
+  | 'responseTopic'
+  | 'correlationData'
+  | 'messageExpiry'
+  | 'contentType'
+  | 'payloadFormatIndicator';
+
+const LEG_INFO: Record<MessagePropertiesLeg, Record<MessagePropertiesSlot, MqttInfoKey>> = {
+  publish: {
+    userProperties: 'publishProperties',
+    properties: 'publishSettings',
+    responseTopic: 'responseTopic',
+    correlationData: 'correlationData',
+    messageExpiry: 'messageExpiry',
+    contentType: 'contentType',
+    payloadFormatIndicator: 'payloadFormatIndicator',
+  },
+  will: {
+    userProperties: 'willUserProperties',
+    properties: 'willProperties',
+    responseTopic: 'willResponseTopic',
+    correlationData: 'willCorrelationData',
+    messageExpiry: 'willMessageExpiry',
+    contentType: 'willContentType',
+    payloadFormatIndicator: 'willPayloadFormatIndicator',
+  },
+};
 
 // Wire = whole seconds (§3.3.2.3.3); absent = the message never expires.
 const interpretMessageExpiry = durationSecondsInterpreter({ min: 0, max: 0xffff_ffff });
@@ -39,10 +75,12 @@ const MessagePropertiesPopover: React.FC<{
   value: MqttMessagePropertiesDraft;
   onChange: (next: MqttMessagePropertiesDraft) => void;
   v5: boolean;
+  leg: MessagePropertiesLeg;
   testId: string;
-}> = ({ value, onChange, v5, testId }) => {
+}> = ({ value, onChange, v5, leg, testId }) => {
   const { token } = theme.useToken();
   const t = useT();
+  const info = (slot: MessagePropertiesSlot) => mqttSettingsRowInfo(t, LEG_INFO[leg][slot]);
   const [open, setOpen] = useState(false);
   const userPropsRef = useRef<HTMLDivElement | null>(null);
   const configured =
@@ -73,7 +111,7 @@ const MessagePropertiesPopover: React.FC<{
         <OptionLabel
           strong
           text={t('workbench.editors.mqtt.props.sectionProperties')}
-          info={mqttSettingsRowInfo(t, 'publishProperties')}
+          info={info('userProperties')}
         />
         {/* The list shows four rows and scrolls instead of growing the
           popover row by row; the right gutter keeps the scrollbar off
@@ -147,7 +185,7 @@ const MessagePropertiesPopover: React.FC<{
         <OptionLabel
           strong
           text={t('workbench.editors.mqtt.props.sectionSettings')}
-          info={mqttSettingsRowInfo(t, 'publishSettings')}
+          info={info('properties')}
         />
         {/* One anatomy for every row: the label column left, the
           control column right — explanations live behind the (i)
@@ -174,7 +212,7 @@ const MessagePropertiesPopover: React.FC<{
           >
             <OptionLabel
               text={t('workbench.editors.mqtt.props.responseTopic')}
-              info={mqttSettingsRowInfo(t, 'responseTopic')}
+              info={info('responseTopic')}
             />
             <Input
               size="small"
@@ -187,7 +225,7 @@ const MessagePropertiesPopover: React.FC<{
             />
             <OptionLabel
               text={t('workbench.editors.mqtt.props.correlationData')}
-              info={mqttSettingsRowInfo(t, 'correlationData')}
+              info={info('correlationData')}
             />
             <Input
               size="small"
@@ -199,7 +237,7 @@ const MessagePropertiesPopover: React.FC<{
             />
             <OptionLabel
               text={t('workbench.editors.mqtt.props.messageExpiry')}
-              info={mqttSettingsRowInfo(t, 'messageExpiry')}
+              info={info('messageExpiry')}
             />
             <ComboKnob
               value={value.messageExpiryInterval}
@@ -214,7 +252,7 @@ const MessagePropertiesPopover: React.FC<{
             />
             <OptionLabel
               text={t('workbench.editors.mqtt.props.contentType')}
-              info={mqttSettingsRowInfo(t, 'contentType')}
+              info={info('contentType')}
             />
             <Input
               size="small"
@@ -226,7 +264,7 @@ const MessagePropertiesPopover: React.FC<{
             />
             <OptionLabel
               text={t('workbench.editors.mqtt.props.payloadFormatIndicator')}
-              info={mqttSettingsRowInfo(t, 'payloadFormatIndicator')}
+              info={info('payloadFormatIndicator')}
             />
             <Switch
               size="small"

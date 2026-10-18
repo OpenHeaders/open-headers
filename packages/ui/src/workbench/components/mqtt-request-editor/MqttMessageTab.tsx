@@ -181,6 +181,7 @@ const MqttMessageTab: React.FC<MqttMessageTabProps> = ({
           value={draft.publishProperties}
           onChange={(publishProperties) => setDraft((d) => ({ ...d, publishProperties }))}
           v5={v5}
+          leg="publish"
           testId="mqtt-publish-props"
         />
         <Checkbox

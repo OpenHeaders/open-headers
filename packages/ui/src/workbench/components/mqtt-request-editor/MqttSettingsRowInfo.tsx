@@ -56,6 +56,13 @@ type MqttOwnInfoKey =
   | 'willQos'
   | 'willRetain'
   | 'willDelay'
+  | 'willProperties'
+  | 'willUserProperties'
+  | 'willResponseTopic'
+  | 'willCorrelationData'
+  | 'willMessageExpiry'
+  | 'willContentType'
+  | 'willPayloadFormatIndicator'
   | 'clientId'
   | 'executionPlace'
   | 'cleanStart'
@@ -115,6 +122,7 @@ const EX = {
   willQos: 'QoS 1',
   willRetain: 'retain ✓',
   willDelay: 'will delay: 10 s',
+  willProps: 'props ✓',
   subscribe: 'SUBSCRIBE',
   filter: 'sensors/+/temp',
   qos: 'QoS 1',
@@ -152,7 +160,10 @@ const GROUP_TOKENS: Record<MqttSettingsGroupKey, readonly TokenId[]> = {
  * sub-slice; the Topics table's column headers partition the SUBSCRIBE
  * leg — the Subscribe column lights the opener itself; the Message
  * bar's knobs light the PUBLISH line, the Last Will bar's the will line
- * of the CONNECT leg. */
+ * of the CONNECT leg. The will's properties popover — the Message
+ * popover on its will leg — lights the will line's one properties
+ * token from every card: the Will Properties travel INSIDE CONNECT,
+ * so a PUBLISH token would place them on the wrong packet. */
 const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   topicFilter: ['filter'],
   subscribeQos: ['qos'],
@@ -165,6 +176,13 @@ const HIGHLIGHT: Record<MqttInfoKey, readonly TokenId[]> = {
   willQos: ['willQos'],
   willRetain: ['willRetain'],
   willDelay: ['willDelay'],
+  willProperties: ['willProps'],
+  willUserProperties: ['willProps'],
+  willResponseTopic: ['willProps'],
+  willCorrelationData: ['willProps'],
+  willMessageExpiry: ['willProps'],
+  willContentType: ['willProps'],
+  willPayloadFormatIndicator: ['willProps'],
   clientId: ['clientId'],
   executionPlace: ['route'],
   cleanStart: ['cleanStart'],
@@ -233,7 +251,7 @@ function MqttExampleCard({ lit, routeText }: { lit: ReadonlySet<TokenId>; routeT
       ],
     },
     { tokens: [tok('tlsWindow'), tok('verify'), tok('suite'), tok('clientCert'), tok('sni'), tok('alpn')] },
-    { tokens: [tok('willTopic'), tok('willQos'), tok('willRetain'), tok('willDelay')] },
+    { tokens: [tok('willTopic'), tok('willQos'), tok('willRetain'), tok('willDelay'), tok('willProps')] },
     { opener: tok('subscribe'), tokens: [tok('filter'), tok('qos')] },
     { tokens: [tok('noLocal'), tok('rap'), tok('retained'), tok('subId'), tok('props')] },
     { opener: 'PUBLISH', tokens: [tok('pubTopic'), tok('pubQos'), tok('pubRetain')] },
@@ -256,6 +274,13 @@ const TITLE_KEY: Record<MqttOwnInfoKey, MessageKey> = {
   willQos: 'workbench.editors.mqtt.topics.qosColLabel',
   willRetain: 'workbench.editors.mqtt.retainLabel',
   willDelay: 'workbench.editors.mqtt.will.delayLabel',
+  willProperties: 'workbench.editors.mqtt.props.sectionSettings',
+  willUserProperties: 'workbench.editors.mqtt.props.sectionProperties',
+  willResponseTopic: 'workbench.editors.mqtt.props.responseTopic',
+  willCorrelationData: 'workbench.editors.mqtt.props.correlationData',
+  willMessageExpiry: 'workbench.editors.mqtt.props.messageExpiry',
+  willContentType: 'workbench.editors.mqtt.props.contentType',
+  willPayloadFormatIndicator: 'workbench.editors.mqtt.props.payloadFormatIndicator',
   clientId: 'workbench.editors.mqtt.settings.clientIdLabel',
   executionPlace: 'workbench.editors.request.settings.executionPlace',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartLabel',
@@ -296,6 +321,13 @@ const SUMMARY_KEY: Record<Exclude<MqttOwnInfoKey, 'retainHandling'>, MessageKey>
   willQos: 'workbench.editors.mqtt.will.info.qos',
   willRetain: 'workbench.editors.mqtt.will.info.retain',
   willDelay: 'workbench.editors.mqtt.will.info.delay',
+  willProperties: 'workbench.editors.mqtt.props.hint',
+  willUserProperties: 'workbench.editors.mqtt.props.sectionPropertiesDesc',
+  willResponseTopic: 'workbench.editors.mqtt.props.responseTopicDesc',
+  willCorrelationData: 'workbench.editors.mqtt.props.correlationDataDesc',
+  willMessageExpiry: 'workbench.editors.mqtt.props.messageExpiryDesc',
+  willContentType: 'workbench.editors.mqtt.props.contentTypeDesc',
+  willPayloadFormatIndicator: 'workbench.editors.mqtt.props.payloadFormatIndicatorDesc',
   clientId: 'workbench.editors.mqtt.settings.clientIdHelp',
   executionPlace: 'workbench.editors.request.settings.executionPlaceInfo',
   cleanStart: 'workbench.editors.mqtt.settings.cleanStartHelp',
@@ -341,6 +373,13 @@ const KICKER_KEY: Record<MqttInfoKey, MessageKey> = {
   willQos: 'workbench.editors.mqtt.tab.lastWill',
   willRetain: 'workbench.editors.mqtt.tab.lastWill',
   willDelay: 'workbench.editors.mqtt.tab.lastWill',
+  willProperties: 'workbench.editors.mqtt.props.buttonTooltip',
+  willUserProperties: 'workbench.editors.mqtt.props.buttonTooltip',
+  willResponseTopic: 'workbench.editors.mqtt.props.sectionSettings',
+  willCorrelationData: 'workbench.editors.mqtt.props.sectionSettings',
+  willMessageExpiry: 'workbench.editors.mqtt.props.sectionSettings',
+  willContentType: 'workbench.editors.mqtt.props.sectionSettings',
+  willPayloadFormatIndicator: 'workbench.editors.mqtt.props.sectionSettings',
   clientId: MQTT_GROUP_LABEL_KEY.connection,
   executionPlace: MQTT_GROUP_LABEL_KEY.connection,
   cleanStart: MQTT_GROUP_LABEL_KEY.connection,

@@ -102,6 +102,7 @@ const MqttLastWillTab: React.FC<MqttLastWillTabProps> = ({ draft, setDraft, v5 }
           value={draft.lastWill.properties}
           onChange={(properties) => setDraft((d) => ({ ...d, lastWill: { ...d.lastWill, properties } }))}
           v5={v5}
+          leg="will"
           testId="mqtt-will-props"
         />
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', lineHeight: '24px' }}>

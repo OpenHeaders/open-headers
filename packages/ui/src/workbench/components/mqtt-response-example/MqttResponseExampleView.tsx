@@ -303,6 +303,7 @@ const MqttResponseExampleView: React.FC<MqttResponseExampleViewProps> = ({
                             value={draft.publishProperties}
                             onChange={(publishProperties) => setDraft((d) => (d ? { ...d, publishProperties } : d))}
                             v5={draft.protocolVersion === '5.0'}
+                            leg="publish"
                             testId="mqtt-example-props"
                           />
                           <Checkbox
