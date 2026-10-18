@@ -17,7 +17,7 @@ import { emptyMessagePropertiesDraft } from '@openheaders/ui/workbench/component
 import MessagePropertiesPopover from '@openheaders/ui/workbench/components/mqtt-request-editor/MessagePropertiesPopover';
 import TopicOptionsPopover from '@openheaders/ui/workbench/components/mqtt-request-editor/TopicOptionsPopover';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 beforeAll(() => {
   class ResizeObserverStub implements ResizeObserver {
@@ -177,6 +177,44 @@ describe('mqtt gear popovers — the row dots and the gear badge', () => {
       true,
       false,
     ]);
+  });
+
+  it('a knob off its default wears the Settings rows’ undo, which puts it back; a default knob none', async () => {
+    const onChange = vi.fn();
+    render(
+      <MessagePropertiesPopover
+        value={{ ...emptyMessagePropertiesDraft(), correlationData: 'ok', payloadFormatIndicator: true }}
+        onChange={onChange}
+        v5
+        leg="publish"
+        testId="mqtt-publish-props"
+      />,
+    );
+    const popover = await openGear('mqtt-publish-props');
+    expect(within(popover).queryByRole('button', { name: 'Reset Response Topic to default' })).toBeNull();
+    fireEvent.click(within(popover).getByRole('button', { name: 'Reset Correlation Data to default' }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ correlationData: '', payloadFormatIndicator: true }),
+    );
+    fireEvent.click(within(popover).getByRole('button', { name: 'Reset Payload Format Indicator to default' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ payloadFormatIndicator: false }));
+    cleanup();
+    const onRowChange = vi.fn();
+    render(
+      <TopicOptionsPopover
+        row={{ uid: 'r1', topicFilter: 'sensors/+/temp', retainHandling: 2 }}
+        onChange={onRowChange}
+        v5
+      />,
+    );
+    const options = await openGear('mqtt-topic-options', 'mqtt-topic-options-popover');
+    expect(within(options).queryByRole('button', { name: 'Reset No Local to default' })).toBeNull();
+    fireEvent.click(within(options).getByRole('button', { name: 'Reset Retain Handling to default' }));
+    expect(onRowChange).toHaveBeenLastCalledWith({
+      uid: 'r1',
+      topicFilter: 'sensors/+/temp',
+      retainHandling: undefined,
+    });
   });
 
   it('an unsaved user-property row alone recolors the gear', () => {

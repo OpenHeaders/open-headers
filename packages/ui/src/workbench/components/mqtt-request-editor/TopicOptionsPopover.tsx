@@ -19,6 +19,7 @@
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import type { MqttRetainHandling, MqttTopicRow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
+import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { Badge, Button, ConfigProvider, Input, InputNumber, Popover, Select, Switch, Tooltip, theme } from 'antd';
@@ -32,6 +33,7 @@ import {
   userPropertyRowModified,
 } from './mqtt-gear-unsaved';
 import { mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
+import OptionControl from './OptionControl';
 import OptionLabel from './OptionLabel';
 
 /** The (i) popovers portal INSIDE this popover — portaled to body
@@ -72,6 +74,14 @@ const TopicOptionsPopover: React.FC<{
   const dot = (key: TopicOptionKnobKey) => ({ modified: modified.has(key), unsaved: unsaved?.knobs.has(key) === true });
   const anyUnsaved = unsaved !== undefined && (unsaved.knobs.size > 0 || unsaved.rows.size > 0);
   const badgeTone = anyUnsaved ? 'unsaved' : modified.size > 0 ? 'modified' : null;
+  // The row's undo: back to the knob's default while it is off it —
+  // an absent key, which the save projection then drops.
+  const reset = (key: TopicOptionKnobKey, labelKey: MessageKey) => ({
+    label: t(labelKey),
+    modified: modified.has(key),
+    disabled: !v5,
+    onReset: () => onChange({ ...row, [key]: undefined }),
+  });
   const hairline = <div style={{ height: 1, background: token.colorSplit }} />;
   const content = (
     <InfoPopoverContainerProvider resolver={resolveOptionsPopover}>
@@ -108,47 +118,51 @@ const TopicOptionsPopover: React.FC<{
               info={mqttSettingsRowInfo(t, 'noLocal')}
               {...dot('noLocal')}
             />
-            <Switch
-              size="small"
-              style={{ justifySelf: 'start' }}
-              disabled={!v5}
-              checked={row.noLocal === true}
-              onChange={(noLocal) => onChange({ ...row, noLocal })}
-              data-testid="mqtt-topic-nolocal"
-            />
+            <OptionControl {...reset('noLocal', 'workbench.editors.mqtt.topics.noLocal')}>
+              <Switch
+                size="small"
+                disabled={!v5}
+                checked={row.noLocal === true}
+                onChange={(noLocal) => onChange({ ...row, noLocal })}
+                data-testid="mqtt-topic-nolocal"
+              />
+            </OptionControl>
             <OptionLabel
               text={t('workbench.editors.mqtt.topics.retainAsPublished')}
               info={mqttSettingsRowInfo(t, 'retainAsPublished')}
               {...dot('retainAsPublished')}
             />
-            <Switch
-              size="small"
-              style={{ justifySelf: 'start' }}
-              disabled={!v5}
-              checked={row.retainAsPublished === true}
-              onChange={(retainAsPublished) => onChange({ ...row, retainAsPublished })}
-            />
+            <OptionControl {...reset('retainAsPublished', 'workbench.editors.mqtt.topics.retainAsPublished')}>
+              <Switch
+                size="small"
+                disabled={!v5}
+                checked={row.retainAsPublished === true}
+                onChange={(retainAsPublished) => onChange({ ...row, retainAsPublished })}
+              />
+            </OptionControl>
             <OptionLabel
               text={t('workbench.editors.mqtt.topics.retainHandling')}
               info={mqttSettingsRowInfo(t, 'retainHandling')}
               {...dot('retainHandling')}
             />
-            <Select
-              size="small"
-              style={{ width: 200 }}
-              disabled={!v5}
-              popupMatchSelectWidth={false}
-              value={row.retainHandling ?? 0}
-              options={[
-                // title stays empty — the label's (i) popover carries
-                // the values; the native label-title would double the
-                // hover.
-                { value: 0, title: '', label: t('workbench.editors.mqtt.topics.retainHandling0') },
-                { value: 1, title: '', label: t('workbench.editors.mqtt.topics.retainHandling1') },
-                { value: 2, title: '', label: t('workbench.editors.mqtt.topics.retainHandling2') },
-              ]}
-              onChange={(retainHandling: MqttRetainHandling) => onChange({ ...row, retainHandling })}
-            />
+            <OptionControl {...reset('retainHandling', 'workbench.editors.mqtt.topics.retainHandling')}>
+              <Select
+                size="small"
+                style={{ width: 200 }}
+                disabled={!v5}
+                popupMatchSelectWidth={false}
+                value={row.retainHandling ?? 0}
+                options={[
+                  // title stays empty — the label's (i) popover carries
+                  // the values; the native label-title would double the
+                  // hover.
+                  { value: 0, title: '', label: t('workbench.editors.mqtt.topics.retainHandling0') },
+                  { value: 1, title: '', label: t('workbench.editors.mqtt.topics.retainHandling1') },
+                  { value: 2, title: '', label: t('workbench.editors.mqtt.topics.retainHandling2') },
+                ]}
+                onChange={(retainHandling: MqttRetainHandling) => onChange({ ...row, retainHandling })}
+              />
+            </OptionControl>
           </div>
           {hairline}
           <OptionLabel
@@ -163,16 +177,18 @@ const TopicOptionsPopover: React.FC<{
               info={mqttSettingsRowInfo(t, 'subscriptionId')}
               {...dot('subscriptionId')}
             />
-            <InputNumber
-              size="small"
-              min={1}
-              max={268_435_455}
-              disabled={!v5}
-              value={row.subscriptionId}
-              onChange={(next) => onChange({ ...row, subscriptionId: next ?? undefined })}
-              placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
-              style={{ width: 200 }}
-            />
+            <OptionControl {...reset('subscriptionId', 'workbench.editors.mqtt.topics.subscriptionId')}>
+              <InputNumber
+                size="small"
+                min={1}
+                max={268_435_455}
+                disabled={!v5}
+                value={row.subscriptionId}
+                onChange={(next) => onChange({ ...row, subscriptionId: next ?? undefined })}
+                placeholder={t('workbench.editors.mqtt.topics.subscriptionIdPlaceholder')}
+                style={{ width: 200 }}
+              />
+            </OptionControl>
           </div>
         </ConfigProvider>
         {hairline}

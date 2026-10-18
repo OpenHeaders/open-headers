@@ -17,6 +17,7 @@
 
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
+import type { MessageKey } from '@openheaders/i18n';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   ComboKnob,
@@ -37,6 +38,7 @@ import {
   userPropertyRowModified,
 } from './mqtt-gear-unsaved';
 import { type GearInfoKey, mqttGearPacket, mqttSettingsRowInfo } from './MqttSettingsRowInfo';
+import OptionControl from './OptionControl';
 import OptionLabel from './OptionLabel';
 
 /** The packet the block rides — the Message bar's PUBLISH or the Last
@@ -110,6 +112,13 @@ const MessagePropertiesPopover: React.FC<{
   const anyUnsaved = unsaved !== undefined && (unsaved.knobs.size > 0 || unsaved.rows.size > 0);
   const badgeTone = anyUnsaved ? 'unsaved' : modified.size > 0 ? 'modified' : null;
   const set = (patch: Partial<MqttMessagePropertiesDraft>) => onChange({ ...value, ...patch });
+  // The row's undo: back to the knob's default while it is off it.
+  const reset = (key: MessagePropertyKnobKey, labelKey: MessageKey, patch: Partial<MqttMessagePropertiesDraft>) => ({
+    label: t(labelKey),
+    modified: modified.has(key),
+    disabled: !v5,
+    onReset: () => set(patch),
+  });
   const content = (
     <InfoPopoverContainerProvider resolver={resolvePropsPopover}>
       <div
@@ -156,69 +165,90 @@ const MessagePropertiesPopover: React.FC<{
               info={info('responseTopic')}
               {...dot('responseTopic')}
             />
-            <Input
-              size="small"
-              style={{ width: 200 }}
-              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-              value={value.responseTopic}
-              disabled={!v5}
-              onChange={(e) => set({ responseTopic: e.target.value })}
-              data-testid={`${testId}-response-topic`}
-            />
+            <OptionControl
+              {...reset('responseTopic', 'workbench.editors.mqtt.props.responseTopic', { responseTopic: '' })}
+            >
+              <Input
+                size="small"
+                style={{ width: 200 }}
+                placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+                value={value.responseTopic}
+                disabled={!v5}
+                onChange={(e) => set({ responseTopic: e.target.value })}
+                data-testid={`${testId}-response-topic`}
+              />
+            </OptionControl>
             <OptionLabel
               text={t('workbench.editors.mqtt.props.correlationData')}
               info={info('correlationData')}
               {...dot('correlationData')}
             />
-            <Input
-              size="small"
-              style={{ width: 200 }}
-              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-              value={value.correlationData}
-              disabled={!v5}
-              onChange={(e) => set({ correlationData: e.target.value })}
-            />
+            <OptionControl
+              {...reset('correlationData', 'workbench.editors.mqtt.props.correlationData', { correlationData: '' })}
+            >
+              <Input
+                size="small"
+                style={{ width: 200 }}
+                placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+                value={value.correlationData}
+                disabled={!v5}
+                onChange={(e) => set({ correlationData: e.target.value })}
+              />
+            </OptionControl>
             <OptionLabel
               text={t('workbench.editors.mqtt.props.messageExpiry')}
               info={info('messageExpiry')}
               {...dot('messageExpiryInterval')}
             />
-            <ComboKnob
-              value={value.messageExpiryInterval}
-              onChange={(messageExpiryInterval) => set({ messageExpiryInterval })}
-              presets={MESSAGE_EXPIRY_PRESETS}
-              interpret={interpretMessageExpiry}
-              format={formatDurationSeconds}
-              placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
-              disabled={!v5}
-              ariaLabel={t('workbench.editors.mqtt.props.messageExpiry')}
-              style={{ width: 200 }}
-            />
+            <OptionControl
+              {...reset('messageExpiryInterval', 'workbench.editors.mqtt.props.messageExpiry', {
+                messageExpiryInterval: undefined,
+              })}
+            >
+              <ComboKnob
+                value={value.messageExpiryInterval}
+                onChange={(messageExpiryInterval) => set({ messageExpiryInterval })}
+                presets={MESSAGE_EXPIRY_PRESETS}
+                interpret={interpretMessageExpiry}
+                format={formatDurationSeconds}
+                placeholder={t('workbench.editors.mqtt.props.messageExpiryPlaceholder')}
+                disabled={!v5}
+                ariaLabel={t('workbench.editors.mqtt.props.messageExpiry')}
+                style={{ width: 200 }}
+              />
+            </OptionControl>
             <OptionLabel
               text={t('workbench.editors.mqtt.props.contentType')}
               info={info('contentType')}
               {...dot('contentType')}
             />
-            <Input
-              size="small"
-              style={{ width: 200 }}
-              placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
-              value={value.contentType}
-              disabled={!v5}
-              onChange={(e) => set({ contentType: e.target.value })}
-            />
+            <OptionControl {...reset('contentType', 'workbench.editors.mqtt.props.contentType', { contentType: '' })}>
+              <Input
+                size="small"
+                style={{ width: 200 }}
+                placeholder={t('workbench.editors.mqtt.props.nonePlaceholder')}
+                value={value.contentType}
+                disabled={!v5}
+                onChange={(e) => set({ contentType: e.target.value })}
+              />
+            </OptionControl>
             <OptionLabel
               text={t('workbench.editors.mqtt.props.payloadFormatIndicator')}
               info={info('payloadFormatIndicator')}
               {...dot('payloadFormatIndicator')}
             />
-            <Switch
-              size="small"
-              style={{ justifySelf: 'start' }}
-              checked={value.payloadFormatIndicator}
-              disabled={!v5}
-              onChange={(payloadFormatIndicator) => set({ payloadFormatIndicator })}
-            />
+            <OptionControl
+              {...reset('payloadFormatIndicator', 'workbench.editors.mqtt.props.payloadFormatIndicator', {
+                payloadFormatIndicator: false,
+              })}
+            >
+              <Switch
+                size="small"
+                checked={value.payloadFormatIndicator}
+                disabled={!v5}
+                onChange={(payloadFormatIndicator) => set({ payloadFormatIndicator })}
+              />
+            </OptionControl>
           </div>
         </ConfigProvider>
         <div style={{ height: 1, background: token.colorSplit }} />
