@@ -9,9 +9,10 @@
  */
 
 import { useT } from '@openheaders/ui/context/LocaleContext';
-import { Input, Select, Tooltip } from 'antd';
+import { Select, Tooltip } from 'antd';
 import type React from 'react';
 import { type Dispatch, type SetStateAction, useState } from 'react';
+import { TemplateInput } from '../template-input';
 import type { MqttDraft } from './draft';
 
 interface MqttTargetRowProps {
@@ -65,11 +66,17 @@ const MqttTargetRow: React.FC<MqttTargetRowProps> = ({ draft, setDraft, inFlight
           data-testid="mqtt-version-select"
         />
       </Tooltip>
-      <Input
-        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-        placeholder={t('workbench.editors.mqtt.urlPlaceholder')}
+      {/* The URL rides the variable plane (the WS target row's dress):
+        `{{refs}}` paint, suggest and flag — the executor resolves the
+        URL at Connect. */}
+      <TemplateInput
         value={draft.url}
-        onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
+        onChange={(url) => setDraft((d) => ({ ...d, url }))}
+        placeholder={t('workbench.editors.mqtt.urlPlaceholder')}
+        size="small"
+        flagUnresolved
+        expandOnFocus
+        style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
         data-testid="mqtt-url-input"
       />
     </div>

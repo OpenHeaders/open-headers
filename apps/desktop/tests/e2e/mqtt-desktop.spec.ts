@@ -446,7 +446,7 @@ test('M7 — Save Response mints the example: viewer end pill, sidebar leaf, Ope
   // shape riding the prefill bus as unsaved draft edits.
   await workbench.getByTestId('mqtt-example-open-in-request').filter({ visible: true }).first().click();
   await connectButton().waitFor({ state: 'visible', timeout: 10_000 });
-  await expect(workbench.getByTestId('mqtt-url-input').filter({ visible: true }).first()).toHaveValue(
+  await expect(workbench.getByTestId('mqtt-url-input').filter({ visible: true }).first()).toHaveText(
     new RegExp(`mqtt://127\\.0\\.0\\.1:${MQTT_PROBE_PORT}`),
   );
 });
