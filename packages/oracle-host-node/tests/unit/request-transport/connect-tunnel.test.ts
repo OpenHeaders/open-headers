@@ -192,7 +192,9 @@ describe('prior-knowledge HTTP/2 through a CONNECT tunnel', () => {
         }),
       );
       await expect(attempt).rejects.toBeInstanceOf(TransportError);
-      await expect(attempt).rejects.toThrow(/rejected the credentials \(407\).*"corp-proxy"/s);
+      await expect(attempt).rejects.toThrow(/rejected the credentials \(407\)/);
+      // The advice — what to check — rides its own field and names the entry.
+      await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/"corp-proxy"/) });
       expect(proxy.tunnels).toEqual([]);
     } finally {
       await proxy.close();
@@ -273,9 +275,8 @@ describe("pinned '2' through a CONNECT tunnel", () => {
         }),
       );
       await expect(attempt).rejects.toBeInstanceOf(TransportError);
-      await expect(attempt).rejects.toThrow(
-        /negotiated http\/1\.1 instead of the pinned HTTP\/2.*"HTTP version" setting/s,
-      );
+      await expect(attempt).rejects.toThrow(/negotiated http\/1\.1 instead of the pinned HTTP\/2/);
+      await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/"HTTP version" setting/) });
     } finally {
       await proxy.close();
       origin.close();

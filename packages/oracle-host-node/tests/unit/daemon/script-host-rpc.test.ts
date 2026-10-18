@@ -41,6 +41,9 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
 vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: () => [],
 }));
+vi.mock('@openheaders/oracle/entity/template-store', () => ({ getTemplateCollections: () => [] }));
+vi.mock('@openheaders/oracle/entity/files-store', () => ({ listFiles: async () => [] }));
+vi.mock('@openheaders/oracle/rule-engine/variables-resolver', () => ({ getLiveRegistrySnapshot: () => new Map() }));
 vi.mock('@openheaders/oracle/sync', () => ({
   makeOracleInverseAccess: () => ({}),
   rememberPriorForMutation: () => {},

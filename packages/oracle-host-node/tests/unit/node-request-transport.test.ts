@@ -587,14 +587,18 @@ describe("createNodeRequestTransport — pinned '3' sends over the helper pipeli
   it('classifies a pre-head helper failure naming the HTTP version setting', async () => {
     const attempt = h3Transport().send(makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/error-pre' }));
     await expect(attempt).rejects.toBeInstanceOf(TransportError);
-    await expect(attempt).rejects.toThrow(/did not answer the QUIC handshake.*"HTTP version" setting/);
+    // The fact names the silent handshake; the advice — what to check —
+    // rides its own field and names the setting.
+    await expect(attempt).rejects.toThrow(/did not answer the QUIC handshake/);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/"HTTP version" setting/) });
   });
 
   it('classifies a certificate-verification failure pointing at the SSL-verification setting', async () => {
     const attempt = h3Transport().send(
       makeRequest({ httpVersion: '3', url: 'https://api.openheaders.io/error-verify' }),
     );
-    await expect(attempt).rejects.toThrow(/certificate verification failed.*SSL-verification setting/i);
+    await expect(attempt).rejects.toThrow(/certificate verification failed/i);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/SSL-verification setting/) });
   });
 
   it('classifies a handshake failure under a cipher restriction naming the cipher setting', async () => {
@@ -605,9 +609,10 @@ describe("createNodeRequestTransport — pinned '3' sends over the helper pipeli
         tlsCipherSuites: 'TLS_AES_256_GCM_SHA384',
       }),
     );
-    await expect(attempt).rejects.toThrow(
-      /TLS handshake .* failed over HTTP\/3.*"TLS cipher suites" setting restricts the offer/,
-    );
+    await expect(attempt).rejects.toThrow(/TLS handshake .* failed over HTTP\/3/);
+    await expect(attempt).rejects.toMatchObject({
+      advice: expect.stringMatching(/"TLS cipher suites" setting restricts the offer/),
+    });
   });
 
   it('seats the host user agent on the wire unless the request names its own', async () => {

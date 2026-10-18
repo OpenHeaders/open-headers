@@ -149,16 +149,20 @@ describe('createNodeRequestTransport — per-request TLS policy', () => {
 
   it('classifies a no-usable-cipher failure naming the cipher setting', async () => {
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_NO_CIPHER_MATCH'));
-    await expect(transport().send(makeRequest({ tlsCipherSuites: 'BOGUS-SUITE' }))).rejects.toThrow(
-      /"TLS cipher suites" setting/,
-    );
+    const attempt = transport().send(makeRequest({ tlsCipherSuites: 'BOGUS-SUITE' }));
+    // The fact names the failure; the advice — what to check — rides
+    // its own field and names the setting.
+    await expect(attempt).rejects.toThrow(/No usable cipher suite for api\.openheaders\.io/);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/"TLS cipher suites" setting/) });
   });
 
   it('classifies a handshake failure pointing at the TLS settings when they are tuned', async () => {
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION'));
-    await expect(transport().send(makeRequest({ tlsMinVersion: '1.0', tlsMaxVersion: '1.1' }))).rejects.toThrow(
-      /TLS version and cipher suite settings/,
-    );
+    const attempt = transport().send(makeRequest({ tlsMinVersion: '1.0', tlsMaxVersion: '1.1' }));
+    await expect(attempt).rejects.toThrow(/TLS handshake with api\.openheaders\.io failed/);
+    await expect(attempt).rejects.toMatchObject({
+      advice: expect.stringMatching(/TLS version and cipher suite settings/),
+    });
   });
 
   it('classifies a handshake failure WITHOUT naming settings when none are tuned', async () => {
@@ -345,9 +349,9 @@ describe('createNodeRequestTransport — per-request HTTP version', () => {
         }),
       }),
     );
-    await expect(transport().send(makeRequest({ httpVersion: '2' }))).rejects.toThrow(
-      /negotiated http\/1\.1 instead of the pinned HTTP\/2.*"HTTP version" setting/,
-    );
+    const attempt = transport().send(makeRequest({ httpVersion: '2' }));
+    await expect(attempt).rejects.toThrow(/negotiated http\/1\.1 instead of the pinned HTTP\/2/);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/"HTTP version" setting/) });
   });
 
   it('classifies a no-application-protocol alert as the server refusing the h2-only offer', async () => {
@@ -429,9 +433,9 @@ describe('createNodeRequestTransport — per-request resolve-to-address pin', ()
 
   it('does NOT name the setting on an unpinned refused connection', async () => {
     fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
-    await expect(transport().send(makeRequest())).rejects.toThrow(
-      /^Connection refused by api\.openheaders\.io\. Is the service running on that host\/port\?$/,
-    );
+    const attempt = transport().send(makeRequest());
+    await expect(attempt).rejects.toThrow(/^Connection refused by api\.openheaders\.io\.$/);
+    await expect(attempt).rejects.toMatchObject({ advice: 'Is the service running on that host/port?' });
   });
 });
 
@@ -522,30 +526,32 @@ describe('createNodeRequestTransport — per-request client certificate', () => 
 
   it('classifies certificate_required naming the configured vault entry', async () => {
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED'));
-    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
-      /requires a client certificate and rejected the handshake .* vault entry "gateway-mtls"/,
-    );
+    const attempt = transport().send(makeRequest({ ...CERT_FIELDS }));
+    await expect(attempt).rejects.toThrow(/requires a client certificate and rejected the handshake/);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/vault entry "gateway-mtls"/) });
   });
 
   it('classifies certificate_required pointing at the setting when NO certificate is configured', async () => {
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED'));
-    await expect(transport().send(makeRequest())).rejects.toThrow(
-      /requires a client certificate .* Pick one in the request's "Client certificate \(mTLS\)" setting/,
-    );
+    const attempt = transport().send(makeRequest());
+    await expect(attempt).rejects.toThrow(/requires a client certificate/);
+    await expect(attempt).rejects.toMatchObject({
+      advice: expect.stringMatching(/Pick one in the request's "Client certificate \(mTLS\)" setting/),
+    });
   });
 
   it('classifies bad_certificate naming the vault entry when configured', async () => {
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_SSLV3_ALERT_BAD_CERTIFICATE'));
-    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
-      /rejected the presented client certificate .* vault entry "gateway-mtls"/,
-    );
+    const attempt = transport().send(makeRequest({ ...CERT_FIELDS }));
+    await expect(attempt).rejects.toThrow(/rejected the presented client certificate/);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/vault entry "gateway-mtls"/) });
   });
 
   it('classifies a mid-handshake close naming the setting ONLY when a certificate is configured', async () => {
     fetchMock.mockRejectedValue(fetchError('UND_ERR_SOCKET'));
-    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
-      /closed the connection during the exchange\..*client-certificate setting/,
-    );
+    const attempt = transport().send(makeRequest({ ...CERT_FIELDS }));
+    await expect(attempt).rejects.toThrow(/closed the connection during the exchange\./);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/client-certificate setting/) });
   });
 
   it('keeps the generic message on a socket close with no certificate configured', async () => {
@@ -562,9 +568,9 @@ describe('createNodeRequestTransport — per-request client certificate', () => 
 
   it('a TLS 1.2 handshake_failure names the client certificate when one is configured', async () => {
     fetchMock.mockRejectedValue(fetchError('ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE'));
-    await expect(transport().send(makeRequest({ ...CERT_FIELDS }))).rejects.toThrow(
-      /TLS handshake with api\.openheaders\.io failed .* vault entry "gateway-mtls"/,
-    );
+    const attempt = transport().send(makeRequest({ ...CERT_FIELDS }));
+    await expect(attempt).rejects.toThrow(/TLS handshake with api\.openheaders\.io failed/);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/vault entry "gateway-mtls"/) });
   });
 });
 
@@ -729,16 +735,18 @@ describe('createNodeRequestTransport — per-request proxy', () => {
 
   it('classifies a 407 tunnel rejection naming the configured credential entry', async () => {
     fetchMock.mockRejectedValue(proxyTunnelError(407));
-    await expect(transport().send(makeRequest({ ...PROXY_CRED_FIELDS }))).rejects.toThrow(
-      /rejected the credentials \(407\).*vault entry "corp-proxy"/,
-    );
+    const attempt = transport().send(makeRequest({ ...PROXY_CRED_FIELDS }));
+    await expect(attempt).rejects.toThrow(/rejected the credentials \(407\)/);
+    await expect(attempt).rejects.toMatchObject({ advice: expect.stringMatching(/vault entry "corp-proxy"/) });
   });
 
   it('classifies a 407 tunnel rejection pointing at the setting when NO credentials are configured', async () => {
     fetchMock.mockRejectedValue(proxyTunnelError(407));
-    await expect(transport().send(makeRequest({ proxyUrl: PROXY_URL }))).rejects.toThrow(
-      /requires authentication \(407\)\. Set the request's proxy-credentials setting/,
-    );
+    const attempt = transport().send(makeRequest({ proxyUrl: PROXY_URL }));
+    await expect(attempt).rejects.toThrow(/requires authentication \(407\)\./);
+    await expect(attempt).rejects.toMatchObject({
+      advice: expect.stringMatching(/Set the request's proxy-credentials setting/),
+    });
   });
 
   it('classifies a non-407 tunnel rejection as a proxy-to-target failure', async () => {
@@ -757,9 +765,9 @@ describe('createNodeRequestTransport — per-request proxy', () => {
 
   it('an unproxied send never mentions a proxy on a refused connection', async () => {
     fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
-    await expect(transport().send(makeRequest())).rejects.toThrow(
-      /^Connection refused by api\.openheaders\.io\. Is the service running on that host\/port\?$/,
-    );
+    const attempt = transport().send(makeRequest());
+    await expect(attempt).rejects.toThrow(/^Connection refused by api\.openheaders\.io\.$/);
+    await expect(attempt).rejects.toMatchObject({ advice: 'Is the service running on that host/port?' });
   });
 });
 
@@ -844,9 +852,11 @@ describe('createNodeRequestTransport — per-request Unix socket target', () => 
   it('hints at the OS path-length limit when a long path fails as ENOENT', async () => {
     const longPath = `/tmp/${'x'.repeat(120)}.sock`;
     fetchMock.mockRejectedValue(fetchError('ENOENT'));
-    await expect(transport().send(makeRequest({ unixSocketPath: longPath }))).rejects.toThrow(
-      /Paths longer than the OS limit on socket paths/,
-    );
+    const attempt = transport().send(makeRequest({ unixSocketPath: longPath }));
+    await expect(attempt).rejects.toThrow(/^No socket at /);
+    await expect(attempt).rejects.toMatchObject({
+      advice: expect.stringMatching(/Paths longer than the OS limit on socket paths/),
+    });
   });
 
   it('classifies a non-socket file at the path', async () => {
@@ -886,8 +896,8 @@ describe('createNodeRequestTransport — per-request Unix socket target', () => 
 
   it('an unsocketed refused connection keeps the plain host message', async () => {
     fetchMock.mockRejectedValue(fetchError('ECONNREFUSED'));
-    await expect(transport().send(makeRequest())).rejects.toThrow(
-      /^Connection refused by api\.openheaders\.io\. Is the service running on that host\/port\?$/,
-    );
+    const attempt = transport().send(makeRequest());
+    await expect(attempt).rejects.toThrow(/^Connection refused by api\.openheaders\.io\.$/);
+    await expect(attempt).rejects.toMatchObject({ advice: 'Is the service running on that host/port?' });
   });
 });

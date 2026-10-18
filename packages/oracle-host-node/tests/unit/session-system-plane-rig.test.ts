@@ -255,7 +255,8 @@ describe('request-plane WS coverage — live rigs', () => {
     });
     expect(run.opened).toBe(false);
     expect(run.error?.message).toContain('rejected the credentials (407)');
-    expect(run.error?.message).toContain('"corp-proxy"');
+    // The advice — what to check — rides its own field beside the fact.
+    expect(run.error?.advice).toContain('"corp-proxy"');
   });
 
   it('Direct opts the session out of the ambient chain — the proxy never sees a tunnel', async () => {

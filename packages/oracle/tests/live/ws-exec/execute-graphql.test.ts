@@ -105,6 +105,7 @@ const PLAN = {
 };
 
 const ACK = '{"type":"connection_ack"}';
+const MISS_HINT = 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
 const tick = (n: number): string => `{"id":"1","type":"next","payload":{"data":{"tick":${n}}}}`;
 
 /** A session opened and acked — the settle promise is handed back
@@ -161,9 +162,9 @@ describe('executeWsSession — the GraphQL subscription plane', () => {
     await settled;
   });
 
-  it('gates an unresolved reference in the envelope before the wire', async () => {
+  it('a plain miss in the envelope rides as written — the variables text no longer parses and is left off the subscribe, the snapshot names the reference', async () => {
     const rig = scriptedTransport();
-    const snapshot = await executeWsSession(makeSubscriptionRequest(), {
+    const settled = executeWsSession(makeSubscriptionRequest(), {
       workspaceId: null,
       environmentId: undefined,
       transport: rig.transport,
@@ -171,8 +172,16 @@ describe('executeWsSession — the GraphQL subscription plane', () => {
       resolution: scopedResolution,
       graphql: { ...PLAN, variables: '{"every": {{missing}}}' },
     });
-    expect(snapshot.outcome).toMatchObject({ kind: 'failed' });
-    expect(snapshot.outcome.kind === 'failed' && snapshot.outcome.error).toContain('missing');
+    await settleTick();
+    rig.callbacks().onOpen('graphql-transport-ws', '');
+    rig.callbacks().onMessage(textFrame(ACK));
+    expect(rig.sent[1]).toBe(
+      '{"id":"1","type":"subscribe","payload":{"query":"subscription Ticks($every: Int) { tick(everyMs: $every, take: 3) }","operationName":"Ticks"}}',
+    );
+    rig.callbacks().onMessage(textFrame('{"id":"1","type":"complete"}'));
+    const snapshot = await settled;
+    expect(snapshot.outcome.kind).toBe('connected');
+    expect(snapshot.sentAsWritten).toEqual([{ reference: 'missing', hint: MISS_HINT }]);
   });
 
   it('pongs a ping with its payload and closes 1000 on the server’s error', async () => {

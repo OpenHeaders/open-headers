@@ -1073,7 +1073,8 @@ describe('fetch-failure classification', () => {
       const req = makeRequest({ url: 'http://localhost:3000/health' });
       const res = await executeRequestDraft(req, {});
       expect(res.error).toContain('localhost');
-      expect(res.error).toMatch(/Is the service running/);
+      // The advice — what to check — rides its own field beside the fact.
+      expect(res.errorAdvice).toMatch(/Is the service running/);
       // Plain-http failure has no certificate to accept — no tab hint.
       expect(res.errorHint).toBeUndefined();
     } finally {
@@ -1091,7 +1092,7 @@ describe('fetch-failure classification', () => {
       const res = await executeRequestDraft(req, {});
       // `example-local` has a dash but no dot → single-label → http://
       expect(res.error).toContain('example-local');
-      expect(res.error).toMatch(/Is the service running/);
+      expect(res.errorAdvice).toMatch(/Is the service running/);
     } finally {
       vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
         fetchMock(input, init);

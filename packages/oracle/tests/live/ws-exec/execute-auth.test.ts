@@ -3,7 +3,7 @@
  * bearer token resolves with the Connect-time templates and injects
  * `Authorization: Bearer <token>` into the handshake headers; an
  * explicit user Authorization row takes precedence (the gRPC auth
- * law); an unresolved token gates the session as a structured error;
+ * law); an unresolved token rides as written, the snapshot naming it;
  * and the socketio flavor ALSO lands the token as the CONNECT
  * packet's auth payload — in-band framing captured verbatim.
  *
@@ -64,6 +64,8 @@ const SCOPE: Record<string, string> = {
   token: 'tok-123',
   jwtSecret: 'oh-jwt-secret',
 };
+
+const MISS_HINT = 'Not found in vault, environment, collection, or workspace. Define it in one of those scopes.';
 
 function scopedResolution(template: string, unresolved: Map<string, ResolutionError>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (whole, name: string) => {
@@ -161,7 +163,7 @@ describe('executeWsSession — session credential', () => {
     await settled;
   });
 
-  it('reads an empty resolved token as none and gates an unresolved one as a structured error', async () => {
+  it('reads an empty resolved token as none and sends an unresolved one as written, the snapshot naming it', async () => {
     const emptyRig = scriptedTransport();
     const emptySettled = executeWsSession(makeWsRequest({ auth: { type: 'bearer', token: '   ' } }), {
       workspaceId: null,
@@ -176,15 +178,19 @@ describe('executeWsSession — session credential', () => {
     await emptySettled;
 
     const unresolvedRig = scriptedTransport();
-    const snapshot = await executeWsSession(makeWsRequest({ auth: { type: 'bearer', token: '{{missing}}' } }), {
+    const settled = executeWsSession(makeWsRequest({ auth: { type: 'bearer', token: '{{missing}}' } }), {
       workspaceId: null,
       environmentId: undefined,
       transport: unresolvedRig.transport,
       sendId: 'send-auth-3b',
       resolution: scopedResolution,
     });
-    if (snapshot.outcome.kind !== 'failed') throw new Error('expected a failed outcome');
-    expect(snapshot.outcome.error).toContain('missing');
+    await settleTick();
+    // A plain miss rides as written — the literal goes on the wire.
+    expect(unresolvedRig.wire().headers).toEqual([{ key: 'Authorization', value: 'Bearer {{missing}}' }]);
+    unresolvedRig.callbacks().onEnd();
+    const snapshot = await settled;
+    expect(snapshot.sentAsWritten).toEqual([{ reference: 'missing', hint: MISS_HINT }]);
   });
 
   it('lands the token as the socketio CONNECT auth payload alongside the header', async () => {
