@@ -99,6 +99,7 @@ import MqttSettingsTab from './MqttSettingsTab';
 import MqttSpecTab from './MqttSpecTab';
 import SessionLock from '../shared/SessionLock';
 import MqttTargetRow from './MqttTargetRow';
+import VersionGateLine from './VersionGateLine';
 import MqttTopicsTab from './MqttTopicsTab';
 import { useMqttComposeAids } from './useMqttComposeAids';
 import { useMqttSavedSelection } from './useMqttSavedSelection';
@@ -567,16 +568,21 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                     )}
                     {activeTab === 'properties' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-testid="mqtt-user-props">
-                        {/* The tab's (i) card says what the rows are and that a
-                          3.1.1 session keeps them unsent; the dimmed grid shows
-                          that state — no line above it. */}
-                        <div style={v5 ? undefined : { opacity: 0.55, pointerEvents: 'none' }} aria-disabled={!v5}>
+                        {/* On 3.1.1 the gears' gate line leads the tab too —
+                          why the grid is inert and the switch out — and the
+                          dimmed grid wears the not-allowed cursor (the inner
+                          box drops pointer events, so the cursor lives on the
+                          outer one). */}
+                        {!v5 && <VersionGateLine onSwitchToV5={switchToV5} testId="mqtt-user-props-v5-gate" />}
+                        <div style={v5 ? undefined : { cursor: 'not-allowed' }}>
+                          <div style={v5 ? undefined : { opacity: 0.55, pointerEvents: 'none' }} aria-disabled={!v5}>
                           <KeyValueTable
                             rows={draft.userProperties}
                             onChange={(userProperties) => setDraft((d) => ({ ...d, userProperties }))}
                             keyPlaceholder={t('workbench.editors.mqtt.userProps.keyPlaceholder')}
                             valuePlaceholder={t('workbench.editors.mqtt.userProps.valuePlaceholder')}
                           />
+                          </div>
                         </div>
                       </div>
                     )}
