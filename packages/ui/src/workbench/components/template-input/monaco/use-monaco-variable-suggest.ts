@@ -20,7 +20,7 @@
 import type { SuggestionContext, VariableSuggestion } from '@openheaders/core/variables';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSettingValue } from '../../../settings/hooks';
 import type { CreateTarget } from '../create-target';
 import { useAutoSuggestionContext } from '../SuggestionContextProvider';
@@ -91,10 +91,11 @@ export function useMonacoVariableSuggest(
   // The run Escape closed: it stays closed until the query changes or
   // the caret leaves it, so the key does not reopen the list it closed.
   const dismissedRef = useRef<Measure | null>(null);
+  const isOpen = measure !== null;
 
   const { suggestions, activeIndex, setActiveIndex, createTarget, recordRecent } = useSuggestionList({
     context,
-    isOpen: measure !== null,
+    isOpen,
     query: measure?.query ?? '',
     measureDouble: true,
   });
@@ -191,13 +192,24 @@ export function useMonacoVariableSuggest(
     };
   }, [measure, reanchor]);
 
-  // Monaco's own widget never stacks under ours: a no-op while it is
-  // hidden (the command's precondition), a close when a word
-  // suggestion popped on the same keystroke.
-  useEffect(() => {
-    if (!editor || !measure) return;
+  // Monaco's own completions pause while the run is composed: the
+  // language's quick suggestions and trigger characters are off until
+  // the list closes, then restored to what the host configured. A hide
+  // alone is not enough — the request a keystroke started answers
+  // after it, from a worker, and the widget would surface under ours.
+  // A layout effect, so the flip lands before the quick-suggest timer
+  // that keystroke armed can fire.
+  useLayoutEffect(() => {
+    if (!editor || !isOpen) return;
+    const raw = editor.getRawOptions();
+    const previous = {
+      quickSuggestions: raw.quickSuggestions,
+      suggestOnTriggerCharacters: raw.suggestOnTriggerCharacters,
+    };
+    editor.updateOptions({ quickSuggestions: false, suggestOnTriggerCharacters: false });
     editor.trigger(EDIT_SOURCE, 'hideSuggestWidget', null);
-  }, [editor, measure]);
+    return () => editor.updateOptions(previous);
+  }, [editor, isOpen]);
 
   const select = useCallback(
     (suggestion: VariableSuggestion) => {

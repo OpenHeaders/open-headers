@@ -82,8 +82,11 @@ function fakeEditor(initialLine: string) {
     cursor.fire();
   });
   const trigger = vi.fn();
+  const updateOptions = vi.fn();
   const api = {
     getModel: () => ({ getLineContent: () => line }),
+    getRawOptions: () => ({ quickSuggestions: { other: 'on', comments: 'off', strings: 'off' } }),
+    updateOptions,
     getPosition: () => position,
     getSelection: () => ({ isEmpty: () => true }),
     hasTextFocus: () => true,
@@ -105,6 +108,7 @@ function fakeEditor(initialLine: string) {
     executeEdits,
     setPosition,
     trigger,
+    updateOptions,
     line: () => line,
     type(text: string) {
       line = `${line.slice(0, position.column - 1)}${text}${line.slice(position.column - 1)}`;
@@ -157,6 +161,23 @@ describe('useMonacoVariableSuggest', () => {
     expect(screen.getByRole('listbox')).not.toBeNull();
     expect(options()[0].textContent).toContain('dynamic.');
     expect(fake.trigger).toHaveBeenCalledWith('oh.variableSuggest', 'hideSuggestWidget', null);
+  });
+
+  it("pauses Monaco's own completions while the run is open and restores them on close", () => {
+    const fake = mount();
+    act(() => fake.type('{{'));
+    expect(fake.updateOptions).toHaveBeenCalledTimes(1);
+    expect(fake.updateOptions).toHaveBeenLastCalledWith({ quickSuggestions: false, suggestOnTriggerCharacters: false });
+    act(() => fake.type('e'));
+    expect(fake.updateOptions).toHaveBeenCalledTimes(1);
+    act(() => {
+      fake.key('Escape');
+    });
+    expect(fake.updateOptions).toHaveBeenCalledTimes(2);
+    expect(fake.updateOptions).toHaveBeenLastCalledWith({
+      quickSuggestions: { other: 'on', comments: 'off', strings: 'off' },
+      suggestOnTriggerCharacters: undefined,
+    });
   });
 
   it('hangs the popover below the opening brace', () => {
