@@ -274,8 +274,11 @@ export interface BridgeBroadcastContract {
    *   - `import`   → open the import hub
    *   - `closeTab` → close the active editor tab (dirty-confirm applies)
    *   - `saveDiagnostics` → compose and save the diagnostic bundle
+   *   - `reportIssue` / `requestFeature` → open the report dialog on that kind
    */
-  menuCommand: { command: 'newItem' | 'newTab' | 'import' | 'closeTab' | 'saveDiagnostics' };
+  menuCommand: {
+    command: 'newItem' | 'newTab' | 'import' | 'closeTab' | 'saveDiagnostics' | 'reportIssue' | 'requestFeature';
+  };
 
   /**
    * Host-shell lifecycle: the tray-resident primary window was hidden

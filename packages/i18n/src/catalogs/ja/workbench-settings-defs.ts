@@ -726,4 +726,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.openSource.label': '同梱パッケージ',
   'workbench.settings.def.about.openSource.description':
     'このビルドに同梱されているオープンソースソフトウェアと、各パッケージのライセンスです。',
+  'workbench.settings.def.about.reportIssue.label': '問題を報告',
+  'workbench.settings.def.about.reportIssue.description':
+    'バージョンとシステム情報を入力済みのバグ報告を GitHub で開きます。投稿前にすべて確認できます。',
+  'workbench.settings.def.about.reportIssue.action.label': '報告…',
+  'workbench.settings.def.about.requestFeature.label': '機能リクエスト',
+  'workbench.settings.def.about.requestFeature.description':
+    '新しい機能を GitHub で提案します。コードを書く前に issue で動作を合意します。',
+  'workbench.settings.def.about.requestFeature.action.label': 'リクエスト…',
 } as const satisfies Catalog;

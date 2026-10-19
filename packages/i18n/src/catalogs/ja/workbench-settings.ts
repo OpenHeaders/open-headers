@@ -267,6 +267,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.application': 'アプリケーション',
   'workbench.settings.category.about.sub.environment': '環境',
   'workbench.settings.category.about.sub.openSource': 'オープンソースソフトウェア',
+  'workbench.settings.category.about.sub.support': 'サポート',
   'workbench.settings.thirdParty.software': 'ソフトウェア',
   'workbench.settings.thirdParty.license': 'ライセンス',
 

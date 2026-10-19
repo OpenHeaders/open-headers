@@ -1,11 +1,14 @@
 /**
  * About category — read-only info fields surfaced from the manifest,
- * build metadata, and the protocol contract.
+ * build metadata, and the protocol contract, plus the Support rows that
+ * open the report dialog (the error reports plan §8.7) — the one door
+ * to it on hosts without a native Help menu.
  */
 
 import { MIN_COMPATIBLE_PROTOCOL, PROTOCOL_VERSION } from '@openheaders/core/protocol';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import * as v from 'valibot';
+import { openReportIssueDialog } from '../../support/store';
 import ThirdPartySoftwareRow from '../components/third-party-software-row';
 import { registerSetting } from '../registry';
 
@@ -13,6 +16,7 @@ import { registerSetting } from '../registry';
 // resolved at render time via `infoValue`, not persisted, so validation
 // only guards against accidental writes.
 const infoSchema = v.string();
+const actionSchema = v.string();
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
@@ -22,6 +26,8 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'about.protocol': string;
     'about.browser': string;
     'about.openSource': string;
+    'about.reportIssue': string;
+    'about.requestFeature': string;
   }
 }
 
@@ -122,4 +128,38 @@ registerSetting({
   tags: ['license', 'open source', 'third party', 'oss', 'packages'],
   scope: 'user',
   customEditor: ThirdPartySoftwareRow,
+});
+
+registerSetting({
+  key: 'about.reportIssue',
+  subcategory: 'support',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  labelKey: 'workbench.settings.def.about.reportIssue.label',
+  descriptionKey: 'workbench.settings.def.about.reportIssue.description',
+  category: 'about',
+  tags: ['bug', 'issue', 'report', 'support', 'github'],
+  scope: 'user',
+  action: {
+    labelKey: 'workbench.settings.def.about.reportIssue.action.label',
+    run: () => openReportIssueDialog('bug'),
+  },
+});
+
+registerSetting({
+  key: 'about.requestFeature',
+  subcategory: 'support',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  labelKey: 'workbench.settings.def.about.requestFeature.label',
+  descriptionKey: 'workbench.settings.def.about.requestFeature.description',
+  category: 'about',
+  tags: ['feature', 'request', 'idea', 'support', 'github'],
+  scope: 'user',
+  action: {
+    labelKey: 'workbench.settings.def.about.requestFeature.action.label',
+    run: () => openReportIssueDialog('feature'),
+  },
 });

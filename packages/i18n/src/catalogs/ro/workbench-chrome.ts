@@ -1016,4 +1016,34 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': 'Copierea a eșuat: {message}',
   'workbench.copySnippet.copiedWithReferences':
     'Copiat ca {format} – {references} scris ca referință; valoarea unui manager de secrete nu ajunge niciodată într-o comandă copiată.',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': 'Raportare problemă',
+  'workbench.support.title.feature': 'Solicitare funcționalitate',
+  'workbench.support.kind.bug': 'Raport de eroare',
+  'workbench.support.kind.feature': 'Solicitare de funcționalitate',
+  'workbench.support.field.title': 'Titlu',
+  'workbench.support.field.steps': 'Pași de reproducere',
+  'workbench.support.field.steps.hint':
+    'Pașii prin care problema se reproduce sigur, cu rezultatul real și cel așteptat. Markdown este acceptat; pe GitHub puteți edita issue-ul și adăuga capturi de ecran.',
+  'workbench.support.field.description': 'Descriere',
+  'workbench.support.field.description.hint':
+    'Fluxul de lucru pe care încercați să-l realizați și comportamentul dorit. Markdown este acceptat; pe GitHub puteți edita issue-ul și adăuga capturi de ecran.',
+  'workbench.support.facts.include': 'Include informațiile de sistem',
+  'workbench.support.facts.show': 'afișează',
+  'workbench.support.facts.hide': 'ascunde',
+  'workbench.support.facts.unavailable':
+    'Informațiile de sistem nu sunt disponibile pe această gazdă; completați versiunea și platforma pe GitHub.',
+  'workbench.support.logs.notice':
+    'Jurnalele nu sunt incluse. Atașați pachetul de diagnosticare la issue pe GitHub dacă ajută.',
+  'workbench.support.logs.saveBundle': 'Salvează pachetul…',
+  'workbench.support.trimmed.rows':
+    'Unele rânduri de sistem au fost omise pentru a păstra linkul scurt; pachetul de diagnosticare le conține pe toate.',
+  'workbench.support.trimmed.facts':
+    'Informațiile de sistem au fost omise pentru a păstra linkul scurt; pachetul de diagnosticare le conține.',
+  'workbench.support.overBudget':
+    'Textul este prea lung pentru un link precompletat. Scurtați-l aici și adăugați restul pe GitHub.',
+  'workbench.support.preview': 'Previzualizare pe GitHub',
+  'workbench.support.previewHint':
+    'Deschide un issue nou pe GitHub cu aceste câmpuri completate. Nimic nu este publicat până nu îl trimiteți acolo.',
 } as const satisfies Catalog;

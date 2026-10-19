@@ -37,7 +37,7 @@ export const desktop = {
   'desktop.menu.licenseAgreement': 'Лицензионное соглашение',
   'desktop.menu.keyboardShortcuts': 'Сочетания клавиш',
   'desktop.menu.releaseNotes': 'Примечания к выпуску',
-  'desktop.menu.requestFeature': 'Предложить функцию',
+  'desktop.menu.requestFeature': 'Запрос функции',
   'desktop.menu.communityChat': 'Чат с нами в Discord',
   'desktop.menu.openLogsFolder': 'Открыть папку журналов',
   'desktop.menu.privacyPolicy': 'Политика конфиденциальности',

@@ -672,4 +672,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.browser.description': '检测到的浏览器和平台。',
   'workbench.settings.def.about.openSource.label': '捆绑的软件包',
   'workbench.settings.def.about.openSource.description': '此构建中捆绑的开源软件及各软件包的许可证。',
+  'workbench.settings.def.about.reportIssue.label': '报告问题',
+  'workbench.settings.def.about.reportIssue.description':
+    '在 GitHub 上打开已填好版本和系统信息的错误报告。发布前您可以检查全部内容。',
+  'workbench.settings.def.about.reportIssue.action.label': '报告…',
+  'workbench.settings.def.about.requestFeature.label': '功能请求',
+  'workbench.settings.def.about.requestFeature.description':
+    '在 GitHub 上提出新功能。在编写任何代码之前，先在 issue 中就行为达成一致。',
+  'workbench.settings.def.about.requestFeature.action.label': '请求…',
 } as const satisfies Catalog;

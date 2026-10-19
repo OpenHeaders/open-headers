@@ -41,7 +41,7 @@ address.
 
 ### Report bugs
 
-[Open a bug report](https://github.com/OpenHeaders/open-headers/issues/new?template=bug_report.yml) with:
+[Open a bug report](https://github.com/OpenHeaders/open-headers/issues/new?template=bug_report.md) with:
 
 - Steps to reproduce
 - Expected vs actual behavior
@@ -50,7 +50,7 @@ address.
 
 ### Propose features
 
-[Open a feature request](https://github.com/OpenHeaders/open-headers/issues/new?template=feature_request.yml) describing:
+[Open a feature request](https://github.com/OpenHeaders/open-headers/issues/new?template=feature_request.md) describing:
 
 - The problem you're solving (the workflow, not just the mechanism)
 - The behavior you'd like to see

@@ -944,4 +944,28 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': '无法复制：{message}',
   'workbench.copySnippet.copiedWithReferences':
     '已复制为 {format}。{references} 以引用形式写出；密钥管理器的值绝不会进入复制的命令。',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': '报告问题',
+  'workbench.support.title.feature': '功能请求',
+  'workbench.support.kind.bug': '错误报告',
+  'workbench.support.kind.feature': '功能请求',
+  'workbench.support.field.title': '标题',
+  'workbench.support.field.steps': '复现步骤',
+  'workbench.support.field.steps.hint':
+    '可靠复现问题的步骤，以及实际结果和预期结果。支持 Markdown；您可以在 GitHub 上编辑 issue 并添加截图。',
+  'workbench.support.field.description': '描述',
+  'workbench.support.field.description.hint':
+    '您想完成的工作流程以及希望看到的行为。支持 Markdown；您可以在 GitHub 上编辑 issue 并添加截图。',
+  'workbench.support.facts.include': '包含系统信息',
+  'workbench.support.facts.show': '显示',
+  'workbench.support.facts.hide': '隐藏',
+  'workbench.support.facts.unavailable': '此主机无法提供系统信息；请在 GitHub 上填写版本和平台。',
+  'workbench.support.logs.notice': '不包含日志。如有帮助，请在 GitHub 的 issue 中附上诊断包。',
+  'workbench.support.logs.saveBundle': '保存诊断包…',
+  'workbench.support.trimmed.rows': '为保持链接简短，省略了部分系统信息行；诊断包中包含全部内容。',
+  'workbench.support.trimmed.facts': '为保持链接简短，省略了系统信息；诊断包中包含这些内容。',
+  'workbench.support.overBudget': '文本过长，无法放入预填链接。请在此缩短，其余内容在 GitHub 上补充。',
+  'workbench.support.preview': '在 GitHub 上预览',
+  'workbench.support.previewHint': '在 GitHub 上打开一个已填好这些字段的新 issue。在您于该处提交之前不会发布任何内容。',
 } as const satisfies Catalog;

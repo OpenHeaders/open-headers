@@ -155,6 +155,7 @@ import { ConnectionProvider } from './settings/ConnectionContext';
 import { saveDiagnosticsBundle } from './settings/diagnostics-bundle';
 import { get as getSetting } from './settings/store';
 import { SettingsModal } from './settings/ui';
+import { openReportIssueDialog, ReportIssueDialog } from './support';
 import { noteToolWindowFeatureUsed } from './feature-usage';
 import { getFocusedDock } from './stores/focus-region-store';
 import { isToolWindowTeased, TOOL_WINDOW_MAP } from './tool-windows';
@@ -873,6 +874,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         else if (command === 'import' && !zeroWorkspaces) importExportRef.current?.openImportSource();
         else if (command === 'closeTab') handleCloseActiveTab();
         else if (command === 'saveDiagnostics') void saveDiagnosticsBundle();
+        else if (command === 'reportIssue') openReportIssueDialog('bug');
+        else if (command === 'requestFeature') openReportIssueDialog('feature');
       }),
     [openCreateMenu, openCreateRequestTab, handleCloseActiveTab, zeroWorkspaces],
   );
@@ -1850,6 +1853,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onOpenWhatsNew={openWhatsNew}
           />
           <UpdateDialog onConfigureUpdates={() => openSettings({ categoryId: 'updates' })} />
+          <ReportIssueDialog />
 
           <ShellLayout
             tl={tl}

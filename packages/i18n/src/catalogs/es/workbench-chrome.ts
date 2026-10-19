@@ -1040,4 +1040,34 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': 'No se pudo copiar: {message}',
   'workbench.copySnippet.copiedWithReferences':
     'Copiado como {format}: {references} escrito como referencia; el valor de un gestor de secretos nunca entra en un comando copiado.',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': 'Informar de un problema',
+  'workbench.support.title.feature': 'Solicitud de función',
+  'workbench.support.kind.bug': 'Informe de error',
+  'workbench.support.kind.feature': 'Solicitud de función',
+  'workbench.support.field.title': 'Título',
+  'workbench.support.field.steps': 'Pasos para reproducirlo',
+  'workbench.support.field.steps.hint':
+    'Los pasos para reproducir el problema de forma fiable, con el resultado real y el esperado. Se admite Markdown; en GitHub podrá editar el issue y añadir capturas.',
+  'workbench.support.field.description': 'Descripción',
+  'workbench.support.field.description.hint':
+    'El flujo de trabajo que intenta conseguir y el comportamiento que le gustaría ver. Se admite Markdown; en GitHub podrá editar el issue y añadir capturas.',
+  'workbench.support.facts.include': 'Incluir información del sistema',
+  'workbench.support.facts.show': 'mostrar',
+  'workbench.support.facts.hide': 'ocultar',
+  'workbench.support.facts.unavailable':
+    'La información del sistema no está disponible en este host; indique la versión y la plataforma en GitHub.',
+  'workbench.support.logs.notice':
+    'Los registros no se incluyen. Adjunte el paquete de diagnóstico al issue en GitHub si ayuda.',
+  'workbench.support.logs.saveBundle': 'Guardar paquete…',
+  'workbench.support.trimmed.rows':
+    'Se omitieron algunas filas del sistema para que el enlace sea corto; el paquete de diagnóstico las contiene todas.',
+  'workbench.support.trimmed.facts':
+    'Se omitió la información del sistema para que el enlace sea corto; el paquete de diagnóstico la contiene.',
+  'workbench.support.overBudget':
+    'El texto es demasiado largo para un enlace prerrellenado. Acórtelo aquí y añada el resto en GitHub.',
+  'workbench.support.preview': 'Previsualizar en GitHub',
+  'workbench.support.previewHint':
+    'Abre un nuevo issue en GitHub con estos campos rellenados. No se publica nada hasta que lo envíe allí.',
 } as const satisfies Catalog;

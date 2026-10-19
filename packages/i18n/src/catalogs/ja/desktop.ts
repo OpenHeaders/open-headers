@@ -32,7 +32,7 @@ export const desktop = {
   'desktop.menu.licenseAgreement': 'ライセンス契約',
   'desktop.menu.keyboardShortcuts': 'キーボードショートカット',
   'desktop.menu.releaseNotes': 'リリースノート',
-  'desktop.menu.requestFeature': '機能をリクエスト',
+  'desktop.menu.requestFeature': '機能リクエスト',
   'desktop.menu.communityChat': 'Discord でチャット',
   'desktop.menu.openLogsFolder': 'ログフォルダを開く',
   'desktop.menu.privacyPolicy': 'プライバシーポリシー',

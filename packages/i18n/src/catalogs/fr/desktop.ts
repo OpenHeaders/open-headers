@@ -32,7 +32,7 @@ export const desktop = {
   'desktop.menu.licenseAgreement': 'Contrat de licence',
   'desktop.menu.keyboardShortcuts': 'Raccourcis clavier',
   'desktop.menu.releaseNotes': 'Notes de version',
-  'desktop.menu.requestFeature': 'Proposer une fonctionnalité',
+  'desktop.menu.requestFeature': 'Demande de fonctionnalité',
   'desktop.menu.communityChat': 'Discuter avec nous sur Discord',
   'desktop.menu.openLogsFolder': 'Ouvrir le dossier des journaux',
   'desktop.menu.privacyPolicy': 'Politique de confidentialité',

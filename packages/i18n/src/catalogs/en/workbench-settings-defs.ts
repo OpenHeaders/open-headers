@@ -717,4 +717,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.openSource.label': 'Bundled packages',
   'workbench.settings.def.about.openSource.description':
     "Open-source software bundled in this build, with each package's license.",
+  'workbench.settings.def.about.reportIssue.label': 'Report Issue',
+  'workbench.settings.def.about.reportIssue.description':
+    'Open a bug report on GitHub with the version and system facts filled in. You review everything before posting.',
+  'workbench.settings.def.about.reportIssue.action.label': 'Report…',
+  'workbench.settings.def.about.requestFeature.label': 'Feature Request',
+  'workbench.settings.def.about.requestFeature.description':
+    'Propose new functionality on GitHub. The behavior is agreed in the issue before any code is written.',
+  'workbench.settings.def.about.requestFeature.action.label': 'Request…',
 } as const satisfies Catalog;

@@ -1037,4 +1037,34 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': 'Kopieren fehlgeschlagen: {message}',
   'workbench.copySnippet.copiedWithReferences':
     'Als {format} kopiert – {references} als Referenz geschrieben; der Wert eines Secret-Managers gelangt nie in einen kopierten Befehl.',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': 'Problem melden',
+  'workbench.support.title.feature': 'Funktionswunsch',
+  'workbench.support.kind.bug': 'Fehlerbericht',
+  'workbench.support.kind.feature': 'Funktionswunsch',
+  'workbench.support.field.title': 'Titel',
+  'workbench.support.field.steps': 'Schritte zum Nachstellen',
+  'workbench.support.field.steps.hint':
+    'Die Schritte, mit denen sich das Problem zuverlässig nachstellen lässt, mit tatsächlichem und erwartetem Ergebnis. Markdown wird unterstützt; auf GitHub können Sie das Issue bearbeiten und Screenshots anhängen.',
+  'workbench.support.field.description': 'Beschreibung',
+  'workbench.support.field.description.hint':
+    'Der Arbeitsablauf, den Sie erreichen möchten, und das gewünschte Verhalten. Markdown wird unterstützt; auf GitHub können Sie das Issue bearbeiten und Screenshots anhängen.',
+  'workbench.support.facts.include': 'Systeminformationen beifügen',
+  'workbench.support.facts.show': 'anzeigen',
+  'workbench.support.facts.hide': 'ausblenden',
+  'workbench.support.facts.unavailable':
+    'Systeminformationen sind auf diesem Host nicht verfügbar; tragen Sie Version und Plattform auf GitHub ein.',
+  'workbench.support.logs.notice':
+    'Protokolle sind nicht enthalten. Hängen Sie das Diagnosepaket auf GitHub an das Issue an, wenn es hilft.',
+  'workbench.support.logs.saveBundle': 'Paket speichern…',
+  'workbench.support.trimmed.rows':
+    'Einige Systemzeilen wurden weggelassen, damit der Link kurz bleibt; das Diagnosepaket enthält sie alle.',
+  'workbench.support.trimmed.facts':
+    'Die Systeminformationen wurden weggelassen, damit der Link kurz bleibt; das Diagnosepaket enthält sie.',
+  'workbench.support.overBudget':
+    'Der Text ist zu lang für einen vorausgefüllten Link. Kürzen Sie ihn hier und ergänzen Sie den Rest auf GitHub.',
+  'workbench.support.preview': 'Auf GitHub ansehen',
+  'workbench.support.previewHint':
+    'Öffnet ein neues Issue auf GitHub mit diesen Feldern ausgefüllt. Nichts wird gesendet, bis Sie es dort absenden.',
 } as const satisfies Catalog;

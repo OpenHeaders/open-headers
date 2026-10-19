@@ -83,7 +83,7 @@ describe('application menu labels', () => {
       .filter((group) => group.length > 0);
     expect(helpGroups.slice(0, 4)).toEqual([
       ['Documentation', 'Keyboard Shortcuts', 'Release Notes'],
-      ['Report an Issue', 'Request a Feature', 'Chat with Us on Discord'],
+      ['Report Issue', 'Feature Request', 'Chat with Us on Discord'],
       ['Save Diagnostics…', 'Open Logs Folder'],
       ['License Agreement', 'Privacy Policy'],
     ]);

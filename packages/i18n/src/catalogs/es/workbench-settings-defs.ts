@@ -930,4 +930,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.openSource.label': 'Paquetes incluidos',
   'workbench.settings.def.about.openSource.description':
     'Software de código abierto incluido en este build, con la licencia de cada paquete.',
+  'workbench.settings.def.about.reportIssue.label': 'Informar de un problema',
+  'workbench.settings.def.about.reportIssue.description':
+    'Abre un informe de error en GitHub con la versión y los datos del sistema ya rellenados. Usted revisa todo antes de publicar.',
+  'workbench.settings.def.about.reportIssue.action.label': 'Informar…',
+  'workbench.settings.def.about.requestFeature.label': 'Solicitud de función',
+  'workbench.settings.def.about.requestFeature.description':
+    'Propone nueva funcionalidad en GitHub. El comportamiento se acuerda en el issue antes de escribir código.',
+  'workbench.settings.def.about.requestFeature.action.label': 'Solicitar…',
 } as const satisfies Catalog;

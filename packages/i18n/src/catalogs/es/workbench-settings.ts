@@ -293,6 +293,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.application': 'Aplicación',
   'workbench.settings.category.about.sub.environment': 'Entorno',
   'workbench.settings.category.about.sub.openSource': 'Software de código abierto',
+  'workbench.settings.category.about.sub.support': 'Soporte',
   'workbench.settings.thirdParty.software': 'Software',
   'workbench.settings.thirdParty.license': 'Licencia',
 

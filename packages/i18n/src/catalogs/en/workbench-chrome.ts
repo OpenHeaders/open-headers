@@ -979,4 +979,34 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': "Couldn't copy: {message}",
   'workbench.copySnippet.copiedWithReferences':
     "Copied as {format} — {references} written as the reference; a secret manager's value never enters a copied command.",
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': 'Report Issue',
+  'workbench.support.title.feature': 'Feature Request',
+  'workbench.support.kind.bug': 'Bug report',
+  'workbench.support.kind.feature': 'Feature request',
+  'workbench.support.field.title': 'Title',
+  'workbench.support.field.steps': 'Steps to reproduce',
+  'workbench.support.field.steps.hint':
+    'The steps to reliably reproduce the problem, with the actual and expected results. Markdown is supported; you can edit the issue and add screenshots on GitHub.',
+  'workbench.support.field.description': 'Description',
+  'workbench.support.field.description.hint':
+    'The workflow you are trying to accomplish and the behavior you would like to see. Markdown is supported; you can edit the issue and add screenshots on GitHub.',
+  'workbench.support.facts.include': 'Include system information',
+  'workbench.support.facts.show': 'show',
+  'workbench.support.facts.hide': 'hide',
+  'workbench.support.facts.unavailable':
+    'System information is not available on this host; fill in the version and platform on GitHub.',
+  'workbench.support.logs.notice':
+    'Logs are not included. Attach the diagnostic bundle to the issue on GitHub if it helps.',
+  'workbench.support.logs.saveBundle': 'Save bundle…',
+  'workbench.support.trimmed.rows':
+    'Some system rows were left out to keep the link short; the diagnostic bundle has them all.',
+  'workbench.support.trimmed.facts':
+    'System information was left out to keep the link short; the diagnostic bundle has it.',
+  'workbench.support.overBudget':
+    'The text is too long for a prefilled link. Shorten it here and add the rest on GitHub.',
+  'workbench.support.preview': 'Preview on GitHub',
+  'workbench.support.previewHint':
+    'Opens a new issue on GitHub with these fields filled in. Nothing is posted until you submit it there.',
 } as const satisfies Catalog;

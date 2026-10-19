@@ -983,4 +983,32 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': 'コピーできませんでした：{message}',
   'workbench.copySnippet.copiedWithReferences':
     '{format} としてコピーしました。{references} は参照として書き出されます。シークレットマネージャーの値がコピーしたコマンドに含まれることはありません。',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': '問題を報告',
+  'workbench.support.title.feature': '機能リクエスト',
+  'workbench.support.kind.bug': 'バグ報告',
+  'workbench.support.kind.feature': '機能リクエスト',
+  'workbench.support.field.title': 'タイトル',
+  'workbench.support.field.steps': '再現手順',
+  'workbench.support.field.steps.hint':
+    '問題を確実に再現する手順と、実際の結果および期待した結果。Markdown が使えます。GitHub で issue を編集したりスクリーンショットを追加したりできます。',
+  'workbench.support.field.description': '説明',
+  'workbench.support.field.description.hint':
+    '実現したいワークフローと、望む動作。Markdown が使えます。GitHub で issue を編集したりスクリーンショットを追加したりできます。',
+  'workbench.support.facts.include': 'システム情報を含める',
+  'workbench.support.facts.show': '表示',
+  'workbench.support.facts.hide': '非表示',
+  'workbench.support.facts.unavailable':
+    'このホストではシステム情報を取得できません。バージョンとプラットフォームは GitHub で入力してください。',
+  'workbench.support.logs.notice': 'ログは含まれません。必要なら診断バンドルを GitHub の issue に添付してください。',
+  'workbench.support.logs.saveBundle': 'バンドルを保存…',
+  'workbench.support.trimmed.rows':
+    'リンクを短く保つためシステム情報の一部の行を省きました。診断バンドルにはすべて含まれています。',
+  'workbench.support.trimmed.facts': 'リンクを短く保つためシステム情報を省きました。診断バンドルに含まれています。',
+  'workbench.support.overBudget':
+    'テキストが長すぎて事前入力リンクに収まりません。ここで短くし、残りは GitHub で追記してください。',
+  'workbench.support.preview': 'GitHub でプレビュー',
+  'workbench.support.previewHint':
+    'これらの項目を入力済みの新しい issue を GitHub で開きます。そこで送信するまで何も投稿されません。',
 } as const satisfies Catalog;

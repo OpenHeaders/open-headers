@@ -972,4 +972,32 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': '복사할 수 없습니다: {message}',
   'workbench.copySnippet.copiedWithReferences':
     '{format} 형식으로 복사됨. {references}은(는) 참조로 기록됩니다. 시크릿 매니저의 값은 복사된 명령에 절대 포함되지 않습니다.',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': '문제 신고',
+  'workbench.support.title.feature': '기능 요청',
+  'workbench.support.kind.bug': '버그 신고',
+  'workbench.support.kind.feature': '기능 요청',
+  'workbench.support.field.title': '제목',
+  'workbench.support.field.steps': '재현 단계',
+  'workbench.support.field.steps.hint':
+    '문제를 확실히 재현하는 단계와 실제 결과 및 기대한 결과. Markdown을 지원하며, GitHub에서 이슈를 편집하고 스크린샷을 추가할 수 있습니다.',
+  'workbench.support.field.description': '설명',
+  'workbench.support.field.description.hint':
+    '달성하려는 작업 흐름과 원하는 동작. Markdown을 지원하며, GitHub에서 이슈를 편집하고 스크린샷을 추가할 수 있습니다.',
+  'workbench.support.facts.include': '시스템 정보 포함',
+  'workbench.support.facts.show': '보기',
+  'workbench.support.facts.hide': '숨기기',
+  'workbench.support.facts.unavailable':
+    '이 호스트에서는 시스템 정보를 가져올 수 없습니다. 버전과 플랫폼은 GitHub에서 입력하세요.',
+  'workbench.support.logs.notice': '로그는 포함되지 않습니다. 도움이 된다면 진단 번들을 GitHub 이슈에 첨부하세요.',
+  'workbench.support.logs.saveBundle': '번들 저장…',
+  'workbench.support.trimmed.rows':
+    '링크를 짧게 유지하기 위해 일부 시스템 항목을 뺐습니다. 진단 번들에는 모두 들어 있습니다.',
+  'workbench.support.trimmed.facts': '링크를 짧게 유지하기 위해 시스템 정보를 뺐습니다. 진단 번들에 들어 있습니다.',
+  'workbench.support.overBudget':
+    '텍스트가 너무 길어 미리 채운 링크에 담을 수 없습니다. 여기서 줄이고 나머지는 GitHub에서 추가하세요.',
+  'workbench.support.preview': 'GitHub에서 미리 보기',
+  'workbench.support.previewHint':
+    '이 항목들이 채워진 새 이슈를 GitHub에서 엽니다. 거기서 제출하기 전까지는 아무것도 게시되지 않습니다.',
 } as const satisfies Catalog;

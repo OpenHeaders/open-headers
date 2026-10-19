@@ -1044,4 +1044,34 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': 'Copie impossible : {message}',
   'workbench.copySnippet.copiedWithReferences':
     'Copié en {format} : {references} écrit sous forme de référence ; la valeur d’un gestionnaire de secrets n’entre jamais dans une commande copiée.',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': 'Signaler un problème',
+  'workbench.support.title.feature': 'Demande de fonctionnalité',
+  'workbench.support.kind.bug': 'Rapport de bug',
+  'workbench.support.kind.feature': 'Demande de fonctionnalité',
+  'workbench.support.field.title': 'Titre',
+  'workbench.support.field.steps': 'Étapes pour reproduire',
+  'workbench.support.field.steps.hint':
+    'Les étapes pour reproduire le problème de façon fiable, avec le résultat constaté et le résultat attendu. Markdown est pris en charge ; vous pourrez modifier l’issue et ajouter des captures sur GitHub.',
+  'workbench.support.field.description': 'Description',
+  'workbench.support.field.description.hint':
+    'Le flux de travail que vous cherchez à accomplir et le comportement souhaité. Markdown est pris en charge ; vous pourrez modifier l’issue et ajouter des captures sur GitHub.',
+  'workbench.support.facts.include': 'Inclure les informations système',
+  'workbench.support.facts.show': 'afficher',
+  'workbench.support.facts.hide': 'masquer',
+  'workbench.support.facts.unavailable':
+    'Les informations système ne sont pas disponibles sur cet hôte ; renseignez la version et la plateforme sur GitHub.',
+  'workbench.support.logs.notice':
+    'Les journaux ne sont pas inclus. Joignez le paquet de diagnostic à l’issue sur GitHub si cela aide.',
+  'workbench.support.logs.saveBundle': 'Enregistrer le paquet…',
+  'workbench.support.trimmed.rows':
+    'Certaines lignes système ont été omises pour garder le lien court ; le paquet de diagnostic les contient toutes.',
+  'workbench.support.trimmed.facts':
+    'Les informations système ont été omises pour garder le lien court ; le paquet de diagnostic les contient.',
+  'workbench.support.overBudget':
+    'Le texte est trop long pour un lien prérempli. Raccourcissez-le ici et ajoutez le reste sur GitHub.',
+  'workbench.support.preview': 'Prévisualiser sur GitHub',
+  'workbench.support.previewHint':
+    'Ouvre une nouvelle issue sur GitHub avec ces champs remplis. Rien n’est publié tant que vous ne la soumettez pas là-bas.',
 } as const satisfies Catalog;

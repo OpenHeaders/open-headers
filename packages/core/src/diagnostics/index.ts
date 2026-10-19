@@ -2,8 +2,10 @@
  * `@openheaders/core/diagnostics` — the user-initiated diagnostic
  * bundle (the error reports plan §4.5): the system-facts vocabulary the
  * hosts answer, the pure composer that turns gathered parts into zip
- * entries, and the dependency-free zip writer. Ships nothing; every
- * byte stays where the person saves it.
+ * entries, the dependency-free zip writer, and the Report Issue link
+ * builder that prefills the repository's new-issue page from the same
+ * facts. Ships nothing; every byte stays where the person saves it, and
+ * the link only opens a page the person reviews before posting.
  */
 
 export {
@@ -28,4 +30,22 @@ export type {
   DiagnosticsFactsBase,
   ExtensionDiagnosticsFacts,
 } from './facts';
+export {
+  ISSUE_COMPONENT,
+  ISSUE_NEW_URL,
+  ISSUE_TEMPLATE,
+  ISSUE_URL_BUDGET,
+  type IssueDraft,
+  type IssueHost,
+  type IssueKind,
+  type IssueLink,
+  type IssueTrim,
+  issueBody,
+  issueLink,
+  issuePlatformLine,
+  issueVersionLine,
+  type SystemInformationRow,
+  systemInformationMarkdown,
+  systemInformationRows,
+} from './issue-form';
 export { crc32, dosDateTime, writeZip, type ZipEntry } from './zip';

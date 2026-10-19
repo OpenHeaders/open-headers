@@ -284,6 +284,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.application': 'Application',
   'workbench.settings.category.about.sub.environment': 'Environnement',
   'workbench.settings.category.about.sub.openSource': 'Logiciels open source',
+  'workbench.settings.category.about.sub.support': 'Assistance',
   'workbench.settings.thirdParty.software': 'Logiciel',
   'workbench.settings.thirdParty.license': 'Licence',
 

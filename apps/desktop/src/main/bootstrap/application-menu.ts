@@ -28,11 +28,8 @@ const DOCS_URL = 'https://docs.openheaders.com';
 const RELEASE_NOTES_URL = 'https://openheaders.com/changelog?app=desktop';
 const EULA_URL = 'https://openheaders.com/eula';
 const PRIVACY_URL = 'https://openheaders.com/privacy';
-// Blank issues are off in the repository, so each entry opens its form
-// directly; a conversation goes to the community chat server (a
-// permanent invite — a link shipped in a binary must outlive the build).
-const BUG_REPORT_URL = 'https://github.com/OpenHeaders/open-headers/issues/new?template=bug_report.yml';
-const FEATURE_REQUEST_URL = 'https://github.com/OpenHeaders/open-headers/issues/new?template=feature_request.yml';
+// A conversation goes to the community chat server (a permanent invite
+// — a link shipped in a binary must outlive the build).
 const COMMUNITY_CHAT_URL = 'https://discord.gg/DXXne8SCXv';
 
 export function openSettingsSurface(categoryId?: string): void {
@@ -77,7 +74,9 @@ function hardwareAccelerationMenuItem(t: Translator): MenuItemConstructorOptions
 // reachable) they reveal the primary window first and land there. The
 // tray-resident renderer is mounted while hidden, so its subscription
 // is live before the send.
-function sendMenuCommand(command: 'newItem' | 'newTab' | 'import' | 'saveDiagnostics'): void {
+function sendMenuCommand(
+  command: 'newItem' | 'newTab' | 'import' | 'saveDiagnostics' | 'reportIssue' | 'requestFeature',
+): void {
   const focused = BrowserWindow.getFocusedWindow();
   if (focused) {
     sendToRendererWindow(focused, 'menuCommand', { command });
@@ -255,8 +254,10 @@ function template(): MenuItemConstructorOptions[] {
         { label: t('desktop.menu.keyboardShortcuts'), click: () => openSettingsSurface('keyboard') },
         { label: t('desktop.menu.releaseNotes'), click: () => void shell.openExternal(RELEASE_NOTES_URL) },
         { type: 'separator' },
-        { label: t('desktop.menu.reportIssue'), click: () => void shell.openExternal(BUG_REPORT_URL) },
-        { label: t('desktop.menu.requestFeature'), click: () => void shell.openExternal(FEATURE_REQUEST_URL) },
+        // The report dialog lives in the renderer: it prefills the issue
+        // form from the facts and opens it for the person's review.
+        { label: t('desktop.menu.reportIssue'), click: () => sendMenuCommand('reportIssue') },
+        { label: t('desktop.menu.requestFeature'), click: () => sendMenuCommand('requestFeature') },
         { label: t('desktop.menu.communityChat'), click: () => void shell.openExternal(COMMUNITY_CHAT_URL) },
         { type: 'separator' },
         // The diagnostic bundle (the error reports plan §4.5) — the renderer

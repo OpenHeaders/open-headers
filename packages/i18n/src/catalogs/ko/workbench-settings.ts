@@ -265,6 +265,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.application': '애플리케이션',
   'workbench.settings.category.about.sub.environment': '환경',
   'workbench.settings.category.about.sub.openSource': '오픈 소스 소프트웨어',
+  'workbench.settings.category.about.sub.support': '지원',
   'workbench.settings.thirdParty.software': '소프트웨어',
   'workbench.settings.thirdParty.license': '라이선스',
 

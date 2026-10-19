@@ -1004,4 +1004,34 @@ export const workbenchChrome = {
   'workbench.copySnippet.failedDetail': 'Не удалось скопировать: {message}',
   'workbench.copySnippet.copiedWithReferences':
     'Скопировано как {format} — {references} записано как ссылка; значение менеджера секретов никогда не попадает в скопированную команду.',
+
+  // ── Report Issue dialog (Help menu, Settings › About) ───────────
+  'workbench.support.title.bug': 'Сообщить о проблеме',
+  'workbench.support.title.feature': 'Запрос функции',
+  'workbench.support.kind.bug': 'Отчёт об ошибке',
+  'workbench.support.kind.feature': 'Запрос функции',
+  'workbench.support.field.title': 'Заголовок',
+  'workbench.support.field.steps': 'Шаги воспроизведения',
+  'workbench.support.field.steps.hint':
+    'Шаги, надёжно воспроизводящие проблему, с фактическим и ожидаемым результатом. Поддерживается Markdown; на GitHub вы сможете отредактировать issue и добавить скриншоты.',
+  'workbench.support.field.description': 'Описание',
+  'workbench.support.field.description.hint':
+    'Рабочий процесс, которого вы хотите добиться, и желаемое поведение. Поддерживается Markdown; на GitHub вы сможете отредактировать issue и добавить скриншоты.',
+  'workbench.support.facts.include': 'Включить сведения о системе',
+  'workbench.support.facts.show': 'показать',
+  'workbench.support.facts.hide': 'скрыть',
+  'workbench.support.facts.unavailable':
+    'Сведения о системе недоступны на этом хосте; укажите версию и платформу на GitHub.',
+  'workbench.support.logs.notice':
+    'Журналы не включены. Если это поможет, прикрепите диагностический пакет к issue на GitHub.',
+  'workbench.support.logs.saveBundle': 'Сохранить пакет…',
+  'workbench.support.trimmed.rows':
+    'Часть строк о системе опущена, чтобы ссылка осталась короткой; в диагностическом пакете есть все.',
+  'workbench.support.trimmed.facts':
+    'Сведения о системе опущены, чтобы ссылка осталась короткой; они есть в диагностическом пакете.',
+  'workbench.support.overBudget':
+    'Текст слишком длинный для предзаполненной ссылки. Сократите его здесь и добавьте остальное на GitHub.',
+  'workbench.support.preview': 'Просмотреть на GitHub',
+  'workbench.support.previewHint':
+    'Откроет новый issue на GitHub с заполненными полями. Ничего не публикуется, пока вы не отправите его там.',
 } as const satisfies Catalog;

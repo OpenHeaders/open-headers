@@ -296,6 +296,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.application': 'Aplicație',
   'workbench.settings.category.about.sub.environment': 'Mediu de rulare',
   'workbench.settings.category.about.sub.openSource': 'Software liber',
+  'workbench.settings.category.about.sub.support': 'Asistență',
   'workbench.settings.thirdParty.software': 'Software',
   'workbench.settings.thirdParty.license': 'Licență',
 

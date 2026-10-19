@@ -290,6 +290,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.application': 'Приложение',
   'workbench.settings.category.about.sub.environment': 'Среда',
   'workbench.settings.category.about.sub.openSource': 'Открытое ПО',
+  'workbench.settings.category.about.sub.support': 'Поддержка',
   'workbench.settings.thirdParty.software': 'Программа',
   'workbench.settings.thirdParty.license': 'Лицензия',
 

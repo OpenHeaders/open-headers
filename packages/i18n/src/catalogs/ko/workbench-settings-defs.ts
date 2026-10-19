@@ -717,4 +717,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.openSource.label': '내장 패키지',
   'workbench.settings.def.about.openSource.description':
     '이 빌드에 내장된 오픈 소스 소프트웨어와 각 패키지의 라이선스입니다.',
+  'workbench.settings.def.about.reportIssue.label': '문제 신고',
+  'workbench.settings.def.about.reportIssue.description':
+    '버전과 시스템 정보가 채워진 버그 신고를 GitHub에서 엽니다. 게시 전에 모든 내용을 검토합니다.',
+  'workbench.settings.def.about.reportIssue.action.label': '신고…',
+  'workbench.settings.def.about.requestFeature.label': '기능 요청',
+  'workbench.settings.def.about.requestFeature.description':
+    'GitHub에서 새 기능을 제안합니다. 코드를 작성하기 전에 이슈에서 동작을 합의합니다.',
+  'workbench.settings.def.about.requestFeature.action.label': '요청…',
 } as const satisfies Catalog;

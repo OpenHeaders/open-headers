@@ -767,4 +767,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.openSource.label': 'Pachete incluse',
   'workbench.settings.def.about.openSource.description':
     'Software liber inclus în acest build, cu licența fiecărui pachet.',
+  'workbench.settings.def.about.reportIssue.label': 'Raportare problemă',
+  'workbench.settings.def.about.reportIssue.description':
+    'Deschide un raport de eroare pe GitHub cu versiunea și datele de sistem completate. Verificați totul înainte de publicare.',
+  'workbench.settings.def.about.reportIssue.action.label': 'Raportează…',
+  'workbench.settings.def.about.requestFeature.label': 'Solicitare funcționalitate',
+  'workbench.settings.def.about.requestFeature.description':
+    'Propune o funcționalitate nouă pe GitHub. Comportamentul se stabilește în issue înainte de a scrie cod.',
+  'workbench.settings.def.about.requestFeature.action.label': 'Solicită…',
 } as const satisfies Catalog;

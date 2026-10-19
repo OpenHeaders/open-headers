@@ -252,6 +252,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.application': '应用程序',
   'workbench.settings.category.about.sub.environment': '环境',
   'workbench.settings.category.about.sub.openSource': '开源软件',
+  'workbench.settings.category.about.sub.support': '支持',
   'workbench.settings.thirdParty.software': '软件',
   'workbench.settings.thirdParty.license': '许可证',
 

@@ -750,4 +750,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.openSource.label': 'Встроенные пакеты',
   'workbench.settings.def.about.openSource.description':
     'Открытое ПО, включённое в эту сборку, с лицензией каждого пакета.',
+  'workbench.settings.def.about.reportIssue.label': 'Сообщить о проблеме',
+  'workbench.settings.def.about.reportIssue.description':
+    'Открывает отчёт об ошибке на GitHub с уже заполненными версией и сведениями о системе. Вы проверяете всё перед публикацией.',
+  'workbench.settings.def.about.reportIssue.action.label': 'Сообщить…',
+  'workbench.settings.def.about.requestFeature.label': 'Запрос функции',
+  'workbench.settings.def.about.requestFeature.description':
+    'Предлагает новую функциональность на GitHub. Поведение согласуется в issue до написания кода.',
+  'workbench.settings.def.about.requestFeature.action.label': 'Предложить…',
 } as const satisfies Catalog;

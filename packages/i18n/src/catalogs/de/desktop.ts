@@ -35,7 +35,7 @@ export const desktop = {
   'desktop.menu.licenseAgreement': 'Lizenzvereinbarung',
   'desktop.menu.keyboardShortcuts': 'Tastenkürzel',
   'desktop.menu.releaseNotes': 'Versionshinweise',
-  'desktop.menu.requestFeature': 'Funktion vorschlagen',
+  'desktop.menu.requestFeature': 'Funktionswunsch',
   'desktop.menu.communityChat': 'Mit uns auf Discord chatten',
   'desktop.menu.openLogsFolder': 'Protokollordner öffnen',
   'desktop.menu.privacyPolicy': 'Datenschutzerklärung',

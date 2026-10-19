@@ -893,4 +893,12 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.about.openSource.label': 'Enthaltene Pakete',
   'workbench.settings.def.about.openSource.description':
     'In diesem Build enthaltene Open-Source-Software mit der Lizenz jedes Pakets.',
+  'workbench.settings.def.about.reportIssue.label': 'Problem melden',
+  'workbench.settings.def.about.reportIssue.description':
+    'Öffnet einen Fehlerbericht auf GitHub mit Version und Systemfakten bereits eingetragen. Sie prüfen alles vor dem Absenden.',
+  'workbench.settings.def.about.reportIssue.action.label': 'Melden…',
+  'workbench.settings.def.about.requestFeature.label': 'Funktionswunsch',
+  'workbench.settings.def.about.requestFeature.description':
+    'Schlägt neue Funktionalität auf GitHub vor. Das Verhalten wird im Issue abgestimmt, bevor Code geschrieben wird.',
+  'workbench.settings.def.about.requestFeature.action.label': 'Vorschlagen…',
 } as const satisfies Catalog;
