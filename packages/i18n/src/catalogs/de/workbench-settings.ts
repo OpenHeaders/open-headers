@@ -346,7 +346,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': 'Ereignisse ansehen',
-  'workbench.settings.telemetryRow.modalTitle': 'Telemetrie-Ereignisse dieser Sitzung',
+  'workbench.settings.telemetryRow.modalTitle': 'Telemetrie dieser Sitzung',
+  'workbench.settings.telemetryRow.tabEvents': 'Nutzungsereignisse',
+  'workbench.settings.telemetryRow.tabReports': 'Fehlerberichte',
   'workbench.settings.telemetryRow.sessionOn': 'Sitzung {sessionId} — Zählung ist an',
   'workbench.settings.telemetryRow.sessionOff': 'Sitzung {sessionId} — Zählung ist aus',
   'workbench.settings.telemetryRow.install':
@@ -366,4 +368,11 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': 'Keine Anfrageinhalte',
   'workbench.settings.telemetryRow.confirmKeep': 'Zählung eingeschaltet lassen',
   'workbench.settings.telemetryRow.confirmDisable': 'Trotzdem ausschalten',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': 'Berichte ansehen',
+  'workbench.settings.errorReportsRow.sessionOn': 'Sitzung {sessionId} — Berichte sind an',
+  'workbench.settings.errorReportsRow.sessionOff': 'Sitzung {sessionId} — Berichte sind aus',
+  'workbench.settings.errorReportsRow.empty':
+    'In dieser Sitzung wurden keine Absturz- oder Fehlerberichte aufgezeichnet.',
 } as const satisfies Catalog;

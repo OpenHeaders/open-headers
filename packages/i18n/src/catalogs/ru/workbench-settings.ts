@@ -350,7 +350,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': 'Показать события',
-  'workbench.settings.telemetryRow.modalTitle': 'События телеметрии за этот сеанс',
+  'workbench.settings.telemetryRow.modalTitle': 'Телеметрия за этот сеанс',
+  'workbench.settings.telemetryRow.tabEvents': 'События использования',
+  'workbench.settings.telemetryRow.tabReports': 'Отчёты об ошибках',
   'workbench.settings.telemetryRow.sessionOn': 'Сеанс {sessionId} — подсчёт включён',
   'workbench.settings.telemetryRow.sessionOff': 'Сеанс {sessionId} — подсчёт выключен',
   'workbench.settings.telemetryRow.install':
@@ -370,4 +372,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': 'Без содержимого запросов',
   'workbench.settings.telemetryRow.confirmKeep': 'Оставить подсчёт включённым',
   'workbench.settings.telemetryRow.confirmDisable': 'Всё равно выключить',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': 'Показать отчёты',
+  'workbench.settings.errorReportsRow.sessionOn': 'Сеанс {sessionId} — отчёты включены',
+  'workbench.settings.errorReportsRow.sessionOff': 'Сеанс {sessionId} — отчёты выключены',
+  'workbench.settings.errorReportsRow.empty': 'За этот сеанс отчёты о сбоях и ошибках не записаны.',
 } as const satisfies Catalog;

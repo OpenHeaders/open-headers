@@ -35,9 +35,19 @@ export type ErrorFunnelOrigin =
   /** The document's `unhandledrejection` event. */
   | 'unhandled-rejection';
 
+/**
+ * The workbench unit whose boundary caught a render error — the tab's
+ * mode or the tool window's id, the way the report channel names a
+ * surface. A boundary marks the error it caught with its unit before
+ * React reports the catch, so the funnel entry carries it.
+ */
+export type ErrorFunnelUnit = { kind: 'tab'; mode: string } | { kind: 'window'; id: string };
+
 export interface FunnelledError {
   surface: ErrorFunnelSurface;
   origin: ErrorFunnelOrigin;
+  /** The unit that caught a render error; absent when no unit boundary did (a root catch, a document event). */
+  unit?: ErrorFunnelUnit;
   /** The thrown value as caught — an Error in practice, anything by contract. */
   error: unknown;
   /** React's component stack for the three React origins; null otherwise. */
@@ -57,6 +67,23 @@ export interface ErrorDescription {
 const SCOPE = 'ErrorFunnel';
 
 let sink: ErrorFunnelSink | null = null;
+
+/**
+ * The unit each caught error belongs to, keyed by the error object. A
+ * unit boundary marks the error while it renders its fallback — before
+ * React's commit-phase `onCaughtError` reaches the funnel — so the
+ * entry can name the tab or tool window that contained it. Only an
+ * object can key a WeakMap; a thrown primitive carries no unit.
+ */
+const unitsByError = new WeakMap<object, ErrorFunnelUnit>();
+
+export function markErrorUnit(error: unknown, unit: ErrorFunnelUnit): void {
+  if (typeof error === 'object' && error !== null) unitsByError.set(error, unit);
+}
+
+function unitOf(error: unknown): ErrorFunnelUnit | undefined {
+  return typeof error === 'object' && error !== null ? unitsByError.get(error) : undefined;
+}
 
 /** Install the report sink (null removes it). The funnel logs with or without one. */
 export function setErrorFunnelSink(next: ErrorFunnelSink | null): void {
@@ -121,8 +148,9 @@ export function stackFrames(stack: string, header: string): string | null {
  * a funnel that fails inside a failure path would hide the original.
  * The log line carries the header once; the detail carries the frames.
  */
-export function funnelError(entry: Omit<FunnelledError, 'at'>): void {
-  const full: FunnelledError = { ...entry, at: Date.now() };
+export function funnelError(entry: Omit<FunnelledError, 'at' | 'unit'>): void {
+  const unit = unitOf(entry.error);
+  const full: FunnelledError = { ...entry, ...(unit ? { unit } : {}), at: Date.now() };
   const { name, message, stack } = describeError(entry.error);
   const header = `${name}: ${message}`;
   const line = `${entry.origin} on ${entry.surface}: ${header}`;

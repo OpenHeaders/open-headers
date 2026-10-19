@@ -1316,6 +1316,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const renderTabBody = useCallback(
     ({ tab }: { tab: WorkbenchTab }): React.ReactNode => (
       <ErrorBoundary
+        unit={{ kind: 'tab', mode: tab.mode }}
         fallback={({ error, reset }) => (
           <UnitErrorFallback
             kind="tab"
@@ -1604,6 +1605,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const renderToolWindow = useCallback(
     (id: ToolWindowId, slot: DockSlot): React.ReactNode => (
       <ErrorBoundary
+        unit={{ kind: 'window', id }}
         fallback={({ error, reset }) => (
           <UnitErrorFallback
             kind="window"

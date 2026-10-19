@@ -319,7 +319,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': 'View events',
-  'workbench.settings.telemetryRow.modalTitle': 'Telemetry events this session',
+  'workbench.settings.telemetryRow.modalTitle': 'Telemetry this session',
+  'workbench.settings.telemetryRow.tabEvents': 'Usage events',
+  'workbench.settings.telemetryRow.tabReports': 'Error reports',
   'workbench.settings.telemetryRow.sessionOn': 'Session {sessionId} — counting is on',
   'workbench.settings.telemetryRow.sessionOff': 'Session {sessionId} — counting is off',
   'workbench.settings.telemetryRow.install': 'Install {installId} (random — identifies this install, not you)',
@@ -337,4 +339,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': 'No request content',
   'workbench.settings.telemetryRow.confirmKeep': 'Keep counting on',
   'workbench.settings.telemetryRow.confirmDisable': 'Turn off anyway',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': 'View reports',
+  'workbench.settings.errorReportsRow.sessionOn': 'Session {sessionId} — reporting is on',
+  'workbench.settings.errorReportsRow.sessionOff': 'Session {sessionId} — reporting is off',
+  'workbench.settings.errorReportsRow.empty': 'No crash or error reports recorded this session.',
 } as const satisfies Catalog;

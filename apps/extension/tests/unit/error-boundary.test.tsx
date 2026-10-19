@@ -10,6 +10,7 @@
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import { COPIED_FEEDBACK_MS } from '@openheaders/ui/components/RootErrorFallback';
 import UnitErrorFallback from '@openheaders/ui/components/UnitErrorFallback';
+import { funnelError, setErrorFunnelSink } from '@openheaders/ui/shared/error-funnel';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -92,6 +93,34 @@ describe('ErrorBoundary', () => {
     );
     expect(screen.getByText('This tab hit an error')).toBeTruthy();
     expect(onCrashed).toHaveBeenCalledOnce();
+  });
+
+  it('a unit boundary marks the caught error with its unit before the funnel sees it', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const sink = vi.fn();
+    setErrorFunnelSink(sink);
+    const marker = { shouldThrow: true };
+    const thrown = new TypeError('editor exploded');
+    function ThrowsOnce() {
+      if (marker.shouldThrow) throw thrown;
+      return <div />;
+    }
+    render(
+      <ErrorBoundary
+        unit={{ kind: 'tab', mode: 'request-edit' }}
+        fallback={({ error, reset }) => (
+          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => {}} />
+        )}
+      >
+        <ThrowsOnce />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText('This tab hit an error')).toBeTruthy();
+    // The root's `onCaughtError` runs after the fallback rendered — the
+    // funnel finds the mark the boundary left on the error object.
+    funnelError({ surface: 'workbench', origin: 'boundary', error: thrown, componentStack: null });
+    expect(sink.mock.calls[0][0].unit).toEqual({ kind: 'tab', mode: 'request-edit' });
+    setErrorFunnelSink(null);
   });
 
   it('the window kind labels its close action Hide window', () => {

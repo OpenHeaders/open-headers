@@ -310,7 +310,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': '查看事件',
-  'workbench.settings.telemetryRow.modalTitle': '本次会话的遥测事件',
+  'workbench.settings.telemetryRow.modalTitle': '本次会话的遥测',
+  'workbench.settings.telemetryRow.tabEvents': '使用事件',
+  'workbench.settings.telemetryRow.tabReports': '错误报告',
   'workbench.settings.telemetryRow.sessionOn': '会话 {sessionId}——计数已开启',
   'workbench.settings.telemetryRow.sessionOff': '会话 {sessionId}——计数已关闭',
   'workbench.settings.telemetryRow.install': '安装 {installId}（随机——标识此次安装，而不是你）',
@@ -328,4 +330,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': '无请求内容',
   'workbench.settings.telemetryRow.confirmKeep': '保持计数开启',
   'workbench.settings.telemetryRow.confirmDisable': '仍然关闭',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': '查看报告',
+  'workbench.settings.errorReportsRow.sessionOn': '会话 {sessionId}——报告已开启',
+  'workbench.settings.errorReportsRow.sessionOff': '会话 {sessionId}——报告已关闭',
+  'workbench.settings.errorReportsRow.empty': '本次会话未记录任何崩溃或错误报告。',
 } as const satisfies Catalog;

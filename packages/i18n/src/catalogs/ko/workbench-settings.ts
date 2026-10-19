@@ -323,7 +323,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': '이벤트 보기',
-  'workbench.settings.telemetryRow.modalTitle': '이 세션의 텔레메트리 이벤트',
+  'workbench.settings.telemetryRow.modalTitle': '이 세션의 텔레메트리',
+  'workbench.settings.telemetryRow.tabEvents': '사용량 이벤트',
+  'workbench.settings.telemetryRow.tabReports': '오류 보고서',
   'workbench.settings.telemetryRow.sessionOn': '세션 {sessionId}. 집계 켜짐',
   'workbench.settings.telemetryRow.sessionOff': '세션 {sessionId}. 집계 꺼짐',
   'workbench.settings.telemetryRow.install': '설치 {installId} (무작위 값. 이 설치를 식별하며 사용자를 식별하지 않음)',
@@ -342,4 +344,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': '요청 내용 없음',
   'workbench.settings.telemetryRow.confirmKeep': '집계 계속 켜 두기',
   'workbench.settings.telemetryRow.confirmDisable': '그래도 끄기',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': '보고서 보기',
+  'workbench.settings.errorReportsRow.sessionOn': '세션 {sessionId}. 보고 켜짐',
+  'workbench.settings.errorReportsRow.sessionOff': '세션 {sessionId}. 보고 꺼짐',
+  'workbench.settings.errorReportsRow.empty': '이 세션에 기록된 충돌 또는 오류 보고서가 없습니다.',
 } as const satisfies Catalog;

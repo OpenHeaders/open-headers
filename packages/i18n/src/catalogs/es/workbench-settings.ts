@@ -353,7 +353,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': 'Ver los eventos',
-  'workbench.settings.telemetryRow.modalTitle': 'Eventos de telemetría de esta sesión',
+  'workbench.settings.telemetryRow.modalTitle': 'Telemetría de esta sesión',
+  'workbench.settings.telemetryRow.tabEvents': 'Eventos de uso',
+  'workbench.settings.telemetryRow.tabReports': 'Informes de errores',
   'workbench.settings.telemetryRow.sessionOn': 'Sesión {sessionId} — el recuento está activado',
   'workbench.settings.telemetryRow.sessionOff': 'Sesión {sessionId} — el recuento está desactivado',
   'workbench.settings.telemetryRow.install':
@@ -373,4 +375,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': 'Sin contenido de peticiones',
   'workbench.settings.telemetryRow.confirmKeep': 'Mantener el recuento activado',
   'workbench.settings.telemetryRow.confirmDisable': 'Desactivar de todos modos',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': 'Ver los informes',
+  'workbench.settings.errorReportsRow.sessionOn': 'Sesión {sessionId} — los informes están activados',
+  'workbench.settings.errorReportsRow.sessionOff': 'Sesión {sessionId} — los informes están desactivados',
+  'workbench.settings.errorReportsRow.empty': 'No se han registrado informes de fallos o errores en esta sesión.',
 } as const satisfies Catalog;

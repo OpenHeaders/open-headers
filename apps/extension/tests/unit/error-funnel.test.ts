@@ -12,6 +12,7 @@ import {
   formatErrorDetails,
   funnelError,
   installErrorFunnel,
+  markErrorUnit,
   setErrorFunnelSink,
   stackFrames,
 } from '@openheaders/ui/shared/error-funnel';
@@ -79,6 +80,20 @@ describe('error funnel', () => {
     expect(sink).toHaveBeenCalledOnce();
     expect(sink.mock.calls[0][0]).toMatchObject({ surface: 'popup', origin: 'boundary' });
     expect(typeof sink.mock.calls[0][0].at).toBe('number');
+  });
+
+  it('carries the unit a boundary marked on the error object, and none for an unmarked or primitive throw', () => {
+    const sink = vi.fn();
+    setErrorFunnelSink(sink);
+    const marked = new Error('in a tab');
+    markErrorUnit(marked, { kind: 'tab', mode: 'request-edit' });
+    funnelError({ surface: 'workbench', origin: 'boundary', error: marked, componentStack: null });
+    expect(sink.mock.calls[0][0].unit).toEqual({ kind: 'tab', mode: 'request-edit' });
+    funnelError({ surface: 'workbench', origin: 'render', error: new Error('root'), componentStack: null });
+    expect('unit' in sink.mock.calls[1][0]).toBe(false);
+    markErrorUnit('a string', { kind: 'window', id: 'git' });
+    funnelError({ surface: 'workbench', origin: 'window-error', error: 'a string', componentStack: null });
+    expect('unit' in sink.mock.calls[2][0]).toBe(false);
   });
 
   it('a throwing sink never masks the log line', () => {

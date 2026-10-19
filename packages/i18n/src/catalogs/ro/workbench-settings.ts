@@ -357,7 +357,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': 'Vizualizare evenimente',
-  'workbench.settings.telemetryRow.modalTitle': 'Evenimente de telemetrie din această sesiune',
+  'workbench.settings.telemetryRow.modalTitle': 'Telemetria din această sesiune',
+  'workbench.settings.telemetryRow.tabEvents': 'Evenimente de utilizare',
+  'workbench.settings.telemetryRow.tabReports': 'Rapoarte de erori',
   'workbench.settings.telemetryRow.sessionOn': 'Sesiunea {sessionId} — contorizarea este activată',
   'workbench.settings.telemetryRow.sessionOff': 'Sesiunea {sessionId} — contorizarea este dezactivată',
   'workbench.settings.telemetryRow.install':
@@ -378,4 +380,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': 'Fără conținutul cererilor',
   'workbench.settings.telemetryRow.confirmKeep': 'Păstrare contorizare activată',
   'workbench.settings.telemetryRow.confirmDisable': 'Dezactivare oricum',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': 'Vizualizare rapoarte',
+  'workbench.settings.errorReportsRow.sessionOn': 'Sesiunea {sessionId} — raportarea este activată',
+  'workbench.settings.errorReportsRow.sessionOff': 'Sesiunea {sessionId} — raportarea este dezactivată',
+  'workbench.settings.errorReportsRow.empty': 'Niciun raport de blocare sau de eroare înregistrat în această sesiune.',
 } as const satisfies Catalog;

@@ -327,7 +327,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': 'イベントを表示',
-  'workbench.settings.telemetryRow.modalTitle': 'このセッションのテレメトリイベント',
+  'workbench.settings.telemetryRow.modalTitle': 'このセッションのテレメトリ',
+  'workbench.settings.telemetryRow.tabEvents': '使用状況イベント',
+  'workbench.settings.telemetryRow.tabReports': 'エラーレポート',
   'workbench.settings.telemetryRow.sessionOn': 'セッション {sessionId}：集計はオンです',
   'workbench.settings.telemetryRow.sessionOff': 'セッション {sessionId}：集計はオフです',
   'workbench.settings.telemetryRow.install':
@@ -348,4 +350,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': 'リクエストの内容なし',
   'workbench.settings.telemetryRow.confirmKeep': '集計をオンのままにする',
   'workbench.settings.telemetryRow.confirmDisable': 'それでもオフにする',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': 'レポートを表示',
+  'workbench.settings.errorReportsRow.sessionOn': 'セッション {sessionId}：レポート送信はオンです',
+  'workbench.settings.errorReportsRow.sessionOff': 'セッション {sessionId}：レポート送信はオフです',
+  'workbench.settings.errorReportsRow.empty': 'このセッションで記録されたクラッシュやエラーのレポートはありません。',
 } as const satisfies Catalog;

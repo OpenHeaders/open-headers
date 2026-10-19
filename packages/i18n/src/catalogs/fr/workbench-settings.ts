@@ -344,7 +344,9 @@ export const workbenchSettings = {
 
   // ── Product-telemetry toggle row ───────────────────────────────────
   'workbench.settings.telemetryRow.viewEvents': 'Voir les événements',
-  'workbench.settings.telemetryRow.modalTitle': 'Événements de télémétrie de cette session',
+  'workbench.settings.telemetryRow.modalTitle': 'Télémétrie de cette session',
+  'workbench.settings.telemetryRow.tabEvents': 'Événements d’utilisation',
+  'workbench.settings.telemetryRow.tabReports': 'Rapports d’erreur',
   'workbench.settings.telemetryRow.sessionOn': 'Session {sessionId} — le comptage est activé',
   'workbench.settings.telemetryRow.sessionOff': 'Session {sessionId} — le comptage est désactivé',
   'workbench.settings.telemetryRow.install':
@@ -365,4 +367,10 @@ export const workbenchSettings = {
   'workbench.settings.telemetryRow.confirmBadgeContent': 'Aucun contenu de requête',
   'workbench.settings.telemetryRow.confirmKeep': 'Garder le comptage activé',
   'workbench.settings.telemetryRow.confirmDisable': 'Désactiver quand même',
+
+  // ── Crash-and-error-reports toggle row ─────────────────────────────
+  'workbench.settings.errorReportsRow.viewReports': 'Voir les rapports',
+  'workbench.settings.errorReportsRow.sessionOn': 'Session {sessionId} — les rapports sont activés',
+  'workbench.settings.errorReportsRow.sessionOff': 'Session {sessionId} — les rapports sont désactivés',
+  'workbench.settings.errorReportsRow.empty': 'Aucun rapport de plantage ou d’erreur enregistré cette session.',
 } as const satisfies Catalog;

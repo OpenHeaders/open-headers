@@ -18,6 +18,7 @@
  */
 
 import React from 'react';
+import { type ErrorFunnelUnit, markErrorUnit } from '../shared/error-funnel';
 import RootErrorFallback from './RootErrorFallback';
 
 export interface ErrorFallbackProps {
@@ -30,6 +31,12 @@ interface ErrorBoundaryProps {
   children: React.ReactNode;
   /** Renders in place of the crashed subtree; omitted = the full-page root fallback. */
   fallback?: (props: ErrorFallbackProps) => React.ReactNode;
+  /**
+   * The unit this boundary contains (a tab's mode, a tool window's id).
+   * A caught error is marked with it so the funnel entry — and the
+   * report — can name where it happened; a root boundary passes none.
+   */
+  unit?: ErrorFunnelUnit;
 }
 
 interface ErrorBoundaryState {
@@ -60,7 +67,12 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   render(): React.ReactNode {
     const { error } = this.state;
     if (error === null) return this.props.children;
-    const { fallback } = this.props;
+    const { fallback, unit } = this.props;
+    // The mark rides the error object, written on the fallback's first
+    // render — the render phase, before React's commit-phase
+    // `onCaughtError` reaches the funnel. Idempotent, so a retried
+    // render marks the same error twice without effect.
+    if (unit) markErrorUnit(error, unit);
     if (fallback) return fallback({ error, reset: this.reset });
     return <RootErrorFallback error={error} />;
   }
