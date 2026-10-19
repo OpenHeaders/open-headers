@@ -35,6 +35,7 @@ import type { DaemonRpc } from './daemon';
 import type { DeviceTrustRpc } from './device-trust';
 import type { DevToolsRpc } from './devtools';
 import type { EnvironmentRpc } from './environments';
+import type { ErrorReportRpc } from './error-reports';
 import type { FileRpc } from './files';
 import type { LiveRpc } from './live';
 import type { MigrationRpc } from './migration';
@@ -81,6 +82,12 @@ export type {
   StorageScopeWire,
 } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
+export type {
+  ErrorReportDocumentKind,
+  ErrorReportLogEntryWire,
+  ErrorReportSnapshotWire,
+  ErrorReportWireEntry,
+} from './error-reports';
 export type { LiveWorkflowRunSnapshot } from './live';
 export type {
   MigrationPullStartResult,
@@ -176,6 +183,7 @@ export interface BridgeRpcContract
     DeviceTrustRpc,
     SecretManagerRpc,
     ProductTelemetryRpc,
+    ErrorReportRpc,
     ServerSignInRpc,
     BackendProbeRpc,
     BackendIdentityRpc {}
