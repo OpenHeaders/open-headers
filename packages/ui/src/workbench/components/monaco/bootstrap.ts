@@ -72,7 +72,7 @@ import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/plat
 import { registerGraphqlLanguage } from '../../languages/graphql';
 import { registerPrometheusLanguage } from '../../languages/prometheus';
 import { registerGraphqlFormatter, registerPrettierFormatters } from './formatters';
-import { registerJsonDiagnostics } from './json-diagnostics';
+import { JSON_LANGUAGE_ID, registerJsonDiagnostics } from './json-diagnostics';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
 
 // ── Phase 1: synchronous monaco-singleton configuration ──────────
@@ -96,6 +96,23 @@ for (const variant of allVariants()) {
 // where `./ts-language-service` resolves to the stub.
 configureTsLanguageService();
 
+// The JSON mode is set up lazily: on the first rich-features request
+// for `json` (an editor attaching a JSON model) the contribution's own
+// `onLanguage` callback imports the mode module and sets its worker,
+// and `getWorker` rejects until then. The contribution registered its
+// callback before this module ran (it evaluates first), so a `getWorker`
+// chained from this later callback runs after `setupMode` on the same
+// module promise; its answer is the readiness the diagnostics plane
+// waits for before its first validation.
+const jsonModeReady = new Promise<void>((resolve) => {
+  monacoEdCore.languages.onLanguage(JSON_LANGUAGE_ID, () => {
+    getJsonWorker().then(
+      () => resolve(),
+      (error: unknown) => console.error('[monaco] the JSON mode did not set up', error),
+    );
+  });
+});
+
 // JSON diagnostics are ours: the contribution's provider off, one plane
 // publishing the worker's markers for every JSON model — a body editor
 // validates through its `{{ref}}`-masked shadow. Before any JSON model
@@ -103,7 +120,7 @@ configureTsLanguageService();
 registerJsonDiagnostics({
   editor: monacoEdCore.editor,
   MarkerSeverity: monacoEdCore.MarkerSeverity,
-  json: { jsonDefaults, getWorker: getJsonWorker },
+  json: { jsonDefaults, getWorker: getJsonWorker, modeReady: jsonModeReady },
 });
 
 // Prometheus/OpenMetrics exposition grammar — our own Monarch tokenizer

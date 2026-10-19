@@ -52,7 +52,12 @@ function diagnostic(message: string, line = 0): LspDiagnostic {
   return { range: { start: { line, character: 2 }, end: { line, character: 5 } }, message, severity: 1 };
 }
 
-function fakeHost() {
+function fakeHost({ modeUp = true } = {}) {
+  let releaseMode: () => void = () => {};
+  const modeReady = new Promise<void>((resolve) => {
+    releaseMode = resolve;
+  });
+  if (modeUp) releaseMode();
   const created = new Emitter<JsonDiagnosticsModel>();
   const willDispose = new Emitter<JsonDiagnosticsModel>();
   const languageChanged = new Emitter<{ model: JsonDiagnosticsModel }>();
@@ -95,6 +100,7 @@ function fakeHost() {
         onDidChange: defaultsChanged.on,
       },
       getWorker,
+      modeReady,
     },
     MarkerSeverity: SEVERITY,
   };
@@ -127,6 +133,8 @@ function fakeHost() {
     model,
     asked,
     answers,
+    getWorker,
+    releaseMode,
     setModelMarkers,
     setModeConfiguration,
     modeConfiguration: () => modeConfiguration,
@@ -171,6 +179,21 @@ describe('registerJsonDiagnostics', () => {
     expect(markers).toEqual([
       { severity: 8, startLineNumber: 1, startColumn: 3, endLineNumber: 1, endColumn: 6, message: 'Property expected' },
     ]);
+  });
+
+  it('a model created before the mode is up waits for it and publishes its markers the moment it is — never a rejected first pass', async () => {
+    const h = fakeHost({ modeUp: false });
+    registerJsonDiagnostics(h.host);
+    const json = h.model('/1', 'json');
+    h.answers.set(json.uri.toString(), [diagnostic('Expected comma')]);
+    await flush();
+    expect(h.getWorker).not.toHaveBeenCalled();
+    expect(h.setModelMarkers).not.toHaveBeenCalled();
+    h.releaseMode();
+    await flush();
+    expect(h.asked).toEqual([json.uri.toString()]);
+    expect(h.setModelMarkers).toHaveBeenCalledTimes(1);
+    expect(h.setModelMarkers.mock.calls[0][2][0].message).toBe('Expected comma');
   });
 
   it('validates a created JSON model at once and again 500 ms after its last edit', async () => {

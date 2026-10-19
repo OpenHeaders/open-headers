@@ -24,6 +24,13 @@
  * source's last content change and when the defaults change. A result
  * publishes only while the entry and its source are the ones that
  * asked, so a late answer never lands on a replaced source.
+ *
+ * The contribution sets its mode up lazily — on the first rich-features
+ * request for `json`, an editor attaching — and its worker accessor
+ * rejects before that. Every validation therefore waits on the host's
+ * `modeReady` first: a model created before any editor attaches keeps
+ * its first validation pending and publishes its markers the moment the
+ * mode is up, never a rejected first pass and never a timer.
  */
 
 import type * as monaco from 'monaco-editor';
@@ -59,6 +66,8 @@ export interface JsonDiagnosticsHost {
       onDidChange(listener: () => void): monaco.IDisposable;
     };
     getWorker(): Promise<(...uris: monaco.Uri[]) => Promise<JsonValidationWorker>>;
+    /** Resolves once the contribution's mode is set up and `getWorker` answers. */
+    modeReady: Promise<void>;
   };
   MarkerSeverity: typeof monaco.MarkerSeverity;
 }
@@ -141,8 +150,8 @@ function validate(entry: Entry): void {
   if (!api) return;
   const generation = ++entry.generation;
   const { source } = entry;
-  api.json
-    .getWorker()
+  api.json.modeReady
+    .then(() => api.json.getWorker())
     .then((accessor) => accessor(source.uri))
     .then((worker) => worker.doValidation(source.uri.toString()))
     .then((diagnostics) => {
