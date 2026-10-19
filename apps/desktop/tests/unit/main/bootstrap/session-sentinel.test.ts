@@ -12,6 +12,12 @@ vi.mock('@/main/bootstrap/lifecycle', () => ({
     registerTeardown(name, deadlineMs, run),
 }));
 
+const recordErrorReport = vi.fn();
+
+vi.mock('@/main/bootstrap/error-report-sink', () => ({
+  recordErrorReport: (input: unknown) => recordErrorReport(input),
+}));
+
 const LOCK = 'session.lock';
 
 describe('session-sentinel', () => {
@@ -21,6 +27,7 @@ describe('session-sentinel', () => {
     userDataDir = mkdtempSync(join(tmpdir(), 'oh-sentinel-'));
     vi.spyOn(app, 'getPath').mockReturnValue(userDataDir);
     registerTeardown.mockReset();
+    recordErrorReport.mockReset();
   });
 
   afterEach(() => {
@@ -50,5 +57,13 @@ describe('session-sentinel', () => {
     expect(sentinel.wasPreviousSessionDirty()).toBe(true);
     // The new run owns the lock again.
     expect(existsSync(join(userDataDir, 'state', LOCK))).toBe(true);
+    // The one report a dirty exit earns: no stack, no error, just the fact.
+    expect(recordErrorReport).toHaveBeenCalledOnce();
+    expect(recordErrorReport).toHaveBeenCalledWith({ kind: 'abnormal-exit', process: 'main' });
+  });
+
+  it('a clean previous session reports nothing', () => {
+    sentinel.installSessionSentinel();
+    expect(recordErrorReport).not.toHaveBeenCalled();
   });
 });

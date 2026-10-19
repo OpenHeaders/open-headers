@@ -43,13 +43,17 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { BridgeRpcResponse } from '@openheaders/core/bridge';
+import type { BridgeRpcResponse, ErrorReportWireEntry } from '@openheaders/core/bridge';
 import type { ImportReport } from '@openheaders/core/import';
 import { setHostLogger } from '@openheaders/core/logger';
 import { CHROMIUM_EXTENSION_IDS, GECKO_EXTENSION_IDS } from '@openheaders/core/protocol';
 import { registerSecretProvider } from '@openheaders/core/secret-providers';
 import { OH } from '@openheaders/core/storage';
-import { activatedPlanFromLicenseSnapshot, type TelemetryEvent } from '@openheaders/core/telemetry';
+import {
+  activatedPlanFromLicenseSnapshot,
+  createInMemoryProductTelemetrySessionStore,
+  type TelemetryEvent,
+} from '@openheaders/core/telemetry';
 import {
   clearImportReports,
   findImportReportBySourceHash,
@@ -111,7 +115,8 @@ import {
   windowsNmManifestTargets,
 } from './nm-host-install';
 import { safeOsHostname } from './os-hostname';
-import { installProductTelemetry } from './product-telemetry';
+import { installErrorReports } from './error-reports';
+import { buildEnvelopeFacts, installProductTelemetry, type ProductTelemetryHostDeps } from './product-telemetry';
 import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beacons';
 import { installProductTelemetryPairingBeacon } from './product-telemetry-pairing-beacon';
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
@@ -305,7 +310,8 @@ export async function installRpcHost(): Promise<void> {
   // learns — the daemon distribution stays hard-off by construction.
   // The enabled gate rides the same storage the renderer writes:
   // `telemetry.enabled` in the settings blob.
-  const productTelemetry = await installProductTelemetry({
+  const telemetrySessionStore = createInMemoryProductTelemetrySessionStore();
+  const telemetryDeps: ProductTelemetryHostDeps = {
     storage: hostStorage,
     appVersion: app.getVersion(),
     platform: process.platform,
@@ -315,6 +321,19 @@ export async function installRpcHost(): Promise<void> {
     systemVersion: process.getSystemVersion(),
     channel: app.isPackaged ? 'github-release' : 'dev',
     locale: () => mainTranslator().locale,
+    sessionStore: telemetrySessionStore,
+  };
+  const productTelemetry = await installProductTelemetry(telemetryDeps);
+  // Crash and error reports (the error reports plan §4): the second
+  // channel on the SAME session store, booted AFTER the usage one so
+  // exactly one session id is minted. Ring 0's buffered observations
+  // (the sentinel, an early renderer death) drain into it here.
+  const errorReports = await installErrorReports({
+    storage: hostStorage,
+    sessionStore: telemetrySessionStore,
+    facts: () => buildEnvelopeFacts(telemetryDeps),
+    appPath: app.getAppPath(),
+    rendererDevUrl: process.env.ELECTRON_RENDERER_URL,
   });
 
   // Check-and-notify updates (the updates plan): the service only
@@ -669,6 +688,16 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'productTelemetryRead') {
       return productTelemetry.snapshot();
     }
+    // The renderer's error funnel (the error reports plan §3.4): the
+    // document hands its entry over, this process converts — the
+    // message never leaves it — and owns the transport.
+    if (type === 'errorReportRecord') {
+      errorReports.record(message.entry as ErrorReportWireEntry);
+      return { success: true };
+    }
+    if (type === 'errorReportRead') {
+      return errorReports.snapshot();
+    }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these
     // through the host bridge; the extension SW answers the same
@@ -752,6 +781,7 @@ export async function installRpcHost(): Promise<void> {
     rpcDispatcher = null;
     updateService.dispose();
     productTelemetry.dispose();
+    errorReports.dispose();
     scriptSandbox.dispose();
     await spine.dispose();
     engineLogger.info(SCOPE, 'engine disposed');

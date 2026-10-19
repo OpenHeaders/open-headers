@@ -31,7 +31,9 @@
  * No timers, no silent retry loops: one reopen, then a person decides.
  */
 
+import type { ErrorReportInput } from '@openheaders/core/telemetry';
 import { app, type BrowserWindow, dialog } from 'electron';
+import { recordErrorReport } from './error-report-sink';
 import { disableHardwareAccelerationOnNextLaunch } from './hardware-acceleration';
 import { requestQuit } from './lifecycle';
 import { mainTranslator } from './locale';
@@ -56,6 +58,8 @@ export interface WindowSupervisorDeps {
   restartWithoutAcceleration(): void;
   quit(reason: string): void;
   translate(): ReturnType<typeof mainTranslator>;
+  /** The report channel's sink (the error reports plan §3.3): a renderer gone by itself, a hang — never a deliberate kill. */
+  report(input: ErrorReportInput): void;
 }
 
 const defaultDeps: WindowSupervisorDeps = {
@@ -67,6 +71,7 @@ const defaultDeps: WindowSupervisorDeps = {
   },
   quit: (reason) => requestQuit({ reason }),
   translate: mainTranslator,
+  report: recordErrorReport,
 };
 
 export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSupervisorDeps = defaultDeps): void {
@@ -76,6 +81,8 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
   let dialogOpenedAt: number | null = null;
   /** Set right before a deliberate kill; the death it raises consumes it. */
   let expectedDeath = false;
+  /** Automatic reopens so far — the report's `reopenCount`, so a loop reads as one. */
+  let reopenCount = 0;
 
   const reopen = (): void => {
     if (win.isDestroyed()) return;
@@ -160,6 +167,13 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
     // A clean exit is Chromium retiring the process on its own terms
     // (a navigation, an ordered shutdown), not a failure to contain.
     if (details.reason === 'clean-exit') return;
+    deps.report({
+      kind: 'renderer-gone',
+      process: 'renderer',
+      reason: details.reason,
+      exitCode: details.exitCode,
+      reopenCount,
+    });
     const now = deps.now();
     const loop = lastGoneAt !== null && now - lastGoneAt < CRASH_LOOP_WINDOW_MS;
     lastGoneAt = now;
@@ -169,6 +183,7 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
       return;
     }
     logger.warn('reopening the window once');
+    reopenCount += 1;
     reopen();
   });
   webContents.on('unresponsive', () => {
@@ -177,6 +192,7 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
       return;
     }
     logger.warn('renderer unresponsive (event loop blocked)');
+    deps.report({ kind: 'unresponsive', process: 'renderer', reopenCount });
     void showUnresponsiveDialog();
   });
   webContents.on('responsive', () => {

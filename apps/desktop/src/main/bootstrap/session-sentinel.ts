@@ -5,7 +5,7 @@
  * reached a clean quit — a force-kill, a power loss, a main-process
  * hang the person ended from the task manager. Main cannot witness its
  * own death; the sentinel is the honest record of it, written to the
- * log at the next launch (and, in a later slice, reported). Firefox
+ * log and reported at the next launch. Firefox
  * and Chrome keep the same marker ("didn't shut down properly").
  *
  * Same marker-file idiom as `launch-flags` / `hardware-acceleration`:
@@ -18,6 +18,7 @@
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stateDir } from './app-paths';
+import { recordErrorReport } from './error-report-sink';
 import { registerTeardown } from './lifecycle';
 import { createLogger } from './logger';
 
@@ -47,6 +48,9 @@ export function installSessionSentinel(): void {
   }
   if (previousSessionDirty) {
     logger.error('previous session ended without a clean quit (the session sentinel was still present)');
+    // The one report a force-kill, a power loss or a killed hang earns —
+    // no stack, no error: the previous run never got to say anything.
+    recordErrorReport({ kind: 'abnormal-exit', process: 'main' });
   }
   try {
     writeFileSync(path, String(process.pid));

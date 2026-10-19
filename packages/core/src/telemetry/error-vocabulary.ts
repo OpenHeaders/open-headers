@@ -231,7 +231,12 @@ export const ErrorReportTemplateSchema = v.picklist([
  */
 export const ErrorReportCodeSchema = v.picklist(['bridge-call-failed']);
 
-/** Electron's own `render-process-gone` / `child-process-gone` reason union (law 6: the reason and the exit code, never a minidump). */
+/**
+ * Electron's own `render-process-gone` / `child-process-gone` reason
+ * union (law 6: the reason and the exit code, never a minidump).
+ * `memory-eviction` is the member Electron added after the plan's
+ * sketch — a renderer the OS reclaimed under memory pressure.
+ */
 export const ErrorReportReasonSchema = v.picklist([
   'clean-exit',
   'abnormal-exit',
@@ -240,6 +245,7 @@ export const ErrorReportReasonSchema = v.picklist([
   'oom',
   'launch-failed',
   'integrity-failure',
+  'memory-eviction',
 ]);
 
 const wholeNumber = () => v.pipe(v.number(), v.integer());

@@ -27,6 +27,7 @@ import {
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
   type ProductTelemetryInstallStore,
+  type ProductTelemetrySessionStore,
   parseTelemetryAppVersion,
   resolveTelemetrySyncKind,
   type TelemetryChannelId,
@@ -67,6 +68,12 @@ export interface ProductTelemetryHostDeps {
    * next envelope; mapped onto the vocabulary here.
    */
   locale(): string;
+  /**
+   * The session store the controller boots on — SHARED with the error
+   * report controller (one session id per launch; the host inits the
+   * two in sequence). Defaults to a fresh in-memory store.
+   */
+  sessionStore?: ProductTelemetrySessionStore;
   /** Test seams; production uses the fetch transport + wall clock. */
   transport?: TelemetryTransport;
   now?: () => number;
@@ -163,8 +170,8 @@ async function buildSessionStart(
   return { name: 'session_start', ...(await readScaleBuckets(storage)), ...(sync !== undefined ? { sync } : {}) };
 }
 
-/** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch. */
-function buildEnvelopeFacts(deps: ProductTelemetryHostDeps): TelemetryEnvelopeFacts {
+/** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch; the error channel's envelope carries the same. */
+export function buildEnvelopeFacts(deps: ProductTelemetryHostDeps): TelemetryEnvelopeFacts {
   const platform = telemetryPlatform(deps.platform);
   const arch = toTelemetryArch(deps.arch, deps.runningUnderArm64Translation);
   const osVersion = platform !== null ? osMajorFromSystemVersion(platform, deps.systemVersion) : null;
@@ -200,7 +207,7 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
   const controller = new ProductTelemetryController({
     transport: deps.transport ?? fetchTransport,
     now: deps.now ?? Date.now,
-    sessionStore: createInMemoryProductTelemetrySessionStore(),
+    sessionStore: deps.sessionStore ?? createInMemoryProductTelemetrySessionStore(),
     installStore: createStorageInstallStore(deps.storage),
     host: 'desktop',
     facts: () => buildEnvelopeFacts(deps),

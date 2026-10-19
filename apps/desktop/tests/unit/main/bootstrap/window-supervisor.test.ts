@@ -37,6 +37,7 @@ function makeDeps(now: { value: number }, response = 0) {
     restartWithoutAcceleration: vi.fn(),
     quit: vi.fn(),
     translate: () => ((key: string) => key) as unknown as ReturnType<WindowSupervisorDeps['translate']>,
+    report: vi.fn(),
   };
   return deps;
 }
@@ -76,6 +77,39 @@ describe('window-supervisor', () => {
     expect(deps.showMessageBox).toHaveBeenCalledOnce();
     // Reopen (the default answer) reloads once more.
     expect(webContents.reload).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports each renderer death with its reason, exit code and the reopens so far — never a clean exit', () => {
+    const { win, webContents } = makeWindow();
+    const deps = makeDeps(now);
+    attachWindowSupervisor(win, deps);
+    webContents.emit('render-process-gone', {}, gone('clean-exit'));
+    expect(deps.report).not.toHaveBeenCalled();
+    webContents.emit('render-process-gone', {}, gone('crashed'));
+    expect(deps.report).toHaveBeenLastCalledWith({
+      kind: 'renderer-gone',
+      process: 'renderer',
+      reason: 'crashed',
+      exitCode: 1,
+      reopenCount: 0,
+    });
+    now.value += 10_000;
+    webContents.emit('render-process-gone', {}, gone('oom'));
+    expect(deps.report).toHaveBeenLastCalledWith(expect.objectContaining({ reason: 'oom', reopenCount: 1 }));
+    expect(deps.report).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a hang once per episode, and a deliberate Reopen kill never', async () => {
+    const { win, webContents } = makeWindow();
+    const deps = makeDeps(now, UNRESPONSIVE_DIALOG.reopen);
+    attachWindowSupervisor(win, deps);
+    webContents.emit('unresponsive');
+    webContents.emit('unresponsive');
+    expect(deps.report).toHaveBeenCalledOnce();
+    expect(deps.report).toHaveBeenCalledWith({ kind: 'unresponsive', process: 'renderer', reopenCount: 0 });
+    await settle();
+    webContents.emit('render-process-gone', {}, gone('killed'));
+    expect(deps.report).toHaveBeenCalledOnce();
   });
 
   it('a death after the crash-loop window is a fresh first death', () => {
