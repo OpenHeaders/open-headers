@@ -16,6 +16,8 @@ interface ParsedEntry {
   compressedSize: number;
   uncompressedSize: number;
   flags: number;
+  madeByHost: number;
+  externalAttributes: number;
   localOffset: number;
   body: Uint8Array;
 }
@@ -34,12 +36,14 @@ function parseZip(bytes: Uint8Array): { entries: ParsedEntry[]; count: number } 
   let cursor = directoryOffset;
   for (let i = 0; i < count; i += 1) {
     expect(view.getUint32(cursor, true)).toBe(0x02014b50);
+    const madeByHost = view.getUint8(cursor + 5);
     const flags = view.getUint16(cursor + 8, true);
     const method = view.getUint16(cursor + 10, true);
     const crc = view.getUint32(cursor + 16, true);
     const compressedSize = view.getUint32(cursor + 20, true);
     const uncompressedSize = view.getUint32(cursor + 24, true);
     const nameLength = view.getUint16(cursor + 28, true);
+    const externalAttributes = view.getUint32(cursor + 38, true);
     const localOffset = view.getUint32(cursor + 42, true);
     const name = new TextDecoder().decode(bytes.subarray(cursor + 46, cursor + 46 + nameLength));
     cursor += 46 + nameLength;
@@ -51,7 +55,18 @@ function parseZip(bytes: Uint8Array): { entries: ParsedEntry[]; count: number } 
     expect(localNameLength).toBe(nameLength);
     const bodyStart = localOffset + 30 + localNameLength;
     const body = bytes.subarray(bodyStart, bodyStart + compressedSize);
-    entries.push({ name, method, crc, compressedSize, uncompressedSize, flags, localOffset, body });
+    entries.push({
+      name,
+      method,
+      crc,
+      compressedSize,
+      uncompressedSize,
+      flags,
+      madeByHost,
+      externalAttributes,
+      localOffset,
+      body,
+    });
   }
   return { entries, count };
 }
@@ -128,6 +143,17 @@ describe('writeZip', () => {
     expect(entries.map((e) => e.name)).toEqual(['b/second.json', 'a/première.txt']);
     for (const entry of entries) expect(entry.flags & 0x0800).toBe(0x0800);
     expect(new TextDecoder().decode(inflate(entries[1]))).toBe('é');
+  });
+
+  it('marks every entry a readable regular file for Unix-aware extractors', async () => {
+    const bytes = await writeZip([
+      { name: 'README.txt', data: 'read me' },
+      { name: 'logs/main.log', data: '' },
+    ]);
+    for (const entry of parseZip(bytes).entries) {
+      expect(entry.madeByHost).toBe(3);
+      expect(entry.externalAttributes >>> 16).toBe(0o100644);
+    }
   });
 
   it('stamps each entry with its own modification time, else the clock', async () => {

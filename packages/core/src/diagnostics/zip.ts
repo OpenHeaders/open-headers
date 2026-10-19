@@ -8,7 +8,10 @@
  * entries are stored — still a valid archive, just larger.
  *
  * Names are UTF-8 (general-purpose bit 11); sizes stay under 4 GiB by
- * the bundle's nature, so there is no ZIP64 record. Nothing here reads
+ * the bundle's nature, so there is no ZIP64 record. The made-by host is
+ * Unix, so every entry carries a regular-file mode in its external
+ * attributes — a zero there is mode 000 to Info-ZIP's unzip, and the
+ * extracted files would open to "Permission denied". Nothing here reads
  * a zip back — the reader is whatever the person opens the file with.
  */
 
@@ -28,6 +31,8 @@ const VERSION_MADE_BY = 0x0314;
 const FLAG_UTF8_NAMES = 0x0800;
 const METHOD_STORED = 0;
 const METHOD_DEFLATED = 8;
+/** The Unix mode word readers take from the external attributes: a regular file, `rw-r--r--`. */
+const EXTERNAL_ATTRIBUTES_REGULAR_FILE = 0o100644 << 16;
 
 const CRC_TABLE: Uint32Array = (() => {
   const table = new Uint32Array(256);
@@ -170,7 +175,7 @@ export async function writeZip(entries: ReadonlyArray<ZipEntry>, now: () => numb
     out.u16(0);
     out.u16(0);
     out.u16(0);
-    out.u32(0);
+    out.u32(EXTERNAL_ATTRIBUTES_REGULAR_FILE);
     out.u32(item.localHeaderOffset);
     out.push(item.nameBytes);
   }
