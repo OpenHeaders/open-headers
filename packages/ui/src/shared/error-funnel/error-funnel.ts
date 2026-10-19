@@ -178,7 +178,9 @@ const installedDocuments = new WeakSet<Window>();
  * Register the document's global listeners (once per window) and
  * return the `createRoot` options every entry passes. A rejection a
  * host already handled (`preventDefault` — the desktop's RPC-fallback
- * filter) is not a failure and stays out.
+ * filter) is not a failure and stays out. Once the funnel has an
+ * event it marks it handled itself, so the browser prints no second
+ * "Uncaught …" line beside ours: one failure, one line.
  */
 export function installErrorFunnel(options: { surface: ErrorFunnelSurface }): RootOptions {
   const { surface } = options;
@@ -187,10 +189,12 @@ export function installErrorFunnel(options: { surface: ErrorFunnelSurface }): Ro
     window.addEventListener('error', (event) => {
       if (event.defaultPrevented) return;
       funnelError({ surface, origin: 'window-error', error: event.error ?? event.message, componentStack: null });
+      event.preventDefault();
     });
     window.addEventListener('unhandledrejection', (event) => {
       if (event.defaultPrevented) return;
       funnelError({ surface, origin: 'unhandled-rejection', error: event.reason, componentStack: null });
+      event.preventDefault();
     });
   }
   return {

@@ -119,15 +119,21 @@ describe('error funnel', () => {
     ]);
   });
 
-  it('document error events log once per document, and a handled rejection stays out', () => {
+  it('document error events log once per document and are marked handled; a handled rejection stays out', () => {
     // The listeners register once per window: the surface is the one
     // the FIRST install in this document named (the root-options test
     // above), and a second install adds no second listener.
     installErrorFunnel({ surface: 'devtools-panel' });
     installErrorFunnel({ surface: 'devtools-panel' });
-    window.dispatchEvent(new ErrorEvent('error', { error: new Error('from window'), message: 'from window' }));
+    const windowError = new ErrorEvent('error', {
+      error: new Error('from window'),
+      message: 'from window',
+      cancelable: true,
+    });
+    window.dispatchEvent(windowError);
     expect(logger.error).toHaveBeenCalledOnce();
     expect(logger.error.mock.calls[0][1]).toBe('window-error on devtools-panel: Error: from window');
+    expect(windowError.defaultPrevented).toBe(true);
 
     const handled = new Event('unhandledrejection', { cancelable: true });
     Object.defineProperty(handled, 'reason', { value: new Error('already handled') });
@@ -140,6 +146,7 @@ describe('error funnel', () => {
     window.dispatchEvent(unhandled);
     expect(logger.error).toHaveBeenCalledTimes(2);
     expect(logger.error.mock.calls[1][1]).toBe('unhandled-rejection on devtools-panel: Error: nobody caught me');
+    expect(unhandled.defaultPrevented).toBe(true);
   });
 
   it('formats copyable details with the surface, the stack and the component stack', () => {
