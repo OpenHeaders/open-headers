@@ -117,10 +117,8 @@ export const RoadmapCliDiagram: React.FC = () => {
           </text>
         );
       })}
-      {/* Blinking cursor */}
-      <rect x={TERM_X + 16} y={TERM_Y + CHROME_H + 22 + LINES.length * 22 - 11} width={8} height={12} fill={OH_GREEN}>
-        <animate attributeName="opacity" values="1;0;1" dur="1.2s" repeatCount="indefinite" />
-      </rect>
+      {/* Static cursor: a SMIL blink commits a frame every refresh while the Docs window is shown */}
+      <rect x={TERM_X + 16} y={TERM_Y + CHROME_H + 22 + LINES.length * 22 - 11} width={8} height={12} fill={OH_GREEN} />
 
       {/* Verdict */}
       <rect

@@ -287,9 +287,7 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
             <text x={cx - 18} y={cy + 4} fontFamily="monospace" fontSize={10} fontWeight={800} fill={OH_GREEN}>
               $ _
             </text>
-            <rect x={cx - 2} y={cy + 7} width={6} height={2} fill={OH_GREEN}>
-              <animate attributeName="opacity" values="1;0;1" dur="1.2s" repeatCount="indefinite" />
-            </rect>
+            <rect x={cx - 2} y={cy + 7} width={6} height={2} fill={OH_GREEN} />
           </g>
         );
       case 'web':
