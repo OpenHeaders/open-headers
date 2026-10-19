@@ -13,6 +13,7 @@ import {
   funnelError,
   installErrorFunnel,
   setErrorFunnelSink,
+  stackFrames,
 } from '@openheaders/ui/shared/error-funnel';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -39,15 +40,36 @@ describe('error funnel', () => {
     expect(describeError('plain')).toEqual({ name: 'Error', message: 'plain', stack: null });
   });
 
-  it('logs the origin, surface, name, message, stack and component stack', () => {
+  it('logs the origin, surface, name, message, the frames and the component stack — the header once', () => {
     const error = new RangeError('too far');
     funnelError({ surface: 'workbench', origin: 'render', error, componentStack: '\n    at Editor' });
     expect(logger.error).toHaveBeenCalledOnce();
     const [scope, line, ...detail] = logger.error.mock.calls[0];
     expect(scope).toBe('ErrorFunnel');
     expect(line).toBe('render on workbench: RangeError: too far');
-    expect(detail[0]).toBe(error.stack);
+    // The detail carries the frames; the line already carried the header.
+    const frames = detail[0] as string;
+    expect(frames.startsWith('RangeError: too far')).toBe(false);
+    expect(`RangeError: too far\n${frames}`).toBe(error.stack);
     expect(detail[1]).toContain('at Editor');
+  });
+
+  it('keeps a stack that starts otherwise whole, and adds no detail for a header-only stack', () => {
+    funnelError({
+      surface: 'popup',
+      origin: 'window-error',
+      error: { name: 'DOMException', message: 'm', stack: '    at somewhere' },
+      componentStack: null,
+    });
+    expect(logger.error.mock.calls[0].slice(1)).toEqual(['window-error on popup: DOMException: m', '    at somewhere']);
+    funnelError({
+      surface: 'popup',
+      origin: 'window-error',
+      error: { name: 'Error', message: 'x', stack: 'Error: x' },
+      componentStack: null,
+    });
+    expect(logger.error.mock.calls[1].slice(1)).toEqual(['window-error on popup: Error: x']);
+    expect(stackFrames('Error: x\n    at a\n    at b', 'Error: x')).toBe('    at a\n    at b');
   });
 
   it('hands every entry to the sink, after logging', () => {

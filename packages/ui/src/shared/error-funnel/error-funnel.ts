@@ -107,15 +107,28 @@ export function formatErrorDetails(entry: Omit<FunnelledError, 'at'> & { at?: nu
 }
 
 /**
+ * The frames of a stack whose first line is the `<name>: <message>`
+ * header (V8's format), or the whole stack when it starts otherwise.
+ * Null when nothing but the header is there.
+ */
+export function stackFrames(stack: string, header: string): string | null {
+  const frames = stack.startsWith(header) ? stack.slice(header.length).replace(/^\n/, '') : stack;
+  return frames === '' ? null : frames;
+}
+
+/**
  * Record one failure: log it, then hand it to the sink. Never throws —
  * a funnel that fails inside a failure path would hide the original.
+ * The log line carries the header once; the detail carries the frames.
  */
 export function funnelError(entry: Omit<FunnelledError, 'at'>): void {
   const full: FunnelledError = { ...entry, at: Date.now() };
   const { name, message, stack } = describeError(entry.error);
-  const line = `${entry.origin} on ${entry.surface}: ${name}: ${message}`;
+  const header = `${name}: ${message}`;
+  const line = `${entry.origin} on ${entry.surface}: ${header}`;
   const detail: unknown[] = [];
-  if (stack) detail.push(stack);
+  const frames = stack === null ? null : stackFrames(stack, header);
+  if (frames) detail.push(frames);
   if (entry.componentStack) detail.push(`component stack:${entry.componentStack}`);
   try {
     const logger = getHostLogger();

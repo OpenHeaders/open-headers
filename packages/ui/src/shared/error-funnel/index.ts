@@ -9,4 +9,5 @@ export {
   funnelError,
   installErrorFunnel,
   setErrorFunnelSink,
+  stackFrames,
 } from './error-funnel';
