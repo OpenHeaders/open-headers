@@ -10,11 +10,13 @@ a request is not listed here, the app does not make it. The app is
 fully functional with all of these unreachable or disabled — see the
 per-endpoint off switches.
 
-The only usage data that ever leaves is the anonymous telemetry channel
-of section 4: a typed
-allowlist of feature-usage counts, structurally incapable of carrying
-URLs, headers, traffic, or identity, default-on for desktop/extension/CLI
-with a one-switch opt-out, and hard-off for the daemon, served web app,
+The only usage data that ever leaves is the two anonymous telemetry
+channels of section 4: a typed allowlist of feature-usage counts, and a
+grammar-pinned report of crashes and unexpected errors (the kind of
+failure and where in our own code it happened — never the message),
+each structurally incapable of carrying URLs, headers, traffic, or
+identity, each default-on for desktop/extension/CLI with its own
+one-switch opt-out, and both hard-off for the daemon, served web app,
 and MCP server. The license system itself remains
 telemetry-free: license endpoints and telemetry never share identifiers,
 payloads, or deployments.
@@ -169,14 +171,18 @@ from anything about your install.
 
 ## 4. Anonymous telemetry
 
-Anonymous usage counting — which features get used,
-nothing more. The event vocabulary is a typed allowlist compiled into
-the app (`packages/core/src/telemetry/`): every payload property is a
-closed union, boolean, or number; free-form strings are banned by a
-guard test, so URLs, hostnames, header names or values, rule contents,
-request/response data, and file paths are inexpressible. The in-app
-inspector (Settings → General → View telemetry events) shows every
-event of the current session byte for byte, sent or suppressed.
+Two channels, one worker, one switch each. **Anonymous usage
+counting** — which features get used. The event vocabulary is a typed
+allowlist compiled into the app (`packages/core/src/telemetry/`): every
+payload property is a closed union, boolean, or number; free-form
+strings are banned by a guard test, so URLs, hostnames, header names or
+values, rule contents, request/response data, and file paths are
+inexpressible. **Crash and error reports** (2026-10, the second
+channel, documented after the usage channel below) — what kind of
+failure happened and where in our own code, never the message. The
+in-app inspector (Settings → General → "View events" / "View reports")
+shows every event and every report of the current session byte for
+byte, sent or suppressed.
 
 - **Endpoint**: `POST https://telemetry.openheaders.com/v1/events`
 - **Request headers**: `content-type: application/json`
@@ -380,16 +386,170 @@ event of the current session byte for byte, sent or suppressed.
   download or an install; the apps themselves never call this route.
 - **Cadence**: batched — the host flushes the in-memory queue on an
   interval and best-effort on quit.
-- **Off switches**: Settings → General → telemetry toggle (extension
-  and desktop), `OH_TELEMETRY=0` env var or config key (CLI). The
-  daemon, served web app, and MCP server never send telemetry and have
-  no toggle to misconfigure. Off means off: the channel goes silent
-  entirely, with no "essential telemetry" residue.
+- **Off switches**: Settings → General → "Anonymous usage counting"
+  (extension and desktop), `OH_TELEMETRY=0` env var or the `telemetry`
+  config key (CLI). The daemon, served web app, and MCP server never
+  send telemetry and have no toggle to misconfigure. Off means off: the
+  channel goes silent entirely, with no "essential telemetry" residue.
 - **Strict channel separation**: no license id, subscription ref,
   licensee email, seat data, or OIDC subject can appear in an event —
   the vocabulary has no such fields — and the telemetry worker is a
   separate deployment sharing no secrets or code paths with the
   license worker beyond the published schema.
+
+### Crash and error reports (2026-10)
+
+When the app crashes or hits an error it did not expect — a render
+error a containment boundary caught, an uncaught exception, an
+unhandled promise rejection, a renderer or GPU process gone, a window
+that stopped responding, a previous run that never reached a clean
+quit — it reports **what kind of failure it was and where in the app's
+own code it happened**. The message never travels: a report carries the
+error's class name and the *template* its message matched, the
+positions of the frames in Open Headers' own bundles, and the React
+component names on the path. Every string on this channel is admitted
+only under a pinned grammar that cannot express a URL, a path, a header,
+whitespace, or a quote (the grammar table below); a guard test asserts
+every string field carries its pin.
+
+- **Endpoint**: `POST https://telemetry.openheaders.com/v1/errors`
+- **Request headers**: `content-type: application/json`
+- **Request body** — a batch envelope, exactly these fields (the usage
+  envelope's per-process facts, minus the install identity and the
+  events, plus the reports):
+
+```json
+{
+  "schemaVersion": 1,
+  "host": "desktop",
+  "channel": "github-release",
+  "appVersion": { "year": 2026, "month": 10, "patch": 2 },
+  "platform": "mac",
+  "arch": "arm64",
+  "locale": "en",
+  "osVersion": 15,
+  "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
+  "sessionAge": "10-59m",
+  "sentAt": 1760000000000,
+  "reports": [
+    {
+      "kind": "render-error",
+      "process": "renderer",
+      "surface": "request-edit",
+      "errorName": "TypeError",
+      "template": "cannot-read-property",
+      "frames": [
+        { "file": "index-abc123.js", "line": 1, "col": 48213, "fn": "renderRows" },
+        { "external": true }
+      ],
+      "componentStack": ["RequestEditor", "WorkbenchTabBody"],
+      "fingerprint": "0123456789abcdef",
+      "count": 1
+    },
+    { "kind": "renderer-gone", "process": "renderer", "reason": "oom", "exitCode": 5, "reopenCount": 0,
+      "frames": [], "fingerprint": "89abcdef01234567", "count": 1 },
+    { "kind": "abnormal-exit", "process": "main", "frames": [], "fingerprint": "fedcba9876543210", "count": 1 }
+  ]
+}
+```
+
+  - `host`, `channel`, `appVersion`, `platform`, `arch`, `browser`,
+    `locale`, `osVersion`, `browserVersion`, `sessionAge` — the usage
+    envelope's per-process facts, same closed unions and integers, so a
+    stability read segments the way a usage read does.
+  - `sessionId` — the SAME random per-launch id the usage channel
+    mints, held in memory only. **No install identifier** on this
+    channel, by design: a report cannot be joined to an install, only
+    to the launch it happened in. Crash-free sessions and distinct
+    sessions per fingerprint read without any durable identity.
+  - `reports` — one to ten per envelope. Each carries:
+    - `kind` — one of `render-error`, `uncaught-exception`,
+      `unhandled-rejection`, `renderer-gone`, `child-process-gone`,
+      `unresponsive`, `abnormal-exit`.
+    - `process` — one of `main`, `renderer`, `service-worker`, `popup`,
+      `sidepanel`, `devtools-panel`, `offscreen`, `gpu`, `utility`,
+      `cli`.
+    - `surface` — for a render error, the workbench unit whose
+      containment boundary caught it: a tab mode or a tool-window id
+      from the closed list compiled into the app (`request-edit`,
+      `http-rules`, …). Never a title, a name, a URL.
+    - `errorName` — the built-in class: `TypeError`, `RangeError`,
+      `ReferenceError`, `SyntaxError`, `URIError`, `DOMException`,
+      `AggregateError`, `Error`, or `other` for anything else.
+    - `template` — which engine message *template* the message matched,
+      never a character of the message itself: `cannot-read-property`,
+      `cannot-set-property`, `not-a-function`, `not-a-constructor`,
+      `not-defined`, `not-iterable`, `access-before-init`,
+      `assign-to-constant`, `max-call-stack`, `invalid-array-length`,
+      `json-parse`, `out-of-memory`, `react-minified` (with the React
+      error number as `reactError`, an integer), one of the
+      DOMException spec names (`AbortError`, `NotFoundError`, …), or
+      `other`. The identifier inside a message (the `'foo'` in
+      `reading 'foo'`) is dropped — the frames already pinpoint the
+      line.
+    - `code` — for a failure one of our own typed errors raised, its
+      code from a closed list (today one member, `bridge-call-failed`).
+    - `reason`, `exitCode`, `reopenCount` — for a gone or hung process,
+      the runtime's own typed reason (`clean-exit`, `abnormal-exit`,
+      `killed`, `crashed`, `oom`, `launch-failed`, `integrity-failure`,
+      `memory-eviction`), its exit code, and how many automatic reopens
+      preceded it. No memory snapshot of any kind is ever taken.
+    - `frames` — the stack, at most twenty entries. A frame is named
+      (`file`, `line`, `col`, optional `fn`) **only when it comes from
+      Open Headers' own bundle**: a file under the app's own origin
+      (the extension's own URL, the desktop app's own package, the
+      command-line tool's own script) whose name is a built bundle
+      (`name.js` / `name.mjs`). Every other frame — a user script, an
+      `eval`, another extension's content script, the runtime's
+      internals, a development source file — is the single marker
+      `{ "external": true }`, and a run of them folds into one. Code
+      outside our bundles can therefore never contribute an identifier.
+    - `componentStack` — for a render error, the React component names
+      on the path, innermost first, at most sixteen.
+    - `fingerprint` — sixteen hex chars of a hash over the kind, the
+      class, the template, our code, the reason and the first four own
+      frames: a group key, not an identity.
+    - `count` — occurrences of this fingerprint folded into one report
+      since the last flush. A storm is a count, not a flood.
+  - **The grammar table** — every string this channel can carry and
+    the regular expression that pins it:
+
+    | Field | Grammar |
+    |---|---|
+    | `fn`, each `componentStack` entry | `^[A-Za-z_$][\w$]{0,63}$` — an identifier: no dot, no slash, no space, no quote |
+    | `file` | `^[\w.-]{1,80}\.m?js$` — a bundle basename: no directory, no query, no `.tsx` source |
+    | `fingerprint` | `^[0-9a-f]{16}$` |
+    | `sessionId` | `^[0-9a-f]{32}$` |
+    | everything else | a closed union, an integer, or a boolean — no string type at all |
+
+- **Bounded**: one report per fingerprint per session per UTC day (a
+  repeat is counted, not re-sent), at most twenty new fingerprints per
+  day, ten reports per envelope, one report at most 3 KB serialized —
+  anything larger is dropped and shown as dropped in the inspector,
+  never truncated.
+- **Response**: `202` when the envelope validates against the same
+  compiled schema, `4xx` otherwise. Failures are silent; the batch
+  rides the next flush.
+- **Storage**: a third member of the dataset family
+  (`openheaders_telemetry_errors_v1`), its own column layout, **indexed
+  by fingerprint** — a storm of one fingerprint samples itself while
+  rare fingerprints stay whole. It carries the vocabulary values, the
+  session id and the coarse edge country code described above; no
+  install id exists to store.
+- **Cadence**: a report flushes the moment it is recorded (a crash is
+  not a thing to batch for a minute); the usage interval is the retry
+  cadence and the quit flush the last chance.
+- **Off switch**: Settings → General → "Crash and error reports"
+  (extension and desktop), independent of usage counting — either
+  switch can be off alone; `OH_TELEMETRY=0` silences both on the
+  command-line tool, and the `errorReports` config key silences this
+  one. Hard-off on the daemon, the served web app and the MCP server:
+  they contain containment and nothing to report with.
+- **No minidumps, no logs, no breadcrumbs**: the runtime's crash
+  reporter (process-memory snapshots) is never started — for an
+  interception tool that holds header values in memory, a memory
+  snapshot would be traffic by construction — and log lines never ride
+  a report.
 
 ## 5. Static feed reads (release notes & download link)
 
