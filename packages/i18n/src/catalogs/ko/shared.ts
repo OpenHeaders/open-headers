@@ -54,8 +54,17 @@ export const shared = {
 
   // ── Top-level error boundary ─────────────────────────────────────────
   'shared.errorBoundary.title': '문제가 발생했습니다',
-  'shared.errorBoundary.subtitle': '팝업을 불러오는 중 오류가 발생했습니다. 닫았다가 다시 열어 보세요.',
   'shared.errorBoundary.reload': '다시 불러오기',
+  'shared.errorBoundary.rootSubtitle':
+    'Open Headers 앱에서 복구할 수 없는 오류가 발생했습니다. 계속하려면 다시 불러오세요. 데이터는 안전합니다.',
+  'shared.errorBoundary.copyDetails': '세부 정보 복사',
+  'shared.errorBoundary.openLogs': '로그 폴더 열기',
+  'shared.errorBoundary.retry': '다시 시도',
+  'shared.errorBoundary.unit.tabTitle': '이 탭에서 오류가 발생했습니다',
+  'shared.errorBoundary.unit.windowTitle': '이 도구 창에서 오류가 발생했습니다',
+  'shared.errorBoundary.unit.hint': '앱의 나머지 부분은 계속 작동합니다. 다시 시도하면 다시 마운트됩니다.',
+  'shared.errorBoundary.unit.closeTab': '탭 닫기',
+  'shared.errorBoundary.unit.hideWindow': '창 숨기기',
 
   // ── Invalidated-context notice (DevTools panel orphan watch) ────────
   'shared.contextInvalidated.title': 'Open Headers 확장 프로그램이 업데이트되었거나 다시 로드되었습니다',

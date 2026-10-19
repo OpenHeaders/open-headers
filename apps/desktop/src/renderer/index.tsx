@@ -8,7 +8,9 @@ import './host/install-build-info';
 import './host/install-navigation-host';
 import './host/install-assets-host';
 import './host/install-awareness-host';
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
+import { installErrorFunnel } from '@openheaders/ui/shared/error-funnel';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
@@ -44,17 +46,23 @@ setCurrentHost('desktop');
 eagerInitRendererMirrors();
 
 const container = document.getElementById('root');
-const root = createRoot(container!);
+// The error funnel: every uncaught render error, boundary catch and
+// document-level failure logs to `main.log` and reaches the report
+// sink; the root boundary above the providers keeps the window from
+// going bare (the frame colour) when nothing below could contain it.
+const root = createRoot(container!, installErrorFunnel({ surface: 'workbench' }));
 
 root.render(
-  <SettingsProvider>
-    <LocaleProvider>
-      <ThemeProvider>
-        <AntApp>
-          <Workbench resolveIdentity={resolveWorkbenchIdentity} />
-          <FirstRunLegalNotice />
-        </AntApp>
-      </ThemeProvider>
-    </LocaleProvider>
-  </SettingsProvider>,
+  <ErrorBoundary>
+    <SettingsProvider>
+      <LocaleProvider>
+        <ThemeProvider>
+          <AntApp>
+            <Workbench resolveIdentity={resolveWorkbenchIdentity} />
+            <FirstRunLegalNotice />
+          </AntApp>
+        </ThemeProvider>
+      </LocaleProvider>
+    </SettingsProvider>
+  </ErrorBoundary>,
 );

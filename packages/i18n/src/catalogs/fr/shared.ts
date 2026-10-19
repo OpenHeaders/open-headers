@@ -19,8 +19,17 @@ export const shared = {
 
   // ── Top-level error boundary ─────────────────────────────────────────
   'shared.errorBoundary.title': 'Une erreur est survenue',
-  'shared.errorBoundary.subtitle': 'Le chargement du popup a échoué. Fermez-le puis rouvrez-le.',
   'shared.errorBoundary.reload': 'Recharger',
+  'shared.errorBoundary.rootSubtitle':
+    'Open Headers a rencontré une erreur dont il n’a pas pu se remettre. Rechargez pour continuer : vos données sont en sécurité.',
+  'shared.errorBoundary.copyDetails': 'Copier les détails',
+  'shared.errorBoundary.openLogs': 'Ouvrir le dossier des journaux',
+  'shared.errorBoundary.retry': 'Réessayer',
+  'shared.errorBoundary.unit.tabTitle': 'Cet onglet a rencontré une erreur',
+  'shared.errorBoundary.unit.windowTitle': 'Cette fenêtre d’outils a rencontré une erreur',
+  'shared.errorBoundary.unit.hint': 'Le reste de l’application continue de fonctionner. Réessayer le remonte.',
+  'shared.errorBoundary.unit.closeTab': 'Fermer l’onglet',
+  'shared.errorBoundary.unit.hideWindow': 'Masquer la fenêtre',
 
   // ── Invalidated-context notice (DevTools panel orphan watch) ────────
   'shared.contextInvalidated.title': 'Open Headers a été mis à jour ou rechargé',

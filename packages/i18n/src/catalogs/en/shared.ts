@@ -20,8 +20,19 @@ export const shared = {
 
   // ── Top-level error boundary ─────────────────────────────────────────
   'shared.errorBoundary.title': 'Something went wrong',
-  'shared.errorBoundary.subtitle': 'There was an error loading the popup. Please try closing and reopening it.',
   'shared.errorBoundary.reload': 'Reload',
+  // The root fallback (above the providers) and the per-unit fallback
+  // (a tab or tool window that threw while the rest keeps working).
+  'shared.errorBoundary.rootSubtitle':
+    'Open Headers hit an error it could not recover from. Reload to continue — your data is safe.',
+  'shared.errorBoundary.copyDetails': 'Copy details',
+  'shared.errorBoundary.openLogs': 'Open logs folder',
+  'shared.errorBoundary.retry': 'Retry',
+  'shared.errorBoundary.unit.tabTitle': 'This tab hit an error',
+  'shared.errorBoundary.unit.windowTitle': 'This tool window hit an error',
+  'shared.errorBoundary.unit.hint': 'The rest of the app keeps working. Retry mounts it again.',
+  'shared.errorBoundary.unit.closeTab': 'Close tab',
+  'shared.errorBoundary.unit.hideWindow': 'Hide window',
 
   // ── Invalidated-context notice (DevTools panel orphan watch) ────────
   'shared.contextInvalidated.title': 'Open Headers was updated or reloaded',

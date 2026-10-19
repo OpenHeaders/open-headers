@@ -37,6 +37,8 @@ import {
   useFocusRegion,
 } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
+import UnitErrorFallback from '@openheaders/ui/components/UnitErrorFallback';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import DocsPanel from '@openheaders/ui/shared/docs/DocsPanel';
 import {
@@ -810,7 +812,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   // ── Editor group tab body ──────────────────────────────────
-  const renderTabBody = useCallback(
+  const renderTabBodyContent = useCallback(
     ({ tab }: { tab: InspectorTab; leafId: string; isFocusedLeaf: boolean }) => {
       if (tab.kind === 'idb-record') {
         return (
@@ -960,6 +962,23 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     ],
   );
 
+  // Each editor tab mounts inside its own containment boundary (the
+  // crash-and-error-reports plan §3.1): a tab that throws shows the
+  // fallback in its own area — Retry remounts, Close tab closes it —
+  // while the other tabs and the tool windows keep working.
+  const renderTabBody = useCallback(
+    (ctx: { tab: InspectorTab; leafId: string; isFocusedLeaf: boolean }) => (
+      <ErrorBoundary
+        fallback={({ error, reset }) => (
+          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => closeGuard.closeTab(ctx.tab.id)} />
+        )}
+      >
+        {renderTabBodyContent(ctx)}
+      </ErrorBoundary>
+    ),
+    [renderTabBodyContent, closeGuard],
+  );
+
   const renderEmpty = useCallback(
     () => (
       <div className="dt-editor-empty">
@@ -1015,7 +1034,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const xhrLogEntries = useMemo(() => deriveXhrLogEntries(data.rows), [data.rows]);
 
   // ── Tool window content ────────────────────────────────────
-  const renderToolWindow = useCallback(
+  const renderToolWindowContent = useCallback(
     (windowId: PanelToolWindowId, _slot: DockSlot): React.ReactNode => {
       switch (windowId) {
         case 'network':
@@ -1163,6 +1182,22 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       rulesByUid,
       t,
     ],
+  );
+
+  // Same containment as the tabs: a tool window that throws shows its
+  // fallback in its own dock slot (Retry remounts, Hide toggles the
+  // window off) and the rest of the panel keeps working.
+  const renderToolWindow = useCallback(
+    (windowId: PanelToolWindowId, slot: DockSlot): React.ReactNode => (
+      <ErrorBoundary
+        fallback={({ error, reset }) => (
+          <UnitErrorFallback kind="window" error={error} onRetry={reset} onClose={() => tl.toggleWindow(windowId)} />
+        )}
+      >
+        {renderToolWindowContent(windowId, slot)}
+      </ErrorBoundary>
+    ),
+    [renderToolWindowContent, tl],
   );
 
   // ── Editor content ─────────────────────────────────────────

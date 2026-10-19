@@ -27,8 +27,17 @@ export const shared = {
 
   // ── Top-level error boundary ─────────────────────────────────────────
   'shared.errorBoundary.title': 'Algo salió mal',
-  'shared.errorBoundary.subtitle': 'Hubo un error al cargar el popup. Ciérralo y vuelve a abrirlo.',
   'shared.errorBoundary.reload': 'Recargar',
+  'shared.errorBoundary.rootSubtitle':
+    'Open Headers encontró un error del que no pudo recuperarse. Recarga para continuar; tus datos están a salvo.',
+  'shared.errorBoundary.copyDetails': 'Copiar detalles',
+  'shared.errorBoundary.openLogs': 'Abrir carpeta de registros',
+  'shared.errorBoundary.retry': 'Reintentar',
+  'shared.errorBoundary.unit.tabTitle': 'Esta pestaña encontró un error',
+  'shared.errorBoundary.unit.windowTitle': 'Esta ventana de herramientas encontró un error',
+  'shared.errorBoundary.unit.hint': 'El resto de la aplicación sigue funcionando. Reintentar la vuelve a montar.',
+  'shared.errorBoundary.unit.closeTab': 'Cerrar pestaña',
+  'shared.errorBoundary.unit.hideWindow': 'Ocultar ventana',
 
   // ── Invalidated-context notice (DevTools panel orphan watch) ────────
   'shared.contextInvalidated.title': 'Open Headers se ha actualizado o recargado',

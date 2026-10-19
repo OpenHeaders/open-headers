@@ -53,6 +53,51 @@ export function applyHardwareAccelerationPolicy(): void {
 }
 
 /**
+ * Persist "acceleration off" for the next launch — the escape the
+ * window supervisor's crash dialog and the graphics-process watch
+ * offer (the crash-and-error-reports plan §3.3). Idempotent; false
+ * only when the marker could not be written.
+ */
+export function disableHardwareAccelerationOnNextLaunch(): boolean {
+  try {
+    writeFileSync(flagPath(), '');
+    return true;
+  } catch (err) {
+    logger.error('failed to persist hardware-acceleration flag', err);
+    return false;
+  }
+}
+
+let escapeOffered = false;
+
+/**
+ * The graphics-process escape: after the GPU process has died twice
+ * in one session, offer ONCE to restart with acceleration off.
+ * Chromium's own software fallback stays the first line; this is the
+ * second, and a person decides it.
+ */
+export async function offerHardwareAccelerationEscape(): Promise<void> {
+  if (escapeOffered || isHardwareAccelerationDisabled()) return;
+  escapeOffered = true;
+  const t = mainTranslator();
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    title: t('desktop.dialog.gpuCrashed.title'),
+    message: t('desktop.dialog.gpuCrashed.message'),
+    detail: t('desktop.dialog.gpuCrashed.detail'),
+    buttons: [t('desktop.dialog.gpuCrashed.restartWithoutAcceleration'), t('desktop.dialog.gpuCrashed.later')],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0 && disableHardwareAccelerationOnNextLaunch()) relaunchApp();
+}
+
+/** Test seam: forget that the escape was offered. */
+export function resetHardwareAccelerationEscapeForTests(): void {
+  escapeOffered = false;
+}
+
+/**
  * Flip the persisted policy, then offer to restart. Returns after the
  * marker is written so the caller can rebuild the menu with the new
  * label; the restart branch tears the process down asynchronously.

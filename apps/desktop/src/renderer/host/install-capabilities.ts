@@ -69,6 +69,11 @@ registerCapability('backendProbe', createBridgedBackendProbe());
 // back to the default browser when the named one isn't installed.
 registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser(url, browser));
 
+// The root error fallback's "Open logs folder": the error funnel's
+// lines land in `main.log` through electron-log, and main reveals the
+// file in the OS file manager.
+registerCapability('revealLogs', () => window.oh.logs.reveal());
+
 // In-app updater (the updates plan): report a seen-but-not-installed
 // update so the gear menu shows its dot. No `url` — the gear routes to
 // the Settings update row, where download/restart run in-app.

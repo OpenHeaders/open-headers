@@ -97,8 +97,17 @@ export const shared = {
 
   // ── Top-level error boundary ─────────────────────────────────────────
   'shared.errorBoundary.title': 'Ceva nu a funcționat',
-  'shared.errorBoundary.subtitle': 'Fereastra popup nu a putut fi încărcată. Închideți-o și deschideți-o din nou.',
   'shared.errorBoundary.reload': 'Reîncărcare',
+  'shared.errorBoundary.rootSubtitle':
+    'Open Headers a întâmpinat o eroare din care nu și-a putut reveni. Reîncărcați pentru a continua — datele dvs. sunt în siguranță.',
+  'shared.errorBoundary.copyDetails': 'Copiere detalii',
+  'shared.errorBoundary.openLogs': 'Deschidere dosar jurnale',
+  'shared.errorBoundary.retry': 'Reîncercare',
+  'shared.errorBoundary.unit.tabTitle': 'Această filă a întâmpinat o eroare',
+  'shared.errorBoundary.unit.windowTitle': 'Această fereastră de instrumente a întâmpinat o eroare',
+  'shared.errorBoundary.unit.hint': 'Restul aplicației funcționează în continuare. Reîncercarea o montează din nou.',
+  'shared.errorBoundary.unit.closeTab': 'Închidere filă',
+  'shared.errorBoundary.unit.hideWindow': 'Ascundere fereastră',
 
   // ── Invalidated-context notice (DevTools panel orphan watch) ────────
   'shared.contextInvalidated.title': 'Extensia Open Headers a fost actualizată sau reîncărcată',

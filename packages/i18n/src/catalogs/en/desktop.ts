@@ -48,6 +48,28 @@ export const desktop = {
   'desktop.dialog.hardwareAcceleration.detail': 'Restart now to apply the change immediately.',
   'desktop.dialog.hardwareAcceleration.restartNow': 'Restart Now',
   'desktop.dialog.hardwareAcceleration.later': 'Later',
+  // The window supervisor's dialogs (a renderer that died twice, a
+  // renderer that stopped responding) and the graphics-process escape.
+  'desktop.dialog.windowCrashed.title': 'The window crashed',
+  'desktop.dialog.windowCrashed.message': '{name} reopened the window once, and it crashed again.',
+  'desktop.dialog.windowCrashed.detail':
+    'The details are in the log file. On some graphics drivers, restarting without hardware acceleration helps.',
+  'desktop.dialog.windowCrashed.reopen': 'Reopen',
+  'desktop.dialog.windowCrashed.openLogs': 'Open Logs',
+  'desktop.dialog.windowCrashed.restartWithoutAcceleration': 'Restart Without Hardware Acceleration',
+  'desktop.dialog.windowCrashed.quit': 'Quit',
+  'desktop.dialog.windowUnresponsive.title': 'The window is not responding',
+  'desktop.dialog.windowUnresponsive.message': '{name} is not responding.',
+  'desktop.dialog.windowUnresponsive.detail': 'You can keep waiting, or reopen the window.',
+  'desktop.dialog.windowUnresponsive.keepWaiting': 'Keep Waiting',
+  'desktop.dialog.windowUnresponsive.reopen': 'Reopen',
+  'desktop.dialog.windowUnresponsive.quit': 'Quit',
+  'desktop.dialog.gpuCrashed.title': 'Graphics process crashed',
+  'desktop.dialog.gpuCrashed.message': 'The graphics process crashed twice this session.',
+  'desktop.dialog.gpuCrashed.detail':
+    'Restarting without hardware acceleration avoids the graphics driver. You can turn it back on from the application menu.',
+  'desktop.dialog.gpuCrashed.restartWithoutAcceleration': 'Restart Without Hardware Acceleration',
+  'desktop.dialog.gpuCrashed.later': 'Later',
   'desktop.firstRunLegal.message':
     'By continuing to use Open Headers, you agree to our license terms and privacy policy.',
   'desktop.firstRunLegal.license': 'License Terms',

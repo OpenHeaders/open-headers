@@ -13,6 +13,7 @@ import '@/host/install-capabilities';
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
 import App from '@openheaders/ui/panel/App';
+import { installErrorFunnel } from '@openheaders/ui/shared/error-funnel';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
@@ -33,7 +34,9 @@ eagerInitRendererMirrors();
 startContextSentinel();
 
 const container = document.getElementById('root');
-const root = createRoot(container!);
+// The error funnel: every render error logs with its component stack
+// (the root boundary below was always here; it now reports too).
+const root = createRoot(container!, installErrorFunnel({ surface: 'devtools-panel' }));
 
 root.render(
   <ErrorBoundary>

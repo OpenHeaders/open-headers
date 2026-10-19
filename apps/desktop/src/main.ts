@@ -40,11 +40,13 @@ import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
 import { initMainLocale } from './main/bootstrap/locale';
+import { installLogRevealHandler } from './main/bootstrap/log-reveal';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
 import { installRpcQueue } from './main/bootstrap/rpc-queue';
 import { installPermissionPolicy } from './main/bootstrap/security';
+import { installSessionSentinel } from './main/bootstrap/session-sentinel';
 import { enforceSingleInstanceLock } from './main/bootstrap/single-instance';
 import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
 import { installTray } from './main/bootstrap/tray';
@@ -131,12 +133,16 @@ function bootstrapDesktopApp(): void {
   installStartupDataBridge();
   const { signalEngineReady } = installRpcQueue();
   installExternalLinkHandler();
+  installLogRevealHandler();
   installProtocolHandler();
 
   void app.whenReady().then(() => {
     // A quit already committed (lost single-instance race, instant
     // Cmd+Q) must not grow windows, a tray, or an engine mid-teardown.
     if (isQuitting()) return;
+    // The clean-exit sentinel: after the quitting guard, so a lost
+    // single-instance race never touches the winner's lock.
+    installSessionSentinel();
     // Default-session permission policy before any window exists.
     installPermissionPolicy();
     registerAsProtocolHandler();

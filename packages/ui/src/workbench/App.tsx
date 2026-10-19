@@ -8,6 +8,8 @@
  * render-prop hooks for the editor body and tool-window content.
  */
 
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
+import UnitErrorFallback from '@openheaders/ui/components/UnitErrorFallback';
 import { EnvironmentProvider } from '@openheaders/ui/context';
 import { FilesProvider } from '@openheaders/ui/context';
 import { LiveVariablesProvider } from '@openheaders/ui/context';
@@ -1288,67 +1290,80 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const handleVerticalResize = useCallback((sizes: number[]) => layout.onVerticalResize(sizes), [layout]);
 
   // ── Per-tab body renderer ─────────────────────────────────────
+  // Each tab mounts inside its own containment boundary (the
+  // crash-and-error-reports plan §3.1): an editor that throws shows
+  // the fallback in its own area — Retry remounts it, Close tab
+  // closes it — while every other tab, the sidebars and the menus
+  // keep working. The render prop is keyed per tab by the group
+  // renderer, so one boundary instance belongs to one tab.
   const renderTabBody = useCallback(
     ({ tab }: { tab: WorkbenchTab }): React.ReactNode => (
-      <WorkbenchTabBody
-        tab={tab}
-        handleSaved={handleSaved}
-        handleDirtyChange={handleDirtyChange}
-        registerSaveRef={registerSaveRef}
-        registerSaveAsTemplateRef={registerSaveAsTemplateRef}
-        registerRuleDuplicateRef={registerRuleDuplicateRef}
-        registerRequestDuplicateRef={registerRequestDuplicateRef}
-        openEditTab={openEditTab}
-        openCreateTab={openCreateTab}
-        openFolderOverview={openFolderOverview}
-        openRequestFolderOverview={openRequestFolderOverview}
-        openTemplateFolderOverview={openTemplateFolderOverview}
-        openCollectionVariables={openCollectionVariables}
-        openCreateRequestTab={openCreateRequestTab}
-        openCreateGrpcRequestTab={openCreateGrpcRequestTab}
-        openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
-        openCreateMqttRequestTab={openCreateMqttRequestTab}
-        openCreateGraphqlRequestTab={openCreateGraphqlRequestTab}
-        setContainerSection={setContainerSection}
-        onRequestScriptsViewed={markRequestScriptsReviewed}
-        openRequestEditTab={openRequestEditTab}
-        openTemplateEditTab={openTemplateEditTab}
-        openTemplateCollectionVariables={openTemplateCollectionVariables}
-        openLiveWorkflowEdit={openLiveWorkflowEdit}
-        openLiveVariableEdit={openLiveVariableEdit}
-        openCreateLiveVariable={openCreateLiveVariable}
-        openCreateLiveWorkflow={openCreateLiveWorkflow}
-        openScriptPackages={openScriptPackages}
-        openDuplicateRequestScratch={openDuplicateRequestScratch}
-        openResponseExampleTab={openResponseExampleTab}
-        openGrpcResponseExampleTab={openGrpcResponseExampleTab}
-        openWsResponseExampleTab={openWsResponseExampleTab}
-        openMqttResponseExampleTab={openMqttResponseExampleTab}
-        openGrpcRequestEditTab={openGrpcRequestEditTab}
-        openWebSocketRequestEditTab={openWebSocketRequestEditTab}
-        openMqttRequestEditTab={openMqttRequestEditTab}
-        openGraphqlRequestEditTab={openGraphqlRequestEditTab}
-        openRequestCollectionAuth={openRequestCollectionAuth}
-        openRequestFolderAuth={openRequestFolderAuth}
-        openRequestCollectionSettings={openRequestCollectionSettings}
-        openRequestFolderSettings={openRequestFolderSettings}
-        openRequestCollectionScripts={openRequestCollectionScripts}
-        openRequestFolderScripts={openRequestFolderScripts}
-        handleSwitchWorkspace={handleSwitchWorkspace}
-        onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
-        onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
-        replaceTab={replaceTab}
-        workspacesApi={workspacesApi}
-        editingScopeWorkspaceId={editingScopeWorkspaceId}
-        requestCollections={requestsApi.collections}
-        templateCollections={templateCollections}
-        localCollectionTrees={localCollectionTrees}
-        requestCollectionTrees={requestsApi.collectionTrees}
-        templateCollectionTrees={templateCollectionTrees}
-        liveWorkflows={liveWorkflowsApi.workflows}
-      />
+      <ErrorBoundary
+        fallback={({ error, reset }) => (
+          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => void handleCloseTab(tab.id)} />
+        )}
+      >
+        <WorkbenchTabBody
+          tab={tab}
+          handleSaved={handleSaved}
+          handleDirtyChange={handleDirtyChange}
+          registerSaveRef={registerSaveRef}
+          registerSaveAsTemplateRef={registerSaveAsTemplateRef}
+          registerRuleDuplicateRef={registerRuleDuplicateRef}
+          registerRequestDuplicateRef={registerRequestDuplicateRef}
+          openEditTab={openEditTab}
+          openCreateTab={openCreateTab}
+          openFolderOverview={openFolderOverview}
+          openRequestFolderOverview={openRequestFolderOverview}
+          openTemplateFolderOverview={openTemplateFolderOverview}
+          openCollectionVariables={openCollectionVariables}
+          openCreateRequestTab={openCreateRequestTab}
+          openCreateGrpcRequestTab={openCreateGrpcRequestTab}
+          openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
+          openCreateMqttRequestTab={openCreateMqttRequestTab}
+          openCreateGraphqlRequestTab={openCreateGraphqlRequestTab}
+          setContainerSection={setContainerSection}
+          onRequestScriptsViewed={markRequestScriptsReviewed}
+          openRequestEditTab={openRequestEditTab}
+          openTemplateEditTab={openTemplateEditTab}
+          openTemplateCollectionVariables={openTemplateCollectionVariables}
+          openLiveWorkflowEdit={openLiveWorkflowEdit}
+          openLiveVariableEdit={openLiveVariableEdit}
+          openCreateLiveVariable={openCreateLiveVariable}
+          openCreateLiveWorkflow={openCreateLiveWorkflow}
+          openScriptPackages={openScriptPackages}
+          openDuplicateRequestScratch={openDuplicateRequestScratch}
+          openResponseExampleTab={openResponseExampleTab}
+          openGrpcResponseExampleTab={openGrpcResponseExampleTab}
+          openWsResponseExampleTab={openWsResponseExampleTab}
+          openMqttResponseExampleTab={openMqttResponseExampleTab}
+          openGrpcRequestEditTab={openGrpcRequestEditTab}
+          openWebSocketRequestEditTab={openWebSocketRequestEditTab}
+          openMqttRequestEditTab={openMqttRequestEditTab}
+          openGraphqlRequestEditTab={openGraphqlRequestEditTab}
+          openRequestCollectionAuth={openRequestCollectionAuth}
+          openRequestFolderAuth={openRequestFolderAuth}
+          openRequestCollectionSettings={openRequestCollectionSettings}
+          openRequestFolderSettings={openRequestFolderSettings}
+          openRequestCollectionScripts={openRequestCollectionScripts}
+          openRequestFolderScripts={openRequestFolderScripts}
+          handleSwitchWorkspace={handleSwitchWorkspace}
+          onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
+          onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
+          replaceTab={replaceTab}
+          workspacesApi={workspacesApi}
+          editingScopeWorkspaceId={editingScopeWorkspaceId}
+          requestCollections={requestsApi.collections}
+          templateCollections={templateCollections}
+          localCollectionTrees={localCollectionTrees}
+          requestCollectionTrees={requestsApi.collectionTrees}
+          templateCollectionTrees={templateCollectionTrees}
+          liveWorkflows={liveWorkflowsApi.workflows}
+        />
+      </ErrorBoundary>
     ),
     [
+      handleCloseTab,
       handleSaved,
       handleDirtyChange,
       registerSaveRef,
@@ -1555,74 +1570,83 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // ── Tool window renderer ──────────────────────────────────────
   // Thin render prop for `ShellLayout` — the per-slot body dispatch
   // lives in `WorkbenchToolWindow`.
+  // Same containment as the tabs: a tool window that throws shows its
+  // fallback in its own dock slot (Retry remounts, Hide closes the
+  // dock) and the rest of the shell keeps working.
   const renderToolWindow = useCallback(
     (id: ToolWindowId, slot: DockSlot): React.ReactNode => (
-      <WorkbenchToolWindow
-        id={id}
-        slot={slot}
-        tl={tl}
-        activeTabId={activeTabId}
-        allTabs={allTabs}
-        switchTab={switchTab}
-        openEditTab={openEditTab}
-        openCreateTab={openCreateTab}
-        openCollectionOverview={openCollectionOverview}
-        openFolderOverview={openFolderOverview}
-        openRequestCollectionOverview={openRequestCollectionOverview}
-        openRequestFolderOverview={openRequestFolderOverview}
-        openTemplateEditTab={openTemplateEditTab}
-        openTemplateCollectionOverview={openTemplateCollectionOverview}
-        openTemplateFolderOverview={openTemplateFolderOverview}
-        openEnvironmentEdit={openEnvironmentEdit}
-        openSpecEdit={openSpecEdit}
-        openCreateEnvironment={() => {
+      <ErrorBoundary
+        fallback={({ error, reset }) => (
+          <UnitErrorFallback kind="window" error={error} onRetry={reset} onClose={() => tl.closeDock(slot)} />
+        )}
+      >
+        <WorkbenchToolWindow
+          id={id}
+          slot={slot}
+          tl={tl}
+          activeTabId={activeTabId}
+          allTabs={allTabs}
+          switchTab={switchTab}
+          openEditTab={openEditTab}
+          openCreateTab={openCreateTab}
+          openCollectionOverview={openCollectionOverview}
+          openFolderOverview={openFolderOverview}
+          openRequestCollectionOverview={openRequestCollectionOverview}
+          openRequestFolderOverview={openRequestFolderOverview}
+          openTemplateEditTab={openTemplateEditTab}
+          openTemplateCollectionOverview={openTemplateCollectionOverview}
+          openTemplateFolderOverview={openTemplateFolderOverview}
+          openEnvironmentEdit={openEnvironmentEdit}
+          openSpecEdit={openSpecEdit}
+          openCreateEnvironment={() => {
           void handleCreateEnvironment();
-        }}
-        openWorkspaceVariables={openWorkspaceVariables}
-        openVault={openVault}
-        openScriptPackages={openScriptPackages}
-        openLiveVariables={openLiveVariables}
-        openCollectionVariables={openCollectionVariables}
-        openRequestCollectionVariables={openRequestCollectionVariables}
-        openTemplateCollectionVariables={openTemplateCollectionVariables}
-        openLiveWorkflowEdit={openLiveWorkflowEdit}
-        openCreateLiveWorkflow={openCreateLiveWorkflow}
-        openRequestEditTab={openRequestEditTab}
-        openCreateRequestTab={openCreateRequestTab}
-        onCreateRequestOfKind={handleCreateRequestOfKind}
-        openGrpcRequestEditTab={openGrpcRequestEditTab}
-        openCreateGrpcRequestTab={openCreateGrpcRequestTab}
-        openWebSocketRequestEditTab={openWebSocketRequestEditTab}
-        openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
-        openMqttRequestEditTab={openMqttRequestEditTab}
-        openGraphqlRequestEditTab={openGraphqlRequestEditTab}
-        openCreateMqttRequestTab={openCreateMqttRequestTab}
-        openCreateGraphqlRequestTab={openCreateGraphqlRequestTab}
-        openResponseExampleTab={openResponseExampleTab}
-        openGrpcResponseExampleTab={openGrpcResponseExampleTab}
-        openWsResponseExampleTab={openWsResponseExampleTab}
-        openMqttResponseExampleTab={openMqttResponseExampleTab}
-        openLiveVariableEdit={openLiveVariableEdit}
-        openProxyRequestInspect={openProxyRequestInspect}
-        openLiveNetworkRequestInspect={openLiveNetworkRequestInspect}
-        openLiveStorageDocInspect={openLiveStorageDocInspect}
-        openSessionReplayRequestInspect={openSessionReplayRequestInspect}
-        openSettingsTab={openSettingsTab}
-        openServerAdmin={openServerAdmin}
-        handleDeleteRule={handleDeleteRule}
-        handleCloseTab={handleCloseTab}
-        handleViewActivityEntity={handleViewActivityEntity}
-        importExportRef={importExportRef}
-        sidebarSearchRefs={sidebarSearchRefs}
-        dirtyRuleUids={dirtyRuleUids}
-        dirtyRequestUids={dirtyRequestUids}
-        scriptsReviewPendingUids={scriptsReviewPendingUids}
-        dirtyWorkflowUids={dirtyWorkflowUids}
-        unresolvableWorkflowUids={unresolvableWorkflowUids}
-        sidebarState={sidebarState}
-        activeTab={activeTab}
-        liveWorkflows={liveWorkflowsApi.workflows}
-      />
+          }}
+          openWorkspaceVariables={openWorkspaceVariables}
+          openVault={openVault}
+          openScriptPackages={openScriptPackages}
+          openLiveVariables={openLiveVariables}
+          openCollectionVariables={openCollectionVariables}
+          openRequestCollectionVariables={openRequestCollectionVariables}
+          openTemplateCollectionVariables={openTemplateCollectionVariables}
+          openLiveWorkflowEdit={openLiveWorkflowEdit}
+          openCreateLiveWorkflow={openCreateLiveWorkflow}
+          openRequestEditTab={openRequestEditTab}
+          openCreateRequestTab={openCreateRequestTab}
+          onCreateRequestOfKind={handleCreateRequestOfKind}
+          openGrpcRequestEditTab={openGrpcRequestEditTab}
+          openCreateGrpcRequestTab={openCreateGrpcRequestTab}
+          openWebSocketRequestEditTab={openWebSocketRequestEditTab}
+          openCreateWebSocketRequestTab={openCreateWebSocketRequestTab}
+          openMqttRequestEditTab={openMqttRequestEditTab}
+          openGraphqlRequestEditTab={openGraphqlRequestEditTab}
+          openCreateMqttRequestTab={openCreateMqttRequestTab}
+          openCreateGraphqlRequestTab={openCreateGraphqlRequestTab}
+          openResponseExampleTab={openResponseExampleTab}
+          openGrpcResponseExampleTab={openGrpcResponseExampleTab}
+          openWsResponseExampleTab={openWsResponseExampleTab}
+          openMqttResponseExampleTab={openMqttResponseExampleTab}
+          openLiveVariableEdit={openLiveVariableEdit}
+          openProxyRequestInspect={openProxyRequestInspect}
+          openLiveNetworkRequestInspect={openLiveNetworkRequestInspect}
+          openLiveStorageDocInspect={openLiveStorageDocInspect}
+          openSessionReplayRequestInspect={openSessionReplayRequestInspect}
+          openSettingsTab={openSettingsTab}
+          openServerAdmin={openServerAdmin}
+          handleDeleteRule={handleDeleteRule}
+          handleCloseTab={handleCloseTab}
+          handleViewActivityEntity={handleViewActivityEntity}
+          importExportRef={importExportRef}
+          sidebarSearchRefs={sidebarSearchRefs}
+          dirtyRuleUids={dirtyRuleUids}
+          dirtyRequestUids={dirtyRequestUids}
+          scriptsReviewPendingUids={scriptsReviewPendingUids}
+          dirtyWorkflowUids={dirtyWorkflowUids}
+          unresolvableWorkflowUids={unresolvableWorkflowUids}
+          sidebarState={sidebarState}
+          activeTab={activeTab}
+          liveWorkflows={liveWorkflowsApi.workflows}
+        />
+      </ErrorBoundary>
     ),
     [
       activeTabId,

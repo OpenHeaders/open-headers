@@ -440,6 +440,15 @@ export interface Capabilities {
   openUrlInBrowser?: (url: string, browser: InstallTargetBrowser) => Promise<{ ok: boolean; error?: string }>;
 
   /**
+   * Reveal the host's log file in the OS file manager — the root
+   * error fallback's "Open logs folder" (the crash-and-error-reports
+   * plan §3.2). Registered only by hosts that write a log file the
+   * person can hand over (the desktop renderer, whose funnel lines
+   * land in `main.log`); browser surfaces have no file and no entry.
+   */
+  revealLogs?: () => Promise<void>;
+
+  /**
    * Dismiss the current surface — the extension popup closes its own
    * window; the extension sidepanel can self-close. Desktop windows
    * have no equivalent (the workbench is long-lived), so the desktop

@@ -22,7 +22,9 @@ import '@/host/install-csp-exempt-capability';
 import '@/host/install-whats-new-capability';
 import { registerCapability } from '@openheaders/core/capabilities';
 import { createBridgedServerSignIn } from '@openheaders/core/identity';
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
+import { installErrorFunnel } from '@openheaders/ui/shared/error-funnel';
 import Workbench from '@openheaders/ui/workbench/App';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
@@ -88,16 +90,20 @@ registerCapability('delegatedRequestDispatch', () => true);
 eagerInitRendererMirrors();
 
 const container = document.getElementById('root');
-const root = createRoot(container!);
+// The error funnel + the root boundary above the providers: a render
+// error logs with its component stack and the page never goes bare.
+const root = createRoot(container!, installErrorFunnel({ surface: 'workbench' }));
 
 root.render(
-  <SettingsProvider>
-    <LocaleProvider>
-      <ThemeProvider>
-        <AntApp>
-          <Workbench resolveIdentity={resolveWorkbenchIdentity} />
-        </AntApp>
-      </ThemeProvider>
-    </LocaleProvider>
-  </SettingsProvider>,
+  <ErrorBoundary>
+    <SettingsProvider>
+      <LocaleProvider>
+        <ThemeProvider>
+          <AntApp>
+            <Workbench resolveIdentity={resolveWorkbenchIdentity} />
+          </AntApp>
+        </ThemeProvider>
+      </LocaleProvider>
+    </SettingsProvider>
+  </ErrorBoundary>,
 );

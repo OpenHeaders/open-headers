@@ -30,8 +30,16 @@ export const shared = {
 
   // ── Top-level error boundary ─────────────────────────────────────────
   'shared.errorBoundary.title': '出了点问题',
-  'shared.errorBoundary.subtitle': '加载弹窗时出错。请关闭后重新打开。',
   'shared.errorBoundary.reload': '重新加载',
+  'shared.errorBoundary.rootSubtitle': 'Open Headers 遇到了无法恢复的错误。重新加载以继续，您的数据是安全的。',
+  'shared.errorBoundary.copyDetails': '复制详细信息',
+  'shared.errorBoundary.openLogs': '打开日志文件夹',
+  'shared.errorBoundary.retry': '重试',
+  'shared.errorBoundary.unit.tabTitle': '此标签页遇到了错误',
+  'shared.errorBoundary.unit.windowTitle': '此工具窗口遇到了错误',
+  'shared.errorBoundary.unit.hint': '应用的其余部分仍在正常工作。重试会重新加载它。',
+  'shared.errorBoundary.unit.closeTab': '关闭标签页',
+  'shared.errorBoundary.unit.hideWindow': '隐藏窗口',
 
   // ── Invalidated-context notice (DevTools panel orphan watch) ────────
   'shared.contextInvalidated.title': 'Open Headers 已更新或重新加载',

@@ -8,7 +8,9 @@ import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import '@/host/install-capabilities';
 import '@/host/install-script-sandbox';
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import { eagerInitRendererMirrors, LocaleProvider, ThemeProvider } from '@openheaders/ui/context';
+import { installErrorFunnel } from '@openheaders/ui/shared/error-funnel';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
@@ -43,17 +45,23 @@ import '@openheaders/ui/workbench/styles/rules.less';
 setCurrentHost('web');
 
 const container = document.getElementById('root');
-const root = createRoot(container!);
+// The error funnel + the root boundary above the providers. The web
+// host CONTAINS failures like every other surface and reports nothing
+// (hard-off by the telemetry plan §2 — the funnel's sink is never
+// installed here).
+const root = createRoot(container!, installErrorFunnel({ surface: 'web' }));
 
 function renderShell(children: React.ReactNode): void {
   root.render(
-    <SettingsProvider>
-      <LocaleProvider>
-        <ThemeProvider>
-          <AntApp>{children}</AntApp>
-        </ThemeProvider>
-      </LocaleProvider>
-    </SettingsProvider>,
+    <ErrorBoundary>
+      <SettingsProvider>
+        <LocaleProvider>
+          <ThemeProvider>
+            <AntApp>{children}</AntApp>
+          </ThemeProvider>
+        </LocaleProvider>
+      </SettingsProvider>
+    </ErrorBoundary>,
   );
   // The real UI is up — retire the boot/transition spinner.
   hideTransitionOverlay();

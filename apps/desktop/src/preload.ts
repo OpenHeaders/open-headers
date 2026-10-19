@@ -11,6 +11,7 @@ import 'electron-log/preload';
 import { contextBridge } from 'electron';
 import { externalLinks } from './preload/external-links';
 import { lifeline } from './preload/lifeline';
+import { logs } from './preload/logs';
 import { protocol } from './preload/protocol';
 import { type BroadcastEnvelope, rpc } from './preload/rpc';
 import { type StartupData, startupData } from './preload/startup-data';
@@ -33,6 +34,7 @@ const api = {
   lifeline,
   openExternal: externalLinks.openExternal,
   openInBrowser: externalLinks.openInBrowser,
+  logs,
   protocol,
   terminal,
 };

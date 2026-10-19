@@ -9,11 +9,11 @@ import { app, BrowserWindow, nativeTheme, screen } from 'electron';
 import { shouldLaunchHidden } from './launch-flags';
 import { isQuitting } from './lifecycle';
 import { createLogger } from './logger';
-import { attachRendererDiagnostics } from './process-diagnostics';
 import { markRendererReadyAndDrain, resetRendererReady } from './protocol';
 import { sendToRendererWindow } from './renderer-broadcast';
 import { attachWindowSecurity } from './security';
 import { attachWindowStateTracking, loadWindowState } from './window-state';
+import { attachWindowSupervisor } from './window-supervisor';
 import { forceForegroundWindow } from './windows-foreground';
 
 // Per-dimension fraction of the work area for the first-run window.
@@ -95,7 +95,7 @@ export function createMainWindow(): BrowserWindow {
 
   attachWindowSecurity(win);
   attachWindowStateTracking(win);
-  attachRendererDiagnostics(win);
+  attachWindowSupervisor(win);
 
   // Renderer is ready to receive `oh:protocol:url` once its load
   // completes (preload's `ipcRenderer.on` is wired before this fires).
@@ -224,7 +224,7 @@ export function createChildWindow(): BrowserWindow {
   });
 
   attachWindowSecurity(win);
-  attachRendererDiagnostics(win);
+  attachWindowSupervisor(win);
 
   const devUrl = process.env.ELECTRON_RENDERER_URL;
   if (devUrl) {
