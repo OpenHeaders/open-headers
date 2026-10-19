@@ -8,8 +8,9 @@
  */
 
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
+import { COPIED_FEEDBACK_MS } from '@openheaders/ui/components/RootErrorFallback';
 import UnitErrorFallback from '@openheaders/ui/components/UnitErrorFallback';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -111,6 +112,7 @@ describe('ErrorBoundary', () => {
 
   it('a root boundary without a fallback prop shows the full-page fallback', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     const marker = { shouldThrow: true };
@@ -129,6 +131,12 @@ describe('ErrorBoundary', () => {
     await screen.findByText('Copied to clipboard');
     expect(writeText).toHaveBeenCalledOnce();
     expect(writeText.mock.calls[0][0]).toContain('TypeError: editor exploded');
+    // The copied state is feedback, not a mode: it offers again shortly.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(COPIED_FEEDBACK_MS);
+    });
+    expect(screen.getByText('Copy details')).toBeTruthy();
+    vi.useRealTimers();
   });
 
   it('a thrown non-Error reads as NonErrorThrown', () => {
