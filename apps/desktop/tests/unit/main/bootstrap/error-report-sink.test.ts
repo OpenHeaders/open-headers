@@ -2,13 +2,12 @@
  * The main process's error-report sink (the error reports plan §3.3):
  * ring-0 observations buffer until the channel installs its sink and
  * drain into it in order; a throwing sink never turns one failure into
- * two; `describeThrown` reads any thrown value like the UI funnel does.
+ * two.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   __resetErrorReportSinkForTests,
-  describeThrown,
   ERROR_REPORT_PENDING_CAP,
   recordErrorReport,
   setErrorReportSink,
@@ -48,13 +47,5 @@ describe('error-report-sink', () => {
     const sink = vi.fn();
     setErrorReportSink(sink);
     expect(sink).toHaveBeenCalledOnce();
-  });
-
-  it('describes Errors, error-shaped objects and primitives', () => {
-    const error = new RangeError('too far');
-    expect(describeThrown(error)).toEqual({ name: 'RangeError', message: 'too far', stack: error.stack ?? null });
-    expect(describeThrown({ name: 'Custom', message: 'm' })).toEqual({ name: 'Custom', message: 'm', stack: null });
-    expect(describeThrown('plain')).toEqual({ name: 'Error', message: 'plain', stack: null });
-    expect(describeThrown(undefined)).toEqual({ name: 'Error', message: 'undefined', stack: null });
   });
 });

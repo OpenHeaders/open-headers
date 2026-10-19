@@ -11,7 +11,7 @@
  * exit earns is never lost to boot order. Nothing here throws.
  */
 
-import type { ErrorReportErrorDescription, ErrorReportInput } from '@openheaders/core/telemetry';
+import type { ErrorReportInput } from '@openheaders/core/telemetry';
 
 export type ErrorReportSink = (input: ErrorReportInput) => void;
 
@@ -41,30 +41,6 @@ export function setErrorReportSink(next: ErrorReportSink | null): void {
   const buffered = pending;
   pending = [];
   for (const input of buffered) recordErrorReport(input);
-}
-
-/** Name, message and stack of any thrown value — main's twin of the UI funnel's `describeError`. */
-export function describeThrown(value: unknown): ErrorReportErrorDescription {
-  if (value instanceof Error) {
-    return { name: value.name || 'Error', message: value.message, stack: value.stack ?? null };
-  }
-  if (typeof value === 'object' && value !== null) {
-    const named = value as { name?: unknown; message?: unknown; stack?: unknown };
-    return {
-      name: typeof named.name === 'string' && named.name !== '' ? named.name : 'Error',
-      message: typeof named.message === 'string' ? named.message : safeString(value),
-      stack: typeof named.stack === 'string' ? named.stack : null,
-    };
-  }
-  return { name: 'Error', message: safeString(value), stack: null };
-}
-
-function safeString(value: unknown): string {
-  try {
-    return String(value);
-  } catch {
-    return '[unprintable]';
-  }
 }
 
 /** Test-only — drop the sink and anything buffered. */

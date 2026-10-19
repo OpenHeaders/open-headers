@@ -53,12 +53,15 @@ export {
   errorReportLatchKey,
 } from './error-controller';
 export {
+  createPathOwnOriginTest,
+  describeThrownError,
   type ErrorReportContext,
   type ErrorReportErrorDescription,
   type ErrorReportInput,
   fingerprintErrorReport,
   type MatchedErrorTemplate,
   matchErrorTemplate,
+  type PathOwnOriginOptions,
   parseComponentStack,
   parseStackFrames,
   serializedErrorReportBytes,

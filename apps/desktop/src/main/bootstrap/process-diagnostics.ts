@@ -19,9 +19,9 @@
  * builds — see `./logger`).
  */
 
-import type { ErrorReportInput, ErrorReportProcess } from '@openheaders/core/telemetry';
+import { describeThrownError, type ErrorReportInput, type ErrorReportProcess } from '@openheaders/core/telemetry';
 import { app } from 'electron';
-import { describeThrown, recordErrorReport } from './error-report-sink';
+import { recordErrorReport } from './error-report-sink';
 import { offerHardwareAccelerationEscape } from './hardware-acceleration';
 import { createLogger } from './logger';
 
@@ -55,11 +55,11 @@ function reportableChildProcess(type: string): ErrorReportProcess | null {
 export function installProcessDiagnostics(deps: ProcessDiagnosticsDeps = defaultDeps): void {
   process.on('uncaughtException', (err) => {
     logger.error('uncaughtException', err);
-    deps.report({ kind: 'uncaught-exception', process: 'main', error: describeThrown(err) });
+    deps.report({ kind: 'uncaught-exception', process: 'main', error: describeThrownError(err) });
   });
   process.on('unhandledRejection', (reason) => {
     logger.error('unhandledRejection', reason);
-    deps.report({ kind: 'unhandled-rejection', process: 'main', error: describeThrown(reason) });
+    deps.report({ kind: 'unhandled-rejection', process: 'main', error: describeThrownError(reason) });
   });
 
   let gpuGoneCount = 0;

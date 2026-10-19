@@ -74,6 +74,14 @@ describe('parseCliConfig / serializeCliConfig', () => {
     });
   });
 
+  it('reads the two telemetry switches as independent booleans', () => {
+    expect(parseCliConfig(JSON.stringify({ telemetry: false, errorReports: true }), '/x/cli.json')).toEqual({
+      telemetry: false,
+      errorReports: true,
+    });
+    expect(parseCliConfig(JSON.stringify({ errorReports: 'no' }), '/x/cli.json')).toEqual({});
+  });
+
   it('drops a channel value outside stable|beta', () => {
     expect(parseCliConfig(JSON.stringify({ channel: 'nightly' }), '/x/cli.json')).toEqual({});
   });

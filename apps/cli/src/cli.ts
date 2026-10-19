@@ -9,6 +9,7 @@
  * protocol constants.
  */
 
+import { describeThrownError } from '@openheaders/core/telemetry';
 import { maybeSpawnAutoUpgrade } from './auto-upgrade';
 import { commandChangelog } from './changelog';
 import type { CommandSpec } from './command-spec';
@@ -25,8 +26,8 @@ import {
 import { completionScript } from './completions';
 import { DAEMON_URL_ENV, DEFAULT_DAEMON_URL, TOKEN_ENV } from './connection';
 import { EXEC_COMMANDS, findExecCommand } from './exec-commands';
-import { EXIT_USAGE, exitCodeFor, OperationFailedError } from './exit-codes';
-import { bootCliProductTelemetry } from './product-telemetry';
+import { EXIT_OPERATION_FAILED, EXIT_USAGE, exitCodeFor, OperationFailedError } from './exit-codes';
+import { bootCliProductTelemetry, type CliProductTelemetry } from './product-telemetry';
 import { findReadCommand, READ_COMMANDS } from './read-commands';
 import { RUN_COMMANDS, runRunCommand } from './run-commands';
 import { runTui } from './tui/run';
@@ -94,15 +95,36 @@ Exit codes: 0 ok · 1 operation failed · 2 usage · 3 daemon unreachable or MCP
 `;
 }
 
+/**
+ * A failure nothing caught — a throw off a timer, a stray rejected
+ * promise — ends the command the way Node would (the message on
+ * stderr, exit 1) after the error channel records it (the error
+ * reports plan, fork 4). The exit waits for the capped flush, so the
+ * report leaves before the process does; a disabled channel records
+ * nothing and the exit is immediate.
+ */
+function installFatalHandlers(telemetry: CliProductTelemetry): void {
+  const fatal = (kind: 'uncaught-exception' | 'unhandled-rejection', thrown: unknown): void => {
+    telemetry.reportError({ kind, process: 'cli', error: describeThrownError(thrown) });
+    console.error(`oh: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
+    process.exitCode = EXIT_OPERATION_FAILED;
+    void telemetry.finish().finally(() => process.exit());
+  };
+  process.on('uncaughtException', (err) => fatal('uncaught-exception', err));
+  process.on('unhandledRejection', (reason) => fatal('unhandled-rejection', reason));
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const [first] = argv;
 
-  // Anonymous usage counting (the telemetry plan §2): one invocation is
-  // one session. Boot prints the first-run notice to stderr when owed;
-  // the exit flush in the finally is best-effort and abort-capped, so
-  // telemetry can never change a command's outcome or hold it open.
+  // Anonymous usage counting (the telemetry plan §2) and crash and error
+  // reports (the error reports plan, fork 4): one invocation is one
+  // session on both channels. The exit flush in the finally is
+  // best-effort and abort-capped, so telemetry can never change a
+  // command's outcome or hold it open.
   const telemetry = await bootCliProductTelemetry();
+  installFatalHandlers(telemetry);
   // Update availability notify (the distribution plan §5): prints from
   // the 24h cache only, TTY-and-flag gated; the ≤1/day feed refresh
   // rides in the background and is capped in the exit flush like the

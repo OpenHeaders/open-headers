@@ -9,9 +9,14 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { TelemetryEnvelope } from '@openheaders/core/telemetry';
+import type { ErrorReportEnvelope, TelemetryEnvelope } from '@openheaders/core/telemetry';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { bootCliProductTelemetry, detectCliChannel, readTelemetryEnabled } from '../../src/product-telemetry';
+import {
+  bootCliProductTelemetry,
+  detectCliChannel,
+  readErrorReportsEnabled,
+  readTelemetryEnabled,
+} from '../../src/product-telemetry';
 
 let dir: string;
 
@@ -272,5 +277,118 @@ describe('bootCliProductTelemetry — failure posture', () => {
       now: () => 1_760_000_000_000,
     });
     await expect(handle.finish()).resolves.toBeUndefined();
+  });
+});
+
+describe('readErrorReportsEnabled', () => {
+  it('defaults on, independent of the usage key', () => {
+    expect(readErrorReportsEnabled({}, undefined)).toBe(true);
+    expect(readErrorReportsEnabled({}, false)).toBe(false);
+  });
+
+  it('OH_TELEMETRY off silences it; a set value never forces it on over the config key', () => {
+    for (const value of ['0', 'false', 'off', 'OFF']) {
+      expect(readErrorReportsEnabled({ OH_TELEMETRY: value }, true)).toBe(false);
+    }
+    expect(readErrorReportsEnabled({ OH_TELEMETRY: '1' }, false)).toBe(false);
+    expect(readErrorReportsEnabled({ OH_TELEMETRY: '1' }, undefined)).toBe(true);
+    expect(readErrorReportsEnabled({ OH_TELEMETRY: '' }, undefined)).toBe(true);
+  });
+});
+
+describe('bootCliProductTelemetry — crash and error reports', () => {
+  interface ErrorRigOptions extends RigOptions {
+    scriptPath?: string;
+  }
+
+  async function makeErrorRig(options: ErrorRigOptions = {}) {
+    const configPath = path.join(dir, 'openheaders', 'cli.json');
+    const sent: TelemetryEnvelope[] = [];
+    const reported: ErrorReportEnvelope[] = [];
+    const boot = () =>
+      bootCliProductTelemetry({
+        env: options.env ?? {},
+        platform: options.platform ?? 'darwin',
+        arch: 'arm64',
+        osRelease: '24.1.0',
+        cliVersion: '2026.10.2',
+        channel: 'npm',
+        configPath,
+        scriptPath: options.scriptPath ?? '/opt/homebrew/lib/node_modules/@openheaders/cli/dist/oh.mjs',
+        execPath: '/opt/homebrew/bin/node',
+        transport: {
+          async send(envelope) {
+            sent.push(envelope);
+            return true;
+          },
+        },
+        errorTransport: {
+          async send(envelope) {
+            reported.push(envelope);
+            return true;
+          },
+        },
+        now: () => 1_760_000_000_000,
+      });
+    return { boot, sent, reported, configPath };
+  }
+
+  const stack = [
+    'TypeError: rules.map is not a function',
+    '    at run (file:///opt/homebrew/lib/node_modules/@openheaders/cli/dist/oh.mjs:12:34)',
+    '    at node:internal/process/task_queues:95:5',
+  ].join('\n');
+
+  it('reports on the same session as the usage channel, naming only frames under the running script', async () => {
+    const { boot, sent, reported } = await makeErrorRig();
+    const handle = await boot();
+    handle.reportError({
+      kind: 'uncaught-exception',
+      process: 'cli',
+      error: { name: 'TypeError', message: 'rules.map is not a function', stack },
+    });
+    await handle.finish();
+    expect(sent).toHaveLength(1);
+    expect(reported).toHaveLength(1);
+    expect(reported[0].sessionId).toBe(sent[0].sessionId);
+    expect(reported[0].host).toBe('cli');
+    expect(reported[0].channel).toBe('npm');
+    expect(reported[0].locale).toBe('en');
+    expect('installId' in reported[0]).toBe(false);
+    expect(reported[0].reports[0]).toMatchObject({
+      kind: 'uncaught-exception',
+      process: 'cli',
+      errorName: 'TypeError',
+      template: 'not-a-function',
+      frames: [{ file: 'oh.mjs', line: 12, col: 34, fn: 'run' }, { external: true }],
+    });
+    expect(JSON.stringify(reported[0])).not.toContain('rules.map');
+  });
+
+  it('the two switches are independent: usage off keeps reports on, errorReports off keeps usage on', async () => {
+    const usageOff = await makeErrorRig();
+    await writeConfig(usageOff.configPath, { telemetry: false });
+    const first = await usageOff.boot();
+    first.reportError({ kind: 'unhandled-rejection', process: 'cli' });
+    await first.finish();
+    expect(usageOff.sent).toEqual([]);
+    expect(usageOff.reported).toHaveLength(1);
+
+    const reportsOff = await makeErrorRig();
+    await writeConfig(reportsOff.configPath, { errorReports: false });
+    const second = await reportsOff.boot();
+    second.reportError({ kind: 'unhandled-rejection', process: 'cli' });
+    await second.finish();
+    expect(reportsOff.sent).toHaveLength(1);
+    expect(reportsOff.reported).toEqual([]);
+  });
+
+  it('OH_TELEMETRY=0 silences both — the inert handle records nothing', async () => {
+    const { boot, sent, reported } = await makeErrorRig({ env: { OH_TELEMETRY: '0' } });
+    const handle = await boot();
+    handle.reportError({ kind: 'uncaught-exception', process: 'cli' });
+    await handle.finish();
+    expect(sent).toEqual([]);
+    expect(reported).toEqual([]);
   });
 });

@@ -1,27 +1,39 @@
 /**
- * Product-telemetry host adapter for the CLI (the telemetry plan §2/§7)
- * — the short-lived-process sibling of the extension SW and desktop main
- * adapters. One `oh` invocation is one session: the id and latches live
- * in the controller's in-memory store, and the host-owned cadence is a
- * single best-effort flush on exit (the transport aborts quickly so a
- * slow network can never hold a finished command hostage).
+ * Product-telemetry host adapter for the CLI (the telemetry plan §2/§7;
+ * the error reports plan, fork 4) — the short-lived-process sibling of
+ * the extension SW and desktop main adapters. One `oh` invocation is
+ * one session: the id and latches live in the controller's in-memory
+ * store, SHARED by the two channels (usage counting, then crash and
+ * error reports, booted in that order so one id is minted), and the
+ * host-owned cadence is a single best-effort flush on exit (the
+ * transport aborts quickly so a slow network can never hold a finished
+ * command hostage).
  *
- * Gates: `OH_TELEMETRY` env var (`0`/`false`/`off` kills the channel;
- * any other value forces it on) → `telemetry` key in `cli.json` →
- * default on. No runtime notice: the disclosure lives in the docs and
- * the privacy page, and the terminal stays quiet. Disabled runs skip
- * the channel entirely (nothing is collected).
+ * Gates: `OH_TELEMETRY` env var (`0`/`false`/`off` kills BOTH channels;
+ * any other value forces usage counting on) → the `telemetry` and
+ * `errorReports` keys in `cli.json`, each independent → default on. No
+ * runtime notice: the disclosure lives in the docs and the privacy
+ * page, and the terminal stays quiet. A disabled channel skips its
+ * work entirely (nothing is collected).
  *
  * Every telemetry failure is silent — a broken config file or an
  * unreachable endpoint must never change a command's outcome.
  */
 
 import * as os from 'node:os';
+import * as path from 'node:path';
 import {
   createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
+  createPathOwnOriginTest,
+  type ErrorReportContext,
+  ErrorReportController,
+  type ErrorReportEnvelope,
+  type ErrorReportInput,
+  type ErrorReportTransport,
   macOsMajorFromDarwinRelease,
   mintTelemetryInstallId,
+  PRODUCT_ERROR_REPORTS_ENDPOINT,
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
   type ProductTelemetryInstallStore,
@@ -32,6 +44,7 @@ import {
   type TelemetryEvent,
   type TelemetryPlatform,
   type TelemetryTransport,
+  toErrorReport,
   toTelemetryArch,
   windowsMajorFromVersion,
 } from '@openheaders/core/telemetry';
@@ -43,8 +56,10 @@ export const TELEMETRY_ENV = 'OH_TELEMETRY';
 const FLUSH_ABORT_MS = 500;
 
 export interface CliProductTelemetry {
-  /** Best-effort exit flush; never throws, never blocks past the transport abort. */
+  /** Best-effort exit flush of both channels; never throws, never blocks past the transport abort. */
   finish(): Promise<void>;
+  /** Record one of this invocation's own failures (the error reports plan, fork 4); `finish` delivers it. */
+  reportError(input: ErrorReportInput): void;
 }
 
 export interface CliProductTelemetryDeps {
@@ -58,8 +73,12 @@ export interface CliProductTelemetryDeps {
   /** Distribution channel stamped on every envelope; defaults to detection from the running script's path. */
   channel?: TelemetryChannelId;
   configPath?: string;
-  /** Test seams; production uses the aborting fetch transport + wall clock. */
+  /** The running script (`process.argv[1]`) and the executable — the frames under them are ours (law 4). */
+  scriptPath?: string;
+  execPath?: string;
+  /** Test seams; production uses the aborting fetch transports + wall clock. */
   transport?: TelemetryTransport;
+  errorTransport?: ErrorReportTransport;
   now?: () => number;
 }
 
@@ -162,6 +181,11 @@ function createConfigInstallStore(configPath: string): ProductTelemetryInstallSt
   };
 }
 
+function envTurnsOff(env: NodeJS.ProcessEnv): boolean {
+  const raw = env[TELEMETRY_ENV];
+  return raw !== undefined && raw !== '' && ['0', 'false', 'off'].includes(raw.toLowerCase());
+}
+
 /** `OH_TELEMETRY` decides when set; otherwise the config key; otherwise on. */
 export function readTelemetryEnabled(env: NodeJS.ProcessEnv, configTelemetry: boolean | undefined): boolean {
   const raw = env[TELEMETRY_ENV];
@@ -169,6 +193,17 @@ export function readTelemetryEnabled(env: NodeJS.ProcessEnv, configTelemetry: bo
     return !['0', 'false', 'off'].includes(raw.toLowerCase());
   }
   return configTelemetry !== false;
+}
+
+/**
+ * The second switch (the error reports plan §4.2 law 1): independent of
+ * usage counting, but `OH_TELEMETRY` off silences both — one variable
+ * for "this process reports nothing". A set env value never forces
+ * reports on; the config key still decides.
+ */
+export function readErrorReportsEnabled(env: NodeJS.ProcessEnv, configErrorReports: boolean | undefined): boolean {
+  if (envTurnsOff(env)) return false;
+  return configErrorReports !== false;
 }
 
 function telemetryPlatform(platform: NodeJS.Platform): TelemetryPlatform | null {
@@ -197,9 +232,9 @@ function telemetryOsMajor(platform: TelemetryPlatform, release: string): number 
 }
 
 /**
- * Per-process envelope facts (plan §3, S15). The CLI's interface is
- * English-only, so `en` is the honest locale fact — the OS locale is
- * not the interface language and is never read.
+ * Per-process envelope facts (plan §3, S15), the same on both channels.
+ * The CLI's interface is English-only, so `en` is the honest locale
+ * fact — the OS locale is not the interface language and is never read.
  */
 function buildEnvelopeFacts(
   channel: TelemetryChannelId,
@@ -221,31 +256,39 @@ function buildEnvelopeFacts(
   };
 }
 
-// One envelope per process, so the abort guard is per-call disposable.
-const abortingFetchTransport: TelemetryTransport = {
-  async send(envelope: TelemetryEnvelope): Promise<boolean> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FLUSH_ABORT_MS);
-    try {
-      const response = await fetch(PRODUCT_TELEMETRY_ENDPOINT, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-        signal: controller.signal,
-      });
-      return response.ok;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  },
-};
+// One envelope per process per channel, so the abort guard is per-call disposable.
+function createAbortingTransport<T>(endpoint: string): { send(envelope: T): Promise<boolean> } {
+  return {
+    async send(envelope: T): Promise<boolean> {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FLUSH_ABORT_MS);
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(envelope),
+          signal: controller.signal,
+        });
+        return response.ok;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    },
+  };
+}
 
-const inert: CliProductTelemetry = { finish: async () => undefined };
+const abortingFetchTransport: TelemetryTransport =
+  createAbortingTransport<TelemetryEnvelope>(PRODUCT_TELEMETRY_ENDPOINT);
+const abortingErrorTransport: ErrorReportTransport =
+  createAbortingTransport<ErrorReportEnvelope>(PRODUCT_ERROR_REPORTS_ENDPOINT);
+
+const inert: CliProductTelemetry = { finish: async () => undefined, reportError: () => undefined };
 
 /**
- * Boot the channel for this invocation: resolve the gates and queue
- * `session_start` (no runtime notice — the disclosure lives in the
- * docs, per the module header). Returns the exit-flush handle; every
+ * Boot both channels for this invocation: resolve the gates, queue
+ * `session_start` on the usage channel (no runtime notice — the
+ * disclosure lives in the docs, per the module header), arm the error
+ * channel on the same session. Returns the exit-flush handle; every
  * failure path degrades to the inert handle.
  */
 export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}): Promise<CliProductTelemetry> {
@@ -261,44 +304,79 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       // read raises the loud fix-or-delete error.
       configReadable = false;
     }
-    if (!readTelemetryEnabled(env, config.telemetry)) {
+    const usageEnabled = readTelemetryEnabled(env, config.telemetry);
+    const errorsEnabled = readErrorReportsEnabled(env, config.errorReports);
+    if (!usageEnabled) {
       // Off means no identity: a disabled run wipes any stored install
       // id (the first_run sent-bit stays — it carries no identity).
       if (configReadable && (config.telemetryInstallId !== undefined || config.telemetryInstalledAt !== undefined)) {
         const { telemetryInstallId: _id, telemetryInstalledAt: _at, ...rest } = config;
         await writeCliConfig(configPath, rest).catch(() => undefined);
       }
-      return inert;
     }
+    if (!usageEnabled && !errorsEnabled) return inert;
 
     const now = deps.now ?? Date.now;
-    // An unreadable config gets a one-invocation in-memory identity
-    // (pre-latched so it never announces a first_run) — the file is
-    // never overwritten; the command's own read raises the loud error.
-    const installStore = configReadable
-      ? createConfigInstallStore(configPath)
-      : createInMemoryProductTelemetryInstallStore({ installId: mintTelemetryInstallId(), installedAt: now() });
     const channel = deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath, env);
     const platform = deps.platform ?? process.platform;
     const arch = deps.arch ?? process.arch;
     const osRelease = deps.osRelease ?? os.release();
     const cliVersion = deps.cliVersion ?? CLI_VERSION;
-    const controller = new ProductTelemetryController({
-      transport: deps.transport ?? abortingFetchTransport,
-      now,
-      sessionStore: createInMemoryProductTelemetrySessionStore(),
-      installStore,
-      host: 'cli',
-      facts: () => buildEnvelopeFacts(channel, platform, arch, osRelease, cliVersion),
-      getEnabled: () => true,
-      subscribeEnabled: () => undefined,
-      buildSessionStart: async () => buildSessionStart(platform),
-    });
-    await controller.init();
+    const facts = () => buildEnvelopeFacts(channel, platform, arch, osRelease, cliVersion);
+    // One session for both channels; the usage controller boots first
+    // and mints it, the error controller reads it.
+    const sessionStore = createInMemoryProductTelemetrySessionStore();
+
+    let usage: ProductTelemetryController | null = null;
+    if (usageEnabled) {
+      // An unreadable config gets a one-invocation in-memory identity
+      // (pre-latched so it never announces a first_run) — the file is
+      // never overwritten; the command's own read raises the loud error.
+      const installStore = configReadable
+        ? createConfigInstallStore(configPath)
+        : createInMemoryProductTelemetryInstallStore({ installId: mintTelemetryInstallId(), installedAt: now() });
+      usage = new ProductTelemetryController({
+        transport: deps.transport ?? abortingFetchTransport,
+        now,
+        sessionStore,
+        installStore,
+        host: 'cli',
+        facts,
+        getEnabled: () => true,
+        subscribeEnabled: () => undefined,
+        buildSessionStart: async () => buildSessionStart(platform),
+      });
+      await usage.init();
+    }
+
+    let errors: ErrorReportController | null = null;
+    if (errorsEnabled) {
+      errors = new ErrorReportController({
+        transport: deps.errorTransport ?? abortingErrorTransport,
+        now,
+        sessionStore,
+        host: 'cli',
+        facts,
+        getEnabled: () => true,
+        subscribeEnabled: () => undefined,
+      });
+      await errors.init();
+    }
+    const scriptPath = deps.scriptPath ?? process.argv[1] ?? '';
+    const execPath = deps.execPath ?? process.execPath;
+    const context: ErrorReportContext = {
+      isOwnOrigin: createPathOwnOriginTest({ roots: [scriptPath === '' ? '' : path.dirname(scriptPath), execPath] }),
+    };
+    const errorController = errors;
 
     return {
+      reportError: (input) => {
+        if (!errorController) return;
+        void errorController.report(toErrorReport(input, context)).catch(() => undefined);
+      },
       finish: async () => {
-        await controller.flush().catch(() => undefined);
+        await usage?.flush().catch(() => undefined);
+        await errorController?.flush().catch(() => undefined);
       },
     };
   } catch {

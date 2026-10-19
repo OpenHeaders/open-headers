@@ -26,6 +26,7 @@ import type { ErrorReportSnapshotWire } from '@openheaders/core/bridge';
 import type { HostStorage } from '@openheaders/core/storage';
 import { OH } from '@openheaders/core/storage';
 import {
+  createPathOwnOriginTest,
   type ErrorReportContext,
   ErrorReportController,
   type ErrorReportEnvelope,
@@ -69,21 +70,14 @@ function readErrorReportsEnabled(values: Record<string, unknown> | undefined): b
   return values?.['telemetry.errorReports'] !== false;
 }
 
-function normalizePath(path: string): string {
-  const forward = path.replace(/\\/g, '/');
-  // A `file:` URL's pathname carries a Windows drive as `/C:/…`.
-  return /^\/[A-Za-z]:\//.test(forward) ? forward.slice(1) : forward;
-}
-
 /**
- * The own-origin test (law 4) for this process and its renderer: a
- * `file:` URL or a bare path (main's CommonJS frames carry no scheme)
- * under the app path, or any URL on the dev server's origin. A frame
- * that parses as neither — `node:internal/…`, a `chrome-extension://`
- * script, a user script's `eval` — is foreign.
+ * The own-origin test (law 4) for this process and its renderer: core's
+ * path test over the app path (main's CommonJS frames are bare paths,
+ * the renderer's are `file:` URLs under the asar) plus the dev server's
+ * origin when there is one. Anything else — `node:internal/…`, a
+ * `chrome-extension://` script, a user script's `eval` — is foreign.
  */
 export function createOwnOriginTest(appPath: string, rendererDevUrl?: string): ErrorReportContext['isOwnOrigin'] {
-  const root = normalizePath(appPath).replace(/\/+$/, '');
   let devOrigin: string | null = null;
   if (rendererDevUrl) {
     try {
@@ -92,24 +86,7 @@ export function createOwnOriginTest(appPath: string, rendererDevUrl?: string): E
       devOrigin = null;
     }
   }
-  return (url) => {
-    if (devOrigin !== null && url.startsWith(`${devOrigin}/`)) return true;
-    let path: string;
-    if (url.startsWith('file:')) {
-      try {
-        path = decodeURIComponent(new URL(url).pathname);
-      } catch {
-        return false;
-      }
-    } else if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(url) && !/^[A-Za-z]:[\\/]/.test(url)) {
-      // Any other scheme (`node:`, `chrome-extension:`, `blob:`) is foreign; a Windows drive is not a scheme.
-      return false;
-    } else {
-      path = url;
-    }
-    const normalized = normalizePath(path);
-    return normalized === root || normalized.startsWith(`${root}/`);
-  };
+  return createPathOwnOriginTest({ roots: [appPath], origins: devOrigin === null ? [] : [devOrigin] });
 }
 
 const fetchTransport: ErrorReportTransport = {

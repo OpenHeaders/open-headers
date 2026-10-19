@@ -23,6 +23,8 @@ export interface CliConfig {
   autoUpdate?: boolean;
   /** Anonymous usage counting (the telemetry plan §2) — absent = on; the `OH_TELEMETRY` env var overrides. */
   telemetry?: boolean;
+  /** Crash and error reports (the error reports plan, fork 4) — absent = on, independent of `telemetry`; `OH_TELEMETRY=0` silences both. */
+  errorReports?: boolean;
   /** Random resettable install id (plan §4, amended 2026-07-16). Deleted when the channel is off. */
   telemetryInstallId?: string;
   /** ms since epoch the install id was minted; feeds the coarse sinceInstall bucket. */
@@ -81,6 +83,7 @@ export function parseCliConfig(raw: string, filePath: string): CliConfig {
   if (parsed.channel === 'stable' || parsed.channel === 'beta') config.channel = parsed.channel;
   if (typeof parsed.autoUpdate === 'boolean') config.autoUpdate = parsed.autoUpdate;
   if (typeof parsed.telemetry === 'boolean') config.telemetry = parsed.telemetry;
+  if (typeof parsed.errorReports === 'boolean') config.errorReports = parsed.errorReports;
   if (typeof parsed.telemetryInstallId === 'string') config.telemetryInstallId = parsed.telemetryInstallId;
   if (typeof parsed.telemetryInstalledAt === 'number') config.telemetryInstalledAt = parsed.telemetryInstalledAt;
   if (typeof parsed.telemetryFirstRunSent === 'boolean') config.telemetryFirstRunSent = parsed.telemetryFirstRunSent;

@@ -256,6 +256,73 @@ export function fingerprintErrorReport(report: Omit<ErrorReport, 'fingerprint' |
   return sha256HexSync(key).slice(0, 16);
 }
 
+/** Name, message and stack of any thrown value — what a host hands the converter as `error`; a non-Error reads as `Error` with its string form. */
+export function describeThrownError(value: unknown): ErrorReportErrorDescription {
+  if (value instanceof Error) {
+    return { name: value.name || 'Error', message: value.message, stack: value.stack ?? null };
+  }
+  if (typeof value === 'object' && value !== null) {
+    const named = value as { name?: unknown; message?: unknown; stack?: unknown };
+    return {
+      name: typeof named.name === 'string' && named.name !== '' ? named.name : 'Error',
+      message: typeof named.message === 'string' ? named.message : safeString(value),
+      stack: typeof named.stack === 'string' ? named.stack : null,
+    };
+  }
+  return { name: 'Error', message: safeString(value), stack: null };
+}
+
+function safeString(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return '[unprintable]';
+  }
+}
+
+export interface PathOwnOriginOptions {
+  /** Directories (or one file) whose frames are ours: an asar, an app directory, a bundle. Either separator. */
+  roots: readonly string[];
+  /** Web origins whose frames are ours (a dev server); matched on `origin/`. */
+  origins?: readonly string[];
+}
+
+function normalizePath(path: string): string {
+  const forward = path.replace(/\\/g, '/').replace(/\/+$/, '');
+  // A `file:` URL's pathname carries a Windows drive as `/C:/…`.
+  return /^\/[A-Za-z]:\//.test(forward) ? forward.slice(1) : forward;
+}
+
+/**
+ * The own-origin test (law 4) for a Node-hosted process and the
+ * documents it serves: a `file:` URL or a bare path (a CommonJS frame
+ * carries no scheme) under one of the roots, or any URL on one of the
+ * origins. Every other scheme — `node:`, `chrome-extension:`, `blob:`,
+ * a user script's `eval` — is foreign; a Windows drive letter is not a
+ * scheme.
+ */
+export function createPathOwnOriginTest(options: PathOwnOriginOptions): ErrorReportContext['isOwnOrigin'] {
+  const roots = options.roots.map(normalizePath).filter((root) => root !== '');
+  const origins = (options.origins ?? []).map((origin) => `${origin.replace(/\/+$/, '')}/`);
+  return (url) => {
+    if (origins.some((origin) => url.startsWith(origin))) return true;
+    let path: string;
+    if (url.startsWith('file:')) {
+      try {
+        path = decodeURIComponent(new URL(url).pathname);
+      } catch {
+        return false;
+      }
+    } else if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(url) && !/^[A-Za-z]:[\\/]/.test(url)) {
+      return false;
+    } else {
+      path = url;
+    }
+    const normalized = normalizePath(path);
+    return roots.some((root) => normalized === root || normalized.startsWith(`${root}/`));
+  };
+}
+
 /** Convert one caught failure into a wire report with `count` 1; synchronous, never throws on any input. */
 export function toErrorReport(input: ErrorReportInput, context: ErrorReportContext): ErrorReport {
   const matched = input.error ? matchErrorTemplate(input.error.name, input.error.message) : null;

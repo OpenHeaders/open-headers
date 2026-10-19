@@ -1,6 +1,8 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
+  createPathOwnOriginTest,
+  describeThrownError,
   ERROR_REPORT_MAX_COMPONENT_STACK,
   ERROR_REPORT_MAX_FRAMES,
   type ErrorReport,
@@ -314,8 +316,50 @@ describe('toErrorReport', () => {
     expect(report.reopenCount).toBeUndefined();
   });
 
+  it('describes any thrown value the way the UI funnel does — Errors, error-shaped objects, primitives', () => {
+    const error = new RangeError('too far');
+    expect(describeThrownError(error)).toEqual({ name: 'RangeError', message: 'too far', stack: error.stack ?? null });
+    expect(describeThrownError({ name: 'Custom', message: 'm' })).toEqual({
+      name: 'Custom',
+      message: 'm',
+      stack: null,
+    });
+    expect(describeThrownError('plain')).toEqual({ name: 'Error', message: 'plain', stack: null });
+    expect(describeThrownError(undefined)).toEqual({ name: 'Error', message: 'undefined', stack: null });
+  });
+
   it('measures the serialized size in bytes — the law-7 budget unit', () => {
     const report = toErrorReport({ kind: 'unresponsive', process: 'renderer' }, context);
     expect(serializedErrorReportBytes(report)).toBe(JSON.stringify(report).length);
+  });
+});
+
+describe('createPathOwnOriginTest (law 4 on a Node host)', () => {
+  const asar = '/Applications/Open Headers.app/Contents/Resources/app.asar';
+  const isOwn = createPathOwnOriginTest({ roots: [asar], origins: ['http://localhost:5173/'] });
+
+  it('owns file URLs and bare paths under a root, and any URL on an origin', () => {
+    expect(isOwn(`file://${asar}/out/renderer/assets/index-abc123.js`)).toBe(true);
+    expect(isOwn(`${asar}/out/main/index.js`)).toBe(true);
+    expect(isOwn('http://localhost:5173/src/renderer/index.tsx')).toBe(true);
+  });
+
+  it('reads everything else as foreign — other schemes, other origins, a sibling path', () => {
+    expect(isOwn('node:internal/process/task_queues')).toBe(false);
+    expect(isOwn('chrome-extension://abcdef/background.js')).toBe(false);
+    expect(isOwn('blob:file:///x')).toBe(false);
+    expect(isOwn('http://localhost:5174/other.js')).toBe(false);
+    expect(isOwn(`${asar}.unpacked/native.js`)).toBe(false);
+    expect(isOwn('/Users/someone/scripts/rule.js')).toBe(false);
+  });
+
+  it('a Windows root reads its drive-letter frames in either spelling, and a file root owns itself', () => {
+    const windows = createPathOwnOriginTest({ roots: ['C:\\Program Files\\Open Headers\\resources\\app.asar'] });
+    expect(windows('file:///C:/Program%20Files/Open%20Headers/resources/app.asar/out/renderer/index-1.js')).toBe(true);
+    expect(windows('C:\\Program Files\\Open Headers\\resources\\app.asar\\out\\main\\index.js')).toBe(true);
+    expect(windows('C:\\Users\\someone\\other.js')).toBe(false);
+    const binary = createPathOwnOriginTest({ roots: ['/usr/local/bin/oh.mjs'] });
+    expect(binary('file:///usr/local/bin/oh.mjs')).toBe(true);
+    expect(binary('/usr/local/bin/other.mjs')).toBe(false);
   });
 });
