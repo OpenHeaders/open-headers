@@ -40,9 +40,11 @@ export {
   ERROR_REPORT_MAX_QUEUE,
   ErrorReportClient,
   type ErrorReportClientDeps,
+  type ErrorReportGroupFacts,
   type ErrorReportLogEntry,
   type ErrorReportQueueStore,
   type ErrorReportTransport,
+  errorReportGroupKey,
   type PersistedErrorReportQueueEntry,
   PRODUCT_ERROR_REPORTS_ENDPOINT,
 } from './error-client';

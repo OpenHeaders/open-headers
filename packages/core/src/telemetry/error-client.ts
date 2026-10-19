@@ -5,11 +5,18 @@
  * fire-and-forget flush behind a transport port. Core never opens a
  * socket and never owns a timer; the host drives the cadence.
  *
- * What differs from usage (law 7): a report of a fingerprint already
- * pending FOLDS into it — `count` grows, no second entry — and an
- * envelope carries at most ten reports; the rest ride the next flush.
- * A report over the serialized budget is dropped and logged, never
- * truncated. The shipped usage `TelemetryClient` stays as it is.
+ * What differs from usage (law 7): a report of a group already pending
+ * FOLDS into it — `count` grows, no second entry — and an envelope
+ * carries at most ten reports; the rest ride the next flush. A report
+ * over the serialized budget is dropped and logged, never truncated.
+ * The shipped usage `TelemetryClient` stays as it is.
+ *
+ * The fold key is the fingerprint AND the process and surface the
+ * failure was seen in (S8, observation A): the fingerprint stays the
+ * group key — one bug is one group wherever it fires — while each
+ * process and surface it fires in is its own row, so the dataset can
+ * answer "where was this group seen" by grouping, never by guessing
+ * from a row that named only the first place.
  *
  * The switch follows the crash-reporter convention, not the usage
  * counter's: off stops recording and sending, nothing more. A report
@@ -33,6 +40,19 @@ import { bucketSessionAge, type TelemetryHostKind } from './vocabulary';
 
 /** The error-report ingestion route (plan §4.1) beside the usage and uninstall routes; hosts' transports POST envelopes here. */
 export const PRODUCT_ERROR_REPORTS_ENDPOINT = 'https://telemetry.openheaders.com/v1/errors';
+
+/** The facts a report folds and latches by: its group plus where it fired. */
+export type ErrorReportGroupFacts = Pick<ErrorReport, 'fingerprint' | 'process' | 'surface'>;
+
+/**
+ * The fold key (law 7, S8): the fingerprint — the group — joined with
+ * the process and the surface the failure fired in. Two reports of one
+ * group in two places are two rows of one group, never one row that
+ * names the first place only.
+ */
+export function errorReportGroupKey(report: ErrorReportGroupFacts): string {
+  return `${report.fingerprint}:${report.process}:${report.surface ?? ''}`;
+}
 
 export interface ErrorReportTransport {
   /** Deliver one envelope. Resolve `false` or throw to signal failure — both are silent; the batch rides the next flush. */
@@ -135,21 +155,24 @@ export class ErrorReportClient {
     this.persistQueue();
   }
 
-  /** Whether a report of this fingerprint is pending — a repeat folds rather than counting against the daily cap. */
-  hasPending(fingerprint: string): boolean {
-    return this.queue.some((entry) => entry.report.fingerprint === fingerprint);
+  /** Whether a report of this group, in this process and surface, is pending — a repeat folds rather than counting against the daily cap. */
+  hasPending(report: ErrorReportGroupFacts): boolean {
+    const key = errorReportGroupKey(report);
+    return this.queue.some((entry) => errorReportGroupKey(entry.report) === key);
   }
 
   /**
-   * Record one report. A pending report of the same fingerprint absorbs
-   * it (`count` grows); otherwise it is logged and queued when the
-   * channel is enabled, logged `suppressed` when it is off, logged
-   * `dropped` when it is over the serialized budget. Never throws.
+   * Record one report. A pending report of the same group in the same
+   * process and surface absorbs it (`count` grows); otherwise it is
+   * logged and queued when the channel is enabled, logged `suppressed`
+   * when it is off, logged `dropped` when it is over the serialized
+   * budget. Never throws.
    */
   report(report: ErrorReport): TelemetryDisposition {
     if (!this.enabled) return this.refuse(report, 'suppressed');
     if (serializedErrorReportBytes(report) > ERROR_REPORT_MAX_BYTES) return this.refuse(report, 'dropped');
-    const pending = this.queue.find((entry) => entry.report.fingerprint === report.fingerprint);
+    const key = errorReportGroupKey(report);
+    const pending = this.queue.find((entry) => errorReportGroupKey(entry.report) === key);
     if (pending) {
       pending.report.count += report.count;
       this.persistQueue();

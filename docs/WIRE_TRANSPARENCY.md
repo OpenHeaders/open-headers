@@ -522,11 +522,13 @@ every string field carries its pin.
     | `sessionId` | `^[0-9a-f]{32}$` |
     | everything else | a closed union, an integer, or a boolean — no string type at all |
 
-- **Bounded**: one report per fingerprint per session per UTC day (a
-  repeat is counted, not re-sent), at most twenty new fingerprints per
-  day, ten reports per envelope, one report at most 3 KB serialized —
-  anything larger is dropped and shown as dropped in the inspector,
-  never truncated.
+- **Bounded**: one report per fingerprint, process and surface per
+  session per UTC day (a repeat in the same place is counted, not
+  re-sent; the same fingerprint in another process or surface is its
+  own report, so a group says everywhere it was seen), at most twenty
+  new reports per day, ten reports per envelope, one report at most
+  3 KB serialized — anything larger is dropped and shown as dropped in
+  the inspector, never truncated.
 - **Response**: `202` when the envelope validates against the same
   compiled schema, `4xx` otherwise. Failures are silent; the batch
   rides the next flush.

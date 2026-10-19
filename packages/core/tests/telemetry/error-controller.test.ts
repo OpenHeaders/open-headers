@@ -145,12 +145,13 @@ describe('ErrorReportController — dedupe (law 7)', () => {
     expect(entries[0]).toMatchObject({ disposition: 'sent', report: { count: 3 } });
   });
 
-  it('latches a sent fingerprint for the UTC day and suppresses later repeats', async () => {
+  it('latches a sent group for the UTC day in its process and surface and suppresses later repeats there', async () => {
     const { controller, session, sent, clock } = makeRig();
     await controller.report(makeReport());
     await controller.flush();
     const day = Math.floor(NOW / DAY_MS);
-    expect(session.state.latched.has(errorReportLatchKey('0123456789abcdef', day))).toBe(true);
+    expect(session.state.latched.has(errorReportLatchKey(makeReport(), day))).toBe(true);
+    expect(errorReportLatchKey(makeReport(), day)).toBe(`error_report:${day}:0123456789abcdef:main:`);
     expect(await controller.report(makeReport())).toBe('suppressed');
     await controller.flush();
     expect(sent).toHaveLength(1);
@@ -161,6 +162,23 @@ describe('ErrorReportController — dedupe (law 7)', () => {
     expect(await controller.report(makeReport())).toBe('pending');
     await controller.flush();
     expect(sent).toHaveLength(2);
+  });
+
+  it('the same group from another process or surface is its own row, latched apart (S8, observation A)', async () => {
+    const { controller, sent } = makeRig();
+    await controller.report(makeReport({ process: 'renderer', surface: 'request-edit' }));
+    await controller.flush();
+    expect(await controller.report(makeReport({ process: 'renderer', surface: 'request-edit' }))).toBe('suppressed');
+    expect(await controller.report(makeReport({ process: 'renderer', surface: 'http-rules' }))).toBe('pending');
+    expect(await controller.report(makeReport({ process: 'popup' }))).toBe('pending');
+    await controller.flush();
+    expect(sent.map((e) => e.reports.map((r) => [r.process, r.surface]))).toEqual([
+      [['renderer', 'request-edit']],
+      [
+        ['renderer', 'http-rules'],
+        ['popup', undefined],
+      ],
+    ]);
   });
 
   it('does not latch a refused batch — the report rides the next flush and latches then', async () => {

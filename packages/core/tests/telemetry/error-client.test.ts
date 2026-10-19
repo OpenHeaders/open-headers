@@ -10,6 +10,7 @@ import {
   type ErrorReportEnvelope,
   ErrorReportEnvelopeSchema,
   type ErrorReportQueueStore,
+  errorReportGroupKey,
   type PersistedErrorReportQueueEntry,
   PRODUCT_ERROR_REPORTS_ENDPOINT,
   serializedErrorReportBytes,
@@ -107,15 +108,33 @@ describe('ErrorReportClient — report', () => {
     expect(client.readLog()).toEqual([{ report: makeReport(), at: NOW, disposition: 'pending' }]);
   });
 
-  it('folds a repeat of a pending fingerprint into its count — one entry, no second queue slot (law 7)', () => {
+  it('folds a repeat of a pending group into its count — one entry, no second queue slot (law 7)', () => {
     const { client } = makeClient();
     client.report(makeReport());
     expect(client.report(makeReport({ count: 2 }))).toBe('pending');
-    expect(client.hasPending('0123456789abcdef')).toBe(true);
+    expect(client.hasPending(makeReport())).toBe(true);
     expect(client.queuedCount).toBe(1);
     const log = client.readLog();
     expect(log).toHaveLength(1);
     expect(log[0].report.count).toBe(3);
+  });
+
+  it('keys the fold on the fingerprint AND the process and surface — one group seen in two places is two rows (S8)', () => {
+    const { client } = makeClient();
+    client.report(makeReport({ surface: 'request-edit' }));
+    client.report(makeReport({ surface: 'http-rules' }));
+    client.report(makeReport({ process: 'sidepanel', surface: 'request-edit' }));
+    client.report(makeReport({ surface: 'request-edit' }));
+    expect(client.queuedCount).toBe(3);
+    expect(client.hasPending(makeReport({ surface: 'request-edit' }))).toBe(true);
+    expect(client.hasPending(makeReport({ process: 'renderer', surface: 'request-edit' }))).toBe(false);
+    expect(client.readLog().map((e) => [e.report.process, e.report.surface, e.report.count])).toEqual([
+      ['popup', 'request-edit', 2],
+      ['popup', 'http-rules', 1],
+      ['sidepanel', 'request-edit', 1],
+    ]);
+    expect(errorReportGroupKey(makeReport())).toBe('0123456789abcdef:popup:');
+    expect(errorReportGroupKey(makeReport({ surface: 'vault' }))).toBe('0123456789abcdef:popup:vault');
   });
 
   it('logs a report suppressed while the channel is off and never queues it', () => {

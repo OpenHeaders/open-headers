@@ -6,15 +6,16 @@
  * SHARE the session store (one session id, one start time) and nothing
  * else — the install store is the usage channel's and never read here.
  *
- * Dedupe (law 7): a fingerprint already pending folds in the client;
- * once FLUSHED it latches in the shared session store for the UTC day,
- * and later repeats are logged `suppressed`. The latch key carries the
- * day, so it expires on its own and this controller never rolls the
- * latch day — that roll is the usage controller's (it re-fires
- * `session_start` on it, and a second roller would steal that). At
- * most twenty new fingerprints are admitted per UTC day; the count is
- * per process life, so an evicted worker re-arms it while the latches
- * — the part that stops a repeat — persist with the session.
+ * Dedupe (law 7): a group already pending in its process and surface
+ * folds in the client; once FLUSHED it latches in the shared session
+ * store for the UTC day, and later repeats there are logged
+ * `suppressed`. The latch key carries the day, so it expires on its
+ * own and this controller never rolls the latch day — that roll is the
+ * usage controller's (it re-fires `session_start` on it, and a second
+ * roller would steal that). At most twenty new rows are admitted per
+ * UTC day; the count is per process life, so an evicted worker re-arms
+ * it while the latches — the part that stops a repeat — persist with
+ * the session.
  */
 
 import type { TelemetryEnvelopeFacts } from './client';
@@ -22,18 +23,20 @@ import { mintTelemetrySessionId } from './client';
 import type { ProductTelemetrySessionStore } from './controller';
 import {
   ErrorReportClient,
+  type ErrorReportGroupFacts,
   type ErrorReportLogEntry,
   type ErrorReportQueueStore,
   type ErrorReportTransport,
+  errorReportGroupKey,
 } from './error-client';
 import { ERROR_REPORT_MAX_PER_DAY, type ErrorReport } from './error-vocabulary';
 import type { TelemetryHostKind } from './vocabulary';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Latch key for a fingerprint sent on a UTC day (days since epoch); day-keyed, so no clear is ever needed. */
-export function errorReportLatchKey(fingerprint: string, day: number): string {
-  return `error_report:${day}:${fingerprint}`;
+/** Latch key for a group sent from a process and surface on a UTC day (days since epoch); day-keyed, so no clear is ever needed. */
+export function errorReportLatchKey(report: ErrorReportGroupFacts, day: number): string {
+  return `error_report:${day}:${errorReportGroupKey(report)}`;
 }
 
 export interface ErrorReportControllerDeps {
@@ -108,20 +111,20 @@ export class ErrorReportController {
   }
 
   /**
-   * Record one report: a fingerprint sent today is suppressed, one
-   * already pending folds, the twenty-first new one of the day is
-   * dropped, the rest reach the client. Resolves the disposition the
-   * log shows for it.
+   * Record one report: a group sent today from the same process and
+   * surface is suppressed, one already pending there folds, the
+   * twenty-first new row of the day is dropped, the rest reach the
+   * client. Resolves the disposition the log shows for it.
    */
   async report(report: ErrorReport): Promise<ErrorReportLogEntry['disposition']> {
     await this.init();
     const client = this.client;
     if (!client) return 'suppressed';
     const day = this.day();
-    if (await this.deps.sessionStore.wasLatched(errorReportLatchKey(report.fingerprint, day))) {
+    if (await this.deps.sessionStore.wasLatched(errorReportLatchKey(report, day))) {
       return client.refuse(report, 'suppressed');
     }
-    if (client.hasPending(report.fingerprint)) return client.report(report);
+    if (client.hasPending(report)) return client.report(report);
     if (this.admitted.day !== day) this.admitted = { day, count: 0 };
     if (client.isEnabled && this.admitted.count >= ERROR_REPORT_MAX_PER_DAY) return client.refuse(report, 'dropped');
     const disposition = client.report(report);
@@ -129,7 +132,7 @@ export class ErrorReportController {
     return disposition;
   }
 
-  /** Flush, then latch every fingerprint the transport accepted for the UTC day it went out. */
+  /** Flush, then latch every row the transport accepted for the UTC day it went out. */
   async flush(): Promise<void> {
     await this.init();
     const client = this.client;
@@ -137,7 +140,7 @@ export class ErrorReportController {
     const sent = await client.flush();
     if (sent.length === 0) return;
     const day = this.day();
-    for (const report of sent) await this.deps.sessionStore.latch(errorReportLatchKey(report.fingerprint, day));
+    for (const report of sent) await this.deps.sessionStore.latch(errorReportLatchKey(report, day));
   }
 
   async snapshot(): Promise<ErrorReportSnapshot> {
