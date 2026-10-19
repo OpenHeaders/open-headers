@@ -66,6 +66,7 @@ import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { getCurrentHost, instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
+import { noteViewportSeen } from '@openheaders/ui/shared/product-telemetry';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { computeBreadcrumbs } from './breadcrumbs';
 import CommandPalette from './components/shell/CommandPalette';
@@ -2029,6 +2030,11 @@ const Workbench: React.FC<WorkbenchProps> = ({ resolveIdentity }) => {
   // editing-scope id on first effect, which dispatches a clean
   // bind-then-acquire on the SW side. Per § 4.0.7 trust contract.
   const [lifelineWorkspaceId, setLifelineWorkspaceId] = useState<string | null>(null);
+  // The workbench window's size class on first paint (product
+  // telemetry, S35) — a no-op on hosts without the channel.
+  useEffect(() => {
+    noteViewportSeen('workbench', window.innerWidth, window.innerHeight);
+  }, []);
   return (
     <AwarenessIdentityProvider value={workbenchIdentity} workspaceId={lifelineWorkspaceId}>
       {/*

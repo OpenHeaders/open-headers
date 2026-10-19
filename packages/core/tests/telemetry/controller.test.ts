@@ -333,7 +333,7 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
 });
 
 describe('oncePerSessionLatchKey', () => {
-  it('keys feature_used, error_beacon, rule_matched, upgrade_cta_shown, and mcp_client_connected per member, everything else null', () => {
+  it('keys feature_used, error_beacon, rule_matched, upgrade_cta_shown, mcp_client_connected and viewport_seen per member, everything else null', () => {
     expect(oncePerSessionLatchKey({ name: 'feature_used', feature: 'vault' })).toBe('feature_used:vault');
     expect(oncePerSessionLatchKey({ name: 'error_beacon', code: 'sync-push-failed' })).toBe(
       'error_beacon:sync-push-failed',
@@ -344,6 +344,9 @@ describe('oncePerSessionLatchKey', () => {
     );
     expect(oncePerSessionLatchKey({ name: 'mcp_client_connected', client: 'claude-code' })).toBe(
       'mcp_client_connected:claude-code',
+    );
+    expect(oncePerSessionLatchKey({ name: 'viewport_seen', surface: 'workbench', width: 1280, height: 800 })).toBe(
+      'viewport_seen:workbench',
     );
     expect(oncePerSessionLatchKey({ name: 'workflow_run', ok: true })).toBeNull();
     expect(oncePerSessionLatchKey({ name: 'rule_created', ruleType: 'header' })).toBeNull();

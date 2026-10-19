@@ -108,6 +108,10 @@ export interface TelemetryEnvelopeFacts {
   arch?: TelemetryArch;
   /** Browser-hosted surfaces only. */
   browser?: TelemetryBrowserKind;
+  /** The OS major as people know it (S35); omitted where the host cannot read it reliably. */
+  osVersion?: number;
+  /** The browser major (S35); browser-hosted surfaces only. */
+  browserVersion?: number;
 }
 
 /** The durable identity facts an envelope carries (plan §4, amended 2026-07-16). */
@@ -301,6 +305,8 @@ export class TelemetryClient {
         ...(facts.arch !== undefined ? { arch: facts.arch } : {}),
         ...(facts.browser !== undefined ? { browser: facts.browser } : {}),
         locale: facts.locale,
+        ...(facts.osVersion !== undefined ? { osVersion: facts.osVersion } : {}),
+        ...(facts.browserVersion !== undefined ? { browserVersion: facts.browserVersion } : {}),
         sessionId: this.sessionId,
         installId: install.installId,
         sinceInstall: bucketSinceInstall(install.installedAt, sentAt),

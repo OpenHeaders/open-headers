@@ -16,21 +16,25 @@
  * always the product one.
  */
 
+import { isDesktopAppBackendUrl } from '@openheaders/core/backends';
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import type { HostStorage } from '@openheaders/core/storage';
 import { OH, wsKeys } from '@openheaders/core/storage';
 import {
   bucketScale,
   createInMemoryProductTelemetrySessionStore,
+  osMajorFromSystemVersion,
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
   type ProductTelemetryInstallStore,
   parseTelemetryAppVersion,
+  resolveTelemetrySyncKind,
   type TelemetryChannelId,
   type TelemetryEnvelope,
   type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryPlatform,
+  type TelemetrySyncKind,
   type TelemetryTransport,
   toTelemetryArch,
   toTelemetryLocale,
@@ -48,6 +52,13 @@ export interface ProductTelemetryHostDeps {
   arch: NodeJS.Architecture;
   /** Electron's `app.runningUnderARM64Translation`: an x64 build under Rosetta or Windows ARM64 translation. */
   runningUnderArm64Translation: boolean;
+  /**
+   * Electron's `process.getSystemVersion()` — the OS marketing version
+   * on macOS (`15.1`), `10.0.<build>` on Windows, a kernel string on
+   * Linux. Only the coarse major ever leaves the process (S35): macOS
+   * as read, Windows 11 from build 22000, Linux never.
+   */
+  systemVersion: string;
   /** This build's distribution channel, stamped on every envelope (packaged = github-release; unpackaged = dev). */
   channel: TelemetryChannelId;
   /**
@@ -119,27 +130,51 @@ async function readScaleBuckets(
   }
 }
 
+/**
+ * How this install keeps its workspaces (S35), the install-wide
+ * maximum: a connection record to anything but the desktop app's own
+ * loopback wire is a server (the desktop joining a daemon or a team
+ * server as a client), a workspace bound to a working tree is git,
+ * else local. Any read failure omits the fact rather than misreport.
+ */
+async function readSyncKind(storage: Pick<HostStorage, 'get'>): Promise<TelemetrySyncKind | undefined> {
+  try {
+    const backends = (await storage.get(OH.backends)) ?? [];
+    const bindings = (await storage.get(OH.workspaceTreeBindings)) ?? [];
+    return resolveTelemetrySyncKind({
+      server: backends.some((backend) => !isDesktopAppBackendUrl(backend.url)),
+      git: bindings.length > 0,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 async function buildSessionStart(
   platform: NodeJS.Platform,
   storage: Pick<HostStorage, 'get'>,
 ): Promise<TelemetryEvent | null> {
   // Unmappable platforms skip the event rather than misreport (the
   // envelope stays unstamped too); the per-process facts ride the
-  // envelope, so the event carries only the scale-of-use measurements.
+  // envelope, so the event carries only the measurements taken at
+  // session start: the scale-of-use buckets and the sync kind.
   if (!telemetryPlatform(platform)) return null;
-  return { name: 'session_start', ...(await readScaleBuckets(storage)) };
+  const sync = await readSyncKind(storage);
+  return { name: 'session_start', ...(await readScaleBuckets(storage)), ...(sync !== undefined ? { sync } : {}) };
 }
 
 /** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch. */
 function buildEnvelopeFacts(deps: ProductTelemetryHostDeps): TelemetryEnvelopeFacts {
   const platform = telemetryPlatform(deps.platform);
   const arch = toTelemetryArch(deps.arch, deps.runningUnderArm64Translation);
+  const osVersion = platform !== null ? osMajorFromSystemVersion(platform, deps.systemVersion) : null;
   return {
     channel: deps.channel,
     appVersion: parseTelemetryAppVersion(deps.appVersion),
     locale: toTelemetryLocale(deps.locale()),
     ...(platform !== null ? { platform } : {}),
     ...(arch !== null ? { arch } : {}),
+    ...(osVersion !== null ? { osVersion } : {}),
   };
 }
 

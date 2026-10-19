@@ -22,6 +22,7 @@ export type {
   OidcDefaultGrant,
 } from './oidc/oidc-config';
 export { OIDC_DEFAULT_WORKSPACE_SENTINEL } from './oidc/oidc-config';
+export { notifyPeerConnected, type PeerUsageObserver, setPeerUsageObserver } from './peer-usage-observer';
 export {
   createScriptBroker,
   type RunScriptOptions,

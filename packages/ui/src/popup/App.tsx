@@ -18,7 +18,7 @@ import {
 } from '@openheaders/ui/context';
 import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
-import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
+import { noteFeatureUsed, noteViewportSeen } from '@openheaders/ui/shared/product-telemetry';
 import {
   useAppUpdateNotification,
   useDesktopAppSuggestion,
@@ -153,8 +153,11 @@ const AppContent: React.FC<AppContentProps> = ({ resolveIdentity }) => {
     });
 
     // Opening the toolbar surface (popup or side panel) is the
-    // engagement gesture most installs make and nothing else records.
+    // engagement gesture most installs make and nothing else records;
+    // its size class says how much room the surface really gets (the
+    // popup is fixed, the side panel is whatever the browser gives).
     noteFeatureUsed('popup');
+    noteViewportSeen(surface.mode, window.innerWidth, window.innerHeight);
 
     return disposePresence;
   }, [surface]);

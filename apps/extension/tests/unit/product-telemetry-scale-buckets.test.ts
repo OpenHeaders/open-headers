@@ -3,7 +3,9 @@
  * writes: the runtime-active workspace's rule projection
  * (`wsKeys(runtimeActive).rules`, the rule cache's storage key) and the
  * extension workspace list (S31 pin — the zero-rules majority is a
- * measurement of that slot, not of a stale one).
+ * measurement of that slot, not of a stale one). The sync kind (S35)
+ * reads the connection records: the desktop app's own loopback wire is
+ * pairing, anything else is a server.
  */
 
 import { type HostStorage, OH, setHostStorage, wsKeys } from '@openheaders/core/storage';
@@ -43,5 +45,22 @@ describe('readScaleBuckets', () => {
   it('reads zeros on an empty store rather than omitting the buckets', async () => {
     const { readScaleBuckets } = await loadModule();
     expect(await readScaleBuckets()).toEqual({ rules: '0', workspaces: '0' });
+  });
+});
+
+describe('readSyncKind', () => {
+  it("reads local with no records and with only the desktop app's loopback wire", async () => {
+    const { readSyncKind } = await loadModule();
+    expect(await readSyncKind()).toBe('local');
+    store[OH.backends.key] = [{ url: 'ws://127.0.0.1:8137' }, { url: 'ws://localhost:8137' }];
+    expect(await readSyncKind()).toBe('local');
+  });
+
+  it('reads server once any record points at a daemon or team server — loopback on another port included', async () => {
+    const { readSyncKind } = await loadModule();
+    store[OH.backends.key] = [{ url: 'ws://127.0.0.1:8137' }, { url: 'wss://sync.openheaders.io' }];
+    expect(await readSyncKind()).toBe('server');
+    store[OH.backends.key] = [{ url: 'ws://127.0.0.1:9000' }];
+    expect(await readSyncKind()).toBe('server');
   });
 });

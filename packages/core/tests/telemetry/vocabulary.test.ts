@@ -6,11 +6,19 @@ import type { LicensedSnapshot } from '../../src/licensing/types';
 import { RuleTypeSchema } from '../../src/schemas/rule';
 import {
   activatedPlanFromLicenseSnapshot,
+  browserMajorFromUserAgent,
   bucketScale,
   bucketSessionAge,
   bucketSinceInstall,
+  bucketViewportHeight,
+  bucketViewportWidth,
+  macOsMajorFromDarwinRelease,
+  osMajorFromSystemVersion,
   parseTelemetryAppVersion,
+  resolveTelemetrySyncKind,
   TELEMETRY_SCHEMA_VERSION,
+  TELEMETRY_VIEWPORT_HEIGHT_FLOORS,
+  TELEMETRY_VIEWPORT_WIDTH_FLOORS,
   type TelemetryEnvelope,
   TelemetryEnvelopeSchema,
   type TelemetryEvent,
@@ -24,6 +32,8 @@ import {
   toTelemetryArch,
   toTelemetryLocale,
   toTelemetryMcpClient,
+  windowsMajorFromClientHintPlatformVersion,
+  windowsMajorFromVersion,
 } from '../../src/telemetry';
 
 type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -69,6 +79,11 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
   { name: 'feature_used', feature: 'popup' },
   { name: 'feature_used', feature: 'rule-toggle' },
   { name: 'mcp_client_connected', client: 'claude-code' },
+  { name: 'feature_used', feature: 'extension-paired' },
+  { name: 'session_start', rules: '1', workspaces: '1', sync: 'server' },
+  { name: 'viewport_seen', surface: 'workbench', width: 1280, height: 800 },
+  { name: 'viewport_seen', surface: 'popup', width: 800, height: 600 },
+  { name: 'viewport_seen', surface: 'sidepanel', width: 0, height: 0 },
 ];
 
 describe('telemetry vocabulary — round-trips', () => {
@@ -93,6 +108,8 @@ describe('telemetry vocabulary — round-trips', () => {
       arch: 'arm64',
       browser: 'firefox',
       locale: 'de',
+      osVersion: 15,
+      browserVersion: 131,
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '2-7',
@@ -117,6 +134,23 @@ describe('telemetry vocabulary — round-trips', () => {
       expect(v.parse(TelemetryEnvelopeSchema, { ...base, arch })).toEqual({ ...base, arch });
     }
     expect(v.parse(TelemetryEnvelopeSchema, base)).toEqual(base);
+  });
+
+  it('accepts an envelope without the version majors (pre-S35 clients) and with either one alone', () => {
+    const base = {
+      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      sessionId: SESSION_ID,
+      installId: INSTALL_ID,
+      sinceInstall: '0',
+      sentAt: 1_760_000_000_000,
+      events: [],
+    };
+    expect(v.parse(TelemetryEnvelopeSchema, base)).toEqual(base);
+    expect(v.parse(TelemetryEnvelopeSchema, { ...base, osVersion: 11 })).toEqual({ ...base, osVersion: 11 });
+    expect(v.parse(TelemetryEnvelopeSchema, { ...base, browserVersion: 130 })).toEqual({
+      ...base,
+      browserVersion: 130,
+    });
   });
 
   it('round-trips the current client event shapes — facts ride the envelope, not the events', () => {
@@ -273,6 +307,41 @@ describe('telemetry vocabulary — rejections', () => {
     }
   });
 
+  it('rejects a version major that is not a small positive integer — never a build, never a dotted string (S35)', () => {
+    for (const bad of [0, -1, 10.5, 22631, '15', '10.0.22631']) {
+      for (const field of ['osVersion', 'browserVersion']) {
+        const envelope = {
+          schemaVersion: TELEMETRY_SCHEMA_VERSION,
+          [field]: bad,
+          sessionId: SESSION_ID,
+          installId: INSTALL_ID,
+          sinceInstall: '0',
+          sentAt: 1,
+          events: [],
+        };
+        expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success, `${field}=${String(bad)}`).toBe(false);
+      }
+    }
+  });
+
+  it('rejects a viewport outside the floor grammar — an exact size is inexpressible (S35)', () => {
+    for (const forged of [
+      { name: 'viewport_seen', surface: 'workbench', width: 1366, height: 800 },
+      { name: 'viewport_seen', surface: 'workbench', width: 1280, height: 768 },
+      { name: 'viewport_seen', surface: 'workbench', width: '1280', height: 800 },
+      { name: 'viewport_seen', surface: 'tray', width: 1280, height: 800 },
+      { name: 'viewport_seen', surface: 'workbench', width: 1280 },
+    ]) {
+      expect(v.safeParse(TelemetryEventSchema, forged).success).toBe(false);
+    }
+  });
+
+  it('rejects a sync kind outside the picklist — a backend URL never passes through', () => {
+    for (const sync of ['wss://sync.openheaders.io', 'daemon', '']) {
+      expect(v.safeParse(TelemetryEventSchema, { name: 'session_start', sync }).success).toBe(false);
+    }
+  });
+
   it('rejects a precise sessionAge — buckets only', () => {
     const envelope = {
       schemaVersion: TELEMETRY_SCHEMA_VERSION,
@@ -357,6 +426,94 @@ describe('telemetry vocabulary — coarse buckets', () => {
     expect(bucketSessionAge(NOW - 8 * HOUR, NOW)).toBe('8-24h');
     expect(bucketSessionAge(NOW - 24 * HOUR, NOW)).toBe('24h+');
     expect(bucketSessionAge(NOW + HOUR, NOW)).toBe('0-9m');
+  });
+});
+
+describe('telemetry vocabulary — viewport floors (S35)', () => {
+  it('floors a size onto the largest grammar member at or below it', () => {
+    expect(bucketViewportWidth(1366)).toBe(1280);
+    expect(bucketViewportWidth(1280)).toBe(1280);
+    expect(bucketViewportWidth(2560)).toBe(1920);
+    expect(bucketViewportWidth(800)).toBe(800);
+    expect(bucketViewportWidth(359)).toBe(0);
+    expect(bucketViewportHeight(600)).toBe(600);
+    expect(bucketViewportHeight(1080)).toBe(1000);
+    expect(bucketViewportHeight(1440)).toBe(1200);
+    expect(bucketViewportHeight(399)).toBe(0);
+  });
+
+  it('reads a negative or non-numeric size as the lowest floor, never a failure', () => {
+    expect(bucketViewportWidth(-1)).toBe(0);
+    expect(bucketViewportWidth(Number.NaN)).toBe(0);
+    expect(bucketViewportHeight(Number.NaN)).toBe(0);
+  });
+
+  it('keeps the grammars ascending from 0 so a floor read is unambiguous', () => {
+    for (const floors of [TELEMETRY_VIEWPORT_WIDTH_FLOORS, TELEMETRY_VIEWPORT_HEIGHT_FLOORS]) {
+      expect(floors[0]).toBe(0);
+      expect([...floors]).toEqual([...floors].sort((a, b) => a - b));
+      expect(new Set(floors).size).toBe(floors.length);
+    }
+  });
+});
+
+describe('telemetry vocabulary — version majors (S35)', () => {
+  it('reads Windows 11 off build 22000 and Windows 10 below it; nothing older is stamped', () => {
+    expect(windowsMajorFromVersion('10.0.22631')).toBe(11);
+    expect(windowsMajorFromVersion('10.0.22000')).toBe(11);
+    expect(windowsMajorFromVersion('10.0.19045')).toBe(10);
+    expect(windowsMajorFromVersion('10.0')).toBe(10);
+    expect(windowsMajorFromVersion('6.3.9600')).toBeNull();
+    expect(windowsMajorFromVersion('')).toBeNull();
+  });
+
+  it('reads the Client Hints platformVersion as Windows 11 from 13, Windows 10 from 1, unstamped at 0', () => {
+    expect(windowsMajorFromClientHintPlatformVersion('15.0.0')).toBe(11);
+    expect(windowsMajorFromClientHintPlatformVersion('13.0.0')).toBe(11);
+    expect(windowsMajorFromClientHintPlatformVersion('10.0.0')).toBe(10);
+    expect(windowsMajorFromClientHintPlatformVersion('1.0.0')).toBe(10);
+    expect(windowsMajorFromClientHintPlatformVersion('0.0.0')).toBeNull();
+    expect(windowsMajorFromClientHintPlatformVersion('')).toBeNull();
+  });
+
+  it('maps the Darwin kernel major onto the macOS marketing major, including the jump to 26', () => {
+    expect(macOsMajorFromDarwinRelease('20.6.0')).toBe(11);
+    expect(macOsMajorFromDarwinRelease('23.5.0')).toBe(14);
+    expect(macOsMajorFromDarwinRelease('24.1.0')).toBe(15);
+    expect(macOsMajorFromDarwinRelease('25.0.0')).toBe(26);
+    expect(macOsMajorFromDarwinRelease('26.0.0')).toBe(27);
+    expect(macOsMajorFromDarwinRelease('19.6.0')).toBeNull();
+    expect(macOsMajorFromDarwinRelease('')).toBeNull();
+  });
+
+  it('reads a marketing version by platform — mac as is, win by build, linux never', () => {
+    expect(osMajorFromSystemVersion('mac', '15.1')).toBe(15);
+    expect(osMajorFromSystemVersion('mac', '26.0.1')).toBe(26);
+    expect(osMajorFromSystemVersion('win', '10.0.22631')).toBe(11);
+    expect(osMajorFromSystemVersion('win', '10.0.19045')).toBe(10);
+    expect(osMajorFromSystemVersion('linux', '6.8.0-45-generic')).toBeNull();
+    expect(osMajorFromSystemVersion('mac', '')).toBeNull();
+  });
+
+  it('reads the browser major off the UA string by engine; the UA freeze never touched the major', () => {
+    const chromeUa =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+    const edgeUa = `${chromeUa} Edg/130.0.2849.56`;
+    const firefoxUa = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0';
+    const safariUa =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15';
+    expect(browserMajorFromUserAgent('chrome', chromeUa)).toBe(130);
+    expect(browserMajorFromUserAgent('edge', edgeUa)).toBe(130);
+    expect(browserMajorFromUserAgent('firefox', firefoxUa)).toBe(131);
+    expect(browserMajorFromUserAgent('safari', safariUa)).toBe(18);
+    expect(browserMajorFromUserAgent('other', chromeUa)).toBeNull();
+    expect(browserMajorFromUserAgent('chrome', firefoxUa)).toBeNull();
+  });
+
+  it('folds the sync facts into the install-wide maximum: server over git over local', () => {
+    expect(resolveTelemetrySyncKind({ server: true, git: true })).toBe('server');
+    expect(resolveTelemetrySyncKind({ server: false, git: true })).toBe('git');
+    expect(resolveTelemetrySyncKind({ server: false, git: false })).toBe('local');
   });
 });
 

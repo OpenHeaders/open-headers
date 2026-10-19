@@ -14,6 +14,7 @@ import {
   __resetProductTelemetryTrackForTests,
   noteFeatureUsed,
   noteUpgradeCtaShown,
+  noteViewportSeen,
   trackProductTelemetryEvent,
 } from '@openheaders/ui/shared/product-telemetry';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,6 +64,22 @@ describe('noteFeatureUsed', () => {
     });
     expect(call).toHaveBeenNthCalledWith(2, 'productTelemetryTrack', {
       event: { name: 'feature_used', feature: 'variables' },
+    });
+  });
+});
+
+describe('noteViewportSeen', () => {
+  it('floors the viewport onto the coarse grammar before the RPC and fires once per surface per document', () => {
+    const call = installBridge();
+    noteViewportSeen('workbench', 1366, 768);
+    noteViewportSeen('workbench', 1920, 1080);
+    noteViewportSeen('sidepanel', 352, 900);
+    expect(call).toHaveBeenCalledTimes(2);
+    expect(call).toHaveBeenNthCalledWith(1, 'productTelemetryTrack', {
+      event: { name: 'viewport_seen', surface: 'workbench', width: 1280, height: 600 },
+    });
+    expect(call).toHaveBeenNthCalledWith(2, 'productTelemetryTrack', {
+      event: { name: 'viewport_seen', surface: 'sidepanel', width: 0, height: 800 },
     });
   });
 });

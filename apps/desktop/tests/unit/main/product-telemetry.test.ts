@@ -8,13 +8,20 @@ interface RigOptions {
   platform?: NodeJS.Platform;
   arch?: NodeJS.Architecture;
   translated?: boolean;
+  systemVersion?: string;
   appVersion?: string;
   locale?: string;
+  backends?: Array<{ url: string }>;
+  treeBindings?: Array<{ workspaceId: string }>;
 }
 
 function makeRig(options: RigOptions = {}) {
   const sent: TelemetryEnvelope[] = [];
-  const values = new Map<string, unknown>([[OH.settingsUser.key, options.settings]]);
+  const values = new Map<string, unknown>([
+    [OH.settingsUser.key, options.settings],
+    [OH.backends.key, options.backends],
+    [OH.workspaceTreeBindings.key, options.treeBindings],
+  ]);
   const listeners = new Map<string, Array<(next: unknown) => void>>();
 
   const storage: ProductTelemetryHostDeps['storage'] = {
@@ -44,6 +51,7 @@ function makeRig(options: RigOptions = {}) {
       platform: options.platform ?? 'darwin',
       arch: options.arch ?? 'arm64',
       runningUnderArm64Translation: options.translated ?? false,
+      systemVersion: options.systemVersion ?? '15.1',
       channel: 'github-release',
       locale: () => options.locale ?? 'en',
       transport: {
@@ -75,7 +83,7 @@ describe('installProductTelemetry — session_start', () => {
     expect(sent[0].locale).toBe('en');
     expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].sinceInstall).toBe('0');
-    expect(sent[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start' }]);
+    expect(sent[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start', sync: 'local' }]);
 
     // A second flush sends nothing — the latch holds for the process lifetime.
     await handle.flush();
@@ -139,6 +147,46 @@ describe('installProductTelemetry — session_start', () => {
     await handle.flush();
     expect('arch' in sent[0]).toBe(false);
     handle.dispose();
+  });
+
+  it('stamps the OS major as people know it — macOS as read, Windows 11 by build, Linux never (S35)', async () => {
+    for (const [platform, systemVersion, wire] of [
+      ['darwin', '15.1', 15],
+      ['darwin', '26.0.1', 26],
+      ['win32', '10.0.22631', 11],
+      ['win32', '10.0.19045', 10],
+    ] as const) {
+      const { install, sent } = makeRig({ platform, systemVersion });
+      const handle = await install();
+      await handle.flush();
+      expect(sent[0].osVersion).toBe(wire);
+      expect('browserVersion' in sent[0]).toBe(false);
+      handle.dispose();
+    }
+    const { install, sent } = makeRig({ platform: 'linux', systemVersion: '6.8.0-45-generic' });
+    const handle = await install();
+    await handle.flush();
+    expect('osVersion' in sent[0]).toBe(false);
+    handle.dispose();
+  });
+
+  it('carries the install-wide sync kind on session_start — server over git over local, the loopback desktop wire never a server (S35)', async () => {
+    const sessionStart = (envelope: TelemetryEnvelope) =>
+      envelope.events.find((event) => event.name === 'session_start');
+    const cases: Array<[RigOptions, string]> = [
+      [{}, 'local'],
+      [{ backends: [{ url: 'ws://127.0.0.1:8137' }] }, 'local'],
+      [{ treeBindings: [{ workspaceId: 'ws-a' }] }, 'git'],
+      [{ backends: [{ url: 'wss://sync.openheaders.io' }], treeBindings: [{ workspaceId: 'ws-a' }] }, 'server'],
+      [{ backends: [{ url: 'ws://127.0.0.1:8137' }, { url: 'ws://192.168.1.20:8137' }] }, 'server'],
+    ];
+    for (const [options, sync] of cases) {
+      const { install, sent } = makeRig(options);
+      const handle = await install();
+      await handle.flush();
+      expect(sessionStart(sent[0])).toEqual({ name: 'session_start', sync });
+      handle.dispose();
+    }
   });
 
   it('stamps the resolved interface locale, mapping codes outside the vocabulary to other', async () => {
@@ -221,7 +269,7 @@ describe('installProductTelemetry — inspector snapshot', () => {
     const snapshot = await handle.snapshot();
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);
     expect(snapshot.entries).toEqual([
-      { event: { name: 'session_start' }, at: 1_760_000_000_000, disposition: 'suppressed' },
+      { event: { name: 'session_start', sync: 'local' }, at: 1_760_000_000_000, disposition: 'suppressed' },
       { event: { name: 'feature_used', feature: 'variables' }, at: 1_760_000_000_000, disposition: 'suppressed' },
     ]);
     handle.dispose();

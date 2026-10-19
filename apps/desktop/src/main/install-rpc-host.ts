@@ -113,6 +113,7 @@ import {
 import { safeOsHostname } from './os-hostname';
 import { installProductTelemetry } from './product-telemetry';
 import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beacons';
+import { installProductTelemetryPairingBeacon } from './product-telemetry-pairing-beacon';
 import { installProductTelemetrySyncBeacons } from './product-telemetry-sync-beacons';
 import { safeStorageCipher } from './safe-storage-cipher';
 import { installScriptSandbox } from './script-sandbox';
@@ -311,6 +312,7 @@ export async function installRpcHost(): Promise<void> {
     arch: process.arch,
     // Defined on macOS and Windows only (Electron); Linux reads as not translated.
     runningUnderArm64Translation: app.runningUnderARM64Translation === true,
+    systemVersion: process.getSystemVersion(),
     channel: app.isPackaged ? 'github-release' : 'dev',
     locale: () => mainTranslator().locale,
   });
@@ -491,6 +493,11 @@ export async function installRpcHost(): Promise<void> {
   // policy-free usage observer, mapped to typed events here — the
   // standalone daemon never installs one and stays silent.
   installProductTelemetryMcpBeacons((event) => productTelemetry.track(event));
+  // An extension passing the HELLO gate against this host's server is
+  // the desktop paired with the extension (S35) — the spine's peer
+  // observer, mapped to a typed event here; the standalone daemon never
+  // installs one.
+  installProductTelemetryPairingBeacon((event) => productTelemetry.track(event));
 
   // Safe-mode script runtime: pre/post request scripts run in a hidden
   // sandboxed renderer; the capability makes the spine's executeRequest

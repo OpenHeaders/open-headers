@@ -12,7 +12,14 @@
  */
 
 import { getHostBridge } from '@openheaders/core/bridge';
-import type { TelemetryEvent, TelemetryFeatureId, TelemetryMonetizationSurface } from '@openheaders/core/telemetry';
+import {
+  bucketViewportHeight,
+  bucketViewportWidth,
+  type TelemetryEvent,
+  type TelemetryFeatureId,
+  type TelemetryMonetizationSurface,
+  type TelemetryViewportSurface,
+} from '@openheaders/core/telemetry';
 import { getCurrentHost } from '../host-vocabulary';
 
 export function trackProductTelemetryEvent(event: TelemetryEvent): void {
@@ -41,8 +48,28 @@ export function noteUpgradeCtaShown(surface: TelemetryMonetizationSurface): void
   trackProductTelemetryEvent({ name: 'upgrade_cta_shown', surface });
 }
 
-/** Test-only — clears the per-document feature and CTA-impression guards. */
+const notedViewports = new Set<TelemetryViewportSurface>();
+
+/**
+ * Record a surface's size class once per document (S35): the CSS-pixel
+ * viewport floors onto the coarse grammar before it leaves this realm,
+ * so an exact size never reaches the RPC. The host latch dedupes per
+ * surface per session; a resize later in the document is not a new fact.
+ */
+export function noteViewportSeen(surface: TelemetryViewportSurface, width: number, height: number): void {
+  if (notedViewports.has(surface)) return;
+  notedViewports.add(surface);
+  trackProductTelemetryEvent({
+    name: 'viewport_seen',
+    surface,
+    width: bucketViewportWidth(width),
+    height: bucketViewportHeight(height),
+  });
+}
+
+/** Test-only — clears the per-document feature, CTA-impression and viewport guards. */
 export function __resetProductTelemetryTrackForTests(): void {
   notedFeatures.clear();
   notedCtaSurfaces.clear();
+  notedViewports.clear();
 }

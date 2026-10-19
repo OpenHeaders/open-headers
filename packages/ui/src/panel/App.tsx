@@ -50,7 +50,7 @@ import {
   useUpdatedNotification,
 } from '@openheaders/ui/shared/notifications';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
-import { noteFeatureUsed } from '@openheaders/ui/shared/product-telemetry';
+import { noteFeatureUsed, noteViewportSeen } from '@openheaders/ui/shared/product-telemetry';
 import { COMPACT_VALUE_TITLE_KEYS } from '@openheaders/ui/shared/value-detection';
 import type { ValueViewTabTarget } from '@openheaders/ui/workbench/components/value-editors/useValueViewAction';
 import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
@@ -448,6 +448,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       if (dock.active === 'storage') noteFeatureUsed('storage-panel');
     }
   }, [tl.state.docks]);
+  // The panel's size class on first paint — the DevTools drawer is the
+  // one surface whose room varies the most between people.
+  useEffect(() => {
+    noteViewportSeen('devpanel', window.innerWidth, window.innerHeight);
+  }, []);
   // Make `openDocs(sectionId)` from anywhere in the panel tree open the
   // docs tool-window. Effect runs on every `tl` identity change so the
   // ref always points at the current controller.

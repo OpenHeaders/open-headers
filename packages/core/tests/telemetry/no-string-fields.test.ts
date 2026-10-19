@@ -47,15 +47,21 @@ describe('telemetry vocabulary — no-string-fields guard', () => {
   collectNodeTypes(TelemetryEventSchema, 'event', nodes);
 
   it('actually walked the vocabulary (sanity floor)', () => {
-    // 13 variant options plus their properties — a broken walker that visits
+    // 14 variant options plus their properties — a broken walker that visits
     // nothing must not masquerade as a passing guard.
     expect(nodes.length).toBeGreaterThan(20);
-    expect(nodes.filter((n) => n.type === 'strict_object').length).toBeGreaterThanOrEqual(13);
+    expect(nodes.filter((n) => n.type === 'strict_object').length).toBeGreaterThanOrEqual(14);
   });
 
   it('admits no string-typed node anywhere in any event payload', () => {
     const strings = nodes.filter((n) => n.type === 'string');
     expect(strings).toEqual([]);
+  });
+
+  it('admits a number picklist as a closed-union leaf — the viewport floors are a grammar, not a measurement', () => {
+    const floors = nodes.filter((n) => n.path.endsWith('.width') || n.path.endsWith('.height'));
+    expect(floors.length).toBe(2);
+    for (const node of floors) expect(node.type).toBe('picklist');
   });
 
   it('uses only closed unions, booleans, and numbers as leaves', () => {

@@ -111,6 +111,11 @@ export const TelemetryFeatureIdSchema = v.picklist([
   // two gestures most store installs make and no other id covered.
   'popup',
   'rule-toggle',
+  // S35 (user-signed 2026-10-19): the desktop host counts a browser
+  // extension completing the sync handshake against its local server
+  // — "is this desktop paired with the extension" — once per session
+  // per UTC day through the ordinary feature latch; no new column.
+  'extension-paired',
 ]);
 
 /**
@@ -237,6 +242,141 @@ export function bucketSessionAge(startedAt: number, now: number): TelemetrySessi
 }
 
 /**
+ * How an install keeps its workspaces (S35, user-signed 2026-10-19) —
+ * the install-wide MAXIMUM, not a per-workspace fact: `server` when at
+ * least one server connection is configured (a daemon or team server
+ * — the desktop app's own loopback wire is pairing, never a server),
+ * else `git` when at least one workspace is bound to a working tree,
+ * else `local`. The demand signal behind it is "does this install use
+ * a server at all", so one server anywhere wins. Measured at session
+ * start like the scale buckets; the CLI carries none.
+ */
+export const TelemetrySyncKindSchema = v.picklist(['local', 'server', 'git']);
+
+/** Fold the two host-gathered facts into the install-wide maximum; the precedence is the law above. */
+export function resolveTelemetrySyncKind(facts: { server: boolean; git: boolean }): TelemetrySyncKind {
+  if (facts.server) return 'server';
+  if (facts.git) return 'git';
+  return 'local';
+}
+
+/**
+ * The UI surfaces whose size `viewport_seen` reports (S35) — the
+ * shared UI's own surface vocabulary (`SurfaceMode`) plus the
+ * workbench window. The popup is a fixed 800×600 by design; the side
+ * panel, the devtools panel and the workbench window are the variable
+ * ones.
+ */
+export const TelemetryViewportSurfaceSchema = v.picklist(['popup', 'sidepanel', 'devpanel', 'workbench']);
+
+/**
+ * Coarse viewport floors (S35): a size reports as the largest floor at
+ * or below it, so `1280` means "at least 1280 and under 1600" and `0`
+ * means "under the first floor". Closed number picklists on the wire
+ * — an exact pixel size is inexpressible (a precise viewport is a
+ * fingerprinting vector; plan §3).
+ */
+export const TELEMETRY_VIEWPORT_WIDTH_FLOORS = [0, 360, 480, 640, 800, 1024, 1280, 1600, 1920] as const;
+export const TELEMETRY_VIEWPORT_HEIGHT_FLOORS = [0, 400, 600, 800, 1000, 1200] as const;
+export const TelemetryViewportWidthSchema = v.picklist([...TELEMETRY_VIEWPORT_WIDTH_FLOORS]);
+export const TelemetryViewportHeightSchema = v.picklist([...TELEMETRY_VIEWPORT_HEIGHT_FLOORS]);
+
+/** Floor a CSS-pixel viewport width onto the coarse grammar; anything below the first floor (or not a number) reads 0. */
+export function bucketViewportWidth(px: number): TelemetryViewportWidth {
+  let bucket: TelemetryViewportWidth = 0;
+  for (const floor of TELEMETRY_VIEWPORT_WIDTH_FLOORS) if (px >= floor) bucket = floor;
+  return bucket;
+}
+
+/** Floor a CSS-pixel viewport height onto the coarse grammar; anything below the first floor (or not a number) reads 0. */
+export function bucketViewportHeight(px: number): TelemetryViewportHeight {
+  let bucket: TelemetryViewportHeight = 0;
+  for (const floor of TELEMETRY_VIEWPORT_HEIGHT_FLOORS) if (px >= floor) bucket = floor;
+  return bucket;
+}
+
+const leadingInteger = (text: string): number | null => {
+  const match = /^\s*(\d+)/.exec(text);
+  return match ? Number.parseInt(match[1], 10) : null;
+};
+
+/**
+ * The OS major version as people know it (S35) — coarse MAJOR only,
+ * never a build. Where a platform's reading cannot be trusted the
+ * answer is null and the envelope stays unstamped: a wrong major is
+ * worse than none.
+ *
+ * Windows 10 and 11 share kernel major 10; 11 begins at build 22000,
+ * so a `10.0.<build>` string (Electron's `process.getSystemVersion()`,
+ * Node's `os.release()`) resolves by its build. Anything below 10 is
+ * unstamped (nothing shipped runs there).
+ */
+export function windowsMajorFromVersion(version: string): number | null {
+  const [major, , build] = version.split('.').map((part) => Number.parseInt(part, 10));
+  if (!Number.isInteger(major) || major < 10) return null;
+  if (major > 10) return major;
+  return Number.isInteger(build) && build >= 22000 ? 11 : 10;
+}
+
+/**
+ * Windows major from the User-Agent Client Hints `platformVersion`
+ * (the only version read a Chromium extension has, since the UA string
+ * freezes `Windows NT 10.0`): 13 and above is Windows 11, 1 through 12
+ * is Windows 10, 0 is older than either and stays unstamped.
+ */
+export function windowsMajorFromClientHintPlatformVersion(platformVersion: string): number | null {
+  const major = leadingInteger(platformVersion);
+  if (major === null || major < 1) return null;
+  return major >= 13 ? 11 : 10;
+}
+
+/**
+ * macOS major from the Darwin kernel release (`os.release()` on a
+ * Node CLI — the only version read without a native call): Darwin 20
+ * through 24 are macOS 11 through 15, and from Darwin 25 the marketing
+ * number jumped to the year (macOS 26), so the offset flips. Older
+ * kernels stay unstamped.
+ */
+export function macOsMajorFromDarwinRelease(release: string): number | null {
+  const darwin = leadingInteger(release);
+  if (darwin === null || darwin < 20) return null;
+  return darwin >= 25 ? darwin + 1 : darwin - 9;
+}
+
+/**
+ * OS major from a marketing-version string the platform reports as
+ * such — Electron's `process.getSystemVersion()` on the desktop, the
+ * Client Hints `platformVersion` on a Chromium extension (`15.1.0`
+ * on a Mac). Linux has no product-meaningful major (a kernel number)
+ * and stays unstamped.
+ */
+export function osMajorFromSystemVersion(platform: TelemetryPlatform, version: string): number | null {
+  if (platform === 'mac') return leadingInteger(version);
+  if (platform === 'win') return windowsMajorFromVersion(version);
+  return null;
+}
+
+/**
+ * Browser major from the UA string, by engine (S35). UA reduction
+ * froze the platform and the minor segments, never the major, so one
+ * regex per engine is exact: Chromium's `Chrome/NNN` (Edge announces
+ * the same engine major beside its own `Edg/` token), `Firefox/NNN`,
+ * Safari's `Version/NN`. `other` has no vocabulary and stays unstamped.
+ */
+export function browserMajorFromUserAgent(kind: TelemetryBrowserKind, userAgent: string): number | null {
+  const pattern =
+    kind === 'chrome' || kind === 'edge'
+      ? /Chrome\/(\d+)/
+      : kind === 'firefox'
+        ? /Firefox\/(\d+)/
+        : kind === 'safari'
+          ? /Version\/(\d+)/
+          : null;
+  const match = pattern ? pattern.exec(userAgent) : null;
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+/**
  * Coarse plan bucket for the monetization funnel (S20, user-signed
  * 2026-08-13) — derivable from the license artifact alone: no license,
  * a `personal-seat` license, or an org license. Enterprise is a
@@ -344,6 +484,9 @@ export const TelemetryErrorCodeSchema = v.picklist([
 
 const wholeNumber = () => v.pipe(v.number(), v.integer());
 
+/** A coarse MAJOR version on the envelope (S35): a small positive integer, never a build or a dotted string. */
+const majorVersion = () => v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(9999));
+
 /**
  * CalVer (`YYYY.M.PATCH[-beta.N]`) decomposed into integers — the version
  * is the one "string-shaped" fact we ship, so it travels as numbers to
@@ -407,6 +550,10 @@ export const TelemetryEventSchema = v.variant('name', [
     locale: v.optional(TelemetryLocaleSchema),
     rules: v.optional(TelemetryScaleBucketSchema),
     workspaces: v.optional(TelemetryScaleBucketSchema),
+    // S35: how the install keeps its workspaces, the install-wide
+    // maximum (`local` < `git` < `server`). Optional on the wire for
+    // earlier clients; the CLI never stamps it.
+    sync: v.optional(TelemetrySyncKindSchema),
   }),
   v.strictObject({
     name: v.literal('feature_used'),
@@ -470,6 +617,18 @@ export const TelemetryEventSchema = v.variant('name', [
     name: v.literal('mcp_client_connected'),
     client: TelemetryMcpClientSchema,
   }),
+  // Viewport size class (S35, user-signed 2026-10-19): which UI
+  // surface opened and how big it was, as coarse floors — once per
+  // surface per session per UTC day. Width and height are closed
+  // number picklists, so an exact size is inexpressible; the surface
+  // shares the stored `surface` column with the monetization spots
+  // (disjoint vocabularies, name-split in every query).
+  v.strictObject({
+    name: v.literal('viewport_seen'),
+    surface: TelemetryViewportSurfaceSchema,
+    width: TelemetryViewportWidthSchema,
+    height: TelemetryViewportHeightSchema,
+  }),
 ]);
 
 /**
@@ -490,10 +649,12 @@ export const TelemetryInstallIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32
  * widening — Analytics Engine SQL has no joins, so a fact that should
  * segment every stored row must ride the row itself. The fact fields
  * are optional on the wire only for schema-v2 clients built before
- * them (`host` predates the S15 set, `arch` the S34 one); every
- * current client stamps all it can — `platform` and `arch` are omitted
- * where the running platform or architecture has no vocabulary member
- * and `browser` exists only on browser-hosted surfaces.
+ * them (`host` predates the S15 set, `arch` the S34 one, the two
+ * majors the S35 one); every current client stamps all it can —
+ * `platform` and `arch` are omitted where the running platform or
+ * architecture has no vocabulary member, `osVersion` where the major
+ * cannot be read reliably, and `browser`/`browserVersion` exist only
+ * on browser-hosted surfaces.
  */
 export const TelemetryEnvelopeSchema = v.strictObject({
   schemaVersion: v.literal(TELEMETRY_SCHEMA_VERSION),
@@ -504,6 +665,13 @@ export const TelemetryEnvelopeSchema = v.strictObject({
   arch: v.optional(TelemetryArchSchema),
   browser: v.optional(TelemetryBrowserKindSchema),
   locale: v.optional(TelemetryLocaleSchema),
+  // S35: the OS and browser MAJOR versions as people know them (macOS
+  // 15, Windows 11, Chrome 130) — never a build, never a dotted
+  // string. Omitted where a host cannot read the major reliably (Linux
+  // everywhere; the OS on Firefox and Safari, whose UA strings freeze
+  // it); `browserVersion` exists only on browser-hosted surfaces.
+  osVersion: v.optional(majorVersion()),
+  browserVersion: v.optional(majorVersion()),
   sessionId: TelemetrySessionIdSchema,
   installId: TelemetryInstallIdSchema,
   sinceInstall: TelemetrySinceInstallBucketSchema,
@@ -530,6 +698,10 @@ export type TelemetryImportSourceId = v.InferOutput<typeof TelemetryImportSource
 export type TelemetryPlanBucket = v.InferOutput<typeof TelemetryPlanBucketSchema>;
 export type TelemetryMonetizationSurface = v.InferOutput<typeof TelemetryMonetizationSurfaceSchema>;
 export type TelemetryMcpClient = v.InferOutput<typeof TelemetryMcpClientSchema>;
+export type TelemetrySyncKind = v.InferOutput<typeof TelemetrySyncKindSchema>;
+export type TelemetryViewportSurface = v.InferOutput<typeof TelemetryViewportSurfaceSchema>;
+export type TelemetryViewportWidth = v.InferOutput<typeof TelemetryViewportWidthSchema>;
+export type TelemetryViewportHeight = v.InferOutput<typeof TelemetryViewportHeightSchema>;
 export type TelemetryUninstallReason = v.InferOutput<typeof TelemetryUninstallReasonSchema>;
 export type TelemetryErrorCode = v.InferOutput<typeof TelemetryErrorCodeSchema>;
 export type TelemetryAppVersion = v.InferOutput<typeof TelemetryAppVersionSchema>;

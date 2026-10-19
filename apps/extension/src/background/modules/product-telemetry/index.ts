@@ -7,9 +7,11 @@
  * cadence (the SW is evictable, so `setInterval` is not a cadence).
  */
 
+import { isDesktopAppBackendUrl } from '@openheaders/core/backends';
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
 import { getHostStorage, OH, wsKeys } from '@openheaders/core/storage';
 import {
+  browserMajorFromUserAgent,
   bucketScale,
   buildTelemetryUninstallUrl,
   mintTelemetrySessionId,
@@ -19,6 +21,8 @@ import {
   type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
   parseTelemetryAppVersion,
+  resolveTelemetrySyncKind,
+  type TelemetryBrowserKind,
   type TelemetryChannelId,
   type TelemetryEnvelope,
   type TelemetryEnvelopeFacts,
@@ -27,8 +31,10 @@ import {
   type TelemetryLocale,
   type TelemetryPlatform,
   type TelemetryQueueStore,
+  type TelemetrySyncKind,
   toTelemetryArch,
   toTelemetryLocale,
+  windowsMajorFromClientHintPlatformVersion,
 } from '@openheaders/core/telemetry';
 import { resolveLocale } from '@openheaders/i18n';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
@@ -215,7 +221,7 @@ const queueStore: TelemetryQueueStore = {
   },
 };
 
-function detectBrowserKind(): 'chrome' | 'firefox' | 'edge' | 'safari' | 'other' {
+function detectBrowserKind(): TelemetryBrowserKind {
   if (isFirefox) return 'firefox';
   if (isEdge) return 'edge';
   if (isSafari) return 'safari';
@@ -283,19 +289,75 @@ export async function readScaleBuckets(): Promise<
 }
 
 /**
- * The platform pair off one `getPlatformInfo` read. Only vocabulary
+ * How this install keeps its workspaces (S35), the install-wide
+ * maximum: a connection record to anything but the desktop app's own
+ * loopback wire is a server (a daemon or a team server); the extension
+ * never binds git itself. Any read failure omits the fact.
+ */
+export async function readSyncKind(): Promise<TelemetrySyncKind | undefined> {
+  try {
+    const storage = getHostStorage();
+    if (!storage) return undefined;
+    const backends = (await storage.get(OH.backends)) ?? [];
+    return resolveTelemetrySyncKind({
+      server: backends.some((backend) => !isDesktopAppBackendUrl(backend.url)),
+      git: false,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * User-Agent Client Hints as Chromium exposes them to a service
+ * worker; absent on Firefox and Safari. Not yet in `lib.dom`, hence
+ * the local shape (the same read the settings schema makes).
+ */
+interface UserAgentData {
+  getHighEntropyValues?(hints: string[]): Promise<{ platformVersion?: string }>;
+}
+
+/**
+ * The OS major (S35), only where it can be read honestly: Chromium's
+ * high-entropy `platformVersion` hint carries the real macOS version
+ * and the Windows platform version (13+ = Windows 11). The UA string
+ * itself froze both, so Firefox and Safari stay unstamped, and Linux
+ * has no product-meaningful major anywhere.
+ */
+async function telemetryOsMajor(platform: TelemetryPlatform | null): Promise<number | null> {
+  if (platform === null || platform === 'linux') return null;
+  const uaData = (navigator as Navigator & { userAgentData?: UserAgentData }).userAgentData;
+  if (!uaData?.getHighEntropyValues) return null;
+  try {
+    const { platformVersion } = await uaData.getHighEntropyValues(['platformVersion']);
+    if (!platformVersion) return null;
+    if (platform === 'win') return windowsMajorFromClientHintPlatformVersion(platformVersion);
+    const major = Number.parseInt(platformVersion, 10);
+    return Number.isInteger(major) && major > 0 ? major : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The platform facts off one `getPlatformInfo` read. Only vocabulary
  * members report; anything else stays unstamped rather than
  * misreporting under the nearest member. The architecture is the
  * browser's own — every engine ships native arm64 builds, so in
  * practice it is the machine's.
  */
-async function telemetryPlatformFacts(): Promise<Pick<TelemetryEnvelopeFacts, 'platform' | 'arch'>> {
+async function telemetryPlatformFacts(): Promise<Pick<TelemetryEnvelopeFacts, 'platform' | 'arch' | 'osVersion'>> {
   const api = typeof browser !== 'undefined' ? browser : chrome;
   const info = await api.runtime.getPlatformInfo();
   const platform: TelemetryPlatform | null =
     info.os === 'mac' || info.os === 'win' || info.os === 'linux' ? info.os : null;
   const arch = toTelemetryArch(info.arch);
-  return { ...(platform !== null ? { platform } : {}), ...(arch !== null ? { arch } : {}) };
+  const osVersion = await telemetryOsMajor(platform);
+  return {
+    ...(platform !== null ? { platform } : {}),
+    ...(arch !== null ? { arch } : {}),
+    ...(osVersion !== null ? { osVersion } : {}),
+  };
 }
 
 /**
@@ -317,22 +379,29 @@ function currentTelemetryLocale(): TelemetryLocale {
 
 /** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch. */
 export async function buildEnvelopeFacts(): Promise<TelemetryEnvelopeFacts> {
+  const browser = detectBrowserKind();
+  // The UA freeze never touched the browser major (S35); `other` has no
+  // vocabulary and stays unstamped.
+  const browserVersion = browserMajorFromUserAgent(browser, navigator.userAgent);
   return {
     channel: detectDistributionChannel(),
     appVersion: parseTelemetryAppVersion(runtime.getManifest().version),
     locale: currentTelemetryLocale(),
     ...(await telemetryPlatformFacts()),
-    browser: detectBrowserKind(),
+    browser,
+    ...(browserVersion !== null ? { browserVersion } : {}),
   };
 }
 
 async function buildSessionStart(): Promise<TelemetryEvent | null> {
   // The per-process facts ride the envelope, so the event carries only
-  // the scale-of-use measurements. An unmappable platform (ChromeOS)
-  // leaves the envelope unstamped but still counts the session — the
-  // install is a real store user either way (S31; before, those
-  // installs announced a first_run and were never seen again).
-  return { name: 'session_start', ...(await readScaleBuckets()) };
+  // the measurements taken at session start: the scale-of-use buckets
+  // and the sync kind. An unmappable platform (ChromeOS) leaves the
+  // envelope unstamped but still counts the session — the install is a
+  // real store user either way (S31; before, those installs announced
+  // a first_run and were never seen again).
+  const sync = await readSyncKind();
+  return { name: 'session_start', ...(await readScaleBuckets()), ...(sync !== undefined ? { sync } : {}) };
 }
 
 /**

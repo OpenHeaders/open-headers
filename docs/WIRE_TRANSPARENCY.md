@@ -192,6 +192,8 @@ event of the current session byte for byte, sent or suppressed.
   "arch": "arm64",
   "browser": "firefox",
   "locale": "en",
+  "osVersion": 15,
+  "browserVersion": 131,
   "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
   "installId": "feedface00feedface00feedface0000",
   "sinceInstall": "2-7",
@@ -199,7 +201,7 @@ event of the current session byte for byte, sent or suppressed.
   "sentAt": 1760000000000,
   "events": [
     { "name": "first_run" },
-    { "name": "session_start", "rules": "1-5", "workspaces": "0" },
+    { "name": "session_start", "rules": "1-5", "workspaces": "0", "sync": "local" },
     { "name": "feature_used", "feature": "workflow-editor" },
     { "name": "rule_created", "ruleType": "header", "origin": "editor" },
     { "name": "rule_matched", "ruleType": "header" },
@@ -210,7 +212,8 @@ event of the current session byte for byte, sent or suppressed.
     { "name": "paywall_hit", "surface": "seat-gate" },
     { "name": "upgrade_cta_shown", "surface": "license-pane" },
     { "name": "upgrade_cta_clicked", "surface": "grace-banner" },
-    { "name": "mcp_client_connected", "client": "claude-code" }
+    { "name": "mcp_client_connected", "client": "claude-code" },
+    { "name": "viewport_seen", "surface": "workbench", "width": 1280, "height": 800 }
   ]
 }
 ```
@@ -241,6 +244,18 @@ event of the current session byte for byte, sent or suppressed.
     extension reports its browser's architecture, the command-line
     tool its own binary's. Added 2026-10 (S34); earlier clients omit
     it.
+  - `osVersion`, `browserVersion` — the operating-system and browser
+    MAJOR versions as people know them (macOS 15, Windows 11, Chrome
+    130), each a single small integer: never a build number, never a
+    dotted version string. Both are omitted wherever the major cannot
+    be read reliably: the OS on Linux everywhere (a kernel number says
+    nothing about the product), the OS on Firefox and Safari (their
+    user-agent strings freeze it), and `browserVersion` on anything but
+    a browser-hosted surface. The desktop app reads its runtime's
+    system version (Windows 11 is told from Windows 10 by build), the
+    extension reads the browser's own version token and, on Chromium,
+    the Client Hints platform version; the command-line tool maps the
+    kernel release. Added 2026-10 (S35); earlier clients omit both.
   - `sessionId` — 32 hex chars minted at random per process launch,
     held in memory only, never persisted. It groups one session's
     events and nothing else.
@@ -257,16 +272,20 @@ event of the current session byte for byte, sent or suppressed.
     moment the batch is sent, only ever as one of five coarse buckets
     (`0-9m`, `10-59m`, `1-8h`, `8-24h`, `24h+`); precise durations are
     inexpressible. Added 2026-08 (S17); earlier clients omit it.
-  - `events` — only the thirteen event shapes above exist, and every
+  - `events` — only the fourteen event shapes above exist, and every
     field value comes from a closed union checked into the
     repository. `first_run` fires once per install; `session_start`
     fires once per session per UTC day (a long-running browser or tray
     process re-announces itself daily — same event, same fields, no
-    extra data) and carries only the coarse scale-of-use buckets:
+    extra data) and carries only measurements taken at session start:
     `rules`/`workspaces` use coarse buckets
     (`0`, `1`, `2-5`, `6-20`, `21-100`, `100+` — clients built before
     2026-08 send the older `1-5` and `21+` spans, still accepted),
-    never exact counts. `rule_created`
+    never exact counts; `sync` (2026-10, S35) says how the install
+    keeps its workspaces as one of `local`, `server`, `git` — the
+    install-wide maximum (one configured server connection anywhere
+    reads `server`; the desktop app's own loopback wire is pairing, not
+    a server), never a URL, a host name, or a count. `rule_created`
     carries `origin` — which in-app affordance created the rule, one of
     `editor`, `quick-editor`, `empty-state-nudge`. `rule_matched` fires
     at most once per rule type per session per UTC day when a rule of
@@ -289,7 +308,19 @@ event of the current session byte for byte, sent or suppressed.
     tools, or data is expressible. (The MCP server itself still sends
     no telemetry — this is the desktop app counting that its MCP
     surface is in use, and a standalone server deployment counts
-    nothing.) Every other per-process fact rides the envelope.
+    nothing.) `viewport_seen` (2026-10, S35) fires at most once per UI
+    surface per session per UTC day when a surface opens and carries
+    which surface it was (`popup`, `sidepanel`, `devpanel`,
+    `workbench`) and its size class as two coarse floors — `width` is
+    one of `0`, `360`, `480`, `640`, `800`, `1024`, `1280`, `1600`,
+    `1920` and `height` one of `0`, `400`, `600`, `800`, `1000`,
+    `1200`, each meaning "at least this, under the next" — so an exact
+    window size is inexpressible. The same slice added one
+    `feature_used` value, `extension-paired`, which the desktop app
+    records when a browser extension completes the sync handshake
+    against it (the desktop and the extension are in use together);
+    it carries nothing about the extension. Every other per-process
+    fact rides the envelope.
 - **Response**: `202` when the envelope validates, `4xx` otherwise.
   The client never acts on the status either way — failures are
   silent, the batch simply rides the next flush, and nothing ever

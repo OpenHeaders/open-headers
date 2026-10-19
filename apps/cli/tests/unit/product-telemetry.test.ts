@@ -27,6 +27,7 @@ interface RigOptions {
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
   arch?: NodeJS.Architecture;
+  osRelease?: string;
   cliVersion?: string;
   accept?: boolean;
 }
@@ -39,6 +40,7 @@ async function makeRig(options: RigOptions = {}) {
       env: options.env ?? {},
       platform: options.platform ?? 'darwin',
       arch: options.arch ?? 'arm64',
+      osRelease: options.osRelease ?? '24.1.0',
       cliVersion: options.cliVersion ?? '2026.7.2',
       channel: 'npm',
       configPath,
@@ -183,6 +185,22 @@ describe('bootCliProductTelemetry — session_start', () => {
     const unlisted = await makeRig({ arch: 'ia32' });
     await (await unlisted.boot()).finish();
     expect('arch' in unlisted.sent[0]).toBe(false);
+  });
+
+  it('stamps the OS major off the kernel release — Darwin onto macOS, Windows by build, Linux never (S35)', async () => {
+    for (const [platform, osRelease, wire] of [
+      ['darwin', '24.1.0', 15],
+      ['darwin', '25.0.0', 26],
+      ['win32', '10.0.22631', 11],
+      ['win32', '10.0.19045', 10],
+    ] as const) {
+      const rig = await makeRig({ platform, osRelease });
+      await (await rig.boot()).finish();
+      expect(rig.sent[0].osVersion).toBe(wire);
+    }
+    const linux = await makeRig({ platform: 'linux', osRelease: '6.8.0-45-generic' });
+    await (await linux.boot()).finish();
+    expect('osVersion' in linux.sent[0]).toBe(false);
   });
 
   it('maps the dev version stamp to zeros rather than failing', async () => {

@@ -118,7 +118,7 @@ export function createInMemoryProductTelemetryInstallStore(
  * Latch key for events that fire once per session per union member
  * (`feature_used` per feature, `error_beacon` per code, `rule_matched`
  * per rule type, `upgrade_cta_shown` per surface, `mcp_client_connected`
- * per client); null for events that count every occurrence —
+ * per client, `viewport_seen` per surface); null for events that count every occurrence —
  * `upgrade_cta_clicked`, `paywall_hit`, and `license_activated` stay
  * unlatched by design (S22): each occurrence is a distinct funnel fact
  * and all three are low-volume.
@@ -129,6 +129,7 @@ export function oncePerSessionLatchKey(event: TelemetryEvent): string | null {
   if (event.name === 'rule_matched') return `rule_matched:${event.ruleType}`;
   if (event.name === 'upgrade_cta_shown') return `upgrade_cta_shown:${event.surface}`;
   if (event.name === 'mcp_client_connected') return `mcp_client_connected:${event.client}`;
+  if (event.name === 'viewport_seen') return `viewport_seen:${event.surface}`;
   return null;
 }
 

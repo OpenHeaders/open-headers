@@ -208,6 +208,7 @@ import { createDaemonPasswordLoginService } from './password/password-login-serv
 import { createPeerAdminRpc } from './peer-admin-rpc';
 import { createPeerExecuteOptIn } from './peer-execute-opt-in';
 import { createPeerRequestsRpc } from './peer-requests-rpc';
+import { attachPeerUsageServer } from './peer-usage-observer';
 import { createPeerWorkspaceLeaveRpc } from './peer-workspace-leave';
 import { createPeerWorkspaceMembersRpc } from './peer-workspace-members';
 import { createPeerWorkspacePublicRpc } from './peer-workspace-public';
@@ -1715,6 +1716,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
         browserLiveRelay.setWsServer(next);
         proxyRoutingControl.setWsServer(next);
         captureFeedbackPush.setWsServer(next);
+        attachPeerUsageServer(next);
         if (next) syncStatusReporter.attachServer(next);
         else syncStatusReporter.detachServer();
       },

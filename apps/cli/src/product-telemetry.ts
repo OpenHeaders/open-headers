@@ -16,9 +16,11 @@
  * unreachable endpoint must never change a command's outcome.
  */
 
+import * as os from 'node:os';
 import {
   createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
+  macOsMajorFromDarwinRelease,
   mintTelemetryInstallId,
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
@@ -31,6 +33,7 @@ import {
   type TelemetryPlatform,
   type TelemetryTransport,
   toTelemetryArch,
+  windowsMajorFromVersion,
 } from '@openheaders/core/telemetry';
 import { type CliConfig, cliConfigPath, readCliConfig, writeCliConfig } from './config-store';
 import { CLI_VERSION } from './version';
@@ -49,6 +52,8 @@ export interface CliProductTelemetryDeps {
   platform?: NodeJS.Platform;
   /** The binary's own architecture (`process.arch`); a translated run is indistinguishable here and reads as the binary's. */
   arch?: NodeJS.Architecture;
+  /** `os.release()` — the Darwin kernel on macOS, `10.0.<build>` on Windows; only the coarse OS major ever leaves (S35). */
+  osRelease?: string;
   cliVersion?: string;
   /** Distribution channel stamped on every envelope; defaults to detection from the running script's path. */
   channel?: TelemetryChannelId;
@@ -180,6 +185,18 @@ function buildSessionStart(platform: NodeJS.Platform): TelemetryEvent | null {
 }
 
 /**
+ * The OS major (S35) from the kernel release — the only version read a
+ * Node process has without a native call: Darwin's major maps onto the
+ * macOS marketing major, Windows resolves 10 vs 11 by build, Linux has
+ * no product-meaningful major and stays unstamped.
+ */
+function telemetryOsMajor(platform: TelemetryPlatform, release: string): number | null {
+  if (platform === 'mac') return macOsMajorFromDarwinRelease(release);
+  if (platform === 'win') return windowsMajorFromVersion(release);
+  return null;
+}
+
+/**
  * Per-process envelope facts (plan §3, S15). The CLI's interface is
  * English-only, so `en` is the honest locale fact — the OS locale is
  * not the interface language and is never read.
@@ -188,16 +205,19 @@ function buildEnvelopeFacts(
   channel: TelemetryChannelId,
   platform: NodeJS.Platform,
   arch: NodeJS.Architecture,
+  osRelease: string,
   cliVersion: string,
 ): TelemetryEnvelopeFacts {
   const mapped = telemetryPlatform(platform);
   const mappedArch = toTelemetryArch(arch);
+  const osVersion = mapped !== null ? telemetryOsMajor(mapped, osRelease) : null;
   return {
     channel,
     appVersion: parseTelemetryAppVersion(cliVersion),
     locale: 'en',
     ...(mapped !== null ? { platform: mapped } : {}),
     ...(mappedArch !== null ? { arch: mappedArch } : {}),
+    ...(osVersion !== null ? { osVersion } : {}),
   };
 }
 
@@ -261,6 +281,7 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     const channel = deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath, env);
     const platform = deps.platform ?? process.platform;
     const arch = deps.arch ?? process.arch;
+    const osRelease = deps.osRelease ?? os.release();
     const cliVersion = deps.cliVersion ?? CLI_VERSION;
     const controller = new ProductTelemetryController({
       transport: deps.transport ?? abortingFetchTransport,
@@ -268,7 +289,7 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       sessionStore: createInMemoryProductTelemetrySessionStore(),
       installStore,
       host: 'cli',
-      facts: () => buildEnvelopeFacts(channel, platform, arch, cliVersion),
+      facts: () => buildEnvelopeFacts(channel, platform, arch, osRelease, cliVersion),
       getEnabled: () => true,
       subscribeEnabled: () => undefined,
       buildSessionStart: async () => buildSessionStart(platform),
