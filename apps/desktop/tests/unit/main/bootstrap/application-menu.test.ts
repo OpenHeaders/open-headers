@@ -68,9 +68,26 @@ describe('application menu labels', () => {
     expect(windowLabels).toContain('Next Tab');
     expect(windowLabels).toContain('Previous Tab');
 
-    expect(submenuLabels(template, 'Help')).toEqual(
-      expect.arrayContaining(['Documentation', 'Report an Issue', 'License Agreement']),
-    );
+    // Four groups, one divider between each: learn, ask or tell us,
+    // diagnose, legal — in this order, nothing between them.
+    const helpEntries = submenuOf(template, 'Help');
+    const helpGroups = helpEntries
+      .reduce<Array<Array<string | undefined>>>(
+        (groups, entry) => {
+          if (entry.type === 'separator') groups.push([]);
+          else groups[groups.length - 1].push(entry.label);
+          return groups;
+        },
+        [[]],
+      )
+      .filter((group) => group.length > 0);
+    expect(helpGroups.slice(0, 4)).toEqual([
+      ['Documentation', 'Keyboard Shortcuts', 'Release Notes'],
+      ['Report an Issue', 'Request a Feature', 'Chat with Us on Discord'],
+      ['Save Diagnostics…', 'Open Logs Folder'],
+      ['License Agreement', 'Privacy Policy'],
+    ]);
+    if (isMac) expect(template.find((entry) => entry.label === 'Help')?.role).toBe('help');
 
     if (isMac) {
       const appMenuLabels = submenuLabels(template, 'OpenHeaders');

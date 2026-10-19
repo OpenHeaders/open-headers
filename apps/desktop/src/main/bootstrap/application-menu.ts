@@ -18,20 +18,29 @@ import type { Translator } from '@openheaders/i18n';
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, nativeImage, shell } from 'electron';
 import { isHardwareAccelerationDisabled, toggleHardwareAcceleration } from './hardware-acceleration';
 import { mainTranslator } from './locale';
+import { revealLogFile } from './log-reveal';
 import { broadcastToAllRenderers, sendToFocusedRenderer, sendToRendererWindow } from './renderer-broadcast';
 import { registerUpdateMenuBuilder, updateMenuItems } from './update-menus';
 import { createChildWindow, getMainWindow, showMainWindow } from './window-manager';
 
-const HOMEPAGE_URL = 'https://openheaders.com';
-const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers/issues/new';
+const DOCS_URL = 'https://docs.openheaders.com';
+// The changelog page's `app` filter opens on this host's stream.
+const RELEASE_NOTES_URL = 'https://openheaders.com/changelog?app=desktop';
 const EULA_URL = 'https://openheaders.com/eula';
+const PRIVACY_URL = 'https://openheaders.com/privacy';
+// Blank issues are off in the repository, so each entry opens its form
+// directly; a conversation goes to the community chat server (a
+// permanent invite — a link shipped in a binary must outlive the build).
+const BUG_REPORT_URL = 'https://github.com/OpenHeaders/open-headers/issues/new?template=bug_report.yml';
+const FEATURE_REQUEST_URL = 'https://github.com/OpenHeaders/open-headers/issues/new?template=feature_request.yml';
+const COMMUNITY_CHAT_URL = 'https://discord.gg/DXXne8SCXv';
 
-export function openSettingsSurface(): void {
+export function openSettingsSurface(categoryId?: string): void {
   // The tray-resident window is hidden, not destroyed, so the renderer
   // is mounted and its `openSettings` subscription is live by the time
   // the broadcast lands.
   showMainWindow();
-  broadcastToAllRenderers('openSettings', {});
+  broadcastToAllRenderers('openSettings', categoryId ? { categoryId } : {});
 }
 
 // The standard macOS gear glyph as a template image so the menu recolors
@@ -48,7 +57,7 @@ function settingsMenuItem(t: Translator): MenuItemConstructorOptions {
     label: t('desktop.menu.settings'),
     accelerator: 'CommandOrControl+,',
     ...(process.platform === 'darwin' ? { icon: settingsGearIcon() } : {}),
-    click: openSettingsSurface,
+    click: () => openSettingsSurface(),
   };
 }
 
@@ -235,15 +244,28 @@ function template(): MenuItemConstructorOptions[] {
             ] as MenuItemConstructorOptions[])),
       ],
     },
+    // Four groups, one job each: learn, ask or tell us, diagnose, legal
+    // — Windows / Linux add the update items where macOS keeps them in
+    // the app menu. The help role gives macOS its menu search field.
     {
       label: t('desktop.menu.help'),
+      ...(isMac ? { role: 'help' as const } : {}),
       submenu: [
-        { label: t('desktop.menu.documentation'), click: () => void shell.openExternal(HOMEPAGE_URL) },
-        { label: t('desktop.menu.reportIssue'), click: () => void shell.openExternal(ISSUES_URL) },
+        { label: t('desktop.menu.documentation'), click: () => void shell.openExternal(DOCS_URL) },
+        { label: t('desktop.menu.keyboardShortcuts'), click: () => openSettingsSurface('keyboard') },
+        { label: t('desktop.menu.releaseNotes'), click: () => void shell.openExternal(RELEASE_NOTES_URL) },
+        { type: 'separator' },
+        { label: t('desktop.menu.reportIssue'), click: () => void shell.openExternal(BUG_REPORT_URL) },
+        { label: t('desktop.menu.requestFeature'), click: () => void shell.openExternal(FEATURE_REQUEST_URL) },
+        { label: t('desktop.menu.communityChat'), click: () => void shell.openExternal(COMMUNITY_CHAT_URL) },
+        { type: 'separator' },
         // The diagnostic bundle (the error reports plan §4.5) — the renderer
         // composes and saves it, so the item is a menu command like Import.
         { label: t('desktop.menu.saveDiagnostics'), click: () => sendMenuCommand('saveDiagnostics') },
+        { label: t('desktop.menu.openLogsFolder'), click: revealLogFile },
+        { type: 'separator' },
         { label: t('desktop.menu.licenseAgreement'), click: () => void shell.openExternal(EULA_URL) },
+        { label: t('desktop.menu.privacyPolicy'), click: () => void shell.openExternal(PRIVACY_URL) },
         ...(!isMac && updateItems.length > 0
           ? ([{ type: 'separator' }, ...updateItems] as MenuItemConstructorOptions[])
           : []),

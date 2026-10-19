@@ -28,7 +28,7 @@ function buildTrayMenu(): Menu {
     { label: t('desktop.tray.open'), click: showMainWindow },
     ...(updateItems.length > 0 ? [{ type: 'separator' as const }, ...updateItems] : []),
     { type: 'separator' },
-    { label: t('desktop.menu.settings'), click: openSettingsSurface },
+    { label: t('desktop.menu.settings'), click: () => openSettingsSurface() },
     {
       label: t('desktop.tray.quit'),
       click: () => requestQuit({ reason: 'tray-quit' }),
