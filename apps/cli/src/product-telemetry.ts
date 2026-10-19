@@ -30,6 +30,7 @@ import {
   type TelemetryEvent,
   type TelemetryPlatform,
   type TelemetryTransport,
+  toTelemetryArch,
 } from '@openheaders/core/telemetry';
 import { type CliConfig, cliConfigPath, readCliConfig, writeCliConfig } from './config-store';
 import { CLI_VERSION } from './version';
@@ -46,6 +47,8 @@ export interface CliProductTelemetry {
 export interface CliProductTelemetryDeps {
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
+  /** The binary's own architecture (`process.arch`); a translated run is indistinguishable here and reads as the binary's. */
+  arch?: NodeJS.Architecture;
   cliVersion?: string;
   /** Distribution channel stamped on every envelope; defaults to detection from the running script's path. */
   channel?: TelemetryChannelId;
@@ -184,14 +187,17 @@ function buildSessionStart(platform: NodeJS.Platform): TelemetryEvent | null {
 function buildEnvelopeFacts(
   channel: TelemetryChannelId,
   platform: NodeJS.Platform,
+  arch: NodeJS.Architecture,
   cliVersion: string,
 ): TelemetryEnvelopeFacts {
   const mapped = telemetryPlatform(platform);
+  const mappedArch = toTelemetryArch(arch);
   return {
     channel,
     appVersion: parseTelemetryAppVersion(cliVersion),
     locale: 'en',
     ...(mapped !== null ? { platform: mapped } : {}),
+    ...(mappedArch !== null ? { arch: mappedArch } : {}),
   };
 }
 
@@ -254,6 +260,7 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       : createInMemoryProductTelemetryInstallStore({ installId: mintTelemetryInstallId(), installedAt: now() });
     const channel = deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath, env);
     const platform = deps.platform ?? process.platform;
+    const arch = deps.arch ?? process.arch;
     const cliVersion = deps.cliVersion ?? CLI_VERSION;
     const controller = new ProductTelemetryController({
       transport: deps.transport ?? abortingFetchTransport,
@@ -261,7 +268,7 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       sessionStore: createInMemoryProductTelemetrySessionStore(),
       installStore,
       host: 'cli',
-      facts: () => buildEnvelopeFacts(channel, platform, cliVersion),
+      facts: () => buildEnvelopeFacts(channel, platform, arch, cliVersion),
       getEnabled: () => true,
       subscribeEnabled: () => undefined,
       buildSessionStart: async () => buildSessionStart(platform),

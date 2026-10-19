@@ -44,6 +44,8 @@ export {
   TELEMETRY_SCHEMA_VERSION,
   type TelemetryAppVersion,
   TelemetryAppVersionSchema,
+  type TelemetryArch,
+  TelemetryArchSchema,
   type TelemetryBrowserKind,
   TelemetryBrowserKindSchema,
   type TelemetryChannelId,
@@ -84,6 +86,7 @@ export {
   TelemetrySinceInstallBucketSchema,
   type TelemetryUninstallReason,
   TelemetryUninstallReasonSchema,
+  toTelemetryArch,
   toTelemetryLocale,
   toTelemetryMcpClient,
 } from './vocabulary';

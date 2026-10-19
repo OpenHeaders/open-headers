@@ -27,6 +27,7 @@ import {
   type TelemetryLocale,
   type TelemetryPlatform,
   type TelemetryQueueStore,
+  toTelemetryArch,
   toTelemetryLocale,
 } from '@openheaders/core/telemetry';
 import { resolveLocale } from '@openheaders/i18n';
@@ -281,12 +282,20 @@ export async function readScaleBuckets(): Promise<
   }
 }
 
-async function telemetryPlatform(): Promise<TelemetryPlatform | null> {
+/**
+ * The platform pair off one `getPlatformInfo` read. Only vocabulary
+ * members report; anything else stays unstamped rather than
+ * misreporting under the nearest member. The architecture is the
+ * browser's own — every engine ships native arm64 builds, so in
+ * practice it is the machine's.
+ */
+async function telemetryPlatformFacts(): Promise<Pick<TelemetryEnvelopeFacts, 'platform' | 'arch'>> {
   const api = typeof browser !== 'undefined' ? browser : chrome;
   const info = await api.runtime.getPlatformInfo();
-  // Only vocabulary platforms report; anything else stays unstamped
-  // rather than misreporting under the nearest member.
-  return info.os === 'mac' || info.os === 'win' || info.os === 'linux' ? info.os : null;
+  const platform: TelemetryPlatform | null =
+    info.os === 'mac' || info.os === 'win' || info.os === 'linux' ? info.os : null;
+  const arch = toTelemetryArch(info.arch);
+  return { ...(platform !== null ? { platform } : {}), ...(arch !== null ? { arch } : {}) };
 }
 
 /**
@@ -308,12 +317,11 @@ function currentTelemetryLocale(): TelemetryLocale {
 
 /** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch. */
 export async function buildEnvelopeFacts(): Promise<TelemetryEnvelopeFacts> {
-  const platform = await telemetryPlatform();
   return {
     channel: detectDistributionChannel(),
     appVersion: parseTelemetryAppVersion(runtime.getManifest().version),
     locale: currentTelemetryLocale(),
-    ...(platform !== null ? { platform } : {}),
+    ...(await telemetryPlatformFacts()),
     browser: detectBrowserKind(),
   };
 }

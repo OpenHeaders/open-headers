@@ -6,6 +6,8 @@ import { installProductTelemetry, type ProductTelemetryHostDeps } from '../../..
 interface RigOptions {
   settings?: Record<string, unknown>;
   platform?: NodeJS.Platform;
+  arch?: NodeJS.Architecture;
+  translated?: boolean;
   appVersion?: string;
   locale?: string;
 }
@@ -40,6 +42,8 @@ function makeRig(options: RigOptions = {}) {
       storage,
       appVersion: options.appVersion ?? '2026.7.1',
       platform: options.platform ?? 'darwin',
+      arch: options.arch ?? 'arm64',
+      runningUnderArm64Translation: options.translated ?? false,
       channel: 'github-release',
       locale: () => options.locale ?? 'en',
       transport: {
@@ -67,6 +71,7 @@ describe('installProductTelemetry — session_start', () => {
     expect(sent[0].channel).toBe('github-release');
     expect(sent[0].appVersion).toEqual({ year: 2026, month: 7, patch: 1 });
     expect(sent[0].platform).toBe('mac');
+    expect(sent[0].arch).toBe('arm64');
     expect(sent[0].locale).toBe('en');
     expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].sinceInstall).toBe('0');
@@ -115,6 +120,25 @@ describe('installProductTelemetry — session_start', () => {
       expect(sent[0].platform).toBe(wire);
       handle.dispose();
     }
+  });
+
+  it('stamps the architecture fact — an x64 build under arm64 translation by name, unlisted architectures unstamped', async () => {
+    for (const [arch, translated, wire] of [
+      ['x64', false, 'x64'],
+      ['x64', true, 'x64-on-arm64'],
+      ['arm64', false, 'arm64'],
+    ] as const) {
+      const { install, sent } = makeRig({ platform: 'win32', arch, translated });
+      const handle = await install();
+      await handle.flush();
+      expect(sent[0].arch).toBe(wire);
+      handle.dispose();
+    }
+    const { install, sent } = makeRig({ arch: 'ia32' });
+    const handle = await install();
+    await handle.flush();
+    expect('arch' in sent[0]).toBe(false);
+    handle.dispose();
   });
 
   it('stamps the resolved interface locale, mapping codes outside the vocabulary to other', async () => {

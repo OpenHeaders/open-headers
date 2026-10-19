@@ -19,6 +19,7 @@
 
 import type {
   TelemetryAppVersion,
+  TelemetryArch,
   TelemetryBrowserKind,
   TelemetryChannelId,
   TelemetryEnvelope,
@@ -103,6 +104,8 @@ export interface TelemetryEnvelopeFacts {
   locale: TelemetryLocale;
   /** Omitted when the running platform has no vocabulary member. */
   platform?: TelemetryPlatform;
+  /** Omitted when the running architecture has no vocabulary member (S34). */
+  arch?: TelemetryArch;
   /** Browser-hosted surfaces only. */
   browser?: TelemetryBrowserKind;
 }
@@ -295,6 +298,7 @@ export class TelemetryClient {
         channel: facts.channel,
         appVersion: facts.appVersion,
         ...(facts.platform !== undefined ? { platform: facts.platform } : {}),
+        ...(facts.arch !== undefined ? { arch: facts.arch } : {}),
         ...(facts.browser !== undefined ? { browser: facts.browser } : {}),
         locale: facts.locale,
         sessionId: this.sessionId,

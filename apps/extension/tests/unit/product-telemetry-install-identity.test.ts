@@ -92,6 +92,7 @@ describe('buildEnvelopeFacts', () => {
     expect(facts.channel).toBe('dev');
     expect(facts.appVersion).toEqual({ year: 4, month: 0, patch: 0 });
     expect(facts.platform).toBe('mac');
+    expect(facts.arch).toBe('arm64');
     // The test runtime's UA carries no engine token, so detection
     // honestly reads other rather than guessing.
     expect(facts.browser).toBe('other');
@@ -110,5 +111,16 @@ describe('buildEnvelopeFacts', () => {
     });
     const facts = await buildEnvelopeFacts();
     expect('platform' in facts).toBe(false);
+  });
+
+  it("maps the browser's x86-64 spelling onto x64 and leaves an unlisted architecture unstamped (S34)", async () => {
+    const { buildEnvelopeFacts } = await loadModule();
+    const platformInfo = chrome.runtime.getPlatformInfo as ReturnType<typeof vi.fn>;
+    platformInfo.mockResolvedValueOnce({ os: 'win', arch: 'x86-64', nacl_arch: 'x86-64' });
+    expect((await buildEnvelopeFacts()).arch).toBe('x64');
+    platformInfo.mockResolvedValueOnce({ os: 'linux', arch: 'mips', nacl_arch: 'mips' });
+    const facts = await buildEnvelopeFacts();
+    expect(facts.platform).toBe('linux');
+    expect('arch' in facts).toBe(false);
   });
 });

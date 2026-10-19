@@ -21,6 +21,7 @@ import {
   TelemetryLocaleSchema,
   TelemetryRuleTypeIdSchema,
   TelemetrySessionIdSchema,
+  toTelemetryArch,
   toTelemetryLocale,
   toTelemetryMcpClient,
 } from '../../src/telemetry';
@@ -89,6 +90,7 @@ describe('telemetry vocabulary — round-trips', () => {
       channel: 'firefox-amo',
       appVersion: { year: 2026, month: 8, patch: 1 },
       platform: 'linux',
+      arch: 'arm64',
       browser: 'firefox',
       locale: 'de',
       sessionId: SESSION_ID,
@@ -100,6 +102,21 @@ describe('telemetry vocabulary — round-trips', () => {
     };
     const parsed = v.parse(TelemetryEnvelopeSchema, JSON.parse(JSON.stringify(envelope)));
     expect(parsed).toEqual(envelope);
+  });
+
+  it('accepts every architecture member on the envelope and an envelope without one (pre-S34 clients)', () => {
+    const base = {
+      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      sessionId: SESSION_ID,
+      installId: INSTALL_ID,
+      sinceInstall: '0',
+      sentAt: 1_760_000_000_000,
+      events: [],
+    };
+    for (const arch of ['x64', 'arm64', 'x64-on-arm64']) {
+      expect(v.parse(TelemetryEnvelopeSchema, { ...base, arch })).toEqual({ ...base, arch });
+    }
+    expect(v.parse(TelemetryEnvelopeSchema, base)).toEqual(base);
   });
 
   it('round-trips the current client event shapes — facts ride the envelope, not the events', () => {
@@ -235,6 +252,21 @@ describe('telemetry vocabulary — rejections', () => {
         installId: INSTALL_ID,
         sinceInstall: '0',
         sentAt: 1,
+        events: [],
+      };
+      expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(false);
+    }
+  });
+
+  it('rejects an architecture outside the closed union — a raw process.arch never passes through', () => {
+    for (const arch of ['ia32', 'x86-64', 'arm', 'x64 ']) {
+      const envelope = {
+        schemaVersion: TELEMETRY_SCHEMA_VERSION,
+        arch,
+        sessionId: SESSION_ID,
+        installId: INSTALL_ID,
+        sinceInstall: '0',
+        sentAt: 1_760_000_000_000,
         events: [],
       };
       expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(false);
@@ -401,6 +433,27 @@ describe('toTelemetryMcpClient', () => {
     expect(toTelemetryMcpClient('mcp-inspector')).toBe('other');
     expect(toTelemetryMcpClient('My Custom Agent/1.0')).toBe('other');
     expect(toTelemetryMcpClient('')).toBe('other');
+  });
+});
+
+describe('toTelemetryArch', () => {
+  it('maps the Node and browser spellings of the two shipped architectures', () => {
+    expect(toTelemetryArch('x64')).toBe('x64');
+    expect(toTelemetryArch('x86-64')).toBe('x64');
+    expect(toTelemetryArch('arm64')).toBe('arm64');
+  });
+
+  it('names an x64 process under arm64 translation; translation never applies to a native arm64 one', () => {
+    expect(toTelemetryArch('x64', true)).toBe('x64-on-arm64');
+    expect(toTelemetryArch('x86-64', true)).toBe('x64-on-arm64');
+    expect(toTelemetryArch('arm64', true)).toBe('arm64');
+  });
+
+  it('reads everything unlisted as null — unstamped, never the nearest member', () => {
+    for (const arch of ['ia32', 'x86-32', 'arm', 'mips', 'ppc64', 's390x', '']) {
+      expect(toTelemetryArch(arch)).toBeNull();
+      expect(toTelemetryArch(arch, true)).toBeNull();
+    }
   });
 });
 

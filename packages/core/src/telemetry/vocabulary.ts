@@ -26,6 +26,31 @@ export const TelemetryHostKindSchema = v.picklist(['desktop', 'extension', 'cli'
 
 export const TelemetryPlatformSchema = v.picklist(['mac', 'win', 'linux']);
 
+/**
+ * The CPU architecture a process runs as — the platform fact's other
+ * half (S34, 2026-10-19). `x64-on-arm64` is an x64 build running
+ * translated on an arm64 machine (Rosetta, Windows on Arm): the one
+ * reading that says whether a native arm64 build is worth shipping and
+ * whether people picked the wrong download. Anything outside the two
+ * shipped architectures stays unstamped.
+ */
+export const TelemetryArchSchema = v.picklist(['x64', 'arm64', 'x64-on-arm64']);
+
+/**
+ * Map a host's raw architecture reading onto the vocabulary. Takes
+ * Node's `process.arch` spelling (`x64`/`arm64`) and the browser
+ * platform-info spelling (`x86-64`/`arm64`); `translated` is the
+ * host's "x64 build under arm64 translation" reading (Electron's
+ * `app.runningUnderARM64Translation`), which only ever applies to an
+ * x64 process. Unlisted architectures read as null — unstamped, never
+ * misreported under the nearest member.
+ */
+export function toTelemetryArch(arch: string, translated = false): TelemetryArch | null {
+  if (arch === 'arm64') return 'arm64';
+  if (arch === 'x64' || arch === 'x86-64') return translated ? 'x64-on-arm64' : 'x64';
+  return null;
+}
+
 export const TelemetryBrowserKindSchema = v.picklist(['chrome', 'firefox', 'edge', 'safari', 'other']);
 
 /**
@@ -465,10 +490,10 @@ export const TelemetryInstallIdSchema = v.pipe(v.string(), v.regex(/^[0-9a-f]{32
  * widening — Analytics Engine SQL has no joins, so a fact that should
  * segment every stored row must ride the row itself. The fact fields
  * are optional on the wire only for schema-v2 clients built before
- * them (`host` predates the S15 set); every current client stamps all
- * it can — `platform` is omitted where the running platform has no
- * vocabulary member and `browser` exists only on browser-hosted
- * surfaces.
+ * them (`host` predates the S15 set, `arch` the S34 one); every
+ * current client stamps all it can — `platform` and `arch` are omitted
+ * where the running platform or architecture has no vocabulary member
+ * and `browser` exists only on browser-hosted surfaces.
  */
 export const TelemetryEnvelopeSchema = v.strictObject({
   schemaVersion: v.literal(TELEMETRY_SCHEMA_VERSION),
@@ -476,6 +501,7 @@ export const TelemetryEnvelopeSchema = v.strictObject({
   channel: v.optional(TelemetryChannelIdSchema),
   appVersion: v.optional(TelemetryAppVersionSchema),
   platform: v.optional(TelemetryPlatformSchema),
+  arch: v.optional(TelemetryArchSchema),
   browser: v.optional(TelemetryBrowserKindSchema),
   locale: v.optional(TelemetryLocaleSchema),
   sessionId: TelemetrySessionIdSchema,
@@ -494,6 +520,7 @@ export type TelemetrySinceInstallBucket = v.InferOutput<typeof TelemetrySinceIns
 export type TelemetryScaleBucket = v.InferOutput<typeof TelemetryScaleBucketSchema>;
 export type TelemetrySessionAgeBucket = v.InferOutput<typeof TelemetrySessionAgeBucketSchema>;
 export type TelemetryPlatform = v.InferOutput<typeof TelemetryPlatformSchema>;
+export type TelemetryArch = v.InferOutput<typeof TelemetryArchSchema>;
 export type TelemetryBrowserKind = v.InferOutput<typeof TelemetryBrowserKindSchema>;
 export type TelemetryLocale = v.InferOutput<typeof TelemetryLocaleSchema>;
 export type TelemetryFeatureId = v.InferOutput<typeof TelemetryFeatureIdSchema>;

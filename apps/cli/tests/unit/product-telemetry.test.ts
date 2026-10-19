@@ -26,6 +26,7 @@ afterEach(async () => {
 interface RigOptions {
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
+  arch?: NodeJS.Architecture;
   cliVersion?: string;
   accept?: boolean;
 }
@@ -37,6 +38,7 @@ async function makeRig(options: RigOptions = {}) {
     bootCliProductTelemetry({
       env: options.env ?? {},
       platform: options.platform ?? 'darwin',
+      arch: options.arch ?? 'arm64',
       cliVersion: options.cliVersion ?? '2026.7.2',
       channel: 'npm',
       configPath,
@@ -115,6 +117,7 @@ describe('bootCliProductTelemetry — session_start', () => {
     expect(sent[0].channel).toBe('npm');
     expect(sent[0].appVersion).toEqual({ year: 2026, month: 7, patch: 2 });
     expect(sent[0].platform).toBe('mac');
+    expect(sent[0].arch).toBe('arm64');
     expect(sent[0].locale).toBe('en');
     expect('browser' in sent[0]).toBe(false);
     expect(sent[0].sessionId).toMatch(/^[0-9a-f]{32}$/);
@@ -171,6 +174,15 @@ describe('bootCliProductTelemetry — session_start', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0].events).toEqual([{ name: 'first_run' }]);
     expect('platform' in sent[0]).toBe(false);
+  });
+
+  it("stamps the binary's architecture and leaves an unlisted one unstamped (S34)", async () => {
+    const x64 = await makeRig({ arch: 'x64' });
+    await (await x64.boot()).finish();
+    expect(x64.sent[0].arch).toBe('x64');
+    const unlisted = await makeRig({ arch: 'ia32' });
+    await (await unlisted.boot()).finish();
+    expect('arch' in unlisted.sent[0]).toBe(false);
   });
 
   it('maps the dev version stamp to zeros rather than failing', async () => {

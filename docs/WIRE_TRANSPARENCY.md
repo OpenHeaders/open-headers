@@ -189,6 +189,7 @@ event of the current session byte for byte, sent or suppressed.
   "channel": "chrome-store",
   "appVersion": { "year": 2026, "month": 8, "patch": 0 },
   "platform": "mac",
+  "arch": "arm64",
   "browser": "firefox",
   "locale": "en",
   "sessionId": "c0ffee00c0ffee00c0ffee00c0ffee00",
@@ -232,6 +233,14 @@ event of the current session byte for byte, sent or suppressed.
     shipped catalog, with anything outside it reported as `other` —
     never a raw language tag. Earlier schema-v2 clients carried these
     on `session_start`/`first_run` instead; the worker accepts both.
+  - `arch` — the CPU architecture the process runs as, only ever
+    `x64`, `arm64`, or `x64-on-arm64` (an x64 build running translated
+    on an arm64 machine — Rosetta on a Mac, the Windows on Arm
+    emulation layer); omitted where the architecture is anything else.
+    The desktop app reads the translation fact from its runtime, the
+    extension reports its browser's architecture, the command-line
+    tool its own binary's. Added 2026-10 (S34); earlier clients omit
+    it.
   - `sessionId` — 32 hex chars minted at random per process launch,
     held in memory only, never persisted. It groups one session's
     events and nothing else.

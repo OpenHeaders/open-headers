@@ -32,6 +32,7 @@ import {
   type TelemetryEvent,
   type TelemetryPlatform,
   type TelemetryTransport,
+  toTelemetryArch,
   toTelemetryLocale,
 } from '@openheaders/core/telemetry';
 
@@ -43,6 +44,10 @@ export interface ProductTelemetryHostDeps {
   appVersion: string;
   /** `process.platform`; unmappable values skip `session_start` rather than misreport. */
   platform: NodeJS.Platform;
+  /** `process.arch` — the build's architecture; unlisted values leave the envelope unstamped. */
+  arch: NodeJS.Architecture;
+  /** Electron's `app.runningUnderARM64Translation`: an x64 build under Rosetta or Windows ARM64 translation. */
+  runningUnderArm64Translation: boolean;
   /** This build's distribution channel, stamped on every envelope (packaged = github-release; unpackaged = dev). */
   channel: TelemetryChannelId;
   /**
@@ -128,11 +133,13 @@ async function buildSessionStart(
 /** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch. */
 function buildEnvelopeFacts(deps: ProductTelemetryHostDeps): TelemetryEnvelopeFacts {
   const platform = telemetryPlatform(deps.platform);
+  const arch = toTelemetryArch(deps.arch, deps.runningUnderArm64Translation);
   return {
     channel: deps.channel,
     appVersion: parseTelemetryAppVersion(deps.appVersion),
     locale: toTelemetryLocale(deps.locale()),
     ...(platform !== null ? { platform } : {}),
+    ...(arch !== null ? { arch } : {}),
   };
 }
 

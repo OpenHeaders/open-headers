@@ -24,6 +24,7 @@ const FACTS: TelemetryEnvelopeFacts = {
   appVersion: { year: 2026, month: 8, patch: 0 },
   locale: 'fr',
   platform: 'mac',
+  arch: 'arm64',
   browser: 'chrome',
 };
 
@@ -197,10 +198,11 @@ describe('TelemetryClient — batching and envelope shape', () => {
     expect(envelope.appVersion).toEqual({ year: 2026, month: 8, patch: 0 });
     expect(envelope.locale).toBe('fr');
     expect(envelope.platform).toBe('mac');
+    expect(envelope.arch).toBe('arm64');
     expect(envelope.browser).toBe('chrome');
   });
 
-  it('omits the optional facts a host cannot state (unmappable platform, no browser)', async () => {
+  it('omits the optional facts a host cannot state (unmappable platform and architecture, no browser)', async () => {
     const transport = makeTransport();
     const client = new TelemetryClient({
       transport,
@@ -213,6 +215,7 @@ describe('TelemetryClient — batching and envelope shape', () => {
     await client.flush();
     const envelope = transport.sent[0];
     expect('platform' in envelope).toBe(false);
+    expect('arch' in envelope).toBe(false);
     expect('browser' in envelope).toBe(false);
     expect(v.safeParse(TelemetryEnvelopeSchema, envelope).success).toBe(true);
   });

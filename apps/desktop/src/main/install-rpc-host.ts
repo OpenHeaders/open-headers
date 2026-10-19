@@ -308,6 +308,9 @@ export async function installRpcHost(): Promise<void> {
     storage: hostStorage,
     appVersion: app.getVersion(),
     platform: process.platform,
+    arch: process.arch,
+    // Defined on macOS and Windows only (Electron); Linux reads as not translated.
+    runningUnderArm64Translation: app.runningUnderARM64Translation === true,
     channel: app.isPackaged ? 'github-release' : 'dev',
     locale: () => mainTranslator().locale,
   });
