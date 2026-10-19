@@ -68,11 +68,14 @@ import { getWorker as getJsonWorker, jsonDefaults } from 'monaco-editor/esm/vs/l
 import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import { allVariants } from '@openheaders/ui/themes';
+import { ILanguageFeaturesService } from 'monaco-editor/esm/vs/editor/common/services/languageFeatures';
+import { StandaloneServices } from 'monaco-editor/esm/vs/editor/standalone/browser/standaloneServices';
 import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/platform/hover/browser/hoverService';
 import { registerGraphqlLanguage } from '../../languages/graphql';
 import { registerPrometheusLanguage } from '../../languages/prometheus';
 import { registerGraphqlFormatter, registerPrettierFormatters } from './formatters';
 import { JSON_LANGUAGE_ID, registerJsonDiagnostics } from './json-diagnostics';
+import { whenJsonModeReady } from './json-mode-readiness';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
 
 // ── Phase 1: synchronous monaco-singleton configuration ──────────
@@ -96,21 +99,17 @@ for (const variant of allVariants()) {
 // where `./ts-language-service` resolves to the stub.
 configureTsLanguageService();
 
-// The JSON mode is set up lazily: on the first rich-features request
-// for `json` (an editor attaching a JSON model) the contribution's own
-// `onLanguage` callback imports the mode module and sets its worker,
-// and `getWorker` rejects until then. The contribution registered its
-// callback before this module ran (it evaluates first), so a `getWorker`
-// chained from this later callback runs after `setupMode` on the same
-// module promise; its answer is the readiness the diagnostics plane
-// waits for before its first validation.
-const jsonModeReady = new Promise<void>((resolve) => {
-  monacoEdCore.languages.onLanguage(JSON_LANGUAGE_ID, () => {
-    getJsonWorker().then(
-      () => resolve(),
-      (error: unknown) => console.error('[monaco] the JSON mode did not set up', error),
-    );
-  });
+// The JSON mode is set up lazily, on the first rich-features request
+// for `json`, and `getWorker` rejects until then. Its readiness is read
+// at the mode's own seam — the document-formatting registry it fills
+// synchronously right after setting its worker (formatting stays on in
+// the mode configuration; the diagnostics plane switches only
+// `diagnostics` off). The diagnostics plane waits on it before its
+// first validation.
+const jsonModeReady = whenJsonModeReady({
+  onLanguage: (callback) => monacoEdCore.languages.onLanguage(JSON_LANGUAGE_ID, callback),
+  registry: () => StandaloneServices.get(ILanguageFeaturesService).documentFormattingEditProvider,
+  getWorker: getJsonWorker,
 });
 
 // JSON diagnostics are ours: the contribution's provider off, one plane

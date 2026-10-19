@@ -69,6 +69,33 @@ declare module 'monaco-editor/esm/vs/platform/hover/browser/hoverService' {
   }
 }
 
+declare module 'monaco-editor/esm/vs/editor/standalone/browser/standaloneServices' {
+  // Minimal surface of the standalone service locator. A service id is
+  // the decorator `createDecorator` returns; only its phantom type is
+  // needed to type the lookup.
+  export interface ServiceIdentifier<T> {
+    readonly type: T;
+  }
+  export namespace StandaloneServices {
+    function get<T>(serviceId: ServiceIdentifier<T>): T;
+  }
+}
+
+declare module 'monaco-editor/esm/vs/editor/common/services/languageFeatures' {
+  import type * as Monaco from 'monaco-editor';
+  import type { ServiceIdentifier } from 'monaco-editor/esm/vs/editor/standalone/browser/standaloneServices';
+  // Minimal surface of a language-feature registry: `onDidChange` fires
+  // synchronously on every `register` and on every disposal.
+  export interface LanguageFeatureRegistry {
+    onDidChange(listener: (count: number) => void): Monaco.IDisposable;
+  }
+  // Only the registry the JSON mode readiness watches.
+  export interface LanguageFeaturesService {
+    readonly documentFormattingEditProvider: LanguageFeatureRegistry;
+  }
+  export const ILanguageFeaturesService: ServiceIdentifier<LanguageFeaturesService>;
+}
+
 declare module 'monaco-editor/esm/vs/editor/editor.worker?worker' {
   const WorkerFactory: { new (): Worker };
   export default WorkerFactory;
