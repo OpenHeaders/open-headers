@@ -273,8 +273,9 @@ export interface BridgeBroadcastContract {
    *   - `newTab`   → open a draft API-request tab
    *   - `import`   → open the import hub
    *   - `closeTab` → close the active editor tab (dirty-confirm applies)
+   *   - `saveDiagnostics` → compose and save the diagnostic bundle
    */
-  menuCommand: { command: 'newItem' | 'newTab' | 'import' | 'closeTab' };
+  menuCommand: { command: 'newItem' | 'newTab' | 'import' | 'closeTab' | 'saveDiagnostics' };
 
   /**
    * Host-shell lifecycle: the tray-resident primary window was hidden

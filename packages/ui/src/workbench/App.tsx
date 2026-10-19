@@ -152,6 +152,7 @@ import type { RequestKind } from './request-kind-menu';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
+import { saveDiagnosticsBundle } from './settings/diagnostics-bundle';
 import { get as getSetting } from './settings/store';
 import { SettingsModal } from './settings/ui';
 import { noteToolWindowFeatureUsed } from './feature-usage';
@@ -871,6 +872,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         else if (command === 'newTab' && !zeroWorkspaces) openCreateRequestTab();
         else if (command === 'import' && !zeroWorkspaces) importExportRef.current?.openImportSource();
         else if (command === 'closeTab') handleCloseActiveTab();
+        else if (command === 'saveDiagnostics') void saveDiagnosticsBundle();
       }),
     [openCreateMenu, openCreateRequestTab, handleCloseActiveTab, zeroWorkspaces],
   );

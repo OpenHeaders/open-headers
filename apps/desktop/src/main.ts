@@ -41,6 +41,7 @@ import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
 import { initMainLocale } from './main/bootstrap/locale';
+import { installLogFilesHandler } from './main/bootstrap/log-files';
 import { installLogRevealHandler } from './main/bootstrap/log-reveal';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
@@ -135,6 +136,7 @@ function bootstrapDesktopApp(): void {
   const { signalEngineReady } = installRpcQueue();
   installExternalLinkHandler();
   installLogRevealHandler();
+  installLogFilesHandler();
   installAppMenuPopupHandler();
   installProtocolHandler();
 

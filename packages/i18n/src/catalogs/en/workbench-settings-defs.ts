@@ -633,6 +633,10 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.importSettings.label': 'Import Settings',
   'workbench.settings.def.data.importSettings.description': 'Load settings from a previously exported JSON file.',
   'workbench.settings.def.data.importSettings.action.label': 'Import…',
+  'workbench.settings.def.data.saveDiagnosticsBundle.label': 'Diagnostic Bundle',
+  'workbench.settings.def.data.saveDiagnosticsBundle.description':
+    "Save one ZIP with the log files, the diagnostic log, the status snapshot, this session's telemetry events and crash reports, your settings and system facts. Nothing is sent; review the archive and attach it to a bug report yourself.",
+  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Save bundle…',
   'workbench.settings.def.data.exportObservabilityLog.label': 'Export Diagnostic Log',
   'workbench.settings.def.data.exportObservabilityLog.description':
     'Download the last 500 structured events (rule rebuilds, request errors, workspace switches) as JSON. Local-only; nothing leaves the device unless you attach the file to a bug report yourself.',

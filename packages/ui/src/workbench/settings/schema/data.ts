@@ -9,8 +9,10 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import * as v from 'valibot';
+import { saveDiagnosticsBundle } from '../diagnostics-bundle';
 import { allDefs, registerSetting } from '../registry';
-import { get as getStoreValue, reset as resetSetting, set as setStoreValue } from '../store';
+import { isPersistedSetting, snapshotSettings } from '../settings-snapshot';
+import { reset as resetSetting, set as setStoreValue } from '../store';
 import type { SettingKey, SettingsMap } from '../types';
 
 const logLevelSchema = v.picklist(['error', 'warn', 'info', 'debug']);
@@ -22,6 +24,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'data.exportSettings': string;
     'data.importSettings': string;
     'data.resetAllSettings': string;
+    'data.saveDiagnosticsBundle': string;
     'data.exportObservabilityLog': string;
     'data.clearObservabilityLog': string;
     'data.exportImportReports': string;
@@ -73,19 +76,6 @@ registerSetting({
 // ── Action helpers ───────────────────────────────────────────────────
 
 const actionSchema = v.string();
-
-function isPersistedSetting(type: string): boolean {
-  return type !== 'action' && type !== 'info';
-}
-
-function snapshotSettings(): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const def of allDefs()) {
-    if (!isPersistedSetting(def.type)) continue;
-    out[def.key] = getStoreValue(def.key as SettingKey);
-  }
-  return out;
-}
 
 function downloadJson(filename: string, payload: unknown): void {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -169,6 +159,28 @@ registerSetting({
         }
       }
     },
+  },
+});
+
+// The diagnostic bundle (the error reports plan §4.5): one zip with the
+// host's log files, the diagnostic log, the status snapshot, this
+// session's telemetry as the inspector shows it, the settings snapshot
+// and the system facts — composed here, saved where the person chooses,
+// sent nowhere. Registered first so it leads the Diagnostics group.
+registerSetting({
+  key: 'data.saveDiagnosticsBundle',
+  subcategory: 'diagnostics',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  labelKey: 'workbench.settings.def.data.saveDiagnosticsBundle.label',
+  descriptionKey: 'workbench.settings.def.data.saveDiagnosticsBundle.description',
+  category: 'data',
+  tags: ['diagnostics', 'bundle', 'zip', 'logs', 'bug-report', 'support', 'triage', 'crash'],
+  scope: 'user',
+  action: {
+    labelKey: 'workbench.settings.def.data.saveDiagnosticsBundle.action.label',
+    run: () => saveDiagnosticsBundle(),
   },
 });
 

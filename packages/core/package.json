@@ -148,6 +148,10 @@
       "import": "./src/capabilities/index.ts",
       "default": "./dist/capabilities/index.js"
     },
+    "./diagnostics": {
+      "import": "./src/diagnostics/index.ts",
+      "default": "./dist/diagnostics/index.js"
+    },
     "./changelog-feed": {
       "import": "./src/changelog-feed/index.ts",
       "default": "./dist/changelog-feed/index.js"

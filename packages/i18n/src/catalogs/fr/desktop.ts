@@ -28,6 +28,7 @@ export const desktop = {
   'desktop.menu.actualSize': 'Taille réelle',
   'desktop.menu.documentation': 'Documentation',
   'desktop.menu.reportIssue': 'Signaler un problème',
+  'desktop.menu.saveDiagnostics': 'Enregistrer le diagnostic…',
   'desktop.menu.licenseAgreement': 'Contrat de licence',
   'desktop.update.check': 'Rechercher des mises à jour…',
   'desktop.update.checking': 'Recherche de mises à jour…',

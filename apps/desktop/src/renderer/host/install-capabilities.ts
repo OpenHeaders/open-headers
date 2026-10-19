@@ -73,6 +73,9 @@ registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser
 // lines land in `main.log` through electron-log, and main reveals the
 // file in the OS file manager.
 registerCapability('revealLogs', () => window.oh.logs.reveal());
+// The diagnostic bundle's `logs/` folder: main hands over `main.log` and
+// its rotated predecessor as text; the bundle is composed and saved here.
+registerCapability('readLogFiles', () => window.oh.logs.read());
 
 // The top bar's menu button on Windows / Linux: those windows are
 // frameless, so the application menu has no native menu bar to live in

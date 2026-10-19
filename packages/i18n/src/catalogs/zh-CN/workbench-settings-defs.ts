@@ -593,6 +593,10 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.importSettings.label': '导入设置',
   'workbench.settings.def.data.importSettings.description': '从之前导出的 JSON 文件加载设置。',
   'workbench.settings.def.data.importSettings.action.label': '导入…',
+  'workbench.settings.def.data.saveDiagnosticsBundle.label': '诊断包',
+  'workbench.settings.def.data.saveDiagnosticsBundle.description':
+    '把日志文件、诊断日志、状态快照、本次会话的遥测事件和崩溃报告、你的设置以及系统信息保存为一个 ZIP。不会发送任何内容；请自行检查压缩包并附到 bug 报告。',
+  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': '保存诊断包…',
   'workbench.settings.def.data.exportObservabilityLog.label': '导出诊断日志',
   'workbench.settings.def.data.exportObservabilityLog.description':
     '把最近 500 条结构化事件（规则重建、请求错误、工作区切换）下载为 JSON。仅限本地；除非你自己把文件附到 bug 报告，否则不会离开设备。',

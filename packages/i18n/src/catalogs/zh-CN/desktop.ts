@@ -32,6 +32,7 @@ export const desktop = {
   'desktop.menu.actualSize': '实际大小',
   'desktop.menu.documentation': '文档',
   'desktop.menu.reportIssue': '报告问题',
+  'desktop.menu.saveDiagnostics': '保存诊断…',
   'desktop.menu.licenseAgreement': '许可协议',
   'desktop.update.check': '检查更新…',
   'desktop.update.checking': '正在检查更新…',

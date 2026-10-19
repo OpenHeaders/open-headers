@@ -28,6 +28,7 @@ export const desktop = {
   'desktop.menu.actualSize': '実際のサイズ',
   'desktop.menu.documentation': 'ドキュメント',
   'desktop.menu.reportIssue': '問題を報告',
+  'desktop.menu.saveDiagnostics': '診断を保存…',
   'desktop.menu.licenseAgreement': 'ライセンス契約',
   'desktop.update.check': 'アップデートを確認…',
   'desktop.update.checking': 'アップデートを確認中…',

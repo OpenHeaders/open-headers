@@ -68,7 +68,7 @@ function hardwareAccelerationMenuItem(t: Translator): MenuItemConstructorOptions
 // reachable) they reveal the primary window first and land there. The
 // tray-resident renderer is mounted while hidden, so its subscription
 // is live before the send.
-function sendMenuCommand(command: 'newItem' | 'newTab' | 'import'): void {
+function sendMenuCommand(command: 'newItem' | 'newTab' | 'import' | 'saveDiagnostics'): void {
   const focused = BrowserWindow.getFocusedWindow();
   if (focused) {
     sendToRendererWindow(focused, 'menuCommand', { command });
@@ -240,6 +240,9 @@ function template(): MenuItemConstructorOptions[] {
       submenu: [
         { label: t('desktop.menu.documentation'), click: () => void shell.openExternal(HOMEPAGE_URL) },
         { label: t('desktop.menu.reportIssue'), click: () => void shell.openExternal(ISSUES_URL) },
+        // The diagnostic bundle (the error reports plan §4.5) — the renderer
+        // composes and saves it, so the item is a menu command like Import.
+        { label: t('desktop.menu.saveDiagnostics'), click: () => sendMenuCommand('saveDiagnostics') },
         { label: t('desktop.menu.licenseAgreement'), click: () => void shell.openExternal(EULA_URL) },
         ...(!isMac && updateItems.length > 0
           ? ([{ type: 'separator' }, ...updateItems] as MenuItemConstructorOptions[])

@@ -33,6 +33,7 @@ export const desktop = {
   'desktop.menu.actualSize': 'Реальный размер',
   'desktop.menu.documentation': 'Документация',
   'desktop.menu.reportIssue': 'Сообщить о проблеме',
+  'desktop.menu.saveDiagnostics': 'Сохранить диагностику…',
   'desktop.menu.licenseAgreement': 'Лицензионное соглашение',
   'desktop.update.check': 'Проверить обновления…',
   'desktop.update.checking': 'Проверка обновлений…',

@@ -99,7 +99,9 @@ import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
 import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
+import { buildDesktopDiagnosticsFacts, desktopDiagnosticsDeps } from './diagnostics-facts';
 import { createElectronUpdaterPort, updateCapability } from './electron-updater-port';
+import { installErrorReports } from './error-reports';
 import { h3HelperBinaryCandidates } from './h3-helper-install';
 import { installBackendClient } from './install-backend-client';
 import { installHostStorage } from './install-host-storage';
@@ -115,7 +117,6 @@ import {
   windowsNmManifestTargets,
 } from './nm-host-install';
 import { safeOsHostname } from './os-hostname';
-import { installErrorReports } from './error-reports';
 import { buildEnvelopeFacts, installProductTelemetry, type ProductTelemetryHostDeps } from './product-telemetry';
 import { installProductTelemetryMcpBeacons } from './product-telemetry-mcp-beacons';
 import { installProductTelemetryPairingBeacon } from './product-telemetry-pairing-beacon';
@@ -697,6 +698,12 @@ export async function installRpcHost(): Promise<void> {
     }
     if (type === 'errorReportRead') {
       return errorReports.snapshot();
+    }
+    // The diagnostic bundle's system facts (the error reports plan §4.5):
+    // the renderer composes and saves the archive; this process only
+    // answers what a document cannot read about the machine. Nothing is sent.
+    if (type === 'diagnosticsFacts') {
+      return { facts: buildDesktopDiagnosticsFacts(desktopDiagnosticsDeps(telemetryDeps)) };
     }
     // Import-report ring (ARCHITECTURE §23) — the shared workbench UI
     // (report modal, re-import diff, settings Data page) drives these

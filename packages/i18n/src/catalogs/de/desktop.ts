@@ -31,6 +31,7 @@ export const desktop = {
   'desktop.menu.actualSize': 'Originalgröße',
   'desktop.menu.documentation': 'Dokumentation',
   'desktop.menu.reportIssue': 'Problem melden',
+  'desktop.menu.saveDiagnostics': 'Diagnose speichern…',
   'desktop.menu.licenseAgreement': 'Lizenzvereinbarung',
   'desktop.update.check': 'Nach Updates suchen…',
   'desktop.update.checking': 'Suche nach Updates…',

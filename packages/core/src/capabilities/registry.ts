@@ -45,6 +45,7 @@
  */
 
 import type { ChangelogIndexRow } from '../changelog-feed';
+import type { DiagnosticsLogFile } from '../diagnostics/bundle';
 import type { ProbeConnectionResult, ProbeOptions } from '../identity/probe-connection';
 import type { CompanionRevealTarget } from '../protocol/messages';
 import type { PublicWorkspaceSnapshotSummary } from '../protocol/public-workspace-snapshot';
@@ -447,6 +448,15 @@ export interface Capabilities {
    * land in `main.log`); browser surfaces have no file and no entry.
    */
   revealLogs?: () => Promise<void>;
+
+  /**
+   * Read the host's log files for the diagnostic bundle (the
+   * crash-and-error-reports plan §4.5) — the current file and its
+   * rotated predecessor, text as written. Registered by the same hosts
+   * as `revealLogs`; presence decides whether the bundle carries a
+   * `logs/` folder.
+   */
+  readLogFiles?: () => Promise<DiagnosticsLogFile[]>;
 
   /**
    * Pop the host's application menu (File / Edit / View / Window /

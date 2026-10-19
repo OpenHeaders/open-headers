@@ -34,6 +34,7 @@ import type { BridgeBroadcastContract } from './broadcast';
 import type { DaemonRpc } from './daemon';
 import type { DeviceTrustRpc } from './device-trust';
 import type { DevToolsRpc } from './devtools';
+import type { DiagnosticsRpc } from './diagnostics';
 import type { EnvironmentRpc } from './environments';
 import type { ErrorReportRpc } from './error-reports';
 import type { FileRpc } from './files';
@@ -186,7 +187,8 @@ export interface BridgeRpcContract
     ErrorReportRpc,
     ServerSignInRpc,
     BackendProbeRpc,
-    BackendIdentityRpc {}
+    BackendIdentityRpc,
+    DiagnosticsRpc {}
 
 /**
  * Tab-directed contract: map of message-type → { req, res } for messages
