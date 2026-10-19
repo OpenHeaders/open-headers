@@ -3,6 +3,7 @@ import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-rpc-fallback';
 import '@/host/install-build-info';
+import '@/host/install-developer-diagnostics';
 import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';

@@ -14,6 +14,7 @@ import '@/host/install-mqtt-session-host';
 import '@/host/install-grpc-invoke-host';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
+import '@/host/install-developer-diagnostics';
 import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';

@@ -21,6 +21,7 @@ import { RuleProvider } from '@openheaders/ui/context';
 import { useUiTheme } from '@openheaders/ui/context';
 import { VaultProvider } from '@openheaders/ui/context';
 import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
+import { FaultProbe, ROOT_FAULT_UNIT, settleFault } from '@openheaders/ui/shared/fault-injection';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
@@ -89,6 +90,7 @@ import { VariablePopoverProvider } from './components/template-input/VariablePop
 import OrgWorkspaceAccessNotice from './components/workspace/OrgWorkspaceAccessNotice';
 import { renderWorkspacePrefix } from './components/workspace/workspace-prefix';
 import ImportExportModals, { type ImportExportModalsHandle } from './components/workspace-export/ImportExportModals';
+import { useDeveloperCommandSection } from './developer-diagnostics';
 import { findLeaf } from './editor-groups';
 import {
   EditingScopeWorkspaceProvider,
@@ -1213,6 +1215,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     zeroWorkspaces,
   });
 
+  // The developer diagnostics section — dev-only by construction (see
+  // `developer-diagnostics.tsx`); one crash command per tool window
+  // showing in a dock, so the list follows the docks.
+  const visibleToolWindows = useMemo(
+    () => Object.values(tl.state.docks).flatMap((dock) => (dock.active ? [dock.active] : [])),
+    [tl.state.docks],
+  );
+  const developerSection = useDeveloperCommandSection({ activeTabId: activeTabId ?? null, visibleToolWindows });
+  const paletteSections = useMemo(
+    () => (developerSection ? [...cmdSections, developerSection] : cmdSections),
+    [cmdSections, developerSection],
+  );
+
   // TabBar publishes its tab-search toggle function here on mount so
   // the workspace shortcut registry can invoke it via `onTabSearch`
   // instead of duplicating a hardcoded `Shift+Cmd+A` window listener.
@@ -1307,10 +1322,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             error={error}
             onRetry={reset}
             onClose={() => void handleCloseTab(tab.id)}
-            onCrashed={() => unregisterSaveRef(tab.id)}
+            onCrashed={() => {
+              unregisterSaveRef(tab.id);
+              settleFault({ kind: 'tab', id: tab.id });
+            }}
           />
         )}
       >
+        <FaultProbe unit={{ kind: 'tab', id: tab.id }} />
         <WorkbenchTabBody
           tab={tab}
           handleSaved={handleSaved}
@@ -1586,9 +1605,16 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     (id: ToolWindowId, slot: DockSlot): React.ReactNode => (
       <ErrorBoundary
         fallback={({ error, reset }) => (
-          <UnitErrorFallback kind="window" error={error} onRetry={reset} onClose={() => tl.closeDock(slot)} />
+          <UnitErrorFallback
+            kind="window"
+            error={error}
+            onRetry={reset}
+            onClose={() => tl.closeDock(slot)}
+            onCrashed={() => settleFault({ kind: 'window', id })}
+          />
         )}
       >
+        <FaultProbe unit={{ kind: 'window', id }} />
         <WorkbenchToolWindow
           id={id}
           slot={slot}
@@ -1724,6 +1750,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       <OpenVaultProvider openVault={openVaultFromAnywhere}>
       <ImportTextProvider importText={importText}>
       <VariablePopoverProvider>
+        {/* The root fault probe: a developer command arms it and the
+            root boundary above the providers shows its fallback. */}
+        <FaultProbe unit={ROOT_FAULT_UNIT} />
         <ActiveTabEntityWriter value={activeTabEntity} />
         {/* BC-MWPT-11 — awareness publishes editing-scope so peers see
             "B is editing X" when B's tab is bound to X. SW continues
@@ -1957,7 +1986,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             open={commandPaletteOpen}
             onClose={() => setCommandPaletteOpen(false)}
             groups={cmdGroups}
-            sections={cmdSections}
+            sections={paletteSections}
           />
 
           <ImportExportModals
