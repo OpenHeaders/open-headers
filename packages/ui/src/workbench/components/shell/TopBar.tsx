@@ -6,7 +6,8 @@
  * Layout: [Logo] [Title + Workspace] | [⌘K Search] | [Env] [Layout cluster] [Settings]
  */
 
-import { InfoCircleOutlined, LayoutOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, LayoutOutlined, MenuOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { getCapability, hasCapability } from '@openheaders/core/capabilities';
 import type { Collection, Environment, ExtensionWorkspace } from '@openheaders/core/types';
 import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -96,6 +97,14 @@ const TopBar: React.FC<TopBarProps> = ({
   const { token } = theme.useToken();
   const t = useT();
   const { pickActiveEnvironment } = useEnvSwitcher();
+  // Hosts without a native menu bar (the frameless Windows / Linux
+  // desktop window) register `openAppMenu`; the button pops the same
+  // application menu macOS shows in its system menu bar.
+  const hasAppMenu = hasCapability('openAppMenu');
+  const openAppMenu = (event: React.MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    void getCapability('openAppMenu')?.({ x: Math.round(rect.left), y: Math.round(rect.bottom) });
+  };
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const openSettingsLabel = useShortcutLabel('open-settings');
   const toggleLeftSidebarLabel = useShortcutLabel('toggle-left-sidebar');
@@ -327,6 +336,18 @@ const TopBar: React.FC<TopBarProps> = ({
         />
       </div>
       <div className="rules-topbar-left">
+        {hasAppMenu && (
+          <Tooltip title={t('workbench.shell.topbar.appMenu')} placement="bottom">
+            <Button
+              className="rules-topbar-app-menu"
+              type="text"
+              size="small"
+              icon={<MenuOutlined />}
+              aria-label={t('workbench.shell.topbar.appMenu')}
+              onClick={openAppMenu}
+            />
+          </Tooltip>
+        )}
         <span className="rules-topbar-title rules-topbar-title-full">Open Headers</span>
         <WorkspaceSwitcher
           workspaces={workspaces}

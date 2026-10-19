@@ -174,6 +174,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': 'Panou inferior: lățime completă',
   'workbench.shell.topbar.bottomAlign.chooseAria': 'Alegeți alinierea panoului inferior',
   'workbench.shell.topbar.layoutOptions': 'Opțiuni de aspect',
+  'workbench.shell.topbar.appMenu': 'Meniu',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': 'Luminoasă',

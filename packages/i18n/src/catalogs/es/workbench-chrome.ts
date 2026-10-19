@@ -148,6 +148,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': 'Panel inferior: ancho completo',
   'workbench.shell.topbar.bottomAlign.chooseAria': 'Elegir la alineación del panel inferior',
   'workbench.shell.topbar.layoutOptions': 'Opciones de disposición',
+  'workbench.shell.topbar.appMenu': 'Menú',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': 'Claro',

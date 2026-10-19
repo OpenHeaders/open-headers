@@ -449,6 +449,17 @@ export interface Capabilities {
   revealLogs?: () => Promise<void>;
 
   /**
+   * Pop the host's application menu (File / Edit / View / Window /
+   * Help) under an anchor given in the surface's CSS pixels — the top
+   * bar's menu button. Registered only by hosts whose window has no
+   * native menu bar to hold that menu (the desktop renderer on
+   * Windows / Linux, where the window is frameless); macOS keeps the
+   * system menu bar and browser surfaces have no application menu, so
+   * neither registers it and the button stays hidden.
+   */
+  openAppMenu?: (anchor: { x: number; y: number }) => Promise<void>;
+
+  /**
    * Dismiss the current surface — the extension popup closes its own
    * window; the extension sidepanel can self-close. Desktop windows
    * have no equivalent (the workbench is long-lived), so the desktop

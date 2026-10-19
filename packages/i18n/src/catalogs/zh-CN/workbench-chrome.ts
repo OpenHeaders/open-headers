@@ -146,6 +146,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': '底部面板：全宽',
   'workbench.shell.topbar.bottomAlign.chooseAria': '选择底部面板对齐方式',
   'workbench.shell.topbar.layoutOptions': '布局选项',
+  'workbench.shell.topbar.appMenu': '菜单',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': '浅色',

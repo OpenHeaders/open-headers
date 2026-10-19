@@ -126,6 +126,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': 'Bottom panel: full width',
   'workbench.shell.topbar.bottomAlign.chooseAria': 'Choose bottom panel alignment',
   'workbench.shell.topbar.layoutOptions': 'Layout options',
+  'workbench.shell.topbar.appMenu': 'Menu',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': 'Light',

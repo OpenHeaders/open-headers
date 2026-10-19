@@ -148,6 +148,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': '下部パネル：全幅',
   'workbench.shell.topbar.bottomAlign.chooseAria': '下部パネルの配置を選択',
   'workbench.shell.topbar.layoutOptions': 'レイアウトオプション',
+  'workbench.shell.topbar.appMenu': 'メニュー',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': 'ライト',

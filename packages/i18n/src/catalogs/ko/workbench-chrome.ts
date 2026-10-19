@@ -152,6 +152,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': '하단 패널: 전체 너비',
   'workbench.shell.topbar.bottomAlign.chooseAria': '하단 패널 정렬 선택',
   'workbench.shell.topbar.layoutOptions': '레이아웃 옵션',
+  'workbench.shell.topbar.appMenu': '메뉴',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': '밝게',

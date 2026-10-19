@@ -163,6 +163,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': 'Нижняя панель: на всю ширину',
   'workbench.shell.topbar.bottomAlign.chooseAria': 'Выбрать выравнивание нижней панели',
   'workbench.shell.topbar.layoutOptions': 'Параметры компоновки',
+  'workbench.shell.topbar.appMenu': 'Меню',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': 'Светлая',

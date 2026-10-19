@@ -74,6 +74,14 @@ registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser
 // file in the OS file manager.
 registerCapability('revealLogs', () => window.oh.logs.reveal());
 
+// The top bar's menu button on Windows / Linux: those windows are
+// frameless, so the application menu has no native menu bar to live in
+// and main pops it as a context menu under the button instead. macOS
+// keeps the system menu bar — no registration, no button.
+if (window.oh.platform !== 'darwin') {
+  registerCapability('openAppMenu', (anchor) => window.oh.appMenu.popup(anchor));
+}
+
 // In-app updater (the updates plan): report a seen-but-not-installed
 // update so the gear menu shows its dot. No `url` — the gear routes to
 // the Settings update row, where download/restart run in-app.

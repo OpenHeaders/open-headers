@@ -33,6 +33,7 @@
 import { join } from 'node:path';
 import { app } from 'electron';
 import { installAboutPanel } from './main/bootstrap/about-panel';
+import { installAppMenuPopupHandler } from './main/bootstrap/app-menu-popup';
 import { sessionDataDir } from './main/bootstrap/app-paths';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
@@ -134,6 +135,7 @@ function bootstrapDesktopApp(): void {
   const { signalEngineReady } = installRpcQueue();
   installExternalLinkHandler();
   installLogRevealHandler();
+  installAppMenuPopupHandler();
   installProtocolHandler();
 
   void app.whenReady().then(() => {

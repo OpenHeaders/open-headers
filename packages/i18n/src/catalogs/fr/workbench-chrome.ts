@@ -141,6 +141,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': 'Panneau inférieur : pleine largeur',
   'workbench.shell.topbar.bottomAlign.chooseAria': "Choisir l'alignement du panneau inférieur",
   'workbench.shell.topbar.layoutOptions': 'Options de disposition',
+  'workbench.shell.topbar.appMenu': 'Menu',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': 'Clair',

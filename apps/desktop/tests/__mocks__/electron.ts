@@ -21,7 +21,8 @@ export const contextBridge = { exposeInMainWorld: () => {} };
 export function BrowserWindow() {}
 BrowserWindow.getFocusedWindow = () => null;
 BrowserWindow.getAllWindows = () => [];
-export const Menu = { buildFromTemplate: () => {}, setApplicationMenu: () => {} };
+BrowserWindow.fromWebContents = () => null;
+export const Menu = { buildFromTemplate: () => {}, setApplicationMenu: () => {}, getApplicationMenu: () => null };
 export const nativeImage = {
   createFromPath: () => ({ setTemplateImage: () => {} }),
   createFromNamedImage: () => ({ resize: () => ({ setTemplateImage: () => {} }) }),

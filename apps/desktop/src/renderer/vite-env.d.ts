@@ -85,6 +85,9 @@ declare global {
       logs: {
         reveal(): Promise<void>;
       };
+      appMenu: {
+        popup(anchor: { x: number; y: number }): Promise<void>;
+      };
       protocol: {
         onUrl(handler: (url: string) => void): () => void;
       };

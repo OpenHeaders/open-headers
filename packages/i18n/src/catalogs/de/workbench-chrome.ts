@@ -147,6 +147,7 @@ export const workbenchChrome = {
   'workbench.shell.topbar.bottomAlign.justify': 'Unteres Panel: volle Breite',
   'workbench.shell.topbar.bottomAlign.chooseAria': 'Ausrichtung des unteren Panels wählen',
   'workbench.shell.topbar.layoutOptions': 'Layout-Optionen',
+  'workbench.shell.topbar.appMenu': 'Menü',
 
   // ── Shell: status bar ───────────────────────────────────────────────
   'workbench.shell.statusbar.theme.light': 'Hell',
