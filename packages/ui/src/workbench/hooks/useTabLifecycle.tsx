@@ -67,8 +67,14 @@ export function useTabLifecycle({
 
   // ── Confirmation modal ──────────────────────────────────────────
 
+  // Save is offered only while the tab's editor has a save function
+  // registered. A tab whose editor crashed (its containment boundary
+  // shows the fallback) unregistered it: the prompt still guards the
+  // draft — Don't save / Cancel — but never offers a Save that would
+  // call a closure of an unmounted component.
   const confirmUnsaved = useCallback(
     (tab: { id: string; label: string }): Promise<'discard' | 'save' | 'cancel'> => {
+      const canSave = saveRefMap.current.has(tab.id);
       return new Promise((resolve) => {
         const instance = modal.confirm({
           title: (
@@ -106,23 +112,25 @@ export function useTabLifecycle({
               >
                 {t('workbench.tabbar.closeGuard.cancel')}
               </Button>
-              <Button
-                size="small"
-                danger
-                type="primary"
-                onClick={() => {
-                  instance.destroy();
-                  resolve('save');
-                }}
-              >
-                {t('workbench.tabbar.closeGuard.save')}
-              </Button>
+              {canSave && (
+                <Button
+                  size="small"
+                  danger
+                  type="primary"
+                  onClick={() => {
+                    instance.destroy();
+                    resolve('save');
+                  }}
+                >
+                  {t('workbench.tabbar.closeGuard.save')}
+                </Button>
+              )}
             </div>
           ),
         });
       });
     },
-    [modal, t],
+    [modal, t, saveRefMap],
   );
 
   // Draft-rule discard prompt. The rule lives in storage from the

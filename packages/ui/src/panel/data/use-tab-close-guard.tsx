@@ -35,8 +35,13 @@ export function useTabCloseGuard(
   const { modal } = AntApp.useApp();
   const t = useT();
 
+  // Save is offered only while the editor body's save action is
+  // registered; a tab whose editor crashed (the containment fallback
+  // in its place) dropped it, so the prompt guards the draft with
+  // Don't save / Cancel alone.
   const confirmUnsaved = useCallback(
     (tab: InspectorTab): Promise<'discard' | 'save' | 'cancel'> => {
+      const canSave = saveRefs.current?.has(tab.id) === true;
       return new Promise((resolve) => {
         const instance = modal.confirm({
           title: (
@@ -76,23 +81,25 @@ export function useTabCloseGuard(
               >
                 {t('panel.inspector.tabBar.closeGuard.cancel')}
               </Button>
-              <Button
-                size="small"
-                danger
-                type="primary"
-                onClick={() => {
-                  instance.destroy();
-                  resolve('save');
-                }}
-              >
-                {t('panel.inspector.tabBar.closeGuard.save')}
-              </Button>
+              {canSave && (
+                <Button
+                  size="small"
+                  danger
+                  type="primary"
+                  onClick={() => {
+                    instance.destroy();
+                    resolve('save');
+                  }}
+                >
+                  {t('panel.inspector.tabBar.closeGuard.save')}
+                </Button>
+              )}
             </div>
           ),
         });
       });
     },
-    [modal, t],
+    [modal, t, saveRefs],
   );
 
   // One tab through the guard; resolves whether it actually closed.

@@ -9,6 +9,7 @@
 import { WarningOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import type React from 'react';
+import { useEffect } from 'react';
 import { useT } from '../context/LocaleContext';
 
 export type UnitErrorKind = 'tab' | 'window';
@@ -18,10 +19,19 @@ interface UnitErrorFallbackProps {
   error: Error;
   onRetry: () => void;
   onClose: () => void;
+  /**
+   * Runs once when the fallback mounts — the moment the unit's content
+   * is gone. A tab's shell forgets the editor's save function here, so
+   * the close guard offers no Save for a crashed tab.
+   */
+  onCrashed?: () => void;
 }
 
-const UnitErrorFallback: React.FC<UnitErrorFallbackProps> = ({ kind, error, onRetry, onClose }) => {
+const UnitErrorFallback: React.FC<UnitErrorFallbackProps> = ({ kind, error, onRetry, onClose, onCrashed }) => {
   const t = useT();
+  useEffect(() => {
+    onCrashed?.();
+  }, [onCrashed]);
   return (
     <div
       role="alert"

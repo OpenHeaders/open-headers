@@ -76,6 +76,23 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByText('This tab hit an error')).toBeNull();
   });
 
+  it('the unit fallback reports its mount once, so a shell can forget the crashed editor', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const marker = { shouldThrow: true };
+    const onCrashed = vi.fn();
+    render(
+      <ErrorBoundary
+        fallback={({ error, reset }) => (
+          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => {}} onCrashed={onCrashed} />
+        )}
+      >
+        <ThrowsWhile marker={marker} />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText('This tab hit an error')).toBeTruthy();
+    expect(onCrashed).toHaveBeenCalledOnce();
+  });
+
   it('the window kind labels its close action Hide window', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const marker = { shouldThrow: true };

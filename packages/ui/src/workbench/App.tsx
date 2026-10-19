@@ -954,6 +954,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     handleDirtyChange,
     handleSaved,
     registerSaveRef,
+    unregisterSaveRef,
     registerSaveAsTemplateRef,
     registerRuleDuplicateRef,
     registerRequestDuplicateRef,
@@ -1300,7 +1301,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     ({ tab }: { tab: WorkbenchTab }): React.ReactNode => (
       <ErrorBoundary
         fallback={({ error, reset }) => (
-          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => void handleCloseTab(tab.id)} />
+          <UnitErrorFallback
+            kind="tab"
+            error={error}
+            onRetry={reset}
+            onClose={() => void handleCloseTab(tab.id)}
+            onCrashed={() => unregisterSaveRef(tab.id)}
+          />
         )}
       >
         <WorkbenchTabBody
@@ -1364,6 +1371,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     ),
     [
       handleCloseTab,
+      unregisterSaveRef,
       handleSaved,
       handleDirtyChange,
       registerSaveRef,

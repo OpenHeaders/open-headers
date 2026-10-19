@@ -970,7 +970,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     (ctx: { tab: InspectorTab; leafId: string; isFocusedLeaf: boolean }) => (
       <ErrorBoundary
         fallback={({ error, reset }) => (
-          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => closeGuard.closeTab(ctx.tab.id)} />
+          <UnitErrorFallback
+            kind="tab"
+            error={error}
+            onRetry={reset}
+            onClose={() => closeGuard.closeTab(ctx.tab.id)}
+            onCrashed={() => storageSaveRefs.current.delete(ctx.tab.id)}
+          />
         )}
       >
         {renderTabBodyContent(ctx)}

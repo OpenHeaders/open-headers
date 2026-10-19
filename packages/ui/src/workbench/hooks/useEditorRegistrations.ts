@@ -12,9 +12,9 @@
  * save shortcut and tab-lifecycle layer), so they flow in as refs.
  */
 
+import type { Request, Rule } from '@openheaders/core/types';
 import type { MutableRefObject } from 'react';
 import { useCallback, useRef } from 'react';
-import type { Request, Rule } from '@openheaders/core/types';
 import type { WorkbenchTab } from '../types';
 
 interface UseEditorRegistrationsOptions {
@@ -34,6 +34,14 @@ export interface EditorRegistrations {
   handleDirtyChange: (tabId: string, dirty: boolean) => void;
   handleSaved: (tabId: string, uid: string) => void;
   registerSaveRef: (tabId: string, saveFn: () => void) => void;
+  /**
+   * Forget a tab's save function — the tab's editor is gone (its
+   * containment boundary caught a render error and shows the fallback
+   * in its place), so the close guard must not offer a Save that would
+   * call a closure of an unmounted component. Retry remounts the editor,
+   * which registers again.
+   */
+  unregisterSaveRef: (tabId: string) => void;
   registerSaveAsTemplateRef: (tabId: string, fn: () => void) => void;
   registerRuleDuplicateRef: (tabId: string, fn: () => Omit<Rule, 'uid' | 'path'> | null) => void;
   registerRequestDuplicateRef: (
@@ -64,6 +72,13 @@ export function useEditorRegistrations({
   const registerSaveRef = useCallback(
     (tabId: string, saveFn: () => void) => {
       saveRefMap.current.set(tabId, saveFn);
+    },
+    [saveRefMap],
+  );
+
+  const unregisterSaveRef = useCallback(
+    (tabId: string) => {
+      saveRefMap.current.delete(tabId);
     },
     [saveRefMap],
   );
@@ -123,6 +138,7 @@ export function useEditorRegistrations({
     handleDirtyChange,
     handleSaved,
     registerSaveRef,
+    unregisterSaveRef,
     registerSaveAsTemplateRef,
     registerRuleDuplicateRef,
     registerRequestDuplicateRef,
