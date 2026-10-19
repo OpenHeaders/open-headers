@@ -4,9 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   attachWindowSupervisor,
   CRASH_LOOP_WINDOW_MS,
+  CRASHED_DIALOG,
+  UNRESPONSIVE_DIALOG,
   type WindowSupervisorDeps,
 } from '@/main/bootstrap/window-supervisor';
 
+const log = vi.hoisted(() => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }));
+
+vi.mock('@/main/bootstrap/logger', () => ({ createLogger: () => log }));
 vi.mock('@/main/bootstrap/locale', () => ({ mainTranslator: () => (key: string) => key }));
 vi.mock('@/main/bootstrap/log-reveal', () => ({ revealLogFile: vi.fn() }));
 vi.mock('@/main/bootstrap/relaunch', () => ({ relaunchApp: vi.fn() }));
@@ -41,11 +46,14 @@ const gone = (reason: string) => ({ reason, exitCode: 1 });
 /** Let the async dialog chain settle. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+const shownOptions = (deps: WindowSupervisorDeps, call = 0) => vi.mocked(deps.showMessageBox).mock.calls[call][1];
+
 describe('window-supervisor', () => {
   let now: { value: number };
 
   beforeEach(() => {
     now = { value: 1_000_000 };
+    vi.clearAllMocks();
   });
 
   it('reopens the window once on the first renderer death, with no dialog', () => {
@@ -89,10 +97,25 @@ describe('window-supervisor', () => {
     expect(webContents.reload).not.toHaveBeenCalled();
   });
 
+  it('the crash dialog gives Return to Reopen and Escape to Open Logs — distinct roles', async () => {
+    const { win, webContents } = makeWindow();
+    const deps = makeDeps(now);
+    attachWindowSupervisor(win, deps);
+    webContents.emit('render-process-gone', {}, gone('crashed'));
+    webContents.emit('render-process-gone', {}, gone('crashed'));
+    await settle();
+    const options = shownOptions(deps);
+    expect(options.defaultId).toBe(CRASHED_DIALOG.reopen);
+    expect(options.cancelId).toBe(CRASHED_DIALOG.openLogs);
+    expect(options.defaultId).not.toBe(options.cancelId);
+    expect(options.buttons?.[CRASHED_DIALOG.reopen]).toBe('desktop.dialog.windowCrashed.reopen');
+    expect(options.buttons?.[CRASHED_DIALOG.openLogs]).toBe('desktop.dialog.windowCrashed.openLogs');
+  });
+
   it.each([
-    [1, 'revealLogs'],
-    [2, 'restartWithoutAcceleration'],
-    [3, 'quit'],
+    [CRASHED_DIALOG.openLogs, 'revealLogs'],
+    [CRASHED_DIALOG.restartWithoutAcceleration, 'restartWithoutAcceleration'],
+    [CRASHED_DIALOG.quit, 'quit'],
   ] as const)('crash dialog answer %i routes to %s', async (response, dep) => {
     const { win, webContents } = makeWindow();
     const deps = makeDeps(now, response);
@@ -104,9 +127,26 @@ describe('window-supervisor', () => {
     if (dep === 'quit') expect(deps.quit).toHaveBeenCalledWith('crash-dialog');
   });
 
+  it('the hang dialog gives Return to Reopen and Escape to Keep Waiting — distinct roles', async () => {
+    const { win, webContents } = makeWindow();
+    const deps = makeDeps(now, UNRESPONSIVE_DIALOG.keepWaiting);
+    attachWindowSupervisor(win, deps);
+    webContents.emit('unresponsive');
+    await settle();
+    const options = shownOptions(deps);
+    expect(options.defaultId).toBe(UNRESPONSIVE_DIALOG.reopen);
+    expect(options.cancelId).toBe(UNRESPONSIVE_DIALOG.keepWaiting);
+    expect(options.defaultId).not.toBe(options.cancelId);
+    expect(options.buttons?.[UNRESPONSIVE_DIALOG.reopen]).toBe('desktop.dialog.windowUnresponsive.reopen');
+    expect(options.buttons?.[UNRESPONSIVE_DIALOG.keepWaiting]).toBe('desktop.dialog.windowUnresponsive.keepWaiting');
+    // Keep Waiting leaves the renderer alone.
+    expect(webContents.forcefullyCrashRenderer).not.toHaveBeenCalled();
+    expect(deps.quit).not.toHaveBeenCalled();
+  });
+
   it('an unresponsive renderer shows the dialog once; Reopen terminates it and the death reloads once', async () => {
     const { win, webContents } = makeWindow();
-    const deps = makeDeps(now, 1);
+    const deps = makeDeps(now, UNRESPONSIVE_DIALOG.reopen);
     attachWindowSupervisor(win, deps);
     webContents.emit('unresponsive');
     webContents.emit('unresponsive');
@@ -118,9 +158,45 @@ describe('window-supervisor', () => {
     expect(deps.showMessageBox).toHaveBeenCalledOnce();
   });
 
+  it('a deliberate Reopen kill never seeds the crash-loop clock: a real death right after reopens silently', async () => {
+    const { win, webContents } = makeWindow();
+    const deps = makeDeps(now, UNRESPONSIVE_DIALOG.reopen);
+    attachWindowSupervisor(win, deps);
+    webContents.emit('unresponsive');
+    await settle();
+    webContents.emit('render-process-gone', {}, gone('killed'));
+    expect(webContents.reload).toHaveBeenCalledOnce();
+    expect(log.error).not.toHaveBeenCalled();
+    now.value += 10_000;
+    webContents.emit('render-process-gone', {}, gone('crashed'));
+    expect(webContents.reload).toHaveBeenCalledTimes(2);
+    // The hang dialog is the only dialog ever shown.
+    expect(deps.showMessageBox).toHaveBeenCalledOnce();
+  });
+
+  it('the hang is logged once per dialog; re-reports while it is up are a debug line, never a second warning', async () => {
+    const { win, webContents } = makeWindow();
+    const deps = makeDeps(now, UNRESPONSIVE_DIALOG.keepWaiting);
+    attachWindowSupervisor(win, deps);
+    webContents.emit('unresponsive');
+    now.value += 4_000;
+    webContents.emit('unresponsive');
+    webContents.emit('unresponsive');
+    expect(log.warn).toHaveBeenCalledOnce();
+    expect(log.warn).toHaveBeenCalledWith('renderer unresponsive (event loop blocked)');
+    expect(log.debug).toHaveBeenCalledTimes(2);
+    expect(log.debug).toHaveBeenCalledWith('renderer still unresponsive (+4s)');
+    await settle();
+    // After Keep Waiting the next report is a new episode: it asks again.
+    webContents.emit('unresponsive');
+    await settle();
+    expect(deps.showMessageBox).toHaveBeenCalledTimes(2);
+    expect(log.warn).toHaveBeenCalledTimes(2);
+  });
+
   it('Quit on the unresponsive dialog routes to the lifecycle', async () => {
     const { win, webContents } = makeWindow();
-    const deps = makeDeps(now, 2);
+    const deps = makeDeps(now, UNRESPONSIVE_DIALOG.quit);
     attachWindowSupervisor(win, deps);
     webContents.emit('unresponsive');
     await settle();

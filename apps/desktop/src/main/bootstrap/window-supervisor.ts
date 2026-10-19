@@ -10,11 +10,23 @@
  *     Restart Without Hardware Acceleration (the marker file the
  *     File-menu toggle writes) and Quit. The dialog is native because
  *     the renderer is the thing that died.
- *   - `unresponsive` (event loop blocked): the VS Code dialog — Keep
- *     Waiting / Reopen / Quit. Reopen terminates the renderer, whose
- *     `render-process-gone` then rides the ordinary reopen path.
- *     `responsive` is logged; a dialog already on screen stays (the
- *     OS owns it until the person answers).
+ *   - `unresponsive` (event loop blocked): the VS Code dialog — Reopen /
+ *     Quit / Keep Waiting. Reopen terminates the renderer on purpose:
+ *     the supervisor records the expected death before the kill and the
+ *     `render-process-gone` it raises consumes that record — a
+ *     deliberate kill reopens once and never stamps the crash-loop
+ *     clock. Chromium re-reports the hang on every further input while
+ *     the dialog is up; those re-reports are one debug line each, not a
+ *     second dialog and not a second warning.
+ *   - `responsive` is logged; a dialog already on screen stays (the OS
+ *     owns it until the person answers).
+ *
+ * Button roles: the default (Return) and the cancel (Escape) are
+ * distinct indices on every dialog — a shared index loses the default
+ * role on macOS. Crash: Return = Reopen, Escape = Open Logs (reveals the
+ * log and reopens; never quits a tray app by reflex). Hang: Return =
+ * Reopen, Escape = Keep Waiting. macOS never renders `title`; the bold
+ * line is `message`.
  *
  * No timers, no silent retry loops: one reopen, then a person decides.
  */
@@ -31,6 +43,11 @@ const logger = createLogger('window-supervisor');
 
 /** Two renderer deaths closer together than this are a crash loop. */
 export const CRASH_LOOP_WINDOW_MS = 60_000;
+
+/** The crash dialog's buttons, by index. */
+export const CRASHED_DIALOG = { reopen: 0, openLogs: 1, restartWithoutAcceleration: 2, quit: 3 } as const;
+/** The hang dialog's buttons, by index. */
+export const UNRESPONSIVE_DIALOG = { reopen: 0, quit: 1, keepWaiting: 2 } as const;
 
 export interface WindowSupervisorDeps {
   now(): number;
@@ -55,7 +72,10 @@ const defaultDeps: WindowSupervisorDeps = {
 export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSupervisorDeps = defaultDeps): void {
   const { webContents } = win;
   let lastGoneAt: number | null = null;
-  let dialogOpen = false;
+  /** Set while a dialog is on screen — the moment it opened. */
+  let dialogOpenedAt: number | null = null;
+  /** Set right before a deliberate kill; the death it raises consumes it. */
+  let expectedDeath = false;
 
   const reopen = (): void => {
     if (win.isDestroyed()) return;
@@ -63,8 +83,8 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
   };
 
   const showCrashedDialog = async (): Promise<void> => {
-    if (dialogOpen || win.isDestroyed()) return;
-    dialogOpen = true;
+    if (dialogOpenedAt !== null || win.isDestroyed()) return;
+    dialogOpenedAt = deps.now();
     const t = deps.translate();
     try {
       const { response } = await deps.showMessageBox(win, {
@@ -78,28 +98,28 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
           t('desktop.dialog.windowCrashed.restartWithoutAcceleration'),
           t('desktop.dialog.windowCrashed.quit'),
         ],
-        defaultId: 0,
-        cancelId: 0,
+        defaultId: CRASHED_DIALOG.reopen,
+        cancelId: CRASHED_DIALOG.openLogs,
         noLink: true,
       });
-      if (response === 1) {
+      if (response === CRASHED_DIALOG.openLogs) {
         deps.revealLogs();
         reopen();
-      } else if (response === 2) {
+      } else if (response === CRASHED_DIALOG.restartWithoutAcceleration) {
         deps.restartWithoutAcceleration();
-      } else if (response === 3) {
+      } else if (response === CRASHED_DIALOG.quit) {
         deps.quit('crash-dialog');
       } else {
         reopen();
       }
     } finally {
-      dialogOpen = false;
+      dialogOpenedAt = null;
     }
   };
 
   const showUnresponsiveDialog = async (): Promise<void> => {
-    if (dialogOpen || win.isDestroyed()) return;
-    dialogOpen = true;
+    if (dialogOpenedAt !== null || win.isDestroyed()) return;
+    dialogOpenedAt = deps.now();
     const t = deps.translate();
     try {
       const { response } = await deps.showMessageBox(win, {
@@ -108,29 +128,32 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
         message: t('desktop.dialog.windowUnresponsive.message', { name: app.getName() }),
         detail: t('desktop.dialog.windowUnresponsive.detail'),
         buttons: [
-          t('desktop.dialog.windowUnresponsive.keepWaiting'),
           t('desktop.dialog.windowUnresponsive.reopen'),
           t('desktop.dialog.windowUnresponsive.quit'),
+          t('desktop.dialog.windowUnresponsive.keepWaiting'),
         ],
-        defaultId: 0,
-        cancelId: 0,
+        defaultId: UNRESPONSIVE_DIALOG.reopen,
+        cancelId: UNRESPONSIVE_DIALOG.keepWaiting,
         noLink: true,
       });
-      if (response === 1 && !win.isDestroyed()) {
-        // The kill surfaces as `render-process-gone` (reason `killed`)
-        // and rides the ordinary one-reopen path below — a deliberate
-        // reopen is never counted toward a crash loop.
-        lastGoneAt = null;
+      if (response === UNRESPONSIVE_DIALOG.reopen && !win.isDestroyed()) {
+        expectedDeath = true;
         webContents.forcefullyCrashRenderer();
-      } else if (response === 2) {
+      } else if (response === UNRESPONSIVE_DIALOG.quit) {
         deps.quit('unresponsive-dialog');
       }
     } finally {
-      dialogOpen = false;
+      dialogOpenedAt = null;
     }
   };
 
   webContents.on('render-process-gone', (_event, details) => {
+    if (expectedDeath) {
+      expectedDeath = false;
+      logger.info('renderer terminated on request; reopening', details);
+      reopen();
+      return;
+    }
     // `details.reason` distinguishes `crashed` / `killed` / `oom` /
     // `launch-failed` / `integrity-failure` — the triage key.
     logger.error('renderer process gone', details);
@@ -149,6 +172,10 @@ export function attachWindowSupervisor(win: BrowserWindow, deps: WindowSuperviso
     reopen();
   });
   webContents.on('unresponsive', () => {
+    if (dialogOpenedAt !== null) {
+      logger.debug(`renderer still unresponsive (+${Math.round((deps.now() - dialogOpenedAt) / 1000)}s)`);
+      return;
+    }
     logger.warn('renderer unresponsive (event loop blocked)');
     void showUnresponsiveDialog();
   });
