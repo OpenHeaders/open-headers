@@ -1,6 +1,7 @@
 import './self-close-if-popup-mode';
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
+import '@/host/install-error-report-sink';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
 import '@/host/install-awareness-host';

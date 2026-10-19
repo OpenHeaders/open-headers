@@ -84,6 +84,7 @@ import { installDelegatedSocketRelay } from './delegated-socket-relay';
 import { setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
+import { initErrorReports, installServiceWorkerErrorListeners } from './modules/error-reports';
 import {
   kickActiveContextRefresh,
   reconcileLiveSchedules,
@@ -131,6 +132,10 @@ installProductTelemetrySyncBeacons(syncWiring);
 installProductTelemetryRuleMatchBeacon();
 installProductTelemetryStorageBeacon();
 installActivityBroadcasts();
+// The worker's own uncaught failures reach the report channel (the error
+// reports plan §3.3): eval-time so a throw during this very boot counts;
+// the reports wait for the channel's boot in initializeExtension.
+installServiceWorkerErrorListeners(self);
 // Delegated sessions and gRPC calls: the place's delegatedSocketEvent frames come back
 // down the backend wire — relay them to the page realm that opened them.
 installDelegatedSocketRelay();
@@ -194,9 +199,11 @@ async function initializeExtension(): Promise<void> {
 
   await bootstrapIdentity();
 
-  // After settingsReady (awaited above): the enabled gate reads the
+  // After settingsReady (awaited above): the enabled gates read the
   // hydrated settings store. Fire-and-forget — nothing awaits telemetry.
-  initProductTelemetry();
+  // The error channel boots BEHIND the usage one on the shared session
+  // store, so exactly one session id is minted per browser launch.
+  void initProductTelemetry().then(initErrorReports);
 
   await hydrateObservabilityLog();
   recordLog({

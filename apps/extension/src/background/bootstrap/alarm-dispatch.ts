@@ -9,6 +9,7 @@ import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { nativeMessagingAvailable } from '../../shared/nm-handoff';
 import { handleActivityPruneAlarm, isActivityPruneAlarm } from '../activity-prune-scheduler';
+import { flushErrorReports } from '../modules/error-reports';
 import { handleLiveAlarm, isLiveRefreshAlarm } from '../modules/live-refresh-scheduler';
 import {
   handleNmAutoJoinAlarm,
@@ -79,6 +80,8 @@ export function installAlarmDispatch(): void {
     // No hydration barrier: the flush reads only the client's own queue.
     if (isProductTelemetryAlarm(alarm)) {
       void handleProductTelemetryAlarm();
+      // The same tick is the error channel's retry cadence.
+      void flushErrorReports();
       return;
     }
     // Hydration barrier — live / OAuth / TOTP handlers read in-memory

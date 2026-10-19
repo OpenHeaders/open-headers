@@ -1,5 +1,6 @@
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
+import '@/host/install-error-report-sink';
 // AFTER install-host-bridge: decorates the installed bridge with the
 // page-realm WebSocket session host (executes sessions in this page
 // over the platform socket) and registers `wsPageSession`.

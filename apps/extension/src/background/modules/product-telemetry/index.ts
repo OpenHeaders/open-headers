@@ -60,14 +60,15 @@ const QUEUE_EPOCH_KEY = 'oh.productTelemetry.queueEpoch';
  * plan's identity law wants. Absent substrate (very old browsers) falls
  * back to per-wake state, which only shortens sessions, never persists.
  */
-function sessionArea(): chrome.storage.StorageArea | null {
+export function sessionArea(): chrome.storage.StorageArea | null {
   const api = typeof browser !== 'undefined' ? browser : chrome;
   return api.storage?.session ?? null;
 }
 
 const fallbackSession: Record<string, unknown> = {};
 
-const sessionStore: ProductTelemetrySessionStore = {
+/** The browser-session store — SHARED with the error-report channel (one session id; the host boots the two in sequence). */
+export const sessionStore: ProductTelemetrySessionStore = {
   async getSessionId() {
     const area = sessionArea();
     if (!area) return (fallbackSession[SESSION_ID_KEY] as string | undefined) ?? null;
@@ -473,11 +474,13 @@ const controller = new ProductTelemetryController({
  * alive; the alarm is the retry cadence, not the primary delivery path
  * (an evicted SW would lose a RAM-only minute-old queue otherwise).
  */
-export function initProductTelemetry(): void {
+export function initProductTelemetry(): Promise<void> {
   alarms?.create(FLUSH_ALARM, { periodInMinutes: FLUSH_PERIOD_MINUTES });
   // The install type resolves before the controller boots: the first
   // identity change registers the uninstall URL with the channel in it.
-  void resolveInstallType()
+  // The settled promise is the error channel's cue to boot AFTER this
+  // one on the shared session store (one session id, never two).
+  return resolveInstallType()
     .then(() => controller.init())
     .then(() => {
       // Enabled transitions can queue events of their own (the
