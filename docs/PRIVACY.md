@@ -49,7 +49,7 @@ The browser extension, the desktop app, and the command-line tool count which fe
 
 ## 4. Data Sharing and Transfer
 
-We do not share or sell any data. Anonymous usage counts are received and stored in our own Cloudflare account (Cloudflare is our infrastructure provider and the only data processor involved); no third-party analytics service or SDK is used, and nothing else is collected in the first place.
+We do not share or sell any data. Anonymous usage counts and crash and error reports are received and stored in our own Cloudflare account (Cloudflare is our infrastructure provider and the only data processor involved); no third-party analytics service or SDK is used, and nothing else is collected in the first place.
 
 ## 5. Local Communication
 
@@ -75,7 +75,7 @@ These permissions are used solely for the extension's core header modification f
 
 We prioritize security through:
 - Local-only data storage
-- No external network connections beyond documented endpoints (license renewal, update checks, notification manifests, release notes, anonymous usage counting) and destinations you configure yourself
+- No external network connections beyond documented endpoints (license renewal, update checks, notification manifests, release notes, anonymous usage counting, crash and error reports) and destinations you configure yourself
 - Publicly documented wire behavior that anyone can verify with a packet capture
 - Regular security updates and a published vulnerability disclosure policy
 
@@ -90,7 +90,7 @@ We may update this Privacy Policy from time to time. We will notify users of any
 ## 10. Transparency Commitment
 
 Open Headers is open-source software with a verifiable privacy posture. We publish:
-- A wire-transparency specification documenting the exact payload of every network call the software can make — including every telemetry event
+- A wire-transparency specification documenting the exact payload of every network call the software can make — including every telemetry event and every crash report
 - A security whitepaper describing the architecture behind these guarantees
 - A vulnerability disclosure policy
 
