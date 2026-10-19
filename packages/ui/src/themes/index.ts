@@ -91,4 +91,5 @@ export function allVariants(): readonly ThemeVariant[] {
   return [...listVariants('light'), ...listVariants('dark')];
 }
 
+export { type AntThemeInput, buildAntTheme, resolvePrimaryColor } from './ant-theme';
 export type { ThemeMode, ThemeVariant } from './types';

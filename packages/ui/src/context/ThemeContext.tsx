@@ -22,7 +22,7 @@
  */
 
 import { UiThemeProvider } from './ui-theme';
-import { getVariant, type ThemeVariant } from '@openheaders/ui/themes';
+import { buildAntTheme, getVariant, type ThemeVariant } from '@openheaders/ui/themes';
 // Concrete modules, not the settings barrel — the barrel reaches
 // SettingsProvider's schema side-effect chain, which loops back into
 // this context layer and closes a chunk-level import cycle at build
@@ -30,7 +30,7 @@ import { getVariant, type ThemeVariant } from '@openheaders/ui/themes';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { set as setSettingValue } from '@openheaders/ui/workbench/settings/store';
 import { resolveAppearanceFontFamily } from '@openheaders/ui/workbench/settings/schema/appearance';
-import { ConfigProvider, theme } from 'antd';
+import { ConfigProvider } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
@@ -51,7 +51,6 @@ interface ThemeContextValue {
 
 // Sentinel default — ThemeProvider always overrides this. The variant
 // shape is required so consumers don't need to null-check `variant`.
-import { darkLinkAlgorithm } from '@openheaders/ui/themes/dark/link-tokens';
 import { lightDefault as DEFAULT_VARIANT } from '@openheaders/ui/themes/light/default';
 
 export const ThemeContext = createContext<ThemeContextValue>({
@@ -138,56 +137,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   // ── Ant theme config ─────────────────────────────────────────────
-  // Every variant pins a primary; the accent is the fallback either way.
-  const primaryColor = variant.honorsAccentColor ? accentColor : (variant.antdTokens.colorPrimary ?? accentColor);
-  const algorithms: Array<typeof theme.darkAlgorithm> = [isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm];
-  if (isCompactMode) algorithms.push(theme.compactAlgorithm);
-  // Dark links read in a pale tint of the primary — see link-tokens.
-  if (isDarkMode) algorithms.push(darkLinkAlgorithm(primaryColor));
+  // One builder for every chrome surface — the root error fallback
+  // above the providers resolves the same config through it.
   const antTheme = useMemo(
-    () => ({
-      algorithm: algorithms.length === 1 ? algorithms[0] : algorithms,
-      token: {
-        ...variant.antdTokens,
-        // Accent color is user-controlled only on variants that opt in.
-        // Tinted / high-contrast variants pin their own primary so the
-        // palette stays internally consistent.
-        ...(variant.honorsAccentColor ? { colorPrimary: accentColor } : {}),
-        // UI scale rides on the seed `fontSize` token. AntD derives
-        // controlHeight, paddings, line-heights, and icon sizes from
-        // this value via its algorithm, so a single multiplier rescales
-        // the entire chrome without per-component overrides. Editor
-        // surfaces read `editor.fontSize` directly and are unaffected.
-        fontSize: Math.round(14 * uiScale),
-        // Chrome font from the appearance preset takes priority over
-        // the variant's default fontFamily. Editor font is independent.
-        fontFamily,
-      },
-      components: {
-        // Overlay menus (every menu in the app is a Dropdown — create
-        // menus, `⋯` menus, context menus, submenus) render at the
-        // sidebar trees' 12px density: stock antd menu rows read
-        // oversized next to the compact rails. Row ≈ 26px.
-        Dropdown: {
-          fontSize: Math.round(12 * uiScale),
-          paddingBlock: 3,
-          controlPaddingHorizontal: 10,
-        },
-        // Segmented controls select in the accent: the stock thumb is a
-        // barely-lifted fill that reads near-invisible on the dark
-        // grounds and faint on the light ones. A wash of the accent
-        // under the accent-colored label — the selected-tag look, not
-        // a solid button.
-        Segmented: {
-          itemSelectedBg: `color-mix(in srgb, ${primaryColor} 18%, transparent)`,
-          itemSelectedColor: primaryColor,
-        },
-      },
-    }),
-    // `algorithms` rebuilds every render but its content is stable when
-    // these inputs are; including primitives here keeps the memo honest.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: algorithms is derived from isDarkMode + isCompactMode + primaryColor
-    [variant, accentColor, primaryColor, isDarkMode, isCompactMode, uiScale, fontFamily],
+    () => buildAntTheme({ variant, isDarkMode, isCompactMode, accentColor, uiScale, fontFamily }),
+    [variant, isDarkMode, isCompactMode, accentColor, uiScale, fontFamily],
   );
 
   return (

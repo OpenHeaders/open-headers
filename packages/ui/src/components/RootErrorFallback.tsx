@@ -2,8 +2,10 @@
  * RootErrorFallback — ring 1 of the containment design: what a document
  * shows when nothing below its root boundary could contain a failure.
  * Mounted ABOVE the providers, so it depends on nothing that may have
- * crashed: antd renders without a ConfigProvider and `useT` falls back
- * to the locale context's English default.
+ * crashed: it resolves the appearance itself (`root-fallback-theme`)
+ * and wraps its own `ConfigProvider`, so the page wears the app's
+ * theme — the same variant, the same tokens — without the provider
+ * tree; `useT` falls back to the locale context's English default.
  *
  * Three ways on: reload the document, copy the details a bug report
  * needs, and — where the host registers `revealLogs` (desktop) — open
@@ -12,18 +14,20 @@
  */
 
 import { getCapability, hasCapability } from '@openheaders/core/capabilities';
-import { Button, Result, Typography } from 'antd';
+import { Button, ConfigProvider, Result, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useT } from '../context/LocaleContext';
 import { formatErrorDetails } from '../shared/error-funnel';
+import { resolveRootFallbackTheme } from './root-fallback-theme';
 
 interface RootErrorFallbackProps {
   error: Error;
 }
 
-const RootErrorFallback: React.FC<RootErrorFallbackProps> = ({ error }) => {
+const RootErrorPage: React.FC<RootErrorFallbackProps> = ({ error }) => {
   const t = useT();
+  const { token } = theme.useToken();
   const [copied, setCopied] = useState(false);
   const canRevealLogs = hasCapability('revealLogs');
 
@@ -38,7 +42,20 @@ const RootErrorFallback: React.FC<RootErrorFallbackProps> = ({ error }) => {
   }, [error]);
 
   return (
-    <div style={{ padding: 24, minHeight: '100vh', boxSizing: 'border-box' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        boxSizing: 'border-box',
+        padding: 24,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: token.colorBgLayout,
+        color: token.colorText,
+        fontFamily: token.fontFamily,
+      }}
+    >
       <Result
         status="error"
         title={t('shared.errorBoundary.title')}
@@ -58,12 +75,20 @@ const RootErrorFallback: React.FC<RootErrorFallbackProps> = ({ error }) => {
               ]
             : []),
         ]}
-      >
-        <Typography.Text type="secondary" code>
-          {`${error.name}: ${error.message}`}
-        </Typography.Text>
-      </Result>
+      />
+      <Typography.Text type="secondary" code>
+        {`${error.name}: ${error.message}`}
+      </Typography.Text>
     </div>
+  );
+};
+
+const RootErrorFallback: React.FC<RootErrorFallbackProps> = ({ error }) => {
+  const { antTheme } = useMemo(resolveRootFallbackTheme, []);
+  return (
+    <ConfigProvider theme={antTheme}>
+      <RootErrorPage error={error} />
+    </ConfigProvider>
   );
 };
 
