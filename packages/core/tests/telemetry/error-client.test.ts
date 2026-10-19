@@ -151,12 +151,19 @@ describe('ErrorReportClient — report', () => {
     expect(client.readLog().map((e) => e.disposition)).toEqual(['suppressed', 'dropped']);
   });
 
-  it('turning the channel off suppresses the pending queue', () => {
-    const { client } = makeClient();
+  it('turning the channel off holds the pending queue: still pending, never sent, delivered when on again', async () => {
+    const { client, transport } = makeClient();
     client.report(makeReport());
     client.setEnabled(false);
-    expect(client.queuedCount).toBe(0);
-    expect(client.readLog()[0].disposition).toBe('suppressed');
+    expect(client.queuedCount).toBe(1);
+    expect(client.readLog()[0].disposition).toBe('pending');
+    expect(await client.flush()).toEqual([]);
+    expect(client.report(makeReport())).toBe('suppressed');
+    expect(client.queuedCount).toBe(1);
+    client.setEnabled(true);
+    expect(await client.flush()).toHaveLength(1);
+    expect(transport.sent[0].reports[0].count).toBe(1);
+    expect(client.readLog().map((e) => e.disposition)).toEqual(['sent', 'suppressed']);
   });
 
   it('caps the queue (oldest dropped) and the log', () => {
@@ -236,7 +243,7 @@ describe('ErrorReportClient — flush', () => {
 });
 
 describe('ErrorReportClient — durable queue', () => {
-  it('mirrors every queue mutation into the store and wipes it on toggle-off', async () => {
+  it('mirrors every queue mutation into the store and leaves the held queue there on toggle-off', async () => {
     const { store, saves } = makeQueueStore();
     const { client } = makeClient({ queueStore: store });
     client.report(makeReport());
@@ -246,7 +253,7 @@ describe('ErrorReportClient — durable queue', () => {
     expect(saves[1]).toEqual([{ report: makeReport({ count: 2 }), at: NOW }]);
     client.setEnabled(false);
     await flushed();
-    expect(saves[saves.length - 1]).toEqual([]);
+    expect(saves).toHaveLength(2);
   });
 
   it('leaves the batch in the store until the transport accepts it', async () => {
@@ -258,7 +265,7 @@ describe('ErrorReportClient — durable queue', () => {
     expect(saves[saves.length - 1]).toHaveLength(1);
   });
 
-  it('restores a persisted queue at boot with its timestamps, suppressed when the channel is off', async () => {
+  it('restores a persisted queue at boot with its timestamps, held pending while the channel is off', async () => {
     const persisted = [{ report: makeReport(), at: NOW - 5000 }];
     const on = makeClient({ queueStore: makeQueueStore(persisted).store });
     await on.client.restoreQueue();
@@ -268,8 +275,9 @@ describe('ErrorReportClient — durable queue', () => {
     const off = makeClient({ queueStore: makeQueueStore(persisted).store });
     off.client.setEnabled(false);
     await off.client.restoreQueue();
-    expect(off.client.queuedCount).toBe(0);
-    expect(off.client.readLog()[0].disposition).toBe('suppressed');
+    expect(off.client.queuedCount).toBe(1);
+    expect(off.client.readLog()[0].disposition).toBe('pending');
+    expect(await off.client.flush()).toEqual([]);
   });
 
   it('is a no-op without a store and silent when the store fails to load', async () => {

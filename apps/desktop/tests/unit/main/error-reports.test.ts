@@ -24,11 +24,14 @@ interface RigOptions {
   settings?: Record<string, unknown>;
   appPath?: string;
   rendererDevUrl?: string;
+  /** Whether the error transport accepts; flipped live by a test that holds a batch at the edge. */
+  accept?: boolean;
 }
 
 function makeRig(options: RigOptions = {}) {
   const sent: ErrorReportEnvelope[] = [];
   const usageSent: TelemetryEnvelope[] = [];
+  const transport = { accept: options.accept ?? true };
   const values = new Map<string, unknown>([[OH.settingsUser.key, options.settings]]);
   const listeners = new Map<string, Array<(next: unknown) => void>>();
 
@@ -81,6 +84,7 @@ function makeRig(options: RigOptions = {}) {
       rendererDevUrl: options.rendererDevUrl,
       transport: {
         async send(envelope) {
+          if (!transport.accept) return false;
           sent.push(envelope);
           return true;
         },
@@ -88,7 +92,7 @@ function makeRig(options: RigOptions = {}) {
       now: () => 1_760_000_000_000,
     });
 
-  return { install, installUsage: () => installProductTelemetry(telemetryDeps), sent, usageSent, write };
+  return { install, installUsage: () => installProductTelemetry(telemetryDeps), sent, usageSent, write, transport };
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -188,6 +192,26 @@ describe('installErrorReports', () => {
     await settle();
     expect(sent).toHaveLength(1);
     expect(sent[0].reports[0]).toMatchObject({ kind: 'unresponsive', reopenCount: 1 });
+    handle.dispose();
+  });
+
+  it('a report held at the edge survives an off-and-on flip and leaves on the flip to on', async () => {
+    const { install, sent, write, transport } = makeRig({ accept: false });
+    const handle = await install();
+    handle.record({ kind: 'abnormal-exit', process: 'main' });
+    await settle();
+    expect(sent).toHaveLength(0);
+    write(OH.settingsUser, { 'telemetry.errorReports': false });
+    await settle();
+    const off = await handle.snapshot();
+    expect(off.enabled).toBe(false);
+    expect(off.entries.map((entry) => entry.disposition)).toEqual(['pending']);
+    transport.accept = true;
+    write(OH.settingsUser, { 'telemetry.errorReports': true });
+    await settle();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].reports[0]).toMatchObject({ kind: 'abnormal-exit', count: 1 });
+    expect((await handle.snapshot()).entries.map((entry) => entry.disposition)).toEqual(['sent']);
     handle.dispose();
   });
 

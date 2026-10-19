@@ -10,6 +10,14 @@
  * envelope carries at most ten reports; the rest ride the next flush.
  * A report over the serialized budget is dropped and logged, never
  * truncated. The shipped usage `TelemetryClient` stays as it is.
+ *
+ * The switch follows the crash-reporter convention, not the usage
+ * counter's: off stops recording and sending, nothing more. A report
+ * already pending was recorded under consent and never left the
+ * device, so it is HELD — still pending, flushed when the switch comes
+ * back on in the same session, gone with the session otherwise. The
+ * usage channel discards its unsent queue on opt-out; a usage log is
+ * discarded, a crash report is paused.
  */
 
 import type { TelemetryDisposition, TelemetryEnvelopeFacts } from './client';
@@ -99,17 +107,12 @@ export class ErrorReportClient {
     return this.queue.length;
   }
 
-  /** The one-switch toggle: off suppresses the pending queue and wipes the store; later reports are logged, never queued. */
+  /** The one-switch toggle: off holds the pending queue unsent and logs later reports `suppressed`, never queued; on flushes what was held. */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    if (!enabled) {
-      for (const entry of this.queue) entry.disposition = 'suppressed';
-      this.queue = [];
-      this.persistQueue();
-    }
   }
 
-  /** Rehydrate the pending queue an earlier process life of this session persisted; no-op without a store, silent on errors. */
+  /** Rehydrate the pending queue an earlier process life of this session persisted — held pending while off; no-op without a store, silent on errors. */
   async restoreQueue(): Promise<void> {
     const store = this.deps.queueStore;
     if (!store) return;
@@ -123,14 +126,12 @@ export class ErrorReportClient {
     const restored: ErrorReportLogEntry[] = persisted.map((entry) => ({
       report: entry.report,
       at: entry.at,
-      disposition: this.enabled ? 'pending' : 'suppressed',
+      disposition: 'pending',
     }));
     this.log = [...restored, ...this.log];
     this.capLog();
-    if (this.enabled) {
-      this.queue = [...restored, ...this.queue];
-      this.capQueue();
-    }
+    this.queue = [...restored, ...this.queue];
+    this.capQueue();
     this.persistQueue();
   }
 

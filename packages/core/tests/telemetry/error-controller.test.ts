@@ -214,16 +214,20 @@ describe('ErrorReportController — the enabled gate', () => {
     expect((await controller.snapshot()).enabled).toBe(false);
   });
 
-  it('follows the setting both ways: off suppresses the pending queue, on admits again', async () => {
+  it('follows the setting both ways: off holds the pending queue unsent, on delivers it and admits again', async () => {
     const { controller, sent, setEnabled } = makeRig();
     await controller.report(makeReport());
     setEnabled(false);
     await controller.flush();
     expect(sent).toEqual([]);
-    expect((await controller.snapshot()).entries[0].disposition).toBe('suppressed');
+    expect((await controller.snapshot()).entries[0].disposition).toBe('pending');
+    // A repeat while off is not recorded — not even folded into the held report.
+    expect(await controller.report(makeReport())).toBe('suppressed');
     setEnabled(true);
-    expect(await controller.report(makeReport())).toBe('pending');
     await controller.flush();
     expect(sent).toHaveLength(1);
+    expect(sent[0].reports[0].count).toBe(1);
+    expect((await controller.snapshot()).entries.map((e) => e.disposition)).toEqual(['sent', 'suppressed']);
+    expect(await controller.report(makeReport({ fingerprint: fingerprint(1) }))).toBe('pending');
   });
 });

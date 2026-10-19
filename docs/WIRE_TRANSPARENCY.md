@@ -544,7 +544,15 @@ every string field carries its pin.
   switch can be off alone; `OH_TELEMETRY=0` silences both on the
   command-line tool, and the `errorReports` config key silences this
   one. Hard-off on the daemon, the served web app and the MCP server:
-  they contain containment and nothing to report with.
+  they contain containment and nothing to report with. Off stops
+  recording and sending, nothing more: a report queued before the
+  switch went off was recorded with consent and never left the device,
+  so it is held — still `pending` in the inspector, delivered only if
+  the switch comes back on in the same session, gone with the session
+  otherwise. This is the runtime crash reporters' convention (upload
+  paused, nothing purged); usage counting's switch discards its unsent
+  queue, because a usage log is discarded on opt-out and a crash
+  report is paused.
 - **No minidumps, no logs, no breadcrumbs**: the runtime's crash
   reporter (process-memory snapshots) is never started — for an
   interception tool that holds header values in memory, a memory
