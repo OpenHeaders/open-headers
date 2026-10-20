@@ -25,8 +25,8 @@ export const shared = {
   // (a tab or tool window that threw while the rest keeps working).
   'shared.errorBoundary.rootSubtitle':
     'Open Headers hit an error it could not recover from. Reload to continue — your data is safe.',
-  'shared.errorBoundary.copyDetails': 'Copy details',
-  'shared.errorBoundary.openLogs': 'Open logs folder',
+  'shared.errorBoundary.reportIssue': 'Report Issue',
+  'shared.errorBoundary.communityChat': 'Chat with Us on Discord',
   'shared.errorBoundary.retry': 'Retry',
   'shared.errorBoundary.unit.tabTitle': 'This tab hit an error',
   'shared.errorBoundary.unit.windowTitle': 'This tool window hit an error',

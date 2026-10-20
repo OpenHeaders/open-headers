@@ -69,11 +69,8 @@ registerCapability('backendProbe', createBridgedBackendProbe());
 // back to the default browser when the named one isn't installed.
 registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser(url, browser));
 
-// The root error fallback's "Open logs folder": the error funnel's
-// lines land in `main.log` through electron-log, and main reveals the
-// file in the OS file manager.
-registerCapability('revealLogs', () => window.oh.logs.reveal());
-// The diagnostic bundle's `logs/` folder: main hands over `main.log` and
+// The diagnostic bundle's `logs/` folder: the error funnel's lines land
+// in `main.log` through electron-log, and main hands over that file and
 // its rotated predecessor as text; the bundle is composed and saved here.
 registerCapability('readLogFiles', () => window.oh.logs.read());
 

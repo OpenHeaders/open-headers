@@ -14,6 +14,7 @@
  * `update-menus` and rebuilds on every updater transition.
  */
 
+import { COMMUNITY_CHAT_URL } from '@openheaders/core/diagnostics';
 import type { Translator } from '@openheaders/i18n';
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, nativeImage, shell } from 'electron';
 import { isHardwareAccelerationDisabled, toggleHardwareAcceleration } from './hardware-acceleration';
@@ -28,9 +29,6 @@ const DOCS_URL = 'https://docs.openheaders.com';
 const RELEASE_NOTES_URL = 'https://openheaders.com/changelog?app=desktop';
 const EULA_URL = 'https://openheaders.com/eula';
 const PRIVACY_URL = 'https://openheaders.com/privacy';
-// A conversation goes to the community chat server (a permanent invite
-// — a link shipped in a binary must outlive the build).
-const COMMUNITY_CHAT_URL = 'https://discord.gg/DXXne8SCXv';
 
 export function openSettingsSurface(categoryId?: string): void {
   // The tray-resident window is hidden, not destroyed, so the renderer

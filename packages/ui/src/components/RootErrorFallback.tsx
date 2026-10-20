@@ -7,49 +7,42 @@
  * theme — the same variant, the same tokens — without the provider
  * tree; `useT` falls back to the locale context's English default.
  *
- * Three ways on: reload the document, copy the details a bug report
- * needs, and — where the host registers `revealLogs` (desktop) — open
- * the log folder the funnel wrote to. No external link (the
- * no-external-redirects law).
+ * Three ways on: reload the document, report the issue, chat with us.
+ * Report Issue opens the workbench's own report dialog, mounted here a
+ * second time under this page's provider — the dialog leans on module
+ * stores and the bridge, nothing from the tree that died — seeded with
+ * the error as the title and the funnel's details as the description;
+ * the dialog's Preview takes the person to GitHub to review and post.
+ * The chat link is the sanctioned exception to the no-external-
+ * redirects law (the user's word, 2026-10-20): a crashed window has no
+ * in-app surface left.
  */
 
-import { CheckOutlined } from '@ant-design/icons';
-import { getCapability, hasCapability } from '@openheaders/core/capabilities';
+import { BugOutlined, CloseCircleFilled, MessageOutlined } from '@ant-design/icons';
+import { COMMUNITY_CHAT_URL } from '@openheaders/core/diagnostics';
 import { Button, ConfigProvider, Result, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useT } from '../context/LocaleContext';
 import { formatErrorDetails } from '../shared/error-funnel';
+import { openExternalLink } from '../shared/open-external';
+import ReportIssueDialog from '../workbench/support/ReportIssueDialog';
+import { openReportIssueDialog } from '../workbench/support/store';
 import { resolveRootFallbackTheme } from './root-fallback-theme';
 
 interface RootErrorFallbackProps {
   error: Error;
 }
 
-/** How long Copy details reads as copied before it offers again. */
-export const COPIED_FEEDBACK_MS = 1500;
-
 const RootErrorPage: React.FC<RootErrorFallbackProps> = ({ error }) => {
   const t = useT();
   const { token } = theme.useToken();
-  const [copied, setCopied] = useState(false);
-  const canRevealLogs = hasCapability('revealLogs');
+  const headline = `${error.name}: ${error.message}`;
 
-  useEffect(() => {
-    if (!copied) return;
-    const handle = setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
-    return () => clearTimeout(handle);
-  }, [copied]);
-
-  const copyDetails = useCallback(async () => {
-    const text = formatErrorDetails({ surface: 'workbench', origin: 'render', error, componentStack: null });
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  }, [error]);
+  const report = (): void => {
+    const details = formatErrorDetails({ surface: 'workbench', origin: 'render', error, componentStack: null });
+    openReportIssueDialog('bug', { title: headline, description: details });
+  };
 
   return (
     <div
@@ -68,31 +61,25 @@ const RootErrorPage: React.FC<RootErrorFallbackProps> = ({ error }) => {
     >
       <Result
         status="error"
+        icon={<CloseCircleFilled style={{ fontSize: 40 }} />}
         title={t('shared.errorBoundary.title')}
         subTitle={t('shared.errorBoundary.rootSubtitle')}
         extra={[
           <Button key="reload" type="primary" onClick={() => window.location.reload()}>
             {t('shared.errorBoundary.reload')}
           </Button>,
-          <Button
-            key="copy"
-            icon={copied ? <CheckOutlined style={{ color: token.colorSuccess }} /> : undefined}
-            onClick={() => void copyDetails()}
-          >
-            {copied ? t('shared.toast.copiedToClipboard') : t('shared.errorBoundary.copyDetails')}
+          <Button key="report" icon={<BugOutlined />} onClick={report}>
+            {t('shared.errorBoundary.reportIssue')}
           </Button>,
-          ...(canRevealLogs
-            ? [
-                <Button key="logs" onClick={() => void getCapability('revealLogs')?.()}>
-                  {t('shared.errorBoundary.openLogs')}
-                </Button>,
-              ]
-            : []),
+          <Button key="chat" icon={<MessageOutlined />} onClick={() => openExternalLink(COMMUNITY_CHAT_URL)}>
+            {t('shared.errorBoundary.communityChat')}
+          </Button>,
         ]}
       />
       <Typography.Text type="secondary" code>
-        {`${error.name}: ${error.message}`}
+        {headline}
       </Typography.Text>
+      <ReportIssueDialog />
     </div>
   );
 };

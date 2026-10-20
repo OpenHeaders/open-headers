@@ -16,8 +16,7 @@
  * lines for the person to fill on GitHub.
  */
 
-import { hostBridge } from '@openheaders/core/bridge';
-import { getCapability } from '@openheaders/core/capabilities';
+import { getHostBridge } from '@openheaders/core/bridge';
 import {
   type DiagnosticsFacts,
   type IssueDraft,
@@ -30,6 +29,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { getCurrentHost } from '../../shared/host-vocabulary';
+import { openExternalLink } from '../../shared/open-external';
 import { saveDiagnosticsBundle } from '../settings/diagnostics-bundle';
 import { closeReportIssueDialog, useReportIssueDialog } from './store';
 
@@ -41,7 +41,7 @@ const LINK_STYLE: React.CSSProperties = { padding: 0, height: 'auto', fontSize: 
 const ReportIssueDialog: React.FC = () => {
   const t = useT();
   const { token } = theme.useToken();
-  const { open, kind: openedKind } = useReportIssueDialog();
+  const { open, kind: openedKind, seed } = useReportIssueDialog();
   const [kind, setKind] = useState<IssueKind>(openedKind);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -49,30 +49,32 @@ const ReportIssueDialog: React.FC = () => {
   const [includeFacts, setIncludeFacts] = useState(true);
   const [showFacts, setShowFacts] = useState(false);
 
-  // Each opening starts a fresh draft on the kind the entry chose and
-  // re-reads the facts — the window count or the GPU table may have
-  // changed since the last report.
+  // Each opening starts a fresh draft on the kind the entry chose (and
+  // the seed it brought) and re-reads the facts — the window count or
+  // the GPU table may have changed since the last report. No bridge at
+  // all, or a host without the RPC (a served web tab): the form leaves
+  // the version and platform to the person.
   useEffect(() => {
     if (!open) return;
     setKind(openedKind);
-    setTitle('');
-    setDescription('');
+    setTitle(seed?.title ?? '');
+    setDescription(seed?.description ?? '');
     setIncludeFacts(true);
     setShowFacts(false);
     setFacts(null);
+    const bridge = getHostBridge();
+    if (!bridge) return;
     let cancelled = false;
-    hostBridge
+    bridge
       .call('diagnosticsFacts')
       .then((answer) => {
         if (!cancelled) setFacts(answer.facts);
       })
-      .catch(() => {
-        // A host without the RPC — the form leaves the version and platform to the person.
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [open, openedKind]);
+  }, [open, openedKind, seed]);
 
   const host = getCurrentHost();
   const draft = useMemo<IssueDraft>(() => ({ kind, title, description }), [kind, title, description]);
@@ -83,9 +85,7 @@ const ReportIssueDialog: React.FC = () => {
   const rows = useMemo(() => (facts ? systemInformationRows(facts) : []), [facts]);
 
   const preview = (): void => {
-    const openUrl = getCapability('openExternalUrl');
-    if (openUrl) void openUrl(link.url);
-    else window.open(link.url, '_blank', 'noopener');
+    openExternalLink(link.url);
     closeReportIssueDialog();
   };
 

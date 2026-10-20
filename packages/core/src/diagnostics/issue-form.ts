@@ -22,8 +22,7 @@
  */
 
 import type { DesktopDiagnosticsFacts, DiagnosticsFacts, ExtensionDiagnosticsFacts } from './facts';
-
-export const ISSUE_NEW_URL = 'https://github.com/OpenHeaders/open-headers/issues/new';
+import { ISSUE_NEW_URL } from './support-links';
 
 /** Whole-URL budget in bytes — under the measured cap with room for GitHub's own sign-in redirect. */
 export const ISSUE_URL_BUDGET = 6144;

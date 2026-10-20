@@ -83,7 +83,6 @@ declare global {
       openExternal(url: string): Promise<{ ok: boolean; error?: string }>;
       openInBrowser(url: string, browser: 'chrome' | 'edge' | 'firefox'): Promise<{ ok: boolean; error?: string }>;
       logs: {
-        reveal(): Promise<void>;
         read(): Promise<Array<{ name: string; text: string }>>;
       };
       appMenu: {

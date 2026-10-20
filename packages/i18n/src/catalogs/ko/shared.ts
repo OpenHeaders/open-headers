@@ -57,8 +57,8 @@ export const shared = {
   'shared.errorBoundary.reload': '다시 불러오기',
   'shared.errorBoundary.rootSubtitle':
     'Open Headers 앱에서 복구할 수 없는 오류가 발생했습니다. 계속하려면 다시 불러오세요. 데이터는 안전합니다.',
-  'shared.errorBoundary.copyDetails': '세부 정보 복사',
-  'shared.errorBoundary.openLogs': '로그 폴더 열기',
+  'shared.errorBoundary.reportIssue': '문제 신고',
+  'shared.errorBoundary.communityChat': 'Discord에서 대화하기',
   'shared.errorBoundary.retry': '다시 시도',
   'shared.errorBoundary.unit.tabTitle': '이 탭에서 오류가 발생했습니다',
   'shared.errorBoundary.unit.windowTitle': '이 도구 창에서 오류가 발생했습니다',

@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { ipcMain, shell } from 'electron';
+import { shell } from 'electron';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { installLogRevealHandler, revealLogFile } from '@/main/bootstrap/log-reveal';
+import { revealLogFile } from '@/main/bootstrap/log-reveal';
 
 const LOG_DIR = join('/tmp', 'oh-logs-test');
 
@@ -16,17 +16,5 @@ describe('log-reveal', () => {
     const reveal = vi.spyOn(shell, 'showItemInFolder');
     revealLogFile();
     expect(reveal).toHaveBeenCalledWith(join(LOG_DIR, 'main.log'));
-  });
-
-  it('answers the renderer channel with the same reveal', () => {
-    let handler: (() => void) | null = null;
-    vi.spyOn(ipcMain, 'handle').mockImplementation(((channel: string, fn: () => void) => {
-      if (channel === 'oh:logs:reveal') handler = fn;
-    }) as typeof ipcMain.handle);
-    const reveal = vi.spyOn(shell, 'showItemInFolder');
-    installLogRevealHandler();
-    expect(handler).not.toBeNull();
-    (handler as unknown as () => void)();
-    expect(reveal).toHaveBeenCalledOnce();
   });
 });

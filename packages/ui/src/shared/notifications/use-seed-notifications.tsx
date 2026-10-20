@@ -18,16 +18,15 @@
  */
 
 import { BugOutlined, LikeOutlined, MessageOutlined } from '@ant-design/icons';
-import { getCapability } from '@openheaders/core/capabilities';
-import type { IssueKind } from '@openheaders/core/diagnostics';
+import { COMMUNITY_CHAT_URL, type IssueKind } from '@openheaders/core/diagnostics';
 import { useEffect } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { openReportIssueDialog } from '@openheaders/ui/workbench/support/store';
+import { openExternalLink } from '../open-external';
 import { dismissByKey, pushNotification } from './store';
 
 const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers';
-const COMMUNITY_CHAT_URL = 'https://discord.gg/DXXne8SCXv';
 
 const ICON_STYLE = { fontSize: 13, color: 'var(--ant-color-text-secondary)' };
 
@@ -45,12 +44,6 @@ function rememberDone(flag: string): void {
   } catch {
     // Storage unavailable — the nudge reappears next session.
   }
-}
-
-function openExternal(url: string): void {
-  const openUrl = getCapability('openExternalUrl');
-  if (openUrl) void openUrl(url);
-  else window.open(url, '_blank', 'noopener');
 }
 
 // Locale the current cards were pushed under. Guards the retire-and-
@@ -95,7 +88,7 @@ export function useSeedNotifications(): void {
             label: t('shared.notifications.seed.community.action'),
             tooltip: t('shared.notifications.seed.community.tooltip'),
             run: () => {
-              openExternal(COMMUNITY_CHAT_URL);
+              openExternalLink(COMMUNITY_CHAT_URL);
               rememberDone('oh.communityChatVisited');
               dismissByKey('community-chat');
             },
@@ -153,7 +146,7 @@ export function useSeedNotifications(): void {
             label: t('shared.notifications.seed.star.action'),
             tooltip: t('shared.notifications.seed.star.tooltip'),
             run: () => {
-              openExternal(GITHUB_URL);
+              openExternalLink(GITHUB_URL);
               rememberDone('oh.helpUsGrowStarred');
               dismissByKey('help-us-grow');
             },

@@ -2,20 +2,29 @@
 /**
  * The containment rings: a unit boundary (tab / tool window) shows its
  * fallback in place and remounts on Retry; a root boundary with no
- * fallback prop shows the full-page fallback with Reload and Copy
- * details. Logging is the root's job (the funnel's `onCaughtError`),
+ * fallback prop shows the full-page fallback with Reload, Report Issue
+ * and the chat link. Logging is the root's job (the funnel's `onCaughtError`),
  * so React's own console report is the only noise to silence here.
  */
 
+import { COMMUNITY_CHAT_URL } from '@openheaders/core/diagnostics';
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
-import { COPIED_FEEDBACK_MS } from '@openheaders/ui/components/RootErrorFallback';
 import UnitErrorFallback from '@openheaders/ui/components/UnitErrorFallback';
 import { funnelError, setErrorFunnelSink } from '@openheaders/ui/shared/error-funnel';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 beforeAll(() => {
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
   window.matchMedia = ((query: string) => ({
     matches: false,
     media: query,
@@ -139,11 +148,9 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Hide window')).toBeTruthy();
   });
 
-  it('a root boundary without a fallback prop shows the full-page fallback', async () => {
+  it('a root boundary without a fallback prop shows the full-page fallback', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     const marker = { shouldThrow: true };
     render(
       <ErrorBoundary>
@@ -153,19 +160,17 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Something went wrong')).toBeTruthy();
     expect(screen.getByText('Reload')).toBeTruthy();
     expect(screen.getByText('TypeError: editor exploded')).toBeTruthy();
-    // No host registered `revealLogs` here — the logs action stays hidden.
-    expect(screen.queryByText('Open logs folder')).toBeNull();
 
-    fireEvent.click(screen.getByText('Copy details'));
-    await screen.findByText('Copied to clipboard');
-    expect(writeText).toHaveBeenCalledOnce();
-    expect(writeText.mock.calls[0][0]).toContain('TypeError: editor exploded');
-    // The copied state is feedback, not a mode: it offers again shortly.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(COPIED_FEEDBACK_MS);
-    });
-    expect(screen.getByText('Copy details')).toBeTruthy();
-    vi.useRealTimers();
+    // Report Issue opens the workbench's report dialog under this page's
+    // own provider, seeded with the error as the title and the funnel's
+    // details as the description — the person edits, then previews.
+    fireEvent.click(screen.getByText('Report Issue'));
+    expect(screen.getByDisplayValue('TypeError: editor exploded')).toBeTruthy();
+    expect(screen.getByDisplayValue(/surface: workbench/)).toBeTruthy();
+    expect(screen.getByText('Preview on GitHub')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Chat with Us on Discord'));
+    expect(open).toHaveBeenCalledWith(COMMUNITY_CHAT_URL, '_blank', 'noopener');
   });
 
   it('a thrown non-Error reads as NonErrorThrown', () => {

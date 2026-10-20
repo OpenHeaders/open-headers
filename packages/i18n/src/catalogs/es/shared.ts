@@ -30,8 +30,8 @@ export const shared = {
   'shared.errorBoundary.reload': 'Recargar',
   'shared.errorBoundary.rootSubtitle':
     'Open Headers encontró un error del que no pudo recuperarse. Recarga para continuar; tus datos están a salvo.',
-  'shared.errorBoundary.copyDetails': 'Copiar detalles',
-  'shared.errorBoundary.openLogs': 'Abrir carpeta de registros',
+  'shared.errorBoundary.reportIssue': 'Informar de un problema',
+  'shared.errorBoundary.communityChat': 'Chatea con nosotros en Discord',
   'shared.errorBoundary.retry': 'Reintentar',
   'shared.errorBoundary.unit.tabTitle': 'Esta pestaña encontró un error',
   'shared.errorBoundary.unit.windowTitle': 'Esta ventana de herramientas encontró un error',

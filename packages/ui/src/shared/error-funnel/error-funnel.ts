@@ -115,8 +115,8 @@ function safeString(value: unknown): string {
 }
 
 /**
- * The text behind a fallback's "Copy details" — what a person pastes
- * into a bug report: where, what, the stack, the component stack.
+ * The text a bug report carries for one failure — the root fallback's
+ * Report Issue body: where, what, the stack, the component stack.
  */
 export function formatErrorDetails(entry: Omit<FunnelledError, 'at'> & { at?: number }, version?: string): string {
   const { name, message, stack } = describeError(entry.error);

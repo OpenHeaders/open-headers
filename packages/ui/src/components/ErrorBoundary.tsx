@@ -5,7 +5,7 @@
  *
  * Two placements, one component:
  *   - at a document root ABOVE the providers (no `fallback` prop): the
- *     full-page `RootErrorFallback` — reload, copy details, open logs;
+ *     full-page `RootErrorFallback` — reload, report the issue, chat;
  *   - around a unit (a tab, a tool window, a dock pane) with a
  *     `fallback` render prop: the unit's own area shows the fallback
  *     and the rest of the surface stays interactive. `reset` remounts

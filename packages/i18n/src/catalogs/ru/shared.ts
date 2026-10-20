@@ -79,8 +79,8 @@ export const shared = {
   'shared.errorBoundary.reload': 'Перезагрузить',
   'shared.errorBoundary.rootSubtitle':
     'Open Headers столкнулся с ошибкой, после которой не смог восстановиться. Перезагрузите, чтобы продолжить — ваши данные в безопасности.',
-  'shared.errorBoundary.copyDetails': 'Копировать подробности',
-  'shared.errorBoundary.openLogs': 'Открыть папку журналов',
+  'shared.errorBoundary.reportIssue': 'Сообщить о проблеме',
+  'shared.errorBoundary.communityChat': 'Чат с нами в Discord',
   'shared.errorBoundary.retry': 'Повторить',
   'shared.errorBoundary.unit.tabTitle': 'В этой вкладке произошла ошибка',
   'shared.errorBoundary.unit.windowTitle': 'В этом окне инструментов произошла ошибка',

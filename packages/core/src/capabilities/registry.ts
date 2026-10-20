@@ -454,19 +454,12 @@ export interface Capabilities {
   openUrlInBrowser?: (url: string, browser: InstallTargetBrowser) => Promise<{ ok: boolean; error?: string }>;
 
   /**
-   * Reveal the host's log file in the OS file manager — the root
-   * error fallback's "Open logs folder" (the crash-and-error-reports
-   * plan §3.2). Registered only by hosts that write a log file the
-   * person can hand over (the desktop renderer, whose funnel lines
-   * land in `main.log`); browser surfaces have no file and no entry.
-   */
-  revealLogs?: () => Promise<void>;
-
-  /**
    * Read the host's log files for the diagnostic bundle (the
    * crash-and-error-reports plan §4.5) — the current file and its
-   * rotated predecessor, text as written. Registered by the same hosts
-   * as `revealLogs`; presence decides whether the bundle carries a
+   * rotated predecessor, text as written. Registered only by hosts that
+   * write a log file the person can hand over (the desktop renderer,
+   * whose funnel lines land in `main.log`); browser surfaces have no
+   * file and no entry. Presence decides whether the bundle carries a
    * `logs/` folder.
    */
   readLogFiles?: () => Promise<DiagnosticsLogFile[]>;

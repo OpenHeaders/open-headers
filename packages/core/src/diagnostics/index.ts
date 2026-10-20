@@ -4,8 +4,9 @@
  * hosts answer, the pure composer that turns gathered parts into zip
  * entries, the dependency-free zip writer, and the Report Issue link
  * builder that prefills the repository's new-issue page from the same
- * facts. Ships nothing; every byte stays where the person saves it, and
- * the link only opens a page the person reviews before posting.
+ * facts, and the two support links the app ships. Ships nothing; every
+ * byte stays where the person saves it, and the link only opens a page
+ * the person reviews before posting.
  */
 
 export {
@@ -32,7 +33,6 @@ export type {
 } from './facts';
 export {
   ISSUE_COMPONENT,
-  ISSUE_NEW_URL,
   ISSUE_TEMPLATE,
   ISSUE_URL_BUDGET,
   type IssueDraft,
@@ -48,4 +48,5 @@ export {
   systemInformationMarkdown,
   systemInformationRows,
 } from './issue-form';
+export { COMMUNITY_CHAT_URL, ISSUE_NEW_URL } from './support-links';
 export { crc32, dosDateTime, writeZip, type ZipEntry } from './zip';

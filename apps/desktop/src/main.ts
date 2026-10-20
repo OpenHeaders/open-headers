@@ -42,7 +42,6 @@ import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-accel
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
 import { initMainLocale } from './main/bootstrap/locale';
 import { installLogFilesHandler } from './main/bootstrap/log-files';
-import { installLogRevealHandler } from './main/bootstrap/log-reveal';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
 import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
@@ -136,7 +135,6 @@ function bootstrapDesktopApp(): void {
   installStartupDataBridge();
   const { signalEngineReady } = installRpcQueue();
   installExternalLinkHandler();
-  installLogRevealHandler();
   installLogFilesHandler();
   installAppMenuPopupHandler();
   installWindowChromeHandler();
