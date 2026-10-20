@@ -48,6 +48,11 @@
       "import": "./src/workbench/components/diff-viewer/index.ts",
       "default": "./dist/workbench/components/diff-viewer/index.js"
     },
+    "./workbench/support": {
+      "types": "./dist/workbench/support/index.d.ts",
+      "import": "./src/workbench/support/index.ts",
+      "default": "./dist/workbench/support/index.js"
+    },
     "./workbench/*": {
       "types": "./dist/workbench/*.d.ts",
       "import": "./src/workbench/*",
