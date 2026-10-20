@@ -22,6 +22,7 @@
  */
 
 import { UiThemeProvider } from './ui-theme';
+import { getCapability } from '@openheaders/core/capabilities';
 import { buildAntTheme, getVariant, type ThemeVariant } from '@openheaders/ui/themes';
 // Concrete modules, not the settings barrel — the barrel reaches
 // SettingsProvider's schema side-effect chain, which loops back into
@@ -30,7 +31,7 @@ import { buildAntTheme, getVariant, type ThemeVariant } from '@openheaders/ui/th
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { set as setSettingValue } from '@openheaders/ui/workbench/settings/store';
 import { resolveAppearanceFontFamily } from '@openheaders/ui/workbench/settings/schema/appearance';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, theme as antdTheme } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
@@ -143,6 +144,18 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     () => buildAntTheme({ variant, isDarkMode, isCompactMode, accentColor, uiScale, fontFamily }),
     [variant, isDarkMode, isCompactMode, accentColor, uiScale, fontFamily],
   );
+
+  // The chrome the host paints outside the document — the Windows /
+  // Linux title-bar overlay — takes the top bar's palette under the
+  // active variant (`colorBgLayout` under `colorText`, what TopBar
+  // paints). The mode is the host's own read of the persisted setting;
+  // hosts without such chrome never register the capability.
+  useEffect(() => {
+    const applyWindowChrome = getCapability('applyWindowChrome');
+    if (!applyWindowChrome) return;
+    const tokens = antdTheme.getDesignToken(antTheme);
+    applyWindowChrome({ background: tokens.colorBgLayout, symbolColor: tokens.colorText });
+  }, [antTheme]);
 
   return (
     <ThemeContext.Provider

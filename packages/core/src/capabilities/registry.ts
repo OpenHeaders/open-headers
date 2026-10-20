@@ -403,6 +403,19 @@ export type RequestRuntimeKind = 'browser' | 'node';
 export type InstallTargetBrowser = 'chrome' | 'edge' | 'firefox';
 
 /**
+ * The top bar's palette under the active theme variant (the
+ * {@link Capabilities.applyWindowChrome} payload) — what a host paints
+ * on the title-bar overlay that sits inside that row. The mode itself
+ * is not here: it is a persisted setting the host reads for itself.
+ */
+export interface WindowChrome {
+  /** The top bar's background — the overlay's fill. */
+  readonly background: string;
+  /** The top bar's text colour — the overlay's glyphs. */
+  readonly symbolColor: string;
+}
+
+/**
  * The universe of capabilities. Optional members (`name?:`) are
  * host-specific; required members are universal contracts every host
  * must implement.
@@ -896,6 +909,16 @@ export interface Capabilities {
    * `requiresCapability` filtering. Presence is the whole signal.
    */
   workspaceGit?: () => boolean;
+
+  /**
+   * Hand the host the top bar's palette under the resolved theme (see
+   * {@link WindowChrome}) for the chrome it paints outside the document
+   * — the desktop renderer's Windows / Linux title-bar overlay. Browser
+   * surfaces paint nothing outside their document and leave it absent.
+   * The theme provider calls it on every change; the host keeps the
+   * last report for windows it opens later.
+   */
+  applyWindowChrome?: (chrome: WindowChrome) => void;
 }
 
 export type CapabilityName = keyof Capabilities;

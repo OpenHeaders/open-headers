@@ -18,6 +18,7 @@ import { type BroadcastEnvelope, rpc } from './preload/rpc';
 import { type StartupData, startupData } from './preload/startup-data';
 import { type StorageChangeEnvelope, storage } from './preload/storage';
 import { terminal } from './preload/terminal';
+import { windowChrome } from './preload/window-chrome';
 
 const api = {
   /**
@@ -39,6 +40,7 @@ const api = {
   appMenu,
   protocol,
   terminal,
+  windowChrome,
 };
 
 contextBridge.exposeInMainWorld('oh', api);

@@ -22,6 +22,7 @@
  * and the dev workflow.
  */
 
+import { DEFAULT_CHROME } from '@openheaders/core/chrome';
 import { getTranslator, resolveLocale } from '@openheaders/i18n';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 
@@ -51,7 +52,7 @@ function renderInvalidatedNotice(): void {
     'gap:8px',
     'padding:24px',
     'text-align:center',
-    `background:${dark ? '#1f1f1f' : '#ffffff'}`,
+    `background:${DEFAULT_CHROME[dark ? 'dark' : 'light'].frame}`,
     `color:${dark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.88)'}`,
     'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
   ].join(';');

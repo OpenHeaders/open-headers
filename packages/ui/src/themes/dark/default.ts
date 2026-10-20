@@ -1,3 +1,4 @@
+import { DEFAULT_CHROME } from '@openheaders/core/chrome';
 import type { ThemeVariant } from '../types';
 import { DARK_SHADOW_TOKENS } from './shadows';
 
@@ -16,7 +17,7 @@ export const darkDefault: ThemeVariant = {
     // Pinned so the layout/container relationship doesn't drift if
     // antd changes its dark algorithm. The frame gutter sits well above
     // the #141414 cards so pane boundaries read at a glance.
-    colorBgLayout: '#262626',
+    colorBgLayout: DEFAULT_CHROME.dark.topBar,
     // antd's dark borders (#424242 / #303030) sink into the near-black
     // cards; lifted so hairlines and dividers stay visible.
     colorBorder: '#4d4d4d',

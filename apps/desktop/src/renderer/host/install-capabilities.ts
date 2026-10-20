@@ -85,6 +85,13 @@ if (window.oh.platform !== 'darwin') {
   registerCapability('openAppMenu', (anchor) => window.oh.appMenu.popup(anchor));
 }
 
+// The Windows / Linux title-bar overlay takes the top bar's palette
+// under the active variant; main reads the mode itself from the
+// settings blob (the native menus, dialogs and frame follow it there).
+// Registered on every platform — a report on macOS is simply kept for
+// the overlay-less windows and costs one IPC per theme change.
+registerCapability('applyWindowChrome', (palette) => void window.oh.windowChrome.apply(palette));
+
 // In-app updater (the updates plan): report a seen-but-not-installed
 // update so the gear menu shows its dot. No `url` — the gear routes to
 // the Settings update row, where download/restart run in-app.

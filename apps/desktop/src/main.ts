@@ -52,6 +52,7 @@ import { installSessionSentinel } from './main/bootstrap/session-sentinel';
 import { enforceSingleInstanceLock } from './main/bootstrap/single-instance';
 import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
 import { installTray } from './main/bootstrap/tray';
+import { installWindowChromeHandler } from './main/bootstrap/window-chrome';
 import { createMainWindow, showMainWindow } from './main/bootstrap/window-manager';
 import { installRpcHost } from './main/install-rpc-host';
 import { installTerminalHost } from './main/install-terminal-host';
@@ -138,6 +139,7 @@ function bootstrapDesktopApp(): void {
   installLogRevealHandler();
   installLogFilesHandler();
   installAppMenuPopupHandler();
+  installWindowChromeHandler();
   installProtocolHandler();
 
   void app.whenReady().then(() => {

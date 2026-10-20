@@ -148,6 +148,10 @@
       "import": "./src/capabilities/index.ts",
       "default": "./dist/capabilities/index.js"
     },
+    "./chrome": {
+      "import": "./src/chrome/index.ts",
+      "default": "./dist/chrome/index.js"
+    },
     "./diagnostics": {
       "import": "./src/diagnostics/index.ts",
       "default": "./dist/diagnostics/index.js"

@@ -36,6 +36,7 @@ export const dialog = {
 };
 export const desktopCapturer = { getSources: () => Promise.resolve([]) };
 export const screen = { getAllDisplays: () => [] };
+export const nativeTheme = { shouldUseDarkColors: false, themeSource: 'system' as 'system' | 'light' | 'dark' };
 
 /** One mutable partition singleton: tests reach it via
  *  `session.fromPartition(...)` and steer `resolveProxyAnswer` /
@@ -71,5 +72,6 @@ export default {
   dialog,
   desktopCapturer,
   screen,
+  nativeTheme,
   session,
 };

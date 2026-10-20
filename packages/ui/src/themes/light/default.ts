@@ -1,3 +1,4 @@
+import { DEFAULT_CHROME } from '@openheaders/core/chrome';
 import type { ThemeVariant } from '../types';
 
 export const lightDefault: ThemeVariant = {
@@ -13,7 +14,7 @@ export const lightDefault: ThemeVariant = {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     // Darker than antd's default so the gutter between the dock and
     // the editor "cards" reads at a glance against white content.
-    colorBgLayout: '#e8e8e8',
+    colorBgLayout: DEFAULT_CHROME.light.topBar,
     // antd's light borders (#d9d9d9 / #f0f0f0) wash out on the white
     // cards; darkened so hairlines and dividers stay visible.
     colorBorder: '#c9c9c9',

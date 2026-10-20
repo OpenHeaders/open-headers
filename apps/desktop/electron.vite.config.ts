@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { DEFAULT_CHROME } from '@openheaders/core/chrome';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import copy from 'rollup-plugin-copy';
 import type { Plugin } from 'vite';
@@ -95,6 +96,35 @@ function stripTestIdPropsPlugin(): Plugin {
     },
   };
 }
+/**
+ * The boot shell's colours in `index.html` come from the chrome palette
+ * (`@openheaders/core/chrome`) — the table the frame colour, the
+ * title-bar overlay and the default theme variants read — so the HTML
+ * carries no copy of its own. `%OH_CHROME_<MODE>_<FIELD>%` tokens are
+ * stamped before Vite's own env pass; an unknown token fails the build.
+ */
+function bootShellPalettePlugin(): Plugin {
+  const tokens: Record<string, string> = {
+    OH_CHROME_LIGHT_FRAME: DEFAULT_CHROME.light.frame,
+    OH_CHROME_LIGHT_TEXT: DEFAULT_CHROME.light.text,
+    OH_CHROME_DARK_FRAME: DEFAULT_CHROME.dark.frame,
+    OH_CHROME_DARK_TEXT: DEFAULT_CHROME.dark.text,
+  };
+  return {
+    name: 'boot-shell-palette',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return html.replace(/%(OH_CHROME_[A-Z_]+)%/g, (_match, name: string) => {
+          const value = tokens[name];
+          if (value === undefined) throw new Error(`index.html: unknown chrome token %%`);
+          return value;
+        });
+      },
+    },
+  };
+}
+
 /**
  * Bundles the running version's canonical changelog entry
  * (`changelog/desktop/<year>/<version>.md`, the changelog plan §4.3) as
@@ -317,6 +347,7 @@ export default defineConfig({
       sourcemap: process.env.NODE_ENV !== 'production',
     },
     plugins: [
+      bootShellPalettePlugin(),
       whatsNewEntryPlugin(),
       ...(isReleaseChannel ? [stripTestIdPropsPlugin()] : []),
       copy({

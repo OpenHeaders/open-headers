@@ -98,6 +98,7 @@ import { createEngineHostLogger } from './bootstrap/logger';
 import { relaunchApp } from './bootstrap/relaunch';
 import { broadcastToAllRenderers } from './bootstrap/renderer-broadcast';
 import { installUpdateMenuActions, updateMenusOnState } from './bootstrap/update-menus';
+import { installWindowChromeSubscription } from './bootstrap/window-chrome';
 import { createCompanionRevealPeerRpc } from './companion-reveal-plane';
 import { buildDesktopDiagnosticsFacts, desktopDiagnosticsDeps } from './diagnostics-facts';
 import { createElectronUpdaterPort, updateCapability } from './electron-updater-port';
@@ -297,6 +298,10 @@ export async function installRpcHost(): Promise<void> {
   // settings blob — bound here because the menus install before this
   // storage backend exists.
   installLocaleSubscription(hostStorage);
+  // The theme mode too: the native theme source, the frame colour and
+  // the title-bar overlay follow `appearance.theme` from here, before
+  // the renderer mounts; the renderer adds the variant's palette later.
+  installWindowChromeSubscription(hostStorage);
 
   let serveWebApp = readServeWebApp((await hostStorage.get(OH.settingsUser)) ?? undefined);
   let updatePreferences = readUpdatePreferences((await hostStorage.get(OH.settingsUser)) ?? undefined);

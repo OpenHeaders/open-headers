@@ -5,13 +5,14 @@
  */
 
 import { join } from 'node:path';
-import { app, BrowserWindow, nativeTheme, screen } from 'electron';
+import { app, BrowserWindow, screen } from 'electron';
 import { shouldLaunchHidden } from './launch-flags';
 import { isQuitting } from './lifecycle';
 import { createLogger } from './logger';
 import { markRendererReadyAndDrain, resetRendererReady } from './protocol';
 import { sendToRendererWindow } from './renderer-broadcast';
 import { attachWindowSecurity } from './security';
+import { frameBackgroundColor, titleBarOverlayOptions } from './window-chrome';
 import { attachWindowStateTracking, loadWindowState } from './window-state';
 import { attachWindowSupervisor } from './window-supervisor';
 import { forceForegroundWindow } from './windows-foreground';
@@ -24,16 +25,6 @@ const MIN_WIDTH = 880;
 const MIN_HEIGHT = 600;
 
 const logger = createLogger('startup');
-
-/**
- * The frame paints this before the renderer's first frame lands, so it
- * must match the boot shell's palette in `index.html` (same
- * `nativeTheme` signal the startup-data bridge serves) — a mismatch
- * reads as a background flash the moment the shell paints.
- */
-function frameBackgroundColor(): string {
-  return nativeTheme.shouldUseDarkColors ? '#1f1f1f' : '#ffffff';
-}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -53,11 +44,7 @@ export function createMainWindow(): BrowserWindow {
         }
       : {
           titleBarStyle: 'hidden' as const,
-          titleBarOverlay: {
-            color: '#ffffff',
-            symbolColor: '#1d1d1f',
-            height: 40,
-          },
+          titleBarOverlay: titleBarOverlayOptions(),
         };
 
   // Restore the previous window placement when valid; otherwise default
@@ -193,11 +180,7 @@ export function createChildWindow(): BrowserWindow {
         }
       : {
           titleBarStyle: 'hidden' as const,
-          titleBarOverlay: {
-            color: '#ffffff',
-            symbolColor: '#1d1d1f',
-            height: 40,
-          },
+          titleBarOverlay: titleBarOverlayOptions(),
         };
 
   const { width: workW, height: workH } = screen.getPrimaryDisplay().workAreaSize;

@@ -89,6 +89,9 @@ declare global {
       appMenu: {
         popup(anchor: { x: number; y: number }): Promise<void>;
       };
+      windowChrome: {
+        apply(palette: { background: string; symbolColor: string }): Promise<void>;
+      };
       protocol: {
         onUrl(handler: (url: string) => void): () => void;
       };
