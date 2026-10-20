@@ -33,15 +33,21 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': "Autoriser cette notification à s'afficher de nouveau",
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Découvrez Open Headers',
-  'shared.notifications.seed.website.description':
-    'Découvrez toutes nos fonctionnalités de manière interactive, ainsi que les dernières nouveautés.',
-  'shared.notifications.seed.website.action': 'Visiter notre site web',
-  'shared.notifications.seed.website.tooltip': 'Ouvrir le site web et effacer la notification',
+  'shared.notifications.seed.community.title': 'Chat communautaire',
+  'shared.notifications.seed.community.description':
+    'Posez vos questions, partagez des astuces et rencontrez d’autres utilisateurs.',
+  'shared.notifications.seed.community.action': 'Visiter notre Discord',
+  'shared.notifications.seed.community.tooltip': 'Ouvrir Discord et effacer la notification',
   'shared.notifications.seed.star.title': 'Aidez-nous à grandir',
   'shared.notifications.seed.star.description': 'Recommandez-nous à vos amis et collègues',
   'shared.notifications.seed.star.action': 'Donnez-nous une étoile sur GitHub',
   'shared.notifications.seed.star.tooltip': 'Ouvrir GitHub et effacer la notification',
+  'shared.notifications.seed.report.title': 'Rapport de bug ou demande de fonctionnalité',
+  'shared.notifications.seed.report.description': 'Un problème ou une idée ? Dites-le-nous, nous nous en occupons.',
+  'shared.notifications.seed.report.action.bug': 'Signaler un problème',
+  'shared.notifications.seed.report.action.feature': 'Demande de fonctionnalité',
+  'shared.notifications.seed.report.tooltip.bug': 'Signaler un bug et effacer la notification',
+  'shared.notifications.seed.report.tooltip.feature': 'Demander une fonctionnalité et effacer la notification',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'Une expérience utilisateur unifiée',

@@ -1,7 +1,8 @@
 /**
  * ReportIssueDialog — the Report Issue / Feature Request surface
- * behind the desktop Help menu and Settings › About (the error reports
- * plan §8.7). Two inputs whatever the kind — a title and one
+ * behind the desktop Help menu, Settings › About and the notifications
+ * timeline's seed card, on every surface that seeds it (the error
+ * reports plan §8.7). Two inputs whatever the kind — a title and one
  * description, the VS Code reporter's shape. The person sees the
  * system facts a bug report will carry (every row, behind "show"), and
  * "Preview on GitHub" opens the repository's new-issue page with the

@@ -33,14 +33,20 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': '允许此通知再次显示',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': '探索 Open Headers',
-  'shared.notifications.seed.website.description': '交互式了解我们的全部功能，以及最新更新。',
-  'shared.notifications.seed.website.action': '访问我们的网站',
-  'shared.notifications.seed.website.tooltip': '打开网站并清除通知',
+  'shared.notifications.seed.community.title': '社区聊天',
+  'shared.notifications.seed.community.description': '提问、分享技巧，结识其他用户。',
+  'shared.notifications.seed.community.action': '访问我们的 Discord',
+  'shared.notifications.seed.community.tooltip': '打开 Discord 并清除通知',
   'shared.notifications.seed.star.title': '帮助我们成长',
   'shared.notifications.seed.star.description': '把我们推荐给你的朋友和同事',
   'shared.notifications.seed.star.action': '在 GitHub 上给我们一颗星',
   'shared.notifications.seed.star.tooltip': '打开 GitHub 并清除通知',
+  'shared.notifications.seed.report.title': '错误报告或功能请求',
+  'shared.notifications.seed.report.description': '发现问题或有想法？告诉我们，我们会跟进。',
+  'shared.notifications.seed.report.action.bug': '报告问题',
+  'shared.notifications.seed.report.action.feature': '功能请求',
+  'shared.notifications.seed.report.tooltip.bug': '报告错误并清除通知',
+  'shared.notifications.seed.report.tooltip.feature': '请求功能并清除通知',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': '统一的一体化用户体验',

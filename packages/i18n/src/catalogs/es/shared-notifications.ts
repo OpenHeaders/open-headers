@@ -35,15 +35,21 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': 'Permitir que esta notificación se muestre de nuevo',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Descubre Open Headers',
-  'shared.notifications.seed.website.description':
-    'Explora todas nuestras funciones de forma interactiva, además de las últimas novedades.',
-  'shared.notifications.seed.website.action': 'Visita nuestro sitio web',
-  'shared.notifications.seed.website.tooltip': 'Abrir el sitio web y borrar la notificación',
+  'shared.notifications.seed.community.title': 'Chat de la comunidad',
+  'shared.notifications.seed.community.description': 'Haz preguntas, comparte consejos y conoce a otros usuarios.',
+  'shared.notifications.seed.community.action': 'Visita nuestro Discord',
+  'shared.notifications.seed.community.tooltip': 'Abrir Discord y borrar la notificación',
   'shared.notifications.seed.star.title': 'Ayúdanos a crecer',
   'shared.notifications.seed.star.description': 'Recomiéndanos a tus amigos y colegas',
   'shared.notifications.seed.star.action': 'Danos una estrella en GitHub',
   'shared.notifications.seed.star.tooltip': 'Abrir GitHub y borrar la notificación',
+  'shared.notifications.seed.report.title': 'Informe de error o solicitud de función',
+  'shared.notifications.seed.report.description':
+    '¿Has encontrado un problema o tienes una idea? Cuéntanoslo y lo revisaremos.',
+  'shared.notifications.seed.report.action.bug': 'Informar de un problema',
+  'shared.notifications.seed.report.action.feature': 'Solicitud de función',
+  'shared.notifications.seed.report.tooltip.bug': 'Informar de un error y borrar la notificación',
+  'shared.notifications.seed.report.tooltip.feature': 'Solicitar una función y borrar la notificación',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'Una experiencia de usuario unificada',

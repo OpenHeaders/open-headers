@@ -34,15 +34,21 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': 'Diese Benachrichtigung wieder zulassen',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Entdecke Open Headers',
-  'shared.notifications.seed.website.description':
-    'Erkunde alle unsere Funktionen interaktiv, dazu die neuesten Updates.',
-  'shared.notifications.seed.website.action': 'Besuche unsere Website',
-  'shared.notifications.seed.website.tooltip': 'Website öffnen und Benachrichtigung löschen',
+  'shared.notifications.seed.community.title': 'Community-Chat',
+  'shared.notifications.seed.community.description': 'Stell Fragen, teile Tipps und lerne andere Nutzer kennen.',
+  'shared.notifications.seed.community.action': 'Besuche unseren Discord',
+  'shared.notifications.seed.community.tooltip': 'Discord öffnen und Benachrichtigung löschen',
   'shared.notifications.seed.star.title': 'Hilf uns zu wachsen',
   'shared.notifications.seed.star.description': 'Empfiehl uns deinen Freunden und Kollegen',
   'shared.notifications.seed.star.action': 'Gib uns einen Stern auf GitHub',
   'shared.notifications.seed.star.tooltip': 'GitHub öffnen und Benachrichtigung löschen',
+  'shared.notifications.seed.report.title': 'Fehlerbericht oder Funktionswunsch',
+  'shared.notifications.seed.report.description':
+    'Ein Problem gefunden oder eine Idee? Sag es uns, wir kümmern uns darum.',
+  'shared.notifications.seed.report.action.bug': 'Problem melden',
+  'shared.notifications.seed.report.action.feature': 'Funktionswunsch',
+  'shared.notifications.seed.report.tooltip.bug': 'Problem melden und Benachrichtigung löschen',
+  'shared.notifications.seed.report.tooltip.feature': 'Funktion vorschlagen und Benachrichtigung löschen',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'Ein einheitliches Nutzererlebnis',

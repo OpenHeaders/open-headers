@@ -28,6 +28,7 @@ import {
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import WhatsNewModal from '@openheaders/ui/workbench/components/whats-new/WhatsNewModal';
+import { ReportIssueDialog } from '@openheaders/ui/workbench/support';
 import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';
 import { ConfigProvider, Layout } from 'antd';
 import type React from 'react';
@@ -95,6 +96,7 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
       />
       <OnboardingTour open={tourOpen} onClose={onTourClose} />
       <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
+      <ReportIssueDialog />
     </div>
   );
 };

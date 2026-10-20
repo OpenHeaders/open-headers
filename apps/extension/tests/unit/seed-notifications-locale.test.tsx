@@ -1,10 +1,10 @@
 /**
- * Seed nudges × locale — the two sticky baseline cards are standing
+ * Seed nudges × locale — the three sticky baseline cards are standing
  * nudges, not historical records, so they follow the language plane:
  *   - the first push waits for the settings store, so a persisted
  *     locale can't lose the race against the mount effect (entries
  *     capture copy at push time; dedupe drops any re-push);
- *   - an in-session locale switch retires both cards and reissues
+ *   - an in-session locale switch retires every card and reissues
  *     them under the new locale;
  *   - re-mounts under the same locale leave the existing entries
  *     alone (no stacking, no timestamp churn).
@@ -77,26 +77,29 @@ describe('useSeedNotifications × locale', () => {
     await act(async () => {
       await initSettingsStore();
     });
-    expect(latest).toHaveLength(2);
+    expect(latest).toHaveLength(3);
     expect(latest.map((e) => e.title)).toEqual([
       EN.t('shared.notifications.seed.star.title'),
-      EN.t('shared.notifications.seed.website.title'),
+      EN.t('shared.notifications.seed.report.title'),
+      EN.t('shared.notifications.seed.community.title'),
     ]);
   });
 
-  it('reissues both cards under the new locale on a live switch', async () => {
+  it('reissues every card under the new locale on a live switch', async () => {
     await initSettingsStore();
     const { rerender } = render(<Harness value={EN} />);
     expect(latest.map((e) => e.title)).toEqual([
       EN.t('shared.notifications.seed.star.title'),
-      EN.t('shared.notifications.seed.website.title'),
+      EN.t('shared.notifications.seed.report.title'),
+      EN.t('shared.notifications.seed.community.title'),
     ]);
 
     rerender(<Harness value={PSEUDO} />);
-    expect(latest).toHaveLength(2);
+    expect(latest).toHaveLength(3);
     expect(latest.map((e) => e.title)).toEqual([
       PSEUDO.t('shared.notifications.seed.star.title'),
-      PSEUDO.t('shared.notifications.seed.website.title'),
+      PSEUDO.t('shared.notifications.seed.report.title'),
+      PSEUDO.t('shared.notifications.seed.community.title'),
     ]);
     expect(latest[0]?.title).not.toBe(EN.t('shared.notifications.seed.star.title'));
   });
@@ -108,7 +111,7 @@ describe('useSeedNotifications × locale', () => {
     first.unmount();
 
     render(<Harness value={EN} />);
-    expect(latest).toHaveLength(2);
+    expect(latest).toHaveLength(3);
     expect(latest.map((e) => e.id)).toEqual(ids);
   });
 });

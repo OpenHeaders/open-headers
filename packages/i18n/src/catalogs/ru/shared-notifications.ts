@@ -34,15 +34,21 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': 'Снова разрешить показ этого уведомления',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Познакомьтесь с Open Headers',
-  'shared.notifications.seed.website.description':
-    'Посмотрите все наши возможности в интерактивном виде, а также последние обновления.',
-  'shared.notifications.seed.website.action': 'Перейти на наш сайт',
-  'shared.notifications.seed.website.tooltip': 'Открыть сайт и убрать уведомление',
+  'shared.notifications.seed.community.title': 'Чат сообщества',
+  'shared.notifications.seed.community.description':
+    'Задавайте вопросы, делитесь советами и знакомьтесь с другими пользователями.',
+  'shared.notifications.seed.community.action': 'Перейти в наш Discord',
+  'shared.notifications.seed.community.tooltip': 'Открыть Discord и убрать уведомление',
   'shared.notifications.seed.star.title': 'Помогите нам расти',
   'shared.notifications.seed.star.description': 'Порекомендуйте нас друзьям и коллегам',
   'shared.notifications.seed.star.action': 'Поставьте нам звезду на GitHub',
   'shared.notifications.seed.star.tooltip': 'Открыть GitHub и убрать уведомление',
+  'shared.notifications.seed.report.title': 'Отчёт об ошибке или запрос функции',
+  'shared.notifications.seed.report.description': 'Нашли проблему или есть идея? Расскажите нам, и мы разберёмся.',
+  'shared.notifications.seed.report.action.bug': 'Сообщить о проблеме',
+  'shared.notifications.seed.report.action.feature': 'Запрос функции',
+  'shared.notifications.seed.report.tooltip.bug': 'Сообщить об ошибке и убрать уведомление',
+  'shared.notifications.seed.report.tooltip.feature': 'Запросить функцию и убрать уведомление',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'Единый пользовательский опыт',

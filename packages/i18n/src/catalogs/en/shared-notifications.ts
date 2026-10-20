@@ -32,14 +32,20 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': 'Allow this notification to show again',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Discover Open Headers',
-  'shared.notifications.seed.website.description': 'See all our features interactively, plus the latest updates.',
-  'shared.notifications.seed.website.action': 'Visit our website',
-  'shared.notifications.seed.website.tooltip': 'Open website and clear notification',
+  'shared.notifications.seed.community.title': 'Community Chat',
+  'shared.notifications.seed.community.description': 'Ask questions, share tips, and meet other users.',
+  'shared.notifications.seed.community.action': 'Visit our Discord',
+  'shared.notifications.seed.community.tooltip': 'Open Discord and clear notification',
   'shared.notifications.seed.star.title': 'Help Us Grow',
   'shared.notifications.seed.star.description': 'Recommend us to your friends & colleagues',
   'shared.notifications.seed.star.action': 'Give us a star on GitHub',
   'shared.notifications.seed.star.tooltip': 'Open github and clear notification',
+  'shared.notifications.seed.report.title': 'Bug Report or Feature Request',
+  'shared.notifications.seed.report.description': 'Found a problem or have an idea? Tell us and we will look into it.',
+  'shared.notifications.seed.report.action.bug': 'Report Issue',
+  'shared.notifications.seed.report.action.feature': 'Feature Request',
+  'shared.notifications.seed.report.tooltip.bug': 'Report a bug and clear notification',
+  'shared.notifications.seed.report.tooltip.feature': 'Request a feature and clear notification',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'One Unified User Experience',

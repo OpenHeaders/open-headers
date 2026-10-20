@@ -34,15 +34,21 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': 'Permiteți acestei notificări să se afișeze din nou',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Descoperiți Open Headers',
-  'shared.notifications.seed.website.description':
-    'Vedeți interactiv toate funcțiile noastre, plus cele mai noi actualizări.',
-  'shared.notifications.seed.website.action': 'Vizitați site-ul nostru',
-  'shared.notifications.seed.website.tooltip': 'Deschide site-ul și șterge notificarea',
+  'shared.notifications.seed.community.title': 'Chat comunitar',
+  'shared.notifications.seed.community.description':
+    'Puneți întrebări, împărtășiți sfaturi și cunoașteți alți utilizatori.',
+  'shared.notifications.seed.community.action': 'Vizitați Discord-ul nostru',
+  'shared.notifications.seed.community.tooltip': 'Deschide Discord și șterge notificarea',
   'shared.notifications.seed.star.title': 'Ajutați-ne să creștem',
   'shared.notifications.seed.star.description': 'Recomandați-ne prietenilor și colegilor',
   'shared.notifications.seed.star.action': 'Dați-ne o stea pe GitHub',
   'shared.notifications.seed.star.tooltip': 'Deschide GitHub și șterge notificarea',
+  'shared.notifications.seed.report.title': 'Raport de eroare sau solicitare de funcționalitate',
+  'shared.notifications.seed.report.description': 'Ați găsit o problemă sau aveți o idee? Spuneți-ne și ne ocupăm.',
+  'shared.notifications.seed.report.action.bug': 'Raportare problemă',
+  'shared.notifications.seed.report.action.feature': 'Solicitare funcționalitate',
+  'shared.notifications.seed.report.tooltip.bug': 'Raportează o eroare și șterge notificarea',
+  'shared.notifications.seed.report.tooltip.feature': 'Solicită o funcționalitate și șterge notificarea',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'O experiență unificată',

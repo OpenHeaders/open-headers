@@ -31,15 +31,21 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': 'この通知を再び表示できるようにする',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Open Headers を知る',
-  'shared.notifications.seed.website.description':
-    'すべての機能をインタラクティブに確認し、最新のアップデートもチェックできます。',
-  'shared.notifications.seed.website.action': 'ウェブサイトを見る',
-  'shared.notifications.seed.website.tooltip': 'ウェブサイトを開いて通知をクリア',
+  'shared.notifications.seed.community.title': 'コミュニティチャット',
+  'shared.notifications.seed.community.description': '質問したり、ヒントを共有したり、ほかのユーザーと交流できます。',
+  'shared.notifications.seed.community.action': 'Discord に参加',
+  'shared.notifications.seed.community.tooltip': 'Discord を開いて通知をクリア',
   'shared.notifications.seed.star.title': '成長にご協力ください',
   'shared.notifications.seed.star.description': '友人や同僚におすすめしてください',
   'shared.notifications.seed.star.action': 'GitHub でスターを付ける',
   'shared.notifications.seed.star.tooltip': 'GitHub を開いて通知をクリア',
+  'shared.notifications.seed.report.title': 'バグ報告または機能リクエスト',
+  'shared.notifications.seed.report.description':
+    '問題を見つけた、またはアイデアがある場合は、お知らせください。確認します。',
+  'shared.notifications.seed.report.action.bug': '問題を報告',
+  'shared.notifications.seed.report.action.feature': '機能リクエスト',
+  'shared.notifications.seed.report.tooltip.bug': 'バグを報告して通知をクリア',
+  'shared.notifications.seed.report.tooltip.feature': '機能をリクエストして通知をクリア',
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': '統合された一つのユーザー体験',

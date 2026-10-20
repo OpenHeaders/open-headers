@@ -58,6 +58,7 @@ import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useAc
 import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import WhatsNewModal from '@openheaders/ui/workbench/components/whats-new/WhatsNewModal';
+import { ReportIssueDialog } from '@openheaders/ui/workbench/support';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -1327,6 +1328,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
       <PanelOnboardingTour open={tourOpen} onClose={handleTourClose} />
       <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
+      <ReportIssueDialog />
     </div>
   );
 }

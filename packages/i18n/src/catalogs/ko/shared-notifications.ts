@@ -32,14 +32,20 @@ export const sharedNotifications = {
   'shared.notifications.muted.reEnableTooltip': '이 알림을 다시 표시하도록 허용',
 
   // ── Seed nudges ────────────────────────────────────────────────────
-  'shared.notifications.seed.website.title': 'Open Headers 살펴보기',
-  'shared.notifications.seed.website.description': '모든 기능을 대화형으로 살펴보고 최신 업데이트를 확인하세요.',
-  'shared.notifications.seed.website.action': '웹사이트 방문',
-  'shared.notifications.seed.website.tooltip': '웹사이트를 열고 알림 지우기',
+  'shared.notifications.seed.community.title': '커뮤니티 채팅',
+  'shared.notifications.seed.community.description': '질문하고, 팁을 공유하고, 다른 사용자를 만나 보세요.',
+  'shared.notifications.seed.community.action': 'Discord 방문',
+  'shared.notifications.seed.community.tooltip': 'Discord를 열고 알림 지우기',
   'shared.notifications.seed.star.title': '성장을 도와주세요',
   'shared.notifications.seed.star.description': '친구와 동료에게 추천해 주세요',
   'shared.notifications.seed.star.action': 'GitHub 저장소에 별 주기',
   'shared.notifications.seed.star.tooltip': 'GitHub 페이지를 열고 알림 지우기',
+  'shared.notifications.seed.report.title': '버그 신고 또는 기능 요청',
+  'shared.notifications.seed.report.description': '문제를 발견했거나 아이디어가 있나요? 알려 주시면 살펴보겠습니다.',
+  'shared.notifications.seed.report.action.bug': '문제 신고',
+  'shared.notifications.seed.report.action.feature': '기능 요청',
+  'shared.notifications.seed.report.tooltip.bug': '버그를 신고하고 알림 지우기',
+  'shared.notifications.seed.report.tooltip.feature': '기능을 요청하고 알림 지우기',
 
   // ── Desktop-app suggestion ─────────────────────────────────────────
   'shared.notifications.desktopApp.title': '하나로 통합된 사용자 경험',
