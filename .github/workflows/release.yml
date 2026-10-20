@@ -277,8 +277,10 @@ jobs:
       # read by every platform, so a pointer a beta does not rewrite
       # would strand that platform on an old beta (or offer one whose
       # files it cannot use). The trim is on asset TYPES only: betas
-      # skip the enterprise formats (pkg/msi) and store-compress; beta
-      # testers use dmg/zip/Setup.exe.
+      # skip the enterprise formats (pkg/msi); beta testers use
+      # dmg/zip/Setup.exe. Compression stays normal — a store-compressed
+      # zip is three times the stable's size and shares no blocks with
+      # it, so every channel hop was a full download.
       - name: Build macOS
         if: matrix.os == 'macos-latest'
         working-directory: apps/desktop
@@ -535,8 +537,8 @@ jobs:
           }
         shell: pwsh
 
-      # Betas ship AppImage + deb for both arches, store-compressed —
-      # rpm is the one Linux target betas skip (dnf users ride stable).
+      # Betas ship AppImage + deb for both arches — rpm is the one
+      # Linux target betas skip (dnf users ride stable).
       # Stable legs build their arch's three targets.
       - name: Build Linux
         if: matrix.os == 'ubuntu-latest'
