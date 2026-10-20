@@ -116,7 +116,10 @@ const AppUpdateRow: React.FC<{ def: SettingDef }> = ({ def }) => {
             <Text type="secondary">
               {t('workbench.settings.updatesRow.downloading', { version: state.availableVersion ?? '' })}
             </Text>
-            <Progress percent={state.progressPercent ?? 0} size="small" />
+            {/* The updater reports 100 before it verifies the file, so the bar
+                stays in the active style until the phase flips to downloaded —
+                antd would otherwise paint the success check at 100. */}
+            <Progress percent={state.progressPercent ?? 0} status="active" size="small" />
           </div>
         );
         break;
