@@ -8,7 +8,10 @@
  *
  * The anchor arrives in the renderer's CSS pixels; `Menu.popup` wants
  * DIP relative to the window's web content, so the sender's zoom
- * factor is applied here.
+ * factor is applied here. The call resolves when the menu CLOSES, not
+ * when it opens: the native menu takes every input event while it is
+ * up, so the button never sees the pointer leave, and the renderer
+ * needs the close to end its own hover affordances.
  */
 
 import { BrowserWindow, ipcMain, Menu } from 'electron';
@@ -20,16 +23,16 @@ export interface AppMenuAnchor {
   y: number;
 }
 
-export function popupApplicationMenu(sender: Electron.WebContents, anchor: AppMenuAnchor): void {
+export function popupApplicationMenu(sender: Electron.WebContents, anchor: AppMenuAnchor): Promise<void> {
   const menu = Menu.getApplicationMenu();
   const window = BrowserWindow.fromWebContents(sender);
-  if (!menu || !window) return;
+  if (!menu || !window) return Promise.resolve();
   const zoom = sender.getZoomFactor();
-  menu.popup({ window, x: Math.round(anchor.x * zoom), y: Math.round(anchor.y * zoom) });
+  return new Promise((resolve) => {
+    menu.popup({ window, x: Math.round(anchor.x * zoom), y: Math.round(anchor.y * zoom), callback: resolve });
+  });
 }
 
 export function installAppMenuPopupHandler(): void {
-  ipcMain.handle(CHANNEL, (event, anchor: AppMenuAnchor) => {
-    popupApplicationMenu(event.sender, anchor);
-  });
+  ipcMain.handle(CHANNEL, (event, anchor: AppMenuAnchor) => popupApplicationMenu(event.sender, anchor));
 }

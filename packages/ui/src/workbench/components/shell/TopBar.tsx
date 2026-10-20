@@ -101,9 +101,17 @@ const TopBar: React.FC<TopBarProps> = ({
   // desktop window) register `openAppMenu`; the button pops the same
   // application menu macOS shows in its system menu bar.
   const hasAppMenu = hasCapability('openAppMenu');
+  // The native menu takes every input event while it is up, so the
+  // button never sees the pointer leave and its tooltip would outlive
+  // the menu. The call resolves when the menu closes; the tooltip is
+  // held shut until then — the layout dropdown's idiom below.
+  const [appMenuOpen, setAppMenuOpen] = useState(false);
   const openAppMenu = (event: React.MouseEvent<HTMLElement>) => {
+    const popup = getCapability('openAppMenu');
+    if (!popup) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    void getCapability('openAppMenu')?.({ x: Math.round(rect.left), y: Math.round(rect.bottom) });
+    setAppMenuOpen(true);
+    void popup({ x: Math.round(rect.left), y: Math.round(rect.bottom) }).finally(() => setAppMenuOpen(false));
   };
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const openSettingsLabel = useShortcutLabel('open-settings');
@@ -337,7 +345,11 @@ const TopBar: React.FC<TopBarProps> = ({
       </div>
       <div className="rules-topbar-left">
         {hasAppMenu && (
-          <Tooltip title={t('workbench.shell.topbar.appMenu')} placement="bottom">
+          <Tooltip
+            title={t('workbench.shell.topbar.appMenu')}
+            placement="bottom"
+            open={appMenuOpen ? false : undefined}
+          >
             <Button
               className="rules-topbar-app-menu"
               type="text"

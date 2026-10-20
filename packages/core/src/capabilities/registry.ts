@@ -478,7 +478,10 @@ export interface Capabilities {
    * native menu bar to hold that menu (the desktop renderer on
    * Windows / Linux, where the window is frameless); macOS keeps the
    * system menu bar and browser surfaces have no application menu, so
-   * neither registers it and the button stays hidden.
+   * neither registers it and the button stays hidden. Resolves when the
+   * menu CLOSES — the native menu owns the pointer while it is up, so
+   * the caller ends its hover affordances on the resolution, not on a
+   * leave event it will never get.
    */
   openAppMenu?: (anchor: { x: number; y: number }) => Promise<void>;
 
