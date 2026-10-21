@@ -14,3 +14,9 @@ export {
   stackFrames,
 } from './error-funnel';
 export { installErrorReportSink, toErrorReportWireEntry } from './error-report-sink';
+export {
+  PENDING_CRASH_STORAGE_KEY,
+  type PendingCrash,
+  rememberPendingCrash,
+  takePendingCrash,
+} from './pending-crash';

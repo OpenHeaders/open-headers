@@ -38,6 +38,11 @@ export const sharedNotifications = {
   'shared.notifications.seed.community.description': 'Stell Fragen, teile Tipps und lerne andere Nutzer kennen.',
   'shared.notifications.seed.community.action': 'Besuche unseren Discord',
   'shared.notifications.seed.community.tooltip': 'Discord öffnen und Benachrichtigung löschen',
+  'shared.notifications.crash.title': 'Vor Kurzem ist etwas schiefgelaufen',
+  'shared.notifications.crash.description':
+    'Open Headers wurde nach einem Fehler neu geladen. Sie können ihn weiterhin melden oder um Hilfe bitten.',
+  'shared.notifications.crash.tooltip.report': 'Meldedialog mit dem ausgefüllten Absturz öffnen',
+  'shared.notifications.crash.tooltip.chat': 'Discord öffnen',
   'shared.notifications.seed.star.title': 'Hilf uns zu wachsen',
   'shared.notifications.seed.star.description': 'Empfiehl uns deinen Freunden und Kollegen',
   'shared.notifications.seed.star.action': 'Gib uns einen Stern auf GitHub',
@@ -52,11 +57,13 @@ export const sharedNotifications = {
 
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'Ein einheitliches Nutzererlebnis',
-  'shared.notifications.desktopApp.rowTerminal': 'Integriertes Terminal — voller Shell-Zugriff in deinen Arbeitsbereichen',
+  'shared.notifications.desktopApp.rowTerminal':
+    'Integriertes Terminal — voller Shell-Zugriff in deinen Arbeitsbereichen',
   'shared.notifications.desktopApp.rowGit': 'Versionskontrolle — Git-Commits und -Verlauf für deine Arbeitsbereiche',
   'shared.notifications.desktopApp.rowProxy': 'Erfasse Live-Traffic aus deinen Browser-Tabs oder dem System',
   'shared.notifications.desktopApp.rowMcp': 'MCP-Server für KI-Assistenten — Live-Traffic-Analyse und Debugging',
-  'shared.notifications.desktopApp.rowRequests': 'Erstelle und führe native API-Requests aus — gRPC, WebSocket, SSE und mehr',
+  'shared.notifications.desktopApp.rowRequests':
+    'Erstelle und führe native API-Requests aus — gRPC, WebSocket, SSE und mehr',
   'shared.notifications.desktopApp.action': 'Desktop-App herunterladen',
   'shared.notifications.desktopApp.tooltip': 'App herunterladen und Vorschlag löschen',
 

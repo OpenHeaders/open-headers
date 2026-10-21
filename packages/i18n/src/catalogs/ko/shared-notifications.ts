@@ -36,6 +36,11 @@ export const sharedNotifications = {
   'shared.notifications.seed.community.description': '질문하고, 팁을 공유하고, 다른 사용자를 만나 보세요.',
   'shared.notifications.seed.community.action': 'Discord 방문',
   'shared.notifications.seed.community.tooltip': 'Discord를 열고 알림 지우기',
+  'shared.notifications.crash.title': '조금 전에 문제가 발생했습니다',
+  'shared.notifications.crash.description':
+    '오류 후 Open Headers 앱이 다시 로드되었습니다. 지금도 신고하거나 도움을 요청할 수 있습니다.',
+  'shared.notifications.crash.tooltip.report': '오류 내용이 채워진 신고 대화 상자 열기',
+  'shared.notifications.crash.tooltip.chat': 'Discord 열기',
   'shared.notifications.seed.star.title': '성장을 도와주세요',
   'shared.notifications.seed.star.description': '친구와 동료에게 추천해 주세요',
   'shared.notifications.seed.star.action': 'GitHub 저장소에 별 주기',

@@ -39,6 +39,11 @@ export const sharedNotifications = {
     'Задавайте вопросы, делитесь советами и знакомьтесь с другими пользователями.',
   'shared.notifications.seed.community.action': 'Перейти в наш Discord',
   'shared.notifications.seed.community.tooltip': 'Открыть Discord и убрать уведомление',
+  'shared.notifications.crash.title': 'Недавно что-то пошло не так',
+  'shared.notifications.crash.description':
+    'Open Headers перезагрузился после ошибки. Вы всё ещё можете сообщить о ней или попросить помощи.',
+  'shared.notifications.crash.tooltip.report': 'Открыть диалог отчёта с заполненными данными о сбое',
+  'shared.notifications.crash.tooltip.chat': 'Открыть Discord',
   'shared.notifications.seed.star.title': 'Помогите нам расти',
   'shared.notifications.seed.star.description': 'Порекомендуйте нас друзьям и коллегам',
   'shared.notifications.seed.star.action': 'Поставьте нам звезду на GitHub',

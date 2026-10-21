@@ -10,7 +10,7 @@
 import { COMMUNITY_CHAT_URL } from '@openheaders/core/diagnostics';
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import UnitErrorFallback from '@openheaders/ui/components/UnitErrorFallback';
-import { funnelError, setErrorFunnelSink } from '@openheaders/ui/shared/error-funnel';
+import { funnelError, PENDING_CRASH_STORAGE_KEY, setErrorFunnelSink } from '@openheaders/ui/shared/error-funnel';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -49,6 +49,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  window.sessionStorage.clear();
 });
 
 /** Throws while the marker says so; the test flips it before Retry — the remount story. */
@@ -160,6 +161,10 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Something went wrong')).toBeTruthy();
     expect(screen.getByText('Reload')).toBeTruthy();
     expect(screen.getByText('TypeError: editor exploded')).toBeTruthy();
+    // The crash is on record before any button: Reload costs nothing.
+    const pending = JSON.parse(window.sessionStorage.getItem(PENDING_CRASH_STORAGE_KEY) ?? 'null');
+    expect(pending.headline).toBe('TypeError: editor exploded');
+    expect(pending.details).toContain('surface: workbench');
 
     // Report Issue opens the workbench's report dialog under this page's
     // own provider, seeded with the error as the title and the funnel's

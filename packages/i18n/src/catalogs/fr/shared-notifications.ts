@@ -38,6 +38,11 @@ export const sharedNotifications = {
     'Posez vos questions, partagez des astuces et rencontrez d’autres utilisateurs.',
   'shared.notifications.seed.community.action': 'Visiter notre Discord',
   'shared.notifications.seed.community.tooltip': 'Ouvrir Discord et effacer la notification',
+  'shared.notifications.crash.title': 'Une erreur est survenue il y a un instant',
+  'shared.notifications.crash.description':
+    'Open Headers a été rechargé après une erreur. Vous pouvez encore la signaler ou demander de l’aide.',
+  'shared.notifications.crash.tooltip.report': 'Ouvrir le dialogue de signalement avec le plantage prérempli',
+  'shared.notifications.crash.tooltip.chat': 'Ouvrir Discord',
   'shared.notifications.seed.star.title': 'Aidez-nous à grandir',
   'shared.notifications.seed.star.description': 'Recommandez-nous à vos amis et collègues',
   'shared.notifications.seed.star.action': 'Donnez-nous une étoile sur GitHub',
@@ -52,10 +57,13 @@ export const sharedNotifications = {
   // ── Desktop-app suggestion (browser hosts without the companion) ───
   'shared.notifications.desktopApp.title': 'Une expérience utilisateur unifiée',
   'shared.notifications.desktopApp.rowTerminal': 'Terminal intégré — accès shell complet dans vos espaces de travail',
-  'shared.notifications.desktopApp.rowGit': 'Contrôle de version — commits et historique Git pour vos espaces de travail',
+  'shared.notifications.desktopApp.rowGit':
+    'Contrôle de version — commits et historique Git pour vos espaces de travail',
   'shared.notifications.desktopApp.rowProxy': 'Capturez le trafic en direct de vos onglets de navigateur ou du système',
-  'shared.notifications.desktopApp.rowMcp': 'Serveur MCP pour les assistants IA — analyse du trafic en direct et débogage',
-  'shared.notifications.desktopApp.rowRequests': 'Créez et exécutez des requêtes API natives — gRPC, WebSocket, SSE et plus',
+  'shared.notifications.desktopApp.rowMcp':
+    'Serveur MCP pour les assistants IA — analyse du trafic en direct et débogage',
+  'shared.notifications.desktopApp.rowRequests':
+    'Créez et exécutez des requêtes API natives — gRPC, WebSocket, SSE et plus',
   'shared.notifications.desktopApp.action': "Télécharger l'application de bureau",
   'shared.notifications.desktopApp.tooltip': "Télécharger l'app et effacer la suggestion",
 

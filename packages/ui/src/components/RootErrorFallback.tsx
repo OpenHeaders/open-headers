@@ -16,15 +16,21 @@
  * The chat link is the sanctioned exception to the no-external-
  * redirects law (the user's word, 2026-10-20): a crashed window has no
  * in-app surface left.
+ *
+ * Reload is the primary way out and it must cost nothing: the crash is
+ * recorded in session storage as the page shows, and the reloaded
+ * document's timeline offers the same two actions from a working
+ * window (`pending-crash`). The buttons read in sequence — report,
+ * chat, then reload.
  */
 
 import { BugOutlined, CloseCircleFilled, MessageOutlined } from '@ant-design/icons';
 import { COMMUNITY_CHAT_URL } from '@openheaders/core/diagnostics';
 import { Button, ConfigProvider, Result, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useT } from '../context/LocaleContext';
-import { formatErrorDetails } from '../shared/error-funnel';
+import { formatErrorDetails, rememberPendingCrash } from '../shared/error-funnel';
 import { openExternalLink } from '../shared/open-external';
 import ReportIssueDialog from '../workbench/support/ReportIssueDialog';
 import { openReportIssueDialog } from '../workbench/support/store';
@@ -38,9 +44,16 @@ const RootErrorPage: React.FC<RootErrorFallbackProps> = ({ error }) => {
   const t = useT();
   const { token } = theme.useToken();
   const headline = `${error.name}: ${error.message}`;
+  const details = useMemo(
+    () => formatErrorDetails({ surface: 'workbench', origin: 'render', error, componentStack: null }),
+    [error],
+  );
+
+  useEffect(() => {
+    rememberPendingCrash({ headline, details, at: Date.now() });
+  }, [headline, details]);
 
   const report = (): void => {
-    const details = formatErrorDetails({ surface: 'workbench', origin: 'render', error, componentStack: null });
     openReportIssueDialog('bug', { title: headline, description: details });
   };
 
@@ -65,14 +78,14 @@ const RootErrorPage: React.FC<RootErrorFallbackProps> = ({ error }) => {
         title={t('shared.errorBoundary.title')}
         subTitle={t('shared.errorBoundary.rootSubtitle')}
         extra={[
-          <Button key="reload" type="primary" onClick={() => window.location.reload()}>
-            {t('shared.errorBoundary.reload')}
-          </Button>,
           <Button key="report" icon={<BugOutlined />} onClick={report}>
             {t('shared.errorBoundary.reportIssue')}
           </Button>,
           <Button key="chat" icon={<MessageOutlined />} onClick={() => openExternalLink(COMMUNITY_CHAT_URL)}>
             {t('shared.errorBoundary.communityChat')}
+          </Button>,
+          <Button key="reload" type="primary" onClick={() => window.location.reload()}>
+            {t('shared.errorBoundary.reload')}
           </Button>,
         ]}
       />

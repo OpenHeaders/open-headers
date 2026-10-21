@@ -12,6 +12,7 @@
 
 import { getTranslator } from '@openheaders/i18n';
 import { LocaleContext } from '@openheaders/ui/context/LocaleContext';
+import { PENDING_CRASH_STORAGE_KEY } from '@openheaders/ui/shared/error-funnel';
 import {
   __resetNotificationsForTests,
   __resetSeedNotificationsForTests,
@@ -20,7 +21,11 @@ import {
   useSeedNotifications,
 } from '@openheaders/ui/shared/notifications';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
-import { __resetStoreForTests, configureSettingsStorage, initSettingsStore } from '@openheaders/ui/workbench/settings/store';
+import {
+  __resetStoreForTests,
+  configureSettingsStorage,
+  initSettingsStore,
+} from '@openheaders/ui/workbench/settings/store';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -55,6 +60,7 @@ function Harness({ value }: { value: typeof EN }) {
 
 beforeEach(() => {
   window.localStorage.clear();
+  window.sessionStorage.clear();
   latest = [];
   __resetStoreForTests();
   __resetNotificationsForTests();
@@ -113,5 +119,26 @@ describe('useSeedNotifications × locale', () => {
     render(<Harness value={EN} />);
     expect(latest).toHaveLength(3);
     expect(latest.map((e) => e.id)).toEqual(ids);
+  });
+
+  it('offers a pending crash on top, taken from session storage once, retired when an action is followed', async () => {
+    window.sessionStorage.setItem(
+      PENDING_CRASH_STORAGE_KEY,
+      JSON.stringify({ headline: 'TypeError: boom', details: 'TypeError: boom\n    at a (a.js:1:1)', at: 1 }),
+    );
+    await initSettingsStore();
+    const { rerender } = render(<Harness value={EN} />);
+    expect(latest).toHaveLength(4);
+    expect(latest[0]?.title).toBe(EN.t('shared.notifications.crash.title'));
+    expect(latest[0]?.actions?.map((a) => a.label)).toEqual(['Report Issue', 'Chat with Us on Discord']);
+    expect(window.sessionStorage.getItem(PENDING_CRASH_STORAGE_KEY)).toBeNull();
+
+    // Held for the session: a locale switch reissues it with the rest.
+    rerender(<Harness value={PSEUDO} />);
+    expect(latest).toHaveLength(4);
+    expect(latest[0]?.title).toBe(PSEUDO.t('shared.notifications.crash.title'));
+
+    act(() => latest[0]?.actions?.[0]?.run());
+    expect(latest).toHaveLength(3);
   });
 });

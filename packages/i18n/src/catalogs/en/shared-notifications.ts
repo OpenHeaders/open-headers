@@ -36,6 +36,11 @@ export const sharedNotifications = {
   'shared.notifications.seed.community.description': 'Ask questions, share tips, and meet other users.',
   'shared.notifications.seed.community.action': 'Visit our Discord',
   'shared.notifications.seed.community.tooltip': 'Open Discord and clear notification',
+  'shared.notifications.crash.title': 'Something went wrong a moment ago',
+  'shared.notifications.crash.description':
+    'Open Headers reloaded after an error. You can still report it or ask for help.',
+  'shared.notifications.crash.tooltip.report': 'Open the report dialog with the crash filled in',
+  'shared.notifications.crash.tooltip.chat': 'Open Discord',
   'shared.notifications.seed.star.title': 'Help Us Grow',
   'shared.notifications.seed.star.description': 'Recommend us to your friends & colleagues',
   'shared.notifications.seed.star.action': 'Give us a star on GitHub',

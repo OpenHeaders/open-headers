@@ -35,6 +35,11 @@ export const sharedNotifications = {
   'shared.notifications.seed.community.description': '質問したり、ヒントを共有したり、ほかのユーザーと交流できます。',
   'shared.notifications.seed.community.action': 'Discord に参加',
   'shared.notifications.seed.community.tooltip': 'Discord を開いて通知をクリア',
+  'shared.notifications.crash.title': '少し前に問題が発生しました',
+  'shared.notifications.crash.description':
+    'エラーの後に Open Headers が再読み込みされました。今からでも報告したり、助けを求めたりできます。',
+  'shared.notifications.crash.tooltip.report': 'クラッシュ内容を入力済みの報告ダイアログを開く',
+  'shared.notifications.crash.tooltip.chat': 'Discord を開く',
   'shared.notifications.seed.star.title': '成長にご協力ください',
   'shared.notifications.seed.star.description': '友人や同僚におすすめしてください',
   'shared.notifications.seed.star.action': 'GitHub でスターを付ける',

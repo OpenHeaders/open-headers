@@ -39,6 +39,11 @@ export const sharedNotifications = {
     'Puneți întrebări, împărtășiți sfaturi și cunoașteți alți utilizatori.',
   'shared.notifications.seed.community.action': 'Vizitați Discord-ul nostru',
   'shared.notifications.seed.community.tooltip': 'Deschide Discord și șterge notificarea',
+  'shared.notifications.crash.title': 'Ceva nu a funcționat cu puțin timp în urmă',
+  'shared.notifications.crash.description':
+    'Open Headers s-a reîncărcat după o eroare. O poți raporta în continuare sau poți cere ajutor.',
+  'shared.notifications.crash.tooltip.report': 'Deschide dialogul de raportare cu eroarea completată',
+  'shared.notifications.crash.tooltip.chat': 'Deschide Discord',
   'shared.notifications.seed.star.title': 'Ajutați-ne să creștem',
   'shared.notifications.seed.star.description': 'Recomandați-ne prietenilor și colegilor',
   'shared.notifications.seed.star.action': 'Dați-ne o stea pe GitHub',

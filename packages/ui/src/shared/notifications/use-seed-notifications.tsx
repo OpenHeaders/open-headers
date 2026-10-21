@@ -4,12 +4,15 @@
  * the Bug-Report-or-Feature-Request nudge (the Report Issue dialog)
  * and the Community-Chat nudge, split so no card gets heavy.
  * Description icons are neutral outlined glyphs, matching the
- * suggestion cards.
+ * suggestion cards. A fourth card rides on top when the previous
+ * document of this window died on the root fallback: the pending
+ * crash, with Report Issue (the dialog seeded with that crash) and the
+ * chat — so Reload on the crash page costs the person nothing.
  *
- * All three are sticky: no dismiss affordance, immune to Clear all.
- * Each retires itself permanently when its action is followed
- * (persisted per nudge), and dedupe keys keep re-mounts within a
- * session from stacking them.
+ * All are sticky: no dismiss affordance, immune to Clear all. Each
+ * retires itself when its action is followed (the nudges permanently,
+ * persisted per nudge; the crash card for the session), and dedupe
+ * keys keep re-mounts within a session from stacking them.
  *
  * Standing nudges, not historical records: unlike event entries they
  * follow a live locale switch — the producer retires the cards and
@@ -17,12 +20,13 @@
  * store's law; this is the sanctioned dismiss-and-reissue path).
  */
 
-import { BugOutlined, LikeOutlined, MessageOutlined } from '@ant-design/icons';
+import { BugOutlined, ExclamationCircleOutlined, LikeOutlined, MessageOutlined } from '@ant-design/icons';
 import { COMMUNITY_CHAT_URL, type IssueKind } from '@openheaders/core/diagnostics';
 import { useEffect } from 'react';
 import { useLocale } from '@openheaders/ui/context/LocaleContext';
 import { useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { openReportIssueDialog } from '@openheaders/ui/workbench/support/store';
+import { type PendingCrash, takePendingCrash } from '../error-funnel';
 import { openExternalLink } from '../open-external';
 import { dismissByKey, pushNotification } from './store';
 
@@ -51,9 +55,14 @@ function rememberDone(flag: string): void {
 // only an actual locale change reissues.
 let pushedLocale: string | null = null;
 
-/** Test hook — reset the pushed-locale guard between cases. */
+// The crash taken from session storage, held for the rest of the
+// session so a locale reissue or a re-mount can push its card again.
+let pendingCrash: PendingCrash | null = null;
+
+/** Test hook — reset the pushed-locale guard and the held crash between cases. */
 export function __resetSeedNotificationsForTests(): void {
   pushedLocale = null;
+  pendingCrash = null;
 }
 
 export function useSeedNotifications(): void {
@@ -68,6 +77,7 @@ export function useSeedNotifications(): void {
       dismissByKey('community-chat');
       dismissByKey('report-issue');
       dismissByKey('help-us-grow');
+      dismissByKey('pending-crash');
     }
     pushedLocale = locale;
     // Pushed bottom-up so Help Us Grow lands on top of the timeline.
@@ -149,6 +159,44 @@ export function useSeedNotifications(): void {
               openExternalLink(GITHUB_URL);
               rememberDone('oh.helpUsGrowStarred');
               dismissByKey('help-us-grow');
+            },
+          },
+        ],
+      });
+    }
+    pendingCrash ??= takePendingCrash();
+    if (pendingCrash) {
+      const crash = pendingCrash;
+      const retire = (): void => {
+        pendingCrash = null;
+        dismissByKey('pending-crash');
+      };
+      pushNotification({
+        severity: 'warning',
+        title: t('shared.notifications.crash.title'),
+        description: (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ExclamationCircleOutlined style={ICON_STYLE} />
+            {t('shared.notifications.crash.description')}
+          </span>
+        ),
+        dedupeKey: 'pending-crash',
+        sticky: true,
+        actions: [
+          {
+            label: t('shared.errorBoundary.reportIssue'),
+            tooltip: t('shared.notifications.crash.tooltip.report'),
+            run: () => {
+              openReportIssueDialog('bug', { title: crash.headline, description: crash.details });
+              retire();
+            },
+          },
+          {
+            label: t('shared.errorBoundary.communityChat'),
+            tooltip: t('shared.notifications.crash.tooltip.chat'),
+            run: () => {
+              openExternalLink(COMMUNITY_CHAT_URL);
+              retire();
             },
           },
         ],
