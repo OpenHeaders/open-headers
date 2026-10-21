@@ -37,6 +37,7 @@ import { installAppMenuPopupHandler } from './main/bootstrap/app-menu-popup';
 import { sessionDataDir } from './main/bootstrap/app-paths';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
+import { installDownloadFeedback } from './main/bootstrap/downloads';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import { applyHardwareAccelerationPolicy } from './main/bootstrap/hardware-acceleration';
 import { installAppLifecycle, isQuitting, trackEngineBoot } from './main/bootstrap/lifecycle';
@@ -147,6 +148,8 @@ function bootstrapDesktopApp(): void {
     // The clean-exit sentinel: after the quitting guard, so a lost
     // single-instance race never touches the winner's lock.
     installSessionSentinel();
+    // Saved-download feedback: main alone sees the native save dialog's outcome.
+    installDownloadFeedback();
     // Default-session permission policy before any window exists.
     installPermissionPolicy();
     registerAsProtocolHandler();

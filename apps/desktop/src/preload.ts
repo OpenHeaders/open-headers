@@ -10,6 +10,7 @@
 import 'electron-log/preload';
 import { contextBridge } from 'electron';
 import { appMenu } from './preload/app-menu';
+import { downloads } from './preload/downloads';
 import { externalLinks } from './preload/external-links';
 import { lifeline } from './preload/lifeline';
 import { logs } from './preload/logs';
@@ -37,6 +38,7 @@ const api = {
   openExternal: externalLinks.openExternal,
   openInBrowser: externalLinks.openInBrowser,
   logs,
+  downloads,
   appMenu,
   protocol,
   terminal,

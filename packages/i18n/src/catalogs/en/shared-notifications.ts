@@ -87,6 +87,9 @@ export const sharedNotifications = {
   'shared.notifications.toast.restartToInstall': 'Restart to install',
   'shared.notifications.toast.updatedTo': 'Updated to {version}',
   'shared.notifications.toast.seeWhatsNew': "See what's new",
+  'shared.notifications.toast.downloadSaved': 'Saved {filename}',
+  'shared.notifications.toast.showInFolder': 'Show in folder',
+  'shared.notifications.toast.saveFailed': 'Could not save {filename}',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':

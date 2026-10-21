@@ -475,6 +475,16 @@ export interface Capabilities {
   diagnosticsRoots?: () => Promise<DiagnosticsRoot[]>;
 
   /**
+   * Reveal a file the host reported through the `downloadDone`
+   * broadcast in the platform's file manager — the "Show in folder"
+   * action of the saved-download toast. The host reveals only paths it
+   * reported itself. Registered by hosts whose downloads end in a
+   * native save dialog (the desktop renderer); browser surfaces leave
+   * revealing to their own download shelf.
+   */
+  revealDownload?: (path: string) => Promise<void>;
+
+  /**
    * Pop the host's application menu (File / Edit / View / Window /
    * Help) under an anchor given in the surface's CSS pixels — the top
    * bar's menu button. Registered only by hosts whose window has no

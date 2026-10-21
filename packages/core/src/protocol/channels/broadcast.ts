@@ -281,6 +281,20 @@ export interface BridgeBroadcastContract {
   };
 
   /**
+   * A download the document started (an anchor with `download` — the
+   * diagnostic bundle, an export) has left the host's native save
+   * routine: `completed` with the file where the person put it, or
+   * `interrupted`. A cancelled dialog sends nothing. Emitted by the
+   * desktop main process, which alone sees the save dialog's outcome;
+   * browser hosts show their own download shelf and never send it.
+   */
+  downloadDone: {
+    filename: string;
+    path: string;
+    state: 'completed' | 'interrupted';
+  };
+
+  /**
    * Host-shell lifecycle: the tray-resident primary window was hidden
    * by its close affordance instead of being destroyed, so the renderer
    * survives what the user experiences as quitting the app. Session-

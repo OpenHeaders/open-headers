@@ -84,7 +84,7 @@ describe('application menu labels', () => {
     expect(helpGroups.slice(0, 4)).toEqual([
       ['Documentation', 'Keyboard Shortcuts', 'Release Notes'],
       ['Report Issue', 'Feature Request', 'Chat with Us on Discord'],
-      ['Save Diagnostics…', 'Open Logs Folder'],
+      ['Download Anonymized Diagnostic Bundle…', 'Open Logs Folder'],
       ['License Agreement', 'Privacy Policy'],
     ]);
     if (isMac) expect(template.find((entry) => entry.label === 'Help')?.role).toBe('help');

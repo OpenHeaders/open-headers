@@ -95,6 +95,9 @@ export const sharedNotifications = {
   'shared.notifications.toast.restartToInstall': 'Reiniciar para instalar',
   'shared.notifications.toast.updatedTo': 'Actualizado a Open Headers {version}',
   'shared.notifications.toast.seeWhatsNew': 'Ver las novedades',
+  'shared.notifications.toast.downloadSaved': 'Guardado: {filename}',
+  'shared.notifications.toast.showInFolder': 'Mostrar en la carpeta',
+  'shared.notifications.toast.saveFailed': 'No se pudo guardar {filename}',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':

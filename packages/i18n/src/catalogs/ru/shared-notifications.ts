@@ -92,6 +92,9 @@ export const sharedNotifications = {
   'shared.notifications.toast.restartToInstall': 'Перезапустить для установки',
   'shared.notifications.toast.updatedTo': 'Обновлено до версии {version}',
   'shared.notifications.toast.seeWhatsNew': 'Что нового',
+  'shared.notifications.toast.downloadSaved': 'Сохранено: {filename}',
+  'shared.notifications.toast.showInFolder': 'Показать в папке',
+  'shared.notifications.toast.saveFailed': 'Не удалось сохранить {filename}',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':

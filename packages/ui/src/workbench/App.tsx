@@ -140,6 +140,7 @@ import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
 import { useAppUpdateTask, useMigrationPullTask } from '@openheaders/ui/shared/background-tasks';
 import {
   AppUpdateToast,
+  DownloadFeedbackToast,
   SecurityUpdateBanner,
   useAppUpdateNotification,
   useDesktopAppSuggestion,
@@ -1852,6 +1853,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onOpenUpdateSettings={() => openSettings({ categoryId: 'updates' })}
             onOpenWhatsNew={openWhatsNew}
           />
+          <DownloadFeedbackToast />
           <UpdateDialog onConfigureUpdates={() => openSettings({ categoryId: 'updates' })} />
           <ReportIssueDialog />
 

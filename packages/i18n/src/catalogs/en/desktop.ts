@@ -32,7 +32,7 @@ export const desktop = {
   'desktop.menu.actualSize': 'Actual Size',
   'desktop.menu.documentation': 'Documentation',
   'desktop.menu.reportIssue': 'Report Issue',
-  'desktop.menu.saveDiagnostics': 'Save Diagnostics…',
+  'desktop.menu.saveDiagnostics': 'Download Anonymized Diagnostic Bundle…',
   'desktop.menu.licenseAgreement': 'License Agreement',
   'desktop.menu.keyboardShortcuts': 'Keyboard Shortcuts',
   'desktop.menu.releaseNotes': 'Release Notes',

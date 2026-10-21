@@ -80,6 +80,10 @@ registerCapability('readLogFiles', () => window.oh.logs.read());
 // the bridge. Nothing here is a file of the bundle.
 registerCapability('diagnosticsRoots', () => window.oh.logs.roots());
 
+// The saved-download toast's "Show in folder": main reveals a file it
+// reported through `downloadDone`, and only such a file.
+registerCapability('revealDownload', (path) => window.oh.downloads.reveal(path));
+
 // The top bar's menu button on Windows / Linux: those windows are
 // frameless, so the application menu has no native menu bar to live in
 // and main pops it as a context menu under the button instead. macOS

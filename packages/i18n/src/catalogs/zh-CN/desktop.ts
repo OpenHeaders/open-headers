@@ -32,7 +32,7 @@ export const desktop = {
   'desktop.menu.actualSize': '实际大小',
   'desktop.menu.documentation': '文档',
   'desktop.menu.reportIssue': '报告问题',
-  'desktop.menu.saveDiagnostics': '保存诊断…',
+  'desktop.menu.saveDiagnostics': '下载匿名化诊断包…',
   'desktop.menu.licenseAgreement': '许可协议',
   'desktop.menu.keyboardShortcuts': '键盘快捷键',
   'desktop.menu.releaseNotes': '更新日志',

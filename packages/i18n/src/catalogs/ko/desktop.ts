@@ -31,7 +31,7 @@ export const desktop = {
   'desktop.menu.actualSize': '실제 크기',
   'desktop.menu.documentation': '문서',
   'desktop.menu.reportIssue': '문제 신고',
-  'desktop.menu.saveDiagnostics': '진단 저장…',
+  'desktop.menu.saveDiagnostics': '익명화된 진단 번들 다운로드…',
   'desktop.menu.licenseAgreement': '라이선스 계약',
   'desktop.menu.keyboardShortcuts': '키보드 단축키',
   'desktop.menu.releaseNotes': '릴리스 노트',

@@ -30,7 +30,7 @@ export const desktop = {
   'desktop.menu.actualSize': 'Tamaño real',
   'desktop.menu.documentation': 'Documentación',
   'desktop.menu.reportIssue': 'Informar de un problema',
-  'desktop.menu.saveDiagnostics': 'Guardar diagnóstico…',
+  'desktop.menu.saveDiagnostics': 'Descargar paquete de diagnóstico anonimizado…',
   'desktop.menu.licenseAgreement': 'Acuerdo de licencia',
   'desktop.menu.keyboardShortcuts': 'Atajos de teclado',
   'desktop.menu.releaseNotes': 'Notas de la versión',

@@ -783,7 +783,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.importSettings.action.label': 'Importieren…',
   'workbench.settings.def.data.saveDiagnosticsBundle.label': 'Diagnosepaket',
   'workbench.settings.def.data.saveDiagnosticsBundle.description':
-    'Speichert ein ZIP mit den Protokolldateien, dem Diagnoseprotokoll, dem Status-Snapshot, den Telemetrie-Ereignissen und Absturzberichten dieser Sitzung, deinen Einstellungen und Systemfakten. Nichts wird gesendet; prüfe das Archiv und hänge es selbst an einen Fehlerbericht an.',
+    'Lädt ein ZIP mit den Protokolldateien, dem Diagnoseprotokoll, dem Status-Snapshot, den Telemetrie-Ereignissen und Absturzberichten dieser Sitzung, deinen Einstellungen und Systemfakten herunter. Dein Home-Verzeichnis, deine Ordner, Zugangsdaten in URLs und E-Mail-Adressen werden vor dem Speichern entfernt. Nichts wird gesendet; prüfe das Archiv und hänge es selbst an einen Fehlerbericht an.',
   'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Anonymisiertes Diagnosepaket herunterladen…',
   'workbench.settings.def.data.exportObservabilityLog.label': 'Diagnoseprotokoll exportieren',
   'workbench.settings.def.data.exportObservabilityLog.description':

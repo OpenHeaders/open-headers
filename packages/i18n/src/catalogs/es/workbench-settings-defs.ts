@@ -820,7 +820,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.importSettings.action.label': 'Importar…',
   'workbench.settings.def.data.saveDiagnosticsBundle.label': 'Paquete de diagnóstico',
   'workbench.settings.def.data.saveDiagnosticsBundle.description':
-    'Guarda un ZIP con los archivos de registro, el registro de diagnóstico, la instantánea de estado, los eventos de telemetría e informes de fallos de esta sesión, tu configuración y datos del sistema. No se envía nada; revisa el archivo y adjúntalo tú mismo a un informe de error.',
+    'Descarga un ZIP con los archivos de registro, el registro de diagnóstico, la instantánea de estado, los eventos de telemetría e informes de fallos de esta sesión, tu configuración y datos del sistema. Tu directorio personal, tus carpetas, las credenciales dentro de URL y las direcciones de correo se eliminan antes de guardarlo. No se envía nada; revisa el archivo y adjúntalo tú mismo a un informe de error.',
   'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Descargar paquete de diagnóstico anonimizado…',
   'workbench.settings.def.data.exportObservabilityLog.label': 'Exportar el registro de diagnóstico',
   'workbench.settings.def.data.exportObservabilityLog.description':

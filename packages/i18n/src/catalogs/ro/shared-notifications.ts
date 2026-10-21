@@ -93,6 +93,9 @@ export const sharedNotifications = {
   'shared.notifications.toast.restartToInstall': 'Repornire pentru instalare',
   'shared.notifications.toast.updatedTo': 'Actualizat la {version}',
   'shared.notifications.toast.seeWhatsNew': 'Vedeți noutățile',
+  'shared.notifications.toast.downloadSaved': 'Salvat: {filename}',
+  'shared.notifications.toast.showInFolder': 'Afișează în dosar',
+  'shared.notifications.toast.saveFailed': 'Nu s-a putut salva {filename}',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':

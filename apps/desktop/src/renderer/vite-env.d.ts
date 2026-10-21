@@ -86,6 +86,9 @@ declare global {
         read(): Promise<Array<{ name: string; text: string; note?: string }>>;
         roots(): Promise<Array<{ path: string; placeholder: string; collapse?: boolean }>>;
       };
+      downloads: {
+        reveal(path: string): Promise<void>;
+      };
       appMenu: {
         popup(anchor: { x: number; y: number }): Promise<void>;
       };

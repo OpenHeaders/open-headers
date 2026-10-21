@@ -86,6 +86,9 @@ export const sharedNotifications = {
   'shared.notifications.toast.restartToInstall': '重启以安装',
   'shared.notifications.toast.updatedTo': '已更新到 {version}',
   'shared.notifications.toast.seeWhatsNew': '查看新功能',
+  'shared.notifications.toast.downloadSaved': '已保存 {filename}',
+  'shared.notifications.toast.showInFolder': '在文件夹中显示',
+  'shared.notifications.toast.saveFailed': '无法保存 {filename}',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':

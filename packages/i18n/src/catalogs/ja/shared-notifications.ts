@@ -87,6 +87,9 @@ export const sharedNotifications = {
   'shared.notifications.toast.restartToInstall': '再起動してインストール',
   'shared.notifications.toast.updatedTo': '{version} に更新しました',
   'shared.notifications.toast.seeWhatsNew': '新機能を見る',
+  'shared.notifications.toast.downloadSaved': '{filename} を保存しました',
+  'shared.notifications.toast.showInFolder': 'フォルダーで表示',
+  'shared.notifications.toast.saveFailed': '{filename} を保存できませんでした',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':

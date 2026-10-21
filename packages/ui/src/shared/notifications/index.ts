@@ -1,4 +1,5 @@
 export { default as AppUpdateToast } from './AppUpdateToast';
+export { default as DownloadFeedbackToast } from './DownloadFeedbackToast';
 export { default as NotificationsIcon } from './NotificationsIcon';
 export { default as NotificationsPanel, getNotificationsPanelInfo } from './NotificationsPanel';
 export { default as SecurityUpdateBanner } from './SecurityUpdateBanner';

@@ -684,7 +684,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.importSettings.action.label': 'Import…',
   'workbench.settings.def.data.saveDiagnosticsBundle.label': 'Pachet de diagnostic',
   'workbench.settings.def.data.saveDiagnosticsBundle.description':
-    'Salvează un ZIP cu fișierele jurnal, jurnalul de diagnostic, instantaneul de stare, evenimentele de telemetrie și rapoartele de blocare din această sesiune, setările dvs. și datele de sistem. Nimic nu este trimis; verificați arhiva și atașați-o dvs. la un raport de eroare.',
+    'Descarcă un ZIP cu fișierele jurnal, jurnalul de diagnostic, instantaneul de stare, evenimentele de telemetrie și rapoartele de blocare din această sesiune, setările dvs. și datele de sistem. Directorul personal, dosarele dvs., datele de autentificare din URL-uri și adresele de e-mail sunt eliminate înainte de salvare. Nimic nu este trimis; verificați arhiva și atașați-o dvs. la un raport de eroare.',
   'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Descarcă pachetul de diagnostic anonimizat…',
   'workbench.settings.def.data.exportObservabilityLog.label': 'Export jurnal de diagnostic',
   'workbench.settings.def.data.exportObservabilityLog.description':

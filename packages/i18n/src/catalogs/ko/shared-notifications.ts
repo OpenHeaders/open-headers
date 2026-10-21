@@ -87,6 +87,9 @@ export const sharedNotifications = {
   'shared.notifications.toast.restartToInstall': '다시 시작하여 설치',
   'shared.notifications.toast.updatedTo': '{version} 버전으로 업데이트됨',
   'shared.notifications.toast.seeWhatsNew': '새로운 기능 보기',
+  'shared.notifications.toast.downloadSaved': '{filename} 저장됨',
+  'shared.notifications.toast.showInFolder': '폴더에서 보기',
+  'shared.notifications.toast.saveFailed': '{filename}을(를) 저장할 수 없음',
 
   // ── Security-floor entry banner ────────────────────────────────────
   'shared.notifications.securityBanner.messageWithVersion':
