@@ -795,7 +795,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.saveDiagnosticsBundle.label': 'Paquet de diagnostic',
   'workbench.settings.def.data.saveDiagnosticsBundle.description':
     "Enregistre un ZIP avec les fichiers journaux, le journal de diagnostic, l'instantané d'état, les événements de télémétrie et rapports de plantage de cette session, vos paramètres et les informations système. Rien n'est envoyé ; vérifiez l'archive et joignez-la vous-même à un rapport de bogue.",
-  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Enregistrer le paquet…',
+  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Télécharger le paquet de diagnostic anonymisé…',
   'workbench.settings.def.data.exportObservabilityLog.label': 'Exporter le journal de diagnostic',
   'workbench.settings.def.data.exportObservabilityLog.description':
     'Télécharge les 500 derniers événements structurés (recompilations de règles, erreurs de requêtes, ' +

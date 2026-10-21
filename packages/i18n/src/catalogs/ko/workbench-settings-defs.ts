@@ -636,7 +636,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.saveDiagnosticsBundle.label': '진단 번들',
   'workbench.settings.def.data.saveDiagnosticsBundle.description':
     '로그 파일, 진단 로그, 상태 스냅샷, 이 세션의 텔레메트리 이벤트와 크래시 보고서, 설정, 시스템 정보를 하나의 ZIP으로 저장합니다. 아무것도 전송되지 않습니다. 아카이브를 확인한 뒤 버그 보고서에 직접 첨부하세요.',
-  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': '번들 저장…',
+  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': '익명화된 진단 번들 다운로드…',
   'workbench.settings.def.data.exportObservabilityLog.label': '진단 로그 내보내기',
   'workbench.settings.def.data.exportObservabilityLog.description':
     '최근 500개의 구조화된 이벤트 (규칙 재빌드, 요청 오류, 워크스페이스 전환)를 JSON 형식으로 다운로드합니다. 로컬 전용입니다. 파일을 버그 보고서에 직접 첨부하지 않는 한 아무것도 기기를 떠나지 않습니다.',

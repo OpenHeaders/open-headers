@@ -991,7 +991,7 @@ export const workbenchChrome = {
   'workbench.support.facts.unavailable':
     '이 호스트에서는 시스템 정보를 가져올 수 없습니다. 버전과 플랫폼은 GitHub에서 입력하세요.',
   'workbench.support.logs.notice': '로그는 포함되지 않습니다. 도움이 된다면 진단 번들을 GitHub 이슈에 첨부하세요.',
-  'workbench.support.logs.saveBundle': '번들 저장…',
+  'workbench.support.logs.saveBundle': '익명화된 진단 번들 다운로드…',
   'workbench.support.trimmed.rows':
     '링크를 짧게 유지하기 위해 일부 시스템 항목을 뺐습니다. 진단 번들에는 모두 들어 있습니다.',
   'workbench.support.trimmed.facts': '링크를 짧게 유지하기 위해 시스템 정보를 뺐습니다. 진단 번들에 들어 있습니다.',

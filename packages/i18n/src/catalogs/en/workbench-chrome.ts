@@ -999,7 +999,7 @@ export const workbenchChrome = {
     'System information is not available on this host; fill in the version and platform on GitHub.',
   'workbench.support.logs.notice':
     'Logs are not included. Attach the diagnostic bundle to the issue on GitHub if it helps.',
-  'workbench.support.logs.saveBundle': 'Save bundle…',
+  'workbench.support.logs.saveBundle': 'Download anonymized diagnostic bundle…',
   'workbench.support.trimmed.rows':
     'Some system rows were left out to keep the link short; the diagnostic bundle has them all.',
   'workbench.support.trimmed.facts':

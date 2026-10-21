@@ -644,7 +644,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.saveDiagnosticsBundle.label': '診断バンドル',
   'workbench.settings.def.data.saveDiagnosticsBundle.description':
     'ログファイル、診断ログ、ステータスのスナップショット、このセッションのテレメトリーイベントとクラッシュレポート、設定、システム情報を 1 つの ZIP に保存します。何も送信されません。アーカイブを確認して、自分でバグ報告に添付してください。',
-  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'バンドルを保存…',
+  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': '匿名化された診断バンドルをダウンロード…',
   'workbench.settings.def.data.exportObservabilityLog.label': '診断ログをエクスポート',
   'workbench.settings.def.data.exportObservabilityLog.description':
     '直近 500 件の構造化イベント（ルールの再構築、リクエストエラー、ワークスペースの切り替え）を JSON としてダウンロードします。ローカルのみで、自分でファイルをバグ報告に添付しない限り何もデバイスから出ません。',

@@ -1024,7 +1024,7 @@ export const workbenchChrome = {
     'Сведения о системе недоступны на этом хосте; укажите версию и платформу на GitHub.',
   'workbench.support.logs.notice':
     'Журналы не включены. Если это поможет, прикрепите диагностический пакет к issue на GitHub.',
-  'workbench.support.logs.saveBundle': 'Сохранить пакет…',
+  'workbench.support.logs.saveBundle': 'Скачать анонимизированный диагностический пакет…',
   'workbench.support.trimmed.rows':
     'Часть строк о системе опущена, чтобы ссылка осталась короткой; в диагностическом пакете есть все.',
   'workbench.support.trimmed.facts':

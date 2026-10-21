@@ -1057,7 +1057,7 @@ export const workbenchChrome = {
     'Systeminformationen sind auf diesem Host nicht verfügbar; tragen Sie Version und Plattform auf GitHub ein.',
   'workbench.support.logs.notice':
     'Protokolle sind nicht enthalten. Hängen Sie das Diagnosepaket auf GitHub an das Issue an, wenn es hilft.',
-  'workbench.support.logs.saveBundle': 'Paket speichern…',
+  'workbench.support.logs.saveBundle': 'Anonymisiertes Diagnosepaket herunterladen…',
   'workbench.support.trimmed.rows':
     'Einige Systemzeilen wurden weggelassen, damit der Link kurz bleibt; das Diagnosepaket enthält sie alle.',
   'workbench.support.trimmed.facts':

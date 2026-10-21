@@ -668,7 +668,7 @@ export const workbenchSettingsDefs = {
   'workbench.settings.def.data.saveDiagnosticsBundle.label': 'Диагностический пакет',
   'workbench.settings.def.data.saveDiagnosticsBundle.description':
     'Сохранить один ZIP с файлами журналов, диагностическим журналом, снимком состояния, событиями телеметрии и отчётами о сбоях этой сессии, вашими настройками и сведениями о системе. Ничего не отправляется; проверьте архив и приложите его к отчёту об ошибке сами.',
-  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Сохранить пакет…',
+  'workbench.settings.def.data.saveDiagnosticsBundle.action.label': 'Скачать анонимизированный диагностический пакет…',
   'workbench.settings.def.data.exportObservabilityLog.label': 'Экспорт диагностического журнала',
   'workbench.settings.def.data.exportObservabilityLog.description':
     'Скачать последние 500 структурированных событий (пересборки правил, ошибки запросов, переключения рабочих пространств) как JSON. Только локально; ничто не покидает устройство, если вы сами не приложите файл к отчёту об ошибке.',

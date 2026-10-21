@@ -1036,7 +1036,7 @@ export const workbenchChrome = {
     'Informațiile de sistem nu sunt disponibile pe această gazdă; completați versiunea și platforma pe GitHub.',
   'workbench.support.logs.notice':
     'Jurnalele nu sunt incluse. Atașați pachetul de diagnosticare la issue pe GitHub dacă ajută.',
-  'workbench.support.logs.saveBundle': 'Salvează pachetul…',
+  'workbench.support.logs.saveBundle': 'Descarcă pachetul de diagnostic anonimizat…',
   'workbench.support.trimmed.rows':
     'Unele rânduri de sistem au fost omise pentru a păstra linkul scurt; pachetul de diagnosticare le conține pe toate.',
   'workbench.support.trimmed.facts':

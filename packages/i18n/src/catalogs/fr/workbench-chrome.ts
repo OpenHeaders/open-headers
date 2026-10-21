@@ -1064,7 +1064,7 @@ export const workbenchChrome = {
     'Les informations système ne sont pas disponibles sur cet hôte ; renseignez la version et la plateforme sur GitHub.',
   'workbench.support.logs.notice':
     'Les journaux ne sont pas inclus. Joignez le paquet de diagnostic à l’issue sur GitHub si cela aide.',
-  'workbench.support.logs.saveBundle': 'Enregistrer le paquet…',
+  'workbench.support.logs.saveBundle': 'Télécharger le paquet de diagnostic anonymisé…',
   'workbench.support.trimmed.rows':
     'Certaines lignes système ont été omises pour garder le lien court ; le paquet de diagnostic les contient toutes.',
   'workbench.support.trimmed.facts':

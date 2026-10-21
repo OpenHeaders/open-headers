@@ -1002,7 +1002,7 @@ export const workbenchChrome = {
   'workbench.support.facts.unavailable':
     'このホストではシステム情報を取得できません。バージョンとプラットフォームは GitHub で入力してください。',
   'workbench.support.logs.notice': 'ログは含まれません。必要なら診断バンドルを GitHub の issue に添付してください。',
-  'workbench.support.logs.saveBundle': 'バンドルを保存…',
+  'workbench.support.logs.saveBundle': '匿名化された診断バンドルをダウンロード…',
   'workbench.support.trimmed.rows':
     'リンクを短く保つためシステム情報の一部の行を省きました。診断バンドルにはすべて含まれています。',
   'workbench.support.trimmed.facts': 'リンクを短く保つためシステム情報を省きました。診断バンドルに含まれています。',

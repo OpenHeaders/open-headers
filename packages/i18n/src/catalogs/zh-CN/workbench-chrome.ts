@@ -962,7 +962,7 @@ export const workbenchChrome = {
   'workbench.support.facts.hide': '隐藏',
   'workbench.support.facts.unavailable': '此主机无法提供系统信息；请在 GitHub 上填写版本和平台。',
   'workbench.support.logs.notice': '不包含日志。如有帮助，请在 GitHub 的 issue 中附上诊断包。',
-  'workbench.support.logs.saveBundle': '保存诊断包…',
+  'workbench.support.logs.saveBundle': '下载匿名化诊断包…',
   'workbench.support.trimmed.rows': '为保持链接简短，省略了部分系统信息行；诊断包中包含全部内容。',
   'workbench.support.trimmed.facts': '为保持链接简短，省略了系统信息；诊断包中包含这些内容。',
   'workbench.support.overBudget': '文本过长，无法放入预填链接。请在此缩短，其余内容在 GitHub 上补充。',
