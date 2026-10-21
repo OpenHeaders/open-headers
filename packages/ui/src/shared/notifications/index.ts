@@ -11,6 +11,7 @@ export {
   dismissNotification,
   dismissSuggestion,
   dismissSuggestionByKey,
+  hasNotificationKey,
   markAllNotificationsSeen,
   muteNotificationKey,
   type NotificationAction,

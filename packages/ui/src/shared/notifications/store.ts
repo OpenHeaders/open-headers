@@ -283,6 +283,11 @@ export function dismissNotification(id: string): void {
   commit(next);
 }
 
+/** Whether a keyed entry is on the timeline right now — a producer holding state for a card asks before reissuing it. */
+export function hasNotificationKey(dedupeKey: string): boolean {
+  return entries.some((e) => e.dedupeKey === dedupeKey);
+}
+
 /** Producer-side removal by dedupe key — the only way a sticky entry leaves. */
 export function dismissByKey(dedupeKey: string): void {
   const next = entries.filter((e) => e.dedupeKey !== dedupeKey);

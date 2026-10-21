@@ -16,6 +16,7 @@ import { PENDING_CRASH_STORAGE_KEY } from '@openheaders/ui/shared/error-funnel';
 import {
   __resetNotificationsForTests,
   __resetSeedNotificationsForTests,
+  clearAllNotifications,
   type NotificationEntry,
   useNotifications,
   useSeedNotifications,
@@ -140,5 +141,28 @@ describe('useSeedNotifications × locale', () => {
 
     act(() => latest[0]?.actions?.[0]?.run());
     expect(latest).toHaveLength(3);
+  });
+
+  it('lets Clear all take the crash card, and neither a re-mount nor a locale switch brings it back', async () => {
+    window.sessionStorage.setItem(
+      PENDING_CRASH_STORAGE_KEY,
+      JSON.stringify({ headline: 'TypeError: boom', details: 'TypeError: boom\n    at a (a.js:1:1)', at: 2 }),
+    );
+    await initSettingsStore();
+    const first = render(<Harness value={EN} />);
+    expect(latest).toHaveLength(4);
+    expect(latest[0]?.sticky).toBeFalsy();
+    expect(latest[0]?.dedupeKey).toBe('pending-crash:2');
+    expect(latest.slice(1).every((e) => e.sticky)).toBe(true);
+
+    act(() => clearAllNotifications());
+    expect(latest.map((e) => e.dedupeKey)).toEqual(['help-us-grow', 'report-issue', 'community-chat']);
+
+    first.unmount();
+    const second = render(<Harness value={EN} />);
+    expect(latest).toHaveLength(3);
+    second.rerender(<Harness value={PSEUDO} />);
+    expect(latest).toHaveLength(3);
+    expect(latest.some((e) => e.dedupeKey?.startsWith('pending-crash'))).toBe(false);
   });
 });

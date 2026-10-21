@@ -28,7 +28,7 @@ import { useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { openReportIssueDialog } from '@openheaders/ui/workbench/support/store';
 import { type PendingCrash, takePendingCrash } from '../error-funnel';
 import { openExternalLink } from '../open-external';
-import { dismissByKey, pushNotification } from './store';
+import { dismissByKey, hasNotificationKey, pushNotification } from './store';
 
 const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers';
 
@@ -55,9 +55,15 @@ function rememberDone(flag: string): void {
 // only an actual locale change reissues.
 let pushedLocale: string | null = null;
 
-// The crash taken from session storage, held for the rest of the
-// session so a locale reissue or a re-mount can push its card again.
+// The crash taken from session storage, held so a locale reissue or a
+// re-mount can push its card again — until the person clears it from
+// the timeline (Clear all, the card's own dismissal), which drops it.
 let pendingCrash: PendingCrash | null = null;
+
+/** One key per crash, so clearing this one never pre-acks the next. */
+function pendingCrashKey(crash: PendingCrash): string {
+  return `pending-crash:${crash.at}`;
+}
 
 /** Test hook — reset the pushed-locale guard and the held crash between cases. */
 export function __resetSeedNotificationsForTests(): void {
@@ -73,11 +79,13 @@ export function useSeedNotifications(): void {
   const ready = useSettingsReady();
   useEffect(() => {
     if (!ready) return;
-    if (pushedLocale !== null && pushedLocale !== locale) {
+    const firstPush = pushedLocale === null;
+    const reissue = !firstPush && pushedLocale !== locale;
+    if (reissue) {
       dismissByKey('community-chat');
       dismissByKey('report-issue');
       dismissByKey('help-us-grow');
-      dismissByKey('pending-crash');
+      if (pendingCrash) dismissByKey(pendingCrashKey(pendingCrash));
     }
     pushedLocale = locale;
     // Pushed bottom-up so Help Us Grow lands on top of the timeline.
@@ -164,12 +172,20 @@ export function useSeedNotifications(): void {
         ],
       });
     }
+    // A card the person cleared (Clear all, its own ✕) stays cleared:
+    // the held crash goes with it, so neither a locale switch nor a
+    // re-mount brings it back. Checked after the locale reissue above,
+    // which removes the card on purpose and keeps the crash.
+    if (pendingCrash && !firstPush && !reissue && !hasNotificationKey(pendingCrashKey(pendingCrash))) {
+      pendingCrash = null;
+    }
     pendingCrash ??= takePendingCrash();
     if (pendingCrash) {
       const crash = pendingCrash;
+      const key = pendingCrashKey(crash);
       const retire = (): void => {
         pendingCrash = null;
-        dismissByKey('pending-crash');
+        dismissByKey(key);
       };
       pushNotification({
         severity: 'warning',
@@ -180,8 +196,7 @@ export function useSeedNotifications(): void {
             {t('shared.notifications.crash.description')}
           </span>
         ),
-        dedupeKey: 'pending-crash',
-        sticky: true,
+        dedupeKey: key,
         actions: [
           {
             label: t('shared.errorBoundary.reportIssue'),
