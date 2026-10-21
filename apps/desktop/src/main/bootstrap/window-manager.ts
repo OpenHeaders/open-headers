@@ -7,6 +7,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, screen } from 'electron';
 import { shouldLaunchHidden } from './launch-flags';
+import { LAUNCH_MARKER } from './launch-marker';
 import { isQuitting } from './lifecycle';
 import { createLogger } from './logger';
 import { markRendererReadyAndDrain, resetRendererReady } from './protocol';
@@ -75,7 +76,7 @@ export function createMainWindow(): BrowserWindow {
       plugins: true,
     },
   });
-  logger.info(`main window created (+${process.uptime().toFixed(2)}s)`);
+  logger.info(`${LAUNCH_MARKER} (+${process.uptime().toFixed(2)}s)`);
 
   if (restored?.maximized) win.maximize();
   if (restored?.fullscreen) win.setFullScreen(true);

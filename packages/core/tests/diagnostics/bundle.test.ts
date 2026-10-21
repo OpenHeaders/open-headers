@@ -1,7 +1,9 @@
 /**
  * The bundle composer: every answered part becomes a named file, every
- * unanswered part is named in the README instead, and the README's
- * first lines carry the host, the version, the time and the session.
+ * unanswered part is named in the README instead, the README's first
+ * lines carry the host, the version, the time and the session, and
+ * every gathered file passes through the redaction on its way in while
+ * the installation's own ids stay.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -46,13 +48,22 @@ function fullParts(): DiagnosticsBundleParts {
       { timestamp: AT, subsystem: 'sync', op: 'connect', level: 'info', message: 'connected', context: {} },
     ],
     telemetrySession: {
-      events: { sessionId: 'abc123', installId: null, enabled: true, entries: [] },
+      events: { sessionId: 'abc123', installId: 'c925183f5ab1ee3433529b8ba27df0fe', enabled: true, entries: [] },
       reports: { sessionId: 'abc123', enabled: true, entries: [] },
     },
-    settings: { 'general.language': 'auto' },
+    settings: { 'general.language': 'auto', 'terminal.startDirectory': '/Users/jdoe/work' },
     logFiles: [
-      { name: 'main.log', text: 'line one\n' },
+      {
+        name: 'main.log',
+        text: 'line one\nsweep /Users/jdoe/dev/test3: 0 batches\nat /Users/jdoe/dev/app/x.js:1:2\n',
+        note: 'this launch and the one before it',
+      },
       { name: 'main.old.log', text: 'older\n' },
+    ],
+    roots: [
+      { path: '/Users/jdoe', placeholder: '<home>', collapse: true },
+      { path: '/Users/jdoe/dev/app', placeholder: '<app>' },
+      { path: '/Users/jdoe/dev/test3', placeholder: '<workspace 1>', collapse: true },
     ],
   };
 }
@@ -84,7 +95,26 @@ describe('composeDiagnosticsBundle', () => {
     expect(readme).not.toContain('Not included');
     expect(JSON.parse(text(entries[1].data))).toEqual(desktopFacts);
     expect(JSON.parse(text(entries[3].data))).toMatchObject({ exportedAt: '2026-10-19T18:20:47.000Z' });
-    expect(text(entries[6].data)).toBe('line one\n');
+    expect(text(entries[6].data)).toBe('line one\nsweep <workspace 1>: 0 batches\nat x.js:1:2\n');
+    expect(readme).toContain('logs/main.log — the host log file (this launch and the one before it), free text');
+  });
+
+  it('redacts every gathered file, states it in the README and keeps the installation ids', () => {
+    const entries = composeDiagnosticsBundle(fullParts());
+    const readme = text(entries[0].data);
+    expect(readme).toContain('Removed from every file before saving, each shown as a bracketed placeholder:');
+    expect(readme).toContain('your home directory (<home>)');
+    expect(readme).toContain('(<workspace 1>, <workspace 2>, …)');
+    expect(readme).toContain('The files on disk are untouched.');
+    expect(readme).toContain('Read it before sharing.');
+    expect(JSON.parse(text(entries[5].data))).toEqual({
+      'general.language': 'auto',
+      'terminal.startDirectory': '<home>/…',
+    });
+    expect(JSON.parse(text(entries[4].data))).toMatchObject({
+      events: { sessionId: 'abc123', installId: 'c925183f5ab1ee3433529b8ba27df0fe' },
+    });
+    for (const entry of entries) expect(text(entry.data)).not.toContain('/Users/');
   });
 
   it('leaves unanswered parts out and lists them in the README', () => {
@@ -97,6 +127,7 @@ describe('composeDiagnosticsBundle', () => {
       telemetrySession: null,
       settings: null,
       logFiles: [],
+      roots: [],
     });
     expect(entries.map((e) => e.name)).toEqual([DIAGNOSTICS_BUNDLE_README, 'observability-log.json']);
     const readme = text(entries[0].data);

@@ -74,6 +74,12 @@ registerCapability('openUrlInBrowser', (url, browser) => window.oh.openInBrowser
 // its rotated predecessor as text; the bundle is composed and saved here.
 registerCapability('readLogFiles', () => window.oh.logs.read());
 
+// The bundle's redaction roots: main names its own folders (home, the
+// app, its userData, its logs) so the composer can turn every path in
+// the archive into a placeholder; the bound workspace folders come over
+// the bridge. Nothing here is a file of the bundle.
+registerCapability('diagnosticsRoots', () => window.oh.logs.roots());
+
 // The top bar's menu button on Windows / Linux: those windows are
 // frameless, so the application menu has no native menu bar to live in
 // and main pops it as a context menu under the button instead. macOS

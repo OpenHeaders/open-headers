@@ -3,7 +3,8 @@
  * The diagnostic bundle, document side (the error reports plan §4.5):
  * every bridge read becomes a file, a read the host does not answer is
  * a part left out (and named in the README), the `logs/` folder follows
- * the `readLogFiles` capability, and the archive carries the host and
+ * the `readLogFiles` capability, the redaction runs under the host's
+ * roots and the bound workspaces, and the archive carries the host and
  * the second in its name.
  */
 
@@ -48,6 +49,7 @@ function installBridge(answers: Record<string, unknown>): ReturnType<typeof vi.f
 
 afterEach(() => {
   unregisterCapability('readLogFiles');
+  unregisterCapability('diagnosticsRoots');
 });
 
 describe('buildDiagnosticsBundle', () => {
@@ -59,8 +61,19 @@ describe('buildDiagnosticsBundle', () => {
       getObservabilityLog: { entries: [{ op: 'connect' }] },
       productTelemetryRead: { sessionId: 's1', installId: null, enabled: true, entries: [] },
       errorReportRead: { sessionId: 's1', enabled: true, entries: [{ at: AT, disposition: 'sent', report: {} }] },
+      'oh.workspaceTree.list': { bindings: [{ workspaceId: 'w1', rootDir: '/Users/jane/dev/acme', issues: [] }] },
     });
-    registerCapability('readLogFiles', async () => [{ name: 'main.log', text: 'line\n' }]);
+    registerCapability('readLogFiles', async () => [
+      {
+        name: 'main.log',
+        text: 'line\nsweep /Users/jane/dev/acme: 0 batches\nat /Users/jane/dev/app/x.js:1:2\nsaw /Users/jane/other/f\n',
+        note: 'this launch and the one before it',
+      },
+    ]);
+    registerCapability('diagnosticsRoots', async () => [
+      { path: '/Users/jane', placeholder: '<home>', collapse: true },
+      { path: '/Users/jane/dev/app', placeholder: '<app>' },
+    ]);
 
     const { filename, bytes } = await buildDiagnosticsBundle(() => AT);
     expect(filename).toBe('openheaders-diagnostics-desktop-2026-10-19T18-20-47.zip');
@@ -74,7 +87,8 @@ describe('buildDiagnosticsBundle', () => {
       'settings.json',
       'logs/main.log',
     ]);
-    expect(files.get('logs/main.log')).toBe('line\n');
+    expect(files.get('logs/main.log')).toBe('line\nsweep <workspace 1>: 0 batches\nat x.js:1:2\nsaw <home>/…\n');
+    expect(files.get('README.txt')).toContain('(this launch and the one before it)');
     expect(JSON.parse(files.get('facts.json') ?? '')).toMatchObject({ appVersion: '2026.10.1' });
     expect(JSON.parse(files.get('telemetry-session.json') ?? '').reports.entries).toHaveLength(1);
     expect(files.get('README.txt')).toContain('session: s1');

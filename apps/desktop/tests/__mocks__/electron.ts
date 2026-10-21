@@ -2,6 +2,8 @@
 
 export const app = {
   getPath: (_name: string) => `/tmp/open-headers-test/${_name}`,
+  getAppPath: () => '/tmp/open-headers-test/repo/apps/desktop',
+  isPackaged: false,
   getName: () => 'OpenHeaders',
   getVersion: () => '0.0.0-test',
   getLocale: () => 'en-US',

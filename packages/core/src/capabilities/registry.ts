@@ -46,6 +46,7 @@
 
 import type { ChangelogIndexRow } from '../changelog-feed';
 import type { DiagnosticsLogFile } from '../diagnostics/bundle';
+import type { DiagnosticsRoot } from '../diagnostics/redact';
 import type { ProbeConnectionResult, ProbeOptions } from '../identity/probe-connection';
 import type { CompanionRevealTarget } from '../protocol/messages';
 import type { PublicWorkspaceSnapshotSummary } from '../protocol/public-workspace-snapshot';
@@ -463,6 +464,15 @@ export interface Capabilities {
    * `logs/` folder.
    */
   readLogFiles?: () => Promise<DiagnosticsLogFile[]>;
+
+  /**
+   * The host's own folders for the diagnostic bundle's redaction — its
+   * home directory, the app, its data and its logs, each with the
+   * placeholder that stands in for it inside the archive. Never a part
+   * of the bundle: the composer rewrites every file through them so no
+   * absolute path leaves. Registered by hosts that have a filesystem.
+   */
+  diagnosticsRoots?: () => Promise<DiagnosticsRoot[]>;
 
   /**
    * Pop the host's application menu (File / Edit / View / Window /

@@ -4,7 +4,9 @@
  * system facts, the status snapshot, the structured diagnostic log,
  * this session's telemetry as the inspector shows it, the settings
  * snapshot and, where the host registers `readLogFiles`, its log files
- * — hand them to core's pure composer, zip the entries and give the
+ * — plus the redaction's roots: the host's own folders (where it
+ * registers `diagnosticsRoots`) and the bound workspace folders — hand
+ * them to core's pure composer, zip the entries and give the
  * archive to the browser as a download. On the desktop that download is
  * Electron's own save dialog; in an extension page it is an ordinary
  * download, no permission needed.
@@ -20,7 +22,9 @@ import {
   composeDiagnosticsBundle,
   type DiagnosticsBundleParts,
   type DiagnosticsLogFile,
+  type DiagnosticsRoot,
   diagnosticsBundleFilename,
+  workspaceDiagnosticsRoots,
   writeZip,
 } from '@openheaders/core/diagnostics';
 import { getCurrentHost } from '../../shared/host-vocabulary';
@@ -40,15 +44,29 @@ async function readHostLogFiles(): Promise<DiagnosticsLogFile[]> {
   return (await answered(read)) ?? [];
 }
 
+async function readHostRoots(): Promise<DiagnosticsRoot[]> {
+  const read = getCapability('diagnosticsRoots');
+  if (!read) return [];
+  return (await answered(read)) ?? [];
+}
+
+/** The bound workspace folders, numbered in the host's order — a host without the tree answers none. */
+async function readWorkspaceRoots(): Promise<DiagnosticsRoot[]> {
+  const list = await answered(() => hostBridge.call('oh.workspaceTree.list'));
+  return workspaceDiagnosticsRoots((list?.bindings ?? []).map((binding) => binding.rootDir));
+}
+
 /** Every part this surface can gather, each read tolerant of a host that does not answer it. */
 export async function collectDiagnosticsBundleParts(now: () => number = Date.now): Promise<DiagnosticsBundleParts> {
-  const [facts, status, observabilityLog, events, reports, logFiles] = await Promise.all([
+  const [facts, status, observabilityLog, events, reports, logFiles, hostRoots, workspaceRoots] = await Promise.all([
     answered(() => hostBridge.call('diagnosticsFacts')).then((r) => r?.facts ?? null),
     answered(() => hostBridge.call('getStatusSnapshot')).then((r) => r?.snapshot ?? null),
     answered(() => hostBridge.call('getObservabilityLog')).then((r) => r?.entries ?? null),
     answered(() => hostBridge.call('productTelemetryRead')),
     answered(() => hostBridge.call('errorReportRead')),
     readHostLogFiles(),
+    readHostRoots(),
+    readWorkspaceRoots(),
   ]);
   let settings: Record<string, unknown> | null;
   try {
@@ -65,6 +83,7 @@ export async function collectDiagnosticsBundleParts(now: () => number = Date.now
     telemetrySession: events === null && reports === null ? null : { events, reports },
     settings,
     logFiles,
+    roots: [...hostRoots, ...workspaceRoots],
   };
 }
 
