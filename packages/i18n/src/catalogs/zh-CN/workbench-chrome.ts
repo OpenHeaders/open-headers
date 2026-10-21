@@ -952,11 +952,10 @@ export const workbenchChrome = {
   'workbench.support.kind.feature': '功能请求',
   'workbench.support.field.title': '标题',
   'workbench.support.field.steps': '复现步骤',
-  'workbench.support.field.steps.hint':
-    '可靠复现问题的步骤，以及实际结果和预期结果。支持 Markdown；您可以在 GitHub 上编辑 issue 并添加截图。',
+  'workbench.support.field.steps.hint': '可靠复现问题的步骤，以及实际结果和预期结果。',
   'workbench.support.field.description': '描述',
-  'workbench.support.field.description.hint':
-    '您想完成的工作流程以及希望看到的行为。支持 Markdown；您可以在 GitHub 上编辑 issue 并添加截图。',
+  'workbench.support.field.description.hint': '您想完成的工作流程以及希望看到的行为。',
+  'workbench.support.field.markdownHint': '支持 Markdown；您可以在 GitHub 上编辑 issue 并添加截图。',
   'workbench.support.facts.include': '包含系统信息',
   'workbench.support.facts.show': '显示',
   'workbench.support.facts.hide': '隐藏',

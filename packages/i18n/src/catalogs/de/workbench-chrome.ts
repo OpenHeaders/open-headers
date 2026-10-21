@@ -1046,10 +1046,12 @@ export const workbenchChrome = {
   'workbench.support.field.title': 'Titel',
   'workbench.support.field.steps': 'Schritte zum Nachstellen',
   'workbench.support.field.steps.hint':
-    'Die Schritte, mit denen sich das Problem zuverlässig nachstellen lässt, mit tatsächlichem und erwartetem Ergebnis. Markdown wird unterstützt; auf GitHub können Sie das Issue bearbeiten und Screenshots anhängen.',
+    'Die Schritte, mit denen sich das Problem zuverlässig nachstellen lässt, mit tatsächlichem und erwartetem Ergebnis.',
   'workbench.support.field.description': 'Beschreibung',
   'workbench.support.field.description.hint':
-    'Der Arbeitsablauf, den Sie erreichen möchten, und das gewünschte Verhalten. Markdown wird unterstützt; auf GitHub können Sie das Issue bearbeiten und Screenshots anhängen.',
+    'Der Arbeitsablauf, den Sie erreichen möchten, und das gewünschte Verhalten.',
+  'workbench.support.field.markdownHint':
+    'Markdown wird unterstützt; auf GitHub können Sie das Issue bearbeiten und Screenshots anhängen.',
   'workbench.support.facts.include': 'Systeminformationen beifügen',
   'workbench.support.facts.show': 'anzeigen',
   'workbench.support.facts.hide': 'ausblenden',

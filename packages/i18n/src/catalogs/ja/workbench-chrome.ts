@@ -991,11 +991,11 @@ export const workbenchChrome = {
   'workbench.support.kind.feature': '機能リクエスト',
   'workbench.support.field.title': 'タイトル',
   'workbench.support.field.steps': '再現手順',
-  'workbench.support.field.steps.hint':
-    '問題を確実に再現する手順と、実際の結果および期待した結果。Markdown が使えます。GitHub で issue を編集したりスクリーンショットを追加したりできます。',
+  'workbench.support.field.steps.hint': '問題を確実に再現する手順と、実際の結果および期待した結果。',
   'workbench.support.field.description': '説明',
-  'workbench.support.field.description.hint':
-    '実現したいワークフローと、望む動作。Markdown が使えます。GitHub で issue を編集したりスクリーンショットを追加したりできます。',
+  'workbench.support.field.description.hint': '実現したいワークフローと、望む動作。',
+  'workbench.support.field.markdownHint':
+    'Markdown が使えます。GitHub で issue を編集したりスクリーンショットを追加したりできます。',
   'workbench.support.facts.include': 'システム情報を含める',
   'workbench.support.facts.show': '表示',
   'workbench.support.facts.hide': '非表示',

@@ -1049,10 +1049,11 @@ export const workbenchChrome = {
   'workbench.support.field.title': 'Título',
   'workbench.support.field.steps': 'Pasos para reproducirlo',
   'workbench.support.field.steps.hint':
-    'Los pasos para reproducir el problema de forma fiable, con el resultado real y el esperado. Se admite Markdown; en GitHub podrá editar el issue y añadir capturas.',
+    'Los pasos para reproducir el problema de forma fiable, con el resultado real y el esperado.',
   'workbench.support.field.description': 'Descripción',
   'workbench.support.field.description.hint':
-    'El flujo de trabajo que intenta conseguir y el comportamiento que le gustaría ver. Se admite Markdown; en GitHub podrá editar el issue y añadir capturas.',
+    'El flujo de trabajo que intenta conseguir y el comportamiento que le gustaría ver.',
+  'workbench.support.field.markdownHint': 'Se admite Markdown; en GitHub podrá editar el issue y añadir capturas.',
   'workbench.support.facts.include': 'Incluir información del sistema',
   'workbench.support.facts.show': 'mostrar',
   'workbench.support.facts.hide': 'ocultar',

@@ -105,13 +105,15 @@ const ReportIssueDialog: React.FC = () => {
     closeReportIssueDialog();
   };
 
-  const fieldLabel = (text: string, hint?: string): React.ReactNode => (
+  // The hint reads as two lines: what to write, then the Markdown note.
+  const fieldLabel = (text: string, hint?: string, note?: string): React.ReactNode => (
     <div style={{ marginBottom: 4 }}>
       <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
         <span style={{ color: token.colorError, marginRight: 4 }}>*</span>
         {text}
       </div>
       {hint ? <div style={{ fontSize: 12, color: token.colorTextTertiary }}>{hint}</div> : null}
+      {note ? <div style={{ fontSize: 12, color: token.colorTextTertiary }}>{note}</div> : null}
     </div>
   );
 
@@ -179,8 +181,16 @@ const ReportIssueDialog: React.FC = () => {
         </div>
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {kind === 'bug'
-            ? fieldLabel(t('workbench.support.field.steps'), t('workbench.support.field.steps.hint'))
-            : fieldLabel(t('workbench.support.field.description'), t('workbench.support.field.description.hint'))}
+            ? fieldLabel(
+                t('workbench.support.field.steps'),
+                t('workbench.support.field.steps.hint'),
+                t('workbench.support.field.markdownHint'),
+              )
+            : fieldLabel(
+                t('workbench.support.field.description'),
+                t('workbench.support.field.description.hint'),
+                t('workbench.support.field.markdownHint'),
+              )}
           <TextArea
             ref={descriptionRef}
             value={description}

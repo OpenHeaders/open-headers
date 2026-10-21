@@ -980,11 +980,11 @@ export const workbenchChrome = {
   'workbench.support.kind.feature': '기능 요청',
   'workbench.support.field.title': '제목',
   'workbench.support.field.steps': '재현 단계',
-  'workbench.support.field.steps.hint':
-    '문제를 확실히 재현하는 단계와 실제 결과 및 기대한 결과. Markdown을 지원하며, GitHub에서 이슈를 편집하고 스크린샷을 추가할 수 있습니다.',
+  'workbench.support.field.steps.hint': '문제를 확실히 재현하는 단계와 실제 결과 및 기대한 결과.',
   'workbench.support.field.description': '설명',
-  'workbench.support.field.description.hint':
-    '달성하려는 작업 흐름과 원하는 동작. Markdown을 지원하며, GitHub에서 이슈를 편집하고 스크린샷을 추가할 수 있습니다.',
+  'workbench.support.field.description.hint': '달성하려는 작업 흐름과 원하는 동작.',
+  'workbench.support.field.markdownHint':
+    'Markdown을 지원하며, GitHub에서 이슈를 편집하고 스크린샷을 추가할 수 있습니다.',
   'workbench.support.facts.include': '시스템 정보 포함',
   'workbench.support.facts.show': '보기',
   'workbench.support.facts.hide': '숨기기',

@@ -1013,10 +1013,11 @@ export const workbenchChrome = {
   'workbench.support.field.title': 'Заголовок',
   'workbench.support.field.steps': 'Шаги воспроизведения',
   'workbench.support.field.steps.hint':
-    'Шаги, надёжно воспроизводящие проблему, с фактическим и ожидаемым результатом. Поддерживается Markdown; на GitHub вы сможете отредактировать issue и добавить скриншоты.',
+    'Шаги, надёжно воспроизводящие проблему, с фактическим и ожидаемым результатом.',
   'workbench.support.field.description': 'Описание',
-  'workbench.support.field.description.hint':
-    'Рабочий процесс, которого вы хотите добиться, и желаемое поведение. Поддерживается Markdown; на GitHub вы сможете отредактировать issue и добавить скриншоты.',
+  'workbench.support.field.description.hint': 'Рабочий процесс, которого вы хотите добиться, и желаемое поведение.',
+  'workbench.support.field.markdownHint':
+    'Поддерживается Markdown; на GitHub вы сможете отредактировать issue и добавить скриншоты.',
   'workbench.support.facts.include': 'Включить сведения о системе',
   'workbench.support.facts.show': 'показать',
   'workbench.support.facts.hide': 'скрыть',

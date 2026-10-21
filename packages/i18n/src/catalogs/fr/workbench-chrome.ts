@@ -1053,10 +1053,12 @@ export const workbenchChrome = {
   'workbench.support.field.title': 'Titre',
   'workbench.support.field.steps': 'Étapes pour reproduire',
   'workbench.support.field.steps.hint':
-    'Les étapes pour reproduire le problème de façon fiable, avec le résultat constaté et le résultat attendu. Markdown est pris en charge ; vous pourrez modifier l’issue et ajouter des captures sur GitHub.',
+    'Les étapes pour reproduire le problème de façon fiable, avec le résultat constaté et le résultat attendu.',
   'workbench.support.field.description': 'Description',
   'workbench.support.field.description.hint':
-    'Le flux de travail que vous cherchez à accomplir et le comportement souhaité. Markdown est pris en charge ; vous pourrez modifier l’issue et ajouter des captures sur GitHub.',
+    'Le flux de travail que vous cherchez à accomplir et le comportement souhaité.',
+  'workbench.support.field.markdownHint':
+    'Markdown est pris en charge ; vous pourrez modifier l’issue et ajouter des captures sur GitHub.',
   'workbench.support.facts.include': 'Inclure les informations système',
   'workbench.support.facts.show': 'afficher',
   'workbench.support.facts.hide': 'masquer',

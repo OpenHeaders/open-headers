@@ -988,10 +988,12 @@ export const workbenchChrome = {
   'workbench.support.field.title': 'Title',
   'workbench.support.field.steps': 'Steps to reproduce',
   'workbench.support.field.steps.hint':
-    'The steps to reliably reproduce the problem, with the actual and expected results. Markdown is supported; you can edit the issue and add screenshots on GitHub.',
+    'The steps to reliably reproduce the problem, with the actual and expected results.',
   'workbench.support.field.description': 'Description',
   'workbench.support.field.description.hint':
-    'The workflow you are trying to accomplish and the behavior you would like to see. Markdown is supported; you can edit the issue and add screenshots on GitHub.',
+    'The workflow you are trying to accomplish and the behavior you would like to see.',
+  'workbench.support.field.markdownHint':
+    'Markdown is supported; you can edit the issue and add screenshots on GitHub.',
   'workbench.support.facts.include': 'Include system information',
   'workbench.support.facts.show': 'show',
   'workbench.support.facts.hide': 'hide',
