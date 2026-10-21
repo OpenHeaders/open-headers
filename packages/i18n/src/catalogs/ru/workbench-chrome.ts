@@ -1032,6 +1032,4 @@ export const workbenchChrome = {
   'workbench.support.overBudget':
     'Текст слишком длинный для предзаполненной ссылки. Сократите его здесь и добавьте остальное на GitHub.',
   'workbench.support.preview': 'Просмотреть на GitHub',
-  'workbench.support.previewHint':
-    'Откроет новый issue на GitHub с заполненными полями. Ничего не публикуется, пока вы не отправите его там.',
 } as const satisfies Catalog;

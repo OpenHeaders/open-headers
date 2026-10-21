@@ -1007,6 +1007,4 @@ export const workbenchChrome = {
   'workbench.support.overBudget':
     'The text is too long for a prefilled link. Shorten it here and add the rest on GitHub.',
   'workbench.support.preview': 'Preview on GitHub',
-  'workbench.support.previewHint':
-    'Opens a new issue on GitHub with these fields filled in. Nothing is posted until you submit it there.',
 } as const satisfies Catalog;

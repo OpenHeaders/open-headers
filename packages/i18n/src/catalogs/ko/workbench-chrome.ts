@@ -998,6 +998,4 @@ export const workbenchChrome = {
   'workbench.support.overBudget':
     '텍스트가 너무 길어 미리 채운 링크에 담을 수 없습니다. 여기서 줄이고 나머지는 GitHub에서 추가하세요.',
   'workbench.support.preview': 'GitHub에서 미리 보기',
-  'workbench.support.previewHint':
-    '이 항목들이 채워진 새 이슈를 GitHub에서 엽니다. 거기서 제출하기 전까지는 아무것도 게시되지 않습니다.',
 } as const satisfies Catalog;

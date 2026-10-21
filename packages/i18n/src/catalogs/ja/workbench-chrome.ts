@@ -1009,6 +1009,4 @@ export const workbenchChrome = {
   'workbench.support.overBudget':
     'テキストが長すぎて事前入力リンクに収まりません。ここで短くし、残りは GitHub で追記してください。',
   'workbench.support.preview': 'GitHub でプレビュー',
-  'workbench.support.previewHint':
-    'これらの項目を入力済みの新しい issue を GitHub で開きます。そこで送信するまで何も投稿されません。',
 } as const satisfies Catalog;

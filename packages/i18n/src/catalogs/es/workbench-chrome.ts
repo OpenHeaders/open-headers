@@ -1068,6 +1068,4 @@ export const workbenchChrome = {
   'workbench.support.overBudget':
     'El texto es demasiado largo para un enlace prerrellenado. Acórtelo aquí y añada el resto en GitHub.',
   'workbench.support.preview': 'Previsualizar en GitHub',
-  'workbench.support.previewHint':
-    'Abre un nuevo issue en GitHub con estos campos rellenados. No se publica nada hasta que lo envíe allí.',
 } as const satisfies Catalog;

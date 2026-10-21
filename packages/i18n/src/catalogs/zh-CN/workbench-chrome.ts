@@ -967,5 +967,4 @@ export const workbenchChrome = {
   'workbench.support.trimmed.facts': '为保持链接简短，省略了系统信息；诊断包中包含这些内容。',
   'workbench.support.overBudget': '文本过长，无法放入预填链接。请在此缩短，其余内容在 GitHub 上补充。',
   'workbench.support.preview': '在 GitHub 上预览',
-  'workbench.support.previewHint': '在 GitHub 上打开一个已填好这些字段的新 issue。在您于该处提交之前不会发布任何内容。',
 } as const satisfies Catalog;

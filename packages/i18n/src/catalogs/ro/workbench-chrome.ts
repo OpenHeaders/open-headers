@@ -1044,6 +1044,4 @@ export const workbenchChrome = {
   'workbench.support.overBudget':
     'Textul este prea lung pentru un link precompletat. Scurtați-l aici și adăugați restul pe GitHub.',
   'workbench.support.preview': 'Previzualizare pe GitHub',
-  'workbench.support.previewHint':
-    'Deschide un issue nou pe GitHub cu aceste câmpuri completate. Nimic nu este publicat până nu îl trimiteți acolo.',
 } as const satisfies Catalog;
