@@ -15,9 +15,11 @@
 
 import type { WebContents } from 'electron';
 import { BrowserWindow, ipcMain, session, shell } from 'electron';
+import { createLogger } from './logger';
 import { sendToRendererWindow } from './renderer-broadcast';
 
 const REVEAL_CHANNEL = 'oh:downloads:reveal';
+const logger = createLogger('downloads');
 
 export interface DownloadItemLike {
   getFilename(): string;
@@ -45,7 +47,10 @@ export function installDownloadFeedbackWith(deps: DownloadFeedbackDeps): void {
   const reported = new Set<string>();
   deps.session.on('will-download', (_event, item, webContents) => {
     const win = deps.windowOf(webContents);
+    logger.info(`download started: ${item.getFilename()}`);
     item.once('done', (_doneEvent, state) => {
+      // The file name only — the path names the person's folders.
+      logger.info(`download ${state}: ${item.getFilename()}${win ? '' : ' (no window to tell)'}`);
       if (state === 'cancelled') return;
       const path = item.getSavePath();
       if (state === 'completed') reported.add(path);

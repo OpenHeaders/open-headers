@@ -10,6 +10,7 @@
 
 import { getHostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
+import { hostLogger } from '@openheaders/core/logger';
 import { App, Button } from 'antd';
 import type React from 'react';
 import { useEffect } from 'react';
@@ -26,6 +27,7 @@ export default function DownloadFeedbackToast(): null {
     const bridge = getHostBridge();
     if (!bridge) return;
     return bridge.subscribe('downloadDone', ({ filename, path, state }) => {
+      hostLogger.info('DownloadFeedback', `download ${state}: ${filename}`);
       const key = `oh-download:${path}`;
       if (state === 'interrupted') {
         const title = t('shared.notifications.toast.saveFailed', { filename });

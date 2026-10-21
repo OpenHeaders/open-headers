@@ -26,12 +26,13 @@
 
 import { BugOutlined, CloseCircleFilled, MessageOutlined } from '@ant-design/icons';
 import { COMMUNITY_CHAT_URL } from '@openheaders/core/diagnostics';
-import { Button, ConfigProvider, Result, Typography, theme } from 'antd';
+import { App, Button, ConfigProvider, Result, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo } from 'react';
 import { useT } from '../context/LocaleContext';
 import { formatErrorDetails, rememberPendingCrash } from '../shared/error-funnel';
 import { openExternalLink } from '../shared/open-external';
+import DownloadFeedbackToast from '../shared/notifications/DownloadFeedbackToast';
 import ReportIssueDialog from '../workbench/support/ReportIssueDialog';
 import { openReportIssueDialog } from '../workbench/support/store';
 import { resolveRootFallbackTheme } from './root-fallback-theme';
@@ -93,6 +94,7 @@ const RootErrorPage: React.FC<RootErrorFallbackProps> = ({ error }) => {
         {headline}
       </Typography.Text>
       <ReportIssueDialog />
+      <DownloadFeedbackToast />
     </div>
   );
 };
@@ -101,7 +103,10 @@ const RootErrorFallback: React.FC<RootErrorFallbackProps> = ({ error }) => {
   const { antTheme } = useMemo(resolveRootFallbackTheme, []);
   return (
     <ConfigProvider theme={antTheme}>
-      <RootErrorPage error={error} />
+      {/* antd's App context, so the saved-bundle balloon has a notification host on a crashed window. */}
+      <App component={false}>
+        <RootErrorPage error={error} />
+      </App>
     </ConfigProvider>
   );
 };
