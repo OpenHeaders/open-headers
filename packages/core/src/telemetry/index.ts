@@ -55,6 +55,7 @@ export {
   errorReportLatchKey,
 } from './error-controller';
 export {
+  anonymizeStackFrames,
   createPathOwnOriginTest,
   describeThrownError,
   type ErrorReportContext,

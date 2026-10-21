@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
+  anonymizeStackFrames,
   createPathOwnOriginTest,
   describeThrownError,
   ERROR_REPORT_MAX_COMPONENT_STACK,
@@ -179,6 +180,33 @@ describe('parseStackFrames (law 4)', () => {
       },
     };
     expect(parseStackFrames(lines.slice(0, 2).join('\n'), throwing)).toEqual([{ external: true }]);
+  });
+});
+
+describe('anonymizeStackFrames', () => {
+  it('cuts every frame to its basename and position and leaves the header alone', () => {
+    const stack = [
+      'Error: boom',
+      '    at FaultProbe (http://localhost:5173/@fs/Users/jdoe/dev/open-headers/packages/ui/src/FaultProbe.tsx:5:20)',
+      '    at Object.react_stack_bottom_frame (http://localhost:5173/@fs/Users/jdoe/node_modules/.vite/deps/chunk-SDHHGFVO.js?v=7662d341:18509:20)',
+      '    at http://localhost:5173/@fs/Users/jdoe/dev/open-headers/apps/desktop/src/renderer/main.tsx:1:1',
+      '    at file:///C:/Users/jdoe/AppData/Local/Programs/open-headers/resources/app.asar/out/renderer/index-abc.js:1:2345',
+      `    at renderBody (${OWN}/assets/workbench-Bx7Qk2.js:12:3401)`,
+      'onClick@moz-extension://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0/popup/index.js:7:11',
+      '@moz-extension://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0/popup/index.js:8:1',
+    ].join('\n');
+    expect(anonymizeStackFrames(stack)).toBe(
+      [
+        'Error: boom',
+        '    at FaultProbe (FaultProbe.tsx:5:20)',
+        '    at Object.react_stack_bottom_frame (chunk-SDHHGFVO.js:18509:20)',
+        '    at main.tsx:1:1',
+        '    at index-abc.js:1:2345',
+        '    at renderBody (workbench-Bx7Qk2.js:12:3401)',
+        'onClick@index.js:7:11',
+        '@index.js:8:1',
+      ].join('\n'),
+    );
   });
 });
 

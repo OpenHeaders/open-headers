@@ -149,16 +149,32 @@ describe('error funnel', () => {
     expect(unhandled.defaultPrevented).toBe(true);
   });
 
-  it('formats copyable details with the surface, the stack and the component stack', () => {
+  it('formats the report details with the surface, the stack and the component stack, frames cut to basenames', () => {
     const error = new Error('details');
+    error.stack = [
+      'Error: details',
+      '    at FaultProbe (http://localhost:5173/@fs/Users/jdoe/dev/open-headers/packages/ui/src/FaultProbe.tsx:5:20)',
+      '    at file:///C:/Users/jdoe/AppData/Local/Programs/open-headers/resources/app.asar/out/renderer/index-abc.js?v=1:1:2345',
+    ].join('\n');
     const text = formatErrorDetails(
-      { surface: 'workbench', origin: 'render', error, componentStack: '\n    at Tab' },
+      {
+        surface: 'workbench',
+        origin: 'render',
+        error,
+        componentStack:
+          '\n    at Tab (http://localhost:5173/@fs/Users/jdoe/dev/open-headers/packages/ui/src/Tab.tsx:9:3)',
+      },
       '2026.10.2',
     );
     expect(text).toContain('Open Headers 2026.10.2');
     expect(text).toContain('surface: workbench');
-    expect(text).toContain('Error: details');
+    // The header once — V8 repeats it atop the stack.
+    expect(text.match(/Error: details/g)).toHaveLength(1);
+    expect(text).toContain('    at FaultProbe (FaultProbe.tsx:5:20)');
+    expect(text).toContain('    at index-abc.js:1:2345');
     expect(text).toContain('component stack:');
-    expect(text).toContain('at Tab');
+    expect(text).toContain('    at Tab (Tab.tsx:9:3)');
+    expect(text).not.toContain('jdoe');
+    expect(text).not.toContain('localhost');
   });
 });

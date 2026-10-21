@@ -17,6 +17,7 @@
  */
 
 import { getHostLogger } from '@openheaders/core/logger';
+import { anonymizeStackFrames } from '@openheaders/core/telemetry';
 import type { RootOptions } from 'react-dom/client';
 
 /** The document kinds a funnel can run in — stamped on every entry so a log line names its surface. */
@@ -116,20 +117,25 @@ function safeString(value: unknown): string {
 
 /**
  * The text a bug report carries for one failure — the root fallback's
- * Report Issue body: where, what, the stack, the component stack.
+ * Report Issue body: where, what, the stack, the component stack. The
+ * header is stated once (V8 repeats it atop the stack), and every frame
+ * is cut to its basename and position — no origin, no directory, no
+ * user name leaves with it.
  */
 export function formatErrorDetails(entry: Omit<FunnelledError, 'at'> & { at?: number }, version?: string): string {
   const { name, message, stack } = describeError(entry.error);
+  const header = `${name}: ${message}`;
   const lines = [
     `Open Headers ${version ?? ''}`.trimEnd(),
     `surface: ${entry.surface}`,
     `origin: ${entry.origin}`,
     `at: ${new Date(entry.at ?? Date.now()).toISOString()}`,
     '',
-    `${name}: ${message}`,
+    header,
   ];
-  if (stack) lines.push('', stack);
-  if (entry.componentStack) lines.push('', 'component stack:', entry.componentStack.trim());
+  const frames = stack === null ? null : stackFrames(stack, header);
+  if (frames) lines.push('', anonymizeStackFrames(frames));
+  if (entry.componentStack) lines.push('', 'component stack:', anonymizeStackFrames(entry.componentStack.trim()));
   return lines.join('\n');
 }
 

@@ -143,6 +143,7 @@ const V8_FRAME = /^\s*at (?:async )?(?:new )?(?:(.*?) )?\(?([^()]*?):(\d+):(\d+)
 const GECKO_FRAME = /^(.*?)@(.+?):(\d+):(\d+)$/;
 
 interface ParsedFrame {
+  engine: 'v8' | 'gecko';
   name: string;
   url: string;
   line: number;
@@ -151,9 +152,9 @@ interface ParsedFrame {
 
 function parseFrameLine(line: string): ParsedFrame | null {
   const v8 = V8_FRAME.exec(line);
-  if (v8) return { name: v8[1] ?? '', url: v8[2], line: Number(v8[3]), col: Number(v8[4]) };
+  if (v8) return { engine: 'v8', name: v8[1] ?? '', url: v8[2], line: Number(v8[3]), col: Number(v8[4]) };
   const gecko = GECKO_FRAME.exec(line);
-  if (gecko) return { name: gecko[1], url: gecko[2], line: Number(gecko[3]), col: Number(gecko[4]) };
+  if (gecko) return { engine: 'gecko', name: gecko[1], url: gecko[2], line: Number(gecko[3]), col: Number(gecko[4]) };
   return null;
 }
 
@@ -161,6 +162,28 @@ function parseFrameLine(line: string): ParsedFrame | null {
 function frameBasename(url: string): string {
   const path = url.split(/[?#]/, 1)[0];
   return path.slice(path.lastIndexOf('/') + 1);
+}
+
+/**
+ * A stack (or a React component stack) with every frame's location cut
+ * to its basename and position — for text a person hands over, such as
+ * the issue body the root fallback seeds. A frame URL names the origin
+ * and the directory the bundle loaded from: a dev server and the clone
+ * under a home directory, a per-user install path on Windows. The
+ * basename and the line and column are all a source map needs. Lines
+ * off the frame grammar (the `name: message` header) pass unchanged.
+ */
+export function anonymizeStackFrames(stack: string): string {
+  return stack
+    .split('\n')
+    .map((line) => {
+      const parsed = parseFrameLine(line);
+      if (!parsed) return line;
+      const location = `${frameBasename(parsed.url)}:${parsed.line}:${parsed.col}`;
+      if (parsed.engine === 'gecko') return `${parsed.name}@${location}`;
+      return parsed.name ? `    at ${parsed.name} (${location})` : `    at ${location}`;
+    })
+    .join('\n');
 }
 
 /**
