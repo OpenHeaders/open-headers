@@ -227,9 +227,8 @@ export function isRequestResolvable(
   scopedLookup?: ScopedLookupFn,
   env?: ResolutionEnvSnapshot,
 ): boolean {
-  // `collectRequestTemplateStrings` types on the uid/path-bearing Request;
-  // safe for drafts since the walker only reads `url` + `params` + `headers`
-  // + `auth.*` + `body.*`.
+  // `collectRequestTemplateStrings` types on the templated field list,
+  // which a draft without uid / path satisfies.
   //
   // Trust boundary: this gate runs over PERSISTED entities the renderer
   // reads raw from host storage (git-synced workspace files, rows
@@ -238,7 +237,7 @@ export function isRequestResolvable(
   // Send gated), never throw into the render path and take the whole
   // workbench down with it.
   try {
-    const strings = collectRequestTemplateStrings(request as Request);
+    const strings = collectRequestTemplateStrings(request);
     for (const s of strings) {
       if (!s) continue;
       const { errors } = resolveTemplate(s, lookup, scopedLookup, env);

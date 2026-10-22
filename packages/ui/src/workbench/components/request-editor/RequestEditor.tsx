@@ -334,13 +334,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     [draftCollectionId, workflowStepCtx],
   );
 
-  // Resolvability gate for the Send button — mirrors the DNR compile
-  // gate for rules. Disabling Send up front is better UX than letting
-  // the executor return an error snapshot: the user sees exactly which
-  // section's refs are broken (inline red-dashed mirror + tab dots) and
-  // fixes them before clicking.
-  const { sectionUnresolved, hasUnresolvedRefs } = useSectionUnresolved(draft, draftCollectionId);
-
   // Edit mode: load full request from SW. Create mode: nothing to load.
   const initializedUidRef = useRef<string | null>(null);
 
@@ -348,6 +341,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // dirty fingerprint AND every per-knob / per-section unsaved
   // comparison below, so they can never disagree.
   const draftUpdates = useMemo(() => buildRequestUpdates(draft), [draft]);
+  // The resolvability reading — the core scan over the same projection
+  // (the executor's field list), one resolver pass per keystroke; it
+  // feeds the tab dots, the URL bar's error status and the lifecycle
+  // flag the footer pill and the Variable Scope panel read. The user
+  // sees exactly which section's refs are broken (inline red-dashed
+  // mirror + tab dots) before the send answers with the miss.
+  const { sectionUnresolved, hasUnresolvedRefs } = useSectionUnresolved(draftUpdates, draftCollectionId);
 
   // Form-fingerprint: structural projection of the draft. Empty string
   // pre-init so useReprime has a stable input; `enabled` gates seeding

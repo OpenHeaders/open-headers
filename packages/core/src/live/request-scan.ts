@@ -17,76 +17,102 @@ import { canonicalJson } from '../sync/store/canonical';
 import type { Request } from '../types';
 import { collectAuthTemplateStrings, collectPairTemplateStrings } from './auth-scan';
 
+/** The templated field list of an HTTP request — the persisted entity
+ *  and the editor's save projection satisfy it alike, so one walk feeds
+ *  the editor's tab dots and lifecycle flag, the sidebar's resolvability
+ *  set and the Variable Scope panel. */
+export type RequestTemplateSource = Pick<
+  Request,
+  'url' | 'params' | 'pathParams' | 'headers' | 'auth' | 'body' | 'sniServerName'
+>;
+
+/** The templates by the entity field they ride. */
+export interface RequestTemplateGroups {
+  url: string[];
+  /** The enabled query rows and the path parameter VALUES — one tab,
+   *  one group (a path key is the URL's, never templated). */
+  params: string[];
+  headers: string[];
+  auth: string[];
+  body: string[];
+  /** The Settings knobs — the SNI override. */
+  settings: string[];
+}
+
 /**
- * Flat, order-preserving list of every templatable string in `request`.
- * Disabled headers / params are skipped to match the executor — they
- * never hit the wire, so their templates never resolve and shouldn't
- * contribute to the dependency graph either.
+ * Every templatable string in `request`, grouped by field. Disabled
+ * headers / params are skipped to match the executor — they never hit
+ * the wire, so their templates never resolve and shouldn't contribute
+ * to the dependency graph either.
  */
-export function collectRequestTemplateStrings(request: Request): string[] {
-  const out: string[] = [];
+export function collectRequestTemplateGroups(request: RequestTemplateSource): RequestTemplateGroups {
+  const url: string[] = [];
+  if (request.url) url.push(request.url);
 
-  // ── URL ──
-  if (request.url) out.push(request.url);
-
-  // ── Query params (key + value) ──
-  collectPairTemplateStrings(request.params, out);
-
-  // ── Path params (value — the key is the URL's, never templated) ──
+  const params: string[] = [];
+  collectPairTemplateStrings(request.params, params);
   for (const p of request.pathParams ?? []) {
-    if (p.value) out.push(p.value);
+    if (p.value) params.push(p.value);
   }
 
-  // ── Headers (key + value) ──
-  collectPairTemplateStrings(request.headers, out);
+  const headers: string[] = [];
+  collectPairTemplateStrings(request.headers, headers);
 
-  // ── SNI override — the Settings tab's one templatable knob; the
-  //    executors gate it on the EFFECTIVE request, so an inherited
-  //    template answers here like the request's own ──
-  if (request.sniServerName) out.push(request.sniServerName);
+  // The SNI override — the Settings tab's one templatable knob; the
+  // executors gate it on the EFFECTIVE request, so an inherited
+  // template answers here like the request's own.
+  const settings: string[] = [];
+  if (request.sniServerName) settings.push(request.sniServerName);
 
-  // ── Auth — the shared walk every request kind rides ──
-  collectAuthTemplateStrings(request.auth, out);
+  // The shared auth walk every request kind rides.
+  const auth: string[] = [];
+  collectAuthTemplateStrings(request.auth, auth);
 
-  // ── Body ──
   // Exhaustive over the discriminated union — anything missed here
   // silently disappears from the dependency graph + the resolvability
   // gate. The compiler enforces exhaustion via the `never` assignment
   // on the default branch.
-  const body = request.body;
-  switch (body.type) {
+  const body: string[] = [];
+  const requestBody = request.body;
+  switch (requestBody.type) {
     case 'none':
       break;
     case 'json':
     case 'xml':
     case 'text':
-      if (body.content) out.push(body.content);
+      if (requestBody.content) body.push(requestBody.content);
       break;
     case 'graphql':
-      if (body.content) out.push(body.content);
-      if (body.graphqlVariables) out.push(body.graphqlVariables);
+      if (requestBody.content) body.push(requestBody.content);
+      if (requestBody.graphqlVariables) body.push(requestBody.graphqlVariables);
       break;
     case 'form':
-      for (const part of body.formParts) {
+      for (const part of requestBody.formParts) {
         if (part.enabled === false) continue;
-        if (part.key) out.push(part.key);
-        if (part.value) out.push(part.value);
+        if (part.key) body.push(part.key);
+        if (part.value) body.push(part.value);
       }
       break;
     case 'multipart':
-      for (const part of body.multipartParts) {
+      for (const part of requestBody.multipartParts) {
         if (part.enabled === false) continue;
-        if (part.name) out.push(part.name);
-        if (part.kind === 'text' && part.value) out.push(part.value);
+        if (part.name) body.push(part.name);
+        if (part.kind === 'text' && part.value) body.push(part.value);
       }
       break;
     default: {
-      const _exhaustive: never = body;
+      const _exhaustive: never = requestBody;
       void _exhaustive;
     }
   }
 
-  return out;
+  return { url, params, headers, auth, body, settings };
+}
+
+/** Flat, order-preserving list of every templatable string in `request`. */
+export function collectRequestTemplateStrings(request: RequestTemplateSource): string[] {
+  const g = collectRequestTemplateGroups(request);
+  return [...g.url, ...g.params, ...g.headers, ...g.settings, ...g.auth, ...g.body];
 }
 
 /**

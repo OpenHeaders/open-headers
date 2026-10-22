@@ -52,7 +52,14 @@ const { Text } = Typography;
 
 /** Example content is authored literal values — the unresolved-ref
  *  plumbing never applies, so every section reads resolved. */
-const NO_UNRESOLVED: SectionUnresolved = { url: false, params: false, headers: false, auth: false, body: false };
+const NO_UNRESOLVED: SectionUnresolved = {
+  url: false,
+  params: false,
+  headers: false,
+  auth: false,
+  body: false,
+  settings: false,
+};
 
 /** The request-editor tabs an example carries content for. */
 const EXAMPLE_TAB_KEYS: readonly TabKey[] = ['params', 'headers', 'body'];

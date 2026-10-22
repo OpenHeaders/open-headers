@@ -249,7 +249,13 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.settings')}{' '}
-          {settingsUnsaved ? <TabDot tone="unsaved" /> : settingsDirty ? <TabDot /> : null}
+          {sectionUnresolved.settings ? (
+            <TabDot tone="error" />
+          ) : settingsUnsaved ? (
+            <TabDot tone="unsaved" />
+          ) : settingsDirty ? (
+            <TabDot />
+          ) : null}
         </span>
       ),
     },

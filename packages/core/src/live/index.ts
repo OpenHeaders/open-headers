@@ -93,7 +93,12 @@ export {
   MIN_ALARM_DELAY_MS,
 } from './refresh-cadence';
 export { classifyRefreshHealth } from './refresh-health';
-export { collectRequestTemplateStrings, requestExecutableFingerprint } from './request-scan';
+export type { RequestTemplateGroups, RequestTemplateSource } from './request-scan';
+export {
+  collectRequestTemplateGroups,
+  collectRequestTemplateStrings,
+  requestExecutableFingerprint,
+} from './request-scan';
 export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralIssue } from './step-validation';
 export {
   computeTransitiveAncestors,

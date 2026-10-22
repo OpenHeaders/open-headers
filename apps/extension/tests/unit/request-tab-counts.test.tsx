@@ -29,7 +29,14 @@ afterEach(() => {
   cleanup();
 });
 
-const NONE: SectionUnresolved = { url: false, params: false, headers: false, auth: false, body: false };
+const NONE: SectionUnresolved = {
+  url: false,
+  params: false,
+  headers: false,
+  auth: false,
+  body: false,
+  settings: false,
+};
 
 const t = getTranslator(DEFAULT_LOCALE);
 
