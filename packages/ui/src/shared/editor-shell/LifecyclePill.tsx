@@ -10,53 +10,68 @@ import { CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
 import type { MessageKey } from '@openheaders/i18n';
 import { Popover } from 'antd';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import type { EditorLifecycleStatus } from './types';
 
 type StatusKey = Exclude<EditorLifecycleStatus, null> | 'live';
 
-interface StatusStyle {
-  labelKey: MessageKey;
+interface StatusTone {
   fg: string;
   border: string;
   bg: string;
-  bodyKey: MessageKey;
 }
+
+interface StatusStyle {
+  labelKey: MessageKey;
+  bodyKey: MessageKey;
+  /** The light variants' tone — the saturated ink and pastel border the
+   *  pill was born with. */
+  light: StatusTone;
+  /** The dark variants' tone — a muted ink over a low-alpha tint; the
+   *  light reds burn on a dark footer. */
+  dark: StatusTone;
+}
+
+const NEUTRAL_LIGHT: StatusTone = { fg: '#7a7a7a', border: '#bfbfbf', bg: 'rgba(140,140,140,0.10)' };
+const NEUTRAL_DARK: StatusTone = { fg: '#9a9a9a', border: 'rgba(160,160,160,0.35)', bg: 'rgba(160,160,160,0.10)' };
 
 const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
   scratch: {
     labelKey: 'shared.chrome.lifecycle.scratch',
-    fg: '#7a7a7a',
-    border: '#bfbfbf',
-    bg: 'rgba(140,140,140,0.10)',
     bodyKey: 'shared.chrome.lifecycle.scratchBody',
+    light: NEUTRAL_LIGHT,
+    dark: NEUTRAL_DARK,
   },
   unresolved: {
     labelKey: 'shared.chrome.lifecycle.unresolved',
-    fg: '#cf1322',
-    border: '#ffa39e',
-    bg: 'rgba(255,77,79,0.10)',
     bodyKey: 'shared.chrome.lifecycle.unresolvedBody',
+    light: { fg: '#cf1322', border: '#ffa39e', bg: 'rgba(255,77,79,0.10)' },
+    dark: { fg: '#e08c8c', border: 'rgba(224,140,140,0.35)', bg: 'rgba(224,140,140,0.10)' },
   },
   draft: {
     labelKey: 'shared.chrome.lifecycle.draft',
-    fg: '#7a7a7a',
-    border: '#bfbfbf',
-    bg: 'rgba(140,140,140,0.10)',
     bodyKey: 'shared.chrome.lifecycle.draftBody',
+    light: NEUTRAL_LIGHT,
+    dark: NEUTRAL_DARK,
   },
   live: {
     labelKey: 'shared.chrome.lifecycle.live',
-    fg: '#389e0d',
-    border: '#b7eb8f',
-    bg: 'rgba(82,196,26,0.12)',
     bodyKey: 'shared.chrome.lifecycle.liveBody',
+    light: { fg: '#389e0d', border: '#b7eb8f', bg: 'rgba(82,196,26,0.12)' },
+    dark: { fg: '#8cc97a', border: 'rgba(140,201,122,0.35)', bg: 'rgba(140,201,122,0.10)' },
   },
 };
+
+function statusTone(s: StatusStyle, isDarkMode: boolean): StatusTone {
+  return isDarkMode ? s.dark : s.light;
+}
 
 const STATUS_ORDER: StatusKey[] = ['scratch', 'draft', 'unresolved', 'live'];
 
 function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
   const t = useT();
+  const { isDarkMode } = useUiTheme();
+  const tone = statusTone(s, isDarkMode);
   return (
     <span
       style={{
@@ -66,15 +81,15 @@ function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
         padding: '1px 8px',
         fontSize: 10,
         fontWeight: 600,
-        color: s.fg,
-        background: s.bg,
-        border: `1px solid ${s.border}`,
+        color: tone.fg,
+        background: tone.bg,
+        border: `1px solid ${tone.border}`,
         borderRadius: 999,
         flexShrink: 0,
       }}
     >
-      {active && <CheckCircleFilled style={{ fontSize: 9, color: s.fg }} />}
-      {!active && <ExclamationCircleFilled style={{ fontSize: 9, opacity: 0.35, color: s.fg }} />}
+      {active && <CheckCircleFilled style={{ fontSize: 9, color: tone.fg }} />}
+      {!active && <ExclamationCircleFilled style={{ fontSize: 9, opacity: 0.35, color: tone.fg }} />}
       {t(s.labelKey)}
     </span>
   );
@@ -82,6 +97,7 @@ function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
 
 function LifecyclePopoverContent({ current }: { current: StatusKey }) {
   const t = useT();
+  const { isDarkMode } = useUiTheme();
   return (
     <div style={{ minWidth: 280, maxWidth: 320 }}>
       <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--ant-color-text-secondary)' }}>
@@ -90,6 +106,7 @@ function LifecyclePopoverContent({ current }: { current: StatusKey }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {STATUS_ORDER.map((key) => {
           const style = STATUS_STYLE[key];
+          const tone = statusTone(style, isDarkMode);
           const active = key === current;
           return (
             <div
@@ -99,8 +116,8 @@ function LifecyclePopoverContent({ current }: { current: StatusKey }) {
                 alignItems: 'flex-start',
                 gap: 8,
                 padding: '4px 6px',
-                background: active ? style.bg : 'transparent',
-                border: `1px solid ${active ? style.border : 'transparent'}`,
+                background: active ? tone.bg : 'transparent',
+                border: `1px solid ${active ? tone.border : 'transparent'}`,
                 borderRadius: 6,
               }}
             >
