@@ -31,6 +31,7 @@ import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-edit
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import SentAsWrittenTag, { sentAsWrittenHasBadge } from '../request-editor/response/SentAsWrittenTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
+import { SendPulseBar } from '../request-editor/response/SendPulse';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
@@ -38,7 +39,14 @@ import WsMessageTimeline, { type WsTimelineLifecycle } from './WsMessageTimeline
 import WsScriptsTag from './WsScriptsTag';
 import WsScriptsView from './WsScriptsView';
 import type { LiveWsSession, WsSessionTiming } from './useLiveWsSession';
-import { liveLifecycleItems, reconnectExhaustedMessage, reconnectingAt, snapshotLifecycleItems } from './ws-lifecycle';
+import {
+  liveLifecycleItems,
+  reconnectExhaustedMessage,
+  reconnectingAt,
+  snapshotLifecycleItems,
+  wsSessionEndTone,
+} from './ws-lifecycle';
+import { wsSessionPulse } from './ws-session-pulse';
 import { digestFromMarks, digestFromRecord, scriptMarksOf } from './ws-scripts';
 
 type WsSessionView = 'timeline' | 'scripts';
@@ -48,6 +56,10 @@ const { Text } = Typography;
 interface WsSessionPaneProps {
   /** Non-null while the session is open. */
   live: LiveWsSession | null;
+  /** A send rider is out on the open session — the bar sweeps once. */
+  sending?: boolean;
+  /** Sends the session refused, counted; each plays the error line. */
+  sendFailures?: number;
   /** Non-null once the session settled. */
   snapshot: ExecutedWsSnapshot | null;
   /** Session-only timing captured at materialization. */
@@ -81,6 +93,8 @@ interface WsSessionPaneProps {
 
 const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   live,
+  sending = false,
+  sendFailures,
   snapshot,
   timing,
   hostNotice,
@@ -188,38 +202,37 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
     };
   }, [snapshot, live, timing, t]);
 
-  // The settled pill — the reference vocabulary: a session that opened
-  // reads Disconnected on the error tint whatever ended it (the close
-  // code, a Stop, a missing Close frame all ride the hover sheet); a
-  // handshake failure reads Connect failed on the same tint; a cancel
-  // before the handshake reads Aborted on the neutral wash.
-  const endedPill = useTonePillStyle('error');
-  const abortedPill = useTonePillStyle('neutral');
+  // The settled pill — a session that opened reads Disconnected (the
+  // close code, a Stop, a missing Close frame all ride the hover
+  // sheet), a handshake failure Connect failed, a cancel before the
+  // handshake Aborted. The tint is `wsSessionEndTone` — by whose doing
+  // the end was, the one reading the send pulse paints too.
+  const endPill = useTonePillStyle(snapshot === null ? 'neutral' : wsSessionEndTone(snapshot, timing));
   const closeTag = (() => {
     if (snapshot === null) return null;
     if (snapshot.outcome.kind === 'aborted') {
       return (
-        <Tag color="default" style={abortedPill} data-testid="ws-session-close-tag">
+        <Tag color="default" style={endPill} data-testid="ws-session-close-tag">
           {t('workbench.editors.websocket.session.abortedTag')}
         </Tag>
       );
     }
     if (snapshot.outcome.kind === 'failed') {
       return (
-        <Tag color="default" style={endedPill} data-testid="ws-session-close-tag">
+        <Tag color="default" style={endPill} data-testid="ws-session-close-tag">
           {t('workbench.editors.websocket.session.connectFailedTag')}
         </Tag>
       );
     }
     if (snapshot.reconnectExhausted !== undefined) {
       return (
-        <Tag color="default" style={endedPill} data-testid="ws-session-close-tag">
+        <Tag color="default" style={endPill} data-testid="ws-session-close-tag">
           {t('workbench.editors.websocket.session.reconnectExhaustedTag')}
         </Tag>
       );
     }
     return (
-      <Tag color="default" style={endedPill} data-testid="ws-session-close-tag">
+      <Tag color="default" style={endPill} data-testid="ws-session-close-tag">
         {t('workbench.editors.websocket.session.disconnectedTag')}
       </Tag>
     );
@@ -414,9 +427,15 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
         minHeight: 0,
         minWidth: 0,
         background: token.colorBgContainer,
+        position: 'relative',
       }}
       data-testid="ws-session-pane"
     >
+      <SendPulseBar
+        {...wsSessionPulse(live, snapshot, timing, reconnecting, sending)}
+        {...(sendFailures !== undefined ? { failures: sendFailures } : {})}
+        axis="x"
+      />
       {noticeStrip}
       <div
         style={{

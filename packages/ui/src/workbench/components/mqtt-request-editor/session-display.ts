@@ -107,17 +107,18 @@ export function grantFailureLabel(reasonCode: number, t: Translate): string | nu
 }
 
 /** The end pill's tone for a settled session — the one reading the
- *  pill and the pane's send pulse both paint: a pre-open failure, the
- *  severed socket, the clean client Disconnect and a spent or refused
- *  reconnect loop on the error tint; a broker DISCONNECT and Stop on
- *  the warning tint; a user abort before the session opened neutral. */
+ *  pill and the pane's send pulse both paint, by whose doing the end
+ *  was: what the user asked for (the clean Disconnect, Stop, a cancel
+ *  before the session opened) neutral; the broker's own DISCONNECT on
+ *  the warning tint; a pre-open failure, the severed socket and a
+ *  spent or refused reconnect loop on the error tint. */
 export function sessionEndTone(
   snapshot: Pick<ExecutedMqttSnapshot, 'outcome' | 'end' | 'stopped' | 'reconnectRefused' | 'reconnectExhausted'>,
 ): PillTone {
   if (snapshot.reconnectRefused !== undefined || snapshot.reconnectExhausted !== undefined) return 'error';
   if (snapshot.outcome.kind === 'aborted') return 'neutral';
   if (snapshot.outcome.kind === 'failed') return 'error';
-  if (snapshot.stopped === true) return 'warning';
+  if (snapshot.stopped === true) return 'neutral';
   if (snapshot.end === null) return 'error';
-  return snapshot.end.by === 'client' ? 'error' : 'warning';
+  return snapshot.end.by === 'client' ? 'neutral' : 'warning';
 }

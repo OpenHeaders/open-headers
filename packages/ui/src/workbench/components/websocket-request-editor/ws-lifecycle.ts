@@ -11,6 +11,8 @@
 
 import type { ExecutedWsLifecycle, ExecutedWsSnapshot } from '@openheaders/core/types';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import type { PillTone } from '../request-editor/response/response-status';
+import type { WsSessionTiming } from './useLiveWsSession';
 
 /** One timeline lifecycle row — the fact plus its session-only host
  *  stamp when one was observed. `atIndex` is already the display
@@ -69,4 +71,21 @@ export function reconnectExhaustedMessage(exhausted: { attempts: number; error?:
         attempts: attemptsText,
         reason: exhausted.error,
       });
+}
+
+/** The settled pill's tone — the one reading the pill and the pane's
+ *  send pulse both paint, by whose doing the end was: what the user
+ *  asked for (Disconnect, Stop, a cancel before the handshake)
+ *  neutral; a close the server sent on the warning tint; a handshake
+ *  failure, a socket that ended with no Close frame and a spent
+ *  reconnect loop on the error tint. The snapshot's close record does
+ *  not say who sent it — the editor's Disconnect-click stamp does. */
+export function wsSessionEndTone(
+  snapshot: Pick<ExecutedWsSnapshot, 'outcome' | 'close' | 'stopped' | 'reconnectExhausted'>,
+  timing: Pick<WsSessionTiming, 'closeRequestedAt'> | null,
+): PillTone {
+  if (snapshot.outcome.kind === 'aborted') return 'neutral';
+  if (snapshot.outcome.kind === 'failed' || snapshot.reconnectExhausted !== undefined) return 'error';
+  if (snapshot.stopped === true || timing?.closeRequestedAt !== undefined) return 'neutral';
+  return snapshot.close === null ? 'error' : 'warning';
 }

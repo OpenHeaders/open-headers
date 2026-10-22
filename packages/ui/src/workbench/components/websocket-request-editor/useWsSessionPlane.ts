@@ -72,6 +72,12 @@ export interface WsSessionPlane {
   timing: WsSessionTiming | null;
   /** The open session's live feed; null outside one. */
   live: LiveWsSession | null;
+  /** A send rider is out on the open session (the compose Send's
+   *  answer waits on the resolve, the frame write and, with an ack
+   *  opted in, the socketio ack). */
+  sending: boolean;
+  /** Sends the session refused or could not compose, counted. */
+  sendFailures: number;
   /** Per-knob honesty notice for a page-realm session; null = none. */
   hostNotice: string | null;
   /** Honest gate copy for a disabled Connect; null = enabled. */
@@ -160,6 +166,8 @@ export function useWsSessionPlane({
   const [snapshot, setSnapshot] = useState<ExecutedWsSnapshot | null>(null);
   const [timing, setTiming] = useState<WsSessionTiming | null>(null);
   const [hostNotice, setHostNotice] = useState<string | null>(null);
+  const [sendsOut, setSendsOut] = useState(0);
+  const [sendFailures, setSendFailures] = useState(0);
   const activeSendIdRef = useRef<string | null>(null);
   /** The user's Disconnect/Cancel click instant — the aborted row's
    *  honest time (the teardown itself rides the end frame's stamp). */
@@ -272,6 +280,7 @@ export function useWsSessionPlane({
   const handleSendMessage = useCallback(async () => {
     const sendId = activeSendIdRef.current;
     if (!sendId) return;
+    setSendsOut((n) => n + 1);
     const result = await hostBridge
       .call('sendWsMessage', {
         sendId,
@@ -279,8 +288,10 @@ export function useWsSessionPlane({
         ...(socketioFlavor ? { socketio: { eventName: draft.eventName, expectAck: draft.ackEnabled } } : {}),
         ...(binaryCompose ? { binary: { encoding: draft.binaryEncoding } } : {}),
       })
-      .catch(() => null);
+      .catch(() => null)
+      .finally(() => setSendsOut((n) => n - 1));
     if (result === null || !result.success) {
+      setSendFailures((n) => n + 1);
       toast.error(result?.error ?? t('workbench.editors.websocket.session.sendFailed'));
     }
   }, [draft.message, draft.eventName, draft.ackEnabled, draft.binaryEncoding, socketioFlavor, binaryCompose, toast, t]);
@@ -352,6 +363,8 @@ export function useWsSessionPlane({
     snapshot,
     timing,
     live: liveSession.live,
+    sending: sendsOut > 0,
+    sendFailures,
     hostNotice,
     connectDisabledReason,
     executionPlace,

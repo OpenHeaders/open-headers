@@ -610,6 +610,8 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                 {session.live !== null || session.snapshot !== null ? (
                   <WsSessionPane
                     live={session.live}
+                    sending={session.sending}
+                    sendFailures={session.sendFailures}
                     snapshot={session.snapshot}
                     timing={session.timing}
                     hostNotice={session.hostNotice}

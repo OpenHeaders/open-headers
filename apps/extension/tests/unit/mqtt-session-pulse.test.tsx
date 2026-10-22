@@ -43,20 +43,20 @@ function makeLive(overrides: Partial<LiveMqttSession> = {}): LiveMqttSession {
 const OPEN: LiveMqttSession['open'] = { sessionPresent: false, reasonCode: 0, clientId: 'oh-client' };
 
 describe('sessionEndTone', () => {
-  it('reads the end pill: failures, the severed socket and the clean Disconnect on error', () => {
+  it('reads the end pill: what the user asked for is neutral', () => {
+    expect(sessionEndTone(makeSnapshot({ end: { by: 'client' } }))).toBe('neutral');
+    expect(sessionEndTone(makeSnapshot({ stopped: true }))).toBe('neutral');
+    expect(sessionEndTone(makeSnapshot({ outcome: { kind: 'aborted' }, end: null }))).toBe('neutral');
+  });
+
+  it('reads the end pill: the broker ending it is warning, a failure or a severed socket error', () => {
+    expect(sessionEndTone(makeSnapshot({ end: { by: 'broker', reasonCode: 0x8e } }))).toBe('warning');
     expect(sessionEndTone(makeSnapshot({ outcome: { kind: 'failed', error: 'refused' }, end: null }))).toBe('error');
     expect(sessionEndTone(makeSnapshot({ end: null }))).toBe('error');
-    expect(sessionEndTone(makeSnapshot({ end: { by: 'client' } }))).toBe('error');
     expect(sessionEndTone(makeSnapshot({ end: null, reconnectRefused: { attempt: 2, error: 'refused' } }))).toBe(
       'error',
     );
     expect(sessionEndTone(makeSnapshot({ end: null, reconnectExhausted: { attempts: 5 } }))).toBe('error');
-  });
-
-  it('reads a broker DISCONNECT and Stop on warning, a pre-open abort neutral', () => {
-    expect(sessionEndTone(makeSnapshot({ end: { by: 'broker', reasonCode: 0x8e } }))).toBe('warning');
-    expect(sessionEndTone(makeSnapshot({ stopped: true }))).toBe('warning');
-    expect(sessionEndTone(makeSnapshot({ outcome: { kind: 'aborted' }, end: null }))).toBe('neutral');
   });
 });
 
@@ -72,10 +72,10 @@ describe('mqttSessionPulse', () => {
       inflight: false,
       landing: 'success',
     });
-    expect(mqttSessionPulse(null, makeSnapshot(), false, false)).toEqual({ inflight: false, landing: 'error' });
-    expect(mqttSessionPulse(null, makeSnapshot({ stopped: true }), false, false)).toEqual({
+    expect(mqttSessionPulse(null, makeSnapshot(), false, false)).toEqual({ inflight: false, landing: 'neutral' });
+    expect(mqttSessionPulse(null, makeSnapshot({ end: null }), false, false)).toEqual({
       inflight: false,
-      landing: 'warning',
+      landing: 'error',
     });
   });
 
@@ -137,11 +137,26 @@ describe('SendPulseBar on a session', () => {
     expect(screen.queryByTestId('oh-send-pulse')).toBeNull();
   });
 
-  it('lands on the end tone when the session ends mid-publish', () => {
+  it('plays the error line for a publish the session refused, and again for the next one', () => {
+    const connected = makeLive({ open: OPEN });
+    const { rerender } = render(
+      <SendPulseBar {...mqttSessionPulse(connected, null, false, true)} failures={0} axis="x" />,
+    );
+    rerender(<SendPulseBar {...mqttSessionPulse(connected, null, false, false)} failures={1} axis="x" />);
+    expect(screen.getByTestId('oh-send-pulse').dataset.phase).toBe('settled');
+    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('error');
+    fireEvent.animationEnd(screen.getByTestId('oh-send-pulse'));
+    expect(screen.queryByTestId('oh-send-pulse')).toBeNull();
+
+    rerender(<SendPulseBar {...mqttSessionPulse(connected, null, false, false)} failures={2} axis="x" />);
+    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('error');
+  });
+
+  it('lands grey on the Disconnect the user asked for, mid-publish included', () => {
     const { rerender } = render(at(makeLive({ open: OPEN }), null, false, true));
     rerender(at(null, makeSnapshot()));
     expect(screen.getByTestId('oh-send-pulse').dataset.phase).toBe('settled');
-    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('error');
+    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('neutral');
   });
 
   it('lands on the end tone straight from a dial that failed, and stays dark on a pane restored with its snapshot', () => {

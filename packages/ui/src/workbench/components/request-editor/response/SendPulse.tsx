@@ -40,10 +40,12 @@ function reducedMotion(): boolean {
 export function useSendPulse(
   inflight: boolean,
   landing: PillTone | null,
+  failures = 0,
 ): { phase: SendPulsePhase; tone: PillTone | null; finish: () => void; passEnd: () => void } {
   const [settled, setSettled] = useState<PillTone | null>(null);
   const [passOwed, setPassOwed] = useState(false);
   const lastLandingRef = useRef(landing);
+  const lastFailuresRef = useRef(failures);
   const inflightRef = useRef(inflight);
   inflightRef.current = inflight;
 
@@ -60,6 +62,15 @@ export function useSendPulse(
     setPassOwed(false);
   }, [inflight, landing]);
 
+  // A failed exchange on the landed state plays the error line without
+  // moving the landing — the next one plays it again.
+  useEffect(() => {
+    if (failures === lastFailuresRef.current) return;
+    lastFailuresRef.current = failures;
+    setSettled('error');
+    setPassOwed(false);
+  }, [failures]);
+
   const finish = useCallback(() => setSettled(null), []);
   const passEnd = useCallback(() => {
     if (!inflightRef.current) setPassOwed(false);
@@ -69,9 +80,16 @@ export function useSendPulse(
   return { phase, tone: settled, finish, passEnd };
 }
 
-export const SendPulseBar: React.FC<SendPulseDrive & { axis: SendPulseAxis }> = ({ inflight, landing, axis }) => {
+export const SendPulseBar: React.FC<
+  SendPulseDrive & {
+    axis: SendPulseAxis;
+    /** Exchanges on the landed state that failed, counted — each new
+     *  one plays the error line (a failed publish or send). */
+    failures?: number;
+  }
+> = ({ inflight, landing, axis, failures }) => {
   const { token } = theme.useToken();
-  const { phase, tone, finish, passEnd } = useSendPulse(inflight, landing);
+  const { phase, tone, finish, passEnd } = useSendPulse(inflight, landing, failures);
   if (phase === 'idle') return null;
   const lineColor = tone === null || tone === 'neutral' ? token.colorTextTertiary : toneHue(token, tone);
   return (

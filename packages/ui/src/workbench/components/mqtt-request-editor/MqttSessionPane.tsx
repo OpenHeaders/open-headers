@@ -65,6 +65,8 @@ interface MqttSessionPaneProps {
   live: LiveMqttSession | null;
   /** A publish rider is out on the open session — the bar sweeps once. */
   publishing?: boolean;
+  /** Publishes the session refused, counted; each plays the error line. */
+  publishFailures?: number;
   /** Non-null once the session settled. */
   snapshot: ExecutedMqttSnapshot | null;
   /** Session-only timing captured at materialization. */
@@ -93,6 +95,7 @@ interface MqttSessionPaneProps {
 const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   live,
   publishing = false,
+  publishFailures,
   snapshot,
   timing,
   protocolVersion,
@@ -230,11 +233,11 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   }, [snapshot, live, timing, connackFacts, endedMessage]);
 
   // End pill honesty: a pre-open failure reads as Connect failed, the
-  // clean client Disconnect wears the ended tint (the WebSocket pane's
-  // picture), a broker DISCONNECT its verbatim reason, a severed
-  // connection the absence it is, Stopped its own state, a reconnect
-  // the broker refused or a spent attempt cap the loop's end. The tint
-  // is `sessionEndTone` — the one reading the send pulse paints too.
+  // clean client Disconnect as Disconnected, a broker DISCONNECT its
+  // verbatim reason, a severed connection the absence it is, Stopped
+  // its own state, a reconnect the broker refused or a spent attempt
+  // cap the loop's end. The tint is `sessionEndTone` — by whose doing
+  // the end was, the one reading the send pulse paints too.
   const endPill = useTonePillStyle(snapshot === null ? 'neutral' : sessionEndTone(snapshot));
   const endTag = (() => {
     if (snapshot === null) return null;
@@ -496,7 +499,11 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
       }}
       data-testid="mqtt-session-pane"
     >
-      <SendPulseBar {...mqttSessionPulse(live, snapshot, reconnecting, publishing)} axis="x" />
+      <SendPulseBar
+        {...mqttSessionPulse(live, snapshot, reconnecting, publishing)}
+        {...(publishFailures !== undefined ? { failures: publishFailures } : {})}
+        axis="x"
+      />
       {noticeStrip}
       <Tabs
         activeKey={shownTab}

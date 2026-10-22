@@ -653,6 +653,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
                   <MqttSessionPane
                     live={session.live}
                     publishing={session.publishing}
+                    publishFailures={session.publishFailures}
                     snapshot={session.snapshot}
                     timing={session.timing}
                     protocolVersion={draft.protocolVersion}

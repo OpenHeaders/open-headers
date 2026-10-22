@@ -95,6 +95,8 @@ export interface MqttSessionPlane {
    *  answer waits on the Before publish hook and, for QoS 1/2, the
    *  broker's ack flow). */
   publishing: boolean;
+  /** Publishes the session refused or could not compose, counted. */
+  publishFailures: number;
   /** Per-knob honesty notice for a page-realm session; null = none. */
   hostNotice: string | null;
   /** Honest gate copy for a disabled Connect; null = enabled. */
@@ -154,6 +156,7 @@ export function useMqttSessionPlane({
   const [timing, setTiming] = useState<MqttSessionTiming | null>(null);
   const [hostNotice, setHostNotice] = useState<string | null>(null);
   const [publishesOut, setPublishesOut] = useState(0);
+  const [publishFailures, setPublishFailures] = useState(0);
   const activeSendIdRef = useRef<string | null>(null);
   /** The user's Disconnect/Cancel click instant — the aborted row's
    *  honest time (the teardown itself rides the end frame's stamp). */
@@ -342,6 +345,7 @@ export function useMqttSessionPlane({
         .catch(() => null)
         .finally(() => setPublishesOut((n) => n - 1));
       if (result === null || !result.success) {
+        setPublishFailures((n) => n + 1);
         toast.error(result?.error ?? t('workbench.editors.mqtt.session.sendFailed'));
       }
     },
@@ -456,6 +460,7 @@ export function useMqttSessionPlane({
     timing,
     live: liveSession.live,
     publishing: publishesOut > 0,
+    publishFailures,
     hostNotice,
     connectDisabledReason,
     executionPlace,
