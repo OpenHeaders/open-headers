@@ -36,6 +36,7 @@ const MqttTargetRow: React.FC<MqttTargetRowProps> = ({ draft, setDraft, inFlight
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
       <Tooltip
+        placement="bottom"
         open={versionMenuOpen || versionTipSuppressed ? false : undefined}
         styles={{ root: { maxWidth: 420 } }}
         title={

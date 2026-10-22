@@ -151,7 +151,7 @@ const GrpcTargetRow: React.FC<GrpcTargetRowProps> = ({ draft, setDraft, spec, wo
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      <Tooltip title={draft.tls ? t('workbench.editors.grpc.tls.on') : t('workbench.editors.grpc.tls.off')}>
+      <Tooltip placement="bottom" title={draft.tls ? t('workbench.editors.grpc.tls.on') : t('workbench.editors.grpc.tls.off')}>
         <Button
           icon={
             draft.tls ? (
