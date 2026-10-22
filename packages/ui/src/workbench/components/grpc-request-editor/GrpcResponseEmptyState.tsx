@@ -5,7 +5,7 @@
  * reachable from the start.
  */
 
-import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { CaretRightOutlined } from '@ant-design/icons';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
@@ -35,12 +35,11 @@ const GrpcResponseEmptyState: React.FC<{ invoking: boolean }> = ({ invoking }) =
       data-testid="grpc-response-empty"
     >
       {invoking ? (
-        <>
-          <LoadingOutlined style={{ fontSize: 20, color: token.colorPrimary }} />
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('workbench.editors.grpc.response.empty.invoking')}
-          </Text>
-        </>
+        // The pane's leading edge carries the send pulse; the words
+        // alone say what is happening.
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {t('workbench.editors.grpc.response.empty.invoking')}
+        </Text>
       ) : (
         <>
           <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />

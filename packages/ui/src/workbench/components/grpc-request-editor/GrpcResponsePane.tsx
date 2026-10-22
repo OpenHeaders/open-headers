@@ -176,7 +176,11 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
   if (view.kind === 'structural') notices.push(t('workbench.editors.grpc.response.structuralNotice'));
 
   const messageBody =
-    snapshot.error !== null ? (
+    snapshot.error !== null && snapshot.localStatus === 1 ? (
+      // The caller's own Stop before the head: the status flavor titled
+      // by the canonical 1 CANCELLED, the stop message its chip.
+      <GrpcResponseErrorState status={1} detail={snapshot.error} />
+    ) : snapshot.error !== null ? (
       // A local failure (the call never produced a response head) —
       // the friendly error state IS the Response tab's body, inside
       // the pane's chrome (pill + duration + tabs stay; never a bare

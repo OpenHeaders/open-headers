@@ -136,10 +136,16 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
         ...(requestMetadata !== undefined ? { requestMetadata } : {}),
         ...(secretMetadataKeys !== undefined ? { secretMetadataKeys } : {}),
         headArrived: false,
-        endedBy: 'error',
         ...(settledAt !== undefined ? { endedAt: settledAt } : {}),
-        endedMessage: snapshot.error,
-        ...(snapshot.advice !== undefined ? { endedAdvice: snapshot.advice } : {}),
+        // The caller's own Stop before the head (the local 1 CANCELLED
+        // the executor stamps) is the neutral stopped row, not a failure.
+        ...(snapshot.localStatus === 1
+          ? { endedBy: 'stop' as const }
+          : {
+              endedBy: 'error' as const,
+              endedMessage: snapshot.error,
+              ...(snapshot.advice !== undefined ? { endedAdvice: snapshot.advice } : {}),
+            }),
       };
     }
     return {
