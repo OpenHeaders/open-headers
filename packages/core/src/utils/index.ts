@@ -179,6 +179,7 @@ export {
   appendQueryParams,
   buildUrlDisplay,
   inlinePathParams,
+  normalizePathParamSegments,
   parsePathParamNames,
   parseUrlQuery,
   splitUrlPath,

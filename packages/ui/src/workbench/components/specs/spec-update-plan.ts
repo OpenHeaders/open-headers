@@ -4,9 +4,14 @@
  * Pure comparison of a freshly parsed spec document against the live
  * collection it generated — the user-mediated diff the Update surface
  * presents, never a silent overwrite. Requests pair by the OpenAPI
- * operation identity (method + URL template): a user-renamed request
- * stays matched and its rename survives unless the row is applied with
- * a name change; a spec path rename presents honestly as remove + add.
+ * operation identity (method + URL template, keyed in the path-
+ * parameter form so a `{{name}}` segment of a collection generated
+ * before path parameters and the `:name` segment the importer emits
+ * now are one operation): a user-renamed request stays matched and its
+ * rename survives unless the row is applied with a name change; a spec
+ * path rename presents honestly as remove + add; the URL text and the
+ * path rows are diffable fields, so a pre-epic collection converges to
+ * the parameter form through the user's apply, never a silent rewrite.
  *
  * Opinion boundary: the plan only ever names fields the spec-derived
  * seed defines. Optional fields the parser never emits (execution
@@ -28,16 +33,17 @@ import type {
   AuthConfig,
   Collection,
   HttpMethod,
+  PathParam,
   QueryParam,
   Request,
   RequestHeader,
   Variable,
 } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
+import { generateUid, normalizePathParamSegments } from '@openheaders/core/utils';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 
 /** Field ids a changed request can carry — i18n-labeled at render. */
-export type SpecChangedField = 'name' | 'description' | 'headers' | 'params' | 'auth' | 'body';
+export type SpecChangedField = 'name' | 'description' | 'url' | 'headers' | 'params' | 'pathParams' | 'auth' | 'body';
 
 export interface SpecPlanAdd {
   key: string;
@@ -54,7 +60,7 @@ export interface SpecPlanChange {
   url: string;
   changedFields: SpecChangedField[];
   /** `updateRequest` partial converging the changed fields. */
-  updates: Partial<Pick<Request, 'name' | 'description' | 'headers' | 'params' | 'auth' | 'body'>>;
+  updates: Partial<Pick<Request, SpecChangedField>>;
 }
 
 export interface SpecPlanRemove {
@@ -87,8 +93,10 @@ export function specUpdatePlanSize(plan: SpecUpdatePlan): number {
   );
 }
 
-/** Pairing key for an operation: method + URL template. */
-export const operationKey = (method: string, url: string) => `${method} ${url.trim()}`;
+/** Pairing key for an operation: method + URL template in the
+ *  path-parameter form (`/pets/{{petId}}` and `/pets/:petId` are one
+ *  key — see `normalizePathParamSegments`). */
+export const operationKey = (method: string, url: string) => `${method} ${normalizePathParamSegments(url.trim())}`;
 
 // Row projections for spec-vs-live equality — uid is sync identity,
 // never document content; absent optionals normalize like the wire.
@@ -105,6 +113,7 @@ const paramRow = (p: QueryParam) => ({
   enabled: p.enabled !== false,
   hasEquals: p.hasEquals === true,
 });
+const pathParamRow = (p: PathParam) => ({ key: p.key, value: p.value, description: p.description ?? '' });
 
 const structurallyEqual = (a: unknown, b: unknown) => stableStringify(a) === stableStringify(b);
 
@@ -125,7 +134,7 @@ function reuseRowUids<T extends { uid: string; key: string }>(specRows: readonly
 }
 
 /** The request fields the spec comparison reads. */
-export type SpecComparableRequest = Pick<Request, 'name' | 'description' | 'headers' | 'params' | 'auth' | 'body'>;
+export type SpecComparableRequest = Pick<Request, SpecChangedField>;
 
 /** Field-by-field comparison of one parsed operation against its live
  *  request — the changed fields and the update partial that converges
@@ -145,6 +154,10 @@ export function diffRequest(
     changedFields.push('description');
     updates.description = spec.description;
   }
+  if (spec.url.trim() !== live.url.trim()) {
+    changedFields.push('url');
+    updates.url = spec.url;
+  }
   if (!structurallyEqual(spec.headers.map(headerRow), live.headers.map(headerRow))) {
     changedFields.push('headers');
     updates.headers = reuseRowUids(spec.headers, live.headers);
@@ -152,6 +165,12 @@ export function diffRequest(
   if (!structurallyEqual(spec.params.map(paramRow), live.params.map(paramRow))) {
     changedFields.push('params');
     updates.params = reuseRowUids(spec.params, live.params);
+  }
+  const specPathParams = spec.pathParams ?? [];
+  const livePathParams = live.pathParams ?? [];
+  if (!structurallyEqual(specPathParams.map(pathParamRow), livePathParams.map(pathParamRow))) {
+    changedFields.push('pathParams');
+    updates.pathParams = reuseRowUids(specPathParams, livePathParams);
   }
   if (!structurallyEqual(spec.auth, live.auth)) {
     changedFields.push('auth');

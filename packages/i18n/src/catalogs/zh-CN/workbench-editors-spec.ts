@@ -143,8 +143,10 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.update.authRow': '集合授权',
   'workbench.editors.spec.update.field.name': '名称',
   'workbench.editors.spec.update.field.description': '描述',
+  'workbench.editors.spec.update.field.url': 'URL',
   'workbench.editors.spec.update.field.headers': '标头',
   'workbench.editors.spec.update.field.params': '参数',
+  'workbench.editors.spec.update.field.pathParams': '路径参数',
   'workbench.editors.spec.update.field.auth': 'auth',
   'workbench.editors.spec.update.field.body': '正文',
   'workbench.editors.spec.update.action': ({ count }, locale) =>

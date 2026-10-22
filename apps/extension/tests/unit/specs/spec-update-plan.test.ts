@@ -12,15 +12,23 @@
  *   - collection variables upsert by name — spec rows converge value
  *     on the live uid, user-added rows survive;
  *   - user duplicates of an operation the spec still names are never
- *     planned as removes.
+ *     planned as removes;
+ *   - a collection generated before path parameters (`{{petId}}`
+ *     segments, no rows) pairs with the `:petId` operation the
+ *     importer emits now and converges through ONE change naming
+ *     `url` and `pathParams` — never a remove + add; the path rows
+ *     diff by key with live uids reused; a stale collection variable
+ *     the old importer seeded is the user's, untouched.
  */
 
 import { parseOpenApi } from '@openheaders/core/import';
-import type { Collection, Request } from '@openheaders/core/types';
+import type { Collection, PathParam, Request } from '@openheaders/core/types';
 import { buildSpecUpdatePlan, specUpdatePlanSize } from '@openheaders/ui/workbench/components/specs/spec-update-plan';
 import { describe, expect, it } from 'vitest';
 
-function specYaml(opts: { extraOp?: boolean; statusParam?: boolean; dropUsers?: boolean; server?: string } = {}) {
+function specYaml(
+  opts: { extraOp?: boolean; statusParam?: boolean; dropUsers?: boolean; server?: string; petDescription?: string } = {},
+) {
   const lines = [
     "openapi: '3.1.0'",
     'info:',
@@ -67,6 +75,23 @@ function specYaml(opts: { extraOp?: boolean; statusParam?: boolean; dropUsers?: 
       '          description: OK',
     );
   }
+  if (opts.petDescription !== undefined) {
+    lines.push(
+      '  /pets/{petId}:',
+      '    get:',
+      '      summary: Get pet',
+      '      parameters:',
+      '        - name: petId',
+      '          in: path',
+      '          required: true',
+      `          description: ${opts.petDescription}`,
+      "          example: '42'",
+      '          schema: { type: string }',
+      '      responses:',
+      "        '200':",
+      '          description: OK',
+    );
+  }
   return `${lines.join('\n')}\n`;
 }
 
@@ -83,6 +108,7 @@ function liveFromParsed(content: string): { collection: Collection; requests: Re
     url: r.request.url,
     headers: r.request.headers,
     params: r.request.params,
+    ...(r.request.pathParams !== undefined ? { pathParams: r.request.pathParams } : {}),
     auth: r.request.auth,
     body: r.request.body,
   }));
@@ -124,7 +150,8 @@ describe('buildSpecUpdatePlan', () => {
       live,
     );
     expect(plan.adds).toHaveLength(1);
-    expect(plan.adds[0]?.request.url).toContain('/users/{{userId}}');
+    expect(plan.adds[0]?.request.url).toBe('{{baseUrl}}/users/:userId');
+    expect(plan.adds[0]?.request.pathParams?.map((p) => p.key)).toEqual(['userId']);
     expect(plan.removes).toHaveLength(1);
     expect(plan.removes[0]?.name).toBe('List users');
     expect(plan.changes).toHaveLength(1);
@@ -193,5 +220,78 @@ describe('buildSpecUpdatePlan', () => {
     const collection = { ...live.collection, auth: { type: 'bearer' as const, token: 'user-token' } };
     const plan = buildSpecUpdatePlan(parseOpenApi(specYaml()), { collection, requests: live.requests });
     expect(plan.auth).toBeNull();
+  });
+});
+
+describe('buildSpecUpdatePlan — the path-parameter convergence', () => {
+  const PET_ROW: PathParam = { uid: 'pth00001', key: 'petId', value: '42', description: 'The pet id' };
+
+  /** The pet operation as a collection generated BEFORE path
+   *  parameters holds it: a `{{petId}}` segment, no rows, and the
+   *  `petId` collection variable the old importer seeded. */
+  function preEpicLive(): { collection: Collection; requests: Request[] } {
+    const live = liveFromParsed(specYaml());
+    const pet: Request = {
+      schemaVersion: 5,
+      uid: 'req00009',
+      path: 'requests/openheaders-api-col00001/r9',
+      name: 'Get pet',
+      method: 'GET',
+      url: '{{baseUrl}}/pets/{{petId}}',
+      headers: [],
+      params: [],
+      auth: { type: 'inherit' },
+      body: { type: 'none' },
+    };
+    const stale = { uid: 'var00009', name: 'petId', value: '42', type: 'default' as const };
+    return {
+      collection: { ...live.collection, variables: [...live.collection.variables, stale] },
+      requests: [...live.requests, pet],
+    };
+  }
+
+  it('pairs a pre-epic {{petId}} request with the :petId operation as ONE change — url and the rows, never remove + add', () => {
+    const live = preEpicLive();
+    const plan = buildSpecUpdatePlan(parseOpenApi(specYaml({ petDescription: 'The pet id' })), live);
+    expect(plan.adds).toEqual([]);
+    expect(plan.removes).toEqual([]);
+    expect(plan.changes).toHaveLength(1);
+    const change = plan.changes[0];
+    expect(change?.requestUid).toBe('req00009');
+    expect(change?.changedFields).toEqual(['url', 'pathParams']);
+    expect(change?.updates.url).toBe('{{baseUrl}}/pets/:petId');
+    expect(change?.updates.pathParams?.map(({ key, value, description }) => ({ key, value, description }))).toEqual([
+      { key: 'petId', value: '42', description: 'The pet id' },
+    ]);
+    // The stale `petId` collection variable is the user's — untouched.
+    expect(plan.variables).toBeNull();
+  });
+
+  it('diffs the rows by key on a converged request — a description change names pathParams alone, the live uid kept', () => {
+    const live = preEpicLive();
+    const converged = live.requests.map((r) =>
+      r.uid === 'req00009' ? { ...r, url: '{{baseUrl}}/pets/:petId', pathParams: [PET_ROW] } : r,
+    );
+    const plan = buildSpecUpdatePlan(parseOpenApi(specYaml({ petDescription: 'The pet identifier' })), {
+      ...live,
+      requests: converged,
+    });
+    expect(plan.changes).toHaveLength(1);
+    expect(plan.changes[0]?.changedFields).toEqual(['pathParams']);
+    expect(plan.changes[0]?.updates.pathParams).toEqual([{ ...PET_ROW, description: 'The pet identifier' }]);
+  });
+
+  it('plans nothing for a converged request whose URL and rows match the spec', () => {
+    const live = preEpicLive();
+    const converged = live.requests.map((r) =>
+      r.uid === 'req00009' ? { ...r, url: '{{baseUrl}}/pets/:petId', pathParams: [PET_ROW] } : r,
+    );
+    const plan = buildSpecUpdatePlan(parseOpenApi(specYaml({ petDescription: 'The pet id' })), {
+      ...live,
+      requests: converged,
+    });
+    expect(plan.changes).toEqual([]);
+    expect(plan.adds).toEqual([]);
+    expect(plan.removes).toEqual([]);
   });
 });

@@ -18,7 +18,9 @@
  *     substitution. The editor's derived table and both executors
  *     call these two; nothing else re-implements the grammar.
  *     {@link inlinePathParams} is the display-side twin (values
- *     verbatim, nothing encoded) the GraphQL convert folds through.
+ *     verbatim, nothing encoded) the GraphQL convert folds through;
+ *     {@link normalizePathParamSegments} is the pairing form the spec
+ *     seam keys operations by.
  *
  * Round-trip discipline: parse→build MUST be an identity so a
  * controlled URL input driven by the parsed form never swallows or
@@ -333,6 +335,36 @@ export function substitutePathParams(
  */
 export function inlinePathParams(url: string, rowValue: (name: string) => string | null): string {
   return rewritePathParams(url, rowValue, (text) => text);
+}
+
+const TEMPLATE_SEGMENT_HEAD = /^\{\{([A-Za-z_][A-Za-z0-9_-]*)\}\}/;
+
+/**
+ * The pairing form of a URL: a path segment that BEGINS with a
+ * `{{name}}` template whose name is an identifier reads as the `:name`
+ * parameter segment, its suffix kept (`/{{id}}.json` → `/:id.json`,
+ * the prefix rule); every other span stays verbatim — the authority
+ * (`{{baseUrl}}`, `{{host}}:8080`), a dotted reference (`{{env.X}}`),
+ * a template inside a segment, the query. Two URLs that name the same
+ * operation one in the template form a collection generated before
+ * path parameters carries and one in the parameter form the importer
+ * emits now compare equal through this; nothing on the wire or in the
+ * editor reads it.
+ */
+export function normalizePathParamSegments(url: string): string {
+  const spans = pathSegmentSpans(url);
+  if (spans.length === 0) return url;
+  const out: string[] = [];
+  let cursor = 0;
+  for (const [start, end] of spans) {
+    const segment = url.slice(start, end);
+    const match = TEMPLATE_SEGMENT_HEAD.exec(segment);
+    if (match === null) continue;
+    out.push(url.slice(cursor, start), `:${match[1]}`, segment.slice(match[0].length));
+    cursor = end;
+  }
+  out.push(url.slice(cursor));
+  return out.join('');
 }
 
 /** The one walk behind both rewrites: each parameter segment becomes

@@ -152,8 +152,10 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.update.authRow': '컬렉션 인증',
   'workbench.editors.spec.update.field.name': '이름',
   'workbench.editors.spec.update.field.description': '설명',
+  'workbench.editors.spec.update.field.url': 'URL',
   'workbench.editors.spec.update.field.headers': '헤더',
   'workbench.editors.spec.update.field.params': '매개변수',
+  'workbench.editors.spec.update.field.pathParams': '경로 매개변수',
   'workbench.editors.spec.update.field.auth': 'auth',
   'workbench.editors.spec.update.field.body': '본문',
   'workbench.editors.spec.update.action': ({ count }, locale) =>

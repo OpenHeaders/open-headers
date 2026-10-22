@@ -50,8 +50,10 @@ type Stage = { kind: 'planned'; parsed: OpenApiParseResult; plan: SpecUpdatePlan
 const FIELD_LABEL_KEYS = {
   name: 'workbench.editors.spec.update.field.name',
   description: 'workbench.editors.spec.update.field.description',
+  url: 'workbench.editors.spec.update.field.url',
   headers: 'workbench.editors.spec.update.field.headers',
   params: 'workbench.editors.spec.update.field.params',
+  pathParams: 'workbench.editors.spec.update.field.pathParams',
   auth: 'workbench.editors.spec.update.field.auth',
   body: 'workbench.editors.spec.update.field.body',
 } as const satisfies Record<SpecChangedField, string>;
@@ -180,6 +182,7 @@ const UpdateCollectionModal: React.FC<UpdateCollectionModalProps> = ({
             url: request.url,
             headers: request.headers,
             params: request.params,
+            ...(request.pathParams !== undefined ? { pathParams: request.pathParams } : {}),
             auth: request.auth,
             body: request.body,
           },

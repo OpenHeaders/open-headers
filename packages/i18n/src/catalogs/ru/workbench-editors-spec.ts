@@ -211,8 +211,10 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.update.authRow': 'Авторизация коллекции',
   'workbench.editors.spec.update.field.name': 'имя',
   'workbench.editors.spec.update.field.description': 'описание',
+  'workbench.editors.spec.update.field.url': 'URL',
   'workbench.editors.spec.update.field.headers': 'заголовки',
   'workbench.editors.spec.update.field.params': 'параметры',
+  'workbench.editors.spec.update.field.pathParams': 'параметры пути',
   'workbench.editors.spec.update.field.auth': 'auth',
   'workbench.editors.spec.update.field.body': 'тело',
   'workbench.editors.spec.update.action': ({ count }, locale) =>

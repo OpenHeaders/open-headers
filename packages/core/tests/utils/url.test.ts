@@ -3,6 +3,7 @@ import {
   appendQueryParams,
   buildUrlDisplay,
   inlinePathParams,
+  normalizePathParamSegments,
   parsePathParamNames,
   parseUrlQuery,
   splitUrlPath,
@@ -406,5 +407,31 @@ describe('inlinePathParams (display-side)', () => {
 
   it('is the identity on a URL without a path', () => {
     expect(inlinePathParams('https://api.openheaders.io', rowsOf({ id: '7' }))).toBe('https://api.openheaders.io');
+  });
+});
+
+describe('normalizePathParamSegments (the pairing form)', () => {
+  it('reads a whole-segment template as the parameter segment and keeps the suffix', () => {
+    expect(normalizePathParamSegments('{{baseUrl}}/pets/{{petId}}')).toBe('{{baseUrl}}/pets/:petId');
+    expect(normalizePathParamSegments('{{baseUrl}}/files/{{id}}.json')).toBe('{{baseUrl}}/files/:id.json');
+    expect(normalizePathParamSegments('https://api.openheaders.io/{{a}}/x/{{b}}')).toBe(
+      'https://api.openheaders.io/:a/x/:b',
+    );
+  });
+
+  it('is the identity on the parameter form, so both forms share one key', () => {
+    const parameterForm = '{{baseUrl}}/pets/:petId';
+    expect(normalizePathParamSegments(parameterForm)).toBe(parameterForm);
+    expect(normalizePathParamSegments('{{baseUrl}}/pets/{{petId}}')).toBe(normalizePathParamSegments(parameterForm));
+  });
+
+  it('never reads the authority, a dotted reference, a template inside a segment, or the query', () => {
+    expect(normalizePathParamSegments('{{baseUrl}}')).toBe('{{baseUrl}}');
+    expect(normalizePathParamSegments('{{host}}:8080/v1/{{env.id}}/x{{y}}?q={{z}}')).toBe(
+      '{{host}}:8080/v1/{{env.id}}/x{{y}}?q={{z}}',
+    );
+    expect(normalizePathParamSegments('https://api.openheaders.io/users?id={{userId}}')).toBe(
+      'https://api.openheaders.io/users?id={{userId}}',
+    );
   });
 });

@@ -14,7 +14,7 @@ import { useSpecs } from '@openheaders/ui/shared/hooks/readers/useSpecs';
 import { useMemo } from 'react';
 import { useSpecSourceHash } from '../specs/use-spec-drift';
 import type { Draft } from './draft';
-import { rowsToHeaders, rowsToParams } from './draft';
+import { rowsToHeaders, rowsToParams, rowsToPathParams } from './draft';
 import { type RequestSpecOperation, resolveSpecOperation } from './request-spec-binding';
 
 export type RequestSpecBinding =
@@ -68,7 +68,7 @@ export function useRequestSpecBinding(
     }
   }, [content]);
 
-  const { method, url, description, headers, params, auth, body } = draft;
+  const { method, url, description, headers, params, pathParams, auth, body } = draft;
   const operation = useMemo(
     () =>
       parsed && 'result' in parsed
@@ -79,11 +79,12 @@ export function useRequestSpecBinding(
             url,
             headers: rowsToHeaders(headers),
             params: rowsToParams(params),
+            pathParams: rowsToPathParams(pathParams),
             auth,
             body,
           })
         : null,
-    [parsed, requestName, description, method, url, headers, params, auth, body],
+    [parsed, requestName, description, method, url, headers, params, pathParams, auth, body],
   );
 
   return useMemo<RequestSpecBinding>(() => {

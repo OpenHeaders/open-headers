@@ -183,8 +183,10 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.update.authRow': 'Autentificarea colecției',
   'workbench.editors.spec.update.field.name': 'nume',
   'workbench.editors.spec.update.field.description': 'descriere',
+  'workbench.editors.spec.update.field.url': 'URL',
   'workbench.editors.spec.update.field.headers': 'antete',
   'workbench.editors.spec.update.field.params': 'parametri',
+  'workbench.editors.spec.update.field.pathParams': 'parametri de cale',
   'workbench.editors.spec.update.field.auth': 'auth',
   'workbench.editors.spec.update.field.body': 'corp',
   'workbench.editors.spec.update.action': ({ count }, locale) =>

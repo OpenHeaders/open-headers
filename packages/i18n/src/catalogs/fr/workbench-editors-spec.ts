@@ -188,8 +188,10 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.update.authRow': 'Authentification de la collection',
   'workbench.editors.spec.update.field.name': 'nom',
   'workbench.editors.spec.update.field.description': 'description',
+  'workbench.editors.spec.update.field.url': 'URL',
   'workbench.editors.spec.update.field.headers': 'en-têtes',
   'workbench.editors.spec.update.field.params': 'paramètres',
+  'workbench.editors.spec.update.field.pathParams': 'paramètres de chemin',
   'workbench.editors.spec.update.field.auth': 'auth',
   'workbench.editors.spec.update.field.body': 'corps',
   'workbench.editors.spec.update.action': ({ count }, locale) =>

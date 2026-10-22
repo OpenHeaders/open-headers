@@ -17,24 +17,34 @@ import { useCallback, useMemo } from 'react';
 import SpecEmptyCta from '../shared/SpecEmptyCta';
 import { SPEC_FORMAT_LABELS } from '../specs/spec-format-labels';
 import type { SpecChangedField } from '../specs/spec-update-plan';
-import { type Draft, headersFromRequest, paramsFromRequest } from './draft';
-import type { RequestSpecOperation } from './request-spec-binding';
+import type { Draft } from './draft';
+import { applySpecOperation, type RequestSpecOperation } from './request-spec-binding';
 import { useRequestSpecBinding } from './useRequestSpecBinding';
 
 const { Text } = Typography;
 
 /** The spec fields the tab can converge — `name` is the tab's identity,
  *  not draft content, so a rename stays the user's. */
-const APPLICABLE_FIELDS: readonly SpecChangedField[] = ['description', 'headers', 'params', 'auth', 'body'];
+const APPLICABLE_FIELDS: readonly SpecChangedField[] = [
+  'description',
+  'url',
+  'headers',
+  'params',
+  'pathParams',
+  'auth',
+  'body',
+];
 
 const FIELD_LABEL_KEYS = {
   name: 'workbench.editors.spec.update.field.name',
   description: 'workbench.editors.spec.update.field.description',
+  url: 'workbench.editors.spec.update.field.url',
   headers: 'workbench.editors.spec.update.field.headers',
   params: 'workbench.editors.spec.update.field.params',
+  pathParams: 'workbench.editors.spec.update.field.pathParams',
   auth: 'workbench.editors.spec.update.field.auth',
   body: 'workbench.editors.spec.update.field.body',
-} as const;
+} as const satisfies Record<SpecChangedField, string>;
 
 interface SpecTabProps {
   workspaceId: string | null;
@@ -60,18 +70,7 @@ const SpecTab: React.FC<SpecTabProps> = ({ workspaceId, collection, requestName,
 
   const apply = useCallback(
     (operation: RequestSpecOperation, fields: readonly SpecChangedField[]) => {
-      const { updates } = operation;
-      setDraft((d) => {
-        const next = { ...d };
-        for (const field of fields) {
-          if (field === 'description' && updates.description !== undefined) next.description = updates.description;
-          if (field === 'headers' && updates.headers) next.headers = headersFromRequest(updates.headers);
-          if (field === 'params' && updates.params) next.params = paramsFromRequest(updates.params);
-          if (field === 'auth' && updates.auth) next.auth = updates.auth;
-          if (field === 'body' && updates.body) next.body = updates.body;
-        }
-        return next;
-      });
+      setDraft((d) => applySpecOperation(d, operation, fields));
     },
     [setDraft],
   );

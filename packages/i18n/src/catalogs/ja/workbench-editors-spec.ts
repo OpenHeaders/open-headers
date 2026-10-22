@@ -154,8 +154,10 @@ export const workbenchEditorsSpec = {
   'workbench.editors.spec.update.authRow': 'コレクションの認証',
   'workbench.editors.spec.update.field.name': '名前',
   'workbench.editors.spec.update.field.description': '説明',
+  'workbench.editors.spec.update.field.url': 'URL',
   'workbench.editors.spec.update.field.headers': 'ヘッダー',
   'workbench.editors.spec.update.field.params': 'パラメーター',
+  'workbench.editors.spec.update.field.pathParams': 'パスパラメーター',
   'workbench.editors.spec.update.field.auth': 'auth',
   'workbench.editors.spec.update.field.body': 'ボディ',
   'workbench.editors.spec.update.action': ({ count }, locale) =>
