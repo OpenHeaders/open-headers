@@ -38,6 +38,7 @@
  */
 
 import { CaretRightOutlined, CheckOutlined } from '@ant-design/icons';
+import { collectGrpcTemplateGroups } from '@openheaders/core/live';
 import { GRPC_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { GrpcRequest } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
@@ -62,6 +63,7 @@ import EditorHeader from '../shell/EditorHeader';
 import { createImportedProtoSpecSeed } from '../specs/spec-scaffold';
 import DocsTab from '../request-editor/DocsTab';
 import KeyValueTable from '../request-editor/KeyValueTable';
+import { TabDot } from '../request-editor/request-tab-items';
 import ScriptsTab from '../request-editor/ScriptsTab';
 import {
   ancestorScriptLevels,
@@ -86,6 +88,7 @@ import GrpcSettingsTab from './GrpcSettingsTab';
 import GrpcStreamPane from './GrpcStreamPane';
 import { grpcInvokePulse } from './grpc-invoke-pulse';
 import SessionLock from '../shared/SessionLock';
+import { useUnresolvedTemplateGroups } from '../shared/unresolved-template-groups';
 import { type AutoSuggestionContextValue, SuggestionContextProvider } from '../template-input';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import GrpcTargetRow from './GrpcTargetRow';
@@ -178,7 +181,19 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
   );
   const [activeTab, setActiveTab] = useState('message');
 
-  const formFingerprint = useMemo(() => stableStringify(buildGrpcRequestUpdates(draft)), [draft]);
+  // Structural projection of the draft — ONE projection feeds the
+  // dirty fingerprint AND the resolvability reading below.
+  const draftUpdates = useMemo(() => buildGrpcRequestUpdates(draft), [draft]);
+  const formFingerprint = useMemo(() => stableStringify(draftUpdates), [draftUpdates]);
+  // The resolvability reading — the core scan over the same projection
+  // (the executor's field list), one resolver pass per keystroke; it
+  // feeds the tab dots, the target row's error status and the lifecycle
+  // flag the footer pill and the Variable Scope panel read.
+  const templateGroups = useMemo(() => collectGrpcTemplateGroups(draftUpdates), [draftUpdates]);
+  const { unresolvedGroups, hasUnresolvedRefs } = useUnresolvedTemplateGroups(
+    templateGroups,
+    ancestry?.collection.uid,
+  );
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
@@ -338,6 +353,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
     entityType: GRPC_REQUEST_ENTITY_TYPE,
     entityId: entity.uid,
     isDirty,
+    isUnresolved: hasUnresolvedRefs,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
@@ -359,6 +375,7 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
         spec={spec}
         workspaceId={workspaceId}
         onImportProto={handleImportProto}
+        urlUnresolved={unresolvedGroups.has('url')}
       />
     </SessionLock>
   );
@@ -505,13 +522,47 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                       onChange={setActiveTab}
                       size="small"
                       tabBarStyle={{ marginBottom: 0 }}
+                      // The red dot flags a tab whose fields carry an
+                      // unresolved `{{ref}}` (the HTTP tab catalog's tier).
                       items={[
                         { key: 'docs', label: t('workbench.editors.grpc.tab.docs') },
-                        { key: 'message', label: t('workbench.editors.grpc.tab.message') },
-                        { key: 'metadata', label: t('workbench.editors.grpc.tab.metadata') },
-                        { key: 'auth', label: t('workbench.editors.grpc.tab.auth') },
+                        {
+                          key: 'message',
+                          label: (
+                            <span>
+                              {t('workbench.editors.grpc.tab.message')}
+                              {unresolvedGroups.has('message') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'metadata',
+                          label: (
+                            <span>
+                              {t('workbench.editors.grpc.tab.metadata')}
+                              {unresolvedGroups.has('metadata') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'auth',
+                          label: (
+                            <span>
+                              {t('workbench.editors.grpc.tab.auth')}
+                              {unresolvedGroups.has('auth') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
                         { key: 'scripts', label: t('workbench.editors.grpc.tab.scripts') },
-                        { key: 'settings', label: t('workbench.editors.grpc.tab.settings') },
+                        {
+                          key: 'settings',
+                          label: (
+                            <span>
+                              {t('workbench.editors.grpc.tab.settings')}
+                              {unresolvedGroups.has('settings') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
                         { key: 'spec', label: <SpecTabLabel /> },
                       ]}
                     />

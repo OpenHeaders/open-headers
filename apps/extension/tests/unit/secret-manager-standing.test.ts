@@ -101,7 +101,7 @@ describe('the Scope panel over the standing', () => {
 
   it('reads a referenced row as its reference while the connection answers, never as a missing one', () => {
     const { inContextVars, inContextErrors } = buildInContextVariables({
-      contextEntity: rule,
+      contextEntity: { kind: 'rule', entity: rule },
       activeCollectionId: null,
       resolver: resolverWith(EMPTY_SECRET_MANAGER_FAILURES),
       liveVariables: [],
@@ -123,7 +123,7 @@ describe('the Scope panel over the standing', () => {
       probes([['conn0001', { available: false, reason: 'broker-unreachable' }]]),
     );
     const { inContextVars, inContextErrors } = buildInContextVariables({
-      contextEntity: rule,
+      contextEntity: { kind: 'rule', entity: rule },
       activeCollectionId: null,
       resolver: resolverWith(failures),
       liveVariables: [],

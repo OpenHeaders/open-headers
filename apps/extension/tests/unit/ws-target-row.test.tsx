@@ -68,7 +68,9 @@ const draft: WebSocketDraft = {
 
 describe('WsTargetRow', () => {
   it('shows only the URL, with enabled params folded in and the server URL placeholder', () => {
-    const { container } = render(<WsTargetRow draft={draft} setDraft={vi.fn()} socketioFlavor={false} />);
+    const { container } = render(
+      <WsTargetRow draft={draft} setDraft={vi.fn()} socketioFlavor={false} urlUnresolved={false} />,
+    );
     const input = screen.getByTestId('websocket-url-input');
     expect(input.textContent).toBe('wss://events.openheaders.io/live?room=a');
     expect(input.getAttribute('data-placeholder')).toBe('Enter server URL');
@@ -79,7 +81,7 @@ describe('WsTargetRow', () => {
   it('freezes the URL under a session lock — no caret, no focus, disabled styling', () => {
     render(
       <SessionLock locked>
-        <WsTargetRow draft={draft} setDraft={vi.fn()} socketioFlavor={false} />
+        <WsTargetRow draft={draft} setDraft={vi.fn()} socketioFlavor={false} urlUnresolved={false} />
       </SessionLock>,
     );
     const input = screen.getByTestId('websocket-url-input');
@@ -96,6 +98,7 @@ describe('WsTargetRow', () => {
         draft={{ ...draft, url: 'wss://events.openheaders.io', namespace: 'admin' }}
         setDraft={vi.fn()}
         socketioFlavor
+        urlUnresolved={false}
       />,
     );
     expect(screen.getByTestId('websocket-url-input').textContent).toBe('wss://events.openheaders.io/admin?room=a');

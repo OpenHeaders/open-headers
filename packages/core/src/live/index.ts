@@ -6,6 +6,8 @@
  * The extension + future desktop each build thin adapters on top.
  */
 
+export type { TemplatePairRow } from './auth-scan';
+export { collectAuthTemplateStrings, collectPairTemplateStrings } from './auth-scan';
 export type {
   ChainExecutionContext,
   ChainRunFailure,
@@ -57,6 +59,12 @@ export { deriveExecutionPolicy } from './execution-policy';
 export type { ExtractorFailureKind, ExtractorResult, StepResponse, StepResponseHeader } from './extractor';
 export { applyExtractor } from './extractor';
 export { evaluateClause, evaluateGate, matchStatus } from './gate-evaluator';
+export type { GraphqlTemplateGroups, GraphqlTemplateSource } from './graphql-request-scan';
+export { collectGraphqlRequestTemplateStrings, collectGraphqlTemplateGroups } from './graphql-request-scan';
+export type { GrpcTemplateGroups, GrpcTemplateSource } from './grpc-request-scan';
+export { collectGrpcRequestTemplateStrings, collectGrpcTemplateGroups } from './grpc-request-scan';
+export type { MqttTemplateGroups, MqttTemplateSource } from './mqtt-request-scan';
+export { collectMqttRequestTemplateStrings, collectMqttTemplateGroups } from './mqtt-request-scan';
 export type {
   ElectOfflineFallbackInput,
   FallbackElectionVerdict,
@@ -98,6 +106,8 @@ export { scanTemplateReferences, scanTemplateReferencesMany } from './template-s
 export type { VariableFingerprint, VariableScopeSnapshot } from './variable-scan';
 export { workflowVariableFingerprint } from './variable-scan';
 export { isLiveVariableDraft, isLiveVariableEffective, liveVariablesToPublishOnRun } from './variable-state';
+export type { WebSocketTemplateGroups, WebSocketTemplateSource } from './websocket-request-scan';
+export { collectWebSocketRequestTemplateStrings, collectWebSocketTemplateGroups } from './websocket-request-scan';
 export { workflowDefinitionFingerprint } from './workflow-scan';
 export {
   isWorkflowComplete,

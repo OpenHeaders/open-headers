@@ -26,6 +26,9 @@ interface WsTargetRowProps {
   draft: WebSocketDraft;
   setDraft: Dispatch<SetStateAction<WebSocketDraft>>;
   socketioFlavor: boolean;
+  /** The dial target carries an unresolved `{{ref}}` — the input
+   *  wears the error status (the HTTP URL bar's treatment). */
+  urlUnresolved: boolean;
 }
 
 /** The namespace as a URL path: a typed `admin` displays as `/admin`. */
@@ -34,7 +37,7 @@ function namespaceAsPath(namespace: string): string {
   return namespace.startsWith('/') ? namespace : `/${namespace}`;
 }
 
-const WsTargetRow: React.FC<WsTargetRowProps> = ({ draft, setDraft, socketioFlavor }) => {
+const WsTargetRow: React.FC<WsTargetRowProps> = ({ draft, setDraft, socketioFlavor, urlUnresolved }) => {
   const t = useT();
   const base = socketioFlavor ? `${draft.url}${namespaceAsPath(draft.namespace)}` : draft.url;
   return (
@@ -53,6 +56,7 @@ const WsTargetRow: React.FC<WsTargetRowProps> = ({ draft, setDraft, socketioFlav
         }}
         placeholder={t('workbench.editors.websocket.urlPlaceholder')}
         size="small"
+        status={urlUnresolved ? 'error' : undefined}
         flagUnresolved
         expandOnFocus
         style={{ width: '100%', fontFamily: "'SF Mono', monospace", fontSize: 12 }}

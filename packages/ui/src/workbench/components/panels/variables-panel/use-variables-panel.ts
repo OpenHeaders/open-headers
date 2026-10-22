@@ -11,7 +11,6 @@
  * here stays in sync without extra RPCs.
  */
 
-import type { Request, Rule, Template } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { useEnvVarVault } from '@openheaders/ui/shared/hooks/readers/useEnvVarVault';
@@ -91,7 +90,15 @@ export function useVariablesPanel(
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { rules, templates, localCollections, localCollectionTrees, templateCollections, templateCollectionTrees } =
     useRules();
-  const { requests, collections: requestCollections, collectionTrees: requestCollectionTrees } = useRequests();
+  const {
+    requests,
+    grpcRequests,
+    websocketRequests,
+    mqttRequests,
+    graphqlRequests,
+    collections: requestCollections,
+    collectionTrees: requestCollectionTrees,
+  } = useRequests();
   const families = useMemo<CollectionFamilies>(
     () => ({ ruleCollections: localCollections, requestCollections, templateCollections }),
     [localCollections, requestCollections, templateCollections],
@@ -103,13 +110,17 @@ export function useVariablesPanel(
 
   const scopeKind = useMemo(() => getScopeKind(activeTab), [activeTab]);
 
-  const { activeRule, activeRequest, activeTemplate, activeCollectionId } = useMemo(
+  const { entity: contextEntity, activeCollectionId } = useMemo(
     () =>
       resolveScopeContext({
         activeTab,
         scopeKind,
         rules,
         requests,
+        grpcRequests,
+        websocketRequests,
+        mqttRequests,
+        graphqlRequests,
         templates,
         families,
         localCollectionTrees,
@@ -121,6 +132,10 @@ export function useVariablesPanel(
       activeTab,
       rules,
       requests,
+      grpcRequests,
+      websocketRequests,
+      mqttRequests,
+      graphqlRequests,
       templates,
       families,
       localCollectionTrees,
@@ -129,8 +144,7 @@ export function useVariablesPanel(
     ],
   );
 
-  const contextEntity: Rule | Request | Template | null = activeRule ?? activeRequest ?? activeTemplate;
-  const contextEntityName = activeRule?.name ?? activeRequest?.name ?? activeTemplate?.name ?? null;
+  const contextEntityName = contextEntity?.entity.name ?? null;
 
   const liveRegistry = useMemo(
     () => buildLiveRegistry({ liveVariables, liveCaches, activeEnvironmentId }),

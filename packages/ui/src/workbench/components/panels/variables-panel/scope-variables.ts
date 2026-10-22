@@ -7,28 +7,28 @@
  *     strings, resolves each through the full resolveTemplate machinery
  *     (namespaces, default-env fallback, reserved-namespace detection),
  *     then dedupes variables by display name and errors by reference.
- *     The walker is entity-agnostic: rules, requests and templates are
- *     all plain objects whose templated fields `collectTemplateStrings`
- *     can harvest.
+ *     The walk is the kind's own: a request of any wire kind through
+ *     its core scan (the executor's field list, so the panel names
+ *     exactly the references the send resolves — a script's text or a
+ *     disabled row never shows), a rule or a template through the deep
+ *     walk of every templated field.
  */
 
-import { isLiveVariableEffective } from '@openheaders/core/live';
+import {
+  collectGraphqlRequestTemplateStrings,
+  collectGrpcRequestTemplateStrings,
+  collectMqttRequestTemplateStrings,
+  collectRequestTemplateStrings,
+  collectWebSocketRequestTemplateStrings,
+  isLiveVariableEffective,
+} from '@openheaders/core/live';
 import { formatSecretLocator } from '@openheaders/core/secret-providers';
-import type {
-  Environment,
-  LiveVariable,
-  Request,
-  Rule,
-  Template,
-  Variable,
-  Vault,
-  WorkspaceVariables,
-} from '@openheaders/core/types';
+import type { Environment, LiveVariable, Variable, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import type { ResolutionError, VariableResolver } from '@openheaders/core/variables';
 import { type CollectionFamilies, findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { collectTemplateStrings } from '../../../variable-references';
 import type { LiveRegistry } from './live-registry';
-import type { AllScopeVariables, DisplayScope, DisplayVariable } from './types';
+import type { AllScopeVariables, DisplayScope, DisplayVariable, ScopeEntity } from './types';
 
 export interface AllScopeVariablesInput {
   vault: Vault;
@@ -150,7 +150,7 @@ export function buildAllScopeVariables(input: AllScopeVariablesInput): AllScopeV
 }
 
 export interface InContextVariablesInput {
-  contextEntity: Rule | Request | Template | null;
+  contextEntity: ScopeEntity | null;
   activeCollectionId: string | null;
   resolver: VariableResolver;
   liveVariables: LiveVariable[];
@@ -177,12 +177,47 @@ export interface InContextVariablesResult {
   inContextErrors: ResolutionError[];
 }
 
+/** Every templated field of the entity, depth first. */
+function deepTemplateStrings(entity: unknown): string[] {
+  const out: string[] = [];
+  collectTemplateStrings(entity, out);
+  return out;
+}
+
+/**
+ * The templates the focused entity's executor resolves. Trust boundary:
+ * the panel reads persisted rows raw (git-synced files, rows written by
+ * another version), and a kind's scan reads the entity's field list by
+ * shape — a malformed row falls back to the deep walk instead of taking
+ * the panel down with it.
+ */
+function scopeEntityTemplateStrings(scope: ScopeEntity): string[] {
+  try {
+    switch (scope.kind) {
+      case 'rule':
+      case 'template':
+        return deepTemplateStrings(scope.entity);
+      case 'request':
+        return collectRequestTemplateStrings(scope.entity);
+      case 'grpc-request':
+        return collectGrpcRequestTemplateStrings(scope.entity);
+      case 'websocket-request':
+        return collectWebSocketRequestTemplateStrings(scope.entity);
+      case 'mqtt-request':
+        return collectMqttRequestTemplateStrings(scope.entity);
+      case 'graphql-request':
+        return collectGraphqlRequestTemplateStrings(scope.entity);
+    }
+  } catch {
+    return deepTemplateStrings(scope.entity);
+  }
+}
+
 export function buildInContextVariables(input: InContextVariablesInput): InContextVariablesResult {
   const { contextEntity, activeCollectionId, resolver, liveVariables, vault } = input;
   if (!contextEntity) return { inContextVars: [], inContextErrors: [] };
 
-  const templateStrings: string[] = [];
-  collectTemplateStrings(contextEntity, templateStrings);
+  const templateStrings = scopeEntityTemplateStrings(contextEntity);
 
   const ctx = activeCollectionId ? { collectionId: activeCollectionId } : undefined;
   const seenVars = new Map<string, DisplayVariable>();

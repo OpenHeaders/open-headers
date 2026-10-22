@@ -35,6 +35,7 @@
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
+import { collectWebSocketTemplateGroups } from '@openheaders/core/live';
 import { WEBSOCKET_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WebSocketRequest as WebSocketRequestEntity } from '@openheaders/core/types';
 import { binaryEncodingError, generateUid } from '@openheaders/core/utils';
@@ -49,11 +50,13 @@ import { App, Button, ConfigProvider, Tabs, Tooltip, Typography, theme } from 'a
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DocsTab from '../request-editor/DocsTab';
+import { TabDot } from '../request-editor/request-tab-items';
 import ScriptsTab from '../request-editor/ScriptsTab';
 import { ancestorScriptLevels } from '../request-container/ancestry';
 import type { OpenContainerScripts } from '../script-editor/AncestorScriptsLine';
 import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slots';
 import SessionLock from '../shared/SessionLock';
+import { useUnresolvedTemplateGroups } from '../shared/unresolved-template-groups';
 import { type AutoSuggestionContextValue, SuggestionContextProvider } from '../template-input';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import ExecutionPlaceControl from '../../execution-place/ExecutionPlaceControl';
@@ -187,7 +190,10 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // Save from the timeline opens it so the new row is the feedback.
   const [railCollapsed, setRailCollapsed] = useState(true);
 
-  const formFingerprint = useMemo(() => stableStringify(buildWebSocketRequestUpdates(draft)), [draft]);
+  // Structural projection of the draft — ONE projection feeds the
+  // dirty fingerprint AND the resolvability reading below.
+  const draftUpdates = useMemo(() => buildWebSocketRequestUpdates(draft), [draft]);
+  const formFingerprint = useMemo(() => stableStringify(draftUpdates), [draftUpdates]);
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
@@ -205,6 +211,20 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   const isDirty = reprime.isDirty;
 
   const socketioFlavor = entity.flavor === 'socketio';
+
+  // The resolvability reading — the core scan over the same projection
+  // (the executor's field list under the flavor lens; the flavor is
+  // identity, so it joins from the entity), one resolver pass per
+  // keystroke; it feeds the tab dots, the target row's error status and
+  // the lifecycle flag the footer pill and the Variable Scope panel read.
+  const templateGroups = useMemo(
+    () => collectWebSocketTemplateGroups({ ...draftUpdates, flavor: entity.flavor }),
+    [draftUpdates, entity.flavor],
+  );
+  const { unresolvedGroups, hasUnresolvedRefs } = useUnresolvedTemplateGroups(
+    templateGroups,
+    ancestry?.collection.uid,
+  );
 
   // "Open in Request" prefill — a saved example's captured request
   // block lands as unsaved draft edits (the gRPC prefill flow; flavor
@@ -343,6 +363,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
     entityType: WEBSOCKET_REQUEST_ENTITY_TYPE,
     entityId: entity.uid,
     isDirty,
+    isUnresolved: hasUnresolvedRefs,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
@@ -358,7 +379,12 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // is in flight — their values were snapshotted at Connect.
   const headerTitle = (
     <SessionLock locked={session.inFlight}>
-      <WsTargetRow draft={draft} setDraft={setDraft} socketioFlavor={socketioFlavor} />
+      <WsTargetRow
+        draft={draft}
+        setDraft={setDraft}
+        socketioFlavor={socketioFlavor}
+        urlUnresolved={unresolvedGroups.has('url')}
+      />
     </SessionLock>
   );
 
@@ -495,17 +521,59 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
                       onChange={setActiveTab}
                       size="small"
                       tabBarStyle={{ marginBottom: 0 }}
+                      // The red dot flags a tab whose fields carry an
+                      // unresolved `{{ref}}` (the HTTP tab catalog's tier).
                       items={[
                         { key: 'docs', label: t('workbench.editors.websocket.tab.docs') },
-                        { key: 'message', label: t('workbench.editors.websocket.tab.message') },
-                        { key: 'params', label: t('workbench.editors.websocket.tab.params') },
+                        {
+                          key: 'message',
+                          label: (
+                            <span>
+                              {t('workbench.editors.websocket.tab.message')}
+                              {unresolvedGroups.has('message') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'params',
+                          label: (
+                            <span>
+                              {t('workbench.editors.websocket.tab.params')}
+                              {unresolvedGroups.has('params') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
                         ...(socketioFlavor
                           ? [{ key: 'events', label: t('workbench.editors.websocket.tab.events') }]
                           : []),
-                        { key: 'auth', label: t('workbench.editors.websocket.tab.auth') },
-                        { key: 'headers', label: t('workbench.editors.websocket.tab.headers') },
+                        {
+                          key: 'auth',
+                          label: (
+                            <span>
+                              {t('workbench.editors.websocket.tab.auth')}
+                              {unresolvedGroups.has('auth') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'headers',
+                          label: (
+                            <span>
+                              {t('workbench.editors.websocket.tab.headers')}
+                              {unresolvedGroups.has('headers') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
                         { key: 'scripts', label: t('workbench.editors.websocket.tab.scripts') },
-                        { key: 'settings', label: t('workbench.editors.websocket.tab.settings') },
+                        {
+                          key: 'settings',
+                          label: (
+                            <span>
+                              {t('workbench.editors.websocket.tab.settings')}
+                              {unresolvedGroups.has('settings') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
                         { key: 'spec', label: <SpecTabLabel /> },
                       ]}
                     />

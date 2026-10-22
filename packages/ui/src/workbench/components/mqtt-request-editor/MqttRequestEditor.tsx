@@ -41,6 +41,7 @@
  */
 
 import { CaretRightOutlined, ReloadOutlined } from '@ant-design/icons';
+import { collectMqttTemplateGroups } from '@openheaders/core/live';
 import { MQTT_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { MqttRequest as MqttRequestEntity } from '@openheaders/core/types';
 import { ShortcutHintTitle, ShortcutKbd } from '@openheaders/ui/components/ShortcutKbd';
@@ -83,6 +84,7 @@ import {
 import { unsavedMessageProperties, unsavedTopicOptionsByRow } from './mqtt-gear-unsaved';
 import { subscribeMqttPrefill } from './mqtt-prefill-bus';
 import { unsavedMqttSections } from './mqtt-section-unsaved';
+import { mqttUnresolvedSections } from './mqtt-section-unresolved';
 import { anyOwnMqttSetting, unsavedMqttSettingKeys } from './mqtt-settings-unsaved';
 import { buildMqttTabItems } from './mqtt-tab-items';
 import { findRequestAncestry, resolveInheritedAuthFor, settingsChainOf } from '../request-container/ancestry';
@@ -98,6 +100,7 @@ import MqttSessionPane from './MqttSessionPane';
 import MqttSettingsTab from './MqttSettingsTab';
 import MqttSpecTab from './MqttSpecTab';
 import SessionLock from '../shared/SessionLock';
+import { useUnresolvedTemplateGroups } from '../shared/unresolved-template-groups';
 import { type AutoSuggestionContextValue, SuggestionContextProvider } from '../template-input';
 import MqttTargetRow from './MqttTargetRow';
 import VersionGateLine from './VersionGateLine';
@@ -196,6 +199,16 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // comparison below, so they can never disagree.
   const draftUpdates = useMemo(() => buildMqttRequestUpdates(draft), [draft]);
   const formFingerprint = useMemo(() => stableStringify(draftUpdates), [draftUpdates]);
+  // The resolvability reading — the core scan over the same projection
+  // (the executor's field list under the version lens), one resolver
+  // pass per keystroke; it feeds the tab dots, the target row's error
+  // status and the lifecycle flag the footer pill and the Variable
+  // Scope panel read.
+  const templateGroups = useMemo(() => collectMqttTemplateGroups(draftUpdates), [draftUpdates]);
+  const { unresolvedGroups, hasUnresolvedRefs } = useUnresolvedTemplateGroups(
+    templateGroups,
+    ancestry?.collection.uid,
+  );
 
   // Last-primed entity — the saved side of every unsaved comparison
   // (per-knob settings dots, per-section tab tones). Advances on every
@@ -254,10 +267,11 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
         draft,
         t,
         unsaved: unsavedSections,
+        unresolved: mqttUnresolvedSections(unresolvedGroups),
         unsavedSettings,
         ownSettings: anyOwnMqttSetting(draftUpdates),
       }),
-    [draft, t, unsavedSections, unsavedSettings, draftUpdates],
+    [draft, t, unsavedSections, unresolvedGroups, unsavedSettings, draftUpdates],
   );
 
   const v5 = draft.protocolVersion === '5.0';
@@ -370,6 +384,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
     entityType: MQTT_REQUEST_ENTITY_TYPE,
     entityId: entity.uid,
     isDirty,
+    isUnresolved: hasUnresolvedRefs,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
@@ -386,7 +401,12 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // stay live: subscriptions ride the open session).
   const headerTitle = (
     <SessionLock locked={session.inFlight}>
-      <MqttTargetRow draft={draft} setDraft={setDraft} inFlight={session.inFlight} />
+      <MqttTargetRow
+        draft={draft}
+        setDraft={setDraft}
+        inFlight={session.inFlight}
+        urlUnresolved={unresolvedGroups.has('url')}
+      />
     </SessionLock>
   );
 

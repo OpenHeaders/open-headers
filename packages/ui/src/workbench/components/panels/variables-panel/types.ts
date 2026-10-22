@@ -5,7 +5,16 @@
  * touch raw domain shapes.
  */
 
-import type { TotpAlgorithm } from '@openheaders/core/types';
+import type {
+  GraphqlRequest,
+  GrpcRequest,
+  MqttRequest,
+  Request,
+  Rule,
+  Template,
+  TotpAlgorithm,
+  WebSocketRequest,
+} from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 
 // Per-scope metadata for the "All scopes" view. `labelKey` resolves to
@@ -26,8 +35,21 @@ export const SCOPE_CONFIG = {
 
 export type DisplayScope = keyof typeof SCOPE_CONFIG;
 
-/** What the focused tab references, if anything the Scope panel can filter to. */
+/** What the focused tab references, if anything the Scope panel can
+ *  filter to. Every request kind reads as `request` — the noun the
+ *  section title and the empty line wear. */
 export type ScopeKind = 'rule' | 'request' | 'template' | 'none';
+
+/** The focused entity the "In scope" section walks, tagged by kind so
+ *  the template walk can pick the kind's own collector. */
+export type ScopeEntity =
+  | { kind: 'rule'; entity: Rule }
+  | { kind: 'template'; entity: Template }
+  | { kind: 'request'; entity: Request }
+  | { kind: 'grpc-request'; entity: GrpcRequest }
+  | { kind: 'websocket-request'; entity: WebSocketRequest }
+  | { kind: 'mqtt-request'; entity: MqttRequest }
+  | { kind: 'graphql-request'; entity: GraphqlRequest };
 
 export interface DisplayVariable {
   name: string;

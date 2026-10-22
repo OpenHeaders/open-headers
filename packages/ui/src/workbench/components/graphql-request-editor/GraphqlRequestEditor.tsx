@@ -49,6 +49,7 @@ import {
   toHttpRequest,
   wireOperationName,
 } from '@openheaders/core/graphql';
+import { collectGraphqlTemplateGroups } from '@openheaders/core/live';
 import { GRAPHQL_REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, GraphqlRequest as GraphqlRequestEntity } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
@@ -108,6 +109,7 @@ import {
   NO_INHERITED_SETTINGS,
 } from '../shared/inherited-settings/inherited-settings';
 import SpecTabLabel from '../shared/SpecTabLabel';
+import { useUnresolvedTemplateGroups } from '../shared/unresolved-template-groups';
 import { createImportedGraphqlSpecSeed } from '../specs/spec-scaffold';
 import WsSessionPane from '../websocket-request-editor/WsSessionPane';
 import {
@@ -317,7 +319,20 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
   const pickedOperation = census === null ? null : selectedOperation(census, wireOperation);
   const isSubscription = pickedOperation?.operation === 'subscription';
 
-  const formFingerprint = useMemo(() => stableStringify(buildGraphqlRequestUpdates(draft)), [draft]);
+  // Structural projection of the draft — ONE projection feeds the
+  // dirty fingerprint AND the resolvability reading below.
+  const draftUpdates = useMemo(() => buildGraphqlRequestUpdates(draft), [draft]);
+  const formFingerprint = useMemo(() => stableStringify(draftUpdates), [draftUpdates]);
+  // The resolvability reading — the core scan over the same projection
+  // (the compile's field list: what the one POST carries), one resolver
+  // pass per keystroke; it feeds the tab dots, the endpoint's error
+  // status and the lifecycle flag the footer pill and the Variable
+  // Scope panel read.
+  const templateGroups = useMemo(() => collectGraphqlTemplateGroups(draftUpdates), [draftUpdates]);
+  const { unresolvedGroups, hasUnresolvedRefs } = useUnresolvedTemplateGroups(
+    templateGroups,
+    ancestry?.collection.uid,
+  );
 
   const places = useRequestExecutionPlaces(workspaceId);
   const entityWithPlace = useMemo(
@@ -362,6 +377,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
     entityType: GRAPHQL_REQUEST_ENTITY_TYPE,
     entityId: entity.uid,
     isDirty,
+    isUnresolved: hasUnresolvedRefs,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
@@ -535,6 +551,7 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
         onChange={(url) => setDraft((d) => ({ ...d, url }))}
         placeholder={t('workbench.editors.graphql.urlPlaceholder')}
         size="small"
+        status={unresolvedGroups.has('url') ? 'error' : undefined}
         flagUnresolved
         expandOnFocus
         style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
@@ -735,11 +752,37 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                       onChange={setActiveTab}
                       size="small"
                       tabBarStyle={{ marginBottom: 0 }}
+                      // The red dot flags a tab whose fields carry an
+                      // unresolved `{{ref}}` (the HTTP tab catalog's tier).
                       items={[
                         { key: 'docs', label: t('workbench.editors.graphql.tab.docs') },
-                        { key: 'query', label: t('workbench.editors.graphql.tab.query') },
-                        { key: 'authorization', label: t('workbench.editors.graphql.tab.authorization') },
-                        { key: 'headers', label: t('workbench.editors.graphql.tab.headers') },
+                        {
+                          key: 'query',
+                          label: (
+                            <span>
+                              {t('workbench.editors.graphql.tab.query')}
+                              {unresolvedGroups.has('query') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'authorization',
+                          label: (
+                            <span>
+                              {t('workbench.editors.graphql.tab.authorization')}
+                              {unresolvedGroups.has('auth') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
+                        {
+                          key: 'headers',
+                          label: (
+                            <span>
+                              {t('workbench.editors.graphql.tab.headers')}
+                              {unresolvedGroups.has('headers') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
                         {
                           key: 'schema',
                           label: (
@@ -750,7 +793,15 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                           ),
                         },
                         { key: 'scripts', label: t('workbench.editors.graphql.tab.scripts') },
-                        { key: 'settings', label: t('workbench.editors.graphql.tab.settings') },
+                        {
+                          key: 'settings',
+                          label: (
+                            <span>
+                              {t('workbench.editors.graphql.tab.settings')}
+                              {unresolvedGroups.has('settings') && <TabDot tone="error" />}
+                            </span>
+                          ),
+                        },
                         { key: 'spec', label: <SpecTabLabel /> },
                       ]}
                     />

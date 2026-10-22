@@ -5,11 +5,13 @@
  * the orchestrator hands it the draft and the two unsaved readings
  * (per section, per settings knob) and renders the result.
  *
- * Tone precedence on every label (the HTTP rule minus its red tier —
- * MQTT has no unresolved plane): salmon unsaved > neutral has-content >
- * nothing. On the grid tabs (Topics / Properties) the count badge
- * itself carries the unsaved tone; a grid whose rows were all removed
- * but not yet saved has no badge, so a bare salmon dot stands in.
+ * Tone precedence on every label (the HTTP rule): red unresolved >
+ * salmon unsaved > neutral has-content > nothing. On the grid tabs
+ * (Topics / Properties) the count badge itself carries the unsaved
+ * tone and the red dot stands beside it; a grid whose rows were all
+ * removed but not yet saved has no badge, so a bare salmon dot stands
+ * in. The unresolved reading is the core scan's per-field grouping
+ * mapped onto the tabs (`mqtt-section-unresolved.ts`).
  *
  * Every label closes with the tab's `(i)` — hover-revealed, its slot
  * reserved at rest so the bar never shifts; the popover opens on the
@@ -24,6 +26,7 @@ import { TabCount, TabDot } from '../request-editor/request-tab-items';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import { draftToLastWill, type MqttDraft } from './draft';
 import { anyMqttScriptUnsaved, type MqttUnsavedSections, NO_UNSAVED_MQTT_SECTIONS } from './mqtt-section-unsaved';
+import { type MqttUnresolvedSections, NO_UNRESOLVED_MQTT_SECTIONS } from './mqtt-section-unresolved';
 import { type MqttSettingsKnobKey, NO_UNSAVED_MQTT_SETTINGS } from './mqtt-settings-unsaved';
 import { mqttTabInfo } from './mqtt-tab-info';
 
@@ -43,6 +46,8 @@ export interface MqttTabItemsInput {
   t: Translate;
   /** Per-section unsaved tones (see mqtt-section-unsaved.ts). */
   unsaved?: MqttUnsavedSections;
+  /** Per-section unresolved `{{ref}}` tones (see mqtt-section-unresolved.ts). */
+  unresolved?: MqttUnresolvedSections;
   /** Knobs that differ from the saved request (see
    *  mqtt-settings-unsaved.ts) — the Settings label's salmon dot. */
   unsavedSettings?: ReadonlySet<MqttSettingsKnobKey>;
@@ -52,14 +57,20 @@ export interface MqttTabItemsInput {
 }
 
 /** A grid tab's badge: the count wearing the unsaved tone, a bare
- *  salmon dot at zero rows while the slice is unsaved, else nothing. */
-function gridMark(count: number, unsaved: boolean): React.ReactNode {
-  if (count > 0) return <TabCount n={count} unsaved={unsaved} />;
-  return unsaved ? <TabDot tone="unsaved" /> : null;
+ *  salmon dot at zero rows while the slice is unsaved, else nothing;
+ *  the red dot stands beside whichever it is (the HTTP grid tabs). */
+function gridMark(count: number, unsaved: boolean, unresolved: boolean): React.ReactNode {
+  return (
+    <>
+      {count > 0 ? <TabCount n={count} unsaved={unsaved} /> : unsaved ? <TabDot tone="unsaved" /> : null}
+      {unresolved && <TabDot tone="error" />}
+    </>
+  );
 }
 
-/** Salmon over neutral over nothing. */
-function toneMark(unsaved: boolean, hasContent: boolean): React.ReactNode {
+/** Red over salmon over neutral over nothing. */
+function toneMark(unresolved: boolean, unsaved: boolean, hasContent: boolean): React.ReactNode {
+  if (unresolved) return <TabDot tone="error" />;
   if (unsaved) return <TabDot tone="unsaved" />;
   return hasContent ? <TabDot /> : null;
 }
@@ -82,6 +93,7 @@ export function buildMqttTabItems({
   draft,
   t,
   unsaved = NO_UNSAVED_MQTT_SECTIONS,
+  unresolved = NO_UNRESOLVED_MQTT_SECTIONS,
   unsavedSettings = NO_UNSAVED_MQTT_SETTINGS,
   ownSettings,
 }: MqttTabItemsInput): { key: MqttTabKey; label: React.ReactNode }[] {
@@ -102,22 +114,22 @@ export function buildMqttTabItems({
   const hasDocs = draft.description.trim() !== '';
   const ownAuth = draft.auth.type !== 'none' && draft.auth.type !== 'inherit';
   return [
-    { key: 'docs', label: tabLabel('docs', t('workbench.editors.mqtt.tab.docs'), toneMark(unsaved.docs, hasDocs), t) },
+    { key: 'docs', label: tabLabel('docs', t('workbench.editors.mqtt.tab.docs'), toneMark(false, unsaved.docs, hasDocs), t) },
     {
       key: 'message',
-      label: tabLabel('message', t('workbench.editors.mqtt.tab.message'), toneMark(unsaved.message, false), t),
+      label: tabLabel('message', t('workbench.editors.mqtt.tab.message'), toneMark(unresolved.message, unsaved.message, false), t),
     },
     {
       key: 'topics',
-      label: tabLabel('topics', t('workbench.editors.mqtt.tab.topics'), gridMark(topicCount, unsaved.topics), t),
+      label: tabLabel('topics', t('workbench.editors.mqtt.tab.topics'), gridMark(topicCount, unsaved.topics, unresolved.topics), t),
     },
-    { key: 'auth', label: tabLabel('auth', t('workbench.editors.mqtt.tab.auth'), toneMark(unsaved.auth, ownAuth), t) },
+    { key: 'auth', label: tabLabel('auth', t('workbench.editors.mqtt.tab.auth'), toneMark(unresolved.auth, unsaved.auth, ownAuth), t) },
     {
       key: 'properties',
       label: tabLabel(
         'properties',
         t('workbench.editors.mqtt.tab.properties'),
-        gridMark(propertyCount, unsaved.properties),
+        gridMark(propertyCount, unsaved.properties, unresolved.properties),
         t,
       ),
     },
@@ -126,7 +138,7 @@ export function buildMqttTabItems({
       label: tabLabel(
         'lastwill',
         t('workbench.editors.mqtt.tab.lastWill'),
-        toneMark(unsaved.lastWill, willConfigured),
+        toneMark(unresolved.lastWill, unsaved.lastWill, willConfigured),
         t,
       ),
     },
@@ -135,7 +147,7 @@ export function buildMqttTabItems({
       label: tabLabel(
         'scripts',
         t('workbench.editors.mqtt.tab.scripts'),
-        toneMark(anyMqttScriptUnsaved(unsaved.scripts), anyScript),
+        toneMark(false, anyMqttScriptUnsaved(unsaved.scripts), anyScript),
         t,
       ),
     },
@@ -144,7 +156,7 @@ export function buildMqttTabItems({
       label: tabLabel(
         'settings',
         t('workbench.editors.mqtt.tab.settings'),
-        toneMark(unsavedSettings.size > 0, ownSettings),
+        toneMark(unresolved.settings, unsavedSettings.size > 0, ownSettings),
         t,
       ),
     },

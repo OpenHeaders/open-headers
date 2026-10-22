@@ -15,6 +15,7 @@
 
 import { canonicalJson } from '../sync/store/canonical';
 import type { Request } from '../types';
+import { collectAuthTemplateStrings, collectPairTemplateStrings } from './auth-scan';
 
 /**
  * Flat, order-preserving list of every templatable string in `request`.
@@ -29,11 +30,7 @@ export function collectRequestTemplateStrings(request: Request): string[] {
   if (request.url) out.push(request.url);
 
   // ── Query params (key + value) ──
-  for (const p of request.params) {
-    if (p.enabled === false) continue;
-    if (p.key) out.push(p.key);
-    if (p.value) out.push(p.value);
-  }
+  collectPairTemplateStrings(request.params, out);
 
   // ── Path params (value — the key is the URL's, never templated) ──
   for (const p of request.pathParams ?? []) {
@@ -41,109 +38,15 @@ export function collectRequestTemplateStrings(request: Request): string[] {
   }
 
   // ── Headers (key + value) ──
-  for (const h of request.headers) {
-    if (h.enabled === false) continue;
-    if (h.key) out.push(h.key);
-    if (h.value) out.push(h.value);
-  }
+  collectPairTemplateStrings(request.headers, out);
 
   // ── SNI override — the Settings tab's one templatable knob; the
   //    executors gate it on the EFFECTIVE request, so an inherited
   //    template answers here like the request's own ──
   if (request.sniServerName) out.push(request.sniServerName);
 
-  // ── Auth ──
-  switch (request.auth.type) {
-    case 'none':
-    case 'inherit':
-      break;
-    case 'basic':
-      if (request.auth.username) out.push(request.auth.username);
-      if (request.auth.password) out.push(request.auth.password);
-      break;
-    case 'bearer':
-      if (request.auth.token) out.push(request.auth.token);
-      break;
-    case 'api-key':
-      if (request.auth.key) out.push(request.auth.key);
-      if (request.auth.value) out.push(request.auth.value);
-      break;
-    case 'oauth2':
-      // OAuth2 config fields are not user-templated — the credential
-      // ref is an opaque handle; the tokens are fetched, not templated.
-      break;
-    case 'aws-sigv4':
-      // Every SigV4 field is templatable — `{{vault.aws_secret}}` is
-      // the expected idiom for the key material.
-      if (request.auth.accessKeyId) out.push(request.auth.accessKeyId);
-      if (request.auth.secretAccessKey) out.push(request.auth.secretAccessKey);
-      if (request.auth.sessionToken) out.push(request.auth.sessionToken);
-      if (request.auth.service) out.push(request.auth.service);
-      if (request.auth.region) out.push(request.auth.region);
-      break;
-    case 'digest':
-      if (request.auth.username) out.push(request.auth.username);
-      if (request.auth.password) out.push(request.auth.password);
-      break;
-    case 'oauth1':
-      // Credential fields are templatable — `{{vault.consumer_secret}}`
-      // is the expected idiom for the key material.
-      if (request.auth.consumerKey) out.push(request.auth.consumerKey);
-      if (request.auth.consumerSecret) out.push(request.auth.consumerSecret);
-      if (request.auth.token) out.push(request.auth.token);
-      if (request.auth.tokenSecret) out.push(request.auth.tokenSecret);
-      if (request.auth.privateKey) out.push(request.auth.privateKey);
-      if (request.auth.realm) out.push(request.auth.realm);
-      break;
-    case 'edgegrid':
-      // Credential fields are templatable — `{{vault.akamai_secret}}`
-      // is the expected idiom; the header list too.
-      if (request.auth.clientToken) out.push(request.auth.clientToken);
-      if (request.auth.accessToken) out.push(request.auth.accessToken);
-      if (request.auth.clientSecret) out.push(request.auth.clientSecret);
-      if (request.auth.headersToSign) out.push(request.auth.headersToSign);
-      break;
-    case 'asap':
-      // Every string field is templatable — `{{vault.asap_key}}` for
-      // the key material, a templated claims JSON for the rest.
-      if (request.auth.issuer) out.push(request.auth.issuer);
-      if (request.auth.audience) out.push(request.auth.audience);
-      if (request.auth.keyId) out.push(request.auth.keyId);
-      if (request.auth.privateKey) out.push(request.auth.privateKey);
-      if (request.auth.subject) out.push(request.auth.subject);
-      if (request.auth.claims) out.push(request.auth.claims);
-      break;
-    case 'hawk':
-      // Credential fields are templatable — `{{vault.hawk_key}}` is
-      // the expected idiom for the key material.
-      if (request.auth.authId) out.push(request.auth.authId);
-      if (request.auth.authKey) out.push(request.auth.authKey);
-      if (request.auth.ext) out.push(request.auth.ext);
-      if (request.auth.app) out.push(request.auth.app);
-      if (request.auth.dlg) out.push(request.auth.dlg);
-      break;
-    case 'jwt':
-      // Key material, claims, and headers are all templatable —
-      // `{{vault.private_key}}` and a `{{dynamic.timestamp}}` claim
-      // are the expected idioms.
-      if (request.auth.secret) out.push(request.auth.secret);
-      if (request.auth.privateKey) out.push(request.auth.privateKey);
-      if (request.auth.payload) out.push(request.auth.payload);
-      if (request.auth.headers) out.push(request.auth.headers);
-      if (request.auth.headerPrefix) out.push(request.auth.headerPrefix);
-      break;
-    case 'http-signature':
-      // Key material and the identifiers are templatable —
-      // `{{vault.signing_key}}` is the expected idiom; the covered
-      // list and the label are configuration text, templatable too.
-      if (request.auth.secret) out.push(request.auth.secret);
-      if (request.auth.privateKey) out.push(request.auth.privateKey);
-      if (request.auth.keyId) out.push(request.auth.keyId);
-      if (request.auth.components) out.push(request.auth.components);
-      if (request.auth.label) out.push(request.auth.label);
-      if (request.auth.tag) out.push(request.auth.tag);
-      break;
-  }
+  // ── Auth — the shared walk every request kind rides ──
+  collectAuthTemplateStrings(request.auth, out);
 
   // ── Body ──
   // Exhaustive over the discriminated union — anything missed here
