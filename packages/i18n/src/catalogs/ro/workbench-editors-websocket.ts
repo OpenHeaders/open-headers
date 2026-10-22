@@ -28,6 +28,7 @@ export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'Cererea WebSocket nu a fost găsită.',
   'workbench.editors.websocket.connect.label': 'Conectare',
+  'workbench.editors.websocket.urlPlaceholder': 'Introduceți adresa URL a serverului',
   'workbench.editors.websocket.connect.disconnect': 'Deconectare',
   'workbench.editors.websocket.connect.cancel': 'Anulare',
   'workbench.editors.websocket.connect.needsUrl': 'Introduceți o adresă URL ws:// sau wss:// pentru a vă conecta.',

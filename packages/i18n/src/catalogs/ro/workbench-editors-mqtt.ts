@@ -27,7 +27,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsMqtt = {
   // ── MQTT request editor ─────────────────────────────────────────────
   'workbench.editors.mqtt.notFound': 'Cererea MQTT nu a fost găsită.',
-  'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
+  'workbench.editors.mqtt.urlPlaceholder': 'Introduceți adresa URL a serverului',
   'workbench.editors.mqtt.version.tooltip':
     'Versiunea protocolului MQTT pe care o vorbește sesiunea.\n5.0 · proprietăți și opțiuni de abonare\n3.1.1 · brokeri care refuză 5.0',
   'workbench.editors.mqtt.version.v5': 'V5',

@@ -21,7 +21,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsGrpc = {
   // ── gRPC request editor ─────────────────────────────────────────────
   'workbench.editors.grpc.notFound': 'gRPC リクエストが見つかりません。',
-  'workbench.editors.grpc.urlPlaceholder': 'host:port（例：grpc.openheaders.com:443）',
+  'workbench.editors.grpc.urlPlaceholder': 'URL を入力',
   'workbench.editors.grpc.tls.on': 'TLS オン。クリックで平文に切り替え',
   'workbench.editors.grpc.tls.off': 'TLS オフ（平文）。クリックで TLS に切り替え',
   'workbench.editors.grpc.method.placeholder': 'メソッドを選択',

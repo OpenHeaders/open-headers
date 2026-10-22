@@ -18,7 +18,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsMqtt = {
   // ── MQTT request editor ─────────────────────────────────────────────
   'workbench.editors.mqtt.notFound': '未找到 MQTT 请求。',
-  'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
+  'workbench.editors.mqtt.urlPlaceholder': '输入服务器 URL',
   'workbench.editors.mqtt.version.tooltip': '会话使用的 MQTT 协议版本。\n5.0 · 属性与订阅选项\n3.1.1 · 拒绝 5.0 的代理',
   'workbench.editors.mqtt.version.v5': 'V5',
   'workbench.editors.mqtt.version.v311': 'V3.1.1',

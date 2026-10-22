@@ -67,11 +67,11 @@ const draft: WebSocketDraft = {
 };
 
 describe('WsTargetRow', () => {
-  it('shows only the URL, with enabled params folded in and the HTTP placeholder', () => {
+  it('shows only the URL, with enabled params folded in and the server URL placeholder', () => {
     const { container } = render(<WsTargetRow draft={draft} setDraft={vi.fn()} socketioFlavor={false} />);
     const input = screen.getByTestId('websocket-url-input');
     expect(input.textContent).toBe('wss://events.openheaders.io/live?room=a');
-    expect(input.getAttribute('data-placeholder')).toBe('Enter URL or paste text');
+    expect(input.getAttribute('data-placeholder')).toBe('Enter server URL');
     expect(container.querySelector('.ant-tag')).toBeNull();
     expect(screen.queryByTestId('websocket-scheme-lock')).toBeNull();
   });

@@ -22,6 +22,7 @@ export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': '未找到 WebSocket 请求。',
   'workbench.editors.websocket.connect.label': '连接',
+  'workbench.editors.websocket.urlPlaceholder': '输入服务器 URL',
   'workbench.editors.websocket.connect.disconnect': '断开连接',
   'workbench.editors.websocket.connect.cancel': '取消',
   'workbench.editors.websocket.connect.needsUrl': '输入 ws:// 或 wss:// URL 以连接。',

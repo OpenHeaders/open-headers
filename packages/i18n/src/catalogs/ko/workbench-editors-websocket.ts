@@ -26,6 +26,7 @@ export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'WebSocket 요청을 찾을 수 없습니다.',
   'workbench.editors.websocket.connect.label': '연결',
+  'workbench.editors.websocket.urlPlaceholder': '서버 URL 주소를 입력하세요',
   'workbench.editors.websocket.connect.disconnect': '연결 해제',
   'workbench.editors.websocket.connect.cancel': '취소',
   'workbench.editors.websocket.connect.needsUrl': '연결하려면 ws:// 또는 wss:// URL 주소를 입력하세요.',

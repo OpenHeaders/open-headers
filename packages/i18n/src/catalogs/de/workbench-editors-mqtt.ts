@@ -13,7 +13,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsMqtt = {
   // ── MQTT request editor ─────────────────────────────────────────────
   'workbench.editors.mqtt.notFound': 'MQTT-Anfrage nicht gefunden.',
-  'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
+  'workbench.editors.mqtt.urlPlaceholder': 'Server-URL eingeben',
   'workbench.editors.mqtt.version.tooltip':
     'MQTT-Protokollversion der Sitzung.\n5.0 · Eigenschaften und Abonnementoptionen\n3.1.1 · Broker, die 5.0 ablehnen',
   'workbench.editors.mqtt.version.v5': 'V5',

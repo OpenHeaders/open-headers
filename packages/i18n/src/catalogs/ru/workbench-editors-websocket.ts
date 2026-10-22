@@ -28,6 +28,7 @@ export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'Запрос WebSocket не найден.',
   'workbench.editors.websocket.connect.label': 'Подключиться',
+  'workbench.editors.websocket.urlPlaceholder': 'Введите URL-адрес сервера',
   'workbench.editors.websocket.connect.disconnect': 'Отключиться',
   'workbench.editors.websocket.connect.cancel': 'Отмена',
   'workbench.editors.websocket.connect.needsUrl': 'Для подключения введите URL-адрес ws:// или wss://.',

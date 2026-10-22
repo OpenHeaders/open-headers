@@ -23,6 +23,7 @@ export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'WebSocket リクエストが見つかりません。',
   'workbench.editors.websocket.connect.label': '接続',
+  'workbench.editors.websocket.urlPlaceholder': 'サーバー URL を入力',
   'workbench.editors.websocket.connect.disconnect': '切断',
   'workbench.editors.websocket.connect.cancel': 'キャンセル',
   'workbench.editors.websocket.connect.needsUrl': '接続するには ws:// または wss:// の URL を入力してください。',

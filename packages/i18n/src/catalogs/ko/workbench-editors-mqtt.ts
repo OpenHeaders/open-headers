@@ -22,7 +22,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsMqtt = {
   // ── MQTT request editor ─────────────────────────────────────────────
   'workbench.editors.mqtt.notFound': 'MQTT 요청을 찾을 수 없습니다.',
-  'workbench.editors.mqtt.urlPlaceholder': 'mqtt://broker.openheaders.com:1883',
+  'workbench.editors.mqtt.urlPlaceholder': '서버 URL 주소를 입력하세요',
   'workbench.editors.mqtt.version.tooltip':
     '세션이 사용하는 MQTT 프로토콜 버전입니다.\n5.0 · 속성과 구독 옵션\n3.1.1 · 5.0을 거부하는 브로커용',
   'workbench.editors.mqtt.version.v5': 'V5',

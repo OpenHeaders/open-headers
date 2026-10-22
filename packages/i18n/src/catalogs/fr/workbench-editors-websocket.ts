@@ -14,6 +14,7 @@ export const workbenchEditorsWebsocket = {
   // ── WebSocket request editor ────────────────────────────────────────
   'workbench.editors.websocket.notFound': 'Requête WebSocket introuvable.',
   'workbench.editors.websocket.connect.label': 'Se connecter',
+  'workbench.editors.websocket.urlPlaceholder': "Saisissez l'URL du serveur",
   'workbench.editors.websocket.connect.disconnect': 'Se déconnecter',
   'workbench.editors.websocket.connect.cancel': 'Annuler',
   'workbench.editors.websocket.connect.needsUrl': 'Saisissez une URL ws:// ou wss:// pour vous connecter.',

@@ -154,7 +154,7 @@ const WsResponseExampleView: React.FC<WsResponseExampleViewProps> = ({
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
       <Input
         style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}
-        placeholder={t('workbench.editors.request.url.placeholder')}
+        placeholder={t('workbench.editors.websocket.urlPlaceholder')}
         value={draft.url}
         onChange={(e) => setDraft((d) => (d ? { ...d, url: e.target.value } : d))}
         data-testid="ws-example-url-input"

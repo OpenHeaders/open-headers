@@ -24,7 +24,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsGrpc = {
   // ── gRPC request editor ─────────────────────────────────────────────
   'workbench.editors.grpc.notFound': 'gRPC 요청을 찾을 수 없습니다.',
-  'workbench.editors.grpc.urlPlaceholder': 'host:port (예: grpc.openheaders.com:443)',
+  'workbench.editors.grpc.urlPlaceholder': 'URL 주소를 입력하세요',
   'workbench.editors.grpc.tls.on': 'TLS 켜짐. 클릭하면 평문으로 전환',
   'workbench.editors.grpc.tls.off': 'TLS 꺼짐 (평문). 클릭하면 TLS 모드로 전환',
   'workbench.editors.grpc.method.placeholder': '메서드 선택',

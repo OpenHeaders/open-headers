@@ -17,7 +17,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsGraphql = {
   // ── GraphQL request editor ──────────────────────────────────────────
   'workbench.editors.graphql.notFound': 'GraphQL リクエストが見つかりません。',
-  'workbench.editors.graphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
+  'workbench.editors.graphql.urlPlaceholder': 'URL を入力',
   'workbench.editors.graphql.query.label': 'Query',
   'workbench.editors.graphql.query.stop': '停止',
   'workbench.editors.graphql.query.stopTooltip': 'クエリを停止し、届いた分を保持します',

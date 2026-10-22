@@ -23,7 +23,7 @@ import type { Catalog } from '../../types';
 export const workbenchEditorsGraphql = {
   // ── GraphQL request editor ──────────────────────────────────────────
   'workbench.editors.graphql.notFound': 'Cererea GraphQL nu a fost găsită.',
-  'workbench.editors.graphql.urlPlaceholder': 'https://api.openheaders.com/graphql',
+  'workbench.editors.graphql.urlPlaceholder': 'Introduceți adresa URL',
   'workbench.editors.graphql.query.label': 'Query',
   'workbench.editors.graphql.query.stop': 'Oprire',
   'workbench.editors.graphql.query.stopTooltip': 'Oprește interogarea și păstrează ce a sosit',

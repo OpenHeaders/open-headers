@@ -51,7 +51,7 @@ const WsTargetRow: React.FC<WsTargetRowProps> = ({ draft, setDraft, socketioFlav
           const split = splitUrlPath(parsed.base);
           setDraft((d) => ({ ...d, url: split.authority, namespace: split.path, params: params(d) }));
         }}
-        placeholder={t('workbench.editors.request.url.placeholder')}
+        placeholder={t('workbench.editors.websocket.urlPlaceholder')}
         size="small"
         flagUnresolved
         expandOnFocus
