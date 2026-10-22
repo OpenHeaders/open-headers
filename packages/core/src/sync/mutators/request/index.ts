@@ -24,12 +24,20 @@ export {
   removeRequestParam,
   reorderRequestParam,
 } from './param';
+export {
+  type AddRequestPathParamArgs,
+  addRequestPathParam,
+  type RemoveRequestPathParamArgs,
+  removeRequestPathParam,
+} from './path-param';
 export { type RequestScalarPath, type SetRequestFieldArgs, setRequestField } from './scalar';
 export {
   REQUEST_ENTITY_TYPE,
   REQUEST_EXAMPLES_PATH,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
+  REQUEST_PATH_PARAMS_PATH,
   type RequestHeaderRow,
   type RequestParamRow,
+  type RequestPathParamRow,
 } from './types';

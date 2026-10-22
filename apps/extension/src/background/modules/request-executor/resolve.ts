@@ -1,8 +1,8 @@
 /**
  * Request resolution — turns a `Request` draft into the wire-ready
  * `ResolvedRequest` shape: resolvability gate, template substitution
- * across URL / params / headers / body, auth folding, TOTP usage
- * tracking, and the default Content-Type fill.
+ * across URL / params / headers / body, path-parameter substitution,
+ * auth folding, TOTP usage tracking, and the default Content-Type fill.
  */
 
 import type {
@@ -31,7 +31,12 @@ import type {
   TlsVersion,
   Vault,
 } from '@openheaders/core/types';
-import { collectRequestResolutionErrors, isRequestResolvable } from '@openheaders/core/utils';
+import {
+  collectRequestResolutionErrors,
+  isRequestResolvable,
+  missingPathParamKeys,
+  substitutePathParams,
+} from '@openheaders/core/utils';
 import { collectTemplateVariableNames, resolveTemplate } from '@openheaders/core/variables';
 import { resolveProxyCredential } from '@openheaders/oracle/live/dial-policy';
 import {
@@ -39,10 +44,14 @@ import {
   resolveRequestAuth,
   resolveRequestSettings,
 } from '@openheaders/oracle/live/request-exec/ancestor-chain';
-import { unresolvedRequestMessage } from '@openheaders/oracle/live/request-exec/resolve-request';
+import { resolvePathParams, unresolvedRequestMessage } from '@openheaders/oracle/live/request-exec/resolve-request';
 import { scriptScopeOverResolver } from '@openheaders/oracle/live/request-exec/script-scope';
 import { createTotpUsageTracker, type TotpUsage } from '@openheaders/oracle/live/request-exec/totp-usage';
-import { batchRefusesSend, sentAsWrittenOf } from '@openheaders/oracle/live/request-exec/unresolved-references';
+import {
+  batchRefusesSend,
+  missingPathParamsMessage,
+  sentAsWrittenOf,
+} from '@openheaders/oracle/live/request-exec/unresolved-references';
 import { resolveClientCertificate } from '@openheaders/oracle/live/tls-policy';
 import { getTrustAnchorsForSend } from '@openheaders/oracle/live/trust-anchors';
 import { getActiveWorkspaceId } from '../workspace/workspace-store';
@@ -65,6 +74,10 @@ export interface ResolvedRequest {
    * with how `headers` round-trip through scripts.
    */
   params: Array<{ key: string; value: string }>;
+  /** The path parameters the URL named, with the values substituted
+   *  into `url` — read-only context for the script snapshot. Absent
+   *  when the URL names none. Twin of the oracle resolver's carry. */
+  pathParams?: Array<{ key: string; value: string }>;
   body: RequestBody;
   /** Wire-level cookie policy. `'omit'` unless the request opts into `'include'`. */
   credentialsMode: CredentialsMode;
@@ -339,6 +352,11 @@ export async function resolveRequest(
     sentAsWritten = sentAsWrittenOf(errors);
   }
 
+  // The path parameters the URL names must every one carry a value —
+  // an unfilled `:name` is a refusal, never a literal on the wire.
+  const missingPathParams = missingPathParamKeys(request.url, request.pathParams);
+  if (missingPathParams.length > 0) throw new UnresolvedRequestError(missingPathParamsMessage(missingPathParams));
+
   // Every kind:'totp' entry this send consumes — the templates' now,
   // the scripts' reads later through the same tracker. `scope.vault` is
   // the per-workspace snapshot when `options.workspaceId` is set —
@@ -359,8 +377,12 @@ export async function resolveRequest(
   // The base URL keeps any query string the user typed inline; the
   // structured params (enabled, non-empty key, resolved) ride separately
   // and are folded into the URL only at the wire (`executeResolved`), so
-  // a pre-request script can read + replace them first.
-  const resolvedUrl = resolveStr(request.url);
+  // a pre-request script can read + replace them first. The path
+  // params substitute here (each value a template field, resolved once
+  // per name, encoded as one segment) — the oracle resolver's twin.
+  const pathParams = resolvePathParams(request, resolveStr);
+  const pathValues = new Map(pathParams.map((p) => [p.key, p.value]));
+  const resolvedUrl = substitutePathParams(request.url, (name) => pathValues.get(name) ?? null, resolveStr);
   const enabledParams = request.params
     .filter((p) => (p.enabled ?? true) && p.key.trim())
     .map((p) => ({ key: resolveStr(p.key), value: resolveStr(p.value) }));
@@ -512,6 +534,7 @@ export async function resolveRequest(
       url: resolvedUrl,
       headers,
       params: enabledParams,
+      ...(pathParams.length > 0 ? { pathParams } : {}),
       body: resolvedBody,
       // Cookie-jar policy. `'omit'` is the safe default when the request
       // doesn't explicitly opt in — even with `<all_urls>` granted, we

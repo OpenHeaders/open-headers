@@ -41,6 +41,7 @@ import type {
   OAuth1AuthSchema,
   OAuth2AuthSchema,
   OAuth2FlowSchema,
+  PathParamSchema,
   ProxyModeSchema,
   QueryParamSchema,
   RequestBodySchema,
@@ -64,6 +65,10 @@ export type RequestHeader = v.InferOutput<typeof RequestHeaderSchema>;
 // ── Query parameters ───────────────────────────────────────────────
 
 export type QueryParam = v.InferOutput<typeof QueryParamSchema>;
+
+// ── Path parameters ────────────────────────────────────────────────
+
+export type PathParam = v.InferOutput<typeof PathParamSchema>;
 
 // ── Authentication ─────────────────────────────────────────────────
 

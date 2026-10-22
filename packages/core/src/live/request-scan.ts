@@ -35,6 +35,11 @@ export function collectRequestTemplateStrings(request: Request): string[] {
     if (p.value) out.push(p.value);
   }
 
+  // ── Path params (value — the key is the URL's, never templated) ──
+  for (const p of request.pathParams ?? []) {
+    if (p.value) out.push(p.value);
+  }
+
   // ── Headers (key + value) ──
   for (const h of request.headers) {
     if (h.enabled === false) continue;
@@ -209,6 +214,8 @@ export function requestExecutableFingerprint(request: Request): string {
     url: request.url,
     headers: request.headers,
     params: request.params,
+    // Absent and empty are one state — no path value to hash.
+    pathParams: request.pathParams ?? [],
     auth: request.auth,
     credentialsMode: request.credentialsMode ?? null,
     followRedirects: request.followRedirects ?? null,

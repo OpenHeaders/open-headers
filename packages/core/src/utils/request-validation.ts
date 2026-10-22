@@ -13,6 +13,10 @@
  * Completeness rules:
  *   - URL required (non-empty after trim). A templated URL (`{{env.X}}`)
  *     counts as present — resolution happens at execute time.
+ *   - Every path parameter the URL names (`/:id`) has a non-blank
+ *     value row. A templated value counts as present; a missing or
+ *     blank one is `path-param-missing` — the executors refuse to put
+ *     a literal `:id` on the wire.
  *   - Method is always set (schema enforces the picklist). No check needed.
  *   - Body has no must-fill-in fields — empty bodies are valid for every
  *     BodyType.
@@ -46,10 +50,27 @@
  */
 
 import { collectRequestTemplateStrings } from '../live/request-scan';
-import type { Request } from '../types/request';
+import type { PathParam, Request } from '../types/request';
 import type { ResolvedVariable } from '../types/variable';
 import { type ResolutionEnvSnapshot, type ResolutionError, resolveTemplate, type ScopedLookupFn } from '../variables';
 import { logger } from './logger';
+import { parsePathParamNames } from './url';
+
+/**
+ * The path parameters the URL names whose row is absent or blank —
+ * in path order. The one list behind the completeness gate, the
+ * executors' refusal and the editor's hint; empty when every named
+ * parameter has a value.
+ */
+export function missingPathParamKeys(url: string, pathParams: ReadonlyArray<PathParam> | undefined): string[] {
+  const names = parsePathParamNames(url);
+  if (names.length === 0) return [];
+  const valued = new Set<string>();
+  for (const row of pathParams ?? []) {
+    if (row.value.trim() !== '') valued.add(row.key);
+  }
+  return names.map((n) => n.name).filter((name) => !valued.has(name));
+}
 
 /**
  * Returns `true` when the request has the minimum fields the executor
@@ -76,6 +97,7 @@ function isRequestCompleteUnsafe(
   request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
 ): boolean {
   if (!request.url?.trim()) return false;
+  if (missingPathParamKeys(request.url, request.pathParams).length > 0) return false;
 
   const auth = request.auth;
   switch (auth.type) {
@@ -163,6 +185,7 @@ function isRequestCompleteUnsafe(
  */
 export type RequestIncompleteReason =
   | 'missing-url'
+  | 'path-param-missing'
   | 'basic-missing-username'
   | 'bearer-missing-token'
   | 'api-key-missing-key'
@@ -261,6 +284,7 @@ export function requestIncompleteReason(
   request: Request | Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>,
 ): RequestIncompleteReason | null {
   if (!request.url?.trim()) return 'missing-url';
+  if (missingPathParamKeys(request.url, request.pathParams).length > 0) return 'path-param-missing';
 
   const auth = request.auth;
   switch (auth.type) {

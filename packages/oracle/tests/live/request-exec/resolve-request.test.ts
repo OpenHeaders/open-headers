@@ -305,6 +305,63 @@ describe('resolveRequest — the gate names every unresolved reference with its 
     });
   });
 
+  it('substitutes the path parameters into the URL — each value a template, encoded as one segment, the suffix kept, the query after', async () => {
+    seed(
+      makeCollection({ variables: [{ uid: 'var00001', name: 'USER', value: '42', type: 'default' }] }),
+      makeFolder(),
+    );
+    const { resolved } = await resolveRequest(
+      makeRequest({
+        url: 'https://api.openheaders.io/users/:id/files/:name.json',
+        pathParams: [
+          { uid: 'pth00001', key: 'id', value: '{{USER}}' },
+          { uid: 'pth00002', key: 'name', value: 'a/b' },
+        ],
+        params: [{ uid: 'qpr00001', key: 'q', value: '1' }],
+      }),
+      {},
+    );
+    expect(resolved.url).toBe('https://api.openheaders.io/users/42/files/a%2Fb.json?q=1');
+    expect(resolved.pathParams).toEqual([
+      { key: 'id', value: '42' },
+      { key: 'name', value: 'a/b' },
+    ]);
+  });
+
+  it('a path value that expands to parameter syntax is data, and a URL naming none carries no list', async () => {
+    const colon = await resolveRequest(
+      makeRequest({
+        url: 'https://api.openheaders.io/f/:name',
+        pathParams: [{ uid: 'pth00001', key: 'name', value: ':x' }],
+      }),
+      {},
+    );
+    expect(colon.resolved.url).toBe('https://api.openheaders.io/f/%3Ax');
+    const plain = await resolveRequest(makeRequest(), {});
+    expect(plain.resolved.pathParams).toBeUndefined();
+  });
+
+  it('refuses the send while a named path parameter has no value — never a literal on the wire', async () => {
+    const one = await resolveRequest(
+      makeRequest({
+        url: 'https://api.openheaders.io/users/:id',
+        pathParams: [{ uid: 'pth00001', key: 'id', value: ' ' }],
+      }),
+      {},
+    ).catch((err: unknown) => err);
+    expect(one).toBeInstanceOf(UnresolvedRequestError);
+    expect((one as Error).message).toBe(
+      'Request has unfilled path parameter: :id. Set a value on the Params tab before sending.',
+    );
+    const two = await resolveRequest(
+      makeRequest({ url: 'https://api.openheaders.io/users/:id/posts/:postId' }),
+      {},
+    ).catch((err: unknown) => err);
+    expect((two as Error).message).toBe(
+      'Request has unfilled path parameters: :id, :postId. Set a value on the Params tab before sending.',
+    );
+  });
+
   it("a secret-manager entry's typed failure reads apart from a plain miss on a send", async () => {
     const request = makeRequest({
       url: 'https://{{env.HOST}}/ping',

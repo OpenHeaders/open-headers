@@ -1,0 +1,25 @@
+schemaVersion: 5
+uid: reqcraft
+name: Spacecraft part
+method: GET
+url: "{{API_URL}}/spacecrafts/:spacecraftId/parts/:partId.json"
+headers:
+  - uid: hdracc01
+    key: Accept
+    value: application/json
+params:
+  - uid: prmexp01
+    key: expand
+    value: dimensions
+pathParams:
+  - uid: pthsc001
+    key: spacecraftId
+    value: "{{env.SPACECRAFT}}"
+    description: The spacecraft's id.
+  - uid: pthpt001
+    key: partId
+    value: ""
+auth:
+  type: none
+body:
+  type: none

@@ -135,7 +135,14 @@ describe('install-script-sandbox', () => {
     const opts = {
       kind: 'pre-request' as const,
       source: 'oh.setHeader("X", "1")',
-      request: { method: 'GET' as const, url: DRAFT.url, headers: [], params: [], body: { type: 'none' as const } },
+      request: {
+        method: 'GET' as const,
+        url: DRAFT.url,
+        headers: [],
+        params: [],
+        pathParams: [],
+        body: { type: 'none' as const },
+      },
     };
     await safe?.runScript(opts);
     safe?.endSession('s-1');

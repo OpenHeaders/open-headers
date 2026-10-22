@@ -194,6 +194,7 @@ describe('the oh.* host RPCs', () => {
         url: 'https://api.openheaders.io/v1/items',
         headers: [],
         params: [],
+        pathParams: [],
         body: { type: 'none' },
       },
     });

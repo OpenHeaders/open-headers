@@ -29,6 +29,7 @@ import type {
   BodyType,
   FormField,
   MultipartPart,
+  PathParam,
   QueryParam,
   Request,
   RequestBody,
@@ -301,7 +302,9 @@ export function canonicalizeRequest(request: Request): Request {
   const headers = request.headers.map(canonicalRequestHeader);
   const params = request.params.map(canonicalQueryParam);
   const body = canonicalRequestBody(request.body);
-  return { ...request, headers, params, body };
+  const out: Request = { ...request, headers, params, body };
+  if (request.pathParams !== undefined) out.pathParams = request.pathParams.map(canonicalPathParam);
+  return out;
 }
 
 function canonicalRequestHeader(h: RequestHeader): RequestHeader {
@@ -316,6 +319,12 @@ function canonicalQueryParam(p: QueryParam): QueryParam {
   if (p.description !== undefined) out.description = p.description;
   if (p.enabled !== undefined) out.enabled = p.enabled;
   if (p.hasEquals !== undefined) out.hasEquals = p.hasEquals;
+  return out;
+}
+
+function canonicalPathParam(p: PathParam): PathParam {
+  const out: PathParam = { uid: p.uid, key: p.key, value: p.value };
+  if (p.description !== undefined) out.description = p.description;
   return out;
 }
 

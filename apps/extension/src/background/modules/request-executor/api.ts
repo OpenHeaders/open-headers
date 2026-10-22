@@ -229,6 +229,9 @@ function resolvedToSnapshot(req: ResolvedRequest): RequestSnapshot {
     // oauth2 `sendAs:'query'`) are included, mirroring how the
     // auth-injected `Authorization` header rides `headers`.
     params: req.params.map((p) => ({ key: p.key, value: p.value })),
+    // The path params already substituted into `url` — read-only
+    // context; a script that wants another path sets `url`.
+    pathParams: (req.pathParams ?? []).map((p) => ({ key: p.key, value: p.value })),
     // The body is already a discriminated-union value; pass it through
     // verbatim so the script sandbox sees the same shape we'll send.
     body: req.body,

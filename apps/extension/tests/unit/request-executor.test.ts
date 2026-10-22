@@ -212,6 +212,33 @@ describe('RequestExecutor', () => {
     expect(url).toBe('https://api.openheaders.io/search?q=hello&lang=en');
   });
 
+  it('substitutes path parameters into the URL before the query params', async () => {
+    mockWsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [{ uid: '1abc6d8c', name: 'USER', value: '42', type: 'default' }],
+    });
+    await executeRequestDraft(
+      makeRequest({
+        url: 'https://api.openheaders.io/users/:id/files/:name.json',
+        pathParams: [
+          { uid: 'pth00001', key: 'id', value: '{{USER}}' },
+          { uid: 'pth00002', key: 'name', value: 'a/b' },
+        ],
+        params: [{ uid: 'qparam01', key: 'q', value: '1' }],
+      }),
+    );
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.openheaders.io/users/42/files/a%2Fb.json?q=1');
+  });
+
+  it('refuses a send whose path parameter has no value — nothing reaches the wire', async () => {
+    const snapshot = await executeRequestDraft(makeRequest({ url: 'https://api.openheaders.io/users/:id' }));
+    expect(snapshot.error).toBe(
+      'Request has unfilled path parameter: :id. Set a value on the Params tab before sending.',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('applies basic auth with UTF-8 characters without crashing', async () => {
     await executeRequestDraft(
       makeRequest({

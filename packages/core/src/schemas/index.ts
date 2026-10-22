@@ -171,6 +171,7 @@ export {
   MIN_REQUEST_TIMEOUT_MS,
   MIN_RESPONSE_BYTES,
   NoneAuthSchema,
+  PathParamSchema,
   PROXY_MODES,
   ProxyCredentialRefSchema,
   ProxyModeSchema,

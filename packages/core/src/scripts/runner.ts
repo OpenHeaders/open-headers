@@ -471,6 +471,7 @@ function buildScriptApi(
       url: request.url,
       headers: request.headers ?? [],
       params: request.params ?? [],
+      pathParams: [],
       body: request.body ?? { type: 'none' },
     };
     const response = await sendHost({
@@ -615,6 +616,7 @@ function buildHttpApi(core: ScriptApiCore, req: HttpScriptExecution, sinks: Muta
         method: draftMethod,
         headers: [...draftHeaders],
         params: [...draftParams],
+        pathParams: [...req.request.pathParams],
         body: draftBody,
       };
     },

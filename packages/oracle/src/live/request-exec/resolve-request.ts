@@ -2,8 +2,9 @@
  * Request resolution — turns a domain {@link Request} into a
  * {@link ResolvedRequest} ready for the wire: every `{{ref}}` template
  * substituted against the 4-scope chain (vault > environment >
- * collection > workspace), auth folded into headers/query, query params
- * appended, and a default Content-Type chosen for the body shape.
+ * collection > workspace), the URL's `/:name` path parameters
+ * substituted, auth folded into headers/query, query params appended,
+ * and a default Content-Type chosen for the body shape.
  *
  * Pure + host-neutral. The one host-owned concern — refreshing an
  * expired OAuth token — is injected as the optional {@link OAuthRefreshFn}
@@ -43,6 +44,9 @@ import {
   collectRequestResolutionErrors,
   encodeBase64Bytes,
   isRequestResolvable,
+  missingPathParamKeys,
+  parsePathParamNames,
+  substitutePathParams,
 } from '@openheaders/core/utils';
 import { collectTemplateVariableNames, type ResolutionError, resolveTemplate } from '@openheaders/core/variables';
 import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../../workspace/extension-workspace-store';
@@ -56,6 +60,7 @@ import { scriptScopeOverResolver } from './script-scope';
 import { createTotpUsageTracker, type TotpUsage } from './totp-usage';
 import {
   batchRefusesSend,
+  missingPathParamsMessage,
   sentAsWrittenOf,
   UNRESOLVED_REQUEST_LEAD,
   unresolvedReferenceLines,
@@ -67,6 +72,10 @@ export interface ResolvedRequest {
   method: HttpMethod;
   url: string;
   headers: Array<{ key: string; value: string }>;
+  /** The path parameters the URL named, with the values substituted
+   *  into `url` — read-only context for the script snapshot. Absent
+   *  when the URL names none. */
+  pathParams?: Array<{ key: string; value: string }>;
   body: RequestBody;
   /** Wire-level cookie policy. `'omit'` unless the request opts into `'include'`. */
   credentialsMode: 'omit' | 'include';
@@ -403,6 +412,11 @@ export async function resolveRequest(
     }
   }
 
+  // The path parameters the URL names must every one carry a value —
+  // an unfilled `:name` is a refusal, never a literal on the wire.
+  const missingPathParams = missingPathParamKeys(request.url, request.pathParams);
+  if (missingPathParams.length > 0) throw new UnresolvedRequestError(missingPathParamsMessage(missingPathParams));
+
   // Every kind:'totp' entry this send consumes — the templates' now,
   // the scripts' reads later through the same tracker.
   const totp = createTotpUsageTracker(scope.vault);
@@ -417,8 +431,12 @@ export async function resolveRequest(
     return result.result;
   };
 
-  // ── URL with query params ──
-  let resolvedUrl = resolveStr(request.url);
+  // ── URL: path params substituted (each value a template field,
+  //    resolved once per name, encoded as one segment), then the
+  //    query params ──
+  const pathParams = resolvePathParams(request, resolveStr);
+  const pathValues = new Map(pathParams.map((p) => [p.key, p.value]));
+  let resolvedUrl = substitutePathParams(request.url, (name) => pathValues.get(name) ?? null, resolveStr);
   const enabledParams = request.params
     .filter((p) => (p.enabled ?? true) && p.key.trim())
     .map((p) => ({ key: resolveStr(p.key), value: resolveStr(p.value) }));
@@ -596,6 +614,7 @@ export async function resolveRequest(
       method: request.method,
       url: resolvedUrl,
       headers,
+      ...(pathParams.length > 0 ? { pathParams } : {}),
       body: resolvedBody,
       // Every knob below is the EFFECTIVE value — the request's own,
       // else the nearest ancestor's, else absent (the runtime default).
@@ -647,6 +666,18 @@ export async function resolveRequest(
     secretManagerReferencesKept,
     scope: scriptScopeOverResolver(resolver, context, scope.vault, totp),
   };
+}
+
+/**
+ * The path parameters the URL names, in path order, each with its row's
+ * value resolved — the gate above guarantees every name has a row.
+ */
+export function resolvePathParams(
+  request: Request,
+  resolveStr: (s: string) => string,
+): Array<{ key: string; value: string }> {
+  const rows = new Map((request.pathParams ?? []).map((p) => [p.key, p.value]));
+  return parsePathParamNames(request.url).map(({ name }) => ({ key: name, value: resolveStr(rows.get(name) ?? '') }));
 }
 
 interface ApplyAuthOptions {

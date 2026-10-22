@@ -114,6 +114,13 @@ export interface RequestSnapshot {
   url: string;
   headers: Array<{ key: string; value: string }>;
   params: Array<{ key: string; value: string }>;
+  /**
+   * The request's path parameters with their RESOLVED values — the
+   * `/:name` segments were already substituted into `url` before the
+   * script runs, so this list is read-only context, not a mutator:
+   * a script that wants another path sets `url`.
+   */
+  pathParams: Array<{ key: string; value: string }>;
   body: RequestSnapshotBody;
 }
 

@@ -2,7 +2,7 @@
  * Request projection — `Request ⇄ MutationBatch / MaterializedEntity`.
  *
  * Parallel to {@link rule-projection}: the request mutator catalog
- * treats `headers` and `params` as **sets** (parent-owned ordering with
+ * treats `headers`, `params` and `pathParams` as **sets** (parent-owned ordering with
  * itemId-keyed members + fractional indexing), while `Request`
  * persists them as plain arrays without per-item identifiers.
  *
@@ -33,10 +33,11 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
+  REQUEST_PATH_PARAMS_PATH,
   type RequestFolderParentRef,
   requestChild,
 } from '@openheaders/core/sync';
-import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
+import type { PathParam, QueryParam, Request, RequestHeader } from '@openheaders/core/types';
 import { lastPathSegment } from '@openheaders/core/utils';
 import { projectLeafPath } from './leaf-path';
 
@@ -47,13 +48,13 @@ import { projectLeafPath } from './leaf-path';
  * else here would split the path representation between create-time
  * and mutation-time.
  */
-const SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
+const SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH, REQUEST_PATH_PARAMS_PATH] as const;
 type SetPath = (typeof SET_PATHS)[number];
 
 interface SetMember {
   path: SetPath;
   itemId: string;
-  item: RequestHeader | QueryParam;
+  item: RequestHeader | QueryParam | PathParam;
 }
 
 /**
@@ -138,6 +139,13 @@ function stripSetFields(request: Request, out: SetMember[]): Record<string, unkn
     out.push({ path: REQUEST_PARAMS_PATH, itemId: p.uid, item: p });
   }
   delete shell[REQUEST_PARAMS_PATH];
+
+  // Optional on the entity: an absent field seeds no members and the
+  // materialized shape carries no `pathParams` key either.
+  for (const p of request.pathParams ?? []) {
+    out.push({ path: REQUEST_PATH_PARAMS_PATH, itemId: p.uid, item: p });
+  }
+  delete shell[REQUEST_PATH_PARAMS_PATH];
 
   return shell;
 }

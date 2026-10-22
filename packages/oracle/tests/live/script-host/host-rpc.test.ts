@@ -52,6 +52,7 @@ const snapshot = {
   url: 'https://api.openheaders.io/v1/items?x=1',
   headers: [{ key: 'X-Probe', value: '1' }],
   params: [{ key: 'x', value: '1' }],
+  pathParams: [],
   body: { type: 'none' as const },
 };
 

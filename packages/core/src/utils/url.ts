@@ -13,6 +13,11 @@
  *     and values with `encodeURIComponent`, skips disabled rows
  *     and rows with empty keys.
  *
+ *   • {@link parsePathParamNames} + {@link substitutePathParams} — the
+ *     path-parameter grammar (`/:name` segments) and its wire-side
+ *     substitution. The editor's derived table and both executors
+ *     call these two; nothing else re-implements the grammar.
+ *
  * Round-trip discipline: parse→build MUST be an identity so a
  * controlled URL input driven by the parsed form never swallows or
  * injects characters. This requires preserving three things a naive
@@ -188,4 +193,137 @@ export function appendQueryParams(url: string, params: ReadonlyArray<QueryParam>
   const qs = active.map(({ key, value }) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
   const sep = url.includes('?') ? '&' : '?';
   return `${url}${sep}${qs}`;
+}
+
+// ── Path parameters ────────────────────────────────────────────────
+//
+// A path parameter is a path segment that STARTS with `:` followed by
+// an identifier (`[A-Za-z_][A-Za-z0-9_-]*`). The identifier ends at the
+// first character outside that class; whatever follows in the segment
+// is a literal suffix kept verbatim (`/:id.json` → the parameter `id`
+// and the suffix `.json`). Only the path is scanned — the authority is
+// skipped the way {@link splitUrlPath} skips it, so a port (`:8080`),
+// an IPv6 literal (`[::1]`) or a `{{host}}` template never reads as a
+// parameter — and the query / fragment are cut off first. A `:` or `/`
+// inside a `{{...}}` block never counts, and a segment whose colon is
+// not its first character (`files:batchGet`) is a literal.
+
+const PATH_PARAM_NAME = /^[A-Za-z_][A-Za-z0-9_-]*/;
+
+/** A path parameter named in a URL — the `/:name` segment's identifier. */
+export interface PathParamName {
+  /** The identifier after the `:`. */
+  name: string;
+  /** The segment's text after the identifier, verbatim (`''` when the
+   *  segment is the parameter alone). */
+  suffix: string;
+}
+
+/** Find the end of the path proper: the first `?` or `#` outside a
+ *  `{{...}}` block, else the input's length. */
+function findPathEnd(input: string, from: number): number {
+  let i = from;
+  while (i < input.length) {
+    const ch = input[i];
+    if (ch === '{' && input[i + 1] === '{') {
+      const close = input.indexOf('}}', i + 2);
+      if (close === -1) return input.length;
+      i = close + 2;
+      continue;
+    }
+    if (ch === '?' || ch === '#') return i;
+    i++;
+  }
+  return input.length;
+}
+
+/** Split the path proper (everything from the first `/` past the
+ *  authority up to the query / fragment) into its `/`-delimited
+ *  segments, template-aware. Each entry is `[start, end)` into `input`;
+ *  the leading `/` of a segment is not part of it. */
+function pathSegmentSpans(input: string): Array<[number, number]> {
+  const { path } = splitUrlPath(input);
+  if (path === '') return [];
+  const pathStart = input.length - path.length;
+  const pathEnd = findPathEnd(input, pathStart);
+  const spans: Array<[number, number]> = [];
+  let segStart = pathStart + 1;
+  let i = segStart;
+  while (i < pathEnd) {
+    const ch = input[i];
+    if (ch === '{' && input[i + 1] === '{') {
+      const close = input.indexOf('}}', i + 2);
+      if (close === -1 || close + 2 > pathEnd) break;
+      i = close + 2;
+      continue;
+    }
+    if (ch === '/') {
+      spans.push([segStart, i]);
+      segStart = i + 1;
+    }
+    i++;
+  }
+  spans.push([segStart, pathEnd]);
+  return spans;
+}
+
+/** Read one segment as a parameter, or `null` when it is a literal. */
+function pathParamOfSegment(segment: string): PathParamName | null {
+  if (segment[0] !== ':') return null;
+  const match = PATH_PARAM_NAME.exec(segment.slice(1));
+  if (match === null) return null;
+  return { name: match[0], suffix: segment.slice(1 + match[0].length) };
+}
+
+/**
+ * The path parameters a raw (unresolved) URL names, in path order, one
+ * entry per DISTINCT name — `/:id/x/:id` names `id` once. Template
+ * syntax stays verbatim; the authority, query and fragment are never
+ * read. The editor derives its Path Parameters table from this list.
+ */
+export function parsePathParamNames(url: string): PathParamName[] {
+  const out: PathParamName[] = [];
+  const seen = new Set<string>();
+  for (const [start, end] of pathSegmentSpans(url)) {
+    const param = pathParamOfSegment(url.slice(start, end));
+    if (param === null || seen.has(param.name)) continue;
+    seen.add(param.name);
+    out.push(param);
+  }
+  return out;
+}
+
+/**
+ * Wire-side substitution. Each `/:name` segment of the raw URL becomes
+ * `resolveValue(name)` percent-encoded as ONE segment with
+ * `encodeURIComponent` (a `/` in a value is `%2F`, never a new
+ * segment) followed by the segment's literal suffix; every other span
+ * of the URL goes through `resolveOther`. A resolved value is data,
+ * never syntax: a value that expands to `:x` makes no parameter. The
+ * executors call this BEFORE {@link appendQueryParams}, so the query
+ * never enters the scan. Returns `null` from `resolveValue` leave the
+ * caller's gate to refuse — this function substitutes only what it is
+ * given and keeps the `:name` text for a name no row answers.
+ */
+export function substitutePathParams(
+  url: string,
+  resolveValue: (name: string) => string | null,
+  resolveOther: (text: string) => string,
+): string {
+  const spans = pathSegmentSpans(url);
+  if (spans.length === 0) return resolveOther(url);
+  const out: string[] = [];
+  let cursor = 0;
+  for (const [start, end] of spans) {
+    const segment = url.slice(start, end);
+    const param = pathParamOfSegment(segment);
+    const value = param === null ? null : resolveValue(param.name);
+    if (param === null || value === null) continue;
+    out.push(resolveOther(url.slice(cursor, start)));
+    out.push(encodeURIComponent(value));
+    out.push(resolveOther(param.suffix));
+    cursor = end;
+  }
+  out.push(resolveOther(url.slice(cursor)));
+  return out.join('');
 }

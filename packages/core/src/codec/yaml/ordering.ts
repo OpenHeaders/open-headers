@@ -106,6 +106,7 @@ export const REQUEST_FIELD_ORDER = [
   'url',
   'headers',
   'params',
+  'pathParams',
   'auth',
   'specLink',
   'credentialsMode',

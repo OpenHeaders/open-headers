@@ -1075,6 +1075,26 @@ export const QueryParamSchema = v.object({
 });
 
 /**
+ * One path parameter of the request's URL — the value and the note
+ * behind a `/:name` segment. The URL owns the KEY SET and the ORDER
+ * (a name the URL stops naming orphans its row, dropped at save); the
+ * row carries the value + description by key. No `enabled`: a
+ * parameter named in the URL is always sent — to drop it, edit the
+ * URL. An empty value gates the send (`path-param-missing`), never a
+ * literal `:name` on the wire. The value is a template field like
+ * every other (`{{userId}}` allowed); the resolved value is
+ * percent-encoded as one segment at send time.
+ */
+export const PathParamSchema = v.object({
+  /** See {@link RequestHeaderSchema.uid}. */
+  uid: UidSchema,
+  key: v.string(),
+  value: v.string(),
+  /** Optional free-form per-row note rendered in the Description column. */
+  description: v.optional(v.string()),
+});
+
+/**
  * A reference to a user-uploaded file blob. Files live in
  * content-addressed storage (IDB on the extension, OPFS on the desktop)
  * keyed by `hash` — see `@openheaders/core/files` for the FileRef
@@ -1269,6 +1289,10 @@ const RequestObjectSchema = v.object({
   url: v.string(),
   headers: v.array(RequestHeaderSchema),
   params: v.array(QueryParamSchema),
+  /** Path-parameter rows keyed by the URL's `/:name` segments — see
+   *  {@link PathParamSchema}. Absent = none; optional so an older
+   *  reader carries it through untouched (no `schemaVersion` bump). */
+  pathParams: v.optional(v.array(PathParamSchema)),
   auth: AuthConfigSchema,
   /** Binding to the OpenAPI spec the request reads through — ids-only,
    *  no `sourceHash` (nothing was generated from it; the operation is

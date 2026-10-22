@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { appendQueryParams, buildUrlDisplay, parseUrlQuery, splitUrlPath } from '../../src/utils/url';
+import {
+  appendQueryParams,
+  buildUrlDisplay,
+  parsePathParamNames,
+  parseUrlQuery,
+  splitUrlPath,
+  substitutePathParams,
+} from '../../src/utils/url';
 
 describe('parseUrlQuery', () => {
   it('returns empty params when no separator is present', () => {
@@ -229,5 +236,148 @@ describe('splitUrlPath', () => {
     });
     expect(splitUrlPath('{{host}}/admin')).toEqual({ authority: '{{host}}', path: '/admin' });
     expect(splitUrlPath('{{host}}')).toEqual({ authority: '{{host}}', path: '' });
+  });
+});
+
+describe('parsePathParamNames', () => {
+  it('reads a `:name` segment of the path', () => {
+    expect(parsePathParamNames('https://api.openheaders.io/spacecrafts/:id')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('https://api.openheaders.io/users/:userId/posts/:postId')).toEqual([
+      { name: 'userId', suffix: '' },
+      { name: 'postId', suffix: '' },
+    ]);
+  });
+
+  it('never reads the authority — a port, an IPv6 literal, a host template, a scheme-less host', () => {
+    expect(parsePathParamNames('http://localhost:8080/:id')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('https://[::1]/:id')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('{{host}}/:id')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('{{baseUrl}}/users/:id')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('openheaders.io/:id')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('https://:tenant.openheaders.io/x')).toEqual([]);
+    expect(parsePathParamNames('http+unix://%2Fvar%2Frun%2Fdocker.sock/containers/:id')).toEqual([
+      { name: 'id', suffix: '' },
+    ]);
+  });
+
+  it('a colon that is not the first character of its segment is a literal', () => {
+    expect(parsePathParamNames('https://api.openheaders.io/v1/files:batchGet')).toEqual([]);
+    expect(parsePathParamNames('https://api.openheaders.io/something:else/ok:id')).toEqual([]);
+  });
+
+  it('a template after the colon is a literal — only an identifier names a parameter', () => {
+    expect(parsePathParamNames('https://api.openheaders.io/:{{name}}')).toEqual([]);
+    expect(parsePathParamNames('https://api.openheaders.io/:')).toEqual([]);
+    expect(parsePathParamNames('https://api.openheaders.io/:9')).toEqual([]);
+  });
+
+  it('the identifier ends at the first character outside its class; the rest of the segment is a literal suffix', () => {
+    expect(parsePathParamNames('https://api.openheaders.io/spacecrafts/:id.json')).toEqual([
+      { name: 'id', suffix: '.json' },
+    ]);
+    expect(parsePathParamNames('https://api.openheaders.io/:file.:ext')).toEqual([{ name: 'file', suffix: '.:ext' }]);
+    expect(parsePathParamNames('https://api.openheaders.io/:id{{ext}}')).toEqual([{ name: 'id', suffix: '{{ext}}' }]);
+    expect(parsePathParamNames('https://api.openheaders.io/:edge:case:something{{baseUrl}}')).toEqual([
+      { name: 'edge', suffix: ':case:something{{baseUrl}}' },
+    ]);
+    expect(parsePathParamNames('https://api.openheaders.io/:my-id_2')).toEqual([{ name: 'my-id_2', suffix: '' }]);
+  });
+
+  it('one entry per distinct name, in path order; names are case-sensitive', () => {
+    expect(parsePathParamNames('https://api.openheaders.io/:id/x/:id')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('https://api.openheaders.io/:Id/:id')).toEqual([
+      { name: 'Id', suffix: '' },
+      { name: 'id', suffix: '' },
+    ]);
+  });
+
+  it('the query and the fragment are cut off before the scan', () => {
+    expect(parsePathParamNames('https://api.openheaders.io/x?time=12:30')).toEqual([]);
+    expect(parsePathParamNames('https://api.openheaders.io/x#:frag')).toEqual([]);
+    expect(parsePathParamNames('https://api.openheaders.io/:id?x=:y')).toEqual([{ name: 'id', suffix: '' }]);
+    expect(parsePathParamNames('https://api.openheaders.io/:id?x={{a}}/:z')).toEqual([{ name: 'id', suffix: '' }]);
+  });
+
+  it('a URL with no path names nothing', () => {
+    expect(parsePathParamNames('https://api.openheaders.io')).toEqual([]);
+    expect(parsePathParamNames('{{host}}')).toEqual([]);
+    expect(parsePathParamNames('')).toEqual([]);
+  });
+});
+
+describe('substitutePathParams', () => {
+  const valuesOf =
+    (rows: Record<string, string>) =>
+    (name: string): string | null =>
+      rows[name] ?? null;
+  const other = (text: string): string =>
+    text.replaceAll('{{host}}', 'api.openheaders.io').replaceAll('{{ext}}', '.xml');
+
+  it('replaces each named segment with its value and resolves every other span', () => {
+    expect(substitutePathParams('https://{{host}}/users/:id/posts', valuesOf({ id: '42' }), other)).toBe(
+      'https://api.openheaders.io/users/42/posts',
+    );
+    expect(
+      substitutePathParams(
+        'https://{{host}}/users/:userId/posts/:postId',
+        valuesOf({ userId: '7', postId: '9' }),
+        other,
+      ),
+    ).toBe('https://api.openheaders.io/users/7/posts/9');
+  });
+
+  it('encodes the value as ONE segment', () => {
+    expect(substitutePathParams('https://{{host}}/f/:name', valuesOf({ name: 'a/b?c#d' }), other)).toBe(
+      'https://api.openheaders.io/f/a%2Fb%3Fc%23d',
+    );
+    expect(substitutePathParams('https://{{host}}/f/:name', valuesOf({ name: 'ü' }), other)).toBe(
+      'https://api.openheaders.io/f/%C3%BC',
+    );
+    expect(substitutePathParams('https://{{host}}/f/:name', valuesOf({ name: 'a%2Fb' }), other)).toBe(
+      'https://api.openheaders.io/f/a%252Fb',
+    );
+  });
+
+  it('a resolved value is data, never syntax', () => {
+    expect(substitutePathParams('https://{{host}}/f/:name', valuesOf({ name: ':x' }), other)).toBe(
+      'https://api.openheaders.io/f/%3Ax',
+    );
+  });
+
+  it('re-attaches the literal suffix after the value, templates in it resolved', () => {
+    expect(substitutePathParams('https://{{host}}/s/:id.json', valuesOf({ id: '42' }), other)).toBe(
+      'https://api.openheaders.io/s/42.json',
+    );
+    expect(substitutePathParams('https://{{host}}/s/:id{{ext}}', valuesOf({ id: '42' }), other)).toBe(
+      'https://api.openheaders.io/s/42.xml',
+    );
+    expect(substitutePathParams('https://{{host}}/:file.:ext', valuesOf({ file: 'a' }), other)).toBe(
+      'https://api.openheaders.io/a.:ext',
+    );
+  });
+
+  it('substitutes every occurrence of a duplicate name', () => {
+    expect(substitutePathParams('https://{{host}}/:id/x/:id', valuesOf({ id: '42' }), other)).toBe(
+      'https://api.openheaders.io/42/x/42',
+    );
+  });
+
+  it('keeps a name no row answers as written', () => {
+    expect(substitutePathParams('https://{{host}}/:id/:other', valuesOf({ id: '42' }), other)).toBe(
+      'https://api.openheaders.io/42/:other',
+    );
+  });
+
+  it('never touches the authority, the query or the fragment', () => {
+    expect(substitutePathParams('http://localhost:8080/:id?t=12:30#:f', valuesOf({ id: '42' }), other)).toBe(
+      'http://localhost:8080/42?t=12:30#:f',
+    );
+    expect(substitutePathParams('https://{{host}}/files:batchGet', valuesOf({ batchGet: 'x' }), other)).toBe(
+      'https://api.openheaders.io/files:batchGet',
+    );
+  });
+
+  it('a URL with no path resolves whole', () => {
+    expect(substitutePathParams('{{host}}', valuesOf({}), other)).toBe('api.openheaders.io');
   });
 });

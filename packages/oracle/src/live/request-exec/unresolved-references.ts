@@ -62,6 +62,17 @@ export function unresolvedReferencesMessage(lead: string, unresolved: Unresolved
   return `${lead} ${unresolvedReferenceLines(unresolved.values()).join(' ')}`;
 }
 
+/**
+ * The HTTP send gate's refusal for path parameters the URL names and
+ * no row fills — the one wording both executors throw; a literal
+ * `:name` never reaches the wire. `keys` in path order, non-empty.
+ */
+export function missingPathParamsMessage(keys: readonly string[]): string {
+  const named = keys.map((key) => `:${key}`).join(', ');
+  const noun = keys.length === 1 ? 'path parameter' : 'path parameters';
+  return `Request has unfilled ${noun}: ${named}. Set a value on the Params tab before sending.`;
+}
+
 /** The references a send carries as written — the snapshot's attribution shape. */
 export function sentAsWrittenOf(errors: Iterable<ResolutionError>): SentAsWrittenReference[] {
   const notes: SentAsWrittenReference[] = [];

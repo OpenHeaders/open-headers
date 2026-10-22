@@ -14,6 +14,7 @@ const REQUEST: RequestSnapshot = {
   url: 'https://api.openheaders.io/v1/ping',
   headers: [],
   params: [],
+  pathParams: [],
   body: { type: 'none' },
 };
 

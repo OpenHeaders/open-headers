@@ -1,10 +1,11 @@
 /**
  * Request mutator catalog — routing constants + row shapes.
  *
- * Two set-modeled paths live on the Request entity:
+ * Three set-modeled paths live on the Request entity:
  *
- *   - `headers` — request header rows (`{ key, value, description?, enabled? }`)
- *   - `params`  — URL query params (`{ key, value, description?, enabled?, hasEquals? }`)
+ *   - `headers`    — request header rows (`{ key, value, description?, enabled? }`)
+ *   - `params`     — URL query params (`{ key, value, description?, enabled?, hasEquals? }`)
+ *   - `pathParams` — URL path params (`{ key, value, description? }`; the URL orders them)
  *
  * Every other request field — `name`, `description`, `method`, `url`,
  * `auth`, `body`, `credentialsMode`, `followRedirects`,
@@ -43,6 +44,9 @@ export const REQUEST_HEADERS_PATH = 'headers';
 /** Set path for URL query-param rows. */
 export const REQUEST_PARAMS_PATH = 'params';
 
+/** Set path for URL path-param rows. */
+export const REQUEST_PATH_PARAMS_PATH = 'pathParams';
+
 /**
  * Wire shape for a request-header row. Mirrors `RequestHeader`
  * field-for-field but typed locally so the catalog stays decoupled
@@ -79,6 +83,20 @@ export interface RequestParamRow {
   description?: string;
   enabled?: boolean;
   hasEquals?: boolean;
+}
+
+/**
+ * Wire shape for a URL path-param row. Mirrors `PathParam` — no
+ * `enabled` (a parameter named in the URL is always sent) and no
+ * reorder (the URL's segments order the rows).
+ */
+export interface RequestPathParamRow {
+  /** Persisted per-row identity; the sync engine's itemId — parallel
+   *  to `RequestParamRow.uid`. */
+  uid: string;
+  key: string;
+  value: string;
+  description?: string;
 }
 
 /**

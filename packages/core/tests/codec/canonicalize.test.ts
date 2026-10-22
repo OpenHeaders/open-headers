@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalizeRequest, canonicalizeTemplate, serializeRequest, serializeTemplate } from '../../src/codec/yaml';
-import type { Template } from '../../src/types/template';
 import type { Request } from '../../src/types/request';
+import type { Template } from '../../src/types/template';
 
 function makeTemplate(overrides: Partial<Template> = {}): Template {
   return {
@@ -13,9 +13,7 @@ function makeTemplate(overrides: Partial<Template> = {}): Template {
     icon: '',
     description: '',
     includes: { conditions: true, formValues: true },
-    conditions: [
-      { uid: 'cnd-aaaa', type: 'request-domains', values: ['openheaders.io'] },
-    ],
+    conditions: [{ uid: 'cnd-aaaa', type: 'request-domains', values: ['openheaders.io'] }],
     formValues: {
       requestHeaders: [
         // Insertion-order-shuffled keys — canonicalize must reorder.
@@ -41,9 +39,7 @@ function makeRequest(overrides: Partial<Request> = {}): Request {
       // Shuffled insertion order — canonicalize must reorder.
       { value: 'Bearer x', key: 'Authorization', uid: 'hdr-aaaa' },
     ],
-    params: [
-      { value: '1', key: 'v', uid: 'qp-aaaa' },
-    ],
+    params: [{ value: '1', key: 'v', uid: 'qp-aaaa' }],
     auth: { type: 'none' },
     body: { type: 'none' },
     ...overrides,
@@ -70,9 +66,7 @@ describe('canonicalizeTemplate', () => {
   it('normalizes condition row key order', () => {
     const a = makeTemplate();
     const b = makeTemplate({
-      conditions: [
-        { type: 'request-domains', uid: 'cnd-aaaa', values: ['openheaders.io'] },
-      ],
+      conditions: [{ type: 'request-domains', uid: 'cnd-aaaa', values: ['openheaders.io'] }],
     });
     const yamlA = serializeTemplate({ value: canonicalizeTemplate(a), raw: null });
     const yamlB = serializeTemplate({ value: canonicalizeTemplate(b), raw: null });
@@ -99,6 +93,24 @@ describe('canonicalizeRequest', () => {
     const yamlA = serializeRequest({ value: canonicalizeRequest(a), raw: null }).requestYaml;
     const yamlB = serializeRequest({ value: canonicalizeRequest(b), raw: null }).requestYaml;
     expect(yamlA).toBe(yamlB);
+  });
+
+  it('normalizes path param row key order', () => {
+    const a = makeRequest({
+      pathParams: [{ value: '42', key: 'id', uid: 'pp-aaaa', description: 'The user' }],
+    });
+    const b = makeRequest({
+      pathParams: [{ uid: 'pp-aaaa', key: 'id', value: '42', description: 'The user' }],
+    });
+    const yamlA = serializeRequest({ value: canonicalizeRequest(a), raw: null }).requestYaml;
+    const yamlB = serializeRequest({ value: canonicalizeRequest(b), raw: null }).requestYaml;
+    expect(yamlA).toBe(yamlB);
+    expect(yamlA).toContain('pathParams:');
+  });
+
+  it('a request without path params serializes none', () => {
+    const yaml = serializeRequest({ value: canonicalizeRequest(makeRequest()), raw: null }).requestYaml;
+    expect(yaml).not.toContain('pathParams');
   });
 
   it('normalizes form-body part key order', () => {

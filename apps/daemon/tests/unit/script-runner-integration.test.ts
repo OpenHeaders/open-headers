@@ -25,6 +25,7 @@ const snapshot = {
   url: 'https://api.openheaders.io/live',
   headers: [],
   params: [],
+  pathParams: [],
   body: { type: 'none' as const },
 };
 

@@ -81,6 +81,40 @@ describe('requestExecutableFingerprint', () => {
   });
 });
 
+describe('collectRequestTemplateStrings — path params', () => {
+  it("collects every path value — never the key, which is the URL's", () => {
+    const strings = collectRequestTemplateStrings(
+      makeRequest({
+        url: 'https://api.openheaders.io/users/:id/posts/:postId',
+        pathParams: [
+          { uid: 'pth00001', key: 'id', value: '{{userId}}' },
+          { uid: 'pth00002', key: 'postId', value: '' },
+        ],
+      }),
+    );
+    expect(strings).toContain('{{userId}}');
+    expect(strings).not.toContain('id');
+    expect(strings).not.toContain('postId');
+    expect(strings.filter((s) => s === '')).toEqual([]);
+  });
+});
+
+describe('requestExecutableFingerprint — path params', () => {
+  it('changes when a path value changes and treats an absent list as an empty one', () => {
+    const url = 'https://api.openheaders.io/users/:id';
+    const base = requestExecutableFingerprint(makeRequest({ url }));
+    expect(requestExecutableFingerprint(makeRequest({ url, pathParams: [] }))).toBe(base);
+    const a = requestExecutableFingerprint(
+      makeRequest({ url, pathParams: [{ uid: 'pth00001', key: 'id', value: '1' }] }),
+    );
+    const b = requestExecutableFingerprint(
+      makeRequest({ url, pathParams: [{ uid: 'pth00001', key: 'id', value: '2' }] }),
+    );
+    expect(a).not.toBe(base);
+    expect(a).not.toBe(b);
+  });
+});
+
 describe('collectRequestTemplateStrings — asap auth', () => {
   it('collects every string field', () => {
     const strings = collectRequestTemplateStrings(

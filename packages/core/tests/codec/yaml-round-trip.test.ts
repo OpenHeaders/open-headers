@@ -444,6 +444,20 @@ describe('yaml codec — round-trip parity', () => {
     expect(serializeLiveVariable(write)).toBe(raw);
   });
 
+  it('request-path-params.yaml — the path rows after the query rows, an empty value kept', () => {
+    const raw = loadFixture('request-path-params.yaml');
+    const parsed = parseRequest(raw, { path: 'requests/fleet-c0ll2222/spacecraft-part-reqcraft' });
+    expect(parsed.value.url).toBe('{{API_URL}}/spacecrafts/:spacecraftId/parts/:partId.json');
+    expect(parsed.value.pathParams).toEqual([
+      { uid: 'pthsc001', key: 'spacecraftId', value: '{{env.SPACECRAFT}}', description: "The spacecraft's id." },
+      { uid: 'pthpt001', key: 'partId', value: '' },
+    ]);
+    const write = mergePatch(parsed, () => {});
+    const out = serializeRequest(write);
+    expect(out.requestYaml).toBe(raw);
+    expect(out.bodyFile).toBeNull();
+  });
+
   it('request.yaml + body.json + pre-request.js + post-response.js', () => {
     const raw = loadFixture('request.yaml');
     const bodyJson = loadFixture('request-body.json');

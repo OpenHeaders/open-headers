@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addRequestHeader,
   addRequestParam,
+  addRequestPathParam,
   createRequest,
   deleteRequest,
   type MutatorContext,
@@ -13,8 +14,10 @@ import {
   REQUEST_HEADERS_PATH,
   REQUEST_MUTATOR_VERSION,
   REQUEST_PARAMS_PATH,
+  REQUEST_PATH_PARAMS_PATH,
   removeRequestHeader,
   removeRequestParam,
+  removeRequestPathParam,
   reorderRequestHeader,
   reorderRequestParam,
   setRequestField,
@@ -130,6 +133,43 @@ describe('param factories route to the params path', () => {
       path: REQUEST_PARAMS_PATH,
       itemId: 'p-1',
       orderKey: 'a',
+    });
+  });
+});
+
+describe('path-param factories route to the pathParams path', () => {
+  it('addRequestPathParam', () => {
+    const intent = addRequestPathParam(ctx(), {
+      requestUid: 'rq-1',
+      pathParam: { uid: 'pth00001', key: 'id', value: '42', description: 'The user' },
+      itemId: 'pp-1',
+    });
+    expect(intent.batch.mutations[0].body).toMatchObject({
+      kind: 'addToSet',
+      type: REQUEST_ENTITY_TYPE,
+      path: REQUEST_PATH_PARAMS_PATH,
+      itemId: 'pp-1',
+      item: { uid: 'pth00001', key: 'id', value: '42', description: 'The user' },
+    });
+    expect(intent.sideEffects).toEqual([]);
+  });
+
+  it('addRequestPathParam defaults the itemId to the row uid', () => {
+    const intent = addRequestPathParam(ctx(), {
+      requestUid: 'rq-1',
+      pathParam: { uid: 'pth00001', key: 'id', value: '42' },
+    });
+    expect(intent.batch.mutations[0].body).toMatchObject({ kind: 'addToSet', itemId: 'pth00001' });
+  });
+
+  it('removeRequestPathParam', () => {
+    const intent = removeRequestPathParam(ctx(), { requestUid: 'rq-1', itemId: 'pp-1' });
+    expect(intent.batch.mutations[0].body).toEqual({
+      kind: 'removeFromSet',
+      type: REQUEST_ENTITY_TYPE,
+      id: 'rq-1',
+      path: REQUEST_PATH_PARAMS_PATH,
+      itemId: 'pp-1',
     });
   });
 });

@@ -5,6 +5,7 @@ import {
   collectRequestResolutionErrors,
   isRequestComplete,
   isRequestResolvable,
+  missingPathParamKeys,
   requestIncompleteReason,
 } from '../../src/utils/request-validation';
 
@@ -134,6 +135,48 @@ describe('isRequestComplete — works without storage fields (pre-save drafts)',
   });
 });
 
+describe('missingPathParamKeys', () => {
+  const url = 'https://api.openheaders.io/users/:id/posts/:postId';
+
+  it('names every parameter the URL has and no row fills, in path order', () => {
+    expect(missingPathParamKeys(url, undefined)).toEqual(['id', 'postId']);
+    expect(missingPathParamKeys(url, [])).toEqual(['id', 'postId']);
+    expect(missingPathParamKeys(url, [{ uid: 'pth00001', key: 'id', value: '42' }])).toEqual(['postId']);
+  });
+
+  it('a blank value is missing; a templated value counts as present', () => {
+    expect(missingPathParamKeys(url, [{ uid: 'pth00001', key: 'id', value: '   ' }])).toEqual(['id', 'postId']);
+    expect(
+      missingPathParamKeys(url, [
+        { uid: 'pth00001', key: 'id', value: '{{userId}}' },
+        { uid: 'pth00002', key: 'postId', value: '{{dynamic.uuid}}' },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('a row the URL no longer names is ignored; a URL naming nothing misses nothing', () => {
+    expect(
+      missingPathParamKeys('https://api.openheaders.io/users/:id', [{ uid: 'pth00009', key: 'old', value: '1' }]),
+    ).toEqual(['id']);
+    expect(
+      missingPathParamKeys('https://api.openheaders.io/users', [{ uid: 'pth00009', key: 'old', value: '1' }]),
+    ).toEqual([]);
+  });
+});
+
+describe('isRequestComplete — path params', () => {
+  it('is incomplete while a named parameter has no value and complete once every one has', () => {
+    const url = 'https://api.openheaders.io/spacecrafts/:id.json';
+    expect(isRequestComplete(makeRequest({ url }))).toBe(false);
+    expect(isRequestComplete(makeRequest({ url, pathParams: [{ uid: 'pth00001', key: 'id', value: '' }] }))).toBe(
+      false,
+    );
+    expect(isRequestComplete(makeRequest({ url, pathParams: [{ uid: 'pth00001', key: 'id', value: '42' }] }))).toBe(
+      true,
+    );
+  });
+});
+
 describe('requestIncompleteReason', () => {
   it('returns null when the request is complete', () => {
     expect(requestIncompleteReason(makeRequest())).toBeNull();
@@ -141,6 +184,23 @@ describe('requestIncompleteReason', () => {
 
   it('reports missing-url first', () => {
     expect(requestIncompleteReason(makeRequest({ url: '' }))).toBe('missing-url');
+  });
+
+  it('reports path-param-missing after the URL and before the auth reasons', () => {
+    const url = 'https://api.openheaders.io/users/:id';
+    expect(requestIncompleteReason(makeRequest({ url }))).toBe('path-param-missing');
+    expect(requestIncompleteReason(makeRequest({ url, auth: { type: 'bearer', token: '' } }))).toBe(
+      'path-param-missing',
+    );
+    expect(
+      requestIncompleteReason(
+        makeRequest({
+          url,
+          pathParams: [{ uid: 'pth00001', key: 'id', value: '42' }],
+          auth: { type: 'bearer', token: '' },
+        }),
+      ),
+    ).toBe('bearer-missing-token');
   });
 
   it('reports basic-missing-username when URL is set but username empty', () => {

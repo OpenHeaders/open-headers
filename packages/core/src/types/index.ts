@@ -242,6 +242,7 @@ export type {
   MultipartPart,
   OAuth2Auth,
   OAuth2Flow,
+  PathParam,
   ProxyMode,
   QueryParam,
   Request,

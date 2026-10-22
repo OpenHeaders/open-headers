@@ -123,6 +123,7 @@ export {
   collectRequestResolutionErrors,
   isRequestComplete,
   isRequestResolvable,
+  missingPathParamKeys,
   requestIncompleteReason,
 } from './request-validation';
 export type { RuleSeed } from './rule-defaults';
@@ -173,8 +174,15 @@ export {
   orderedChildren,
   type TreeChildIndex,
 } from './tree-children';
-export type { ParsedUrl, QueryParam, SplitUrlPath } from './url';
-export { appendQueryParams, buildUrlDisplay, parseUrlQuery, splitUrlPath } from './url';
+export type { ParsedUrl, PathParamName, QueryParam, SplitUrlPath } from './url';
+export {
+  appendQueryParams,
+  buildUrlDisplay,
+  parsePathParamNames,
+  parseUrlQuery,
+  splitUrlPath,
+  substitutePathParams,
+} from './url';
 export { productUserAgent } from './user-agent';
 export { isUuidV7, UUIDV7_LENGTH, uuidV7Timestamp, uuidv7 } from './uuidv7';
 export type { BuildEmptyWebSocketRequestInput } from './websocket-request-defaults';

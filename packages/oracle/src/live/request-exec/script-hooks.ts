@@ -95,6 +95,7 @@ export function resolvedToScriptSnapshot(resolved: ResolvedRequest): RequestSnap
     url: resolved.url,
     headers: resolved.headers.map((h) => ({ key: h.key, value: h.value })),
     params: parseUrlParams(resolved.url),
+    pathParams: (resolved.pathParams ?? []).map((p) => ({ key: p.key, value: p.value })),
     body: resolved.body,
   };
 }

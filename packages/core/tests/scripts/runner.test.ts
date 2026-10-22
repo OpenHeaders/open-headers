@@ -19,6 +19,7 @@ const REQUEST: RequestSnapshot = {
   url: 'https://api.openheaders.io/v1/ping',
   headers: [],
   params: [],
+  pathParams: [],
   body: { type: 'none' },
 };
 
@@ -49,6 +50,29 @@ async function run(source: string, sessionId?: string) {
 const logged = (result: Awaited<ReturnType<typeof run>>): string[] => result.consoleLog.map((e) => e.args.join(' '));
 
 describe('executeScript — one-shot executions', () => {
+  it('exposes the resolved path parameters read-only on oh.request', async () => {
+    executions += 1;
+    const result = await executeScript(
+      {
+        executionId: `exec-${executions}`,
+        kind: 'pre-request',
+        source: `console.log(JSON.stringify(oh.request.pathParams)); oh.request.pathParams.push({ key: 'x', value: 'y' }); console.log(oh.request.pathParams.length);`,
+        request: { ...REQUEST, pathParams: [{ key: 'id', value: '42' }] },
+      },
+      {
+        sendHostRequest: async (request) => ({
+          executionId: request.executionId,
+          rpcId: request.rpcId,
+          ok: true,
+          value: null,
+        }),
+      },
+    );
+    expect(result.succeeded).toBe(true);
+    expect(logged(result)).toEqual(['[{"key":"id","value":"42"}]', '1']);
+    expect(result.mutation).toBeUndefined();
+  });
+
   it('exposes no oh.session without a session id', async () => {
     const result = await run(`console.log(typeof oh.session);`);
     expect(result.succeeded).toBe(true);

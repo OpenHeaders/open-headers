@@ -73,6 +73,7 @@ function hostRequest(executionId: string, op: ScriptHostRequest['op']): ScriptHo
           url: 'https://api.openheaders.io/x',
           headers: [],
           params: [],
+          pathParams: [],
           body: { type: 'none' },
         },
       };
@@ -129,6 +130,7 @@ const scriptInput = {
     url: 'https://api.openheaders.io/ping',
     headers: [],
     params: [],
+    pathParams: [],
     body: { type: 'none' as const },
   },
 };
