@@ -79,10 +79,12 @@ import { scriptSlotValuesOf, withScriptSlot } from '../script-editor/script-slot
 import GrpcAuthTab from './GrpcAuthTab';
 import GrpcMessageTab from './GrpcMessageTab';
 import GrpcResponseEmptyState from './GrpcResponseEmptyState';
+import { SendPulseBar } from '../request-editor/response/SendPulse';
 import GrpcResponsePane from './GrpcResponsePane';
 import GrpcServiceDefinitionTab from './GrpcServiceDefinitionTab';
 import GrpcSettingsTab from './GrpcSettingsTab';
 import GrpcStreamPane from './GrpcStreamPane';
+import { grpcInvokePulse } from './grpc-invoke-pulse';
 import SessionLock from '../shared/SessionLock';
 import { type AutoSuggestionContextValue, SuggestionContextProvider } from '../template-input';
 import SpecTabLabel from '../shared/SpecTabLabel';
@@ -600,54 +602,57 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
                 </div>
               </Allotment.Pane>
               <Allotment.Pane minSize={120}>
-                {invoke.responseShape === 'stream' && (invoke.response !== null || invoke.live !== null) ? (
-                  <GrpcStreamPane
-                    live={invoke.live}
-                    snapshot={invoke.response}
-                    session={invoke.streamSession}
-                    registry={spec.derivation?.registry ?? null}
-                    method={draft.method}
-                    onClear={invoke.handleClearResponse}
-                    onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
-                    onReinvoke={() => void invoke.handleInvoke()}
-                  />
-                ) : invoke.response !== null ? (
-                  <GrpcResponsePane
-                    snapshot={invoke.response}
-                    registry={spec.derivation?.registry ?? null}
-                    method={draft.method}
-                    onClear={invoke.handleClearResponse}
-                    onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
-                    onReinvoke={() => void invoke.handleInvoke()}
-                  />
-                ) : (
-                  // Always-attached result pane (the HTTP ResponsePanel
-                  // posture): a stable target with the plain title row and
-                  // an invoke hint before the first result.
-                  <div
-                    style={{
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      minHeight: 0,
-                      background: token.colorBgContainer,
-                    }}
-                  >
+                <div style={{ height: '100%', position: 'relative' }}>
+                  <SendPulseBar {...grpcInvokePulse(invoke)} failures={invoke.sendFailures} axis="x" />
+                  {invoke.responseShape === 'stream' && (invoke.response !== null || invoke.live !== null) ? (
+                    <GrpcStreamPane
+                      live={invoke.live}
+                      snapshot={invoke.response}
+                      session={invoke.streamSession}
+                      registry={spec.derivation?.registry ?? null}
+                      method={draft.method}
+                      onClear={invoke.handleClearResponse}
+                      onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
+                      onReinvoke={() => void invoke.handleInvoke()}
+                    />
+                  ) : invoke.response !== null ? (
+                    <GrpcResponsePane
+                      snapshot={invoke.response}
+                      registry={spec.derivation?.registry ?? null}
+                      method={draft.method}
+                      onClear={invoke.handleClearResponse}
+                      onSaveResponse={invoke.canSaveResponse ? () => void invoke.handleSaveResponse() : undefined}
+                      onReinvoke={() => void invoke.handleInvoke()}
+                    />
+                  ) : (
+                    // Always-attached result pane (the HTTP ResponsePanel
+                    // posture): a stable target with the plain title row and
+                    // an invoke hint before the first result.
                     <div
                       style={{
+                        height: '100%',
                         display: 'flex',
-                        alignItems: 'center',
-                        padding: '6px 12px',
-                        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                        flexDirection: 'column',
+                        minHeight: 0,
+                        background: token.colorBgContainer,
                       }}
                     >
-                      <Text strong style={{ fontSize: 12 }}>
-                        {t('workbench.editors.grpc.response.title')}
-                      </Text>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '6px 12px',
+                          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                        }}
+                      >
+                        <Text strong style={{ fontSize: 12 }}>
+                          {t('workbench.editors.grpc.response.title')}
+                        </Text>
+                      </div>
+                      <GrpcResponseEmptyState invoking={invoke.invoking} />
                     </div>
-                    <GrpcResponseEmptyState invoking={invoke.invoking} />
-                  </div>
-                )}
+                  )}
+                </div>
               </Allotment.Pane>
             </Allotment>
           </div>

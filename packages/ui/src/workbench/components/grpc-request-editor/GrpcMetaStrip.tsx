@@ -23,6 +23,7 @@ import ExecutedOnTag, { type ExecutedOnStamp } from '../request-editor/response/
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-editor/response/InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import SentAsWrittenTag, { sentAsWrittenHasBadge } from '../request-editor/response/SentAsWrittenTag';
+import { grpcDisplayStatus, grpcStatusTone } from './grpc-status-tone';
 
 /** Canonical description key per protocol status name — a literal map
  *  so the catalog keys stay statically checked (no dynamic key
@@ -116,8 +117,11 @@ const GrpcMetaStrip: React.FC<{
   // 1 CANCELLED, and a local failure reads its canonical code — the
   // gRPC client-runtime semantics (display-side only; the capture
   // keeps its honest null).
-  const displayStatus = status ?? localStatus ?? (stopped === true ? 1 : null);
-  const statusColor = displayStatus === 0 ? token.colorSuccess : token.colorError;
+  const facts = { status, stopped, error, localStatus, connectionError };
+  const displayStatus = grpcDisplayStatus(facts);
+  const tone = grpcStatusTone(facts);
+  const statusColor =
+    tone === 'success' ? token.colorSuccess : tone === 'neutral' ? token.colorTextSecondary : token.colorError;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
       {error !== undefined && displayStatus === null ? (

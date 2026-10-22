@@ -92,6 +92,10 @@ export interface GrpcInvokePlane {
   clientStreamActive: boolean;
   handleSendStreamMessage: () => Promise<void>;
   handleEndStreaming: () => void;
+  /** An upstream message rider is out on the open stream. */
+  sending: boolean;
+  /** Upstream messages the stream refused or could not encode, counted. */
+  sendFailures: number;
 }
 
 export function useGrpcInvokePlane({
@@ -147,6 +151,8 @@ export function useGrpcInvokePlane({
   const [response, setResponse] = useState<ExecutedGrpcSnapshot | null>(null);
   const [responseShape, setResponseShape] = useState<'unary' | 'stream'>('unary');
   const [streamSession, setStreamSession] = useState<GrpcStreamSession | null>(null);
+  const [sendsOut, setSendsOut] = useState(0);
+  const [sendFailures, setSendFailures] = useState(0);
   // The in-flight call's target — the timeline's lifecycle rows keep
   // naming what was actually invoked.
   const activeSendIdRef = useRef<string | null>(null);
@@ -283,10 +289,13 @@ export function useGrpcInvokePlane({
   const handleSendStreamMessage = useCallback(async () => {
     const sendId = activeSendIdRef.current;
     if (!sendId) return;
+    setSendsOut((n) => n + 1);
     const result = await hostBridge
       .call('sendGrpcStreamMessage', { sendId, messageText: draft.message })
-      .catch(() => null);
+      .catch(() => null)
+      .finally(() => setSendsOut((n) => n - 1));
     if (result === null || !result.success) {
+      setSendFailures((n) => n + 1);
       toast.error(result?.error ?? t('workbench.editors.grpc.stream.sendFailed'));
     }
   }, [draft.message, toast, t]);
@@ -314,5 +323,7 @@ export function useGrpcInvokePlane({
     clientStreamActive,
     handleSendStreamMessage,
     handleEndStreaming,
+    sending: sendsOut > 0,
+    sendFailures,
   };
 }
