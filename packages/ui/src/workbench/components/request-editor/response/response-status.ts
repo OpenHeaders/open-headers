@@ -8,7 +8,7 @@
 
 import { useUiTheme } from '@openheaders/ui/context';
 import { statusCodePhrase } from '@openheaders/ui/shared/info-popover/data/http-status';
-import { theme } from 'antd';
+import { type GlobalToken, theme } from 'antd';
 import type React from 'react';
 
 /** `200 OK` — the server's own phrase when it sent one, the canonical
@@ -19,6 +19,31 @@ export function statusDisplayLabel(status: number, statusText: string): string {
 }
 
 export type PillTone = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+
+/** The theme hue a non-neutral tone paints with. */
+export function toneHue(token: GlobalToken, tone: Exclude<PillTone, 'neutral'>): string {
+  return tone === 'error'
+    ? token.colorError
+    : tone === 'warning'
+      ? token.colorWarning
+      : tone === 'info'
+        ? token.colorInfo
+        : token.colorSuccess;
+}
+
+/** The status chip's tone by range: 2xx success, 4xx warning, 5xx
+ *  error, everything else (1xx / 3xx / no status yet) neutral. */
+export function statusPillTone(status: number | null): PillTone {
+  return status === null
+    ? 'neutral'
+    : status >= 500
+      ? 'error'
+      : status >= 400
+        ? 'warning'
+        : status >= 200 && status < 300
+          ? 'success'
+          : 'neutral';
+}
 
 /**
  * Filled pill in one tone — the status chip's palette, also worn by
@@ -39,14 +64,7 @@ export function useTonePillStyle(tone: PillTone): React.CSSProperties {
     text = token.colorTextSecondary;
     bg = token.colorFillTertiary;
   } else {
-    const hue =
-      tone === 'error'
-        ? token.colorError
-        : tone === 'warning'
-          ? token.colorWarning
-          : tone === 'info'
-            ? token.colorInfo
-            : token.colorSuccess;
+    const hue = toneHue(token, tone);
     if (isDarkMode) {
       text = `color-mix(in srgb, ${hue} 22%, ${token.colorWhite})`;
       bg = `color-mix(in srgb, ${hue} 32%, ${token.colorBgContainer})`;
@@ -64,18 +82,7 @@ export function useTonePillStyle(tone: PillTone): React.CSSProperties {
   };
 }
 
-/** The status chip's pill, tinted by range: 2xx success, 4xx warning,
- *  5xx error, everything else (1xx / 3xx / no status yet) neutral. */
+/** The status chip's pill, tinted by `statusPillTone`. */
 export function useStatusPillStyle(status: number | null): React.CSSProperties {
-  return useTonePillStyle(
-    status === null
-      ? 'neutral'
-      : status >= 500
-        ? 'error'
-        : status >= 400
-          ? 'warning'
-          : status >= 200 && status < 300
-            ? 'success'
-            : 'neutral',
-  );
+  return useTonePillStyle(statusPillTone(status));
 }

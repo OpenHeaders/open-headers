@@ -1,0 +1,76 @@
+.oh-send-pulse {
+  position: absolute;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.oh-send-pulse[data-axis='x'] {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.oh-send-pulse[data-axis='y'] {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.oh-send-pulse-sweep,
+.oh-send-pulse-line {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.oh-send-pulse-sweep {
+  transition: opacity 0.5s ease;
+  will-change: transform, opacity;
+}
+
+.oh-send-pulse[data-axis='x'] .oh-send-pulse-sweep {
+  animation: oh-send-pulse-x 1.4s linear infinite;
+}
+
+.oh-send-pulse[data-axis='y'] .oh-send-pulse-sweep {
+  animation: oh-send-pulse-y 1.4s linear infinite;
+}
+
+.oh-send-pulse[data-phase='settled'] .oh-send-pulse-sweep {
+  opacity: 0;
+}
+
+.oh-send-pulse-line {
+  opacity: 0;
+  will-change: opacity;
+}
+
+.oh-send-pulse[data-phase='settled'] .oh-send-pulse-line {
+  animation: oh-send-pulse-settle 2.4s ease-out 1 forwards;
+}
+
+@keyframes oh-send-pulse-x {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes oh-send-pulse-y {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(100%); }
+}
+
+@keyframes oh-send-pulse-settle {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oh-send-pulse .oh-send-pulse-sweep {
+    animation: none;
+    opacity: 0.6;
+  }
+}

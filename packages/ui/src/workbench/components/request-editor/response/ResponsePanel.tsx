@@ -40,6 +40,7 @@ import ResponseHeadersView from './ResponseHeadersView';
 import ResponseLiveMetaStrip from './ResponseLiveMetaStrip';
 import ResponseLiveTail from './ResponseLiveTail';
 import ResponseMetaStrip from './ResponseMetaStrip';
+import SendPulse from './SendPulse';
 import type { GraphqlResponseFacts } from './graphql-response';
 import { setCookieLinesOf } from './response-cookies';
 import { detectBodyLanguage } from './response-format';
@@ -232,9 +233,11 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         flexDirection: 'column',
         minHeight: 0,
         minWidth: 0,
+        position: 'relative',
         background: token.colorBgContainer,
       }}
     >
+      <SendPulse sending={sending} response={response} layout={layout} graphql={graphql} />
       {sending && live != null && live.head !== null ? (
         // Live phase — the SAME tab chrome as a settled response (the
         // Postman posture): Body streams the tail / event list, Headers
