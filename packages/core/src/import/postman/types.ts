@@ -43,11 +43,23 @@ export interface PostmanUrl {
   raw?: string;
   protocol?: string;
   host?: string | string[];
-  path?: string | string[];
+  /** A segment is a literal string or a path-variable object
+   *  (`{type: 'path', value: 'id'}` — the `:id` segment). */
+  path?: string | Array<string | { type?: string; value?: string }>;
   port?: string;
   query?: Array<{ key?: string; value?: string; disabled?: boolean; description?: string }>;
-  variable?: Array<{ key?: string; value?: string; description?: string }>;
+  /** The vendor's "path variables" — one per `:name` segment of the URL. */
+  variable?: PostmanUrlVariable[];
   hash?: string;
+}
+
+export interface PostmanUrlVariable {
+  key?: string;
+  /** Text as authored; a typed (`number` / `boolean`) value may arrive raw. */
+  value?: string | number | boolean | null;
+  description?: string | { content?: string };
+  disabled?: boolean;
+  type?: string;
 }
 
 export interface PostmanHeader {

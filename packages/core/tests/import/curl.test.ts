@@ -128,6 +128,14 @@ describe('parseCurl — method + URL', () => {
   });
 });
 
+describe('parseCurl — a :name segment', () => {
+  it('survives verbatim with no row — a parameter by the grammar law, derived in the editor', () => {
+    const { request } = parseCurl('curl https://api.openheaders.io/users/:id');
+    expect(request.url).toBe('https://api.openheaders.io/users/:id');
+    expect(request.pathParams).toBeUndefined();
+  });
+});
+
 describe('parseCurl — query params', () => {
   it('extracts query params from the URL and drops them from url', () => {
     const { request } = parseCurl('curl https://api.openheaders.io/search?q=hello&lang=en');

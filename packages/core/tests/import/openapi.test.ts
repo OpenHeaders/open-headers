@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { OpenApiParseError, parseOpenApi } from '../../src/import/openapi';
+import { stripUids } from './_kv-utils';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -184,10 +185,11 @@ describe('operations → requests', () => {
     expect(drop?.tracking).toContain('PERMANENT');
   });
 
-  it('rewrites path templating to variable references with a transform', () => {
+  it('rewrites path templating to :name path parameter segments with a transform', () => {
     const result = parseOpenApi(doc({ paths: { '/users/{userId}/posts/{postId}': { get: {} } } }));
-    expect(result.requests[0].request.url).toBe('{{baseUrl}}/users/{{userId}}/posts/{{postId}}');
-    expect(result.report.transforms.some((t) => t.to === '/users/{{userId}}/posts/{{postId}}')).toBe(true);
+    expect(result.requests[0].request.url).toBe('{{baseUrl}}/users/:userId/posts/:postId');
+    const transform = result.report.transforms.find((t) => t.to === '/users/:userId/posts/:postId');
+    expect(transform?.reason).toContain('became path parameters');
   });
 });
 
@@ -238,7 +240,7 @@ describe('parameters', () => {
     expect(params.find((p) => p.key === 'offset')?.value).toBe('0');
   });
 
-  it('seeds collection variables from valued path parameters (first wins)', () => {
+  it('a path parameter is a request field, never a collection variable — each operation keeps its own value', () => {
     const result = parseOpenApi(
       doc({
         paths: {
@@ -249,7 +251,9 @@ describe('parameters', () => {
         },
       }),
     );
-    expect(result.collectionVariables).toContainEqual({ name: 'userId', value: 'u-123', type: 'default' });
+    expect(result.collectionVariables.map((v) => v.name)).toEqual(['baseUrl']);
+    expect(stripUids(result.requests[0].request.pathParams ?? [])).toEqual([{ key: 'userId', value: 'u-123' }]);
+    expect(stripUids(result.requests[1].request.pathParams ?? [])).toEqual([{ key: 'userId', value: 'u-456' }]);
   });
 
   it('aggregates cookie parameters into one permanent drop', () => {
@@ -269,6 +273,178 @@ describe('parameters', () => {
   it('drops parameters without a usable name/in', () => {
     const result = parseOpenApi(doc({ paths: { '/a': { get: { parameters: [{ description: 'nameless' }] } } } }));
     expect(result.report.drops.some((d) => d.reason.includes('no usable `name`/`in`'))).toBe(true);
+  });
+});
+
+// ── Path parameters ────────────────────────────────────────────────
+
+describe('path parameters', () => {
+  const one = (paths: Record<string, unknown>) => parseOpenApi(doc({ paths })).requests[0].request;
+
+  it('fills the row from example, then the schema default, then the first enum entry', () => {
+    const request = one({
+      '/a/{x}/{y}/{z}': {
+        get: {
+          parameters: [
+            { name: 'x', in: 'path', required: true, example: 'ex', schema: { default: 'def' } },
+            { name: 'y', in: 'path', required: true, schema: { default: 'def', enum: ['first'] } },
+            { name: 'z', in: 'path', required: true, description: 'Pick one.', schema: { enum: ['first', 'second'] } },
+          ],
+        },
+      },
+    });
+    expect(request.url).toBe('{{baseUrl}}/a/:x/:y/:z');
+    expect(stripUids(request.pathParams ?? [])).toEqual([
+      { key: 'x', value: 'ex' },
+      { key: 'y', value: 'def' },
+      { key: 'z', value: 'first', description: 'Pick one.' },
+    ]);
+  });
+
+  it('a declaration without a value lands as an empty row with its description — never a silent drop', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/spacecrafts/{spacecraftId}': {
+            get: {
+              parameters: [
+                {
+                  name: 'spacecraftId',
+                  in: 'path',
+                  required: true,
+                  description: 'The unique identifier of the spacecraft.',
+                },
+              ],
+            },
+          },
+        },
+      }),
+    );
+    const request = result.requests[0].request;
+    expect(request.url).toBe('{{baseUrl}}/spacecrafts/:spacecraftId');
+    expect(stripUids(request.pathParams ?? [])).toEqual([
+      { key: 'spacecraftId', value: '', description: 'The unique identifier of the spacecraft.' },
+    ]);
+    expect(result.collectionVariables.map((v) => v.name)).toEqual(['baseUrl']);
+    expect(result.report.drops).toHaveLength(0);
+  });
+
+  it('a template with no declaration gets an empty row and a note', () => {
+    const result = parseOpenApi(doc({ paths: { '/users/{id}': { get: {} } } }));
+    expect(stripUids(result.requests[0].request.pathParams ?? [])).toEqual([{ key: 'id', value: '' }]);
+    const note = result.report.transforms.find((t) => t.from === 'path template {id} without a declaration');
+    expect(note?.reason).toContain('no `in: path` parameter declares it');
+  });
+
+  it('a declaration the template does not name drops with a note naming it', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/users/{id}': {
+            get: {
+              parameters: [
+                { name: 'id', in: 'path', required: true, example: '7' },
+                { name: 'orphan', in: 'path', required: true, example: 'x' },
+              ],
+            },
+          },
+        },
+      }),
+    );
+    expect(stripUids(result.requests[0].request.pathParams ?? [])).toEqual([{ key: 'id', value: '7' }]);
+    const drop = result.report.drops.find((d) => d.names?.includes('orphan'));
+    expect(drop?.reason).toContain('not named by the path template');
+  });
+
+  it('operation-level declarations win over path-level ones — one row', () => {
+    const request = one({
+      '/users/{id}': {
+        parameters: [{ name: 'id', in: 'path', required: true, example: 'path-level', description: 'Path-level.' }],
+        get: { parameters: [{ name: 'id', in: 'path', required: true, example: 'op-level' }] },
+      },
+    });
+    expect(stripUids(request.pathParams ?? [])).toEqual([{ key: 'id', value: 'op-level' }]);
+  });
+
+  it('a name templated twice is one row', () => {
+    const request = one({
+      '/a/{id}/b/{id}': { get: { parameters: [{ name: 'id', in: 'path', required: true, example: '1' }] } },
+    });
+    expect(request.url).toBe('{{baseUrl}}/a/:id/b/:id');
+    expect(stripUids(request.pathParams ?? [])).toEqual([{ key: 'id', value: '1' }]);
+  });
+
+  it('a query parameter and a path parameter of one name are two rows', () => {
+    const request = one({
+      '/users/{id}': {
+        get: {
+          parameters: [
+            { name: 'id', in: 'path', required: true, example: 'p' },
+            { name: 'id', in: 'query', required: true, example: 'q' },
+          ],
+        },
+      },
+    });
+    expect(stripUids(request.pathParams ?? [])).toEqual([{ key: 'id', value: 'p' }]);
+    expect(stripUids(request.params)).toEqual([{ key: 'id', value: 'q' }]);
+  });
+
+  it('notes an unsupported serialization — style, explode, an array schema — and keeps the value as text', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/a/{ids}/{m}': {
+            get: {
+              parameters: [
+                { name: 'ids', in: 'path', required: true, explode: true, schema: { type: 'array', example: [1, 2] } },
+                { name: 'm', in: 'path', required: true, style: 'matrix', example: 'v' },
+              ],
+            },
+          },
+        },
+      }),
+    );
+    expect(stripUids(result.requests[0].request.pathParams ?? [])).toEqual([
+      { key: 'ids', value: '[1,2]' },
+      { key: 'm', value: 'v' },
+    ]);
+    const notes = result.report.transforms.filter((t) => t.to === 'one plain text value').map((t) => t.from);
+    expect(notes).toEqual([
+      'path parameter "ids" with explode: true, an array schema',
+      'path parameter "m" with style: matrix',
+    ]);
+  });
+
+  it('required: false imports as a row anyway, noted', () => {
+    const result = parseOpenApi(
+      doc({ paths: { '/users/{id}': { get: { parameters: [{ name: 'id', in: 'path', example: '9' }] } } } }),
+    );
+    expect(stripUids(result.requests[0].request.pathParams ?? [])).toEqual([{ key: 'id', value: '9' }]);
+    const note = result.report.transforms.find((t) => t.to === 'always sent');
+    expect(note?.from).toBe('path parameter "id" with required: undefined');
+  });
+
+  it('a path without templates carries no rows', () => {
+    expect(one({ '/users': { get: {} } }).pathParams).toBeUndefined();
+  });
+
+  it('the minted examples snapshot the rows on the request shape', () => {
+    const result = parseOpenApi(
+      doc({
+        paths: {
+          '/users/{id}': {
+            get: {
+              parameters: [{ name: 'id', in: 'path', required: true, example: '7' }],
+              responses: { '200': { description: 'OK', content: { 'application/json': { example: { id: 7 } } } } },
+            },
+          },
+        },
+      }),
+      { responseExamples: true },
+    );
+    const example = result.requests[0].examples?.[0];
+    expect(example?.request.url).toBe('{{baseUrl}}/users/:id');
+    expect(stripUids(example?.request.pathParams ?? [])).toEqual([{ key: 'id', value: '7' }]);
   });
 });
 

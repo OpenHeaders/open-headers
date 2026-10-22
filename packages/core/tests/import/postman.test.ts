@@ -398,7 +398,7 @@ describe('request mapping — method + URL', () => {
     expect(t?.to).toBe('imported with an empty URL');
   });
 
-  it('substitutes :path variables with url.variable values', () => {
+  it('keeps :name segments and reads url.variable[] as the path parameter rows — lossless, no note', () => {
     const result = parsePostman(
       postmanCollection({
         item: [
@@ -409,7 +409,7 @@ describe('request mapping — method + URL', () => {
               url: {
                 raw: 'https://api.openheaders.io/users/:id/posts/:postId',
                 variable: [
-                  { key: 'id', value: '42' },
+                  { key: 'id', value: '42', description: 'The user.' },
                   { key: 'postId', value: '99' },
                 ],
               },
@@ -418,9 +418,12 @@ describe('request mapping — method + URL', () => {
         ],
       }),
     );
-    expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io/users/42/posts/99');
-    const t = result.report.transforms.find((t) => t.to === 'inline values');
-    expect(t?.from).toBe('path variables :id, :postId');
+    expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io/users/:id/posts/:postId');
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([
+      { key: 'id', value: '42', description: 'The user.' },
+      { key: 'postId', value: '99' },
+    ]);
+    expect(result.report.transforms).toHaveLength(0);
     expect(result.report.drops).toHaveLength(0);
   });
 
@@ -434,6 +437,97 @@ describe('request mapping — method + URL', () => {
     expect(r.method).toBe('GET');
     expect(r.url).toBe('https://api.openheaders.io/ping');
     expect(stripUids(r.params)).toEqual([{ key: 'q', value: '1' }]);
+  });
+});
+
+describe('request mapping — path parameters', () => {
+  const withUrl = (url: unknown) =>
+    parsePostman(postmanCollection({ item: [{ name: 'X', request: { method: 'GET', url } }] }));
+
+  it('drops a url.variable the URL does not name, with a note naming it', () => {
+    const result = withUrl({
+      raw: 'https://api.openheaders.io/users/:id',
+      variable: [
+        { key: 'id', value: '1' },
+        { key: 'orphan', value: '2' },
+      ],
+    });
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([{ key: 'id', value: '1' }]);
+    const drop = result.report.drops.find((d) => d.names?.includes('orphan'));
+    expect(drop?.path).toBe('collection.item[0].request.url.variable[1]');
+    expect(drop?.reason).toContain('not named by the URL');
+  });
+
+  it('a disabled url.variable imports enabled with its value and a note', () => {
+    const result = withUrl({
+      raw: 'https://api.openheaders.io/users/:id',
+      variable: [{ key: 'id', value: '1', disabled: true }],
+    });
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([{ key: 'id', value: '1' }]);
+    const note = result.report.transforms.find((t) => t.to === 'imported enabled');
+    expect(note?.from).toBe('disabled path variable :id');
+    expect(note?.reason).toContain('always sent');
+  });
+
+  it('stringifies a typed number / boolean value and reads a {content} description', () => {
+    const result = withUrl({
+      raw: 'https://api.openheaders.io/a/:n/:b',
+      variable: [
+        { key: 'n', value: 7, type: 'number', description: { content: 'Seven.', type: 'text/plain' } },
+        { key: 'b', value: true, type: 'boolean' },
+      ],
+    });
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([
+      { key: 'n', value: '7', description: 'Seven.' },
+      { key: 'b', value: 'true' },
+    ]);
+  });
+
+  it('keeps a {{env}} reference in a value verbatim — the value is a template field', () => {
+    const result = withUrl({
+      raw: 'https://api.openheaders.io/users/:id',
+      variable: [{ key: 'id', value: '{{userId}}' }],
+    });
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([{ key: 'id', value: '{{userId}}' }]);
+  });
+
+  it('the structured fallback rebuilds ":id" strings and {type: path} objects as :name segments', () => {
+    const result = withUrl({
+      protocol: 'https',
+      host: ['api', 'openheaders', 'io'],
+      path: ['users', ':id', 'posts', { type: 'path', value: 'postId' }],
+      variable: [
+        { key: 'id', value: '42' },
+        { key: 'postId', value: '99' },
+      ],
+    });
+    expect(result.requests[0]!.request.url).toBe('https://api.openheaders.io/users/:id/posts/:postId');
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([
+      { key: 'id', value: '42' },
+      { key: 'postId', value: '99' },
+    ]);
+  });
+
+  it('a key declared twice keeps the first declaration and drops the second with a note', () => {
+    const result = withUrl({
+      raw: 'https://api.openheaders.io/users/:id',
+      variable: [
+        { key: 'id', value: 'first' },
+        { key: 'id', value: 'second' },
+      ],
+    });
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([{ key: 'id', value: 'first' }]);
+    expect(result.report.drops.find((d) => d.names?.includes('id'))?.reason).toContain('declared twice');
+  });
+
+  it('a mid-segment colon is no parameter — a variable of that name drops', () => {
+    const result = withUrl({
+      raw: 'https://api.openheaders.io/v1/files:batchGet',
+      variable: [{ key: 'batchGet', value: 'x' }],
+    });
+    expect(result.requests[0]!.request.url).toBe('https://api.openheaders.io/v1/files:batchGet');
+    expect(result.requests[0]!.request.pathParams).toBeUndefined();
+    expect(result.report.drops).toHaveLength(1);
   });
 });
 
@@ -2690,7 +2784,7 @@ describe('edge cases', () => {
       expect(stripUids(result.requests[0]!.request.params)).toEqual([{ key: 'token', value: '{{token}}' }]);
     });
 
-    it('does not substitute :xxx when no url.variable entry matches', () => {
+    it('a :name with no url.variable entry keeps the segment and mints no row — the editor derives it', () => {
       const result = parsePostman(
         postmanCollection({
           item: [
@@ -2704,9 +2798,9 @@ describe('edge cases', () => {
           ],
         }),
       );
-      // Without a matching variable, the :id placeholder stays. The
-      // editor will then surface it via the resolver's error-as-spec.
       expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io/users/:id');
+      expect(result.requests[0]?.request.pathParams).toBeUndefined();
+      expect(result.report.transforms).toHaveLength(0);
     });
   });
 
@@ -2982,7 +3076,7 @@ describe('saved responses', () => {
     expect(drop?.reason).toContain('1 cookie row');
   });
 
-  it('records path-variable substitution in an example URL as the usual handled-for-you transform', () => {
+  it('an example keeps its :name segment and carries the path parameter rows — no note', () => {
     const result = parsePostman(
       collectionWithResponses([
         {
@@ -2996,8 +3090,30 @@ describe('saved responses', () => {
       { responseExamples: true },
     );
     const ex = result.requests[0]?.examples?.[0];
-    expect(ex?.request.url).toBe('https://api.openheaders.io/charges/ch_1');
-    expect(result.report.transforms.some((t) => t.to === 'inline values')).toBe(true);
+    expect(ex?.request.url).toBe('https://api.openheaders.io/charges/:id');
+    expect(stripUids(ex?.request.pathParams ?? [])).toEqual([{ key: 'id', value: 'ch_1' }]);
+    expect(result.report.transforms).toHaveLength(0);
+  });
+
+  it('an example without originalRequest snapshots the parent shape, its rows included', () => {
+    const result = parsePostman(
+      postmanCollection({
+        item: [
+          {
+            name: 'Charge',
+            request: {
+              method: 'GET',
+              url: { raw: 'https://api.openheaders.io/charges/:id', variable: [{ key: 'id', value: 'ch_2' }] },
+            },
+            response: [{ name: 'Found', status: 'OK', code: 200, header: [], body: '{}' }],
+          },
+        ],
+      }),
+      { responseExamples: true },
+    );
+    const ex = result.requests[0]?.examples?.[0];
+    expect(ex?.request.url).toBe('https://api.openheaders.io/charges/:id');
+    expect(stripUids(ex?.request.pathParams ?? [])).toEqual([{ key: 'id', value: 'ch_2' }]);
   });
 });
 
@@ -3091,7 +3207,8 @@ describe('realistic round-trip (authentic Postman export)', () => {
     expect(me.request.auth).toEqual({ type: 'bearer', token: '{{token}}' });
 
     const byId = result.requests[2]!;
-    expect(byId.request.url).toBe('https://api.openheaders.io/users/42');
+    expect(byId.request.url).toBe('https://api.openheaders.io/users/:id');
+    expect(stripUids(byId.request.pathParams ?? [])).toEqual([{ key: 'id', value: '42' }]);
 
     const ping = result.requests[3]!;
     expect(ping.folderPath).toEqual([]);

@@ -433,6 +433,7 @@ async function materializeCollection(
       url: entry.request.url,
       headers: entry.request.headers,
       params: entry.request.params,
+      ...(entry.request.pathParams !== undefined ? { pathParams: entry.request.pathParams } : {}),
       auth: entry.request.auth,
       body: entry.request.body,
       name,

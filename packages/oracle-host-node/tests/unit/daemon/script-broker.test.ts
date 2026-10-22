@@ -24,6 +24,7 @@ const snapshot = {
   url: 'https://api.openheaders.io/x',
   headers: [],
   params: [],
+  pathParams: [],
   body: { type: 'none' as const },
 };
 

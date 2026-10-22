@@ -628,6 +628,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             url: draft.url,
             headers: rowsToHeaders(draft.headers),
             params: rowsToParams(draft.params),
+            ...(draft.pathParams.length > 0 ? { pathParams: rowsToPathParams(draft.pathParams) } : {}),
             body: draft.body,
           },
           response: capturedResponseFromSnapshot(response),

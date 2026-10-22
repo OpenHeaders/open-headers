@@ -21,7 +21,7 @@ import type {
 } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { statusCodePhrase } from '@openheaders/ui/shared/info-popover/data/http-status';
-import { type Draft, draftFromRequest, rowsToHeaders, rowsToParams } from '../request-editor/draft';
+import { type Draft, draftFromRequest, rowsToHeaders, rowsToParams, rowsToPathParams } from '../request-editor/draft';
 import { type KeyValueRow, makeKvRow } from '../request-editor/KeyValueTable';
 import {
   detectBodyLanguage,
@@ -61,6 +61,7 @@ export function exampleToDraft(example: ResponseExample): ExampleDraft {
       url: example.request.url,
       headers: example.request.headers,
       params: example.request.params,
+      ...(example.request.pathParams !== undefined ? { pathParams: example.request.pathParams } : {}),
       auth: { type: 'none' },
       body: example.request.body,
     }),
@@ -75,12 +76,16 @@ export function exampleToDraft(example: ResponseExample): ExampleDraft {
   };
 }
 
+/** The persisted request block. The Path Parameters rows ride only
+ *  when the URL names one — an emptied list is absent, the codec's
+ *  posture for the request entity. */
 export function capturedRequestFromDraft(draft: Draft): CapturedRequest {
   return {
     method: draft.method,
     url: draft.url,
     headers: rowsToHeaders(draft.headers),
     params: rowsToParams(draft.params),
+    ...(draft.pathParams.length > 0 ? { pathParams: rowsToPathParams(draft.pathParams) } : {}),
     body: draft.body,
   };
 }
@@ -157,6 +162,11 @@ export function exampleDraftFingerprint(draft: ExampleDraft): string {
       url: draft.request.url,
       headers: draft.request.headers.filter((r) => r.key.trim()).map(stripRow),
       params: draft.request.params.filter((r) => r.key.trim()).map(stripRow),
+      pathParams: draft.request.pathParams.map((r) => ({
+        key: r.key,
+        value: r.value,
+        description: r.description?.trim() ? r.description : undefined,
+      })),
       body: draft.request.body,
     },
     response: {

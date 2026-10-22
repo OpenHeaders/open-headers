@@ -29,6 +29,8 @@ export interface OpenApiParameter {
   in?: string;
   description?: string;
   required?: boolean;
+  style?: string;
+  explode?: boolean;
   example?: unknown;
   examples?: Record<string, unknown>;
   schema?: unknown;

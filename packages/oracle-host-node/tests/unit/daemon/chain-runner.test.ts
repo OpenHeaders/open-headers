@@ -164,6 +164,7 @@ describe('runWorkflowRefresh — script capability injection', () => {
           url: 'https://api.openheaders.io/x',
           headers: [],
           params: [],
+          pathParams: [],
           body: { type: 'none' },
         },
       });

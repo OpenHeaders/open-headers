@@ -65,6 +65,7 @@ function buildTrySeed(draft: ExampleDraft, requestName: string): Omit<Request, '
     url: captured.url,
     headers: captured.headers,
     params: captured.params,
+    ...(captured.pathParams !== undefined ? { pathParams: captured.pathParams } : {}),
     // The capture holds no auth (secrets never ride examples) — the
     // fork starts on the collection/folder default like a new request.
     auth: { type: 'inherit' },

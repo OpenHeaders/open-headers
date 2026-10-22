@@ -1,5 +1,6 @@
 import { placeholderFileRef } from '../../files';
-import type { AuthConfig, HttpMethod, MultipartPart, RequestBody, RequestHeader } from '../../types/request';
+import type { AuthConfig, HttpMethod, MultipartPart, PathParam, RequestBody, RequestHeader } from '../../types/request';
+import { parsePathParamNames } from '../../utils/url';
 import { generateUid } from '../../utils/workspace';
 import type { CurlRequest } from '../curl';
 import { promoteAuthHeader } from '../postman/auth';
@@ -64,7 +65,8 @@ export function convertBruRequest(
       tracking: 'PERMANENT: bru shape validation',
     });
   }
-  const { base, params } = splitUrl(substitutePathParams(rawUrl, blocks));
+  const { base, params } = splitUrl(rawUrl);
+  const pathParams = readPathParams(rawUrl, blocks, jsonPath, report);
 
   const headers: RequestHeader[] = [];
   const headersBlock = findBlock(blocks, 'headers');
@@ -95,24 +97,69 @@ export function convertBruRequest(
   const body = buildBody(blocks, methodBlock, meta, jsonPath, report);
   reportUnsupportedBlocks(blocks, jsonPath, report);
 
-  return { request: { name, method, url: base, headers: headersWithoutAuth, params, auth, body }, seq, kind };
+  return {
+    request: {
+      name,
+      method,
+      url: base,
+      headers: headersWithoutAuth,
+      params,
+      ...(pathParams.length > 0 ? { pathParams } : {}),
+      auth,
+      body,
+    },
+    seq,
+    kind,
+  };
 }
 
-/** `params:path` rows substitute the `:name` placeholders in the URL — same convention as Postman `url.variable`. */
-function substitutePathParams(rawUrl: string, blocks: BruBlock[]): string {
+/**
+ * `params:path` rows become the request's Path Parameters rows — the
+ * `:name` segments stay in the URL (the one grammar reads them). A row
+ * whose key the URL does not name drops with a note (Bruno's own
+ * parser also scans an OData `Set(':key')` form, which is no segment
+ * start and so no parameter here); a `~` disabled row imports enabled
+ * with a note (a parameter named in the URL is always sent). A `:name`
+ * with no row needs nothing from the importer — the editor derives
+ * its empty row from the URL on open.
+ */
+function readPathParams(rawUrl: string, blocks: BruBlock[], jsonPath: string, report: ImportReport): PathParam[] {
   const pathBlock = findBlock(blocks, 'params:path');
-  if (!pathBlock || rawUrl.length === 0) return rawUrl;
-  let out = rawUrl;
+  if (!pathBlock) return [];
+  const named = new Set(parsePathParamNames(rawUrl).map((p) => p.name));
+  const rows: PathParam[] = [];
+  const seen = new Set<string>();
   for (const e of pathBlock.entries) {
-    if (!e.key || e.disabled) continue;
-    const pattern = new RegExp(`:${escapeRegExp(e.key)}(?![a-zA-Z0-9_])`, 'g');
-    out = out.replace(pattern, encodeURIComponent(e.value));
+    if (!e.key) continue;
+    if (!named.has(e.key)) {
+      recordDrop(report, {
+        path: `${jsonPath}.params:path`,
+        reason: `Path parameter ":${e.key}" is not named by the URL — nothing to substitute; dropped.`,
+        names: [e.key],
+      });
+      continue;
+    }
+    if (seen.has(e.key)) {
+      recordDrop(report, {
+        path: `${jsonPath}.params:path`,
+        reason: `Path parameter ":${e.key}" is declared twice — the first declaration imported; this one dropped.`,
+        names: [e.key],
+      });
+      continue;
+    }
+    seen.add(e.key);
+    if (e.disabled) {
+      recordTransform(report, {
+        path: `${jsonPath}.params:path`,
+        from: `disabled path parameter :${e.key}`,
+        to: 'imported enabled',
+        reason:
+          'A parameter named in the URL is always sent — the row imported enabled; remove the segment from the URL to drop it.',
+      });
+    }
+    rows.push({ uid: generateUid(), key: e.key, value: e.value });
   }
-  return out;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return rows;
 }
 
 function coerceMethod(blockName: string | undefined, jsonPath: string, report: ImportReport): HttpMethod {

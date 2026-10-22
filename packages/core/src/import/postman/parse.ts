@@ -216,7 +216,7 @@ function tryConvertRequest(
   const description = textOf(req.description) ?? textOf(item.description);
 
   const method = coerceMethod(req.method, jsonPath, report);
-  const url = buildUrl(req.url, jsonPath, report);
+  const { url, pathParams } = buildUrl(req.url, jsonPath, report);
   const headerCollection = buildHeaders(req.header ?? [], jsonPath, report);
   // Promote Authorization header BEFORE layering the explicit auth
   // on top — explicit Postman auth wins over any implicit header.
@@ -236,7 +236,14 @@ function tryConvertRequest(
   let examples: PostmanParsedExample[] | undefined;
   if (Array.isArray(item.response) && item.response.length > 0) {
     if (options.responseExamples) {
-      const parentShape: CapturedRequest = { method, url: base, headers: headersWithoutAuth, params, body };
+      const parentShape: CapturedRequest = {
+        method,
+        url: base,
+        headers: headersWithoutAuth,
+        params,
+        ...(pathParams.length > 0 ? { pathParams } : {}),
+        body,
+      };
       examples = buildExamples(item.response, parentShape, jsonPath, report);
     } else {
       recordDrop(report, {
@@ -255,6 +262,7 @@ function tryConvertRequest(
       url: base,
       headers: headersWithoutAuth,
       params,
+      ...(pathParams.length > 0 ? { pathParams } : {}),
       auth: finalAuth,
       body,
       ...(settings !== undefined ? { settings } : {}),

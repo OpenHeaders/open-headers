@@ -131,6 +131,97 @@ describe('landSectionedCollections', () => {
     expect(report.drops).toHaveLength(1);
     expect(report.drops[0].reason).toContain('failed to write');
   });
+  it('carries the path parameter rows onto the request seed', async () => {
+    const legs = makeLegs();
+    const section = makeSection({
+      requests: [
+        {
+          folderPath: [],
+          request: {
+            ...makeRequest('Get user').request,
+            url: 'https://api.openheaders.io/v1/users/:id',
+            pathParams: [{ uid: 'pp000001', key: 'id', value: '42', description: 'The user.' }],
+          },
+        },
+      ],
+    });
+    await landSectionedCollections([section], ['My API'], legs, createReport('postman-v2.1'));
+    expect(legs.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seed: expect.objectContaining({
+          url: 'https://api.openheaders.io/v1/users/:id',
+          pathParams: [{ uid: 'pp000001', key: 'id', value: '42', description: 'The user.' }],
+        }),
+      }),
+    );
+    const seed = (legs.createRequest as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]?.seed;
+    expect(seed).not.toHaveProperty('pathParams', undefined);
+  });
+
+  it('a request without rows seeds no pathParams key', async () => {
+    const legs = makeLegs();
+    await landSectionedCollections([makeSection()], ['My API'], legs, createReport('postman-v2.1'));
+    const seed = (legs.createRequest as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]?.seed;
+    expect(seed).not.toHaveProperty('pathParams');
+  });
+
+  it('a GraphQL-typed request with valued path rows converts with them written into the URL', async () => {
+    const createGraphqlRequest = vi.fn(async () => ({ uid: 'gql-1' }));
+    const legs = makeLegs({ createGraphqlRequest });
+    const report = createReport('bruno');
+    const section = makeSection({
+      requests: [
+        {
+          folderPath: [],
+          kind: 'graphql',
+          request: {
+            ...makeRequest('Viewer').request,
+            method: 'POST',
+            url: 'https://api.openheaders.io/:tenant/graphql',
+            pathParams: [{ uid: 'pp000001', key: 'tenant', value: 'acme' }],
+            body: { type: 'graphql', content: 'query { viewer { id } }' },
+          },
+        },
+      ],
+    });
+    const landed = await landSectionedCollections([section], ['GQL'], legs, report);
+    expect(landed.requestsImported).toBe(1);
+    expect(createGraphqlRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ seed: expect.objectContaining({ url: 'https://api.openheaders.io/acme/graphql' }) }),
+    );
+    expect(legs.createRequest).not.toHaveBeenCalled();
+    expect(report.transforms).toEqual([]);
+  });
+
+  it('a GraphQL-typed request with an empty path row lands as HTTP, the reason naming the key', async () => {
+    const createGraphqlRequest = vi.fn(async () => ({ uid: 'gql-1' }));
+    const legs = makeLegs({ createGraphqlRequest });
+    const report = createReport('bruno');
+    const section = makeSection({
+      requests: [
+        {
+          folderPath: [],
+          kind: 'graphql',
+          request: {
+            ...makeRequest('Viewer').request,
+            method: 'POST',
+            url: 'https://api.openheaders.io/:tenant/graphql',
+            pathParams: [{ uid: 'pp000001', key: 'tenant', value: '' }],
+            body: { type: 'graphql', content: 'query { viewer { id } }' },
+          },
+        },
+      ],
+    });
+    await landSectionedCollections([section], ['GQL'], legs, report);
+    expect(createGraphqlRequest).not.toHaveBeenCalled();
+    expect(legs.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seed: expect.objectContaining({ pathParams: [{ uid: 'pp000001', key: 'tenant', value: '' }] }),
+      }),
+    );
+    expect(report.transforms[0]?.reason).toContain(':tenant');
+  });
+
   it('lands a GraphQL-typed request as a GraphqlRequest through the reverse bridge when the leg exists', async () => {
     const createGraphqlRequest = vi.fn(async () => ({ uid: 'gql-1' }));
     const legs = makeLegs({ createGraphqlRequest });

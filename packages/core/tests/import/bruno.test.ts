@@ -121,7 +121,7 @@ query {
     expect(stripUids(parseBruno(content).requests[0]!.request.params)).toEqual([{ key: 'page', value: '3' }]);
   });
 
-  it('substitutes params:path into :placeholders', () => {
+  it('keeps :name segments and reads params:path as the path parameter rows — no note', () => {
     const content = `get {
   url: https://api.openheaders.io/v1/users/:userId/posts
 }
@@ -130,7 +130,52 @@ params:path {
   userId: 42
 }
 `;
-    expect(parseBruno(content).requests[0]!.request.url).toBe('https://api.openheaders.io/v1/users/42/posts');
+    const result = parseBruno(content);
+    expect(result.requests[0]!.request.url).toBe('https://api.openheaders.io/v1/users/:userId/posts');
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([{ key: 'userId', value: '42' }]);
+    expect(result.report.transforms).toHaveLength(0);
+    expect(result.report.drops).toHaveLength(0);
+  });
+
+  it('a disabled params:path row imports enabled with its value and a note', () => {
+    const content = `get {
+  url: https://api.openheaders.io/v1/users/:userId
+}
+
+params:path {
+  ~userId: 42
+}
+`;
+    const result = parseBruno(content);
+    expect(stripUids(result.requests[0]!.request.pathParams ?? [])).toEqual([{ key: 'userId', value: '42' }]);
+    const note = result.report.transforms.find((t) => t.to === 'imported enabled');
+    expect(note?.from).toBe('disabled path parameter :userId');
+  });
+
+  it('a :name with no params:path row mints no row — the editor derives it from the URL', () => {
+    const content = `get {
+  url: https://api.openheaders.io/v1/users/:userId
+}
+`;
+    const result = parseBruno(content);
+    expect(result.requests[0]!.request.url).toBe('https://api.openheaders.io/v1/users/:userId');
+    expect(result.requests[0]!.request.pathParams).toBeUndefined();
+  });
+
+  it("an OData Set(':key') form is no parameter — a params:path row naming it drops with a note", () => {
+    const content = `get {
+  url: https://api.openheaders.io/odata/Set(':key')
+}
+
+params:path {
+  key: 7
+}
+`;
+    const result = parseBruno(content);
+    expect(result.requests[0]!.request.url).toBe("https://api.openheaders.io/odata/Set(':key')");
+    expect(result.requests[0]!.request.pathParams).toBeUndefined();
+    const drop = result.report.drops.find((d) => d.names?.includes('key'));
+    expect(drop?.reason).toContain('not named by the URL');
   });
 
   it('keeps {{var}} template references verbatim', () => {

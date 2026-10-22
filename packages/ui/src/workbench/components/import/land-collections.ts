@@ -29,8 +29,8 @@ export interface SectionedCollection {
   /** Collection-level default auth (Postman backups and OpenAPI
    *  documents carry it). */
   auth?: AuthConfig;
-  /** Collection variables (OpenAPI: `{{baseUrl}}` + valued path
-   *  parameters — load-bearing, every imported URL references them). */
+  /** Collection variables (OpenAPI: `{{baseUrl}}` — load-bearing,
+   *  every imported URL references it). */
   variables?: Array<{ name: string; value: string; type: 'default' | 'secret' }>;
   folders: Array<{ path: string[]; preRequestScript?: string; postResponseScript?: string; auth?: AuthConfig }>;
   /** `kind: 'graphql'` marks a source that distinguishes GraphQL
@@ -175,6 +175,7 @@ export async function landSectionedCollections(
         url: request.url,
         headers: request.headers,
         params: request.params,
+        ...(request.pathParams !== undefined ? { pathParams: request.pathParams } : {}),
         auth: request.auth,
         body: request.body,
       };
@@ -217,6 +218,7 @@ async function landGraphqlRequest(
     ? fromHttpRequest({
         url: request.url,
         params: request.params,
+        ...(request.pathParams !== undefined ? { pathParams: request.pathParams } : {}),
         headers: request.headers,
         auth: request.auth,
         body: request.body,

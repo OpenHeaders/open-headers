@@ -12,8 +12,10 @@
  *     → `CurlRequest` shape for unified downstream handling with
  *     curl + HAR imports.
  *   • URL — string form passed through; object form collapsed to its
- *     `raw` field (Postman's documented canonical form) and query +
- *     path-variable arrays folded back into the URL string.
+ *     `raw` field (Postman's documented canonical form) with the query
+ *     array folded back into the URL string; `:name` segments stay and
+ *     `url.variable[]` (the vendor's path variables) becomes the
+ *     request's Path Parameters rows (`./url`).
  *   • Auth — `basic` / `bearer` / `apikey` (header + query) promoted
  *     to first-class auth types; `oauth2` maps onto the first-class
  *     oauth2 config for the shipped flows (authorization-code ± PKCE /

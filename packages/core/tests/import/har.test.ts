@@ -57,6 +57,14 @@ describe('parseHar — method + URL', () => {
     expect(entries[0].request.url).toBe('https://api.openheaders.io/v1/ping');
   });
 
+  it('a :name segment survives verbatim with no row — a parameter by the grammar law, derived in the editor', () => {
+    const { entries } = parseHar(
+      harFile([harEntry({ method: 'GET', url: 'https://api.openheaders.io/users/:id', headers: [], queryString: [] })]),
+    );
+    expect(entries[0].request.url).toBe('https://api.openheaders.io/users/:id');
+    expect(entries[0].request.pathParams).toBeUndefined();
+  });
+
   it('normalizes method casing', () => {
     const { entries } = parseHar(
       harFile([harEntry({ method: 'post', url: 'https://api.openheaders.io', headers: [] })]),

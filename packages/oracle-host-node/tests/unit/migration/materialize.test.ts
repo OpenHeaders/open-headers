@@ -254,6 +254,55 @@ describe('materializePostmanPull', () => {
     expect(fallback?.request.url).toBe('https://api.openheaders.io/charges');
   });
 
+  it('lands path parameter rows on the request and on its examples — the URL keeps :name', async () => {
+    const pathJson = JSON.stringify({
+      info: { name: 'Paths', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+      item: [
+        {
+          name: 'Get charge',
+          request: {
+            method: 'GET',
+            url: {
+              raw: 'https://api.openheaders.io/charges/:id',
+              variable: [{ key: 'id', value: 'ch_1', description: 'The charge.' }],
+            },
+          },
+          response: [
+            {
+              name: 'Found',
+              originalRequest: {
+                method: 'GET',
+                url: { raw: 'https://api.openheaders.io/charges/:id', variable: [{ key: 'id', value: 'ch_9' }] },
+              },
+              status: 'OK',
+              code: 200,
+              header: [],
+              body: '{}',
+            },
+          ],
+        },
+      ],
+    });
+    const summary = await materializePostmanPull(
+      pullResult({
+        collections: [{ item: 'collection', id: 'c-p', name: 'Paths', json: pathJson, workspaceIds: ['pm-ws-1'] }],
+        environments: [],
+      }),
+      { ensureWorkspaceFor },
+    );
+
+    expect(summary.requests).toBe(1);
+    expect(summary.examples).toBe(1);
+    const [request] = snapshotRequestPostStates(wsId).map((ps) => ps.request);
+    expect(request.url).toBe('https://api.openheaders.io/charges/:id');
+    expect(request.pathParams).toMatchObject([{ key: 'id', value: 'ch_1', description: 'The charge.' }]);
+    const [example] = snapshotResponseExamplePostStates(wsId).map((ps) => ps.responseExample);
+    expect(example.request.url).toBe('https://api.openheaders.io/charges/:id');
+    expect(example.request.pathParams).toMatchObject([{ key: 'id', value: 'ch_9' }]);
+    const [report] = await readRecordedReports();
+    expect(report.transforms.filter((t) => t.path.includes('.url'))).toHaveLength(0);
+  });
+
   it('lands request scripts on the script slots — translated and verbatim-with-marker', async () => {
     const scriptedJson = JSON.stringify({
       info: { name: 'Scripted', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },

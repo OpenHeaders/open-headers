@@ -135,6 +135,36 @@ describe('example-draft projections', () => {
     expect(capturedResponseFromDraft(draft.response, withRows.response)).toEqual(withRows.response);
   });
 
+  it('roundtrips the path parameter rows — stored values ride the derived table, an emptied list is absent', () => {
+    const withPath: ResponseExample = {
+      ...example,
+      request: {
+        ...example.request,
+        url: 'https://api.openheaders.io/users/:id',
+        pathParams: [{ uid: 'pp000001', key: 'id', value: '42', description: 'The user.' }],
+      },
+    };
+    const draft = exampleToDraft(withPath);
+    expect(draft.request.pathParams.map((r) => [r.uid, r.key, r.value, r.description])).toEqual([
+      ['pp000001', 'id', '42', 'The user.'],
+    ]);
+    expect(capturedRequestFromDraft(draft.request)).toEqual(withPath.request);
+    expect(capturedRequestFromDraft(exampleToDraft(example).request)).not.toHaveProperty('pathParams');
+  });
+
+  it('a path value edit changes the fingerprint', () => {
+    const withPath: ResponseExample = {
+      ...example,
+      request: { ...example.request, url: 'https://api.openheaders.io/users/:id' },
+    };
+    const draft = exampleToDraft(withPath);
+    const edited = {
+      ...draft,
+      request: { ...draft.request, pathParams: draft.request.pathParams.map((r) => ({ ...r, value: '7' })) },
+    };
+    expect(exampleDraftFingerprint(edited)).not.toBe(exampleDraftFingerprint(draft));
+  });
+
   it('keeps the fingerprint stable across populates despite freshly-minted row uids', () => {
     expect(exampleDraftFingerprint(exampleToDraft(example))).toBe(exampleDraftFingerprint(exampleToDraft(example)));
     expect(exampleSignature(example)).toBe(exampleDraftFingerprint(exampleToDraft(example)));

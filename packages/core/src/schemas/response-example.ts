@@ -18,7 +18,7 @@
 
 import * as v from 'valibot';
 import { PathSegmentSchema, RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
-import { HttpMethodSchema, QueryParamSchema, RequestBodySchema, RequestHeaderSchema } from './request';
+import { HttpMethodSchema, PathParamSchema, QueryParamSchema, RequestBodySchema, RequestHeaderSchema } from './request';
 
 /** Request shape as sent — authored values, variable refs unresolved. */
 export const CapturedRequestSchema = v.object({
@@ -26,6 +26,10 @@ export const CapturedRequestSchema = v.object({
   url: v.string(),
   headers: v.array(RequestHeaderSchema),
   params: v.array(QueryParamSchema),
+  /** The request's Path Parameters rows as authored — see
+   *  {@link PathParamSchema}. Absent = none (an older capture, or a
+   *  URL naming no `:name` segment). */
+  pathParams: v.optional(v.array(PathParamSchema)),
   body: RequestBodySchema,
 });
 

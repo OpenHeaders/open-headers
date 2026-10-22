@@ -103,10 +103,13 @@ function capturedRequestOf(
   }
   const method = coerceMethod(orig.method, entryPath, report);
   const headers = buildHeaders(orig.header ?? [], entryPath, report);
-  const fullUrl = buildUrl(orig.url, entryPath, report);
+  const { url: fullUrl, pathParams } = buildUrl(orig.url, entryPath, report);
   const body = buildBody(orig.body, headers, entryPath, report);
   const { base, params } = splitUrl(fullUrl);
-  return { request: { method, url: base, headers, params, body }, fullUrl };
+  return {
+    request: { method, url: base, headers, params, ...(pathParams.length > 0 ? { pathParams } : {}), body },
+    fullUrl,
+  };
 }
 
 function responseHeadersOf(

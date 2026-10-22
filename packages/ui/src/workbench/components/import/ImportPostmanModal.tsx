@@ -319,6 +319,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
           url: request.url,
           headers: request.headers,
           params: request.params,
+          ...(request.pathParams !== undefined ? { pathParams: request.pathParams } : {}),
           auth: request.auth,
           body: request.body,
         };

@@ -1,5 +1,6 @@
 import { parse as parseYaml } from 'yaml';
-import type { AuthConfig, QueryParam, RequestHeader } from '../../types/request';
+import type { AuthConfig, PathParam, QueryParam, RequestHeader } from '../../types/request';
+import { parsePathParamNames } from '../../utils/url';
 import { generateUid } from '../../utils/workspace';
 import type { CurlRequest } from '../curl';
 import { isRecord } from '../data-scan/json';
@@ -36,8 +37,9 @@ export const SCHEMA_ONLY_RESPONSES_DROP_PATH = 'paths[operations with schema-onl
  * Parse an OpenAPI 3.x document (JSON or YAML) into one collection of
  * requests: `servers[0]` becomes the `{{baseUrl}}` collection
  * variable, `paths` × operations become requests, first tags become
- * folders, and path templating (`{id}`) rewrites to `{{id}}` template
- * references. Bodies import per media type (`body.ts`), security
+ * folders, and path templating (`{id}`) rewrites to the `:id` path
+ * parameter segment with its `in: path` declaration as the request's
+ * row. Bodies import per media type (`body.ts`), security
  * schemes map onto AuthConfig arms with document-level security
  * landing as the collection's default auth (`security.ts`), and
  * documented responses mint Response Example payloads under
@@ -398,20 +400,22 @@ function convertOperation(
     });
   }
 
-  // Path templating: `{id}` → `{{id}}` template references.
-  const templated = pathKey.replace(/\{([^{}]+)\}/g, '{{$1}}');
+  // Path templating: `{id}` → the `:id` path parameter segment — the
+  // one seam where the spec's grammar becomes the URL bar's.
+  const templated = pathKey.replace(/\{([^{}]+)\}/g, ':$1');
   if (templated !== pathKey) {
     recordTransform(report, {
       path: `${jsonPath}.url`,
       from: `path template ${pathKey}`,
       to: templated,
-      reason: 'OpenAPI path parameters became variable references — values resolve from collection variables.',
+      reason: 'OpenAPI path templates became path parameters — their values live on the request, under Params.',
     });
   }
 
   const merged = mergeParameters(pathParameters, readParameters(op.parameters, `${jsonPath}.parameters`, assembly));
   const params: QueryParam[] = [];
   const headers: RequestHeader[] = [];
+  const pathDeclarations = new Map<string, OpenApiParameter>();
   for (const param of merged) {
     const paramName = param.name as string;
     const value = exampleValue(param, resolver);
@@ -426,17 +430,7 @@ function convertOperation(
     };
     switch (param.in) {
       case 'path':
-        // The row itself lives in the URL; a valued parameter seeds a
-        // collection variable (first declaration wins) so the template
-        // reference resolves out of the box.
-        if (value !== '' && !assembly.variables.has(paramName)) {
-          assembly.variables.set(paramName, {
-            name: paramName,
-            value,
-            type: 'default',
-            ...(rowDescription !== undefined ? { description: rowDescription } : {}),
-          });
-        }
+        pathDeclarations.set(paramName, param);
         break;
       case 'query':
         params.push(row);
@@ -454,6 +448,8 @@ function convertOperation(
         });
     }
   }
+
+  const pathParams = buildPathParams(templated, pathDeclarations, `${jsonPath}.parameters`, assembly);
 
   let body: CurlRequest['body'] = { type: 'none' };
   const requestBody = resolver.resolve(op.requestBody);
@@ -505,6 +501,7 @@ function convertOperation(
     url: `${base}${templated}`,
     headers,
     params,
+    ...(pathParams.length > 0 ? { pathParams } : {}),
     auth,
     body,
   };
@@ -517,7 +514,7 @@ function convertOperation(
     if (assembly.options.responseExamples === true) {
       const read = buildResponseExamples(
         op.responses,
-        { method, url: request.url, headers, params, body },
+        { method, url: request.url, headers, params, ...(pathParams.length > 0 ? { pathParams } : {}), body },
         request.url,
         jsonPath,
         resolver,
@@ -531,6 +528,94 @@ function convertOperation(
     }
   }
   assembly.requests.push(parsed);
+}
+
+/**
+ * The Path Parameters rows: one per distinct `:name` the templated
+ * path names, in path order (the URL owns the key set), each filled
+ * from its `in: path` declaration — example / default / first enum
+ * as the value (empty when the declaration carries none; the gate
+ * names it on first send), the description carried. The spec pins
+ * `required: true`, so a `false` imports as a row anyway, noted; a
+ * non-simple `style`, `explode: true` or an array / object schema is
+ * noted — the value sends as one percent-encoded segment. A template
+ * no declaration describes gets an empty row and a note; a
+ * declaration no template names drops with a note. A path parameter
+ * is a request field, not a variable — nothing seeds a collection
+ * variable.
+ */
+function buildPathParams(
+  templated: string,
+  declarations: Map<string, OpenApiParameter>,
+  jsonPath: string,
+  assembly: Assembly,
+): PathParam[] {
+  const { report, resolver } = assembly;
+  const rows: PathParam[] = [];
+  for (const { name } of parsePathParamNames(templated)) {
+    const declaration = declarations.get(name);
+    if (declaration === undefined) {
+      recordTransform(report, {
+        path: jsonPath,
+        from: `path template {${name}} without a declaration`,
+        to: `path parameter :${name} with an empty value`,
+        reason: `The path names {${name}} but no \`in: path\` parameter declares it — set the value under Params before sending.`,
+      });
+      rows.push({ uid: generateUid(), key: name, value: '' });
+      continue;
+    }
+    declarations.delete(name);
+    const description =
+      typeof declaration.description === 'string' && declaration.description !== ''
+        ? declaration.description
+        : undefined;
+    rows.push({
+      uid: generateUid(),
+      key: name,
+      value: exampleValue(declaration, resolver),
+      ...(description !== undefined ? { description } : {}),
+    });
+    if (declaration.required !== true) {
+      recordTransform(report, {
+        path: jsonPath,
+        from: `path parameter "${name}" with required: ${String(declaration.required)}`,
+        to: 'always sent',
+        reason:
+          'A path parameter is always required (the spec pins `required: true`) — the row imported; it is sent with every request.',
+      });
+    }
+    const serialization = unsupportedSerialization(declaration, resolver);
+    if (serialization !== undefined) {
+      recordTransform(report, {
+        path: jsonPath,
+        from: `path parameter "${name}" with ${serialization}`,
+        to: 'one plain text value',
+        reason:
+          'Path parameters send one percent-encoded segment — the serialization style is not applied; edit the value under Params if the server expects another form.',
+      });
+    }
+  }
+  for (const name of declarations.keys()) {
+    recordDrop(report, {
+      path: jsonPath,
+      reason: `Path parameter "${name}" is not named by the path template — nothing to substitute; dropped.`,
+      names: [name],
+    });
+  }
+  return rows;
+}
+
+/** Names the serialization the row cannot honour, or undefined for
+ *  the default (`style: simple`, no explode, a scalar schema). */
+function unsupportedSerialization(param: OpenApiParameter, resolver: RefResolver): string | undefined {
+  const facts: string[] = [];
+  if (typeof param.style === 'string' && param.style !== 'simple') facts.push(`style: ${param.style}`);
+  if (param.explode === true) facts.push('explode: true');
+  const schema = resolver.resolve(param.schema);
+  if (schema.ok && isRecord(schema.value) && (schema.value.type === 'array' || schema.value.type === 'object')) {
+    facts.push(`${schema.value.type === 'array' ? 'an array' : 'an object'} schema`);
+  }
+  return facts.length > 0 ? facts.join(', ') : undefined;
 }
 
 function hasResponseContent(responses: Record<string, unknown>, resolver: RefResolver): boolean {

@@ -1,4 +1,4 @@
-import type { AuthConfig, HttpMethod, QueryParam, RequestBody, RequestHeader } from '../../types/request';
+import type { AuthConfig, HttpMethod, PathParam, QueryParam, RequestBody, RequestHeader } from '../../types/request';
 import type { ImportReport } from '../report';
 
 /**
@@ -28,6 +28,14 @@ export interface CurlRequest {
   url: string;
   headers: RequestHeader[];
   params: QueryParam[];
+  /**
+   * Path parameter rows the source declared for the `:name` segments
+   * of `url` — values and descriptions by key, only for names the URL
+   * names. Absent when the source declared none (curl / HAR carry no
+   * path concept; a bare `:name` segment is still a parameter by the
+   * grammar law, and the editor derives its empty row from the URL).
+   */
+  pathParams?: PathParam[];
   auth: AuthConfig;
   body: RequestBody;
   /**

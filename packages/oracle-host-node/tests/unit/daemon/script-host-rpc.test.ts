@@ -168,6 +168,7 @@ describe('handleScriptHostRequest — sendRequest', () => {
         url: 'https://api.openheaders.io/logo',
         headers: [],
         params: [],
+        pathParams: [],
         body: { type: 'none' },
       },
     } as ScriptHostRequest;

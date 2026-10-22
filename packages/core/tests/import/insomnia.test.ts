@@ -37,6 +37,17 @@ function v4Request(overrides: Record<string, unknown> = {}): Record<string, unkn
   };
 }
 
+// ── Path parameters ────────────────────────────────────────────────
+
+describe('parseInsomnia — a :name segment', () => {
+  it('survives verbatim with no row — a parameter by the grammar law, derived in the editor', () => {
+    const result = parseInsomnia(v4Export([WORKSPACE, v4Request({ url: 'https://api.openheaders.io/users/:id' })]));
+    const request = result.collections[0]!.requests[0]!.request;
+    expect(request.url).toBe('https://api.openheaders.io/users/:id');
+    expect(request.pathParams).toBeUndefined();
+  });
+});
+
 // ── Top-level errors ───────────────────────────────────────────────
 
 describe('parseInsomnia — top-level errors', () => {
