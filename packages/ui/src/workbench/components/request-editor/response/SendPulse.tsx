@@ -1,7 +1,16 @@
 /**
- * SendPulse — the response pane's leading edge lit by the send: a
- * looping primary sweep while the exchange is in flight; on settle the
- * sweep dissolves into a full line in the status pill's tone that fades.
+ * SendPulse — a result pane's leading edge lit by the exchange: a
+ * looping primary sweep while it is in flight; when it lands somewhere
+ * new the sweep dissolves into a full line in that state's tone that
+ * fades. Flight that ends back on the same state (a publish on an open
+ * session) plays no line — the sweep finishes the pass it is on and
+ * goes dark.
+ *
+ * `SendPulseBar` is the bar itself, driven by two facts any protocol
+ * can state — in flight or not, and the tone of what it rests on. The
+ * default export is the HTTP/GraphQL reading of those facts off the
+ * send flag and the settled snapshot; the session editors derive
+ * theirs from their live feed and settled snapshot.
  */
 
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
@@ -11,42 +20,59 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import type { GraphqlResponseFacts } from './graphql-response';
 import { type PillTone, toneHue } from './response-status';
-import { type SendPulsePhase, sendPulseTone } from './send-pulse';
+import { type SendPulseDrive, type SendPulsePhase, sendPulseTone } from './send-pulse';
 import './send-pulse.css';
 
-export function useSendPulse(
-  sending: boolean,
-  response: ExecutedRequestSnapshot | null,
-  graphql?: GraphqlResponseFacts | null,
-): { phase: SendPulsePhase; tone: PillTone | null; finish: () => void } {
-  const [settled, setSettled] = useState<PillTone | null>(null);
-  const awaitingRef = useRef(false);
+export type SendPulseAxis = 'x' | 'y';
 
-  useEffect(() => {
-    if (sending) {
-      awaitingRef.current = true;
-      setSettled(null);
-      return;
-    }
-    if (!awaitingRef.current || response === null) return;
-    awaitingRef.current = false;
-    setSettled(sendPulseTone(response, graphql));
-  }, [sending, response, graphql]);
-
-  const finish = useCallback(() => setSettled(null), []);
-  return { phase: sending ? 'inflight' : settled === null ? 'idle' : 'settled', tone: settled, finish };
+/** Under reduced motion the sweep is a still bar — there is no pass
+ *  to finish. */
+function reducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 }
 
-const SendPulse: React.FC<{
-  sending: boolean;
-  response: ExecutedRequestSnapshot | null;
-  layout: RequestEditorLayout;
-  graphql?: GraphqlResponseFacts | null;
-}> = ({ sending, response, layout, graphql }) => {
+/** The bar's phase off the drive: in flight clears any line; a landing
+ *  that differs from the last one plays the line once (the state the
+ *  bar mounts on never plays — a pane restored with its last answer
+ *  stays dark). Flight that ends with no line to play holds the sweep
+ *  until its current pass ends, so a near-instant exchange still reads
+ *  as one whole sweep. */
+export function useSendPulse(
+  inflight: boolean,
+  landing: PillTone | null,
+): { phase: SendPulsePhase; tone: PillTone | null; finish: () => void; passEnd: () => void } {
+  const [settled, setSettled] = useState<PillTone | null>(null);
+  const [passOwed, setPassOwed] = useState(false);
+  const lastLandingRef = useRef(landing);
+  const inflightRef = useRef(inflight);
+  inflightRef.current = inflight;
+
+  useEffect(() => {
+    const last = lastLandingRef.current;
+    lastLandingRef.current = landing;
+    if (inflight) {
+      setSettled(null);
+      setPassOwed(!reducedMotion());
+      return;
+    }
+    if (landing === null || landing === last) return;
+    setSettled(landing);
+    setPassOwed(false);
+  }, [inflight, landing]);
+
+  const finish = useCallback(() => setSettled(null), []);
+  const passEnd = useCallback(() => {
+    if (!inflightRef.current) setPassOwed(false);
+  }, []);
+  const phase: SendPulsePhase =
+    inflight || (settled === null && passOwed) ? 'inflight' : settled === null ? 'idle' : 'settled';
+  return { phase, tone: settled, finish, passEnd };
+}
+
+export const SendPulseBar: React.FC<SendPulseDrive & { axis: SendPulseAxis }> = ({ inflight, landing, axis }) => {
   const { token } = theme.useToken();
-  const { phase, tone, finish } = useSendPulse(sending, response, graphql);
+  const { phase, tone, finish, passEnd } = useSendPulse(inflight, landing);
   if (phase === 'idle') return null;
-  const axis = layout === 'vertical' ? 'x' : 'y';
   const lineColor = tone === null || tone === 'neutral' ? token.colorTextTertiary : toneHue(token, tone);
   return (
     <div
@@ -57,6 +83,7 @@ const SendPulse: React.FC<{
       data-tone={tone ?? undefined}
       aria-hidden="true"
       onAnimationEnd={finish}
+      onAnimationIteration={passEnd}
     >
       <span
         className="oh-send-pulse-sweep"
@@ -68,5 +95,18 @@ const SendPulse: React.FC<{
     </div>
   );
 };
+
+const SendPulse: React.FC<{
+  sending: boolean;
+  response: ExecutedRequestSnapshot | null;
+  layout: RequestEditorLayout;
+  graphql?: GraphqlResponseFacts | null;
+}> = ({ sending, response, layout, graphql }) => (
+  <SendPulseBar
+    inflight={sending}
+    landing={response === null ? null : sendPulseTone(response, graphql)}
+    axis={layout === 'vertical' ? 'x' : 'y'}
+  />
+);
 
 export default SendPulse;

@@ -6,8 +6,10 @@
  */
 
 import { MQTT_CONNACK_RETURN_CODE_NAMES, mqttReasonCodeName } from '@openheaders/core/mqtt';
+import type { ExecutedMqttSnapshot } from '@openheaders/core/types';
 import type { MessageKey } from '@openheaders/i18n';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
+import type { PillTone } from '../request-editor/response/response-status';
 
 /** CONNACK reason name — the version scopes which numeric space names
  *  the verbatim code. On a 5.0 session a non-zero code BELOW 0x80 is a
@@ -102,4 +104,20 @@ export function grantFailureLabel(reasonCode: number, t: Translate): string | nu
   return name !== undefined
     ? t('workbench.editors.mqtt.timeline.grantFailedNamed', { name, code: reasonCode })
     : t('workbench.editors.mqtt.timeline.grantFailed', { code: reasonCode });
+}
+
+/** The end pill's tone for a settled session — the one reading the
+ *  pill and the pane's send pulse both paint: a pre-open failure, the
+ *  severed socket, the clean client Disconnect and a spent or refused
+ *  reconnect loop on the error tint; a broker DISCONNECT and Stop on
+ *  the warning tint; a user abort before the session opened neutral. */
+export function sessionEndTone(
+  snapshot: Pick<ExecutedMqttSnapshot, 'outcome' | 'end' | 'stopped' | 'reconnectRefused' | 'reconnectExhausted'>,
+): PillTone {
+  if (snapshot.reconnectRefused !== undefined || snapshot.reconnectExhausted !== undefined) return 'error';
+  if (snapshot.outcome.kind === 'aborted') return 'neutral';
+  if (snapshot.outcome.kind === 'failed') return 'error';
+  if (snapshot.stopped === true) return 'warning';
+  if (snapshot.end === null) return 'error';
+  return snapshot.end.by === 'client' ? 'error' : 'warning';
 }

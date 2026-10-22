@@ -33,6 +33,7 @@ import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-edit
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import SentAsWrittenTag, { sentAsWrittenHasBadge } from '../request-editor/response/SentAsWrittenTag';
 import { useTonePillStyle } from '../request-editor/response/response-status';
+import { SendPulseBar } from '../request-editor/response/SendPulse';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
@@ -40,6 +41,7 @@ import MqttMessageTimeline from './MqttMessageTimeline';
 import MqttScriptsTag from './MqttScriptsTag';
 import MqttScriptsView from './MqttScriptsView';
 import { digestFromMarks, digestFromRecord, scriptMarksOf } from './mqtt-scripts';
+import { mqttSessionPulse } from './mqtt-session-pulse';
 import {
   isReconnectItem,
   type MqttTimelineItem,
@@ -52,6 +54,7 @@ import {
   reconnectLoopEndTagKey,
   sessionEndedKind,
   sessionEndedMessage,
+  sessionEndTone,
 } from './session-display';
 import type { LiveMqttSession, MqttSessionTiming } from './useLiveMqttSession';
 
@@ -60,6 +63,8 @@ const { Text } = Typography;
 interface MqttSessionPaneProps {
   /** Non-null while the session is open. */
   live: LiveMqttSession | null;
+  /** A publish rider is out on the open session — the bar sweeps once. */
+  publishing?: boolean;
   /** Non-null once the session settled. */
   snapshot: ExecutedMqttSnapshot | null;
   /** Session-only timing captured at materialization. */
@@ -87,6 +92,7 @@ interface MqttSessionPaneProps {
 
 const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
   live,
+  publishing = false,
   snapshot,
   timing,
   protocolVersion,
@@ -223,21 +229,18 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     };
   }, [snapshot, live, timing, connackFacts, endedMessage]);
 
-  // End pill honesty: a pre-open failure reads as Connect failed on
-  // the error tint; the clean client Disconnect wears the ended pill's error tint (the WebSocket pane's picture);
-  // a broker DISCONNECT renders on the warning tint with its verbatim
-  // reason; a severed connection is named as the absence it is;
-  // Stopped is its own state; a reconnect the broker refused, or a
-  // spent attempt cap, ended the auto-reconnect loop — their own
-  // error-tint states.
-  const errorPill = useTonePillStyle('error');
-  const warningPill = useTonePillStyle('warning');
-  const neutralPill = useTonePillStyle('neutral');
+  // End pill honesty: a pre-open failure reads as Connect failed, the
+  // clean client Disconnect wears the ended tint (the WebSocket pane's
+  // picture), a broker DISCONNECT its verbatim reason, a severed
+  // connection the absence it is, Stopped its own state, a reconnect
+  // the broker refused or a spent attempt cap the loop's end. The tint
+  // is `sessionEndTone` — the one reading the send pulse paints too.
+  const endPill = useTonePillStyle(snapshot === null ? 'neutral' : sessionEndTone(snapshot));
   const endTag = (() => {
     if (snapshot === null) return null;
     if (snapshot.reconnectRefused !== undefined || snapshot.reconnectExhausted !== undefined) {
       return (
-        <Tag color="default" style={errorPill} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={endPill} data-testid="mqtt-session-end-tag">
           {t(reconnectLoopEndTagKey(snapshot))}
         </Tag>
       );
@@ -245,28 +248,28 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     // A user abort pills neutrally — Connect failed is for failures.
     if (snapshot.outcome.kind === 'aborted') {
       return (
-        <Tag color="default" style={neutralPill} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={endPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.abortedTag')}
         </Tag>
       );
     }
     if (snapshot.outcome.kind === 'failed') {
       return (
-        <Tag color="default" style={errorPill} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={endPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.connectFailedTag')}
         </Tag>
       );
     }
     if (snapshot.stopped === true) {
       return (
-        <Tag color="default" style={warningPill} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={endPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.stoppedTag')}
         </Tag>
       );
     }
     if (snapshot.end === null) {
       return (
-        <Tag color="default" style={errorPill} data-testid="mqtt-session-end-tag">
+        <Tag color="default" style={endPill} data-testid="mqtt-session-end-tag">
           {t('workbench.editors.mqtt.session.severedTag')}
         </Tag>
       );
@@ -274,7 +277,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
     return (
       <Tag
         color="default"
-        style={snapshot.end.by === 'client' ? errorPill : warningPill}
+        style={endPill}
         data-testid="mqtt-session-end-tag"
       >
         {snapshot.end.by === 'client'
@@ -489,9 +492,11 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
         minHeight: 0,
         minWidth: 0,
         background: token.colorBgContainer,
+        position: 'relative',
       }}
       data-testid="mqtt-session-pane"
     >
+      <SendPulseBar {...mqttSessionPulse(live, snapshot, reconnecting, publishing)} axis="x" />
       {noticeStrip}
       <Tabs
         activeKey={shownTab}

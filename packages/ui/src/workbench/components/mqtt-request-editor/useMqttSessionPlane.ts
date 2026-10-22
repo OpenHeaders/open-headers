@@ -91,6 +91,10 @@ export interface MqttSessionPlane {
   timing: MqttSessionTiming | null;
   /** The open session's live feed; null outside one. */
   live: LiveMqttSession | null;
+  /** A publish rider is out on the open session (the compose Send's
+   *  answer waits on the Before publish hook and, for QoS 1/2, the
+   *  broker's ack flow). */
+  publishing: boolean;
   /** Per-knob honesty notice for a page-realm session; null = none. */
   hostNotice: string | null;
   /** Honest gate copy for a disabled Connect; null = enabled. */
@@ -149,6 +153,7 @@ export function useMqttSessionPlane({
   const [snapshot, setSnapshot] = useState<ExecutedMqttSnapshot | null>(null);
   const [timing, setTiming] = useState<MqttSessionTiming | null>(null);
   const [hostNotice, setHostNotice] = useState<string | null>(null);
+  const [publishesOut, setPublishesOut] = useState(0);
   const activeSendIdRef = useRef<string | null>(null);
   /** The user's Disconnect/Cancel click instant — the aborted row's
    *  honest time (the teardown itself rides the end frame's stamp). */
@@ -331,7 +336,11 @@ export function useMqttSessionPlane({
     async (message: MqttPublishWire) => {
       const sendId = activeSendIdRef.current;
       if (!sendId) return;
-      const result = await hostBridge.call('publishMqttMessage', { sendId, message }).catch(() => null);
+      setPublishesOut((n) => n + 1);
+      const result = await hostBridge
+        .call('publishMqttMessage', { sendId, message })
+        .catch(() => null)
+        .finally(() => setPublishesOut((n) => n - 1));
       if (result === null || !result.success) {
         toast.error(result?.error ?? t('workbench.editors.mqtt.session.sendFailed'));
       }
@@ -446,6 +455,7 @@ export function useMqttSessionPlane({
     snapshot,
     timing,
     live: liveSession.live,
+    publishing: publishesOut > 0,
     hostNotice,
     connectDisabledReason,
     executionPlace,
