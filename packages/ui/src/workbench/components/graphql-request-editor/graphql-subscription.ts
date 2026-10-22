@@ -20,7 +20,10 @@ import {
 import type { ExecutedWsSnapshot } from '@openheaders/core/types';
 import { decodeBase64Bytes } from '@openheaders/core/utils';
 import { useMemo, useRef } from 'react';
-import type { LiveWsSession } from '../websocket-request-editor/useLiveWsSession';
+import type { PillTone } from '../request-editor/response/response-status';
+import type { SendPulseDrive } from '../request-editor/response/send-pulse';
+import type { LiveWsSession, WsSessionTiming } from '../websocket-request-editor/useLiveWsSession';
+import { wsSessionEndTone } from '../websocket-request-editor/ws-lifecycle';
 
 interface LiveAccumulator {
   /** The append-only log the running state was reduced over. */
@@ -93,4 +96,60 @@ export function useGraphqlSubscriptionState(
   acc.state = state;
   liveRef.current = acc;
   return state;
+}
+
+/** The subscription's own tone — the phase tag's, and what the pane's
+ *  send pulse paints: the server's `error` or its own Close on the
+ *  error tint, the client's Stop neutral, a live subscription on the
+ *  info tint (the gRPC STREAMING badge's), one the server completed
+ *  on success; neutral before any of that. */
+export function graphqlSubscriptionTone(state: GraphqlWsClientState): PillTone {
+  if (state.phase === 'errored' || (state.phase === 'closed' && state.close !== null)) return 'error';
+  if (state.stopped) return 'neutral';
+  return state.phase === 'subscribed' ? 'info' : state.phase === 'completed' ? 'success' : 'neutral';
+}
+
+/** The socket pill's tone under a subscription: the executor closes
+ *  the socket itself after the server's `complete` or `error` and
+ *  after a Stop, so a connected session whose Close is on record
+ *  reads neutral unless the SERVER closed it before the protocol
+ *  ended (the 4xxx codes); a handshake that never settled, a cancel
+ *  before it and a severed socket keep the socket's own reading. */
+export function graphqlSubscriptionEndTone(
+  state: GraphqlWsClientState,
+  snapshot: ExecutedWsSnapshot,
+  timing: Pick<WsSessionTiming, 'closeRequestedAt'> | null,
+): PillTone {
+  if (snapshot.outcome.kind !== 'connected' || snapshot.close === null) return wsSessionEndTone(snapshot, timing);
+  return state.phase === 'closed' ? 'error' : 'neutral';
+}
+
+/** The pane's send-pulse drive under a subscription: in flight until
+ *  the server acknowledges the subscription (dial, init, ack), then
+ *  resting on the subscription's own tone — the server's `complete`
+ *  or `error` lands while the socket is still open, and the settle
+ *  that follows keeps that landing, so the end plays once. Where the
+ *  protocol never got to speak (a handshake that failed, a cancel
+ *  before the ack, a socket severed mid-subscription) the socket's
+ *  own reading lands. */
+export function graphqlSubscriptionPulse(
+  state: GraphqlWsClientState,
+  live: LiveWsSession | null,
+  snapshot: ExecutedWsSnapshot | null,
+  timing: Pick<WsSessionTiming, 'closeRequestedAt'> | null,
+): SendPulseDrive {
+  if (snapshot !== null) {
+    const protocolEnded = state.phase === 'completed' || state.phase === 'errored' || state.phase === 'closed';
+    return {
+      inflight: false,
+      landing:
+        snapshot.outcome.kind === 'connected' && protocolEnded
+          ? graphqlSubscriptionTone(state)
+          : wsSessionEndTone(snapshot, timing),
+    };
+  }
+  if (live === null) return { inflight: false, landing: null };
+  return state.phase === 'idle' || state.phase === 'connecting'
+    ? { inflight: true, landing: null }
+    : { inflight: false, landing: graphqlSubscriptionTone(state) };
 }

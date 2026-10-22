@@ -30,8 +30,9 @@ import ExecutedOnTag from '../request-editor/response/ExecutedOnTag';
 import InheritedSettingsTag, { inheritedSettingsHasBadge } from '../request-editor/response/InheritedSettingsTag';
 import ProxyRouteTag, { proxyRouteHasBadge } from '../request-editor/response/ProxyRouteTag';
 import SentAsWrittenTag, { sentAsWrittenHasBadge } from '../request-editor/response/SentAsWrittenTag';
-import { useTonePillStyle } from '../request-editor/response/response-status';
+import { type PillTone, useTonePillStyle } from '../request-editor/response/response-status';
 import { SendPulseBar } from '../request-editor/response/SendPulse';
+import type { SendPulseDrive } from '../request-editor/response/send-pulse';
 import TrustCertificateOffer from '../request-editor/response/TrustCertificateOffer';
 import ConnectionDetailsTooltip, { type ConnectionDetailsRow } from '../shared/ConnectionDetailsTooltip';
 import { ExampleChip } from '../shared/ExampleChip';
@@ -85,6 +86,13 @@ interface WsSessionPaneProps {
   /** The pane's title — the WebSocket editor's "Response" unless the
    *  mounting editor names its own (a GraphQL subscription). */
   title?: string;
+  /** A protocol riding the session drives the pulse itself (a GraphQL
+   *  subscription lands on its own acknowledgement and ends on its own
+   *  tone); absent, the socket's lifecycle drives it. */
+  pulse?: SendPulseDrive;
+  /** The settled socket pill's tone when the riding protocol knows
+   *  better than the socket who ended the session. */
+  endTone?: PillTone;
   /** Tags leading the meta strip in both phases — a protocol riding
    *  the session states its own facts before the socket's (a GraphQL
    *  subscription's phase and events). */
@@ -106,6 +114,8 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   onSaveMessage,
   title,
   leadingTags,
+  pulse,
+  endTone,
 }) => {
   const { token } = theme.useToken();
   const t = useT();
@@ -207,7 +217,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
   // sheet), a handshake failure Connect failed, a cancel before the
   // handshake Aborted. The tint is `wsSessionEndTone` — by whose doing
   // the end was, the one reading the send pulse paints too.
-  const endPill = useTonePillStyle(snapshot === null ? 'neutral' : wsSessionEndTone(snapshot, timing));
+  const endPill = useTonePillStyle(snapshot === null ? 'neutral' : (endTone ?? wsSessionEndTone(snapshot, timing)));
   const closeTag = (() => {
     if (snapshot === null) return null;
     if (snapshot.outcome.kind === 'aborted') {
@@ -432,7 +442,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
       data-testid="ws-session-pane"
     >
       <SendPulseBar
-        {...wsSessionPulse(live, snapshot, timing, reconnecting, sending)}
+        {...(pulse ?? wsSessionPulse(live, snapshot, timing, reconnecting, sending))}
         {...(sendFailures !== undefined ? { failures: sendFailures } : {})}
         axis="x"
       />

@@ -124,7 +124,11 @@ import GraphqlQueryTab from './GraphqlQueryTab';
 import GraphqlSchemaTab from './GraphqlSchemaTab';
 import GraphqlSpecTab from './GraphqlSpecTab';
 import GraphqlSubscriptionTags from './GraphqlSubscriptionTags';
-import { useGraphqlSubscriptionState } from './graphql-subscription';
+import {
+  graphqlSubscriptionEndTone,
+  graphqlSubscriptionPulse,
+  useGraphqlSubscriptionState,
+} from './graphql-subscription';
 import { useGraphqlSchema } from './use-graphql-schema';
 import { useGraphqlSpecBinding } from './useGraphqlSpecBinding';
 import { useGraphqlSubscriptionPlane } from './useGraphqlSubscriptionPlane';
@@ -866,6 +870,21 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
                     live={subscription.live}
                     snapshot={subscription.snapshot}
                     timing={subscription.timing}
+                    pulse={graphqlSubscriptionPulse(
+                      subscriptionState,
+                      subscription.live,
+                      subscription.snapshot,
+                      subscription.timing,
+                    )}
+                    {...(subscription.snapshot !== null
+                      ? {
+                          endTone: graphqlSubscriptionEndTone(
+                            subscriptionState,
+                            subscription.snapshot,
+                            subscription.timing,
+                          ),
+                        }
+                      : {})}
                     hostNotice={subscription.hostNotice}
                     flavor="raw"
                     title={t('workbench.editors.graphql.subscription.paneTitle')}

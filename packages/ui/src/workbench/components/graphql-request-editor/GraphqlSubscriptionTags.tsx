@@ -18,6 +18,7 @@ import { useMemo } from 'react';
 import { type GraphqlResponseFacts, graphqlEnvelopeFacts } from '../request-editor/response/graphql-response';
 import { GraphqlErrorList } from '../request-editor/response/GraphqlResponseTags';
 import { useTonePillStyle } from '../request-editor/response/response-status';
+import { graphqlSubscriptionTone } from './graphql-subscription';
 
 const CLOSE_MEANING_KEYS = {
   'bad-request': 'workbench.editors.graphql.subscription.close.badRequest',
@@ -56,15 +57,7 @@ const GraphqlSubscriptionTags: React.FC<GraphqlSubscriptionTagsProps> = ({ state
   const t = useT();
   const facts = useMemo(() => errorFacts(state), [state]);
   const closed = state.phase === 'closed' && state.close !== null;
-  const tone =
-    state.phase === 'errored' || closed
-      ? 'error'
-      : state.stopped
-        ? 'neutral'
-        : state.phase === 'subscribed' || state.phase === 'completed'
-          ? 'success'
-          : 'neutral';
-  const pill = useTonePillStyle(tone);
+  const pill = useTonePillStyle(graphqlSubscriptionTone(state));
   const label = state.stopped
     ? t('workbench.editors.graphql.subscription.stopped')
     : state.phase === 'subscribed'
