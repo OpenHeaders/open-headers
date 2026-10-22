@@ -63,6 +63,14 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     'El método {method} pasa a ser POST — toda operación GraphQL se envía por POST.',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} parámetro de ruta se escribe en la URL tal como está su valor.',
+      many: '{count} parámetros de ruta se escriben en la URL tal como están sus valores.',
+      other: '{count} parámetros de ruta se escriben en la URL tal como están sus valores.',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    'Define primero un valor para {keys} — una solicitud GraphQL no tiene parámetros de ruta.',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} respuesta guardada pasa bajo la nueva solicitud.',
@@ -114,6 +122,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': 'Quitar el método personalizado {method}',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': 'Parámetros de consulta',
+  'workbench.editors.request.params.pathHeading': 'Parámetros de ruta',
+  'workbench.editors.request.params.pathEmpty': 'Escribe :name en la URL para añadir un parámetro de ruta.',
+  'workbench.editors.request.params.pathMissing': 'Define un valor para {keys} antes de enviar.',
   'workbench.editors.request.goToAuthorization': 'Ir a la autorización',
   'workbench.editors.request.goToBody': 'Ir al cuerpo',
   'workbench.editors.request.headers.keyPlaceholder': 'Encabezado',

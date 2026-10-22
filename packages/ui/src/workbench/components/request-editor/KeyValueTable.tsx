@@ -50,6 +50,8 @@ interface KeyValueTableProps {
   suggestionRows?: SuggestionRow[];
   /** When true, hides the leading checkbox column. */
   hideEnabled?: boolean;
+  /** Forwarded to the shell — see `EditableGridTableProps.lockedKeys`. */
+  lockedKeys?: boolean;
   /** Enable Bulk Edit mode with a caller-supplied serialize / parse
    *  pair — Params uses `key:value` lines, Headers uses `key: value`,
    *  form-urlencoded uses `key=value`. Absent → no Bulk Edit toggle. */
@@ -121,6 +123,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   valuePlaceholder,
   suggestionRows,
   hideEnabled = false,
+  lockedKeys = false,
   bulkEdit,
   rowPath,
   conflictBridge,
@@ -176,6 +179,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       adapter={KV_ADAPTER}
       keyPlaceholder={effectiveKeyPlaceholder}
       hideEnabled={hideEnabled}
+      lockedKeys={lockedKeys}
       suggestionRows={suggestionRows}
       bulkEdit={bulkEdit}
       rowPath={rowPath}

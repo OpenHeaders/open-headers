@@ -69,6 +69,12 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     '{method} メソッドは POST になります。GraphQL の操作はすべて POST します。',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      other: '{count} 件のパスパラメーターが、値の記述どおりに URL に書き込まれます。',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    'まず {keys} の値を設定してください。GraphQL リクエストにはパスパラメーターがありません。',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: '{count} 件の保存済みレスポンスが新しいリクエストの下に移動します。',
@@ -117,6 +123,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': 'カスタムメソッド {method} を削除',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': 'クエリパラメーター',
+  'workbench.editors.request.params.pathHeading': 'パスパラメーター',
+  'workbench.editors.request.params.pathEmpty': 'URL に :name と入力するとパスパラメーターが追加されます。',
+  'workbench.editors.request.params.pathMissing': '送信する前に {keys} の値を設定してください。',
   'workbench.editors.request.goToAuthorization': '認可へ移動',
   'workbench.editors.request.goToBody': 'ボディへ移動',
   'workbench.editors.request.headers.keyPlaceholder': 'ヘッダー',

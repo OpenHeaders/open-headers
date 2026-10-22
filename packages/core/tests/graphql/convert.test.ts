@@ -3,14 +3,27 @@
  * request content: the document / variables / operation pick as the
  * entity's own fields, headers / auth / docs / specLink / the script
  * pair / the settings knobs verbatim, the enabled query rows folded
- * into the URL with disabled rows dropped and noted, a non-POST source
- * noted; a non-graphql body refused. Pinned against the compile: the
- * two bridges round-trip.
+ * into the URL with disabled rows dropped and noted, the path parameter
+ * rows written into their segments as their values read and noted (an
+ * empty value refuses by name), a non-POST source noted; a non-graphql
+ * body refused. Pinned against the compile: the two bridges round-trip.
  */
 
-import { fromHttpRequest, isConvertibleToGraphql, toHttpRequest } from '@openheaders/core/graphql';
+import {
+  fromHttpRequest,
+  type HttpToGraphqlConverted,
+  type HttpToGraphqlResult,
+  isConvertibleToGraphql,
+  toHttpRequest,
+} from '@openheaders/core/graphql';
 import type { Request } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
+
+/** Narrow to the converted arm — a null or a refusal fails the test. */
+function converted(result: HttpToGraphqlResult | null): HttpToGraphqlConverted {
+  if (result === null || 'refusal' in result) throw new Error('expected a conversion');
+  return result;
+}
 
 function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
@@ -41,9 +54,7 @@ function makeRequest(overrides: Partial<Request> = {}): Request {
 
 describe('fromHttpRequest', () => {
   it('carries the body, headers, auth, docs, specLink, scripts and settings onto the content', () => {
-    const result = fromHttpRequest(makeRequest());
-    expect(result).not.toBeNull();
-    if (result === null) return;
+    const result = converted(fromHttpRequest(makeRequest()));
     expect(result.notes).toEqual([]);
     expect(result.content).toEqual({
       description: 'The notes query.',
@@ -62,25 +73,62 @@ describe('fromHttpRequest', () => {
   });
 
   it('folds the enabled query rows into the URL (templates verbatim) and notes the disabled ones dropped', () => {
-    const result = fromHttpRequest(
-      makeRequest({
-        params: [
-          { uid: 'prm00001', key: 'tenant', value: '{{tenant}}' },
-          { uid: 'prm00002', key: 'debug', value: '1', enabled: false },
-          { uid: 'prm00003', key: 'flag', value: '', hasEquals: true },
-        ],
-      }),
+    const result = converted(
+      fromHttpRequest(
+        makeRequest({
+          params: [
+            { uid: 'prm00001', key: 'tenant', value: '{{tenant}}' },
+            { uid: 'prm00002', key: 'debug', value: '1', enabled: false },
+            { uid: 'prm00003', key: 'flag', value: '', hasEquals: true },
+          ],
+        }),
+      ),
     );
-    expect(result?.content.url).toBe('https://api.openheaders.io/graphql?tenant={{tenant}}&flag=');
-    expect(result?.notes).toEqual([
+    expect(result.content.url).toBe('https://api.openheaders.io/graphql?tenant={{tenant}}&flag=');
+    expect(result.notes).toEqual([
       { kind: 'params-folded', count: 2 },
       { kind: 'disabled-params-dropped', count: 1 },
     ]);
   });
 
+  it('writes the path parameter rows into the URL as their values read (templates verbatim, nothing encoded) and notes it', () => {
+    const result = converted(
+      fromHttpRequest(
+        makeRequest({
+          url: 'https://api.openheaders.io/tenants/:tenant/graphql/:version.json',
+          params: [{ uid: 'prm00001', key: 'debug', value: '1' }],
+          pathParams: [
+            { uid: 'pth00001', key: 'tenant', value: '{{env.TENANT}}' },
+            { uid: 'pth00002', key: 'version', value: 'v2 beta' },
+          ],
+        }),
+      ),
+    );
+    expect(result.content.url).toBe('https://api.openheaders.io/tenants/{{env.TENANT}}/graphql/v2 beta.json?debug=1');
+    expect(result.notes).toEqual([
+      { kind: 'path-params-inlined', count: 2 },
+      { kind: 'params-folded', count: 1 },
+    ]);
+  });
+
+  it('refuses by name when a path parameter the URL names has no value, in path order', () => {
+    const result = fromHttpRequest(
+      makeRequest({
+        url: 'https://api.openheaders.io/:a/:b/:c',
+        pathParams: [
+          { uid: 'pth00001', key: 'b', value: 'set' },
+          { uid: 'pth00002', key: 'c', value: '   ' },
+        ],
+      }),
+    );
+    expect(result).toEqual({ refusal: { kind: 'path-params-empty', keys: ['a', 'c'] } });
+    // A URL without parameters never refuses and never notes.
+    expect(converted(fromHttpRequest(makeRequest())).notes).toEqual([]);
+  });
+
   it('notes a non-POST source method and refuses a non-graphql body', () => {
-    const noted = fromHttpRequest(makeRequest({ method: 'GET' }));
-    expect(noted?.notes).toEqual([{ kind: 'method-changed', method: 'GET' }]);
+    const noted = converted(fromHttpRequest(makeRequest({ method: 'GET' })));
+    expect(noted.notes).toEqual([{ kind: 'method-changed', method: 'GET' }]);
     expect(fromHttpRequest(makeRequest({ body: { type: 'json', content: '{}' } }))).toBeNull();
     expect(isConvertibleToGraphql(makeRequest())).toBe(true);
     expect(isConvertibleToGraphql(makeRequest({ body: { type: 'none' } }))).toBe(false);
@@ -100,9 +148,9 @@ describe('fromHttpRequest', () => {
       timeoutMs: 1000,
     };
     const compiled = toHttpRequest(graphql);
-    const back = fromHttpRequest(compiled);
-    expect(back?.notes).toEqual([]);
-    expect(back?.content).toEqual({
+    const back = converted(fromHttpRequest(compiled));
+    expect(back.notes).toEqual([]);
+    expect(back.content).toEqual({
       url: graphql.url,
       query: graphql.query,
       variables: '{}',

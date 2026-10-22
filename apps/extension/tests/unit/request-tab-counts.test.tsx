@@ -84,6 +84,15 @@ describe('request editor tab badge counts', () => {
     expect(labelText('params', draft)).toBe('Params 1');
   });
 
+  it('counts the path parameter rows in the Params badge — always sent, so always counted', () => {
+    const draft = {
+      ...emptyDraft(),
+      params: [kvRow('page', '2')],
+      pathParams: [kvRow('userId', ''), kvRow('fileId', '7')],
+    };
+    expect(labelText('params', draft)).toBe('Params 3');
+  });
+
   it('does not count an api-key-in-header credential in the Params badge', () => {
     const draft = {
       ...emptyDraft(),

@@ -7,7 +7,9 @@
  * rows made every projection of the same request compare unequal, and
  * the reprime gate then re-populated the draft on every render: an
  * infinite setState loop that wedged the editor for any saved request
- * whose URL carries a query string.
+ * whose URL carries a query string. The Path Parameters rows derive
+ * under the same law (`derivePathParamRows`): name-keyed deterministic
+ * uids for the rows no stored row answers, stored identity kept by key.
  */
 
 import type { Request } from '@openheaders/core/types';
@@ -15,6 +17,7 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import {
   buildRequestUpdates,
   canonicalRequestProjection,
+  derivePathParamRows,
   draftFromRequest,
 } from '@openheaders/ui/workbench/components/request-editor/draft';
 import { describe, expect, it } from 'vitest';
@@ -70,5 +73,67 @@ describe('canonicalRequestProjection — purity', () => {
     const req = makeRequest();
     const formFingerprint = stableStringify(buildRequestUpdates(draftFromRequest(req)));
     expect(formFingerprint).toBe(stableStringify(canonicalRequestProjection(req)));
+  });
+});
+
+describe('derivePathParamRows — the Path Parameters table', () => {
+  const url = 'https://api.openheaders.io/users/:userId/files/:fileId.json';
+
+  it('derives one row per :name in path order, empty values, name-keyed deterministic 8-char uids', () => {
+    const a = derivePathParamRows(url, []);
+    const b = derivePathParamRows(url, []);
+    expect(a.map((r) => [r.key, r.value, r.enabled])).toEqual([
+      ['userId', '', true],
+      ['fileId', '', true],
+    ]);
+    expect(a.map((r) => r.uid)).toEqual(b.map((r) => r.uid));
+    for (const row of a) expect(row.uid).toMatch(/^p[a-z0-9]{7}$/);
+    expect(new Set(a.map((r) => r.uid)).size).toBe(2);
+    // The uid is the name's, not the position's — a segment typed in
+    // front keeps the rows behind it under their uids.
+    const shifted = derivePathParamRows('https://api.openheaders.io/:tenant/users/:userId/files/:fileId.json', []);
+    expect(shifted.slice(1).map((r) => r.uid)).toEqual(a.map((r) => r.uid));
+  });
+
+  it('keeps a stored row (uid, value, description) by key and drops a row the URL no longer names', () => {
+    const rows = derivePathParamRows(url, [
+      { uid: 'abcd1234', key: 'fileId', value: '{{env.FILE}}', description: 'The file' },
+      { uid: 'dead0000', key: 'orphan', value: 'x', description: '' },
+    ]);
+    expect(rows.map((r) => r.key)).toEqual(['userId', 'fileId']);
+    expect(rows[1]).toMatchObject({ uid: 'abcd1234', value: '{{env.FILE}}', description: 'The file' });
+    expect(rows.some((r) => r.key === 'orphan')).toBe(false);
+  });
+
+  it('a duplicate name is one row; names are case-sensitive', () => {
+    expect(derivePathParamRows('https://api.openheaders.io/:id/x/:id', []).map((r) => r.key)).toEqual(['id']);
+    expect(derivePathParamRows('https://api.openheaders.io/:Id/:id', []).map((r) => r.key)).toEqual(['Id', 'id']);
+  });
+
+  it('never reads the authority or the query: a port, an IPv6 literal and a `:` in the query are not parameters', () => {
+    expect(derivePathParamRows('http://localhost:8080/:id?time=12:30', [])).toHaveLength(1);
+    expect(derivePathParamRows('https://[::1]/v1/files:batchGet', [])).toHaveLength(0);
+  });
+});
+
+describe('draftFromRequest — path param rows', () => {
+  it('derives the rows from the URL, keeping stored identity, and projects deterministically', () => {
+    const req = makeRequest({
+      url: 'https://api.openheaders.io/users/:userId?page=2',
+      pathParams: [{ uid: 'abcd1234', key: 'userId', value: '7', description: 'who' }],
+    });
+    const draft = draftFromRequest(req);
+    expect(draft.pathParams).toHaveLength(1);
+    expect(draft.pathParams[0]).toMatchObject({ uid: 'abcd1234', key: 'userId', value: '7', description: 'who' });
+    expect(stableStringify(canonicalRequestProjection(req))).toBe(stableStringify(canonicalRequestProjection(req)));
+    expect(stableStringify(buildRequestUpdates(draft))).toBe(stableStringify(canonicalRequestProjection(req)));
+  });
+
+  it('a request without the field and a URL naming a parameter projects the derived row; the stored-side updates carry it as a plain row', () => {
+    const req = makeRequest({ url: 'https://api.openheaders.io/users/:userId' });
+    const updates = canonicalRequestProjection(req);
+    expect(updates.pathParams).toEqual([
+      { uid: expect.stringMatching(/^p[a-z0-9]{7}$/), key: 'userId', value: '', description: undefined },
+    ]);
   });
 });

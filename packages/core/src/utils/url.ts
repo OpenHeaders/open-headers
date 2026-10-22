@@ -17,6 +17,8 @@
  *     path-parameter grammar (`/:name` segments) and its wire-side
  *     substitution. The editor's derived table and both executors
  *     call these two; nothing else re-implements the grammar.
+ *     {@link inlinePathParams} is the display-side twin (values
+ *     verbatim, nothing encoded) the GraphQL convert folds through.
  *
  * Round-trip discipline: parse→build MUST be an identity so a
  * controlled URL input driven by the parsed form never swallows or
@@ -310,20 +312,51 @@ export function substitutePathParams(
   resolveValue: (name: string) => string | null,
   resolveOther: (text: string) => string,
 ): string {
+  return rewritePathParams(
+    url,
+    (name) => {
+      const value = resolveValue(name);
+      return value === null ? null : encodeURIComponent(value);
+    },
+    resolveOther,
+  );
+}
+
+/**
+ * Display-side inlining — the twin of {@link substitutePathParams} the
+ * way {@link buildUrlDisplay} is {@link appendQueryParams}'s: each
+ * `/:name` segment becomes the row's value text VERBATIM (templates
+ * kept, nothing encoded) followed by its literal suffix, every other
+ * span stays as written, and a name no row answers keeps its `:name`
+ * text. The GraphQL convert folds the authored rows into the URL
+ * through this.
+ */
+export function inlinePathParams(url: string, rowValue: (name: string) => string | null): string {
+  return rewritePathParams(url, rowValue, (text) => text);
+}
+
+/** The one walk behind both rewrites: each parameter segment becomes
+ *  `segmentText(name)` (or stays when that is `null`) plus its suffix
+ *  through `other`; every other span goes through `other`. */
+function rewritePathParams(
+  url: string,
+  segmentText: (name: string) => string | null,
+  other: (text: string) => string,
+): string {
   const spans = pathSegmentSpans(url);
-  if (spans.length === 0) return resolveOther(url);
+  if (spans.length === 0) return other(url);
   const out: string[] = [];
   let cursor = 0;
   for (const [start, end] of spans) {
     const segment = url.slice(start, end);
     const param = pathParamOfSegment(segment);
-    const value = param === null ? null : resolveValue(param.name);
-    if (param === null || value === null) continue;
-    out.push(resolveOther(url.slice(cursor, start)));
-    out.push(encodeURIComponent(value));
-    out.push(resolveOther(param.suffix));
+    const text = param === null ? null : segmentText(param.name);
+    if (param === null || text === null) continue;
+    out.push(other(url.slice(cursor, start)));
+    out.push(text);
+    out.push(other(param.suffix));
     cursor = end;
   }
-  out.push(resolveOther(url.slice(cursor)));
+  out.push(other(url.slice(cursor)));
   return out.join('');
 }

@@ -8,7 +8,7 @@
  * merge those values would land in the save batch and stomp the
  * peer's edit.
  *
- * Header + param rows merge by uid; body discriminated-union folds
+ * Header, param and path-param rows merge by uid; body discriminated-union folds
  * into a whole-or-nothing pick (form === baseline → adopt live, else
  * keep ours) because form/multipart parts don't carry uids and would
  * be index-keyed otherwise. Top-level scalars merge per-leaf.
@@ -19,6 +19,7 @@ import type {
   CredentialsMode,
   HttpMethod,
   HttpVersion,
+  PathParam,
   ProxyMode,
   QueryParam,
   Request,
@@ -35,6 +36,7 @@ export interface RequestSaveBatch {
   url: string;
   headers: RequestHeader[];
   params: QueryParam[];
+  pathParams: PathParam[];
   auth: AuthConfig;
   body: RequestBody;
   specLink: RequestSpecLink | undefined;
@@ -69,6 +71,7 @@ function projectRequest(req: Request): RequestSaveBatch {
     url: req.url,
     headers: req.headers,
     params: req.params,
+    pathParams: req.pathParams ?? [],
     auth: req.auth,
     body: req.body,
     specLink: req.specLink,
@@ -120,8 +123,15 @@ export function mergeRequestForSave(
     'uid',
   ) as QueryParam[];
 
-  // Scalar leaves (everything except headers/params/body — those are
-  // structural and merged separately).
+  const pathParams = mergeRowsByIdentity(
+    form.pathParams as ReadonlyArray<PathParam & Record<string, unknown>>,
+    baseProj.pathParams as ReadonlyArray<PathParam & Record<string, unknown>>,
+    liveProj.pathParams as ReadonlyArray<PathParam & Record<string, unknown>>,
+    'uid',
+  ) as PathParam[];
+
+  // Scalar leaves (everything except headers/params/pathParams/body —
+  // those are structural and merged separately).
   const scalarForm: Record<string, unknown> = {
     description: form.description,
     method: form.method,
@@ -222,6 +232,7 @@ export function mergeRequestForSave(
     url: merged.url as string,
     headers,
     params,
+    pathParams,
     auth: merged.auth as AuthConfig,
     body,
     specLink: merged.specLink as RequestSpecLink | undefined,

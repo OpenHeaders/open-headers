@@ -67,6 +67,12 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     '{method} 메서드는 POST 메서드로 바뀝니다. 모든 GraphQL 작업은 POST 방식으로 보냅니다.',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      other: '경로 매개변수 {count}개가 값에 적힌 그대로 URL 주소에 기록됩니다.',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    '먼저 {keys}의 값을 설정하세요. GraphQL 요청에는 경로 매개변수가 없습니다.',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       other: '저장된 응답 {count}개가 새 요청 아래로 이동합니다.',
@@ -115,6 +121,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': '사용자 지정 메서드 {method} 제거',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': '쿼리 매개변수',
+  'workbench.editors.request.params.pathHeading': '경로 매개변수',
+  'workbench.editors.request.params.pathEmpty': 'URL 주소에 :name을 입력하면 경로 매개변수가 추가됩니다.',
+  'workbench.editors.request.params.pathMissing': '보내기 전에 {keys}의 값을 설정하세요.',
   'workbench.editors.request.goToAuthorization': '인가로 이동',
   'workbench.editors.request.goToBody': '본문으로 이동',
   'workbench.editors.request.headers.keyPlaceholder': '헤더',

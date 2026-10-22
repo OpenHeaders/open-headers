@@ -2,8 +2,10 @@
  * "Convert to GraphQL request" — the workbench gesture over the tree
  * operation (`convert-request-to-graphql.ts`): a confirmation that
  * spells out what the conversion does to THIS request (the query rows
- * folded into the URL, disabled rows dropped, a non-POST method
- * becoming POST, the saved responses following), then the operation,
+ * folded into the URL, disabled rows dropped, the path parameter rows
+ * written into the URL as their values read, a non-POST method
+ * becoming POST, the saved responses following) — or why it will not
+ * happen (a path parameter without a value, named) — then the operation,
  * then the new editor opened in the HTTP tab's place (the HTTP tab
  * closes on its own once its entity is gone). Shared by the sidebar
  * request row's context menu and the HTTP editor's ⋯ menu; failures
@@ -38,6 +40,14 @@ export function useConvertRequestToGraphql(): ConvertRequestToGraphql {
         message.warning(t('workbench.editors.request.convert.notConvertible'));
         return;
       }
+      if ('refusal' in preview) {
+        message.warning(
+          t('workbench.editors.request.convert.refusedPathParams', {
+            keys: preview.refusal.keys.map((key) => `:${key}`).join(', '),
+          }),
+        );
+        return;
+      }
       const examples = workspaceId
         ? getResponseExampleSyncMirrorForWorkspace(workspaceId).listResponseExamplesForRequest(request.uid).length
         : 0;
@@ -47,6 +57,8 @@ export function useConvertRequestToGraphql(): ConvertRequestToGraphql {
             return t('workbench.editors.request.convert.noteParamsFolded', { count: note.count });
           case 'disabled-params-dropped':
             return t('workbench.editors.request.convert.noteDisabledParamsDropped', { count: note.count });
+          case 'path-params-inlined':
+            return t('workbench.editors.request.convert.notePathParamsInlined', { count: note.count });
           case 'method-changed':
             return t('workbench.editors.request.convert.noteMethodChanged', { method: note.method });
         }

@@ -160,6 +160,12 @@ export interface EditableGridTableProps<Row> {
     description?: InfoPopoverContent;
   };
   hideEnabled?: boolean;
+  /** The row SET is owned elsewhere — the request URL names the Path
+   *  Parameters rows. The Key cell renders as read-only text, there is
+   *  no trailing ghost row, no drag handle and no delete button: rows
+   *  come and go with their owner, and only Value / Description edit
+   *  here. The key's awareness path is never asked for. */
+  lockedKeys?: boolean;
   suggestionRows?: SuggestionRow[];
   /** Enable the "Bulk Edit" toggle in the header. When the user
    *  clicks it, the table swaps for a textarea with the serialized

@@ -58,6 +58,11 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.convert.noteDisabledParamsDropped': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个已禁用的查询参数将被丢弃——GraphQL 请求不保留查询参数。' }),
   'workbench.editors.request.convert.noteMethodChanged': '{method} 方法将变为 POST——每个 GraphQL 操作都以 POST 发送。',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      other: '{count} 个路径参数将按其值原样写入 URL。',
+    }),
+  'workbench.editors.request.convert.refusedPathParams': '请先为 {keys} 设置值——GraphQL 请求没有路径参数。',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), { other: '{count} 个已保存的响应将移到新请求下。' }),
   'workbench.editors.request.convert.ok': '转换',
@@ -103,6 +108,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': '移除自定义方法 {method}',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': '查询参数',
+  'workbench.editors.request.params.pathHeading': '路径参数',
+  'workbench.editors.request.params.pathEmpty': '在 URL 中输入 :name 即可添加路径参数。',
+  'workbench.editors.request.params.pathMissing': '发送前请为 {keys} 设置值。',
   'workbench.editors.request.goToAuthorization': '前往授权',
   'workbench.editors.request.goToBody': '前往正文',
   'workbench.editors.request.headers.keyPlaceholder': '标头',

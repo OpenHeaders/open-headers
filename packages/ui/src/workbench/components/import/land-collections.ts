@@ -201,8 +201,9 @@ export async function landSectionedCollections(
  * A GraphQL-typed source request: the GraphqlRequest entity through
  * the reverse bridge (the body's document + variables, the query rows
  * folded into the URL) when the surface has the leg and the body IS
- * graphql; otherwise the HTTP request with the graphql body mode,
- * with the reason on the report — never silently the other kind.
+ * graphql and no path parameter is left without a value; otherwise
+ * the HTTP request with the graphql body mode, with the reason on the
+ * report — never silently the other kind.
  */
 async function landGraphqlRequest(
   legs: CollectionLandingLegs,
@@ -225,17 +226,20 @@ async function landGraphqlRequest(
         ...(request.postResponseScript !== undefined ? { postResponseScript: request.postResponseScript } : {}),
       })
     : null;
-  if (legs.createGraphqlRequest && converted !== null) {
+  if (legs.createGraphqlRequest && converted !== null && !('refusal' in converted)) {
     const created = await legs.createGraphqlRequest({ name: request.name, parentPath, seed: converted.content });
     return created !== null;
   }
+  const reason = !legs.createGraphqlRequest
+    ? 'This surface has no GraphQL request plane — landed as an HTTP request with the GraphQL body mode.'
+    : converted !== null && 'refusal' in converted
+      ? `The request is typed GraphQL but its URL names path parameters without a value (${converted.refusal.keys.map((key) => `:${key}`).join(', ')}) — landed as an HTTP request; set their values, then convert it.`
+      : 'The request is typed GraphQL but carries no GraphQL body — landed as an HTTP request; convert it once its query is set.';
   recordTransform(report, {
     path,
     from: 'GraphQL request',
     to: 'HTTP request with a GraphQL body',
-    reason: legs.createGraphqlRequest
-      ? 'The request is typed GraphQL but carries no GraphQL body — landed as an HTTP request; convert it once its query is set.'
-      : 'This surface has no GraphQL request plane — landed as an HTTP request with the GraphQL body mode.',
+    reason,
     tracking: 'PERMANENT: GraphQL request plane availability',
   });
   const created = await legs.createRequest({ name: request.name, parentPath, seed });

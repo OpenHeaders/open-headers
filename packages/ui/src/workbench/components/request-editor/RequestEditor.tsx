@@ -85,6 +85,7 @@ import {
   emptyDraft,
   rowsToHeaders,
   rowsToParams,
+  rowsToPathParams,
 } from './draft';
 import { type TabKey, buildRequestTabItems } from './request-tab-items';
 import {
@@ -420,6 +421,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     allConflicts,
     headerConflictBridge,
     paramConflictBridge,
+    pathParamConflictBridge,
     handleKeepAllMine,
     handleUseAllSaved,
     handleResolveText,
@@ -507,6 +509,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
         url: draft.url,
         headers: rowsToHeaders(draft.headers),
         params: rowsToParams(draft.params),
+        pathParams: rowsToPathParams(draft.pathParams),
         auth: draft.auth,
         body: draft.body,
         credentialsMode: draft.credentialsMode,
@@ -668,6 +671,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       url: draft.url,
       headers: rowsToHeaders(draft.headers),
       params: rowsToParams(draft.params),
+      pathParams: rowsToPathParams(draft.pathParams),
       auth: draft.auth,
       body: draft.body,
       credentialsMode: draft.credentialsMode,
@@ -1099,6 +1103,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         setDraft={setDraft}
                         headerConflictBridge={isCreateMode ? undefined : headerConflictBridge}
                         paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
+                        pathParamConflictBridge={isCreateMode ? undefined : pathParamConflictBridge}
                         workspaceId={workspaceId}
                         onOpenPackageLibrary={onOpenPackageLibrary}
                         onNavigateTab={setActiveTab}

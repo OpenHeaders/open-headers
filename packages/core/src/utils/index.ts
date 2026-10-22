@@ -178,6 +178,7 @@ export type { ParsedUrl, PathParamName, QueryParam, SplitUrlPath } from './url';
 export {
   appendQueryParams,
   buildUrlDisplay,
+  inlinePathParams,
   parsePathParamNames,
   parseUrlQuery,
   splitUrlPath,

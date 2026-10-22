@@ -303,7 +303,14 @@ export function canonicalizeRequest(request: Request): Request {
   const params = request.params.map(canonicalQueryParam);
   const body = canonicalRequestBody(request.body);
   const out: Request = { ...request, headers, params, body };
-  if (request.pathParams !== undefined) out.pathParams = request.pathParams.map(canonicalPathParam);
+  // An emptied set (every row tombstoned once the URL named none) and
+  // a request that never had the field read the same: absent — the
+  // format's "absent = none".
+  if (request.pathParams !== undefined && request.pathParams.length > 0) {
+    out.pathParams = request.pathParams.map(canonicalPathParam);
+  } else {
+    delete out.pathParams;
+  }
   return out;
 }
 

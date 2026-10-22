@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   appendQueryParams,
   buildUrlDisplay,
+  inlinePathParams,
   parsePathParamNames,
   parseUrlQuery,
   splitUrlPath,
@@ -379,5 +380,31 @@ describe('substitutePathParams', () => {
 
   it('a URL with no path resolves whole', () => {
     expect(substitutePathParams('{{host}}', valuesOf({}), other)).toBe('api.openheaders.io');
+  });
+});
+
+describe('inlinePathParams (display-side)', () => {
+  const rowsOf = (rows: Record<string, string>) => (name: string) => rows[name] ?? null;
+
+  it('writes each value verbatim — templates kept, nothing encoded — and re-attaches the suffix', () => {
+    expect(
+      inlinePathParams(
+        'https://api.openheaders.io/users/:id/files/:name.json?x=1',
+        rowsOf({ id: '{{env.USER}}', name: 'a b/c' }),
+      ),
+    ).toBe('https://api.openheaders.io/users/{{env.USER}}/files/a b/c.json?x=1');
+  });
+
+  it('keeps the `:name` text for a name no row answers and leaves the rest of the URL untouched', () => {
+    expect(inlinePathParams('{{host}}:8080/v1/:id/files:batchGet', rowsOf({}))).toBe(
+      '{{host}}:8080/v1/:id/files:batchGet',
+    );
+    expect(inlinePathParams('https://api.openheaders.io/:id/x/:id', rowsOf({ id: '7' }))).toBe(
+      'https://api.openheaders.io/7/x/7',
+    );
+  });
+
+  it('is the identity on a URL without a path', () => {
+    expect(inlinePathParams('https://api.openheaders.io', rowsOf({ id: '7' }))).toBe('https://api.openheaders.io');
   });
 });

@@ -322,3 +322,32 @@ describe('REQUEST_SCHEMA — Body (JSON) per-leaf', () => {
     expect(target.body).toEqual({ type: 'text', content: 'hi' });
   });
 });
+
+describe('REQUEST_SCHEMA — path params set (uid-keyed)', () => {
+  const req = baseRequest({
+    url: 'https://openheaders.io/users/:userId',
+    pathParams: [{ uid: 'pth00001', key: 'userId', value: '{{env.USER}}', description: 'who' }],
+  });
+
+  it('emits per-leaf paths for each row under pathParams.<uid>', () => {
+    const baseline = adapter.tracking.extractBaseline(req);
+    expect(baseline['pathParams.pth00001.key']).toBe('userId');
+    expect(baseline['pathParams.pth00001.value']).toBe('{{env.USER}}');
+    expect(baseline['pathParams.pth00001.description']).toBe('who');
+  });
+
+  it('a request without the field emits no pathParams leaves', () => {
+    const baseline = adapter.tracking.extractBaseline(baseRequest());
+    expect(Object.keys(baseline).some((k) => k.startsWith('pathParams.'))).toBe(false);
+  });
+
+  it('applyResolutionToEntity writes a value leaf into the row', () => {
+    const target = JSON.parse(JSON.stringify(req)) as Request;
+    const ok = adapter.resolve.applyResolutionToEntity(target, 'pathParams.pth00001.value', {
+      base: '{{env.USER}}',
+      theirs: '42',
+    });
+    expect(ok).toBe(true);
+    expect(target.pathParams?.[0]?.value).toBe('42');
+  });
+});

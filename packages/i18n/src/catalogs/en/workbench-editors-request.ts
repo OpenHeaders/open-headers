@@ -45,6 +45,13 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     'The {method} method becomes POST — every GraphQL operation posts.',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} path parameter is written into the URL as its value reads.',
+      other: '{count} path parameters are written into the URL as their values read.',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    'Set a value for {keys} first — a GraphQL request has no path parameters.',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} saved response moves under the new request.',
@@ -93,6 +100,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': 'Remove custom method {method}',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': 'Query Params',
+  'workbench.editors.request.params.pathHeading': 'Path Parameters',
+  'workbench.editors.request.params.pathEmpty': 'Type :name in the URL to add a path parameter.',
+  'workbench.editors.request.params.pathMissing': 'Set a value for {keys} before sending.',
   'workbench.editors.request.goToAuthorization': 'Go to authorization',
   'workbench.editors.request.goToBody': 'Go to body',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',

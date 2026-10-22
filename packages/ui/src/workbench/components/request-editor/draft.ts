@@ -17,6 +17,7 @@ import type {
   ExecutionPlaceRole,
   HttpMethod,
   HttpVersion,
+  PathParam,
   ProxyMode,
   QueryParam,
   Request,
@@ -25,7 +26,7 @@ import type {
   RequestSpecLink,
   TlsVersion,
 } from '@openheaders/core/types';
-import { parseUrlQuery } from '@openheaders/core/utils';
+import { parsePathParamNames, parseUrlQuery } from '@openheaders/core/utils';
 import type { WithLocalPlace } from '../../execution-place/local-place';
 import { type KeyValueRow, makeKvRow } from './KeyValueTable';
 
@@ -35,6 +36,10 @@ export interface Draft {
   description: string;
   headers: KeyValueRow[];
   params: KeyValueRow[];
+  /** The Path Parameters rows — DERIVED from the URL's `:name`
+   *  segments (see {@link derivePathParamRows}); only value and
+   *  description are the user's to edit here. Always `enabled`. */
+  pathParams: KeyValueRow[];
   auth: AuthConfig;
   body: RequestBody;
   specLink?: RequestSpecLink;
@@ -72,6 +77,7 @@ export interface RequestUpdates {
   url: string;
   headers: RequestHeader[];
   params: QueryParam[];
+  pathParams: PathParam[];
   auth: AuthConfig;
   body: RequestBody;
   specLink: RequestSpecLink | undefined;
@@ -147,6 +153,20 @@ export function rowsToParams(rows: KeyValueRow[]): QueryParam[] {
     }));
 }
 
+/** The Path Parameters rows as the entity stores them — no `enabled`
+ *  (a parameter the URL names is always sent), no `hasEquals`. The
+ *  draft never holds a row the URL does not name (every URL edit
+ *  re-derives the set), so the orphan drop the plan asks for at save
+ *  is the derivation itself. */
+export function rowsToPathParams(rows: KeyValueRow[]): PathParam[] {
+  return rows.map((r) => ({
+    uid: r.uid,
+    key: r.key,
+    value: r.value,
+    description: r.description?.trim() ? r.description : undefined,
+  }));
+}
+
 /** Shed KeyValueTable's transient fields (uid, description) so the
  *  pure `buildUrlDisplay` utility sees only the fields it cares
  *  about — key, value, enabled, hasEquals. */
@@ -195,6 +215,51 @@ function urlParamUid(index: number): string {
   return `q${index.toString(36).padStart(7, '0')}`;
 }
 
+/** Uid for a path-parameter row the URL names and no stored row
+ *  answers. Keyed by the NAME, not the index, and DETERMINISTIC for the
+ *  same reason as {@link urlParamUid}: this runs inside
+ *  `canonicalRequestProjection`. Name-keyed so a new segment typed in
+ *  front of the others never re-mints the rows behind it, and so a
+ *  stored row minted here and the same name derived again agree —
+ *  `/:a/:b` saved then re-derived yields the same two uids. FNV-1a
+ *  over the name, `p` + seven base-36 digits: the 8-char shape
+ *  `UidSchema` and the conflict-path regexes accept. */
+function derivedPathParamUid(name: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < name.length; i++) {
+    hash ^= name.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `p${hash.toString(36).padStart(7, '0').slice(-7)}`;
+}
+
+/** The Path Parameters rows the URL names, in path order, one per
+ *  distinct `:name` — the ONE derivation the editor has. A stored row
+ *  whose key the URL names keeps its uid, value and description; a
+ *  name no stored row answers gets an empty row under a name-keyed
+ *  deterministic uid; a stored row the URL no longer names is dropped
+ *  (the two-editor rename case — the next save tombstones it). Shared
+ *  by {@link draftFromRequest} (inside the canonical projection) and
+ *  the URL bar's edit path, so projection and live draft agree row
+ *  for row, and typing `:x` adds exactly the row a re-open would show. */
+export function derivePathParamRows(
+  url: string,
+  existing: ReadonlyArray<Pick<KeyValueRow, 'uid' | 'key' | 'value' | 'description'>>,
+): KeyValueRow[] {
+  const byKey = new Map<string, Pick<KeyValueRow, 'uid' | 'key' | 'value' | 'description'>>();
+  for (const row of existing) if (!byKey.has(row.key)) byKey.set(row.key, row);
+  return parsePathParamNames(url).map(({ name }) => {
+    const match = byKey.get(name);
+    return makeKvRow({
+      uid: match?.uid ?? derivedPathParamUid(name),
+      key: name,
+      value: match?.value ?? '',
+      description: match?.description ?? '',
+      enabled: true,
+    });
+  });
+}
+
 export function draftFromRequest(req: WithLocalPlace<Request>): Draft {
   // Split any legacy `?…` suffix off of `req.url` into structured
   // params so the editor's bidirectional URL↔Params sync has a clean
@@ -218,6 +283,7 @@ export function draftFromRequest(req: WithLocalPlace<Request>): Draft {
     description: req.description ?? '',
     headers: headersFromRequest(req.headers),
     params: [...urlParams, ...paramsFromRequest(req.params)],
+    pathParams: derivePathParamRows(parsed.base, req.pathParams ?? []),
     auth: req.auth,
     body: req.body,
     specLink: req.specLink,
@@ -254,6 +320,7 @@ export function emptyDraft(): Draft {
     description: '',
     headers: [],
     params: [],
+    pathParams: [],
     auth: { type: 'inherit' },
     body: { type: 'none' },
   };
@@ -266,6 +333,7 @@ export function buildRequestUpdates(draft: Draft): WithLocalPlace<RequestUpdates
     url: draft.url,
     headers: rowsToHeaders(draft.headers),
     params: rowsToParams(draft.params),
+    pathParams: rowsToPathParams(draft.pathParams),
     auth: draft.auth,
     body: draft.body,
     specLink: draft.specLink,

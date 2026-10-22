@@ -2,8 +2,10 @@
  * RequestUrlBar — the method picker + URL input that lives in the
  * editor header's title slot. Owns the bidirectional URL↔Params sync:
  * editing the URL re-parses its query into the params table (preserving
- * row metadata via `mergeParamsFromUrl`), and the displayed value folds
- * the structured params back in via `buildUrlDisplay`. On blur it
+ * row metadata via `mergeParamsFromUrl`) and re-derives the Path
+ * Parameters rows from its `/:name` segments (`derivePathParamRows`),
+ * and the displayed value folds the structured params back in via
+ * `buildUrlDisplay`. On blur it
  * normalizes a scheme-less URL to `https://`. A socket-style URL
  * (`unix://`, `http+unix://`, `npipe://`) grows a one-line scaffold
  * under the input that rewrites it into a plain URL + the Unix-socket
@@ -22,7 +24,7 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 import { useImportText } from '../../hooks/ImportTextContext';
 import { METHOD_COLORS } from '../sidebar/icons';
-import { type Draft, draftParamsToQueryParams, mergeParamsFromUrl } from './draft';
+import { type Draft, derivePathParamRows, draftParamsToQueryParams, mergeParamsFromUrl } from './draft';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 
 const METHODS: readonly HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -90,9 +92,11 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
   const socketUrl = useMemo(() => recognizeSocketUrl(draft.url), [draft.url]);
   const applySocketUrl = (): void => {
     if (socketUrl === null) return;
+    const url = `http://localhost${socketUrl.requestPath}`;
     setDraft((d) => ({
       ...d,
-      url: `http://localhost${socketUrl.requestPath}`,
+      url,
+      pathParams: derivePathParamRows(url, d.pathParams),
       unixSocketPath: socketUrl.socketPath,
     }));
   };
@@ -224,6 +228,7 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
               ...d,
               url: parsed.base,
               params: mergeParamsFromUrl(parsed.params, d.params),
+              pathParams: derivePathParamRows(parsed.base, d.pathParams),
             }));
           }}
           placeholder={t('workbench.editors.request.url.placeholder')}

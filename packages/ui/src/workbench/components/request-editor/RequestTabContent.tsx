@@ -31,6 +31,7 @@ interface RequestTabContentProps {
   setDraft: React.Dispatch<React.SetStateAction<Draft>>;
   headerConflictBridge?: KeyValueRowConflictBridge;
   paramConflictBridge?: KeyValueRowConflictBridge;
+  pathParamConflictBridge?: KeyValueRowConflictBridge;
   /** Editing-scope workspace — target for script-editor selection
    *  actions (Save to Package Library) and the Settings tab's
    *  per-workspace Script execution chooser. */
@@ -80,6 +81,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   setDraft,
   headerConflictBridge,
   paramConflictBridge,
+  pathParamConflictBridge,
   workspaceId,
   onOpenPackageLibrary,
   onNavigateTab,
@@ -103,10 +105,14 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
         <ParamsTab
           rows={draft.params}
           onChange={(params) => setDraft((d) => ({ ...d, params }))}
+          pathRows={draft.pathParams}
+          onPathChange={(pathParams) => setDraft((d) => ({ ...d, pathParams }))}
+          url={draft.url}
           auth={draft.auth}
           inheritedFrom={inheritedAuth}
           onNavigateTab={onNavigateTab}
           conflictBridge={paramConflictBridge}
+          pathConflictBridge={pathParamConflictBridge}
         />
       );
     case 'authorization':

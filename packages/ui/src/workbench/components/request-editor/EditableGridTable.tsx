@@ -16,6 +16,9 @@
  *   • Persistent empty "ghost" row that materializes on first keystroke
  *     and a fresh ghost appears below.
  *   • Sortable user rows via @dnd-kit (ghost row is drag-disabled).
+ *   • `lockedKeys` — a table whose row set another field owns (the
+ *     URL's path parameters): read-only keys, no ghost, no drag, no
+ *     delete; the same shell, one switch.
  *   • Optional read-only "suggestion" rows rendered above user rows —
  *     used by Headers to surface browser-managed auto-generated entries
  *     with a toggleable checkbox + info-icon tooltip.
@@ -97,6 +100,7 @@ export function EditableGridTable<Row>({
   headerLabels,
   headerInfo,
   hideEnabled = false,
+  lockedKeys = false,
   suggestionRows = [],
   bulkEdit,
   columnWidths,
@@ -186,14 +190,16 @@ export function EditableGridTable<Row>({
   }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.columnPxWidth, auxAfterKey, auxAfterValue]);
 
   // Persistent empty ghost row: materializes as soon as the user types
-  // into any cell and a fresh ghost appears below.
+  // into any cell and a fresh ghost appears below. A locked-key table
+  // adds no rows here, so it has no ghost.
   const effectiveRows = useMemo(() => {
+    if (lockedKeys) return rows;
     const last = rows[rows.length - 1];
     if (!last || !adapter.isEmpty(last)) {
       return [...rows, adapter.makeEmpty()];
     }
     return rows;
-  }, [rows, adapter]);
+  }, [rows, adapter, lockedKeys]);
 
   const commit = useCallback(
     (next: Row[]) => {
@@ -706,7 +712,7 @@ export function EditableGridTable<Row>({
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
               {effectiveRows.map((r, i) => {
-                const isPlaceholder = i === effectiveRows.length - 1 && adapter.isEmpty(r);
+                const isPlaceholder = !lockedKeys && i === effectiveRows.length - 1 && adapter.isEmpty(r);
                 return (
                   <SortableEditableRow
                     key={adapter.getId(r)}
@@ -715,6 +721,7 @@ export function EditableGridTable<Row>({
                     isPlaceholder={isPlaceholder}
                     gridTemplate={gridTemplate}
                     hideEnabled={hideEnabled}
+                    lockedKeys={lockedKeys}
                     showValueColumn={showValueColumn}
                     showDescriptionColumn={showDescriptionColumn}
                     keyPlaceholder={effectiveKeyPlaceholder}

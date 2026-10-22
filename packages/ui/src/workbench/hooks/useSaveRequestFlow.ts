@@ -16,6 +16,7 @@ import type {
   ExecutionPlaceRole,
   HttpMethod,
   HttpVersion,
+  PathParam,
   ProxyMode,
   QueryParam,
   Request,
@@ -61,6 +62,7 @@ export interface DraftData {
   url: string;
   headers: RequestHeader[];
   params: QueryParam[];
+  pathParams: PathParam[];
   auth: AuthConfig;
   body: RequestBody;
   credentialsMode?: CredentialsMode;
@@ -136,6 +138,7 @@ export function useSaveRequestFlow({
             url: draftData.url,
             headers: draftData.headers,
             params: draftData.params,
+            pathParams: draftData.pathParams,
             auth: draftData.auth,
             body: draftData.body,
             credentialsMode: draftData.credentialsMode,
@@ -192,6 +195,7 @@ export function useSaveRequestFlow({
           url: saveModalDraftData.url,
           headers: saveModalDraftData.headers,
           params: saveModalDraftData.params,
+          pathParams: saveModalDraftData.pathParams,
           auth: saveModalDraftData.auth,
           body: saveModalDraftData.body,
           credentialsMode: saveModalDraftData.credentialsMode,

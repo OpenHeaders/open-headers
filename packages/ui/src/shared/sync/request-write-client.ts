@@ -86,8 +86,15 @@ export async function applyRequestUpdate(
       const orderKeys = mirror.liveOrderedSetItems(uid, path);
       if (orderKeys.length === 0) return [];
       const snap = mirror.getRequestMirror(uid)?.request;
-      const rows: ReadonlyArray<{ uid: string }> | undefined =
-        snap && path === 'headers' ? snap.headers : snap && path === 'params' ? snap.params : undefined;
+      const rows: ReadonlyArray<{ uid: string }> | undefined = !snap
+        ? undefined
+        : path === 'headers'
+          ? snap.headers
+          : path === 'params'
+            ? snap.params
+            : path === 'pathParams'
+              ? (snap.pathParams ?? [])
+              : undefined;
       if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
       const byUid = new Map<string, unknown>();
       for (const row of rows) byUid.set(row.uid, row);

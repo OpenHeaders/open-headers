@@ -12,7 +12,7 @@
  * no IO — so the request-store can apply them under its existing
  * orchestration.
  *
- * Set-modeled fields (`headers`, `params`) need special handling on
+ * Set-modeled fields (`headers`, `params`, `pathParams`) need special handling on
  * partial updates: a naïve `setField('headers', [...])` would write a
  * leaf entry that competes with the oracle's setItems entries at the
  * same path, producing a non-deterministic materialized view. The
@@ -37,6 +37,7 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
+  REQUEST_PATH_PARAMS_PATH,
   type RequestFolderParentRef,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
@@ -113,16 +114,15 @@ export function buildDeleteEntityBatch(requestUid: string, ctx: MutatorContext):
  * SET_PATHS; kept inline so this module doesn't import a private
  * constant from a sibling.
  */
-const SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
+const SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH, REQUEST_PATH_PARAMS_PATH] as const;
 type SetPath = (typeof SET_PATHS)[number];
 
-const isSetPath = (key: string): SetPath | null =>
-  key === REQUEST_HEADERS_PATH ? REQUEST_HEADERS_PATH : key === REQUEST_PARAMS_PATH ? REQUEST_PARAMS_PATH : null;
+const isSetPath = (key: string): SetPath | null => SET_PATHS.find((path) => path === key) ?? null;
 
 /**
  * Translate a `Partial<Omit<Request, 'uid'|'path'>>` patch into a
  * single batch of mutations. Scalar fields → one `setField` per leaf;
- * set-modeled fields (`headers`, `params`) → minimum diff via
+ * set-modeled fields (`headers`, `params`, `pathParams`) → minimum diff via
  * {@link synthesizeSetDiff}.
  *
  * Concurrency with another emitter mid-update is handled by per-itemId

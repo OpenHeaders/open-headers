@@ -108,9 +108,12 @@ describe('canonicalizeRequest', () => {
     expect(yamlA).toContain('pathParams:');
   });
 
-  it('a request without path params serializes none', () => {
+  it('a request without path params serializes none — and so does an emptied list', () => {
     const yaml = serializeRequest({ value: canonicalizeRequest(makeRequest()), raw: null }).requestYaml;
     expect(yaml).not.toContain('pathParams');
+    const emptied = serializeRequest({ value: canonicalizeRequest(makeRequest({ pathParams: [] })), raw: null });
+    expect(emptied.requestYaml).not.toContain('pathParams');
+    expect(canonicalizeRequest(makeRequest({ pathParams: [] }))).not.toHaveProperty('pathParams');
   });
 
   it('normalizes form-body part key order', () => {

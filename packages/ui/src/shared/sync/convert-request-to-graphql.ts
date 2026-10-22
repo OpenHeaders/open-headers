@@ -44,7 +44,9 @@ export async function applyConvertRequestToGraphql(
   if (!entry) return { ok: false, reason: 'not-found' };
   const source = entry.request;
   const converted = fromHttpRequest(source);
-  if (converted === null) return { ok: false, reason: 'not-convertible' };
+  // A refusal (a path parameter without a value) reads the same here:
+  // the affordances preview first and name the key themselves.
+  if (converted === null || 'refusal' in converted) return { ok: false, reason: 'not-convertible' };
 
   const uid = generateUid();
   const parentPath = parentPathOf(source.path) ?? '';

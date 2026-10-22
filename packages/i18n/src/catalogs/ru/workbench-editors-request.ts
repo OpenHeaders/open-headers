@@ -114,6 +114,15 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     'Метод {method} становится POST — каждая операция GraphQL отправляется методом POST.',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} параметр пути записывается в URL-адрес так, как читается его значение.',
+      few: '{count} параметра пути записываются в URL-адрес так, как читаются их значения.',
+      many: '{count} параметров пути записываются в URL-адрес так, как читаются их значения.',
+      other: '{count} параметров пути записываются в URL-адрес так, как читаются их значения.',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    'Сначала задайте значение для {keys} — у запроса GraphQL нет параметров пути.',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} сохранённый ответ переезжает под новый запрос.',
@@ -165,6 +174,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': 'Удалить свой метод {method}',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': 'Параметры запроса',
+  'workbench.editors.request.params.pathHeading': 'Параметры пути',
+  'workbench.editors.request.params.pathEmpty': 'Введите :name в URL-адресе, чтобы добавить параметр пути.',
+  'workbench.editors.request.params.pathMissing': 'Задайте значение для {keys} перед отправкой.',
   'workbench.editors.request.goToAuthorization': 'Перейти к авторизации',
   'workbench.editors.request.goToBody': 'Перейти к телу',
   'workbench.editors.request.headers.keyPlaceholder': 'Заголовок',

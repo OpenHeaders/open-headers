@@ -39,6 +39,7 @@ export interface RequestConflictSurface {
   allConflicts: ReadonlyMap<string, PathConflict>;
   headerConflictBridge: KeyValueRowConflictBridge;
   paramConflictBridge: KeyValueRowConflictBridge;
+  pathParamConflictBridge: KeyValueRowConflictBridge;
   handleKeepAllMine: () => void;
   handleUseAllSaved: () => void;
   handleResolveText: (text: string) => void;
@@ -72,15 +73,20 @@ export function useRequestConflictSurface({
       REQUEST_PATHS.paramSet,
       draft.params.map((p) => p.uid).filter((u): u is string => !!u),
     );
+    out.set(
+      REQUEST_PATHS.pathParamSet,
+      draft.pathParams.map((p) => p.uid).filter((u): u is string => !!u),
+    );
     return out;
-  }, [draft.headers, draft.params]);
+  }, [draft.headers, draft.params, draft.pathParams]);
 
   const allConflicts = useMemo(
     () => (formProjection ? conflicts.getAllConflicts(formProjection, formSetOrders) : new Map<string, PathConflict>()),
     [formProjection, formSetOrders, conflicts],
   );
 
-  // Inline conflict bridges for the Headers + Params tables. Each cell
+  // Inline conflict bridges for the Headers + Params + Path Parameters
+  // tables. Each cell
   // already writes the local leaf via the table's onChange path; the
   // bridge only acks the tracker so the chip dismisses + baseline
   // catches up. Set-remove flows the same way: the row's `onRemove`
@@ -98,6 +104,16 @@ export function useRequestConflictSurface({
   const paramConflictBridge = useMemo<KeyValueRowConflictBridge>(
     () => ({
       setPath: REQUEST_PATHS.paramSet,
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
+      onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts],
+  );
+  const pathParamConflictBridge = useMemo<KeyValueRowConflictBridge>(
+    () => ({
+      setPath: REQUEST_PATHS.pathParamSet,
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
       getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
@@ -209,6 +225,7 @@ export function useRequestConflictSurface({
     allConflicts,
     headerConflictBridge,
     paramConflictBridge,
+    pathParamConflictBridge,
     handleKeepAllMine,
     handleUseAllSaved,
     handleResolveText,

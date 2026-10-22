@@ -93,6 +93,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
+  REQUEST_PATH_PARAMS_PATH,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   SCRIPT_PACKAGE_ENTITY_TYPE,
@@ -495,7 +496,7 @@ export const REQUEST_REGISTRATION = flatEntity({
   postStateKey: 'requestPostState',
   projectPostState: projectRequestPostState,
   projectByUid: projectRequestByUid,
-  setPaths: [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH],
+  setPaths: [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH, REQUEST_PATH_PARAMS_PATH],
   localWriteSchema: RequestSchema,
 });
 

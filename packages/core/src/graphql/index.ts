@@ -60,9 +60,12 @@ export {
 export { type CompletionItem, type CompletionKind, type CompletionResult, completionsAt } from './complete';
 export {
   type ConvertNote,
+  type ConvertRefusal,
   fromHttpRequest,
   type GraphqlRequestContent,
   type HttpRequestLike,
+  type HttpToGraphqlConverted,
+  type HttpToGraphqlRefused,
   type HttpToGraphqlResult,
   isConvertibleToGraphql,
 } from './convert';

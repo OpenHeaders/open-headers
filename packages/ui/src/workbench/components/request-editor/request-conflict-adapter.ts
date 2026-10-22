@@ -4,7 +4,8 @@
  *
  * Tracking + entity-side resolution come from `makeConflictAdapter` over
  * `REQUEST_SCHEMA` (entity root scalars + uid-keyed `headers` / `params`
- * sets + discriminated `auth` / `body` unions with per-leaf coverage).
+ * / `pathParams` sets + discriminated `auth` / `body` unions with
+ * per-leaf coverage).
  * The form-side resolver is a no-op — RequestEditor uses controlled
  * state, not antd Form, so resolution writes go through
  * `applyResolutionToEntity` against a request clone and the editor
@@ -28,9 +29,11 @@ import { REQUEST_SCHEMA } from '@openheaders/ui/shared/conflicts/field-tree/requ
 
 const HEADER_PATH_RE = /^headers\.([a-z0-9]{8})\.(key|value|description|enabled)$/;
 const PARAM_PATH_RE = /^params\.([a-z0-9]{8})\.(key|value|description|enabled|hasEquals)$/;
+const PATH_PARAM_PATH_RE = /^pathParams\.([a-z0-9]{8})\.(key|value|description)$/;
 
 type HeaderLeaf = 'key' | 'value' | 'description' | 'enabled';
 type ParamLeaf = HeaderLeaf | 'hasEquals';
+type PathParamLeaf = 'key' | 'value' | 'description';
 
 const SCALAR_LABEL: Record<string, MessageKey> = {
   [REQUEST_PATHS.name]: 'shared.conflicts.label.request.scalar.name',
@@ -76,6 +79,11 @@ const PARAM_LEAF_LABEL: Record<ParamLeaf, MessageKey> = {
   enabled: 'shared.conflicts.label.request.paramField.enabled',
   hasEquals: 'shared.conflicts.label.request.paramField.hasEquals',
 };
+const PATH_PARAM_LEAF_LABEL: Record<PathParamLeaf, MessageKey> = {
+  key: 'shared.conflicts.label.request.pathParamField.key',
+  value: 'shared.conflicts.label.request.pathParamField.value',
+  description: 'shared.conflicts.label.request.pathParamField.description',
+};
 
 function findHeaderName(req: Request, uid: string): string | null {
   return req.headers?.find((h) => h.uid === uid)?.key ?? null;
@@ -83,10 +91,15 @@ function findHeaderName(req: Request, uid: string): string | null {
 function findParamName(req: Request, uid: string): string | null {
   return req.params?.find((p) => p.uid === uid)?.key ?? null;
 }
+function findPathParamName(req: Request, uid: string): string | null {
+  const key = req.pathParams?.find((p) => p.uid === uid)?.key;
+  return key === undefined ? null : `:${key}`;
+}
 
 function setPathSummary(t: Translate, setPath: string): string {
   if (setPath === REQUEST_PATHS.headerSet) return t('shared.conflicts.label.request.set.header');
   if (setPath === REQUEST_PATHS.paramSet) return t('shared.conflicts.label.request.set.queryParam');
+  if (setPath === REQUEST_PATHS.pathParamSet) return t('shared.conflicts.label.request.set.pathParam');
   return setPath;
 }
 
@@ -119,6 +132,10 @@ export const requestResolveAdapter: ConflictResolveAdapter<Request> = {
         const name = findParamName(req, uid);
         return name ? t('shared.conflicts.label.request.setRowNamed', { kind, name }) : kind;
       }
+      if (setPath === REQUEST_PATHS.pathParamSet) {
+        const name = findPathParamName(req, uid);
+        return name ? t('shared.conflicts.label.request.setRowNamed', { kind, name }) : kind;
+      }
       return kind;
     }
     if (path.startsWith('union:')) {
@@ -147,6 +164,16 @@ export const requestResolveAdapter: ConflictResolveAdapter<Request> = {
       return name
         ? t('shared.conflicts.label.request.queryParamLeafNamed', { name, leaf: label })
         : t('shared.conflicts.label.request.queryParamLeaf', { leaf: label });
+    }
+    const pathParamMatch = PATH_PARAM_PATH_RE.exec(path);
+    if (pathParamMatch) {
+      const uid = pathParamMatch[1];
+      const leaf = pathParamMatch[2] as PathParamLeaf;
+      const name = findPathParamName(req, uid);
+      const label = t(PATH_PARAM_LEAF_LABEL[leaf]);
+      return name
+        ? t('shared.conflicts.label.request.pathParamLeafNamed', { name, leaf: label })
+        : t('shared.conflicts.label.request.pathParamLeaf', { leaf: label });
     }
     if (path.startsWith(`${REQUEST_PATHS.auth}.`)) {
       return t('shared.conflicts.label.request.authTail', { path: path.slice(REQUEST_PATHS.auth.length + 1) });

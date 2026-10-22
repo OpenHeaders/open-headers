@@ -34,6 +34,13 @@ describe('unsavedSections', () => {
     expect(unsavedSections(updates(rich), updates(rich))).toEqual(CLEAN);
   });
 
+  it('a path parameter value edit flags the Params section', () => {
+    const base: Partial<Draft> = { pathParams: [makeKvRow({ uid: 'pth00001', key: 'id', value: '' })] };
+    const edited: Partial<Draft> = { pathParams: [makeKvRow({ uid: 'pth00001', key: 'id', value: '7' })] };
+    expect(unsavedSections(updates(edited), updates(base))).toEqual({ ...CLEAN, params: true });
+    expect(unsavedSections(updates(base), updates(base))).toEqual(CLEAN);
+  });
+
   it('flags only the section that changed', () => {
     expect(unsavedSections(updates({ description: 'notes' }), updates())).toEqual({ ...CLEAN, docs: true });
     expect(unsavedSections(updates({ auth: { type: 'bearer', token: 't' } as AuthConfig }), updates())).toEqual({

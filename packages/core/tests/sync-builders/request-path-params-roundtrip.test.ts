@@ -3,11 +3,18 @@
  * path: `seedRequest` emits one `addToSet` per row at `pathParams` and
  * strips the field off the create shell; the materialized entity
  * projects back to the same rows in seed order; a request without the
- * field materializes without the key.
+ * field materializes without the key. An UPDATE carrying the rows is a
+ * set diff (add / remove per uid), never a scalar `setField`, and an
+ * empty list tombstones every stored row.
  */
 
 import { describe, expect, it } from 'vitest';
 import { InMemoryDocumentStore, type MutatorContext, REQUEST_PATH_PARAMS_PATH } from '../../src/sync';
+import {
+  buildUpdateBatch,
+  type LiveSetEntries,
+  type RequestMutationPayload,
+} from '../../src/sync-builders/mutations/request-mutations';
 import { projectRequest, seedRequest } from '../../src/sync-builders/projections/request-projection';
 import type { Request } from '../../src/types';
 
@@ -43,11 +50,32 @@ const ROWS = [
 function materialize(request: Request): Request {
   const store = new InMemoryDocumentStore();
   for (const env of seedRequest(request, ctx(1_000)).mutations) store.apply(env);
-  const m = store.materializeOne('request', request.uid);
+  return read(store, request.uid);
+}
+
+function read(store: InMemoryDocumentStore, uid: string): Request {
+  const m = store.materializeOne('request', uid);
   const projected = m ? projectRequest(m) : null;
   if (!projected) throw new Error('request did not materialize');
   return projected;
 }
+
+function applyBatch(store: InMemoryDocumentStore, payload: RequestMutationPayload): void {
+  for (const env of payload.batch.mutations) store.apply(env);
+}
+
+/** The renderer write client's adapter: the live `(itemId, orderKey)`
+ *  pairs at a set path joined to the materialized rows by uid. */
+const liveSets =
+  (store: InMemoryDocumentStore): LiveSetEntries =>
+  (uid, path) => {
+    const rows = path === REQUEST_PATH_PARAMS_PATH ? (read(store, uid).pathParams ?? []) : [];
+    return store.liveOrderedSetItems('request', uid, path).map((e) => ({
+      itemId: e.itemId,
+      orderKey: e.key,
+      item: rows.find((r) => r.uid === e.itemId),
+    }));
+  };
 
 describe('request projection — path params', () => {
   it('seeds one addToSet per row at the pathParams path, keyed by the row uid, and strips the field off the shell', () => {
@@ -68,5 +96,34 @@ describe('request projection — path params', () => {
 
   it('a request without the field materializes without the key', () => {
     expect(materialize(makeRequest())).not.toHaveProperty(REQUEST_PATH_PARAMS_PATH);
+  });
+});
+
+describe('request update — path params', () => {
+  it('diffs the rows as a set: a changed value re-adds its uid, a dropped name tombstones, a new name adds; no setField', () => {
+    const store = new InMemoryDocumentStore();
+    applyBatch(store, { batch: seedRequest(makeRequest({ pathParams: ROWS }), ctx(1_000)), sideEffects: [] });
+
+    const next = [
+      { uid: 'pth00001', key: 'spacecraftId', value: 'voyager-1', description: "The spacecraft's id." },
+      { uid: 'pth00003', key: 'sensorId', value: '' },
+    ];
+    const payload = buildUpdateBatch('rq-1', { pathParams: next }, ctx(2_000), liveSets(store), () => undefined);
+    const kinds = payload.batch.mutations.map((m) => m.body.kind);
+    expect(kinds).not.toContain('setField');
+    expect(kinds.filter((k) => k === 'addToSet')).toHaveLength(2);
+    expect(kinds.filter((k) => k === 'removeFromSet')).toHaveLength(1);
+    applyBatch(store, payload);
+    expect(read(store, 'rq-1').pathParams).toEqual(next);
+  });
+
+  it('an empty list tombstones every stored row', () => {
+    const store = new InMemoryDocumentStore();
+    applyBatch(store, { batch: seedRequest(makeRequest({ pathParams: ROWS }), ctx(1_000)), sideEffects: [] });
+    const payload = buildUpdateBatch('rq-1', { pathParams: [] }, ctx(2_000), liveSets(store), () => undefined);
+    expect(payload.batch.mutations.map((m) => m.body.kind)).toEqual(['removeFromSet', 'removeFromSet']);
+    applyBatch(store, payload);
+    // The emptied set materializes as `[]`; the codec reads that as absent.
+    expect(read(store, 'rq-1').pathParams ?? []).toEqual([]);
   });
 });

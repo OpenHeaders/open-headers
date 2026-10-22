@@ -2,7 +2,8 @@
  * SortableEditableRow — one user row of `EditableGridTable`: drag
  * handle + enable checkbox + Key / Value / Description cells + delete,
  * with per-cell inline conflict chips. Sortable via @dnd-kit (the
- * trailing ghost row is drag-disabled).
+ * trailing ghost row is drag-disabled). Under `lockedKeys` the key is
+ * read-only text and the handle and delete button stay out of reach.
  */
 
 import { DeleteOutlined, HolderOutlined } from '@ant-design/icons';
@@ -28,6 +29,8 @@ interface SortableEditableRowProps<Row> {
   isPlaceholder: boolean;
   gridTemplate: string;
   hideEnabled: boolean;
+  /** See `EditableGridTableProps.lockedKeys`. */
+  lockedKeys?: boolean;
   showValueColumn: boolean;
   showDescriptionColumn: boolean;
   keyPlaceholder: string;
@@ -57,6 +60,7 @@ export function SortableEditableRow<Row>({
   isPlaceholder,
   gridTemplate,
   hideEnabled,
+  lockedKeys = false,
   showValueColumn,
   showDescriptionColumn,
   keyPlaceholder,
@@ -88,7 +92,7 @@ export function SortableEditableRow<Row>({
   // KeyValueRow's `value` is the controlled string. The chip lookup is
   // tolerant of `undefined`: falls back to empty string.
   const localValue = String(((row as unknown as { value?: unknown }).value ?? ''));
-  const keyPath = rowPath?.(id, 'key');
+  const keyPath = lockedKeys ? undefined : rowPath?.(id, 'key');
   const valuePath = rowPath?.(id, 'value');
   const descPath = rowPath?.(id, 'description');
   const keyConflict =
@@ -104,8 +108,11 @@ export function SortableEditableRow<Row>({
   const setRowConflict = setRowConflictRaw?.kind === 'set-remove' ? setRowConflictRaw : null;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
-    disabled: isPlaceholder,
+    disabled: isPlaceholder || lockedKeys,
   });
+  // The handle and the delete button hide (never unmount) so the grid
+  // tracks stay aligned with the header row.
+  const rowControlsHidden = isPlaceholder || lockedKeys;
   const enabled = adapter.getEnabled(row);
   const dim = !enabled || isPlaceholder;
 
@@ -148,18 +155,18 @@ export function SortableEditableRow<Row>({
       }}
     >
       <span
-        {...(isPlaceholder ? {} : attributes)}
-        {...(isPlaceholder ? {} : listeners)}
+        {...(rowControlsHidden ? {} : attributes)}
+        {...(rowControlsHidden ? {} : listeners)}
         className="editable-grid-drag-handle"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: ROW_CONTROL_HEIGHT,
-          cursor: isPlaceholder ? 'default' : 'grab',
+          cursor: rowControlsHidden ? 'default' : 'grab',
           color: token.colorTextTertiary,
           fontSize: 12,
-          visibility: isPlaceholder ? 'hidden' : 'visible',
+          visibility: rowControlsHidden ? 'hidden' : 'visible',
         }}
       >
         <HolderOutlined />
@@ -182,11 +189,28 @@ export function SortableEditableRow<Row>({
           />
         </span>
       )}
-      <div
-        data-field-path={rowPath ? rowPath(id, 'key') : undefined}
-        style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 4 }}
-      >
-        {renderKeyCell ? (
+      <div data-field-path={keyPath} style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 4 }}>
+        {lockedKeys ? (
+          <span
+            data-testid="oh-grid-locked-key"
+            title={localKey}
+            style={{
+              ...cellFont,
+              padding: '4px 10px',
+              flex: 1,
+              minWidth: 0,
+              minHeight: ROW_CONTROL_HEIGHT,
+              display: 'flex',
+              alignItems: 'center',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: dim ? token.colorTextQuaternary : token.colorText,
+            }}
+          >
+            {localKey}
+          </span>
+        ) : renderKeyCell ? (
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
             {renderKeyCell(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
           </div>
@@ -366,12 +390,12 @@ export function SortableEditableRow<Row>({
           type="text"
           size="small"
           icon={<DeleteOutlined />}
-          disabled={isPlaceholder}
+          disabled={rowControlsHidden}
           onClick={onRemove}
           className="editable-grid-delete"
           style={{
             color: token.colorTextTertiary,
-            visibility: isPlaceholder ? 'hidden' : undefined,
+            visibility: rowControlsHidden ? 'hidden' : undefined,
           }}
         />
       </div>

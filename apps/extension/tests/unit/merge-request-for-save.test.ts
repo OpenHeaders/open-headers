@@ -1,4 +1,4 @@
-import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
+import type { PathParam, QueryParam, Request, RequestHeader } from '@openheaders/core/types';
 import {
   mergeRequestForSave,
   type RequestSaveBatch,
@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const hdr = (uid: string, key: string, value: string): RequestHeader => ({ uid, key, value });
 const param = (uid: string, key: string, value: string): QueryParam => ({ uid, key, value });
+const pathParam = (uid: string, key: string, value: string): PathParam => ({ uid, key, value });
 
 function makeReq(overrides: Partial<Request> = {}): Request {
   return {
@@ -31,6 +32,7 @@ function batchOf(req: Request): RequestSaveBatch {
     url: req.url,
     headers: req.headers,
     params: req.params,
+    pathParams: req.pathParams ?? [],
     auth: req.auth,
     body: req.body,
     specLink: req.specLink,
@@ -151,6 +153,14 @@ describe('mergeRequestForSave', () => {
     const form = batchOf(makeReq({ headers: [hdr('a', 'X-A', 'b1'), hdr('b', 'X-B', 'mine2')] }));
     const merged = mergeRequestForSave(form, baseline, live);
     expect(merged.headers).toEqual([hdr('a', 'X-A', 'live1'), hdr('b', 'X-B', 'mine2')]);
+  });
+
+  it('per-row merges path params by uid — an untouched row adopts the live value, an edited one keeps ours', () => {
+    const baseline = makeReq({ pathParams: [pathParam('a', 'id', 'b'), pathParam('c', 'tenant', 'b')] });
+    const live = makeReq({ pathParams: [pathParam('a', 'id', 'L'), pathParam('c', 'tenant', 'L')] });
+    const form = batchOf(makeReq({ pathParams: [pathParam('a', 'id', 'b'), pathParam('c', 'tenant', 'MINE')] }));
+    const merged = mergeRequestForSave(form, baseline, live);
+    expect(merged.pathParams).toEqual([pathParam('a', 'id', 'L'), pathParam('c', 'tenant', 'MINE')]);
   });
 
   it('per-row merges params by uid', () => {

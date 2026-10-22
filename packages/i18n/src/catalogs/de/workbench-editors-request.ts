@@ -72,6 +72,13 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     'Die Methode {method} wird zu POST — jede GraphQL-Operation postet.',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} Pfadparameter wird so, wie sein Wert lautet, in die URL geschrieben.',
+      other: '{count} Pfadparameter werden so, wie ihre Werte lauten, in die URL geschrieben.',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    'Setze zuerst einen Wert für {keys} — eine GraphQL-Anfrage hat keine Pfadparameter.',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} gespeicherte Antwort wandert unter die neue Anfrage.',
@@ -122,6 +129,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': 'Benutzerdefinierte Methode {method} entfernen',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': 'Query-Parameter',
+  'workbench.editors.request.params.pathHeading': 'Pfadparameter',
+  'workbench.editors.request.params.pathEmpty': 'Tippe :name in die URL, um einen Pfadparameter hinzuzufügen.',
+  'workbench.editors.request.params.pathMissing': 'Setze einen Wert für {keys}, bevor du sendest.',
   'workbench.editors.request.goToAuthorization': 'Zur Autorisierung gehen',
   'workbench.editors.request.goToBody': 'Zum Body gehen',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',

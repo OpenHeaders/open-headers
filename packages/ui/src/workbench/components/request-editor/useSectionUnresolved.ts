@@ -51,6 +51,11 @@ export function useSectionUnresolved(
       if (r.key) paramStrings.push(r.key);
       if (r.value) paramStrings.push(r.value);
     }
+    // Path parameter VALUES are template fields on the same tab; their
+    // keys are identifiers, never templates.
+    for (const r of draft.pathParams) {
+      if (r.value) paramStrings.push(r.value);
+    }
     const headerStrings: string[] = [];
     for (const r of draft.headers) {
       if (r.enabled === false) continue;

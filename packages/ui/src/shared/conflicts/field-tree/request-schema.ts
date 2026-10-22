@@ -9,8 +9,8 @@
  * branch (oauth2 token endpoint, json content, multipart parts) the
  * same way every other entity tracks per-leaf data through the walker.
  *
- * Entity-root scalars + uid-keyed `headers` / `params` sets pass
- * through the walker unchanged. Auth + Body each emit a `union:auth` /
+ * Entity-root scalars + uid-keyed `headers` / `params` / `pathParams`
+ * sets pass through the walker unchanged. Auth + Body each emit a `union:auth` /
  * `union:body` divergence marker so kind transitions (e.g. `none` →
  * `oauth2`) collapse to one structural conflict instead of N noisy
  * per-leaf entries that don't apply to the new branch.
@@ -19,11 +19,12 @@
 import { enumLeaf, type FieldNode, leaf, obj, setByUid, union } from './descriptor';
 
 const summarizeKv =
-  (label: 'header' | 'param' | 'extra' | 'form' | 'multipart-text') =>
+  (label: 'header' | 'param' | 'path-param' | 'extra' | 'form' | 'multipart-text') =>
   (row: unknown): string => {
     const r = row as { key?: string; value?: string; name?: string };
     if (label === 'header') return `${r.key ?? ''}: ${r.value ?? ''}`;
     if (label === 'param') return `${r.key ?? ''}=${r.value ?? ''}`;
+    if (label === 'path-param') return `:${r.key ?? ''}=${r.value ?? ''}`;
     if (label === 'form') return `${r.key ?? ''}=${r.value ?? ''}`;
     if (label === 'extra') return `${r.key ?? ''}=${r.value ?? ''}`;
     // multipart text
@@ -43,6 +44,14 @@ const PARAM_ROW: FieldNode = obj({
   description: leaf('string', { coercion: 'optional-string' }),
   enabled: leaf('boolean', { coercion: 'enabled-default-true' }),
   hasEquals: leaf('boolean', { coercion: 'boolean-strict', baseline: 'skip' }),
+});
+
+// No `enabled` (a parameter the URL names is always sent) and no
+// `hasEquals`; the row's order is the URL's.
+const PATH_PARAM_ROW: FieldNode = obj({
+  key: leaf('string'),
+  value: leaf('string'),
+  description: leaf('string', { coercion: 'optional-string' }),
 });
 
 const EXTRA_PARAM_ROW: FieldNode = obj({
@@ -305,6 +314,7 @@ export const REQUEST_SCHEMA: FieldNode = obj({
   postResponseScript: leaf('string', { coercion: 'optional-string' }),
   headers: setByUid({ summary: summarizeKv('header'), child: HEADER_ROW }),
   params: setByUid({ summary: summarizeKv('param'), child: PARAM_ROW }),
+  pathParams: setByUid({ summary: summarizeKv('path-param'), child: PATH_PARAM_ROW }),
   auth: AUTH_UNION,
   body: BODY_UNION,
   specLink: obj({ specUid: leaf('string') }),

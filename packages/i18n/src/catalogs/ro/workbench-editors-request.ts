@@ -116,6 +116,14 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     'Metoda {method} devine POST — orice operație GraphQL se trimite prin POST.',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} parametru de cale este scris în adresa URL așa cum se citește valoarea lui.',
+      few: '{count} parametri de cale sunt scriși în adresa URL așa cum se citesc valorile lor.',
+      other: '{count} de parametri de cale sunt scriși în adresa URL așa cum se citesc valorile lor.',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    'Setați mai întâi o valoare pentru {keys} — o cerere GraphQL nu are parametri de cale.',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} răspuns salvat se mută sub noua cerere.',
@@ -166,6 +174,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': 'Eliminare metodă personalizată {method}',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': 'Parametri de interogare',
+  'workbench.editors.request.params.pathHeading': 'Parametri de cale',
+  'workbench.editors.request.params.pathEmpty': 'Tastați :name în adresa URL pentru a adăuga un parametru de cale.',
+  'workbench.editors.request.params.pathMissing': 'Setați o valoare pentru {keys} înainte de a trimite.',
   'workbench.editors.request.goToAuthorization': 'Către autorizare',
   'workbench.editors.request.goToBody': 'Către corp',
   'workbench.editors.request.headers.keyPlaceholder': 'Antet',

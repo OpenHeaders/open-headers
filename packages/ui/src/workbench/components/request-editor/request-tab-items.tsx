@@ -115,9 +115,13 @@ export function buildRequestTabItems(
   // at the top of the table). The browser-managed auto-headers are NOT
   // counted: they're environment noise revealed behind the "N hidden"
   // toggle, not the user's own headers. Params likewise count user rows
-  // plus any auth credential that rides on the URL.
+  // plus any auth credential that rides on the URL, plus the path
+  // parameter rows the URL names (always sent, so always counted).
   const authContrib = previewAuthContributions(draft.auth, t);
-  const paramCount = authContrib.params.length + draft.params.filter((p) => p.enabled && p.key.trim()).length;
+  const paramCount =
+    authContrib.params.length +
+    draft.params.filter((p) => p.enabled && p.key.trim()).length +
+    draft.pathParams.length;
   const headerCount = authContrib.headers.length + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
   const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
   // Settings dots while the request sets any knob of its OWN — explicit

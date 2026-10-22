@@ -62,6 +62,14 @@ export const workbenchEditorsRequest = {
     }),
   'workbench.editors.request.convert.noteMethodChanged':
     'La méthode {method} devient POST — chaque opération GraphQL est un POST.',
+  'workbench.editors.request.convert.notePathParamsInlined': ({ count }, locale) =>
+    plural(locale, Number(count), {
+      one: '{count} paramètre de chemin est écrit dans l’URL tel que sa valeur se lit.',
+      many: '{count} paramètres de chemin sont écrits dans l’URL tels que leurs valeurs se lisent.',
+      other: '{count} paramètres de chemin sont écrits dans l’URL tels que leurs valeurs se lisent.',
+    }),
+  'workbench.editors.request.convert.refusedPathParams':
+    'Définissez d’abord une valeur pour {keys} — une requête GraphQL n’a pas de paramètres de chemin.',
   'workbench.editors.request.convert.noteExamples': ({ count }, locale) =>
     plural(locale, Number(count), {
       one: '{count} réponse enregistrée passe sous la nouvelle requête.',
@@ -115,6 +123,10 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.method.removeCustomAria': 'Retirer la méthode personnalisée {method}',
 
   // ── Params / Headers tabs ──────────────────────────────────────────
+  'workbench.editors.request.params.queryHeading': 'Paramètres de requête',
+  'workbench.editors.request.params.pathHeading': 'Paramètres de chemin',
+  'workbench.editors.request.params.pathEmpty': 'Saisissez :name dans l’URL pour ajouter un paramètre de chemin.',
+  'workbench.editors.request.params.pathMissing': 'Définissez une valeur pour {keys} avant d’envoyer.',
   'workbench.editors.request.goToAuthorization': "Aller à l'autorisation",
   'workbench.editors.request.goToBody': 'Aller au corps',
   'workbench.editors.request.headers.keyPlaceholder': 'En-tête',

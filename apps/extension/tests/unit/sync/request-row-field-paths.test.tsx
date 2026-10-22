@@ -10,7 +10,9 @@
  * — set rows are uid-keyed (RequestHeaderSchema + QueryParamSchema
  * persist a stable per-row uid), so paths survive reorder + cross-
  * surface joins. The placeholder ghost reuses the synthesized makeKvRow
- * uid; once the user types it materializes with that same id.
+ * uid; once the user types it materializes with that same id. The Path
+ * Parameters table (locked keys) tags Value / Description only — the
+ * key is the URL's, read-only, with no path of its own.
  */
 
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
@@ -53,7 +55,9 @@ const NO_AUTH: AuthConfig = { type: 'none' };
 describe('ParamsTab — per-row data-field-path', () => {
   it('wraps each cell with params.<uid>.<leaf>', () => {
     const rows: KeyValueRow[] = [row('aaaaaaaa', 'q', '1'), row('bbbbbbbb', 'r', '2')];
-    const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} auth={NO_AUTH} />);
+    const { container } = render(
+      <ParamsTab rows={rows} onChange={vi.fn()} pathRows={[]} onPathChange={vi.fn()} url="" auth={NO_AUTH} />,
+    );
     const wrappers = container.querySelectorAll<HTMLElement>('[data-field-path^="params."]');
     const paths = Array.from(wrappers).map((el) => el.dataset.fieldPath ?? '');
     expect(paths).toContain('params.aaaaaaaa.key');
@@ -65,7 +69,9 @@ describe('ParamsTab — per-row data-field-path', () => {
 
   it('focus-capture target inside a value cell resolves to params.<uid>.value', () => {
     const rows: KeyValueRow[] = [row('aaaaaaaa', 'q', '1')];
-    const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} auth={NO_AUTH} />);
+    const { container } = render(
+      <ParamsTab rows={rows} onChange={vi.fn()} pathRows={[]} onPathChange={vi.fn()} url="" auth={NO_AUTH} />,
+    );
     const wrapper = container.querySelector<HTMLElement>('[data-field-path="params.aaaaaaaa.value"]');
     expect(wrapper).not.toBeNull();
     const innerFocusable = wrapper?.querySelector<HTMLElement>('[contenteditable],input,textarea');
@@ -114,5 +120,62 @@ describe('HeadersTab — per-row data-field-path', () => {
     expect(ghostKeyPaths.length).toBe(1);
     // Ghost uid is 8-char lowercase-alphanumeric per generateUid().
     expect(/^headers\.[a-z0-9]{8}\.key$/.test(ghostKeyPaths[0])).toBe(true);
+  });
+});
+
+describe('ParamsTab — the Path Parameters table', () => {
+  const url = 'https://api.openheaders.io/users/:userId/files/:fileId';
+
+  it('tags Value / Description cells with pathParams.<uid>.<leaf> and gives the read-only key no path', () => {
+    const pathRows: KeyValueRow[] = [row('aaaaaaaa', 'userId', '7'), row('bbbbbbbb', 'fileId', '')];
+    const { container } = render(
+      <ParamsTab rows={[]} onChange={vi.fn()} pathRows={pathRows} onPathChange={vi.fn()} url={url} auth={NO_AUTH} />,
+    );
+    const paths = Array.from(container.querySelectorAll<HTMLElement>('[data-field-path^="pathParams."]')).map(
+      (el) => el.dataset.fieldPath ?? '',
+    );
+    expect(paths).toContain('pathParams.aaaaaaaa.value');
+    expect(paths).toContain('pathParams.aaaaaaaa.description');
+    expect(paths).toContain('pathParams.bbbbbbbb.value');
+    expect(paths.some((p) => p.endsWith('.key'))).toBe(false);
+    // Two rows, two leaves each — no ghost row's paths after them.
+    expect(paths).toHaveLength(4);
+    const keys = Array.from(container.querySelectorAll<HTMLElement>('[data-testid="oh-grid-locked-key"]')).map(
+      (el) => el.textContent,
+    );
+    expect(keys).toEqual(['userId', 'fileId']);
+  });
+
+  it('names the parameters without a value under the table, and only those', () => {
+    const pathRows: KeyValueRow[] = [row('aaaaaaaa', 'userId', '7'), row('bbbbbbbb', 'fileId', '  ')];
+    const { container } = render(
+      <ParamsTab rows={[]} onChange={vi.fn()} pathRows={pathRows} onPathChange={vi.fn()} url={url} auth={NO_AUTH} />,
+    );
+    expect(container.querySelector('[data-testid="oh-path-params-missing"]')?.textContent).toBe(
+      'Set a value for :fileId before sending.',
+    );
+    cleanup();
+    const filled = [row('aaaaaaaa', 'userId', '7'), row('bbbbbbbb', 'fileId', '{{env.FILE}}')];
+    const { container: clean } = render(
+      <ParamsTab rows={[]} onChange={vi.fn()} pathRows={filled} onPathChange={vi.fn()} url={url} auth={NO_AUTH} />,
+    );
+    expect(clean.querySelector('[data-testid="oh-path-params-missing"]')).toBeNull();
+  });
+
+  it('shows the empty-state line when the URL names no parameter', () => {
+    const { container } = render(
+      <ParamsTab
+        rows={[]}
+        onChange={vi.fn()}
+        pathRows={[]}
+        onPathChange={vi.fn()}
+        url="https://api.openheaders.io/users"
+        auth={NO_AUTH}
+      />,
+    );
+    expect(container.querySelector('[data-testid="oh-path-params-empty"]')?.textContent).toBe(
+      'Type :name in the URL to add a path parameter.',
+    );
+    expect(container.querySelector('[data-testid="oh-grid-locked-key"]')).toBeNull();
   });
 });

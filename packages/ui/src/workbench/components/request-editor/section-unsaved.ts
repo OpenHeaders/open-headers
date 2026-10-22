@@ -44,7 +44,7 @@ export function unsavedSections(draft: RequestUpdates, saved: RequestUpdates): U
     stableStringify(pick(draft)) !== stableStringify(pick(saved));
   return {
     docs: draft.description !== saved.description,
-    params: differs((u) => u.params),
+    params: differs((u) => u.params) || differs((u) => u.pathParams),
     auth: differs((u) => u.auth),
     headers: differs((u) => u.headers),
     body: differs((u) => u.body),

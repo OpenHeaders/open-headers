@@ -4,10 +4,12 @@
  * Awareness publishing + per-path conflict tracking key off these
  * strings; peers must agree on the encoding for chips to render.
  *
- * Set rows (`headers`, `params`) are uid-keyed — `RequestHeaderSchema`
- * + `QueryParamSchema` persist a stable per-row uid (§7.2 LWW per
- * itemId, §7.3 moveBefore via fractional indexing on the parent's
- * order array). Index-based row paths would shift on reorder + collide
+ * Set rows (`headers`, `params`, `pathParams`) are uid-keyed —
+ * `RequestHeaderSchema` + `QueryParamSchema` + `PathParamSchema`
+ * persist a stable per-row uid (§7.2 LWW per itemId, §7.3 moveBefore
+ * via fractional indexing on the parent's order array; the path rows
+ * take their order from the URL and never move). Index-based row
+ * paths would shift on reorder + collide
  * across surfaces; uid-based paths preserve identity across the
  * editor / sidebar / future inspector triple.
  *
@@ -51,9 +53,13 @@ export interface RequestPathBundle {
   // Set roots (used for path-prefix presence + set-level conflict keys).
   headerSet: string;
   paramSet: string;
+  pathParamSet: string;
   // Per-row generators.
   header(uid: string, leaf: 'key' | 'value' | 'description' | 'enabled'): string;
   param(uid: string, leaf: 'key' | 'value' | 'description' | 'enabled' | 'hasEquals'): string;
+  /** The key is the URL's and read-only in the table, but a leaf of the
+   *  row all the same — the conflict tree names it like any other. */
+  pathParam(uid: string, leaf: 'key' | 'value' | 'description'): string;
 }
 
 export const REQUEST_PATHS: RequestPathBundle = {
@@ -88,8 +94,10 @@ export const REQUEST_PATHS: RequestPathBundle = {
   specLink: 'specLink',
   headerSet: 'headers',
   paramSet: 'params',
+  pathParamSet: 'pathParams',
   header: (uid, leaf) => `headers.${uid}.${leaf}`,
   param: (uid, leaf) => `params.${uid}.${leaf}`,
+  pathParam: (uid, leaf) => `pathParams.${uid}.${leaf}`,
 };
 
 export type RequestTabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings';
