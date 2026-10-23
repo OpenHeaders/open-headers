@@ -681,6 +681,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           params: seed?.params ?? [],
           auth: seed?.auth ?? { type: 'inherit' },
           body: seed?.body ?? { type: 'none' },
+          ...(seed?.pathParams !== undefined ? { pathParams: seed.pathParams } : {}),
           ...(seed?.description ? { description: seed.description } : {}),
           ...(seed?.credentialsMode ? { credentialsMode: seed.credentialsMode } : {}),
           ...(seed?.followRedirects !== undefined ? { followRedirects: seed.followRedirects } : {}),
