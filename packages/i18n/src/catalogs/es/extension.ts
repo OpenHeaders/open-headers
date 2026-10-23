@@ -21,6 +21,6 @@ export const extension = {
     })} coincidieron con solicitudes en esta página`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    'DevToolkit web open source, en una extensión de navegador. Modifica solicitudes en vivo. Colecciones de API. Colaboración en equipo.',
+    'El cliente de API Enterprise open source en tu navegador. Colaboración en equipo. Interceptor del navegador: tráfico en vivo.',
   'extension.manifest.actionDescription': 'Abrir el popup de Open Headers',
 } as const satisfies Catalog;

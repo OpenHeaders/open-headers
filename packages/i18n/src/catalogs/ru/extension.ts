@@ -24,6 +24,6 @@ export const extension = {
     })} совпали с запросами на этой странице`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    'DevToolkit с открытым кодом в расширении браузера. Правка запросов браузера на лету. Управление коллекциями API. Работа в команде.',
+    'Enterprise API-клиент с открытым кодом в вашем браузере. Работа в команде. Перехватчик браузера — живой трафик.',
   'extension.manifest.actionDescription': 'Открыть всплывающее окно Open Headers',
 } as const satisfies Catalog;

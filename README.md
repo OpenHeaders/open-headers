@@ -8,8 +8,8 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
 
-The Enterprise API Client - Open-source DevToolkit inside a browser
-extension.
+The open-source Enterprise API client in your browser. Team
+Collaboration. Browser Interceptor - live traffic.
 
 Local-first: no account, no cloud, your data stays on your machine.
 

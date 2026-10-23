@@ -22,6 +22,6 @@ export const extension = {
     })} au corespuns cererilor de pe această pagină`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    'DevToolkit open source, într-o extensie de browser. Modificați cererile în timp real. Gestionați colecții API. Colaborare în echipă.',
+    'Clientul API Enterprise open source în browserul tău. Colaborare în echipă. Interceptor de browser – trafic live.',
   'extension.manifest.actionDescription': 'Deschidere fereastră popup Open Headers',
 } as const satisfies Catalog;

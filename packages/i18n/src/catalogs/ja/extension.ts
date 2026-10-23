@@ -18,6 +18,6 @@ export const extension = {
     })}のうち ${matched} 件がこのページのリクエストに一致しました`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    'ブラウザー拡張機能の中のオープンソース DevToolkit。ブラウザーのリクエストをリアルタイムで変更。API コレクションの管理。チームでの共同作業。',
+    'ブラウザーの中のオープンソース Enterprise API クライアント。チームコラボレーション。ブラウザーインターセプター — ライブトラフィック。',
   'extension.manifest.actionDescription': 'Open Headers のポップアップを開く',
 } as const satisfies Catalog;

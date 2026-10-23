@@ -3,7 +3,7 @@
     "message": "Open Headers"
   },
   "extDesc": {
-    "message": "DevToolkit web open source, en una extensión de navegador. Modifica solicitudes en vivo. Colecciones de API. Colaboración en equipo."
+    "message": "El cliente de API Enterprise open source en tu navegador. Colaboración en equipo. Interceptor del navegador: tráfico en vivo."
   },
   "extActionDesc": {
     "message": "Abrir el popup de Open Headers"

@@ -29,7 +29,7 @@ describe('locale messages', () => {
 
   it('translates the description and the action description per locale', () => {
     const english = messages.get('en');
-    expect(english?.extDesc.message).toMatch(/^Open Source DevToolkit/);
+    expect(english?.extDesc.message).toMatch(/^The open-source Enterprise API client/);
     expect(english?.extActionDesc.message).toBe('Open Open Headers popup');
     for (const dir of ['de', 'es', 'fr', 'ja', 'ko', 'ro', 'ru', 'zh_CN']) {
       expect(messages.get(dir)?.extDesc.message, dir).not.toBe(english?.extDesc.message);

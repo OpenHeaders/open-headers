@@ -3,7 +3,7 @@
     "message": "Open Headers"
   },
   "extDesc": {
-    "message": "ブラウザー拡張機能の中のオープンソース DevToolkit。ブラウザーのリクエストをリアルタイムで変更。API コレクションの管理。チームでの共同作業。"
+    "message": "ブラウザーの中のオープンソース Enterprise API クライアント。チームコラボレーション。ブラウザーインターセプター — ライブトラフィック。"
   },
   "extActionDesc": {
     "message": "Open Headers のポップアップを開く"
