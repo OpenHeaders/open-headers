@@ -35,15 +35,17 @@ const APPLICABLE_FIELDS: readonly SpecChangedField[] = [
   'body',
 ];
 
-const FIELD_LABEL_KEYS = {
-  name: 'workbench.editors.spec.update.field.name',
-  description: 'workbench.editors.spec.update.field.description',
-  url: 'workbench.editors.spec.update.field.url',
-  headers: 'workbench.editors.spec.update.field.headers',
-  params: 'workbench.editors.spec.update.field.params',
-  pathParams: 'workbench.editors.spec.update.field.pathParams',
-  auth: 'workbench.editors.spec.update.field.auth',
-  body: 'workbench.editors.spec.update.field.body',
+/** One sentence per field — the grammar lives in the catalog, never
+ *  composed from a label. */
+const FIELD_DIFFERS_KEYS = {
+  name: 'workbench.editors.request.spec.fieldDiffers.name',
+  description: 'workbench.editors.request.spec.fieldDiffers.description',
+  url: 'workbench.editors.request.spec.fieldDiffers.url',
+  headers: 'workbench.editors.request.spec.fieldDiffers.headers',
+  params: 'workbench.editors.request.spec.fieldDiffers.params',
+  pathParams: 'workbench.editors.request.spec.fieldDiffers.pathParams',
+  auth: 'workbench.editors.request.spec.fieldDiffers.auth',
+  body: 'workbench.editors.request.spec.fieldDiffers.body',
 } as const satisfies Record<SpecChangedField, string>;
 
 interface SpecTabProps {
@@ -181,7 +183,7 @@ const SpecTab: React.FC<SpecTabProps> = ({ workspaceId, collection, requestName,
               {applicable.map((field) => (
                 <div key={field} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Text style={{ fontSize: 12, flex: 1 }}>
-                    {t('workbench.editors.request.spec.fieldDiffers', { field: t(FIELD_LABEL_KEYS[field]) })}
+                    {t(FIELD_DIFFERS_KEYS[field])}
                   </Text>
                   <Button
                     size="small"
