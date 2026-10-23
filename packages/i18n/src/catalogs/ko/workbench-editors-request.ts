@@ -656,7 +656,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.asapPrivateKeyPlaceholder':
     '-----BEGIN PRIVATE KEY----- … 또는 data:application/pkcs8 형식',
   'workbench.editors.request.auth.asapIssuerPlaceholder': '예: my-service',
-  'workbench.editors.request.auth.asapAudiencePlaceholder': '예: api.openheaders.io',
+  'workbench.editors.request.auth.asapAudiencePlaceholder': '예: api.openheaders.com',
   'workbench.editors.request.auth.asapSubjectPlaceholder': '선택 사항. 비우면 발급자를 보냅니다',
   'workbench.editors.request.auth.asapClaimsPlaceholder': '선택 사항. JSON 형식, 예: {"scope":"read"}',
   'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',

@@ -702,7 +702,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.asapPrivateKeyPlaceholder':
     '-----BEGIN PRIVATE KEY----- \u2026 oder die data:application/pkcs8-Form',
   'workbench.editors.request.auth.asapIssuerPlaceholder': 'z. B. my-service',
-  'workbench.editors.request.auth.asapAudiencePlaceholder': 'z. B. api.openheaders.io',
+  'workbench.editors.request.auth.asapAudiencePlaceholder': 'z. B. api.openheaders.com',
   'workbench.editors.request.auth.asapSubjectPlaceholder': 'optional \u2014 leer sendet den Aussteller',
   'workbench.editors.request.auth.asapClaimsPlaceholder': 'optional \u2014 JSON, z. B. {"scope":"read"}',
   'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',

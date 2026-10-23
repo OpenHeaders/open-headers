@@ -591,7 +591,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.auth.asapPrivateKeyPlaceholder':
     '-----BEGIN PRIVATE KEY----- \u2026 或 data:application/pkcs8 形式',
   'workbench.editors.request.auth.asapIssuerPlaceholder': '例如 my-service',
-  'workbench.editors.request.auth.asapAudiencePlaceholder': '例如 api.openheaders.io',
+  'workbench.editors.request.auth.asapAudiencePlaceholder': '例如 api.openheaders.com',
   'workbench.editors.request.auth.asapSubjectPlaceholder': '可选——留空则发送签发者',
   'workbench.editors.request.auth.asapClaimsPlaceholder': '可选——JSON，例如 {"scope":"read"}',
   'workbench.editors.request.auth.asapExpiresInPlaceholder': '3600',

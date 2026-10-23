@@ -3,8 +3,8 @@
  * rendered as a JSON object the Variables pane can start from
  * ("Generate variables"). Deterministic, the proto / AsyncAPI posture:
  * an authored default wins; scalars take name-aware samples on the
- * `openheaders.io` flavor (an `email` is `john.doe@openheaders.io`, a
- * `url` is `https://openheaders.io`, an `id` is `"1"`); enums take
+ * `openheaders.com` flavor (an `email` is `john.doe@openheaders.com`, a
+ * `url` is `https://openheaders.com`, an `id` is `"1"`); enums take
  * their first value; lists carry one item; input objects fill every
  * field; reference cycles cut to an empty object. Nullable variables
  * are filled too — an example should be useful, not minimal.
@@ -43,9 +43,9 @@ export function valueToJson(node: ValueNode | ConstValueNode): JsonValue {
 }
 
 const STRING_HINTS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/e-?mail/i, 'john.doe@openheaders.io'],
-  [/url|uri|link|href|website/i, 'https://openheaders.io'],
-  [/host|domain/i, 'openheaders.io'],
+  [/e-?mail/i, 'john.doe@openheaders.com'],
+  [/url|uri|link|href|website/i, 'https://openheaders.com'],
+  [/host|domain/i, 'openheaders.com'],
   [/first.?name/i, 'John'],
   [/last.?name|surname/i, 'Doe'],
   [/name|title/i, 'John Doe'],
@@ -67,9 +67,9 @@ const SCALAR_SAMPLES: ReadonlyMap<string, JsonValue> = new Map<string, JsonValue
   ['Timestamp', '2026-01-01T00:00:00Z'],
   ['JSON', {}],
   ['JSONObject', {}],
-  ['URL', 'https://openheaders.io'],
-  ['URI', 'https://openheaders.io'],
-  ['EmailAddress', 'john.doe@openheaders.io'],
+  ['URL', 'https://openheaders.com'],
+  ['URI', 'https://openheaders.com'],
+  ['EmailAddress', 'john.doe@openheaders.com'],
   ['UUID', '00000000-0000-4000-8000-000000000001'],
   ['Long', 1],
   ['BigInt', 1],
