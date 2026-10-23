@@ -945,7 +945,7 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: paradigm shift ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.shift.aria':
     'The paradigm shift — grouped contrasts between Open Headers and every other tool in the space. Everything in ' +
-    'one browser extension, no account, local-only, no tracking, one engine for nine rule types, field-level sync, ' +
+    'one browser extension, no account, local-only, no tracking, one engine for eleven rule types, field-level sync, ' +
     'a full-featured free tier with no feature gates, seat-based pricing, and no lockout on lapse — versus the ' +
     'rest of the market.',
   'workbench.docs.diagrams.openHeaders.shift.title': 'THE PARADIGM SHIFT',
@@ -1243,7 +1243,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule': 'One rule type — headers only',
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts': 'No scripts, no auth, no body edits',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsLocal': 'In-browser · local-only · no account',
-  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': 'Nine rule types · one condition language',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': 'Eleven rule types · one condition language',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsScripts': 'Scripts + OAuth + files in the extension',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces': 'Four surfaces share one store',
 
@@ -1298,7 +1298,7 @@ export const workbenchDocsDiagrams = {
     'Need any of the other 8? — install another extension',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight': 'Same conditions, same surface, one workspace',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict':
-    'Nine rule types, one condition language, one observable surface',
+    'Eleven rule types, one condition language, one observable surface',
 
   // ── Open Headers: vs proxy ──────────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.vsProxy.aria':

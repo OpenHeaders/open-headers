@@ -1005,7 +1005,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.shift.aria':
     'Le changement de paradigme — contrastes groupés entre Open Headers et tous les autres outils du domaine. ' +
     'Tout dans une seule extension de navigateur, aucun compte, local uniquement, aucun suivi, un moteur pour ' +
-    'neuf types de règles, synchro au niveau du champ, une offre gratuite complète sans verrous, tarification au ' +
+    'onze types de règles, synchro au niveau du champ, une offre gratuite complète sans verrous, tarification au ' +
     "siège, et aucun verrouillage en cas d'impayé — face au reste du marché.",
   'workbench.docs.diagrams.openHeaders.shift.title': 'LE CHANGEMENT DE PARADIGME',
   'workbench.docs.diagrams.openHeaders.shift.everyoneElse': 'Tous les autres',
@@ -1308,7 +1308,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule': 'Un seul type de règle — en-têtes uniquement',
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts': 'Ni scripts, ni auth, ni édition de corps',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsLocal': 'Dans le navigateur · local uniquement · sans compte',
-  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': 'Neuf types de règles · un langage de conditions',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': 'Onze types de règles · un langage de conditions',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsScripts': "Scripts + OAuth + fichiers dans l'extension",
   'workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces': 'Quatre surfaces partagent les mêmes données',
 
@@ -1365,7 +1365,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight':
     'Mêmes conditions, même surface, un seul espace de travail',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict':
-    'Neuf types de règles, un langage de conditions, une surface observable',
+    'Onze types de règles, un langage de conditions, une surface observable',
 
   // ── Open Headers: vs proxy ──────────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.vsProxy.aria':

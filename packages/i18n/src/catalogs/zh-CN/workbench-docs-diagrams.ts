@@ -873,7 +873,7 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: paradigm shift ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.shift.aria':
     '范式转变——Open Headers 与市面上其他工具的分组对比。一切都在一个浏览器扩展内、无需账号、仅限本地、不跟踪、' +
-    '一个引擎九种规则类型、字段级同步、无功能门槛的全功能免费层、按席位定价、过期不锁定——对比市场上的其余产品。',
+    '一个引擎十一种规则类型、字段级同步、无功能门槛的全功能免费层、按席位定价、过期不锁定——对比市场上的其余产品。',
   'workbench.docs.diagrams.openHeaders.shift.title': '范式转变',
   'workbench.docs.diagrams.openHeaders.shift.everyoneElse': '其他所有工具',
   'workbench.docs.diagrams.openHeaders.shift.groupArchitecture': '架构与覆盖',
@@ -1149,7 +1149,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule': '只有一种规则类型——仅限标头',
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts': '无脚本、无认证、不能改请求体',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsLocal': '浏览器内 · 仅限本地 · 无需账号',
-  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': '九类规则 · 一套条件语言',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': '十一类规则 · 一套条件语言',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsScripts': '脚本 + OAuth + 文件都在扩展里',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces': '四个界面共享同一份数据',
 
@@ -1198,7 +1198,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileResBodySub': '正文 / 状态',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionLeft': '还需要另外 8 种？——再装一个扩展',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight': '同样的条件、同一个界面、同一个工作空间',
-  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict': '九类规则、一套条件语言、一个可观察的界面',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict': '十一类规则、一套条件语言、一个可观察的界面',
 
   // ── Open Headers: vs proxy ──────────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.vsProxy.aria':

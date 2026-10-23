@@ -1019,7 +1019,7 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: paradigm shift ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.shift.aria':
     'Смена парадигмы — сгруппированные противопоставления Open Headers и любого другого инструмента в этой области. Всё в ' +
-    'одном браузерном расширении, без учётной записи, только локально, без отслеживания, один движок для девяти типов правил, синхронизация на уровне полей, ' +
+    'одном браузерном расширении, без учётной записи, только локально, без отслеживания, один движок для одиннадцати типов правил, синхронизация на уровне полей, ' +
     'полнофункциональный бесплатный уровень без ограничений по функциям, оплата за места и никакой блокировки при просрочке — против ' +
     'остального рынка.',
   'workbench.docs.diagrams.openHeaders.shift.title': 'СМЕНА ПАРАДИГМЫ',
@@ -1322,7 +1322,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule': 'Один тип правил — только заголовки',
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts': 'Без скриптов, авторизации и правки тел',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsLocal': 'В браузере · только локально · без учётной записи',
-  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': 'Девять типов правил · один язык условий',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': 'Одиннадцать типов правил · один язык условий',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsScripts': 'Скрипты + OAuth + файлы в расширении',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces': 'Четыре поверхности с одним хранилищем',
 
@@ -1378,7 +1378,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight':
     'Те же условия, та же поверхность, одно рабочее пространство',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict':
-    'Девять типов правил, один язык условий, одна наблюдаемая поверхность',
+    'Одиннадцать типов правил, один язык условий, одна наблюдаемая поверхность',
 
   // ── Open Headers: vs proxy ──────────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.vsProxy.aria':

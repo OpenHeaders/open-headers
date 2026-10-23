@@ -968,7 +968,7 @@ export const workbenchDocsDiagrams = {
   // ── Open Headers: paradigm shift ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.shift.aria':
     '패러다임 전환. Open Headers 확장 프로그램과 이 분야의 다른 모든 도구를 묶어 대비합니다. 모든 것이 ' +
-    '브라우저 확장 프로그램 하나 안에, 계정 없음, 로컬 전용, 추적 없음, 규칙 유형 아홉에 엔진 하나, 필드 수준 동기화, ' +
+    '브라우저 확장 프로그램 하나 안에, 계정 없음, 로컬 전용, 추적 없음, 규칙 유형 열하나에 엔진 하나, 필드 수준 동기화, ' +
     '기능 제한 없는 완전한 무료 티어, 시트 기반 가격, 만료돼도 잠기지 않음. 시장의 나머지와 ' +
     '대비합니다.',
   'workbench.docs.diagrams.openHeaders.shift.title': '패러다임 전환',
@@ -1263,7 +1263,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule': '규칙 유형 하나: 헤더만',
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts': '스크립트 없음, 인증 없음, 본문 편집 없음',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsLocal': '브라우저 안 · 로컬 전용 · 계정 없음',
-  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': '규칙 유형 아홉 · 조건 언어 하나',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': '규칙 유형 열하나 · 조건 언어 하나',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsScripts': '스크립트 + OAuth + 파일을 확장 프로그램 안에서',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces': '화면 넷이 저장소 하나를 공유',
 
@@ -1316,7 +1316,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionLeft':
     '나머지 8개 중 하나라도 필요한가요? 다른 확장 프로그램을 설치해야 합니다',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight': '같은 조건, 같은 화면, 워크스페이스 하나',
-  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict': '규칙 유형 아홉, 조건 언어 하나, 관찰 가능한 화면 하나',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict': '규칙 유형 열하나, 조건 언어 하나, 관찰 가능한 화면 하나',
 
   // ── Open Headers: vs proxy ──────────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.vsProxy.aria':

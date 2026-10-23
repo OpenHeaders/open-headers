@@ -935,7 +935,7 @@ export const workbenchDocsDiagrams = {
 
   // ── Open Headers: paradigm shift ────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.shift.aria':
-    'パラダイムシフト：Open Headers とこの分野の他のすべてのツールとの対比をグループ化。すべてが 1 つのブラウザー拡張機能に、アカウント不要、ローカルのみ、トラッキングなし、9 種類のルールに 1 つのエンジン、フィールドレベルの同期、機能制限のないフル機能の無料枠、シートベースの価格、失効してもロックアウトなし。対するは市場の残り。',
+    'パラダイムシフト：Open Headers とこの分野の他のすべてのツールとの対比をグループ化。すべてが 1 つのブラウザー拡張機能に、アカウント不要、ローカルのみ、トラッキングなし、11 種類のルールに 1 つのエンジン、フィールドレベルの同期、機能制限のないフル機能の無料枠、シートベースの価格、失効してもロックアウトなし。対するは市場の残り。',
   'workbench.docs.diagrams.openHeaders.shift.title': 'パラダイムシフト',
   'workbench.docs.diagrams.openHeaders.shift.everyoneElse': '他のすべて',
   'workbench.docs.diagrams.openHeaders.shift.groupArchitecture': 'アーキテクチャと到達範囲',
@@ -1219,7 +1219,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteOneRule': '1 種類のルール：ヘッダーのみ',
   'workbench.docs.diagrams.openHeaders.matrix.rowLiteNoScripts': 'スクリプトなし、認証なし、ボディ編集なし',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsLocal': 'ブラウザー内 · ローカルのみ · アカウント不要',
-  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': '9 種類のルール · 1 つの条件言語',
+  'workbench.docs.diagrams.openHeaders.matrix.rowUsNine': '11 種類のルール · 1 つの条件言語',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsScripts': 'スクリプト + OAuth + ファイルを拡張機能の中で',
   'workbench.docs.diagrams.openHeaders.matrix.rowUsSurfaces': '4 つの面が 1 つのストアを共有',
 
@@ -1270,7 +1270,7 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.tileResBodySub': 'ボディ / ステータス',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionLeft': '他の 8 つのどれかが必要？別の拡張機能をインストール',
   'workbench.docs.diagrams.openHeaders.vsHeaderOnly.captionRight': '同じ条件、同じ面、1 つのワークスペース',
-  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict': '9 種類のルール、1 つの条件言語、1 つの観測できる面',
+  'workbench.docs.diagrams.openHeaders.vsHeaderOnly.verdict': '11 種類のルール、1 つの条件言語、1 つの観測できる面',
 
   // ── Open Headers: vs proxy ──────────────────────────────────────────
   'workbench.docs.diagrams.openHeaders.vsProxy.aria':

@@ -11,7 +11,7 @@ Local-first: no account, no cloud, your data stays on your machine.
 
 The extension is the full toolkit, standalone in the browser:
 
-- Nine rule types over live browser traffic — headers, redirects,
+- Eleven rule types over live browser traffic — headers, redirects,
   response overrides, and more
 - DevTools-grade network panel with request/response inspection
 - Full API client — HTTP, GraphQL, gRPC, WebSocket, OAuth 2.0, scripts
