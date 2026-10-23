@@ -15,6 +15,9 @@ Local-first: no account, no cloud, your data stays on your machine.
 
 **Website**: [openheaders.com](https://openheaders.com) ·
 **Docs**: [docs.openheaders.com](https://docs.openheaders.com)
+**Community**: [Discord](https://discord.gg/DXXne8SCXv) ·
+[r/openheaders](https://www.reddit.com/r/openheaders/) ·
+[Discussions](https://github.com/OpenHeaders/open-headers/discussions)
 
 <!-- screenshot: hero — the workbench with the rules list and the
      network panel side by side. Drop the asset at
