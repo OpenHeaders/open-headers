@@ -1,6 +1,6 @@
 /**
  * Example variables — deterministic, name-aware samples on the
- * openheaders.io flavor for every input kind; declared defaults win;
+ * openheaders.com flavor for every input kind; declared defaults win;
  * cycles cut; the schema-less fallback still samples built-in scalars.
  */
 
@@ -41,9 +41,9 @@ describe('exampleVariables', () => {
       ),
     ).toEqual({
       id: '1',
-      email: 'john.doe@openheaders.io',
-      url: 'https://openheaders.io',
-      host: 'openheaders.io',
+      email: 'john.doe@openheaders.com',
+      url: 'https://openheaders.com',
+      host: 'openheaders.com',
       role: 'OWNER',
       ok: true,
       n: 1,
