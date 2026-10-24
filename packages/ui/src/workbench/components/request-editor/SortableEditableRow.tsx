@@ -203,6 +203,10 @@ export function SortableEditableRow<Row>({
               padding: '4px 10px',
               flex: 1,
               minWidth: 0,
+              // Border-box like the key Input it stands in for, so the
+              // padding sits inside the 32px line and a locked row is
+              // exactly as tall as an editable one.
+              boxSizing: 'border-box',
               minHeight: ROW_CONTROL_HEIGHT,
               display: 'flex',
               alignItems: 'center',
