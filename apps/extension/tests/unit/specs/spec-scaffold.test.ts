@@ -59,7 +59,8 @@ describe('createBlankSpecSeed', () => {
     const result = parseOpenApi(OPENAPI_31_SCAFFOLD);
     expect(result.collectionName).toBe('Sample API');
     expect(result.requests).toHaveLength(1);
-    expect(result.requests[0].request.url).toContain('/spacecrafts/{{spacecraftId}}');
+    expect(result.requests[0].request.url).toBe('{{baseUrl}}/spacecrafts/:spacecraftId');
+    expect(result.requests[0].request.pathParams?.map((p) => p.key)).toEqual(['spacecraftId']);
   });
 
   it('seeds a single root index.proto carrying the proto3 template', () => {
