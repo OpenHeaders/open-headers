@@ -9,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
 
 The open-source Enterprise API client in your browser. Team
-Collaboration. Browser Interceptor - live traffic.
+Collaboration. Browser Interceptor - modify live traffic.
 
 Local-first: no account, no cloud, your data stays on your machine.
 
