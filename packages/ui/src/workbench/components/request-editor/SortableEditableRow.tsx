@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ConflictDiffChip, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
 import type { GripResizeXHandler } from '../template-input';
-import { cellFont, ROW_CONTROL_HEIGHT } from './editable-grid-styles';
+import { cellFont, gridLine, ROW_CONTROL_HEIGHT } from './editable-grid-styles';
 import type {
   AuxColumn,
   EditableGridTableProps,
@@ -126,7 +126,7 @@ export function SortableEditableRow<Row>({
     display: 'grid',
     gridTemplateColumns: gridTemplate,
     alignItems: 'start',
-    borderBottom: `1px solid ${token.colorBorderSecondary}`,
+    borderBottom: gridLine(token),
     transform: CSS.Transform.toString(transform),
     transition,
     background: isDragging ? token.colorFillTertiary : undefined,
@@ -251,7 +251,7 @@ export function SortableEditableRow<Row>({
         <div
           key={`aux-key-${String(i)}`}
           style={{
-            ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+            ...(aux.divider ? { borderLeft: gridLine(token) } : null),
             display: 'flex',
             alignItems: 'center',
             alignSelf: 'stretch',
@@ -267,7 +267,7 @@ export function SortableEditableRow<Row>({
           data-field-path={rowPath ? rowPath(id, 'value') : undefined}
           className="editable-grid-cell"
           style={{
-            borderLeft: `1px solid ${token.colorBorderSecondary}`,
+            borderLeft: gridLine(token),
             padding: '0 4px',
             display: 'flex',
             alignItems: 'center',
@@ -314,7 +314,7 @@ export function SortableEditableRow<Row>({
         <div
           key={`aux-value-${String(i)}`}
           style={{
-            ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+            ...(aux.divider ? { borderLeft: gridLine(token) } : null),
             display: 'flex',
             alignItems: 'center',
             alignSelf: 'stretch',
@@ -330,7 +330,7 @@ export function SortableEditableRow<Row>({
           data-field-path={rowPath ? rowPath(id, 'description') : undefined}
           className="editable-grid-cell"
           style={{
-            borderLeft: `1px solid ${token.colorBorderSecondary}`,
+            borderLeft: gridLine(token),
             display: 'flex',
             alignItems: 'center',
             alignSelf: 'stretch',

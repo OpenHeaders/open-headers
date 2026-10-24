@@ -3,7 +3,22 @@
  * `EditableGridTable` shell and its `SortableEditableRow` rows.
  */
 
+import type { GlobalToken } from 'antd/es/theme/interface';
 import type React from 'react';
+
+// The grid's hairlines — the frame, the header's rule, the row
+// separators, the column dividers — read the theme's secondary FILL,
+// not its border: a translucent line over the card so every variant
+// (and the dark variants' lifted border tokens) gets a line that sits
+// back, and the focused cell's ring in `colorBorder` (editable-grid
+// row styles below) reads a clear step above it.
+export function gridLineColor(token: GlobalToken): string {
+  return token.colorFillSecondary;
+}
+
+export function gridLine(token: GlobalToken): string {
+  return `1px solid ${gridLineColor(token)}`;
+}
 
 // Smallest a flex column shrinks to — also the resize-drag floor. Kept
 // low so the default (all flex) still fits the narrow side-by-side

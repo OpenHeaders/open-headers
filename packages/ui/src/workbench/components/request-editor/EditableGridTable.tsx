@@ -57,6 +57,8 @@ import type { GripResizeXEvent } from '../template-input';
 import {
   cellFont,
   DEFAULT_COLUMN_WIDTH,
+  gridLine,
+  gridLineColor,
   headerLabelStyle,
   RESIZE_DRAG_MIN_WIDTH,
   RESIZE_MIN_WIDTH,
@@ -360,7 +362,7 @@ export function EditableGridTable<Row>({
         // Bordered cells stretch to the header strip so the divider
         // spans its full height — the centered default would shrink an
         // empty or short cell's border to a floating tick.
-        ...(withBorder ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
+        ...(withBorder ? { borderLeft: gridLine(token), alignSelf: 'stretch' } : null),
         ...(col === lastVisibleColumn && bulkToggleButton
           ? { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '3px 4px 3px 10px' }
           : null),
@@ -384,7 +386,7 @@ export function EditableGridTable<Row>({
       ref={resize.containerRef}
       style={{
         position: 'relative',
-        border: `1px solid ${token.colorBorderSecondary}`,
+        border: gridLine(token),
         borderRadius: 4,
         overflow: 'visible',
       }}
@@ -419,14 +421,14 @@ export function EditableGridTable<Row>({
           // `colorFillAlter` alone is semi-transparent and lets content
           // show through as the rows pass behind.
           background: `linear-gradient(${token.colorFillAlter}, ${token.colorFillAlter}), ${token.colorBgContainer}`,
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          borderBottom: gridLine(token),
           fontSize: 12,
           fontWeight: 500,
           color: token.colorTextSecondary,
           position: 'sticky',
           top: 0,
           zIndex: 2,
-          boxShadow: `0 1px 0 ${token.colorBorderSecondary}`,
+          boxShadow: `0 1px 0 ${gridLineColor(token)}`,
         }}
       >
         <span />
@@ -454,7 +456,7 @@ export function EditableGridTable<Row>({
             className={aux.info ? 'oh-info-hover-host' : undefined}
             style={{
               ...headerLabelStyle,
-              ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
+              ...(aux.divider ? { borderLeft: gridLine(token), alignSelf: 'stretch' } : null),
             }}
           >
             {headerText(aux.label ?? '', aux.info)}
@@ -468,7 +470,7 @@ export function EditableGridTable<Row>({
               className={aux.info ? 'oh-info-hover-host' : undefined}
               style={{
                 ...headerLabelStyle,
-                ...(aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}`, alignSelf: 'stretch' } : null),
+                ...(aux.divider ? { borderLeft: gridLine(token), alignSelf: 'stretch' } : null),
               }}
             >
               {headerText(aux.label ?? '', aux.info)}
@@ -532,7 +534,7 @@ export function EditableGridTable<Row>({
                   // dividers (borderLeft) stay continuous when the value
                   // field auto-grows; each cell centers its own content.
                   alignItems: 'stretch',
-                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                  borderBottom: gridLine(token),
                   background: token.colorFillAlter,
                 }}
               >
@@ -587,13 +589,13 @@ export function EditableGridTable<Row>({
                 {auxAfterKey.map((aux, i) => (
                   <span
                     key={`aux-key-${String(i)}`}
-                    style={aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : undefined}
+                    style={aux.divider ? { borderLeft: gridLine(token) } : undefined}
                   />
                 ))}
                 {showValueColumn && (
                   <span
                     style={{
-                      borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                      borderLeft: gridLine(token),
                       minWidth: 0,
                       display: 'flex',
                       alignItems: 'center',
@@ -681,7 +683,7 @@ export function EditableGridTable<Row>({
                   auxAfterValue.map((aux, i) => (
                     <span
                       key={`aux-value-${String(i)}`}
-                      style={aux.divider ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : undefined}
+                      style={aux.divider ? { borderLeft: gridLine(token) } : undefined}
                     />
                   ))}
                 {showDescriptionColumn && (
@@ -689,7 +691,7 @@ export function EditableGridTable<Row>({
                     style={{
                       padding: '6px 4px 6px 10px',
                       fontSize: 12,
-                      borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                      borderLeft: gridLine(token),
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'flex-end',
