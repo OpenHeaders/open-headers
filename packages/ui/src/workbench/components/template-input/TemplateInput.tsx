@@ -19,6 +19,9 @@
  *     the neutral `editing` class so classification doesn't flicker
  *     red/blue on every keystroke; it snaps back to resolved /
  *     unresolved once the caret leaves.
+ *   - With `pathParams` (the HTTP URL bar), each `:name` segment is a
+ *     token of the same two colours, read off its row LIVE as the name
+ *     is typed (no closing delimiter, so no neutral state).
  */
 
 import { CloseCircleFilled, EditOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
@@ -35,7 +38,7 @@ import { useSettingValue } from '../../settings/hooks';
 import { getCaretOffset, setCaretOffset } from './caret';
 import { createActionLabel } from './create-target';
 import { buildEditableStyle, splitLayoutSurfaceStyle } from './editable-style';
-import { renderHighlightedHtml, TEMPLATE_REGEX } from './highlight';
+import { type RefState, renderHighlightedHtml, TEMPLATE_REGEX } from './highlight';
 import { useAutoSuggestionContext } from './SuggestionContextProvider';
 import SuggestionPopover from './SuggestionPopover';
 import type { TemplateInputProps } from './types';
@@ -79,6 +82,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       onValueEdit,
       editTooltip,
       flagUnresolved = false,
+      pathParams,
       disabled: disabledProp = false,
     },
     ref,
@@ -107,6 +111,22 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     // The shared `{{ref}}` reading — the Monaco buffers paint from the
     // same classifier, so a field and a body never disagree on a ref.
     const classify = useRefClassifier(effectiveContext.collectionId);
+
+    // The URL bar's `:name` reading off its Path Parameters rows: a
+    // row with a value whose templates resolve is resolved; no row, a
+    // blank value or a missing reference inside it is unresolved — the
+    // segment goes out as written either way, which is what red says.
+    const classifyPathParam = useMemo(() => {
+      if (!pathParams) return undefined;
+      return (name: string): RefState => {
+        const row = pathParams.find((p) => p.key === name);
+        if (!row || row.value.trim() === '') return 'unresolved';
+        for (const m of row.value.matchAll(new RegExp(TEMPLATE_REGEX.source, TEMPLATE_REGEX.flags))) {
+          if (classify(m[1]) === 'unresolved') return 'unresolved';
+        }
+        return 'resolved';
+      };
+    }, [pathParams, classify]);
 
     // Whether the value holds an UNRESOLVED ref — drives the optional
     // right-end dot. Reuses the highlighter's classifier so the dot stays
@@ -146,6 +166,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       effectiveContext,
       effectiveDisable,
       classify,
+      classifyPathParam,
     });
 
     // Give the caller first claim on a paste — a consumed paste (e.g.
@@ -175,7 +196,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       if (current !== next) recordExternal(next);
       const focused = document.activeElement === root;
       const caretWas = focused ? getCaretOffset(root) : null;
-      const html = renderHighlightedHtml(next, caretWas, classify);
+      const html = renderHighlightedHtml(next, caretWas, classify, classifyPathParam);
       if (root.innerHTML !== html) {
         root.innerHTML = html;
         if (focused && caretWas !== null && current === next) {
@@ -186,7 +207,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           setCaretOffset(root, next.length);
         }
       }
-    }, [value, classify, recordExternal]);
+    }, [value, classify, classifyPathParam, recordExternal]);
 
     // `autoFocus` equivalent — contentEditable doesn't honor the HTML
     // attribute, so we focus imperatively after mount.
@@ -213,12 +234,12 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
         const root = editableRef.current;
         if (root) {
           const text = root.textContent ?? '';
-          const html = renderHighlightedHtml(text, null, classify);
+          const html = renderHighlightedHtml(text, null, classify, classifyPathParam);
           if (root.innerHTML !== html) root.innerHTML = html;
         }
         onBlur?.(e);
       },
-      [onBlur, classify, closeSuggestions],
+      [onBlur, classify, classifyPathParam, closeSuggestions],
     );
 
     const [layoutStyle, surfaceStyle] = useMemo(() => splitLayoutSurfaceStyle(style), [style]);

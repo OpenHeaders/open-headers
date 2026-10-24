@@ -133,7 +133,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': 'Paramètres de requête',
   'workbench.editors.request.params.pathHeading': 'Paramètres de chemin',
   'workbench.editors.request.params.pathEmpty': 'Saisissez :name dans l’URL pour ajouter un paramètre de chemin.',
-  'workbench.editors.request.params.pathMissing': 'Définissez une valeur pour {keys} avant d’envoyer.',
+  'workbench.editors.request.params.pathMissing': 'Aucune valeur pour {keys} : envoyé tel quel.',
   'workbench.editors.request.goToAuthorization': "Aller à l'autorisation",
   'workbench.editors.request.goToBody': 'Aller au corps',
   'workbench.editors.request.headers.keyPlaceholder': 'En-tête',
@@ -1622,7 +1622,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': 'Envoyé tel quel · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Envoyé tel quel',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    'Aucune portée n’a résolu ces références : elles sont parties exactement comme saisies, le serveur a vu le texte entre accolades. Définissez chacune là où l’indication le dit, puis renvoyez.',
+    'Rien ne les a résolus : ils sont partis exactement comme saisis, une référence sans portée ou un paramètre de chemin sans valeur. Définissez chacun là où l’indication le dit, puis renvoyez.',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Référence · comment la résoudre',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Chaîne de scripts',

@@ -1080,10 +1080,11 @@ export const QueryParamSchema = v.object({
  * (a name the URL stops naming orphans its row, dropped at save); the
  * row carries the value + description by key. No `enabled`: a
  * parameter named in the URL is always sent — to drop it, edit the
- * URL. An empty value gates the send (`path-param-missing`), never a
- * literal `:name` on the wire. The value is a template field like
- * every other (`{{userId}}` allowed); the resolved value is
- * percent-encoded as one segment at send time.
+ * URL. An empty value sends the segment as written (`:name` on the
+ * wire), named in the snapshot's `sentAsWritten` the way an
+ * unresolved `{{ref}}` is. The value is a template field like every
+ * other (`{{userId}}` allowed); the resolved value is percent-encoded
+ * as one segment at send time.
  */
 export const PathParamSchema = v.object({
   /** See {@link RequestHeaderSchema.uid}. */

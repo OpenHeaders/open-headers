@@ -139,7 +139,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': 'Query-Parameter',
   'workbench.editors.request.params.pathHeading': 'Pfadparameter',
   'workbench.editors.request.params.pathEmpty': 'Tippe :name in die URL, um einen Pfadparameter hinzuzufügen.',
-  'workbench.editors.request.params.pathMissing': 'Setze einen Wert für {keys}, bevor du sendest.',
+  'workbench.editors.request.params.pathMissing': 'Kein Wert für {keys} – wird unverändert gesendet.',
   'workbench.editors.request.goToAuthorization': 'Zur Autorisierung gehen',
   'workbench.editors.request.goToBody': 'Zum Body gehen',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',
@@ -1616,7 +1616,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': 'Unverändert gesendet · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Unverändert gesendet',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    'Kein Bereich hat diese Referenzen aufgelöst, daher gingen sie genau so über die Leitung, wie sie eingegeben wurden – der Server sah den Text zwischen den Klammern. Definiere jede dort, wo der Hinweis es sagt, und sende erneut.',
+    'Nichts hat diese aufgelöst, daher gingen sie genau so über die Leitung, wie sie eingegeben wurden – eine Referenz ohne Bereich oder ein Pfadparameter ohne Wert. Setze jede dort, wo der Hinweis es sagt, und sende erneut.',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Referenz · so wird sie aufgelöst',
   'workbench.editors.request.response.meta.scriptsTag': 'Skripte · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Skriptkette',

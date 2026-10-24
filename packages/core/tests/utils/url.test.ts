@@ -5,6 +5,7 @@ import {
   inlinePathParams,
   normalizePathParamSegments,
   parsePathParamNames,
+  parsePathParamSpans,
   parseUrlQuery,
   splitUrlPath,
   substitutePathParams,
@@ -291,6 +292,19 @@ describe('parsePathParamNames', () => {
       { name: 'Id', suffix: '' },
       { name: 'id', suffix: '' },
     ]);
+  });
+
+  it('the span form lists every occurrence by position — the colon and the name, never the suffix', () => {
+    const url = 'https://api.openheaders.io/:id/x/:id.json?x=:y';
+    const spans = parsePathParamSpans(url);
+    expect(spans).toEqual([
+      { name: 'id', start: 27, end: 30 },
+      { name: 'id', start: 33, end: 36 },
+    ]);
+    for (const span of spans) expect(url.slice(span.start, span.end)).toBe(':id');
+    expect(parsePathParamSpans('{{host}}/:id{{ext}}')).toEqual([{ name: 'id', start: 9, end: 12 }]);
+    expect(parsePathParamSpans('http://localhost:8080/files:batchGet')).toEqual([]);
+    expect(parsePathParamSpans('')).toEqual([]);
   });
 
   it('the query and the fragment are cut off before the scan', () => {

@@ -1,13 +1,15 @@
 /**
- * SentAsWrittenTag — the meta-strip attribution tag for the references
- * a send carried AS WRITTEN, rendered from the snapshot's
+ * SentAsWrittenTag — the meta-strip attribution tag for the tokens a
+ * send carried AS WRITTEN, rendered from the snapshot's
  * `sentAsWritten` wire truth (never a live resolver read): the tag
- * counts them in the warning tone, the popover lists each reference
- * against the resolver's fix — the same line the gates speak, so a
- * reader learns why the server saw `{{env.HOST}}` and what to define.
- * A send whose every reference resolved renders nothing — resolved is
- * the baseline, not a badge. Shared by the HTTP ResponseMetaStrip and
- * the WS / MQTT / gRPC strips, beside the auth attribution tag.
+ * counts them in the warning tone, the popover lists each one against
+ * its fix — the same line the gates speak, so a reader learns why the
+ * server saw `{{env.HOST}}` or `:id` and what to set. A `{{reference}}`
+ * labels with its braces, a path parameter (`kind: 'path-param'`) with
+ * its colon. A send whose every token resolved renders nothing —
+ * resolved is the baseline, not a badge. Shared by the HTTP
+ * ResponseMetaStrip and the WS / MQTT / gRPC strips, beside the auth
+ * attribution tag.
  */
 
 import type { SentAsWrittenReference } from '@openheaders/core/types';
@@ -40,8 +42,8 @@ const SentAsWrittenTag: React.FC<{ references: readonly SentAsWrittenReference[]
             heading: t('workbench.editors.request.response.meta.sentAsWrittenHeading'),
             layout: 'stacked',
             items: references.map((reference) => ({
-              key: reference.reference,
-              label: `{{${reference.reference}}}`,
+              key: `${reference.kind ?? 'ref'}:${reference.reference}`,
+              label: reference.kind === 'path-param' ? `:${reference.reference}` : `{{${reference.reference}}}`,
               desc: reference.hint,
             })),
           },

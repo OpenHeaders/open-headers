@@ -215,6 +215,26 @@
   border: 1px dashed var(--ant-color-error-border, rgba(255, 77, 79, 0.5));
 }
 
+/* Dark variants. antd's dark ladder puts `colorPrimary` / `colorError`
+ * one step too deep to read as ink (#1668dc over a #15325b fill on the
+ * default accent), so the token reads the ladder's next step up —
+ * `colorPrimaryTextHover` / `colorErrorTextHover`, the step antd itself
+ * hands dark text on hover — and derives its tint and border from that
+ * ink with `color-mix`, so every accent and every dark variant (arctic's
+ * cyan, forest's green, the pinned high-contrast blue) paints its own
+ * colour. The light variants keep the base tokens above. */
+[data-theme='dark'] .oh-template-ref-resolved {
+  color: var(--ant-color-primary-text-hover, #3c89e8);
+  background: color-mix(in srgb, var(--ant-color-primary-text-hover, #3c89e8) 12%, transparent);
+  border-color: color-mix(in srgb, var(--ant-color-primary-text-hover, #3c89e8) 40%, transparent);
+}
+
+[data-theme='dark'] .oh-template-ref-unresolved {
+  color: var(--ant-color-error-text-hover, #e86e6b);
+  background: color-mix(in srgb, var(--ant-color-error-text-hover, #e86e6b) 12%, transparent);
+  border-color: color-mix(in srgb, var(--ant-color-error-text-hover, #e86e6b) 45%, transparent);
+}
+
 /* Neutral state applied while the caret sits inside a ref's braces.
  * `color: inherit` picks up the editable's inline `colorText` so no
  * visual classification paints until the user commits by moving the
@@ -329,4 +349,17 @@
   outline: 1px dashed var(--ant-color-error-border, rgba(255, 77, 79, 0.5));
   outline-offset: -1px;
   border-radius: 3px;
+}
+
+/* The same dark leg over the Monaco decorations. */
+[data-theme='dark'] .monaco-editor .oh-monaco-ref-resolved {
+  color: var(--ant-color-primary-text-hover, #3c89e8) !important;
+  background: color-mix(in srgb, var(--ant-color-primary-text-hover, #3c89e8) 12%, transparent);
+  outline-color: color-mix(in srgb, var(--ant-color-primary-text-hover, #3c89e8) 40%, transparent);
+}
+
+[data-theme='dark'] .monaco-editor .oh-monaco-ref-unresolved {
+  color: var(--ant-color-error-text-hover, #e86e6b) !important;
+  background: color-mix(in srgb, var(--ant-color-error-text-hover, #e86e6b) 12%, transparent);
+  outline-color: color-mix(in srgb, var(--ant-color-error-text-hover, #e86e6b) 45%, transparent);
 }

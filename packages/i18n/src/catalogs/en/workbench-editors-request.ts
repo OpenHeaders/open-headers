@@ -110,7 +110,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': 'Query Params',
   'workbench.editors.request.params.pathHeading': 'Path Parameters',
   'workbench.editors.request.params.pathEmpty': 'Type :name in the URL to add a path parameter.',
-  'workbench.editors.request.params.pathMissing': 'Set a value for {keys} before sending.',
+  'workbench.editors.request.params.pathMissing': 'No value for {keys} — sent as written.',
   'workbench.editors.request.goToAuthorization': 'Go to authorization',
   'workbench.editors.request.goToBody': 'Go to body',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',
@@ -1459,7 +1459,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': 'Sent as written · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Sent as written',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    'No scope answered these references, so they went on the wire exactly as typed — the server saw the text between the braces. Define each one where the hint says, then send again.',
+    'Nothing answered these, so they went on the wire exactly as typed — a reference without a scope, or a path parameter without a value. Set each one where the hint says, then send again.',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Reference · how to resolve it',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Script chain',

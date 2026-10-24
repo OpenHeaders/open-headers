@@ -131,7 +131,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': '쿼리 매개변수',
   'workbench.editors.request.params.pathHeading': '경로 매개변수',
   'workbench.editors.request.params.pathEmpty': 'URL 주소에 :name을 입력하면 경로 매개변수가 추가됩니다.',
-  'workbench.editors.request.params.pathMissing': '보내기 전에 {keys}의 값을 설정하세요.',
+  'workbench.editors.request.params.pathMissing': '{keys}에 값이 없습니다. 입력한 그대로 전송됩니다.',
   'workbench.editors.request.goToAuthorization': '인가로 이동',
   'workbench.editors.request.goToBody': '본문으로 이동',
   'workbench.editors.request.headers.keyPlaceholder': '헤더',
@@ -1461,7 +1461,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': '입력한 그대로 전송 · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': '입력한 그대로 전송',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    '어떤 범위에서도 이 참조를 해결하지 못해 입력한 그대로 전송되었습니다. 서버는 중괄호 안의 텍스트를 그대로 받았습니다. 힌트가 가리키는 곳에 각각 정의한 뒤 다시 보내세요.',
+    '아무것도 해결되지 않아 입력한 그대로 전송되었습니다. 범위가 없는 참조이거나 값이 없는 경로 매개변수입니다. 힌트가 가리키는 곳에 각각 설정한 뒤 다시 보내세요.',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': '참조 · 해결 방법',
   'workbench.editors.request.response.meta.scriptsTag': '스크립트 · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': '스크립트 체인',

@@ -375,7 +375,6 @@ const GrpcRequestEditor: React.FC<GrpcRequestEditorProps> = ({
         spec={spec}
         workspaceId={workspaceId}
         onImportProto={handleImportProto}
-        urlUnresolved={unresolvedGroups.has('url')}
       />
     </SessionLock>
   );

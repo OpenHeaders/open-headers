@@ -341,25 +341,36 @@ describe('resolveRequest — the gate names every unresolved reference with its 
     expect(plain.resolved.pathParams).toBeUndefined();
   });
 
-  it('refuses the send while a named path parameter has no value — never a literal on the wire', async () => {
+  it('a named path parameter with no value sends as written — the literal :name on the wire, named in the attribution', async () => {
+    const hint =
+      'No value on its Path Parameters row, so the segment went on the wire as written. Set a value on the Params tab.';
     const one = await resolveRequest(
       makeRequest({
-        url: 'https://api.openheaders.io/users/:id',
-        pathParams: [{ uid: 'pth00001', key: 'id', value: ' ' }],
+        url: 'https://api.openheaders.io/users/:id/files/:name',
+        pathParams: [
+          { uid: 'pth00001', key: 'id', value: ' ' },
+          { uid: 'pth00002', key: 'name', value: 'a' },
+        ],
       }),
       {},
-    ).catch((err: unknown) => err);
-    expect(one).toBeInstanceOf(UnresolvedRequestError);
-    expect((one as Error).message).toBe(
-      'Request has unfilled path parameter: :id. Set a value on the Params tab before sending.',
     );
+    expect(one.resolved.url).toBe('https://api.openheaders.io/users/:id/files/a');
+    expect(one.resolved.sentAsWritten).toEqual([{ reference: 'id', hint, kind: 'path-param' }]);
+    expect(one.resolved.pathParams).toEqual([
+      { key: 'id', value: ' ' },
+      { key: 'name', value: 'a' },
+    ]);
+    // Beside the references the same send carried, in that order.
     const two = await resolveRequest(
-      makeRequest({ url: 'https://api.openheaders.io/users/:id/posts/:postId' }),
+      makeRequest({ url: 'https://api.openheaders.io/users/:id/posts/:postId?q={{MISSING}}' }),
       {},
-    ).catch((err: unknown) => err);
-    expect((two as Error).message).toBe(
-      'Request has unfilled path parameters: :id, :postId. Set a value on the Params tab before sending.',
     );
+    expect(two.resolved.url).toBe('https://api.openheaders.io/users/:id/posts/:postId?q={{MISSING}}');
+    expect(two.resolved.sentAsWritten?.map((r) => [r.reference, r.kind ?? 'ref'])).toEqual([
+      ['MISSING', 'ref'],
+      ['id', 'path-param'],
+      ['postId', 'path-param'],
+    ]);
   });
 
   it("a secret-manager entry's typed failure reads apart from a plain miss on a send", async () => {

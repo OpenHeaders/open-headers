@@ -118,7 +118,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': '查询参数',
   'workbench.editors.request.params.pathHeading': '路径参数',
   'workbench.editors.request.params.pathEmpty': '在 URL 中输入 :name 即可添加路径参数。',
-  'workbench.editors.request.params.pathMissing': '发送前请为 {keys} 设置值。',
+  'workbench.editors.request.params.pathMissing': '{keys} 没有值，将按原样发送。',
   'workbench.editors.request.goToAuthorization': '前往授权',
   'workbench.editors.request.goToBody': '前往正文',
   'workbench.editors.request.headers.keyPlaceholder': '标头',
@@ -1312,7 +1312,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': '按原样发送 · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': '按原样发送',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    '没有任何作用域解析这些引用，因此它们按输入原样发出——服务器看到的是花括号之间的文本。请按提示所指的位置逐一定义，然后重新发送。',
+    '没有任何内容解析它们，因此它们按输入原样发出——没有作用域的引用，或没有值的路径参数。请按提示所指的位置逐一设置，然后重新发送。',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': '引用 · 如何解析',
   'workbench.editors.request.response.meta.scriptsTag': '脚本 · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': '脚本链',

@@ -60,7 +60,7 @@ import { scriptScopeOverResolver } from './script-scope';
 import { createTotpUsageTracker, type TotpUsage } from './totp-usage';
 import {
   batchRefusesSend,
-  missingPathParamsMessage,
+  pathParamsAsWrittenOf,
   sentAsWrittenOf,
   UNRESOLVED_REQUEST_LEAD,
   unresolvedReferenceLines,
@@ -412,10 +412,14 @@ export async function resolveRequest(
     }
   }
 
-  // The path parameters the URL names must every one carry a value —
-  // an unfilled `:name` is a refusal, never a literal on the wire.
-  const missingPathParams = missingPathParamKeys(request.url, request.pathParams);
-  if (missingPathParams.length > 0) throw new UnresolvedRequestError(missingPathParamsMessage(missingPathParams));
+  // A path parameter the URL names and no row fills rides AS WRITTEN —
+  // the `:name` segment stays on the wire and the send names it beside
+  // the references above, the one posture for every miss. The copy
+  // path carries the literal too; nothing to name there.
+  const pathParamsAsWritten = missingPathParamKeys(request.url, request.pathParams);
+  if (pathParamsAsWritten.length > 0 && options.resolveSecretManager !== false) {
+    sentAsWritten = [...(sentAsWritten ?? []), ...pathParamsAsWrittenOf(pathParamsAsWritten)];
+  }
 
   // Every kind:'totp' entry this send consumes — the templates' now,
   // the scripts' reads later through the same tracker.
@@ -435,7 +439,7 @@ export async function resolveRequest(
   //    resolved once per name, encoded as one segment), then the
   //    query params ──
   const pathParams = resolvePathParams(request, resolveStr);
-  const pathValues = new Map(pathParams.map((p) => [p.key, p.value]));
+  const pathValues = pathParamSubstitutions(pathParams, pathParamsAsWritten);
   let resolvedUrl = substitutePathParams(request.url, (name) => pathValues.get(name) ?? null, resolveStr);
   const enabledParams = request.params
     .filter((p) => (p.enabled ?? true) && p.key.trim())
@@ -670,7 +674,8 @@ export async function resolveRequest(
 
 /**
  * The path parameters the URL names, in path order, each with its row's
- * value resolved — the gate above guarantees every name has a row.
+ * value resolved — a name no row fills carries the empty string (the
+ * script snapshot's read-only list says what the send had).
  */
 export function resolvePathParams(
   request: Request,
@@ -678,6 +683,20 @@ export function resolvePathParams(
 ): Array<{ key: string; value: string }> {
   const rows = new Map((request.pathParams ?? []).map((p) => [p.key, p.value]));
   return parsePathParamNames(request.url).map(({ name }) => ({ key: name, value: resolveStr(rows.get(name) ?? '') }));
+}
+
+/**
+ * The values `substitutePathParams` puts on the wire: every resolved
+ * row but the as-written names, so a `:name` no row fills keeps its
+ * text instead of becoming an empty segment. Both executors fold
+ * through this.
+ */
+export function pathParamSubstitutions(
+  pathParams: ReadonlyArray<{ key: string; value: string }>,
+  asWritten: readonly string[],
+): Map<string, string> {
+  const skip = new Set(asWritten);
+  return new Map(pathParams.filter((p) => !skip.has(p.key)).map((p) => [p.key, p.value]));
 }
 
 interface ApplyAuthOptions {

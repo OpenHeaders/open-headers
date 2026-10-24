@@ -379,12 +379,7 @@ const WebSocketRequestEditor: React.FC<WebSocketRequestEditorProps> = ({
   // is in flight — their values were snapshotted at Connect.
   const headerTitle = (
     <SessionLock locked={session.inFlight}>
-      <WsTargetRow
-        draft={draft}
-        setDraft={setDraft}
-        socketioFlavor={socketioFlavor}
-        urlUnresolved={unresolvedGroups.has('url')}
-      />
+      <WsTargetRow draft={draft} setDraft={setDraft} socketioFlavor={socketioFlavor} />
     </SessionLock>
   );
 

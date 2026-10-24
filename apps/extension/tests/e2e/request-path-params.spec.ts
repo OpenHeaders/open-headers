@@ -8,8 +8,8 @@
  * segment (a `/` in the value never splits the path), a literal suffix
  * on the segment survives, a name the URL repeats is substituted at
  * every position, the value is a template field like any other, and an
- * unfilled row refuses the send by name — never a literal `:name` on
- * the wire.
+ * unfilled row sends the literal `:name` as written, named in the
+ * snapshot's attribution — the posture an unresolved `{{ref}}` has.
  *
  * Asserts against the playground's `/api/echo` decoder, which reflects
  * the request's raw `path`, so a green run means the executor put each
@@ -74,6 +74,7 @@ interface ExecSnapshot {
   body: string;
   error?: string | null;
   scripts?: { preRequest?: { succeeded: boolean } | null } | null;
+  sentAsWritten?: Array<{ reference: string; kind?: string; hint: string }>;
 }
 
 interface ExecResult {
@@ -159,12 +160,13 @@ test.describe('Request executor — path parameters on the wire', () => {
     expect(echo.path).toBe('/api/echo/users/7/x/7');
   });
 
-  test('a blank value refuses the send by name — no literal :name on the wire', async () => {
+  test('a blank value sends the literal :name as written and names it in the attribution', async () => {
     const exec = await rpc<ExecResult>('executeRequest', { draft: draft('/users/:id', [row('id', '  ')]) });
-    expect(exec.success).toBe(true);
+    expect(exec.success, exec.error).toBe(true);
     const snapshot = exec.snapshot!;
-    expect(snapshot.status).toBe(0);
-    expect(snapshot.error).toMatch(/path parameter/);
-    expect(snapshot.error).toContain(':id');
+    expect(snapshot.error ?? null).toBeNull();
+    expect(snapshot.status).toBe(200);
+    expect((JSON.parse(snapshot.body) as EchoResponse).path).toBe('/api/echo/users/:id');
+    expect(snapshot.sentAsWritten?.map((r) => [r.reference, r.kind])).toEqual([['id', 'path-param']]);
   });
 });

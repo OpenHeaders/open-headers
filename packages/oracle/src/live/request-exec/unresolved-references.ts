@@ -10,7 +10,8 @@
  * secret manager's typed failure refuses the send; every other miss
  * rides AS WRITTEN and the send carries the list beside its other
  * resolve-time attributions (`sentAsWritten` on the snapshot), the
- * response surface rendering each line as advice.
+ * response surface rendering each line as advice. A path parameter
+ * with no value rides the same list (`pathParamsAsWrittenOf`).
  *
  * Operational-plane English — the response pane and the rider toast
  * render the message as-is; the keyed hints the editors render live in
@@ -62,15 +63,18 @@ export function unresolvedReferencesMessage(lead: string, unresolved: Unresolved
   return `${lead} ${unresolvedReferenceLines(unresolved.values()).join(' ')}`;
 }
 
+/** The line a path parameter with no value carries — the fix, in the gates' English. */
+export const PATH_PARAM_AS_WRITTEN_HINT =
+  'No value on its Path Parameters row, so the segment went on the wire as written. Set a value on the Params tab.';
+
 /**
- * The HTTP send gate's refusal for path parameters the URL names and
- * no row fills — the one wording both executors throw; a literal
- * `:name` never reaches the wire. `keys` in path order, non-empty.
+ * The attribution for path parameters the URL names and no row fills
+ * — both executors send the `:name` segment as written and stamp one
+ * entry per key, in path order, beside the references the same send
+ * carried. `keys` from `missingPathParamKeys`, non-empty.
  */
-export function missingPathParamsMessage(keys: readonly string[]): string {
-  const named = keys.map((key) => `:${key}`).join(', ');
-  const noun = keys.length === 1 ? 'path parameter' : 'path parameters';
-  return `Request has unfilled ${noun}: ${named}. Set a value on the Params tab before sending.`;
+export function pathParamsAsWrittenOf(keys: readonly string[]): SentAsWrittenReference[] {
+  return keys.map((key) => ({ reference: key, hint: PATH_PARAM_AS_WRITTEN_HINT, kind: 'path-param' }));
 }
 
 /** The references a send carries as written — the snapshot's attribution shape. */

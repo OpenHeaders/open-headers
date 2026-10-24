@@ -239,19 +239,22 @@ export interface InheritedSettingSource {
 }
 
 /**
- * One `{{reference}}` a send carried AS WRITTEN — no scope answered
- * it, so the text between the braces rode the wire verbatim and the
- * server made of it what it did. `reference` is the raw text between
- * the braces (`env.HOST`, `X`); `hint` the resolver's fix in
- * operational-plane English, the same line the gates speak. A send
- * carries the list beside its other resolve-time attributions, on
- * success and error alike; absent when every reference resolved. A
- * secret manager's typed failure never lands here — that reference
- * refuses the send instead.
+ * One token a send carried AS WRITTEN — nothing answered it, so its
+ * text rode the wire verbatim and the server made of it what it did.
+ * A `{{reference}}` no scope answered: `reference` is the raw text
+ * between the braces (`env.HOST`, `X`). A `:name` path parameter whose
+ * row has no value (`kind: 'path-param'`): `reference` is the name.
+ * `hint` is the fix in operational-plane English, the same line the
+ * gates speak. A send carries the list beside its other resolve-time
+ * attributions, on success and error alike; absent when every token
+ * resolved. A secret manager's typed failure never lands here — that
+ * reference refuses the send instead.
  */
 export interface SentAsWrittenReference {
   reference: string;
   hint: string;
+  /** Absent for a `{{reference}}`; `'path-param'` for a `:name` segment. */
+  kind?: 'path-param';
 }
 
 /**

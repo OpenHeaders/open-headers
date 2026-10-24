@@ -174,13 +174,14 @@ export {
   orderedChildren,
   type TreeChildIndex,
 } from './tree-children';
-export type { ParsedUrl, PathParamName, QueryParam, SplitUrlPath } from './url';
+export type { ParsedUrl, PathParamName, PathParamSpan, QueryParam, SplitUrlPath } from './url';
 export {
   appendQueryParams,
   buildUrlDisplay,
   inlinePathParams,
   normalizePathParamSegments,
   parsePathParamNames,
+  parsePathParamSpans,
   parseUrlQuery,
   splitUrlPath,
   substitutePathParams,

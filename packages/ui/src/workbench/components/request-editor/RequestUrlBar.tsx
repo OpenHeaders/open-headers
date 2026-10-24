@@ -73,13 +73,11 @@ interface MethodOption {
 interface RequestUrlBarProps {
   draft: Draft;
   setDraft: React.Dispatch<React.SetStateAction<Draft>>;
-  /** True when the URL string carries an unresolved `{{ref}}`. */
-  urlUnresolved: boolean;
   /** Fired on Enter inside the URL field. */
   onSend: () => void;
 }
 
-const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnresolved, onSend }) => {
+const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, onSend }) => {
   const t = useT();
   const [customMethods, setCustomMethods] = useState<string[]>(readCustomMethods);
   const [methodSearch, setMethodSearch] = useState('');
@@ -233,8 +231,14 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
           }}
           placeholder={t('workbench.editors.request.url.placeholder')}
           size="small"
-          status={urlUnresolved ? 'error' : undefined}
+          // An unresolved token paints ITSELF (red ref, red path token)
+          // plus the right-end dot — never the whole bar's border: the
+          // send goes out as written, so the bar is not in error.
           flagUnresolved
+          // Each `:name` segment paints from its Path Parameters row —
+          // blue filled, red when it would go out as written — so the
+          // state reads from any tab.
+          pathParams={draft.pathParams}
           // Same treatment as the request table's cells: a long URL shows
           // an ellipsis when idle and, on focus, word-wraps + auto-grows
           // (up to ~5 rows, then inner-scrolls) so it's comfortably

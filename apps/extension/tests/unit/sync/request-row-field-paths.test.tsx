@@ -152,7 +152,7 @@ describe('ParamsTab — the Path Parameters table', () => {
       <ParamsTab rows={[]} onChange={vi.fn()} pathRows={pathRows} onPathChange={vi.fn()} url={url} auth={NO_AUTH} />,
     );
     expect(container.querySelector('[data-testid="oh-path-params-missing"]')?.textContent).toBe(
-      'Set a value for :fileId before sending.',
+      'No value for :fileId — sent as written.',
     );
     cleanup();
     const filled = [row('aaaaaaaa', 'userId', '7'), row('bbbbbbbb', 'fileId', '{{env.FILE}}')];

@@ -197,7 +197,7 @@ const ResponseExampleView: React.FC<ResponseExampleViewProps> = ({
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <EditorHeader
           title={
-            <RequestUrlBar draft={draft.request} setDraft={setRequestDraft} urlUnresolved={false} onSend={() => {}} />
+            <RequestUrlBar draft={draft.request} setDraft={setRequestDraft} onSend={() => {}} />
           }
           actions={
             <Tooltip title={t('workbench.editors.responseExample.openAsRequestTooltip')} placement="bottom">

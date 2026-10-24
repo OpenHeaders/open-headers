@@ -44,12 +44,16 @@ import {
   resolveRequestAuth,
   resolveRequestSettings,
 } from '@openheaders/oracle/live/request-exec/ancestor-chain';
-import { resolvePathParams, unresolvedRequestMessage } from '@openheaders/oracle/live/request-exec/resolve-request';
+import {
+  pathParamSubstitutions,
+  resolvePathParams,
+  unresolvedRequestMessage,
+} from '@openheaders/oracle/live/request-exec/resolve-request';
 import { scriptScopeOverResolver } from '@openheaders/oracle/live/request-exec/script-scope';
 import { createTotpUsageTracker, type TotpUsage } from '@openheaders/oracle/live/request-exec/totp-usage';
 import {
   batchRefusesSend,
-  missingPathParamsMessage,
+  pathParamsAsWrittenOf,
   sentAsWrittenOf,
 } from '@openheaders/oracle/live/request-exec/unresolved-references';
 import { resolveClientCertificate } from '@openheaders/oracle/live/tls-policy';
@@ -352,10 +356,13 @@ export async function resolveRequest(
     sentAsWritten = sentAsWrittenOf(errors);
   }
 
-  // The path parameters the URL names must every one carry a value —
-  // an unfilled `:name` is a refusal, never a literal on the wire.
-  const missingPathParams = missingPathParamKeys(request.url, request.pathParams);
-  if (missingPathParams.length > 0) throw new UnresolvedRequestError(missingPathParamsMessage(missingPathParams));
+  // A path parameter the URL names and no row fills rides AS WRITTEN —
+  // the `:name` segment stays on the wire and the send names it beside
+  // the references above, the oracle executor's posture.
+  const pathParamsAsWritten = missingPathParamKeys(request.url, request.pathParams);
+  if (pathParamsAsWritten.length > 0) {
+    sentAsWritten = [...(sentAsWritten ?? []), ...pathParamsAsWrittenOf(pathParamsAsWritten)];
+  }
 
   // Every kind:'totp' entry this send consumes — the templates' now,
   // the scripts' reads later through the same tracker. `scope.vault` is
@@ -381,7 +388,7 @@ export async function resolveRequest(
   // params substitute here (each value a template field, resolved once
   // per name, encoded as one segment) — the oracle resolver's twin.
   const pathParams = resolvePathParams(request, resolveStr);
-  const pathValues = new Map(pathParams.map((p) => [p.key, p.value]));
+  const pathValues = pathParamSubstitutions(pathParams, pathParamsAsWritten);
   const resolvedUrl = substitutePathParams(request.url, (name) => pathValues.get(name) ?? null, resolveStr);
   const enabledParams = request.params
     .filter((p) => (p.enabled ?? true) && p.key.trim())

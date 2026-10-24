@@ -20,12 +20,9 @@ interface MqttTargetRowProps {
   setDraft: Dispatch<SetStateAction<MqttDraft>>;
   /** A session is in flight — the version knob locks. */
   inFlight: boolean;
-  /** The URL carries an unresolved `{{ref}}` — the input wears the
-   *  error status (the HTTP URL bar's treatment). */
-  urlUnresolved: boolean;
 }
 
-const MqttTargetRow: React.FC<MqttTargetRowProps> = ({ draft, setDraft, inFlight, urlUnresolved }) => {
+const MqttTargetRow: React.FC<MqttTargetRowProps> = ({ draft, setDraft, inFlight }) => {
   const t = useT();
 
   // The hover tooltip yields to the dropdown: suppressed while the
@@ -78,7 +75,6 @@ const MqttTargetRow: React.FC<MqttTargetRowProps> = ({ draft, setDraft, inFlight
         onChange={(url) => setDraft((d) => ({ ...d, url }))}
         placeholder={t('workbench.editors.mqtt.urlPlaceholder')}
         size="small"
-        status={urlUnresolved ? 'error' : undefined}
         flagUnresolved
         expandOnFocus
         style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}

@@ -184,7 +184,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': 'Parametri de interogare',
   'workbench.editors.request.params.pathHeading': 'Parametri de cale',
   'workbench.editors.request.params.pathEmpty': 'Tastați :name în adresa URL pentru a adăuga un parametru de cale.',
-  'workbench.editors.request.params.pathMissing': 'Setați o valoare pentru {keys} înainte de a trimite.',
+  'workbench.editors.request.params.pathMissing': 'Nicio valoare pentru {keys} – se trimite așa cum este scris.',
   'workbench.editors.request.goToAuthorization': 'Către autorizare',
   'workbench.editors.request.goToBody': 'Către corp',
   'workbench.editors.request.headers.keyPlaceholder': 'Antet',
@@ -1548,7 +1548,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': 'Trimis așa cum e scris · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Trimis așa cum e scris',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    'Niciun domeniu nu a rezolvat aceste referințe, așa că au plecat exact cum au fost scrise – serverul a văzut textul dintre acolade. Definește fiecare acolo unde indică sugestia, apoi trimite din nou.',
+    'Nimic nu le-a rezolvat, așa că au plecat exact cum au fost scrise – o referință fără domeniu sau un parametru de cale fără valoare. Setează fiecare acolo unde indică sugestia, apoi trimite din nou.',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Referință · cum se rezolvă',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripturi · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Lanț de scripturi',

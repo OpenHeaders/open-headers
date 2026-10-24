@@ -28,6 +28,8 @@ interface TemplateSuggestionsInputs {
   effectiveContext: SuggestionContext;
   effectiveDisable: boolean;
   classify: (inner: string) => RefState;
+  /** The URL bar's `:name` reading — see `renderHighlightedHtml`. */
+  classifyPathParam?: (name: string) => RefState;
 }
 
 export function useTemplateSuggestions({
@@ -39,6 +41,7 @@ export function useTemplateSuggestions({
   effectiveContext,
   effectiveDisable,
   classify,
+  classifyPathParam,
 }: TemplateSuggestionsInputs) {
   // One-shot: set when a keyboard action opens the create popover, so
   // the Enter/Tab key's own keyup doesn't immediately re-open the
@@ -160,7 +163,7 @@ export function useTemplateSuggestions({
     const sanitized = multiline ? text : text.replace(/\n/g, '');
     if (sanitized !== text) {
       const adj = Math.min(caretPos, sanitized.length);
-      root.innerHTML = renderHighlightedHtml(sanitized, adj, classify);
+      root.innerHTML = renderHighlightedHtml(sanitized, adj, classify, classifyPathParam);
       setCaretOffset(root, adj);
       history.record(sanitized, adj, { boundary });
       onChange?.(sanitized);
@@ -169,7 +172,7 @@ export function useTemplateSuggestions({
     }
     // Re-render highlights with caret-aware neutralising so the
     // active ref doesn't flicker mid-edit.
-    const html = renderHighlightedHtml(text, caretPos, classify);
+    const html = renderHighlightedHtml(text, caretPos, classify, classifyPathParam);
     if (root.innerHTML !== html) {
       root.innerHTML = html;
       setCaretOffset(root, caretPos);
@@ -177,7 +180,7 @@ export function useTemplateSuggestions({
     history.record(text, caretPos, { boundary });
     onChange?.(text);
     updateMeasure(text, caretPos);
-  }, [editableRef, multiline, onChange, classify, updateMeasure, history]);
+  }, [editableRef, multiline, onChange, classify, classifyPathParam, updateMeasure, history]);
 
   /** Insert plain text at the selection (replacing it), then run the
    *  input pipeline. Shared by paste and the multiline Enter — both
@@ -207,12 +210,12 @@ export function useTemplateSuggestions({
     (entry: EditableHistoryEntry) => {
       const root = editableRef.current;
       if (!root) return;
-      root.innerHTML = renderHighlightedHtml(entry.text, entry.caret, classify);
+      root.innerHTML = renderHighlightedHtml(entry.text, entry.caret, classify, classifyPathParam);
       setCaretOffset(root, entry.caret);
       setIsOpen(false);
       onChange?.(entry.text);
     },
-    [editableRef, classify, onChange],
+    [editableRef, classify, classifyPathParam, onChange],
   );
 
   const handleKeyUpOrMouseUp = useCallback(() => {
@@ -226,13 +229,13 @@ export function useTemplateSuggestions({
     const text = root.textContent ?? '';
     // Re-render with caret-aware state (caret may have moved out of
     // a ref — swap editing class → resolved/unresolved).
-    const html = renderHighlightedHtml(text, caretPos, classify);
+    const html = renderHighlightedHtml(text, caretPos, classify, classifyPathParam);
     if (root.innerHTML !== html) {
       root.innerHTML = html;
       setCaretOffset(root, caretPos);
     }
     updateMeasure(text, caretPos);
-  }, [editableRef, classify, updateMeasure]);
+  }, [editableRef, classify, classifyPathParam, updateMeasure]);
 
   const insertReference = useCallback(
     (suggestion: VariableSuggestion) => {
@@ -259,7 +262,7 @@ export function useTemplateSuggestions({
       const newCaret = isScaffold
         ? measureStart + PREFIX.length + suggestion.reference.length
         : measureStart + insert.length;
-      root.innerHTML = renderHighlightedHtml(next, newCaret, classify);
+      root.innerHTML = renderHighlightedHtml(next, newCaret, classify, classifyPathParam);
       setCaretOffset(root, newCaret);
       onChange?.(next);
       if (isScaffold) {
@@ -269,7 +272,7 @@ export function useTemplateSuggestions({
       setIsOpen(false);
       recordRecent(suggestion.reference);
     },
-    [editableRef, recordRecent, measureStart, onChange, classify, updateMeasure, history],
+    [editableRef, recordRecent, measureStart, onChange, classify, classifyPathParam, updateMeasure, history],
   );
 
   // Called when the create popover closes (Escape / save / outside-click).
@@ -428,7 +431,8 @@ export function useTemplateSuggestions({
   // Hover-over-{{ref}} → ask the shared popover host to open. Delegated
   // from the editable; the caret-in-editing case keeps the span's class
   // as `editing` and we skip emitting hover for that one (mid-compose
-  // would steal focus from the textarea).
+  // would steal focus from the textarea). A `:name` path token wears
+  // the ref classes but no `data-ref`, so it opens nothing.
   const handleEditableMouseOver = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement | null;

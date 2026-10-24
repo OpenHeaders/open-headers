@@ -39,19 +39,9 @@ interface GrpcTargetRowProps {
   /** Open the hidden .proto file picker (owned by the editor — the
    *  Service definition tab shares it). */
   onImportProto: () => void;
-  /** The target carries an unresolved `{{ref}}` — the input wears the
-   *  error status (the HTTP URL bar's treatment). */
-  urlUnresolved: boolean;
 }
 
-const GrpcTargetRow: React.FC<GrpcTargetRowProps> = ({
-  draft,
-  setDraft,
-  spec,
-  workspaceId,
-  onImportProto,
-  urlUnresolved,
-}) => {
+const GrpcTargetRow: React.FC<GrpcTargetRowProps> = ({ draft, setDraft, spec, workspaceId, onImportProto }) => {
   const { token } = theme.useToken();
   const t = useT();
   const { protobufSpecs, linkedSpec, derivation, refreshDerivation } = spec;
@@ -182,7 +172,6 @@ const GrpcTargetRow: React.FC<GrpcTargetRowProps> = ({
         onChange={(url) => setDraft((d) => ({ ...d, url }))}
         placeholder={t('workbench.editors.grpc.urlPlaceholder')}
         size="small"
-        status={urlUnresolved ? 'error' : undefined}
         flagUnresolved
         expandOnFocus
         style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}

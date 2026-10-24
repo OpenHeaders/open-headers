@@ -551,7 +551,6 @@ const GraphqlRequestEditor: React.FC<GraphqlRequestEditorProps> = ({
         onChange={(url) => setDraft((d) => ({ ...d, url }))}
         placeholder={t('workbench.editors.graphql.urlPlaceholder')}
         size="small"
-        status={unresolvedGroups.has('url') ? 'error' : undefined}
         flagUnresolved
         expandOnFocus
         style={{ flex: 1, minWidth: 0, fontFamily: "'SF Mono', monospace", fontSize: 12 }}

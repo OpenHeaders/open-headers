@@ -165,12 +165,10 @@ describe('missingPathParamKeys', () => {
 });
 
 describe('isRequestComplete — path params', () => {
-  it('is incomplete while a named parameter has no value and complete once every one has', () => {
+  it('a named parameter without a value never makes the request incomplete — it sends as written', () => {
     const url = 'https://api.openheaders.io/spacecrafts/:id.json';
-    expect(isRequestComplete(makeRequest({ url }))).toBe(false);
-    expect(isRequestComplete(makeRequest({ url, pathParams: [{ uid: 'pth00001', key: 'id', value: '' }] }))).toBe(
-      false,
-    );
+    expect(isRequestComplete(makeRequest({ url }))).toBe(true);
+    expect(isRequestComplete(makeRequest({ url, pathParams: [{ uid: 'pth00001', key: 'id', value: '' }] }))).toBe(true);
     expect(isRequestComplete(makeRequest({ url, pathParams: [{ uid: 'pth00001', key: 'id', value: '42' }] }))).toBe(
       true,
     );
@@ -186,21 +184,12 @@ describe('requestIncompleteReason', () => {
     expect(requestIncompleteReason(makeRequest({ url: '' }))).toBe('missing-url');
   });
 
-  it('reports path-param-missing after the URL and before the auth reasons', () => {
+  it('a path parameter without a value is no reason — the auth reasons read through it', () => {
     const url = 'https://api.openheaders.io/users/:id';
-    expect(requestIncompleteReason(makeRequest({ url }))).toBe('path-param-missing');
+    expect(requestIncompleteReason(makeRequest({ url }))).toBeNull();
     expect(requestIncompleteReason(makeRequest({ url, auth: { type: 'bearer', token: '' } }))).toBe(
-      'path-param-missing',
+      'bearer-missing-token',
     );
-    expect(
-      requestIncompleteReason(
-        makeRequest({
-          url,
-          pathParams: [{ uid: 'pth00001', key: 'id', value: '42' }],
-          auth: { type: 'bearer', token: '' },
-        }),
-      ),
-    ).toBe('bearer-missing-token');
   });
 
   it('reports basic-missing-username when URL is set but username empty', () => {

@@ -133,7 +133,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': 'クエリパラメーター',
   'workbench.editors.request.params.pathHeading': 'パスパラメーター',
   'workbench.editors.request.params.pathEmpty': 'URL に :name と入力するとパスパラメーターが追加されます。',
-  'workbench.editors.request.params.pathMissing': '送信する前に {keys} の値を設定してください。',
+  'workbench.editors.request.params.pathMissing': '{keys} に値がありません。入力のまま送信されます。',
   'workbench.editors.request.goToAuthorization': '認可へ移動',
   'workbench.editors.request.goToBody': 'ボディへ移動',
   'workbench.editors.request.headers.keyPlaceholder': 'ヘッダー',
@@ -1484,7 +1484,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': 'そのまま送信 · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': 'そのまま送信',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    'どのスコープもこれらの参照を解決しなかったため、入力したままの文字列が送信されました。サーバーは波括弧の中のテキストをそのまま受け取っています。ヒントの示す場所で定義してから、もう一度送信してください。',
+    'どれも解決されなかったため、入力したままの文字列が送信されました。スコープのない参照、または値のないパスパラメーターです。ヒントの示す場所でそれぞれ設定してから、もう一度送信してください。',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': '参照 · 解決方法',
   'workbench.editors.request.response.meta.scriptsTag': 'スクリプト · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'スクリプトチェーン',

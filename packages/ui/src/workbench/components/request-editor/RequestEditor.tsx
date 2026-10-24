@@ -842,12 +842,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // interaction + save in a single line (request-name label dropped:
   // the tab pill already carries that identity).
   const headerTitle = (
-    <RequestUrlBar
-      draft={draft}
-      setDraft={setDraft}
-      urlUnresolved={sectionUnresolved.url}
-      onSend={() => void handleSend()}
-    />
+    <RequestUrlBar draft={draft} setDraft={setDraft} onSend={() => void handleSend()} />
   );
 
   // ⋯ menu — snippet copies of the CURRENT draft (unsaved edits

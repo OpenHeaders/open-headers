@@ -17,6 +17,8 @@
  *     path-parameter grammar (`/:name` segments) and its wire-side
  *     substitution. The editor's derived table and both executors
  *     call these two; nothing else re-implements the grammar.
+ *     {@link parsePathParamSpans} is the same scan by position, for
+ *     the URL bar's token painting.
  *     {@link inlinePathParams} is the display-side twin (values
  *     verbatim, nothing encoded) the GraphQL convert folds through;
  *     {@link normalizePathParamSegments} is the pairing form the spec
@@ -277,6 +279,30 @@ function pathParamOfSegment(segment: string): PathParamName | null {
   const match = PATH_PARAM_NAME.exec(segment.slice(1));
   if (match === null) return null;
   return { name: match[0], suffix: segment.slice(1 + match[0].length) };
+}
+
+/** One `:name` token's place in a raw URL — `[start, end)` covers the
+ *  colon and the identifier, never the segment's literal suffix. */
+export interface PathParamSpan {
+  name: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Every `:name` token a raw (unresolved) URL carries, in text order,
+ * one entry per OCCURRENCE — `/:id/x/:id` lists `id` twice, once per
+ * place. The same scan as {@link parsePathParamNames}; the URL bar
+ * paints each token from this list.
+ */
+export function parsePathParamSpans(url: string): PathParamSpan[] {
+  const out: PathParamSpan[] = [];
+  for (const [start, end] of pathSegmentSpans(url)) {
+    const param = pathParamOfSegment(url.slice(start, end));
+    if (param === null) continue;
+    out.push({ name: param.name, start, end: start + 1 + param.name.length });
+  }
+  return out;
 }
 
 /**

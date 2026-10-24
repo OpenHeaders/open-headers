@@ -10,7 +10,7 @@
  */
 
 import { createEditableHistory } from '@openheaders/ui/workbench/components/template-input/editable-history';
-import { renderHighlightedHtml } from '@openheaders/ui/workbench/components/template-input/highlight';
+import { type RefState, renderHighlightedHtml } from '@openheaders/ui/workbench/components/template-input/highlight';
 import { describe, expect, it } from 'vitest';
 
 function makeClock(start = 1000) {
@@ -112,5 +112,36 @@ describe('renderHighlightedHtml — trailing newline sentinel', () => {
     expect(renderHighlightedHtml('abc\n', null, classify)).toBe('abc\n<br>');
     expect(renderHighlightedHtml('abc\ndef', null, classify)).toBe('abc\ndef');
     expect(renderHighlightedHtml('abc', null, classify)).toBe('abc');
+  });
+});
+
+describe('renderHighlightedHtml — path parameter tokens', () => {
+  const classify = (inner: string): RefState => (inner === 'ok' ? 'resolved' : 'unresolved');
+  const classifyPath = (name: string): RefState => (name === 'id' ? 'resolved' : 'unresolved');
+  const ref = (state: string, inner: string) =>
+    `<span class="oh-template-ref oh-template-ref-${state}" data-ref="${inner}">{{${inner}}}</span>`;
+  const path = (state: string, name: string) =>
+    `<span class="oh-template-ref oh-template-ref-${state}" data-path-param="${name}">:${name}</span>`;
+
+  it('leaves `:name` as plain text without a path classifier', () => {
+    expect(renderHighlightedHtml('{{ok}}/users/:id', null, classify)).toBe(`${ref('resolved', 'ok')}/users/:id`);
+  });
+
+  it('paints each `:name` token by its row state beside the refs, suffix and query left as text', () => {
+    expect(renderHighlightedHtml('{{ok}}/u/:id/f/:name.json?x=:y', null, classify, classifyPath)).toBe(
+      `${ref('resolved', 'ok')}/u/${path('resolved', 'id')}/f/${path('unresolved', 'name')}.json?x=:y`,
+    );
+    expect(renderHighlightedHtml('http://localhost:8080/:id{{ext}}', null, classify, classifyPath)).toBe(
+      `http://localhost:8080/${path('resolved', 'id')}${ref('unresolved', 'ext')}`,
+    );
+  });
+
+  it('a path token reads live while the caret is inside it; a ref goes neutral until its braces close', () => {
+    const value = '/u/:id';
+    expect(renderHighlightedHtml(value, 6, classify, classifyPath)).toBe(`/u/${path('resolved', 'id')}`);
+    expect(renderHighlightedHtml(value, 4, classify, classifyPath)).toBe(`/u/${path('resolved', 'id')}`);
+    expect(renderHighlightedHtml('/u/:i', 5, classify, classifyPath)).toBe(`/u/${path('unresolved', 'i')}`);
+    expect(renderHighlightedHtml('/{{ok}}', 4, classify, classifyPath)).toBe(`/${ref('editing', 'ok')}`);
+    expect(renderHighlightedHtml('/{{ok}}', 7, classify, classifyPath)).toBe(`/${ref('resolved', 'ok')}`);
   });
 });

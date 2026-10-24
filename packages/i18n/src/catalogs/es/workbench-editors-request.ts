@@ -132,7 +132,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': 'Parámetros de consulta',
   'workbench.editors.request.params.pathHeading': 'Parámetros de ruta',
   'workbench.editors.request.params.pathEmpty': 'Escribe :name en la URL para añadir un parámetro de ruta.',
-  'workbench.editors.request.params.pathMissing': 'Define un valor para {keys} antes de enviar.',
+  'workbench.editors.request.params.pathMissing': 'Sin valor para {keys}: se envía tal cual.',
   'workbench.editors.request.goToAuthorization': 'Ir a la autorización',
   'workbench.editors.request.goToBody': 'Ir al cuerpo',
   'workbench.editors.request.headers.keyPlaceholder': 'Encabezado',
@@ -1600,7 +1600,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': 'Enviado tal cual · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Enviado tal cual',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    'Ningún ámbito resolvió estas referencias, así que viajaron exactamente como se escribieron: el servidor vio el texto entre llaves. Define cada una donde indica la pista y vuelve a enviar.',
+    'Nada los resolvió, así que viajaron exactamente como se escribieron: una referencia sin ámbito o un parámetro de ruta sin valor. Define cada uno donde indica la pista y vuelve a enviar.',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Referencia · cómo resolverla',
   'workbench.editors.request.response.meta.scriptsTag': 'Scripts · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Cadena de scripts',

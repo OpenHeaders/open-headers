@@ -231,12 +231,18 @@ describe('RequestExecutor', () => {
     expect(url).toBe('https://api.openheaders.io/users/42/files/a%2Fb.json?q=1');
   });
 
-  it('refuses a send whose path parameter has no value — nothing reaches the wire', async () => {
+  it('a path parameter with no value sends as written — the literal :id reaches the wire, named in the attribution', async () => {
     const snapshot = await executeRequestDraft(makeRequest({ url: 'https://api.openheaders.io/users/:id' }));
-    expect(snapshot.error).toBe(
-      'Request has unfilled path parameter: :id. Set a value on the Params tab before sending.',
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(snapshot.error ?? null).toBeNull();
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.openheaders.io/users/:id');
+    expect(snapshot.sentAsWritten).toEqual([
+      {
+        reference: 'id',
+        kind: 'path-param',
+        hint: 'No value on its Path Parameters row, so the segment went on the wire as written. Set a value on the Params tab.',
+      },
+    ]);
   });
 
   it('applies basic auth with UTF-8 characters without crashing', async () => {

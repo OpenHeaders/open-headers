@@ -184,7 +184,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.queryHeading': 'Параметры запроса',
   'workbench.editors.request.params.pathHeading': 'Параметры пути',
   'workbench.editors.request.params.pathEmpty': 'Введите :name в URL-адресе, чтобы добавить параметр пути.',
-  'workbench.editors.request.params.pathMissing': 'Задайте значение для {keys} перед отправкой.',
+  'workbench.editors.request.params.pathMissing': 'Нет значения для {keys} — отправляется как написано.',
   'workbench.editors.request.goToAuthorization': 'Перейти к авторизации',
   'workbench.editors.request.goToBody': 'Перейти к телу',
   'workbench.editors.request.headers.keyPlaceholder': 'Заголовок',
@@ -1554,7 +1554,7 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.response.meta.sentAsWrittenTag': 'Отправлено как есть · {count}',
   'workbench.editors.request.response.meta.sentAsWrittenTitle': 'Отправлено как есть',
   'workbench.editors.request.response.meta.sentAsWrittenSummary':
-    'Ни одна область не разрешила эти ссылки, поэтому они ушли ровно так, как были набраны, — сервер увидел текст между фигурными скобками. Определите каждую там, где указывает подсказка, и отправьте снова.',
+    'Ничто их не разрешило, поэтому они ушли ровно так, как были набраны, — ссылка без области или параметр пути без значения. Задайте каждый там, где указывает подсказка, и отправьте снова.',
   'workbench.editors.request.response.meta.sentAsWrittenHeading': 'Ссылка · как разрешить',
   'workbench.editors.request.response.meta.scriptsTag': 'Скрипты · {count}',
   'workbench.editors.request.response.meta.scriptsTitle': 'Цепочка скриптов',

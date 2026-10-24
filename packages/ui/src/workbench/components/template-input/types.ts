@@ -148,6 +148,14 @@ export interface TemplateInputProps {
    *  excluded). Lets a row flag a missing variable without the user
    *  expanding it to hunt for the highlighted ref. */
   flagUnresolved?: boolean;
+  /** The HTTP URL bar's Path Parameters rows. When set, each `:name`
+   *  segment of the value paints like a `{{ref}}`: blue when its row
+   *  has a value whose templates resolve, red when the segment would
+   *  go on the wire as written (no row, a blank value, or a value
+   *  holding an unresolved reference). Hovering a token opens nothing
+   *  — the Params tab is the editor. Only the request URL bar sets
+   *  this; every other field leaves `:` as plain text. */
+  pathParams?: ReadonlyArray<{ key: string; value: string }>;
   /** Read-only, disabled-styled field — no caret, no suggestions, no
    *  action rail. Also set by an enclosing session lock. */
   disabled?: boolean;

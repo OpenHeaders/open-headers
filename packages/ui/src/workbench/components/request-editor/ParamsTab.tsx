@@ -13,9 +13,9 @@
  * it — see `derivePathParamRows`), on the same shell under
  * `lockedKeys`: the key is read-only, the value a template field, a
  * description beside it; no ghost row, no checkbox, no drag. A row
- * without a value names itself under the table — the send gate's
- * `path-param-missing` reason, which the executors refuse by the same
- * list — and an empty URL says how to add one.
+ * without a value names itself under the table — the executors send
+ * that segment as written and name it by the same list — and an
+ * empty URL says how to add one.
  */
 
 import type { AuthConfig } from '@openheaders/core/types';
@@ -123,7 +123,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({
   pathConflictBridge,
 }) => {
   const t = useT();
-  // The gate's own list — a blank value on a parameter the URL names.
+  // The executors' own list — a blank value on a parameter the URL names.
   const missingPathParams = useMemo(() => missingPathParamKeys(url, pathRows), [url, pathRows]);
   // Always-visible preview rows for an auth credential that rides on
   // the URL (API Key → Query Params, OAuth 2.0 → Request URL). Unlike
@@ -183,7 +183,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({
         />
       )}
       {missingPathParams.length > 0 && (
-        <Text type="danger" style={{ fontSize: 12 }} data-testid="oh-path-params-missing">
+        <Text type="warning" style={{ fontSize: 12 }} data-testid="oh-path-params-missing">
           {t('workbench.editors.request.params.pathMissing', {
             keys: missingPathParams.map((key) => `:${key}`).join(', '),
           })}

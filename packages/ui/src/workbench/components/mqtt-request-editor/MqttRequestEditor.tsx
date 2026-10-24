@@ -401,12 +401,7 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
   // stay live: subscriptions ride the open session).
   const headerTitle = (
     <SessionLock locked={session.inFlight}>
-      <MqttTargetRow
-        draft={draft}
-        setDraft={setDraft}
-        inFlight={session.inFlight}
-        urlUnresolved={unresolvedGroups.has('url')}
-      />
+      <MqttTargetRow draft={draft} setDraft={setDraft} inFlight={session.inFlight} />
     </SessionLock>
   );
 

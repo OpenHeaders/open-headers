@@ -37,6 +37,11 @@ const references: SentAsWrittenReference[] = [
     reference: 'env.HOST',
     hint: 'No active environment is selected. Select one in Environments, or set a default environment.',
   },
+  {
+    reference: 'id',
+    kind: 'path-param',
+    hint: 'No value on its Path Parameters row, so the segment went on the wire as written. Set a value on the Params tab.',
+  },
 ];
 
 describe('SentAsWrittenTag', () => {
@@ -47,24 +52,25 @@ describe('SentAsWrittenTag', () => {
     expect(screen.queryByTestId('oh-response-sent-as-written')).toBeNull();
   });
 
-  it('counts the references in the warning tone and lists each against the resolver’s fix', async () => {
+  it('counts the tokens in the warning tone and lists each against its fix — a reference in braces, a path parameter by its colon', async () => {
     render(<SentAsWrittenTag references={references} />);
     const tag = screen.getByTestId('oh-response-sent-as-written');
-    expect(tag.textContent).toBe('Sent as written · 2');
+    expect(tag.textContent).toBe('Sent as written · 3');
     expect(tag.className).toContain('ant-tag-warning');
     fireEvent.mouseEnter(tag);
     expect(await screen.findByText('Sent as written')).toBeTruthy();
     const labels = Array.from(document.querySelectorAll('code.oh-info-popover-section-item-label')).map(
       (el) => el.textContent,
     );
-    expect(labels).toEqual(['{{waat}}', '{{env.HOST}}']);
+    expect(labels).toEqual(['{{waat}}', '{{env.HOST}}', ':id']);
     expect(screen.getByText(references[0].hint)).toBeTruthy();
     expect(screen.getByText(references[1].hint)).toBeTruthy();
+    expect(screen.getByText(references[2].hint)).toBeTruthy();
   });
 
   it('rides the gRPC meta strip beside the other attribution tags', () => {
     render(<GrpcMetaStrip status={0} sentAsWritten={references} />);
-    expect(screen.getByTestId('oh-response-sent-as-written').textContent).toBe('Sent as written · 2');
+    expect(screen.getByTestId('oh-response-sent-as-written').textContent).toBe('Sent as written · 3');
     cleanup();
     render(<GrpcMetaStrip status={0} />);
     expect(screen.queryByTestId('oh-response-sent-as-written')).toBeNull();
