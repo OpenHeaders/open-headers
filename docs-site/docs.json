@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Open Headers",
-  "description": "Documentation for Open Headers — the open-source Enterprise API client in your browser. Team Collaboration. Browser Interceptor - live traffic.",
+  "description": "Documentation for Open Headers — the open-source Enterprise API client in your browser. Team Collaboration. Browser Interceptor - modify live traffic.",
   "colors": {
     "primary": "#2563EB",
     "light": "#3B82F6",

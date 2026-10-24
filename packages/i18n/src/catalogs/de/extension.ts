@@ -20,6 +20,6 @@ export const extension = {
     })} passten auf Anfragen dieser Seite`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    'Der Open-Source-Enterprise-API-Client in deinem Browser. Team-Zusammenarbeit. Browser-Interceptor – Live-Traffic.',
+    'Der Open-Source-Enterprise-API-Client in deinem Browser. Team-Zusammenarbeit. Browser-Interceptor – Live-Traffic ändern.',
   'extension.manifest.actionDescription': 'Open Headers-Popup öffnen',
 } as const satisfies Catalog;

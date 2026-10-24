@@ -21,6 +21,6 @@ export const extension = {
     })} ont correspondu à des requêtes sur cette page`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    "Le client API Enterprise open source dans votre navigateur. Collaboration d'équipe. Intercepteur navigateur – trafic en direct.",
+    "Client API Enterprise open source dans votre navigateur. Travail d'équipe. Intercepteur navigateur – modifiez le trafic en direct.",
   'extension.manifest.actionDescription': 'Ouvrir le popup Open Headers',
 } as const satisfies Catalog;

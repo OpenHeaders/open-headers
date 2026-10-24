@@ -189,7 +189,11 @@ export function SortableEditableRow<Row>({
           />
         </span>
       )}
-      <div data-field-path={keyPath} style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 4 }}>
+      <div
+        data-field-path={keyPath}
+        className="editable-grid-cell"
+        style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 4 }}
+      >
         {lockedKeys ? (
           <span
             data-testid="oh-grid-locked-key"
@@ -261,6 +265,7 @@ export function SortableEditableRow<Row>({
       {showValueColumn && (
         <div
           data-field-path={rowPath ? rowPath(id, 'value') : undefined}
+          className="editable-grid-cell"
           style={{
             borderLeft: `1px solid ${token.colorBorderSecondary}`,
             padding: '0 4px',
@@ -323,6 +328,7 @@ export function SortableEditableRow<Row>({
       {showDescriptionColumn && (
         <div
           data-field-path={rowPath ? rowPath(id, 'description') : undefined}
+          className="editable-grid-cell"
           style={{
             borderLeft: `1px solid ${token.colorBorderSecondary}`,
             display: 'flex',

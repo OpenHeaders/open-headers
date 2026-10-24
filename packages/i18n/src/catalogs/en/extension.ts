@@ -25,6 +25,6 @@ export const extension = {
     })} matched requests on this page`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    'The open-source Enterprise API client in your browser. Team Collaboration. Browser Interceptor - live traffic.',
+    'The open-source Enterprise API client in your browser. Team Collaboration. Browser Interceptor - modify live traffic.',
   'extension.manifest.actionDescription': 'Open Open Headers popup',
 } as const satisfies Catalog;

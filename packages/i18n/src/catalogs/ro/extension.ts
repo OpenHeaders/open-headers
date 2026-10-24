@@ -22,6 +22,6 @@ export const extension = {
     })} au corespuns cererilor de pe această pagină`,
   'extension.manifest.name': 'Open Headers',
   'extension.manifest.description':
-    'Clientul API Enterprise open source în browserul tău. Colaborare în echipă. Interceptor de browser – trafic live.',
+    'Clientul API Enterprise open source în browserul tău. Colaborare în echipă. Interceptor de browser – modifică traficul live.',
   'extension.manifest.actionDescription': 'Deschidere fereastră popup Open Headers',
 } as const satisfies Catalog;

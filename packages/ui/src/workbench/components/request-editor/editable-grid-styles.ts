@@ -50,9 +50,12 @@ export const headerLabelStyle: React.CSSProperties = {
 };
 
 // Hover-reveal for the drag handle + delete button (same transition so
-// the row controls appear/disappear together), plus the hover highlight
-// for the `⋯` options-menu rows. Injected once at module load so every
-// usage shares the same CSS rule.
+// the row controls appear/disappear together), the hover highlight for
+// the `⋯` options-menu rows, and the focused cell's ring: the cell
+// fields are borderless, so the cell that holds the caret draws a 1px
+// inset ring in the theme's border colour — inset so nothing shifts and
+// the ring sits above the column dividers. Injected once at module load
+// so every usage shares the same CSS rule.
 const STYLE_ID = 'editable-grid-row-styles';
 if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   const style = document.createElement('style');
@@ -63,6 +66,9 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 .editable-grid-row:hover .editable-grid-drag-handle,
 .editable-grid-row:hover .editable-grid-delete { opacity: 1; }
 .editable-grid-row .editable-grid-drag-handle:active { cursor: grabbing; }
+.editable-grid-row .editable-grid-cell:focus-within {
+  box-shadow: inset 0 0 0 1px var(--ant-color-border, rgba(0, 0, 0, 0.15));
+}
 .editable-grid-header .editable-grid-select-all { opacity: 0; transition: opacity 120ms ease; }
 .editable-grid-header:hover .editable-grid-select-all { opacity: 1; }
 .editable-grid-suggestion-row .editable-grid-suggestion-action,
