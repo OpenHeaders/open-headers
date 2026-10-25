@@ -137,6 +137,7 @@ async function runPageGrpcInvoke(
       resolution: scope.resolve,
       prepareResolution: scope.prepare,
       referencesSecret: scope.referencesSecret,
+      totp: scope.totp,
       authChain: scope.authChain,
       settingsChain: scope.settingsChain,
       scriptChain: scope.scriptChain,

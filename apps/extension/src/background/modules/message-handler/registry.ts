@@ -29,6 +29,7 @@ import { serverSignInHandlers } from './handlers/server-sign-in';
 import { storageInspectorHandlers } from './handlers/storage-inspector';
 import { telemetryHandlers } from './handlers/telemetry';
 import { templateHandlers } from './handlers/templates';
+import { totpHandlers } from './handlers/totp';
 import { workspaceHandlers } from './handlers/workspaces';
 import type { HandlerMap } from './types';
 
@@ -42,6 +43,7 @@ export const registry: HandlerMap = {
   ...delegatedSocketHandlers,
   ...ruleHandlers,
   ...secretManagerHandlers,
+  ...totpHandlers,
   ...telemetryHandlers,
   ...templateHandlers,
   ...observabilityHandlers,

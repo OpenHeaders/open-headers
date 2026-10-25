@@ -52,6 +52,7 @@ import type { ServerSignInRpc } from './server-sign-in';
 import type { SyncEngineRpc } from './sync-engine';
 import type { SystemProxyRpc } from './system-proxy';
 import type { TemplateRpc } from './templates';
+import type { TotpRpc } from './totp';
 import type { UpdatesRpc } from './updates';
 import type { WorkspaceRpc } from './workspace';
 
@@ -116,6 +117,7 @@ export type {
 } from './requests';
 export type { SecretManagerRpc } from './secret-manager';
 export type { SecretsStorageState } from './secrets';
+export type { TotpRpc } from './totp';
 export type { AppUpdatePhase, AppUpdateSeverity, AppUpdateState } from './updates';
 export type {
   WorkspaceTreeChangesWire,
@@ -183,6 +185,7 @@ export interface BridgeRpcContract
     SystemProxyRpc,
     DeviceTrustRpc,
     SecretManagerRpc,
+    TotpRpc,
     ProductTelemetryRpc,
     ErrorReportRpc,
     ServerSignInRpc,

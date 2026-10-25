@@ -21,13 +21,23 @@
  * where a live code belongs. Its secret-manager scope (the Secret
  * Providers plan's P2b) is the session's: the executor's pre-pass asks
  * for the referenced entries through the host's broker at Connect and
- * per rider, and the values stay in this scope for the session.
+ * per rider, and the values stay in this scope for the session. The
+ * same pre-pass re-mints the TOTP registry when a batch names a TOTP
+ * entry — a rider's `{{vault.otp}}` is the code of ITS moment — and the
+ * session's cooldown plane gates and records through the service
+ * worker's store (`shared/totp-cooldown.ts`).
  */
 
 import type { AuthCarrier } from '@openheaders/core/auth-inheritance';
 import type { ScriptPackageModule } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
-import { generateTotp } from '@openheaders/core/totp';
+import {
+  generateTotp,
+  referencesTotp,
+  type TotpCooldownPlane,
+  type TotpUsageTracker,
+  totpNamesOf,
+} from '@openheaders/core/totp';
 import type { Vault, VaultSecretTotp, WebSocketRequest } from '@openheaders/core/types';
 import {
   collectTemplateVariableNames,
@@ -43,6 +53,7 @@ import {
   type RendererResolverInputs,
 } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { resolveSecretManagerBatch } from '@openheaders/ui/shared/secret-manager';
+import { pageTotpCooldownPlane } from '@openheaders/ui/shared/totp-cooldown';
 import {
   type AncestorScriptCarrier,
   authChainOf,
@@ -55,8 +66,13 @@ import { buildPageScriptScope, type PageScriptScope } from '../shared/page-scrip
 
 /** The executor's injected-resolution contract
  *  (`ExecuteWsSessionOptions.resolution`): every unresolved reference
- *  lands in the collector with its reason. */
-export type WsPageResolution = (template: string, unresolved: Map<string, ResolutionError>) => string;
+ *  lands in the collector with its reason, every TOTP code the template
+ *  carried on the batch's tracker when the executor hands one. */
+export type WsPageResolution = (
+  template: string,
+  unresolved: Map<string, ResolutionError>,
+  totp?: TotpUsageTracker | null,
+) => string;
 
 /** The executor's injected pre-pass contract
  *  (`ExecuteWsSessionOptions.prepareResolution`): the secret-manager
@@ -79,6 +95,10 @@ export interface WsPageSessionScope {
    *  (`referencesSecret`): what it records from such a template is
    *  stamped secret-bearing so the timelines mask it (L3). */
   referencesSecret: (templates: readonly string[]) => boolean;
+  /** The executor's injected TOTP cooldown plane (`totp`): the batch
+   *  tracker over this scope's vault, the gate and the record over the
+   *  service worker's store. */
+  totp: TotpCooldownPlane;
   authChain: AuthCarrier[];
   scriptChain: AncestorScriptCarrier[];
   /** The ancestor settings carriers (outer → inner) — the per-knob
@@ -159,17 +179,31 @@ export function makeWsPageResolutionFactory(
       request.uid,
     );
     const context = ancestry !== null ? { collectionId: ancestry.collection.uid } : {};
-    const resolve: WsPageResolution = (template, unresolved) => {
+    const resolve: WsPageResolution = (template, unresolved, totp) => {
       const result = resolver.resolveTemplate(template, context);
+      totp?.observe(result.variables);
       collectUnresolvedReferences(result.errors, unresolved);
       return result.result;
     };
     const secrets = createSecretManagerScope(resolver, inputs.vault, resolveSecretManagerBatch);
     const secretNames = secretManagerNamesOf(inputs.vault);
+    const totpNames = totpNamesOf(inputs.vault);
     return {
       resolve,
-      prepare: (templates) => secrets.ensure(collectTemplateVariableNames(templates)),
+      prepare: (templates) => {
+        const names = collectTemplateVariableNames(templates);
+        const asked = secrets.ensure(names);
+        // A batch naming a TOTP entry re-mints the registry — the code
+        // of this moment, never Connect's.
+        const remint = referencesTotp(names, totpNames)
+          ? buildPageTotpRegistry(inputs.vault).then((registry) => resolver.setTotpRegistry(registry))
+          : null;
+        if (asked === null) return remint;
+        if (remint === null) return asked;
+        return Promise.all([asked, remint]).then(() => undefined);
+      },
       referencesSecret: (templates) => referencesSecretManager(templates, secretNames),
+      totp: pageTotpCooldownPlane(inputs.vault, workspaceId),
       authChain: ancestry !== null ? authChainOf(ancestry) : [],
       scriptChain: ancestry !== null ? scriptChainOf(ancestry) : [],
       settingsChain: ancestry !== null ? settingsChainOf(ancestry) : [],
