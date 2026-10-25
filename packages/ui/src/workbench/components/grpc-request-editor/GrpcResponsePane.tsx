@@ -23,7 +23,7 @@
  * console and assertions) — neither on a scriptless call.
  */
 
-import { ClearOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -135,7 +135,7 @@ const GrpcResponsePane: React.FC<GrpcResponsePaneProps> = ({
               : []),
             {
               key: 'clear',
-              icon: <ClearOutlined />,
+              icon: <DeleteOutlined />,
               label: t('workbench.editors.request.response.clearResponse'),
               onClick: onClear,
             },

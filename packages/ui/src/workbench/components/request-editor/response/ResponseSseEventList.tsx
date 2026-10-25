@@ -97,11 +97,11 @@ import {
   CaretRightOutlined,
   CheckCircleOutlined,
   CheckOutlined,
-  ClearOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
   ControlOutlined,
   CopyOutlined,
+  DeleteOutlined,
   DisconnectOutlined,
   DownOutlined,
   InfoCircleOutlined,
@@ -1285,7 +1285,7 @@ const ResponseSseEventList: React.FC<ResponseSseEventListProps> = ({ items, coun
           <Button
             size="small"
             type="text"
-            icon={<ClearOutlined />}
+            icon={<DeleteOutlined />}
             data-testid="oh-sse-clear"
             onClick={() => setClearedCount(count)}
             aria-label={t('workbench.editors.request.response.sse.clearEvents')}

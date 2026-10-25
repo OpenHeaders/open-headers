@@ -21,8 +21,8 @@
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
-  ClearOutlined,
   ControlOutlined,
+  DeleteOutlined,
   DownOutlined,
   InfoCircleOutlined,
   SearchOutlined,
@@ -310,7 +310,7 @@ const MqttTimelineToolbar: React.FC<MqttTimelineToolbarProps> = ({
         <Button
           size="small"
           type="text"
-          icon={<ClearOutlined />}
+          icon={<DeleteOutlined />}
           data-testid="mqtt-timeline-clear"
           onClick={onClear}
           aria-label={t('workbench.editors.mqtt.timeline.clearMessages')}

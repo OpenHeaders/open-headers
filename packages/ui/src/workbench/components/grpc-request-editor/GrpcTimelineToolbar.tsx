@@ -14,8 +14,8 @@
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
-  ClearOutlined,
   ControlOutlined,
+  DeleteOutlined,
   DownOutlined,
   InfoCircleOutlined,
   SearchOutlined,
@@ -289,7 +289,7 @@ const GrpcTimelineToolbar: React.FC<GrpcTimelineToolbarProps> = ({
         <Button
           size="small"
           type="text"
-          icon={<ClearOutlined />}
+          icon={<DeleteOutlined />}
           data-testid="grpc-timeline-clear"
           onClick={onClear}
           aria-label={t('workbench.editors.grpc.timeline.clearMessages')}

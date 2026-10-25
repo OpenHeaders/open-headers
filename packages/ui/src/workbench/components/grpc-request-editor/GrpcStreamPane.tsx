@@ -15,7 +15,7 @@
  * (the WS/MQTT session panes' law).
  */
 
-import { ClearOutlined, CloseOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { CloseOutlined, DeleteOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ProtoRegistry } from '@openheaders/core/proto';
 import type { ExecutedGrpcSnapshot, GrpcMethodRef } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -223,7 +223,7 @@ const GrpcStreamPane: React.FC<GrpcStreamPaneProps> = ({
                   : []),
                 {
                   key: 'clear',
-                  icon: <ClearOutlined />,
+                  icon: <DeleteOutlined />,
                   label: t('workbench.editors.request.response.clearResponse'),
                   onClick: onClear,
                 },

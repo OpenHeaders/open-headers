@@ -47,12 +47,12 @@ import {
   CaretRightOutlined,
   CheckCircleOutlined,
   CheckOutlined,
-  ClearOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
   CodeOutlined,
   ControlOutlined,
   CopyOutlined,
+  DeleteOutlined,
   DisconnectOutlined,
   DownOutlined,
   SaveOutlined,
@@ -2343,7 +2343,7 @@ const WsMessageTimeline: React.FC<WsMessageTimelineProps> = ({
           <Button
             size="small"
             type="text"
-            icon={<ClearOutlined />}
+            icon={<DeleteOutlined />}
             data-testid="ws-timeline-clear"
             onClick={() => setClearedCount(count)}
             aria-label={t('workbench.editors.websocket.timeline.clearMessages')}

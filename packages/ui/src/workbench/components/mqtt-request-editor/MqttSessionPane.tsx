@@ -21,7 +21,7 @@
  * law's display twin: facts, never synthesis).
  */
 
-import { ClearOutlined, CloseOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { CloseOutlined, DeleteOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ExecutedMqttSnapshot, MqttRequestProtocolVersion } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
@@ -453,7 +453,7 @@ const MqttSessionPane: React.FC<MqttSessionPaneProps> = ({
                   : []),
                 {
                   key: 'clear',
-                  icon: <ClearOutlined />,
+                  icon: <DeleteOutlined />,
                   label: t('workbench.editors.request.response.clearResponse'),
                   onClick: onClear,
                 },

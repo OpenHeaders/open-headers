@@ -19,7 +19,7 @@
  * beats a synthesized grid (the capture law's display twin).
  */
 
-import { ClearOutlined, CloseOutlined, EllipsisOutlined } from '@ant-design/icons';
+import { CloseOutlined, DeleteOutlined, EllipsisOutlined } from '@ant-design/icons';
 import type { ExecutedWsSnapshot, WebSocketFlavor } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { Button, Dropdown, Segmented, Tag, Typography, theme } from 'antd';
@@ -392,7 +392,7 @@ const WsSessionPane: React.FC<WsSessionPaneProps> = ({
                   : []),
                 {
                   key: 'clear',
-                  icon: <ClearOutlined />,
+                  icon: <DeleteOutlined />,
                   label: t('workbench.editors.request.response.clearResponse'),
                   onClick: onClear,
                 },

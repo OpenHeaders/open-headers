@@ -13,8 +13,8 @@
 
 import {
   CheckOutlined,
-  ClearOutlined,
   CopyOutlined,
+  DeleteOutlined,
   DownOutlined,
   DownloadOutlined,
   EllipsisOutlined,
@@ -300,7 +300,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                 <CreateWorkflowNeedsSave />
               ) : null}
               {response && (
-                <Button size="small" type="text" icon={<ClearOutlined />} onClick={onClear}>
+                <Button size="small" type="text" icon={<DeleteOutlined />} onClick={onClear}>
                   {t('workbench.editors.request.response.clear')}
                 </Button>
               )}
@@ -385,7 +385,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                       { type: 'divider' },
                       {
                         key: 'clear',
-                        icon: <ClearOutlined />,
+                        icon: <DeleteOutlined />,
                         label: t('workbench.editors.request.response.clearResponse'),
                         onClick: onClear,
                       },
