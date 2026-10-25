@@ -1434,7 +1434,7 @@
     },
     {
       "name": "dompurify",
-      "version": "3.4.16",
+      "version": "3.4.17",
       "license": "(MPL-2.0 OR Apache-2.0)",
       "hosts": [
         "desktop",
@@ -1870,7 +1870,7 @@
     },
     {
       "name": "ip-address",
-      "version": "10.7.2",
+      "version": "10.7.4",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -3386,7 +3386,7 @@
     },
     {
       "name": "undici",
-      "version": "7.29.1",
+      "version": "7.30.1",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -3560,7 +3560,7 @@
     },
     {
       "name": "zod",
-      "version": "4.4.3",
+      "version": "4.6.7",
       "license": "MIT",
       "hosts": [
         "desktop"
