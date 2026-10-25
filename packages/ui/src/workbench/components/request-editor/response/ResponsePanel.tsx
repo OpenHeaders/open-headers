@@ -237,7 +237,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         background: token.colorBgContainer,
       }}
     >
-      <SendPulse sending={sending} response={response} layout={layout} graphql={graphql} />
+      <SendPulse sending={sending} response={response} live={live} layout={layout} graphql={graphql} />
       {sending && live != null && live.head !== null ? (
         // Live phase — the SAME tab chrome as a settled response (the
         // Postman posture): Body streams the tail / event list, Headers

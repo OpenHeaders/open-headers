@@ -9,18 +9,20 @@
  * `SendPulseBar` is the bar itself, driven by two facts any protocol
  * can state — in flight or not, and the tone of what it rests on. The
  * default export is the HTTP/GraphQL reading of those facts off the
- * send flag and the settled snapshot; the session editors derive
- * theirs from their live feed and settled snapshot.
+ * send flag, the live feed and the settled snapshot (an SSE stream
+ * rests once its head lands); the session editors derive theirs from
+ * their live feed and settled snapshot.
  */
 
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LiveSendStream } from '../useLiveSendStream';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import type { GraphqlResponseFacts } from './graphql-response';
 import { type PillTone, toneHue } from './response-status';
-import { type SendPulseDrive, type SendPulsePhase, sendPulseTone } from './send-pulse';
+import { httpSendPulse, type SendPulseDrive, type SendPulsePhase } from './send-pulse';
 import './send-pulse.css';
 
 export type SendPulseAxis = 'x' | 'y';
@@ -117,14 +119,11 @@ export const SendPulseBar: React.FC<
 const SendPulse: React.FC<{
   sending: boolean;
   response: ExecutedRequestSnapshot | null;
+  live?: LiveSendStream | null;
   layout: RequestEditorLayout;
   graphql?: GraphqlResponseFacts | null;
-}> = ({ sending, response, layout, graphql }) => (
-  <SendPulseBar
-    inflight={sending}
-    landing={response === null ? null : sendPulseTone(response, graphql)}
-    axis={layout === 'vertical' ? 'x' : 'y'}
-  />
+}> = ({ sending, response, live = null, layout, graphql }) => (
+  <SendPulseBar {...httpSendPulse({ sending, response, live, graphql })} axis={layout === 'vertical' ? 'x' : 'y'} />
 );
 
 export default SendPulse;

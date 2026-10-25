@@ -2,12 +2,20 @@
 /**
  * SendPulse — the response pane's leading-edge bar: a looping primary
  * sweep while a send is in flight, then a full line in the status
- * pill's tone that fades, gone once the fade ends.
+ * pill's tone that fades, gone once the fade ends. An SSE stream rests
+ * on its head's status tone once the head lands — no sweep across the
+ * stream, nothing per event — and its end lands by whose doing it was:
+ * the server's own close plays nothing, the user's Stop neutral, the
+ * cap or deadline warning, a severed connection error.
  */
 
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import SendPulse from '@openheaders/ui/workbench/components/request-editor/response/SendPulse';
 import { sendPulseTone } from '@openheaders/ui/workbench/components/request-editor/response/send-pulse';
+import type {
+  LiveSendStream,
+  LiveSseFeed,
+} from '@openheaders/ui/workbench/components/request-editor/useLiveSendStream';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,12 +43,42 @@ function makeSnapshot(overrides: Partial<ExecutedRequestSnapshot> = {}): Execute
   };
 }
 
+function makeLiveSend(overrides: Partial<LiveSendStream> = {}): LiveSendStream {
+  return {
+    head: {
+      status: 200,
+      statusText: 'OK',
+      url: 'https://api.openheaders.io/v1/events',
+      headers: [{ key: 'content-type', value: 'text/event-stream' }],
+    },
+    startedAt: 1_000,
+    tailText: '',
+    totalBytes: 0,
+    sse: null,
+    ...overrides,
+  };
+}
+
+function makeSseFeed(count = 0): LiveSseFeed {
+  return { items: [], count, timestamps: [], connectedAt: 1_010 };
+}
+
 describe('sendPulseTone', () => {
   it('follows the status pill ranges', () => {
     expect(sendPulseTone(makeSnapshot({ status: 200 }))).toBe('success');
     expect(sendPulseTone(makeSnapshot({ status: 302, statusText: 'Found' }))).toBe('neutral');
     expect(sendPulseTone(makeSnapshot({ status: 404, statusText: 'Not Found' }))).toBe('warning');
     expect(sendPulseTone(makeSnapshot({ status: 500, statusText: 'Internal Server Error' }))).toBe('error');
+  });
+
+  it('reads a streamed capture by whose doing its end was, the server close leaving the status range', () => {
+    const ended = (endedBy: NonNullable<ExecutedRequestSnapshot['streamedCapture']>['endedBy']) =>
+      sendPulseTone(makeSnapshot({ streamedCapture: { endedBy } }));
+    expect(ended('end')).toBe('success');
+    expect(ended('stop')).toBe('neutral');
+    expect(ended('cap')).toBe('warning');
+    expect(ended('timeout')).toBe('warning');
+    expect(ended('error')).toBe('error');
   });
 
   it('is error for a send that never completed or carries an error', () => {
@@ -107,5 +145,75 @@ describe('SendPulse', () => {
   it('does not settle for a response that arrives without a send', () => {
     render(<SendPulse sending={false} response={makeSnapshot()} layout="vertical" />);
     expect(screen.queryByTestId('oh-send-pulse')).toBeNull();
+  });
+
+  /** Sends an SSE stream through its head landing and the events that
+   *  follow, the bar dark again, then settles it the given way. */
+  function streamSse(endedBy: NonNullable<ExecutedRequestSnapshot['streamedCapture']>['endedBy']): void {
+    const { rerender } = render(
+      <SendPulse sending={true} response={null} live={makeLiveSend({ head: null })} layout="vertical" />,
+    );
+    expect(screen.getByTestId('oh-send-pulse').dataset.phase).toBe('inflight');
+
+    rerender(
+      <SendPulse sending={true} response={null} live={makeLiveSend({ sse: makeSseFeed() })} layout="vertical" />,
+    );
+    const bar = screen.getByTestId('oh-send-pulse');
+    expect(bar.dataset.phase).toBe('settled');
+    expect(bar.dataset.tone).toBe('success');
+    fireEvent.animationEnd(bar);
+    expect(screen.queryByTestId('oh-send-pulse')).toBeNull();
+
+    rerender(
+      <SendPulse sending={true} response={null} live={makeLiveSend({ sse: makeSseFeed(21) })} layout="vertical" />,
+    );
+    expect(screen.queryByTestId('oh-send-pulse')).toBeNull();
+
+    rerender(
+      <SendPulse
+        sending={false}
+        response={makeSnapshot({ streamedCapture: { endedBy } })}
+        live={null}
+        layout="vertical"
+      />,
+    );
+  }
+
+  it('sweeps until an SSE head lands, rests on its status tone, plays nothing per event nor for the server close', () => {
+    streamSse('end');
+    expect(screen.queryByTestId('oh-send-pulse')).toBeNull();
+  });
+
+  it('lands an SSE stream the user stopped in the neutral tone', () => {
+    streamSse('stop');
+    expect(screen.getByTestId('oh-send-pulse').dataset.phase).toBe('settled');
+    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('neutral');
+  });
+
+  it('lands an SSE stream the cap or the deadline ended in the warning tone', () => {
+    streamSse('cap');
+    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('warning');
+    cleanup();
+    streamSse('timeout');
+    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('warning');
+  });
+
+  it('lands an SSE stream severed mid-body in the error tone', () => {
+    streamSse('error');
+    expect(screen.getByTestId('oh-send-pulse').dataset.tone).toBe('error');
+  });
+
+  it('keeps the sweep across a plain body stream whose head is not event-stream', () => {
+    render(
+      <SendPulse
+        sending={true}
+        response={null}
+        live={makeLiveSend({
+          head: { status: 200, statusText: 'OK', url: 'https://api.openheaders.io/v1/log', headers: [] },
+        })}
+        layout="vertical"
+      />,
+    );
+    expect(screen.getByTestId('oh-send-pulse').dataset.phase).toBe('inflight');
   });
 });
