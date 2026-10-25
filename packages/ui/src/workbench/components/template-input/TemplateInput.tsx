@@ -119,7 +119,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const classifyPathParam = useMemo(() => {
       if (!pathParams) return undefined;
       return (name: string): RefState => {
-        const row = pathParams.find((p) => p.key === name);
+        const row = pathParams.rows.find((p) => p.key === name);
         if (!row || row.value.trim() === '') return 'unresolved';
         for (const m of row.value.matchAll(new RegExp(TEMPLATE_REGEX.source, TEMPLATE_REGEX.flags))) {
           if (classify(m[1]) === 'unresolved') return 'unresolved';
@@ -167,6 +167,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       effectiveDisable,
       classify,
       classifyPathParam,
+      pathParams,
     });
 
     // Give the caller first claim on a paste — a consumed paste (e.g.

@@ -16,9 +16,12 @@
  */
 
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
+import PathParamHoverPopover from './PathParamHoverPopover';
 import VariableHoverPopover from './VariableHoverPopover';
 
-interface VariablePopoverState {
+/** A `{{reference}}` token's session — the default kind. */
+interface ReferencePopoverState {
+  kind?: 'reference';
   anchorEl: HTMLElement;
   reference: string;
   collectionId?: string;
@@ -26,6 +29,20 @@ interface VariablePopoverState {
    *  flow), omitted for hover opens. */
   autoFocus?: boolean;
 }
+
+/** A `:name` path token's session (the HTTP URL bar): the row's value
+ *  and the bar's writer. The two kinds share the one host so a hover on
+ *  either token closes the other's popover. */
+interface PathParamPopoverState {
+  kind: 'path-param';
+  anchorEl: HTMLElement;
+  name: string;
+  value: string;
+  onSave: (name: string, value: string) => void;
+  collectionId?: string;
+}
+
+export type VariablePopoverState = ReferencePopoverState | PathParamPopoverState;
 
 const POPOVER_INSIDE_SELECTORS: ReadonlyArray<string> = [
   '[data-variable-popover-root]',
@@ -47,6 +64,21 @@ function VariablePopoverBody({
   onMouseLeave,
   visible,
 }: HoverPopoverBodyProps<VariablePopoverState>) {
+  if (state.kind === 'path-param') {
+    return (
+      <PathParamHoverPopover
+        anchorEl={state.anchorEl}
+        name={state.name}
+        value={state.value}
+        onSave={state.onSave}
+        collectionId={state.collectionId}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
   return (
     <VariableHoverPopover
       anchorEl={state.anchorEl}
@@ -62,7 +94,8 @@ function VariablePopoverBody({
 }
 
 const host = createHoverPopoverHost<VariablePopoverState>({
-  identity: (s) => `${s.reference}|${s.collectionId ?? ''}`,
+  identity: (s) =>
+    s.kind === 'path-param' ? `path-param:${s.name}` : `${s.reference}|${s.collectionId ?? ''}`,
   insideSelectors: POPOVER_INSIDE_SELECTORS,
   Body: VariablePopoverBody,
 });

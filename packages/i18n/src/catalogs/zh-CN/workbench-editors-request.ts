@@ -119,6 +119,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': '路径参数',
   'workbench.editors.request.params.pathEmpty': '在 URL 中输入 :name 即可添加路径参数。',
   'workbench.editors.request.params.pathMissing': '{keys} 没有值，将按原样发送。',
+  'workbench.editors.request.params.pathNameHeader': '名称',
+  'workbench.editors.request.params.queryInfoSummary':
+    '? 之后的 key=value 对，例如 ?page=2。启用的行会在发送时附加到 URL；URL 栏和此表编辑的是同一份列表。',
+  'workbench.editors.request.params.queryInfoDescription':
+    '在 URL 栏输入 ?key=value，行会出现在这里；清空一行，该对就会从 URL 中消失。值是模板字段，{{reference}} 会在发送前解析。',
+  'workbench.editors.request.params.pathInfoSummary':
+    '路径中的 :name 段是占位符，例如 /users/:id。发送时，该行的值替换整个段，并按单个段进行百分号编码。',
+  'workbench.editors.request.params.pathInfoDescription':
+    '名称由 URL 决定：输入 :name 添加一行，删除该段则移除。值是模板字段。没有值的行按原样发送，并列在“按原样发送”下。',
   'workbench.editors.request.goToAuthorization': '前往授权',
   'workbench.editors.request.goToBody': '前往正文',
   'workbench.editors.request.headers.keyPlaceholder': '标头',

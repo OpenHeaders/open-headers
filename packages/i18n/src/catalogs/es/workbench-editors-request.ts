@@ -133,6 +133,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': 'Parámetros de ruta',
   'workbench.editors.request.params.pathEmpty': 'Escribe :name en la URL para añadir un parámetro de ruta.',
   'workbench.editors.request.params.pathMissing': 'Sin valor para {keys}: se envía tal cual.',
+  'workbench.editors.request.params.pathNameHeader': 'Nombre',
+  'workbench.editors.request.params.queryInfoSummary':
+    'Pares clave=valor después del ?: ?page=2. Cada fila activada se añade a la URL al enviar; la barra de URL y esta tabla editan la misma lista.',
+  'workbench.editors.request.params.queryInfoDescription':
+    'Escribe ?key=value en la barra de URL y la fila aparece aquí; vacía una fila y el par desaparece de la URL. Los valores son campos de plantilla: una {{reference}} se resuelve antes del envío.',
+  'workbench.editors.request.params.pathInfoSummary':
+    'Un segmento :name de la ruta es un marcador: /users/:id. Al enviar, el valor de la fila sustituye el segmento completo, codificado como un solo segmento.',
+  'workbench.editors.request.params.pathInfoDescription':
+    'La URL define los nombres: escribe :name para añadir una fila y elimina el segmento para quitarla. Los valores son campos de plantilla. Una fila sin valor se envía tal cual y se nombra bajo «Enviado tal cual».',
   'workbench.editors.request.goToAuthorization': 'Ir a la autorización',
   'workbench.editors.request.goToBody': 'Ir al cuerpo',
   'workbench.editors.request.headers.keyPlaceholder': 'Encabezado',

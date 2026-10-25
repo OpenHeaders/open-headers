@@ -134,6 +134,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': 'パスパラメーター',
   'workbench.editors.request.params.pathEmpty': 'URL に :name と入力するとパスパラメーターが追加されます。',
   'workbench.editors.request.params.pathMissing': '{keys} に値がありません。入力のまま送信されます。',
+  'workbench.editors.request.params.pathNameHeader': '名前',
+  'workbench.editors.request.params.queryInfoSummary':
+    '? の後ろの key=value の組です（?page=2）。有効な行は送信時に URL へ付加されます。URL バーとこの表は同じ一覧を編集します。',
+  'workbench.editors.request.params.queryInfoDescription':
+    'URL バーに ?key=value と入力すると行がここに現れ、行を空にすると組は URL から消えます。値はテンプレート欄で、{{reference}} は送信前に解決されます。',
+  'workbench.editors.request.params.pathInfoSummary':
+    'パスの :name セグメントはプレースホルダーです（/users/:id）。送信時に行の値がセグメント全体を置き換え、1 つのセグメントとしてパーセントエンコードされます。',
+  'workbench.editors.request.params.pathInfoDescription':
+    '名前は URL が決めます。:name と入力すると行が追加され、セグメントを削除すると行も消えます。値はテンプレート欄です。値のない行は入力のまま送信され、「入力のまま送信」に表示されます。',
   'workbench.editors.request.goToAuthorization': '認可へ移動',
   'workbench.editors.request.goToBody': 'ボディへ移動',
   'workbench.editors.request.headers.keyPlaceholder': 'ヘッダー',

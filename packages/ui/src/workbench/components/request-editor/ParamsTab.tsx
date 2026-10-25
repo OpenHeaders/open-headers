@@ -23,8 +23,9 @@ import { missingPathParamKeys } from '@openheaders/core/utils';
 import { Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
-import { useT } from '@openheaders/ui/context/LocaleContext';
+import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
+import { EXAMPLE_CARD_POPOVER_WIDTH, type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { previewAuthContributions, previewedAuth } from './auth-preview';
 import { type InheritedAuthAttribution, inheritSourceLabel } from './inherited-auth';
 import KeyValueTable, {
@@ -33,6 +34,7 @@ import KeyValueTable, {
   makeKvRow,
   type SuggestionRow,
 } from './KeyValueTable';
+import { settingsExampleCard } from './SettingsRowInfo';
 
 const { Text } = Typography;
 
@@ -96,17 +98,46 @@ export function annotateHasEquals(rows: KeyValueRow[]): KeyValueRow[] {
   return rows.map((r) => (r.value !== '' && !r.hasEquals ? { ...r, hasEquals: true } : r));
 }
 
+/** The two tables' `(i)` cards: the same example send the Settings and
+ *  Body tabs illustrate, spelled out to its URL tail, with this table's
+ *  slice lit — the `?page=2` query for one, the `/:id` segment for the
+ *  other — so a reader sees where each table's rows land on the wire. */
+function paramsSectionInfo(t: Translate, table: 'query' | 'path'): InfoPopoverContent {
+  return {
+    title: t(
+      table === 'query' ? 'workbench.editors.request.params.queryHeading' : 'workbench.editors.request.params.pathHeading',
+    ),
+    kicker: t('workbench.editors.request.tab.params'),
+    diagram: settingsExampleCard([table], { urlTail: true }),
+    maxWidth: EXAMPLE_CARD_POPOVER_WIDTH,
+    summary: t(
+      table === 'query'
+        ? 'workbench.editors.request.params.queryInfoSummary'
+        : 'workbench.editors.request.params.pathInfoSummary',
+    ),
+    description: t(
+      table === 'query'
+        ? 'workbench.editors.request.params.queryInfoDescription'
+        : 'workbench.editors.request.params.pathInfoDescription',
+    ),
+  };
+}
+
 /** The small uppercase caption over each table — the Body tab's
- *  section-title idiom. */
-const SectionTitle: React.FC<{ children: string }> = ({ children }) => {
+ *  section-title idiom — closed by its `(i)`, hover-revealed the way
+ *  the Body tab's mode labels carry theirs. */
+const SectionTitle: React.FC<{ children: string; info: InfoPopoverContent }> = ({ children, info }) => {
   const { token } = theme.useToken();
   return (
-    <Text
-      strong
-      style={{ fontSize: 11, letterSpacing: 0.5, color: token.colorTextSecondary, textTransform: 'uppercase' }}
-    >
-      {children}
-    </Text>
+    <span className="oh-info-hover-host" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <Text
+        strong
+        style={{ fontSize: 11, letterSpacing: 0.5, color: token.colorTextSecondary, textTransform: 'uppercase' }}
+      >
+        {children}
+      </Text>
+      <InfoTrigger className="oh-info-trigger--hover" content={info} />
+    </span>
   );
 };
 
@@ -154,7 +185,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <SectionTitle>{t('workbench.editors.request.params.queryHeading')}</SectionTitle>
+      <SectionTitle info={paramsSectionInfo(t, 'query')}>{t('workbench.editors.request.params.queryHeading')}</SectionTitle>
       <KeyValueTable
         rows={rows}
         onChange={(next) => onChange(annotateHasEquals(next))}
@@ -167,7 +198,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({
         rowPath={(uid, leaf) => REQUEST_PATHS.param(uid, leaf)}
         conflictBridge={conflictBridge}
       />
-      <SectionTitle>{t('workbench.editors.request.params.pathHeading')}</SectionTitle>
+      <SectionTitle info={paramsSectionInfo(t, 'path')}>{t('workbench.editors.request.params.pathHeading')}</SectionTitle>
       {pathRows.length === 0 ? (
         <Text type="secondary" style={{ fontSize: 12 }} data-testid="oh-path-params-empty">
           {t('workbench.editors.request.params.pathEmpty')}
@@ -178,6 +209,9 @@ const ParamsTab: React.FC<ParamsTabProps> = ({
           onChange={onPathChange}
           hideEnabled
           lockedKeys
+          // A path parameter has a name, not a key: the URL spells it
+          // after the colon and the row carries its value.
+          headerLabels={{ key: t('workbench.editors.request.params.pathNameHeader') }}
           rowPath={(uid, leaf) => REQUEST_PATHS.pathParam(uid, leaf)}
           conflictBridge={pathConflictBridge}
         />

@@ -25,6 +25,12 @@ export interface GripResizeXEvent {
 
 export type GripResizeXHandler = (e: GripResizeXEvent) => void;
 
+export interface TemplateInputPathParams {
+  rows: ReadonlyArray<{ key: string; value: string }>;
+  /** Writes one row's value by its name — the popover's Save. */
+  onValueChange: (name: string, value: string) => void;
+}
+
 export interface TemplateInputProps {
   /** Controlled value. Optional so the component composes with AntD
    *  `<Form.Item>` (which injects value/onChange at clone time). */
@@ -148,14 +154,16 @@ export interface TemplateInputProps {
    *  excluded). Lets a row flag a missing variable without the user
    *  expanding it to hunt for the highlighted ref. */
   flagUnresolved?: boolean;
-  /** The HTTP URL bar's Path Parameters rows. When set, each `:name`
-   *  segment of the value paints like a `{{ref}}`: blue when its row
-   *  has a value whose templates resolve, red when the segment would
-   *  go on the wire as written (no row, a blank value, or a value
-   *  holding an unresolved reference). Hovering a token opens nothing
-   *  — the Params tab is the editor. Only the request URL bar sets
-   *  this; every other field leaves `:` as plain text. */
-  pathParams?: ReadonlyArray<{ key: string; value: string }>;
+  /** The HTTP URL bar's Path Parameters rows and their writer. When
+   *  set, each `:name` segment of the value paints like a `{{ref}}`:
+   *  blue when its row has a value whose templates resolve, red when
+   *  the segment would go on the wire as written (no row, a blank
+   *  value, or a value holding an unresolved reference) — and hovering
+   *  a token opens the path-parameter popover, where the row's value
+   *  is edited in place and saved through `onValueChange`. Only the
+   *  request URL bar sets this; every other field leaves `:` as plain
+   *  text. */
+  pathParams?: TemplateInputPathParams;
   /** Read-only, disabled-styled field — no caret, no suggestions, no
    *  action rail. Also set by an enclosing session lock. */
   disabled?: boolean;

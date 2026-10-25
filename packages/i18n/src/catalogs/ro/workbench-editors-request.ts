@@ -185,6 +185,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': 'Parametri de cale',
   'workbench.editors.request.params.pathEmpty': 'Tastați :name în adresa URL pentru a adăuga un parametru de cale.',
   'workbench.editors.request.params.pathMissing': 'Nicio valoare pentru {keys} – se trimite așa cum este scris.',
+  'workbench.editors.request.params.pathNameHeader': 'Nume',
+  'workbench.editors.request.params.queryInfoSummary':
+    'Perechi cheie=valoare după ? – ?page=2. Fiecare rând activat se adaugă la URL la trimitere; bara de URL și acest tabel editează aceeași listă.',
+  'workbench.editors.request.params.queryInfoDescription':
+    'Tastați ?key=value în bara de URL și rândul apare aici; goliți un rând și perechea dispare din URL. Valorile sunt câmpuri șablon – o {{reference}} se rezolvă înainte de trimitere.',
+  'workbench.editors.request.params.pathInfoSummary':
+    'Un segment :name al căii este un substituent – /users/:id. La trimitere, valoarea rândului înlocuiește întreg segmentul, codificat procentual ca un singur segment.',
+  'workbench.editors.request.params.pathInfoDescription':
+    'URL-ul deține numele: tastați :name pentru a adăuga un rând, ștergeți segmentul pentru a-l elimina. Valorile sunt câmpuri șablon. Un rând fără valoare se trimite așa cum este scris și apare sub „Trimis așa cum este scris”.',
   'workbench.editors.request.goToAuthorization': 'Către autorizare',
   'workbench.editors.request.goToBody': 'Către corp',
   'workbench.editors.request.headers.keyPlaceholder': 'Antet',

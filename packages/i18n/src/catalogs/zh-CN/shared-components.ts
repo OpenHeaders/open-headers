@@ -52,6 +52,11 @@ export const sharedComponents = {
 
   // ── Variable hover / create popover ────────────────────────────────
   'shared.templateInput.enterValue': '输入值',
+
+  // ── Path parameter hover popover (the URL bar's `:name` token) ───
+  'shared.templateInput.pathParam.blank': '没有值，该段将按原样发送',
+  'shared.templateInput.pathParam.unresolved': '其中的引用没有值，将按原样发送',
+  'shared.templateInput.pathParam.resolved': '发送时替换 :name 段',
   'shared.templateInput.foundIn': '出现于：',
   'shared.templateInput.scopeFixedTooltip': '作用域由 {prefix} 前缀固定——编辑引用以更改。',
   'shared.templateInput.addToScope': '添加到：{scope}',

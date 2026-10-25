@@ -134,6 +134,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': 'Paramètres de chemin',
   'workbench.editors.request.params.pathEmpty': 'Saisissez :name dans l’URL pour ajouter un paramètre de chemin.',
   'workbench.editors.request.params.pathMissing': 'Aucune valeur pour {keys} : envoyé tel quel.',
+  'workbench.editors.request.params.pathNameHeader': 'Nom',
+  'workbench.editors.request.params.queryInfoSummary':
+    'Paires clé=valeur après le ? : ?page=2. Chaque ligne activée est ajoutée à l’URL à l’envoi ; la barre d’URL et ce tableau modifient la même liste.',
+  'workbench.editors.request.params.queryInfoDescription':
+    'Saisissez ?key=value dans la barre d’URL et la ligne apparaît ici ; videz une ligne et la paire quitte l’URL. Les valeurs sont des champs de modèle : une {{reference}} est résolue avant l’envoi.',
+  'workbench.editors.request.params.pathInfoSummary':
+    'Un segment :name du chemin est un espace réservé : /users/:id. À l’envoi, la valeur de la ligne remplace tout le segment, encodé en un seul segment.',
+  'workbench.editors.request.params.pathInfoDescription':
+    'L’URL détient les noms : saisissez :name pour ajouter une ligne, supprimez le segment pour la retirer. Les valeurs sont des champs de modèle. Une ligne sans valeur part telle quelle et est nommée sous « Envoyé tel quel ».',
   'workbench.editors.request.goToAuthorization': "Aller à l'autorisation",
   'workbench.editors.request.goToBody': 'Aller au corps',
   'workbench.editors.request.headers.keyPlaceholder': 'En-tête',

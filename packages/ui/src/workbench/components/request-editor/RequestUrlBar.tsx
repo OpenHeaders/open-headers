@@ -25,7 +25,7 @@ import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/f
 import { useImportText } from '../../hooks/ImportTextContext';
 import { METHOD_COLORS } from '../sidebar/icons';
 import { type Draft, derivePathParamRows, draftParamsToQueryParams, mergeParamsFromUrl } from './draft';
-import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
+import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput, type TemplateInputPathParams } from '../template-input';
 
 const METHODS: readonly HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -82,6 +82,14 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, onSend }
   const [customMethods, setCustomMethods] = useState<string[]>(readCustomMethods);
   const [methodSearch, setMethodSearch] = useState('');
   const importText = useImportText();
+  const pathParams = useMemo<TemplateInputPathParams>(
+    () => ({
+      rows: draft.pathParams,
+      onValueChange: (name, value) =>
+        setDraft((d) => ({ ...d, pathParams: d.pathParams.map((row) => (row.key === name ? { ...row, value } : row)) })),
+    }),
+    [draft.pathParams, setDraft],
+  );
 
   // Socket-style URL (unix://, http+unix://, npipe://) — no HTTP stack
   // dials these as-is; the app's contract is a plain URL plus the
@@ -237,8 +245,10 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, onSend }
           flagUnresolved
           // Each `:name` segment paints from its Path Parameters row —
           // blue filled, red when it would go out as written — so the
-          // state reads from any tab.
-          pathParams={draft.pathParams}
+          // state reads from any tab, and its hover popover writes the
+          // row's value back by name (the rows are the URL's own, so
+          // the name always has a row while the token is in the bar).
+          pathParams={pathParams}
           // Same treatment as the request table's cells: a long URL shows
           // an ellipsis when idle and, on focus, word-wraps + auto-grows
           // (up to ~5 rows, then inner-scrolls) so it's comfortably

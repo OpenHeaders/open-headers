@@ -17,7 +17,7 @@ import type React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import { GoToIcon } from '@openheaders/ui/shared/icons';
 import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
-import type { AuxColumn } from './editable-grid-types';
+import type { AuxColumn, EditableGridTableProps } from './editable-grid-types';
 import {
   type BulkEditConfig,
   EditableGridTable,
@@ -52,6 +52,9 @@ interface KeyValueTableProps {
   hideEnabled?: boolean;
   /** Forwarded to the shell — see `EditableGridTableProps.lockedKeys`. */
   lockedKeys?: boolean;
+  /** Forwarded to the shell — see `EditableGridTableProps.headerLabels`
+   *  (the Path Parameters table heads its locked column "Name"). */
+  headerLabels?: EditableGridTableProps<KeyValueRow>['headerLabels'];
   /** Enable Bulk Edit mode with a caller-supplied serialize / parse
    *  pair — Params uses `key:value` lines, Headers uses `key: value`,
    *  form-urlencoded uses `key=value`. Absent → no Bulk Edit toggle. */
@@ -124,6 +127,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   suggestionRows,
   hideEnabled = false,
   lockedKeys = false,
+  headerLabels,
   bulkEdit,
   rowPath,
   conflictBridge,
@@ -180,6 +184,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       keyPlaceholder={effectiveKeyPlaceholder}
       hideEnabled={hideEnabled}
       lockedKeys={lockedKeys}
+      headerLabels={headerLabels}
       suggestionRows={suggestionRows}
       bulkEdit={bulkEdit}
       rowPath={rowPath}

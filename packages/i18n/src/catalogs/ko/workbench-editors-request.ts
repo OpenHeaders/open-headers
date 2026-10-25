@@ -132,6 +132,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': '경로 매개변수',
   'workbench.editors.request.params.pathEmpty': 'URL 주소에 :name을 입력하면 경로 매개변수가 추가됩니다.',
   'workbench.editors.request.params.pathMissing': '{keys}에 값이 없습니다. 입력한 그대로 전송됩니다.',
+  'workbench.editors.request.params.pathNameHeader': '이름',
+  'workbench.editors.request.params.queryInfoSummary':
+    '? 뒤의 key=value 쌍입니다(?page=2). 활성화된 행은 전송 시 URL에 덧붙습니다. URL 표시줄과 이 표는 같은 목록을 편집합니다.',
+  'workbench.editors.request.params.queryInfoDescription':
+    'URL 표시줄에 ?key=value를 입력하면 행이 여기에 나타나고, 행을 비우면 쌍이 URL에서 사라집니다. 값은 템플릿 필드이며 {{reference}}는 전송 전에 해석됩니다.',
+  'workbench.editors.request.params.pathInfoSummary':
+    '경로의 :name 세그먼트는 자리 표시자입니다(/users/:id). 전송 시 행의 값이 세그먼트 전체를 대체하며 하나의 세그먼트로 퍼센트 인코딩됩니다.',
+  'workbench.editors.request.params.pathInfoDescription':
+    '이름은 URL 값이 정합니다. :name을 입력하면 행이 추가되고 세그먼트를 지우면 행이 사라집니다. 값은 템플릿 필드입니다. 값이 없는 행은 입력한 그대로 전송되며 ‘입력한 그대로 전송됨’에 표시됩니다.',
   'workbench.editors.request.goToAuthorization': '인가로 이동',
   'workbench.editors.request.goToBody': '본문으로 이동',
   'workbench.editors.request.headers.keyPlaceholder': '헤더',

@@ -71,6 +71,8 @@ export type SettingsInfoKey =
  * concrete send. */
 const EX = {
   url: 'https://api.openheaders.com/v1/users',
+  path: '/:id',
+  query: '?page=2',
   body: 'body: json',
   protocol: 'h2',
   dial: 'direct',
@@ -137,15 +139,22 @@ function SettingsExampleCard({
   lit,
   dialText,
   bodyText,
+  urlTail = false,
 }: {
   lit: ReadonlySet<TokenId>;
   dialText?: string;
   bodyText?: string;
+  /** Spell the URL out to its path parameter and query — the Params
+   *  tab's two slices. Every other popover keeps the bare URL. */
+  urlTail?: boolean;
 }) {
   const t = useT();
   const tok = (id: TokenId, text: string = EX[id]) => ({ id, text });
   const lines: ExampleCardLine<TokenId>[] = [
-    { opener: 'POST', tokens: [tok('url'), tok('body', bodyText)] },
+    {
+      opener: 'POST',
+      tokens: urlTail ? [tok('url'), tok('path'), tok('query'), tok('body', bodyText)] : [tok('url'), tok('body', bodyText)],
+    },
     {
       tokens: [
         tok('protocol'),
@@ -240,15 +249,17 @@ const SUMMARY_KEY: Record<Exclude<OwnInfoKey, RichInfoKey>, MessageKey> = {
 export type SettingsExampleToken = TokenId;
 
 /** The shared example card with an arbitrary slice lit — the fact
- * sheet's rows and the Body / Scripts tabs ride this so managed facts
- * and live knobs illustrate the same send. `bodyText` swaps the body
- * variant slot the way the dial rows swap the dial leg. A popover
- * carrying it widens to `EXAMPLE_CARD_POPOVER_WIDTH`. */
+ * sheet's rows and the Body / Scripts / Params tabs ride this so
+ * managed facts and live knobs illustrate the same send. `bodyText`
+ * swaps the body variant slot the way the dial rows swap the dial leg;
+ * `urlTail` spells the URL out to its `/:id` segment and `?page=2`
+ * query for the Params tab's two cards. A popover carrying it widens
+ * to `EXAMPLE_CARD_POPOVER_WIDTH`. */
 export function settingsExampleCard(
   lit: readonly SettingsExampleToken[],
-  opts?: { bodyText?: string },
+  opts?: { bodyText?: string; urlTail?: boolean },
 ): React.ReactElement {
-  return <SettingsExampleCard lit={new Set(lit)} bodyText={opts?.bodyText} />;
+  return <SettingsExampleCard lit={new Set(lit)} bodyText={opts?.bodyText} urlTail={opts?.urlTail} />;
 }
 
 const GROUP_SUMMARY_KEY: Record<SettingsGroupKey, MessageKey> = {

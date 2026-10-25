@@ -16,6 +16,7 @@ import { createEditableHistory, type EditableHistory, type EditableHistoryEntry 
 import { type RefState, renderHighlightedHtml } from './highlight';
 import { detectMeasure, findExistingCloseEnd, PREFIX, SPLIT } from './measure';
 import { computePopoverCoords, type PopoverCoords } from './popover-coords';
+import type { TemplateInputPathParams } from './types';
 import { useSuggestionList } from './use-suggestion-list';
 import { useVariablePopover } from './VariablePopoverHost';
 
@@ -30,6 +31,9 @@ interface TemplateSuggestionsInputs {
   classify: (inner: string) => RefState;
   /** The URL bar's `:name` reading — see `renderHighlightedHtml`. */
   classifyPathParam?: (name: string) => RefState;
+  /** The rows behind that reading and their writer — the hover popover
+   *  a `:name` token opens edits the row through it. */
+  pathParams?: TemplateInputPathParams;
 }
 
 export function useTemplateSuggestions({
@@ -42,6 +46,7 @@ export function useTemplateSuggestions({
   effectiveDisable,
   classify,
   classifyPathParam,
+  pathParams,
 }: TemplateSuggestionsInputs) {
   // One-shot: set when a keyboard action opens the create popover, so
   // the Enter/Tab key's own keyup doesn't immediately re-open the
@@ -428,11 +433,13 @@ export function useTemplateSuggestions({
     ],
   );
 
-  // Hover-over-{{ref}} → ask the shared popover host to open. Delegated
+  // Hover-over-token → ask the shared popover host to open. Delegated
   // from the editable; the caret-in-editing case keeps the span's class
   // as `editing` and we skip emitting hover for that one (mid-compose
-  // would steal focus from the textarea). A `:name` path token wears
-  // the ref classes but no `data-ref`, so it opens nothing.
+  // would steal focus from the textarea). A `{{ref}}` opens the variable
+  // popover; a `:name` path token (the URL bar, `data-path-param`)
+  // opens the path-parameter popover over its row — the same host, so
+  // one popover is open at a time whichever token kind the pointer is on.
   const handleEditableMouseOver = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement | null;
@@ -440,11 +447,24 @@ export function useTemplateSuggestions({
       const span = target.closest<HTMLElement>('.oh-template-ref');
       if (!span) return;
       if (span.classList.contains('oh-template-ref-editing')) return;
+      const pathParam = span.getAttribute('data-path-param');
+      if (pathParam !== null && pathParams) {
+        const row = pathParams.rows.find((p) => p.key === pathParam);
+        popoverHost.open({
+          kind: 'path-param',
+          anchorEl: span,
+          name: pathParam,
+          value: row?.value ?? '',
+          onSave: pathParams.onValueChange,
+          collectionId: effectiveContext.collectionId,
+        });
+        return;
+      }
       const ref = span.getAttribute('data-ref') ?? '';
       if (!ref) return;
       popoverHost.open({ anchorEl: span, reference: ref, collectionId: effectiveContext.collectionId });
     },
-    [popoverHost, effectiveContext.collectionId],
+    [popoverHost, effectiveContext.collectionId, pathParams],
   );
 
   const handleEditableMouseOut = useCallback(

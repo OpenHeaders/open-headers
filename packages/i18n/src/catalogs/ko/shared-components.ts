@@ -50,6 +50,11 @@ export const sharedComponents = {
 
   // ── Variable hover / create popover ────────────────────────────────
   'shared.templateInput.enterValue': '값 입력',
+
+  // ── Path parameter hover popover (the URL bar's `:name` token) ───
+  'shared.templateInput.pathParam.blank': '값이 없습니다. 세그먼트는 입력한 그대로 전송됩니다',
+  'shared.templateInput.pathParam.unresolved': '내부 참조에 값이 없습니다. 입력한 그대로 전송됩니다',
+  'shared.templateInput.pathParam.resolved': '전송 시 :name 세그먼트를 대체합니다',
   'shared.templateInput.foundIn': '발견 위치:',
   'shared.templateInput.scopeFixedTooltip': '범위는 {prefix} 접두사로 고정되어 있습니다. 변경하려면 참조를 편집하세요.',
   'shared.templateInput.addToScope': '추가 위치: {scope}',

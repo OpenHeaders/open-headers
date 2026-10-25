@@ -185,6 +185,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': 'Параметры пути',
   'workbench.editors.request.params.pathEmpty': 'Введите :name в URL-адресе, чтобы добавить параметр пути.',
   'workbench.editors.request.params.pathMissing': 'Нет значения для {keys} — отправляется как написано.',
+  'workbench.editors.request.params.pathNameHeader': 'Имя',
+  'workbench.editors.request.params.queryInfoSummary':
+    'Пары ключ=значение после ? — ?page=2. Каждая включённая строка добавляется к URL при отправке; адресная строка и эта таблица редактируют один список.',
+  'workbench.editors.request.params.queryInfoDescription':
+    'Введите ?key=value в адресной строке — строка появится здесь; очистите строку — пара исчезнет из URL. Значения — поля шаблона: {{reference}} разрешается перед отправкой.',
+  'workbench.editors.request.params.pathInfoSummary':
+    'Сегмент :name в пути — заполнитель: /users/:id. При отправке значение строки заменяет весь сегмент, процентно закодированный как один сегмент.',
+  'workbench.editors.request.params.pathInfoDescription':
+    'Имена задаёт URL: введите :name, чтобы добавить строку, удалите сегмент, чтобы её убрать. Значения — поля шаблона. Строка без значения отправляется как написано и указывается в «Отправлено как написано».',
   'workbench.editors.request.goToAuthorization': 'Перейти к авторизации',
   'workbench.editors.request.goToBody': 'Перейти к телу',
   'workbench.editors.request.headers.keyPlaceholder': 'Заголовок',

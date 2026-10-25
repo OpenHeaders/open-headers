@@ -140,6 +140,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': 'Pfadparameter',
   'workbench.editors.request.params.pathEmpty': 'Tippe :name in die URL, um einen Pfadparameter hinzuzufügen.',
   'workbench.editors.request.params.pathMissing': 'Kein Wert für {keys} – wird unverändert gesendet.',
+  'workbench.editors.request.params.pathNameHeader': 'Name',
+  'workbench.editors.request.params.queryInfoSummary':
+    'Schlüssel=Wert-Paare nach dem ? – ?page=2. Jede aktivierte Zeile wird beim Senden an die URL angehängt; die URL-Leiste und diese Tabelle bearbeiten dieselbe Liste.',
+  'workbench.editors.request.params.queryInfoDescription':
+    'Geben Sie ?key=value in die URL-Leiste ein, und die Zeile erscheint hier; leeren Sie eine Zeile, verschwindet das Paar aus der URL. Werte sind Vorlagenfelder – eine {{reference}} wird vor dem Senden aufgelöst.',
+  'workbench.editors.request.params.pathInfoSummary':
+    'Ein :name-Segment des Pfads ist ein Platzhalter – /users/:id. Beim Senden ersetzt der Wert der Zeile das ganze Segment, prozentkodiert als ein Segment.',
+  'workbench.editors.request.params.pathInfoDescription':
+    'Die URL bestimmt die Namen: :name eingeben fügt eine Zeile hinzu, das Segment entfernen löscht sie. Werte sind Vorlagenfelder. Eine Zeile ohne Wert wird unverändert gesendet und unter „Unverändert gesendet“ genannt.',
   'workbench.editors.request.goToAuthorization': 'Zur Autorisierung gehen',
   'workbench.editors.request.goToBody': 'Zum Body gehen',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',

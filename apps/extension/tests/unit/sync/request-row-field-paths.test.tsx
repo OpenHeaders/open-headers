@@ -146,6 +146,23 @@ describe('ParamsTab — the Path Parameters table', () => {
     expect(keys).toEqual(['userId', 'fileId']);
   });
 
+  it('heads the locked column "Name" while the query table keeps "Key", and each heading carries its (i)', () => {
+    const pathRows: KeyValueRow[] = [row('aaaaaaaa', 'userId', '7')];
+    const { container } = render(
+      <ParamsTab rows={[]} onChange={vi.fn()} pathRows={pathRows} onPathChange={vi.fn()} url={url} auth={NO_AUTH} />,
+    );
+    const headers = Array.from(container.querySelectorAll<HTMLElement>('[role="columnheader"], th')).map(
+      (el) => el.textContent?.trim() ?? '',
+    );
+    const text = container.textContent ?? '';
+    expect(headers.length === 0 ? text.includes('Name') : headers.includes('Name')).toBe(true);
+    expect(text).toContain('Key');
+    const triggers = Array.from(container.querySelectorAll<HTMLButtonElement>('button.oh-info-trigger')).map((el) =>
+      el.getAttribute('aria-label'),
+    );
+    expect(triggers).toEqual(['About Query Params', 'About Path Parameters']);
+  });
+
   it('names the parameters without a value under the table, and only those', () => {
     const pathRows: KeyValueRow[] = [row('aaaaaaaa', 'userId', '7'), row('bbbbbbbb', 'fileId', '  ')];
     const { container } = render(

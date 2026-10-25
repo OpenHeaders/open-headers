@@ -8,9 +8,9 @@
  * The HTTP URL bar also paints its `:name` path parameters through the
  * same three states (`classifyPathParam`): the token is found by the
  * core grammar's span scan, wears the ref classes, and carries
- * `data-path-param` instead of `data-ref` — so the variable popover
- * never opens on it (a path parameter is a request field, not a
- * variable).
+ * `data-path-param` instead of `data-ref` — so a hover opens the
+ * path-parameter popover over its row, never the variable popover (a
+ * path parameter is a request field, not a variable).
  */
 
 import { parsePathParamSpans } from '@openheaders/core/utils';

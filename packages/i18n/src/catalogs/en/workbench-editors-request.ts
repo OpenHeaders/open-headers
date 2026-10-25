@@ -111,6 +111,15 @@ export const workbenchEditorsRequest = {
   'workbench.editors.request.params.pathHeading': 'Path Parameters',
   'workbench.editors.request.params.pathEmpty': 'Type :name in the URL to add a path parameter.',
   'workbench.editors.request.params.pathMissing': 'No value for {keys} — sent as written.',
+  'workbench.editors.request.params.pathNameHeader': 'Name',
+  'workbench.editors.request.params.queryInfoSummary':
+    'Key=value pairs after the ? — ?page=2. Each enabled row is appended to the URL on send; the URL bar and this table edit the same list.',
+  'workbench.editors.request.params.queryInfoDescription':
+    'Type ?key=value in the URL bar and the row appears here; clear a row and the pair leaves the URL. Values are template fields — a {{reference}} resolves before the send.',
+  'workbench.editors.request.params.pathInfoSummary':
+    'A :name segment of the path is a placeholder — /users/:id. On send the row’s value replaces the whole segment, percent-encoded as one segment.',
+  'workbench.editors.request.params.pathInfoDescription':
+    'The URL owns the names: type :name to add a row, remove the segment to drop it. Values are template fields. A row without a value goes on the wire as written and is named under Sent as written.',
   'workbench.editors.request.goToAuthorization': 'Go to authorization',
   'workbench.editors.request.goToBody': 'Go to body',
   'workbench.editors.request.headers.keyPlaceholder': 'Header',

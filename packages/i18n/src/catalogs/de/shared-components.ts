@@ -48,6 +48,11 @@ export const sharedComponents = {
 
   // ── Variable hover / create popover ────────────────────────────────
   'shared.templateInput.enterValue': 'Wert eingeben',
+
+  // ── Path parameter hover popover (the URL bar's `:name` token) ───
+  'shared.templateInput.pathParam.blank': 'Kein Wert – das Segment wird unverändert gesendet',
+  'shared.templateInput.pathParam.unresolved': 'Eine Referenz darin hat keinen Wert – wird unverändert gesendet',
+  'shared.templateInput.pathParam.resolved': 'Ersetzt das :name-Segment beim Senden',
   'shared.templateInput.foundIn': 'Gefunden in:',
   'shared.templateInput.scopeFixedTooltip':
     'Der Geltungsbereich ist durch das Präfix {prefix} festgelegt — ändere die Referenz, um ihn zu wechseln.',

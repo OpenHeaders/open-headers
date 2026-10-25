@@ -59,6 +59,12 @@ export const sharedComponents = {
 
   // ── Variable hover / create popover ────────────────────────────────
   'shared.templateInput.enterValue': 'Introduceți valoarea',
+
+  // ── Path parameter hover popover (the URL bar's `:name` token) ───
+  'shared.templateInput.pathParam.blank': 'Nicio valoare – segmentul se trimite așa cum este scris',
+  'shared.templateInput.pathParam.unresolved':
+    'O referință din interior nu are valoare – se trimite așa cum este scrisă',
+  'shared.templateInput.pathParam.resolved': 'Înlocuiește segmentul :name la trimitere',
   'shared.templateInput.foundIn': 'Găsită în:',
   'shared.templateInput.scopeFixedTooltip':
     'Sfera este fixată de prefixul {prefix} — editați referința pentru a o schimba.',
