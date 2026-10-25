@@ -18,8 +18,41 @@ export const MONACO_REF_CLASS = 'oh-monaco-ref';
 /** The composing run's span — the create popover's anchor. */
 export const MONACO_REF_EDITING_CLASS = `${MONACO_REF_CLASS}-editing`;
 
+/** The first and last character of a classified reference. Monaco
+ *  paints one span per syntax token, so a `{{ref}}` the tokenizer
+ *  splits is several siblings wearing the state class; these mark the
+ *  outer edges so the CSS draws one box around the run. */
+export const MONACO_REF_START_CLASS = `${MONACO_REF_CLASS}-start`;
+export const MONACO_REF_END_CLASS = `${MONACO_REF_CLASS}-end`;
+
 export function refDecorationClass(state: RefDecorationState): string {
   return `${MONACO_REF_CLASS} ${MONACO_REF_CLASS}-${state}`;
+}
+
+export interface MonacoRefDecoration {
+  range: monaco.IRange;
+  options: { inlineClassName: string };
+}
+
+/** The decorations Monaco paints for the classified ranges: the whole
+ *  range wears the state; a resolved or unresolved one also marks its
+ *  first and last character, the editing state paints nothing to edge. */
+export function toMonacoRefDecorations(decorations: ReadonlyArray<RefDecoration>): MonacoRefDecoration[] {
+  const out: MonacoRefDecoration[] = [];
+  for (const { range, state } of decorations) {
+    out.push({ range, options: { inlineClassName: refDecorationClass(state) } });
+    if (state === 'editing') continue;
+    const { startLineNumber, startColumn, endLineNumber, endColumn } = range;
+    out.push({
+      range: { startLineNumber, startColumn, endLineNumber: startLineNumber, endColumn: startColumn + 1 },
+      options: { inlineClassName: MONACO_REF_START_CLASS },
+    });
+    out.push({
+      range: { startLineNumber: endLineNumber, startColumn: endColumn - 1, endLineNumber, endColumn },
+      options: { inlineClassName: MONACO_REF_END_CLASS },
+    });
+  }
+  return out;
 }
 
 export interface VisibleLine {

@@ -333,23 +333,46 @@
  * (`monaco/use-monaco-ref-decorations.ts`). No padding and no border:
  * Monaco measures glyphs, and a span wider than its text drags the
  * caret off its column — the outline rides `outline`, which takes no
- * layout. `!important` on the color outranks the token class Monaco's
- * theme puts on the same span (the EOL glyph's way). The editing state
+ * layout. Monaco paints one span per syntax token, so a reference the
+ * tokenizer splits (`{{`, `abc`, `}}` in a JSON body) is a run of
+ * sibling spans; the outline sits just outside each span and every
+ * span clips its own left and right edge away, except the first and
+ * last character, which the hook marks `-start` / `-end` — the run
+ * reads as one box, as the line input's single `{{ref}}` span does.
+ * `!important` on the color outranks the token class Monaco's theme
+ * puts on the same span (the EOL glyph's way). The editing state
  * paints nothing, as the line input's does. */
+.monaco-editor .oh-monaco-ref {
+  clip-path: inset(-1px 0);
+}
+
+.monaco-editor .oh-monaco-ref-start {
+  clip-path: inset(-1px 0 -1px -1px);
+  border-radius: 3px 0 0 3px;
+}
+
+.monaco-editor .oh-monaco-ref-end {
+  clip-path: inset(-1px -1px -1px 0);
+  border-radius: 0 3px 3px 0;
+}
+
+.monaco-editor .oh-monaco-ref-start.oh-monaco-ref-end {
+  clip-path: inset(-1px);
+  border-radius: 3px;
+}
+
 .monaco-editor .oh-monaco-ref-resolved {
   color: var(--ant-color-primary, #1677ff) !important;
   background: var(--ant-color-primary-bg, rgba(22, 119, 255, 0.08));
   outline: 1px solid var(--ant-color-primary-border, rgba(22, 119, 255, 0.3));
-  outline-offset: -1px;
-  border-radius: 3px;
+  outline-offset: 0;
 }
 
 .monaco-editor .oh-monaco-ref-unresolved {
   color: var(--ant-color-error, #ff4d4f) !important;
   background: var(--ant-color-error-bg, rgba(255, 77, 79, 0.08));
   outline: 1px dashed var(--ant-color-error-border, rgba(255, 77, 79, 0.5));
-  outline-offset: -1px;
-  border-radius: 3px;
+  outline-offset: 0;
 }
 
 /* The same dark leg over the Monaco decorations. */

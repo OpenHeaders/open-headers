@@ -13,7 +13,7 @@ import type * as monaco from 'monaco-editor';
 import { useEffect } from 'react';
 import { useAutoSuggestionContext } from '../SuggestionContextProvider';
 import { useRefClassifier } from '../use-ref-classifier';
-import { collectRefDecorations, refDecorationClass, type VisibleLine } from './monaco-ref-decorations';
+import { collectRefDecorations, toMonacoRefDecorations, type VisibleLine } from './monaco-ref-decorations';
 import { type MonacoRefGrammar, TEMPLATE_REF_GRAMMAR } from './ref-grammar';
 
 export interface MonacoRefDecorationsOptions {
@@ -47,12 +47,7 @@ export function useMonacoRefDecorations(
           lines.push({ lineNumber, text: model.getLineContent(lineNumber) });
         }
       }
-      collection.set(
-        collectRefDecorations(lines, editor.getPosition(), classify, grammar).map((d) => ({
-          range: d.range,
-          options: { inlineClassName: refDecorationClass(d.state) },
-        })),
-      );
+      collection.set(toMonacoRefDecorations(collectRefDecorations(lines, editor.getPosition(), classify, grammar)));
     };
     paint();
     const subscriptions = [

@@ -6,15 +6,17 @@
  *
  * Contract: a closed reference wears resolved or unresolved from the
  * shared classifier; the one the caret sits inside wears editing, as
- * does the open `{{query` run; only the lines in view are walked; the
- * paint re-runs on edit, scroll, layout and caret moves and clears on
- * unmount.
+ * does the open `{{query` run; a classified reference also marks its
+ * first and last character so a token-split run paints as one box;
+ * only the lines in view are walked; the paint re-runs on edit,
+ * scroll, layout and caret moves and clears on unmount.
  */
 
 import { OH_API_REF_GRAMMAR } from '@openheaders/ui/workbench/components/script-editor/script-ref-grammar';
 import {
   collectRefDecorations,
   refDecorationClass,
+  toMonacoRefDecorations,
 } from '@openheaders/ui/workbench/components/template-input/monaco/monaco-ref-decorations';
 import { useMonacoRefDecorations } from '@openheaders/ui/workbench/components/template-input/monaco/use-monaco-ref-decorations';
 // Side-effect import — the resolver readers ride workbench settings.
@@ -92,6 +94,30 @@ describe('refDecorationClass', () => {
   });
 });
 
+describe('toMonacoRefDecorations', () => {
+  it('a classified reference wears its state over the range and marks its first and last character', () => {
+    const range = { startLineNumber: 2, startColumn: 9, endLineNumber: 2, endColumn: 18 };
+    expect(toMonacoRefDecorations([{ range, state: 'resolved' }])).toEqual([
+      { range, options: { inlineClassName: 'oh-monaco-ref oh-monaco-ref-resolved' } },
+      {
+        range: { startLineNumber: 2, startColumn: 9, endLineNumber: 2, endColumn: 10 },
+        options: { inlineClassName: 'oh-monaco-ref-start' },
+      },
+      {
+        range: { startLineNumber: 2, startColumn: 17, endLineNumber: 2, endColumn: 18 },
+        options: { inlineClassName: 'oh-monaco-ref-end' },
+      },
+    ]);
+  });
+
+  it('the editing state carries no edge marks', () => {
+    const range = { startLineNumber: 1, startColumn: 6, endLineNumber: 1, endColumn: 13 };
+    expect(toMonacoRefDecorations([{ range, state: 'editing' }])).toEqual([
+      { range, options: { inlineClassName: 'oh-monaco-ref oh-monaco-ref-editing' } },
+    ]);
+  });
+});
+
 type Listener = () => void;
 
 class Emitter {
@@ -157,7 +183,11 @@ describe('useMonacoRefDecorations', () => {
     expect(fake.set).toHaveBeenCalledTimes(1);
     expect(fake.last().map((d) => d.options.inlineClassName)).toEqual([
       'oh-monaco-ref oh-monaco-ref-resolved',
+      'oh-monaco-ref-start',
+      'oh-monaco-ref-end',
       'oh-monaco-ref oh-monaco-ref-unresolved',
+      'oh-monaco-ref-start',
+      'oh-monaco-ref-end',
     ]);
   });
 
@@ -175,7 +205,7 @@ describe('useMonacoRefDecorations', () => {
     render(<Harness editor={fake.editor} />);
     expect(fake.last()).toEqual([]);
     act(() => fake.edit(1, 'x {{dynamic.timestamp}}'));
-    expect(fake.last()).toHaveLength(1);
+    expect(fake.last()).toHaveLength(3);
     const calls = fake.set.mock.calls.length;
     act(() => fake.scroll());
     expect(fake.set.mock.calls.length).toBe(calls + 1);
