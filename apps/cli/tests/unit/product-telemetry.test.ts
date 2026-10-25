@@ -2,7 +2,8 @@
  * CLI product-telemetry adapter (the telemetry plan §2/§7) — the
  * OH_TELEMETRY/config gate matrix, the quiet-terminal posture (no
  * runtime notice; the disclosure lives in the docs), the
- * `session_start` envelope one invocation earns, and the
+ * `session_start` envelope one invocation earns, the boot delivery and
+ * the outbox hand-off (the v2 plan, Session 5), and the
  * never-break-the-command failure posture.
  */
 
@@ -17,6 +18,10 @@ import {
   readErrorReportsEnabled,
   readTelemetryEnabled,
 } from '../../src/product-telemetry';
+import { parseTelemetryOutbox, type TelemetryDelivery, telemetryOutboxPath } from '../../src/telemetry-outbox';
+
+const parseEnvelope = (body: string): TelemetryEnvelope => JSON.parse(body);
+const parseReport = (body: string): ErrorReportEnvelope => JSON.parse(body);
 
 let dir: string;
 
@@ -34,7 +39,8 @@ interface RigOptions {
   arch?: NodeJS.Architecture;
   osRelease?: string;
   cliVersion?: string;
-  accept?: boolean;
+  /** What the wire answers to every POST; `delivered` unless the test says otherwise. */
+  delivery?: TelemetryDelivery;
 }
 
 async function makeRig(options: RigOptions = {}) {
@@ -49,15 +55,19 @@ async function makeRig(options: RigOptions = {}) {
       cliVersion: options.cliVersion ?? '2026.7.2',
       channel: 'npm',
       configPath,
-      transport: {
-        async send(envelope) {
-          sent.push(envelope);
-          return options.accept !== false;
+      wire: {
+        async deliver(body) {
+          sent.push(parseEnvelope(body));
+          return options.delivery ?? 'delivered';
         },
       },
       now: () => 1_760_000_000_000,
     });
-  return { boot, sent, configPath };
+  return { boot, sent, configPath, outboxPath: telemetryOutboxPath(configPath) };
+}
+
+async function readOutbox(outboxPath: string) {
+  return parseTelemetryOutbox(await readFile(outboxPath, 'utf8'));
 }
 
 async function writeConfig(configPath: string, config: Record<string, unknown>): Promise<void> {
@@ -105,12 +115,13 @@ describe('bootCliProductTelemetry — quiet terminal', () => {
     expect(typeof config.telemetryInstalledAt).toBe('number');
   });
 
-  it('an off channel touches nothing — no config file is ever created', async () => {
-    const { boot, sent, configPath } = await makeRig({ env: { OH_TELEMETRY: '0' } });
+  it('an off channel touches nothing — no config file and no outbox is ever created', async () => {
+    const { boot, sent, configPath, outboxPath } = await makeRig({ env: { OH_TELEMETRY: '0' } });
     const handle = await boot();
     await handle.finish();
     expect(sent).toEqual([]);
     await expect(readFile(configPath, 'utf8')).rejects.toThrow();
+    await expect(readFile(outboxPath, 'utf8')).rejects.toThrow();
   });
 });
 
@@ -262,21 +273,90 @@ describe('bootCliProductTelemetry — failure posture', () => {
     expect(await readFile(configPath, 'utf8')).toBe('not json');
   });
 
-  it('finish() swallows a transport that rejects', async () => {
+  it('finish() swallows a wire that throws, and seals what it was carrying', async () => {
     const configPath = path.join(dir, 'openheaders', 'cli.json');
     const handle = await bootCliProductTelemetry({
       env: {},
       platform: 'linux',
       cliVersion: '2026.7.2',
       configPath,
-      transport: {
-        async send() {
+      wire: {
+        async deliver() {
           throw new Error('offline');
         },
       },
       now: () => 1_760_000_000_000,
     });
     await expect(handle.finish()).resolves.toBeUndefined();
+    const sealed = await readOutbox(telemetryOutboxPath(configPath));
+    expect(sealed.map((entry) => entry.channel)).toEqual(['usage']);
+  });
+});
+
+describe('bootCliProductTelemetry — the boot delivery and the outbox', () => {
+  it("delivers session_start at boot and the command's own events in a second envelope at exit, one session", async () => {
+    const { boot, sent } = await makeRig();
+    const handle = await boot();
+    handle.track({ name: 'request_sent', protocol: 'http' });
+    await handle.finish();
+    expect(sent).toHaveLength(2);
+    expect(sent[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start' }]);
+    expect(sent[1].events).toEqual([
+      { name: 'request_sent', protocol: 'http' },
+      { name: 'milestone', kind: 'first_request_sent' },
+    ]);
+    expect(sent[1].sessionId).toBe(sent[0].sessionId);
+    expect(sent[1].installId).toBe(sent[0].installId);
+  });
+
+  it('seals an undelivered envelope and the next invocation delivers it at boot, before its own, then removes the file', async () => {
+    const offline = await makeRig({ delivery: 'undelivered' });
+    const first = await offline.boot();
+    first.track({ name: 'request_sent', protocol: 'http' });
+    await first.finish();
+    const sealed = await readOutbox(offline.outboxPath);
+    expect(sealed.map((entry) => entry.channel)).toEqual(['usage', 'usage']);
+    expect(sealed.map((entry) => entry.attempts)).toEqual([0, 0]);
+    const bodies = sealed.map((entry) => parseEnvelope(entry.body));
+    expect(bodies[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start' }]);
+    expect(bodies[1].events[0]).toEqual({ name: 'request_sent', protocol: 'http' });
+
+    const online = await makeRig();
+    await (await online.boot()).finish();
+    expect(online.sent).toHaveLength(3);
+    // The sealed bytes ride as they were: the first run's session, its state, its sentAt.
+    expect(online.sent[0]).toEqual(bodies[0]);
+    expect(online.sent[1]).toEqual(bodies[1]);
+    expect(online.sent[2].sessionId).not.toBe(bodies[0].sessionId);
+    expect(online.sent[2].events).toEqual([{ name: 'session_start' }]);
+    await expect(readFile(online.outboxPath, 'utf8')).rejects.toThrow();
+  });
+
+  it('drops a refused envelope instead of sealing it', async () => {
+    const { boot, sent, outboxPath } = await makeRig({ delivery: 'rejected' });
+    await (await boot()).finish();
+    expect(sent).toHaveLength(1);
+    await expect(readFile(outboxPath, 'utf8')).rejects.toThrow();
+  });
+
+  it('an offline run tries the wire once, seals the rest without trying; a channel turned off forgets its sealed envelopes', async () => {
+    const offline = await makeRig({ delivery: 'undelivered' });
+    const first = await offline.boot();
+    first.track({ name: 'request_sent', protocol: 'http' });
+    await first.finish();
+    // The boot flush opened the circuit; the exit flush sealed straight away.
+    expect(offline.sent).toHaveLength(1);
+    await (await offline.boot()).finish();
+    // The drain's first try opened it; the boot flush sealed straight away.
+    expect(offline.sent).toHaveLength(2);
+    const sealed = await readOutbox(offline.outboxPath);
+    expect(sealed).toHaveLength(3);
+    expect(sealed.map((entry) => entry.attempts)).toEqual([1, 0, 0]);
+
+    const off = await makeRig({ env: { OH_TELEMETRY: '0' } });
+    await (await off.boot()).finish();
+    expect(off.sent).toEqual([]);
+    await expect(readFile(off.outboxPath, 'utf8')).rejects.toThrow();
   });
 });
 
@@ -316,21 +396,21 @@ describe('bootCliProductTelemetry — crash and error reports', () => {
         configPath,
         scriptPath: options.scriptPath ?? '/opt/homebrew/lib/node_modules/@openheaders/cli/dist/oh.mjs',
         execPath: '/opt/homebrew/bin/node',
-        transport: {
-          async send(envelope) {
-            sent.push(envelope);
-            return true;
+        wire: {
+          async deliver(body) {
+            sent.push(parseEnvelope(body));
+            return 'delivered';
           },
         },
-        errorTransport: {
-          async send(envelope) {
-            reported.push(envelope);
-            return true;
+        errorWire: {
+          async deliver(body) {
+            reported.push(parseReport(body));
+            return options.delivery ?? 'delivered';
           },
         },
         now: () => 1_760_000_000_000,
       });
-    return { boot, sent, reported, configPath };
+    return { boot, sent, reported, configPath, outboxPath: telemetryOutboxPath(configPath) };
   }
 
   const stack = [
@@ -390,5 +470,31 @@ describe('bootCliProductTelemetry — crash and error reports', () => {
     await handle.finish();
     expect(sent).toEqual([]);
     expect(reported).toEqual([]);
+  });
+
+  it('seals an undelivered report for the next invocation, and forgets it when the switch is off', async () => {
+    const offline = await makeErrorRig({ delivery: 'undelivered' });
+    const first = await offline.boot();
+    first.reportError({ kind: 'unhandled-rejection', process: 'cli' });
+    await first.finish();
+    const sealed = await readOutbox(offline.outboxPath);
+    expect(sealed.map((entry) => entry.channel)).toEqual(['errors']);
+
+    const online = await makeErrorRig();
+    await (await online.boot()).finish();
+    expect(online.reported).toHaveLength(1);
+    expect(online.reported[0]).toEqual(parseReport(sealed[0].body));
+    await expect(readFile(online.outboxPath, 'utf8')).rejects.toThrow();
+
+    const again = await makeErrorRig({ delivery: 'undelivered' });
+    const second = await again.boot();
+    second.reportError({ kind: 'unhandled-rejection', process: 'cli' });
+    await second.finish();
+    expect(await readOutbox(again.outboxPath)).toHaveLength(1);
+    const reportsOff = await makeErrorRig();
+    await writeConfig(reportsOff.configPath, { errorReports: false });
+    await (await reportsOff.boot()).finish();
+    expect(reportsOff.reported).toEqual([]);
+    await expect(readFile(reportsOff.outboxPath, 'utf8')).rejects.toThrow();
   });
 });

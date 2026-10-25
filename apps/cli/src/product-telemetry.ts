@@ -4,10 +4,13 @@
  * the extension SW and desktop main adapters. One `oh` invocation is
  * one session: the id and latches live in the controller's in-memory
  * store, SHARED by the two channels (usage counting, then crash and
- * error reports, booted in that order so one id is minted), and the
- * host-owned cadence is a single best-effort flush on exit (the
- * transport aborts quickly so a slow network can never hold a finished
- * command hostage).
+ * error reports, booted in that order so one id is minted). The
+ * host-owned cadence is two abort-capped flushes — one fired at boot so
+ * its handshake overlaps the command's own work, one best-effort on
+ * exit — and whatever the wire does not take in time is sealed in the
+ * outbox (`telemetry-outbox.ts`) for the next invocation, whose drain
+ * fires at boot the same way. A slow network never holds a finished
+ * command hostage, and never loses the count.
  *
  * Gates: `OH_TELEMETRY` env var (`0`/`false`/`off` kills BOTH channels;
  * any other value forces usage counting on) → the `telemetry` and
@@ -29,9 +32,7 @@ import {
   createPathOwnOriginTest,
   type ErrorReportContext,
   ErrorReportController,
-  type ErrorReportEnvelope,
   type ErrorReportInput,
-  type ErrorReportTransport,
   macOsMajorFromDarwinRelease,
   mintTelemetryInstallId,
   PRODUCT_ERROR_REPORTS_ENDPOINT,
@@ -41,21 +42,37 @@ import {
   type ProductTelemetryStateStore,
   parseTelemetryAppVersion,
   type TelemetryChannelId,
-  type TelemetryEnvelope,
   type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryPlatform,
-  type TelemetryTransport,
   toErrorReport,
   toTelemetryArch,
   windowsMajorFromVersion,
 } from '@openheaders/core/telemetry';
 import { type CliConfig, cliConfigPath, readCliConfig, writeCliConfig } from './config-store';
+import {
+  createDeliveryCircuit,
+  createFetchWire,
+  createSpoolingTransport,
+  openTelemetryOutbox,
+  type TelemetryWire,
+  telemetryOutboxPath,
+} from './telemetry-outbox';
 import { CLI_VERSION } from './version';
 
 export const TELEMETRY_ENV = 'OH_TELEMETRY';
 
-const FLUSH_ABORT_MS = 500;
+/**
+ * The cap on every POST — the most a finished command waits for one
+ * delivery, and the only wait an offline run pays (the circuit seals
+ * the rest). Sized from the wire, not from patience: a confirmed 202
+ * costs about 600 ms from a cold process (the handshake, then the
+ * worker's write and archive put before it answers) and about 300 ms
+ * on a warm connection, measured 2026-10-25 from Europe; a cap below
+ * that confirms nothing and redelivers everything. The outbox catches
+ * what still overruns it.
+ */
+export const FLUSH_ABORT_MS = 1500;
 
 export interface CliProductTelemetry {
   /** Record one of this invocation's own vocabulary events (`request_sent` on a send); `finish` delivers it. */
@@ -80,9 +97,9 @@ export interface CliProductTelemetryDeps {
   /** The running script (`process.argv[1]`) and the executable — the frames under them are ours (law 4). */
   scriptPath?: string;
   execPath?: string;
-  /** Test seams; production uses the aborting fetch transports + wall clock. */
-  transport?: TelemetryTransport;
-  errorTransport?: ErrorReportTransport;
+  /** Test seams; production uses the abort-capped fetch wires + the wall clock. */
+  wire?: TelemetryWire;
+  errorWire?: TelemetryWire;
   now?: () => number;
 }
 
@@ -294,32 +311,6 @@ function buildEnvelopeFacts(
   };
 }
 
-// One envelope per process per channel, so the abort guard is per-call disposable.
-function createAbortingTransport<T>(endpoint: string): { send(envelope: T): Promise<boolean> } {
-  return {
-    async send(envelope: T): Promise<boolean> {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FLUSH_ABORT_MS);
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(envelope),
-          signal: controller.signal,
-        });
-        return response.ok;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    },
-  };
-}
-
-const abortingFetchTransport: TelemetryTransport =
-  createAbortingTransport<TelemetryEnvelope>(PRODUCT_TELEMETRY_ENDPOINT);
-const abortingErrorTransport: ErrorReportTransport =
-  createAbortingTransport<ErrorReportEnvelope>(PRODUCT_ERROR_REPORTS_ENDPOINT);
-
 const inert: CliProductTelemetry = {
   track: () => undefined,
   finish: async () => undefined,
@@ -327,11 +318,13 @@ const inert: CliProductTelemetry = {
 };
 
 /**
- * Boot both channels for this invocation: resolve the gates, queue
- * `session_start` on the usage channel (no runtime notice — the
- * disclosure lives in the docs, per the module header), arm the error
- * channel on the same session. Returns the exit-flush handle; every
- * failure path degrades to the inert handle.
+ * Boot both channels for this invocation: resolve the gates, open the
+ * outbox and forget what an off channel sealed, queue `session_start`
+ * on the usage channel (no runtime notice — the disclosure lives in
+ * the docs, per the module header), arm the error channel on the same
+ * session, and start the boot delivery — the outbox drained, then the
+ * usage channel's first flush — in the background. Returns the
+ * exit-flush handle; every failure path degrades to the inert handle.
  */
 export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}): Promise<CliProductTelemetry> {
   try {
@@ -348,6 +341,12 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     }
     const usageEnabled = readTelemetryEnabled(env, config.telemetry);
     const errorsEnabled = readErrorReportsEnabled(env, config.errorReports);
+    // A sealed usage envelope carries the install id: off wipes it with
+    // the identity; an error report sealed while its switch was on is
+    // forgotten when the switch is off.
+    const outbox = await openTelemetryOutbox(telemetryOutboxPath(configPath));
+    if (!usageEnabled) outbox.discard('usage');
+    if (!errorsEnabled) outbox.discard('errors');
     if (!usageEnabled) {
       // Off means no identity: a disabled run wipes any stored install
       // id (the first_run sent-bit stays — it carries no identity).
@@ -361,7 +360,10 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
         await writeCliConfig(configPath, rest).catch(() => undefined);
       }
     }
-    if (!usageEnabled && !errorsEnabled) return inert;
+    if (!usageEnabled && !errorsEnabled) {
+      await outbox.settle();
+      return inert;
+    }
 
     const now = deps.now ?? Date.now;
     const channel = deps.channel ?? detectCliChannel(process.argv[1] ?? '', process.execPath, env);
@@ -373,6 +375,9 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     // One session for both channels; the usage controller boots first
     // and mints it, the error controller reads it.
     const sessionStore = createInMemoryProductTelemetrySessionStore();
+    const usageWire = deps.wire ?? createFetchWire(PRODUCT_TELEMETRY_ENDPOINT, FLUSH_ABORT_MS);
+    const errorWire = deps.errorWire ?? createFetchWire(PRODUCT_ERROR_REPORTS_ENDPOINT, FLUSH_ABORT_MS);
+    const circuit = createDeliveryCircuit();
 
     let usage: ProductTelemetryController | null = null;
     if (usageEnabled) {
@@ -383,7 +388,7 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
         ? createConfigInstallStore(configPath)
         : createInMemoryProductTelemetryInstallStore({ installId: mintTelemetryInstallId(), installedAt: now() });
       usage = new ProductTelemetryController({
-        transport: deps.transport ?? abortingFetchTransport,
+        transport: createSpoolingTransport(outbox, 'usage', usageWire, circuit),
         now,
         sessionStore,
         installStore,
@@ -404,7 +409,7 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     let errors: ErrorReportController | null = null;
     if (errorsEnabled) {
       errors = new ErrorReportController({
-        transport: deps.errorTransport ?? abortingErrorTransport,
+        transport: createSpoolingTransport(outbox, 'errors', errorWire, circuit),
         now,
         sessionStore,
         host: 'cli',
@@ -421,6 +426,20 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     };
     const errorController = errors;
     const usageController = usage;
+    // The boot delivery: what earlier invocations sealed, then this
+    // one's session_start — fired now so the handshake overlaps the
+    // command and the exit flush rides a warm connection. The chain is
+    // joined at exit; a flush while it is in flight would be a no-op.
+    const bootDelivery = outbox
+      .drain(
+        {
+          ...(usageEnabled ? { usage: usageWire } : {}),
+          ...(errorsEnabled ? { errors: errorWire } : {}),
+        },
+        circuit,
+      )
+      .then(() => usageController?.flush())
+      .catch(() => undefined);
 
     return {
       track: (event) => {
@@ -431,8 +450,10 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
         void errorController.report(toErrorReport(input, context)).catch(() => undefined);
       },
       finish: async () => {
-        await usage?.flush().catch(() => undefined);
+        await bootDelivery;
+        await usageController?.flush().catch(() => undefined);
         await errorController?.flush().catch(() => undefined);
+        await outbox.settle();
       },
     };
   } catch {
