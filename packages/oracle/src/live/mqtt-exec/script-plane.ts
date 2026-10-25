@@ -27,6 +27,7 @@ import type {
   MqttInboundMessageSnapshot,
   MqttOutboundMessageSnapshot,
   MqttScriptKind,
+  ScriptVariableScope,
 } from '@openheaders/core/scripts';
 import type {
   ExecutedMqttScriptMark,
@@ -56,10 +57,13 @@ export type MqttBeforePublishOutcome =
 
 export interface MqttScriptPlane {
   /** Run the Before connect chain for one dial; the CONNECT composes
-   *  on what it returns (the input verbatim when no level mutated). */
-  beforeConnect(connect: MqttConnectSnapshot): Promise<MqttConnectSnapshot>;
-  /** Run the Before publish chain for one rider publish. */
-  beforePublish(message: MqttOutboundMessageSnapshot): Promise<MqttBeforePublishOutcome>;
+   *  on what it returns (the input verbatim when no level mutated).
+   *  `scope` is the dial's batch scope — a code a level reads is the
+   *  dial's usage (`script-scope.ts`). */
+  beforeConnect(connect: MqttConnectSnapshot, scope?: ScriptVariableScope): Promise<MqttConnectSnapshot>;
+  /** Run the Before publish chain for one rider publish; `scope` is
+   *  the rider's batch scope. */
+  beforePublish(message: MqttOutboundMessageSnapshot, scope?: ScriptVariableScope): Promise<MqttBeforePublishOutcome>;
   /** Queue the On message chain for one captured inbound PUBLISH —
    *  returns at once; the capture never waits. */
   onMessage(message: MqttInboundMessageSnapshot): void;
@@ -81,7 +85,7 @@ export function createMqttScriptPlane(deps: MqttScriptPlaneDeps): MqttScriptPlan
   let onMessage: ScriptEventSummary | undefined;
 
   return {
-    beforeConnect(connect) {
+    beforeConnect(connect, scope) {
       if (!core.has('mqtt-before-connect')) return Promise.resolve(connect);
       return core.enqueue(async () => {
         let current = connect;
@@ -103,6 +107,7 @@ export function createMqttScriptPlane(deps: MqttScriptPlaneDeps): MqttScriptPlan
             };
             return undefined;
           },
+          scope,
         );
         if (fold !== null) {
           core.record('mqtt-before-connect', fold, { attempt: connect.attempt });
@@ -112,7 +117,7 @@ export function createMqttScriptPlane(deps: MqttScriptPlaneDeps): MqttScriptPlan
       });
     },
 
-    beforePublish(message) {
+    beforePublish(message, scope) {
       if (!core.has('mqtt-before-publish')) return Promise.resolve({ kind: 'publish', message });
       return core.enqueue(async () => {
         let current = message;
@@ -138,6 +143,7 @@ export function createMqttScriptPlane(deps: MqttScriptPlaneDeps): MqttScriptPlan
             };
             return undefined;
           },
+          scope,
         );
         if (fold !== null) {
           core.record('mqtt-before-publish', fold, droppedBy !== null ? { droppedBy } : {});

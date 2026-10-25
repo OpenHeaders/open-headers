@@ -22,6 +22,7 @@
  */
 
 import type { ScriptVariableScope } from '@openheaders/core/scripts';
+import type { TotpUsageTracker } from '@openheaders/core/totp';
 import type { ResolutionContext, Vault } from '@openheaders/core/types';
 import {
   collectTemplateVariableNames,
@@ -33,26 +34,32 @@ import {
 } from '@openheaders/core/variables';
 import { buildResolver } from './resolver-scope';
 import { getSecretManagerBroker } from './secret-manager-broker';
-import type { TotpUsageTracker } from './totp-usage';
 
 /** The two halves a scope reads through — the session resolution's shape. */
 export interface ScriptScopeResolution {
   /** The async pre-pass naming the entries the templates reference (a
    *  secret manager may prompt); `null` when nothing needs asking. */
   prepare(templates: readonly string[]): Promise<void> | null;
-  /** Resolve one template; every miss lands in the collector. */
-  resolve(template: string, unresolved: UnresolvedReferences): string;
+  /** Resolve one template; every miss lands in the collector, every
+   *  TOTP code the template carried on the tracker when one is handed. */
+  resolve(template: string, unresolved: UnresolvedReferences, totp?: TotpUsageTracker | null): string;
 }
 
 /** The scope over one resolution: a reference reads as `{{reference}}`
- *  would, `null` when any part of it stays unresolved. */
-export function createScriptVariableScope(resolution: ScriptScopeResolution): ScriptVariableScope {
+ *  would, `null` when any part of it stays unresolved. A session hands
+ *  the BATCH's tracker (Connect's to Before connect, the rider's to
+ *  Before send / Before publish), so a code a hook reads is that
+ *  batch's usage; the hooks outside a wire write read with none. */
+export function createScriptVariableScope(
+  resolution: ScriptScopeResolution,
+  totp?: TotpUsageTracker | null,
+): ScriptVariableScope {
   return {
     async readVariable(reference) {
       const template = `{{${reference}}}`;
       await resolution.prepare([template]);
       const unresolved: UnresolvedReferences = new Map();
-      const result = resolution.resolve(template, unresolved);
+      const result = resolution.resolve(template, unresolved, totp);
       return unresolved.size > 0 || result === template ? null : result;
     },
   };

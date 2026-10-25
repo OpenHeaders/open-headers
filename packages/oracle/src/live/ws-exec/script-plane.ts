@@ -19,6 +19,7 @@
  */
 
 import type {
+  ScriptVariableScope,
   WsCloseSnapshot,
   WsConnectSnapshot,
   WsInboundMessageSnapshot,
@@ -54,10 +55,13 @@ export type WsBeforeSendOutcome =
 
 export interface WsScriptPlane {
   /** Run the Before connect chain for one dial; the dial proceeds on
-   *  what it returns (the input verbatim when no level mutated). */
-  beforeConnect(connect: WsConnectSnapshot): Promise<WsConnectSnapshot>;
-  /** Run the Before send chain for one rider send. */
-  beforeSend(message: WsOutboundMessageSnapshot): Promise<WsBeforeSendOutcome>;
+   *  what it returns (the input verbatim when no level mutated).
+   *  `scope` is the dial's batch scope — a code a level reads is the
+   *  dial's usage (`script-scope.ts`). */
+  beforeConnect(connect: WsConnectSnapshot, scope?: ScriptVariableScope): Promise<WsConnectSnapshot>;
+  /** Run the Before send chain for one rider send; `scope` is the
+   *  rider's batch scope. */
+  beforeSend(message: WsOutboundMessageSnapshot, scope?: ScriptVariableScope): Promise<WsBeforeSendOutcome>;
   /** Queue the On message chain for one captured inbound frame —
    *  returns at once; the capture never waits. */
   onMessage(message: WsInboundMessageSnapshot): void;
@@ -79,7 +83,7 @@ export function createWsScriptPlane(deps: WsScriptPlaneDeps): WsScriptPlane {
   let onMessage: ScriptEventSummary | undefined;
 
   return {
-    beforeConnect(connect) {
+    beforeConnect(connect, scope) {
       if (!core.has('ws-before-connect')) return Promise.resolve(connect);
       return core.enqueue(async () => {
         let current = connect;
@@ -103,6 +107,7 @@ export function createWsScriptPlane(deps: WsScriptPlaneDeps): WsScriptPlane {
             };
             return undefined;
           },
+          scope,
         );
         if (fold !== null) {
           core.record('ws-before-connect', fold, { attempt: connect.attempt });
@@ -112,7 +117,7 @@ export function createWsScriptPlane(deps: WsScriptPlaneDeps): WsScriptPlane {
       });
     },
 
-    beforeSend(message) {
+    beforeSend(message, scope) {
       if (!core.has('ws-before-send')) return Promise.resolve({ kind: 'send', message });
       return core.enqueue(async () => {
         let current = message;
@@ -134,6 +139,7 @@ export function createWsScriptPlane(deps: WsScriptPlaneDeps): WsScriptPlane {
             };
             return undefined;
           },
+          scope,
         );
         if (fold !== null) {
           core.record('ws-before-send', fold, droppedBy !== null ? { droppedBy } : {});

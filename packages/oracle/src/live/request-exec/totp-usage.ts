@@ -1,78 +1,31 @@
 /**
- * TOTP usage of one send — every `kind: 'totp'` vault entry whose
- * current code the send consumed, whether a `{{vault.X}}` template
- * resolved it or a pre-request script read it through the send's
- * variable scope (`script-scope.ts`). One tracker per send feeds both
- * paths, so the cooldown gate and the usage record see the same list:
- * the gate refuses a code already used inside its window (most
- * providers answer the reuse with a 401 — an actionable "wait Ns" beats
- * a wasted round-trip), and a successful round-trip records what it
- * burned. The list is LIVE — it grows while the send's scripts run —
- * so a runner gates once after resolve and again after the pre-request
- * chain, and records after the wire.
+ * TOTP usage over THIS host's cooldown store — the gate and the record
+ * for one batch's usages (`@openheaders/core/totp` holds the tracker
+ * and the plane shape every realm shares). An HTTP send gates once
+ * after resolve and again after the pre-request chain, and records
+ * after the wire; a live session's resolution carries the plane
+ * (`session-resolution.ts`) so Connect and every rider gate and record
+ * through the same store the HTTP sends use.
  */
 
-import type { Vault, VaultSecretTotp } from '@openheaders/core/types';
-import type { TemplateVariable } from '@openheaders/core/variables';
+import {
+  createTotpUsageTracker,
+  type TotpCooldownPlane,
+  type TotpUsage,
+  totpCooldownMessage,
+  totpNamesOf,
+} from '@openheaders/core/totp';
+import type { Vault } from '@openheaders/core/types';
 import { checkCooldown, recordUsage } from '../../entity/totp-cooldown-store';
 
-/** One TOTP vault entry the send used. Carries the code (so the cooldown
- *  gate can match the recently-used code) and the entry's `period` (so
- *  usage recording can compute the window-end deadline). */
-export interface TotpUsage {
-  name: string;
-  code: string;
-  period: number;
-}
-
-export interface TotpUsageTracker {
-  /** Note every TOTP code among one template's resolved variables. */
-  observe(variables: readonly TemplateVariable[]): void;
-  /** Every code noted so far, one row per entry — a live view. */
-  readonly used: readonly TotpUsage[];
-}
-
-/** The tracker over one send's vault snapshot. */
-export function createTotpUsageTracker(vault: Vault): TotpUsageTracker {
-  const entries = new Map<string, VaultSecretTotp>();
-  for (const secret of vault.secrets) {
-    if (secret.kind === 'totp') entries.set(secret.name, secret);
-  }
-  const used: TotpUsage[] = [];
-  const rowOf = new Map<string, number>();
-  return {
-    used,
-    observe(variables) {
-      if (entries.size === 0) return;
-      for (const v of variables) {
-        if (!v.resolved || v.scope !== 'vault' || !v.value) continue;
-        // Names carry the `vault.` prefix when the user wrote
-        // `{{vault.X}}`; strip it before matching the bare entry name.
-        const bareName = v.name.startsWith('vault.') ? v.name.slice('vault.'.length) : v.name;
-        const entry = entries.get(bareName);
-        if (!entry) continue;
-        const usage: TotpUsage = { name: bareName, code: v.value, period: entry.period };
-        const row = rowOf.get(bareName);
-        // A window that rolled mid-send replaces the entry's row — the
-        // code the wire carries is the one the record keeps.
-        if (row === undefined) {
-          rowOf.set(bareName, used.length);
-          used.push(usage);
-        } else {
-          used[row] = usage;
-        }
-      }
-    },
-  };
-}
+export type { TotpUsage, TotpUsageTracker } from '@openheaders/core/totp';
+export { createTotpUsageTracker } from '@openheaders/core/totp';
 
 /** The gate's refusal for the first code already used inside its window; `null` lets the send go. */
 export function totpCooldownRefusal(workspaceId: string, usages: readonly TotpUsage[]): string | null {
   for (const usage of usages) {
     const status = checkCooldown(workspaceId, usage.name, usage.code);
-    if (status.inCooldown) {
-      return `TOTP '${usage.name}' code can't be reused — wait ${status.remainingSeconds}s for the next window.`;
-    }
+    if (status.inCooldown) return totpCooldownMessage(usage.name, status.remainingSeconds);
   }
   return null;
 }
@@ -80,4 +33,20 @@ export function totpCooldownRefusal(workspaceId: string, usages: readonly TotpUs
 /** Record every code the send burned — after a successful round-trip only. */
 export function recordTotpUsages(workspaceId: string, usages: readonly TotpUsage[]): void {
   for (const usage of usages) recordUsage(workspaceId, usage.name, usage.code, usage.period);
+}
+
+/**
+ * A live session's cooldown plane over this host's store. The partition
+ * key is read only when a code is in play — an unpinned session with no
+ * TOTP usage never asks the workspace store (the SW send's posture).
+ */
+export function oracleTotpCooldownPlane(vault: Vault, workspaceKey: () => string): TotpCooldownPlane {
+  const hasTotp = totpNamesOf(vault).size > 0;
+  return {
+    tracker: () => (hasTotp ? createTotpUsageTracker(vault) : null),
+    refusal: (usages) => (usages.length === 0 ? null : totpCooldownRefusal(workspaceKey(), usages)),
+    record: (usages) => {
+      if (usages.length > 0) recordTotpUsages(workspaceKey(), usages);
+    },
+  };
 }

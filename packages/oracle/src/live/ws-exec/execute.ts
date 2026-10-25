@@ -73,6 +73,7 @@ import {
   SOCKET_IO_DEFAULT_PROTOCOL,
   type SocketIoDialTarget,
 } from '@openheaders/core/socketio';
+import { NO_TOTP_COOLDOWN, type TotpCooldownPlane } from '@openheaders/core/totp';
 import type {
   ExecutedProxyRoute,
   ExecutedWsAckTimeout,
@@ -195,6 +196,13 @@ export interface ExecuteWsSessionOptions {
    * L3). Absent = nothing is stamped.
    */
   referencesSecret?: SessionReferencesSecret;
+  /**
+   * Host-injected TOTP cooldown plane (the `resolution` twin): the
+   * per-batch tracker the closure feeds, the gate and the record over
+   * the host's store — a page realm asks its service worker's. Absent
+   * with an injected resolution = no gate, no record.
+   */
+  totp?: TotpCooldownPlane;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -256,8 +264,13 @@ export async function executeWsSession(
   if (resolveWith === undefined) return errorWsSnapshot('No template resolution available for this session.');
   const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
   const referencesSecret = oracleResolution?.referencesSecret ?? options.referencesSecret ?? NEVER_SECRET;
-  // The hooks' `oh.variables.get` / `oh.vault.get` read this same resolution.
-  const scriptScope = createScriptVariableScope({ prepare, resolve: resolveWith });
+  const totp = oracleResolution?.totp ?? options.totp ?? NO_TOTP_COOLDOWN;
+  const resolution = { prepare, resolve: resolveWith };
+  // The hooks' `oh.variables.get` / `oh.vault.get` read this same
+  // resolution — On message and After close through this scope (a code
+  // they read is no wire usage); the pre-wire hooks through their
+  // batch's (below).
+  const scriptScope = createScriptVariableScope(resolution);
   // The workspace trust list rides every dial — the pin the scope
   // resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
@@ -269,7 +282,14 @@ export async function executeWsSession(
   // rider.
   await prepare(collectTemplateStringsDeep([request, options.graphql]));
   const unresolved: UnresolvedReferences = new Map();
-  const resolveStr = (s: string): string => resolveWith(s, unresolved);
+  // Connect's TOTP batch: every code the dial carries — the templates'
+  // here, a Before connect level's reads through `connectScope` — gated
+  // before the first dial, recorded on OPEN (the handshake carried
+  // them; a dial that never opened burned nothing). A reconnect redials
+  // Connect's resolved strings: nothing new to gate or record.
+  const connectTotp = totp.tracker();
+  const connectScope = connectTotp !== null ? createScriptVariableScope(resolution, connectTotp) : undefined;
+  const resolveStr = (s: string): string => resolveWith(s, unresolved, connectTotp);
   // The settings knobs cascade over the ancestor chain — the request's
   // own defined knob wins, an absent one reads the nearest ancestor
   // that sets it (THE core rule; the injected chain serves page realms
@@ -821,13 +841,16 @@ export async function executeWsSession(
           // and params, no credential yet — and runs at EVERY dial, so a
           // reconnect attempt re-runs it on the re-minted credential's
           // turn. Lenient: a failed level leaves its input as it was.
-          const connect = await scripts.beforeConnect({
-            url,
-            headers: headers.map((h) => ({ key: h.key, value: h.value })),
-            params: parseUrlParams(url),
-            subprotocols: [...subprotocols],
-            attempt: reconnectAttempt,
-          });
+          const connect = await scripts.beforeConnect(
+            {
+              url,
+              headers: headers.map((h) => ({ key: h.key, value: h.value })),
+              params: parseUrlParams(url),
+              subprotocols: [...subprotocols],
+              attempt: reconnectAttempt,
+            },
+            reconnectAttempt === 0 ? connectScope : undefined,
+          );
           if (settled) return;
           if (stopped) {
             settle();
@@ -836,6 +859,17 @@ export async function executeWsSession(
           wireUrl = connect.url;
           dialHeaders = connect.headers;
           dialSubprotocols = connect.subprotocols;
+        }
+        if (reconnectAttempt === 0 && connectTotp !== null) {
+          // The Connect gate — a code already used inside its window
+          // refuses the dial with the HTTP send's wording; the provider
+          // would answer the reuse with a refusal anyway.
+          const refusal = await totp.refusal(connectTotp.used);
+          if (settled) return;
+          if (refusal !== null) {
+            settle(refusal);
+            return;
+          }
         }
         if (credential !== null) {
           let minted: Awaited<ReturnType<typeof mintSessionCredential>>;
@@ -911,6 +945,8 @@ export async function executeWsSession(
                 });
               } else {
                 opened = true;
+                // The handshake carried Connect's codes — the record.
+                if (connectTotp !== null) totp.record(connectTotp.used);
                 emitter?.open(selectedProtocol, negotiatedExtensions, proxyRoute, {
                   url: dialUrl,
                   requestHeaders,
@@ -996,8 +1032,12 @@ export async function executeWsSession(
         // secret-manager entry sends its value; the capture is stamped.
         const riderSecret = referencesSecret(collectTemplateStringsDeep([messageText, socketio?.eventName]));
         const sendUnresolved: UnresolvedReferences = new Map();
-        const resolved = resolveWith(messageText, sendUnresolved);
-        const eventName = socketio !== undefined ? resolveWith(socketio.eventName, sendUnresolved) : undefined;
+        // The rider's own TOTP batch — its templates' codes and a Before
+        // send level's reads; gated before the write, recorded after.
+        const riderTotp = totp.tracker();
+        const resolved = resolveWith(messageText, sendUnresolved, riderTotp);
+        const eventName =
+          socketio !== undefined ? resolveWith(socketio.eventName, sendUnresolved, riderTotp) : undefined;
         // The rider's gate — the Connect gate's rule: a secret manager's
         // failure refuses the send; a plain miss rides as written and
         // the answer names it.
@@ -1030,18 +1070,33 @@ export async function executeWsSession(
         // Before send — the rider's message only: a script's own send
         // is already a hook's product and never re-enters the hook.
         if (scripts !== null && origin === 'rider') {
-          const outcome = await scripts.beforeSend(message);
+          const outcome = await scripts.beforeSend(
+            message,
+            riderTotp !== null ? createScriptVariableScope(resolution, riderTotp) : undefined,
+          );
           if (outcome.kind === 'dropped') {
             return { success: false, error: `Dropped by the Before send script at ${outcome.by}.` };
           }
           message = outcome.message;
           if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         }
+        if (riderTotp !== null) {
+          // The rider's gate — a code in cooldown refuses THIS send, the
+          // rider's answer like a dropped Before send.
+          const refusal = await totp.refusal(riderTotp.used);
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+          if (refusal !== null) return { success: false, error: refusal };
+        }
+        const recordRider = (): void => {
+          if (riderTotp !== null) totp.record(riderTotp.used);
+        };
         const answer: WsSendResult = { success: true, ...(sentAsWritten !== undefined ? { sentAsWritten } : {}) };
         if (message.binary) {
           const bytes = decodeBase64Bytes(message.text);
           if (bytes === null) return { success: false, error: 'The message is not valid Base64.' };
-          return sendBinary(bytes, riderSecret, sentAsWritten);
+          const sent = sendBinary(bytes, riderSecret, sentAsWritten);
+          if (sent.success) recordRider();
+          return sent;
         }
         if (message.eventName !== undefined && socketioSession !== null) {
           const ackId = message.expectAck === true ? socketioSession.nextAckId() : null;
@@ -1049,9 +1104,11 @@ export async function executeWsSession(
           if (!encoded.ok) return { success: false, error: encoded.error };
           sendText(encoded.frame, riderSecret, sentAsWritten);
           if (ackId !== null) socketioSession.armAck(ackId);
+          recordRider();
           return answer;
         }
         sendText(message.text, riderSecret, sentAsWritten);
+        recordRider();
         return answer;
       },
       close: () => {

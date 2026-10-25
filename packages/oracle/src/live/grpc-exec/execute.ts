@@ -51,6 +51,7 @@ import {
 } from '@openheaders/core/proto';
 import type { GrpcScriptKind } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
+import { NO_TOTP_COOLDOWN, type TotpCooldownPlane } from '@openheaders/core/totp';
 import type { ExecutedGrpcSnapshot, GrpcRequest, Spec } from '@openheaders/core/types';
 import { encodeBase64Bytes, generateUid } from '@openheaders/core/utils';
 import { collectTemplateStringsDeep, type UnresolvedReferences } from '@openheaders/core/variables';
@@ -144,6 +145,13 @@ export interface ExecuteGrpcInvokeOptions {
    *  template does is stamped secret-bearing so the timeline masks it
    *  (the Secret Providers plan's L3). Absent = nothing is stamped. */
   referencesSecret?: SessionReferencesSecret;
+  /**
+   * Host-injected TOTP cooldown plane (the `resolution` twin): the
+   * per-batch tracker the closure feeds, the gate and the record over
+   * the host's store — a page realm asks its service worker's. Absent
+   * with an injected resolution = no gate, no record.
+   */
+  totp?: TotpCooldownPlane;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -235,10 +243,21 @@ export async function executeGrpcInvoke(
   await prepare(collectTemplateStringsDeep(request));
   const referencesSecret: SessionReferencesSecret =
     oracleResolution?.referencesSecret ?? options.referencesSecret ?? (() => false);
-  // The hooks' `oh.variables.get` / `oh.vault.get` read this same resolution.
-  const scriptScope = createScriptVariableScope({ prepare, resolve: resolveWith });
+  const totp = oracleResolution?.totp ?? options.totp ?? NO_TOTP_COOLDOWN;
+  const resolution = { prepare, resolve: resolveWith };
+  // The hooks' `oh.variables.get` / `oh.vault.get` read this same
+  // resolution — On message and After response through this scope (a
+  // code they read is no wire usage); Before invoke through the call's
+  // batch scope (below).
+  const scriptScope = createScriptVariableScope(resolution);
   const unresolved: UnresolvedReferences = new Map();
-  const resolveStr = (s: string): string => resolveWith(s, unresolved);
+  // The call's TOTP batch: every code the invoke carries — the
+  // templates' here, a Before invoke level's reads through
+  // `invokeScope` — gated before the wire, recorded once a response
+  // head arrived (a call that never reached the server burned nothing).
+  const invokeTotp = totp.tracker();
+  const invokeScope = invokeTotp !== null ? createScriptVariableScope(resolution, invokeTotp) : undefined;
+  const resolveStr = (s: string): string => resolveWith(s, unresolved, invokeTotp);
 
   // The settings knobs cascade over the ancestor chain — the request's
   // own defined knob wins, an absent one reads the nearest ancestor
@@ -351,18 +370,28 @@ export async function executeGrpcInvoke(
     // the message text resolved, no credential yet — once, before the
     // wire. Lenient: a failed level leaves its input as it was. The
     // reserved keys stay the transport's whatever a level wrote.
-    const invoke = await scripts.beforeInvoke({
-      target: authority,
-      service: method.service,
-      method: method.rpc,
-      shape: rpc.streaming,
-      metadata: metadata.map((m) => ({ key: m.key, value: m.value })),
-      messageText,
-    });
+    const invoke = await scripts.beforeInvoke(
+      {
+        target: authority,
+        service: method.service,
+        method: method.rpc,
+        shape: rpc.streaming,
+        metadata: metadata.map((m) => ({ key: m.key, value: m.value })),
+        messageText,
+      },
+      invokeScope,
+    );
     metadata = invoke.metadata
       .filter((m) => !m.key.startsWith(':') && !RESERVED_METADATA_KEYS.has(m.key.toLowerCase()))
       .map((m) => ({ key: m.key, value: m.value }));
     messageText = invoke.messageText;
+  }
+  if (invokeTotp !== null) {
+    // The gate — a code already used inside its window refuses the call
+    // with the HTTP send's wording; the server would answer the reuse
+    // with a refusal anyway.
+    const refusal = await totp.refusal(invokeTotp.used);
+    if (refusal !== null) return withAttribution(finishScripts(errorGrpcSnapshot(refusal)));
   }
   if (credential !== null) {
     let minted: Awaited<ReturnType<typeof mintSessionCredential>>;
@@ -442,6 +471,8 @@ export async function executeGrpcInvoke(
       maxBodyBytes,
       ...(scripts !== null ? { scripts } : {}),
     });
+    // A response head means the server read the call's codes.
+    if (invokeTotp !== null && streamSnapshot.httpStatus !== 0) totp.record(invokeTotp.used);
     return withAttribution(finishScripts(streamSnapshot));
   }
   if (encoded === null) {
@@ -476,6 +507,8 @@ export async function executeGrpcInvoke(
       },
       controller?.signal,
     );
+    // The exchange answered — the server read the call's codes.
+    if (invokeTotp !== null) totp.record(invokeTotp.used);
     const durationMs = Math.round(performance.now() - startedAt);
     const { frames, incomplete } = readGrpcFrames(response.body);
     const status = extractGrpcStatus(response.headers, response.trailers);

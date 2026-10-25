@@ -28,6 +28,7 @@ import type {
   GrpcInvokeSnapshot,
   GrpcResponseSnapshot,
   GrpcScriptKind,
+  ScriptVariableScope,
 } from '@openheaders/core/scripts';
 import type {
   ExecutedGrpcScriptMark,
@@ -49,8 +50,10 @@ export type GrpcScriptPlaneDeps = Omit<SessionScriptPlaneDeps<GrpcScriptKind>, '
 
 export interface GrpcScriptPlane {
   /** Run the Before invoke chain once; the call composes on what it
-   *  returns (the input verbatim when no level mutated). */
-  beforeInvoke(invoke: GrpcInvokeSnapshot): Promise<GrpcInvokeSnapshot>;
+   *  returns (the input verbatim when no level mutated). `scope` is the
+   *  invoke's batch scope — a code a level reads is the call's usage
+   *  (`script-scope.ts`). */
+  beforeInvoke(invoke: GrpcInvokeSnapshot, scope?: ScriptVariableScope): Promise<GrpcInvokeSnapshot>;
   /** Queue the On message chain for one captured frame — returns at
    *  once; the capture never waits. */
   onMessage(message: GrpcFrameSnapshot): void;
@@ -89,7 +92,7 @@ export function createGrpcScriptPlane(deps: GrpcScriptPlaneDeps): GrpcScriptPlan
   let afterResponse: ExecutedScriptFold | undefined;
 
   return {
-    beforeInvoke(invoke) {
+    beforeInvoke(invoke, scope) {
       if (!core.has('grpc-before-invoke')) return Promise.resolve(invoke);
       return core.enqueue(async () => {
         let current = invoke;
@@ -106,6 +109,7 @@ export function createGrpcScriptPlane(deps: GrpcScriptPlaneDeps): GrpcScriptPlan
             };
             return undefined;
           },
+          scope,
         );
         if (fold !== null) {
           core.record('grpc-before-invoke', fold);

@@ -83,6 +83,7 @@ import type {
   SessionHeader,
 } from '@openheaders/core/scripts';
 import type { SettingsCarrier } from '@openheaders/core/settings-inheritance';
+import { NO_TOTP_COOLDOWN, type TotpCooldownPlane } from '@openheaders/core/totp';
 import type {
   ExecutedMqttEnd,
   ExecutedMqttEvent,
@@ -179,6 +180,13 @@ export interface ExecuteMqttSessionOptions {
    *  executor's exact contract: an outbound PUBLISH whose template
    *  does is stamped secret-bearing so the timeline masks it (L3). */
   referencesSecret?: SessionReferencesSecret;
+  /**
+   * Host-injected TOTP cooldown plane (the `resolution` twin): the
+   * per-batch tracker the closure feeds, the gate and the record over
+   * the host's store — a page realm asks its service worker's. Absent
+   * with an injected resolution = no gate, no record.
+   */
+  totp?: TotpCooldownPlane;
   /** Host-injected ancestor auth chain (outer → inner) — for page
    *  realms whose oracle mirrors are empty (the `resolution` twin);
    *  absent = the executor walks the tree index. */
@@ -449,8 +457,13 @@ export async function executeMqttSession(
   if (resolveWith === undefined) return errorMqttSnapshot('No template resolution available for this session.');
   const prepare = oracleResolution?.prepare ?? options.prepareResolution ?? NO_PREPARE;
   const referencesSecret = oracleResolution?.referencesSecret ?? options.referencesSecret ?? NEVER_SECRET;
-  // The hooks' `oh.variables.get` / `oh.vault.get` read this same resolution.
-  const scriptScope = createScriptVariableScope({ prepare, resolve: resolveWith });
+  const totp = oracleResolution?.totp ?? options.totp ?? NO_TOTP_COOLDOWN;
+  const resolution = { prepare, resolve: resolveWith };
+  // The hooks' `oh.variables.get` / `oh.vault.get` read this same
+  // resolution — On message and After close through this scope (a code
+  // they read is no wire usage); the pre-wire hooks through their
+  // batch's (below).
+  const scriptScope = createScriptVariableScope(resolution);
   // The workspace trust list rides every dial and reconnect alike —
   // the pin the scope resolved against, else the runtime-Active one.
   const trustedRootsPem = getTrustAnchorsForSend(options.workspaceId ?? peekActiveWorkspaceId())?.pems;
@@ -461,7 +474,15 @@ export async function executeMqttSession(
   // own names are asked at the rider.
   await prepare(collectTemplateStringsDeep(request));
   const unresolved: UnresolvedReferences = new Map();
-  const resolveStr = (s: string): string => resolveWith(s, unresolved);
+  // Connect's TOTP batch: every code the CONNECT carries — the
+  // templates' here, a Before connect level's reads through
+  // `connectScope` — gated before the first dial, recorded on the
+  // accepting CONNACK (a dial the broker never accepted burned
+  // nothing). A reconnect redials Connect's resolved strings: nothing
+  // new to gate or record.
+  const connectTotp = totp.tracker();
+  const connectScope = connectTotp !== null ? createScriptVariableScope(resolution, connectTotp) : undefined;
+  const resolveStr = (s: string): string => resolveWith(s, unresolved, connectTotp);
   // The settings knobs cascade over the ancestor chain — the request's
   // own defined knob wins, an absent one reads the nearest ancestor
   // that sets it (THE core rule; the injected chain serves page realms
@@ -996,6 +1017,8 @@ export async function executeMqttSession(
           }
           opened = true;
           attemptOpened = true;
+          // The CONNECT carried Connect's codes — the record.
+          if (connectTotp !== null) totp.record(connectTotp.used);
           emitter?.open({
             sessionPresent: packet.sessionPresent,
             reasonCode: packet.reasonCode,
@@ -1230,7 +1253,7 @@ export async function executeMqttSession(
             userProperties: connectUserProps.map((p): SessionHeader => ({ key: p.key, value: p.value })),
             attempt: reconnectAttempt,
           };
-          const connect = await scripts.beforeConnect(input);
+          const connect = await scripts.beforeConnect(input, reconnectAttempt === 0 ? connectScope : undefined);
           if (settled) return;
           if (stopped) {
             settle();
@@ -1262,6 +1285,18 @@ export async function executeMqttSession(
             dialSubscriptions = connect.subscriptions.map((sub) => subscribeEntryOf(sub, v5));
             desiredSubscriptions.clear();
             for (const entry of dialSubscriptions) desiredSubscriptions.set(entry.subscription.topicFilter, entry);
+          }
+        }
+        if (reconnectAttempt === 0 && connectTotp !== null) {
+          // The Connect gate — a code already used inside its window
+          // refuses the dial with the HTTP send's wording; the broker
+          // would answer the reuse with a refusal anyway.
+          const refusal = await totp.refusal(connectTotp.used);
+          if (settled) return;
+          if (refusal !== null) {
+            refusalMessage = refusal;
+            settle();
+            return;
           }
         }
         const connectProperties: MqttProperties = {
@@ -1337,7 +1372,10 @@ export async function executeMqttSession(
         // secret-manager entry publishes its value; the capture is stamped.
         const riderSecret = referencesSecret(collectTemplateStringsDeep(message));
         const sendUnresolved: UnresolvedReferences = new Map();
-        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
+        // The rider's own TOTP batch — its templates' codes and a Before
+        // publish level's reads; gated before the write, recorded after.
+        const riderTotp = totp.tracker();
+        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved, riderTotp);
         const topic = riderResolve(message.topic).trim();
         const payloadText = riderResolve(message.payload);
         const properties = scriptMessageProperties(message.properties, riderResolve);
@@ -1367,12 +1405,22 @@ export async function executeMqttSession(
         // Before publish — the rider's message only: a script's own
         // publish is already a hook's product and never re-enters.
         if (scripts !== null && origin === 'rider') {
-          const outcome = await scripts.beforePublish(outbound);
+          const outcome = await scripts.beforePublish(
+            outbound,
+            riderTotp !== null ? createScriptVariableScope(resolution, riderTotp) : undefined,
+          );
           if (outcome.kind === 'dropped') {
             return { success: false, error: `Dropped by the Before publish script at ${outcome.by}.` };
           }
           outbound = outcome.message;
           if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        }
+        if (riderTotp !== null) {
+          // The rider's gate — a code in cooldown refuses THIS publish,
+          // the rider's answer like a dropped Before publish.
+          const refusal = await totp.refusal(riderTotp.used);
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+          if (refusal !== null) return { success: false, error: refusal };
         }
         const decoded = decodeComposePayload(outbound.payload, outbound.format);
         if (!decoded.ok) return { success: false, error: decoded.error };
@@ -1391,6 +1439,7 @@ export async function executeMqttSession(
         };
         const error = sendPacket(packet);
         if (error !== null) return { success: false, error };
+        if (riderTotp !== null) totp.record(riderTotp.used);
         if (packetId !== null && qos > 0) {
           outboundQos.set(packetId, { packet, pubrecd: false, ...(riderSecret ? { secret: true as const } : {}) });
         }
@@ -1406,13 +1455,24 @@ export async function executeMqttSession(
           if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
         }
         const sendUnresolved: UnresolvedReferences = new Map();
-        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved);
+        // The rider's own TOTP batch — a code in a filter or a
+        // subscribe user property; gated before the write, recorded after.
+        const riderTotp = totp.tracker();
+        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved, riderTotp);
         const topicFilter = riderResolve(subscription.topicFilter).trim();
         const userProperties =
           v5 && subscription.subscribe ? wireSubscribeUserProps(subscription.userProperties, riderResolve) : undefined;
         if (batchRefusesSend(sendUnresolved.values())) {
           return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_SUBSCRIPTION_LEAD, sendUnresolved) };
         }
+        if (riderTotp !== null) {
+          const refusal = await totp.refusal(riderTotp.used);
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+          if (refusal !== null) return { success: false, error: refusal };
+        }
+        const recordRider = (): void => {
+          if (riderTotp !== null) totp.record(riderTotp.used);
+        };
         const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
         return new Promise((resolveRider) => {
           const resolveAck = (reasonCode: number | null, failure?: string): void => {
@@ -1449,6 +1509,7 @@ export async function executeMqttSession(
               resolveRider({ success: false, error });
               return;
             }
+            recordRider();
             desiredSubscriptions.set(topicFilter, entry);
             return;
           }
@@ -1458,6 +1519,7 @@ export async function executeMqttSession(
             resolveRider({ success: false, error });
             return;
           }
+          recordRider();
           desiredSubscriptions.delete(topicFilter);
           pendingSubAcks.set(`u${packetId}`, { filters: [topicFilter], resolveAck });
         });

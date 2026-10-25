@@ -77,8 +77,15 @@ export interface SessionScriptPlaneCore<K extends SessionScriptKind> {
   /** Run one hook's chain (lenient) through the host — `null` for an
    *  empty chain: nothing ran, nothing to record. `hook` is read per
    *  LEVEL, so a mutating hook hands a thunk over its running input and
-   *  each level sees what the previous one left. */
-  run(kind: K, hook: () => SessionHookInput, onLevel?: SessionLevelHandler): Promise<ChainFold | null>;
+   *  each level sees what the previous one left. `scope` is the batch's
+   *  own (a code it reads is that wire write's usage); absent, the
+   *  session's. */
+  run(
+    kind: K,
+    hook: () => SessionHookInput,
+    onLevel?: SessionLevelHandler,
+    scope?: ScriptVariableScope,
+  ): Promise<ChainFold | null>;
   /** Record one hook run as a timeline mark — a no-op past the cap. */
   record(hook: K, fold: ChainFold, extra?: Pick<ExecutedSessionScriptMark, 'attempt' | 'droppedBy'>): void;
   /** A once-per-session hook's record. */
@@ -118,10 +125,10 @@ export function createSessionScriptPlaneCore<K extends SessionScriptKind>(
     mode: host.mode,
     has: (kind) => chains[kind].length > 0,
     enqueue,
-    run(kind, hook, onLevel) {
+    run(kind, hook, onLevel, batchScope) {
       return runScriptChain(
         chains[kind],
-        (script) => host.run({ kind, source: script.source, sessionId, hook: hook(), scope }),
+        (script) => host.run({ kind, source: script.source, sessionId, hook: hook(), scope: batchScope ?? scope }),
         {
           strict: false,
           ...(onLevel !== undefined ? { onLevelSucceeded: onLevel } : {}),
