@@ -190,10 +190,10 @@ byte, sent or suppressed.
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "host": "extension",
   "channel": "chrome-store",
-  "appVersion": { "year": 2026, "month": 8, "patch": 0 },
+  "appVersion": { "year": 2026, "month": 10, "patch": 3 },
   "platform": "mac",
   "arch": "arm64",
   "browser": "firefox",
@@ -205,17 +205,33 @@ byte, sent or suppressed.
   "sinceInstall": "2-7",
   "sessionAge": "1-8h",
   "sentAt": 1760000000000,
+  "state": {
+    "stage": "activated",
+    "rules": "2-5",
+    "requests": "1",
+    "workspaces": "1",
+    "sync": "local",
+    "role": "none",
+    "team": "1",
+    "profile": "both",
+    "activeDays": "4-9",
+    "migratedFrom": "postman"
+  },
   "events": [
     { "name": "first_run" },
-    { "name": "session_start", "rules": "1-5", "workspaces": "0", "sync": "local" },
+    { "name": "session_start" },
+    { "name": "milestone", "kind": "first_rule_created" },
     { "name": "feature_used", "feature": "workflow-editor" },
     { "name": "rule_created", "ruleType": "header", "origin": "editor" },
     { "name": "rule_matched", "ruleType": "header" },
+    { "name": "request_sent", "protocol": "http" },
     { "name": "import_run", "source": "postman", "ok": true },
     { "name": "workflow_run", "ok": true },
+    { "name": "share_sent", "route": "server-admin", "role": "editor", "members": "2-5" },
+    { "name": "share_accepted", "route": "server", "role": "editor" },
     { "name": "error_beacon", "code": "ws-connect-failed" },
     { "name": "license_activated", "plan": "individual" },
-    { "name": "paywall_hit", "surface": "seat-gate" },
+    { "name": "limit_hit", "limit": "seats" },
     { "name": "upgrade_cta_shown", "surface": "license-pane" },
     { "name": "upgrade_cta_clicked", "surface": "grace-banner" },
     { "name": "mcp_client_connected", "client": "claude-code" },
@@ -278,33 +294,95 @@ byte, sent or suppressed.
     moment the batch is sent, only ever as one of five coarse buckets
     (`0-9m`, `10-59m`, `1-8h`, `8-24h`, `24h+`); precise durations are
     inexpressible. Added 2026-08 (S17); earlier clients omit it.
-  - `events` — only the fourteen event shapes above exist, and every
-    field value comes from a closed union checked into the
-    repository. `first_run` fires once per install; `session_start`
-    fires once per session per UTC day (a long-running browser or tray
-    process re-announces itself daily — same event, same fields, no
-    extra data) and carries only measurements taken at session start:
-    `rules`/`workspaces` use coarse buckets
-    (`0`, `1`, `2-5`, `6-20`, `21-100`, `100+` — clients built before
-    2026-08 send the older `1-5` and `21+` spans, still accepted),
-    never exact counts; `sync` (2026-10, S35) says how the install
-    keeps its workspaces as one of `local`, `server`, `git` — the
-    install-wide maximum (one configured server connection anywhere
-    reads `server`; the desktop app's own loopback wire is pairing, not
-    a server), never a URL, a host name, or a count. `rule_created`
-    carries `origin` — which in-app affordance created the rule, one of
-    `editor`, `quick-editor`, `empty-state-nudge`. `rule_matched` fires
-    at most once per rule type per session per UTC day when a rule of
-    that type acts on a request — it carries the rule type and nothing
-    about the request. The four monetization shapes (2026-08, S20)
+  - `state` (schema 3, 2026-10) — one snapshot of the install's
+    slowly-changing facts, read when the batch is sent and stamped on
+    every event in it (an event queued before a change carries the
+    state at send time, not at the moment it happened). Every member is
+    a word from a closed list or a coarse bucket, never a count. `stage`
+    is how far the install has got on a fixed ladder — `installed`
+    (nothing saved), `configured` (a rule or a saved request exists),
+    `activated` (a rule has matched or a request has been sent, ever),
+    `retained` (activated and active on three distinct days), `team` (a
+    workspace role, or a shared workspace accepted) — the highest
+    reached. `rules`, `requests`, `workspaces` are the scale buckets
+    `session_start` used to carry (`0`, `1`, `2-5`, `6-20`, `21-100`,
+    `100+`), `requests` counting saved requests across every workspace
+    and protocol; `sync` is `local`, `server` or `git` as before. `plan`
+    is the install's own license as `free`, `individual` or `team` —
+    stamped by the desktop app from its license file; the extension and
+    the command-line tool carry none. `role` is the highest workspace
+    role this install's person holds in the directory it runs — `none`,
+    `owner`, `editor`, `viewer`; `team` is the member count of the
+    largest workspace the install belongs to, as one of `1`, `2-5`,
+    `6-10`, `11-50`, `51+` — buckets, never a seat count. `profile`
+    says which half of the product has ever been used — `none`,
+    `interceptor`, `api-client`, `both`. `activeDays` is how many
+    distinct UTC days of the last 28 the install was active, as `1`,
+    `2-3`, `4-9`, `10+`, kept as a 28-bit mask on the device.
+    `migratedFrom` is the source of the first import that succeeded
+    (`postman`, `insomnia`, `bruno`, `modheader`, `requestly`, `har`,
+    `openapi`, `other`), `none` until one does, `unknown` on installs
+    older than this schema. `rules`, `requests`, `workspaces`, `sync`,
+    `plan`, `role` and `team` are omitted wherever a host cannot read
+    the fact (the command-line tool reads no workspace; a client joined
+    to a server it does not run knows neither its role nor the team's
+    size, because the server holds its grant) — never guessed. The
+    block is the install's own description of itself, not our
+    definition: the warehouse derives the same stages from the events
+    and compares the two. Clients built before 2026.10 send
+    `schemaVersion: 2` with no block; the worker accepts both.
+  - `events` — only the shapes above exist, and every field value
+    comes from a closed union checked into the repository. `first_run`
+    fires once per install; `session_start` fires once per session per
+    UTC day (a long-running browser or tray process re-announces itself
+    daily — same event, same fields, no extra data) and, since schema 3,
+    carries nothing — the measurements it used to carry (`rules`,
+    `workspaces`, `sync`, the same buckets) ride the envelope's `state`
+    block; schema-2 clients still send them on the event (clients built
+    before 2026-08 send the older `1-5` and `21+` spans, still accepted;
+    one configured server connection anywhere reads `server` — the
+    desktop app's own loopback wire is pairing, not a server — never a
+    URL, a host name, or a count). `milestone` (2026-10) fires once per
+    install per `kind` — `first_rule_created`, `first_rule_matched`,
+    `first_request_sent`, `first_import`, `first_workflow_run`,
+    `first_share_sent`, `first_share_accepted`,
+    `first_server_connected`, `first_mcp_client`, `first_license` — a
+    once-ever bit per kind kept on the device, so the envelope's
+    `sinceInstall` on that row says how long a first took, in buckets;
+    an install that already had rules or requests when this schema
+    reached it marks the firsts it has evidently passed without sending
+    them. `rule_created` carries `origin` — which in-app affordance
+    created the rule, one of `editor`, `quick-editor`,
+    `empty-state-nudge`. `rule_matched` fires at most once per rule
+    type per session per UTC day when a rule of that type acts on a
+    request — it carries the rule type and nothing about the request.
+    `request_sent` (2026-10) fires at most once per protocol per
+    session per UTC day when a request leaves the API client — `http`,
+    `graphql`, `grpc`, `ws`, `sse`, `mqtt` — and carries nothing about
+    the request. `import_run` carries the source format and whether it
+    succeeded; `workflow_run` whether it succeeded. `share_sent`
+    (2026-10) fires when this install grants someone access to a
+    workspace — `route` is how (`server-admin` today; `server-owner`,
+    `git` and `export` are defined for later), `role` the role granted
+    (`owner`, `editor`, `viewer`), `members` the workspace's size after
+    the grant as a scale bucket — never who. `share_accepted` fires once
+    per workspace per install when a workspace shared with this install
+    first syncs down over a network connection — `route` is `server`
+    (`idp` and `git` are defined for later), `role` is added once the
+    server has said it; the once-per-workspace latch is kept on the
+    device and the workspace's id never rides. The monetization shapes
     carry one closed-union value each: `license_activated` fires only
     on a license install you perform yourself (background license
     refreshes never emit) with `plan` as a coarse bucket
     (`free`/`individual`/`team`) — never a license id, key, licensee,
-    or seat count; `paywall_hit` and the `upgrade_cta_*` pair carry
-    only which in-app spot was involved (`seat-gate`, `license-pane`,
-    `grace-banner`), with `upgrade_cta_shown` firing at most once per
-    spot per session per UTC day. `mcp_client_connected` (2026-08, S21)
+    or seat count; `limit_hit` (2026-10) says which ceiling an install
+    ran into — `seats`, `service-accounts`, `dnr-rules` — and replaces
+    `paywall_hit` and the `dnr-rule-limit` error code on current
+    clients (both still accepted from older ones); the `upgrade_cta_*`
+    pair carries only which in-app spot was involved (`seat-gate`,
+    `license-pane`, `grace-banner`, `service-gate`), with
+    `upgrade_cta_shown` firing at most once per spot per session per
+    UTC day. `mcp_client_connected` (2026-08, S21)
     fires from the desktop app at most once per client per session per
     UTC day when an AI tool completes the MCP `initialize` handshake
     against the app's embedded MCP server — it carries only which
@@ -332,26 +410,31 @@ byte, sent or suppressed.
   silent, the batch simply rides the next flush, and nothing ever
   retries aggressively, blocks, or degrades the app.
 - **Storage**: the worker validates against the same compiled schema
-  and writes one Cloudflare Workers Analytics Engine data point per
-  event, carrying only the vocabulary values, the session id, the
-  install id, and one caller-derived value: the **coarse two-letter
-  country code** Cloudflare resolves at its edge (`cf-ipcountry`).
-  The IP address it derives from is never read into a data point, and
-  no other request header is either; no third-party analytics SDK or
-  processor is involved (Cloudflare already hosts the license worker
-  and is the only processor named in the privacy policy). Stored
-  column positions never change meaning; a column may be shared across
-  event names carrying the same kind of fact (the external source id
-  of `import_run`/`mcp_client_connected`), split by event name when
-  queried. Storage is a two-member dataset family (2026-08, S25):
-  events from installed apps land in the product dataset, while the
-  two anonymous landing-page rows described below
-  (`uninstall_reason`, `download_clicked`) land in a separate web
-  dataset with its own columns — they are unjoinable to installs by
-  construction, and the storage boundary now matches that identity
-  boundary. Monthly
-  aggregate snapshots (counts only — ids are aggregated away) are
-  committed to the repository as the long-term metrics ledger.
+  and keeps each accepted envelope as it arrived (2026-10) — one
+  immutable object per batch in a Cloudflare R2 bucket in the EU
+  jurisdiction, under a key made of the UTC day, the hour and a random
+  name — adding exactly two values of its own: the time it was received
+  and the **coarse two-letter country code** Cloudflare resolves at its
+  edge (`cf-ipcountry`). The IP address it derives from is never read
+  into the object, and no other request header is either; no
+  third-party analytics SDK or processor is involved (Cloudflare already
+  hosts the license worker and is the only processor named in the
+  privacy policy). The bucket's lifecycle rule deletes every object
+  thirteen months after it was written; that rule is the retention law.
+  Once a day, a loader we run ourselves reads the closed day's objects
+  into a Postgres warehouse — one row per event, exactly the columns of
+  the table below, generated from the same registry as the table —
+  where SQL views derive the aggregates we read (installs by stage,
+  weekly cohorts, daily counts, each ratio beside its bases); the raw
+  rows follow the same thirteen-month schedule and the aggregates, which
+  carry no identifier, are kept. The two anonymous landing-page rows
+  described below (`uninstall_reason`, `download_clicked`) ride the same
+  archive as envelope-less records with no install id and no session —
+  unjoinable to installs by construction. During the changeover the
+  worker also still writes one Cloudflare Workers Analytics Engine data
+  point per event — the previous store, whose rows expire after about
+  ninety days — until the dashboard that read it retires; the data is
+  the same either way.
 - **Uninstall ping (extension only)**: the extension registers
   `GET https://telemetry.openheaders.com/v1/uninstall?i=<installId>&a=<sinceInstall>&c=<channel>`
   as its browser uninstall URL — the page the browser opens when the
@@ -385,7 +468,12 @@ byte, sent or suppressed.
   session, nothing joinable. It counts a click on the website, never a
   download or an install; the apps themselves never call this route.
 - **Cadence**: batched — the host flushes the in-memory queue on an
-  interval and best-effort on quit.
+  interval and best-effort on quit. The command-line tool's process
+  ends with its command, so an envelope its quit flush could not
+  deliver in time is sealed into `telemetry-outbox.json` beside its
+  config file and sent at the start of the next command (2026-10); a
+  channel turned off deletes what it sealed, and the warehouse ignores
+  a redelivery of a batch that did land the first time.
 - **Off switches**: Settings → General → "Anonymous usage counting"
   (extension and desktop), `OH_TELEMETRY=0` env var or the `telemetry`
   config key (CLI). The daemon, served web app, and MCP server never
@@ -396,6 +484,81 @@ byte, sent or suppressed.
   the vocabulary has no such fields — and the telemetry worker is a
   separate deployment sharing no secrets or code paths with the
   license worker beyond the published schema.
+
+### What the warehouse keeps, column by column
+
+One row per event. `From` names the wire field in this document's
+words — `envelope.*` the batch fields above, `event.*` the event's
+own, `edge.*` the two values the worker adds, `row.*` the archive
+object's identity (its key and the event's position in it), `web.*`
+the landing-page records; `Rows` names the events that declare a
+column, which is empty on every other row. Generated from the
+warehouse's column registry — the table and the schema are one
+definition.
+
+| Column | Type | From | Rows |
+|---|---|---|---|
+| `object_key` | text | `row.objectKey` | every row |
+| `line_index` | integer | `row.lineIndex` | every row |
+| `provenance` | text | `row.provenance` | every row |
+| `sample_interval` | integer | `row.sampleInterval` | every row |
+| `received_at` | timestamptz | `edge.receivedAt` | every row |
+| `day` | date | `edge.receivedAt (UTC day)` | every row |
+| `name` | text | `event.name` | every row |
+| `schema_version` | integer | `envelope.schemaVersion` | every row |
+| `host` | text | `envelope.host` | every row |
+| `channel` | text | `envelope.channel` | every row |
+| `platform` | text | `envelope.platform` | every row |
+| `browser` | text | `envelope.browser` | every row |
+| `locale` | text | `envelope.locale` | every row |
+| `country` | text | `edge.country` | every row |
+| `version_year` | integer | `envelope.appVersion.year` | every row |
+| `version_month` | integer | `envelope.appVersion.month` | every row |
+| `version_patch` | integer | `envelope.appVersion.patch` | every row |
+| `version_beta` | integer | `envelope.appVersion.beta` | every row |
+| `app_version` | text | `envelope.appVersion (CalVer label)` | every row |
+| `arch` | text | `envelope.arch` | every row |
+| `os_version` | integer | `envelope.osVersion` | every row |
+| `browser_version` | integer | `envelope.browserVersion` | every row |
+| `install_id` | text | `envelope.installId` | every row |
+| `session_id` | text | `envelope.sessionId` | every row |
+| `since_install` | text | `envelope.sinceInstall` | every row |
+| `session_age` | text | `envelope.sessionAge` | every row |
+| `stage` | text | `envelope.state.stage` | every row |
+| `rules` | text | `envelope.state.rules (schema 2: session_start.rules)` | every row |
+| `requests` | text | `envelope.state.requests` | every row |
+| `workspaces` | text | `envelope.state.workspaces (schema 2: session_start.workspaces)` | every row |
+| `sync` | text | `envelope.state.sync (schema 2: session_start.sync)` | every row |
+| `plan` | text | `envelope.state.plan` | every row |
+| `role` | text | `envelope.state.role` | every row |
+| `team` | text | `envelope.state.team` | every row |
+| `profile` | text | `envelope.state.profile` | every row |
+| `active_days` | text | `envelope.state.activeDays` | every row |
+| `migrated_from` | text | `envelope.state.migratedFrom` | every row |
+| `milestone` | text | `event.kind` | milestone |
+| `rule_type` | text | `event.ruleType` | rule_created, rule_matched |
+| `origin` | text | `event.origin` | rule_created |
+| `protocol` | text | `event.protocol` | request_sent |
+| `import_source` | text | `event.source` | import_run |
+| `ok` | boolean | `event.ok` | import_run, workflow_run |
+| `route` | text | `event.route` | share_sent, share_accepted |
+| `share_role` | text | `event.role` | share_sent, share_accepted |
+| `share_members` | text | `event.members` | share_sent |
+| `tool` | text | `event.tool (schema 2: feature_used.feature)` | tool_used |
+| `surface` | text | `event.surface` | surface_opened |
+| `width` | integer | `event.width (floor)` | surface_opened |
+| `height` | integer | `event.height (floor)` | surface_opened |
+| `cta_id` | text | `event.id` | cta |
+| `cta_action` | text | `event.action` | cta |
+| `spot` | text | `event.spot (schema 2: the monetization surface)` | cta, limit_hit |
+| `limit_kind` | text | `event.limit` | limit_hit |
+| `license_plan` | text | `event.plan` | license_activated |
+| `mcp_client` | text | `event.client` | mcp_client_connected |
+| `peer` | text | `event.peer` | peer_connected |
+| `help_topic` | text | `event.topic` | help_opened |
+| `code` | text | `event.code` | error_beacon |
+| `reason` | text | `web.reason` | uninstall_reason |
+| `sent_at` | timestamptz | `envelope.sentAt` | every row |
 
 ### Crash and error reports (2026-10)
 
