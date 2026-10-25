@@ -138,7 +138,8 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.params.queryHeading': 'Query-Parameter',
   'workbench.editors.request.params.pathHeading': 'Pfadparameter',
-  'workbench.editors.request.params.pathEmpty': 'Tippe :name in die URL, um einen Pfadparameter hinzuzufügen.',
+  'workbench.editors.request.params.pathEmpty':
+    'Füge dem URL-Pfad vor einer ?query ein Segment /:name hinzu, um einen Pfadparameter anzulegen.',
   'workbench.editors.request.params.pathMissing': 'Kein Wert für {keys} – wird unverändert gesendet.',
   'workbench.editors.request.params.pathNameHeader': 'Name',
   'workbench.editors.request.params.queryInfoSummary':

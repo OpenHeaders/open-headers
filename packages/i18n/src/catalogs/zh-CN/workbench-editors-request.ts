@@ -117,7 +117,7 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.params.queryHeading': '查询参数',
   'workbench.editors.request.params.pathHeading': '路径参数',
-  'workbench.editors.request.params.pathEmpty': '在 URL 中输入 :name 即可添加路径参数。',
+  'workbench.editors.request.params.pathEmpty': '在 URL 路径中（?query 之前）添加 /:name 段即可创建路径参数。',
   'workbench.editors.request.params.pathMissing': '{keys} 没有值，将按原样发送。',
   'workbench.editors.request.params.pathNameHeader': '名称',
   'workbench.editors.request.params.queryInfoSummary':

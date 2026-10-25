@@ -183,7 +183,8 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.params.queryHeading': 'Параметры запроса',
   'workbench.editors.request.params.pathHeading': 'Параметры пути',
-  'workbench.editors.request.params.pathEmpty': 'Введите :name в URL-адресе, чтобы добавить параметр пути.',
+  'workbench.editors.request.params.pathEmpty':
+    'Добавьте сегмент /:name в путь URL-адреса, перед любым ?query, чтобы создать параметр пути.',
   'workbench.editors.request.params.pathMissing': 'Нет значения для {keys} — отправляется как написано.',
   'workbench.editors.request.params.pathNameHeader': 'Имя',
   'workbench.editors.request.params.queryInfoSummary':

@@ -132,7 +132,8 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.params.queryHeading': 'クエリパラメーター',
   'workbench.editors.request.params.pathHeading': 'パスパラメーター',
-  'workbench.editors.request.params.pathEmpty': 'URL に :name と入力するとパスパラメーターが追加されます。',
+  'workbench.editors.request.params.pathEmpty':
+    'URL のパスに（?query より前に）/:name セグメントを追加するとパスパラメーターが作成されます。',
   'workbench.editors.request.params.pathMissing': '{keys} に値がありません。入力のまま送信されます。',
   'workbench.editors.request.params.pathNameHeader': '名前',
   'workbench.editors.request.params.queryInfoSummary':

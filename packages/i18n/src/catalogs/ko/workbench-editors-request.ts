@@ -130,7 +130,8 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.params.queryHeading': '쿼리 매개변수',
   'workbench.editors.request.params.pathHeading': '경로 매개변수',
-  'workbench.editors.request.params.pathEmpty': 'URL 주소에 :name을 입력하면 경로 매개변수가 추가됩니다.',
+  'workbench.editors.request.params.pathEmpty':
+    'URL 경로에 ?query보다 앞에 /:name 세그먼트를 추가하면 경로 매개변수가 만들어집니다.',
   'workbench.editors.request.params.pathMissing': '{keys}에 값이 없습니다. 입력한 그대로 전송됩니다.',
   'workbench.editors.request.params.pathNameHeader': '이름',
   'workbench.editors.request.params.queryInfoSummary':

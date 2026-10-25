@@ -191,7 +191,7 @@ describe('ParamsTab — the Path Parameters table', () => {
       />,
     );
     expect(container.querySelector('[data-testid="oh-path-params-empty"]')?.textContent).toBe(
-      'Type :name in the URL to add a path parameter.',
+      'Add a /:name segment to the URL path, before any ?query, to create a path parameter.',
     );
     expect(container.querySelector('[data-testid="oh-grid-locked-key"]')).toBeNull();
   });

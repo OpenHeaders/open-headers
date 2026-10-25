@@ -131,7 +131,8 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.params.queryHeading': 'Parámetros de consulta',
   'workbench.editors.request.params.pathHeading': 'Parámetros de ruta',
-  'workbench.editors.request.params.pathEmpty': 'Escribe :name en la URL para añadir un parámetro de ruta.',
+  'workbench.editors.request.params.pathEmpty':
+    'Añade un segmento /:name a la ruta de la URL, antes de cualquier ?query, para crear un parámetro de ruta.',
   'workbench.editors.request.params.pathMissing': 'Sin valor para {keys}: se envía tal cual.',
   'workbench.editors.request.params.pathNameHeader': 'Nombre',
   'workbench.editors.request.params.queryInfoSummary':

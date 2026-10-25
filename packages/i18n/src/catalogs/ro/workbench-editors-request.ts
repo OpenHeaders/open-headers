@@ -183,7 +183,8 @@ export const workbenchEditorsRequest = {
   // ── Params / Headers tabs ──────────────────────────────────────────
   'workbench.editors.request.params.queryHeading': 'Parametri de interogare',
   'workbench.editors.request.params.pathHeading': 'Parametri de cale',
-  'workbench.editors.request.params.pathEmpty': 'Tastați :name în adresa URL pentru a adăuga un parametru de cale.',
+  'workbench.editors.request.params.pathEmpty':
+    'Adăugați un segment /:name la calea adresei URL, înaintea oricărui ?query, pentru a crea un parametru de cale.',
   'workbench.editors.request.params.pathMissing': 'Nicio valoare pentru {keys} – se trimite așa cum este scris.',
   'workbench.editors.request.params.pathNameHeader': 'Nume',
   'workbench.editors.request.params.queryInfoSummary':
