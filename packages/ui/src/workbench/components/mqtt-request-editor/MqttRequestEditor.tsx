@@ -533,13 +533,18 @@ const MqttRequestEditor: React.FC<MqttRequestEditorProps> = ({
               <Allotment.Pane minSize={220} preferredSize="55%">
                 <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   <div style={{ padding: '0 12px' }}>
-                    <Tabs
-                      activeKey={activeTab}
-                      onChange={setActiveTab}
-                      size="small"
-                      tabBarStyle={{ marginBottom: 0 }}
-                      items={tabItems}
-                    />
+                    {/* Every label reserves its hover-revealed (i) slot, so
+                      antd's 32px gutter on top reads as dead space; half
+                      of it keeps the bar compact without the slot. */}
+                    <ConfigProvider theme={{ components: { Tabs: { horizontalItemGutter: 16 } } }}>
+                      <Tabs
+                        activeKey={activeTab}
+                        onChange={setActiveTab}
+                        size="small"
+                        tabBarStyle={{ marginBottom: 0 }}
+                        items={tabItems}
+                      />
+                    </ConfigProvider>
                   </div>
                   <div
                     style={{
