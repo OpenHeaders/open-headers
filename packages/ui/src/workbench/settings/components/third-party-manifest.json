@@ -264,7 +264,7 @@
     },
     {
       "name": "@modelcontextprotocol/sdk",
-      "version": "1.30.0",
+      "version": "1.32.1",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -1662,7 +1662,7 @@
     },
     {
       "name": "follow-redirects",
-      "version": "1.16.0",
+      "version": "1.16.1",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -1794,7 +1794,7 @@
     },
     {
       "name": "hono",
-      "version": "4.13.9",
+      "version": "4.13.13",
       "license": "MIT",
       "hosts": [
         "desktop"
@@ -2800,7 +2800,7 @@
     },
     {
       "name": "proxy-addr",
-      "version": "2.0.7",
+      "version": "2.0.8",
       "license": "MIT",
       "hosts": [
         "desktop"
