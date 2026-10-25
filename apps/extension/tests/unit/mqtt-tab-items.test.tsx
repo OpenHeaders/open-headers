@@ -190,7 +190,8 @@ describe('mqtt tab items — grid counts', () => {
     expect(text(label('topics', { draft }))).toBe('Topics 2');
     cleanup();
     const unsaved = label('topics', { draft, unsaved: { topics: true } });
-    expect(unsaved.querySelector('[data-testid="oh-section-count-unsaved"]')?.textContent).toBe('2');
+    expect(unsaved.querySelector('[data-testid="oh-section-count"]')?.textContent).toBe('2');
+    expect(has(unsaved, 'oh-section-unsaved')).toBe(true);
     cleanup();
     expect(has(label('topics', { unsaved: { topics: true } }), 'oh-section-unsaved')).toBe(true);
   });

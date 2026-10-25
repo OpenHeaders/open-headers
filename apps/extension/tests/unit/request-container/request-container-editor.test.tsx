@@ -449,7 +449,8 @@ describe('RequestContainerEditor — the Settings section', () => {
     // The rail's Settings tab counts the one set knob, unsaved; the
     // HTTP sub-tab dots unsaved — and no other kind's: the HTTP
     // slice's verification is HTTP's alone (the per-kind law).
-    expect(within(settingsRailTab()).getByTestId('oh-section-count-unsaved').textContent).toBe('1');
+    expect(within(settingsRailTab()).getByTestId('oh-section-count').textContent).toBe('1');
+    expect(within(settingsRailTab()).getByTestId('oh-section-unsaved')).toBeTruthy();
     expect(
       within(screen.getByTestId('oh-container-settings-kind-http')).getByTestId('oh-section-unsaved'),
     ).toBeTruthy();
@@ -484,13 +485,14 @@ describe('RequestContainerEditor — the Settings section', () => {
       ],
     };
     renderSettings();
-    expect(within(settingsRailTab()).queryByTestId('oh-section-count-unsaved')).toBeNull();
+    expect(within(settingsRailTab()).queryByTestId('oh-section-unsaved')).toBeNull();
     expect(timeoutKnob().value).toBe('30 s');
     fireEvent.click(sslSwitch('request'));
     fireEvent.click(screen.getByRole('button', { name: 'Reset Request timeout to default' }));
     // Three knobs still set across two kinds (the cleared timeout
     // left the count), two of them unsaved.
-    expect(within(settingsRailTab()).getByTestId('oh-section-count-unsaved').textContent).toBe('3');
+    expect(within(settingsRailTab()).getByTestId('oh-section-count').textContent).toBe('3');
+    expect(within(settingsRailTab()).getByTestId('oh-section-unsaved')).toBeTruthy();
 
     fireEvent.click(await findSaveButton());
     await waitFor(() => expect(applyRequestCollectionSetSettings).toHaveBeenCalledTimes(1));

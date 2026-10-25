@@ -7,6 +7,7 @@ export const lightHighContrast: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.highContrast.description',
   honorsAccentColor: false,
   dirtyTone: '#ff7875',
+  unresolvedTone: '#f5222d',
   saveAccent: '#f5722d',
   antdTokens: {
     borderRadius: 4,

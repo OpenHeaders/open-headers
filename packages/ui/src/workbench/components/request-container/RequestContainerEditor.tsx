@@ -73,7 +73,7 @@ import type { RequestContainerSection } from '../../types';
 import RequestCollectionOverview from '../overviews/RequestCollectionOverview';
 import RequestFolderOverview from '../overviews/RequestFolderOverview';
 import VariableTable from '../panels/VariableTable';
-import { TabCount, TabDot } from '../request-editor/request-tab-items';
+import { TabCount, toneDot } from '../request-editor/request-tab-items';
 import ScriptsTab from '../request-editor/ScriptsTab';
 import {
   SCRIPT_KINDS,
@@ -432,7 +432,7 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         label: (
           <span>
             {t('workbench.editors.request.tab.authorization')}
-            {authUnsaved ? <TabDot tone="unsaved" /> : draft.pool.auths.length > 0 ? <TabDot /> : null}
+            {toneDot(false, authUnsaved, draft.pool.auths.length > 0)}
           </span>
         ),
       },
@@ -441,11 +441,8 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         label: (
           <span>
             {t('workbench.editors.request.tab.scripts')}
-            {scriptsMark > 0 ? (
-              <TabCount n={scriptsMark} unsaved={scriptsUnsaved} />
-            ) : scriptsUnsaved ? (
-              <TabDot tone="unsaved" />
-            ) : null}
+            {scriptsMark > 0 && <TabCount n={scriptsMark} />}
+            {toneDot(false, scriptsUnsaved, false)}
           </span>
         ),
       },
@@ -454,11 +451,8 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
         label: (
           <span>
             {t('workbench.editors.request.tab.settings')}
-            {settingsMark > 0 ? (
-              <TabCount n={settingsMark} unsaved={settingsUnsaved} />
-            ) : settingsUnsaved ? (
-              <TabDot tone="unsaved" />
-            ) : null}
+            {settingsMark > 0 && <TabCount n={settingsMark} />}
+            {toneDot(false, settingsUnsaved, false)}
           </span>
         ),
       },
@@ -469,11 +463,8 @@ const RequestContainerEditor: React.FC<RequestContainerEditorProps> = ({
               label: (
                 <span>
                   {t('workbench.overview.action.variables')}
-                  {variablesMark > 0 ? (
-                    <TabCount n={variablesMark} unsaved={variablesUnsaved} />
-                  ) : variablesUnsaved ? (
-                    <TabDot tone="unsaved" />
-                  ) : null}
+                  {variablesMark > 0 && <TabCount n={variablesMark} />}
+                  {toneDot(false, variablesUnsaved, false)}
                 </span>
               ),
             },

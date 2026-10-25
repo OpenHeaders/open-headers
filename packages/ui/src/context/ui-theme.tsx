@@ -20,14 +20,16 @@ export interface UiTheme {
   /** Monaco theme id matching the active variant — the single source of
    *  truth for editor pane theming. */
   monacoTheme: string;
-  /** The color every "differs from the saved entity" mark wears — the
+  /** The color every "differs from the saved entity" dot wears — the
    *  tab bar's and sidebar's unsaved dots, the request editor's section
-   *  dots and count badges (a white number sits on it), the Settings
-   *  rows' and script rail's dots, the MQTT gears' badge. The variant
-   *  pins it (`ThemeVariant.dirtyTone`): the light variants the salmon
-   *  the marks were born with, the dark variants a deep red white reads
-   *  on (white on the salmon read at ~2.4:1). */
+   *  dots, the Settings rows' and script rail's dots, the MQTT gears'
+   *  badge. The variant pins it (`ThemeVariant.dirtyTone`): the salmon
+   *  the marks were born with, on every variant. */
   dirtyTone: string;
+  /** The color the unresolved dots wear — the field's right-end dot
+   *  and the tab label's (`ThemeVariant.unresolvedTone`): a strong red
+   *  a step past `colorError`, apart from the salmon dirty dot. */
+  unresolvedTone: string;
   /** The commit action's accent — the fill under the white label of
    *  the editor shell's Save while dirty and of every "do it" button
    *  cut from it. The variant pins it (`ThemeVariant.saveAccent`): the
@@ -44,6 +46,7 @@ const DEFAULT_UI_THEME: UiTheme = {
   isDarkMode: false,
   monacoTheme: 'vs',
   dirtyTone: '#ff7875',
+  unresolvedTone: '#f5222d',
   saveAccent: '#f5722d',
 };
 

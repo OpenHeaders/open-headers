@@ -25,11 +25,18 @@ export interface ThemeVariant {
   /** When false, the variant pins its own primary and ignores
    *  `appearance.accentColor` (high-contrast and tinted variants). */
   honorsAccentColor: boolean;
-  /** The color every "differs from the saved entity" mark wears (the
-   *  unsaved dots, the section count badge's fill under a white
-   *  number) — see `themes/dirty-tone.ts`. A dark variant pins a deep
-   *  red so white reads on it; the light variants keep the salmon. */
+  /** The color every "differs from the saved entity" dot wears — the
+   *  salmon the marks were born with, on every variant (the user's
+   *  call; a deeper dark pin read as a brick red beside the error
+   *  dots). Only dots wear it: no text ever sits on this tone. */
   dirtyTone: string;
+  /** The color the unresolved dots wear — the field's right-end dot
+   *  and the tab label's, flagging a `{{ref}}` or a `:name` path
+   *  parameter that would go out as written. A strong red a step past
+   *  antd's `colorError`, so the dot never reads as the salmon dirty
+   *  dot beside it (the user's call); the chip itself keeps
+   *  `colorError`. */
+  unresolvedTone: string;
   /** The commit action's accent — the fill under the white label of
    *  the editor shell's Save while the form is dirty and of every
    *  "do it" button cut from it (the value editors' Save, the variable

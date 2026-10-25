@@ -64,12 +64,14 @@
   scrollbar-color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)) transparent;
 }
 
-/* Unresolved-variable flag: a small red dot pinned to the field's right
+/* Unresolved-variable flag: a small dot pinned to the field's right
  * end, shown even when the value is collapsed to an ellipsis — so a row
  * advertises a missing `{{ref}}` without the user expanding it to hunt
  * for the highlighted ref. The wrapper reserves right space (border-box,
  * so it never overflows) and the editable's `width: 100%` shrinks to
- * clear the dot. */
+ * clear the dot. The dot is the tab labels' unresolved dot
+ * (request-tab-items.tsx) — the colour is the theme's
+ * `unresolvedTone`, set inline by TemplateInput. */
 .oh-template-input-wrapper--flagged {
   box-sizing: border-box;
   padding-right: 14px;
@@ -82,7 +84,6 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ant-color-error, #ff4d4f);
   pointer-events: none;
 }
 

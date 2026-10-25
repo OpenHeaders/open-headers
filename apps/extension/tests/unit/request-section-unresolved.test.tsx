@@ -3,8 +3,9 @@
  * Per-section `{{ref}}` resolvability (useSectionUnresolved.ts, the
  * core HTTP scan's groups through the shared resolver hook) — the
  * Params tab's red dot covers the Path Parameters VALUES: a template
- * field like the query rows', on the same tab. A literal value never
- * dots; the keys are identifiers and are never walked. The Settings
+ * field like the query rows', on the same tab — and a parameter with
+ * NO value, which goes out as written like a failed ref. A literal
+ * value never dots; the keys are identifiers and are never walked. The Settings
  * tab dots on the SNI override, the one knob the executor resolves.
  */
 
@@ -44,6 +45,13 @@ describe('useSectionUnresolved — path parameter values', () => {
         undefined,
       ),
     );
+    expect(result.current.sectionUnresolved.params).toBe(true);
+    expect(result.current.sectionUnresolved.url).toBe(false);
+    expect(result.current.hasUnresolvedRefs).toBe(true);
+  });
+
+  it('a path parameter with no value dots the Params tab like a failed ref', () => {
+    const { result } = renderHook(() => useSectionUnresolved(buildRequestUpdates(draftWithPathValue('')), undefined));
     expect(result.current.sectionUnresolved.params).toBe(true);
     expect(result.current.sectionUnresolved.url).toBe(false);
     expect(result.current.hasUnresolvedRefs).toBe(true);

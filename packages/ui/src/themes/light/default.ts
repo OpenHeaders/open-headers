@@ -8,6 +8,7 @@ export const lightDefault: ThemeVariant = {
   descriptionKey: 'workbench.settings.def.appearance.lightVariant.option.default.description',
   honorsAccentColor: true,
   dirtyTone: '#ff7875',
+  unresolvedTone: '#f5222d',
   saveAccent: '#f5722d',
   antdTokens: {
     borderRadius: 6,

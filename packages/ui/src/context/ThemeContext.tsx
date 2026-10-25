@@ -176,6 +176,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
             isDarkMode,
             monacoTheme: variant.monacoTheme,
             dirtyTone: variant.dirtyTone,
+            unresolvedTone: variant.unresolvedTone,
             saveAccent: variant.saveAccent,
           }}
         >

@@ -1,5 +1,5 @@
 import type { Collection, LiveWorkflow, Request, Rule } from '@openheaders/core/types';
-import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
+import { isRequestResolvable, isRuleResolvable, missingPathParamKeys } from '@openheaders/core/utils';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { useMemo } from 'react';
 import type { WorkbenchTab } from '../types';
@@ -31,9 +31,12 @@ export interface EntityStatusSets {
  * render. Two families of set:
  *
  *   • unresolvable* — rules/requests/workflows whose template refs don't
- *     resolve in the active scope chain. Matches the DNR compile gate's
- *     discipline: an entity with unresolved refs can't run, so the UI
- *     treats it like draft/paused.
+ *     resolve in the active scope chain — and a request naming a `:name`
+ *     path parameter with no value, the editor's Params-tab reading
+ *     (`useSectionUnresolved`), so the sidebar badge and the tab dot
+ *     never disagree. Matches the DNR compile gate's discipline: an
+ *     entity with unresolved refs can't run, so the UI treats it like
+ *     draft/paused.
  *   • dirty* / scriptsReviewPending — tab-derived (tabs are the source of
  *     truth for dirty) and workspace-scoped (pending-review reminders the
  *     user clears by opening tabs).
@@ -78,7 +81,8 @@ export function useEntityStatusSets({
           request,
           (name) => variableResolver.resolve(name, context),
           (name, ns) => variableResolver.resolveScopedWithDiagnostics(name, ns, context),
-        )
+        ) ||
+        missingPathParamKeys(request.url, request.pathParams).length > 0
       )
         out.add(request.uid);
     }

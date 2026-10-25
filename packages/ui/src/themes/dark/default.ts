@@ -8,7 +8,8 @@ export const darkDefault: ThemeVariant = {
   labelKey: 'workbench.settings.def.appearance.darkVariant.option.default.label',
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.default.description',
   honorsAccentColor: true,
-  dirtyTone: '#b8432f',
+  dirtyTone: '#ff7875',
+  unresolvedTone: '#f5222d',
   saveAccent: '#c2410c',
   antdTokens: {
     ...DARK_SHADOW_TOKENS,

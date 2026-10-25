@@ -26,6 +26,8 @@
 
 import { CloseCircleFilled, EditOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { useT } from '@openheaders/ui/context/LocaleContext';
+import { parsePathParamSpans } from '@openheaders/core/utils';
+import { useUiTheme } from '@openheaders/ui/context/ui-theme';
 import { theme, Tooltip } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -100,6 +102,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     );
 
     const t = useT();
+    const { unresolvedTone } = useUiTheme();
     const autoContext = useAutoSuggestionContext();
     const effectiveContext = suggestionContext ?? autoContext;
     const autocompleteEnabled = useSettingValue('rulesEngine.variableAutocomplete');
@@ -128,16 +131,23 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       };
     }, [pathParams, classify]);
 
-    // Whether the value holds an UNRESOLVED ref — drives the optional
-    // right-end dot. Reuses the highlighter's classifier so the dot stays
-    // in lockstep with the red ref highlight; only walked when opted in.
+    // Whether the value holds an UNRESOLVED ref — a `{{ref}}` that fails
+    // to resolve or, on the URL bar, a `:name` token with no value —
+    // drives the optional right-end dot. Reuses the highlighter's two
+    // classifiers so the dot stays in lockstep with the red highlight;
+    // only walked when opted in.
     const hasUnresolvedRef = useMemo(() => {
       if (!flagUnresolved || !value) return false;
       for (const m of value.matchAll(new RegExp(TEMPLATE_REGEX.source, TEMPLATE_REGEX.flags))) {
         if (classify(m[1]) === 'unresolved') return true;
       }
+      if (classifyPathParam) {
+        for (const span of parsePathParamSpans(value)) {
+          if (classifyPathParam(span.name) === 'unresolved') return true;
+        }
+      }
       return false;
-    }, [flagUnresolved, value, classify]);
+    }, [flagUnresolved, value, classify, classifyPathParam]);
 
     const {
       isOpen,
@@ -438,6 +448,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
             className="oh-template-input-unresolved-dot"
             aria-hidden="true"
             title={t('shared.templateInput.unresolvedDot')}
+            style={{ background: unresolvedTone }}
           />
         )}
       </span>

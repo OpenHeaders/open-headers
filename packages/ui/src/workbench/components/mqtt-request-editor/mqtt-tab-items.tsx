@@ -5,12 +5,12 @@
  * the orchestrator hands it the draft and the two unsaved readings
  * (per section, per settings knob) and renders the result.
  *
- * Tone precedence on every label (the HTTP rule): red unresolved >
- * salmon unsaved > neutral has-content > nothing. On the grid tabs
- * (Topics / Properties) the count badge itself carries the unsaved
- * tone and the red dot stands beside it; a grid whose rows were all
- * removed but not yet saved has no badge, so a bare salmon dot stands
- * in. The unresolved reading is the core scan's per-field grouping
+ * One law on every label (the HTTP rule): the count badge on the grid
+ * tabs (Topics / Properties) only ever counts, in the neutral fill;
+ * beside it, or alone on the other tabs, ONE dot reads red unresolved
+ * > salmon unsaved > neutral has-content (the grid tabs skip the
+ * neutral dot — the count already says the grid has rows). The
+ * unresolved reading is the core scan's per-field grouping
  * mapped onto the tabs (`mqtt-section-unresolved.ts`).
  *
  * Every label closes with the tab's `(i)` — hover-revealed, its slot
@@ -22,7 +22,7 @@
 import type React from 'react';
 import type { Translate } from '@openheaders/ui/context/LocaleContext';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { TabCount, TabDot } from '../request-editor/request-tab-items';
+import { TabCount, toneDot } from '../request-editor/request-tab-items';
 import SpecTabLabel from '../shared/SpecTabLabel';
 import { draftToLastWill, type MqttDraft } from './draft';
 import { anyMqttScriptUnsaved, type MqttUnsavedSections, NO_UNSAVED_MQTT_SECTIONS } from './mqtt-section-unsaved';
@@ -56,23 +56,15 @@ export interface MqttTabItemsInput {
   ownSettings: boolean;
 }
 
-/** A grid tab's badge: the count wearing the unsaved tone, a bare
- *  salmon dot at zero rows while the slice is unsaved, else nothing;
- *  the red dot stands beside whichever it is (the HTTP grid tabs). */
+/** A grid tab's marks: the neutral count badge while the grid has
+ *  rows, then the one state dot (the HTTP grid tabs). */
 function gridMark(count: number, unsaved: boolean, unresolved: boolean): React.ReactNode {
   return (
     <>
-      {count > 0 ? <TabCount n={count} unsaved={unsaved} /> : unsaved ? <TabDot tone="unsaved" /> : null}
-      {unresolved && <TabDot tone="error" />}
+      {count > 0 && <TabCount n={count} />}
+      {toneDot(unresolved, unsaved, false)}
     </>
   );
-}
-
-/** Red over salmon over neutral over nothing. */
-function toneMark(unresolved: boolean, unsaved: boolean, hasContent: boolean): React.ReactNode {
-  if (unresolved) return <TabDot tone="error" />;
-  if (unsaved) return <TabDot tone="unsaved" />;
-  return hasContent ? <TabDot /> : null;
 }
 
 /** The label is a flex row so the glyph's slot is laid out whether or
@@ -114,16 +106,16 @@ export function buildMqttTabItems({
   const hasDocs = draft.description.trim() !== '';
   const ownAuth = draft.auth.type !== 'none' && draft.auth.type !== 'inherit';
   return [
-    { key: 'docs', label: tabLabel('docs', t('workbench.editors.mqtt.tab.docs'), toneMark(false, unsaved.docs, hasDocs), t) },
+    { key: 'docs', label: tabLabel('docs', t('workbench.editors.mqtt.tab.docs'), toneDot(false, unsaved.docs, hasDocs), t) },
     {
       key: 'message',
-      label: tabLabel('message', t('workbench.editors.mqtt.tab.message'), toneMark(unresolved.message, unsaved.message, false), t),
+      label: tabLabel('message', t('workbench.editors.mqtt.tab.message'), toneDot(unresolved.message, unsaved.message, false), t),
     },
     {
       key: 'topics',
       label: tabLabel('topics', t('workbench.editors.mqtt.tab.topics'), gridMark(topicCount, unsaved.topics, unresolved.topics), t),
     },
-    { key: 'auth', label: tabLabel('auth', t('workbench.editors.mqtt.tab.auth'), toneMark(unresolved.auth, unsaved.auth, ownAuth), t) },
+    { key: 'auth', label: tabLabel('auth', t('workbench.editors.mqtt.tab.auth'), toneDot(unresolved.auth, unsaved.auth, ownAuth), t) },
     {
       key: 'properties',
       label: tabLabel(
@@ -138,7 +130,7 @@ export function buildMqttTabItems({
       label: tabLabel(
         'lastwill',
         t('workbench.editors.mqtt.tab.lastWill'),
-        toneMark(unresolved.lastWill, unsaved.lastWill, willConfigured),
+        toneDot(unresolved.lastWill, unsaved.lastWill, willConfigured),
         t,
       ),
     },
@@ -147,7 +139,7 @@ export function buildMqttTabItems({
       label: tabLabel(
         'scripts',
         t('workbench.editors.mqtt.tab.scripts'),
-        toneMark(false, anyMqttScriptUnsaved(unsaved.scripts), anyScript),
+        toneDot(false, anyMqttScriptUnsaved(unsaved.scripts), anyScript),
         t,
       ),
     },
@@ -156,7 +148,7 @@ export function buildMqttTabItems({
       label: tabLabel(
         'settings',
         t('workbench.editors.mqtt.tab.settings'),
-        toneMark(unresolved.settings, unsavedSettings.size > 0, ownSettings),
+        toneDot(unresolved.settings, unsavedSettings.size > 0, ownSettings),
         t,
       ),
     },

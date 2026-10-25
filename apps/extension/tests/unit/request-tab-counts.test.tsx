@@ -21,6 +21,7 @@ import {
   NO_UNSAVED_SECTIONS,
   type UnsavedSections,
 } from '@openheaders/ui/workbench/components/request-editor/section-unsaved';
+import type { SettingsKnobKey } from '@openheaders/ui/workbench/components/request-editor/settings-unsaved';
 import type { SectionUnresolved } from '@openheaders/ui/workbench/components/request-editor/useSectionUnresolved';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -111,13 +112,15 @@ describe('request editor tab badge counts', () => {
 });
 
 describe('request editor tab unsaved (salmon) tones', () => {
-  it('recolors the Headers/Params count badge while the section is unsaved', () => {
+  it('keeps the Headers/Params count badge neutral and dots the unsaved section beside it', () => {
     const draft = { ...emptyDraft(), headers: [kvRow('X-A', '1')] };
     const on = labelWithUnsaved('headers', { headers: true }, draft);
-    expect(on.querySelector('[data-testid="oh-section-count-unsaved"]')?.textContent).toBe('1');
+    expect(on.querySelector('[data-testid="oh-section-count"]')?.textContent).toBe('1');
+    expect(on.querySelector('[data-testid="oh-section-unsaved"]')).toBeTruthy();
     cleanup();
     const off = labelWithUnsaved('headers', {}, draft);
-    expect(off.querySelector('[data-testid="oh-section-count-unsaved"]')).toBeNull();
+    expect(off.querySelector('[data-testid="oh-section-count"]')?.textContent).toBe('1');
+    expect(off.querySelector('[data-testid="oh-section-unsaved"]')).toBeNull();
     expect(off.textContent?.trim()).toBe('Headers 1');
   });
 
@@ -142,13 +145,17 @@ describe('request editor tab unsaved (salmon) tones', () => {
     expect(labelWithUnsaved('docs', {}).querySelector('[data-testid="oh-section-unsaved"]')).toBeNull();
   });
 
-  it('keeps the red unresolved tone above the unsaved tone on Body', () => {
-    const items = buildRequestTabItems(emptyDraft(), { ...NONE, body: true }, t, undefined, undefined, {
-      ...NO_UNSAVED_SECTIONS,
-      body: true,
-    });
-    const item = items.find((i) => i.key === 'body');
+  it.each([
+    ['params', { ...NO_UNSAVED_SECTIONS, params: true }, undefined],
+    ['authorization', { ...NO_UNSAVED_SECTIONS, auth: true }, undefined],
+    ['body', { ...NO_UNSAVED_SECTIONS, body: true }, undefined],
+    ['settings', NO_UNSAVED_SECTIONS, new Set<SettingsKnobKey>(['timeoutMs'])],
+  ] as const)('shows the one red unresolved dot over the unsaved dot on %s', (key, unsaved, knobs) => {
+    const section = key === 'authorization' ? 'auth' : key;
+    const items = buildRequestTabItems(emptyDraft(), { ...NONE, [section]: true }, t, undefined, knobs, unsaved);
+    const item = items.find((i) => i.key === key);
     const { container } = render(<div>{item?.label}</div>);
+    expect(container.querySelectorAll('span[style*="border-radius: 50%"]')).toHaveLength(1);
     expect(container.querySelector('[data-testid="oh-section-unresolved"]')).toBeTruthy();
     expect(container.querySelector('[data-testid="oh-section-unsaved"]')).toBeNull();
   });

@@ -42,23 +42,21 @@ const NODE_SETTINGS_KNOBS: readonly SettingsKnobKey[] = [
   'followAuthorizationHeader',
 ];
 
-/** Mini count badge on a tab label. `unsaved` recolors it in the
- *  sidebar/tab-bar dirty salmon — the section's rows differ from the
- *  saved request, and the badge doubles as the dirty dot. */
-export const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsaved }) => {
+/** Mini count badge on a tab label. It only ever counts, in the
+ *  neutral fill — state (unsaved, unresolved) is the dot beside it. */
+export const TabCount: React.FC<{ n: number }> = ({ n }) => {
   const { token } = theme.useToken();
-  const { dirtyTone } = useUiTheme();
   return (
     <span
-      data-testid={unsaved === true ? 'oh-section-count-unsaved' : undefined}
+      data-testid="oh-section-count"
       style={{
         display: 'inline-block',
         marginLeft: 4,
         padding: '0 6px',
         fontSize: 10,
         fontWeight: 500,
-        color: unsaved === true ? '#fff' : token.colorTextSecondary,
-        background: unsaved === true ? dirtyTone : token.colorFillSecondary,
+        color: token.colorTextSecondary,
+        background: token.colorFillSecondary,
         borderRadius: 8,
         lineHeight: '16px',
       }}
@@ -68,16 +66,17 @@ export const TabCount: React.FC<{ n: number; unsaved?: boolean }> = ({ n, unsave
   );
 };
 
-/** Small colored dot shown on a tab label to flag that the section
- *  has content OR an unresolved `{{ref}}`. The default tone is the
- *  neutral secondary — a fact, never the active tab's primary color;
- *  `tone='error'` renders in red to match the inline mirror + sidebar
- *  badge; `tone='unsaved'` renders in the sidebar/tab-bar dirty salmon
- *  — the section holds knobs that differ from the saved request (see
- *  settings-unsaved.ts). */
+/** The one state dot on a tab label. The default tone is the neutral
+ *  secondary — the section has content; a fact, never the active tab's
+ *  primary color. `tone='unsaved'` is the dirty salmon — the section
+ *  differs from the saved request (see settings-unsaved.ts);
+ *  `tone='error'` is the variant's unresolved red (the field dot in
+ *  TemplateInput paints the same) — the section holds a `{{ref}}` or
+ *  a `:name` path parameter that would go out as written. Red over
+ *  salmon over neutral: {@link toneDot}. */
 export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ tone = 'default' }) => {
   const { token } = theme.useToken();
-  const { dirtyTone } = useUiTheme();
+  const { dirtyTone, unresolvedTone } = useUiTheme();
   return (
     <span
       data-testid={
@@ -88,13 +87,22 @@ export const TabDot: React.FC<{ tone?: 'default' | 'error' | 'unsaved' }> = ({ t
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: tone === 'error' ? token.colorError : tone === 'unsaved' ? dirtyTone : token.colorTextSecondary,
+        background: tone === 'error' ? unresolvedTone : tone === 'unsaved' ? dirtyTone : token.colorTextSecondary,
         marginLeft: 4,
         verticalAlign: 'middle',
       }}
     />
   );
 };
+
+/** The one dot a tab label carries: red unresolved over salmon unsaved
+ *  over neutral has-content over nothing. A badge tab passes
+ *  `hasContent=false` — its count already says the section has rows. */
+export function toneDot(unresolved: boolean, unsaved: boolean, hasContent: boolean): React.ReactNode {
+  if (unresolved) return <TabDot tone="error" />;
+  if (unsaved) return <TabDot tone="unsaved" />;
+  return hasContent ? <TabDot /> : null;
+}
 
 /** Build the AntD Tabs items for the request editor's sub-tab bar.
  *  Counters are body-aware (auto-gen header count sheds Content-Type +
@@ -153,11 +161,11 @@ export function buildRequestTabItems(
     has('timeoutMs') ||
     (!browserRuntime && (NODE_SETTINGS_KNOBS.some(has) || has('proxyUrl') || has('proxyCredentialRef')));
 
-  // Tone precedence on every label: red unresolved > salmon unsaved >
-  // neutral has-content. On the badge tabs (Params / Headers) the count
-  // badge itself carries the unsaved tone; a section whose rows were
-  // all removed but not yet saved has no badge, so a bare unsaved dot
-  // stands in. Docs has content once a description is written;
+  // One law on every label: the count badge (Params / Headers) only
+  // ever counts, in the neutral fill; beside it, or alone on the other
+  // tabs, ONE dot reads red unresolved > salmon unsaved > neutral
+  // has-content (the badge tabs skip the neutral dot — the count
+  // already says the section has rows). Docs has content once a description is written;
   // Authorization once the request holds its OWN auth — any type but
   // Inherit (an explicit None overrides the chain on purpose), the
   // Settings rows' explicit-wins reading.
@@ -169,7 +177,7 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.docs')}{' '}
-          {unsaved.docs ? <TabDot tone="unsaved" /> : hasDocs ? <TabDot /> : null}
+          {toneDot(false, unsaved.docs, hasDocs)}
         </span>
       ),
     },
@@ -178,12 +186,8 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.params')}{' '}
-          {paramCount > 0 ? (
-            <TabCount n={paramCount} unsaved={unsaved.params} />
-          ) : unsaved.params ? (
-            <TabDot tone="unsaved" />
-          ) : null}
-          {sectionUnresolved.params && <TabDot tone="error" />}
+          {paramCount > 0 && <TabCount n={paramCount} />}
+          {toneDot(sectionUnresolved.params, unsaved.params, false)}
         </span>
       ),
     },
@@ -192,13 +196,7 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.authorization')}
-          {sectionUnresolved.auth ? (
-            <TabDot tone="error" />
-          ) : unsaved.auth ? (
-            <TabDot tone="unsaved" />
-          ) : ownAuth ? (
-            <TabDot />
-          ) : null}
+          {toneDot(sectionUnresolved.auth, unsaved.auth, ownAuth)}
         </span>
       ),
     },
@@ -207,12 +205,8 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.headers')}{' '}
-          {headerCount > 0 ? (
-            <TabCount n={headerCount} unsaved={unsaved.headers} />
-          ) : unsaved.headers ? (
-            <TabDot tone="unsaved" />
-          ) : null}
-          {sectionUnresolved.headers && <TabDot tone="error" />}
+          {headerCount > 0 && <TabCount n={headerCount} />}
+          {toneDot(sectionUnresolved.headers, unsaved.headers, false)}
         </span>
       ),
     },
@@ -221,13 +215,7 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.body')}{' '}
-          {sectionUnresolved.body ? (
-            <TabDot tone="error" />
-          ) : unsaved.body ? (
-            <TabDot tone="unsaved" />
-          ) : draft.body.type !== 'none' ? (
-            <TabDot />
-          ) : null}
+          {toneDot(sectionUnresolved.body, unsaved.body, draft.body.type !== 'none')}
         </span>
       ),
     },
@@ -236,11 +224,7 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.scripts')} {scriptsExtra}{' '}
-          {unsaved.preRequestScript || unsaved.postResponseScript ? (
-            <TabDot tone="unsaved" />
-          ) : scriptsMark > 0 ? (
-            <TabDot />
-          ) : null}
+          {toneDot(false, unsaved.preRequestScript || unsaved.postResponseScript, scriptsMark > 0)}
         </span>
       ),
     },
@@ -249,13 +233,7 @@ export function buildRequestTabItems(
       label: (
         <span>
           {t('workbench.editors.request.tab.settings')}{' '}
-          {sectionUnresolved.settings ? (
-            <TabDot tone="error" />
-          ) : settingsUnsaved ? (
-            <TabDot tone="unsaved" />
-          ) : settingsDirty ? (
-            <TabDot />
-          ) : null}
+          {toneDot(sectionUnresolved.settings, settingsUnsaved, settingsDirty)}
         </span>
       ),
     },

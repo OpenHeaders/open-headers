@@ -68,6 +68,27 @@ describe('TemplateInput — hovering a :name token', () => {
     expect(open.mock.calls[1][0].kind).toBeUndefined();
   });
 
+  it('flags the right-end dot for a :name token with no value, and clears it once the row is filled', () => {
+    const { container, rerender } = render(
+      <TemplateInput
+        value="https://api.openheaders.io/users/:id"
+        onChange={vi.fn()}
+        flagUnresolved
+        pathParams={{ rows: [{ key: 'id', value: '' }], onValueChange: vi.fn() }}
+      />,
+    );
+    expect(container.querySelector('.oh-template-input-unresolved-dot')).toBeTruthy();
+    rerender(
+      <TemplateInput
+        value="https://api.openheaders.io/users/:id"
+        onChange={vi.fn()}
+        flagUnresolved
+        pathParams={{ rows: [{ key: 'id', value: '42' }], onValueChange: vi.fn() }}
+      />,
+    );
+    expect(container.querySelector('.oh-template-input-unresolved-dot')).toBeNull();
+  });
+
   it('a field without the opt-in leaves a colon as plain text', () => {
     const { container } = render(<TemplateInput value="/users/:id" onChange={vi.fn()} />);
     expect(container.querySelector('[data-path-param]')).toBeNull();

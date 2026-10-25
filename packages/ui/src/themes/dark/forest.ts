@@ -7,7 +7,8 @@ export const darkForest: ThemeVariant = {
   labelKey: 'workbench.settings.def.appearance.darkVariant.option.forest.label',
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.forest.description',
   honorsAccentColor: false,
-  dirtyTone: '#b8432f',
+  dirtyTone: '#ff7875',
+  unresolvedTone: '#f5222d',
   saveAccent: '#c2410c',
   antdTokens: {
     ...DARK_SHADOW_TOKENS,

@@ -7,7 +7,8 @@ export const darkMidnight: ThemeVariant = {
   labelKey: 'workbench.settings.def.appearance.darkVariant.option.midnight.label',
   descriptionKey: 'workbench.settings.def.appearance.darkVariant.option.midnight.description',
   honorsAccentColor: false,
-  dirtyTone: '#b8432f',
+  dirtyTone: '#ff7875',
+  unresolvedTone: '#f5222d',
   saveAccent: '#c2410c',
   antdTokens: {
     ...DARK_SHADOW_TOKENS,
