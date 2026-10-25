@@ -117,7 +117,9 @@ describe('active MQTT session registry', () => {
       success: true,
     });
     expect(published).toEqual(['probe/echo']);
-    await expect(setActiveMqttSubscription('send-2', { topicFilter: 'probe/#', subscribe: true })).resolves.toEqual({
+    await expect(
+      setActiveMqttSubscription('send-2', { rowUid: 'row-2', topicFilter: 'probe/#', subscribe: true }),
+    ).resolves.toEqual({
       success: true,
       grantCode: 1,
     });
@@ -135,7 +137,7 @@ describe('active MQTT session registry', () => {
     const result = await publishActiveMqttMessage('missing', { topic: 'x', payload: '' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('No open MQTT session');
-    const sub = await setActiveMqttSubscription('missing', { topicFilter: 'x', subscribe: true });
+    const sub = await setActiveMqttSubscription('missing', { rowUid: 'row-x', topicFilter: 'x', subscribe: true });
     expect(sub.success).toBe(false);
   });
 });

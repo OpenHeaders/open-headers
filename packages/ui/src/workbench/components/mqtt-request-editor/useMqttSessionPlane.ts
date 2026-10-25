@@ -24,7 +24,7 @@
  * settled session that opened into an MqttResponseExample.
  */
 
-import { hostBridge, type MqttPublishWire } from '@openheaders/core/bridge';
+import { hostBridge, type MqttPublishWire, type MqttSubscriptionWire } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import type { ExecutedMqttSnapshot, MqttRequest as MqttRequestEntity, MqttTopicRow } from '@openheaders/core/types';
 import { useT } from '@openheaders/ui/context/LocaleContext';
@@ -359,12 +359,14 @@ export function useMqttSessionPlane({
       const sendId = activeSendIdRef.current;
       if (!sendId) return;
       setLiveSubs((prev) => new Map(prev).set(row.uid, { subscribed: subscribe, grantCode: null }));
-      const result = await hostBridge
-        .call('setMqttSubscription', {
-          sendId,
-          subscription: {
+      // A toggle on carries the row's filter and options as written;
+      // a toggle off names the row alone — the session unsubscribes
+      // the filter the row went up with.
+      const subscription: MqttSubscriptionWire = subscribe
+        ? {
+            rowUid: row.uid,
+            subscribe: true,
             topicFilter: row.topicFilter,
-            subscribe,
             ...(row.qos !== undefined ? { qos: row.qos } : {}),
             ...(v5 && row.noLocal !== undefined ? { noLocal: row.noLocal } : {}),
             ...(v5 && row.retainAsPublished !== undefined ? { retainAsPublished: row.retainAsPublished } : {}),
@@ -373,9 +375,9 @@ export function useMqttSessionPlane({
             ...(v5 && row.userProperties !== undefined && row.userProperties.length > 0
               ? { userProperties: row.userProperties }
               : {}),
-          },
-        })
-        .catch(() => null);
+          }
+        : { rowUid: row.uid, subscribe: false };
+      const result = await hostBridge.call('setMqttSubscription', { sendId, subscription }).catch(() => null);
       if (result === null || !result.success) {
         toast.error(result?.error ?? t('workbench.editors.mqtt.session.subscribeFailed'));
         setLiveSubs((prev) => new Map(prev).set(row.uid, { subscribed: !subscribe, grantCode: null }));

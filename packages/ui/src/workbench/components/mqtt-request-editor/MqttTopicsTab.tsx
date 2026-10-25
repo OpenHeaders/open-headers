@@ -108,6 +108,11 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
         renderKeyCell={(row, update, ctx) => {
           const filterError = !ctx.isPlaceholder && row.topicFilter.trim() ? topicFilterError(row.topicFilter) : null;
           const grantCode = sessionOpen ? liveSubs.get(row.uid)?.grantCode : undefined;
+          // A row subscribed on the open session is a session fact —
+          // the broker holds the filter it went up with, so the filter
+          // reads DISABLED rather than drifting under the subscription
+          // (the SessionLock posture, per row). Toggle off to edit.
+          const liveSubscribed = sessionOpen && (liveSubs.get(row.uid)?.subscribed ?? row.subscribe !== false);
           // Success grants render as silence — the ON switch is the
           // answer; only a FAILED grant marks the row.
           const grantFailure = grantCode !== undefined && grantCode !== null ? grantFailureLabel(grantCode, t) : null;
@@ -119,6 +124,7 @@ const MqttTopicsTab: React.FC<MqttTopicsTabProps> = ({
                   expandOnFocus
                   expanded={ctx.expanded}
                   flagUnresolved
+                  disabled={liveSubscribed}
                   value={row.topicFilter}
                   placeholder={t('workbench.editors.mqtt.topics.filterPlaceholder')}
                   status={filterError ? 'error' : undefined}

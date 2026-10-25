@@ -394,15 +394,26 @@ export interface MqttPublishWire {
 }
 
 /**
- * One live Subscribe-toggle crossing the `setMqttSubscription` rider.
- * `subscribe: true` SUBSCRIBEs the filter (the 5.0 options apply on
- * 5.0 sessions only), `false` UNSUBSCRIBEs it. The stored Topics table
- * stays the draft — this rider never edits the entity (the ratified
- * publication-gate idiom); the row's filter resolves per send.
+ * One live Subscribe-toggle crossing the `setMqttSubscription` rider,
+ * named by the Topics row it toggles. `subscribe: true` SUBSCRIBEs the
+ * row's filter as it resolves at that moment (the 5.0 options apply on
+ * 5.0 sessions only); `false` UNSUBSCRIBEs whatever the row went up
+ * with — the session remembers the granted filter per row, so an
+ * unsubscribe carries no template and resolves nothing. The stored
+ * Topics table stays the draft — this rider never edits the entity
+ * (the ratified publication-gate idiom).
  */
-export interface MqttSubscriptionWire {
+export type MqttSubscriptionWire = MqttSubscribeWire | MqttUnsubscribeWire;
+
+export interface MqttUnsubscribeWire {
+  rowUid: string;
+  subscribe: false;
+}
+
+export interface MqttSubscribeWire {
+  rowUid: string;
+  subscribe: true;
   topicFilter: string;
-  subscribe: boolean;
   qos?: MqttRequestQos;
   noLocal?: boolean;
   retainAsPublished?: boolean;

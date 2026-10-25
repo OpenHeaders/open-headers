@@ -588,11 +588,16 @@ export async function executeMqttSession(
   }
 
   // Enabled subscription rows SUBSCRIBE at open — filters resolved at
-  // Connect; the 5.0 per-row options apply on 5.0 sessions only.
+  // Connect; the 5.0 per-row options apply on 5.0 sessions only. Each
+  // row remembers the filter it went up with: a live toggle off names
+  // the row, and the UNSUBSCRIBE carries that filter — never a
+  // re-resolution of the row's template.
   const openRows = request.topics.filter((row) => row.subscribe !== false && row.topicFilter.trim() !== '');
-  const openSubscriptions = openRows.map((row): SubscribeEntry => {
+  const openSubscriptions: SubscribeEntry[] = [];
+  const openRowFilters = new Map<string, string>();
+  for (const row of openRows) {
     const userProperties = v5 ? wireSubscribeUserProps(row.userProperties, resolveStr) : undefined;
-    return {
+    const entry: SubscribeEntry = {
       subscription: {
         topicFilter: resolveStr(row.topicFilter).trim(),
         qos: row.qos ?? 0,
@@ -603,7 +608,9 @@ export async function executeMqttSession(
       ...(v5 && row.subscriptionId !== undefined ? { subscriptionId: row.subscriptionId } : {}),
       ...(userProperties !== undefined ? { userProperties } : {}),
     };
-  });
+    openSubscriptions.push(entry);
+    openRowFilters.set(row.uid, entry.subscription.topicFilter);
+  }
 
   // The gate — one rule by reason, the HTTP send's: a secret manager's
   // typed failure refuses the dial; every other miss rides as written
@@ -678,6 +685,10 @@ export async function executeMqttSession(
      *  reconnected connection whose CONNACK kept no session. */
     const desiredSubscriptions = new Map<string, SubscribeEntry>();
     for (const entry of openSubscriptions) desiredSubscriptions.set(entry.subscription.topicFilter, entry);
+    /** The filter each Topics row went up with, by row uid — the open
+     *  rows, then every live toggle on. A toggle off unsubscribes what
+     *  the row subscribed. */
+    const subscribedRowFilters = new Map(openRowFilters);
 
     // The outbound QoS 1/2 ledger is SESSION state: it survives a
     // redial so a kept session sees its unacked PUBLISHes again, and
@@ -1285,6 +1296,7 @@ export async function executeMqttSession(
             dialSubscriptions = connect.subscriptions.map((sub) => subscribeEntryOf(sub, v5));
             desiredSubscriptions.clear();
             for (const entry of dialSubscriptions) desiredSubscriptions.set(entry.subscription.topicFilter, entry);
+            subscribedRowFilters.clear();
           }
         }
         if (reconnectAttempt === 0 && connectTotp !== null) {
@@ -1448,34 +1460,9 @@ export async function executeMqttSession(
       },
       setSubscription: async (subscription: MqttSubscriptionWire): Promise<MqttSubscriptionResult> => {
         if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
-        // The rider's pre-pass — the publish rider's law.
-        const prepared = prepare(collectTemplateStringsDeep(subscription));
-        if (prepared !== null) {
-          await prepared;
-          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
-        }
-        const sendUnresolved: UnresolvedReferences = new Map();
-        // The rider's own TOTP batch — a code in a filter or a
-        // subscribe user property; gated before the write, recorded after.
-        const riderTotp = totp.tracker();
-        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved, riderTotp);
-        const topicFilter = riderResolve(subscription.topicFilter).trim();
-        const userProperties =
-          v5 && subscription.subscribe ? wireSubscribeUserProps(subscription.userProperties, riderResolve) : undefined;
-        if (batchRefusesSend(sendUnresolved.values())) {
-          return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_SUBSCRIPTION_LEAD, sendUnresolved) };
-        }
-        if (riderTotp !== null) {
-          const refusal = await totp.refusal(riderTotp.used);
-          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
-          if (refusal !== null) return { success: false, error: refusal };
-        }
-        const recordRider = (): void => {
-          if (riderTotp !== null) totp.record(riderTotp.used);
-        };
-        const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
-        return new Promise((resolveRider) => {
-          const resolveAck = (reasonCode: number | null, failure?: string): void => {
+        const ackFor =
+          (resolveRider: (result: MqttSubscriptionResult) => void, sentAsWritten?: SentAsWrittenReference[]) =>
+          (reasonCode: number | null, failure?: string): void => {
             if (settled || failure !== undefined) {
               resolveRider({ success: false, error: failure ?? 'The session ended before the broker answered.' });
               return;
@@ -1486,42 +1473,70 @@ export async function executeMqttSession(
               ...(sentAsWritten !== undefined ? { sentAsWritten } : {}),
             });
           };
-          if (subscription.subscribe) {
-            const entry: SubscribeEntry = {
-              subscription: {
-                topicFilter,
-                qos: subscription.qos ?? 0,
-                ...(v5 && subscription.noLocal !== undefined ? { noLocal: subscription.noLocal } : {}),
-                ...(v5 && subscription.retainAsPublished !== undefined
-                  ? { retainAsPublished: subscription.retainAsPublished }
-                  : {}),
-                ...(v5 && subscription.retainHandling !== undefined
-                  ? { retainHandling: subscription.retainHandling }
-                  : {}),
-              },
-              ...(v5 && subscription.subscriptionId !== undefined
-                ? { subscriptionId: subscription.subscriptionId }
-                : {}),
-              ...(userProperties !== undefined ? { userProperties } : {}),
-            };
-            const error = subscribeBatch([entry], resolveAck);
+        if (!subscription.subscribe) {
+          // A toggle off names the row: the UNSUBSCRIBE carries the
+          // filter the row went up with. Nothing resolves and no TOTP
+          // batch runs — the code was the SUBSCRIBE's usage.
+          const topicFilter = subscribedRowFilters.get(subscription.rowUid);
+          if (topicFilter === undefined) return { success: false, error: 'The row is not subscribed on this session.' };
+          return new Promise((resolveRider) => {
+            const packetId = allocPacketId();
+            const error = sendPacket({ type: 'unsubscribe', packetId, topicFilters: [topicFilter] });
             if (error !== null) {
               resolveRider({ success: false, error });
               return;
             }
-            recordRider();
-            desiredSubscriptions.set(topicFilter, entry);
-            return;
-          }
-          const packetId = allocPacketId();
-          const error = sendPacket({ type: 'unsubscribe', packetId, topicFilters: [topicFilter] });
+            subscribedRowFilters.delete(subscription.rowUid);
+            desiredSubscriptions.delete(topicFilter);
+            pendingSubAcks.set(`u${packetId}`, { filters: [topicFilter], resolveAck: ackFor(resolveRider) });
+          });
+        }
+        // The rider's pre-pass — the publish rider's law.
+        const prepared = prepare(collectTemplateStringsDeep(subscription));
+        if (prepared !== null) {
+          await prepared;
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+        }
+        const sendUnresolved: UnresolvedReferences = new Map();
+        // The rider's own TOTP batch — a code in the filter or a
+        // subscribe user property; gated before the write, recorded after.
+        const riderTotp = totp.tracker();
+        const riderResolve = (s: string): string => resolveWith(s, sendUnresolved, riderTotp);
+        const topicFilter = riderResolve(subscription.topicFilter).trim();
+        const userProperties = v5 ? wireSubscribeUserProps(subscription.userProperties, riderResolve) : undefined;
+        if (batchRefusesSend(sendUnresolved.values())) {
+          return { success: false, error: unresolvedReferencesMessage(UNRESOLVED_SUBSCRIPTION_LEAD, sendUnresolved) };
+        }
+        if (riderTotp !== null) {
+          const refusal = await totp.refusal(riderTotp.used);
+          if (settled || !attemptOpened) return { success: false, error: 'The session is not open.' };
+          if (refusal !== null) return { success: false, error: refusal };
+        }
+        const sentAsWritten = sentAsWrittenAttribution(sendUnresolved);
+        return new Promise((resolveRider) => {
+          const entry: SubscribeEntry = {
+            subscription: {
+              topicFilter,
+              qos: subscription.qos ?? 0,
+              ...(v5 && subscription.noLocal !== undefined ? { noLocal: subscription.noLocal } : {}),
+              ...(v5 && subscription.retainAsPublished !== undefined
+                ? { retainAsPublished: subscription.retainAsPublished }
+                : {}),
+              ...(v5 && subscription.retainHandling !== undefined
+                ? { retainHandling: subscription.retainHandling }
+                : {}),
+            },
+            ...(v5 && subscription.subscriptionId !== undefined ? { subscriptionId: subscription.subscriptionId } : {}),
+            ...(userProperties !== undefined ? { userProperties } : {}),
+          };
+          const error = subscribeBatch([entry], ackFor(resolveRider, sentAsWritten));
           if (error !== null) {
             resolveRider({ success: false, error });
             return;
           }
-          recordRider();
-          desiredSubscriptions.delete(topicFilter);
-          pendingSubAcks.set(`u${packetId}`, { filters: [topicFilter], resolveAck });
+          if (riderTotp !== null) totp.record(riderTotp.used);
+          desiredSubscriptions.set(topicFilter, entry);
+          subscribedRowFilters.set(subscription.rowUid, topicFilter);
         });
       },
       reconnectNow: () => {

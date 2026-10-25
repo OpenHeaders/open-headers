@@ -502,6 +502,7 @@ describe('executeMqttSession — subscriptions', () => {
     rig.push(acceptedConnack);
 
     const subscribing = setActiveMqttSubscription('send-mqtt-toggle', {
+      rowUid: 'row-live',
       topicFilter: 'probe/{{team}}/live',
       subscribe: true,
       qos: 1,
@@ -517,12 +518,12 @@ describe('executeMqttSession — subscriptions', () => {
     rig.push({ type: 'suback', packetId: subscribePacket.packetId, reasonCodes: [1] });
     await expect(subscribing).resolves.toEqual({ success: true, grantCode: 1 });
 
-    const unsubscribing = setActiveMqttSubscription('send-mqtt-toggle', {
-      topicFilter: 'probe/alpha/live',
-      subscribe: false,
-    });
+    // A toggle off names the row — the UNSUBSCRIBE carries the filter
+    // the row went up with, resolved nowhere.
+    const unsubscribing = setActiveMqttSubscription('send-mqtt-toggle', { rowUid: 'row-live', subscribe: false });
     const unsubscribePacket = rig.written.at(-1);
     if (unsubscribePacket?.type !== 'unsubscribe') throw new Error('expected UNSUBSCRIBE');
+    expect(unsubscribePacket.topicFilters).toEqual(['probe/alpha/live']);
     rig.push({ type: 'unsuback', packetId: unsubscribePacket.packetId, reasonCodes: [0] });
     await expect(unsubscribing).resolves.toEqual({ success: true, grantCode: 0 });
 
@@ -577,7 +578,11 @@ describe('executeMqttSession — subscriptions', () => {
     // No ask: the publish writes synchronously, as it always did.
     void publishActiveMqttMessage('send-mqtt-prepare', { topic: 'probe/{{team}}', payload: 'x' });
     expect(rig.written.at(-1)?.type).toBe('publish');
-    const subscribing = setActiveMqttSubscription('send-mqtt-prepare', { topicFilter: 'probe/#', subscribe: true });
+    const subscribing = setActiveMqttSubscription('send-mqtt-prepare', {
+      rowUid: 'row-prep',
+      topicFilter: 'probe/#',
+      subscribe: true,
+    });
     const subscribePacket = rig.written.at(-1);
     if (subscribePacket?.type !== 'subscribe') throw new Error('expected SUBSCRIBE');
     rig.push({ type: 'suback', packetId: subscribePacket.packetId, reasonCodes: [0] });
@@ -599,7 +604,11 @@ describe('executeMqttSession — subscriptions', () => {
     await settleTick();
     rig.establish();
     rig.push(acceptedConnack);
-    const waiting = setActiveMqttSubscription('send-mqtt-hang', { topicFilter: 'probe/never', subscribe: true });
+    const waiting = setActiveMqttSubscription('send-mqtt-hang', {
+      rowUid: 'row-hang',
+      topicFilter: 'probe/never',
+      subscribe: true,
+    });
     closeActiveMqttSession('send-mqtt-hang');
     await settled;
     const result = await waiting;
@@ -1041,7 +1050,7 @@ describe('executeMqttSession — auto-reconnect', () => {
     rig.push(0, acceptedConnack);
     rig.push(0, { type: 'suback', packetId: 1, reasonCodes: [1, 0] });
     // A live toggle turns one open row off — the replay must not bring it back.
-    const off = setActiveMqttSubscription('send-mqtt-reconnect', { topicFilter: 'alerts/#', subscribe: false });
+    const off = setActiveMqttSubscription('send-mqtt-reconnect', { rowUid: 'row2', subscribe: false });
     rig.push(0, { type: 'unsuback', packetId: 2, reasonCodes: [0] });
     expect((await off).success).toBe(true);
 

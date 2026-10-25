@@ -150,10 +150,12 @@ export interface ActiveMqttSessionHandle {
    *  publish hook first (the answer waits for it; a drop answers with
    *  the dropping level's name); a script's publish never does. */
   publish(message: MqttPublishWire, origin?: MqttPublishOrigin): Promise<MqttPublishResult>;
-  /** SUBSCRIBE or UNSUBSCRIBE one filter, resolving when the broker's
-   *  ack arrives — `grantCode` is the SUBACK grant / UNSUBACK reason
-   *  verbatim (absent on a 3.1.1 UNSUBACK). A session ending before
-   *  the ack resolves `success: false`, never hangs. */
+  /** SUBSCRIBE a Topics row's filter as it resolves now, or
+   *  UNSUBSCRIBE the filter the row went up with (the session keeps it
+   *  per row — an unsubscribe resolves nothing), resolving when the
+   *  broker's ack arrives — `grantCode` is the SUBACK grant / UNSUBACK
+   *  reason verbatim (absent on a 3.1.1 UNSUBACK). A session ending
+   *  before the ack resolves `success: false`, never hangs. */
   setSubscription(subscription: MqttSubscriptionWire): Promise<MqttSubscriptionResult>;
   /** Start the clean close — DISCONNECT then the socket close. */
   close(): void;

@@ -221,6 +221,7 @@ describe('executeMqttSession — TOTP cooldown', () => {
 
     code = '777777';
     const toggled = setActiveMqttSubscription('send-mqtt-totp-riders', {
+      rowUid: 'row-otp',
       topicFilter: 'devices/{{vault.otp}}/#',
       subscribe: true,
     });
@@ -236,6 +237,7 @@ describe('executeMqttSession — TOTP cooldown', () => {
     code = '666666';
     expect(
       await setActiveMqttSubscription('send-mqtt-totp-riders', {
+        rowUid: 'row-otp-2',
         topicFilter: 'devices/{{vault.otp}}/#',
         subscribe: true,
       }),
@@ -243,6 +245,87 @@ describe('executeMqttSession — TOTP cooldown', () => {
     expect(packetTypes(rig.written)).toEqual(['connect', 'publish', 'subscribe']);
 
     closeActiveMqttSession('send-mqtt-totp-riders');
+    await settled;
+  });
+
+  it('a toggle off unsubscribes the filter the row went up with — no resolve, no batch, whatever the window', async () => {
+    const rig = scriptedTransport();
+    let code = '888888';
+    const { plane, gated, recorded } = scriptedPlane();
+    const settled = executeMqttSession(
+      makeMqttRequest({
+        auth: undefined,
+        topics: [{ uid: 'row-open', topicFilter: 'open/{{vault.otp}}', qos: 0 }],
+      }),
+      {
+        workspaceId: null,
+        environmentId: undefined,
+        transport: rig.transport,
+        sendId: 'send-mqtt-totp-unsub',
+        resolution: resolutionAnsweringCode(() => code),
+        totp: plane,
+      },
+    );
+    await settleTick();
+    rig.establish();
+    rig.push(acceptedConnack);
+    // The open row rode Connect's batch — recorded on the CONNACK.
+    expect(recorded).toEqual([[{ name: 'otp', code: '888888', period: 30 }]]);
+    const openSubscribe = rig.written[1];
+    if (openSubscribe?.type !== 'subscribe') throw new Error('expected the open-time SUBSCRIBE');
+    expect(openSubscribe.subscriptions[0].topicFilter).toBe('open/888888');
+    rig.push({ type: 'suback', packetId: openSubscribe.packetId, reasonCodes: [0] });
+
+    // Inside the window the code is in cooldown — an unsubscribe of the
+    // open row still goes out, carrying the granted filter: nothing
+    // resolved, nothing gated, nothing recorded.
+    const offInside = setActiveMqttSubscription('send-mqtt-totp-unsub', { rowUid: 'row-open', subscribe: false });
+    await settleTick();
+    const unsubscribe = rig.written.at(-1);
+    if (unsubscribe?.type !== 'unsubscribe') throw new Error('expected UNSUBSCRIBE');
+    expect(unsubscribe.topicFilters).toEqual(['open/888888']);
+    expect(gated).toHaveLength(1);
+    expect(recorded).toHaveLength(1);
+    rig.push({ type: 'unsuback', packetId: unsubscribe.packetId, reasonCodes: [0] });
+    expect(await offInside).toEqual({ success: true, grantCode: 0 });
+
+    // A row the session does not hold answers the rider, sends nothing.
+    expect(await setActiveMqttSubscription('send-mqtt-totp-unsub', { rowUid: 'row-open', subscribe: false })).toEqual({
+      success: false,
+      error: 'The row is not subscribed on this session.',
+    });
+    expect(packetTypes(rig.written)).toEqual(['connect', 'subscribe', 'unsubscribe']);
+
+    // The next window: a toggle on mints the moment's code and is its
+    // own batch; a toggle off after yet another window still names
+    // THAT filter, never a re-resolution.
+    code = '999999';
+    const on = setActiveMqttSubscription('send-mqtt-totp-unsub', {
+      rowUid: 'row-open',
+      topicFilter: 'open/{{vault.otp}}',
+      subscribe: true,
+    });
+    await settleTick();
+    const resubscribe = rig.written.at(-1);
+    if (resubscribe?.type !== 'subscribe') throw new Error('expected SUBSCRIBE');
+    expect(resubscribe.subscriptions[0].topicFilter).toBe('open/999999');
+    expect(gated.at(-1)).toEqual([{ name: 'otp', code: '999999', period: 30 }]);
+    expect(recorded.at(-1)).toEqual([{ name: 'otp', code: '999999', period: 30 }]);
+    rig.push({ type: 'suback', packetId: resubscribe.packetId, reasonCodes: [0] });
+    expect(await on).toEqual({ success: true, grantCode: 0 });
+
+    code = '101010';
+    const offLater = setActiveMqttSubscription('send-mqtt-totp-unsub', { rowUid: 'row-open', subscribe: false });
+    await settleTick();
+    const unsubscribeLater = rig.written.at(-1);
+    if (unsubscribeLater?.type !== 'unsubscribe') throw new Error('expected UNSUBSCRIBE');
+    expect(unsubscribeLater.topicFilters).toEqual(['open/999999']);
+    expect(gated).toHaveLength(2);
+    expect(recorded).toHaveLength(2);
+    rig.push({ type: 'unsuback', packetId: unsubscribeLater.packetId, reasonCodes: [0] });
+    expect(await offLater).toEqual({ success: true, grantCode: 0 });
+
+    closeActiveMqttSession('send-mqtt-totp-unsub');
     await settled;
   });
 });
