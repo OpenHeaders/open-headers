@@ -28,8 +28,8 @@
  * `list` / `dispose` methods.
  */
 
+import { type BridgeBroadcastPayload, hostBridge } from '@openheaders/core/bridge';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { hostBridge, type BridgeBroadcastPayload } from '@openheaders/core/bridge';
 
 /** Shape an adapter receives — the bridge payload, not the wire-level
  *  `SyncBroadcastEvent` (the `type` discriminator is added at the wire
@@ -177,11 +177,7 @@ export function createFlatEntityMirror<E>(
   };
 }
 
-function notify(
-  perUid: Map<string, Set<FlatMirrorListener>>,
-  any: Set<FlatMirrorListener>,
-  uid: string,
-): void {
+function notify(perUid: Map<string, Set<FlatMirrorListener>>, any: Set<FlatMirrorListener>, uid: string): void {
   const bucket = perUid.get(uid);
   if (bucket) {
     for (const l of bucket) {

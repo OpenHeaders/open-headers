@@ -125,9 +125,7 @@ export interface CreateGlobalRendererContextOptions {
 
 let activeGlobal: RendererContextHandle | null = null;
 
-export function ensureGlobalRendererContext(
-  opts: CreateGlobalRendererContextOptions,
-): RendererContextHandle {
+export function ensureGlobalRendererContext(opts: CreateGlobalRendererContextOptions): RendererContextHandle {
   if (activeGlobal && activeGlobal.surfaceId === opts.surfaceId) {
     return activeGlobal;
   }
