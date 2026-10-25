@@ -16,26 +16,29 @@
  * always the product one.
  */
 
-import { isDesktopAppBackendUrl } from '@openheaders/core/backends';
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
+import { getLicenseSnapshot } from '@openheaders/core/licensing';
 import type { HostStorage } from '@openheaders/core/storage';
-import { OH, wsKeys } from '@openheaders/core/storage';
+import { OH } from '@openheaders/core/storage';
 import {
-  bucketScale,
   createInMemoryProductTelemetrySessionStore,
   osMajorFromSystemVersion,
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
+  type ProductTelemetryHostReadings,
   type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
+  type ProductTelemetryStateStore,
+  type ProductTelemetryTrackScope,
   parseTelemetryAppVersion,
-  resolveTelemetrySyncKind,
+  planBucketFromLicenseSnapshot,
+  readHostReadingsFromStorage,
+  readInstallStateRecord,
   type TelemetryChannelId,
   type TelemetryEnvelope,
   type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryPlatform,
-  type TelemetrySyncKind,
   type TelemetryTransport,
   toTelemetryArch,
   toTelemetryLocale,
@@ -80,8 +83,8 @@ export interface ProductTelemetryHostDeps {
 }
 
 export interface ProductTelemetryHandle {
-  /** Record one vocabulary event (bridge RPC + main-process call sites). */
-  track(event: TelemetryEvent): void;
+  /** Record one vocabulary event (bridge RPC + main-process call sites); a once-per-workspace event names its scope. */
+  track(event: TelemetryEvent, scope?: ProductTelemetryTrackScope): void;
   /** The telemetry inspector's snapshot (bridge RPC). */
   snapshot(): Promise<ProductTelemetrySnapshot>;
   flush(): Promise<void>;
@@ -107,6 +110,15 @@ function createStorageInstallStore(storage: Pick<HostStorage, 'get' | 'set' | 'r
   };
 }
 
+/** The tracker's record on the same storage, under its own typed key; wiped with the identity. */
+function createStorageStateStore(storage: Pick<HostStorage, 'get' | 'set' | 'remove'>): ProductTelemetryStateStore {
+  return {
+    getRecord: async () => readInstallStateRecord(await storage.get(OH.productTelemetryState)),
+    setRecord: (record) => storage.set(OH.productTelemetryState, record),
+    clearRecord: () => storage.remove(OH.productTelemetryState),
+  };
+}
+
 function readTelemetryEnabled(values: Record<string, unknown> | undefined): boolean {
   return values?.['telemetry.enabled'] !== false;
 }
@@ -119,55 +131,25 @@ function telemetryPlatform(platform: NodeJS.Platform): TelemetryPlatform | null 
 }
 
 /**
- * Coarse scale-of-use for `session_start`, read from the same storage
- * the workbench writes. An empty workspace list means the keys aren't
- * in use on this install — omit the buckets rather than misreport zero.
+ * The install's readings for the state block (the telemetry v2 plan
+ * §3): the shared storage reading (rules, saved requests, workspaces,
+ * the sync kind, the directory's role and team) plus what only this
+ * process knows — the plan, from the spine's license slot through the
+ * same provider the seat gate reads (never the license file).
  */
-async function readScaleBuckets(
-  storage: Pick<HostStorage, 'get'>,
-): Promise<Pick<Extract<TelemetryEvent, { name: 'session_start' }>, 'rules' | 'workspaces'>> {
-  try {
-    const workspaces = (await storage.get(OH.workspaces)) ?? [];
-    if (workspaces.length === 0) return {};
-    const activeId = (await storage.get(OH.runtimeActive)) ?? workspaces[0]?.id;
-    const rules = activeId ? ((await storage.get(wsKeys(activeId).rules)) ?? []) : [];
-    return { rules: bucketScale(rules.length), workspaces: bucketScale(workspaces.length) };
-  } catch {
-    return {};
-  }
+async function readHostState(storage: Pick<HostStorage, 'get'>): Promise<ProductTelemetryHostReadings> {
+  return {
+    ...(await readHostReadingsFromStorage(storage, { git: true })),
+    plan: planBucketFromLicenseSnapshot(getLicenseSnapshot()),
+  };
 }
 
-/**
- * How this install keeps its workspaces (S35), the install-wide
- * maximum: a connection record to anything but the desktop app's own
- * loopback wire is a server (the desktop joining a daemon or a team
- * server as a client), a workspace bound to a working tree is git,
- * else local. Any read failure omits the fact rather than misreport.
- */
-async function readSyncKind(storage: Pick<HostStorage, 'get'>): Promise<TelemetrySyncKind | undefined> {
-  try {
-    const backends = (await storage.get(OH.backends)) ?? [];
-    const bindings = (await storage.get(OH.workspaceTreeBindings)) ?? [];
-    return resolveTelemetrySyncKind({
-      server: backends.some((backend) => !isDesktopAppBackendUrl(backend.url)),
-      git: bindings.length > 0,
-    });
-  } catch {
-    return undefined;
-  }
-}
-
-async function buildSessionStart(
-  platform: NodeJS.Platform,
-  storage: Pick<HostStorage, 'get'>,
-): Promise<TelemetryEvent | null> {
+function buildSessionStart(platform: NodeJS.Platform): TelemetryEvent | null {
   // Unmappable platforms skip the event rather than misreport (the
   // envelope stays unstamped too); the per-process facts ride the
-  // envelope, so the event carries only the measurements taken at
-  // session start: the scale-of-use buckets and the sync kind.
-  if (!telemetryPlatform(platform)) return null;
-  const sync = await readSyncKind(storage);
-  return { name: 'session_start', ...(await readScaleBuckets(storage)), ...(sync !== undefined ? { sync } : {}) };
+  // envelope and the measurements ride its state block, so the event
+  // itself is bare.
+  return telemetryPlatform(platform) ? { name: 'session_start' } : null;
 }
 
 /** Per-process envelope facts (plan §3, S15): read fresh per flush so a language switch re-stamps the next batch; the error channel's envelope carries the same. */
@@ -209,11 +191,13 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
     now: deps.now ?? Date.now,
     sessionStore: deps.sessionStore ?? createInMemoryProductTelemetrySessionStore(),
     installStore: createStorageInstallStore(deps.storage),
+    stateStore: createStorageStateStore(deps.storage),
     host: 'desktop',
     facts: () => buildEnvelopeFacts(deps),
+    readHostState: () => readHostState(deps.storage),
     getEnabled: () => enabled,
     subscribeEnabled: (fn) => enabledListeners.push(fn),
-    buildSessionStart: () => buildSessionStart(deps.platform, deps.storage),
+    buildSessionStart: async () => buildSessionStart(deps.platform),
   });
   await controller.init();
   // Enabled transitions can queue a consent-time session_start; flush
@@ -227,7 +211,7 @@ export async function installProductTelemetry(deps: ProductTelemetryHostDeps): P
   timer.unref();
 
   return {
-    track: (event) => void controller.track(event),
+    track: (event, scope) => void controller.track(event, scope),
     snapshot: () => controller.snapshot(),
     flush: () => controller.flush(),
     dispose: () => {

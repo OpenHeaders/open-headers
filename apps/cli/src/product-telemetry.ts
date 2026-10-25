@@ -25,6 +25,7 @@ import * as path from 'node:path';
 import {
   createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
+  createInMemoryProductTelemetryStateStore,
   createPathOwnOriginTest,
   type ErrorReportContext,
   ErrorReportController,
@@ -37,6 +38,7 @@ import {
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
   type ProductTelemetryInstallStore,
+  type ProductTelemetryStateStore,
   parseTelemetryAppVersion,
   type TelemetryChannelId,
   type TelemetryEnvelope,
@@ -56,6 +58,8 @@ export const TELEMETRY_ENV = 'OH_TELEMETRY';
 const FLUSH_ABORT_MS = 500;
 
 export interface CliProductTelemetry {
+  /** Record one of this invocation's own vocabulary events (`request_sent` on a send); `finish` delivers it. */
+  track(event: TelemetryEvent): void;
   /** Best-effort exit flush of both channels; never throws, never blocks past the transport abort. */
   finish(): Promise<void>;
   /** Record one of this invocation's own failures (the error reports plan, fork 4); `finish` delivers it. */
@@ -181,6 +185,40 @@ function createConfigInstallStore(configPath: string): ProductTelemetryInstallSt
   };
 }
 
+/**
+ * The install-state tracker's record (the telemetry v2 plan §3) beside
+ * the identity in `cli.json` — the same best-effort writes, the same
+ * wipe with the install id.
+ */
+function createConfigStateStore(configPath: string): ProductTelemetryStateStore {
+  const load = (): Promise<CliConfig> => readCliConfig(configPath);
+  return {
+    async getRecord() {
+      try {
+        return (await load()).telemetryState ?? null;
+      } catch {
+        return null;
+      }
+    },
+    async setRecord(record) {
+      try {
+        const config = await load();
+        await writeCliConfig(configPath, { ...config, telemetryState: record });
+      } catch {
+        // Unwritable config = the tracker re-seeds next run.
+      }
+    },
+    async clearRecord() {
+      try {
+        const { telemetryState: _state, ...rest } = await load();
+        await writeCliConfig(configPath, rest);
+      } catch {
+        // Nothing readable to clear.
+      }
+    },
+  };
+}
+
 function envTurnsOff(env: NodeJS.ProcessEnv): boolean {
   const raw = env[TELEMETRY_ENV];
   return raw !== undefined && raw !== '' && ['0', 'false', 'off'].includes(raw.toLowerCase());
@@ -282,7 +320,11 @@ const abortingFetchTransport: TelemetryTransport =
 const abortingErrorTransport: ErrorReportTransport =
   createAbortingTransport<ErrorReportEnvelope>(PRODUCT_ERROR_REPORTS_ENDPOINT);
 
-const inert: CliProductTelemetry = { finish: async () => undefined, reportError: () => undefined };
+const inert: CliProductTelemetry = {
+  track: () => undefined,
+  finish: async () => undefined,
+  reportError: () => undefined,
+};
 
 /**
  * Boot both channels for this invocation: resolve the gates, queue
@@ -309,8 +351,13 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
     if (!usageEnabled) {
       // Off means no identity: a disabled run wipes any stored install
       // id (the first_run sent-bit stays — it carries no identity).
-      if (configReadable && (config.telemetryInstallId !== undefined || config.telemetryInstalledAt !== undefined)) {
-        const { telemetryInstallId: _id, telemetryInstalledAt: _at, ...rest } = config;
+      if (
+        configReadable &&
+        (config.telemetryInstallId !== undefined ||
+          config.telemetryInstalledAt !== undefined ||
+          config.telemetryState !== undefined)
+      ) {
+        const { telemetryInstallId: _id, telemetryInstalledAt: _at, telemetryState: _state, ...rest } = config;
         await writeCliConfig(configPath, rest).catch(() => undefined);
       }
     }
@@ -340,8 +387,13 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
         now,
         sessionStore,
         installStore,
+        stateStore: configReadable ? createConfigStateStore(configPath) : createInMemoryProductTelemetryStateStore(),
         host: 'cli',
         facts,
+        // The CLI holds no workspace of its own and reaches a daemon's
+        // license only through the daemon — the state block carries the
+        // tracker's facts alone.
+        readHostState: () => ({}),
         getEnabled: () => true,
         subscribeEnabled: () => undefined,
         buildSessionStart: async () => buildSessionStart(platform),
@@ -368,8 +420,12 @@ export async function bootCliProductTelemetry(deps: CliProductTelemetryDeps = {}
       isOwnOrigin: createPathOwnOriginTest({ roots: [scriptPath === '' ? '' : path.dirname(scriptPath), execPath] }),
     };
     const errorController = errors;
+    const usageController = usage;
 
     return {
+      track: (event) => {
+        void usageController?.track(event).catch(() => undefined);
+      },
       reportError: (input) => {
         if (!errorController) return;
         void errorController.report(toErrorReport(input, context)).catch(() => undefined);

@@ -62,6 +62,8 @@ import type {
 } from '@openheaders/core/types';
 import { buildRequestCollectionTrees, mirrorSlotReader } from '../shared/local-tree-builder';
 import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/core/storage';
+import { trackProductTelemetryEvent } from '../shared/product-telemetry';
+import { isSseResponse } from '../workbench/components/request-editor/response/response-sse';
 import {
   applyRequestCollectionCreate,
   applyRequestCollectionDelete,
@@ -1195,16 +1197,26 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
+  // Every send is the API-client activation signal (the telemetry v2
+  // plan §4): one `request_sent` per send by protocol, the gesture
+  // itself — whatever the wire answers. An HTTP send that came back as
+  // an event stream counts as SSE.
   const execute = useCallback<RequestsContextValue['execute']>(
     async (input) => {
       const resp = await hostBridge.call('executeRequest', input).catch(() => null);
-      return resp?.success ? (resp.snapshot ?? null) : null;
+      const snapshot = resp?.success ? (resp.snapshot ?? null) : null;
+      trackProductTelemetryEvent({
+        name: 'request_sent',
+        protocol: snapshot && isSseResponse(snapshot.headers) ? 'sse' : 'http',
+      });
+      return snapshot;
     },
     [],
   );
 
   const executeGrpc = useCallback<RequestsContextValue['executeGrpc']>(
     async (input) => {
+      trackProductTelemetryEvent({ name: 'request_sent', protocol: 'grpc' });
       const resp = await hostBridge.call('executeGrpcRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
@@ -1213,6 +1225,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
   const executeWebSocket = useCallback<RequestsContextValue['executeWebSocket']>(
     async (input) => {
+      trackProductTelemetryEvent({ name: 'request_sent', protocol: 'ws' });
       const resp = await hostBridge.call('executeWebSocketRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
@@ -1221,6 +1234,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
   const executeMqtt = useCallback<RequestsContextValue['executeMqtt']>(
     async (input) => {
+      trackProductTelemetryEvent({ name: 'request_sent', protocol: 'mqtt' });
       const resp = await hostBridge.call('executeMqttRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
@@ -1229,6 +1243,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
   const executeGraphql = useCallback<RequestsContextValue['executeGraphql']>(
     async (input) => {
+      trackProductTelemetryEvent({ name: 'request_sent', protocol: 'graphql' });
       const resp = await hostBridge.call('executeGraphqlRequest', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },
@@ -1237,6 +1252,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
   const executeGraphqlSubscription = useCallback<RequestsContextValue['executeGraphqlSubscription']>(
     async (input) => {
+      trackProductTelemetryEvent({ name: 'request_sent', protocol: 'graphql' });
       const resp = await hostBridge.call('executeGraphqlSubscription', input).catch(() => null);
       return resp?.success ? (resp.snapshot ?? null) : null;
     },

@@ -83,7 +83,7 @@ describe('installProductTelemetry — session_start', () => {
     expect(sent[0].locale).toBe('en');
     expect(sent[0].installId).toMatch(/^[0-9a-f]{32}$/);
     expect(sent[0].sinceInstall).toBe('0');
-    expect(sent[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start', sync: 'local' }]);
+    expect(sent[0].events).toEqual([{ name: 'first_run' }, { name: 'session_start' }]);
 
     // A second flush sends nothing — the latch holds for the process lifetime.
     await handle.flush();
@@ -170,9 +170,7 @@ describe('installProductTelemetry — session_start', () => {
     handle.dispose();
   });
 
-  it('carries the install-wide sync kind on session_start — server over git over local, the loopback desktop wire never a server (S35)', async () => {
-    const sessionStart = (envelope: TelemetryEnvelope) =>
-      envelope.events.find((event) => event.name === 'session_start');
+  it('carries the install-wide sync kind on the state block — server over git over local, the loopback desktop wire never a server (S35)', async () => {
     const cases: Array<[RigOptions, string]> = [
       [{}, 'local'],
       [{ backends: [{ url: 'ws://127.0.0.1:8137' }] }, 'local'],
@@ -184,9 +182,29 @@ describe('installProductTelemetry — session_start', () => {
       const { install, sent } = makeRig(options);
       const handle = await install();
       await handle.flush();
-      expect(sessionStart(sent[0])).toEqual({ name: 'session_start', sync });
+      expect(sent[0].events).toContainEqual({ name: 'session_start' });
+      expect(sent[0].schemaVersion === 3 ? sent[0].state.sync : null).toBe(sync);
       handle.dispose();
     }
+  });
+
+  it('stamps the state block from the storage readings and the license slot — free without a license (the v2 plan §3)', async () => {
+    const { install, sent } = makeRig({ backends: [{ url: 'wss://sync.openheaders.io' }] });
+    const handle = await install();
+    await handle.flush();
+    expect(sent[0].schemaVersion).toBe(3);
+    expect(sent[0].schemaVersion === 3 ? sent[0].state : null).toEqual({
+      stage: 'installed',
+      rules: '0',
+      requests: '0',
+      workspaces: '0',
+      sync: 'server',
+      plan: 'free',
+      profile: 'none',
+      activeDays: '1',
+      migratedFrom: 'none',
+    });
+    handle.dispose();
   });
 
   it('stamps the resolved interface locale, mapping codes outside the vocabulary to other', async () => {
@@ -269,7 +287,7 @@ describe('installProductTelemetry — inspector snapshot', () => {
     const snapshot = await handle.snapshot();
     expect(snapshot.sessionId).toMatch(/^[0-9a-f]{32}$/);
     expect(snapshot.entries).toEqual([
-      { event: { name: 'session_start', sync: 'local' }, at: 1_760_000_000_000, disposition: 'suppressed' },
+      { event: { name: 'session_start' }, at: 1_760_000_000_000, disposition: 'suppressed' },
       { event: { name: 'feature_used', feature: 'variables' }, at: 1_760_000_000_000, disposition: 'suppressed' },
     ]);
     handle.dispose();

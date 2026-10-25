@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { TelemetryEventSchema } from '../../src/telemetry';
+import { TelemetryEventSchema, TelemetryStateSchema } from '../../src/telemetry';
 
 /**
  * The structural law of the telemetry plan §1: no event payload property may
  * admit arbitrary `string`. This test walks the runtime shape of the event
- * schema and fails if a `string`-typed node appears anywhere inside a
- * payload — closed unions (picklist/literal), booleans, and numbers are the
- * only permitted leaves. Adding a `v.string()` field to the vocabulary
- * breaks this test forever, by design.
+ * schema and of the state block (the v2 plan §3) and fails if a
+ * `string`-typed node appears anywhere inside either — closed unions
+ * (picklist/literal), booleans, and numbers are the only permitted
+ * leaves. Adding a `v.string()` field to the vocabulary breaks this test
+ * forever, by design. The two ids on the envelope are the one pinned
+ * alphabet outside this walk (`TelemetrySessionIdSchema`).
  */
 
 interface SchemaNode {
@@ -45,12 +47,15 @@ function collectNodeTypes(value: unknown, path: string, out: Array<{ path: strin
 describe('telemetry vocabulary — no-string-fields guard', () => {
   const nodes: Array<{ path: string; type: string }> = [];
   collectNodeTypes(TelemetryEventSchema, 'event', nodes);
+  collectNodeTypes(TelemetryStateSchema, 'state', nodes);
 
   it('actually walked the vocabulary (sanity floor)', () => {
-    // 14 variant options plus their properties — a broken walker that visits
-    // nothing must not masquerade as a passing guard.
-    expect(nodes.length).toBeGreaterThan(20);
-    expect(nodes.filter((n) => n.type === 'strict_object').length).toBeGreaterThanOrEqual(14);
+    // 19 variant options plus the state block and their properties — a
+    // broken walker that visits nothing must not masquerade as a passing
+    // guard.
+    expect(nodes.length).toBeGreaterThan(40);
+    expect(nodes.filter((n) => n.type === 'strict_object').length).toBeGreaterThanOrEqual(20);
+    expect(nodes.filter((n) => n.path.startsWith('state.')).length).toBeGreaterThanOrEqual(11);
   });
 
   it('admits no string-typed node anywhere in any event payload', () => {

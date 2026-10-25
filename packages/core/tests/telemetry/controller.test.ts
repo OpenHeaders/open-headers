@@ -2,23 +2,36 @@ import { describe, expect, it } from 'vitest';
 import {
   createInMemoryProductTelemetryInstallStore,
   createInMemoryProductTelemetrySessionStore,
+  createInMemoryProductTelemetryStateStore,
   oncePerSessionLatchKey,
   type PersistedTelemetryQueueEntry,
   ProductTelemetryController,
   type ProductTelemetryControllerDeps,
+  type ProductTelemetryHostReadings,
   type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
+  type ProductTelemetryStateStore,
   SESSION_START_LATCH_KEY,
   type TelemetryEnvelope,
   type TelemetryEnvelopeFacts,
   type TelemetryEvent,
   type TelemetryInstallContext,
   type TelemetryQueueStore,
+  type TelemetryState,
 } from '../../src/telemetry';
 
-// The current client shape: per-process facts ride the envelope, so the
-// event carries only the scale-of-use measurements.
-const SESSION_START: TelemetryEvent = { name: 'session_start', rules: '1-5' };
+// The current client shape: per-process facts ride the envelope and the
+// measurements ride the state block, so the event is bare.
+const SESSION_START: TelemetryEvent = { name: 'session_start' };
+
+/** A configured, solo, local install — what most of the fleet reads. */
+const READINGS: ProductTelemetryHostReadings = { rules: 3, requests: 0, workspaces: 1, sync: 'local', plan: 'free' };
+
+const DAY = 24 * 60 * 60 * 1000;
+
+/** The state block of the last envelope sent. */
+const stateOf = (envelope: TelemetryEnvelope): TelemetryState | null =>
+  envelope.schemaVersion === 3 ? envelope.state : null;
 
 const FACTS: TelemetryEnvelopeFacts = {
   channel: 'chrome-store',
@@ -77,6 +90,8 @@ interface RigOptions {
   install?: TelemetryInstallContext | null;
   installStore?: ProductTelemetryInstallStore;
   queueStore?: TelemetryQueueStore;
+  readings?: ProductTelemetryHostReadings;
+  stateStore?: ProductTelemetryStateStore;
 }
 
 function makeRig(options: RigOptions = {}) {
@@ -88,6 +103,8 @@ function makeRig(options: RigOptions = {}) {
   const installStore =
     options.installStore ??
     createInMemoryProductTelemetryInstallStore(options.install === undefined ? INSTALL : options.install);
+  const stateStore = options.stateStore ?? createInMemoryProductTelemetryStateStore();
+  const readings = { current: options.readings ?? READINGS };
 
   const deps: ProductTelemetryControllerDeps = {
     transport: {
@@ -99,9 +116,11 @@ function makeRig(options: RigOptions = {}) {
     now: () => clock.now,
     sessionStore: store,
     installStore,
+    stateStore,
     queueStore: options.queueStore,
     host: 'extension',
     facts: () => FACTS,
+    readHostState: () => readings.current,
     getEnabled: () => gates.enabled,
     subscribeEnabled: (fn) => listeners.enabled.push(fn),
     buildSessionStart: async () => (options.sessionStart === undefined ? SESSION_START : options.sessionStart),
@@ -112,7 +131,7 @@ function makeRig(options: RigOptions = {}) {
     gates.enabled = value;
     for (const fn of listeners.enabled) fn();
   };
-  return { controller, sent, state, setEnabled, installStore, clock };
+  return { controller, sent, state, setEnabled, installStore, stateStore, clock, readings };
 }
 
 describe('ProductTelemetryController — session identity', () => {
@@ -327,6 +346,7 @@ describe('ProductTelemetryController — once-per-session dedupe', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0].events).toEqual([
       { name: 'workflow_run', ok: true },
+      { name: 'milestone', kind: 'first_workflow_run' },
       { name: 'workflow_run', ok: false },
     ]);
   });
@@ -367,6 +387,7 @@ describe('oncePerSessionLatchKey', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0].events).toEqual([
       { name: 'rule_matched', ruleType: 'header' },
+      { name: 'milestone', kind: 'first_rule_matched' },
       { name: 'rule_matched', ruleType: 'block' },
     ]);
   });
@@ -403,6 +424,7 @@ describe('oncePerSessionLatchKey', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0].events).toEqual([
       { name: 'mcp_client_connected', client: 'claude-code' },
+      { name: 'milestone', kind: 'first_mcp_client' },
       { name: 'mcp_client_connected', client: 'cursor' },
     ]);
   });
@@ -475,7 +497,10 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
     expect(reminted?.installId).not.toBe(INSTALL.installId);
     expect(sent).toHaveLength(1);
     expect(sent[0].installId).toBe(reminted?.installId);
-    expect(sent[0].events).toEqual([{ name: 'workflow_run', ok: true }]);
+    expect(sent[0].events).toEqual([
+      { name: 'workflow_run', ok: true },
+      { name: 'milestone', kind: 'first_workflow_run' },
+    ]);
   });
 
   it('wipes a leftover record when booting with the toggle already off', async () => {
@@ -501,6 +526,7 @@ describe('ProductTelemetryController — install identity lifecycle', () => {
       installStore: createInMemoryProductTelemetryInstallStore(INSTALL),
       host: 'extension',
       facts: () => FACTS,
+      readHostState: () => READINGS,
       getEnabled: () => gates.enabled,
       subscribeEnabled: (fn) => listeners.push(fn),
       buildSessionStart: async () => null,
@@ -632,5 +658,195 @@ describe('createInMemoryProductTelemetrySessionStore', () => {
     expect(await store.wasLatched('feature_used:vault')).toBe(false);
     expect(await store.getLatchDay()).toBe(20_700);
     expect(await store.getSessionId()).toBe('deadbeefdeadbeefdeadbeefdeadbeef');
+  });
+});
+
+describe('ProductTelemetryController — the state block (the v2 plan §3)', () => {
+  it('stamps the state derived from the tracker and the host readings on every envelope', async () => {
+    const { controller, sent } = makeRig({ install: null });
+    await controller.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].schemaVersion).toBe(3);
+    expect(stateOf(sent[0])).toEqual({
+      stage: 'configured',
+      rules: '2-5',
+      requests: '0',
+      workspaces: '1',
+      sync: 'local',
+      plan: 'free',
+      profile: 'interceptor',
+      activeDays: '1',
+      migratedFrom: 'none',
+    });
+  });
+
+  it('reads the host once per flush and re-reads on the next — one snapshot per batch', async () => {
+    const { controller, sent, readings } = makeRig({ install: null });
+    await controller.flush();
+    readings.current = { ...READINGS, rules: 0, requests: 2, role: 'viewer', team: 7 };
+    await controller.track({ name: 'feature_used', feature: 'request-editor' });
+    await controller.flush();
+    expect(stateOf(sent[1])).toMatchObject({
+      stage: 'team',
+      rules: '0',
+      requests: '2-5',
+      role: 'viewer',
+      team: '6-10',
+      profile: 'both',
+    });
+  });
+
+  it('omits the members a host cannot read', async () => {
+    const { controller, sent } = makeRig({ install: null, readings: {} });
+    await controller.flush();
+    expect(stateOf(sent[0])).toEqual({ stage: 'installed', profile: 'none', activeDays: '1', migratedFrom: 'none' });
+  });
+});
+
+describe('ProductTelemetryController — milestones', () => {
+  it('emits the milestone right behind the first event of its kind, once per install', async () => {
+    const { controller, sent } = makeRig({ install: null, readings: {} });
+    await controller.track({ name: 'rule_created', ruleType: 'header', origin: 'editor' });
+    await controller.track({ name: 'rule_created', ruleType: 'block', origin: 'editor' });
+    await controller.track({ name: 'rule_matched', ruleType: 'header' });
+    await controller.flush();
+    expect(sent[0].events.map((event) => JSON.stringify(event))).toEqual([
+      '{"name":"first_run"}',
+      '{"name":"session_start"}',
+      '{"name":"rule_created","ruleType":"header","origin":"editor"}',
+      '{"name":"milestone","kind":"first_rule_created"}',
+      '{"name":"rule_created","ruleType":"block","origin":"editor"}',
+      '{"name":"rule_matched","ruleType":"header"}',
+      '{"name":"milestone","kind":"first_rule_matched"}',
+    ]);
+    expect(stateOf(sent[0])).toMatchObject({ stage: 'activated', profile: 'interceptor' });
+  });
+
+  it('reaches first_import on a successful import only and pins migratedFrom to the first origin', async () => {
+    const { controller, sent } = makeRig({ install: null, readings: {} });
+    await controller.track({ name: 'import_run', source: 'postman', ok: false });
+    await controller.track({ name: 'import_run', source: 'insomnia', ok: true });
+    await controller.track({ name: 'import_run', source: 'postman', ok: true });
+    await controller.flush();
+    const names = sent[0].events.map((event) => (event.name === 'milestone' ? `milestone:${event.kind}` : event.name));
+    expect(names.filter((name) => name.startsWith('milestone'))).toEqual(['milestone:first_import']);
+    expect(stateOf(sent[0])?.migratedFrom).toBe('insomnia');
+  });
+
+  it('reaches first_request_sent from the API client and climbs the ladder to retained on the third active day', async () => {
+    const { controller, sent, clock } = makeRig({ install: null, readings: {} });
+    await controller.track({ name: 'request_sent', protocol: 'http' });
+    await controller.flush();
+    expect(stateOf(sent[0])).toMatchObject({ stage: 'activated', profile: 'api-client', activeDays: '1' });
+    clock.now += DAY;
+    await controller.flush();
+    clock.now += DAY;
+    await controller.flush();
+    expect(stateOf(sent[2])).toMatchObject({ stage: 'retained', activeDays: '2-3' });
+  });
+
+  it('reaches first_server_connected from the readings at flush, once', async () => {
+    const { controller, sent, readings } = makeRig({ install: null, readings: {} });
+    readings.current = { sync: 'server' };
+    await controller.flush();
+    await controller.track({ name: 'feature_used', feature: 'terminal' });
+    await controller.flush();
+    const milestones = sent.flatMap((envelope) => envelope.events.filter((event) => event.name === 'milestone'));
+    expect(milestones).toEqual([{ name: 'milestone', kind: 'first_server_connected' }]);
+  });
+});
+
+describe('ProductTelemetryController — seeding the existing fleet (the v2 plan §3)', () => {
+  it('seeds the sent-bits from host state without emitting when the install already announced itself', async () => {
+    const { controller, sent, stateStore, clock } = makeRig({
+      install: { ...INSTALL, installedAt: INSTALL.installedAt - 40 * DAY },
+      readings: { rules: 12, requests: 2, workspaces: 2, sync: 'server', plan: 'team', role: 'owner', team: 4 },
+    });
+    clock.now = INSTALL.installedAt;
+    await controller.track({ name: 'rule_created', ruleType: 'header', origin: 'editor' });
+    await controller.flush();
+    const record = await stateStore.getRecord();
+    expect(record?.seeded).toBe(true);
+    expect(record?.milestones.sort()).toEqual([
+      'first_request_sent',
+      'first_rule_created',
+      'first_rule_matched',
+      'first_server_connected',
+      'first_share_sent',
+    ]);
+    expect(sent[0].events.some((event) => event.name === 'milestone')).toBe(false);
+    expect(stateOf(sent[0])).toMatchObject({ stage: 'team', profile: 'both', migratedFrom: 'unknown', team: '2-5' });
+  });
+
+  it('seeds configured only on an install younger than the 8-30 bucket, and activated on an older one', async () => {
+    const young = makeRig({
+      install: { ...INSTALL, installedAt: INSTALL.installedAt - 2 * DAY },
+      readings: { rules: 2 },
+    });
+    await young.controller.flush();
+    expect(stateOf(young.sent[0])?.stage).toBe('configured');
+    const old = makeRig({
+      install: { ...INSTALL, installedAt: INSTALL.installedAt - 31 * DAY },
+      readings: { rules: 2 },
+    });
+    await old.controller.flush();
+    expect(stateOf(old.sent[0])?.stage).toBe('activated');
+  });
+
+  it('seeds an editor or viewer as a share accepted, and reads a seeded record back on the next boot', async () => {
+    const stateStore = createInMemoryProductTelemetryStateStore();
+    const first = makeRig({ readings: { role: 'viewer' }, stateStore });
+    await first.controller.flush();
+    expect((await stateStore.getRecord())?.milestones).toEqual(['first_share_accepted']);
+    const second = makeRig({ readings: { rules: 50, role: 'viewer' }, stateStore });
+    await second.controller.flush();
+    expect((await stateStore.getRecord())?.milestones).toEqual(['first_share_accepted']);
+    expect(stateOf(second.sent[0])).toMatchObject({ stage: 'team', role: 'viewer', migratedFrom: 'unknown' });
+  });
+
+  it('starts a brand-new install empty: no seeding, migratedFrom none', async () => {
+    const { controller, stateStore } = makeRig({ install: null, readings: { rules: 9 } });
+    await controller.flush();
+    expect(await stateStore.getRecord()).toMatchObject({ seeded: false, milestones: [], migratedFrom: 'none' });
+  });
+
+  it('wipes the tracker with the identity on toggle-off and re-seeds on re-enable', async () => {
+    const { controller, sent, setEnabled, stateStore } = makeRig({ install: null, readings: { rules: 1 } });
+    await controller.track({ name: 'rule_matched', ruleType: 'header' });
+    expect((await stateStore.getRecord())?.milestones).toEqual(['first_rule_matched']);
+    setEnabled(false);
+    await controller.flush();
+    expect(await stateStore.getRecord()).toBeNull();
+    setEnabled(true);
+    await controller.track({ name: 'rule_created', ruleType: 'header', origin: 'editor' });
+    await controller.flush();
+    expect(await stateStore.getRecord()).toMatchObject({ seeded: true, milestones: ['first_rule_created'] });
+    expect(sent.at(-1)?.events.some((event) => event.name === 'milestone')).toBe(false);
+  });
+});
+
+describe('ProductTelemetryController — once per workspace', () => {
+  it('counts share_accepted once per scoped workspace and drops an unscoped call', async () => {
+    const { controller, sent } = makeRig({ install: null, readings: {} });
+    await controller.track({ name: 'share_accepted', route: 'server' }, { workspaceId: 'ws-a' });
+    await controller.track({ name: 'share_accepted', route: 'server' }, { workspaceId: 'ws-a' });
+    await controller.track({ name: 'share_accepted', route: 'git' }, { workspaceId: 'ws-b' });
+    await controller.track({ name: 'share_accepted', route: 'idp', role: 'viewer' });
+    await controller.flush();
+    const names = sent[0].events.map((event) =>
+      event.name === 'share_accepted'
+        ? `accepted:${event.route}`
+        : event.name === 'milestone'
+          ? `milestone:${event.kind}`
+          : event.name,
+    );
+    expect(names).toEqual([
+      'first_run',
+      'session_start',
+      'accepted:server',
+      'milestone:first_share_accepted',
+      'accepted:git',
+    ]);
+    expect(stateOf(sent[0])?.stage).toBe('team');
   });
 });

@@ -7,15 +7,22 @@ import { RuleTypeSchema } from '../../src/schemas/rule';
 import {
   activatedPlanFromLicenseSnapshot,
   browserMajorFromUserAgent,
+  bucketActiveDays,
   bucketScale,
   bucketSessionAge,
   bucketSinceInstall,
+  bucketTeamSeats,
   bucketViewportHeight,
   bucketViewportWidth,
   macOsMajorFromDarwinRelease,
+  migratedFromImportSource,
+  oncePerSessionLatchKey,
   osMajorFromSystemVersion,
   parseTelemetryAppVersion,
+  planBucketFromLicenseSnapshot,
   resolveTelemetrySyncKind,
+  TELEMETRY_EVENT_POLICY,
+  TELEMETRY_LEGACY_SCHEMA_VERSION,
   TELEMETRY_SCHEMA_VERSION,
   TELEMETRY_VIEWPORT_HEIGHT_FLOORS,
   TELEMETRY_VIEWPORT_WIDTH_FLOORS,
@@ -29,6 +36,8 @@ import {
   TelemetryLocaleSchema,
   TelemetryRuleTypeIdSchema,
   TelemetrySessionIdSchema,
+  type TelemetryState,
+  TelemetryStateSchema,
   toTelemetryArch,
   toTelemetryLocale,
   toTelemetryMcpClient,
@@ -84,7 +93,28 @@ const SAMPLE_EVENTS: TelemetryEvent[] = [
   { name: 'viewport_seen', surface: 'workbench', width: 1280, height: 800 },
   { name: 'viewport_seen', surface: 'popup', width: 800, height: 600 },
   { name: 'viewport_seen', surface: 'sidepanel', width: 0, height: 0 },
+  // Schema 3's slice-one shapes (the v2 plan §4).
+  { name: 'milestone', kind: 'first_rule_matched' },
+  { name: 'request_sent', protocol: 'graphql' },
+  { name: 'share_sent', route: 'server-admin', role: 'editor', members: '2-5' },
+  { name: 'share_accepted', route: 'server' },
+  { name: 'share_accepted', route: 'idp', role: 'viewer' },
+  { name: 'limit_hit', limit: 'seats' },
 ];
+
+const SAMPLE_STATE: TelemetryState = {
+  stage: 'retained',
+  rules: '6-20',
+  requests: '2-5',
+  workspaces: '1',
+  sync: 'server',
+  plan: 'team',
+  role: 'owner',
+  team: '6-10',
+  profile: 'both',
+  activeDays: '4-9',
+  migratedFrom: 'postman',
+};
 
 describe('telemetry vocabulary — round-trips', () => {
   it('pins the import-source union to the detector (compile-time check holds)', () => {
@@ -98,7 +128,7 @@ describe('telemetry vocabulary — round-trips', () => {
     });
   }
 
-  it('round-trips a batch envelope carrying the full per-process fact set', () => {
+  it('round-trips a batch envelope carrying the full per-process fact set and the state block', () => {
     const envelope: TelemetryEnvelope = {
       schemaVersion: TELEMETRY_SCHEMA_VERSION,
       host: 'extension',
@@ -115,15 +145,32 @@ describe('telemetry vocabulary — round-trips', () => {
       sinceInstall: '2-7',
       sessionAge: '1-8h',
       sentAt: 1_760_000_000_000,
+      state: SAMPLE_STATE,
       events: SAMPLE_EVENTS,
     };
     const parsed = v.parse(TelemetryEnvelopeSchema, JSON.parse(JSON.stringify(envelope)));
     expect(parsed).toEqual(envelope);
   });
 
+  it('round-trips the state block with only its tracker-derived members — a host omits what it cannot read', () => {
+    const minimal = { stage: 'installed', profile: 'none', activeDays: '1', migratedFrom: 'none' };
+    expect(v.parse(TelemetryStateSchema, minimal)).toEqual(minimal);
+    expect(v.parse(TelemetryStateSchema, SAMPLE_STATE)).toEqual(SAMPLE_STATE);
+  });
+
+  it('keeps both generations on the wire: schema 2 without a state block, schema 3 only with one', () => {
+    const base = { sessionId: SESSION_ID, installId: INSTALL_ID, sinceInstall: '0', sentAt: 1, events: [] };
+    expect(v.safeParse(TelemetryEnvelopeSchema, { ...base, schemaVersion: 2 }).success).toBe(true);
+    expect(v.safeParse(TelemetryEnvelopeSchema, { ...base, schemaVersion: 2, state: SAMPLE_STATE }).success).toBe(
+      false,
+    );
+    expect(v.safeParse(TelemetryEnvelopeSchema, { ...base, schemaVersion: 3 }).success).toBe(false);
+    expect(v.safeParse(TelemetryEnvelopeSchema, { ...base, schemaVersion: 3, state: SAMPLE_STATE }).success).toBe(true);
+  });
+
   it('accepts every architecture member on the envelope and an envelope without one (pre-S34 clients)', () => {
     const base = {
-      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '0',
@@ -138,7 +185,7 @@ describe('telemetry vocabulary — round-trips', () => {
 
   it('accepts an envelope without the version majors (pre-S35 clients) and with either one alone', () => {
     const base = {
-      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '0',
@@ -165,7 +212,7 @@ describe('telemetry vocabulary — round-trips', () => {
 
   it('accepts an envelope without the optional host (schema-v2 clients built before the field)', () => {
     const envelope = {
-      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '2-7',
@@ -267,7 +314,7 @@ describe('telemetry vocabulary — rejections', () => {
 
   it('rejects an envelope with extra top-level properties', () => {
     const envelope = {
-      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '0',
@@ -279,7 +326,7 @@ describe('telemetry vocabulary — rejections', () => {
   });
 
   it('rejects retired and unknown schemaVersions', () => {
-    for (const schemaVersion of [1, 3]) {
+    for (const schemaVersion of [1, 4]) {
       const envelope = {
         schemaVersion,
         sessionId: SESSION_ID,
@@ -295,7 +342,7 @@ describe('telemetry vocabulary — rejections', () => {
   it('rejects an architecture outside the closed union — a raw process.arch never passes through', () => {
     for (const arch of ['ia32', 'x86-64', 'arm', 'x64 ']) {
       const envelope = {
-        schemaVersion: TELEMETRY_SCHEMA_VERSION,
+        schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
         arch,
         sessionId: SESSION_ID,
         installId: INSTALL_ID,
@@ -311,7 +358,7 @@ describe('telemetry vocabulary — rejections', () => {
     for (const bad of [0, -1, 10.5, 22631, '15', '10.0.22631']) {
       for (const field of ['osVersion', 'browserVersion']) {
         const envelope = {
-          schemaVersion: TELEMETRY_SCHEMA_VERSION,
+          schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
           [field]: bad,
           sessionId: SESSION_ID,
           installId: INSTALL_ID,
@@ -344,7 +391,7 @@ describe('telemetry vocabulary — rejections', () => {
 
   it('rejects a precise sessionAge — buckets only', () => {
     const envelope = {
-      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '0',
@@ -357,7 +404,7 @@ describe('telemetry vocabulary — rejections', () => {
 
   it('rejects a precise sinceInstall day count — buckets only', () => {
     const envelope = {
-      schemaVersion: TELEMETRY_SCHEMA_VERSION,
+      schemaVersion: TELEMETRY_LEGACY_SCHEMA_VERSION,
       sessionId: SESSION_ID,
       installId: INSTALL_ID,
       sinceInstall: '12',
@@ -380,6 +427,90 @@ describe('telemetry vocabulary — rejections', () => {
       expect(v.safeParse(TelemetryInstallIdSchema, id).success).toBe(false);
     });
   }
+});
+
+describe('telemetry vocabulary — the state block (the v2 plan §3)', () => {
+  it('rejects an exact team size, an off-ladder stage and an unlisted origin — buckets and picklists only', () => {
+    expect(v.safeParse(TelemetryStateSchema, { ...SAMPLE_STATE, team: 7 }).success).toBe(false);
+    expect(v.safeParse(TelemetryStateSchema, { ...SAMPLE_STATE, team: '7' }).success).toBe(false);
+    expect(v.safeParse(TelemetryStateSchema, { ...SAMPLE_STATE, stage: 'paying' }).success).toBe(false);
+    expect(v.safeParse(TelemetryStateSchema, { ...SAMPLE_STATE, migratedFrom: 'paw' }).success).toBe(false);
+    expect(v.safeParse(TelemetryStateSchema, { ...SAMPLE_STATE, seeded: true }).success).toBe(false);
+  });
+
+  it('buckets the seats grammar against the free cap and the Team ceiling', () => {
+    expect([0, 1, 2, 5, 6, 10, 11, 50, 51, 400].map(bucketTeamSeats)).toEqual([
+      '1',
+      '1',
+      '2-5',
+      '2-5',
+      '6-10',
+      '6-10',
+      '11-50',
+      '11-50',
+      '51+',
+      '51+',
+    ]);
+  });
+
+  it('buckets active days with today as the floor', () => {
+    expect([0, 1, 2, 3, 4, 9, 10, 28].map(bucketActiveDays)).toEqual([
+      '1',
+      '1',
+      '2-3',
+      '2-3',
+      '4-9',
+      '4-9',
+      '10+',
+      '10+',
+    ]);
+  });
+
+  it('reads the plan for the state block: licensed or in grace by kind, free for everything else', () => {
+    const licensed = (status: 'licensed' | 'grace' | 'expired', kind?: 'personal-seat') => ({
+      status,
+      licenseId: 'lic_1',
+      licensee: { name: 'John Doe' },
+      seats: 5,
+      entitlements: [],
+      validUntil: 1,
+      graceEndsAt: 2,
+      ...(kind ? { kind } : {}),
+    });
+    expect(planBucketFromLicenseSnapshot({ status: 'unlicensed' })).toBe('free');
+    expect(planBucketFromLicenseSnapshot({ status: 'invalid', reason: 'bad-signature' })).toBe('free');
+    expect(planBucketFromLicenseSnapshot(licensed('expired'))).toBe('free');
+    expect(planBucketFromLicenseSnapshot(licensed('licensed'))).toBe('team');
+    expect(planBucketFromLicenseSnapshot(licensed('grace', 'personal-seat'))).toBe('individual');
+  });
+
+  it('folds the detector kinds onto the origin list: both Postman shapes, the named tools, other for the rest', () => {
+    expect(migratedFromImportSource('postman')).toBe('postman');
+    expect(migratedFromImportSource('postman-backup')).toBe('postman');
+    expect(migratedFromImportSource('insomnia')).toBe('insomnia');
+    expect(migratedFromImportSource('bruno')).toBe('bruno');
+    expect(migratedFromImportSource('har')).toBe('har');
+    expect(migratedFromImportSource('openapi')).toBe('openapi');
+    for (const generic of ['curl', 'url', 'workspace', 'graphql-schema', 'unknown'] as const) {
+      expect(migratedFromImportSource(generic)).toBe('other');
+    }
+  });
+});
+
+describe('telemetry vocabulary — the policy table (the v2 plan §4)', () => {
+  it('names every event shape exactly once, under its own name', () => {
+    const names = TelemetryEventSchema.options.map((option) => option.entries.name.literal);
+    expect(Object.keys(TELEMETRY_EVENT_POLICY).sort()).toEqual([...names].sort());
+    for (const [name, policy] of Object.entries(TELEMETRY_EVENT_POLICY)) expect(policy.name).toBe(name);
+  });
+
+  it('keys a daily latch by the member the table names and nothing else', () => {
+    expect(oncePerSessionLatchKey({ name: 'request_sent', protocol: 'grpc' })).toBe('request_sent:grpc');
+    expect(oncePerSessionLatchKey({ name: 'milestone', kind: 'first_import' })).toBeNull();
+    expect(oncePerSessionLatchKey({ name: 'share_accepted', route: 'server' })).toBeNull();
+    expect(oncePerSessionLatchKey({ name: 'limit_hit', limit: 'seats' })).toBeNull();
+    expect(oncePerSessionLatchKey({ name: 'session_start' })).toBeNull();
+  });
 });
 
 describe('telemetry vocabulary — coarse buckets', () => {

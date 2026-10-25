@@ -7,21 +7,23 @@
  * cadence (the SW is evictable, so `setInterval` is not a cadence).
  */
 
-import { isDesktopAppBackendUrl } from '@openheaders/core/backends';
 import type { ProductTelemetrySnapshot } from '@openheaders/core/bridge';
-import { getHostStorage, OH, wsKeys } from '@openheaders/core/storage';
+import { getHostStorage } from '@openheaders/core/storage';
 import {
   browserMajorFromUserAgent,
-  bucketScale,
   buildTelemetryUninstallUrl,
   mintTelemetrySessionId,
   type PersistedTelemetryQueueEntry,
   PRODUCT_TELEMETRY_ENDPOINT,
   ProductTelemetryController,
+  type ProductTelemetryHostReadings,
   type ProductTelemetryInstallStore,
   type ProductTelemetrySessionStore,
+  type ProductTelemetryStateStore,
+  type ProductTelemetryTrackScope,
   parseTelemetryAppVersion,
-  resolveTelemetrySyncKind,
+  readHostReadingsFromStorage,
+  readInstallStateRecord,
   type TelemetryBrowserKind,
   type TelemetryChannelId,
   type TelemetryEnvelope,
@@ -31,7 +33,6 @@ import {
   type TelemetryLocale,
   type TelemetryPlatform,
   type TelemetryQueueStore,
-  type TelemetrySyncKind,
   toTelemetryArch,
   toTelemetryLocale,
   windowsMajorFromClientHintPlatformVersion,
@@ -51,6 +52,7 @@ const LATCH_KEY_PREFIX = 'oh.productTelemetry.latch.';
 const LATCH_DAY_KEY = 'oh.productTelemetry.latchDay';
 const INSTALL_RECORD_KEY = 'oh.productTelemetry.install';
 const FIRST_RUN_SENT_KEY = 'oh.productTelemetry.firstRunSent';
+const STATE_RECORD_KEY = 'oh.productTelemetry.state';
 const QUEUE_KEY = 'oh.productTelemetry.queue';
 const QUEUE_EPOCH_KEY = 'oh.productTelemetry.queueEpoch';
 
@@ -176,6 +178,27 @@ const installStore: ProductTelemetryInstallStore = {
 };
 
 /**
+ * The install-state tracker's record (the telemetry v2 plan §3) beside
+ * the identity on `chrome.storage.local`: it carries no identifier and
+ * is wiped with the identity record on toggle-off.
+ */
+const stateStore: ProductTelemetryStateStore = {
+  async getRecord() {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    const items = await api.storage.local.get(STATE_RECORD_KEY);
+    return readInstallStateRecord(items[STATE_RECORD_KEY]);
+  },
+  async setRecord(record) {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    await api.storage.local.set({ [STATE_RECORD_KEY]: record });
+  },
+  async clearRecord() {
+    const api = typeof browser !== 'undefined' ? browser : chrome;
+    await api.storage.local.remove(STATE_RECORD_KEY);
+  },
+};
+
+/**
  * Durable pending queue on `chrome.storage.local` so SW eviction can't
  * destroy events between track and flush. Session scoping without the
  * session id ever touching disk: a random epoch minted per browser
@@ -270,43 +293,18 @@ export function detectDistributionChannel(): TelemetryChannelId {
 }
 
 /**
- * Coarse scale-of-use for `session_start`: active-workspace rule count
- * and workspace count, bucketed. Reads two storage keys at boot; any
- * failure just omits the buckets — context, never worth blocking over.
+ * The install's readings for the state block (the telemetry v2 plan
+ * §3): the shared storage reading — the runtime-active workspace's rule
+ * projection, the saved requests across workspaces, the workspace list,
+ * the sync kind (the extension never binds git itself), the directory's
+ * role and team — plus the plan, which is `free` on every extension by
+ * construction (no license plumbing). A host storage not yet hydrated
+ * reads nothing.
  */
-export async function readScaleBuckets(): Promise<
-  Pick<Extract<TelemetryEvent, { name: 'session_start' }>, 'rules' | 'workspaces'>
-> {
-  try {
-    const storage = getHostStorage();
-    if (!storage) return {};
-    const workspaces = (await storage.get(OH.workspaces)) ?? [];
-    const activeId = (await storage.get(OH.runtimeActive)) ?? workspaces[0]?.id;
-    const rules = activeId ? ((await storage.get(wsKeys(activeId).rules)) ?? []) : [];
-    return { rules: bucketScale(rules.length), workspaces: bucketScale(workspaces.length) };
-  } catch {
-    return {};
-  }
-}
-
-/**
- * How this install keeps its workspaces (S35), the install-wide
- * maximum: a connection record to anything but the desktop app's own
- * loopback wire is a server (a daemon or a team server); the extension
- * never binds git itself. Any read failure omits the fact.
- */
-export async function readSyncKind(): Promise<TelemetrySyncKind | undefined> {
-  try {
-    const storage = getHostStorage();
-    if (!storage) return undefined;
-    const backends = (await storage.get(OH.backends)) ?? [];
-    return resolveTelemetrySyncKind({
-      server: backends.some((backend) => !isDesktopAppBackendUrl(backend.url)),
-      git: false,
-    });
-  } catch {
-    return undefined;
-  }
+export async function readHostState(): Promise<ProductTelemetryHostReadings> {
+  const storage = getHostStorage();
+  if (!storage) return { plan: 'free' };
+  return { ...(await readHostReadingsFromStorage(storage, { git: false })), plan: 'free' };
 }
 
 /**
@@ -395,14 +393,13 @@ export async function buildEnvelopeFacts(): Promise<TelemetryEnvelopeFacts> {
 }
 
 async function buildSessionStart(): Promise<TelemetryEvent | null> {
-  // The per-process facts ride the envelope, so the event carries only
-  // the measurements taken at session start: the scale-of-use buckets
-  // and the sync kind. An unmappable platform (ChromeOS) leaves the
-  // envelope unstamped but still counts the session — the install is a
-  // real store user either way (S31; before, those installs announced
-  // a first_run and were never seen again).
-  const sync = await readSyncKind();
-  return { name: 'session_start', ...(await readScaleBuckets()), ...(sync !== undefined ? { sync } : {}) };
+  // The per-process facts ride the envelope and the measurements ride
+  // its state block, so the event itself is bare. An unmappable
+  // platform (ChromeOS) leaves the envelope unstamped but still counts
+  // the session — the install is a real store user either way (S31;
+  // before, those installs announced a first_run and were never seen
+  // again).
+  return { name: 'session_start' };
 }
 
 /**
@@ -457,9 +454,11 @@ const controller = new ProductTelemetryController({
   now: Date.now,
   sessionStore,
   installStore,
+  stateStore,
   queueStore,
   host: 'extension',
   facts: buildEnvelopeFacts,
+  readHostState,
   getEnabled: () => getSetting('telemetry.enabled'),
   subscribeEnabled: (fn) => void subscribeKey('telemetry.enabled', fn),
   buildSessionStart,
@@ -512,9 +511,9 @@ export async function handleProductTelemetryAlarm(): Promise<void> {
  * kicks an opportunistic flush so delivery never waits on the alarm —
  * this SW may not live to see it fire.
  */
-export function trackProductTelemetryEvent(event: TelemetryEvent): void {
+export function trackProductTelemetryEvent(event: TelemetryEvent, scope?: ProductTelemetryTrackScope): void {
   void controller
-    .track(event)
+    .track(event, scope)
     .then(() => controller.flush())
     .catch(() => undefined);
 }

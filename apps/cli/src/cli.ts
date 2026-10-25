@@ -140,14 +140,14 @@ async function main(): Promise<void> {
   const autoUpgradeLine = await maybeSpawnAutoUpgrade(argv);
   if (updateNotify.line !== null) process.stderr.write(`${autoUpgradeLine ?? updateNotify.line}\n`);
   try {
-    await runCommand(argv, first);
+    await runCommand(argv, first, telemetry);
   } finally {
     await telemetry.finish();
     await updateNotify.finish();
   }
 }
 
-async function runCommand(argv: string[], first: string | undefined): Promise<void> {
+async function runCommand(argv: string[], first: string | undefined, telemetry: CliProductTelemetry): Promise<void> {
   if (first === '--version' || first === '-v') {
     console.log(CLI_VERSION);
     return;
@@ -198,6 +198,9 @@ async function runCommand(argv: string[], first: string | undefined): Promise<vo
     if (readSpec) {
       lines = await runReadCommand(readSpec, argv);
     } else if (toolSpec) {
+      // The API-client activation signal (the telemetry v2 plan §4): a
+      // send is counted as the gesture, whatever the daemon answers.
+      if (toolSpec.tool === 'requests_send') telemetry.track({ name: 'request_sent', protocol: 'http' });
       lines = await runToolCommand(toolSpec, argv);
     } else {
       console.log(usage());

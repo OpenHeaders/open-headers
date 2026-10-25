@@ -15,6 +15,7 @@ import {
   type TelemetryEvent,
   type TelemetryInstallContext,
   type TelemetryQueueStore,
+  type TelemetryState,
 } from '../../src/telemetry';
 
 const NOW = 1_760_000_000_000;
@@ -26,6 +27,16 @@ const FACTS: TelemetryEnvelopeFacts = {
   platform: 'mac',
   arch: 'arm64',
   browser: 'chrome',
+};
+const STATE: TelemetryState = {
+  stage: 'configured',
+  rules: '2-5',
+  workspaces: '1',
+  sync: 'local',
+  plan: 'free',
+  profile: 'interceptor',
+  activeDays: '1',
+  migratedFrom: 'none',
 };
 
 function makeTransport(overrides: Partial<{ result: boolean; error: Error }> = {}) {
@@ -49,6 +60,7 @@ function makeClient(
     transport,
     host: 'extension',
     facts: () => FACTS,
+    state: () => STATE,
     now: () => clock++,
     install: () => (overrides.install === undefined ? INSTALL : overrides.install),
   });
@@ -96,6 +108,7 @@ describe('TelemetryClient — session id', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       sessionId: injected,
@@ -122,6 +135,7 @@ describe('TelemetryClient — install identity on the envelope', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => ({ installId: INSTALL.installId, installedAt: NOW - 12 * 24 * 60 * 60 * 1000 }),
     });
@@ -137,6 +151,7 @@ describe('TelemetryClient — install identity on the envelope', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => ({ installId, installedAt: NOW }),
     });
@@ -202,12 +217,22 @@ describe('TelemetryClient — batching and envelope shape', () => {
     expect(envelope.browser).toBe('chrome');
   });
 
+  it('stamps the state block read at flush time — schema 3, one snapshot per batch', async () => {
+    const { client, transport } = makeClient();
+    client.track(makeEvent());
+    await client.flush();
+    const envelope = transport.sent[0];
+    expect(envelope.schemaVersion).toBe(3);
+    expect(envelope.schemaVersion === 3 ? envelope.state : null).toEqual(STATE);
+  });
+
   it('omits the optional facts a host cannot state (unmappable platform and architecture, no browser)', async () => {
     const transport = makeTransport();
     const client = new TelemetryClient({
       transport,
       host: 'cli',
       facts: () => ({ channel: 'brew', appVersion: { year: 2026, month: 8, patch: 0 }, locale: 'en' }),
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
     });
@@ -227,6 +252,7 @@ describe('TelemetryClient — batching and envelope shape', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       sessionStartedAt: NOW - twoHours,
@@ -252,6 +278,7 @@ describe('TelemetryClient — batching and envelope shape', () => {
       transport,
       host: 'extension',
       facts: () => ({ ...FACTS, locale }),
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
     });
@@ -298,6 +325,7 @@ describe('TelemetryClient — failure is silent, batch rides the next flush', ()
       },
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
     });
@@ -352,6 +380,7 @@ describe('TelemetryClient — durable queue store', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -371,6 +400,7 @@ describe('TelemetryClient — durable queue store', () => {
       transport: { send: async () => false },
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -392,6 +422,7 @@ describe('TelemetryClient — durable queue store', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -411,6 +442,7 @@ describe('TelemetryClient — durable queue store', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -428,6 +460,7 @@ describe('TelemetryClient — durable queue store', () => {
       transport,
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -449,6 +482,7 @@ describe('TelemetryClient — durable queue store', () => {
       transport: makeTransport(),
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: store,
@@ -464,6 +498,7 @@ describe('TelemetryClient — durable queue store', () => {
       transport: makeTransport(),
       host: 'extension',
       facts: () => FACTS,
+      state: () => STATE,
       now: () => NOW,
       install: () => INSTALL,
       queueStore: {

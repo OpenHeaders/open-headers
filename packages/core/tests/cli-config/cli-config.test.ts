@@ -74,6 +74,20 @@ describe('parseCliConfig / serializeCliConfig', () => {
     });
   });
 
+  it('reads the tracker record back as written and drops a shape it does not know', () => {
+    const telemetryState = {
+      version: 1,
+      milestones: ['first_rule_created'],
+      activity: { day: 20_740, bits: 5 },
+      tools: { interceptor: true, apiClient: false },
+      migratedFrom: 'unknown',
+      acceptedShares: [],
+      seeded: true,
+    };
+    expect(parseCliConfig(JSON.stringify({ telemetryState }), '/x/cli.json')).toEqual({ telemetryState });
+    expect(parseCliConfig(JSON.stringify({ telemetryState: { version: 2 } }), '/x/cli.json')).toEqual({});
+  });
+
   it('reads the two telemetry switches as independent booleans', () => {
     expect(parseCliConfig(JSON.stringify({ telemetry: false, errorReports: true }), '/x/cli.json')).toEqual({
       telemetry: false,

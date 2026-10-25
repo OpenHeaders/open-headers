@@ -1,10 +1,11 @@
 /**
  * Product-telemetry controller — owns a host's single `TelemetryClient`
  * (the telemetry plan §7) behind injected seams so the whole gate matrix
- * (enabled toggle, once-per-session `session_start`) is unit-testable
- * without any platform API. Exactly one instance lives
- * per host process (extension SW / desktop main); UI surfaces never
- * construct one — they reach it over the `productTelemetry*` RPCs.
+ * (enabled toggle, once-per-session `session_start`, the install-state
+ * tracker) is unit-testable without any platform API. Exactly one
+ * instance lives per host process (extension SW / desktop main / one
+ * CLI invocation); UI surfaces never construct one — they reach it over
+ * the `productTelemetry*` RPCs.
  *
  * "Product telemetry" everywhere: plain "telemetry" in this codebase
  * already means the per-tab traffic telemetry the inspector shows.
@@ -16,6 +17,14 @@
  * exit) — a session means one browser launch, not one SW wake. A
  * persistent process (desktop main) is its own session and uses the
  * in-memory store.
+ *
+ * Cadence is the policy table's (the v2 plan §4): a `daily` event
+ * latches in the session store per member and re-arms at the UTC day
+ * roll; `once-per-install` and `once-per-workspace` events latch in the
+ * install-state record the tracker keeps; `every` counts each call. The
+ * tracker also turns the first event of a kind into its `milestone`,
+ * emitted right behind it, and derives the state block the client
+ * stamps on every envelope.
  */
 
 import type { ProductTelemetrySnapshot } from '../protocol/channels/product-telemetry';
@@ -26,14 +35,26 @@ import type {
   TelemetryTransport,
 } from './client';
 import { mintTelemetryInstallId, TelemetryClient } from './client';
-import type { TelemetryEvent, TelemetryHostKind } from './vocabulary';
+import type { ProductTelemetryHostReadings, TelemetryInstallStateRecord } from './install-state';
+import {
+  deriveTelemetryState,
+  freshInstallState,
+  latchShareAccepted,
+  markActiveDay,
+  observeHostReadings,
+  observeTelemetryEvent,
+  seedInstallState,
+  utcDayIndex,
+} from './install-state';
+import type { TelemetryEvent, TelemetryHostKind, TelemetryMilestoneKind, TelemetryState } from './vocabulary';
+import { oncePerSessionLatchKey, telemetryPolicyFor } from './vocabulary';
 
 /**
  * Per-session state; RAM-backed on every host, never written to disk.
  * The keyed latch carries every once-per-session fact: the
- * `session_start` sent-bit plus the per-member dedupe for
- * `feature_used` and `error_beacon` (first occurrence per session
- * counts; repeats are non-events, not suppressed entries).
+ * `session_start` sent-bit plus the per-member dedupe of the policy
+ * table's `daily` events (first occurrence per session counts; repeats
+ * are non-events, not suppressed entries).
  *
  * Latches re-arm daily (plan §3, S15 amendment): the controller stamps
  * the UTC day it last armed them and clears every latch when a track
@@ -61,9 +82,6 @@ export interface ProductTelemetrySessionStore {
   /** Wipe every latch — the daily re-arm; the session id and latch day are untouched. */
   clearLatches(): Promise<void>;
 }
-
-/** UTC-day granularity of the latch re-arm (plan §3, S15 amendment). */
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Latch key marking that `session_start` fired (queued or suppressed) this session. */
 export const SESSION_START_LATCH_KEY = 'session_start';
@@ -93,6 +111,18 @@ export interface ProductTelemetryInstallStore {
   markFirstRunSent(): Promise<void>;
 }
 
+/**
+ * The install-state tracker's record (the v2 plan §3), host-persisted
+ * beside the identity and wiped with it on toggle-off. It carries no
+ * identifier of the install — sent-bits, an activity bitmask, the
+ * tools used, the first import's origin and the local share latch.
+ */
+export interface ProductTelemetryStateStore {
+  getRecord(): Promise<TelemetryInstallStateRecord | null>;
+  setRecord(record: TelemetryInstallStateRecord): Promise<void>;
+  clearRecord(): Promise<void>;
+}
+
 /** Install store for tests and rigs; real hosts persist (extension `chrome.storage.local`, desktop settings, CLI config). */
 export function createInMemoryProductTelemetryInstallStore(
   initial: TelemetryInstallContext | null = null,
@@ -114,23 +144,20 @@ export function createInMemoryProductTelemetryInstallStore(
   };
 }
 
-/**
- * Latch key for events that fire once per session per union member
- * (`feature_used` per feature, `error_beacon` per code, `rule_matched`
- * per rule type, `upgrade_cta_shown` per surface, `mcp_client_connected`
- * per client, `viewport_seen` per surface); null for events that count every occurrence —
- * `upgrade_cta_clicked`, `paywall_hit`, and `license_activated` stay
- * unlatched by design (S22): each occurrence is a distinct funnel fact
- * and all three are low-volume.
- */
-export function oncePerSessionLatchKey(event: TelemetryEvent): string | null {
-  if (event.name === 'feature_used') return `feature_used:${event.feature}`;
-  if (event.name === 'error_beacon') return `error_beacon:${event.code}`;
-  if (event.name === 'rule_matched') return `rule_matched:${event.ruleType}`;
-  if (event.name === 'upgrade_cta_shown') return `upgrade_cta_shown:${event.surface}`;
-  if (event.name === 'mcp_client_connected') return `mcp_client_connected:${event.client}`;
-  if (event.name === 'viewport_seen') return `viewport_seen:${event.surface}`;
-  return null;
+/** State store for tests and rigs; real hosts persist it beside the install record. */
+export function createInMemoryProductTelemetryStateStore(
+  initial: TelemetryInstallStateRecord | null = null,
+): ProductTelemetryStateStore {
+  let record = initial;
+  return {
+    getRecord: async () => record,
+    setRecord: async (next) => {
+      record = next;
+    },
+    clearRecord: async () => {
+      record = null;
+    },
+  };
 }
 
 /** Session store for hosts whose process lifetime IS the session (desktop main). */
@@ -167,12 +194,20 @@ export interface ProductTelemetryControllerDeps {
   now(): number;
   sessionStore: ProductTelemetrySessionStore;
   installStore: ProductTelemetryInstallStore;
+  /** The install-state tracker's home; omitted = RAM-only (tests, rigs). */
+  stateStore?: ProductTelemetryStateStore;
   /** Durable pending-queue home for evictable hosts (see `TelemetryQueueStore`); omitted = RAM-only queue. */
   queueStore?: TelemetryQueueStore;
   /** The surface this controller runs in — stamped on every envelope the client flushes. */
   host: TelemetryHostKind;
   /** Per-process envelope facts (channel, version, locale, platform, browser), read at flush time. */
   facts(): TelemetryEnvelopeFacts | Promise<TelemetryEnvelopeFacts>;
+  /**
+   * The install's live readings (rules, saved requests, workspaces, sync,
+   * plan, role, team) — read at flush time for the state block and once
+   * at the tracker's seeding. A host omits what it cannot read.
+   */
+  readHostState(): ProductTelemetryHostReadings | Promise<ProductTelemetryHostReadings>;
   /** Current `telemetry.enabled` setting value. */
   getEnabled(): boolean;
   /** Subscribe to `telemetry.enabled` changes. */
@@ -191,15 +226,24 @@ export interface ProductTelemetryControllerDeps {
   onIdentityChanged?(installId: string | null): void;
 }
 
+/** The scope a `once-per-workspace` event latches by — an id that stays on this host. */
+export interface ProductTelemetryTrackScope {
+  workspaceId: string;
+}
+
 export class ProductTelemetryController {
   private readonly deps: ProductTelemetryControllerDeps;
+  private readonly stateStore: ProductTelemetryStateStore;
   private client: TelemetryClient | null = null;
   private ready: Promise<void> | null = null;
   private installContext: TelemetryInstallContext | null = null;
+  private stateRecord: TelemetryInstallStateRecord | null = null;
+  private flushState: TelemetryState | null = null;
   private gateWork: Promise<void> = Promise.resolve();
 
   constructor(deps: ProductTelemetryControllerDeps) {
     this.deps = deps;
+    this.stateStore = deps.stateStore ?? createInMemoryProductTelemetryStateStore();
   }
 
   /** Idempotent boot: resolve the session id, build the client, wire the enabled gate. */
@@ -222,6 +266,7 @@ export class ProductTelemetryController {
       transport: this.deps.transport,
       host: this.deps.host,
       facts: this.deps.facts,
+      state: () => this.flushState ?? this.refreshState(),
       now: this.deps.now,
       install: () => this.installContext,
       queueStore: this.deps.queueStore,
@@ -240,8 +285,10 @@ export class ProductTelemetryController {
       await this.ensureInstallIdentity();
     } else {
       // Off means no identity: a toggle turned off while this host was
-      // not running still wipes the record at the next boot.
+      // not running still wipes the record — and the tracker's — at the
+      // next boot.
       await this.deps.installStore.clearRecord();
+      await this.stateStore.clearRecord();
     }
     // Rehydrate pending events a previous process life persisted but
     // never delivered (extension SW eviction) — after the enabled gate
@@ -269,12 +316,11 @@ export class ProductTelemetryController {
    * process alive for weeks would report nothing after its first day —
    * actives and retention would systematically undercount long-lived
    * sessions. Clearing includes the `session_start` latches, so the
-   * day's first activity re-fires it through the same gates as boot
-   * (and re-reads the scale buckets — a daily growth snapshot). The
-   * session id never rolls here.
+   * day's first activity re-fires it through the same gates as boot.
+   * The session id never rolls here.
    */
   private async rollLatchDay(): Promise<void> {
-    const day = Math.floor(this.deps.now() / DAY_MS);
+    const day = utcDayIndex(this.deps.now());
     const current = await this.deps.sessionStore.getLatchDay();
     if (current === day) return;
     await this.deps.sessionStore.setLatchDay(day);
@@ -291,7 +337,8 @@ export class ProductTelemetryController {
 
   /**
    * Enabled transitions own the identity lifecycle: off wipes the install
-   * record entirely; on re-mints a fresh one. `first_run` never re-fires
+   * record and the tracker's entirely; on re-mints a fresh identity and
+   * re-seeds the tracker from host state. `first_run` never re-fires
    * across toggle cycles — its sent-bit survives the wipe by design.
    */
   private async onEnabledChange(): Promise<void> {
@@ -305,12 +352,22 @@ export class ProductTelemetryController {
       await this.ensureSessionStart();
     } else {
       this.installContext = null;
+      this.stateRecord = null;
+      this.flushState = null;
       await this.deps.installStore.clearRecord();
+      await this.stateStore.clearRecord();
     }
     this.deps.onIdentityChanged?.(this.installContext?.installId ?? null);
   }
 
-  /** Load-or-mint the install record; announce a first run exactly once per install-store lifetime. */
+  /**
+   * Load-or-mint the install record; announce a first run exactly once
+   * per install-store lifetime. The tracker's record loads beside it:
+   * absent on an install that already announced itself, it is SEEDED
+   * from host state (plan §3 — the upgrade of the existing fleet and
+   * the toggle-cycled install alike); absent on a brand-new install, it
+   * starts empty.
+   */
   private async ensureInstallIdentity(): Promise<void> {
     let record = await this.deps.installStore.getRecord();
     if (!record) {
@@ -318,7 +375,17 @@ export class ProductTelemetryController {
       await this.deps.installStore.setRecord(record);
     }
     this.installContext = record;
-    if (!(await this.deps.installStore.wasFirstRunSent())) {
+    const announced = await this.deps.installStore.wasFirstRunSent();
+    let state = await this.stateStore.getRecord();
+    if (!state) {
+      const now = this.deps.now();
+      state = announced
+        ? seedInstallState(await this.deps.readHostState(), { installedAt: record.installedAt, now })
+        : freshInstallState(utcDayIndex(now));
+      await this.stateStore.setRecord(state);
+    }
+    this.stateRecord = state;
+    if (!announced) {
       await this.deps.installStore.markFirstRunSent();
       // The distribution channel rides the envelope facts, not the event.
       this.client?.track({ name: 'first_run' });
@@ -345,14 +412,45 @@ export class ProductTelemetryController {
     if (event) client.track(event);
   }
 
+  /** Replace the tracker's record and persist it; the next flush re-derives the state block. */
+  private async commitState(record: TelemetryInstallStateRecord): Promise<void> {
+    if (record === this.stateRecord) return;
+    this.stateRecord = record;
+    this.flushState = null;
+    await this.stateStore.setRecord(record);
+  }
+
+  /** Queue the milestones an observation reached, right behind the event that reached them. */
+  private trackMilestones(kinds: readonly TelemetryMilestoneKind[]): void {
+    for (const kind of kinds) this.client?.track({ name: 'milestone', kind });
+  }
+
   /**
-   * Record one vocabulary event. Once-per-session events
-   * (`feature_used`, `error_beacon`) dedupe through the session-store
-   * latch — the first occurrence per member latches regardless of the
-   * gates (a suppressed first use is still the first use), and repeats
-   * never reach the client or its log.
+   * The state block for the next envelope: today's bit on the activity
+   * mask, the readings folded in (a server backend reaches its
+   * milestone here), the ladder derived. Cached until the record
+   * changes again, so one flush reads the host once.
    */
-  async track(event: TelemetryEvent): Promise<void> {
+  private async refreshState(): Promise<TelemetryState> {
+    const readings = await this.deps.readHostState();
+    const record = this.stateRecord ?? freshInstallState(utcDayIndex(this.deps.now()));
+    const observed = observeHostReadings(markActiveDay(record, utcDayIndex(this.deps.now())), readings);
+    this.trackMilestones(observed.milestones);
+    await this.commitState(observed.record);
+    this.flushState = deriveTelemetryState(observed.record, readings);
+    return this.flushState;
+  }
+
+  /**
+   * Record one vocabulary event. The policy table says how it latches:
+   * a `daily` member dedupes through the session-store latch (the first
+   * occurrence per member latches regardless of the gates — a
+   * suppressed first use is still the first use — and repeats never
+   * reach the client or its log); a `once-per-workspace` event needs
+   * its scope and latches in the tracker; the tracker then folds the
+   * event in and emits the milestone it reached, if any.
+   */
+  async track(event: TelemetryEvent, scope?: ProductTelemetryTrackScope): Promise<void> {
     await this.settled();
     await this.rolloverSettled();
     const latchKey = oncePerSessionLatchKey(event);
@@ -360,12 +458,26 @@ export class ProductTelemetryController {
       if (await this.deps.sessionStore.wasLatched(latchKey)) return;
       await this.deps.sessionStore.latch(latchKey);
     }
+    let record = markActiveDay(
+      this.stateRecord ?? freshInstallState(utcDayIndex(this.deps.now())),
+      utcDayIndex(this.deps.now()),
+    );
+    if (telemetryPolicyFor(event.name).cadence === 'once-per-workspace') {
+      if (!scope) return;
+      const latched = latchShareAccepted(record, scope.workspaceId);
+      if (!latched.first) return;
+      record = latched.record;
+    }
+    const observed = observeTelemetryEvent(record, event);
     this.client?.track(event);
+    this.trackMilestones(observed.milestones);
+    await this.commitState(observed.record);
   }
 
   async flush(): Promise<void> {
     await this.settled();
     await this.rolloverSettled();
+    if (this.client?.isEnabled && this.installContext) await this.refreshState();
     await this.client?.flush();
   }
 

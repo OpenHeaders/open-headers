@@ -32,6 +32,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
 import { FREE_SERVICE_ACCOUNT_LIMIT } from '@openheaders/core/licensing';
+import { bucketScale } from '@openheaders/core/telemetry';
 import type { MessageKey } from '@openheaders/i18n';
 import { useLocale, useT } from '@openheaders/ui/context/LocaleContext';
 import { noteUpgradeCtaShown, trackProductTelemetryEvent } from '../../../shared/product-telemetry';
@@ -378,6 +379,17 @@ const ServerAdminUsersSection: React.FC = () => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
   const { users, authMeta, refresh, workspaceName, workspaceOptions } = useServerDirectory(true);
+
+  // A grant that landed is a share sent (the telemetry v2 plan §4): the
+  // admin route, the role it opened, the workspace's size as a bucket —
+  // the people already granted on it, the new one, and the operator.
+  const noteShareSent = useCallback(
+    (workspaceId: string, role: DirectoryRole): void => {
+      const granted = (users ?? []).filter((user) => user.grants.some((grant) => grant.workspaceId === workspaceId));
+      trackProductTelemetryEvent({ name: 'share_sent', route: 'server-admin', role, members: bucketScale(granted.length + 2) });
+    },
+    [users],
+  );
   const [addForm] = Form.useForm<{
     displayName: string;
     email: string;
@@ -444,17 +456,18 @@ const ServerAdminUsersSection: React.FC = () => {
         // so the blocked admission can complete with the user's own seat.
         if (resp.reason === 'seat-limit-reached') {
           setSeatBlocked(true);
-          trackProductTelemetryEvent({ name: 'paywall_hit', surface: 'seat-gate' });
+          trackProductTelemetryEvent({ name: 'limit_hit', limit: 'seats' });
         }
         // The service cap's wall has no redeem path — the one lift is
         // the org license (decision e).
         if (resp.reason === 'service-limit-reached') {
           setServiceBlocked(true);
-          trackProductTelemetryEvent({ name: 'paywall_hit', surface: 'service-gate' });
+          trackProductTelemetryEvent({ name: 'limit_hit', limit: 'service-accounts' });
         }
         message.error(t('workbench.serverAdmin.users.addFailed', { message: resp.error }));
         return;
       }
+      noteShareSent(values.workspaceId, values.role);
       addForm.resetFields();
       setSeatBlocked(false);
       setServiceBlocked(false);
@@ -493,6 +506,7 @@ const ServerAdminUsersSection: React.FC = () => {
       try {
         const resp = await hostBridge.call('oh.daemon.users.grant', { userId, workspaceId, role });
         if (!resp.ok) throw new Error(resp.error);
+        noteShareSent(workspaceId, role);
         await refresh();
       } catch (err) {
         message.error(t('workbench.serverAdmin.grants.grantFailed', { message: (err as Error).message }));

@@ -11,6 +11,8 @@
  * stays in the node hosts.
  */
 
+import { readInstallStateRecord, type TelemetryInstallStateRecord } from '../telemetry/install-state';
+
 /** Release line for version checks and the future `oh upgrade` (the distribution plan §4). */
 export type UpdateChannel = 'stable' | 'beta';
 
@@ -31,6 +33,8 @@ export interface CliConfig {
   telemetryInstalledAt?: number;
   /** Once-ever `first_run` sent-bit; survives identity wipes so toggle cycles never inflate install counts. */
   telemetryFirstRunSent?: boolean;
+  /** The install-state tracker's record (the telemetry v2 plan §3); wiped with the install id. */
+  telemetryState?: TelemetryInstallStateRecord;
 }
 
 /** The config dir is 0700 and the file 0600 — it holds a daemon token
@@ -87,6 +91,8 @@ export function parseCliConfig(raw: string, filePath: string): CliConfig {
   if (typeof parsed.telemetryInstallId === 'string') config.telemetryInstallId = parsed.telemetryInstallId;
   if (typeof parsed.telemetryInstalledAt === 'number') config.telemetryInstalledAt = parsed.telemetryInstalledAt;
   if (typeof parsed.telemetryFirstRunSent === 'boolean') config.telemetryFirstRunSent = parsed.telemetryFirstRunSent;
+  const telemetryState = readInstallStateRecord(parsed.telemetryState);
+  if (telemetryState !== null) config.telemetryState = telemetryState;
   return config;
 }
 

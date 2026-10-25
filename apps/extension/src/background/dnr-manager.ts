@@ -455,9 +455,10 @@ async function rebuildAll(rawRules: Rule[], retryFailedSecrets: boolean): Promis
     dropped = globalDynamic.length - cap;
     effectiveDynamic = globalDynamic.slice(0, cap);
     logger.warn('DnrManager', `Active rule cap (${cap}) exceeded — dropping ${dropped} overflow DNR rules`);
-    // Typed beacon only — no counts, no rule data (S17); the session
-    // latch keeps repeated rebuilds at one event per session per day.
-    trackProductTelemetryEvent({ name: 'error_beacon', code: 'dnr-rule-limit' });
+    // Typed row only — no counts, no rule data (S17): the browser's cap
+    // is a ceiling reached (the telemetry v2 plan §4), counted on every
+    // rebuild that drops rules.
+    trackProductTelemetryEvent({ name: 'limit_hit', limit: 'dnr-rules' });
   }
 
   // ── Large rule-set warning ────────────────────────────────────

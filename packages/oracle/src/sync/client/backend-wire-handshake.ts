@@ -50,6 +50,13 @@ export interface BackendWireHandshakeDeps {
    * an awareness client plane omits it.
    */
   readonly onSyncedPresencePush?: () => void;
+  /**
+   * Optional host hook fired once per backend Org on its FIRST join
+   * over a network wire — a share reached this install (the telemetry
+   * v2 plan §4). The desktop app's own loopback wire is pairing, never
+   * a share, and never fires it.
+   */
+  readonly onJoinedOrg?: (orgId: string) => void;
 }
 
 export interface SyncHandshakeHandles {
@@ -263,6 +270,7 @@ export function createSyncHandshakeForWire(
         pendingAdoptWorkspaceId = backendActiveWorkspaceId;
         tryAdoptPendingWorkspace();
       }
+      if (result.firstJoin && !wire.isLoopback()) deps.onJoinedOrg?.(org.id);
       logger.info(SCOPE, `joined backend Org ${org.id} — its workspaces will sync down`);
     },
   });

@@ -23,6 +23,7 @@
 import type { BackendReach } from '../protocol';
 import type { ScriptExecutionMode, ScriptSlotRecord } from '../scripts';
 import type { TelemetryInstallContext } from '../telemetry/client';
+import type { TelemetryInstallStateRecord } from '../telemetry/install-state';
 import type {
   AuthConfig,
   AuthPoolEntry,
@@ -389,6 +390,12 @@ export const OH = {
    * identity) so toggle cycles never inflate install counts.
    */
   productTelemetryFirstRunSent: storageKey<boolean>('oh.productTelemetry.firstRunSent'),
+  /**
+   * The install-state tracker's record (the telemetry v2 plan §3):
+   * sent-bits, the activity bitmask, the tools used, the first import's
+   * origin. Carries no identifier; wiped with the identity on toggle-off.
+   */
+  productTelemetryState: storageKey<TelemetryInstallStateRecord>('oh.productTelemetry.state'),
   /**
    * Observability ring-buffer snapshot. Capped at {@link DEFAULT_CAPACITY}
    * entries; persisted in full on each flush because a ring trimmed to

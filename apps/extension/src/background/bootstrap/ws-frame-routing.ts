@@ -11,6 +11,7 @@ import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/aw
 import { installBackendSyncPlane, type SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
 import { runtime } from '@utils/browser-api';
 import { handleIncomingMigrationPullFrame } from '../modules/migration-mirror';
+import { trackProductTelemetryEvent } from '../modules/product-telemetry';
 import { peekSyncInstallId } from '../modules/sync-install-id';
 
 export type { HandshakeLifecycleEvent, SyncWiring } from '@openheaders/oracle/sync/client/backend-sync-plane';
@@ -21,6 +22,10 @@ export function installWsFrameRouting(): SyncWiring {
     getAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
     getInstallId: () => peekSyncInstallId(),
     onSyncedPresencePush: () => forwardCurrentAwarenessOnConnect('extension'),
+    // A first join over the network is a share accepted (the telemetry
+    // v2 plan §4), once per Org on this install.
+    onJoinedOrg: (orgId) =>
+      trackProductTelemetryEvent({ name: 'share_accepted', route: 'server' }, { workspaceId: orgId }),
     extraInboundHandlers: [
       (frame) => handleIncomingAwarenessFrame(frame),
       (frame) => handleIncomingMigrationPullFrame(frame),

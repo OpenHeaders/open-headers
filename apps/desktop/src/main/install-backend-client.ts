@@ -36,7 +36,7 @@ import { refreshBackendsFromHostStorage, watchBackendsInHostStorage } from '@ope
 import { HANDSHAKE_ROLES } from '@openheaders/core/protocol';
 import type { HostStorage } from '@openheaders/core/storage';
 import { OH } from '@openheaders/core/storage';
-import type { TelemetryEvent } from '@openheaders/core/telemetry';
+import type { ProductTelemetryTrackScope, TelemetryEvent } from '@openheaders/core/telemetry';
 import { forwardCurrentAwarenessOnConnect } from '@openheaders/oracle/sync/client/awareness-forwarder';
 import { handleIncomingAwarenessFrame } from '@openheaders/oracle/sync/client/awareness-receiver';
 import {
@@ -98,11 +98,12 @@ export interface InstallBackendClientConfig {
   broadcastLocal: (type: string, payload: unknown) => void;
   /**
    * Product-telemetry sink for the `ws-connect-failed` beacon — a dial
-   * that closes without ever opening (the telemetry plan §3). The
-   * remaining sync-plane beacons ride `installProductTelemetrySyncBeacons`
-   * over the returned wiring.
+   * that closes without ever opening (the telemetry plan §3) — and the
+   * `share_accepted` row a first join over the network is (the v2 plan
+   * §4), scoped by the Org it joined. The remaining sync-plane beacons
+   * ride `installProductTelemetrySyncBeacons` over the returned wiring.
    */
-  trackProductTelemetry?: (event: TelemetryEvent) => void;
+  trackProductTelemetry?: (event: TelemetryEvent, scope?: ProductTelemetryTrackScope) => void;
 }
 
 /**
@@ -133,6 +134,8 @@ export async function installBackendClient(config: InstallBackendClientConfig): 
     role: HANDSHAKE_ROLES.DESKTOP,
     getAgent: () => `@openheaders/desktop@${config.appVersion}`,
     onSyncedPresencePush: () => forwardCurrentAwarenessOnConnect('desktop'),
+    onJoinedOrg: (orgId) =>
+      config.trackProductTelemetry?.({ name: 'share_accepted', route: 'server' }, { workspaceId: orgId }),
     extraInboundHandlers: [(frame) => handleIncomingAwarenessFrame(frame)],
   });
 

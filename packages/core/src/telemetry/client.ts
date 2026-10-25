@@ -22,11 +22,13 @@ import type {
   TelemetryArch,
   TelemetryBrowserKind,
   TelemetryChannelId,
+  TelemetryCurrentEnvelope,
   TelemetryEnvelope,
   TelemetryEvent,
   TelemetryHostKind,
   TelemetryLocale,
   TelemetryPlatform,
+  TelemetryState,
 } from './vocabulary';
 import { bucketSessionAge, bucketSinceInstall, TELEMETRY_SCHEMA_VERSION } from './vocabulary';
 
@@ -116,7 +118,7 @@ export interface TelemetryEnvelopeFacts {
 
 /** The durable identity facts an envelope carries (plan §4, amended 2026-07-16). */
 export interface TelemetryInstallContext {
-  /** 32 lowercase hex chars — random, resettable, deleted on toggle-off. */
+  /** 32 lowercase hex chars — random, deleted on toggle-off. */
   installId: string;
   /** ms since epoch when this install id was minted; feeds the coarse `sinceInstall` bucket. */
   installedAt: number;
@@ -128,6 +130,11 @@ export interface TelemetryClientDeps {
   host: TelemetryHostKind;
   /** Per-process envelope facts, read at flush time (see `TelemetryEnvelopeFacts`). */
   facts(): TelemetryEnvelopeFacts | Promise<TelemetryEnvelopeFacts>;
+  /**
+   * The install state block (the v2 plan §3), read at flush time and
+   * stamped on every event of the envelope — one snapshot per batch.
+   */
+  state(): TelemetryState | Promise<TelemetryState>;
   /** Wall clock (ms since epoch), injected so hosts and tests own time. */
   now(): number;
   /**
@@ -188,8 +195,8 @@ export function mintTelemetrySessionId(): string {
 
 /**
  * Same alphabet and entropy as a session id, but host-persisted: minted at
- * first run, resettable from settings, deleted on toggle-off. Random by
- * law — never derived from hardware, network, or identity (plan §4).
+ * first run, deleted on toggle-off. Random by law — never derived from
+ * hardware, network, or identity (plan §4).
  */
 export function mintTelemetryInstallId(): string {
   return mintTelemetrySessionId();
@@ -296,7 +303,8 @@ export class TelemetryClient {
     try {
       const sentAt = this.deps.now();
       const facts = await this.deps.facts();
-      const envelope: TelemetryEnvelope = {
+      const state = await this.deps.state();
+      const envelope: TelemetryCurrentEnvelope = {
         schemaVersion: TELEMETRY_SCHEMA_VERSION,
         host: this.deps.host,
         channel: facts.channel,
@@ -314,6 +322,7 @@ export class TelemetryClient {
           ? { sessionAge: bucketSessionAge(this.deps.sessionStartedAt, sentAt) }
           : {}),
         sentAt,
+        state,
         events: batch.map((entry) => entry.event),
       };
       const accepted = await this.deps.transport.send(envelope);
