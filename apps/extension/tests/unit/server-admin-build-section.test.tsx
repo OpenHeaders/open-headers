@@ -6,6 +6,7 @@
  * release-notes card, never a blank surface.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import ServerAdminTab from '@openheaders/ui/workbench/components/server-admin/ServerAdminTab';
 import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
@@ -57,11 +58,13 @@ beforeEach(() => {
   setCalls.length = 0;
   __resetServerAdminStatusForTests();
   mockCall.mockReset();
+  registerCapability('serverAdmin', () => true);
   mockSubscribe.mockReset();
   mockSubscribe.mockReturnValue(() => {});
 });
 
 afterEach(() => {
+  unregisterCapability('serverAdmin');
   cleanup();
   vi.restoreAllMocks();
 });

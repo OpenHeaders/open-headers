@@ -5,6 +5,7 @@
  * the translated known roles — the row is never refused or blanked.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import ServerAdminTab from '@openheaders/ui/workbench/components/server-admin/ServerAdminTab';
 import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -67,6 +68,7 @@ const DIRECTORY = {
 beforeEach(() => {
   __resetServerAdminStatusForTests();
   mockCall.mockReset();
+  registerCapability('serverAdmin', () => true);
   mockSubscribe.mockReset();
   mockSubscribe.mockReturnValue(() => {});
   mockCall.mockImplementation((channel: string) => {
@@ -89,6 +91,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  unregisterCapability('serverAdmin');
   cleanup();
   vi.restoreAllMocks();
 });

@@ -6,8 +6,10 @@
  *
  * Resolution by host: the desktop renderer reaches its own spine over
  * IPC (the operator — always admin); the web tab forwards the probe up
- * the wire and reads its peer's `daemon.admin` resolution; hosts with
- * no daemon surface (extension) reject the channel and read `false`.
+ * the wire and reads its peer's `daemon.admin` resolution. Whether
+ * there is a plane to ask at all is the host's `serverAdmin`
+ * capability: a host that registers none (the extension) settles
+ * `denied` here without a dial — the channel would land nowhere.
  *
  * ONE probe per session, shared: the answer lives in a module store so
  * synchronous readers (`availableToolWindows` gating the Server admin
@@ -18,6 +20,7 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import { hasCapability } from '@openheaders/core/capabilities';
 import { useSyncExternalStore } from 'react';
 
 export type ServerAdminStatus = 'unknown' | 'admin' | 'denied';
@@ -63,6 +66,16 @@ function setStatus(next: ServerAdminStatus): void {
  */
 function ensureProbe(): void {
   if (definitive || inFlight) return;
+  // No server-admin plane on this host: the verdict is denied by
+  // construction and final. Settled synchronously, so the read that
+  // triggered it already returns the fact — no notify, which would
+  // re-enter React from inside a snapshot read.
+  if (!hasCapability('serverAdmin')) {
+    definitive = true;
+    status = 'denied';
+    identity = null;
+    return;
+  }
   const now = Date.now();
   if (now - lastAttemptAt < RETRY_COOLDOWN_MS) return;
   lastAttemptAt = now;

@@ -8,6 +8,7 @@
  * action and no repair.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import ServerAdminTab from '@openheaders/ui/workbench/components/server-admin/ServerAdminTab';
 import { __resetServerAdminStatusForTests } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -72,6 +73,7 @@ let authMeta: { passwordLogin: boolean; ssoProvider: string | null } | null;
 beforeEach(() => {
   __resetServerAdminStatusForTests();
   mockCall.mockReset();
+  registerCapability('serverAdmin', () => true);
   mockSubscribe.mockReset();
   mockSubscribe.mockReturnValue(() => {});
   authMeta = { passwordLogin: true, ssoProvider: null };
@@ -95,6 +97,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  unregisterCapability('serverAdmin');
   cleanup();
   vi.restoreAllMocks();
 });

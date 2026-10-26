@@ -68,6 +68,12 @@ if (!isPublicView()) {
   // offers a chooser.
   registerCapability('scriptRuntime', () => ['safe']);
 
+  // The server-admin plane — every `oh.daemon.*` admin call forwards up
+  // the wire to the serving daemon's gated peer plane, so the
+  // admin-status probe has a plane to ask; the daemon answers who the
+  // caller is. The public viewer is wire-less and leaves it absent.
+  registerCapability('serverAdmin', () => true);
+
   // The web tab owns an origin-scoped daemon session it can drop on its
   // own — surfaced as the settings-menu "Sign out" item. The overlay
   // paints before the storage clear + reload so the click has instant

@@ -252,11 +252,12 @@ export function hasAnyWorkspace(): boolean {
 export function availableToolWindows(): readonly ToolWindowDef[] {
   const anyWorkspace = hasAnyWorkspace();
   return TOOL_WINDOWS.filter((def) => {
-    // Server administration is a per-user fact, not a host capability:
+    // Server administration is a per-user fact on top of a host one:
     // the window exists only once the admin-status probe answers
     // `admin` (the shared store; a late answer reconciles the dock
-    // layout in via its defs-change effect). No teaser — a non-admin
-    // has nothing to be teased toward.
+    // layout in via its defs-change effect), and the store settles
+    // denied without a probe where the host registers no `serverAdmin`
+    // plane. No teaser — a non-admin has nothing to be teased toward.
     if (def.id === 'server-admin') return getServerAdminStatus() === 'admin';
     // The zero-workspace admin posture: windows whose subject is
     // workspace data have nothing to bind to — they drop outright,

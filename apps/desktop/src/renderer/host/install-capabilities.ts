@@ -202,5 +202,11 @@ registerCapability('liveNetwork', () => true);
 // register this, which drops the Git window from their dock registry.
 registerCapability('workspaceGit', () => true);
 
+// The server-admin plane — the desktop's in-process spine answers the
+// `oh.daemon.*` admin channels as the operator, so the admin-status
+// probe has a plane to ask. Hosts with no daemon never register this,
+// which settles the probe denied without a dial.
+registerCapability('serverAdmin', () => true);
+
 // No `closeSurface` registration — the workbench window is the long-
 // lived primary; nothing in shared UI should close it implicitly.

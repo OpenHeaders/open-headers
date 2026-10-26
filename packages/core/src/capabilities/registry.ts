@@ -927,6 +927,21 @@ export interface Capabilities {
   workspaceGit?: () => boolean;
 
   /**
+   * Availability gate for the server-admin plane — whether this host
+   * has a daemon to administer at all. Registered by hosts whose bridge
+   * reaches a daemon's `oh.daemon.*` admin channels: the desktop
+   * renderer (the spine runs in-process and answers as the operator)
+   * and the signed web tab (every call forwards up the wire to the
+   * serving daemon's gated peer plane). The extension forwards the
+   * channel nowhere and leaves it absent, so the admin-status store
+   * settles `denied` without a probe and the Server admin window never
+   * enters its dock registry. Presence says only "there is a plane to
+   * ask"; WHO may administer is the per-user probe's answer on top,
+   * re-gated by the server on every admin call.
+   */
+  serverAdmin?: () => boolean;
+
+  /**
    * Hand the host the top bar's palette under the resolved theme (see
    * {@link WindowChrome}) for the chrome it paints outside the document
    * — the desktop renderer's Windows / Linux title-bar overlay. Browser

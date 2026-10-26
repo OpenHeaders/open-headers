@@ -7,6 +7,7 @@
  * the hydrated workspace mirror while the role/system ones stay.
  */
 
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import {
   disposeActiveExtensionWorkspaceSyncMirror,
   getActiveExtensionWorkspaceSyncMirror,
@@ -49,11 +50,13 @@ const PANEL_INFO = { title: 'Server admin', summary: 'test' };
 
 beforeEach(() => {
   __resetServerAdminStatusForTests();
+  registerCapability('serverAdmin', () => true);
   disposeActiveExtensionWorkspaceSyncMirror();
   mockCall.mockReset();
 });
 
 afterEach(() => {
+  unregisterCapability('serverAdmin');
   cleanup();
   vi.restoreAllMocks();
 });
