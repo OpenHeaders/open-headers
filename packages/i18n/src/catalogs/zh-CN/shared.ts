@@ -34,10 +34,9 @@ export const shared = {
   'shared.errorBoundary.rootSubtitle': 'Open Headers 遇到了无法恢复的错误。重新加载以继续，您的数据是安全的。',
   'shared.errorBoundary.reportIssue': '报告问题',
   'shared.errorBoundary.communityChat': '在 Discord 上与我们聊天',
-  'shared.errorBoundary.retry': '重试',
   'shared.errorBoundary.unit.tabTitle': '此标签页遇到了错误',
   'shared.errorBoundary.unit.windowTitle': '此工具窗口遇到了错误',
-  'shared.errorBoundary.unit.hint': '应用的其余部分仍在正常工作。重试会重新加载它。',
+  'shared.errorBoundary.unit.hint': '应用的其余部分仍在正常工作。重新加载会重新挂载它。',
   'shared.errorBoundary.unit.closeTab': '关闭标签页',
   'shared.errorBoundary.unit.hideWindow': '隐藏窗口',
 

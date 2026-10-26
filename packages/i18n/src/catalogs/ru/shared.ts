@@ -81,10 +81,10 @@ export const shared = {
     'Open Headers столкнулся с ошибкой, после которой не смог восстановиться. Перезагрузите, чтобы продолжить — ваши данные в безопасности.',
   'shared.errorBoundary.reportIssue': 'Сообщить о проблеме',
   'shared.errorBoundary.communityChat': 'Чат с нами в Discord',
-  'shared.errorBoundary.retry': 'Повторить',
   'shared.errorBoundary.unit.tabTitle': 'В этой вкладке произошла ошибка',
   'shared.errorBoundary.unit.windowTitle': 'В этом окне инструментов произошла ошибка',
-  'shared.errorBoundary.unit.hint': 'Остальная часть приложения продолжает работать. «Повторить» монтирует его заново.',
+  'shared.errorBoundary.unit.hint':
+    'Остальная часть приложения продолжает работать. «Перезагрузить» монтирует его заново.',
   'shared.errorBoundary.unit.closeTab': 'Закрыть вкладку',
   'shared.errorBoundary.unit.hideWindow': 'Скрыть окно',
 

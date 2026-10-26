@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The containment rings: a unit boundary (tab / tool window) shows its
- * fallback in place and remounts on Retry; a root boundary with no
+ * fallback in place and remounts on Reload; a root boundary with no
  * fallback prop shows the full-page fallback with Reload, Report Issue
  * and the chat link. Logging is the root's job (the funnel's `onCaughtError`),
  * so React's own console report is the only noise to silence here.
@@ -52,14 +52,14 @@ afterEach(() => {
   window.sessionStorage.clear();
 });
 
-/** Throws while the marker says so; the test flips it before Retry — the remount story. */
+/** Throws while the marker says so; the test flips it before Reload — the remount story. */
 function ThrowsWhile({ marker }: { marker: { shouldThrow: boolean } }) {
   if (marker.shouldThrow) throw new TypeError('editor exploded');
   return <div>editor content</div>;
 }
 
 describe('ErrorBoundary', () => {
-  it('a unit boundary shows the tab fallback in place and Retry remounts the children', () => {
+  it('a unit boundary shows the tab fallback in place and Reload remounts the children', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const marker = { shouldThrow: true };
     const onClose = vi.fn();
@@ -68,7 +68,7 @@ describe('ErrorBoundary', () => {
         <span>tab bar stays</span>
         <ErrorBoundary
           fallback={({ error, reset }) => (
-            <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={onClose} />
+            <UnitErrorFallback kind="tab" error={error} onReload={reset} onClose={onClose} />
           )}
         >
           <ThrowsWhile marker={marker} />
@@ -83,7 +83,7 @@ describe('ErrorBoundary', () => {
     expect(onClose).toHaveBeenCalledOnce();
 
     marker.shouldThrow = false;
-    fireEvent.click(screen.getByText('Retry'));
+    fireEvent.click(screen.getByText('Reload'));
     expect(screen.getByText('editor content')).toBeTruthy();
     expect(screen.queryByText('This tab hit an error')).toBeNull();
   });
@@ -95,7 +95,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary
         fallback={({ error, reset }) => (
-          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => {}} onCrashed={onCrashed} />
+          <UnitErrorFallback kind="tab" error={error} onReload={reset} onClose={() => {}} onCrashed={onCrashed} />
         )}
       >
         <ThrowsWhile marker={marker} />
@@ -119,7 +119,7 @@ describe('ErrorBoundary', () => {
       <ErrorBoundary
         unit={{ kind: 'tab', mode: 'request-edit' }}
         fallback={({ error, reset }) => (
-          <UnitErrorFallback kind="tab" error={error} onRetry={reset} onClose={() => {}} />
+          <UnitErrorFallback kind="tab" error={error} onReload={reset} onClose={() => {}} />
         )}
       >
         <ThrowsOnce />
@@ -139,7 +139,7 @@ describe('ErrorBoundary', () => {
     render(
       <ErrorBoundary
         fallback={({ error, reset }) => (
-          <UnitErrorFallback kind="window" error={error} onRetry={reset} onClose={() => {}} />
+          <UnitErrorFallback kind="window" error={error} onReload={reset} onClose={() => {}} />
         )}
       >
         <ThrowsWhile marker={marker} />

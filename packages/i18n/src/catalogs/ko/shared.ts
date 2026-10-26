@@ -59,10 +59,9 @@ export const shared = {
     'Open Headers 앱에서 복구할 수 없는 오류가 발생했습니다. 계속하려면 다시 불러오세요. 데이터는 안전합니다.',
   'shared.errorBoundary.reportIssue': '문제 신고',
   'shared.errorBoundary.communityChat': 'Discord에서 대화하기',
-  'shared.errorBoundary.retry': '다시 시도',
   'shared.errorBoundary.unit.tabTitle': '이 탭에서 오류가 발생했습니다',
   'shared.errorBoundary.unit.windowTitle': '이 도구 창에서 오류가 발생했습니다',
-  'shared.errorBoundary.unit.hint': '앱의 나머지 부분은 계속 작동합니다. 다시 시도하면 다시 마운트됩니다.',
+  'shared.errorBoundary.unit.hint': '앱의 나머지 부분은 계속 작동합니다. 다시 불러오면 다시 마운트됩니다.',
   'shared.errorBoundary.unit.closeTab': '탭 닫기',
   'shared.errorBoundary.unit.hideWindow': '창 숨기기',
 

@@ -27,10 +27,9 @@ export const shared = {
     'Open Headers hit an error it could not recover from. Reload to continue — your data is safe.',
   'shared.errorBoundary.reportIssue': 'Report Issue',
   'shared.errorBoundary.communityChat': 'Chat with Us on Discord',
-  'shared.errorBoundary.retry': 'Retry',
   'shared.errorBoundary.unit.tabTitle': 'This tab hit an error',
   'shared.errorBoundary.unit.windowTitle': 'This tool window hit an error',
-  'shared.errorBoundary.unit.hint': 'The rest of the app keeps working. Retry mounts it again.',
+  'shared.errorBoundary.unit.hint': 'The rest of the app keeps working. Reload mounts it again.',
   'shared.errorBoundary.unit.closeTab': 'Close tab',
   'shared.errorBoundary.unit.hideWindow': 'Hide window',
 

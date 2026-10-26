@@ -32,10 +32,9 @@ export const shared = {
     'Open Headers encontró un error del que no pudo recuperarse. Recarga para continuar; tus datos están a salvo.',
   'shared.errorBoundary.reportIssue': 'Informar de un problema',
   'shared.errorBoundary.communityChat': 'Chatea con nosotros en Discord',
-  'shared.errorBoundary.retry': 'Reintentar',
   'shared.errorBoundary.unit.tabTitle': 'Esta pestaña encontró un error',
   'shared.errorBoundary.unit.windowTitle': 'Esta ventana de herramientas encontró un error',
-  'shared.errorBoundary.unit.hint': 'El resto de la aplicación sigue funcionando. Reintentar la vuelve a montar.',
+  'shared.errorBoundary.unit.hint': 'El resto de la aplicación sigue funcionando. Recargar la vuelve a montar.',
   'shared.errorBoundary.unit.closeTab': 'Cerrar pestaña',
   'shared.errorBoundary.unit.hideWindow': 'Ocultar ventana',
 

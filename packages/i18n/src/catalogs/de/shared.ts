@@ -35,10 +35,9 @@ export const shared = {
     'Open Headers ist auf einen Fehler gestoßen, von dem es sich nicht erholen konnte. Lade neu, um fortzufahren – deine Daten sind sicher.',
   'shared.errorBoundary.reportIssue': 'Problem melden',
   'shared.errorBoundary.communityChat': 'Mit uns auf Discord chatten',
-  'shared.errorBoundary.retry': 'Erneut versuchen',
   'shared.errorBoundary.unit.tabTitle': 'Dieser Tab ist auf einen Fehler gestoßen',
   'shared.errorBoundary.unit.windowTitle': 'Dieses Werkzeugfenster ist auf einen Fehler gestoßen',
-  'shared.errorBoundary.unit.hint': 'Der Rest der App funktioniert weiter. „Erneut versuchen“ lädt es neu.',
+  'shared.errorBoundary.unit.hint': 'Der Rest der App funktioniert weiter. „Neu laden“ lädt es neu.',
   'shared.errorBoundary.unit.closeTab': 'Tab schließen',
   'shared.errorBoundary.unit.hideWindow': 'Fenster ausblenden',
 

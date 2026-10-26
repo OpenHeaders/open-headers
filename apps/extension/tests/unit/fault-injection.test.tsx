@@ -2,7 +2,7 @@
 /**
  * The fault-injection seam: a unit armed by its key makes the probe
  * inside exactly that boundary throw a real render error; the fallback
- * commits, settles the arm through `onCrashed`, and Retry renders the
+ * commits, settles the arm through `onCrashed`, and Reload renders the
  * unit clean. Other units never notice. The root unit reaches a root
  * boundary.
  */
@@ -56,7 +56,7 @@ function Unit({ unit }: { unit: FaultUnit }) {
         <UnitErrorFallback
           kind="tab"
           error={error}
-          onRetry={reset}
+          onReload={reset}
           onClose={() => {}}
           onCrashed={() => settleFault(unit)}
         />
@@ -89,7 +89,7 @@ describe('fault injection', () => {
     expect(faultUnitKey({ kind: 'window', id: 'http-rules' })).toBe('window:http-rules');
   });
 
-  it('an armed tab throws into its own boundary; the fallback settles the arm and Retry renders it clean', () => {
+  it('an armed tab throws into its own boundary; the fallback settles the arm and Reload renders it clean', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(
       <>
@@ -108,7 +108,7 @@ describe('fault injection', () => {
     // The fallback's commit spent the arm.
     expect(isFaultArmed(TAB_A)).toBe(false);
 
-    fireEvent.click(screen.getByText('Retry'));
+    fireEvent.click(screen.getByText('Reload'));
     expect(screen.getByText('content tab:a')).toBeTruthy();
     expect(screen.queryByText('This tab hit an error')).toBeNull();
   });

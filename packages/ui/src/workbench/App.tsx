@@ -1315,7 +1315,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // ── Per-tab body renderer ─────────────────────────────────────
   // Each tab mounts inside its own containment boundary (the
   // crash-and-error-reports plan §3.1): an editor that throws shows
-  // the fallback in its own area — Retry remounts it, Close tab
+  // the fallback in its own area — Reload remounts it, Close tab
   // closes it — while every other tab, the sidebars and the menus
   // keep working. The render prop is keyed per tab by the group
   // renderer, so one boundary instance belongs to one tab.
@@ -1327,7 +1327,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           <UnitErrorFallback
             kind="tab"
             error={error}
-            onRetry={reset}
+            onReload={reset}
             onClose={() => void handleCloseTab(tab.id)}
             onCrashed={() => {
               unregisterSaveRef(tab.id);
@@ -1606,7 +1606,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // Thin render prop for `ShellLayout` — the per-slot body dispatch
   // lives in `WorkbenchToolWindow`.
   // Same containment as the tabs: a tool window that throws shows its
-  // fallback in its own dock slot (Retry remounts, Hide closes the
+  // fallback in its own dock slot (Reload remounts, Hide closes the
   // dock) and the rest of the shell keeps working.
   const renderToolWindow = useCallback(
     (id: ToolWindowId, slot: DockSlot): React.ReactNode => (
@@ -1616,7 +1616,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           <UnitErrorFallback
             kind="window"
             error={error}
-            onRetry={reset}
+            onReload={reset}
             onClose={() => tl.closeDock(slot)}
             onCrashed={() => settleFault({ kind: 'window', id })}
           />

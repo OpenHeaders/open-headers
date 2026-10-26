@@ -102,10 +102,9 @@ export const shared = {
     'Open Headers a întâmpinat o eroare din care nu și-a putut reveni. Reîncărcați pentru a continua — datele dvs. sunt în siguranță.',
   'shared.errorBoundary.reportIssue': 'Raportare problemă',
   'shared.errorBoundary.communityChat': 'Discută cu noi pe Discord',
-  'shared.errorBoundary.retry': 'Reîncercare',
   'shared.errorBoundary.unit.tabTitle': 'Această filă a întâmpinat o eroare',
   'shared.errorBoundary.unit.windowTitle': 'Această fereastră de instrumente a întâmpinat o eroare',
-  'shared.errorBoundary.unit.hint': 'Restul aplicației funcționează în continuare. Reîncercarea o montează din nou.',
+  'shared.errorBoundary.unit.hint': 'Restul aplicației funcționează în continuare. Reîncărcarea o montează din nou.',
   'shared.errorBoundary.unit.closeTab': 'Închidere filă',
   'shared.errorBoundary.unit.hideWindow': 'Ascundere fereastră',
 

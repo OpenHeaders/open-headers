@@ -24,10 +24,9 @@ export const shared = {
     'Open Headers a rencontré une erreur dont il n’a pas pu se remettre. Rechargez pour continuer : vos données sont en sécurité.',
   'shared.errorBoundary.reportIssue': 'Signaler un problème',
   'shared.errorBoundary.communityChat': 'Discuter avec nous sur Discord',
-  'shared.errorBoundary.retry': 'Réessayer',
   'shared.errorBoundary.unit.tabTitle': 'Cet onglet a rencontré une erreur',
   'shared.errorBoundary.unit.windowTitle': 'Cette fenêtre d’outils a rencontré une erreur',
-  'shared.errorBoundary.unit.hint': 'Le reste de l’application continue de fonctionner. Réessayer le remonte.',
+  'shared.errorBoundary.unit.hint': 'Le reste de l’application continue de fonctionner. Recharger le remonte.',
   'shared.errorBoundary.unit.closeTab': 'Fermer l’onglet',
   'shared.errorBoundary.unit.hideWindow': 'Masquer la fenêtre',
 

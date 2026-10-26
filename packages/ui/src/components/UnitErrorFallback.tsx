@@ -2,7 +2,7 @@
  * UnitErrorFallback — ring 2 of the containment design: the fallback a
  * tab, a tool window or a dock pane shows inside its OWN area when its
  * subtree threw. The tab bar, the other tabs, the sidebars and the
- * menus keep working; the person chooses Retry (remount) or closes the
+ * menus keep working; the person chooses Reload (remount) or closes the
  * unit. A boundary resets only on that click, never on a timer.
  */
 
@@ -17,7 +17,7 @@ export type UnitErrorKind = 'tab' | 'window';
 interface UnitErrorFallbackProps {
   kind: UnitErrorKind;
   error: Error;
-  onRetry: () => void;
+  onReload: () => void;
   onClose: () => void;
   /**
    * Runs once when the fallback mounts — the moment the unit's content
@@ -27,7 +27,7 @@ interface UnitErrorFallbackProps {
   onCrashed?: () => void;
 }
 
-const UnitErrorFallback: React.FC<UnitErrorFallbackProps> = ({ kind, error, onRetry, onClose, onCrashed }) => {
+const UnitErrorFallback: React.FC<UnitErrorFallbackProps> = ({ kind, error, onReload, onClose, onCrashed }) => {
   const t = useT();
   useEffect(() => {
     onCrashed?.();
@@ -56,8 +56,8 @@ const UnitErrorFallback: React.FC<UnitErrorFallbackProps> = ({ kind, error, onRe
         {`${error.name}: ${error.message}`}
       </Typography.Text>
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <Button type="primary" onClick={onRetry}>
-          {t('shared.errorBoundary.retry')}
+        <Button type="primary" onClick={onReload}>
+          {t('shared.errorBoundary.reload')}
         </Button>
         <Button onClick={onClose}>
           {kind === 'tab' ? t('shared.errorBoundary.unit.closeTab') : t('shared.errorBoundary.unit.hideWindow')}

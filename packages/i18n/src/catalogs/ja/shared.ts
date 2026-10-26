@@ -42,10 +42,9 @@ export const shared = {
     'Open Headers で回復できないエラーが発生しました。再読み込みして続行してください。データは安全です。',
   'shared.errorBoundary.reportIssue': '問題を報告',
   'shared.errorBoundary.communityChat': 'Discord でチャット',
-  'shared.errorBoundary.retry': '再試行',
   'shared.errorBoundary.unit.tabTitle': 'このタブでエラーが発生しました',
   'shared.errorBoundary.unit.windowTitle': 'このツールウィンドウでエラーが発生しました',
-  'shared.errorBoundary.unit.hint': 'アプリの他の部分は引き続き動作します。再試行すると再度マウントされます。',
+  'shared.errorBoundary.unit.hint': 'アプリの他の部分は引き続き動作します。再読み込みすると再度マウントされます。',
   'shared.errorBoundary.unit.closeTab': 'タブを閉じる',
   'shared.errorBoundary.unit.hideWindow': 'ウィンドウを隠す',
 
