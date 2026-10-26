@@ -60,7 +60,7 @@ function read(store: InMemoryDocumentStore, uid: string): Request {
   return projected;
 }
 
-function applyBatch(store: InMemoryDocumentStore, payload: RequestMutationPayload): void {
+function applyBatch(store: InMemoryDocumentStore, payload: Pick<RequestMutationPayload, 'batch'>): void {
   for (const env of payload.batch.mutations) store.apply(env);
 }
 

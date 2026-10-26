@@ -1,23 +1,30 @@
 /**
- * Phase B — projector reads post-commit state for extensionWorkspace
- * envelopes (global-scope) and returns null for non-matching envelopes
- * / cold-oracle cases. Mirrors `files-post-state.test.ts` shape.
+ * Phase B — projector reads post-commit state for the global scope's
+ * two singletons (the workspace list, the host-local active pointer)
+ * and returns null for non-matching envelopes / cold-oracle cases.
+ * Mirrors `files-post-state.test.ts` shape.
  */
 
 import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  EXTENSION_WORKSPACE_ID,
   type ExtensionWorkspaceSlot,
   type MutationEnvelope,
   type MutatorContext,
+  mintExtensionWorkspaceBatch,
   moveExtensionWorkspaceBefore,
   RULE_ENTITY_TYPE,
   removeExtensionWorkspace,
-  setActiveExtensionWorkspace,
+  setActiveWorkspace,
   setExtensionWorkspace,
 } from '@openheaders/core/sync';
 import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { buildSchemaRegistry, GLOBAL_REGISTRY } from '@openheaders/oracle/sync/entity-registry';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
@@ -64,8 +71,23 @@ function newOracle(): EntityOracle {
     log: new InMemoryMutationLog(),
     intents: new InMemoryPendingIntents(),
     broadcast: new InMemoryBroadcast(),
+    // The global registry declares the pointer singleton observable
+    // without a create — a bare `setActiveWorkspace` materializes.
+    schemas: buildSchemaRegistry(GLOBAL_REGISTRY),
   });
 }
+
+/** The replicated pointer older builds wrote on the shared list record. */
+const legacyActiveId = (ms: number, id: string) =>
+  mintExtensionWorkspaceBatch(ctx(ms), [
+    {
+      kind: 'setField',
+      type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+      id: EXTENSION_WORKSPACE_ID,
+      path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+      value: id,
+    },
+  ]);
 
 describe('projectExtensionWorkspacePostState', () => {
   it('returns post-state after seed + setExtensionWorkspace', async () => {
@@ -93,14 +115,55 @@ describe('projectExtensionWorkspacePostState', () => {
     expect(post?.workspaces.map((w) => w.id)).toEqual(['ws-b']);
   });
 
-  it('flips activeWorkspaceId by LWW on setActiveExtensionWorkspace', async () => {
+  it('flips activeWorkspaceId by LWW on setActiveWorkspace — the pointer singleton', async () => {
     const oracle = newOracle();
     await oracle.apply(
       seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
     );
-    await oracle.apply(setActiveExtensionWorkspace(ctx(2), { id: 'ws-b' }).batch);
-    const post = projectExtensionWorkspaceSingleton(oracle);
+    const flip = setActiveWorkspace(ctx(2), { id: 'ws-b' });
+    await oracle.apply(flip.batch);
+    expect(projectExtensionWorkspaceSingleton(oracle)?.activeWorkspaceId).toBe('ws-b');
+    // A pointer-type envelope carries the composed post-state too.
+    const post = projectExtensionWorkspacePostState(oracle, flip.batch.mutations[0]);
+    expect(post?.workspaces.map((w) => w.id)).toEqual(['ws-a', 'ws-b']);
     expect(post?.activeWorkspaceId).toBe('ws-b');
+  });
+
+  it('materializes the pointer without a create — the registry declares the singleton observable', async () => {
+    const oracle = newOracle();
+    await oracle.apply(seedExtensionWorkspaces([ws({ id: 'ws-a' })], null, ctx(1)));
+    expect(projectExtensionWorkspaceSingleton(oracle)?.activeWorkspaceId).toBeNull();
+    await oracle.apply(setActiveWorkspace(ctx(2), { id: 'ws-a' }).batch);
+    expect(projectExtensionWorkspaceSingleton(oracle)?.activeWorkspaceId).toBe('ws-a');
+  });
+
+  it('ignores legacy activeId rows on the list record — the composed pointer wins, by type and path', async () => {
+    const oracle = newOracle();
+    await oracle.apply(
+      seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
+    );
+    // A newer legacy row (an older hub's replicated pointer) names ws-b.
+    await oracle.apply(legacyActiveId(5, 'ws-b'));
+    expect(projectExtensionWorkspaceSingleton(oracle)?.activeWorkspaceId).toBe('ws-a');
+    // The generic store still records the field; nobody reads it.
+    const record = oracle.materializeOne(EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_ID);
+    expect(record?.data).toMatchObject({ [EXTENSION_WORKSPACE_ACTIVE_ID_PATH]: 'ws-b' });
+    // With no pointer row at all, a legacy row still composes to null.
+    const bare = newOracle();
+    await bare.apply(seedExtensionWorkspaces([ws({ id: 'ws-a' })], null, ctx(1)));
+    await bare.apply(legacyActiveId(2, 'ws-a'));
+    expect(projectExtensionWorkspaceSingleton(bare)?.activeWorkspaceId).toBeNull();
+  });
+
+  it('seeds the pointer as the active-workspace singleton, never as the legacy field', async () => {
+    const batch = seedExtensionWorkspaces([ws({ id: 'ws-a' })], 'ws-a', ctx(1));
+    const pointerBodies = batch.mutations.filter((m) => m.body.type === ACTIVE_WORKSPACE_ENTITY_TYPE);
+    expect(pointerBodies.map((m) => m.body.kind)).toEqual(['create', 'setField']);
+    expect(batch.mutations.some((m) => m.body.kind === 'setField' && m.body.path === 'activeId')).toBe(false);
+    // One batch, ticked HLCs in mint order across both entities.
+    const logical = batch.mutations.map((m) => m.hlc.logical);
+    expect(logical).toEqual([...logical].sort((a, b) => a - b));
+    expect(new Set(logical).size).toBe(logical.length);
   });
 
   it('reorders workspaces by orderKey via moveExtensionWorkspaceBefore', async () => {

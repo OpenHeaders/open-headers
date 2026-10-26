@@ -634,15 +634,16 @@ export interface SyncFilesPostState {
 }
 
 /**
- * Post-commit projection for an extensionWorkspace envelope. Singleton
- * entity at the GLOBAL scope (lives above the per-workspace oracle, so
- * its mutation-log + cache survive workspace-switch dispose+init). The
- * catalog stores workspace records as set members at `workspaces` (set
- * member identity = workspace id) plus the active-workspace pointer as
- * a scalar at `activeId`; the projection folds them into a sorted
- * `ExtensionWorkspace[]` (re-emitting the per-entry orderKey via a
- * synthetic `sortIndex` so legacy consumers stay byte-stable) plus the
- * scalar pointer.
+ * Post-commit projection of the GLOBAL scope's workspace catalog,
+ * attached to every `extensionWorkspace` AND `active-workspace`
+ * broadcast. Both singletons live above the per-workspace oracle, so
+ * their mutation-log + cache survive workspace-switch dispose+init. The
+ * list record stores workspace records as set members at `workspaces`
+ * (set member identity = workspace id); the host-local pointer
+ * singleton carries which one this host is on. The projection folds
+ * them into a sorted `ExtensionWorkspace[]` (re-emitting the per-entry
+ * orderKey via a synthetic `sortIndex` so legacy consumers stay
+ * byte-stable) plus the pointer.
  *
  * Not sensitive — workspace names + colors are user-visible. Same
  * broadcast posture as files.
@@ -651,9 +652,11 @@ export interface SyncExtensionWorkspacePostState {
   /** All currently-known workspaces, sorted by orderKey ascending then id. */
   workspaces: ExtensionWorkspace[];
   /**
-   * Active-workspace pointer. `null` when no envelope has set it yet
-   * (cold oracle prior to seed). Consumers fall back to the first
-   * workspace in the list, matching the legacy hydration guard.
+   * This host's active-workspace pointer, read from the host-local
+   * `active-workspace` singleton (a legacy `activeId` field on the list
+   * record is ignored). `null` when no envelope has set it yet (cold
+   * oracle prior to seed). Consumers fall back to the first workspace
+   * in the list, matching the legacy hydration guard.
    */
   activeWorkspaceId: string | null;
   /**

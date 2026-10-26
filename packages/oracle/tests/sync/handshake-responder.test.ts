@@ -20,6 +20,7 @@ import {
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
@@ -202,6 +203,20 @@ describe('respondToStateVector — host-local strip (layout)', () => {
     expect(snapshotFrame?.snapshot?.layoutState).toEqual([]);
     const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
     expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-rule']);
+  });
+
+  it('strips the host active-workspace pointer from the delta stream — host-local like the layout', async () => {
+    deltaEnvelopes.length = 0;
+    deltaEnvelopes.push(
+      makeEnvelope(ACTIVE_WORKSPACE_ENTITY_TYPE, 'm-pointer'),
+      makeEnvelope(RULE_ENTITY_TYPE, 'm-rule'),
+    );
+    const reply = collectingReply();
+    const result = await respondToStateVector(MESSAGE, reply, { offDevicePeer: false });
+
+    const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
+    expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-rule']);
+    expect(result.deltasSent).toBe(1);
   });
 });
 

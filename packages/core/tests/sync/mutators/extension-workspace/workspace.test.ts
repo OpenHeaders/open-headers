@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
   EXTENSION_WORKSPACE_MUTATOR_VERSION,
   EXTENSION_WORKSPACES_SET_PATH,
   type ExtensionWorkspaceSlot,
-  moveExtensionWorkspaceBefore,
   type MutatorContext,
+  moveExtensionWorkspaceBefore,
   PURGE_WORKSPACE_DATA,
   removeExtensionWorkspace,
-  setActiveExtensionWorkspace,
+  setActiveWorkspace,
   setExtensionWorkspace,
-  SWAP_PER_WORKSPACE_STORES,
 } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
@@ -72,9 +70,7 @@ describe('removeExtensionWorkspace', () => {
       path: EXTENSION_WORKSPACES_SET_PATH,
       itemId: 'ws-gone',
     });
-    expect(intent.sideEffects).toEqual([
-      { kind: PURGE_WORKSPACE_DATA, key: 'ws-gone', hlc: c.hlc },
-    ]);
+    expect(intent.sideEffects).toEqual([{ kind: PURGE_WORKSPACE_DATA, key: 'ws-gone', hlc: c.hlc }]);
   });
 });
 
@@ -94,29 +90,11 @@ describe('moveExtensionWorkspaceBefore', () => {
   });
 });
 
-describe('setActiveExtensionWorkspace', () => {
-  it('emits a single setField on the activeId path and a SWAP_PER_WORKSPACE_STORES intent', () => {
-    const c = ctx();
-    const intent = setActiveExtensionWorkspace(c, { id: 'ws-active' });
-    expect(intent.batch.mutations).toHaveLength(1);
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'setField',
-      type: EXTENSION_WORKSPACE_ENTITY_TYPE,
-      id: EXTENSION_WORKSPACE_ID,
-      path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
-      value: 'ws-active',
-    });
-    expect(intent.sideEffects).toEqual([
-      { kind: SWAP_PER_WORKSPACE_STORES, key: EXTENSION_WORKSPACE_ID, hlc: c.hlc },
-    ]);
-  });
-});
-
 describe('shared batchId via context', () => {
-  it('threads the supplied batchId across delete + active-pointer pair', () => {
+  it('threads the supplied batchId across the delete + the host pointer flip', () => {
     const shared = ctx({ batchId: 'B7' });
     const remove = removeExtensionWorkspace(shared, { id: 'ws-1' });
-    const active = setActiveExtensionWorkspace(shared, { id: 'ws-2' });
+    const active = setActiveWorkspace(shared, { id: 'ws-2' });
     expect(remove.batch.batchId).toBe('B7');
     expect(active.batch.batchId).toBe('B7');
   });

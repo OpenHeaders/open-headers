@@ -8,19 +8,22 @@
  */
 
 import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   type ExtensionWorkspaceSlot,
   removeExtensionWorkspace,
-  setActiveExtensionWorkspace,
+  setActiveWorkspace,
   setExtensionWorkspace,
 } from '@openheaders/core/sync';
-import { beforeEach, describe, expect, it } from 'vitest';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createExtensionWorkspaceCache } from '@openheaders/oracle/sync/caches/extension-workspace-cache';
+import { buildSchemaRegistry, GLOBAL_REGISTRY } from '@openheaders/oracle/sync/entity-registry';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import type { ExtensionWorkspace } from '@openheaders/core/types';
+import { beforeEach, describe, expect, it } from 'vitest';
+
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
 // Monotonic HLC across factory calls — the active-id scalar is shared
@@ -68,28 +71,19 @@ beforeEach(() => {
     log: new InMemoryMutationLog(),
     intents: new InMemoryPendingIntents(),
     broadcast,
+    schemas: buildSchemaRegistry(GLOBAL_REGISTRY),
   });
 });
 
 describe('ExtensionWorkspaceCache', () => {
   it('returns an empty default before seeding', () => {
-    const cache = createExtensionWorkspaceCache(
-      EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-      oracle,
-      broadcast,
-      ctxFactory,
-    );
+    const cache = createExtensionWorkspaceCache(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, ctxFactory);
     expect(cache.getSnapshot()).toEqual({ workspaces: [], activeWorkspaceId: null });
     cache.dispose();
   });
 
   it('seeds the oracle from a persisted state and projects it back', async () => {
-    const cache = createExtensionWorkspaceCache(
-      EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-      oracle,
-      broadcast,
-      ctxFactory,
-    );
+    const cache = createExtensionWorkspaceCache(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedState({
       workspaces: [ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })],
       activeWorkspaceId: 'ws-a',
@@ -101,12 +95,7 @@ describe('ExtensionWorkspaceCache', () => {
   });
 
   it('updates the cache when a new workspace is added via the catalog', async () => {
-    const cache = createExtensionWorkspaceCache(
-      EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-      oracle,
-      broadcast,
-      ctxFactory,
-    );
+    const cache = createExtensionWorkspaceCache(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedState({ workspaces: [ws()], activeWorkspaceId: 'ws-a' });
 
     let calls = 0;
@@ -125,12 +114,7 @@ describe('ExtensionWorkspaceCache', () => {
   });
 
   it('drops a workspace on removeExtensionWorkspace', async () => {
-    const cache = createExtensionWorkspaceCache(
-      EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-      oracle,
-      broadcast,
-      ctxFactory,
-    );
+    const cache = createExtensionWorkspaceCache(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedState({
       workspaces: [ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })],
       activeWorkspaceId: 'ws-a',
@@ -141,30 +125,27 @@ describe('ExtensionWorkspaceCache', () => {
     cache.dispose();
   });
 
-  it('flips activeWorkspaceId on setActiveExtensionWorkspace', async () => {
-    const cache = createExtensionWorkspaceCache(
-      EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-      oracle,
-      broadcast,
-      ctxFactory,
-    );
+  it('flips activeWorkspaceId on setActiveWorkspace — a pointer-type broadcast re-projects the cache', async () => {
+    const cache = createExtensionWorkspaceCache(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedState({
       workspaces: [ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })],
       activeWorkspaceId: 'ws-a',
     });
-    const intent = setActiveExtensionWorkspace(ctxFactory(), { id: 'ws-b' });
+    let calls = 0;
+    cache.onChange(() => {
+      calls++;
+    });
+    const intent = setActiveWorkspace(ctxFactory(), { id: 'ws-b' });
+    expect(intent.batch.mutations[0].body.type).toBe(ACTIVE_WORKSPACE_ENTITY_TYPE);
     await oracle.apply(intent.batch);
-    expect(cache.getSnapshot().activeWorkspaceId).toBe('ws-b');
+    expect(calls).toBe(1);
+    expect(cache.getSnapshot()).toMatchObject({ activeWorkspaceId: 'ws-b' });
+    expect(cache.getSnapshot().workspaces.map((w) => w.id)).toEqual(['ws-a', 'ws-b']);
     cache.dispose();
   });
 
   it('dispose drops the broadcast subscription', async () => {
-    const cache = createExtensionWorkspaceCache(
-      EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-      oracle,
-      broadcast,
-      ctxFactory,
-    );
+    const cache = createExtensionWorkspaceCache(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedState({ workspaces: [], activeWorkspaceId: null });
 
     let calls = 0;

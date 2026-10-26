@@ -4,9 +4,12 @@
  * Thin adapter over the shared `singleton-entity-cache.ts` core, with
  * two structural differences from the per-workspace singletons:
  *
- *   1. **Global scope.** The cache lives ABOVE per-workspace state (the
- *      catalog at id `EXTENSION_WORKSPACE_ID` carries the LIST of
- *      workspaces). The `scope` exposed here is the sentinel
+ *   1. **Global scope, two singletons.** The cache lives ABOVE
+ *      per-workspace state: the catalog at id `EXTENSION_WORKSPACE_ID`
+ *      carries the LIST of workspaces, the host-local `active-workspace`
+ *      singleton beside it carries this host's pointer, and the cache
+ *      re-projects the composed `(workspaces, activeWorkspaceId)` on a
+ *      commit of either. The `scope` exposed here is the sentinel
  *      `EXTENSION_WORKSPACE_GLOBAL_SCOPE` ('__global__') used by the
  *      global oracle's IDB stripe; it survives workspace-switch
  *      dispose+init cycles.
@@ -21,7 +24,7 @@
  * broadcast carries records freely.
  */
 
-import { EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { ACTIVE_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InMemoryBroadcast } from '../broadcast';
@@ -78,6 +81,7 @@ export function createExtensionWorkspaceCache(
     contextFactory,
     {
       entityType: EXTENSION_WORKSPACE_ENTITY_TYPE,
+      companionEntityTypes: [ACTIVE_WORKSPACE_ENTITY_TYPE],
       loggerTag: 'ExtensionWorkspaceCache',
       emptySnapshot: EMPTY_EXTENSION_WORKSPACE,
       project: (o) => {

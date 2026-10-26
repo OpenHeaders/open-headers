@@ -65,13 +65,12 @@ export interface MutationWirePort {
 }
 
 /**
- * True for the `extensionWorkspace` singleton's `activeId` `setField` —
- * the active-workspace pointer. The active pointer is a per-device
- * operative-view preference: it mirrors down from a loopback desktop
- * (same machine) but must never be moved by a LAN/WAN peer. The
- * loopback gate below drops these envelopes when the delivering backend
- * is remote; every other `extensionWorkspace` mutation (the
- * `workspaces` set) keeps syncing regardless.
+ * True for the `extensionWorkspace` singleton's legacy `activeId`
+ * `setField` — the replicated pointer older hubs still write. Nothing
+ * reads the field any more (this host's pointer is the host-local
+ * `active-workspace` singleton), but a LAN/WAN peer's row is still
+ * dropped here rather than recorded; every other `extensionWorkspace`
+ * mutation (the `workspaces` set) keeps syncing regardless.
  */
 function isActivePointerEnvelope(env: MutationEnvelope): boolean {
   const b = env.body;

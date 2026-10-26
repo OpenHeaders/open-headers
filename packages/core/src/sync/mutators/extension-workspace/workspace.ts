@@ -7,10 +7,10 @@
  *     and update (existing id, replace-by-itemId). Whole-record
  *     replace; per-field LWW within a slot is not a v1 primitive.
  *   - `removeExtensionWorkspace(id)` — removeFromSet tombstone. The
- *     caller is responsible for re-pointing `activeId` if it referenced
- *     the deleted workspace (emit a separate `setActiveExtensionWorkspace`
- *     in the same batch — per-batch all-or-nothing keeps the pair
- *     atomic).
+ *     caller is responsible for re-pointing the host's active pointer
+ *     if it referenced the deleted workspace (emit a `setActiveWorkspace`
+ *     on the `active-workspace` singleton in the same batch — per-batch
+ *     all-or-nothing keeps the pair atomic).
  *   - `moveExtensionWorkspaceBefore(id, orderKey)` — moveBefore on the
  *     `workspaces` set. Order keys are envelope-resident (§22.1); the
  *     caller mints `keyBetween(predKey, anchorKey)` from its current
@@ -23,9 +23,9 @@
  *     per-workspace).
  *   - `removeExtensionWorkspace` emits `PURGE_WORKSPACE_DATA(id)` so
  *     the SW-side per-workspace data purge runs after the commit
- *     lands. Bundled-with-setActive deletes (renderer's
- *     `applyDeleteWorkspace` for the active id) ride the same
- *     all-or-nothing batch — the active flip's
+ *     lands. A delete of the active workspace (renderer's
+ *     `applyDeleteWorkspace`, the store's `deleteWorkspace`) bundles
+ *     the pointer flip in the same all-or-nothing batch — the flip's
  *     `SWAP_PER_WORKSPACE_STORES` + this purge intent both persist
  *     before broadcast.
  */
@@ -46,10 +46,7 @@ export interface SetExtensionWorkspaceArgs {
   orderKey: string;
 }
 
-export function setExtensionWorkspace(
-  ctx: MutatorContext,
-  args: SetExtensionWorkspaceArgs,
-): MutatorIntent {
+export function setExtensionWorkspace(ctx: MutatorContext, args: SetExtensionWorkspaceArgs): MutatorIntent {
   const batch = mintBatch(ctx, [
     {
       kind: 'addToSet',
@@ -76,10 +73,7 @@ export interface RemoveExtensionWorkspaceArgs {
   id: string;
 }
 
-export function removeExtensionWorkspace(
-  ctx: MutatorContext,
-  args: RemoveExtensionWorkspaceArgs,
-): MutatorIntent {
+export function removeExtensionWorkspace(ctx: MutatorContext, args: RemoveExtensionWorkspaceArgs): MutatorIntent {
   const batch = mintBatch(ctx, [
     {
       kind: 'removeFromSet',

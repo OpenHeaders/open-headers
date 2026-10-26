@@ -14,7 +14,11 @@
  *     re-grant's live offer re-materializes the row).
  */
 
-import { EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
+import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+} from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -62,11 +66,15 @@ function workspace(id: string): ExtensionWorkspace {
   } as ExtensionWorkspace;
 }
 
-function broadcastList(workspaces: ExtensionWorkspace[], activeWorkspaceId: string | null): void {
+function broadcastList(
+  workspaces: ExtensionWorkspace[],
+  activeWorkspaceId: string | null,
+  entityType: string = EXTENSION_WORKSPACE_ENTITY_TYPE,
+): void {
   emit('syncBroadcast', {
     envelope: {
       workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-      body: { type: EXTENSION_WORKSPACE_ENTITY_TYPE },
+      body: { type: entityType },
     },
     extensionWorkspacePostState: {
       workspaces,
@@ -125,6 +133,17 @@ describe('extension-workspace sync mirror — workspaceEvicted', () => {
     expect(mirror.liveWorkspaces().map((w) => w.id)).toEqual(['ws-a']);
 
     broadcastList([workspace('ws-a'), workspace('ws-b')], 'ws-a');
+    expect(mirror.liveWorkspaces().map((w) => w.id)).toEqual(['ws-a', 'ws-b']);
+    mirror.dispose();
+  });
+
+  it('applies the composed post-state carried by a pointer-type broadcast', () => {
+    const mirror = createExtensionWorkspaceSyncMirror({ bootstrap: false });
+    broadcastList([workspace('ws-a'), workspace('ws-b')], 'ws-a');
+
+    broadcastList([workspace('ws-a'), workspace('ws-b')], 'ws-b', ACTIVE_WORKSPACE_ENTITY_TYPE);
+
+    expect(mirror.liveActiveWorkspaceId()).toBe('ws-b');
     expect(mirror.liveWorkspaces().map((w) => w.id)).toEqual(['ws-a', 'ws-b']);
     mirror.dispose();
   });

@@ -18,10 +18,15 @@
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  ACTIVE_WORKSPACE_ID,
+  ACTIVE_WORKSPACE_PATH,
   advanceHlc,
+  compareHlc,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACES_SET_PATH,
   initialHlc,
+  isHostLocalMutation,
 } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -300,12 +305,28 @@ describe('applyDeleteWorkspace', () => {
     expect(result.ok && result.activeWorkspaceId).toBe('ws-a');
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     expect(batch.mutations).toHaveLength(2);
-    expect(batch.mutations[0].body).toMatchObject({ kind: 'removeFromSet', itemId: 'ws-b' });
-    expect(batch.mutations[1].body).toMatchObject({ kind: 'setField', path: 'activeId', value: 'ws-a' });
+    expect(batch.mutations[0].body).toMatchObject({
+      kind: 'removeFromSet',
+      type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+      itemId: 'ws-b',
+    });
+    expect(batch.mutations[1].body).toMatchObject({
+      kind: 'setField',
+      type: ACTIVE_WORKSPACE_ENTITY_TYPE,
+      id: ACTIVE_WORKSPACE_ID,
+      path: ACTIVE_WORKSPACE_PATH,
+      value: 'ws-a',
+    });
     // Per-batch all-or-nothing: both envelopes land under one batchId
     // (structurally guaranteed by living inside a single MutationBatch),
     // so observers never see the active pointer aimed at the deleted id.
     expect(typeof batch.batchId).toBe('string');
+    // Two singletons, one batch: the flip's HLC ticks past the remove's
+    // so the log replays it in mint order, and only the remove may
+    // cross a wire — the host's pointer is host-local.
+    expect(compareHlc(batch.mutations[1].hlc, batch.mutations[0].hlc)).toBeGreaterThan(0);
+    expect(isHostLocalMutation(batch.mutations[0])).toBe(false);
+    expect(isHostLocalMutation(batch.mutations[1])).toBe(true);
   });
 
   it('emits a single removeFromSet when deleting a non-active workspace', async () => {
@@ -344,7 +365,7 @@ describe('applySetActiveWorkspace', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('emits one setField(activeWorkspaceId) envelope when flipping to a different workspace', async () => {
+  it('emits one setField on the host-local pointer singleton when flipping to a different workspace', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror([makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1)], 'ws-a');
     const result = await applySetActiveWorkspace(
@@ -356,9 +377,12 @@ describe('applySetActiveWorkspace', () => {
     expect(batch.mutations).toHaveLength(1);
     expect(batch.mutations[0].body).toMatchObject({
       kind: 'setField',
-      path: 'activeId',
+      type: ACTIVE_WORKSPACE_ENTITY_TYPE,
+      id: ACTIVE_WORKSPACE_ID,
+      path: ACTIVE_WORKSPACE_PATH,
       value: 'ws-b',
     });
+    expect(isHostLocalMutation(batch.mutations[0])).toBe(true);
   });
 });
 

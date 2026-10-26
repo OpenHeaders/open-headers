@@ -37,7 +37,7 @@ const ctx = (physicalMs: number): MutatorContext => ({
   deviceId: 'device-a',
 });
 
-function applyBatch(store: InMemoryDocumentStore, payload: RequestCollectionMutationPayload): void {
+function applyBatch(store: InMemoryDocumentStore, payload: Pick<RequestCollectionMutationPayload, 'batch'>): void {
   for (const env of payload.batch.mutations) store.apply(env);
 }
 

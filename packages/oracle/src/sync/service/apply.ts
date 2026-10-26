@@ -5,7 +5,7 @@
  */
 
 import type { SyncApplyRequest, SyncApplyResponse } from '@openheaders/core/protocol';
-import { EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { isGlobalScopeEntityType } from '@openheaders/core/sync';
 import { handleSyncApply } from '../bridge';
 import { getGlobalOracle } from '../global-service';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from './lifecycle';
@@ -22,7 +22,9 @@ import { currentActive, services } from './state';
  *     payload to dispatch on; legacy invariant preserved).
  *   - Mixed-scope batches (global + per-workspace) are rejected — the
  *     all-or-nothing per-batch contract requires a single lock domain.
- *   - `extensionWorkspace` envelopes target the GLOBAL oracle.
+ *   - Global-scope envelopes (the workspace list, this host's active
+ *     pointer — `isGlobalScopeEntityType`) target the GLOBAL oracle; a
+ *     delete of the active workspace bundles both types in one batch.
  *   - Every other entity type routes to the per-workspace oracle named
  *     by `batch.workspaceId`.
  */
@@ -38,9 +40,9 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
     return svc.hydrated.then(() => handleSyncApply(svc.oracle, request));
   }
 
-  const isGlobal = request.batch.mutations[0].body.type === EXTENSION_WORKSPACE_ENTITY_TYPE;
+  const isGlobal = isGlobalScopeEntityType(request.batch.mutations[0].body.type);
   for (const env of request.batch.mutations) {
-    const envIsGlobal = env.body.type === EXTENSION_WORKSPACE_ENTITY_TYPE;
+    const envIsGlobal = isGlobalScopeEntityType(env.body.type);
     if (envIsGlobal !== isGlobal) {
       throw new Error(
         'SyncService.applySyncRequest: mixed-scope batch (global + per-workspace) — split into separate batches',

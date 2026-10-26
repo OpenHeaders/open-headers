@@ -15,11 +15,11 @@
 
 import {
   type ExtensionWorkspaceSlot,
-  moveExtensionWorkspaceBefore,
   type MutatorContext,
   type MutatorIntent,
+  moveExtensionWorkspaceBefore,
   removeExtensionWorkspace,
-  setActiveExtensionWorkspace,
+  setActiveWorkspace,
   setExtensionWorkspace,
 } from '@openheaders/core/sync';
 
@@ -64,9 +64,13 @@ export interface SetActiveExtensionWorkspaceInput {
   id: string;
 }
 
+/**
+ * The host's active pointer — a `setField` on the host-local
+ * `active-workspace` singleton, never a field on the shared list record.
+ */
 export function buildSetActiveExtensionWorkspaceBatch(
   input: SetActiveExtensionWorkspaceInput,
   ctx: MutatorContext,
 ): ExtensionWorkspaceMutationPayload {
-  return setActiveExtensionWorkspace(ctx, input);
+  return setActiveWorkspace(ctx, input);
 }

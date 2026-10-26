@@ -27,6 +27,7 @@ import {
   type MutatorContext,
   PRE_BOOTSTRAP_ORG_ID,
   seedKey,
+  tickHlc,
 } from '@openheaders/core/sync';
 import {
   buildMoveExtensionWorkspaceBeforeBatch,
@@ -297,7 +298,15 @@ export async function applyDeleteWorkspace(
   let payload: SyncMutationPayload = remove;
   let nextActive = wasActive ? (neighbourId ?? input.id) : (activeId ?? input.id);
   if (wasActive && neighbourId) {
-    const sharedCtx: MutatorContext = { ...ctx, batchId: remove.batch.batchId };
+    // The host's pointer flip rides the remove's batch (one global-scope
+    // batch, two singletons) with a ticked HLC so the log replays it in
+    // mint order; the wire gates decide per envelope — the remove goes
+    // up, the pointer never does.
+    const sharedCtx: MutatorContext = {
+      ...ctx,
+      batchId: remove.batch.batchId,
+      hlc: tickHlc(ctx.hlc, remove.batch.mutations.length),
+    };
     const setActive = buildSetActiveExtensionWorkspaceBatch({ id: neighbourId }, sharedCtx);
     const merged: MutationBatch = {
       batchId: remove.batch.batchId,

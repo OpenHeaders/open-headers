@@ -117,6 +117,10 @@ export function makeFlatEntityProjectors<O extends FlatProjectorReads, T, R>(
 
 export interface SingletonEntityProjectorConfig<O extends FlatProjectorReads, R> {
   entityType: string;
+  /** Companion singleton types whose envelopes also carry this
+   *  post-state (the registry's `companionEntityTypes`); `compose`
+   *  reads them off the oracle. */
+  companionEntityTypes?: readonly string[];
   /** Fixed id of the singleton record (`VAULT_ID`, `LAYOUT_STATE_ID`, …). */
   entityId: string;
   /** Compose the post-state from the materialized record + oracle.
@@ -141,8 +145,9 @@ export function makeSingletonEntityProjectors<O extends FlatProjectorReads, R>(
     return config.compose(materialized, oracle);
   };
 
+  const observed: ReadonlySet<string> = new Set([config.entityType, ...(config.companionEntityTypes ?? [])]);
   const projectPostState = (oracle: O, envelope: MutationEnvelope): R | null => {
-    if (envelope.body.type !== config.entityType) return null;
+    if (!observed.has(envelope.body.type)) return null;
     return projectSingleton(oracle);
   };
 

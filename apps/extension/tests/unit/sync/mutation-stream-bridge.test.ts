@@ -17,6 +17,9 @@ import {
 } from '@openheaders/core/identity';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  ACTIVE_WORKSPACE_ID,
+  ACTIVE_WORKSPACE_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   EXTENSION_WORKSPACE_ID,
@@ -38,11 +41,16 @@ import {
   hasRecentlyApplied,
   setOracleHostHooks,
 } from '@openheaders/oracle/sync';
-import { __initGlobalSyncServiceForTests, disposeGlobal } from '@openheaders/oracle/sync/global-service';
+import {
+  __initGlobalSyncServiceForTests,
+  disposeGlobal,
+  getGlobalOracle,
+} from '@openheaders/oracle/sync/global-service';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {
   __initSyncServiceForTests,
+  applySyncRequest,
   dispose as disposeSyncService,
   getOracleForCurrentWorkspace,
   getOrCreateWorkspaceService,
@@ -295,6 +303,28 @@ describe('applyInboundMutationBatch', () => {
     expect(oracle?.materializeOne(LAYOUT_STATE_ENTITY_TYPE, LAYOUT_STATE_ID)).toBeFalsy();
   });
 
+  it('drops a peer host active-workspace pointer at ingest — a peer never moves this host', async () => {
+    // The pointer is host-local like the layout: a hub or peer that
+    // put one on the wire (old build, hostile) cannot switch this
+    // host's workspace through it.
+    const pointerEnvelope: MutationEnvelope = {
+      ...seedRule(makeRule(generateUid()), ctx(8_100)).mutations[0]!,
+      mutationId: 'm-pointer-inbound',
+      workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+      body: {
+        kind: 'setField',
+        type: ACTIVE_WORKSPACE_ENTITY_TYPE,
+        id: ACTIVE_WORKSPACE_ID,
+        path: ACTIVE_WORKSPACE_PATH,
+        value: 'ws-from-peer',
+      },
+    };
+
+    await applyInboundMutationEnvelope(pointerEnvelope);
+    expect(hasRecentlyApplied(pointerEnvelope.mutationId)).toBe(false);
+    expect(__seenMutationStreamCountForTests()).toBe(0);
+  });
+
   it('applies as the PEER actor when one is threaded — an editor grant admits the batch', async () => {
     const audits: ResolvedAuditEntry[] = [];
     setAuditSink((entry) => audits.push(entry));
@@ -459,6 +489,35 @@ describe('applyInboundMutationBatch', () => {
         path: 'activeId',
         value: wsId,
       });
+
+    it('routes a bundled list-row remove + host pointer flip to the global oracle as one batch', async () => {
+      // A delete of the active workspace carries two global-scope
+      // entity types; the router accepts the pair, the oracle's lock
+      // chain covers both ids, and the pointer singleton materializes
+      // from the bare setField (observable without a create).
+      const remove = globalEnvelope(15_000, {
+        kind: 'removeFromSet',
+        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+        id: EXTENSION_WORKSPACE_ID,
+        path: EXTENSION_WORKSPACES_SET_PATH,
+        itemId: 'ws-gone',
+      });
+      const flip = globalEnvelope(15_001, {
+        kind: 'setField',
+        type: ACTIVE_WORKSPACE_ENTITY_TYPE,
+        id: ACTIVE_WORKSPACE_ID,
+        path: ACTIVE_WORKSPACE_PATH,
+        value: wsId,
+      });
+      const response = await applySyncRequest({
+        type: 'oh.sync.apply',
+        batch: { batchId: 'b-global-bundle', mutations: [remove, flip] },
+        applyOrigin: 'local',
+      });
+      expect(response.ok).toBe(true);
+      const pointer = getGlobalOracle()?.materializeOne(ACTIVE_WORKSPACE_ENTITY_TYPE, ACTIVE_WORKSPACE_ID);
+      expect(pointer?.data).toMatchObject({ [ACTIVE_WORKSPACE_PATH]: wsId });
+    });
 
     it('an editor of the slotted workspace may replace its slot (rename rides the grant)', async () => {
       const audits: ResolvedAuditEntry[] = [];

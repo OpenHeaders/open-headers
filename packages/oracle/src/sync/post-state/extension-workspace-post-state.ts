@@ -3,9 +3,14 @@
  *
  * Thin adapter over `flat-entity-post-state.ts` (singleton variant).
  * Folds the live set at `workspaces` into a sorted
- * `ExtensionWorkspace[]` and reads the `activeId` scalar so renderer
- * + SW-internal consumers see post-commit state without iterating
- * arrays themselves.
+ * `ExtensionWorkspace[]` and reads this host's pointer off the
+ * host-local `active-workspace` singleton, so renderer + SW-internal
+ * consumers see post-commit state without iterating arrays themselves.
+ * An envelope of either entity type projects the composed state.
+ *
+ * The legacy `activeId` scalar on the list record (hundreds of rows in
+ * every existing log, and still written by older hubs) is never read:
+ * the generic store records the field, this projector ignores it.
  *
  * Sort order: `liveSetItems` already returns entries sorted by orderKey
  * then itemId (the document store's tie-break). The synthetic
@@ -16,7 +21,9 @@
 
 import type { SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
 import {
-  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  ACTIVE_WORKSPACE_ID,
+  ACTIVE_WORKSPACE_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
   EXTENSION_WORKSPACES_SET_PATH,
@@ -30,8 +37,9 @@ type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 
 const projectors = makeSingletonEntityProjectors<Reads, SyncExtensionWorkspacePostState>({
   entityType: EXTENSION_WORKSPACE_ENTITY_TYPE,
+  companionEntityTypes: [ACTIVE_WORKSPACE_ENTITY_TYPE],
   entityId: EXTENSION_WORKSPACE_ID,
-  compose: (materialized, oracle) => {
+  compose: (_materialized, oracle) => {
     const entries = oracle.liveOrderedSetItems(
       EXTENSION_WORKSPACE_ENTITY_TYPE,
       EXTENSION_WORKSPACE_ID,
@@ -46,15 +54,20 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncExtensionWorkspacePo
       orderKeys[entry.item.id] = entry.key;
       sortIndex += 1;
     }
-    const data = (materialized.data ?? {}) as Record<string, unknown>;
-    const activeRaw = data[EXTENSION_WORKSPACE_ACTIVE_ID_PATH];
-    const activeWorkspaceId = typeof activeRaw === 'string' ? activeRaw : null;
-    return { workspaces, activeWorkspaceId, orderKeys };
+    return { workspaces, activeWorkspaceId: readActiveWorkspaceId(oracle), orderKeys };
   },
 });
 
 export const projectExtensionWorkspacePostState = projectors.projectPostState;
 export const projectExtensionWorkspaceSingleton = projectors.projectSingleton;
+
+/** This host's pointer, or `null` until the singleton holds one. */
+function readActiveWorkspaceId(oracle: Reads): string | null {
+  const pointer = oracle.materializeOne(ACTIVE_WORKSPACE_ENTITY_TYPE, ACTIVE_WORKSPACE_ID);
+  const data = (pointer?.data ?? {}) as Record<string, unknown>;
+  const raw = data[ACTIVE_WORKSPACE_PATH];
+  return typeof raw === 'string' ? raw : null;
+}
 
 const isExtensionWorkspaceSlot = (v: unknown): v is ExtensionWorkspaceSlot => {
   if (typeof v !== 'object' || v === null) return false;

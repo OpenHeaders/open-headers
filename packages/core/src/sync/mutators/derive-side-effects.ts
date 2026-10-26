@@ -31,6 +31,8 @@
  */
 
 import type { MutationEnvelope } from '../envelope';
+import { deriveActiveWorkspaceSideEffects } from './active-workspace/side-effects';
+import { ACTIVE_WORKSPACE_ENTITY_TYPE } from './active-workspace/types';
 import { deriveCollectionSideEffects } from './collection/side-effects';
 import { COLLECTION_ENTITY_TYPE } from './collection/types';
 import { deriveEnvironmentSideEffects } from './environment/side-effects';
@@ -58,6 +60,11 @@ import { WORKSPACE_VARIABLES_ENTITY_TYPE } from './workspace-variables/types';
 
 export function deriveSideEffectsForEnvelope(envelope: MutationEnvelope): SideEffectIntent[] {
   switch (envelope.body.type) {
+    // The host's own pointer flip swaps the per-workspace stores; a
+    // list-row removal purges the workspace's data. The legacy
+    // `activeId` field on the list record maps to nothing.
+    case ACTIVE_WORKSPACE_ENTITY_TYPE:
+      return deriveActiveWorkspaceSideEffects(envelope);
     case EXTENSION_WORKSPACE_ENTITY_TYPE:
       return deriveExtensionWorkspaceSideEffects(envelope);
     // A rule / pause-marker edit reshapes the effective DNR rule set; the

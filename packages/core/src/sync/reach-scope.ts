@@ -24,7 +24,7 @@
  */
 
 import type { MutationEnvelope } from './envelope';
-import { LAYOUT_STATE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from './mutators';
+import { ACTIVE_WORKSPACE_ENTITY_TYPE, LAYOUT_STATE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from './mutators';
 
 /**
  * Entity types whose mutations carry a same-device-only secret. A
@@ -44,17 +44,17 @@ export function isSameDeviceOnlyMutation(envelope: MutationEnvelope): boolean {
 }
 
 /**
- * Entity types that are host-local: per-surface UI state (the dock
- * layout singleton) whose LWW record only makes sense to the host that
- * wrote it. Unlike the same-device set — a secrecy boundary keyed on
- * peer reach — this is an ownership boundary: two live surfaces on
- * different hosts would fight over one singleton via LWW, each mount
- * clobbering the other's layout. Mutations of these types never cross
- * any wire, in either direction, regardless of reach or trust; every
- * host keeps its own copy and same-host surfaces still converge over
- * the local broadcast.
+ * Entity types that are host-local: per-host state (the dock layout
+ * singleton, the active-workspace pointer) whose LWW record only makes
+ * sense to the host that wrote it. Unlike the same-device set — a
+ * secrecy boundary keyed on peer reach — this is an ownership boundary:
+ * two hosts sharing a workspace list would fight over one pointer via
+ * LWW, each switch moving the other host too. Mutations of these types
+ * never cross any wire, in either direction, regardless of reach or
+ * trust; every host keeps its own copy and same-host surfaces still
+ * converge over the local broadcast.
  */
-const HOST_LOCAL_ENTITY_TYPES: ReadonlySet<string> = new Set([LAYOUT_STATE_ENTITY_TYPE]);
+const HOST_LOCAL_ENTITY_TYPES: ReadonlySet<string> = new Set([LAYOUT_STATE_ENTITY_TYPE, ACTIVE_WORKSPACE_ENTITY_TYPE]);
 
 /** True when mutations of `entityType` are host-local (never on any wire). */
 export function isHostLocalEntityType(entityType: string): boolean {

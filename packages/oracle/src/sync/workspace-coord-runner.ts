@@ -1,17 +1,18 @@
 /**
  * Workspace coordination runner (sync engine session 53).
  *
- * Drains the two ExtensionWorkspace-scoped intents from
- * `oh.sync.intents` (global stripe) whenever a broadcast lands on the
- * `extensionWorkspace` entity:
+ * Drains the two workspace-scoped intents from `oh.sync.intents`
+ * (global stripe) whenever a broadcast lands on a global-scope entity
+ * (the workspace list or this host's active pointer):
  *
  *   - `SWAP_PER_WORKSPACE_STORES` — singleton-keyed (one entry max,
- *     latest HLC wins). Every `setActiveExtensionWorkspace` mutator
- *     emits one alongside the batch (§18.1). When drained the runner
- *     reads the post-commit `activeWorkspaceId` from the workspace
- *     store (already updated by the global cache subscription that
- *     fires before this runner) and routes it through `swap` —
- *     production wires `swap` to the orchestrator's
+ *     latest HLC wins). Every committed `setActiveWorkspace` on the
+ *     host-local `active-workspace` singleton derives one (§18.1); a
+ *     legacy `activeId` row on the list record derives nothing. When
+ *     drained the runner reads the post-commit `activeWorkspaceId`
+ *     from the workspace store (already updated by the global cache
+ *     subscription that fires before this runner) and routes it
+ *     through `swap` — production wires `swap` to the orchestrator's
  *     `swapPerWorkspaceStores` + `reinitForWorkspace` + every
  *     per-workspace `bridgeXSyncEngine` re-seed (the work that used
  *     to live in `background.ts`'s `onWorkspaceStoreChange` listener).
@@ -51,8 +52,8 @@
  */
 
 import {
-  EXTENSION_WORKSPACE_ENTITY_TYPE,
-  EXTENSION_WORKSPACE_ID,
+  ACTIVE_WORKSPACE_ID,
+  isGlobalScopeEntityType,
   PURGE_WORKSPACE_DATA,
   SWAP_PER_WORKSPACE_STORES,
 } from '@openheaders/core/sync';
@@ -96,7 +97,7 @@ export function createWorkspaceCoordRunner(config: WorkspaceCoordRunnerConfig): 
   let queue: Promise<void> = Promise.resolve();
 
   const handle = async (event: BroadcastEvent): Promise<void> => {
-    if (event.envelope.body.type !== EXTENSION_WORKSPACE_ENTITY_TYPE) return;
+    if (!isGlobalScopeEntityType(event.envelope.body.type)) return;
 
     // SWAP first: the active flip's downstream re-seeds populate the
     // per-workspace caches that PURGE callers might check for residual
@@ -106,7 +107,7 @@ export function createWorkspaceCoordRunner(config: WorkspaceCoordRunnerConfig): 
     // (delete-of-active bundles `[remove, setActive]` so SWAP's swap
     // primes the in-memory mirrors before purge clears the source
     // workspace's storage keys).
-    const swapIntent = await intents.drain(SWAP_PER_WORKSPACE_STORES, EXTENSION_WORKSPACE_ID);
+    const swapIntent = await intents.drain(SWAP_PER_WORKSPACE_STORES, ACTIVE_WORKSPACE_ID);
     if (swapIntent) {
       const target = getActiveWorkspaceId();
       if (target) {

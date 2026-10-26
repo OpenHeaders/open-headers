@@ -53,6 +53,7 @@ import {
 } from '@openheaders/core/schemas';
 import type { EntitySchema, EntitySchemaRegistry, MutationEnvelope, SetPathsResolver } from '@openheaders/core/sync';
 import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   ENV_VARS_PATH,
@@ -298,6 +299,16 @@ interface BaseRegistration<K extends PostStateKey> {
    * decision explicitly.
    */
   localWriteSchema: LocalWriteSchema | null;
+  /**
+   * Singleton entity types this registration's post-state composes in
+   * besides `entityType`: same scope, observable without a create, no
+   * set paths, no local-write gate. A commit of one re-projects and
+   * broadcasts THIS registration's post-state (the adapter's cache and
+   * projector accept the pair); the schema registry learns them here
+   * so the oracle materializes them. The host-local active pointer
+   * beside the workspace list is the one case.
+   */
+  companionEntityTypes?: readonly string[];
 }
 
 export interface FlatRegistration<K extends PostStateKey = PostStateKey> extends BaseRegistration<K> {
@@ -345,6 +356,7 @@ function singletonEntity<K extends PostStateKey, C extends EntityCacheLike>(spec
   projectSingleton: SingletonProjector<K>;
   setPaths?: SetPathsResolver;
   localWriteSchema: LocalWriteSchema | null;
+  companionEntityTypes?: readonly string[];
 }): SingletonRegistration<K> {
   return {
     kind: 'singleton',
@@ -355,6 +367,7 @@ function singletonEntity<K extends PostStateKey, C extends EntityCacheLike>(spec
     projectSingleton: spec.projectSingleton,
     setPaths: spec.setPaths,
     localWriteSchema: spec.localWriteSchema,
+    companionEntityTypes: spec.companionEntityTypes,
   };
 }
 
@@ -726,6 +739,9 @@ export const FILES_REGISTRATION = singletonEntity({
   localWriteSchema: null,
 });
 
+// The workspace list plus this host's active pointer: two singletons,
+// one composed post-state. The pointer is host-local (never on a
+// wire) and rides the list registration's cache + projector.
 export const EXTENSION_WORKSPACE_REGISTRATION = singletonEntity({
   entityType: EXTENSION_WORKSPACE_ENTITY_TYPE,
   createCache: createExtensionWorkspaceCache,
@@ -734,6 +750,7 @@ export const EXTENSION_WORKSPACE_REGISTRATION = singletonEntity({
   projectSingleton: projectExtensionWorkspaceSingleton,
   setPaths: [EXTENSION_WORKSPACES_SET_PATH],
   localWriteSchema: null,
+  companionEntityTypes: [ACTIVE_WORKSPACE_ENTITY_TYPE],
 });
 
 /**
@@ -802,6 +819,11 @@ export function buildSchemaRegistry(registry: EntityRegistration[]): EntitySchem
         setPaths: reg.setPaths ?? [],
         ...(observableWithoutCreate ? { observableWithoutCreate } : {}),
       });
+    }
+    // A companion is a well-known singleton of its own: observable
+    // without a create, no set-modeled paths.
+    for (const companion of reg.companionEntityTypes ?? []) {
+      out.set(companion, { setPaths: [], observableWithoutCreate: true });
     }
   }
   return out;

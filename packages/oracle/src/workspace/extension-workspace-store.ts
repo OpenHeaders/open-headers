@@ -55,6 +55,7 @@ import {
   type MutatorContext,
   PRE_BOOTSTRAP_ORG_ID,
   seedKey,
+  tickHlc,
 } from '@openheaders/core/sync';
 import {
   buildRemoveExtensionWorkspaceBatch,
@@ -302,10 +303,17 @@ export async function deleteWorkspace(id: string): Promise<DeleteWorkspaceResult
   await applyExtensionWorkspaceMutationOrThrow((ctx) => {
     const remove = buildRemoveExtensionWorkspaceBatch({ id }, ctx);
     if (!neighbourId) return remove;
-    // Bundle the active-pointer flip under the same batchId so the
-    // global oracle commits both mutations atomically — listeners
-    // never observe the active pointer aimed at the deleted id.
-    const sharedCtx: MutatorContext = { ...ctx, batchId: remove.batch.batchId };
+    // Bundle the host's pointer flip under the same batchId so the
+    // global oracle commits both singletons atomically — listeners
+    // never observe the active pointer aimed at the deleted id. The
+    // flip's HLC ticks past the remove's so the log replays the batch
+    // in mint order; the wire gates decide per envelope (the remove
+    // goes up, the pointer never does).
+    const sharedCtx: MutatorContext = {
+      ...ctx,
+      batchId: remove.batch.batchId,
+      hlc: tickHlc(ctx.hlc, remove.batch.mutations.length),
+    };
     const setActive = buildSetActiveExtensionWorkspaceBatch({ id: neighbourId }, sharedCtx);
     const merged: MutationBatch = {
       batchId: remove.batch.batchId,
@@ -320,9 +328,10 @@ export async function deleteWorkspace(id: string): Promise<DeleteWorkspaceResult
 
 /**
  * Promote a workspace to ACTIVE from SW-internal code (Phase U5.9 —
- * "join → adopt"). Emits the same `setActiveExtensionWorkspace` mutation
- * the renderer's switcher path uses, so listeners + the per-workspace
- * store swap converge through the standard pipeline. A no-op when the
+ * "join → adopt"). Emits the same `setActiveWorkspace` mutation on the
+ * host-local pointer singleton the renderer's switcher path uses, so
+ * listeners + the per-workspace store swap converge through the
+ * standard pipeline — and nothing leaves this host. A no-op when the
  * workspace is already active. Rejects when the workspace is unknown —
  * the caller (the join-adopt wiring) only calls this once the target
  * has synced down, so an unknown id is a real bug worth surfacing.

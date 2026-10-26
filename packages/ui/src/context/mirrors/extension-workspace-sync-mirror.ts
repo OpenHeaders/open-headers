@@ -1,9 +1,11 @@
 /**
  * Renderer-side ExtensionWorkspace sync mirror.
  *
- * Singleton-shaped — the global oracle holds one ExtensionWorkspace
+ * Singleton-shaped — the global oracle holds the ExtensionWorkspace
  * entity (id = `EXTENSION_WORKSPACE_ID`) carrying the workspace list as
- * an ordered set + the active-id scalar. The mirror exposes a flat
+ * an ordered set, and the host-local `active-workspace` singleton
+ * carrying this host's pointer; a broadcast of either carries the
+ * composed post-state. The mirror exposes a flat
  * `{ workspaces, activeWorkspaceId, orderKeys }` view so renderer-direct
  * write paths can mint `keyBetween` / preserve existing keys without
  * round-tripping the SW.
@@ -18,7 +20,7 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import { EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
+import { EXTENSION_WORKSPACE_GLOBAL_SCOPE, isGlobalScopeEntityType } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { type CreateSingletonMirrorOptions, createSingletonEntityMirror } from './singleton-entity-mirror';
 import { callSnapshotRpc } from './snapshot-rpc';
@@ -61,7 +63,7 @@ export function createExtensionWorkspaceSyncMirror(
       workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
       extractFromBroadcast: (event) => {
         const { envelope, extensionWorkspacePostState } = event;
-        if (envelope.body.type !== EXTENSION_WORKSPACE_ENTITY_TYPE) return null;
+        if (!isGlobalScopeEntityType(envelope.body.type)) return null;
         if (!extensionWorkspacePostState) return 'tombstone';
         return {
           workspaces: extensionWorkspacePostState.workspaces,

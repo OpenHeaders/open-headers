@@ -9,6 +9,10 @@
 
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  ACTIVE_WORKSPACE_ID,
+  ACTIVE_WORKSPACE_PATH,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   LAYOUT_STATE_ENTITY_TYPE,
   LAYOUT_STATE_ID,
   type MutationEnvelope,
@@ -125,6 +129,26 @@ describe('evaluateOutboundEnvelope', () => {
   it('runs the host-local floor before echo — an echoed layout mutation reports the local layer', () => {
     setOutboundEchoGuard(() => true);
     const verdict = evaluateOutboundEnvelope(layoutEnvelope());
+    expect(verdict.allow === false && verdict.layer).toBe('local');
+  });
+
+  it('withholds the host active-workspace pointer on every wire — a consumed-Org stamp changes nothing', () => {
+    // The pointer rides the global scope under the consumed Org's
+    // channel like a list row would; the host-local floor still holds
+    // it back before tenancy or authz ever run.
+    const verdict = evaluateOutboundEnvelope(
+      envelope({
+        workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+        body: {
+          kind: 'setField',
+          type: ACTIVE_WORKSPACE_ENTITY_TYPE,
+          id: ACTIVE_WORKSPACE_ID,
+          path: ACTIVE_WORKSPACE_PATH,
+          value: 'ws-1',
+        },
+      }),
+    );
+    expect(verdict.allow).toBe(false);
     expect(verdict.allow === false && verdict.layer).toBe('local');
   });
 });

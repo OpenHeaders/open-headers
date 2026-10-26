@@ -36,6 +36,10 @@ export interface SingletonEntityCacheConfig<T, I> {
   /** Broadcast filter — only events whose envelope body type matches
    *  trigger a re-projection. */
   entityType: string;
+  /** Companion singleton types whose commits also re-project this
+   *  cache (the registry's `companionEntityTypes`): the extension-
+   *  workspace cache composes the host-local active pointer in. */
+  companionEntityTypes?: readonly string[];
   /** Logger subsystem tag ('VaultCache', 'OAuthBundleCache', etc.). */
   loggerTag: string;
   /** Empty default returned by `getSnapshot()` until the oracle's
@@ -195,8 +199,9 @@ export function createSingletonEntityCache<T, I>(
     notify();
   };
 
+  const observed: ReadonlySet<string> = new Set([config.entityType, ...(config.companionEntityTypes ?? [])]);
   const unsubscribe = broadcast.subscribe((event: BroadcastEvent) => {
-    if (event.envelope.body.type !== config.entityType) return;
+    if (!observed.has(event.envelope.body.type)) return;
     refreshFromOracle();
   });
 

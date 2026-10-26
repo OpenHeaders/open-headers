@@ -9,7 +9,14 @@
  */
 
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
-import { LAYOUT_STATE_ENTITY_TYPE, LAYOUT_STATE_ID, RULE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  ACTIVE_WORKSPACE_ID,
+  LAYOUT_STATE_ENTITY_TYPE,
+  LAYOUT_STATE_ID,
+  RULE_ENTITY_TYPE,
+  VAULT_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import { afterEach, describe, expect, it } from 'vitest';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from '../../../src/daemon/mutation-forwarder';
 import type { OracleWsServer } from '../../../src/host-runtime/ws-server';
@@ -66,6 +73,19 @@ describe('forwardMutationToWsPeers', () => {
 
     forwardMutationToWsPeers({
       envelope: makeEnvelope(LAYOUT_STATE_ENTITY_TYPE, LAYOUT_STATE_ID),
+      outcome: APPLIED,
+      applyOrigin: 'local',
+    });
+    await flushForwarderQueue();
+    expect(broadcasts).toHaveLength(0);
+  });
+
+  it('never puts the hub active-workspace pointer on the wire', async () => {
+    const { server, broadcasts } = makeRecordingServer();
+    setMutationForwarderWsServer(server);
+
+    forwardMutationToWsPeers({
+      envelope: makeEnvelope(ACTIVE_WORKSPACE_ENTITY_TYPE, ACTIVE_WORKSPACE_ID),
       outcome: APPLIED,
       applyOrigin: 'local',
     });

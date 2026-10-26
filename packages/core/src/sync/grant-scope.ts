@@ -3,7 +3,9 @@
  *
  * The `__global__` scope's mutation log carries the cross-workspace
  * `extensionWorkspace` singleton: a `workspaces` set with one slot per
- * workspace, plus the `activeId` scalar. The slot ops (`addToSet` /
+ * workspace, plus legacy `activeId` scalar rows nothing writes any more
+ * (the pointer is the host-local `active-workspace` singleton now, and
+ * never on a wire). The slot ops (`addToSet` /
  * `removeFromSet` / `moveBefore`, keyed by `itemId` = the workspace id)
  * are per-workspace METADATA ROWS — a peer without any grant on a
  * workspace must not receive its row, on any egress path (catch-up
@@ -49,8 +51,8 @@ export function workspaceListRowIdForMutation(envelope: MutationEnvelope): strin
 
 /**
  * The workspace id this global-scope mutation reveals to a reader — a
- * list row's id, or the id the `activeId` pointer names — or `null`
- * when it reveals none.
+ * list row's id, or the id a legacy `activeId` pointer row names — or
+ * `null` when it reveals none.
  */
 export function workspaceListReadSubjectForMutation(envelope: MutationEnvelope): string | null {
   const rowId = workspaceListRowIdForMutation(envelope);

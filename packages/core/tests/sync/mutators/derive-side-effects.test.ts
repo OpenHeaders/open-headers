@@ -21,6 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SideEffectIntent } from '../../../src/sync';
 import {
+  ACTIVE_WORKSPACE_ID,
   addCondition,
   addHeaderMod,
   COLLECTION_ENTITY_TYPE,
@@ -32,6 +33,9 @@ import {
   deleteLiveWorkflow,
   deriveSideEffectsForEnvelope,
   ENVIRONMENT_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ID,
   FOLDER_ENTITY_TYPE,
   INVALIDATE_RESOLVER,
   type MutationEnvelope,
@@ -61,7 +65,7 @@ import {
   reorderHeaderMod,
   replacePauseMarkers,
   SWAP_PER_WORKSPACE_STORES,
-  setActiveExtensionWorkspace,
+  setActiveWorkspace,
   setCollectionVar,
   setConditionField,
   setDefaultEnvironmentId,
@@ -201,8 +205,9 @@ const cases = [
     removeRequestCollectionVar(ctx(), { requestCollectionUid: 'rc-1', uid: 'v1' }),
   ),
   // extension-workspace — already wired pre-Session-27; covered for regression
-  intent('extensionWorkspace.setActive', () => setActiveExtensionWorkspace(ctx(), { id: 'ws-abc' })),
   intent('extensionWorkspace.remove', () => removeExtensionWorkspace(ctx(), { id: 'ws-abc' })),
+  // active-workspace — the host-local pointer beside the list
+  intent('activeWorkspace.setActive', () => setActiveWorkspace(ctx(), { id: 'ws-abc' })),
 ];
 
 describe('deriveSideEffectsForEnvelope — receive-vs-mint parity', () => {
@@ -298,13 +303,33 @@ describe('deriveSideEffectsForEnvelope — per-body-kind content', () => {
     expect(derive(renameRequestCollection(ctx(), { collectionUid: 'rc-1', name: 'R' }))).toEqual([]);
   });
 
-  it('extension-workspace setActive swaps stores; remove purges workspace data', () => {
-    expect(derive(setActiveExtensionWorkspace(ctx(), { id: 'ws-abc' }))).toEqual([
-      { kind: SWAP_PER_WORKSPACE_STORES, key: 'global', hlc },
+  it('the host pointer flip swaps stores; a workspace remove purges workspace data', () => {
+    expect(derive(setActiveWorkspace(ctx(), { id: 'ws-abc' }))).toEqual([
+      { kind: SWAP_PER_WORKSPACE_STORES, key: ACTIVE_WORKSPACE_ID, hlc },
     ]);
     expect(derive(removeExtensionWorkspace(ctx(), { id: 'ws-abc' }))).toEqual([
       { kind: PURGE_WORKSPACE_DATA, key: 'ws-abc', hlc },
     ]);
+  });
+
+  it('a legacy activeId row on the list record derives nothing — the pointer left the catalog', () => {
+    expect(
+      deriveSideEffectsForEnvelope({
+        mutationId: 'm-legacy',
+        hlc,
+        origin: { surfaceId: 's', deviceId: 'd' },
+        workspaceId: '__global__',
+        orgId: 'org-test',
+        mutatorVersion: 1,
+        body: {
+          kind: 'setField',
+          type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+          id: EXTENSION_WORKSPACE_ID,
+          path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+          value: 'ws-abc',
+        },
+      }),
+    ).toEqual([]);
   });
 
   it('an unhandled entity type (request / folder / template) derives no side effect', () => {

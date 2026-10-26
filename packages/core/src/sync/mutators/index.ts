@@ -1,4 +1,16 @@
 export {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  ACTIVE_WORKSPACE_ID,
+  ACTIVE_WORKSPACE_MUTATOR_VERSION,
+  ACTIVE_WORKSPACE_PATH,
+  deriveActiveWorkspaceSideEffects,
+  mintBatch as mintActiveWorkspaceBatch,
+  type SetActiveWorkspaceArgs,
+  SWAP_PER_WORKSPACE_STORES,
+  setActiveWorkspace,
+  swapPerWorkspaceStoresIntent,
+} from './active-workspace';
+export {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_MUTATOR_VERSION,
   COLLECTION_VARS_PATH,
@@ -47,17 +59,14 @@ export {
   EXTENSION_WORKSPACES_SET_PATH,
   type ExtensionWorkspaceSlot,
   type MoveExtensionWorkspaceBeforeArgs,
+  mintBatch as mintExtensionWorkspaceBatch,
   moveExtensionWorkspaceBefore,
   PURGE_WORKSPACE_DATA,
   purgeWorkspaceDataIntent,
   type RemoveExtensionWorkspaceArgs,
   removeExtensionWorkspace,
-  type SetActiveExtensionWorkspaceArgs,
   type SetExtensionWorkspaceArgs,
-  SWAP_PER_WORKSPACE_STORES,
-  setActiveExtensionWorkspace,
   setExtensionWorkspace,
-  swapPerWorkspaceStoresIntent,
 } from './extension-workspace';
 export {
   type AddFileRefArgs,

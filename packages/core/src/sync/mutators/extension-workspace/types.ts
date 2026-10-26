@@ -1,12 +1,12 @@
 /**
  * ExtensionWorkspace mutator catalog — routing constants.
  *
- * Cross-workspace ("global") metadata entity. Stores the list of
- * extension workspaces the user has created plus a pointer to the
- * currently-active one. Distinct from every other Phase-B entity in
- * scope: lives ABOVE the per-workspace oracle (the per-workspace
- * oracle keys IDB by `workspaceId`; this catalog uses a sentinel id
- * `EXTENSION_WORKSPACE_GLOBAL_SCOPE` so it survives workspace switches).
+ * Cross-workspace ("global") metadata entity. Stores the LIST of
+ * extension workspaces the user has created. Distinct from every other
+ * Phase-B entity in scope: lives ABOVE the per-workspace oracle (the
+ * per-workspace oracle keys IDB by `workspaceId`; this catalog uses a
+ * sentinel id `EXTENSION_WORKSPACE_GLOBAL_SCOPE` so it survives
+ * workspace switches).
  *
  * Singleton entity: one record at id = `EXTENSION_WORKSPACE_ID`.
  *   - `workspaces` set path keyed by workspace id; each slot mirrors the
@@ -14,23 +14,25 @@
  *     (ordering lives on the set entry's `orderKey`, §23.5) and minus
  *     `schemaVersion` (the singleton itself carries the schema version
  *     when persisted).
- *   - `activeId` scalar — id of the active workspace, LWW.
+ *
+ * Which workspace a host is operating on is per host (§8 of the sync
+ * engine design): the pointer is the host-local `active-workspace`
+ * singleton beside this record, never a field on it. The `activeId`
+ * scalar this record used to carry is a legacy row shape — present in
+ * every existing log, ignored by type and path everywhere it is read.
  *
  * Whole-record replace via `addToSet` on the `workspaces` path is the
  * Phase B established posture (sessions 21+ for set-modeled entities).
  * Per-field LWW within a slot would be cleaner for concurrent
  * rename + recolor, but is not a v1 primitive (§7.2 condition note).
  *
- * No side effects. Workspace-meta changes don't recompile DNR (rules
- * compile from the active workspace's per-workspace oracle, not the
- * meta entity) and don't invalidate the variables resolver (the
- * resolver scopes are per-workspace too).
+ * Side effects: a row removal purges the workspace's data; nothing
+ * else. Workspace-meta changes don't recompile DNR (rules compile from
+ * the active workspace's per-workspace oracle, not the meta entity)
+ * and don't invalidate the variables resolver (the resolver scopes are
+ * per-workspace too).
  *
- * Not sensitive — workspace names + colors are user-visible. The
- * `setActiveWorkspace` envelope is global by design (cross-tab
- * convergence on the active selection); §8 design-doc note that
- * marks it device-local applies to multi-device futures, not the
- * single-device-multi-tab posture handled here.
+ * Not sensitive — workspace names + colors are user-visible.
  */
 
 /** Routing key carried on every extensionWorkspace mutation envelope. */
@@ -42,7 +44,11 @@ export const EXTENSION_WORKSPACE_ID = 'global';
 /** Set path holding the {@link ExtensionWorkspaceSlot} entries on the singleton. */
 export const EXTENSION_WORKSPACES_SET_PATH = 'workspaces';
 
-/** Scalar path holding the active workspace id (string). */
+/**
+ * Legacy scalar path of the replicated active pointer. Nothing writes
+ * it any more; the read gates keep hiding the workspace id a legacy row
+ * names, and the projector + side-effect derivation ignore the rows.
+ */
 export const EXTENSION_WORKSPACE_ACTIVE_ID_PATH = 'activeId';
 
 /**

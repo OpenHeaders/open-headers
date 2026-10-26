@@ -13,10 +13,12 @@
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
 import {
+  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ID,
   type MutatorContext,
   mintBatch,
   RULE_ENTITY_TYPE,
-  setActiveExtensionWorkspace,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
 } from '@openheaders/core/sync';
@@ -223,10 +225,22 @@ describe('handleIncomingMutationFrame', () => {
     expect(hasRecentlyApplied(injected.mutationId)).toBe(false);
   });
 
-  it('drops an inbound active-workspace pointer envelope from a non-loopback backend', async () => {
+  /** The replicated pointer older hubs still write on the shared list record. */
+  const legacyActiveId = (ms: number, id: string) =>
+    mintBatch(ctx(ms), [
+      {
+        kind: 'setField',
+        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+        id: EXTENSION_WORKSPACE_ID,
+        path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+        value: id,
+      },
+    ]);
+
+  it('drops an inbound legacy active-pointer envelope from a non-loopback backend', async () => {
     wireLoopback = false;
-    const { batch } = setActiveExtensionWorkspace(ctx(6_000), { id: 'ws-from-lan-peer' });
-    const pointer = batch.mutations[0]!;
+    const { mutations } = legacyActiveId(6_000, 'ws-from-lan-peer');
+    const pointer = mutations[0]!;
 
     const handled = await handleIncomingMutationFrame(
       {
@@ -245,8 +259,7 @@ describe('handleIncomingMutationFrame', () => {
     wireLoopback = false;
     const r = makeRule(generateUid(), 'mixed');
     const ruleBatch = seedRule(r, ctx(7_000));
-    const { batch: pointerBatch } = setActiveExtensionWorkspace(ctx(7_100), { id: 'ws-from-lan-peer' });
-    const pointer = pointerBatch.mutations[0]!;
+    const pointer = legacyActiveId(7_100, 'ws-from-lan-peer').mutations[0]!;
 
     await handleIncomingMutationFrame(
       {
