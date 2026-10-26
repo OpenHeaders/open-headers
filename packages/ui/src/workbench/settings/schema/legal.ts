@@ -24,7 +24,7 @@ registerSetting({
   schema: v.boolean(),
   label: 'First-run legal notice acknowledged',
   description: 'Set once the first-run legal notice is dismissed; never shown in the settings shell.',
-  category: 'general',
+  category: 'about',
   scope: 'user',
   when: () => false,
 });

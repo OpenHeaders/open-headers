@@ -115,7 +115,6 @@ export const workbenchSettings = {
   'workbench.settings.category.general.sub.locale': '로캘',
   'workbench.settings.category.general.sub.behavior': '동작',
   'workbench.settings.category.general.sub.settings': '설정',
-  'workbench.settings.category.general.sub.privacy': '개인 정보',
   'workbench.settings.category.appearance.label': '모양',
   'workbench.settings.category.appearance.description': '테마, 밀도, 시각적 표현입니다.',
   'workbench.settings.category.appearance.sub.theme': '테마',
@@ -266,6 +265,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.environment': '환경',
   'workbench.settings.category.about.sub.openSource': '오픈 소스 소프트웨어',
   'workbench.settings.category.about.sub.support': '지원',
+  'workbench.settings.category.about.sub.privacy': '개인 정보',
   'workbench.settings.thirdParty.software': '소프트웨어',
   'workbench.settings.thirdParty.license': '라이선스',
 

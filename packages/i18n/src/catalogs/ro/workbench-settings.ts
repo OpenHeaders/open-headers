@@ -136,7 +136,6 @@ export const workbenchSettings = {
   'workbench.settings.category.general.sub.locale': 'Limbă',
   'workbench.settings.category.general.sub.behavior': 'Comportament',
   'workbench.settings.category.general.sub.settings': 'Setări',
-  'workbench.settings.category.general.sub.privacy': 'Confidențialitate',
   'workbench.settings.category.appearance.label': 'Aspect vizual',
   'workbench.settings.category.appearance.description': 'Tema, densitatea și prezentarea vizuală.',
   'workbench.settings.category.appearance.sub.theme': 'Temă',
@@ -297,6 +296,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.environment': 'Mediu de rulare',
   'workbench.settings.category.about.sub.openSource': 'Software liber',
   'workbench.settings.category.about.sub.support': 'Asistență',
+  'workbench.settings.category.about.sub.privacy': 'Confidențialitate',
   'workbench.settings.thirdParty.software': 'Software',
   'workbench.settings.thirdParty.license': 'Licență',
 

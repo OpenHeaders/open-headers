@@ -39,7 +39,7 @@ registerSetting({
   label: 'Anonymous usage counting',
   description:
     'Count which features get used. No URLs, no headers, no request or response data, no account identity, nothing derived from your device. A random install identifier groups the counts; it identifies this install, not you — turning the switch off deletes it, and a re-enable starts fresh. Every event is visible byte for byte in "View events" below. Off means off: the channel goes completely silent.',
-  category: 'general',
+  category: 'about',
   tags: ['telemetry', 'privacy', 'analytics', 'usage', 'anonymous', 'events', 'transparency', 'inspector'],
   scope: 'user',
   when: isCountingHost,
@@ -55,7 +55,7 @@ registerSetting({
   label: 'Crash and error reports',
   description:
     'When Open Headers crashes or hits an error it did not expect, send what kind of error it was and where in the app\'s own code it happened — never the message, never your data. Reports carry only error class names, template ids, and positions in Open Headers\' own files; nothing from a request, a rule, a script, or a path on your machine can be expressed. No install identifier: a random per-launch session id is all that groups them. Every report is visible byte for byte in "View reports" below. Independent of usage counting — either switch can be off alone.',
-  category: 'general',
+  category: 'about',
   tags: ['telemetry', 'privacy', 'crash', 'error', 'reports', 'diagnostics', 'anonymous', 'transparency', 'inspector'],
   scope: 'user',
   when: isCountingHost,

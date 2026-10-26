@@ -207,7 +207,6 @@ registerCategory({
     { id: 'locale', labelKey: 'workbench.settings.category.general.sub.locale', order: 10 },
     { id: 'behavior', labelKey: 'workbench.settings.category.general.sub.behavior', order: 20 },
     { id: 'settings', labelKey: 'workbench.settings.category.general.sub.settings', order: 30 },
-    { id: 'privacy', labelKey: 'workbench.settings.category.general.sub.privacy', order: 40 },
   ],
 });
 
@@ -692,7 +691,8 @@ registerCategory({
   subcategories: [
     { id: 'application', labelKey: 'workbench.settings.category.about.sub.application', order: 10 },
     { id: 'environment', labelKey: 'workbench.settings.category.about.sub.environment', order: 20 },
-    { id: 'openSource', labelKey: 'workbench.settings.category.about.sub.openSource', order: 30 },
-    { id: 'support', labelKey: 'workbench.settings.category.about.sub.support', order: 40 },
+    { id: 'support', labelKey: 'workbench.settings.category.about.sub.support', order: 30 },
+    { id: 'privacy', labelKey: 'workbench.settings.category.about.sub.privacy', order: 40 },
+    { id: 'openSource', labelKey: 'workbench.settings.category.about.sub.openSource', order: 50 },
   ],
 });

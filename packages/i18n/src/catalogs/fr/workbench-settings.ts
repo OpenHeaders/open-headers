@@ -117,7 +117,6 @@ export const workbenchSettings = {
   'workbench.settings.category.general.sub.locale': 'Langue',
   'workbench.settings.category.general.sub.behavior': 'Comportement',
   'workbench.settings.category.general.sub.settings': 'Paramètres',
-  'workbench.settings.category.general.sub.privacy': 'Confidentialité',
   'workbench.settings.category.appearance.label': 'Apparence',
   'workbench.settings.category.appearance.description': 'Thème, densité et présentation visuelle.',
   'workbench.settings.category.appearance.sub.theme': 'Thème',
@@ -285,6 +284,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.environment': 'Environnement',
   'workbench.settings.category.about.sub.openSource': 'Logiciels open source',
   'workbench.settings.category.about.sub.support': 'Assistance',
+  'workbench.settings.category.about.sub.privacy': 'Confidentialité',
   'workbench.settings.thirdParty.software': 'Logiciel',
   'workbench.settings.thirdParty.license': 'Licence',
 

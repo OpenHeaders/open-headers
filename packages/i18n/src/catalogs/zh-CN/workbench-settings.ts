@@ -104,7 +104,6 @@ export const workbenchSettings = {
   'workbench.settings.category.general.sub.locale': '语言',
   'workbench.settings.category.general.sub.behavior': '行为',
   'workbench.settings.category.general.sub.settings': '设置',
-  'workbench.settings.category.general.sub.privacy': '隐私',
   'workbench.settings.category.appearance.label': '外观',
   'workbench.settings.category.appearance.description': '主题、密度和视觉呈现。',
   'workbench.settings.category.appearance.sub.theme': '主题',
@@ -253,6 +252,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.environment': '环境',
   'workbench.settings.category.about.sub.openSource': '开源软件',
   'workbench.settings.category.about.sub.support': '支持',
+  'workbench.settings.category.about.sub.privacy': '隐私',
   'workbench.settings.thirdParty.software': '软件',
   'workbench.settings.thirdParty.license': '许可证',
 

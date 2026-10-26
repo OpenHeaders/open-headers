@@ -112,7 +112,6 @@ export const workbenchSettings = {
   'workbench.settings.category.general.sub.locale': 'ロケール',
   'workbench.settings.category.general.sub.behavior': '動作',
   'workbench.settings.category.general.sub.settings': '設定',
-  'workbench.settings.category.general.sub.privacy': 'プライバシー',
   'workbench.settings.category.appearance.label': '外観',
   'workbench.settings.category.appearance.description': 'テーマ、密度、視覚的な表示。',
   'workbench.settings.category.appearance.sub.theme': 'テーマ',
@@ -268,6 +267,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.environment': '環境',
   'workbench.settings.category.about.sub.openSource': 'オープンソースソフトウェア',
   'workbench.settings.category.about.sub.support': 'サポート',
+  'workbench.settings.category.about.sub.privacy': 'プライバシー',
   'workbench.settings.thirdParty.software': 'ソフトウェア',
   'workbench.settings.thirdParty.license': 'ライセンス',
 

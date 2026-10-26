@@ -134,7 +134,6 @@ export const workbenchSettings = {
   'workbench.settings.category.general.sub.locale': 'Язык',
   'workbench.settings.category.general.sub.behavior': 'Поведение',
   'workbench.settings.category.general.sub.settings': 'Настройки',
-  'workbench.settings.category.general.sub.privacy': 'Конфиденциальность',
   'workbench.settings.category.appearance.label': 'Оформление',
   'workbench.settings.category.appearance.description': 'Тема, плотность и внешний вид.',
   'workbench.settings.category.appearance.sub.theme': 'Тема',
@@ -291,6 +290,7 @@ export const workbenchSettings = {
   'workbench.settings.category.about.sub.environment': 'Среда',
   'workbench.settings.category.about.sub.openSource': 'Открытое ПО',
   'workbench.settings.category.about.sub.support': 'Поддержка',
+  'workbench.settings.category.about.sub.privacy': 'Конфиденциальность',
   'workbench.settings.thirdParty.software': 'Программа',
   'workbench.settings.thirdParty.license': 'Лицензия',
 
