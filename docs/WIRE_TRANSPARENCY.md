@@ -180,7 +180,7 @@ values, rule contents, request/response data, and file paths are
 inexpressible. **Crash and error reports** (2026-10, the second
 channel, documented after the usage channel below) — what kind of
 failure happened and where in our own code, never the message. The
-in-app inspector (Settings → General → "View events" / "View reports")
+in-app inspector (Settings → Application → About → Privacy → "View events" / "View reports")
 shows every event and every report of the current session byte for
 byte, sent or suppressed.
 
@@ -474,7 +474,7 @@ byte, sent or suppressed.
   config file and sent at the start of the next command (2026-10); a
   channel turned off deletes what it sealed, and the warehouse ignores
   a redelivery of a batch that did land the first time.
-- **Off switches**: Settings → General → "Anonymous usage counting"
+- **Off switches**: Settings → Application → About → Privacy → "Anonymous usage counting"
   (extension and desktop), `OH_TELEMETRY=0` env var or the `telemetry`
   config key (CLI). The daemon, served web app, and MCP server never
   send telemetry and have no toggle to misconfigure. Off means off: the
@@ -704,7 +704,7 @@ every string field carries its pin.
 - **Cadence**: a report flushes the moment it is recorded (a crash is
   not a thing to batch for a minute); the usage interval is the retry
   cadence and the quit flush the last chance.
-- **Off switch**: Settings → General → "Crash and error reports"
+- **Off switch**: Settings → Application → About → Privacy → "Crash and error reports"
   (extension and desktop), independent of usage counting — either
   switch can be off alone; `OH_TELEMETRY=0` silences both on the
   command-line tool, and the `errorReports` config key silences this
