@@ -25,6 +25,9 @@
  *      side-effect intents they derive (§18.1 — intents follow the
  *      commit, through the one `deriveSideEffectsForEnvelope` mapping)
  *      to the pending-intents store.
+ *   5. Boots by replaying the log (§9.1: the log is the source of truth
+ *      and every store derives from it) — {@link EntityOracle.hydrate}
+ *      applies the stored envelopes without committing anything.
  *
  * Per-batch all-or-nothing (§11.2) over the novel subset: if any
  * constituent fails the mutator (status `schema-rejected` /
@@ -202,6 +205,33 @@ export class EntityOracle {
     });
   }
 
+  /**
+   * Replay this scope's durable log into the store — the boot path.
+   * The envelopes apply in the order given (the log's stored order:
+   * `hlc_key, mutation_id`) under the lock chain of every entity they
+   * touch, with an `inbound` field origin; their ids prime the store's
+   * applied set so a later redelivery reads as a duplicate at either
+   * layer. Nothing is appended, no intent derives, nothing broadcasts:
+   * a replay is not a commit. The highest HLC folds into the sequencer
+   * and the revision bumps once at the end. A row the mutator refuses
+   * is skipped — the log is history, not a batch to roll back. The
+   * batch-replay invariants carry the rest: ticked HLCs order a batch,
+   * a leaf replayed ahead of its create stays invisible until the
+   * create lands, singletons are observable without one. Returns the
+   * number of envelopes replayed.
+   */
+  async hydrate(envelopes: AsyncIterable<MutationEnvelope> | readonly MutationEnvelope[]): Promise<number> {
+    const stored: MutationEnvelope[] = [];
+    for await (const env of envelopes) stored.push(env);
+    if (stored.length === 0) return 0;
+    return this.lockChain(collectEntityTargets(stored), async () => {
+      for (const env of stored) this.store.apply(env, 'inbound');
+      this.committed += 1;
+      this.observeEnvelopes(stored);
+      return stored.length;
+    });
+  }
+
   // ── internals ────────────────────────────────────────────────────
 
   private async applyUnderLock(batch: MutationBatch, applyOrigin: FieldOrigin): Promise<OracleApplyResult> {
@@ -210,7 +240,7 @@ export class EntityOracle {
     const known = await this.cfg.log.knownMutationIds(batch.mutations.map((env) => env.mutationId));
     const novel = batch.mutations.filter((env) => !known.has(env.mutationId));
     if (novel.length === 0) {
-      this.observeBatch(batch);
+      this.observeEnvelopes(batch.mutations);
       return { ok: true, outcomes: batch.mutations.map((envelope) => ({ envelope, outcome: DUPLICATE })) };
     }
 
@@ -274,14 +304,14 @@ export class EntityOracle {
       if (outcome.status === 'duplicate') continue;
       this.cfg.broadcast.publish({ envelope, outcome, batchId: batch.batchId, applyOrigin });
     }
-    this.observeBatch(batch);
+    this.observeEnvelopes(batch.mutations);
     return { ok: true, outcomes };
   }
 
-  private observeBatch(batch: MutationBatch): void {
+  private observeEnvelopes(envelopes: ReadonlyArray<MutationEnvelope>): void {
     if (!this.cfg.onBatchApplied) return;
     let max: HLC | null = null;
-    for (const env of batch.mutations) {
+    for (const env of envelopes) {
       if (!max || compareHlc(env.hlc, max) > 0) max = env.hlc;
     }
     if (max) this.cfg.onBatchApplied(max);

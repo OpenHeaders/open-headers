@@ -10,7 +10,7 @@
  * reader has a single entry point.
  */
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
-import { getGlobalMutationLog } from './global-service';
+import { getGlobalMutationLog, whenGlobalHydrated } from './global-service';
 import type { MutationLog } from './mutation-log';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
 
@@ -27,9 +27,9 @@ export interface ScopeLogHandle {
  * Acquire the mutation log for `workspaceId`. For a per-workspace id
  * this bumps the service refcount (the caller MUST `release()`); for
  * the `__global__` sentinel it returns the singleton's log and a no-op
- * release. The global service has no cache-hydration gate, so its
- * `hydrated` resolves immediately — the log read is independent of the
- * caches in both scopes.
+ * release. Both scopes gate on their log replay (`service.hydrated`,
+ * `whenGlobalHydrated`), so a reader never streams a log its oracle has
+ * not yet absorbed.
  */
 export function acquireScopeLog(workspaceId: string): ScopeLogHandle {
   if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
@@ -37,7 +37,7 @@ export function acquireScopeLog(workspaceId: string): ScopeLogHandle {
     if (!log) {
       throw new Error('acquireScopeLog: global sync service not initialized');
     }
-    return { log, hydrated: Promise.resolve(), release: () => {} };
+    return { log, hydrated: whenGlobalHydrated(), release: () => {} };
   }
   const svc = getOrCreateWorkspaceService(workspaceId);
   return {

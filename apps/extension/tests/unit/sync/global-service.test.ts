@@ -5,19 +5,19 @@
  * lock stripe.
  */
 
-import {
-  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-  setExtensionWorkspace,
-} from '@openheaders/core/sync';
-import { afterEach, describe, expect, it } from 'vitest';
+import { EXTENSION_WORKSPACE_GLOBAL_SCOPE, setExtensionWorkspace } from '@openheaders/core/sync';
+import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
+import { getActiveExtensionWorkspaceCache } from '@openheaders/oracle/sync/caches/extension-workspace-cache';
 import {
   __initGlobalSyncServiceForTests,
   disposeGlobal,
   getGlobalOracle,
   nextGlobalSwContext,
   snapshotExtensionWorkspacePostStates,
+  whenGlobalHydrated,
 } from '@openheaders/oracle/sync/global-service';
-import { getActiveExtensionWorkspaceCache } from '@openheaders/oracle/sync/caches/extension-workspace-cache';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { afterEach, describe, expect, it } from 'vitest';
 
 afterEach(() => {
   disposeGlobal();
@@ -58,6 +58,42 @@ describe('global-service', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].workspaces.map((w) => w.id)).toEqual(['ws-a']);
     expect(entries[0].activeWorkspaceId).toBe('ws-a');
+  });
+
+  it('init replays the log: the snapshot answers after the hydration gate and the next mint exceeds the log', async () => {
+    const log = new InMemoryMutationLog();
+    const seed = seedExtensionWorkspaces(
+      [
+        {
+          schemaVersion: 5,
+          id: 'ws-logged',
+          kind: 'personal',
+          name: 'Logged',
+          sortIndex: 0,
+          createdAt: '2026-04-30T10:00:00.000Z',
+          updatedAt: '2026-04-30T10:00:00.000Z',
+          orgId: 'org-test',
+        },
+      ],
+      'ws-logged',
+      {
+        workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+        hlc: { physicalMs: Date.now() + 60_000, logical: 0, nodeId: 'n-prior' },
+        surfaceId: 's',
+        deviceId: 'd',
+      },
+    );
+    await log.appendAll(seed.mutations);
+    const highest = seed.mutations[seed.mutations.length - 1].hlc;
+
+    __initGlobalSyncServiceForTests({ log });
+    await whenGlobalHydrated();
+
+    const entries = snapshotExtensionWorkspacePostStates();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].workspaces.map((w) => w.id)).toEqual(['ws-logged']);
+    expect(entries[0].activeWorkspaceId).toBe('ws-logged');
+    expect(nextGlobalSwContext().hlc.physicalMs).toBeGreaterThanOrEqual(highest.physicalMs);
   });
 
   it('emits global-scope context envelopes scoped by the sentinel id', () => {

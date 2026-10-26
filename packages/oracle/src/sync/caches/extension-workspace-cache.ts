@@ -51,17 +51,17 @@ export interface ExtensionWorkspaceCache {
   getSnapshot(): ExtensionWorkspaceSnapshot;
   seedFromPersistedState(input: ExtensionWorkspaceSnapshot): Promise<void>;
   /**
-   * Per the cache's "no persistence sink yet" carve-out (workspace-store
-   * still owns the durable chrome.storage record), this is a no-op
-   * today — the seed is driven explicitly by boot's
-   * `bootstrapExtensionWorkspaceSyncEngine`. Kept on the surface so the
-   * cache satisfies the {@link EntityCacheLike} contract uniformly.
+   * A no-op: the global oracle hydrates from its log at init and the
+   * workspace store's bridge migrates the stored projection once. Kept
+   * on the surface so the cache satisfies the {@link EntityCacheLike}
+   * contract uniformly.
    */
   hydrateFromStorage(): Promise<void>;
   /**
    * Re-project from the oracle outside the broadcast pipeline —
-   * required after a workspace eviction's store surgery, which mints
-   * no envelope for the broadcast subscription to react to.
+   * required after the log replay at boot and after a workspace
+   * eviction's store surgery, neither of which mints an envelope for
+   * the broadcast subscription to react to.
    */
   refresh(): void;
   onChange(listener: ExtensionWorkspaceCacheListener): () => void;

@@ -16,7 +16,10 @@
  * stays out of the coordination loop entirely; cache.onChange is just
  * snapshot-mirroring + chrome.storage write + listener notify.
  *
- * Storage:
+ * Storage — the write-through cache of the global oracle's projection
+ * (the engine boots from its durable log, never from these keys; the
+ * cache sink writes them on every refresh and the synchronous early
+ * readers take them before the engine is up):
  *   - `oh.workspaces`              — ExtensionWorkspace[], sorted by sortIndex
  *   - `oh.runtimeActive.active`    — string (always points at a live workspace)
  *   - `oh.preferences.defaultWorkspace` — user preference for new-tab seed (independent)
@@ -62,6 +65,7 @@ import {
   buildSetActiveExtensionWorkspaceBatch,
   buildSetExtensionWorkspaceBatch,
 } from '@openheaders/core/sync-builders/mutations/extension-workspace-mutations';
+import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
 import type {
   ExtensionWorkspace,
   ExtensionWorkspaceImportedFrom,
@@ -71,9 +75,10 @@ import { generateWorkspaceId, logger } from '@openheaders/core/utils';
 import { hostStorage, OH } from '../storage';
 import {
   type ExtensionWorkspaceCache,
+  type ExtensionWorkspaceSnapshot,
   getActiveExtensionWorkspaceCache,
 } from '../sync/caches/extension-workspace-cache';
-import { getGlobalOracle, nextGlobalSwContext } from '../sync/global-service';
+import { getGlobalOracle, nextGlobalSwContext, whenGlobalHydrated } from '../sync/global-service';
 import { driftRecorder } from '../sync/storage-drift';
 
 // Exported for the web host's mount-time seed (the A8 offline-first
@@ -237,14 +242,15 @@ export async function createWorkspace(
     importedFrom: input.importedFrom,
     orgId,
   };
-  const orderKey = nextOrderKey();
   // The create envelope rides the channel of the Org the workspace
   // binds to, not the blanket home-Org channel the global scope
   // resolves — the outbound tenancy gate forwards consumed-Org
   // envelopes only, so a server-bound create (the access plan A5)
   // could otherwise never reach the backend that must gate and hold it.
+  // The tail order key reads the live set, so it is minted inside the
+  // factory, once the oracle holds its hydrated state.
   await applyExtensionWorkspaceMutationOrThrow(
-    (ctx) => buildSetExtensionWorkspaceBatch({ slot, orderKey }, { ...ctx, orgId }),
+    (ctx) => buildSetExtensionWorkspaceBatch({ slot, orderKey: nextOrderKey() }, { ...ctx, orgId }),
     'createWorkspace',
     opts.surfaceId,
   );
@@ -360,6 +366,9 @@ async function applyExtensionWorkspaceMutationOrThrow(
   if (!oracle) {
     throw new Error(`WorkspaceStore.${op}: global sync service not initialized`);
   }
+  // The context mints after the replay so its HLC exceeds every logged
+  // envelope's (the oracle folds the log's highest into the sequencer).
+  await whenGlobalHydrated();
   const ctx = nextGlobalSwContext({ surfaceId });
   const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
@@ -400,16 +409,18 @@ export interface BootstrapOptions {
 }
 
 /**
- * Load the workspace list from storage. If absent, apply the host's
- * declared seed policy. Call exactly once at SW boot, before any
- * per-workspace store is hydrated — the stores key their reads off the
- * active workspace id.
+ * Load the workspace list from the stored projection. If absent, apply
+ * the host's declared seed policy. Call exactly once at SW boot, before
+ * any per-workspace store is hydrated — the stores key their reads off
+ * the active workspace id.
  *
- * Storage writes are deferred to {@link bridgeExtensionWorkspaceSyncEngine}
- * — the cache subscription it installs is the single writer of
- * `oh.workspaces` + `oh.runtimeActive.active`. Bootstrap stages the
- * authoritative state in memory; bridge replays it through the global
- * oracle, and the cache.onChange listener writes back.
+ * The keys are a write-through cache, not the engine's source: the
+ * global oracle replays its durable log at init, and
+ * {@link bridgeExtensionWorkspaceSyncEngine} then installs the cache
+ * subscription that is the single writer of `oh.workspaces` +
+ * `oh.runtimeActive.active`. What bootstrap stages in memory serves the
+ * synchronous early readers and is the one-time migration's input when
+ * the log holds nothing yet.
  */
 export async function bootstrap(options: BootstrapOptions): Promise<void> {
   const [storedList, storedActive] = await Promise.all([
@@ -444,9 +455,10 @@ export async function bootstrap(options: BootstrapOptions): Promise<void> {
     return;
   }
 
-  // First boot — seed a default personal workspace IN MEMORY ONLY.
-  // The bridge's cache.seedFromPersistedState fires the broadcast that
-  // ultimately writes both storage keys via the cache.onChange sink.
+  // First boot — stage a default personal workspace IN MEMORY ONLY.
+  // The bridge commits it once the log has replayed and holds no list:
+  // the ordinary list write plus the pointer flip, logged like any
+  // other commit, and the cache sink then writes both storage keys.
   //
   // `bootstrap()` may run before `ensureSyntheticIdentity` has installed
   // the in-memory identity snapshot (each host's init sequence orders
@@ -481,18 +493,22 @@ let cacheUnsubscribe: (() => void) | null = null;
 
 /**
  * Wire the local mirror to the global {@link ExtensionWorkspaceCache}.
- * Idempotent — the prior subscription is dropped first. Two-step:
+ * Idempotent — the prior subscription is dropped first. Three steps,
+ * once the global oracle has replayed its log:
  *
- *   1. Install the cache.onChange subscription that mirrors the
- *      cache's snapshot back into the local `workspaces` /
- *      `activeWorkspaceId` arrays AND writes both chrome.storage keys.
- *   2. Seed the global oracle from the in-memory state populated by
- *      `bootstrap()`. The seed fires a broadcast which fires the
- *      onChange listener, which writes back to chrome.storage —
- *      first-boot defaults persist via this path.
+ *   1. Re-project the cache from the hydrated oracle with no sink
+ *      installed, so the migration below judges the log's content
+ *      while the in-memory state still holds what `bootstrap()` read.
+ *   2. Migrate once, guarded by that content and never by boot (see
+ *      {@link migrateStoredProjection}).
+ *   3. Install the cache.onChange subscription that mirrors the
+ *      cache's snapshot into the local `workspaces` / `activeWorkspaceId`
+ *      state AND writes both storage keys, then refresh once so the
+ *      mirror and the keys take the oracle's state.
  *
- * The global service must already be init'd (caller is `background.ts`
- * at boot or `__initGlobalSyncServiceForTests` for test fixtures).
+ * Nothing is seeded: a boot over a hydrated log appends nothing. The
+ * global service must already be init'd (caller is `bootSyncEngine` at
+ * boot or `__initGlobalSyncServiceForTests` for test fixtures).
  */
 export async function bridgeExtensionWorkspaceSyncEngine(): Promise<void> {
   const cache = getActiveExtensionWorkspaceCache();
@@ -504,11 +520,50 @@ export async function bridgeExtensionWorkspaceSyncEngine(): Promise<void> {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
   }
+  await whenGlobalHydrated();
+  cache.refresh();
+  await migrateStoredProjection(cache.getSnapshot());
   cacheUnsubscribe = installCacheSink(cache);
-  await cache.seedFromPersistedState({
-    workspaces: listWorkspaces(),
-    activeWorkspaceId,
-  });
+  cache.refresh();
+}
+
+/**
+ * The one-time migration from the stored projection into the log. Two
+ * guards, each on the hydrated oracle's content:
+ *
+ *   - the list: when the log materializes no workspace and the stored
+ *     projection holds some (a profile from before the log was the boot
+ *     source, or the first boot's staged default), commit them once as
+ *     the list record's ordinary shell + slot writes. A log that holds
+ *     the list is left alone whatever the keys say — the log is truth.
+ *   - the pointer: when the hydrated pointer names no live workspace
+ *     (no row yet, or a row left dangling by a delete of the last
+ *     workspace), commit one flip to the stored active, falling back
+ *     to the first workspace in order. A usable pointer is never
+ *     rewritten, so no boot derives a store swap.
+ *
+ * Both are real local commits: logged, broadcast, history from then on.
+ */
+async function migrateStoredProjection(hydrated: ExtensionWorkspaceSnapshot): Promise<void> {
+  let list = hydrated.workspaces;
+  if (list.length === 0 && workspaces.length > 0) {
+    const staged = listWorkspaces();
+    await applyExtensionWorkspaceMutationOrThrow(
+      (ctx) => ({ batch: seedExtensionWorkspaces(staged, null, ctx) }),
+      'migrateWorkspaceList',
+    );
+    list = staged;
+    logger.info('WorkspaceStore', `Migrated ${staged.length} workspace(s) from the stored projection into the log`);
+  }
+  const live = (id: string | null): id is string => id !== null && list.some((w) => w.id === id);
+  if (live(hydrated.activeWorkspaceId)) return;
+  const target = live(activeWorkspaceId) ? activeWorkspaceId : (list[0]?.id ?? null);
+  if (!target) return;
+  await applyExtensionWorkspaceMutationOrThrow(
+    (ctx) => buildSetActiveExtensionWorkspaceBatch({ id: target }, ctx),
+    'migrateActiveWorkspace',
+  );
+  logger.info('WorkspaceStore', `Migrated the active pointer to ${target}`);
 }
 
 function installCacheSink(cache: ExtensionWorkspaceCache): () => void {

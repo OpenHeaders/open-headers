@@ -15,6 +15,7 @@ import {
   setActiveWorkspace,
   setExtensionWorkspace,
 } from '@openheaders/core/sync';
+import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { createExtensionWorkspaceCache } from '@openheaders/oracle/sync/caches/extension-workspace-cache';
@@ -141,6 +142,28 @@ describe('ExtensionWorkspaceCache', () => {
     expect(calls).toBe(1);
     expect(cache.getSnapshot()).toMatchObject({ activeWorkspaceId: 'ws-b' });
     expect(cache.getSnapshot().workspaces.map((w) => w.id)).toEqual(['ws-a', 'ws-b']);
+    cache.dispose();
+  });
+
+  it('refresh() projects a hydrated oracle — the replay broadcasts nothing, the sink hears the refresh', async () => {
+    const history = seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-b', {
+      ...ctxFactory(),
+      hlc: { physicalMs: 1, logical: 0, nodeId: 'n-prior' },
+    }).mutations;
+    const cache = createExtensionWorkspaceCache(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, ctxFactory);
+    let calls = 0;
+    cache.onChange(() => {
+      calls++;
+    });
+
+    await oracle.hydrate(history);
+    expect(calls).toBe(0);
+    expect(cache.getSnapshot()).toEqual({ workspaces: [], activeWorkspaceId: null });
+
+    cache.refresh();
+    expect(calls).toBe(1);
+    expect(cache.getSnapshot().workspaces.map((w) => w.id)).toEqual(['ws-a', 'ws-b']);
+    expect(cache.getSnapshot().activeWorkspaceId).toBe('ws-b');
     cache.dispose();
   });
 

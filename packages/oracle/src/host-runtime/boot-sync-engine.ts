@@ -1,8 +1,10 @@
 /**
  * Boot the host-neutral sync-engine plane:
  *
- *   1. `initGlobalSyncService` — global-scope oracle for `extensionWorkspace`.
- *   2. `bridgeExtensionWorkspaceSyncEngine` — seed the global oracle.
+ *   1. `initGlobalSyncService` — global-scope oracle for `extensionWorkspace`,
+ *      replaying its durable log.
+ *   2. `bridgeExtensionWorkspaceSyncEngine` — await the replay, migrate the
+ *      stored projection once if the log holds nothing, install the sink.
  *   3. `setRuntimeActive` — make the persisted-active workspace current.
  *   4. `reseedAllPerWorkspaceBridges` — re-point every per-workspace bridge.
  *   5. `ensureDefaultTemplateCollection` — seed the User Templates default.
@@ -60,13 +62,14 @@ export interface BootSyncEngineResult {
 export async function bootSyncEngine(): Promise<BootSyncEngineResult> {
   // 1. Global-scope sync service. Owns the `extensionWorkspace` entity
   //    (cross-workspace metadata: list + active pointer). Boots once
-  //    per process lifetime and never tears down.
+  //    per process lifetime, replays its log, and never tears down.
   initGlobalSyncService();
 
-  // 2. Seed the global oracle from the in-memory workspace-store
-  //    populated by `bootstrapWorkspaces()`. On an empty boot this
-  //    still creates the (empty) workspace catalog, so inbound
-  //    global-scope rows have an oracle to apply against.
+  // 2. Await the replay, migrate the stored projection once when the
+  //    log holds no list (the first boot's staged default rides the
+  //    same path), and install the cache sink. A boot over a hydrated
+  //    log appends nothing; an empty boot leaves the catalog empty, and
+  //    inbound global-scope rows still have an oracle to apply against.
   await bridgeExtensionWorkspaceSyncEngine();
 
   // 3. Make the persisted-active workspace current. On a non-empty

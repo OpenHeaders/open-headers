@@ -20,6 +20,14 @@
  * adding a second cross-workspace entity later is one push to the
  * registry, not a new wiring branch here.
  *
+ * The oracle boots by replaying its durable log (§9.1): `wire` starts
+ * the replay and {@link whenGlobalHydrated} is the gate every reader
+ * of the oracle or its log awaits — the apply router's global branch,
+ * the handshake readers through the scope-log accessor, the workspace
+ * store's bridge and write path. Nothing is seeded at init; the
+ * store's bridge migrates the stored projection once, guarded by what
+ * the log holds.
+ *
  * Out of scope this module (deferred):
  *   - DNR coalescer / resolver-invalidate runner — workspace-meta
  *     changes don't recompile DNR or invalidate the resolver.
@@ -56,6 +64,8 @@ import { createWorkspaceCoordRunner, type WorkspaceCoordRunner } from './workspa
 interface GlobalServiceState {
   oracle: EntityOracle;
   log: MutationLog;
+  /** Resolves once the oracle holds the log's replayed state; never rejects. */
+  hydrated: Promise<void>;
   broadcast: InMemoryBroadcast;
   intents: PendingIntents;
   caches: EntityCacheLike[];
@@ -133,6 +143,15 @@ export function attachGlobalWorkspaceCoordRunner(deps: {
  */
 export function getGlobalOracle(): EntityOracle | null {
   return state?.oracle ?? null;
+}
+
+/**
+ * The hydration gate: resolves once the global oracle has replayed its
+ * log. Resolved immediately before init — callers that need the
+ * service still check {@link getGlobalOracle} for null.
+ */
+export function whenGlobalHydrated(): Promise<void> {
+  return state?.hydrated ?? Promise.resolve();
 }
 
 /**
@@ -238,6 +257,7 @@ function wire(deps: WireDeps): GlobalServiceState {
   return {
     oracle,
     log: deps.log,
+    hydrated: hydrateFromLog(oracle, deps.log),
     broadcast,
     intents: deps.intents,
     caches,
@@ -245,4 +265,20 @@ function wire(deps: WireDeps): GlobalServiceState {
     unsubscribeBroadcast,
     workspaceCoordRunner: null,
   };
+}
+
+/**
+ * Replay the log into the oracle. The replay buffers before it applies,
+ * so a failure leaves the oracle empty rather than half-filled — the
+ * store's bridge then migrates the stored projection as on a first
+ * boot. Never rejects: a host must still boot.
+ */
+async function hydrateFromLog(oracle: EntityOracle, log: MutationLog): Promise<void> {
+  const startedAt = Date.now();
+  try {
+    const replayed = await oracle.hydrate(log.readSince(null));
+    logger.info('GlobalSyncService', `Hydrated ${replayed} envelope(s) from the log in ${Date.now() - startedAt} ms`);
+  } catch (err) {
+    logger.warn('GlobalSyncService', 'Hydrating from the log failed; the oracle starts empty', err);
+  }
 }

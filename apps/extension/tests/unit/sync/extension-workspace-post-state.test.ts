@@ -234,4 +234,24 @@ describe('projectExtensionWorkspacePostState', () => {
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.activeWorkspaceId).toBeNull();
   });
+
+  it('projects a hydrated log of legacy seed triplets: the last list by LWW, a null pointer', async () => {
+    // Three pre-upgrade boots, fresh ids each, the pointer as the legacy field.
+    const history = [
+      ...seedExtensionWorkspaces([ws()], null, ctx(1)).mutations,
+      ...legacyActiveId(2, 'ws-a').mutations,
+      ...seedExtensionWorkspaces([ws(), ws({ id: 'ws-b', name: 'B', sortIndex: 1 })], null, ctx(3)).mutations,
+      ...legacyActiveId(4, 'ws-b').mutations,
+      ...seedExtensionWorkspaces([ws(), ws({ id: 'ws-b', name: 'B renamed', sortIndex: 1 })], null, ctx(5)).mutations,
+      ...legacyActiveId(6, 'ws-a').mutations,
+    ];
+    const oracle = newOracle();
+    await oracle.hydrate(history);
+    const post = projectExtensionWorkspaceSingleton(oracle);
+    expect(post?.workspaces.map((w) => [w.id, w.name])).toEqual([
+      ['ws-a', 'Workspace A'],
+      ['ws-b', 'B renamed'],
+    ]);
+    expect(post?.activeWorkspaceId).toBeNull();
+  });
 });

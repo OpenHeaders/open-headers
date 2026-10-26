@@ -7,7 +7,7 @@
 import type { SyncApplyRequest, SyncApplyResponse } from '@openheaders/core/protocol';
 import { isGlobalScopeEntityType } from '@openheaders/core/sync';
 import { handleSyncApply } from '../bridge';
-import { getGlobalOracle } from '../global-service';
+import { getGlobalOracle, whenGlobalHydrated } from '../global-service';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from './lifecycle';
 import { currentActive, services } from './state';
 
@@ -15,7 +15,8 @@ import { currentActive, services } from './state';
  * Apply a `SyncApplyRequest` against the oracle indicated by
  * `request.batch.workspaceId`. Lazily materializes the workspace's
  * service if it isn't resident, brackets a refcount around the apply,
- * and awaits `service.hydrated` before touching the oracle.
+ * and awaits the scope's hydration gate (`service.hydrated`,
+ * `whenGlobalHydrated`) before touching the oracle.
  *
  * Routing rules:
  *   - Empty batches use the runtime-Active oracle (no workspaceId in
@@ -55,7 +56,7 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
     if (!globalOracle) {
       throw new Error('SyncService.applySyncRequest: global service not initialized');
     }
-    return handleSyncApply(globalOracle, request);
+    return whenGlobalHydrated().then(() => handleSyncApply(globalOracle, request));
   }
 
   // Per-workspace path: dispatch on the first mutation's workspaceId.
