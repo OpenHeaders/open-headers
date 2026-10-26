@@ -20,7 +20,7 @@ import {
   getServerAdminStatusSettled,
   reprobeServerAdminStatus,
 } from '@openheaders/ui/workbench/components/server-admin/use-server-admin-status';
-import { availableToolWindows } from '@openheaders/ui/workbench/tool-windows';
+import { availableToolWindows, isToolWindowTeased } from '@openheaders/ui/workbench/tool-windows';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -102,6 +102,16 @@ describe('availableToolWindows server-admin gating', () => {
     availableToolWindows();
     await flushProbe();
     expect(availableToolWindows().some((def) => def.id === 'server-admin')).toBe(false);
+  });
+});
+
+describe('availableToolWindows server-admin without a serverAdmin plane', () => {
+  it('keeps the tab as the desktop teaser and never dials the probe', () => {
+    unregisterCapability('serverAdmin');
+    const def = availableToolWindows().find((d) => d.id === 'server-admin');
+    if (!def) throw new Error('server-admin window dropped');
+    expect(isToolWindowTeased(def)).toBe(true);
+    expect(mockCall).not.toHaveBeenCalledWith('oh.daemon.admin.status');
   });
 });
 

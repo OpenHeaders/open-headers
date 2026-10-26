@@ -531,6 +531,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.secretManagers.title': 'シークレットマネージャー',
   'shared.desktopTeaser.secretManagers.body':
     '認証情報はシークレットマネージャーに保管し、Vault から参照できます。デスクトップアプリが接続を保持し、このコンピューター上のこのブラウザーのために解決します。',
+  'shared.desktopTeaser.serverAdmin.title': 'サーバー管理',
+  'shared.desktopTeaser.serverAdmin.body':
+    'デスクトップアプリに付属する管理コンソールで、ユーザー、アクセストークン、ワークスペースへのアクセス、サーバー設定を管理できます。',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '有効',

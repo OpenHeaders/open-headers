@@ -590,6 +590,10 @@ export const sharedComponents = {
   'shared.desktopTeaser.secretManagers.title': 'Manageri de secrete',
   'shared.desktopTeaser.secretManagers.body':
     'Păstrați credențialele în managerul de secrete și referențiați-le din Vault. Aplicația desktop deține conexiunile și le rezolvă pentru acest browser pe acest computer.',
+  'shared.desktopTeaser.serverAdmin.title': 'Administrarea serverului',
+  'shared.desktopTeaser.serverAdmin.body':
+    'Gestionați utilizatorii, tokenurile de acces, accesul la spațiile de lucru și setările serverului din consola ' +
+    'de administrare livrată cu aplicația desktop.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Activat',

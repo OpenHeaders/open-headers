@@ -906,6 +906,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           openSettings({ settingKey: 'secretManagers.connections' });
           return;
         }
+        // The server-admin teaser's hand-off: the console is a workbench
+        // tab here — dismiss the settings overlay on the way so the
+        // navigation lands on a visible surface.
+        if (target === 'serverAdmin') {
+          closeSettings();
+          openServerAdmin();
+          return;
+        }
         const windowId = REVEAL_WINDOW_BY_TARGET[target];
         if (!windowId) return;
         if (tl.state.hidden.includes(windowId)) tl.restoreWindow(windowId);
@@ -917,7 +925,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         const slot = tl.dockOf(windowId) ?? TOOL_WINDOW_MAP[windowId].defaultSlot;
         focus.focusDock(slot);
       }),
-    [tl, openSettings, focus],
+    [tl, openSettings, closeSettings, openServerAdmin, focus],
   );
 
   // The console opens as a workbench tab — dismiss the settings overlay

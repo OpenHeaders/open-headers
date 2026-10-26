@@ -538,6 +538,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.mcp.body': '通过内置的 MCP 服务器，把 AI 助手连接到你的工作区。',
   'shared.desktopTeaser.liveNetwork.title': '实时网络',
   'shared.desktopTeaser.liveNetwork.body': '在桌面应用中实时查看浏览器标签页的流量，由扩展流式传输——无需 DevTools。',
+  'shared.desktopTeaser.serverAdmin.title': '服务器管理',
+  'shared.desktopTeaser.serverAdmin.body':
+    '在桌面应用自带的管理控制台中管理用户、访问令牌、工作区访问权限和服务器设置。',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '已启用',

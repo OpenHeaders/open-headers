@@ -527,6 +527,9 @@ export const sharedComponents = {
   'shared.desktopTeaser.secretManagers.title': '시크릿 매니저',
   'shared.desktopTeaser.secretManagers.body':
     '자격 증명을 시크릿 매니저에 보관하고 Vault에서 참조하세요. 데스크톱 앱이 연결을 보유하며 이 컴퓨터의 이 브라우저를 위해 값을 확인합니다.',
+  'shared.desktopTeaser.serverAdmin.title': '서버 관리',
+  'shared.desktopTeaser.serverAdmin.body':
+    '데스크톱 앱에 포함된 관리 콘솔에서 사용자, 액세스 토큰, 워크스페이스 접근 권한, 서버 설정을 관리합니다.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': '활성',

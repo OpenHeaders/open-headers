@@ -581,6 +581,10 @@ export const sharedComponents = {
   'shared.desktopTeaser.secretManagers.title': 'Secret managers',
   'shared.desktopTeaser.secretManagers.body':
     'Keep credentials in your secret manager and reference them from the Vault. The desktop app holds the connections and resolves them for this browser on this computer.',
+  'shared.desktopTeaser.serverAdmin.title': 'Server administration',
+  'shared.desktopTeaser.serverAdmin.body':
+    'Manage users, access tokens, workspace access and server settings in the admin console that ships with the ' +
+    'desktop app.',
 
   // ── Settings rows ──────────────────────────────────────────────────
   'shared.settingsRows.enabled': 'Enabled',

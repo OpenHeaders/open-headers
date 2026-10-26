@@ -14,7 +14,15 @@
 
 import type { MessageKey } from '@openheaders/i18n';
 
-export type DesktopFeature = 'terminal' | 'git' | 'commit' | 'proxy' | 'mcp' | 'liveNetwork' | 'secretManagers';
+export type DesktopFeature =
+  | 'terminal'
+  | 'git'
+  | 'commit'
+  | 'proxy'
+  | 'mcp'
+  | 'liveNetwork'
+  | 'secretManagers'
+  | 'serverAdmin';
 
 export interface DesktopTeaserCopy {
   title: MessageKey;
@@ -49,5 +57,9 @@ export const DESKTOP_TEASER_COPY: Record<DesktopFeature, DesktopTeaserCopy> = {
   secretManagers: {
     title: 'shared.desktopTeaser.secretManagers.title',
     body: 'shared.desktopTeaser.secretManagers.body',
+  },
+  serverAdmin: {
+    title: 'shared.desktopTeaser.serverAdmin.title',
+    body: 'shared.desktopTeaser.serverAdmin.body',
   },
 };

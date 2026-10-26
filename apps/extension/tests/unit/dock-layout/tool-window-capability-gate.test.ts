@@ -34,13 +34,10 @@ describe('capability-gated tool windows', () => {
     // Every gated window in the registry declares `teaserWhenUnavailable`,
     // so a browser host sees the full registry — the gated tabs render
     // the desktop teaser body instead of disappearing. `server-admin`
-    // is the one admin-gated (not capability-gated) window: it stays
-    // absent until the admin-status probe settles `admin`, so the
-    // unprobed registry equals everything but it.
+    // included: with no `serverAdmin` plane registered the per-user
+    // admin gate never applies and the tab is the desktop teaser.
     const defs = availableToolWindows();
-    expect(defs.map((def) => def.id)).toEqual(
-      TOOL_WINDOWS.filter((def) => def.id !== 'server-admin').map((def) => def.id),
-    );
+    expect(defs.map((def) => def.id)).toEqual(TOOL_WINDOWS.map((def) => def.id));
     expect(availableToolWindowMap().terminal).toBeDefined();
     for (const def of defs) {
       expect(isToolWindowTeased(def)).toBe(def.requiresCapability !== undefined);

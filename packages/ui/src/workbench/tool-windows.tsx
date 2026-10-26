@@ -47,10 +47,13 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   // Server administration nav (the access-foundation epic) — FIRST in
   // left-top so its activity-bar icon sits above the Interceptor. The
-  // window exists only for server admins: `availableToolWindows`
-  // filters it on the shared admin-status store, so non-admin rails
-  // never show it (affordance honesty — the server re-gates every
-  // admin call regardless). Dormant until opened.
+  // window exists only for server admins where the host has a
+  // server-admin plane: `availableToolWindows` filters it on the
+  // shared admin-status store, so non-admin rails never show it
+  // (affordance honesty — the server re-gates every admin call
+  // regardless). A host with no plane (the extension) keeps the tab
+  // as the desktop teaser, like the other desktop-only windows.
+  // Dormant until opened.
   {
     id: 'server-admin',
     labelKey: 'workbench.toolWindows.serverAdmin',
@@ -58,6 +61,8 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     core: false,
     defaultSlot: 'left-top',
     openByDefault: false,
+    requiresCapability: 'serverAdmin',
+    teaserWhenUnavailable: 'serverAdmin',
   },
   {
     id: 'http-rules',
@@ -253,12 +258,13 @@ export function availableToolWindows(): readonly ToolWindowDef[] {
   const anyWorkspace = hasAnyWorkspace();
   return TOOL_WINDOWS.filter((def) => {
     // Server administration is a per-user fact on top of a host one:
-    // the window exists only once the admin-status probe answers
-    // `admin` (the shared store; a late answer reconciles the dock
-    // layout in via its defs-change effect), and the store settles
-    // denied without a probe where the host registers no `serverAdmin`
-    // plane. No teaser — a non-admin has nothing to be teased toward.
-    if (def.id === 'server-admin') return getServerAdminStatus() === 'admin';
+    // where the host registers a `serverAdmin` plane the window exists
+    // only once the admin-status probe answers `admin` (the shared
+    // store; a late answer reconciles the dock layout in via its
+    // defs-change effect) — no teaser there, a non-admin has nothing to
+    // be teased toward. A host with no plane falls through to the
+    // capability rule below and keeps the tab as the desktop teaser.
+    if (def.id === 'server-admin' && hasCapability('serverAdmin')) return getServerAdminStatus() === 'admin';
     // The zero-workspace admin posture: windows whose subject is
     // workspace data have nothing to bind to — they drop outright,
     // teaser or not. A grant syncing down flips the mirror and the
