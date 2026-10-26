@@ -90,7 +90,7 @@ describe('RequestCache', () => {
       requestUid: 'rq',
       header: { uid: 'hdr00060', key: 'X-Trace', value: 't1' },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
 
     const headers = cache.getRequests()[0].headers;
     const keys = headers.map((h) => h.key).sort();
@@ -106,7 +106,6 @@ describe('RequestCache', () => {
         requestUid: 'rq',
         param: { uid: 'qpr00060', key: 'q', value: '1' },
       }).batch,
-      [],
     );
     expect(cache.getRequests()[0].params).toEqual([{ uid: 'qpr00060', key: 'q', value: '1' }]);
     cache.dispose();
@@ -117,7 +116,6 @@ describe('RequestCache', () => {
     await cache.seedFromPersistedRequests([makeRequest('rq')]);
     await oracle.apply(
       setRequestField(ctxFactory(), { requestUid: 'rq', path: 'url', value: 'https://openheaders.io/v2' }).batch,
-      [],
     );
     expect(cache.getRequests()[0].url).toBe('https://openheaders.io/v2');
     cache.dispose();
@@ -129,7 +127,6 @@ describe('RequestCache', () => {
     await oracle.apply(
       deleteRequest(ctxFactory(), { requestUid: 'rq', parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' } })
         .batch,
-      [],
     );
     expect(cache.getRequests().map((r) => r.uid)).toEqual(['alt']);
     cache.dispose();
@@ -143,7 +140,7 @@ describe('RequestCache', () => {
     });
     await cache.seedFromPersistedRequests([makeRequest('rq')]);
     const before = fires;
-    await oracle.apply(setRequestField(ctxFactory(), { requestUid: 'rq', path: 'name', value: 'updated' }).batch, []);
+    await oracle.apply(setRequestField(ctxFactory(), { requestUid: 'rq', path: 'name', value: 'updated' }).batch);
     expect(fires).toBeGreaterThan(before);
     cache.dispose();
   });
@@ -165,10 +162,7 @@ describe('RequestCache', () => {
     await cache.seedFromPersistedRequests([makeRequest('rq')]);
     cache.dispose();
 
-    await oracle.apply(
-      setRequestField(ctxFactory(), { requestUid: 'rq', path: 'name', value: 'after-dispose' }).batch,
-      [],
-    );
+    await oracle.apply(setRequestField(ctxFactory(), { requestUid: 'rq', path: 'name', value: 'after-dispose' }).batch);
     // Cache view frozen at last refresh — name from seed.
     expect(cache.getRequests()[0].name).toBe('req-rq');
   });
@@ -213,14 +207,13 @@ describe('RequestCache', () => {
       pinnedEnvironmentIds: [],
       defaultEnvironmentId: null,
     } as unknown as Collection;
-    await oracle.apply(seedRequestCollection(collection, ctxFactory()), []);
+    await oracle.apply(seedRequestCollection(collection, ctxFactory()));
     await oracle.apply(
       createRequestFolder(ctxFactory(), {
         folderUid: 'rfol0001',
         parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid },
         name: 'v1',
       }).batch,
-      [],
     );
     await oracle.apply(
       createRequestFolder(ctxFactory(), {
@@ -228,7 +221,6 @@ describe('RequestCache', () => {
         parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid },
         name: 'v2',
       }).batch,
-      [],
     );
     const cache = createRequestCache('ws-1', oracle, broadcast, ctxFactory);
     const place = (uid: string, orderKey: string): ChildPlacement<RequestFolderParentRef> => ({
@@ -241,7 +233,6 @@ describe('RequestCache', () => {
         ctxFactory(),
         place('rfol0001', 'a'),
       ),
-      [],
     );
     await oracle.apply(
       seedRequest(
@@ -249,7 +240,6 @@ describe('RequestCache', () => {
         ctxFactory(),
         place('rfol0001', 'b'),
       ),
-      [],
     );
     expect(cache.getRequests().map((r) => r.uid)).toEqual(['zzz', 'aaa']);
 
@@ -260,7 +250,6 @@ describe('RequestCache', () => {
         newParent: { type: REQUEST_FOLDER_ENTITY_TYPE, uid: 'rfol0002' },
         orderKey: 'a',
       }).batch,
-      [],
     );
     expect(cache.getRequests().map((r) => r.path)).toEqual([
       `${collection.path}/v2-rfol0002/v1-rfol0001/req-zzz`,

@@ -60,7 +60,7 @@ describe('DnrIntentRunner', () => {
   it('recompiles after a single rule mutation lands', async () => {
     const h = makeHarness();
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await h.oracle.apply(intent.batch);
     await flush();
     expect(h.recompileCalls).toEqual(['rules']);
   });
@@ -73,9 +73,9 @@ describe('DnrIntentRunner', () => {
     // recompile once per envelope until the coalesced entry is
     // exhausted. Net behavior: at most one per rule per broadcast.
     const a = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    await h.oracle.apply(a.batch, a.sideEffects);
+    await h.oracle.apply(a.batch);
     const b = toggleEnabled(ctx(1_001), { ruleUid: 'r1', enabled: false });
-    await h.oracle.apply(b.batch, b.sideEffects);
+    await h.oracle.apply(b.batch);
     await flush();
     // Both broadcasts trigger a drain; second drain finds the
     // (already-pulled) entry empty so doesn't recompile a second time.
@@ -129,7 +129,7 @@ describe('DnrIntentRunner', () => {
       side: 'request',
       mod: { uid: 'thm00094', operation: 'override', headerName: 'X', value: 'y' },
     });
-    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await h.oracle.apply(intent.batch);
     await flush();
     expect(h.recompileCalls).toEqual(['rules']);
     expect(await h.intents.list()).toHaveLength(0);
@@ -138,7 +138,7 @@ describe('DnrIntentRunner', () => {
   it('recompiles after a pause-markers mutation lands', async () => {
     const h = makeHarness();
     const intent = setPauseMarker(ctx(1_000), { type: 'collection', uid: 'col00001', marker: 'paused' });
-    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await h.oracle.apply(intent.batch);
     await flush();
     expect(h.recompileCalls).toEqual(['rules']);
   });
@@ -165,7 +165,7 @@ describe('DnrIntentRunner', () => {
     const h = makeHarness();
     h.dispose();
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await h.oracle.apply(intent.batch);
     await flush();
     expect(h.recompileCalls).toHaveLength(0);
   });

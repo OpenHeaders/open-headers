@@ -83,11 +83,11 @@ describe('WorkspaceRootsCache', () => {
       payload: { schemaVersion: 5, name: 'Nine', path: 'rules/nine-col00009', pinnedEnvironmentIds: [] },
       orderKey: 'z',
     });
-    await oracle.apply(created.batch, []);
+    await oracle.apply(created.batch);
     expect(cache.getWorkspaceRoots().ruleCollections).toEqual(['col00001', 'col00009']);
     expect(oracle.materializeOne(COLLECTION_ENTITY_TYPE, 'col00009')).not.toBeNull();
 
-    await oracle.apply(deleteCollection(ctxFactory(), { collectionUid: 'col00001' }).batch, []);
+    await oracle.apply(deleteCollection(ctxFactory(), { collectionUid: 'col00001' }).batch);
     expect(cache.getWorkspaceRoots().ruleCollections).toEqual(['col00009']);
     cache.dispose();
   });

@@ -10,7 +10,7 @@
  * shared contract is here.
  */
 
-import type { FieldOrigin, MutationBatch, MutationEnvelope, MutatorOutcome, SideEffectIntent } from '../sync';
+import type { FieldOrigin, MutationBatch, MutationEnvelope, MutatorOutcome } from '../sync';
 import type {
   Collection,
   Environment,
@@ -39,16 +39,15 @@ import type {
   WorkspaceVariables,
   WsResponseExample,
 } from '../types';
-/** Surface → oracle: apply this batch all-or-nothing under the per-entity lock. */
+/**
+ * Surface → oracle: apply this batch all-or-nothing under the per-entity
+ * lock. The request carries envelopes only — the oracle derives the
+ * side-effect intents from the envelopes it commits, so no caller
+ * ships intents the commit point would have to trust.
+ */
 export interface SyncApplyRequest {
   type: 'oh.sync.apply';
   batch: MutationBatch;
-  /**
-   * Side-effect intents emitted by the rule mutator factories. The
-   * oracle enqueues them only on a successful commit; rolled-back
-   * batches drop them along with the state delta.
-   */
-  sideEffects: SideEffectIntent[];
   /**
    * Per-write provenance tag stamped on every {@link EntityState.fieldValues}
    * entry the batch writes. Defaults to `'local'` so user-gesture

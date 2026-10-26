@@ -456,7 +456,7 @@ export async function applyRequestTreeDescendantDeletes(
   }
   for (const folderUid of descendants.folders) {
     const ctx = handle.next({ batchId: `${batchPrefix}-folder-${folderUid}` });
-    const ack = await applySyncPayload({ batch: buildDeleteRequestFolderEntityBatch(folderUid, ctx), sideEffects: [] });
+    const ack = await applySyncPayload({ batch: buildDeleteRequestFolderEntityBatch(folderUid, ctx) });
     if (!ack.ok) return ack;
   }
   return { ok: true };

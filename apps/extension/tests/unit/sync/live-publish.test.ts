@@ -5,7 +5,7 @@
  *   - applyLive*Create forces `published: false` regardless of the
  *     caller's payload — drafts must not arrive published.
  *   - applyLive*Publish emits a single `setField('published', true)`
- *     mutation + resolver-invalidate intent.
+ *     mutation; the batch derives the resolver invalidation.
  *   - applyLive*Update auto-unpublishes a previously-published entity
  *     in the same batch as the user's edit, so the resolver /
  *     scheduler never observes a half-typed value still flagged
@@ -16,6 +16,8 @@
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   advanceHlc,
+  deriveSideEffectsForEnvelope,
+  INVALIDATE_RESOLVER,
   initialHlc,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
@@ -150,7 +152,7 @@ describe('applyLiveWorkflowCreate', () => {
 });
 
 describe('applyLiveWorkflowPublish', () => {
-  it('emits one setField(published, true) + resolver-invalidate intent', async () => {
+  it('emits one setField(published, true); the batch derives the resolver invalidation', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeWorkflowMirror({ ...baseWorkflow, published: false });
     const result = await applyLiveWorkflowPublish('wflow001', {
@@ -172,8 +174,7 @@ describe('applyLiveWorkflowPublish', () => {
       path: 'published',
       value: true,
     });
-    const intents = (payload as { sideEffects: unknown[] }).sideEffects;
-    expect(intents).toHaveLength(1);
+    expect(batch.mutations.flatMap(deriveSideEffectsForEnvelope).map((e) => e.kind)).toEqual([INVALIDATE_RESOLVER]);
   });
 
   it('returns not-found when the mirror has no entry', async () => {
@@ -265,7 +266,7 @@ describe('applyLiveVariableCreate', () => {
 });
 
 describe('applyLiveVariablePublish', () => {
-  it('emits one setField(published, true) + resolver-invalidate intent', async () => {
+  it('emits one setField(published, true); the batch derives the resolver invalidation', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeVariableMirror({ ...baseLv, published: false });
     const result = await applyLiveVariablePublish('lvxxxxx1', {

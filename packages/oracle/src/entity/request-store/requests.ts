@@ -246,7 +246,7 @@ export async function updateRequest(
     // No-op patch — return the canonical pre-image.
     return { ok: true, request: existing };
   }
-  const result = await oracle.apply(payload.batch, payload.sideEffects);
+  const result = await oracle.apply(payload.batch);
   if (!result.ok) {
     return {
       ok: false,

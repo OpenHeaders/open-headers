@@ -137,10 +137,7 @@ export async function applyFolderDelete(
   }
   for (const nestedUid of cascadingFolderUids) {
     const ctx = baseCtx.next({ batchId: `folder-delete-cascade-nested-${nestedUid}` });
-    const ack = await applySyncPayload({
-      batch: buildDeleteFolderEntityBatch(nestedUid, ctx),
-      sideEffects: [],
-    });
+    const ack = await applySyncPayload({ batch: buildDeleteFolderEntityBatch(nestedUid, ctx) });
     if (!ack.ok) return ack;
   }
 

@@ -3,8 +3,10 @@
  * renderer-side write-clients.
  *
  * Every entity's write-client (rule, template, request, env, vault,
- * collection, folder, …) emits a `(batch, sideEffects)` pair and
- * collapses the bridge response into a uniform structured result.
+ * collection, folder, …) emits a batch and collapses the bridge
+ * response into a uniform structured result. The batch is the whole
+ * payload: the oracle derives the side-effect intents from the
+ * envelopes it commits.
  * Context resolution (per-surface HLC sequencer) and mirror resolution
  * (test-injectable singleton fallback) follow the same shape across
  * every entity, so all three live here.
@@ -14,7 +16,7 @@
  * stay in their write-client — only the simple ack adapter is shared.
  */
 
-import type { MutationBatch, SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationBatch } from '@openheaders/core/sync';
 import { hostBridge } from '@openheaders/core/bridge';
 import {
   ensureRendererContext,
@@ -33,7 +35,6 @@ export type SyncSimpleResult =
 
 export interface SyncMutationPayload {
   batch: MutationBatch;
-  sideEffects: SideEffectIntent[];
 }
 
 /**
@@ -79,7 +80,7 @@ export function resolveMirror<M>(
 }
 
 /**
- * Fire `oh.sync.apply` for a built batch + side-effect intents.
+ * Fire `oh.sync.apply` for a built batch.
  *
  * - Empty-batch short-circuit returns `{ ok: true }` without firing the
  *   bridge — every entity's `buildUpdateBatch` may emit zero envelopes
@@ -93,10 +94,7 @@ export function resolveMirror<M>(
 export async function applySyncPayload(payload: SyncMutationPayload): Promise<SyncSimpleResult> {
   if (payload.batch.mutations.length === 0) return { ok: true };
   try {
-    const resp = await hostBridge.call('oh.sync.apply', {
-      batch: payload.batch,
-      sideEffects: payload.sideEffects,
-    });
+    const resp = await hostBridge.call('oh.sync.apply', { batch: payload.batch });
     if (resp.ok) return { ok: true };
     return { ok: false, reason: 'other', message: resp.failure?.detail };
   } catch (err) {

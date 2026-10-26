@@ -54,13 +54,11 @@ describe('projectVaultPostState', () => {
       seedVault(
         makeVault([{ uid: 'scapikey1', kind: 'string', name: 'API_KEY', value: 'v' }]),
         ctx(1),
-      ),
-      [],
-    );
+      ));
     const setIntent = setVaultSecret(ctx(2), {
       secret: { uid: 'scnewxxxx', kind: 'string', name: 'NEW', value: 'v' },
     });
-    const setResult = await oracle.apply(setIntent.batch, []);
+    const setResult = await oracle.apply(setIntent.batch);
     expect(setResult.ok).toBe(true);
 
     const envelope = setIntent.batch.mutations[0];
@@ -88,9 +86,7 @@ describe('projectVaultPostState', () => {
           },
         ]),
         ctx(1),
-      ),
-      [],
-    );
+      ));
     const post = projectVaultSingleton(oracle);
     expect(post?.vault.secrets[0]).toMatchObject({
       kind: 'totp',
@@ -127,9 +123,7 @@ describe('projectVaultPostState', () => {
           { uid: 'scbxxxxxx', kind: 'string', name: 'B', value: '2' },
         ]),
         ctx(1),
-      ),
-      [],
-    );
+      ));
     const live = oracle.liveSetItems(VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH);
     const projected = projectVaultSingleton(oracle);
     expect(projected?.secretUids.sort()).toEqual(live.map((e) => e.itemId).sort());

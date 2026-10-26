@@ -65,7 +65,6 @@ import {
   REQUEST_FOLDER_ITEMS_PATH,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
   type RequestFolderParentRef,
-  type SideEffectIntent,
   WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
@@ -166,10 +165,10 @@ function capturePriorsForActivity(batch: MutationBatch): void {
   }
 }
 
-async function applyMigrationMutation(batch: MutationBatch, sideEffects: SideEffectIntent[]): Promise<void> {
+async function applyMigrationMutation(batch: MutationBatch): Promise<void> {
   if (batch.mutations.length === 0) return;
   capturePriorsForActivity(batch);
-  const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects });
+  const response = await applySyncRequest({ type: 'oh.sync.apply', batch });
   if (!response.ok) {
     const detail = response.failure?.detail ?? response.failure?.status ?? 'apply failed';
     throw new Error(`mutation rejected: ${detail}`);
@@ -225,23 +224,20 @@ interface PriorImportEntity {
   id: string;
 }
 
-function buildDeleteForReplacedEntity(
-  entity: PriorImportEntity,
-  ctx: MutatorContext,
-): { batch: MutationBatch; sideEffects: SideEffectIntent[] } {
+function buildDeleteForReplacedEntity(entity: PriorImportEntity, ctx: MutatorContext): MutationBatch {
   switch (entity.type) {
     case RESPONSE_EXAMPLE_ENTITY_TYPE:
-      return buildDeleteResponseExampleEntityBatch(entity.id, ctx);
+      return buildDeleteResponseExampleEntityBatch(entity.id, ctx).batch;
     case REQUEST_ENTITY_TYPE:
       // Child-first refresh: the request's collection tombstones in the
       // same pass, so its slot needs no tombstone of its own.
-      return buildDeleteRequestEntityBatch(entity.id, ctx);
+      return buildDeleteRequestEntityBatch(entity.id, ctx).batch;
     case REQUEST_FOLDER_ENTITY_TYPE:
-      return { batch: buildDeleteRequestFolderEntityBatch(entity.id, ctx), sideEffects: [] };
+      return buildDeleteRequestFolderEntityBatch(entity.id, ctx);
     case REQUEST_COLLECTION_ENTITY_TYPE:
-      return buildDeleteRequestCollectionBatch(entity.id, ctx);
+      return buildDeleteRequestCollectionBatch(entity.id, ctx).batch;
     case ENVIRONMENT_ENTITY_TYPE:
-      return buildDeleteEnvironmentBatch({ envId: entity.id }, ctx);
+      return buildDeleteEnvironmentBatch({ envId: entity.id }, ctx).batch;
     default:
       throw new Error(`no delete builder for entity type "${entity.type}"`);
   }
@@ -266,8 +262,7 @@ async function replacePriorImport(
       const ctx = mintCtx();
       if (!ctx) throw new Error('landing workspace is not loaded on this host');
       try {
-        const { batch, sideEffects } = buildDeleteForReplacedEntity(entity, ctx);
-        await applyMigrationMutation(batch, sideEffects);
+        await applyMigrationMutation(buildDeleteForReplacedEntity(entity, ctx));
       } catch (err) {
         recordDrop(report, {
           path: `pull.replaced.${entity.type}["${entity.id}"]`,
@@ -343,7 +338,6 @@ async function materializeCollection(
   if (!collectionCtx) throw new Error('landing workspace is not loaded on this host');
   await applyMigrationMutation(
     seedRequestCollection(collection, collectionCtx, rootsPlacement(oracle, WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH)),
-    [],
   );
 
   // Folder tree — depth-first so every parent exists before its
@@ -370,7 +364,7 @@ async function materializeCollection(
         },
         ctx,
       );
-      await applyMigrationMutation(intent.batch, intent.sideEffects);
+      await applyMigrationMutation(intent.batch);
       // Folder-level script slots land as a follow-up batch — the
       // folder create payload is a fixed shell (name + pathSegment),
       // and the scripts setter is the same write the editor uses.
@@ -385,7 +379,7 @@ async function materializeCollection(
           updates.push({ path: 'postResponseScript', value: folder.postResponseScript });
         }
         const scriptsIntent = buildSetRequestFolderScriptsBatch({ folderUid, updates }, scriptsCtx);
-        await applyMigrationMutation(scriptsIntent.batch, scriptsIntent.sideEffects);
+        await applyMigrationMutation(scriptsIntent.batch);
       }
       // Folder-level default auth lands as a one-entry pool in a
       // follow-up batch too — the fresh folder has no prior pool, so
@@ -397,7 +391,7 @@ async function materializeCollection(
           { folderUid, ...singleEntryPool(generateUid(), folder.auth), current: {} },
           authCtx,
         );
-        await applyMigrationMutation(authIntent.batch, authIntent.sideEffects);
+        await applyMigrationMutation(authIntent.batch);
       }
       folderMap.set(folder.path.join('/'), {
         ref: { type: 'request-folder', uid: folderUid },
@@ -455,7 +449,7 @@ async function materializeCollection(
     const request = candidate.output as Request;
     try {
       const payload = buildAddRequestBatch(request, ctx, childPlacement(oracle, parent.ref, REQUEST_FOLDER_ITEMS_PATH));
-      await applyMigrationMutation(payload.batch, payload.sideEffects);
+      await applyMigrationMutation(payload.batch);
       requests++;
     } catch (err) {
       recordDrop(report, {
@@ -495,7 +489,7 @@ async function materializeCollection(
           exampleCtx,
           childPlacement(oracle, { type: REQUEST_ENTITY_TYPE, uid: request.uid }, REQUEST_EXAMPLES_PATH),
         );
-        await applyMigrationMutation(payload.batch, payload.sideEffects);
+        await applyMigrationMutation(payload.batch);
         examples++;
       } catch (err) {
         recordDrop(report, {
@@ -533,7 +527,7 @@ async function materializeEnvironment(
   const ctx = mintCtx();
   if (!ctx) throw new Error('landing workspace is not loaded on this host');
   const payload = buildAddEnvironmentBatch({ environment }, ctx);
-  await applyMigrationMutation(payload.batch, payload.sideEffects);
+  await applyMigrationMutation(payload.batch);
   return 1;
 }
 
@@ -593,7 +587,7 @@ async function materializeWorkspaceGlobals(
     if (!ctx) throw new Error('landing workspace is not loaded on this host');
     try {
       const intent = buildSetWorkspaceVarBatch({ variable, orderKey }, ctx);
-      await applyMigrationMutation(intent.batch, intent.sideEffects);
+      await applyMigrationMutation(intent.batch);
       landed++;
     } catch (err) {
       recordDrop(report, {

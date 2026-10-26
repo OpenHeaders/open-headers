@@ -94,7 +94,6 @@ describe('PauseMarkersCache', () => {
         },
         ctxFactory(),
       ),
-      [],
     );
     const cache = createPauseMarkersCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedPauseMarkers({ 'rules/legacy': 'paused', 'rules/nowhere': 'paused' });
@@ -114,7 +113,7 @@ describe('PauseMarkersCache', () => {
     });
 
     const intent = setPauseMarker(ctxFactory(), { type: 'collection', uid: 'col-x', marker: 'paused' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBeGreaterThan(0);
     expect(cache.getSnapshot().markers).toEqual({ 'col-x': 'paused' });
     cache.dispose();
@@ -131,7 +130,7 @@ describe('PauseMarkersCache', () => {
     cache.dispose();
 
     const intent = setPauseMarker(ctxFactory(), { type: 'collection', uid: 'col-x', marker: 'paused' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBe(0);
   });
 });

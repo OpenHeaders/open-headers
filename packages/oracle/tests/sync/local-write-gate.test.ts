@@ -322,7 +322,7 @@ describe('local-write schema gate mechanics', () => {
     const { oracle, published } = makeOracle();
     const malformed = makeRequest({ body: { type: 'form' } as unknown as Request['body'] });
 
-    const result = await oracle.apply(seedRequest(malformed, ctx(1_000)), [], 'local');
+    const result = await oracle.apply(seedRequest(malformed, ctx(1_000)), 'local');
 
     expect(result.ok).toBe(false);
     expect(result.failure?.status).toBe('schema-rejected');
@@ -336,8 +336,8 @@ describe('local-write schema gate mechanics', () => {
     const malformed = makeRequest({ body: { type: 'form' } as unknown as Request['body'] });
     const batch = seedRequest(malformed, ctx(1_000));
 
-    await oracle.apply(batch, [], 'local'); // rejected + rolled back (incl. dedup set)
-    const inbound = await oracle.apply(batch, [], 'inbound');
+    await oracle.apply(batch, 'local'); // rejected + rolled back (incl. dedup set)
+    const inbound = await oracle.apply(batch, 'inbound');
 
     expect(inbound.ok).toBe(true);
     expect(oracle.materializeOne(REQUEST_ENTITY_TYPE, malformed.uid)).not.toBeNull();
@@ -346,13 +346,13 @@ describe('local-write schema gate mechanics', () => {
   it('rejects a local update that would converge on an invalid post-state and keeps the prior state', async () => {
     const { oracle } = makeOracle();
     const valid = makeRequest();
-    const created = await oracle.apply(seedRequest(valid, ctx(1_000)), [], 'local');
+    const created = await oracle.apply(seedRequest(valid, ctx(1_000)), 'local');
     expect(created.ok).toBe(true);
 
     const update: MutationBatch = mintBatch(ctx(2_000), [
       { kind: 'setField', type: REQUEST_ENTITY_TYPE, id: valid.uid, path: 'body.type', value: 'form' },
     ]);
-    const result = await oracle.apply(update, [], 'local');
+    const result = await oracle.apply(update, 'local');
 
     expect(result.ok).toBe(false);
     expect(result.failure?.status).toBe('schema-rejected');
@@ -364,10 +364,10 @@ describe('local-write schema gate mechanics', () => {
   it('lets a local delete pass — tombstoned entities materialize to null and skip the gate', async () => {
     const { oracle } = makeOracle();
     const valid = makeRequest();
-    await oracle.apply(seedRequest(valid, ctx(1_000)), [], 'local');
+    await oracle.apply(seedRequest(valid, ctx(1_000)), 'local');
 
     const del = mintBatch(ctx(2_000), [{ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: valid.uid }]);
-    const result = await oracle.apply(del, [], 'local');
+    const result = await oracle.apply(del, 'local');
 
     expect(result.ok).toBe(true);
     expect(oracle.materializeOne(REQUEST_ENTITY_TYPE, valid.uid)).toBeNull();
@@ -378,7 +378,7 @@ describe('local-write schema gate mechanics', () => {
     const batch = mintBatch(ctx(1_000), [
       { kind: 'create', type: 'oh.probeKind', id: 'probe001', payload: { anything: true } },
     ]);
-    const result = await oracle.apply(batch, [], 'local');
+    const result = await oracle.apply(batch, 'local');
     expect(result.ok).toBe(true);
   });
 
@@ -387,7 +387,7 @@ describe('local-write schema gate mechanics', () => {
     const batch = mintBatch(ctx(1_000), [
       { kind: 'create', type: FOLDER_ENTITY_TYPE, id: 'fld00002', payload: { schemaVersion: 5, name: 'No segment' } },
     ]);
-    const result = await oracle.apply(batch, [], 'local');
+    const result = await oracle.apply(batch, 'local');
     expect(result.ok).toBe(false);
     expect(result.failure?.status).toBe('schema-rejected');
     expect(result.failure?.detail).toMatch(/pathSegment/);
@@ -433,7 +433,7 @@ describe('local-write gate accepts every gated kind’s canonical seed', () => {
   for (const { label, seed } of cases) {
     it(`${label}: a canonical valid seed applies locally`, async () => {
       const { oracle } = makeOracle();
-      const result = await oracle.apply(seed(ctx(1_000)), [], 'local');
+      const result = await oracle.apply(seed(ctx(1_000)), 'local');
       expect(result.failure?.detail, label).toBeUndefined();
       expect(result.ok).toBe(true);
     });

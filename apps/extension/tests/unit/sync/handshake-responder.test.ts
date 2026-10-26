@@ -80,8 +80,8 @@ describe('respondToStateVector — delta path', () => {
   it('streams the delta envelopes the peer is missing then SYNCED', async () => {
     const r1 = seedRule(makeRule(generateUid(), 'one'), ctx(1_000));
     const r2 = seedRule(makeRule(generateUid(), 'two'), ctx(2_000));
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r1, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r2, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r1 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r2 });
 
     const { reply, frames } = makeReply();
     // A non-empty peerVector with an unrelated node skips the
@@ -106,7 +106,7 @@ describe('respondToStateVector — delta path', () => {
 
   it('emits only SYNCED when the peer is already caught up', async () => {
     const r1 = seedRule(makeRule(generateUid(), 'one'), ctx(1_000, 'sw'));
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r1, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r1 });
 
     const peerVector: StateVector = { sw: { physicalMs: 9_999_999, logical: 999, nodeId: 'sw' } };
     const { reply, frames } = makeReply();
@@ -126,7 +126,7 @@ describe('respondToStateVector — delta path', () => {
 describe('respondToStateVector — snapshot path', () => {
   it('ships a snapshot first then SYNCED for a cold peer', async () => {
     const r1 = seedRule(makeRule(generateUid(), 'one'), ctx(1_000));
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r1, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r1 });
 
     const { reply, frames } = makeReply();
     const result = await respondToStateVector(
@@ -149,9 +149,9 @@ describe('respondToStateVector — mid-stream disconnect', () => {
     const r1 = seedRule(makeRule(generateUid(), 'one'), ctx(1_000, 'sw'));
     const r2 = seedRule(makeRule(generateUid(), 'two'), ctx(2_000, 'sw'));
     const r3 = seedRule(makeRule(generateUid(), 'three'), ctx(3_000, 'sw'));
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r1, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r2, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r3, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r1 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r2 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r3 });
 
     const { reply, frames, closeAfter } = makeReply();
     closeAfter(2); // accept first two mutation frames, drop subsequent sends

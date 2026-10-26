@@ -14,8 +14,16 @@
  *     empty diff (no INVALIDATE_RESOLVER spam on no-op saves)
  */
 
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import { advanceHlc, initialHlc, VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
+import {
+  advanceHlc,
+  deriveSideEffectsForEnvelope,
+  INVALIDATE_RESOLVER,
+  initialHlc,
+  VAULT_ENTITY_TYPE,
+  VAULT_ID,
+  VAULT_PATH,
+} from '@openheaders/core/sync';
 import type { VaultSecret } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -170,7 +178,7 @@ describe('applyVaultReplacement', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('emits one INVALIDATE_RESOLVER side-effect on a non-empty diff', async () => {
+  it('a non-empty diff derives INVALIDATE_RESOLVER at the commit point', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     await applyVaultReplacement([stringSecret('s1', 'API_KEY', 'abc')], [], {
       workspaceId: 'ws-1',
@@ -178,8 +186,10 @@ describe('applyVaultReplacement', () => {
       context: makeContextHandle(),
       mirror: mockMirror([]),
     });
-    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
-    expect(payload.sideEffects).toHaveLength(1);
+    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch };
+    expect(payload.batch.mutations.flatMap(deriveSideEffectsForEnvelope).map((e) => e.kind)).toEqual([
+      INVALIDATE_RESOLVER,
+    ]);
   });
 
   it('emits removeFromSet per vanished uid + addToSet per added/edited uid', async () => {

@@ -105,7 +105,6 @@ export async function applyRequestCollectionCreate(
       parent: WORKSPACE_ROOTS_REF,
       orderKey: roots.appendOrderKey(WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH),
     }),
-    sideEffects: [],
   });
   if (ack.ok) return { ok: true, collection };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };

@@ -61,7 +61,7 @@ async function seedRuleCollection(): Promise<Collection> {
   };
   const oracle = getOracleForCurrentWorkspace();
   if (!oracle) throw new Error('no oracle');
-  await oracle.apply(seedCollection(collection, seedCtx(1_000)), []);
+  await oracle.apply(seedCollection(collection, seedCtx(1_000)));
   return collection;
 }
 

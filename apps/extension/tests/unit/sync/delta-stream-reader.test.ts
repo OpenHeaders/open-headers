@@ -76,9 +76,9 @@ describe('readWorkspaceDeltaStream', () => {
       { kind: 'delete', type: RULE_ENTITY_TYPE, id: 'never-existed' },
     ]);
 
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r1, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r2, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: fromDesktop, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r1 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r2 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: fromDesktop });
 
     // Peer has seen r1's whole batch only (its envelopes tick the
     // logical component, so "seen" means the batch's LAST hlc) —
@@ -91,7 +91,7 @@ describe('readWorkspaceDeltaStream', () => {
 
   it('round-trips through state vector → delta → caught up', async () => {
     const r1 = seedRule(makeRule(generateUid()), ctx(1_000, 'sw'));
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r1, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r1 });
 
     const fullVector = await readWorkspaceStateVector(wsId);
     const delta = await collect(readWorkspaceDeltaStream(wsId, fullVector));

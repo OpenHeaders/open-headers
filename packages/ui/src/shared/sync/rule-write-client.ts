@@ -13,7 +13,7 @@
  * call these functions directly with an explicit workspace id.
  */
 
-import { type MutationBody, mintBatch, RULE_ENTITY_TYPE, recompileDnrIntent } from '@openheaders/core/sync';
+import { type MutationBody, mintBatch, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import {
   buildAddBatch,
   buildDeleteBatch,
@@ -180,7 +180,7 @@ export async function applyRuleCreate(
 
 /**
  * Promote a draft rule to live state. Single `setField('published', true)`
- * mutation + DNR recompile intent. The Save button in `RuleEditor` /
+ * mutation; the oracle derives the DNR recompile. The Save button in `RuleEditor` /
  * `EditorHeader` binds to this; per-keystroke edits go through
  * {@link applyRuleUpdate} which auto-unpublishes on the first
  * runtime-affecting edit (per `shouldAutoUnpublishOnUpdate`).
@@ -193,10 +193,7 @@ export async function applyRulePublish(ruleUid: string, opts: RuleWriteOptions):
   const bodies: MutationBody[] = [
     { kind: 'setField', type: RULE_ENTITY_TYPE, id: ruleUid, path: 'published', value: true },
   ];
-  return applySyncPayload({
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [recompileDnrIntent(ruleUid, ctx.hlc)],
-  });
+  return applySyncPayload({ batch: mintBatch(ctx, bodies) });
 }
 
 export async function applyRuleToggle(

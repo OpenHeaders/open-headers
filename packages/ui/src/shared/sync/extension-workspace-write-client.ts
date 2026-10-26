@@ -26,7 +26,6 @@ import {
   type MutationBatch,
   type MutatorContext,
   PRE_BOOTSTRAP_ORG_ID,
-  type SideEffectIntent,
   seedKey,
 } from '@openheaders/core/sync';
 import {
@@ -304,8 +303,7 @@ export async function applyDeleteWorkspace(
       batchId: remove.batch.batchId,
       mutations: [...remove.batch.mutations, ...setActive.batch.mutations],
     };
-    const sideEffects: SideEffectIntent[] = [...remove.sideEffects, ...setActive.sideEffects];
-    payload = { batch: merged, sideEffects };
+    payload = { batch: merged };
     nextActive = neighbourId;
   }
   const result = await applySyncPayload(payload);
@@ -387,7 +385,6 @@ export async function applyReorderWorkspaces(
   const handle = resolveContext(opts);
   const baseCtx = handle.next(opts.batchId ? { batchId: opts.batchId } : undefined);
   let combined: MutationBatch | null = null;
-  const sideEffects: SideEffectIntent[] = [];
   for (let i = 0; i < finalOrder.length; i++) {
     const ctx: MutatorContext = combined === null ? baseCtx : { ...baseCtx, batchId: combined.batchId };
     const intent = buildMoveExtensionWorkspaceBeforeBatch({ id: finalOrder[i], orderKey: newKeys[i] }, ctx);
@@ -396,10 +393,9 @@ export async function applyReorderWorkspaces(
     } else {
       combined.mutations.push(...intent.batch.mutations);
     }
-    sideEffects.push(...intent.sideEffects);
   }
   if (!combined || combined.mutations.length === 0) return { ok: true };
-  const result = await applySyncPayload({ batch: combined, sideEffects });
+  const result = await applySyncPayload({ batch: combined });
   if (!result.ok)
     return { ok: false, reason: 'other', message: result.reason === 'other' ? result.message : undefined };
   return { ok: true };

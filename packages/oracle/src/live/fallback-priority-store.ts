@@ -96,10 +96,10 @@ async function applyEnlist(
   const oracle = getOracleForWorkspace(workspaceId);
   const ctx = nextSwMutatorContextForWorkspace(workspaceId, { surfaceId: 'sw' });
   if (!oracle || !ctx) return false;
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return false;
   try {
-    const result = await oracle.apply(batch, sideEffects);
+    const result = await oracle.apply(batch);
     if (!result.ok) {
       logger.info(
         'FallbackPriorityStore',

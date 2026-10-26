@@ -70,7 +70,7 @@ describe('CollectionCache', () => {
       collectionUid: 'a',
       variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const colls = cache.getCollections();
     expect(colls[0].variables.map((v) => v.name).sort()).toEqual(['A', 'B']);
     cache.dispose();
@@ -107,7 +107,7 @@ describe('CollectionCache', () => {
       collectionUid: 'a',
       variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getCollections()[0].variables.map((v) => v.name)).toEqual(['A']);
   });
 
@@ -120,7 +120,6 @@ describe('CollectionCache', () => {
         { schemaVersion: 5, ruleCollections: ['c', 'a'], requestCollections: [], templateCollections: [] },
         ctxFactory(),
       ),
-      [],
     );
     expect(cache.getCollections().map((c) => c.uid)).toEqual(['c', 'a', 'b']);
     cache.dispose();

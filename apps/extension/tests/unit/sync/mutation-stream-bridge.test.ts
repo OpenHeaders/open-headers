@@ -40,10 +40,13 @@ import {
 } from '@openheaders/oracle/sync';
 import { __initGlobalSyncServiceForTests, disposeGlobal } from '@openheaders/oracle/sync/global-service';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {
   __initSyncServiceForTests,
   dispose as disposeSyncService,
   getOracleForCurrentWorkspace,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
 } from '@openheaders/oracle/sync/service';
 import {
   bootstrap as bootstrapWorkspaces,
@@ -108,6 +111,14 @@ function makePeerSnapshot(
     wraByWorkspaceId,
     orgs: new Map([[TEST_ORG_ID, { id: TEST_ORG_ID, name: 'Test Org', hostKind: 'daemon', isPrivate: false }]]),
   };
+}
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+async function logRows(log: InMemoryMutationLog): Promise<number> {
+  let rows = 0;
+  for await (const _ of log.readSince(null)) rows += 1;
+  return rows;
 }
 
 const makeRule = (uid: string): Rule =>
@@ -177,6 +188,42 @@ describe('applyInboundMutationBatch', () => {
     const before = __seenMutationStreamCountForTests();
     await applyInboundMutationBatch(batch);
     expect(__seenMutationStreamCountForTests()).toBe(before);
+  });
+
+  it('a redelivered batch after a restart commits nothing: the log knows the ids, the seen set does not', async () => {
+    const log = new InMemoryMutationLog();
+    const intents = new InMemoryPendingIntents();
+    const boot = async () => {
+      __initSyncServiceForTests(wsId, { log, intents });
+      const svc = getOrCreateWorkspaceService(wsId);
+      await svc.hydrated;
+      releaseWorkspaceService(wsId);
+      await flush();
+    };
+    await boot();
+    const r = makeRule(generateUid());
+    const batch = seedRule(r, ctx(4_500));
+    await applyInboundMutationBatch(batch);
+    await flush();
+    expect(await logRows(log)).toBe(batch.mutations.length);
+
+    __resetMutationStreamBridgeForTests();
+    await boot();
+    expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+    const rows = await logRows(log);
+    const pending = await intents.list();
+    const broadcasts: string[] = [];
+    setOracleHostHooks({ broadcastSyncEvent: (event) => broadcasts.push(event.envelope.mutationId) });
+    try {
+      await applyInboundMutationBatch(batch);
+      await flush();
+    } finally {
+      setOracleHostHooks({});
+    }
+
+    expect(broadcasts).toEqual([]);
+    expect(await logRows(log)).toBe(rows);
+    expect(await intents.list()).toEqual(pending);
   });
 
   it('marks the batch as an echo DURING the apply broadcast (catch-up stream is not re-forwarded)', async () => {

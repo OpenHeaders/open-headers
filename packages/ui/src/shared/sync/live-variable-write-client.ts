@@ -18,12 +18,7 @@
  *     a previously-published LV.
  */
 
-import {
-  liveVariableInvalidateResolverIntent,
-  LIVE_VARIABLE_ENTITY_TYPE,
-  mintBatch,
-  type MutationBody,
-} from '@openheaders/core/sync';
+import { LIVE_VARIABLE_ENTITY_TYPE, mintBatch, type MutationBody } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
@@ -114,7 +109,7 @@ export async function applyLiveVariableCreate(
 
 /**
  * Promote a draft LV to live state. Single
- * `setField('published', true)` mutation + resolver invalidation.
+ * `setField('published', true)` mutation.
  */
 export async function applyLiveVariablePublish(
   liveVariableUid: string,
@@ -127,10 +122,7 @@ export async function applyLiveVariablePublish(
   const bodies: MutationBody[] = [
     { kind: 'setField', type: LIVE_VARIABLE_ENTITY_TYPE, id: liveVariableUid, path: 'published', value: true },
   ];
-  return applySyncPayload({
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [liveVariableInvalidateResolverIntent(liveVariableUid, ctx.hlc)],
-  });
+  return applySyncPayload({ batch: mintBatch(ctx, bodies) });
 }
 
 export async function applyLiveVariableDelete(

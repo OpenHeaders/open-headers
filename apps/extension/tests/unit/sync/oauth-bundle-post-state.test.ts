@@ -53,13 +53,13 @@ function newOracle(): EntityOracle {
 describe('projectOAuthBundlePostState', () => {
   it('returns post-state after seed + setOAuthToken', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedOAuthBundle(emptySnapshot(), ctx(1)), []);
+    await oracle.apply(seedOAuthBundle(emptySnapshot(), ctx(1)));
     const intent = setOAuthToken(ctx(2), {
       credentialRef: 'cred-1',
       bundle: { accessToken: 'at', refreshToken: 'rt' },
       config: { tokenEndpoint: 'https://oauth.openheaders.io/token' },
     });
-    const result = await oracle.apply(intent.batch, []);
+    const result = await oracle.apply(intent.batch);
     expect(result.ok).toBe(true);
 
     const post = projectOAuthBundlePostState(oracle, intent.batch.mutations[0]);
@@ -72,15 +72,11 @@ describe('projectOAuthBundlePostState', () => {
 
   it('rebuilds Records from set items via liveSetItems', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedOAuthBundle(emptySnapshot(), ctx(1)), []);
+    await oracle.apply(seedOAuthBundle(emptySnapshot(), ctx(1)));
     await oracle.apply(
-      setOAuthToken(ctx(2), { credentialRef: 'a', bundle: { accessToken: 'A' } }).batch,
-      [],
-    );
+      setOAuthToken(ctx(2), { credentialRef: 'a', bundle: { accessToken: 'A' } }).batch);
     await oracle.apply(
-      setOAuthToken(ctx(3), { credentialRef: 'b', bundle: { accessToken: 'B' } }).batch,
-      [],
-    );
+      setOAuthToken(ctx(3), { credentialRef: 'b', bundle: { accessToken: 'B' } }).batch);
     const post = projectOAuthBundleSingleton(oracle);
     expect(post?.tokens).toMatchObject({
       a: { accessToken: 'A' },
@@ -91,16 +87,14 @@ describe('projectOAuthBundlePostState', () => {
 
   it('drops a credentialRef from all three maps after deleteOAuthToken', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedOAuthBundle(emptySnapshot(), ctx(1)), []);
+    await oracle.apply(seedOAuthBundle(emptySnapshot(), ctx(1)));
     await oracle.apply(
       setOAuthToken(ctx(2), {
         credentialRef: 'cred-1',
         bundle: { accessToken: 'at' },
         config: { tokenEndpoint: 'https://oauth.openheaders.io/token' },
-      }).batch,
-      [],
-    );
-    await oracle.apply(deleteOAuthToken(ctx(3), { credentialRef: 'cred-1' }).batch, []);
+      }).batch);
+    await oracle.apply(deleteOAuthToken(ctx(3), { credentialRef: 'cred-1' }).batch);
     const post = projectOAuthBundleSingleton(oracle);
     expect(post?.tokens).toEqual({});
     expect(post?.configs).toEqual({});

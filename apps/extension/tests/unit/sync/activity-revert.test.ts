@@ -84,7 +84,7 @@ describe('generateInverseMutation — structural', () => {
   });
 
   it('inverts create → delete and produces an apply-ready batch', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
     expect(oracle.materializeOne('rule', 'r1')).not.toBeNull();
 
     const inverse: InverseEnvelopeContext = { mutatorVersion: 1, spec: { kind: 'create' } };
@@ -99,13 +99,13 @@ describe('generateInverseMutation — structural', () => {
     if (!result.ok) return;
     expect(result.batch.mutations[0].body).toMatchObject({ kind: 'delete', type: 'rule', id: 'r1' });
 
-    await oracle.apply(result.batch, []);
+    await oracle.apply(result.batch);
     expect(oracle.materializeOne('rule', 'r1')).toBeNull();
   });
 
   it('refuses non-create inverses against a tombstoned entity', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
-    await oracle.apply(batchOf(ctx(1_500), { kind: 'delete', type: 'rule', id: 'r1' }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
+    await oracle.apply(batchOf(ctx(1_500), { kind: 'delete', type: 'rule', id: 'r1' }));
 
     const inverse: InverseEnvelopeContext = {
       mutatorVersion: 1,
@@ -125,7 +125,7 @@ describe('generateInverseMutation — structural', () => {
 
 describe('generateInverseMutation — field paths', () => {
   it('emits setField path priorValue when prior existed', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
 
     const inverse: InverseEnvelopeContext = {
       mutatorVersion: 1,
@@ -150,7 +150,7 @@ describe('generateInverseMutation — field paths', () => {
   });
 
   it('downgrades setField inverse to unsetField when prior was absent', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
 
     const inverse: InverseEnvelopeContext = {
       mutatorVersion: 1,
@@ -174,7 +174,7 @@ describe('generateInverseMutation — field paths', () => {
   });
 
   it('returns no-op when unsetField inverse has no prior value (both sides absent)', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
 
     const inverse: InverseEnvelopeContext = {
       mutatorVersion: 1,
@@ -194,7 +194,7 @@ describe('generateInverseMutation — field paths', () => {
 
 describe('generateInverseMutation — set paths', () => {
   it('inverts addToSet → removeFromSet against the live oracle', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
     await oracle.apply(
       batchOf(ctx(1_100), {
         kind: 'addToSet',
@@ -204,7 +204,6 @@ describe('generateInverseMutation — set paths', () => {
         itemId: 't-1',
         item: 'alpha',
       }),
-      [],
     );
 
     const inverse: InverseEnvelopeContext = {
@@ -230,7 +229,7 @@ describe('generateInverseMutation — set paths', () => {
   });
 
   it('inverts removeFromSet → addToSet with item + orderKey carried in the spec', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
 
     const inverse: InverseEnvelopeContext = {
       mutatorVersion: 1,
@@ -263,7 +262,7 @@ describe('generateInverseMutation — set paths', () => {
   });
 
   it('refuses moveBefore when the prior set item no longer lives in the set', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
 
     const inverse: InverseEnvelopeContext = {
       mutatorVersion: 1,
@@ -286,7 +285,7 @@ describe('generateInverseMutation — set paths', () => {
   });
 
   it('emits moveBefore inverse when the item is still live in the set', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
     await oracle.apply(
       batchOf(ctx(1_100), {
         kind: 'addToSet',
@@ -297,7 +296,6 @@ describe('generateInverseMutation — set paths', () => {
         item: 'alpha',
         orderKey: 'm0',
       }),
-      [],
     );
 
     const inverse: InverseEnvelopeContext = {
@@ -326,7 +324,7 @@ describe('generateInverseMutation — set paths', () => {
 
 describe('generateInverseMutation — envelope stamping', () => {
   it('preserves the original envelope mutatorVersion (wire compatibility with the inbound)', async () => {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
 
     const inverse: InverseEnvelopeContext = {
       mutatorVersion: 7,
@@ -377,16 +375,12 @@ describe('generateInverseMutation — slotTransfer (rehome undo)', () => {
   });
 
   async function seedParked(withFolder: boolean): Promise<void> {
-    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: { name: 'r' } }), []);
+    await oracle.apply(batchOf(ctx(1_000), { kind: 'create', type: 'rule', id: 'r1', payload: { name: 'r' } }));
     await oracle.apply(
       batchOf(ctx(1_001), { kind: 'create', type: 'collection', id: 'col-1', payload: { name: 'c' } }),
-      [],
     );
     if (withFolder) {
-      await oracle.apply(
-        batchOf(ctx(1_002), { kind: 'create', type: 'folder', id: 'fold-1', payload: { name: 'f' } }),
-        [],
-      );
+      await oracle.apply(batchOf(ctx(1_002), { kind: 'create', type: 'folder', id: 'fold-1', payload: { name: 'f' } }));
     }
     await oracle.apply(
       batchOf(ctx(1_003), {
@@ -397,7 +391,6 @@ describe('generateInverseMutation — slotTransfer (rehome undo)', () => {
         itemId: 'r1',
         item: { uid: 'r1', type: 'rule' },
       }),
-      [],
     );
   }
 
@@ -426,7 +419,7 @@ describe('generateInverseMutation — slotTransfer (rehome undo)', () => {
     ]);
     expect(result.batch.mutations.every((m) => m.mutatorVersion === 2)).toBe(true);
     expect(result.batch.mutations[0].hlc.logical < result.batch.mutations[1].hlc.logical).toBe(true);
-    const applied = await oracle.apply(result.batch, []);
+    const applied = await oracle.apply(result.batch);
     expect(applied.ok).toBe(true);
     expect(oracle.liveOrderedSetItems('collection', 'col-1', ITEMS)).toEqual([]);
     expect(oracle.liveOrderedSetItems('folder', 'fold-1', ITEMS).map((e) => e.itemId)).toEqual(['r1']);
@@ -448,7 +441,6 @@ describe('generateInverseMutation — slotTransfer (rehome undo)', () => {
     await seedParked(true);
     await oracle.apply(
       batchOf(ctx(1_500), { kind: 'removeFromSet', type: 'collection', id: 'col-1', path: ITEMS, itemId: 'r1' }),
-      [],
     );
     const result = generateInverseMutation({
       entityType: 'rule',

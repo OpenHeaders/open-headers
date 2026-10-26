@@ -18,7 +18,6 @@ import {
   type MutatorContext,
   type ParentRefShape,
   RESPONSE_EXAMPLE_ENTITY_TYPE,
-  type SideEffectIntent,
   WS_RESPONSE_EXAMPLE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { buildDeleteGrpcResponseExampleEntityBatch } from '@openheaders/core/sync-builders/mutations/grpc-response-example-mutations';
@@ -30,7 +29,7 @@ import { getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service/a
 import { requestExamples } from '@openheaders/oracle/sync/tree-descendants';
 import { applyRequestMutationOrThrow } from './apply';
 
-type ExampleTombstone = (uid: string, ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+type ExampleTombstone = (uid: string, ctx: MutatorContext) => { batch: MutationBatch };
 
 const EXAMPLE_TOMBSTONES: Record<string, ExampleTombstone> = {
   [RESPONSE_EXAMPLE_ENTITY_TYPE]: buildDeleteResponseExampleEntityBatch,

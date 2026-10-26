@@ -59,7 +59,7 @@ describe('workspace-roots post-state', () => {
       payload: collectionPayload('col00001', 'rules'),
       orderKey: 'b',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const slotEnvelope = intent.batch.mutations.find((m) => m.body.type === WORKSPACE_ROOTS_ENTITY_TYPE);
     expect(slotEnvelope).toBeDefined();
     const post = projectWorkspaceRootsPostState(oracle, slotEnvelope!);
@@ -80,7 +80,6 @@ describe('workspace-roots post-state', () => {
         payload: collectionPayload('col00002', 'rules'),
         orderKey: 'b',
       }).batch,
-      [],
     );
     await oracle.apply(
       createCollection(ctx(2), {
@@ -88,7 +87,6 @@ describe('workspace-roots post-state', () => {
         payload: collectionPayload('col00001', 'rules'),
         orderKey: 'a',
       }).batch,
-      [],
     );
     await oracle.apply(
       createRequestCollection(ctx(3), {
@@ -96,7 +94,6 @@ describe('workspace-roots post-state', () => {
         payload: collectionPayload('rcol0001', 'requests'),
         orderKey: 'c',
       }).batch,
-      [],
     );
     const post = projectWorkspaceRootsSingleton(oracle);
     expect(post?.workspaceRoots.ruleCollections).toEqual(['col00001', 'col00002']);
@@ -112,7 +109,7 @@ describe('workspace-roots post-state', () => {
       collectionUid: 'col00001',
       payload: collectionPayload('col00001', 'rules'),
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(projectWorkspaceRootsPostState(oracle, intent.batch.mutations[0])).toBeNull();
   });
 });
@@ -126,7 +123,6 @@ describe('arrangeInRootsOrder', () => {
         payload: collectionPayload('col00003', 'rules'),
         orderKey: 'a',
       }).batch,
-      [],
     );
     await oracle.apply(
       createCollection(ctx(2), {
@@ -134,7 +130,6 @@ describe('arrangeInRootsOrder', () => {
         payload: collectionPayload('col00001', 'rules'),
         orderKey: 'b',
       }).batch,
-      [],
     );
     const arranged = arrangeInRootsOrder(oracle, WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH, [
       { uid: 'col00009' },

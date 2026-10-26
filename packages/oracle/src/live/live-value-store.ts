@@ -72,10 +72,10 @@ async function applyLiveValueMutation(
   // ride. The value is already in the local blob; it re-seeds into the
   // oracle when this workspace is next bridged. Not an error.
   if (!oracle || !ctx) return;
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
   try {
-    const result = await oracle.apply(batch, sideEffects);
+    const result = await oracle.apply(batch);
     if (!result.ok) {
       logger.info(
         'LiveValueStore',

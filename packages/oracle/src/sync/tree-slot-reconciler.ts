@@ -412,7 +412,7 @@ async function runPass(
   if (pass.bodies.length === 0) return pass.deferred;
 
   const ctx = { ...contextFactory(), batchId: `tree-reconcile-${newBatchId()}` };
-  const result = await oracle.apply(mintBatch(ctx, pass.bodies), [], 'inbound');
+  const result = await oracle.apply(mintBatch(ctx, pass.bodies), 'inbound');
   if (!result.ok) {
     logger.info(
       'TreeSlotReconciler',

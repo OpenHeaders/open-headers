@@ -63,7 +63,7 @@ describe('EnvironmentCache', () => {
     const cache = createEnvironmentCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedEnvironments([makeEnv('a')]);
     const intent = setEnvVar(ctxFactory(), { envId: 'a', variable: { uid: 'vrenvvb12', name: 'B', value: '2', type: 'default' } });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const envs = cache.getEnvironments();
     expect(envs[0].variables.map((v) => v.name).sort()).toEqual(['A', 'B']);
     cache.dispose();
@@ -98,7 +98,7 @@ describe('EnvironmentCache', () => {
     await cache.seedFromPersistedEnvironments([makeEnv('a')]);
     cache.dispose();
     const intent = setEnvVar(ctxFactory(), { envId: 'a', variable: { uid: 'vrenvvb12', name: 'B', value: '2', type: 'default' } });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     // Cache stays at the pre-dispose state.
     expect(cache.getEnvironments()[0].variables.map((v) => v.name)).toEqual(['A']);
   });

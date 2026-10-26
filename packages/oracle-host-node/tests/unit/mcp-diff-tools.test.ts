@@ -81,7 +81,7 @@ describe('workspaces_diff', () => {
     if (!oracleB) throw new Error('wsB not materialized');
     const drifted = { ...created.rule, name: 'API key header (renamed)' };
     const payload = buildAddRuleBatch(drifted, seedCtx(wsB, 1_000), null);
-    const applied = await oracleB.apply(payload.batch, payload.sideEffects);
+    const applied = await oracleB.apply(payload.batch);
     expect(applied.ok).toBe(true);
 
     // Request only in A; environment only in B.

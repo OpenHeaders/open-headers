@@ -307,7 +307,7 @@ describe('handleIncomingMutationFrame', () => {
     // composes this with its own seen-set via `hasRecentlyApplied`.
     const r = makeRule(generateUid(), 'local');
     const batch = mintBatch(ctx(5_000), [{ kind: 'delete', type: RULE_ENTITY_TYPE, id: r.uid }]);
-    await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch });
 
     expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
   });

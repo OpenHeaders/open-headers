@@ -67,12 +67,12 @@ describe('projectCollectionPostState', () => {
   it('returns post-state after seedCollection + setCollectionVar', async () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-1');
-    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(seedCollection(coll, ctx(1)));
     const setIntent = setCollectionVar(ctx(2), {
       collectionUid: coll.uid,
       variable: { uid: 'vrcollnew', name: 'NEW', value: 'v', type: 'default' },
     });
-    const setResult = await oracle.apply(setIntent.batch, []);
+    const setResult = await oracle.apply(setIntent.batch);
     expect(setResult.ok).toBe(true);
 
     const envelope = setIntent.batch.mutations[0];
@@ -106,16 +106,16 @@ describe('projectCollectionPostState', () => {
   it('returns null for tombstoned collections', async () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-2');
-    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(seedCollection(coll, ctx(1)));
     const deleteBatch = mintBatch(ctx(2), [{ kind: 'delete', type: COLLECTION_ENTITY_TYPE, id: coll.uid }]);
-    await oracle.apply(deleteBatch, []);
+    await oracle.apply(deleteBatch);
     expect(projectCollectionByUid(oracle, coll.uid)).toBeNull();
   });
 
   it('reports varUids matching COLLECTION_VARS_PATH itemIds', async () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-3');
-    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(seedCollection(coll, ctx(1)));
     const live = oracle.liveSetItems(COLLECTION_ENTITY_TYPE, coll.uid, COLLECTION_VARS_PATH);
     const projected = projectCollectionByUid(oracle, coll.uid);
     expect(projected?.varUids.sort()).toEqual(live.map((e) => e.itemId).sort());
@@ -129,7 +129,7 @@ describe('projectCollectionPostState', () => {
   it('carries setOrderKeys.folders matching the parent-set order, reflecting moveFolder', async () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-4');
-    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(seedCollection(coll, ctx(1)));
     // Two child folders seed at distinct keys so initial order is stable.
     await oracle.apply(
       createFolder(ctx(2), {
@@ -138,7 +138,6 @@ describe('projectCollectionPostState', () => {
         name: 'A',
         orderKey: 'a0',
       }).batch,
-      [],
     );
     await oracle.apply(
       createFolder(ctx(3), {
@@ -147,7 +146,6 @@ describe('projectCollectionPostState', () => {
         name: 'B',
         orderKey: 'b0',
       }).batch,
-      [],
     );
 
     const before = projectCollectionByUid(oracle, coll.uid);
@@ -160,7 +158,6 @@ describe('projectCollectionPostState', () => {
         newParent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
         orderKey: 'a',
       }).batch,
-      [],
     );
 
     const after = projectCollectionByUid(oracle, coll.uid);
@@ -170,7 +167,7 @@ describe('projectCollectionPostState', () => {
   it('omits setOrderKeys.folders for collections with no child folders', async () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-5');
-    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(seedCollection(coll, ctx(1)));
     const projected = projectCollectionByUid(oracle, coll.uid);
     expect(projected?.setOrderKeys[FOLDER_CHILDREN_PATH]).toBeUndefined();
     // Sanity: seedKey is the canonical first-slot key — kept in this

@@ -25,7 +25,7 @@
 
 import { liveVariablesToPublishOnRun } from '@openheaders/core/live';
 import { LiveVariableSchema } from '@openheaders/core/schemas';
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,
@@ -173,7 +173,7 @@ export async function updateLiveVariable(
   if (payload.batch.mutations.length === 0) {
     return { ok: true, variable: existing };
   }
-  const result = await oracle.apply(payload.batch, payload.sideEffects);
+  const result = await oracle.apply(payload.batch);
   if (!result.ok) {
     return {
       ok: false,
@@ -215,7 +215,7 @@ export async function publishLiveVariablesProducedByRun(
   for (const uid of liveVariablesToPublishOnRun(bound, stepCaptures)) {
     const payload = buildUpdateLiveVariableBatch(uid, { published: true }, ctx);
     if (payload.batch.mutations.length === 0) continue;
-    await oracle.apply(payload.batch, payload.sideEffects);
+    await oracle.apply(payload.batch);
   }
 }
 
@@ -233,7 +233,7 @@ export async function setLiveVariableOverride(
 // ── Sync engine plumbing ────────────────────────────────────────────
 
 async function applyLiveVariableMutationOrThrow(
-  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  factory: (ctx: MutatorContext) => { batch: MutationBatch },
   op: string,
 ): Promise<void> {
   const oracle = getOracleForCurrentWorkspace();
@@ -241,9 +241,9 @@ async function applyLiveVariableMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`LiveVariableStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `LiveVariableStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

@@ -168,7 +168,7 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
     throw new Error('oh.variables.set: sync service not initialized');
   }
   const existing = getWorkspaceVariables().variables.find((v) => v.name === trimmed);
-  const { batch, sideEffects } = buildSetWorkspaceVarBatch(
+  const { batch } = buildSetWorkspaceVarBatch(
     {
       variable: {
         uid: existing?.uid ?? generateUid(),
@@ -190,7 +190,7 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
     const inverse = spec === null ? null : { mutatorVersion: env.mutatorVersion, spec };
     rememberPriorForMutation(env.mutationId, env.workspaceId, prior, inverse);
   }
-  const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects });
+  const response = await applySyncRequest({ type: 'oh.sync.apply', batch });
   if (!response.ok) {
     throw new Error(
       `oh.variables.set: apply rejected (${response.failure?.status} — ${response.failure?.detail ?? 'no detail'})`,

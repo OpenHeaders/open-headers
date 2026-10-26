@@ -127,8 +127,8 @@ function treeSlice<T extends { path: string }>(
 }
 
 async function applyAll(oracle: WorkspaceServiceState['oracle'], batches: EmissionBatch[]): Promise<void> {
-  for (const { label, batch, sideEffects } of batches) {
-    const result = await oracle.apply(batch, sideEffects);
+  for (const { label, batch } of batches) {
+    const result = await oracle.apply(batch);
     if (!result.ok) {
       logger.warn(
         'WorkspaceImportOrchestrator',

@@ -74,7 +74,7 @@ export async function deleteFolder(uid: string): Promise<boolean> {
   }
   for (const nestedUid of cascadingNestedFolderUids) {
     await applyFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteFolderEntityBatch(nestedUid, ctx), sideEffects: [] }),
+      (ctx) => ({ batch: buildDeleteFolderEntityBatch(nestedUid, ctx) }),
       'deleteFolder-cascade-folder',
     );
   }
@@ -85,10 +85,7 @@ export async function deleteFolder(uid: string): Promise<boolean> {
   if (parent) {
     await applyFolderMutationOrThrow((ctx) => buildDeleteFolderBatch({ folderUid: uid, parent }, ctx), 'deleteFolder');
   } else {
-    await applyFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteFolderEntityBatch(uid, ctx), sideEffects: [] }),
-      'deleteFolder',
-    );
+    await applyFolderMutationOrThrow((ctx) => ({ batch: buildDeleteFolderEntityBatch(uid, ctx) }), 'deleteFolder');
   }
   return true;
 }

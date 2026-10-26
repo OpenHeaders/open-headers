@@ -118,7 +118,7 @@ describe('ExtensionWorkspaceCache', () => {
       slot: slot({ id: 'ws-new', name: 'New' }),
       orderKey: 'p',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBeGreaterThan(0);
     expect(cache.getSnapshot().workspaces.map((w) => w.id)).toEqual(['ws-a', 'ws-new']);
     cache.dispose();
@@ -136,7 +136,7 @@ describe('ExtensionWorkspaceCache', () => {
       activeWorkspaceId: 'ws-a',
     });
     const intent = removeExtensionWorkspace(ctxFactory(), { id: 'ws-a' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getSnapshot().workspaces.map((w) => w.id)).toEqual(['ws-b']);
     cache.dispose();
   });
@@ -153,7 +153,7 @@ describe('ExtensionWorkspaceCache', () => {
       activeWorkspaceId: 'ws-a',
     });
     const intent = setActiveExtensionWorkspace(ctxFactory(), { id: 'ws-b' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getSnapshot().activeWorkspaceId).toBe('ws-b');
     cache.dispose();
   });
@@ -174,7 +174,7 @@ describe('ExtensionWorkspaceCache', () => {
     cache.dispose();
 
     const intent = setExtensionWorkspace(ctxFactory(), { slot: slot({ id: 'ws-new' }), orderKey: 'p' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBe(0);
   });
 });

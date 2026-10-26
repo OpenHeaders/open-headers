@@ -80,8 +80,8 @@ describe('buildSnapshotForWorkspace', () => {
   it('captures materialized rules + carries the workspace state vector', async () => {
     const r1 = seedRule(makeRule(generateUid(), 'one'), ctx(1_000));
     const r2 = seedRule(makeRule(generateUid(), 'two'), ctx(2_500));
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r1, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: r2, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r1 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: r2 });
 
     const snap = await buildSnapshotForWorkspace(wsId);
     if (snap === null) throw new Error('expected snapshot for authorized workspace');

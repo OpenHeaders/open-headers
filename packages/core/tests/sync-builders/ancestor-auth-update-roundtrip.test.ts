@@ -112,7 +112,7 @@ function setCollectionPool(
 describe('auth pool round-trip (request-collection)', () => {
   it('seeds the pool as set members and materializes entries + default back in order', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)) });
     const seeded = store.materializeOne('request-collection', 'rc-1');
     if (!seeded) throw new Error('collection did not materialize');
     expect((seeded.data as { auths?: unknown }).auths).toEqual([ADMIN, USER]);
@@ -124,7 +124,7 @@ describe('auth pool round-trip (request-collection)', () => {
 
   it('switching the default is one scalar write; the entries emit nothing', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)) });
     const payload = setCollectionPool(store, [ADMIN, USER], 'auth0001', 2_000);
     expect(payload.batch.mutations.map((m) => m.body.kind)).toEqual(['setField']);
     expect(defaultAuthEntry(materializedCollection(store))).toEqual(ADMIN);
@@ -132,7 +132,7 @@ describe('auth pool round-trip (request-collection)', () => {
 
   it('editing an entry keeps its uid and converges the record', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)) });
     const edited: AuthPoolEntry = { ...USER, config: { type: 'basic', username: 'u', password: 'p' } };
     setCollectionPool(store, [ADMIN, edited], 'auth0002', 2_000);
     expect(materializedCollection(store).auths).toEqual([ADMIN, edited]);
@@ -140,7 +140,7 @@ describe('auth pool round-trip (request-collection)', () => {
 
   it('dropping the default entry with no default leaves the named entries and the level transparent', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)) });
     setCollectionPool(store, [ADMIN], undefined, 2_000);
     const collection = materializedCollection(store);
     expect(collection.auths).toEqual([ADMIN]);
@@ -153,14 +153,14 @@ describe('auth pool round-trip (request-collection)', () => {
 
   it('a default naming no surviving entry persists absent', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)) });
     setCollectionPool(store, [ADMIN], 'auth0002', 2_000);
     expect(materializedCollection(store).defaultAuthUid).toBeUndefined();
   });
 
   it('a no-op edit yields an empty batch', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestCollection(collectionSeed, ctx(1_000)) });
     const payload = buildSetRequestCollectionAuthPoolBatch(poolInput(store, [ADMIN, USER], 'auth0002'), ctx(2_000));
     expect(payload.batch.mutations).toHaveLength(0);
   });
@@ -169,7 +169,7 @@ describe('auth pool round-trip (request-collection)', () => {
     const store = new InMemoryDocumentStore();
     const { auths: _a, defaultAuthUid: _d, ...bare } = collectionSeed;
     const legacy: Collection = { ...bare, auth: { type: 'bearer', token: '{{auth_token}}' } };
-    applyBatch(store, { batch: seedRequestCollection(legacy, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestCollection(legacy, ctx(1_000)) });
     const before = materializedCollection(store);
     expect(before.auth).toEqual({ type: 'bearer', token: '{{auth_token}}' });
     expect(authPoolOf(before)).toEqual({
@@ -188,7 +188,7 @@ describe('auth pool round-trip (request-collection)', () => {
 describe('auth pool round-trip (request-folder)', () => {
   it('seeds a folder pool and materializes it back', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestFolder(folderSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestFolder(folderSeed, ctx(1_000)) });
     const folder = materializedFolder(store);
     expect(folder.auths).toEqual(folderSeed.auths);
     expect(folder.defaultAuthUid).toBe('auth0003');
@@ -196,7 +196,7 @@ describe('auth pool round-trip (request-folder)', () => {
 
   it('replaces the pool and clears the default — the folder goes transparent', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestFolder(folderSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestFolder(folderSeed, ctx(1_000)) });
     applyBatch(
       store,
       buildSetRequestFolderAuthPoolBatch(
@@ -218,7 +218,7 @@ describe('auth pool round-trip (request-folder)', () => {
 
   it('drops a malformed pool member at projection instead of surfacing it', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequestFolder(folderSeed, ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequestFolder(folderSeed, ctx(1_000)) });
     store.apply({
       mutationId: 'mut-partial',
       hlc: { physicalMs: 2_000, logical: 0, nodeId: 'node-x' },

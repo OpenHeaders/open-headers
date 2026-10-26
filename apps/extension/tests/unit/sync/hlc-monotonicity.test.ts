@@ -105,7 +105,7 @@ describe('C12: HLC monotonicity on inbound apply', () => {
       const last = batch.mutations[batch.mutations.length - 1]!;
       expect(compareHlc(last.hlc, batch.mutations[0]!.hlc)).toBeGreaterThan(0);
 
-      await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [], applyOrigin: 'local' });
+      await applySyncRequest({ type: 'oh.sync.apply', batch, applyOrigin: 'local' });
 
       expect(compareHlc(svc.context.next().hlc, last.hlc)).toBeGreaterThan(0);
     } finally {

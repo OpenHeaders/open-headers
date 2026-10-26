@@ -50,14 +50,14 @@ function legacySet(ms: number, path: string, marker: 'paused' | 'unpaused') {
 describe('projectPauseMarkersPostState', () => {
   it('returns post-state after seed + setPauseMarker', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
     const intent = setPauseMarker(ctx(2), {
       type: 'collection',
       uid: 'col00001',
       marker: 'paused',
       path: 'rules/auth-col00001',
     });
-    const result = await oracle.apply(intent.batch, []);
+    const result = await oracle.apply(intent.batch);
     expect(result.ok).toBe(true);
 
     const post = projectPauseMarkersPostState(oracle, intent.batch.mutations[0]);
@@ -69,10 +69,10 @@ describe('projectPauseMarkersPostState', () => {
 
   it('drops a container after clearPauseMarker', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
-    await oracle.apply(setPauseMarker(ctx(2), { type: 'folder', uid: 'a', marker: 'paused' }).batch, []);
-    await oracle.apply(setPauseMarker(ctx(3), { type: 'folder', uid: 'b', marker: 'unpaused' }).batch, []);
-    await oracle.apply(clearPauseMarker(ctx(4), { uid: 'a' }).batch, []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
+    await oracle.apply(setPauseMarker(ctx(2), { type: 'folder', uid: 'a', marker: 'paused' }).batch);
+    await oracle.apply(setPauseMarker(ctx(3), { type: 'folder', uid: 'b', marker: 'unpaused' }).batch);
+    await oracle.apply(clearPauseMarker(ctx(4), { uid: 'a' }).batch);
     const post = projectPauseMarkersSingleton(oracle);
     expect(post?.markers).toEqual({ b: 'unpaused' });
     expect(post?.entries).toEqual([{ type: 'folder', uid: 'b', marker: 'unpaused' }]);
@@ -80,26 +80,26 @@ describe('projectPauseMarkersPostState', () => {
 
   it('reads the later HLC marker on concurrent same-container sets (LWW)', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
-    await oracle.apply(setPauseMarker(ctx(2), { type: 'folder', uid: 'a', marker: 'paused' }).batch, []);
-    await oracle.apply(setPauseMarker(ctx(3), { type: 'folder', uid: 'a', marker: 'unpaused' }).batch, []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
+    await oracle.apply(setPauseMarker(ctx(2), { type: 'folder', uid: 'a', marker: 'paused' }).batch);
+    await oracle.apply(setPauseMarker(ctx(3), { type: 'folder', uid: 'a', marker: 'unpaused' }).batch);
     const post = projectPauseMarkersSingleton(oracle);
     expect(post?.markers).toEqual({ a: 'unpaused' });
   });
 
   it('sorts entries by uid deterministically', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
-    await oracle.apply(setPauseMarker(ctx(2), { type: 'folder', uid: 'z', marker: 'paused' }).batch, []);
-    await oracle.apply(setPauseMarker(ctx(3), { type: 'folder', uid: 'a', marker: 'paused' }).batch, []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
+    await oracle.apply(setPauseMarker(ctx(2), { type: 'folder', uid: 'z', marker: 'paused' }).batch);
+    await oracle.apply(setPauseMarker(ctx(3), { type: 'folder', uid: 'a', marker: 'paused' }).batch);
     const post = projectPauseMarkersSingleton(oracle);
     expect(post?.entries.map((e) => e.uid)).toEqual(['a', 'z']);
   });
 
   it('migrates a version-1 path member on read through its uid tail, keeping the path as the hint', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
-    await oracle.apply(legacySet(2, 'rules/auth-col00001/login-fld00001', 'paused'), []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
+    await oracle.apply(legacySet(2, 'rules/auth-col00001/login-fld00001', 'paused'));
     const post = projectPauseMarkersSingleton(oracle);
     expect(post).toEqual({
       markers: { fld00001: 'paused' },
@@ -111,26 +111,26 @@ describe('projectPauseMarkersPostState', () => {
     // The stored path names the OLD location; the tail still names the
     // folder, so the marker follows the folder rather than the location.
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
-    await oracle.apply(legacySet(2, 'rules/old-col-old/moved-fld00001', 'paused'), []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
+    await oracle.apply(legacySet(2, 'rules/old-col-old/moved-fld00001', 'paused'));
     expect(projectPauseMarkersSingleton(oracle)?.markers).toEqual({ fld00001: 'paused' });
   });
 
   it('drops a version-1 member whose path no container answers to', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
-    await oracle.apply(legacySet(2, 'requests/not-a-rules-tree', 'paused'), []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
+    await oracle.apply(legacySet(2, 'requests/not-a-rules-tree', 'paused'));
     expect(projectPauseMarkersSingleton(oracle)).toEqual({ markers: {}, entries: [] });
   });
 
   it('lets the higher add-HLC win between a version-1 and a uid member for one container', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)), []);
-    await oracle.apply(setPauseMarker(ctx(2), { type: 'collection', uid: 'col00001', marker: 'paused' }).batch, []);
-    await oracle.apply(legacySet(5, 'rules/auth-col00001', 'unpaused'), []);
+    await oracle.apply(seedPauseMarkers({ markers: {}, entries: [] }, ctx(1)));
+    await oracle.apply(setPauseMarker(ctx(2), { type: 'collection', uid: 'col00001', marker: 'paused' }).batch);
+    await oracle.apply(legacySet(5, 'rules/auth-col00001', 'unpaused'));
     expect(projectPauseMarkersSingleton(oracle)?.markers).toEqual({ col00001: 'unpaused' });
 
-    await oracle.apply(setPauseMarker(ctx(9), { type: 'collection', uid: 'col00001', marker: 'paused' }).batch, []);
+    await oracle.apply(setPauseMarker(ctx(9), { type: 'collection', uid: 'col00001', marker: 'paused' }).batch);
     expect(projectPauseMarkersSingleton(oracle)?.markers).toEqual({ col00001: 'paused' });
   });
 

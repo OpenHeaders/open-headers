@@ -67,12 +67,10 @@ describe('computeSnapshotThresholdInputsForWorkspace', () => {
     await applySyncRequest({
       type: 'oh.sync.apply',
       batch: seedRule(makeRule(generateUid()), ctx(1_000)),
-      sideEffects: [],
     });
     await applySyncRequest({
       type: 'oh.sync.apply',
       batch: seedRule(makeRule(generateUid()), ctx(2_000)),
-      sideEffects: [],
     });
 
     // Each rule's seedRule produces a `create` + N `addToSet` (per the rule's
@@ -86,7 +84,6 @@ describe('computeSnapshotThresholdInputsForWorkspace', () => {
     await applySyncRequest({
       type: 'oh.sync.apply',
       batch: seedRule(makeRule(generateUid()), ctx(1_000)),
-      sideEffects: [],
     });
     const local: StateVector = await readWorkspaceStateVector(wsId);
     const inputs = await computeSnapshotThresholdInputsForWorkspace(wsId, local);
@@ -97,7 +94,6 @@ describe('computeSnapshotThresholdInputsForWorkspace', () => {
     await applySyncRequest({
       type: 'oh.sync.apply',
       batch: seedRule(makeRule(generateUid()), ctx(1_000)),
-      sideEffects: [],
     });
 
     const without = await computeSnapshotThresholdInputsForWorkspace(wsId, {});

@@ -152,7 +152,7 @@ describe('VaultCache — undecryptable-baseline lock', () => {
     const intent = setVaultSecret(ctxFactory(), {
       secret: { uid: 'scbxxxxxx', kind: 'string', name: 'RECOVERED', value: 're' },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
 
     expect(cache.isVaultLocked()).toBe(false);
     expect(cache.getVault().secrets.map((s) => s.name)).toEqual(['RECOVERED']);

@@ -182,15 +182,13 @@ beforeEach(async () => {
     broadcast: new InMemoryBroadcast(),
     schemas: buildSchemaRegistry(WORKSPACE_REGISTRY),
   });
-  for (const coll of [colA, colB]) await oracle.apply(seedRequestCollection(coll, ctxFactory()), [], 'inbound');
+  for (const coll of [colA, colB]) await oracle.apply(seedRequestCollection(coll, ctxFactory()), 'inbound');
   await oracle.apply(
     createRequestFolder(ctxFactory(), { folderUid: F.uid, parent: A, name: 'F', pathSegment: 'f-fol0000f' }).batch,
-    [],
     'inbound',
   );
   await oracle.apply(
     createRequestFolder(ctxFactory(), { folderUid: G.uid, parent: F, name: 'G', pathSegment: 'g-fol0000g' }).batch,
-    [],
     'inbound',
   );
 });
@@ -200,13 +198,13 @@ const sortedLeaves = (leaves: ReadonlyArray<{ type: string; uid: string }>) =>
 
 describe('treeDescendants', () => {
   it('takes every request kind under the container, nested folders deepest-first, and a slot-less leaf by its stored path', async () => {
-    await oracle.apply(seedRequest(http('req00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
-    await oracle.apply(seedGrpcRequest(grpc('grq00001', F_PATH), ctxFactory(), { parent: F }), [], 'inbound');
-    await oracle.apply(seedWebSocketRequest(ws('wsr00001', G_PATH), ctxFactory(), { parent: G }), [], 'inbound');
+    await oracle.apply(seedRequest(http('req00001', colA.path), ctxFactory(), { parent: A }), 'inbound');
+    await oracle.apply(seedGrpcRequest(grpc('grq00001', F_PATH), ctxFactory(), { parent: F }), 'inbound');
+    await oracle.apply(seedWebSocketRequest(ws('wsr00001', G_PATH), ctxFactory(), { parent: G }), 'inbound');
     // An old-client create: stored path under F, no slot yet.
-    await oracle.apply(seedMqttRequest(mqtt('mqr00001', F_PATH), ctxFactory()), [], 'inbound');
+    await oracle.apply(seedMqttRequest(mqtt('mqr00001', F_PATH), ctxFactory()), 'inbound');
     // Another collection's leaf is nobody's business here.
-    await oracle.apply(seedRequest(http('req00002', colB.path), ctxFactory(), { parent: B }), [], 'inbound');
+    await oracle.apply(seedRequest(http('req00002', colB.path), ctxFactory(), { parent: B }), 'inbound');
 
     const under = treeDescendants(oracle, REQUEST_TREE, A);
     expect(under.folders).toEqual([G.uid, F.uid]);
@@ -223,15 +221,14 @@ describe('treeDescendants', () => {
   });
 
   it('follows the slots, not a stale path: a leaf dragged out is spared, one dragged in is taken', async () => {
-    await oracle.apply(seedGrpcRequest(grpc('grq00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
-    await oracle.apply(seedGrpcRequest(grpc('grq00002', colB.path), ctxFactory(), { parent: B }), [], 'inbound');
+    await oracle.apply(seedGrpcRequest(grpc('grq00001', colA.path), ctxFactory(), { parent: A }), 'inbound');
+    await oracle.apply(seedGrpcRequest(grpc('grq00002', colB.path), ctxFactory(), { parent: B }), 'inbound');
     // grq00001 moves A → B; grq00002 moves B → A. Neither stored path changes.
     await oracle.apply(
       mintBatch(ctxFactory(), [
         grpcRequestChild.slotRemove('grq00001', A),
         grpcRequestChild.slotAdd('grq00001', B, 'z'),
       ]),
-      [],
       'inbound',
     );
     await oracle.apply(
@@ -239,7 +236,6 @@ describe('treeDescendants', () => {
         grpcRequestChild.slotRemove('grq00002', B),
         grpcRequestChild.slotAdd('grq00002', A, 'z'),
       ]),
-      [],
       'inbound',
     );
     expect(sortedLeaves(treeDescendants(oracle, REQUEST_TREE, A).leaves)).toEqual([
@@ -251,41 +247,38 @@ describe('treeDescendants', () => {
   });
 
   it('counts a child in two live slots under the one its projected path names', async () => {
-    await oracle.apply(seedGrpcRequest(grpc('grq00001', colB.path), ctxFactory(), { parent: B }), [], 'inbound');
+    await oracle.apply(seedGrpcRequest(grpc('grq00001', colB.path), ctxFactory(), { parent: B }), 'inbound');
     // A peer's concurrent move: a second, later slot under A (the higher add-HLC wins the projection).
-    await oracle.apply(mintBatch(ctxFactory(), [grpcRequestChild.slotAdd('grq00001', A, 'z')]), [], 'inbound');
+    await oracle.apply(mintBatch(ctxFactory(), [grpcRequestChild.slotAdd('grq00001', A, 'z')]), 'inbound');
     expect(treeDescendants(oracle, REQUEST_TREE, A).leaves.map((leaf) => leaf.uid)).toEqual(['grq00001']);
     expect(treeDescendants(oracle, REQUEST_TREE, B).leaves).toEqual([]);
   });
 
   it("takes each leaf's examples with it: slotted, slot-less by its parent field, a two-slot example under its winner only", async () => {
-    await oracle.apply(seedRequest(http('req00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
-    await oracle.apply(seedRequest(http('req00002', colB.path), ctxFactory(), { parent: B }), [], 'inbound');
-    await oracle.apply(seedGrpcRequest(grpc('grq00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
+    await oracle.apply(seedRequest(http('req00001', colA.path), ctxFactory(), { parent: A }), 'inbound');
+    await oracle.apply(seedRequest(http('req00002', colB.path), ctxFactory(), { parent: B }), 'inbound');
+    await oracle.apply(seedGrpcRequest(grpc('grq00001', colA.path), ctxFactory(), { parent: A }), 'inbound');
     const r1 = { type: REQUEST_ENTITY_TYPE, uid: 'req00001' } as const;
     const r2 = { type: REQUEST_ENTITY_TYPE, uid: 'req00002' } as const;
     const g1 = { type: GRPC_REQUEST_ENTITY_TYPE, uid: 'grq00001' } as const;
     // Slotted under req00001.
     await oracle.apply(
       seedResponseExample(httpExample('ex000001', 'req00001'), ctxFactory(), { parent: r1 }),
-      [],
       'inbound',
     );
     // An old-client capture: the parent field says req00001, no slot anywhere.
-    await oracle.apply(seedResponseExample(httpExample('ex000002', 'req00001'), ctxFactory()), [], 'inbound');
+    await oracle.apply(seedResponseExample(httpExample('ex000002', 'req00001'), ctxFactory()), 'inbound');
     // Captured against req00002, then a later slot under req00001: the higher add-HLC slot wins.
     await oracle.apply(
       seedResponseExample(httpExample('ex000003', 'req00002'), ctxFactory(), { parent: r2 }),
-      [],
       'inbound',
     );
-    await oracle.apply(mintBatch(ctxFactory(), [responseExampleChild.slotAdd('ex000003', r1, 'z')]), [], 'inbound');
+    await oracle.apply(mintBatch(ctxFactory(), [responseExampleChild.slotAdd('ex000003', r1, 'z')]), 'inbound');
     // A dead slot: the example was deleted, its slot lingers.
-    await oracle.apply(mintBatch(ctxFactory(), [responseExampleChild.slotAdd('ex00dead', r1, 'zz')]), [], 'inbound');
+    await oracle.apply(mintBatch(ctxFactory(), [responseExampleChild.slotAdd('ex00dead', r1, 'zz')]), 'inbound');
     // Another kind, slotted under the gRPC request.
     await oracle.apply(
       seedGrpcResponseExample(grpcExample('gex00001', 'grq00001'), ctxFactory(), { parent: g1 }),
-      [],
       'inbound',
     );
 
@@ -305,8 +298,8 @@ describe('treeDescendants', () => {
   });
 
   it('takes a GraphQL request’s examples with it — the HTTP example kind under the GraphQL leaf', async () => {
-    await oracle.apply(seedGraphqlRequest(graphql('gql00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
-    await oracle.apply(seedRequest(http('req00001', colA.path), ctxFactory(), { parent: A }), [], 'inbound');
+    await oracle.apply(seedGraphqlRequest(graphql('gql00001', colA.path), ctxFactory(), { parent: A }), 'inbound');
+    await oracle.apply(seedRequest(http('req00001', colA.path), ctxFactory(), { parent: A }), 'inbound');
     const q1 = { type: GRAPHQL_REQUEST_ENTITY_TYPE, uid: 'gql00001' } as const;
     const r1 = { type: REQUEST_ENTITY_TYPE, uid: 'req00001' } as const;
     // Slotted under the GraphQL request — the marker names the parent kind.
@@ -314,19 +307,16 @@ describe('treeDescendants', () => {
       seedResponseExample({ ...httpExample('ex000011', 'gql00001'), requestKind: 'graphql' }, ctxFactory(), {
         parent: q1,
       }),
-      [],
       'inbound',
     );
     // An old-client capture whose parent field names the GraphQL request, no slot.
     await oracle.apply(
       seedResponseExample({ ...httpExample('ex000012', 'gql00001'), requestKind: 'graphql' }, ctxFactory()),
-      [],
       'inbound',
     );
     // The HTTP sibling's own example stays its own.
     await oracle.apply(
       seedResponseExample(httpExample('ex000013', 'req00001'), ctxFactory(), { parent: r1 }),
-      [],
       'inbound',
     );
 

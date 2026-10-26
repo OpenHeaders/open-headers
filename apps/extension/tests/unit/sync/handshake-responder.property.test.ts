@@ -104,7 +104,7 @@ function makeReply(closeAfter: number | null) {
 async function seedMutations(mutations: Mutation[]): Promise<void> {
   for (const m of mutations) {
     const batch = seedRule(makeRule(`r-${m.nodeId}-${m.physicalMs}`), ctx(m));
-    await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch });
   }
 }
 

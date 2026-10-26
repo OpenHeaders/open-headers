@@ -447,7 +447,7 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
     throw new Error('oh.variables.set: sync service not initialized');
   }
   const existing = getWorkspaceVariables().variables.find((v) => v.name === trimmed);
-  const { batch, sideEffects } = buildSetWorkspaceVarBatch(
+  const { batch } = buildSetWorkspaceVarBatch(
     {
       variable: {
         uid: existing?.uid ?? generateUid(),
@@ -458,7 +458,7 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
     },
     ctx,
   );
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `oh.variables.set: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

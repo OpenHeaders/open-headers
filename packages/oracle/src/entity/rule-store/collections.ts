@@ -48,7 +48,7 @@ export function ensureDefaultCollection(): Collection {
   setCollections([...collections, collection]);
   const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH);
   void applyCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedCollection(collection, ctx, placement), sideEffects: [] }),
+    (ctx) => ({ batch: seedCollection(collection, ctx, placement) }),
     'ensureDefaultCollection',
   );
   return collection;
@@ -70,7 +70,7 @@ export async function createCollection(name: string): Promise<Collection> {
   const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH);
   try {
     await applyCollectionMutationOrThrow(
-      (ctx) => ({ batch: seedCollection(collection, ctx, placement), sideEffects: [] }),
+      (ctx) => ({ batch: seedCollection(collection, ctx, placement) }),
       'createCollection',
     );
   } catch (err) {
@@ -119,10 +119,7 @@ export async function deleteCollection(uid: string): Promise<boolean> {
       }
       for (const folderUid of cascadingFolderUids) {
         await applyFolderMutationOrThrow(
-          (ctx) => ({
-            batch: buildDeleteFolderEntityBatch(folderUid, ctx),
-            sideEffects: [],
-          }),
+          (ctx) => ({ batch: buildDeleteFolderEntityBatch(folderUid, ctx) }),
           'deleteCollection-cascade-folder',
         );
       }

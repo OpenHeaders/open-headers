@@ -131,7 +131,7 @@ async function saveExampleUnder(request: Request): Promise<void> {
   const ctx = nextSwMutatorContextForWorkspace(wsId, { surfaceId: 'test' });
   if (!ctx) throw new Error('landing workspace is not loaded');
   const uid = generateUid();
-  const { batch, sideEffects } = buildAddResponseExampleBatch(
+  const { batch } = buildAddResponseExampleBatch(
     {
       schemaVersion: 5,
       uid,
@@ -160,7 +160,7 @@ async function saveExampleUnder(request: Request): Promise<void> {
     ctx,
     { parent: { type: REQUEST_ENTITY_TYPE, uid: request.uid } },
   );
-  const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects });
+  const response = await applySyncRequest({ type: 'oh.sync.apply', batch });
   if (!response.ok) throw new Error('example seed failed');
 }
 
@@ -545,11 +545,7 @@ describe('materializePostmanPull', () => {
     };
     const seed = async (uid: string, name: string, value: string, orderKey: string) => {
       const intent = buildSetWorkspaceVarBatch({ variable: { uid, name, value, type: 'default' }, orderKey }, ctx());
-      const response = await applySyncRequest({
-        type: 'oh.sync.apply',
-        batch: intent.batch,
-        sideEffects: intent.sideEffects,
-      });
+      const response = await applySyncRequest({ type: 'oh.sync.apply', batch: intent.batch });
       if (!response.ok) throw new Error('workspace var seed failed');
     };
     const hostUid = generateUid();

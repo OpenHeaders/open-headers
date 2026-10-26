@@ -55,8 +55,8 @@ describe('snapshotRulePostStates', () => {
     const oracle = getOracleForCurrentWorkspace()!;
     const r1 = makeRule(generateUid(), 'one');
     const r2 = makeRule(generateUid(), 'two');
-    await oracle.apply(seedRule(r1, ctx(1_000)), []);
-    await oracle.apply(seedRule(r2, ctx(2_000)), []);
+    await oracle.apply(seedRule(r1, ctx(1_000)));
+    await oracle.apply(seedRule(r2, ctx(2_000)));
 
     const entries = snapshotRulePostStates();
     expect(entries.map((e) => e.rule.name).sort()).toEqual(['one', 'two']);
@@ -69,13 +69,9 @@ describe('snapshotRulePostStates', () => {
   it('reflects post-toggle state', async () => {
     const oracle = getOracleForCurrentWorkspace()!;
     const r = makeRule(generateUid(), 'before');
-    await oracle.apply(seedRule(r, ctx(1_000)), []);
+    await oracle.apply(seedRule(r, ctx(1_000)));
     const intent = toggleEnabled(ctx(2_000), { ruleUid: r.uid, enabled: false });
-    await applySyncRequest({
-      type: 'oh.sync.apply',
-      batch: intent.batch,
-      sideEffects: intent.sideEffects,
-    });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: intent.batch });
 
     const [entry] = snapshotRulePostStates();
     expect(entry.rule.uid).toBe(r.uid);
@@ -85,11 +81,9 @@ describe('snapshotRulePostStates', () => {
   it('omits tombstoned rules', async () => {
     const oracle = getOracleForCurrentWorkspace()!;
     const r = makeRule(generateUid());
-    await oracle.apply(seedRule(r, ctx(1_000)), []);
+    await oracle.apply(seedRule(r, ctx(1_000)));
     await oracle.apply(
-      mintBatch(ctx(2_000), [{ kind: 'delete', type: RULE_ENTITY_TYPE, id: r.uid }]),
-      [],
-    );
+      mintBatch(ctx(2_000), [{ kind: 'delete', type: RULE_ENTITY_TYPE, id: r.uid }]));
     expect(snapshotRulePostStates()).toEqual([]);
   });
 

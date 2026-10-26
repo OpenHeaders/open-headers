@@ -61,7 +61,7 @@ describe('EntityOracle.apply', () => {
   it('commits a single-mutation batch: store, log, intents, broadcast', async () => {
     const h = makeHarness();
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    const result = await h.oracle.apply(intent.batch, intent.sideEffects);
+    const result = await h.oracle.apply(intent.batch);
 
     expect(result.ok).toBe(true);
     expect(result.outcomes).toHaveLength(1);
@@ -79,13 +79,13 @@ describe('EntityOracle.apply', () => {
 
   it('respects HLC LWW across two batches on the same field', async () => {
     const h = makeHarness();
-    await h.oracle.apply(createR1(500), []);
+    await h.oracle.apply(createR1(500));
     const earlier = toggleEnabled(ctx(1_000, 'node-a'), { ruleUid: 'r1', enabled: false });
     const later = toggleEnabled(ctx(2_000, 'node-b'), { ruleUid: 'r1', enabled: true });
 
     // Apply later first, then earlier — earlier loses by HLC.
-    await h.oracle.apply(later.batch, later.sideEffects);
-    await h.oracle.apply(earlier.batch, earlier.sideEffects);
+    await h.oracle.apply(later.batch);
+    await h.oracle.apply(earlier.batch);
 
     const snap = h.oracle.materializeAll();
     expect(snap).toHaveLength(1);
@@ -94,7 +94,7 @@ describe('EntityOracle.apply', () => {
 
   it('multi-mutation batch (addHeaderMod + toggleEnabled) commits as one unit', async () => {
     const h = makeHarness();
-    await h.oracle.apply(createR1(500), []);
+    await h.oracle.apply(createR1(500));
     const sharedBatch = newBatchId();
     const headerIntent = addHeaderMod(
       { ...ctx(1_000), batchId: sharedBatch },
@@ -110,9 +110,8 @@ describe('EntityOracle.apply', () => {
     // Splice the toggle's mutation into the header batch so they
     // share a single batchId end-to-end.
     headerIntent.batch.mutations.push(...toggleIntent.batch.mutations);
-    headerIntent.sideEffects.push(...toggleIntent.sideEffects);
 
-    const result = await h.oracle.apply(headerIntent.batch, headerIntent.sideEffects);
+    const result = await h.oracle.apply(headerIntent.batch);
     expect(result.ok).toBe(true);
     const batchEvents = h.events.filter((e) => e.batchId === sharedBatch);
     expect(batchEvents).toHaveLength(2);
@@ -148,25 +147,24 @@ describe('EntityOracle.apply', () => {
     const h = makeHarness(queueingLock);
     const a = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
     const b = toggleEnabled(ctx(2_000), { ruleUid: 'r1', enabled: false });
-    await Promise.all([h.oracle.apply(a.batch, a.sideEffects), h.oracle.apply(b.batch, b.sideEffects)]);
+    await Promise.all([h.oracle.apply(a.batch), h.oracle.apply(b.batch)]);
     expect(observedConcurrent).toBeLessThanOrEqual(1);
   });
 
-  it('drops a duplicate mutationId without re-broadcasting', async () => {
+  it('a replayed mutationId is silent: duplicate outcome, no second broadcast, log row or intent', async () => {
     const h = makeHarness();
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    await h.oracle.apply(intent.batch, intent.sideEffects);
-    const replay = {
-      batchId: intent.batch.batchId,
-      mutations: [{ ...intent.batch.mutations[0], mutationId: intent.batch.mutations[0].mutationId }],
-    };
-    const result = await h.oracle.apply(replay, []);
+    await h.oracle.apply(intent.batch);
+    const replay = { batchId: newBatchId(), mutations: [...intent.batch.mutations] };
+    const result = await h.oracle.apply(replay);
     expect(result.ok).toBe(true);
     expect(result.outcomes[0].outcome.status).toBe('duplicate');
-    // Broadcast publishes the duplicate event too — surfaces decide
-    // what to do with it (typically: drop from pending). The contract
-    // is "every committed envelope gets one broadcast"; duplicate is
-    // committed-as-no-op.
-    expect(h.events).toHaveLength(2);
+    // Novelty is decided against the durable log at the commit point;
+    // a replay commits nothing, so nothing is broadcast for it.
+    expect(h.events).toHaveLength(1);
+    const persisted: unknown[] = [];
+    for await (const e of h.log.readSince(null)) persisted.push(e);
+    expect(persisted).toHaveLength(1);
+    expect(await h.intents.list()).toHaveLength(1);
   });
 });

@@ -97,9 +97,7 @@ describe('sync-rpc permission gate', () => {
   });
 
   it('denies oh.sync.apply when no identity snapshot is installed', () => {
-    expect(() => dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] })).toThrow(
-      PermissionDeniedError,
-    );
+    expect(() => dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS) })).toThrow(PermissionDeniedError);
     expect(audits).toHaveLength(1);
     expect(audits[0]?.decision.allow).toBe(false);
     expect(audits[0]?.decision.reason).toBe('no-current-user');
@@ -117,7 +115,7 @@ describe('sync-rpc permission gate', () => {
     // we only assert the gate passed (no throw) and the audit recorded ALLOW.
     let threw: unknown = null;
     try {
-      const result = dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] });
+      const result = dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS) });
       // Drain async result to surface any underlying handler error.
       if (result && result.kind === 'async') await result.promise.catch(() => undefined);
     } catch (err) {
@@ -177,7 +175,7 @@ describe('sync-rpc permission gate', () => {
       if (!created.ok) throw new Error('setup failed');
 
       const result = dispatchSyncRpc(
-        { type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] },
+        { type: 'oh.sync.apply', batch: makeApplyBatch(WS) },
         { userId: created.record.user.id },
       );
       expect(result?.kind).toBe('async');
@@ -197,7 +195,7 @@ describe('sync-rpc permission gate', () => {
       await grantWorkspaceRole({ principalId: created.record.principal.id, workspaceId: WS, role: 'editor' });
 
       const result = dispatchSyncRpc(
-        { type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] },
+        { type: 'oh.sync.apply', batch: makeApplyBatch(WS) },
         { userId: created.record.user.id },
       );
       expect(result?.kind).toBe('async');
@@ -216,10 +214,7 @@ describe('sync-rpc permission gate', () => {
       await ensureWorkspaceRoleAssignments([WS]);
       await refreshIdentitySnapshotFromHostStorage();
 
-      const result = dispatchSyncRpc(
-        { type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] },
-        { userId: record.user.id },
-      );
+      const result = dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS) }, { userId: record.user.id });
       expect(result?.kind).toBe('async');
       if (result?.kind !== 'async') return;
       await result.promise.catch((err: unknown) => {
@@ -308,7 +303,7 @@ describe('sync-rpc permission gate', () => {
     await refreshIdentitySnapshotFromHostStorage();
 
     try {
-      const result = dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] });
+      const result = dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS) });
       if (result && result.kind === 'async') await result.promise.catch(() => undefined);
     } catch {
       // Underlying handler may throw; we only assert audit correctness.

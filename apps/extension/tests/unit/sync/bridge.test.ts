@@ -44,11 +44,7 @@ describe('sync bridge', () => {
       broadcast,
     });
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    const req: SyncApplyRequest = {
-      type: SYNC_APPLY_TYPE,
-      batch: intent.batch,
-      sideEffects: intent.sideEffects,
-    };
+    const req: SyncApplyRequest = { type: SYNC_APPLY_TYPE, batch: intent.batch };
     const ack = await handleSyncApply(oracle, req);
     expect(ack.ok).toBe(true);
     if (ack.ok) {
@@ -69,7 +65,7 @@ describe('sync bridge', () => {
     const sink: SyncBroadcastEvent[] = [];
     const off = wireBroadcastToSink(broadcast, (e) => sink.push(e));
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    await oracle.apply(intent.batch, intent.sideEffects);
+    await oracle.apply(intent.batch);
     off();
     expect(sink).toHaveLength(1);
     expect(sink[0].type).toBe(SYNC_BROADCAST_TYPE);
@@ -102,7 +98,7 @@ describe('sync bridge', () => {
     };
     const off = wireBroadcastToSink(broadcast, (e) => sink.push(e), projector);
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    await oracle.apply(intent.batch, intent.sideEffects);
+    await oracle.apply(intent.batch);
     off();
     expect(seen).toHaveLength(1);
     expect(sink[0].rulePostState?.setItemIds.conditions).toEqual(['a', 'b']);
@@ -126,7 +122,7 @@ describe('sync bridge', () => {
       },
     );
     const intent = toggleEnabled(ctx(1_000), { ruleUid: 'r1', enabled: true });
-    await oracle.apply(intent.batch, intent.sideEffects);
+    await oracle.apply(intent.batch);
     off();
     expect(sink).toHaveLength(1);
     expect(sink[0].rulePostState).toBeUndefined();

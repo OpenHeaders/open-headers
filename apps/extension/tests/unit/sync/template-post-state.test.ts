@@ -64,14 +64,14 @@ describe('projectTemplatePostState', () => {
   it('returns post-state for a Template envelope after seed + add condition', async () => {
     const oracle = newOracle();
     const tpl = makeTemplate('tp1');
-    await oracle.apply(seedTemplate(tpl, ctx(1)), []);
+    await oracle.apply(seedTemplate(tpl, ctx(1)));
 
     const intent = addTemplateCondition(ctx(2), {
       templateUid: 'tp1',
       condition: { uid: 'cnd00002', type: 'method', values: ['POST'] },
       itemId: 'c-method',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
 
     const env = intent.batch.mutations[0];
     const post = projectTemplatePostState(oracle, env);
@@ -101,11 +101,10 @@ describe('projectTemplatePostState', () => {
 
   it('returns null after the template is deleted (tombstone)', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedTemplate(makeTemplate('tp-del'), ctx(1)), []);
+    await oracle.apply(seedTemplate(makeTemplate('tp-del'), ctx(1)));
     await oracle.apply(
       deleteTemplate(ctx(2), { templateUid: 'tp-del', parent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: 'col-1' } })
         .batch,
-      [],
     );
     expect(projectTemplateByUid(oracle, 'tp-del')).toBeNull();
   });
@@ -114,15 +113,15 @@ describe('projectTemplatePostState', () => {
     const oracle = newOracle();
     const tpl = makeTemplate('tp-empty');
     tpl.conditions = [];
-    await oracle.apply(seedTemplate(tpl, ctx(1)), []);
+    await oracle.apply(seedTemplate(tpl, ctx(1)));
     const post = projectTemplateByUid(oracle, 'tp-empty');
     expect(post?.setItemIds[TEMPLATE_CONDITIONS_PATH]).toBeUndefined();
   });
 
   it('reflects scalar setField on the template shape', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedTemplate(makeTemplate('tp-s'), ctx(1)), []);
-    await oracle.apply(setTemplateField(ctx(2), { templateUid: 'tp-s', path: 'name', value: 'updated' }).batch, []);
+    await oracle.apply(seedTemplate(makeTemplate('tp-s'), ctx(1)));
+    await oracle.apply(setTemplateField(ctx(2), { templateUid: 'tp-s', path: 'name', value: 'updated' }).batch);
     const post = projectTemplateByUid(oracle, 'tp-s');
     expect(post?.template.name).toBe('updated');
   });

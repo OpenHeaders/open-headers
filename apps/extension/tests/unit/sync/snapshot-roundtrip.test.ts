@@ -77,8 +77,8 @@ describe('snapshot build → apply round-trip', () => {
   it('rehydrates a workspace from a snapshot blob', async () => {
     const r1 = makeRule(generateUid(), 'rule-one');
     const r2 = makeRule(generateUid(), 'rule-two');
-    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(r1, ctx('source')), sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(r2, ctx('source')), sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(r1, ctx('source')) });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(r2, ctx('source')) });
 
     const snap = await buildSnapshotForWorkspace(wsId);
     if (snap === null) throw new Error('expected snapshot for authorized workspace');
@@ -109,7 +109,7 @@ describe('snapshot build → apply round-trip', () => {
       pinnedEnvironmentIds: [],
       defaultEnvironmentId: null,
     } as unknown as Collection;
-    const apply = (batch: MutationBatch) => applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
+    const apply = (batch: MutationBatch) => applySyncRequest({ type: 'oh.sync.apply', batch });
     await apply(seedCollection(collection, ctx('source'), { parent: WORKSPACE_ROOTS_REF, orderKey: 'a' }));
     await apply(
       createFolder(ctx('source'), {
@@ -191,7 +191,7 @@ describe('snapshot build → apply round-trip', () => {
         durationMs: 42,
       },
     });
-    const apply = (batch: MutationBatch) => applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
+    const apply = (batch: MutationBatch) => applySyncRequest({ type: 'oh.sync.apply', batch });
     await apply(seedRequestCollection(collection, ctx('source'), { parent: WORKSPACE_ROOTS_REF, orderKey: 'a' }));
     await apply(
       seedRequest(request, ctx('source'), {
@@ -220,6 +220,21 @@ describe('snapshot build → apply round-trip', () => {
     const paths = new Map(reSnap.responseExamples.map((e) => [e.responseExample.uid, e.responseExample.path]));
     expect(paths.get('ex000002')).toBe(`${request.path}/examples/ping-ex000002`);
     expect(paths.get('ex000001')).toBe(`${request.path}/examples/ping-ex000001`);
+  });
+
+  it('bootstrapped rules drive the DNR recompile: the applier commits seeds the oracle derives intents from', async () => {
+    const r1 = makeRule(generateUid(), 'rule-one');
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(r1, ctx('source')) });
+    const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
+
+    disposeSyncService();
+    const recompiles: string[] = [];
+    __initSyncServiceForTests(wsId, { recompile: (reason) => recompiles.push(reason) });
+
+    await applyWorkspaceSnapshot(snap, { makeContext: () => ctx() });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(recompiles).toEqual(['rules']);
   });
 
   it('rejects a snapshot with an unknown schemaVersion', async () => {

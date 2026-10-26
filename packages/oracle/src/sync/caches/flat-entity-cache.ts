@@ -140,7 +140,7 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
     try {
       for (const entity of persisted) {
         const batch = config.seed(entity, contextFactory());
-        const result = await oracle.apply(batch, [], 'inbound');
+        const result = await oracle.apply(batch, 'inbound');
         if (!result.ok) {
           logger.info(
             config.loggerTag,

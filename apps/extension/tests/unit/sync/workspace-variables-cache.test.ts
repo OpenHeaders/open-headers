@@ -72,7 +72,7 @@ describe('WorkspaceVariablesCache', () => {
       makeWorkspaceVars([{ uid: '0956e8ce', name: 'A', value: '1', type: 'default' }]),
     );
     const intent = setWorkspaceVar(ctxFactory(), { variable: { uid: 'vrwsvarb2', name: 'B', value: '2', type: 'default' } });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const snap = cache.getWorkspaceVariables();
     expect(snap.variables.map((v) => v.name).sort()).toEqual(['A', 'B']);
     cache.dispose();
@@ -107,7 +107,7 @@ describe('WorkspaceVariablesCache', () => {
     );
     cache.dispose();
     const intent = setWorkspaceVar(ctxFactory(), { variable: { uid: 'vrwsvarb2', name: 'B', value: '2', type: 'default' } });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getWorkspaceVariables().variables.map((v) => v.name)).toEqual(['A']);
   });
 });

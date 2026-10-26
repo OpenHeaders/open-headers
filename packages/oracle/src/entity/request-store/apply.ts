@@ -1,6 +1,6 @@
 // ── Sync engine plumbing ────────────────────────────────────────────
 
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service/accessors';
 
 /**
@@ -12,7 +12,6 @@ import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders
 export async function applyRequestMutationOrThrow(
   factory: (ctx: MutatorContext) => {
     batch: MutationBatch;
-    sideEffects: SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -21,9 +20,9 @@ export async function applyRequestMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`RequestStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `RequestStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
@@ -34,7 +33,6 @@ export async function applyRequestMutationOrThrow(
 export async function applyRequestCollectionMutationOrThrow(
   factory: (ctx: MutatorContext) => {
     batch: MutationBatch;
-    sideEffects: SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -43,9 +41,9 @@ export async function applyRequestCollectionMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`RequestStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `RequestStore.${op}: oracle rejected request-collection batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
@@ -56,7 +54,6 @@ export async function applyRequestCollectionMutationOrThrow(
 export async function applyRequestFolderMutationOrThrow(
   factory: (ctx: MutatorContext) => {
     batch: MutationBatch;
-    sideEffects: SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -65,9 +62,9 @@ export async function applyRequestFolderMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`RequestStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `RequestStore.${op}: oracle rejected request-folder batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

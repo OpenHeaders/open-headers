@@ -58,12 +58,12 @@ describe('projectEnvironmentPostState', () => {
     const oracle = newOracle();
     const env = makeEnv('env-1');
     const seedBatch = seedEnvironment(env, ctx(1));
-    await oracle.apply(seedBatch, []);
+    await oracle.apply(seedBatch);
     const setIntent = setEnvVar(ctx(2), {
       envId: env.uid,
       variable: { uid: 'vrenvnew1', name: 'NEW_VAR', value: 'v', type: 'default' },
     });
-    const setResult = await oracle.apply(setIntent.batch, []);
+    const setResult = await oracle.apply(setIntent.batch);
     expect(setResult.ok).toBe(true);
 
     const envelope = setIntent.batch.mutations[0];
@@ -97,18 +97,18 @@ describe('projectEnvironmentPostState', () => {
   it('returns null for tombstoned environments', async () => {
     const oracle = newOracle();
     const env = makeEnv('env-2');
-    await oracle.apply(seedEnvironment(env, ctx(1)), []);
+    await oracle.apply(seedEnvironment(env, ctx(1)));
     const deleteBatch = mintBatch(ctx(2), [
       { kind: 'delete', type: ENVIRONMENT_ENTITY_TYPE, id: env.uid },
     ]);
-    await oracle.apply(deleteBatch, []);
+    await oracle.apply(deleteBatch);
     expect(projectEnvironmentByUid(oracle, env.uid)).toBeNull();
   });
 
   it('reports varUids matching ENV_VARS_PATH itemIds', async () => {
     const oracle = newOracle();
     const env = makeEnv('env-3');
-    await oracle.apply(seedEnvironment(env, ctx(1)), []);
+    await oracle.apply(seedEnvironment(env, ctx(1)));
     const live = oracle.liveSetItems(ENVIRONMENT_ENTITY_TYPE, env.uid, ENV_VARS_PATH);
     const projected = projectEnvironmentByUid(oracle, env.uid);
     expect(projected?.varUids.sort()).toEqual(live.map((e) => e.itemId).sort());

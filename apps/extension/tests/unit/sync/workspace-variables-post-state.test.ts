@@ -56,13 +56,11 @@ describe('projectWorkspaceVariablesPostState', () => {
       seedWorkspaceVariables(
         makeWorkspaceVars([{ uid: '8f3cff23', name: 'API_BASE', value: 'v', type: 'default' }]),
         ctx(1),
-      ),
-      [],
-    );
+      ));
     const setIntent = setWorkspaceVar(ctx(2), {
       variable: { uid: 'vrwsvarnw', name: 'NEW', value: 'v', type: 'default' },
     });
-    const setResult = await oracle.apply(setIntent.batch, []);
+    const setResult = await oracle.apply(setIntent.batch);
     expect(setResult.ok).toBe(true);
 
     const envelope = setIntent.batch.mutations[0];
@@ -105,9 +103,7 @@ describe('projectWorkspaceVariablesPostState', () => {
           { uid: '20f69dd4', name: 'TOKEN', value: '2', type: 'secret' },
         ]),
         ctx(1),
-      ),
-      [],
-    );
+      ));
     const live = oracle.liveSetItems(
       WORKSPACE_VARIABLES_ENTITY_TYPE,
       WORKSPACE_VARIABLES_ID,

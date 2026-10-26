@@ -136,7 +136,6 @@ describe('the request-folder slot carries the projected folders whole', () => {
         { folderUid: folder.uid, updates: [{ kind: 'http', key: 'tlsMaxVersion', value: '1.2' }] },
         ctx(),
       ).batch,
-      [],
       'local',
     );
     expect(result.failure?.detail).toBeUndefined();
@@ -161,7 +160,6 @@ describe('the request-folder slot carries the projected folders whole', () => {
         { folderUid: folder.uid, updates: [{ kind: 'http', key: 'tlsMaxVersion', value: '1.2' }] },
         ctx(),
       ).batch,
-      [],
       'local',
     );
     await oracle.apply(
@@ -169,7 +167,6 @@ describe('the request-folder slot carries the projected folders whole', () => {
         { folderUid: folder.uid, updates: [{ kind: 'http', key: 'tlsMaxVersion', value: undefined }] },
         ctx(),
       ).batch,
-      [],
       'local',
     );
     await settle();

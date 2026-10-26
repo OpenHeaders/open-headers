@@ -33,7 +33,6 @@ import {
   FOLDER_ITEMS_PATH,
   FOLDER_TREE_KINDS,
   type FolderParentRef,
-  invalidateResolverIntent,
   type MutationBody,
   mintBatch,
   REQUEST_ENTITY_TYPE,
@@ -266,7 +265,6 @@ export async function resolveRuleParentPath(workspaceId: string, collectionUid: 
       mintMcpContext(workspaceId),
       rootsPlacement(oracleFor(workspaceId), WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH),
     ),
-    sideEffects: [],
   });
   return collection.path;
 }
@@ -311,7 +309,6 @@ export async function resolveRequestParentPath(
       mintMcpContext(workspaceId),
       rootsPlacement(oracleFor(workspaceId), WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH),
     ),
-    sideEffects: [],
   });
   return collection.path;
 }
@@ -857,10 +854,7 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
         }
 
         const ctx = mintMcpContext(workspaceId);
-        await applyMcpMutation({
-          batch: mintBatch(ctx, bodies),
-          sideEffects: [invalidateResolverIntent(environment.uid, ctx.hlc)],
-        });
+        await applyMcpMutation({ batch: mintBatch(ctx, bodies) });
         return { workspaceId, environment: { uid: environment.uid }, changes: bodies.length };
       },
     },

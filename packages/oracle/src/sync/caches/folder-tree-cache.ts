@@ -17,13 +17,7 @@
  */
 
 import { CollectionSchema } from '@openheaders/core/schemas';
-import {
-  type MutationBatch,
-  type MutatorContext,
-  newBatchId,
-  type ParentRefShape,
-  type SideEffectIntent,
-} from '@openheaders/core/sync';
+import { type MutationBatch, type MutatorContext, newBatchId, type ParentRefShape } from '@openheaders/core/sync';
 import { createTailTracker } from '@openheaders/core/sync-builders/mutations/workspace-import-emission';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
@@ -66,11 +60,8 @@ export interface FolderTreeCacheConfig<P extends ParentRefShape> {
   hydrationBatchPrefix: string;
   /** Project every folder under this tree off the oracle. */
   projectAllFolders: (oracle: EntityOracle) => Folder[];
-  /** Build a `createFolder` batch + side effects for hydration. */
-  buildCreateBatch: (
-    input: FolderTreeCreateInput<P>,
-    ctx: MutatorContext,
-  ) => { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+  /** Build a `createFolder` batch for hydration. */
+  buildCreateBatch: (input: FolderTreeCreateInput<P>, ctx: MutatorContext) => { batch: MutationBatch };
   /** Lift a `(type, uid)` pair into the entity's typed parent ref. */
   parentFor: (type: string, uid: string) => P;
 }
@@ -162,7 +153,7 @@ export function createFolderTreeCache<P extends ParentRefShape>(
           },
           ctx,
         );
-        const result = await oracle.apply(intent.batch, intent.sideEffects, 'inbound');
+        const result = await oracle.apply(intent.batch, 'inbound');
         if (!result.ok) {
           logger.info(
             config.loggerTag,

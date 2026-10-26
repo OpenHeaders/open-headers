@@ -94,27 +94,23 @@ describe('tree-order cache', () => {
   it('folds every container of every tree as one merged order and skips empty containers', async () => {
     const rules = makeCollection('col00001', 'rules');
     const requests = makeCollection('col00002', 'requests');
-    await oracle.apply(seedCollection(rules, ctxFactory()), [], 'inbound');
-    await oracle.apply(seedRequestCollection(requests, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(rules, ctxFactory()), 'inbound');
+    await oracle.apply(seedRequestCollection(requests, ctxFactory()), 'inbound');
     const ruleParent = { type: COLLECTION_ENTITY_TYPE, uid: rules.uid } as const;
     // The folder is keyed AFTER the rule: the record lists the rule first.
     await oracle.apply(
       createFolder(ctxFactory(), { folderUid: 'fol00001', parent: ruleParent, name: 'Sub', orderKey: 's' }).batch,
-      [],
     );
     await oracle.apply(
       createRule(ctxFactory(), { ruleUid: 'rul00001', parent: ruleParent, payload: { name: 'r' }, orderKey: 'm' })
         .batch,
-      [],
     );
     const requestParent = { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requests.uid } as const;
     await oracle.apply(
       seedGrpcRequest(grpc('grq00001', requests.path), ctxFactory(), { parent: requestParent, orderKey: 'a' }),
-      [],
     );
     await oracle.apply(
       seedRequest(http('req00001', requests.path), ctxFactory(), { parent: requestParent, orderKey: 'b' }),
-      [],
     );
 
     const record = projectTreeOrder(oracle);
@@ -135,18 +131,15 @@ describe('tree-order cache', () => {
 
   it('stays quiet until hydrate, then persists on every containment write and drops a deleted container', async () => {
     const rules = makeCollection('col00001', 'rules');
-    await oracle.apply(seedCollection(rules, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(rules, ctxFactory()), 'inbound');
     const cache = createTreeOrderCache('ws-1', oracle, broadcast);
     const parent = { type: COLLECTION_ENTITY_TYPE, uid: rules.uid } as const;
-    await oracle.apply(createFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'A' }).batch, []);
+    await oracle.apply(createFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'A' }).batch);
     expect(await hostStorage.get(wsKeys('ws-1').treeOrder)).toBeUndefined();
 
     await cache.hydrateFromStorage();
     expect(cache.getTreeOrder().containers).toEqual({ 'collection:col00001': { children: ['fol00001'] } });
-    await oracle.apply(
-      createFolder(ctxFactory(), { folderUid: 'fol00002', parent, name: 'B', orderKey: 's' }).batch,
-      [],
-    );
+    await oracle.apply(createFolder(ctxFactory(), { folderUid: 'fol00002', parent, name: 'B', orderKey: 's' }).batch);
     expect((await hostStorage.get(wsKeys('ws-1').treeOrder))?.containers).toEqual({
       'collection:col00001': { children: ['fol00001', 'fol00002'] },
     });
@@ -156,10 +149,9 @@ describe('tree-order cache', () => {
         parent: { type: FOLDER_ENTITY_TYPE, uid: 'fol00002' },
         name: 'C',
       }).batch,
-      [],
     );
     expect(cache.getTreeOrder().containers['folder:fol00002']).toEqual({ children: ['fol00003'] });
-    await oracle.apply(deleteFolder(ctxFactory(), { folderUid: 'fol00002', parent }).batch, []);
+    await oracle.apply(deleteFolder(ctxFactory(), { folderUid: 'fol00002', parent }).batch);
     expect(cache.getTreeOrder().containers).toEqual({ 'collection:col00001': { children: ['fol00001'] } });
     expect(Object.fromEntries(await loadTreeOrderRanks('ws-1'))).toEqual({ fol00001: 0 });
     cache.dispose();

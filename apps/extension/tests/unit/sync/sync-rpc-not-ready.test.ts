@@ -114,7 +114,6 @@ describe('sync-rpc not-ready gate', () => {
             },
           ],
         },
-        sideEffects: [],
       }),
     ).toThrow(PermissionDeniedError);
     expect(audits).toHaveLength(1);

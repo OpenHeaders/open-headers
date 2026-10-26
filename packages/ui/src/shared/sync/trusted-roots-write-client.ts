@@ -103,5 +103,5 @@ export async function applyTrustedRootsReplacement(
   if (bodies.length === 0) return { ok: true };
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? 'trusted-roots-replace' });
-  return applySyncPayload({ batch: mintBatch(ctx, bodies), sideEffects: [] });
+  return applySyncPayload({ batch: mintBatch(ctx, bodies) });
 }

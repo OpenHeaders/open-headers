@@ -15,9 +15,11 @@ import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   advanceHlc,
   COLLECTION_ENTITY_TYPE,
+  deriveSideEffectsForEnvelope,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
   initialHlc,
+  RECOMPILE_DNR,
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Folder, HeaderModification, HeaderRule, Rule } from '@openheaders/core/types';
@@ -346,7 +348,7 @@ describe('applyRuleUpdate auto-unpublish', () => {
 });
 
 describe('applyRuleToggle', () => {
-  it('emits one setField on `enabled` + recompileDnr side-effect', async () => {
+  it('emits one setField on `enabled`; the batch derives the DNR recompile', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeMirror(headerRule);
     const result = await applyRuleToggle(headerRule.uid, false, {
@@ -356,14 +358,14 @@ describe('applyRuleToggle', () => {
       context: makeContextHandle('ws-1', 'popup'),
     });
     expect(result).toEqual({ ok: true });
-    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: unknown[] };
+    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch };
     expect(payload.batch.mutations).toHaveLength(1);
     expect(payload.batch.mutations[0].body).toMatchObject({
       kind: 'setField',
       path: 'enabled',
       value: false,
     });
-    expect(payload.sideEffects).toHaveLength(1);
+    expect(payload.batch.mutations.flatMap(deriveSideEffectsForEnvelope).map((e) => e.kind)).toEqual([RECOMPILE_DNR]);
   });
 
   it('returns not-found when the mirror has no entry', async () => {

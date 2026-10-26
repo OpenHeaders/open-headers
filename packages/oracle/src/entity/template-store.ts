@@ -237,7 +237,7 @@ export async function ensureDefaultTemplateCollection(purpose?: 'initialization'
   templateCollections = [...templateCollections, collection];
   const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH);
   await applyTemplateCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedTemplateCollection(collection, ctx, placement), sideEffects: [] }),
+    (ctx) => ({ batch: seedTemplateCollection(collection, ctx, placement) }),
     'ensureDefaultTemplateCollection',
   );
   return collection;
@@ -258,7 +258,7 @@ export async function createTemplateCollection(name: string): Promise<Collection
   templateCollections = [...templateCollections, collection];
   const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH);
   await applyTemplateCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedTemplateCollection(collection, ctx, placement), sideEffects: [] }),
+    (ctx) => ({ batch: seedTemplateCollection(collection, ctx, placement) }),
     'createTemplateCollection',
   );
   return collection;
@@ -295,7 +295,7 @@ export async function deleteTemplateCollection(uid: string): Promise<boolean> {
   }
   for (const folderUid of cascadingFolderUids) {
     await applyTemplateFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(folderUid, ctx), sideEffects: [] }),
+      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(folderUid, ctx) }),
       'deleteTemplateCollection-cascade-folder',
     );
   }
@@ -369,7 +369,7 @@ export async function deleteTemplateFolder(uid: string): Promise<boolean> {
   }
   for (const nestedUid of cascadingNestedFolderUids) {
     await applyTemplateFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(nestedUid, ctx), sideEffects: [] }),
+      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(nestedUid, ctx) }),
       'deleteTemplateFolder-cascade-folder',
     );
   }
@@ -380,7 +380,7 @@ export async function deleteTemplateFolder(uid: string): Promise<boolean> {
     );
   } else {
     await applyTemplateFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(uid, ctx), sideEffects: [] }),
+      (ctx) => ({ batch: buildDeleteTemplateFolderEntityBatch(uid, ctx) }),
       'deleteTemplateFolder',
     );
   }
@@ -459,7 +459,7 @@ export async function updateTemplate(
   if (payload.batch.mutations.length === 0) {
     return { ok: true, template: existing };
   }
-  const result = await oracle.apply(payload.batch, payload.sideEffects);
+  const result = await oracle.apply(payload.batch);
   if (!result.ok) {
     return {
       ok: false,
@@ -493,7 +493,6 @@ export async function deleteTemplate(uid: string): Promise<boolean> {
 async function applyTemplateMutationOrThrow(
   factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
     batch: import('@openheaders/core/sync').MutationBatch;
-    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -502,9 +501,9 @@ async function applyTemplateMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`TemplateStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `TemplateStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
@@ -515,7 +514,6 @@ async function applyTemplateMutationOrThrow(
 async function applyTemplateCollectionMutationOrThrow(
   factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
     batch: import('@openheaders/core/sync').MutationBatch;
-    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -524,9 +522,9 @@ async function applyTemplateCollectionMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`TemplateStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `TemplateStore.${op}: oracle rejected template-collection batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
@@ -537,7 +535,6 @@ async function applyTemplateCollectionMutationOrThrow(
 async function applyTemplateFolderMutationOrThrow(
   factory: (ctx: import('@openheaders/core/sync').MutatorContext) => {
     batch: import('@openheaders/core/sync').MutationBatch;
-    sideEffects: import('@openheaders/core/sync').SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -546,9 +543,9 @@ async function applyTemplateFolderMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`TemplateStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `TemplateStore.${op}: oracle rejected template-folder batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

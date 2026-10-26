@@ -62,14 +62,14 @@ describe('projectRequestPostState', () => {
   it('returns post-state for a Request envelope after seed + add header', async () => {
     const oracle = await newOracle();
     const request = makeRequest(generateUid());
-    await oracle.apply(seedRequest(request, ctx(1)), []);
+    await oracle.apply(seedRequest(request, ctx(1)));
 
     const intent = addRequestHeader(ctx(2), {
       requestUid: request.uid,
       header: { uid: 'hdr00050', key: 'X-Trace', value: 't1' },
       itemId: 'h-trace',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
 
     const env = intent.batch.mutations[0];
     const post = projectRequestPostState(oracle, env);
@@ -100,11 +100,10 @@ describe('projectRequestPostState', () => {
   it('returns null after the request is deleted (tombstone)', async () => {
     const oracle = await newOracle();
     const request = makeRequest('rq-del');
-    await oracle.apply(seedRequest(request, ctx(1)), []);
+    await oracle.apply(seedRequest(request, ctx(1)));
     await oracle.apply(
       deleteRequest(ctx(2), { requestUid: 'rq-del', parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: 'col-1' } })
         .batch,
-      [],
     );
     expect(projectRequestByUid(oracle, 'rq-del')).toBeNull();
   });
@@ -115,7 +114,7 @@ describe('projectRequestPostState', () => {
     // Seed without any headers/params so both set paths are empty.
     request.headers = [];
     request.params = [];
-    await oracle.apply(seedRequest(request, ctx(1)), []);
+    await oracle.apply(seedRequest(request, ctx(1)));
     const post = projectRequestByUid(oracle, 'rq-empty');
     expect(post).not.toBeNull();
     expect(post?.setItemIds[REQUEST_HEADERS_PATH]).toBeUndefined();
@@ -130,7 +129,7 @@ describe('projectRequestPostState', () => {
       { uid: 'hdrdflt2', key: 'X-Other', value: 'o' },
     ];
     request.params = [];
-    await oracle.apply(seedRequest(request, ctx(1)), []);
+    await oracle.apply(seedRequest(request, ctx(1)));
     const post = projectRequestByUid(oracle, 'rq-okeys');
     expect(post).not.toBeNull();
     const headerOrder = post?.setOrderKeys[REQUEST_HEADERS_PATH];
@@ -146,14 +145,13 @@ describe('projectRequestPostState', () => {
   it('reflects param adds at the params path', async () => {
     const oracle = await newOracle();
     const request = makeRequest('rq-params');
-    await oracle.apply(seedRequest(request, ctx(1)), []);
+    await oracle.apply(seedRequest(request, ctx(1)));
     await oracle.apply(
       addRequestParam(ctx(2), {
         requestUid: 'rq-params',
         param: { uid: 'qpr00050', key: 'q', value: '1' },
         itemId: 'p-q',
       }).batch,
-      [],
     );
     const post = projectRequestByUid(oracle, 'rq-params');
     expect(post?.setItemIds[REQUEST_PARAMS_PATH]).toEqual(['p-q']);
@@ -162,13 +160,13 @@ describe('projectRequestPostState', () => {
   it('reflects scalar setField on the request shape', async () => {
     const oracle = await newOracle();
     const request = makeRequest('rq-scalar');
-    await oracle.apply(seedRequest(request, ctx(1)), []);
+    await oracle.apply(seedRequest(request, ctx(1)));
     const intent = setRequestField(ctx(2), {
       requestUid: 'rq-scalar',
       path: 'name',
       value: 'updated',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const post = projectRequestByUid(oracle, 'rq-scalar');
     expect(post?.request.name).toBe('updated');
   });

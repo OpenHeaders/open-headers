@@ -18,17 +18,22 @@ import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import {
-  __initSyncServiceForTests,
-  dispose as disposeSyncService,
-  getOracleForCurrentWorkspace,
-} from '@openheaders/oracle/sync/service';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import {
   __resetMutationStreamBridgeForTests,
   __seenMutationStreamCountForTests,
   hasRecentlyApplied,
+  setOracleHostHooks,
 } from '@openheaders/oracle/sync';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import {
+  __initSyncServiceForTests,
+  dispose as disposeSyncService,
+  getOracleForCurrentWorkspace,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+} from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
@@ -40,6 +45,14 @@ const ctx = (ms: number, nodeId = 'peer'): MutatorContext => ({
   surfaceId: 's',
   deviceId: 'peer-d',
 });
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+async function logRows(log: InMemoryMutationLog): Promise<number> {
+  let rows = 0;
+  for await (const _ of log.readSince(null)) rows += 1;
+  return rows;
+}
 
 const makeRule = (uid: string): Rule =>
   ({
@@ -133,5 +146,49 @@ describe('C11: mutationId dedup at receive', () => {
     expect(oracle?.materializeOne('rule', r1.uid)).toBeDefined();
     expect(oracle?.materializeOne('rule', r2.uid)).toBeDefined();
     for (const env of merged.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+  });
+
+  it('redelivery after a restart is silent: the durable log decides novelty, not the seen set', async () => {
+    const log = new InMemoryMutationLog();
+    const intents = new InMemoryPendingIntents();
+    const recompiles: string[] = [];
+    const boot = async () => {
+      __initSyncServiceForTests(wsId, { log, intents, recompile: (reason) => recompiles.push(reason) });
+      const svc = getOrCreateWorkspaceService(wsId);
+      await svc.hydrated;
+      releaseWorkspaceService(wsId);
+      await flush();
+    };
+    await boot();
+    const batch = seedRule(makeRule(generateUid()), ctx(5_000));
+    const frame = { type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch };
+    const first = dispatchSyncRpc(frame as unknown as Record<string, unknown>);
+    if (first?.kind === 'async') await first.promise;
+    await flush();
+    expect(await logRows(log)).toBe(batch.mutations.length);
+    expect(recompiles.length).toBeGreaterThan(0);
+
+    // Restart: the in-memory seen set is gone; a fresh service opens
+    // over the SAME log and its caches re-seed from the storage mirrors.
+    __resetMutationStreamBridgeForTests();
+    await boot();
+    expect(hasRecentlyApplied(batch.mutations[0]!.mutationId)).toBe(false);
+    const rows = await logRows(log);
+    const pending = await intents.list();
+    const recompilesAfterBoot = recompiles.length;
+    const broadcasts: string[] = [];
+    setOracleHostHooks({ broadcastSyncEvent: (event) => broadcasts.push(event.envelope.mutationId) });
+    try {
+      const second = dispatchSyncRpc(frame as unknown as Record<string, unknown>);
+      if (second?.kind === 'async') await second.promise;
+      await flush();
+    } finally {
+      setOracleHostHooks({});
+    }
+
+    expect(broadcasts).toEqual([]);
+    expect(await logRows(log)).toBe(rows);
+    expect(await intents.list()).toEqual(pending);
+    expect(recompiles).toHaveLength(recompilesAfterBoot);
   });
 });

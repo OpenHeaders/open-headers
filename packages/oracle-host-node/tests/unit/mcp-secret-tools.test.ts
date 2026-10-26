@@ -57,7 +57,6 @@ async function boot(guarded: GuardedRead<Vault>): Promise<void> {
   await applySyncRequest({
     type: 'oh.sync.apply',
     batch: { batchId: 'hydration-gate', mutations: [] },
-    sideEffects: [],
   });
 }
 

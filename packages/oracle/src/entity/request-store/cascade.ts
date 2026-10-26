@@ -17,7 +17,6 @@ import {
   type MutatorContext,
   type ParentRefShape,
   REQUEST_ENTITY_TYPE,
-  type SideEffectIntent,
   WEBSOCKET_REQUEST_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { buildGraphqlDeleteEntityBatch } from '@openheaders/core/sync-builders/mutations/graphql-request-mutations';
@@ -33,7 +32,7 @@ import { treeDescendants } from '@openheaders/oracle/sync/tree-descendants';
 import { applyRequestFolderMutationOrThrow, applyRequestMutationOrThrow } from './apply';
 import { deleteExamples } from './response-examples';
 
-type LeafTombstone = (uid: string, ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+type LeafTombstone = (uid: string, ctx: MutatorContext) => { batch: MutationBatch };
 
 const LEAF_TOMBSTONES: Record<string, LeafTombstone> = {
   [REQUEST_ENTITY_TYPE]: buildDeleteEntityBatch,
@@ -59,7 +58,7 @@ export async function deleteRequestTreeDescendants(parent: ParentRefShape, op: s
   }
   for (const folderUid of folders) {
     await applyRequestFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(folderUid, ctx), sideEffects: [] }),
+      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(folderUid, ctx) }),
       `${op}-cascade-folder`,
     );
   }

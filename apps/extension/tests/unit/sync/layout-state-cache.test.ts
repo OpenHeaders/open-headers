@@ -83,7 +83,7 @@ describe('LayoutStateCache', () => {
     const intent = setLayoutState(laterCtx, {
       layout: { sidebarRatio: 0.5, inspectorRatio: 0.3, bottomRatio: 0.2 },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBeGreaterThan(0);
     expect(cache.getSnapshot().layout).toEqual({
       sidebarRatio: 0.5,
@@ -108,7 +108,7 @@ describe('LayoutStateCache', () => {
     cache.dispose();
 
     const intent = setLayoutState(ctxFactory(), { layout: { sidebarRatio: 0.4 } });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBe(0);
   });
 });

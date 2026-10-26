@@ -1,6 +1,6 @@
 // ── Sync engine plumbing ────────────────────────────────────────────
 
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service/accessors';
 
 /**
@@ -14,7 +14,6 @@ import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders
 export async function applyRuleMutationOrThrow(
   factory: (ctx: MutatorContext) => {
     batch: MutationBatch;
-    sideEffects: SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -23,9 +22,9 @@ export async function applyRuleMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`RuleStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `RuleStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
@@ -36,7 +35,6 @@ export async function applyRuleMutationOrThrow(
 export async function applyFolderMutationOrThrow(
   factory: (ctx: MutatorContext) => {
     batch: MutationBatch;
-    sideEffects: SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -45,9 +43,9 @@ export async function applyFolderMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`RuleStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `RuleStore.${op}: oracle rejected folder batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
@@ -58,7 +56,6 @@ export async function applyFolderMutationOrThrow(
 export async function applyCollectionMutationOrThrow(
   factory: (ctx: MutatorContext) => {
     batch: MutationBatch;
-    sideEffects: SideEffectIntent[];
   },
   op: string,
 ): Promise<void> {
@@ -67,9 +64,9 @@ export async function applyCollectionMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`RuleStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `RuleStore.${op}: oracle rejected collection batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

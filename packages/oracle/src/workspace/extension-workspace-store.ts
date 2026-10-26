@@ -54,7 +54,6 @@ import {
   type MutationBatch,
   type MutatorContext,
   PRE_BOOTSTRAP_ORG_ID,
-  type SideEffectIntent,
   seedKey,
 } from '@openheaders/core/sync';
 import {
@@ -312,8 +311,7 @@ export async function deleteWorkspace(id: string): Promise<DeleteWorkspaceResult
       batchId: remove.batch.batchId,
       mutations: [...remove.batch.mutations, ...setActive.batch.mutations],
     };
-    const sideEffects: SideEffectIntent[] = [...remove.sideEffects, ...setActive.sideEffects];
-    return { batch: merged, sideEffects };
+    return { batch: merged };
   }, 'deleteWorkspace');
 
   logger.info('WorkspaceStore', `Deleted workspace ${id} "${target.name}"`);
@@ -345,7 +343,7 @@ export async function setActiveWorkspaceById(id: string, opts: WorkspaceWriteOpt
 // ── Sync engine plumbing ──────────────────────────────────────────────
 
 async function applyExtensionWorkspaceMutationOrThrow(
-  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  factory: (ctx: MutatorContext) => { batch: MutationBatch },
   op: string,
   surfaceId = 'sw',
 ): Promise<void> {
@@ -354,9 +352,9 @@ async function applyExtensionWorkspaceMutationOrThrow(
     throw new Error(`WorkspaceStore.${op}: global sync service not initialized`);
   }
   const ctx = nextGlobalSwContext({ surfaceId });
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `WorkspaceStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

@@ -14,8 +14,14 @@
  *   - removeFile emits removeFromSet keyed by the file uid
  */
 
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import { advanceHlc, initialHlc, SPEC_ENTITY_TYPE, SPEC_FILES_PATH } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
+import {
+  advanceHlc,
+  deriveSideEffectsForEnvelope,
+  initialHlc,
+  SPEC_ENTITY_TYPE,
+  SPEC_FILES_PATH,
+} from '@openheaders/core/sync';
 import type { Spec, SpecFile } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -104,11 +110,8 @@ function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): Rende
   };
 }
 
-function lastPayload(): { batch: MutationBatch; sideEffects: SideEffectIntent[] } {
-  return mockCall.mock.calls[mockCall.mock.calls.length - 1][1] as {
-    batch: MutationBatch;
-    sideEffects: SideEffectIntent[];
-  };
+function lastPayload(): { batch: MutationBatch } {
+  return mockCall.mock.calls[mockCall.mock.calls.length - 1][1] as { batch: MutationBatch };
 }
 
 beforeEach(() => {
@@ -138,8 +141,8 @@ describe('applySpecCreate', () => {
     expect(result.spec.path).toBe(`specs/my-spec-${result.spec.uid}`);
     expect(result.spec.schemaVersion).toBe(5);
 
-    const { batch, sideEffects } = lastPayload();
-    expect(sideEffects).toHaveLength(0);
+    const { batch } = lastPayload();
+    expect(batch.mutations.flatMap(deriveSideEffectsForEnvelope)).toHaveLength(0);
     const create = batch.mutations.find((m) => m.body.kind === 'create');
     expect(create?.body).toMatchObject({ kind: 'create', type: SPEC_ENTITY_TYPE, id: result.spec.uid });
     const shell = (create?.body as { payload: Record<string, unknown> }).payload;
@@ -201,8 +204,8 @@ describe('applySpecDelete', () => {
       mirror: mockMirror(spec),
     });
     expect(result.ok).toBe(true);
-    const { batch, sideEffects } = lastPayload();
-    expect(sideEffects).toHaveLength(0);
+    const { batch } = lastPayload();
+    expect(batch.mutations.flatMap(deriveSideEffectsForEnvelope)).toHaveLength(0);
     expect(batch.mutations).toHaveLength(1);
     expect(batch.mutations[0].body).toEqual({ kind: 'delete', type: SPEC_ENTITY_TYPE, id: spec.uid });
   });

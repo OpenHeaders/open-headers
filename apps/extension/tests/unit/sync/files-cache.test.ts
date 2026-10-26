@@ -83,7 +83,7 @@ describe('FilesCache', () => {
     });
 
     const intent = addFileRef(ctxFactory(), { ref: slot({ fileId: 'file:new' }) });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBeGreaterThan(0);
     expect(cache.getSnapshot().refs.map((r) => r.fileId)).toEqual(['file:new']);
     cache.dispose();
@@ -93,7 +93,7 @@ describe('FilesCache', () => {
     const cache = createFilesCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedFiles([slot({ fileId: 'file:gone' })]);
     const intent = removeFileRef(ctxFactory(), { fileId: 'file:gone' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getSnapshot().refs).toEqual([]);
     cache.dispose();
   });
@@ -109,7 +109,7 @@ describe('FilesCache', () => {
     cache.dispose();
 
     const intent = addFileRef(ctxFactory(), { ref: slot({ fileId: 'file:x' }) });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBe(0);
   });
 });

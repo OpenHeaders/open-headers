@@ -46,7 +46,6 @@ describe('restampApplyOrgIds', () => {
     const out = restampApplyOrgIds({
       type: 'oh.sync.apply',
       batch: makeBatch(WS, PRE_BOOTSTRAP_ORG_ID),
-      sideEffects: [],
     });
     expect(out.batch.mutations[0].orgId).toBe(REAL_ORG);
   });
@@ -58,7 +57,6 @@ describe('restampApplyOrgIds', () => {
     const out = restampApplyOrgIds({
       type: 'oh.sync.apply',
       batch: makeBatch(WS, '0193a8ff-0000-7000-8000-0000000000bb'),
-      sideEffects: [],
     });
     expect(out.batch.mutations[0].orgId).toBe(REAL_ORG);
   });
@@ -67,13 +65,12 @@ describe('restampApplyOrgIds', () => {
     const out = restampApplyOrgIds({
       type: 'oh.sync.apply',
       batch: makeBatch(WS, PRE_BOOTSTRAP_ORG_ID),
-      sideEffects: [],
     });
     expect(out.batch.mutations[0].orgId).toBe(PRE_BOOTSTRAP_ORG_ID);
   });
 
   it('returns an empty batch unchanged', () => {
-    const request = { type: 'oh.sync.apply' as const, batch: { batchId: 'b', mutations: [] }, sideEffects: [] };
+    const request = { type: 'oh.sync.apply' as const, batch: { batchId: 'b', mutations: [] } };
     expect(restampApplyOrgIds(request)).toBe(request);
   });
 
@@ -108,7 +105,6 @@ describe('restampApplyOrgIds', () => {
           },
         ],
       },
-      sideEffects: [],
     });
     expect(out.batch.mutations[0].orgId).toBe(REAL_ORG);
   });
@@ -138,7 +134,6 @@ describe('restampApplyOrgIds', () => {
           },
         ],
       },
-      sideEffects: [],
     });
     expect(out.batch.mutations[0].orgId).toBe(REAL_ORG);
   });

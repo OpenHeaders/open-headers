@@ -88,4 +88,14 @@ describe('InMemoryMutationLog', () => {
     expect(await log.purgeOrg('org-absent')).toEqual([]);
     expect((await collect(log.readSince(null))).map((e) => e.mutationId)).toEqual(['m1']);
   });
+
+  it('knownMutationIds returns exactly the queried ids the log holds; an empty query reads nothing', async () => {
+    const log = new InMemoryMutationLog();
+    await log.append(env('m1', 1_000));
+    await log.append(env('m2', 2_000));
+    expect([...(await log.knownMutationIds(['m2', 'm9', 'm1']))].sort()).toEqual(['m1', 'm2']);
+    expect((await log.knownMutationIds([])).size).toBe(0);
+    await log.purgeOrg('org-test');
+    expect((await log.knownMutationIds(['m1', 'm2'])).size).toBe(0);
+  });
 });

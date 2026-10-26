@@ -65,7 +65,7 @@ beforeEach(() => {
 describe('TemplateFolderCache', () => {
   it('seeds folders into oracle and projects them with reconstructed paths', async () => {
     const coll = makeCollection('col-1');
-    await oracle.apply(seedTemplateCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedTemplateCollection(coll, ctxFactory()));
 
     const cache = createTemplateFolderCache('ws-1', oracle, broadcast, ctxFactory);
     const persisted: PersistedLocalFolder[] = [
@@ -80,16 +80,14 @@ describe('TemplateFolderCache', () => {
 
   it('updates the cache when a folder is renamed via the catalog', async () => {
     const coll = makeCollection('col-2');
-    await oracle.apply(seedTemplateCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedTemplateCollection(coll, ctxFactory()));
     const cache = createTemplateFolderCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedTemplateFolders(
       [{ schemaVersion: 5, uid: 'f-r', path: `${coll.path}/old-f-r`, name: 'Old' }],
       [coll],
     );
     await oracle.apply(
-      renameTemplateFolder(ctxFactory(), { folderUid: 'f-r', name: 'New name' }).batch,
-      [],
-    );
+      renameTemplateFolder(ctxFactory(), { folderUid: 'f-r', name: 'New name' }).batch);
     const folders = cache.getTemplateFolders();
     expect(folders[0].name).toBe('New name');
     expect(folders[0].path).toBe(`${coll.path}/old-f-r`);
@@ -98,7 +96,7 @@ describe('TemplateFolderCache', () => {
 
   it('updates when a folder is created via the catalog', async () => {
     const coll = makeCollection('col-3');
-    await oracle.apply(seedTemplateCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedTemplateCollection(coll, ctxFactory()));
     const cache = createTemplateFolderCache('ws-1', oracle, broadcast, ctxFactory);
     expect(cache.getTemplateFolders()).toEqual([]);
 
@@ -107,14 +105,14 @@ describe('TemplateFolderCache', () => {
       parent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: coll.uid },
       name: 'Fresh',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getTemplateFolders().map((f) => f.uid)).toEqual(['f-new']);
     cache.dispose();
   });
 
   it('refreshes on parent-slot envelopes (nested folders)', async () => {
     const coll = makeCollection('col-4');
-    await oracle.apply(seedTemplateCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedTemplateCollection(coll, ctxFactory()));
     const cache = createTemplateFolderCache('ws-1', oracle, broadcast, ctxFactory);
 
     await oracle.apply(
@@ -122,17 +120,13 @@ describe('TemplateFolderCache', () => {
         folderUid: 'r',
         parent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: coll.uid },
         name: 'Root',
-      }).batch,
-      [],
-    );
+      }).batch);
     await oracle.apply(
       createTemplateFolder(ctxFactory(), {
         folderUid: 'l',
         parent: { type: TEMPLATE_FOLDER_ENTITY_TYPE, uid: 'r' },
         name: 'Leaf',
-      }).batch,
-      [],
-    );
+      }).batch);
 
     const folders = cache.getTemplateFolders();
     const byUid = new Map(folders.map((f) => [f.uid, f]));
@@ -143,7 +137,7 @@ describe('TemplateFolderCache', () => {
 
   it('dispose drops the broadcast subscription', async () => {
     const coll = makeCollection('col-5');
-    await oracle.apply(seedTemplateCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedTemplateCollection(coll, ctxFactory()));
     const cache = createTemplateFolderCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedTemplateFolders(
       [{ schemaVersion: 5, uid: 'f-d', path: `${coll.path}/x-f-d`, name: 'X' }],
@@ -151,9 +145,7 @@ describe('TemplateFolderCache', () => {
     );
     cache.dispose();
     await oracle.apply(
-      renameTemplateFolder(ctxFactory(), { folderUid: 'f-d', name: 'Renamed' }).batch,
-      [],
-    );
+      renameTemplateFolder(ctxFactory(), { folderUid: 'f-d', name: 'Renamed' }).batch);
     expect(cache.getTemplateFolders()[0].name).toBe('X');
   });
 });
@@ -161,13 +153,13 @@ describe('TemplateFolderCache', () => {
 describe('projectTemplateFolderPostState', () => {
   it('returns post-state with reconstructed path', async () => {
     const coll = makeCollection('col-p');
-    await oracle.apply(seedTemplateCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedTemplateCollection(coll, ctxFactory()));
     const intent = createTemplateFolder(ctxFactory(), {
       folderUid: 'fp',
       parent: { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: coll.uid },
       name: 'P',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const env = intent.batch.mutations[0]; // create envelope
     const post = projectTemplateFolderPostState(oracle, env);
     expect(post?.folder.path).toBe(`${coll.path}/p-fp`);

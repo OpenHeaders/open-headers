@@ -12,16 +12,24 @@
  *      `withLock(entityLockName(ws, type, id))` — the lock is
  *      correctness-load-bearing, not just materialization-consistency
  *      (§6.3 / §22.1).
- *   2. Runs the authoritative mutator, materializes the snapshot,
- *      broadcasts `(envelope, outcome)` to every surface (incl. the
- *      originator) for ack.
- *   3. Persists the envelope to the IDB mutation log and any emitted
- *      side-effect intents to the IDB pending-intents store.
+ *   2. Decides novelty once, at this commit point, against the durable
+ *      mutation log (§6.3 / §15): an envelope the log already holds is
+ *      a duplicate — not applied, not appended, not broadcast, its HLC
+ *      still observed — whatever the in-memory sets remember after a
+ *      restart. Every replay path (wire echo, catch-up, snapshot plus
+ *      delta overlap, a re-seed) is side-effect free by construction.
+ *   3. Runs the authoritative mutator on the novel envelopes,
+ *      materializes the snapshot, broadcasts `(envelope, outcome)` to
+ *      every surface (incl. the originator) for ack.
+ *   4. Persists the novel envelopes to the mutation log and the
+ *      side-effect intents they derive (§18.1 — intents follow the
+ *      commit, through the one `deriveSideEffectsForEnvelope` mapping)
+ *      to the pending-intents store.
  *
- * Per-batch all-or-nothing (§11.2): if any constituent fails the
- * mutator (status `schema-rejected` / `invalid-path` / surface-thrown),
- * the whole batch is rolled back — nothing broadcast, nothing
- * persisted, structured error returned.
+ * Per-batch all-or-nothing (§11.2) over the novel subset: if any
+ * constituent fails the mutator (status `schema-rejected` /
+ * `invalid-path` / surface-thrown), the whole batch is rolled back —
+ * nothing broadcast, nothing persisted, structured error returned.
  *
  * The class is test-friendly by construction: `lock`, `log`,
  * `intents`, and `broadcast` are injected. Production wires them to
@@ -31,6 +39,7 @@
 
 import {
   compareHlc,
+  deriveSideEffectsForEnvelope,
   type EntitySchemaRegistry,
   type FieldOrigin,
   type HLC,
@@ -40,7 +49,6 @@ import {
   type MutationEnvelope,
   type MutatorOutcome,
   type MutatorStatus,
-  type SideEffectIntent,
 } from '@openheaders/core/sync';
 import type { MutationBroadcast } from './broadcast';
 import type { MutationLog } from './mutation-log';
@@ -61,6 +69,8 @@ const ROLLBACK_STATUSES: ReadonlySet<MutatorStatus> = new Set<MutatorStatus>([
   'schema-rejected',
   'unknown-mutator-version',
 ]);
+
+const DUPLICATE: MutatorOutcome = { status: 'duplicate' };
 
 export interface OracleConfig {
   workspaceId: string;
@@ -89,8 +99,9 @@ export interface OracleConfig {
    */
   validateLocalWrite?: (type: string, data: unknown) => string | null;
   /**
-   * Fired with the batch's highest HLC after every successful commit.
-   * Wired to the owning sequencer's `observe()` at construction so the
+   * Fired with the batch's highest HLC after every successful commit
+   * and after a batch the log already held in full — a replay is still
+   * an observation. Wired to the owning sequencer's `observe()` at construction so the
    * NEXT local mint strictly exceeds every envelope of a
    * multi-envelope batch — `mintBatch` ticks each envelope's logical
    * component past the context's base HLC, and without this fold a
@@ -122,18 +133,17 @@ export class EntityOracle {
   /**
    * Apply a batch all-or-nothing under the per-entity lock(s) it
    * touches. A batch that targets multiple entities acquires their
-   * locks in deterministic order to avoid deadlock.
+   * locks in deterministic order to avoid deadlock. Envelopes the
+   * durable log already holds come back with outcome `duplicate` and
+   * touch nothing; a batch with no novel envelope commits nothing and
+   * still answers `ok`.
    */
-  async apply(
-    batch: MutationBatch,
-    sideEffects: SideEffectIntent[] = [],
-    applyOrigin: FieldOrigin = 'local',
-  ): Promise<OracleApplyResult> {
+  async apply(batch: MutationBatch, applyOrigin: FieldOrigin = 'local'): Promise<OracleApplyResult> {
     if (batch.mutations.length === 0) {
       return { ok: true, outcomes: [] };
     }
-    const targets = collectEntityTargets(batch);
-    return this.lockChain(targets, async () => this.applyUnderLock(batch, targets, sideEffects, applyOrigin));
+    const targets = collectEntityTargets(batch.mutations);
+    return this.lockChain(targets, async () => this.applyUnderLock(batch, applyOrigin));
   }
 
   /** Direct snapshot read for surfaces that need the materialized view. */
@@ -194,16 +204,24 @@ export class EntityOracle {
 
   // ── internals ────────────────────────────────────────────────────
 
-  private async applyUnderLock(
-    batch: MutationBatch,
-    targets: ReadonlyArray<{ type: string; id: string }>,
-    sideEffects: SideEffectIntent[],
-    applyOrigin: FieldOrigin,
-  ): Promise<OracleApplyResult> {
+  private async applyUnderLock(batch: MutationBatch, applyOrigin: FieldOrigin): Promise<OracleApplyResult> {
+    // Novelty against the durable log, before any store write: the
+    // in-memory sets start empty on every boot, the log does not.
+    const known = await this.cfg.log.knownMutationIds(batch.mutations.map((env) => env.mutationId));
+    const novel = batch.mutations.filter((env) => !known.has(env.mutationId));
+    if (novel.length === 0) {
+      this.observeBatch(batch);
+      return { ok: true, outcomes: batch.mutations.map((envelope) => ({ envelope, outcome: DUPLICATE })) };
+    }
+
     const snapshot = this.store.snapshot();
     const outcomes: Array<{ envelope: MutationEnvelope; outcome: MutatorOutcome }> = [];
 
     for (const env of batch.mutations) {
+      if (known.has(env.mutationId)) {
+        outcomes.push({ envelope: env, outcome: DUPLICATE });
+        continue;
+      }
       const outcome = this.store.apply(env, applyOrigin);
       outcomes.push({ envelope: env, outcome });
       if (ROLLBACK_STATUSES.has(outcome.status)) {
@@ -223,18 +241,18 @@ export class EntityOracle {
     // deletes always pass, and an update racing ahead of its create
     // is judged once the create lands.
     if (applyOrigin === 'local' && this.cfg.validateLocalWrite) {
-      for (const { type, id } of targets) {
+      for (const { type, id } of collectEntityTargets(novel)) {
         const materialized = this.store.materializeOne(type, id);
         if (!materialized) continue;
         const detail = this.cfg.validateLocalWrite(type, materialized.data);
         if (detail === null) continue;
         this.store.restore(snapshot);
-        const env = batch.mutations.find((m) => m.body.type === type && m.body.id === id);
+        const env = novel.find((m) => m.body.type === type && m.body.id === id);
         return {
           ok: false,
           outcomes,
           failure: {
-            mutationId: env?.mutationId ?? batch.mutations[0].mutationId,
+            mutationId: env?.mutationId ?? novel[0].mutationId,
             status: 'schema-rejected',
             detail: `${type} ${id}: ${detail}`,
           },
@@ -242,26 +260,31 @@ export class EntityOracle {
       }
     }
 
-    // Commit: log envelopes (dedup-safe), enqueue side effects,
-    // broadcast every (env, outcome).
-    // The store already holds the post-batch state; bump before the
-    // durable appends so a read that interleaves with them keys its
-    // memo on the state it actually sees.
+    // Commit: the novel envelopes reach the log, the intents they
+    // derive reach the runners, and only they broadcast — a duplicate
+    // is silent. The store already holds the post-batch state; bump
+    // before the durable appends so a read that interleaves with them
+    // keys its memo on the state it actually sees.
     this.committed += 1;
-    await this.cfg.log.appendAll(batch.mutations);
-    if (sideEffects.length > 0) await this.cfg.intents.enqueueAll(sideEffects);
+    await this.cfg.log.appendAll(novel);
+    const intents = novel.flatMap(deriveSideEffectsForEnvelope);
+    if (intents.length > 0) await this.cfg.intents.enqueueAll(intents);
 
     for (const { envelope, outcome } of outcomes) {
+      if (outcome.status === 'duplicate') continue;
       this.cfg.broadcast.publish({ envelope, outcome, batchId: batch.batchId, applyOrigin });
     }
-    if (this.cfg.onBatchApplied) {
-      let max: HLC | null = null;
-      for (const env of batch.mutations) {
-        if (!max || compareHlc(env.hlc, max) > 0) max = env.hlc;
-      }
-      if (max) this.cfg.onBatchApplied(max);
-    }
+    this.observeBatch(batch);
     return { ok: true, outcomes };
+  }
+
+  private observeBatch(batch: MutationBatch): void {
+    if (!this.cfg.onBatchApplied) return;
+    let max: HLC | null = null;
+    for (const env of batch.mutations) {
+      if (!max || compareHlc(env.hlc, max) > 0) max = env.hlc;
+    }
+    if (max) this.cfg.onBatchApplied(max);
   }
 
   private async lockChain<T>(targets: ReadonlyArray<{ type: string; id: string }>, fn: () => Promise<T>): Promise<T> {
@@ -271,10 +294,10 @@ export class EntityOracle {
   }
 }
 
-function collectEntityTargets(batch: MutationBatch): Array<{ type: string; id: string }> {
+function collectEntityTargets(envelopes: ReadonlyArray<MutationEnvelope>): Array<{ type: string; id: string }> {
   const seen = new Set<string>();
   const out: Array<{ type: string; id: string }> = [];
-  for (const env of batch.mutations) {
+  for (const env of envelopes) {
     const key = `${env.body.type}:${env.body.id}`;
     if (seen.has(key)) continue;
     seen.add(key);

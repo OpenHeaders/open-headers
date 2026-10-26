@@ -70,9 +70,9 @@ describe('readWorkspaceStateVector', () => {
       { kind: 'delete', type: RULE_ENTITY_TYPE, id: 'never-existed' },
     ]);
 
-    await applySyncRequest({ type: 'oh.sync.apply', batch: seed1, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: seed2, sideEffects: [] });
-    await applySyncRequest({ type: 'oh.sync.apply', batch: fromDesktop, sideEffects: [] });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seed1 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seed2 });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: fromDesktop });
 
     const vector = await readWorkspaceStateVector(wsId);
     expect(Object.keys(vector).sort()).toEqual(['desktop-main', 'sw']);

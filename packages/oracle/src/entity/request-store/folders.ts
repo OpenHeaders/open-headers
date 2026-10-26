@@ -74,7 +74,7 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
     );
   } else {
     await applyRequestFolderMutationOrThrow(
-      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(uid, ctx), sideEffects: [] }),
+      (ctx) => ({ batch: buildDeleteRequestFolderEntityBatch(uid, ctx) }),
       'deleteRequestFolder',
     );
   }

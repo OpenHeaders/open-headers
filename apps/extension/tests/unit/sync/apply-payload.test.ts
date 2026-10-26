@@ -96,7 +96,7 @@ afterEach(() => {
 
 describe('applySyncPayload', () => {
   it('empty batch short-circuits to { ok: true } without firing the bridge', async () => {
-    const result = await applySyncPayload({ batch: makeBatch(0), sideEffects: [] });
+    const result = await applySyncPayload({ batch: makeBatch(0) });
     expect(result).toEqual({ ok: true });
     expect(mockCall).not.toHaveBeenCalled();
   });
@@ -104,7 +104,7 @@ describe('applySyncPayload', () => {
   it('bridge ok: true collapses to { ok: true } and forwards the payload verbatim', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const batch = makeBatch(1);
-    const result = await applySyncPayload({ batch, sideEffects: [{ kind: 'recompile-dnr', key: 'r1', hlc: batch.mutations[0].hlc }] });
+    const result = await applySyncPayload({ batch });
     expect(result).toEqual({ ok: true });
     expect(mockCall).toHaveBeenCalledTimes(1);
     const [type, payload] = mockCall.mock.calls[0];
@@ -118,20 +118,20 @@ describe('applySyncPayload', () => {
       outcomes: [],
       failure: { mutationId: 'm-0', status: 'schema-rejected', detail: 'lock timeout' },
     });
-    const result = await applySyncPayload({ batch: makeBatch(1), sideEffects: [] });
+    const result = await applySyncPayload({ batch: makeBatch(1) });
     expect(result).toEqual({ ok: false, reason: 'other', message: 'lock timeout' });
   });
 
   it("thrown bridge error collapses to 'other' carrying err.message", async () => {
     mockCall.mockRejectedValue(new Error('bridge dead'));
-    const result = await applySyncPayload({ batch: makeBatch(1), sideEffects: [] });
+    const result = await applySyncPayload({ batch: makeBatch(1) });
     expect(result).toEqual({ ok: false, reason: 'other', message: 'bridge dead' });
   });
 
   it("thrown non-Error value collapses to 'other' with 'unknown error'", async () => {
     // String reject value — covers the `instanceof Error` false branch.
     mockCall.mockRejectedValue('disconnected');
-    const result = await applySyncPayload({ batch: makeBatch(1), sideEffects: [] });
+    const result = await applySyncPayload({ batch: makeBatch(1) });
     expect(result).toEqual({ ok: false, reason: 'other', message: 'unknown error' });
   });
 });

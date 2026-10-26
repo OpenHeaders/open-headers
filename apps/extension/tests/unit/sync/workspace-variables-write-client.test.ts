@@ -8,12 +8,15 @@
  *   - removeVar emits removeFromSet keyed by uid
  *   - replacement folds add / edit / remove into one batch keyed by
  *     uid; byte-identical entries skipped; whitespace-name entries
- *     dropped; non-empty diff rides one INVALIDATE_RESOLVER side-effect
+ *     dropped; a non-empty diff derives INVALIDATE_RESOLVER at the
+ *     commit point
  */
 
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   advanceHlc,
+  deriveSideEffectsForEnvelope,
+  INVALIDATE_RESOLVER,
   initialHlc,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
@@ -142,7 +145,7 @@ describe('applyWorkspaceVariablesReplacement', () => {
     expect(mockCall).not.toHaveBeenCalled();
   });
 
-  it('emits removeFromSet per vanished uid + addToSet per added/edited uid + one INVALIDATE_RESOLVER side-effect', async () => {
+  it('emits removeFromSet per vanished uid + addToSet per added/edited uid; the batch derives INVALIDATE_RESOLVER', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const oldVars = [variable('v1', 'KEEP', 'keep'), variable('v2', 'GONE', 'gone'), variable('v3', 'RENAMED', 'val')];
     const newVars = [
@@ -157,12 +160,14 @@ describe('applyWorkspaceVariablesReplacement', () => {
       context: makeContextHandle(),
       mirror: mockMirror(['v1', 'v2', 'v3']),
     });
-    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch };
     const removes = payload.batch.mutations.filter((m) => m.body.kind === 'removeFromSet');
     const adds = payload.batch.mutations.filter((m) => m.body.kind === 'addToSet');
     expect(removes.map((m) => (m.body as { itemId: string }).itemId)).toEqual(['v2']);
     expect(adds.map((m) => (m.body as { itemId: string }).itemId).sort()).toEqual(['v3', 'v4']);
-    expect(payload.sideEffects).toHaveLength(1);
+    const intents = payload.batch.mutations.flatMap(deriveSideEffectsForEnvelope);
+    expect(intents.length).toBeGreaterThan(0);
+    expect(intents.every((e) => e.kind === INVALIDATE_RESOLVER)).toBe(true);
   });
 
   it('a content edit re-emits the row with its EXISTING orderKey (position preserved)', async () => {

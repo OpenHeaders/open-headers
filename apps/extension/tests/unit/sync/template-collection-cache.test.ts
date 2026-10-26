@@ -74,7 +74,7 @@ describe('TemplateCollectionCache', () => {
       collectionUid: 'c1',
       name: 'New Name',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getTemplateCollections()[0].name).toBe('New Name');
     cache.dispose();
   });
@@ -82,7 +82,7 @@ describe('TemplateCollectionCache', () => {
   it('drops collection on delete', async () => {
     const cache = createTemplateCollectionCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedTemplateCollections([makeCollection('c1'), makeCollection('c2')]);
-    await oracle.apply(buildDeleteTemplateCollectionBatch('c1', ctxFactory()).batch, []);
+    await oracle.apply(buildDeleteTemplateCollectionBatch('c1', ctxFactory()).batch);
     expect(cache.getTemplateCollections().map((c) => c.uid)).toEqual(['c2']);
     cache.dispose();
   });
@@ -92,9 +92,7 @@ describe('TemplateCollectionCache', () => {
     await cache.seedFromPersistedTemplateCollections([makeCollection('c1')]);
     cache.dispose();
     await oracle.apply(
-      renameTemplateCollection(ctxFactory(), { collectionUid: 'c1', name: 'After' }).batch,
-      [],
-    );
+      renameTemplateCollection(ctxFactory(), { collectionUid: 'c1', name: 'After' }).batch);
     expect(cache.getTemplateCollections()[0].name).toBe('tcol-c1');
   });
 });
@@ -107,7 +105,7 @@ describe('projectTemplateCollectionPostState', () => {
       collectionUid: 'c1',
       name: 'X',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const env = intent.batch.mutations[0];
     const post = projectTemplateCollectionPostState(oracle, env);
     expect(post?.collection.name).toBe('X');

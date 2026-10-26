@@ -92,7 +92,6 @@ export async function applyTemplateCollectionCreate(
       parent: WORKSPACE_ROOTS_REF,
       orderKey: roots.appendOrderKey(WORKSPACE_ROOTS_TEMPLATE_COLLECTIONS_PATH),
     }),
-    sideEffects: [],
   });
   if (ack.ok) return { ok: true, collection };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
@@ -174,10 +173,7 @@ export async function applyTemplateCollectionDelete(
   }
   for (const folderUid of cascadingFolderUids) {
     const ctx = baseCtx.next({ batchId: `template-collection-delete-cascade-folder-${folderUid}` });
-    const ack = await applySyncPayload({
-      batch: buildDeleteTemplateFolderEntityBatch(folderUid, ctx),
-      sideEffects: [],
-    });
+    const ack = await applySyncPayload({ batch: buildDeleteTemplateFolderEntityBatch(folderUid, ctx) });
     if (!ack.ok) return ack;
   }
 

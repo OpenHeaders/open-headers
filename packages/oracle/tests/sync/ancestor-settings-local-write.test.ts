@@ -81,13 +81,12 @@ function collectionOf(oracle: EntityOracle): Collection {
 describe('a request folder’s settings through the gate', () => {
   it('a knob write on the HTTP slice passes the gate and projects; a second kind lands beside it; a cleared knob leaves', async () => {
     const oracle = makeOracle();
-    expect((await oracle.apply(seedRequestFolder(folder, ctx(1_000)), [], 'local')).ok).toBe(true);
+    expect((await oracle.apply(seedRequestFolder(folder, ctx(1_000)), 'local')).ok).toBe(true);
     const first = await oracle.apply(
       buildSetRequestFolderSettingsBatch(
         { folderUid: folder.uid, updates: [{ kind: 'http', key: 'tlsMaxVersion', value: '1.2' }] },
         ctx(2_000),
       ).batch,
-      [],
       'local',
     );
     expect(first.failure?.detail).toBeUndefined();
@@ -105,7 +104,6 @@ describe('a request folder’s settings through the gate', () => {
         },
         ctx(3_000),
       ).batch,
-      [],
       'local',
     );
     expect(second.failure?.detail).toBeUndefined();
@@ -114,13 +112,12 @@ describe('a request folder’s settings through the gate', () => {
 
   it('a malformed knob is refused by name', async () => {
     const oracle = makeOracle();
-    await oracle.apply(seedRequestFolder(folder, ctx(1_000)), [], 'local');
+    await oracle.apply(seedRequestFolder(folder, ctx(1_000)), 'local');
     const result = await oracle.apply(
       buildSetRequestFolderSettingsBatch(
         { folderUid: folder.uid, updates: [{ kind: 'http', key: 'timeoutMs', value: 1 }] },
         ctx(2_000),
       ).batch,
-      [],
       'local',
     );
     expect(result.ok).toBe(false);
@@ -133,13 +130,12 @@ describe('a request folder’s settings through the gate', () => {
 describe('a request collection’s settings through the gate', () => {
   it('a knob write on a kind’s slice passes the gate and projects', async () => {
     const oracle = makeOracle();
-    expect((await oracle.apply(seedRequestCollection(collection, ctx(1_000)), [], 'local')).ok).toBe(true);
+    expect((await oracle.apply(seedRequestCollection(collection, ctx(1_000)), 'local')).ok).toBe(true);
     const result = await oracle.apply(
       buildSetRequestCollectionSettingsBatch(
         { collectionUid: collection.uid, updates: [{ kind: 'grpc', key: 'timeoutMs', value: 2_000 }] },
         ctx(2_000),
       ).batch,
-      [],
       'local',
     );
     expect(result.failure?.detail).toBeUndefined();

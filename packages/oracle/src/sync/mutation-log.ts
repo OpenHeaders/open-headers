@@ -40,6 +40,14 @@ export interface MutationLog {
   hasMutation(mutationId: string): Promise<boolean>;
 
   /**
+   * The subset of `ids` this scope's log already holds — the oracle's
+   * commit-point novelty check, answered by the durable index in one
+   * read per batch so a replayed envelope is classified before any
+   * store write, on every boot, whatever the in-memory sets remember.
+   */
+  knownMutationIds(ids: readonly string[]): Promise<ReadonlySet<string>>;
+
+  /**
    * Drop every envelope with HLC < `beforeHlcKey`. Driven by the
    * compaction watermark matrix (§9.3). Tombstones are the oracle's
    * problem; this layer is dumb storage.
@@ -84,6 +92,10 @@ export class InMemoryMutationLog implements MutationLog {
 
   async hasMutation(mutationId: string): Promise<boolean> {
     return this.seen.has(mutationId);
+  }
+
+  async knownMutationIds(ids: readonly string[]): Promise<ReadonlySet<string>> {
+    return new Set(ids.filter((id) => this.seen.has(id)));
   }
 
   async truncateBefore(beforeHlcKey: string): Promise<void> {

@@ -23,7 +23,7 @@
  */
 
 import type { FileRef } from '@openheaders/core/files';
-import type { FileRefSlot, MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import type { FileRefSlot, MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   buildAddFileRefBatch,
   buildRemoveFileRefBatch,
@@ -188,7 +188,7 @@ export async function purgeFilesForWorkspace(workspaceId: string): Promise<void>
 
 async function applyFilesMutationOrThrow(
   workspaceId: string,
-  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  factory: (ctx: MutatorContext) => { batch: MutationBatch },
   op: string,
 ): Promise<void> {
   const oracle = getOracleForWorkspace(workspaceId);
@@ -196,9 +196,9 @@ async function applyFilesMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`FilesStore.${op}: sync service not initialized for workspace ${workspaceId}`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `FilesStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

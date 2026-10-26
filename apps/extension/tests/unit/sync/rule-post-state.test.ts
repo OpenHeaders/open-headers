@@ -58,9 +58,9 @@ describe('projectRulePostState', () => {
   it('returns post-state for a Rule envelope after seed + toggle', async () => {
     const oracle = await newOracle();
     const rule = makeRule(generateUid());
-    await oracle.apply(seedRule(rule, ctx(1_000)), []);
+    await oracle.apply(seedRule(rule, ctx(1_000)));
     const intent = toggleEnabled(ctx(2_000), { ruleUid: rule.uid, enabled: false });
-    await oracle.apply(intent.batch, intent.sideEffects);
+    await oracle.apply(intent.batch);
 
     const envelope = intent.batch.mutations[0];
     const post = projectRulePostState(oracle, envelope);
@@ -89,12 +89,12 @@ describe('projectRulePostState', () => {
   it('returns null for a deleted rule (tombstone)', async () => {
     const oracle = await newOracle();
     const rule = makeRule(generateUid());
-    await oracle.apply(seedRule(rule, ctx(1_000)), []);
+    await oracle.apply(seedRule(rule, ctx(1_000)));
     const deleteCtx = ctx(2_000);
     const deleteBatch = mintBatch(deleteCtx, [
       { kind: 'delete', type: RULE_ENTITY_TYPE, id: rule.uid },
     ]);
-    await oracle.apply(deleteBatch, []);
+    await oracle.apply(deleteBatch);
     const post = projectRulePostState(oracle, deleteBatch.mutations[0]);
     expect(post).toBeNull();
   });
@@ -102,7 +102,7 @@ describe('projectRulePostState', () => {
   it('projectRuleByUid returns post-state for known uid + null for unknown', async () => {
     const oracle = await newOracle();
     const rule = makeRule(generateUid());
-    await oracle.apply(seedRule(rule, ctx(1_000)), []);
+    await oracle.apply(seedRule(rule, ctx(1_000)));
     const post = projectRuleByUid(oracle, rule.uid);
     expect(post?.rule.uid).toBe(rule.uid);
     expect(post?.setItemIds.conditions?.length).toBe(1);

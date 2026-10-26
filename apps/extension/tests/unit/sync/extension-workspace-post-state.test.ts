@@ -70,12 +70,12 @@ function newOracle(): EntityOracle {
 describe('projectExtensionWorkspacePostState', () => {
   it('returns post-state after seed + setExtensionWorkspace', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedExtensionWorkspaces([ws()], 'ws-a', ctx(1)), []);
+    await oracle.apply(seedExtensionWorkspaces([ws()], 'ws-a', ctx(1)));
     const intent = setExtensionWorkspace(ctx(2), {
       slot: slot({ id: 'ws-b', name: 'New' }),
       orderKey: 'p',
     });
-    const result = await oracle.apply(intent.batch, []);
+    const result = await oracle.apply(intent.batch);
     expect(result.ok).toBe(true);
     const post = projectExtensionWorkspacePostState(oracle, intent.batch.mutations[0]);
     expect(post).not.toBeNull();
@@ -87,9 +87,8 @@ describe('projectExtensionWorkspacePostState', () => {
     const oracle = newOracle();
     await oracle.apply(
       seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
-      [],
     );
-    await oracle.apply(removeExtensionWorkspace(ctx(2), { id: 'ws-a' }).batch, []);
+    await oracle.apply(removeExtensionWorkspace(ctx(2), { id: 'ws-a' }).batch);
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.workspaces.map((w) => w.id)).toEqual(['ws-b']);
   });
@@ -98,9 +97,8 @@ describe('projectExtensionWorkspacePostState', () => {
     const oracle = newOracle();
     await oracle.apply(
       seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
-      [],
     );
-    await oracle.apply(setActiveExtensionWorkspace(ctx(2), { id: 'ws-b' }).batch, []);
+    await oracle.apply(setActiveExtensionWorkspace(ctx(2), { id: 'ws-b' }).batch);
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.activeWorkspaceId).toBe('ws-b');
   });
@@ -109,11 +107,10 @@ describe('projectExtensionWorkspacePostState', () => {
     const oracle = newOracle();
     await oracle.apply(
       seedExtensionWorkspaces([ws({ id: 'ws-a' }), ws({ id: 'ws-b', sortIndex: 1, name: 'B' })], 'ws-a', ctx(1)),
-      [],
     );
     // Seed assigns ascending keys (m, n by walk); moving ws-b before ws-a
     // means giving it a key < 'm'. Use 'a' as a known-low marker.
-    await oracle.apply(moveExtensionWorkspaceBefore(ctx(2), { id: 'ws-b', orderKey: 'a' }).batch, []);
+    await oracle.apply(moveExtensionWorkspaceBefore(ctx(2), { id: 'ws-b', orderKey: 'a' }).batch);
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.workspaces.map((w) => w.id)).toEqual(['ws-b', 'ws-a']);
     // sortIndex re-emitted from projection-position, not the legacy field
@@ -122,15 +119,9 @@ describe('projectExtensionWorkspacePostState', () => {
 
   it('keeps the latest payload on concurrent same-id sets (LWW)', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedExtensionWorkspaces([], null, ctx(1)), []);
-    await oracle.apply(
-      setExtensionWorkspace(ctx(2), { slot: slot({ id: 'w', name: 'old' }), orderKey: 'm' }).batch,
-      [],
-    );
-    await oracle.apply(
-      setExtensionWorkspace(ctx(3), { slot: slot({ id: 'w', name: 'new' }), orderKey: 'm' }).batch,
-      [],
-    );
+    await oracle.apply(seedExtensionWorkspaces([], null, ctx(1)));
+    await oracle.apply(setExtensionWorkspace(ctx(2), { slot: slot({ id: 'w', name: 'old' }), orderKey: 'm' }).batch);
+    await oracle.apply(setExtensionWorkspace(ctx(3), { slot: slot({ id: 'w', name: 'new' }), orderKey: 'm' }).batch);
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.workspaces[0].name).toBe('new');
   });
@@ -141,13 +132,12 @@ describe('projectExtensionWorkspacePostState', () => {
     // by a newer build survives this projector unchanged; narrowing to
     // the known vocabulary happens at enforcement/render sites only.
     const oracle = newOracle();
-    await oracle.apply(seedExtensionWorkspaces([ws({ id: 'ws-a', visibility: 'internal' })], 'ws-a', ctx(1)), []);
+    await oracle.apply(seedExtensionWorkspaces([ws({ id: 'ws-a', visibility: 'internal' })], 'ws-a', ctx(1)));
     await oracle.apply(
       setExtensionWorkspace(ctx(2), {
         slot: slot({ id: 'ws-b', name: 'B', visibility: 'org-only-future-value' }),
         orderKey: 'p',
       }).batch,
-      [],
     );
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.workspaces.map((w) => [w.id, w.visibility])).toEqual([
@@ -177,7 +167,7 @@ describe('projectExtensionWorkspacePostState', () => {
 
   it('seeds with no active id when null', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedExtensionWorkspaces([ws()], null, ctx(1)), []);
+    await oracle.apply(seedExtensionWorkspaces([ws()], null, ctx(1)));
     const post = projectExtensionWorkspaceSingleton(oracle);
     expect(post?.activeWorkspaceId).toBeNull();
   });

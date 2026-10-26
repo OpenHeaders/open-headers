@@ -122,6 +122,7 @@ export function supportsBranchScope(log: MutationLog): log is BranchScopedMutati
 interface MutationLogStatements {
   append: Database.Statement<[string, string, string, string, string, string]>;
   hasMutation: Database.Statement<[string, string]>;
+  knownMutationIds: Database.Statement<[string, string]>;
   readSinceAll: Database.Statement<[string, string]>;
   readSinceFrom: Database.Statement<[string, string, string]>;
   truncateBefore: Database.Statement<[string, string, string]>;
@@ -136,6 +137,12 @@ function prepareStatements(db: Database.Database): MutationLogStatements {
        VALUES (?, ?, ?, ?, ?, ?)`,
     ),
     hasMutation: db.prepare(`SELECT 1 FROM mutation_log WHERE scope = ? AND mutation_id = ? LIMIT 1`),
+    // One probe of the dedup index per batch: the ids ride in as a JSON
+    // array so the statement's arity never varies with the batch size.
+    knownMutationIds: db.prepare(
+      `SELECT mutation_id FROM mutation_log
+       WHERE scope = ? AND mutation_id IN (SELECT value FROM json_each(?))`,
+    ),
     // Ordered reads see the branchless trunk plus the active branch —
     // never a sibling branch's rows (§6.3 HLC-coherence law).
     readSinceAll: db.prepare(
@@ -213,6 +220,13 @@ export class SqliteMutationLog implements BranchScopedMutationLog {
   async hasMutation(mutationId: string): Promise<boolean> {
     const stmts = statementsFor(this.db);
     return stmts.hasMutation.get(this.scope, mutationId) !== undefined;
+  }
+
+  async knownMutationIds(ids: readonly string[]): Promise<ReadonlySet<string>> {
+    if (ids.length === 0) return new Set();
+    const stmts = statementsFor(this.db);
+    const rows = stmts.knownMutationIds.all(this.scope, JSON.stringify(ids)) as Array<{ mutation_id: string }>;
+    return new Set(rows.map((row) => row.mutation_id));
   }
 
   async truncateBefore(beforeHlcKey: string): Promise<void> {

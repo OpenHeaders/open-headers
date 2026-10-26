@@ -37,7 +37,7 @@ export async function ensureDefaultRequestCollection(): Promise<Collection> {
   setCollections([...collections, collection]);
   const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH);
   await applyRequestCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedRequestCollection(collection, ctx, placement), sideEffects: [] }),
+    (ctx) => ({ batch: seedRequestCollection(collection, ctx, placement) }),
     'ensureDefaultRequestCollection',
   );
   return collection;
@@ -58,7 +58,7 @@ export async function createRequestCollection(name: string): Promise<Collection>
   setCollections([...collections, collection]);
   const placement = rootsPlacement(getOracleForCurrentWorkspace(), WORKSPACE_ROOTS_REQUEST_COLLECTIONS_PATH);
   await applyRequestCollectionMutationOrThrow(
-    (ctx) => ({ batch: seedRequestCollection(collection, ctx, placement), sideEffects: [] }),
+    (ctx) => ({ batch: seedRequestCollection(collection, ctx, placement) }),
     'createRequestCollection',
   );
   return collection;

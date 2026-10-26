@@ -137,7 +137,6 @@ export async function applyCollectionCreate(
       parent: WORKSPACE_ROOTS_REF,
       orderKey: roots.appendOrderKey(WORKSPACE_ROOTS_RULE_COLLECTIONS_PATH),
     }),
-    sideEffects: [],
   });
   if (ack.ok) return { ok: true, collection };
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
@@ -184,10 +183,7 @@ export async function applyCollectionDelete(
   }
   for (const folderUid of cascadingFolderUids) {
     const ctx = baseCtx.next({ batchId: `collection-delete-cascade-folder-${folderUid}` });
-    const ack = await applySyncPayload({
-      batch: buildDeleteFolderEntityBatch(folderUid, ctx),
-      sideEffects: [],
-    });
+    const ack = await applySyncPayload({ batch: buildDeleteFolderEntityBatch(folderUid, ctx) });
     if (!ack.ok) return ack;
   }
 

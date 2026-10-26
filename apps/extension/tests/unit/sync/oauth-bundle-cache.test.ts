@@ -77,7 +77,7 @@ describe('OAuthBundleCache', () => {
       credentialRef: 'cred-1',
       bundle: { accessToken: 'at' },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBeGreaterThan(0);
     expect(cache.getSnapshot().tokens).toMatchObject({ 'cred-1': { accessToken: 'at' } });
     cache.dispose();
@@ -94,7 +94,7 @@ describe('OAuthBundleCache', () => {
     cache.dispose();
 
     const intent = setOAuthToken(ctxFactory(), { credentialRef: 'x', bundle: {} });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(calls).toBe(0);
   });
 });

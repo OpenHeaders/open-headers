@@ -17,12 +17,7 @@
  * `dispatchRevertActivity`, the existing non-renderer batch minter.
  */
 
-import {
-  computeInverseSpec,
-  type MutationBatch,
-  type MutatorContext,
-  type SideEffectIntent,
-} from '@openheaders/core/sync';
+import { computeInverseSpec, type MutationBatch, type MutatorContext } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
 import { compileGraphqlRequest } from '@openheaders/oracle/live/graphql-exec/execute';
@@ -169,7 +164,6 @@ export function mintMcpContext(workspaceId: string): MutatorContext {
 
 export interface McpMutationPayload {
   batch: MutationBatch;
-  sideEffects: SideEffectIntent[];
 }
 
 /**
@@ -204,11 +198,7 @@ function capturePriorsForActivity(batch: MutationBatch): void {
 export async function applyMcpMutation(payload: McpMutationPayload): Promise<void> {
   if (payload.batch.mutations.length === 0) return;
   capturePriorsForActivity(payload.batch);
-  const response = await applySyncRequest({
-    type: 'oh.sync.apply',
-    batch: payload.batch,
-    sideEffects: payload.sideEffects,
-  });
+  const response = await applySyncRequest({ type: 'oh.sync.apply', batch: payload.batch });
   if (!response.ok) {
     const detail = response.failure?.detail ?? response.failure?.status ?? 'apply failed';
     throw new McpToolInputError(`mutation rejected: ${detail}`);

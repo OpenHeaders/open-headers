@@ -86,7 +86,7 @@ describe('WorkspaceCoordRunner', () => {
     const h = makeHarness();
     const intent = setActiveExtensionWorkspace(ctx(1000), { id: 'ws-B' });
     h.setActiveId('ws-B');
-    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await h.oracle.apply(intent.batch);
     await flush();
     expect(h.swapCalls).toEqual(['ws-B']);
     expect(h.purgeCalls).toEqual([]);
@@ -96,7 +96,7 @@ describe('WorkspaceCoordRunner', () => {
   it('runs purge for each removed workspace id', async () => {
     const h = makeHarness();
     const removeA = removeExtensionWorkspace(ctx(1000), { id: 'ws-A' });
-    await h.oracle.apply(removeA.batch, removeA.sideEffects);
+    await h.oracle.apply(removeA.batch);
     await flush();
     expect(h.purgeCalls).toEqual(['ws-A']);
     expect(h.swapCalls).toEqual([]);
@@ -113,8 +113,8 @@ describe('WorkspaceCoordRunner', () => {
     const first = setActiveExtensionWorkspace(ctx(1000), { id: 'ws-B' });
     const second = setActiveExtensionWorkspace(ctx(2000), { id: 'ws-C' });
     h.setActiveId('ws-C');
-    await h.oracle.apply(first.batch, first.sideEffects);
-    await h.oracle.apply(second.batch, second.sideEffects);
+    await h.oracle.apply(first.batch);
+    await h.oracle.apply(second.batch);
     await flush();
     expect(h.swapCalls.every((id) => id === 'ws-C')).toBe(true);
     expect(h.swapCalls.length).toBeGreaterThanOrEqual(1);
@@ -130,13 +130,10 @@ describe('WorkspaceCoordRunner', () => {
       { id: 'ws-B' },
     );
     h.setActiveId('ws-B');
-    await h.oracle.apply(
-      {
-        batchId: remove.batch.batchId,
-        mutations: [...remove.batch.mutations, ...setActive.batch.mutations],
-      },
-      [...remove.sideEffects, ...setActive.sideEffects],
-    );
+    await h.oracle.apply({
+      batchId: remove.batch.batchId,
+      mutations: [...remove.batch.mutations, ...setActive.batch.mutations],
+    });
     await flush();
     expect(h.swapCalls).toEqual(['ws-B']);
     expect(h.purgeCalls).toEqual(['ws-A']);
@@ -147,7 +144,7 @@ describe('WorkspaceCoordRunner', () => {
     const h = makeHarness();
     const intent = setActiveExtensionWorkspace(ctx(1000), { id: 'ws-B' });
     // Don't update activeId — simulate the cache not yet pushing.
-    await h.oracle.apply(intent.batch, intent.sideEffects);
+    await h.oracle.apply(intent.batch);
     await flush();
     expect(h.swapCalls).toEqual([]);
     h.dispose();

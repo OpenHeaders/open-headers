@@ -178,7 +178,7 @@ export async function applyWorkspaceSnapshot(
     for (const item of items) {
       const ctx = options.makeContext();
       const batch = builder(item, ctx);
-      await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [], applyOrigin: 'inbound' });
+      await applySyncRequest({ type: 'oh.sync.apply', batch, applyOrigin: 'inbound' });
     }
     byType[label] = items.length;
     entitiesApplied += items.length;

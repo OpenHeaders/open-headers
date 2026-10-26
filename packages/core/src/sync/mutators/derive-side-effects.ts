@@ -13,10 +13,13 @@
  * `deriveExtensionWorkspaceSideEffects`). This dispatcher routes by
  * `envelope.body.type` to the right one.
  *
- * Mutator functions use these derivations at MINT time on their own
- * minted envelope so there is exactly one mapping from
- * `(body, hlc)` → `SideEffectIntent[]` — used in both directions.
- * "Emits at mint but not at receive" is therefore structurally
+ * The oracle runs this mapping at its commit point over the envelopes
+ * it commits — local gesture, peer stream, snapshot replay or seed
+ * alike — so there is exactly one mapping from `(body, hlc)` →
+ * `SideEffectIntent[]` and no caller ships intents of its own. Mutator
+ * functions still derive their `MutatorIntent.sideEffects` through the
+ * same functions for their own tests, which pins the mapping per
+ * catalog; "emits at mint but not at commit" is structurally
  * impossible: there is no second emission site to drift from.
  *
  * Adding a new entity:
@@ -25,11 +28,6 @@
  *   2. Have `foo`'s mutator functions call it from their minted
  *      envelope (replacing any inline intent emission).
  *   3. Register here.
- *
- * Receiver-side wiring is in
- * `packages/oracle/src/sync/mutation-stream-bridge.ts` —
- * `applyInboundMutationBatch` flat-maps every envelope through this
- * dispatcher and passes the result to `applySyncRequest({ sideEffects })`.
  */
 
 import type { MutationEnvelope } from '../envelope';

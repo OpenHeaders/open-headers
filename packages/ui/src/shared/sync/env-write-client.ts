@@ -20,14 +20,7 @@
  * presence flicker mid-edit.
  */
 
-import {
-  ENV_VARS_PATH,
-  ENVIRONMENT_ENTITY_TYPE,
-  invalidateResolverIntent,
-  type MutationEnvelope,
-  mintBatch,
-  type SideEffectIntent,
-} from '@openheaders/core/sync';
+import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE, type MutationEnvelope, mintBatch } from '@openheaders/core/sync';
 import { normalizeVariableRow, synthesizeSetDiff, toLiveSetEntries } from '@openheaders/core/sync-builders';
 import {
   buildAddEnvironmentBatch,
@@ -135,19 +128,13 @@ export async function applyEnvVariablesReplacement(
   if (bodies.length === 0) return { ok: true };
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `env-replace-${envId}` });
-
-  // One INVALIDATE_RESOLVER intent for the whole batch — the runner
-  // coalesces by (kind, envId) on the IDB side anyway, but emitting
-  // once keeps the wire payload tight.
-  const sideEffects: SideEffectIntent[] = [invalidateResolverIntent(envId, ctx.hlc)];
-  const batch = mintBatch(ctx, bodies);
-  return applySyncPayload({ batch, sideEffects });
+  return applySyncPayload({ batch: mintBatch(ctx, bodies) });
 }
 
 /**
  * Renderer-direct env create. Mints uid locally, builds the seed batch
- * (one `create` for the scalar shell + one `addToSet` per variable) plus
- * an `INVALIDATE_RESOLVER` side-effect, and fires `oh.sync.apply` against
+ * (one `create` for the scalar shell + one `addToSet` per variable),
+ * and fires `oh.sync.apply` against
  * the workspace carried on `opts`. Mirrors `applyRuleCreate`. The
  * legacy SW handler (`createEnvironment`) operates on the runtime-Active
  * workspace and is bypassed here — workbench surfaces emit applies with

@@ -65,7 +65,7 @@ beforeEach(() => {
 describe('FolderCache', () => {
   it('seeds folders into oracle and projects them with reconstructed paths', async () => {
     const coll = makeCollection('col-1');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
 
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
     const persisted: PersistedLocalFolder[] = [
@@ -80,7 +80,7 @@ describe('FolderCache', () => {
 
   it('updates the cache when a folder is renamed via the catalog', async () => {
     const coll = makeCollection('col-2');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedFolders(
       [{ schemaVersion: 5, uid: 'f-r', path: `${coll.path}/old-f-r`, name: 'Old' }],
@@ -88,7 +88,7 @@ describe('FolderCache', () => {
     );
 
     const intent = renameFolder(ctxFactory(), { folderUid: 'f-r', name: 'New name' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const folders = cache.getFolders();
     expect(folders[0].name).toBe('New name');
     // Path stays stable across rename — legacy invariant via persisted pathSegment.
@@ -98,7 +98,7 @@ describe('FolderCache', () => {
 
   it('updates when a folder is created via the catalog (parent slot landed)', async () => {
     const coll = makeCollection('col-3');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
     expect(cache.getFolders()).toEqual([]);
 
@@ -107,14 +107,14 @@ describe('FolderCache', () => {
       parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
       name: 'Fresh',
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getFolders().map((f) => f.uid)).toEqual(['f-new']);
     cache.dispose();
   });
 
   it('refreshes on parent-slot envelopes (nested folders)', async () => {
     const coll = makeCollection('col-4');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
 
     const root = createFolder(ctxFactory(), {
@@ -122,13 +122,13 @@ describe('FolderCache', () => {
       parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
       name: 'Root',
     });
-    await oracle.apply(root.batch, []);
+    await oracle.apply(root.batch);
     const leaf = createFolder(ctxFactory(), {
       folderUid: 'l',
       parent: { type: FOLDER_ENTITY_TYPE, uid: 'r' },
       name: 'Leaf',
     });
-    await oracle.apply(leaf.batch, []);
+    await oracle.apply(leaf.batch);
 
     const folders = cache.getFolders();
     const byUid = new Map(folders.map((f) => [f.uid, f]));
@@ -139,7 +139,7 @@ describe('FolderCache', () => {
 
   it('bulk seed re-projects once — one listener fire for the whole batch', async () => {
     const coll = makeCollection('col-b');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
     let fires = 0;
     cache.onChange(() => {
@@ -160,8 +160,8 @@ describe('FolderCache', () => {
   it('resolves deep nesting across sibling branches', async () => {
     const collA = makeCollection('col-da');
     const collB = makeCollection('col-db');
-    await oracle.apply(seedCollection(collA, ctxFactory()), []);
-    await oracle.apply(seedCollection(collB, ctxFactory()), []);
+    await oracle.apply(seedCollection(collA, ctxFactory()));
+    await oracle.apply(seedCollection(collB, ctxFactory()));
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedFolders(
       [
@@ -203,7 +203,7 @@ describe('FolderCache', () => {
 
   it('dispose drops the broadcast subscription', async () => {
     const coll = makeCollection('col-5');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedFolders(
       [{ schemaVersion: 5, uid: 'f-d', path: `${coll.path}/x-f-d`, name: 'X' }],
@@ -212,13 +212,13 @@ describe('FolderCache', () => {
     cache.dispose();
 
     const intent = renameFolder(ctxFactory(), { folderUid: 'f-d', name: 'Renamed' });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getFolders()[0].name).toBe('X');
   });
 
   it('seeds sibling slots with ascending keys in persisted order (restart keeps the order)', async () => {
     const coll = makeCollection('col-k');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
     const cache = createFolderCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedFolders(
       [
@@ -238,7 +238,7 @@ describe('FolderCache', () => {
   it("seeds siblings in the persisted tree-order record's order, array order for the rest", async () => {
     installBackingStorage();
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), []);
+    await oracle.apply(seedCollection(coll, ctxFactory()));
     await hostStorage.set(wsKeys('ws-1').treeOrder, {
       schemaVersion: 5,
       containers: { 'collection:col00001': { folders: ['fol0000m', 'fol0000z'], items: [] } },

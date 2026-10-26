@@ -11,18 +11,14 @@
  *     the refresh scheduler (gated on `isWorkflowEffective`) won't fire
  *     until the user clicks Save.
  *   - `applyLiveWorkflowPublish` is the explicit Save gesture: a single
- *     `setField('published', true)` mutation + resolver invalidation.
+ *     `setField('published', true)` mutation; the oracle derives the
+ *     resolver invalidation.
  *   - `applyLiveWorkflowUpdate` auto-unpublishes any in-flight runtime edit on
  *     a previously-published workflow so the scheduler never observes a
  *     half-typed step or refresh policy still flagged published.
  */
 
-import {
-  liveWorkflowInvalidateResolverIntent,
-  LIVE_WORKFLOW_ENTITY_TYPE,
-  mintBatch,
-  type MutationBody,
-} from '@openheaders/core/sync';
+import { LIVE_WORKFLOW_ENTITY_TYPE, mintBatch, type MutationBody } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
@@ -124,7 +120,7 @@ export async function applyLiveWorkflowCreate(
 
 /**
  * Promote a draft workflow to live state. Single
- * `setField('published', true)` mutation + resolver invalidation. The
+ * `setField('published', true)` mutation. The
  * Save button binds to this; per-keystroke edits go through
  * {@link applyLiveWorkflowUpdate} which auto-unpublishes on first edit.
  */
@@ -139,10 +135,7 @@ export async function applyLiveWorkflowPublish(
   const bodies: MutationBody[] = [
     { kind: 'setField', type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflowUid, path: 'published', value: true },
   ];
-  return applySyncPayload({
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [liveWorkflowInvalidateResolverIntent(workflowUid, ctx.hlc)],
-  });
+  return applySyncPayload({ batch: mintBatch(ctx, bodies) });
 }
 
 export async function applyLiveWorkflowDelete(

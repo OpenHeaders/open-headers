@@ -155,7 +155,7 @@ class Peer {
   }
 
   async local(batch: Parameters<EntityOracle['apply']>[0]): Promise<void> {
-    const result = await this.oracle.apply(batch, [], 'local');
+    const result = await this.oracle.apply(batch, 'local');
     expect(result.ok).toBe(true);
   }
 
@@ -166,7 +166,7 @@ class Peer {
     for (const envelope of envelopes) {
       this.clock = Math.max(this.clock, envelope.hlc.physicalMs);
       if (this.seen.has(envelope.mutationId)) continue;
-      await this.oracle.apply({ batchId: `wire-${envelope.mutationId}`, mutations: [envelope] }, [], 'inbound');
+      await this.oracle.apply({ batchId: `wire-${envelope.mutationId}`, mutations: [envelope] }, 'inbound');
     }
   }
 

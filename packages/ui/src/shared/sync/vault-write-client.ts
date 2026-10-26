@@ -17,15 +17,7 @@
  * the schema-marked-sensitive payload never crosses any sync transport.
  */
 
-import {
-  type MutationEnvelope,
-  mintBatch,
-  type SideEffectIntent,
-  VAULT_ENTITY_TYPE,
-  VAULT_ID,
-  VAULT_PATH,
-  vaultInvalidateResolverIntent,
-} from '@openheaders/core/sync';
+import { type MutationEnvelope, mintBatch, VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from '@openheaders/core/sync';
 import { synthesizeSetDiff, toLiveSetEntries } from '@openheaders/core/sync-builders';
 import {
   buildRemoveVaultSecretBatch,
@@ -113,10 +105,7 @@ export async function applyVaultReplacement(
   if (bodies.length === 0) return { ok: true };
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `vault-replace` });
-
-  const sideEffects: SideEffectIntent[] = [vaultInvalidateResolverIntent(ctx.hlc)];
-  const batch = mintBatch(ctx, bodies);
-  return applySyncPayload({ batch, sideEffects });
+  return applySyncPayload({ batch: mintBatch(ctx, bodies) });
 }
 
 export type { MutationEnvelope };

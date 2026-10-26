@@ -126,14 +126,13 @@ afterEach(() => setHostActivityEntrySink(null));
 describe('tree slot reconciler', () => {
   it('seeds slot-less leaves and collections from their stored paths in persisted order', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     await oracle.apply(
       createFolder(ctxFactory(), {
         folderUid: 'fol00001',
         parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
         name: 'Sub',
       }).batch,
-      [],
       'inbound',
     );
     const inCollection = [
@@ -141,7 +140,7 @@ describe('tree slot reconciler', () => {
       makeRule('rul00001', `${coll.path}/a-rul00001`),
     ];
     const inFolder = makeRule('rul00002', `${coll.path}/sub-fol00001/b-rul00002`);
-    for (const rule of [...inCollection, inFolder]) await oracle.apply(seedRule(rule, ctxFactory()), [], 'inbound');
+    for (const rule of [...inCollection, inFolder]) await oracle.apply(seedRule(rule, ctxFactory()), 'inbound');
     await hostStorage.set(wsKeys('ws-1').rules, [...inCollection, inFolder]);
 
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
@@ -164,8 +163,8 @@ describe('tree slot reconciler', () => {
 
   it('is idempotent — a second pass mints nothing', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
-    await oracle.apply(seedRule(makeRule('rul00001', `${coll.path}/a-rul00001`), ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
+    await oracle.apply(seedRule(makeRule('rul00001', `${coll.path}/a-rul00001`), ctxFactory()), 'inbound');
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
     await reconciler.reconcile();
     const before = oracle.revision;
@@ -178,18 +177,17 @@ describe('tree slot reconciler', () => {
 
   it('appends after the live tail and leaves an unresolvable parent slot-less', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     await oracle.apply(
       seedRule(makeRule('rul00001', `${coll.path}/a-rul00001`), ctxFactory(), {
         parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
         orderKey: 'm',
       }),
-      [],
       'inbound',
     );
-    await oracle.apply(seedRule(makeRule('rul00000', `${coll.path}/z-rul00000`), ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRule(makeRule('rul00000', `${coll.path}/z-rul00000`), ctxFactory()), 'inbound');
     const orphan = makeRule('rul00009', 'rules/gone-col0dead/x-rul00009');
-    await oracle.apply(seedRule(orphan, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRule(orphan, ctxFactory()), 'inbound');
 
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
     await reconciler.reconcile();
@@ -203,11 +201,11 @@ describe('tree slot reconciler', () => {
 
   it('schedules a pass after an inbound slot-less create once armed', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
     await reconciler.hydrateFromStorage();
 
-    await oracle.apply(seedRule(makeRule('rul00001', `${coll.path}/a-rul00001`), ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRule(makeRule('rul00001', `${coll.path}/a-rul00001`), ctxFactory()), 'inbound');
     expect(ruleSlots(COLLECTION_ENTITY_TYPE, coll.uid)).toEqual([]);
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(ruleSlots(COLLECTION_ENTITY_TYPE, coll.uid).map((s) => s.itemId)).toEqual(['rul00001']);
@@ -246,16 +244,15 @@ describe('tree slot reconciler — tree-order record', () => {
     }) as unknown as GrpcRequest;
 
   it('a merged record entry restores a folder-between-leaves interleave on re-seed', async () => {
-    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), 'inbound');
     const parent = { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requestCollection.uid } as const;
     // The folder is live (the folder cache seeded it); both requests are slot-less.
     await oracle.apply(
       createRequestFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'Sub', orderKey: 'm' }).batch,
-      [],
       'inbound',
     );
     const https = [http('req00001'), http('req00002')];
-    for (const r of https) await oracle.apply(seedRequest(r, ctxFactory()), [], 'inbound');
+    for (const r of https) await oracle.apply(seedRequest(r, ctxFactory()), 'inbound');
     await hostStorage.set(wsKeys('ws-1').requests, https);
     await hostStorage.set(wsKeys('ws-1').requestCollections, [requestCollection]);
     await hostStorage.set(wsKeys('ws-1').treeOrder, {
@@ -279,17 +276,15 @@ describe('tree slot reconciler — tree-order record', () => {
 
   it('normalises a container never keyed as one order: items re-keyed after the folder tail, once', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     const parent = { type: COLLECTION_ENTITY_TYPE, uid: coll.uid } as const;
     // Both runs seeded at 'm' apart — the legacy shape — so by key they interleave.
     await oracle.apply(
       createFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'A', orderKey: 'm' }).batch,
-      [],
       'inbound',
     );
     await oracle.apply(
       createFolder(ctxFactory(), { folderUid: 'fol00002', parent, name: 'B', orderKey: 's' }).batch,
-      [],
       'inbound',
     );
     for (const [uid, key] of [
@@ -298,7 +293,6 @@ describe('tree slot reconciler — tree-order record', () => {
     ] as const) {
       await oracle.apply(
         seedRule(makeRule(uid, `${coll.path}/${uid}-${uid}`), ctxFactory(), { parent, orderKey: key }),
-        [],
         'inbound',
       );
     }
@@ -339,20 +333,14 @@ describe('tree slot reconciler — tree-order record', () => {
 
   it('a record with no opinion on a container leaves its live interleave alone', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(
-      seedCollection(coll, ctxFactory(), { parent: WORKSPACE_ROOTS_REF, orderKey: 'm' }),
-      [],
-      'inbound',
-    );
+    await oracle.apply(seedCollection(coll, ctxFactory(), { parent: WORKSPACE_ROOTS_REF, orderKey: 'm' }), 'inbound');
     const parent = { type: COLLECTION_ENTITY_TYPE, uid: coll.uid } as const;
     await oracle.apply(
       seedRule(makeRule('rul00001', `${coll.path}/a-rul00001`), ctxFactory(), { parent, orderKey: 'm' }),
-      [],
       'inbound',
     );
     await oracle.apply(
       createFolder(ctxFactory(), { folderUid: 'fol00001', parent, name: 'A', orderKey: 's' }).batch,
-      [],
       'inbound',
     );
     await hostStorage.set(wsKeys('ws-1').treeOrder, { schemaVersion: 5, containers: {} });
@@ -365,11 +353,11 @@ describe('tree slot reconciler — tree-order record', () => {
   });
 
   it("re-seeds the request kinds in the record's interleave, unknown leaves after by kind and array order", async () => {
-    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), 'inbound');
     const https = [http('req00002'), http('req00001'), http('req00003')];
     const grpcs = [grpc('grq00001')];
-    for (const r of https) await oracle.apply(seedRequest(r, ctxFactory()), [], 'inbound');
-    for (const g of grpcs) await oracle.apply(seedGrpcRequest(g, ctxFactory()), [], 'inbound');
+    for (const r of https) await oracle.apply(seedRequest(r, ctxFactory()), 'inbound');
+    for (const g of grpcs) await oracle.apply(seedGrpcRequest(g, ctxFactory()), 'inbound');
     await hostStorage.set(wsKeys('ws-1').requests, https);
     await hostStorage.set(wsKeys('ws-1').grpcRequests, grpcs);
     await hostStorage.set(wsKeys('ws-1').requestCollections, [requestCollection]);
@@ -393,11 +381,11 @@ describe('tree slot reconciler — conflict healing', () => {
   const folderUnder = (
     uid: string,
     parent: { type: typeof COLLECTION_ENTITY_TYPE | typeof FOLDER_ENTITY_TYPE; uid: string },
-  ) => oracle.apply(createFolder(ctxFactory(), { folderUid: uid, parent, name: uid }).batch, [], 'inbound');
+  ) => oracle.apply(createFolder(ctxFactory(), { folderUid: uid, parent, name: uid }).batch, 'inbound');
 
   it('tombstones a shadowed slot so the store agrees with the higher add-HLC parent', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     await folderUnder('fol0000a', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     await folderUnder('fol0000b', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     await folderUnder('fol0000x', { type: FOLDER_ENTITY_TYPE, uid: 'fol0000a' });
@@ -412,7 +400,6 @@ describe('tree slot reconciler — conflict healing', () => {
           item: { uid: 'fol0000x' },
         },
       ]),
-      [],
       'inbound',
     );
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
@@ -431,7 +418,7 @@ describe('tree slot reconciler — conflict healing', () => {
 
   it('breaks a cycle at the lowest add-HLC slot and rehomes the victim to the collection root with a feed row', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     await folderUnder('fol0000p', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     await folderUnder('fol0000q', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     const intoP = moveFolder(ctxFactory(), {
@@ -440,7 +427,7 @@ describe('tree slot reconciler — conflict healing', () => {
       newParent: { type: FOLDER_ENTITY_TYPE, uid: 'fol0000p' },
       orderKey: 'a',
     }).batch;
-    await oracle.apply(intoP, [], 'inbound');
+    await oracle.apply(intoP, 'inbound');
     await oracle.apply(
       moveFolder(ctxFactory(), {
         folderUid: 'fol0000p',
@@ -448,7 +435,6 @@ describe('tree slot reconciler — conflict healing', () => {
         newParent: { type: FOLDER_ENTITY_TYPE, uid: 'fol0000q' },
         orderKey: 'a',
       }).batch,
-      [],
       'inbound',
     );
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
@@ -496,12 +482,11 @@ describe('tree slot reconciler — conflict healing', () => {
   it('rehomes a leaf orphaned by a container deleted under it after the grace, once', async () => {
     let now = 100_000;
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     await folderUnder('fol0000a', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     const rule = makeRule('rul00001', `${coll.path}/fol0000a-fol0000a/x-rul00001`);
     await oracle.apply(
       seedRule(rule, ctxFactory(), { parent: { type: FOLDER_ENTITY_TYPE, uid: 'fol0000a' } }),
-      [],
       'inbound',
     );
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory, { now: () => now });
@@ -510,7 +495,6 @@ describe('tree slot reconciler — conflict healing', () => {
     // The peer's delete cascade did not know about the rule: bare tombstone.
     await oracle.apply(
       mintBatch(ctxFactory(), [{ kind: 'delete', type: FOLDER_ENTITY_TYPE, id: 'fol0000a' }]),
-      [],
       'inbound',
     );
     await reconciler.reconcile();
@@ -543,12 +527,11 @@ describe('tree slot reconciler — conflict healing', () => {
   it('tombstones a slot whose child was deleted under a concurrent move, after the grace', async () => {
     let now = 100_000;
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     await folderUnder('fol0000a', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     const rule = makeRule('rul00001', `${coll.path}/x-rul00001`);
     await oracle.apply(
       seedRule(rule, ctxFactory(), { parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid } }),
-      [],
       'inbound',
     );
     // Peer A moved the rule into the folder; peer B deleted it from the collection.
@@ -570,10 +553,9 @@ describe('tree slot reconciler — conflict healing', () => {
           item: { uid: 'rul00001', type: 'rule' },
         },
       ]),
-      [],
       'inbound',
     );
-    await oracle.apply(mintBatch(ctxFactory(), [{ kind: 'delete', type: 'rule', id: 'rul00001' }]), [], 'inbound');
+    await oracle.apply(mintBatch(ctxFactory(), [{ kind: 'delete', type: 'rule', id: 'rul00001' }]), 'inbound');
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory, { now: () => now });
     await reconciler.reconcile();
     expect(ruleSlots(FOLDER_ENTITY_TYPE, 'fol0000a').map((s) => s.itemId)).toEqual(['rul00001']);
@@ -586,9 +568,9 @@ describe('tree slot reconciler — conflict healing', () => {
 
   it('hydrate rehomes a persisted orphan at once, onto the first live collection when its own is gone', async () => {
     const live = makeCollection('col00001');
-    await oracle.apply(seedCollection(live, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(live, ctxFactory()), 'inbound');
     const orphan = makeRule('rul00009', 'rules/gone-col0dead/x-rul00009');
-    await oracle.apply(seedRule(orphan, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRule(orphan, ctxFactory()), 'inbound');
     await hostStorage.set(wsKeys('ws-1').rules, [orphan]);
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
     await reconciler.hydrateFromStorage();
@@ -600,12 +582,11 @@ describe('tree slot reconciler — conflict healing', () => {
 
   it('extends delete-wins to an orphan whose collection is known deleted when no collection is live', async () => {
     const dead = makeCollection('col0dead');
-    await oracle.apply(seedCollection(dead, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(dead, ctxFactory()), 'inbound');
     const orphan = makeRule('rul00009', `${dead.path}/x-rul00009`);
-    await oracle.apply(seedRule(orphan, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRule(orphan, ctxFactory()), 'inbound');
     await oracle.apply(
       mintBatch(ctxFactory(), [{ kind: 'delete', type: COLLECTION_ENTITY_TYPE, id: dead.uid }]),
-      [],
       'inbound',
     );
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
@@ -617,14 +598,14 @@ describe('tree slot reconciler — conflict healing', () => {
 
   it('keeps an orphan whose collection is merely unknown on the by-path net, and rehomes it once a collection appears', async () => {
     const orphan = makeRule('rul00009', 'rules/gone-col0dead/x-rul00009');
-    await oracle.apply(seedRule(orphan, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRule(orphan, ctxFactory()), 'inbound');
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
     await reconciler.hydrateFromStorage();
     expect(projectRuleByUid(oracle, 'rul00009')?.rule.path).toBe('rules/gone-col0dead/x-rul00009');
     expect(entries).toEqual([]);
 
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'local');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'local');
     await new Promise((resolve) => setTimeout(resolve, 80));
     // Runtime: the orphan waits out the grace, so nothing moves yet — but the pass ran.
     expect(ruleSlots(COLLECTION_ENTITY_TYPE, coll.uid)).toEqual([]);
@@ -637,7 +618,7 @@ describe('tree slot reconciler — conflict healing', () => {
 
   it('schedules a pass on an inbound containment write once armed', async () => {
     const coll = makeCollection('col00001');
-    await oracle.apply(seedCollection(coll, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedCollection(coll, ctxFactory()), 'inbound');
     await folderUnder('fol0000a', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     await folderUnder('fol0000b', { type: COLLECTION_ENTITY_TYPE, uid: coll.uid });
     await folderUnder('fol0000x', { type: FOLDER_ENTITY_TYPE, uid: 'fol0000a' });
@@ -654,7 +635,6 @@ describe('tree slot reconciler — conflict healing', () => {
           item: { uid: 'fol0000x' },
         },
       ]),
-      [],
       'inbound',
     );
     expect(folderSlots(FOLDER_ENTITY_TYPE, 'fol0000a')).toEqual(['fol0000x']);
@@ -712,17 +692,16 @@ describe('tree slot reconciler — response examples', () => {
     oracle.liveOrderedSetItems(REQUEST_ENTITY_TYPE, requestUid, REQUEST_EXAMPLES_PATH);
 
   it('seeds slot-less examples onto their live request in persisted order', async () => {
-    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), 'inbound');
     await oracle.apply(
       seedRequest(makeRequest('req00001'), ctxFactory(), {
         parent: { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: requestCollection.uid },
         orderKey: 'm',
       }),
-      [],
       'inbound',
     );
     const examples = [makeExample('ex000002', 'req00001'), makeExample('ex000001', 'req00001')];
-    for (const example of examples) await oracle.apply(seedResponseExample(example, ctxFactory()), [], 'inbound');
+    for (const example of examples) await oracle.apply(seedResponseExample(example, ctxFactory()), 'inbound');
     await hostStorage.set(wsKeys('ws-1').responseExamples, examples);
 
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
@@ -742,12 +721,11 @@ describe('tree slot reconciler — response examples', () => {
   });
 
   it('extends delete-wins to an example whose request is known deleted', async () => {
-    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), [], 'inbound');
-    await oracle.apply(seedRequest(makeRequest('req00001'), ctxFactory()), [], 'inbound');
-    await oracle.apply(seedResponseExample(makeExample('ex000001', 'req00001'), ctxFactory()), [], 'inbound');
+    await oracle.apply(seedRequestCollection(requestCollection, ctxFactory()), 'inbound');
+    await oracle.apply(seedRequest(makeRequest('req00001'), ctxFactory()), 'inbound');
+    await oracle.apply(seedResponseExample(makeExample('ex000001', 'req00001'), ctxFactory()), 'inbound');
     await oracle.apply(
       mintBatch(ctxFactory(), [{ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'req00001' }]),
-      [],
       'inbound',
     );
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
@@ -759,7 +737,7 @@ describe('tree slot reconciler — response examples', () => {
 
   it('keeps an example whose request is merely unknown slot-less on the stored net', async () => {
     const example = makeExample('ex000001', 'req0gone');
-    await oracle.apply(seedResponseExample(example, ctxFactory()), [], 'inbound');
+    await oracle.apply(seedResponseExample(example, ctxFactory()), 'inbound');
     const reconciler = createTreeSlotReconciler('ws-1', oracle, broadcast, ctxFactory);
     await reconciler.hydrateFromStorage();
     expect(oracle.materializeOne('response-example', 'ex000001')).not.toBeNull();

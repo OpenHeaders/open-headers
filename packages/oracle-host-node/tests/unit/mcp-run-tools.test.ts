@@ -329,7 +329,6 @@ describe('runs_execute collection', () => {
         },
         mintMcpContext(wsId),
       ),
-      sideEffects: [],
     });
 
     await expect(runTarget({ kind: 'collection', ref: 'Empty' })).rejects.toThrow(/contains no requests/);
@@ -351,7 +350,6 @@ describe('runs_execute collection', () => {
         },
         mintMcpContext(wsId),
       ),
-      sideEffects: [],
     });
 
     await expect(runTarget({ kind: 'collection', ref: 'My Requests' })).rejects.toThrow(/ambiguous — use a uid/);

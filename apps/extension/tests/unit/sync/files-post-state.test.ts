@@ -50,9 +50,9 @@ function newOracle(): EntityOracle {
 describe('projectFilesPostState', () => {
   it('returns post-state after seed + addFileRef', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedFiles([], ctx(1)), []);
+    await oracle.apply(seedFiles([], ctx(1)));
     const intent = addFileRef(ctx(2), { ref: slot({ fileId: 'file:new' }) });
-    const result = await oracle.apply(intent.batch, []);
+    const result = await oracle.apply(intent.batch);
     expect(result.ok).toBe(true);
 
     const post = projectFilesPostState(oracle, intent.batch.mutations[0]);
@@ -63,26 +63,26 @@ describe('projectFilesPostState', () => {
 
   it('drops a fileId after removeFileRef', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedFiles([slot({ fileId: 'file:a' }), slot({ fileId: 'file:b', hash: 'sha256:b', filename: 'b.bin' })], ctx(1)), []);
-    await oracle.apply(removeFileRef(ctx(2), { fileId: 'file:a' }).batch, []);
+    await oracle.apply(seedFiles([slot({ fileId: 'file:a' }), slot({ fileId: 'file:b', hash: 'sha256:b', filename: 'b.bin' })], ctx(1)));
+    await oracle.apply(removeFileRef(ctx(2), { fileId: 'file:a' }).batch);
     const post = projectFilesSingleton(oracle);
     expect(post?.fileIds).toEqual(['file:b']);
   });
 
   it('keeps the latest payload on concurrent same-fileId adds (LWW)', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedFiles([], ctx(1)), []);
-    await oracle.apply(addFileRef(ctx(2), { ref: slot({ fileId: 'f', filename: 'old.txt' }) }).batch, []);
-    await oracle.apply(addFileRef(ctx(3), { ref: slot({ fileId: 'f', filename: 'new.txt' }) }).batch, []);
+    await oracle.apply(seedFiles([], ctx(1)));
+    await oracle.apply(addFileRef(ctx(2), { ref: slot({ fileId: 'f', filename: 'old.txt' }) }).batch);
+    await oracle.apply(addFileRef(ctx(3), { ref: slot({ fileId: 'f', filename: 'new.txt' }) }).batch);
     const post = projectFilesSingleton(oracle);
     expect(post?.refs[0].filename).toBe('new.txt');
   });
 
   it('sorts refs deterministically by fileId', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedFiles([], ctx(1)), []);
-    await oracle.apply(addFileRef(ctx(2), { ref: slot({ fileId: 'file:z' }) }).batch, []);
-    await oracle.apply(addFileRef(ctx(3), { ref: slot({ fileId: 'file:a' }) }).batch, []);
+    await oracle.apply(seedFiles([], ctx(1)));
+    await oracle.apply(addFileRef(ctx(2), { ref: slot({ fileId: 'file:z' }) }).batch);
+    await oracle.apply(addFileRef(ctx(3), { ref: slot({ fileId: 'file:a' }) }).batch);
     const post = projectFilesSingleton(oracle);
     expect(post?.fileIds).toEqual(['file:a', 'file:z']);
   });

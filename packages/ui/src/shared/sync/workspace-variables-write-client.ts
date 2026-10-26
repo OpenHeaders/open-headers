@@ -18,11 +18,9 @@
 import {
   type MutationEnvelope,
   mintBatch,
-  type SideEffectIntent,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_PATH,
-  workspaceVariablesInvalidateResolverIntent,
 } from '@openheaders/core/sync';
 import { normalizeVariableRow, synthesizeSetDiff, toLiveSetEntries } from '@openheaders/core/sync-builders';
 import {
@@ -117,10 +115,7 @@ export async function applyWorkspaceVariablesReplacement(
   if (bodies.length === 0) return { ok: true };
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `workspace-vars-replace` });
-
-  const sideEffects: SideEffectIntent[] = [workspaceVariablesInvalidateResolverIntent(ctx.hlc)];
-  const batch = mintBatch(ctx, bodies);
-  return applySyncPayload({ batch, sideEffects });
+  return applySyncPayload({ batch: mintBatch(ctx, bodies) });
 }
 
 export type { MutationEnvelope };

@@ -25,25 +25,28 @@
  *   - apply the seen-set to outbound. Outbound forwarders consult
  *     {@link hasRecentlyApplied} themselves.
  *
- * **C11 dedup contract — three layers, all idempotent:**
+ * **C11 dedup contract:**
  *
- *   1. **This bridge** — early return on `hasRecentlyApplied`. Avoids
- *      the round-trip into `applySyncRequest` + the redundant
- *      broadcast cascade. Wire-level (this is the only layer that
- *      knows about transport echo).
- *   2. **Document store** (`core/sync/store`) — its own
- *      `appliedMutationIds` set; `apply()` short-circuits on a
- *      known id and returns the prior outcome. Store-level.
- *   3. **Mutation log** (`oracle/sync/mutation-log`) — `append` and
- *      `appendAll` are dedup-safe via the log's own seen set. Storage-
- *      level, also feeds `MutationLog.hasMutation()` for cheap "did we
- *      already see this?" queries from any transport.
+ *   1. **The oracle's commit point** — the correctness layer. Before
+ *      any store write it asks the durable mutation log which of the
+ *      batch's ids it already holds; a known envelope is a duplicate
+ *      (not applied, not appended, not broadcast, no intent derived)
+ *      on every host and across every restart.
+ *   2. **This bridge** — the in-flight echo filter. `SEEN_MUTATION_IDS`
+ *      + `INBOUND_IN_FLIGHT` let the outbound forwarders recognize an
+ *      inbound envelope while its own broadcast fires, and the early
+ *      return below saves the round-trip into `applySyncRequest` for
+ *      an envelope this process just applied. An optimization, never
+ *      the correctness layer: both sets start empty on every boot.
+ *   3. **Document store** (`core/sync/store`) — its own
+ *      `appliedMutationIds` set, the in-batch guard behind the commit
+ *      point.
  *
  * Any redelivery path — wire echo, multi-transport, reconnect replay,
- * snapshot+delta overlap — is a no-op by composition: even if one
- * layer is bypassed (e.g. a unit test calls `oracle.apply` directly),
- * the next one catches the duplicate. Non-negotiable per the design
- * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path.
+ * snapshot+delta overlap — is a no-op at the commit point whichever
+ * layer in front of it was bypassed. Non-negotiable per the design
+ * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path
+ * across a simulated restart.
  */
 
 import {
@@ -58,7 +61,6 @@ import { resolveWorkspaceVisibility } from '@openheaders/core/schemas';
 import {
   compareHlc,
   computeInverseSpec,
-  deriveSideEffectsForEnvelope,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   EXTENSION_WORKSPACES_SET_PATH,
@@ -411,23 +413,14 @@ export async function applyInboundMutationBatch(input: MutationBatch, actor?: In
   }
 
   capturePriorsForActivity(batch);
-  // Side effects are HOST-LOCAL runtime concerns that need to fire on
-  // every host that applies the envelope (active-flip → per-workspace
-  // store swap; workspace remove → per-workspace data purge). The
-  // wire frame carries only the envelope; each host re-derives the
-  // intents from the same pure mapping function the mutator used at
-  // mint time. Singleton-keyed intents (SWAP) coalesce by their key
-  // so multiple inbound envelopes touching the active-flip path
-  // collapse to a single drain whose latest HLC wins.
-  const sideEffects = batch.mutations.flatMap(deriveSideEffectsForEnvelope);
+  // Side effects are HOST-LOCAL runtime concerns (active-flip →
+  // per-workspace store swap; workspace remove → per-workspace data
+  // purge; a rule edit → DNR recompile). The wire frame carries only
+  // the envelope; the oracle derives the intents from the envelopes it
+  // commits, so a replayed frame enqueues nothing.
   for (const env of batch.mutations) INBOUND_IN_FLIGHT.add(env.mutationId);
   try {
-    const response = await applySyncRequest({
-      type: 'oh.sync.apply',
-      batch,
-      sideEffects,
-      applyOrigin: 'inbound',
-    });
+    const response = await applySyncRequest({ type: 'oh.sync.apply', batch, applyOrigin: 'inbound' });
     if (!response.ok) return;
     for (const env of batch.mutations) rememberApplied(env);
     observeHighestPerWorkspace(batch);

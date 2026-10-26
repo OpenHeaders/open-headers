@@ -128,6 +128,23 @@ export class IdbMutationLog implements MutationLog {
     return result !== undefined;
   }
 
+  async knownMutationIds(ids: readonly string[]): Promise<ReadonlySet<string>> {
+    if (ids.length === 0) return new Set();
+    const db = await openDb();
+    // One readonly transaction, one index probe per id. The index spans
+    // every workspace's rows, so a hit counts only when its primary key
+    // sits under this scope's prefix.
+    const index = db.transaction(STORE, 'readonly').objectStore(STORE).index(IDX_MUTATION_ID);
+    const prefix = `${this.workspaceId}|`;
+    const hits = await Promise.all(
+      ids.map(async (id) => {
+        const keys = await wrap<IDBValidKey[]>(index.getAllKeys(IDBKeyRange.only(id)));
+        return keys.some((key) => typeof key === 'string' && key.startsWith(prefix)) ? id : null;
+      }),
+    );
+    return new Set(hits.filter((id): id is string => id !== null));
+  }
+
   async truncateBefore(beforeHlcKey: string): Promise<void> {
     const db = await openDb();
     const range = IDBKeyRange.bound(`${this.workspaceId}|`, `${this.workspaceId}|${beforeHlcKey}`, false, true);

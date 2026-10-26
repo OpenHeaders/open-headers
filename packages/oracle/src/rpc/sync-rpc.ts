@@ -777,7 +777,7 @@ async function dispatchRevertActivity(
   if (!generated.ok) return { ok: false, reason: generated.reason };
 
   try {
-    const response = await applySyncRequest({ type: 'oh.sync.apply', batch: generated.batch, sideEffects: [] });
+    const response = await applySyncRequest({ type: 'oh.sync.apply', batch: generated.batch });
     if (!response.ok) {
       const detail = response.failure?.detail ?? response.failure?.status ?? 'apply-failed';
       logger.info('SyncRpc', `oh.sync.revertActivity apply rejected: ${detail}`);

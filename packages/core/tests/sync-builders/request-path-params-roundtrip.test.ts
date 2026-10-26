@@ -102,7 +102,7 @@ describe('request projection — path params', () => {
 describe('request update — path params', () => {
   it('diffs the rows as a set: a changed value re-adds its uid, a dropped name tombstones, a new name adds; no setField', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequest(makeRequest({ pathParams: ROWS }), ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequest(makeRequest({ pathParams: ROWS }), ctx(1_000)) });
 
     const next = [
       { uid: 'pth00001', key: 'spacecraftId', value: 'voyager-1', description: "The spacecraft's id." },
@@ -119,7 +119,7 @@ describe('request update — path params', () => {
 
   it('an empty list tombstones every stored row', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, { batch: seedRequest(makeRequest({ pathParams: ROWS }), ctx(1_000)), sideEffects: [] });
+    applyBatch(store, { batch: seedRequest(makeRequest({ pathParams: ROWS }), ctx(1_000)) });
     const payload = buildUpdateBatch('rq-1', { pathParams: [] }, ctx(2_000), liveSets(store), () => undefined);
     expect(payload.batch.mutations.map((m) => m.body.kind)).toEqual(['removeFromSet', 'removeFromSet']);
     applyBatch(store, payload);

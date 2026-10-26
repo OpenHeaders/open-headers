@@ -43,11 +43,11 @@ function newOracle(): EntityOracle {
 describe('projectLayoutStatePostState', () => {
   it('returns the layout blob after seed + setLayoutState', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedLayoutState({ sidebarRatio: 0.2 }, ctx(1)), []);
+    await oracle.apply(seedLayoutState({ sidebarRatio: 0.2 }, ctx(1)));
     const intent = setLayoutState(ctx(2), {
       layout: { sidebarRatio: 0.3, inspectorRatio: 0.25, bottomRatio: 0.2 },
     });
-    const result = await oracle.apply(intent.batch, []);
+    const result = await oracle.apply(intent.batch);
     expect(result.ok).toBe(true);
 
     const post = projectLayoutStatePostState(oracle, intent.batch.mutations[0]);
@@ -67,16 +67,16 @@ describe('projectLayoutStatePostState', () => {
       bottomRatio: 0.2,
       toolLayout: { docks: { left: ['rules'] }, hidden: ['inspector'] },
     };
-    await oracle.apply(seedLayoutState(layout, ctx(1)), []);
+    await oracle.apply(seedLayoutState(layout, ctx(1)));
     const post = projectLayoutStateSingleton(oracle);
     expect(post?.layout).toEqual(layout);
   });
 
   it('reads later HLC value on concurrent setLayoutState (LWW)', async () => {
     const oracle = newOracle();
-    await oracle.apply(seedLayoutState({ sidebarRatio: 0.1 }, ctx(1)), []);
-    await oracle.apply(setLayoutState(ctx(2), { layout: { sidebarRatio: 0.2 } }).batch, []);
-    await oracle.apply(setLayoutState(ctx(3), { layout: { sidebarRatio: 0.4 } }).batch, []);
+    await oracle.apply(seedLayoutState({ sidebarRatio: 0.1 }, ctx(1)));
+    await oracle.apply(setLayoutState(ctx(2), { layout: { sidebarRatio: 0.2 } }).batch);
+    await oracle.apply(setLayoutState(ctx(3), { layout: { sidebarRatio: 0.4 } }).batch);
     const post = projectLayoutStateSingleton(oracle);
     expect(post?.layout).toEqual({ sidebarRatio: 0.4 });
   });

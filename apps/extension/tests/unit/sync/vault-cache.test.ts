@@ -82,7 +82,7 @@ describe('VaultCache', () => {
     const intent = setVaultSecret(ctxFactory(), {
       secret: { uid: 'scbxxxxxx', kind: 'string', name: 'B', value: '2' },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     const snap = cache.getVault();
     expect(snap.secrets.map((s) => s.name).sort()).toEqual(['A', 'B']);
     cache.dispose();
@@ -119,7 +119,7 @@ describe('VaultCache', () => {
     const intent = setVaultSecret(ctxFactory(), {
       secret: { uid: 'scbxxxxxx', kind: 'string', name: 'B', value: '2' },
     });
-    await oracle.apply(intent.batch, []);
+    await oracle.apply(intent.batch);
     expect(cache.getVault().secrets.map((s) => s.name)).toEqual(['A']);
   });
 });

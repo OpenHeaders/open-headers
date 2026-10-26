@@ -25,7 +25,7 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   buildDeleteOAuthTokenBatch,
   buildRecordOAuthRefreshErrorBatch,
@@ -275,7 +275,7 @@ export async function recordRefreshError(
 // ── Sync engine plumbing ──────────────────────────────────────────
 
 async function applyOAuthMutationOrThrow(
-  factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
+  factory: (ctx: MutatorContext) => { batch: MutationBatch },
   op: string,
 ): Promise<void> {
   const oracle = getOracleForCurrentWorkspace();
@@ -283,9 +283,9 @@ async function applyOAuthMutationOrThrow(
   if (!oracle || !ctx) {
     throw new Error(`OAuthStore.${op}: sync service not initialized`);
   }
-  const { batch, sideEffects } = factory(ctx);
+  const { batch } = factory(ctx);
   if (batch.mutations.length === 0) return;
-  const result = await oracle.apply(batch, sideEffects);
+  const result = await oracle.apply(batch);
   if (!result.ok) {
     throw new Error(
       `OAuthStore.${op}: oracle rejected batch (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,

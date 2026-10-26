@@ -5,19 +5,26 @@
  * factories, fires `oh.sync.apply` on the bridge, and reports the
  * structured ack back to the caller. We verify:
  *   - create mints a uid, trims the name (empty → "Untitled Environment"),
- *     emits a `create` envelope + one `addToSet` per seeded variable,
- *     and rides one INVALIDATE_RESOLVER side-effect
+ *     emits a `create` envelope + one `addToSet` per seeded variable;
+ *     a seeded variable derives INVALIDATE_RESOLVER at the commit point
  *   - rename emits one setField at path="name"
  *   - setVar / removeVar emit addToSet / removeFromSet keyed by
  *     variable.uid at the variables set path
- *   - delete emits a single `delete` envelope + INVALIDATE_RESOLVER
+ *   - delete emits a single `delete` envelope; it derives INVALIDATE_RESOLVER
  *   - variablesReplacement folds add / edit / remove into one batch
  *     keyed by variable.uid; byte-identical entries are skipped;
  *     entries with whitespace-only names are dropped
  */
 
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import { advanceHlc, ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE, initialHlc } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
+import {
+  advanceHlc,
+  deriveSideEffectsForEnvelope,
+  ENV_VARS_PATH,
+  ENVIRONMENT_ENTITY_TYPE,
+  INVALIDATE_RESOLVER,
+  initialHlc,
+} from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -104,7 +111,7 @@ describe('applyEnvironmentCreate', () => {
       { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
     );
     expect(result.ok).toBe(true);
-    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch };
     const createEnv = payload.batch.mutations.find((m) => m.body.kind === 'create');
     expect(createEnv?.body).toMatchObject({ kind: 'create', type: ENVIRONMENT_ENTITY_TYPE });
     const created = (createEnv?.body as { payload: { uid: string; name: string } }).payload;
@@ -112,8 +119,8 @@ describe('applyEnvironmentCreate', () => {
     expect(created.name).toBe('dev');
     expect(result.ok && result.environment.uid).toBe(created.uid);
     // A bare create-shell carries no variables, so the resolver is
-    // unaffected — side effects single-source from the minted batch.
-    expect(payload.sideEffects).toHaveLength(0);
+    // unaffected — the oracle derives the intents from the batch.
+    expect(payload.batch.mutations.flatMap(deriveSideEffectsForEnvelope)).toHaveLength(0);
   });
 
   it('falls back to "Untitled Environment" on a whitespace-only name', async () => {
@@ -138,7 +145,7 @@ describe('applyEnvironmentCreate', () => {
       },
       { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
     );
-    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch };
     const adds = payload.batch.mutations.filter((m) => m.body.kind === 'addToSet');
     expect(adds).toHaveLength(2);
     const ids = adds.map((m) => (m.body as { itemId: string }).itemId).sort();
@@ -148,28 +155,30 @@ describe('applyEnvironmentCreate', () => {
     const keys = adds.map((m) => (m.body as { orderKey?: string }).orderKey);
     for (const k of keys) expect(typeof k).toBe('string');
     expect(keys[0]! < keys[1]!).toBe(true);
-    // A seeded variable invalidates the resolver — single-sourced from
-    // the addToSet envelopes the seed batch carries.
-    expect(payload.sideEffects.length).toBeGreaterThan(0);
+    // A seeded variable invalidates the resolver — derived from the
+    // addToSet envelopes the seed batch carries.
+    expect(payload.batch.mutations.flatMap(deriveSideEffectsForEnvelope).length).toBeGreaterThan(0);
   });
 });
 
 describe('applyEnvironmentDelete', () => {
-  it('emits one delete envelope on the environment entity + INVALIDATE_RESOLVER side-effect', async () => {
+  it('emits one delete envelope on the environment entity; it derives INVALIDATE_RESOLVER', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyEnvironmentDelete(
       { envId: 'env-1' },
       { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
     );
     expect(result).toEqual({ ok: true });
-    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch };
     expect(payload.batch.mutations).toHaveLength(1);
     expect(payload.batch.mutations[0].body).toMatchObject({
       kind: 'delete',
       type: ENVIRONMENT_ENTITY_TYPE,
       id: 'env-1',
     });
-    expect(payload.sideEffects).toHaveLength(1);
+    expect(payload.batch.mutations.flatMap(deriveSideEffectsForEnvelope).map((e) => e.kind)).toEqual([
+      INVALIDATE_RESOLVER,
+    ]);
   });
 });
 

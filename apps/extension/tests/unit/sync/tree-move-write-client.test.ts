@@ -6,10 +6,11 @@
  * set; a rule re-parent carries the DNR recompile intent.
  */
 
-import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import {
   advanceHlc,
   COLLECTION_ENTITY_TYPE,
+  deriveSideEffectsForEnvelope,
   FOLDER_ENTITY_TYPE,
   FOLDER_ITEMS_PATH,
   GRPC_REQUEST_ENTITY_TYPE,
@@ -66,7 +67,7 @@ function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): Rende
 }
 
 const opts = () => ({ workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() });
-const sent = () => mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+const sent = () => mockCall.mock.calls[0][1] as { batch: MutationBatch };
 
 beforeEach(() => {
   mockCall.mockReset();
@@ -114,7 +115,7 @@ describe('applyTreeLeafMove', () => {
       },
       opts(),
     );
-    const { batch, sideEffects } = sent();
+    const { batch } = sent();
     expect(batch.mutations.map((m) => m.body)).toEqual([
       {
         kind: 'removeFromSet',
@@ -133,7 +134,8 @@ describe('applyTreeLeafMove', () => {
         orderKey: 'k',
       },
     ]);
-    expect(sideEffects.map((e) => `${e.kind}:${e.key}`)).toEqual([`${RECOMPILE_DNR}:rul00001`]);
+    const intents = batch.mutations.flatMap(deriveSideEffectsForEnvelope);
+    expect(intents.map((e) => `${e.kind}:${e.key}`)).toEqual([`${RECOMPILE_DNR}:rul00001`]);
     expect(batch.mutations.every((m) => m.body.kind !== 'setField')).toBe(true);
   });
 });
