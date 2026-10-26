@@ -38,6 +38,7 @@ import {
   windowsMajorFromClientHintPlatformVersion,
 } from '@openheaders/core/telemetry';
 import { resolveLocale } from '@openheaders/i18n';
+import { listWorkspaces, peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { alarms, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 
@@ -295,16 +296,23 @@ export function detectDistributionChannel(): TelemetryChannelId {
 /**
  * The install's readings for the state block (the telemetry v2 plan
  * §3): the shared storage reading — the runtime-active workspace's rule
- * projection, the saved requests across workspaces, the workspace list,
- * the sync kind (the extension never binds git itself), the directory's
- * role and team — plus the plan, which is `free` on every extension by
- * construction (no license plumbing). A host storage not yet hydrated
- * reads nothing.
+ * projection, the saved requests across workspaces, the sync kind (the
+ * extension never binds git itself), the directory's role and team —
+ * with the workspace list and the active pointer from the workspace
+ * store (bootstrapped before this channel boots; its storage mirror is
+ * written only once the sync engine seeds, which on a fresh install is
+ * after the first flush), plus the plan, which is `free` on every
+ * extension by construction (no license plumbing). A host storage not
+ * yet hydrated reads nothing.
  */
 export async function readHostState(): Promise<ProductTelemetryHostReadings> {
   const storage = getHostStorage();
   if (!storage) return { plan: 'free' };
-  return { ...(await readHostReadingsFromStorage(storage, { git: false })), plan: 'free' };
+  const readings = await readHostReadingsFromStorage(storage, {
+    git: false,
+    workspaces: () => ({ list: listWorkspaces(), activeId: peekActiveWorkspaceId() }),
+  });
+  return { ...readings, plan: 'free' };
 }
 
 /**

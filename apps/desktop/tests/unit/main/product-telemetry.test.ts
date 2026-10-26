@@ -1,7 +1,15 @@
 import { OH, type StorageKey } from '@openheaders/core/storage';
 import type { TelemetryEnvelope } from '@openheaders/core/telemetry';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { installProductTelemetry, type ProductTelemetryHostDeps } from '../../../src/main/product-telemetry';
+
+// The spine's workspace store as a booted desktop holds it: the seeded
+// default workspace, active. The readings take the list from here, never
+// from the storage mirror.
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
+  listWorkspaces: () => [{ id: 'ws-a' }],
+  peekActiveWorkspaceId: () => 'ws-a',
+}));
 
 interface RigOptions {
   settings?: Record<string, unknown>;
@@ -188,7 +196,7 @@ describe('installProductTelemetry — session_start', () => {
     }
   });
 
-  it('stamps the state block from the storage readings and the license slot — free without a license (the v2 plan §3)', async () => {
+  it('stamps the state block from the storage readings, the workspace store and the license slot — free without a license (the v2 plan §3)', async () => {
     const { install, sent } = makeRig({ backends: [{ url: 'wss://sync.openheaders.io' }] });
     const handle = await install();
     await handle.flush();
@@ -197,7 +205,7 @@ describe('installProductTelemetry — session_start', () => {
       stage: 'installed',
       rules: '0',
       requests: '0',
-      workspaces: '0',
+      workspaces: '1',
       sync: 'server',
       plan: 'free',
       profile: 'none',

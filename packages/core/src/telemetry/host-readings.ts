@@ -6,7 +6,12 @@
  * that fails to read omits its member rather than misreporting.
  *
  * - `rules`: the runtime-active workspace's rule projection (S31 — the
- *   slot the popup writes); `workspaces`: the workspace list.
+ *   slot the popup writes); `workspaces`: the workspace list. The list
+ *   and the active pointer come from the host's workspace STORE
+ *   (`options.workspaces`), never from the store's storage mirror: the
+ *   mirror is written only once the sync engine seeds, which on a fresh
+ *   install is after the first flush, and a seed-on-empty host is never
+ *   without a workspace once its store is bootstrapped.
  * - `requests`: the saved requests across EVERY workspace, every
  *   protocol — the API-client half of the product.
  * - `sync`: the install-wide maximum (S35): a connection record to
@@ -28,9 +33,21 @@ import { OH, type StorageKey, wsKeys } from '../storage/keys';
 import type { ProductTelemetryHostReadings } from './install-state';
 import { resolveTelemetrySyncKind } from './vocabulary/mappers';
 
+/** The host's workspace store as it stands at the reading: the list and the active pointer. */
+export interface HostWorkspaceReading {
+  list: readonly { id: string }[];
+  activeId: string | null;
+}
+
 export interface HostReadingsOptions {
   /** Whether this host can bind a workspace to a working tree; the extension never does. */
   git: boolean;
+  /**
+   * The host's workspace store, read at flush time. An empty list means
+   * the store is not bootstrapped yet (a seed-on-empty host never holds
+   * zero once it is), so the scale is omitted rather than read as zero.
+   */
+  workspaces: () => HostWorkspaceReading;
 }
 
 type Storage = Pick<HostStorage, 'get'>;
@@ -41,11 +58,12 @@ async function count<T>(storage: Storage, key: StorageKey<T[]>): Promise<number>
 
 async function readScale(
   storage: Storage,
+  options: HostReadingsOptions,
 ): Promise<Pick<ProductTelemetryHostReadings, 'rules' | 'requests' | 'workspaces'>> {
   try {
-    const workspaces = (await storage.get(OH.workspaces)) ?? [];
-    const activeId = (await storage.get(OH.runtimeActive)) ?? workspaces[0]?.id;
-    const rules = activeId ? await count(storage, wsKeys(activeId).rules) : 0;
+    const { list: workspaces, activeId } = options.workspaces();
+    if (workspaces.length === 0) return {};
+    const rules = await count(storage, wsKeys(activeId ?? workspaces[0].id).rules);
     let requests = 0;
     for (const workspace of workspaces) {
       const keys = wsKeys(workspace.id);
@@ -103,5 +121,9 @@ export async function readHostReadingsFromStorage(
   storage: Storage,
   options: HostReadingsOptions,
 ): Promise<ProductTelemetryHostReadings> {
-  return { ...(await readScale(storage)), ...(await readSync(storage, options)), ...(await readDirectory(storage)) };
+  return {
+    ...(await readScale(storage, options)),
+    ...(await readSync(storage, options)),
+    ...(await readDirectory(storage)),
+  };
 }

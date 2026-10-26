@@ -1,20 +1,31 @@
 /**
  * The extension's readings for the state block (the telemetry v2 plan
  * §3) read the slots the popup writes: the runtime-active workspace's
- * rule projection (`wsKeys(runtimeActive).rules`, the S31 pin), the
- * saved requests across every workspace and protocol, the workspace
- * list, the connection records (the desktop app's own loopback wire is
- * pairing, anything else is a server) and the directory grants this
- * host holds. The plan is `free` on every extension by construction.
+ * rule projection (`wsKeys(active).rules`, the S31 pin), the saved
+ * requests across every workspace and protocol, the connection records
+ * (the desktop app's own loopback wire is pairing, anything else is a
+ * server) and the directory grants this host holds — with the workspace
+ * list and the active pointer from the workspace store, never from its
+ * storage mirror (a fresh install's first flush runs before the mirror
+ * is written). The plan is `free` on every extension by construction.
  */
 
 import { type HostStorage, OH, setHostStorage, wsKeys } from '@openheaders/core/storage';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let store: Record<string, unknown> = {};
+let workspaceList: Array<{ id: string }> = [];
+let activeWorkspace: string | null = null;
+
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', () => ({
+  listWorkspaces: () => workspaceList,
+  peekActiveWorkspaceId: () => activeWorkspace,
+}));
 
 beforeEach(() => {
   store = {};
+  workspaceList = [];
+  activeWorkspace = null;
   const fake: Partial<HostStorage> = {
     get: vi.fn(async (spec: { key: string }) => store[spec.key]) as HostStorage['get'],
   };
@@ -26,10 +37,10 @@ async function loadModule() {
 }
 
 describe('readHostState', () => {
-  it('counts the runtime-active workspace rule projection, the saved requests across workspaces, and the list', async () => {
+  it('counts the active workspace rule projection, the saved requests across workspaces, and the list', async () => {
     const { readHostState } = await loadModule();
-    store[OH.workspaces.key] = [{ id: 'ws-a' }, { id: 'ws-b' }];
-    store[OH.runtimeActive.key] = 'ws-b';
+    workspaceList = [{ id: 'ws-a' }, { id: 'ws-b' }];
+    activeWorkspace = 'ws-b';
     store[wsKeys('ws-a').rules.key] = [{ id: 'r1' }];
     store[wsKeys('ws-b').rules.key] = [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }];
     store[wsKeys('ws-a').requests.key] = [{ uid: 'q1' }, { uid: 'q2' }];
@@ -46,20 +57,24 @@ describe('readHostState', () => {
     });
   });
 
-  it('falls back to the first listed workspace when no runtime-active pointer exists, and reads zeros on an empty store', async () => {
+  it('falls back to the first listed workspace when the store has no active pointer', async () => {
     const { readHostState } = await loadModule();
-    store[OH.workspaces.key] = [{ id: 'ws-a' }];
+    workspaceList = [{ id: 'ws-a' }];
     store[wsKeys('ws-a').rules.key] = [{ id: 'r1' }];
     expect(await readHostState()).toMatchObject({ rules: 1, requests: 0, workspaces: 1 });
-    store = {};
-    expect(await readHostState()).toMatchObject({
-      rules: 0,
-      requests: 0,
-      workspaces: 0,
-      sync: 'local',
-      role: 'none',
-      team: 1,
-    });
+  });
+
+  it('reads the list from the store and not its storage mirror, so a fresh install never reads zero workspaces', async () => {
+    const { readHostState } = await loadModule();
+    workspaceList = [{ id: 'ws-default' }];
+    activeWorkspace = 'ws-default';
+    expect(store[OH.workspaces.key]).toBeUndefined();
+    expect(await readHostState()).toMatchObject({ rules: 0, requests: 0, workspaces: 1 });
+  });
+
+  it('omits the scale before the store is bootstrapped instead of reading it as zero', async () => {
+    const { readHostState } = await loadModule();
+    expect(await readHostState()).toEqual({ sync: 'local', role: 'none', team: 1, plan: 'free' });
   });
 
   it("reads local with only the desktop app's loopback wire, server once any record points elsewhere, and then knows no role", async () => {

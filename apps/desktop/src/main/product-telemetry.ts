@@ -43,6 +43,7 @@ import {
   toTelemetryArch,
   toTelemetryLocale,
 } from '@openheaders/core/telemetry';
+import { listWorkspaces, peekActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
 
 const FLUSH_PERIOD_MS = 60_000;
 
@@ -132,16 +133,21 @@ function telemetryPlatform(platform: NodeJS.Platform): TelemetryPlatform | null 
 
 /**
  * The install's readings for the state block (the telemetry v2 plan
- * §3): the shared storage reading (rules, saved requests, workspaces,
- * the sync kind, the directory's role and team) plus what only this
- * process knows — the plan, from the spine's license slot through the
- * same provider the seat gate reads (never the license file).
+ * §3): the shared storage reading (rules, saved requests, the sync
+ * kind, the directory's role and team) with the workspace list and the
+ * active pointer from the spine's workspace store (the spine boots
+ * after this adapter installs and the first flush is an interval
+ * later; a flush before the store is bootstrapped omits the scale),
+ * plus what only this process knows — the plan, from the spine's
+ * license slot through the same provider the seat gate reads (never
+ * the license file).
  */
 async function readHostState(storage: Pick<HostStorage, 'get'>): Promise<ProductTelemetryHostReadings> {
-  return {
-    ...(await readHostReadingsFromStorage(storage, { git: true })),
-    plan: planBucketFromLicenseSnapshot(getLicenseSnapshot()),
-  };
+  const readings = await readHostReadingsFromStorage(storage, {
+    git: true,
+    workspaces: () => ({ list: listWorkspaces(), activeId: peekActiveWorkspaceId() }),
+  });
+  return { ...readings, plan: planBucketFromLicenseSnapshot(getLicenseSnapshot()) };
 }
 
 function buildSessionStart(platform: NodeJS.Platform): TelemetryEvent | null {
