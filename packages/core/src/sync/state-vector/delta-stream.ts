@@ -24,8 +24,9 @@
  * envelopes the peer has caught up on; for handshake-rate calls the
  * tail of post-peer-cutoff history dominates anyway.
  */
-import { hlcToString } from '../hlc';
+
 import type { MutationEnvelope } from '../envelope';
+import { hlcToString } from '../hlc';
 import type { StateVector } from './types';
 
 export function* filterEnvelopesAgainstPeer(
@@ -46,7 +47,13 @@ export async function* filterEnvelopesAgainstPeerAsync(
   }
 }
 
-function peerIsBehindFor(env: MutationEnvelope, peer: StateVector): boolean {
+/**
+ * True when the peer's vector does not cover `env` — the envelope is
+ * missing on the peer. The single-envelope predicate behind both
+ * filters, exported for callers that walk a log once and decide per
+ * envelope (the row-filtered catch-up responder).
+ */
+export function peerIsBehindFor(env: MutationEnvelope, peer: StateVector): boolean {
   const seen = peer[env.hlc.nodeId];
   if (!seen) return true;
   return hlcToString(env.hlc) > hlcToString(seen);

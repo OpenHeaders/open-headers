@@ -300,15 +300,86 @@ describe('respondToStateVector — workspace-list row filter (Phase 5 slice 2)',
     expect(reply.frames.at(-1)?.type).toBe(SYNC_SYNCED_TYPE);
   });
 
-  it('replays from the EMPTY vector when the filter is set; honors the peer vector when unset', async () => {
+  it('honours the presented vector under the row filter exactly as without it', async () => {
     deltaEnvelopes.push(rowEnvelope('m-a-add', 'ws-a', 'addToSet'));
     const reader = vi.mocked(readWorkspaceDeltaStream);
 
     await respondToStateVector(GLOBAL_MESSAGE, collectingReply(), { workspaceListRowFilter: () => true });
-    expect(reader.mock.calls.at(-1)?.[1]).toEqual({});
+    expect(reader.mock.calls.at(-1)?.[1]).toEqual(GLOBAL_MESSAGE.perNodeMaxHlc);
 
     vi.mocked(buildSnapshotForWorkspace).mockResolvedValueOnce(null);
     await respondToStateVector(GLOBAL_MESSAGE, collectingReply(), {});
     expect(reader.mock.calls.at(-1)?.[1]).toEqual(GLOBAL_MESSAGE.perNodeMaxHlc);
+  });
+
+  describe('the reveal set (the workspace-list scope plan, Part 4)', () => {
+    // `node-a` at physicalMs 5 is the presented watermark: rows at 1
+    // sit below it (already held, or hidden when they were minted),
+    // rows at 9 are the ordinary delta.
+    function rowAt(mutationId: string, itemId: string, physicalMs: number, nodeId = 'node-a'): MutationEnvelope {
+      const envelope = rowEnvelope(mutationId, itemId, 'addToSet');
+      return { ...envelope, hlc: { physicalMs, logical: 0, nodeId } };
+    }
+
+    it('streams the full history of a revealed workspace below the vector; every other row obeys the vector', async () => {
+      deltaEnvelopes.push(
+        rowAt('m-a-old', 'ws-a', 1),
+        rowAt('m-b-old', 'ws-b', 1),
+        rowAt('m-c-old', 'ws-c', 1),
+        rowAt('m-a-new', 'ws-a', 9),
+        rowAt('m-b-new', 'ws-b', 9),
+        rowAt('m-other-node', 'ws-a', 1, 'node-z'),
+      );
+      const reader = vi.mocked(readWorkspaceDeltaStream);
+      const reply = collectingReply();
+      const result = await respondToStateVector(GLOBAL_MESSAGE, reply, {
+        workspaceListRowFilter: (workspaceId) => workspaceId !== 'ws-c',
+        workspaceListRevealIds: new Set(['ws-b', 'ws-c']),
+      });
+
+      // One walk of the whole log, in log order, with no row sent twice.
+      expect(reader.mock.calls.at(-1)?.[1]).toEqual({});
+      const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
+      expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual([
+        'm-b-old',
+        'm-a-new',
+        'm-b-new',
+        'm-other-node',
+      ]);
+      expect(result.deltasSent).toBe(4);
+      expect(reply.frames.at(-1)?.type).toBe(SYNC_SYNCED_TYPE);
+    });
+
+    it('a subject-less global envelope below the vector stays unsent under a reveal', async () => {
+      const subjectless: MutationEnvelope = {
+        ...rowAt('m-create', 'ws-b', 1),
+        body: { kind: 'create', type: EXTENSION_WORKSPACE_ENTITY_TYPE, id: EXTENSION_WORKSPACE_ID, payload: {} },
+      };
+      deltaEnvelopes.push(subjectless, rowAt('m-b-old', 'ws-b', 1));
+      const reply = collectingReply();
+      await respondToStateVector(GLOBAL_MESSAGE, reply, {
+        workspaceListRowFilter: () => true,
+        workspaceListRevealIds: new Set(['ws-b']),
+      });
+      const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
+      expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-b-old']);
+    });
+
+    it('an empty reveal set and a reveal without the row filter both resume from the vector', async () => {
+      deltaEnvelopes.push(rowAt('m-a-old', 'ws-a', 1), rowAt('m-a-new', 'ws-a', 9));
+      const reader = vi.mocked(readWorkspaceDeltaStream);
+
+      const filtered = collectingReply();
+      await respondToStateVector(GLOBAL_MESSAGE, filtered, {
+        workspaceListRowFilter: () => true,
+        workspaceListRevealIds: new Set(),
+      });
+      expect(reader.mock.calls.at(-1)?.[1]).toEqual(GLOBAL_MESSAGE.perNodeMaxHlc);
+
+      vi.mocked(buildSnapshotForWorkspace).mockResolvedValueOnce(null);
+      const unfiltered = collectingReply();
+      await respondToStateVector(GLOBAL_MESSAGE, unfiltered, { workspaceListRevealIds: new Set(['ws-a']) });
+      expect(reader.mock.calls.at(-1)?.[1]).toEqual(GLOBAL_MESSAGE.perNodeMaxHlc);
+    });
   });
 });

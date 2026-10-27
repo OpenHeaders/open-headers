@@ -37,7 +37,10 @@ import {
   getIdentitySnapshot,
   hasCapability,
   type IdentitySnapshot,
+  listDeliveredWorkspaceIds,
+  markWorkspaceListDelivered,
   type ResolveDaemonPeerUserResult,
+  readableWorkspaceIds,
   resolveDaemonPeerDisplayIdentity,
   resolveDaemonPeerIdentitySnapshot,
   resolveDaemonPeerUser,
@@ -295,6 +298,10 @@ export interface HandleStateVectorOptions {
   readonly respond?: typeof respondToStateVector;
   /** Test seam — mirrors `respond`; defaults to `resolveDaemonPeerIdentitySnapshot`. */
   readonly resolveSnapshot?: (userId: string) => Promise<IdentitySnapshot | null>;
+  /** Test seam — the delivered-row ledger's read; defaults to `listDeliveredWorkspaceIds`. */
+  readonly readDeliveredWorkspaceIds?: (principalId: string) => Promise<ReadonlySet<string>>;
+  /** Test seam — the delivered-row ledger's mark; defaults to `markWorkspaceListDelivered`. */
+  readonly markDeliveredWorkspaceIds?: (principalId: string, workspaceIds: Iterable<string>) => Promise<void>;
 }
 
 /**
@@ -340,8 +347,11 @@ export async function handleStateVector(
   // scope loop proceeds without stalling and without learning the
   // scope's node ids or history depth.
   let responderOptions = options.responder;
+  // Set when the `__global__` catch-up runs row-filtered: the ledger is
+  // marked for this principal once the responder's SYNCED is on the wire.
+  let markDeliveredFor: string | null = null;
+  const resolveSnapshot = options.resolveSnapshot ?? resolveDaemonPeerIdentitySnapshot;
   if (peerConn.claims) {
-    const resolveSnapshot = options.resolveSnapshot ?? resolveDaemonPeerIdentitySnapshot;
     const snapshot = await resolveSnapshot(peerConn.claims.userId);
     const isGlobalScope = message.workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE;
     const capability = isGlobalScope ? ('workspace.list' as const) : ('workspace.read' as const);
@@ -367,18 +377,48 @@ export async function handleStateVector(
     // the rows the peer holds `workspace.read` on. The operator
     // (LocalAdmin) reads every row through the same resolver branch, so
     // the filter stays unset and the solo tier keeps its exact catch-up
-    // shape (peer vector honored, no forced replay).
+    // shape.
+    //
+    // The replay resumes from the presented vector; a granted workspace
+    // the delivered-row ledger has not marked for this principal (a
+    // grant that landed while they were away, a re-grant after a
+    // revoke, a first join since the ledger exists) streams its full
+    // row history on top (the workspace-list scope plan, Part 4), and
+    // the ledger marks what the user then holds once SYNCED went out.
     if (isGlobalScope && snapshot && !snapshot.localAdmin) {
+      const readDelivered = options.readDeliveredWorkspaceIds ?? listDeliveredWorkspaceIds;
+      const delivered = await readDelivered(snapshot.principal.id);
+      const reveal = new Set(readableWorkspaceIds(snapshot).filter((workspaceId) => !delivered.has(workspaceId)));
+      markDeliveredFor = snapshot.principal.id;
       responderOptions = {
         ...responderOptions,
         workspaceListRowFilter: (rowWorkspaceId) =>
           hasCapability(snapshot, 'workspace.read', { workspaceId: rowWorkspaceId }).allow,
+        workspaceListRevealIds: reveal,
       };
     }
   }
 
   const respond = options.respond ?? respondToStateVector;
   const result = await respond(message, { send: (f) => peerConn.reply(f) }, responderOptions);
+  if (markDeliveredFor !== null && result.syncedSent && peerConn.claims) {
+    // SYNCED on the wire means the peer holds every admitted row up to
+    // the hub's vector. The set is re-judged against a fresh snapshot
+    // so a grant revoked during the stream is not marked as held — the
+    // offer's own re-judge posture. A failed write leaves the pair
+    // unmarked, which only costs the next join a redundant reveal.
+    try {
+      const fresh = await resolveSnapshot(peerConn.claims.userId);
+      const held =
+        fresh && !fresh.localAdmin && fresh.principal.id === markDeliveredFor ? readableWorkspaceIds(fresh) : [];
+      if (held.length > 0) {
+        const markDelivered = options.markDeliveredWorkspaceIds ?? markWorkspaceListDelivered;
+        await markDelivered(markDeliveredFor, held);
+      }
+    } catch (err) {
+      logger.warn(SCOPE, `delivered-row ledger mark failed for peer ${peerConn.peerId}`, err);
+    }
+  }
   return { kind: 'ok', message, result };
 }
 

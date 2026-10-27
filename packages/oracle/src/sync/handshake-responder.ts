@@ -35,10 +35,10 @@
  *   - send WELCOME / receive HELLO — that's the handshake dispatcher's
  *     job; this responder only handles the catch-up phase
  *   - dedup envelopes against the peer's seen-set — the peer's wire
- *     vector already accounts for what they have, and C11's
- *     `mutationId` dedup catches any residual overlap (snapshot +
- *     delta share an envelope, reconnect replays the same mutation,
- *     etc.)
+ *     vector already accounts for what they have, and the commit
+ *     point's durable `mutationId` dedup absorbs any residual overlap
+ *     (snapshot + delta share an envelope, reconnect replays the same
+ *     mutation, a revealed workspace's rows the peer still holds, etc.)
  *   - update peer-side pending-out — the *initiator* side of the
  *     handshake fires `applyPeerStateVectorToPendingOut` on inbound
  *     SYNCED; this responder is the responding peer
@@ -60,7 +60,9 @@ import {
   DEFAULT_SNAPSHOT_THRESHOLDS,
   isHostLocalMutation,
   isSameDeviceOnlyMutation,
+  peerIsBehindFor,
   type SnapshotThresholds,
+  type StateVector,
   shouldBootstrapWithSnapshot,
   workspaceListReadSubjectForMutation,
 } from '@openheaders/core/sync';
@@ -107,20 +109,30 @@ export interface RespondToStateVectorOptions {
   /**
    * Per-row read gate for the `__global__` workspace-list scope
    * (Phase 5 slice 2): a delta envelope that reveals a workspace id —
-   * a list-row op or the `activeId` pointer
+   * a list-row op or the legacy `activeId` pointer
    * (`workspaceListReadSubjectForMutation`) — is streamed only when the
-   * filter admits that id. Setting this also forces the replay to
-   * start from the EMPTY vector rather than the peer's: a previously
-   * hidden row's envelopes can sit below the peer's per-node watermark
-   * (the peer applied later same-node envelopes), so honoring the
-   * presented vector would mask them forever after a grant expansion.
-   * Re-streamed envelopes the peer already holds are absorbed by its
-   * `mutationId` dedup — the same contract that covers reconnect
-   * replays. The global log carries only workspace metadata, so the
-   * full replay stays small. Absent (operator, per-workspace scopes,
-   * the `requireAuth`-off seam) → behavior unchanged.
+   * filter admits that id. The replay resumes from the peer's
+   * presented vector like every other scope; the rows a grant
+   * expansion left below that vector are the business of
+   * {@link workspaceListRevealIds}. Absent (operator, per-workspace
+   * scopes, the `requireAuth`-off seam) → behavior unchanged.
    */
   readonly workspaceListRowFilter?: (workspaceId: string) => boolean;
+  /**
+   * Workspaces whose FULL list-row history streams regardless of the
+   * presented vector (the workspace-list scope plan, Part 4): a grant
+   * mutates no row, so a workspace granted while the peer was away
+   * sits entirely below the per-node watermark the peer presents and
+   * the delta stream alone would never reveal it. The caller derives
+   * the set from the hub's delivered-row ledger (granted ids the ledger
+   * has not marked for this user) and marks them once SYNCED is on the
+   * wire. One ordered walk of the log serves both: every envelope
+   * revealing one of these ids streams, every other envelope obeys the
+   * vector, so a redelivered row the peer still holds is absorbed by
+   * its durable `mutationId` dedup. Only meaningful with
+   * {@link workspaceListRowFilter}; the filter still gates every row.
+   */
+  readonly workspaceListRevealIds?: ReadonlySet<string>;
 }
 
 export interface RespondToStateVectorResult {
@@ -141,9 +153,8 @@ export async function respondToStateVector(
 ): Promise<RespondToStateVectorResult> {
   const workspaceId = message.workspaceId;
   const rowFilter = options.workspaceListRowFilter;
-  // Row-filtered catch-up ignores the presented vector — see the
-  // {@link RespondToStateVectorOptions.workspaceListRowFilter} contract.
-  const peerVector = rowFilter ? {} : message.perNodeMaxHlc;
+  const revealIds = rowFilter && options.workspaceListRevealIds?.size ? options.workspaceListRevealIds : null;
+  const peerVector = message.perNodeMaxHlc;
   const thresholds = options.thresholds ?? DEFAULT_SNAPSHOT_THRESHOLDS;
 
   const inputs = await computeSnapshotThresholdInputsForWorkspace(workspaceId, peerVector);
@@ -182,7 +193,11 @@ export async function respondToStateVector(
     }
   }
 
-  for await (const envelope of readWorkspaceDeltaStream(workspaceId, resumeFromVector)) {
+  // A reveal walks the whole log once and applies the vector per
+  // envelope below, so a revealed workspace's history and the ordinary
+  // delta leave in one log order with no row sent twice.
+  const streamFromVector: StateVector = revealIds ? {} : resumeFromVector;
+  for await (const envelope of readWorkspaceDeltaStream(workspaceId, streamFromVector)) {
     // Host-local UI state (layout) never rides the wire, any peer.
     if (isHostLocalMutation(envelope)) continue;
     // WS-B reach gate: an off-device peer's catch-up delta must omit
@@ -197,6 +212,11 @@ export async function respondToStateVector(
     if (rowFilter) {
       const subjectWorkspaceId = workspaceListReadSubjectForMutation(envelope);
       if (subjectWorkspaceId !== null && !rowFilter(subjectWorkspaceId)) continue;
+      // Under a reveal every envelope outside the revealed set still
+      // obeys the presented vector.
+      if (revealIds && !(subjectWorkspaceId !== null && revealIds.has(subjectWorkspaceId))) {
+        if (!peerIsBehindFor(envelope, resumeFromVector)) continue;
+      }
     }
     const frame: SyncMutationMessage = {
       type: SYNC_MUTATION_TYPE,

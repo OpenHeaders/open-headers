@@ -222,6 +222,25 @@ export function hasCapability(
 }
 
 /**
+ * The workspace ids a snapshot can be enumerated as reading: explicit
+ * grants and internal visibility, each judged by {@link hasCapability}
+ * so the resolver's own rules (the member-and-human arm, the
+ * fail-closed defaults) decide every id. LocalAdmin reads every
+ * workspace through a branch no list can enumerate and is not a
+ * subject of this helper — its callers (the row-filtered catch-up) are
+ * the directory-user branches that never see a LocalAdmin snapshot.
+ */
+export function readableWorkspaceIds(snapshot: IdentitySnapshot): string[] {
+  const candidates = new Set<string>(snapshot.wraByWorkspaceId.keys());
+  for (const workspaceId of snapshot.internalReadWorkspaceIds ?? []) candidates.add(workspaceId);
+  const readable: string[] = [];
+  for (const workspaceId of candidates) {
+    if (hasCapability(snapshot, 'workspace.read', { workspaceId }).allow) readable.push(workspaceId);
+  }
+  return readable;
+}
+
+/**
  * The set of org ids this host is authorized to read envelopes for —
  * both at the sender-side transport readers and at the receiver-side
  * ingest filter (the unified-oracle model §6.1, §8.2, §10.2 — "one sync

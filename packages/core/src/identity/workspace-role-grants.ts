@@ -18,6 +18,7 @@ import { OH } from '../storage/keys';
 import type { WorkspaceRole, WorkspaceRoleAssignment, WorkspaceRoleOrigin } from '../types';
 import { uuidv7 } from '../utils/uuidv7';
 import { withWorkspaceRoleAssignmentsLock } from './ensure-workspace-role-assignments';
+import { clearWorkspaceListDelivered } from './workspace-list-deliveries';
 
 export interface GrantWorkspaceRoleInput {
   principalId: string;
@@ -81,7 +82,12 @@ export async function grantWorkspaceRole(input: GrantWorkspaceRoleInput): Promis
   });
 }
 
-/** Drop the `(principal, workspace)` grant. */
+/**
+ * Drop the `(principal, workspace)` grant. The delivered-row ledger
+ * forgets the pair with it: the retraction evicts the principal's copy
+ * of the workspace, and a later re-grant mints no row the catch-up's
+ * vector could carry, so the next join must reveal the history again.
+ */
 export async function revokeWorkspaceRole(
   principalId: string,
   workspaceId: string,
@@ -91,6 +97,7 @@ export async function revokeWorkspaceRole(
     const next = persisted.filter((wra) => !(wra.principalId === principalId && wra.workspaceId === workspaceId));
     if (next.length === persisted.length) return { ok: false, reason: 'not-found' };
     await hostStorage.set(OH.workspaceRoleAssignments, next);
+    await clearWorkspaceListDelivered(principalId, [workspaceId]);
     return { ok: true };
   });
 }
@@ -141,7 +148,8 @@ export interface ReconcileIdpWorkspaceRolesResult {
  *     neither re-roles nor drops it, and reports the skip.
  *
  * One read-modify-write under the shared WRA lock, same discipline as
- * every other writer of `OH.workspaceRoleAssignments`.
+ * every other writer of `OH.workspaceRoleAssignments`. A dropped row
+ * clears its delivered-row ledger pair like {@link revokeWorkspaceRole}.
  */
 export async function reconcileIdpWorkspaceRoles(
   principalId: string,
@@ -193,6 +201,12 @@ export async function reconcileIdpWorkspaceRoles(
 
     if (granted.length > 0 || updated.length > 0 || revoked.length > 0) {
       await hostStorage.set(OH.workspaceRoleAssignments, next);
+    }
+    if (revoked.length > 0) {
+      await clearWorkspaceListDelivered(
+        principalId,
+        revoked.map((change) => change.workspaceId),
+      );
     }
     return { granted, updated, revoked, skippedManual };
   });

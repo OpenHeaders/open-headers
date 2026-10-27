@@ -16,10 +16,14 @@
  * per-call identity snapshot judged by `workspace.read`, exactly like
  * the catch-up row filter and the live-plane peer filter — never a
  * parallel computation. Envelopes the peer already holds are absorbed
- * by its `mutationId` dedup, the same contract that covers the
- * row-filtered catch-up's forced replay. Best-effort by design: a
- * failed offer logs and the grant stands — the peer converges on its
- * next reconnect.
+ * by its durable `mutationId` dedup. Best-effort by design: a failed
+ * offer logs and the grant stands — the peer converges on its next
+ * reconnect, whose row-filtered catch-up reveals every granted
+ * workspace the hub's delivered-row ledger has not marked for the user
+ * (the workspace-list scope plan, Part 4). The offer never marks that
+ * ledger: a socket write confirms nothing, and a mark the peer did not
+ * actually receive would hide the workspace from every later join —
+ * the next join's redundant reveal of a few rows is the cheaper side.
  */
 
 import { hasCapability, resolveDaemonPeerIdentitySnapshot } from '@openheaders/core/identity';

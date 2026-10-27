@@ -204,6 +204,7 @@ export {
   DAEMON_ADMIN_FUNCTIONAL_ROLE,
   hasCapability,
   type IdentitySnapshot,
+  readableWorkspaceIds,
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from './resolver';
 export { createBridgedServerSignIn } from './server-sign-in-bridge';
@@ -219,6 +220,11 @@ export {
   setWorkspaceVisibilityProvider,
   type WorkspaceVisibilityProvider,
 } from './visibility-provider';
+export {
+  clearWorkspaceListDelivered,
+  listDeliveredWorkspaceIds,
+  markWorkspaceListDelivered,
+} from './workspace-list-deliveries';
 export {
   type DesiredIdpGrant,
   type GrantWorkspaceRoleInput,

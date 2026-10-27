@@ -197,6 +197,17 @@ export interface JoinedOrgRecord {
 }
 
 /**
+ * One persisted row of `OH.workspaceListDeliveries` — a workspace whose
+ * `__global__` list-row history this hub has handed to a directory
+ * principal in full (the workspace-list scope plan, Part 4). Keyed by
+ * principal like the WRA rows beside it.
+ */
+export interface WorkspaceListDeliveryRecord {
+  principalId: string;
+  workspaceId: string;
+}
+
+/**
  * Reach tiers keyed per connection: `OH.backends` record ids for client
  * wires, {@link SELF_BACKEND_REACH_KEY} for the host's own server bind.
  */
@@ -431,6 +442,18 @@ export const OH = {
    * `ensureWorkspaceRoleAssignments` (in `../identity`).
    */
   workspaceRoleAssignments: storageKey<WorkspaceRoleAssignment[]>('oh.workspaceRoleAssignments'),
+  /**
+   * The hub's delivered-row ledger (the workspace-list scope plan, Part
+   * 4): one {@link WorkspaceListDeliveryRecord} per `(principal,
+   * workspace)` pair whose full `__global__` row history a join has
+   * streamed to that principal, written when the catch-up's SYNCED
+   * frame goes out and cleared when the grant is revoked. The row-
+   * filtered catch-up resumes from the peer's presented vector and
+   * streams the full history only of granted workspaces this ledger
+   * has not marked. Host-local vocabulary — never on a wire, never in
+   * a mutation log, never in a snapshot. Not sensitive: ids only.
+   */
+  workspaceListDeliveries: storageKey<WorkspaceListDeliveryRecord[]>('oh.workspaceListDeliveries'),
   /**
    * Long-lived peer access tokens recognized by this daemon (U3.2,
    * the unified-oracle model §4.2 + the data-plane topologies design §11.4).

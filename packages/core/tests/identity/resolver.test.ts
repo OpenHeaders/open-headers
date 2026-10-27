@@ -30,6 +30,7 @@ import {
   getIdentitySnapshot,
   hasCapability,
   installIdentitySnapshot,
+  readableWorkspaceIds,
   refreshIdentitySnapshotFromHostStorage,
   WORKSPACE_CREATE_FUNCTIONAL_ROLE,
 } from '../../src/identity';
@@ -488,6 +489,37 @@ describe('hasCapability', () => {
     expect(hasCapability(standalone, 'workspace.write', { workspaceId: W1 })).toEqual(
       hasCapability(connected, 'workspace.write', { workspaceId: W1 }),
     );
+  });
+});
+
+describe('readableWorkspaceIds (the enumerable read set behind the row-filtered catch-up)', () => {
+  it('lists explicit grants of every role plus internal workspaces a human member reads', () => {
+    const member = makeSnapshot({
+      localAdmin: null,
+      membership: { primaryRole: 'member' },
+      principalKind: 'user',
+      wras: [makeWra(W1, 'viewer')],
+      internalWorkspaceIds: [W2],
+    });
+    expect(readableWorkspaceIds(member).sort()).toEqual([W1, W2]);
+  });
+
+  it('drops an internal workspace the resolver refuses — a service principal, a guest — and never duplicates an id', () => {
+    const service = makeSnapshot({
+      localAdmin: null,
+      membership: { primaryRole: 'member' },
+      principalKind: 'service',
+      wras: [makeWra(W1, 'editor')],
+      internalWorkspaceIds: [W1, W2],
+    });
+    expect(readableWorkspaceIds(service)).toEqual([W1]);
+    const guest = makeSnapshot({
+      localAdmin: null,
+      membership: { primaryRole: 'guest' },
+      principalKind: 'user',
+      internalWorkspaceIds: [W2],
+    });
+    expect(readableWorkspaceIds(guest)).toEqual([]);
   });
 });
 

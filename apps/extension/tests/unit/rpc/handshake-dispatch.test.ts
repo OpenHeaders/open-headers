@@ -26,6 +26,7 @@ import {
   handleStateVector,
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
+import type { respondToStateVector } from '@openheaders/oracle/sync';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
@@ -434,6 +435,91 @@ describe('handleStateVector', () => {
       );
       expect(outcome.kind).toBe('ok');
       expect(respond).toHaveBeenCalledTimes(1);
+    });
+
+    describe('the delivered-row ledger on the __global__ catch-up (the workspace-list scope plan, Part 4)', () => {
+      const globalVector = { ...stateVector, workspaceId: '__global__' } as unknown as Record<string, unknown>;
+      // Typed like the responder so the recorded calls expose its options.
+      const respondWith = (result: typeof okResult) => vi.fn<typeof respondToStateVector>(async () => result);
+      const markMock = () => vi.fn<(principalId: string, workspaceIds: Iterable<string>) => Promise<void>>();
+      const memberSnapshot = (): IdentitySnapshot => ({
+        ...viewerSnapshot('ws-1'),
+        wraByWorkspaceId: new Map([
+          ['ws-1', { id: 'wra-1', principalId: 'p-42', workspaceId: 'ws-1', role: 'viewer' as const }],
+          ['ws-2', { id: 'wra-2', principalId: 'p-42', workspaceId: 'ws-2', role: 'editor' as const }],
+        ]),
+        principalKind: 'user',
+        internalReadWorkspaceIds: new Set(['ws-3']),
+      });
+
+      it('reveals the granted workspaces the ledger has not marked and marks every readable one at SYNCED', async () => {
+        const { conn } = makeClaimedPeer('ws-1');
+        const respond = respondWith(okResult);
+        const markDeliveredWorkspaceIds = markMock();
+        const outcome = await handleStateVector(globalVector, conn, {
+          respond,
+          resolveSnapshot: async () => memberSnapshot(),
+          readDeliveredWorkspaceIds: async (principalId) => new Set(principalId === 'p-42' ? ['ws-1'] : []),
+          markDeliveredWorkspaceIds,
+        });
+        expect(outcome.kind).toBe('ok');
+        const options = respond.mock.calls[0]?.[2];
+        expect(options?.workspaceListRowFilter?.('ws-1')).toBe(true);
+        expect(options?.workspaceListRowFilter?.('ws-9')).toBe(false);
+        expect(options?.workspaceListRevealIds).toEqual(new Set(['ws-2', 'ws-3']));
+        expect(markDeliveredWorkspaceIds).toHaveBeenCalledTimes(1);
+        expect(markDeliveredWorkspaceIds.mock.calls[0]?.[0]).toBe('p-42');
+        expect([...(markDeliveredWorkspaceIds.mock.calls[0]?.[1] ?? [])].sort()).toEqual(['ws-1', 'ws-2', 'ws-3']);
+      });
+
+      it('marks nothing when SYNCED never left, and re-judges the fresh snapshot at the mark', async () => {
+        const { conn } = makeClaimedPeer('ws-1');
+        const markDeliveredWorkspaceIds = markMock();
+        await handleStateVector(globalVector, conn, {
+          respond: respondWith({ ...okResult, syncedSent: false }),
+          resolveSnapshot: async () => memberSnapshot(),
+          readDeliveredWorkspaceIds: async () => new Set(),
+          markDeliveredWorkspaceIds,
+        });
+        expect(markDeliveredWorkspaceIds).not.toHaveBeenCalled();
+
+        // A grant revoked while the stream ran is not marked as held.
+        let resolutions = 0;
+        await handleStateVector(globalVector, conn, {
+          respond: respondWith(okResult),
+          resolveSnapshot: async () => (resolutions++ === 0 ? memberSnapshot() : viewerSnapshot('ws-1')),
+          readDeliveredWorkspaceIds: async () => new Set(),
+          markDeliveredWorkspaceIds,
+        });
+        expect(markDeliveredWorkspaceIds).toHaveBeenCalledTimes(1);
+        expect([...(markDeliveredWorkspaceIds.mock.calls[0]?.[1] ?? [])]).toEqual(['ws-1']);
+      });
+
+      it('a user with no grants reveals nothing and marks nothing; a per-workspace scope never touches the ledger', async () => {
+        const { conn } = makeClaimedPeer('ws-1');
+        const respond = respondWith(okResult);
+        const readDeliveredWorkspaceIds = vi.fn(async () => new Set<string>());
+        const markDeliveredWorkspaceIds = markMock();
+        const zeroGrant: IdentitySnapshot = { ...viewerSnapshot('ws-1'), wraByWorkspaceId: new Map() };
+        await handleStateVector(globalVector, conn, {
+          respond,
+          resolveSnapshot: async () => zeroGrant,
+          readDeliveredWorkspaceIds,
+          markDeliveredWorkspaceIds,
+        });
+        expect(respond.mock.calls[0]?.[2]?.workspaceListRevealIds).toEqual(new Set());
+        expect(markDeliveredWorkspaceIds).not.toHaveBeenCalled();
+
+        await handleStateVector(stateVector as unknown as Record<string, unknown>, conn, {
+          respond,
+          resolveSnapshot: async () => viewerSnapshot('ws-1'),
+          readDeliveredWorkspaceIds,
+          markDeliveredWorkspaceIds,
+        });
+        expect(readDeliveredWorkspaceIds).toHaveBeenCalledTimes(1);
+        expect(respond.mock.calls[1]?.[2]?.workspaceListRowFilter).toBeUndefined();
+        expect(markDeliveredWorkspaceIds).not.toHaveBeenCalled();
+      });
     });
 
     it('claims-less connections (requireAuth-off test seam) stay ungated', async () => {

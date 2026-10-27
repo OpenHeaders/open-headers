@@ -29,12 +29,14 @@ import {
   ensureWorkspaceRoleAssignments,
   grantWorkspaceRole,
   hasCapability,
+  listDeliveredWorkspaceIds,
   listWorkspaceRolesForPrincipal,
   mintDaemonAuthToken,
   type ResolvedAuditEntry,
   refreshIdentitySnapshotFromHostStorage,
   resetAuditSink,
   resolveDaemonPeerIdentitySnapshot,
+  revokeWorkspaceRole,
   setAuditSink,
   setDaemonUserDaemonAdmin,
   setWorkspaceVisibilityProvider,
@@ -63,6 +65,7 @@ import {
   type MutationEnvelope,
   type MutatorContext,
   RULE_ENTITY_TYPE,
+  type StateVector,
   setWorkspaceOrgResolver,
   workspaceListRowIdForMutation,
 } from '@openheaders/core/sync';
@@ -430,8 +433,12 @@ function makePresenceState(instanceId: string): AwarenessState {
   };
 }
 
-/** Run a `__global__` catch-up on `client`; return the streamed envelopes' workspace subjects. */
-async function catchUpGlobalRows(client: WebSocket): Promise<string[]> {
+/**
+ * Run a `__global__` catch-up on `client` presenting `perNodeMaxHlc`
+ * (empty = a cold peer); return the streamed envelopes' workspace
+ * subjects.
+ */
+async function catchUpGlobalRows(client: WebSocket, perNodeMaxHlc: StateVector = {}): Promise<string[]> {
   const rows: string[] = [];
   const synced = new Promise<void>((resolve) => {
     client.on('message', (raw) => {
@@ -443,7 +450,7 @@ async function catchUpGlobalRows(client: WebSocket): Promise<string[]> {
     });
   });
   client.send(
-    JSON.stringify({ type: SYNC_STATE_VECTOR_TYPE, workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE, perNodeMaxHlc: {} }),
+    JSON.stringify({ type: SYNC_STATE_VECTOR_TYPE, workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE, perNodeMaxHlc }),
   );
   await synced;
   return rows;
@@ -1825,5 +1832,71 @@ describe('internal visibility — members read without a WRA, machines and flips
     });
     await sendFlip('m-flip-private', Date.now() + 120_000, 'private');
     expect((await noraRetract).workspaceId).toBe(team.id);
+  });
+});
+
+// ── Workspace-list scope Part 4 — the delivered-row ledger over real sockets ──
+
+describe('delivered-row ledger — a join resumes from its vector and reveals an offline grant exactly once', () => {
+  // Every row rides `daemon-node`; a peer presenting this watermark
+  // already holds everything the log has for that node.
+  const CAUGHT_UP: StateVector = { 'daemon-node': { physicalMs: 9_000, logical: 0, nodeId: 'daemon-node' } };
+
+  afterEach(() => {
+    disposeGlobal();
+  });
+
+  it('an offline grant streams the workspace history on the next join and nothing on the one after; a revoke and re-grant reveal it again', async () => {
+    const globalLog = new InMemoryMutationLog();
+    await globalLog.appendAll([
+      makeGlobalRowEnvelope('m-row-a', 'ws-a', 1_000),
+      makeGlobalRowEnvelope('m-row-b', 'ws-b', 2_000),
+      makeGlobalActiveIdEnvelope('m-active-a', 'ws-a', 3_000),
+    ]);
+    __initGlobalSyncServiceForTests({ log: globalLog });
+
+    const alice = await addUserWithGrant('Alice', null);
+    // Granted while no socket of hers is up — nothing is offered.
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: 'ws-a', role: 'viewer' });
+
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const client = await connectAs(port, alice, 'ext-alice');
+
+    // Her vector covers the whole log, yet the unmarked grant reveals
+    // ws-a's rows (the row and the pointer naming it); ws-b stays hidden.
+    expect(await catchUpGlobalRows(client, CAUGHT_UP)).toEqual(['ws-a', 'ws-a']);
+    expect(await listDeliveredWorkspaceIds(alice.principal.id)).toEqual(new Set(['ws-a']));
+    // Marked at SYNCED: the same join again streams nothing.
+    expect(await catchUpGlobalRows(client, CAUGHT_UP)).toEqual([]);
+    // A row minted after her watermark rides the ordinary delta.
+    await globalLog.appendAll([makeGlobalRowEnvelope('m-row-a-2', 'ws-a', 10_000)]);
+    expect(await catchUpGlobalRows(client, CAUGHT_UP)).toEqual(['ws-a']);
+
+    // Revoke clears the pair; a re-grant with no row minted since is
+    // revealed again on the next join, then marked again.
+    expect(await revokeWorkspaceRole(alice.principal.id, 'ws-a')).toEqual({ ok: true });
+    expect(await listDeliveredWorkspaceIds(alice.principal.id)).toEqual(new Set());
+    expect(await catchUpGlobalRows(client, CAUGHT_UP)).toEqual([]);
+    await grantWorkspaceRole({ principalId: alice.principal.id, workspaceId: 'ws-a', role: 'viewer' });
+    expect(await catchUpGlobalRows(client, CAUGHT_UP)).toEqual(['ws-a', 'ws-a', 'ws-a']);
+    expect(await listDeliveredWorkspaceIds(alice.principal.id)).toEqual(new Set(['ws-a']));
+  });
+
+  it('a user with no grants is never marked; the operator never touches the ledger', async () => {
+    const globalLog = new InMemoryMutationLog();
+    await globalLog.appendAll([makeGlobalRowEnvelope('m-row-a', 'ws-a', 1_000)]);
+    __initGlobalSyncServiceForTests({ log: globalLog });
+
+    const nobody = await addUserWithGrant('Nora', null);
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+    const noraClient = await connectAs(port, nobody, 'ext-nora');
+    expect(await catchUpGlobalRows(noraClient, {})).toEqual([]);
+    expect(await listDeliveredWorkspaceIds(nobody.principal.id)).toEqual(new Set());
+
+    const operator = await connectOperator(port, 'web-operator');
+    expect(await catchUpGlobalRows(operator, {})).toEqual(['ws-a']);
+    expect(await hostStorage.get(OH.workspaceListDeliveries)).toBeUndefined();
   });
 });
