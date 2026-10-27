@@ -8,6 +8,7 @@ import {
   isSameDeviceOnlyMutation,
   LAYOUT_STATE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  SNAPSHOT_WATERMARK_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
 } from '../../src/sync';
 
@@ -57,6 +58,10 @@ describe('isSameDeviceOnlyMutation', () => {
 describe('isHostLocalEntityType', () => {
   it('classifies the layout singleton as host-local', () => {
     expect(isHostLocalEntityType(LAYOUT_STATE_ENTITY_TYPE)).toBe(true);
+  });
+
+  it('classifies the snapshot watermark as host-local — what a host has seen of a peer is its own bookkeeping', () => {
+    expect(isHostLocalEntityType(SNAPSHOT_WATERMARK_ENTITY_TYPE)).toBe(true);
   });
 
   it('does not classify synced entities (rule) or the vault as host-local', () => {

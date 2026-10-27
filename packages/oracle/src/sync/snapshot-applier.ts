@@ -13,16 +13,17 @@
  * apply. It is sufficient for the cold-receiver case (receiver has
  * no prior state — the snapshot IS the state).
  *
- * **Deferred — HLC watermark coherence.** The synthetic seed
- * envelopes carry HLCs from the receiver's local clock; folding the
- * resulting log gives `{ receiverNode: someHlc }`, NOT the snapshot's
- * `takenAtHlc`. Cold-receiver case is correct because the receiver
- * sends its own state vector in the post-apply STATE_VECTOR / SYNCED
- * exchange and the peer streams everything since then. The watermark
- * issue surfaces only if a non-cold receiver were ever given a
- * snapshot (out of scope for v1) or if there's interleaving with a
- * pending-out queue (C13-C16). Track this with the C13-C16 reconnect
- * design.
+ * **HLC watermark coherence.** The synthetic seed envelopes carry
+ * HLCs from the receiver's local clock, so folding the resulting log
+ * gives `{ receiverNode: someHlc }`, NOT the snapshot's `takenAtHlc`
+ * — on its rows alone the receiver stays behind the sender's nodes
+ * forever, and a sender past the snapshot threshold would answer every
+ * later catch-up with a snapshot again. The wire bootstrap therefore
+ * records the covered vector as a logged host-local row right after
+ * this apply (`snapshot-watermark.ts`); the state-vector reader unions
+ * it into the vector the receiver presents. This module stays the pure
+ * re-materializer: `duplicateWorkspace` replays a snapshot into a
+ * fresh scope with no peer behind it and must record nothing.
  *
  * **Sensitivity.** If the blob was sent across a trust boundary,
  * the sensitive arrays were stripped by

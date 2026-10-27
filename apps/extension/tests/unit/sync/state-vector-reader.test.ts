@@ -12,7 +12,7 @@ import { type MutatorContext, mintBatch, RULE_ENTITY_TYPE } from '@openheaders/c
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { readWorkspaceStateVector } from '@openheaders/oracle/sync';
+import { readWorkspaceStateVector, recordWorkspaceSnapshotWatermark } from '@openheaders/oracle/sync';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import {
   __initSyncServiceForTests,
@@ -101,6 +101,50 @@ describe('readWorkspaceStateVector', () => {
     expect(Object.keys(vector)).toEqual(['sw']);
     expect(vector.sw?.physicalMs).toBe(1_000);
     expect(await countRows(log)).toBe(rows);
+  });
+
+  it('unions a logged snapshot watermark: the vector covers the sender up to the snapshot', async () => {
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(makeRule(generateUid()), ctx(1_000, 'receiver')) });
+    const takenAtHlc = { hub: { physicalMs: 900, logical: 3, nodeId: 'hub' } };
+    await recordWorkspaceSnapshotWatermark(
+      { workspaceId: wsId, takenAtHlc },
+      { makeContext: () => ctx(1_100, 'receiver') },
+    );
+
+    const vector = await readWorkspaceStateVector(wsId);
+    expect(Object.keys(vector).sort()).toEqual(['hub', 'receiver']);
+    expect(vector.hub).toEqual(takenAtHlc.hub);
+    expect(vector.receiver?.physicalMs).toBe(1_100);
+  });
+
+  it('a logged row above the watermark wins for its node; the watermark wins below', async () => {
+    const takenAtHlc = {
+      hub: { physicalMs: 900, logical: 0, nodeId: 'hub' },
+      far: { physicalMs: 5_000, logical: 0, nodeId: 'far' },
+    };
+    await recordWorkspaceSnapshotWatermark(
+      { workspaceId: wsId, takenAtHlc },
+      { makeContext: () => ctx(1_000, 'receiver') },
+    );
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(makeRule(generateUid()), ctx(2_000, 'hub')) });
+    await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(makeRule(generateUid()), ctx(100, 'far')) });
+
+    const vector = await readWorkspaceStateVector(wsId);
+    expect(vector.hub?.physicalMs).toBe(2_000);
+    expect(vector.far).toEqual(takenAtHlc.far);
+  });
+
+  it('the watermark survives a restart: it is a logged row the replay sees', async () => {
+    const log = new InMemoryMutationLog();
+    __initSyncServiceForTests(wsId, { log });
+    const takenAtHlc = { hub: { physicalMs: 900, logical: 3, nodeId: 'hub' } };
+    await recordWorkspaceSnapshotWatermark(
+      { workspaceId: wsId, takenAtHlc },
+      { makeContext: () => ctx(1_000, 'receiver') },
+    );
+
+    __initSyncServiceForTests(wsId, { log });
+    expect((await readWorkspaceStateVector(wsId)).hub).toEqual(takenAtHlc.hub);
   });
 
   it('does not leave a refcount leak after a successful read', async () => {

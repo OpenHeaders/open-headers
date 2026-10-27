@@ -114,6 +114,7 @@ export {
   computeSnapshotThresholdInputsForWorkspace,
   computeSnapshotThresholdInputsFromLog,
 } from './snapshot-threshold-reader';
+export { recordWorkspaceSnapshotWatermark } from './snapshot-watermark';
 // Node-coupled SQLite-backed durable stores live in
 // `@openheaders/oracle-host-node/sync/sqlite-*` so this barrel — and
 // oracle as a whole — stays host-neutral.

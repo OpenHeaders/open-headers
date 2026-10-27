@@ -436,6 +436,16 @@ export {
   type VariableMutators,
 } from './shared/variable-mutators';
 export {
+  mintBatch as mintSnapshotWatermarkBatch,
+  type RecordSnapshotWatermarkArgs,
+  recordSnapshotWatermark,
+  SNAPSHOT_WATERMARK_ENTITY_TYPE,
+  SNAPSHOT_WATERMARK_ID,
+  SNAPSHOT_WATERMARK_MUTATOR_VERSION,
+  SNAPSHOT_WATERMARK_PATH,
+  snapshotWatermarkVector,
+} from './snapshot-watermark';
+export {
   type DeleteSpecArgs,
   deleteSpec,
   type RemoveSpecFileArgs,

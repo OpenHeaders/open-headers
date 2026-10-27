@@ -26,6 +26,12 @@
  *   lives in one place (core, host-neutral) for both IDB and SQLite.
  * - {@link foldStateVector} in core/sync — pure fold over the
  *   filtered stream.
+ * - {@link snapshotWatermarkVector} — a snapshot-bootstrapped scope
+ *   holds the sender's state without the sender's rows; the watermark
+ *   row the wire bootstrap logged (`snapshot-watermark.ts`) carries the
+ *   vector that snapshot covered, and the fold unions it in so the
+ *   vector this host presents covers the sender up to the snapshot.
+ *   Still a read of logged rows: the log is the one source of truth.
  *
  * The fold is O(N) in mutation count but I/O-bound by the IDB cursor
  * (or SQLite cursor on the desktop side). Handshake is rare (connect +
@@ -40,18 +46,28 @@
  * snapshot-bootstrap, not history-replay").
  */
 import { authorizedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
-import { filterEnvelopesByOrgAsync, foldStateVector, type StateVector } from '@openheaders/core/sync';
+import {
+  filterEnvelopesByOrgAsync,
+  foldStateVector,
+  type MutationEnvelope,
+  mergeStateVectors,
+  type StateVector,
+  snapshotWatermarkVector,
+} from '@openheaders/core/sync';
 
 import type { MutationLog } from './mutation-log';
 import { acquireScopeLog } from './scope-log-accessor';
 
 export async function computeStateVectorFromLog(log: MutationLog): Promise<StateVector> {
   const authorized = authorizedOrgIds(getIdentitySnapshot());
-  const envelopes = [];
+  const envelopes: MutationEnvelope[] = [];
+  let covered: StateVector = {};
   for await (const env of filterEnvelopesByOrgAsync(log.readSince(null), authorized)) {
     envelopes.push(env);
+    const watermark = snapshotWatermarkVector(env);
+    if (watermark !== null) covered = mergeStateVectors(covered, watermark);
   }
-  return foldStateVector(envelopes);
+  return mergeStateVectors(foldStateVector(envelopes), covered);
 }
 
 /**

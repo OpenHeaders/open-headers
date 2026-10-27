@@ -29,7 +29,12 @@ import { recordJoinedOrg } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { HANDSHAKE_ROLES, type HandshakeRejectReason } from '@openheaders/core/protocol';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
-import { applyWorkspaceSnapshot, readWorkspaceStateVector, snapshotAwarenessPresence } from '@openheaders/oracle/sync';
+import {
+  applyWorkspaceSnapshot,
+  readWorkspaceStateVector,
+  recordWorkspaceSnapshotWatermark,
+  snapshotAwarenessPresence,
+} from '@openheaders/oracle/sync';
 import type { InitiatorState } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import type { TransportState } from '@openheaders/oracle/sync/client/transport-connection';
@@ -160,11 +165,16 @@ export function installDaemonWire(): DaemonWire {
     getAgent: () => `@openheaders/web@${__APP_VERSION__}`,
     getAuthToken: () => peekDaemonToken(),
     readStateVector: (workspaceId) => readWorkspaceStateVector(workspaceId),
+    // The watermark logged after the apply is what the next
+    // STATE_VECTOR presents, so the daemon streams the delta above the
+    // snapshot on the next join instead of a snapshot every time.
     applySnapshot: async (snapshot) => {
       const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
       try {
         await svc.hydrated;
-        await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
+        const makeContext = () => svc.context.next();
+        await applyWorkspaceSnapshot(snapshot, { makeContext });
+        await recordWorkspaceSnapshotWatermark(snapshot, { makeContext });
       } finally {
         releaseWorkspaceService(snapshot.workspaceId);
       }

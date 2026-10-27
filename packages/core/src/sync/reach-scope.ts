@@ -24,7 +24,12 @@
  */
 
 import type { MutationEnvelope } from './envelope';
-import { ACTIVE_WORKSPACE_ENTITY_TYPE, LAYOUT_STATE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from './mutators';
+import {
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  LAYOUT_STATE_ENTITY_TYPE,
+  SNAPSHOT_WATERMARK_ENTITY_TYPE,
+  VAULT_ENTITY_TYPE,
+} from './mutators';
 
 /**
  * Entity types whose mutations carry a same-device-only secret. A
@@ -45,7 +50,8 @@ export function isSameDeviceOnlyMutation(envelope: MutationEnvelope): boolean {
 
 /**
  * Entity types that are host-local: per-host state (the dock layout
- * singleton, the active-workspace pointer) whose LWW record only makes
+ * singleton, the active-workspace pointer, the snapshot watermark —
+ * what this host has seen of a peer) whose LWW record only makes
  * sense to the host that wrote it. Unlike the same-device set — a
  * secrecy boundary keyed on peer reach — this is an ownership boundary:
  * two hosts sharing a workspace list would fight over one pointer via
@@ -54,7 +60,11 @@ export function isSameDeviceOnlyMutation(envelope: MutationEnvelope): boolean {
  * trust; every host keeps its own copy and same-host surfaces still
  * converge over the local broadcast.
  */
-const HOST_LOCAL_ENTITY_TYPES: ReadonlySet<string> = new Set([LAYOUT_STATE_ENTITY_TYPE, ACTIVE_WORKSPACE_ENTITY_TYPE]);
+const HOST_LOCAL_ENTITY_TYPES: ReadonlySet<string> = new Set([
+  LAYOUT_STATE_ENTITY_TYPE,
+  ACTIVE_WORKSPACE_ENTITY_TYPE,
+  SNAPSHOT_WATERMARK_ENTITY_TYPE,
+]);
 
 /** True when mutations of `entityType` are host-local (never on any wire). */
 export function isHostLocalEntityType(entityType: string): boolean {

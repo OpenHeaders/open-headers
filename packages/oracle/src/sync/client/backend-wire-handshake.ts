@@ -17,6 +17,7 @@ import {
 } from '../../workspace/extension-workspace-store';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../service';
 import { applyWorkspaceSnapshot } from '../snapshot-applier';
+import { recordWorkspaceSnapshotWatermark } from '../snapshot-watermark';
 import { readWorkspaceStateVector } from '../state-vector-reader';
 import type { BackendWireHandle } from './backend-connection-manager';
 import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from './mutation-forwarder';
@@ -147,11 +148,18 @@ export function createSyncHandshakeForWire(
       }
       return ids;
     },
+    // A snapshot re-materializes the sender's state as this host's own
+    // commits, so the rows alone never cover the sender's nodes; the
+    // watermark logged after them is what the next STATE_VECTOR
+    // presents, and the sender then streams only the delta above the
+    // snapshot instead of answering with a snapshot on every join.
     applySnapshot: async (snapshot) => {
       const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
       try {
         await svc.hydrated;
-        await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
+        const makeContext = () => svc.context.next();
+        await applyWorkspaceSnapshot(snapshot, { makeContext });
+        await recordWorkspaceSnapshotWatermark(snapshot, { makeContext });
       } finally {
         releaseWorkspaceService(snapshot.workspaceId);
       }

@@ -28,6 +28,7 @@ import {
   EXTENSION_WORKSPACES_SET_PATH,
   LAYOUT_STATE_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  SNAPSHOT_WATERMARK_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -209,6 +210,20 @@ describe('respondToStateVector — host-local strip (layout)', () => {
     deltaEnvelopes.length = 0;
     deltaEnvelopes.push(
       makeEnvelope(ACTIVE_WORKSPACE_ENTITY_TYPE, 'm-pointer'),
+      makeEnvelope(RULE_ENTITY_TYPE, 'm-rule'),
+    );
+    const reply = collectingReply();
+    const result = await respondToStateVector(MESSAGE, reply, { offDevicePeer: false });
+
+    const mutationFrames = reply.frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
+    expect(mutationFrames.map((f) => f.envelope?.mutationId)).toEqual(['m-rule']);
+    expect(result.deltasSent).toBe(1);
+  });
+
+  it('strips the snapshot watermark from the delta stream — what a host has seen of a peer is its own', async () => {
+    deltaEnvelopes.length = 0;
+    deltaEnvelopes.push(
+      makeEnvelope(SNAPSHOT_WATERMARK_ENTITY_TYPE, 'm-watermark'),
       makeEnvelope(RULE_ENTITY_TYPE, 'm-rule'),
     );
     const reply = collectingReply();
