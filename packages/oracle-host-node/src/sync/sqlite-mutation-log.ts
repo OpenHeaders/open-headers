@@ -206,6 +206,12 @@ export class SqliteMutationLog implements BranchScopedMutationLog {
     this.appendBatch(envs);
   }
 
+  // Streams off an open iterator, so the connection refuses every write
+  // until the consumer finishes: the consumers (the oracle's hydrate,
+  // the state-vector and threshold folds, the catch-up responder and
+  // the grant offer) buffer, count or write to a socket per row — none
+  // touches the handle. A consumer that must write per row reads
+  // through a materializing path like `SqlitePendingOutQueue.drain`.
   async *readSince(sinceHlcKey: string | null): AsyncIterable<MutationEnvelope> {
     const stmts = statementsFor(this.db);
     const iter =

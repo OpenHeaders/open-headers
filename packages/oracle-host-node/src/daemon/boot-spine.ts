@@ -547,9 +547,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   });
   // Durable audit sink — every capability decision the resolver emits
   // (WS gates, MCP policy, outbound filter) lands as a queryable
-  // `audit_log` row on the same handle. Append is fire-and-forget so
-  // gate latency never waits on SQLite; a failed write is logged, and
-  // the decision itself is unaffected either way.
+  // `audit_log` row on the same handle. The append runs synchronously
+  // in the gate's own tick (the promise settles at once), so it must
+  // never be reached while another statement on this handle iterates —
+  // the readers that yield to gate code materialize first. A failed
+  // write is logged, and the decision itself is unaffected either way.
   const auditLog = new SqliteAuditLog(syncPersistence.db);
   // Phase 4d SIEM streaming — the one deliberate outbound plane, and
   // only when the operator configured a collector. The sink nudges it

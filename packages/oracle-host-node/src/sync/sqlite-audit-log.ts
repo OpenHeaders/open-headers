@@ -36,7 +36,17 @@
  *     comparison; range scans need no epoch column.
  *   - **Sync API satisfied async** — better-sqlite3 is synchronous;
  *     every method returns a resolved Promise to keep the host-neutral
- *     {@link AuditLog} contract.
+ *     {@link AuditLog} contract. `append` runs its transaction before
+ *     the promise exists, so the write lands on the handle in the
+ *     caller's own tick — it is never deferred.
+ *   - **Never inside another statement's iteration** — better-sqlite3
+ *     refuses a write while any statement on the connection iterates,
+ *     and the resolver's audit sink calls `append` from inside gate
+ *     code. Every reader of the shared handle that yields to caller
+ *     code per row therefore materializes first (`SqlitePendingOutQueue.
+ *     drain`); the one streaming reader left, `SqliteMutationLog.
+ *     readSince`, is consumed only by code that writes nothing to the
+ *     handle per row.
  *
  * The standalone query/prune functions below serve the report surfaces
  * (`ohd audit`, the prune scheduler) that read the table without

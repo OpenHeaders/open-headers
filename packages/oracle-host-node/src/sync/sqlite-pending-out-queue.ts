@@ -27,6 +27,15 @@
  *   - **HLC-ordered drain** — `hlc_key` second so `ORDER BY hlc_key`
  *     under a remote-id filter gives the same order as the IDB
  *     `IDBKeyRange` traversal.
+ *   - **A drain is a snapshot** — the rows are read with one `all()`
+ *     before the first yield, never streamed off an open iterator.
+ *     better-sqlite3 refuses every write on the connection while a
+ *     statement iterates ("This database connection is busy executing
+ *     a query"), and the drain's consumer runs per-row code on this
+ *     same handle: the outbound gate's audit append and the flush's
+ *     re-route enqueue. The {@link PendingOutQueue} contract already
+ *     promises a snapshot at call time; the IDB and in-memory queues
+ *     collect before yielding too.
  *   - **Dedup** rides the unique index on `(remote_id, mutation_id)`;
  *     `enqueue` uses `INSERT OR IGNORE`. Same contract as the
  *     in-memory + IDB impls.
@@ -35,9 +44,8 @@
  *     {@link PendingOutQueue} contract is preserved.
  */
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
-import type Database from 'better-sqlite3';
-
 import type { PendingOutQueue } from '@openheaders/oracle/sync/pending-out-queue';
+import type Database from 'better-sqlite3';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS pending_out_queue (
@@ -71,20 +79,14 @@ function prepareStatements(db: Database.Database): PendingOutStatements {
       `INSERT OR IGNORE INTO pending_out_queue (remote_id, workspace_id, hlc_key, mutation_id, envelope_json)
        VALUES (?, ?, ?, ?, ?)`,
     ),
-    has: db.prepare(
-      `SELECT 1 FROM pending_out_queue WHERE remote_id = ? AND mutation_id = ? LIMIT 1`,
-    ),
+    has: db.prepare(`SELECT 1 FROM pending_out_queue WHERE remote_id = ? AND mutation_id = ? LIMIT 1`),
     drain: db.prepare(
       `SELECT envelope_json FROM pending_out_queue
        WHERE remote_id = ?
        ORDER BY hlc_key ASC, mutation_id ASC`,
     ),
-    ack: db.prepare(
-      `DELETE FROM pending_out_queue WHERE remote_id = ? AND mutation_id = ?`,
-    ),
-    size: db.prepare(
-      `SELECT COUNT(*) AS c FROM pending_out_queue WHERE remote_id = ?`,
-    ),
+    ack: db.prepare(`DELETE FROM pending_out_queue WHERE remote_id = ? AND mutation_id = ?`),
+    size: db.prepare(`SELECT COUNT(*) AS c FROM pending_out_queue WHERE remote_id = ?`),
   };
 }
 
@@ -117,8 +119,8 @@ export class SqlitePendingOutQueue implements PendingOutQueue {
 
   async *drain(remoteId: string): AsyncIterable<MutationEnvelope> {
     const stmts = statementsFor(this.db);
-    const iter = stmts.drain.iterate(remoteId);
-    for (const row of iter as IterableIterator<{ envelope_json: string }>) {
+    const rows = stmts.drain.all(remoteId) as Array<{ envelope_json: string }>;
+    for (const row of rows) {
       yield JSON.parse(row.envelope_json) as MutationEnvelope;
     }
   }

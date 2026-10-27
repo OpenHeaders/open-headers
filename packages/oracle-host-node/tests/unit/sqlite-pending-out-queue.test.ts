@@ -7,6 +7,7 @@
  */
 
 import type { MutationEnvelope } from '@openheaders/core/sync';
+import { SqliteAuditLog } from '@openheaders/oracle-host-node/sync/sqlite-audit-log';
 import {
   ensurePendingOutQueueSchema,
   SqlitePendingOutQueue,
@@ -85,5 +86,63 @@ describe('SqlitePendingOutQueue', () => {
     await q.enqueue('backend', env('m3', 2_000, 'n0', 'ws-a'));
     const ids = (await collect(q.drain('backend'))).map((e) => e.mutationId);
     expect(ids).toEqual(['m2', 'm1', 'm3']);
+  });
+});
+
+describe('SqlitePendingOutQueue — a drain is a snapshot (the audit append reentrancy, plan §7)', () => {
+  const seed = async (count: number): Promise<void> => {
+    for (let i = 0; i < count; i++) await q.enqueue('backend', env(`m${String(i).padStart(4, '0')}`, 1_000 + i));
+  };
+
+  it('a consumer that appends to the audit log on the same handle per row completes with every row audited', async () => {
+    const audit = new SqliteAuditLog(db);
+    await seed(300);
+    const drained: string[] = [];
+    for await (const e of q.drain('backend')) {
+      await audit.append({
+        orgId: e.orgId,
+        actorUserId: 'user-local',
+        capability: 'workspace.write',
+        workspaceId: e.workspaceId,
+        decision: { allow: true },
+        occurredAt: '2026-10-27T09:00:00.000Z',
+      });
+      drained.push(e.mutationId);
+    }
+    expect(drained).toHaveLength(300);
+    expect(drained).toEqual([...drained].sort());
+    expect(await audit.list('org-test')).toHaveLength(300);
+  });
+
+  it('a consumer that acks each row as it goes completes and leaves the queue empty', async () => {
+    await seed(50);
+    let drained = 0;
+    for await (const e of q.drain('backend')) {
+      await q.ack('backend', e.mutationId);
+      drained++;
+    }
+    expect(drained).toBe(50);
+    expect(await q.size('backend')).toBe(0);
+  });
+
+  it('a consumer that re-routes each row to another remote per row completes', async () => {
+    await seed(50);
+    for await (const e of q.drain('backend')) {
+      await q.enqueue('backend-other', e);
+      await q.ack('backend', e.mutationId);
+    }
+    expect(await q.size('backend')).toBe(0);
+    expect(await q.size('backend-other')).toBe(50);
+  });
+
+  it('rows enqueued during a drain surface on the next drain only', async () => {
+    await seed(3);
+    const first: string[] = [];
+    for await (const e of q.drain('backend')) {
+      first.push(e.mutationId);
+      if (first.length === 1) await q.enqueue('backend', env('late', 10));
+    }
+    expect(first).toEqual(['m0000', 'm0001', 'm0002']);
+    expect((await collect(q.drain('backend'))).map((e) => e.mutationId)).toEqual(['late', 'm0000', 'm0001', 'm0002']);
   });
 });
