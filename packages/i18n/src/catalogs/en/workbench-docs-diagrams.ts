@@ -653,6 +653,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.shared.permissions': 'Permissions',
   'workbench.docs.diagrams.systemStatus.shared.secrets': 'Secrets',
   'workbench.docs.diagrams.systemStatus.shared.live': 'Live',
+  'workbench.docs.diagrams.systemStatus.shared.activity': 'Activity',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode': 'Debug mode',
   'workbench.docs.diagrams.systemStatus.shared.systemStatus': 'System status',
   'workbench.docs.diagrams.systemStatus.shared.noEventsYet': 'No events yet',
   'workbench.docs.diagrams.systemStatus.shared.green': 'green',
@@ -667,7 +669,7 @@ export const workbenchDocsDiagrams = {
     'per subsystem.',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': 'Workbench: status row in the footer',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
-    '↑ six pills — one per subsystem, click any to open the popover.',
+    '↑ eight pills — one per subsystem, click any to open the popover.',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
     "Popup surface — the extension popup hangs from the toolbar icon. The status pill sits in the popup's bottom " +
     "footer as a dot plus 'System status' label.",
@@ -678,8 +680,7 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: worst-level aggregator ───────────────────────────
   'workbench.docs.diagrams.systemStatus.worstLevel.aria':
-    'Worst-state aggregator — six subsystem states feed into one composite dot. The worst color wins: red beats ' +
-    'yellow beats green.',
+    'Worst-state aggregator — eight subsystem states feed into one composite dot. The worst color wins: red beats yellow beats green.',
   'workbench.docs.diagrams.systemStatus.worstLevel.title': 'Worst color wins',
   'workbench.docs.diagrams.systemStatus.worstLevel.subtitle':
     'red > yellow > green · grey = no events yet (treated as green)',
@@ -689,6 +690,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': 'host narrowed',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': 'cipher decrypt',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': '3 fresh',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate': 'up to date',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgOff': 'off',
   'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
   'workbench.docs.diagrams.systemStatus.worstLevel.composite': 'composite',
   'workbench.docs.diagrams.systemStatus.worstLevel.dot': 'dot',
@@ -697,17 +700,17 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: popover ──────────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.popover.aria':
-    'Status popover layout — grey rows for subsystems with no events yet appear above colored rows for subsystems ' +
-    'that have reported.',
-  'workbench.docs.diagrams.systemStatus.popover.title': 'Popover order: greys first, then coloreds',
-  'workbench.docs.diagrams.systemStatus.popover.subtitle': 'Within each tier, canonical subsystem order is preserved',
+    "Status popover layout — eight subsystem rows under four titled groups: Connection, Browser Interceptor, API Requests and Application. A grey tag means no events yet; a colored tag carries the subsystem's state.",
+  'workbench.docs.diagrams.systemStatus.popover.title': 'Popover rows: four titled groups',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle': 'Grey = no events yet · colored = has reported',
   'workbench.docs.diagrams.systemStatus.popover.header': '● System status',
   'workbench.docs.diagrams.systemStatus.popover.msgConnected': 'Connected',
   'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': '12 active rules',
   'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': 'Hosts narrowed',
   'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': 'Cipher decrypt failed',
-  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ no events yet · ↓ have reported',
-  'workbench.docs.diagrams.systemStatus.popover.footer': 'On first report, a row migrates from grey → colored once.',
+  'workbench.docs.diagrams.systemStatus.popover.msgUpToDate': 'Up to date',
+  'workbench.docs.diagrams.systemStatus.popover.footer':
+    'A row turns from grey to colored on its first report and keeps its place.',
 
   // ── System status: sync topology ────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.syncTopology.aria':

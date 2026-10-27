@@ -727,6 +727,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.shared.permissions': 'Permisiuni',
   'workbench.docs.diagrams.systemStatus.shared.secrets': 'Secrete',
   'workbench.docs.diagrams.systemStatus.shared.live': 'Live',
+  'workbench.docs.diagrams.systemStatus.shared.activity': 'Activitate',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode': 'Modul Depanare',
   'workbench.docs.diagrams.systemStatus.shared.systemStatus': 'Starea sistemului',
   'workbench.docs.diagrams.systemStatus.shared.noEventsYet': 'Niciun eveniment încă',
   'workbench.docs.diagrams.systemStatus.shared.green': 'verde',
@@ -741,7 +743,7 @@ export const workbenchDocsDiagrams = {
     'per subsistem.',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': 'Workbench: rândul de stare în subsol',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
-    '↑ șase pastile — una per subsistem, clic pe oricare deschide popover-ul.',
+    '↑ opt pastile — una per subsistem, clic pe oricare deschide popover-ul.',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
     'Suprafața popup — fereastra popup a extensiei atârnă de pictograma din bara de instrumente. Pastila de stare stă în subsolul ' +
     'ferestrei popup ca un punct plus eticheta „Starea sistemului”.',
@@ -752,8 +754,7 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: worst-level aggregator ───────────────────────────
   'workbench.docs.diagrams.systemStatus.worstLevel.aria':
-    'Agregatorul celei mai rele stări — șase stări de subsistem se varsă într-un singur punct compozit. Câștigă cea mai rea culoare: roșul bate ' +
-    'galbenul, care bate verdele.',
+    'Agregatorul celei mai rele stări — opt stări de subsistem se varsă într-un singur punct compozit. Câștigă cea mai rea culoare: roșul bate galbenul, care bate verdele.',
   'workbench.docs.diagrams.systemStatus.worstLevel.title': 'Câștigă cea mai rea culoare',
   'workbench.docs.diagrams.systemStatus.worstLevel.subtitle':
     'roșu > galben > verde · gri = niciun eveniment încă (tratat ca verde)',
@@ -763,6 +764,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': 'gazdă restrânsă',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': 'decriptare',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': 'proaspete: 3',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate': 'la zi',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgOff': 'oprit',
   'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
   'workbench.docs.diagrams.systemStatus.worstLevel.composite': 'compozit',
   'workbench.docs.diagrams.systemStatus.worstLevel.dot': 'punct',
@@ -771,19 +774,17 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: popover ──────────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.popover.aria':
-    'Aspectul popover-ului de stare — rândurile gri ale subsistemelor fără evenimente apar deasupra rândurilor colorate ale subsistemelor ' +
-    'care au raportat.',
-  'workbench.docs.diagrams.systemStatus.popover.title': 'Ordinea în popover: întâi gri, apoi colorate',
-  'workbench.docs.diagrams.systemStatus.popover.subtitle':
-    'În fiecare nivel se păstrează ordinea canonică a subsistemelor',
+    'Aspectul popover-ului de stare — opt rânduri de subsistem sub patru grupuri cu titlu: Conexiune, Interceptor de browser, Cereri API și Aplicație. O etichetă gri înseamnă niciun eveniment încă; una colorată poartă starea subsistemului.',
+  'workbench.docs.diagrams.systemStatus.popover.title': 'Rândurile popover-ului: patru grupuri cu titlu',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle': 'Gri = niciun eveniment încă · colorat = a raportat',
   'workbench.docs.diagrams.systemStatus.popover.header': '● Starea sistemului',
   'workbench.docs.diagrams.systemStatus.popover.msgConnected': 'Conectat',
   'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': 'Reguli active: 12',
   'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': 'Gazde restrânse',
   'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': 'Decriptarea textului cifrat a eșuat',
-  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ niciun eveniment încă · ↓ au raportat',
+  'workbench.docs.diagrams.systemStatus.popover.msgUpToDate': 'La zi',
   'workbench.docs.diagrams.systemStatus.popover.footer':
-    'La primul raport, un rând migrează o singură dată din gri → colorat.',
+    'La primul raport, un rând trece din gri în colorat și își păstrează locul.',
 
   // ── System status: sync topology ────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.syncTopology.aria':

@@ -30,8 +30,7 @@ export const workbenchDocsSystemStatus = {
   // ── Concepts: System Status ─────────────────────────────────────────
   'workbench.docs.body.systemStatus.term': 'Состояние системы',
   'workbench.docs.body.systemStatus.intro1':
-    '— это живой снимок здоровья расширения. Футер рабочей среды показывает его строкой из шести индикаторов — по одному ' +
-    'на подсистему, у каждого своя цветная точка. Всплывающее окно и боковая панель сворачивают его до одной записи',
+    '— это живой снимок здоровья расширения. Футер рабочей среды показывает его строкой из восьми индикаторов — по одному на подсистему, у каждого своя цветная точка. Всплывающее окно и боковая панель сворачивают его до одной записи',
   'workbench.docs.body.systemStatus.intro1Suffix':
     'в своём нижнем футере, и цвет точки следует за подсистемой в худшем состоянии.',
   'workbench.docs.body.systemStatus.workbenchCaption':
@@ -42,43 +41,69 @@ export const workbenchDocsSystemStatus = {
     'Каждая подсистема сообщает одно состояние, и побеждает худший уровень: красный > жёлтый > зелёный. Один красный где угодно ' +
     'делает сводную точку красной.',
   'workbench.docs.body.systemStatus.worstLevelCaption':
-    'Шесть состояний подсистем сворачиваются в одно сводное через максимум — красный бьёт жёлтый, жёлтый бьёт зелёный.',
+    'Восемь состояний подсистем сворачиваются в одно сводное через максимум — красный бьёт жёлтый, жёлтый бьёт зелёный.',
   'workbench.docs.body.systemStatus.popover1':
-    'Нажатие на любой индикатор открывает один и тот же поповер с подробностями. Строки идут двумя группами: сначала серые (событий ' +
-    'за эту жизнь сервис-воркера ещё не было), затем цветные (сообщали хотя бы раз). Внутри каждой группы ' +
-    'сохраняется канонический порядок подсистем. Полная история живёт в диагностическом журнале — экспортируйте из раздела',
+    'Нажатие на любой индикатор открывает один и тот же поповер с подробностями. Строки стоят под четырьмя озаглавленными группами — Подключение, Браузерный перехватчик, API-запросы и Приложение — в фиксированном порядке. Строка остаётся серой, пока её подсистема не отчитается впервые за эту жизнь сервис-воркера, и после этого становится цветной. Полная история живёт в диагностическом журнале — экспортируйте из раздела',
   'workbench.docs.body.systemStatus.settingsExportPath': 'Приложение › Данные › Экспорт диагностического журнала',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
-    'Серые над разделителем, цветные под ним; при первом сообщении строка переезжает один раз.',
+    'Четыре озаглавленные группы в фиксированном порядке; при первом отчёте строка становится цветной и остаётся на месте.',
   'workbench.docs.body.systemStatus.stateGreenLabel': 'зелёный',
   'workbench.docs.body.systemStatus.stateYellowLabel': 'жёлтый',
   'workbench.docs.body.systemStatus.stateRedLabel': 'красный',
   'workbench.docs.body.systemStatus.syncName': 'Синхронизация',
-  'workbench.docs.body.systemStatus.syncSubtitle': 'Соединение с настольным приложением',
+  'workbench.docs.body.systemStatus.syncSubtitle': 'Подключения к бэкендам',
   'workbench.docs.body.systemStatus.sync1Prefix':
-    'Отражает соединение WebSocket между сервис-воркером расширения и настольным приложением OpenHeaders, ' +
-    'запущенным на вашей машине. Связь только через loopback (',
+    'Сводит каждый бэкенд, клиентом которого является эта поверхность — настольное приложение на этой машине (',
   'workbench.docs.body.systemStatus.sync1Suffix':
-    ') и несёт динамические переменные, данные командных рабочих пространств и присутствие — ничто не покидает ваше устройство.',
+    ') и любой OpenHeaders Server — в одну строку: худшее подключение определяет метку, а у каждого бэкенда в поповере своя строка ниже. Без настроенного бэкенда строка гласит «Работает в этом браузере» — расширение само себе бэкенд.',
   'workbench.docs.body.systemStatus.syncTopologyCaption':
-    'Одно соединение WebSocket между расширением и настольным приложением на localhost.',
+    'Один WebSocket на бэкенд — здесь настольное приложение на localhost; сервер — та же связь через сеть.',
   'workbench.docs.body.systemStatus.sync2':
-    'Индикатор отражает живое состояние соединения. Разрыв запускает переподключения с экспоненциальной задержкой; периодические ' +
-    'пинги обнаруживают тихие разрывы за строгими корпоративными прокси.',
+    'Каждый провод сообщает о двух слоях. Сокет: подключение, переподключение с экспоненциальной задержкой после обрыва, подключено — периодические ping-и ловят тихие обрывы за строгими корпоративными прокси. Поверх него рукопожатие: рукопожатие, догон пропущенных изменений, синхронизировано. Внутри одного бэкенда побеждает последний отчёт; между бэкендами — худшее состояние.',
   'workbench.docs.body.systemStatus.syncLifecycleCaption':
-    'Disabled и Connected — зелёные; Connecting, Reconnecting и URL rejected — жёлтые.',
-  'workbench.docs.body.systemStatus.syncGreenConnected': 'Connected to desktop',
-  'workbench.docs.body.systemStatus.syncGreenMiddle': '(рукопожатие удалось) или',
-  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Desktop sync disabled',
-  'workbench.docs.body.systemStatus.syncGreenSuffix': '(автоподключение выключено).',
-  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Connecting…',
-  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Reconnecting (attempt N)',
-  'workbench.docs.body.systemStatus.syncYellowOr': 'или',
-  'workbench.docs.body.systemStatus.syncYellowRejected': 'Desktop URL rejected by settings',
-  'workbench.docs.body.systemStatus.syncYellowSuffix': '.',
-  'workbench.docs.body.systemStatus.syncRed':
-    'Зарезервирован для фатальных сбоев синхронизации с настольным приложением; сегодня ни один путь кода его не выдаёт.',
+    'Отключено, Подключено и Синхронизировано — зелёные; Подключение, Переподключение, Догон и URL отклонён — жёлтые.',
+  'workbench.docs.body.systemStatus.sync3':
+    'Настольное приложение или сервер — тоже бэкенд для других, и эта роль входит в ту же сводку: привязка канала расширений — красный, когда порт держит другой экземпляр, жёлтый во время запуска — и после привязки сколько расширений подключено и откуда: с этого устройства или из LAN. Рабочее пространство, привязанное к git, добавляет число незакоммиченных изменений.',
+  'workbench.docs.body.systemStatus.syncGreenSynced': 'Синхронизировано с бэкендом',
+  'workbench.docs.body.systemStatus.syncGreenConnected': 'Подключено к бэкенду',
+  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Синхронизация с бэкендом отключена',
+  'workbench.docs.body.systemStatus.syncGreenRunningHere': 'Работает в этом браузере',
+  'workbench.docs.body.systemStatus.syncGreenExplain':
+    '— рукопожатие завершено, сокет поднят, а рукопожатие ещё идёт, автоподключение выключено, или бэкенд не настроен. Хост, который сам обслуживает, вместо этого сообщает о своих пирах:',
+  'workbench.docs.body.systemStatus.syncGreenIdle': 'Простой — расширения не подключены',
+  'workbench.docs.body.systemStatus.syncGreenPeers': 'Подключено N расширений на этом устройстве',
+  'workbench.docs.body.systemStatus.syncGreenSuffix': '(или в LAN).',
+  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Подключение к бэкенду…',
+  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Переподключение (попытка N)',
+  'workbench.docs.body.systemStatus.syncYellowHandshaking': 'Рукопожатие с бэкендом…',
+  'workbench.docs.body.systemStatus.syncYellowCatchingUp': 'Догон изменений…',
+  'workbench.docs.body.systemStatus.syncYellowRejected': 'URL настольного приложения отклонён настройками',
+  'workbench.docs.body.systemStatus.syncYellowOff': '<бэкенд> выключен — его рабочие пространства не синхронизируются',
+  'workbench.docs.body.systemStatus.syncYellowExplain':
+    '— сокет поднимается или возвращается, рукопожатие идёт, у записи нет пригодного URL, или присоединённый бэкенд выключен. Хост, который сам обслуживает, добавляет',
+  'workbench.docs.body.systemStatus.syncYellowPipe': 'Запуск канала расширений…',
+  'workbench.docs.body.systemStatus.syncYellowGit': 'N незакоммиченных изменений',
+  'workbench.docs.body.systemStatus.syncYellowSuffix': 'для рабочего пространства, привязанного к git.',
+  'workbench.docs.body.systemStatus.syncRedRejected': 'Бэкенд отклонил рукопожатие',
+  'workbench.docs.body.systemStatus.syncRedTimedOut': 'Бэкенд не ответил на рукопожатие — повтор',
+  'workbench.docs.body.systemStatus.syncRedCatchUp': 'Догон не удался',
+  'workbench.docs.body.systemStatus.syncRedExplain':
+    '— сервер отказал в рукопожатии (несовпадение протокола, неизвестное рабочее пространство, нет аутентификации; строка называет причину), так и не ответил, или воспроизведение догона не удалось. Хост, который сам обслуживает, добавляет',
+  'workbench.docs.body.systemStatus.syncRedPipe': 'Канал расширений недоступен — порт N уже занят',
+  'workbench.docs.body.systemStatus.syncRedSuffix': 'когда порт держит другой экземпляр.',
+  'workbench.docs.body.systemStatus.activityName': 'Активность',
+  'workbench.docs.body.systemStatus.activitySubtitle': 'Лента активности',
+  'workbench.docs.body.systemStatus.activity1':
+    'Считает непрочитанные записи ленты активности активного рабочего пространства — изменения, пришедшие по синхронизации: сущность создана, изменена, удалена или перемещена, локальная правка вытеснена, чувствительное поле ротировано, область разрешений расширена, ИИ-агент наблюдает трафик.',
+  'workbench.docs.body.systemStatus.activity2':
+    'Считается только активное рабочее пространство. Записи для другого рабочего пространства по-прежнему ложатся в его ленту, а переключение на него перечитывает счётчик из журнала — ни одно рабочее пространство не носит чужой значок.',
+  'workbench.docs.body.systemStatus.activityGreenLabel': 'Активность актуальна',
+  'workbench.docs.body.systemStatus.activityGreenSuffix': '— в активном рабочем пространстве нет непрочитанного.',
+  'workbench.docs.body.systemStatus.activityYellowLabel': 'N новых · <заголовок>',
+  'workbench.docs.body.systemStatus.activityYellowMiddle':
+    '— непрочитанные записи с последней в заголовке, пока лента не прочитана.',
+  'workbench.docs.body.systemStatus.activityRed': 'Зарезервировано; сегодня ни один путь кода этого не выдаёт.',
   'workbench.docs.body.systemStatus.rulesName': 'Правила',
   'workbench.docs.body.systemStatus.rulesSubtitle': 'Движок declarativeNetRequest',
   'workbench.docs.body.systemStatus.rules1Prefix':
@@ -160,6 +185,23 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.permissionsRedMiddle':
     '— некоторые правила будут молча бездействовать на отозванных хостах, пока доступ не будет восстановлен в',
   'workbench.docs.body.systemStatus.permissionsRedSuffix': '.',
+  'workbench.docs.body.systemStatus.debugModeName': 'Режим отладки',
+  'workbench.docs.body.systemStatus.debugModeSubtitle': 'Состояние подключения отладчика',
+  'workbench.docs.body.systemStatus.debugMode1':
+    'Отражает отладчик, который режим отладки подключает к вкладкам для точного сопоставления запросов. Выключено сообщает зелёный — сбой не имеет значения, пока переключатель выключен. Включено — строка считает подключённые вкладки; вкладка, подключение к которой браузер отклонил, делает её красной, а вкладка, откатившаяся на эвристический путь, — жёлтой.',
+  'workbench.docs.body.systemStatus.debugMode2':
+    'Браузеры без API отладчика никогда не устанавливают этот репортёр, поэтому там строка остаётся серой, а эвристический путь — единственный.',
+  'workbench.docs.body.systemStatus.debugModeGreenOff': 'Выключено',
+  'workbench.docs.body.systemStatus.debugModeGreenOr': 'или',
+  'workbench.docs.body.systemStatus.debugModeGreenOn': 'Включено · N вкладок',
+  'workbench.docs.body.systemStatus.debugModeGreenSuffix':
+    '— переключатель выключен, либо включён и каждая подключённая вкладка здорова.',
+  'workbench.docs.body.systemStatus.debugModeYellowLabel': 'Вкладка N откатилась на эвристику',
+  'workbench.docs.body.systemStatus.debugModeYellowMiddle':
+    '— отладчик отключился от этой вкладки (например, отменённый баннер), и вкладка сопоставляется по эвристическому пути до повторного подключения.',
+  'workbench.docs.body.systemStatus.debugModeRedLabel': 'Не удалось подключиться к вкладке N',
+  'workbench.docs.body.systemStatus.debugModeRedMiddle':
+    '— браузер отклонил подключение, обычно потому, что вкладку уже держит другой отладчик.',
   'workbench.docs.body.systemStatus.secretsName': 'Секреты',
   'workbench.docs.body.systemStatus.secretsSubtitle': 'Целостность vault',
   'workbench.docs.body.systemStatus.secrets1Prefix':
@@ -214,10 +256,4 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.liveRedLabel': 'N workflows failing (5+ consecutive)',
   'workbench.docs.body.systemStatus.liveRedMiddle':
     '— какой-то один рабочий процесс перешёл порог в пять сбоев подряд и теперь считается сбоящим.',
-  'workbench.docs.body.systemStatus.desktopNoteTitle': 'Настольное приложение — заметка о продукте',
-  'workbench.docs.body.systemStatus.desktopNote1':
-    'Настольное приложение в разработке и выходит после стабилизации расширения. Рабочие пространства, переменные и ' +
-    'командная синхронизация, интегрированные с настольным приложением, откроются тогда. Подсистема',
-  'workbench.docs.body.systemStatus.desktopNote2':
-    'при первом запуске автоматически переходит из выключенного состояния в подключение — переустановка не нужна.',
 } as const satisfies Catalog;

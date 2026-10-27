@@ -677,6 +677,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.shared.permissions': '권한',
   'workbench.docs.diagrams.systemStatus.shared.secrets': '시크릿',
   'workbench.docs.diagrams.systemStatus.shared.live': '라이브',
+  'workbench.docs.diagrams.systemStatus.shared.activity': '활동',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode': '디버그 모드',
   'workbench.docs.diagrams.systemStatus.shared.systemStatus': '시스템 상태',
   'workbench.docs.diagrams.systemStatus.shared.noEventsYet': '아직 이벤트 없음',
   'workbench.docs.diagrams.systemStatus.shared.green': '초록',
@@ -690,7 +692,7 @@ export const workbenchDocsDiagrams = {
     '워크벤치 화면: OpenHeaders 워크벤치 탭. 상태 행은 하단 푸터에 있으며 하위 시스템마다 알약 ' + '하나입니다.',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': '워크벤치: 푸터의 상태 행',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
-    '↑ 알약 여섯 개. 하위 시스템마다 하나, 아무거나 누르면 팝오버가 열립니다.',
+    '↑ 알약 여덟 개. 하위 시스템마다 하나, 아무거나 누르면 팝오버가 열립니다.',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
     '팝업 화면: 확장 프로그램 팝업이 도구 모음 아이콘에서 열립니다. 상태 알약은 팝업 하단 푸터에 점과 ' +
     '“시스템 상태” 레이블로 자리합니다.',
@@ -701,8 +703,7 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: worst-level aggregator ───────────────────────────
   'workbench.docs.diagrams.systemStatus.worstLevel.aria':
-    '최악 상태 집계기. 하위 시스템 상태 여섯 개가 종합 점 하나로 모입니다. 가장 나쁜 색이 이깁니다: 빨강이 ' +
-    '노랑을, 노랑이 초록을 이깁니다.',
+    '최악 상태 집계기. 하위 시스템 상태 여덟 개가 종합 점 하나로 모입니다. 가장 나쁜 색이 이깁니다: 빨강이 노랑을, 노랑이 초록을 이깁니다.',
   'workbench.docs.diagrams.systemStatus.worstLevel.title': '가장 나쁜 색이 이깁니다',
   'workbench.docs.diagrams.systemStatus.worstLevel.subtitle':
     '빨강 > 노랑 > 초록 · 회색 = 아직 이벤트 없음 (초록으로 취급)',
@@ -712,6 +713,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': '호스트 축소됨',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': '암호문 복호화',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': '3개 최신',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate': '최신',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgOff': '꺼짐',
   'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
   'workbench.docs.diagrams.systemStatus.worstLevel.composite': '종합',
   'workbench.docs.diagrams.systemStatus.worstLevel.dot': '점',
@@ -720,17 +723,16 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: popover ──────────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.popover.aria':
-    '상태 팝오버 레이아웃. 아직 이벤트가 없는 하위 시스템의 회색 행이, 보고한 적 있는 하위 시스템의 ' +
-    '색 행보다 위에 옵니다.',
-  'workbench.docs.diagrams.systemStatus.popover.title': '팝오버 순서: 회색 먼저, 그다음 색',
-  'workbench.docs.diagrams.systemStatus.popover.subtitle': '각 구간 안에서는 정해진 하위 시스템 순서가 유지됩니다',
+    '상태 팝오버 레이아웃. 제목이 있는 네 그룹(연결, 브라우저 인터셉터, API 요청, 애플리케이션) 아래 하위 시스템 행 여덟 개. 회색 태그는 아직 이벤트 없음, 색 태그는 하위 시스템의 상태를 나타냅니다.',
+  'workbench.docs.diagrams.systemStatus.popover.title': '팝오버 행: 제목이 있는 네 그룹',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle': '회색 = 아직 이벤트 없음 · 색 = 보고함',
   'workbench.docs.diagrams.systemStatus.popover.header': '● 시스템 상태',
   'workbench.docs.diagrams.systemStatus.popover.msgConnected': '연결됨',
   'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': '활성 규칙 12개',
   'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': '호스트 축소됨',
   'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': '암호문 복호화 실패',
-  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ 아직 이벤트 없음 · ↓ 보고함',
-  'workbench.docs.diagrams.systemStatus.popover.footer': '첫 보고 때 행이 회색 → 색으로 한 번 옮겨 갑니다.',
+  'workbench.docs.diagrams.systemStatus.popover.msgUpToDate': '최신 상태',
+  'workbench.docs.diagrams.systemStatus.popover.footer': '첫 보고 때 행이 회색에서 색으로 바뀌고 자리는 그대로입니다.',
 
   // ── System status: sync topology ────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.syncTopology.aria':

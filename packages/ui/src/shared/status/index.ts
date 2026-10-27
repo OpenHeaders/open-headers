@@ -2,13 +2,14 @@ export type { AddonsPillProps } from './AddonsPill';
 export { AddonsPill } from './AddonsPill';
 export type { DesktopCompanion, DesktopCompanionState } from './companion-rows';
 export {
-  CompanionStatusRows,
+  DesktopAppRow,
   DesktopConnectAction,
   DesktopDownloadAction,
   DesktopOpenAppAction,
   deriveDesktopCompanionState,
   desktopCompanionRunsRequests,
   ExtensionInstallAction,
+  ExtensionsRow,
   readSyncPeers,
   useDesktopCompanion,
 } from './companion-rows';

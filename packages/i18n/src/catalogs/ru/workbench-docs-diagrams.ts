@@ -717,6 +717,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.shared.permissions': 'Разрешения',
   'workbench.docs.diagrams.systemStatus.shared.secrets': 'Секреты',
   'workbench.docs.diagrams.systemStatus.shared.live': 'Live',
+  'workbench.docs.diagrams.systemStatus.shared.activity': 'Активность',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode': 'Режим отладки',
   'workbench.docs.diagrams.systemStatus.shared.systemStatus': 'Состояние системы',
   'workbench.docs.diagrams.systemStatus.shared.noEventsYet': 'Событий пока нет',
   'workbench.docs.diagrams.systemStatus.shared.green': 'зелёный',
@@ -731,7 +733,7 @@ export const workbenchDocsDiagrams = {
     'на подсистему.',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': 'Рабочая среда: строка состояния в футере',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
-    '↑ шесть индикаторов — по одному на подсистему, нажмите любой, чтобы открыть поповер.',
+    '↑ восемь индикаторов — по одному на подсистему, нажмите любой, чтобы открыть поповер.',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
     'Поверхность всплывающего окна — оно раскрывается из значка на панели инструментов. Индикатор состояния сидит в нижнем футере ' +
     'всплывающего окна как точка плюс подпись «Состояние системы».',
@@ -743,8 +745,7 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: worst-level aggregator ───────────────────────────
   'workbench.docs.diagrams.systemStatus.worstLevel.aria':
-    'Агрегатор худшего состояния — шесть состояний подсистем сходятся в одну сводную точку. Побеждает худший цвет: красный бьёт ' +
-    'жёлтый, жёлтый бьёт зелёный.',
+    'Агрегатор худшего состояния — восемь состояний подсистем сходятся в одну сводную точку. Побеждает худший цвет: красный бьёт жёлтый, жёлтый бьёт зелёный.',
   'workbench.docs.diagrams.systemStatus.worstLevel.title': 'Побеждает худший цвет',
   'workbench.docs.diagrams.systemStatus.worstLevel.subtitle':
     'красный > жёлтый > зелёный · серый = событий пока нет (считается зелёным)',
@@ -754,6 +755,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': 'хост сужен',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': 'расшифровка',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': 'свежих: 3',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate': 'актуально',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgOff': 'выкл.',
   'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
   'workbench.docs.diagrams.systemStatus.worstLevel.composite': 'сводная',
   'workbench.docs.diagrams.systemStatus.worstLevel.dot': 'точка',
@@ -762,19 +765,17 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: popover ──────────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.popover.aria':
-    'Раскладка поповера состояния — серые строки подсистем без событий стоят над цветными строками подсистем, ' +
-    'которые уже отчитались.',
-  'workbench.docs.diagrams.systemStatus.popover.title': 'Порядок в поповере: сначала серые, затем цветные',
-  'workbench.docs.diagrams.systemStatus.popover.subtitle':
-    'Внутри каждого яруса сохраняется канонический порядок подсистем',
+    'Раскладка поповера состояния — восемь строк подсистем под четырьмя озаглавленными группами: Подключение, Браузерный перехватчик, API-запросы и Приложение. Серая метка означает, что событий пока нет; цветная несёт состояние подсистемы.',
+  'workbench.docs.diagrams.systemStatus.popover.title': 'Строки поповера: четыре озаглавленные группы',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle': 'Серая = событий пока нет · цветная = уже отчиталась',
   'workbench.docs.diagrams.systemStatus.popover.header': '● Состояние системы',
   'workbench.docs.diagrams.systemStatus.popover.msgConnected': 'Подключено',
   'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': 'Активных правил: 12',
   'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': 'Хосты сужены',
   'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': 'Сбой расшифровки шифротекста',
-  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ событий пока нет · ↓ уже отчитались',
+  'workbench.docs.diagrams.systemStatus.popover.msgUpToDate': 'Актуально',
   'workbench.docs.diagrams.systemStatus.popover.footer':
-    'При первом отчёте строка один раз переходит из серой в цветную.',
+    'При первом отчёте строка переходит из серой в цветную и остаётся на месте.',
 
   // ── System status: sync topology ────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.syncTopology.aria':

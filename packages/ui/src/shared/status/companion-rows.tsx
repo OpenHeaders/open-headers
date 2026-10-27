@@ -1,6 +1,8 @@
 /**
- * Companion rows for the Status popover — each surface names its OTHER
- * half and whether the pair is live:
+ * Companion rows for the Add-ons popover — each surface names its OTHER
+ * half and whether the pair is live. The popover mounts them under the
+ * place they belong to (the Desktop app group, the Browser extensions
+ * group):
  *
  *   - extension host → a "Desktop app" row: connection state derived
  *     from the desktop app's record (the place rule) and its own sync
@@ -136,14 +138,9 @@ export function desktopCompanionRunsRequests(
   return state === 'connected' && preference === 'desktop-app';
 }
 
-/** Host-aware companion rows — mounted by `productStatusExtras`. */
-export const CompanionStatusRows: React.FC = () => {
-  const host = getCurrentHost();
-  if (host === 'extension') return <DesktopAppRow />;
-  return <ExtensionsRow />;
-};
-
-const DesktopAppRow: React.FC = () => {
+/** The extension host's companion — mounted under the Add-ons
+ *  popover's Desktop app heading. */
+export const DesktopAppRow: React.FC = () => {
   const t = useT();
   const { state, launchable } = useDesktopCompanion();
   const runsRequests = desktopCompanionRunsRequests(state, useSettingValue('requests.executionPlace'));
@@ -376,7 +373,9 @@ const ConnectedPeerRows: React.FC<{ peers: readonly SyncPeerEntry[] }> = ({ peer
   );
 };
 
-const ExtensionsRow: React.FC = () => {
+/** The desktop and web hosts' companion(s) — mounted under the Add-ons
+ *  popover's Browser extensions heading. */
+export const ExtensionsRow: React.FC = () => {
   const t = useT();
   const { snapshot } = useStatus();
   const context = snapshot.sync?.context;

@@ -656,6 +656,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.shared.permissions': '権限',
   'workbench.docs.diagrams.systemStatus.shared.secrets': 'シークレット',
   'workbench.docs.diagrams.systemStatus.shared.live': 'Live',
+  'workbench.docs.diagrams.systemStatus.shared.activity': 'アクティビティ',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode': 'デバッグモード',
   'workbench.docs.diagrams.systemStatus.shared.systemStatus': 'システムステータス',
   'workbench.docs.diagrams.systemStatus.shared.noEventsYet': 'イベントはまだなし',
   'workbench.docs.diagrams.systemStatus.shared.green': '緑',
@@ -669,7 +671,7 @@ export const workbenchDocsDiagrams = {
     'ワークベンチの面：OpenHeaders のワークベンチタブ。ステータス行は下部フッターにあり、サブシステムごとに 1 つのピルがあります。',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': 'ワークベンチ：フッターのステータス行',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
-    '↑ 6 つのピル。サブシステムごとに 1 つで、クリックするとポップオーバーが開きます。',
+    '↑ 8 つのピル。サブシステムごとに 1 つで、クリックするとポップオーバーが開きます。',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
     'ポップアップの面：拡張機能のポップアップはツールバーアイコンから開きます。ステータスピルはポップアップの下部フッターに、ドット + 「システムステータス」ラベルとしてあります。',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.title': 'ポップアップ：フッターのシステムステータスピル',
@@ -679,7 +681,7 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: worst-level aggregator ───────────────────────────
   'workbench.docs.diagrams.systemStatus.worstLevel.aria':
-    '最悪状態の集約：6 つのサブシステムの状態が 1 つの合成ドットに流れ込みます。最悪の色が勝ちます：赤は黄に、黄は緑に勝ちます。',
+    '最悪状態の集約：8 つのサブシステムの状態が 1 つの合成ドットに流れ込みます。最悪の色が勝ちます：赤は黄に、黄は緑に勝ちます。',
   'workbench.docs.diagrams.systemStatus.worstLevel.title': '最悪の色が勝つ',
   'workbench.docs.diagrams.systemStatus.worstLevel.subtitle': '赤 > 黄 > 緑 · 灰 = イベントはまだなし（緑として扱う）',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgConnected': '接続済み',
@@ -688,6 +690,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': 'ホストが絞られた',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': 'cipher の復号',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': '3 件が新鮮',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate': '最新',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgOff': 'オフ',
   'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
   'workbench.docs.diagrams.systemStatus.worstLevel.composite': '合成',
   'workbench.docs.diagrams.systemStatus.worstLevel.dot': 'ドット',
@@ -696,16 +700,16 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: popover ──────────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.popover.aria':
-    'ステータスポップオーバーのレイアウト：イベントのまだないサブシステムの灰色の行が、報告済みのサブシステムの色付きの行の上に表示されます。',
-  'workbench.docs.diagrams.systemStatus.popover.title': 'ポップオーバーの順序：灰が先、次に色付き',
-  'workbench.docs.diagrams.systemStatus.popover.subtitle': '各段の中では、サブシステムの正規の順序が保たれます',
+    'ステータスポップオーバーのレイアウト：見出し付きの 4 グループ（接続、ブラウザーインターセプター、API リクエスト、アプリケーション）の下に 8 つのサブシステム行。灰色のタグはイベントがまだないこと、色付きのタグはサブシステムの状態を示します。',
+  'workbench.docs.diagrams.systemStatus.popover.title': 'ポップオーバーの行：見出し付きの 4 グループ',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle': '灰 = イベントはまだなし · 色付き = 報告済み',
   'workbench.docs.diagrams.systemStatus.popover.header': '● システムステータス',
   'workbench.docs.diagrams.systemStatus.popover.msgConnected': '接続済み',
   'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': '12 件のアクティブなルール',
   'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': 'ホストが絞られました',
   'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': 'cipher の復号に失敗しました',
-  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ イベントはまだなし · ↓ 報告済み',
-  'workbench.docs.diagrams.systemStatus.popover.footer': '最初の報告で、行は灰 → 色付きへ一度だけ移ります。',
+  'workbench.docs.diagrams.systemStatus.popover.msgUpToDate': '最新',
+  'workbench.docs.diagrams.systemStatus.popover.footer': '最初の報告で行は灰から色付きになり、位置は変わりません。',
 
   // ── System status: sync topology ────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.syncTopology.aria':

@@ -19,44 +19,72 @@ export const workbenchDocsSystemStatus = {
   // ── Concepts: System Status ─────────────────────────────────────────
   'workbench.docs.body.systemStatus.term': '系统状态',
   'workbench.docs.body.systemStatus.intro1':
-    '是扩展健康状况的实时快照。工作区编辑器的页脚把它显示为一排六枚指示条——每个子系统一枚，各自带彩色圆点。' +
-    '弹窗和侧边栏把它折叠成底部页脚中的单个',
+    '是扩展健康状况的实时快照。工作区编辑器的页脚把它显示为一排八枚指示条——每个子系统一枚，各自带彩色圆点。弹窗和侧边栏把它折叠成底部页脚中的单个',
   'workbench.docs.body.systemStatus.intro1Suffix': '条目，其圆点颜色跟随状态最差的子系统。',
   'workbench.docs.body.systemStatus.workbenchCaption': '在工作区编辑器中，这一排位于页脚，每个子系统一枚指示条。',
   'workbench.docs.body.systemStatus.popupCaption': '点击工具栏图标，同样的状态在弹窗页脚以一枚带标签的指示条出现。',
   'workbench.docs.body.systemStatus.worstLevel1':
     '每个子系统报告一个状态，最差级别胜出：红 > 黄 > 绿。任何一处的红都会把合成圆点翻成红色。',
-  'workbench.docs.body.systemStatus.worstLevelCaption': '六个子系统状态经 max 折叠成一个合成值——红胜黄，黄胜绿。',
+  'workbench.docs.body.systemStatus.worstLevelCaption': '八个子系统状态经 max 折叠成一个合成值——红胜黄，黄胜绿。',
   'workbench.docs.body.systemStatus.popover1':
-    '点击任意指示条都会打开同一个详情弹出框。行分为两组：灰色在前（本次 service worker 生命周期内还没有事件），' +
-    '彩色在后（至少报告过一次）。每组内部保持规范的子系统顺序。完整历史在可观测性日志中——导出入口为',
+    '点击任意指示条都会打开同一个详情弹出框。行按固定顺序排在四个带标题的分组之下——连接、浏览器拦截器、API 请求和应用程序。在本次 service worker 生命周期内子系统首次报告之前，行是灰色的，之后变为彩色。完整历史在可观测性日志中——导出入口为',
   'workbench.docs.body.systemStatus.settingsExportPath': '应用程序 › 数据 › 导出诊断日志',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
-  'workbench.docs.body.systemStatus.popoverCaption': '分隔线上方是灰色，下方是彩色；首次报告时行迁移一次。',
+  'workbench.docs.body.systemStatus.popoverCaption': '四个带标题的分组按固定顺序排列；首次报告时行变为彩色，位置不变。',
   'workbench.docs.body.systemStatus.stateGreenLabel': '绿色',
   'workbench.docs.body.systemStatus.stateYellowLabel': '黄色',
   'workbench.docs.body.systemStatus.stateRedLabel': '红色',
   'workbench.docs.body.systemStatus.syncName': '同步',
-  'workbench.docs.body.systemStatus.syncSubtitle': '桌面端应用连接',
-  'workbench.docs.body.systemStatus.sync1Prefix':
-    '映射扩展的 service worker 与运行在你机器上的 OpenHeaders 桌面端应用之间的 WebSocket 连接。链路仅限回环（',
+  'workbench.docs.body.systemStatus.syncSubtitle': '后端连接',
+  'workbench.docs.body.systemStatus.sync1Prefix': '把此界面作为客户端连接的每个后端——这台机器上的桌面应用（',
   'workbench.docs.body.systemStatus.sync1Suffix':
-    '），承载动态变量、团队工作区数据和在线状态——任何东西都不离开你的设备。',
-  'workbench.docs.body.systemStatus.syncTopologyCaption': '扩展与 localhost 上的桌面端应用之间只有一条 WebSocket。',
+    '）和任何 OpenHeaders Server——汇成一行：最差的连接决定标签，弹出框里每个后端在其下各占一行。没有配置后端时，该行显示"在此浏览器中运行"——扩展就是自己的后端。',
+  'workbench.docs.body.systemStatus.syncTopologyCaption':
+    '每个后端一条 WebSocket——图中是 localhost 上的桌面应用；服务器是经网络的同一条链路。',
   'workbench.docs.body.systemStatus.sync2':
-    '指示条反映实时连接状态。掉线会触发指数退避重连；周期性 ping 能在严格的企业代理背后察觉无声断连。',
+    '每条线路报告两层。套接字：连接中、断开后按指数退避重连中、已连接——周期性 ping 可发现严格企业代理后面的静默断开。其上的握手：握手中、补齐离线期间错过的变更、已同步。同一后端内最新报告胜出；后端之间最差状态胜出。',
   'workbench.docs.body.systemStatus.syncLifecycleCaption':
-    'Disabled 和 Connected 为绿色；Connecting、Reconnecting 和 URL rejected 为黄色。',
-  'workbench.docs.body.systemStatus.syncGreenConnected': 'Connected to desktop',
-  'workbench.docs.body.systemStatus.syncGreenMiddle': '（握手成功）或',
-  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Desktop sync disabled',
-  'workbench.docs.body.systemStatus.syncGreenSuffix': '（自动连接已关闭）。',
-  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Connecting…',
-  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Reconnecting (attempt N)',
-  'workbench.docs.body.systemStatus.syncYellowOr': '，或',
-  'workbench.docs.body.systemStatus.syncYellowRejected': 'Desktop URL rejected by settings',
-  'workbench.docs.body.systemStatus.syncYellowSuffix': '.',
-  'workbench.docs.body.systemStatus.syncRed': '保留给致命的桌面同步故障；目前没有任何代码路径发出它。',
+    '已禁用、已连接和已同步为绿色；连接中、重连中、补齐中和 URL 被拒绝为黄色。',
+  'workbench.docs.body.systemStatus.sync3':
+    '桌面应用或服务器也是他人的后端，这一角色也进入同一汇总：扩展管道的绑定——另一实例占用端口时为红色，启动期间为黄色——绑定后则是连接的扩展数量，以及来自本机还是局域网。绑定了 git 的工作区会加上未提交的变更数。',
+  'workbench.docs.body.systemStatus.syncGreenSynced': '已与后端同步',
+  'workbench.docs.body.systemStatus.syncGreenConnected': '已连接到后端',
+  'workbench.docs.body.systemStatus.syncGreenDisabled': '后端同步已禁用',
+  'workbench.docs.body.systemStatus.syncGreenRunningHere': '在此浏览器中运行',
+  'workbench.docs.body.systemStatus.syncGreenExplain':
+    '——握手已完成、套接字已建立但握手仍在进行、自动连接已关闭，或未配置后端。提供服务的主机则报告其对端：',
+  'workbench.docs.body.systemStatus.syncGreenIdle': '空闲——没有扩展连接',
+  'workbench.docs.body.systemStatus.syncGreenPeers': '已连接本机上的 N 个扩展',
+  'workbench.docs.body.systemStatus.syncGreenSuffix': '（或局域网上）。',
+  'workbench.docs.body.systemStatus.syncYellowConnecting': '正在连接后端…',
+  'workbench.docs.body.systemStatus.syncYellowReconnecting': '重连中（第 N 次尝试）',
+  'workbench.docs.body.systemStatus.syncYellowHandshaking': '正在与后端握手…',
+  'workbench.docs.body.systemStatus.syncYellowCatchingUp': '正在补齐变更…',
+  'workbench.docs.body.systemStatus.syncYellowRejected': '桌面 URL 被设置拒绝',
+  'workbench.docs.body.systemStatus.syncYellowOff': '<后端> 已关闭——其工作区未在同步',
+  'workbench.docs.body.systemStatus.syncYellowExplain':
+    '——套接字正在建立或恢复、握手进行中、记录没有可用的 URL，或已加入的后端被关闭。提供服务的主机还会加上',
+  'workbench.docs.body.systemStatus.syncYellowPipe': '正在启动扩展管道…',
+  'workbench.docs.body.systemStatus.syncYellowGit': 'N 项未提交的变更',
+  'workbench.docs.body.systemStatus.syncYellowSuffix': '（绑定了 git 的工作区）。',
+  'workbench.docs.body.systemStatus.syncRedRejected': '后端拒绝了握手',
+  'workbench.docs.body.systemStatus.syncRedTimedOut': '后端未响应握手——正在重试',
+  'workbench.docs.body.systemStatus.syncRedCatchUp': '补齐失败',
+  'workbench.docs.body.systemStatus.syncRedExplain':
+    '——服务器拒绝了握手（协议不匹配、未知工作区、缺少认证；该行会说明原因）、从未应答，或补齐回放失败。提供服务的主机还会加上',
+  'workbench.docs.body.systemStatus.syncRedPipe': '扩展管道离线——端口 N 已被占用',
+  'workbench.docs.body.systemStatus.syncRedSuffix': '（另一实例占用端口时）。',
+  'workbench.docs.body.systemStatus.activityName': '活动',
+  'workbench.docs.body.systemStatus.activitySubtitle': '活动流',
+  'workbench.docs.body.systemStatus.activity1':
+    '统计当前工作区活动流中的未读条目——经同步到达的变更：实体被创建、编辑、删除或移动，本地编辑被覆盖，敏感字段被轮换，权限范围被扩大，AI 代理观察流量。',
+  'workbench.docs.body.systemStatus.activity2':
+    '只统计当前工作区。其他工作区的条目仍落入各自的活动流，切换过去时会从日志重新读取计数——没有哪个工作区会背上别处的徽标。',
+  'workbench.docs.body.systemStatus.activityGreenLabel': '活动已是最新',
+  'workbench.docs.body.systemStatus.activityGreenSuffix': '——当前工作区没有未读条目。',
+  'workbench.docs.body.systemStatus.activityYellowLabel': 'N 条新 · <标题>',
+  'workbench.docs.body.systemStatus.activityYellowMiddle': '——未读条目，以最新一条为标题，直到活动流被阅读。',
+  'workbench.docs.body.systemStatus.activityRed': '保留；目前没有代码路径会发出它。',
   'workbench.docs.body.systemStatus.rulesName': '规则',
   'workbench.docs.body.systemStatus.rulesSubtitle': 'declarativeNetRequest 引擎',
   'workbench.docs.body.systemStatus.rules1Prefix':
@@ -126,6 +154,21 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.permissionsRedLabel': 'Host permissions narrowed',
   'workbench.docs.body.systemStatus.permissionsRedMiddle': '——部分规则会在被撤销的主机上无声地不执行；恢复访问的入口是',
   'workbench.docs.body.systemStatus.permissionsRedSuffix': '.',
+  'workbench.docs.body.systemStatus.debugModeName': '调试模式',
+  'workbench.docs.body.systemStatus.debugModeSubtitle': '调试器附加状态',
+  'workbench.docs.body.systemStatus.debugMode1':
+    '映射调试模式为精确关联请求而附加到标签页的调试器。关闭时报告绿色——开关关闭时故障无关紧要。开启时，该行统计已附加的标签页；浏览器拒绝附加的标签页使其变红，回退到启发式路径的标签页使其变黄。',
+  'workbench.docs.body.systemStatus.debugMode2':
+    '没有调试器 API 的浏览器从不安装这个报告器，因此那里的行保持灰色，只有启发式路径。',
+  'workbench.docs.body.systemStatus.debugModeGreenOff': '关闭',
+  'workbench.docs.body.systemStatus.debugModeGreenOr': '或',
+  'workbench.docs.body.systemStatus.debugModeGreenOn': '开启 · N 个标签页',
+  'workbench.docs.body.systemStatus.debugModeGreenSuffix': '——开关已关闭，或已开启且每个已附加的标签页都正常。',
+  'workbench.docs.body.systemStatus.debugModeYellowLabel': '标签页 N 回退到启发式',
+  'workbench.docs.body.systemStatus.debugModeYellowMiddle':
+    '——调试器已从该标签页分离（例如取消了横幅），在重新附加之前该标签页按启发式路径关联。',
+  'workbench.docs.body.systemStatus.debugModeRedLabel': '标签页 N 附加失败',
+  'workbench.docs.body.systemStatus.debugModeRedMiddle': '——浏览器拒绝了附加，通常是因为另一个调试器已占用该标签页。',
   'workbench.docs.body.systemStatus.secretsName': '机密',
   'workbench.docs.body.systemStatus.secretsSubtitle': 'Vault 完整性',
   'workbench.docs.body.systemStatus.secrets1Prefix': '跟踪按工作区加密的 vault 数据块，它存于',
@@ -169,8 +212,4 @@ export const workbenchDocsSystemStatus = {
     '——至少一次运行超过 2 倍节奏、最后一次提取器失败，或有 1–4 次连续失败。',
   'workbench.docs.body.systemStatus.liveRedLabel': 'N workflows failing (5+ consecutive)',
   'workbench.docs.body.systemStatus.liveRedMiddle': '——任何单个工作流越过五次连续失败，现在被视为失败中。',
-  'workbench.docs.body.systemStatus.desktopNoteTitle': '桌面端应用——产品说明',
-  'workbench.docs.body.systemStatus.desktopNote1':
-    '桌面端应用仍在开发中，会在扩展稳定之后发布。与桌面端应用集成的工作区、变量和团队同步届时解锁。',
-  'workbench.docs.body.systemStatus.desktopNote2': '子系统会在首次启动时自动从已关闭翻到连接中——无需重新安装。',
 } as const satisfies Catalog;

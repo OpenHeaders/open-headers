@@ -20,9 +20,7 @@ export const workbenchDocsSystemStatus = {
   // ── Concepts: System Status ─────────────────────────────────────────
   'workbench.docs.body.systemStatus.term': 'El estado del sistema',
   'workbench.docs.body.systemStatus.intro1':
-    'es una instantánea en vivo de la salud de la extensión. El pie de página del editor del espacio de ' +
-    'trabajo lo muestra como una fila de seis píldoras — una píldora por subsistema, cada una con su propio ' +
-    'punto de color. El popup y el panel lateral lo pliegan en una sola entrada',
+    'es una instantánea en vivo de la salud de la extensión. El pie de página del editor del espacio de trabajo lo muestra como una fila de ocho píldoras — una píldora por subsistema, cada una con su propio punto de color. El popup y el panel lateral lo pliegan en una sola entrada',
   'workbench.docs.body.systemStatus.intro1Suffix':
     'en su pie de página inferior, con el color del punto siguiendo al subsistema en peor estado.',
   'workbench.docs.body.systemStatus.workbenchCaption':
@@ -34,46 +32,70 @@ export const workbenchDocsSystemStatus = {
     'Cada subsistema informa de un solo estado y gana el peor nivel: rojo > amarillo > verde. Un solo rojo en ' +
     'cualquier parte pone rojo el punto compuesto.',
   'workbench.docs.body.systemStatus.worstLevelCaption':
-    'Seis estados de subsistema se pliegan en un compuesto vía max — el rojo gana al amarillo, que gana al ' + 'verde.',
+    'Ocho estados de subsistema se pliegan en un compuesto vía max — el rojo gana al amarillo, que gana al verde.',
   'workbench.docs.body.systemStatus.popover1':
-    'Hacer clic en cualquier píldora abre el mismo popover de detalles. Las filas vienen en dos grupos: ' +
-    'primero las grises (sin eventos todavía en esta vida del service worker) y después las de color (han ' +
-    'informado al menos una vez). Dentro de cada grupo se conserva el orden canónico de los subsistemas. El ' +
-    'historial completo vive en el registro de observabilidad — expórtalo desde',
+    'Hacer clic en cualquier píldora abre el mismo popover de detalles. Las filas se agrupan bajo cuatro títulos — Conexión, Browser Interceptor, Solicitudes API y Aplicación — en un orden fijo. Una fila es gris hasta que su subsistema informa por primera vez en esta vida del service worker, y de color después. El historial completo vive en el registro de observabilidad — expórtalo desde',
   'workbench.docs.body.systemStatus.settingsExportPath': 'Aplicación › Datos › Exportar el registro de diagnóstico',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
-    'Las grises encima del separador, las de color debajo; al primer informe, una fila migra una sola vez.',
+    'Cuatro grupos con título en orden fijo; al primer informe una fila pasa a color y conserva su sitio.',
   'workbench.docs.body.systemStatus.stateGreenLabel': 'verde',
   'workbench.docs.body.systemStatus.stateYellowLabel': 'amarillo',
   'workbench.docs.body.systemStatus.stateRedLabel': 'rojo',
   'workbench.docs.body.systemStatus.syncName': 'Sincronización',
-  'workbench.docs.body.systemStatus.syncSubtitle': 'Conexión con la aplicación de escritorio',
+  'workbench.docs.body.systemStatus.syncSubtitle': 'Conexiones con el back-end',
   'workbench.docs.body.systemStatus.sync1Prefix':
-    'Refleja la conexión WebSocket entre el service worker de la extensión y la aplicación de escritorio ' +
-    'OpenHeaders que corre en tu máquina. El enlace es solo loopback (',
+    'Reúne cada back-end del que esta superficie es cliente — la aplicación de escritorio en esta máquina (',
   'workbench.docs.body.systemStatus.sync1Suffix':
-    ') y transporta variables dinámicas, datos de espacios de trabajo de equipo y presencia — nada sale de tu ' +
-    'dispositivo.',
+    ') y cualquier OpenHeaders Server — en una sola fila: la peor conexión decide la etiqueta, y cada back-end tiene su propia fila debajo en el popover. Sin ningún back-end configurado la fila dice «Ejecutándose en este navegador» — la extensión es su propio back-end.',
   'workbench.docs.body.systemStatus.syncTopologyCaption':
-    'Un único WebSocket entre la extensión y la aplicación de escritorio en localhost.',
+    'Un WebSocket por back-end — aquí la aplicación de escritorio en localhost; un servidor es el mismo enlace por la red.',
   'workbench.docs.body.systemStatus.sync2':
-    'La píldora refleja el estado de conexión en vivo. Una caída dispara reconexiones con retroceso ' +
-    'exponencial; pings periódicos detectan las desconexiones silenciosas detrás de proxies corporativos ' +
-    'estrictos.',
+    'Cada cable informa de dos capas. El socket: conectando, reconectando con retroceso exponencial tras una caída, conectado — los pings periódicos detectan desconexiones silenciosas tras proxies corporativos estrictos. Encima, el handshake: en negociación, poniéndose al día con los cambios perdidos, sincronizado. Dentro de un back-end gana el informe más reciente; entre back-ends gana el peor estado.',
   'workbench.docs.body.systemStatus.syncLifecycleCaption':
-    'Disabled y Connected son verdes; Connecting, Reconnecting y URL rejected son amarillos.',
-  'workbench.docs.body.systemStatus.syncGreenConnected': 'Connected to desktop',
-  'workbench.docs.body.systemStatus.syncGreenMiddle': '(el handshake tuvo éxito) o',
-  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Desktop sync disabled',
-  'workbench.docs.body.systemStatus.syncGreenSuffix': '(conexión automática desactivada).',
-  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Connecting…',
-  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Reconnecting (attempt N)',
-  'workbench.docs.body.systemStatus.syncYellowOr': ', o',
-  'workbench.docs.body.systemStatus.syncYellowRejected': 'Desktop URL rejected by settings',
-  'workbench.docs.body.systemStatus.syncYellowSuffix': '.',
-  'workbench.docs.body.systemStatus.syncRed':
-    'Reservado para fallos fatales de la sincronización con el escritorio; ningún camino del código lo emite ' + 'hoy.',
+    'Desactivado, Conectado y Sincronizado son verdes; Conectando, Reconectando, Poniéndose al día y URL rechazada son amarillos.',
+  'workbench.docs.body.systemStatus.sync3':
+    'Una aplicación de escritorio o un servidor también es back-end para otros, y ese rol entra en la misma agregación: el enlace de la tubería de extensiones — rojo cuando otra instancia tiene el puerto, amarillo mientras arranca — y, una vez enlazado, cuántas extensiones están conectadas y si desde este dispositivo o desde la LAN. Un espacio de trabajo vinculado a git añade su recuento de cambios sin confirmar.',
+  'workbench.docs.body.systemStatus.syncGreenSynced': 'Sincronizado con el back-end',
+  'workbench.docs.body.systemStatus.syncGreenConnected': 'Conectado al back-end',
+  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Sincronización con el back-end desactivada',
+  'workbench.docs.body.systemStatus.syncGreenRunningHere': 'Ejecutándose en este navegador',
+  'workbench.docs.body.systemStatus.syncGreenExplain':
+    '— el handshake se completó, el socket está arriba con el handshake aún pendiente, la conexión automática está apagada, o no hay back-end configurado. Un host que sirve informa en su lugar de sus pares:',
+  'workbench.docs.body.systemStatus.syncGreenIdle': 'Inactivo — ninguna extensión conectada',
+  'workbench.docs.body.systemStatus.syncGreenPeers': 'Conectado a N extensiones en este dispositivo',
+  'workbench.docs.body.systemStatus.syncGreenSuffix': '(o en la LAN).',
+  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Conectando al back-end…',
+  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Reconectando (intento N)',
+  'workbench.docs.body.systemStatus.syncYellowHandshaking': 'Negociando con el back-end…',
+  'workbench.docs.body.systemStatus.syncYellowCatchingUp': 'Poniéndose al día con los cambios…',
+  'workbench.docs.body.systemStatus.syncYellowRejected': 'URL de escritorio rechazada por los ajustes',
+  'workbench.docs.body.systemStatus.syncYellowOff':
+    '<back-end> está apagado — sus espacios de trabajo no se sincronizan',
+  'workbench.docs.body.systemStatus.syncYellowExplain':
+    '— un socket subiendo o volviendo, un handshake en curso, un registro sin URL utilizable, o un back-end unido que está apagado. Un host que sirve añade',
+  'workbench.docs.body.systemStatus.syncYellowPipe': 'Iniciando la tubería de extensiones…',
+  'workbench.docs.body.systemStatus.syncYellowGit': 'N cambios sin confirmar',
+  'workbench.docs.body.systemStatus.syncYellowSuffix': 'para un espacio de trabajo vinculado a git.',
+  'workbench.docs.body.systemStatus.syncRedRejected': 'El back-end rechazó el handshake',
+  'workbench.docs.body.systemStatus.syncRedTimedOut': 'El back-end no respondió al handshake — reintentando',
+  'workbench.docs.body.systemStatus.syncRedCatchUp': 'Falló la puesta al día',
+  'workbench.docs.body.systemStatus.syncRedExplain':
+    '— el servidor rechazó el handshake (protocolo incompatible, espacio de trabajo desconocido, falta autenticación; la fila nombra el motivo), nunca respondió, o falló la reproducción de puesta al día. Un host que sirve añade',
+  'workbench.docs.body.systemStatus.syncRedPipe': 'Tubería de extensiones sin conexión — el puerto N ya está en uso',
+  'workbench.docs.body.systemStatus.syncRedSuffix': 'cuando otra instancia tiene el puerto.',
+  'workbench.docs.body.systemStatus.activityName': 'Actividad',
+  'workbench.docs.body.systemStatus.activitySubtitle': 'Feed de actividad',
+  'workbench.docs.body.systemStatus.activity1':
+    'Cuenta las entradas sin leer del feed de actividad del espacio de trabajo activo — los cambios que llegaron por sincronización: una entidad creada, editada, eliminada o movida, una edición local reemplazada, un campo sensible rotado, un ámbito de permisos ampliado, un agente de IA observando tráfico.',
+  'workbench.docs.body.systemStatus.activity2':
+    'Solo cuenta el espacio de trabajo activo. Las entradas de otro espacio de trabajo siguen cayendo en su propio feed, y al cambiar a él se relee el recuento del registro, así que ningún espacio de trabajo lleva la insignia de otro.',
+  'workbench.docs.body.systemStatus.activityGreenLabel': 'Actividad al día',
+  'workbench.docs.body.systemStatus.activityGreenSuffix': '— nada sin leer en el espacio de trabajo activo.',
+  'workbench.docs.body.systemStatus.activityYellowLabel': 'N nuevas · <titular>',
+  'workbench.docs.body.systemStatus.activityYellowMiddle':
+    '— entradas sin leer, encabezadas por la más reciente, hasta que se lea el feed.',
+  'workbench.docs.body.systemStatus.activityRed': 'Reservado; hoy ninguna ruta de código lo emite.',
   'workbench.docs.body.systemStatus.rulesName': 'Reglas',
   'workbench.docs.body.systemStatus.rulesSubtitle': 'Motor declarativeNetRequest',
   'workbench.docs.body.systemStatus.rules1Prefix':
@@ -160,6 +182,23 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.permissionsRedMiddle':
     '— algunas reglas no harán nada en silencio en los hosts revocados hasta que el acceso se restaure desde',
   'workbench.docs.body.systemStatus.permissionsRedSuffix': '.',
+  'workbench.docs.body.systemStatus.debugModeName': 'Modo de depuración',
+  'workbench.docs.body.systemStatus.debugModeSubtitle': 'Estado de conexión del depurador',
+  'workbench.docs.body.systemStatus.debugMode1':
+    'Refleja el depurador que el modo de depuración conecta a las pestañas para correlacionar las solicitudes con exactitud. Apagado informa verde — un fallo no importa mientras el interruptor esté apagado. Encendido, la fila cuenta las pestañas conectadas; una pestaña cuya conexión rechazó el navegador la pone en rojo, y una que cayó a la ruta heurística la pone en amarillo.',
+  'workbench.docs.body.systemStatus.debugMode2':
+    'Los navegadores sin API de depurador nunca instalan este reportero, así que allí la fila se queda en gris y la ruta heurística es la única.',
+  'workbench.docs.body.systemStatus.debugModeGreenOff': 'Apagado',
+  'workbench.docs.body.systemStatus.debugModeGreenOr': 'o',
+  'workbench.docs.body.systemStatus.debugModeGreenOn': 'Encendido · N pestañas',
+  'workbench.docs.body.systemStatus.debugModeGreenSuffix':
+    '— el interruptor está apagado, o encendido con todas las pestañas conectadas sanas.',
+  'workbench.docs.body.systemStatus.debugModeYellowLabel': 'La pestaña N cayó a la heurística',
+  'workbench.docs.body.systemStatus.debugModeYellowMiddle':
+    '— el depurador se desconectó de esa pestaña (un banner cancelado, por ejemplo) y la pestaña se correlaciona por la ruta heurística hasta que se vuelva a conectar.',
+  'workbench.docs.body.systemStatus.debugModeRedLabel': 'Falló la conexión a la pestaña N',
+  'workbench.docs.body.systemStatus.debugModeRedMiddle':
+    '— el navegador rechazó la conexión, normalmente porque otro depurador ya tiene la pestaña.',
   'workbench.docs.body.systemStatus.secretsName': 'Secretos',
   'workbench.docs.body.systemStatus.secretsSubtitle': 'Integridad del vault',
   'workbench.docs.body.systemStatus.secrets1Prefix': 'Sigue el blob cifrado del vault por espacio de trabajo en',
@@ -216,11 +255,4 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.liveRedLabel': 'N workflows failing (5+ consecutive)',
   'workbench.docs.body.systemStatus.liveRedMiddle':
     '— un workflow cruzó cinco fallos consecutivos y ahora se considera en fallo.',
-  'workbench.docs.body.systemStatus.desktopNoteTitle': 'Aplicación de escritorio — nota de producto',
-  'workbench.docs.body.systemStatus.desktopNote1':
-    'La aplicación de escritorio está en desarrollo y saldrá cuando la extensión se estabilice. Los espacios ' +
-    'de trabajo, las variables y la sincronización de equipo que se integran con la aplicación de escritorio ' +
-    'se desbloquearán entonces. El subsistema',
-  'workbench.docs.body.systemStatus.desktopNote2':
-    'pasa automáticamente de desactivado a conectando en el primer arranque — no hace falta reinstalar.',
 } as const satisfies Catalog;

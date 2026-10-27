@@ -10,13 +10,13 @@
  */
 
 import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
-import { Button, Tag, Tooltip, Typography } from 'antd';
+import { Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { type Translate, useT } from '@openheaders/ui/context/LocaleContext';
 import { useBackends } from '../backend';
 import { useBackendSyncStatus } from '../hooks/useBackendSyncStatus';
 import { requestSecretsRelaunch } from '../hooks/useSecretsStorageState';
-import { STATUS_TAG_STYLE } from './StatusPill';
+import { STATUS_TAG_STYLE, StatusPopoverRow } from './StatusPill';
 import type { StatusEntry, StatusSubsystem } from './types';
 import { useBootRegression } from './use-boot-regression';
 
@@ -162,16 +162,19 @@ interface ExtrasRowProps {
   message: string;
 }
 
-const ExtrasRow: React.FC<ExtrasRowProps> = ({ tagColor, label, message }) => (
-  // Same top-aligned fixed-tag-column layout as the built-in rows — a
-  // wrapped message keeps the tag on its first line and the column
-  // aligned (see the SubsystemRow rationale in StatusPill).
-  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-    <Tag color={tagColor} style={STATUS_TAG_STYLE}>
-      {label}
-    </Tag>
-    <Typography.Text style={{ fontSize: 11, flex: 1, minWidth: 0, overflowWrap: 'anywhere', paddingTop: 2 }}>
-      {message}
-    </Typography.Text>
-  </div>
-);
+const ExtrasRow: React.FC<ExtrasRowProps> = ({ tagColor, label, message }) => {
+  const { token } = theme.useToken();
+  // The built-in row primitive — the same inset, hover wash and
+  // top-aligned fixed-tag column, so a wrapped message keeps the tag on
+  // its first line and the column aligned with the subsystem rows.
+  return (
+    <StatusPopoverRow token={token}>
+      <Tag color={tagColor} style={STATUS_TAG_STYLE}>
+        {label}
+      </Tag>
+      <Typography.Text style={{ fontSize: 11, flex: 1, minWidth: 0, overflowWrap: 'anywhere', paddingTop: 2 }}>
+        {message}
+      </Typography.Text>
+    </StatusPopoverRow>
+  );
+};

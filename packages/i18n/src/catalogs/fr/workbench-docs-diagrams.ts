@@ -698,6 +698,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.shared.permissions': 'Autorisations',
   'workbench.docs.diagrams.systemStatus.shared.secrets': 'Secrets',
   'workbench.docs.diagrams.systemStatus.shared.live': 'Live',
+  'workbench.docs.diagrams.systemStatus.shared.activity': 'Activité',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode': 'Mode débogage',
   'workbench.docs.diagrams.systemStatus.shared.systemStatus': 'État du système',
   'workbench.docs.diagrams.systemStatus.shared.noEventsYet': 'Aucun événement',
   'workbench.docs.diagrams.systemStatus.shared.green': 'vert',
@@ -712,7 +714,7 @@ export const workbenchDocsDiagrams = {
     'une pastille par sous-système.',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': "Workbench : la rangée d'état dans le pied de page",
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
-    '↑ six pastilles — une par sous-système ; cliquez pour ouvrir le popover.',
+    '↑ huit pastilles — une par sous-système ; cliquez pour ouvrir le popover.',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
     "Surface du popup — le popup de l'extension s'accroche à l'icône de la barre d'outils. La pastille d'état " +
     'vit dans le pied du popup : un point plus le libellé « État du système ».',
@@ -723,8 +725,7 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: worst-level aggregator ───────────────────────────
   'workbench.docs.diagrams.systemStatus.worstLevel.aria':
-    'Agrégateur du pire état — six états de sous-systèmes alimentent un seul point composite. La pire couleur ' +
-    'gagne : rouge bat jaune bat vert.',
+    'Agrégateur du pire état — huit états de sous-systèmes alimentent un seul point composite. La pire couleur gagne : rouge bat jaune bat vert.',
   'workbench.docs.diagrams.systemStatus.worstLevel.title': 'La pire couleur gagne',
   'workbench.docs.diagrams.systemStatus.worstLevel.subtitle':
     'rouge > jaune > vert · gris = aucun événement (traité comme vert)',
@@ -734,6 +735,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': 'hôte restreint',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': 'déchiffrement',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': '3 fraîches',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate': 'à jour',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgOff': 'éteint',
   'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
   'workbench.docs.diagrams.systemStatus.worstLevel.composite': 'point',
   'workbench.docs.diagrams.systemStatus.worstLevel.dot': 'composite',
@@ -742,19 +745,17 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: popover ──────────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.popover.aria':
-    "Disposition du popover d'état — les lignes grises (aucun événement) apparaissent au-dessus des lignes " +
-    'colorées (celles qui ont déjà rapporté).',
-  'workbench.docs.diagrams.systemStatus.popover.title': "Ordre du popover : les gris d'abord, puis les colorés",
-  'workbench.docs.diagrams.systemStatus.popover.subtitle':
-    "Dans chaque niveau, l'ordre canonique des sous-systèmes est préservé",
+    "Disposition du popover d'état — huit lignes de sous-système sous quatre groupes titrés : Connexion, Intercepteur navigateur, Requêtes API et Application. Une étiquette grise signifie aucun événement encore ; une étiquette colorée porte l'état du sous-système.",
+  'workbench.docs.diagrams.systemStatus.popover.title': 'Lignes du popover : quatre groupes titrés',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle': 'Gris = aucun événement encore · coloré = a rapporté',
   'workbench.docs.diagrams.systemStatus.popover.header': '● État du système',
   'workbench.docs.diagrams.systemStatus.popover.msgConnected': 'Connectée',
   'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': '12 règles actives',
   'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': 'Hôtes restreints',
   'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': 'Échec du déchiffrement',
-  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ aucun événement · ↓ ont rapporté',
+  'workbench.docs.diagrams.systemStatus.popover.msgUpToDate': 'À jour',
   'workbench.docs.diagrams.systemStatus.popover.footer':
-    'Au premier rapport, une ligne migre du gris vers le coloré, une seule fois.',
+    'Au premier rapport, une ligne passe du gris au coloré et garde sa place.',
 
   // ── System status: sync topology ────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.syncTopology.aria':

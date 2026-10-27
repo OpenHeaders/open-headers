@@ -3,13 +3,17 @@ import { useT } from '@openheaders/ui/context/LocaleContext';
 import { ArrowDefs,STROKE,STROKE_BLUE,TEXT,TEXT_DIM } from '../_shared';
 import { SUCCESS,ERROR,SUCCESS_BG,WARNING_BG,ERROR_BG,GREY_BG,BORDER,FILL_SECONDARY,BG_CONTAINER,Level,dotColor,OhLogo,BrowserFrame } from './_shared';
 
+// The footer's pills in the popover's group order — the same order
+// `SUBSYSTEM_ORDER` derives from `SUBSYSTEM_GROUPS`.
 const SUBSYSTEM_KEYS = [
   'workbench.docs.diagrams.systemStatus.shared.sync',
+  'workbench.docs.diagrams.systemStatus.shared.activity',
   'workbench.docs.diagrams.systemStatus.shared.rules',
-  'workbench.docs.diagrams.systemStatus.shared.requests',
   'workbench.docs.diagrams.systemStatus.shared.permissions',
-  'workbench.docs.diagrams.systemStatus.shared.secrets',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode',
+  'workbench.docs.diagrams.systemStatus.shared.requests',
   'workbench.docs.diagrams.systemStatus.shared.live',
+  'workbench.docs.diagrams.systemStatus.shared.secrets',
 ] as const;
 
 // CJK glyphs render close to the full em box, not the ~0.55em a Latin
@@ -21,7 +25,7 @@ const unitLen = (s: string): number =>
  * Workbench surface: the browser shows a workbench.html tab and the
  * status row lives in the workbench's bottom footer. Inside the body
  * we paint a few faded UI placeholders for context, and a real-looking
- * footer strip with the six pills as the focal point.
+ * footer strip with the pill row as the focal point.
  */
 export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
   const t = useT();
@@ -41,7 +45,7 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
   const FOOTER_W = 304;
 
   // Long locale names can outgrow the footer — squeeze the text scale
-  // (and font size with it) until the six pills fit the strip.
+  // (and font size with it) until every pill fits the strip.
   const FIXED_W = PAD_X * 2 + DOT_R * 2 + DOT_GAP;
   const rawTextW = ROW.reduce((sum, p) => sum + unitLen(p.name) * charW, 0);
   const availTextW = FOOTER_W - 12 - FIXED_W * ROW.length - PILL_GAP * (ROW.length - 1);
@@ -269,7 +273,7 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
 export const SystemStatusWorstLevelDiagram: React.FC = () => {
   const t = useT();
   // A scenario where two subsystems mis-fire — Permissions yellow,
-  // Secrets red. Composite output is red.
+  // Secrets red. Composite output is red. Rows in popover order.
   const ROWS: { name: string; level: Level; msg: string }[] = [
     {
       name: t('workbench.docs.diagrams.systemStatus.shared.sync'),
@@ -277,14 +281,14 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
       msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgConnected'),
     },
     {
+      name: t('workbench.docs.diagrams.systemStatus.shared.activity'),
+      level: 'green',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate'),
+    },
+    {
       name: t('workbench.docs.diagrams.systemStatus.shared.rules'),
       level: 'green',
       msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgActive'),
-    },
-    {
-      name: t('workbench.docs.diagrams.systemStatus.shared.requests'),
-      level: 'grey',
-      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgNoEvents'),
     },
     {
       name: t('workbench.docs.diagrams.systemStatus.shared.permissions'),
@@ -292,27 +296,42 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
       msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed'),
     },
     {
-      name: t('workbench.docs.diagrams.systemStatus.shared.secrets'),
-      level: 'red',
-      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgCipher'),
+      name: t('workbench.docs.diagrams.systemStatus.shared.debugMode'),
+      level: 'green',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgOff'),
+    },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.requests'),
+      level: 'grey',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgNoEvents'),
     },
     {
       name: t('workbench.docs.diagrams.systemStatus.shared.live'),
       level: 'green',
       msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgFresh'),
     },
+    {
+      name: t('workbench.docs.diagrams.systemStatus.shared.secrets'),
+      level: 'red',
+      msg: t('workbench.docs.diagrams.systemStatus.worstLevel.msgCipher'),
+    },
   ];
 
   const ID = 'sys-worst';
   const ROW_X = 16;
   const ROW_Y0 = 36;
-  const ROW_H = 18;
-  const ROW_GAP = 4;
+  const ROW_H = 16;
+  const ROW_GAP = 3;
   const ROW_W = 168;
+  // The column's height drives the arrow, the composite box and the
+  // footer, so adding a row never collides with them.
+  const COLUMN_H = ROW_H * ROWS.length + ROW_GAP * (ROWS.length - 1);
+  const MID_Y = ROW_Y0 + COLUMN_H / 2;
+  const FOOTER_Y = ROW_Y0 + COLUMN_H + 16;
 
   return (
     <svg
-      viewBox="0 0 320 200"
+      viewBox={`0 0 320 ${FOOTER_Y + 10}`}
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
@@ -361,16 +380,16 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
       {/* Aggregation arrow */}
       <line
         x1={ROW_X + ROW_W + 4}
-        y1={ROW_Y0 + (ROW_H * 6 + ROW_GAP * 5) / 2}
+        y1={MID_Y}
         x2={236}
-        y2={ROW_Y0 + (ROW_H * 6 + ROW_GAP * 5) / 2}
+        y2={MID_Y}
         stroke={STROKE}
         strokeWidth={1.5}
         markerEnd={`url(#${ID})`}
       />
       <text
         x={(ROW_X + ROW_W + 236) / 2}
-        y={ROW_Y0 + (ROW_H * 6 + ROW_GAP * 5) / 2 - 4}
+        y={MID_Y - 4}
         textAnchor="middle"
         fontSize={9}
         fontStyle="italic"
@@ -379,114 +398,168 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
         {t('workbench.docs.diagrams.systemStatus.worstLevel.maxFn')}
       </text>
 
-      {/* Composite output */}
-      <rect x={240} y={68} width={64} height={64} rx={6} fill={ERROR_BG} stroke={ERROR} />
-      <circle cx={272} cy={94} r={8} fill={ERROR} />
-      <text x={272} y={120} textAnchor="middle" fontSize={9} fontWeight={700} fill={ERROR}>
+      {/* Composite output, centred on the column */}
+      <rect x={240} y={MID_Y - 42} width={64} height={64} rx={6} fill={ERROR_BG} stroke={ERROR} />
+      <circle cx={272} cy={MID_Y - 16} r={8} fill={ERROR} />
+      <text x={272} y={MID_Y + 10} textAnchor="middle" fontSize={9} fontWeight={700} fill={ERROR}>
         {t('workbench.docs.diagrams.systemStatus.shared.red')}
       </text>
-      <text x={272} y={144} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+      <text x={272} y={MID_Y + 34} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.systemStatus.worstLevel.composite')}
       </text>
-      <text x={272} y={156} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+      <text x={272} y={MID_Y + 46} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.systemStatus.worstLevel.dot')}
       </text>
 
-      <text x={160} y={186} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+      <text x={160} y={FOOTER_Y} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.systemStatus.worstLevel.footer')}
       </text>
     </svg>
   );
 };
 
-// ─── Sync subsystem — topology + lifecycle ────────────────────────
+// ─── Popover — titled groups by plane ─────────────────────────────
+
+interface PopoverDiagramRow {
+  name: string;
+  level: Level;
+  msg: string;
+}
+
+/**
+ * The popover body as the user sees it: the four group headings the
+ * live popover draws (the same keys), each with its rows stepped in
+ * underneath, a grey tag where a subsystem has not reported yet and a
+ * colored tag where it has.
+ */
 export const SystemStatusPopoverDiagram: React.FC = () => {
   const t = useT();
   const noEvents = t('workbench.docs.diagrams.systemStatus.shared.noEventsYet');
-  const GREYS = [
-    { name: t('workbench.docs.diagrams.systemStatus.shared.requests'), msg: noEvents },
-    { name: t('workbench.docs.diagrams.systemStatus.shared.live'), msg: noEvents },
-  ];
-  const COLOREDS: { name: string; level: Exclude<Level, 'grey'>; msg: string }[] = [
+  const GROUPS: { label: string; rows: PopoverDiagramRow[] }[] = [
     {
-      name: t('workbench.docs.diagrams.systemStatus.shared.sync'),
-      level: 'green',
-      msg: t('workbench.docs.diagrams.systemStatus.popover.msgConnected'),
+      label: t('shared.chrome.status.groupConnection'),
+      rows: [
+        {
+          name: t('workbench.docs.diagrams.systemStatus.shared.sync'),
+          level: 'green',
+          msg: t('workbench.docs.diagrams.systemStatus.popover.msgConnected'),
+        },
+        {
+          name: t('workbench.docs.diagrams.systemStatus.shared.activity'),
+          level: 'green',
+          msg: t('workbench.docs.diagrams.systemStatus.popover.msgUpToDate'),
+        },
+      ],
     },
     {
-      name: t('workbench.docs.diagrams.systemStatus.shared.rules'),
-      level: 'green',
-      msg: t('workbench.docs.diagrams.systemStatus.popover.msgActiveRules'),
+      label: t('shared.chrome.status.groupBrowserInterceptor'),
+      rows: [
+        {
+          name: t('workbench.docs.diagrams.systemStatus.shared.rules'),
+          level: 'green',
+          msg: t('workbench.docs.diagrams.systemStatus.popover.msgActiveRules'),
+        },
+        {
+          name: t('workbench.docs.diagrams.systemStatus.shared.permissions'),
+          level: 'yellow',
+          msg: t('workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed'),
+        },
+        { name: t('workbench.docs.diagrams.systemStatus.shared.debugMode'), level: 'grey', msg: noEvents },
+      ],
     },
     {
-      name: t('workbench.docs.diagrams.systemStatus.shared.permissions'),
-      level: 'yellow',
-      msg: t('workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed'),
+      label: t('shared.chrome.status.groupApiRequests'),
+      rows: [
+        { name: t('workbench.docs.diagrams.systemStatus.shared.requests'), level: 'grey', msg: noEvents },
+        { name: t('workbench.docs.diagrams.systemStatus.shared.live'), level: 'grey', msg: noEvents },
+      ],
     },
     {
-      name: t('workbench.docs.diagrams.systemStatus.shared.secrets'),
-      level: 'red',
-      msg: t('workbench.docs.diagrams.systemStatus.popover.msgCipherFailed'),
+      label: t('shared.chrome.status.groupApplication'),
+      rows: [
+        {
+          name: t('workbench.docs.diagrams.systemStatus.shared.secrets'),
+          level: 'red',
+          msg: t('workbench.docs.diagrams.systemStatus.popover.msgCipherFailed'),
+        },
+      ],
     },
   ];
 
-  const PAD_X = 14;
-  const ROW_H = 16;
-  const ROW_GAP = 3;
-  const TAG_W = 70;
-  const TAG_X = PAD_X;
   const FRAME_X = 30;
   const FRAME_W = 260;
+  const FRAME_Y = 36;
+  const PAD_X = 14;
+  // Rows step in under their heading, as in the live popover.
+  const ROW_INSET = 8;
+  const ROW_H = 14;
+  const ROW_GAP = 2;
+  const HEAD_H = 10;
+  const HEAD_GAP = 2;
+  const GROUP_GAP = 4;
+  const TAG_W = 70;
+  const HEAD_CHAR_W = 4.6;
 
-  let y = 50;
-
-  const renderRow = (
-    name: string,
-    msg: string,
-    level: Level,
-    options: { isGrey?: boolean } = {},
-  ): React.ReactElement => {
-    const localY = y;
-    y += ROW_H + ROW_GAP;
-    const fillTag = options.isGrey
-      ? GREY_BG
-      : level === 'red'
-        ? ERROR_BG
-        : level === 'yellow'
-          ? WARNING_BG
-          : SUCCESS_BG;
-    const strokeTag = dotColor(level);
-    return (
-      <g key={`${name}-${localY}`}>
-        <rect x={FRAME_X + TAG_X} y={localY} width={TAG_W} height={ROW_H} rx={3} fill={fillTag} stroke={strokeTag} />
-        <text
-          x={FRAME_X + TAG_X + TAG_W / 2}
-          y={localY + ROW_H / 2 + 3}
-          textAnchor="middle"
-          fontSize={8}
-          fontWeight={700}
-          fill={TEXT}
-        >
-          {name}
+  let y = FRAME_Y + 20;
+  const nodes: React.ReactElement[] = [];
+  for (const group of GROUPS) {
+    const label = group.label.toUpperCase();
+    const labelW = unitLen(label) * HEAD_CHAR_W;
+    const headY = y;
+    nodes.push(
+      <g key={`head-${group.label}`}>
+        <text x={FRAME_X + PAD_X} y={headY + HEAD_H - 2} fontSize={7} fontWeight={600} fill={TEXT_DIM}>
+          {label}
         </text>
-        <text x={FRAME_X + TAG_X + TAG_W + 10} y={localY + ROW_H / 2 + 3} fontSize={9} fill={TEXT}>
-          {msg}
-        </text>
-      </g>
+        <line
+          x1={FRAME_X + PAD_X + labelW + 6}
+          y1={headY + HEAD_H / 2}
+          x2={FRAME_X + FRAME_W - PAD_X}
+          y2={headY + HEAD_H / 2}
+          stroke={BORDER}
+        />
+      </g>,
     );
-  };
-
-  // We need to render greys first, then divider, then coloreds. Using
-  // a closure over `y` because the rows wrap with their own local y.
-  const greyRows = GREYS.map((r) => renderRow(r.name, r.msg, 'grey', { isGrey: true }));
-  const dividerY = y + 2;
-  y += 10;
-  const coloredRows = COLOREDS.map((r) => renderRow(r.name, r.msg, r.level));
-  const frameH = y + 6 - 36;
+    y += HEAD_H + HEAD_GAP;
+    for (const row of group.rows) {
+      const rowY = y;
+      y += ROW_H + ROW_GAP;
+      const fillTag =
+        row.level === 'red'
+          ? ERROR_BG
+          : row.level === 'yellow'
+            ? WARNING_BG
+            : row.level === 'green'
+              ? SUCCESS_BG
+              : GREY_BG;
+      const tagX = FRAME_X + PAD_X + ROW_INSET;
+      nodes.push(
+        <g key={`row-${row.name}`}>
+          <rect x={tagX} y={rowY} width={TAG_W} height={ROW_H} rx={3} fill={fillTag} stroke={dotColor(row.level)} />
+          <text
+            x={tagX + TAG_W / 2}
+            y={rowY + ROW_H / 2 + 3}
+            textAnchor="middle"
+            fontSize={8}
+            fontWeight={700}
+            fill={TEXT}
+          >
+            {row.name}
+          </text>
+          <text x={tagX + TAG_W + 10} y={rowY + ROW_H / 2 + 3} fontSize={9} fill={TEXT}>
+            {row.msg}
+          </text>
+        </g>,
+      );
+    }
+    y += GROUP_GAP;
+  }
+  const frameH = y - FRAME_Y + 2;
+  const footerY = FRAME_Y + frameH + 14;
 
   return (
     <svg
-      viewBox="0 0 320 220"
+      viewBox={`0 0 320 ${footerY + 8}`}
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
@@ -500,38 +573,16 @@ export const SystemStatusPopoverDiagram: React.FC = () => {
       </text>
 
       {/* Popover frame */}
-      <rect x={FRAME_X} y={36} width={FRAME_W} height={frameH} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
+      <rect x={FRAME_X} y={FRAME_Y} width={FRAME_W} height={frameH} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
       {/* Header inside the popover */}
       <text x={FRAME_X + 14} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
         {t('workbench.docs.diagrams.systemStatus.popover.header')}
       </text>
       <circle cx={FRAME_X + 14 - 7} cy={45} r={3.5} fill={ERROR} />
 
-      {greyRows}
+      {nodes}
 
-      {/* Divider between tiers */}
-      <line
-        x1={FRAME_X + 14}
-        y1={dividerY}
-        x2={FRAME_X + FRAME_W - 14}
-        y2={dividerY}
-        stroke={BORDER}
-        strokeDasharray="2 2"
-      />
-      <text
-        x={FRAME_X + FRAME_W - 14}
-        y={dividerY - 2}
-        textAnchor="end"
-        fontSize={7}
-        fontStyle="italic"
-        fill={TEXT_DIM}
-      >
-        {t('workbench.docs.diagrams.systemStatus.popover.dividerNote')}
-      </text>
-
-      {coloredRows}
-
-      <text x={160} y={210} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+      <text x={160} y={footerY} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         {t('workbench.docs.diagrams.systemStatus.popover.footer')}
       </text>
     </svg>

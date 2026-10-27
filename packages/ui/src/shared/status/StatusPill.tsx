@@ -5,9 +5,9 @@
  * sees the same truth wherever the extension is open.
  *
  * Three densities:
- *   - `row`     (default workspace footer): five always-visible pills,
- *     one per subsystem — `sync` / `rules` / `requests` / `permissions`
- *     / `secrets`. Each pill carries its label + a colored dot; the
+ *   - `row`     (default workspace footer): one always-visible pill per
+ *     subsystem, in the popover's group order (`SUBSYSTEM_ORDER`).
+ *     Each pill carries its label + a colored dot; the
  *     color reflects that subsystem's current state (green / yellow /
  *     red / grey-for-no-data). Clicking any pill opens the shared
  *     popover with the per-subsystem message list. Gives users a
@@ -44,15 +44,19 @@ export interface StatusGroup {
 /**
  * The popover's titled row groups: the connection to the back-ends
  * (sync and the activity feed it carries), the Browser Interceptor
- * (rules, the host permissions they need, the debugger that intercepts), and
- * the workbench's own planes (request executor, live workflows, the
- * secrets store). Product extras render directly under the subsystem
- * they qualify, inside its group.
+ * (rules, the host permissions they need, the debugger that intercepts),
+ * API Requests (the request executor and the live workflows it drives),
+ * and the application itself (the secrets store — the host cipher on the
+ * desktop, the vault blob in the extension — which both planes consume).
+ * The group names mirror the sidebar views and the Settings categories.
+ * Product extras render directly under the subsystem they qualify,
+ * inside its group.
  */
 export const SUBSYSTEM_GROUPS: readonly StatusGroup[] = [
   { labelKey: 'shared.chrome.status.groupConnection', subsystems: ['sync', 'activity'] },
   { labelKey: 'shared.chrome.status.groupBrowserInterceptor', subsystems: ['rules', 'permissions', 'cdp'] },
-  { labelKey: 'shared.chrome.status.groupWorkbench', subsystems: ['requests', 'live', 'secrets'] },
+  { labelKey: 'shared.chrome.status.groupApiRequests', subsystems: ['requests', 'live'] },
+  { labelKey: 'shared.chrome.status.groupApplication', subsystems: ['secrets'] },
 ];
 
 export const SUBSYSTEM_ORDER: StatusSubsystem[] = SUBSYSTEM_GROUPS.flatMap((group) => group.subsystems);
@@ -70,6 +74,15 @@ const STATUS_POPOVER_MAX_WIDTH = 'min(480px, calc(100vw - 48px))';
  * align to the same x-offset across the whole panel.
  */
 export const STATUS_TAG_WIDTH = 92;
+
+/**
+ * Left inset of every row under a group heading — the headings and the
+ * build line sit flush with the popover's left edge, the rows step in
+ * under them so the eye reads the heading as the group's own line.
+ * Product extras wear the same inset so their tag column lines up with
+ * the built-in rows'.
+ */
+export const STATUS_ROW_INSET = 8;
 
 /**
  * The tag column's shared style — every row kind in the popover (built-in
@@ -384,9 +397,10 @@ interface StatusPopoverBodyProps {
  * — the shared pill renders under several host stylesheets, so a class
  * would need per-host wiring; the token keeps the wash theme-correct.
  * Negative horizontal margin lets the wash bleed to the popover edge
- * while the content keeps its column alignment.
+ * while the content keeps its column alignment, stepped in by the row
+ * inset under the group heading.
  */
-const SubsystemRow: React.FC<{
+export const StatusPopoverRow: React.FC<{
   token: ReturnType<typeof theme.useToken>['token'];
   children: React.ReactNode;
 }> = ({ token, children }) => {
@@ -401,7 +415,7 @@ const SubsystemRow: React.FC<{
         // the tag pinned to its first line instead of floating mid-row.
         alignItems: 'flex-start',
         gap: 8,
-        padding: '1px 6px',
+        padding: `1px 6px 1px ${6 + STATUS_ROW_INSET}px`,
         margin: '0 -6px',
         borderRadius: token.borderRadiusSM,
         background: hovered ? token.colorFillTertiary : 'transparent',
@@ -423,7 +437,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
     <div style={{ maxWidth: STATUS_POPOVER_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 3 }}>
       {SUBSYSTEM_GROUPS.map((group) => (
         <React.Fragment key={group.labelKey}>
-          <GroupHeading token={token} label={t(group.labelKey)} />
+          <StatusGroupHeading token={token} label={t(group.labelKey)} />
           {group.subsystems.map((sub) => {
             const entry = snapshot[sub];
             const state: StatusLevel = entry?.state ?? 'green';
@@ -437,7 +451,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
               // pure state surface keeps each row single-line and each
               // group visually tight.
               <React.Fragment key={sub}>
-                <SubsystemRow token={token}>
+                <StatusPopoverRow token={token}>
                   <Tag color={color} style={STATUS_TAG_STYLE}>
                     {t(SUBSYSTEM_LABELS[sub])}
                   </Tag>
@@ -458,7 +472,7 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
                     {entry?.message ?? t('shared.chrome.status.noEvents')}
                   </Typography.Text>
                   {inlineAction}
-                </SubsystemRow>
+                </StatusPopoverRow>
                 {renderSubsystemExtras?.(sub, entry)}
               </React.Fragment>
             );
@@ -474,8 +488,9 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({
  * A group's title line — the settings GroupSection idiom: a small
  * uppercase tertiary label with the hairline running to the right
  * edge, so the title and the divider between groups are one line.
+ * Shared with the Add-ons popover, whose rows group the same way.
  */
-const GroupHeading: React.FC<{ token: ReturnType<typeof theme.useToken>['token']; label: string }> = ({
+export const StatusGroupHeading: React.FC<{ token: ReturnType<typeof theme.useToken>['token']; label: string }> = ({
   token,
   label,
 }) => (
@@ -501,10 +516,11 @@ const GroupHeading: React.FC<{ token: ReturnType<typeof theme.useToken>['token']
 );
 
 /**
- * Compact build-info line rendered at the bottom of the Status popover.
+ * Compact build-info line rendered at the bottom of the Status popover,
+ * right-aligned under the rows: the version, the build number and the
+ * commit — metadata only, the popover's title already names the app.
  * Replaces the standalone version chip that used to live in the popup
- * footer — keeps Open Headers' identity visible while reclaiming the
- * footer's pixel budget on small surfaces.
+ * footer, reclaiming the footer's pixel budget on small surfaces.
  */
 const BuildInfoFooter: React.FC<{ token: ReturnType<typeof theme.useToken>['token'] }> = ({ token }) => {
   const t = useT();
@@ -521,12 +537,13 @@ const BuildInfoFooter: React.FC<{ token: ReturnType<typeof theme.useToken>['toke
         borderTop: `1px solid ${token.colorBorderSecondary}`,
         fontSize: 10,
         color: token.colorTextTertiary,
+        textAlign: 'right',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
       }}
     >
-      {t('shared.chrome.status.buildLine', { version: label })}
+      {label}
       {buildDetail}
       {commitDetail}
     </div>

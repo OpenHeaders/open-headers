@@ -20,7 +20,7 @@ export const workbenchDocsSystemStatus = {
   // ── Concepts: System Status ─────────────────────────────────────────
   'workbench.docs.body.systemStatus.term': 'システムステータス',
   'workbench.docs.body.systemStatus.intro1':
-    'は拡張機能の健全性のライブスナップショットです。ワークベンチのフッターはこれを 6 個のピルの行として表示します。サブシステムごとに 1 個、それぞれに色付きのドットが付きます。ポップアップとサイドパネルは、下部のフッターの単一の',
+    'は拡張機能の健全性のライブスナップショットです。ワークベンチのフッターはこれを 8 個のピルの行として表示します。サブシステムごとに 1 個、それぞれに色付きのドットが付きます。ポップアップとサイドパネルは、下部のフッターの単一の',
   'workbench.docs.body.systemStatus.intro1Suffix':
     'エントリにまとめ、ドットの色は最も悪い状態のサブシステムを追います。',
   'workbench.docs.body.systemStatus.workbenchCaption':
@@ -30,39 +30,69 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.worstLevel1':
     '各サブシステムは 1 つの状態を報告し、最も悪いレベルが勝ちます：赤 > 黄 > 緑。どこかに赤が 1 つあれば、複合ドットは赤になります。',
   'workbench.docs.body.systemStatus.worstLevelCaption':
-    '6 つのサブシステムの状態は max で 1 つの複合状態に畳まれます。赤は黄に、黄は緑に勝ちます。',
+    '8 つのサブシステムの状態は max で 1 つの複合状態に畳まれます。赤は黄に、黄は緑に勝ちます。',
   'workbench.docs.body.systemStatus.popover1':
-    'どのピルをクリックしても同じ詳細ポップオーバーが開きます。行は 2 つのグループに分かれます。先に灰色（このサービスワーカーの生存期間中まだイベントなし）、後に色付き（少なくとも一度は報告済み）。各グループ内では標準のサブシステム順が保たれます。完全な履歴は可観測性ログにあります。エクスポート元：',
+    'どのピルをクリックしても同じ詳細ポップオーバーが開きます。行は見出し付きの 4 つのグループ（接続、ブラウザーインターセプター、API リクエスト、アプリケーション）に固定の順序で並びます。行はサブシステムがこのサービスワーカーの生存期間中に初めて報告するまで灰色で、その後は色付きになります。完全な履歴は可観測性ログにあります。エクスポート元：',
   'workbench.docs.body.systemStatus.settingsExportPath': 'アプリケーション › データ › 診断ログをエクスポート',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
-    '区切り線の上に灰色、下に色付き。最初の報告で行は一度だけ移動します。',
+    '見出し付きの 4 グループが固定順。最初の報告で行は色付きになり、位置は変わりません。',
   'workbench.docs.body.systemStatus.stateGreenLabel': '緑',
   'workbench.docs.body.systemStatus.stateYellowLabel': '黄',
   'workbench.docs.body.systemStatus.stateRedLabel': '赤',
   'workbench.docs.body.systemStatus.syncName': '同期',
-  'workbench.docs.body.systemStatus.syncSubtitle': 'デスクトップアプリの接続',
+  'workbench.docs.body.systemStatus.syncSubtitle': 'バックエンド接続',
   'workbench.docs.body.systemStatus.sync1Prefix':
-    '拡張機能のサービスワーカーと、あなたのマシンで動作する OpenHeaders デスクトップアプリの間の WebSocket 接続を反映します。リンクはループバックのみ（',
+    'このサーフェスがクライアントとして接続するすべてのバックエンド（このマシン上のデスクトップアプリ（',
   'workbench.docs.body.systemStatus.sync1Suffix':
-    '）で、動的変数、チームワークスペースのデータ、プレゼンスを運びます。何もデバイスから出ません。',
+    '）と任意の OpenHeaders Server）を 1 行にまとめます。最も悪い接続がタグを決め、ポップオーバーではその下にバックエンドごとの行が並びます。バックエンドが未設定なら行は「このブラウザーで実行中」と表示します。拡張機能自身がバックエンドです。',
   'workbench.docs.body.systemStatus.syncTopologyCaption':
-    'localhost 上の拡張機能とデスクトップアプリの間の単一の WebSocket。',
+    'バックエンドごとに 1 本の WebSocket。図は localhost のデスクトップアプリで、サーバーはネットワーク越しの同じリンクです。',
   'workbench.docs.body.systemStatus.sync2':
-    'ピルはライブの接続状態を反映します。切断は指数バックオフの再接続を引き起こし、定期的な ping が厳格な企業プロキシの背後でのサイレントな切断を検出します。',
+    '各ワイヤーは 2 つの層を報告します。ソケット：接続中、切断後の指数バックオフによる再接続中、接続済み。定期的な ping が厳しい企業プロキシの背後での無言の切断を検出します。その上のハンドシェイク：ハンドシェイク中、離れていた間の変更を追いつき中、同期済み。1 つのバックエンド内では最新の報告が、バックエンド間では最も悪い状態が勝ちます。',
   'workbench.docs.body.systemStatus.syncLifecycleCaption':
-    'Disabled と Connected は緑、Connecting、Reconnecting、URL rejected は黄。',
-  'workbench.docs.body.systemStatus.syncGreenConnected': 'Connected to desktop',
-  'workbench.docs.body.systemStatus.syncGreenMiddle': '（ハンドシェイク成功）または',
-  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Desktop sync disabled',
-  'workbench.docs.body.systemStatus.syncGreenSuffix': '（自動接続オフ）。',
-  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Connecting…',
-  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Reconnecting (attempt N)',
-  'workbench.docs.body.systemStatus.syncYellowOr': '、または',
-  'workbench.docs.body.systemStatus.syncYellowRejected': 'Desktop URL rejected by settings',
-  'workbench.docs.body.systemStatus.syncYellowSuffix': '.',
-  'workbench.docs.body.systemStatus.syncRed':
-    'デスクトップ同期の致命的な失敗のために予約されています。現在これを発するコードパスはありません。',
+    '無効、接続済み、同期済みは緑。接続中、再接続中、追いつき中、URL 拒否は黄。',
+  'workbench.docs.body.systemStatus.sync3':
+    'デスクトップアプリやサーバーは他者のバックエンドでもあり、その役割も同じ集約に加わります。拡張機能パイプのバインド（別のインスタンスがポートを握っていれば赤、起動中は黄）と、バインド後は接続中の拡張機能の数と、このデバイスからか LAN からか。git にバインドされたワークスペースは未コミットの変更数を加えます。',
+  'workbench.docs.body.systemStatus.syncGreenSynced': 'バックエンドと同期済み',
+  'workbench.docs.body.systemStatus.syncGreenConnected': 'バックエンドに接続済み',
+  'workbench.docs.body.systemStatus.syncGreenDisabled': 'バックエンド同期は無効',
+  'workbench.docs.body.systemStatus.syncGreenRunningHere': 'このブラウザーで実行中',
+  'workbench.docs.body.systemStatus.syncGreenExplain':
+    '— ハンドシェイク完了、ソケットは上がりハンドシェイクは保留中、自動接続がオフ、またはバックエンド未設定。サービスを提供するホストは代わりにピアを報告します：',
+  'workbench.docs.body.systemStatus.syncGreenIdle': 'アイドル — 接続中の拡張機能なし',
+  'workbench.docs.body.systemStatus.syncGreenPeers': 'このデバイスの N 個の拡張機能に接続済み',
+  'workbench.docs.body.systemStatus.syncGreenSuffix': '（または LAN 上）。',
+  'workbench.docs.body.systemStatus.syncYellowConnecting': 'バックエンドに接続中…',
+  'workbench.docs.body.systemStatus.syncYellowReconnecting': '再接続中（試行 N）',
+  'workbench.docs.body.systemStatus.syncYellowHandshaking': 'バックエンドとハンドシェイク中…',
+  'workbench.docs.body.systemStatus.syncYellowCatchingUp': '変更を追いつき中…',
+  'workbench.docs.body.systemStatus.syncYellowRejected': 'デスクトップ URL は設定により拒否',
+  'workbench.docs.body.systemStatus.syncYellowOff': '<バックエンド> はオフ — そのワークスペースは同期していません',
+  'workbench.docs.body.systemStatus.syncYellowExplain':
+    '— 立ち上がり中か復帰中のソケット、進行中のハンドシェイク、使える URL のないレコード、または参加済みでオフのバックエンド。サービスを提供するホストはさらに次を加えます：',
+  'workbench.docs.body.systemStatus.syncYellowPipe': '拡張機能パイプを起動中…',
+  'workbench.docs.body.systemStatus.syncYellowGit': 'N 件の未コミットの変更',
+  'workbench.docs.body.systemStatus.syncYellowSuffix': '（git にバインドされたワークスペース）。',
+  'workbench.docs.body.systemStatus.syncRedRejected': 'バックエンドがハンドシェイクを拒否',
+  'workbench.docs.body.systemStatus.syncRedTimedOut': 'バックエンドがハンドシェイクに応答しません — 再試行中',
+  'workbench.docs.body.systemStatus.syncRedCatchUp': '追いつきに失敗',
+  'workbench.docs.body.systemStatus.syncRedExplain':
+    '— サーバーがハンドシェイクを拒否した（プロトコル不一致、未知のワークスペース、認証不足。行が理由を示します）、応答しなかった、または追いつきの再生に失敗した。サービスを提供するホストはさらに次を加えます：',
+  'workbench.docs.body.systemStatus.syncRedPipe': '拡張機能パイプはオフライン — ポート N はすでに使用中',
+  'workbench.docs.body.systemStatus.syncRedSuffix': '（別のインスタンスがポートを握っている場合）。',
+  'workbench.docs.body.systemStatus.activityName': 'アクティビティ',
+  'workbench.docs.body.systemStatus.activitySubtitle': 'アクティビティフィード',
+  'workbench.docs.body.systemStatus.activity1':
+    'アクティブなワークスペースのアクティビティフィードの未読エントリを数えます。同期で届いた変更です：エンティティの作成・編集・削除・移動、ローカル編集の上書き、機密フィールドのローテーション、権限スコープの拡大、AI エージェントによるトラフィックの観測。',
+  'workbench.docs.body.systemStatus.activity2':
+    'アクティブなワークスペースだけを数えます。別のワークスペース宛てのエントリはそのワークスペースのフィードに入り、切り替えるとログから件数を読み直すため、ワークスペースが他のバッジを引き継ぐことはありません。',
+  'workbench.docs.body.systemStatus.activityGreenLabel': 'アクティビティは最新',
+  'workbench.docs.body.systemStatus.activityGreenSuffix': '— アクティブなワークスペースに未読はありません。',
+  'workbench.docs.body.systemStatus.activityYellowLabel': 'N 件の新着 · <見出し>',
+  'workbench.docs.body.systemStatus.activityYellowMiddle':
+    '— 未読のエントリ。最新のものを見出しにして、フィードが読まれるまで表示されます。',
+  'workbench.docs.body.systemStatus.activityRed': '予約済み。現在これを出すコードパスはありません。',
   'workbench.docs.body.systemStatus.rulesName': 'ルール',
   'workbench.docs.body.systemStatus.rulesSubtitle': 'declarativeNetRequest エンジン',
   'workbench.docs.body.systemStatus.rules1Prefix':
@@ -137,6 +167,23 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.permissionsRedMiddle':
     '：取り消されたホストでは、アクセスが復元されるまで一部のルールがサイレントに何もしません。復元元：',
   'workbench.docs.body.systemStatus.permissionsRedSuffix': '.',
+  'workbench.docs.body.systemStatus.debugModeName': 'デバッグモード',
+  'workbench.docs.body.systemStatus.debugModeSubtitle': 'デバッガーのアタッチ状態',
+  'workbench.docs.body.systemStatus.debugMode1':
+    'デバッグモードがリクエストの正確な対応付けのためにタブへアタッチするデバッガーを映します。オフは緑を報告します。スイッチがオフの間、障害は意味を持ちません。オンでは行がアタッチ済みのタブを数えます。ブラウザーがアタッチを拒否したタブは赤に、ヒューリスティック経路にフォールバックしたタブは黄にします。',
+  'workbench.docs.body.systemStatus.debugMode2':
+    'デバッガー API のないブラウザーではこのレポーターは一切インストールされないため、行は灰色のままで、ヒューリスティック経路だけになります。',
+  'workbench.docs.body.systemStatus.debugModeGreenOff': 'オフ',
+  'workbench.docs.body.systemStatus.debugModeGreenOr': 'または',
+  'workbench.docs.body.systemStatus.debugModeGreenOn': 'オン · N タブ',
+  'workbench.docs.body.systemStatus.debugModeGreenSuffix':
+    '— スイッチがオフか、オンでアタッチ済みのタブがすべて正常です。',
+  'workbench.docs.body.systemStatus.debugModeYellowLabel': 'タブ N がヒューリスティックにフォールバック',
+  'workbench.docs.body.systemStatus.debugModeYellowMiddle':
+    '— デバッガーがそのタブから外れ（たとえばバナーのキャンセル）、再アタッチまでタブはヒューリスティック経路で対応付けられます。',
+  'workbench.docs.body.systemStatus.debugModeRedLabel': 'タブ N のアタッチに失敗',
+  'workbench.docs.body.systemStatus.debugModeRedMiddle':
+    '— ブラウザーがアタッチを拒否しました。通常は別のデバッガーがすでにそのタブを保持しています。',
   'workbench.docs.body.systemStatus.secretsName': 'シークレット',
   'workbench.docs.body.systemStatus.secretsSubtitle': 'Vault の整合性',
   'workbench.docs.body.systemStatus.secrets1Prefix':
@@ -181,9 +228,4 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.liveRedLabel': 'N workflows failing (5+ consecutive)',
   'workbench.docs.body.systemStatus.liveRedMiddle':
     '：いずれかのワークフローが 5 回の連続失敗を越え、失敗中とみなされています。',
-  'workbench.docs.body.systemStatus.desktopNoteTitle': 'デスクトップアプリ：製品ノート',
-  'workbench.docs.body.systemStatus.desktopNote1':
-    'デスクトップアプリは開発中で、拡張機能が安定した後に出荷されます。デスクトップアプリと統合するワークスペース、変数、チーム同期はそのときに解放されます。',
-  'workbench.docs.body.systemStatus.desktopNote2':
-    'サブシステムは初回起動時に自動的に無効から接続中へ切り替わります。再インストールは不要です。',
 } as const satisfies Catalog;

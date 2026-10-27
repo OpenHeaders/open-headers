@@ -2,20 +2,20 @@
  * System Status — diagrams.
  *
  *   • SystemStatusSurfacesDiagram — where the status pill appears
- *     and at what density. Top: workbench footer's six-pill row
+ *     and at what density. Top: workbench footer's eight-pill row
  *     (one pill per subsystem with its own colored dot). Bottom:
  *     popup/sidepanel header's single composite dot whose color
  *     reflects the worst-state subsystem.
  *
- *   • SystemStatusWorstLevelDiagram — how six individual states
- *     roll up into one. Left column: six subsystem rows in canonical
+ *   • SystemStatusWorstLevelDiagram — how eight individual states
+ *     roll up into one. Left column: the subsystem rows in popover
  *     order, each with its current state. Right side: one output dot
  *     whose color is `max(red > yellow > green)` across the inputs.
  *
- *   • SystemStatusPopoverDiagram — the popover body's two-tier
- *     layout. Greys first ("no events yet"), then coloreds (have
- *     reported), each preserving canonical subsystem order within
- *     its tier.
+ *   • SystemStatusPopoverDiagram — the popover body's titled groups
+ *     (Connection, Browser Interceptor, API Requests, Application) in
+ *     their fixed order; a grey tag means no events yet, a colored tag
+ *     carries the subsystem's state.
  */
 
 import type React from 'react';

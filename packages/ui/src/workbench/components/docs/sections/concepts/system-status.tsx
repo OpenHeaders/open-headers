@@ -1,9 +1,12 @@
 /**
- * Concepts: System Status.
+ * Concepts: System Status. The subsystem sections follow the popover's
+ * group order — Connection (Sync, Activity), Browser Interceptor
+ * (Rules, Permissions, Debug mode), API Requests (Requests, Live),
+ * Application (Secrets).
  */
 
 import { Tag } from 'antd';
-import type React from 'react';
+import React from 'react';
 import { useT } from '@openheaders/ui/context/LocaleContext';
 import {
   LivePillAggregationDiagram,
@@ -23,7 +26,19 @@ import {
   VaultDriftDetailDiagram,
   VaultHydrationDiagram,
 } from '../../diagrams';
-import { Callout, DiagramFrame, DocHeading, DocParagraph, StateRow, SurfaceContext } from '../../shared';
+import { DiagramFrame, DocHeading, DocParagraph, StateRow, SurfaceContext } from '../../shared';
+
+/** The wire messages a state row lists, bold and dot-separated. */
+const Messages: React.FC<{ items: string[] }> = ({ items }) => (
+  <>
+    {items.map((item, index) => (
+      <React.Fragment key={item}>
+        {index > 0 && ' · '}
+        <strong>{item}</strong>
+      </React.Fragment>
+    ))}
+  </>
+);
 
 const SubsystemHeading: React.FC<{ name: string; subtitle: string }> = ({ name, subtitle }) => (
   <DocHeading level={3}>
@@ -80,21 +95,74 @@ export const SystemStatusSection: React.FC = () => {
       <DiagramFrame caption={t('workbench.docs.body.systemStatus.syncLifecycleCaption')}>
         <SyncLifecycleDiagram />
       </DiagramFrame>
+      <DocParagraph>{t('workbench.docs.body.systemStatus.sync3')}</DocParagraph>
       <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
-        <strong>{t('workbench.docs.body.systemStatus.syncGreenConnected')}</strong>{' '}
-        {t('workbench.docs.body.systemStatus.syncGreenMiddle')}{' '}
-        <strong>{t('workbench.docs.body.systemStatus.syncGreenDisabled')}</strong>{' '}
+        <Messages
+          items={[
+            t('workbench.docs.body.systemStatus.syncGreenSynced'),
+            t('workbench.docs.body.systemStatus.syncGreenConnected'),
+            t('workbench.docs.body.systemStatus.syncGreenDisabled'),
+            t('workbench.docs.body.systemStatus.syncGreenRunningHere'),
+          ]}
+        />{' '}
+        {t('workbench.docs.body.systemStatus.syncGreenExplain')}{' '}
+        <Messages
+          items={[
+            t('workbench.docs.body.systemStatus.syncGreenIdle'),
+            t('workbench.docs.body.systemStatus.syncGreenPeers'),
+          ]}
+        />{' '}
         {t('workbench.docs.body.systemStatus.syncGreenSuffix')}
       </StateRow>
       <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
-        <strong>{t('workbench.docs.body.systemStatus.syncYellowConnecting')}</strong> /{' '}
-        <strong>{t('workbench.docs.body.systemStatus.syncYellowReconnecting')}</strong>
-        {t('workbench.docs.body.systemStatus.syncYellowOr')}{' '}
-        <strong>{t('workbench.docs.body.systemStatus.syncYellowRejected')}</strong>
+        <Messages
+          items={[
+            t('workbench.docs.body.systemStatus.syncYellowConnecting'),
+            t('workbench.docs.body.systemStatus.syncYellowReconnecting'),
+            t('workbench.docs.body.systemStatus.syncYellowHandshaking'),
+            t('workbench.docs.body.systemStatus.syncYellowCatchingUp'),
+            t('workbench.docs.body.systemStatus.syncYellowRejected'),
+            t('workbench.docs.body.systemStatus.syncYellowOff'),
+          ]}
+        />{' '}
+        {t('workbench.docs.body.systemStatus.syncYellowExplain')}{' '}
+        <Messages
+          items={[
+            t('workbench.docs.body.systemStatus.syncYellowPipe'),
+            t('workbench.docs.body.systemStatus.syncYellowGit'),
+          ]}
+        />{' '}
         {t('workbench.docs.body.systemStatus.syncYellowSuffix')}
       </StateRow>
       <StateRow color="error" label={t('workbench.docs.body.systemStatus.stateRedLabel')}>
-        {t('workbench.docs.body.systemStatus.syncRed')}
+        <Messages
+          items={[
+            t('workbench.docs.body.systemStatus.syncRedRejected'),
+            t('workbench.docs.body.systemStatus.syncRedTimedOut'),
+            t('workbench.docs.body.systemStatus.syncRedCatchUp'),
+          ]}
+        />{' '}
+        {t('workbench.docs.body.systemStatus.syncRedExplain')}{' '}
+        <strong>{t('workbench.docs.body.systemStatus.syncRedPipe')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.syncRedSuffix')}
+      </StateRow>
+
+      <SubsystemHeading
+        name={t('workbench.docs.body.systemStatus.activityName')}
+        subtitle={t('workbench.docs.body.systemStatus.activitySubtitle')}
+      />
+      <DocParagraph>{t('workbench.docs.body.systemStatus.activity1')}</DocParagraph>
+      <DocParagraph>{t('workbench.docs.body.systemStatus.activity2')}</DocParagraph>
+      <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.activityGreenLabel')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.activityGreenSuffix')}
+      </StateRow>
+      <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.activityYellowLabel')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.activityYellowMiddle')}
+      </StateRow>
+      <StateRow color="error" label={t('workbench.docs.body.systemStatus.stateRedLabel')}>
+        {t('workbench.docs.body.systemStatus.activityRed')}
       </StateRow>
 
       <SubsystemHeading
@@ -136,6 +204,63 @@ export const SystemStatusSection: React.FC = () => {
       </StateRow>
 
       <SubsystemHeading
+        name={t('workbench.docs.body.systemStatus.permissionsName')}
+        subtitle={t('workbench.docs.body.systemStatus.permissionsSubtitle')}
+      />
+      <DocParagraph>
+        {t('workbench.docs.body.systemStatus.permissions1Prefix')} <code>chrome://extensions</code>{' '}
+        {t('workbench.docs.body.systemStatus.permissions1Middle')}{' '}
+        <em>{t('workbench.docs.body.systemStatus.permissionsLooks')}</em>{' '}
+        {t('workbench.docs.body.systemStatus.permissions1Suffix')}
+      </DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.systemStatus.permissionsImpactCaption')}>
+        <PermissionsImpactDiagram />
+      </DiagramFrame>
+      <DocParagraph>
+        {t('workbench.docs.body.systemStatus.permissions2Prefix')}{' '}
+        <code>chrome.permissions.contains({"{ origins: ['<all_urls>'] }"})</code>{' '}
+        {t('workbench.docs.body.systemStatus.permissions2Suffix')}
+      </DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.systemStatus.permissionsAuditCaption')}>
+        <PermissionsAuditFlowDiagram />
+      </DiagramFrame>
+      <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.permissionsGreenLabel')}</strong> —{' '}
+        <code>&lt;all_urls&gt;</code> {t('workbench.docs.body.systemStatus.permissionsGreenSuffix')}
+      </StateRow>
+      <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.permissionsYellowLabel')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.permissionsYellowMiddle')} <code>chrome.permissions</code>
+        {t('workbench.docs.body.systemStatus.permissionsYellowSuffix')}
+      </StateRow>
+      <StateRow color="error" label={t('workbench.docs.body.systemStatus.stateRedLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.permissionsRedLabel')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.permissionsRedMiddle')} <code>chrome://extensions</code>
+        {t('workbench.docs.body.systemStatus.permissionsRedSuffix')}
+      </StateRow>
+
+      <SubsystemHeading
+        name={t('workbench.docs.body.systemStatus.debugModeName')}
+        subtitle={t('workbench.docs.body.systemStatus.debugModeSubtitle')}
+      />
+      <DocParagraph>{t('workbench.docs.body.systemStatus.debugMode1')}</DocParagraph>
+      <DocParagraph>{t('workbench.docs.body.systemStatus.debugMode2')}</DocParagraph>
+      <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.debugModeGreenOff')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.debugModeGreenOr')}{' '}
+        <strong>{t('workbench.docs.body.systemStatus.debugModeGreenOn')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.debugModeGreenSuffix')}
+      </StateRow>
+      <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.debugModeYellowLabel')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.debugModeYellowMiddle')}
+      </StateRow>
+      <StateRow color="error" label={t('workbench.docs.body.systemStatus.stateRedLabel')}>
+        <strong>{t('workbench.docs.body.systemStatus.debugModeRedLabel')}</strong>{' '}
+        {t('workbench.docs.body.systemStatus.debugModeRedMiddle')}
+      </StateRow>
+
+      <SubsystemHeading
         name={t('workbench.docs.body.systemStatus.requestsName')}
         subtitle={t('workbench.docs.body.systemStatus.requestsSubtitle')}
       />
@@ -173,70 +298,6 @@ export const SystemStatusSection: React.FC = () => {
       </StateRow>
 
       <SubsystemHeading
-        name={t('workbench.docs.body.systemStatus.permissionsName')}
-        subtitle={t('workbench.docs.body.systemStatus.permissionsSubtitle')}
-      />
-      <DocParagraph>
-        {t('workbench.docs.body.systemStatus.permissions1Prefix')} <code>chrome://extensions</code>{' '}
-        {t('workbench.docs.body.systemStatus.permissions1Middle')}{' '}
-        <em>{t('workbench.docs.body.systemStatus.permissionsLooks')}</em>{' '}
-        {t('workbench.docs.body.systemStatus.permissions1Suffix')}
-      </DocParagraph>
-      <DiagramFrame caption={t('workbench.docs.body.systemStatus.permissionsImpactCaption')}>
-        <PermissionsImpactDiagram />
-      </DiagramFrame>
-      <DocParagraph>
-        {t('workbench.docs.body.systemStatus.permissions2Prefix')}{' '}
-        <code>chrome.permissions.contains({"{ origins: ['<all_urls>'] }"})</code>{' '}
-        {t('workbench.docs.body.systemStatus.permissions2Suffix')}
-      </DocParagraph>
-      <DiagramFrame caption={t('workbench.docs.body.systemStatus.permissionsAuditCaption')}>
-        <PermissionsAuditFlowDiagram />
-      </DiagramFrame>
-      <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
-        <strong>{t('workbench.docs.body.systemStatus.permissionsGreenLabel')}</strong> —{' '}
-        <code>&lt;all_urls&gt;</code> {t('workbench.docs.body.systemStatus.permissionsGreenSuffix')}
-      </StateRow>
-      <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
-        <strong>{t('workbench.docs.body.systemStatus.permissionsYellowLabel')}</strong>{' '}
-        {t('workbench.docs.body.systemStatus.permissionsYellowMiddle')} <code>chrome.permissions</code>
-        {t('workbench.docs.body.systemStatus.permissionsYellowSuffix')}
-      </StateRow>
-      <StateRow color="error" label={t('workbench.docs.body.systemStatus.stateRedLabel')}>
-        <strong>{t('workbench.docs.body.systemStatus.permissionsRedLabel')}</strong>{' '}
-        {t('workbench.docs.body.systemStatus.permissionsRedMiddle')} <code>chrome://extensions</code>
-        {t('workbench.docs.body.systemStatus.permissionsRedSuffix')}
-      </StateRow>
-
-      <SubsystemHeading
-        name={t('workbench.docs.body.systemStatus.secretsName')}
-        subtitle={t('workbench.docs.body.systemStatus.secretsSubtitle')}
-      />
-      <DocParagraph>
-        {t('workbench.docs.body.systemStatus.secrets1Prefix')} <code>chrome.storage.local</code>
-        {t('workbench.docs.body.systemStatus.secrets1Suffix')}
-      </DocParagraph>
-      <DiagramFrame caption={t('workbench.docs.body.systemStatus.vaultHydrationCaption')}>
-        <VaultHydrationDiagram />
-      </DiagramFrame>
-      <DocParagraph>{t('workbench.docs.body.systemStatus.secrets2')}</DocParagraph>
-      <DiagramFrame caption={t('workbench.docs.body.systemStatus.vaultDriftCaption')}>
-        <VaultDriftDetailDiagram />
-      </DiagramFrame>
-      <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
-        {t('workbench.docs.body.systemStatus.secretsGreen')}
-      </StateRow>
-      <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
-        <strong>
-          {t('workbench.docs.body.systemStatus.secretsYellowLabel')} <code>{'<storageKey>'}</code>
-        </strong>{' '}
-        {t('workbench.docs.body.systemStatus.secretsYellowMiddle')}
-      </StateRow>
-      <StateRow color="error" label={t('workbench.docs.body.systemStatus.stateRedLabel')}>
-        {t('workbench.docs.body.systemStatus.secretsRed')}
-      </StateRow>
-
-      <SubsystemHeading
         name={t('workbench.docs.body.systemStatus.liveName')}
         subtitle={t('workbench.docs.body.systemStatus.liveSubtitle')}
       />
@@ -270,11 +331,33 @@ export const SystemStatusSection: React.FC = () => {
         {t('workbench.docs.body.systemStatus.liveRedMiddle')}
       </StateRow>
 
-      <Callout kind="note" title={t('workbench.docs.body.systemStatus.desktopNoteTitle')}>
-        {t('workbench.docs.body.systemStatus.desktopNote1')}{' '}
-        <strong>{t('workbench.docs.body.systemStatus.syncName')}</strong>{' '}
-        {t('workbench.docs.body.systemStatus.desktopNote2')}
-      </Callout>
+      <SubsystemHeading
+        name={t('workbench.docs.body.systemStatus.secretsName')}
+        subtitle={t('workbench.docs.body.systemStatus.secretsSubtitle')}
+      />
+      <DocParagraph>
+        {t('workbench.docs.body.systemStatus.secrets1Prefix')} <code>chrome.storage.local</code>
+        {t('workbench.docs.body.systemStatus.secrets1Suffix')}
+      </DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.systemStatus.vaultHydrationCaption')}>
+        <VaultHydrationDiagram />
+      </DiagramFrame>
+      <DocParagraph>{t('workbench.docs.body.systemStatus.secrets2')}</DocParagraph>
+      <DiagramFrame caption={t('workbench.docs.body.systemStatus.vaultDriftCaption')}>
+        <VaultDriftDetailDiagram />
+      </DiagramFrame>
+      <StateRow color="success" label={t('workbench.docs.body.systemStatus.stateGreenLabel')}>
+        {t('workbench.docs.body.systemStatus.secretsGreen')}
+      </StateRow>
+      <StateRow color="warning" label={t('workbench.docs.body.systemStatus.stateYellowLabel')}>
+        <strong>
+          {t('workbench.docs.body.systemStatus.secretsYellowLabel')} <code>{'<storageKey>'}</code>
+        </strong>{' '}
+        {t('workbench.docs.body.systemStatus.secretsYellowMiddle')}
+      </StateRow>
+      <StateRow color="error" label={t('workbench.docs.body.systemStatus.stateRedLabel')}>
+        {t('workbench.docs.body.systemStatus.secretsRed')}
+      </StateRow>
     </>
   );
 };

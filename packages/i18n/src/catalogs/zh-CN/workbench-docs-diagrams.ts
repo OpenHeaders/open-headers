@@ -610,6 +610,8 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.shared.permissions': '权限',
   'workbench.docs.diagrams.systemStatus.shared.secrets': '机密',
   'workbench.docs.diagrams.systemStatus.shared.live': 'Live',
+  'workbench.docs.diagrams.systemStatus.shared.activity': '活动',
+  'workbench.docs.diagrams.systemStatus.shared.debugMode': '调试模式',
   'workbench.docs.diagrams.systemStatus.shared.systemStatus': '系统状态',
   'workbench.docs.diagrams.systemStatus.shared.noEventsYet': '暂无事件',
   'workbench.docs.diagrams.systemStatus.shared.green': '绿',
@@ -623,7 +625,7 @@ export const workbenchDocsDiagrams = {
     'Workbench 表面——OpenHeaders 的 workbench 标签页。状态行位于底部页脚，每个子系统一枚药丸。',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.title': 'Workbench：页脚中的状态行',
   'workbench.docs.diagrams.systemStatus.surfacesWorkbench.callout':
-    '↑ 六枚药丸——每个子系统一枚，点击任意一枚打开弹出层。',
+    '↑ 八枚药丸——每个子系统一枚，点击任意一枚打开弹出层。',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.aria':
     '弹窗表面——扩展弹窗挂在工具栏图标下。状态药丸位于弹窗底部页脚：一个圆点加“系统状态”标签。',
   'workbench.docs.diagrams.systemStatus.surfacesPopup.title': '弹窗：页脚中的系统状态药丸',
@@ -632,7 +634,7 @@ export const workbenchDocsDiagrams = {
 
   // ── System status: worst-level aggregator ───────────────────────────
   'workbench.docs.diagrams.systemStatus.worstLevel.aria':
-    '最差状态聚合器——六个子系统状态汇入一个合成圆点。最差的颜色获胜：红胜黄，黄胜绿。',
+    '最差状态聚合器——八个子系统状态汇入一个合成圆点。最差的颜色获胜：红胜黄，黄胜绿。',
   'workbench.docs.diagrams.systemStatus.worstLevel.title': '最差的颜色获胜',
   'workbench.docs.diagrams.systemStatus.worstLevel.subtitle': '红 > 黄 > 绿 · 灰 = 暂无事件（按绿处理）',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgConnected': '已连接',
@@ -641,22 +643,25 @@ export const workbenchDocsDiagrams = {
   'workbench.docs.diagrams.systemStatus.worstLevel.msgHostNarrowed': '主机被收窄',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgCipher': '解密失败',
   'workbench.docs.diagrams.systemStatus.worstLevel.msgFresh': '3 个新鲜',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgUpToDate': '最新',
+  'workbench.docs.diagrams.systemStatus.worstLevel.msgOff': '关闭',
   'workbench.docs.diagrams.systemStatus.worstLevel.maxFn': 'max()',
   'workbench.docs.diagrams.systemStatus.worstLevel.composite': '合成',
   'workbench.docs.diagrams.systemStatus.worstLevel.dot': '圆点',
   'workbench.docs.diagrams.systemStatus.worstLevel.footer': '任何位置出现红 → 合成即为红。驱动弹窗 / 侧边栏的圆点。',
 
   // ── System status: popover ──────────────────────────────────────────
-  'workbench.docs.diagrams.systemStatus.popover.aria': '状态弹出层布局——尚无事件的灰色行排在已上报的彩色行之上。',
-  'workbench.docs.diagrams.systemStatus.popover.title': '弹出层顺序：灰色在前，彩色在后',
-  'workbench.docs.diagrams.systemStatus.popover.subtitle': '每一层内部保持子系统的规范顺序',
+  'workbench.docs.diagrams.systemStatus.popover.aria':
+    '状态弹出层布局——八个子系统行排在四个带标题的分组之下：连接、浏览器拦截器、API 请求和应用程序。灰色标签表示暂无事件；彩色标签承载子系统的状态。',
+  'workbench.docs.diagrams.systemStatus.popover.title': '弹出层行：四个带标题的分组',
+  'workbench.docs.diagrams.systemStatus.popover.subtitle': '灰色 = 暂无事件 · 彩色 = 已上报',
   'workbench.docs.diagrams.systemStatus.popover.header': '● 系统状态',
   'workbench.docs.diagrams.systemStatus.popover.msgConnected': '已连接',
   'workbench.docs.diagrams.systemStatus.popover.msgActiveRules': '12 条规则生效',
   'workbench.docs.diagrams.systemStatus.popover.msgHostsNarrowed': '主机被收窄',
   'workbench.docs.diagrams.systemStatus.popover.msgCipherFailed': '密文解密失败',
-  'workbench.docs.diagrams.systemStatus.popover.dividerNote': '↑ 暂无事件 · ↓ 已上报',
-  'workbench.docs.diagrams.systemStatus.popover.footer': '首次上报时，行从灰色迁移到彩色，仅此一次。',
+  'workbench.docs.diagrams.systemStatus.popover.msgUpToDate': '最新',
+  'workbench.docs.diagrams.systemStatus.popover.footer': '首次上报时，行从灰色变为彩色，位置不变。',
 
   // ── System status: sync topology ────────────────────────────────────
   'workbench.docs.diagrams.systemStatus.syncTopology.aria':

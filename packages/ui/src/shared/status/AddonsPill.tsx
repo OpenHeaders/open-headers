@@ -4,7 +4,12 @@
  * subsystem-health surface; everything about the OTHER Open Headers
  * pieces on this machine — the desktop app / browser extensions
  * (host-dependent), the `oh` CLI, the daemon — reads here, in the same
- * fixed-tag-column row format as the System popover.
+ * fixed-tag-column row format as the System popover, under the same
+ * titled group headings. The groups are the three execution places
+ * (the roster's vocabulary): Browser extensions, Desktop app, Server.
+ * A place a host cannot speak for renders no heading — the extension
+ * is the browser, so it has no Browser extensions group; a served web
+ * tab reaches no desktop app or daemon of its own.
  *
  * Row availability is honest per host:
  *   - extension → Desktop app (OS-truth install detection + download
@@ -48,7 +53,8 @@ import {
   AddonMark,
   AddonRow as AddonRowShell,
 } from './addon-row';
-import { CompanionStatusRows } from './companion-rows';
+import { DesktopAppRow, ExtensionsRow } from './companion-rows';
+import { StatusGroupHeading } from './StatusPill';
 
 export interface AddonsPillProps {
   className?: string;
@@ -58,11 +64,27 @@ export interface AddonsPillProps {
 export const AddonsPill: React.FC<AddonsPillProps> = ({ className, placement = 'top' }) => {
   const t = useT();
   const { token } = theme.useToken();
+  const host = getCurrentHost();
+  // The desktop host's Desktop app group holds the CLI (and the MCP row
+  // it unfolds) — the planes the app itself provisions; its CLI row
+  // fills in once the one-shot status read lands.
   const body = (
     <div style={{ width: ADDONS_BODY_WIDTH, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <CompanionStatusRows />
-      <CliRow />
-      <ServerRow />
+      {host !== 'extension' && (
+        <>
+          <StatusGroupHeading token={token} label={t('shared.chrome.addons.groupBrowser')} />
+          <ExtensionsRow />
+        </>
+      )}
+      {host !== 'web' && (
+        <>
+          <StatusGroupHeading token={token} label={t('shared.chrome.addons.groupDesktopApp')} />
+          {host === 'extension' && <DesktopAppRow />}
+          <CliRow />
+          <StatusGroupHeading token={token} label={t('shared.chrome.addons.groupServer')} />
+          <ServerRow />
+        </>
+      )}
     </div>
   );
   const title = (

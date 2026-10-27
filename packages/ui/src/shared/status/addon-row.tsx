@@ -10,7 +10,7 @@
 
 import { Tag, theme } from 'antd';
 import React from 'react';
-import { STATUS_TAG_WIDTH } from './StatusPill';
+import { STATUS_ROW_INSET, STATUS_TAG_WIDTH } from './StatusPill';
 
 /** The popover body's width — wider than the System popover so a row
  *  keeps its glyph, tag, message and remedy on one line. */
@@ -44,7 +44,8 @@ export const AddonMark: React.FC<{ icon: AddonGlyph; color?: string }> = ({ icon
  * rather than a class, since the shared surface renders under several
  * host stylesheets; the token keeps it theme-correct. The negative
  * horizontal margin lets the wash bleed to the popover edge while the
- * columns keep their alignment.
+ * columns keep their alignment, stepped in by the System popover's row
+ * inset under the group heading.
  */
 export const AddonRow: React.FC<{
   /** The row's identity glyph — an {@link AddonMark}, or any mark
@@ -66,7 +67,7 @@ export const AddonRow: React.FC<{
         display: 'flex',
         alignItems: 'flex-start',
         gap: 8,
-        padding: '1px 6px',
+        padding: `1px 6px 1px ${6 + STATUS_ROW_INSET}px`,
         margin: '0 -6px',
         borderRadius: token.borderRadiusSM,
         background: hovered ? token.colorFillTertiary : 'transparent',

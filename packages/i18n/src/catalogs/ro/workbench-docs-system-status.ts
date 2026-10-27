@@ -32,7 +32,7 @@ export const workbenchDocsSystemStatus = {
   // ── Concepts: System Status ─────────────────────────────────────────
   'workbench.docs.body.systemStatus.term': 'Starea sistemului',
   'workbench.docs.body.systemStatus.intro1':
-    'este un instantaneu viu al sănătății extensiei. Subsolul ferestrei Workbench o afișează ca un rând de șase pastile — o pastilă per subsistem, fiecare cu propriul punct colorat. Fereastra popup și panoul lateral o restrâng la o singură intrare',
+    'este un instantaneu viu al sănătății extensiei. Subsolul ferestrei Workbench o afișează ca un rând de opt pastile — o pastilă per subsistem, fiecare cu propriul punct colorat. Fereastra popup și panoul lateral o restrâng la o singură intrare',
   'workbench.docs.body.systemStatus.intro1Suffix':
     'în subsolul lor de jos, culoarea punctului urmărind subsistemul cu starea cea mai proastă.',
   'workbench.docs.body.systemStatus.workbenchCaption':
@@ -42,39 +42,70 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.worstLevel1':
     'Fiecare subsistem raportează o singură stare, iar nivelul cel mai grav câștigă: roșu > galben > verde. Un singur roșu oriunde face punctul compus roșu.',
   'workbench.docs.body.systemStatus.worstLevelCaption':
-    'Șase stări de subsistem se pliază într-una compusă prin max — roșu bate galben bate verde.',
+    'Opt stări de subsistem se pliază într-una compusă prin max — roșu bate galben bate verde.',
   'workbench.docs.body.systemStatus.popover1':
-    'Un clic pe orice pastilă deschide același popover cu detalii. Rândurile vin în două grupuri: gri mai întâi (fără evenimente încă în această durată de viață a service worker-ului) și colorate după (au raportat cel puțin o dată). În fiecare grup se păstrează ordinea canonică a subsistemelor. Istoricul complet se află în jurnalul de diagnostic — exportați din',
+    'Un clic pe orice pastilă deschide același popover cu detalii. Rândurile stau sub patru grupuri cu titlu — Conexiune, Interceptor de browser, Cereri API și Aplicație — într-o ordine fixă. Un rând rămâne gri până când subsistemul său raportează prima dată în această durată de viață a service worker-ului, apoi devine colorat. Istoricul complet se află în jurnalul de diagnostic — exportați din',
   'workbench.docs.body.systemStatus.settingsExportPath': 'Aplicație › Date › Export jurnal de diagnostic',
   'workbench.docs.body.systemStatus.popover1Suffix': '.',
   'workbench.docs.body.systemStatus.popoverCaption':
-    'Griurile deasupra separatorului, coloratele dedesubt; la primul raport un rând migrează o singură dată.',
+    'Patru grupuri cu titlu în ordine fixă; la primul raport un rând devine colorat și își păstrează locul.',
   'workbench.docs.body.systemStatus.stateGreenLabel': 'verde',
   'workbench.docs.body.systemStatus.stateYellowLabel': 'galben',
   'workbench.docs.body.systemStatus.stateRedLabel': 'roșu',
   'workbench.docs.body.systemStatus.syncName': 'Sincronizare',
-  'workbench.docs.body.systemStatus.syncSubtitle': 'Conexiunea cu aplicația desktop',
+  'workbench.docs.body.systemStatus.syncSubtitle': 'Conexiuni cu back-end-ul',
   'workbench.docs.body.systemStatus.sync1Prefix':
-    'Reproduce conexiunea WebSocket dintre service worker-ul extensiei și aplicația desktop OpenHeaders care rulează pe computerul dvs. Legătura este doar loopback (',
+    'Adună fiecare back-end al cărui client este această suprafață — aplicația desktop de pe această mașină (',
   'workbench.docs.body.systemStatus.sync1Suffix':
-    ') și transportă variabile dinamice, date de spațiu de lucru de echipă și prezență — nimic nu părăsește dispozitivul dvs.',
+    ') și orice OpenHeaders Server — într-un singur rând: cea mai slabă conexiune decide eticheta, iar fiecare back-end primește propriul rând dedesubt în popover. Fără niciun back-end configurat, rândul spune „Rulează în acest browser” — extensia este propriul său back-end.',
   'workbench.docs.body.systemStatus.syncTopologyCaption':
-    'O singură conexiune WebSocket între extensie și aplicația desktop pe localhost.',
+    'Un WebSocket per back-end — aici aplicația desktop pe localhost; un server este aceeași legătură prin rețea.',
   'workbench.docs.body.systemStatus.sync2':
-    'Pastila reflectă starea conexiunii live. O cădere declanșează reconectări cu backoff exponențial; ping-urile periodice detectează deconectările silențioase din spatele proxy-urilor corporative stricte.',
+    'Fiecare fir raportează două straturi. Socket-ul: se conectează, se reconectează cu back-off exponențial după o cădere, conectat — ping-urile periodice prind deconectările tăcute din spatele proxy-urilor corporative stricte. Deasupra, handshake-ul: în handshake, recuperează schimbările ratate, sincronizat. În cadrul unui back-end câștigă cel mai recent raport; între back-end-uri câștigă cea mai rea stare.',
   'workbench.docs.body.systemStatus.syncLifecycleCaption':
-    'Dezactivat și Conectat sunt verzi; Se conectează, Se reconectează și URL respins sunt galbene.',
-  'workbench.docs.body.systemStatus.syncGreenConnected': 'Connected to desktop',
-  'workbench.docs.body.systemStatus.syncGreenMiddle': '(handshake reușit) sau',
-  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Desktop sync disabled',
-  'workbench.docs.body.systemStatus.syncGreenSuffix': '(conectare automată dezactivată).',
-  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Connecting…',
-  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Reconnecting (attempt N)',
-  'workbench.docs.body.systemStatus.syncYellowOr': ', sau',
-  'workbench.docs.body.systemStatus.syncYellowRejected': 'Desktop URL rejected by settings',
-  'workbench.docs.body.systemStatus.syncYellowSuffix': '.',
-  'workbench.docs.body.systemStatus.syncRed':
-    'Rezervat pentru eșecurile fatale de sincronizare cu aplicația desktop; niciun traseu de cod nu îl emite astăzi.',
+    'Dezactivat, Conectat și Sincronizat sunt verzi; Se conectează, Se reconectează, Recuperează și URL respins sunt galbene.',
+  'workbench.docs.body.systemStatus.sync3':
+    'O aplicație desktop sau un server este și back-end pentru alții, iar acel rol intră în aceeași agregare: legarea conductei extensiilor — roșu când altă instanță ține portul, galben cât pornește — și, odată legată, câte extensii sunt conectate și dacă de pe acest dispozitiv sau din LAN. Un spațiu de lucru legat de git adaugă numărul schimbărilor necomise.',
+  'workbench.docs.body.systemStatus.syncGreenSynced': 'Sincronizat cu back-end-ul',
+  'workbench.docs.body.systemStatus.syncGreenConnected': 'Conectat la back-end',
+  'workbench.docs.body.systemStatus.syncGreenDisabled': 'Sincronizarea cu back-end-ul dezactivată',
+  'workbench.docs.body.systemStatus.syncGreenRunningHere': 'Rulează în acest browser',
+  'workbench.docs.body.systemStatus.syncGreenExplain':
+    '— handshake-ul s-a încheiat, socket-ul este sus cu handshake-ul încă în așteptare, conectarea automată este oprită, sau niciun back-end nu este configurat. Un host care servește își raportează în schimb perechile:',
+  'workbench.docs.body.systemStatus.syncGreenIdle': 'Inactiv — nicio extensie conectată',
+  'workbench.docs.body.systemStatus.syncGreenPeers': 'Conectat la N extensii pe acest dispozitiv',
+  'workbench.docs.body.systemStatus.syncGreenSuffix': '(sau în LAN).',
+  'workbench.docs.body.systemStatus.syncYellowConnecting': 'Se conectează la back-end…',
+  'workbench.docs.body.systemStatus.syncYellowReconnecting': 'Se reconectează (încercarea N)',
+  'workbench.docs.body.systemStatus.syncYellowHandshaking': 'Handshake cu back-end-ul…',
+  'workbench.docs.body.systemStatus.syncYellowCatchingUp': 'Se recuperează schimbările…',
+  'workbench.docs.body.systemStatus.syncYellowRejected': 'URL-ul desktop respins de setări',
+  'workbench.docs.body.systemStatus.syncYellowOff':
+    '<back-end> este oprit — spațiile sale de lucru nu se sincronizează',
+  'workbench.docs.body.systemStatus.syncYellowExplain':
+    '— un socket în curs de pornire sau de revenire, un handshake în desfășurare, o înregistrare fără URL utilizabil, sau un back-end alăturat care este oprit. Un host care servește adaugă',
+  'workbench.docs.body.systemStatus.syncYellowPipe': 'Se pornește conducta extensiilor…',
+  'workbench.docs.body.systemStatus.syncYellowGit': 'N schimbări necomise',
+  'workbench.docs.body.systemStatus.syncYellowSuffix': 'pentru un spațiu de lucru legat de git.',
+  'workbench.docs.body.systemStatus.syncRedRejected': 'Back-end-ul a respins handshake-ul',
+  'workbench.docs.body.systemStatus.syncRedTimedOut': 'Back-end-ul nu a răspuns la handshake — se reîncearcă',
+  'workbench.docs.body.systemStatus.syncRedCatchUp': 'Recuperarea a eșuat',
+  'workbench.docs.body.systemStatus.syncRedExplain':
+    '— serverul a refuzat handshake-ul (protocol nepotrivit, spațiu de lucru necunoscut, autentificare lipsă; rândul numește motivul), nu a răspuns niciodată, sau redarea de recuperare a eșuat. Un host care servește adaugă',
+  'workbench.docs.body.systemStatus.syncRedPipe': 'Conducta extensiilor offline — portul N este deja folosit',
+  'workbench.docs.body.systemStatus.syncRedSuffix': 'când altă instanță ține portul.',
+  'workbench.docs.body.systemStatus.activityName': 'Activitate',
+  'workbench.docs.body.systemStatus.activitySubtitle': 'Fluxul de activitate',
+  'workbench.docs.body.systemStatus.activity1':
+    'Numără intrările necitite din fluxul de activitate al spațiului de lucru activ — schimbările sosite prin sincronizare: o entitate creată, editată, ștearsă sau mutată, o editare locală înlocuită, un câmp sensibil rotit, un domeniu de permisiuni extins, un agent AI care observă traficul.',
+  'workbench.docs.body.systemStatus.activity2':
+    'Doar spațiul de lucru activ contează. Intrările pentru alt spațiu de lucru ajung tot în fluxul acelui spațiu, iar trecerea la el recitește numărul din jurnal — niciun spațiu de lucru nu poartă insigna altuia.',
+  'workbench.docs.body.systemStatus.activityGreenLabel': 'Activitate la zi',
+  'workbench.docs.body.systemStatus.activityGreenSuffix': '— nimic necitit în spațiul de lucru activ.',
+  'workbench.docs.body.systemStatus.activityYellowLabel': 'N noi · <titlu>',
+  'workbench.docs.body.systemStatus.activityYellowMiddle':
+    '— intrări necitite, cu cea mai recentă drept titlu, până când fluxul este citit.',
+  'workbench.docs.body.systemStatus.activityRed': 'Rezervat; astăzi nicio cale de cod nu îl emite.',
   'workbench.docs.body.systemStatus.rulesName': 'Reguli',
   'workbench.docs.body.systemStatus.rulesSubtitle': 'Motorul declarativeNetRequest',
   'workbench.docs.body.systemStatus.rules1Prefix':
@@ -150,6 +181,23 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.permissionsRedMiddle':
     '— unele reguli nu vor face nimic, în tăcere, pe gazdele revocate până când accesul este restaurat din',
   'workbench.docs.body.systemStatus.permissionsRedSuffix': '.',
+  'workbench.docs.body.systemStatus.debugModeName': 'Modul Depanare',
+  'workbench.docs.body.systemStatus.debugModeSubtitle': 'Starea de atașare a depanatorului',
+  'workbench.docs.body.systemStatus.debugMode1':
+    'Oglindește depanatorul pe care Modul Depanare îl atașează filelor pentru corelarea exactă a cererilor. Oprit raportează verde — o defecțiune nu contează cât timp comutatorul este oprit. Pornit, rândul numără filele atașate; o filă a cărei atașare a fost refuzată de browser îl face roșu, iar o filă care a revenit la calea euristică îl face galben.',
+  'workbench.docs.body.systemStatus.debugMode2':
+    'Browserele fără API de depanator nu instalează niciodată acest raportor, așa că acolo rândul rămâne gri și calea euristică este singura.',
+  'workbench.docs.body.systemStatus.debugModeGreenOff': 'Oprit',
+  'workbench.docs.body.systemStatus.debugModeGreenOr': 'sau',
+  'workbench.docs.body.systemStatus.debugModeGreenOn': 'Pornit · N file',
+  'workbench.docs.body.systemStatus.debugModeGreenSuffix':
+    '— comutatorul este oprit, sau pornit cu fiecare filă atașată sănătoasă.',
+  'workbench.docs.body.systemStatus.debugModeYellowLabel': 'Fila N a revenit la euristică',
+  'workbench.docs.body.systemStatus.debugModeYellowMiddle':
+    '— depanatorul s-a detașat de acea filă (un banner anulat, de pildă) și fila se corelează pe calea euristică până la reatașare.',
+  'workbench.docs.body.systemStatus.debugModeRedLabel': 'Atașarea la fila N a eșuat',
+  'workbench.docs.body.systemStatus.debugModeRedMiddle':
+    '— browserul a refuzat atașarea, de obicei pentru că alt depanator ține deja fila.',
   'workbench.docs.body.systemStatus.secretsName': 'Secrete',
   'workbench.docs.body.systemStatus.secretsSubtitle': 'Integritatea secțiunii Vault',
   'workbench.docs.body.systemStatus.secrets1Prefix': 'Urmărește blob-ul de vault criptat per spațiu de lucru din',
@@ -193,9 +241,4 @@ export const workbenchDocsSystemStatus = {
   'workbench.docs.body.systemStatus.liveRedLabel': 'N workflows failing (5+ consecutive)',
   'workbench.docs.body.systemStatus.liveRedMiddle':
     '— un singur flux de lucru a depășit cinci eșecuri consecutive și este acum considerat în eșec.',
-  'workbench.docs.body.systemStatus.desktopNoteTitle': 'Aplicația desktop — notă de produs',
-  'workbench.docs.body.systemStatus.desktopNote1':
-    'Aplicația desktop este în dezvoltare și se livrează după ce extensia se stabilizează. Spațiile de lucru, variabilele și sincronizarea de echipă care se integrează cu aplicația desktop se deblochează atunci. Subsistemul',
-  'workbench.docs.body.systemStatus.desktopNote2':
-    'trece automat de la dezactivat la conectare la prima lansare — nu este necesară reinstalarea.',
 } as const satisfies Catalog;
