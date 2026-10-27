@@ -21,6 +21,11 @@ export const lightCool: ThemeVariant = {
     colorBorderSecondary: '#dde3ec',
     colorPrimary: '#1d4ed8',
     colorSuccess: '#0e7490',
+    // antd derives the success wash and border by lightening the seed,
+    // and a dark seed yields a muddy wash; pinned pale so status tags
+    // keep a light tint under the dark text.
+    colorSuccessBg: '#e7f1f4',
+    colorSuccessBorder: '#9fc7d3',
     colorWarning: '#b45309',
     colorError: '#b91c1c',
     colorInfo: '#1d4ed8',

@@ -21,6 +21,11 @@ export const lightSepia: ThemeVariant = {
     colorBorderSecondary: '#dccfa9',
     colorPrimary: '#854d0e',
     colorSuccess: '#3f6212',
+    // antd derives the success wash and border by lightening the seed,
+    // and a dark seed yields a muddy wash; pinned pale so status tags
+    // keep a light tint under the dark text.
+    colorSuccessBg: '#e8e6ce',
+    colorSuccessBorder: '#b0ba8f',
     colorWarning: '#92400e',
     colorError: '#7f1d1d',
     colorInfo: '#1e40af',

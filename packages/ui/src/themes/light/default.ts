@@ -21,6 +21,13 @@ export const lightDefault: ThemeVariant = {
     colorBorder: '#c9c9c9',
     colorBorderSecondary: '#dcdcdc',
     colorSplit: '#dcdcdc',
+    // antd's lime success (#52c41a) reads at ~2:1 on white; one step
+    // darker keeps status text, tags and dots legible. antd lightens
+    // the seed for the wash and border, which muddies from a dark
+    // seed, so the stock pale pair is pinned.
+    colorSuccess: '#389e0d',
+    colorSuccessBg: '#f6ffed',
+    colorSuccessBorder: '#b7eb8f',
   },
   monacoTheme: 'oh-light',
   monacoDefinition: {

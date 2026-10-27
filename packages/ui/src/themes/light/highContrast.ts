@@ -21,6 +21,11 @@ export const lightHighContrast: ThemeVariant = {
     colorBorderSecondary: '#595959',
     colorPrimary: '#003a8c',
     colorSuccess: '#135200',
+    // antd derives the success wash and border by lightening the seed,
+    // and a dark seed yields a muddy wash; pinned pale so status tags
+    // keep a light tint under the dark text.
+    colorSuccessBg: '#e7eee6',
+    colorSuccessBorder: '#a1ba99',
     colorWarning: '#874d00',
     colorError: '#a8071a',
     colorInfo: '#003a8c',

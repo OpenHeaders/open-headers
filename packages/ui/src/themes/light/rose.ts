@@ -21,6 +21,11 @@ export const lightRose: ThemeVariant = {
     colorBorderSecondary: '#f0d9de',
     colorPrimary: '#9d174d',
     colorSuccess: '#3f6212',
+    // antd derives the success wash and border by lightening the seed,
+    // and a dark seed yields a muddy wash; pinned pale so status tags
+    // keep a light tint under the dark text.
+    colorSuccessBg: '#ecebe4',
+    colorSuccessBorder: '#b2bd9e',
     colorWarning: '#92400e',
     colorError: '#9f1239',
     colorInfo: '#7c3aed',
